@@ -18,6 +18,8 @@ all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la pr
 | **TypeScript** | Type safety | Strict mode |
 | **Tailwind CSS 4** | Styling utility-first | |
 | **shadcn/ui** | Component library | Copy-paste, customizzabile, Radix UI sotto |
+| **TanStack Query v5** | Data fetching client-side | Cache, mutations, optimistic updates |
+| **TanStack Table** | Tabelle dati | Già integrato in shadcn/ui DataTable |
 | **PWA** (@serwist/next) | Mobile-first installabile | Service worker, offline shell, manifest |
 
 ### Backend
