@@ -8,22 +8,22 @@ Legenda: ⬜ Todo · 🔵 In progress · ✅ Done
 
 Setup iniziale del progetto, tooling e infrastruttura.
 
-- ⬜ Inizializzare progetto Next.js 15+ (App Router, TypeScript strict, Tailwind CSS 4)
-- ⬜ Configurare shadcn/ui (tema custom, dark mode, colori brand)
-- ⬜ Configurare ESLint + Prettier
-- ⬜ Configurare husky + lint-staged (pre-commit hooks)
-- ⬜ Setup Vitest + `@vitest/coverage-v8` + `vitest-sonar-reporter`
+- ✅ Inizializzare progetto Next.js 16 (App Router, TypeScript strict, Tailwind CSS 4)
+- ✅ Configurare shadcn/ui (radix-nova, teal theme, Nunito Sans, Lucide)
+- ✅ Configurare ESLint + Prettier (+ prettier-plugin-tailwindcss)
+- ✅ Configurare husky + lint-staged (pre-commit hooks)
+- ✅ Setup Vitest + `@vitest/coverage-v8` + `vitest-sonar-reporter`
 - ⬜ Setup Playwright
-- ⬜ Creare `sonar-project.properties`
-- ⬜ Creare Dockerfile (standalone mode) + `.dockerignore`
-- ⬜ Creare `docker-compose.yml` (next-app + cloudflared)
-- ⬜ Creare `.env.example`
-- ⬜ Setup GitHub Actions: workflow CI (lint → type-check → test → sonar → build)
-- ⬜ Setup GitHub Actions: workflow Deploy (tag-based, test + prod)
-- ⬜ Setup Dependabot (`npm` + `github-actions`)
+- ✅ Creare `sonar-project.properties`
+- ✅ Creare Dockerfile (standalone mode) + `.dockerignore`
+- ✅ Creare `docker-compose.yml` (next-app + cloudflared)
+- ✅ Creare `.env.example`
+- ✅ Setup GitHub Actions: workflow CI (lint → type-check → test → sonar → build)
+- ✅ Setup GitHub Actions: workflow Deploy (tag-based, test + prod)
+- ✅ Setup Dependabot (`npm` + `github-actions`)
 - ⬜ Creare progetto Supabase Cloud (prod + test)
 - ⬜ Configurare Drizzle ORM + prima migrazione (schema base)
-- ⬜ Health check endpoint (`/api/health`)
+- ✅ Health check endpoint (`/api/health`)
 - ⬜ Primo deploy test su VPS (container vuoto, verifica tunnel Cloudflare)
 
 ---
