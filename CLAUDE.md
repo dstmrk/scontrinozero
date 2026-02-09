@@ -7,6 +7,70 @@ esercenti e micro-attività di emettere scontrini elettronici e trasmettere i co
 all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la procedura
 "Documento Commerciale Online".
 
+## Principi di prodotto
+
+### Performance percepita come priorità #1
+
+L'obiettivo è che ogni interazione si senta **istantanea**. L'emissione di uno scontrino
+deve sembrare immediata anche se il portale AdE risponde in 2-5 secondi.
+
+Tecniche:
+- **Optimistic UI** — TanStack Query mutations: lo scontrino appare come "emesso"
+  immediatamente, il backend completa la trasmissione AdE in background.
+  Rollback automatico se l'invio fallisce.
+- **Skeleton loading** — mai schermi bianchi, sempre placeholder animati
+- **Route prefetching** — Next.js prefetch dei link visibili nel viewport
+- **Stale-while-revalidate** — TanStack Query mostra dati cached istantaneamente,
+  aggiorna in background
+- **Transizioni fluide** — no full-page reload, animazioni CSS minimali ma percettibili
+- **SSG per marketing** — pagine statiche pre-renderizzate, TTFB quasi zero
+- **Service worker** — shell PWA in cache, navigazione offline-first
+
+### Hobby project → il più economico del mercato
+
+Questo è un progetto hobby con costi fissi ~€0. Nessun dipendente, nessuna API terze
+parti a pagamento, VPS già pagata. Il costo marginale per utente è praticamente zero.
+Questo permette un pricing aggressivo impossibile per i competitor.
+
+### Leggeri sulle risorse
+
+La VPS ha risorse limitate. Ogni dipendenza, ogni libreria, ogni processo deve
+giustificare la propria esistenza.
+
+- **No headless browser** — niente Playwright, Puppeteer o Chromium in produzione.
+  L'integrazione AdE usa esclusivamente chiamate HTTP dirette (fetch/axios).
+- **Dipendenze minime** — aggiungere librerie solo quando strettamente necessario.
+  Preferire soluzioni native o leggere.
+- **Next.js standalone** — output ottimizzato, solo i file necessari (~100MB vs ~1GB)
+- **Docker slim** — immagine base leggera, no tool di sviluppo nel container
+- **Un solo container** — next-app + cloudflared, niente orchestrazione complessa
+
+### Open source + SaaS (O'Saasy License)
+
+- **Self-hosted gratis** — chiunque può scaricare, installare e usare il software
+  sul proprio server senza pagare nulla
+- **Versione hosted a pagamento** — noi offriamo il servizio gestito (SaaS) con
+  hosting, aggiornamenti, backup, supporto
+- **O'Saasy License** — permissiva come MIT, ma vieta di usare il software per
+  offrire un SaaS concorrente
+- Modello collaudato (GitLab, Plausible, Sentry, Umami)
+- La versione self-hosted è un selling point di fiducia: le credenziali Fisconline
+  restano sul server dell'utente, nessun dato transita da terzi
+
+### Pricing: i meno cari del mercato
+
+| Piano | Prezzo | Target | Feature |
+|---|---|---|---|
+| **Free (hosted)** | €0 | Chi vuole provare | 10 scontrini/mese, 1 dispositivo |
+| **Starter** | ~€2-3/mese o ~€19-25/anno | Micro-attività, ambulanti | Scontrini illimitati, 1 dispositivo |
+| **Pro** | ~€4-5/mese o ~€39-49/anno | Negozi, attività regolari | Multi-device, dashboard, export |
+| **Self-hosted** | €0 (sempre) | Tecnici, smanettoni | Tutte le feature, gestione autonoma |
+
+I prezzi esatti saranno definiti nella Fase 7, ma l'obiettivo è chiaro: battere
+Scontrinare (€30/anno) come prezzo più basso sul mercato per la versione hosted,
+offrendo feature superiori. Il free tier hosted abbassa la barriera d'ingresso
+per il target non tecnico.
+
 ## Tech Stack
 
 ### Frontend
@@ -45,12 +109,12 @@ all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la pr
 L'AdE **non espone API REST pubbliche**. La procedura "Documento Commerciale Online"
 è un'interfaccia web nel portale Fatture e Corrispettivi.
 
-**Strategia: integrazione diretta** (no API terze parti):
+**Strategia: integrazione diretta** (no API terze parti, no headless browser):
 - Reverse-engineering delle chiamate HTTP che il portale AdE effettua internamente
 - L'utente fornisce le proprie credenziali Fisconline (cifrate, mai in chiaro)
-- Il backend automatizza l'emissione del documento commerciale
-- **Playwright** come fallback per automazione headless browser (se le API interne
-  non sono stabili o accessibili)
+- Il backend replica il flusso con chiamate HTTP dirette (fetch/axios)
+- **NO Playwright/headless browser** — troppo pesante per una VPS limitata
+  (~400MB RAM per Chromium). Solo chiamate HTTP leggere.
 - Base legale: Interpello AdE n. 956-1523/2020 — l'AdE non si oppone ai
   "velocizzatori" purché rispettino le prescrizioni normative
 
@@ -144,7 +208,7 @@ Fasi:
 - **Vitest** — unit e integration test
   - Coverage con `@vitest/coverage-v8` (report lcov per SonarQube)
   - `vitest-sonar-reporter` per report esecuzione test
-- **Playwright** — E2E test (riusato anche per automazione AdE)
+- **Playwright** — E2E test (solo in CI/dev, non in produzione)
 - I componenti shadcn/ui (`src/components/ui/`) sono esclusi dalla coverage
 
 ### Monorepo (se necessario)
@@ -315,13 +379,23 @@ Stesso progetto Next.js, non un sito separato:
 
 ## Competitor analizzati
 
-| Nome | Modello | Note |
-|---|---|---|
-| CassApp / MyCassa | App nativa (iOS/Android) + Web | By Mysond, integrazione SumUp |
-| MyScontrino | App + Web | Da €79/anno, canone fisso |
-| Billy | Web + SmartPOS | All-in-one con pagamenti |
-| DataCash | API per sviluppatori | Anche app propria |
-| Scontrinare | Web app | |
+| Nome | Modello | Prezzo | Recensioni | Note |
+|---|---|---|---|---|
+| **Billy** | App nativa + Web | €70/anno (€7/mese) | 4.9/5 Trustpilot (572) | Leader per recensioni, 6 integrazioni POS, modalità offline, 20 fatture incluse |
+| **Scontrina** | App nativa (iOS/Android) | ~€80/anno (€10/mese) | 4.4/5 App Store (45) | UI moderna, integrazione WooCommerce/Shopify, feature ristorazione |
+| **MyCassa** | App nativa + Web | €49/anno | N/D | Scanner barcode, preconti, interpello AdE ufficiale, 5 device gratis |
+| **MyScontrino** | App + Web | €79+IVA/anno | N/D | Bundle hardware+software, distribuzione tramite rivenditori locali, UI datata |
+| **Scontrinare** | Web app + App native | €30/anno | N/D | Il più economico, max ~8k scontrini/anno, feature set limitato |
+
+### Posizionamento ScontrinoZero vs competitor
+
+- **Nessun competitor ha una vera PWA moderna** — tutti usano app native o web basilari
+- **UX/UI**: la maggioranza ha interfacce datate; solo Scontrina è moderna
+- **Fascia di prezzo mercato**: €30-80/anno, sweet spot €49-70/anno
+- **Billy domina per social proof** (572 recensioni Trustpilot) — priorità raccogliere recensioni early
+- **Pricing flessibile è apprezzato**: Billy offre annuale/mensile/giornaliero
+- **Differenziatori da perseguire**: PWA installabile, dashboard web su desktop,
+  UX moderna (shadcn/ui), offline mode, import CSV prodotti
 
 ## Struttura progetto (prevista)
 
