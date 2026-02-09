@@ -94,6 +94,8 @@ Il cuore del prodotto: emettere uno scontrino elettronico da smartphone.
   - Riepilogo scontrino in tempo reale
   - Pulsante "Emetti scontrino"
 - ⬜ Server action: emissione scontrino via `AdeClient`
+- ⬜ **Optimistic UI**: lo scontrino appare come "emesso" istantaneamente, la trasmissione
+  AdE avviene in background. Feedback visivo immediato, rollback se fallisce.
 - ⬜ Conferma emissione con numero documento e dettagli
 - ⬜ Storico scontrini (TanStack Table + TanStack Query):
   - Lista scontrini del giorno
@@ -135,13 +137,20 @@ Il cuore del prodotto: emettere uno scontrino elettronico da smartphone.
 
 ## Fase 7 — Pagamenti e piani
 
-Beta gratuita → lancio con 3 piani a pagamento.
+Beta gratuita → lancio con 3 piani a pagamento + free tier hosted.
+Obiettivo: **il più economico sul mercato** (hobby project, costi ~€0, nessun motivo
+per avere prezzi alti).
 
-- ⬜ Definire i 3 piani: feature, limiti, prezzi (basati su analisi competitor)
+- ⬜ Definire i 3 piani + free tier:
+  - **Free (hosted)**: limite scontrini/mese (es. 15-20), 1 device
+  - **Starter**: scontrini illimitati, 1 device (~€2-3/mese, ~€19-25/anno)
+  - **Pro**: multi-device, dashboard, export (~€4-5/mese, ~€39-49/anno)
+  - **Self-hosted**: gratis sempre, tutte le feature (O'Saasy License)
 - ⬜ Integrare Stripe Billing:
   - Checkout session per sottoscrizione
   - Webhook per gestione eventi (subscription created/updated/cancelled)
   - Customer portal per gestione abbonamento
+  - Supporto pagamento mensile e annuale (sconto annuale)
 - ⬜ Stripe test mode nell'ambiente test
 - ⬜ Middleware per enforcement piano (feature gating)
 - ⬜ Pagina `/prezzi` funzionante con pulsanti di acquisto
@@ -156,6 +165,7 @@ Beta gratuita → lancio con 3 piani a pagamento.
 - ⬜ Richiedere recensioni ai primi utenti (Trustpilot, App Store style)
 - ⬜ Blog/contenuti SEO: guide "come emettere scontrini senza registratore"
 - ⬜ Monitoraggio metriche: churn, conversione, MRR
+- ⬜ Documentazione self-hosting: guida Docker Compose passo-passo nel README
 
 ---
 
@@ -184,7 +194,11 @@ Funzionalità da valutare in base al feedback utenti e alle priorità di busines
 ## Note
 
 - **Approccio TDD**: ogni task di implementazione inizia scrivendo i test
+- **Performance percepita**: ogni UI che aspetta una risposta server deve usare
+  optimistic updates, skeleton loading o spinner. Mai schermi bianchi.
 - **La Fase 2 (spike AdE) è bloccante**: se l'integrazione diretta fallisce, bisogna
   ripianificare con API terze parti — meglio scoprirlo subito
 - **Landing page (Fase 1) e spike AdE (Fase 2) possono procedere in parallelo**
 - **Un solo sviluppatore**: le fasi sono sequenziali, con l'eccezione di Fase 1 + 2
+- **Open source**: il codice è pubblico con O'Saasy License — chiunque può self-hostare
+  gratis, il SaaS hosted è il modello di monetizzazione
