@@ -102,20 +102,78 @@ Fasi:
   - Script leggero (~2 KB)
   - Alternativa: Plausible (simile ma senza free tier cloud)
 
+### Code quality
+
+- **SonarQube Cloud** (ex SonarCloud) — analisi statica, sicurezza, code smells
+  - Free tier: fino a 50k LOC per repo privati, 5 utenti
+  - PR decoration: mostra problemi direttamente nelle pull request GitHub
+  - Quality Gate: blocca merge che introducono bug o abbassano la coverage
+  - Importante per sicurezza dato che gestiamo credenziali Fisconline
+- **ESLint + Prettier** — linting e formattazione
+
 ### CI/CD
 
 - **GitHub Actions** — test, lint, build, deploy automatizzato
-  - Push su main → build Docker → deploy sulla VPS (via SSH o webhook)
   - Free tier generoso per repo privati (2.000 minuti/mese)
+- **Pipeline CI** (su push/PR verso main):
+  1. Lint (ESLint) + type-check (`tsc --noEmit`)
+  2. Test con coverage (Vitest → lcov)
+  3. SonarQube Cloud scan (analisi statica + coverage)
+  4. Build
+- **Pipeline Deploy** (su push di tag):
+  - Tag `v*.*.*-test` → build Docker → deploy su ambiente **test**
+  - Tag `v*.*.*` (senza suffisso) → build Docker → deploy su **produzione**
+  - Immagini Docker su GitHub Container Registry (ghcr.io)
+  - Deploy via SSH sulla VPS con `docker compose pull && up -d`
+  - Ambiente `production` in GitHub può richiedere approvazione manuale
 
 ### Testing
 
+- **Approccio TDD** — test-first: scrivere i test prima dell'implementazione
 - **Vitest** — unit e integration test
+  - Coverage con `@vitest/coverage-v8` (report lcov per SonarQube)
+  - `vitest-sonar-reporter` per report esecuzione test
 - **Playwright** — E2E test (riusato anche per automazione AdE)
+- I componenti shadcn/ui (`src/components/ui/`) sono esclusi dalla coverage
 
 ### Monorepo (se necessario)
 
 - **Turborepo** — per separare packages (app, shared, etc.)
+
+## Ambienti: test e produzione
+
+### Due ambienti sulla stessa VPS
+
+| | **Test** | **Produzione** |
+|---|---|---|
+| URL | `test.scontrinozero.it` | `scontrinozero.it` |
+| Cloudflare Tunnel | Route separata verso container test | Route verso container prod |
+| Docker Compose | `/opt/scontrinozero-test/` | `/opt/scontrinozero/` |
+| DB Supabase | Progetto Supabase separato (free tier) | Progetto Supabase principale |
+| Variabile | `ADE_MODE=mock` | `ADE_MODE=real` |
+| Stripe | Stripe test mode (chiavi `sk_test_*`) | Stripe live mode |
+
+### Strategia mock AdE per ambiente test
+
+L'integrazione AdE usa un **pattern adapter/strategy**:
+- Interfaccia `AdeClient` con metodi: `submitReceipt()`, `closeDay()`, etc.
+- `RealAdeClient` — invia davvero all'AdE (produzione)
+- `MockAdeClient` — esegue **tutta la logica** (validazione, formattazione,
+  preparazione payload) ma si ferma prima dell'invio HTTP all'AdE, restituendo
+  una risposta simulata
+- Controllato da `ADE_MODE=real|mock` (variabile d'ambiente)
+- Il codice in test è **identico** a quello in produzione, cambia solo l'ultimo step
+
+### Flusso di rilascio (tag-based)
+
+```
+sviluppo su branch → PR → merge su main → CI (test + lint + sonar)
+                                              ↓
+                              git tag v1.0.0-test → deploy TEST
+                              (verifico su test.scontrinozero.it)
+                                              ↓
+                              git tag v1.0.0 → deploy PRODUZIONE
+```
 
 ## Sito vetrina (landing/marketing)
 
@@ -212,6 +270,31 @@ Stesso progetto Next.js, non un sito separato:
 - DX moderna, API semplice
 - Deliverability eccellente
 
+### Perché SonarQube Cloud?
+
+- Free tier generoso (50k LOC, 5 utenti) — costo zero
+- Analisi di sicurezza (SAST) cruciale per un'app che gestisce credenziali fiscali
+- PR decoration: feedback immediato su ogni pull request
+- Quality Gate: soglie configurabili su coverage, bug, vulnerabilità
+- Setup minimale: un file `sonar-project.properties` + uno step in GitHub Actions
+- Si integra nativamente con Vitest (report lcov + sonar-reporter)
+
+### Perché TDD?
+
+- Qualità del codice più alta fin dall'inizio
+- Meno regressioni: ogni feature nasce con i suoi test
+- Refactoring sicuro: i test proteggono il comportamento esistente
+- Design migliore: scrivere test prima forza a pensare alle interfacce
+- Fondamentale per l'integrazione AdE (fragile, richiede test robusti)
+
+### Perché due ambienti (test + prod)?
+
+- L'integrazione AdE è irreversibile: uno scontrino emesso non si cancella
+- Il mock AdE permette di testare tutto il flusso senza conseguenze fiscali
+- Stesso codice, stessa infra, solo l'ultimo step cambia (`ADE_MODE`)
+- Stripe test mode per verificare i pagamenti senza soldi reali
+- Deploy tag-based: processo chiaro, auditabile, con approval gate
+
 ### Perché Umami per analytics?
 
 - Self-hosted gratis (nessun costo aggiuntivo, gira sulla stessa VPS)
@@ -262,7 +345,8 @@ scontrinozero/
 |---|---|
 | VPS (già pagata) | €0 aggiuntivi |
 | Cloudflare Tunnel (già attivo) | €0 |
-| Supabase Cloud free tier | €0 |
+| Supabase Cloud free tier (x2: prod + test) | €0 |
+| SonarQube Cloud free tier | €0 |
 | Resend free tier (3k email/mese) | €0 |
 | Sentry free tier | €0 |
 | Umami self-hosted | €0 |
@@ -285,5 +369,9 @@ scontrinozero/
 - [Resend docs](https://resend.com/docs)
 - [Umami docs](https://umami.is/docs)
 - [Sentry Next.js SDK](https://docs.sentry.io/platforms/javascript/guides/nextjs/)
+- [SonarQube Cloud docs](https://docs.sonarsource.com/sonarqube-cloud/)
+- [SonarQube Cloud free tier](https://www.sonarsource.com/products/sonarqube/cloud/new-pricing-plans/)
+- [Vitest coverage docs](https://vitest.dev/guide/coverage.html)
+- [vitest-sonar-reporter](https://www.npmjs.com/package/vitest-sonar-reporter)
 - [Effatta API (riferimento competitor)](https://effatta.it/scontrino-elettronico/)
 - [DataCash API (riferimento competitor)](https://datacash.it/api-developer/)
