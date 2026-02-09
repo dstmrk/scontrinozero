@@ -7,6 +7,57 @@ esercenti e micro-attività di emettere scontrini elettronici e trasmettere i co
 all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la procedura
 "Documento Commerciale Online".
 
+## Principi di prodotto
+
+### Performance percepita come priorità #1
+
+L'obiettivo è che ogni interazione si senta **istantanea**. L'emissione di uno scontrino
+deve sembrare immediata anche se il portale AdE risponde in 2-5 secondi.
+
+Tecniche:
+- **Optimistic UI** — TanStack Query mutations: lo scontrino appare come "emesso"
+  immediatamente, il backend completa la trasmissione AdE in background.
+  Rollback automatico se l'invio fallisce.
+- **Skeleton loading** — mai schermi bianchi, sempre placeholder animati
+- **Route prefetching** — Next.js prefetch dei link visibili nel viewport
+- **Stale-while-revalidate** — TanStack Query mostra dati cached istantaneamente,
+  aggiorna in background
+- **Transizioni fluide** — no full-page reload, animazioni CSS minimali ma percettibili
+- **SSG per marketing** — pagine statiche pre-renderizzate, TTFB quasi zero
+- **Service worker** — shell PWA in cache, navigazione offline-first
+
+### Hobby project → il più economico del mercato
+
+Questo è un progetto hobby con costi fissi ~€0. Nessun dipendente, nessuna API terze
+parti a pagamento, VPS già pagata. Il costo marginale per utente è praticamente zero.
+Questo permette un pricing aggressivo impossibile per i competitor.
+
+### Open source + SaaS (O'Saasy License)
+
+- **Self-hosted gratis** — chiunque può scaricare, installare e usare il software
+  sul proprio server senza pagare nulla
+- **Versione hosted a pagamento** — noi offriamo il servizio gestito (SaaS) con
+  hosting, aggiornamenti, backup, supporto
+- **O'Saasy License** — permissiva come MIT, ma vieta di usare il software per
+  offrire un SaaS concorrente
+- Modello collaudato (GitLab, Plausible, Sentry, Umami)
+- La versione self-hosted è un selling point di fiducia: le credenziali Fisconline
+  restano sul server dell'utente, nessun dato transita da terzi
+
+### Pricing: i meno cari del mercato
+
+| Piano | Prezzo | Target | Feature |
+|---|---|---|---|
+| **Free (hosted)** | €0 | Chi vuole provare | Limite scontrini/mese (es. 15-20) |
+| **Starter** | ~€2-3/mese o ~€19-25/anno | Micro-attività, ambulanti | Scontrini illimitati, 1 dispositivo |
+| **Pro** | ~€4-5/mese o ~€39-49/anno | Negozi, attività regolari | Multi-device, dashboard, export |
+| **Self-hosted** | €0 (sempre) | Tecnici, smanettoni | Tutte le feature, gestione autonoma |
+
+I prezzi esatti saranno definiti nella Fase 7, ma l'obiettivo è chiaro: battere
+Scontrinare (€30/anno) come prezzo più basso sul mercato per la versione hosted,
+offrendo feature superiori. Il free tier hosted abbassa la barriera d'ingresso
+per il target non tecnico.
+
 ## Tech Stack
 
 ### Frontend
