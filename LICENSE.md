@@ -1,6 +1,16 @@
-# O'Saasy License Agreement
+# Contratto di Licenza O'Saasy
 
 Copyright © 2026, ScontrinoZero
+
+Con la presente si concede, a titolo gratuito, a chiunque ottenga una copia di questo software e dei file di documentazione associati (il "Software"), il permesso di trattare il Software senza restrizioni, compresi, senza limitazione, i diritti di utilizzare, copiare, modificare, unire, pubblicare, distribuire, concedere in sub-licenza e/o vendere copie del Software, e di permettere alle persone a cui il Software è fornito di fare altrettanto, soggetto alle seguenti condizioni:
+
+Il suddetto avviso di copyright e questo avviso di permesso devono essere inclusi in tutte le copie o porzioni sostanziali del Software.
+
+Nessun licenziatario o destinatario successivo può utilizzare il Software (incluse eventuali versioni modificate o derivate) per competere direttamente con il Licenziante originale offrendolo a terzi come prodotto hosted, gestito, o Software-as-a-Service (SaaS) o servizio cloud in cui il valore primario del servizio è la funzionalità del Software stesso.
+
+IL SOFTWARE VIENE FORNITO "COSÌ COM'È", SENZA GARANZIA DI ALCUN TIPO, ESPLICITA O IMPLICITA, INCLUSE MA NON LIMITATE ALLE GARANZIE DI COMMERCIABILITÀ, IDONEITÀ PER UNO SCOPO PARTICOLARE E NON VIOLAZIONE. IN NESSUN CASO GLI AUTORI O I DETENTORI DEL COPYRIGHT SARANNO RESPONSABILI PER QUALSIASI RECLAMO, DANNO O ALTRA RESPONSABILITÀ, SIA IN UN'AZIONE CONTRATTUALE, ILLECITO CIVILE O ALTRO, DERIVANTE DA, O IN CONNESSIONE CON, IL SOFTWARE O L'USO O ALTRI RAPPORTI CON IL SOFTWARE.
+
+---
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
