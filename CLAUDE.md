@@ -85,6 +85,10 @@ Fasi:
     - CDN e DDoS protection inclusi
     - IP del server nascosto
   - Docker Compose per orchestrazione (next-app + cloudflared)
+  - Docker logging limits (`max-size: 10m`, `max-file: 3`) per evitare log bloat
+  - `.dockerignore` accurato: esclude tests, docs, `.github/`, `node_modules`
+  - Health check endpoint (`/api/health`) per Docker healthcheck e monitoring
+  - `.env.example` come template per onboarding rapido
 - **Supabase Cloud** per il database (free tier, nessun DB da gestire sulla VPS)
 - NO Vercel (il piano Hobby vieta uso commerciale; Pro costa $20/mese non necessario)
 
@@ -112,11 +116,15 @@ Fasi:
   - Quality Gate: blocca merge che introducono bug o abbassano la coverage
   - Importante per sicurezza dato che gestiamo credenziali Fisconline
 - **ESLint + Prettier** — linting e formattazione
+- **lint-staged + husky** — pre-commit hooks (lint e format solo sui file staged)
+- **Dependabot** — aggiornamenti automatici dipendenze (settimanale, patch/minor raggruppati)
 
 ### CI/CD
 
 - **GitHub Actions** — test, lint, build, deploy automatizzato
   - Free tier generoso per repo privati (2.000 minuti/mese)
+- **Smart skip**: i workflow analizzano il diff e saltano se non ci sono file rilevanti
+  (risparmio minuti CI su modifiche a soli `.md`, `static/`, etc.)
 - **Pipeline CI** (su push/PR verso main):
   1. Lint (ESLint) + type-check (`tsc --noEmit`)
   2. Test con coverage (Vitest → lcov)
@@ -126,6 +134,7 @@ Fasi:
   - Tag `v*.*.*-test` → build Docker → deploy su ambiente **test**
   - Tag `v*.*.*` (senza suffisso) → build Docker → deploy su **produzione**
   - Immagini Docker su GitHub Container Registry (ghcr.io)
+  - Build multi-arch (`linux/amd64` + `linux/arm64`) per flessibilità
   - Deploy via SSH sulla VPS con `docker compose pull && up -d`
   - Ambiente `production` in GitHub può richiedere approvazione manuale
 
