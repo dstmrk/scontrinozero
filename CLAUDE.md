@@ -315,13 +315,23 @@ Stesso progetto Next.js, non un sito separato:
 
 ## Competitor analizzati
 
-| Nome | Modello | Note |
-|---|---|---|
-| CassApp / MyCassa | App nativa (iOS/Android) + Web | By Mysond, integrazione SumUp |
-| MyScontrino | App + Web | Da €79/anno, canone fisso |
-| Billy | Web + SmartPOS | All-in-one con pagamenti |
-| DataCash | API per sviluppatori | Anche app propria |
-| Scontrinare | Web app | |
+| Nome | Modello | Prezzo | Recensioni | Note |
+|---|---|---|---|---|
+| **Billy** | App nativa + Web | €70/anno (€7/mese) | 4.9/5 Trustpilot (572) | Leader per recensioni, 6 integrazioni POS, modalità offline, 20 fatture incluse |
+| **Scontrina** | App nativa (iOS/Android) | ~€80/anno (€10/mese) | 4.4/5 App Store (45) | UI moderna, integrazione WooCommerce/Shopify, feature ristorazione |
+| **MyCassa** | App nativa + Web | €49/anno | N/D | Scanner barcode, preconti, interpello AdE ufficiale, 5 device gratis |
+| **MyScontrino** | App + Web | €79+IVA/anno | N/D | Bundle hardware+software, distribuzione tramite rivenditori locali, UI datata |
+| **Scontrinare** | Web app + App native | €30/anno | N/D | Il più economico, max ~8k scontrini/anno, feature set limitato |
+
+### Posizionamento ScontrinoZero vs competitor
+
+- **Nessun competitor ha una vera PWA moderna** — tutti usano app native o web basilari
+- **UX/UI**: la maggioranza ha interfacce datate; solo Scontrina è moderna
+- **Fascia di prezzo mercato**: €30-80/anno, sweet spot €49-70/anno
+- **Billy domina per social proof** (572 recensioni Trustpilot) — priorità raccogliere recensioni early
+- **Pricing flessibile è apprezzato**: Billy offre annuale/mensile/giornaliero
+- **Differenziatori da perseguire**: PWA installabile, dashboard web su desktop,
+  UX moderna (shadcn/ui), offline mode, import CSV prodotti
 
 ## Struttura progetto (prevista)
 
