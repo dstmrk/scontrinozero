@@ -57,8 +57,7 @@ affrontata prima di costruire il resto dell'app.
 - ⬜ Analizzare il flusso web "Documento Commerciale Online" (network tab, DevTools)
 - ⬜ Mappare tutte le chiamate HTTP interne (auth, emissione, conferma)
 - ⬜ Documentare endpoint, headers, payload, cookies, token di sessione
-- ⬜ Tentare di replicare il flusso con script Node.js (fetch/axios)
-- ⬜ Se le API interne non sono stabili: testare automazione con Playwright headless
+- ⬜ Replicare il flusso con chiamate HTTP dirette (fetch/axios, no headless browser)
 - ⬜ Definire interfaccia `AdeClient` (adapter pattern)
 - ⬜ Implementare `MockAdeClient` (validazione + risposta simulata)
 - ⬜ Implementare `RealAdeClient` (proof of concept funzionante)
@@ -142,7 +141,7 @@ Obiettivo: **il più economico sul mercato** (hobby project, costi ~€0, nessun
 per avere prezzi alti).
 
 - ⬜ Definire i 3 piani + free tier:
-  - **Free (hosted)**: limite scontrini/mese (es. 15-20), 1 device
+  - **Free (hosted)**: 10 scontrini/mese, 1 device
   - **Starter**: scontrini illimitati, 1 device (~€2-3/mese, ~€19-25/anno)
   - **Pro**: multi-device, dashboard, export (~€4-5/mese, ~€39-49/anno)
   - **Self-hosted**: gratis sempre, tutte le feature (O'Saasy License)
