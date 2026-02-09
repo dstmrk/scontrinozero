@@ -32,6 +32,19 @@ Questo è un progetto hobby con costi fissi ~€0. Nessun dipendente, nessuna AP
 parti a pagamento, VPS già pagata. Il costo marginale per utente è praticamente zero.
 Questo permette un pricing aggressivo impossibile per i competitor.
 
+### Leggeri sulle risorse
+
+La VPS ha risorse limitate. Ogni dipendenza, ogni libreria, ogni processo deve
+giustificare la propria esistenza.
+
+- **No headless browser** — niente Playwright, Puppeteer o Chromium in produzione.
+  L'integrazione AdE usa esclusivamente chiamate HTTP dirette (fetch/axios).
+- **Dipendenze minime** — aggiungere librerie solo quando strettamente necessario.
+  Preferire soluzioni native o leggere.
+- **Next.js standalone** — output ottimizzato, solo i file necessari (~100MB vs ~1GB)
+- **Docker slim** — immagine base leggera, no tool di sviluppo nel container
+- **Un solo container** — next-app + cloudflared, niente orchestrazione complessa
+
 ### Open source + SaaS (O'Saasy License)
 
 - **Self-hosted gratis** — chiunque può scaricare, installare e usare il software
@@ -48,7 +61,7 @@ Questo permette un pricing aggressivo impossibile per i competitor.
 
 | Piano | Prezzo | Target | Feature |
 |---|---|---|---|
-| **Free (hosted)** | €0 | Chi vuole provare | Limite scontrini/mese (es. 15-20) |
+| **Free (hosted)** | €0 | Chi vuole provare | 10 scontrini/mese, 1 dispositivo |
 | **Starter** | ~€2-3/mese o ~€19-25/anno | Micro-attività, ambulanti | Scontrini illimitati, 1 dispositivo |
 | **Pro** | ~€4-5/mese o ~€39-49/anno | Negozi, attività regolari | Multi-device, dashboard, export |
 | **Self-hosted** | €0 (sempre) | Tecnici, smanettoni | Tutte le feature, gestione autonoma |
@@ -96,12 +109,12 @@ per il target non tecnico.
 L'AdE **non espone API REST pubbliche**. La procedura "Documento Commerciale Online"
 è un'interfaccia web nel portale Fatture e Corrispettivi.
 
-**Strategia: integrazione diretta** (no API terze parti):
+**Strategia: integrazione diretta** (no API terze parti, no headless browser):
 - Reverse-engineering delle chiamate HTTP che il portale AdE effettua internamente
 - L'utente fornisce le proprie credenziali Fisconline (cifrate, mai in chiaro)
-- Il backend automatizza l'emissione del documento commerciale
-- **Playwright** come fallback per automazione headless browser (se le API interne
-  non sono stabili o accessibili)
+- Il backend replica il flusso con chiamate HTTP dirette (fetch/axios)
+- **NO Playwright/headless browser** — troppo pesante per una VPS limitata
+  (~400MB RAM per Chromium). Solo chiamate HTTP leggere.
 - Base legale: Interpello AdE n. 956-1523/2020 — l'AdE non si oppone ai
   "velocizzatori" purché rispettino le prescrizioni normative
 
@@ -195,7 +208,7 @@ Fasi:
 - **Vitest** — unit e integration test
   - Coverage con `@vitest/coverage-v8` (report lcov per SonarQube)
   - `vitest-sonar-reporter` per report esecuzione test
-- **Playwright** — E2E test (riusato anche per automazione AdE)
+- **Playwright** — E2E test (solo in CI/dev, non in produzione)
 - I componenti shadcn/ui (`src/components/ui/`) sono esclusi dalla coverage
 
 ### Monorepo (se necessario)
