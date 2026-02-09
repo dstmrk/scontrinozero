@@ -7,7 +7,7 @@ esercenti e micro-attività di emettere scontrini elettronici e trasmettere i co
 all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la procedura
 "Documento Commerciale Online".
 
-## Tech Stack (in definizione)
+## Tech Stack
 
 ### Frontend
 
@@ -25,45 +25,60 @@ all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la pr
 | Tecnologia | Ruolo | Note |
 |---|---|---|
 | **Next.js API Routes + Server Actions** | Backend primario | Integrato nel monolite Next.js |
-| **Supabase** | BaaS (PostgreSQL) | DB, auth interna, storage, realtime |
+| **Supabase Cloud** | BaaS (PostgreSQL) | DB, auth, storage — free tier (50k MAU, 500MB) |
 
 ### Database
 
-- **PostgreSQL** via Supabase
+- **PostgreSQL** via Supabase Cloud (free tier per iniziare, poi Pro $25/mese)
 - **Drizzle ORM** — type-safe, leggero, ottima DX con TypeScript
 - **Row Level Security (RLS)** — sicurezza a livello di riga per multi-tenancy
 
 ### Autenticazione
 
-- **Supabase Auth** — gestione sessioni app (email/password, magic link)
-- **SPID/CIE (OIDC)** — da valutare per login utente e/o collegamento al portale AdE
-  - SDK ufficiale: `spid-cie-oidc-nodejs` (Developers Italia)
-  - Flusso: Authorization Code Flow + PKCE
+- **Supabase Auth** — email/password, magic link
+- NO SPID/CIE come metodo di login (richiede accreditamento AgID come SP privato)
 
 ### Integrazione Agenzia delle Entrate
 
-L'AdE **non espone API REST pubbliche**. Opzioni:
+L'AdE **non espone API REST pubbliche**. La procedura "Documento Commerciale Online"
+è un'interfaccia web nel portale Fatture e Corrispettivi.
 
-1. **API di terze parti** (raccomandato per MVP):
-   - **DataCash** (datacash.it) — API REST, fiscalizzazione differita via webhook, PDF
-   - **Effatta** (effatta.it) — API REST, sandbox disponibile
-2. **Integrazione diretta** (futura, più complessa):
-   - Richiede gestione credenziali Fisconline dell'utente
-   - Più autonomia ma maggiore complessità
+**Strategia: integrazione diretta** (no API terze parti):
+- Reverse-engineering delle chiamate HTTP che il portale AdE effettua internamente
+- L'utente fornisce le proprie credenziali Fisconline (cifrate, mai in chiaro)
+- Il backend automatizza l'emissione del documento commerciale
+- **Playwright** come fallback per automazione headless browser (se le API interne
+  non sono stabili o accessibili)
+- Base legale: Interpello AdE n. 956-1523/2020 — l'AdE non si oppone ai
+  "velocizzatori" purché rispettino le prescrizioni normative
+
+Fasi:
+1. Analizzare il portale Fatture e Corrispettivi (network tab, chiamate XHR/fetch)
+2. Mappare gli endpoint interni usati dalla web app dell'AdE
+3. Replicare il flusso (auth → emissione → conferma) dal nostro backend
+4. Gestire le credenziali utente in modo sicuro (cifratura at-rest)
+5. Implementare retry e fallback per indisponibilità AdE
 
 ### Pagamenti SaaS (subscription)
 
-- **Stripe** — gestione abbonamenti, fatturazione ricorrente, webhook
+- **Stripe** — fee più basse in EU (1.5% + €0.25 per carte europee)
+- Il target è B2B (esercenti italiani) → IVA gestibile, reverse charge
+- Stripe Billing per abbonamenti ricorrenti
+- Alternativa futura: Paddle come MoR se si espande all'estero
 
 ### Deployment
 
-- **Vercel** — deploy Next.js (free tier per start, poi Pro ~$20/mese)
-- Alternativa: **Docker + Fly.io / Railway** per più controllo
+- **Docker self-hosted su VPS** (infrastruttura già disponibile)
+  - Next.js in modalità `standalone` (output ottimizzato per container)
+  - **Caddy** come reverse proxy (HTTPS automatico via Let's Encrypt)
+  - Docker Compose per orchestrazione
+- **Supabase Cloud** per il database (free tier, nessun DB da gestire sulla VPS)
+- NO Vercel (il piano Hobby vieta uso commerciale; Pro costa $20/mese non necessario)
 
 ### Testing
 
 - **Vitest** — unit e integration test
-- **Playwright** — E2E test
+- **Playwright** — E2E test (riusato anche per automazione AdE)
 
 ### Monorepo (se necessario)
 
@@ -77,11 +92,12 @@ L'AdE **non espone API REST pubbliche**. Opzioni:
 - Server Actions/API Routes eliminano bisogno di backend separato
 - Ecosystem maturo, standard de facto per React SaaS
 - Ottimo supporto PWA
+- Self-hosting eccellente con `output: 'standalone'`
 
 ### Perché Supabase e non Firebase?
 
 - PostgreSQL standard (no vendor lock-in)
-- Open source, self-hostable
+- Open source, self-hostable in futuro se necessario
 - Pricing prevedibile (free tier generoso: 50k MAU, 500MB DB)
 - RLS nativo per multi-tenancy
 - Migrazione facile verso qualsiasi PostgreSQL host
@@ -93,7 +109,7 @@ L'AdE **non espone API REST pubbliche**. Opzioni:
 - Installabile su home screen
 - Aggiornamenti istantanei (no review store)
 - Il target (micro-attività) preferisce semplicità
-- Si può valutare Capacitor/Expo in futuro se servono feature native
+- Si può valutare Capacitor in futuro se servono feature native
 
 ### Perché shadcn/ui?
 
@@ -102,6 +118,32 @@ L'AdE **non espone API REST pubbliche**. Opzioni:
 - Basato su Radix UI (accessibilità) + Tailwind CSS
 - Design minimale, perfetto per UX mobile-first
 - Grande community e ecosystem
+
+### Perché integrazione diretta AdE?
+
+- Nessun costo per scontrino (API terze parti addebitano per documento)
+- Nessuna dipendenza da servizi terzi (DataCash, Effatta, etc.)
+- Margini più alti sul prodotto SaaS
+- Più complessità tecnica, ma la stessa cosa che fanno tutti i competitor
+- Base legale confermata dall'interpello AdE
+
+### Perché Docker self-hosted?
+
+- VPS già pagata → costo marginale zero
+- Vercel Hobby vieta uso commerciale
+- Pieno controllo su infrastruttura, log, scaling
+- Caddy gestisce HTTPS automaticamente
+- Docker Compose rende il deploy riproducibile
+- Next.js standalone mode produce container leggeri (~100MB)
+
+### Perché Stripe?
+
+- Fee più basse in EU: 1.5% + €0.25 (vs 5% + $0.50 di Paddle/LemonSqueezy)
+- Payout in 2 giorni su conto italiano (€0.30 per payout, nessuna fee cross-border)
+- API eccellente, documentazione perfetta
+- Stripe Billing per gestione abbonamenti
+- Il target è solo Italia inizialmente → VAT semplice, non serve un MoR
+- Se in futuro si espande all'estero, si può migrare a Paddle come MoR
 
 ## Competitor analizzati
 
@@ -118,30 +160,41 @@ L'AdE **non espone API REST pubbliche**. Opzioni:
 ```
 scontrinozero/
 ├── src/
-│   ├── app/            # Next.js App Router (pages, layouts)
-│   ├── components/     # Componenti React (shadcn/ui + custom)
-│   │   └── ui/         # shadcn/ui components
-│   ├── lib/            # Utility, client Supabase, helpers
-│   ├── server/         # Server actions, business logic
-│   └── types/          # TypeScript types/interfaces
-├── public/             # Static assets, PWA manifest
-├── supabase/           # Migrazioni DB, seed, config
-├── tests/              # Test Vitest + Playwright
-├── CLAUDE.md           # Questo file
+│   ├── app/                # Next.js App Router (pages, layouts)
+│   ├── components/         # Componenti React (shadcn/ui + custom)
+│   │   └── ui/             # shadcn/ui components
+│   ├── lib/                # Utility, client Supabase, helpers
+│   │   └── ade/            # Modulo integrazione Agenzia delle Entrate
+│   ├── server/             # Server actions, business logic
+│   └── types/              # TypeScript types/interfaces
+├── public/                 # Static assets, PWA manifest, icons
+├── supabase/               # Migrazioni DB, seed, config
+├── tests/                  # Test Vitest + Playwright
+├── docker/                 # Dockerfile, docker-compose.yml, Caddyfile
+├── CLAUDE.md
 ├── README.md
 └── LICENSE.md
 ```
 
+## Costi stimati (fase iniziale)
+
+| Voce | Costo |
+|---|---|
+| VPS (già pagata) | €0 aggiuntivi |
+| Supabase Cloud free tier | €0 |
+| Stripe | 1.5% + €0.25 per transazione |
+| Dominio | ~€10/anno |
+| **Totale fisso mensile** | **~€0** (solo costi variabili Stripe) |
+
 ## Risorse e riferimenti
 
-- [Developers Italia — SPID](https://developers.italia.it/it/spid/)
-- [SPID/CIE OIDC Regole Tecniche](https://docs.italia.it/italia/spid/spid-cie-oidc-docs/it/versione-corrente/)
-- [SDK Node.js SPID/CIE OIDC](https://github.com/italia/spid-cie-oidc-nodejs)
 - [AdE — Documento Commerciale Online](https://www.agenziaentrate.gov.it/portale/se-si-utilizza-la-procedura-documento-commerciale-online)
-- [DataCash API](https://datacash.it/api-developer/)
-- [Effatta API](https://effatta.it/scontrino-elettronico/)
 - [Interpello AdE n. 956-1523/2020 (base legale)](https://www.my-cassa.it/wp-content/uploads/Interpello_CassApp.pdf)
+- [Next.js Self-Hosting Guide](https://nextjs.org/docs/app/guides/self-hosting)
+- [Next.js Docker + Caddy deploy](https://emirazazi.de/blog/nextjs-vps-deployment/)
 - [shadcn/ui docs](https://ui.shadcn.com/)
-- [Next.js docs](https://nextjs.org/docs)
 - [Supabase docs](https://supabase.com/docs)
 - [Drizzle ORM docs](https://orm.drizzle.team/)
+- [Stripe Italia pricing](https://stripe.com/pricing)
+- [Effatta API (riferimento competitor)](https://effatta.it/scontrino-elettronico/)
+- [DataCash API (riferimento competitor)](https://datacash.it/api-developer/)
