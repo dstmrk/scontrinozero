@@ -1,0 +1,26 @@
+name: Deploy Test
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-test
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Raspberry Pi
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.RPI_HOST }}
+          username: pi
+          key: ${{ secrets.RPI_SSH_KEY }}
+          script: |
+            cd /home/pi/Developer/scontrinozero
+            git pull origin main
+            npm install
+            npm run build
+            pm2 restart scontrinozero || pm2 start npm --name scontrinozero -- start -- --hostname 0.0.0.0 --port 3000
