@@ -12,18 +12,18 @@ export function Header() {
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm md:flex">
-          <Link
-            href="/funzionalita"
+          <a
+            href="#funzionalita"
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
             Funzionalità
-          </Link>
-          <Link
-            href="/prezzi"
+          </a>
+          <a
+            href="#prezzi"
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
             Prezzi
-          </Link>
+          </a>
         </nav>
 
         <Button size="sm" asChild>
