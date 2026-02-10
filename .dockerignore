@@ -1,0 +1,38 @@
+# Dependencies
+node_modules
+
+# Build output
+.next
+out
+build
+
+# Tests
+tests
+**/*.test.ts
+**/*.test.tsx
+coverage
+test-report.xml
+
+# Dev & CI
+.github
+.husky
+.vscode
+.env*
+!.env.example
+
+# Docs
+*.md
+LICENSE.md
+CLAUDE.md
+ROADMAP.md
+
+# Git
+.git
+.gitignore
+
+# Misc
+.prettierrc
+.prettierignore
+eslint.config.mjs
+vitest.config.ts
+sonar-project.properties
