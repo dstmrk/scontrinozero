@@ -32,15 +32,16 @@ Setup iniziale del progetto, tooling e infrastruttura.
 
 Sito vetrina per raccogliere email e iniziare a costruire un'audience prima del lancio.
 
-- ⬜ Design landing page mobile-first (hero, problema, soluzione, come funziona, pricing preview, CTA)
-- ⬜ Implementare route group `(marketing)` con layout dedicato
-- ⬜ Pagina `/` — hero + value proposition
-- ⬜ Pagina `/prezzi` — tabella comparativa 3 piani (preview, senza Stripe ancora)
-- ⬜ Pagina `/funzionalita` — feature principali con icone
-- ⬜ Componente waitlist: input email + submit (salvare su Supabase, tabella `waitlist`)
+- ✅ Design landing page mobile-first (hero, problema, soluzione, come funziona, pricing preview, CTA)
+- ✅ Implementare route group `(marketing)` con layout dedicato
+- ✅ Pagina `/` — hero + value proposition
+- ✅ Pagina `/prezzi` — tabella comparativa 3 piani + confronto competitor
+- ✅ Pagina `/funzionalita` — 12 feature con icone Lucide
+- ✅ Componente waitlist: input email + submit (API + tabella `waitlist` su Supabase)
+- ✅ SEO: metadata, Open Graph, title template
 - ⬜ Email di conferma iscrizione (Resend)
-- ⬜ SEO: metadata, Open Graph, JSON-LD structured data
 - ⬜ Sitemap (`next-sitemap`)
+- ⬜ JSON-LD structured data
 - ⬜ Setup Umami analytics (self-hosted su VPS)
 - ⬜ Privacy Policy + Cookie Policy (pagine statiche)
 - ⬜ Deploy landing page su `scontrinozero.it`
