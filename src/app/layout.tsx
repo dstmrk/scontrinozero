@@ -24,9 +24,27 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "ScontrinoZero",
+  title: {
+    default: "ScontrinoZero — Scontrini elettronici dal tuo smartphone",
+    template: "%s | ScontrinoZero",
+  },
   description:
-    "Registratore di cassa virtuale. Emetti scontrini elettronici dal tuo smartphone.",
+    "Registratore di cassa virtuale per micro-attività. Emetti scontrini elettronici e trasmetti i corrispettivi all'Agenzia delle Entrate senza registratore telematico. Il più economico del mercato.",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://scontrinozero.it",
+  ),
+  openGraph: {
+    type: "website",
+    locale: "it_IT",
+    siteName: "ScontrinoZero",
+    title: "ScontrinoZero — Scontrini elettronici dal tuo smartphone",
+    description:
+      "Emetti scontrini elettronici e trasmetti i corrispettivi all'AdE senza registratore telematico. Da €0/mese.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
