@@ -10,7 +10,8 @@ test.describe("Landing page", () => {
     ).toBeVisible();
   });
 
-  test("header navigation anchors are present", async ({ page }) => {
+  test("header navigation anchors are present", async ({ page, isMobile }) => {
+    test.skip(!!isMobile, "Nav links are hidden on mobile");
     await page.goto("/");
 
     const header = page.getByRole("banner");
@@ -27,9 +28,9 @@ test.describe("Landing page", () => {
     await page.goto("/");
 
     const pricing = page.locator("#prezzi");
-    await expect(pricing.getByText("Free")).toBeVisible();
-    await expect(pricing.getByText("Starter")).toBeVisible();
-    await expect(pricing.getByText("Pro")).toBeVisible();
+    await expect(pricing.getByText("Free", { exact: true })).toBeVisible();
+    await expect(pricing.getByText("Starter", { exact: true })).toBeVisible();
+    await expect(pricing.getByText("Pro", { exact: true })).toBeVisible();
   });
 
   test("waitlist form accepts email", async ({ page }) => {
