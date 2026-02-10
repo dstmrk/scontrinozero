@@ -10,13 +10,14 @@ test.describe("Landing page", () => {
     ).toBeVisible();
   });
 
-  test("navigation anchors are present", async ({ page }) => {
+  test("header navigation anchors are present", async ({ page }) => {
     await page.goto("/");
 
+    const header = page.getByRole("banner");
     await expect(
-      page.getByRole("link", { name: /funzionalità/i }),
+      header.getByRole("link", { name: /funzionalità/i }),
     ).toHaveAttribute("href", "#funzionalita");
-    await expect(page.getByRole("link", { name: /prezzi/i })).toHaveAttribute(
+    await expect(header.getByRole("link", { name: /prezzi/i })).toHaveAttribute(
       "href",
       "#prezzi",
     );
@@ -25,9 +26,10 @@ test.describe("Landing page", () => {
   test("shows pricing plans", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.getByText("Free")).toBeVisible();
-    await expect(page.getByText("Starter")).toBeVisible();
-    await expect(page.getByText("Pro")).toBeVisible();
+    const pricing = page.locator("#prezzi");
+    await expect(pricing.getByText("Free")).toBeVisible();
+    await expect(pricing.getByText("Starter")).toBeVisible();
+    await expect(pricing.getByText("Pro")).toBeVisible();
   });
 
   test("waitlist form accepts email", async ({ page }) => {
