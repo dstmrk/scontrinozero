@@ -21,20 +21,20 @@ export function Footer() {
             <h3 className="mb-3 text-sm font-semibold">Prodotto</h3>
             <ul className="text-muted-foreground space-y-2 text-sm">
               <li>
-                <Link
-                  href="/funzionalita"
+                <a
+                  href="#funzionalita"
                   className="hover:text-foreground transition-colors"
                 >
                   Funzionalità
-                </Link>
+                </a>
               </li>
               <li>
-                <Link
-                  href="/prezzi"
+                <a
+                  href="#prezzi"
                   className="hover:text-foreground transition-colors"
                 >
                   Prezzi
-                </Link>
+                </a>
               </li>
             </ul>
           </div>
@@ -67,14 +67,14 @@ export function Footer() {
         <div className="text-muted-foreground flex flex-col items-center justify-between gap-4 text-xs sm:flex-row">
           <p>&copy; {new Date().getFullYear()} ScontrinoZero</p>
           <p>
-            Open source con{" "}
+            Open source su{" "}
             <a
               href="https://github.com/dstmrk/scontrinozero"
               className="hover:text-foreground underline transition-colors"
               target="_blank"
               rel="noopener noreferrer"
             >
-              O&apos;Saasy License
+              GitHub
             </a>
           </p>
         </div>
