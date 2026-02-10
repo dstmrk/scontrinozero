@@ -10,16 +10,14 @@ import {
 import { WaitlistForm } from "@/components/marketing/waitlist-form";
 import {
   Smartphone,
-  Zap,
-  Shield,
   Receipt,
   Clock,
   BarChart3,
-  ArrowRight,
+  Shield,
   Check,
   Github,
+  ArrowRight,
 } from "lucide-react";
-import Link from "next/link";
 
 export default function Home() {
   return (
@@ -48,7 +46,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Problem → Solution */}
+      {/* Problema → Soluzione */}
       <section className="bg-muted/50 px-4 py-20">
         <div className="mx-auto max-w-5xl">
           <div className="grid gap-12 md:grid-cols-2">
@@ -56,35 +54,35 @@ export default function Home() {
               <h2 className="text-2xl font-bold">Il problema</h2>
               <p className="text-muted-foreground mt-4 leading-relaxed">
                 I registratori telematici costano centinaia di euro, hanno
-                canoni annuali di manutenzione, e sono obbligatori per legge.
+                canoni annuali di manutenzione e occupano spazio sul bancone.
                 <br />
                 <br />
-                Per un ambulante, un artigiano o una micro-attività, è un costo
+                Per un ambulante, un artigiano o una micro-attività è un costo
                 sproporzionato.
               </p>
             </div>
             <div>
               <h2 className="text-2xl font-bold">La soluzione</h2>
               <p className="text-muted-foreground mt-4 leading-relaxed">
-                L&apos;Agenzia delle Entrate offre la procedura{" "}
-                <strong>&quot;Documento Commerciale Online&quot;</strong> che
-                permette di emettere scontrini senza registratore fisico.
+                L&apos;Agenzia delle Entrate permette di emettere scontrini
+                elettronici senza registratore fisico, tramite la procedura
+                &quot;Documento Commerciale Online&quot;.
                 <br />
                 <br />
-                ScontrinoZero la rende <strong>semplice e veloce</strong>, dal
-                tuo smartphone.
+                ScontrinoZero la rende <strong>semplice e veloce</strong>: apri
+                l&apos;app dal telefono, inserisci l&apos;importo, fatto.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* How it works */}
+      {/* Come funziona */}
       <section className="px-4 py-20">
         <div className="mx-auto max-w-5xl">
           <h2 className="text-center text-2xl font-bold">Come funziona</h2>
           <p className="text-muted-foreground mx-auto mt-2 max-w-lg text-center">
-            Tre passi per emettere il tuo primo scontrino elettronico.
+            Tre passi per emettere il tuo primo scontrino.
           </p>
 
           <div className="mt-12 grid gap-8 md:grid-cols-3">
@@ -93,27 +91,24 @@ export default function Home() {
                 step: "1",
                 title: "Registrati",
                 description:
-                  "Crea un account e collega le tue credenziali Fisconline.",
-                icon: Shield,
+                  "Crea un account e collega le credenziali Fisconline che usi sul sito dell'Agenzia delle Entrate.",
               },
               {
                 step: "2",
                 title: "Emetti lo scontrino",
                 description:
-                  "Inserisci l'importo, scegli l'aliquota IVA e il metodo di pagamento.",
-                icon: Receipt,
+                  "Inserisci l'importo, scegli l'aliquota IVA e il metodo di pagamento. Un tap e confermi.",
               },
               {
                 step: "3",
-                title: "Trasmissione automatica",
+                title: "Tutto il resto è automatico",
                 description:
-                  "ScontrinoZero trasmette i corrispettivi all'AdE in automatico.",
-                icon: Zap,
+                  "La trasmissione all'Agenzia delle Entrate e la chiusura giornaliera avvengono da sole.",
               },
             ].map((item) => (
               <div key={item.step} className="text-center">
-                <div className="bg-primary/10 text-primary mx-auto flex h-12 w-12 items-center justify-center rounded-full">
-                  <item.icon className="h-6 w-6" />
+                <div className="bg-primary/10 text-primary mx-auto flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold">
+                  {item.step}
                 </div>
                 <h3 className="mt-4 font-semibold">{item.title}</h3>
                 <p className="text-muted-foreground mt-2 text-sm">
@@ -125,53 +120,44 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Features */}
-      <section className="bg-muted/50 px-4 py-20">
+      {/* Funzionalità */}
+      <section id="funzionalita" className="bg-muted/50 px-4 py-20">
         <div className="mx-auto max-w-5xl">
           <h2 className="text-center text-2xl font-bold">
-            Tutto quello che ti serve
+            Quello che ti serve, niente di più
           </h2>
-          <p className="text-muted-foreground mx-auto mt-2 max-w-lg text-center">
-            Progettato per micro-attività che vogliono semplicità e risparmio.
-          </p>
 
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {
                 icon: Smartphone,
-                title: "Mobile-first",
+                title: "Basta il telefono",
                 description:
-                  "Installabile come app sul tuo smartphone. Nessun hardware aggiuntivo.",
+                  "Niente registratore, niente cavi, niente rotoli di carta. Apri l'app dal browser e sei operativo.",
               },
               {
-                icon: Zap,
-                title: "Istantaneo",
+                icon: Receipt,
+                title: "Scontrino in un tap",
                 description:
-                  "Lo scontrino appare emesso subito. La trasmissione avviene in background.",
+                  "Inserisci l'importo, conferma, fatto. La trasmissione all'Agenzia delle Entrate avviene in automatico.",
               },
               {
                 icon: Clock,
-                title: "Chiusura automatica",
+                title: "Fine giornata senza pensieri",
                 description:
-                  "Chiusura giornaliera dei corrispettivi senza pensieri.",
+                  "La chiusura dei corrispettivi è automatica. Una cosa in meno a cui pensare a fine giornata.",
               },
               {
                 icon: BarChart3,
-                title: "Dashboard",
+                title: "Sai sempre quanto hai incassato",
                 description:
-                  "Monitora vendite, totali giornalieri e storico scontrini.",
+                  "Totale giornaliero, storico scontrini, tutto a portata di mano. Anche dal computer.",
               },
               {
                 icon: Shield,
-                title: "Sicuro",
+                title: "Le tue credenziali restano tue",
                 description:
-                  "Le tue credenziali Fisconline sono cifrate e mai condivise con terzi.",
-              },
-              {
-                icon: Github,
-                title: "Open source",
-                description:
-                  "Codice aperto, verificabile. Self-hosting gratuito per sempre.",
+                  "Le credenziali Fisconline sono protette e non vengono condivise con nessuno.",
               },
             ].map((feature) => (
               <Card key={feature.title} className="border-border/50">
@@ -188,14 +174,14 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Pricing preview */}
-      <section className="px-4 py-20">
+      {/* Prezzi */}
+      <section id="prezzi" className="px-4 py-20">
         <div className="mx-auto max-w-5xl">
           <h2 className="text-center text-2xl font-bold">
-            Il più economico del mercato
+            Il più economico sul mercato
           </h2>
           <p className="text-muted-foreground mx-auto mt-2 max-w-lg text-center">
-            Nessun canone nascosto. Nessun hardware. Prezzi chiari.
+            Nessun canone nascosto. Nessun hardware da comprare.
           </p>
 
           <div className="mt-12 grid gap-6 md:grid-cols-3">
@@ -206,11 +192,10 @@ export default function Home() {
                 period: "per sempre",
                 description: "Per provare senza impegno",
                 features: [
-                  "10 scontrini / mese",
+                  "10 scontrini al mese",
                   "1 dispositivo",
                   "Storico scontrini",
                 ],
-                cta: "Inizia gratis",
                 highlighted: false,
               },
               {
@@ -221,25 +206,23 @@ export default function Home() {
                 features: [
                   "Scontrini illimitati",
                   "1 dispositivo",
-                  "Chiusura giornaliera",
+                  "Chiusura giornaliera automatica",
                   "Supporto email",
                 ],
-                cta: "Scegli Starter",
                 highlighted: true,
               },
               {
                 name: "Pro",
                 price: "~€4",
                 period: "/ mese",
-                description: "Per attività regolari",
+                description: "Per chi ha più di un punto cassa",
                 features: [
                   "Scontrini illimitati",
-                  "Multi-dispositivo",
-                  "Dashboard avanzata",
+                  "Più dispositivi",
+                  "Dashboard completa",
                   "Export dati",
                   "Supporto prioritario",
                 ],
-                cta: "Scegli Pro",
                 highlighted: false,
               },
             ].map((plan) => (
@@ -284,16 +267,12 @@ export default function Home() {
           </div>
 
           <p className="text-muted-foreground mt-6 text-center text-sm">
-            Prezzi finali definiti al lancio. Self-hosting{" "}
-            <Link href="/prezzi" className="text-primary underline">
-              sempre gratuito
-            </Link>
-            .
+            Prezzi finali definiti al lancio.
           </p>
         </div>
       </section>
 
-      {/* Waitlist CTA */}
+      {/* Lista d'attesa */}
       <section id="waitlist" className="bg-muted/50 px-4 py-20">
         <div className="mx-auto max-w-xl text-center">
           <h2 className="text-2xl font-bold">Non perderti il lancio</h2>
@@ -307,14 +286,13 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Self-hosting callout */}
+      {/* Open source */}
       <section className="px-4 py-16">
         <div className="mx-auto max-w-3xl text-center">
-          <h3 className="text-lg font-semibold">Preferisci il self-hosting?</h3>
+          <h3 className="text-lg font-semibold">Codice aperto, verificabile</h3>
           <p className="text-muted-foreground mt-2 text-sm">
-            ScontrinoZero è open source. Scarica il codice, installa sul tuo
-            server e usalo gratis per sempre. Le tue credenziali restano a casa
-            tua.
+            ScontrinoZero è open source. Se preferisci, puoi installarlo sul tuo
+            server e usarlo gratis per sempre.
           </p>
           <Button variant="outline" size="sm" className="mt-4" asChild>
             <a
@@ -323,7 +301,7 @@ export default function Home() {
               rel="noopener noreferrer"
             >
               <Github className="h-4 w-4" />
-              Vedi su GitHub
+              GitHub
               <ArrowRight className="h-4 w-4" />
             </a>
           </Button>
