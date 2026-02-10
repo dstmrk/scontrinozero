@@ -14,6 +14,7 @@ import {
   Clock,
   BarChart3,
   Shield,
+  CalendarRange,
   Check,
   Github,
   ArrowRight,
@@ -158,6 +159,12 @@ export default function Home() {
                 title: "Le tue credenziali restano tue",
                 description:
                   "Le credenziali Fisconline sono protette e non vengono condivise con nessuno.",
+              },
+              {
+                icon: CalendarRange,
+                title: "Paghi come preferisci",
+                description:
+                  "Mensile, annuale o gratis. Cambi piano quando vuoi, senza vincoli e senza penali.",
               },
             ].map((feature) => (
               <Card key={feature.title} className="border-border/50">
