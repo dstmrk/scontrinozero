@@ -7,6 +7,19 @@ esercenti e micro-attività di emettere scontrini elettronici e trasmettere i co
 all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la procedura
 "Documento Commerciale Online".
 
+## Roadmap e piano di sviluppo
+
+Il piano di sviluppo dettagliato con fasi sequenziali, test attesi e checkpoint di review
+è in **`PLAN.md`** (root del repo). Il **`ROADMAP.md`** contiene il riepilogo ad alto livello.
+
+**Fase corrente:** Phase 1A (fix security hotspot + test TDD pattern)
+
+**Approccio TDD:** Per ogni fase, scrivere i test PRIMA dell'implementazione.
+I test di validazione e degli endpoint usano `vi.mock` per isolare le dipendenze (Drizzle, etc.).
+
+**Sequenza fasi:** 0 ✅ → 1A 🔵 → 2 (AdE spike) → 1B (landing) → 3A (security infra) →
+3B (auth) → 4 (MVP) → 5 (PWA) → 6 (stabilità) → 7 (Stripe) → 8 (lancio)
+
 ## Principi di prodotto
 
 ### Performance percepita come priorità #1
@@ -15,6 +28,7 @@ L'obiettivo è che ogni interazione si senta **istantanea**. L'emissione di uno 
 deve sembrare immediata anche se il portale AdE risponde in 2-5 secondi.
 
 Tecniche:
+
 - **Optimistic UI** — TanStack Query mutations: lo scontrino appare come "emesso"
   immediatamente, il backend completa la trasmissione AdE in background.
   Rollback automatico se l'invio fallisce.
@@ -59,12 +73,12 @@ giustificare la propria esistenza.
 
 ### Pricing: i meno cari del mercato
 
-| Piano | Prezzo | Target | Feature |
-|---|---|---|---|
-| **Free (hosted)** | €0 | Chi vuole provare | 10 scontrini/mese, 1 dispositivo |
-| **Starter** | ~€2-3/mese o ~€19-25/anno | Micro-attività, ambulanti | Scontrini illimitati, 1 dispositivo |
-| **Pro** | ~€4-5/mese o ~€39-49/anno | Negozi, attività regolari | Multi-device, dashboard, export |
-| **Self-hosted** | €0 (sempre) | Tecnici, smanettoni | Tutte le feature, gestione autonoma |
+| Piano             | Prezzo                    | Target                    | Feature                             |
+| ----------------- | ------------------------- | ------------------------- | ----------------------------------- |
+| **Free (hosted)** | €0                        | Chi vuole provare         | 10 scontrini/mese, 1 dispositivo    |
+| **Starter**       | ~€2-3/mese o ~€19-25/anno | Micro-attività, ambulanti | Scontrini illimitati, 1 dispositivo |
+| **Pro**           | ~€4-5/mese o ~€39-49/anno | Negozi, attività regolari | Multi-device, dashboard, export     |
+| **Self-hosted**   | €0 (sempre)               | Tecnici, smanettoni       | Tutte le feature, gestione autonoma |
 
 I prezzi esatti saranno definiti nella Fase 7, ma l'obiettivo è chiaro: battere
 Scontrinare (€30/anno) come prezzo più basso sul mercato per la versione hosted,
@@ -75,23 +89,23 @@ per il target non tecnico.
 
 ### Frontend
 
-| Tecnologia | Ruolo | Note |
-|---|---|---|
-| **Next.js 15+** (App Router) | Framework React full-stack | SSR/SSG, API routes, server actions |
-| **React 19** | UI library | |
-| **TypeScript** | Type safety | Strict mode |
-| **Tailwind CSS 4** | Styling utility-first | |
-| **shadcn/ui** | Component library | Copy-paste, customizzabile, Radix UI sotto |
-| **TanStack Query v5** | Data fetching client-side | Cache, mutations, optimistic updates |
-| **TanStack Table** | Tabelle dati | Già integrato in shadcn/ui DataTable |
-| **PWA** (@serwist/next) | Mobile-first installabile | Service worker, offline shell, manifest |
+| Tecnologia                   | Ruolo                      | Note                                       |
+| ---------------------------- | -------------------------- | ------------------------------------------ |
+| **Next.js 15+** (App Router) | Framework React full-stack | SSR/SSG, API routes, server actions        |
+| **React 19**                 | UI library                 |                                            |
+| **TypeScript**               | Type safety                | Strict mode                                |
+| **Tailwind CSS 4**           | Styling utility-first      |                                            |
+| **shadcn/ui**                | Component library          | Copy-paste, customizzabile, Radix UI sotto |
+| **TanStack Query v5**        | Data fetching client-side  | Cache, mutations, optimistic updates       |
+| **TanStack Table**           | Tabelle dati               | Già integrato in shadcn/ui DataTable       |
+| **PWA** (@serwist/next)      | Mobile-first installabile  | Service worker, offline shell, manifest    |
 
 ### Backend
 
-| Tecnologia | Ruolo | Note |
-|---|---|---|
-| **Next.js API Routes + Server Actions** | Backend primario | Integrato nel monolite Next.js |
-| **Supabase Cloud** | BaaS (PostgreSQL) | DB, auth, storage — free tier (50k MAU, 500MB) |
+| Tecnologia                              | Ruolo             | Note                                           |
+| --------------------------------------- | ----------------- | ---------------------------------------------- |
+| **Next.js API Routes + Server Actions** | Backend primario  | Integrato nel monolite Next.js                 |
+| **Supabase Cloud**                      | BaaS (PostgreSQL) | DB, auth, storage — free tier (50k MAU, 500MB) |
 
 ### Database
 
@@ -110,6 +124,7 @@ L'AdE **non espone API REST pubbliche**. La procedura "Documento Commerciale Onl
 è un'interfaccia web nel portale Fatture e Corrispettivi.
 
 **Strategia: integrazione diretta** (no API terze parti, no headless browser):
+
 - Reverse-engineering delle chiamate HTTP che il portale AdE effettua internamente
 - L'utente fornisce le proprie credenziali Fisconline (cifrate, mai in chiaro)
 - Il backend replica il flusso con chiamate HTTP dirette (fetch/axios)
@@ -119,6 +134,7 @@ L'AdE **non espone API REST pubbliche**. La procedura "Documento Commerciale Onl
   "velocizzatori" purché rispettino le prescrizioni normative
 
 Fasi:
+
 1. Analizzare il portale Fatture e Corrispettivi (network tab, chiamate XHR/fetch)
 2. Mappare gli endpoint interni usati dalla web app dell'AdE
 3. Replicare il flusso (auth → emissione → conferma) dal nostro backend
@@ -219,18 +235,19 @@ Fasi:
 
 ### Due ambienti sulla stessa VPS
 
-| | **Test** | **Produzione** |
-|---|---|---|
-| URL | `test.scontrinozero.it` | `scontrinozero.it` |
-| Cloudflare Tunnel | Route separata verso container test | Route verso container prod |
-| Docker Compose | `/opt/scontrinozero-test/` | `/opt/scontrinozero/` |
-| DB Supabase | Progetto Supabase separato (free tier) | Progetto Supabase principale |
-| Variabile | `ADE_MODE=mock` | `ADE_MODE=real` |
-| Stripe | Stripe test mode (chiavi `sk_test_*`) | Stripe live mode |
+|                   | **Test**                               | **Produzione**               |
+| ----------------- | -------------------------------------- | ---------------------------- |
+| URL               | `test.scontrinozero.it`                | `scontrinozero.it`           |
+| Cloudflare Tunnel | Route separata verso container test    | Route verso container prod   |
+| Docker Compose    | `/opt/scontrinozero-test/`             | `/opt/scontrinozero/`        |
+| DB Supabase       | Progetto Supabase separato (free tier) | Progetto Supabase principale |
+| Variabile         | `ADE_MODE=mock`                        | `ADE_MODE=real`              |
+| Stripe            | Stripe test mode (chiavi `sk_test_*`)  | Stripe live mode             |
 
 ### Strategia mock AdE per ambiente test
 
 L'integrazione AdE usa un **pattern adapter/strategy**:
+
 - Interfaccia `AdeClient` con metodi: `submitReceipt()`, `closeDay()`, etc.
 - `RealAdeClient` — invia davvero all'AdE (produzione)
 - `MockAdeClient` — esegue **tutta la logica** (validazione, formattazione,
@@ -253,6 +270,7 @@ sviluppo su branch → PR → merge su main → CI (test + lint + sonar)
 ## Sito vetrina (landing/marketing)
 
 Stesso progetto Next.js, non un sito separato:
+
 - Le pagine marketing (/, /prezzi, /funzionalita, /chi-siamo) sono route SSG
   nel Next.js App Router — generate staticamente al build, veloci
 - L'app SaaS vive sotto /dashboard (o /app) — route dinamiche protette da auth
@@ -379,13 +397,13 @@ Stesso progetto Next.js, non un sito separato:
 
 ## Competitor analizzati
 
-| Nome | Modello | Prezzo | Recensioni | Note |
-|---|---|---|---|---|
-| **Billy** | App nativa + Web | €70/anno (€7/mese) | 4.9/5 Trustpilot (572) | Leader per recensioni, 6 integrazioni POS, modalità offline, 20 fatture incluse |
-| **Scontrina** | App nativa (iOS/Android) | ~€80/anno (€10/mese) | 4.4/5 App Store (45) | UI moderna, integrazione WooCommerce/Shopify, feature ristorazione |
-| **MyCassa** | App nativa + Web | €49/anno | N/D | Scanner barcode, preconti, interpello AdE ufficiale, 5 device gratis |
-| **MyScontrino** | App + Web | €79+IVA/anno | N/D | Bundle hardware+software, distribuzione tramite rivenditori locali, UI datata |
-| **Scontrinare** | Web app + App native | €30/anno | N/D | Il più economico, max ~8k scontrini/anno, feature set limitato |
+| Nome            | Modello                  | Prezzo               | Recensioni             | Note                                                                            |
+| --------------- | ------------------------ | -------------------- | ---------------------- | ------------------------------------------------------------------------------- |
+| **Billy**       | App nativa + Web         | €70/anno (€7/mese)   | 4.9/5 Trustpilot (572) | Leader per recensioni, 6 integrazioni POS, modalità offline, 20 fatture incluse |
+| **Scontrina**   | App nativa (iOS/Android) | ~€80/anno (€10/mese) | 4.4/5 App Store (45)   | UI moderna, integrazione WooCommerce/Shopify, feature ristorazione              |
+| **MyCassa**     | App nativa + Web         | €49/anno             | N/D                    | Scanner barcode, preconti, interpello AdE ufficiale, 5 device gratis            |
+| **MyScontrino** | App + Web                | €79+IVA/anno         | N/D                    | Bundle hardware+software, distribuzione tramite rivenditori locali, UI datata   |
+| **Scontrinare** | Web app + App native     | €30/anno             | N/D                    | Il più economico, max ~8k scontrini/anno, feature set limitato                  |
 
 ### Posizionamento ScontrinoZero vs competitor
 
@@ -426,19 +444,19 @@ scontrinozero/
 
 ## Costi stimati (fase iniziale)
 
-| Voce | Costo |
-|---|---|
-| VPS (già pagata) | €0 aggiuntivi |
-| Cloudflare Tunnel (già attivo) | €0 |
-| Supabase Cloud free tier (x2: prod + test) | €0 |
-| SonarQube Cloud free tier | €0 |
-| Resend free tier (3k email/mese) | €0 |
-| Sentry free tier | €0 |
-| Umami self-hosted | €0 |
-| GitHub Actions free tier | €0 |
-| Stripe | 1.5% + €0.25 per transazione |
-| Dominio | ~€10/anno |
-| **Totale fisso mensile** | **~€0** (solo costi variabili Stripe) |
+| Voce                                       | Costo                                 |
+| ------------------------------------------ | ------------------------------------- |
+| VPS (già pagata)                           | €0 aggiuntivi                         |
+| Cloudflare Tunnel (già attivo)             | €0                                    |
+| Supabase Cloud free tier (x2: prod + test) | €0                                    |
+| SonarQube Cloud free tier                  | €0                                    |
+| Resend free tier (3k email/mese)           | €0                                    |
+| Sentry free tier                           | €0                                    |
+| Umami self-hosted                          | €0                                    |
+| GitHub Actions free tier                   | €0                                    |
+| Stripe                                     | 1.5% + €0.25 per transazione          |
+| Dominio                                    | ~€10/anno                             |
+| **Totale fisso mensile**                   | **~€0** (solo costi variabili Stripe) |
 
 ## Risorse e riferimenti
 
