@@ -134,7 +134,7 @@ export default function Home() {
                 icon: Smartphone,
                 title: "Basta il telefono",
                 description:
-                  "Niente registratore, niente cavi, niente rotoli di carta. Apri l'app dal browser e sei operativo.",
+                  "Niente registratore, niente cavi, niente rotoli di carta. Apri l'app e sei operativo.",
               },
               {
                 icon: Receipt,
