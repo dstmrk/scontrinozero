@@ -2,203 +2,215 @@
 
 Legenda: ⬜ Todo · 🔵 In progress · ✅ Done
 
----
-
-## Fase 0 — Fondamenta progetto
-
-Setup iniziale del progetto, tooling e infrastruttura.
-
-- ✅ Inizializzare progetto Next.js 16 (App Router, TypeScript strict, Tailwind CSS 4)
-- ✅ Configurare shadcn/ui (radix-nova, teal theme, Nunito Sans, Lucide)
-- ✅ Configurare ESLint + Prettier (+ prettier-plugin-tailwindcss)
-- ✅ Configurare husky + lint-staged (pre-commit hooks)
-- ✅ Setup Vitest + `@vitest/coverage-v8` + `vitest-sonar-reporter`
-- ✅ Setup Playwright
-- ✅ Creare `sonar-project.properties`
-- ✅ Creare Dockerfile (standalone mode) + `.dockerignore`
-- ✅ Creare `docker-compose.yml` (next-app + cloudflared)
-- ✅ Creare `.env.example`
-- ✅ Setup GitHub Actions: workflow CI (lint → type-check → test → sonar → build)
-- ✅ Setup GitHub Actions: workflow Deploy (tag-based, test + prod)
-- ✅ Setup Dependabot (`npm` + `github-actions`)
-- ✅ Creare progetto Supabase Cloud (prod + test)
-- ✅ Configurare Drizzle ORM + prima migrazione (schema base)
-- ✅ Health check endpoint (`/api/health`)
-- ✅ Primo deploy test su VPS (container vuoto, verifica tunnel Cloudflare)
+Piano dettagliato con test e review checkpoint: vedi [`PLAN.md`](./PLAN.md)
 
 ---
 
-## Fase 1 — Landing page + waitlist
+## Fase 0 — Fondamenta progetto ✅
 
-Sito vetrina per raccogliere email e iniziare a costruire un'audience prima del lancio.
+- ✅ Next.js 16 (App Router, TypeScript strict, Tailwind CSS 4)
+- ✅ shadcn/ui (radix-nova, teal theme, Nunito Sans, Lucide)
+- ✅ ESLint + Prettier + husky + lint-staged
+- ✅ Vitest + coverage + vitest-sonar-reporter
+- ✅ Playwright (E2E)
+- ✅ SonarQube Cloud config
+- ✅ Dockerfile + docker-compose + .env.example
+- ✅ GitHub Actions CI + Deploy (tag-based)
+- ✅ Dependabot
+- ✅ Supabase Cloud (test project)
+- ✅ Drizzle ORM + migrazioni (profiles, businesses, waitlist)
+- ✅ Health check `/api/health`
+- ✅ Primo deploy test su VPS (Cloudflare Tunnel)
 
-- ✅ Design landing page mobile-first (hero, problema, soluzione, come funziona, pricing preview, CTA)
-- ✅ Implementare route group `(marketing)` con layout dedicato
-- ✅ Pagina `/` — hero + value proposition
+---
+
+## Fase 1A — Fix security + pattern TDD 🔵
+
+- 🔵 Fix regex DoS in waitlist endpoint (SonarCloud hotspot)
+- 🔵 Creare `src/lib/validation.ts` con validazione email a tempo lineare
+- 🔵 Test TDD per validazione + endpoint waitlist
+
+---
+
+## Fase 1 — Landing page + waitlist (parziale ✅)
+
+- ✅ Landing page mobile-first (hero, problema, soluzione, come funziona, pricing, CTA)
+- ✅ Route group `(marketing)` con layout dedicato
 - ✅ Sezione `#prezzi` — 3 piani (Free, Starter, Pro)
-- ✅ Sezione `#funzionalita` — 6 benefit card (no jargon tecnico)
-- ✅ Componente waitlist: input email + submit (API + tabella `waitlist` su Supabase)
+- ✅ Sezione `#funzionalita` — 6 benefit card
+- ✅ Waitlist: input email + submit (API + Supabase)
 - ✅ SEO: metadata, Open Graph, title template
-- ⬜ Email di conferma iscrizione (Resend)
+- ⬜ Email conferma iscrizione (Resend)
 - ⬜ Sitemap (`next-sitemap`)
 - ⬜ JSON-LD structured data
 - ⬜ Setup Umami analytics (self-hosted su VPS)
-- ⬜ Privacy Policy + Cookie Policy (pagine statiche)
-- ⬜ Deploy landing page su `scontrinozero.it`
+- ⬜ Privacy Policy + Cookie Policy
+- ⬜ Deploy su `scontrinozero.it`
 
 ---
 
-## Fase 2 — Spike integrazione AdE
+## Fase 2 — Spike integrazione AdE ⬜
 
-**Attività di ricerca/esplorazione** per validare la fattibilità dell'integrazione diretta
-con il portale Fatture e Corrispettivi. Questa è l'attività a rischio più alto — va
-affrontata prima di costruire il resto dell'app.
+**Rischio più alto del progetto — va prima della Fase 1B.**
 
-- ⬜ Accedere al portale F&C con credenziali Fisconline personali
-- ⬜ Analizzare il flusso web "Documento Commerciale Online" (network tab, DevTools)
-- ⬜ Mappare tutte le chiamate HTTP interne (auth, emissione, conferma)
-- ⬜ Documentare endpoint, headers, payload, cookies, token di sessione
-- ⬜ Replicare il flusso con chiamate HTTP dirette (fetch/axios, no headless browser)
-- ⬜ Definire interfaccia `AdeClient` (adapter pattern)
-- ⬜ Implementare `MockAdeClient` (validazione + risposta simulata)
-- ⬜ Implementare `RealAdeClient` (proof of concept funzionante)
-- ⬜ Documentare il flusso tecnico completo in `src/lib/ade/README.md`
-- ⬜ Decisione go/no-go: se integrazione diretta non è praticabile, valutare fallback
-  su API terze parti (DataCash/Effatta)
+### 2A: Ricerca e documentazione
 
----
+- ⬜ Accedere al portale F&C con credenziali Fisconline
+- ⬜ Analizzare il flusso HTTP (DevTools, Network tab)
+- ⬜ Documentare endpoint, headers, payload, cookies in `src/lib/ade/README.md`
+- ⬜ Replicare una chiamata con curl/fetch
 
-## Fase 3 — Autenticazione e onboarding utente
+### 2B: Interface design + MockAdeClient
 
-- ⬜ Setup Supabase Auth (email/password + magic link)
-- ⬜ Schema DB: tabelle `users`, `businesses` (dati attività: P.IVA, ragione sociale, indirizzo)
-- ⬜ Route group `(auth)`: pagine login, register, reset-password, verify-email
-- ⬜ Middleware Next.js per proteggere route `/dashboard/*`
-- ⬜ Onboarding wizard (primo accesso dopo registrazione):
-  1. Dati attività (P.IVA, ragione sociale, regime fiscale, codice attività)
-  2. Collegamento credenziali Fisconline (cifratura at-rest)
-  3. Verifica connessione AdE (test con MockAdeClient in ambiente test)
-- ⬜ Pagina profilo/impostazioni utente
+- ⬜ Definire tipi in `src/lib/ade/types.ts`
+- ⬜ Definire interfaccia `AdeClient` in `src/lib/ade/client.ts`
+- ⬜ TDD: test → implementare `MockAdeClient`
+- ⬜ Factory function controllata da `ADE_MODE`
 
----
+### 2C: RealAdeClient proof of concept
 
-## Fase 4 — MVP core: emissione scontrini
+- ⬜ Implementare `RealAdeClient`
+- ⬜ Replicare flusso auth + emissione via HTTP
+- ⬜ Gestire cookies, CSRF, redirect
+- ⬜ **Decisione GO/NO-GO**
 
-Il cuore del prodotto: emettere uno scontrino elettronico da smartphone.
+### 📋 REVIEW CHECKPOINT 1
 
-- ⬜ Schema DB: tabelle `receipts`, `receipt_items`, `daily_closures`
-- ⬜ UI cassa mobile-first:
-  - Inserimento rapido importi (tastierino numerico)
-  - Selezione aliquota IVA (4%, 5%, 10%, 22%, esente)
-  - Selezione metodo pagamento (contanti, elettronico, misto)
-  - Riepilogo scontrino in tempo reale
-  - Pulsante "Emetti scontrino"
-- ⬜ Server action: emissione scontrino via `AdeClient`
-- ⬜ **Optimistic UI**: lo scontrino appare come "emesso" istantaneamente, la trasmissione
-  AdE avviene in background. Feedback visivo immediato, rollback se fallisce.
-- ⬜ Conferma emissione con numero documento e dettagli
-- ⬜ Storico scontrini (TanStack Table + TanStack Query):
-  - Lista scontrini del giorno
-  - Filtro per data
-  - Dettaglio singolo scontrino
-- ⬜ Annullamento scontrino (reso)
-- ⬜ Chiusura giornaliera automatica (o manuale)
-- ⬜ Dashboard base: totale giornaliero, conteggio scontrini
-- ⬜ Codice lotteria scontrini: input opzionale nel flusso emissione
+- [ ] AdE integration validata (o fallback scelto)
+- [ ] `AdeClient` interface definita e testata
+- [ ] Coverage modulo `ade/`: target 90%+
 
 ---
 
-## Fase 5 — Distribuzione scontrini e PWA
+## Fase 1B — Completare landing page ⬜
 
-- ⬜ Condivisione scontrino via:
-  - QR code (generato client-side)
-  - Email (template React Email via Resend)
-  - Link condivisibile (WhatsApp, SMS)
-- ⬜ Setup PWA:
-  - Web app manifest (icone, theme color, display standalone)
-  - Service worker (@serwist/next)
-  - Offline shell (UI base disponibile senza connessione)
-  - Install prompt personalizzato
-- ⬜ Ottimizzazione mobile: touch target, swipe gestures, viewport
+(Dopo la validazione AdE)
+
+- ⬜ Privacy Policy
+- ⬜ Sitemap + JSON-LD
+- ⬜ Email conferma waitlist (Resend)
+- ⬜ Umami analytics
+- ⬜ Deploy produzione `scontrinozero.it` (tag `v0.1.0`)
 
 ---
 
-## Fase 6 — Monitoring, stabilità, sicurezza
+## Fase 3A — Fondamenta sicurezza ⬜
 
-- ⬜ Integrare Sentry (`@sentry/nextjs`)
-- ⬜ Structured logging (`pino`)
-- ⬜ Rate limiting su API routes critiche
-- ⬜ Audit delle credenziali Fisconline: cifratura AES-256, rotazione chiavi
+**Prima di scrivere codice che tocca credenziali Fisconline.**
+
+- ⬜ Sentry (`@sentry/nextjs`)
+- ⬜ Logging strutturato (`pino`)
+- ⬜ Rate limiting (`src/lib/rate-limit.ts`)
+- ⬜ Modulo encryption AES-256-GCM (`src/lib/crypto.ts`)
+
+---
+
+## Fase 3B — Autenticazione e onboarding ⬜
+
+- ⬜ Supabase Auth (email/password + magic link)
+- ⬜ Route group `(auth)`: login, register, reset-password, verify-email
+- ⬜ Middleware Next.js per proteggere `/dashboard/*`
+- ⬜ Onboarding wizard: dati attività, credenziali Fisconline (cifrate), verifica AdE
+- ⬜ Profilo/impostazioni utente
+- ⬜ Migrazione DB: tabella `ade_credentials`
+
+### 📋 REVIEW CHECKPOINT 2
+
+- [ ] Auth flows funzionanti
+- [ ] Credenziali cifrate at-rest
+- [ ] Rate limiting + Sentry attivi
+- [ ] Coverage auth + crypto: target 85%+
+
+---
+
+## Fase 4 — MVP core: emissione scontrini ⬜
+
+- ⬜ Schema DB: `receipts`, `receipt_items`, `daily_closures`
+- ⬜ UI cassa mobile-first (tastierino, IVA, pagamento, riepilogo)
+- ⬜ Server actions + optimistic UI (TanStack Query)
+- ⬜ Storico scontrini (TanStack Table, filtri, dettaglio)
+- ⬜ Annullamento + reso
+- ⬜ Chiusura giornaliera (automatica/manuale)
+- ⬜ Dashboard base: totale giornaliero, conteggio
+- ⬜ Codice lotteria scontrini
+
+### 📋 REVIEW CHECKPOINT 3
+
+- [ ] Flusso completo: register → onboard → emetti → storico → annulla → chiudi
+- [ ] Optimistic UI istantanea, skeleton loading ovunque
+- [ ] Mobile UX su telefono reale
+- [ ] Coverage: target 70%+ su codice non-UI
+- [ ] Lighthouse: >90 landing, >80 dashboard
+
+---
+
+## Fase 5 — PWA e distribuzione ⬜
+
+- ⬜ Service worker (`@serwist/next`), manifest, install prompt
+- ⬜ Condivisione scontrino: QR code, email, link WhatsApp/SMS
+- ⬜ Ottimizzazione mobile: touch targets, viewport
+
+---
+
+## Fase 6 — Stabilità e documenti legali ⬜
+
 - ⬜ Informativa trattamento dati credenziali Fisconline
 - ⬜ Termini di Servizio + Condizioni di vendita
-- ⬜ Test E2E Playwright: flussi critici (registrazione → emissione → annullo)
+- ⬜ Suite E2E completa (flussi critici)
+- ⬜ Audit error handling + performance testing
+
+### 📋 REVIEW CHECKPOINT 4
+
+- [ ] Pagine legali pubblicate
+- [ ] E2E suite completa e verde
+- [ ] Zero issue SonarCloud
+- [ ] Performance accettabile
 
 ---
 
-## Fase 7 — Pagamenti e piani
+## Fase 7 — Stripe payments ⬜
 
-Beta gratuita → lancio con 3 piani a pagamento + free tier hosted.
-Obiettivo: **il più economico sul mercato** (hobby project, costi ~€0, nessun motivo
-per avere prezzi alti).
-
-- ⬜ Definire i 3 piani + free tier:
-  - **Free (hosted)**: 10 scontrini/mese, 1 device
-  - **Starter**: scontrini illimitati, 1 device (~€2-3/mese, ~€19-25/anno)
-  - **Pro**: multi-device, dashboard, export (~€4-5/mese, ~€39-49/anno)
-  - **Self-hosted**: gratis sempre, tutte le feature (O'Saasy License)
-- ⬜ Integrare Stripe Billing:
-  - Checkout session per sottoscrizione
-  - Webhook per gestione eventi (subscription created/updated/cancelled)
-  - Customer portal per gestione abbonamento
-  - Supporto pagamento mensile e annuale (sconto annuale)
-- ⬜ Stripe test mode nell'ambiente test
-- ⬜ Middleware per enforcement piano (feature gating)
-- ⬜ Pagina `/prezzi` funzionante con pulsanti di acquisto
-- ⬜ Email transazionali: conferma abbonamento, rinnovo, scadenza
+- ⬜ Pricing finale 3 piani + free tier
+- ⬜ Stripe Billing: checkout, webhook, customer portal
+- ⬜ Feature gating middleware
+- ⬜ Email transazionali (conferma, rinnovo, scadenza)
 
 ---
 
-## Fase 8 — Lancio e post-lancio
+## Fase 8 — Lancio ⬜
 
-- ⬜ Deploy produzione su `scontrinozero.it`
-- ⬜ Comunicazione alla waitlist (email di lancio)
-- ⬜ Richiedere recensioni ai primi utenti (Trustpilot, App Store style)
-- ⬜ Blog/contenuti SEO: guide "come emettere scontrini senza registratore"
-- ⬜ Monitoraggio metriche: churn, conversione, MRR
-- ⬜ Documentazione self-hosting: guida Docker Compose passo-passo nel README
+- ⬜ Deploy produzione finale
+- ⬜ Email lancio alla waitlist
+- ⬜ Richiedere recensioni
+- ⬜ Blog/guide SEO
+- ⬜ Documentazione self-hosting
 
 ---
 
 ## Backlog — Feature future (post-lancio)
 
-Funzionalità da valutare in base al feedback utenti e alle priorità di business.
-
-- ⬜ Gestione catalogo prodotti/servizi (categorie, prezzi preimpostati, preferiti)
-- ⬜ Import CSV/XLS prodotti (nessun competitor lo offre)
+- ⬜ Catalogo prodotti/servizi
+- ⬜ Import CSV/XLS prodotti
 - ⬜ Scanner barcode via fotocamera
-- ⬜ Stampa Bluetooth (stampanti termiche 58/80mm)
+- ⬜ Stampa Bluetooth (58/80mm)
 - ⬜ Integrazione POS: SumUp, Nexi, Satispay
-- ⬜ Fatturazione elettronica (integrazione SDI o servizio terzo)
-- ⬜ Dashboard avanzata: grafici vendite, trend, confronto periodi, export Excel/CSV
-- ⬜ Multi-operatore: ruoli (titolare, dipendente), log attività
+- ⬜ Fatturazione elettronica (SDI)
+- ⬜ Dashboard avanzata: grafici, trend, export
+- ⬜ Multi-operatore: ruoli, log attività
 - ⬜ Integrazione e-commerce (WooCommerce, Shopify)
-- ⬜ Pagina `/chi-siamo`
-- ⬜ Blog con guide MDX per SEO organico
-- ⬜ Notifiche push (PWA push notifications)
+- ⬜ Blog MDX per SEO organico
+- ⬜ Notifiche push (PWA)
 - ⬜ Modalità offline con coda di sincronizzazione
-- ⬜ API pubblica / webhook per integrazioni terze parti
-- ⬜ App Capacitor (se servono feature native: NFC, stampa nativa)
+- ⬜ API pubblica / webhook
+- ⬜ App Capacitor (feature native)
 
 ---
 
 ## Note
 
-- **Approccio TDD**: ogni task di implementazione inizia scrivendo i test
-- **Performance percepita**: ogni UI che aspetta una risposta server deve usare
-  optimistic updates, skeleton loading o spinner. Mai schermi bianchi.
-- **La Fase 2 (spike AdE) è bloccante**: se l'integrazione diretta fallisce, bisogna
-  ripianificare con API terze parti — meglio scoprirlo subito
-- **Landing page (Fase 1) e spike AdE (Fase 2) possono procedere in parallelo**
-- **Un solo sviluppatore**: le fasi sono sequenziali, con l'eccezione di Fase 1 + 2
-- **Open source**: il codice è pubblico con O'Saasy License — chiunque può self-hostare
-  gratis, il SaaS hosted è il modello di monetizzazione
+- **Approccio TDD**: ogni task inizia scrivendo i test
+- **Performance percepita priorità #1**: optimistic UI, skeleton loading, stale-while-revalidate
+- **Fase 2 bloccante**: se l'integrazione AdE diretta fallisce, fallback su API terze parti
+- **Sicurezza prima delle credenziali**: Fase 3A (Sentry, encryption, rate limiting) precede la Fase 3B (auth + credenziali)
+- **Review checkpoint** dopo ogni fase critica — vedi PLAN.md per dettagli
+- **Target test al lancio**: ~200+ test (unit + integration + E2E)
