@@ -13,7 +13,7 @@ Setup iniziale del progetto, tooling e infrastruttura.
 - ✅ Configurare ESLint + Prettier (+ prettier-plugin-tailwindcss)
 - ✅ Configurare husky + lint-staged (pre-commit hooks)
 - ✅ Setup Vitest + `@vitest/coverage-v8` + `vitest-sonar-reporter`
-- ⬜ Setup Playwright
+- ✅ Setup Playwright
 - ✅ Creare `sonar-project.properties`
 - ✅ Creare Dockerfile (standalone mode) + `.dockerignore`
 - ✅ Creare `docker-compose.yml` (next-app + cloudflared)
@@ -21,10 +21,10 @@ Setup iniziale del progetto, tooling e infrastruttura.
 - ✅ Setup GitHub Actions: workflow CI (lint → type-check → test → sonar → build)
 - ✅ Setup GitHub Actions: workflow Deploy (tag-based, test + prod)
 - ✅ Setup Dependabot (`npm` + `github-actions`)
-- ⬜ Creare progetto Supabase Cloud (prod + test)
-- ⬜ Configurare Drizzle ORM + prima migrazione (schema base)
+- ✅ Creare progetto Supabase Cloud (prod + test)
+- ✅ Configurare Drizzle ORM + prima migrazione (schema base)
 - ✅ Health check endpoint (`/api/health`)
-- ⬜ Primo deploy test su VPS (container vuoto, verifica tunnel Cloudflare)
+- ✅ Primo deploy test su VPS (container vuoto, verifica tunnel Cloudflare)
 
 ---
 
@@ -35,8 +35,8 @@ Sito vetrina per raccogliere email e iniziare a costruire un'audience prima del 
 - ✅ Design landing page mobile-first (hero, problema, soluzione, come funziona, pricing preview, CTA)
 - ✅ Implementare route group `(marketing)` con layout dedicato
 - ✅ Pagina `/` — hero + value proposition
-- ✅ Pagina `/prezzi` — tabella comparativa 3 piani + confronto competitor
-- ✅ Pagina `/funzionalita` — 12 feature con icone Lucide
+- ✅ Sezione `#prezzi` — 3 piani (Free, Starter, Pro)
+- ✅ Sezione `#funzionalita` — 6 benefit card (no jargon tecnico)
 - ✅ Componente waitlist: input email + submit (API + tabella `waitlist` su Supabase)
 - ✅ SEO: metadata, Open Graph, title template
 - ⬜ Email di conferma iscrizione (Resend)
