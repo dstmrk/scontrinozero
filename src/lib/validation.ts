@@ -9,7 +9,7 @@ export function isValidEmail(email: string): boolean {
 
   const atIndex = email.indexOf("@");
   if (atIndex < 1) return false;
-  if (email.indexOf("@", atIndex + 1) !== -1) return false;
+  if (email.includes("@", atIndex + 1)) return false;
 
   const domain = email.slice(atIndex + 1);
   if (domain.length === 0 || !domain.includes(".")) return false;
