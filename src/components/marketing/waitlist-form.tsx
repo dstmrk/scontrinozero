@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowRight, Check, Loader2 } from "lucide-react";
@@ -12,7 +12,7 @@ export function WaitlistForm() {
   >("idle");
   const [message, setMessage] = useState("");
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: { preventDefault: () => void }) {
     e.preventDefault();
     if (!email) return;
 
