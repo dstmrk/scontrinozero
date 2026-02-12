@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import { waitlist } from "@/db/schema";
 import { isValidEmail } from "@/lib/validation";
 
@@ -18,13 +18,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email non valida." }, { status: 400 });
     }
 
-    await db
+    await getDb()
       .insert(waitlist)
       .values({ email: email.toLowerCase().trim() })
       .onConflictDoNothing();
 
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return NextResponse.json(
+        { error: "Payload JSON non valido." },
+        { status: 400 },
+      );
+    }
+
     return NextResponse.json(
       { error: "Errore interno. Riprova più tardi." },
       { status: 500 },
