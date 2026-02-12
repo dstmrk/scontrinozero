@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import { waitlist } from "@/db/schema";
 import { isValidEmail } from "@/lib/validation";
 
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email non valida." }, { status: 400 });
     }
 
-    await db
+    await getDb()
       .insert(waitlist)
       .values({ email: email.toLowerCase().trim() })
       .onConflictDoNothing();
