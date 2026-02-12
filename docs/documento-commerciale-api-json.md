@@ -17,6 +17,7 @@ Questo documento aggiorna la proposta API JSON usando i tracciati reali presenti
 - `docs/DC.cs`: modello payload JSON, enum/codifiche e serializzazione decimali.
 - `docs/Send.cs`: sequenza di autenticazione/sessione e invio POST all'endpoint documenti.
 - `docs/Esiti.cs`: shape della risposta AdE mappata lato client.
+- `docs/scontrinorapidoapiswagger.json`: OpenAPI 3.0.1 di un'API wrapper esterna (`Scontrino Rapido API`) utile come benchmark per endpoint e shape minime di integrazione.
 
 Endpoint finale di invio confermato:
 
@@ -441,3 +442,55 @@ Tabella `commercial_document_lines`:
 Il metodo C# `SendDC` accetta `List<DC.RootObject>` e invia i documenti uno per volta nello stesso contesto di sessione, restituendo `List<Esiti.Esito>`.
 
 Per ScontrinoZero è consigliato mantenere endpoint pubblici single-document (più semplici e idempotenti) ma prevedere internamente una pipeline batch-safe, in modo da poter riusare connessioni/sessione verso AdE.
+
+---
+
+## 11) Dettagli utili emersi dallo Swagger esterno (`scontrinorapidoapiswagger.json`)
+
+Lo swagger analizzato espone 4 endpoint:
+
+- `GET /api/DC/GetJsonDC` (download JSON per `idtrx`);
+- `GET /api/DC/GetPdfDC` (download PDF per `idtrx`);
+- `POST /api/DC/SendDCs` (invio array di documenti);
+- `POST /api/DC/SendAnnullo` (annullo per `idtrx` + `ProgressivoTrasmissione`).
+
+Indicazioni pratiche da recepire nella nostra specifica:
+
+1. **Esporre endpoint di recupero JSON e PDF oltre all'invio**
+   - Ad oggi la proposta copre invio (`sales`/`voids`) e rubrica.
+   - Dallo swagger emerge valore operativo in endpoint di retrieval post-invio (JSON tecnico e PDF fiscale).
+   - Proposta ScontrinoZero:
+     - `GET /api/v1/commercial-documents/{transactionId}` (dettaglio normalizzato + raw opzionale)
+     - `GET /api/v1/commercial-documents/{transactionId}/pdf` (stream PDF)
+
+2. **Supportare batch in modo esplicito ma opzionale**
+   - `SendDCs` accetta direttamente un array di `RootObject`.
+   - Coerentemente con il nostro punto 10, manteniamo endpoint pubblici single-document come default, ma è utile prevedere una variante batch:
+     - `POST /api/v1/commercial-documents/sales:batch`.
+   - Vincoli suggeriti: limite massimo elementi, risposta per-item (`accepted`/`rejected`), idempotenza per singolo elemento.
+
+3. **Separare bene autenticazione pubblica da credenziali AdE operative**
+   - Nello swagger esterno compaiono parametri query (`usr`, `pwd`, `pin`, `tipoincarico`, `sceltapiva`) e header `token`/`piva`.
+   - Per evitare coupling e leakage di segreti, nella nostra API questi dati **non devono** transitare per richiesta client: devono vivere nel provider AdE/tenant configuration lato server.
+
+4. **Confermare shape di risposta tecnica compatibile con i tracciati C#**
+   - Anche lo swagger usa una risposta con campi `esito`, `idtrx`, `progressivo`, `errori[]`, in linea con `docs/Esiti.cs`.
+   - Questo rafforza la scelta del nostro `Error model unico` (sez. 7) con mapping stabile da risposta AdE raw a risposta pubblica normalizzata.
+
+5. **Disallineamento numeri vs stringhe: fissare regola interna unica**
+   - Nello swagger molti importi sono tipizzati come `number`.
+   - Nei tracciati HAR/C# operativi gli importi vengono serializzati spesso come stringhe decimali a 2 cifre.
+   - Per robustezza conviene mantenere la nostra regola adapter: input pubblico `number`, output AdE normalizzato con `toAdeAmount`.
+
+### 11.1 Aggiornamento consigliato degli endpoint pubblici (v2 proposta)
+
+Oltre a quanto già definito in sezione 3:
+
+- `GET /api/v1/commercial-documents/{transactionId}`
+  - recupera stato, progressivo, esito, errori e payload tecnico normalizzato;
+- `GET /api/v1/commercial-documents/{transactionId}/pdf`
+  - recupera il PDF fiscale generato da AdE;
+- `POST /api/v1/commercial-documents/sales:batch` (opzionale)
+  - invio multiplo controllato con risultato per elemento.
+
+Questi endpoint coprono gli stessi casi d'uso osservati nello swagger esterno, mantenendo però un contratto più pulito e orientato al dominio ScontrinoZero.
