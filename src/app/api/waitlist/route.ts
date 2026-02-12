@@ -24,7 +24,14 @@ export async function POST(request: NextRequest) {
       .onConflictDoNothing();
 
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return NextResponse.json(
+        { error: "Payload JSON non valido." },
+        { status: 400 },
+      );
+    }
+
     return NextResponse.json(
       { error: "Errore interno. Riprova più tardi." },
       { status: 500 },

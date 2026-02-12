@@ -86,6 +86,21 @@ describe("POST /api/waitlist", () => {
     expect(json).toEqual({ ok: true });
   });
 
+  it("returns 400 when JSON payload is malformed", async () => {
+    const request = new NextRequest("http://localhost/api/waitlist", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: '{"email":',
+    });
+
+    const res = await POST(request);
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe("Payload JSON non valido.");
+    expect(insert).not.toHaveBeenCalled();
+  });
+
   it("returns 500 when the database throws", async () => {
     onConflictDoNothing.mockRejectedValueOnce(new Error("connection lost"));
 
