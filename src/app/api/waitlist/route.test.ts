@@ -6,7 +6,7 @@ const values = vi.fn().mockReturnValue({ onConflictDoNothing });
 const insert = vi.fn().mockReturnValue({ values });
 
 vi.mock("@/db", () => ({
-  db: { insert: (...args: unknown[]) => insert(...args) },
+  getDb: () => ({ insert: (...args: unknown[]) => insert(...args) }),
 }));
 
 vi.mock("@/db/schema", () => ({

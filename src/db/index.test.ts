@@ -14,10 +14,18 @@ describe("db initialization", () => {
     }
   });
 
-  it("throws when DATABASE_URL is missing", async () => {
+  it("does not throw on import when DATABASE_URL is missing", async () => {
     delete process.env.DATABASE_URL;
 
-    await expect(import("./index")).rejects.toThrow(
+    await expect(import("./index")).resolves.toBeDefined();
+  });
+
+  it("throws when getDb is called and DATABASE_URL is missing", async () => {
+    delete process.env.DATABASE_URL;
+
+    const dbModule = await import("./index");
+
+    expect(() => dbModule.getDb()).toThrow(
       "DATABASE_URL environment variable is required.",
     );
   });
@@ -38,6 +46,7 @@ describe("db initialization", () => {
 
     const dbModule = await import("./index");
 
+    expect(dbModule.getDb()).toBe(drizzleDb);
     expect(postgres).toHaveBeenCalledWith(process.env.DATABASE_URL, {
       prepare: false,
     });
@@ -45,6 +54,27 @@ describe("db initialization", () => {
       client: postgresClient,
       schema,
     });
-    expect(dbModule.db).toBe(drizzleDb);
+  });
+
+  it("returns cached db instance on subsequent getDb calls", async () => {
+    process.env.DATABASE_URL = "postgres://user:pass@localhost:5432/app";
+
+    const postgresClient = Symbol("postgres-client");
+    const drizzleDb = Symbol("drizzle-db");
+
+    const postgres = vi.fn().mockReturnValue(postgresClient);
+    const drizzle = vi.fn().mockReturnValue(drizzleDb);
+
+    vi.doMock("postgres", () => ({ default: postgres }));
+    vi.doMock("drizzle-orm/postgres-js", () => ({ drizzle }));
+
+    const dbModule = await import("./index");
+
+    const first = dbModule.getDb();
+    const second = dbModule.getDb();
+
+    expect(first).toBe(second);
+    expect(postgres).toHaveBeenCalledTimes(1);
+    expect(drizzle).toHaveBeenCalledTimes(1);
   });
 });
