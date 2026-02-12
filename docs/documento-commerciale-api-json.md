@@ -1,6 +1,6 @@
 # Definizione API JSON per Documento Commerciale (caso ScontrinoZero)
 
-Questo documento aggiorna la proposta API JSON usando i tracciati reali presenti in `docs/` (inclusi i nuovi casi di ricerca documento, vendita con lotteria e annullo) e i file C# di supporto (`docs/DC.cs`, `docs/Send.cs`, `docs/Esiti.cs`) come riferimento operativo del flusso verso AdE.
+Questo documento aggiorna la proposta API JSON usando i tracciati reali presenti in `docs/` (inclusi i nuovi casi di ricerca documento, vendita con lotteria, annullo e rubrica prodotti), il mapping HTML delle aliquote IVA e i file C# di supporto (`docs/DC.cs`, `docs/Send.cs`, `docs/Esiti.cs`) come riferimento operativo del flusso verso AdE.
 
 ## Fonti analizzate
 
@@ -9,6 +9,11 @@ Questo documento aggiorna la proposta API JSON usando i tracciati reali presenti
 - `docs/vendita_nuova_lotteria.har`: nuova vendita con `cfCessionarioCommittente` valorizzato (lotteria/codice cliente) e imponibile+IVA ordinaria 22.
 - `docs/annullo_nuovo.har`: nuovo annullo collegato alla vendita precedente, con `idtrx` originale e `idElementoContabile` valorizzato.
 - `docs/ricerca.har`: chiamate di ricerca/lista/dettaglio su endpoint documenti (`tipoOperazione=V|A|R`).
+- `docs/rubrica_prodotti.har`: creazione massiva di prodotti in rubrica (`POST /rubrica/prodotti`) e verifica lista aggiornata.
+- `docs/modifica_cancellazione.har`: modifica (`PUT`) e cancellazione (`DELETE /rubrica/prodotti/{id}`) prodotto rubrica.
+- `docs/aliquote_iva.md`: HTML reale della select aliquote/nature con pattern di validazione e label descrittive.
+- `docs/examplejson.md`: esempio payload esterno utile per evidenziare varianti reali sui dati fiscali (es. `codiceFiscale` numerico da 11 cifre e `cfCessionarioCommittente` non a 16 caratteri).
+- `docs/151247931_vendita.pdf`, `docs/151248248_annullamento.pdf`: esempi output PDF di documento commerciale (vendita/annullo) da conservare come riferimento per controlli post-invio.
 - `docs/DC.cs`: modello payload JSON, enum/codifiche e serializzazione decimali.
 - `docs/Send.cs`: sequenza di autenticazione/sessione e invio POST all'endpoint documenti.
 - `docs/Esiti.cs`: shape della risposta AdE mappata lato client.
@@ -23,6 +28,13 @@ Endpoint osservati lato ricerca/consultazione (nuovo `docs/ricerca.har`):
 - `GET /ser/api/documenti/v1/doc/documenti/?...` (lista/paginazione/filtri)
 - `GET /ser/api/documenti/v1/doc/documenti/{idtrx}/` (dettaglio documento)
 - filtri rilevati: `tipoOperazione=V|A|R`, `numeroProgressivo`, range date (`dataDal`, `dataInvioAl`).
+
+Endpoint osservati lato rubrica prodotti (nuovi `docs/rubrica_prodotti.har` + `docs/modifica_cancellazione.har`):
+
+- `GET /ser/api/documenti/v1/doc/rubrica/prodotti` (lista prodotti)
+- `POST /ser/api/documenti/v1/doc/rubrica/prodotti` (creazione, supporta array di prodotti)
+- `PUT /ser/api/documenti/v1/doc/rubrica/prodotti` (modifica singolo prodotto)
+- `DELETE /ser/api/documenti/v1/doc/rubrica/prodotti/{id}` (cancellazione prodotto)
 
 Inoltre dai payload/modelli risulta:
 
@@ -184,6 +196,22 @@ Nota: il client C# esegue anche una pipeline di autenticazione/sessione (`portal
 }
 ```
 
+## 3.3 Rubrica prodotti (nuovo)
+
+### Endpoint
+
+- `GET /api/v1/product-catalog`
+- `POST /api/v1/product-catalog`
+- `PUT /api/v1/product-catalog/{productId}`
+- `DELETE /api/v1/product-catalog/{productId}`
+
+### Note dal tracciato HAR
+
+- La creazione su AdE accetta anche un array di prodotti nello stesso payload (`POST` con body `[{...},{...}]`).
+- In fase di creazione i prodotti usano `id: 0`; dopo il salvataggio AdE assegna `id` numerico (es. `438166`, `438167`).
+- In risposta lista (`GET`) `prezzoLordo`/`prezzoUnitario` tornano con scala ridotta (`"123.45"` vs `"123.45000000"` in input).
+- `DELETE` è effettuato sull'id risorsa (`/rubrica/prodotti/{id}`) senza body.
+
 ---
 
 ## 4) Mapping Public API -> AdE JSON
@@ -219,7 +247,7 @@ Solo annullo:
 ## 4.3 Documento vendita
 
 - `document.date` -> `documentoCommerciale.dataOra` in formato `dd/MM/yyyy`.
-- `document.customerTaxCode` -> `cfCessionarioCommittente` (se supportato dal tracciato corrente).
+- `document.customerTaxCode` -> `cfCessionarioCommittente` (se supportato dal tracciato corrente; dai sample può comparire anche con lunghezza diversa da 16).
 - `document.isGiftDocument` -> `flagDocCommPerRegalo`.
 - `document.lines[]` -> `elementiContabili[]`.
 - `document.payments[]` -> `vendita[]`.
@@ -274,29 +302,43 @@ Dai converter C#:
 
 ---
 
-## 5) Codifiche IVA/Natura: evidenze da HAR + C#
+## 5) Codifiche IVA/Natura: evidenze da HAR + C# + HTML menu
 
 Evidenze concrete nei tracciati HAR aggiornati:
 
 - in `docs/vendita_nuova_lotteria.har` e `docs/annullo_nuovo.har` le righe usano `aliquotaIVA: "22"` (IVA ordinaria) e `defAliquotaIVA: "N4"` nei dati fiscali esercente;
 - in `docs/ricerca.har` (dettaglio di un documento precedente) compare `aliquotaIVA: "N2"` sulla riga prodotto;
-- nei payload analizzati non compaiono esempi operativi con `N1`, `N3`, `N5`, `N6`, `N7` come aliquota riga.
+- in `docs/rubrica_prodotti.har` compaiono creazioni con `aliquotaIVA: "10"` e `aliquotaIVA: "N2"`;
+- in `docs/modifica_cancellazione.har` l'update mantiene `aliquotaIVA: "10"`.
+
+Evidenze da HTML reale select (`docs/aliquote_iva.md`):
+
+- pattern validazione front-end: `^(N1|N2|N3|N4|N5|N6|4|5|10|22|2|6\.4|7|7\.3|7\.5|7\.65|7\.95|8\.3|8\.5|8\.8|9\.5|12\.3)$`;
+- nature con label:
+  - `N1`: Escluse ex art. 15
+  - `N2`: Non soggette
+  - `N3`: Non imponibili
+  - `N4`: Esenti
+  - `N5`: Regime del margine
+  - `N6`: Altro non IVA
+- aliquote ordinarie/rese disponibili in select: `4`, `5`, `10`, `22`;
+- percentuali compensazione agricoltura presenti in select: `2`, `6.4`, `7`, `7.3`, `7.5`, `7.65`, `7.95`, `8.3`, `8.5`, `8.8`, `9.5`, `12.3`.
 
 Evidenze da modello C# (`docs/DC.cs`):
 
 - enum/whitelist previsti: IVA ordinaria `4`, `5`, `10`, `22` e natura `N1`..`N7`.
 
-Conclusione operativa sul mapping N1..N7:
+Conclusione operativa sul mapping IVA:
 
-- dai **nuovi HAR** non emerge la semantica descrittiva completa di ciascun codice (`N1`..`N7`), ma solo l'uso reale di `N2` (riga documento) e `N4` (default aliquota);
-- per il mapping fiscale definitivo conviene mantenere la whitelist tecnica (`N1`..`N7`) e completare la tabella descrittiva con casi di emissione mirati per ogni natura (come anticipato).
+- per il mapping tecnico API/adapter conviene allineare la validazione alle opzioni effettive della UI AdE (`N1..N6`, `4`, `5`, `10`, `22` + percentuali agricoltura), mantenendo retrocompatibilità in lettura per eventuali codici storici;
+- `N7` resta possibile dal modello C# ma **non è presente** nel menu HTML acquisito: trattarlo come caso da verificare prima di abilitarlo in input lato API pubblica.
 
 ---
 
 ## 6) Validazioni consigliate (nostre API)
 
 - `issuer.vatNumber`: 11 cifre.
-- `issuer.taxCode`: 16 caratteri (con gestione casi speciali).
+- `issuer.taxCode`: accettare sia 16 caratteri alfanumerici (CF persona fisica) sia 11 cifre numeriche (casi presenti negli esempi esterni).
 - `document.lines` obbligatorio e non vuoto per vendita.
 - `document.payments` obbligatorio per vendita e vietato per annullo.
 - Somma pagamenti = totale documento (tolleranza 0.01).
@@ -305,6 +347,7 @@ Conclusione operativa sul mapping N1..N7:
 - `originalDocument.lineReferences[].adeLineId` obbligatorio se si annulla a livello riga.
 - Data input in ISO (`yyyy-MM-dd`), conversione a `dd/MM/yyyy` solo nell'adapter AdE.
 - Importi normalizzati prima dell'invio AdE in formato stringa a due decimali.
+- Per endpoint rubrica prodotti: validare `descrizioneProdotto`, `prezzoLordo`, `prezzoUnitario`, `aliquotaIVA`; in creazione supportare array non vuoto.
 
 ---
 
