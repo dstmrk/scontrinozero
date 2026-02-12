@@ -159,6 +159,42 @@ Conclusione pratica: **siamo vicini a un flow completo, ma manca ancora qualche 
 
 Con queste integrazioni, l'implementazione ScontrinoZero può emulare in modo affidabile il comportamento del portale AdE mantenendo una sessione applicativa viva e riutilizzabile.
 
+### 2.3 Definizione operativa di `SESSION_READY`: cosa manca (checklist)
+
+Per passare da "analisi plausibile" a "automazione affidabile" manca fissare in modo ripetibile i seguenti elementi:
+
+1. **Request di bootstrap obbligatorie e relativo ordine**
+   - elenco minimo delle chiamate necessarie post-login (es. `dp/api`, portlet `DatiOpzioni`, eventuale endpoint scelta utenza) con criterio di successo/fallimento per ciascuna;
+   - prova che ordini alternativi non funzionano (o funzionano) per evitare dipendenze implicite dal browser.
+
+2. **Contratto completo di `SESSION_READY`**
+   - quale endpoint usare come "ready probe" ufficiale (es. `/ser/api/documenti/...` in lettura o endpoint stato utente);
+   - stato atteso (`200`) + shape minima risposta valida;
+   - stati di errore da considerare non-ready (`401`, `302` verso login, `403`, errori applicativi nel body).
+
+3. **Parametri dinamici da estrarre dalla pagina/portale**
+   - conferma di eventuali token runtime (Liferay auth token, parametri hidden, nonce) necessari per le chiamate AJAX di bootstrap;
+   - regole di refresh/invalidazione di tali parametri durante la vita della sessione.
+
+4. **Gestione profili multipli (incaricato/intermediario)**
+   - sequenza deterministica per selezionare la P.IVA operativa quando l'utente ha più deleghe/profili;
+   - evidenza HAR di almeno 2 casistiche: utente con singolo profilo e utente con profili multipli.
+
+5. **Timeout sessione e politica di rinnovo**
+   - tempo medio di inattività prima della scadenza e segnali di pre-scadenza;
+   - strategia di rinnovo: eager refresh, retry singolo con re-bootstrap, soglia max retry;
+   - comportamento durante batch lunghi (es. vendita + annullo + retrieval PDF).
+
+6. **Matrice endpoint vs prerequisiti di sessione**
+   - per ogni endpoint target (`documenti`, `rubrica`, `ricerca`, `pdf/json`) indicare se richiede solo cookie sessione o anche stato/contesto portale già inizializzato;
+   - individuare eventuali endpoint "canarino" più stabili per health-check.
+
+7. **Requisiti di sicurezza/observability senza leakage**
+   - definire quali header/cookie non devono mai andare in log;
+   - introdurre correlation-id e audit eventi di sessione (`LOGIN_OK`, `READY_OK`, `READY_FAIL`, `REAUTH_OK`, `LOGOUT_OK`) per diagnosi operativa.
+
+Con questa checklist completata su tracciati reali, la state machine del provider può essere implementata in modo deterministico e testabile.
+
 ---
 
 ## 3) Public API proposta
