@@ -13,6 +13,7 @@ Questo documento aggiorna la proposta API JSON usando i tracciati reali presenti
 - `docs/modifica_cancellazione.har`: modifica (`PUT`) e cancellazione (`DELETE /rubrica/prodotti/{id}`) prodotto rubrica.
 - `docs/login_cie_redacted.har`: login reale con CIE + bootstrap sessione su portale AdE.
 - `docs/logout_redacted.har`: sequenza di logout con chiusura sessione portale/servizi correlati.
+- `docs/full_flow.har`: flusso end-to-end unico (accesso home corrispettivi da non autenticato, login CIE, emissione vendita, ricerca documento, annullo, logout).
 - `docs/aliquote_iva.md`: HTML reale della select aliquote/nature con pattern di validazione e label descrittive.
 - `docs/examplejson.md`: esempio payload esterno utile per evidenziare varianti reali sui dati fiscali (es. `codiceFiscale` numerico da 11 cifre e `cfCessionarioCommittente` non a 16 caratteri).
 - `docs/151247931_vendita.pdf`, `docs/151248248_annullamento.pdf`: esempi output PDF di documento commerciale (vendita/annullo) da conservare come riferimento per controlli post-invio.
@@ -122,19 +123,40 @@ Dai file `login_cie_redacted.har` e `logout_redacted.har` emergono pattern utili
    - su `401` durante invio: un retry singolo con re-bootstrap completo e nuovo tentativo idempotente;
    - non serializzare mai cookie/token nei log applicativi.
 
-### 2.2 Stato copertura end-to-end (login -> vendita -> annullo -> logout)
+### 2.2 Stato copertura end-to-end (login -> vendita -> ricerca -> annullo -> logout)
 
 Valutazione sintetica rispetto all'obiettivo ScontrinoZero (mantenere sessione attiva ed emulare il comportamento portale):
 
+- **Accesso da non autenticato a home corrispettivi**: coperto in `full_flow.har` (redirect verso pipeline di autenticazione).
 - **Login CIE**: coperto a livello di sequenza HTTP/redirect ad alto livello (SAML + ritorno a `/portale/`).
-- **Bootstrap sessione portale**: **parzialmente coperto**; dai HAR si vede il pattern `401` iniziale e successivo `200` dopo chiamata portlet `DatiOpzioni`, ma non abbiamo ancora una specifica completa/minimale dei parametri necessari in tutti i casi utente/utenza.
+- **Bootstrap sessione portale**: coperto in modo più solido con pattern osservabile nello stesso flusso (`401` iniziale su endpoint documenti e successivo `200` dopo bootstrap/`DatiOpzioni`).
 - **Creazione documento commerciale**: coperta lato payload business (`/ser/api/documenti/v1/doc/documenti/`) grazie ai tracciati vendita + modelli C#.
+- **Ricerca documento commerciale**: coperta (`GET /ser/api/documenti/v1/doc/documenti` con filtri, incluso `tipoOperazione=V` e `numeroProgressivo`).
 - **Annullamento documento commerciale**: coperto lato payload (`idtrx` root + `resoAnnullo` + riferimenti riga).
 - **Logout**: coperto a livello sequenza (`cons/*/logout` + `portal/logout` + `dp/logout`).
 
-Conclusione pratica: **siamo vicini a un flow completo, ma manca ancora qualche informazione operativa sulla sessione applicativa** per renderlo robusto in automazione server-to-server.
+Conclusione pratica: **con `full_flow.har` abbiamo copertura E2E completa dell'happy-path (single-utenza)** e possiamo usarlo come baseline operativa per proseguire gli sviluppi, mantenendo separati i temi di hardening per scenari avanzati.
 
-#### Gap informativi da chiudere prima della messa in produzione
+#### Conferme richieste sul tracciato `full_flow.har` (per chiudere i dubbi operativi)
+
+Per evitare ambiguità implementative, conviene validare esplicitamente questi punti sul tracciato appena acquisito:
+
+1. **Selezione utenza**
+   - nel flusso registrato era presente una sola utenza operativa o una scelta esplicita profilo/P.IVA?
+
+2. **Ricerca documento**
+   - la ricerca è stata eseguita solo per `tipoOperazione=V` o anche su `A`/`R` nello stesso contesto sessione?
+
+3. **Annullamento**
+   - l'annullo è sempre relativo al documento appena emesso nella stessa sessione (nessun cambio contesto utente)?
+
+4. **Retrieval post-invio**
+   - oltre a `/stampa/`, è stato verificato anche un endpoint JSON dedicato (se previsto nel perimetro funzionale)?
+
+5. **Logout**
+   - la sequenza ha incluso tutti i passaggi (`cons/*/logout`, `portal/logout`, `dp/logout`) senza richieste residue `401/302` dopo uscita?
+
+#### Gap informativi residui (hardening produzione)
 
 1. **Handshake minimo per sessione READY**
    - Servono evidenze ripetute su quali chiamate sono _strettamente necessarie_ dopo il login CIE (es. `/dp/api`, `DatiOpzioni`, eventuale scelta utenza/P.IVA incaricato) per ottenere accesso stabile a `/ser/api/documenti/...`.
@@ -148,14 +170,14 @@ Conclusione pratica: **siamo vicini a un flow completo, ma manca ancora qualche 
 4. **CSRF/header applicativi richiesti**
    - Nei HAR redatti alcuni dettagli sono oscurati: serve confermare se endpoint specifici richiedono token/header anti-CSRF oltre ai cookie di sessione in scenari reali.
 
-5. **Download PDF/JSON post-invio nel medesimo contesto sessione**
-   - Utile verificare con tracce dedicate se il recupero PDF/JSON documento richiede ulteriori step di bootstrap o riuso puro della sessione già pronta.
+5. **Conferma copertura retrieval completo (PDF/JSON) in tutte le varianti**
+   - In `full_flow.har` è presente il download stampa (`/stampa/`); resta utile validare anche eventuali endpoint/varianti JSON dedicate se entreranno nel perimetro applicativo.
 
-#### Piano minimo consigliato (per validare il flow completo)
+#### Piano minimo consigliato (passo successivo)
 
-- Registrare un HAR end-to-end unico: **login CIE -> scelta utenza (se presente) -> invio vendita -> annullo della stessa -> download PDF/JSON -> logout**.
-- Marcare nel HAR i checkpoint: `SESSION_READY`, `SALE_SENT`, `VOID_SENT`, `LOGOUT_DONE`.
-- Derivare da quel tracciato una macchina a stati provider definitiva (`READY`/`EXPIRED`/`REAUTH_REQUIRED`) con criteri di transizione testabili.
+- Assumere `full_flow.har` come traccia baseline con checkpoint: `SESSION_READY`, `SALE_SENT`, `SEARCH_OK`, `VOID_SENT`, `LOGOUT_DONE`.
+- Derivare da questa traccia una macchina a stati provider definitiva (`READY`/`EXPIRED`/`REAUTH_REQUIRED`) con criteri di transizione testabili.
+- Aggiungere (quando disponibili) HAR complementari su casistiche multi-profilo/utenze delegate per consolidare il contratto `SESSION_READY`.
 
 Con queste integrazioni, l'implementazione ScontrinoZero può emulare in modo affidabile il comportamento del portale AdE mantenendo una sessione applicativa viva e riutilizzabile.
 
