@@ -1,19 +1,28 @@
 # Definizione API JSON per Documento Commerciale (caso ScontrinoZero)
 
-Questo documento aggiorna la proposta API JSON usando sia i tracciati reali (`vendita.har`, `annullo.har`) sia i file C# aggiunti nel repository (`DC.cs`, `Send.cs`, `Esiti.cs`) come riferimento operativo del flusso verso AdE.
+Questo documento aggiorna la proposta API JSON usando i tracciati reali presenti in `docs/` (inclusi i nuovi casi di ricerca documento, vendita con lotteria e annullo) e i file C# di supporto (`docs/DC.cs`, `docs/Send.cs`, `docs/Esiti.cs`) come riferimento operativo del flusso verso AdE.
 
 ## Fonti analizzate
 
-- `vendita.har`: invio documento commerciale di vendita.
-- `annullo.har`: invio documento di annullo.
-- `DC.cs`: modello payload JSON, enum/codifiche e serializzazione decimali.
-- `Send.cs`: sequenza di autenticazione/sessione e invio POST all'endpoint documenti.
-- `Esiti.cs`: shape della risposta AdE mappata lato client.
+- `docs/vendita.har`: invio documento commerciale di vendita (caso precedente).
+- `docs/annullo.har`: invio documento di annullo (caso precedente).
+- `docs/vendita_nuova_lotteria.har`: nuova vendita con `cfCessionarioCommittente` valorizzato (lotteria/codice cliente) e imponibile+IVA ordinaria 22.
+- `docs/annullo_nuovo.har`: nuovo annullo collegato alla vendita precedente, con `idtrx` originale e `idElementoContabile` valorizzato.
+- `docs/ricerca.har`: chiamate di ricerca/lista/dettaglio su endpoint documenti (`tipoOperazione=V|A|R`).
+- `docs/DC.cs`: modello payload JSON, enum/codifiche e serializzazione decimali.
+- `docs/Send.cs`: sequenza di autenticazione/sessione e invio POST all'endpoint documenti.
+- `docs/Esiti.cs`: shape della risposta AdE mappata lato client.
 
 Endpoint finale di invio confermato:
 
 - `POST https://ivaservizi.agenziaentrate.gov.it/ser/api/documenti/v1/doc/documenti/` (nel codice viene aggiunto `?v=<unix_ms>`)
 - `Content-Type: application/json`
+
+Endpoint osservati lato ricerca/consultazione (nuovo `docs/ricerca.har`):
+
+- `GET /ser/api/documenti/v1/doc/documenti/?...` (lista/paginazione/filtri)
+- `GET /ser/api/documenti/v1/doc/documenti/{idtrx}/` (dettaglio documento)
+- filtri rilevati: `tipoOperazione=V|A|R`, `numeroProgressivo`, range date (`dataDal`, `dataInvioAl`).
 
 Inoltre dai payload/modelli risulta:
 
@@ -265,14 +274,22 @@ Dai converter C#:
 
 ---
 
-## 5) Codifiche IVA/Natura osservate nei file C#
+## 5) Codifiche IVA/Natura: evidenze da HAR + C#
 
-Nel modello `NaturaIVA` sono presenti i codici:
+Evidenze concrete nei tracciati HAR aggiornati:
 
-- IVA ordinaria: `4`, `5`, `10`, `22`
-- Natura: `N1`, `N2`, `N3`, `N4`, `N5`, `N6`, `N7`
+- in `docs/vendita_nuova_lotteria.har` e `docs/annullo_nuovo.har` le righe usano `aliquotaIVA: "22"` (IVA ordinaria) e `defAliquotaIVA: "N4"` nei dati fiscali esercente;
+- in `docs/ricerca.har` (dettaglio di un documento precedente) compare `aliquotaIVA: "N2"` sulla riga prodotto;
+- nei payload analizzati non compaiono esempi operativi con `N1`, `N3`, `N5`, `N6`, `N7` come aliquota riga.
 
-Suggerimento: validare `vatCode` contro questa whitelist nel layer pubblico o adapter (in base al livello di rigidità desiderato).
+Evidenze da modello C# (`docs/DC.cs`):
+
+- enum/whitelist previsti: IVA ordinaria `4`, `5`, `10`, `22` e natura `N1`..`N7`.
+
+Conclusione operativa sul mapping N1..N7:
+
+- dai **nuovi HAR** non emerge la semantica descrittiva completa di ciascun codice (`N1`..`N7`), ma solo l'uso reale di `N2` (riga documento) e `N4` (default aliquota);
+- per il mapping fiscale definitivo conviene mantenere la whitelist tecnica (`N1`..`N7`) e completare la tabella descrittiva con casi di emissione mirati per ogni natura (come anticipato).
 
 ---
 
@@ -293,7 +310,7 @@ Suggerimento: validare `vatCode` contro questa whitelist nel layer pubblico o ad
 
 ## 7) Error model unico lato ScontrinoZero
 
-Shape AdE confermato da `Esiti.cs`:
+Shape AdE confermato da `docs/Esiti.cs`:
 
 ```json
 {
