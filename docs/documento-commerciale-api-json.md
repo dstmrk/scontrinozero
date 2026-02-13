@@ -12,6 +12,8 @@ Questo documento aggiorna la proposta API JSON usando i tracciati reali presenti
 - `docs/rubrica_prodotti.har`: creazione massiva di prodotti in rubrica (`POST /rubrica/prodotti`) e verifica lista aggiornata.
 - `docs/modifica_cancellazione.har`: modifica (`PUT`) e cancellazione (`DELETE /rubrica/prodotti/{id}`) prodotto rubrica.
 - `docs/login_cie_redacted.har`: login reale con CIE + bootstrap sessione su portale AdE.
+- `docs/login_fol.har`: login reale con credenziali Fisconline (CF + password + PIN) e bootstrap sessione su portale AdE.
+- `docs/auth_failed.har`: login Fisconline fallito (credenziali/PIN errati) con ritorno alla portlet login e messaggio UI di errore.
 - `docs/logout_redacted.har`: sequenza di logout con chiusura sessione portale/servizi correlati.
 - `docs/full_flow.har`: flusso end-to-end unico (accesso home corrispettivi da non autenticato, login CIE, emissione vendita, ricerca documento, annullo, logout).
 - `docs/aliquote_iva.md`: HTML reale della select aliquote/nature con pattern di validazione e label descrittive.
@@ -92,7 +94,38 @@ Mantenere due livelli:
 
 Nota: il client C# esegue anche una pipeline di autenticazione/sessione (`portale` + scelta utenza + verifica adesione) prima dell'invio JSON. Per noi conviene astrarla nel provider AdE, separata dal mapping business.
 
-### 2.1 Gestione sessione osservata nei tracciati CIE (nuovo)
+### 2.1A Gestione sessione osservata nei tracciati Fisconline (prioritario)
+
+Dai file `login_fol.har` e `auth_failed.har` emerge un comportamento molto utile per il provider AdE, perché mostra sia l'happy-path sia il caso di autenticazione fallita con la stessa modalità di accesso (credenziali Fisconline).
+
+1. **Login Fisconline: shape form e redirect di successo**
+   - submit `POST /portale/home?...&_58_struts_action=%2Flogin%2Flogin` con form-urlencoded;
+   - campi osservati nel payload: `_58_login` (CF), `_58_password`, `_58_pin`, `_58_saveLastPath`, `_58_redirect`, `_58_doActionAfterLogin`, `ricorda-cf`;
+   - in caso di successo il POST risponde `302` con `Location: /portale/c`, seguito da landing `GET /portale/web/guest/home`.
+
+2. **Evidenza forte di login riuscito lato pagina**
+   - nella landing successiva (`/portale/web/guest/home`) la variabile JS è `var isSignedIn = "true"`;
+   - dopo il login partono le chiamate di bootstrap già note (`GET /dp/api`, check su endpoint `ser/api/...`).
+
+3. **Caso negativo (`auth_failed.har`): redirect diverso e stato non autenticato**
+   - il submit login ritorna comunque `302`, ma la `Location` punta alla portlet login (`/portale/home?p_p_id=58...p_p_lifecycle=0...`), non a `/portale/c`;
+   - nella pagina risultante `var isSignedIn = "false"`;
+   - è presente messaggio UI esplicito: `Autenticazione fallita. Riprova.` (`alert-error`).
+
+4. **Implicazione operativa per l'adapter**
+   - **non basta controllare lo status code del POST login** (può essere `302` in entrambi i casi);
+   - il provider deve validare almeno uno tra:
+     - pattern redirect di successo (`/portale/c` -> `/portale/web/guest/home`),
+     - marker applicativo `isSignedIn=true`,
+     - probe API successivo con risposta `200` su endpoint utente/stato;
+   - in caso di ritorno su `p_p_id=58` + `isSignedIn=false` + messaggio errore, classificare subito come `AUTH_INVALID_CREDENTIALS` (errore non-retryable automatico).
+
+5. **Policy di errore consigliata (Fisconline)**
+   - `AUTH_INVALID_CREDENTIALS`: niente retry automatico, serve intervento credenziali;
+   - `AUTH_TRANSIENT` (timeout/rete/5xx): retry limitato con backoff;
+   - logging sicuro: non salvare mai `_58_password` e `_58_pin`, mascherare `_58_login` se esportato in audit.
+
+### 2.1B Gestione sessione osservata nei tracciati CIE (nuovo)
 
 Dai file `login_cie_redacted.har` e `logout_redacted.har` emergono pattern utili per la parte "provider AdE" senza introdurre dati sensibili:
 
@@ -159,13 +192,13 @@ Per evitare ambiguità implementative, conviene validare esplicitamente questi p
 #### Gap informativi residui (hardening produzione)
 
 1. **Handshake minimo per sessione READY**
-   - Servono evidenze ripetute su quali chiamate sono _strettamente necessarie_ dopo il login CIE (es. `/dp/api`, `DatiOpzioni`, eventuale scelta utenza/P.IVA incaricato) per ottenere accesso stabile a `/ser/api/documenti/...`.
+   - Servono evidenze ripetute su quali chiamate sono _strettamente necessarie_ dopo il login CIE (es. redirect/login marker Fisconline (`/portale/c` vs `p_p_id=58`), `/dp/api`, `DatiOpzioni`, eventuale scelta utenza/P.IVA incaricato) per ottenere accesso stabile a `/ser/api/documenti/...`.
 
 2. **Selezione utenza operativa (incaricato/intermediario)**
    - Dai file correnti non è completamente esplicitata la sequenza quando esistono più profili o più P.IVA selezionabili; questa parte può cambiare i permessi sugli endpoint documenti.
 
 3. **Segnali di scadenza sessione e rinnovo**
-   - Abbiamo pattern `401`, ma non ancora una mappa completa di tutti i codici/comportamenti (`302` a login, eventuali `403`, body applicativi) per implementare retry/riautenticazione deterministica.
+   - Abbiamo pattern `401` e `302` (sia successo sia fallimento login Fisconline), ma non ancora una mappa completa di tutti i codici/comportamenti (eventuali `403`, body applicativi) per implementare retry/riautenticazione deterministica.
 
 4. **CSRF/header applicativi richiesti**
    - Nei HAR redatti alcuni dettagli sono oscurati: serve confermare se endpoint specifici richiedono token/header anti-CSRF oltre ai cookie di sessione in scenari reali.
