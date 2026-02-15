@@ -1,68 +1,73 @@
-# ScontrinoZero — Piano di ristrutturazione roadmap
+# ScontrinoZero — Piano di sviluppo
 
 ## Contesto
 
-La Phase 0 e' completa e la landing page e' live. Il progetto ha due problemi:
-
-1. Un security hotspot su SonarCloud (regex DoS nel waitlist endpoint)
-2. Coverage di test quasi inesistente (3 unit test + 4 E2E)
-
-L'utente vuole attivita' sequenziali chiare, test adeguati per ogni fase, e checkpoint di review periodici.
+Phase 0 e Phase 1A completate. Il progetto ha 23 unit test + 4 E2E test.
+L'analisi del portale AdE (Phase 2A) e' completata con specifica completa in `docs/api-spec.md`.
+Prossimo step: implementazione del modulo AdE (Phase 2B/2C).
 
 ---
 
-## Sequenza proposta
+## Sequenza
 
-### Phase 1A: Fix security + stabilire pattern di test (1 giorno)
+### Phase 1A: Fix security + stabilire pattern di test ✅
 
-**Obiettivo:** Risolvere l'hotspot SonarCloud e stabilire il pattern TDD per tutto il progetto.
-
-**Approccio al fix:** Sostituire la regex vulnerabile con una validazione a tempo lineare (no backtracking):
-
-- Creare `src/lib/validation.ts` con funzione `isValidEmail()` che usa controlli stringa (indexOf, includes) invece di regex
-- Aggiungere check lunghezza max 254 caratteri (RFC 5321) come prima difesa
-- La vera validazione email avverra' quando Resend inviera' la conferma
-
-**File da modificare/creare:**
-
-- `src/lib/validation.ts` — nuova funzione di validazione
-- `src/lib/validation.test.ts` — test TDD (scritti prima dell'implementazione)
-- `src/app/api/waitlist/route.ts` — usare la nuova funzione
-- `src/app/api/waitlist/route.test.ts` — test dell'endpoint (mock Drizzle)
-
-**Test attesi:** ~15 nuovi test (8-10 validazione email + 5-7 endpoint API)
-
-**Verifica:** SonarCloud quality gate verde, hotspot risolto.
+- ✅ `src/lib/validation.ts` — `isValidEmail()` lineare (no regex backtracking)
+- ✅ `src/lib/validation.test.ts` — 13 test TDD
+- ✅ `src/app/api/waitlist/route.test.ts` — 7 test con mock Drizzle
+- ✅ SonarCloud issues risolte (readonly props, deprecated icons/types, CSS)
+- **Risultato:** 23 test totali, SonarCloud quality gate verde
 
 ---
 
-### Phase 2: Spike integrazione AdE (2-3 settimane)
+### Phase 2: Integrazione AdE
 
-**Obiettivo:** Validare la fattibilita' dell'integrazione diretta con il portale F&C. Questa e' l'attivita' a rischio piu' alto — va fatta il prima possibile.
+**2A: Ricerca e documentazione ✅**
 
-**2A: Ricerca e documentazione (5-7 giorni)**
+- ✅ Analizzati 17 file HAR (login, vendita, annullo, ricerca, rubrica, logout, full flow)
+- ✅ Analizzato codice C# di riferimento (Send.cs, DC.cs, Esiti.cs)
+- ✅ Creata specifica completa `docs/api-spec.md` (auth, endpoint, payload, mapping, validazioni, persistenza)
+- ✅ Flusso auth Fisconline mappato in 6 fasi (da Send.cs + login_fol.har)
+- ✅ Pulizia docs/: rimossi file C#, Swagger, HAR, PDF; resta solo api-spec.md
 
-- Accedere al portale F&C con credenziali Fisconline
-- Analizzare il flusso HTTP con DevTools (Network tab)
-- Documentare ogni chiamata in `src/lib/ade/README.md`
-- Tentare di replicare una singola chiamata con curl/fetch
-- Nessun test (e' pura ricerca)
+**2B: Interface design + MockAdeClient (3-5 giorni)** 🔵
 
-**2B: Interface design + MockAdeClient (3-5 giorni)**
-
-- Definire tipi in `src/lib/ade/types.ts`
-- Definire interfaccia `AdeClient` in `src/lib/ade/client.ts`
-- TDD: scrivere test per `MockAdeClient` prima dell'implementazione
+- Definire tipi TypeScript basati su `docs/api-spec.md` sez. 3-7:
+  - `src/lib/ade/types.ts` — payload AdE (vendita/annullo), risposta, codifiche IVA, pagamenti
+  - `src/lib/ade/public-types.ts` — DTO API pubblica (SaleRequest, VoidRequest, Response)
+- Definire interfaccia `AdeClient` in `src/lib/ade/client.ts`:
+  - `login(credentials)` → session
+  - `submitSale(payload)` → AdeResponse
+  - `submitVoid(payload)` → AdeResponse
+  - `getFiscalData()` → CedentePrestatore
+  - `getDocument(idtrx)` → DocumentDetail
+  - `downloadPdf(idtrx)` → Buffer
+  - `logout()` → void
+- Mapper: `src/lib/ade/mapper.ts`
+  - `mapSaleToAdePayload(sale, fiscalData)` → AdE JSON (sez. 9 api-spec.md)
+  - `mapVoidToAdePayload(void, fiscalData)` → AdE JSON
+  - `toAdeAmount(n)` → stringa 2 decimali
+  - `toAdeDate(iso)` → `dd/MM/yyyy`
+- Validazione Zod: `src/lib/ade/validation.ts` (sez. 10 api-spec.md)
+- TDD: test per MockAdeClient e mapper
 - Implementare `MockAdeClient` in `src/lib/ade/mock-client.ts`
-- Factory function controllata da `ADE_MODE` in `src/lib/ade/index.ts`
-- **Test attesi:** 15-20 test (auth, emissione, chiusura, errori, sessione)
+- Factory `createAdeClient(mode)` in `src/lib/ade/index.ts` controllata da `ADE_MODE`
+- **Test attesi:** 20-25 test (mapper, validazione, mock client, factory)
 
 **2C: RealAdeClient proof of concept (5-10 giorni)**
 
 - Implementare `RealAdeClient` in `src/lib/ade/real-client.ts`
-- Replicare flusso auth + emissione via HTTP
-- Gestire cookies, CSRF, redirect
-- **Test attesi:** 10-15 test (mock HTTP con `msw` o `vi.mock`)
+- Flusso auth Fisconline 6 fasi (sez. 1 api-spec.md):
+  1. GET `/portale/web/guest` — init cookie jar
+  2. POST `/portale/home?..._58_struts_action=...` — login (CF + pwd + PIN)
+  3. GET `/dp/api` — bootstrap
+  4. POST `/portale/scelta-utenza-lavoro?p_auth={token}` — seleziona P.IVA
+  5. GET `/ser/api/fatture/v1/ul/me/adesione/stato/` — ready probe
+  6. POST `/ser/api/documenti/v1/doc/documenti/` — invio
+- Gestire cookie jar, estrazione `p_auth` Liferay, redirect 302, login ok/fail
+- Headers necessari (sez. 2.4 api-spec.md)
+- Logout multi-step (sez. 1.6 api-spec.md)
+- **Test attesi:** 10-15 test (mock HTTP con `vi.mock`)
 
 **Decisione GO/NO-GO:** Se funziona, si prosegue. Se no, fallback su DataCash/Effatta API.
 
@@ -133,7 +138,7 @@ L'utente vuole attivita' sequenziali chiare, test adeguati per ogni fase, e chec
 
 ### Phase 4: MVP core — emissione scontrini (3-4 settimane)
 
-**4A:** Schema DB — `receipts`, `receipt_items`, `daily_closures`
+**4A:** Schema DB — `commercial_documents`, `commercial_document_lines`, `daily_closures` (nomi da sez. 11 api-spec.md)
 **4B:** UI cassa mobile-first — tastierino, IVA, pagamento, riepilogo
 **4C:** Server actions + optimistic UI — TanStack Query, mutation, rollback
 **4D:** Storico scontrini + dashboard — TanStack Table, filtri, totali
@@ -212,18 +217,19 @@ L'utente vuole attivita' sequenziali chiare, test adeguati per ogni fase, e chec
 
 ## Riepilogo test cumulativi
 
-| Fase                | Nuovi test | Totale cumulativo |
-| ------------------- | ---------- | ----------------- |
-| 1A (Security fix)   | ~15        | ~20               |
-| 2B-2C (AdE)         | ~30        | ~50               |
-| 1B (Landing)        | ~8         | ~58               |
-| 3A (Security infra) | ~20        | ~78               |
-| 3B (Auth)           | ~25        | ~103              |
-| 4 (MVP)             | ~55        | ~158              |
-| 5 (PWA)             | ~13        | ~171              |
-| 6 (Stabilita')      | ~15        | ~186              |
-| 7 (Stripe)          | ~20        | ~206              |
-| **Lancio**          |            | **~200+ test**    |
+| Fase                 | Nuovi test  | Totale cumulativo    |
+| -------------------- | ----------- | -------------------- |
+| 1A (Security fix) ✅ | 23 (reali)  | 27 (23 unit + 4 E2E) |
+| 2A (AdE ricerca) ✅  | 0 (ricerca) | 27                   |
+| 2B-2C (AdE impl)     | ~30-40      | ~60-67               |
+| 1B (Landing)         | ~8          | ~68-75               |
+| 3A (Security infra)  | ~20         | ~88-95               |
+| 3B (Auth)            | ~25         | ~113-120             |
+| 4 (MVP)              | ~55         | ~168-175             |
+| 5 (PWA)              | ~13         | ~181-188             |
+| 6 (Stabilita')       | ~15         | ~196-203             |
+| 7 (Stripe)           | ~20         | ~216-223             |
+| **Lancio**           |             | **~220+ test**       |
 
 ---
 
@@ -240,4 +246,4 @@ Ad ogni checkpoint:
 
 ## Primo passo immediato
 
-Iniziare con **Phase 1A**: fix regex DoS + test TDD per waitlist endpoint.
+Iniziare con **Phase 2B**: definire tipi TypeScript, interfaccia `AdeClient`, mapper, validazione Zod, `MockAdeClient` — tutto in TDD con riferimento a `docs/api-spec.md`.
