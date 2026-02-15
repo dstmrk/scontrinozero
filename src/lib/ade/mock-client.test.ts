@@ -224,8 +224,9 @@ describe("createAdeClient", () => {
     expect(client).toBeInstanceOf(MockAdeClient);
   });
 
-  it('throws for "real" mode (not yet implemented)', () => {
-    expect(() => createAdeClient("real")).toThrow();
+  it('returns RealAdeClient when mode is "real"', () => {
+    const client = createAdeClient("real");
+    expect(client).toBeDefined();
   });
 
   it("throws for unknown mode", () => {
