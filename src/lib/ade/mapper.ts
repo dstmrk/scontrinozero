@@ -69,7 +69,7 @@ function isNature(vatCode: string): boolean {
 
 function getVatPercentage(vatCode: string): number {
   if (isNature(vatCode)) return 0;
-  return parseFloat(vatCode);
+  return Number.parseFloat(vatCode);
 }
 
 // ---------------------------------------------------------------------------
@@ -183,19 +183,19 @@ export function mapSaleToAdePayload(
 
   // Document totals (sez. 3.3)
   const totaleImponibile = elementiContabili.reduce(
-    (sum, el) => sum + parseFloat(el.imponibile),
+    (sum, el) => sum + Number.parseFloat(el.imponibile),
     0,
   );
   const scontoTotale = elementiContabili.reduce(
-    (sum, el) => sum + parseFloat(el.scontoLordo),
+    (sum, el) => sum + Number.parseFloat(el.scontoLordo),
     0,
   );
   const importoTotaleIva = elementiContabili.reduce(
-    (sum, el) => sum + parseFloat(el.importoIVA),
+    (sum, el) => sum + Number.parseFloat(el.importoIVA),
     0,
   );
   const ammontareComplessivo = elementiContabili.reduce(
-    (sum, el) => sum + parseFloat(el.totale),
+    (sum, el) => sum + Number.parseFloat(el.totale),
     0,
   );
 
@@ -205,7 +205,7 @@ export function mapSaleToAdePayload(
   const nrTypes = new Set<AdePaymentType>(["NR_EF", "NR_PS", "NR_CS"]);
   const totaleNonRiscosso = vendita
     .filter((v) => nrTypes.has(v.tipo))
-    .reduce((sum, v) => sum + parseFloat(v.importo), 0);
+    .reduce((sum, v) => sum + Number.parseFloat(v.importo), 0);
 
   const documentoCommerciale: AdeDocumentoCommerciale = {
     cfCessionarioCommittente: doc.customerTaxCode ?? "",

@@ -35,7 +35,7 @@ export type AdeVatCode = AdeVatRate | AdeNature | AdeAgricultureRate;
 
 /** Regex di validazione AdE per i codici IVA/natura */
 export const ADE_VAT_CODE_REGEX =
-  /^(N1|N2|N3|N4|N5|N6|4|5|10|22|2|6\.4|7|7\.3|7\.5|7\.65|7\.95|8\.3|8\.5|8\.8|9\.5|12\.3)$/;
+  /^(N[1-6]|4|5|10|22|2|6\.4|7(\.3|\.5|\.65|\.95)?|8\.[358]|9\.5|12\.3)$/;
 
 // ---------------------------------------------------------------------------
 // Tipi pagamento (sez. 5.2)

@@ -28,21 +28,15 @@ export class MockAdeClient implements AdeClient {
     return this.session;
   }
 
-  async submitSale(payload: AdePayload): Promise<AdeResponse> {
-    this.assertLoggedIn();
-
-    const idtrx = String(this.transactionCounter++);
-    const progressivo = `DCW2026/MOCK-${this.progressiveCounter++}`;
-
-    return {
-      esito: true,
-      idtrx,
-      progressivo,
-      errori: [],
-    };
+  async submitSale(_payload: AdePayload): Promise<AdeResponse> {
+    return this.mockSubmit();
   }
 
-  async submitVoid(payload: AdePayload): Promise<AdeResponse> {
+  async submitVoid(_payload: AdePayload): Promise<AdeResponse> {
+    return this.mockSubmit();
+  }
+
+  private mockSubmit(): AdeResponse {
     this.assertLoggedIn();
 
     const idtrx = String(this.transactionCounter++);
