@@ -24,11 +24,13 @@ Piano dettagliato con test e review checkpoint: vedi [`PLAN.md`](./PLAN.md)
 
 ---
 
-## Fase 1A — Fix security + pattern TDD 🔵
+## Fase 1A — Fix security + pattern TDD ✅
 
-- 🔵 Fix regex DoS in waitlist endpoint (SonarCloud hotspot)
-- 🔵 Creare `src/lib/validation.ts` con validazione email a tempo lineare
-- 🔵 Test TDD per validazione + endpoint waitlist
+- ✅ Fix regex DoS in waitlist endpoint (SonarCloud hotspot)
+- ✅ `src/lib/validation.ts` con validazione email a tempo lineare
+- ✅ Test TDD per validazione (13) + endpoint waitlist (7) + utils (3)
+- ✅ SonarCloud issues risolte (readonly props, deprecated icons/types, CSS)
+- **Risultato:** 23 unit test, SonarCloud quality gate verde
 
 ---
 
@@ -49,29 +51,31 @@ Piano dettagliato con test e review checkpoint: vedi [`PLAN.md`](./PLAN.md)
 
 ---
 
-## Fase 2 — Spike integrazione AdE ⬜
+## Fase 2 — Spike integrazione AdE 🔵
 
 **Rischio più alto del progetto — va prima della Fase 1B.**
 
-### 2A: Ricerca e documentazione
+### 2A: Ricerca e documentazione ✅
 
-- ⬜ Accedere al portale F&C con credenziali Fisconline
-- ⬜ Analizzare il flusso HTTP (DevTools, Network tab)
-- ⬜ Documentare endpoint, headers, payload, cookies in `src/lib/ade/README.md`
-- ⬜ Replicare una chiamata con curl/fetch
+- ✅ Analizzati 17 file HAR (login, vendita, annullo, ricerca, rubrica, logout, full flow)
+- ✅ Analizzato codice C# di riferimento (Send.cs, DC.cs, Esiti.cs)
+- ✅ Creata specifica completa `docs/api-spec.md`
+- ✅ Flusso auth Fisconline mappato in 6 fasi
 
-### 2B: Interface design + MockAdeClient
+### 2B: Interface design + MockAdeClient 🔵
 
-- ⬜ Definire tipi in `src/lib/ade/types.ts`
+- ⬜ Definire tipi in `src/lib/ade/types.ts` + `public-types.ts`
 - ⬜ Definire interfaccia `AdeClient` in `src/lib/ade/client.ts`
+- ⬜ Mapper `src/lib/ade/mapper.ts` (sale/void → AdE payload)
+- ⬜ Validazione Zod `src/lib/ade/validation.ts`
 - ⬜ TDD: test → implementare `MockAdeClient`
 - ⬜ Factory function controllata da `ADE_MODE`
 
 ### 2C: RealAdeClient proof of concept
 
 - ⬜ Implementare `RealAdeClient`
-- ⬜ Replicare flusso auth + emissione via HTTP
-- ⬜ Gestire cookies, CSRF, redirect
+- ⬜ Replicare flusso auth 6 fasi + emissione via HTTP
+- ⬜ Gestire cookie jar, p_auth Liferay, redirect 302
 - ⬜ **Decisione GO/NO-GO**
 
 ### 📋 REVIEW CHECKPOINT 1
@@ -125,7 +129,7 @@ Piano dettagliato con test e review checkpoint: vedi [`PLAN.md`](./PLAN.md)
 
 ## Fase 4 — MVP core: emissione scontrini ⬜
 
-- ⬜ Schema DB: `receipts`, `receipt_items`, `daily_closures`
+- ⬜ Schema DB: `commercial_documents`, `commercial_document_lines`, `daily_closures`
 - ⬜ UI cassa mobile-first (tastierino, IVA, pagamento, riepilogo)
 - ⬜ Server actions + optimistic UI (TanStack Query)
 - ⬜ Storico scontrini (TanStack Table, filtri, dettaglio)
