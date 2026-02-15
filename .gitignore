@@ -43,3 +43,6 @@ test-report.xml
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# sensitive files
+*.har
