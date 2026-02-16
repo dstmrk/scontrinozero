@@ -33,9 +33,9 @@ export const logger = pino({
   },
   timestamp: pino.stdTimeFunctions.isoTime,
   transport:
-    process.env.NODE_ENV !== "production"
-      ? { target: "pino-pretty", options: { colorize: true } }
-      : undefined,
+    process.env.NODE_ENV === "production"
+      ? undefined
+      : { target: "pino-pretty", options: { colorize: true } },
 });
 
 /**
