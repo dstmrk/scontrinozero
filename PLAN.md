@@ -2,10 +2,11 @@
 
 ## Contesto
 
-Phase 0, 1A, 2A-2C, 1B (parziale), 3A completate. Il progetto ha 148 unit test + 8 E2E test.
+Phase 0, 1A, 2A-2C, 1B (parziale), 3A, 3B completate. Il progetto ha 191 unit test + 8 E2E test.
 Modulo AdE completo (MockAdeClient + RealAdeClient) con 92 test dedicati.
 Infrastruttura sicurezza: logger (pino), rate limiting, encryption (AES-256-GCM), Sentry.
-Prossimo step: Phase 3B (autenticazione e onboarding).
+Auth: Supabase Auth con middleware, onboarding wizard 3-step, credenziali AdE cifrate.
+Prossimo step: Phase 4 (MVP core — emissione scontrini).
 
 ---
 
@@ -122,16 +123,19 @@ Prossimo step: Phase 3B (autenticazione e onboarding).
 
 ---
 
-### Phase 3B: Autenticazione e onboarding (10-14 giorni)
+### Phase 3B: Autenticazione e onboarding ✅
 
-1. Supabase Auth — `@supabase/ssr`, client helpers in `src/lib/supabase/`
-2. Route group `(auth)` — login, register, reset-password, verify-email
-3. Middleware Next.js — protezione `/dashboard/*`
-4. Onboarding wizard — dati attivita', credenziali Fisconline (cifrate), verifica AdE
-5. Profilo/impostazioni utente
-6. Migrazione DB — tabella `ade_credentials`
+1. ✅ Supabase Auth — `@supabase/ssr`, client helpers in `src/lib/supabase/` (server, browser, middleware)
+2. ✅ Route group `(auth)` — login, register, reset-password, verify-email, callback
+3. ✅ Middleware Next.js — protezione `/dashboard/*`, `/onboarding/*`, redirect auth-only
+4. ✅ Onboarding wizard 3-step — dati attivita, credenziali Fisconline (cifrate AES-256-GCM), verifica AdE
+5. ✅ Dashboard shell — layout, home, settings (profilo + attivita + stato credenziali)
+6. ✅ Migrazione DB — tabella `ade_credentials` (1:1 con businesses, campi cifrati)
+7. ✅ Server actions auth — signUp, signIn, signInWithMagicLink, signOut, resetPassword
+8. ✅ Server actions onboarding — saveBusiness, saveAdeCredentials, verifyAdeCredentials, getOnboardingStatus
+9. ✅ Sitemap aggiornata (+login, +register), robots.txt con disallow dashboard/onboarding
 
-**Test attesi:** 15-25 unit + 3-5 E2E
+**Test attesi:** 15-25 unit → **Risultato:** 43 nuovi test (4 supabase + 11 middleware + 13 auth + 15 onboarding)
 
 ---
 
@@ -234,12 +238,12 @@ Prossimo step: Phase 3B (autenticazione e onboarding).
 | 2B-2C (AdE impl) ✅    | 92 (reali)  | 119                  |
 | 1B (Landing) ✅ parz.  | 6 (reali)   | 125 unit + 8 E2E     |
 | 3A (Security infra) ✅ | 23 (reali)  | 148 unit + 8 E2E     |
-| 3B (Auth)              | ~25         | ~170-178             |
-| 4 (MVP)                | ~55         | ~225-233             |
-| 5 (PWA)                | ~13         | ~238-246             |
-| 6 (Stabilita')         | ~15         | ~253-261             |
-| 7 (Stripe)             | ~20         | ~273-281             |
-| **Lancio**             |             | **~275+ test**       |
+| 3B (Auth) ✅           | 43 (reali)  | 191 unit + 8 E2E     |
+| 4 (MVP)                | ~55         | ~246                 |
+| 5 (PWA)                | ~13         | ~259                 |
+| 6 (Stabilita')         | ~15         | ~274                 |
+| 7 (Stripe)             | ~20         | ~294                 |
+| **Lancio**             |             | **~295+ test**       |
 
 ---
 
@@ -256,4 +260,4 @@ Ad ogni checkpoint:
 
 ## Primo passo immediato
 
-Iniziare con **Phase 3A**: logging strutturato, rate limiting, modulo encryption AES-256-GCM — tutto in TDD. Sentry setup richiede DSN (variabile d'ambiente).
+Iniziare con **Phase 4**: MVP core — schema DB scontrini, UI cassa mobile-first, server actions + optimistic UI, storico, annullamento, chiusura giornaliera.
