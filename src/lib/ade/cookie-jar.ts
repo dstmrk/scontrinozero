@@ -8,7 +8,7 @@
  */
 
 export class CookieJar {
-  private cookies: Map<string, string> = new Map();
+  private readonly cookies: Map<string, string> = new Map();
 
   /** Parse Set-Cookie headers from a fetch Response and store them. */
   applyResponse(response: Response): void {

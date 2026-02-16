@@ -39,7 +39,7 @@ const SUBMIT_HEADERS: Record<string, string> = {
 
 export class RealAdeClient implements AdeClient {
   private session: AdeSession | null = null;
-  private cookieJar: CookieJar = new CookieJar();
+  private readonly cookieJar: CookieJar = new CookieJar();
   private credentials: FisconlineCredentials | null = null;
 
   // -----------------------------------------------------------------------
@@ -123,7 +123,7 @@ export class RealAdeClient implements AdeClient {
     const response = await this.request(url);
     const html = await response.text();
 
-    const match = html.match(/Liferay\.authToken\s*=\s*"([^"]+)"/);
+    const match = /Liferay\.authToken\s*=\s*"([^"]+)"/.exec(html);
     if (!match?.[1]) {
       throw new AdePortalError(
         200,
