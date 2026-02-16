@@ -1,0 +1,96 @@
+import { randomBytes, createCipheriv, createDecipheriv } from "node:crypto";
+
+const ALGORITHM = "aes-256-gcm";
+const IV_LENGTH = 12; // 96 bits — recommended for GCM
+const TAG_LENGTH = 16; // 128 bits
+const VERSION_LENGTH = 1;
+const KEY_LENGTH = 32; // 256 bits
+
+/**
+ * Encrypt plaintext using AES-256-GCM.
+ *
+ * Output format (base64): [1B version][12B IV][16B authTag][NB ciphertext]
+ *
+ * @param plaintext - The string to encrypt
+ * @param key - 32-byte encryption key
+ * @param keyVersion - Key version identifier (1-255), default 1
+ * @returns Base64-encoded encrypted string
+ */
+export function encrypt(
+  plaintext: string,
+  key: Buffer,
+  keyVersion: number = 1,
+): string {
+  if (key.length !== KEY_LENGTH) {
+    throw new Error(`Key must be ${KEY_LENGTH} bytes`);
+  }
+  if (keyVersion < 1 || keyVersion > 255) {
+    throw new Error("Key version must be 1-255");
+  }
+
+  const iv = randomBytes(IV_LENGTH);
+  const cipher = createCipheriv(ALGORITHM, key, iv);
+
+  const encrypted = Buffer.concat([
+    cipher.update(plaintext, "utf8"),
+    cipher.final(),
+  ]);
+  const authTag = cipher.getAuthTag();
+
+  const packed = Buffer.concat([
+    Buffer.from([keyVersion]),
+    iv,
+    authTag,
+    encrypted,
+  ]);
+
+  return packed.toString("base64");
+}
+
+/**
+ * Decrypt a ciphertext produced by encrypt().
+ *
+ * @param encrypted - Base64-encoded encrypted string
+ * @param keys - Map of key version to 32-byte key Buffer
+ * @returns The original plaintext
+ */
+export function decrypt(encrypted: string, keys: Map<number, Buffer>): string {
+  const packed = Buffer.from(encrypted, "base64");
+  const minLength = VERSION_LENGTH + IV_LENGTH + TAG_LENGTH + 1;
+
+  if (packed.length < minLength) {
+    throw new Error("Invalid encrypted data: too short");
+  }
+
+  const version = packed[0];
+  const iv = packed.subarray(VERSION_LENGTH, VERSION_LENGTH + IV_LENGTH);
+  const authTag = packed.subarray(
+    VERSION_LENGTH + IV_LENGTH,
+    VERSION_LENGTH + IV_LENGTH + TAG_LENGTH,
+  );
+  const ciphertext = packed.subarray(VERSION_LENGTH + IV_LENGTH + TAG_LENGTH);
+
+  const key = keys.get(version);
+  if (!key) {
+    throw new Error(`Unknown key version: ${version}`);
+  }
+
+  const decipher = createDecipheriv(ALGORITHM, key, iv);
+  decipher.setAuthTag(authTag);
+
+  const decrypted = Buffer.concat([
+    decipher.update(ciphertext),
+    decipher.final(),
+  ]);
+
+  return decrypted.toString("utf8");
+}
+
+/**
+ * Generate a random 256-bit encryption key.
+ *
+ * @returns 32-byte key as hex string (64 characters)
+ */
+export function generateKey(): string {
+  return randomBytes(KEY_LENGTH).toString("hex");
+}

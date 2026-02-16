@@ -2,9 +2,10 @@
 
 ## Contesto
 
-Phase 0 e Phase 1A completate. Il progetto ha 23 unit test + 4 E2E test.
-L'analisi del portale AdE (Phase 2A) e' completata con specifica completa in `docs/api-spec.md`.
-Prossimo step: implementazione del modulo AdE (Phase 2B/2C).
+Phase 0, 1A, 2A-2C, 1B (parziale), 3A completate. Il progetto ha 148 unit test + 8 E2E test.
+Modulo AdE completo (MockAdeClient + RealAdeClient) con 92 test dedicati.
+Infrastruttura sicurezza: logger (pino), rate limiting, encryption (AES-256-GCM), Sentry.
+Prossimo step: Phase 3B (autenticazione e onboarding).
 
 ---
 
@@ -30,7 +31,7 @@ Prossimo step: implementazione del modulo AdE (Phase 2B/2C).
 - ✅ Flusso auth Fisconline mappato in 6 fasi (da Send.cs + login_fol.har)
 - ✅ Pulizia docs/: rimossi file C#, Swagger, HAR, PDF; resta solo api-spec.md
 
-**2B: Interface design + MockAdeClient (3-5 giorni)** 🔵
+**2B: Interface design + MockAdeClient (3-5 giorni) ✅**
 
 - Definire tipi TypeScript basati su `docs/api-spec.md` sez. 3-7:
   - `src/lib/ade/types.ts` — payload AdE (vendita/annullo), risposta, codifiche IVA, pagamenti
@@ -53,8 +54,9 @@ Prossimo step: implementazione del modulo AdE (Phase 2B/2C).
 - Implementare `MockAdeClient` in `src/lib/ade/mock-client.ts`
 - Factory `createAdeClient(mode)` in `src/lib/ade/index.ts` controllata da `ADE_MODE`
 - **Test attesi:** 20-25 test (mapper, validazione, mock client, factory)
+- **Risultato:** 67 test (13 cookie-jar + 22 mapper + 19 validation + 13 mock-client)
 
-**2C: RealAdeClient proof of concept (5-10 giorni)**
+**2C: RealAdeClient proof of concept (5-10 giorni) ✅**
 
 - Implementare `RealAdeClient` in `src/lib/ade/real-client.ts`
 - Flusso auth Fisconline 6 fasi (sez. 1 api-spec.md):
@@ -68,47 +70,55 @@ Prossimo step: implementazione del modulo AdE (Phase 2B/2C).
 - Headers necessari (sez. 2.4 api-spec.md)
 - Logout multi-step (sez. 1.6 api-spec.md)
 - **Test attesi:** 10-15 test (mock HTTP con `vi.mock`)
+- **Risultato:** 25 test (auth flow, submit, void, logout, error handling)
 
 **Decisione GO/NO-GO:** Se funziona, si prosegue. Se no, fallback su DataCash/Effatta API.
 
 ---
 
-### REVIEW CHECKPOINT 1
+### REVIEW CHECKPOINT 1 ✅
 
-- Integrazione AdE documentata e validata (o fallback scelto)
-- Interface `AdeClient` definita e testata
-- MockAdeClient funzionante con test completi
-- Coverage del modulo `ade/`: target 90%+
+- ✅ Integrazione AdE documentata e validata (direct HTTP, no fallback necessario)
+- ✅ Interface `AdeClient` definita e testata (6 metodi)
+- ✅ MockAdeClient funzionante con test completi (13 test)
+- ✅ RealAdeClient con 6-phase auth flow (25 test)
+- ✅ Coverage del modulo `ade/`: 92 test totali
 
 ---
 
-### Phase 1B: Completare landing page (3-5 giorni)
+### Phase 1B: Completare landing page (3-5 giorni) — parzialmente ✅
 
 **Obiettivo:** Landing live su scontrinozero.it con tutti i requisiti legali e SEO.
 
-**Task in ordine:**
+**Task completati:**
 
-1. Privacy Policy — pagina statica in `src/app/(marketing)/privacy/page.tsx`
-2. Sitemap — `next-sitemap` + config
-3. JSON-LD structured data — schema `SoftwareApplication` + `Organization`
-4. Email conferma waitlist — Resend + template React Email in `src/emails/`
-5. Setup Umami analytics su VPS
-6. Deploy produzione `scontrinozero.it` (tag `v0.1.0`)
+1. ✅ Privacy Policy — `src/app/(marketing)/privacy/page.tsx`
+2. ✅ Termini di Servizio — `src/app/(marketing)/termini/page.tsx`
+3. ✅ Sitemap — `src/app/sitemap.ts` (3 test)
+4. ✅ robots.txt — `src/app/robots.ts` (2 test)
+5. ✅ Pricing → teaser beta con 3 piani
+6. ✅ E2E test landing aggiornati
 
-**Test attesi:** 5-8 unit test (email), 1-2 E2E (navigazione pagine legali)
+**Task rimandati (richiedono servizi esterni):**
+
+- ⬜ JSON-LD structured data — schema `SoftwareApplication` + `Organization`
+- ⬜ Email conferma waitlist — Resend + template React Email
+- ⬜ Setup Umami analytics su VPS
+- ⬜ Deploy produzione `scontrinozero.it` (tag `v0.1.0`)
 
 ---
 
-### Phase 3A: Fondamenta sicurezza (5-7 giorni)
+### Phase 3A: Fondamenta sicurezza (5-7 giorni) ✅
 
 **Rationale:** La Phase 3B e 4 gestiranno credenziali Fisconline. L'infrastruttura di sicurezza DEVE essere in piedi PRIMA di scrivere codice che tocca credenziali.
 
-1. **Sentry** — `@sentry/nextjs`, error tracking + performance
-2. **Logging strutturato** — `pino`, logger in `src/lib/logger.ts`
-3. **Rate limiting** — `src/lib/rate-limit.ts`, in-memory con TTL (no dipendenze esterne)
-4. **Modulo encryption** — `src/lib/crypto.ts`, AES-256-GCM con Node.js `crypto` nativo, supporto rotazione chiavi
+1. ✅ **Sentry** — `@sentry/nextjs` v10, error tracking + performance, tunnelRoute `/monitoring`
+2. ✅ **Logging strutturato** — `pino`, logger in `src/lib/logger.ts`, redazione campi sensibili
+3. ✅ **Rate limiting** — `src/lib/rate-limit.ts`, in-memory con TTL, fixed window per key
+4. ✅ **Modulo encryption** — `src/lib/crypto.ts`, AES-256-GCM con `node:crypto`, supporto rotazione chiavi
 
 **Test attesi:** ~20 test (crypto roundtrip, tamper detection, rate limit, logger)
+**Risultato:** 23 test (9 crypto + 7 rate-limit + 7 logger)
 
 ---
 
@@ -217,19 +227,19 @@ Prossimo step: implementazione del modulo AdE (Phase 2B/2C).
 
 ## Riepilogo test cumulativi
 
-| Fase                 | Nuovi test  | Totale cumulativo    |
-| -------------------- | ----------- | -------------------- |
-| 1A (Security fix) ✅ | 23 (reali)  | 27 (23 unit + 4 E2E) |
-| 2A (AdE ricerca) ✅  | 0 (ricerca) | 27                   |
-| 2B-2C (AdE impl)     | ~30-40      | ~60-67               |
-| 1B (Landing)         | ~8          | ~68-75               |
-| 3A (Security infra)  | ~20         | ~88-95               |
-| 3B (Auth)            | ~25         | ~113-120             |
-| 4 (MVP)              | ~55         | ~168-175             |
-| 5 (PWA)              | ~13         | ~181-188             |
-| 6 (Stabilita')       | ~15         | ~196-203             |
-| 7 (Stripe)           | ~20         | ~216-223             |
-| **Lancio**           |             | **~220+ test**       |
+| Fase                   | Nuovi test  | Totale cumulativo    |
+| ---------------------- | ----------- | -------------------- |
+| 1A (Security fix) ✅   | 23 (reali)  | 27 (23 unit + 4 E2E) |
+| 2A (AdE ricerca) ✅    | 0 (ricerca) | 27                   |
+| 2B-2C (AdE impl) ✅    | 92 (reali)  | 119                  |
+| 1B (Landing) ✅ parz.  | 6 (reali)   | 125 unit + 8 E2E     |
+| 3A (Security infra) ✅ | 23 (reali)  | 148 unit + 8 E2E     |
+| 3B (Auth)              | ~25         | ~170-178             |
+| 4 (MVP)                | ~55         | ~225-233             |
+| 5 (PWA)                | ~13         | ~238-246             |
+| 6 (Stabilita')         | ~15         | ~253-261             |
+| 7 (Stripe)             | ~20         | ~273-281             |
+| **Lancio**             |             | **~275+ test**       |
 
 ---
 
@@ -246,4 +256,4 @@ Ad ogni checkpoint:
 
 ## Primo passo immediato
 
-Iniziare con **Phase 2B**: definire tipi TypeScript, interfaccia `AdeClient`, mapper, validazione Zod, `MockAdeClient` — tutto in TDD con riferimento a `docs/api-spec.md`.
+Iniziare con **Phase 3A**: logging strutturato, rate limiting, modulo encryption AES-256-GCM — tutto in TDD. Sentry setup richiede DSN (variabile d'ambiente).
