@@ -9,7 +9,7 @@ describe("sitemap", () => {
     expect(result[0]).toMatchObject({
       url: "https://scontrinozero.it",
       changeFrequency: "monthly",
-      priority: 1.0,
+      priority: 1,
     });
     expect(result[1]).toMatchObject({
       url: "https://scontrinozero.it/privacy",

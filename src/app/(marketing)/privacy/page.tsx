@@ -41,7 +41,7 @@ export default function PrivacyPage() {
               >
                 privacy@scontrinozero.it
               </a>
-              .
+              {"."}
             </p>
           </section>
 
@@ -161,8 +161,9 @@ export default function PrivacyPage() {
               >
                 privacy@scontrinozero.it
               </a>
-              . Hai inoltre il diritto di presentare reclamo al Garante per la
-              Protezione dei Dati Personali.
+              {
+                ". Hai inoltre il diritto di presentare reclamo al Garante per la Protezione dei Dati Personali."
+              }
             </p>
           </section>
 
@@ -237,7 +238,7 @@ export default function PrivacyPage() {
               >
                 privacy@scontrinozero.it
               </a>
-              .
+              {"."}
             </p>
           </section>
         </div>

@@ -138,7 +138,7 @@ export default function TerminiPage() {
               >
                 repository GitHub
               </a>
-              .
+              {"."}
             </p>
           </section>
 
@@ -196,7 +196,7 @@ export default function TerminiPage() {
               >
                 info@scontrinozero.it
               </a>
-              .
+              {"."}
             </p>
           </section>
         </div>
