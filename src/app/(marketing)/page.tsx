@@ -15,8 +15,10 @@ import {
   BarChart3,
   Shield,
   CalendarRange,
-  Check,
   ArrowRight,
+  Gift,
+  Zap,
+  Building,
 } from "lucide-react";
 
 export default function Home() {
@@ -180,101 +182,57 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Prezzi */}
+      {/* Piani — teaser beta */}
       <section id="prezzi" className="px-4 py-20">
         <div className="mx-auto max-w-5xl">
-          <h2 className="text-center text-2xl font-bold">
-            Il più economico sul mercato
-          </h2>
+          <Badge variant="secondary" className="mx-auto mb-4 block w-fit">
+            Beta gratuita
+          </Badge>
+          <h2 className="text-center text-2xl font-bold">Prezzi in arrivo</h2>
           <p className="text-muted-foreground mx-auto mt-2 max-w-lg text-center">
-            Nessun canone nascosto. Nessun hardware da comprare.
+            Stiamo definendo i piani. I primi iscritti alla beta avranno accesso
+            gratuito a tutte le funzionalità.
           </p>
 
           <div className="mt-12 grid gap-6 md:grid-cols-3">
             {[
               {
+                icon: Gift,
                 name: "Free",
-                price: "€0",
-                period: "per sempre",
-                description: "Per provare senza impegno",
-                features: [
-                  "10 scontrini al mese",
-                  "1 dispositivo",
-                  "Storico scontrini",
-                ],
-                highlighted: false,
+                description:
+                  "Per chi vuole provare senza impegno. Sempre gratuito.",
               },
               {
+                icon: Zap,
                 name: "Starter",
-                price: "~€2",
-                period: "/ mese",
-                description: "Per ambulanti e micro-attività",
-                features: [
-                  "Scontrini illimitati",
-                  "1 dispositivo",
-                  "Chiusura giornaliera automatica",
-                  "Supporto email",
-                ],
-                highlighted: true,
+                description:
+                  "Per ambulanti e micro-attività. Scontrini illimitati a un prezzo imbattibile.",
               },
               {
+                icon: Building,
                 name: "Pro",
-                price: "~€4",
-                period: "/ mese",
-                description: "Per chi ha più di un punto cassa",
-                features: [
-                  "Scontrini illimitati",
-                  "Più dispositivi",
-                  "Dashboard completa",
-                  "Export dati",
-                  "Supporto prioritario",
-                ],
-                highlighted: false,
+                description:
+                  "Per chi ha più di un punto cassa. Dashboard completa e multi-dispositivo.",
               },
             ].map((plan) => (
-              <Card
-                key={plan.name}
-                className={
-                  plan.highlighted
-                    ? "border-primary shadow-sm"
-                    : "border-border/50"
-                }
-              >
+              <Card key={plan.name} className="border-border/50 text-center">
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">{plan.name}</CardTitle>
-                    {plan.highlighted && (
-                      <Badge variant="secondary">Consigliato</Badge>
-                    )}
-                  </div>
-                  <div className="mt-2">
-                    <span className="text-3xl font-extrabold">
-                      {plan.price}
-                    </span>
-                    <span className="text-muted-foreground text-sm">
-                      {" "}
-                      {plan.period}
-                    </span>
-                  </div>
+                  <plan.icon className="text-primary mx-auto h-8 w-8" />
+                  <CardTitle className="text-lg">{plan.name}</CardTitle>
                   <CardDescription>{plan.description}</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2 text-sm">
-                    {plan.features.map((f) => (
-                      <li key={f} className="flex items-center gap-2">
-                        <Check className="text-primary h-4 w-4 shrink-0" />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
               </Card>
             ))}
           </div>
 
-          <p className="text-muted-foreground mt-6 text-center text-sm">
-            Prezzi finali definiti al lancio.
-          </p>
+          <div className="mt-8 text-center">
+            <Button asChild>
+              <a href="#waitlist">
+                Iscriviti alla beta gratuita
+                <ArrowRight className="h-4 w-4" />
+              </a>
+            </Button>
+          </div>
         </div>
       </section>
 

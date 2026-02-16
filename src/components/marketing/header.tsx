@@ -22,7 +22,7 @@ export function Header() {
             href="#prezzi"
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
-            Prezzi
+            Piani
           </a>
         </nav>
 

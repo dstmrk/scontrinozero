@@ -18,7 +18,7 @@ test.describe("Landing page", () => {
     await expect(
       header.getByRole("link", { name: /funzionalità/i }),
     ).toHaveAttribute("href", "#funzionalita");
-    await expect(header.getByRole("link", { name: /prezzi/i })).toHaveAttribute(
+    await expect(header.getByRole("link", { name: /piani/i })).toHaveAttribute(
       "href",
       "#prezzi",
     );
