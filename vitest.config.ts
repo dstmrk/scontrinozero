@@ -13,7 +13,13 @@ export default defineConfig({
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage",
       include: ["src/**/*.{ts,tsx}"],
-      exclude: ["src/components/ui/**", "src/app/layout.tsx", "src/**/*.d.ts"],
+      exclude: [
+        "src/components/ui/**",
+        "src/app/layout.tsx",
+        "src/**/*.d.ts",
+        "src/app/**/page.tsx", // UI templates — tested via E2E
+        "src/app/**/layout.tsx", // layout shells — tested via E2E
+      ],
     },
     reporters: ["default", "vitest-sonar-reporter"],
     outputFile: {

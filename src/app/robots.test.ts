@@ -9,6 +9,7 @@ describe("robots", () => {
       rules: {
         userAgent: "*",
         allow: "/",
+        disallow: ["/dashboard/", "/onboarding/"],
       },
       sitemap: "https://scontrinozero.it/sitemap.xml",
     });
