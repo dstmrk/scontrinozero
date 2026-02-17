@@ -23,14 +23,14 @@ export type OnboardingStatus = {
 
 function getEncryptionKey(): Buffer {
   const hex = process.env.ENCRYPTION_KEY;
-  if (!hex || hex.length !== 64) {
+  if (hex?.length !== 64) {
     throw new Error("ENCRYPTION_KEY must be a 64-character hex string");
   }
   return Buffer.from(hex, "hex");
 }
 
 function getKeyVersion(): number {
-  return parseInt(process.env.ENCRYPTION_KEY_VERSION || "1", 10);
+  return Number.parseInt(process.env.ENCRYPTION_KEY_VERSION || "1", 10);
 }
 
 async function requireUser() {
@@ -126,7 +126,7 @@ export async function saveAdeCredentials(
   if (!businessId) {
     return { error: "Business ID mancante." };
   }
-  if (!codiceFiscale || codiceFiscale.length !== 16) {
+  if (codiceFiscale?.length !== 16) {
     return { error: "Codice fiscale non valido (16 caratteri)." };
   }
   if (!password) {
