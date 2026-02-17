@@ -54,6 +54,6 @@ export const config = {
      * - monitoring (Sentry tunnel)
      * - Static assets (svg, png, jpg, etc.)
      */
-    String.raw`/((?!_next/static|_next/image|favicon\.ico|sitemap\.xml|robots\.txt|api/health|monitoring|.*\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)`,
+    "/((?!_next/static|_next/image|favicon\\.ico|sitemap\\.xml|robots\\.txt|api/health|monitoring|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)", // NOSONAR — String.raw breaks Next.js static analysis of matcher config
   ],
 };
