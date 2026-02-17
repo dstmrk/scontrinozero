@@ -22,6 +22,20 @@ function createRequest(pathname: string): NextRequest {
 describe("middleware", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
+  });
+
+  describe("Supabase not configured", () => {
+    it("passes through all routes when NEXT_PUBLIC_SUPABASE_URL is not set", async () => {
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      vi.resetModules();
+      const { middleware } = await import("./middleware");
+
+      // Even protected routes should pass through
+      const response = await middleware(createRequest("/dashboard"));
+      expect(response.status).toBe(200);
+      expect(mockGetUser).not.toHaveBeenCalled();
+    });
   });
 
   describe("public routes", () => {

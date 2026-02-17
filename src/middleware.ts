@@ -8,6 +8,11 @@ const PROTECTED_PREFIXES = ["/dashboard", "/onboarding"];
 const AUTH_ONLY_PATHS = ["/login", "/register", "/reset-password"];
 
 export async function middleware(request: NextRequest) {
+  // Skip auth checks if Supabase is not configured (E2E, local dev, self-hosted without auth)
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    return NextResponse.next();
+  }
+
   const { supabase, response } = createMiddlewareSupabaseClient(request);
 
   // Refresh the session — MUST be called before getUser() to keep tokens valid

@@ -218,6 +218,18 @@ describe("auth-actions", () => {
       const result = await signInWithMagicLink(formData({ email: "bad" }));
       expect(result).toEqual({ error: "Email non valida." });
     });
+
+    it("returns error when magic link fails", async () => {
+      mockSignInWithOtp.mockResolvedValue({
+        error: { message: "Rate limit exceeded" },
+      });
+
+      const { signInWithMagicLink } = await import("./auth-actions");
+      const result = await signInWithMagicLink(
+        formData({ email: "test@example.com" }),
+      );
+      expect(result).toEqual({ error: "Invio link fallito. Riprova." });
+    });
   });
 
   describe("signOut", () => {
