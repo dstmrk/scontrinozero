@@ -24,6 +24,12 @@ export function Header() {
           >
             Piani
           </a>
+          <a
+            href="#faq"
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            FAQ
+          </a>
         </nav>
 
         <Button size="sm" asChild>

@@ -21,6 +21,39 @@ import {
   Building,
 } from "lucide-react";
 
+const faqItems = [
+  {
+    question: "Serve per forza un registratore telematico fisico?",
+    answer:
+      "No. ScontrinoZero nasce proprio per aiutarti a emettere documento commerciale e trasmettere i corrispettivi senza cassa fisica, usando i canali previsti dall'Agenzia delle Entrate.",
+  },
+  {
+    question: "A chi è adatto ScontrinoZero?",
+    answer:
+      "È pensato per ambulanti, artigiani, professionisti e micro-attività che vogliono una soluzione semplice, economica e utilizzabile direttamente da smartphone o PC.",
+  },
+  {
+    question: "Le credenziali Fisconline sono al sicuro?",
+    answer:
+      "Sì. Le credenziali vengono protette con misure di sicurezza dedicate e usate solo per le operazioni necessarie all'erogazione del servizio richiesto da te.",
+  },
+  {
+    question: "Quanto costa?",
+    answer:
+      "La beta è gratuita. Al termine della fase beta comunicheremo i piani in modo trasparente, con opzioni adatte sia a chi parte da zero sia a chi ha volumi più alti.",
+  },
+  {
+    question: "Posso provarlo prima del lancio ufficiale?",
+    answer:
+      "Sì. Iscrivendoti alla lista d'attesa puoi accedere in anteprima e ricevere aggiornamenti sulle nuove funzionalità.",
+  },
+  {
+    question: "È disponibile anche in versione self-hosted?",
+    answer:
+      "Sì. Il progetto è open source: puoi installarlo sul tuo server e mantenere il pieno controllo della tua infrastruttura.",
+  },
+];
+
 export default function Home() {
   return (
     <>
@@ -132,14 +165,8 @@ export default function Home() {
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {
-                icon: Smartphone,
-                title: "Basta il telefono",
-                description:
-                  "Niente registratore, niente cavi, niente rotoli di carta. Apri l'app e sei operativo.",
-              },
-              {
                 icon: Receipt,
-                title: "Scontrino in un tap",
+                title: "Scontrino in 5 secondi",
                 description:
                   "Inserisci l'importo, conferma, fatto. La trasmissione all'Agenzia delle Entrate avviene in automatico.",
               },
@@ -166,6 +193,12 @@ export default function Home() {
                 title: "Paghi come preferisci",
                 description:
                   "Mensile, annuale o gratis. Cambi piano quando vuoi, senza vincoli e senza penali.",
+              },
+              {
+                icon: Smartphone,
+                title: "Funziona ovunque sei",
+                description:
+                  "Dal banco al furgone: basta uno smartphone con internet per gestire i tuoi corrispettivi.",
               },
             ].map((feature) => (
               <Card key={feature.title} className="border-border/50">
@@ -276,6 +309,34 @@ export default function Home() {
               <ArrowRight className="h-4 w-4" />
             </a>
           </Button>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section id="faq" className="bg-muted/50 px-4 py-20">
+        <div className="mx-auto max-w-3xl">
+          <Badge variant="secondary" className="mx-auto mb-4 block w-fit">
+            Supporto
+          </Badge>
+          <h2 className="text-center text-2xl font-bold">Domande Frequenti</h2>
+          <p className="text-muted-foreground mx-auto mt-2 max-w-2xl text-center">
+            Le risposte rapide ai dubbi più comuni su ScontrinoZero.
+          </p>
+
+          <div className="mt-10 space-y-4">
+            {faqItems.map((item) => (
+              <Card key={item.question} className="border-border/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">{item.question}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-sm leading-relaxed">
+                    {item.answer}
+                  </CardDescription>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </section>
     </>

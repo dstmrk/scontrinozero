@@ -3,8 +3,9 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Termini di Servizio",
-  description: "Termini e condizioni di utilizzo del servizio ScontrinoZero.",
+  title: "Termini e Condizioni",
+  description:
+    "Termini e condizioni del servizio ScontrinoZero per accesso, utilizzo, responsabilità, piani, sospensione e recesso.",
 };
 
 export default function TerminiPage() {
@@ -20,7 +21,7 @@ export default function TerminiPage() {
         </Link>
 
         <h1 className="text-3xl font-extrabold tracking-tight">
-          Termini di Servizio
+          Termini e Condizioni del Servizio
         </h1>
         <p className="text-muted-foreground mt-2 text-sm">
           Ultimo aggiornamento: febbraio 2026
@@ -28,168 +29,211 @@ export default function TerminiPage() {
 
         <div className="mt-10 space-y-8 text-sm leading-relaxed">
           <section>
-            <h2 className="text-lg font-semibold">
-              1. Descrizione del servizio
-            </h2>
+            <h2 className="text-lg font-semibold">1. Oggetto del servizio</h2>
             <p className="text-muted-foreground mt-2">
-              ScontrinoZero è un registratore di cassa virtuale (SaaS) che
-              consente a esercenti e micro-attività di emettere scontrini
-              elettronici e trasmettere i corrispettivi all&apos;Agenzia delle
-              Entrate senza registratore telematico fisico, sfruttando la
-              procedura &quot;Documento Commerciale Online&quot; messa a
-              disposizione dall&apos;AdE.
+              ScontrinoZero è una piattaforma software che consente di gestire
+              flussi operativi connessi all&apos;emissione del documento
+              commerciale e alla trasmissione dei corrispettivi tramite i canali
+              messi a disposizione dall&apos;Agenzia delle Entrate.
+            </p>
+            <p className="text-muted-foreground mt-2">
+              Il servizio viene erogato in modalità cloud (SaaS) e, dove
+              previsto, anche in modalità self-hosted secondo i termini di
+              licenza applicabili.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold">
-              2. Requisiti per l&apos;utilizzo
+              2. Ambito di applicazione e accettazione
             </h2>
+            <p className="text-muted-foreground mt-2">
+              I presenti Termini disciplinano l&apos;accesso e l&apos;utilizzo
+              del servizio da parte di utenti professionali e/o consumatori, ove
+              applicabile. L&apos;utilizzo della piattaforma comporta
+              l&apos;accettazione dei Termini.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold">3. Requisiti di accesso</h2>
             <ul className="text-muted-foreground mt-2 list-inside list-disc space-y-1">
-              <li>Essere titolari di una partita IVA attiva in Italia.</li>
+              <li>Maggiore età e capacità di agire.</li>
               <li>
-                Disporre di credenziali Fisconline valide, rilasciate
-                dall&apos;Agenzia delle Entrate.
+                Possesso dei requisiti fiscali e amministrativi richiesti dalla
+                normativa italiana per l&apos;attività svolta.
               </li>
               <li>
-                Avere un dispositivo con connessione internet e un browser
-                moderno.
+                Disponibilità di credenziali e strumenti richiesti
+                dall&apos;Agenzia delle Entrate per le operazioni telematiche.
+              </li>
+              <li>
+                Disponibilità di connessione internet e dispositivi idonei.
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold">4. Account e credenziali</h2>
+            <p className="text-muted-foreground mt-2">
+              L&apos;utente è responsabile della correttezza dei dati forniti in
+              fase di registrazione e della custodia delle credenziali di
+              accesso. È vietato condividere l&apos;account in modo improprio o
+              consentire accessi non autorizzati.
+            </p>
+            <p className="text-muted-foreground mt-2">
+              L&apos;utente si impegna a comunicare tempestivamente eventuali
+              utilizzi non autorizzati o violazioni di sicurezza.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold">
+              5. Obblighi e responsabilità dell&apos;utente
+            </h2>
+            <ul className="text-muted-foreground mt-2 list-inside list-disc space-y-1">
+              <li>
+                Inserire dati veritieri, completi e aggiornati, inclusi quelli
+                fiscali.
+              </li>
+              <li>
+                Verificare la correttezza delle operazioni prima della
+                conferma/invio.
+              </li>
+              <li>
+                Utilizzare il servizio nel rispetto della normativa applicabile.
+              </li>
+              <li>
+                Conservare evidenze e documentazione secondo gli obblighi di
+                legge.
               </li>
             </ul>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold">
-              3. Responsabilità dell&apos;utente
+              6. Limitazioni del servizio
             </h2>
             <p className="text-muted-foreground mt-2">
-              L&apos;utente è responsabile di:
-            </p>
-            <ul className="text-muted-foreground mt-2 list-inside list-disc space-y-1">
-              <li>
-                La correttezza dei dati fiscali inseriti (importi, aliquote IVA,
-                dati dell&apos;attività).
-              </li>
-              <li>
-                La custodia delle proprie credenziali di accesso al servizio.
-              </li>
-              <li>
-                La custodia delle proprie credenziali Fisconline fornite al
-                servizio.
-              </li>
-              <li>
-                La conformità dell&apos;utilizzo del servizio alla normativa
-                fiscale italiana vigente.
-              </li>
-              <li>La veridicità dei dati forniti in fase di registrazione.</li>
-            </ul>
-          </section>
-
-          <section>
-            <h2 className="text-lg font-semibold">
-              4. Limitazioni di responsabilità
-            </h2>
-            <p className="text-muted-foreground mt-2">
-              ScontrinoZero opera come intermediario tecnico per la trasmissione
-              dei corrispettivi. Il titolare del servizio non è responsabile
-              per:
-            </p>
-            <ul className="text-muted-foreground mt-2 list-inside list-disc space-y-1">
-              <li>
-                Indisponibilità, malfunzionamenti o modifiche del portale
-                dell&apos;Agenzia delle Entrate.
-              </li>
-              <li>
-                Errori derivanti da dati fiscali errati inseriti
-                dall&apos;utente.
-              </li>
-              <li>
-                Conseguenze fiscali o legali derivanti dall&apos;utilizzo
-                improprio del servizio.
-              </li>
-              <li>
-                Interruzioni del servizio dovute a manutenzione programmata o
-                cause di forza maggiore.
-              </li>
-            </ul>
-            <p className="text-muted-foreground mt-2">
-              Il servizio viene fornito &quot;così com&apos;è&quot; (as is).
-              L&apos;utente è invitato a verificare sempre l&apos;esito della
-              trasmissione sul portale dell&apos;Agenzia delle Entrate.
+              Il servizio dipende anche da sistemi terzi (es. piattaforme AdE,
+              infrastrutture cloud, provider tecnici). Non possiamo garantire
+              assenza di interruzioni o indisponibilità imputabili a soggetti
+              terzi, manutenzioni, eventi di forza maggiore o cause fuori dal
+              nostro ragionevole controllo.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold">
-              5. Proprietà intellettuale e licenza
+              7. Esclusioni e limitazioni di responsabilità
             </h2>
             <p className="text-muted-foreground mt-2">
-              ScontrinoZero è un software open source distribuito con licenza
-              O&apos;Saasy. Questa licenza permette a chiunque di scaricare,
-              installare e utilizzare il software sul proprio server
-              gratuitamente. È vietato utilizzare il codice sorgente per offrire
-              un servizio SaaS concorrente. Per i dettagli completi della
-              licenza, consultare il file LICENSE nel{" "}
-              <a
-                href="https://github.com/dstmrk/scontrinozero"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary underline"
-              >
-                repository GitHub
-              </a>
-              {"."}
+              Nei limiti consentiti dalla legge, ScontrinoZero non risponde per
+              danni indiretti, perdita di profitto, fermo attività o sanzioni
+              derivanti da dati errati inseriti dall&apos;utente, uso non
+              conforme o indisponibilità di servizi terzi.
             </p>
-          </section>
-
-          <section>
-            <h2 className="text-lg font-semibold">6. Periodo beta</h2>
             <p className="text-muted-foreground mt-2">
-              Durante il periodo di beta, l&apos;accesso al servizio è gratuito
-              per tutti gli utenti iscritti. Durante questa fase:
-            </p>
-            <ul className="text-muted-foreground mt-2 list-inside list-disc space-y-1">
-              <li>
-                Il servizio è fornito senza garanzia di uptime o continuità.
-              </li>
-              <li>Le funzionalità possono cambiare senza preavviso.</li>
-              <li>Non è previsto supporto tecnico dedicato.</li>
-              <li>
-                Al termine della beta, sarà possibile scegliere un piano a
-                pagamento o continuare con il piano gratuito.
-              </li>
-            </ul>
-          </section>
-
-          <section>
-            <h2 className="text-lg font-semibold">7. Modifica dei termini</h2>
-            <p className="text-muted-foreground mt-2">
-              Il titolare si riserva il diritto di modificare i presenti termini
-              in qualsiasi momento. Le modifiche saranno comunicate tramite
-              email o tramite avviso nel servizio. L&apos;utilizzo continuativo
-              del servizio dopo la notifica delle modifiche costituisce
-              accettazione dei nuovi termini.
+              Resta in capo all&apos;utente la responsabilità di verificare
+              esiti e correttezza fiscale delle operazioni effettuate.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold">
-              8. Legge applicabile e foro competente
+              8. Piani, corrispettivi e fatturazione
             </h2>
             <p className="text-muted-foreground mt-2">
-              I presenti termini sono regolati dalla legge italiana. Per
-              qualsiasi controversia derivante dall&apos;utilizzo del servizio
-              sarà competente il Foro del luogo di residenza o domicilio del
-              consumatore, ai sensi dell&apos;art. 33 del Codice del Consumo
-              (D.Lgs. 206/2005).
+              Eventuali piani a pagamento, funzionalità incluse, limiti,
+              corrispettivi e modalità di fatturazione sono descritti nelle
+              pagine commerciali o nelle condizioni d&apos;offerta applicabili
+              al momento della sottoscrizione.
+            </p>
+            <p className="text-muted-foreground mt-2">
+              In caso di periodo beta/promozionale, potranno applicarsi
+              condizioni economiche specifiche, comunicate prima
+              dell&apos;attivazione.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold">9. Contatti</h2>
+            <h2 className="text-lg font-semibold">
+              9. Sospensione e cessazione del servizio
+            </h2>
             <p className="text-muted-foreground mt-2">
-              Per qualsiasi domanda relativa ai presenti termini di servizio,
-              scrivi a{" "}
+              Possiamo sospendere o limitare l&apos;accesso in presenza di
+              violazioni dei Termini, attività illecite, rischi per la sicurezza
+              o mancato pagamento, con preavviso ove possibile.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold">
+              10. Recesso e cancellazione account
+            </h2>
+            <p className="text-muted-foreground mt-2">
+              L&apos;utente può richiedere la chiusura del proprio account in
+              qualsiasi momento. La cessazione del servizio non esonera
+              dall&apos;adempimento di obblighi fiscali e di conservazione
+              documentale eventualmente già maturati.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold">
+              11. Proprietà intellettuale
+            </h2>
+            <p className="text-muted-foreground mt-2">
+              Marchi, contenuti, interfacce, codice e componenti della
+              piattaforma sono protetti dalla normativa in materia di proprietà
+              intellettuale. Restano salvi i diritti previsti dalle eventuali
+              licenze open source applicate a parti del progetto.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold">
+              12. Protezione dei dati personali
+            </h2>
+            <p className="text-muted-foreground mt-2">
+              Il trattamento dei dati personali avviene secondo quanto descritto
+              nella{" "}
+              <Link href="/privacy" className="text-primary underline">
+                Privacy Policy
+              </Link>
+              . Per i cookie e strumenti analoghi, consulta la{" "}
+              <Link href="/cookie-policy" className="text-primary underline">
+                Cookie Policy
+              </Link>
+              .
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold">13. Modifiche ai Termini</h2>
+            <p className="text-muted-foreground mt-2">
+              Ci riserviamo il diritto di modificare i presenti Termini per
+              ragioni normative, tecniche o commerciali. Le versioni aggiornate
+              saranno pubblicate su questa pagina con indicazione della data di
+              aggiornamento.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold">
+              14. Legge applicabile e foro competente
+            </h2>
+            <p className="text-muted-foreground mt-2">
+              I presenti Termini sono regolati dalla legge italiana. Per gli
+              utenti consumatori è competente il foro del luogo di residenza o
+              domicilio del consumatore, ove previsto dalla legge.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold">15. Contatti</h2>
+            <p className="text-muted-foreground mt-2">
+              Per informazioni sui presenti Termini puoi scrivere a{" "}
               <a
                 href="mailto:info@scontrinozero.it"
                 className="text-primary underline"
