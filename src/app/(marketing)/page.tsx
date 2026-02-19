@@ -323,21 +323,7 @@ export default function Home() {
           <p className="text-muted-foreground mx-auto mt-2 max-w-2xl text-center">
             Le risposte rapide ai dubbi più comuni su ScontrinoZero.
           </p>
-
-          <div className="mt-10 space-y-4">
-            {faqItems.map((item) => (
-              <Card key={item.question} className="border-border/50">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">{item.question}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="text-sm leading-relaxed">
-                    {item.answer}
-                  </CardDescription>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <FaqSection />
         </div>
       </section>
     </>
