@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { WaitlistForm } from "@/components/marketing/waitlist-form";
+import { FaqSection } from "@/components/marketing/faq-section";
 import {
   Smartphone,
   Receipt,
