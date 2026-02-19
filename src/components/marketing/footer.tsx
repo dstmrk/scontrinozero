@@ -36,6 +36,14 @@ export function Footer() {
                   Prezzi
                 </a>
               </li>
+              <li>
+                <a
+                  href="#faq"
+                  className="hover:text-foreground transition-colors"
+                >
+                  Domande Frequenti
+                </a>
+              </li>
             </ul>
           </div>
 
@@ -55,7 +63,15 @@ export function Footer() {
                   href="/termini"
                   className="hover:text-foreground transition-colors"
                 >
-                  Termini di Servizio
+                  Termini e Condizioni
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/cookie-policy"
+                  className="hover:text-foreground transition-colors"
+                >
+                  Cookie Policy
                 </Link>
               </li>
             </ul>

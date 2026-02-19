@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { WaitlistForm } from "@/components/marketing/waitlist-form";
+import { FaqSection } from "@/components/marketing/faq-section";
 import {
   Smartphone,
   Receipt,
@@ -132,14 +133,8 @@ export default function Home() {
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {
-                icon: Smartphone,
-                title: "Basta il telefono",
-                description:
-                  "Niente registratore, niente cavi, niente rotoli di carta. Apri l'app e sei operativo.",
-              },
-              {
                 icon: Receipt,
-                title: "Scontrino in un tap",
+                title: "Scontrino in 5 secondi",
                 description:
                   "Inserisci l'importo, conferma, fatto. La trasmissione all'Agenzia delle Entrate avviene in automatico.",
               },
@@ -166,6 +161,12 @@ export default function Home() {
                 title: "Paghi come preferisci",
                 description:
                   "Mensile, annuale o gratis. Cambi piano quando vuoi, senza vincoli e senza penali.",
+              },
+              {
+                icon: Smartphone,
+                title: "Funziona ovunque sei",
+                description:
+                  "Dal banco al furgone: basta uno smartphone con internet per gestire i tuoi corrispettivi.",
               },
             ].map((feature) => (
               <Card key={feature.title} className="border-border/50">
@@ -276,6 +277,21 @@ export default function Home() {
               <ArrowRight className="h-4 w-4" />
             </a>
           </Button>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section id="faq" className="bg-muted/50 px-4 py-20">
+        <div className="mx-auto max-w-3xl">
+          <Badge variant="secondary" className="mx-auto mb-4 block w-fit">
+            Supporto
+          </Badge>
+          <h2 className="text-center text-2xl font-bold">Domande Frequenti</h2>
+          <p className="text-muted-foreground mx-auto mt-2 max-w-2xl text-center">
+            Le risposte rapide ai dubbi più comuni su ScontrinoZero.
+          </p>
+
+          <FaqSection />
         </div>
       </section>
     </>
