@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
-    "Informativa sulla privacy di ScontrinoZero. Come raccogliamo, utilizziamo e proteggiamo i tuoi dati personali.",
+    "Informativa sulla privacy di ScontrinoZero: dati trattati, finalità, basi giuridiche, tempi di conservazione e diritti dell'interessato.",
 };
 
 export default function PrivacyPage() {
@@ -33,8 +33,8 @@ export default function PrivacyPage() {
               1. Titolare del trattamento
             </h2>
             <p className="text-muted-foreground mt-2">
-              Il titolare del trattamento dei dati personali è il gestore del
-              servizio ScontrinoZero, raggiungibile all&apos;indirizzo email:{" "}
+              Il titolare del trattamento è il gestore del servizio
+              ScontrinoZero, contattabile all&apos;indirizzo email{" "}
               <a
                 href="mailto:privacy@scontrinozero.it"
                 className="text-primary underline"
@@ -46,199 +46,179 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold">2. Dati raccolti</h2>
-            <p className="text-muted-foreground mt-2">
-              In questa fase raccogliamo esclusivamente:
-            </p>
+            <h2 className="text-lg font-semibold">
+              2. Categorie di dati personali trattati
+            </h2>
+            <p className="text-muted-foreground mt-2">Possiamo trattare:</p>
             <ul className="text-muted-foreground mt-2 list-inside list-disc space-y-1">
               <li>
-                <strong>Indirizzo email</strong> — fornito volontariamente
-                tramite il modulo di iscrizione alla lista d&apos;attesa.
+                <strong>Dati anagrafici e di contatto</strong> (es. nome,
+                cognome, email, telefono) forniti in fase di registrazione o
+                contatto.
               </li>
               <li>
-                <strong>Dati di navigazione</strong> — raccolti in forma anonima
-                e aggregata tramite analytics cookieless (Umami), senza
-                identificazione personale.
-              </li>
-            </ul>
-            <p className="text-muted-foreground mt-2">
-              Al lancio del servizio completo, saranno raccolti anche:
-            </p>
-            <ul className="text-muted-foreground mt-2 list-inside list-disc space-y-1">
-              <li>
-                <strong>Dati di registrazione</strong> — nome, email, dati
-                dell&apos;attività commerciale (ragione sociale, P.IVA, codice
-                fiscale, indirizzo).
+                <strong>Dati dell&apos;attività</strong> (es. ragione sociale,
+                P.IVA, codice fiscale, indirizzo, dati fiscali necessari
+                all&apos;erogazione del servizio).
               </li>
               <li>
-                <strong>Credenziali Fisconline</strong> — necessarie per la
-                trasmissione dei corrispettivi all&apos;Agenzia delle Entrate.
-                Queste credenziali sono cifrate at-rest e non vengono mai
-                memorizzate in chiaro né trasmesse a terzi.
+                <strong>Dati operativi del servizio</strong> (es. dati necessari
+                all&apos;emissione del documento commerciale e alla trasmissione
+                dei corrispettivi).
               </li>
               <li>
-                <strong>Dati degli scontrini</strong> — importi, aliquote IVA,
-                metodi di pagamento, necessari per l&apos;erogazione del
-                servizio.
-              </li>
-            </ul>
-          </section>
-
-          <section>
-            <h2 className="text-lg font-semibold">3. Base giuridica</h2>
-            <ul className="text-muted-foreground mt-2 list-inside list-disc space-y-1">
-              <li>
-                <strong>Consenso</strong> — per l&apos;iscrizione alla lista
-                d&apos;attesa e l&apos;invio di comunicazioni relative al
-                lancio.
+                <strong>Credenziali Fisconline/AdE</strong>, trattate con misure
+                di sicurezza rafforzate e utilizzate esclusivamente per
+                l&apos;esecuzione delle operazioni richieste dall&apos;utente.
               </li>
               <li>
-                <strong>Esecuzione del contratto</strong> — per
-                l&apos;erogazione del servizio SaaS agli utenti registrati.
-              </li>
-              <li>
-                <strong>Legittimo interesse</strong> — per analytics anonimi e
-                aggregati volti al miglioramento del servizio.
+                <strong>Dati tecnici</strong> (log applicativi, indirizzo IP,
+                dati dispositivo/browser) per sicurezza, prevenzione abusi e
+                continuità del servizio.
               </li>
             </ul>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold">
-              4. Finalità del trattamento
+              3. Finalità e base giuridica
             </h2>
             <ul className="text-muted-foreground mt-2 list-inside list-disc space-y-1">
               <li>
-                Comunicazioni relative al lancio del servizio (solo per gli
-                iscritti alla lista d&apos;attesa).
+                <strong>Esecuzione del contratto</strong>: creazione e gestione
+                account, erogazione funzionalità, assistenza utente.
               </li>
-              <li>Erogazione e gestione del servizio ScontrinoZero.</li>
               <li>
-                Trasmissione dei corrispettivi all&apos;Agenzia delle Entrate
-                per conto dell&apos;utente.
+                <strong>Adempimento di obblighi di legge</strong>: obblighi
+                fiscali, contabili, amministrativi e richieste delle autorità
+                competenti.
               </li>
-              <li>Miglioramento del servizio tramite analytics anonimi.</li>
-              <li>Adempimento di obblighi legali e fiscali.</li>
+              <li>
+                <strong>Legittimo interesse</strong>: sicurezza piattaforma,
+                prevenzione frodi, manutenzione, monitoraggio prestazioni,
+                miglioramento del servizio.
+              </li>
+              <li>
+                <strong>Consenso</strong>, ove richiesto: comunicazioni non
+                strettamente necessarie al contratto (es. aggiornamenti
+                facoltativi).
+              </li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold">5. Conservazione dei dati</h2>
+            <h2 className="text-lg font-semibold">
+              4. Natura del conferimento dei dati
+            </h2>
             <p className="text-muted-foreground mt-2">
-              I dati della lista d&apos;attesa sono conservati fino al lancio
-              del servizio o fino a richiesta di cancellazione. I dati degli
-              utenti registrati sono conservati per la durata del rapporto
-              contrattuale e successivamente per il periodo richiesto dagli
-              obblighi fiscali e legali vigenti.
+              Il conferimento dei dati contrassegnati come obbligatori è
+              necessario per registrarsi ed utilizzare ScontrinoZero. In assenza
+              di tali dati, potremmo non essere in grado di attivare o mantenere
+              il servizio.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold">
-              6. Diritti dell&apos;interessato
+              5. Modalità del trattamento e misure di sicurezza
             </h2>
             <p className="text-muted-foreground mt-2">
-              In conformità al GDPR (Regolamento UE 2016/679), hai diritto di:
+              Il trattamento avviene con strumenti elettronici e organizzativi
+              adeguati a proteggere i dati da accessi non autorizzati,
+              divulgazione, modifica o distruzione. Applichiamo principi di
+              minimizzazione, limitazione della finalità e conservazione.
             </p>
-            <ul className="text-muted-foreground mt-2 list-inside list-disc space-y-1">
-              <li>Accedere ai tuoi dati personali.</li>
-              <li>Rettificare dati inesatti o incompleti.</li>
-              <li>
-                Richiedere la cancellazione dei tuoi dati (&quot;diritto
-                all&apos;oblio&quot;).
-              </li>
-              <li>
-                Richiedere la portabilità dei dati in formato strutturato.
-              </li>
-              <li>Opporti al trattamento o richiederne la limitazione.</li>
-              <li>Revocare il consenso in qualsiasi momento.</li>
-            </ul>
             <p className="text-muted-foreground mt-2">
-              Per esercitare i tuoi diritti, scrivi a{" "}
-              <a
-                href="mailto:privacy@scontrinozero.it"
-                className="text-primary underline"
-              >
-                privacy@scontrinozero.it
-              </a>
-              {
-                ". Hai inoltre il diritto di presentare reclamo al Garante per la Protezione dei Dati Personali."
-              }
+              Le credenziali sensibili (incluse quelle necessarie ai servizi
+              fiscali) sono protette con tecniche di cifratura e procedure di
+              accesso controllato.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold">7. Terze parti</h2>
+            <h2 className="text-lg font-semibold">
+              6. Destinatari dei dati e responsabili esterni
+            </h2>
             <p className="text-muted-foreground mt-2">
-              I dati possono essere trattati dai seguenti fornitori di servizi,
-              esclusivamente per le finalità indicate:
+              I dati possono essere trattati da fornitori che supportano
+              l&apos;erogazione del servizio (es. infrastruttura cloud,
+              database, invio email, monitoraggio tecnico, pagamenti), nominati
+              ove necessario responsabili del trattamento ai sensi
+              dell&apos;art. 28 GDPR.
             </p>
-            <ul className="text-muted-foreground mt-2 list-inside list-disc space-y-1">
-              <li>
-                <strong>Supabase</strong> (database) — conservazione dei dati su
-                server nell&apos;Unione Europea.
-              </li>
-              <li>
-                <strong>Cloudflare</strong> (CDN e sicurezza) — protezione del
-                traffico web e distribuzione dei contenuti.
-              </li>
-              <li>
-                <strong>Stripe</strong> (pagamenti) — gestione degli abbonamenti
-                e dei pagamenti (al lancio del servizio).
-              </li>
-              <li>
-                <strong>Resend</strong> (email) — invio di email transazionali
-                (al lancio del servizio).
-              </li>
-            </ul>
-          </section>
-
-          <section>
-            <h2 className="text-lg font-semibold">8. Cookie</h2>
             <p className="text-muted-foreground mt-2">
-              ScontrinoZero utilizza esclusivamente cookie tecnici necessari al
-              funzionamento del servizio (autenticazione). Non utilizziamo
-              cookie di profilazione o di terze parti. L&apos;analisi del
-              traffico avviene tramite Umami, un sistema di analytics cookieless
-              che non richiede banner di consenso ai sensi del GDPR.
+              I dati non vengono diffusi. Potranno essere comunicati ad autorità
+              competenti quando previsto dalla legge.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold">9. Credenziali Fisconline</h2>
+            <h2 className="text-lg font-semibold">7. Trasferimenti extra-UE</h2>
             <p className="text-muted-foreground mt-2">
-              Le credenziali Fisconline fornite dall&apos;utente sono trattate
-              con particolare attenzione:
+              Ove alcuni fornitori comportino trasferimenti verso Paesi terzi,
+              tali trasferimenti avvengono nel rispetto del GDPR, adottando le
+              garanzie previste (es. decisioni di adeguatezza o clausole
+              contrattuali standard).
             </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold">
+              8. Periodo di conservazione
+            </h2>
             <ul className="text-muted-foreground mt-2 list-inside list-disc space-y-1">
               <li>
-                Sono cifrate at-rest e non vengono mai memorizzate in chiaro.
-              </li>
-              <li>Non vengono trasmesse a terzi in alcun caso.</li>
-              <li>
-                Sono utilizzate esclusivamente per la trasmissione dei
-                corrispettivi all&apos;Agenzia delle Entrate, su richiesta
-                dell&apos;utente.
+                Dati account e operativi: per la durata del rapporto
+                contrattuale e, successivamente, per i termini di legge.
               </li>
               <li>
-                La versione self-hosted garantisce che le credenziali restino
-                interamente sul server dell&apos;utente.
+                Dati legati ad obblighi fiscali/amministrativi: per il periodo
+                previsto dalla normativa applicabile.
+              </li>
+              <li>
+                Dati raccolti su consenso: fino a revoca del consenso, salvo
+                obblighi di ulteriore conservazione.
               </li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold">10. Contatti</h2>
+            <h2 className="text-lg font-semibold">
+              9. Diritti dell&apos;interessato
+            </h2>
             <p className="text-muted-foreground mt-2">
-              Per qualsiasi domanda relativa al trattamento dei dati personali,
-              scrivi a{" "}
-              <a
-                href="mailto:privacy@scontrinozero.it"
-                className="text-primary underline"
-              >
-                privacy@scontrinozero.it
-              </a>
-              {"."}
+              Ai sensi degli artt. 15-22 GDPR, puoi esercitare i diritti di
+              accesso, rettifica, cancellazione, limitazione, opposizione e
+              portabilità dei dati, nonché revocare eventuali consensi prestati.
+            </p>
+            <p className="text-muted-foreground mt-2">
+              Hai inoltre diritto di proporre reclamo al Garante per la
+              protezione dei dati personali.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold">
+              10. Cookie e strumenti analoghi
+            </h2>
+            <p className="text-muted-foreground mt-2">
+              Per i dettagli sul trattamento dei dati tramite cookie e
+              tecnologie simili, consulta la nostra{" "}
+              <Link href="/cookie-policy" className="text-primary underline">
+                Cookie Policy
+              </Link>
+              .
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold">
+              11. Aggiornamenti dell&apos;informativa
+            </h2>
+            <p className="text-muted-foreground mt-2">
+              Ci riserviamo di aggiornare periodicamente questa informativa.
+              Eventuali modifiche sostanziali saranno pubblicate su questa
+              pagina con indicazione della data di aggiornamento.
             </p>
           </section>
         </div>
