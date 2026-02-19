@@ -22,6 +22,39 @@ import {
   Building,
 } from "lucide-react";
 
+const faqItems = [
+  {
+    question: "Serve per forza un registratore telematico fisico?",
+    answer:
+      "No. ScontrinoZero nasce proprio per aiutarti a emettere documento commerciale e trasmettere i corrispettivi senza cassa fisica, usando i canali previsti dall'Agenzia delle Entrate.",
+  },
+  {
+    question: "A chi è adatto ScontrinoZero?",
+    answer:
+      "È pensato per ambulanti, artigiani, professionisti e micro-attività che vogliono una soluzione semplice, economica e utilizzabile direttamente da smartphone o PC.",
+  },
+  {
+    question: "Le credenziali Fisconline sono al sicuro?",
+    answer:
+      "Sì. Le credenziali vengono protette con misure di sicurezza dedicate e usate solo per le operazioni necessarie all'erogazione del servizio richiesto da te.",
+  },
+  {
+    question: "Quanto costa?",
+    answer:
+      "La beta è gratuita. Al termine della fase beta comunicheremo i piani in modo trasparente, con opzioni adatte sia a chi parte da zero sia a chi ha volumi più alti.",
+  },
+  {
+    question: "Posso provarlo prima del lancio ufficiale?",
+    answer:
+      "Sì. Iscrivendoti alla lista d'attesa puoi accedere in anteprima e ricevere aggiornamenti sulle nuove funzionalità.",
+  },
+  {
+    question: "È disponibile anche in versione self-hosted?",
+    answer:
+      "Sì. Il progetto è open source: puoi installarlo sul tuo server e mantenere il pieno controllo della tua infrastruttura.",
+  },
+];
+
 export default function Home() {
   return (
     <>
@@ -291,7 +324,20 @@ export default function Home() {
             Le risposte rapide ai dubbi più comuni su ScontrinoZero.
           </p>
 
-          <FaqSection />
+          <div className="mt-10 space-y-4">
+            {faqItems.map((item) => (
+              <Card key={item.question} className="border-border/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">{item.question}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-sm leading-relaxed">
+                    {item.answer}
+                  </CardDescription>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </section>
     </>

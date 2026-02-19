@@ -15,7 +15,6 @@ ScontrinoZero sfrutta la procedura web "Documento Commerciale Online" messa a di
 ### Funzionalità principali
 
 - **Emissione scontrini elettronici** — direttamente dal tuo dispositivo, con invio in tempo reale all'AdE
-- **Chiusura giornaliera automatica** — niente più chiusure manuali a fine giornata
 - **Gestione resi e annullamenti** — con un tap
 - **Lotteria degli scontrini** — supporto integrato per la lettura del codice cliente
 - **Multi-dispositivo** — usa la stessa cassa da smartphone, tablet o browser
