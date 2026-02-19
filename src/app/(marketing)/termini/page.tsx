@@ -240,7 +240,7 @@ export default function TerminiPage() {
               >
                 info@scontrinozero.it
               </a>
-              .
+              {"."}
             </p>
           </section>
         </div>

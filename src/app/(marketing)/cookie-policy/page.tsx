@@ -116,7 +116,7 @@ export default function CookiePolicyPage() {
               >
                 privacy@scontrinozero.it
               </a>
-              .
+              {"."}
             </p>
           </section>
 

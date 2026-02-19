@@ -41,7 +41,7 @@ export default function PrivacyPage() {
               >
                 privacy@scontrinozero.it
               </a>
-              .
+              {"."}
             </p>
           </section>
 
