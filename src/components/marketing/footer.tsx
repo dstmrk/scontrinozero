@@ -36,6 +36,14 @@ export function Footer() {
                   Prezzi
                 </a>
               </li>
+              <li>
+                <a
+                  href="#faq"
+                  className="hover:text-foreground transition-colors"
+                >
+                  Domande Frequenti
+                </a>
+              </li>
             </ul>
           </div>
 
