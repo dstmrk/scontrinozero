@@ -67,7 +67,7 @@ export function FaqSection() {
               onClick={() => setOpenIndex(isOpen ? null : index)}
               aria-expanded={isOpen}
             >
-              <CardHeader className="flex flex-row items-center justify-between gap-4 pb-3">
+              <CardHeader className="flex flex-row items-center justify-between gap-4 pb-0">
                 <CardTitle className="text-base">{item.question}</CardTitle>
                 <ChevronDown
                   className={`text-muted-foreground h-5 w-5 shrink-0 transition-transform duration-300 ${
@@ -85,7 +85,7 @@ export function FaqSection() {
               }`}
             >
               <div className="overflow-hidden">
-                <CardContent className="pt-0">
+                <CardContent className="pt-3">
                   <CardDescription className="text-sm leading-relaxed">
                     {item.answer}
                   </CardDescription>
