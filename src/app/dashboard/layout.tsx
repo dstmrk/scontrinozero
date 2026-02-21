@@ -41,6 +41,12 @@ export default async function DashboardLayout({
               Dashboard
             </Link>
             <Link
+              href="/dashboard/cassa"
+              className="text-muted-foreground hover:text-foreground text-sm font-medium"
+            >
+              Cassa
+            </Link>
+            <Link
               href="/dashboard/settings"
               className="text-muted-foreground hover:text-foreground text-sm"
             >
