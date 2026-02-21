@@ -27,7 +27,6 @@ export function NumericKeypad({ value, onChange }: NumericKeypadProps) {
   };
 
   const handleDecimal = () => {
-    if (isDecimalDisabled) return;
     onChange(appendKeypadChar(value, "."));
   };
 

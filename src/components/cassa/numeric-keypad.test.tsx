@@ -107,4 +107,13 @@ describe("NumericKeypad", () => {
 
     expect(onChange).toHaveBeenCalledWith("5");
   });
+
+  it("aggiunge zero al valore esistente premendo il tasto 0", () => {
+    const onChange = vi.fn();
+    render(<NumericKeypad value="12" onChange={onChange} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "0" }));
+
+    expect(onChange).toHaveBeenCalledWith("120");
+  });
 });

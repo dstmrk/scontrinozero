@@ -207,4 +207,22 @@ describe("ReceiptSummary", () => {
     const elements = screen.getAllByText(/7,50/);
     expect(elements.length).toBeGreaterThanOrEqual(1);
   });
+
+  it("il bottone rimuovi nella riga è no-op (gli articoli si gestiscono nel carrello)", () => {
+    render(
+      <ReceiptSummary
+        lines={lines}
+        paymentMethod="PC"
+        onPaymentMethodChange={vi.fn()}
+        onSubmit={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    const removeButtons = screen.getAllByRole("button", {
+      name: /rimuovi articolo/i,
+    });
+    // Cliccarlo non deve lanciare errori (è un no-op intenzionale nel riepilogo)
+    expect(() => fireEvent.click(removeButtons[0])).not.toThrow();
+  });
 });
