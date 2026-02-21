@@ -5,8 +5,8 @@ import { cn } from "@/lib/utils";
 import { PaymentMethod, PAYMENT_METHOD_LABELS } from "@/types/cassa";
 
 interface PaymentMethodSelectorProps {
-  value: PaymentMethod;
-  onChange: (method: PaymentMethod) => void;
+  readonly value: PaymentMethod;
+  readonly onChange: (method: PaymentMethod) => void;
 }
 
 const METHOD_ICONS: Record<PaymentMethod, React.ReactNode> = {

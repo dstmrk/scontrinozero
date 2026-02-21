@@ -8,12 +8,12 @@ import { PaymentMethodSelector } from "./payment-method-selector";
 import { Button } from "@/components/ui/button";
 
 interface ReceiptSummaryProps {
-  lines: CartLine[];
-  paymentMethod: PaymentMethod;
-  onPaymentMethodChange: (method: PaymentMethod) => void;
-  onSubmit: () => void;
-  onBack: () => void;
-  isSubmitting?: boolean;
+  readonly lines: CartLine[];
+  readonly paymentMethod: PaymentMethod;
+  readonly onPaymentMethodChange: (method: PaymentMethod) => void;
+  readonly onSubmit: () => void;
+  readonly onBack: () => void;
+  readonly isSubmitting?: boolean;
 }
 
 export function ReceiptSummary({

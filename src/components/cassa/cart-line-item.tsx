@@ -5,8 +5,8 @@ import { formatCurrency } from "@/lib/utils";
 import { CartLine, VAT_LABELS } from "@/types/cassa";
 
 interface CartLineItemProps {
-  line: CartLine;
-  onRemove: (id: string) => void;
+  readonly line: CartLine;
+  readonly onRemove: (id: string) => void;
 }
 
 export function CartLineItem({ line, onRemove }: CartLineItemProps) {

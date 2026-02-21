@@ -19,7 +19,7 @@ export function formatCurrency(amount: number): string {
  */
 export function parseAmount(value: string): number {
   if (!value || value === ".") return 0;
-  return parseFloat(value);
+  return Number.parseFloat(value);
 }
 
 /**

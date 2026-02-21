@@ -4,8 +4,8 @@ import { cn } from "@/lib/utils";
 import { VatCode, VAT_CODES, VAT_LABELS } from "@/types/cassa";
 
 interface VatSelectorProps {
-  value: VatCode;
-  onChange: (code: VatCode) => void;
+  readonly value: VatCode;
+  readonly onChange: (code: VatCode) => void;
 }
 
 export function VatSelector({ value, onChange }: VatSelectorProps) {

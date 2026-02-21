@@ -1,12 +1,11 @@
 "use client";
 
 import { Delete } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { appendKeypadChar, backspaceKeypad } from "@/lib/utils";
+import { appendKeypadChar, backspaceKeypad, cn } from "@/lib/utils";
 
 interface NumericKeypadProps {
-  value: string;
-  onChange: (value: string) => void;
+  readonly value: string;
+  readonly onChange: (value: string) => void;
 }
 
 const KEYS = [
@@ -67,10 +66,10 @@ export function NumericKeypad({ value, onChange }: NumericKeypadProps) {
 }
 
 interface KeyButtonProps {
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  "aria-label"?: string;
+  readonly label: string;
+  readonly onClick: () => void;
+  readonly disabled?: boolean;
+  readonly "aria-label"?: string;
 }
 
 function KeyButton({
