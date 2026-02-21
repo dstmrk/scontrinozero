@@ -131,12 +131,11 @@ Piano dettagliato con test e review checkpoint: vedi [`PLAN.md`](./PLAN.md)
 
 ## Fase 4 — MVP core: emissione scontrini ⬜
 
-- ⬜ Schema DB: `commercial_documents`, `commercial_document_lines`, `daily_closures`
+- ✅ Schema DB: `commercial_documents`, `commercial_document_lines`
 - ⬜ UI cassa mobile-first (tastierino, IVA, pagamento, riepilogo)
 - ⬜ Server actions + optimistic UI (TanStack Query)
 - ⬜ Storico scontrini (TanStack Table, filtri, dettaglio)
-- ⬜ Annullamento + reso
-- ⬜ Chiusura giornaliera (automatica/manuale)
+- ⬜ Annullamento
 - ⬜ Dashboard base: totale giornaliero, conteggio
 - ⬜ Codice lotteria scontrini
 
