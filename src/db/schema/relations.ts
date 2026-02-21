@@ -4,7 +4,6 @@ import { businesses } from "./businesses";
 import { adeCredentials } from "./ade-credentials";
 import { commercialDocuments } from "./commercial-documents";
 import { commercialDocumentLines } from "./commercial-document-lines";
-import { dailyClosures } from "./daily-closures";
 
 export const profilesRelations = relations(profiles, ({ many }) => ({
   businesses: many(businesses),
@@ -17,7 +16,6 @@ export const businessesRelations = relations(businesses, ({ one, many }) => ({
   }),
   adeCredentials: one(adeCredentials),
   commercialDocuments: many(commercialDocuments),
-  dailyClosures: many(dailyClosures),
 }));
 
 export const adeCredentialsRelations = relations(adeCredentials, ({ one }) => ({
@@ -47,10 +45,3 @@ export const commercialDocumentLinesRelations = relations(
     }),
   }),
 );
-
-export const dailyClosuresRelations = relations(dailyClosures, ({ one }) => ({
-  business: one(businesses, {
-    fields: [dailyClosures.businessId],
-    references: [businesses.id],
-  }),
-}));

@@ -5,7 +5,6 @@ import {
   businessesRelations,
   commercialDocumentLinesRelations,
   commercialDocumentsRelations,
-  dailyClosuresRelations,
   profilesRelations,
 } from "./relations";
 
@@ -28,9 +27,5 @@ describe("schema relations", () => {
 
   it("commercialDocumentLinesRelations is defined", () => {
     expect(commercialDocumentLinesRelations).toBeDefined();
-  });
-
-  it("dailyClosuresRelations is defined", () => {
-    expect(dailyClosuresRelations).toBeDefined();
   });
 });

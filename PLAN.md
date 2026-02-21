@@ -152,11 +152,11 @@ Prossimo step: Phase 4 (MVP core — emissione scontrini).
 
 ### Phase 4: MVP core — emissione scontrini (3-4 settimane)
 
-**4A:** Schema DB — `commercial_documents`, `commercial_document_lines`, `daily_closures` (nomi da sez. 11 api-spec.md)
+**4A:** Schema DB — `commercial_documents`, `commercial_document_lines` (nomi da sez. 11 api-spec.md)
 **4B:** UI cassa mobile-first — tastierino, IVA, pagamento, riepilogo
 **4C:** Server actions + optimistic UI — TanStack Query, mutation, rollback
 **4D:** Storico scontrini + dashboard — TanStack Table, filtri, totali
-**4E:** Annullamento + chiusura giornaliera
+**4E:** Annullamento
 
 **Test attesi:** 40-60 unit + 3-5 E2E
 
