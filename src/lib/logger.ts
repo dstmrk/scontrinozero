@@ -16,11 +16,19 @@ const REDACT_PATHS = [
   "secret",
   "authorization",
   "cookie",
+  "codiceFiscale",
+  "encryptedCodiceFiscale",
+  "encryptedPassword",
+  "encryptedPin",
   "*.password",
   "*.pin",
   "*.credentials",
   "*.token",
   "*.secret",
+  "*.codiceFiscale",
+  "*.encryptedCodiceFiscale",
+  "*.encryptedPassword",
+  "*.encryptedPin",
 ];
 
 export const logger = pino({

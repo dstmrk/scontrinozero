@@ -9,8 +9,10 @@ import { Button } from "@/components/ui/button";
 
 interface ReceiptSummaryProps {
   readonly lines: CartLine[];
+  readonly total: number;
   readonly paymentMethod: PaymentMethod;
   readonly onPaymentMethodChange: (method: PaymentMethod) => void;
+  readonly onRemoveLine: (id: string) => void;
   readonly onSubmit: () => void;
   readonly onBack: () => void;
   readonly isSubmitting?: boolean;
@@ -18,17 +20,14 @@ interface ReceiptSummaryProps {
 
 export function ReceiptSummary({
   lines,
+  total,
   paymentMethod,
   onPaymentMethodChange,
+  onRemoveLine,
   onSubmit,
   onBack,
   isSubmitting = false,
 }: ReceiptSummaryProps) {
-  const total = lines.reduce(
-    (sum, l) => sum + l.grossUnitPrice * l.quantity,
-    0,
-  );
-
   const count = lines.length;
 
   return (
@@ -54,7 +53,7 @@ export function ReceiptSummary({
       {/* Lines */}
       <div className="flex flex-col gap-2">
         {lines.map((line) => (
-          <CartLineItem key={line.id} line={line} onRemove={() => {}} />
+          <CartLineItem key={line.id} line={line} onRemove={onRemoveLine} />
         ))}
       </div>
 

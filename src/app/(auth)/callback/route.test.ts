@@ -67,4 +67,33 @@ describe("auth callback route", () => {
     expect(location.pathname).toBe("/login");
     expect(location.searchParams.get("error")).toBe("auth_callback_failed");
   });
+
+  it("ignores absolute redirect param to prevent open redirect", async () => {
+    mockExchangeCodeForSession.mockResolvedValue({ error: null });
+    const { GET } = await import("./route");
+
+    const request = new Request(
+      "http://localhost:3000/callback?code=test-code&redirect=https://evil.com",
+    );
+    const response = await GET(request);
+
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location")!);
+    expect(location.hostname).toBe("localhost");
+    expect(location.pathname).toBe("/dashboard");
+  });
+
+  it("ignores redirect param without leading slash", async () => {
+    mockExchangeCodeForSession.mockResolvedValue({ error: null });
+    const { GET } = await import("./route");
+
+    const request = new Request(
+      "http://localhost:3000/callback?code=test-code&redirect=evil.com/phishing",
+    );
+    const response = await GET(request);
+
+    const location = new URL(response.headers.get("location")!);
+    expect(location.hostname).toBe("localhost");
+    expect(location.pathname).toBe("/dashboard");
+  });
 });

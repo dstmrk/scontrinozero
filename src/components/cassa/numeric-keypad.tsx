@@ -35,9 +35,13 @@ export function NumericKeypad({ value, onChange }: NumericKeypadProps) {
 
   return (
     <div className="grid grid-cols-3 gap-2">
-      {KEYS.map((row) =>
-        row.map((key) => (
-          <KeyButton key={key} label={key} onClick={() => handleDigit(key)} />
+      {KEYS.map((row, rowIdx) =>
+        row.map((key, colIdx) => (
+          <KeyButton
+            key={`${rowIdx}-${colIdx}`}
+            label={key}
+            onClick={() => handleDigit(key)}
+          />
         )),
       )}
 

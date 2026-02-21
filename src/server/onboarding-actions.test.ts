@@ -144,6 +144,10 @@ describe("onboarding-actions", () => {
 
   describe("saveAdeCredentials", () => {
     it("encrypts and saves credentials", async () => {
+      // Ownership check: profile found
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      // Ownership check: business belongs to profile
+      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
       // No existing credentials
       mockLimit.mockResolvedValueOnce([]);
 
@@ -190,6 +194,10 @@ describe("onboarding-actions", () => {
     });
 
     it("updates existing credentials and resets verification", async () => {
+      // Ownership check: profile found
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      // Ownership check: business belongs to profile
+      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
       // Existing credentials found
       mockLimit.mockResolvedValueOnce([
         { id: "cred-123", businessId: "biz-789" },
@@ -208,10 +216,36 @@ describe("onboarding-actions", () => {
       expect(result.businessId).toBe("biz-789");
       expect(mockUpdate).toHaveBeenCalled();
     });
+
+    it("returns error when business does not belong to the user (IDOR)", async () => {
+      // Ownership check: profile found
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      // Ownership check: business NOT found for this profile
+      mockLimit.mockResolvedValueOnce([]);
+
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const result = await saveAdeCredentials(
+        formData({
+          businessId: "other-user-biz",
+          codiceFiscale: "RSSMRA80A01H501U",
+          password: "pass",
+          pin: "123456",
+        }),
+      );
+
+      expect(result.error).toContain("non autorizzato");
+      expect(mockInsert).not.toHaveBeenCalled();
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
   });
 
   describe("verifyAdeCredentials", () => {
     it("verifies credentials successfully", async () => {
+      // Ownership check: profile found
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      // Ownership check: business belongs to profile
+      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+      // Credentials found
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "biz-789",
@@ -235,6 +269,11 @@ describe("onboarding-actions", () => {
     });
 
     it("returns error when credentials not found", async () => {
+      // Ownership check: profile found
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      // Ownership check: business belongs to profile
+      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+      // No credentials
       mockLimit.mockResolvedValueOnce([]);
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
@@ -244,6 +283,11 @@ describe("onboarding-actions", () => {
     });
 
     it("returns error when AdE login fails", async () => {
+      // Ownership check: profile found
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      // Ownership check: business belongs to profile
+      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+      // Credentials found
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "biz-789",
@@ -259,6 +303,19 @@ describe("onboarding-actions", () => {
       const result = await verifyAdeCredentials("biz-789");
 
       expect(result.error).toContain("Verifica fallita");
+    });
+
+    it("returns error when business does not belong to the user (IDOR)", async () => {
+      // Ownership check: profile found
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      // Ownership check: business NOT found for this profile
+      mockLimit.mockResolvedValueOnce([]);
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials("other-user-biz");
+
+      expect(result.error).toContain("non autorizzato");
+      expect(mockLogin).not.toHaveBeenCalled();
     });
   });
 

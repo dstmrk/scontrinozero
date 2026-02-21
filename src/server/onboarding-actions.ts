@@ -1,6 +1,6 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getDb } from "@/db";
 import { businesses, adeCredentials, profiles } from "@/db/schema";
@@ -116,7 +116,7 @@ export async function saveBusiness(
 export async function saveAdeCredentials(
   formData: FormData,
 ): Promise<OnboardingActionResult> {
-  await requireUser();
+  const user = await requireUser();
 
   const businessId = formData.get("businessId") as string;
   const codiceFiscale = (formData.get("codiceFiscale") as string)?.trim();
@@ -144,6 +144,29 @@ export async function saveAdeCredentials(
   const encryptedPin = encrypt(pin, key, keyVersion);
 
   const db = getDb();
+
+  // Verify the business belongs to the authenticated user
+  const [profile] = await db
+    .select({ id: profiles.id })
+    .from(profiles)
+    .where(eq(profiles.authUserId, user.id))
+    .limit(1);
+
+  if (!profile) {
+    return { error: "Profilo non trovato." };
+  }
+
+  const [business] = await db
+    .select({ id: businesses.id })
+    .from(businesses)
+    .where(
+      and(eq(businesses.id, businessId), eq(businesses.profileId, profile.id)),
+    )
+    .limit(1);
+
+  if (!business) {
+    return { error: "Business non trovato o non autorizzato." };
+  }
 
   // Upsert credentials
   const [existing] = await db
@@ -179,9 +202,33 @@ export async function saveAdeCredentials(
 export async function verifyAdeCredentials(
   businessId: string,
 ): Promise<OnboardingActionResult> {
-  await requireUser();
+  const user = await requireUser();
 
   const db = getDb();
+
+  // Verify the business belongs to the authenticated user
+  const [profile] = await db
+    .select({ id: profiles.id })
+    .from(profiles)
+    .where(eq(profiles.authUserId, user.id))
+    .limit(1);
+
+  if (!profile) {
+    return { error: "Profilo non trovato." };
+  }
+
+  const [business] = await db
+    .select({ id: businesses.id })
+    .from(businesses)
+    .where(
+      and(eq(businesses.id, businessId), eq(businesses.profileId, profile.id)),
+    )
+    .limit(1);
+
+  if (!business) {
+    return { error: "Business non trovato o non autorizzato." };
+  }
+
   const [cred] = await db
     .select()
     .from(adeCredentials)
