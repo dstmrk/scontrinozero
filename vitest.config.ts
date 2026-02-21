@@ -15,6 +15,7 @@ export default defineConfig({
       include: ["src/**/*.{ts,tsx}"],
       exclude: [
         "src/components/ui/**",
+        "src/db/schema/**", // Drizzle ORM declarations — pure config, no business logic
         "src/app/layout.tsx",
         "src/**/*.d.ts",
         "src/app/**/page.tsx", // UI templates — tested via E2E
