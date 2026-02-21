@@ -2,11 +2,12 @@
 
 ## Contesto
 
-Phase 0, 1A, 2A-2C, 1B (parziale), 3A, 3B completate. Il progetto ha 191 unit test + 8 E2E test.
+Phase 0, 1A, 2A-2C, 1B (parziale), 3A, 3B, 4A completate. Il progetto ha 214 unit test + 8 E2E test.
 Modulo AdE completo (MockAdeClient + RealAdeClient) con 92 test dedicati.
 Infrastruttura sicurezza: logger (pino), rate limiting, encryption (AES-256-GCM), Sentry.
 Auth: Supabase Auth con middleware, onboarding wizard 3-step, credenziali AdE cifrate.
-Prossimo step: Phase 4 (MVP core — emissione scontrini).
+Schema DB scontrini: tabelle `commercial_documents` + `commercial_document_lines` con migration.
+Prossimo step: Phase 4B (UI cassa mobile-first).
 
 ---
 
@@ -152,11 +153,19 @@ Prossimo step: Phase 4 (MVP core — emissione scontrini).
 
 ### Phase 4: MVP core — emissione scontrini (3-4 settimane)
 
-**4A:** Schema DB — `commercial_documents`, `commercial_document_lines` (nomi da sez. 11 api-spec.md)
-**4B:** UI cassa mobile-first — tastierino, IVA, pagamento, riepilogo
-**4C:** Server actions + optimistic UI — TanStack Query, mutation, rollback
-**4D:** Storico scontrini + dashboard — TanStack Table, filtri, totali
-**4E:** Annullamento
+**4A:** Schema DB ✅ — `commercial_documents`, `commercial_document_lines`
+
+- `commercial_documents`: 12 col, enum `document_kind` (SALE/VOID), enum `document_status` (PENDING/ACCEPTED/VOID_ACCEPTED/REJECTED/ERROR), `idempotency_key` UNIQUE, payload AdE in jsonb, FK → businesses cascade
+- `commercial_document_lines`: 8 col, numeric con precision, `ade_line_id` per annulli parziali, FK → commercial_documents cascade
+- Nota: **`daily_closures` non esiste** — con Documento Commerciale Online ogni scontrino è inviato singolarmente all'AdE; non c'è chiusura giornaliera
+- Migration: `supabase/migrations/0003_colossal_jimmy_woo.sql`
+- Coverage: `src/db/schema/**` escluso da vitest + SonarCloud (callback lazy Drizzle non eseguibili a test-time; correttezza garantita da TypeScript + migration SQL)
+- **Risultato:** 214 unit test + 8 E2E, SonarCloud quality gate verde
+
+**4B:** UI cassa mobile-first — tastierino numerico, selezione IVA, pagamento, schermata riepilogo
+**4C:** Server actions + optimistic UI — TanStack Query, mutation, rollback automatico
+**4D:** Storico scontrini + dashboard — TanStack Table, filtri, totali giornalieri
+**4E:** Annullamento scontrino
 
 **Test attesi:** 40-60 unit + 3-5 E2E
 
@@ -239,7 +248,8 @@ Prossimo step: Phase 4 (MVP core — emissione scontrini).
 | 1B (Landing) ✅ parz.  | 6 (reali)   | 125 unit + 8 E2E     |
 | 3A (Security infra) ✅ | 23 (reali)  | 148 unit + 8 E2E     |
 | 3B (Auth) ✅           | 43 (reali)  | 191 unit + 8 E2E     |
-| 4 (MVP)                | ~55         | ~246                 |
+| 4A (Schema DB) ✅      | 23 (reali)  | 214 unit + 8 E2E     |
+| 4B-4E (MVP)            | ~35         | ~249                 |
 | 5 (PWA)                | ~13         | ~259                 |
 | 6 (Stabilita')         | ~15         | ~274                 |
 | 7 (Stripe)             | ~20         | ~294                 |
@@ -260,4 +270,4 @@ Ad ogni checkpoint:
 
 ## Primo passo immediato
 
-Iniziare con **Phase 4**: MVP core — schema DB scontrini, UI cassa mobile-first, server actions + optimistic UI, storico, annullamento, chiusura giornaliera.
+Iniziare con **Phase 4B**: UI cassa mobile-first — tastierino numerico, selezione aliquota IVA, metodo di pagamento, schermata di riepilogo pre-emissione.
