@@ -5,6 +5,7 @@
  * submission via direct HTTP calls (no headless browser).
  *
  * Reference: docs/api-spec.md
+ * Flow verified against HAR capture: login_ade_fisconline.har
  */
 
 import type { AdeClient, AdeSession } from "./client";
@@ -73,79 +74,115 @@ export class RealAdeClient implements AdeClient {
   }
 
   // -----------------------------------------------------------------------
-  // Authentication phases (1-5)
+  // Authentication phases (1-6)
   // -----------------------------------------------------------------------
 
-  /** Phase 1: Initialize cookie jar with portal cookies. */
+  /**
+   * Phase 1: Initialize cookie jar by loading the portal home page.
+   *
+   * HAR fix: use /portale/web/guest/home (not /portale/web/guest) to obtain
+   * the correct initial cookies (JSESSIONID, etc.).
+   */
   private async initCookieJar(): Promise<void> {
-    await this.request(`${ADE_BASE_URL}/portale/web/guest`);
+    await this.request(`${ADE_BASE_URL}/portale/web/guest/home`);
   }
 
-  /** Phase 2: Login with Fisconline credentials. */
+  /**
+   * Phase 2: Login with Fisconline credentials.
+   *
+   * HAR fixes (login_ade_fisconline.har):
+   * - URL: p_p_col_pos=4, p_p_col_count=6 (old code had 3 and 4 → portal mismatch)
+   * - Body: 4 required params were missing:
+   *     _58_saveLastPath=false, _58_redirect=, _58_doActionAfterLogin=false, ricorda-cf=on
+   *   Without them the portal did not establish an authenticated session and
+   *   redirected in a loop, causing "redirect count exceeded" in Node.js fetch.
+   * - Referer header added (sent by the browser in the HAR).
+   * - Redirect chain is exactly 2 hops: POST → /portale/c/... → /portale/web/guest/home
+   */
   private async postLogin(credentials: FisconlineCredentials): Promise<void> {
     const url =
       `${ADE_BASE_URL}/portale/home?p_p_id=58&p_p_lifecycle=1` +
       `&p_p_state=normal&p_p_mode=view&p_p_col_id=column-1` +
-      `&p_p_col_pos=3&p_p_col_count=4` +
+      `&p_p_col_pos=4&p_p_col_count=6` +
       `&_58_struts_action=%2Flogin%2Flogin`;
 
     const body = new URLSearchParams({
+      _58_saveLastPath: "false",
+      _58_redirect: "",
+      _58_doActionAfterLogin: "false",
       _58_login: credentials.codiceFiscale,
       _58_password: credentials.password,
       _58_pin: credentials.pin,
+      "ricorda-cf": "on",
     });
 
     const response = await this.request(url, {
       method: "POST",
       body: body.toString(),
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Referer: `${ADE_BASE_URL}/portale/web/guest/home`,
+      },
       followRedirects: false,
     });
 
     const location = response.headers.get("Location") ?? "";
 
+    // Successful login → portal returns 302 to /portale/c/<userId>/...
     if (!location.includes("/portale/c")) {
       throw new AdeAuthError(
         "Login failed: invalid credentials or account locked",
       );
     }
 
-    // Follow the redirect to collect session cookies
+    // Follow the remaining redirect chain (ends at /portale/web/guest/home)
     const redirectUrl = location.startsWith("http")
       ? location
       : `${ADE_BASE_URL}${location}`;
     await this.request(redirectUrl);
   }
 
-  /** Phase 3: Extract Liferay p_auth token from bootstrap page. */
+  /**
+   * Phase 3: Extract Liferay p_auth token from the authenticated home page.
+   *
+   * HAR fix: /dp/api returns an EMPTY body (length 0) — cannot be used.
+   * Liferay.authToken is embedded in the /portale/web/guest/home HTML
+   * (verified at char position 11805 in the captured HAR response).
+   */
   private async extractPAuth(): Promise<string> {
-    const url = `${ADE_BASE_URL}/dp/api?v=${Date.now()}`;
+    const url = `${ADE_BASE_URL}/portale/web/guest/home`;
     const response = await this.request(url);
     const html = await response.text();
 
-    const match = /Liferay\.authToken\s*=\s*"([^"]+)"/.exec(html);
+    const match = /Liferay\.authToken\s*=\s*['"]([^'"]+)['"]/.exec(html);
     if (!match?.[1]) {
       throw new AdePortalError(
         200,
-        "Failed to extract p_auth token from bootstrap page",
+        "Failed to extract p_auth token from portal home page",
       );
     }
 
     return match[1];
   }
 
-  /** Phase 4: Select the working entity (Partita IVA). */
-  private async selectEntity(pAuth: string, partitaIva: string): Promise<void> {
+  /**
+   * Phase 4: Activate the portal session via the DatiOpzioni portlet.
+   *
+   * HAR fix: this POST is required before verifySession.
+   * Without it: /ser/api/fatture/v1/ul/me/adesione/stato/ → 401
+   * After it:   /ser/api/fatture/v1/ul/me/adesione/stato/ → 200
+   * This step was completely absent from the old code.
+   */
+  private async activateSession(): Promise<void> {
     const url =
-      `${ADE_BASE_URL}/portale/scelta-utenza-lavoro?p_auth=${pAuth}` +
-      `&p_p_id=SceltaUtenzaLavoro_WAR_SceltaUtenzaLavoroportlet` +
-      `&p_p_lifecycle=1&p_p_state=normal&p_p_mode=view&p_p_col_id=column-1` +
-      `&p_p_col_count=1` +
-      `&_SceltaUtenzaLavoro_WAR_SceltaUtenzaLavoroportlet_javax.portlet.action=incarichiAction`;
+      `${ADE_BASE_URL}/portale/home` +
+      `?p_p_id=DatiOpzioni_WAR_DatiOpzioniportlet` +
+      `&p_p_lifecycle=2&p_p_state=normal&p_p_mode=view` +
+      `&p_p_cacheability=cacheLevelPage` +
+      `&p_p_col_id=column-2&p_p_col_count=10`;
 
     const body = new URLSearchParams({
-      sceltaincarico: partitaIva,
-      tipoincaricante: "ME",
+      _DatiOpzioni_WAR_DatiOpzioniportlet_reload: "false",
     });
 
     await this.request(url, {
@@ -168,19 +205,54 @@ export class RealAdeClient implements AdeClient {
     }
   }
 
-  /** Full authentication flow (Phases 1-5). */
+  /**
+   * Phase 6: Fetch the real Partita IVA from the portal.
+   *
+   * HAR fix: the old code derived P.IVA by slicing the codice fiscale
+   * (codiceFiscale.slice(0, 11).padEnd(11, "0")) which is completely wrong —
+   * a CF is not a P.IVA and slicing it produces garbage.
+   * The real P.IVA is available at /ser/api/portale/v1/gestori/me/
+   * in the JSON field: anagrafica.piva
+   *
+   * HAR note: selectEntity (scelta-utenza-lavoro) does NOT appear in the
+   * captured flow — it is not needed for single-entity Fisconline accounts.
+   */
+  private async fetchPartitaIva(): Promise<string> {
+    const url = `${ADE_BASE_URL}/ser/api/portale/v1/gestori/me/`;
+    const response = await this.request(url);
+
+    if (!response.ok) {
+      throw new AdePortalError(
+        response.status,
+        `Failed to fetch gestori/me: status ${response.status}`,
+      );
+    }
+
+    const data = (await response.json()) as {
+      anagrafica?: { piva?: string };
+    };
+    const piva = data?.anagrafica?.piva;
+
+    if (!piva) {
+      throw new AdePortalError(
+        200,
+        "Failed to extract Partita IVA from gestori/me response",
+      );
+    }
+
+    return piva;
+  }
+
+  /** Full authentication flow (Phases 1-6). */
   private async authenticate(
     credentials: FisconlineCredentials,
   ): Promise<AdeSession> {
-    await this.initCookieJar();
-    await this.postLogin(credentials);
-    const pAuth = await this.extractPAuth();
-
-    // PoC: derive P.IVA from CF (same as MockAdeClient).
-    // In Phase 3B the real P.IVA will come from user profile.
-    const partitaIva = credentials.codiceFiscale.slice(0, 11).padEnd(11, "0");
-    await this.selectEntity(pAuth, partitaIva);
-    await this.verifySession();
+    await this.initCookieJar(); // Phase 1: seed cookies
+    await this.postLogin(credentials); // Phase 2: login POST
+    const pAuth = await this.extractPAuth(); // Phase 3: grab authToken
+    await this.activateSession(); // Phase 4: DatiOpzioni (required)
+    await this.verifySession(); // Phase 5: 200 probe
+    const partitaIva = await this.fetchPartitaIva(); // Phase 6: real P.IVA
 
     return {
       pAuth,
