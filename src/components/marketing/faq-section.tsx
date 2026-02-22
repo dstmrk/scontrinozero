@@ -59,11 +59,11 @@ export function FaqSection() {
         return (
           <Card
             key={item.question}
-            className="border-border/50 overflow-hidden transition-shadow duration-300 hover:shadow-sm"
+            className="border-border/50 gap-0 overflow-hidden py-0 transition-shadow duration-300 hover:shadow-sm"
           >
             <button
               type="button"
-              className="w-full text-left"
+              className="w-full py-4 text-left"
               onClick={() => setOpenIndex(isOpen ? null : index)}
               aria-expanded={isOpen}
             >
@@ -85,7 +85,7 @@ export function FaqSection() {
               }`}
             >
               <div className="overflow-hidden">
-                <CardContent className="pt-3">
+                <CardContent className="pt-3 pb-4">
                   <CardDescription className="text-sm leading-relaxed">
                     {item.answer}
                   </CardDescription>

@@ -50,26 +50,28 @@ export function WaitlistForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex w-full max-w-sm gap-2">
-      <Input
-        type="email"
-        placeholder="La tua email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-        disabled={status === "loading"}
-      />
-      <Button type="submit" disabled={status === "loading"}>
-        {status === "loading" ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <>
-            Iscriviti
-            <ArrowRight className="h-4 w-4" />
-          </>
-        )}
-      </Button>
+    <div className="flex w-full max-w-sm flex-col gap-2">
+      <form onSubmit={handleSubmit} className="flex gap-2">
+        <Input
+          type="email"
+          placeholder="La tua email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          disabled={status === "loading"}
+        />
+        <Button type="submit" disabled={status === "loading"}>
+          {status === "loading" ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <>
+              Iscriviti
+              <ArrowRight className="h-4 w-4" />
+            </>
+          )}
+        </Button>
+      </form>
       {status === "error" && <p className="text-xs text-red-500">{message}</p>}
-    </form>
+    </div>
   );
 }

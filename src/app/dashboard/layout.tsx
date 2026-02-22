@@ -21,7 +21,7 @@ export default async function DashboardLayout({
 
   // Check if onboarding is complete
   const status = await getOnboardingStatus();
-  if (!status.hasBusiness) {
+  if (!status.hasBusiness || !status.hasCredentials) {
     redirect("/onboarding");
   }
 
