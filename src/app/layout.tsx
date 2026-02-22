@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { Providers } from "@/components/providers";
 import "./globals.css";
 
 const nunitoSans = localFont({
@@ -57,7 +58,7 @@ export default function RootLayout({
       <body
         className={`${nunitoSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

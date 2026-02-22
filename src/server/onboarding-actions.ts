@@ -1,12 +1,15 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { businesses, adeCredentials, profiles } from "@/db/schema";
 import { encrypt, decrypt } from "@/lib/crypto";
 import { createAdeClient } from "@/lib/ade";
 import { logger } from "@/lib/logger";
+import {
+  getAuthenticatedUser,
+  checkBusinessOwnership,
+} from "@/lib/server-auth";
 
 export type OnboardingActionResult = {
   error?: string;
@@ -33,56 +36,10 @@ function getKeyVersion(): number {
   return Number.parseInt(process.env.ENCRYPTION_KEY_VERSION || "1", 10);
 }
 
-async function requireUser() {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error("Not authenticated");
-  }
-  return user;
-}
-
-/**
- * Verifies that businessId belongs to the authenticated user's profile.
- * Returns an error result if the check fails, or null if ownership is confirmed.
- */
-async function requireBusinessOwnership(
-  userId: string,
-  businessId: string,
-): Promise<OnboardingActionResult | null> {
-  const db = getDb();
-
-  const [profile] = await db
-    .select({ id: profiles.id })
-    .from(profiles)
-    .where(eq(profiles.authUserId, userId))
-    .limit(1);
-
-  if (!profile) {
-    return { error: "Profilo non trovato." };
-  }
-
-  const [business] = await db
-    .select({ id: businesses.id })
-    .from(businesses)
-    .where(
-      and(eq(businesses.id, businessId), eq(businesses.profileId, profile.id)),
-    )
-    .limit(1);
-
-  if (!business) {
-    return { error: "Business non trovato o non autorizzato." };
-  }
-
-  return null;
-}
-
 export async function saveBusiness(
   formData: FormData,
 ): Promise<OnboardingActionResult> {
-  const user = await requireUser();
+  const user = await getAuthenticatedUser();
 
   const businessName = (formData.get("businessName") as string)?.trim();
   const vatNumber = (formData.get("vatNumber") as string)?.trim();
@@ -151,7 +108,7 @@ export async function saveBusiness(
 export async function saveAdeCredentials(
   formData: FormData,
 ): Promise<OnboardingActionResult> {
-  const user = await requireUser();
+  const user = await getAuthenticatedUser();
 
   const businessId = formData.get("businessId") as string;
   const codiceFiscale = (formData.get("codiceFiscale") as string)?.trim();
@@ -178,7 +135,7 @@ export async function saveAdeCredentials(
   const encryptedPassword = encrypt(password, key, keyVersion);
   const encryptedPin = encrypt(pin, key, keyVersion);
 
-  const ownershipError = await requireBusinessOwnership(user.id, businessId);
+  const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) return ownershipError;
 
   const db = getDb();
@@ -217,9 +174,9 @@ export async function saveAdeCredentials(
 export async function verifyAdeCredentials(
   businessId: string,
 ): Promise<OnboardingActionResult> {
-  const user = await requireUser();
+  const user = await getAuthenticatedUser();
 
-  const ownershipError = await requireBusinessOwnership(user.id, businessId);
+  const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) return ownershipError;
 
   const db = getDb();
@@ -262,7 +219,7 @@ export async function verifyAdeCredentials(
 }
 
 export async function getOnboardingStatus(): Promise<OnboardingStatus> {
-  const user = await requireUser();
+  const user = await getAuthenticatedUser();
   const db = getDb();
 
   const [profile] = await db
