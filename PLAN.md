@@ -2,12 +2,14 @@
 
 ## Contesto
 
-Phase 0, 1A, 2A-2C, 1B (parziale), 3A, 3B, 4A completate. Il progetto ha 214 unit test + 8 E2E test.
+Phase 0, 1A, 2A-2C, 1B (parziale), 3A, 3B, 4A, 4B completate. Il progetto ha 305 unit test + 8 E2E test.
 Modulo AdE completo (MockAdeClient + RealAdeClient) con 92 test dedicati.
 Infrastruttura sicurezza: logger (pino), rate limiting, encryption (AES-256-GCM), Sentry.
 Auth: Supabase Auth con middleware, onboarding wizard 3-step, credenziali AdE cifrate.
 Schema DB scontrini: tabelle `commercial_documents` + `commercial_document_lines` con migration.
-Prossimo step: Phase 4B (UI cassa mobile-first).
+UI cassa mobile-first: tastierino numerico, selezione IVA, riepilogo scontrino.
+Code review completata: security fixes (IDOR, open redirect, redaction), React best practices.
+Prossimo step: Phase 4C (server action emissione + TanStack Query mutation).
 
 ---
 
@@ -155,6 +157,8 @@ Prossimo step: Phase 4B (UI cassa mobile-first).
 
 **4A:** Schema DB ✅ — `commercial_documents`, `commercial_document_lines`
 
+**4B:** UI cassa mobile-first ✅ — tastierino numerico, selezione IVA, metodo pagamento, riepilogo
+
 - `commercial_documents`: 12 col, enum `document_kind` (SALE/VOID), enum `document_status` (PENDING/ACCEPTED/VOID_ACCEPTED/REJECTED/ERROR), `idempotency_key` UNIQUE, payload AdE in jsonb, FK → businesses cascade
 - `commercial_document_lines`: 8 col, numeric con precision, `ade_line_id` per annulli parziali, FK → commercial_documents cascade
 - Nota: **`daily_closures` non esiste** — con Documento Commerciale Online ogni scontrino è inviato singolarmente all'AdE; non c'è chiusura giornaliera
@@ -240,20 +244,22 @@ Prossimo step: Phase 4B (UI cassa mobile-first).
 
 ## Riepilogo test cumulativi
 
-| Fase                   | Nuovi test  | Totale cumulativo    |
-| ---------------------- | ----------- | -------------------- |
-| 1A (Security fix) ✅   | 23 (reali)  | 27 (23 unit + 4 E2E) |
-| 2A (AdE ricerca) ✅    | 0 (ricerca) | 27                   |
-| 2B-2C (AdE impl) ✅    | 92 (reali)  | 119                  |
-| 1B (Landing) ✅ parz.  | 6 (reali)   | 125 unit + 8 E2E     |
-| 3A (Security infra) ✅ | 23 (reali)  | 148 unit + 8 E2E     |
-| 3B (Auth) ✅           | 43 (reali)  | 191 unit + 8 E2E     |
-| 4A (Schema DB) ✅      | 23 (reali)  | 214 unit + 8 E2E     |
-| 4B-4E (MVP)            | ~35         | ~249                 |
-| 5 (PWA)                | ~13         | ~259                 |
-| 6 (Stabilita')         | ~15         | ~274                 |
-| 7 (Stripe)             | ~20         | ~294                 |
-| **Lancio**             |             | **~295+ test**       |
+| Fase                    | Nuovi test  | Totale cumulativo    |
+| ----------------------- | ----------- | -------------------- |
+| 1A (Security fix) ✅    | 23 (reali)  | 27 (23 unit + 4 E2E) |
+| 2A (AdE ricerca) ✅     | 0 (ricerca) | 27                   |
+| 2B-2C (AdE impl) ✅     | 92 (reali)  | 119                  |
+| 1B (Landing) ✅ parz.   | 6 (reali)   | 125 unit + 8 E2E     |
+| 3A (Security infra) ✅  | 23 (reali)  | 148 unit + 8 E2E     |
+| 3B (Auth) ✅            | 43 (reali)  | 191 unit + 8 E2E     |
+| 4A (Schema DB) ✅       | 23 (reali)  | 214 unit + 8 E2E     |
+| 4B (UI cassa) ✅        | 91 (reali)  | 305 unit + 8 E2E     |
+| 4C (server action)      | ~15         | ~320                 |
+| 4D-4E (storico+annullo) | ~20         | ~340                 |
+| 5 (PWA)                 | ~13         | ~259                 |
+| 6 (Stabilita')          | ~15         | ~274                 |
+| 7 (Stripe)              | ~20         | ~294                 |
+| **Lancio**              |             | **~295+ test**       |
 
 ---
 

@@ -36,3 +36,19 @@ export const VAT_CODES: VatCode[] = ["4", "5", "10", "22"];
 
 /** Metodi di pagamento disponibili */
 export const PAYMENT_METHODS: PaymentMethod[] = ["PC", "PE"];
+
+/** Input per la server action emitReceipt */
+export type SubmitReceiptInput = {
+  businessId: string;
+  lines: CartLine[];
+  paymentMethod: PaymentMethod;
+  idempotencyKey: string; // uuid generato client-side, per idempotenza
+};
+
+/** Risultato della server action emitReceipt */
+export type SubmitReceiptResult = {
+  error?: string;
+  documentId?: string;
+  adeTransactionId?: string;
+  adeProgressive?: string;
+};
