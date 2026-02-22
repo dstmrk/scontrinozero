@@ -44,6 +44,41 @@ async function requireUser() {
   return user;
 }
 
+/**
+ * Verifies that businessId belongs to the authenticated user's profile.
+ * Returns an error result if the check fails, or null if ownership is confirmed.
+ */
+async function requireBusinessOwnership(
+  userId: string,
+  businessId: string,
+): Promise<OnboardingActionResult | null> {
+  const db = getDb();
+
+  const [profile] = await db
+    .select({ id: profiles.id })
+    .from(profiles)
+    .where(eq(profiles.authUserId, userId))
+    .limit(1);
+
+  if (!profile) {
+    return { error: "Profilo non trovato." };
+  }
+
+  const [business] = await db
+    .select({ id: businesses.id })
+    .from(businesses)
+    .where(
+      and(eq(businesses.id, businessId), eq(businesses.profileId, profile.id)),
+    )
+    .limit(1);
+
+  if (!business) {
+    return { error: "Business non trovato o non autorizzato." };
+  }
+
+  return null;
+}
+
 export async function saveBusiness(
   formData: FormData,
 ): Promise<OnboardingActionResult> {
@@ -143,30 +178,10 @@ export async function saveAdeCredentials(
   const encryptedPassword = encrypt(password, key, keyVersion);
   const encryptedPin = encrypt(pin, key, keyVersion);
 
+  const ownershipError = await requireBusinessOwnership(user.id, businessId);
+  if (ownershipError) return ownershipError;
+
   const db = getDb();
-
-  // Verify the business belongs to the authenticated user
-  const [profile] = await db
-    .select({ id: profiles.id })
-    .from(profiles)
-    .where(eq(profiles.authUserId, user.id))
-    .limit(1);
-
-  if (!profile) {
-    return { error: "Profilo non trovato." };
-  }
-
-  const [business] = await db
-    .select({ id: businesses.id })
-    .from(businesses)
-    .where(
-      and(eq(businesses.id, businessId), eq(businesses.profileId, profile.id)),
-    )
-    .limit(1);
-
-  if (!business) {
-    return { error: "Business non trovato o non autorizzato." };
-  }
 
   // Upsert credentials
   const [existing] = await db
@@ -204,30 +219,10 @@ export async function verifyAdeCredentials(
 ): Promise<OnboardingActionResult> {
   const user = await requireUser();
 
+  const ownershipError = await requireBusinessOwnership(user.id, businessId);
+  if (ownershipError) return ownershipError;
+
   const db = getDb();
-
-  // Verify the business belongs to the authenticated user
-  const [profile] = await db
-    .select({ id: profiles.id })
-    .from(profiles)
-    .where(eq(profiles.authUserId, user.id))
-    .limit(1);
-
-  if (!profile) {
-    return { error: "Profilo non trovato." };
-  }
-
-  const [business] = await db
-    .select({ id: businesses.id })
-    .from(businesses)
-    .where(
-      and(eq(businesses.id, businessId), eq(businesses.profileId, profile.id)),
-    )
-    .limit(1);
-
-  if (!business) {
-    return { error: "Business non trovato o non autorizzato." };
-  }
 
   const [cred] = await db
     .select()
