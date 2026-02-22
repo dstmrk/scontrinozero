@@ -87,14 +87,16 @@ Piano dettagliato con test e review checkpoint: vedi [`PLAN.md`](./PLAN.md)
 
 ---
 
-## Fase 1B — Completare landing page ⬜
+## Fase 1B — Completare landing page ✅ parziale
 
 (Dopo la validazione AdE)
 
-- ⬜ Privacy Policy
-- ⬜ Sitemap + JSON-LD
+- ✅ Privacy Policy (`src/app/(marketing)/privacy/page.tsx`)
+- ✅ Termini di Servizio (`src/app/(marketing)/termini/page.tsx`)
+- ✅ Sitemap (`src/app/sitemap.ts`)
+- ⬜ JSON-LD structured data (schema `SoftwareApplication` + `Organization`)
 - ⬜ Email conferma waitlist (Resend)
-- ⬜ Umami analytics
+- ⬜ Umami analytics (self-hosted su VPS)
 - ⬜ Deploy produzione `scontrinozero.it` (tag `v0.1.0`)
 
 ---
@@ -108,7 +110,7 @@ Piano dettagliato con test e review checkpoint: vedi [`PLAN.md`](./PLAN.md)
 
 ---
 
-## Fase 3B — Autenticazione e onboarding 🔵
+## Fase 3B — Autenticazione e onboarding ✅
 
 - ✅ Supabase Auth (`@supabase/ssr`) — email/password + magic link
 - ✅ Route group `(auth)`: login, register, reset-password, verify-email, callback
@@ -129,11 +131,11 @@ Piano dettagliato con test e review checkpoint: vedi [`PLAN.md`](./PLAN.md)
 
 ---
 
-## Fase 4 — MVP core: emissione scontrini ⬜
+## Fase 4 — MVP core: emissione scontrini 🔵
 
 - ✅ Schema DB: `commercial_documents`, `commercial_document_lines`
-- ⬜ UI cassa mobile-first (tastierino, IVA, pagamento, riepilogo)
-- ⬜ Server actions + optimistic UI (TanStack Query)
+- ✅ UI cassa mobile-first (tastierino, IVA, pagamento, riepilogo)
+- ✅ Server actions + optimistic UI (TanStack Query) — `emitReceipt`, `useMutation`, idempotency
 - ⬜ Storico scontrini (TanStack Table, filtri, dettaglio)
 - ⬜ Annullamento
 - ⬜ Dashboard base: totale giornaliero, conteggio

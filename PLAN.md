@@ -2,14 +2,15 @@
 
 ## Contesto
 
-Phase 0, 1A, 2A-2C, 1B (parziale), 3A, 3B, 4A, 4B completate. Il progetto ha 305 unit test + 8 E2E test.
+Phase 0, 1A, 2A-2C, 1B (parziale), 3A, 3B, 4A, 4B, 4C completate. Il progetto ha 319 unit test + 8 E2E test.
 Modulo AdE completo (MockAdeClient + RealAdeClient) con 92 test dedicati.
 Infrastruttura sicurezza: logger (pino), rate limiting, encryption (AES-256-GCM), Sentry.
 Auth: Supabase Auth con middleware, onboarding wizard 3-step, credenziali AdE cifrate.
 Schema DB scontrini: tabelle `commercial_documents` + `commercial_document_lines` con migration.
 UI cassa mobile-first: tastierino numerico, selezione IVA, riepilogo scontrino.
 Code review completata: security fixes (IDOR, open redirect, redaction), React best practices.
-Prossimo step: Phase 4C (server action emissione + TanStack Query mutation).
+Phase 4C completata: server action `emitReceipt` + `useMutation` TanStack Query + schermate success/error nella cassa.
+Prossimo step: Phase 4D (storico scontrini).
 
 ---
 
@@ -159,6 +160,8 @@ Prossimo step: Phase 4C (server action emissione + TanStack Query mutation).
 
 **4B:** UI cassa mobile-first ✅ — tastierino numerico, selezione IVA, metodo pagamento, riepilogo
 
+**4C:** Server actions + optimistic UI ✅ — `emitReceipt`, `useMutation` TanStack Query, idempotency, schermate success/error
+
 - `commercial_documents`: 12 col, enum `document_kind` (SALE/VOID), enum `document_status` (PENDING/ACCEPTED/VOID_ACCEPTED/REJECTED/ERROR), `idempotency_key` UNIQUE, payload AdE in jsonb, FK → businesses cascade
 - `commercial_document_lines`: 8 col, numeric con precision, `ade_line_id` per annulli parziali, FK → commercial_documents cascade
 - Nota: **`daily_closures` non esiste** — con Documento Commerciale Online ogni scontrino è inviato singolarmente all'AdE; non c'è chiusura giornaliera
@@ -254,12 +257,12 @@ Prossimo step: Phase 4C (server action emissione + TanStack Query mutation).
 | 3B (Auth) ✅            | 43 (reali)  | 191 unit + 8 E2E     |
 | 4A (Schema DB) ✅       | 23 (reali)  | 214 unit + 8 E2E     |
 | 4B (UI cassa) ✅        | 91 (reali)  | 305 unit + 8 E2E     |
-| 4C (server action)      | ~15         | ~320                 |
-| 4D-4E (storico+annullo) | ~20         | ~340                 |
-| 5 (PWA)                 | ~13         | ~259                 |
-| 6 (Stabilita')          | ~15         | ~274                 |
-| 7 (Stripe)              | ~20         | ~294                 |
-| **Lancio**              |             | **~295+ test**       |
+| 4C (server action) ✅   | 14 (reali)  | 319 unit + 8 E2E     |
+| 4D-4E (storico+annullo) | ~20         | ~339                 |
+| 5 (PWA)                 | ~13         | ~352                 |
+| 6 (Stabilita')          | ~15         | ~367                 |
+| 7 (Stripe)              | ~20         | ~387                 |
+| **Lancio**              |             | **~390+ test**       |
 
 ---
 
@@ -276,4 +279,4 @@ Ad ogni checkpoint:
 
 ## Primo passo immediato
 
-Iniziare con **Phase 4B**: UI cassa mobile-first — tastierino numerico, selezione aliquota IVA, metodo di pagamento, schermata di riepilogo pre-emissione.
+Iniziare con **Phase 4D**: Storico scontrini — lista paginata con TanStack Table, filtri per data/stato, dettaglio documento, totali giornalieri.
