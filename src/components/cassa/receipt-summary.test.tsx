@@ -126,7 +126,7 @@ describe("ReceiptSummary", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: /emetti scontrino/i }),
+      screen.getByRole("button", { name: /invio in corso/i }),
     ).toBeDisabled();
   });
 

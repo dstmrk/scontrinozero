@@ -96,4 +96,18 @@ describe("auth callback route", () => {
     expect(location.hostname).toBe("localhost");
     expect(location.pathname).toBe("/dashboard");
   });
+
+  it("ignores protocol-relative redirect (//evil.com) to prevent open redirect", async () => {
+    mockExchangeCodeForSession.mockResolvedValue({ error: null });
+    const { GET } = await import("./route");
+
+    const request = new Request(
+      "http://localhost:3000/callback?code=test-code&redirect=//evil.com",
+    );
+    const response = await GET(request);
+
+    const location = new URL(response.headers.get("location")!);
+    expect(location.hostname).toBe("localhost");
+    expect(location.pathname).toBe("/dashboard");
+  });
 });

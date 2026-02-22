@@ -81,7 +81,6 @@ export function ReceiptSummary({
         className="w-full"
         onClick={onSubmit}
         disabled={isSubmitting}
-        aria-label="Emetti scontrino"
       >
         <Receipt className="mr-2 h-5 w-5" />
         {isSubmitting ? "Invio in corso…" : "Emetti scontrino"}
