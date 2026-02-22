@@ -13,6 +13,20 @@ vi.mock("@/db/schema", () => ({
   waitlist: Symbol("waitlist"),
 }));
 
+const { mockCheck } = vi.hoisted(() => ({
+  mockCheck: vi
+    .fn()
+    .mockReturnValue({ success: true, remaining: 9, resetAt: 0 }),
+}));
+
+vi.mock("@/lib/rate-limit", () => ({
+  RateLimiter: class {
+    check(key: string) {
+      return mockCheck(key);
+    }
+  },
+}));
+
 import { POST } from "./route";
 import { waitlist } from "@/db/schema";
 
@@ -27,6 +41,7 @@ function makeRequest(body: unknown): NextRequest {
 describe("POST /api/waitlist", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCheck.mockReturnValue({ success: true, remaining: 9, resetAt: 0 });
   });
 
   it("inserts a valid email and returns ok", async () => {
@@ -84,6 +99,17 @@ describe("POST /api/waitlist", () => {
 
     expect(res.status).toBe(200);
     expect(json).toEqual({ ok: true });
+  });
+
+  it("returns 429 when rate limited", async () => {
+    mockCheck.mockReturnValueOnce({ success: false, remaining: 0, resetAt: 0 });
+
+    const res = await POST(makeRequest({ email: "user@example.com" }));
+    const json = await res.json();
+
+    expect(res.status).toBe(429);
+    expect(json.error).toContain("Troppi tentativi");
+    expect(insert).not.toHaveBeenCalled();
   });
 
   it("returns 400 when JSON payload is malformed", async () => {

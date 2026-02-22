@@ -20,13 +20,18 @@ const lines: CartLine[] = [
   },
 ];
 
+// 2×8.50 + 1×1.20 = 18.20
+const TOTAL = 18.2;
+
 describe("ReceiptSummary", () => {
   it("mostra tutte le righe del carrello", () => {
     render(
       <ReceiptSummary
         lines={lines}
+        total={TOTAL}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
+        onRemoveLine={vi.fn()}
         onSubmit={vi.fn()}
         onBack={vi.fn()}
       />,
@@ -40,14 +45,15 @@ describe("ReceiptSummary", () => {
     render(
       <ReceiptSummary
         lines={lines}
+        total={TOTAL}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
+        onRemoveLine={vi.fn()}
         onSubmit={vi.fn()}
         onBack={vi.fn()}
       />,
     );
 
-    // 2×8.50 + 1×1.20 = 17.00 + 1.20 = 18.20
     expect(screen.getByText(/18,20/)).toBeInTheDocument();
   });
 
@@ -55,14 +61,15 @@ describe("ReceiptSummary", () => {
     render(
       <ReceiptSummary
         lines={lines}
+        total={TOTAL}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
+        onRemoveLine={vi.fn()}
         onSubmit={vi.fn()}
         onBack={vi.fn()}
       />,
     );
 
-    // Il PaymentMethodSelector mostra i metodi
     expect(screen.getByText("Contanti")).toBeInTheDocument();
     expect(screen.getByText("Carta")).toBeInTheDocument();
   });
@@ -71,8 +78,10 @@ describe("ReceiptSummary", () => {
     render(
       <ReceiptSummary
         lines={lines}
+        total={TOTAL}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
+        onRemoveLine={vi.fn()}
         onSubmit={vi.fn()}
         onBack={vi.fn()}
       />,
@@ -88,8 +97,10 @@ describe("ReceiptSummary", () => {
     render(
       <ReceiptSummary
         lines={lines}
+        total={TOTAL}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
+        onRemoveLine={vi.fn()}
         onSubmit={onSubmit}
         onBack={vi.fn()}
       />,
@@ -104,8 +115,10 @@ describe("ReceiptSummary", () => {
     render(
       <ReceiptSummary
         lines={lines}
+        total={TOTAL}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
+        onRemoveLine={vi.fn()}
         onSubmit={vi.fn()}
         onBack={vi.fn()}
         isSubmitting={true}
@@ -113,7 +126,7 @@ describe("ReceiptSummary", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: /emetti scontrino/i }),
+      screen.getByRole("button", { name: /invio in corso/i }),
     ).toBeDisabled();
   });
 
@@ -121,8 +134,10 @@ describe("ReceiptSummary", () => {
     render(
       <ReceiptSummary
         lines={lines}
+        total={TOTAL}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
+        onRemoveLine={vi.fn()}
         onSubmit={vi.fn()}
         onBack={vi.fn()}
       />,
@@ -138,8 +153,10 @@ describe("ReceiptSummary", () => {
     render(
       <ReceiptSummary
         lines={lines}
+        total={TOTAL}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
+        onRemoveLine={vi.fn()}
         onSubmit={vi.fn()}
         onBack={onBack}
       />,
@@ -155,8 +172,10 @@ describe("ReceiptSummary", () => {
     render(
       <ReceiptSummary
         lines={lines}
+        total={TOTAL}
         paymentMethod="PC"
         onPaymentMethodChange={onPaymentMethodChange}
+        onRemoveLine={vi.fn()}
         onSubmit={vi.fn()}
         onBack={vi.fn()}
       />,
@@ -171,14 +190,15 @@ describe("ReceiptSummary", () => {
     render(
       <ReceiptSummary
         lines={lines}
+        total={TOTAL}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
+        onRemoveLine={vi.fn()}
         onSubmit={vi.fn()}
         onBack={vi.fn()}
       />,
     );
 
-    // 2 lines
     expect(screen.getByText(/2 articol/i)).toBeInTheDocument();
   });
 
@@ -196,8 +216,10 @@ describe("ReceiptSummary", () => {
     render(
       <ReceiptSummary
         lines={singleLine}
+        total={7.5}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
+        onRemoveLine={vi.fn()}
         onSubmit={vi.fn()}
         onBack={vi.fn()}
       />,
@@ -208,12 +230,15 @@ describe("ReceiptSummary", () => {
     expect(elements.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("il bottone rimuovi nella riga è no-op (gli articoli si gestiscono nel carrello)", () => {
+  it("chiama onRemoveLine con l'id dell'articolo quando si rimuove una riga", () => {
+    const onRemoveLine = vi.fn();
     render(
       <ReceiptSummary
         lines={lines}
+        total={TOTAL}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
+        onRemoveLine={onRemoveLine}
         onSubmit={vi.fn()}
         onBack={vi.fn()}
       />,
@@ -222,7 +247,8 @@ describe("ReceiptSummary", () => {
     const removeButtons = screen.getAllByRole("button", {
       name: /rimuovi articolo/i,
     });
-    // Cliccarlo non deve lanciare errori (è un no-op intenzionale nel riepilogo)
-    expect(() => fireEvent.click(removeButtons[0])).not.toThrow();
+    fireEvent.click(removeButtons[0]);
+
+    expect(onRemoveLine).toHaveBeenCalledWith("1");
   });
 });

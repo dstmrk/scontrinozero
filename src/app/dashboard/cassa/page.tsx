@@ -54,9 +54,7 @@ export default function CassaPage() {
   };
 
   const handleSubmit = () => {
-    // Phase 4C: qui andrà la TanStack Query mutation
-    // Per ora placeholder — verrà collegato al server action nella fase 4C
-    console.log("TODO 4C: submit receipt", { lines, paymentMethod });
+    // TODO Phase 4C: integra useMutation di TanStack Query
   };
 
   // ---- STEP: aggiungi articolo ----
@@ -106,6 +104,7 @@ export default function CassaPage() {
           <div className="flex items-center gap-3">
             <button
               type="button"
+              aria-label="Diminuisci quantità"
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
               className="bg-muted flex h-8 w-8 items-center justify-center rounded-full text-lg font-bold"
             >
@@ -114,6 +113,7 @@ export default function CassaPage() {
             <span className="w-8 text-center font-semibold">{quantity}</span>
             <button
               type="button"
+              aria-label="Aumenta quantità"
               onClick={() => setQuantity((q) => q + 1)}
               className="bg-muted flex h-8 w-8 items-center justify-center rounded-full text-lg font-bold"
             >
@@ -150,8 +150,10 @@ export default function CassaPage() {
       <div className="mx-auto max-w-sm">
         <ReceiptSummary
           lines={lines}
+          total={total}
           paymentMethod={paymentMethod}
           onPaymentMethodChange={setPaymentMethod}
+          onRemoveLine={removeLine}
           onSubmit={handleSubmit}
           onBack={() => setStep("cart")}
         />

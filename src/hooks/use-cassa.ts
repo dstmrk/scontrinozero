@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { CartLine, PaymentMethod, VatCode } from "@/types/cassa";
 
 interface AddLineInput {
@@ -40,9 +40,9 @@ export function useCassa(): UseCassaReturn {
     setLines([]);
   }, []);
 
-  const total = lines.reduce(
-    (sum, l) => sum + l.grossUnitPrice * l.quantity,
-    0,
+  const total = useMemo(
+    () => lines.reduce((sum, l) => sum + l.grossUnitPrice * l.quantity, 0),
+    [lines],
   );
 
   return {

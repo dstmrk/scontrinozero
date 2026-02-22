@@ -2,7 +2,11 @@
 
 import { Banknote, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PaymentMethod, PAYMENT_METHOD_LABELS } from "@/types/cassa";
+import {
+  PaymentMethod,
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_METHODS,
+} from "@/types/cassa";
 
 interface PaymentMethodSelectorProps {
   readonly value: PaymentMethod;
@@ -18,11 +22,9 @@ export function PaymentMethodSelector({
   value,
   onChange,
 }: PaymentMethodSelectorProps) {
-  const methods: PaymentMethod[] = ["PC", "PE"];
-
   return (
     <div className="grid grid-cols-2 gap-3">
-      {methods.map((method) => {
+      {PAYMENT_METHODS.map((method) => {
         const selected = method === value;
         return (
           <button

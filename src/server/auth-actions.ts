@@ -97,7 +97,7 @@ export async function signIn(formData: FormData): Promise<AuthActionResult> {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    logger.warn({ email }, "signIn failed");
+    logger.warn("signIn failed");
     return { error: "Email o password non corretti." };
   }
 
