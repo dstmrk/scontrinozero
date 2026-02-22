@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import {
   saveBusiness,
   saveAdeCredentials,
@@ -233,17 +234,11 @@ export function OnboardingForm({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password Fisconline *</Label>
-                <Input id="password" name="password" type="password" required />
+                <PasswordInput id="password" name="password" required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="pin">PIN Fisconline *</Label>
-                <Input
-                  id="pin"
-                  name="pin"
-                  type="password"
-                  required
-                  minLength={6}
-                />
+                <PasswordInput id="pin" name="pin" required minLength={6} />
               </div>
 
               <div className="flex gap-2">
