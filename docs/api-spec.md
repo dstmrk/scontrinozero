@@ -83,6 +83,101 @@ Chiamate GET in sequenza (best-effort):
 
 ---
 
+## 1A. Autenticazione AdE (CIE — Carta d'Identità Elettronica)
+
+> **Nota**: il flusso CIE richiede la presenza fisica della carta CIE e l'app
+> **CIE ID** sul telefono dell'utente (scansione QR). Non è automatizzabile con
+> sole chiamate HTTP. Documentato a fini di ricerca per eventuale implementazione
+> futura (richiede una sessione browser).
+
+Base URL: `https://ivaservizi.agenziaentrate.gov.it`
+IDP URL: `https://idserver.servizicie.interno.gov.it`
+
+### 1A.1 Flusso CIE (da `login_cie.har`, 129 richieste)
+
+| Fase | Metodo | URL / Dominio                                                   | Scopo                                                        |
+| ---- | ------ | --------------------------------------------------------------- | ------------------------------------------------------------ |
+| 1    | GET    | `ivaservizi…/dp/SPID/cie/s4`                                    | Entry point CIE su AdE → redirect a IDP                      |
+| 2    | POST   | `idserver.servizicie.interno.gov.it/idp/profile/SAML2/POST/SSO` | SAMLRequest a IDP CIE                                        |
+| 3    | GET    | `idserver…/idp/login/livello2`                                  | Pagina con QR code per app CIE ID                            |
+| 4    | GET    | `idserver…/idp/login/livello1e2checkqrcode`                     | **Long-polling** (ripetuto finché non scansionato)           |
+| 5    | GET    | `idserver…/idp/login/livello1e2postqrcode`                      | QR scansionato → avanza il flusso                            |
+| 6    | POST   | `idserver…/idp/Authn/X509/…` (catena e1s2→e1s5)                 | Esecuzione SAML (più step intermedi)                         |
+| 7    | POST   | `idserver…/idp/profile/SAML2/POST/SSO` (consent)                | Invio attributi: Nome, Cognome, DataDiNascita, CodiceFiscale |
+| 8    | POST   | `ivaservizi…/dp/SPID`                                           | SAMLResponse → AdE riceve identità → 302                     |
+| 9    | GET    | `ivaservizi…/dp/api?v={unix_ms}`                                | Bootstrap sessione AdE (identico a Fisconline)               |
+| 10   | GET    | `…/ser/api/fatture/v1/ul/me/adesione/stato/`                    | 401 → trigger DatiOpzioni                                    |
+| 11   | POST   | DatiOpzioni portlet                                             | Setup sessione                                               |
+| 12   | GET    | `…/adesione/stato/`                                             | 200 → sessione pronta                                        |
+
+### 1A.2 Caratteristiche chiave
+
+- **SAML2**: Il flusso usa il protocollo SAML 2.0 (POST binding)
+- **Entry point AdE**: `GET /dp/SPID/cie/s4` (percorso fisso per CIE)
+- **IDP**: `idserver.servizicie.interno.gov.it` (unico provider per CIE)
+- **Interazione richiesta**: scansione QR con app CIE ID → impossibile da automatizzare headlessly
+- **Bootstrap post-auth**: identico al flusso Fisconline (Fasi 3-5 della sezione 1.1)
+- **Logout**: identico alla sezione 1.6
+
+---
+
+## 1B. Autenticazione AdE (SPID — Sistema Pubblico di Identità Digitale)
+
+> **Nota**: il flusso SPID richiede conferma via app del proprio Identity Provider
+> (notifica push o QR). Non è automatizzabile headlessly. Documentato a fini di
+> ricerca per eventuale implementazione futura.
+
+Base URL: `https://ivaservizi.agenziaentrate.gov.it`
+Chooser SPID: `https://spid.sogei.it/SPIDManagerWeb/loginFattureCorrispettivi.html`
+
+### 1B.1 Flusso SPID (da `login_spid.har`, 170 richieste — IDP: Sielte)
+
+| Fase | Metodo | URL / Dominio                                                 | Scopo                                               |
+| ---- | ------ | ------------------------------------------------------------- | --------------------------------------------------- |
+| 1    | GET    | `spid.sogei.it/SPIDManagerWeb/loginFattureCorrispettivi.html` | Pagina scelta IDP (12 provider disponibili)         |
+| 2    | GET    | `ivaservizi…/dp/SPID/{provider}/s4`                           | Entry point SPID per l'IDP scelto → redirect a IDP  |
+| 3    | POST   | `identity.sieltecloud.it/…/SSOService.php`                    | SAMLRequest all'IDP SPID scelto                     |
+| 4    | POST   | `identity.sieltecloud.it/…/loginform.php`                     | Credenziali IDP: `username=CF&password=...`         |
+| 5    | POST   | `…` (`usenotify=true`)                                        | Richiesta conferma via app                          |
+| 6    | GET    | `…/NotifyPage.php`                                            | **Polling** (ripetuto finché non confermato da app) |
+| 7    | POST   | `…/loginform.php` (`accedi=1`)                                | Conferma ricevuta → 303                             |
+| 8    | POST   | `…/accept.php` (`accept=true`)                                | Accetta rilascio attributi                          |
+| 9    | POST   | `ivaservizi…/dp/SPID`                                         | SAMLResponse → AdE → 302                            |
+| 10   | GET    | `ivaservizi…/dp/api?v={unix_ms}`                              | Bootstrap sessione AdE (identico a Fisconline)      |
+| 11   | GET    | `…/ser/api/fatture/v1/ul/me/adesione/stato/`                  | 401 → trigger DatiOpzioni                           |
+| 12   | POST   | DatiOpzioni portlet                                           | Setup sessione                                      |
+| 13   | GET    | `…/adesione/stato/`                                           | 200 → sessione pronta                               |
+
+### 1B.2 Provider SPID disponibili
+
+Dalla pagina chooser (`loginFattureCorrispettivi.html`) risultano 12 IDP:
+
+| IDP            | Entry point AdE                     |
+| -------------- | ----------------------------------- |
+| Aruba          | `/dp/SPID/aruba/s4`                 |
+| InfoCert       | `/dp/SPID/infocert/s4`              |
+| Intesa (TIM)   | `/dp/SPID/intesa/s4`                |
+| Namirial       | `/dp/SPID/namirial/s4`              |
+| Poste Italiane | `/dp/SPID/poste/s4`                 |
+| Sielte         | `/dp/SPID/sielte/s4`                |
+| SpidItalia     | `/dp/SPID/spiditalia/s4`            |
+| Teamsystem     | `/dp/SPID/teamsystem/s4`            |
+| Lepida         | `/dp/SPID/lepida/s4`                |
+| Etna.com       | `/dp/SPID/etna/s4`                  |
+| CIE (via SPID) | `/dp/SPID/cie/s4` (vedi sezione 1A) |
+| Altri          | pattern `/dp/SPID/{provider}/s4`    |
+
+### 1B.3 Caratteristiche chiave
+
+- **SAML2**: Usa SAML 2.0 POST binding (identico a CIE ma IDP diverso per ogni provider)
+- **Entry point AdE**: `GET /dp/SPID/{provider}/s4` — il provider è scelto dall'utente
+- **Credenziali**: username = Codice Fiscale, password = password SPID del provider scelto
+- **Conferma app**: polling `NotifyPage.php` finché l'utente approva la notifica push
+- **Bootstrap post-auth**: identico al flusso Fisconline (Fasi 3-5 della sezione 1.1)
+- **Logout**: identico alla sezione 1.6
+
+---
+
 ## 2. API AdE — Documenti Commerciali
 
 Base path: `/ser/api/documenti/v1/doc`
@@ -96,7 +191,8 @@ Base path: `/ser/api/documenti/v1/doc`
 | GET      | `/documenti/{idtrx}/`                                            | Dettaglio documento               |
 | GET      | `/documenti/{idtrx}/stampa/?regalo={bool}`                       | Download PDF                      |
 | GET      | `/documenti/ultimo/`                                             | Ultimo documento (404 se nessuno) |
-| GET      | `/documenti/dati/fiscali`                                        | Dati fiscali dell'esercente       |
+| GET      | `/documenti/dati/fiscali`                                        | Leggi dati fiscali esercente      |
+| **PUT**  | `/documenti/dati/fiscali?v={unix_ms}`                            | Aggiorna dati fiscali esercente   |
 
 ### 2.2 Rubrica prodotti
 
@@ -147,6 +243,71 @@ In caso di errore:
   "progressivo": null,
   "errori": [{ "codice": "...", "descrizione": "..." }]
 }
+```
+
+### 2.6 Dati fiscali esercente (GET + PUT)
+
+Source: `dati_doc_commerciale.har`
+
+Il payload restituito da `GET /documenti/dati/fiscali` è identico al body
+richiesto da `PUT /documenti/dati/fiscali?v={unix_ms}` ed è lo stesso oggetto
+`cedentePrestatore` presente nel payload dei documenti commerciali (sezione 3).
+
+**Pattern di utilizzo (Phase 4H — onboarding refactor):**
+
+1. Dopo la verifica credenziali AdE, chiamare `GET /documenti/dati/fiscali`
+2. Il risultato contiene `partitaIva` e `codiceFiscale` → salvare in DB
+3. Per aggiornare i dati dell'esercente su AdE: `PUT /documenti/dati/fiscali?v={unix_ms}`
+
+#### Struttura payload (GET response = PUT body)
+
+```json
+{
+  "identificativiFiscali": {
+    "codicePaese": "IT",
+    "partitaIva": "XXXXXXXXXXX",
+    "codiceFiscale": "XXXXXXXXXXXXXXXX"
+  },
+  "altriDatiIdentificativi": {
+    "denominazione": "",
+    "nome": "MARIO",
+    "cognome": "ROSSI",
+    "indirizzo": "VIA ROMA",
+    "numeroCivico": "1",
+    "cap": "00100",
+    "comune": "Torino",
+    "provincia": "TO",
+    "nazione": "IT",
+    "modificati": false,
+    "defAliquotaIVA": "N2",
+    "nuovoUtente": false
+  },
+  "multiAttivita": [],
+  "multiSede": []
+}
+```
+
+#### Campi `altriDatiIdentificativi`
+
+| Campo            | Tipo    | Note                                                                        |
+| ---------------- | ------- | --------------------------------------------------------------------------- |
+| `denominazione`  | string  | Ragione sociale (vuoto per persone fisiche)                                 |
+| `nome`           | string  | Nome (persone fisiche)                                                      |
+| `cognome`        | string  | Cognome (persone fisiche)                                                   |
+| `indirizzo`      | string  | Via / piazza (senza numero civico)                                          |
+| `numeroCivico`   | string  | Numero civico separato dall'indirizzo                                       |
+| `cap`            | string  | CAP (5 cifre per Italia)                                                    |
+| `comune`         | string  | Città                                                                       |
+| `provincia`      | string  | Sigla provincia (2 lettere)                                                 |
+| `nazione`        | string  | Codice ISO paese (es. `"IT"`)                                               |
+| `modificati`     | boolean | `false` in PUT normale; AdE potrebbe usarlo per ottimizzazioni              |
+| `defAliquotaIVA` | string  | Aliquota IVA di default per l'esercente → mappa a `preferredVatCode` nel DB |
+| `nuovoUtente`    | boolean | `false` per utenti esistenti                                                |
+
+#### Risposta PUT
+
+```json
+{ "esito": true, "errori": [] }
 ```
 
 ---
