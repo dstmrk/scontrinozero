@@ -1,15 +1,17 @@
 "use client";
 
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ReceiptSuccessProps {
+  readonly documentId?: string;
   readonly adeProgressive?: string;
   readonly adeTransactionId?: string;
   readonly onNewReceipt: () => void;
 }
 
 export function ReceiptSuccess({
+  documentId,
   adeProgressive,
   adeTransactionId,
   onNewReceipt,
@@ -51,6 +53,21 @@ export function ReceiptSuccess({
             </div>
           )}
         </div>
+      )}
+
+      {documentId && (
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          className="w-full"
+          onClick={() =>
+            window.open(`/api/documents/${documentId}/pdf`, "_blank")
+          }
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Scarica PDF
+        </Button>
       )}
 
       <Button type="button" size="lg" className="w-full" onClick={onNewReceipt}>

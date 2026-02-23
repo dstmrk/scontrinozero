@@ -35,6 +35,7 @@ export function CassaClient({ businessId }: CassaClientProps) {
 
   const [step, setStep] = useState<Step>("cart");
   const [successData, setSuccessData] = useState<{
+    documentId?: string;
     adeProgressive?: string;
     adeTransactionId?: string;
   } | null>(null);
@@ -54,6 +55,7 @@ export function CassaClient({ businessId }: CassaClientProps) {
       if (result.error) return; // Handled below via mutation.data
       clearCart();
       setSuccessData({
+        documentId: result.documentId,
         adeProgressive: result.adeProgressive,
         adeTransactionId: result.adeTransactionId,
       });
@@ -101,6 +103,7 @@ export function CassaClient({ businessId }: CassaClientProps) {
   if (step === "success") {
     return (
       <ReceiptSuccess
+        documentId={successData?.documentId}
         adeProgressive={successData?.adeProgressive}
         adeTransactionId={successData?.adeTransactionId}
         onNewReceipt={handleNewReceipt}

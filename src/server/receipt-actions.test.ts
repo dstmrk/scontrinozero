@@ -167,6 +167,9 @@ describe("receipt-actions", () => {
       expect(mockMapSaleToAdePayload).toHaveBeenCalled();
       expect(mockSubmitSale).toHaveBeenCalled();
       expect(mockLogout).toHaveBeenCalled();
+      // publicRequest stores paymentMethod at insert time
+      const insertValuesArg = mockDocumentInsertValues.mock.calls[0][0];
+      expect(insertValuesArg.publicRequest).toEqual({ paymentMethod: "PC" });
       // Document updated to ACCEPTED
       const setArg = mockUpdateSet.mock.calls[0][0];
       expect(setArg.status).toBe("ACCEPTED");

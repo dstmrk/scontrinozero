@@ -85,6 +85,7 @@ export async function emitReceipt(
       businessId: input.businessId,
       kind: "SALE",
       idempotencyKey: input.idempotencyKey,
+      publicRequest: { paymentMethod: input.paymentMethod },
       status: "PENDING",
     })
     .onConflictDoNothing()
