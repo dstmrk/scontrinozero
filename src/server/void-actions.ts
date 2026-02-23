@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, desc, eq, gte, ilike, inArray, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   adeCredentials,
@@ -74,11 +74,6 @@ export async function searchReceipts(
     const dateTo = new Date(params.dateTo);
     dateTo.setDate(dateTo.getDate() + 1);
     conditions.push(lt(commercialDocuments.createdAt, dateTo));
-  }
-  if (params.progressivo) {
-    conditions.push(
-      ilike(commercialDocuments.adeProgressive, `%${params.progressivo}%`),
-    );
   }
   if (params.status) {
     conditions.push(eq(commercialDocuments.status, params.status));

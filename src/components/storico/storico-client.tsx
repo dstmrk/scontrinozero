@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ChevronDown } from "lucide-react";
 import { searchReceipts } from "@/server/void-actions";
 import { VoidReceiptDialog } from "./void-receipt-dialog";
 import { Button } from "@/components/ui/button";
@@ -76,7 +77,6 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
 
   // Search form state — defaults aligned with page.tsx server-side prefetch
   const todayStr = new Date().toISOString().split("T")[0];
-  const [progressivo, setProgressivo] = useState("");
   const [dateFrom, setDateFrom] = useState(todayStr);
   const [dateTo, setDateTo] = useState(todayStr);
   const [statusFilter, setStatusFilter] = useState<
@@ -88,7 +88,6 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
     e.preventDefault();
 
     const params: SearchReceiptsParams = {};
-    if (progressivo.trim()) params.progressivo = progressivo.trim();
     if (dateFrom) params.dateFrom = dateFrom;
     if (dateTo) params.dateTo = dateTo;
     if (statusFilter) params.status = statusFilter;
@@ -127,22 +126,8 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
       {/* Search form */}
       <form
         onSubmit={handleSearch}
-        className="flex flex-wrap items-end gap-3 rounded-lg border p-4"
+        className="flex flex-wrap items-end gap-3 rounded-lg border px-4 py-3"
       >
-        <div className="min-w-[180px] flex-1">
-          <label
-            htmlFor="progressivo"
-            className="mb-1 block text-xs font-medium"
-          >
-            Progressivo
-          </label>
-          <Input
-            id="progressivo"
-            placeholder="es. DCW2026/5111-2188"
-            value={progressivo}
-            onChange={(e) => setProgressivo(e.target.value)}
-          />
-        </div>
         <div className="min-w-[140px]">
           <label htmlFor="dateFrom" className="mb-1 block text-xs font-medium">
             Dal
@@ -172,20 +157,23 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
           >
             Stato
           </label>
-          <select
-            id="statusFilter"
-            value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(
-                e.target.value as "" | "ACCEPTED" | "VOID_ACCEPTED",
-              )
-            }
-            className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-          >
-            <option value="ACCEPTED">Emesso</option>
-            <option value="VOID_ACCEPTED">Annullato</option>
-            <option value="">Tutti</option>
-          </select>
+          <div className="relative">
+            <select
+              id="statusFilter"
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(
+                  e.target.value as "" | "ACCEPTED" | "VOID_ACCEPTED",
+                )
+              }
+              className="dark:bg-input/30 border-input focus-visible:border-ring focus-visible:ring-ring/50 disabled:bg-input/50 h-8 w-full min-w-0 appearance-none rounded-lg border bg-transparent px-2.5 py-1 pr-7 text-base transition-colors outline-none focus-visible:ring-3 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+            >
+              <option value="ACCEPTED">Emesso</option>
+              <option value="VOID_ACCEPTED">Annullato</option>
+              <option value="">Tutti</option>
+            </select>
+            <ChevronDown className="text-muted-foreground pointer-events-none absolute top-1/2 right-2 h-4 w-4 -translate-y-1/2" />
+          </div>
         </div>
         <Button type="submit" disabled={isPending}>
           {isPending ? "Ricerca…" : "Cerca"}
@@ -211,7 +199,6 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
             </thead>
             <tbody className="divide-y">
               {receipts.map((receipt) => {
-                const isVoidable = receipt.status === "ACCEPTED";
                 // SALE receipts (both ACCEPTED and VOID_ACCEPTED) can open the
                 // detail dialog to view lines and re-send the PDF receipt.
                 const hasDetail =
@@ -244,16 +231,7 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
                     </td>
                     <td className="px-4 py-3 text-right">
                       {hasDetail && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelected(receipt);
-                          }}
-                        >
-                          Dettaglio
-                        </Button>
+                        <span className="text-muted-foreground text-xs">›</span>
                       )}
                     </td>
                   </tr>

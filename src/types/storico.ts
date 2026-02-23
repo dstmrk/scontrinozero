@@ -32,8 +32,6 @@ export interface SearchReceiptsParams {
   dateFrom?: string;
   /** Data fine (ISO yyyy-MM-dd, inclusa). */
   dateTo?: string;
-  /** Filtro su adeProgressive (ricerca parziale). */
-  progressivo?: string;
   /**
    * Filtro sullo stato del documento.
    * Se omesso restituisce tutti gli stati (ACCEPTED + VOID_ACCEPTED + ERROR).
