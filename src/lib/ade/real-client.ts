@@ -12,6 +12,7 @@ import type { AdeClient, AdeSession } from "./client";
 import type {
   AdeCedentePrestatore,
   AdePayload,
+  AdeProduct,
   AdeResponse,
   FisconlineCredentials,
 } from "./types";
@@ -25,13 +26,18 @@ import {
 
 const ADE_BASE_URL = "https://ivaservizi.agenziaentrate.gov.it";
 
-/** Headers required for POST document submission (api-spec.md sez. 2.4). */
+/**
+ * Headers required for POST document submission (api-spec.md sez. 2.4).
+ * HAR fix (vendita.har): added Referer header sent by the browser.
+ */
 const SUBMIT_HEADERS: Record<string, string> = {
   Accept: "application/json, text/plain, */*",
   "Content-Type": "application/json;charset=UTF-8",
   Origin: "https://ivaservizi.agenziaentrate.gov.it",
+  Referer:
+    "https://ivaservizi.agenziaentrate.gov.it/ser/documenticommercialionline/",
   "User-Agent":
-    "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "deny",
   "X-XSS-Protection": "1; mode=block",
@@ -294,6 +300,55 @@ export class RealAdeClient implements AdeClient {
     }
 
     return response.json();
+  }
+
+  /**
+   * Recupera il catalogo prodotti dal portale AdE.
+   *
+   * HAR finding (vendita.har, request [02]):
+   * GET /ser/api/documenti/v1/doc/rubrica/prodotti
+   * Response: [{"descrizioneProdotto":"...","prezzoUnitario":"100","aliquotaIVA":"N2","id":438167,"prezzoLordo":"100"}]
+   */
+  async getProducts(): Promise<AdeProduct[]> {
+    this.assertLoggedIn();
+
+    const url = `${ADE_BASE_URL}/ser/api/documenti/v1/doc/rubrica/prodotti?v=${Date.now()}`;
+    const response = await this.request(url);
+
+    if (!response.ok) {
+      throw new AdePortalError(
+        response.status,
+        `Failed to fetch product catalog: status ${response.status}`,
+      );
+    }
+
+    return response.json() as Promise<AdeProduct[]>;
+  }
+
+  /**
+   * Recupera l'HTML dello scontrino emesso.
+   *
+   * HAR finding (vendita.har, request [11]):
+   * GET /ser/api/documenti/v1/doc/documenti/{idtrx}/stampa/?v=...&regalo=false
+   * Chiamato dal portale subito dopo l'emissione per anteprima/stampa.
+   */
+  async getStampa(idtrx: string, isGift = false): Promise<string> {
+    this.assertLoggedIn();
+
+    const regalo = isGift ? "true" : "false";
+    const url =
+      `${ADE_BASE_URL}/ser/api/documenti/v1/doc/documenti/${idtrx}/stampa/` +
+      `?v=${Date.now()}&regalo=${regalo}`;
+    const response = await this.request(url);
+
+    if (!response.ok) {
+      throw new AdePortalError(
+        response.status,
+        `Failed to fetch stampa for idtrx ${idtrx}: status ${response.status}`,
+      );
+    }
+
+    return response.text();
   }
 
   async logout(): Promise<void> {

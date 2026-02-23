@@ -28,6 +28,19 @@ export function toAdeAmount(value: number): string {
   return (Math.round((value + Number.EPSILON) * 100) / 100).toFixed(2);
 }
 
+/**
+ * Converte un numero in stringa con 8 decimali (formato AdE).
+ *
+ * HAR finding (vendita.har): i campi monetari degli elementiContabili e i
+ * totali del documentoCommerciale usano 8 cifre decimali. Fanno eccezione
+ * (rimangono a 2d): quantita, resiPregressi, reso, scontoAbbuono, vendita[].importo.
+ */
+export function toAdeAmount8(value: number): string {
+  return (
+    Math.round((value + Number.EPSILON) * 100_000_000) / 100_000_000
+  ).toFixed(8);
+}
+
 /** Converte una data ISO (yyyy-MM-dd) nel formato AdE (dd/MM/yyyy). */
 export function toAdeDate(iso: string): string {
   const [year, month, day] = iso.split("-");
@@ -119,19 +132,19 @@ export function computeLineAmounts(
 
   return {
     idElementoContabile: "",
-    resiPregressi: toAdeAmount(0),
-    reso: toAdeAmount(0),
-    quantita: toAdeAmount(line.quantity),
+    resiPregressi: toAdeAmount(0), // 2d (HAR: "0.00")
+    reso: toAdeAmount(0), // 2d (HAR: "0.00")
+    quantita: toAdeAmount(line.quantity), // 2d (HAR: "1.00")
     descrizioneProdotto: line.description,
-    prezzoLordo: toAdeAmount(grossTotal),
-    prezzoUnitario: toAdeAmount(prezzoUnitario),
-    scontoUnitario: toAdeAmount(line.unitDiscount),
-    scontoLordo: toAdeAmount(discountTotal),
+    prezzoLordo: toAdeAmount8(grossTotal), // 8d (HAR: "3.20000000")
+    prezzoUnitario: toAdeAmount8(prezzoUnitario), // 8d (HAR: "3.20000000")
+    scontoUnitario: toAdeAmount8(line.unitDiscount), // 8d (HAR: "1.50000000")
+    scontoLordo: toAdeAmount8(discountTotal), // 8d (HAR: "1.50000000")
     aliquotaIVA: line.vatCode,
-    importoIVA: toAdeAmount(importoIVA),
-    imponibile: toAdeAmount(imponibile),
-    imponibileNetto: toAdeAmount(imponibileNetto),
-    totale: toAdeAmount(netGross),
+    importoIVA: toAdeAmount8(importoIVA), // 8d (HAR: "0.00000000")
+    imponibile: toAdeAmount8(imponibile), // 8d (HAR: "3.20000000")
+    imponibileNetto: toAdeAmount8(imponibileNetto), // 8d (HAR: "1.70000000")
+    totale: toAdeAmount8(netGross), // 8d (HAR: "1.70000000")
     omaggio: line.isGift ? "Y" : "N",
   };
 }
@@ -213,16 +226,16 @@ export function mapSaleToAdePayload(
     progressivoCollegato: "",
     dataOra: toAdeDate(doc.date),
     multiAttivita: { codiceAttivita: "", descAttivita: "" },
-    importoTotaleIva: toAdeAmount(importoTotaleIva),
-    scontoTotale: toAdeAmount(scontoTotale),
-    scontoTotaleLordo: toAdeAmount(scontoTotale),
-    totaleImponibile: toAdeAmount(totaleImponibile),
-    ammontareComplessivo: toAdeAmount(ammontareComplessivo),
-    totaleNonRiscosso: toAdeAmount(totaleNonRiscosso),
+    importoTotaleIva: toAdeAmount8(importoTotaleIva), // 8d (HAR: "0.00000000")
+    scontoTotale: toAdeAmount8(scontoTotale), // 8d (HAR: "2.50000000")
+    scontoTotaleLordo: toAdeAmount8(scontoTotale), // 8d (HAR: "2.50000000")
+    totaleImponibile: toAdeAmount8(totaleImponibile), // 8d (HAR: "5.20000000")
+    ammontareComplessivo: toAdeAmount8(ammontareComplessivo), // 8d (HAR: "1.70000000")
+    totaleNonRiscosso: toAdeAmount8(totaleNonRiscosso), // 8d (HAR: "0.00000000")
     elementiContabili,
-    vendita,
-    scontoAbbuono: toAdeAmount(doc.globalDiscount),
-    importoDetraibileDeducibile: toAdeAmount(doc.deductibleAmount),
+    vendita, // importo a 2d (HAR: "1.70")
+    scontoAbbuono: toAdeAmount(doc.globalDiscount), // 2d (HAR: "0.00")
+    importoDetraibileDeducibile: toAdeAmount8(doc.deductibleAmount), // 8d (HAR: "0.00000000")
   };
 
   return {

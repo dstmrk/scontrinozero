@@ -8,7 +8,12 @@
  */
 
 import type { AdeClient, AdeSession } from "./client";
-import type { AdeCedentePrestatore, AdePayload, AdeResponse } from "./types";
+import type {
+  AdeCedentePrestatore,
+  AdePayload,
+  AdeProduct,
+  AdeResponse,
+} from "./types";
 
 export class MockAdeClient implements AdeClient {
   private session: AdeSession | null = null;
@@ -76,6 +81,16 @@ export class MockAdeClient implements AdeClient {
       multiAttivita: [],
       multiSede: [],
     };
+  }
+
+  async getProducts(): Promise<AdeProduct[]> {
+    this.assertLoggedIn();
+    return [];
+  }
+
+  async getStampa(_idtrx: string, _isGift = false): Promise<string> {
+    this.assertLoggedIn();
+    return "";
   }
 
   async logout(): Promise<void> {

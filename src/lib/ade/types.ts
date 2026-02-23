@@ -179,3 +179,21 @@ export interface FisconlineCredentials {
   password: string;
   pin: string;
 }
+
+// ---------------------------------------------------------------------------
+// Catalogo prodotti AdE (sez. 8) — endpoint: /ser/api/documenti/v1/doc/rubrica/prodotti
+// HAR finding (vendita.har): il portale usa questo endpoint per precompilare
+// le righe documento. Utile per la feature "Catalogo prodotti".
+// ---------------------------------------------------------------------------
+
+export interface AdeProduct {
+  /** ID interno AdE del prodotto */
+  id: number;
+  descrizioneProdotto: string;
+  /** Prezzo unitario netto (stringa, es. "100") */
+  prezzoUnitario: string;
+  /** Prezzo lordo (stringa, es. "100") */
+  prezzoLordo: string;
+  /** Codice aliquota/natura, es. "N2", "22" */
+  aliquotaIVA: string;
+}

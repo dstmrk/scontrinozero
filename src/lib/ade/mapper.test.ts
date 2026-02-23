@@ -10,6 +10,7 @@ import type {
 
 import {
   toAdeAmount,
+  toAdeAmount8,
   toAdeDate,
   computeLineAmounts,
   mapSaleToAdePayload,
@@ -48,6 +49,28 @@ describe("toAdeAmount", () => {
 });
 
 // ---------------------------------------------------------------------------
+// toAdeAmount8
+// ---------------------------------------------------------------------------
+
+describe("toAdeAmount8", () => {
+  it("formats integer to 8 decimal string", () => {
+    expect(toAdeAmount8(10)).toBe("10.00000000");
+  });
+
+  it("formats decimal to 8 decimal string", () => {
+    expect(toAdeAmount8(3.2)).toBe("3.20000000");
+  });
+
+  it("handles zero", () => {
+    expect(toAdeAmount8(0)).toBe("0.00000000");
+  });
+
+  it("handles amounts with many decimals", () => {
+    expect(toAdeAmount8(1.5)).toBe("1.50000000");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // toAdeDate
 // ---------------------------------------------------------------------------
 
@@ -82,14 +105,15 @@ describe("computeLineAmounts", () => {
 
     const result = computeLineAmounts(line);
 
-    expect(result.prezzoLordo).toBe("12.20");
-    expect(result.prezzoUnitario).toBe("10.00");
-    expect(result.scontoUnitario).toBe("0.00");
-    expect(result.scontoLordo).toBe("0.00");
-    expect(result.imponibile).toBe("10.00");
-    expect(result.imponibileNetto).toBe("10.00");
-    expect(result.importoIVA).toBe("2.20");
-    expect(result.totale).toBe("12.20");
+    // Monetary fields use 8 decimal places (HAR finding: vendita.har)
+    expect(result.prezzoLordo).toBe("12.20000000");
+    expect(result.prezzoUnitario).toBe("10.00000000");
+    expect(result.scontoUnitario).toBe("0.00000000");
+    expect(result.scontoLordo).toBe("0.00000000");
+    expect(result.imponibile).toBe("10.00000000");
+    expect(result.imponibileNetto).toBe("10.00000000");
+    expect(result.importoIVA).toBe("2.20000000");
+    expect(result.totale).toBe("12.20000000");
   });
 
   it("computes amounts for a line with natura N2 (no IVA)", () => {
@@ -104,11 +128,11 @@ describe("computeLineAmounts", () => {
 
     const result = computeLineAmounts(line);
 
-    expect(result.prezzoLordo).toBe("10.00");
-    expect(result.prezzoUnitario).toBe("10.00");
-    expect(result.importoIVA).toBe("0.00");
-    expect(result.imponibileNetto).toBe("10.00");
-    expect(result.totale).toBe("10.00");
+    expect(result.prezzoLordo).toBe("10.00000000");
+    expect(result.prezzoUnitario).toBe("10.00000000");
+    expect(result.importoIVA).toBe("0.00000000");
+    expect(result.imponibileNetto).toBe("10.00000000");
+    expect(result.totale).toBe("10.00000000");
   });
 
   it("computes amounts with quantity > 1", () => {
@@ -124,13 +148,13 @@ describe("computeLineAmounts", () => {
     const result = computeLineAmounts(line);
 
     // prezzoLordo = unitPriceGross * quantity = 4.50
-    expect(result.prezzoLordo).toBe("4.50");
+    expect(result.prezzoLordo).toBe("4.50000000");
     // imponibile = prezzoLordo scorporata IVA 10%: 4.50 / 1.10 = 4.09 (rounded)
-    expect(result.imponibile).toBe("4.09");
-    expect(result.imponibileNetto).toBe("4.09");
+    expect(result.imponibile).toBe("4.09000000");
+    expect(result.imponibileNetto).toBe("4.09000000");
     // importoIVA = 4.50 - 4.09 = 0.41
-    expect(result.importoIVA).toBe("0.41");
-    expect(result.totale).toBe("4.50");
+    expect(result.importoIVA).toBe("0.41000000");
+    expect(result.totale).toBe("4.50000000");
   });
 
   it("computes amounts with unit discount", () => {
@@ -146,15 +170,15 @@ describe("computeLineAmounts", () => {
     const result = computeLineAmounts(line);
 
     // prezzoLordo = 10 * 2 = 20.00
-    expect(result.prezzoLordo).toBe("20.00");
+    expect(result.prezzoLordo).toBe("20.00000000");
     // scontoLordo = 2 * 2 = 4.00
-    expect(result.scontoLordo).toBe("4.00");
+    expect(result.scontoLordo).toBe("4.00000000");
     // netto lordo = 20 - 4 = 16
     // imponibileNetto = 16 / 1.22 = 13.11 (rounded)
-    expect(result.imponibileNetto).toBe("13.11");
+    expect(result.imponibileNetto).toBe("13.11000000");
     // importoIVA = 16 - 13.11 = 2.89
-    expect(result.importoIVA).toBe("2.89");
-    expect(result.totale).toBe("16.00");
+    expect(result.importoIVA).toBe("2.89000000");
+    expect(result.totale).toBe("16.00000000");
   });
 
   it("marks gift line correctly", () => {
@@ -399,11 +423,12 @@ describe("mapSaleToAdePayload", () => {
     const result = mapSaleToAdePayload(doc, mockCedentePrestatore);
     const dc = result.documentoCommerciale;
 
-    expect(dc.ammontareComplessivo).toBe("15.00");
-    expect(dc.totaleImponibile).toBe("15.00");
-    expect(dc.importoTotaleIva).toBe("0.00");
-    expect(dc.scontoTotale).toBe("0.00");
-    expect(dc.totaleNonRiscosso).toBe("0.00");
+    // Document totals use 8 decimal places (HAR finding: vendita.har)
+    expect(dc.ammontareComplessivo).toBe("15.00000000");
+    expect(dc.totaleImponibile).toBe("15.00000000");
+    expect(dc.importoTotaleIva).toBe("0.00000000");
+    expect(dc.scontoTotale).toBe("0.00000000");
+    expect(dc.totaleNonRiscosso).toBe("0.00000000");
   });
 });
 

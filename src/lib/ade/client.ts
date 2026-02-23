@@ -11,6 +11,7 @@
 import type {
   AdeCedentePrestatore,
   AdePayload,
+  AdeProduct,
   AdeResponse,
   FisconlineCredentials,
 } from "./types";
@@ -37,6 +38,22 @@ export interface AdeClient {
 
   /** Recupera i dati fiscali dell'esercente */
   getFiscalData(): Promise<AdeCedentePrestatore>;
+
+  /**
+   * Recupera il catalogo prodotti salvato sul portale AdE.
+   *
+   * HAR finding (vendita.har): GET /ser/api/documenti/v1/doc/rubrica/prodotti
+   * Usato dal portale per precompilare le righe documento.
+   */
+  getProducts(): Promise<AdeProduct[]>;
+
+  /**
+   * Recupera l'HTML dello scontrino emesso (per stampa/anteprima).
+   *
+   * HAR finding (vendita.har): GET /ser/api/documenti/v1/doc/documenti/{idtrx}/stampa/
+   * Chiamato dal portale subito dopo l'emissione (request [11]).
+   */
+  getStampa(idtrx: string, isGift?: boolean): Promise<string>;
 
   /** Logout dalla sessione AdE */
   logout(): Promise<void>;
