@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Download } from "lucide-react";
+import { CheckCircle2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ReceiptSuccessProps {
@@ -65,8 +65,8 @@ export function ReceiptSuccess({
             window.open(`/api/documents/${documentId}/pdf`, "_blank")
           }
         >
-          <Download className="mr-2 h-4 w-4" />
-          Scarica PDF
+          <Send className="mr-2 h-4 w-4" />
+          Invia ricevuta
         </Button>
       )}
 

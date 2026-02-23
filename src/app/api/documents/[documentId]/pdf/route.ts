@@ -100,7 +100,8 @@ export async function GET(
     "-",
   );
 
-  return new Response(pdfBuffer, {
+  // Buffer is a Node.js type; wrap in Uint8Array for the Web API Response.
+  return new Response(new Uint8Array(pdfBuffer), {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",

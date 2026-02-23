@@ -185,15 +185,21 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
             <tbody className="divide-y">
               {receipts.map((receipt) => {
                 const isVoidable = receipt.status === "ACCEPTED";
+                // SALE receipts (both ACCEPTED and VOID_ACCEPTED) can open the
+                // detail dialog to view lines and re-send the PDF receipt.
+                const hasDetail =
+                  receipt.kind === "SALE" &&
+                  (receipt.status === "ACCEPTED" ||
+                    receipt.status === "VOID_ACCEPTED");
                 return (
                   <tr
                     key={receipt.id}
                     className={
-                      isVoidable
+                      hasDetail
                         ? "hover:bg-muted/30 cursor-pointer"
                         : "opacity-60"
                     }
-                    onClick={() => isVoidable && setSelected(receipt)}
+                    onClick={() => hasDetail && setSelected(receipt)}
                   >
                     <td className="px-4 py-3 whitespace-nowrap">
                       {formatDate(receipt.createdAt)}
@@ -210,7 +216,7 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
                       <StatusBadge status={receipt.status} />
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {isVoidable && (
+                      {hasDetail && (
                         <Button
                           variant="ghost"
                           size="sm"

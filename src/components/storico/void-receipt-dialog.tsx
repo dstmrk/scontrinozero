@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { Send } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -45,6 +46,9 @@ export function VoidReceiptDialog({
   onSuccess,
 }: VoidReceiptDialogProps) {
   const [confirmed, setConfirmed] = useState(false);
+
+  /** Solo i SALE non ancora annullati possono essere annullati. */
+  const canVoid = receipt.status === "ACCEPTED";
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -151,12 +155,14 @@ export function VoidReceiptDialog({
               </div>
             )}
 
-            {/* Warning */}
-            <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
-              <strong>⚠️ Attenzione:</strong> L&apos;annullo è irreversibile. Lo
-              scontrino verrà trasmesso all&apos;Agenzia delle Entrate come
-              documento di annullo.
-            </div>
+            {/* Warning — solo per scontrini annullabili */}
+            {canVoid && (
+              <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+                <strong>⚠️ Attenzione:</strong> L&apos;annullo è irreversibile.
+                Lo scontrino verrà trasmesso all&apos;Agenzia delle Entrate come
+                documento di annullo.
+              </div>
+            )}
 
             <DialogFooter className="gap-2">
               <Button
@@ -167,12 +173,24 @@ export function VoidReceiptDialog({
                 Chiudi
               </Button>
               <Button
-                variant="destructive"
-                onClick={handleVoid}
+                variant="outline"
+                onClick={() =>
+                  window.open(`/api/documents/${receipt.id}/pdf`, "_blank")
+                }
                 disabled={mutation.isPending}
               >
-                {mutation.isPending ? "Annullamento…" : "Annulla scontrino"}
+                <Send className="mr-2 h-4 w-4" />
+                Invia ricevuta
               </Button>
+              {canVoid && (
+                <Button
+                  variant="destructive"
+                  onClick={handleVoid}
+                  disabled={mutation.isPending}
+                >
+                  {mutation.isPending ? "Annullamento…" : "Annulla scontrino"}
+                </Button>
+              )}
             </DialogFooter>
           </>
         )}
