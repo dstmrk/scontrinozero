@@ -224,12 +224,35 @@ export class RealAdeClient implements AdeClient {
   }
 
   /**
+   * Phase 3b: Initialize the IBM DataPower cross-domain session.
+   *
+   * HAR fix (login_ade_fisconline.har entry 45): the portal page JS fires a
+   * GET /dp/api?v=<timestamp> call on every authenticated page load. This is
+   * NOT a data-fetching call (the response body is empty) — it is a
+   * DataPower session initialization ping. Without it, ALL /ser/api/*
+   * endpoints return 401 because DataPower has not established the
+   * backend session token for the current Liferay session cookies.
+   *
+   * HAR evidence:
+   *   entry 45: GET /dp/api?v=1740420665617  → 200 (empty body)
+   *   entry 46: GET /ser/api/.../stato/      → 401 (races with dp/api)
+   *   entry 48: GET /ser/api/.../stato/      → 200 (after dp/api completes)
+   *
+   * The previous code extracted Liferay.authToken from /dp/api — that was
+   * wrong; /dp/api returns an empty body. The authToken is in the home page
+   * HTML (Phase 3). But the /dp/api call itself is still required here.
+   */
+  private async initDataPowerSession(): Promise<void> {
+    await this.request(`${ADE_BASE_URL}/dp/api?v=${Date.now()}`);
+  }
+
+  /**
    * Phase 4: Activate the portal session via the DatiOpzioni portlet.
    *
-   * HAR fix: this POST is required before verifySession.
-   * Without it: /ser/api/fatture/v1/ul/me/adesione/stato/ → 401
-   * After it:   /ser/api/fatture/v1/ul/me/adesione/stato/ → 200
-   * This step was completely absent from the old code.
+   * HAR fix (login_ade_fisconline.har entry 47): POST fires after dp/api
+   * and before the second adesione/stato call. While dp/api is the critical
+   * step for /ser/api/* auth, DatiOpzioni is also called by the portal JS
+   * on every page load and may set additional session state.
    */
   private async activateSession(): Promise<void> {
     const url =
@@ -306,9 +329,10 @@ export class RealAdeClient implements AdeClient {
     credentials: FisconlineCredentials,
   ): Promise<AdeSession> {
     await this.initCookieJar(); // Phase 1: seed cookies
-    await this.postLogin(credentials); // Phase 2: login POST
+    await this.postLogin(credentials); // Phase 2: login POST + redirect chain
     const pAuth = await this.extractPAuth(); // Phase 3: grab authToken
-    await this.activateSession(); // Phase 4: DatiOpzioni (required)
+    await this.initDataPowerSession(); // Phase 3b: DataPower ping (REQUIRED before /ser/api/*)
+    await this.activateSession(); // Phase 4: DatiOpzioni portlet
     await this.verifySession(); // Phase 5: 200 probe
     const partitaIva = await this.fetchPartitaIva(); // Phase 6: real P.IVA
 
