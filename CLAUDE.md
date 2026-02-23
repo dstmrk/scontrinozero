@@ -12,13 +12,14 @@ all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la pr
 Il piano di sviluppo dettagliato con fasi sequenziali, test attesi e checkpoint di review
 è in **`PLAN.md`** (root del repo). Il **`ROADMAP.md`** contiene il riepilogo ad alto livello.
 
-**Fase corrente:** Phase 1A (fix security hotspot + test TDD pattern)
+**Fase corrente:** Phase 4F (UI polish + registrazione)
 
 **Approccio TDD:** Per ogni fase, scrivere i test PRIMA dell'implementazione.
 I test di validazione e degli endpoint usano `vi.mock` per isolare le dipendenze (Drizzle, etc.).
 
-**Sequenza fasi:** 0 ✅ → 1A 🔵 → 2 (AdE spike) → 1B (landing) → 3A (security infra) →
-3B (auth) → 4 (MVP) → 5 (PWA) → 6 (stabilità) → 7 (Stripe) → 8 (lancio)
+**Sequenza fasi:** 0 ✅ → 1A ✅ → 2 ✅ (AdE spike) → 1B ✅ (landing) → 3A ✅ (security infra) →
+3B ✅ (auth) → 4A-4D ✅ (MVP core) → 4F 🔵 (UI polish) → 4G (catalogo+nav) → 4H (onboarding refactor) →
+5 (PWA) → 6 (stabilità) → 7 (Stripe) → 8 (lancio)
 
 ## Principi di prodotto
 
@@ -53,6 +54,9 @@ giustificare la propria esistenza.
 
 - **No headless browser** — niente Playwright, Puppeteer o Chromium in produzione.
   L'integrazione AdE usa esclusivamente chiamate HTTP dirette (fetch/axios).
+  La generazione PDF usa **pdfkit** (Node.js puro, ~500KB), coerente con questo vincolo.
+  ⚠️ pdfkit richiede `serverExternalPackages: ["pdfkit"]` in `next.config.ts` per evitare
+  che Turbopack riscriva `__dirname` in `/ROOT` e rompa la risoluzione dei font AFM.
 - **Dipendenze minime** — aggiungere librerie solo quando strettamente necessario.
   Preferire soluzioni native o leggere.
 - **Next.js standalone** — output ottimizzato, solo i file necessari (~100MB vs ~1GB)
@@ -478,3 +482,18 @@ scontrinozero/
 - [vitest-sonar-reporter](https://www.npmjs.com/package/vitest-sonar-reporter)
 - [Effatta API (riferimento competitor)](https://effatta.it/scontrino-elettronico/)
 - [DataCash API (riferimento competitor)](https://datacash.it/api-developer/)
+
+## File HAR da analizzare (fasi future)
+
+Presenti nella root del repo, da analizzare prima delle relative fasi di sviluppo:
+
+| File                             | Feature                                            | Fase   |
+| -------------------------------- | -------------------------------------------------- | ------ |
+| `dati_doc_commerciale.har`       | Aggiornamento dati business su AdE post-onboarding | 4H     |
+| `aggiungi_prodotto_catalogo.har` | Aggiunta prodotto su rubrica AdE                   | 4G     |
+| `modifica_prodotto_catalogo.har` | Modifica prodotto su rubrica AdE                   | futuro |
+| `elimina_prodotto_catalogo.har`  | Eliminazione prodotto su rubrica AdE               | futuro |
+| `ricerca_prodotto_catalogo.har`  | Ricerca prodotto su rubrica AdE                    | 4G     |
+| `ricerca_documento.har`          | Ricerca documento su AdE                           | futuro |
+| `login_spid.har`                 | SPID login flow                                    | futuro |
+| `login_cie.har`                  | CIE login flow                                     | futuro |

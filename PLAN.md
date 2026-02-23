@@ -2,7 +2,7 @@
 
 ## Contesto
 
-Phase 0, 1A, 2A-2C, 1B (parziale), 3A, 3B, 4A, 4B, 4C completate. Il progetto ha 319 unit test + 8 E2E test.
+Phase 0, 1A, 2A-2C, 1B (parziale), 3A, 3B, 4A, 4B, 4C, 4D completate. Il progetto ha 359 unit test + 8 E2E test.
 Modulo AdE completo (MockAdeClient + RealAdeClient) con 92 test dedicati.
 Infrastruttura sicurezza: logger (pino), rate limiting, encryption (AES-256-GCM), Sentry.
 Auth: Supabase Auth con middleware, onboarding wizard 3-step, credenziali AdE cifrate.
@@ -10,7 +10,8 @@ Schema DB scontrini: tabelle `commercial_documents` + `commercial_document_lines
 UI cassa mobile-first: tastierino numerico, selezione IVA, riepilogo scontrino.
 Code review completata: security fixes (IDOR, open redirect, redaction), React best practices.
 Phase 4C completata: server action `emitReceipt` + `useMutation` TanStack Query + schermate success/error nella cassa.
-Prossimo step: Phase 4D (storico scontrini).
+Phase 4D completata: storico scontrini + annullamento + PDF "Invia ricevuta".
+Prossimi step: Phase 4F (UI polish + registrazione), 4G (catalogo + navigazione mobile), 4H (onboarding refactor).
 
 ---
 
@@ -171,10 +172,101 @@ Prossimo step: Phase 4D (storico scontrini).
 
 **4B:** UI cassa mobile-first — tastierino numerico, selezione IVA, pagamento, schermata riepilogo
 **4C:** Server actions + optimistic UI — TanStack Query, mutation, rollback automatico
-**4D:** Storico scontrini + dashboard — TanStack Table, filtri, totali giornalieri
-**4E:** Annullamento scontrino
 
-**Test attesi:** 40-60 unit + 3-5 E2E
+**4D: Storico scontrini + PDF + Annullamento ✅**
+
+- ✅ `src/server/void-actions.ts` — `searchReceipts` (filtri data/stato) + `voidReceipt` (idempotency key)
+- ✅ `src/types/storico.ts` — `ReceiptListItem`, `SearchReceiptsParams`, `VoidReceiptInput/Result`
+- ✅ `src/components/storico/storico-client.tsx` — lista con filtri Dal/Al/Stato, righe cliccabili, `›` hint
+- ✅ `src/components/storico/void-receipt-dialog.tsx` — dialog 3-state (`detail` / `confirmingVoid` / `voidSuccess`)
+- ✅ `src/lib/pdf/generate-sale-receipt.ts` — PDFKit, layout 58mm, altezza dinamica, IVA per aliquota
+- ✅ `src/app/api/documents/[documentId]/pdf/route.ts` — API route GET, auth+ownership check
+- ✅ `next.config.ts` — `serverExternalPackages: ["pdfkit"]` (fix AFM font path con Turbopack)
+- ✅ Bottone "Invia ricevuta" in `receipt-success.tsx` (dopo emissione) e nel dialog storico
+- **Risultato:** 359 unit + 8 E2E test
+
+**4F: UI polish + registrazione ⬜**
+
+Cassa:
+
+- ⬜ Importo iniziale vuoto (non "00,00 €") — `src/components/cassa/` (hook useCassa o stato add-item)
+- ⬜ Default aliquota IVA = `business.preferredVatCode` → fallback `"22"` — `src/components/cassa/vat-selector.tsx` + pagina cassa
+- ⬜ Bottone "Emetti" → "Continua" nel carrello — `src/components/cassa/cassa-client.tsx` (step `cart`)
+- ⬜ Icona nella schermata riepilogo: sostituire `$` con `€` o scontrino stilizzato
+
+Storico:
+
+- ⬜ Invertire ordine pulsanti nella conferma annullo: "Conferma annullamento" a sx, "Chiudi" a dx — `src/components/storico/void-receipt-dialog.tsx` (step `confirmingVoid`)
+- ⬜ Paginazione: 10 elementi per pagina, senza selezione dimensione — `src/components/storico/storico-client.tsx`
+
+Registrazione:
+
+- ⬜ Rimuovere campo `fullName`, aggiungere `confirmPassword` — `src/app/(auth)/register/page.tsx`
+- ⬜ Validazione password: ≥8 caratteri, ≥1 maiuscola, ≥1 minuscola, ≥1 numero, ≥1 speciale — `src/server/auth-actions.ts` (signUp) + hint UI
+- ⬜ Email di benvenuto branded — Resend (da decidere: sostituire email Supabase auth o solo email business)
+- TODO futuro: Passkey support
+
+**4G: Catalogo prodotti/servizi + navigazione mobile ⬜**
+
+Navigazione:
+
+- ⬜ Bottom navigation bar mobile-first (Catalogo, Cassa, Storico, Impostazioni) — `src/app/dashboard/layout.tsx`
+- ⬜ Home `/dashboard` → Catalogo (non più welcome/metrics)
+
+DB:
+
+- ⬜ Nuova tabella `catalog_items` — `src/db/schema/catalog-items.ts`
+  - `id`, `businessId` (FK → businesses, cascade), `description` (NOT NULL), `defaultPrice` (numeric, nullable), `defaultVatCode` (text, nullable), `createdAt`, `updatedAt`
+- ⬜ Migration Supabase + test schema
+
+Server actions — `src/server/catalog-actions.ts`:
+
+- ⬜ `getCatalogItems(businessId)` → lista prodotti
+- ⬜ `addCatalogItem(input)` → crea prodotto
+- ⬜ `deleteCatalogItem(itemId, businessId)` → elimina con ownership check
+
+UI — `src/components/catalogo/`:
+
+- ⬜ `catalogo-client.tsx` — lista card prodotti + bottone "+"
+- ⬜ `add-item-dialog.tsx` — dialog aggiunta (description obbligatoria, price + vatCode opzionali)
+- ⬜ Tap su prodotto → `/dashboard/cassa` con prodotto pre-selezionato (query params o store); tutto modificabile
+- ⬜ Conferma eliminazione (shadcn AlertDialog)
+
+HAR da analizzare (non bloccanti, per eventuale sync con AdE):
+`aggiungi_prodotto_catalogo.har`, `modifica_prodotto_catalogo.har`, `elimina_prodotto_catalogo.har`, `ricerca_prodotto_catalogo.har`
+
+TODO futuro: bordo colorato card, modifica prodotto, cleanup DB documenti vecchi (valutare limiti Supabase 500MB)
+
+**4H: Onboarding refactor ⬜**
+
+Motivazione: P.IVA e CF sono già nelle credenziali AdE. Vanno recuperati automaticamente
+dopo la verifica, non digitati dall'utente.
+
+DB migrations:
+
+- ⬜ `profiles`: aggiungere `first_name` (text, nullable), `last_name` (text, nullable); `full_name` → nullable per retrocompatibilità
+- ⬜ `businesses`: `vat_number` → nullable (popolato da AdE); aggiungere `street_number` (text, nullable); aggiungere `preferred_vat_code` (text, nullable); `business_name` → nullable (ora opzionale)
+
+Step 0 — nuovi campi:
+
+- Nome + Cognome (obbligatori, due campi separati) → salvati su `profiles`
+- Nome attività (opzionale)
+- Aliquota IVA prevalente (opzionale) — stesso menu a tendina della cassa
+- Indirizzo (obbligatorio), Numero civico (opzionale)
+- CAP (obbligatorio, validazione `/^\d{5}$/`)
+- Città (opzionale), Provincia (opzionale)
+- Nazione: forziamo IT, non mostrare dropdown — formato AdE: `value="IT"` / "Italia"
+- RIMOSSI: P.IVA e Codice Fiscale
+
+Step 2 — dopo verifica riuscita:
+
+- ⬜ Chiamare `getFiscalData()` (già in `AdeClient`)
+- ⬜ Salvare `vatNumber` + `fiscalCode` su `businesses` dal risultato AdE
+- ⬜ Analizzare `dati_doc_commerciale.har` per capire come aggiornare i dati sull'AdE
+
+TODO futuro: SPID (`login_spid.har`), CIE (`login_cie.har`), pre-sessione AdE al login
+
+**Test attesi 4F-4H:** ~60 unit + 2-3 E2E
 
 ---
 
@@ -247,22 +339,25 @@ Prossimo step: Phase 4D (storico scontrini).
 
 ## Riepilogo test cumulativi
 
-| Fase                    | Nuovi test  | Totale cumulativo    |
-| ----------------------- | ----------- | -------------------- |
-| 1A (Security fix) ✅    | 23 (reali)  | 27 (23 unit + 4 E2E) |
-| 2A (AdE ricerca) ✅     | 0 (ricerca) | 27                   |
-| 2B-2C (AdE impl) ✅     | 92 (reali)  | 119                  |
-| 1B (Landing) ✅ parz.   | 6 (reali)   | 125 unit + 8 E2E     |
-| 3A (Security infra) ✅  | 23 (reali)  | 148 unit + 8 E2E     |
-| 3B (Auth) ✅            | 43 (reali)  | 191 unit + 8 E2E     |
-| 4A (Schema DB) ✅       | 23 (reali)  | 214 unit + 8 E2E     |
-| 4B (UI cassa) ✅        | 91 (reali)  | 305 unit + 8 E2E     |
-| 4C (server action) ✅   | 14 (reali)  | 319 unit + 8 E2E     |
-| 4D-4E (storico+annullo) | ~20         | ~339                 |
-| 5 (PWA)                 | ~13         | ~352                 |
-| 6 (Stabilita')          | ~15         | ~367                 |
-| 7 (Stripe)              | ~20         | ~387                 |
-| **Lancio**              |             | **~390+ test**       |
+| Fase                        | Nuovi test  | Totale cumulativo    |
+| --------------------------- | ----------- | -------------------- |
+| 1A (Security fix) ✅        | 23 (reali)  | 27 (23 unit + 4 E2E) |
+| 2A (AdE ricerca) ✅         | 0 (ricerca) | 27                   |
+| 2B-2C (AdE impl) ✅         | 92 (reali)  | 119                  |
+| 1B (Landing) ✅ parz.       | 6 (reali)   | 125 unit + 8 E2E     |
+| 3A (Security infra) ✅      | 23 (reali)  | 148 unit + 8 E2E     |
+| 3B (Auth) ✅                | 43 (reali)  | 191 unit + 8 E2E     |
+| 4A (Schema DB) ✅           | 23 (reali)  | 214 unit + 8 E2E     |
+| 4B (UI cassa) ✅            | 91 (reali)  | 305 unit + 8 E2E     |
+| 4C (server action) ✅       | 14 (reali)  | 319 unit + 8 E2E     |
+| 4D (storico+annullo+PDF) ✅ | 40 (reali)  | 359 unit + 8 E2E     |
+| 4F (UI polish+reg)          | ~15         | ~374                 |
+| 4G (catalogo+nav)           | ~20         | ~394                 |
+| 4H (onboarding refactor)    | ~25         | ~419                 |
+| 5 (PWA)                     | ~13         | ~432                 |
+| 6 (Stabilita')              | ~15         | ~447                 |
+| 7 (Stripe)                  | ~20         | ~467                 |
+| **Lancio**                  |             | **~470+ test**       |
 
 ---
 
@@ -277,6 +372,6 @@ Ad ogni checkpoint:
 
 ---
 
-## Primo passo immediato
+## Prossimo passo immediato
 
-Iniziare con **Phase 4D**: Storico scontrini — lista paginata con TanStack Table, filtri per data/stato, dettaglio documento, totali giornalieri.
+Iniziare con **Phase 4F**: UI polish (cassa, storico, registrazione) — task piccoli e indipendenti, completabili in poche ore ciascuno.

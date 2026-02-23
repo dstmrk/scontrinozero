@@ -136,9 +136,13 @@ Piano dettagliato con test e review checkpoint: vedi [`PLAN.md`](./PLAN.md)
 - ✅ Schema DB: `commercial_documents`, `commercial_document_lines`
 - ✅ UI cassa mobile-first (tastierino, IVA, pagamento, riepilogo)
 - ✅ Server actions + optimistic UI (TanStack Query) — `emitReceipt`, `useMutation`, idempotency
-- ⬜ Storico scontrini (TanStack Table, filtri, dettaglio)
-- ⬜ Annullamento
-- ⬜ Dashboard base: totale giornaliero, conteggio
+- ✅ Storico scontrini (filtri data/stato, dialog dettaglio, righe cliccabili)
+- ✅ Annullamento scontrino (void, dialog 3-state con conferma)
+- ✅ PDF "Invia ricevuta" (API route + PDFKit, bottone in cassa e storico) — **359 unit + 8 E2E test**
+- ⬜ **4F**: UI polish — cassa (importo vuoto, VAT default, label "Continua", €icon), storico (paginazione 10/pag, ordine pulsanti annullo), registrazione (email+pwd+confirm, regole password)
+- ⬜ **4G**: Catalogo prodotti + navigazione mobile-first (bottom nav bar, home → Catalogo)
+- ⬜ **4H**: Onboarding refactor (firstName/lastName, rimuovi P.IVA/CF → da AdE, CAP 5 cifre, nazione IT fissa, preferredVatCode)
+- ⬜ Dashboard base: totale giornaliero, conteggio (dopo 4G)
 - ⬜ Codice lotteria scontrini
 
 ### 📋 REVIEW CHECKPOINT 3
@@ -196,7 +200,6 @@ Piano dettagliato con test e review checkpoint: vedi [`PLAN.md`](./PLAN.md)
 
 ## Backlog — Feature future (post-lancio)
 
-- ⬜ Catalogo prodotti/servizi
 - ⬜ Import CSV/XLS prodotti
 - ⬜ Scanner barcode via fotocamera
 - ⬜ Stampa Bluetooth (58/80mm)
@@ -210,6 +213,15 @@ Piano dettagliato con test e review checkpoint: vedi [`PLAN.md`](./PLAN.md)
 - ⬜ Modalità offline con coda di sincronizzazione
 - ⬜ API pubblica / webhook
 - ⬜ App Capacitor (feature native)
+- ⬜ SPID login (analizzare `login_spid.har`)
+- ⬜ CIE login (analizzare `login_cie.har`)
+- ⬜ Pre-sessione AdE al login per velocizzare emissione
+- ⬜ Bordo colorato card catalogo (scelto alla creazione)
+- ⬜ Modifica prodotto a catalogo
+- ⬜ Cleanup automatico DB documenti vecchi (valutare policy + limiti Supabase 500MB)
+- ⬜ Passkey support (registrazione)
+- ⬜ Cambio password (impostazioni profilo: pwd attuale + nuova + conferma + toggle visibilità)
+- ⬜ Invia scontrino via email (Resend) direttamente dallo storico
 
 ---
 
@@ -220,4 +232,4 @@ Piano dettagliato con test e review checkpoint: vedi [`PLAN.md`](./PLAN.md)
 - **Fase 2 bloccante**: se l'integrazione AdE diretta fallisce, fallback su API terze parti
 - **Sicurezza prima delle credenziali**: Fase 3A (Sentry, encryption, rate limiting) precede la Fase 3B (auth + credenziali)
 - **Review checkpoint** dopo ogni fase critica — vedi PLAN.md per dettagli
-- **Target test al lancio**: ~200+ test (unit + integration + E2E)
+- **Target test al lancio**: ~470+ test (unit + integration + E2E)
