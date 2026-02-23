@@ -82,6 +82,51 @@ export class RealAdeClient implements AdeClient {
     }
   }
 
+  /**
+   * Follow an HTTP redirect chain manually, capturing cookies at each hop.
+   *
+   * Problem: Node.js fetch with redirect:'follow' follows all hops internally
+   * without giving us access to intermediate responses. If the portal sets
+   * session cookies in an intermediate redirect response, those cookies are
+   * missed → our cookie jar is incomplete → subsequent hops look
+   * unauthenticated → portal redirects to login again → circular loop →
+   * "redirect count exceeded" (undici limit: 20 hops).
+   *
+   * Solution: follow each hop via redirect:'manual' so that request() calls
+   * applyResponse() on every single response, keeping the cookie jar in sync
+   * with what a browser would accumulate.
+   *
+   * HAR note: the Phase 2 redirect chain (POST login → /portale/c/... →
+   * /portale/web/guest/home) exhibits exactly this behaviour.
+   */
+  private async followRedirectChain(
+    startUrl: string,
+    maxHops = 20,
+  ): Promise<Response> {
+    let url = startUrl;
+    let hops = 0;
+
+    while (hops < maxHops) {
+      const response = await this.request(url, { followRedirects: false });
+
+      // Success (2xx) or server error: stop following
+      if (response.status < 300 || response.status >= 400) {
+        return response;
+      }
+
+      // Redirect: resolve Location and continue
+      const location = response.headers.get("Location");
+      if (!location) return response;
+
+      url = location.startsWith("http")
+        ? location
+        : `${ADE_BASE_URL}${location}`;
+      hops++;
+    }
+
+    throw new AdePortalError(302, `Redirect chain exceeded ${maxHops} hops`);
+  }
+
   // -----------------------------------------------------------------------
   // Authentication phases (1-6)
   // -----------------------------------------------------------------------
@@ -144,11 +189,15 @@ export class RealAdeClient implements AdeClient {
       );
     }
 
-    // Follow the remaining redirect chain (ends at /portale/web/guest/home)
+    // Follow the remaining redirect chain (ends at /portale/web/guest/home).
+    // IMPORTANT: must use followRedirectChain (not request) so that cookies
+    // from each intermediate redirect hop are captured in the jar.
+    // Using request() with redirect:'follow' misses intermediate Set-Cookie
+    // headers, leaving the jar incomplete and causing a redirect loop.
     const redirectUrl = location.startsWith("http")
       ? location
       : `${ADE_BASE_URL}${location}`;
-    await this.request(redirectUrl);
+    await this.followRedirectChain(redirectUrl);
   }
 
   /**

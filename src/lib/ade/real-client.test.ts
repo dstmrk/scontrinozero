@@ -255,6 +255,72 @@ describe("RealAdeClient", () => {
       expect(secondCall[1].redirect).toBe("manual");
     });
 
+    it("follows Phase 2 redirect chain hop-by-hop, capturing cookies at each redirect", async () => {
+      // Regression test for: "redirect count exceeded" in postLogin.
+      //
+      // Root cause: using fetch with redirect:'follow' for the Phase 2
+      // follow-up meant intermediate redirect responses were consumed
+      // internally by Node.js without updating our cookie jar. If the portal
+      // set session cookies in an intermediate redirect, those were lost,
+      // making the next hop look unauthenticated → redirect loop → error.
+      //
+      // Fix: followRedirectChain() follows each hop manually via
+      // redirect:'manual', ensuring applyResponse() is called on every
+      // response and the cookie jar stays in sync.
+
+      // Phase 1
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          headers: [["Set-Cookie", "JSESSIONID=abc123; Path=/; HttpOnly"]],
+        }),
+      );
+      // Phase 2: POST login → 302
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 302,
+          location: "/portale/c/portal/layout",
+          headers: [["Set-Cookie", "LFR_SESSION=xyz789; Path=/"]],
+        }),
+      );
+      // Phase 2 follow-up hop 1: intermediate redirect (sets a session cookie)
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 302,
+          location: "/portale/web/guest/home",
+          headers: [["Set-Cookie", "SESSION_MARKER=important; Path=/"]],
+        }),
+      );
+      // Phase 2 follow-up hop 2: final 200
+      fetchMock.mockResolvedValueOnce(mockResponse({}));
+      // Phase 3
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: '<html><script>Liferay.authToken = "chain_auth_token";</script></html>',
+        }),
+      );
+      // Phase 4
+      fetchMock.mockResolvedValueOnce(mockResponse({}));
+      // Phase 5
+      fetchMock.mockResolvedValueOnce(mockResponse({}));
+      // Phase 6
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: { anagrafica: { piva: "12345678901" } } }),
+      );
+
+      const session = await client.login(mockCredentials);
+
+      // Login must succeed despite the intermediate redirect
+      expect(session.pAuth).toBe("chain_auth_token");
+
+      // Phase 2 follow-up now takes 2 fetch calls (hop1 + hop2)
+      // Total: 1(P1) + 1(P2 POST) + 2(P2 chain) + 1(P3) + 1(P4) + 1(P5) + 1(P6) = 8
+      expect(fetchMock).toHaveBeenCalledTimes(8);
+
+      // Each hop in the chain must use redirect:'manual'
+      expect(fetchMock.mock.calls[2][1].redirect).toBe("manual"); // hop 1
+      expect(fetchMock.mock.calls[3][1].redirect).toBe("manual"); // hop 2
+    });
+
     it("throws AdeAuthError when Location header indicates failure", async () => {
       // Phase 1
       fetchMock.mockResolvedValueOnce(mockResponse({}));
