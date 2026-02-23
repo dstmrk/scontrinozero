@@ -47,6 +47,12 @@ export default async function DashboardLayout({
               Cassa
             </Link>
             <Link
+              href="/dashboard/storico"
+              className="text-muted-foreground hover:text-foreground text-sm"
+            >
+              Storico
+            </Link>
+            <Link
               href="/dashboard/settings"
               className="text-muted-foreground hover:text-foreground text-sm"
             >
