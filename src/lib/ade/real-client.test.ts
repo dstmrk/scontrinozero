@@ -31,16 +31,27 @@ function mockResponse(opts: {
   return new Response(responseBody, { status, headers: responseHeaders });
 }
 
-/** Queue 6 mock responses for the full login flow (Phases 1-5). */
+/**
+ * Queue 7 mock responses for the full login flow (Phases 1-6).
+ *
+ * HTTP call map (HAR-verified, vendita.har + login_ade_fisconline.har):
+ *   [0] Phase 1: GET /portale/web/guest/home      — init cookie jar
+ *   [1] Phase 2: POST login                        — 302 to /portale/c/...
+ *   [2] Phase 2 follow-up: GET /portale/c/...      — follows to home
+ *   [3] Phase 3: GET /portale/web/guest/home       — extract Liferay.authToken
+ *   [4] Phase 4: POST DatiOpzioni portlet           — activate session
+ *   [5] Phase 5: GET adesione/stato/               — verify session (200)
+ *   [6] Phase 6: GET gestori/me                    — fetch real P.IVA
+ */
 function mockLoginSequence(fetchMock: ReturnType<typeof vi.fn>): void {
-  // Phase 1: GET /portale/web/guest — init cookie jar
+  // Phase 1: GET /portale/web/guest/home — init cookie jar
   fetchMock.mockResolvedValueOnce(
     mockResponse({
       headers: [["Set-Cookie", "JSESSIONID=abc123; Path=/; HttpOnly"]],
     }),
   );
 
-  // Phase 2: POST login — 302 redirect indicating success
+  // Phase 2: POST login — 302 redirect to /portale/c/... indicating success
   fetchMock.mockResolvedValueOnce(
     mockResponse({
       status: 302,
@@ -49,21 +60,36 @@ function mockLoginSequence(fetchMock: ReturnType<typeof vi.fn>): void {
     }),
   );
 
-  // Phase 2 follow-up: GET the redirect target
+  // Phase 2 follow-up: GET the redirect target (follows to /portale/web/guest/home)
   fetchMock.mockResolvedValueOnce(mockResponse({}));
 
-  // Phase 3: GET /dp/api — HTML containing p_auth token
+  // Phase 3: GET /portale/web/guest/home — HTML containing Liferay.authToken
+  // HAR fix: /dp/api returns empty body — authToken is in home page HTML
   fetchMock.mockResolvedValueOnce(
     mockResponse({
       body: '<html><script>Liferay.authToken = "test_p_auth_42";</script></html>',
     }),
   );
 
-  // Phase 4: POST select entity
+  // Phase 4: POST DatiOpzioni_WAR_DatiOpzioniportlet — activate session
+  // HAR fix: this step is required; without it verifySession returns 401
   fetchMock.mockResolvedValueOnce(mockResponse({}));
 
-  // Phase 5: GET ready probe — 200 OK
+  // Phase 5: GET /ser/api/fatture/v1/ul/me/adesione/stato/ — verify session
   fetchMock.mockResolvedValueOnce(mockResponse({}));
+
+  // Phase 6: GET /ser/api/portale/v1/gestori/me/ — fetch real P.IVA
+  // HAR fix: P.IVA must come from this endpoint, NOT derived from CF
+  fetchMock.mockResolvedValueOnce(
+    mockResponse({
+      body: {
+        anagrafica: {
+          piva: "12345678901",
+          cf: "RSSMRA80A01H501A",
+        },
+      },
+    }),
+  );
 }
 
 const mockCredentials = {
@@ -174,38 +200,50 @@ describe("RealAdeClient", () => {
   // -----------------------------------------------------------------------
 
   describe("login", () => {
-    it("completes 6-phase auth flow and returns AdeSession", async () => {
+    it("completes 6-phase auth flow (7 HTTP calls) and returns AdeSession", async () => {
       mockLoginSequence(fetchMock);
 
       const session = await client.login(mockCredentials);
 
       expect(session.pAuth).toBe("test_p_auth_42");
-      expect(session.partitaIva).toHaveLength(11);
+      // P.IVA now comes from Phase 6 gestori/me, not derived from CF
+      expect(session.partitaIva).toBe("12345678901");
       expect(session.createdAt).toBeGreaterThan(0);
+      // Total: 7 fetch calls (Phase 2 has a follow-up redirect)
+      expect(fetchMock).toHaveBeenCalledTimes(7);
     });
 
-    it("calls Phase 1 GET /portale/web/guest", async () => {
+    it("calls Phase 1 GET /portale/web/guest/home (not /portale/web/guest)", async () => {
       mockLoginSequence(fetchMock);
 
       await client.login(mockCredentials);
 
       const firstCall = fetchMock.mock.calls[0];
-      expect(firstCall[0]).toContain("/portale/web/guest");
+      // HAR fix: must hit /portale/web/guest/home to get correct session cookies
+      expect(firstCall[0]).toContain("/portale/web/guest/home");
     });
 
-    it("calls Phase 2 POST with correct form body", async () => {
+    it("calls Phase 2 POST with correct form body (including 4 previously missing params)", async () => {
       mockLoginSequence(fetchMock);
 
       await client.login(mockCredentials);
 
       const secondCall = fetchMock.mock.calls[1];
       expect(secondCall[0]).toContain("_58_struts_action");
+      // HAR fix: correct col_pos and col_count
+      expect(secondCall[0]).toContain("p_p_col_pos=4");
+      expect(secondCall[0]).toContain("p_p_col_count=6");
       expect(secondCall[1].method).toBe("POST");
 
       const body = secondCall[1].body as string;
       expect(body).toContain("_58_login=RSSMRA80A01H501A");
       expect(body).toContain("_58_password=testpassword");
       expect(body).toContain("_58_pin=12345678");
+      // HAR fix: 4 previously missing params
+      expect(body).toContain("_58_saveLastPath=false");
+      expect(body).toContain("_58_redirect=");
+      expect(body).toContain("_58_doActionAfterLogin=false");
+      expect(body).toContain("ricorda-cf=on");
     });
 
     it("calls Phase 2 with redirect manual to inspect Location", async () => {
@@ -232,14 +270,16 @@ describe("RealAdeClient", () => {
       await expect(client.login(mockCredentials)).rejects.toThrow(AdeAuthError);
     });
 
-    it("calls Phase 3 GET /dp/api and extracts p_auth from HTML", async () => {
+    it("calls Phase 3 GET /portale/web/guest/home and extracts Liferay.authToken", async () => {
       mockLoginSequence(fetchMock);
 
       const session = await client.login(mockCredentials);
 
       // Phase 3 is call index 3
       const phase3Call = fetchMock.mock.calls[3];
-      expect(phase3Call[0]).toContain("/dp/api");
+      // HAR fix: /dp/api returns empty body — token is in home page HTML
+      expect(phase3Call[0]).toContain("/portale/web/guest/home");
+      expect(phase3Call[0]).not.toContain("/dp/api");
 
       expect(session.pAuth).toBe("test_p_auth_42");
     });
@@ -266,20 +306,21 @@ describe("RealAdeClient", () => {
       );
     });
 
-    it("calls Phase 4 POST with p_auth and partitaIva", async () => {
+    it("calls Phase 4 POST to DatiOpzioni portlet (required to activate session)", async () => {
       mockLoginSequence(fetchMock);
 
       await client.login(mockCredentials);
 
       // Phase 4 is call index 4
       const phase4Call = fetchMock.mock.calls[4];
-      expect(phase4Call[0]).toContain("p_auth=test_p_auth_42");
-      expect(phase4Call[0]).toContain("scelta-utenza-lavoro");
+      // HAR fix: DatiOpzioni portlet replaces selectEntity (not in HAR flow)
+      expect(phase4Call[0]).toContain("DatiOpzioni_WAR_DatiOpzioniportlet");
       expect(phase4Call[1].method).toBe("POST");
 
       const body = phase4Call[1].body as string;
-      expect(body).toContain("sceltaincarico=");
-      expect(body).toContain("tipoincaricante=ME");
+      expect(body).toContain(
+        "_DatiOpzioni_WAR_DatiOpzioniportlet_reload=false",
+      );
     });
 
     it("calls Phase 5 GET ready probe", async () => {
@@ -294,8 +335,19 @@ describe("RealAdeClient", () => {
       );
     });
 
+    it("calls Phase 6 GET gestori/me and returns real P.IVA", async () => {
+      mockLoginSequence(fetchMock);
+
+      const session = await client.login(mockCredentials);
+
+      // Phase 6 is call index 6
+      const phase6Call = fetchMock.mock.calls[6];
+      // HAR fix: P.IVA from gestori/me, not derived from CF (slice+padEnd was wrong)
+      expect(phase6Call[0]).toContain("/ser/api/portale/v1/gestori/me/");
+      expect(session.partitaIva).toBe("12345678901");
+    });
+
     it("throws AdePortalError when ready probe returns non-200", async () => {
-      // Phases 1-4 succeed
       fetchMock.mockResolvedValueOnce(mockResponse({})); // Phase 1
       fetchMock.mockResolvedValueOnce(
         mockResponse({ status: 302, location: "/portale/c/portal/layout" }),
@@ -306,9 +358,9 @@ describe("RealAdeClient", () => {
           body: '<script>Liferay.authToken = "tok";</script>',
         }),
       ); // Phase 3
-      fetchMock.mockResolvedValueOnce(mockResponse({})); // Phase 4
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // Phase 4 DatiOpzioni
 
-      // Phase 5: non-200
+      // Phase 5 verifySession: non-200 → should throw
       fetchMock.mockResolvedValueOnce(mockResponse({ status: 503 }));
 
       await expect(client.login(mockCredentials)).rejects.toThrow(
@@ -338,7 +390,8 @@ describe("RealAdeClient", () => {
 
       await client.submitSale(makeSalePayload());
 
-      const submitCall = fetchMock.mock.calls[6];
+      // Login uses 7 calls (Phases 1-6), so submit is call index 7
+      const submitCall = fetchMock.mock.calls[7];
       expect(submitCall[0]).toContain("/ser/api/documenti/v1/doc/documenti/");
       expect(submitCall[1].method).toBe("POST");
 
@@ -488,6 +541,160 @@ describe("RealAdeClient", () => {
   });
 
   // -----------------------------------------------------------------------
+  // getDocument
+  // -----------------------------------------------------------------------
+
+  describe("getDocument", () => {
+    it("sends GET to correct URL and returns parsed document", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      const mockDoc = {
+        idtrx: "151085589",
+        numeroProgressivo: "DCW2026/5111-2188",
+        cfCessionarioCommittente: "",
+        data: "02/15/2026",
+        tipoOperazione: "V",
+        flagDocCommPerRegalo: false,
+        progressivoCollegato: "",
+        dataOra: "15/02/2026",
+        multiAttivita: { codiceAttivita: "", descAttivita: "" },
+        importoTotaleIva: "2.20000000",
+        scontoTotale: "0.00000000",
+        scontoTotaleLordo: "0.00000000",
+        totaleImponibile: "10.00000000",
+        ammontareComplessivo: "12.20000000",
+        totaleNonRiscosso: "0.00000000",
+        scontoAbbuono: "0.00",
+        importoDetraibileDeducibile: "0.00000000",
+        elementiContabili: [
+          {
+            idElementoContabile: "270270040",
+            resiPregressi: "0.00",
+            reso: "0.00",
+            quantita: "1.00",
+            descrizioneProdotto: "Prodotto",
+            prezzoLordo: "12.20000000",
+            prezzoUnitario: "10.00000000",
+            scontoUnitario: "0.00000000",
+            scontoLordo: "0.00000000",
+            aliquotaIVA: "22",
+            importoIVA: "2.20000000",
+            imponibile: "10.00000000",
+            imponibileNetto: "10.00000000",
+            totale: "12.20000000",
+            omaggio: "N",
+          },
+        ],
+      };
+
+      fetchMock.mockResolvedValueOnce(mockResponse({ body: mockDoc }));
+
+      const result = await client.getDocument("151085589");
+
+      // URL corretto: /documenti/{idtrx}/
+      const call = fetchMock.mock.calls[7];
+      expect(call[0]).toContain(
+        "/ser/api/documenti/v1/doc/documenti/151085589/",
+      );
+
+      expect(result.idtrx).toBe("151085589");
+      expect(result.elementiContabili[0].idElementoContabile).toBe("270270040");
+      expect(result.totaleImponibile).toBe("10.00000000");
+    });
+
+    it("throws AdePortalError on non-200", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 404 }));
+
+      await expect(client.getDocument("999")).rejects.toThrow(AdePortalError);
+    });
+
+    it("throws if not logged in", async () => {
+      await expect(client.getDocument("123")).rejects.toThrow("Not logged in");
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // searchDocuments
+  // -----------------------------------------------------------------------
+
+  describe("searchDocuments", () => {
+    it("sends GET with dataDal/dataInvioAl params and returns list", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      const mockList = {
+        totalCount: 1,
+        elencoRisultati: [
+          {
+            idtrx: "151085589",
+            numeroProgressivo: "DCW2026/5111-2188",
+            cfCliente: "",
+            data: "02/15/2026",
+            tipoOperazione: "V",
+            ammontareComplessivo: "12.20",
+            annulli: null,
+          },
+        ],
+      };
+
+      fetchMock.mockResolvedValueOnce(mockResponse({ body: mockList }));
+
+      const result = await client.searchDocuments({
+        dataDal: "02/15/2026",
+        dataInvioAl: "02/15/2026",
+        page: 1,
+        perPage: 10,
+      });
+
+      // HAR fix (annullo.har [03]): URL con query string corretta
+      const call = fetchMock.mock.calls[7];
+      expect(call[0]).toContain("/ser/api/documenti/v1/doc/documenti/");
+      expect(call[0]).toContain("dataDal=");
+      expect(call[0]).toContain("02%2F15%2F2026");
+
+      expect(result.totalCount).toBe(1);
+      expect(result.elencoRisultati).toHaveLength(1);
+      expect(result.elencoRisultati[0].idtrx).toBe("151085589");
+    });
+
+    it("sends GET with numeroProgressivo param", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: { totalCount: 1, elencoRisultati: [] } }),
+      );
+
+      await client.searchDocuments({
+        numeroProgressivo: "DCW2026/5111-2188",
+        tipoOperazione: "V",
+      });
+
+      // HAR fix (annullo.har [04]): ricerca per progressivo
+      const call = fetchMock.mock.calls[7];
+      expect(call[0]).toContain("numeroProgressivo=");
+      expect(call[0]).toContain("tipoOperazione=V");
+    });
+
+    it("throws AdePortalError on non-200", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 500 }));
+
+      await expect(client.searchDocuments({})).rejects.toThrow(AdePortalError);
+    });
+
+    it("throws if not logged in", async () => {
+      await expect(client.searchDocuments({})).rejects.toThrow("Not logged in");
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // logout
   // -----------------------------------------------------------------------
 
@@ -503,8 +710,8 @@ describe("RealAdeClient", () => {
 
       await client.logout();
 
-      // 6 login calls + 5 logout calls = 11 total
-      expect(fetchMock).toHaveBeenCalledTimes(11);
+      // 7 login calls (Phases 1-6) + 5 logout calls = 12 total
+      expect(fetchMock).toHaveBeenCalledTimes(12);
     });
 
     it("does not throw if logout URLs fail", async () => {

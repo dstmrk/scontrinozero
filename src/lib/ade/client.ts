@@ -10,9 +10,12 @@
 
 import type {
   AdeCedentePrestatore,
+  AdeDocumentDetail,
+  AdeDocumentList,
   AdePayload,
   AdeProduct,
   AdeResponse,
+  AdeSearchParams,
   FisconlineCredentials,
 } from "./types";
 
@@ -54,6 +57,24 @@ export interface AdeClient {
    * Chiamato dal portale subito dopo l'emissione (request [11]).
    */
   getStampa(idtrx: string, isGift?: boolean): Promise<string>;
+
+  /**
+   * Recupera il dettaglio di un documento tramite id transazione.
+   *
+   * HAR finding (annullo.har [05]): GET /ser/api/documenti/v1/doc/documenti/{idtrx}/
+   * Necessario prima dell'annullo per ottenere elementiContabili (con
+   * idElementoContabile reali) e i totali da includere nel payload di annullo.
+   */
+  getDocument(idtrx: string): Promise<AdeDocumentDetail>;
+
+  /**
+   * Ricerca documenti commerciali con filtri opzionali.
+   *
+   * HAR finding (annullo.har [03], [04]):
+   *   GET /ser/api/documenti/v1/doc/documenti/?dataDal=...&dataInvioAl=...&page=1&perPage=10
+   *   GET /ser/api/documenti/v1/doc/documenti/?numeroProgressivo=...&tipoOperazione=V
+   */
+  searchDocuments(params: AdeSearchParams): Promise<AdeDocumentList>;
 
   /** Logout dalla sessione AdE */
   logout(): Promise<void>;

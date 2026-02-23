@@ -197,3 +197,86 @@ export interface AdeProduct {
   /** Codice aliquota/natura, es. "N2", "22" */
   aliquotaIVA: string;
 }
+
+// ---------------------------------------------------------------------------
+// Documenti — response GET /documenti/ e GET /documenti/{idtrx}/
+// HAR finding (annullo.har): endpoints usati per ricercare il doc originale
+// prima di emettere un annullo, per prelevare idElementoContabile e totali.
+// ---------------------------------------------------------------------------
+
+/**
+ * Riepilogo documento nell'elenco risultati (GET /documenti/).
+ *
+ * HAR finding (annullo.har [03], [04]): campo "cfCliente" (non
+ * "cfCessionarioCommittente" come nel dettaglio).
+ * Date format: MM/DD/YYYY (es. "02/23/2026").
+ */
+export interface AdeDocumentSummary {
+  idtrx: string;
+  numeroProgressivo: string;
+  /** Codice fiscale cliente (stringa vuota se assente) */
+  cfCliente: string;
+  /** Data documento in formato MM/DD/YYYY */
+  data: string;
+  tipoOperazione: AdeOperationType;
+  ammontareComplessivo: string;
+  annulli?: unknown[] | null;
+}
+
+/** Risposta lista documenti (GET /documenti/) */
+export interface AdeDocumentList {
+  totalCount: number;
+  elencoRisultati: AdeDocumentSummary[];
+}
+
+/**
+ * Dettaglio completo di un documento (GET /documenti/{idtrx}/).
+ *
+ * HAR finding (annullo.har [05]): questa risposta è usata per popolare il
+ * payload di annullo — in particolare "elementiContabili" (con i reali
+ * idElementoContabile) e tutti i totali monetari.
+ */
+export interface AdeDocumentDetail {
+  idtrx: string;
+  numeroProgressivo: string;
+  /** Codice fiscale cessionario/committente */
+  cfCessionarioCommittente: string;
+  /** Data documento in formato MM/DD/YYYY */
+  data: string;
+  tipoOperazione: AdeOperationType;
+  flagDocCommPerRegalo: boolean;
+  progressivoCollegato: string;
+  /** Data/ora documento in formato DD/MM/YYYY (già pronta per payload AdE) */
+  dataOra: string;
+  multiAttivita: AdeMultiAttivita;
+  importoTotaleIva: string;
+  scontoTotale: string;
+  scontoTotaleLordo: string;
+  totaleImponibile: string;
+  ammontareComplessivo: string;
+  totaleNonRiscosso: string;
+  scontoAbbuono: string;
+  importoDetraibileDeducibile: string;
+  /** Righe contabili con i reali idElementoContabile (necessari per annullo) */
+  elementiContabili: AdeElementoContabile[];
+  vendita?: AdePaymentEntry[];
+  annulli?: unknown[] | null;
+}
+
+/**
+ * Parametri di ricerca documenti (GET /documenti/).
+ *
+ * HAR finding (annullo.har [03], [04]):
+ * - date in formato MM/DD/YYYY (es. "02/23/2026")
+ * - tipoOperazione: "V" per vendite, "A" per annulli
+ */
+export interface AdeSearchParams {
+  /** Data dal formato MM/DD/YYYY */
+  dataDal?: string;
+  /** Data al formato MM/DD/YYYY */
+  dataInvioAl?: string;
+  numeroProgressivo?: string;
+  tipoOperazione?: AdeOperationType;
+  page?: number;
+  perPage?: number;
+}

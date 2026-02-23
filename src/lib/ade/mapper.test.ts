@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { AdeCedentePrestatore } from "./types";
+import type { AdeCedentePrestatore, AdeDocumentDetail } from "./types";
 import type {
   PaymentRequest,
   SaleDocumentRequest,
@@ -436,8 +436,56 @@ describe("mapSaleToAdePayload", () => {
 // mapVoidToAdePayload
 // ---------------------------------------------------------------------------
 
+/**
+ * Documento originale di esempio (GET /documenti/{idtrx}/).
+ *
+ * Riproduce la struttura reale dal HAR (annullo.har [05]):
+ * - idElementoContabile reali (non vuoti)
+ * - totali monetari in formato 8d
+ * - cfCessionarioCommittente del cliente originale
+ * - dataOra già in formato DD/MM/YYYY
+ */
+const mockOriginalDoc: AdeDocumentDetail = {
+  idtrx: "151085589",
+  numeroProgressivo: "DCW2026/5111-2188",
+  cfCessionarioCommittente: "RSSMRA80A01H501A",
+  data: "02/15/2026",
+  tipoOperazione: "V",
+  flagDocCommPerRegalo: false,
+  progressivoCollegato: "",
+  dataOra: "15/02/2026",
+  multiAttivita: { codiceAttivita: "", descAttivita: "" },
+  importoTotaleIva: "2.20000000",
+  scontoTotale: "0.00000000",
+  scontoTotaleLordo: "0.00000000",
+  totaleImponibile: "10.00000000",
+  ammontareComplessivo: "12.20000000",
+  totaleNonRiscosso: "0.00000000",
+  scontoAbbuono: "0.00",
+  importoDetraibileDeducibile: "0.00000000",
+  elementiContabili: [
+    {
+      idElementoContabile: "270270040",
+      resiPregressi: "0.00",
+      reso: "0.00",
+      quantita: "1.00",
+      descrizioneProdotto: "Prodotto",
+      prezzoLordo: "12.20000000",
+      prezzoUnitario: "10.00000000",
+      scontoUnitario: "0.00000000",
+      scontoLordo: "0.00000000",
+      aliquotaIVA: "22",
+      importoIVA: "2.20000000",
+      imponibile: "10.00000000",
+      imponibileNetto: "10.00000000",
+      totale: "12.20000000",
+      omaggio: "N",
+    },
+  ],
+};
+
 describe("mapVoidToAdePayload", () => {
-  it("maps a void request to AdE annullo payload", () => {
+  it("maps a void request to AdE annullo payload using original document data", () => {
     const voidReq: VoidRequest = {
       idempotencyKey: "550e8400-e29b-41d4-a716-446655440000",
       originalDocument: {
@@ -447,21 +495,55 @@ describe("mapVoidToAdePayload", () => {
       },
     };
 
-    const result = mapVoidToAdePayload(voidReq, mockCedentePrestatore);
+    const result = mapVoidToAdePayload(
+      voidReq,
+      mockCedentePrestatore,
+      mockOriginalDoc,
+    );
 
     expect(result.idtrx).toBe("151085589");
     expect(result.datiTrasmissione.formato).toBe("DCW10");
     expect(result.flagIdentificativiModificati).toBe(false);
-    expect(result.cedentePrestatore).toBe(mockCedentePrestatore);
+
+    // HAR fix (annullo.har [06]): cedentePrestatore modificato con
+    // nuovoUtente=true e defAliquotaIVA="" per gli annulli
+    expect(result.cedentePrestatore.altriDatiIdentificativi.nuovoUtente).toBe(
+      true,
+    );
+    expect(
+      result.cedentePrestatore.altriDatiIdentificativi.defAliquotaIVA,
+    ).toBe("");
+    // Gli altri campi del cedente sono preservati
+    expect(result.cedentePrestatore.identificativiFiscali).toBe(
+      mockCedentePrestatore.identificativiFiscali,
+    );
 
     const dc = result.documentoCommerciale;
+
+    // Dati identificativi dal documento originale
+    expect(dc.cfCessionarioCommittente).toBe("RSSMRA80A01H501A");
+    expect(dc.flagDocCommPerRegalo).toBe(false);
+    expect(dc.dataOra).toBe("15/02/2026");
+
+    // Totali monetari dal documento originale (8d)
+    expect(dc.totaleImponibile).toBe("10.00000000");
+    expect(dc.importoTotaleIva).toBe("2.20000000");
+    expect(dc.ammontareComplessivo).toBe("12.20000000");
+    expect(dc.scontoTotale).toBe("0.00000000");
+
+    // elementiContabili completi con idElementoContabile reali
+    expect(dc.elementiContabili).toHaveLength(1);
+    expect(dc.elementiContabili[0].idElementoContabile).toBe("270270040");
+    expect(dc.elementiContabili[0].descrizioneProdotto).toBe("Prodotto");
+
+    // Dati annullo
     expect(dc.resoAnnullo).toBeDefined();
     expect(dc.resoAnnullo!.tipologia).toBe("A");
     expect(dc.resoAnnullo!.dataOra).toBe("15/02/2026");
     expect(dc.resoAnnullo!.progressivo).toBe("DCW2026/5111-2188");
     expect(dc.numeroProgressivo).toBe("DCW2026/5111-2188");
 
-    // Annullo has no vendita
+    // Annullo non ha vendita (pagamenti)
     expect(dc.vendita).toBeUndefined();
   });
 });

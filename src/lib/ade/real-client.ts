@@ -11,9 +11,12 @@
 import type { AdeClient, AdeSession } from "./client";
 import type {
   AdeCedentePrestatore,
+  AdeDocumentDetail,
+  AdeDocumentList,
   AdePayload,
   AdeProduct,
   AdeResponse,
+  AdeSearchParams,
   FisconlineCredentials,
 } from "./types";
 import { CookieJar } from "./cookie-jar";
@@ -349,6 +352,60 @@ export class RealAdeClient implements AdeClient {
     }
 
     return response.text();
+  }
+
+  /**
+   * Recupera il dettaglio di un documento tramite id transazione.
+   *
+   * HAR finding (annullo.har [05]): chiamato prima dell'annullo per ottenere
+   * elementiContabili (con idElementoContabile reali) e totali monetari.
+   */
+  async getDocument(idtrx: string): Promise<AdeDocumentDetail> {
+    this.assertLoggedIn();
+
+    const url = `${ADE_BASE_URL}/ser/api/documenti/v1/doc/documenti/${idtrx}/`;
+    const response = await this.request(url);
+
+    if (!response.ok) {
+      throw new AdePortalError(
+        response.status,
+        `Failed to fetch document ${idtrx}: status ${response.status}`,
+      );
+    }
+
+    return response.json() as Promise<AdeDocumentDetail>;
+  }
+
+  /**
+   * Ricerca documenti commerciali con filtri opzionali.
+   *
+   * HAR finding (annullo.har [03], [04]):
+   *   GET /ser/api/documenti/v1/doc/documenti/?dataDal=MM%2FDD%2FYYYY&dataInvioAl=...
+   *   GET /ser/api/documenti/v1/doc/documenti/?numeroProgressivo=...&tipoOperazione=V
+   */
+  async searchDocuments(params: AdeSearchParams): Promise<AdeDocumentList> {
+    this.assertLoggedIn();
+
+    const qs = new URLSearchParams();
+    if (params.dataDal) qs.set("dataDal", params.dataDal);
+    if (params.dataInvioAl) qs.set("dataInvioAl", params.dataInvioAl);
+    if (params.numeroProgressivo)
+      qs.set("numeroProgressivo", params.numeroProgressivo);
+    if (params.tipoOperazione) qs.set("tipoOperazione", params.tipoOperazione);
+    if (params.page !== undefined) qs.set("page", String(params.page));
+    if (params.perPage !== undefined) qs.set("perPage", String(params.perPage));
+
+    const url = `${ADE_BASE_URL}/ser/api/documenti/v1/doc/documenti/?${qs.toString()}`;
+    const response = await this.request(url);
+
+    if (!response.ok) {
+      throw new AdePortalError(
+        response.status,
+        `Failed to search documents: status ${response.status}`,
+      );
+    }
+
+    return response.json() as Promise<AdeDocumentList>;
   }
 
   async logout(): Promise<void> {

@@ -6,6 +6,7 @@
 
 import type {
   AdeCedentePrestatore,
+  AdeDocumentDetail,
   AdeDocumentoCommerciale,
   AdeElementoContabile,
   AdePayload,
@@ -250,39 +251,69 @@ export function mapSaleToAdePayload(
 // mapVoidToAdePayload (sez. 9.6)
 // ---------------------------------------------------------------------------
 
+/**
+ * Costruisce il payload AdE per un annullo, usando i dati del documento
+ * originale già fetchato via getDocument(idtrx).
+ *
+ * HAR finding (annullo.har [06]): il portale invia il documento originale
+ * completo (elementiContabili con idElementoContabile reali, tutti i totali,
+ * cfCessionarioCommittente) e imposta nuovoUtente=true, defAliquotaIVA=""
+ * nel cedentePrestatore.
+ *
+ * Il vecchio approccio (array vuoto + zeri) era completamente sbagliato.
+ */
 export function mapVoidToAdePayload(
   voidReq: VoidRequest,
   cedentePrestatore: AdeCedentePrestatore,
+  originalDoc: AdeDocumentDetail,
 ): AdePayload {
   const orig = voidReq.originalDocument;
 
+  // HAR fix (annullo.har [06]): per gli annulli il portale invia
+  // nuovoUtente=true e defAliquotaIVA="" nel cedentePrestatore.
+  const cedente: AdeCedentePrestatore = {
+    ...cedentePrestatore,
+    altriDatiIdentificativi: {
+      ...cedentePrestatore.altriDatiIdentificativi,
+      nuovoUtente: true,
+      defAliquotaIVA: "",
+    },
+  };
+
   const documentoCommerciale: AdeDocumentoCommerciale = {
-    cfCessionarioCommittente: "",
-    flagDocCommPerRegalo: false,
-    progressivoCollegato: "",
-    dataOra: toAdeDate(orig.date),
-    multiAttivita: { codiceAttivita: "", descAttivita: "" },
-    importoTotaleIva: toAdeAmount(0),
-    scontoTotale: toAdeAmount(0),
-    scontoTotaleLordo: toAdeAmount(0),
-    totaleImponibile: toAdeAmount(0),
-    ammontareComplessivo: toAdeAmount(0),
-    totaleNonRiscosso: toAdeAmount(0),
-    elementiContabili: [],
+    // Dati identificativi e flag dal documento originale
+    cfCessionarioCommittente: originalDoc.cfCessionarioCommittente,
+    flagDocCommPerRegalo: originalDoc.flagDocCommPerRegalo,
+    progressivoCollegato: originalDoc.progressivoCollegato,
+    dataOra: originalDoc.dataOra, // già in DD/MM/YYYY
+    multiAttivita: originalDoc.multiAttivita,
+
+    // Totali monetari dal documento originale (già in formato 8d)
+    importoTotaleIva: originalDoc.importoTotaleIva,
+    scontoTotale: originalDoc.scontoTotale,
+    scontoTotaleLordo: originalDoc.scontoTotaleLordo,
+    totaleImponibile: originalDoc.totaleImponibile,
+    ammontareComplessivo: originalDoc.ammontareComplessivo,
+    totaleNonRiscosso: originalDoc.totaleNonRiscosso,
+    scontoAbbuono: originalDoc.scontoAbbuono,
+    importoDetraibileDeducibile: originalDoc.importoDetraibileDeducibile,
+
+    // Righe contabili complete (con idElementoContabile reali)
+    elementiContabili: originalDoc.elementiContabili,
+
+    // Dati annullo
     resoAnnullo: {
       tipologia: "A",
       dataOra: toAdeDate(orig.date),
       progressivo: orig.documentProgressive,
     },
     numeroProgressivo: orig.documentProgressive,
-    scontoAbbuono: toAdeAmount(0),
-    importoDetraibileDeducibile: toAdeAmount(0),
   };
 
   return {
     idtrx: orig.transactionId,
     datiTrasmissione: { formato: "DCW10" },
-    cedentePrestatore,
+    cedentePrestatore: cedente,
     documentoCommerciale,
     flagIdentificativiModificati: false,
   };

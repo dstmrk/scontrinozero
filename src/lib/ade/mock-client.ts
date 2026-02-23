@@ -10,9 +10,12 @@
 import type { AdeClient, AdeSession } from "./client";
 import type {
   AdeCedentePrestatore,
+  AdeDocumentDetail,
+  AdeDocumentList,
   AdePayload,
   AdeProduct,
   AdeResponse,
+  AdeSearchParams,
 } from "./types";
 
 export class MockAdeClient implements AdeClient {
@@ -91,6 +94,37 @@ export class MockAdeClient implements AdeClient {
   async getStampa(_idtrx: string, _isGift = false): Promise<string> {
     this.assertLoggedIn();
     return "";
+  }
+
+  async getDocument(_idtrx: string): Promise<AdeDocumentDetail> {
+    this.assertLoggedIn();
+
+    // Return a minimal valid document for testing purposes
+    return {
+      idtrx: _idtrx,
+      numeroProgressivo: "",
+      cfCessionarioCommittente: "",
+      data: "",
+      tipoOperazione: "V",
+      flagDocCommPerRegalo: false,
+      progressivoCollegato: "",
+      dataOra: "",
+      multiAttivita: { codiceAttivita: "", descAttivita: "" },
+      importoTotaleIva: "0.00000000",
+      scontoTotale: "0.00000000",
+      scontoTotaleLordo: "0.00000000",
+      totaleImponibile: "0.00000000",
+      ammontareComplessivo: "0.00000000",
+      totaleNonRiscosso: "0.00000000",
+      scontoAbbuono: "0.00",
+      importoDetraibileDeducibile: "0.00000000",
+      elementiContabili: [],
+    };
+  }
+
+  async searchDocuments(_params: AdeSearchParams): Promise<AdeDocumentList> {
+    this.assertLoggedIn();
+    return { totalCount: 0, elencoRisultati: [] };
   }
 
   async logout(): Promise<void> {
