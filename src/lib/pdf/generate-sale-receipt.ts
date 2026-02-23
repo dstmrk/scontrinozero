@@ -71,10 +71,15 @@ function computeVatAmount(lineTotalGross: number, vatCode: string): number {
   return lineTotalGross - lineTotalGross / (1 + rate / 100);
 }
 
-/** Estimates the page height based on number of lines and VAT rates. */
+/** Estimates the page height based on number of lines and VAT rates.
+ *
+ * Calibrated empirically: fixed overhead ≈ 155pt (header + title + separators +
+ * totals section + payment + footer), 18pt per line item (covers multi-qty wrap),
+ * 12pt per unique VAT rate row, 10pt bottom padding.
+ */
 function estimateHeight(lines: SaleReceiptLine[]): number {
   const uniqueVatRates = new Set(lines.map((l) => l.vatCode)).size;
-  return 230 + lines.length * 18 + uniqueVatRates * 14 + 20;
+  return 140 + lines.length * 18 + uniqueVatRates * 12 + 10;
 }
 
 // ─── Generator ──────────────────────────────────────────────────────────────
