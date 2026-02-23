@@ -73,13 +73,13 @@ function computeVatAmount(lineTotalGross: number, vatCode: string): number {
 
 /** Estimates the page height based on number of lines and VAT rates.
  *
- * Calibrated empirically: fixed overhead ≈ 155pt (header + title + separators +
- * totals section + payment + footer), 18pt per line item (covers multi-qty wrap),
- * 12pt per unique VAT rate row, 10pt bottom padding.
+ * Calibrated empirically: fixed overhead ≈ 140pt (header + title + separators +
+ * totals section + payment + footer with date+progressive only), 18pt per line
+ * item (covers multi-qty wrap), 12pt per unique VAT rate row, 10pt bottom padding.
  */
 function estimateHeight(lines: SaleReceiptLine[]): number {
   const uniqueVatRates = new Set(lines.map((l) => l.vatCode)).size;
-  return 140 + lines.length * 18 + uniqueVatRates * 12 + 10;
+  return 110 + lines.length * 18 + uniqueVatRates * 12 + 8;
 }
 
 // ─── Generator ──────────────────────────────────────────────────────────────
@@ -292,13 +292,6 @@ export function generateSaleReceiptPdf(
     // ─── FOOTER ────────────────────────────────────────────────────────────
     drawLine(formatDate(data.createdAt), { size: 7 });
     drawLine(`DOCUMENTO N. ${data.adeProgressive}`, { size: 7 });
-    drawLine(`RT: ${data.adeTransactionId}`, { size: 6 });
-    y += 3;
-    drawLine("Arrivederci e Grazie!", {
-      align: "center",
-      italic: true,
-      size: 7,
-    });
 
     doc.end();
   });

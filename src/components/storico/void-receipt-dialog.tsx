@@ -39,13 +39,20 @@ function formatVat(vatCode: string): string {
   return `${vatCode}% IVA`;
 }
 
+/** Tre stati del dialog:
+ *  detail        — mostra le righe e i bottoni principali
+ *  confirmingVoid — chiede conferma dell'annullo con il warning
+ *  voidSuccess   — annullo completato con successo
+ */
+type DialogView = "detail" | "confirmingVoid" | "voidSuccess";
+
 export function VoidReceiptDialog({
   receipt,
   businessId,
   onClose,
   onSuccess,
 }: VoidReceiptDialogProps) {
-  const [confirmed, setConfirmed] = useState(false);
+  const [view, setView] = useState<DialogView>("detail");
 
   /** Solo i SALE non ancora annullati possono essere annullati. */
   const canVoid = receipt.status === "ACCEPTED";
@@ -64,14 +71,10 @@ export function VoidReceiptDialog({
         // Error is shown inline — mutation still "succeeds" from React Query's POV
         return;
       }
-      setConfirmed(true);
+      setView("voidSuccess");
       onSuccess(result, receipt.id);
     },
   });
-
-  const handleVoid = () => {
-    mutation.mutate();
-  };
 
   const subtotal = receipt.lines.reduce(
     (sum, l) => sum + parseFloat(l.grossUnitPrice) * parseFloat(l.quantity),
@@ -81,8 +84,8 @@ export function VoidReceiptDialog({
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        {confirmed ? (
-          // Success state
+        {view === "voidSuccess" ? (
+          // ── Stato 3: annullo avvenuto ──────────────────────────────────────
           <>
             <DialogHeader>
               <DialogTitle className="text-green-600">
@@ -104,8 +107,49 @@ export function VoidReceiptDialog({
               <Button onClick={onClose}>Chiudi</Button>
             </DialogFooter>
           </>
+        ) : view === "confirmingVoid" ? (
+          // ── Stato 2: conferma annullo ──────────────────────────────────────
+          <>
+            <DialogHeader>
+              <DialogTitle>Conferma annullo</DialogTitle>
+              <DialogDescription>
+                Scontrino {receipt.adeProgressive ?? receipt.id.slice(0, 8)} —{" "}
+                {formatCurrency(receipt.total)}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+              <strong>⚠️ Attenzione:</strong> L&apos;annullo è irreversibile. Lo
+              scontrino verrà trasmesso all&apos;Agenzia delle Entrate come
+              documento di annullo.
+            </div>
+
+            {/* Error */}
+            {mutation.data?.error && (
+              <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+                {mutation.data.error}
+              </div>
+            )}
+
+            <DialogFooter className="gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setView("detail")}
+                disabled={mutation.isPending}
+              >
+                Chiudi senza annullare
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => mutation.mutate()}
+                disabled={mutation.isPending}
+              >
+                {mutation.isPending ? "Annullamento…" : "Annulla scontrino"}
+              </Button>
+            </DialogFooter>
+          </>
         ) : (
-          // Confirmation state
+          // ── Stato 1: dettaglio scontrino ───────────────────────────────────
           <>
             <DialogHeader>
               <DialogTitle>
@@ -148,49 +192,28 @@ export function VoidReceiptDialog({
               </div>
             </div>
 
-            {/* Error */}
-            {mutation.data?.error && (
-              <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
-                {mutation.data.error}
-              </div>
-            )}
-
-            {/* Warning — solo per scontrini annullabili */}
-            {canVoid && (
-              <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
-                <strong>⚠️ Attenzione:</strong> L&apos;annullo è irreversibile.
-                Lo scontrino verrà trasmesso all&apos;Agenzia delle Entrate come
-                documento di annullo.
-              </div>
-            )}
-
+            {/* Bottoni: Annulla scontrino | Invia ricevuta | Chiudi */}
             <DialogFooter className="gap-2">
-              <Button
-                variant="outline"
-                onClick={onClose}
-                disabled={mutation.isPending}
-              >
-                Chiudi
-              </Button>
+              {canVoid && (
+                <Button
+                  variant="destructive"
+                  onClick={() => setView("confirmingVoid")}
+                >
+                  Annulla scontrino
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={() =>
                   window.open(`/api/documents/${receipt.id}/pdf`, "_blank")
                 }
-                disabled={mutation.isPending}
               >
                 <Send className="mr-2 h-4 w-4" />
                 Invia ricevuta
               </Button>
-              {canVoid && (
-                <Button
-                  variant="destructive"
-                  onClick={handleVoid}
-                  disabled={mutation.isPending}
-                >
-                  {mutation.isPending ? "Annullamento…" : "Annulla scontrino"}
-                </Button>
-              )}
+              <Button variant="outline" onClick={onClose}>
+                Chiudi
+              </Button>
             </DialogFooter>
           </>
         )}
