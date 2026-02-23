@@ -74,10 +74,14 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
   const [selected, setSelected] = useState<ReceiptListItem | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // Search form state
+  // Search form state — defaults aligned with page.tsx server-side prefetch
+  const todayStr = new Date().toISOString().split("T")[0];
   const [progressivo, setProgressivo] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(todayStr);
+  const [dateTo, setDateTo] = useState(todayStr);
+  const [statusFilter, setStatusFilter] = useState<
+    "" | "ACCEPTED" | "VOID_ACCEPTED"
+  >("ACCEPTED");
 
   // Handle search
   function handleSearch(e: React.FormEvent) {
@@ -87,6 +91,7 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
     if (progressivo.trim()) params.progressivo = progressivo.trim();
     if (dateFrom) params.dateFrom = dateFrom;
     if (dateTo) params.dateTo = dateTo;
+    if (statusFilter) params.status = statusFilter;
 
     startTransition(async () => {
       const results = await searchReceipts(businessId, params);
@@ -159,6 +164,28 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
           />
+        </div>
+        <div className="min-w-[140px]">
+          <label
+            htmlFor="statusFilter"
+            className="mb-1 block text-xs font-medium"
+          >
+            Stato
+          </label>
+          <select
+            id="statusFilter"
+            value={statusFilter}
+            onChange={(e) =>
+              setStatusFilter(
+                e.target.value as "" | "ACCEPTED" | "VOID_ACCEPTED",
+              )
+            }
+            className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+          >
+            <option value="ACCEPTED">Emesso</option>
+            <option value="VOID_ACCEPTED">Annullato</option>
+            <option value="">Tutti</option>
+          </select>
         </div>
         <Button type="submit" disabled={isPending}>
           {isPending ? "Ricerca…" : "Cerca"}

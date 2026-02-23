@@ -244,6 +244,30 @@ describe("void-actions", () => {
       const { searchReceipts } = await import("./void-actions");
       await expect(searchReceipts("biz-789")).rejects.toThrow("autorizzato");
     });
+
+    it("filters by status when provided", async () => {
+      mockSelect
+        .mockReturnValueOnce(makeSelectBuilder([FAKE_SALE_DOC]))
+        .mockReturnValueOnce(makeSelectBuilder(FAKE_DOC_LINES));
+
+      const { searchReceipts } = await import("./void-actions");
+      const result = await searchReceipts("biz-789", { status: "ACCEPTED" });
+
+      // Query executes without error and returns mapped results
+      expect(result).toHaveLength(1);
+      expect(result[0].status).toBe("ACCEPTED");
+    });
+
+    it("returns all statuses when status param is omitted", async () => {
+      mockSelect
+        .mockReturnValueOnce(makeSelectBuilder([FAKE_SALE_DOC]))
+        .mockReturnValueOnce(makeSelectBuilder(FAKE_DOC_LINES));
+
+      const { searchReceipts } = await import("./void-actions");
+      const result = await searchReceipts("biz-789", {});
+
+      expect(result).toHaveLength(1);
+    });
   });
 
   // -----------------------------------------------------------------------

@@ -80,6 +80,9 @@ export async function searchReceipts(
       ilike(commercialDocuments.adeProgressive, `%${params.progressivo}%`),
     );
   }
+  if (params.status) {
+    conditions.push(eq(commercialDocuments.status, params.status));
+  }
 
   const docs = await db
     .select()

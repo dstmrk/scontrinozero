@@ -14,13 +14,12 @@ export default async function StoricoPage() {
     redirect("/onboarding");
   }
 
-  const today = new Date();
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(today.getDate() - 30);
+  const todayStr = new Date().toISOString().split("T")[0];
 
   const initialData = await searchReceipts(status.businessId, {
-    dateFrom: thirtyDaysAgo.toISOString().split("T")[0],
-    dateTo: today.toISOString().split("T")[0],
+    dateFrom: todayStr,
+    dateTo: todayStr,
+    status: "ACCEPTED",
   });
 
   return (

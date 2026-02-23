@@ -34,6 +34,11 @@ export interface SearchReceiptsParams {
   dateTo?: string;
   /** Filtro su adeProgressive (ricerca parziale). */
   progressivo?: string;
+  /**
+   * Filtro sullo stato del documento.
+   * Se omesso restituisce tutti gli stati (ACCEPTED + VOID_ACCEPTED + ERROR).
+   */
+  status?: "ACCEPTED" | "VOID_ACCEPTED";
 }
 
 // ---------------------------------------------------------------------------
