@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Receipt } from "lucide-react";
+import { ArrowLeft, ReceiptEuro } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { CartLine, PaymentMethod } from "@/types/cassa";
 import { CartLineItem } from "./cart-line-item";
@@ -82,7 +82,7 @@ export function ReceiptSummary({
         onClick={onSubmit}
         disabled={isSubmitting}
       >
-        <Receipt className="mr-2 h-5 w-5" />
+        <ReceiptEuro className="mr-2 h-5 w-5" />
         {isSubmitting ? "Invio in corso…" : "Emetti scontrino"}
       </Button>
     </div>

@@ -144,8 +144,10 @@ export function CassaClient({ businessId }: CassaClientProps) {
 
         {/* Display importo */}
         <div className="bg-muted rounded-xl px-4 py-5 text-center">
-          <span className="text-4xl font-bold tracking-tight">
-            {parsedAmount > 0 ? formatCurrency(parsedAmount) : "€ 0,00"}
+          <span
+            className={`text-4xl font-bold tracking-tight transition-opacity ${amount ? "opacity-100" : "text-muted-foreground opacity-30"}`}
+          >
+            {amount ? formatCurrency(parsedAmount) : "€ 0,00"}
           </span>
         </div>
 
@@ -288,7 +290,7 @@ export function CassaClient({ businessId }: CassaClientProps) {
             className="flex-1"
             onClick={() => setStep("summary")}
           >
-            Emetti
+            Continua
           </Button>
         )}
       </div>

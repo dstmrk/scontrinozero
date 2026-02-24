@@ -133,18 +133,18 @@ export function VoidReceiptDialog({
 
             <DialogFooter className="gap-2">
               <Button
-                variant="outline"
-                onClick={() => setView("detail")}
-                disabled={mutation.isPending}
-              >
-                Chiudi senza annullare
-              </Button>
-              <Button
                 variant="destructive"
                 onClick={() => mutation.mutate()}
                 disabled={mutation.isPending}
               >
                 {mutation.isPending ? "Annullamento…" : "Annulla scontrino"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setView("detail")}
+                disabled={mutation.isPending}
+              >
+                Chiudi senza annullare
               </Button>
             </DialogFooter>
           </>
