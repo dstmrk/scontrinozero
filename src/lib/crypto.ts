@@ -94,3 +94,23 @@ export function decrypt(encrypted: string, keys: Map<number, Buffer>): string {
 export function generateKey(): string {
   return randomBytes(KEY_LENGTH).toString("hex");
 }
+
+/**
+ * Load the active encryption key from the ENCRYPTION_KEY environment variable.
+ *
+ * @throws If the variable is missing or not a 64-character hex string.
+ */
+export function getEncryptionKey(): Buffer {
+  const hex = process.env.ENCRYPTION_KEY;
+  if (hex?.length !== 64) {
+    throw new Error("ENCRYPTION_KEY must be a 64-character hex string");
+  }
+  return Buffer.from(hex, "hex");
+}
+
+/**
+ * Return the current key version from ENCRYPTION_KEY_VERSION (default: 1).
+ */
+export function getKeyVersion(): number {
+  return Number.parseInt(process.env.ENCRYPTION_KEY_VERSION || "1", 10);
+}

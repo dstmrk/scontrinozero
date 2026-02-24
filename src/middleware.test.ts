@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 const mockGetUser = vi.fn();
 let capturedResponse: NextResponse;
 vi.mock("@/lib/supabase/middleware", () => ({
-  createMiddlewareSupabaseClient: vi.fn().mockImplementation((request) => {
+  createMiddlewareSupabaseClient: vi.fn().mockImplementation((request: NextRequest) => {
     capturedResponse = NextResponse.next({ request });
     return {
       supabase: { auth: { getUser: mockGetUser } },

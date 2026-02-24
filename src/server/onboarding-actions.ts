@@ -3,7 +3,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { businesses, adeCredentials, profiles } from "@/db/schema";
-import { encrypt, decrypt } from "@/lib/crypto";
+import { encrypt, decrypt, getEncryptionKey, getKeyVersion } from "@/lib/crypto";
 import { createAdeClient } from "@/lib/ade";
 import { logger } from "@/lib/logger";
 import {
@@ -23,18 +23,6 @@ export type OnboardingStatus = {
   credentialsVerified: boolean;
   businessId?: string;
 };
-
-function getEncryptionKey(): Buffer {
-  const hex = process.env.ENCRYPTION_KEY;
-  if (hex?.length !== 64) {
-    throw new Error("ENCRYPTION_KEY must be a 64-character hex string");
-  }
-  return Buffer.from(hex, "hex");
-}
-
-function getKeyVersion(): number {
-  return Number.parseInt(process.env.ENCRYPTION_KEY_VERSION || "1", 10);
-}
 
 export async function saveBusiness(
   formData: FormData,

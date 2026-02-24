@@ -187,14 +187,8 @@ export function generateSaleReceiptPdf(
     const vatByCode: Map<string, number> = new Map();
 
     for (const line of data.lines) {
-      const qty =
-        typeof line.quantity === "string"
-          ? parseFloat(line.quantity as string)
-          : line.quantity;
-      const price =
-        typeof line.grossUnitPrice === "string"
-          ? parseFloat(line.grossUnitPrice as string)
-          : line.grossUnitPrice;
+      const qty = line.quantity;
+      const price = line.grossUnitPrice;
       const lineTotal = qty * price;
       grandTotal += lineTotal;
 

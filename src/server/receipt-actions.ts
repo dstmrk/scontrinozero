@@ -7,7 +7,7 @@ import {
   commercialDocuments,
   commercialDocumentLines,
 } from "@/db/schema";
-import { decrypt } from "@/lib/crypto";
+import { decrypt, getEncryptionKey } from "@/lib/crypto";
 import { createAdeClient } from "@/lib/ade";
 import { mapSaleToAdePayload } from "@/lib/ade/mapper";
 import { logger } from "@/lib/logger";
@@ -23,14 +23,6 @@ const PAYMENT_METHOD_TO_ADE: Record<PaymentMethod, PaymentType> = {
   PC: "CASH",
   PE: "ELECTRONIC",
 };
-
-function getEncryptionKey(): Buffer {
-  const hex = process.env.ENCRYPTION_KEY;
-  if (hex?.length !== 64) {
-    throw new Error("ENCRYPTION_KEY must be a 64-character hex string");
-  }
-  return Buffer.from(hex, "hex");
-}
 
 export async function emitReceipt(
   input: SubmitReceiptInput,

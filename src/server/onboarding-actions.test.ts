@@ -40,6 +40,8 @@ const mockDecrypt = vi.fn().mockReturnValue("decrypted-data");
 vi.mock("@/lib/crypto", () => ({
   encrypt: (...args: unknown[]) => mockEncrypt(...args),
   decrypt: (...args: unknown[]) => mockDecrypt(...args),
+  getEncryptionKey: () => Buffer.alloc(32),
+  getKeyVersion: () => 1,
 }));
 
 const mockLogin = vi.fn();
