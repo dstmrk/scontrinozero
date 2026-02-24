@@ -113,7 +113,10 @@ describe("generateSaleReceiptPdf", () => {
       grossUnitPrice: 5.0 + i,
       vatCode: "22" as const,
     }));
-    const buf = await generateSaleReceiptPdf({ ...BASE_DATA, lines: manyLines });
+    const buf = await generateSaleReceiptPdf({
+      ...BASE_DATA,
+      lines: manyLines,
+    });
     const bufSingle = await generateSaleReceiptPdf({
       ...BASE_DATA,
       lines: [manyLines[0]],
@@ -135,7 +138,12 @@ describe("VAT calculation correctness", () => {
     const buf = await generateSaleReceiptPdf({
       ...BASE_DATA,
       lines: [
-        { description: "Esente", quantity: 1, grossUnitPrice: 50, vatCode: "N4" },
+        {
+          description: "Esente",
+          quantity: 1,
+          grossUnitPrice: 50,
+          vatCode: "N4",
+        },
       ],
     });
     // The PDF should NOT contain "di cui IVA" because the VAT amount is 0
@@ -147,7 +155,12 @@ describe("VAT calculation correctness", () => {
     const buf = await generateSaleReceiptPdf({
       ...BASE_DATA,
       lines: [
-        { description: "Prodotto", quantity: 1, grossUnitPrice: 12.2, vatCode: "22" },
+        {
+          description: "Prodotto",
+          quantity: 1,
+          grossUnitPrice: 12.2,
+          vatCode: "22",
+        },
       ],
     });
     const text = buf.toString("latin1");

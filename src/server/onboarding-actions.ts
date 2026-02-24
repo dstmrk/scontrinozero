@@ -3,7 +3,12 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { businesses, adeCredentials, profiles } from "@/db/schema";
-import { encrypt, decrypt, getEncryptionKey, getKeyVersion } from "@/lib/crypto";
+import {
+  encrypt,
+  decrypt,
+  getEncryptionKey,
+  getKeyVersion,
+} from "@/lib/crypto";
 import { createAdeClient } from "@/lib/ade";
 import { logger } from "@/lib/logger";
 import {
