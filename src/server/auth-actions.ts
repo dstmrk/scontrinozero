@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getDb } from "@/db";
 import { profiles } from "@/db/schema";
-import { isValidEmail } from "@/lib/validation";
+import { isValidEmail, isStrongPassword } from "@/lib/validation";
 import { RateLimiter } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 
@@ -40,13 +40,19 @@ function checkRateLimit(ip: string, action: string): AuthActionResult | null {
 export async function signUp(formData: FormData): Promise<AuthActionResult> {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
-  const fullName = (formData.get("fullName") as string) || null;
+  const confirmPassword = formData.get("confirmPassword") as string;
 
   if (!email || !isValidEmail(email)) {
     return { error: "Email non valida." };
   }
-  if (!password || password.length < 8) {
-    return { error: "La password deve avere almeno 8 caratteri." };
+  if (!password || !isStrongPassword(password)) {
+    return {
+      error:
+        "Password non sicura. Usa almeno 8 caratteri con maiuscola, minuscola, numero e carattere speciale.",
+    };
+  }
+  if (password !== confirmPassword) {
+    return { error: "Le password non coincidono." };
   }
 
   const ip = await getClientIp();
@@ -68,7 +74,6 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
       await db.insert(profiles).values({
         authUserId: data.user.id,
         email,
-        fullName,
       });
     } catch (err) {
       logger.error({ err }, "Failed to create profile after signUp");

@@ -2,7 +2,7 @@
 
 ## Contesto
 
-Phase 0, 1A, 2A-2C, 1B (parziale), 3A, 3B, 4A, 4B, 4C, 4D completate. Il progetto ha 359 unit test + 8 E2E test.
+Phase 0, 1A, 2A-2C, 1B (parziale), 3A, 3B, 4A, 4B, 4C, 4D, 4F completate. Il progetto ha 370 unit test + 8 E2E test.
 Modulo AdE completo (MockAdeClient + RealAdeClient) con 92 test dedicati.
 Infrastruttura sicurezza: logger (pino), rate limiting, encryption (AES-256-GCM), Sentry.
 Auth: Supabase Auth con middleware, onboarding wizard 3-step, credenziali AdE cifrate.
@@ -11,7 +11,7 @@ UI cassa mobile-first: tastierino numerico, selezione IVA, riepilogo scontrino.
 Code review completata: security fixes (IDOR, open redirect, redaction), React best practices.
 Phase 4C completata: server action `emitReceipt` + `useMutation` TanStack Query + schermate success/error nella cassa.
 Phase 4D completata: storico scontrini + annullamento + PDF "Invia ricevuta".
-Prossimi step: Phase 4F (UI polish + registrazione), 4G (catalogo + navigazione mobile), 4H (onboarding refactor).
+Prossimi step: Phase 4G (catalogo + navigazione mobile), 4H (onboarding refactor).
 
 ---
 
@@ -185,26 +185,28 @@ Prossimi step: Phase 4F (UI polish + registrazione), 4G (catalogo + navigazione 
 - ✅ Bottone "Invia ricevuta" in `receipt-success.tsx` (dopo emissione) e nel dialog storico
 - **Risultato:** 359 unit + 8 E2E test
 
-**4F: UI polish + registrazione ⬜**
+**4F: UI polish + registrazione ✅**
 
 Cassa:
 
-- ⬜ Importo iniziale vuoto (non "00,00 €") — `src/components/cassa/` (hook useCassa o stato add-item)
-- ⬜ Default aliquota IVA = `business.preferredVatCode` → fallback `"22"` — `src/components/cassa/vat-selector.tsx` + pagina cassa
-- ⬜ Bottone "Emetti" → "Continua" nel carrello — `src/components/cassa/cassa-client.tsx` (step `cart`)
-- ⬜ Icona nella schermata riepilogo: sostituire `$` con `€` o scontrino stilizzato
+- ✅ Importo iniziale vuoto (opacity-30 placeholder "€ 0,00" finché non si digita) — `src/components/cassa/cassa-client.tsx`
+- ⬜ Default aliquota IVA = `business.preferredVatCode` → fallback `"22"` — rimandato a Phase 4H (colonna non ancora in schema)
+- ✅ Bottone "Emetti" → "Continua" nel carrello — `src/components/cassa/cassa-client.tsx`
+- ✅ Icona `Receipt` (aveva `$`) → `ReceiptEuro` (ha `€`) — `src/components/cassa/receipt-summary.tsx`
 
 Storico:
 
-- ⬜ Invertire ordine pulsanti nella conferma annullo: "Conferma annullamento" a sx, "Chiudi" a dx — `src/components/storico/void-receipt-dialog.tsx` (step `confirmingVoid`)
-- ⬜ Paginazione: 10 elementi per pagina, senza selezione dimensione — `src/components/storico/storico-client.tsx`
+- ✅ Invertire ordine pulsanti nella conferma annullo: "Annulla scontrino" a sx, "Chiudi" a dx — `src/components/storico/void-receipt-dialog.tsx`
+- ✅ Paginazione: 10 elementi per pagina, Precedente/Successiva, reset su nuova ricerca — `src/components/storico/storico-client.tsx`
 
 Registrazione:
 
-- ⬜ Rimuovere campo `fullName`, aggiungere `confirmPassword` — `src/app/(auth)/register/page.tsx`
-- ⬜ Validazione password: ≥8 caratteri, ≥1 maiuscola, ≥1 minuscola, ≥1 numero, ≥1 speciale — `src/server/auth-actions.ts` (signUp) + hint UI
-- ⬜ Email di benvenuto branded — Resend (da decidere: sostituire email Supabase auth o solo email business)
+- ✅ Rimosso campo `fullName`, aggiunto `confirmPassword` — `src/app/(auth)/register/page.tsx`
+- ✅ Validazione password forte (`isStrongPassword`): ≥8 char, maiusc, minusc, numero, speciale — `src/lib/validation.ts` + `auth-actions.ts` + hint UI
+- ⬜ Email di benvenuto branded — Resend (rimandato: da decidere se sostituire email Supabase auth o solo email business)
 - TODO futuro: Passkey support
+
+- **Risultato:** 370 unit + 8 E2E test (+11: 10 `isStrongPassword` validation, 1 `confirmPassword` signUp)
 
 **4G: Catalogo prodotti/servizi + navigazione mobile ⬜**
 
@@ -351,7 +353,7 @@ TODO futuro: SPID (`login_spid.har`), CIE (`login_cie.har`), pre-sessione AdE al
 | 4B (UI cassa) ✅            | 91 (reali)  | 305 unit + 8 E2E     |
 | 4C (server action) ✅       | 14 (reali)  | 319 unit + 8 E2E     |
 | 4D (storico+annullo+PDF) ✅ | 40 (reali)  | 359 unit + 8 E2E     |
-| 4F (UI polish+reg)          | ~15         | ~374                 |
+| 4F (UI polish+reg) ✅       | 11 (reali)  | 370 unit + 8 E2E     |
 | 4G (catalogo+nav)           | ~20         | ~394                 |
 | 4H (onboarding refactor)    | ~25         | ~419                 |
 | 5 (PWA)                     | ~13         | ~432                 |
@@ -374,4 +376,4 @@ Ad ogni checkpoint:
 
 ## Prossimo passo immediato
 
-Iniziare con **Phase 4F**: UI polish (cassa, storico, registrazione) — task piccoli e indipendenti, completabili in poche ore ciascuno.
+Iniziare con **Phase 4G**: catalogo prodotti + navigazione mobile (bottom nav bar).

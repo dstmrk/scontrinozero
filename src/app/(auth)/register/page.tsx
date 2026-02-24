@@ -25,16 +25,6 @@ export default function RegisterPage() {
       <CardContent>
         <form action={formAction} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="fullName">Nome completo</Label>
-            <Input
-              id="fullName"
-              name="fullName"
-              type="text"
-              placeholder="Mario Rossi"
-              autoComplete="name"
-            />
-          </div>
-          <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
@@ -50,11 +40,22 @@ export default function RegisterPage() {
             <PasswordInput
               id="password"
               name="password"
-              minLength={8}
               required
               autoComplete="new-password"
             />
-            <p className="text-muted-foreground text-xs">Minimo 8 caratteri</p>
+            <p className="text-muted-foreground text-xs">
+              Almeno 8 caratteri con maiuscola, minuscola, numero e carattere
+              speciale (es.&nbsp;!)
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Conferma password</Label>
+            <PasswordInput
+              id="confirmPassword"
+              name="confirmPassword"
+              required
+              autoComplete="new-password"
+            />
           </div>
 
           {state?.error && (
@@ -67,7 +68,7 @@ export default function RegisterPage() {
         </form>
 
         <p className="mt-4 text-center text-sm">
-          Hai gia un account?{" "}
+          Hai già un account?{" "}
           <Link href="/login" className="text-primary underline">
             Accedi
           </Link>

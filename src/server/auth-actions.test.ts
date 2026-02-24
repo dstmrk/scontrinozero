@@ -94,14 +94,28 @@ describe("auth-actions", () => {
       expect(result).toEqual({ error: "Email non valida." });
     });
 
-    it("returns error for short password", async () => {
+    it("returns error for weak password (no uppercase/special/digit)", async () => {
       const { signUp } = await import("./auth-actions");
       const result = await signUp(
-        formData({ email: "test@example.com", password: "short" }),
+        formData({
+          email: "test@example.com",
+          password: "weakpassword",
+          confirmPassword: "weakpassword",
+        }),
       );
-      expect(result).toEqual({
-        error: "La password deve avere almeno 8 caratteri.",
-      });
+      expect(result.error).toBeDefined();
+    });
+
+    it("returns error when passwords do not match", async () => {
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Different#1",
+        }),
+      );
+      expect(result).toEqual({ error: "Le password non coincidono." });
     });
 
     it("creates user and profile then redirects on success", async () => {
@@ -116,8 +130,8 @@ describe("auth-actions", () => {
         await signUp(
           formData({
             email: "test@example.com",
-            password: "securepass123",
-            fullName: "Mario Rossi",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
           }),
         );
         expect.fail("Expected redirect");
@@ -130,7 +144,7 @@ describe("auth-actions", () => {
 
       expect(mockSignUp).toHaveBeenCalledWith({
         email: "test@example.com",
-        password: "securepass123",
+        password: "Secure#99x",
       });
       expect(mockInsert).toHaveBeenCalled();
     });
@@ -143,7 +157,11 @@ describe("auth-actions", () => {
 
       const { signUp } = await import("./auth-actions");
       const result = await signUp(
-        formData({ email: "test@example.com", password: "securepass123" }),
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+        }),
       );
       expect(result).toEqual({ error: "Registrazione fallita. Riprova." });
     });

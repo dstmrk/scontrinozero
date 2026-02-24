@@ -1,5 +1,42 @@
 import { describe, it, expect } from "vitest";
-import { isValidEmail } from "./validation";
+import { isValidEmail, isStrongPassword } from "./validation";
+
+describe("isStrongPassword", () => {
+  describe("valid passwords", () => {
+    it.each(["Password1!", "Secure#99x", "MyP@ss1234", "Abc123!@#"])(
+      "accepts %s",
+      (pwd) => {
+        expect(isStrongPassword(pwd)).toBe(true);
+      },
+    );
+  });
+
+  describe("invalid passwords", () => {
+    it("rejects empty string", () => {
+      expect(isStrongPassword("")).toBe(false);
+    });
+
+    it("rejects password shorter than 8 chars", () => {
+      expect(isStrongPassword("Ab1!")).toBe(false);
+    });
+
+    it("rejects password without uppercase letter", () => {
+      expect(isStrongPassword("password1!")).toBe(false);
+    });
+
+    it("rejects password without lowercase letter", () => {
+      expect(isStrongPassword("PASSWORD1!")).toBe(false);
+    });
+
+    it("rejects password without digit", () => {
+      expect(isStrongPassword("Password!")).toBe(false);
+    });
+
+    it("rejects password without special character", () => {
+      expect(isStrongPassword("Password1")).toBe(false);
+    });
+  });
+});
 
 describe("isValidEmail", () => {
   describe("valid emails", () => {

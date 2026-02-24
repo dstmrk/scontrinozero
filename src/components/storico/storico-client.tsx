@@ -58,6 +58,12 @@ function StatusBadge({ status }: { status: ReceiptListItem["status"] }) {
 }
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const PAGE_SIZE = 10;
+
+// ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
@@ -74,6 +80,7 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
   const [receipts, setReceipts] = useState<ReceiptListItem[]>(initialData);
   const [selected, setSelected] = useState<ReceiptListItem | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [page, setPage] = useState(1);
 
   // Search form state — defaults aligned with page.tsx server-side prefetch
   const todayStr = new Date().toISOString().split("T")[0];
@@ -95,6 +102,7 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
     startTransition(async () => {
       const results = await searchReceipts(businessId, params);
       setReceipts(results);
+      setPage(1);
     });
   }
 
@@ -110,6 +118,11 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
   }
 
   const voidableCount = receipts.filter((r) => r.status === "ACCEPTED").length;
+  const totalPages = Math.max(1, Math.ceil(receipts.length / PAGE_SIZE));
+  const pagedReceipts = receipts.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE,
+  );
 
   return (
     <div className="space-y-6">
@@ -198,7 +211,7 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {receipts.map((receipt) => {
+              {pagedReceipts.map((receipt) => {
                 // SALE receipts (both ACCEPTED and VOID_ACCEPTED) can open the
                 // detail dialog to view lines and re-send the PDF receipt.
                 const hasDetail =
@@ -239,6 +252,33 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Paginazione */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">
+            Pagina {page} di {totalPages}
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => p - 1)}
+              disabled={page === 1}
+            >
+              Precedente
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={page === totalPages}
+            >
+              Successiva
+            </Button>
+          </div>
         </div>
       )}
 
