@@ -30,14 +30,24 @@ export async function middleware(request: NextRequest) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(loginUrl);
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    // Propagate Supabase session cookies so token refresh survives the redirect
+    response()
+      .cookies.getAll()
+      .forEach((c) => redirectResponse.cookies.set(c));
+    return redirectResponse;
   }
 
   // Auth-only routes: redirect to /dashboard if already authenticated
   if (user && AUTH_ONLY_PATHS.some((path) => pathname.startsWith(path))) {
     const dashboardUrl = request.nextUrl.clone();
     dashboardUrl.pathname = "/dashboard";
-    return NextResponse.redirect(dashboardUrl);
+    const redirectResponse = NextResponse.redirect(dashboardUrl);
+    // Propagate Supabase session cookies so token refresh survives the redirect
+    response()
+      .cookies.getAll()
+      .forEach((c) => redirectResponse.cookies.set(c));
+    return redirectResponse;
   }
 
   return response();

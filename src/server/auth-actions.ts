@@ -20,7 +20,9 @@ export type AuthActionResult = {
 
 async function getClientIp(): Promise<string> {
   const hdrs = await headers();
+  // CF-Connecting-IP: trusted Cloudflare header (not forgeable via x-forwarded-for)
   return (
+    hdrs.get("cf-connecting-ip") ||
     hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     hdrs.get("x-real-ip") ||
     "unknown"

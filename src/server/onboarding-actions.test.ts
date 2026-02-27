@@ -40,6 +40,8 @@ const mockDecrypt = vi.fn().mockReturnValue("decrypted-data");
 vi.mock("@/lib/crypto", () => ({
   encrypt: (...args: unknown[]) => mockEncrypt(...args),
   decrypt: (...args: unknown[]) => mockDecrypt(...args),
+  getEncryptionKey: () => Buffer.alloc(32),
+  getKeyVersion: () => 1,
 }));
 
 const mockLogin = vi.fn();
@@ -165,6 +167,32 @@ describe("onboarding-actions", () => {
       expect(result.error).toBeUndefined();
       expect(mockEncrypt).toHaveBeenCalledTimes(3);
       expect(mockInsert).toHaveBeenCalled();
+    });
+
+    it("returns error for missing businessId", async () => {
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const result = await saveAdeCredentials(
+        formData({
+          businessId: "",
+          codiceFiscale: "RSSMRA80A01H501U",
+          password: "pass",
+          pin: "123456",
+        }),
+      );
+      expect(result.error).toContain("Business ID");
+    });
+
+    it("returns error for empty password", async () => {
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const result = await saveAdeCredentials(
+        formData({
+          businessId: "biz-789",
+          codiceFiscale: "RSSMRA80A01H501U",
+          password: "",
+          pin: "123456",
+        }),
+      );
+      expect(result.error).toContain("Password");
     });
 
     it("returns error for invalid codice fiscale length", async () => {

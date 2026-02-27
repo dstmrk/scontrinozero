@@ -7,7 +7,7 @@ import {
   commercialDocumentLines,
   commercialDocuments,
 } from "@/db/schema";
-import { decrypt } from "@/lib/crypto";
+import { decrypt, getEncryptionKey } from "@/lib/crypto";
 import { createAdeClient } from "@/lib/ade";
 import { mapVoidToAdePayload } from "@/lib/ade/mapper";
 import { logger } from "@/lib/logger";
@@ -22,18 +22,6 @@ import type {
   VoidReceiptResult,
 } from "@/types/storico";
 import type { VoidRequest } from "@/lib/ade/public-types";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function getEncryptionKey(): Buffer {
-  const hex = process.env.ENCRYPTION_KEY;
-  if (hex?.length !== 64) {
-    throw new Error("ENCRYPTION_KEY must be a 64-character hex string");
-  }
-  return Buffer.from(hex, "hex");
-}
 
 // ---------------------------------------------------------------------------
 // searchReceipts

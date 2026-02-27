@@ -48,6 +48,7 @@ vi.mock("@/db/schema", () => ({
 const mockDecrypt = vi.fn().mockReturnValue("decrypted-value");
 vi.mock("@/lib/crypto", () => ({
   decrypt: (...args: unknown[]) => mockDecrypt(...args),
+  getEncryptionKey: () => Buffer.alloc(32),
 }));
 
 const mockLogin = vi.fn();

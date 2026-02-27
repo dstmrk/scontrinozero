@@ -65,7 +65,10 @@ function formatDate(date: Date): string {
 }
 
 /** Returns the VAT amount for a gross line total given a vatCode. */
-function computeVatAmount(lineTotalGross: number, vatCode: string): number {
+export function computeVatAmount(
+  lineTotalGross: number,
+  vatCode: string,
+): number {
   const rate = parseFloat(vatCode);
   if (isNaN(rate) || rate === 0) return 0; // N1-N6 codes have no VAT
   return lineTotalGross - lineTotalGross / (1 + rate / 100);
@@ -187,14 +190,8 @@ export function generateSaleReceiptPdf(
     const vatByCode: Map<string, number> = new Map();
 
     for (const line of data.lines) {
-      const qty =
-        typeof line.quantity === "string"
-          ? parseFloat(line.quantity as string)
-          : line.quantity;
-      const price =
-        typeof line.grossUnitPrice === "string"
-          ? parseFloat(line.grossUnitPrice as string)
-          : line.grossUnitPrice;
+      const qty = line.quantity;
+      const price = line.grossUnitPrice;
       const lineTotal = qty * price;
       grandTotal += lineTotal;
 

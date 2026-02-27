@@ -53,13 +53,14 @@ export function VoidReceiptDialog({
   onSuccess,
 }: VoidReceiptDialogProps) {
   const [view, setView] = useState<DialogView>("detail");
+  // Stable idempotency key: generated once per dialog open, reused on retries
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   /** Solo i SALE non ancora annullati possono essere annullati. */
   const canVoid = receipt.status === "ACCEPTED";
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const idempotencyKey = crypto.randomUUID();
       return voidReceipt({
         documentId: receipt.id,
         idempotencyKey,
@@ -124,10 +125,10 @@ export function VoidReceiptDialog({
               documento di annullo.
             </div>
 
-            {/* Error */}
-            {mutation.data?.error && (
+            {/* Error: da server action (result.error) o eccezione imprevista */}
+            {(mutation.data?.error ?? mutation.isError) && (
               <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
-                {mutation.data.error}
+                {mutation.data?.error ?? "Errore imprevisto. Riprova."}
               </div>
             )}
 
