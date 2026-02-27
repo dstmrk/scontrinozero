@@ -1,4 +1,10 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+} from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CatalogoClient } from "./catalogo-client";
@@ -119,5 +125,71 @@ describe("CatalogoClient", () => {
     fireEvent.click(screen.getByRole("button", { name: /aggiungi/i }));
 
     expect(screen.getByText("Aggiungi prodotto")).toBeInTheDocument();
+  });
+
+  it("conferma eliminazione rimuove il prodotto dalla lista", async () => {
+    renderWithQuery(
+      <CatalogoClient businessId="biz-1" initialData={FAKE_ITEMS} />,
+    );
+
+    // Click trash icon → mostra conferma
+    fireEvent.click(
+      screen.getByRole("button", { name: /elimina caffè espresso/i }),
+    );
+
+    // Click Elimina → esegue la cancellazione
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Elimina" }));
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText("Caffè espresso")).not.toBeInTheDocument();
+    });
+    expect(mockDeleteCatalogItem).toHaveBeenCalledWith("item-1", "biz-1");
+  });
+
+  it("click Annulla nel dialog di conferma nasconde i bottoni di conferma", () => {
+    renderWithQuery(
+      <CatalogoClient businessId="biz-1" initialData={FAKE_ITEMS} />,
+    );
+
+    // Apre conferma
+    fireEvent.click(
+      screen.getByRole("button", { name: /elimina caffè espresso/i }),
+    );
+    expect(screen.getByRole("button", { name: "Elimina" })).toBeInTheDocument();
+
+    // Annulla la conferma
+    fireEvent.click(screen.getByRole("button", { name: "Annulla" }));
+
+    expect(
+      screen.queryByRole("button", { name: "Elimina" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("mostra errore se deleteCatalogItem ritorna un errore", async () => {
+    mockDeleteCatalogItem.mockResolvedValue({
+      error: "Errore durante l'eliminazione.",
+    });
+
+    renderWithQuery(
+      <CatalogoClient businessId="biz-1" initialData={FAKE_ITEMS} />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /elimina caffè espresso/i }),
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Elimina" }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Errore durante l'eliminazione.",
+      );
+    });
+    // Il prodotto rimane nella lista
+    expect(screen.getByText("Caffè espresso")).toBeInTheDocument();
   });
 });
