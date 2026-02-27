@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, ShoppingCart } from "lucide-react";
 import { useCassa } from "@/hooks/use-cassa";
-import { VatCode } from "@/types/cassa";
+import { VAT_CODES, VatCode } from "@/types/cassa";
 import { NumericKeypad } from "@/components/cassa/numeric-keypad";
 import { VatSelector } from "@/components/cassa/vat-selector";
 import { CartLineItem } from "@/components/cassa/cart-line-item";
@@ -23,6 +24,9 @@ interface CassaClientProps {
 }
 
 export function CassaClient({ businessId }: CassaClientProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const {
     lines,
     paymentMethod,
@@ -34,6 +38,33 @@ export function CassaClient({ businessId }: CassaClientProps) {
   } = useCassa();
 
   const [step, setStep] = useState<Step>("cart");
+
+  // Pre-popola il carrello se navigato dal catalogo (?description=...&price=...&vatCode=...)
+  useEffect(() => {
+    const description = searchParams.get("description");
+    const price = searchParams.get("price");
+    const vatCode = searchParams.get("vatCode");
+
+    if (
+      description &&
+      price &&
+      vatCode &&
+      VAT_CODES.includes(vatCode as VatCode)
+    ) {
+      const parsedPrice = parseFloat(price);
+      if (!isNaN(parsedPrice) && parsedPrice > 0) {
+        addLine({
+          description,
+          quantity: 1,
+          grossUnitPrice: parsedPrice,
+          vatCode: vatCode as VatCode,
+        });
+        // Pulisce i params dall'URL senza aggiungere entry alla cronologia
+        router.replace("/dashboard/cassa");
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [successData, setSuccessData] = useState<{
     documentId?: string;
     adeProgressive?: string;

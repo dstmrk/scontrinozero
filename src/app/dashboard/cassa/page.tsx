@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getOnboardingStatus } from "@/server/onboarding-actions";
 import { CassaClient } from "@/components/cassa/cassa-client";
@@ -9,5 +10,9 @@ export default async function CassaPage() {
     redirect("/onboarding");
   }
 
-  return <CassaClient businessId={status.businessId} />;
+  return (
+    <Suspense>
+      <CassaClient businessId={status.businessId} />
+    </Suspense>
+  );
 }

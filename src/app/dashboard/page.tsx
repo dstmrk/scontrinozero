@@ -1,30 +1,22 @@
-import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { redirect } from "next/navigation";
+import { getOnboardingStatus } from "@/server/onboarding-actions";
+import { getCatalogItems } from "@/server/catalog-actions";
+import { CatalogoClient } from "@/components/catalogo/catalogo-client";
 
+/**
+ * Homepage del dashboard — mostra il catalogo prodotti.
+ * Pre-fetcha gli articoli server-side e li passa al client come initialData.
+ */
 export default async function DashboardPage() {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const status = await getOnboardingStatus();
+
+  if (!status.businessId) {
+    redirect("/onboarding");
+  }
+
+  const initialData = await getCatalogItems(status.businessId);
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Benvenuto</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">
-            La dashboard di ScontrinoZero e in fase di sviluppo. Presto potrai
-            emettere scontrini elettronici direttamente da qui.
-          </p>
-          <p className="text-muted-foreground mt-2 text-sm">
-            Account: {user?.email}
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+    <CatalogoClient businessId={status.businessId} initialData={initialData} />
   );
 }
