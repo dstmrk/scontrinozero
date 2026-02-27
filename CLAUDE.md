@@ -271,6 +271,81 @@ sviluppo su branch → PR → merge su main → CI (test + lint + sonar)
                               git tag v1.0.0 → deploy PRODUZIONE
 ```
 
+## Linee guida test e qualità
+
+### Regole obbligatorie (evitano failure CI / SonarCloud Blocker)
+
+#### Ogni test deve avere almeno un `expect()`
+
+SonarCloud classifica come **Blocker** qualsiasi `it()`/`test()` senza assertion.
+Anche i test che verificano "non lancia eccezione" o "chiama redirect" devono
+contenere almeno un `expect()` esplicito.
+
+```typescript
+// ❌ SBAGLIATO — SonarCloud Blocker
+it("chiama signIn senza errori", async () => {
+  try {
+    await signIn(formData);
+  } catch {
+    // redirect expected
+  }
+});
+
+// ✅ CORRETTO — assertion su effetto osservabile
+it("chiama signIn senza errori", async () => {
+  try {
+    await signIn(formData);
+  } catch {
+    // redirect expected
+  }
+  expect(mockSomeFn).toHaveBeenCalled();
+});
+```
+
+#### `vi.mock` di classi: usare `function` o `class`, mai arrow function
+
+Quando un modulo esporta una **classe** che viene istanziata con `new`,
+il mock deve usare la keyword `function` o `class` nel `mockImplementation`.
+Le arrow function non possono essere costruttori e causano:
+`TypeError: () => ({...}) is not a constructor`.
+
+Le variabili usate nella factory `vi.mock` **devono iniziare con `mock`**
+(Vitest le includa nell'hoisting automatico).
+
+```typescript
+// ❌ SBAGLIATO — arrow function non è un costruttore
+const mockCheck = vi.fn();
+vi.mock("@/lib/rate-limit", () => ({
+  RateLimiter: vi.fn().mockImplementation(() => ({ check: mockCheck })),
+}));
+
+// ✅ CORRETTO — regular function restituisce l'oggetto mock
+const mockCheck = vi.fn();
+vi.mock("@/lib/rate-limit", () => ({
+  RateLimiter: vi.fn().mockImplementation(function () {
+    return { check: mockCheck };
+  }),
+}));
+```
+
+> Nota: variabili nel factory `vi.mock` devono iniziare con `mock` —
+> Vitest le issa automaticamente, le altre risultano `undefined`.
+
+### Checklist pre-PR
+
+Prima di aprire una PR verificare che la pipeline CI passi localmente:
+
+```bash
+npm run lint          # nessun errore ESLint / TypeScript
+npm run test:coverage # tutti i test verdi, coverage non in calo
+```
+
+Controlli manuali:
+- [ ] Ogni `it()`/`test()` ha almeno un `expect()`
+- [ ] I mock di classi usano `function`/`class` (non arrow function)
+- [ ] I nomi delle variabili nel factory `vi.mock` iniziano con `mock`
+- [ ] Nessuna nuova issue SonarCloud Blocker/Critical introdotta
+
 ## Sito vetrina (landing/marketing)
 
 Stesso progetto Next.js, non un sito separato:
