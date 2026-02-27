@@ -3,7 +3,13 @@
  */
 import { describe, it, expect, afterEach } from "vitest";
 import { randomBytes } from "node:crypto";
-import { encrypt, decrypt, generateKey, getEncryptionKey, getKeyVersion } from "./crypto";
+import {
+  encrypt,
+  decrypt,
+  generateKey,
+  getEncryptionKey,
+  getKeyVersion,
+} from "./crypto";
 
 function makeKey(): Buffer {
   return randomBytes(32);
@@ -142,7 +148,8 @@ describe("getKeyVersion", () => {
   const originalVersion = process.env.ENCRYPTION_KEY_VERSION;
 
   afterEach(() => {
-    if (originalVersion === undefined) delete process.env.ENCRYPTION_KEY_VERSION;
+    if (originalVersion === undefined)
+      delete process.env.ENCRYPTION_KEY_VERSION;
     else process.env.ENCRYPTION_KEY_VERSION = originalVersion;
   });
 

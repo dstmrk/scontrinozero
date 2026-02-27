@@ -3,7 +3,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- Mocks ---
 
-const mockRateLimiterCheck = vi.fn().mockReturnValue({ success: true, remaining: 4 });
+const mockRateLimiterCheck = vi
+  .fn()
+  .mockReturnValue({ success: true, remaining: 4 });
 vi.mock("@/lib/rate-limit", () => ({
   RateLimiter: vi.fn().mockImplementation(() => ({
     check: mockRateLimiterCheck,

@@ -276,7 +276,9 @@ describe("void-actions", () => {
         .mockReturnValueOnce(makeSelectBuilder(FAKE_DOC_LINES));
 
       const { searchReceipts } = await import("./void-actions");
-      const result = await searchReceipts("biz-789", { dateFrom: "2026-01-01" });
+      const result = await searchReceipts("biz-789", {
+        dateFrom: "2026-01-01",
+      });
 
       expect(result).toHaveLength(1);
     });
