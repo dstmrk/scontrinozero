@@ -2,7 +2,7 @@
 
 ## Contesto
 
-Phase 0, 1A, 2A-2C, 1B (parziale), 3A, 3B, 4A, 4B, 4C, 4D, 4F completate. Il progetto ha 370 unit test + 8 E2E test.
+Phase 0, 1A, 2A-2C, 1B (parziale), 3A, 3B, 4A, 4B, 4C, 4D, 4F completate. Il progetto ha 422 unit test + 8 E2E test.
 Modulo AdE completo (MockAdeClient + RealAdeClient) con 92 test dedicati.
 Infrastruttura sicurezza: logger (pino), rate limiting, encryption (AES-256-GCM), Sentry.
 Auth: Supabase Auth con middleware, onboarding wizard 3-step, credenziali AdE cifrate.
@@ -10,7 +10,7 @@ Schema DB scontrini: tabelle `commercial_documents` + `commercial_document_lines
 UI cassa mobile-first: tastierino numerico, selezione IVA, riepilogo scontrino.
 Code review completata: security fixes (IDOR, open redirect, redaction), React best practices.
 Phase 4C completata: server action `emitReceipt` + `useMutation` TanStack Query + schermate success/error nella cassa.
-Phase 4D completata: storico scontrini + annullamento + PDF "Invia ricevuta".
+Phase 4D completata: storico scontrini + annullamento + link HTML ricevuta pubblica (`/r/[id]`).
 Prossimi step: Phase 4G (catalogo + navigazione mobile), 4H (onboarding refactor).
 
 ---
@@ -180,10 +180,15 @@ Prossimi step: Phase 4G (catalogo + navigazione mobile), 4H (onboarding refactor
 - ✅ `src/components/storico/storico-client.tsx` — lista con filtri Dal/Al/Stato, righe cliccabili, `›` hint
 - ✅ `src/components/storico/void-receipt-dialog.tsx` — dialog 3-state (`detail` / `confirmingVoid` / `voidSuccess`)
 - ✅ `src/lib/pdf/generate-sale-receipt.ts` — PDFKit, layout 58mm, altezza dinamica, IVA per aliquota
-- ✅ `src/app/api/documents/[documentId]/pdf/route.ts` — API route GET, auth+ownership check
+- ✅ `src/app/api/documents/[documentId]/pdf/route.ts` — API route GET auth+ownership (download diretto)
 - ✅ `next.config.ts` — `serverExternalPackages: ["pdfkit"]` (fix AFM font path con Turbopack)
-- ✅ Bottone "Invia ricevuta" in `receipt-success.tsx` (dopo emissione) e nel dialog storico
-- **Risultato:** 359 unit + 8 E2E test
+- ✅ Pagina ricevuta HTML pubblica `src/app/r/[documentId]/page.tsx` — Server Component, no auth, UUID come token (122 bit, non indovinabile), guard regex prima della query DB
+- ✅ `src/app/r/[documentId]/share-button.tsx` — Web Share API con fallback clipboard, feedback "Link copiato!" 2s
+- ✅ `src/app/r/[documentId]/pdf/route.ts` — PDF pubblico (no auth), riusa `fetchPublicReceipt` + `generatePdfResponse`
+- ✅ `src/lib/receipts/fetch-public-receipt.ts` — helper condiviso con UUID regex guard (evita 500 da Postgres)
+- ✅ `src/lib/receipts/generate-pdf-response.ts` — helper PDF+Response condiviso tra route auth e pubblica
+- ✅ Bottone "Invia ricevuta" in `receipt-success.tsx` e `void-receipt-dialog.tsx` → condivide `/r/[id]`
+- **Risultato:** 422 unit + 8 E2E test
 
 **4F: UI polish + registrazione ✅**
 
@@ -341,25 +346,26 @@ TODO futuro: SPID (`login_spid.har`), CIE (`login_cie.har`), pre-sessione AdE al
 
 ## Riepilogo test cumulativi
 
-| Fase                        | Nuovi test  | Totale cumulativo    |
-| --------------------------- | ----------- | -------------------- |
-| 1A (Security fix) ✅        | 23 (reali)  | 27 (23 unit + 4 E2E) |
-| 2A (AdE ricerca) ✅         | 0 (ricerca) | 27                   |
-| 2B-2C (AdE impl) ✅         | 92 (reali)  | 119                  |
-| 1B (Landing) ✅ parz.       | 6 (reali)   | 125 unit + 8 E2E     |
-| 3A (Security infra) ✅      | 23 (reali)  | 148 unit + 8 E2E     |
-| 3B (Auth) ✅                | 43 (reali)  | 191 unit + 8 E2E     |
-| 4A (Schema DB) ✅           | 23 (reali)  | 214 unit + 8 E2E     |
-| 4B (UI cassa) ✅            | 91 (reali)  | 305 unit + 8 E2E     |
-| 4C (server action) ✅       | 14 (reali)  | 319 unit + 8 E2E     |
-| 4D (storico+annullo+PDF) ✅ | 40 (reali)  | 359 unit + 8 E2E     |
-| 4F (UI polish+reg) ✅       | 11 (reali)  | 370 unit + 8 E2E     |
-| 4G (catalogo+nav)           | ~20         | ~394                 |
-| 4H (onboarding refactor)    | ~25         | ~419                 |
-| 5 (PWA)                     | ~13         | ~432                 |
-| 6 (Stabilita')              | ~15         | ~447                 |
-| 7 (Stripe)                  | ~20         | ~467                 |
-| **Lancio**                  |             | **~470+ test**       |
+| Fase                          | Nuovi test  | Totale cumulativo    |
+| ----------------------------- | ----------- | -------------------- |
+| 1A (Security fix) ✅          | 23 (reali)  | 27 (23 unit + 4 E2E) |
+| 2A (AdE ricerca) ✅           | 0 (ricerca) | 27                   |
+| 2B-2C (AdE impl) ✅           | 92 (reali)  | 119                  |
+| 1B (Landing) ✅ parz.         | 6 (reali)   | 125 unit + 8 E2E     |
+| 3A (Security infra) ✅        | 23 (reali)  | 148 unit + 8 E2E     |
+| 3B (Auth) ✅                  | 43 (reali)  | 191 unit + 8 E2E     |
+| 4A (Schema DB) ✅             | 23 (reali)  | 214 unit + 8 E2E     |
+| 4B (UI cassa) ✅              | 91 (reali)  | 305 unit + 8 E2E     |
+| 4C (server action) ✅         | 14 (reali)  | 319 unit + 8 E2E     |
+| 4D (storico+annullo+PDF) ✅   | 40 (reali)  | 359 unit + 8 E2E     |
+| 4F (UI polish+reg) ✅         | 11 (reali)  | 370 unit + 8 E2E     |
+| 4D+ (ricevuta HTML pubbl.) ✅ | 52 (reali)  | 422 unit + 8 E2E     |
+| 4G (catalogo+nav)             | ~20         | ~394                 |
+| 4H (onboarding refactor)      | ~25         | ~419                 |
+| 5 (PWA)                       | ~13         | ~432                 |
+| 6 (Stabilita')                | ~15         | ~447                 |
+| 7 (Stripe)                    | ~20         | ~467                 |
+| **Lancio**                    |             | **~470+ test**       |
 
 ---
 
