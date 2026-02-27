@@ -13,7 +13,9 @@ export function ShareButton({ url, title }: ShareButtonProps) {
 
   const handleShare = async () => {
     const fullUrl =
-      typeof window !== "undefined" ? `${window.location.origin}${url}` : url;
+      typeof globalThis.window === "undefined"
+        ? url
+        : `${globalThis.location.origin}${url}`;
 
     if (typeof navigator !== "undefined" && navigator.share) {
       try {

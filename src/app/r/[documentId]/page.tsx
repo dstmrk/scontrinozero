@@ -24,8 +24,8 @@ function formatDate(date: Date): string {
 }
 
 function computeVatAmount(lineTotalGross: number, vatCode: string): number {
-  const rate = parseFloat(vatCode);
-  if (isNaN(rate) || rate === 0) return 0;
+  const rate = Number.parseFloat(vatCode);
+  if (Number.isNaN(rate) || rate === 0) return 0;
   return lineTotalGross - lineTotalGross / (1 + rate / 100);
 }
 
@@ -70,7 +70,7 @@ export async function generateMetadata({
 export default async function PublicReceiptPage({
   params,
 }: {
-  params: Promise<{ documentId: string }>;
+  readonly params: Promise<{ documentId: string }>;
 }) {
   const { documentId } = await params;
   const data = await fetchPublicReceipt(documentId);
@@ -88,8 +88,8 @@ export default async function PublicReceiptPage({
   const vatByCode = new Map<string, number>();
 
   for (const line of lines) {
-    const qty = parseFloat(line.quantity ?? "1");
-    const price = parseFloat(line.grossUnitPrice ?? "0");
+    const qty = Number.parseFloat(line.quantity ?? "1");
+    const price = Number.parseFloat(line.grossUnitPrice ?? "0");
     const lineTotal = qty * price;
     grandTotal += lineTotal;
 
@@ -138,13 +138,13 @@ export default async function PublicReceiptPage({
               <span className="w-16 text-right">€</span>
             </div>
             <div className="space-y-2">
-              {lines.map((line, idx) => {
-                const qty = parseFloat(line.quantity ?? "1");
-                const price = parseFloat(line.grossUnitPrice ?? "0");
+              {lines.map((line) => {
+                const qty = Number.parseFloat(line.quantity ?? "1");
+                const price = Number.parseFloat(line.grossUnitPrice ?? "0");
                 const lineTotal = qty * price;
                 const vatLabel = VAT_LABELS[line.vatCode] ?? line.vatCode;
                 return (
-                  <div key={idx} className="flex items-start gap-1 text-sm">
+                  <div key={line.id} className="flex items-start gap-1 text-sm">
                     <div className="min-w-0 flex-1">
                       <p className="leading-tight font-medium">
                         {line.description}

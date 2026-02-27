@@ -26,7 +26,7 @@ export function ReceiptSuccess({
 
   const handleShare = async () => {
     if (!documentId) return;
-    const url = `${window.location.origin}/r/${documentId}`;
+    const url = `${globalThis.location.origin}/r/${documentId}`;
 
     if (navigator.share) {
       try {

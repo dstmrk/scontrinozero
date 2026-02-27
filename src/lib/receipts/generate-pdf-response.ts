@@ -41,12 +41,12 @@ export async function generatePdfResponse(
 
   const publicReq = doc.publicRequest as { paymentMethod?: string } | null;
   const rawPayment = publicReq?.paymentMethod ?? "PC";
-  const paymentMethod = (rawPayment === "PE" ? "PE" : "PC") as "PC" | "PE";
+  const paymentMethod = rawPayment === "PE" ? "PE" : ("PC" as const);
 
   const pdfLines: SaleReceiptLine[] = lines.map((l) => ({
     description: l.description,
-    quantity: parseFloat(l.quantity ?? "1"),
-    grossUnitPrice: parseFloat(l.grossUnitPrice ?? "0"),
+    quantity: Number.parseFloat(l.quantity ?? "1"),
+    grossUnitPrice: Number.parseFloat(l.grossUnitPrice ?? "0"),
     vatCode: l.vatCode,
   }));
 
@@ -64,7 +64,7 @@ export async function generatePdfResponse(
     adeTransactionId: doc.adeTransactionId ?? "",
   });
 
-  const safeProgressive = (doc.adeProgressive ?? "scontrino").replace(
+  const safeProgressive = (doc.adeProgressive ?? "scontrino").replaceAll(
     /[/\\]/g,
     "-",
   );
