@@ -5,17 +5,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const { mockFetchPublicReceipt, mockGeneratePdf } = vi.hoisted(() => ({
+const { mockFetchPublicReceipt, mockGeneratePdfResponse } = vi.hoisted(() => ({
   mockFetchPublicReceipt: vi.fn(),
-  mockGeneratePdf: vi.fn(),
+  mockGeneratePdfResponse: vi.fn(),
 }));
 
 vi.mock("@/lib/receipts/fetch-public-receipt", () => ({
   fetchPublicReceipt: (...args: unknown[]) => mockFetchPublicReceipt(...args),
 }));
 
-vi.mock("@/lib/pdf/generate-sale-receipt", () => ({
-  generateSaleReceiptPdf: (...args: unknown[]) => mockGeneratePdf(...args),
+vi.mock("@/lib/receipts/generate-pdf-response", () => ({
+  generatePdfResponse: (...args: unknown[]) => mockGeneratePdfResponse(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -24,39 +24,11 @@ vi.mock("@/lib/pdf/generate-sale-receipt", () => ({
 
 import { GET } from "./route";
 
-const MOCK_DOC = {
-  id: "doc-456",
-  businessId: "biz-789",
-  kind: "SALE",
-  status: "ACCEPTED",
-  adeTransactionId: "trx-0001",
-  adeProgressive: "DCW2026/5111-0001",
-  createdAt: new Date("2026-02-23T10:30:00Z"),
-  publicRequest: { paymentMethod: "PC" },
+const MOCK_RECEIPT_DATA = {
+  doc: { id: "doc-456", adeProgressive: "DCW2026/5111-0001" },
+  biz: { businessName: "Negozio Test" },
+  lines: [],
 };
-
-const MOCK_BIZ = {
-  id: "biz-789",
-  businessName: "Negozio Test",
-  vatNumber: "12345678901",
-  address: "Via Roma 1",
-  city: "Milano",
-  province: "MI",
-  zipCode: "20100",
-};
-
-const MOCK_LINES = [
-  {
-    id: "line-1",
-    documentId: "doc-456",
-    lineIndex: 0,
-    description: "Prodotto A",
-    quantity: "1.000",
-    grossUnitPrice: "10.00",
-    vatCode: "22",
-    adeLineId: null,
-  },
-];
 
 function makeRequest(documentId: string): Request {
   return new Request(`http://localhost/r/${documentId}/pdf`);
@@ -69,15 +41,19 @@ function makeRequest(documentId: string): Request {
 describe("GET /r/[documentId]/pdf (public)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGeneratePdf.mockResolvedValue(Buffer.from("fake-pdf-content"));
-    mockFetchPublicReceipt.mockResolvedValue({
-      doc: MOCK_DOC,
-      biz: MOCK_BIZ,
-      lines: MOCK_LINES,
-    });
+    mockFetchPublicReceipt.mockResolvedValue(MOCK_RECEIPT_DATA);
+    mockGeneratePdfResponse.mockResolvedValue(
+      new Response(new Uint8Array(), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Cache-Control": "private, no-store",
+        },
+      }),
+    );
   });
 
-  it("ritorna 404 se fetchPublicReceipt ritorna null (doc non trovato o UUID invalido)", async () => {
+  it("ritorna 404 se fetchPublicReceipt ritorna null", async () => {
     mockFetchPublicReceipt.mockResolvedValueOnce(null);
 
     const res = await GET(makeRequest("doc-456"), {
@@ -87,7 +63,15 @@ describe("GET /r/[documentId]/pdf (public)", () => {
     expect(res.status).toBe(404);
   });
 
-  it("happy path: ritorna 200 con Content-Type application/pdf", async () => {
+  it("delega a generatePdfResponse con i dati del documento", async () => {
+    await GET(makeRequest("doc-456"), {
+      params: Promise.resolve({ documentId: "doc-456" }),
+    });
+
+    expect(mockGeneratePdfResponse).toHaveBeenCalledWith(MOCK_RECEIPT_DATA);
+  });
+
+  it("ritorna la Response prodotta da generatePdfResponse", async () => {
     const res = await GET(makeRequest("doc-456"), {
       params: Promise.resolve({ documentId: "doc-456" }),
     });
@@ -96,59 +80,9 @@ describe("GET /r/[documentId]/pdf (public)", () => {
     expect(res.headers.get("content-type")).toBe("application/pdf");
   });
 
-  it("Content-Disposition contiene il progressivo AdE (sanitizzato)", async () => {
-    const res = await GET(makeRequest("doc-456"), {
-      params: Promise.resolve({ documentId: "doc-456" }),
-    });
-
-    const disposition = res.headers.get("content-disposition");
-    const safeProgressive = MOCK_DOC.adeProgressive.replace(/[/\\]/g, "-");
-    expect(disposition).toContain(safeProgressive);
-  });
-
-  it("chiama generateSaleReceiptPdf con i dati del documento e dell'attività", async () => {
-    await GET(makeRequest("doc-456"), {
-      params: Promise.resolve({ documentId: "doc-456" }),
-    });
-
-    expect(mockGeneratePdf).toHaveBeenCalledWith(
-      expect.objectContaining({
-        businessName: MOCK_BIZ.businessName,
-        vatNumber: MOCK_BIZ.vatNumber,
-        adeProgressive: MOCK_DOC.adeProgressive,
-        adeTransactionId: MOCK_DOC.adeTransactionId,
-        paymentMethod: "PC",
-      }),
-    );
-  });
-
-  it("imposta Cache-Control private no-store", async () => {
-    const res = await GET(makeRequest("doc-456"), {
-      params: Promise.resolve({ documentId: "doc-456" }),
-    });
-
-    expect(res.headers.get("cache-control")).toBe("private, no-store");
-  });
-
-  it("usa paymentMethod PE dal publicRequest", async () => {
-    mockFetchPublicReceipt.mockResolvedValueOnce({
-      doc: { ...MOCK_DOC, publicRequest: { paymentMethod: "PE" } },
-      biz: MOCK_BIZ,
-      lines: MOCK_LINES,
-    });
-
-    await GET(makeRequest("doc-456"), {
-      params: Promise.resolve({ documentId: "doc-456" }),
-    });
-
-    expect(mockGeneratePdf).toHaveBeenCalledWith(
-      expect.objectContaining({ paymentMethod: "PE" }),
-    );
-  });
-
-  it("non richiede autenticazione — nessuna dipendenza da Supabase auth", async () => {
-    // Il route usa solo fetchPublicReceipt — nessun import Supabase
-    // Il test passa senza mock Supabase → verifica l'assenza di auth
+  it("non richiede autenticazione — nessuna dipendenza da Supabase", async () => {
+    // Il route usa solo fetchPublicReceipt + generatePdfResponse.
+    // Il test passa senza mock Supabase → conferma assenza di auth.
     const res = await GET(makeRequest("doc-456"), {
       params: Promise.resolve({ documentId: "doc-456" }),
     });

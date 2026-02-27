@@ -5,10 +5,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mocks  (vi.hoisted garantisce l'inizializzazione prima dei vi.mock factory)
 // ---------------------------------------------------------------------------
 
-const { mockGetUser, mockSelect, mockGeneratePdf } = vi.hoisted(() => ({
+const { mockGetUser, mockSelect, mockGeneratePdfResponse } = vi.hoisted(() => ({
   mockGetUser: vi.fn(),
   mockSelect: vi.fn(),
-  mockGeneratePdf: vi.fn(),
+  mockGeneratePdfResponse: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -30,18 +30,14 @@ vi.mock("@/db/schema", () => ({
   profiles: "profiles-table",
 }));
 
-vi.mock("@/lib/pdf/generate-sale-receipt", () => ({
-  generateSaleReceiptPdf: (...args: unknown[]) => mockGeneratePdf(...args),
+vi.mock("@/lib/receipts/generate-pdf-response", () => ({
+  generatePdfResponse: (...args: unknown[]) => mockGeneratePdfResponse(...args),
 }));
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Drizzle query builder mock con metodi concatenabili.
- * Aggiunge innerJoin rispetto al builder di void-actions.test.ts.
- */
 function makeSelectBuilder(result: unknown[]) {
   const builder = {
     from: vi.fn(),
@@ -95,16 +91,17 @@ const MOCK_LINES = [
     grossUnitPrice: "10.00",
     vatCode: "22",
   },
-  {
-    id: "line-2",
-    documentId: "doc-456",
-    lineIndex: 1,
-    description: "Prodotto B",
-    quantity: "2.000",
-    grossUnitPrice: "5.00",
-    vatCode: "22",
-  },
 ];
+
+const MOCK_PDF_RESPONSE = new Response(new Uint8Array(), {
+  status: 200,
+  headers: {
+    "Content-Type": "application/pdf",
+    "Content-Disposition":
+      'attachment; filename="scontrino-DCW2026-5111-0001.pdf"',
+    "Cache-Control": "private, no-store",
+  },
+});
 
 function makeRequest(documentId: string): Request {
   return new Request(`http://localhost/api/documents/${documentId}/pdf`);
@@ -118,7 +115,7 @@ describe("GET /api/documents/[documentId]/pdf", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetUser.mockResolvedValue({ data: { user: MOCK_USER } });
-    mockGeneratePdf.mockResolvedValue(Buffer.from("fake-pdf-content"));
+    mockGeneratePdfResponse.mockResolvedValue(MOCK_PDF_RESPONSE);
     mockSelect
       .mockReturnValueOnce(
         makeSelectBuilder([{ doc: MOCK_DOC, biz: MOCK_BIZ }]),
@@ -148,7 +145,6 @@ describe("GET /api/documents/[documentId]/pdf", () => {
   });
 
   it("ritorna 404 se il documento appartiene ad altra attività (ownership check nel JOIN)", async () => {
-    // JOIN che include il profilo utente non trova nulla se utente diverso
     mockSelect.mockReset();
     mockSelect.mockReturnValueOnce(makeSelectBuilder([]));
 
@@ -174,39 +170,28 @@ describe("GET /api/documents/[documentId]/pdf", () => {
     expect(res.status).toBe(400);
   });
 
-  it("happy path: ritorna 200 con Content-Type application/pdf", async () => {
+  it("happy path: delega a generatePdfResponse con doc, biz e lines", async () => {
+    await GET(makeRequest("doc-456"), {
+      params: Promise.resolve({ documentId: "doc-456" }),
+    });
+
+    expect(mockGeneratePdfResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        doc: expect.objectContaining({ id: "doc-456" }),
+        biz: expect.objectContaining({ businessName: "Negozio Test" }),
+        lines: expect.arrayContaining([
+          expect.objectContaining({ description: "Prodotto A" }),
+        ]),
+      }),
+    );
+  });
+
+  it("happy path: ritorna la Response prodotta da generatePdfResponse", async () => {
     const res = await GET(makeRequest("doc-456"), {
       params: Promise.resolve({ documentId: "doc-456" }),
     });
 
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("application/pdf");
-  });
-
-  it("happy path: Content-Disposition contiene il progressivo AdE (sanitizzato)", async () => {
-    const res = await GET(makeRequest("doc-456"), {
-      params: Promise.resolve({ documentId: "doc-456" }),
-    });
-
-    const disposition = res.headers.get("content-disposition");
-    // Il progressivo viene sanitizzato (/ → -) per essere usato come filename
-    const safeProgressive = MOCK_DOC.adeProgressive.replace(/[/\\]/g, "-");
-    expect(disposition).toContain(safeProgressive);
-  });
-
-  it("chiama generateSaleReceiptPdf con i dati del documento e dell'attività", async () => {
-    await GET(makeRequest("doc-456"), {
-      params: Promise.resolve({ documentId: "doc-456" }),
-    });
-
-    expect(mockGeneratePdf).toHaveBeenCalledWith(
-      expect.objectContaining({
-        businessName: MOCK_BIZ.businessName,
-        vatNumber: MOCK_BIZ.vatNumber,
-        adeProgressive: MOCK_DOC.adeProgressive,
-        adeTransactionId: MOCK_DOC.adeTransactionId,
-        paymentMethod: "PC",
-      }),
-    );
   });
 });
