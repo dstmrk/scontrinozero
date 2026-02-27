@@ -4,6 +4,7 @@ import { businesses } from "./businesses";
 import { adeCredentials } from "./ade-credentials";
 import { commercialDocuments } from "./commercial-documents";
 import { commercialDocumentLines } from "./commercial-document-lines";
+import { catalogItems } from "./catalog-items";
 
 export const profilesRelations = relations(profiles, ({ many }) => ({
   businesses: many(businesses),
@@ -16,6 +17,14 @@ export const businessesRelations = relations(businesses, ({ one, many }) => ({
   }),
   adeCredentials: one(adeCredentials),
   commercialDocuments: many(commercialDocuments),
+  catalogItems: many(catalogItems),
+}));
+
+export const catalogItemsRelations = relations(catalogItems, ({ one }) => ({
+  business: one(businesses, {
+    fields: [catalogItems.businessId],
+    references: [businesses.id],
+  }),
 }));
 
 export const adeCredentialsRelations = relations(adeCredentials, ({ one }) => ({

@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getOnboardingStatus } from "@/server/onboarding-actions";
 import { signOut } from "@/server/auth-actions";
 import { Button } from "@/components/ui/button";
+import { BottomNav } from "@/components/dashboard/bottom-nav";
 
 export default async function DashboardLayout({
   children,
@@ -68,7 +69,11 @@ export default async function DashboardLayout({
         </div>
       </header>
 
-      <main className="container mx-auto flex-1 px-4 py-6">{children}</main>
+      <main className="container mx-auto flex-1 px-4 py-6 pb-20 md:pb-6">
+        {children}
+      </main>
+
+      <BottomNav />
     </div>
   );
 }
