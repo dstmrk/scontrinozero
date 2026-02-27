@@ -1,13 +1,7 @@
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
 import { Download } from "lucide-react";
 import type { Metadata } from "next";
-import { getDb } from "@/db";
-import {
-  commercialDocuments,
-  commercialDocumentLines,
-  businesses,
-} from "@/db/schema";
+import { fetchPublicReceipt } from "@/lib/receipts/fetch-public-receipt";
 import { ShareButton } from "./share-button";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -53,33 +47,6 @@ const PAYMENT_LABELS: Record<string, string> = {
   PE: "Elettronico",
 };
 
-// ─── Data fetching ───────────────────────────────────────────────────────────
-
-async function fetchReceiptData(documentId: string) {
-  const db = getDb();
-
-  const rows = await db
-    .select({ doc: commercialDocuments, biz: businesses })
-    .from(commercialDocuments)
-    .innerJoin(businesses, eq(commercialDocuments.businessId, businesses.id))
-    .where(eq(commercialDocuments.id, documentId))
-    .limit(1);
-
-  if (rows.length === 0) return null;
-
-  const { doc, biz } = rows[0];
-
-  if (doc.kind !== "SALE" || doc.status !== "ACCEPTED") return null;
-
-  const lines = await db
-    .select()
-    .from(commercialDocumentLines)
-    .where(eq(commercialDocumentLines.documentId, doc.id))
-    .orderBy(commercialDocumentLines.lineIndex);
-
-  return { doc, biz, lines };
-}
-
 // ─── Metadata ───────────────────────────────────────────────────────────────
 
 export async function generateMetadata({
@@ -88,7 +55,7 @@ export async function generateMetadata({
   params: Promise<{ documentId: string }>;
 }): Promise<Metadata> {
   const { documentId } = await params;
-  const data = await fetchReceiptData(documentId);
+  const data = await fetchPublicReceipt(documentId);
   if (!data) return { title: "Ricevuta non trovata" };
 
   return {
@@ -106,7 +73,7 @@ export default async function PublicReceiptPage({
   params: Promise<{ documentId: string }>;
 }) {
   const { documentId } = await params;
-  const data = await fetchReceiptData(documentId);
+  const data = await fetchPublicReceipt(documentId);
 
   if (!data) notFound();
 

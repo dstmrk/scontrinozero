@@ -5,44 +5,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const { mockSelect, mockGeneratePdf } = vi.hoisted(() => ({
-  mockSelect: vi.fn(),
+const { mockFetchPublicReceipt, mockGeneratePdf } = vi.hoisted(() => ({
+  mockFetchPublicReceipt: vi.fn(),
   mockGeneratePdf: vi.fn(),
 }));
 
-vi.mock("@/db", () => ({
-  getDb: vi.fn().mockReturnValue({
-    select: mockSelect,
-  }),
-}));
-
-vi.mock("@/db/schema", () => ({
-  commercialDocuments: "commercial-documents-table",
-  commercialDocumentLines: "commercial-document-lines-table",
-  businesses: "businesses-table",
+vi.mock("@/lib/receipts/fetch-public-receipt", () => ({
+  fetchPublicReceipt: (...args: unknown[]) => mockFetchPublicReceipt(...args),
 }));
 
 vi.mock("@/lib/pdf/generate-sale-receipt", () => ({
   generateSaleReceiptPdf: (...args: unknown[]) => mockGeneratePdf(...args),
 }));
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makeSelectBuilder(result: unknown[]) {
-  const builder = {
-    from: vi.fn(),
-    innerJoin: vi.fn(),
-    where: vi.fn(),
-    orderBy: vi.fn().mockResolvedValue(result),
-    limit: vi.fn().mockResolvedValue(result),
-  };
-  builder.from.mockReturnValue(builder);
-  builder.innerJoin.mockReturnValue(builder);
-  builder.where.mockReturnValue(builder);
-  return builder;
-}
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -80,6 +54,7 @@ const MOCK_LINES = [
     quantity: "1.000",
     grossUnitPrice: "10.00",
     vatCode: "22",
+    adeLineId: null,
   },
 ];
 
@@ -95,46 +70,15 @@ describe("GET /r/[documentId]/pdf (public)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGeneratePdf.mockResolvedValue(Buffer.from("fake-pdf-content"));
-    mockSelect
-      .mockReturnValueOnce(
-        makeSelectBuilder([{ doc: MOCK_DOC, biz: MOCK_BIZ }]),
-      )
-      .mockReturnValueOnce(makeSelectBuilder(MOCK_LINES));
-  });
-
-  it("ritorna 404 se il documento non esiste", async () => {
-    mockSelect.mockReset();
-    mockSelect.mockReturnValueOnce(makeSelectBuilder([]));
-
-    const res = await GET(makeRequest("doc-456"), {
-      params: Promise.resolve({ documentId: "doc-456" }),
+    mockFetchPublicReceipt.mockResolvedValue({
+      doc: MOCK_DOC,
+      biz: MOCK_BIZ,
+      lines: MOCK_LINES,
     });
-
-    expect(res.status).toBe(404);
   });
 
-  it("ritorna 404 se kind ≠ SALE", async () => {
-    mockSelect.mockReset();
-    mockSelect.mockReturnValueOnce(
-      makeSelectBuilder([
-        { doc: { ...MOCK_DOC, kind: "VOID" }, biz: MOCK_BIZ },
-      ]),
-    );
-
-    const res = await GET(makeRequest("doc-456"), {
-      params: Promise.resolve({ documentId: "doc-456" }),
-    });
-
-    expect(res.status).toBe(404);
-  });
-
-  it("ritorna 404 se status ≠ ACCEPTED", async () => {
-    mockSelect.mockReset();
-    mockSelect.mockReturnValueOnce(
-      makeSelectBuilder([
-        { doc: { ...MOCK_DOC, status: "PENDING" }, biz: MOCK_BIZ },
-      ]),
-    );
+  it("ritorna 404 se fetchPublicReceipt ritorna null (doc non trovato o UUID invalido)", async () => {
+    mockFetchPublicReceipt.mockResolvedValueOnce(null);
 
     const res = await GET(makeRequest("doc-456"), {
       params: Promise.resolve({ documentId: "doc-456" }),
@@ -152,7 +96,7 @@ describe("GET /r/[documentId]/pdf (public)", () => {
     expect(res.headers.get("content-type")).toBe("application/pdf");
   });
 
-  it("happy path: Content-Disposition contiene il progressivo AdE (sanitizzato)", async () => {
+  it("Content-Disposition contiene il progressivo AdE (sanitizzato)", async () => {
     const res = await GET(makeRequest("doc-456"), {
       params: Promise.resolve({ documentId: "doc-456" }),
     });
@@ -178,16 +122,6 @@ describe("GET /r/[documentId]/pdf (public)", () => {
     );
   });
 
-  it("non richiede autenticazione — nessun check Supabase auth", async () => {
-    // Il route non deve importare né usare il client Supabase
-    // Il test passa senza mock Supabase → verifica l'assenza di auth
-    const res = await GET(makeRequest("doc-456"), {
-      params: Promise.resolve({ documentId: "doc-456" }),
-    });
-
-    expect(res.status).toBe(200);
-  });
-
   it("imposta Cache-Control private no-store", async () => {
     const res = await GET(makeRequest("doc-456"), {
       params: Promise.resolve({ documentId: "doc-456" }),
@@ -197,17 +131,11 @@ describe("GET /r/[documentId]/pdf (public)", () => {
   });
 
   it("usa paymentMethod PE dal publicRequest", async () => {
-    mockSelect.mockReset();
-    mockSelect
-      .mockReturnValueOnce(
-        makeSelectBuilder([
-          {
-            doc: { ...MOCK_DOC, publicRequest: { paymentMethod: "PE" } },
-            biz: MOCK_BIZ,
-          },
-        ]),
-      )
-      .mockReturnValueOnce(makeSelectBuilder(MOCK_LINES));
+    mockFetchPublicReceipt.mockResolvedValueOnce({
+      doc: { ...MOCK_DOC, publicRequest: { paymentMethod: "PE" } },
+      biz: MOCK_BIZ,
+      lines: MOCK_LINES,
+    });
 
     await GET(makeRequest("doc-456"), {
       params: Promise.resolve({ documentId: "doc-456" }),
@@ -216,5 +144,15 @@ describe("GET /r/[documentId]/pdf (public)", () => {
     expect(mockGeneratePdf).toHaveBeenCalledWith(
       expect.objectContaining({ paymentMethod: "PE" }),
     );
+  });
+
+  it("non richiede autenticazione — nessuna dipendenza da Supabase auth", async () => {
+    // Il route usa solo fetchPublicReceipt — nessun import Supabase
+    // Il test passa senza mock Supabase → verifica l'assenza di auth
+    const res = await GET(makeRequest("doc-456"), {
+      params: Promise.resolve({ documentId: "doc-456" }),
+    });
+
+    expect(res.status).toBe(200);
   });
 });

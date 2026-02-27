@@ -1,10 +1,4 @@
-import { eq } from "drizzle-orm";
-import { getDb } from "@/db";
-import {
-  commercialDocuments,
-  commercialDocumentLines,
-  businesses,
-} from "@/db/schema";
+import { fetchPublicReceipt } from "@/lib/receipts/fetch-public-receipt";
 import {
   generateSaleReceiptPdf,
   type SaleReceiptLine,
@@ -20,39 +14,20 @@ export async function GET(
   { params }: { params: Promise<{ documentId: string }> },
 ): Promise<Response> {
   const { documentId } = await params;
-  const db = getDb();
 
-  const rows = await db
-    .select({ doc: commercialDocuments, biz: businesses })
-    .from(commercialDocuments)
-    .innerJoin(businesses, eq(commercialDocuments.businessId, businesses.id))
-    .where(eq(commercialDocuments.id, documentId))
-    .limit(1);
+  const data = await fetchPublicReceipt(documentId);
 
-  if (rows.length === 0) {
+  if (!data) {
     return Response.json({ error: "Documento non trovato." }, { status: 404 });
   }
 
-  const { doc, biz } = rows[0];
-
-  if (doc.kind !== "SALE" || doc.status !== "ACCEPTED") {
-    return Response.json(
-      { error: "PDF disponibile solo per documenti di vendita accettati." },
-      { status: 404 },
-    );
-  }
-
-  const dbLines = await db
-    .select()
-    .from(commercialDocumentLines)
-    .where(eq(commercialDocumentLines.documentId, doc.id))
-    .orderBy(commercialDocumentLines.lineIndex);
+  const { doc, biz, lines } = data;
 
   const publicReq = doc.publicRequest as { paymentMethod?: string } | null;
   const rawPayment = publicReq?.paymentMethod ?? "PC";
   const paymentMethod = (rawPayment === "PE" ? "PE" : "PC") as "PC" | "PE";
 
-  const pdfLines: SaleReceiptLine[] = dbLines.map((l) => ({
+  const pdfLines: SaleReceiptLine[] = lines.map((l) => ({
     description: l.description,
     quantity: parseFloat(l.quantity ?? "1"),
     grossUnitPrice: parseFloat(l.grossUnitPrice ?? "0"),
