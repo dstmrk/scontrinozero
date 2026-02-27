@@ -380,6 +380,9 @@ describe("auth-actions", () => {
       } catch {
         // redirect is expected
       }
+      expect(mockRateLimiterCheck).toHaveBeenCalledWith(
+        expect.stringContaining("10.0.0.1"),
+      );
     });
 
     it("falls back to x-real-ip when other headers are absent", async () => {
@@ -400,6 +403,9 @@ describe("auth-actions", () => {
       } catch {
         // redirect is expected
       }
+      expect(mockRateLimiterCheck).toHaveBeenCalledWith(
+        expect.stringContaining("172.16.0.1"),
+      );
     });
 
     it("uses 'unknown' when no IP header is present", async () => {
@@ -417,6 +423,9 @@ describe("auth-actions", () => {
       } catch {
         // redirect is expected
       }
+      expect(mockRateLimiterCheck).toHaveBeenCalledWith(
+        expect.stringContaining("unknown"),
+      );
     });
   });
 });
