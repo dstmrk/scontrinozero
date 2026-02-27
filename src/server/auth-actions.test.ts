@@ -7,9 +7,9 @@ const mockRateLimiterCheck = vi
   .fn()
   .mockReturnValue({ success: true, remaining: 4 });
 vi.mock("@/lib/rate-limit", () => ({
-  RateLimiter: vi.fn().mockImplementation(() => ({
-    check: mockRateLimiterCheck,
-  })),
+  RateLimiter: vi.fn().mockImplementation(function () {
+    return { check: mockRateLimiterCheck };
+  }),
 }));
 
 const mockSignUp = vi.fn();
