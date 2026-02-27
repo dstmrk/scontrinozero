@@ -140,7 +140,9 @@ describe("generateSaleReceiptPdf", () => {
       lines: [manyLines[0]],
     });
     // More lines → taller page (estimateHeight adds 18pt per line)
-    expect(extractPageHeight(buf)).toBeGreaterThan(extractPageHeight(bufSingle));
+    expect(extractPageHeight(buf)).toBeGreaterThan(
+      extractPageHeight(bufSingle),
+    );
   });
 });
 
