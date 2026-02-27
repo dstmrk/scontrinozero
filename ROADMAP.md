@@ -141,8 +141,8 @@ Piano dettagliato con test e review checkpoint: vedi [`PLAN.md`](./PLAN.md)
 - ✅ PDF "Invia ricevuta" (API route + PDFKit, auth+ownership) — **359 unit + 8 E2E test**
 - ✅ **4F**: UI polish — cassa (importo vuoto placeholder, "Continua", ReceiptEuro), storico (paginazione 10/pag, bottoni annullo invertiti), registrazione (confirmPassword, isStrongPassword) — **370 unit + 8 E2E test**
 - ✅ **Ricevuta HTML pubblica** — link `/r/[id]` condivisibile (UUID come token opaco); pagina HTML mobile-first; Web Share API + fallback clipboard; PDF scaricabile senza auth; helper condivisi `fetchPublicReceipt` (UUID guard) + `generatePdfResponse` — **422 unit + 8 E2E test**
-- 🔵 **4G**: Catalogo prodotti + navigazione mobile-first (bottom nav bar, home → Catalogo)
-- ⬜ **4H**: Onboarding refactor (firstName/lastName, rimuovi P.IVA/CF → da AdE, CAP 5 cifre, nazione IT fissa, preferredVatCode)
+- ✅ **4G**: Catalogo prodotti + navigazione mobile-first — bottom nav bar (`bottom-nav.tsx`), home → Catalogo, tabella `catalog_items` + migration, `getCatalogItems`/`addCatalogItem`/`deleteCatalogItem`, `catalogo-client.tsx` + `add-item-dialog.tsx`, tap prodotto → cassa con query params, eliminazione inline; HAR catalogo non letti (sync AdE rimandato) — **464 unit + 8 E2E test**
+- 🔵 **4H**: Onboarding refactor (firstName/lastName, rimuovi P.IVA/CF → da AdE, CAP 5 cifre, nazione IT fissa, preferredVatCode)
 - ⬜ Dashboard base: totale giornaliero, conteggio (dopo 4G)
 - ⬜ Codice lotteria scontrini
 

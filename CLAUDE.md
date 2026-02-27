@@ -12,13 +12,13 @@ all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la pr
 Il piano di sviluppo dettagliato con fasi sequenziali, test attesi e checkpoint di review
 è in **`PLAN.md`** (root del repo). Il **`ROADMAP.md`** contiene il riepilogo ad alto livello.
 
-**Fase corrente:** Phase 4G (catalogo + navigazione mobile)
+**Fase corrente:** Phase 4H (onboarding refactor)
 
 **Approccio TDD:** Per ogni fase, scrivere i test PRIMA dell'implementazione.
 I test di validazione e degli endpoint usano `vi.mock` per isolare le dipendenze (Drizzle, etc.).
 
 **Sequenza fasi:** 0 ✅ → 1A ✅ → 2 ✅ (AdE spike) → 1B ✅ (landing) → 3A ✅ (security infra) →
-3B ✅ (auth) → 4A-4D ✅ (MVP core) → 4F ✅ (UI polish) → 4G 🔵 (catalogo+nav) → 4H (onboarding refactor) →
+3B ✅ (auth) → 4A-4D ✅ (MVP core) → 4F ✅ (UI polish) → 4G ✅ (catalogo+nav) → 4H 🔵 (onboarding refactor) →
 5 (PWA) → 6 (stabilità) → 7 (Stripe) → 8 (lancio)
 
 ## Principi di prodotto
@@ -341,6 +341,7 @@ npm run test:coverage # tutti i test verdi, coverage non in calo
 ```
 
 Controlli manuali:
+
 - [ ] Ogni `it()`/`test()` ha almeno un `expect()`
 - [ ] I mock di classi usano `function`/`class` (non arrow function)
 - [ ] I nomi delle variabili nel factory `vi.mock` iniziano con `mock`
