@@ -13,7 +13,7 @@ export function ShareButton({ url, title }: ShareButtonProps) {
 
   const handleShare = async () => {
     const fullUrl =
-      typeof globalThis.window === "undefined"
+      globalThis.window === undefined
         ? url
         : `${globalThis.location.origin}${url}`;
 
