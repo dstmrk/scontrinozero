@@ -51,8 +51,8 @@ export function CassaClient({ businessId }: CassaClientProps) {
       vatCode &&
       VAT_CODES.includes(vatCode as VatCode)
     ) {
-      const parsedPrice = parseFloat(price);
-      if (!isNaN(parsedPrice) && parsedPrice >= 0) {
+      const parsedPrice = Number.parseFloat(price);
+      if (!Number.isNaN(parsedPrice) && parsedPrice >= 0) {
         addLine({
           description,
           quantity: 1,

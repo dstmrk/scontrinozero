@@ -92,7 +92,7 @@ export function CatalogoClient({
               >
                 <p className="truncate font-medium">{item.description}</p>
                 <p className="text-muted-foreground text-sm">
-                  {formatCurrency(parseFloat(item.defaultPrice))} ·{" "}
+                  {formatCurrency(Number.parseFloat(item.defaultPrice))} ·{" "}
                   <span>{VAT_LABELS[item.defaultVatCode]}</span>
                 </p>
               </button>

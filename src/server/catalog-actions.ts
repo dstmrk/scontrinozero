@@ -74,13 +74,13 @@ export async function addCatalogItem(
   if (ownershipError) return ownershipError;
 
   // Validate description
-  if (!input.description || !input.description.trim()) {
+  if (!input.description?.trim()) {
     return { error: "La descrizione è obbligatoria." };
   }
 
   // Validate price
-  const price = parseFloat(input.defaultPrice);
-  if (isNaN(price) || price < 0) {
+  const price = Number.parseFloat(input.defaultPrice);
+  if (Number.isNaN(price) || price < 0) {
     return { error: "Il prezzo deve essere un numero non negativo." };
   }
 
