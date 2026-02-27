@@ -7,10 +7,7 @@ import {
   profiles,
 } from "@/db/schema";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import {
-  generateSaleReceiptPdf,
-  type SaleReceiptLine,
-} from "@/lib/pdf/generate-sale-receipt";
+import { generatePdfResponse } from "@/lib/receipts/generate-pdf-response";
 
 export async function GET(
   _request: Request,
@@ -66,47 +63,5 @@ export async function GET(
     .where(eq(commercialDocumentLines.documentId, doc.id))
     .orderBy(commercialDocumentLines.lineIndex);
 
-  // ── Extract payment method from publicRequest ──────────────────────────────
-  const publicReq = doc.publicRequest as { paymentMethod?: string } | null;
-  const rawPayment = publicReq?.paymentMethod ?? "PC";
-  const paymentMethod = (rawPayment === "PE" ? "PE" : "PC") as "PC" | "PE";
-
-  // ── Map DB lines to PDF data ───────────────────────────────────────────────
-  const pdfLines: SaleReceiptLine[] = dbLines.map((l) => ({
-    description: l.description,
-    quantity: parseFloat(l.quantity ?? "1"),
-    grossUnitPrice: parseFloat(l.grossUnitPrice ?? "0"),
-    vatCode: l.vatCode,
-  }));
-
-  // ── Generate PDF ──────────────────────────────────────────────────────────
-  const pdfBuffer = await generateSaleReceiptPdf({
-    businessName: biz.businessName,
-    vatNumber: biz.vatNumber,
-    address: biz.address,
-    city: biz.city,
-    province: biz.province,
-    zipCode: biz.zipCode,
-    lines: pdfLines,
-    paymentMethod,
-    createdAt: doc.createdAt,
-    adeProgressive: doc.adeProgressive ?? "",
-    adeTransactionId: doc.adeTransactionId ?? "",
-  });
-
-  // Sanitize progressive for filename (remove slashes)
-  const safeProgressive = (doc.adeProgressive ?? "scontrino").replace(
-    /[/\\]/g,
-    "-",
-  );
-
-  // Buffer is a Node.js type; wrap in Uint8Array for the Web API Response.
-  return new Response(new Uint8Array(pdfBuffer), {
-    status: 200,
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="scontrino-${safeProgressive}.pdf"`,
-      "Cache-Control": "private, no-store",
-    },
-  });
+  return generatePdfResponse({ doc, biz, lines: dbLines });
 }

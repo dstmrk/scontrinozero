@@ -205,9 +205,7 @@ export function VoidReceiptDialog({
               )}
               <Button
                 variant="outline"
-                onClick={() =>
-                  window.open(`/api/documents/${receipt.id}/pdf`, "_blank")
-                }
+                onClick={() => window.open(`/r/${receipt.id}`, "_blank")}
               >
                 <Send className="mr-2 h-4 w-4" />
                 Invia ricevuta

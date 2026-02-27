@@ -1,6 +1,7 @@
 "use client";
 
-import { CheckCircle2, Send } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle2, Share2, Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ReceiptSuccessProps {
@@ -16,10 +17,34 @@ export function ReceiptSuccess({
   adeTransactionId,
   onNewReceipt,
 }: ReceiptSuccessProps) {
+  const [copied, setCopied] = useState(false);
+
   const now = new Date().toLocaleString("it-IT", {
     dateStyle: "short",
     timeStyle: "short",
   });
+
+  const handleShare = async () => {
+    if (!documentId) return;
+    const url = `${globalThis.location.origin}/r/${documentId}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ url, title: "La tua ricevuta" });
+        return;
+      } catch {
+        // User cancelled or share failed — fall through to clipboard
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard not available
+    }
+  };
 
   return (
     <div className="mx-auto flex max-w-sm flex-col items-center gap-6 py-8 text-center">
@@ -61,12 +86,20 @@ export function ReceiptSuccess({
           variant="outline"
           size="lg"
           className="w-full"
-          onClick={() =>
-            window.open(`/api/documents/${documentId}/pdf`, "_blank")
-          }
+          onClick={handleShare}
         >
-          <Send className="mr-2 h-4 w-4" />
-          Invia ricevuta
+          {copied ? (
+            <>
+              <Check className="mr-2 h-4 w-4 text-green-600" />
+              <span className="text-green-600">Link copiato!</span>
+            </>
+          ) : (
+            <>
+              <Share2 className="mr-2 h-4 w-4" />
+              Invia ricevuta
+              <Copy className="text-muted-foreground ml-auto h-3.5 w-3.5" />
+            </>
+          )}
         </Button>
       )}
 
