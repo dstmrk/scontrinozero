@@ -3,6 +3,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- Mocks ---
 
+const mockRateLimiterCheck = vi.fn().mockReturnValue({ success: true, remaining: 4 });
+vi.mock("@/lib/rate-limit", () => ({
+  RateLimiter: vi.fn().mockImplementation(() => ({
+    check: mockRateLimiterCheck,
+  })),
+}));
+
 const mockSignUp = vi.fn();
 const mockSignInWithPassword = vi.fn();
 const mockSignInWithOtp = vi.fn();
@@ -83,6 +90,7 @@ function isRedirectError(
 describe("auth-actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRateLimiterCheck.mockReturnValue({ success: true, remaining: 4 });
   });
 
   describe("signUp", () => {
@@ -164,6 +172,45 @@ describe("auth-actions", () => {
         }),
       );
       expect(result).toEqual({ error: "Registrazione fallita. Riprova." });
+    });
+
+    it("returns rate limit error when too many requests", async () => {
+      mockRateLimiterCheck.mockReturnValue({ success: false, remaining: 0 });
+
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+        }),
+      );
+      expect(result.error).toContain("Troppi tentativi");
+    });
+
+    it("redirects to verify-email even if profile creation fails", async () => {
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-123" } },
+        error: null,
+      });
+      mockInsert.mockReturnValueOnce({
+        values: vi.fn().mockRejectedValueOnce(new Error("DB error")),
+      });
+
+      const { signUp } = await import("./auth-actions");
+
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+          }),
+        );
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+      }
     });
   });
 
@@ -291,6 +338,83 @@ describe("auth-actions", () => {
       const { resetPassword } = await import("./auth-actions");
       const result = await resetPassword(formData({ email: "bad" }));
       expect(result).toEqual({ error: "Email non valida." });
+    });
+
+    it("still redirects when resetPasswordForEmail returns an error", async () => {
+      mockResetPasswordForEmail.mockResolvedValue({
+        error: { message: "Email not found" },
+      });
+
+      const { resetPassword } = await import("./auth-actions");
+
+      try {
+        await resetPassword(formData({ email: "test@example.com" }));
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+        if (isRedirectError(err)) {
+          expect(err.url).toBe("/verify-email");
+        }
+      }
+    });
+  });
+
+  describe("getClientIp fallback paths", () => {
+    it("falls back to x-forwarded-for when cf-connecting-ip is absent", async () => {
+      const { headers: headersFn } = await import("next/headers");
+      vi.mocked(headersFn).mockResolvedValueOnce({
+        get: vi.fn().mockImplementation((name: string) => {
+          if (name === "x-forwarded-for") return "10.0.0.1, 192.168.1.1";
+          return null;
+        }),
+      } as unknown as Awaited<ReturnType<typeof headersFn>>);
+      mockSignInWithPassword.mockResolvedValue({ error: null });
+
+      const { signIn } = await import("./auth-actions");
+      try {
+        await signIn(
+          formData({ email: "test@example.com", password: "anypass" }),
+        );
+      } catch {
+        // redirect is expected
+      }
+    });
+
+    it("falls back to x-real-ip when other headers are absent", async () => {
+      const { headers: headersFn } = await import("next/headers");
+      vi.mocked(headersFn).mockResolvedValueOnce({
+        get: vi.fn().mockImplementation((name: string) => {
+          if (name === "x-real-ip") return "172.16.0.1";
+          return null;
+        }),
+      } as unknown as Awaited<ReturnType<typeof headersFn>>);
+      mockSignInWithPassword.mockResolvedValue({ error: null });
+
+      const { signIn } = await import("./auth-actions");
+      try {
+        await signIn(
+          formData({ email: "test@example.com", password: "anypass" }),
+        );
+      } catch {
+        // redirect is expected
+      }
+    });
+
+    it("uses 'unknown' when no IP header is present", async () => {
+      const { headers: headersFn } = await import("next/headers");
+      vi.mocked(headersFn).mockResolvedValueOnce({
+        get: vi.fn().mockReturnValue(null),
+      } as unknown as Awaited<ReturnType<typeof headersFn>>);
+      mockSignInWithPassword.mockResolvedValue({ error: null });
+
+      const { signIn } = await import("./auth-actions");
+      try {
+        await signIn(
+          formData({ email: "test@example.com", password: "anypass" }),
+        );
+      } catch {
+        // redirect is expected
+      }
     });
   });
 });

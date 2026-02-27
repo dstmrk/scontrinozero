@@ -1,9 +1,9 @@
 /**
  * @vitest-environment node
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { randomBytes } from "node:crypto";
-import { encrypt, decrypt, generateKey } from "./crypto";
+import { encrypt, decrypt, generateKey, getEncryptionKey, getKeyVersion } from "./crypto";
 
 function makeKey(): Buffer {
   return randomBytes(32);
@@ -109,5 +109,50 @@ describe("generateKey", () => {
   it("returns a 64-character hex string (32 bytes)", () => {
     const key = generateKey();
     expect(key).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+describe("getEncryptionKey", () => {
+  const originalKey = process.env.ENCRYPTION_KEY;
+
+  afterEach(() => {
+    if (originalKey === undefined) delete process.env.ENCRYPTION_KEY;
+    else process.env.ENCRYPTION_KEY = originalKey;
+  });
+
+  it("returns a 32-byte Buffer from a valid 64-char hex ENCRYPTION_KEY", () => {
+    process.env.ENCRYPTION_KEY = "ab".repeat(32);
+    const key = getEncryptionKey();
+    expect(key).toBeInstanceOf(Buffer);
+    expect(key.length).toBe(32);
+  });
+
+  it("throws when ENCRYPTION_KEY is missing", () => {
+    delete process.env.ENCRYPTION_KEY;
+    expect(() => getEncryptionKey()).toThrow("ENCRYPTION_KEY");
+  });
+
+  it("throws when ENCRYPTION_KEY is not 64 chars", () => {
+    process.env.ENCRYPTION_KEY = "abc123";
+    expect(() => getEncryptionKey()).toThrow("ENCRYPTION_KEY");
+  });
+});
+
+describe("getKeyVersion", () => {
+  const originalVersion = process.env.ENCRYPTION_KEY_VERSION;
+
+  afterEach(() => {
+    if (originalVersion === undefined) delete process.env.ENCRYPTION_KEY_VERSION;
+    else process.env.ENCRYPTION_KEY_VERSION = originalVersion;
+  });
+
+  it("returns 1 when ENCRYPTION_KEY_VERSION is not set", () => {
+    delete process.env.ENCRYPTION_KEY_VERSION;
+    expect(getKeyVersion()).toBe(1);
+  });
+
+  it("returns the configured version", () => {
+    process.env.ENCRYPTION_KEY_VERSION = "3";
+    expect(getKeyVersion()).toBe(3);
   });
 });

@@ -269,6 +269,28 @@ describe("void-actions", () => {
 
       expect(result).toHaveLength(1);
     });
+
+    it("filters by dateFrom when provided", async () => {
+      mockSelect
+        .mockReturnValueOnce(makeSelectBuilder([FAKE_SALE_DOC]))
+        .mockReturnValueOnce(makeSelectBuilder(FAKE_DOC_LINES));
+
+      const { searchReceipts } = await import("./void-actions");
+      const result = await searchReceipts("biz-789", { dateFrom: "2026-01-01" });
+
+      expect(result).toHaveLength(1);
+    });
+
+    it("filters by dateTo when provided", async () => {
+      mockSelect
+        .mockReturnValueOnce(makeSelectBuilder([FAKE_SALE_DOC]))
+        .mockReturnValueOnce(makeSelectBuilder(FAKE_DOC_LINES));
+
+      const { searchReceipts } = await import("./void-actions");
+      const result = await searchReceipts("biz-789", { dateTo: "2026-03-01" });
+
+      expect(result).toHaveLength(1);
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -361,6 +383,21 @@ describe("void-actions", () => {
       const result = await voidReceipt(VALID_VOID_INPUT);
 
       expect(result.error).toBeDefined();
+      expect(mockLogin).not.toHaveBeenCalled();
+    });
+
+    it("returns error when saleDoc has no adeTransactionId or adeProgressive", async () => {
+      mockSelect.mockReset();
+      mockSelect.mockReturnValueOnce(
+        makeSelectBuilder([
+          { ...FAKE_SALE_DOC, adeTransactionId: null, adeProgressive: null },
+        ]),
+      );
+
+      const { voidReceipt } = await import("./void-actions");
+      const result = await voidReceipt(VALID_VOID_INPUT);
+
+      expect(result.error).toMatch(/Dati AdE/i);
       expect(mockLogin).not.toHaveBeenCalled();
     });
 
