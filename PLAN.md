@@ -2,7 +2,7 @@
 
 ## Contesto
 
-Phase 0, 1A, 2A-2C, 1B (parziale), 3A, 3B, 4A, 4B, 4C, 4D, 4F completate. Il progetto ha 422 unit test + 8 E2E test.
+Phase 0, 1A, 2A-2C, 1B (parziale), 3A, 3B, 4A, 4B, 4C, 4D, 4F, 4G completate. Il progetto ha 464 unit test + 8 E2E test.
 Modulo AdE completo (MockAdeClient + RealAdeClient) con 92 test dedicati.
 Infrastruttura sicurezza: logger (pino), rate limiting, encryption (AES-256-GCM), Sentry.
 Auth: Supabase Auth con middleware, onboarding wizard 3-step, credenziali AdE cifrate.
@@ -11,7 +11,9 @@ UI cassa mobile-first: tastierino numerico, selezione IVA, riepilogo scontrino.
 Code review completata: security fixes (IDOR, open redirect, redaction), React best practices.
 Phase 4C completata: server action `emitReceipt` + `useMutation` TanStack Query + schermate success/error nella cassa.
 Phase 4D completata: storico scontrini + annullamento + link HTML ricevuta pubblica (`/r/[id]`).
-Prossimi step: Phase 4G (catalogo + navigazione mobile), 4H (onboarding refactor).
+Phase 4G completata: catalogo prodotti + bottom navigation bar mobile-first.
+HAR catalogo (aggiungi/modifica/elimina/ricerca_prodotto_catalogo.har) non letti — sync AdE catalogo rimandato.
+Prossimo step: Phase 4H (onboarding refactor).
 
 ---
 
@@ -213,36 +215,37 @@ Registrazione:
 
 - **Risultato:** 370 unit + 8 E2E test (+11: 10 `isStrongPassword` validation, 1 `confirmPassword` signUp)
 
-**4G: Catalogo prodotti/servizi + navigazione mobile ⬜**
+**4G: Catalogo prodotti/servizi + navigazione mobile ✅**
 
 Navigazione:
 
-- ⬜ Bottom navigation bar mobile-first (Catalogo, Cassa, Storico, Impostazioni) — `src/app/dashboard/layout.tsx`
-- ⬜ Home `/dashboard` → Catalogo (non più welcome/metrics)
+- ✅ Bottom navigation bar mobile-first (Catalogo, Cassa, Storico, Impostazioni) — `src/components/dashboard/bottom-nav.tsx` + `src/app/dashboard/layout.tsx`
+- ✅ Home `/dashboard` → Catalogo (non più welcome/metrics) — `src/app/dashboard/page.tsx`
 
 DB:
 
-- ⬜ Nuova tabella `catalog_items` — `src/db/schema/catalog-items.ts`
+- ✅ Nuova tabella `catalog_items` — `src/db/schema/catalog-items.ts`
   - `id`, `businessId` (FK → businesses, cascade), `description` (NOT NULL), `defaultPrice` (numeric, nullable), `defaultVatCode` (text, nullable), `createdAt`, `updatedAt`
-- ⬜ Migration Supabase + test schema
+- ✅ Migration `supabase/migrations/0004_catalog_items.sql`
 
 Server actions — `src/server/catalog-actions.ts`:
 
-- ⬜ `getCatalogItems(businessId)` → lista prodotti
-- ⬜ `addCatalogItem(input)` → crea prodotto
-- ⬜ `deleteCatalogItem(itemId, businessId)` → elimina con ownership check
+- ✅ `getCatalogItems(businessId)` → lista prodotti (ordinata per descrizione, fail-safe)
+- ✅ `addCatalogItem(input)` → crea prodotto (validazione description + price + vatCode + ownership)
+- ✅ `deleteCatalogItem(itemId, businessId)` → elimina con ownership check (IDOR-safe)
 
 UI — `src/components/catalogo/`:
 
-- ⬜ `catalogo-client.tsx` — lista card prodotti + bottone "+"
-- ⬜ `add-item-dialog.tsx` — dialog aggiunta (description obbligatoria, price + vatCode opzionali)
-- ⬜ Tap su prodotto → `/dashboard/cassa` con prodotto pre-selezionato (query params o store); tutto modificabile
-- ⬜ Conferma eliminazione (shadcn AlertDialog)
+- ✅ `catalogo-client.tsx` — lista card prodotti + bottone "+" + empty state
+- ✅ `add-item-dialog.tsx` — dialog aggiunta (description obbligatoria, price + vatCode opzionali)
+- ✅ Tap su prodotto → `/dashboard/cassa?description=...&price=...&vatCode=...` (query params)
+- ✅ Conferma eliminazione inline nella card (no AlertDialog)
 
-HAR da analizzare (non bloccanti, per eventuale sync con AdE):
-`aggiungi_prodotto_catalogo.har`, `modifica_prodotto_catalogo.har`, `elimina_prodotto_catalogo.har`, `ricerca_prodotto_catalogo.har`
+HAR catalogo non letti (non bloccanti, rimandati): `aggiungi_prodotto_catalogo.har`, `modifica_prodotto_catalogo.har`, `elimina_prodotto_catalogo.har`, `ricerca_prodotto_catalogo.har`
 
-TODO futuro: bordo colorato card, modifica prodotto, cleanup DB documenti vecchi (valutare limiti Supabase 500MB)
+- **Risultato:** 42 nuovi test (16 catalog-actions + 9 catalogo-client + 10 add-item-dialog + 7 bottom-nav) → **464 unit + 8 E2E test**
+
+TODO futuro: bordo colorato card, modifica prodotto, sync AdE catalogo (HAR da leggere), cleanup DB documenti vecchi (valutare limiti Supabase 500MB)
 
 **4H: Onboarding refactor ⬜**
 
@@ -360,7 +363,7 @@ TODO futuro: SPID (`login_spid.har`), CIE (`login_cie.har`), pre-sessione AdE al
 | 4D (storico+annullo+PDF) ✅   | 40 (reali)  | 359 unit + 8 E2E     |
 | 4F (UI polish+reg) ✅         | 11 (reali)  | 370 unit + 8 E2E     |
 | 4D+ (ricevuta HTML pubbl.) ✅ | 52 (reali)  | 422 unit + 8 E2E     |
-| 4G (catalogo+nav)             | ~20         | ~394                 |
+| 4G (catalogo+nav) ✅          | 42 (reali)  | 464 unit + 8 E2E     |
 | 4H (onboarding refactor)      | ~25         | ~419                 |
 | 5 (PWA)                       | ~13         | ~432                 |
 | 6 (Stabilita')                | ~15         | ~447                 |
@@ -382,4 +385,4 @@ Ad ogni checkpoint:
 
 ## Prossimo passo immediato
 
-Iniziare con **Phase 4G**: catalogo prodotti + navigazione mobile (bottom nav bar).
+Iniziare con **Phase 4H**: onboarding refactor (firstName/lastName separati, rimozione P.IVA/CF → recupero da AdE, CAP validato, nazione IT fissa, preferredVatCode).
