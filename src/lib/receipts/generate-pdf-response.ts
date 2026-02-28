@@ -12,8 +12,8 @@ interface PdfReceiptInput {
     createdAt: Date;
   };
   biz: {
-    businessName: string;
-    vatNumber: string;
+    businessName: string | null;
+    vatNumber: string | null;
     address: string | null;
     city: string | null;
     province: string | null;
@@ -51,8 +51,8 @@ export async function generatePdfResponse(
   }));
 
   const pdfBuffer = await generateSaleReceiptPdf({
-    businessName: biz.businessName,
-    vatNumber: biz.vatNumber,
+    businessName: biz.businessName ?? "",
+    vatNumber: biz.vatNumber ?? "",
     address: biz.address,
     city: biz.city,
     province: biz.province,
