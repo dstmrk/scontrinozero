@@ -17,6 +17,7 @@ import type {
   AdeResponse,
   AdeSearchParams,
   FisconlineCredentials,
+  SpidCredentials,
 } from "./types";
 
 /** Sessione autenticata con il portale AdE */
@@ -30,8 +31,17 @@ export interface AdeSession {
 }
 
 export interface AdeClient {
-  /** Autentica sul portale AdE e restituisce una sessione */
+  /** Autentica sul portale AdE con credenziali Fisconline e restituisce una sessione */
   login(credentials: FisconlineCredentials): Promise<AdeSession>;
+
+  /**
+   * Autentica sul portale AdE tramite SPID e restituisce una sessione.
+   *
+   * HAR finding (login_spid.har): flusso SAML2 HTTP POST Binding via broker Sogei
+   * (spid.sogei.it). 2FA tramite push notification sul dispositivo mobile.
+   * NOTA: le sessioni SPID non supportano re-auth automatico (no PIN).
+   */
+  loginSpid(credentials: SpidCredentials): Promise<AdeSession>;
 
   /** Invia un documento commerciale di vendita */
   submitSale(payload: AdePayload): Promise<AdeResponse>;

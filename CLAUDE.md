@@ -9,17 +9,17 @@ all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la pr
 
 ## Roadmap e piano di sviluppo
 
-Il piano di sviluppo dettagliato con fasi sequenziali, test attesi e checkpoint di review
-è in **`PLAN.md`** (root del repo). Il **`ROADMAP.md`** contiene il riepilogo ad alto livello.
+Il piano di sviluppo con fasi sequenziali, test attesi, checkpoint di review, riepilogo visuale
+e backlog è in **`PLAN.md`** (root del repo).
 
-**Fase corrente:** Phase 4I (attende `dati_doc_commerciale.har`) / 4J (attende HAR SPID)
+**Fase corrente:** Phase 4I ⬜ (dati_doc_commerciale AdE — `dati_doc_commerciale.har` disponibile)
 
 **Approccio TDD:** Per ogni fase, scrivere i test PRIMA dell'implementazione.
 I test di validazione e degli endpoint usano `vi.mock` per isolare le dipendenze (Drizzle, etc.).
 
 **Sequenza fasi:** 0 ✅ → 1A ✅ → 2 ✅ (AdE spike) → 1B ✅ (landing) → 3A ✅ (security infra) →
 3B ✅ (auth) → 4A-4D ✅ (MVP core) → 4F ✅ (UI polish) → 4G ✅ (catalogo+nav) → 4H ✅ (onboarding refactor) →
-4I ⬜ (dati_doc_commerciale AdE) → 4J ⬜ (SPID login) →
+4J ✅ (SPID login) → 4I ⬜ (dati_doc_commerciale AdE) →
 5 (PWA) → 6 (stabilità) → 7 (Stripe) → 8 (lancio)
 
 ## Principi di prodotto
@@ -94,16 +94,16 @@ per il target non tecnico.
 
 ### Frontend
 
-| Tecnologia                   | Ruolo                      | Note                                       |
-| ---------------------------- | -------------------------- | ------------------------------------------ |
-| **Next.js 15+** (App Router) | Framework React full-stack | SSR/SSG, API routes, server actions        |
-| **React 19**                 | UI library                 |                                            |
-| **TypeScript**               | Type safety                | Strict mode                                |
-| **Tailwind CSS 4**           | Styling utility-first      |                                            |
-| **shadcn/ui**                | Component library          | Copy-paste, customizzabile, Radix UI sotto |
-| **TanStack Query v5**        | Data fetching client-side  | Cache, mutations, optimistic updates       |
-| **TanStack Table**           | Tabelle dati               | Già integrato in shadcn/ui DataTable       |
-| **PWA** (@serwist/next)      | Mobile-first installabile  | Service worker, offline shell, manifest    |
+| Tecnologia                  | Ruolo                      | Note                                       |
+| --------------------------- | -------------------------- | ------------------------------------------ |
+| **Next.js 16** (App Router) | Framework React full-stack | SSR/SSG, API routes, server actions        |
+| **React 19**                | UI library                 |                                            |
+| **TypeScript**              | Type safety                | Strict mode                                |
+| **Tailwind CSS 4**          | Styling utility-first      |                                            |
+| **shadcn/ui**               | Component library          | Copy-paste, customizzabile, Radix UI sotto |
+| **TanStack Query v5**       | Data fetching client-side  | Cache, mutations, optimistic updates       |
+| **TanStack Table**          | Tabelle dati               | Già integrato in shadcn/ui DataTable       |
+| **PWA** (@serwist/next)     | Mobile-first installabile  | Service worker, offline shell, manifest    |
 
 ### Backend
 

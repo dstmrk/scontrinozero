@@ -54,3 +54,20 @@ export class AdeNetworkError extends AdeError {
     this.cause = cause;
   }
 }
+
+/**
+ * SPID push notification not confirmed within the polling window.
+ *
+ * HAR finding (login_spid.har): the mobile app must approve the login
+ * request before the session can be established. If the user doesn't
+ * respond in time, this error is raised.
+ */
+export class AdeSpidTimeoutError extends AdeError {
+  constructor(maxPolls: number) {
+    super(
+      "ADE_SPID_TIMEOUT",
+      `SPID push notification not approved after ${maxPolls} polls`,
+    );
+    this.name = "AdeSpidTimeoutError";
+  }
+}

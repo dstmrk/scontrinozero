@@ -16,6 +16,7 @@ import type {
   AdeProduct,
   AdeResponse,
   AdeSearchParams,
+  SpidCredentials,
 } from "./types";
 
 export class MockAdeClient implements AdeClient {
@@ -30,6 +31,15 @@ export class MockAdeClient implements AdeClient {
   }): Promise<AdeSession> {
     this.session = {
       pAuth: `mock_p_auth_${Date.now()}`,
+      partitaIva: credentials.codiceFiscale.slice(0, 11).padEnd(11, "0"),
+      createdAt: Date.now(),
+    };
+    return this.session;
+  }
+
+  async loginSpid(credentials: SpidCredentials): Promise<AdeSession> {
+    this.session = {
+      pAuth: `mock_p_auth_spid_${Date.now()}`,
       partitaIva: credentials.codiceFiscale.slice(0, 11).padEnd(11, "0"),
       createdAt: Date.now(),
     };

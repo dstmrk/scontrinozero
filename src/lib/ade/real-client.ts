@@ -18,6 +18,7 @@ import type {
   AdeResponse,
   AdeSearchParams,
   FisconlineCredentials,
+  SpidCredentials,
 } from "./types";
 import { CookieJar } from "./cookie-jar";
 import {
@@ -25,7 +26,16 @@ import {
   AdeNetworkError,
   AdePortalError,
   AdeSessionExpiredError,
+  AdeSpidTimeoutError,
 } from "./errors";
+
+/** Opzioni costruttore per RealAdeClient */
+export interface RealAdeClientOptions {
+  /** Intervallo di polling push notification SPID in ms (default: 7000). 0 in test. */
+  spidPollIntervalMs?: number;
+  /** Numero massimo di poll SPID prima del timeout (default: 30). */
+  spidMaxPolls?: number;
+}
 
 const ADE_BASE_URL = "https://ivaservizi.agenziaentrate.gov.it";
 
@@ -52,19 +62,29 @@ export class RealAdeClient implements AdeClient {
   private readonly cookieJar: CookieJar = new CookieJar();
   private credentials: FisconlineCredentials | null = null;
 
+  constructor(private readonly options: RealAdeClientOptions = {}) {}
+
   // -----------------------------------------------------------------------
   // HTTP foundation
   // -----------------------------------------------------------------------
 
-  /** Fetch wrapper that manages cookie jar and wraps network errors. */
+  /**
+   * Fetch wrapper that manages a cookie jar and wraps network errors.
+   *
+   * @param jar - Cookie jar to use. Defaults to this.cookieJar (AdE portal).
+   *              Pass a separate jar for IdP requests (SPID flow) to avoid
+   *              mixing AdE cookies with IdP-domain cookies.
+   */
   private async request(
     url: string,
     options?: RequestInit & { followRedirects?: boolean },
+    jar?: CookieJar,
   ): Promise<Response> {
+    const cookieJar = jar ?? this.cookieJar;
     const { followRedirects, ...fetchOptions } = options ?? {};
 
     const headers = new Headers(fetchOptions.headers);
-    const cookieValue = this.cookieJar.toHeaderValue();
+    const cookieValue = cookieJar.toHeaderValue();
     if (cookieValue) {
       headers.set("Cookie", cookieValue);
     }
@@ -75,7 +95,7 @@ export class RealAdeClient implements AdeClient {
         headers,
         redirect: followRedirects === false ? "manual" : "follow",
       });
-      this.cookieJar.applyResponse(response);
+      cookieJar.applyResponse(response);
       return response;
     } catch (err) {
       throw new AdeNetworkError(err);
@@ -102,12 +122,13 @@ export class RealAdeClient implements AdeClient {
   private async followRedirectChain(
     startUrl: string,
     maxHops = 20,
+    jar?: CookieJar,
   ): Promise<Response> {
     let url = startUrl;
     let hops = 0;
 
     while (hops < maxHops) {
-      const response = await this.request(url, { followRedirects: false });
+      const response = await this.request(url, { followRedirects: false }, jar);
 
       // Success (2xx) or server error: stop following
       if (response.status < 300 || response.status >= 400) {
@@ -289,11 +310,16 @@ export class RealAdeClient implements AdeClient {
   /**
    * Phase 6: Fetch the real Partita IVA from the portal.
    *
-   * HAR fix: the old code derived P.IVA by slicing the codice fiscale
-   * (codiceFiscale.slice(0, 11).padEnd(11, "0")) which is completely wrong —
-   * a CF is not a P.IVA and slicing it produces garbage.
+   * HAR fix (login_ade_fisconline.har): the old code derived P.IVA by slicing
+   * the codice fiscale (codiceFiscale.slice(0, 11).padEnd(11, "0")) which is
+   * completely wrong — a CF is not a P.IVA and slicing it produces garbage.
    * The real P.IVA is available at /ser/api/portale/v1/gestori/me/
    * in the JSON field: anagrafica.piva
+   *
+   * HAR finding (login_spid.har [163]): gestori/me returns 404 for SPID users
+   * (they are not "gestori" in AdE's sense). Fallback: fetch P.IVA from
+   * /ser/api/documenti/v1/doc/documenti/dati/fiscali (same endpoint used by
+   * getFiscalData()) → identificativiFiscali.partitaIva
    *
    * HAR note: selectEntity (scelta-utenza-lavoro) does NOT appear in the
    * captured flow — it is not needed for single-entity Fisconline accounts.
@@ -301,6 +327,11 @@ export class RealAdeClient implements AdeClient {
   private async fetchPartitaIva(): Promise<string> {
     const url = `${ADE_BASE_URL}/ser/api/portale/v1/gestori/me/`;
     const response = await this.request(url);
+
+    // SPID users get 404 from gestori/me → use dati/fiscali fallback
+    if (response.status === 404) {
+      return this.fetchPartitaIvaFromFiscali();
+    }
 
     if (!response.ok) {
       throw new AdePortalError(
@@ -324,7 +355,40 @@ export class RealAdeClient implements AdeClient {
     return piva;
   }
 
-  /** Full authentication flow (Phases 1-6). */
+  /**
+   * Fallback P.IVA fetch for SPID users (gestori/me returns 404).
+   *
+   * HAR finding (login_spid.har): SPID users must obtain P.IVA from
+   * dati/fiscali (the same endpoint used by getFiscalData()).
+   * Field: identificativiFiscali.partitaIva
+   */
+  private async fetchPartitaIvaFromFiscali(): Promise<string> {
+    const url = `${ADE_BASE_URL}/ser/api/documenti/v1/doc/documenti/dati/fiscali`;
+    const response = await this.request(url);
+
+    if (!response.ok) {
+      throw new AdePortalError(
+        response.status,
+        `Failed to fetch dati/fiscali for P.IVA: status ${response.status}`,
+      );
+    }
+
+    const data = (await response.json()) as {
+      identificativiFiscali?: { partitaIva?: string };
+    };
+    const piva = data?.identificativiFiscali?.partitaIva;
+
+    if (!piva) {
+      throw new AdePortalError(
+        200,
+        "Failed to extract Partita IVA from dati/fiscali response",
+      );
+    }
+
+    return piva;
+  }
+
+  /** Full Fisconline authentication flow (Phases 1-6). */
   private async authenticate(
     credentials: FisconlineCredentials,
   ): Promise<AdeSession> {
@@ -334,13 +398,489 @@ export class RealAdeClient implements AdeClient {
     await this.initDataPowerSession(); // Phase 3b: DataPower ping (REQUIRED before /ser/api/*)
     await this.activateSession(); // Phase 4: DatiOpzioni portlet
     await this.verifySession(); // Phase 5: 200 probe
-    const partitaIva = await this.fetchPartitaIva(); // Phase 6: real P.IVA
+    const partitaIva = await this.fetchPartitaIva(); // Phase 6: real P.IVA (404→dati/fiscali)
 
     return {
       pAuth,
       partitaIva,
       createdAt: Date.now(),
     };
+  }
+
+  // -----------------------------------------------------------------------
+  // SPID authentication helpers (HAR: login_spid.har)
+  // -----------------------------------------------------------------------
+
+  /**
+   * Parse a hidden input value from HTML by name attribute.
+   * Handles both name-first and value-first attribute orderings.
+   */
+  private parseHiddenInput(html: string, name: string): string | null {
+    const safePattern = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const nameFirst = new RegExp(
+      `name=["']${safePattern}["'][^>]*?value=["']([^"']*)["']`,
+      "is",
+    );
+    const valueFirst = new RegExp(
+      `value=["']([^"']*)["'][^>]*?name=["']${safePattern}["']`,
+      "is",
+    );
+    return (nameFirst.exec(html) ?? valueFirst.exec(html))?.[1] ?? null;
+  }
+
+  /** Parse form action URL from HTML. */
+  private parseFormAction(html: string): string | null {
+    return /<form[^>]+action=["']([^"']+)["']/i.exec(html)?.[1] ?? null;
+  }
+
+  /**
+   * S1: GET AdE SP entry point for SPID → HTML form with SAMLRequest.
+   *
+   * HAR finding (login_spid.har [30]):
+   *   GET /dp/SPID/{provider}/s4 → HTML auto-submit form with SAMLRequest,
+   *   RelayState="FeC", action=IdP SSOService URL.
+   */
+  private async spidFetchSamlRequest(provider: string): Promise<{
+    ssoUrl: string;
+    samlRequest: string;
+    relayState: string;
+  }> {
+    const url = `${ADE_BASE_URL}/dp/SPID/${provider}/s4`;
+    const response = await this.request(url);
+    const html = await response.text();
+
+    const ssoUrl = this.parseFormAction(html);
+    const samlRequest = this.parseHiddenInput(html, "SAMLRequest");
+    const relayState = this.parseHiddenInput(html, "RelayState");
+
+    if (!ssoUrl || !samlRequest || !relayState) {
+      throw new AdePortalError(
+        200,
+        "Failed to parse SAMLRequest form from SPID entry point",
+      );
+    }
+
+    return { ssoUrl, samlRequest, relayState };
+  }
+
+  /**
+   * S2: POST SAMLRequest to IdP SSOService → 303 → loginform.php?AuthState=...
+   *
+   * HAR finding (login_spid.har [31]):
+   *   POST https://identity.sieltecloud.it/simplesaml/saml2/idp/SSOService.php
+   *   Body: SAMLRequest=...&RelayState=FeC
+   *   Response: 303, Location: .../loginuserpass.php?AuthState=_xyz
+   */
+  private async spidPostToIdp(
+    ssoUrl: string,
+    samlRequest: string,
+    relayState: string,
+    idpJar: CookieJar,
+  ): Promise<{ loginformUrl: string; authState: string }> {
+    const body = new URLSearchParams({
+      SAMLRequest: samlRequest,
+      RelayState: relayState,
+    });
+
+    const response = await this.request(
+      ssoUrl,
+      {
+        method: "POST",
+        body: body.toString(),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        followRedirects: false,
+      },
+      idpJar,
+    );
+
+    const location = response.headers.get("Location") ?? "";
+    if (!location) {
+      throw new AdePortalError(
+        response.status,
+        "SPID: no redirect from IdP SSOService after SAMLRequest POST",
+      );
+    }
+
+    // Extract AuthState from the redirect URL
+    const authStateMatch = /[?&]AuthState=([^&]+)/.exec(location);
+    if (!authStateMatch) {
+      throw new AdePortalError(
+        response.status,
+        "SPID: AuthState not found in loginform redirect Location",
+      );
+    }
+
+    const loginformUrl = location.startsWith("http")
+      ? location
+      : `${new URL(ssoUrl).origin}${location}`;
+
+    return {
+      loginformUrl,
+      authState: decodeURIComponent(authStateMatch[1]),
+    };
+  }
+
+  /**
+   * S3: GET loginform to seed IdP session cookies.
+   *
+   * HAR finding (login_spid.har [32]):
+   *   GET loginuserpass.php?AuthState=... → 200 (login form)
+   */
+  private async spidGetLoginForm(
+    loginformUrl: string,
+    idpJar: CookieJar,
+  ): Promise<void> {
+    await this.request(loginformUrl, {}, idpJar);
+  }
+
+  /**
+   * S4: POST user credentials to loginform.
+   *
+   * HAR finding (login_spid.har [52]):
+   *   POST loginuserpass.php
+   *   Body: cancel=false, username=CF, password=PWD, AuthState=...
+   *   Response: 200 (2FA method choice page)
+   */
+  private async spidPostCredentials(
+    loginformUrl: string,
+    credentials: SpidCredentials,
+    authState: string,
+    idpJar: CookieJar,
+  ): Promise<void> {
+    const body = new URLSearchParams({
+      cancel: "false",
+      username: credentials.codiceFiscale,
+      password: credentials.password,
+      AuthState: authState,
+    });
+
+    await this.request(
+      loginformUrl,
+      {
+        method: "POST",
+        body: body.toString(),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      },
+      idpJar,
+    );
+  }
+
+  /**
+   * S4b: Select push notification 2FA method → waiting page.
+   * Returns the NotifyPage URL parsed from the waiting page HTML.
+   *
+   * HAR finding (login_spid.har [72]):
+   *   POST loginuserpass.php
+   *   Body: cancel=false, switch=, username=CF, useapp=, usenotify=true, AuthState=...
+   *   Response: 200 (waiting for push notification page, contains NotifyPage URL)
+   */
+  private async spidSelectPushNotify(
+    loginformUrl: string,
+    credentials: SpidCredentials,
+    authState: string,
+    idpJar: CookieJar,
+  ): Promise<string> {
+    const body = new URLSearchParams({
+      cancel: "false",
+      switch: "",
+      username: credentials.codiceFiscale,
+      useapp: "",
+      usenotify: "true",
+      AuthState: authState,
+    });
+
+    const response = await this.request(
+      loginformUrl,
+      {
+        method: "POST",
+        body: body.toString(),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      },
+      idpJar,
+    );
+
+    const html = await response.text();
+
+    // Try to extract NotifyPage URL from the waiting page HTML
+    const notifyMatch = /['"]([^'"]*NotifyPage[^'"]*)['"]/i.exec(html);
+    if (notifyMatch) {
+      const notifyPath = notifyMatch[1];
+      if (notifyPath.startsWith("http")) return notifyPath;
+
+      const idpBase = new URL(loginformUrl).origin;
+      return `${idpBase}${notifyPath.startsWith("/") ? "" : "/"}${notifyPath}`;
+    }
+
+    // Fallback: construct from IdP base + SimpleSAMLphp convention
+    const idpBase = new URL(loginformUrl).origin;
+    return `${idpBase}/simplesaml/module.php/notify/NotifyPage.php`;
+  }
+
+  /**
+   * S5: Poll NotifyPage until push notification is approved (body changes).
+   *
+   * HAR finding (login_spid.har [94-96]):
+   *   POST NotifyPage.php, header X-Requested-With: XMLHttpRequest
+   *   Body: AuthState=...
+   *   Responses: 200, ~50 bytes (pending) → 200, ~57 bytes (approved)
+   *   Detection: response body changes from baseline → notification approved.
+   */
+  private async spidPollNotify(
+    notifyUrl: string,
+    authState: string,
+    idpJar: CookieJar,
+  ): Promise<void> {
+    const maxPolls = this.options.spidMaxPolls ?? 30;
+    const intervalMs = this.options.spidPollIntervalMs ?? 7000;
+    let pendingBody: string | null = null;
+
+    for (let i = 0; i < maxPolls; i++) {
+      const body = new URLSearchParams({ AuthState: authState });
+
+      const response = await this.request(
+        notifyUrl,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-Requested-With": "XMLHttpRequest",
+          },
+          body: body.toString(),
+        },
+        idpJar,
+      );
+
+      const responseBody = await response.text();
+
+      if (pendingBody === null) {
+        // First poll: record the "pending" baseline
+        pendingBody = responseBody;
+      } else if (responseBody !== pendingBody) {
+        // Body changed → push notification approved
+        return;
+      }
+
+      if (i < maxPolls - 1 && intervalMs > 0) {
+        await new Promise<void>((resolve) => setTimeout(resolve, intervalMs));
+      }
+    }
+
+    throw new AdeSpidTimeoutError(maxPolls);
+  }
+
+  /**
+   * S6: POST accedi=1 to loginform after push approval → 303 → accept.php.
+   * Returns the accept.php URL from the Location header.
+   *
+   * HAR finding (login_spid.har [97]):
+   *   POST loginuserpass.php
+   *   Body: cancel=false, password=, switch=, username=CF, newNotify=,
+   *         useapp=, accedi=1, AuthState=...
+   *   Response: 303, Location: .../accept.php?AuthState=...
+   */
+  private async spidPostAccedi(
+    loginformUrl: string,
+    credentials: SpidCredentials,
+    authState: string,
+    idpJar: CookieJar,
+  ): Promise<string> {
+    const body = new URLSearchParams({
+      cancel: "false",
+      password: "",
+      switch: "",
+      username: credentials.codiceFiscale,
+      newNotify: "",
+      useapp: "",
+      accedi: "1",
+      AuthState: authState,
+    });
+
+    const response = await this.request(
+      loginformUrl,
+      {
+        method: "POST",
+        body: body.toString(),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        followRedirects: false,
+      },
+      idpJar,
+    );
+
+    const location = response.headers.get("Location") ?? "";
+    if (!location) {
+      throw new AdePortalError(
+        response.status,
+        "SPID: no redirect from loginform after accedi=1",
+      );
+    }
+
+    return location.startsWith("http")
+      ? location
+      : `${new URL(loginformUrl).origin}${location}`;
+  }
+
+  /**
+   * S7: GET accept.php (consent page).
+   *
+   * HAR finding (login_spid.har [98]):
+   *   GET accept.php?AuthState=... → 200 (consent page)
+   */
+  private async spidGetAccept(
+    acceptUrl: string,
+    idpJar: CookieJar,
+  ): Promise<void> {
+    await this.request(acceptUrl, {}, idpJar);
+  }
+
+  /**
+   * S8: POST accept=true → IdP returns SAMLResponse HTML auto-submit form.
+   *
+   * HAR finding (login_spid.har [114]):
+   *   POST accept.php
+   *   Body: accept=true, AuthState=...
+   *   Response: 200, HTML form with SAMLResponse + RelayState targeting AdE /dp/SPID
+   */
+  private async spidPostAccept(
+    acceptUrl: string,
+    authState: string,
+    idpJar: CookieJar,
+  ): Promise<{ samlResponse: string; relayState: string; formAction: string }> {
+    const body = new URLSearchParams({ accept: "true", AuthState: authState });
+
+    const response = await this.request(
+      acceptUrl,
+      {
+        method: "POST",
+        body: body.toString(),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      },
+      idpJar,
+    );
+
+    const html = await response.text();
+    const samlResponse = this.parseHiddenInput(html, "SAMLResponse");
+    const relayState = this.parseHiddenInput(html, "RelayState");
+    const formAction = this.parseFormAction(html) ?? `${ADE_BASE_URL}/dp/SPID`;
+
+    if (!samlResponse || !relayState) {
+      throw new AdePortalError(
+        200,
+        "SPID: failed to parse SAMLResponse from accept.php response",
+      );
+    }
+
+    return { samlResponse, relayState, formAction };
+  }
+
+  /**
+   * S9: POST SAMLResponse to AdE SP → 302 → follow redirect chain to portal.
+   *
+   * HAR finding (login_spid.har [116-118]):
+   *   POST /dp/SPID (SAMLResponse, RelayState=FeC) → 302 → /portale/ →
+   *   302 → /portale/web/guest/home → 200 (authenticated)
+   */
+  private async spidPostSamlResponse(
+    samlResponse: string,
+    relayState: string,
+    formAction: string,
+  ): Promise<void> {
+    const body = new URLSearchParams({
+      SAMLResponse: samlResponse,
+      RelayState: relayState,
+    });
+
+    const response = await this.request(formAction, {
+      method: "POST",
+      body: body.toString(),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      followRedirects: false,
+    });
+
+    const location = response.headers.get("Location") ?? "";
+    if (!location) {
+      throw new AdePortalError(
+        response.status,
+        "SPID: no redirect from AdE SP after SAMLResponse POST",
+      );
+    }
+
+    const redirectUrl = location.startsWith("http")
+      ? location
+      : `${ADE_BASE_URL}${location}`;
+
+    await this.followRedirectChain(redirectUrl);
+  }
+
+  /** Full SPID authentication flow (S1-S15). */
+  private async authenticateSpid(
+    credentials: SpidCredentials,
+  ): Promise<AdeSession> {
+    // S1: Get SAML request form from AdE SP
+    const { ssoUrl, samlRequest, relayState } = await this.spidFetchSamlRequest(
+      credentials.spidProvider,
+    );
+
+    const idpJar = new CookieJar();
+
+    // S2: POST SAMLRequest to IdP → loginform URL + AuthState
+    const { loginformUrl, authState } = await this.spidPostToIdp(
+      ssoUrl,
+      samlRequest,
+      relayState,
+      idpJar,
+    );
+
+    // S3: GET loginform (seeds IdP cookies)
+    await this.spidGetLoginForm(loginformUrl, idpJar);
+
+    // S4: POST credentials
+    await this.spidPostCredentials(
+      loginformUrl,
+      credentials,
+      authState,
+      idpJar,
+    );
+
+    // S4b: POST usenotify=true → get NotifyPage URL
+    const notifyUrl = await this.spidSelectPushNotify(
+      loginformUrl,
+      credentials,
+      authState,
+      idpJar,
+    );
+
+    // S5: Poll NotifyPage until push approved
+    await this.spidPollNotify(notifyUrl, authState, idpJar);
+
+    // S6: POST accedi=1 → accept.php URL
+    const acceptUrl = await this.spidPostAccedi(
+      loginformUrl,
+      credentials,
+      authState,
+      idpJar,
+    );
+
+    // S7: GET accept.php (consent page)
+    await this.spidGetAccept(acceptUrl, idpJar);
+
+    // S8: POST accept=true → SAMLResponse
+    const {
+      samlResponse,
+      relayState: returnRelayState,
+      formAction,
+    } = await this.spidPostAccept(acceptUrl, authState, idpJar);
+
+    // S9: POST SAMLResponse to AdE SP → follow redirect to portal
+    await this.spidPostSamlResponse(samlResponse, returnRelayState, formAction);
+
+    // S10-S14: Same post-auth phases as Fisconline
+    const pAuth = await this.extractPAuth(); // S11
+    await this.initDataPowerSession(); // S12
+    await this.activateSession(); // S13
+    await this.verifySession(); // S14
+    const partitaIva = await this.fetchPartitaIva(); // S15 (404→dati/fiscali for SPID)
+
+    return { pAuth, partitaIva, createdAt: Date.now() };
   }
 
   // -----------------------------------------------------------------------
@@ -351,6 +891,15 @@ export class RealAdeClient implements AdeClient {
     this.credentials = credentials;
     this.cookieJar.clear();
     this.session = await this.authenticate(credentials);
+    return this.session;
+  }
+
+  async loginSpid(credentials: SpidCredentials): Promise<AdeSession> {
+    // SPID sessions don't store credentials: no automatic re-auth on 401
+    // (user would need to approve the push notification again)
+    this.credentials = null;
+    this.cookieJar.clear();
+    this.session = await this.authenticateSpid(credentials);
     return this.session;
   }
 

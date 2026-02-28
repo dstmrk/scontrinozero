@@ -2,8 +2,9 @@
 
 ## Contesto
 
-Phase 0, 1A, 2A-2C, 1B (parziale), 3A, 3B, 4A, 4B, 4C, 4D, 4F, 4G, 4H completate. Il progetto ha 469 unit test + 8 E2E test.
-Modulo AdE completo (MockAdeClient + RealAdeClient) con 92 test dedicati.
+Phase 0, 1A, 2A-2C, 1B (parziale), 3A, 3B, 4A, 4B, 4C, 4D, 4F, 4G, 4H, 4J completate. Il progetto ha 502 unit test + 8 E2E test.
+Modulo AdE completo (MockAdeClient + RealAdeClient) con 55 test dedicati.
+Phase 4J completata: SPID login (SAML2 HTTP POST Binding via Sogei broker, push 2FA polling, fallback gestori/me→dati/fiscali per SPID users, MockAdeClient.loginSpid(), SpidCredentials/SpidProvider types, AdeSpidTimeoutError).
 Infrastruttura sicurezza: logger (pino), rate limiting, encryption (AES-256-GCM), Sentry.
 Auth: Supabase Auth con middleware, onboarding wizard 3-step, credenziali AdE cifrate.
 Schema DB scontrini: tabelle `commercial_documents` + `commercial_document_lines` con migration.
@@ -14,7 +15,27 @@ Phase 4D completata: storico scontrini + annullamento + link HTML ricevuta pubbl
 Phase 4G completata: catalogo prodotti + bottom navigation bar mobile-first.
 HAR catalogo (aggiungi/modifica/elimina/ricerca_prodotto_catalogo.har) non letti — sync AdE catalogo rimandato post-MVP.
 Phase 4H completata: onboarding refactor (firstName/lastName separati, rimozione P.IVA/CF → recupero da AdE, indirizzo completo, CAP validato, nazione IT fissa, preferredVatCode, migration 0005). Bug fix code review: getFiscalData() ora chiamato prima di logout() per garantire sessione AdE attiva.
-Prossimo step: Phase 4I (dati_doc_commerciale.har — aggiornamento dati business su AdE) quando il file HAR sarà disponibile. Poi 4J (SPID login) quando l'utente fornirà i file HAR.
+Prossimo step: Phase 4I (`dati_doc_commerciale.har` disponibile).
+
+---
+
+## Riepilogo visuale
+
+| Fase                          | Stato    | Note                                                                      |
+| ----------------------------- | -------- | ------------------------------------------------------------------------- |
+| 0 — Fondamenta                | ✅       | Next.js 16, shadcn/ui, CI/CD, Supabase, Drizzle                           |
+| 1A — Security fix + TDD       | ✅       | 23 unit test                                                              |
+| 2 — Integrazione AdE          | ✅       | MockAdeClient + RealAdeClient, 92 test                                    |
+| 1B — Landing page             | ✅ parz. | Privacy ✅, ToS ✅, Sitemap ✅ — JSON-LD/email/Umami ⬜                   |
+| 3A — Fondamenta sicurezza     | ✅       | Sentry, pino, rate limiting, AES-256-GCM                                  |
+| 3B — Auth + onboarding        | ✅       | Supabase Auth, wizard 3-step, credenziali cifrate                         |
+| 4A–4H — MVP core              | ✅       | Cassa, storico, PDF, catalogo, onboarding refactor — **469 unit + 8 E2E** |
+| 4J — SPID login               | ✅       | SAML2+push 2FA, fallback gestori/me→dati/fiscali — **502 unit + 8 E2E**   |
+| 4I — Dati doc commerciale AdE | ⬜       | `dati_doc_commerciale.har` disponibile                                    |
+| 5 — PWA                       | ⬜       | `@serwist/next`, manifest, install prompt                                 |
+| 6 — Stabilità + legale        | ⬜       | E2E suite completa, audit, doc legali                                     |
+| 7 — Stripe payments           | ⬜       | Billing, checkout, feature gating                                         |
+| 8 — Lancio                    | ⬜       | Deploy prod, waitlist, blog SEO                                           |
 
 ---
 
@@ -114,6 +135,7 @@ Prossimo step: Phase 4I (dati_doc_commerciale.har — aggiornamento dati busines
 - ⬜ Email conferma waitlist — Resend + template React Email
 - ⬜ Setup Umami analytics su VPS
 - ⬜ Deploy produzione `scontrinozero.it` (tag `v0.1.0`)
+- ℹ️ Cookie Policy: non necessaria (solo cookie tecnici Supabase auth + Umami cookieless — nessun banner GDPR richiesto)
 
 ---
 
@@ -305,7 +327,14 @@ Settings:
 - ⬜ Investigare durata sessione SPID vs Fisconline
 - Test TDD
 
-TODO futuro: CIE (`login_cie.har`), pre-sessione AdE persistente (da valutare dopo 4J)
+TODO futuro: CIE (`login_cie.har`), persistenza sessione AdE per SPID (cookie jar cifrato in DB)
+
+**Nota persistenza sessione SPID**: SPID è stateless (SAML assertion monouso). Quello che persiste
+è la sessione Liferay dell'AdE (JSESSIONID, LFR_SESSION, DataPower token). Per evitare che l'utente
+SPID debba ri-approvare la push ogni poche ore: serializzare la CookieJar con `jar.serialize()`,
+cifrarla con AES-256-GCM, salvarla in DB per utente. Al prossimo request: caricarla e riusarla.
+Se AdE risponde 401 → re-auth SPID (richiede interazione utente → notifica app/email).
+La sessione ScontrinoZero (Supabase JWT) è invece indefinita (refresh token rotante in cookie).
 
 **Test attesi 4F-4J:** ~80 unit + 2-3 E2E
 
@@ -341,6 +370,8 @@ TODO futuro: CIE (`login_cie.har`), pre-sessione AdE persistente (da valutare do
 - Suite E2E completa (tutti i flussi critici)
 - Audit error handling
 - Performance testing
+- ⬜ **Persistenza sessione AdE per SPID**: `jar.serialize()` → AES-256-GCM → DB;
+  ricaricamento al prossimo request; re-auth SPID on 401 con notifica utente
 
 **Test attesi:** 5-10 unit + 5-10 E2E
 
@@ -418,9 +449,36 @@ Ad ogni checkpoint:
 
 ## Prossimo passo immediato
 
-**Phase 4H completata.** Attendere file HAR:
+**Phase 4H completata.** Avviare **Phase 4J** (SPID login — `login_spid.har` disponibile).
+Poi **Phase 4I** (`dati_doc_commerciale.har` disponibile).
 
-- `dati_doc_commerciale.har` → per avviare **Phase 4I** (aggiornamento dati business su AdE)
-- HAR SPID login → per avviare **Phase 4J** (SPID login via AdE)
+---
 
-Se i file HAR non sono ancora disponibili, procedere con **Phase 5** (PWA + @serwist/next).
+## Backlog — Feature future (post-lancio)
+
+- ⬜ Import CSV/XLS prodotti
+- ⬜ Scanner barcode via fotocamera
+- ⬜ Stampa Bluetooth (58/80mm)
+- ⬜ Integrazione POS: SumUp, Nexi, Satispay
+- ⬜ Fatturazione elettronica (SDI)
+- ⬜ Dashboard avanzata: grafici, trend, export
+- ⬜ Dashboard base: totale giornaliero, conteggio (dopo 4G)
+- ⬜ Codice lotteria scontrini
+- ⬜ Multi-operatore: ruoli, log attività
+- ⬜ Integrazione e-commerce (WooCommerce, Shopify)
+- ⬜ Blog MDX per SEO organico
+- ⬜ Notifiche push (PWA)
+- ⬜ Modalità offline con coda di sincronizzazione
+- ⬜ API pubblica / webhook
+- ⬜ App Capacitor (feature native)
+- ⬜ CIE login (analizzare `login_cie.har`)
+- ⬜ Pre-sessione AdE al login per velocizzare emissione (Fisconline)
+- ⬜ Persistenza cookie jar AdE per sessioni SPID multi-giorno (Phase 6)
+- ⬜ Bordo colorato card catalogo
+- ⬜ Modifica prodotto a catalogo
+- ⬜ Sync AdE catalogo (HAR: `aggiungi/modifica/elimina/ricerca_prodotto_catalogo.har`)
+- ⬜ Cleanup automatico DB documenti vecchi (valutare policy + limiti Supabase 500MB)
+- ⬜ Passkey support (registrazione)
+- ⬜ Cambio password (impostazioni profilo)
+- ⬜ Invia scontrino via email (Resend) dallo storico
+- ⬜ Email di benvenuto branded (Resend)

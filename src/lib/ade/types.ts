@@ -181,6 +181,30 @@ export interface FisconlineCredentials {
 }
 
 // ---------------------------------------------------------------------------
+// Credenziali SPID (sez. 1.3)
+// HAR finding (login_spid.har): flusso SAML2 HTTP POST Binding via broker
+// Sogei (spid.sogei.it). Nessun PIN — 2FA tramite push notification (Level 2).
+// I valori corrispondono ai path segment usati da AdE: /dp/SPID/{provider}/s4
+// ---------------------------------------------------------------------------
+
+export type SpidProvider =
+  | "aruba"
+  | "infocert"
+  | "intesa"
+  | "lepida"
+  | "namirial"
+  | "poste"
+  | "sielte"
+  | "spiditalia"
+  | "tim";
+
+export interface SpidCredentials {
+  codiceFiscale: string;
+  password: string;
+  spidProvider: SpidProvider;
+}
+
+// ---------------------------------------------------------------------------
 // Catalogo prodotti AdE (sez. 8) — endpoint: /ser/api/documenti/v1/doc/rubrica/prodotti
 // HAR finding (vendita.har): il portale usa questo endpoint per precompilare
 // le righe documento. Utile per la feature "Catalogo prodotti".
