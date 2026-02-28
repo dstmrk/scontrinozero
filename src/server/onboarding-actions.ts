@@ -216,13 +216,12 @@ export async function verifyAdeCredentials(
 
   try {
     await adeClient.login({ codiceFiscale, password, pin });
-    await adeClient.logout();
   } catch (err) {
     logger.error({ err, businessId }, "AdE credential verification failed");
     return { error: "Verifica fallita. Controlla le credenziali Fisconline." };
   }
 
-  // Fetch fiscal data from AdE and persist vatNumber + fiscalCode
+  // Fetch fiscal data from AdE while session is active
   try {
     const fiscalData = await adeClient.getFiscalData();
     const vatNumber = fiscalData.identificativiFiscali.partitaIva;
@@ -236,6 +235,8 @@ export async function verifyAdeCredentials(
     logger.error({ err, businessId }, "Failed to fetch fiscal data from AdE");
     // Non-blocking: verifica comunque riuscita, P.IVA/CF aggiunti in seguito
   }
+
+  await adeClient.logout();
 
   // Mark credentials as verified
   await db
