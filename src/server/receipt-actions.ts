@@ -83,9 +83,32 @@ export async function emitReceipt(
     .onConflictDoNothing()
     .returning({ id: commercialDocuments.id });
 
-  // Idempotency: document already exists for this key — return success
+  // Idempotency: a document with this key already exists
   if (!document) {
-    return {};
+    const [existing] = await db
+      .select({
+        id: commercialDocuments.id,
+        status: commercialDocuments.status,
+        adeTransactionId: commercialDocuments.adeTransactionId,
+        adeProgressive: commercialDocuments.adeProgressive,
+      })
+      .from(commercialDocuments)
+      .where(eq(commercialDocuments.idempotencyKey, input.idempotencyKey))
+      .limit(1);
+
+    if (existing?.status === "ACCEPTED") {
+      // Already submitted successfully — true idempotency return
+      return {
+        documentId: existing.id,
+        adeTransactionId: existing.adeTransactionId ?? undefined,
+        adeProgressive: existing.adeProgressive ?? undefined,
+      };
+    }
+    // PENDING or ERROR: document exists but submission never completed
+    return {
+      error:
+        "Scontrino precedente in stato inconsistente. Svuota il carrello e riprova.",
+    };
   }
 
   const documentId = document.id;
@@ -102,11 +125,14 @@ export async function emitReceipt(
     })),
   );
 
-  // Build sale document request
-  const totalAmount = input.lines.reduce(
-    (sum, line) => sum + line.grossUnitPrice * line.quantity,
-    0,
-  );
+  // Build sale document request (round to 2 decimal places to avoid float imprecision)
+  const totalAmount =
+    Math.round(
+      input.lines.reduce(
+        (sum, line) => sum + line.grossUnitPrice * line.quantity,
+        0,
+      ) * 100,
+    ) / 100;
   const saleDocRequest: SaleDocumentRequest = {
     date: new Date().toISOString().split("T")[0],
     customerTaxCode: null,

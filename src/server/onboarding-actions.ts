@@ -141,15 +141,15 @@ export async function saveAdeCredentials(
     return { error: "PIN Fisconline non valido (minimo 6 cifre)." };
   }
 
+  const ownershipError = await checkBusinessOwnership(user.id, businessId);
+  if (ownershipError) return ownershipError;
+
   const key = getEncryptionKey();
   const keyVersion = getKeyVersion();
 
   const encryptedCodiceFiscale = encrypt(codiceFiscale, key, keyVersion);
   const encryptedPassword = encrypt(password, key, keyVersion);
   const encryptedPin = encrypt(pin, key, keyVersion);
-
-  const ownershipError = await checkBusinessOwnership(user.id, businessId);
-  if (ownershipError) return ownershipError;
 
   const db = getDb();
 

@@ -114,3 +114,20 @@ export function getEncryptionKey(): Buffer {
 export function getKeyVersion(): number {
   return Number.parseInt(process.env.ENCRYPTION_KEY_VERSION || "1", 10);
 }
+
+/**
+ * KEY ROTATION WARNING
+ *
+ * The callers of decrypt() build the key map as:
+ *   new Map([[cred.keyVersion, getEncryptionKey()]])
+ *
+ * This means they always map the stored keyVersion to the CURRENT key.
+ * If you rotate (new ENCRYPTION_KEY + new ENCRYPTION_KEY_VERSION), old
+ * credentials encrypted with the previous key will fail to decrypt.
+ *
+ * Before rotating keys you MUST re-encrypt all ade_credentials rows
+ * with the new key first, THEN deploy the updated env vars.
+ *
+ * Future improvement: support multiple active keys via env vars so that
+ * zero-downtime rotation is possible without a re-encryption migration.
+ */
