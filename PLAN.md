@@ -13,7 +13,7 @@ Phase 4C completata: server action `emitReceipt` + `useMutation` TanStack Query 
 Phase 4D completata: storico scontrini + annullamento + link HTML ricevuta pubblica (`/r/[id]`).
 Phase 4G completata: catalogo prodotti + bottom navigation bar mobile-first.
 HAR catalogo (aggiungi/modifica/elimina/ricerca_prodotto_catalogo.har) non letti — sync AdE catalogo rimandato post-MVP.
-Phase 4H completata: onboarding refactor (firstName/lastName separati, rimozione P.IVA/CF → recupero da AdE, indirizzo completo, CAP validato, nazione IT fissa, preferredVatCode, migration 0005).
+Phase 4H completata: onboarding refactor (firstName/lastName separati, rimozione P.IVA/CF → recupero da AdE, indirizzo completo, CAP validato, nazione IT fissa, preferredVatCode, migration 0005). Bug fix code review: getFiscalData() ora chiamato prima di logout() per garantire sessione AdE attiva.
 Prossimo step: Phase 4I (dati_doc_commerciale.har — aggiornamento dati business su AdE) quando il file HAR sarà disponibile. Poi 4J (SPID login) quando l'utente fornirà i file HAR.
 
 ---
@@ -273,9 +273,10 @@ Step 0 — nuovi campi (ordine form):
 
 Step 2 — dopo verifica riuscita:
 
-- ✅ Chiamare `getFiscalData()` (già in `AdeClient`)
+- ✅ Chiamare `getFiscalData()` (già in `AdeClient`) — **prima** di `logout()` per sessione attiva
 - ✅ Salvare `vatNumber` + `fiscalCode` su `businesses` dal risultato AdE
 - ✅ Non bloccante: se getFiscalData fallisce, verifica ha comunque successo
+- ✅ Fix code review: ordine corretto → login → getFiscalData → logout → markVerified
 
 Cassa:
 
