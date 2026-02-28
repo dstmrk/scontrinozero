@@ -11,7 +11,7 @@ import { WaitlistForm } from "@/components/marketing/waitlist-form";
 import { FaqSection } from "@/components/marketing/faq-section";
 import {
   Smartphone,
-  Receipt,
+  ReceiptEuro,
   Clock,
   BarChart3,
   Shield,
@@ -133,7 +133,7 @@ export default function Home() {
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {
-                icon: Receipt,
+                icon: ReceiptEuro,
                 title: "Scontrino in 5 secondi",
                 description:
                   "Inserisci l'importo, conferma, fatto. La trasmissione all'Agenzia delle Entrate avviene in automatico.",

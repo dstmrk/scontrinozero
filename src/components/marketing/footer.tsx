@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Receipt } from "lucide-react";
+import { ReceiptEuro } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 export function Footer() {
@@ -9,7 +9,7 @@ export function Footer() {
         <div className="grid gap-8 md:grid-cols-3">
           <div>
             <div className="flex items-center gap-2">
-              <Receipt className="text-primary h-5 w-5" />
+              <ReceiptEuro className="text-primary h-5 w-5" />
               <span className="text-lg font-bold">ScontrinoZero</span>
             </div>
             <p className="text-muted-foreground mt-2 text-sm">
