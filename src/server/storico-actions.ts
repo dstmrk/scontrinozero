@@ -83,15 +83,16 @@ export async function searchReceipts(
       Math.round(
         docLines.reduce(
           (sum, l) =>
-            sum + parseFloat(l.grossUnitPrice) * parseFloat(l.quantity),
+            sum +
+            Number.parseFloat(l.grossUnitPrice) * Number.parseFloat(l.quantity),
           0,
         ) * 100,
       ) / 100;
 
     return {
       id: doc.id,
-      kind: doc.kind as "SALE" | "VOID",
-      status: doc.status as ReceiptListItem["status"],
+      kind: doc.kind,
+      status: doc.status,
       adeProgressive: doc.adeProgressive,
       adeTransactionId: doc.adeTransactionId,
       createdAt: doc.createdAt,
