@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getOnboardingStatus } from "@/server/onboarding-actions";
-import { searchReceipts } from "@/server/void-actions";
+import { searchReceipts } from "@/server/storico-actions";
 import { StoricoClient } from "@/components/storico/storico-client";
 
 /**
