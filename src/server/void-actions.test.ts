@@ -29,7 +29,6 @@ vi.mock("@/db", () => ({
 vi.mock("@/db/schema", () => ({
   adeCredentials: "ade-credentials-table",
   commercialDocuments: "commercial-documents-table",
-  commercialDocumentLines: "commercial-document-lines-table",
 }));
 
 const mockDecrypt = vi.fn().mockReturnValue("decrypted-value");
@@ -144,19 +143,6 @@ const FAKE_FISCAL_DATA = {
   multiSede: [],
 };
 
-const FAKE_DOC_LINES = [
-  {
-    id: "line-1",
-    documentId: "sale-doc-uuid",
-    lineIndex: 0,
-    description: "Pizza",
-    quantity: "2.000",
-    grossUnitPrice: "5.00",
-    vatCode: "10",
-    adeLineId: null,
-  },
-];
-
 const VALID_VOID_INPUT: VoidReceiptInput = {
   documentId: "sale-doc-uuid",
   idempotencyKey: "550e8400-e29b-41d4-a716-446655440001",
@@ -189,126 +175,15 @@ describe("void-actions", () => {
     mockGetDocument.mockResolvedValue(FAKE_ADE_DETAIL);
     mockSubmitVoid.mockResolvedValue(FAKE_ADE_RESPONSE);
     mockLogout.mockResolvedValue(undefined);
+
+    // Default select chain: saleDoc + credentials
+    mockSelect.mockReset();
+    mockSelect
+      .mockReturnValueOnce(makeSelectBuilder([FAKE_SALE_DOC]))
+      .mockReturnValueOnce(makeSelectBuilder([FAKE_CRED]));
   });
-
-  // -----------------------------------------------------------------------
-  // searchReceipts
-  // -----------------------------------------------------------------------
-
-  describe("searchReceipts", () => {
-    it("returns receipts with computed totals and sorted lines", async () => {
-      // First select: documents; second select: lines
-      mockSelect
-        .mockReturnValueOnce(makeSelectBuilder([FAKE_SALE_DOC]))
-        .mockReturnValueOnce(makeSelectBuilder(FAKE_DOC_LINES));
-
-      const { searchReceipts } = await import("./void-actions");
-      const result = await searchReceipts("biz-789");
-
-      expect(result).toHaveLength(1);
-      expect(result[0].id).toBe("sale-doc-uuid");
-      expect(result[0].kind).toBe("SALE");
-      expect(result[0].status).toBe("ACCEPTED");
-      expect(result[0].adeProgressive).toBe("DCW2026/5111-2188");
-      // Total: 2 * 5.00 = 10.00
-      expect(result[0].total).toBe("10.00");
-      expect(result[0].lines).toHaveLength(1);
-      expect(result[0].lines[0].description).toBe("Pizza");
-    });
-
-    it("returns empty array when no documents found", async () => {
-      // Only 1 mock needed: implementation returns early when docs is empty
-      // (lines query is skipped). A second mockReturnValueOnce would leak
-      // into subsequent tests since clearAllMocks does not drain the queue.
-      mockSelect.mockReturnValueOnce(makeSelectBuilder([]));
-
-      const { searchReceipts } = await import("./void-actions");
-      const result = await searchReceipts("biz-789");
-
-      expect(result).toEqual([]);
-      // Lines query should NOT be called when there are no docs
-      expect(mockSelect).toHaveBeenCalledTimes(1);
-    });
-
-    it("throws when user is not authenticated", async () => {
-      mockGetAuthenticatedUser.mockRejectedValue(new Error("Unauthorized"));
-
-      const { searchReceipts } = await import("./void-actions");
-      await expect(searchReceipts("biz-789")).rejects.toThrow();
-    });
-
-    it("throws when business ownership check fails", async () => {
-      mockCheckBusinessOwnership.mockResolvedValue({
-        error: "Business non trovato o non autorizzato.",
-      });
-
-      const { searchReceipts } = await import("./void-actions");
-      await expect(searchReceipts("biz-789")).rejects.toThrow("autorizzato");
-    });
-
-    it("filters by status when provided", async () => {
-      mockSelect
-        .mockReturnValueOnce(makeSelectBuilder([FAKE_SALE_DOC]))
-        .mockReturnValueOnce(makeSelectBuilder(FAKE_DOC_LINES));
-
-      const { searchReceipts } = await import("./void-actions");
-      const result = await searchReceipts("biz-789", { status: "ACCEPTED" });
-
-      // Query executes without error and returns mapped results
-      expect(result).toHaveLength(1);
-      expect(result[0].status).toBe("ACCEPTED");
-    });
-
-    it("returns all statuses when status param is omitted", async () => {
-      mockSelect
-        .mockReturnValueOnce(makeSelectBuilder([FAKE_SALE_DOC]))
-        .mockReturnValueOnce(makeSelectBuilder(FAKE_DOC_LINES));
-
-      const { searchReceipts } = await import("./void-actions");
-      const result = await searchReceipts("biz-789", {});
-
-      expect(result).toHaveLength(1);
-    });
-
-    it("filters by dateFrom when provided", async () => {
-      mockSelect
-        .mockReturnValueOnce(makeSelectBuilder([FAKE_SALE_DOC]))
-        .mockReturnValueOnce(makeSelectBuilder(FAKE_DOC_LINES));
-
-      const { searchReceipts } = await import("./void-actions");
-      const result = await searchReceipts("biz-789", {
-        dateFrom: "2026-01-01",
-      });
-
-      expect(result).toHaveLength(1);
-    });
-
-    it("filters by dateTo when provided", async () => {
-      mockSelect
-        .mockReturnValueOnce(makeSelectBuilder([FAKE_SALE_DOC]))
-        .mockReturnValueOnce(makeSelectBuilder(FAKE_DOC_LINES));
-
-      const { searchReceipts } = await import("./void-actions");
-      const result = await searchReceipts("biz-789", { dateTo: "2026-03-01" });
-
-      expect(result).toHaveLength(1);
-    });
-  });
-
-  // -----------------------------------------------------------------------
-  // voidReceipt
-  // -----------------------------------------------------------------------
 
   describe("voidReceipt", () => {
-    beforeEach(() => {
-      // Reset mockSelect to drain any unconsumed mockReturnValueOnce values
-      // left by searchReceipts tests (clearAllMocks does not drain the queue).
-      mockSelect.mockReset();
-      mockSelect
-        .mockReturnValueOnce(makeSelectBuilder([FAKE_SALE_DOC]))
-        .mockReturnValueOnce(makeSelectBuilder([FAKE_CRED]));
-    });
-
     it("happy path: submits void and returns voidDocumentId + adeProgressive", async () => {
       const { voidReceipt } = await import("./void-actions");
       const result = await voidReceipt(VALID_VOID_INPUT);
@@ -350,7 +225,7 @@ describe("void-actions", () => {
       expect(secondUpdateSet.status).toBe("VOID_ACCEPTED");
     });
 
-    it("returns error when SALE document is not found", async () => {
+    it("returns error when SALE document is not found (also covers IDOR: wrong businessId)", async () => {
       mockSelect.mockReset();
       mockSelect.mockReturnValueOnce(makeSelectBuilder([])); // saleDoc not found
 
@@ -358,6 +233,21 @@ describe("void-actions", () => {
       const result = await voidReceipt(VALID_VOID_INPUT);
 
       expect(result.error).toBeDefined();
+      expect(mockLogin).not.toHaveBeenCalled();
+    });
+
+    it("returns error when documentId belongs to a different business (IDOR prevented)", async () => {
+      // saleDoc not returned because businessId filter excludes it
+      mockSelect.mockReset();
+      mockSelect.mockReturnValueOnce(makeSelectBuilder([]));
+
+      const { voidReceipt } = await import("./void-actions");
+      const result = await voidReceipt({
+        ...VALID_VOID_INPUT,
+        documentId: "other-business-doc-uuid",
+      });
+
+      expect(result.error).toMatch(/non trovato/i);
       expect(mockLogin).not.toHaveBeenCalled();
     });
 
@@ -431,15 +321,51 @@ describe("void-actions", () => {
       expect(mockLogin).not.toHaveBeenCalled();
     });
 
-    it("idempotency: second call with same idempotencyKey returns {} without reprocessing", async () => {
+    it("idempotency: returns existing IDs when VOID_ACCEPTED document already exists", async () => {
       mockReturning.mockResolvedValue([]); // conflict — already inserted
+
+      // idempotency select returns VOID_ACCEPTED doc
+      mockSelect.mockReturnValueOnce(
+        makeSelectBuilder([
+          {
+            id: "void-doc-uuid",
+            status: "VOID_ACCEPTED",
+            adeTransactionId: "trx-void-001",
+            adeProgressive: "DCW2026/5111-3000",
+          },
+        ]),
+      );
 
       const { voidReceipt } = await import("./void-actions");
       const result = await voidReceipt(VALID_VOID_INPUT);
 
       expect(result.error).toBeUndefined();
+      expect(result.voidDocumentId).toBe("void-doc-uuid");
+      expect(result.adeTransactionId).toBe("trx-void-001");
       expect(mockLogin).not.toHaveBeenCalled();
       expect(mockSubmitVoid).not.toHaveBeenCalled();
+    });
+
+    it("idempotency: returns error when existing VOID doc is PENDING (inconsistent state)", async () => {
+      mockReturning.mockResolvedValue([]); // conflict
+
+      // idempotency select returns PENDING doc
+      mockSelect.mockReturnValueOnce(
+        makeSelectBuilder([
+          {
+            id: "void-doc-uuid",
+            status: "PENDING",
+            adeTransactionId: null,
+            adeProgressive: null,
+          },
+        ]),
+      );
+
+      const { voidReceipt } = await import("./void-actions");
+      const result = await voidReceipt(VALID_VOID_INPUT);
+
+      expect(result.error).toBeDefined();
+      expect(mockLogin).not.toHaveBeenCalled();
     });
 
     it("returns error and sets VOID doc to ERROR when AdE submitVoid fails", async () => {

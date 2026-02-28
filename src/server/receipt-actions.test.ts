@@ -228,13 +228,46 @@ describe("receipt-actions", () => {
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
-    it("idempotency: returns success without reprocessing on duplicate key", async () => {
+    it("idempotency: returns existing IDs when document is already ACCEPTED", async () => {
       mockDocumentReturning.mockResolvedValue([]); // Conflict — already exists
+
+      // Queue two limit() responses: 1st for credentials, 2nd for idempotency check
+      mockLimit.mockResolvedValueOnce([FAKE_CRED]).mockResolvedValueOnce([
+        {
+          id: "doc-123",
+          status: "ACCEPTED",
+          adeTransactionId: "trx-001",
+          adeProgressive: "001",
+        },
+      ]);
 
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt(VALID_INPUT);
 
       expect(result.error).toBeUndefined();
+      expect(result.documentId).toBe("doc-123");
+      expect(result.adeTransactionId).toBe("trx-001");
+      expect(mockLogin).not.toHaveBeenCalled();
+      expect(mockSubmitSale).not.toHaveBeenCalled();
+    });
+
+    it("idempotency: returns error when existing document is PENDING (inconsistent state)", async () => {
+      mockDocumentReturning.mockResolvedValue([]); // Conflict — already exists
+
+      // Queue two limit() responses: 1st for credentials, 2nd for idempotency check
+      mockLimit.mockResolvedValueOnce([FAKE_CRED]).mockResolvedValueOnce([
+        {
+          id: "doc-123",
+          status: "PENDING",
+          adeTransactionId: null,
+          adeProgressive: null,
+        },
+      ]);
+
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt(VALID_INPUT);
+
+      expect(result.error).toBeDefined();
       expect(mockLogin).not.toHaveBeenCalled();
       expect(mockSubmitSale).not.toHaveBeenCalled();
     });

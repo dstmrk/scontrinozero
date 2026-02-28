@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { ChevronDown } from "lucide-react";
-import { searchReceipts } from "@/server/void-actions";
+import { searchReceipts } from "@/server/storico-actions";
 import { VoidReceiptDialog } from "./void-receipt-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

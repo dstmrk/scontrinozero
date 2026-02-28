@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CheckCircle2, Share2, Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -18,6 +18,12 @@ export function ReceiptSuccess({
   onNewReceipt,
 }: ReceiptSuccessProps) {
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
 
   const now = new Date().toLocaleString("it-IT", {
     dateStyle: "short",
@@ -40,7 +46,6 @@ export function ReceiptSuccess({
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     } catch {
       // Clipboard not available
     }

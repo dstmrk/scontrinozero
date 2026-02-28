@@ -7,6 +7,7 @@ import {
   checkBusinessOwnership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
+import { logger } from "@/lib/logger";
 import { VAT_CODES } from "@/types/cassa";
 import type {
   AddCatalogItemInput,
@@ -45,7 +46,8 @@ export async function getCatalogItems(
       defaultVatCode: item.defaultVatCode as CatalogItem["defaultVatCode"],
       createdAt: item.createdAt,
     }));
-  } catch {
+  } catch (err) {
+    logger.error({ err, businessId }, "getCatalogItems failed unexpectedly");
     return [];
   }
 }
