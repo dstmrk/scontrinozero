@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Receipt } from "lucide-react";
+import { ReceiptEuro } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function Header() {
@@ -7,7 +7,7 @@ export function Header() {
     <header className="border-border/50 sticky top-0 z-50 border-b bg-white/80 backdrop-blur-sm">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2">
-          <Receipt className="text-primary h-5 w-5" />
+          <ReceiptEuro className="text-primary h-5 w-5" />
           <span className="text-lg font-bold">ScontrinoZero</span>
         </Link>
 
