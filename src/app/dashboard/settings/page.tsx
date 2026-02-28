@@ -5,6 +5,7 @@ import { getDb } from "@/db";
 import { profiles, businesses, adeCredentials } from "@/db/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { VAT_DESCRIPTIONS, type VatCode, VAT_CODES } from "@/types/cassa";
 
 export default async function SettingsPage() {
   const supabase = await createServerSupabaseClient();
@@ -44,6 +45,17 @@ export default async function SettingsPage() {
       )[0]
     : null;
 
+  const displayName =
+    profile?.firstName && profile?.lastName
+      ? `${profile.firstName} ${profile.lastName}`
+      : profile?.fullName || null;
+
+  const preferredVatLabel =
+    business?.preferredVatCode &&
+    VAT_CODES.includes(business.preferredVatCode as VatCode)
+      ? VAT_DESCRIPTIONS[business.preferredVatCode as VatCode]
+      : null;
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Impostazioni</h1>
@@ -55,7 +67,7 @@ export default async function SettingsPage() {
         <CardContent className="space-y-2">
           <p>
             <span className="text-muted-foreground">Nome:</span>{" "}
-            {profile?.fullName || "Non impostato"}
+            {displayName || "Non impostato"}
           </p>
           <p>
             <span className="text-muted-foreground">Email:</span> {user.email}
@@ -69,25 +81,43 @@ export default async function SettingsPage() {
             <CardTitle>Attivita</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <p>
-              <span className="text-muted-foreground">Nome:</span>{" "}
-              {business.businessName}
-            </p>
-            <p>
-              <span className="text-muted-foreground">P.IVA:</span>{" "}
-              {business.vatNumber}
-            </p>
+            {business.businessName && (
+              <p>
+                <span className="text-muted-foreground">Nome attività:</span>{" "}
+                {business.businessName}
+              </p>
+            )}
+            {business.vatNumber && (
+              <p>
+                <span className="text-muted-foreground">P.IVA:</span>{" "}
+                {business.vatNumber}
+              </p>
+            )}
             {business.fiscalCode && (
               <p>
                 <span className="text-muted-foreground">C.F.:</span>{" "}
                 {business.fiscalCode}
               </p>
             )}
-            {business.city && (
+            {(business.address || business.city) && (
               <p>
                 <span className="text-muted-foreground">Sede:</span>{" "}
-                {business.address && `${business.address}, `}
-                {business.city} {business.province && `(${business.province})`}
+                {[
+                  business.address,
+                  business.streetNumber,
+                  business.city && business.province
+                    ? `${business.city} (${business.province})`
+                    : (business.city ?? business.province),
+                  business.zipCode,
+                ]
+                  .filter(Boolean)
+                  .join(", ")}
+              </p>
+            )}
+            {preferredVatLabel && (
+              <p>
+                <span className="text-muted-foreground">IVA prevalente:</span>{" "}
+                {preferredVatLabel}
               </p>
             )}
           </CardContent>

@@ -15,6 +15,14 @@ import {
 
 const STEPS = ["Dati attivita", "Credenziali AdE", "Verifica"];
 
+const COMMON_VAT_CODES = [
+  { value: "22", label: "22% — Aliquota ordinaria" },
+  { value: "10", label: "10% — Aliquota ridotta" },
+  { value: "5", label: "5% — Aliquota super-ridotta" },
+  { value: "4", label: "4% — Aliquota minima" },
+  { value: "N2", label: "N2 — Non soggetto (es. regime forfettario)" },
+] as const;
+
 function StepIndicator({ current }: Readonly<{ current: number }>) {
   return (
     <div className="mb-6 flex items-center justify-center gap-2">
@@ -66,14 +74,24 @@ export function OnboardingForm({
 
   function handleBusinessSubmit(formData: FormData) {
     setError(null);
-    const businessName = (formData.get("businessName") as string)?.trim();
-    const vatNumber = (formData.get("vatNumber") as string)?.trim();
-    if (!businessName) {
-      setError("Il nome dell'attività è obbligatorio.");
+    const firstName = (formData.get("firstName") as string)?.trim();
+    const lastName = (formData.get("lastName") as string)?.trim();
+    const address = (formData.get("address") as string)?.trim();
+    const zipCode = (formData.get("zipCode") as string)?.trim();
+    if (!firstName) {
+      setError("Il nome è obbligatorio.");
       return;
     }
-    if (!vatNumber) {
-      setError("La Partita IVA è obbligatoria.");
+    if (!lastName) {
+      setError("Il cognome è obbligatorio.");
+      return;
+    }
+    if (!address) {
+      setError("L'indirizzo è obbligatorio.");
+      return;
+    }
+    if (!zipCode || !/^\d{5}$/.test(zipCode)) {
+      setError("CAP non valido (5 cifre numeriche).");
       return;
     }
     startTransition(async () => {
@@ -150,41 +168,96 @@ export function OnboardingForm({
 
           {step === 0 && (
             <form action={handleBusinessSubmit} className="space-y-4">
+              {/* Nome attività (opzionale) — prima di nome/cognome */}
               <div className="space-y-2">
-                <Label htmlFor="businessName">Nome attivita *</Label>
+                <Label htmlFor="businessName">Nome attività</Label>
                 <Input
                   id="businessName"
                   name="businessName"
-                  required
-                  placeholder="Es. Pizzeria Da Mario"
+                  placeholder="Es. Pizzeria Da Mario (opzionale)"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="vatNumber">Partita IVA *</Label>
-                <Input
-                  id="vatNumber"
-                  name="vatNumber"
-                  required
-                  maxLength={11}
-                  placeholder="12345678901"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="fiscalCode">Codice fiscale</Label>
-                <Input
-                  id="fiscalCode"
-                  name="fiscalCode"
-                  maxLength={16}
-                  placeholder="RSSMRA80A01H501U"
-                />
-              </div>
+
+              {/* Nome e Cognome */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="city">Citta</Label>
+                  <Label htmlFor="firstName">Nome *</Label>
+                  <Input
+                    id="firstName"
+                    name="firstName"
+                    required
+                    placeholder="Mario"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Cognome *</Label>
+                  <Input
+                    id="lastName"
+                    name="lastName"
+                    required
+                    placeholder="Rossi"
+                  />
+                </div>
+              </div>
+
+              {/* Aliquota IVA prevalente */}
+              <div className="space-y-2">
+                <Label htmlFor="preferredVatCode">
+                  Aliquota IVA prevalente
+                </Label>
+                <select
+                  id="preferredVatCode"
+                  name="preferredVatCode"
+                  className="bg-background border-input ring-offset-background focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                >
+                  <option value="">Seleziona (opzionale)</option>
+                  {COMMON_VAT_CODES.map((vc) => (
+                    <option key={vc.value} value={vc.value}>
+                      {vc.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Indirizzo e numero civico */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="address">Indirizzo *</Label>
+                  <Input
+                    id="address"
+                    name="address"
+                    required
+                    placeholder="Via Roma"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="streetNumber">N. civico</Label>
+                  <Input
+                    id="streetNumber"
+                    name="streetNumber"
+                    placeholder="1"
+                  />
+                </div>
+              </div>
+
+              {/* CAP, Città, Provincia */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="zipCode">CAP *</Label>
+                  <Input
+                    id="zipCode"
+                    name="zipCode"
+                    required
+                    maxLength={5}
+                    placeholder="00100"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="city">Città</Label>
                   <Input id="city" name="city" placeholder="Roma" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="province">Provincia</Label>
+                  <Label htmlFor="province">Prov.</Label>
                   <Input
                     id="province"
                     name="province"
@@ -193,21 +266,9 @@ export function OnboardingForm({
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 space-y-2 sm:col-span-1">
-                  <Label htmlFor="address">Indirizzo</Label>
-                  <Input id="address" name="address" placeholder="Via Roma 1" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="zipCode">CAP</Label>
-                  <Input
-                    id="zipCode"
-                    name="zipCode"
-                    maxLength={5}
-                    placeholder="00100"
-                  />
-                </div>
-              </div>
+
+              {/* Nazione fissa IT — non mostrata */}
+              <input type="hidden" name="nation" value="IT" />
 
               <Button type="submit" className="w-full" disabled={isPending}>
                 {isPending ? "Salvataggio..." : "Continua"}

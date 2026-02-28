@@ -141,8 +141,10 @@ Piano dettagliato con test e review checkpoint: vedi [`PLAN.md`](./PLAN.md)
 - ✅ PDF "Invia ricevuta" (API route + PDFKit, auth+ownership) — **359 unit + 8 E2E test**
 - ✅ **4F**: UI polish — cassa (importo vuoto placeholder, "Continua", ReceiptEuro), storico (paginazione 10/pag, bottoni annullo invertiti), registrazione (confirmPassword, isStrongPassword) — **370 unit + 8 E2E test**
 - ✅ **Ricevuta HTML pubblica** — link `/r/[id]` condivisibile (UUID come token opaco); pagina HTML mobile-first; Web Share API + fallback clipboard; PDF scaricabile senza auth; helper condivisi `fetchPublicReceipt` (UUID guard) + `generatePdfResponse` — **422 unit + 8 E2E test**
-- ✅ **4G**: Catalogo prodotti + navigazione mobile-first — bottom nav bar (`bottom-nav.tsx`), home → Catalogo, tabella `catalog_items` + migration, `getCatalogItems`/`addCatalogItem`/`deleteCatalogItem`, `catalogo-client.tsx` + `add-item-dialog.tsx`, tap prodotto → cassa con query params, eliminazione inline; HAR catalogo non letti (sync AdE rimandato) — **464 unit + 8 E2E test**
-- 🔵 **4H**: Onboarding refactor (firstName/lastName, rimuovi P.IVA/CF → da AdE, CAP 5 cifre, nazione IT fissa, preferredVatCode)
+- ✅ **4G**: Catalogo prodotti + navigazione mobile-first — bottom nav bar (`bottom-nav.tsx`), home → Catalogo, tabella `catalog_items` + migration, `getCatalogItems`/`addCatalogItem`/`deleteCatalogItem`, `catalogo-client.tsx` + `add-item-dialog.tsx`, tap prodotto → cassa con query params, eliminazione inline; HAR catalogo non letti (sync AdE rimandato post-MVP) — **464 unit + 8 E2E test**
+- ✅ **4H**: Onboarding refactor — migration 0005 (firstName/lastName su profiles, vat_number/business_name nullable, streetNumber/preferredVatCode); Step 0 refactored (nome attività prima, nome+cognome obbligatori, no P.IVA/CF); verifyAdeCredentials ora chiama getFiscalData() e persiste P.IVA+CF; default IVA in cassa da preferredVatCode; settings aggiornate — **469 unit + 8 E2E test**
+- ⬜ **4I**: Aggiornamento dati business su AdE (attende `dati_doc_commerciale.har`)
+- ⬜ **4J**: SPID login via AdE (attende HAR SPID)
 - ⬜ Dashboard base: totale giornaliero, conteggio (dopo 4G)
 - ⬜ Codice lotteria scontrini
 
@@ -214,7 +216,6 @@ Piano dettagliato con test e review checkpoint: vedi [`PLAN.md`](./PLAN.md)
 - ⬜ Modalità offline con coda di sincronizzazione
 - ⬜ API pubblica / webhook
 - ⬜ App Capacitor (feature native)
-- ⬜ SPID login (analizzare `login_spid.har`)
 - ⬜ CIE login (analizzare `login_cie.har`)
 - ⬜ Pre-sessione AdE al login per velocizzare emissione
 - ⬜ Bordo colorato card catalogo (scelto alla creazione)
@@ -233,4 +234,4 @@ Piano dettagliato con test e review checkpoint: vedi [`PLAN.md`](./PLAN.md)
 - **Fase 2 bloccante**: se l'integrazione AdE diretta fallisce, fallback su API terze parti
 - **Sicurezza prima delle credenziali**: Fase 3A (Sentry, encryption, rate limiting) precede la Fase 3B (auth + credenziali)
 - **Review checkpoint** dopo ogni fase critica — vedi PLAN.md per dettagli
-- **Target test al lancio**: ~470+ test (unit + integration + E2E)
+- **Target test al lancio**: ~545+ test (unit + integration + E2E)
