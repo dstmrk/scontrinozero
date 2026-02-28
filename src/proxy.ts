@@ -7,7 +7,7 @@ const PROTECTED_PREFIXES = ["/dashboard", "/onboarding"];
 /** Routes only for unauthenticated users (redirect to dashboard if logged in) */
 const AUTH_ONLY_PATHS = ["/login", "/register", "/reset-password"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // Skip auth checks if Supabase is not configured (E2E, local dev, self-hosted without auth)
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
     return NextResponse.next();
