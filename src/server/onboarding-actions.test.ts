@@ -46,10 +46,12 @@ vi.mock("@/lib/crypto", () => ({
 
 const mockLogin = vi.fn();
 const mockLogout = vi.fn();
+const mockGetFiscalData = vi.fn();
 vi.mock("@/lib/ade", () => ({
   createAdeClient: vi.fn().mockReturnValue({
     login: mockLogin,
     logout: mockLogout,
+    getFiscalData: mockGetFiscalData,
   }),
 }));
 
@@ -83,20 +85,51 @@ describe("onboarding-actions", () => {
   });
 
   describe("saveBusiness", () => {
-    it("returns error for missing business name", async () => {
+    const VALID_DATA = {
+      firstName: "Mario",
+      lastName: "Rossi",
+      address: "Via Roma",
+      zipCode: "00100",
+    };
+
+    it("returns error for missing first name", async () => {
       const { saveBusiness } = await import("./onboarding-actions");
       const result = await saveBusiness(
-        formData({ businessName: "", vatNumber: "12345678901" }),
+        formData({ ...VALID_DATA, firstName: "" }),
       );
-      expect(result.error).toContain("nome dell'attivita");
+      expect(result.error).toContain("nome");
     });
 
-    it("returns error for invalid VAT number", async () => {
+    it("returns error for missing last name", async () => {
       const { saveBusiness } = await import("./onboarding-actions");
       const result = await saveBusiness(
-        formData({ businessName: "Test Srl", vatNumber: "123" }),
+        formData({ ...VALID_DATA, lastName: "" }),
       );
-      expect(result.error).toContain("Partita IVA");
+      expect(result.error).toContain("cognome");
+    });
+
+    it("returns error for missing address", async () => {
+      const { saveBusiness } = await import("./onboarding-actions");
+      const result = await saveBusiness(
+        formData({ ...VALID_DATA, address: "" }),
+      );
+      expect(result.error).toContain("indirizzo");
+    });
+
+    it("returns error for invalid CAP (non-5-digit)", async () => {
+      const { saveBusiness } = await import("./onboarding-actions");
+      const result = await saveBusiness(
+        formData({ ...VALID_DATA, zipCode: "123" }),
+      );
+      expect(result.error).toContain("CAP");
+    });
+
+    it("returns error for CAP with non-numeric characters", async () => {
+      const { saveBusiness } = await import("./onboarding-actions");
+      const result = await saveBusiness(
+        formData({ ...VALID_DATA, zipCode: "AB123" }),
+      );
+      expect(result.error).toContain("CAP");
     });
 
     it("creates a new business when none exists", async () => {
@@ -108,13 +141,12 @@ describe("onboarding-actions", () => {
       mockReturning.mockResolvedValueOnce([{ id: "new-biz-id" }]);
 
       const { saveBusiness } = await import("./onboarding-actions");
-      const result = await saveBusiness(
-        formData({ businessName: "Pizzeria Roma", vatNumber: "12345678901" }),
-      );
+      const result = await saveBusiness(formData(VALID_DATA));
 
       expect(result.businessId).toBe("new-biz-id");
       expect(result.error).toBeUndefined();
       expect(mockInsert).toHaveBeenCalled();
+      expect(mockUpdate).toHaveBeenCalled(); // profiles firstName/lastName update
     });
 
     it("updates existing business", async () => {
@@ -125,20 +157,31 @@ describe("onboarding-actions", () => {
 
       const { saveBusiness } = await import("./onboarding-actions");
       const result = await saveBusiness(
-        formData({ businessName: "Pizzeria Roma", vatNumber: "12345678901" }),
+        formData({ ...VALID_DATA, businessName: "Pizzeria Roma" }),
       );
 
       expect(result.businessId).toBe("biz-789");
       expect(mockUpdate).toHaveBeenCalled();
     });
 
+    it("saves without businessName (optional field)", async () => {
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      mockLimit.mockResolvedValueOnce([]);
+      mockReturning.mockResolvedValueOnce([{ id: "new-biz-id" }]);
+
+      const { saveBusiness } = await import("./onboarding-actions");
+      // businessName intentionally omitted
+      const result = await saveBusiness(formData(VALID_DATA));
+
+      expect(result.error).toBeUndefined();
+      expect(result.businessId).toBe("new-biz-id");
+    });
+
     it("returns error when profile not found", async () => {
       mockLimit.mockResolvedValueOnce([]); // No profile
 
       const { saveBusiness } = await import("./onboarding-actions");
-      const result = await saveBusiness(
-        formData({ businessName: "Test", vatNumber: "12345678901" }),
-      );
+      const result = await saveBusiness(formData(VALID_DATA));
 
       expect(result.error).toContain("Profilo non trovato");
     });
@@ -268,7 +311,7 @@ describe("onboarding-actions", () => {
   });
 
   describe("verifyAdeCredentials", () => {
-    it("verifies credentials successfully", async () => {
+    it("verifies credentials successfully and fetches fiscal data", async () => {
       // Ownership check: profile found
       mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
       // Ownership check: business belongs to profile
@@ -285,6 +328,13 @@ describe("onboarding-actions", () => {
       ]);
       mockLogin.mockResolvedValue({});
       mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "12345678901",
+          codiceFiscale: "RSSMRA80A01H501U",
+        },
+      });
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
       const result = await verifyAdeCredentials("biz-789");
@@ -293,7 +343,39 @@ describe("onboarding-actions", () => {
       expect(result.error).toBeUndefined();
       expect(mockLogin).toHaveBeenCalled();
       expect(mockLogout).toHaveBeenCalled();
-      expect(mockUpdate).toHaveBeenCalled();
+      expect(mockGetFiscalData).toHaveBeenCalled();
+      expect(mockUpdate).toHaveBeenCalledTimes(2); // businesses vatNumber/fiscalCode + adeCredentials verifiedAt
+    });
+
+    it("marks credentials as verified even when getFiscalData fails", async () => {
+      // Ownership check: profile found
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      // Ownership check: business belongs to profile
+      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+      // Credentials found
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+        },
+      ]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockRejectedValue(
+        new Error("AdE fiscal data unavailable"),
+      );
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials("biz-789");
+
+      expect(result.error).toBeUndefined();
+      expect(result.businessId).toBe("biz-789");
+      expect(mockGetFiscalData).toHaveBeenCalled();
+      // Only 1 update (adeCredentials verifiedAt); businesses update was skipped
+      expect(mockUpdate).toHaveBeenCalledTimes(1);
     });
 
     it("returns error when credentials not found", async () => {

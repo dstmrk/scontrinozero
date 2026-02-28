@@ -34,14 +34,28 @@ export async function saveBusiness(
 ): Promise<OnboardingActionResult> {
   const user = await getAuthenticatedUser();
 
-  const businessName = (formData.get("businessName") as string)?.trim();
-  const vatNumber = (formData.get("vatNumber") as string)?.trim();
+  const firstName = (formData.get("firstName") as string)?.trim();
+  const lastName = (formData.get("lastName") as string)?.trim();
+  const businessName = (formData.get("businessName") as string)?.trim() || null;
+  const address = (formData.get("address") as string)?.trim();
+  const streetNumber = (formData.get("streetNumber") as string)?.trim() || null;
+  const zipCode = (formData.get("zipCode") as string)?.trim();
+  const city = (formData.get("city") as string)?.trim() || null;
+  const province = (formData.get("province") as string)?.trim() || null;
+  const preferredVatCode =
+    (formData.get("preferredVatCode") as string)?.trim() || null;
 
-  if (!businessName) {
-    return { error: "Il nome dell'attivita e obbligatorio." };
+  if (!firstName) {
+    return { error: "Il nome è obbligatorio." };
   }
-  if (!vatNumber || !/^\d{11}$/.test(vatNumber)) {
-    return { error: "Partita IVA non valida (11 cifre)." };
+  if (!lastName) {
+    return { error: "Il cognome è obbligatorio." };
+  }
+  if (!address) {
+    return { error: "L'indirizzo è obbligatorio." };
+  }
+  if (!zipCode || !/^\d{5}$/.test(zipCode)) {
+    return { error: "CAP non valido (5 cifre numeriche)." };
   }
 
   const db = getDb();
@@ -57,6 +71,12 @@ export async function saveBusiness(
     return { error: "Profilo non trovato." };
   }
 
+  // Save firstName + lastName on the profile
+  await db
+    .update(profiles)
+    .set({ firstName, lastName })
+    .where(eq(profiles.id, profile.id));
+
   // Upsert: check if business already exists for this profile
   const [existing] = await db
     .select()
@@ -69,12 +89,12 @@ export async function saveBusiness(
       .update(businesses)
       .set({
         businessName,
-        vatNumber,
-        fiscalCode: (formData.get("fiscalCode") as string)?.trim() || null,
-        address: (formData.get("address") as string)?.trim() || null,
-        city: (formData.get("city") as string)?.trim() || null,
-        province: (formData.get("province") as string)?.trim() || null,
-        zipCode: (formData.get("zipCode") as string)?.trim() || null,
+        address,
+        streetNumber,
+        city,
+        province,
+        zipCode,
+        preferredVatCode,
       })
       .where(eq(businesses.id, existing.id));
 
@@ -86,12 +106,12 @@ export async function saveBusiness(
     .values({
       profileId: profile.id,
       businessName,
-      vatNumber,
-      fiscalCode: (formData.get("fiscalCode") as string)?.trim() || null,
-      address: (formData.get("address") as string)?.trim() || null,
-      city: (formData.get("city") as string)?.trim() || null,
-      province: (formData.get("province") as string)?.trim() || null,
-      zipCode: (formData.get("zipCode") as string)?.trim() || null,
+      address,
+      streetNumber,
+      city,
+      province,
+      zipCode,
+      preferredVatCode,
     })
     .returning({ id: businesses.id });
 
@@ -202,7 +222,22 @@ export async function verifyAdeCredentials(
     return { error: "Verifica fallita. Controlla le credenziali Fisconline." };
   }
 
-  // Mark as verified
+  // Fetch fiscal data from AdE and persist vatNumber + fiscalCode
+  try {
+    const fiscalData = await adeClient.getFiscalData();
+    const vatNumber = fiscalData.identificativiFiscali.partitaIva;
+    const fiscalCode = fiscalData.identificativiFiscali.codiceFiscale;
+
+    await db
+      .update(businesses)
+      .set({ vatNumber, fiscalCode })
+      .where(eq(businesses.id, businessId));
+  } catch (err) {
+    logger.error({ err, businessId }, "Failed to fetch fiscal data from AdE");
+    // Non-blocking: verifica comunque riuscita, P.IVA/CF aggiunti in seguito
+  }
+
+  // Mark credentials as verified
   await db
     .update(adeCredentials)
     .set({ verifiedAt: new Date() })

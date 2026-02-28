@@ -2,7 +2,7 @@
 
 ## Contesto
 
-Phase 0, 1A, 2A-2C, 1B (parziale), 3A, 3B, 4A, 4B, 4C, 4D, 4F, 4G completate. Il progetto ha 464 unit test + 8 E2E test.
+Phase 0, 1A, 2A-2C, 1B (parziale), 3A, 3B, 4A, 4B, 4C, 4D, 4F, 4G, 4H completate. Il progetto ha 469 unit test + 8 E2E test.
 Modulo AdE completo (MockAdeClient + RealAdeClient) con 92 test dedicati.
 Infrastruttura sicurezza: logger (pino), rate limiting, encryption (AES-256-GCM), Sentry.
 Auth: Supabase Auth con middleware, onboarding wizard 3-step, credenziali AdE cifrate.
@@ -12,8 +12,9 @@ Code review completata: security fixes (IDOR, open redirect, redaction), React b
 Phase 4C completata: server action `emitReceipt` + `useMutation` TanStack Query + schermate success/error nella cassa.
 Phase 4D completata: storico scontrini + annullamento + link HTML ricevuta pubblica (`/r/[id]`).
 Phase 4G completata: catalogo prodotti + bottom navigation bar mobile-first.
-HAR catalogo (aggiungi/modifica/elimina/ricerca_prodotto_catalogo.har) non letti — sync AdE catalogo rimandato.
-Prossimo step: Phase 4H (onboarding refactor).
+HAR catalogo (aggiungi/modifica/elimina/ricerca_prodotto_catalogo.har) non letti — sync AdE catalogo rimandato post-MVP.
+Phase 4H completata: onboarding refactor (firstName/lastName separati, rimozione P.IVA/CF → recupero da AdE, indirizzo completo, CAP validato, nazione IT fissa, preferredVatCode, migration 0005).
+Prossimo step: Phase 4I (dati_doc_commerciale.har — aggiornamento dati business su AdE) quando il file HAR sarà disponibile. Poi 4J (SPID login) quando l'utente fornirà i file HAR.
 
 ---
 
@@ -247,36 +248,65 @@ HAR catalogo non letti (non bloccanti, rimandati): `aggiungi_prodotto_catalogo.h
 
 TODO futuro: bordo colorato card, modifica prodotto, sync AdE catalogo (HAR da leggere), cleanup DB documenti vecchi (valutare limiti Supabase 500MB)
 
-**4H: Onboarding refactor ⬜**
+**4H: Onboarding refactor ✅**
 
 Motivazione: P.IVA e CF sono già nelle credenziali AdE. Vanno recuperati automaticamente
 dopo la verifica, non digitati dall'utente.
 
 DB migrations:
 
-- ⬜ `profiles`: aggiungere `first_name` (text, nullable), `last_name` (text, nullable); `full_name` → nullable per retrocompatibilità
-- ⬜ `businesses`: `vat_number` → nullable (popolato da AdE); aggiungere `street_number` (text, nullable); aggiungere `preferred_vat_code` (text, nullable); `business_name` → nullable (ora opzionale)
+- ✅ `profiles`: aggiunti `first_name` (text, nullable), `last_name` (text, nullable); `full_name` → mantenuto per retrocompatibilità
+- ✅ `businesses`: `vat_number` → nullable (popolato da AdE); `business_name` → nullable; aggiunti `street_number` (text, nullable); `preferred_vat_code` (text, nullable)
+- ✅ Migration `supabase/migrations/0005_onboarding_refactor.sql` (generata con drizzle-kit)
+- ✅ `src/db/schema/catalog-items.ts` — aggiunto `index("idx_catalog_items_business_id")` per allineamento snapshot Drizzle
 
-Step 0 — nuovi campi:
+Step 0 — nuovi campi (ordine form):
 
-- Nome + Cognome (obbligatori, due campi separati) → salvati su `profiles`
-- Nome attività (opzionale)
-- Aliquota IVA prevalente (opzionale) — stesso menu a tendina della cassa
-- Indirizzo (obbligatorio), Numero civico (opzionale)
-- CAP (obbligatorio, validazione `/^\d{5}$/`)
-- Città (opzionale), Provincia (opzionale)
-- Nazione: forziamo IT, non mostrare dropdown — formato AdE: `value="IT"` / "Italia"
-- RIMOSSI: P.IVA e Codice Fiscale
+- ✅ Nome attività (opzionale) — PRIMA di nome/cognome
+- ✅ Nome + Cognome (obbligatori, due campi separati) → salvati su `profiles`
+- ✅ Aliquota IVA prevalente (opzionale) — select con aliquote comuni
+- ✅ Indirizzo (obbligatorio), Numero civico (opzionale)
+- ✅ CAP (obbligatorio, validazione `/^\d{5}$/`)
+- ✅ Città (opzionale), Provincia (opzionale)
+- ✅ Nazione: hardcoded IT, campo hidden — non mostrata
+- ✅ RIMOSSI: P.IVA e Codice Fiscale
 
 Step 2 — dopo verifica riuscita:
 
-- ⬜ Chiamare `getFiscalData()` (già in `AdeClient`)
-- ⬜ Salvare `vatNumber` + `fiscalCode` su `businesses` dal risultato AdE
-- ⬜ Analizzare `dati_doc_commerciale.har` per capire come aggiornare i dati sull'AdE
+- ✅ Chiamare `getFiscalData()` (già in `AdeClient`)
+- ✅ Salvare `vatNumber` + `fiscalCode` su `businesses` dal risultato AdE
+- ✅ Non bloccante: se getFiscalData fallisce, verifica ha comunque successo
 
-TODO futuro: SPID (`login_spid.har`), CIE (`login_cie.har`), pre-sessione AdE al login
+Cassa:
 
-**Test attesi 4F-4H:** ~60 unit + 2-3 E2E
+- ✅ Default aliquota IVA = `business.preferredVatCode` → fallback `"22"`
+
+Settings:
+
+- ✅ Mostra `firstName`/`lastName` (con fallback su `fullName`), indirizzo completo con `streetNumber`, `preferredVatCode`
+
+**Risultato:** 469 unit + 8 E2E test (+5 nuovi)
+
+**4I: Aggiornamento dati business su AdE ⬜** (attende `dati_doc_commerciale.har`)
+
+- ⬜ Analizzare `dati_doc_commerciale.har` → mappare endpoint + payload per aggiornamento dati cedente su AdE
+- ⬜ Aggiungere metodo `updateFiscalData(data)` all'interfaccia `AdeClient`
+- ⬜ Implementare in `RealAdeClient` + `MockAdeClient`
+- ⬜ Integrare nel flusso post-verifica o da Settings
+- Test TDD
+
+**4J: SPID login via AdE ⬜** (attende HAR SPID dall'utente)
+
+- ⬜ Analizzare HAR SPID login → mappare flusso HTTP (diverso da Fisconline)
+- ⬜ Aggiungere login SPID a `AdeClient` (strategy pattern o metodo separato)
+- ⬜ Aggiornare Step 1 onboarding: selezione metodo (Fisconline / SPID)
+- ⬜ Credenziali SPID cifrate (username + password, niente PIN)
+- ⬜ Investigare durata sessione SPID vs Fisconline
+- Test TDD
+
+TODO futuro: CIE (`login_cie.har`), pre-sessione AdE persistente (da valutare dopo 4J)
+
+**Test attesi 4F-4J:** ~80 unit + 2-3 E2E
 
 ---
 
@@ -364,11 +394,13 @@ TODO futuro: SPID (`login_spid.har`), CIE (`login_cie.har`), pre-sessione AdE al
 | 4F (UI polish+reg) ✅         | 11 (reali)  | 370 unit + 8 E2E     |
 | 4D+ (ricevuta HTML pubbl.) ✅ | 52 (reali)  | 422 unit + 8 E2E     |
 | 4G (catalogo+nav) ✅          | 42 (reali)  | 464 unit + 8 E2E     |
-| 4H (onboarding refactor)      | ~25         | ~419                 |
-| 5 (PWA)                       | ~13         | ~432                 |
-| 6 (Stabilita')                | ~15         | ~447                 |
-| 7 (Stripe)                    | ~20         | ~467                 |
-| **Lancio**                    |             | **~470+ test**       |
+| 4H (onboarding refactor) ✅   | 5 (reali)   | 469 unit + 8 E2E     |
+| 4I (dati_doc_commerciale AdE) | ~10         | ~479                 |
+| 4J (SPID login)               | ~15         | ~494                 |
+| 5 (PWA)                       | ~13         | ~507                 |
+| 6 (Stabilita')                | ~15         | ~522                 |
+| 7 (Stripe)                    | ~20         | ~542                 |
+| **Lancio**                    |             | **~545+ test**       |
 
 ---
 
@@ -385,4 +417,9 @@ Ad ogni checkpoint:
 
 ## Prossimo passo immediato
 
-Iniziare con **Phase 4H**: onboarding refactor (firstName/lastName separati, rimozione P.IVA/CF → recupero da AdE, CAP validato, nazione IT fissa, preferredVatCode).
+**Phase 4H completata.** Attendere file HAR:
+
+- `dati_doc_commerciale.har` → per avviare **Phase 4I** (aggiornamento dati business su AdE)
+- HAR SPID login → per avviare **Phase 4J** (SPID login via AdE)
+
+Se i file HAR non sono ancora disponibili, procedere con **Phase 5** (PWA + @serwist/next).

@@ -17,13 +17,18 @@ import { emitReceipt } from "@/server/receipt-actions";
 
 type Step = "cart" | "add-item" | "summary" | "success";
 
-const DEFAULT_VAT: VatCode = "22";
+const FALLBACK_VAT: VatCode = "22";
 
 interface CassaClientProps {
   readonly businessId: string;
+  readonly preferredVatCode?: VatCode;
 }
 
-export function CassaClient({ businessId }: CassaClientProps) {
+export function CassaClient({
+  businessId,
+  preferredVatCode,
+}: CassaClientProps) {
+  const defaultVat = preferredVatCode ?? FALLBACK_VAT;
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -75,7 +80,7 @@ export function CassaClient({ businessId }: CassaClientProps) {
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [quantity, setQuantity] = useState(1);
-  const [vatCode, setVatCode] = useState<VatCode>(DEFAULT_VAT);
+  const [vatCode, setVatCode] = useState<VatCode>(defaultVat);
 
   const parsedAmount = parseAmount(amount);
   const canAdd = parsedAmount > 0;
@@ -110,7 +115,7 @@ export function CassaClient({ businessId }: CassaClientProps) {
     setDescription("");
     setAmount("");
     setQuantity(1);
-    setVatCode(DEFAULT_VAT);
+    setVatCode(defaultVat);
     setStep("cart");
   };
 
@@ -157,7 +162,7 @@ export function CassaClient({ businessId }: CassaClientProps) {
               setAmount("");
               setDescription("");
               setQuantity(1);
-              setVatCode(DEFAULT_VAT);
+              setVatCode(defaultVat);
             }}
           >
             Annulla
