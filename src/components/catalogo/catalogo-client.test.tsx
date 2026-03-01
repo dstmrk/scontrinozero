@@ -23,6 +23,7 @@ vi.mock("@/server/catalog-actions", () => ({
   getCatalogItems: (...args: unknown[]) => mockGetCatalogItems(...args),
   deleteCatalogItem: (...args: unknown[]) => mockDeleteCatalogItem(...args),
   addCatalogItem: vi.fn(),
+  updateCatalogItem: vi.fn(),
 }));
 
 // scrollIntoView richiesto da Radix UI Dialog
@@ -61,6 +62,13 @@ function renderWithQuery(ui: React.ReactElement) {
   return render(
     <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
   );
+}
+
+// --- Helpers ---
+
+/** Attiva la modalità modifica cliccando il pulsante "Modifica". */
+function enterEditMode() {
+  fireEvent.click(screen.getByRole("button", { name: "Modifica" }));
 }
 
 // --- Tests ---
@@ -111,6 +119,7 @@ describe("CatalogoClient", () => {
       <CatalogoClient businessId="biz-1" initialData={FAKE_ITEMS} />,
     );
 
+    enterEditMode();
     fireEvent.click(
       screen.getByRole("button", { name: /elimina caffè espresso/i }),
     );
@@ -132,7 +141,8 @@ describe("CatalogoClient", () => {
       <CatalogoClient businessId="biz-1" initialData={FAKE_ITEMS} />,
     );
 
-    // Click trash icon → mostra conferma
+    // Attiva edit mode e click cestino → mostra conferma
+    enterEditMode();
     fireEvent.click(
       screen.getByRole("button", { name: /elimina caffè espresso/i }),
     );
@@ -153,7 +163,8 @@ describe("CatalogoClient", () => {
       <CatalogoClient businessId="biz-1" initialData={FAKE_ITEMS} />,
     );
 
-    // Apre conferma
+    // Attiva edit mode e apre conferma
+    enterEditMode();
     fireEvent.click(
       screen.getByRole("button", { name: /elimina caffè espresso/i }),
     );
@@ -176,6 +187,7 @@ describe("CatalogoClient", () => {
       <CatalogoClient businessId="biz-1" initialData={FAKE_ITEMS} />,
     );
 
+    enterEditMode();
     fireEvent.click(
       screen.getByRole("button", { name: /elimina caffè espresso/i }),
     );
