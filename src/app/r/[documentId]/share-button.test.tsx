@@ -103,6 +103,26 @@ describe("ShareButton", () => {
     });
   });
 
+  it("usa execCommand come fallback se clipboard.writeText fallisce", async () => {
+    const mockExecCommand = vi
+      .spyOn(document, "execCommand")
+      .mockReturnValue(true);
+    vi.stubGlobal("navigator", {
+      share: undefined,
+      clipboard: {
+        writeText: vi.fn().mockRejectedValue(new Error("NotAllowedError")),
+      },
+    });
+
+    render(<ShareButton url="/r/doc-123" title="Test" />);
+    fireEvent.click(screen.getByRole("button"));
+
+    await waitFor(() => {
+      expect(mockExecCommand).toHaveBeenCalledWith("copy");
+    });
+    expect(screen.getByText("Link copiato!")).toBeInTheDocument();
+  });
+
   it("torna al testo originale dopo 2 secondi", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const mockWriteText = vi.fn().mockResolvedValue(undefined);

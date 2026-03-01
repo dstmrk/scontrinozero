@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 
 const ERR_CONFIRM_REQUIRED = "Conferma la password.";
-const ERR_PWD_MISMATCH = "Le password non coincidono.";
+const ERR_CONFIRM_MISMATCH = "Le password non coincidono.";
 
 function validatePassword(pw: string): string | null {
   if (pw.length < 8) return "Almeno 8 caratteri.";
@@ -44,7 +44,7 @@ export default function RegisterPage() {
     if (pwError) errors.password = pwError;
     if (!confirmPassword) errors.confirmPassword = ERR_CONFIRM_REQUIRED;
     else if (password !== confirmPassword)
-      errors.confirmPassword = ERR_PWD_MISMATCH;
+      errors.confirmPassword = ERR_CONFIRM_MISMATCH;
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
