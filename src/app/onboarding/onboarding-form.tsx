@@ -8,20 +8,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   saveBusiness,
   saveAdeCredentials,
   verifyAdeCredentials,
 } from "@/server/onboarding-actions";
+import { VAT_CODES, VAT_DESCRIPTIONS } from "@/types/cassa";
 
 const STEPS = ["Dati attivita", "Credenziali AdE", "Verifica"];
-
-const COMMON_VAT_CODES = [
-  { value: "22", label: "22% — Aliquota ordinaria" },
-  { value: "10", label: "10% — Aliquota ridotta" },
-  { value: "5", label: "5% — Aliquota super-ridotta" },
-  { value: "4", label: "4% — Aliquota minima" },
-  { value: "N2", label: "N2 — Non soggetto (es. regime forfettario)" },
-] as const;
 
 function StepIndicator({ current }: Readonly<{ current: number }>) {
   return (
@@ -71,6 +71,7 @@ export function OnboardingForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [preferredVatCode, setPreferredVatCode] = useState("");
 
   function handleBusinessSubmit(formData: FormData) {
     setError(null);
@@ -207,18 +208,26 @@ export function OnboardingForm({
                 <Label htmlFor="preferredVatCode">
                   Aliquota IVA prevalente
                 </Label>
-                <select
-                  id="preferredVatCode"
-                  name="preferredVatCode"
-                  className="bg-background border-input ring-offset-background focus:ring-ring w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                <Select
+                  value={preferredVatCode}
+                  onValueChange={setPreferredVatCode}
                 >
-                  <option value="">Seleziona (opzionale)</option>
-                  {COMMON_VAT_CODES.map((vc) => (
-                    <option key={vc.value} value={vc.value}>
-                      {vc.label}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="preferredVatCode" className="w-full">
+                    <SelectValue placeholder="Seleziona (opzionale)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {VAT_CODES.map((code) => (
+                      <SelectItem key={code} value={code}>
+                        {VAT_DESCRIPTIONS[code]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <input
+                  type="hidden"
+                  name="preferredVatCode"
+                  value={preferredVatCode}
+                />
               </div>
 
               {/* Indirizzo e numero civico */}
