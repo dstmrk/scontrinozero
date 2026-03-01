@@ -39,8 +39,8 @@ export function ShareButton({ url, title }: ShareButtonProps) {
         el.style.opacity = "0";
         document.body.appendChild(el);
         el.select();
-        document.execCommand("copy");
-        document.body.removeChild(el);
+        document.execCommand("copy"); // legacy fallback: no modern alternative in insecure contexts
+        el.remove();
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } catch {

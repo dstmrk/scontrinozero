@@ -107,6 +107,21 @@ describe("generateSaleReceiptPdf", () => {
     expect(buf.subarray(0, 4).toString("ascii")).toBe("%PDF");
   });
 
+  it("works with non-integer quantity (e.g. 0.5 kg)", async () => {
+    const buf = await generateSaleReceiptPdf({
+      ...BASE_DATA,
+      lines: [
+        {
+          description: "Prosciutto",
+          quantity: 0.5,
+          grossUnitPrice: 12.0,
+          vatCode: "10",
+        },
+      ],
+    });
+    expect(buf.subarray(0, 4).toString("ascii")).toBe("%PDF");
+  });
+
   it("works with electronic payment method", async () => {
     const buf = await generateSaleReceiptPdf({
       ...BASE_DATA,

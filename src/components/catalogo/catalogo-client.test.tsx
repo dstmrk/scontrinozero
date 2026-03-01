@@ -55,6 +55,15 @@ const FAKE_ITEMS: CatalogItem[] = [
   },
 ];
 
+const ITEM_NO_PRICE: CatalogItem = {
+  id: "item-3",
+  businessId: "biz-1",
+  description: "Consulenza",
+  defaultPrice: null,
+  defaultVatCode: "22",
+  createdAt: new Date("2026-01-03"),
+};
+
 function renderWithQuery(ui: React.ReactElement) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -176,6 +185,26 @@ describe("CatalogoClient", () => {
     expect(
       screen.queryByRole("button", { name: "Elimina" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("prodotto senza prezzo mostra 'Prezzo variabile'", () => {
+    renderWithQuery(
+      <CatalogoClient businessId="biz-1" initialData={[ITEM_NO_PRICE]} />,
+    );
+
+    expect(screen.getByText(/prezzo variabile/i)).toBeInTheDocument();
+  });
+
+  it("click su prodotto senza prezzo naviga con prefillDescription", () => {
+    renderWithQuery(
+      <CatalogoClient businessId="biz-1" initialData={[ITEM_NO_PRICE]} />,
+    );
+
+    fireEvent.click(screen.getByText("Consulenza"));
+
+    expect(mockPush).toHaveBeenCalledWith(
+      expect.stringContaining("prefillDescription=Consulenza"),
+    );
   });
 
   it("mostra errore se deleteCatalogItem ritorna un errore", async () => {

@@ -141,8 +141,10 @@ export function OnboardingForm({
 
   function handleVerify() {
     setError(null);
+    if (!businessId) return;
+    const id = businessId;
     startTransition(async () => {
-      const result = await verifyAdeCredentials(businessId!);
+      const result = await verifyAdeCredentials(id);
       if (result.error) {
         setError(result.error);
         return;

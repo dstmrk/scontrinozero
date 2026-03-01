@@ -15,9 +15,12 @@ import {
   getAuthenticatedUser,
   checkBusinessOwnership,
 } from "@/lib/server-auth";
-import type { SubmitReceiptInput, SubmitReceiptResult } from "@/types/cassa";
+import type {
+  SubmitReceiptInput,
+  SubmitReceiptResult,
+  PaymentMethod,
+} from "@/types/cassa";
 import type { PaymentType, SaleDocumentRequest } from "@/lib/ade/public-types";
-import type { PaymentMethod } from "@/types/cassa";
 
 const PAYMENT_METHOD_TO_ADE: Record<PaymentMethod, PaymentType> = {
   PC: "CASH",

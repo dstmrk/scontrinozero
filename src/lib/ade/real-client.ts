@@ -416,7 +416,7 @@ export class RealAdeClient implements AdeClient {
    * Handles both name-first and value-first attribute orderings.
    */
   private parseHiddenInput(html: string, name: string): string | null {
-    const safePattern = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const safePattern = name.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
     const nameFirst = new RegExp(
       `name=["']${safePattern}["'][^>]*?value=["']([^"']*)["']`,
       "is",
