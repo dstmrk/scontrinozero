@@ -92,6 +92,12 @@ jobs:
           name: coverage-report
           path: coverage/
           retention-days: 1
+      - name: Upload test execution report
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-execution-report
+          path: test-report.xml
+          retention-days: 1
 
   # SonarQube parte non appena i test finiscono, in parallelo con build
   sonar:
@@ -106,6 +112,10 @@ jobs:
         with:
           name: coverage-report
           path: coverage/
+      - name: Download test execution report
+        uses: actions/download-artifact@v6
+        with:
+          name: test-execution-report
       - name: SonarQube Cloud scan
         uses: SonarSource/sonarqube-scan-action@v7
         env:
