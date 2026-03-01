@@ -104,9 +104,13 @@ describe("ShareButton", () => {
   });
 
   it("usa execCommand come fallback se clipboard.writeText fallisce", async () => {
-    const mockExecCommand = vi
-      .spyOn(document, "execCommand")
-      .mockReturnValue(true);
+    // jsdom non definisce document.execCommand — lo aggiungiamo per questo test
+    const mockExecCommand = vi.fn().mockReturnValue(true);
+    Object.defineProperty(document, "execCommand", {
+      value: mockExecCommand,
+      configurable: true,
+      writable: true,
+    });
     vi.stubGlobal("navigator", {
       share: undefined,
       clipboard: {
@@ -121,6 +125,8 @@ describe("ShareButton", () => {
       expect(mockExecCommand).toHaveBeenCalledWith("copy");
     });
     expect(screen.getByText("Link copiato!")).toBeInTheDocument();
+
+    Reflect.deleteProperty(document, "execCommand");
   });
 
   it("torna al testo originale dopo 2 secondi", async () => {
