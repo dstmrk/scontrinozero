@@ -27,7 +27,7 @@ describe("VatSelector", () => {
 
   it("mostra la descrizione corretta per un codice natura", () => {
     render(<VatSelector value="N2" onChange={vi.fn()} />);
-    expect(screen.getByText("N2 – Non soggette")).toBeInTheDocument();
+    expect(screen.getByText("0% – Non soggette")).toBeInTheDocument();
   });
 
   it("aggiorna la descrizione al cambio di prop value", () => {
@@ -37,7 +37,7 @@ describe("VatSelector", () => {
 
     rerender(<VatSelector value="N4" onChange={vi.fn()} />);
 
-    expect(screen.getByText("N4 – Esenti")).toBeInTheDocument();
+    expect(screen.getByText("0% – Esente")).toBeInTheDocument();
   });
 
   it("il trigger ha role combobox (accessibilità Select)", () => {
@@ -50,7 +50,7 @@ describe("VatSelector", () => {
 
     fireEvent.click(screen.getByRole("combobox"));
 
-    // Le 10 aliquote: 4%, 5%, 10%, 22%, N1-N6
+    // Le 10 aliquote: 4%, 5%, 10%, 22%, 0% (N1-N6 con descrizione)
     expect(
       screen.getByRole("option", { name: "4% – Ridotta" }),
     ).toBeInTheDocument();
@@ -64,22 +64,22 @@ describe("VatSelector", () => {
       screen.getByRole("option", { name: "22% – Ordinaria" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("option", { name: "N1 – Escluse art. 15" }),
+      screen.getByRole("option", { name: "0% – Escluse art. 15" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("option", { name: "N2 – Non soggette" }),
+      screen.getByRole("option", { name: "0% – Non soggette" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("option", { name: "N3 – Non imponibili" }),
+      screen.getByRole("option", { name: "0% – Non imponibili" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("option", { name: "N4 – Esenti" }),
+      screen.getByRole("option", { name: "0% – Esente" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("option", { name: "N5 – Regime del margine" }),
+      screen.getByRole("option", { name: "0% – Regime del margine" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("option", { name: "N6 – Inv. contabile" }),
+      screen.getByRole("option", { name: "0% – Inv. contabile" }),
     ).toBeInTheDocument();
   });
 
@@ -93,12 +93,12 @@ describe("VatSelector", () => {
     expect(onChange).toHaveBeenCalledWith("10");
   });
 
-  it("chiama onChange con 'N2' quando si seleziona N2", () => {
+  it("chiama onChange con 'N2' quando si seleziona 0% – Non soggette", () => {
     const onChange = vi.fn();
     render(<VatSelector value="22" onChange={onChange} />);
 
     fireEvent.click(screen.getByRole("combobox"));
-    fireEvent.click(screen.getByRole("option", { name: "N2 – Non soggette" }));
+    fireEvent.click(screen.getByRole("option", { name: "0% – Non soggette" }));
 
     expect(onChange).toHaveBeenCalledWith("N2");
   });

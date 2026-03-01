@@ -14,6 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { voidReceipt } from "@/server/void-actions";
 import type { ReceiptListItem, VoidReceiptResult } from "@/types/storico";
+import { VAT_LABELS } from "@/types/cassa";
+import type { VatCode } from "@/types/cassa";
 
 interface VoidReceiptDialogProps {
   readonly receipt: ReceiptListItem;
@@ -35,8 +37,7 @@ function formatCurrency(amount: string): string {
 }
 
 function formatVat(vatCode: string): string {
-  if (vatCode.startsWith("N")) return vatCode;
-  return `${vatCode}% IVA`;
+  return VAT_LABELS[vatCode as VatCode] ?? vatCode;
 }
 
 /** Tre stati del dialog:

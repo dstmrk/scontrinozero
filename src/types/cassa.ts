@@ -33,12 +33,12 @@ export const VAT_LABELS: Record<VatCode, string> = {
   "5": "5%",
   "10": "10%",
   "22": "22%",
-  N1: "N1",
-  N2: "N2",
-  N3: "N3",
-  N4: "N4",
-  N5: "N5",
-  N6: "N6",
+  N1: "0% – Art. 15",
+  N2: "0% – Non sogg.",
+  N3: "0% – Non imp.",
+  N4: "0% – Esente",
+  N5: "0% – Margine",
+  N6: "0% – Inv. cont.",
 };
 
 /** Descrizioni complete per il dropdown di selezione */
@@ -47,12 +47,12 @@ export const VAT_DESCRIPTIONS: Record<VatCode, string> = {
   "5": "5% – Ridotta",
   "10": "10% – Ridotta",
   "22": "22% – Ordinaria",
-  N1: "N1 – Escluse art. 15",
-  N2: "N2 – Non soggette",
-  N3: "N3 – Non imponibili",
-  N4: "N4 – Esenti",
-  N5: "N5 – Regime del margine",
-  N6: "N6 – Inv. contabile",
+  N1: "0% – Escluse art. 15",
+  N2: "0% – Non soggette",
+  N3: "0% – Non imponibili",
+  N4: "0% – Esente",
+  N5: "0% – Regime del margine",
+  N6: "0% – Inv. contabile",
 };
 
 /** Etichette UI per i metodi di pagamento */
