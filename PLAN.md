@@ -11,14 +11,14 @@ quella data nessun cliente paga, nessuno si aspetta stabilità di produzione.
 
 ## Release pre-lancio → v1.0.0
 
-| Versione    | Descrizione                 | Stato |
-| ----------- | --------------------------- | ----- |
-| **v0.7.0**  | AdE fiscal data update      | ⬜    |
-| **v0.8.0**  | Email transazionali (Resend)| ⬜    |
-| **v0.8.1**  | Landing completeness        | ⬜    |
-| **v0.9.0**  | Stripe payments             | ⬜    |
-| **v0.9.1**  | Stabilità + E2E checkpoint  | ⬜    |
-| **v1.0.0**  | Lancio pubblico             | ⬜    |
+| Versione   | Descrizione                  | Stato |
+| ---------- | ---------------------------- | ----- |
+| **v0.7.0** | AdE fiscal data update       | ⬜    |
+| **v0.8.0** | Email transazionali (Resend) | ⬜    |
+| **v0.8.1** | Landing completeness         | ⬜    |
+| **v0.9.0** | Stripe payments              | ⬜    |
+| **v0.9.1** | Stabilità + E2E checkpoint   | ⬜    |
+| **v1.0.0** | Lancio pubblico              | ⬜    |
 
 ---
 
@@ -102,11 +102,11 @@ Integrazione completa Stripe Billing per i tre piani + feature gating.
 
 **Piani:**
 
-| Piano      | Prezzo mensile | Scontrini/mese | Dispositivi |
-| ---------- | -------------- | -------------- | ----------- |
-| Free       | €0             | 10             | 1           |
-| Starter    | ~€2-3          | Illimitati     | 1           |
-| Pro        | ~€4-5          | Illimitati     | Multi       |
+| Piano   | Prezzo mensile | Scontrini/mese | Dispositivi |
+| ------- | -------------- | -------------- | ----------- |
+| Free    | €0             | 10             | 1           |
+| Starter | ~€2-3          | Illimitati     | 1           |
+| Pro     | ~€4-5          | Illimitati     | Multi       |
 
 _I prezzi esatti si definiscono in Stripe prima del deploy._
 
@@ -173,68 +173,68 @@ produzione. Zero nuovi sviluppi — solo validazione finale.
 
 ### FUORI da v1.0.0 (vedi release post-lancio)
 
-| Feature                            | Versione    |
-| ---------------------------------- | ----------- |
-| PWA (installabile, offline shell)  | v1.1.0      |
-| Billing annuale                    | v1.2.0      |
-| Email scontrino al cliente         | v1.3.0      |
-| Dashboard analytics (grafici)      | v1.4.0      |
-| AdE catalog sync                   | v1.5.0      |
-| SPID session persistence (DB)      | v1.6.0      |
-| CSV import prodotti + barcode      | v1.7.0      |
-| Bluetooth print, Passkey, CIE      | v1.8.0+     |
-| API pubblica, multi-operatore      | v2.0.0+     |
+| Feature                                                   | Versione |
+| --------------------------------------------------------- | -------- |
+| PWA (installabile, offline shell)                         | v1.1.0   |
+| Billing annuale                                           | v1.2.0   |
+| Email scontrino al cliente                                | v1.3.0   |
+| Dashboard analytics (grafici)                             | v1.4.0   |
+| AdE catalog sync                                          | v1.5.0   |
+| AdE auth multi-metodo: SPID + CIE (onboarding + settings) | v1.6.0   |
+| CSV import prodotti + barcode                             | v1.7.0   |
+| Bluetooth print, Passkey                                  | v1.8.0+  |
+| API pubblica, multi-operatore                             | v2.0.0+  |
 
 ---
 
 ## Release post-lancio (v1.x.y)
 
-| Versione    | Descrizione                                                              |
-| ----------- | ------------------------------------------------------------------------ |
-| **v1.1.0**  | PWA: `@serwist/next`, manifest, offline shell, install prompt             |
-| **v1.2.0**  | Billing annuale (2 mesi gratis), Stripe Customer Portal polished          |
-| **v1.3.0**  | Email scontrino al cliente (PDF allegato via Resend)                      |
-| **v1.4.0**  | Dashboard analytics: totale giornaliero, sparkline revenue, export CSV    |
-| **v1.5.0**  | Catalogo: modifica prodotto + sync AdE (HAR: aggiungi/modifica/elimina)   |
-| **v1.6.0**  | SPID session persistence: cookie jar cifrato nel DB, re-auth on 401       |
-| **v1.7.0**  | CSV import prodotti, barcode scanner (BarcodeDetector API), Umami analytics |
-| **v1.8.0+** | Bluetooth printing (58/80mm), Passkey, CIE login, codice lotteria         |
-| **v2.0.0+** | API pubblica, webhook, multi-operatore, integrazione e-commerce           |
+| Versione    | Descrizione                                                                                                         |
+| ----------- | ------------------------------------------------------------------------------------------------------------------- |
+| **v1.1.0**  | PWA: `@serwist/next`, manifest, offline shell, install prompt                                                       |
+| **v1.2.0**  | Billing annuale (2 mesi gratis), Stripe Customer Portal polished                                                    |
+| **v1.3.0**  | Email scontrino al cliente (PDF allegato via Resend)                                                                |
+| **v1.4.0**  | Dashboard analytics: totale giornaliero, sparkline revenue, export CSV                                              |
+| **v1.5.0**  | Catalogo: modifica prodotto + sync AdE (HAR: aggiungi/modifica/elimina)                                             |
+| **v1.6.0**  | AdE auth multi-metodo: SPID e CIE selezionabili in onboarding + settings; cookie jar cifrato nel DB, re-auth on 401 |
+| **v1.7.0**  | CSV import prodotti, barcode scanner (BarcodeDetector API), Umami analytics                                         |
+| **v1.8.0+** | Bluetooth printing (58/80mm), Passkey, codice lotteria                                                              |
+| **v2.0.0+** | API pubblica, webhook, multi-operatore, integrazione e-commerce                                                     |
 
 ---
 
 ## Storico sviluppo (fasi completate)
 
-| Fase                          | Stato | Test al completamento      | Note                                              |
-| ----------------------------- | ----- | -------------------------- | ------------------------------------------------- |
-| 0 — Fondamenta                | ✅    | —                          | Next.js 16, shadcn/ui, CI/CD, Supabase, Drizzle   |
-| 1A — Security fix + TDD       | ✅    | 23 unit                    | `isValidEmail`, waitlist API, SonarCloud verde     |
-| 2 — Integrazione AdE          | ✅    | 92 unit (55 AdE dedicati)  | MockAdeClient + RealAdeClient, 6-phase Fisconline  |
-| 1B — Landing page             | ✅    | 6 unit + 8 E2E             | Privacy ✅, ToS ✅, Sitemap ✅ — JSON-LD ⬜ (→ v0.8.1) |
-| 3A — Fondamenta sicurezza     | ✅    | 148 unit + 8 E2E           | Sentry, pino, rate limiting, AES-256-GCM           |
-| 3B — Auth + onboarding        | ✅    | 191 unit + 8 E2E           | Supabase Auth, wizard 3-step, credenziali cifrate  |
-| 4A — Schema DB scontrini      | ✅    | 214 unit + 8 E2E           | `commercial_documents` + `commercial_document_lines` |
-| 4B — UI cassa mobile-first    | ✅    | 305 unit + 8 E2E           | Tastierino, IVA, metodo pagamento, riepilogo        |
-| 4C — Server actions + UI      | ✅    | 319 unit + 8 E2E           | `emitReceipt`, TanStack Query, optimistic updates   |
-| 4D — Storico + storno + PDF   | ✅    | 422 unit + 8 E2E           | PDF pdfkit 58mm, share link pubblico, HTML receipt  |
-| 4F — UI polish + registrazione| ✅    | 370→422 unit + 8 E2E       | `isStrongPassword`, paginazione storico, UX fixes   |
-| 4G — Catalogo + nav mobile    | ✅    | 464 unit + 8 E2E           | `catalog_items`, CRUD, bottom-nav, tap→cassa        |
-| 4H — Onboarding refactor      | ✅    | 469 unit + 8 E2E           | firstName/lastName, P.IVA da AdE, CAP, migration    |
-| 4J — SPID login               | ✅    | 502 unit + 8 E2E           | SAML2 HTTP POST, push 2FA polling, MockAdeClient.loginSpid() |
+| Fase                           | Stato | Test al completamento     | Note                                                         |
+| ------------------------------ | ----- | ------------------------- | ------------------------------------------------------------ |
+| 0 — Fondamenta                 | ✅    | —                         | Next.js 16, shadcn/ui, CI/CD, Supabase, Drizzle              |
+| 1A — Security fix + TDD        | ✅    | 23 unit                   | `isValidEmail`, waitlist API, SonarCloud verde               |
+| 2 — Integrazione AdE           | ✅    | 92 unit (55 AdE dedicati) | MockAdeClient + RealAdeClient, 6-phase Fisconline            |
+| 1B — Landing page              | ✅    | 6 unit + 8 E2E            | Privacy ✅, ToS ✅, Sitemap ✅ — JSON-LD ⬜ (→ v0.8.1)       |
+| 3A — Fondamenta sicurezza      | ✅    | 148 unit + 8 E2E          | Sentry, pino, rate limiting, AES-256-GCM                     |
+| 3B — Auth + onboarding         | ✅    | 191 unit + 8 E2E          | Supabase Auth, wizard 3-step, credenziali cifrate            |
+| 4A — Schema DB scontrini       | ✅    | 214 unit + 8 E2E          | `commercial_documents` + `commercial_document_lines`         |
+| 4B — UI cassa mobile-first     | ✅    | 305 unit + 8 E2E          | Tastierino, IVA, metodo pagamento, riepilogo                 |
+| 4C — Server actions + UI       | ✅    | 319 unit + 8 E2E          | `emitReceipt`, TanStack Query, optimistic updates            |
+| 4D — Storico + storno + PDF    | ✅    | 422 unit + 8 E2E          | PDF pdfkit 58mm, share link pubblico, HTML receipt           |
+| 4F — UI polish + registrazione | ✅    | 370→422 unit + 8 E2E      | `isStrongPassword`, paginazione storico, UX fixes            |
+| 4G — Catalogo + nav mobile     | ✅    | 464 unit + 8 E2E          | `catalog_items`, CRUD, bottom-nav, tap→cassa                 |
+| 4H — Onboarding refactor       | ✅    | 469 unit + 8 E2E          | firstName/lastName, P.IVA da AdE, CAP, migration             |
+| 4J — SPID login                | ✅    | 502 unit + 8 E2E          | SAML2 HTTP POST, push 2FA polling, MockAdeClient.loginSpid() |
 
 ---
 
 ## Riepilogo test cumulativi
 
-| Versione    | Nuovi test (stimati) | Totale unit | Totale E2E |
-| ----------- | -------------------- | ----------- | ---------- |
-| (storico)   | —                    | 502         | 8          |
-| **v0.7.0**  | ~10                  | ~512        | 8          |
-| **v0.8.0**  | ~10                  | ~522        | 8          |
-| **v0.8.1**  | ~5                   | ~527        | 8          |
-| **v0.9.0**  | ~20                  | ~547        | 8          |
-| **v0.9.1**  | ~0 unit / ~10 E2E    | ~547        | ~18        |
-| **v1.0.0**  | 0 (solo tag)         | ~547        | ~18        |
+| Versione   | Nuovi test (stimati) | Totale unit | Totale E2E |
+| ---------- | -------------------- | ----------- | ---------- |
+| (storico)  | —                    | 502         | 8          |
+| **v0.7.0** | ~10                  | ~512        | 8          |
+| **v0.8.0** | ~10                  | ~522        | 8          |
+| **v0.8.1** | ~5                   | ~527        | 8          |
+| **v0.9.0** | ~20                  | ~547        | 8          |
+| **v0.9.1** | ~0 unit / ~10 E2E    | ~547        | ~18        |
+| **v1.0.0** | 0 (solo tag)         | ~547        | ~18        |
 
 ---
 
