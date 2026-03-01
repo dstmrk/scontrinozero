@@ -1195,7 +1195,9 @@ describe("RealAdeClient", () => {
       );
 
       expect(result.idtrx).toBe("151085589");
-      expect(result.documentoCommerciale.elementiContabili[0].idElementoContabile).toBe("270270040");
+      expect(
+        result.documentoCommerciale.elementiContabili[0].idElementoContabile,
+      ).toBe("270270040");
       expect(result.documentoCommerciale.totaleImponibile).toBe("10.00000000");
     });
 
