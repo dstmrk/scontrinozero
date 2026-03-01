@@ -45,6 +45,27 @@ describe("CartLineItem", () => {
     ).toBeInTheDocument();
   });
 
+  it("non mostra il bottone modifica se onEdit non è fornito", () => {
+    render(<CartLineItem line={line} onRemove={vi.fn()} />);
+    expect(
+      screen.queryByRole("button", { name: /modifica/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("mostra il bottone modifica se onEdit è fornito", () => {
+    render(<CartLineItem line={line} onRemove={vi.fn()} onEdit={vi.fn()} />);
+    expect(
+      screen.getByRole("button", { name: /modifica/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("chiama onEdit con l'id corretto quando si preme il bottone modifica", () => {
+    const onEdit = vi.fn();
+    render(<CartLineItem line={line} onRemove={vi.fn()} onEdit={onEdit} />);
+    fireEvent.click(screen.getByRole("button", { name: /modifica/i }));
+    expect(onEdit).toHaveBeenCalledWith("test-id-1");
+  });
+
   it("chiama onRemove con l'id corretto quando si preme il bottone rimuovi", () => {
     const onRemove = vi.fn();
     render(<CartLineItem line={line} onRemove={onRemove} />);
