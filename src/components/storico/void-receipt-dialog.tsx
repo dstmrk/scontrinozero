@@ -16,10 +16,10 @@ import { voidReceipt } from "@/server/void-actions";
 import type { ReceiptListItem, VoidReceiptResult } from "@/types/storico";
 
 interface VoidReceiptDialogProps {
-  receipt: ReceiptListItem;
-  businessId: string;
-  onClose: () => void;
-  onSuccess: (result: VoidReceiptResult, originalId: string) => void;
+  readonly receipt: ReceiptListItem;
+  readonly businessId: string;
+  readonly onClose: () => void;
+  readonly onSuccess: (result: VoidReceiptResult, originalId: string) => void;
 }
 
 function formatDate(date: Date): string {
@@ -31,7 +31,7 @@ function formatDate(date: Date): string {
 }
 
 function formatCurrency(amount: string): string {
-  return `€ ${parseFloat(amount).toFixed(2).replace(".", ",")}`;
+  return `€ ${Number.parseFloat(amount).toFixed(2).replace(".", ",")}`;
 }
 
 function formatVat(vatCode: string): string {
@@ -78,14 +78,15 @@ export function VoidReceiptDialog({
   });
 
   const subtotal = receipt.lines.reduce(
-    (sum, l) => sum + parseFloat(l.grossUnitPrice) * parseFloat(l.quantity),
+    (sum, l) =>
+      sum + Number.parseFloat(l.grossUnitPrice) * Number.parseFloat(l.quantity),
     0,
   );
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        {view === "voidSuccess" ? (
+        {view === "voidSuccess" && (
           // ── Stato 3: annullo avvenuto ──────────────────────────────────────
           <>
             <DialogHeader>
@@ -108,7 +109,8 @@ export function VoidReceiptDialog({
               <Button onClick={onClose}>Chiudi</Button>
             </DialogFooter>
           </>
-        ) : view === "confirmingVoid" ? (
+        )}
+        {view === "confirmingVoid" && (
           // ── Stato 2: conferma annullo ──────────────────────────────────────
           <>
             <DialogHeader>
@@ -149,7 +151,8 @@ export function VoidReceiptDialog({
               </Button>
             </DialogFooter>
           </>
-        ) : (
+        )}
+        {view === "detail" && (
           // ── Stato 1: dettaglio scontrino ───────────────────────────────────
           <>
             <DialogHeader>
@@ -164,24 +167,24 @@ export function VoidReceiptDialog({
 
             {/* Lines */}
             <div className="divide-y rounded-md border">
-              {receipt.lines.map((line, idx) => (
+              {receipt.lines.map((line) => (
                 <div
-                  key={idx}
+                  key={`${line.description}-${line.vatCode}-${line.grossUnitPrice}-${line.quantity}`}
                   className="flex items-center justify-between px-3 py-2 text-sm"
                 >
                   <div className="min-w-0 flex-1 pr-2">
                     <p className="truncate font-medium">{line.description}</p>
                     <p className="text-muted-foreground">
-                      {parseFloat(line.quantity).toLocaleString("it-IT")} ×{" "}
-                      {formatCurrency(line.grossUnitPrice)} —{" "}
+                      {Number.parseFloat(line.quantity).toLocaleString("it-IT")}{" "}
+                      × {formatCurrency(line.grossUnitPrice)} —{" "}
                       {formatVat(line.vatCode)}
                     </p>
                   </div>
                   <p className="shrink-0 font-medium">
                     {formatCurrency(
                       String(
-                        parseFloat(line.grossUnitPrice) *
-                          parseFloat(line.quantity),
+                        Number.parseFloat(line.grossUnitPrice) *
+                          Number.parseFloat(line.quantity),
                       ),
                     )}
                   </p>

@@ -25,10 +25,10 @@ function formatDate(date: Date): string {
 }
 
 function formatCurrency(amount: string): string {
-  return `€ ${parseFloat(amount).toFixed(2).replace(".", ",")}`;
+  return `€ ${Number.parseFloat(amount).toFixed(2).replace(".", ",")}`;
 }
 
-function StatusBadge({ status }: { status: ReceiptListItem["status"] }) {
+function StatusBadge({ status }: Readonly<{ status: ReceiptListItem["status"] }>) {
   if (status === "ACCEPTED") {
     return (
       <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
@@ -68,8 +68,8 @@ const PAGE_SIZE = 10;
 // ---------------------------------------------------------------------------
 
 interface StoricoClientProps {
-  businessId: string;
-  initialData: ReceiptListItem[];
+  readonly businessId: string;
+  readonly initialData: ReceiptListItem[];
 }
 
 // ---------------------------------------------------------------------------
@@ -123,6 +123,9 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
     (page - 1) * PAGE_SIZE,
     page * PAGE_SIZE,
   );
+  const voidableText =
+    voidableCount > 0 ? `, ${voidableCount} annullabili` : "";
+  const summaryText = `${receipts.length} scontrini trovati${voidableText}.`;
 
   return (
     <div className="space-y-6">
@@ -130,9 +133,7 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
       <div>
         <h1 className="text-2xl font-bold">Storico scontrini</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          {receipts.length === 0
-            ? "Nessuno scontrino trovato."
-            : `${receipts.length} scontrini trovati${voidableCount > 0 ? `, ${voidableCount} annullabili` : ""}.`}
+          {receipts.length === 0 ? "Nessuno scontrino trovato." : summaryText}
         </p>
       </div>
 

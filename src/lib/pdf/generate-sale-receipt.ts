@@ -69,8 +69,8 @@ export function computeVatAmount(
   lineTotalGross: number,
   vatCode: string,
 ): number {
-  const rate = parseFloat(vatCode);
-  if (isNaN(rate) || rate === 0) return 0; // N1-N6 codes have no VAT
+  const rate = Number.parseFloat(vatCode);
+  if (Number.isNaN(rate) || rate === 0) return 0; // N1-N6 codes have no VAT
   return lineTotalGross - lineTotalGross / (1 + rate / 100);
 }
 
@@ -207,8 +207,9 @@ export function generateSaleReceiptPdf(
 
       // For quantities > 1: show "n.Q × unit_price"
       const hasMultipleQty = qty !== 1;
+      const qtyDisplay = qty % 1 === 0 ? Math.round(qty) : qty;
       const descDisplay = hasMultipleQty
-        ? `${line.description}\nn.${qty % 1 === 0 ? Math.round(qty) : qty} × ${formatPrice(price)}`
+        ? `${line.description}\nn.${qtyDisplay} × ${formatPrice(price)}`
         : line.description;
 
       const rowStartY = y;

@@ -9,11 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 
+const ERR_CONFIRM_REQUIRED = "Conferma la password.";
+const ERR_PWD_MISMATCH = "Le password non coincidono.";
+
 function validatePassword(pw: string): string | null {
   if (pw.length < 8) return "Almeno 8 caratteri.";
   if (!/[A-Z]/.test(pw)) return "Serve almeno una maiuscola.";
   if (!/[a-z]/.test(pw)) return "Serve almeno una minuscola.";
-  if (!/[0-9]/.test(pw)) return "Serve almeno un numero.";
+  if (!/\d/.test(pw)) return "Serve almeno un numero.";
   if (!/[^A-Za-z0-9]/.test(pw))
     return "Serve almeno un carattere speciale (es. !).";
   return null;
@@ -39,9 +42,9 @@ export default function RegisterPage() {
     if (!email.trim()) errors.email = "L'email è obbligatoria.";
     const pwError = validatePassword(password);
     if (pwError) errors.password = pwError;
-    if (!confirmPassword) errors.confirmPassword = "Conferma la password.";
+    if (!confirmPassword) errors.confirmPassword = ERR_CONFIRM_REQUIRED;
     else if (password !== confirmPassword)
-      errors.confirmPassword = "Le password non coincidono.";
+      errors.confirmPassword = ERR_PWD_MISMATCH;
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);

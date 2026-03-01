@@ -43,17 +43,17 @@ export function CatalogoClient({
   };
 
   const handleItemTap = (item: CatalogItem) => {
-    if (item.defaultPrice !== null) {
+    if (item.defaultPrice === null) {
       const params = new URLSearchParams({
-        description: item.description,
-        price: item.defaultPrice,
-        vatCode: item.defaultVatCode,
+        prefillDescription: item.description,
+        prefillVatCode: item.defaultVatCode,
       });
       router.push(`/dashboard/cassa?${params.toString()}`);
     } else {
       const params = new URLSearchParams({
-        prefillDescription: item.description,
-        prefillVatCode: item.defaultVatCode,
+        description: item.description,
+        price: item.defaultPrice,
+        vatCode: item.defaultVatCode,
       });
       router.push(`/dashboard/cassa?${params.toString()}`);
     }
@@ -116,9 +116,9 @@ export function CatalogoClient({
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{item.description}</p>
                   <p className="text-muted-foreground text-sm">
-                    {item.defaultPrice !== null
-                      ? `${formatCurrency(Number.parseFloat(item.defaultPrice))} · `
-                      : "Prezzo variabile · "}
+                    {item.defaultPrice === null
+                      ? "Prezzo variabile · "
+                      : `${formatCurrency(Number.parseFloat(item.defaultPrice))} · `}
                     <span>{VAT_LABELS[item.defaultVatCode]}</span>
                   </p>
                 </div>
@@ -131,9 +131,9 @@ export function CatalogoClient({
                 >
                   <p className="truncate font-medium">{item.description}</p>
                   <p className="text-muted-foreground text-sm">
-                    {item.defaultPrice !== null
-                      ? `${formatCurrency(Number.parseFloat(item.defaultPrice))} · `
-                      : "Prezzo variabile · "}
+                    {item.defaultPrice === null
+                      ? "Prezzo variabile · "
+                      : `${formatCurrency(Number.parseFloat(item.defaultPrice))} · `}
                     <span>{VAT_LABELS[item.defaultVatCode]}</span>
                   </p>
                 </button>
