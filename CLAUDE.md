@@ -9,18 +9,20 @@ all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la pr
 
 ## Roadmap e piano di sviluppo
 
-Il piano di sviluppo con fasi sequenziali, test attesi, checkpoint di review, riepilogo visuale
-e backlog è in **`PLAN.md`** (root del repo).
+Il piano di sviluppo — release semantiche, task per versione, storico fasi, test cumulativi —
+è in **`PLAN.md`** (root del repo).
 
-**Fase corrente:** Phase 4I ⬜ (dati_doc_commerciale AdE — `dati_doc_commerciale.har` disponibile)
+**Versione corrente:** v0.7.0 ⬜ (AdE fiscal data update — `updateFiscalData()`)
 
-**Approccio TDD:** Per ogni fase, scrivere i test PRIMA dell'implementazione.
+**Approccio TDD:** Per ogni release, scrivere i test PRIMA dell'implementazione.
 I test di validazione e degli endpoint usano `vi.mock` per isolare le dipendenze (Drizzle, etc.).
 
-**Sequenza fasi:** 0 ✅ → 1A ✅ → 2 ✅ (AdE spike) → 1B ✅ (landing) → 3A ✅ (security infra) →
-3B ✅ (auth) → 4A-4D ✅ (MVP core) → 4F ✅ (UI polish) → 4G ✅ (catalogo+nav) → 4H ✅ (onboarding refactor) →
-4J ✅ (SPID login) → 4I ⬜ (dati_doc_commerciale AdE) →
-5 (PWA) → 6 (stabilità) → 7 (Stripe) → 8 (lancio)
+**Release roadmap (pre-lancio):**
+v0.7.0 ⬜ → v0.8.0 ⬜ (Resend) → v0.8.1 ⬜ (landing) → v0.9.0 ⬜ (Stripe) → v0.9.1 ⬜ (E2E checkpoint) → **v1.0.0** ⬜ (lancio pubblico)
+
+**Post-lancio:** v1.1.0 (PWA) → v1.2.0 (annual billing) → v1.3.0 (receipt email) → v1.4.0+ (analytics, catalog sync, …)
+
+Storico fasi completate (0 → 4J): vedi PLAN.md § "Storico sviluppo".
 
 ## Principi di prodotto
 
@@ -560,17 +562,17 @@ scontrinozero/
 - [Effatta API (riferimento competitor)](https://effatta.it/scontrino-elettronico/)
 - [DataCash API (riferimento competitor)](https://datacash.it/api-developer/)
 
-## File HAR da analizzare (fasi future)
+## File HAR da analizzare
 
-Presenti nella root del repo, da analizzare prima delle relative fasi di sviluppo:
+Presenti nella root del repo, da analizzare prima delle relative release:
 
-| File                             | Feature                                            | Fase   |
-| -------------------------------- | -------------------------------------------------- | ------ |
-| `dati_doc_commerciale.har`       | Aggiornamento dati business su AdE post-onboarding | 4H     |
-| `aggiungi_prodotto_catalogo.har` | Aggiunta prodotto su rubrica AdE                   | 4G     |
-| `modifica_prodotto_catalogo.har` | Modifica prodotto su rubrica AdE                   | futuro |
-| `elimina_prodotto_catalogo.har`  | Eliminazione prodotto su rubrica AdE               | futuro |
-| `ricerca_prodotto_catalogo.har`  | Ricerca prodotto su rubrica AdE                    | 4G     |
-| `ricerca_documento.har`          | Ricerca documento su AdE                           | futuro |
-| `login_spid.har`                 | SPID login flow                                    | futuro |
-| `login_cie.har`                  | CIE login flow                                     | futuro |
+| File                             | Feature                                            | Versione   |
+| -------------------------------- | -------------------------------------------------- | ---------- |
+| `dati_doc_commerciale.har`       | Aggiornamento dati business su AdE post-onboarding | v0.7.0     |
+| `aggiungi_prodotto_catalogo.har` | Aggiunta prodotto su rubrica AdE                   | v1.5.0     |
+| `modifica_prodotto_catalogo.har` | Modifica prodotto su rubrica AdE                   | v1.5.0     |
+| `elimina_prodotto_catalogo.har`  | Eliminazione prodotto su rubrica AdE               | v1.5.0     |
+| `ricerca_prodotto_catalogo.har`  | Ricerca prodotto su rubrica AdE                    | v1.5.0     |
+| `ricerca_documento.har`          | Ricerca documento su AdE                           | v2.0.0+    |
+| `login_spid.har`                 | SPID login flow (analizzato e implementato)        | ✅ v0.x    |
+| `login_cie.har`                  | CIE login flow                                     | v1.8.0+    |
