@@ -28,7 +28,9 @@ function formatCurrency(amount: string): string {
   return `€ ${Number.parseFloat(amount).toFixed(2).replace(".", ",")}`;
 }
 
-function StatusBadge({ status }: Readonly<{ status: ReceiptListItem["status"] }>) {
+function StatusBadge({
+  status,
+}: Readonly<{ status: ReceiptListItem["status"] }>) {
   if (status === "ACCEPTED") {
     return (
       <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">

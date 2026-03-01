@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getDb } from "@/db";
 import { businesses, profiles } from "@/db/schema";
+import type { User } from "@supabase/supabase-js";
 export type { User } from "@supabase/supabase-js";
 
 export type BusinessOwnershipError = { error: string };
