@@ -75,16 +75,20 @@ export function AddItemDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="catalog-price">Prezzo (€)</Label>
+            <Label htmlFor="catalog-price">
+              Prezzo (€){" "}
+              <span className="text-muted-foreground font-normal">
+                — opzionale
+              </span>
+            </Label>
             <Input
               id="catalog-price"
               type="number"
               step="0.01"
               min="0"
-              placeholder="0.00"
+              placeholder="Lascia vuoto per inserirlo in cassa"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              required
             />
           </div>
 

@@ -34,7 +34,7 @@ export default async function DashboardLayout({
             ScontrinoZero
           </Link>
 
-          <nav className="flex items-center gap-4">
+          <nav className="hidden items-center gap-4 md:flex">
             <Link
               href="/dashboard"
               className="text-muted-foreground hover:text-foreground text-sm"

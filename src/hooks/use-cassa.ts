@@ -14,6 +14,7 @@ interface UseCassaReturn {
   lines: CartLine[];
   paymentMethod: PaymentMethod;
   addLine: (input: AddLineInput) => void;
+  updateLine: (id: string, input: AddLineInput) => void;
   removeLine: (id: string) => void;
   clearCart: () => void;
   setPaymentMethod: (method: PaymentMethod) => void;
@@ -30,6 +31,10 @@ export function useCassa(): UseCassaReturn {
       ...input,
     };
     setLines((prev) => [...prev, newLine]);
+  }, []);
+
+  const updateLine = useCallback((id: string, input: AddLineInput) => {
+    setLines((prev) => prev.map((l) => (l.id === id ? { ...l, ...input } : l)));
   }, []);
 
   const removeLine = useCallback((id: string) => {
@@ -49,6 +54,7 @@ export function useCassa(): UseCassaReturn {
     lines,
     paymentMethod,
     addLine,
+    updateLine,
     removeLine,
     clearCart,
     setPaymentMethod,

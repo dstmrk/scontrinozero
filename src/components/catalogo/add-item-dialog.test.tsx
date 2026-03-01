@@ -48,7 +48,7 @@ describe("AddItemDialog", () => {
   it("renderizza il campo prezzo", () => {
     render(<AddItemDialog {...DEFAULT_PROPS} />);
 
-    expect(screen.getByLabelText("Prezzo (€)")).toBeInTheDocument();
+    expect(screen.getByLabelText(/prezzo/i)).toBeInTheDocument();
   });
 
   it("renderizza il selettore aliquota IVA", () => {
@@ -81,7 +81,7 @@ describe("AddItemDialog", () => {
     fireEvent.change(screen.getByLabelText("Descrizione"), {
       target: { value: "Caffè espresso" },
     });
-    fireEvent.change(screen.getByLabelText("Prezzo (€)"), {
+    fireEvent.change(screen.getByLabelText(/prezzo/i), {
       target: { value: "1.20" },
     });
 
@@ -106,7 +106,7 @@ describe("AddItemDialog", () => {
     fireEvent.change(screen.getByLabelText("Descrizione"), {
       target: { value: "Caffè" },
     });
-    fireEvent.change(screen.getByLabelText("Prezzo (€)"), {
+    fireEvent.change(screen.getByLabelText(/prezzo/i), {
       target: { value: "1.00" },
     });
 

@@ -30,7 +30,7 @@ export const catalogItems = pgTable(
     defaultPrice: numeric("default_price", {
       precision: 10,
       scale: 2,
-    }).notNull(),
+    }),
     defaultVatCode: text("default_vat_code").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

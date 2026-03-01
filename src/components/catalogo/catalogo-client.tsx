@@ -34,12 +34,22 @@ export function CatalogoClient({
   };
 
   const handleItemTap = (item: CatalogItem) => {
-    const params = new URLSearchParams({
-      description: item.description,
-      price: item.defaultPrice,
-      vatCode: item.defaultVatCode,
-    });
-    router.push(`/dashboard/cassa?${params.toString()}`);
+    if (item.defaultPrice !== null) {
+      // Prezzo noto → aggiunge direttamente al carrello
+      const params = new URLSearchParams({
+        description: item.description,
+        price: item.defaultPrice,
+        vatCode: item.defaultVatCode,
+      });
+      router.push(`/dashboard/cassa?${params.toString()}`);
+    } else {
+      // Prezzo da definire → va al tastierino con descrizione e IVA pre-compilati
+      const params = new URLSearchParams({
+        prefillDescription: item.description,
+        prefillVatCode: item.defaultVatCode,
+      });
+      router.push(`/dashboard/cassa?${params.toString()}`);
+    }
   };
 
   const handleDeleteConfirm = async (itemId: string) => {
@@ -92,7 +102,9 @@ export function CatalogoClient({
               >
                 <p className="truncate font-medium">{item.description}</p>
                 <p className="text-muted-foreground text-sm">
-                  {formatCurrency(Number.parseFloat(item.defaultPrice))} ·{" "}
+                  {item.defaultPrice !== null
+                    ? `${formatCurrency(Number.parseFloat(item.defaultPrice))} · `
+                    : "Prezzo variabile · "}
                   <span>{VAT_LABELS[item.defaultVatCode]}</span>
                 </p>
               </button>

@@ -230,6 +230,32 @@ describe("catalog-actions", () => {
       expect(insertArg.defaultPrice).toBe("1.20");
       expect(insertArg.defaultVatCode).toBe("22");
     });
+
+    it("accetta prezzo null (prezzo da definire in cassa)", async () => {
+      const { addCatalogItem } = await import("./catalog-actions");
+      const result = await addCatalogItem({
+        ...VALID_ADD_INPUT,
+        defaultPrice: null,
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(mockInsert).toHaveBeenCalledWith("catalog-items-table");
+      const insertArg = mockInsertValues.mock.calls[0][0];
+      expect(insertArg.defaultPrice).toBeNull();
+    });
+
+    it("accetta prezzo stringa vuota (normalizzato a null)", async () => {
+      const { addCatalogItem } = await import("./catalog-actions");
+      const result = await addCatalogItem({
+        ...VALID_ADD_INPUT,
+        defaultPrice: "",
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(mockInsert).toHaveBeenCalledWith("catalog-items-table");
+      const insertArg = mockInsertValues.mock.calls[0][0];
+      expect(insertArg.defaultPrice).toBeNull();
+    });
   });
 
   // ---------------------------------------------------------------------------

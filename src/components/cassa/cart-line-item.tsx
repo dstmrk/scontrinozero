@@ -1,15 +1,16 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { CartLine, VAT_LABELS } from "@/types/cassa";
 
 interface CartLineItemProps {
   readonly line: CartLine;
   readonly onRemove: (id: string) => void;
+  readonly onEdit: (id: string) => void;
 }
 
-export function CartLineItem({ line, onRemove }: CartLineItemProps) {
+export function CartLineItem({ line, onRemove, onEdit }: CartLineItemProps) {
   const lineTotal = line.grossUnitPrice * line.quantity;
 
   return (
@@ -26,8 +27,16 @@ export function CartLineItem({ line, onRemove }: CartLineItemProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <span className="font-semibold">{formatCurrency(lineTotal)}</span>
+      <div className="flex items-center gap-1">
+        <span className="mr-1 font-semibold">{formatCurrency(lineTotal)}</span>
+        <button
+          type="button"
+          aria-label="Modifica articolo"
+          onClick={() => onEdit(line.id)}
+          className="text-muted-foreground hover:bg-muted rounded-lg p-1.5 transition-colors"
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
         <button
           type="button"
           aria-label="Rimuovi articolo"

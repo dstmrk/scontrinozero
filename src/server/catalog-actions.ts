@@ -80,10 +80,14 @@ export async function addCatalogItem(
     return { error: "La descrizione è obbligatoria." };
   }
 
-  // Validate price
-  const price = Number.parseFloat(input.defaultPrice);
-  if (Number.isNaN(price) || price < 0) {
-    return { error: "Il prezzo deve essere un numero non negativo." };
+  // Validate price (opzionale: null o stringa vuota = prezzo da definire)
+  const priceStr =
+    input.defaultPrice === "" ? null : (input.defaultPrice ?? null);
+  if (priceStr !== null) {
+    const price = Number.parseFloat(priceStr);
+    if (Number.isNaN(price) || price < 0) {
+      return { error: "Il prezzo deve essere un numero non negativo." };
+    }
   }
 
   // Validate VAT code
@@ -95,7 +99,7 @@ export async function addCatalogItem(
   await db.insert(catalogItems).values({
     businessId: input.businessId,
     description: input.description.trim(),
-    defaultPrice: input.defaultPrice,
+    defaultPrice: priceStr,
     defaultVatCode: input.defaultVatCode,
   });
 

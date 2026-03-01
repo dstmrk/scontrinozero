@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, ShoppingCart } from "lucide-react";
@@ -36,6 +36,7 @@ export function CassaClient({
     lines,
     paymentMethod,
     addLine,
+    updateLine,
     removeLine,
     clearCart,
     setPaymentMethod,
@@ -43,9 +44,18 @@ export function CassaClient({
   } = useCassa();
 
   const [step, setStep] = useState<Step>("cart");
+  // id dell'articolo in modifica (null = nuova aggiunta)
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
 
-  // Pre-popola il carrello se navigato dal catalogo (?description=...&price=...&vatCode=...)
+  // Ref guard: evita doppia esecuzione in React Strict Mode
+  const catalogParamConsumed = useRef(false);
+
+  // Pre-popola il carrello se navigato dal catalogo
+  //   ?description=...&price=...&vatCode=...  → aggiunge direttamente al carrello
+  //   ?prefillDescription=...&prefillVatCode=... → apre il tastierino pre-compilato
   useEffect(() => {
+    if (catalogParamConsumed.current) return;
+
     const description = searchParams.get("description");
     const price = searchParams.get("price");
     const vatCode = searchParams.get("vatCode");
@@ -58,15 +68,31 @@ export function CassaClient({
     ) {
       const parsedPrice = Number.parseFloat(price);
       if (!Number.isNaN(parsedPrice) && parsedPrice >= 0) {
+        catalogParamConsumed.current = true;
         addLine({
           description,
           quantity: 1,
           grossUnitPrice: parsedPrice,
           vatCode: vatCode as VatCode,
         });
-        // Pulisce i params dall'URL senza aggiungere entry alla cronologia
         router.replace("/dashboard/cassa");
       }
+      return;
+    }
+
+    const prefillDescription = searchParams.get("prefillDescription");
+    const prefillVatCode = searchParams.get("prefillVatCode");
+
+    if (
+      prefillDescription &&
+      prefillVatCode &&
+      VAT_CODES.includes(prefillVatCode as VatCode)
+    ) {
+      catalogParamConsumed.current = true;
+      setDescription(prefillDescription);
+      setVatCode(prefillVatCode as VatCode);
+      setStep("add-item");
+      router.replace("/dashboard/cassa");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -105,12 +131,18 @@ export function CassaClient({
 
   const handleAddLine = () => {
     if (!canAdd) return;
-    addLine({
+    const lineData = {
       description: description.trim() || "Vendita",
       quantity,
       grossUnitPrice: parsedAmount,
       vatCode,
-    });
+    };
+    if (editingLineId) {
+      updateLine(editingLineId, lineData);
+      setEditingLineId(null);
+    } else {
+      addLine(lineData);
+    }
     // Reset form
     setDescription("");
     setAmount("");
@@ -147,13 +179,16 @@ export function CassaClient({
     );
   }
 
-  // ---- STEP: aggiungi articolo ----
+  // ---- STEP: aggiungi / modifica articolo ----
   if (step === "add-item") {
+    const isEditing = editingLineId !== null;
     return (
       <div className="mx-auto max-w-sm space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Aggiungi articolo</h1>
+          <h1 className="text-xl font-semibold">
+            {isEditing ? "Modifica articolo" : "Aggiungi articolo"}
+          </h1>
           <Button
             variant="ghost"
             size="sm"
@@ -163,6 +198,7 @@ export function CassaClient({
               setDescription("");
               setQuantity(1);
               setVatCode(defaultVat);
+              setEditingLineId(null);
             }}
           >
             Annulla
@@ -222,7 +258,7 @@ export function CassaClient({
           <VatSelector value={vatCode} onChange={setVatCode} />
         </div>
 
-        {/* Aggiungi */}
+        {/* Aggiungi / Aggiorna */}
         <Button
           type="button"
           size="lg"
@@ -230,7 +266,7 @@ export function CassaClient({
           onClick={handleAddLine}
           disabled={!canAdd}
         >
-          Aggiungi
+          {isEditing ? "Aggiorna" : "Aggiungi"}
         </Button>
       </div>
     );
@@ -293,7 +329,23 @@ export function CassaClient({
       ) : (
         <div className="flex flex-col gap-2">
           {lines.map((line) => (
-            <CartLineItem key={line.id} line={line} onRemove={removeLine} />
+            <CartLineItem
+              key={line.id}
+              line={line}
+              onRemove={removeLine}
+              onEdit={(id) => {
+                const l = lines.find((x) => x.id === id);
+                if (!l) return;
+                setEditingLineId(id);
+                setDescription(
+                  l.description === "Vendita" ? "" : l.description,
+                );
+                setAmount(String(l.grossUnitPrice));
+                setQuantity(l.quantity);
+                setVatCode(l.vatCode);
+                setStep("add-item");
+              }}
+            />
           ))}
         </div>
       )}
@@ -310,7 +362,7 @@ export function CassaClient({
       <div className="flex gap-3">
         <Button
           type="button"
-          variant="outline"
+          variant={lines.length === 0 ? "default" : "outline"}
           size="lg"
           className="flex-1"
           onClick={() => setStep("add-item")}

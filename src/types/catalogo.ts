@@ -12,8 +12,8 @@ export interface CatalogItem {
   id: string;
   businessId: string;
   description: string;
-  /** Prezzo come stringa (Drizzle restituisce numeric come string) */
-  defaultPrice: string;
+  /** Prezzo come stringa (Drizzle restituisce numeric come string), null se non specificato */
+  defaultPrice: string | null;
   defaultVatCode: VatCode;
   createdAt: Date;
 }
@@ -22,8 +22,8 @@ export interface CatalogItem {
 export interface AddCatalogItemInput {
   businessId: string;
   description: string;
-  /** Prezzo in euro come stringa, es: "12.50" */
-  defaultPrice: string;
+  /** Prezzo in euro come stringa, es: "12.50". Stringa vuota o null = prezzo non specificato */
+  defaultPrice: string | null;
   defaultVatCode: VatCode;
 }
 
