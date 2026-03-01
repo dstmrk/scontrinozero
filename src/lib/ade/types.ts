@@ -254,25 +254,43 @@ export interface AdeDocumentList {
 }
 
 /**
- * Dettaglio completo di un documento (GET /documenti/{idtrx}/).
+ * Riga contabile nel documento di dettaglio (GET /documenti/{idtrx}/).
  *
- * HAR finding (annullo.har [05]): questa risposta è usata per popolare il
- * payload di annullo — in particolare "elementiContabili" (con i reali
- * idElementoContabile) e tutti i totali monetari.
+ * HAR finding (annullo.har [04]): resiPregressi è assente nella risposta GET
+ * ma richiesto nel POST dell'annullo — il mapper lo aggiunge come "0.00".
  */
-export interface AdeDocumentDetail {
-  idtrx: string;
-  numeroProgressivo: string;
-  /** Codice fiscale cessionario/committente */
+export interface AdeDocumentDetailElemento {
+  idElementoContabile: string;
+  reso: string;
+  quantita: string;
+  descrizioneProdotto: string;
+  prezzoLordo: string;
+  prezzoUnitario: string;
+  scontoUnitario: string;
+  scontoLordo: string;
+  aliquotaIVA: string;
+  importoIVA: string;
+  imponibile: string;
+  imponibileNetto: string;
+  totale: string;
+  omaggio: "N" | "Y";
+}
+
+/**
+ * Corpo documentoCommerciale come restituito da GET /documenti/{idtrx}/.
+ *
+ * HAR finding (annullo.har [04]):
+ * - progressivoCollegato e multiAttivita possono essere assenti per doc semplici
+ * - i campi monetari usano precisione variabile (non 8 decimali fissi)
+ * - elementiContabili senza resiPregressi (aggiunto dal mapper nel POST)
+ */
+export interface AdeDocumentDetailBody {
   cfCessionarioCommittente: string;
-  /** Data documento in formato MM/DD/YYYY */
-  data: string;
-  tipoOperazione: AdeOperationType;
   flagDocCommPerRegalo: boolean;
-  progressivoCollegato: string;
-  /** Data/ora documento in formato DD/MM/YYYY (già pronta per payload AdE) */
+  progressivoCollegato?: string;
+  /** Data/ora documento in formato DD/MM/YYYY */
   dataOra: string;
-  multiAttivita: AdeMultiAttivita;
+  multiAttivita?: AdeMultiAttivita;
   importoTotaleIva: string;
   scontoTotale: string;
   scontoTotaleLordo: string;
@@ -282,9 +300,21 @@ export interface AdeDocumentDetail {
   scontoAbbuono: string;
   importoDetraibileDeducibile: string;
   /** Righe contabili con i reali idElementoContabile (necessari per annullo) */
-  elementiContabili: AdeElementoContabile[];
+  elementiContabili: AdeDocumentDetailElemento[];
   vendita?: AdePaymentEntry[];
-  annulli?: unknown[] | null;
+  numeroProgressivo?: string;
+}
+
+/**
+ * Dettaglio completo di un documento (GET /documenti/{idtrx}/).
+ *
+ * HAR finding (annullo.har [04]): struttura identica al payload di invio —
+ * { idtrx, datiTrasmissione, cedentePrestatore, documentoCommerciale }.
+ * I dati rilevanti per l'annullo sono sotto documentoCommerciale.
+ */
+export interface AdeDocumentDetail {
+  idtrx: string;
+  documentoCommerciale: AdeDocumentDetailBody;
 }
 
 /**

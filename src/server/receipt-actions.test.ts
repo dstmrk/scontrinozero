@@ -294,5 +294,22 @@ describe("receipt-actions", () => {
       const setArg = mockUpdateSet.mock.calls[0][0];
       expect(setArg.status).toBe("ERROR");
     });
+
+    it("returns error and sets document to REJECTED when AdE rejects with esito:false", async () => {
+      mockSubmitSale.mockResolvedValue({
+        esito: false,
+        idtrx: null,
+        progressivo: null,
+        errori: [{ codice: "ERR002", descrizione: "Dati non validi" }],
+      });
+
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt(VALID_INPUT);
+
+      expect(result.error).toMatch(/rifiutato/i);
+      const setArg = mockUpdateSet.mock.calls[0][0];
+      expect(setArg.status).toBe("REJECTED");
+      expect(setArg.adeResponse).toBeDefined();
+    });
   });
 });

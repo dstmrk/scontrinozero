@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -7,7 +8,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { WaitlistForm } from "@/components/marketing/waitlist-form";
 import { FaqSection } from "@/components/marketing/faq-section";
 import {
   Smartphone,
@@ -41,10 +41,12 @@ export default function Home() {
             Entrate senza registratore telematico. Il più economico sul mercato.
           </p>
           <div className="mt-8 flex flex-col items-center gap-4">
-            <WaitlistForm />
-            <p className="text-muted-foreground text-xs">
-              Niente spam. Ti avvisiamo solo al lancio.
-            </p>
+            <Button asChild size="lg">
+              <Link href="/register">
+                Inizia gratis
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
           </div>
         </div>
       </section>
@@ -228,25 +230,11 @@ export default function Home() {
 
           <div className="mt-8 text-center">
             <Button asChild>
-              <a href="#waitlist">
-                Iscriviti alla beta gratuita
+              <Link href="/register">
+                Inizia gratis
                 <ArrowRight className="h-4 w-4" />
-              </a>
+              </Link>
             </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* Lista d'attesa */}
-      <section id="waitlist" className="bg-muted/50 px-4 py-20">
-        <div className="mx-auto max-w-xl text-center">
-          <h2 className="text-2xl font-bold">Non perderti il lancio</h2>
-          <p className="text-muted-foreground mt-2">
-            Iscriviti alla lista d&apos;attesa per essere tra i primi a provare
-            ScontrinoZero.
-          </p>
-          <div className="mt-6 flex justify-center">
-            <WaitlistForm />
           </div>
         </div>
       </section>

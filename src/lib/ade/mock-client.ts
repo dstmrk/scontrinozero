@@ -109,26 +109,27 @@ export class MockAdeClient implements AdeClient {
   async getDocument(_idtrx: string): Promise<AdeDocumentDetail> {
     this.assertLoggedIn();
 
-    // Return a minimal valid document for testing purposes
+    // Return a minimal valid document matching the real API response structure.
+    // HAR finding (annullo.har [04]): campi monetari sotto documentoCommerciale,
+    // precisione variabile (non 8 decimali). resiPregressi assente negli elementi.
     return {
       idtrx: _idtrx,
-      numeroProgressivo: "",
-      cfCessionarioCommittente: "",
-      data: "",
-      tipoOperazione: "V",
-      flagDocCommPerRegalo: false,
-      progressivoCollegato: "",
-      dataOra: "",
-      multiAttivita: { codiceAttivita: "", descAttivita: "" },
-      importoTotaleIva: "0.00000000",
-      scontoTotale: "0.00000000",
-      scontoTotaleLordo: "0.00000000",
-      totaleImponibile: "0.00000000",
-      ammontareComplessivo: "0.00000000",
-      totaleNonRiscosso: "0.00000000",
-      scontoAbbuono: "0.00",
-      importoDetraibileDeducibile: "0.00000000",
-      elementiContabili: [],
+      documentoCommerciale: {
+        cfCessionarioCommittente: "",
+        flagDocCommPerRegalo: false,
+        progressivoCollegato: "",
+        dataOra: "",
+        multiAttivita: { codiceAttivita: "", descAttivita: "" },
+        importoTotaleIva: "0",
+        scontoTotale: "0",
+        scontoTotaleLordo: "0",
+        totaleImponibile: "0",
+        ammontareComplessivo: "0",
+        totaleNonRiscosso: "0",
+        scontoAbbuono: "0",
+        importoDetraibileDeducibile: "0",
+        elementiContabili: [],
+      },
     };
   }
 

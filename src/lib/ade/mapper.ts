@@ -269,6 +269,11 @@ export function mapVoidToAdePayload(
 ): AdePayload {
   const orig = voidReq.originalDocument;
 
+  // HAR finding (annullo.har [04]): i campi monetari sono in documentoCommerciale,
+  // non a livello radice. La risposta GET usa precisione variabile (es. "1.7"),
+  // il POST richiede 8 decimali — toAdeAmount8(Number(...)) normalizza.
+  const docComm = originalDoc.documentoCommerciale;
+
   // HAR fix (annullo.har [06]): per gli annulli il portale invia
   // nuovoUtente=true e defAliquotaIVA="" nel cedentePrestatore.
   const cedente: AdeCedentePrestatore = {
@@ -282,29 +287,53 @@ export function mapVoidToAdePayload(
 
   const documentoCommerciale: AdeDocumentoCommerciale = {
     // Dati identificativi e flag dal documento originale
-    cfCessionarioCommittente: originalDoc.cfCessionarioCommittente,
-    flagDocCommPerRegalo: originalDoc.flagDocCommPerRegalo,
-    progressivoCollegato: originalDoc.progressivoCollegato,
-    dataOra: originalDoc.dataOra, // già in DD/MM/YYYY
-    multiAttivita: originalDoc.multiAttivita,
+    cfCessionarioCommittente: docComm.cfCessionarioCommittente,
+    flagDocCommPerRegalo: docComm.flagDocCommPerRegalo,
+    progressivoCollegato: docComm.progressivoCollegato ?? "",
+    dataOra: docComm.dataOra, // già in DD/MM/YYYY
+    multiAttivita: docComm.multiAttivita ?? {
+      codiceAttivita: "",
+      descAttivita: "",
+    },
 
-    // Totali monetari dal documento originale (già in formato 8d)
-    importoTotaleIva: originalDoc.importoTotaleIva,
-    scontoTotale: originalDoc.scontoTotale,
-    scontoTotaleLordo: originalDoc.scontoTotaleLordo,
-    totaleImponibile: originalDoc.totaleImponibile,
-    ammontareComplessivo: originalDoc.ammontareComplessivo,
-    totaleNonRiscosso: originalDoc.totaleNonRiscosso,
-    scontoAbbuono: originalDoc.scontoAbbuono,
-    importoDetraibileDeducibile: originalDoc.importoDetraibileDeducibile,
+    // Totali monetari: GET ha precisione variabile, POST richiede 8 decimali.
+    importoTotaleIva: toAdeAmount8(Number(docComm.importoTotaleIva)),
+    scontoTotale: toAdeAmount8(Number(docComm.scontoTotale)),
+    scontoTotaleLordo: toAdeAmount8(Number(docComm.scontoTotaleLordo)),
+    totaleImponibile: toAdeAmount8(Number(docComm.totaleImponibile)),
+    ammontareComplessivo: toAdeAmount8(Number(docComm.ammontareComplessivo)),
+    totaleNonRiscosso: toAdeAmount8(Number(docComm.totaleNonRiscosso)),
+    scontoAbbuono: toAdeAmount(Number(docComm.scontoAbbuono)), // 2d (HAR: "0.00")
+    importoDetraibileDeducibile: toAdeAmount8(
+      Number(docComm.importoDetraibileDeducibile),
+    ),
 
-    // Righe contabili complete (con idElementoContabile reali)
-    elementiContabili: originalDoc.elementiContabili,
+    // Righe contabili con idElementoContabile reali.
+    // HAR finding: il GET usa precisione variabile; il POST richiede la stessa
+    // precisione di computeLineAmounts (2d per resiPregressi/reso/quantita, 8d
+    // per tutti gli importi). resiPregressi è assente nel GET → aggiunto come "0.00".
+    elementiContabili: docComm.elementiContabili.map((el) => ({
+      idElementoContabile: el.idElementoContabile,
+      resiPregressi: toAdeAmount(0), // 2d — assente nel GET, "0.00"
+      reso: toAdeAmount(Number(el.reso)), // 2d
+      quantita: toAdeAmount(Number(el.quantita)), // 2d
+      descrizioneProdotto: el.descrizioneProdotto,
+      prezzoLordo: toAdeAmount8(Number(el.prezzoLordo)), // 8d
+      prezzoUnitario: toAdeAmount8(Number(el.prezzoUnitario)), // 8d
+      scontoUnitario: toAdeAmount8(Number(el.scontoUnitario)), // 8d
+      scontoLordo: toAdeAmount8(Number(el.scontoLordo)), // 8d
+      aliquotaIVA: el.aliquotaIVA,
+      importoIVA: toAdeAmount8(Number(el.importoIVA)), // 8d
+      imponibile: toAdeAmount8(Number(el.imponibile)), // 8d
+      imponibileNetto: toAdeAmount8(Number(el.imponibileNetto)), // 8d
+      totale: toAdeAmount8(Number(el.totale)), // 8d
+      omaggio: el.omaggio,
+    })),
 
-    // Dati annullo
+    // Dati annullo: usa dataOra dal documento AdE (già DD/MM/YYYY, fonte autorevole)
     resoAnnullo: {
       tipologia: "A",
-      dataOra: toAdeDate(orig.date),
+      dataOra: docComm.dataOra,
       progressivo: orig.documentProgressive,
     },
     numeroProgressivo: orig.documentProgressive,

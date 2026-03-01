@@ -439,49 +439,49 @@ describe("mapSaleToAdePayload", () => {
 /**
  * Documento originale di esempio (GET /documenti/{idtrx}/).
  *
- * Riproduce la struttura reale dal HAR (annullo.har [05]):
+ * Riproduce la struttura reale dal HAR (annullo.har [04]):
+ * - i campi monetari sono sotto documentoCommerciale (non a livello radice)
  * - idElementoContabile reali (non vuoti)
- * - totali monetari in formato 8d
+ * - totali monetari con precisione variabile (come da GET, non 8d fissi)
+ * - resiPregressi assente negli elementi (aggiunto dal mapper come "0.00")
  * - cfCessionarioCommittente del cliente originale
  * - dataOra già in formato DD/MM/YYYY
  */
 const mockOriginalDoc: AdeDocumentDetail = {
   idtrx: "151085589",
-  numeroProgressivo: "DCW2026/5111-2188",
-  cfCessionarioCommittente: "RSSMRA80A01H501A",
-  data: "02/15/2026",
-  tipoOperazione: "V",
-  flagDocCommPerRegalo: false,
-  progressivoCollegato: "",
-  dataOra: "15/02/2026",
-  multiAttivita: { codiceAttivita: "", descAttivita: "" },
-  importoTotaleIva: "2.20000000",
-  scontoTotale: "0.00000000",
-  scontoTotaleLordo: "0.00000000",
-  totaleImponibile: "10.00000000",
-  ammontareComplessivo: "12.20000000",
-  totaleNonRiscosso: "0.00000000",
-  scontoAbbuono: "0.00",
-  importoDetraibileDeducibile: "0.00000000",
-  elementiContabili: [
-    {
-      idElementoContabile: "270270040",
-      resiPregressi: "0.00",
-      reso: "0.00",
-      quantita: "1.00",
-      descrizioneProdotto: "Prodotto",
-      prezzoLordo: "12.20000000",
-      prezzoUnitario: "10.00000000",
-      scontoUnitario: "0.00000000",
-      scontoLordo: "0.00000000",
-      aliquotaIVA: "22",
-      importoIVA: "2.20000000",
-      imponibile: "10.00000000",
-      imponibileNetto: "10.00000000",
-      totale: "12.20000000",
-      omaggio: "N",
-    },
-  ],
+  documentoCommerciale: {
+    cfCessionarioCommittente: "RSSMRA80A01H501A",
+    flagDocCommPerRegalo: false,
+    progressivoCollegato: "",
+    dataOra: "15/02/2026",
+    multiAttivita: { codiceAttivita: "", descAttivita: "" },
+    importoTotaleIva: "2.2",
+    scontoTotale: "0",
+    scontoTotaleLordo: "0",
+    totaleImponibile: "10",
+    ammontareComplessivo: "12.2",
+    totaleNonRiscosso: "0",
+    scontoAbbuono: "0",
+    importoDetraibileDeducibile: "0",
+    elementiContabili: [
+      {
+        idElementoContabile: "270270040",
+        reso: "0.00",
+        quantita: "1.00",
+        descrizioneProdotto: "Prodotto",
+        prezzoLordo: "12.2",
+        prezzoUnitario: "10",
+        scontoUnitario: "0",
+        scontoLordo: "0",
+        aliquotaIVA: "22",
+        importoIVA: "2.2",
+        imponibile: "10",
+        imponibileNetto: "10",
+        totale: "12.2",
+        omaggio: "N",
+      },
+    ],
+  },
 };
 
 describe("mapVoidToAdePayload", () => {

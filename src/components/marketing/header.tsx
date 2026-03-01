@@ -33,7 +33,7 @@ export function Header() {
         </nav>
 
         <Button size="sm" asChild>
-          <a href="#waitlist">Lista d&apos;attesa</a>
+          <Link href="/login">Accedi</Link>
         </Button>
       </div>
     </header>

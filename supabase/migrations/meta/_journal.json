@@ -5,43 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1770727604737,
-      "tag": "0000_wooden_lady_ursula",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1770734168024,
-      "tag": "0001_nosy_unus",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1771271121856,
-      "tag": "0002_living_firedrake",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1771686371305,
-      "tag": "0003_colossal_jimmy_woo",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1772193600000,
-      "tag": "0004_catalog_items",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1772274000000,
-      "tag": "0005_onboarding_refactor",
+      "when": 1772398479211,
+      "tag": "0000_initial",
       "breakpoints": true
     }
   ]

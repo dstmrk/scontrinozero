@@ -167,6 +167,26 @@ export async function voidReceipt(
     const adeResponse = await adeClient.submitVoid(payload);
     await adeClient.logout();
 
+    // AdE can return HTTP 200 with esito:false when it rejects the void.
+    if (!adeResponse.esito) {
+      const errorDesc =
+        adeResponse.errori
+          ?.map((e) => `${e.codice}: ${e.descrizione}`)
+          .join("; ") || "Errore sconosciuto";
+      logger.error(
+        { adeResponse, voidDocumentId, saleDocumentId: input.documentId },
+        "AdE rejected void",
+      );
+      await db
+        .update(commercialDocuments)
+        .set({
+          status: "REJECTED",
+          adeResponse: adeResponse as unknown as Record<string, unknown>,
+        })
+        .where(eq(commercialDocuments.id, voidDocumentId));
+      return { error: `Annullo rifiutato dall'AdE: ${errorDesc}` };
+    }
+
     // 6. Update VOID document
     await db
       .update(commercialDocuments)

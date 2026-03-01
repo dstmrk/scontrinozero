@@ -125,8 +125,39 @@ const FAKE_VOID_DOC = { id: "void-doc-uuid" };
 
 const FAKE_ADE_DETAIL = {
   idtrx: "trx-001",
-  numeroProgressivo: "DCW2026/5111-2188",
-  elementiContabili: [{ idElementoContabile: "270270040" }],
+  documentoCommerciale: {
+    cfCessionarioCommittente: "",
+    flagDocCommPerRegalo: false,
+    progressivoCollegato: "",
+    dataOra: "15/02/2026",
+    multiAttivita: { codiceAttivita: "", descAttivita: "" },
+    importoTotaleIva: "0",
+    scontoTotale: "0",
+    scontoTotaleLordo: "0",
+    totaleImponibile: "1.7",
+    ammontareComplessivo: "1.7",
+    totaleNonRiscosso: "0",
+    scontoAbbuono: "0",
+    importoDetraibileDeducibile: "0",
+    elementiContabili: [
+      {
+        idElementoContabile: "270270040",
+        reso: "0.00",
+        quantita: "1",
+        descrizioneProdotto: "Prodotto test",
+        prezzoLordo: "1.7",
+        prezzoUnitario: "1.7",
+        scontoUnitario: "0",
+        scontoLordo: "0",
+        aliquotaIVA: "N2",
+        importoIVA: "0",
+        imponibile: "1.7",
+        imponibileNetto: "1.7",
+        totale: "1.7",
+        omaggio: "N",
+      },
+    ],
+  },
 };
 
 const FAKE_ADE_RESPONSE = {
@@ -377,6 +408,26 @@ describe("void-actions", () => {
       expect(result.error).toBeDefined();
       const setArg = mockUpdateSet.mock.calls[0][0];
       expect(setArg.status).toBe("ERROR");
+    });
+
+    it("returns error and sets VOID doc to REJECTED when AdE rejects with esito:false", async () => {
+      mockSubmitVoid.mockResolvedValue({
+        esito: false,
+        idtrx: null,
+        progressivo: null,
+        errori: [{ codice: "ERR001", descrizione: "Documento già annullato" }],
+      });
+
+      const { voidReceipt } = await import("./void-actions");
+      const result = await voidReceipt(VALID_VOID_INPUT);
+
+      expect(result.error).toMatch(/rifiutato/i);
+      // VOID doc must be set to REJECTED with adeResponse saved
+      const setArg = mockUpdateSet.mock.calls[0][0];
+      expect(setArg.status).toBe("REJECTED");
+      expect(setArg.adeResponse).toBeDefined();
+      // Original SALE doc must NOT be touched — only 1 update call
+      expect(mockUpdateSet.mock.calls).toHaveLength(1);
     });
 
     it("returns error and sets VOID doc to ERROR when AdE login fails", async () => {

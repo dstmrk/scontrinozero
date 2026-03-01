@@ -38,7 +38,7 @@ describe("db initialization", () => {
 
     const postgres = vi.fn().mockReturnValue(postgresClient);
     const drizzle = vi.fn().mockReturnValue(drizzleDb);
-    const schema = { waitlist: Symbol("waitlist") };
+    const schema = { profiles: Symbol("profiles") };
 
     vi.doMock("postgres", () => ({ default: postgres }));
     vi.doMock("drizzle-orm/postgres-js", () => ({ drizzle }));

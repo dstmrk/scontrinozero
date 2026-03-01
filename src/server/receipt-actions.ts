@@ -168,6 +168,23 @@ export async function emitReceipt(
     const adeResponse = await adeClient.submitSale(payload);
     await adeClient.logout();
 
+    // AdE can return HTTP 200 with esito:false when it rejects the document.
+    if (!adeResponse.esito) {
+      const errorDesc =
+        adeResponse.errori
+          ?.map((e) => `${e.codice}: ${e.descrizione}`)
+          .join("; ") || "Errore sconosciuto";
+      logger.error({ adeResponse, documentId }, "AdE rejected sale");
+      await db
+        .update(commercialDocuments)
+        .set({
+          status: "REJECTED",
+          adeResponse: adeResponse as unknown as Record<string, unknown>,
+        })
+        .where(eq(commercialDocuments.id, documentId));
+      return { error: `Scontrino rifiutato dall'AdE: ${errorDesc}` };
+    }
+
     await db
       .update(commercialDocuments)
       .set({
