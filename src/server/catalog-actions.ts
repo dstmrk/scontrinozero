@@ -13,6 +13,7 @@ import type {
   AddCatalogItemInput,
   CatalogActionResult,
   CatalogItem,
+  UpdateCatalogItemInput,
 } from "@/types/catalogo";
 
 // ---------------------------------------------------------------------------
@@ -144,6 +145,76 @@ export async function deleteCatalogItem(
   }
 
   await db.delete(catalogItems).where(eq(catalogItems.id, itemId));
+
+  return {};
+}
+
+// ---------------------------------------------------------------------------
+// updateCatalogItem
+// ---------------------------------------------------------------------------
+
+/**
+ * Aggiorna un prodotto nel catalogo.
+ * Verifica che il prodotto appartenga al business dell'utente autenticato.
+ */
+export async function updateCatalogItem(
+  input: UpdateCatalogItemInput,
+): Promise<CatalogActionResult> {
+  let user;
+  try {
+    user = await getAuthenticatedUser();
+  } catch {
+    return { error: "Non autenticato." };
+  }
+
+  const ownershipError = await checkBusinessOwnership(
+    user.id,
+    input.businessId,
+  );
+  if (ownershipError) return ownershipError;
+
+  if (!input.description?.trim()) {
+    return { error: "La descrizione è obbligatoria." };
+  }
+
+  const priceStr =
+    input.defaultPrice === "" ? null : (input.defaultPrice ?? null);
+  if (priceStr !== null) {
+    const price = Number.parseFloat(priceStr);
+    if (Number.isNaN(price) || price < 0) {
+      return { error: "Il prezzo deve essere un numero non negativo." };
+    }
+  }
+
+  if (!VAT_CODES.includes(input.defaultVatCode)) {
+    return { error: "Codice IVA non valido." };
+  }
+
+  const db = getDb();
+
+  const [item] = await db
+    .select({ id: catalogItems.id })
+    .from(catalogItems)
+    .where(
+      and(
+        eq(catalogItems.id, input.itemId),
+        eq(catalogItems.businessId, input.businessId),
+      ),
+    )
+    .limit(1);
+
+  if (!item) {
+    return { error: "Prodotto non trovato." };
+  }
+
+  await db
+    .update(catalogItems)
+    .set({
+      description: input.description.trim(),
+      defaultPrice: priceStr,
+      defaultVatCode: input.defaultVatCode,
+    })
+    .where(eq(catalogItems.id, input.itemId));
 
   return {};
 }

@@ -290,7 +290,9 @@ export function OnboardingForm({
                   name="codiceFiscale"
                   required
                   maxLength={16}
-                  placeholder="RSSMRA80A01H501U"
+                  onChange={(e) => {
+                    e.target.value = e.target.value.toUpperCase();
+                  }}
                 />
               </div>
               <div className="space-y-2">

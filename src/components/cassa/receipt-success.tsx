@@ -47,7 +47,20 @@ export function ReceiptSuccess({
       await navigator.clipboard.writeText(url);
       setCopied(true);
     } catch {
-      // Clipboard not available
+      // Fallback per contesti non-sicuri (HTTP) o browser senza Clipboard API
+      try {
+        const el = document.createElement("textarea");
+        el.value = url;
+        el.style.position = "fixed";
+        el.style.opacity = "0";
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+        setCopied(true);
+      } catch {
+        // Nessun metodo disponibile
+      }
     }
   };
 
@@ -65,7 +78,7 @@ export function ReceiptSuccess({
           {adeProgressive && (
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground text-sm">
-                Progressivo AdE
+                Identificativo AdE
               </span>
               <span className="font-mono text-sm font-semibold">
                 {adeProgressive}

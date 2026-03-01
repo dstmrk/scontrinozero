@@ -2,12 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Package, Plus, Trash2 } from "lucide-react";
+import { Package, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getCatalogItems, deleteCatalogItem } from "@/server/catalog-actions";
 import { VAT_LABELS } from "@/types/cassa";
 import { formatCurrency } from "@/lib/utils";
 import { AddItemDialog } from "./add-item-dialog";
+import { EditItemDialog } from "./edit-item-dialog";
 import type { CatalogItem } from "@/types/catalogo";
 
 interface CatalogoClientProps {
@@ -22,6 +23,8 @@ export function CatalogoClient({
   const router = useRouter();
   const [items, setItems] = useState<CatalogItem[]>(initialData);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -33,9 +36,14 @@ export function CatalogoClient({
     });
   };
 
+  const exitEditMode = () => {
+    setEditMode(false);
+    setDeletingId(null);
+    setDeleteError(null);
+  };
+
   const handleItemTap = (item: CatalogItem) => {
     if (item.defaultPrice !== null) {
-      // Prezzo noto → aggiunge direttamente al carrello
       const params = new URLSearchParams({
         description: item.description,
         price: item.defaultPrice,
@@ -43,7 +51,6 @@ export function CatalogoClient({
       });
       router.push(`/dashboard/cassa?${params.toString()}`);
     } else {
-      // Prezzo da definire → va al tastierino con descrizione e IVA pre-compilati
       const params = new URLSearchParams({
         prefillDescription: item.description,
         prefillVatCode: item.defaultVatCode,
@@ -68,10 +75,23 @@ export function CatalogoClient({
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Catalogo</h1>
-        <Button size="sm" onClick={() => setShowAddDialog(true)}>
-          <Plus className="mr-1 h-4 w-4" />
-          Aggiungi
-        </Button>
+        <div className="flex gap-2">
+          {items.length > 0 && (
+            <Button
+              size="sm"
+              variant={editMode ? "default" : "outline"}
+              onClick={() => (editMode ? exitEditMode() : setEditMode(true))}
+            >
+              {editMode ? "Fine" : "Modifica"}
+            </Button>
+          )}
+          {!editMode && (
+            <Button size="sm" onClick={() => setShowAddDialog(true)}>
+              <Plus className="mr-1 h-4 w-4" />
+              Aggiungi
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Lista prodotti o empty state */}
@@ -91,54 +111,78 @@ export function CatalogoClient({
               key={item.id}
               className="flex items-center rounded-xl border px-4 py-3"
             >
-              {/* Area tap → naviga alla cassa */}
-              <button
-                type="button"
-                className="min-w-0 flex-1 text-left"
-                onClick={() => {
-                  setDeletingId(null);
-                  handleItemTap(item);
-                }}
-              >
-                <p className="truncate font-medium">{item.description}</p>
-                <p className="text-muted-foreground text-sm">
-                  {item.defaultPrice !== null
-                    ? `${formatCurrency(Number.parseFloat(item.defaultPrice))} · `
-                    : "Prezzo variabile · "}
-                  <span>{VAT_LABELS[item.defaultVatCode]}</span>
-                </p>
-              </button>
-
-              {/* Azioni eliminazione */}
-              {deletingId === item.id ? (
-                <div className="ml-2 flex shrink-0 gap-2">
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => handleDeleteConfirm(item.id)}
-                  >
-                    Elimina
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setDeletingId(null);
-                      setDeleteError(null);
-                    }}
-                  >
-                    Annulla
-                  </Button>
+              {editMode ? (
+                /* Modalità modifica: testo statico + azioni */
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{item.description}</p>
+                  <p className="text-muted-foreground text-sm">
+                    {item.defaultPrice !== null
+                      ? `${formatCurrency(Number.parseFloat(item.defaultPrice))} · `
+                      : "Prezzo variabile · "}
+                    <span>{VAT_LABELS[item.defaultVatCode]}</span>
+                  </p>
                 </div>
               ) : (
+                /* Modalità normale: tap → cassa */
                 <button
                   type="button"
-                  aria-label={`Elimina ${item.description}`}
-                  className="text-muted-foreground hover:text-destructive ml-2 shrink-0"
-                  onClick={() => setDeletingId(item.id)}
+                  className="min-w-0 flex-1 text-left"
+                  onClick={() => handleItemTap(item)}
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <p className="truncate font-medium">{item.description}</p>
+                  <p className="text-muted-foreground text-sm">
+                    {item.defaultPrice !== null
+                      ? `${formatCurrency(Number.parseFloat(item.defaultPrice))} · `
+                      : "Prezzo variabile · "}
+                    <span>{VAT_LABELS[item.defaultVatCode]}</span>
+                  </p>
                 </button>
+              )}
+
+              {/* Azioni in modalità modifica */}
+              {editMode && (
+                <div className="ml-2 flex shrink-0 items-center gap-1">
+                  {deletingId === item.id ? (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeleteConfirm(item.id)}
+                      >
+                        Elimina
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setDeletingId(null);
+                          setDeleteError(null);
+                        }}
+                      >
+                        Annulla
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        aria-label={`Modifica ${item.description}`}
+                        className="text-muted-foreground hover:text-foreground p-1"
+                        onClick={() => setEditingItem(item)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Elimina ${item.description}`}
+                        className="text-muted-foreground hover:text-destructive p-1"
+                        onClick={() => setDeletingId(item.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
+                </div>
               )}
             </div>
           ))}
@@ -160,6 +204,19 @@ export function CatalogoClient({
             refreshItems();
           }}
           onClose={() => setShowAddDialog(false)}
+        />
+      )}
+
+      {/* Dialog modifica prodotto */}
+      {editingItem && (
+        <EditItemDialog
+          businessId={businessId}
+          item={editingItem}
+          onSuccess={() => {
+            setEditingItem(null);
+            refreshItems();
+          }}
+          onClose={() => setEditingItem(null)}
         />
       )}
     </div>

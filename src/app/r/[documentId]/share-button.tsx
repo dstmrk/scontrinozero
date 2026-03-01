@@ -31,7 +31,21 @@ export function ShareButton({ url, title }: ShareButtonProps) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard not available — do nothing
+      // Fallback per contesti non-sicuri (HTTP) o browser senza Clipboard API
+      try {
+        const el = document.createElement("textarea");
+        el.value = fullUrl;
+        el.style.position = "fixed";
+        el.style.opacity = "0";
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {
+        // Nessun metodo disponibile
+      }
     }
   };
 

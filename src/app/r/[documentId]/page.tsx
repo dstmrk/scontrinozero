@@ -205,7 +205,7 @@ export default async function PublicReceiptPage({
             </div>
             {doc.adeProgressive && (
               <div className="flex justify-between">
-                <span>Progressivo AdE</span>
+                <span>Identificativo AdE</span>
                 <span className="font-mono">{doc.adeProgressive}</span>
               </div>
             )}

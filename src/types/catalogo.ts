@@ -27,5 +27,15 @@ export interface AddCatalogItemInput {
   defaultVatCode: VatCode;
 }
 
+/** Input per la server action updateCatalogItem */
+export interface UpdateCatalogItemInput {
+  itemId: string;
+  businessId: string;
+  description: string;
+  /** Prezzo in euro come stringa, es: "12.50". Stringa vuota o null = prezzo non specificato */
+  defaultPrice: string | null;
+  defaultVatCode: VatCode;
+}
+
 /** Risultato generico delle server actions del catalogo */
 export type CatalogActionResult = { error?: string };
