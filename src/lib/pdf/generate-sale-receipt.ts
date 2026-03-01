@@ -33,12 +33,12 @@ const VAT_LABELS: Record<string, string> = {
   "5": "5%",
   "10": "10%",
   "22": "22%",
-  N1: "Esclusa",
-  N2: "Non sogg.",
-  N3: "Non imp.",
-  N4: "Esente",
-  N5: "Reg.marg.",
-  N6: "Non IVA",
+  N1: "0% – Art. 15",
+  N2: "0% – Non sogg.",
+  N3: "0% – Non imp.",
+  N4: "0% – Esente",
+  N5: "0% – Margine",
+  N6: "0% – Inv. cont.",
 };
 
 const PAYMENT_LABELS: Record<string, string> = {
