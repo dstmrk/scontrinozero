@@ -1147,41 +1147,41 @@ describe("RealAdeClient", () => {
 
       const mockDoc = {
         idtrx: "151085589",
-        numeroProgressivo: "DCW2026/5111-2188",
-        cfCessionarioCommittente: "",
-        data: "02/15/2026",
-        tipoOperazione: "V",
-        flagDocCommPerRegalo: false,
-        progressivoCollegato: "",
-        dataOra: "15/02/2026",
-        multiAttivita: { codiceAttivita: "", descAttivita: "" },
-        importoTotaleIva: "2.20000000",
-        scontoTotale: "0.00000000",
-        scontoTotaleLordo: "0.00000000",
-        totaleImponibile: "10.00000000",
-        ammontareComplessivo: "12.20000000",
-        totaleNonRiscosso: "0.00000000",
-        scontoAbbuono: "0.00",
-        importoDetraibileDeducibile: "0.00000000",
-        elementiContabili: [
-          {
-            idElementoContabile: "270270040",
-            resiPregressi: "0.00",
-            reso: "0.00",
-            quantita: "1.00",
-            descrizioneProdotto: "Prodotto",
-            prezzoLordo: "12.20000000",
-            prezzoUnitario: "10.00000000",
-            scontoUnitario: "0.00000000",
-            scontoLordo: "0.00000000",
-            aliquotaIVA: "22",
-            importoIVA: "2.20000000",
-            imponibile: "10.00000000",
-            imponibileNetto: "10.00000000",
-            totale: "12.20000000",
-            omaggio: "N",
-          },
-        ],
+        documentoCommerciale: {
+          cfCessionarioCommittente: "",
+          flagDocCommPerRegalo: false,
+          progressivoCollegato: "",
+          dataOra: "15/02/2026",
+          multiAttivita: { codiceAttivita: "", descAttivita: "" },
+          importoTotaleIva: "2.20000000",
+          scontoTotale: "0.00000000",
+          scontoTotaleLordo: "0.00000000",
+          totaleImponibile: "10.00000000",
+          ammontareComplessivo: "12.20000000",
+          totaleNonRiscosso: "0.00000000",
+          scontoAbbuono: "0.00",
+          importoDetraibileDeducibile: "0.00000000",
+          numeroProgressivo: "DCW2026/5111-2188",
+          elementiContabili: [
+            {
+              idElementoContabile: "270270040",
+              resiPregressi: "0.00",
+              reso: "0.00",
+              quantita: "1.00",
+              descrizioneProdotto: "Prodotto",
+              prezzoLordo: "12.20000000",
+              prezzoUnitario: "10.00000000",
+              scontoUnitario: "0.00000000",
+              scontoLordo: "0.00000000",
+              aliquotaIVA: "22",
+              importoIVA: "2.20000000",
+              imponibile: "10.00000000",
+              imponibileNetto: "10.00000000",
+              totale: "12.20000000",
+              omaggio: "N",
+            },
+          ],
+        },
       };
 
       fetchMock.mockResolvedValueOnce(mockResponse({ body: mockDoc }));
@@ -1195,8 +1195,10 @@ describe("RealAdeClient", () => {
       );
 
       expect(result.idtrx).toBe("151085589");
-      expect(result.elementiContabili[0].idElementoContabile).toBe("270270040");
-      expect(result.totaleImponibile).toBe("10.00000000");
+      expect(
+        result.documentoCommerciale.elementiContabili[0].idElementoContabile,
+      ).toBe("270270040");
+      expect(result.documentoCommerciale.totaleImponibile).toBe("10.00000000");
     });
 
     it("throws AdePortalError on non-200", async () => {
