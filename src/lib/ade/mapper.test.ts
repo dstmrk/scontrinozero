@@ -13,10 +13,12 @@ import {
   toAdeAmount8,
   toAdeDate,
   computeLineAmounts,
+  buildCedenteFromBusiness,
   mapSaleToAdePayload,
   mapVoidToAdePayload,
   PAYMENT_TYPE_MAP,
 } from "./mapper";
+import type { BusinessCedenteData } from "./mapper";
 
 // ---------------------------------------------------------------------------
 // toAdeAmount
@@ -228,6 +230,74 @@ describe("PAYMENT_TYPE_MAP", () => {
 });
 
 // ---------------------------------------------------------------------------
+// buildCedenteFromBusiness
+// ---------------------------------------------------------------------------
+
+describe("buildCedenteFromBusiness", () => {
+  const FULL_BUSINESS: BusinessCedenteData = {
+    vatNumber: "12345678901",
+    fiscalCode: "RSSMRA80A01H501A",
+    businessName: "Test SRL",
+    address: "VIA ROMA",
+    streetNumber: "1",
+    city: "ROMA",
+    province: "RM",
+    zipCode: "00100",
+    preferredVatCode: "22",
+  };
+
+  it("maps all business fields to AdeCedentePrestatore", () => {
+    const result = buildCedenteFromBusiness(FULL_BUSINESS);
+
+    expect(result.identificativiFiscali.codicePaese).toBe("IT");
+    expect(result.identificativiFiscali.partitaIva).toBe("12345678901");
+    expect(result.identificativiFiscali.codiceFiscale).toBe("RSSMRA80A01H501A");
+
+    const altri = result.altriDatiIdentificativi;
+    expect(altri.denominazione).toBe("Test SRL");
+    expect(altri.nome).toBe("");
+    expect(altri.cognome).toBe("");
+    expect(altri.indirizzo).toBe("VIA ROMA");
+    expect(altri.numeroCivico).toBe("1");
+    expect(altri.cap).toBe("00100");
+    expect(altri.comune).toBe("ROMA");
+    expect(altri.provincia).toBe("RM");
+    expect(altri.nazione).toBe("IT");
+    expect(altri.defAliquotaIVA).toBe("22");
+    expect(altri.nuovoUtente).toBe(false);
+
+    expect(result.multiAttivita).toEqual([]);
+    expect(result.multiSede).toEqual([]);
+  });
+
+  it("sets modificati: true to signal local data override", () => {
+    const result = buildCedenteFromBusiness(FULL_BUSINESS);
+    expect(result.altriDatiIdentificativi.modificati).toBe(true);
+  });
+
+  it("uses empty strings for null fields", () => {
+    const sparse: BusinessCedenteData = {
+      vatNumber: null,
+      fiscalCode: null,
+      businessName: null,
+      address: null,
+      streetNumber: null,
+      city: null,
+      province: null,
+      zipCode: null,
+      preferredVatCode: null,
+    };
+    const result = buildCedenteFromBusiness(sparse);
+
+    expect(result.identificativiFiscali.partitaIva).toBe("");
+    expect(result.identificativiFiscali.codiceFiscale).toBe("");
+    expect(result.altriDatiIdentificativi.denominazione).toBe("");
+    expect(result.altriDatiIdentificativi.indirizzo).toBe("");
+    expect(result.altriDatiIdentificativi.defAliquotaIVA).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // mapSaleToAdePayload
 // ---------------------------------------------------------------------------
 
@@ -279,7 +349,7 @@ describe("mapSaleToAdePayload", () => {
     const result = mapSaleToAdePayload(doc, mockCedentePrestatore);
 
     expect(result.datiTrasmissione.formato).toBe("DCW10");
-    expect(result.flagIdentificativiModificati).toBe(false);
+    expect(result.flagIdentificativiModificati).toBe(true);
     expect(result.cedentePrestatore).toBe(mockCedentePrestatore);
     expect(result.idtrx).toBeUndefined();
 
@@ -503,7 +573,7 @@ describe("mapVoidToAdePayload", () => {
 
     expect(result.idtrx).toBe("151085589");
     expect(result.datiTrasmissione.formato).toBe("DCW10");
-    expect(result.flagIdentificativiModificati).toBe(false);
+    expect(result.flagIdentificativiModificati).toBe(true);
 
     // HAR fix (annullo.har [06]): cedentePrestatore modificato con
     // nuovoUtente=true e defAliquotaIVA="" per gli annulli

@@ -41,6 +41,7 @@ vi.mock("@/db", () => ({
 
 vi.mock("@/db/schema", () => ({
   adeCredentials: "ade-credentials-table",
+  businesses: "businesses-table",
   commercialDocuments: "commercial-documents-table",
   commercialDocumentLines: "commercial-document-lines-table",
 }));
@@ -53,19 +54,20 @@ vi.mock("@/lib/crypto", () => ({
 
 const mockLogin = vi.fn();
 const mockLogout = vi.fn();
-const mockGetFiscalData = vi.fn();
 const mockSubmitSale = vi.fn();
 vi.mock("@/lib/ade", () => ({
   createAdeClient: vi.fn().mockReturnValue({
     login: mockLogin,
     logout: mockLogout,
-    getFiscalData: mockGetFiscalData,
     submitSale: mockSubmitSale,
   }),
 }));
 
+const mockBuildCedenteFromBusiness = vi.fn().mockReturnValue({ built: true });
 const mockMapSaleToAdePayload = vi.fn().mockReturnValue({ mapped: true });
 vi.mock("@/lib/ade/mapper", () => ({
+  buildCedenteFromBusiness: (...args: unknown[]) =>
+    mockBuildCedenteFromBusiness(...args),
   mapSaleToAdePayload: (...args: unknown[]) => mockMapSaleToAdePayload(...args),
 }));
 
@@ -92,16 +94,6 @@ const FAKE_ADE_RESPONSE = {
   idtrx: "trx-001",
   progressivo: "001",
   errori: [],
-};
-const FAKE_FISCAL_DATA = {
-  identificativiFiscali: {
-    partitaIva: "12345678901",
-    codiceFiscale: "CF",
-    codicePaese: "IT",
-  },
-  altriDatiIdentificativi: { denominazione: "Test SRL" },
-  multiAttivita: [],
-  multiSede: [],
 };
 
 const VALID_INPUT: SubmitReceiptInput = {
@@ -131,7 +123,8 @@ describe("receipt-actions", () => {
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockCheckBusinessOwnership.mockResolvedValue(null);
 
-    // DB: select credentials
+    // DB: select — FAKE_CRED as default covers both credentials and business calls
+    // (business data is irrelevant since buildCedenteFromBusiness is mocked)
     mockLimit.mockResolvedValue([FAKE_CRED]);
 
     // DB: insert routing by table
@@ -145,7 +138,6 @@ describe("receipt-actions", () => {
 
     // ADE client
     mockLogin.mockResolvedValue({});
-    mockGetFiscalData.mockResolvedValue(FAKE_FISCAL_DATA);
     mockSubmitSale.mockResolvedValue(FAKE_ADE_RESPONSE);
     mockLogout.mockResolvedValue(undefined);
   });
@@ -164,7 +156,7 @@ describe("receipt-actions", () => {
         password: "decrypted-value",
         pin: "decrypted-value",
       });
-      expect(mockGetFiscalData).toHaveBeenCalled();
+      expect(mockBuildCedenteFromBusiness).toHaveBeenCalled();
       expect(mockMapSaleToAdePayload).toHaveBeenCalled();
       expect(mockSubmitSale).toHaveBeenCalled();
       expect(mockLogout).toHaveBeenCalled();
@@ -228,18 +220,37 @@ describe("receipt-actions", () => {
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
+    it("returns error when business data is not found", async () => {
+      // credentials OK, but business row missing
+      mockLimit.mockReset();
+      mockLimit
+        .mockResolvedValueOnce([FAKE_CRED]) // credentials
+        .mockResolvedValueOnce([]); // business not found
+
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt(VALID_INPUT);
+
+      expect(result.error).toBeDefined();
+      expect(result.error).toContain("business");
+      expect(mockLogin).not.toHaveBeenCalled();
+    });
+
     it("idempotency: returns existing IDs when document is already ACCEPTED", async () => {
       mockDocumentReturning.mockResolvedValue([]); // Conflict — already exists
 
-      // Queue two limit() responses: 1st for credentials, 2nd for idempotency check
-      mockLimit.mockResolvedValueOnce([FAKE_CRED]).mockResolvedValueOnce([
-        {
-          id: "doc-123",
-          status: "ACCEPTED",
-          adeTransactionId: "trx-001",
-          adeProgressive: "001",
-        },
-      ]);
+      // Override defaults: 1st credentials, 2nd business (both truthy), 3rd idempotency
+      mockLimit.mockReset();
+      mockLimit
+        .mockResolvedValueOnce([FAKE_CRED]) // credentials
+        .mockResolvedValueOnce([FAKE_CRED]) // business (truthy, mapper is mocked)
+        .mockResolvedValueOnce([
+          {
+            id: "doc-123",
+            status: "ACCEPTED",
+            adeTransactionId: "trx-001",
+            adeProgressive: "001",
+          },
+        ]);
 
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt(VALID_INPUT);
@@ -254,15 +265,19 @@ describe("receipt-actions", () => {
     it("idempotency: returns error when existing document is PENDING (inconsistent state)", async () => {
       mockDocumentReturning.mockResolvedValue([]); // Conflict — already exists
 
-      // Queue two limit() responses: 1st for credentials, 2nd for idempotency check
-      mockLimit.mockResolvedValueOnce([FAKE_CRED]).mockResolvedValueOnce([
-        {
-          id: "doc-123",
-          status: "PENDING",
-          adeTransactionId: null,
-          adeProgressive: null,
-        },
-      ]);
+      // Override defaults: 1st credentials, 2nd business (truthy), 3rd idempotency
+      mockLimit.mockReset();
+      mockLimit
+        .mockResolvedValueOnce([FAKE_CRED]) // credentials
+        .mockResolvedValueOnce([FAKE_CRED]) // business (truthy, mapper is mocked)
+        .mockResolvedValueOnce([
+          {
+            id: "doc-123",
+            status: "PENDING",
+            adeTransactionId: null,
+            adeProgressive: null,
+          },
+        ]);
 
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt(VALID_INPUT);

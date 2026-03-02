@@ -4,12 +4,16 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   adeCredentials,
+  businesses,
   commercialDocuments,
   commercialDocumentLines,
 } from "@/db/schema";
 import { decrypt, getEncryptionKey } from "@/lib/crypto";
 import { createAdeClient } from "@/lib/ade";
-import { mapSaleToAdePayload } from "@/lib/ade/mapper";
+import {
+  buildCedenteFromBusiness,
+  mapSaleToAdePayload,
+} from "@/lib/ade/mapper";
 import { logger } from "@/lib/logger";
 import {
   getAuthenticatedUser,
@@ -72,6 +76,17 @@ export async function emitReceipt(
   const codiceFiscale = decrypt(cred.encryptedCodiceFiscale, keys);
   const password = decrypt(cred.encryptedPassword, keys);
   const pin = decrypt(cred.encryptedPin, keys);
+
+  // Fetch local business data (used to build the AdE cedente/prestatore)
+  const [business] = await db
+    .select()
+    .from(businesses)
+    .where(eq(businesses.id, input.businessId))
+    .limit(1);
+
+  if (!business) {
+    return { error: "Dati business non trovati." };
+  }
 
   // Insert commercial document (idempotent via unique idempotencyKey)
   const [document] = await db
@@ -161,9 +176,10 @@ export async function emitReceipt(
   const adeMode = (process.env.ADE_MODE as "mock" | "real") || "mock";
   const adeClient = createAdeClient(adeMode);
 
+  const cedentePrestatore = buildCedenteFromBusiness(business);
+
   try {
     await adeClient.login({ codiceFiscale, password, pin });
-    const cedentePrestatore = await adeClient.getFiscalData();
     const payload = mapSaleToAdePayload(saleDocRequest, cedentePrestatore);
     const adeResponse = await adeClient.submitSale(payload);
     await adeClient.logout();

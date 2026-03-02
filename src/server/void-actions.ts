@@ -2,10 +2,13 @@
 
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { adeCredentials, commercialDocuments } from "@/db/schema";
+import { adeCredentials, businesses, commercialDocuments } from "@/db/schema";
 import { decrypt, getEncryptionKey } from "@/lib/crypto";
 import { createAdeClient } from "@/lib/ade";
-import { mapVoidToAdePayload } from "@/lib/ade/mapper";
+import {
+  buildCedenteFromBusiness,
+  mapVoidToAdePayload,
+} from "@/lib/ade/mapper";
 import { logger } from "@/lib/logger";
 import {
   checkBusinessOwnership,
@@ -97,6 +100,17 @@ export async function voidReceipt(
   const password = decrypt(cred.encryptedPassword, keys);
   const pin = decrypt(cred.encryptedPin, keys);
 
+  // Fetch local business data (used to build the AdE cedente/prestatore)
+  const [business] = await db
+    .select()
+    .from(businesses)
+    .where(eq(businesses.id, input.businessId))
+    .limit(1);
+
+  if (!business) {
+    return { error: "Dati business non trovati." };
+  }
+
   // 4. Insert VOID document (idempotent via unique idempotencyKey)
   const [voidDoc] = await db
     .insert(commercialDocuments)
@@ -140,10 +154,10 @@ export async function voidReceipt(
   const voidDocumentId = voidDoc.id;
   const adeMode = (process.env.ADE_MODE as "mock" | "real") || "mock";
   const adeClient = createAdeClient(adeMode);
+  const cedentePrestatore = buildCedenteFromBusiness(business);
 
   try {
     await adeClient.login({ codiceFiscale, password, pin });
-    const cedentePrestatore = await adeClient.getFiscalData();
 
     // Fetch original document from AdE to get real idElementoContabile values
     const originalAdeDoc = await adeClient.getDocument(

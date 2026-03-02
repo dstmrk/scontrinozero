@@ -22,21 +22,26 @@ quella data nessun cliente paga, nessuno si aspetta stabilità di produzione.
 
 ---
 
-### v0.7.0 — AdE fiscal data update ⬜
+### v0.7.0 — Dati locali nel payload AdE ✅
 
-Aggiornamento dati cedente sul portale AdE dopo l'onboarding (indirizzo, nome attività).
-Dipende dall'analisi di `dati_doc_commerciale.har`.
+Usa i dati del business locale (tabella `businesses`) per costruire il `cedentePrestatore`
+nei payload di emissione e annullo, eliminando la chiamata `getFiscalData()` verso AdE.
 
-**Task (TDD — test prima):**
+Imposta `modificati: true` / `flagIdentificativiModificati: true` per segnalare all'AdE
+che i dati identificativi sono sovrascitti dal client.
 
-- ⬜ Analizzare `dati_doc_commerciale.har` → mappare endpoint + payload
-- ⬜ Aggiungere `updateFiscalData(data)` all'interfaccia `AdeClient` (`src/lib/ade/client.ts`)
-- ⬜ Implementare in `MockAdeClient` + `RealAdeClient`
-- ⬜ Server action `syncFiscalData` in `src/server/onboarding-actions.ts`
-- ⬜ Bottone "Sincronizza dati su AdE" in Settings (`src/app/dashboard/settings/page.tsx`)
-- ⬜ Test TDD: ~10 nuovi unit test
+La sincronizzazione dati su AdE (`dati_doc_commerciale.har`) è rimandata a post-v1.0.0
+e potrebbe diventare una funzione premium.
 
-**Test attesi:** ~10 unit → totale ~**479 unit + 8 E2E**
+**Task completati:**
+
+- ✅ `buildCedenteFromBusiness()` in `mapper.ts` — mappa `businesses` → `AdeCedentePrestatore`
+- ✅ `receipt-actions.ts` — fetch business locale, rimosso `getFiscalData()`
+- ✅ `void-actions.ts` — fetch business locale, rimosso `getFiscalData()`
+- ✅ Test: `buildCedenteFromBusiness` + fix `flagIdentificativiModificati` in mapper.test.ts
+- ✅ Test: `receipt-actions.test.ts` e `void-actions.test.ts` aggiornati
+
+**Test aggiunti:** ~8 unit → totale ~**477 unit + 8 E2E**
 
 ---
 

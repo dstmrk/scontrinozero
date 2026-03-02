@@ -28,6 +28,7 @@ vi.mock("@/db", () => ({
 
 vi.mock("@/db/schema", () => ({
   adeCredentials: "ade-credentials-table",
+  businesses: "businesses-table",
   commercialDocuments: "commercial-documents-table",
 }));
 
@@ -39,21 +40,22 @@ vi.mock("@/lib/crypto", () => ({
 
 const mockLogin = vi.fn();
 const mockLogout = vi.fn();
-const mockGetFiscalData = vi.fn();
 const mockGetDocument = vi.fn();
 const mockSubmitVoid = vi.fn();
 vi.mock("@/lib/ade", () => ({
   createAdeClient: vi.fn().mockReturnValue({
     login: mockLogin,
     logout: mockLogout,
-    getFiscalData: mockGetFiscalData,
     getDocument: mockGetDocument,
     submitVoid: mockSubmitVoid,
   }),
 }));
 
+const mockBuildCedenteFromBusiness = vi.fn().mockReturnValue({ built: true });
 const mockMapVoidToAdePayload = vi.fn().mockReturnValue({ mapped: true });
 vi.mock("@/lib/ade/mapper", () => ({
+  buildCedenteFromBusiness: (...args: unknown[]) =>
+    mockBuildCedenteFromBusiness(...args),
   mapVoidToAdePayload: (...args: unknown[]) => mockMapVoidToAdePayload(...args),
 }));
 
@@ -167,11 +169,17 @@ const FAKE_ADE_RESPONSE = {
   errori: [],
 };
 
-const FAKE_FISCAL_DATA = {
-  identificativiFiscali: { partitaIva: "12345678901" },
-  altriDatiIdentificativi: {},
-  multiAttivita: [],
-  multiSede: [],
+const FAKE_BUSINESS = {
+  id: "biz-789",
+  vatNumber: "12345678901",
+  fiscalCode: "RSSMRA80A01H501A",
+  businessName: "Test SRL",
+  address: "VIA ROMA",
+  streetNumber: "1",
+  city: "ROMA",
+  province: "RM",
+  zipCode: "00100",
+  preferredVatCode: "22",
 };
 
 const VALID_VOID_INPUT: VoidReceiptInput = {
@@ -202,16 +210,16 @@ describe("void-actions", () => {
 
     // AdE mocks
     mockLogin.mockResolvedValue({});
-    mockGetFiscalData.mockResolvedValue(FAKE_FISCAL_DATA);
     mockGetDocument.mockResolvedValue(FAKE_ADE_DETAIL);
     mockSubmitVoid.mockResolvedValue(FAKE_ADE_RESPONSE);
     mockLogout.mockResolvedValue(undefined);
 
-    // Default select chain: saleDoc + credentials
+    // Default select chain: saleDoc + credentials + business
     mockSelect.mockReset();
     mockSelect
       .mockReturnValueOnce(makeSelectBuilder([FAKE_SALE_DOC]))
-      .mockReturnValueOnce(makeSelectBuilder([FAKE_CRED]));
+      .mockReturnValueOnce(makeSelectBuilder([FAKE_CRED]))
+      .mockReturnValueOnce(makeSelectBuilder([FAKE_BUSINESS]));
   });
 
   describe("voidReceipt", () => {
@@ -230,7 +238,7 @@ describe("void-actions", () => {
         password: "decrypted-value",
         pin: "decrypted-value",
       });
-      expect(mockGetFiscalData).toHaveBeenCalled();
+      expect(mockBuildCedenteFromBusiness).toHaveBeenCalledWith(FAKE_BUSINESS);
       expect(mockGetDocument).toHaveBeenCalledWith("trx-001");
       expect(mockMapVoidToAdePayload).toHaveBeenCalled();
       expect(mockSubmitVoid).toHaveBeenCalled();
@@ -349,6 +357,21 @@ describe("void-actions", () => {
       const result = await voidReceipt(VALID_VOID_INPUT);
 
       expect(result.error).toBeDefined();
+      expect(mockLogin).not.toHaveBeenCalled();
+    });
+
+    it("returns error when business data is not found", async () => {
+      mockSelect.mockReset();
+      mockSelect
+        .mockReturnValueOnce(makeSelectBuilder([FAKE_SALE_DOC]))
+        .mockReturnValueOnce(makeSelectBuilder([FAKE_CRED]))
+        .mockReturnValueOnce(makeSelectBuilder([])); // business missing
+
+      const { voidReceipt } = await import("./void-actions");
+      const result = await voidReceipt(VALID_VOID_INPUT);
+
+      expect(result.error).toBeDefined();
+      expect(result.error).toContain("business");
       expect(mockLogin).not.toHaveBeenCalled();
     });
 
