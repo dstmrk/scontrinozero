@@ -128,6 +128,21 @@ describe("auth-actions", () => {
       expect(result).toEqual({ error: "Le password non coincidono." });
     });
 
+    it("returns error when terms are not accepted", async () => {
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          // termsAccepted omitted
+        }),
+      );
+      expect(result).toEqual({
+        error: "Devi accettare i Termini di servizio e la Privacy Policy.",
+      });
+    });
+
     it("creates user and profile then redirects on success", async () => {
       mockSignUp.mockResolvedValue({
         data: { user: { id: "user-123" } },
@@ -142,6 +157,7 @@ describe("auth-actions", () => {
             email: "test@example.com",
             password: "Secure#99x",
             confirmPassword: "Secure#99x",
+            termsAccepted: "true",
           }),
         );
         expect.fail("Expected redirect");
@@ -171,6 +187,7 @@ describe("auth-actions", () => {
           email: "test@example.com",
           password: "Secure#99x",
           confirmPassword: "Secure#99x",
+          termsAccepted: "true",
         }),
       );
       expect(result).toEqual({ error: "Registrazione fallita. Riprova." });
@@ -185,6 +202,7 @@ describe("auth-actions", () => {
           email: "test@example.com",
           password: "Secure#99x",
           confirmPassword: "Secure#99x",
+          termsAccepted: "true",
         }),
       );
       expect(result.error).toContain("Troppi tentativi");
@@ -207,6 +225,7 @@ describe("auth-actions", () => {
             email: "test@example.com",
             password: "Secure#99x",
             confirmPassword: "Secure#99x",
+            termsAccepted: "true",
           }),
         );
         expect.fail("Expected redirect");
