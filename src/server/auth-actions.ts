@@ -43,6 +43,7 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const confirmPassword = formData.get("confirmPassword") as string;
+  const termsAccepted = formData.get("termsAccepted");
 
   if (!email || !isValidEmail(email)) {
     return { error: "Email non valida." };
@@ -55,6 +56,11 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   }
   if (password !== confirmPassword) {
     return { error: "Le password non coincidono." };
+  }
+  if (termsAccepted !== "true") {
+    return {
+      error: "Devi accettare i Termini di servizio e la Privacy Policy.",
+    };
   }
 
   const ip = await getClientIp();

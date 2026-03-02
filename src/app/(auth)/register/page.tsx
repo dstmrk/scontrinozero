@@ -26,10 +26,12 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{
     email?: string;
     password?: string;
     confirmPassword?: string;
+    terms?: string;
   }>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
@@ -45,6 +47,9 @@ export default function RegisterPage() {
     if (!confirmPassword) errors.confirmPassword = ERR_CONFIRM_REQUIRED;
     else if (password !== confirmPassword)
       errors.confirmPassword = ERR_CONFIRM_MISMATCH;
+    if (!termsAccepted)
+      errors.terms =
+        "Devi accettare i Termini di servizio e la Privacy Policy.";
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -60,6 +65,7 @@ export default function RegisterPage() {
     formData.set("email", email);
     formData.set("password", password);
     formData.set("confirmPassword", confirmPassword);
+    formData.set("termsAccepted", "true");
 
     const result = await signUp(formData);
     setIsPending(false);
@@ -123,6 +129,45 @@ export default function RegisterPage() {
               <p className="text-destructive text-xs">
                 {fieldErrors.confirmPassword}
               </p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <div className="flex items-start gap-2">
+              <input
+                id="termsAccepted"
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                className="accent-primary mt-0.5 h-4 w-4 shrink-0 cursor-pointer"
+              />
+              <label
+                htmlFor="termsAccepted"
+                className="cursor-pointer text-sm leading-snug select-none"
+              >
+                Ho letto e accetto i{" "}
+                <Link
+                  href="/termini"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline"
+                >
+                  Termini di servizio
+                </Link>{" "}
+                e la{" "}
+                <Link
+                  href="/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline"
+                >
+                  Privacy Policy
+                </Link>
+                .
+              </label>
+            </div>
+            {fieldErrors.terms && (
+              <p className="text-destructive text-xs">{fieldErrors.terms}</p>
             )}
           </div>
 
