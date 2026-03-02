@@ -9,7 +9,6 @@
 
 import type { AdeClient, AdeSession } from "./client";
 import type {
-  AdeCedentePrestatore,
   AdeDocumentDetail,
   AdeDocumentList,
   AdePayload,
@@ -18,6 +17,7 @@ import type {
   AdeSearchParams,
   SpidCredentials,
 } from "./types";
+import { buildCedenteFromBusiness } from "./mapper";
 
 export class MockAdeClient implements AdeClient {
   private session: AdeSession | null = null;
@@ -68,32 +68,20 @@ export class MockAdeClient implements AdeClient {
     };
   }
 
-  async getFiscalData(): Promise<AdeCedentePrestatore> {
+  async getFiscalData() {
     this.assertLoggedIn();
 
-    return {
-      identificativiFiscali: {
-        codicePaese: "IT",
-        partitaIva: this.session!.partitaIva,
-        codiceFiscale: "RSSMRA80A01H501A",
-      },
-      altriDatiIdentificativi: {
-        denominazione: "",
-        nome: "MARIO",
-        cognome: "ROSSI",
-        indirizzo: "VIA ROMA",
-        numeroCivico: "1",
-        cap: "00100",
-        comune: "ROMA",
-        provincia: "RM",
-        nazione: "IT",
-        modificati: false,
-        defAliquotaIVA: "22",
-        nuovoUtente: false,
-      },
-      multiAttivita: [],
-      multiSede: [],
-    };
+    return buildCedenteFromBusiness({
+      vatNumber: this.session!.partitaIva,
+      fiscalCode: "RSSMRA80A01H501A",
+      businessName: "",
+      address: "VIA ROMA",
+      streetNumber: "1",
+      city: "ROMA",
+      province: "RM",
+      zipCode: "00100",
+      preferredVatCode: "22",
+    });
   }
 
   async getProducts(): Promise<AdeProduct[]> {

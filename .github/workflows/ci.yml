@@ -146,7 +146,12 @@ jobs:
 
   e2e:
     needs: [build, changes]
-    if: needs.changes.outputs.e2e == 'true'
+    # Runs when e2e files changed AND build either succeeded (src changed too)
+    # or was skipped (only e2e files changed — build didn't run, no artifact).
+    # Explicitly excluded when build failed to preserve the quality gate.
+    if: |
+      needs.changes.outputs.e2e == 'true' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -157,10 +162,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Download build output
+        # Only when the build job ran and uploaded the artifact
+        if: needs.build.result == 'success'
         uses: actions/download-artifact@v6
         with:
           name: next-build
           path: .next/
+      - name: Build (build job skipped — only e2e files changed)
+        # When only e2e/** files changed, lint/test/type-check are skipped →
+        # build is also skipped → no artifact. Build inline instead.
+        if: needs.build.result == 'skipped'
+        run: npm run build
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         id: playwright-cache
