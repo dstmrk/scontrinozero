@@ -135,6 +135,14 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
+      - name: Upload build output
+        uses: actions/upload-artifact@v6
+        with:
+          name: next-build
+          path: |
+            .next/
+            !.next/cache
+          retention-days: 1
 
   e2e:
     needs: [build, changes]
@@ -148,6 +156,11 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Download build output
+        uses: actions/download-artifact@v6
+        with:
+          name: next-build
+          path: .next/
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         id: playwright-cache
