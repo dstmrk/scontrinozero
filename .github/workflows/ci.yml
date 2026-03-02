@@ -108,12 +108,12 @@ jobs:
         with:
           fetch-depth: 0
       - name: Download coverage report
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: coverage-report
           path: coverage/
       - name: Download test execution report
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: test-execution-report
       - name: SonarQube Cloud scan
@@ -157,7 +157,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Download build output
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: next-build
           path: .next/
