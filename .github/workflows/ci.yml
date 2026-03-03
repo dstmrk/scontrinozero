@@ -146,7 +146,7 @@ jobs:
 
   e2e:
     needs: [build, changes]
-    if: needs.changes.outputs.e2e == 'true'
+    if: needs.changes.outputs.e2e == 'true' && (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -157,10 +157,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Download build output
+        if: needs.build.result == 'success'
         uses: actions/download-artifact@v8
         with:
           name: next-build
           path: .next/
+      - name: Build app for E2E (fallback when build job is skipped)
+        if: needs.build.result == 'skipped'
+        run: npm run build
       - name: Cache Playwright browsers
         uses: actions/cache@v5
         id: playwright-cache
