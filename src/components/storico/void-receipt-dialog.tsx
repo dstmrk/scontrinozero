@@ -200,20 +200,22 @@ export function VoidReceiptDialog({
             {/* Bottoni: Annulla scontrino | Invia ricevuta | Chiudi */}
             <DialogFooter className="gap-2">
               {canVoid && (
-                <Button
-                  variant="destructive"
-                  onClick={() => setView("confirmingVoid")}
-                >
-                  Annulla scontrino
-                </Button>
+                <>
+                  <Button
+                    variant="destructive"
+                    onClick={() => setView("confirmingVoid")}
+                  >
+                    Annulla scontrino
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => window.open(`/r/${receipt.id}`, "_blank")}
+                  >
+                    <Send className="mr-2 h-4 w-4" />
+                    Invia ricevuta
+                  </Button>
+                </>
               )}
-              <Button
-                variant="outline"
-                onClick={() => window.open(`/r/${receipt.id}`, "_blank")}
-              >
-                <Send className="mr-2 h-4 w-4" />
-                Invia ricevuta
-              </Button>
               <Button variant="outline" onClick={onClose}>
                 Chiudi
               </Button>
