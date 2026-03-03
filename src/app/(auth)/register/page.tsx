@@ -27,11 +27,13 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [specificClausesAccepted, setSpecificClausesAccepted] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{
     email?: string;
     password?: string;
     confirmPassword?: string;
     terms?: string;
+    specificClauses?: string;
   }>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
@@ -50,6 +52,9 @@ export default function RegisterPage() {
     if (!termsAccepted)
       errors.terms =
         "Devi accettare i Termini di servizio e la Privacy Policy.";
+    if (!specificClausesAccepted)
+      errors.specificClauses =
+        "Devi accettare specificamente le clausole indicate.";
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -66,6 +71,7 @@ export default function RegisterPage() {
     formData.set("password", password);
     formData.set("confirmPassword", confirmPassword);
     formData.set("termsAccepted", "true");
+    formData.set("specificClausesAccepted", "true");
 
     const result = await signUp(formData);
     setIsPending(false);
@@ -168,6 +174,31 @@ export default function RegisterPage() {
             </div>
             {fieldErrors.terms && (
               <p className="text-destructive text-xs">{fieldErrors.terms}</p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <div className="flex items-start gap-2">
+              <input
+                id="specificClausesAccepted"
+                type="checkbox"
+                checked={specificClausesAccepted}
+                onChange={(e) => setSpecificClausesAccepted(e.target.checked)}
+                className="accent-primary mt-0.5 h-4 w-4 shrink-0 cursor-pointer"
+              />
+              <label
+                htmlFor="specificClausesAccepted"
+                className="cursor-pointer text-sm leading-snug select-none"
+              >
+                Accetto specificamente le clausole: 4 (Responsabilità), 5 e 6
+                (Limitazioni Tecniche e Danni), 7 (Self-Hosting), 8 e 9
+                (Sospensione), 11 (Modifiche), 12 (Foro Competente).
+              </label>
+            </div>
+            {fieldErrors.specificClauses && (
+              <p className="text-destructive text-xs">
+                {fieldErrors.specificClauses}
+              </p>
             )}
           </div>
 

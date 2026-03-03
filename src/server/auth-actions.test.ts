@@ -143,6 +143,22 @@ describe("auth-actions", () => {
       });
     });
 
+    it("returns error when specific clauses are not accepted", async () => {
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          // specificClausesAccepted omitted
+        }),
+      );
+      expect(result).toEqual({
+        error: "Devi accettare specificamente le clausole indicate.",
+      });
+    });
+
     it("creates user and profile then redirects on success", async () => {
       mockSignUp.mockResolvedValue({
         data: { user: { id: "user-123" } },
@@ -158,6 +174,7 @@ describe("auth-actions", () => {
             password: "Secure#99x",
             confirmPassword: "Secure#99x",
             termsAccepted: "true",
+            specificClausesAccepted: "true",
           }),
         );
         expect.fail("Expected redirect");
@@ -188,6 +205,7 @@ describe("auth-actions", () => {
           password: "Secure#99x",
           confirmPassword: "Secure#99x",
           termsAccepted: "true",
+          specificClausesAccepted: "true",
         }),
       );
       expect(result).toEqual({ error: "Registrazione fallita. Riprova." });
@@ -203,6 +221,7 @@ describe("auth-actions", () => {
           password: "Secure#99x",
           confirmPassword: "Secure#99x",
           termsAccepted: "true",
+          specificClausesAccepted: "true",
         }),
       );
       expect(result.error).toContain("Troppi tentativi");
@@ -226,6 +245,7 @@ describe("auth-actions", () => {
             password: "Secure#99x",
             confirmPassword: "Secure#99x",
             termsAccepted: "true",
+            specificClausesAccepted: "true",
           }),
         );
         expect.fail("Expected redirect");
