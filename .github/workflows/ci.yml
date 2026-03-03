@@ -87,13 +87,13 @@ jobs:
       - name: Test with coverage
         run: npm run test:coverage
       - name: Upload coverage report
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage/
           retention-days: 1
       - name: Upload test execution report
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: test-execution-report
           path: test-report.xml
@@ -108,12 +108,12 @@ jobs:
         with:
           fetch-depth: 0
       - name: Download coverage report
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           name: coverage-report
           path: coverage/
       - name: Download test execution report
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           name: test-execution-report
       - name: SonarQube Cloud scan
@@ -136,9 +136,11 @@ jobs:
       - name: Build
         run: npm run build
       - name: Upload build output
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: next-build
+          include-hidden-files: true
+          if-no-files-found: error
           path: |
             .next/
             !.next/cache
@@ -158,7 +160,7 @@ jobs:
         run: npm ci
       - name: Download build output
         if: needs.build.result == 'success'
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           name: next-build
           path: .next/
@@ -180,7 +182,7 @@ jobs:
       - name: Run E2E tests
         run: npm run test:e2e
       - name: Upload report
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: playwright-report
