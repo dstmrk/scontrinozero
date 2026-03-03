@@ -145,7 +145,7 @@ jobs:
           retention-days: 1
 
   e2e:
-    needs: [build, changes]
+    needs: changes
     if: needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -156,11 +156,8 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Download build output
-        uses: actions/download-artifact@v8
-        with:
-          name: next-build
-          path: .next/
+      - name: Build app for E2E
+        run: npm run build
       - name: Cache Playwright browsers
         uses: actions/cache@v5
         id: playwright-cache
