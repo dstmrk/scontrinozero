@@ -1,0 +1,55 @@
+Privacy Policy e Informativa sul Trattamento dei Dati Personali
+Ai sensi degli artt. 13 e 14 del Regolamento (UE) 2016/679 (GDPR)
+Ultimo aggiornamento: Marzo 2026
+La sicurezza dei tuoi dati e la trasparenza delle nostre operazioni sono fondamentali per ScontrinoZero. In questo documento spieghiamo in modo chiaro quali dati raccogliamo, perché li utilizziamo e come li proteggiamo.
+1. Chi siamo e Titolare del Trattamento
+Il Titolare del trattamento dei dati relativi alla registrazione e gestione del tuo account è:
+[Tuo Nome e Cognome / Ragione Sociale Azienda]
+Sede:[Tua Via, CAP, Città]
+P.IVA / C.F.:[La tua Partita IVA o Codice Fiscale]
+Indirizzo email per le questioni sulla privacy: privacy@scontrinozero.it
+2. I ruoli nel trattamento dei dati
+Per garantire il pieno rispetto del GDPR nell'erogazione di un servizio software B2B, specifichiamo che ScontrinoZero agisce in due vesti giuridiche distinte:
+Titolare del Trattamento: quando gestiamo i tuoi dati di registrazione, la tua fatturazione e il funzionamento generale della piattaforma.
+Responsabile del Trattamento (Data Processor): quando la nostra infrastruttura elabora i dati dei tuoi clienti finali (es. Codice Lotteria, Codice Fiscale per scontrini parlanti) e utilizza le tue credenziali fiscali per interfacciarsi con i sistemi dell'Agenzia delle Entrate per tuo conto. In queste operazioni, il Titolare dei dati resti tu (l'esercente).
+3. Tipologia di dati raccolti
+Raccogliamo e trattiamo esclusivamente le informazioni strettamente necessarie all'erogazione del servizio:
+Dati anagrafici e di fatturazione: Nome, cognome, ragione sociale, P.IVA, Codice Fiscale, indirizzo di sede/residenza, indirizzo email.
+Dati operativi e di navigazione: Log applicativi, indirizzo IP, tipologia di dispositivo e browser utilizzati, necessari per diagnosticare problemi tecnici e garantire la sicurezza del sistema.
+Credenziali Agenzia delle Entrate (Fisconline/Entratel): Per permettere all'applicazione di interfacciarsi con la procedura "Documento Commerciale Online", è richiesto l'inserimento delle tue credenziali. Questi dati sono protetti da crittografia avanzata, non sono leggibili in chiaro dal nostro personale e vengono impiegati dal sistema in modalità esclusivamente automatizzata.
+Dati dei documenti commerciali: Importi, aliquote, descrizioni dei beni/servizi venduti ed eventuali dati anagrafici dei tuoi clienti finali necessari per l'emissione del documento.
+4. Finalità e Basi Giuridiche
+I tuoi dati vengono trattati per i seguenti scopi:
+Finalità del Trattamento	Base Giuridica (GDPR)
+A. Erogazione del servizio: Creazione dell'account, trasmissione automatizzata dei corrispettivi all'Agenzia delle Entrate, fornitura di assistenza tecnica.	Esecuzione del contratto (Art. 6, lett. b)
+B. Obblighi di legge: Adempimenti amministrativi, contabili e fiscali a nostro carico (es. emissione della fattura per il tuo abbonamento).	Obbligo di legge (Art. 6, lett. c)
+C. Sicurezza e continuità: Monitoraggio dell'infrastruttura per prevenire attacchi informatici, abusi e analisi aggregata per il miglioramento della piattaforma.	Legittimo interesse (Art. 6, lett. f)
+D. Comunicazioni commerciali: Invio di aggiornamenti facoltativi, newsletter e offerte relative ai servizi di ScontrinoZero.	Consenso dell'utente (Art. 6, lett. a)
+5. Natura del conferimento
+Il conferimento dei dati per le finalità A, B e C è un requisito necessario per la stipula del contratto e l'utilizzo di ScontrinoZero. In assenza di tali dati, non saremo in grado di attivare o mantenere operativo il tuo account. Il conferimento dei dati per la finalità D (comunicazioni commerciali) è del tutto facoltativo e può essere revocato in qualsiasi momento.
+6. Modalità del trattamento e misure di sicurezza
+Il trattamento avviene mediante strumenti informatici e cloud all'avanguardia. Applichiamo rigorose misure tecniche e organizzative per proteggere i dati da accessi non autorizzati, divulgazione, modifica o distruzione accidentale:
+Tutte le connessioni verso la piattaforma avvengono tramite protocolli di cifratura sicuri (HTTPS/TLS).
+I dati sensibili nel database, incluse le credenziali di accesso ai servizi fiscali, sono sottoposti a crittografia at-rest (a riposo).
+L'accesso ai server è severamente limitato al personale tecnico autorizzato e tracciato tramite log di sistema.
+7. Destinatari dei dati
+I tuoi dati non saranno mai venduti o diffusi. Per garantire il funzionamento del servizio, potremmo condividere le informazioni strettamente necessarie con:
+Agenzia delle Entrate, destinataria per legge dei flussi relativi all'emissione dei documenti commerciali telematici.
+Fornitori di servizi IT (Sub-responsabili): Piattaforme di cloud hosting, gestione database, servizi di invio email transazionali (es. ripristino password) e gateway di pagamento, nominati ai sensi dell'art. 28 GDPR.
+Autorità competenti, esclusivamente qualora vi sia un formale obbligo di legge.
+8. Trasferimento dati Extra-UE
+La nostra infrastruttura principale è ospitata su server localizzati all'interno dell'Unione Europea. Qualora l'utilizzo di specifici fornitori strumentali comporti il trasferimento di dati verso Paesi Extra-UE, garantiamo che tale trasferimento avverrà nel pieno rispetto del GDPR, affidandoci a fornitori aderenti al Data Privacy Framework o stipulando Clausole Contrattuali Standard (SCC) approvate dalla Commissione Europea.
+9. Tempi di conservazione
+Conserviamo i tuoi dati nel rispetto dei principi di minimizzazione e limitazione della conservazione:
+Dati dell'account e credenziali fiscali: Conservati per l'intera durata dell'utilizzo del servizio. Alla chiusura dell'account, verranno distrutti o resi definitivamente anonimi entro 30 giorni.
+Dati di fatturazione e contabili: Conservati per 10 anni, in conformità agli obblighi del Codice Civile e della normativa fiscale italiana.
+Log di sicurezza e di sistema: Conservati per un periodo strettamente necessario alle finalità di diagnostica e sicurezza, non superiore a 6 mesi.
+Dati trattati su consenso (Marketing): Conservati fino alla revoca del consenso da parte tua.
+10. Diritti dell'interessato
+Ai sensi degli artt. 15-22 del GDPR, hai in ogni momento il diritto di:
+Ottenere la conferma dell'esistenza di un trattamento e accedere ai tuoi dati (Diritto di Accesso).
+Richiedere la correzione o l'integrazione di dati inesatti (Diritto di Rettifica).
+Richiedere la cancellazione del tuo account e dei relativi dati, fatti salvi gli obblighi di conservazione per legge (Diritto all'Oblio).
+Ottenere i tuoi dati in un formato strutturato e leggibile da dispositivo automatico (Diritto alla Portabilità).
+Opporti al trattamento o revocare un consenso precedentemente prestato.
+Per esercitare i tuoi diritti, puoi contattarci scrivendo a privacy@scontrinozero.it. Elaboreremo la tua richiesta nel minor tempo possibile e comunque entro 30 giorni. Hai inoltre il diritto di presentare un reclamo formale al Garante per la Protezione dei Dati Personali (www.garanteprivacy.it).
