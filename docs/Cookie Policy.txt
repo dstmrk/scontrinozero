@@ -1,0 +1,37 @@
+Cookie Policy
+Informativa sull'utilizzo dei Cookie e di tecnologie simili
+Ultimo aggiornamento: Marzo 2026
+Questa Cookie Policy spiega cosa sono i cookie, quali tipologie utilizziamo sulla piattaforma ScontrinoZero e come puoi gestirli. Questa informativa è parte integrante della nostra Privacy Policy.
+1. Cosa sono i Cookie e le tecnologie simili
+I cookie sono piccoli file di testo che i siti web salvano sul tuo computer o dispositivo mobile durante la navigazione. ScontrinoZero utilizza sia i cookie tradizionali sia tecnologie analoghe, come il Local Storage e il Session Storage del browser (archiviazione locale), per garantire il corretto funzionamento dell'applicazione web.
+2. Tipologie di Cookie utilizzate da ScontrinoZero
+A differenza di molte altre piattaforme, abbiamo progettato ScontrinoZero per essere un software leggero e rispettoso della tua privacy. Non utilizziamo cookie per spiarti o per vendere pubblicità.
+Utilizziamo esclusivamente cookie e strumenti tecnici di prima necessità, suddivisi come segue:
+Cookie Tecnici e Strettamente Necessari (Sempre attivi)
+Questi strumenti sono indispensabili per il funzionamento dell'applicazione. Senza di essi, non potresti effettuare l'accesso o utilizzare la cassa in sicurezza.
+Autenticazione e Sicurezza (Supabase): Utilizziamo cookie sicuri per riconoscere il tuo account quando fai il login, mantenere attiva la tua sessione e impedire accessi non autorizzati ai tuoi dati fiscali.
+Protezione dell'infrastruttura (Cloudflare): Utilizziamo cookie tecnici di rete per identificare il traffico malevolo, prevenire attacchi informatici (DDoS) e bloccare i bot.
+Diagnostica (Sentry): Utilizziamo strumenti tecnici per intercettare eventuali errori o crash dell'applicazione, in modo da poterli risolvere tempestivamente.
+Cookie Funzionali e di Preferenza
+Questi strumenti servono a migliorare la tua esperienza d'uso, ricordando le tue scelte.
+Impostazioni dell'Interfaccia: Utilizziamo il Local Storage per ricordare le tue preferenze visive, come ad esempio la scelta tra il "Tema Chiaro" o il "Tema Scuro" dell'applicazione.
+3. Analytics e Tracciamento Statistico
+Per comprendere come viene utilizzata la nostra piattaforma e migliorarla, ScontrinoZero ha scelto un approccio Privacy-First (incentrato sulla privacy).
+Utilizziamo (o potremmo utilizzare in futuro) la piattaforma di analisi statistica Umami Analytics. A differenza dei classici strumenti commerciali (come Google Analytics), Umami è una soluzione cookie-less: non installa alcun cookie sul tuo dispositivo, anonimizza completamente il tuo indirizzo IP e non traccia il tuo comportamento su altri siti web. I dati raccolti sono aggregati e utilizzati esclusivamente a fini statistici interni.
+4. Cookie di Profilazione e Marketing di Terze Parti
+La nostra posizione in merito è chiara: ScontrinoZero non utilizza alcun cookie di profilazione pubblicitaria.
+Sulla nostra piattaforma non troverai tracciatori di social network (es. Meta Pixel, TikTok Pixel) né reti pubblicitarie di terze parti dirette a mostrarti annunci personalizzati.
+5. Base Giuridica e Consenso
+Poiché ScontrinoZero utilizza esclusivamente cookie e tecnologie simili di natura tecnica, funzionale e analitica anonimizzata, la normativa europea (Direttiva ePrivacy) e le linee guida del Garante Privacy italiano non richiedono il tuo consenso preventivo per la loro installazione.
+La base giuridica che ci permette di utilizzare questi strumenti è il nostro legittimo interesse a far funzionare l'applicazione in modo sicuro e l'esecuzione del contratto stipulato con te.
+6. Come gestire o disabilitare i Cookie
+Hai il diritto di gestire le tue preferenze sui cookie direttamente dalle impostazioni del tuo browser. Puoi configurare il browser in modo da rifiutare tutti i cookie o ricevere un avviso quando ne viene inviato uno.
+Di seguito i link alle guide dei principali browser:
+Google Chrome
+Mozilla Firefox
+*Apple Safari
+Microsoft Edge
+Attenzione: Poiché i cookie che utilizziamo sono strettamente necessari, la loro disattivazione dal browser ti impedirà di effettuare il login e di utilizzare le funzionalità di ScontrinoZero.
+7. Titolare del trattamento e Contatti
+Per qualsiasi domanda riguardante l'uso dei cookie o per esercitare i tuoi diritti in materia di privacy, puoi contattarci in qualsiasi momento all'indirizzo email: privacy@scontrinozero.it.
+Questa Cookie Policy può essere soggetta ad aggiornamenti. L'ultima versione sarà sempre disponibile su questa pagina.

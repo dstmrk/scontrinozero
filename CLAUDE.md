@@ -1,5 +1,16 @@
 # CLAUDE.md — ScontrinoZero
 
+## General Rules for Claude
+1. Before writing any code, describe your approach and wait for approval.
+
+2. If the requirements I give you are ambiguous, ask clarifying questions before writing any code.
+
+3. After you finish writing any code, list the edge cases and add test cases to cover them as well.
+
+4. If a task requires changes to more than 3 files, stop and break it into smaller tasks first.
+
+5. Every time I correct you, reflect on what you did wrong and come up with a plan to never make the same mistake again.
+
 ## Progetto
 
 ScontrinoZero è un registratore di cassa virtuale (SaaS) mobile-first che consente a

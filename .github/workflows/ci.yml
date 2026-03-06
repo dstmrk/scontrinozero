@@ -87,13 +87,13 @@ jobs:
       - name: Test with coverage
         run: npm run test:coverage
       - name: Upload coverage report
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage/
           retention-days: 1
       - name: Upload test execution report
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: test-execution-report
           path: test-report.xml
@@ -108,12 +108,12 @@ jobs:
         with:
           fetch-depth: 0
       - name: Download coverage report
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: coverage-report
           path: coverage/
       - name: Download test execution report
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: test-execution-report
       - name: SonarQube Cloud scan
@@ -136,7 +136,7 @@ jobs:
       - name: Build
         run: npm run build
       - name: Upload build output
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: next-build
           path: |
@@ -146,12 +146,7 @@ jobs:
 
   e2e:
     needs: [build, changes]
-    # Runs when e2e files changed AND build either succeeded (src changed too)
-    # or was skipped (only e2e files changed — build didn't run, no artifact).
-    # Explicitly excluded when build failed to preserve the quality gate.
-    if: |
-      needs.changes.outputs.e2e == 'true' &&
-      (needs.build.result == 'success' || needs.build.result == 'skipped')
+    if: needs.changes.outputs.e2e == 'true' && (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -162,19 +157,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Download build output
-        # Only when the build job ran and uploaded the artifact
         if: needs.build.result == 'success'
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: next-build
           path: .next/
-      - name: Build (build job skipped — only e2e files changed)
-        # When only e2e/** files changed, lint/test/type-check are skipped →
-        # build is also skipped → no artifact. Build inline instead.
+      - name: Build app for E2E (fallback when build job is skipped)
         if: needs.build.result == 'skipped'
         run: npm run build
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
@@ -188,7 +180,7 @@ jobs:
       - name: Run E2E tests
         run: npm run test:e2e
       - name: Upload report
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
           name: playwright-report

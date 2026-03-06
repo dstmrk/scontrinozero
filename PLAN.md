@@ -178,17 +178,18 @@ produzione. Zero nuovi sviluppi — solo validazione finale.
 
 ### FUORI da v1.0.0 (vedi release post-lancio)
 
-| Feature                                                   | Versione |
-| --------------------------------------------------------- | -------- |
-| PWA (installabile, offline shell)                         | v1.1.0   |
-| Billing annuale                                           | v1.2.0   |
-| Email scontrino al cliente                                | v1.3.0   |
-| Dashboard analytics (grafici)                             | v1.4.0   |
-| AdE catalog sync                                          | v1.5.0   |
-| AdE auth multi-metodo: SPID + CIE (onboarding + settings) | v1.6.0   |
-| CSV import prodotti + barcode                             | v1.7.0   |
-| Bluetooth print, Passkey                                  | v1.8.0+  |
-| API pubblica, multi-operatore                             | v2.0.0+  |
+| Feature                                                                                    | Versione |
+| ------------------------------------------------------------------------------------------ | -------- |
+| PWA (installabile, offline shell)                                                          | v1.1.0   |
+| Billing annuale                                                                            | v1.2.0   |
+| Email scontrino al cliente                                                                 | v1.3.0   |
+| Dashboard analytics (grafici)                                                              | v1.4.0   |
+| AdE catalog sync                                                                           | v1.5.0   |
+| AdE auth multi-metodo: SPID + CIE (onboarding + settings)                                  | v1.6.0   |
+| CSV import prodotti + barcode                                                              | v1.7.0   |
+| Bluetooth print, Passkey                                                                   | v1.8.0+  |
+| Scontrino annullamento: salvare progressivo AdE annullo + stampa documento di annullamento | v1.9.0   |
+| API pubblica, multi-operatore                                                              | v2.0.0+  |
 
 ---
 
@@ -204,7 +205,24 @@ produzione. Zero nuovi sviluppi — solo validazione finale.
 | **v1.6.0**  | AdE auth multi-metodo: SPID e CIE selezionabili in onboarding + settings; cookie jar cifrato nel DB, re-auth on 401 |
 | **v1.7.0**  | CSV import prodotti, barcode scanner (BarcodeDetector API), Umami analytics                                         |
 | **v1.8.0+** | Bluetooth printing (58/80mm), Passkey, codice lotteria                                                              |
+| **v1.9.0**  | Storno avanzato: memorizzare progressivo documento AdE di annullamento e stampare ricevuta di annullamento          |
 | **v2.0.0+** | API pubblica, webhook, multi-operatore, integrazione e-commerce                                                     |
+
+---
+
+### v1.9.0 — Scontrino di annullamento (post-lancio) ⬜
+
+Quando annulliamo uno scontrino, AdE genera un nuovo documento commerciale di annullamento.
+
+**Task (TDD — test prima):**
+
+- ⬜ Persistire nel DB il numero/progressivo del documento commerciale di annullamento restituito da AdE
+- ⬜ Estendere `voidReceipt`/storico per esporre il riferimento del documento di annullamento
+- ⬜ Aggiungere stampa/anteprima "scontrino di annullamento" dedicato
+- ⬜ Includere nel layout testo di riferimento, es.:
+  - `DOCUMENTO COMMERCIALE emesso per ANNULLAMENTO`
+  - `Documento di riferimento: N. 0005-0009 del 03-06-2020`
+- ⬜ Test TDD per mapping payload AdE, persistenza e rendering documento
 
 ---
 

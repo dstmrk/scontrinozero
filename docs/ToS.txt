@@ -1,0 +1,51 @@
+Termini e Condizioni di Utilizzo del Servizio
+Ultimo aggiornamento: Marzo 2026
+Benvenuto su ScontrinoZero. I presenti Termini e Condizioni disciplinano l'accesso e l'utilizzo della piattaforma software ScontrinoZero (di seguito, il "Servizio"). Ti invitiamo a leggerli con attenzione, in quanto l'utilizzo del Servizio comporta la loro integrale accettazione.
+1. Oggetto del Servizio
+ScontrinoZero è un'interfaccia software fornita in modalità SaaS (Software as a Service) che facilita l'Utente nella compilazione e trasmissione dei dati necessari all'emissione del "Documento Commerciale Online" attraverso i portali telematici dell'Agenzia delle Entrate.
+ScontrinoZero opera esclusivamente come strumento tecnologico di intermediazione dati e non fornisce in alcun caso consulenza fiscale, contabile o amministrativa.
+2. Natura B2B del Servizio e inapplicabilità del Codice del Consumo
+Il Servizio è destinato esclusivamente a soggetti che agiscono nell'esercizio della propria attività imprenditoriale, commerciale, artigianale o professionale. Registrandosi e utilizzando il Servizio, l'Utente dichiara espressamente di operare per scopi inerenti alla propria attività. Pertanto, ai presenti Termini non trova applicazione la normativa a tutela dei Consumatori (D.Lgs. 206/2005 - Codice del Consumo).
+3. Requisiti di Accesso
+Per utilizzare ScontrinoZero, l'Utente deve possedere:
+Piena capacità di agire e potere di rappresentanza legale dell'attività inserita in anagrafica.
+Partita IVA attiva e regolarità fiscale secondo la normativa italiana.
+Credenziali valide e attive (Fisconline, Entratel, SPID o CIE) fornite dall'Agenzia delle Entrate per l'accesso all'area riservata "Fatture e Corrispettivi".
+Una connessione internet stabile e un dispositivo idoneo e aggiornato.
+4. Obblighi e Responsabilità dell'Utente
+L'Utente è l'unico ed esclusivo responsabile dell'utilizzo del Servizio. In particolare, si impegna a:
+Garantire la veridicità dei dati: Inserire importi, aliquote IVA, descrizioni e anagrafiche corrette. ScontrinoZero non effettua alcun controllo di merito o di legittimità fiscale sui dati immessi.
+Custodire le credenziali: Mantenere rigorosamente segrete le credenziali di accesso a ScontrinoZero e ai portali dell'Agenzia delle Entrate. Qualsiasi documento emesso tramite l'account dell'Utente sarà imputabile esclusivamente a quest'ultimo.
+Verificare gli esiti fiscali: È preciso obbligo dell'Utente verificare periodicamente all'interno del proprio "Cassetto Fiscale" (sul sito dell'Agenzia delle Entrate) che i documenti generati tramite ScontrinoZero siano stati effettivamente ricevuti, validati e registrati dall'Ente.
+Conservare la documentazione: L'Utente resta l'unico responsabile della conservazione a norma di legge delle proprie scritture contabili e dei documenti commerciali emessi.
+5. Dipendenza da Sistemi Terzi e Limitazioni Tecniche
+Il Servizio funziona interfacciandosi in tempo reale con le infrastrutture informatiche dell'Agenzia delle Entrate.
+ScontrinoZero non può garantire l'emissione del documento commerciale qualora i server dell'Agenzia delle Entrate o i provider di rete cloud subiscano rallentamenti, manutenzioni, interruzioni o modifichino le proprie procedure senza preavviso. Tali eventi costituiscono cause di forza maggiore fuori dal ragionevole controllo del Titolare del Servizio.
+Il Servizio è fornito "nello stato in cui si trova" e "come disponibile", senza garanzie espresse di continuità ininterrotta o totale esenzione da errori informatici.
+6. Esclusioni e Limitazioni di Responsabilità
+Nella misura massima consentita dalla legge applicabile:
+ScontrinoZero, i suoi sviluppatori e titolari non sono responsabili per sanzioni, multe, accertamenti fiscali o danni d'immagine irrogati all'Utente dall'Agenzia delle Entrate, dalla Guardia di Finanza o da terzi, derivanti dall'uso del Servizio, da errori di digitazione, da ritardi nella trasmissione o da malfunzionamenti di rete.
+ScontrinoZero non risponde per danni indiretti, perdita di clientela, perdita di dati, perdita di profitto o fermo attività.
+In ogni caso, qualora fosse accertata in sede giudiziale una responsabilità diretta di ScontrinoZero per dolo o colpa grave, il risarcimento totale non potrà in alcun caso superare l'importo dei canoni effettivamente pagati dall'Utente per l'uso del Servizio nei 12 (dodici) mesi precedenti l'evento dannoso.
+7. Versioni Autogestite e Self-Hosted
+Ove l'Utente decida di utilizzare il codice sorgente del Servizio per ospitare l'infrastruttura sui propri server privati (modalità Self-Hosted), ScontrinoZero declina ogni responsabilità relativa alla sicurezza dei server dell'Utente, alla protezione dei dati, ai backup e all'aggiornamento del software. In tale scenario, l'Utente agisce come unico amministratore e responsabile tecnico e legale dell'infrastruttura.
+8. Piani Tariffari e Mancato Pagamento
+L'utilizzo di specifiche funzionalità o il superamento dei limiti previsti dagli eventuali piani gratuiti sono soggetti al pagamento dei corrispettivi indicati nella pagina "Prezzi" del sito web. In caso di mancato, ritardato o stornato pagamento, ScontrinoZero si riserva il diritto di sospendere, limitare o disattivare immediatamente l'account dell'Utente, senza alcun obbligo di preavviso o risarcimento.
+9. Sospensione e Risoluzione del Contratto
+ScontrinoZero si riserva il diritto di sospendere temporaneamente o chiudere definitivamente l'account dell'Utente nei casi di:
+Uso illecito, fraudolento o contrario alla legge del Servizio.
+Tentativi di attacco informatico, reverse engineering o abuso delle API.
+Violazione grave dei presenti Termini.
+L'Utente può recedere in qualsiasi momento cancellando il proprio account. La cessazione del Servizio non esonera l'Utente dal pagamento di eventuali canoni già maturati né dall'adempimento dei propri obblighi fiscali residui.
+10. Proprietà Intellettuale
+Il marchio ScontrinoZero, l'interfaccia grafica, i loghi, il codice sorgente chiuso e il design del Servizio sono di proprietà esclusiva dei rispettivi titolari. L'uso del Servizio non conferisce all'Utente alcun diritto di proprietà intellettuale, fatti salvi i diritti specifici garantiti da eventuali licenze Open Source applicate esplicitamente a singole porzioni di codice.
+11. Modifiche ai Termini di Servizio
+ScontrinoZero si riserva il diritto di aggiornare o modificare i presenti Termini per adeguarli a novità normative, tecniche o commerciali. Le modifiche sostanziali saranno comunicate via email o tramite avviso in piattaforma. Continuare a utilizzare il Servizio dopo la pubblicazione delle modifiche costituisce integrale accettazione delle stesse.
+12. Legge Applicabile e Foro Competente
+I presenti Termini sono regolati in via esclusiva dalla Legge Italiana.
+Per qualsiasi controversia relativa all'interpretazione, validità, esecuzione o risoluzione dei presenti Termini, il Foro esclusivamente competente sarà quello di [Tua Città / Sede Legale].
+13. Contatti
+Per domande, supporto tecnico o comunicazioni legali:
+Email: info@scontrinozero.it
+PEC: [tuapec@pec.it]
+Ai sensi e per gli effetti degli artt. 1341 e 1342 del Codice Civile italiano, l'Utente dichiara di aver letto attentamente e di approvare specificamente le seguenti clausole dei presenti Termini e Condizioni: Art. 4 (Obblighi e Responsabilità dell'Utente); Art. 5 (Dipendenza da Sistemi Terzi e Limitazioni Tecniche); Art. 6 (Esclusioni e Limitazioni di Responsabilità); Art. 7 (Versioni Autogestite e Self-Hosted); Art. 8 (Piani Tariffari e Mancato Pagamento); Art. 9 (Sospensione e Risoluzione del Contratto); Art. 11 (Modifiche ai Termini di Servizio); Art. 12 (Legge Applicabile e Foro Competente).
