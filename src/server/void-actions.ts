@@ -6,6 +6,7 @@ import { commercialDocuments } from "@/db/schema";
 import { createAdeClient } from "@/lib/ade";
 import { mapVoidToAdePayload } from "@/lib/ade/mapper";
 import { logger } from "@/lib/logger";
+import { RateLimiter } from "@/lib/rate-limit";
 import {
   checkBusinessOwnership,
   getAuthenticatedUser,
@@ -13,6 +14,12 @@ import {
 } from "@/lib/server-auth";
 import type { VoidReceiptInput, VoidReceiptResult } from "@/types/storico";
 import type { VoidRequest } from "@/lib/ade/public-types";
+
+// Rate limit: 10 voids per hour per user (voiding should be rare and deliberate)
+const voidLimiter = new RateLimiter({
+  maxRequests: 10,
+  windowMs: 60 * 60 * 1000,
+});
 
 // ---------------------------------------------------------------------------
 // voidReceipt
@@ -34,6 +41,12 @@ export async function voidReceipt(
   input: VoidReceiptInput,
 ): Promise<VoidReceiptResult> {
   const user = await getAuthenticatedUser();
+
+  const rateLimitResult = voidLimiter.check(`void:${user.id}`);
+  if (!rateLimitResult.success) {
+    logger.warn({ userId: user.id }, "Receipt void rate limit exceeded");
+    return { error: "Troppi annulli effettuati. Riprova tra qualche minuto." };
+  }
 
   const ownershipError = await checkBusinessOwnership(
     user.id,
@@ -181,6 +194,16 @@ export async function voidReceipt(
       .update(commercialDocuments)
       .set({ status: "VOID_ACCEPTED" })
       .where(eq(commercialDocuments.id, input.documentId));
+
+    logger.info(
+      {
+        voidDocumentId,
+        saleDocumentId: input.documentId,
+        businessId: input.businessId,
+        adeTransactionId: adeResponse.idtrx,
+      },
+      "Receipt voided successfully",
+    );
 
     return {
       voidDocumentId,

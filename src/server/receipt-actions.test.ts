@@ -3,6 +3,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- Mocks ---
 
+const mockRateLimiterCheck = vi.fn();
+vi.mock("@/lib/rate-limit", () => ({
+  RateLimiter: vi.fn().mockImplementation(function () {
+    return { check: mockRateLimiterCheck };
+  }),
+}));
+
 const mockGetAuthenticatedUser = vi.fn();
 const mockCheckBusinessOwnership = vi.fn();
 const mockFetchAdePrerequisites = vi.fn();
@@ -108,6 +115,11 @@ describe("receipt-actions", () => {
     vi.clearAllMocks();
     process.env.ADE_MODE = "mock";
 
+    mockRateLimiterCheck.mockReturnValue({
+      success: true,
+      remaining: 29,
+      resetAt: 0,
+    });
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockCheckBusinessOwnership.mockResolvedValue(null);
     mockFetchAdePrerequisites.mockResolvedValue(FAKE_PREREQUISITES);
@@ -152,6 +164,21 @@ describe("receipt-actions", () => {
       expect(setArg.status).toBe("ACCEPTED");
       expect(setArg.adeTransactionId).toBe("trx-001");
       expect(setArg.adeProgressive).toBe("001");
+    });
+
+    it("returns error when emit rate limit is exceeded", async () => {
+      mockRateLimiterCheck.mockReturnValue({
+        success: false,
+        remaining: 0,
+        resetAt: Date.now(),
+      });
+
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt(VALID_INPUT);
+
+      expect(result.error).toBeDefined();
+      expect(result.error).toMatch(/Troppi/i);
+      expect(mockInsert).not.toHaveBeenCalled();
     });
 
     it("returns error when businessId is missing", async () => {

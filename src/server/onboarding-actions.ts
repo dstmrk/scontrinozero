@@ -181,6 +181,8 @@ export async function saveAdeCredentials(
     });
   }
 
+  logger.info({ businessId }, "ADE credentials updated");
+
   return { businessId };
 }
 

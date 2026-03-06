@@ -1,6 +1,7 @@
 # CLAUDE.md — ScontrinoZero
 
 ## General Rules for Claude
+
 1. Before writing any code, describe your approach and wait for approval.
 
 2. If the requirements I give you are ambiguous, ask clarifying questions before writing any code.
@@ -33,7 +34,7 @@ v0.7.0 ⬜ → v0.8.0 ⬜ (Resend) → v0.8.1 ⬜ (landing) → v0.9.0 ⬜ (Stri
 
 **Post-lancio:** v1.1.0 (PWA) → v1.2.0 (annual billing) → v1.3.0 (receipt email) → v1.4.0+ (analytics, catalog sync, …)
 
-Storico fasi completate (0 → 4J): vedi PLAN.md § "Storico sviluppo".
+Storico fasi completate (0 → 4K): vedi PLAN.md § "Storico sviluppo".
 
 ## Principi di prodotto
 
@@ -345,6 +346,37 @@ vi.mock("@/lib/rate-limit", () => ({
 > Nota: variabili nel factory `vi.mock` devono iniziare con `mock` —
 > Vitest le issa automaticamente, le altre risultano `undefined`.
 
+### Pattern: rate limiting su server actions autenticate
+
+Le server actions che operano per conto di un utente autenticato usano chiavi **per-user**
+(non per-IP). Le azioni pubbliche (PDF pubblici, ecc.) usano chiavi per-IP.
+
+```typescript
+// Istanziare a livello di modulo (singleton per processo)
+const myLimiter = new RateLimiter({
+  maxRequests: 30, // soglia appropriata all'operazione
+  windowMs: 60 * 60 * 1000, // finestra di 1 ora
+});
+
+export async function myAction(input: MyInput): Promise<MyResult> {
+  const user = await getAuthenticatedUser(); // prima cosa sempre
+
+  const rateLimitResult = myLimiter.check(`prefix:${user.id}`);
+  if (!rateLimitResult.success) {
+    logger.warn({ userId: user.id }, "Rate limit exceeded");
+    return { error: "Troppe richieste. Riprova tra qualche minuto." };
+  }
+  // ... resto della logica
+}
+```
+
+**Soglie consolidate:**
+
+- `emit:<userId>` — `emitReceipt` → 30/ora (operazione frequente)
+- `void:<userId>` — `voidReceipt` → 10/ora (operazione rara e irreversibile)
+- `pdf:<ip>` — PDF pubblico → 60/ora (per-IP, non autenticato)
+- Auth actions — 5/15min per-IP (in `src/server/auth-actions.ts`)
+
 ### Checklist pre-PR
 
 Prima di aprire una PR verificare che la pipeline CI passi localmente:
@@ -577,13 +609,13 @@ scontrinozero/
 
 Presenti nella root del repo, da analizzare prima delle relative release:
 
-| File                             | Feature                                            | Versione   |
-| -------------------------------- | -------------------------------------------------- | ---------- |
-| `dati_doc_commerciale.har`       | Aggiornamento dati business su AdE post-onboarding | v0.7.0     |
-| `aggiungi_prodotto_catalogo.har` | Aggiunta prodotto su rubrica AdE                   | v1.5.0     |
-| `modifica_prodotto_catalogo.har` | Modifica prodotto su rubrica AdE                   | v1.5.0     |
-| `elimina_prodotto_catalogo.har`  | Eliminazione prodotto su rubrica AdE               | v1.5.0     |
-| `ricerca_prodotto_catalogo.har`  | Ricerca prodotto su rubrica AdE                    | v1.5.0     |
-| `ricerca_documento.har`          | Ricerca documento su AdE                           | v2.0.0+    |
-| `login_spid.har`                 | SPID login flow (analizzato e implementato)        | ✅ v0.x    |
-| `login_cie.har`                  | CIE login flow                                     | v1.8.0+    |
+| File                             | Feature                                            | Versione |
+| -------------------------------- | -------------------------------------------------- | -------- |
+| `dati_doc_commerciale.har`       | Aggiornamento dati business su AdE post-onboarding | v0.7.0   |
+| `aggiungi_prodotto_catalogo.har` | Aggiunta prodotto su rubrica AdE                   | v1.5.0   |
+| `modifica_prodotto_catalogo.har` | Modifica prodotto su rubrica AdE                   | v1.5.0   |
+| `elimina_prodotto_catalogo.har`  | Eliminazione prodotto su rubrica AdE               | v1.5.0   |
+| `ricerca_prodotto_catalogo.har`  | Ricerca prodotto su rubrica AdE                    | v1.5.0   |
+| `ricerca_documento.har`          | Ricerca documento su AdE                           | v2.0.0+  |
+| `login_spid.har`                 | SPID login flow (analizzato e implementato)        | ✅ v0.x  |
+| `login_cie.har`                  | CIE login flow                                     | v1.8.0+  |

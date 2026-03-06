@@ -146,6 +146,8 @@ export async function deleteCatalogItem(
 
   await db.delete(catalogItems).where(eq(catalogItems.id, itemId));
 
+  logger.info({ itemId, businessId }, "Catalog item deleted");
+
   return {};
 }
 
