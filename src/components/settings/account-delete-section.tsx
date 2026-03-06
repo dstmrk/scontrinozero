@@ -75,6 +75,14 @@ export function AccountDeleteSection() {
             <li>Tutti gli scontrini emessi e il catalogo prodotti</li>
           </ul>
 
+          <p className="text-muted-foreground mt-2 text-sm">
+            I documenti commerciali già trasmessi all&apos;Agenzia delle Entrate
+            restano disponibili sul portale{" "}
+            <strong>Fatture e Corrispettivi</strong> anche dopo la cancellazione
+            dell&apos;account. Puoi consultarli in qualsiasi momento accedendo
+            con le tue credenziali Fisconline/SPID/CIE.
+          </p>
+
           <p className="mt-2 text-sm">
             Scrivi <strong>{CONFIRM_WORD}</strong> per confermare:
           </p>
