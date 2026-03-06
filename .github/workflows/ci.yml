@@ -124,6 +124,7 @@ jobs:
   # Build parte solo quando tutti e tre i check paralleli sono verdi
   build:
     needs: [lint, type-check, test]
+    if: needs.changes.outputs.src == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -157,13 +158,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Download build output
+        # Try to reuse the artifact from the build job when it ran.
+        # continue-on-error so a missing artifact falls back to inline build.
+        id: download-build
         if: needs.build.result == 'success'
         uses: actions/download-artifact@v8
+        continue-on-error: true
         with:
           name: next-build
           path: .next/
-      - name: Build app for E2E (fallback when build job is skipped)
-        if: needs.build.result == 'skipped'
+      - name: Build
+        # Build inline when: build job was skipped (only e2e files changed)
+        # OR artifact download failed for any reason.
+        if: steps.download-build.outcome != 'success'
         run: npm run build
       - name: Cache Playwright browsers
         uses: actions/cache@v5
