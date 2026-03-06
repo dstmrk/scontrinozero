@@ -56,6 +56,17 @@ describe("AccountDeleteSection", () => {
     expect(await screen.findByText("Eliminare l'account?")).toBeInTheDocument();
   });
 
+  it("mostra il messaggio di recupero dati dal portale AdE nel dialog", async () => {
+    renderWithQuery();
+    fireEvent.click(screen.getByRole("button", { name: "Elimina account" }));
+    await screen.findByText("Eliminare l'account?");
+
+    expect(screen.getByText(/Fatture e Corrispettivi/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/documenti commerciali già trasmessi/),
+    ).toBeInTheDocument();
+  });
+
   it("il bottone di conferma è disabilitato se il testo non è 'ELIMINA'", async () => {
     renderWithQuery();
     fireEvent.click(screen.getByRole("button", { name: "Elimina account" }));
