@@ -2,17 +2,14 @@
 
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { adeCredentials, businesses, commercialDocuments } from "@/db/schema";
-import { decrypt, getEncryptionKey } from "@/lib/crypto";
+import { commercialDocuments } from "@/db/schema";
 import { createAdeClient } from "@/lib/ade";
-import {
-  buildCedenteFromBusiness,
-  mapVoidToAdePayload,
-} from "@/lib/ade/mapper";
+import { mapVoidToAdePayload } from "@/lib/ade/mapper";
 import { logger } from "@/lib/logger";
 import {
   checkBusinessOwnership,
   getAuthenticatedUser,
+  fetchAdePrerequisites,
 } from "@/lib/server-auth";
 import type { VoidReceiptInput, VoidReceiptResult } from "@/types/storico";
 import type { VoidRequest } from "@/lib/ade/public-types";
@@ -74,44 +71,12 @@ export async function voidReceipt(
     return { error: "Dati AdE mancanti per l'annullo." };
   }
 
-  // 2. Fetch AdE credentials
-  const [cred] = await db
-    .select()
-    .from(adeCredentials)
-    .where(eq(adeCredentials.businessId, input.businessId))
-    .limit(1);
+  // 2. Fetch and decrypt AdE credentials + local business data
+  const prerequisites = await fetchAdePrerequisites(input.businessId);
+  if ("error" in prerequisites) return prerequisites;
+  const { codiceFiscale, password, pin, cedentePrestatore } = prerequisites;
 
-  if (!cred) {
-    return {
-      error: "Credenziali AdE non trovate. Completa la configurazione.",
-    };
-  }
-  if (!cred.verifiedAt) {
-    return {
-      error:
-        "Credenziali AdE non verificate. Verifica le credenziali nelle impostazioni.",
-    };
-  }
-
-  // 3. Decrypt credentials
-  const key = getEncryptionKey();
-  const keys = new Map<number, Buffer>([[cred.keyVersion, key]]);
-  const codiceFiscale = decrypt(cred.encryptedCodiceFiscale, keys);
-  const password = decrypt(cred.encryptedPassword, keys);
-  const pin = decrypt(cred.encryptedPin, keys);
-
-  // Fetch local business data (used to build the AdE cedente/prestatore)
-  const [business] = await db
-    .select()
-    .from(businesses)
-    .where(eq(businesses.id, input.businessId))
-    .limit(1);
-
-  if (!business) {
-    return { error: "Dati business non trovati." };
-  }
-
-  // 4. Insert VOID document (idempotent via unique idempotencyKey)
+  // 3. Insert VOID document (idempotent via unique idempotencyKey)
   const [voidDoc] = await db
     .insert(commercialDocuments)
     .values({
@@ -154,7 +119,6 @@ export async function voidReceipt(
   const voidDocumentId = voidDoc.id;
   const adeMode = (process.env.ADE_MODE as "mock" | "real") || "mock";
   const adeClient = createAdeClient(adeMode);
-  const cedentePrestatore = buildCedenteFromBusiness(business);
 
   try {
     await adeClient.login({ codiceFiscale, password, pin });
@@ -201,7 +165,7 @@ export async function voidReceipt(
       return { error: `Annullo rifiutato dall'AdE: ${errorDesc}` };
     }
 
-    // 6. Update VOID document
+    // 4. Update VOID document
     await db
       .update(commercialDocuments)
       .set({
@@ -212,7 +176,7 @@ export async function voidReceipt(
       })
       .where(eq(commercialDocuments.id, voidDocumentId));
 
-    // 7. Mark original SALE as VOID_ACCEPTED
+    // 5. Mark original SALE as VOID_ACCEPTED
     await db
       .update(commercialDocuments)
       .set({ status: "VOID_ACCEPTED" })

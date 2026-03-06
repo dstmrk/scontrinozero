@@ -5,10 +5,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockGetAuthenticatedUser = vi.fn();
 const mockCheckBusinessOwnership = vi.fn();
+const mockFetchAdePrerequisites = vi.fn();
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: () => mockGetAuthenticatedUser(),
   checkBusinessOwnership: (...args: unknown[]) =>
     mockCheckBusinessOwnership(...args),
+  fetchAdePrerequisites: (...args: unknown[]) =>
+    mockFetchAdePrerequisites(...args),
 }));
 
 const mockLimit = vi.fn();
@@ -40,16 +43,8 @@ vi.mock("@/db", () => ({
 }));
 
 vi.mock("@/db/schema", () => ({
-  adeCredentials: "ade-credentials-table",
-  businesses: "businesses-table",
   commercialDocuments: "commercial-documents-table",
   commercialDocumentLines: "commercial-document-lines-table",
-}));
-
-const mockDecrypt = vi.fn().mockReturnValue("decrypted-value");
-vi.mock("@/lib/crypto", () => ({
-  decrypt: (...args: unknown[]) => mockDecrypt(...args),
-  getEncryptionKey: () => Buffer.alloc(32),
 }));
 
 const mockLogin = vi.fn();
@@ -63,11 +58,8 @@ vi.mock("@/lib/ade", () => ({
   }),
 }));
 
-const mockBuildCedenteFromBusiness = vi.fn().mockReturnValue({ built: true });
 const mockMapSaleToAdePayload = vi.fn().mockReturnValue({ mapped: true });
 vi.mock("@/lib/ade/mapper", () => ({
-  buildCedenteFromBusiness: (...args: unknown[]) =>
-    mockBuildCedenteFromBusiness(...args),
   mapSaleToAdePayload: (...args: unknown[]) => mockMapSaleToAdePayload(...args),
 }));
 
@@ -80,13 +72,11 @@ vi.mock("@/lib/logger", () => ({
 import type { SubmitReceiptInput } from "@/types/cassa";
 
 const FAKE_USER = { id: "user-123" };
-const FAKE_CRED = {
-  businessId: "biz-789",
-  encryptedCodiceFiscale: "enc-cf",
-  encryptedPassword: "enc-pw",
-  encryptedPin: "enc-pin",
-  keyVersion: 1,
-  verifiedAt: new Date(),
+const FAKE_PREREQUISITES = {
+  codiceFiscale: "decrypted-value",
+  password: "decrypted-value",
+  pin: "decrypted-value",
+  cedentePrestatore: { built: true },
 };
 const FAKE_DOCUMENT = { id: "doc-123" };
 const FAKE_ADE_RESPONSE = {
@@ -116,16 +106,11 @@ const VALID_INPUT: SubmitReceiptInput = {
 describe("receipt-actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.ENCRYPTION_KEY = "a".repeat(64);
-    process.env.ENCRYPTION_KEY_VERSION = "1";
     process.env.ADE_MODE = "mock";
 
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockCheckBusinessOwnership.mockResolvedValue(null);
-
-    // DB: select — FAKE_CRED as default covers both credentials and business calls
-    // (business data is irrelevant since buildCedenteFromBusiness is mocked)
-    mockLimit.mockResolvedValue([FAKE_CRED]);
+    mockFetchAdePrerequisites.mockResolvedValue(FAKE_PREREQUISITES);
 
     // DB: insert routing by table
     mockInsert.mockImplementation((table: unknown) => {
@@ -156,7 +141,6 @@ describe("receipt-actions", () => {
         password: "decrypted-value",
         pin: "decrypted-value",
       });
-      expect(mockBuildCedenteFromBusiness).toHaveBeenCalled();
       expect(mockMapSaleToAdePayload).toHaveBeenCalled();
       expect(mockSubmitSale).toHaveBeenCalled();
       expect(mockLogout).toHaveBeenCalled();
@@ -200,7 +184,9 @@ describe("receipt-actions", () => {
     });
 
     it("returns error when AdE credentials are not found", async () => {
-      mockLimit.mockResolvedValue([]); // No credentials row
+      mockFetchAdePrerequisites.mockResolvedValue({
+        error: "Credenziali AdE non trovate. Completa la configurazione.",
+      });
 
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt(VALID_INPUT);
@@ -211,7 +197,10 @@ describe("receipt-actions", () => {
     });
 
     it("returns error when AdE credentials are not verified", async () => {
-      mockLimit.mockResolvedValue([{ ...FAKE_CRED, verifiedAt: null }]);
+      mockFetchAdePrerequisites.mockResolvedValue({
+        error:
+          "Credenziali AdE non verificate. Verifica le credenziali nelle impostazioni.",
+      });
 
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt(VALID_INPUT);
@@ -221,11 +210,9 @@ describe("receipt-actions", () => {
     });
 
     it("returns error when business data is not found", async () => {
-      // credentials OK, but business row missing
-      mockLimit.mockReset();
-      mockLimit
-        .mockResolvedValueOnce([FAKE_CRED]) // credentials
-        .mockResolvedValueOnce([]); // business not found
+      mockFetchAdePrerequisites.mockResolvedValue({
+        error: "Dati business non trovati.",
+      });
 
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt(VALID_INPUT);
@@ -237,20 +224,14 @@ describe("receipt-actions", () => {
 
     it("idempotency: returns existing IDs when document is already ACCEPTED", async () => {
       mockDocumentReturning.mockResolvedValue([]); // Conflict — already exists
-
-      // Override defaults: 1st credentials, 2nd business (both truthy), 3rd idempotency
-      mockLimit.mockReset();
-      mockLimit
-        .mockResolvedValueOnce([FAKE_CRED]) // credentials
-        .mockResolvedValueOnce([FAKE_CRED]) // business (truthy, mapper is mocked)
-        .mockResolvedValueOnce([
-          {
-            id: "doc-123",
-            status: "ACCEPTED",
-            adeTransactionId: "trx-001",
-            adeProgressive: "001",
-          },
-        ]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          id: "doc-123",
+          status: "ACCEPTED",
+          adeTransactionId: "trx-001",
+          adeProgressive: "001",
+        },
+      ]);
 
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt(VALID_INPUT);
@@ -264,20 +245,14 @@ describe("receipt-actions", () => {
 
     it("idempotency: returns error when existing document is PENDING (inconsistent state)", async () => {
       mockDocumentReturning.mockResolvedValue([]); // Conflict — already exists
-
-      // Override defaults: 1st credentials, 2nd business (truthy), 3rd idempotency
-      mockLimit.mockReset();
-      mockLimit
-        .mockResolvedValueOnce([FAKE_CRED]) // credentials
-        .mockResolvedValueOnce([FAKE_CRED]) // business (truthy, mapper is mocked)
-        .mockResolvedValueOnce([
-          {
-            id: "doc-123",
-            status: "PENDING",
-            adeTransactionId: null,
-            adeProgressive: null,
-          },
-        ]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          id: "doc-123",
+          status: "PENDING",
+          adeTransactionId: null,
+          adeProgressive: null,
+        },
+      ]);
 
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt(VALID_INPUT);

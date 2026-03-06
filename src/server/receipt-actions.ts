@@ -2,22 +2,14 @@
 
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import {
-  adeCredentials,
-  businesses,
-  commercialDocuments,
-  commercialDocumentLines,
-} from "@/db/schema";
-import { decrypt, getEncryptionKey } from "@/lib/crypto";
+import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
 import { createAdeClient } from "@/lib/ade";
-import {
-  buildCedenteFromBusiness,
-  mapSaleToAdePayload,
-} from "@/lib/ade/mapper";
+import { mapSaleToAdePayload } from "@/lib/ade/mapper";
 import { logger } from "@/lib/logger";
 import {
   getAuthenticatedUser,
   checkBusinessOwnership,
+  fetchAdePrerequisites,
 } from "@/lib/server-auth";
 import type {
   SubmitReceiptInput,
@@ -49,44 +41,11 @@ export async function emitReceipt(
   );
   if (ownershipError) return ownershipError;
 
+  const prerequisites = await fetchAdePrerequisites(input.businessId);
+  if ("error" in prerequisites) return prerequisites;
+  const { codiceFiscale, password, pin, cedentePrestatore } = prerequisites;
+
   const db = getDb();
-
-  // Fetch and validate credentials
-  const [cred] = await db
-    .select()
-    .from(adeCredentials)
-    .where(eq(adeCredentials.businessId, input.businessId))
-    .limit(1);
-
-  if (!cred) {
-    return {
-      error: "Credenziali AdE non trovate. Completa la configurazione.",
-    };
-  }
-  if (!cred.verifiedAt) {
-    return {
-      error:
-        "Credenziali AdE non verificate. Verifica le credenziali nelle impostazioni.",
-    };
-  }
-
-  // Decrypt credentials
-  const key = getEncryptionKey();
-  const keys = new Map<number, Buffer>([[cred.keyVersion, key]]);
-  const codiceFiscale = decrypt(cred.encryptedCodiceFiscale, keys);
-  const password = decrypt(cred.encryptedPassword, keys);
-  const pin = decrypt(cred.encryptedPin, keys);
-
-  // Fetch local business data (used to build the AdE cedente/prestatore)
-  const [business] = await db
-    .select()
-    .from(businesses)
-    .where(eq(businesses.id, input.businessId))
-    .limit(1);
-
-  if (!business) {
-    return { error: "Dati business non trovati." };
-  }
 
   // Insert commercial document (idempotent via unique idempotencyKey)
   const [document] = await db
@@ -175,8 +134,6 @@ export async function emitReceipt(
 
   const adeMode = (process.env.ADE_MODE as "mock" | "real") || "mock";
   const adeClient = createAdeClient(adeMode);
-
-  const cedentePrestatore = buildCedenteFromBusiness(business);
 
   try {
     await adeClient.login({ codiceFiscale, password, pin });
