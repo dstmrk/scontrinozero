@@ -7,7 +7,53 @@ const PROTECTED_PREFIXES = ["/dashboard", "/onboarding"];
 /** Routes only for unauthenticated users (redirect to dashboard if logged in) */
 const AUTH_ONLY_PATHS = ["/login", "/register", "/reset-password"];
 
+/** Routes served exclusively on the marketing domain */
+const MARKETING_ONLY_ROUTES = ["/privacy", "/termini", "/cookie-policy"];
+
 export async function proxy(request: NextRequest) {
+  // Hostname routing: separate marketing site (scontrinozero.it) from app (app.scontrinozero.it).
+  // Skipped in local development where both share localhost:3000.
+  if (process.env.NODE_ENV !== "development") {
+    const hostname = request.headers.get("host") ?? "";
+    const { pathname } = request.nextUrl;
+    const appHostname =
+      process.env.NEXT_PUBLIC_APP_HOSTNAME ?? "app.scontrinozero.it";
+    const marketingHostname =
+      process.env.NEXT_PUBLIC_MARKETING_HOSTNAME ?? "scontrinozero.it";
+
+    const isMarketingDomain =
+      hostname === marketingHostname || hostname === `www.${marketingHostname}`;
+    const isAppDomain = hostname === appHostname;
+
+    if (isMarketingDomain) {
+      const isMarketingRoute =
+        pathname === "/" ||
+        MARKETING_ONLY_ROUTES.some(
+          (r) => pathname === r || pathname.startsWith(`${r}/`),
+        );
+      if (!isMarketingRoute) {
+        return NextResponse.redirect(
+          new URL(pathname + request.nextUrl.search, `https://${appHostname}`),
+        );
+      }
+    }
+
+    if (isAppDomain) {
+      if (pathname === "/") {
+        return NextResponse.redirect(new URL("/dashboard", request.url));
+      }
+      if (
+        MARKETING_ONLY_ROUTES.some(
+          (r) => pathname === r || pathname.startsWith(`${r}/`),
+        )
+      ) {
+        return NextResponse.redirect(
+          new URL(pathname, `https://${marketingHostname}`),
+        );
+      }
+    }
+  }
+
   // Skip auth checks if Supabase is not configured (E2E, local dev, self-hosted without auth)
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
     return NextResponse.next();

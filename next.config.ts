@@ -14,9 +14,9 @@ const nextConfig: NextConfig = {
   async headers() {
     // Restrict API routes to the app's own origin only.
     // NEXT_PUBLIC_APP_URL is set per-environment (e.g. http://localhost:3000 in dev,
-    // https://scontrinozero.it in production).
+    // https://app.scontrinozero.it in production — API calls come from the app subdomain).
     const allowedOrigin =
-      process.env.NEXT_PUBLIC_APP_URL ?? "https://scontrinozero.it";
+      process.env.NEXT_PUBLIC_APP_URL ?? "https://app.scontrinozero.it";
     return [
       {
         source: "/api/:path*",

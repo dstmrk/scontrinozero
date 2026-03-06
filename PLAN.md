@@ -72,6 +72,10 @@ La landing deve essere pronta per convertire visitatori in clienti paganti.
 
 **Task:**
 
+- ⬜ Hostname routing: `scontrinozero.it` → marketing, `app.scontrinozero.it` → app
+  (`src/proxy.ts` + env vars `NEXT_PUBLIC_APP_HOSTNAME` / `NEXT_PUBLIC_MARKETING_HOSTNAME`)
+  **Infrastruttura manuale:** aggiungere hostname `app.scontrinozero.it` al Cloudflare Tunnel;
+  aggiornare Site URL e redirect URL in Supabase Dashboard.
 - ⬜ Aggiornare sezione pricing con i piani reali (Free / Starter / Pro) e i prezzi definitivi
 - ⬜ Rimuovere qualsiasi menzione "beta" o "presto disponibile" dalla landing
 - ⬜ CTA principale → `/register` (non più waitlist)
@@ -79,7 +83,7 @@ La landing deve essere pronta per convertire visitatori in clienti paganti.
 - ⬜ Aggiornare Privacy Policy, ToS e Cookie Policy con prezzi Stripe reali e data corrente
 - ⬜ Verificare che la sitemap includa tutte le pagine marketing
 
-**Test attesi:** ~5 unit (JSON-LD, sitemap) → totale ~**494 unit + 8 E2E**
+**Test attesi:** ~12 unit (7 hostname routing + 5 JSON-LD/sitemap) → totale ~**534 unit + 8 E2E**
 
 ---
 
@@ -265,10 +269,10 @@ Quando annulliamo uno scontrino, AdE genera un nuovo documento commerciale di an
 | **4K**     | ~9                   | ~511        | 8          |
 | **v0.7.0** | ~10                  | ~521        | 8          |
 | **v0.8.0** | ~10                  | ~522        | 8          |
-| **v0.8.1** | ~5                   | ~527        | 8          |
-| **v0.9.0** | ~20                  | ~547        | 8          |
-| **v0.9.1** | ~0 unit / ~10 E2E    | ~547        | ~18        |
-| **v1.0.0** | 0 (solo tag)         | ~547        | ~18        |
+| **v0.8.1** | ~12                  | ~534        | 8          |
+| **v0.9.0** | ~20                  | ~554        | 8          |
+| **v0.9.1** | ~0 unit / ~10 E2E    | ~554        | ~18        |
+| **v1.0.0** | 0 (solo tag)         | ~554        | ~18        |
 
 ---
 
