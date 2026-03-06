@@ -228,22 +228,23 @@ Quando annulliamo uno scontrino, AdE genera un nuovo documento commerciale di an
 
 ## Storico sviluppo (fasi completate)
 
-| Fase                           | Stato | Test al completamento     | Note                                                         |
-| ------------------------------ | ----- | ------------------------- | ------------------------------------------------------------ |
-| 0 — Fondamenta                 | ✅    | —                         | Next.js 16, shadcn/ui, CI/CD, Supabase, Drizzle              |
-| 1A — Security fix + TDD        | ✅    | 23 unit                   | `isValidEmail`, waitlist API, SonarCloud verde               |
-| 2 — Integrazione AdE           | ✅    | 92 unit (55 AdE dedicati) | MockAdeClient + RealAdeClient, 6-phase Fisconline            |
-| 1B — Landing page              | ✅    | 6 unit + 8 E2E            | Privacy ✅, ToS ✅, Sitemap ✅ — JSON-LD ⬜ (→ v0.8.1)       |
-| 3A — Fondamenta sicurezza      | ✅    | 148 unit + 8 E2E          | Sentry, pino, rate limiting, AES-256-GCM                     |
-| 3B — Auth + onboarding         | ✅    | 191 unit + 8 E2E          | Supabase Auth, wizard 3-step, credenziali cifrate            |
-| 4A — Schema DB scontrini       | ✅    | 214 unit + 8 E2E          | `commercial_documents` + `commercial_document_lines`         |
-| 4B — UI cassa mobile-first     | ✅    | 305 unit + 8 E2E          | Tastierino, IVA, metodo pagamento, riepilogo                 |
-| 4C — Server actions + UI       | ✅    | 319 unit + 8 E2E          | `emitReceipt`, TanStack Query, optimistic updates            |
-| 4D — Storico + storno + PDF    | ✅    | 422 unit + 8 E2E          | PDF pdfkit 58mm, share link pubblico, HTML receipt           |
-| 4F — UI polish + registrazione | ✅    | 370→422 unit + 8 E2E      | `isStrongPassword`, paginazione storico, UX fixes            |
-| 4G — Catalogo + nav mobile     | ✅    | 464 unit + 8 E2E          | `catalog_items`, CRUD, bottom-nav, tap→cassa                 |
-| 4H — Onboarding refactor       | ✅    | 469 unit + 8 E2E          | firstName/lastName, P.IVA da AdE, CAP, migration             |
-| 4J — SPID login                | ✅    | 502 unit + 8 E2E          | SAML2 HTTP POST, push 2FA polling, MockAdeClient.loginSpid() |
+| Fase                           | Stato | Test al completamento     | Note                                                                |
+| ------------------------------ | ----- | ------------------------- | ------------------------------------------------------------------- |
+| 0 — Fondamenta                 | ✅    | —                         | Next.js 16, shadcn/ui, CI/CD, Supabase, Drizzle                     |
+| 1A — Security fix + TDD        | ✅    | 23 unit                   | `isValidEmail`, waitlist API, SonarCloud verde                      |
+| 2 — Integrazione AdE           | ✅    | 92 unit (55 AdE dedicati) | MockAdeClient + RealAdeClient, 6-phase Fisconline                   |
+| 1B — Landing page              | ✅    | 6 unit + 8 E2E            | Privacy ✅, ToS ✅, Sitemap ✅ — JSON-LD ⬜ (→ v0.8.1)              |
+| 3A — Fondamenta sicurezza      | ✅    | 148 unit + 8 E2E          | Sentry, pino, rate limiting, AES-256-GCM                            |
+| 3B — Auth + onboarding         | ✅    | 191 unit + 8 E2E          | Supabase Auth, wizard 3-step, credenziali cifrate                   |
+| 4A — Schema DB scontrini       | ✅    | 214 unit + 8 E2E          | `commercial_documents` + `commercial_document_lines`                |
+| 4B — UI cassa mobile-first     | ✅    | 305 unit + 8 E2E          | Tastierino, IVA, metodo pagamento, riepilogo                        |
+| 4C — Server actions + UI       | ✅    | 319 unit + 8 E2E          | `emitReceipt`, TanStack Query, optimistic updates                   |
+| 4D — Storico + storno + PDF    | ✅    | 422 unit + 8 E2E          | PDF pdfkit 58mm, share link pubblico, HTML receipt                  |
+| 4F — UI polish + registrazione | ✅    | 370→422 unit + 8 E2E      | `isStrongPassword`, paginazione storico, UX fixes                   |
+| 4G — Catalogo + nav mobile     | ✅    | 464 unit + 8 E2E          | `catalog_items`, CRUD, bottom-nav, tap→cassa                        |
+| 4H — Onboarding refactor       | ✅    | 469 unit + 8 E2E          | firstName/lastName, P.IVA da AdE, CAP, migration                    |
+| 4J — SPID login                | ✅    | 502 unit + 8 E2E          | SAML2 HTTP POST, push 2FA polling, MockAdeClient.loginSpid()        |
+| 4K — Security hardening        | ✅    | ~511 unit + 8 E2E         | CORS, RLS, npm audit CI, rate limiting, audit log, account deletion |
 
 ---
 
@@ -252,7 +253,8 @@ Quando annulliamo uno scontrino, AdE genera un nuovo documento commerciale di an
 | Versione   | Nuovi test (stimati) | Totale unit | Totale E2E |
 | ---------- | -------------------- | ----------- | ---------- |
 | (storico)  | —                    | 502         | 8          |
-| **v0.7.0** | ~10                  | ~512        | 8          |
+| **4K**     | ~9                   | ~511        | 8          |
+| **v0.7.0** | ~10                  | ~521        | 8          |
 | **v0.8.0** | ~10                  | ~522        | 8          |
 | **v0.8.1** | ~5                   | ~527        | 8          |
 | **v0.9.0** | ~20                  | ~547        | 8          |

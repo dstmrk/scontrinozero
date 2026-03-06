@@ -6,6 +6,7 @@ import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
 import { createAdeClient } from "@/lib/ade";
 import { mapSaleToAdePayload } from "@/lib/ade/mapper";
 import { logger } from "@/lib/logger";
+import { RateLimiter } from "@/lib/rate-limit";
 import {
   getAuthenticatedUser,
   checkBusinessOwnership,
@@ -18,6 +19,12 @@ import type {
 } from "@/types/cassa";
 import type { PaymentType, SaleDocumentRequest } from "@/lib/ade/public-types";
 
+// Rate limit: 30 receipts per hour per user (per-user key, not per-IP)
+const receiptLimiter = new RateLimiter({
+  maxRequests: 30,
+  windowMs: 60 * 60 * 1000,
+});
+
 const PAYMENT_METHOD_TO_ADE: Record<PaymentMethod, PaymentType> = {
   PC: "CASH",
   PE: "ELECTRONIC",
@@ -27,6 +34,12 @@ export async function emitReceipt(
   input: SubmitReceiptInput,
 ): Promise<SubmitReceiptResult> {
   const user = await getAuthenticatedUser();
+
+  const rateLimitResult = receiptLimiter.check(`emit:${user.id}`);
+  if (!rateLimitResult.success) {
+    logger.warn({ userId: user.id }, "Receipt emit rate limit exceeded");
+    return { error: "Troppi scontrini emessi. Riprova tra qualche minuto." };
+  }
 
   if (!input.businessId) {
     return { error: "Business ID mancante." };
@@ -167,6 +180,15 @@ export async function emitReceipt(
         adeResponse: adeResponse as unknown as Record<string, unknown>,
       })
       .where(eq(commercialDocuments.id, documentId));
+
+    logger.info(
+      {
+        documentId,
+        businessId: input.businessId,
+        adeTransactionId: adeResponse.idtrx,
+      },
+      "Receipt emitted successfully",
+    );
 
     return {
       documentId,

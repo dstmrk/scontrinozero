@@ -5,6 +5,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mocks
 // ---------------------------------------------------------------------------
 
+const mockRateLimiterCheck = vi.fn();
+vi.mock("@/lib/rate-limit", () => ({
+  RateLimiter: vi.fn().mockImplementation(function () {
+    return { check: mockRateLimiterCheck };
+  }),
+}));
+
 const mockGetAuthenticatedUser = vi.fn();
 const mockCheckBusinessOwnership = vi.fn();
 const mockFetchAdePrerequisites = vi.fn();
@@ -174,6 +181,11 @@ describe("void-actions", () => {
     vi.clearAllMocks();
     process.env.ADE_MODE = "mock";
 
+    mockRateLimiterCheck.mockReturnValue({
+      success: true,
+      remaining: 9,
+      resetAt: 0,
+    });
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockCheckBusinessOwnership.mockResolvedValue(null);
     mockFetchAdePrerequisites.mockResolvedValue(FAKE_PREREQUISITES);
@@ -235,6 +247,22 @@ describe("void-actions", () => {
       // Second update: original SALE → VOID_ACCEPTED
       const secondUpdateSet = mockUpdateSet.mock.calls[1][0];
       expect(secondUpdateSet.status).toBe("VOID_ACCEPTED");
+    });
+
+    it("returns error when void rate limit is exceeded", async () => {
+      mockRateLimiterCheck.mockReturnValue({
+        success: false,
+        remaining: 0,
+        resetAt: Date.now(),
+      });
+
+      const { voidReceipt } = await import("./void-actions");
+      const result = await voidReceipt(VALID_VOID_INPUT);
+
+      expect(result.error).toBeDefined();
+      expect(result.error).toMatch(/Troppi/i);
+      expect(mockInsert).not.toHaveBeenCalled();
+      expect(mockLogin).not.toHaveBeenCalled();
     });
 
     it("returns error when SALE document is not found (also covers IDOR: wrong businessId)", async () => {
