@@ -131,6 +131,8 @@ funzioni prima di toccare la produzione.
   - upgrade Free → Starter (Stripe test mode)
   - reset password via Resend
 - ⬜ Lighthouse audit: landing ≥90 mobile, dashboard ≥80 mobile
+- ⬜ Security audit: portare CI a `--audit-level=moderate` con `audit-ci` + allowlist
+  documentata per le eccezioni approvate (es. esbuild in drizzle-kit devDependency)
 - ⬜ SonarCloud quality gate verde, zero issue Blocker/Critical
 - ⬜ Smoke test su ambiente test con `ADE_MODE=mock`
 - ⬜ Verificare che tutte le variabili d'ambiente `.env.example` siano aggiornate
