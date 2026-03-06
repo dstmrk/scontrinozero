@@ -5,10 +5,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockGetAuthenticatedUser = vi.fn();
 const mockCheckBusinessOwnership = vi.fn();
+const mockFetchAdePrerequisites = vi.fn();
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: () => mockGetAuthenticatedUser(),
   checkBusinessOwnership: (...args: unknown[]) =>
     mockCheckBusinessOwnership(...args),
+  fetchAdePrerequisites: (...args: unknown[]) =>
+    mockFetchAdePrerequisites(...args),
 }));
 
 const mockLimit = vi.fn();
@@ -40,26 +43,17 @@ vi.mock("@/db", () => ({
 }));
 
 vi.mock("@/db/schema", () => ({
-  adeCredentials: "ade-credentials-table",
   commercialDocuments: "commercial-documents-table",
   commercialDocumentLines: "commercial-document-lines-table",
 }));
 
-const mockDecrypt = vi.fn().mockReturnValue("decrypted-value");
-vi.mock("@/lib/crypto", () => ({
-  decrypt: (...args: unknown[]) => mockDecrypt(...args),
-  getEncryptionKey: () => Buffer.alloc(32),
-}));
-
 const mockLogin = vi.fn();
 const mockLogout = vi.fn();
-const mockGetFiscalData = vi.fn();
 const mockSubmitSale = vi.fn();
 vi.mock("@/lib/ade", () => ({
   createAdeClient: vi.fn().mockReturnValue({
     login: mockLogin,
     logout: mockLogout,
-    getFiscalData: mockGetFiscalData,
     submitSale: mockSubmitSale,
   }),
 }));
@@ -78,13 +72,11 @@ vi.mock("@/lib/logger", () => ({
 import type { SubmitReceiptInput } from "@/types/cassa";
 
 const FAKE_USER = { id: "user-123" };
-const FAKE_CRED = {
-  businessId: "biz-789",
-  encryptedCodiceFiscale: "enc-cf",
-  encryptedPassword: "enc-pw",
-  encryptedPin: "enc-pin",
-  keyVersion: 1,
-  verifiedAt: new Date(),
+const FAKE_PREREQUISITES = {
+  codiceFiscale: "decrypted-value",
+  password: "decrypted-value",
+  pin: "decrypted-value",
+  cedentePrestatore: { built: true },
 };
 const FAKE_DOCUMENT = { id: "doc-123" };
 const FAKE_ADE_RESPONSE = {
@@ -92,16 +84,6 @@ const FAKE_ADE_RESPONSE = {
   idtrx: "trx-001",
   progressivo: "001",
   errori: [],
-};
-const FAKE_FISCAL_DATA = {
-  identificativiFiscali: {
-    partitaIva: "12345678901",
-    codiceFiscale: "CF",
-    codicePaese: "IT",
-  },
-  altriDatiIdentificativi: { denominazione: "Test SRL" },
-  multiAttivita: [],
-  multiSede: [],
 };
 
 const VALID_INPUT: SubmitReceiptInput = {
@@ -124,15 +106,11 @@ const VALID_INPUT: SubmitReceiptInput = {
 describe("receipt-actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.ENCRYPTION_KEY = "a".repeat(64);
-    process.env.ENCRYPTION_KEY_VERSION = "1";
     process.env.ADE_MODE = "mock";
 
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockCheckBusinessOwnership.mockResolvedValue(null);
-
-    // DB: select credentials
-    mockLimit.mockResolvedValue([FAKE_CRED]);
+    mockFetchAdePrerequisites.mockResolvedValue(FAKE_PREREQUISITES);
 
     // DB: insert routing by table
     mockInsert.mockImplementation((table: unknown) => {
@@ -145,7 +123,6 @@ describe("receipt-actions", () => {
 
     // ADE client
     mockLogin.mockResolvedValue({});
-    mockGetFiscalData.mockResolvedValue(FAKE_FISCAL_DATA);
     mockSubmitSale.mockResolvedValue(FAKE_ADE_RESPONSE);
     mockLogout.mockResolvedValue(undefined);
   });
@@ -164,7 +141,6 @@ describe("receipt-actions", () => {
         password: "decrypted-value",
         pin: "decrypted-value",
       });
-      expect(mockGetFiscalData).toHaveBeenCalled();
       expect(mockMapSaleToAdePayload).toHaveBeenCalled();
       expect(mockSubmitSale).toHaveBeenCalled();
       expect(mockLogout).toHaveBeenCalled();
@@ -208,7 +184,9 @@ describe("receipt-actions", () => {
     });
 
     it("returns error when AdE credentials are not found", async () => {
-      mockLimit.mockResolvedValue([]); // No credentials row
+      mockFetchAdePrerequisites.mockResolvedValue({
+        error: "Credenziali AdE non trovate. Completa la configurazione.",
+      });
 
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt(VALID_INPUT);
@@ -219,7 +197,10 @@ describe("receipt-actions", () => {
     });
 
     it("returns error when AdE credentials are not verified", async () => {
-      mockLimit.mockResolvedValue([{ ...FAKE_CRED, verifiedAt: null }]);
+      mockFetchAdePrerequisites.mockResolvedValue({
+        error:
+          "Credenziali AdE non verificate. Verifica le credenziali nelle impostazioni.",
+      });
 
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt(VALID_INPUT);
@@ -228,11 +209,22 @@ describe("receipt-actions", () => {
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
+    it("returns error when business data is not found", async () => {
+      mockFetchAdePrerequisites.mockResolvedValue({
+        error: "Dati business non trovati.",
+      });
+
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt(VALID_INPUT);
+
+      expect(result.error).toBeDefined();
+      expect(result.error).toContain("business");
+      expect(mockLogin).not.toHaveBeenCalled();
+    });
+
     it("idempotency: returns existing IDs when document is already ACCEPTED", async () => {
       mockDocumentReturning.mockResolvedValue([]); // Conflict — already exists
-
-      // Queue two limit() responses: 1st for credentials, 2nd for idempotency check
-      mockLimit.mockResolvedValueOnce([FAKE_CRED]).mockResolvedValueOnce([
+      mockLimit.mockResolvedValueOnce([
         {
           id: "doc-123",
           status: "ACCEPTED",
@@ -253,9 +245,7 @@ describe("receipt-actions", () => {
 
     it("idempotency: returns error when existing document is PENDING (inconsistent state)", async () => {
       mockDocumentReturning.mockResolvedValue([]); // Conflict — already exists
-
-      // Queue two limit() responses: 1st for credentials, 2nd for idempotency check
-      mockLimit.mockResolvedValueOnce([FAKE_CRED]).mockResolvedValueOnce([
+      mockLimit.mockResolvedValueOnce([
         {
           id: "doc-123",
           status: "PENDING",

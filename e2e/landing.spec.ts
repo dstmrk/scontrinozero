@@ -33,13 +33,10 @@ test.describe("Landing page", () => {
     await expect(pricing.getByText("Pro", { exact: true })).toBeVisible();
   });
 
-  test("waitlist form accepts email", async ({ page }) => {
+  test("CTA buttons link to register", async ({ page }) => {
     await page.goto("/");
 
-    const form = page.locator("form").first();
-    await form.getByPlaceholder(/email/i).fill("test@example.com");
-    await expect(
-      form.getByRole("button", { name: /iscriviti/i }),
-    ).toBeEnabled();
+    const ctaLinks = page.getByRole("link", { name: /inizia gratis/i });
+    await expect(ctaLinks.first()).toHaveAttribute("href", "/register");
   });
 });

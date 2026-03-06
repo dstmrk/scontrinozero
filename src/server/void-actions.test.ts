@@ -7,10 +7,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockGetAuthenticatedUser = vi.fn();
 const mockCheckBusinessOwnership = vi.fn();
+const mockFetchAdePrerequisites = vi.fn();
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: () => mockGetAuthenticatedUser(),
   checkBusinessOwnership: (...args: unknown[]) =>
     mockCheckBusinessOwnership(...args),
+  fetchAdePrerequisites: (...args: unknown[]) =>
+    mockFetchAdePrerequisites(...args),
 }));
 
 // DB mock — ogni select() restituisce un builder riconfigurabile
@@ -27,26 +30,17 @@ vi.mock("@/db", () => ({
 }));
 
 vi.mock("@/db/schema", () => ({
-  adeCredentials: "ade-credentials-table",
   commercialDocuments: "commercial-documents-table",
-}));
-
-const mockDecrypt = vi.fn().mockReturnValue("decrypted-value");
-vi.mock("@/lib/crypto", () => ({
-  decrypt: (...args: unknown[]) => mockDecrypt(...args),
-  getEncryptionKey: () => Buffer.alloc(32),
 }));
 
 const mockLogin = vi.fn();
 const mockLogout = vi.fn();
-const mockGetFiscalData = vi.fn();
 const mockGetDocument = vi.fn();
 const mockSubmitVoid = vi.fn();
 vi.mock("@/lib/ade", () => ({
   createAdeClient: vi.fn().mockReturnValue({
     login: mockLogin,
     logout: mockLogout,
-    getFiscalData: mockGetFiscalData,
     getDocument: mockGetDocument,
     submitVoid: mockSubmitVoid,
   }),
@@ -112,15 +106,6 @@ const FAKE_SALE_DOC = {
   createdAt: new Date("2026-02-15T10:00:00Z"),
 };
 
-const FAKE_CRED = {
-  businessId: "biz-789",
-  encryptedCodiceFiscale: "enc-cf",
-  encryptedPassword: "enc-pw",
-  encryptedPin: "enc-pin",
-  keyVersion: 1,
-  verifiedAt: new Date(),
-};
-
 const FAKE_VOID_DOC = { id: "void-doc-uuid" };
 
 const FAKE_ADE_DETAIL = {
@@ -167,11 +152,11 @@ const FAKE_ADE_RESPONSE = {
   errori: [],
 };
 
-const FAKE_FISCAL_DATA = {
-  identificativiFiscali: { partitaIva: "12345678901" },
-  altriDatiIdentificativi: {},
-  multiAttivita: [],
-  multiSede: [],
+const FAKE_PREREQUISITES = {
+  codiceFiscale: "decrypted-value",
+  password: "decrypted-value",
+  pin: "decrypted-value",
+  cedentePrestatore: { built: true },
 };
 
 const VALID_VOID_INPUT: VoidReceiptInput = {
@@ -187,11 +172,11 @@ const VALID_VOID_INPUT: VoidReceiptInput = {
 describe("void-actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.ENCRYPTION_KEY = "a".repeat(64);
     process.env.ADE_MODE = "mock";
 
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockCheckBusinessOwnership.mockResolvedValue(null);
+    mockFetchAdePrerequisites.mockResolvedValue(FAKE_PREREQUISITES);
 
     // Insert mock
     mockInsert.mockReturnValue({ values: mockInsertValues });
@@ -202,16 +187,13 @@ describe("void-actions", () => {
 
     // AdE mocks
     mockLogin.mockResolvedValue({});
-    mockGetFiscalData.mockResolvedValue(FAKE_FISCAL_DATA);
     mockGetDocument.mockResolvedValue(FAKE_ADE_DETAIL);
     mockSubmitVoid.mockResolvedValue(FAKE_ADE_RESPONSE);
     mockLogout.mockResolvedValue(undefined);
 
-    // Default select chain: saleDoc + credentials
+    // Default select chain: only saleDoc (credentials/business via fetchAdePrerequisites)
     mockSelect.mockReset();
-    mockSelect
-      .mockReturnValueOnce(makeSelectBuilder([FAKE_SALE_DOC]))
-      .mockReturnValueOnce(makeSelectBuilder([FAKE_CRED]));
+    mockSelect.mockReturnValueOnce(makeSelectBuilder([FAKE_SALE_DOC]));
   });
 
   describe("voidReceipt", () => {
@@ -230,7 +212,6 @@ describe("void-actions", () => {
         password: "decrypted-value",
         pin: "decrypted-value",
       });
-      expect(mockGetFiscalData).toHaveBeenCalled();
       expect(mockGetDocument).toHaveBeenCalledWith("trx-001");
       expect(mockMapVoidToAdePayload).toHaveBeenCalled();
       expect(mockSubmitVoid).toHaveBeenCalled();
@@ -325,10 +306,9 @@ describe("void-actions", () => {
     });
 
     it("returns error when credentials are missing", async () => {
-      mockSelect.mockReset();
-      mockSelect
-        .mockReturnValueOnce(makeSelectBuilder([FAKE_SALE_DOC]))
-        .mockReturnValueOnce(makeSelectBuilder([])); // no credentials
+      mockFetchAdePrerequisites.mockResolvedValue({
+        error: "Credenziali AdE non trovate. Completa la configurazione.",
+      });
 
       const { voidReceipt } = await import("./void-actions");
       const result = await voidReceipt(VALID_VOID_INPUT);
@@ -338,17 +318,28 @@ describe("void-actions", () => {
     });
 
     it("returns error when credentials are not verified", async () => {
-      mockSelect.mockReset();
-      mockSelect
-        .mockReturnValueOnce(makeSelectBuilder([FAKE_SALE_DOC]))
-        .mockReturnValueOnce(
-          makeSelectBuilder([{ ...FAKE_CRED, verifiedAt: null }]),
-        );
+      mockFetchAdePrerequisites.mockResolvedValue({
+        error:
+          "Credenziali AdE non verificate. Verifica le credenziali nelle impostazioni.",
+      });
 
       const { voidReceipt } = await import("./void-actions");
       const result = await voidReceipt(VALID_VOID_INPUT);
 
       expect(result.error).toBeDefined();
+      expect(mockLogin).not.toHaveBeenCalled();
+    });
+
+    it("returns error when business data is not found", async () => {
+      mockFetchAdePrerequisites.mockResolvedValue({
+        error: "Dati business non trovati.",
+      });
+
+      const { voidReceipt } = await import("./void-actions");
+      const result = await voidReceipt(VALID_VOID_INPUT);
+
+      expect(result.error).toBeDefined();
+      expect(result.error).toContain("business");
       expect(mockLogin).not.toHaveBeenCalled();
     });
 

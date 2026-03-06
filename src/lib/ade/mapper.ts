@@ -21,6 +21,58 @@ import type {
 } from "./public-types";
 
 // ---------------------------------------------------------------------------
+// buildCedenteFromBusiness
+// ---------------------------------------------------------------------------
+
+/** Campi del business locale necessari per costruire il cedente/prestatore AdE. */
+export interface BusinessCedenteData {
+  vatNumber: string | null;
+  fiscalCode: string | null;
+  businessName: string | null;
+  address: string | null;
+  streetNumber: string | null;
+  city: string | null;
+  province: string | null;
+  zipCode: string | null;
+  preferredVatCode: string | null;
+}
+
+/**
+ * Costruisce il cedente/prestatore AdE dai dati locali del business.
+ *
+ * Imposta `modificati: true` per segnalare all'AdE che stiamo inviando
+ * dati di identificazione propri (non quelli memorizzati sul portale).
+ * Usato sia per vendita che per annullo al posto di `getFiscalData()`.
+ */
+export function buildCedenteFromBusiness(
+  business: BusinessCedenteData,
+): AdeCedentePrestatore {
+  return {
+    identificativiFiscali: {
+      codicePaese: "IT",
+      partitaIva: business.vatNumber ?? "",
+      codiceFiscale: business.fiscalCode ?? "",
+    },
+    altriDatiIdentificativi: {
+      denominazione: business.businessName ?? "",
+      nome: "",
+      cognome: "",
+      indirizzo: business.address ?? "",
+      numeroCivico: business.streetNumber ?? "",
+      cap: business.zipCode ?? "",
+      comune: business.city ?? "",
+      provincia: business.province ?? "",
+      nazione: "IT",
+      modificati: true,
+      defAliquotaIVA: business.preferredVatCode ?? "",
+      nuovoUtente: false,
+    },
+    multiAttivita: [],
+    multiSede: [],
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -243,7 +295,7 @@ export function mapSaleToAdePayload(
     datiTrasmissione: { formato: "DCW10" },
     cedentePrestatore,
     documentoCommerciale,
-    flagIdentificativiModificati: false,
+    flagIdentificativiModificati: true,
   };
 }
 
@@ -344,6 +396,6 @@ export function mapVoidToAdePayload(
     datiTrasmissione: { formato: "DCW10" },
     cedentePrestatore: cedente,
     documentoCommerciale,
-    flagIdentificativiModificati: false,
+    flagIdentificativiModificati: true,
   };
 }

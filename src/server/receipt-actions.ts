@@ -2,18 +2,14 @@
 
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import {
-  adeCredentials,
-  commercialDocuments,
-  commercialDocumentLines,
-} from "@/db/schema";
-import { decrypt, getEncryptionKey } from "@/lib/crypto";
+import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
 import { createAdeClient } from "@/lib/ade";
 import { mapSaleToAdePayload } from "@/lib/ade/mapper";
 import { logger } from "@/lib/logger";
 import {
   getAuthenticatedUser,
   checkBusinessOwnership,
+  fetchAdePrerequisites,
 } from "@/lib/server-auth";
 import type {
   SubmitReceiptInput,
@@ -45,33 +41,11 @@ export async function emitReceipt(
   );
   if (ownershipError) return ownershipError;
 
+  const prerequisites = await fetchAdePrerequisites(input.businessId);
+  if ("error" in prerequisites) return prerequisites;
+  const { codiceFiscale, password, pin, cedentePrestatore } = prerequisites;
+
   const db = getDb();
-
-  // Fetch and validate credentials
-  const [cred] = await db
-    .select()
-    .from(adeCredentials)
-    .where(eq(adeCredentials.businessId, input.businessId))
-    .limit(1);
-
-  if (!cred) {
-    return {
-      error: "Credenziali AdE non trovate. Completa la configurazione.",
-    };
-  }
-  if (!cred.verifiedAt) {
-    return {
-      error:
-        "Credenziali AdE non verificate. Verifica le credenziali nelle impostazioni.",
-    };
-  }
-
-  // Decrypt credentials
-  const key = getEncryptionKey();
-  const keys = new Map<number, Buffer>([[cred.keyVersion, key]]);
-  const codiceFiscale = decrypt(cred.encryptedCodiceFiscale, keys);
-  const password = decrypt(cred.encryptedPassword, keys);
-  const pin = decrypt(cred.encryptedPin, keys);
 
   // Insert commercial document (idempotent via unique idempotencyKey)
   const [document] = await db
@@ -163,7 +137,6 @@ export async function emitReceipt(
 
   try {
     await adeClient.login({ codiceFiscale, password, pin });
-    const cedentePrestatore = await adeClient.getFiscalData();
     const payload = mapSaleToAdePayload(saleDocRequest, cedentePrestatore);
     const adeResponse = await adeClient.submitSale(payload);
     await adeClient.logout();

@@ -20,8 +20,23 @@ vi.mock("@/db", () => ({
 }));
 
 vi.mock("@/db/schema", () => ({
-  profiles: "profiles-table",
+  adeCredentials: "ade-credentials-table",
   businesses: "businesses-table",
+  profiles: "profiles-table",
+}));
+
+const mockDecrypt = vi.fn().mockReturnValue("decrypted-value");
+vi.mock("@/lib/crypto", () => ({
+  decrypt: (...args: unknown[]) => mockDecrypt(...args),
+  getEncryptionKey: () => Buffer.alloc(32),
+}));
+
+const mockBuildCedenteFromBusiness = vi
+  .fn()
+  .mockReturnValue({ built: "cedente" });
+vi.mock("@/lib/ade/mapper", () => ({
+  buildCedenteFromBusiness: (...args: unknown[]) =>
+    mockBuildCedenteFromBusiness(...args),
 }));
 
 // --- Helpers ---
@@ -29,6 +44,14 @@ vi.mock("@/db/schema", () => ({
 const FAKE_USER = { id: "user-123", email: "test@example.com" };
 const FAKE_PROFILE = { id: "profile-456", authUserId: "user-123" };
 const FAKE_BUSINESS = { id: "biz-789", profileId: "profile-456" };
+const FAKE_CRED = {
+  businessId: "biz-789",
+  encryptedCodiceFiscale: "enc-cf",
+  encryptedPassword: "enc-pw",
+  encryptedPin: "enc-pin",
+  keyVersion: 1,
+  verifiedAt: new Date(),
+};
 
 // --- Tests ---
 
@@ -86,6 +109,60 @@ describe("server-auth", () => {
       expect(result).toEqual({
         error: "Business non trovato o non autorizzato.",
       });
+    });
+  });
+
+  describe("fetchAdePrerequisites", () => {
+    it("returns decrypted credentials and cedentePrestatore on success", async () => {
+      mockLimit.mockResolvedValueOnce([FAKE_CRED]);
+      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+
+      const { fetchAdePrerequisites } = await import("./server-auth");
+      const result = await fetchAdePrerequisites("biz-789");
+
+      expect("error" in result).toBe(false);
+      if ("error" in result) return;
+      expect(result.codiceFiscale).toBe("decrypted-value");
+      expect(result.password).toBe("decrypted-value");
+      expect(result.pin).toBe("decrypted-value");
+      expect(result.cedentePrestatore).toEqual({ built: "cedente" });
+      expect(mockBuildCedenteFromBusiness).toHaveBeenCalledWith(FAKE_BUSINESS);
+    });
+
+    it("returns error when credentials are not found", async () => {
+      mockLimit.mockResolvedValueOnce([]); // no cred row
+
+      const { fetchAdePrerequisites } = await import("./server-auth");
+      const result = await fetchAdePrerequisites("biz-789");
+
+      expect(result).toEqual({
+        error: "Credenziali AdE non trovate. Completa la configurazione.",
+      });
+      expect(mockBuildCedenteFromBusiness).not.toHaveBeenCalled();
+    });
+
+    it("returns error when credentials are not verified", async () => {
+      mockLimit.mockResolvedValueOnce([{ ...FAKE_CRED, verifiedAt: null }]);
+
+      const { fetchAdePrerequisites } = await import("./server-auth");
+      const result = await fetchAdePrerequisites("biz-789");
+
+      expect(result).toEqual({
+        error:
+          "Credenziali AdE non verificate. Verifica le credenziali nelle impostazioni.",
+      });
+      expect(mockBuildCedenteFromBusiness).not.toHaveBeenCalled();
+    });
+
+    it("returns error when business data is not found", async () => {
+      mockLimit.mockResolvedValueOnce([FAKE_CRED]);
+      mockLimit.mockResolvedValueOnce([]); // business missing
+
+      const { fetchAdePrerequisites } = await import("./server-auth");
+      const result = await fetchAdePrerequisites("biz-789");
+
+      expect(result).toEqual({ error: "Dati business non trovati." });
+      expect(mockBuildCedenteFromBusiness).not.toHaveBeenCalled();
     });
   });
 });
