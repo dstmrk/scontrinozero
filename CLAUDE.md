@@ -224,6 +224,11 @@ Fasi:
   - Free tier generoso per repo privati (2.000 minuti/mese)
 - **Smart skip**: i workflow analizzano il diff e saltano se non ci sono file rilevanti
   (risparmio minuti CI su modifiche a soli `.md`, `static/`, etc.)
+- **Security audit**: attualmente `npm audit --audit-level=high` (blocca solo high/critical).
+  Prima di v1.0.0 va portato a `moderate` usando `audit-ci` con un file di allowlist
+  per le eccezioni documentate (es. esbuild in drizzle-kit è devDependency il cui
+  vettore d'attacco è irrilevante in CI). Le low non si auditano: rapporto segnale/rumore
+  pessimo senza benefici reali.
 - **Pipeline CI** (su push/PR verso main):
   1. Lint (ESLint) + type-check (`tsc --noEmit`)
   2. Test con coverage (Vitest → lcov)
