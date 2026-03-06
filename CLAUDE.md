@@ -229,6 +229,13 @@ Fasi:
   per le eccezioni documentate (es. esbuild in drizzle-kit è devDependency il cui
   vettore d'attacco è irrilevante in CI). Le low non si auditano: rapporto segnale/rumore
   pessimo senza benefici reali.
+- **Secret scanning**: **Gitleaks** come step CI per bloccare credenziali/chiavi
+  accidentalmente committate. Critico per un'app che gestisce credenziali Fisconline.
+- **Docker image scan**: **Trivy** nella pipeline deploy — scansiona l'immagine Docker
+  prima del push su GHCR (CVE nell'immagine base `node:alpine`).
+- **Branch protection** (GitHub Settings → Branches): oltre a no-force-push e no-delete,
+  abilitare **"Require status checks to pass before merging"** con i job CI obbligatori.
+  Senza questo, l'intera pipeline CI è decorativa: si può fare merge con CI rosso.
 - **Pipeline CI** (su push/PR verso main):
   1. Lint (ESLint) + type-check (`tsc --noEmit`)
   2. Test con coverage (Vitest → lcov)
@@ -425,6 +432,9 @@ Stesso progetto Next.js, non un sito separato:
 - **Condizioni di vendita** — per gli abbonamenti Stripe
 - **Informativa trattamento dati** — specifica per credenziali Fisconline
   (dato sensibile, cifratura at-rest, finalità limitate)
+- **GDPR art. 20 — Portabilità dati** — obbligo legale: l'utente deve poter esportare
+  tutti i propri dati (profilo, attività, scontrini) in formato machine-readable (JSON).
+  Implementare come "Esporta dati" in `/dashboard/settings` prima del lancio pubblico.
 
 ## Decisioni architetturali
 

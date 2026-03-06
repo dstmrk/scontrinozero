@@ -133,12 +133,19 @@ funzioni prima di toccare la produzione.
 - ⬜ Lighthouse audit: landing ≥90 mobile, dashboard ≥80 mobile
 - ⬜ Security audit: portare CI a `--audit-level=moderate` con `audit-ci` + allowlist
   documentata per le eccezioni approvate (es. esbuild in drizzle-kit devDependency)
+- ⬜ Secret scanning in CI: aggiungere **Gitleaks** come step CI per bloccare commit
+  con credenziali o chiavi accidentalmente committate
+- ⬜ Docker image scan: aggiungere **Trivy** nella pipeline deploy per scansionare
+  l'immagine Docker prima del push su GHCR
+- ⬜ GDPR art. 20 — Portabilità dati: pulsante "Esporta dati" in `/dashboard/settings`
+  che genera un JSON scaricabile con tutti i dati dell'utente (profilo, attività,
+  scontrini). Obbligo legale prima del lancio pubblico.
 - ⬜ SonarCloud quality gate verde, zero issue Blocker/Critical
 - ⬜ Smoke test su ambiente test con `ADE_MODE=mock`
 - ⬜ Verificare che tutte le variabili d'ambiente `.env.example` siano aggiornate
 - ⬜ Aggiornare Privacy Policy/ToS se necessario dopo test legale
 
-**Test attesi:** ~10 nuovi E2E → totale ~**514 unit + 19 E2E**
+**Test attesi:** ~5 unit (export dati) + ~10 E2E → totale ~**519 unit + 19 E2E**
 
 ---
 
