@@ -10,49 +10,47 @@ const AUTH_ONLY_PATHS = ["/login", "/register", "/reset-password"];
 /** Routes served exclusively on the marketing domain */
 const MARKETING_ONLY_ROUTES = ["/privacy", "/termini", "/cookie-policy"];
 
-export async function proxy(request: NextRequest) {
-  // Hostname routing: separate marketing site (scontrinozero.it) from app (app.scontrinozero.it).
-  // Skipped in local development where both share localhost:3000.
-  if (process.env.NODE_ENV !== "development") {
-    const hostname = request.headers.get("host") ?? "";
-    const { pathname } = request.nextUrl;
-    const appHostname =
-      process.env.NEXT_PUBLIC_APP_HOSTNAME ?? "app.scontrinozero.it";
-    const marketingHostname =
-      process.env.NEXT_PUBLIC_MARKETING_HOSTNAME ?? "scontrinozero.it";
+/**
+ * Redirects based on hostname to enforce domain separation.
+ * Returns null if no redirect is needed.
+ * Skipped in local development where both domains share localhost:3000.
+ */
+function hostnameRedirect(request: NextRequest): NextResponse | null {
+  if (process.env.NODE_ENV === "development") return null;
 
-    const isMarketingDomain =
-      hostname === marketingHostname || hostname === `www.${marketingHostname}`;
-    const isAppDomain = hostname === appHostname;
+  const hostname = request.headers.get("host") ?? "";
+  const { pathname, search } = request.nextUrl;
+  const appHostname =
+    process.env.NEXT_PUBLIC_APP_HOSTNAME ?? "app.scontrinozero.it";
+  const marketingHostname =
+    process.env.NEXT_PUBLIC_MARKETING_HOSTNAME ?? "scontrinozero.it";
 
-    if (isMarketingDomain) {
-      const isMarketingRoute =
-        pathname === "/" ||
-        MARKETING_ONLY_ROUTES.some(
-          (r) => pathname === r || pathname.startsWith(`${r}/`),
-        );
-      if (!isMarketingRoute) {
-        return NextResponse.redirect(
-          new URL(pathname + request.nextUrl.search, `https://${appHostname}`),
-        );
-      }
-    }
+  const isMarketingDomain =
+    hostname === marketingHostname || hostname === `www.${marketingHostname}`;
+  const isAppDomain = hostname === appHostname;
+  const isMarketingOnlyRoute = MARKETING_ONLY_ROUTES.some(
+    (r) => pathname === r || pathname.startsWith(`${r}/`),
+  );
 
-    if (isAppDomain) {
-      if (pathname === "/") {
-        return NextResponse.redirect(new URL("/dashboard", request.url));
-      }
-      if (
-        MARKETING_ONLY_ROUTES.some(
-          (r) => pathname === r || pathname.startsWith(`${r}/`),
-        )
-      ) {
-        return NextResponse.redirect(
-          new URL(pathname, `https://${marketingHostname}`),
-        );
-      }
-    }
+  if (isMarketingDomain && pathname !== "/" && !isMarketingOnlyRoute) {
+    return NextResponse.redirect(
+      new URL(pathname + search, `https://${appHostname}`),
+    );
   }
+  if (isAppDomain && pathname === "/") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+  if (isAppDomain && isMarketingOnlyRoute) {
+    return NextResponse.redirect(
+      new URL(pathname + search, `https://${marketingHostname}`),
+    );
+  }
+  return null;
+}
+
+export async function proxy(request: NextRequest) {
+  const redirect = hostnameRedirect(request);
+  if (redirect) return redirect;
 
   // Skip auth checks if Supabase is not configured (E2E, local dev, self-hosted without auth)
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {

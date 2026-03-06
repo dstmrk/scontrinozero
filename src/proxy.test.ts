@@ -230,6 +230,19 @@ describe("proxy", () => {
       expect(location.pathname).toBe("/termini");
     });
 
+    it("preserves query string on app→marketing redirect", async () => {
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(
+        createRequestForHost("/privacy?lang=en", "app.scontrinozero.it"),
+      );
+      expect(response.status).toBe(307);
+      const location = new URL(response.headers.get("location")!);
+      expect(location.hostname).toBe("scontrinozero.it");
+      expect(location.pathname).toBe("/privacy");
+      expect(location.search).toBe("?lang=en");
+    });
+
     it("allows /dashboard on app domain for authenticated users", async () => {
       mockGetUser.mockResolvedValue({
         data: { user: { id: "user-123" } },
