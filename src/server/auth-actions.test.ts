@@ -29,9 +29,8 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
-const mockInsert = vi.fn().mockReturnValue({
-  values: vi.fn().mockResolvedValue(undefined),
-});
+const mockValues = vi.fn().mockResolvedValue(undefined);
+const mockInsert = vi.fn().mockReturnValue({ values: mockValues });
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({ insert: mockInsert }),
 }));
@@ -190,6 +189,12 @@ describe("auth-actions", () => {
         password: "Secure#99x",
       });
       expect(mockInsert).toHaveBeenCalled();
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          termsAcceptedAt: expect.any(Date),
+          termsVersion: "v01",
+        }),
+      );
     });
 
     it("returns error when Supabase signUp fails", async () => {

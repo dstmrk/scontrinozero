@@ -17,6 +17,8 @@ export const profiles = pgTable("profiles", {
     .notNull()
     .defaultNow()
     .$onUpdate(() => new Date()),
+  termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
+  termsVersion: text("terms_version"),
 });
 
 export type InsertProfile = typeof profiles.$inferInsert;

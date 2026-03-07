@@ -9,6 +9,8 @@ import { isValidEmail, isStrongPassword } from "@/lib/validation";
 import { RateLimiter } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 
+const CURRENT_TERMS_VERSION = "v01";
+
 const authLimiter = new RateLimiter({
   maxRequests: 5,
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -88,6 +90,8 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
       await db.insert(profiles).values({
         authUserId: data.user.id,
         email,
+        termsAcceptedAt: new Date(),
+        termsVersion: CURRENT_TERMS_VERSION,
       });
     } catch (err) {
       logger.error({ err }, "Failed to create profile after signUp");
