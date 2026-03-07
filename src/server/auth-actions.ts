@@ -94,7 +94,10 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
         termsVersion: CURRENT_TERMS_VERSION,
       });
     } catch (err) {
-      logger.error({ err }, "Failed to record terms acceptance; blocking signup");
+      logger.error(
+        { err },
+        "Failed to record terms acceptance; blocking signup",
+      );
       return { error: "Registrazione fallita. Riprova." };
     }
   }
