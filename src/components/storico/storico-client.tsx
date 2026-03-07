@@ -238,7 +238,9 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
                       <span className="font-mono text-xs">
                         {receipt.adeProgressive
                           ? receipt.adeProgressive.includes("/")
-                            ? receipt.adeProgressive.slice(receipt.adeProgressive.indexOf("/") + 1)
+                            ? receipt.adeProgressive.slice(
+                                receipt.adeProgressive.indexOf("/") + 1,
+                              )
                             : receipt.adeProgressive
                           : "—"}
                       </span>
