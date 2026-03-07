@@ -435,6 +435,14 @@ Stesso progetto Next.js, non un sito separato:
 - **GDPR art. 20 — Portabilità dati** — obbligo legale: l'utente deve poter esportare
   tutti i propri dati (profilo, attività, scontrini) in formato machine-readable (JSON).
   Implementare come "Esporta dati" in `/dashboard/settings` prima del lancio pubblico.
+- **Accettazione T&C tracciata** — al momento della registrazione, `signUp` salva su
+  `profiles` i campi `terms_accepted_at` (timestamp) e `terms_version` (es. `"v01"`).
+  La versione corrente è la costante `CURRENT_TERMS_VERSION` in `src/server/auth-actions.ts`.
+  **Versioning URL T&C:** il testo di ogni versione vive su `/termini/vXX` (permalink permanente);
+  `/termini` fa sempre redirect all'ultima versione. Quando si aggiornano i T&C:
+  1. Creare `src/app/(marketing)/termini/vXX/page.tsx` con il nuovo testo
+  2. Aggiornare il redirect in `src/app/(marketing)/termini/page.tsx` → `/termini/vXX`
+  3. Aggiornare `CURRENT_TERMS_VERSION = "vXX"` in `src/server/auth-actions.ts`
 
 ## Decisioni architetturali
 
