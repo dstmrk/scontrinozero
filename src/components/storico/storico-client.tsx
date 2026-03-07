@@ -20,7 +20,7 @@ function formatDate(date: Date): string {
   return new Date(date).toLocaleDateString("it-IT", {
     day: "2-digit",
     month: "2-digit",
-    year: "numeric",
+    year: "2-digit",
   });
 }
 
@@ -142,7 +142,7 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
       {/* Search form */}
       <form
         onSubmit={handleSearch}
-        className="flex flex-wrap items-end gap-3 rounded-lg border px-4 py-3"
+        className="flex flex-wrap items-end gap-3 rounded-lg border px-3 py-2"
       >
         <div className="min-w-[140px]">
           <label htmlFor="dateFrom" className="mb-1 block text-xs font-medium">
@@ -206,11 +206,11 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
-                <th className="px-4 py-3 text-left font-medium">Data</th>
-                <th className="px-4 py-3 text-left font-medium">Progressivo</th>
-                <th className="px-4 py-3 text-right font-medium">Totale</th>
-                <th className="px-4 py-3 text-left font-medium">Stato</th>
-                <th className="px-4 py-3"></th>
+                <th className="px-3 py-2 text-left font-medium">Data</th>
+                <th className="px-3 py-2 text-left font-medium">Progressivo</th>
+                <th className="px-3 py-2 text-right font-medium">Totale</th>
+                <th className="px-3 py-2 text-left font-medium">Stato</th>
+                <th className="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -231,21 +231,25 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
                     }
                     onClick={() => hasDetail && setSelected(receipt)}
                   >
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-3 py-2 whitespace-nowrap">
                       {formatDate(receipt.createdAt)}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       <span className="font-mono text-xs">
-                        {receipt.adeProgressive ?? "—"}
+                        {receipt.adeProgressive
+                          ? receipt.adeProgressive.includes("/")
+                            ? receipt.adeProgressive.slice(receipt.adeProgressive.indexOf("/") + 1)
+                            : receipt.adeProgressive
+                          : "—"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right font-medium tabular-nums">
+                    <td className="px-3 py-2 text-right font-medium tabular-nums">
                       {formatCurrency(receipt.total)}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       <StatusBadge status={receipt.status} />
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-3 py-2 text-right">
                       {hasDetail && (
                         <span className="text-muted-foreground text-xs">›</span>
                       )}
