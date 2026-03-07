@@ -9,9 +9,8 @@ const KEEP_ALIVE_INTERVAL_MS = 5 * 24 * 60 * 60 * 1000; // 5 giorni
 function startSupabaseKeepAlive() {
   const interval: ReturnType<typeof setInterval> = setInterval(async () => {
     try {
-      const { createAdminSupabaseClient } = await import(
-        "@/lib/supabase/admin"
-      );
+      const { createAdminSupabaseClient } =
+        await import("@/lib/supabase/admin");
       const supabase = createAdminSupabaseClient();
       await supabase.from("profiles").select("id").limit(1);
       logger.info("Supabase keep-alive ping eseguito");
