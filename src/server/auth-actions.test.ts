@@ -232,6 +232,37 @@ describe("auth-actions", () => {
       expect(result.error).toContain("Troppi tentativi");
     });
 
+    it("redirects to verify-email when signUp returns null user without error (duplicate unconfirmed email)", async () => {
+      // Supabase returns { user: null, error: null } when re-registering an unconfirmed email
+      // to prevent user enumeration. We should still redirect to verify-email.
+      mockSignUp.mockResolvedValue({
+        data: { user: null },
+        error: null,
+      });
+
+      const { signUp } = await import("./auth-actions");
+
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+          }),
+        );
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+        if (isRedirectError(err)) {
+          expect(err.url).toBe("/verify-email");
+        }
+      }
+
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
     it("returns error when profile insert fails (terms acceptance is mandatory)", async () => {
       mockSignUp.mockResolvedValue({
         data: { user: { id: "user-123" } },
