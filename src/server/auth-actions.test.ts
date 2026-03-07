@@ -29,9 +29,8 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
-const mockInsert = vi.fn().mockReturnValue({
-  values: vi.fn().mockResolvedValue(undefined),
-});
+const mockValues = vi.fn().mockResolvedValue(undefined);
+const mockInsert = vi.fn().mockReturnValue({ values: mockValues });
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({ insert: mockInsert }),
 }));
@@ -190,6 +189,12 @@ describe("auth-actions", () => {
         password: "Secure#99x",
       });
       expect(mockInsert).toHaveBeenCalled();
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          termsAcceptedAt: expect.any(Date),
+          termsVersion: "v01",
+        }),
+      );
     });
 
     it("returns error when Supabase signUp fails", async () => {
@@ -227,13 +232,12 @@ describe("auth-actions", () => {
       expect(result.error).toContain("Troppi tentativi");
     });
 
-    it("redirects to verify-email even if profile creation fails", async () => {
+    it("redirects to verify-email when signUp returns null user without error (duplicate unconfirmed email)", async () => {
+      // Supabase returns { user: null, error: null } when re-registering an unconfirmed email
+      // to prevent user enumeration. We should still redirect to verify-email.
       mockSignUp.mockResolvedValue({
-        data: { user: { id: "user-123" } },
+        data: { user: null },
         error: null,
-      });
-      mockInsert.mockReturnValueOnce({
-        values: vi.fn().mockRejectedValueOnce(new Error("DB error")),
       });
 
       const { signUp } = await import("./auth-actions");
@@ -251,7 +255,38 @@ describe("auth-actions", () => {
         expect.fail("Expected redirect");
       } catch (err) {
         expect(isRedirectError(err)).toBe(true);
+        if (isRedirectError(err)) {
+          expect(err.url).toBe("/verify-email");
+        }
       }
+
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("returns error when profile insert fails (terms acceptance is mandatory)", async () => {
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-123" } },
+        error: null,
+      });
+      mockInsert.mockReturnValueOnce({
+        values: vi.fn().mockRejectedValueOnce(new Error("DB error")),
+      });
+
+      const { signUp } = await import("./auth-actions");
+      const { logger } = await import("@/lib/logger");
+
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+        }),
+      );
+
+      expect(result).toEqual({ error: "Registrazione fallita. Riprova." });
+      expect(logger.error).toHaveBeenCalled();
     });
   });
 

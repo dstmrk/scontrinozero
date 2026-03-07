@@ -80,7 +80,8 @@ La landing deve essere pronta per convertire visitatori in clienti paganti.
 - ⬜ Rimuovere qualsiasi menzione "beta" o "presto disponibile" dalla landing
 - ⬜ CTA principale → `/register` (non più waitlist)
 - ⬜ JSON-LD structured data (`SoftwareApplication` + `Organization`)
-- ⬜ Aggiornare Privacy Policy, ToS e Cookie Policy con prezzi Stripe reali e data corrente
+- ⬜ Aggiornare contenuto `/termini/v01` con prezzi Stripe reali; creare `/termini/v02` + aggiornare redirect e `CURRENT_TERMS_VERSION`
+- ⬜ Aggiornare Privacy Policy e Cookie Policy con data corrente
 - ⬜ Verificare che la sitemap includa tutte le pagine marketing
 
 **Test attesi:** ~12 unit (7 hostname routing + 5 JSON-LD/sitemap) → totale ~**534 unit + 8 E2E**
@@ -258,6 +259,7 @@ Quando annulliamo uno scontrino, AdE genera un nuovo documento commerciale di an
 | 4H — Onboarding refactor       | ✅    | 469 unit + 8 E2E          | firstName/lastName, P.IVA da AdE, CAP, migration                    |
 | 4J — SPID login                | ✅    | 502 unit + 8 E2E          | SAML2 HTTP POST, push 2FA polling, MockAdeClient.loginSpid()        |
 | 4K — Security hardening        | ✅    | ~511 unit + 8 E2E         | CORS, RLS, npm audit CI, rate limiting, audit log, account deletion |
+| 4L — Terms acceptance tracking | ✅    | ~512 unit + 8 E2E         | `terms_accepted_at` + `terms_version` su `profiles`; `/termini/v01` permalink + redirect |
 
 ---
 
@@ -267,6 +269,7 @@ Quando annulliamo uno scontrino, AdE genera un nuovo documento commerciale di an
 | ---------- | -------------------- | ----------- | ---------- |
 | (storico)  | —                    | 502         | 8          |
 | **4K**     | ~9                   | ~511        | 8          |
+| **4L**     | ~1                   | ~512        | 8          |
 | **v0.7.0** | ~10                  | ~521        | 8          |
 | **v0.8.0** | ~10                  | ~522        | 8          |
 | **v0.8.1** | ~12                  | ~534        | 8          |
