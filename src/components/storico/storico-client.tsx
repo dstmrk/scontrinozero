@@ -24,6 +24,13 @@ function formatDate(date: Date): string {
   });
 }
 
+function formatProgressive(progressive: string | null): string {
+  if (!progressive) return "—";
+  const slashIndex = progressive.indexOf("/");
+  if (slashIndex === -1) return progressive;
+  return progressive.slice(slashIndex + 1);
+}
+
 function formatCurrency(amount: string): string {
   return `€ ${Number.parseFloat(amount).toFixed(2).replace(".", ",")}`;
 }
@@ -236,13 +243,7 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
                     </td>
                     <td className="px-3 py-2">
                       <span className="font-mono text-xs">
-                        {receipt.adeProgressive
-                          ? receipt.adeProgressive.includes("/")
-                            ? receipt.adeProgressive.slice(
-                                receipt.adeProgressive.indexOf("/") + 1,
-                              )
-                            : receipt.adeProgressive
-                          : "—"}
+                        {formatProgressive(receipt.adeProgressive)}
                       </span>
                     </td>
                     <td className="px-3 py-2 text-right font-medium tabular-nums">
