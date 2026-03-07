@@ -83,7 +83,7 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
     return { error: "Registrazione fallita. Riprova." };
   }
 
-  // Create profile in our DB
+  // Create profile in our DB (mandatory: records terms acceptance for compliance)
   if (data.user) {
     try {
       const db = getDb();
@@ -94,7 +94,8 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
         termsVersion: CURRENT_TERMS_VERSION,
       });
     } catch (err) {
-      logger.error({ err }, "Failed to create profile after signUp");
+      logger.error({ err }, "Failed to record terms acceptance; blocking signup");
+      return { error: "Registrazione fallita. Riprova." };
     }
   }
 

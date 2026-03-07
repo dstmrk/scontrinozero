@@ -232,7 +232,7 @@ describe("auth-actions", () => {
       expect(result.error).toContain("Troppi tentativi");
     });
 
-    it("redirects to verify-email even if profile creation fails", async () => {
+    it("returns error when profile insert fails (terms acceptance is mandatory)", async () => {
       mockSignUp.mockResolvedValue({
         data: { user: { id: "user-123" } },
         error: null,
@@ -242,21 +242,20 @@ describe("auth-actions", () => {
       });
 
       const { signUp } = await import("./auth-actions");
+      const { logger } = await import("@/lib/logger");
 
-      try {
-        await signUp(
-          formData({
-            email: "test@example.com",
-            password: "Secure#99x",
-            confirmPassword: "Secure#99x",
-            termsAccepted: "true",
-            specificClausesAccepted: "true",
-          }),
-        );
-        expect.fail("Expected redirect");
-      } catch (err) {
-        expect(isRedirectError(err)).toBe(true);
-      }
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+        }),
+      );
+
+      expect(result).toEqual({ error: "Registrazione fallita. Riprova." });
+      expect(logger.error).toHaveBeenCalled();
     });
   });
 
