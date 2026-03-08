@@ -78,7 +78,7 @@ La landing deve essere pronta per convertire visitatori in clienti paganti.
   (`src/proxy.ts` + env vars `NEXT_PUBLIC_APP_HOSTNAME` / `NEXT_PUBLIC_MARKETING_HOSTNAME`)
   **Infrastruttura manuale:** aggiungere hostname `app.scontrinozero.it` al Cloudflare Tunnel;
   aggiornare Site URL e redirect URL in Supabase Dashboard.
-- ⬜ Aggiornare sezione pricing con i piani reali (Free / Starter / Pro) e i prezzi definitivi
+- ⬜ Aggiornare sezione pricing con i piani reali (Starter €5.99/mese · €29.99/anno — Pro €8.99/mese · €49.99/anno) e trial 30gg
 - ⬜ Rimuovere qualsiasi menzione "beta" o "presto disponibile" dalla landing
 - ⬜ CTA principale → `/register` (non più waitlist)
 - ⬜ JSON-LD structured data (`SoftwareApplication` + `Organization`)
@@ -92,37 +92,52 @@ La landing deve essere pronta per convertire visitatori in clienti paganti.
 
 ### v0.9.0 — Stripe payments ⬜
 
-Integrazione completa Stripe Billing per i tre piani + feature gating.
+Integrazione completa Stripe Billing per i due piani (Starter + Pro) + billing mensile e
+annuale + trial 30gg + feature gating.
+
+**Modello piani:**
+
+| Piano       | Mensile | Annuale | Catalogo | Analytics avanzata | Export CSV | AdE sync | Supporto prioritario |
+| ----------- | ------- | ------- | -------- | ------------------ | ---------- | -------- | -------------------- |
+| Starter     | €5.99   | €29.99  | 5 prod.  | ❌                 | ❌         | ❌       | ❌                   |
+| Pro         | €8.99   | €49.99  | ∞        | ✅                 | ✅         | ✅       | ✅                   |
+| Unlimited   | —       | —       | ∞        | ✅                 | ✅         | ✅       | ✅                   |
+| Self-hosted | —       | —       | ∞        | ✅                 | ✅         | ✅       | —                    |
+
+**Trial:** 30 giorni senza carta di credito. Alla scadenza: scelta piano + CC per continuare,
+altrimenti sola lettura (storico visibile, emissione bloccata).
+**Anti-abuso:** P.IVA UNIQUE su `profiles` — impedisce trial multipli anche con email diverse.
+**Upgrade/downgrade:** gestito da Stripe con proration automatica (`proration_behavior: 'create_prorations'`).
+**Piano Unlimited:** `plan = 'unlimited'` su `profiles`, nessuna logica Stripe, gestito manualmente su DB.
 
 **Task (TDD — test prima):**
 
+- ⬜ Aggiungere colonna `plan` su `profiles` (`'trial' | 'starter' | 'pro' | 'unlimited'`, default `'trial'`)
+  e `trial_started_at TIMESTAMPTZ`, `plan_expires_at TIMESTAMPTZ`
+- ⬜ Verificare che `partita_iva` su `profiles` abbia vincolo UNIQUE (già presente da 4H; confermare migration)
 - ⬜ Aggiungere tabella `subscriptions` al DB (`src/db/schema/subscriptions.ts`)
   - `id`, `userId` (FK → auth.users), `stripeCustomerId`, `stripePriceId`,
-    `stripeSubscriptionId`, `status` (active/canceled/past_due/trialing), `currentPeriodEnd`
+    `stripeSubscriptionId`, `status` (active/canceled/past_due/trialing), `currentPeriodEnd`,
+    `interval` ('month' | 'year')
 - ⬜ Migration Supabase + RLS policy
 - ⬜ Installare `stripe` SDK
-- ⬜ `src/lib/stripe.ts` — client Stripe + prodotti/prezzi costanti
-- ⬜ API route `POST /api/stripe/checkout` — crea Stripe Checkout Session
+- ⬜ `src/lib/stripe.ts` — client Stripe + Price ID costanti (Starter mensile/annuale, Pro mensile/annuale)
+- ⬜ `src/lib/plans.ts` — helper `getPlan(userId)`, `canUsePro()`, `canUseStarter()`, `isTrialExpired()`
+  - `unlimited` bypassa tutti i gate come Pro
+- ⬜ API route `POST /api/stripe/checkout` — crea Stripe Checkout Session con trial già usato
+  (nessun trial Stripe: il trial è gestito internamente, Stripe parte da subscription attiva)
 - ⬜ API route `POST /api/stripe/webhook` — gestisce eventi:
-  - `checkout.session.completed` → attiva subscription
+  - `checkout.session.completed` → attiva subscription, aggiorna `plan` + `plan_expires_at`
   - `invoice.paid` → rinnova `currentPeriodEnd`
-  - `customer.subscription.deleted` → cancella subscription
-- ⬜ Feature gate: `src/lib/subscription.ts` → `getPlan(userId)` → Free / Starter / Pro
-- ⬜ Limite Free tier: max 10 scontrini/mese — check in `emitReceipt` server action
-- ⬜ Pagina `/dashboard/abbonamento` — piano corrente, upgrade, gestione (Stripe Customer Portal)
+  - `customer.subscription.updated` → gestisce upgrade/downgrade (proration automatica)
+  - `customer.subscription.deleted` → downgrade a sola lettura
+- ⬜ Feature gate catalogo: limit 5 prodotti in `addCatalogItem` server action per piano Starter/trial
+- ⬜ Email reminder trial: 7 giorni prima della scadenza (template `TrialExpiringEmail`)
+- ⬜ Pagina `/dashboard/abbonamento` — piano corrente + scadenza trial, scegli piano (CTA Stripe Checkout),
+  upgrade/downgrade, gestione fatture (Stripe Customer Portal)
 - ⬜ Variabili: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
 
-**Piani:**
-
-| Piano   | Prezzo mensile | Scontrini/mese | Dispositivi |
-| ------- | -------------- | -------------- | ----------- |
-| Free    | €0             | 10             | 1           |
-| Starter | ~€2-3          | Illimitati     | 1           |
-| Pro     | ~€4-5          | Illimitati     | Multi       |
-
-_I prezzi esatti si definiscono in Stripe prima del deploy._
-
-**Test attesi:** ~20 unit + 1 E2E → totale ~**514 unit + 9 E2E**
+**Test attesi:** ~25 unit + 1 E2E → totale ~**595 unit + 9 E2E**
 
 ---
 
@@ -185,8 +200,9 @@ produzione. Zero nuovi sviluppi — solo validazione finale.
 - Storico + storno + PDF + share link pubblico
 - Catalogo prodotti locale (CRUD)
 - Settings (dati business, credenziali AdE, sync AdE, piano corrente)
-- Stripe: Free + Starter + Pro (billing mensile)
-- Feature gate Free tier (10 scontrini/mese)
+- Stripe: Starter + Pro (billing mensile e annuale)
+- Trial 30gg senza CC, sola lettura alla scadenza senza piano
+- Feature gate per piano (catalogo 5 prod. Starter, analytics/export/AdE sync Pro)
 - Welcome email + password reset email (Resend)
 - Landing con prezzi reali, senza "beta"
 - Privacy Policy, ToS, Cookie Policy aggiornate
@@ -197,7 +213,7 @@ produzione. Zero nuovi sviluppi — solo validazione finale.
 | Feature                                                                                    | Versione |
 | ------------------------------------------------------------------------------------------ | -------- |
 | PWA (installabile, offline shell)                                                          | v1.1.0   |
-| Billing annuale                                                                            | v1.2.0   |
+| Coupon/promo codes, referral program                                                       | v1.2.0   |
 | Email scontrino al cliente                                                                 | v1.3.0   |
 | Dashboard analytics (grafici)                                                              | v1.4.0   |
 | AdE catalog sync                                                                           | v1.5.0   |
@@ -214,7 +230,7 @@ produzione. Zero nuovi sviluppi — solo validazione finale.
 | Versione    | Descrizione                                                                                                         |
 | ----------- | ------------------------------------------------------------------------------------------------------------------- |
 | **v1.1.0**  | PWA: `@serwist/next`, manifest, offline shell, install prompt                                                       |
-| **v1.2.0**  | Billing annuale (2 mesi gratis), Stripe Customer Portal polished                                                    |
+| **v1.2.0**  | Coupon/promo codes, referral program, Stripe Customer Portal polish                                                 |
 | **v1.3.0**  | Email scontrino al cliente (PDF allegato via Resend)                                                                |
 | **v1.4.0**  | Dashboard analytics: totale giornaliero, sparkline revenue, export CSV                                              |
 | **v1.5.0**  | Catalogo: modifica prodotto + sync AdE (HAR: aggiungi/modifica/elimina)                                             |
@@ -277,7 +293,7 @@ Quando annulliamo uno scontrino, AdE genera un nuovo documento commerciale di an
 | **v0.7.0** | ~9                   | ~521        | 8          |
 | **v0.8.0** | 37                   | **558**     | 8          |
 | **v0.8.1** | ~12                  | ~570        | 8          |
-| **v0.9.0** | ~20                  | ~590        | 8          |
+| **v0.9.0** | ~25                  | ~595        | 8          |
 | **v0.9.1** | ~0 unit / ~10 E2E    | ~590        | ~18        |
 | **v1.0.0** | 0 (solo tag)         | ~590        | ~18        |
 
