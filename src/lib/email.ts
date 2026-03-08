@@ -1,8 +1,6 @@
 import { Resend } from "resend";
 import type { ReactElement } from "react";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 const DEFAULT_FROM = "ScontrinoZero <noreply@scontrinozero.it>";
 
 export type SendEmailOptions = {
@@ -12,6 +10,7 @@ export type SendEmailOptions = {
 };
 
 export async function sendEmail(options: SendEmailOptions): Promise<void> {
+  const resend = new Resend(process.env.RESEND_API_KEY);
   const from = process.env.FROM_EMAIL ?? DEFAULT_FROM;
   const { error } = await resend.emails.send({
     from,
