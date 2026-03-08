@@ -67,6 +67,15 @@ vi.mock("@/lib/logger", () => ({
   },
 }));
 
+const mockSendEmail = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/lib/email", () => ({
+  sendEmail: mockSendEmail,
+}));
+
+vi.mock("@/emails/welcome", () => ({
+  WelcomeEmail: vi.fn().mockReturnValue(null),
+}));
+
 // --- Helpers ---
 
 function formData(entries: Record<string, string>): FormData {
@@ -261,6 +270,108 @@ describe("auth-actions", () => {
       }
 
       expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("sends welcome email after successful signup", async () => {
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-123" } },
+        error: null,
+      });
+
+      const { signUp } = await import("./auth-actions");
+
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+          }),
+        );
+      } catch {
+        // redirect expected
+      }
+
+      // fire-and-forget: advance microtasks so the void promise settles
+      await Promise.resolve();
+      expect(mockSendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ to: "test@example.com" }),
+      );
+    });
+
+    it("does not send welcome email when Supabase signUp fails", async () => {
+      mockSignUp.mockResolvedValue({
+        data: { user: null },
+        error: { message: "User already exists" },
+      });
+
+      const { signUp } = await import("./auth-actions");
+      await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+        }),
+      );
+
+      await Promise.resolve();
+      expect(mockSendEmail).not.toHaveBeenCalled();
+    });
+
+    it("does not block signup when welcome email fails", async () => {
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-123" } },
+        error: null,
+      });
+      mockSendEmail.mockRejectedValueOnce(new Error("Resend down"));
+
+      const { signUp } = await import("./auth-actions");
+
+      let redirectUrl: string | undefined;
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+          }),
+        );
+      } catch (err) {
+        if (isRedirectError(err)) redirectUrl = err.url;
+      }
+
+      // Registration still completes (redirect fires) even if email fails
+      expect(redirectUrl).toBe("/verify-email");
+    });
+
+    it("does not send welcome email when profile insert fails", async () => {
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-123" } },
+        error: null,
+      });
+      mockInsert.mockReturnValueOnce({
+        values: vi.fn().mockRejectedValueOnce(new Error("DB error")),
+      });
+
+      const { signUp } = await import("./auth-actions");
+      await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+        }),
+      );
+
+      await Promise.resolve();
+      expect(mockSendEmail).not.toHaveBeenCalled();
     });
 
     it("returns error when profile insert fails (terms acceptance is mandatory)", async () => {
