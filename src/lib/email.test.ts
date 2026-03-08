@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const mockResendSend = vi.fn();
 
@@ -11,17 +11,22 @@ vi.mock("resend", () => ({
 // Must import after vi.mock
 const { sendEmail } = await import("./email");
 
+const fakeReact = { type: "div", props: {} } as unknown as Parameters<
+  typeof sendEmail
+>[0]["react"];
+
 describe("sendEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.FROM_EMAIL = "Test <test@mail.example.com>";
+  });
+
+  afterEach(() => {
+    delete process.env.FROM_EMAIL;
   });
 
   it("calls resend.emails.send with correct parameters", async () => {
     mockResendSend.mockResolvedValue({ data: { id: "abc" }, error: null });
-
-    const fakeReact = { type: "div", props: {} } as unknown as Parameters<
-      typeof sendEmail
-    >[0]["react"];
 
     await sendEmail({
       to: "user@example.com",
@@ -30,7 +35,7 @@ describe("sendEmail", () => {
     });
 
     expect(mockResendSend).toHaveBeenCalledWith({
-      from: expect.stringContaining("scontrinozero.it"),
+      from: "Test <test@mail.example.com>",
       to: "user@example.com",
       subject: "Test Subject",
       react: fakeReact,
@@ -41,25 +46,23 @@ describe("sendEmail", () => {
     mockResendSend.mockResolvedValue({ data: { id: "abc" }, error: null });
     process.env.FROM_EMAIL = "Custom <custom@example.com>";
 
-    const fakeReact = { type: "div", props: {} } as unknown as Parameters<
-      typeof sendEmail
-    >[0]["react"];
-
     await sendEmail({ to: "a@b.com", subject: "s", react: fakeReact });
 
     expect(mockResendSend).toHaveBeenCalledWith(
       expect.objectContaining({ from: "Custom <custom@example.com>" }),
     );
+  });
 
+  it("throws when FROM_EMAIL is not set", async () => {
     delete process.env.FROM_EMAIL;
+
+    await expect(
+      sendEmail({ to: "a@b.com", subject: "s", react: fakeReact }),
+    ).rejects.toThrow("FROM_EMAIL environment variable is required");
   });
 
   it("does not throw when send succeeds", async () => {
     mockResendSend.mockResolvedValue({ data: { id: "ok" }, error: null });
-
-    const fakeReact = { type: "div", props: {} } as unknown as Parameters<
-      typeof sendEmail
-    >[0]["react"];
 
     await expect(
       sendEmail({ to: "a@b.com", subject: "s", react: fakeReact }),
@@ -72,10 +75,6 @@ describe("sendEmail", () => {
       error: { message: "domain not verified", name: "validation_error" },
     });
 
-    const fakeReact = { type: "div", props: {} } as unknown as Parameters<
-      typeof sendEmail
-    >[0]["react"];
-
     await expect(
       sendEmail({ to: "a@b.com", subject: "s", react: fakeReact }),
     ).rejects.toThrow("domain not verified");
@@ -83,10 +82,6 @@ describe("sendEmail", () => {
 
   it("throws when resend.emails.send rejects", async () => {
     mockResendSend.mockRejectedValue(new Error("network error"));
-
-    const fakeReact = { type: "div", props: {} } as unknown as Parameters<
-      typeof sendEmail
-    >[0]["react"];
 
     await expect(
       sendEmail({ to: "a@b.com", subject: "s", react: fakeReact }),
