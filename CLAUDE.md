@@ -32,7 +32,7 @@ I test di validazione e degli endpoint usano `vi.mock` per isolare le dipendenze
 **Release roadmap (pre-lancio):**
 v0.7.0 ✅ → v0.8.0 ✅ (Resend) → v0.8.1 ⬜ (landing) → v0.9.0 ⬜ (Stripe) → v0.9.1 ⬜ (E2E checkpoint) → **v1.0.0** ⬜ (lancio pubblico)
 
-**Post-lancio:** v1.1.0 (PWA) → v1.2.0 (annual billing) → v1.3.0 (receipt email) → v1.4.0+ (analytics, catalog sync, …)
+**Post-lancio:** v1.1.0 (PWA) → v1.2.0 (billing polish) → v1.3.0 (receipt email) → v1.4.0+ (analytics, catalog sync, …)
 
 Storico fasi completate (0 → 4K): vedi PLAN.md § "Storico sviluppo".
 
@@ -92,17 +92,37 @@ giustificare la propria esistenza.
 
 ### Pricing: i meno cari del mercato
 
-| Piano             | Prezzo                    | Target                    | Feature                             |
-| ----------------- | ------------------------- | ------------------------- | ----------------------------------- |
-| **Free (hosted)** | €0                        | Chi vuole provare         | 10 scontrini/mese, 1 dispositivo    |
-| **Starter**       | ~€2-3/mese o ~€19-25/anno | Micro-attività, ambulanti | Scontrini illimitati, 1 dispositivo |
-| **Pro**           | ~€4-5/mese o ~€39-49/anno | Negozi, attività regolari | Multi-device, dashboard, export     |
-| **Self-hosted**   | €0 (sempre)               | Tecnici, smanettoni       | Tutte le feature, gestione autonoma |
+| Piano           | Mensile  | Annuale   | Target                    | Feature principali                              |
+| --------------- | -------- | --------- | ------------------------- | ----------------------------------------------- |
+| **Starter**     | €5.99    | €29.99    | Micro-attività, ambulanti | Scontrini illimitati, catalogo 5 prodotti       |
+| **Pro**         | €8.99    | €49.99    | Negozi, attività regolari | Catalogo illimitato, analytics, export, AdE sync |
+| **Self-hosted** | €0       | €0        | Tecnici, smanettoni       | Tutte le feature, gestione autonoma             |
+| **Unlimited**   | —        | —         | Invite-only (amici/beta)  | Come Pro, gestito direttamente su DB            |
 
-I prezzi esatti saranno definiti nella Fase 7, ma l'obiettivo è chiaro: battere
-Scontrinare (€30/anno) come prezzo più basso sul mercato per la versione hosted,
-offrendo feature superiori. Il free tier hosted abbassa la barriera d'ingresso
-per il target non tecnico.
+**Strategia pricing:**
+- Nessun piano Free hosted — solo self-hosted gratuito
+- **Trial 30 giorni** per Starter e Pro: nessuna carta di credito all'iscrizione,
+  scelta piano + CC solo alla scadenza del trial. Se non aggiunge CC: sola lettura.
+- Starter annuale (€29.99) è il prezzo più basso del mercato (competitor: Scontrinare €30/anno)
+- Starter mensile (€5.99) serve come ancora per far sembrare Pro un affare (decoy effect)
+- **Anti-abuso trial**: P.IVA UNIQUE nel DB — impedisce trial multipli anche con email diverse
+
+**Differenziazione piani (feature gate):**
+
+| Feature                         | Starter | Pro |
+| ------------------------------- | ------- | --- |
+| Scontrini illimitati            | ✅      | ✅  |
+| Metodi pagamento misti          | ✅      | ✅  |
+| Max prodotti catalogo rapido    | 5       | ∞   |
+| Analytics base                  | ✅      | ✅  |
+| Analytics avanzata (dashboard)  | ❌      | ✅  |
+| Export CSV scontrini            | ❌      | ✅  |
+| Recupero corrispettivi da AdE   | ❌      | ✅  |
+| Sync catalogo da AdE            | ❌      | ✅  |
+| Supporto prioritario            | ❌      | ✅  |
+
+**Piano Unlimited (invite-only):** inserito direttamente nel DB (`plan = 'unlimited'` su `profiles`),
+nessuna logica Stripe. Bypassa tutti i gate come Pro.
 
 ## Tech Stack
 
