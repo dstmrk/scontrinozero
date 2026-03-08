@@ -1,6 +1,6 @@
 # ScontrinoZero — Piano di sviluppo
 
-## Versione corrente: v0.7.0 ⬜
+## Versione corrente: v0.8.1 ⬜
 
 Il piano usa **release semantiche** (vx.y.z). La v1.0.0 è il lancio pubblico: prima di
 quella data nessun cliente paga, nessuno si aspetta stabilità di produzione.
@@ -13,8 +13,8 @@ quella data nessun cliente paga, nessuno si aspetta stabilità di produzione.
 
 | Versione   | Descrizione                  | Stato |
 | ---------- | ---------------------------- | ----- |
-| **v0.7.0** | AdE fiscal data update       | ⬜    |
-| **v0.8.0** | Email transazionali (Resend) | ⬜    |
+| **v0.7.0** | AdE fiscal data update       | ✅    |
+| **v0.8.0** | Email transazionali (Resend) | ✅    |
 | **v0.8.1** | Landing completeness         | ⬜    |
 | **v0.9.0** | Stripe payments              | ⬜    |
 | **v0.9.1** | Stabilità + E2E checkpoint   | ⬜    |
@@ -45,24 +45,26 @@ e potrebbe diventare una funzione premium.
 
 ---
 
-### v0.8.0 — Email transazionali (Resend) ⬜
+### v0.8.0 — Email transazionali (Resend) ✅
 
 Integrazione Resend con template React Email per le email minime obbligatorie al lancio.
 
-**Task (TDD — test prima):**
+**Task completati:**
 
-- ⬜ Installare `resend` + `@react-email/components`
-- ⬜ Template `WelcomeEmail` in `src/emails/welcome.tsx`
-- ⬜ Template `PasswordResetEmail` in `src/emails/password-reset.tsx`
-- ⬜ `src/lib/email.ts` — wrapper `sendEmail(to, template)` con Resend SDK
-- ⬜ Hook post-registrazione: inviare welcome email da `signUp` server action
-- ⬜ Override email password reset Supabase: usare Resend al posto del template Supabase default
-- ⬜ Test TDD per `sendEmail` (mock Resend SDK)
-- ⬜ Variabile d'ambiente: `RESEND_API_KEY`, `FROM_EMAIL`
+- ✅ Installare `resend` + `@react-email/components`
+- ✅ Template `WelcomeEmail` in `src/emails/welcome.tsx`
+- ✅ Template `PasswordResetEmail` in `src/emails/password-reset.tsx`
+- ✅ `src/lib/email.ts` — wrapper `sendEmail(options)` con Resend SDK (istanza lazy dentro la funzione per evitare crash al build senza `RESEND_API_KEY`)
+- ✅ Hook post-registrazione: welcome email fire-and-forget da `signUp` (`void sendEmail(...).catch(...)`)
+- ✅ Test TDD per `sendEmail` (mock Resend SDK, 5 unit)
+- ✅ Test per template email (`welcome.test.tsx` + `password-reset.test.tsx`, 6 unit)
+- ✅ Variabile d'ambiente: `RESEND_API_KEY`, `FROM_EMAIL`
+- ✅ Stili condivisi estratti in `src/emails/styles.ts` (fix SonarCloud duplication)
+- ⚙️ **Manuale (pendente DNS):** Supabase Dashboard → Auth → SMTP Settings: configurare Resend come SMTP provider (`smtp.resend.com:465`). Questo rimuove il limite di 2 email/ora del tier gratuito Supabase e invia tutte le email auth (conferma, reset password) tramite Resend con il dominio verificato.
 
 **Escluso da questa versione:** email con PDF scontrino al cliente → v1.3.0
 
-**Test attesi:** ~10 unit → totale ~**489 unit + 8 E2E**
+**Test aggiunti:** 11 unit → totale **558 unit + 8 E2E**
 
 ---
 
@@ -260,6 +262,8 @@ Quando annulliamo uno scontrino, AdE genera un nuovo documento commerciale di an
 | 4J — SPID login                | ✅    | 502 unit + 8 E2E          | SAML2 HTTP POST, push 2FA polling, MockAdeClient.loginSpid()        |
 | 4K — Security hardening        | ✅    | ~511 unit + 8 E2E         | CORS, RLS, npm audit CI, rate limiting, audit log, account deletion |
 | 4L — Terms acceptance tracking | ✅    | ~512 unit + 8 E2E         | `terms_accepted_at` + `terms_version` su `profiles`; `/termini/v01` permalink + redirect |
+| v0.7.0 — AdE fiscal data       | ✅    | ~521 unit + 8 E2E         | `buildCedenteFromBusiness()`, rimosso `getFiscalData()`, `modificati: true` nel payload  |
+| v0.8.0 — Email (Resend)        | ✅    | 558 unit + 8 E2E          | `sendEmail()`, WelcomeEmail, PasswordResetEmail, stili condivisi, hook post-signUp        |
 
 ---
 
@@ -270,12 +274,12 @@ Quando annulliamo uno scontrino, AdE genera un nuovo documento commerciale di an
 | (storico)  | —                    | 502         | 8          |
 | **4K**     | ~9                   | ~511        | 8          |
 | **4L**     | ~1                   | ~512        | 8          |
-| **v0.7.0** | ~10                  | ~521        | 8          |
-| **v0.8.0** | ~10                  | ~522        | 8          |
-| **v0.8.1** | ~12                  | ~534        | 8          |
-| **v0.9.0** | ~20                  | ~554        | 8          |
-| **v0.9.1** | ~0 unit / ~10 E2E    | ~554        | ~18        |
-| **v1.0.0** | 0 (solo tag)         | ~554        | ~18        |
+| **v0.7.0** | ~9                   | ~521        | 8          |
+| **v0.8.0** | 37                   | **558**     | 8          |
+| **v0.8.1** | ~12                  | ~570        | 8          |
+| **v0.9.0** | ~20                  | ~590        | 8          |
+| **v0.9.1** | ~0 unit / ~10 E2E    | ~590        | ~18        |
+| **v1.0.0** | 0 (solo tag)         | ~590        | ~18        |
 
 ---
 

@@ -24,13 +24,13 @@ all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la pr
 Il piano di sviluppo — release semantiche, task per versione, storico fasi, test cumulativi —
 è in **`PLAN.md`** (root del repo).
 
-**Versione corrente:** v0.7.0 ⬜ (AdE fiscal data update — `updateFiscalData()`)
+**Versione corrente:** v0.8.1 ⬜ (landing completeness)
 
 **Approccio TDD:** Per ogni release, scrivere i test PRIMA dell'implementazione.
 I test di validazione e degli endpoint usano `vi.mock` per isolare le dipendenze (Drizzle, etc.).
 
 **Release roadmap (pre-lancio):**
-v0.7.0 ⬜ → v0.8.0 ⬜ (Resend) → v0.8.1 ⬜ (landing) → v0.9.0 ⬜ (Stripe) → v0.9.1 ⬜ (E2E checkpoint) → **v1.0.0** ⬜ (lancio pubblico)
+v0.7.0 ✅ → v0.8.0 ✅ (Resend) → v0.8.1 ⬜ (landing) → v0.9.0 ⬜ (Stripe) → v0.9.1 ⬜ (E2E checkpoint) → **v1.0.0** ⬜ (lancio pubblico)
 
 **Post-lancio:** v1.1.0 (PWA) → v1.2.0 (annual billing) → v1.3.0 (receipt email) → v1.4.0+ (analytics, catalog sync, …)
 
@@ -634,7 +634,7 @@ Presenti nella root del repo, da analizzare prima delle relative release:
 
 | File                             | Feature                                            | Versione |
 | -------------------------------- | -------------------------------------------------- | -------- |
-| `dati_doc_commerciale.har`       | Aggiornamento dati business su AdE post-onboarding | v0.7.0   |
+| `dati_doc_commerciale.har`       | Aggiornamento dati business su AdE post-onboarding | post-v1.0.0 (rinviato, possibile feature premium) |
 | `aggiungi_prodotto_catalogo.har` | Aggiunta prodotto su rubrica AdE                   | v1.5.0   |
 | `modifica_prodotto_catalogo.har` | Modifica prodotto su rubrica AdE                   | v1.5.0   |
 | `elimina_prodotto_catalogo.har`  | Eliminazione prodotto su rubrica AdE               | v1.5.0   |
