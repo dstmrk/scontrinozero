@@ -39,7 +39,10 @@ export function WelcomeEmail({ email }: WelcomeEmailProps) {
               di emettere scontrini elettronici e trasmettere i corrispettivi
               all&apos;Agenzia delle Entrate direttamente dal tuo smartphone.
             </Text>
-            <Button style={button} href="https://scontrinozero.it/dashboard">
+            <Button
+              style={button}
+              href={`${process.env.NEXT_PUBLIC_APP_URL ?? "https://scontrinozero.it"}/dashboard`}
+            >
               Vai alla dashboard
             </Button>
           </Section>
