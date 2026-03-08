@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 import type { ReactElement } from "react";
 
-const DEFAULT_FROM = "ScontrinoZero <noreply@scontrinozero.it>";
+const DEFAULT_FROM = "ScontrinoZero <noreply@mail.scontrinozero.it>";
 
 export type SendEmailOptions = {
   to: string;
