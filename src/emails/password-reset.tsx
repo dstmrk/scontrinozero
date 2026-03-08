@@ -12,9 +12,9 @@ import {
 } from "@react-email/components";
 import { emailStyles } from "./styles";
 
-type PasswordResetEmailProps = {
+type PasswordResetEmailProps = Readonly<{
   resetLink: string;
-};
+}>;
 
 export function PasswordResetEmail({ resetLink }: PasswordResetEmailProps) {
   return (

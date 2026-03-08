@@ -12,9 +12,9 @@ import {
 } from "@react-email/components";
 import { emailStyles } from "./styles";
 
-type WelcomeEmailProps = {
+type WelcomeEmailProps = Readonly<{
   email: string;
-};
+}>;
 
 export function WelcomeEmail({ email }: WelcomeEmailProps) {
   return (
