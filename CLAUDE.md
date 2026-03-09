@@ -2,7 +2,7 @@
 
 ## General Rules for Claude
 
-1. Before writing any code, describe your approach and wait for approval.
+1. We are using a TDD approach
 
 2. If the requirements I give you are ambiguous, ask clarifying questions before writing any code.
 
