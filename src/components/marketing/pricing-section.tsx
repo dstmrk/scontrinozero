@@ -96,7 +96,9 @@ export function PricingSection() {
                       <span className="text-muted-foreground text-sm line-through">
                         €5,99
                       </span>
-                      <span className="text-muted-foreground text-sm">/mese</span>
+                      <span className="text-muted-foreground text-sm">
+                        /mese
+                      </span>
                     </div>
                     <p className="text-muted-foreground mt-1 text-sm">
                       fatturato €29,99/anno
@@ -143,7 +145,9 @@ export function PricingSection() {
                       <span className="text-muted-foreground text-sm line-through">
                         €8,99
                       </span>
-                      <span className="text-muted-foreground text-sm">/mese</span>
+                      <span className="text-muted-foreground text-sm">
+                        /mese
+                      </span>
                     </div>
                     <p className="text-muted-foreground mt-1 text-sm">
                       fatturato €49,99/anno
