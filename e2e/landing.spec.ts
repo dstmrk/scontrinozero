@@ -30,7 +30,7 @@ test.describe("Landing page", () => {
     const pricing = page.locator("#prezzi");
     await expect(pricing.getByText("Starter", { exact: true })).toBeVisible();
     await expect(pricing.getByText("Pro", { exact: true })).toBeVisible();
-    await expect(pricing.getByText(/€5,99/)).toBeVisible();
+    await expect(pricing.getByText(/€4,99/)).toBeVisible();
   });
 
   test("CTA buttons link to register", async ({ page }) => {

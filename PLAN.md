@@ -78,7 +78,7 @@ La landing deve essere pronta per convertire visitatori in clienti paganti.
   (`src/proxy.ts` + env vars `NEXT_PUBLIC_APP_HOSTNAME` / `NEXT_PUBLIC_MARKETING_HOSTNAME`)
   **Infrastruttura manuale (pendente):** aggiungere hostname `app.scontrinozero.it` al Cloudflare Tunnel;
   aggiornare Site URL e redirect URL in Supabase Dashboard.
-- ✅ Aggiornare sezione pricing con i piani reali (Starter €5.99/mese · €29.99/anno — Pro €8.99/mese · €49.99/anno) e trial 30gg
+- ✅ Aggiornare sezione pricing con i piani reali (Starter €4.99/mese · €29.99/anno — Pro €8.99/mese · €49.99/anno) e trial 30gg
 - ✅ Rimuovere qualsiasi menzione "beta" o "presto disponibile" dalla landing
 - ✅ CTA principale → `/register`
 - ✅ JSON-LD structured data (`SoftwareApplication` + `Organization` + `FAQPage`)
@@ -99,7 +99,7 @@ annuale + trial 30gg + feature gating.
 
 | Piano       | Mensile | Annuale | Catalogo | Analytics avanzata | Export CSV | AdE sync | Supporto prioritario |
 | ----------- | ------- | ------- | -------- | ------------------ | ---------- | -------- | -------------------- |
-| Starter     | €5.99   | €29.99  | 5 prod.  | ❌                 | ❌         | ❌       | ❌                   |
+| Starter     | €4.99   | €29.99  | 5 prod.  | ❌                 | ❌         | ❌       | ❌                   |
 | Pro         | €8.99   | €49.99  | ∞        | ✅                 | ✅         | ✅       | ✅                   |
 | Unlimited   | —       | —       | ∞        | ✅                 | ✅         | ✅       | ✅                   |
 | Self-hosted | —       | —       | ∞        | ✅                 | ✅         | ✅       | —                    |
@@ -148,6 +148,11 @@ funzioni prima di toccare la produzione.
 
 **Task:**
 
+- ⬜ **Sentry integration** (`@sentry/nextjs`):
+  - Installare `@sentry/nextjs`, generare `sentry.client.config.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`
+  - Aggiungere `SENTRY_DSN` e `SENTRY_AUTH_TOKEN` a `.env.example`
+  - Source maps upload nella pipeline CI (step build)
+  - Verificare che un errore di test arrivi nella dashboard Sentry
 - ⬜ Suite E2E completa su `test.scontrinozero.it`:
   - register → onboard → emetti scontrino (MockAdeClient) → storico → storno
   - upgrade Free → Starter (Stripe test mode)
@@ -266,7 +271,7 @@ Quando annulliamo uno scontrino, AdE genera un nuovo documento commerciale di an
 | 1A — Security fix + TDD        | ✅    | 23 unit                   | `isValidEmail`, waitlist API, SonarCloud verde                                           |
 | 2 — Integrazione AdE           | ✅    | 92 unit (55 AdE dedicati) | MockAdeClient + RealAdeClient, 6-phase Fisconline                                        |
 | 1B — Landing page              | ✅    | 6 unit + 8 E2E            | Privacy ✅, ToS ✅, Sitemap ✅                                                           |
-| 3A — Fondamenta sicurezza      | ✅    | 148 unit + 8 E2E          | Sentry, pino, rate limiting, AES-256-GCM                                                 |
+| 3A — Fondamenta sicurezza      | ✅    | 148 unit + 8 E2E          | pino, rate limiting, AES-256-GCM (Sentry rimandato a v0.9.1)                            |
 | 3B — Auth + onboarding         | ✅    | 191 unit + 8 E2E          | Supabase Auth, wizard 3-step, credenziali cifrate                                        |
 | 4A — Schema DB scontrini       | ✅    | 214 unit + 8 E2E          | `commercial_documents` + `commercial_document_lines`                                     |
 | 4B — UI cassa mobile-first     | ✅    | 305 unit + 8 E2E          | Tastierino, IVA, metodo pagamento, riepilogo                                             |
