@@ -33,7 +33,8 @@ const proFeatures: Feature[] = [
   { label: "Catalogo illimitato" },
   { label: "Analytics avanzata", comingSoon: true },
   { label: "Export CSV scontrini", comingSoon: true },
-  { label: "Sincronizzazione catalogo prodotti con portale AdE" },
+  { label: "Recupero documenti commerciali da AdE", comingSoon: true },
+  { label: "Sincronizzazione catalogo con portale AdE", comingSoon: true },
   { label: "Supporto prioritario" },
 ];
 
@@ -107,9 +108,6 @@ export function PricingSection() {
                   <>
                     <span className="text-3xl font-bold">€4,99</span>
                     <span className="text-muted-foreground text-sm">/mese</span>
-                    <p className="text-muted-foreground mt-1 text-sm">
-                      o €29,99/anno — risparmia il 50%
-                    </p>
                   </>
                 )}
               </div>
@@ -129,10 +127,10 @@ export function PricingSection() {
           {/* Pro */}
           <Card className="border-primary border-2">
             <CardHeader>
-              <div className="mb-2">
+              <CardTitle className="flex items-center gap-2 text-xl">
+                Pro
                 <Badge>Più completo</Badge>
-              </div>
-              <CardTitle className="text-xl">Pro</CardTitle>
+              </CardTitle>
               <CardDescription>
                 Per attività con esigenze avanzate
               </CardDescription>
@@ -159,9 +157,6 @@ export function PricingSection() {
                   <>
                     <span className="text-3xl font-bold">€8,99</span>
                     <span className="text-muted-foreground text-sm">/mese</span>
-                    <p className="text-muted-foreground mt-1 text-sm">
-                      o €49,99/anno — risparmia il 54%
-                    </p>
                   </>
                 )}
               </div>
