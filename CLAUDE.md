@@ -278,6 +278,8 @@ Fasi:
   - `vitest-sonar-reporter` per report esecuzione test
 - **Playwright** — E2E test (solo in CI/dev, non in produzione)
 - I componenti shadcn/ui (`src/components/ui/`) sono esclusi dalla coverage
+- I componenti marketing (`src/components/marketing/**`) sono esclusi dalla coverage
+  (pura UI presentazionale, zero logica di business — testati via E2E)
 
 ### Monorepo (se necessario)
 
