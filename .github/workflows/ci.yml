@@ -18,6 +18,7 @@ jobs:
     outputs:
       src: ${{ steps.filter.outputs.src }}
       e2e: ${{ steps.filter.outputs.e2e }}
+      lockfile: ${{ steps.filter.outputs.lockfile }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v3
@@ -28,7 +29,6 @@ jobs:
               - 'src/**'
               - 'tests/**'
               - 'package.json'
-              - 'package-lock.json'
               - 'tsconfig.json'
               - 'next.config.ts'
               - 'vitest.config.ts'
@@ -37,9 +37,26 @@ jobs:
               - 'src/**'
               - 'e2e/**'
               - 'package.json'
-              - 'package-lock.json'
               - 'next.config.ts'
               - 'playwright.config.ts'
+            lockfile:
+              - 'package-lock.json'
+
+  # Audit dipendenze — gira anche su modifiche al solo lockfile
+  audit:
+    needs: changes
+    if: needs.changes.outputs.src == 'true' || needs.changes.outputs.lockfile == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Security audit
+        run: npm audit --audit-level=high
 
   # Parallel checks — lint, type-check e test girano in contemporanea
   lint:
@@ -54,8 +71,6 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Security audit
-        run: npm audit --audit-level=high
       - name: Lint
         run: npm run lint
 
