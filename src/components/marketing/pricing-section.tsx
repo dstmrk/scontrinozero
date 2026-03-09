@@ -22,10 +22,10 @@ interface Feature {
 
 const starterFeatures: Feature[] = [
   { label: "Scontrini illimitati" },
-  { label: "Chiusura giornaliera automatica" },
   { label: "Catalogo fino a 5 prodotti" },
   { label: "Analytics base" },
-  { label: "PDF e link condivisibile" },
+  { label: "Ricevuta condivisibile via SMS, mail e Whatsapp" },
+  { label: "Supporto base" },
 ];
 
 const proFeatures: Feature[] = [
@@ -33,7 +33,8 @@ const proFeatures: Feature[] = [
   { label: "Catalogo illimitato" },
   { label: "Analytics avanzata", comingSoon: true },
   { label: "Export CSV scontrini", comingSoon: true },
-  { label: "Sync catalogo da AdE" },
+  { label: "Sincronizzazione catalogo prodotti con portale AdE" },
+  { label: "Supporto prioritario" },
 ];
 
 export function PricingSection() {
@@ -48,11 +49,11 @@ export function PricingSection() {
           I prezzi più bassi del mercato
         </h2>
         <p className="text-muted-foreground mx-auto mt-2 max-w-lg text-center">
-          30 giorni gratis, nessun metodo di pagamento richiesto.
+          30 giorni di prova gratuita.
         </p>
 
         {/* Toggle mensile / annuale */}
-        <div className="mt-8 flex flex-col items-center gap-2">
+        <div className="mt-8 flex justify-center">
           <div className="bg-muted flex rounded-full p-1">
             <button
               onClick={() => setBilling("monthly")}
@@ -75,14 +76,9 @@ export function PricingSection() {
               Annuale
             </button>
           </div>
-          {isAnnual && (
-            <Badge variant="secondary" className="text-xs">
-              Risparmia fino al 58%
-            </Badge>
-          )}
         </div>
 
-        <div className="mx-auto mt-8 grid max-w-3xl gap-6 pt-4 md:grid-cols-2">
+        <div className="mx-auto mt-8 grid max-w-3xl gap-6 md:grid-cols-2">
           {/* Starter */}
           <Card className="border-border/50">
             <CardHeader>
@@ -94,11 +90,14 @@ export function PricingSection() {
                     <div className="flex items-baseline gap-2">
                       <span className="text-3xl font-bold">€2,50</span>
                       <span className="text-muted-foreground text-sm line-through">
-                        €5,99
+                        €4,99
                       </span>
                       <span className="text-muted-foreground text-sm">
                         /mese
                       </span>
+                      <Badge variant="secondary" className="text-xs">
+                        -50%
+                      </Badge>
                     </div>
                     <p className="text-muted-foreground mt-1 text-sm">
                       fatturato €29,99/anno
@@ -106,10 +105,10 @@ export function PricingSection() {
                   </>
                 ) : (
                   <>
-                    <span className="text-3xl font-bold">€5,99</span>
+                    <span className="text-3xl font-bold">€4,99</span>
                     <span className="text-muted-foreground text-sm">/mese</span>
                     <p className="text-muted-foreground mt-1 text-sm">
-                      o €29,99/anno — risparmia il 58%
+                      o €29,99/anno — risparmia il 50%
                     </p>
                   </>
                 )}
@@ -128,11 +127,11 @@ export function PricingSection() {
           </Card>
 
           {/* Pro */}
-          <Card className="border-primary relative border-2">
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-              <Badge>Più completo</Badge>
-            </div>
+          <Card className="border-primary border-2">
             <CardHeader>
+              <div className="mb-2">
+                <Badge>Più completo</Badge>
+              </div>
               <CardTitle className="text-xl">Pro</CardTitle>
               <CardDescription>
                 Per attività con esigenze avanzate
@@ -148,6 +147,9 @@ export function PricingSection() {
                       <span className="text-muted-foreground text-sm">
                         /mese
                       </span>
+                      <Badge variant="secondary" className="text-xs">
+                        -54%
+                      </Badge>
                     </div>
                     <p className="text-muted-foreground mt-1 text-sm">
                       fatturato €49,99/anno

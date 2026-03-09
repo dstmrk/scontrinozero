@@ -78,7 +78,7 @@ La landing deve essere pronta per convertire visitatori in clienti paganti.
   (`src/proxy.ts` + env vars `NEXT_PUBLIC_APP_HOSTNAME` / `NEXT_PUBLIC_MARKETING_HOSTNAME`)
   **Infrastruttura manuale (pendente):** aggiungere hostname `app.scontrinozero.it` al Cloudflare Tunnel;
   aggiornare Site URL e redirect URL in Supabase Dashboard.
-- ✅ Aggiornare sezione pricing con i piani reali (Starter €5.99/mese · €29.99/anno — Pro €8.99/mese · €49.99/anno) e trial 30gg
+- ✅ Aggiornare sezione pricing con i piani reali (Starter €4.99/mese · €29.99/anno — Pro €8.99/mese · €49.99/anno) e trial 30gg
 - ✅ Rimuovere qualsiasi menzione "beta" o "presto disponibile" dalla landing
 - ✅ CTA principale → `/register`
 - ✅ JSON-LD structured data (`SoftwareApplication` + `Organization` + `FAQPage`)
@@ -99,7 +99,7 @@ annuale + trial 30gg + feature gating.
 
 | Piano       | Mensile | Annuale | Catalogo | Analytics avanzata | Export CSV | AdE sync | Supporto prioritario |
 | ----------- | ------- | ------- | -------- | ------------------ | ---------- | -------- | -------------------- |
-| Starter     | €5.99   | €29.99  | 5 prod.  | ❌                 | ❌         | ❌       | ❌                   |
+| Starter     | €4.99   | €29.99  | 5 prod.  | ❌                 | ❌         | ❌       | ❌                   |
 | Pro         | €8.99   | €49.99  | ∞        | ✅                 | ✅         | ✅       | ✅                   |
 | Unlimited   | —       | —       | ∞        | ✅                 | ✅         | ✅       | ✅                   |
 | Self-hosted | —       | —       | ∞        | ✅                 | ✅         | ✅       | —                    |

@@ -94,7 +94,7 @@ giustificare la propria esistenza.
 
 | Piano           | Mensile | Annuale | Target                    | Feature principali                               |
 | --------------- | ------- | ------- | ------------------------- | ------------------------------------------------ |
-| **Starter**     | €5.99   | €29.99  | Micro-attività, ambulanti | Scontrini illimitati, catalogo 5 prodotti        |
+| **Starter**     | €4.99   | €29.99  | Micro-attività, ambulanti | Scontrini illimitati, catalogo 5 prodotti        |
 | **Pro**         | €8.99   | €49.99  | Negozi, attività regolari | Catalogo illimitato, analytics, export, AdE sync |
 | **Self-hosted** | €0      | €0      | Tecnici, smanettoni       | Tutte le feature, gestione autonoma              |
 | **Unlimited**   | —       | —       | Invite-only (amici/beta)  | Come Pro, gestito direttamente su DB             |
@@ -105,7 +105,8 @@ giustificare la propria esistenza.
 - **Trial 30 giorni** per Starter e Pro: nessuna carta di credito all'iscrizione,
   scelta piano + CC solo alla scadenza del trial. Se non aggiunge CC: sola lettura.
 - Starter annuale (€29.99) è il prezzo più basso del mercato (competitor: Scontrinare €30/anno)
-- Starter mensile (€5.99) serve come ancora per far sembrare Pro un affare (decoy effect)
+- Starter mensile (€4.99) serve come ancora per far sembrare Pro un affare (decoy effect)
+- Pro annuale (€49.99) salva il 54% vs mensile; Starter annuale (€29.99) salva il 50% — Pro è più conveniente in percentuale
 - **Anti-abuso trial**: P.IVA UNIQUE nel DB — impedisce trial multipli anche con email diverse
 
 **Differenziazione piani (feature gate):**
