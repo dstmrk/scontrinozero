@@ -1,4 +1,4 @@
-export function JsonLd({ data }: { data: Record<string, unknown> }) {
+export function JsonLd({ data }: { readonly data: Record<string, unknown> }) {
   return (
     <script
       type="application/ld+json"
