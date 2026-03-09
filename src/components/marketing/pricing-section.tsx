@@ -128,7 +128,7 @@ export function PricingSection() {
           <Card className="border-primary border-2">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
-                Pro
+                <span>Pro</span>
                 <Badge>Più completo</Badge>
               </CardTitle>
               <CardDescription>
