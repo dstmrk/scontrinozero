@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { Providers } from "@/components/providers";
+import {
+  JsonLd,
+  softwareApplicationJsonLd,
+  organizationJsonLd,
+} from "@/components/json-ld";
 import "./globals.css";
 
 const nunitoSans = localFont({
@@ -58,6 +63,8 @@ export default function RootLayout({
       <body
         className={`${nunitoSans.variable} ${geistMono.variable} antialiased`}
       >
+        <JsonLd data={softwareApplicationJsonLd} />
+        <JsonLd data={organizationJsonLd} />
         <Providers>{children}</Providers>
       </body>
     </html>

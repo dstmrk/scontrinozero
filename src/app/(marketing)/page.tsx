@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { JsonLd, faqPageJsonLd } from "@/components/json-ld";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,20 +18,16 @@ import {
   Shield,
   CalendarRange,
   ArrowRight,
-  Gift,
-  Zap,
-  Building,
+  Check,
 } from "lucide-react";
 
 export default function Home() {
   return (
     <>
+      <JsonLd data={faqPageJsonLd} />
       {/* Hero */}
       <section className="px-4 py-20 md:py-32">
         <div className="mx-auto max-w-3xl text-center">
-          <Badge variant="secondary" className="mb-4">
-            Presto disponibile
-          </Badge>
           <h1 className="text-4xl font-extrabold tracking-tight md:text-5xl lg:text-6xl">
             Lo scontrino elettronico
             <br />
@@ -162,7 +159,7 @@ export default function Home() {
                 icon: CalendarRange,
                 title: "Paghi come preferisci",
                 description:
-                  "Mensile, annuale o gratis. Cambi piano quando vuoi, senza vincoli e senza penali.",
+                  "Mensile o annuale. 30 giorni gratis per iniziare, poi scegli il piano adatto a te. Nessun vincolo.",
               },
               {
                 icon: Smartphone,
@@ -185,56 +182,97 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Piani — teaser beta */}
+      {/* Piani */}
       <section id="prezzi" className="px-4 py-20">
         <div className="mx-auto max-w-5xl">
-          <Badge variant="secondary" className="mx-auto mb-4 block w-fit">
-            Beta gratuita
-          </Badge>
-          <h2 className="text-center text-2xl font-bold">Prezzi in arrivo</h2>
+          <h2 className="text-center text-2xl font-bold">
+            I prezzi più bassi del mercato
+          </h2>
           <p className="text-muted-foreground mx-auto mt-2 max-w-lg text-center">
-            Stiamo definendo i piani. I primi iscritti alla beta avranno accesso
-            gratuito a tutte le funzionalità.
+            30 giorni gratis, nessun metodo di pagamento richiesto.
           </p>
 
-          <div className="mt-12 grid gap-6 md:grid-cols-3">
-            {[
-              {
-                icon: Gift,
-                name: "Free",
-                description:
-                  "Per chi vuole provare senza impegno. Sempre gratuito.",
-              },
-              {
-                icon: Zap,
-                name: "Starter",
-                description:
-                  "Per ambulanti e micro-attività. Scontrini illimitati a un prezzo imbattibile.",
-              },
-              {
-                icon: Building,
-                name: "Pro",
-                description:
-                  "Per chi ha più di un punto cassa. Dashboard completa e multi-dispositivo.",
-              },
-            ].map((plan) => (
-              <Card key={plan.name} className="border-border/50 text-center">
-                <CardHeader>
-                  <plan.icon className="text-primary mx-auto h-8 w-8" />
-                  <CardTitle className="text-lg">{plan.name}</CardTitle>
-                  <CardDescription>{plan.description}</CardDescription>
-                </CardHeader>
-              </Card>
-            ))}
+          <div className="mx-auto mt-12 grid max-w-3xl gap-6 md:grid-cols-2">
+            {/* Starter */}
+            <Card className="border-border/50">
+              <CardHeader>
+                <CardTitle className="text-xl">Starter</CardTitle>
+                <CardDescription>
+                  Per ambulanti e micro-attività
+                </CardDescription>
+                <div className="mt-2">
+                  <span className="text-3xl font-bold">€5,99</span>
+                  <span className="text-muted-foreground text-sm">/mese</span>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    o €29,99/anno — risparmi €42
+                  </p>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  {[
+                    "Scontrini illimitati",
+                    "Chiusura giornaliera automatica",
+                    "Catalogo fino a 5 prodotti",
+                    "Analytics base",
+                    "PDF e link condivisibile",
+                  ].map((f) => (
+                    <li key={f} className="flex items-center gap-2">
+                      <Check className="text-primary h-4 w-4 shrink-0" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Pro */}
+            <Card className="border-primary relative border-2">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <Badge>Più completo</Badge>
+              </div>
+              <CardHeader>
+                <CardTitle className="text-xl">Pro</CardTitle>
+                <CardDescription>
+                  Per attività con esigenze avanzate
+                </CardDescription>
+                <div className="mt-2">
+                  <span className="text-3xl font-bold">€8,99</span>
+                  <span className="text-muted-foreground text-sm">/mese</span>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    o €49,99/anno — risparmi €58
+                  </p>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  {[
+                    "Tutto di Starter",
+                    "Catalogo illimitato",
+                    "Analytics avanzata",
+                    "Export CSV scontrini",
+                    "Sync catalogo da AdE",
+                  ].map((f) => (
+                    <li key={f} className="flex items-center gap-2">
+                      <Check className="text-primary h-4 w-4 shrink-0" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
           </div>
 
           <div className="mt-8 text-center">
-            <Button asChild>
+            <Button asChild size="lg">
               <Link href="/register">
-                Inizia gratis
+                Inizia i 30 giorni gratis
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
+            <p className="text-muted-foreground mt-3 text-sm">
+              Nessun metodo di pagamento richiesto
+            </p>
           </div>
         </div>
       </section>

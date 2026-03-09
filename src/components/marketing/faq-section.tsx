@@ -9,44 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-const faqItems = [
-  {
-    question: "Serve per forza un registratore telematico fisico?",
-    answer:
-      "No. ScontrinoZero nasce per permetterti di emettere documento commerciale e trasmettere i corrispettivi senza cassa fisica, usando i canali previsti dall'Agenzia delle Entrate.",
-  },
-  {
-    question: "ScontrinoZero è adatto alla mia attività?",
-    answer:
-      "Sì, è pensato per ambulanti, artigiani, professionisti e micro-attività che vogliono una soluzione semplice, economica e utilizzabile da smartphone o PC.",
-  },
-  {
-    question: "Il servizio è conforme alla normativa italiana?",
-    answer:
-      "ScontrinoZero è progettato per seguire i flussi previsti dall'Agenzia delle Entrate per documento commerciale e corrispettivi telematici. Resta sempre responsabilità dell'utente verificare i dati inseriti e gli esiti delle trasmissioni.",
-  },
-  {
-    question: "Serve una connessione internet per usarlo?",
-    answer:
-      "Sì. Per inviare i dati ai servizi telematici e sincronizzare la tua operatività, è necessaria una connessione internet attiva.",
-  },
-  {
-    question: "Posso emettere e condividere lo scontrino in modo digitale?",
-    answer:
-      "Sì. Puoi generare il documento commerciale e condividerlo in formato digitale. Se necessario, puoi anche usare una stampante compatibile per consegna cartacea.",
-  },
-  {
-    question: "Quanto costa?",
-    answer:
-      "La beta è gratuita. Al lancio ci saranno piani a pagamento, ma resterà comunque disponibile un'opzione gratuita per chi ha volumi piccoli.",
-  },
-  {
-    question: "Posso provarlo prima del lancio ufficiale?",
-    answer:
-      "Sì. Iscrivendoti alla lista d'attesa puoi accedere in anteprima e ricevere aggiornamenti sulle nuove funzionalità.",
-  },
-];
+import { faqItems } from "./faq-items";
 
 export function FaqSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);

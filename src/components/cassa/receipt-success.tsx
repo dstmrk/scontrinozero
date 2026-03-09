@@ -47,20 +47,7 @@ export function ReceiptSuccess({
       await navigator.clipboard.writeText(url);
       setCopied(true);
     } catch {
-      // Fallback per contesti non-sicuri (HTTP) o browser senza Clipboard API
-      try {
-        const el = document.createElement("textarea");
-        el.value = url;
-        el.style.position = "fixed";
-        el.style.opacity = "0";
-        document.body.appendChild(el);
-        el.select();
-        document.execCommand("copy"); // legacy fallback: no modern alternative in insecure contexts
-        el.remove();
-        setCopied(true);
-      } catch {
-        // Nessun metodo disponibile
-      }
+      // Clipboard API non disponibile
     }
   };
 
