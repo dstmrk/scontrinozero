@@ -5,7 +5,7 @@ describe("sitemap", () => {
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
-    expect(result).toHaveLength(6);
+    expect(result).toHaveLength(7);
     expect(result[0]).toMatchObject({
       url: "https://scontrinozero.it",
       changeFrequency: "monthly",
@@ -22,16 +22,21 @@ describe("sitemap", () => {
       priority: 0.3,
     });
     expect(result[3]).toMatchObject({
-      url: "https://scontrinozero.it/cookie-policy",
+      url: "https://scontrinozero.it/termini/v01",
       changeFrequency: "yearly",
       priority: 0.3,
     });
     expect(result[4]).toMatchObject({
+      url: "https://scontrinozero.it/cookie-policy",
+      changeFrequency: "yearly",
+      priority: 0.3,
+    });
+    expect(result[5]).toMatchObject({
       url: "https://scontrinozero.it/login",
       changeFrequency: "yearly",
       priority: 0.5,
     });
-    expect(result[5]).toMatchObject({
+    expect(result[6]).toMatchObject({
       url: "https://scontrinozero.it/register",
       changeFrequency: "yearly",
       priority: 0.5,

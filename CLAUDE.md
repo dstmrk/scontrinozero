@@ -24,13 +24,13 @@ all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la pr
 Il piano di sviluppo — release semantiche, task per versione, storico fasi, test cumulativi —
 è in **`PLAN.md`** (root del repo).
 
-**Versione corrente:** v0.8.1 ⬜ (landing completeness)
+**Versione corrente:** v0.9.0 ⬜ (Stripe payments)
 
 **Approccio TDD:** Per ogni release, scrivere i test PRIMA dell'implementazione.
 I test di validazione e degli endpoint usano `vi.mock` per isolare le dipendenze (Drizzle, etc.).
 
 **Release roadmap (pre-lancio):**
-v0.7.0 ✅ → v0.8.0 ✅ (Resend) → v0.8.1 ⬜ (landing) → v0.9.0 ⬜ (Stripe) → v0.9.1 ⬜ (E2E checkpoint) → **v1.0.0** ⬜ (lancio pubblico)
+v0.7.0 ✅ → v0.8.0 ✅ (Resend) → v0.8.1 ✅ (landing) → v0.9.0 ⬜ (Stripe) → v0.9.1 ⬜ (E2E checkpoint) → **v1.0.0** ⬜ (lancio pubblico)
 
 **Post-lancio:** v1.1.0 (PWA) → v1.2.0 (billing polish) → v1.3.0 (receipt email) → v1.4.0+ (analytics, catalog sync, …)
 
@@ -92,14 +92,15 @@ giustificare la propria esistenza.
 
 ### Pricing: i meno cari del mercato
 
-| Piano           | Mensile  | Annuale   | Target                    | Feature principali                              |
-| --------------- | -------- | --------- | ------------------------- | ----------------------------------------------- |
-| **Starter**     | €5.99    | €29.99    | Micro-attività, ambulanti | Scontrini illimitati, catalogo 5 prodotti       |
-| **Pro**         | €8.99    | €49.99    | Negozi, attività regolari | Catalogo illimitato, analytics, export, AdE sync |
-| **Self-hosted** | €0       | €0        | Tecnici, smanettoni       | Tutte le feature, gestione autonoma             |
-| **Unlimited**   | —        | —         | Invite-only (amici/beta)  | Come Pro, gestito direttamente su DB            |
+| Piano           | Mensile | Annuale | Target                    | Feature principali                               |
+| --------------- | ------- | ------- | ------------------------- | ------------------------------------------------ |
+| **Starter**     | €5.99   | €29.99  | Micro-attività, ambulanti | Scontrini illimitati, catalogo 5 prodotti        |
+| **Pro**         | €8.99   | €49.99  | Negozi, attività regolari | Catalogo illimitato, analytics, export, AdE sync |
+| **Self-hosted** | €0      | €0      | Tecnici, smanettoni       | Tutte le feature, gestione autonoma              |
+| **Unlimited**   | —       | —       | Invite-only (amici/beta)  | Come Pro, gestito direttamente su DB             |
 
 **Strategia pricing:**
+
 - Nessun piano Free hosted — solo self-hosted gratuito
 - **Trial 30 giorni** per Starter e Pro: nessuna carta di credito all'iscrizione,
   scelta piano + CC solo alla scadenza del trial. Se non aggiunge CC: sola lettura.
@@ -109,17 +110,17 @@ giustificare la propria esistenza.
 
 **Differenziazione piani (feature gate):**
 
-| Feature                         | Starter | Pro |
-| ------------------------------- | ------- | --- |
-| Scontrini illimitati            | ✅      | ✅  |
-| Metodi pagamento misti          | ✅      | ✅  |
-| Max prodotti catalogo rapido    | 5       | ∞   |
-| Analytics base                  | ✅      | ✅  |
-| Analytics avanzata (dashboard)  | ❌      | ✅  |
-| Export CSV scontrini            | ❌      | ✅  |
-| Recupero corrispettivi da AdE   | ❌      | ✅  |
-| Sync catalogo da AdE            | ❌      | ✅  |
-| Supporto prioritario            | ❌      | ✅  |
+| Feature                        | Starter | Pro |
+| ------------------------------ | ------- | --- |
+| Scontrini illimitati           | ✅      | ✅  |
+| Metodi pagamento misti         | ✅      | ✅  |
+| Max prodotti catalogo rapido   | 5       | ∞   |
+| Analytics base                 | ✅      | ✅  |
+| Analytics avanzata (dashboard) | ❌      | ✅  |
+| Export CSV scontrini           | ❌      | ✅  |
+| Recupero corrispettivi da AdE  | ❌      | ✅  |
+| Sync catalogo da AdE           | ❌      | ✅  |
+| Supporto prioritario           | ❌      | ✅  |
 
 **Piano Unlimited (invite-only):** inserito direttamente nel DB (`plan = 'unlimited'` su `profiles`),
 nessuna logica Stripe. Bypassa tutti i gate come Pro.
@@ -652,13 +653,13 @@ scontrinozero/
 
 Presenti nella root del repo, da analizzare prima delle relative release:
 
-| File                             | Feature                                            | Versione |
-| -------------------------------- | -------------------------------------------------- | -------- |
+| File                             | Feature                                            | Versione                                          |
+| -------------------------------- | -------------------------------------------------- | ------------------------------------------------- |
 | `dati_doc_commerciale.har`       | Aggiornamento dati business su AdE post-onboarding | post-v1.0.0 (rinviato, possibile feature premium) |
-| `aggiungi_prodotto_catalogo.har` | Aggiunta prodotto su rubrica AdE                   | v1.5.0   |
-| `modifica_prodotto_catalogo.har` | Modifica prodotto su rubrica AdE                   | v1.5.0   |
-| `elimina_prodotto_catalogo.har`  | Eliminazione prodotto su rubrica AdE               | v1.5.0   |
-| `ricerca_prodotto_catalogo.har`  | Ricerca prodotto su rubrica AdE                    | v1.5.0   |
-| `ricerca_documento.har`          | Ricerca documento su AdE                           | v2.0.0+  |
-| `login_spid.har`                 | SPID login flow (analizzato e implementato)        | ✅ v0.x  |
-| `login_cie.har`                  | CIE login flow                                     | v1.8.0+  |
+| `aggiungi_prodotto_catalogo.har` | Aggiunta prodotto su rubrica AdE                   | v1.5.0                                            |
+| `modifica_prodotto_catalogo.har` | Modifica prodotto su rubrica AdE                   | v1.5.0                                            |
+| `elimina_prodotto_catalogo.har`  | Eliminazione prodotto su rubrica AdE               | v1.5.0                                            |
+| `ricerca_prodotto_catalogo.har`  | Ricerca prodotto su rubrica AdE                    | v1.5.0                                            |
+| `ricerca_documento.har`          | Ricerca documento su AdE                           | v2.0.0+                                           |
+| `login_spid.har`                 | SPID login flow (analizzato e implementato)        | ✅ v0.x                                           |
+| `login_cie.har`                  | CIE login flow                                     | v1.8.0+                                           |

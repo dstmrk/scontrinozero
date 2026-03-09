@@ -1,6 +1,6 @@
 # ScontrinoZero — Piano di sviluppo
 
-## Versione corrente: v0.8.1 ⬜
+## Versione corrente: v0.9.0 ⬜
 
 Il piano usa **release semantiche** (vx.y.z). La v1.0.0 è il lancio pubblico: prima di
 quella data nessun cliente paga, nessuno si aspetta stabilità di produzione.
@@ -15,7 +15,7 @@ quella data nessun cliente paga, nessuno si aspetta stabilità di produzione.
 | ---------- | ---------------------------- | ----- |
 | **v0.7.0** | AdE fiscal data update       | ✅    |
 | **v0.8.0** | Email transazionali (Resend) | ✅    |
-| **v0.8.1** | Landing completeness         | ⬜    |
+| **v0.8.1** | Landing completeness         | ✅    |
 | **v0.9.0** | Stripe payments              | ⬜    |
 | **v0.9.1** | Stabilità + E2E checkpoint   | ⬜    |
 | **v1.0.0** | Lancio pubblico              | ⬜    |
@@ -68,25 +68,25 @@ Integrazione Resend con template React Email per le email minime obbligatorie al
 
 ---
 
-### v0.8.1 — Landing completeness ⬜
+### v0.8.1 — Landing completeness ✅
 
 La landing deve essere pronta per convertire visitatori in clienti paganti.
 
 **Task:**
 
-- ⬜ Hostname routing: `scontrinozero.it` → marketing, `app.scontrinozero.it` → app
+- ✅ Hostname routing: `scontrinozero.it` → marketing, `app.scontrinozero.it` → app
   (`src/proxy.ts` + env vars `NEXT_PUBLIC_APP_HOSTNAME` / `NEXT_PUBLIC_MARKETING_HOSTNAME`)
-  **Infrastruttura manuale:** aggiungere hostname `app.scontrinozero.it` al Cloudflare Tunnel;
+  **Infrastruttura manuale (pendente):** aggiungere hostname `app.scontrinozero.it` al Cloudflare Tunnel;
   aggiornare Site URL e redirect URL in Supabase Dashboard.
-- ⬜ Aggiornare sezione pricing con i piani reali (Starter €5.99/mese · €29.99/anno — Pro €8.99/mese · €49.99/anno) e trial 30gg
-- ⬜ Rimuovere qualsiasi menzione "beta" o "presto disponibile" dalla landing
-- ⬜ CTA principale → `/register` (non più waitlist)
-- ⬜ JSON-LD structured data (`SoftwareApplication` + `Organization`)
-- ⬜ Aggiornare contenuto `/termini/v01` con prezzi Stripe reali; creare `/termini/v02` + aggiornare redirect e `CURRENT_TERMS_VERSION`
-- ⬜ Aggiornare Privacy Policy e Cookie Policy con data corrente
-- ⬜ Verificare che la sitemap includa tutte le pagine marketing
+- ✅ Aggiornare sezione pricing con i piani reali (Starter €5.99/mese · €29.99/anno — Pro €8.99/mese · €49.99/anno) e trial 30gg
+- ✅ Rimuovere qualsiasi menzione "beta" o "presto disponibile" dalla landing
+- ✅ CTA principale → `/register`
+- ✅ JSON-LD structured data (`SoftwareApplication` + `Organization` + `FAQPage`)
+- ✅ T&C rimangono v01 — creare v02 solo prima di v1.0.0 (con prezzi Stripe reali)
+- ✅ Aggiornare Privacy Policy e Cookie Policy con data corrente (marzo 2026)
+- ✅ Sitemap aggiornata: aggiunto permalink `/termini/v01`
 
-**Test attesi:** ~12 unit (7 hostname routing + 5 JSON-LD/sitemap) → totale ~**534 unit + 8 E2E**
+**Test aggiunti:** 13 unit (JSON-LD) → totale **572 unit + 8 E2E**
 
 ---
 
@@ -260,26 +260,27 @@ Quando annulliamo uno scontrino, AdE genera un nuovo documento commerciale di an
 
 ## Storico sviluppo (fasi completate)
 
-| Fase                           | Stato | Test al completamento     | Note                                                                |
-| ------------------------------ | ----- | ------------------------- | ------------------------------------------------------------------- |
-| 0 — Fondamenta                 | ✅    | —                         | Next.js 16, shadcn/ui, CI/CD, Supabase, Drizzle                     |
-| 1A — Security fix + TDD        | ✅    | 23 unit                   | `isValidEmail`, waitlist API, SonarCloud verde                      |
-| 2 — Integrazione AdE           | ✅    | 92 unit (55 AdE dedicati) | MockAdeClient + RealAdeClient, 6-phase Fisconline                   |
-| 1B — Landing page              | ✅    | 6 unit + 8 E2E            | Privacy ✅, ToS ✅, Sitemap ✅ — JSON-LD ⬜ (→ v0.8.1)              |
-| 3A — Fondamenta sicurezza      | ✅    | 148 unit + 8 E2E          | Sentry, pino, rate limiting, AES-256-GCM                            |
-| 3B — Auth + onboarding         | ✅    | 191 unit + 8 E2E          | Supabase Auth, wizard 3-step, credenziali cifrate                   |
-| 4A — Schema DB scontrini       | ✅    | 214 unit + 8 E2E          | `commercial_documents` + `commercial_document_lines`                |
-| 4B — UI cassa mobile-first     | ✅    | 305 unit + 8 E2E          | Tastierino, IVA, metodo pagamento, riepilogo                        |
-| 4C — Server actions + UI       | ✅    | 319 unit + 8 E2E          | `emitReceipt`, TanStack Query, optimistic updates                   |
-| 4D — Storico + storno + PDF    | ✅    | 422 unit + 8 E2E          | PDF pdfkit 58mm, share link pubblico, HTML receipt                  |
-| 4F — UI polish + registrazione | ✅    | 370→422 unit + 8 E2E      | `isStrongPassword`, paginazione storico, UX fixes                   |
-| 4G — Catalogo + nav mobile     | ✅    | 464 unit + 8 E2E          | `catalog_items`, CRUD, bottom-nav, tap→cassa                        |
-| 4H — Onboarding refactor       | ✅    | 469 unit + 8 E2E          | firstName/lastName, P.IVA da AdE, CAP, migration                    |
-| 4J — SPID login                | ✅    | 502 unit + 8 E2E          | SAML2 HTTP POST, push 2FA polling, MockAdeClient.loginSpid()        |
-| 4K — Security hardening        | ✅    | ~511 unit + 8 E2E         | CORS, RLS, npm audit CI, rate limiting, audit log, account deletion |
+| Fase                           | Stato | Test al completamento     | Note                                                                                     |
+| ------------------------------ | ----- | ------------------------- | ---------------------------------------------------------------------------------------- |
+| 0 — Fondamenta                 | ✅    | —                         | Next.js 16, shadcn/ui, CI/CD, Supabase, Drizzle                                          |
+| 1A — Security fix + TDD        | ✅    | 23 unit                   | `isValidEmail`, waitlist API, SonarCloud verde                                           |
+| 2 — Integrazione AdE           | ✅    | 92 unit (55 AdE dedicati) | MockAdeClient + RealAdeClient, 6-phase Fisconline                                        |
+| 1B — Landing page              | ✅    | 6 unit + 8 E2E            | Privacy ✅, ToS ✅, Sitemap ✅                                                           |
+| 3A — Fondamenta sicurezza      | ✅    | 148 unit + 8 E2E          | Sentry, pino, rate limiting, AES-256-GCM                                                 |
+| 3B — Auth + onboarding         | ✅    | 191 unit + 8 E2E          | Supabase Auth, wizard 3-step, credenziali cifrate                                        |
+| 4A — Schema DB scontrini       | ✅    | 214 unit + 8 E2E          | `commercial_documents` + `commercial_document_lines`                                     |
+| 4B — UI cassa mobile-first     | ✅    | 305 unit + 8 E2E          | Tastierino, IVA, metodo pagamento, riepilogo                                             |
+| 4C — Server actions + UI       | ✅    | 319 unit + 8 E2E          | `emitReceipt`, TanStack Query, optimistic updates                                        |
+| 4D — Storico + storno + PDF    | ✅    | 422 unit + 8 E2E          | PDF pdfkit 58mm, share link pubblico, HTML receipt                                       |
+| 4F — UI polish + registrazione | ✅    | 370→422 unit + 8 E2E      | `isStrongPassword`, paginazione storico, UX fixes                                        |
+| 4G — Catalogo + nav mobile     | ✅    | 464 unit + 8 E2E          | `catalog_items`, CRUD, bottom-nav, tap→cassa                                             |
+| 4H — Onboarding refactor       | ✅    | 469 unit + 8 E2E          | firstName/lastName, P.IVA da AdE, CAP, migration                                         |
+| 4J — SPID login                | ✅    | 502 unit + 8 E2E          | SAML2 HTTP POST, push 2FA polling, MockAdeClient.loginSpid()                             |
+| 4K — Security hardening        | ✅    | ~511 unit + 8 E2E         | CORS, RLS, npm audit CI, rate limiting, audit log, account deletion                      |
 | 4L — Terms acceptance tracking | ✅    | ~512 unit + 8 E2E         | `terms_accepted_at` + `terms_version` su `profiles`; `/termini/v01` permalink + redirect |
 | v0.7.0 — AdE fiscal data       | ✅    | ~521 unit + 8 E2E         | `buildCedenteFromBusiness()`, rimosso `getFiscalData()`, `modificati: true` nel payload  |
-| v0.8.0 — Email (Resend)        | ✅    | 558 unit + 8 E2E          | `sendEmail()`, WelcomeEmail, PasswordResetEmail, stili condivisi, hook post-signUp        |
+| v0.8.0 — Email (Resend)        | ✅    | 558 unit + 8 E2E          | `sendEmail()`, WelcomeEmail, PasswordResetEmail, stili condivisi, hook post-signUp       |
+| v0.8.1 — Landing completeness  | ✅    | 572 unit + 8 E2E          | Prezzi reali, rimozione beta, JSON-LD, sitemap `/termini/v01`, date marzo 2026           |
 
 ---
 
@@ -292,7 +293,7 @@ Quando annulliamo uno scontrino, AdE genera un nuovo documento commerciale di an
 | **4L**     | ~1                   | ~512        | 8          |
 | **v0.7.0** | ~9                   | ~521        | 8          |
 | **v0.8.0** | 37                   | **558**     | 8          |
-| **v0.8.1** | ~12                  | ~570        | 8          |
+| **v0.8.1** | 13                   | **572**     | 8          |
 | **v0.9.0** | ~25                  | ~595        | 8          |
 | **v0.9.1** | ~0 unit / ~10 E2E    | ~590        | ~18        |
 | **v1.0.0** | 0 (solo tag)         | ~590        | ~18        |
