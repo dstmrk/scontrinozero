@@ -25,11 +25,16 @@ const mockInsert = vi.fn().mockReturnValue({ values: mockInsertValues });
 const mockDeleteWhere = vi.fn().mockResolvedValue(undefined);
 const mockDelete = vi.fn().mockReturnValue({ where: mockDeleteWhere });
 
+const mockUpdateWhere = vi.fn().mockResolvedValue(undefined);
+const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
+const mockUpdate = vi.fn().mockReturnValue({ set: mockUpdateSet });
+
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({
     select: mockSelect,
     insert: mockInsert,
     delete: mockDelete,
+    update: mockUpdate,
   }),
 }));
 
@@ -77,6 +82,7 @@ describe("catalog-actions", () => {
     mockLimit.mockResolvedValue([]);
     mockInsertValues.mockResolvedValue(undefined);
     mockDeleteWhere.mockResolvedValue(undefined);
+    mockUpdateWhere.mockResolvedValue(undefined);
   });
 
   // ---------------------------------------------------------------------------
@@ -307,6 +313,119 @@ describe("catalog-actions", () => {
       expect(result.error).toBeUndefined();
       expect(mockDelete).toHaveBeenCalledWith("catalog-items-table");
       expect(mockDeleteWhere).toHaveBeenCalled();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // updateCatalogItem
+  // ---------------------------------------------------------------------------
+
+  const VALID_UPDATE_INPUT = {
+    itemId: FAKE_ITEM_ID,
+    businessId: FAKE_BUSINESS_ID,
+    description: "Pizza margherita aggiornata",
+    defaultPrice: "10.00",
+    defaultVatCode: "10" as const,
+  };
+
+  describe("updateCatalogItem", () => {
+    it("ritorna errore se utente non autenticato", async () => {
+      mockGetAuthenticatedUser.mockRejectedValue(
+        new Error("Not authenticated"),
+      );
+
+      const { updateCatalogItem } = await import("./catalog-actions");
+      const result = await updateCatalogItem(VALID_UPDATE_INPUT);
+
+      expect(result.error).toBeDefined();
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it("ritorna errore se business non appartiene all'utente", async () => {
+      mockCheckBusinessOwnership.mockResolvedValue({
+        error: "Business non trovato o non autorizzato.",
+      });
+
+      const { updateCatalogItem } = await import("./catalog-actions");
+      const result = await updateCatalogItem(VALID_UPDATE_INPUT);
+
+      expect(result.error).toBeDefined();
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it("ritorna errore se la descrizione è vuota", async () => {
+      const { updateCatalogItem } = await import("./catalog-actions");
+      const result = await updateCatalogItem({
+        ...VALID_UPDATE_INPUT,
+        description: "",
+      });
+
+      expect(result.error).toBeDefined();
+      expect(result.error).toMatch(/descrizione/i);
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it("ritorna errore se il prezzo è negativo", async () => {
+      const { updateCatalogItem } = await import("./catalog-actions");
+      const result = await updateCatalogItem({
+        ...VALID_UPDATE_INPUT,
+        defaultPrice: "-5.00",
+      });
+
+      expect(result.error).toBeDefined();
+      expect(result.error).toMatch(/prezzo/i);
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it("ritorna errore se il codice IVA non è valido", async () => {
+      const { updateCatalogItem } = await import("./catalog-actions");
+      const result = await updateCatalogItem({
+        ...VALID_UPDATE_INPUT,
+        defaultVatCode: "99" as never,
+      });
+
+      expect(result.error).toBeDefined();
+      expect(result.error).toMatch(/IVA/i);
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it("ritorna errore se il prodotto non esiste o non appartiene al business", async () => {
+      mockLimit.mockResolvedValue([]);
+
+      const { updateCatalogItem } = await import("./catalog-actions");
+      const result = await updateCatalogItem(VALID_UPDATE_INPUT);
+
+      expect(result.error).toBeDefined();
+      expect(result.error).toMatch(/non trovato/i);
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it("aggiorna il prodotto nel DB e ritorna senza errore", async () => {
+      mockLimit.mockResolvedValue([{ id: FAKE_ITEM_ID }]);
+
+      const { updateCatalogItem } = await import("./catalog-actions");
+      const result = await updateCatalogItem(VALID_UPDATE_INPUT);
+
+      expect(result.error).toBeUndefined();
+      expect(mockUpdate).toHaveBeenCalledWith("catalog-items-table");
+      const updateArg = mockUpdateSet.mock.calls[0][0];
+      expect(updateArg.description).toBe("Pizza margherita aggiornata");
+      expect(updateArg.defaultPrice).toBe("10.00");
+      expect(updateArg.defaultVatCode).toBe("10");
+    });
+
+    it("accetta prezzo null (normalizzato a null nel DB)", async () => {
+      mockLimit.mockResolvedValue([{ id: FAKE_ITEM_ID }]);
+
+      const { updateCatalogItem } = await import("./catalog-actions");
+      const result = await updateCatalogItem({
+        ...VALID_UPDATE_INPUT,
+        defaultPrice: null,
+      });
+
+      expect(result.error).toBeUndefined();
+      const updateArg = mockUpdateSet.mock.calls[0][0];
+      expect(updateArg.defaultPrice).toBeNull();
     });
   });
 });

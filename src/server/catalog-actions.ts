@@ -9,12 +9,52 @@ import {
 } from "@/lib/server-auth";
 import { logger } from "@/lib/logger";
 import { VAT_CODES } from "@/types/cassa";
+import type { VatCode } from "@/types/cassa";
 import type {
   AddCatalogItemInput,
   CatalogActionResult,
   CatalogItem,
   UpdateCatalogItemInput,
 } from "@/types/catalogo";
+
+// ---------------------------------------------------------------------------
+// Private helpers
+// ---------------------------------------------------------------------------
+
+/** Autentica l'utente e verifica l'ownership del business. Ritorna null se OK. */
+async function authenticateAndAuthorize(
+  businessId: string,
+): Promise<CatalogActionResult | null> {
+  let user;
+  try {
+    user = await getAuthenticatedUser();
+  } catch {
+    return { error: "Non autenticato." };
+  }
+  return checkBusinessOwnership(user.id, businessId);
+}
+
+/** Valida descrizione, prezzo e aliquota IVA. Ritorna { priceStr } se OK. */
+function validateItemInput(
+  description: string,
+  defaultPrice: string | null,
+  defaultVatCode: VatCode,
+): { priceStr: string | null } | { error: string } {
+  if (!description.trim()) {
+    return { error: "La descrizione è obbligatoria." };
+  }
+  const priceStr = defaultPrice === "" ? null : (defaultPrice ?? null);
+  if (priceStr !== null) {
+    const price = Number.parseFloat(priceStr);
+    if (Number.isNaN(price) || price < 0) {
+      return { error: "Il prezzo deve essere un numero non negativo." };
+    }
+  }
+  if (!VAT_CODES.includes(defaultVatCode)) {
+    return { error: "Codice IVA non valido." };
+  }
+  return { priceStr };
+}
 
 // ---------------------------------------------------------------------------
 // getCatalogItems
@@ -63,44 +103,21 @@ export async function getCatalogItems(
 export async function addCatalogItem(
   input: AddCatalogItemInput,
 ): Promise<CatalogActionResult> {
-  let user;
-  try {
-    user = await getAuthenticatedUser();
-  } catch {
-    return { error: "Non autenticato." };
-  }
+  const authError = await authenticateAndAuthorize(input.businessId);
+  if (authError) return authError;
 
-  const ownershipError = await checkBusinessOwnership(
-    user.id,
-    input.businessId,
+  const validated = validateItemInput(
+    input.description,
+    input.defaultPrice,
+    input.defaultVatCode,
   );
-  if (ownershipError) return ownershipError;
-
-  // Validate description
-  if (!input.description?.trim()) {
-    return { error: "La descrizione è obbligatoria." };
-  }
-
-  // Validate price (opzionale: null o stringa vuota = prezzo da definire)
-  const priceStr =
-    input.defaultPrice === "" ? null : (input.defaultPrice ?? null);
-  if (priceStr !== null) {
-    const price = Number.parseFloat(priceStr);
-    if (Number.isNaN(price) || price < 0) {
-      return { error: "Il prezzo deve essere un numero non negativo." };
-    }
-  }
-
-  // Validate VAT code
-  if (!VAT_CODES.includes(input.defaultVatCode)) {
-    return { error: "Codice IVA non valido." };
-  }
+  if ("error" in validated) return validated;
 
   const db = getDb();
   await db.insert(catalogItems).values({
     businessId: input.businessId,
     description: input.description.trim(),
-    defaultPrice: priceStr,
+    defaultPrice: validated.priceStr,
     defaultVatCode: input.defaultVatCode,
   });
 
@@ -119,15 +136,8 @@ export async function deleteCatalogItem(
   itemId: string,
   businessId: string,
 ): Promise<CatalogActionResult> {
-  let user;
-  try {
-    user = await getAuthenticatedUser();
-  } catch {
-    return { error: "Non autenticato." };
-  }
-
-  const ownershipError = await checkBusinessOwnership(user.id, businessId);
-  if (ownershipError) return ownershipError;
+  const authError = await authenticateAndAuthorize(businessId);
+  if (authError) return authError;
 
   const db = getDb();
 
@@ -162,35 +172,15 @@ export async function deleteCatalogItem(
 export async function updateCatalogItem(
   input: UpdateCatalogItemInput,
 ): Promise<CatalogActionResult> {
-  let user;
-  try {
-    user = await getAuthenticatedUser();
-  } catch {
-    return { error: "Non autenticato." };
-  }
+  const authError = await authenticateAndAuthorize(input.businessId);
+  if (authError) return authError;
 
-  const ownershipError = await checkBusinessOwnership(
-    user.id,
-    input.businessId,
+  const validated = validateItemInput(
+    input.description,
+    input.defaultPrice,
+    input.defaultVatCode,
   );
-  if (ownershipError) return ownershipError;
-
-  if (!input.description?.trim()) {
-    return { error: "La descrizione è obbligatoria." };
-  }
-
-  const priceStr =
-    input.defaultPrice === "" ? null : (input.defaultPrice ?? null);
-  if (priceStr !== null) {
-    const price = Number.parseFloat(priceStr);
-    if (Number.isNaN(price) || price < 0) {
-      return { error: "Il prezzo deve essere un numero non negativo." };
-    }
-  }
-
-  if (!VAT_CODES.includes(input.defaultVatCode)) {
-    return { error: "Codice IVA non valido." };
-  }
+  if ("error" in validated) return validated;
 
   const db = getDb();
 
@@ -213,7 +203,7 @@ export async function updateCatalogItem(
     .update(catalogItems)
     .set({
       description: input.description.trim(),
-      defaultPrice: priceStr,
+      defaultPrice: validated.priceStr,
       defaultVatCode: input.defaultVatCode,
     })
     .where(eq(catalogItems.id, input.itemId));
