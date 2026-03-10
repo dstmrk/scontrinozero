@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
-type CheckoutButtonProps = {
+type CheckoutButtonProps = Readonly<{
   priceId: string;
   label: string;
   variant?: "default" | "outline";
-};
+}>;
 
 export function CheckoutButton({
   priceId,
@@ -26,7 +26,7 @@ export function CheckoutButton({
       });
       const data = (await res.json()) as { url?: string; error?: string };
       if (data.url) {
-        window.location.href = data.url;
+        globalThis.location.href = data.url;
       }
     } finally {
       setLoading(false);

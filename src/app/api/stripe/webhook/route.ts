@@ -17,15 +17,20 @@ export async function POST(req: Request): Promise<Response> {
     );
   }
 
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    logger.error("STRIPE_WEBHOOK_SECRET is not configured");
+    return Response.json(
+      { error: "Server misconfiguration." },
+      { status: 500 },
+    );
+  }
+
   const stripe = getStripe();
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(
-      payload,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET!,
-    );
+    event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
   } catch (err) {
     logger.warn({ err }, "Stripe webhook signature verification failed");
     return Response.json({ error: "Invalid signature." }, { status: 400 });

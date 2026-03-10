@@ -3,7 +3,7 @@ import { isTrialExpired } from "@/lib/plans";
 import { PRICE_IDS } from "@/lib/stripe";
 import { CheckoutButton } from "@/components/billing/checkout-button";
 
-function PlanBadge({ plan }: { plan: string }) {
+function PlanBadge({ plan }: Readonly<{ plan: string }>) {
   const labels: Record<string, string> = {
     trial: "Prova gratuita",
     starter: "Starter",

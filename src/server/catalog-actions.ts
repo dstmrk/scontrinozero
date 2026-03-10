@@ -8,7 +8,6 @@ import {
   getAuthenticatedUser,
 } from "@/lib/server-auth";
 import { canAddCatalogItem, getPlan, STARTER_CATALOG_LIMIT } from "@/lib/plans";
-import type { Plan } from "@/lib/plans";
 import { logger } from "@/lib/logger";
 import { VAT_CODES } from "@/types/cassa";
 import type { VatCode } from "@/types/cassa";
@@ -137,7 +136,7 @@ export async function addCatalogItem(
 
   if (
     !canAddCatalogItem(
-      planInfo.plan as Plan,
+      planInfo.plan,
       planInfo.trialStartedAt,
       existingItems.length,
     )
