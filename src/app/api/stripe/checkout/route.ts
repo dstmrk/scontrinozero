@@ -1,0 +1,66 @@
+import { eq } from "drizzle-orm";
+import { getDb } from "@/db";
+import { subscriptions } from "@/db/schema";
+import { getAuthenticatedUser } from "@/lib/server-auth";
+import { getStripe, isValidPriceId } from "@/lib/stripe";
+
+export async function POST(req: Request): Promise<Response> {
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch {
+    return Response.json({ error: "Non autenticato." }, { status: 401 });
+  }
+
+  // ── Validate body ─────────────────────────────────────────────────────────
+  let body: Record<string, unknown>;
+  try {
+    body = (await req.json()) as Record<string, unknown>;
+  } catch {
+    return Response.json({ error: "Richiesta non valida." }, { status: 400 });
+  }
+
+  const priceId = typeof body.priceId === "string" ? body.priceId : null;
+  if (!priceId || !isValidPriceId(priceId)) {
+    return Response.json({ error: "Price ID non valido." }, { status: 400 });
+  }
+
+  const stripe = getStripe();
+  const db = getDb();
+
+  // ── Get or create Stripe customer ─────────────────────────────────────────
+  const [existingSub] = await db
+    .select({ stripeCustomerId: subscriptions.stripeCustomerId })
+    .from(subscriptions)
+    .where(eq(subscriptions.userId, user.id))
+    .limit(1);
+
+  let stripeCustomerId = existingSub?.stripeCustomerId ?? null;
+
+  if (!stripeCustomerId) {
+    const customer = await stripe.customers.create({
+      email: user.email ?? undefined,
+    });
+    stripeCustomerId = customer.id;
+
+    await db.insert(subscriptions).values({
+      userId: user.id,
+      stripeCustomerId,
+      status: "pending",
+    });
+  }
+
+  // ── Create Stripe Checkout Session ────────────────────────────────────────
+  // No Stripe trial: il trial è gestito internamente da ScontrinoZero.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const session = await stripe.checkout.sessions.create({
+    customer: stripeCustomerId,
+    line_items: [{ price: priceId, quantity: 1 }],
+    mode: "subscription",
+    success_url: `${appUrl}/dashboard/abbonamento?success=1`,
+    cancel_url: `${appUrl}/dashboard/abbonamento?canceled=1`,
+  });
+
+  return Response.json({ url: session.url });
+}
