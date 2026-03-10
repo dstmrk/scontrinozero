@@ -31,13 +31,13 @@ all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la pr
 Il piano di sviluppo — release semantiche, task per versione, storico fasi, test cumulativi —
 è in **`PLAN.md`** (root del repo).
 
-**Versione corrente:** v0.9.0 ⬜ (Stripe payments)
+**Versione corrente:** v0.9.1 ⬜ (Stabilità + E2E checkpoint)
 
 **Approccio TDD:** Per ogni release, scrivere i test PRIMA dell'implementazione.
 I test di validazione e degli endpoint usano `vi.mock` per isolare le dipendenze (Drizzle, etc.).
 
 **Release roadmap (pre-lancio):**
-v0.7.0 ✅ → v0.8.0 ✅ (Resend) → v0.8.1 ✅ (landing) → v0.9.0 ⬜ (Stripe) → v0.9.1 ⬜ (E2E checkpoint) → **v1.0.0** ⬜ (lancio pubblico)
+v0.7.0 ✅ → v0.8.0 ✅ (Resend) → v0.8.1 ✅ (landing) → v0.9.0 ✅ (Stripe) → v0.9.1 ⬜ (E2E checkpoint) → **v1.0.0** ⬜ (lancio pubblico)
 
 **Post-lancio:** v1.1.0 (PWA) → v1.2.0 (billing polish) → v1.3.0 (receipt email) → v1.4.0+ (analytics, catalog sync, …)
 
@@ -195,6 +195,14 @@ Fasi:
 - Il target è B2B (esercenti italiani) → IVA gestibile, reverse charge
 - Stripe Billing per abbonamenti ricorrenti
 - Alternativa futura: Paddle come MoR se si espande all'estero
+- SDK: `stripe` npm v20.4.1, API version `2026-02-25.clover`
+
+**⚠️ Attenzione API version 2026-02-25.clover (breaking changes rispetto alle versioni precedenti):**
+
+- `Invoice.subscription` **rimosso** → usare `invoice.parent?.subscription_details?.subscription`
+- `Subscription.current_period_end` **spostato** a livello item → `subscription.items.data[0]?.current_period_end`
+- Non usare `!` (non-null assertion) su `process.env.STRIPE_WEBHOOK_SECRET` — aggiungere
+  un guard esplicito (`if (!secret) return 500`) per evitare SonarCloud code smell
 
 ### Email transazionali
 
