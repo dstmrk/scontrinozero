@@ -7,6 +7,8 @@ import {
   checkBusinessOwnership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
+import { canAddCatalogItem, getPlan, STARTER_CATALOG_LIMIT } from "@/lib/plans";
+import type { Plan } from "@/lib/plans";
 import { logger } from "@/lib/logger";
 import { VAT_CODES } from "@/types/cassa";
 import type { VatCode } from "@/types/cassa";
@@ -99,12 +101,24 @@ export async function getCatalogItems(
 
 /**
  * Aggiunge un prodotto al catalogo del business.
+ * Limita a STARTER_CATALOG_LIMIT prodotti per piano Starter/trial.
  */
 export async function addCatalogItem(
   input: AddCatalogItemInput,
 ): Promise<CatalogActionResult> {
-  const authError = await authenticateAndAuthorize(input.businessId);
-  if (authError) return authError;
+  // Auth + ownership inline (serve user.id per il plan gate)
+  let user;
+  try {
+    user = await getAuthenticatedUser();
+  } catch {
+    return { error: "Non autenticato." };
+  }
+
+  const ownershipError = await checkBusinessOwnership(
+    user.id,
+    input.businessId,
+  );
+  if (ownershipError) return ownershipError;
 
   const validated = validateItemInput(
     input.description,
@@ -113,7 +127,26 @@ export async function addCatalogItem(
   );
   if ("error" in validated) return validated;
 
+  // Plan gate: Starter e trial hanno catalogo limitato
   const db = getDb();
+  const planInfo = await getPlan(user.id);
+  const existingItems = await db
+    .select({ id: catalogItems.id })
+    .from(catalogItems)
+    .where(eq(catalogItems.businessId, input.businessId));
+
+  if (
+    !canAddCatalogItem(
+      planInfo.plan as Plan,
+      planInfo.trialStartedAt,
+      existingItems.length,
+    )
+  ) {
+    return {
+      error: `Piano Starter: massimo ${STARTER_CATALOG_LIMIT} prodotti nel catalogo. Passa a Pro per catalogo illimitato.`,
+    };
+  }
+
   await db.insert(catalogItems).values({
     businessId: input.businessId,
     description: input.description.trim(),
