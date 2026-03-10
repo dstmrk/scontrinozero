@@ -46,6 +46,15 @@ vi.mock("@/lib/logger", () => ({
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
 }));
 
+const mockSendEmail = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/lib/email", () => ({
+  sendEmail: mockSendEmail,
+}));
+
+vi.mock("@/emails/account-deletion", () => ({
+  AccountDeletionEmail: vi.fn().mockReturnValue(null),
+}));
+
 const mockRedirect = vi.fn();
 vi.mock("next/navigation", () => ({
   redirect: (url: string) => mockRedirect(url),
@@ -55,7 +64,7 @@ vi.mock("next/navigation", () => ({
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const FAKE_USER = { id: "user-123" };
+const FAKE_USER = { id: "user-123", email: "utente@test.it" };
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -118,6 +127,35 @@ describe("account-actions", () => {
       expect(mockDeleteReturning).toHaveBeenCalled();
       expect(mockSignOut).toHaveBeenCalled();
       expect(mockRedirect).toHaveBeenCalledWith("/");
+    });
+
+    it("sends AccountDeletionEmail after successful deletion", async () => {
+      const { deleteAccount } = await import("./account-actions");
+      await deleteAccount();
+
+      await Promise.resolve();
+      expect(mockSendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ to: FAKE_USER.email }),
+      );
+    });
+
+    it("does not block redirect when deletion email fails", async () => {
+      mockSendEmail.mockRejectedValueOnce(new Error("Resend down"));
+
+      const { deleteAccount } = await import("./account-actions");
+      await deleteAccount();
+
+      expect(mockRedirect).toHaveBeenCalledWith("/");
+    });
+
+    it("does not send email when profile is not found", async () => {
+      mockDeleteReturning.mockResolvedValue([]);
+
+      const { deleteAccount } = await import("./account-actions");
+      await deleteAccount();
+
+      await Promise.resolve();
+      expect(mockSendEmail).not.toHaveBeenCalled();
     });
   });
 });

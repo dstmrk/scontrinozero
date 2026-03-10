@@ -1,5 +1,6 @@
 "use server";
 
+import { createElement } from "react";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
@@ -8,6 +9,8 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import { getAuthenticatedUser } from "@/lib/server-auth";
+import { sendEmail } from "@/lib/email";
+import { AccountDeletionEmail } from "@/emails/account-deletion";
 
 export type AccountActionResult = {
   error?: string;
@@ -60,7 +63,16 @@ export async function deleteAccount(): Promise<AccountActionResult> {
 
   logger.info({ userId: user.id }, "Account deleted");
 
-  // 3. Sign out current session before redirecting
+  // 3. Send deletion confirmation email (fire-and-forget)
+  if (user.email) {
+    void sendEmail({
+      to: user.email,
+      subject: "Il tuo account ScontrinoZero è stato eliminato",
+      react: createElement(AccountDeletionEmail, { email: user.email }),
+    }).catch((err) => logger.warn({ err }, "Account deletion email failed"));
+  }
+
+  // 4. Sign out current session before redirecting
   const supabase = await createServerSupabaseClient();
   await supabase.auth.signOut();
 
