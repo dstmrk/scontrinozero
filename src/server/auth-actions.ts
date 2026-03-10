@@ -11,6 +11,8 @@ import { RateLimiter } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { sendEmail } from "@/lib/email";
 import { WelcomeEmail } from "@/emails/welcome";
+import { PasswordResetEmail } from "@/emails/password-reset";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
 const CURRENT_TERMS_VERSION = "v01";
 
@@ -184,13 +186,28 @@ export async function resetPassword(
   const rateLimited = checkRateLimit(ip, "resetPassword");
   if (rateLimited) return rateLimited;
 
-  const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.auth.resetPasswordForEmail(email);
+  const supabaseAdmin = createAdminSupabaseClient();
+  const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+    type: "recovery",
+    email,
+  });
 
-  if (error) {
-    logger.error({ error: error.message }, "Reset password failed");
+  if (error || !data.properties?.action_link) {
+    logger.error(
+      { error: error?.message },
+      "Reset password generateLink failed",
+    );
+    // Always redirect to avoid email enumeration
+    redirect("/verify-email");
   }
 
-  // Always redirect to avoid email enumeration
+  void sendEmail({
+    to: email,
+    subject: "Reimposta la tua password — ScontrinoZero",
+    react: createElement(PasswordResetEmail, {
+      resetLink: data.properties.action_link,
+    }),
+  }).catch((err) => logger.warn({ err }, "Password reset email failed"));
+
   redirect("/verify-email");
 }

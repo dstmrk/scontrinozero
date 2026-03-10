@@ -16,6 +16,7 @@ quella data nessun cliente paga, nessuno si aspetta stabilità di produzione.
 | **v0.7.0** | AdE fiscal data update       | ✅    |
 | **v0.8.0** | Email transazionali (Resend) | ✅    |
 | **v0.8.1** | Landing completeness         | ✅    |
+| **v0.8.2** | Email polish + DB fix        | ✅    |
 | **v0.9.0** | Stripe payments              | ⬜    |
 | **v0.9.1** | Stabilità + E2E checkpoint   | ⬜    |
 | **v1.0.0** | Lancio pubblico              | ⬜    |
@@ -60,7 +61,7 @@ Integrazione Resend con template React Email per le email minime obbligatorie al
 - ✅ Test per template email (`welcome.test.tsx` + `password-reset.test.tsx`, 6 unit)
 - ✅ Variabile d'ambiente: `RESEND_API_KEY`, `FROM_EMAIL`
 - ✅ Stili condivisi estratti in `src/emails/styles.ts` (fix SonarCloud duplication)
-- ⚙️ **Manuale (pendente DNS):** Supabase Dashboard → Auth → SMTP Settings: configurare Resend come SMTP provider (`smtp.resend.com:465`). Questo rimuove il limite di 2 email/ora del tier gratuito Supabase e invia tutte le email auth (conferma, reset password) tramite Resend con il dominio verificato.
+- ✅ **Configurazione SMTP Resend completata** (`smtp.resend.com:465`): Supabase Dashboard → Auth → SMTP Settings configurato con Resend come SMTP provider. Rimuove il limite di 2 email/ora del tier gratuito Supabase.
 
 **Escluso da questa versione:** email con PDF scontrino al cliente → v1.3.0
 
@@ -87,6 +88,22 @@ La landing deve essere pronta per convertire visitatori in clienti paganti.
 - ✅ Sitemap aggiornata: aggiunto permalink `/termini/v01`
 
 **Test aggiunti:** 13 unit (JSON-LD) → totale **572 unit + 8 E2E**
+
+---
+
+### v0.8.2 — Email polish + DB fix ✅
+
+Tre fix di qualità prima di implementare Stripe.
+
+**Task completati:**
+
+- ✅ Fix DB identifier overflow: FK constraint `commercial_document_lines_document_id_commercial_documents_id_fk` (64 chars, troncato da PostgreSQL) rinominato in `cd_lines_document_id_fk` — schema Drizzle (`foreignKey()` esplicita) + migration `0003_fix_fk_constraint_name.sql`
+- ✅ Guard test `tests/unit/db-schema-identifiers.test.ts`: verifica che tutti i nomi di tabelle, indici e FK nel schema Drizzle rispettino il limite di 63 caratteri di PostgreSQL (regressione prevention)
+- ✅ `resetPassword` usa ora `supabase.auth.admin.generateLink({ type: 'recovery' })` + invia il nostro template `PasswordResetEmail` via Resend (invece del template default Supabase)
+- ✅ `AccountDeletionEmail` template in `src/emails/account-deletion.tsx` — conferma eliminazione account, riferimento GDPR art. 17 (diritto alla cancellazione)
+- ✅ `deleteAccount` invia `AccountDeletionEmail` fire-and-forget dopo eliminazione riuscita
+
+**Test aggiunti:** 30 unit → totale **602 unit + 8 E2E**
 
 ---
 
@@ -265,27 +282,28 @@ Quando annulliamo uno scontrino, AdE genera un nuovo documento commerciale di an
 
 ## Storico sviluppo (fasi completate)
 
-| Fase                           | Stato | Test al completamento     | Note                                                                                     |
-| ------------------------------ | ----- | ------------------------- | ---------------------------------------------------------------------------------------- |
-| 0 — Fondamenta                 | ✅    | —                         | Next.js 16, shadcn/ui, CI/CD, Supabase, Drizzle                                          |
-| 1A — Security fix + TDD        | ✅    | 23 unit                   | `isValidEmail`, waitlist API, SonarCloud verde                                           |
-| 2 — Integrazione AdE           | ✅    | 92 unit (55 AdE dedicati) | MockAdeClient + RealAdeClient, 6-phase Fisconline                                        |
-| 1B — Landing page              | ✅    | 6 unit + 8 E2E            | Privacy ✅, ToS ✅, Sitemap ✅                                                           |
-| 3A — Fondamenta sicurezza      | ✅    | 148 unit + 8 E2E          | pino, rate limiting, AES-256-GCM (Sentry rimandato a v0.9.1)                            |
-| 3B — Auth + onboarding         | ✅    | 191 unit + 8 E2E          | Supabase Auth, wizard 3-step, credenziali cifrate                                        |
-| 4A — Schema DB scontrini       | ✅    | 214 unit + 8 E2E          | `commercial_documents` + `commercial_document_lines`                                     |
-| 4B — UI cassa mobile-first     | ✅    | 305 unit + 8 E2E          | Tastierino, IVA, metodo pagamento, riepilogo                                             |
-| 4C — Server actions + UI       | ✅    | 319 unit + 8 E2E          | `emitReceipt`, TanStack Query, optimistic updates                                        |
-| 4D — Storico + storno + PDF    | ✅    | 422 unit + 8 E2E          | PDF pdfkit 58mm, share link pubblico, HTML receipt                                       |
-| 4F — UI polish + registrazione | ✅    | 370→422 unit + 8 E2E      | `isStrongPassword`, paginazione storico, UX fixes                                        |
-| 4G — Catalogo + nav mobile     | ✅    | 464 unit + 8 E2E          | `catalog_items`, CRUD, bottom-nav, tap→cassa                                             |
-| 4H — Onboarding refactor       | ✅    | 469 unit + 8 E2E          | firstName/lastName, P.IVA da AdE, CAP, migration                                         |
-| 4J — SPID login                | ✅    | 502 unit + 8 E2E          | SAML2 HTTP POST, push 2FA polling, MockAdeClient.loginSpid()                             |
-| 4K — Security hardening        | ✅    | ~511 unit + 8 E2E         | CORS, RLS, npm audit CI, rate limiting, audit log, account deletion                      |
-| 4L — Terms acceptance tracking | ✅    | ~512 unit + 8 E2E         | `terms_accepted_at` + `terms_version` su `profiles`; `/termini/v01` permalink + redirect |
-| v0.7.0 — AdE fiscal data       | ✅    | ~521 unit + 8 E2E         | `buildCedenteFromBusiness()`, rimosso `getFiscalData()`, `modificati: true` nel payload  |
-| v0.8.0 — Email (Resend)        | ✅    | 558 unit + 8 E2E          | `sendEmail()`, WelcomeEmail, PasswordResetEmail, stili condivisi, hook post-signUp       |
-| v0.8.1 — Landing completeness  | ✅    | 572 unit + 8 E2E          | Prezzi reali, rimozione beta, JSON-LD, sitemap `/termini/v01`, date marzo 2026           |
+| Fase                           | Stato | Test al completamento     | Note                                                                                                           |
+| ------------------------------ | ----- | ------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 0 — Fondamenta                 | ✅    | —                         | Next.js 16, shadcn/ui, CI/CD, Supabase, Drizzle                                                                |
+| 1A — Security fix + TDD        | ✅    | 23 unit                   | `isValidEmail`, waitlist API, SonarCloud verde                                                                 |
+| 2 — Integrazione AdE           | ✅    | 92 unit (55 AdE dedicati) | MockAdeClient + RealAdeClient, 6-phase Fisconline                                                              |
+| 1B — Landing page              | ✅    | 6 unit + 8 E2E            | Privacy ✅, ToS ✅, Sitemap ✅                                                                                 |
+| 3A — Fondamenta sicurezza      | ✅    | 148 unit + 8 E2E          | pino, rate limiting, AES-256-GCM (Sentry rimandato a v0.9.1)                                                   |
+| 3B — Auth + onboarding         | ✅    | 191 unit + 8 E2E          | Supabase Auth, wizard 3-step, credenziali cifrate                                                              |
+| 4A — Schema DB scontrini       | ✅    | 214 unit + 8 E2E          | `commercial_documents` + `commercial_document_lines`                                                           |
+| 4B — UI cassa mobile-first     | ✅    | 305 unit + 8 E2E          | Tastierino, IVA, metodo pagamento, riepilogo                                                                   |
+| 4C — Server actions + UI       | ✅    | 319 unit + 8 E2E          | `emitReceipt`, TanStack Query, optimistic updates                                                              |
+| 4D — Storico + storno + PDF    | ✅    | 422 unit + 8 E2E          | PDF pdfkit 58mm, share link pubblico, HTML receipt                                                             |
+| 4F — UI polish + registrazione | ✅    | 370→422 unit + 8 E2E      | `isStrongPassword`, paginazione storico, UX fixes                                                              |
+| 4G — Catalogo + nav mobile     | ✅    | 464 unit + 8 E2E          | `catalog_items`, CRUD, bottom-nav, tap→cassa                                                                   |
+| 4H — Onboarding refactor       | ✅    | 469 unit + 8 E2E          | firstName/lastName, P.IVA da AdE, CAP, migration                                                               |
+| 4J — SPID login                | ✅    | 502 unit + 8 E2E          | SAML2 HTTP POST, push 2FA polling, MockAdeClient.loginSpid()                                                   |
+| 4K — Security hardening        | ✅    | ~511 unit + 8 E2E         | CORS, RLS, npm audit CI, rate limiting, audit log, account deletion                                            |
+| 4L — Terms acceptance tracking | ✅    | ~512 unit + 8 E2E         | `terms_accepted_at` + `terms_version` su `profiles`; `/termini/v01` permalink + redirect                       |
+| v0.7.0 — AdE fiscal data       | ✅    | ~521 unit + 8 E2E         | `buildCedenteFromBusiness()`, rimosso `getFiscalData()`, `modificati: true` nel payload                        |
+| v0.8.0 — Email (Resend)        | ✅    | 558 unit + 8 E2E          | `sendEmail()`, WelcomeEmail, PasswordResetEmail, stili condivisi, hook post-signUp                             |
+| v0.8.1 — Landing completeness  | ✅    | 572 unit + 8 E2E          | Prezzi reali, rimozione beta, JSON-LD, sitemap `/termini/v01`, date marzo 2026                                 |
+| v0.8.2 — Email polish + DB fix | ✅    | 602 unit + 8 E2E          | FK constraint rename, guard test identifier lengths, PasswordResetEmail via generateLink, AccountDeletionEmail |
 
 ---
 
@@ -299,7 +317,8 @@ Quando annulliamo uno scontrino, AdE genera un nuovo documento commerciale di an
 | **v0.7.0** | ~9                   | ~521        | 8          |
 | **v0.8.0** | 37                   | **558**     | 8          |
 | **v0.8.1** | 13                   | **572**     | 8          |
-| **v0.9.0** | ~25                  | ~595        | 8          |
+| **v0.8.2** | 30                   | **602**     | 8          |
+| **v0.9.0** | ~25                  | ~625        | 8          |
 | **v0.9.1** | ~0 unit / ~10 E2E    | ~590        | ~18        |
 | **v1.0.0** | 0 (solo tag)         | ~590        | ~18        |
 

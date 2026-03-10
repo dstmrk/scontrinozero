@@ -16,7 +16,6 @@ const mockSignUp = vi.fn();
 const mockSignInWithPassword = vi.fn();
 const mockSignInWithOtp = vi.fn();
 const mockSignOut = vi.fn();
-const mockResetPasswordForEmail = vi.fn();
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabaseClient: vi.fn().mockResolvedValue({
     auth: {
@@ -24,7 +23,15 @@ vi.mock("@/lib/supabase/server", () => ({
       signInWithPassword: mockSignInWithPassword,
       signInWithOtp: mockSignInWithOtp,
       signOut: mockSignOut,
-      resetPasswordForEmail: mockResetPasswordForEmail,
+    },
+  }),
+}));
+
+const mockGenerateLink = vi.fn();
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminSupabaseClient: vi.fn().mockReturnValue({
+    auth: {
+      admin: { generateLink: mockGenerateLink },
     },
   }),
 }));
@@ -76,6 +83,10 @@ vi.mock("@/emails/welcome", () => ({
   WelcomeEmail: vi.fn().mockReturnValue(null),
 }));
 
+vi.mock("@/emails/password-reset", () => ({
+  PasswordResetEmail: vi.fn().mockReturnValue(null),
+}));
+
 // --- Helpers ---
 
 function formData(entries: Record<string, string>): FormData {
@@ -101,6 +112,14 @@ describe("auth-actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRateLimiterCheck.mockReturnValue({ success: true, remaining: 4 });
+    mockGenerateLink.mockResolvedValue({
+      data: {
+        properties: {
+          action_link: "https://supabase.co/auth/recovery?token=abc",
+        },
+      },
+      error: null,
+    });
   });
 
   describe("signUp", () => {
@@ -506,8 +525,6 @@ describe("auth-actions", () => {
 
   describe("resetPassword", () => {
     it("always redirects to verify-email (no email enumeration)", async () => {
-      mockResetPasswordForEmail.mockResolvedValue({ error: null });
-
       const { resetPassword } = await import("./auth-actions");
 
       try {
@@ -527,9 +544,43 @@ describe("auth-actions", () => {
       expect(result).toEqual({ error: "Email non valida." });
     });
 
-    it("still redirects when resetPasswordForEmail returns an error", async () => {
-      mockResetPasswordForEmail.mockResolvedValue({
-        error: { message: "Email not found" },
+    it("calls generateLink with type recovery and the email", async () => {
+      const { resetPassword } = await import("./auth-actions");
+
+      try {
+        await resetPassword(formData({ email: "test@example.com" }));
+      } catch {
+        // redirect expected
+      }
+
+      expect(mockGenerateLink).toHaveBeenCalledWith({
+        type: "recovery",
+        email: "test@example.com",
+      });
+    });
+
+    it("sends PasswordResetEmail with the action_link on success", async () => {
+      const { resetPassword } = await import("./auth-actions");
+
+      try {
+        await resetPassword(formData({ email: "test@example.com" }));
+      } catch {
+        // redirect expected
+      }
+
+      await Promise.resolve();
+      expect(mockSendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: "test@example.com",
+          subject: expect.stringContaining("password"),
+        }),
+      );
+    });
+
+    it("still redirects when generateLink returns an error (no email sent)", async () => {
+      mockGenerateLink.mockResolvedValue({
+        data: { properties: {} },
+        error: { message: "User not found" },
       });
 
       const { resetPassword } = await import("./auth-actions");
@@ -543,6 +594,47 @@ describe("auth-actions", () => {
           expect(err.url).toBe("/verify-email");
         }
       }
+
+      await Promise.resolve();
+      expect(mockSendEmail).not.toHaveBeenCalled();
+    });
+
+    it("still redirects when action_link is missing (no email sent)", async () => {
+      mockGenerateLink.mockResolvedValue({
+        data: { properties: {} },
+        error: null,
+      });
+
+      const { resetPassword } = await import("./auth-actions");
+
+      try {
+        await resetPassword(formData({ email: "test@example.com" }));
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+        if (isRedirectError(err)) {
+          expect(err.url).toBe("/verify-email");
+        }
+      }
+
+      await Promise.resolve();
+      expect(mockSendEmail).not.toHaveBeenCalled();
+    });
+
+    it("does not block redirect when sendEmail fails", async () => {
+      mockSendEmail.mockRejectedValueOnce(new Error("Resend down"));
+
+      const { resetPassword } = await import("./auth-actions");
+
+      let redirectUrl: string | undefined;
+      try {
+        await resetPassword(formData({ email: "test@example.com" }));
+        expect.fail("Expected redirect");
+      } catch (err) {
+        if (isRedirectError(err)) redirectUrl = err.url;
+      }
+
+      expect(redirectUrl).toBe("/verify-email");
     });
   });
 
