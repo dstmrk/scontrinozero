@@ -5,7 +5,7 @@ on:
     tags:
       - "v*.*.*"
 
-# Only one deploy at a time
+# Only one build at a time
 concurrency:
   group: deploy
   cancel-in-progress: false
@@ -20,9 +20,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-
-    outputs:
-      image_version: ${{ steps.meta.outputs.version }}
 
     steps:
       - uses: actions/checkout@v6
@@ -55,28 +52,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    environment: production
-    permissions:
-      packages: read
-
-    steps:
-      - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APP_VERSION: ${{ needs.build-and-push.outputs.image_version }}
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          envs: GHCR_TOKEN,APP_VERSION
-          script: |
-            cd /opt/scontrinozero
-            echo "$GHCR_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            APP_VERSION=$APP_VERSION docker compose -f docker-compose.deploy.yml pull app
-            APP_VERSION=$APP_VERSION docker compose -f docker-compose.deploy.yml up -d
-            docker image prune -f

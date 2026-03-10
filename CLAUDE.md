@@ -263,13 +263,15 @@ Fasi:
   2. Test con coverage (Vitest → lcov)
   3. SonarQube Cloud scan (analisi statica + coverage)
   4. Build
-- **Pipeline Deploy** (su push di tag):
-  - Tag `v*.*.*-test` → build Docker → deploy su ambiente **test**
-  - Tag `v*.*.*` (senza suffisso) → build Docker → deploy su **produzione**
-  - Immagini Docker su GitHub Container Registry (ghcr.io)
-  - Build multi-arch (`linux/amd64` + `linux/arm64`) per flessibilità
-  - Deploy via SSH sulla VPS con `docker compose pull && up -d`
-  - Ambiente `production` in GitHub può richiedere approvazione manuale
+- **Pipeline Deploy** (su push di tag `v*.*.*`):
+  - Build Docker → push immagine su GitHub Container Registry (ghcr.io)
+  - Il deploy sulla VPS è **manuale**: via browser SSH Cloudflare Access:
+    ```bash
+    cd /opt/scontrinozero
+    docker compose pull && docker compose up -d
+    ```
+  - La VPS è accessibile solo via Cloudflare Access SSH (no porta 22 pubblica),
+    quindi il deploy automatizzato via SSH non è configurato
 
 ### Testing
 
@@ -316,10 +318,11 @@ L'integrazione AdE usa un **pattern adapter/strategy**:
 ```
 sviluppo su branch → PR → merge su main → CI (test + lint + sonar)
                                               ↓
-                              git tag v1.0.0-test → deploy TEST
-                              (verifico su test.scontrinozero.it)
+                              git tag v1.0.0 → GitHub Actions: build + push su GHCR
                                               ↓
-                              git tag v1.0.0 → deploy PRODUZIONE
+                              VPS (browser SSH Cloudflare Access):
+                              cd /opt/scontrinozero
+                              docker compose pull && docker compose up -d
 ```
 
 ## Linee guida test e qualità
