@@ -25,9 +25,13 @@ export function WelcomeEmail({ email }: WelcomeEmailProps) {
       </Preview>
       <Body style={emailStyles.body}>
         <Container style={emailStyles.container}>
-          <Heading style={emailStyles.heading}>ScontrinoZero</Heading>
-          <Hr style={emailStyles.hr} />
-          <Section>
+          <Section style={emailStyles.header}>
+            <Text style={emailStyles.headerTitle}>ScontrinoZero</Text>
+            <Text style={emailStyles.headerSubtitle}>
+              Registratore di cassa virtuale
+            </Text>
+          </Section>
+          <Section style={emailStyles.content}>
             <Heading as="h2" style={emailStyles.subheading}>
               Benvenuto!
             </Heading>
