@@ -42,7 +42,7 @@ describe("DB schema identifier lengths (PostgreSQL max 63 chars)", () => {
     for (const table of allTables) {
       const config = getTableConfig(table);
       for (const idx of config.indexes) {
-        const name = idx.config.name;
+        const name = idx.config.name ?? "";
         expect(
           name.length,
           `Index name "${name}" exceeds 63 chars (${name.length})`,
