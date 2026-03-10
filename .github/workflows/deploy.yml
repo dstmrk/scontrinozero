@@ -79,3 +79,4 @@ jobs:
             echo "$GHCR_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             APP_VERSION=$APP_VERSION docker compose -f docker-compose.deploy.yml pull app
             APP_VERSION=$APP_VERSION docker compose -f docker-compose.deploy.yml up -d
+            docker image prune -f
