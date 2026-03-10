@@ -12,6 +12,13 @@
 
 5. Every time I correct you, reflect on what you did wrong and come up with a plan to never make the same mistake again.
 
+6. Every new file with logic **must** have a corresponding test file. After writing any implementation, always write tests covering the edge cases before committing. No exceptions — even for infrastructure/bootstrap files (e.g. `instrumentation.ts`).
+
+7. **SonarCloud quality gates (must not regress):**
+   - Coverage on new code: **≥ 80%**
+   - Duplicated lines on new code: **< 3%**
+   - If a file has no testable logic (pure config, UI shell), add it to `sonar.coverage.exclusions` in `sonar-project.properties` AND to the `exclude` list in `vitest.config.ts` — never leave it untested without explicitly excluding it.
+
 ## Progetto
 
 ScontrinoZero è un registratore di cassa virtuale (SaaS) mobile-first che consente a
