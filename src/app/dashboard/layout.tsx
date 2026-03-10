@@ -59,6 +59,12 @@ export default async function DashboardLayout({
             >
               Impostazioni
             </Link>
+            <Link
+              href="/dashboard/abbonamento"
+              className="text-muted-foreground hover:text-foreground text-sm"
+            >
+              Abbonamento
+            </Link>
 
             <form action={signOut}>
               <Button variant="ghost" size="sm" type="submit">

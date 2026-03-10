@@ -14,6 +14,7 @@ import {
   commercialDocumentLines,
   commercialDocuments,
   profiles,
+  subscriptions,
 } from "@/db/schema";
 
 const MAX_PG_IDENTIFIER = 63;
@@ -25,6 +26,7 @@ const allTables = [
   commercialDocuments,
   commercialDocumentLines,
   catalogItems,
+  subscriptions,
 ];
 
 describe("DB schema identifier lengths (PostgreSQL max 63 chars)", () => {

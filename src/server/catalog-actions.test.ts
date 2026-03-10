@@ -46,6 +46,14 @@ vi.mock("@/lib/logger", () => ({
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
 }));
 
+const mockGetPlan = vi.fn();
+const mockCanAddCatalogItem = vi.fn();
+vi.mock("@/lib/plans", () => ({
+  getPlan: (...args: unknown[]) => mockGetPlan(...args),
+  canAddCatalogItem: (...args: unknown[]) => mockCanAddCatalogItem(...args),
+  STARTER_CATALOG_LIMIT: 5,
+}));
+
 // --- Fixtures ---
 
 const FAKE_USER = { id: "user-123" };
@@ -83,6 +91,13 @@ describe("catalog-actions", () => {
     mockInsertValues.mockResolvedValue(undefined);
     mockDeleteWhere.mockResolvedValue(undefined);
     mockUpdateWhere.mockResolvedValue(undefined);
+
+    mockGetPlan.mockResolvedValue({
+      plan: "pro",
+      trialStartedAt: null,
+      planExpiresAt: null,
+    });
+    mockCanAddCatalogItem.mockReturnValue(true);
   });
 
   // ---------------------------------------------------------------------------
@@ -261,6 +276,62 @@ describe("catalog-actions", () => {
       expect(mockInsert).toHaveBeenCalledWith("catalog-items-table");
       const insertArg = mockInsertValues.mock.calls[0][0];
       expect(insertArg.defaultPrice).toBeNull();
+    });
+
+    it("ritorna errore quando il gate del piano blocca l'aggiunta", async () => {
+      mockCanAddCatalogItem.mockReturnValue(false);
+
+      const { addCatalogItem } = await import("./catalog-actions");
+      const result = await addCatalogItem(VALID_ADD_INPUT);
+
+      expect(result.error).toBeDefined();
+      expect(result.error).toMatch(/Starter/i);
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("consente l'aggiunta con piano pro (gate aperto)", async () => {
+      mockGetPlan.mockResolvedValue({
+        plan: "pro",
+        trialStartedAt: null,
+        planExpiresAt: null,
+      });
+      mockCanAddCatalogItem.mockReturnValue(true);
+
+      const { addCatalogItem } = await import("./catalog-actions");
+      const result = await addCatalogItem(VALID_ADD_INPUT);
+
+      expect(result.error).toBeUndefined();
+      expect(mockInsert).toHaveBeenCalledWith("catalog-items-table");
+    });
+
+    it("consente l'aggiunta con piano unlimited (gate aperto)", async () => {
+      mockGetPlan.mockResolvedValue({
+        plan: "unlimited",
+        trialStartedAt: null,
+        planExpiresAt: null,
+      });
+      mockCanAddCatalogItem.mockReturnValue(true);
+
+      const { addCatalogItem } = await import("./catalog-actions");
+      const result = await addCatalogItem(VALID_ADD_INPUT);
+
+      expect(result.error).toBeUndefined();
+      expect(mockInsert).toHaveBeenCalledWith("catalog-items-table");
+    });
+
+    it("ritorna errore con piano trial quando il limite è raggiunto", async () => {
+      mockGetPlan.mockResolvedValue({
+        plan: "trial",
+        trialStartedAt: new Date("2026-01-01"),
+        planExpiresAt: null,
+      });
+      mockCanAddCatalogItem.mockReturnValue(false);
+
+      const { addCatalogItem } = await import("./catalog-actions");
+      const result = await addCatalogItem(VALID_ADD_INPUT);
+
+      expect(result.error).toBeDefined();
+      expect(mockInsert).not.toHaveBeenCalled();
     });
   });
 
