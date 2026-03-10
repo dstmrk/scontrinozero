@@ -19,6 +19,14 @@ export const profiles = pgTable("profiles", {
     .$onUpdate(() => new Date()),
   termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
   termsVersion: text("terms_version"),
+  // Stripe / billing
+  plan: text("plan").notNull().default("trial"),
+  trialStartedAt: timestamp("trial_started_at", {
+    withTimezone: true,
+  }).defaultNow(),
+  planExpiresAt: timestamp("plan_expires_at", { withTimezone: true }),
+  // Anti-abuso trial: UNIQUE per P.IVA
+  partitaIva: text("partita_iva").unique(),
 });
 
 export type InsertProfile = typeof profiles.$inferInsert;
