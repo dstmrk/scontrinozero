@@ -1,5 +1,4 @@
 import { eq } from "drizzle-orm";
-import type { NodePostgresDatabase } from "drizzle-orm/node-postgres";
 import { getDb } from "@/db";
 import { subscriptions, profiles } from "@/db/schema";
 import { getStripe, planFromPriceId, intervalFromPriceId } from "@/lib/stripe";
@@ -47,8 +46,7 @@ export async function POST(req: Request): Promise<Response> {
 }
 
 async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = getDb() as NodePostgresDatabase<any>;
+  const db = getDb();
 
   switch (event.type) {
     case "checkout.session.completed": {
@@ -65,16 +63,14 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
 
     case "invoice.paid": {
       const invoice = event.data.object as Stripe.Invoice;
-      if (!invoice.subscription) break;
+      const subscriptionId = invoice.parent?.subscription_details?.subscription;
+      if (!subscriptionId) break;
 
       await db
         .update(subscriptions)
         .set({ currentPeriodEnd: new Date(invoice.period_end * 1000) })
         .where(
-          eq(
-            subscriptions.stripeSubscriptionId,
-            invoice.subscription as string,
-          ),
+          eq(subscriptions.stripeSubscriptionId, subscriptionId as string),
         );
       break;
     }
@@ -122,8 +118,7 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
  */
 
 async function upsertSubscriptionData(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  db: NodePostgresDatabase<any>,
+  db: ReturnType<typeof getDb>,
   stripeCustomerId: string,
   stripeSub: Stripe.Subscription,
 ): Promise<void> {
@@ -131,7 +126,9 @@ async function upsertSubscriptionData(
   const plan = planFromPriceId(priceId) ?? "starter";
   const interval = intervalFromPriceId(priceId) ?? "month";
   const status = stripeSub.status;
-  const currentPeriodEnd = new Date(stripeSub.current_period_end * 1000);
+  const currentPeriodEnd = new Date(
+    (stripeSub.items.data[0]?.current_period_end ?? 0) * 1000,
+  );
 
   // Update the subscription row
   await db

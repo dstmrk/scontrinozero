@@ -89,3 +89,83 @@ describe("isValidPriceId", () => {
     expect(isValidPriceId("")).toBe(false);
   });
 });
+
+describe("planFromPriceId", () => {
+  let planFromPriceId: (priceId: string) => "starter" | "pro" | null;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    process.env.STRIPE_PRICE_STARTER_MONTHLY = "price_starter_monthly";
+    process.env.STRIPE_PRICE_STARTER_YEARLY = "price_starter_yearly";
+    process.env.STRIPE_PRICE_PRO_MONTHLY = "price_pro_monthly";
+    process.env.STRIPE_PRICE_PRO_YEARLY = "price_pro_yearly";
+    ({ planFromPriceId } = await import("./stripe"));
+  });
+
+  afterEach(() => {
+    delete process.env.STRIPE_PRICE_STARTER_MONTHLY;
+    delete process.env.STRIPE_PRICE_STARTER_YEARLY;
+    delete process.env.STRIPE_PRICE_PRO_MONTHLY;
+    delete process.env.STRIPE_PRICE_PRO_YEARLY;
+  });
+
+  it("returns 'starter' for starter monthly", () => {
+    expect(planFromPriceId("price_starter_monthly")).toBe("starter");
+  });
+
+  it("returns 'starter' for starter yearly", () => {
+    expect(planFromPriceId("price_starter_yearly")).toBe("starter");
+  });
+
+  it("returns 'pro' for pro monthly", () => {
+    expect(planFromPriceId("price_pro_monthly")).toBe("pro");
+  });
+
+  it("returns 'pro' for pro yearly", () => {
+    expect(planFromPriceId("price_pro_yearly")).toBe("pro");
+  });
+
+  it("returns null for unknown price ID", () => {
+    expect(planFromPriceId("price_unknown")).toBeNull();
+  });
+});
+
+describe("intervalFromPriceId", () => {
+  let intervalFromPriceId: (priceId: string) => "month" | "year" | null;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    process.env.STRIPE_PRICE_STARTER_MONTHLY = "price_starter_monthly";
+    process.env.STRIPE_PRICE_STARTER_YEARLY = "price_starter_yearly";
+    process.env.STRIPE_PRICE_PRO_MONTHLY = "price_pro_monthly";
+    process.env.STRIPE_PRICE_PRO_YEARLY = "price_pro_yearly";
+    ({ intervalFromPriceId } = await import("./stripe"));
+  });
+
+  afterEach(() => {
+    delete process.env.STRIPE_PRICE_STARTER_MONTHLY;
+    delete process.env.STRIPE_PRICE_STARTER_YEARLY;
+    delete process.env.STRIPE_PRICE_PRO_MONTHLY;
+    delete process.env.STRIPE_PRICE_PRO_YEARLY;
+  });
+
+  it("returns 'month' for starter monthly", () => {
+    expect(intervalFromPriceId("price_starter_monthly")).toBe("month");
+  });
+
+  it("returns 'month' for pro monthly", () => {
+    expect(intervalFromPriceId("price_pro_monthly")).toBe("month");
+  });
+
+  it("returns 'year' for starter yearly", () => {
+    expect(intervalFromPriceId("price_starter_yearly")).toBe("year");
+  });
+
+  it("returns 'year' for pro yearly", () => {
+    expect(intervalFromPriceId("price_pro_yearly")).toBe("year");
+  });
+
+  it("returns null for unknown price ID", () => {
+    expect(intervalFromPriceId("price_unknown")).toBeNull();
+  });
+});

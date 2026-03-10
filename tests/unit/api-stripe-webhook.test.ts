@@ -74,8 +74,14 @@ function makeStripeSubscription(overrides: Record<string, unknown> = {}) {
     id: "sub_123",
     customer: "cus_123",
     status: "active",
-    current_period_end: 1800000000,
-    items: { data: [{ price: { id: "price_starter_monthly" } }] },
+    items: {
+      data: [
+        {
+          price: { id: "price_starter_monthly" },
+          current_period_end: 1800000000,
+        },
+      ],
+    },
     ...overrides,
   };
 }
@@ -158,7 +164,7 @@ describe("POST /api/stripe/webhook", () => {
 
   it("handles invoice.paid: updates currentPeriodEnd", async () => {
     const invoice = {
-      subscription: "sub_123",
+      parent: { subscription_details: { subscription: "sub_123" } },
       period_end: 1800000000,
     };
     mockConstructEvent.mockReturnValue(
@@ -205,6 +211,80 @@ describe("POST /api/stripe/webhook", () => {
     expect(mockUpdateSet).toHaveBeenCalledWith(
       expect.objectContaining({ plan: "trial" }),
     );
+  });
+
+  it("returns 500 when handleEvent throws an unexpected error", async () => {
+    mockConstructEvent.mockReturnValue(
+      makeStripeEvent(
+        "customer.subscription.updated",
+        makeStripeSubscription(),
+      ),
+    );
+    mockUpdateWhere.mockRejectedValue(new Error("DB connection lost"));
+
+    const response = await POST(makeWebhookRequest("{}"));
+
+    expect(response.status).toBe(500);
+    const body = await response.json();
+    expect(body.error).toBeDefined();
+  });
+
+  it("handles checkout.session.completed: breaks early when no subscription in session", async () => {
+    const session = { customer: "cus_123" }; // no subscription field
+    mockConstructEvent.mockReturnValue(
+      makeStripeEvent("checkout.session.completed", session),
+    );
+
+    const response = await POST(makeWebhookRequest("{}"));
+
+    expect(response.status).toBe(200);
+    expect(mockSubscriptionsRetrieve).not.toHaveBeenCalled();
+  });
+
+  it("handles invoice.paid: breaks early when invoice has no subscription", async () => {
+    const invoice = { period_end: 1800000000 }; // no parent.subscription_details
+    mockConstructEvent.mockReturnValue(
+      makeStripeEvent("invoice.paid", invoice),
+    );
+
+    const response = await POST(makeWebhookRequest("{}"));
+
+    expect(response.status).toBe(200);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("upsertSubscriptionData: skips profile update when no subscription row found", async () => {
+    mockSelectLimit.mockResolvedValue([]); // no subRow
+    const subscription = makeStripeSubscription({ status: "active" });
+    mockConstructEvent.mockReturnValue(
+      makeStripeEvent("customer.subscription.updated", subscription),
+    );
+
+    const response = await POST(makeWebhookRequest("{}"));
+
+    expect(response.status).toBe(200);
+    // update called once for subscriptions table, not a second time for profiles
+    const profileUpdateCall = mockUpdateSet.mock.calls.find((args) =>
+      Object.keys(args[0] as Record<string, unknown>).includes("plan"),
+    );
+    expect(profileUpdateCall).toBeUndefined();
+  });
+
+  it("handles customer.subscription.deleted: skips profile downgrade when subRow is null", async () => {
+    mockSelectLimit.mockResolvedValue([]); // no subRow
+    const subscription = makeStripeSubscription({ status: "canceled" });
+    mockConstructEvent.mockReturnValue(
+      makeStripeEvent("customer.subscription.deleted", subscription),
+    );
+
+    const response = await POST(makeWebhookRequest("{}"));
+
+    expect(response.status).toBe(200);
+    // status=canceled update should happen, but plan=trial profile update should not
+    const planDowngradeCall = mockUpdateSet.mock.calls.find(
+      (args) => (args[0] as Record<string, unknown>).plan === "trial",
+    );
+    expect(planDowngradeCall).toBeUndefined();
   });
 
   it("passes raw body string to constructEvent (not parsed JSON)", async () => {
