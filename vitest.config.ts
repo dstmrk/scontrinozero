@@ -28,6 +28,7 @@ export default defineConfig({
         "src/components/storico/void-receipt-dialog.tsx",
         "src/components/providers.tsx",
         "src/components/marketing/**", // marketing UI components — tested via E2E
+        "src/components/billing/checkout-button.tsx", // UI client component — pure fetch + redirect
       ],
     },
     reporters: ["default", "vitest-sonar-reporter"],
