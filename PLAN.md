@@ -1,6 +1,6 @@
 # ScontrinoZero — Piano di sviluppo
 
-## Versione corrente: v0.9.0 ⬜
+## Versione corrente: v0.9.1 ⬜
 
 Il piano usa **release semantiche** (vx.y.z). La v1.0.0 è il lancio pubblico: prima di
 quella data nessun cliente paga, nessuno si aspetta stabilità di produzione.
@@ -17,7 +17,7 @@ quella data nessun cliente paga, nessuno si aspetta stabilità di produzione.
 | **v0.8.0** | Email transazionali (Resend) | ✅    |
 | **v0.8.1** | Landing completeness         | ✅    |
 | **v0.8.2** | Email polish + DB fix        | ✅    |
-| **v0.9.0** | Stripe payments              | ⬜    |
+| **v0.9.0** | Stripe payments              | ✅    |
 | **v0.9.1** | Stabilità + E2E checkpoint   | ⬜    |
 | **v1.0.0** | Lancio pubblico              | ⬜    |
 
@@ -107,7 +107,7 @@ Tre fix di qualità prima di implementare Stripe.
 
 ---
 
-### v0.9.0 — Stripe payments ⬜
+### v0.9.0 — Stripe payments ✅
 
 Integrazione completa Stripe Billing per i due piani (Starter + Pro) + billing mensile e
 annuale + trial 30gg + feature gating.
@@ -124,37 +124,34 @@ annuale + trial 30gg + feature gating.
 **Trial:** 30 giorni senza carta di credito. Alla scadenza: scelta piano + CC per continuare,
 altrimenti sola lettura (storico visibile, emissione bloccata).
 **Anti-abuso:** P.IVA UNIQUE su `profiles` — impedisce trial multipli anche con email diverse.
-**Upgrade/downgrade:** gestito da Stripe con proration automatica (`proration_behavior: 'create_prorations'`).
+**Upgrade/downgrade:** gestito da Stripe con proration automatica.
 **Piano Unlimited:** `plan = 'unlimited'` su `profiles`, nessuna logica Stripe, gestito manualmente su DB.
 
-**Task (TDD — test prima):**
+**Task completati:**
 
-- ⬜ Aggiungere colonna `plan` su `profiles` (`'trial' | 'starter' | 'pro' | 'unlimited'`, default `'trial'`)
-  e `trial_started_at TIMESTAMPTZ`, `plan_expires_at TIMESTAMPTZ`
-- ⬜ Verificare che `partita_iva` su `profiles` abbia vincolo UNIQUE (già presente da 4H; confermare migration)
-- ⬜ Aggiungere tabella `subscriptions` al DB (`src/db/schema/subscriptions.ts`)
-  - `id`, `userId` (FK → auth.users), `stripeCustomerId`, `stripePriceId`,
-    `stripeSubscriptionId`, `status` (active/canceled/past_due/trialing), `currentPeriodEnd`,
-    `interval` ('month' | 'year')
-- ⬜ Migration Supabase + RLS policy
-- ⬜ Installare `stripe` SDK
-- ⬜ `src/lib/stripe.ts` — client Stripe + Price ID costanti (Starter mensile/annuale, Pro mensile/annuale)
-- ⬜ `src/lib/plans.ts` — helper `getPlan(userId)`, `canUsePro()`, `canUseStarter()`, `isTrialExpired()`
-  - `unlimited` bypassa tutti i gate come Pro
-- ⬜ API route `POST /api/stripe/checkout` — crea Stripe Checkout Session con trial già usato
-  (nessun trial Stripe: il trial è gestito internamente, Stripe parte da subscription attiva)
-- ⬜ API route `POST /api/stripe/webhook` — gestisce eventi:
-  - `checkout.session.completed` → attiva subscription, aggiorna `plan` + `plan_expires_at`
-  - `invoice.paid` → rinnova `currentPeriodEnd`
-  - `customer.subscription.updated` → gestisce upgrade/downgrade (proration automatica)
-  - `customer.subscription.deleted` → downgrade a sola lettura
-- ⬜ Feature gate catalogo: limit 5 prodotti in `addCatalogItem` server action per piano Starter/trial
-- ⬜ Email reminder trial: 7 giorni prima della scadenza (template `TrialExpiringEmail`)
-- ⬜ Pagina `/dashboard/abbonamento` — piano corrente + scadenza trial, scegli piano (CTA Stripe Checkout),
-  upgrade/downgrade, gestione fatture (Stripe Customer Portal)
-- ⬜ Variabili: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- ✅ Colonne `plan`, `trial_started_at`, `plan_expires_at`, `partita_iva` (UNIQUE) su `profiles`
+- ✅ Tabella `subscriptions` (`src/db/schema/subscriptions.ts`) con RLS policy
+- ✅ Migration `0004_stripe_subscription.sql`
+- ✅ `src/lib/stripe.ts` — `getStripe()`, `PRICE_IDS`, `isValidPriceId()`, `planFromPriceId()`, `intervalFromPriceId()`
+  (Stripe SDK v20.4.1, API version 2026-02-25.clover)
+- ✅ `src/lib/plans.ts` — `getPlan()`, `isTrialExpired()`, `canEmit()`, `canUsePro()`, `canAddCatalogItem()`
+- ✅ `POST /api/stripe/checkout` — crea Checkout Session; trial gestito internamente (no trial Stripe)
+- ✅ `POST /api/stripe/webhook` — gestisce 4 eventi Stripe:
+  `checkout.session.completed`, `invoice.paid`, `customer.subscription.updated`, `customer.subscription.deleted`
+- ✅ Feature gate catalogo: max 5 prodotti per trial/Starter in `addCatalogItem`
+- ✅ `TrialExpiringEmail` template (scheduler post-lancio)
+- ✅ `/dashboard/abbonamento` — badge piano corrente, card piani con CTA Stripe Checkout,
+  link Stripe Customer Portal per utenti abbonati
+- ✅ Aggiornato bottom-nav (5 voci) e desktop nav con "Abbonamento"
+- ✅ `.env.example` aggiornato con tutte le variabili Stripe
 
-**Test attesi:** ~25 unit + 1 E2E → totale ~**595 unit + 9 E2E**
+**Note tecniche:**
+
+- `Invoice.subscription` rimosso in Stripe API 2026-02-25.clover → `invoice.parent.subscription_details.subscription`
+- `Subscription.current_period_end` spostato a livello item → `items.data[0].current_period_end`
+- `STRIPE_WEBHOOK_SECRET` validato esplicitamente (guard → 500) invece di `!` assertion
+
+**Test aggiunti:** 99 unit → totale **701 unit + 8 E2E**
 
 ---
 
@@ -282,28 +279,29 @@ Quando annulliamo uno scontrino, AdE genera un nuovo documento commerciale di an
 
 ## Storico sviluppo (fasi completate)
 
-| Fase                           | Stato | Test al completamento     | Note                                                                                                           |
-| ------------------------------ | ----- | ------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| 0 — Fondamenta                 | ✅    | —                         | Next.js 16, shadcn/ui, CI/CD, Supabase, Drizzle                                                                |
-| 1A — Security fix + TDD        | ✅    | 23 unit                   | `isValidEmail`, waitlist API, SonarCloud verde                                                                 |
-| 2 — Integrazione AdE           | ✅    | 92 unit (55 AdE dedicati) | MockAdeClient + RealAdeClient, 6-phase Fisconline                                                              |
-| 1B — Landing page              | ✅    | 6 unit + 8 E2E            | Privacy ✅, ToS ✅, Sitemap ✅                                                                                 |
-| 3A — Fondamenta sicurezza      | ✅    | 148 unit + 8 E2E          | pino, rate limiting, AES-256-GCM (Sentry rimandato a v0.9.1)                                                   |
-| 3B — Auth + onboarding         | ✅    | 191 unit + 8 E2E          | Supabase Auth, wizard 3-step, credenziali cifrate                                                              |
-| 4A — Schema DB scontrini       | ✅    | 214 unit + 8 E2E          | `commercial_documents` + `commercial_document_lines`                                                           |
-| 4B — UI cassa mobile-first     | ✅    | 305 unit + 8 E2E          | Tastierino, IVA, metodo pagamento, riepilogo                                                                   |
-| 4C — Server actions + UI       | ✅    | 319 unit + 8 E2E          | `emitReceipt`, TanStack Query, optimistic updates                                                              |
-| 4D — Storico + storno + PDF    | ✅    | 422 unit + 8 E2E          | PDF pdfkit 58mm, share link pubblico, HTML receipt                                                             |
-| 4F — UI polish + registrazione | ✅    | 370→422 unit + 8 E2E      | `isStrongPassword`, paginazione storico, UX fixes                                                              |
-| 4G — Catalogo + nav mobile     | ✅    | 464 unit + 8 E2E          | `catalog_items`, CRUD, bottom-nav, tap→cassa                                                                   |
-| 4H — Onboarding refactor       | ✅    | 469 unit + 8 E2E          | firstName/lastName, P.IVA da AdE, CAP, migration                                                               |
-| 4J — SPID login                | ✅    | 502 unit + 8 E2E          | SAML2 HTTP POST, push 2FA polling, MockAdeClient.loginSpid()                                                   |
-| 4K — Security hardening        | ✅    | ~511 unit + 8 E2E         | CORS, RLS, npm audit CI, rate limiting, audit log, account deletion                                            |
-| 4L — Terms acceptance tracking | ✅    | ~512 unit + 8 E2E         | `terms_accepted_at` + `terms_version` su `profiles`; `/termini/v01` permalink + redirect                       |
-| v0.7.0 — AdE fiscal data       | ✅    | ~521 unit + 8 E2E         | `buildCedenteFromBusiness()`, rimosso `getFiscalData()`, `modificati: true` nel payload                        |
-| v0.8.0 — Email (Resend)        | ✅    | 558 unit + 8 E2E          | `sendEmail()`, WelcomeEmail, PasswordResetEmail, stili condivisi, hook post-signUp                             |
-| v0.8.1 — Landing completeness  | ✅    | 572 unit + 8 E2E          | Prezzi reali, rimozione beta, JSON-LD, sitemap `/termini/v01`, date marzo 2026                                 |
-| v0.8.2 — Email polish + DB fix | ✅    | 602 unit + 8 E2E          | FK constraint rename, guard test identifier lengths, PasswordResetEmail via generateLink, AccountDeletionEmail |
+| Fase                           | Stato | Test al completamento     | Note                                                                                                                               |
+| ------------------------------ | ----- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 0 — Fondamenta                 | ✅    | —                         | Next.js 16, shadcn/ui, CI/CD, Supabase, Drizzle                                                                                    |
+| 1A — Security fix + TDD        | ✅    | 23 unit                   | `isValidEmail`, waitlist API, SonarCloud verde                                                                                     |
+| 2 — Integrazione AdE           | ✅    | 92 unit (55 AdE dedicati) | MockAdeClient + RealAdeClient, 6-phase Fisconline                                                                                  |
+| 1B — Landing page              | ✅    | 6 unit + 8 E2E            | Privacy ✅, ToS ✅, Sitemap ✅                                                                                                     |
+| 3A — Fondamenta sicurezza      | ✅    | 148 unit + 8 E2E          | pino, rate limiting, AES-256-GCM (Sentry rimandato a v0.9.1)                                                                       |
+| 3B — Auth + onboarding         | ✅    | 191 unit + 8 E2E          | Supabase Auth, wizard 3-step, credenziali cifrate                                                                                  |
+| 4A — Schema DB scontrini       | ✅    | 214 unit + 8 E2E          | `commercial_documents` + `commercial_document_lines`                                                                               |
+| 4B — UI cassa mobile-first     | ✅    | 305 unit + 8 E2E          | Tastierino, IVA, metodo pagamento, riepilogo                                                                                       |
+| 4C — Server actions + UI       | ✅    | 319 unit + 8 E2E          | `emitReceipt`, TanStack Query, optimistic updates                                                                                  |
+| 4D — Storico + storno + PDF    | ✅    | 422 unit + 8 E2E          | PDF pdfkit 58mm, share link pubblico, HTML receipt                                                                                 |
+| 4F — UI polish + registrazione | ✅    | 370→422 unit + 8 E2E      | `isStrongPassword`, paginazione storico, UX fixes                                                                                  |
+| 4G — Catalogo + nav mobile     | ✅    | 464 unit + 8 E2E          | `catalog_items`, CRUD, bottom-nav, tap→cassa                                                                                       |
+| 4H — Onboarding refactor       | ✅    | 469 unit + 8 E2E          | firstName/lastName, P.IVA da AdE, CAP, migration                                                                                   |
+| 4J — SPID login                | ✅    | 502 unit + 8 E2E          | SAML2 HTTP POST, push 2FA polling, MockAdeClient.loginSpid()                                                                       |
+| 4K — Security hardening        | ✅    | ~511 unit + 8 E2E         | CORS, RLS, npm audit CI, rate limiting, audit log, account deletion                                                                |
+| 4L — Terms acceptance tracking | ✅    | ~512 unit + 8 E2E         | `terms_accepted_at` + `terms_version` su `profiles`; `/termini/v01` permalink + redirect                                           |
+| v0.7.0 — AdE fiscal data       | ✅    | ~521 unit + 8 E2E         | `buildCedenteFromBusiness()`, rimosso `getFiscalData()`, `modificati: true` nel payload                                            |
+| v0.8.0 — Email (Resend)        | ✅    | 558 unit + 8 E2E          | `sendEmail()`, WelcomeEmail, PasswordResetEmail, stili condivisi, hook post-signUp                                                 |
+| v0.8.1 — Landing completeness  | ✅    | 572 unit + 8 E2E          | Prezzi reali, rimozione beta, JSON-LD, sitemap `/termini/v01`, date marzo 2026                                                     |
+| v0.8.2 — Email polish + DB fix | ✅    | 602 unit + 8 E2E          | FK constraint rename, guard test identifier lengths, PasswordResetEmail via generateLink, AccountDeletionEmail                     |
+| v0.9.0 — Stripe payments       | ✅    | 701 unit + 8 E2E          | DB schema billing, stripe.ts + plans.ts, checkout + webhook API, feature gate catalogo, TrialExpiringEmail, /dashboard/abbonamento |
 
 ---
 
@@ -318,9 +316,9 @@ Quando annulliamo uno scontrino, AdE genera un nuovo documento commerciale di an
 | **v0.8.0** | 37                   | **558**     | 8          |
 | **v0.8.1** | 13                   | **572**     | 8          |
 | **v0.8.2** | 30                   | **602**     | 8          |
-| **v0.9.0** | ~25                  | ~625        | 8          |
-| **v0.9.1** | ~0 unit / ~10 E2E    | ~590        | ~18        |
-| **v1.0.0** | 0 (solo tag)         | ~590        | ~18        |
+| **v0.9.0** | 99                   | **701**     | 8          |
+| **v0.9.1** | ~5 unit / ~10 E2E    | ~706        | ~18        |
+| **v1.0.0** | 0 (solo tag)         | ~706        | ~18        |
 
 ---
 
