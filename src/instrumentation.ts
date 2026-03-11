@@ -26,6 +26,3 @@ export async function register() {
     await import("../sentry.edge.config");
   }
 }
-
-// Cattura automaticamente gli errori delle route handlers (Next.js 15+)
-export { onRequestError } from "@sentry/nextjs";
