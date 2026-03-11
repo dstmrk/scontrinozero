@@ -489,6 +489,15 @@ Stesso progetto Next.js, non un sito separato:
      `src/app/(auth)/register/page.tsx` — i numeri di paragrafo devono rispecchiare
      la struttura della nuova versione (§ limitazione responsabilità, § no rimborso,
      § sospensione unilaterale, § foro esclusivo)
+- **Privacy Policy — versioning URL** (nessun tracking in DB, ma stessa struttura permalink).
+  Il testo di ogni versione vive su `/privacy/vXX` (permalink permanente);
+  `/privacy` fa sempre redirect all'ultima versione. Quando si aggiorna la Privacy Policy:
+  1. Creare `src/app/(marketing)/privacy/vXX/page.tsx` con il nuovo testo
+  2. Aggiornare il redirect in `src/app/(marketing)/privacy/page.tsx` → `/privacy/vXX`
+  3. Aggiungere `/privacy/vXX` in `src/app/sitemap.ts` e aggiornare `sitemap.test.ts`
+  4. Aggiungere `src/app/(marketing)/privacy/vXX/page.tsx` alle `sonar.coverage.exclusions`
+     in `sonar-project.properties`
+  5. Notificare gli utenti via email/in-app almeno 15 giorni prima dell'entrata in vigore
 
 ## Decisioni architetturali
 
