@@ -14,7 +14,7 @@ import { PricingSection } from "@/components/marketing/pricing-section";
 import {
   Smartphone,
   ReceiptEuro,
-  Clock,
+  Undo2,
   BarChart3,
   Shield,
   CalendarRange,
@@ -105,7 +105,7 @@ export default function Home() {
                 step: "3",
                 title: "Tutto il resto è automatico",
                 description:
-                  "La trasmissione all'Agenzia delle Entrate e la chiusura giornaliera avvengono da sole.",
+                  "La trasmissione all'Agenzia delle Entrate è automatica ad ogni scontrino.",
               },
             ].map((item) => (
               <div key={item.step} className="text-center">
@@ -138,10 +138,10 @@ export default function Home() {
                   "Inserisci l'importo, conferma, fatto. La trasmissione all'Agenzia delle Entrate avviene in automatico.",
               },
               {
-                icon: Clock,
-                title: "Fine giornata senza pensieri",
+                icon: Undo2,
+                title: "Scontrino sbagliato? Annullalo.",
                 description:
-                  "La chiusura dei corrispettivi è automatica. Una cosa in meno a cui pensare a fine giornata.",
+                  "Hai inserito un importo errato? Annulla lo scontrino direttamente dall'app. L'AdE viene aggiornata in automatico.",
               },
               {
                 icon: BarChart3,

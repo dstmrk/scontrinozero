@@ -320,7 +320,7 @@ Fasi:
 
 L'integrazione AdE usa un **pattern adapter/strategy**:
 
-- Interfaccia `AdeClient` con metodi: `submitReceipt()`, `closeDay()`, etc.
+- Interfaccia `AdeClient` con metodi: `submitSale()`, `submitVoid()`, etc.
 - `RealAdeClient` — invia davvero all'AdE (produzione)
 - `MockAdeClient` — esegue **tutta la logica** (validazione, formattazione,
   preparazione payload) ma si ferma prima dell'invio HTTP all'AdE, restituendo

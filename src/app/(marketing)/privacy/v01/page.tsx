@@ -254,7 +254,7 @@ export default function PrivacyV01Page() {
               <li>
                 Sono utilizzate esclusivamente per le operazioni telematiche
                 esplicitamente richieste dall&apos;utente (emissione documento,
-                annullo, chiusura giornaliera).
+                annullo).
               </li>
               <li>
                 L&apos;accesso è limitato ai soli processi tecnici strettamente
