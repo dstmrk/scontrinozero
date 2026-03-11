@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Plus, ShoppingCart } from "lucide-react";
 import { useCassa } from "@/hooks/use-cassa";
 import { VAT_CODES, VatCode } from "@/types/cassa";
@@ -282,6 +283,17 @@ export function CassaClient({
             className="text-destructive rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm"
           >
             {mutationError}
+            {mutationError.includes("Credenziali AdE non verificate") && (
+              <>
+                {" "}
+                <Link
+                  href="/dashboard/settings"
+                  className="font-medium underline"
+                >
+                  Verificale ora
+                </Link>
+              </>
+            )}
           </p>
         )}
         <ReceiptSummary
