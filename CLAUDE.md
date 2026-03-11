@@ -485,6 +485,10 @@ Stesso progetto Next.js, non un sito separato:
   1. Creare `src/app/(marketing)/termini/vXX/page.tsx` con il nuovo testo
   2. Aggiornare il redirect in `src/app/(marketing)/termini/page.tsx` → `/termini/vXX`
   3. Aggiornare `CURRENT_TERMS_VERSION = "vXX"` in `src/server/auth-actions.ts`
+  4. Aggiornare il testo del **secondo flag** (clausole vessatorie art. 1341 c.c.) in
+     `src/app/(auth)/register/page.tsx` — i numeri di paragrafo devono rispecchiare
+     la struttura della nuova versione (§ limitazione responsabilità, § no rimborso,
+     § sospensione unilaterale, § foro esclusivo)
 
 ## Decisioni architetturali
 

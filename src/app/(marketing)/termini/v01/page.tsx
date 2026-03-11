@@ -106,7 +106,7 @@ export default function TerminiV01Page() {
               >
                 info@scontrinozero.it
               </a>
-              .
+              {"."}
             </p>
           </section>
 
@@ -136,7 +136,7 @@ export default function TerminiV01Page() {
                 solo titolare e responsabile dell&apos;utilizzo delle proprie
                 credenziali AdE
               </strong>
-              . ScontrinoZero agisce come mero esecutore tecnico delle
+              {". "}ScontrinoZero agisce come mero esecutore tecnico delle
               istruzioni impartite dall&apos;utente. Qualsiasi trasmissione
               effettuata tramite le credenziali dell&apos;utente è da
               considerarsi compiuta dall&apos;utente stesso.
@@ -265,7 +265,7 @@ export default function TerminiV01Page() {
                 dall&apos;utente nei 12 mesi precedenti l&apos;evento che ha
                 generato il danno
               </strong>
-              .
+              {"."}
             </p>
             <p className="text-muted-foreground mt-2">
               Resta esclusivamente in capo all&apos;utente la responsabilità di
@@ -431,7 +431,7 @@ export default function TerminiV01Page() {
               >
                 ec.europa.eu/consumers/odr
               </a>
-              .
+              {"."}
             </p>
           </section>
 
@@ -445,7 +445,7 @@ export default function TerminiV01Page() {
               >
                 info@scontrinozero.it
               </a>
-              .
+              {"."}
             </p>
           </section>
         </div>
