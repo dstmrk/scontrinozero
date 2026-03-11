@@ -1,7 +1,20 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
 const ITEM_KEYS = ["a", "b", "c"] as const;
-const KEYPAD_KEYS = ["k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8", "k9", "k10", "k11", "k12"] as const;
+const KEYPAD_KEYS = [
+  "k1",
+  "k2",
+  "k3",
+  "k4",
+  "k5",
+  "k6",
+  "k7",
+  "k8",
+  "k9",
+  "k10",
+  "k11",
+  "k12",
+] as const;
 
 export default function CassaLoading() {
   return (

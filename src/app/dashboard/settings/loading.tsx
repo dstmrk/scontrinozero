@@ -6,7 +6,7 @@ function SkeletonCard({ rows = 2 }: Readonly<{ rows?: number }>) {
   const rowKeys = ALL_ROW_KEYS.slice(0, rows);
   return (
     <div className="rounded-xl border">
-      <div className="px-4 pb-2 pt-4">
+      <div className="px-4 pt-4 pb-2">
         <Skeleton className="h-5 w-28" />
       </div>
       <div className="space-y-2 px-4 pb-4">
