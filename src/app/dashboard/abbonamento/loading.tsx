@@ -1,5 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
+const PLAN_KEYS = ["starter", "pro"] as const;
+
 export default function AbbonamentoLoading() {
   return (
     <div className="mx-auto max-w-2xl space-y-8">
@@ -7,7 +9,7 @@ export default function AbbonamentoLoading() {
       <Skeleton className="h-8 w-36" />
 
       {/* Piano corrente */}
-      <div className="rounded-lg border p-6 space-y-3">
+      <div className="space-y-3 rounded-lg border p-6">
         <Skeleton className="h-5 w-32" />
         <div className="flex items-center gap-3">
           <Skeleton className="h-6 w-24 rounded-full" />
@@ -16,11 +18,11 @@ export default function AbbonamentoLoading() {
       </div>
 
       {/* Scegli piano */}
-      <div className="rounded-lg border p-6 space-y-4">
+      <div className="space-y-4 rounded-lg border p-6">
         <Skeleton className="h-5 w-40" />
         <div className="grid gap-4 sm:grid-cols-2">
-          {Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="rounded-lg border p-4 space-y-3">
+          {PLAN_KEYS.map((key) => (
+            <div key={key} className="space-y-3 rounded-lg border p-4">
               <Skeleton className="h-5 w-20" />
               <Skeleton className="h-4 w-full" />
               <div className="space-y-2">

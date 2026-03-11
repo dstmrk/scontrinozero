@@ -1,5 +1,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
+const ITEM_KEYS = ["a", "b", "c"] as const;
+const KEYPAD_KEYS = ["k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8", "k9", "k10", "k11", "k12"] as const;
+
 export default function CassaLoading() {
   return (
     <div className="space-y-6">
@@ -8,8 +11,11 @@ export default function CassaLoading() {
 
       {/* Item list */}
       <div className="space-y-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-3 rounded-lg border p-3">
+        {ITEM_KEYS.map((key) => (
+          <div
+            key={key}
+            className="flex items-center gap-3 rounded-lg border p-3"
+          >
             <Skeleton className="h-5 flex-1" />
             <Skeleton className="h-5 w-16" />
             <Skeleton className="h-5 w-20" />
@@ -19,7 +25,7 @@ export default function CassaLoading() {
       </div>
 
       {/* Totale */}
-      <div className="rounded-lg border p-4 space-y-2">
+      <div className="space-y-2 rounded-lg border p-4">
         <div className="flex justify-between">
           <Skeleton className="h-5 w-24" />
           <Skeleton className="h-5 w-20" />
@@ -32,8 +38,8 @@ export default function CassaLoading() {
 
       {/* Keypad placeholder */}
       <div className="grid grid-cols-3 gap-2">
-        {Array.from({ length: 12 }).map((_, i) => (
-          <Skeleton key={i} className="h-14 rounded-xl" />
+        {KEYPAD_KEYS.map((key) => (
+          <Skeleton key={key} className="h-14 rounded-xl" />
         ))}
       </div>
 

@@ -1,5 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
+const ROW_KEYS = ["a", "b", "c", "d", "e", "f"] as const;
+
 export default function StoricoLoading() {
   return (
     <div className="space-y-6">
@@ -15,9 +17,9 @@ export default function StoricoLoading() {
       </div>
 
       {/* Tabella */}
-      <div className="rounded-xl border overflow-hidden">
+      <div className="overflow-hidden rounded-xl border">
         {/* Header tabella */}
-        <div className="flex gap-4 border-b bg-muted/40 px-4 py-3">
+        <div className="bg-muted/40 flex gap-4 border-b px-4 py-3">
           <Skeleton className="h-4 w-20" />
           <Skeleton className="h-4 w-16" />
           <Skeleton className="h-4 flex-1" />
@@ -26,8 +28,11 @@ export default function StoricoLoading() {
         </div>
 
         {/* Righe */}
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="flex gap-4 items-center border-b last:border-0 px-4 py-3">
+        {ROW_KEYS.map((key) => (
+          <div
+            key={key}
+            className="flex items-center gap-4 border-b px-4 py-3 last:border-0"
+          >
             <Skeleton className="h-4 w-20" />
             <Skeleton className="h-4 w-14" />
             <Skeleton className="h-4 flex-1" />

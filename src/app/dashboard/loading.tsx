@@ -1,5 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
+const CARD_KEYS = ["a", "b", "c", "d", "e", "f"] as const;
+
 export default function CatalogoLoading() {
   return (
     <div className="space-y-6">
@@ -11,8 +13,8 @@ export default function CatalogoLoading() {
 
       {/* Product grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="rounded-xl border p-4 space-y-3">
+        {CARD_KEYS.map((key) => (
+          <div key={key} className="space-y-3 rounded-xl border p-4">
             <div className="flex items-start justify-between">
               <Skeleton className="h-5 w-32" />
               <Skeleton className="h-5 w-16" />
