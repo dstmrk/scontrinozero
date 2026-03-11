@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { VAT_DESCRIPTIONS, type VatCode, VAT_CODES } from "@/types/cassa";
 import { AccountDeleteSection } from "@/components/settings/account-delete-section";
+import { ExportDataSection } from "@/components/settings/export-data-section";
 
 export default async function SettingsPage() {
   const supabase = await createServerSupabaseClient();
@@ -146,6 +147,8 @@ export default async function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <ExportDataSection />
 
       <AccountDeleteSection />
     </div>
