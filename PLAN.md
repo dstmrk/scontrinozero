@@ -162,25 +162,23 @@ funzioni prima di toccare la produzione.
 
 **Task:**
 
-- ⬜ **Sentry integration** (`@sentry/nextjs`):
-  - Installare `@sentry/nextjs`, generare `sentry.client.config.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`
-  - Aggiungere `SENTRY_DSN` e `SENTRY_AUTH_TOKEN` a `.env.example`
-  - Source maps upload nella pipeline CI (step build)
-  - Verificare che un errore di test arrivi nella dashboard Sentry
+- ✅ **Sentry integration** (`@sentry/nextjs`):
+  - Era già completamente integrato (config files, `instrumentation.ts`, `next.config.ts`)
+  - Aggiunto `SENTRY_AUTH_TOKEN` a `.env.example` e al build step CI (source maps upload)
+- ✅ Security audit: CI portato a `--audit-level=moderate` con `audit-ci` + allowlist
+  (`audit-ci.json` con GHSA-67mh-4wv8-2f99 per esbuild in drizzle-kit devDep);
+  fixata vulnerabilità `hono` con `npm audit fix`
+- ✅ Secret scanning in CI: **Gitleaks** aggiunto come step CI su ogni push/PR
+- ✅ Docker image scan: **Trivy** nella pipeline deploy (build → scan → push su GHCR)
+- ✅ GDPR art. 20 — Portabilità dati: `src/server/export-actions.ts` (`exportUserData()`:
+  profilo, business, scontrini con righe, catalogo) + 7 unit test TDD +
+  `src/components/settings/export-data-section.tsx` (pulsante download JSON);
+  settings page aggiornata con la nuova sezione
 - ⬜ Suite E2E completa su `test.scontrinozero.it`:
   - register → onboard → emetti scontrino (MockAdeClient) → storico → storno
   - upgrade Free → Starter (Stripe test mode)
   - reset password via Resend
 - ⬜ Lighthouse audit: landing ≥90 mobile, dashboard ≥80 mobile
-- ⬜ Security audit: portare CI a `--audit-level=moderate` con `audit-ci` + allowlist
-  documentata per le eccezioni approvate (es. esbuild in drizzle-kit devDependency)
-- ⬜ Secret scanning in CI: aggiungere **Gitleaks** come step CI per bloccare commit
-  con credenziali o chiavi accidentalmente committate
-- ⬜ Docker image scan: aggiungere **Trivy** nella pipeline deploy per scansionare
-  l'immagine Docker prima del push su GHCR
-- ⬜ GDPR art. 20 — Portabilità dati: pulsante "Esporta dati" in `/dashboard/settings`
-  che genera un JSON scaricabile con tutti i dati dell'utente (profilo, attività,
-  scontrini). Obbligo legale prima del lancio pubblico.
 - ⬜ SonarCloud quality gate verde, zero issue Blocker/Critical
   - ✅ Fix 5 code smell Major "Ambiguous spacing" in `termini/v01/page.tsx`
     (text node JSX ambigui dopo `</a>` / `</strong>` → espressioni esplicite `{"."}` / `{". "}`)
@@ -193,7 +191,8 @@ funzioni prima di toccare la produzione.
   Clausole vessatorie nel form di registrazione allineate alla struttura ToS v01.
   Procedure di aggiornamento documentate in CLAUDE.md.
 
-**Test attesi:** ~5 unit (export dati) + ~10 E2E → totale ~**519 unit + 19 E2E**
+**Test effettivi (v0.9.1 in corso):** 7 unit aggiunti (export-actions) → **708 unit** + 8 E2E;
+~10 E2E attesi a completamento checkpoint
 
 ---
 
@@ -314,18 +313,18 @@ Quando annulliamo uno scontrino, AdE genera un nuovo documento commerciale di an
 
 ## Riepilogo test cumulativi
 
-| Versione   | Nuovi test (stimati) | Totale unit | Totale E2E |
-| ---------- | -------------------- | ----------- | ---------- |
-| (storico)  | —                    | 502         | 8          |
-| **4K**     | ~9                   | ~511        | 8          |
-| **4L**     | ~1                   | ~512        | 8          |
-| **v0.7.0** | ~9                   | ~521        | 8          |
-| **v0.8.0** | 37                   | **558**     | 8          |
-| **v0.8.1** | 13                   | **572**     | 8          |
-| **v0.8.2** | 30                   | **602**     | 8          |
-| **v0.9.0** | 99                   | **701**     | 8          |
-| **v0.9.1** | ~5 unit / ~10 E2E    | ~706        | ~18        |
-| **v1.0.0** | 0 (solo tag)         | ~706        | ~18        |
+| Versione   | Nuovi test (stimati)  | Totale unit | Totale E2E |
+| ---------- | --------------------- | ----------- | ---------- |
+| (storico)  | —                     | 502         | 8          |
+| **4K**     | ~9                    | ~511        | 8          |
+| **4L**     | ~1                    | ~512        | 8          |
+| **v0.7.0** | ~9                    | ~521        | 8          |
+| **v0.8.0** | 37                    | **558**     | 8          |
+| **v0.8.1** | 13                    | **572**     | 8          |
+| **v0.8.2** | 30                    | **602**     | 8          |
+| **v0.9.0** | 99                    | **701**     | 8          |
+| **v0.9.1** | 7 unit ✅; ~10 E2E ⬜ | **708**     | 8 (→~18)   |
+| **v1.0.0** | 0 (solo tag)          | ~708        | ~18        |
 
 ---
 
