@@ -184,9 +184,11 @@ funzioni prima di toccare la produzione.
 - ⬜ SonarCloud quality gate verde, zero issue Blocker/Critical
 - ⬜ Smoke test su ambiente test con `ADE_MODE=mock`
 - ⬜ Verificare che tutte le variabili d'ambiente `.env.example` siano aggiornate
-- ✅ Aggiornare Privacy Policy/ToS: clausole vessatorie nel form di registrazione
-  allineate alla struttura v01 (§9 limitazione responsabilità, §10 no rimborso,
-  §11 sospensione, §16 foro Torino). Procedure aggiornata in CLAUDE.md.
+- ✅ Aggiornare Privacy Policy/ToS: Privacy Policy v01 completa e GDPR-conforme
+  (processori nominati, sezione dedicata credenziali Fisconline, periodi di conservazione
+  precisi, portabilità dati, minori). Versioning permalink /privacy/v01 + redirect.
+  Clausole vessatorie nel form di registrazione allineate alla struttura ToS v01.
+  Procedure di aggiornamento documentate in CLAUDE.md.
 
 **Test attesi:** ~5 unit (export dati) + ~10 E2E → totale ~**519 unit + 19 E2E**
 
