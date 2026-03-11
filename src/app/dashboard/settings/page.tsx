@@ -4,10 +4,10 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getDb } from "@/db";
 import { profiles, businesses, adeCredentials } from "@/db/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { VAT_DESCRIPTIONS, type VatCode, VAT_CODES } from "@/types/cassa";
 import { AccountDeleteSection } from "@/components/settings/account-delete-section";
 import { ExportDataSection } from "@/components/settings/export-data-section";
+import { AdeCredentialsSection } from "@/components/settings/ade-credentials-section";
 
 export default async function SettingsPage() {
   const supabase = await createServerSupabaseClient();
@@ -38,13 +38,13 @@ export default async function SettingsPage() {
     : null;
 
   const cred = business
-    ? (
+    ? ((
         await db
           .select({ verifiedAt: adeCredentials.verifiedAt })
           .from(adeCredentials)
           .where(eq(adeCredentials.businessId, business.id))
           .limit(1)
-      )[0]
+      )[0] ?? null)
     : null;
 
   const displayName =
@@ -131,20 +131,11 @@ export default async function SettingsPage() {
           <CardTitle>Credenziali AdE</CardTitle>
         </CardHeader>
         <CardContent>
-          {cred ? (
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Stato:</span>
-              {cred.verifiedAt ? (
-                <Badge variant="default">Verificate</Badge>
-              ) : (
-                <Badge variant="secondary">Non verificate</Badge>
-              )}
-            </div>
-          ) : (
-            <p className="text-muted-foreground">
-              Nessuna credenziale configurata.
-            </p>
-          )}
+          <AdeCredentialsSection
+            businessId={business?.id ?? null}
+            hasCredentials={!!cred}
+            verifiedAt={cred?.verifiedAt ?? null}
+          />
         </CardContent>
       </Card>
 
