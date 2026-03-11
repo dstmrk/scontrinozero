@@ -42,6 +42,18 @@ jobs:
             lockfile:
               - 'package-lock.json'
 
+  # Scansione segreti — gira su tutti i push/PR (indipendente dal diff)
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Gitleaks — secret scanning
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   # Audit dipendenze — gira anche su modifiche al solo lockfile
   audit:
     needs: changes
@@ -56,7 +68,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Security audit
-        run: npm audit --audit-level=high
+        run: npx audit-ci --config audit-ci.json
 
   # Parallel checks — lint, type-check e test girano in contemporanea
   lint:
@@ -153,6 +165,8 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
       - name: Upload build output
         uses: actions/upload-artifact@v7
         with:
