@@ -437,6 +437,7 @@ Prima di aprire una PR verificare che la pipeline CI passi localmente:
 
 ```bash
 npm run lint          # nessun errore ESLint / TypeScript
+npx prettier --check src/  # nessun errore di formattazione
 npm run test:coverage # tutti i test verdi, coverage non in calo
 ```
 
