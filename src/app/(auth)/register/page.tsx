@@ -190,9 +190,11 @@ export default function RegisterPage() {
                 htmlFor="specificClausesAccepted"
                 className="cursor-pointer text-sm leading-snug select-none"
               >
-                Accetto specificamente le clausole: 4 (Responsabilità), 5 e 6
-                (Limitazioni Tecniche e Danni), 7 (Self-Hosting), 8 e 9
-                (Sospensione), 11 (Modifiche), 12 (Foro Competente).
+                Accetto specificamente, ai sensi dell&apos;art. 1341 c.c., le
+                clausole: 9 (limitazione e cap di responsabilità), 10 (no
+                rimborso corrispettivi già pagati), 11 (sospensione e cessazione
+                unilaterale del servizio), 16 (foro esclusivo di Torino per
+                controversie B2B).
               </label>
             </div>
             {fieldErrors.specificClauses && (
