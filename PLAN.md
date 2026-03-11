@@ -182,6 +182,9 @@ funzioni prima di toccare la produzione.
   che genera un JSON scaricabile con tutti i dati dell'utente (profilo, attività,
   scontrini). Obbligo legale prima del lancio pubblico.
 - ⬜ SonarCloud quality gate verde, zero issue Blocker/Critical
+  - ✅ Fix 5 code smell Major "Ambiguous spacing" in `termini/v01/page.tsx`
+    (text node JSX ambigui dopo `</a>` / `</strong>` → espressioni esplicite `{"."}` / `{". "}`)
+  - ⬜ Verifica finale quality gate dopo la PR
 - ⬜ Smoke test su ambiente test con `ADE_MODE=mock`
 - ⬜ Verificare che tutte le variabili d'ambiente `.env.example` siano aggiornate
 - ✅ Aggiornare Privacy Policy/ToS: Privacy Policy v01 completa e GDPR-conforme
