@@ -141,7 +141,7 @@ export default function Home() {
                 icon: Undo2,
                 title: "Scontrino sbagliato? Annullalo.",
                 description:
-                  "Hai inserito un importo errato? Annulla lo scontrino direttamente dall'app. L'AdE viene aggiornata in automatico.",
+                  "Hai inserito un importo errato? Annulla lo scontrino direttamente dall'app.",
               },
               {
                 icon: BarChart3,
