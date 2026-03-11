@@ -171,6 +171,13 @@ export default function TerminiV01Page() {
                 contrarie all&apos;ordine pubblico.
               </li>
             </ul>
+            <p className="text-muted-foreground mt-3">
+              <strong>Nessuna consulenza fiscale:</strong> il supporto
+              ScontrinoZero fornisce esclusivamente assistenza tecnica
+              sull&apos;utilizzo della piattaforma. Per qualsiasi valutazione di
+              natura fiscale, tributaria o normativa l&apos;utente deve
+              rivolgersi a un commercialista o consulente fiscale abilitato.
+            </p>
           </section>
 
           <section>
