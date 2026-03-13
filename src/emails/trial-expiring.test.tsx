@@ -7,7 +7,7 @@ import { TrialExpiringEmail } from "./trial-expiring";
 const PROPS = {
   firstName: "Mario",
   trialExpiresAt: new Date("2026-04-10T12:00:00.000Z"),
-  dashboardUrl: "https://scontrinozero.it/dashboard/abbonamento",
+  dashboardUrl: "https://scontrinozero.it/dashboard/settings",
 };
 
 describe("TrialExpiringEmail", () => {
@@ -30,7 +30,7 @@ describe("TrialExpiringEmail", () => {
 
   it("includes the dashboard CTA link", () => {
     const html = renderToStaticMarkup(createElement(TrialExpiringEmail, PROPS));
-    expect(html).toContain("https://scontrinozero.it/dashboard/abbonamento");
+    expect(html).toContain("https://scontrinozero.it/dashboard/settings");
   });
 
   it("includes a call to action to upgrade", () => {

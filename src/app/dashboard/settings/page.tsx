@@ -8,6 +8,11 @@ import { VAT_DESCRIPTIONS, type VatCode, VAT_CODES } from "@/types/cassa";
 import { AccountDeleteSection } from "@/components/settings/account-delete-section";
 import { ExportDataSection } from "@/components/settings/export-data-section";
 import { AdeCredentialsSection } from "@/components/settings/ade-credentials-section";
+import { getProfilePlan } from "@/server/billing-actions";
+import { isTrialExpired } from "@/lib/plans";
+import { PRICE_IDS } from "@/lib/stripe";
+import { CheckoutButton } from "@/components/billing/checkout-button";
+import { PlanBadge } from "@/components/billing/plan-badge";
 
 export default async function SettingsPage() {
   const supabase = await createServerSupabaseClient();
@@ -57,6 +62,17 @@ export default async function SettingsPage() {
     VAT_CODES.includes(business.preferredVatCode as VatCode)
       ? VAT_DESCRIPTIONS[business.preferredVatCode as VatCode]
       : null;
+
+  const planResult = await getProfilePlan();
+  const planData =
+    "error" in planResult
+      ? null
+      : {
+          plan: planResult.plan,
+          trialStartedAt: planResult.trialStartedAt,
+          planExpiresAt: planResult.planExpiresAt,
+          hasSubscription: planResult.hasSubscription,
+        };
 
   return (
     <div className="space-y-6">
@@ -138,6 +154,130 @@ export default async function SettingsPage() {
           />
         </CardContent>
       </Card>
+
+      {planData && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Piano e Abbonamento</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Piano corrente */}
+            <div>
+              <p className="text-muted-foreground mb-2 text-sm font-medium">
+                Piano corrente
+              </p>
+              <div className="flex items-center gap-3">
+                <PlanBadge plan={planData.plan} />
+                {planData.plan === "trial" &&
+                  !isTrialExpired(planData.trialStartedAt) &&
+                  planData.trialStartedAt && (
+                    <span className="text-muted-foreground text-sm">
+                      Prova attiva — scade il{" "}
+                      {new Date(
+                        planData.trialStartedAt.getTime() +
+                          30 * 24 * 60 * 60 * 1000,
+                      ).toLocaleDateString("it-IT")}
+                    </span>
+                  )}
+                {planData.plan === "trial" &&
+                  isTrialExpired(planData.trialStartedAt) && (
+                    <span className="text-sm text-red-600">
+                      Periodo di prova scaduto
+                    </span>
+                  )}
+                {(planData.plan === "starter" ||
+                  planData.plan === "pro" ||
+                  planData.plan === "unlimited") &&
+                  planData.planExpiresAt && (
+                    <span className="text-muted-foreground text-sm">
+                      Rinnovo il{" "}
+                      {planData.planExpiresAt.toLocaleDateString("it-IT")}
+                    </span>
+                  )}
+              </div>
+            </div>
+
+            {/* Scegli piano */}
+            {planData.plan !== "pro" && planData.plan !== "unlimited" && (
+              <div>
+                <p className="text-muted-foreground mb-3 text-sm font-medium">
+                  Scegli il tuo piano
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {/* Starter */}
+                  <div className="rounded-lg border p-4">
+                    <h3 className="font-semibold">Starter</h3>
+                    <p className="text-muted-foreground mb-3 text-sm">
+                      Scontrini illimitati · catalogo 5 prodotti
+                    </p>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Mensile — €4.99/mese</span>
+                        <CheckoutButton
+                          priceId={PRICE_IDS.starterMonthly}
+                          label="Scegli"
+                          variant="outline"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Annuale — €29.99/anno</span>
+                        <CheckoutButton
+                          priceId={PRICE_IDS.starterYearly}
+                          label="Scegli"
+                          variant="outline"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pro */}
+                  <div className="rounded-lg border-2 border-blue-500 p-4">
+                    <h3 className="font-semibold">Pro</h3>
+                    <p className="text-muted-foreground mb-3 text-sm">
+                      Catalogo illimitato · analytics · export
+                    </p>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Mensile — €8.99/mese</span>
+                        <CheckoutButton
+                          priceId={PRICE_IDS.proMonthly}
+                          label="Scegli"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Annuale — €49.99/anno</span>
+                        <CheckoutButton
+                          priceId={PRICE_IDS.proYearly}
+                          label="Scegli"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Gestisci abbonamento */}
+            {planData.hasSubscription && (
+              <div>
+                <p className="text-muted-foreground mb-2 text-sm font-medium">
+                  Gestisci abbonamento
+                </p>
+                <p className="text-muted-foreground mb-3 text-sm">
+                  Modifica il piano, aggiorna il metodo di pagamento o annulla
+                  l&apos;abbonamento.
+                </p>
+                <a
+                  href="/api/stripe/portal"
+                  className="text-primary text-sm underline underline-offset-4"
+                >
+                  Vai al portale Stripe →
+                </a>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <ExportDataSection />
 

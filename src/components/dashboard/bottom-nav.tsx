@@ -2,13 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Package,
-  ShoppingCart,
-  History,
-  Settings,
-  CreditCard,
-} from "lucide-react";
+import { Package, ShoppingCart, History, Settings } from "lucide-react";
 
 const NAV_ITEMS = [
   {
@@ -34,12 +28,6 @@ const NAV_ITEMS = [
     href: "/dashboard/settings",
     label: "Impostazioni",
     icon: Settings,
-    exact: false,
-  },
-  {
-    href: "/dashboard/abbonamento",
-    label: "Abbonamento",
-    icon: CreditCard,
     exact: false,
   },
 ] as const;
