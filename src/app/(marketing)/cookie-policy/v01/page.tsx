@@ -78,7 +78,8 @@ export default function CookiePolicyV01Page() {
               </li>
               <li>
                 <strong>Scopo:</strong> conservare il token di sessione JWT per
-                mantenere l&apos;utente autenticato tra una pagina e l&apos;altra.
+                mantenere l&apos;utente autenticato tra una pagina e
+                l&apos;altra.
               </li>
               <li>
                 <strong>Durata:</strong> fino alla scadenza della sessione o
@@ -99,10 +100,10 @@ export default function CookiePolicyV01Page() {
             </p>
             <p className="text-muted-foreground mt-1">
               Durante il flusso di sottoscrizione dell&apos;abbonamento,{" "}
-              <strong>Stripe</strong> — il gestore dei pagamenti — può
-              impostare cookie tecnici a fini di prevenzione delle frodi e
-              continuità del checkout. Questi cookie sono funzionali alla
-              transazione e non vengono utilizzati per profilazione.
+              <strong>Stripe</strong> — il gestore dei pagamenti — può impostare
+              cookie tecnici a fini di prevenzione delle frodi e continuità del
+              checkout. Questi cookie sono funzionali alla transazione e non
+              vengono utilizzati per profilazione.
             </p>
             <ul className="text-muted-foreground mt-2 list-inside list-disc space-y-1">
               <li>
@@ -191,8 +192,8 @@ export default function CookiePolicyV01Page() {
                 disciplina sui cookie.
               </li>
               <li>
-                Non utilizziamo cookie di profilazione, tracking pubblicitario
-                o strumenti di terze parti a fini di marketing.
+                Non utilizziamo cookie di profilazione, tracking pubblicitario o
+                strumenti di terze parti a fini di marketing.
               </li>
             </ul>
           </section>
@@ -208,8 +209,8 @@ export default function CookiePolicyV01Page() {
                 non utilizza cookie di profilazione, remarketing o tracciamento
                 pubblicitario
               </strong>
-              . Non sono presenti pixel di Facebook, Google Ads, Tag Manager o
-              strumenti analoghi. Non viene effettuato alcun tracciamento
+              {". "}Non sono presenti pixel di Facebook, Google Ads, Tag Manager
+              o strumenti analoghi. Non viene effettuato alcun tracciamento
               comportamentale a fini commerciali.
             </p>
           </section>
