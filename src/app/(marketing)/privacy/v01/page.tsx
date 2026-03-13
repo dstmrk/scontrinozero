@@ -401,9 +401,12 @@ export default function PrivacyV01Page() {
             <ul className="text-muted-foreground mt-2 list-inside list-disc space-y-1">
               <li>
                 <strong>Dati account e profilo:</strong> per la durata del
-                rapporto contrattuale; alla chiusura dell&apos;account,
-                conservati per <strong>10 anni</strong> per obblighi fiscali e
-                contabili (D.P.R. 633/1972, D.P.R. 600/1973).
+                rapporto contrattuale; eliminati alla chiusura
+                dell&apos;account. L&apos;obbligo di conservazione fiscale
+                decennale (D.P.R. 633/1972, D.P.R. 600/1973) è in capo
+                all&apos;esercente come emittente dei documenti; può essere
+                assolto tramite i documenti già conservati sul portale Fatture e
+                Corrispettivi dell&apos;AdE.
               </li>
               <li>
                 <strong>Credenziali Fisconline/SPID:</strong> cancellate entro{" "}
@@ -411,9 +414,13 @@ export default function PrivacyV01Page() {
                 immediatamente su richiesta dell&apos;utente.
               </li>
               <li>
-                <strong>Documenti commerciali emessi:</strong>{" "}
-                <strong>10 anni</strong> (obbligo di conservazione fiscale ai
-                sensi dell&apos;art. 22 D.P.R. 633/1972).
+                <strong>Documenti commerciali emessi:</strong> eliminati alla
+                chiusura dell&apos;account. I documenti già trasmessi
+                all&apos;Agenzia delle Entrate restano disponibili
+                permanentemente sul portale{" "}
+                <strong>Fatture e Corrispettivi</strong>, accessibile con
+                credenziali Fisconline/SPID/CIE, dove l&apos;AdE li conserva
+                secondo la normativa vigente.
               </li>
               <li>
                 <strong>Log diagnostica (Sentry):</strong>{" "}

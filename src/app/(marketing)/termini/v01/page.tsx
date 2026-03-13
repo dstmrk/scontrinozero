@@ -84,7 +84,9 @@ export default function TerminiV01Page() {
               <li>
                 Disponibilità di credenziali valide per l&apos;accesso al
                 portale Fatture e Corrispettivi dell&apos;Agenzia delle Entrate
-                (Fisconline o SPID).
+                (Fisconline o SPID), oppure disponibilità ad accedere
+                manualmente al portale AdE per completare la trasmissione in
+                modalità assistita.
               </li>
               <li>Connessione internet idonea e dispositivi compatibili.</li>
             </ul>
@@ -415,24 +417,12 @@ export default function TerminiV01Page() {
             </h2>
             <p className="text-muted-foreground mt-2">
               I presenti Termini sono regolati dalla legge italiana. Per le
-              controversie tra professionisti (B2B) è competente in via
-              esclusiva il Foro di <strong>Torino</strong>, salvo diverso
-              accordo scritto. Per gli utenti consumatori (ove applicabile) è
-              competente il foro del luogo di residenza o domicilio del
-              consumatore ai sensi del D.Lgs. 206/2005.
-            </p>
-            <p className="text-muted-foreground mt-2">
-              Per la risoluzione extragiudiziale delle controversie, i
-              consumatori possono accedere alla piattaforma europea ODR:{" "}
-              <a
-                href="https://ec.europa.eu/consumers/odr"
-                className="text-primary underline"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                ec.europa.eu/consumers/odr
-              </a>
-              {"."}
+              controversie è competente in via esclusiva il Foro di{" "}
+              <strong>Torino</strong>, salvo diverso accordo scritto. Il
+              servizio è destinato esclusivamente a utenti professionali; le
+              norme del Codice del Consumo (D.Lgs. 206/2005), inclusa la
+              disciplina del foro del consumatore e la piattaforma ODR, non
+              trovano applicazione.
             </p>
           </section>
 
