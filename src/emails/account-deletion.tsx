@@ -28,8 +28,14 @@ export function AccountDeletionEmail({ email }: AccountDeletionEmailProps) {
               <strong>{email}</strong> è stato eliminato.
             </Text>
             <Text style={emailStyles.text}>
-              In conformità al GDPR (art. 17), tutti i tuoi dati personali sono
-              stati rimossi dai nostri sistemi.
+              I tuoi dati personali (profilo, credenziali, scontrini) sono stati
+              rimossi dai sistemi di ScontrinoZero.
+            </Text>
+            <Text style={emailStyles.text}>
+              I documenti commerciali già trasmessi all&apos;Agenzia delle
+              Entrate restano disponibili sul portale{" "}
+              <strong>Fatture e Corrispettivi</strong>, accessibile con le tue
+              credenziali Fisconline/SPID/CIE.
             </Text>
             <Text style={emailStyles.text}>
               Per dubbi contattaci a <strong>{CONTACT_EMAIL}</strong>.
