@@ -32,8 +32,8 @@ export function AccountDeletionEmail({ email }: AccountDeletionEmailProps) {
               stati rimossi dai nostri sistemi.
             </Text>
             <Text style={emailStyles.text}>
-              Per qualsiasi dubbio contattaci a
-              <strong>{CONTACT_EMAIL}</strong>.
+              Per qualsiasi dubbio contattaci a <strong>{CONTACT_EMAIL}</strong>
+              .
             </Text>
           </Section>
           <Hr style={emailStyles.hr} />
