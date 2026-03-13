@@ -23,6 +23,7 @@ const authLimiter = new RateLimiter({
 
 export type AuthActionResult = {
   error?: string;
+  email?: string;
 };
 
 async function getClientIp(): Promise<string> {
@@ -137,7 +138,7 @@ export async function signIn(formData: FormData): Promise<AuthActionResult> {
 
   if (error) {
     logger.warn("signIn failed");
-    return { error: "Email o password non corretti." };
+    return { error: "Email o password non corretti.", email };
   }
 
   redirect("/dashboard");

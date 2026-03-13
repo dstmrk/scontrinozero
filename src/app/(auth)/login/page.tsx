@@ -33,6 +33,7 @@ export default function LoginPage() {
               placeholder="mario@esempio.it"
               required
               autoComplete="email"
+              defaultValue={state?.email}
             />
           </div>
           <div className="space-y-2">
