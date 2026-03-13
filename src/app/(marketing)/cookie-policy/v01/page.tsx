@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { CONTACT_EMAIL } from "@/lib/contact";
 
 export const metadata: Metadata = {
   title: "Cookie Policy",
@@ -277,10 +278,10 @@ export default function CookiePolicyV01Page() {
               ScontrinoZero. Per qualsiasi richiesta relativa all&apos;uso dei
               cookie e dei dati personali scrivi a{" "}
               <a
-                href="mailto:privacy@scontrinozero.it"
+                href={`mailto:${CONTACT_EMAIL}`}
                 className="text-primary underline"
               >
-                privacy@scontrinozero.it
+                {CONTACT_EMAIL}
               </a>
               {"."}
             </p>
