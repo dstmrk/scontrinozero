@@ -26,10 +26,10 @@ describe("AccountDeletionEmail", () => {
     expect(html).toContain("eliminato");
   });
 
-  it("mentions GDPR data removal", () => {
+  it("mentions AdE portal for commercial documents", () => {
     const html = renderToStaticMarkup(
       createElement(AccountDeletionEmail, { email: "test@example.com" }),
     );
-    expect(html).toContain("GDPR");
+    expect(html).toContain("Fatture e Corrispettivi");
   });
 });
