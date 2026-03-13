@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { CONTACT_EMAIL } from "@/lib/contact";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -52,10 +53,10 @@ export default function PrivacyV01Page() {
               Per qualsiasi questione relativa al trattamento dei tuoi dati
               scrivi a{" "}
               <a
-                href="mailto:privacy@scontrinozero.it"
+                href={`mailto:${CONTACT_EMAIL}`}
                 className="text-primary underline"
               >
-                privacy@scontrinozero.it
+                {CONTACT_EMAIL}
               </a>
               {"."}
             </p>
@@ -498,10 +499,10 @@ export default function PrivacyV01Page() {
             <p className="text-muted-foreground mt-2">
               Per esercitare i tuoi diritti scrivi a{" "}
               <a
-                href="mailto:privacy@scontrinozero.it"
+                href={`mailto:${CONTACT_EMAIL}`}
                 className="text-primary underline"
               >
-                privacy@scontrinozero.it
+                {CONTACT_EMAIL}
               </a>
               {". "}Risponderemo entro 30 giorni dal ricevimento della richiesta
               (art. 12 GDPR).
@@ -590,10 +591,10 @@ export default function PrivacyV01Page() {
               Per qualsiasi domanda relativa al trattamento dei tuoi dati
               personali scrivi a{" "}
               <a
-                href="mailto:privacy@scontrinozero.it"
+                href={`mailto:${CONTACT_EMAIL}`}
                 className="text-primary underline"
               >
-                privacy@scontrinozero.it
+                {CONTACT_EMAIL}
               </a>
               {"."}
             </p>

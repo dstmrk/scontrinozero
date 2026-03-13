@@ -9,6 +9,7 @@ import {
   Text,
 } from "@react-email/components";
 import { emailStyles } from "./styles";
+import { CONTACT_EMAIL } from "@/lib/contact";
 
 type AccountDeletionEmailProps = Readonly<{
   email: string;
@@ -31,8 +32,7 @@ export function AccountDeletionEmail({ email }: AccountDeletionEmailProps) {
               stati rimossi dai nostri sistemi.
             </Text>
             <Text style={emailStyles.text}>
-              Per qualsiasi dubbio contattaci a{" "}
-              <strong>supporto@scontrinozero.it</strong>.
+              Per dubbi contattaci a <strong>{CONTACT_EMAIL}</strong>.
             </Text>
           </Section>
           <Hr style={emailStyles.hr} />

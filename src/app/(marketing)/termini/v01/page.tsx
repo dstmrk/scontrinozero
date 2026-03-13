@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { CONTACT_EMAIL } from "@/lib/contact";
 
 export const metadata: Metadata = {
   title: "Termini e Condizioni — v01",
@@ -101,10 +102,10 @@ export default function TerminiV01Page() {
               L&apos;utente si impegna a comunicare tempestivamente eventuali
               accessi non autorizzati o violazioni di sicurezza scrivendo a{" "}
               <a
-                href="mailto:info@scontrinozero.it"
+                href={`mailto:${CONTACT_EMAIL}`}
                 className="text-primary underline"
               >
-                info@scontrinozero.it
+                {CONTACT_EMAIL}
               </a>
               {"."}
             </p>
@@ -440,10 +441,10 @@ export default function TerminiV01Page() {
             <p className="text-muted-foreground mt-2">
               Per informazioni o reclami relativi ai presenti Termini scrivi a{" "}
               <a
-                href="mailto:info@scontrinozero.it"
+                href={`mailto:${CONTACT_EMAIL}`}
                 className="text-primary underline"
               >
-                info@scontrinozero.it
+                {CONTACT_EMAIL}
               </a>
               {"."}
             </p>
