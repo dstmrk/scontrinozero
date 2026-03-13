@@ -6,7 +6,7 @@ export function Footer() {
   return (
     <footer className="border-border/50 border-t">
       <div className="mx-auto max-w-5xl px-4 py-12">
-        <div className="grid gap-8 md:grid-cols-2">
+        <div className="grid gap-8 md:grid-cols-3">
           <div>
             <div className="flex items-center gap-2">
               <ReceiptEuro className="text-primary h-5 w-5" />
@@ -15,6 +15,36 @@ export function Footer() {
             <p className="text-muted-foreground mt-2 text-sm">
               Il registratore di cassa virtuale per micro-attività italiane.
             </p>
+          </div>
+
+          <div>
+            <h3 className="mb-3 text-sm font-semibold">Info</h3>
+            <ul className="text-muted-foreground space-y-2 text-sm">
+              <li>
+                <Link
+                  href="/#funzionalita"
+                  className="hover:text-foreground transition-colors"
+                >
+                  Funzionalità
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/#prezzi"
+                  className="hover:text-foreground transition-colors"
+                >
+                  Prezzi
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/#faq"
+                  className="hover:text-foreground transition-colors"
+                >
+                  Domande Frequenti
+                </Link>
+              </li>
+            </ul>
           </div>
 
           <div>
