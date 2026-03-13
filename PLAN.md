@@ -191,7 +191,12 @@ funzioni prima di toccare la produzione.
   Clausole vessatorie nel form di registrazione allineate alla struttura ToS v01.
   Procedure di aggiornamento documentate in CLAUDE.md.
 
-**Test effettivi (v0.9.1 in corso):** 7 unit aggiunti (export-actions) → **708 unit** + 8 E2E;
+- ✅ Supabase keep-alive timer: `startSupabaseKeepAlive()` in `instrumentation.ts` (root) —
+  `setInterval` ogni 5gg (< soglia 7gg free tier), query `profiles LIMIT 1` via admin client,
+  `.unref()` per graceful shutdown. Export aggiunti per testabilità. 10 unit test aggiunti.
+  TODO: rimuovere quando si passa a Supabase Pro.
+
+**Test effettivi (v0.9.1 in corso):** 17 unit aggiunti (7 export-actions + 10 keep-alive) → **718 unit** + 8 E2E;
 ~10 E2E attesi a completamento checkpoint
 
 ---
