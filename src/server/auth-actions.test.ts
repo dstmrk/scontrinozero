@@ -462,7 +462,10 @@ describe("auth-actions", () => {
       const result = await signIn(
         formData({ email: "test@example.com", password: "wrongpass" }),
       );
-      expect(result).toEqual({ error: "Email o password non corretti." });
+      expect(result).toEqual({
+        error: "Email o password non corretti.",
+        email: "test@example.com",
+      });
     });
   });
 
