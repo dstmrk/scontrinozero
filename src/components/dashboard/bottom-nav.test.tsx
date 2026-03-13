@@ -28,7 +28,7 @@ vi.mock("next/link", () => ({
 // --- Tests ---
 
 describe("BottomNav", () => {
-  it("renderizza i 5 link di navigazione", () => {
+  it("renderizza i 4 link di navigazione", () => {
     mockUsePathname.mockReturnValue("/dashboard");
     render(<BottomNav />);
 
@@ -36,7 +36,6 @@ describe("BottomNav", () => {
     expect(screen.getByText("Cassa")).toBeInTheDocument();
     expect(screen.getByText("Storico")).toBeInTheDocument();
     expect(screen.getByText("Impostazioni")).toBeInTheDocument();
-    expect(screen.getByText("Abbonamento")).toBeInTheDocument();
   });
 
   it("i link puntano agli href corretti", () => {
@@ -58,10 +57,6 @@ describe("BottomNav", () => {
     expect(screen.getByText("Impostazioni").closest("a")).toHaveAttribute(
       "href",
       "/dashboard/settings",
-    );
-    expect(screen.getByText("Abbonamento").closest("a")).toHaveAttribute(
-      "href",
-      "/dashboard/abbonamento",
     );
   });
 
@@ -103,13 +98,5 @@ describe("BottomNav", () => {
 
     const settingsLink = screen.getByText("Impostazioni").closest("a");
     expect(settingsLink?.className).toContain("text-primary");
-  });
-
-  it("Abbonamento è attivo su /dashboard/abbonamento", () => {
-    mockUsePathname.mockReturnValue("/dashboard/abbonamento");
-    render(<BottomNav />);
-
-    const abbonamentoLink = screen.getByText("Abbonamento").closest("a");
-    expect(abbonamentoLink?.className).toContain("text-primary");
   });
 });

@@ -58,8 +58,8 @@ export async function POST(req: Request): Promise<Response> {
     customer: stripeCustomerId,
     line_items: [{ price: priceId, quantity: 1 }],
     mode: "subscription",
-    success_url: `${appUrl}/dashboard/abbonamento?success=1`,
-    cancel_url: `${appUrl}/dashboard/abbonamento?canceled=1`,
+    success_url: `${appUrl}/dashboard/settings?success=1`,
+    cancel_url: `${appUrl}/dashboard/settings?canceled=1`,
   });
 
   return Response.json({ url: session.url });
