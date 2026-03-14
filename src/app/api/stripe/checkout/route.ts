@@ -3,6 +3,13 @@ import { getDb } from "@/db";
 import { subscriptions } from "@/db/schema";
 import { getAuthenticatedUser } from "@/lib/server-auth";
 import { getStripe, isValidPriceId } from "@/lib/stripe";
+import { RateLimiter } from "@/lib/rate-limit";
+import { logger } from "@/lib/logger";
+
+const checkoutLimiter = new RateLimiter({
+  maxRequests: 10,
+  windowMs: 60 * 60 * 1000, // 1 hour
+});
 
 export async function POST(req: Request): Promise<Response> {
   // ── Auth ──────────────────────────────────────────────────────────────────
@@ -11,6 +18,16 @@ export async function POST(req: Request): Promise<Response> {
     user = await getAuthenticatedUser();
   } catch {
     return Response.json({ error: "Non autenticato." }, { status: 401 });
+  }
+
+  // ── Rate limit ────────────────────────────────────────────────────────────
+  const rateLimitResult = checkoutLimiter.check(`checkout:${user.id}`);
+  if (!rateLimitResult.success) {
+    logger.warn({ userId: user.id }, "Stripe checkout rate limit exceeded");
+    return Response.json(
+      { error: "Troppe richieste. Riprova tra qualche ora." },
+      { status: 429 },
+    );
   }
 
   // ── Validate body ─────────────────────────────────────────────────────────
