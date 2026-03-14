@@ -16,6 +16,7 @@ const {
   mockInsert,
   mockCustomerCreate,
   mockSessionCreate,
+  mockRateLimiterCheck,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
   mockIsValidPriceId: vi.fn(),
@@ -29,6 +30,13 @@ const {
   mockInsert: vi.fn(),
   mockCustomerCreate: vi.fn(),
   mockSessionCreate: vi.fn(),
+  mockRateLimiterCheck: vi.fn(),
+}));
+
+vi.mock("@/lib/rate-limit", () => ({
+  RateLimiter: vi.fn().mockImplementation(function () {
+    return { check: mockRateLimiterCheck };
+  }),
 }));
 
 vi.mock("@/lib/server-auth", () => ({
@@ -65,6 +73,12 @@ function makeRequest(body: unknown): Request {
 describe("POST /api/stripe/checkout", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+
+    mockRateLimiterCheck.mockReturnValue({
+      success: true,
+      remaining: 9,
+      resetAt: Date.now() + 3_600_000,
+    });
 
     mockGetAuthenticatedUser.mockResolvedValue({
       id: "user-123",
@@ -163,5 +177,35 @@ describe("POST /api/stripe/checkout", () => {
       | Record<string, unknown>
       | undefined;
     expect(subscriptionData?.trial_period_days).toBeUndefined();
+  });
+
+  it("returns 429 when rate limit is exceeded", async () => {
+    mockRateLimiterCheck.mockReturnValue({
+      success: false,
+      remaining: 0,
+      resetAt: Date.now() + 3_600_000,
+    });
+    const response = await POST(
+      makeRequest({ priceId: "price_starter_monthly" }),
+    );
+    expect(response.status).toBe(429);
+    const body = await response.json();
+    expect(body.error).toBeDefined();
+  });
+
+  it("checks rate limit with per-user key", async () => {
+    await POST(makeRequest({ priceId: "price_starter_monthly" }));
+    expect(mockRateLimiterCheck).toHaveBeenCalledWith("checkout:user-123");
+  });
+
+  it("does not call Stripe when rate limit is exceeded", async () => {
+    mockRateLimiterCheck.mockReturnValue({
+      success: false,
+      remaining: 0,
+      resetAt: Date.now() + 3_600_000,
+    });
+    await POST(makeRequest({ priceId: "price_starter_monthly" }));
+    expect(mockSessionCreate).not.toHaveBeenCalled();
+    expect(mockCustomerCreate).not.toHaveBeenCalled();
   });
 });
