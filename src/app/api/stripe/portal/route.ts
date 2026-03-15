@@ -11,19 +11,11 @@ const portalLimiter = new RateLimiter({
   windowMs: 60 * 60 * 1000, // 1 hour
 });
 
-export async function POST(_req: Request): Promise<Response> {
-  // ── Auth ──────────────────────────────────────────────────────────────────
-  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
-  try {
-    user = await getAuthenticatedUser();
-  } catch {
-    return Response.json({ error: "Non autenticato." }, { status: 401 });
-  }
-
+async function createPortalSession(userId: string): Promise<Response> {
   // ── Rate limit ────────────────────────────────────────────────────────────
-  const rateLimitResult = portalLimiter.check(`portal:${user.id}`);
+  const rateLimitResult = portalLimiter.check(`portal:${userId}`);
   if (!rateLimitResult.success) {
-    logger.warn({ userId: user.id }, "Stripe portal rate limit exceeded");
+    logger.warn({ userId }, "Stripe portal rate limit exceeded");
     return Response.json(
       { error: "Troppe richieste. Riprova tra qualche ora." },
       { status: 429 },
@@ -36,7 +28,7 @@ export async function POST(_req: Request): Promise<Response> {
   const [subRow] = await db
     .select({ stripeCustomerId: subscriptions.stripeCustomerId })
     .from(subscriptions)
-    .where(eq(subscriptions.userId, user.id))
+    .where(eq(subscriptions.userId, userId))
     .limit(1);
 
   const stripeCustomerId = subRow?.stripeCustomerId ?? null;
@@ -56,5 +48,18 @@ export async function POST(_req: Request): Promise<Response> {
     return_url: `${appUrl}/dashboard/settings`,
   });
 
-  return Response.json({ url: session.url });
+  return Response.redirect(session.url);
 }
+
+async function handleRequest(_req: Request): Promise<Response> {
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch {
+    return Response.json({ error: "Non autenticato." }, { status: 401 });
+  }
+  return createPortalSession(user.id);
+}
+
+export const GET = handleRequest;
+export const POST = handleRequest;

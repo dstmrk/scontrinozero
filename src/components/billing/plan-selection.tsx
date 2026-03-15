@@ -30,9 +30,9 @@ export function PlanSelection({
         <button
           onClick={() => setInterval("month")}
           className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
-            !isAnnual
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
+            isAnnual
+              ? "text-muted-foreground hover:text-foreground"
+              : "bg-primary text-primary-foreground"
           }`}
         >
           Mensile
