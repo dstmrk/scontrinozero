@@ -86,6 +86,20 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
       break;
     }
 
+    case "invoice.payment_failed": {
+      const invoice = event.data.object as Stripe.Invoice;
+      const subscriptionId = invoice.parent?.subscription_details?.subscription;
+      if (!subscriptionId) break;
+
+      await db
+        .update(subscriptions)
+        .set({ status: "past_due" })
+        .where(
+          eq(subscriptions.stripeSubscriptionId, subscriptionId as string),
+        );
+      break;
+    }
+
     case "customer.subscription.deleted": {
       const sub = event.data.object as Stripe.Subscription;
 
