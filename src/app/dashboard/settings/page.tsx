@@ -11,8 +11,8 @@ import { AdeCredentialsSection } from "@/components/settings/ade-credentials-sec
 import { getProfilePlan } from "@/server/billing-actions";
 import { isTrialExpired } from "@/lib/plans";
 import { PRICE_IDS } from "@/lib/stripe";
-import { CheckoutButton } from "@/components/billing/checkout-button";
 import { PlanBadge } from "@/components/billing/plan-badge";
+import { PlanSelection } from "@/components/billing/plan-selection";
 
 export default async function SettingsPage() {
   const supabase = await createServerSupabaseClient();
@@ -199,62 +199,12 @@ export default async function SettingsPage() {
 
             {/* Scegli piano */}
             {planData.plan !== "pro" && planData.plan !== "unlimited" && (
-              <div>
-                <p className="text-muted-foreground mb-3 text-sm font-medium">
-                  Scegli il tuo piano
-                </p>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {/* Starter */}
-                  <div className="rounded-lg border p-4">
-                    <h3 className="font-semibold">Starter</h3>
-                    <p className="text-muted-foreground mb-3 text-sm">
-                      Scontrini illimitati · catalogo 5 prodotti
-                    </p>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Mensile — €4.99/mese</span>
-                        <CheckoutButton
-                          priceId={PRICE_IDS.starterMonthly}
-                          label="Scegli"
-                          variant="outline"
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Annuale — €29.99/anno</span>
-                        <CheckoutButton
-                          priceId={PRICE_IDS.starterYearly}
-                          label="Scegli"
-                          variant="outline"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Pro */}
-                  <div className="rounded-lg border-2 border-blue-500 p-4">
-                    <h3 className="font-semibold">Pro</h3>
-                    <p className="text-muted-foreground mb-3 text-sm">
-                      Catalogo illimitato · analytics · export
-                    </p>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Mensile — €8.99/mese</span>
-                        <CheckoutButton
-                          priceId={PRICE_IDS.proMonthly}
-                          label="Scegli"
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Annuale — €49.99/anno</span>
-                        <CheckoutButton
-                          priceId={PRICE_IDS.proYearly}
-                          label="Scegli"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <PlanSelection
+                starterMonthly={PRICE_IDS.starterMonthly}
+                starterYearly={PRICE_IDS.starterYearly}
+                proMonthly={PRICE_IDS.proMonthly}
+                proYearly={PRICE_IDS.proYearly}
+              />
             )}
 
             {/* Gestisci abbonamento */}
