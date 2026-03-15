@@ -16,7 +16,7 @@ export function PlanSelection({
   proMonthly,
   proYearly,
 }: PlanSelectionProps) {
-  const [interval, setInterval] = useState<"month" | "year">("month");
+  const [interval, setInterval] = useState<"month" | "year">("year");
   const isAnnual = interval === "year";
 
   return (

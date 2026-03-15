@@ -46,8 +46,28 @@ describe("PlanSelection", () => {
     expect(screen.getByText("Annuale")).toBeInTheDocument();
   });
 
-  it("parte in modalità mensile di default", () => {
+  it("parte in modalità annuale di default", () => {
     renderComponent();
+    expect(
+      screen.getByTestId("checkout-price_starter_yearly"),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("checkout-price_pro_yearly")).toBeInTheDocument();
+  });
+
+  it("mostra i prezzi annuali nel default", () => {
+    renderComponent();
+    expect(screen.getByText("€29.99/anno")).toBeInTheDocument();
+    expect(screen.getByText("€49.99/anno")).toBeInTheDocument();
+  });
+
+  it("mostra il badge -50% di default (annuale)", () => {
+    renderComponent();
+    expect(screen.getByText("-50%")).toBeInTheDocument();
+  });
+
+  it("passa al piano mensile al click su 'Mensile'", () => {
+    renderComponent();
+    fireEvent.click(screen.getByText("Mensile"));
     expect(
       screen.getByTestId("checkout-price_starter_monthly"),
     ).toBeInTheDocument();
@@ -56,57 +76,37 @@ describe("PlanSelection", () => {
     ).toBeInTheDocument();
   });
 
-  it("mostra i prezzi mensili nel default", () => {
+  it("mostra i prezzi mensili dopo il toggle", () => {
     renderComponent();
+    fireEvent.click(screen.getByText("Mensile"));
     expect(screen.getByText("€4.99/mese")).toBeInTheDocument();
     expect(screen.getByText("€8.99/mese")).toBeInTheDocument();
   });
 
   it("non mostra il badge -50% in modalità mensile", () => {
     renderComponent();
+    fireEvent.click(screen.getByText("Mensile"));
     expect(screen.queryByText("-50%")).not.toBeInTheDocument();
   });
 
-  it("passa al piano annuale al click su 'Annuale'", () => {
+  it("torna al piano annuale al secondo click su 'Annuale'", () => {
     renderComponent();
+    fireEvent.click(screen.getByText("Mensile"));
     fireEvent.click(screen.getByText("Annuale"));
     expect(
       screen.getByTestId("checkout-price_starter_yearly"),
-    ).toBeInTheDocument();
-    expect(screen.getByTestId("checkout-price_pro_yearly")).toBeInTheDocument();
-  });
-
-  it("mostra i prezzi annuali dopo il toggle", () => {
-    renderComponent();
-    fireEvent.click(screen.getByText("Annuale"));
-    expect(screen.getByText("€29.99/anno")).toBeInTheDocument();
-    expect(screen.getByText("€49.99/anno")).toBeInTheDocument();
-  });
-
-  it("mostra il badge -50% in modalità annuale", () => {
-    renderComponent();
-    fireEvent.click(screen.getByText("Annuale"));
-    expect(screen.getByText("-50%")).toBeInTheDocument();
-  });
-
-  it("torna al piano mensile al secondo click su 'Mensile'", () => {
-    renderComponent();
-    fireEvent.click(screen.getByText("Annuale"));
-    fireEvent.click(screen.getByText("Mensile"));
-    expect(
-      screen.getByTestId("checkout-price_starter_monthly"),
     ).toBeInTheDocument();
   });
 
   it("usa variant outline per il bottone Starter", () => {
     renderComponent();
-    const starterBtn = screen.getByTestId("checkout-price_starter_monthly");
+    const starterBtn = screen.getByTestId("checkout-price_starter_yearly");
     expect(starterBtn).toHaveAttribute("data-variant", "outline");
   });
 
   it("usa variant default per il bottone Pro", () => {
     renderComponent();
-    const proBtn = screen.getByTestId("checkout-price_pro_monthly");
+    const proBtn = screen.getByTestId("checkout-price_pro_yearly");
     expect(proBtn).not.toHaveAttribute("data-variant", "outline");
   });
 
@@ -116,13 +116,13 @@ describe("PlanSelection", () => {
     expect(screen.getByText("Pro")).toBeInTheDocument();
   });
 
-  it("non mostra i price ID annuali in modalità mensile", () => {
+  it("non mostra i price ID mensili in modalità annuale", () => {
     renderComponent();
     expect(
-      screen.queryByTestId("checkout-price_starter_yearly"),
+      screen.queryByTestId("checkout-price_starter_monthly"),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByTestId("checkout-price_pro_yearly"),
+      screen.queryByTestId("checkout-price_pro_monthly"),
     ).not.toBeInTheDocument();
   });
 });
