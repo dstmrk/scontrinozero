@@ -143,7 +143,7 @@ describe("POST /api/stripe/portal", () => {
     expect(res.status).toBe(401);
   });
 
-  it("redirige all'URL del portale Stripe", async () => {
+  it("restituisce 200 con url JSON", async () => {
     mockGetAuthenticatedUser.mockResolvedValue({ id: "user-1" });
     mockSelect.mockReturnValue(
       makeSelectBuilder([{ stripeCustomerId: "cus_123" }]),
@@ -152,9 +152,8 @@ describe("POST /api/stripe/portal", () => {
       url: "https://billing.stripe.com/session",
     });
     const res = await POST(fakeRequest);
-    expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe(
-      "https://billing.stripe.com/session",
-    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.url).toBe("https://billing.stripe.com/session");
   });
 });

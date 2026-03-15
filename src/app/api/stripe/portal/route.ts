@@ -11,7 +11,7 @@ const portalLimiter = new RateLimiter({
   windowMs: 60 * 60 * 1000, // 1 hour
 });
 
-async function createPortalSession(userId: string): Promise<Response> {
+async function createPortalSession(userId: string): Promise<Response | string> {
   // ── Rate limit ────────────────────────────────────────────────────────────
   const rateLimitResult = portalLimiter.check(`portal:${userId}`);
   if (!rateLimitResult.success) {
@@ -48,18 +48,29 @@ async function createPortalSession(userId: string): Promise<Response> {
     return_url: `${appUrl}/dashboard/settings`,
   });
 
-  return Response.redirect(session.url);
+  return session.url;
 }
 
-async function handleRequest(_req: Request): Promise<Response> {
+export async function GET(_req: Request): Promise<Response> {
   let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
   try {
     user = await getAuthenticatedUser();
   } catch {
     return Response.json({ error: "Non autenticato." }, { status: 401 });
   }
-  return createPortalSession(user.id);
+  const result = await createPortalSession(user.id);
+  if (result instanceof Response) return result;
+  return Response.redirect(result);
 }
 
-export const GET = handleRequest;
-export const POST = handleRequest;
+export async function POST(_req: Request): Promise<Response> {
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch {
+    return Response.json({ error: "Non autenticato." }, { status: 401 });
+  }
+  const result = await createPortalSession(user.id);
+  if (result instanceof Response) return result;
+  return Response.json({ url: result });
+}
