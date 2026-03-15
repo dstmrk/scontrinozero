@@ -429,6 +429,8 @@ export async function myAction(input: MyInput): Promise<MyResult> {
 - `emit:<userId>` — `emitReceipt` → 30/ora (operazione frequente)
 - `void:<userId>` — `voidReceipt` → 10/ora (operazione rara e irreversibile)
 - `pdf:<ip>` — PDF pubblico → 60/ora (per-IP, non autenticato)
+- `checkout:<userId>` — `POST /api/stripe/checkout` → 10/ora
+- `portal:<userId>` — `GET|POST /api/stripe/portal` → 10/ora
 - Auth actions — 5/15min per-IP (in `src/server/auth-actions.ts`)
 
 ### Checklist pre-PR

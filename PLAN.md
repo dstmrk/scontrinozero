@@ -136,12 +136,17 @@ altrimenti sola lettura (storico visibile, emissione bloccata).
   (Stripe SDK v20.4.1, API version 2026-02-25.clover)
 - ✅ `src/lib/plans.ts` — `getPlan()`, `isTrialExpired()`, `canEmit()`, `canUsePro()`, `canAddCatalogItem()`
 - ✅ `POST /api/stripe/checkout` — crea Checkout Session; trial gestito internamente (no trial Stripe)
-- ✅ `POST /api/stripe/webhook` — gestisce 4 eventi Stripe:
-  `checkout.session.completed`, `invoice.paid`, `customer.subscription.updated`, `customer.subscription.deleted`
+- ✅ `POST /api/stripe/webhook` — gestisce 5 eventi Stripe:
+  `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`,
+  `customer.subscription.updated`, `customer.subscription.deleted`
+- ✅ `GET /api/stripe/portal` — redirect al portale Stripe (per link anchor)
+- ✅ `POST /api/stripe/portal` — restituisce `{ url }` JSON (per chiamate JS)
+- ✅ Rate limiting: `checkout:<userId>` 10/ora, `portal:<userId>` 10/ora
 - ✅ Feature gate catalogo: max 5 prodotti per trial/Starter in `addCatalogItem`
 - ✅ `TrialExpiringEmail` template (scheduler post-lancio)
-- ✅ `/dashboard/abbonamento` — badge piano corrente, card piani con CTA Stripe Checkout,
-  link Stripe Customer Portal per utenti abbonati
+- ✅ `/dashboard/abbonamento` → spostato in `/dashboard/settings`:
+  badge piano corrente, toggle mensile/annuale (default annuale),
+  card piani con CTA Stripe Checkout, link Customer Portal per utenti abbonati
 - ✅ Aggiornato bottom-nav (5 voci) e desktop nav con "Abbonamento"
 - ✅ `.env.example` aggiornato con tutte le variabili Stripe
 
