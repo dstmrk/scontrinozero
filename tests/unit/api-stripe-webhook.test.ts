@@ -287,6 +287,34 @@ describe("POST /api/stripe/webhook", () => {
     expect(planDowngradeCall).toBeUndefined();
   });
 
+  it("handles invoice.payment_failed: sets status=past_due on subscription", async () => {
+    const invoice = {
+      parent: { subscription_details: { subscription: "sub_123" } },
+    };
+    mockConstructEvent.mockReturnValue(
+      makeStripeEvent("invoice.payment_failed", invoice),
+    );
+
+    const response = await POST(makeWebhookRequest("{}"));
+
+    expect(response.status).toBe(200);
+    expect(mockUpdateSet).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "past_due" }),
+    );
+  });
+
+  it("handles invoice.payment_failed: breaks early when invoice has no subscription", async () => {
+    const invoice = {}; // no parent.subscription_details
+    mockConstructEvent.mockReturnValue(
+      makeStripeEvent("invoice.payment_failed", invoice),
+    );
+
+    const response = await POST(makeWebhookRequest("{}"));
+
+    expect(response.status).toBe(200);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
   it("passes raw body string to constructEvent (not parsed JSON)", async () => {
     const rawBody = '{"type":"test"}';
     mockConstructEvent.mockReturnValue(
