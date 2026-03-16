@@ -56,13 +56,13 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
-      if (!session.subscription || !session.customer) break;
+      if (typeof session.subscription !== "string" || !session.customer) break;
 
       // Retrieve full subscription object for price/interval data
       const stripeSub = await stripe.subscriptions.retrieve(
-        session.subscription as string,
+        session.subscription,
       );
-      await upsertSubscriptionData(db, session.customer as string, stripeSub);
+      await syncSubscriptionData(db, session.customer as string, stripeSub);
       break;
     }
 
@@ -82,7 +82,21 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
 
     case "customer.subscription.updated": {
       const sub = event.data.object as Stripe.Subscription;
-      await upsertSubscriptionData(db, sub.customer as string, sub);
+      await syncSubscriptionData(db, sub.customer as string, sub);
+      break;
+    }
+
+    case "invoice.payment_action_required": {
+      const invoice = event.data.object as Stripe.Invoice;
+      const subscriptionId = invoice.parent?.subscription_details?.subscription;
+      if (!subscriptionId) break;
+
+      await db
+        .update(subscriptions)
+        .set({ status: "incomplete" })
+        .where(
+          eq(subscriptions.stripeSubscriptionId, subscriptionId as string),
+        );
       break;
     }
 
@@ -133,10 +147,9 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
 }
 
 /**
- * Upsert subscription data into DB and sync the user's plan on profiles.
+ * Sync subscription data into DB and update the user's plan on profiles.
  */
-
-async function upsertSubscriptionData(
+async function syncSubscriptionData(
   db: ReturnType<typeof getDb>,
   stripeCustomerId: string,
   stripeSub: Stripe.Subscription,
