@@ -60,10 +60,11 @@ export function NumericKeypad({ value, onChange }: NumericKeypadProps) {
         className={cn(
           "flex h-14 w-full items-center justify-center rounded-xl",
           "bg-muted text-muted-foreground text-xl font-medium",
-          "transition-transform active:scale-95",
+          "hover:bg-muted/80 transition-transform active:scale-95",
+          "[touch-action:manipulation]",
         )}
       >
-        <Delete className="h-5 w-5" />
+        <Delete className="h-5 w-5" aria-hidden="true" />
       </button>
     </div>
   );
@@ -91,8 +92,9 @@ function KeyButton({
       className={cn(
         "flex h-14 w-full items-center justify-center rounded-xl",
         "bg-muted text-foreground text-xl font-medium",
-        "transition-transform active:scale-95",
+        "hover:bg-muted/80 transition-transform active:scale-95",
         "disabled:cursor-not-allowed disabled:opacity-40",
+        "[touch-action:manipulation]",
       )}
     >
       {label}

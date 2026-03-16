@@ -27,6 +27,12 @@ export interface ReceiptListItem {
 // Search params
 // ---------------------------------------------------------------------------
 
+/**
+ * Valore del filtro stato nella pagina storico.
+ * "" = tutti gli stati; altrimenti filtra per il valore specifico.
+ */
+export type StatusFilter = "" | "ACCEPTED" | "VOID_ACCEPTED";
+
 export interface SearchReceiptsParams {
   /** Data inizio (ISO yyyy-MM-dd, inclusa). */
   dateFrom?: string;
