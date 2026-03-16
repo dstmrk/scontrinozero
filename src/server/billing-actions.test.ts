@@ -101,7 +101,9 @@ describe("billing-actions", () => {
     });
 
     it("hasSubscription è true quando esiste una subscription", async () => {
-      mockSelectLimit.mockResolvedValue([{ id: "sub-123" }]);
+      mockSelectLimit.mockResolvedValue([
+        { id: "sub-123", status: "active", interval: "month" },
+      ]);
 
       const { getProfilePlan } = await import("./billing-actions");
       const result = await getProfilePlan();
@@ -109,6 +111,46 @@ describe("billing-actions", () => {
       expect("error" in result).toBe(false);
       if ("error" in result) return;
       expect(result.hasSubscription).toBe(true);
+    });
+
+    it("subscriptionStatus e subscriptionInterval sono null senza subscription", async () => {
+      mockSelectLimit.mockResolvedValue([]);
+
+      const { getProfilePlan } = await import("./billing-actions");
+      const result = await getProfilePlan();
+
+      expect("error" in result).toBe(false);
+      if ("error" in result) return;
+      expect(result.subscriptionStatus).toBeNull();
+      expect(result.subscriptionInterval).toBeNull();
+    });
+
+    it("restituisce subscriptionStatus e subscriptionInterval dalla subscription", async () => {
+      mockSelectLimit.mockResolvedValue([
+        { id: "sub-123", status: "active", interval: "year" },
+      ]);
+
+      const { getProfilePlan } = await import("./billing-actions");
+      const result = await getProfilePlan();
+
+      expect("error" in result).toBe(false);
+      if ("error" in result) return;
+      expect(result.subscriptionStatus).toBe("active");
+      expect(result.subscriptionInterval).toBe("year");
+    });
+
+    it("restituisce subscriptionStatus past_due quando il pagamento è fallito", async () => {
+      mockSelectLimit.mockResolvedValue([
+        { id: "sub-456", status: "past_due", interval: "month" },
+      ]);
+
+      const { getProfilePlan } = await import("./billing-actions");
+      const result = await getProfilePlan();
+
+      expect("error" in result).toBe(false);
+      if ("error" in result) return;
+      expect(result.subscriptionStatus).toBe("past_due");
+      expect(result.subscriptionInterval).toBe("month");
     });
 
     it("richiama getPlan con lo userId corretto", async () => {

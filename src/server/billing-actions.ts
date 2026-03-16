@@ -13,6 +13,10 @@ export type ProfilePlanResult =
       trialStartedAt: Date | null;
       planExpiresAt: Date | null;
       hasSubscription: boolean;
+      /** "active" | "past_due" | "canceled" | "incomplete" | null */
+      subscriptionStatus: string | null;
+      /** "month" | "year" | null */
+      subscriptionInterval: string | null;
     }
   | { error: string };
 
@@ -32,7 +36,11 @@ export async function getProfilePlan(): Promise<ProfilePlanResult> {
 
   const db = getDb();
   const [sub] = await db
-    .select({ id: subscriptions.id })
+    .select({
+      id: subscriptions.id,
+      status: subscriptions.status,
+      interval: subscriptions.interval,
+    })
     .from(subscriptions)
     .where(eq(subscriptions.userId, user.id))
     .limit(1);
@@ -42,5 +50,7 @@ export async function getProfilePlan(): Promise<ProfilePlanResult> {
     trialStartedAt: planInfo.trialStartedAt,
     planExpiresAt: planInfo.planExpiresAt,
     hasSubscription: !!sub,
+    subscriptionStatus: sub?.status ?? null,
+    subscriptionInterval: sub?.interval ?? null,
   };
 }
