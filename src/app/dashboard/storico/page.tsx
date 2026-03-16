@@ -4,11 +4,11 @@ import { searchReceipts } from "@/server/storico-actions";
 import { StoricoClient } from "@/components/storico/storico-client";
 import type { StatusFilter } from "@/types/storico";
 
-const STATUS_VALUES: StatusFilter[] = ["ACCEPTED", "VOID_ACCEPTED", ""];
+const STATUS_VALUES = new Set<StatusFilter>(["ACCEPTED", "VOID_ACCEPTED", ""]);
 
 function parseStatus(raw: string | undefined): StatusFilter {
   if (raw === undefined) return "ACCEPTED";
-  return STATUS_VALUES.includes(raw as StatusFilter)
+  return STATUS_VALUES.has(raw as StatusFilter)
     ? (raw as StatusFilter)
     : "ACCEPTED";
 }
