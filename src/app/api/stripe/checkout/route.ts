@@ -75,6 +75,9 @@ export async function POST(req: Request): Promise<Response> {
     customer: stripeCustomerId,
     line_items: [{ price: priceId, quantity: 1 }],
     mode: "subscription",
+    subscription_data: {
+      metadata: { userId: user.id },
+    },
     success_url: `${appUrl}/dashboard/settings?success=1`,
     cancel_url: `${appUrl}/dashboard/settings?canceled=1`,
   });
