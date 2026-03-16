@@ -1,7 +1,28 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { CartLine, PaymentMethod, VatCode } from "@/types/cassa";
+
+const SESSION_KEY = "cassa_cart";
+
+interface SessionData {
+  lines: CartLine[];
+  paymentMethod: PaymentMethod;
+}
+
+interface CartState extends SessionData {
+  isHydrated: boolean;
+}
+
+function readFromSession(): SessionData {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return { lines: [], paymentMethod: "PC" };
+    return JSON.parse(raw) as SessionData;
+  } catch {
+    return { lines: [], paymentMethod: "PC" };
+  }
+}
 
 interface AddLineInput {
   description: string;
@@ -22,27 +43,58 @@ interface UseCassaReturn {
 }
 
 export function useCassa(): UseCassaReturn {
-  const [lines, setLines] = useState<CartLine[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("PC");
+  const [{ lines, paymentMethod, isHydrated }, setCartState] =
+    useState<CartState>({
+      lines: [],
+      paymentMethod: "PC",
+      isHydrated: false,
+    });
+
+  // Idrata da sessionStorage dopo il mount (evita hydration mismatch SSR/client).
+  // sessionStorage è una API browser non disponibile lato server: il lazy initializer causerebbe
+  // hydration mismatch, quindi l'idratazione post-mount via useEffect è il pattern corretto.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration da sessionStorage post-mount; pattern necessario per evitare SSR/client mismatch
+    setCartState({ ...readFromSession(), isHydrated: true });
+  }, []);
+
+  // Sincronizza su sessionStorage ad ogni cambiamento (solo dopo l'idratazione)
+  useEffect(() => {
+    if (!isHydrated) return;
+    sessionStorage.setItem(
+      SESSION_KEY,
+      JSON.stringify({ lines, paymentMethod }),
+    );
+  }, [lines, paymentMethod, isHydrated]);
 
   const addLine = useCallback((input: AddLineInput) => {
     const newLine: CartLine = {
       id: crypto.randomUUID(),
       ...input,
     };
-    setLines((prev) => [...prev, newLine]);
+    setCartState((prev) => ({ ...prev, lines: [...prev.lines, newLine] }));
   }, []);
 
   const updateLine = useCallback((id: string, input: AddLineInput) => {
-    setLines((prev) => prev.map((l) => (l.id === id ? { ...l, ...input } : l)));
+    setCartState((prev) => ({
+      ...prev,
+      lines: prev.lines.map((l) => (l.id === id ? { ...l, ...input } : l)),
+    }));
   }, []);
 
   const removeLine = useCallback((id: string) => {
-    setLines((prev) => prev.filter((l) => l.id !== id));
+    setCartState((prev) => ({
+      ...prev,
+      lines: prev.lines.filter((l) => l.id !== id),
+    }));
   }, []);
 
   const clearCart = useCallback(() => {
-    setLines([]);
+    setCartState((prev) => ({ ...prev, lines: [] }));
+  }, []);
+
+  const setPaymentMethod = useCallback((method: PaymentMethod) => {
+    setCartState((prev) => ({ ...prev, paymentMethod: method }));
   }, []);
 
   const total = useMemo(
