@@ -9,7 +9,7 @@ import { AccountDeleteSection } from "@/components/settings/account-delete-secti
 import { ExportDataSection } from "@/components/settings/export-data-section";
 import { AdeCredentialsSection } from "@/components/settings/ade-credentials-section";
 import { getProfilePlan } from "@/server/billing-actions";
-import { isTrialExpired } from "@/lib/plans";
+import { isTrialExpired, TRIAL_DAYS } from "@/lib/plans";
 import { PRICE_IDS } from "@/lib/stripe";
 import { PlanBadge } from "@/components/billing/plan-badge";
 import { PlanSelection } from "@/components/billing/plan-selection";
@@ -72,7 +72,35 @@ export default async function SettingsPage() {
           trialStartedAt: planResult.trialStartedAt,
           planExpiresAt: planResult.planExpiresAt,
           hasSubscription: planResult.hasSubscription,
+          subscriptionStatus: planResult.subscriptionStatus,
+          subscriptionInterval: planResult.subscriptionInterval,
         };
+
+  type BillingCardState =
+    | "trial-active"
+    | "trial-expired"
+    | "subscribed"
+    | "past-due"
+    | "unlimited";
+
+  const cardState: BillingCardState = (() => {
+    if (!planData) return "trial-active";
+    if (planData.plan === "unlimited") return "unlimited";
+    if (planData.hasSubscription && planData.subscriptionStatus === "past_due")
+      return "past-due";
+    if (planData.hasSubscription) return "subscribed";
+    if (isTrialExpired(planData.trialStartedAt)) return "trial-expired";
+    return "trial-active";
+  })();
+
+  const trialExpiryDate = planData?.trialStartedAt
+    ? new Date(
+        planData.trialStartedAt.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000,
+      )
+    : null;
+
+  const intervalLabel =
+    planData?.subscriptionInterval === "year" ? "annuale" : "mensile";
 
   return (
     <div className="space-y-6">
@@ -161,6 +189,22 @@ export default async function SettingsPage() {
             <CardTitle>Piano e Abbonamento</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Trial scaduto — banner warning */}
+            {cardState === "trial-expired" && (
+              <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+                Il periodo di prova è scaduto. Scegli un piano per continuare ad
+                emettere scontrini.
+              </div>
+            )}
+
+            {/* Pagamento fallito — banner errore */}
+            {cardState === "past-due" && (
+              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                Pagamento fallito — aggiorna il metodo di pagamento per evitare
+                l&apos;interruzione del servizio.
+              </div>
+            )}
+
             {/* Piano corrente */}
             <div>
               <p className="text-muted-foreground mb-2 text-sm font-medium">
@@ -168,37 +212,45 @@ export default async function SettingsPage() {
               </p>
               <div className="flex items-center gap-3">
                 <PlanBadge plan={planData.plan} />
-                {planData.plan === "trial" &&
-                  !isTrialExpired(planData.trialStartedAt) &&
-                  planData.trialStartedAt && (
-                    <span className="text-muted-foreground text-sm">
-                      Prova attiva — scade il{" "}
-                      {new Date(
-                        planData.trialStartedAt.getTime() +
-                          30 * 24 * 60 * 60 * 1000,
-                      ).toLocaleDateString("it-IT")}
-                    </span>
-                  )}
-                {planData.plan === "trial" &&
-                  isTrialExpired(planData.trialStartedAt) && (
-                    <span className="text-sm text-red-600">
-                      Periodo di prova scaduto
-                    </span>
-                  )}
-                {(planData.plan === "starter" ||
-                  planData.plan === "pro" ||
-                  planData.plan === "unlimited") &&
-                  planData.planExpiresAt && (
-                    <span className="text-muted-foreground text-sm">
-                      Rinnovo il{" "}
-                      {planData.planExpiresAt.toLocaleDateString("it-IT")}
-                    </span>
-                  )}
+
+                {cardState === "trial-active" && trialExpiryDate && (
+                  <span className="text-muted-foreground text-sm">
+                    Prova attiva — scade il{" "}
+                    {trialExpiryDate.toLocaleDateString("it-IT")}
+                  </span>
+                )}
+
+                {cardState === "trial-expired" && trialExpiryDate && (
+                  <span className="text-sm text-red-600">
+                    Scaduto il {trialExpiryDate.toLocaleDateString("it-IT")}
+                  </span>
+                )}
+
+                {cardState === "subscribed" && (
+                  <span className="text-muted-foreground text-sm">
+                    Abbonamento {intervalLabel}
+                    {planData.planExpiresAt &&
+                      ` — rinnovo il ${planData.planExpiresAt.toLocaleDateString("it-IT")}`}
+                  </span>
+                )}
+
+                {cardState === "past-due" && (
+                  <span className="text-sm text-red-600">
+                    Abbonamento {intervalLabel} — pagamento scaduto
+                  </span>
+                )}
+
+                {cardState === "unlimited" && (
+                  <span className="text-muted-foreground text-sm">
+                    Piano illimitato — gestito direttamente.
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* Scegli piano */}
-            {planData.plan !== "pro" && planData.plan !== "unlimited" && (
+            {/* Scegli piano — solo senza abbonamento attivo */}
+            {(cardState === "trial-active" ||
+              cardState === "trial-expired") && (
               <PlanSelection
                 starterMonthly={PRICE_IDS.starterMonthly}
                 starterYearly={PRICE_IDS.starterYearly}
@@ -207,15 +259,15 @@ export default async function SettingsPage() {
               />
             )}
 
-            {/* Gestisci abbonamento */}
-            {planData.hasSubscription && (
+            {/* Gestisci abbonamento — solo con abbonamento attivo */}
+            {cardState === "subscribed" && (
               <div>
                 <p className="text-muted-foreground mb-2 text-sm font-medium">
                   Gestisci abbonamento
                 </p>
                 <p className="text-muted-foreground mb-3 text-sm">
                   Modifica il piano, aggiorna il metodo di pagamento o annulla
-                  l&apos;abbonamento.
+                  l&apos;abbonamento tramite il portale sicuro di Stripe.
                 </p>
                 <a
                   href="/api/stripe/portal"
@@ -224,6 +276,16 @@ export default async function SettingsPage() {
                   Vai al portale Stripe →
                 </a>
               </div>
+            )}
+
+            {/* Pagamento scaduto — link urgente al portal */}
+            {cardState === "past-due" && (
+              <a
+                href="/api/stripe/portal"
+                className="text-sm font-medium text-red-600 underline underline-offset-4"
+              >
+                Aggiorna metodo di pagamento →
+              </a>
             )}
           </CardContent>
         </Card>
