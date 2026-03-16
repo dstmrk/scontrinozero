@@ -2,14 +2,14 @@ import { redirect } from "next/navigation";
 import { getOnboardingStatus } from "@/server/onboarding-actions";
 import { searchReceipts } from "@/server/storico-actions";
 import { StoricoClient } from "@/components/storico/storico-client";
+import type { StatusFilter } from "@/types/storico";
 
-const STATUS_VALUES = ["ACCEPTED", "VOID_ACCEPTED", ""] as const;
-type StatusParam = (typeof STATUS_VALUES)[number];
+const STATUS_VALUES: StatusFilter[] = ["ACCEPTED", "VOID_ACCEPTED", ""];
 
-function parseStatus(raw: string | undefined): StatusParam {
+function parseStatus(raw: string | undefined): StatusFilter {
   if (raw === undefined) return "ACCEPTED";
-  return STATUS_VALUES.includes(raw as StatusParam)
-    ? (raw as StatusParam)
+  return STATUS_VALUES.includes(raw as StatusFilter)
+    ? (raw as StatusFilter)
     : "ACCEPTED";
 }
 

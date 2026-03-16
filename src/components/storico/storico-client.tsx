@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import type {
   ReceiptListItem,
   SearchReceiptsParams,
+  StatusFilter,
   VoidReceiptResult,
 } from "@/types/storico";
 
@@ -85,7 +86,7 @@ interface StoricoClientProps {
   readonly initialData: ReceiptListItem[];
   readonly initialDateFrom?: string;
   readonly initialDateTo?: string;
-  readonly initialStatus?: "" | "ACCEPTED" | "VOID_ACCEPTED";
+  readonly initialStatus?: StatusFilter;
 }
 
 // ---------------------------------------------------------------------------
@@ -110,9 +111,9 @@ export function StoricoClient({
   // Search form state — initialised from URL params passed by server
   const [dateFrom, setDateFrom] = useState(initialDateFrom ?? todayStr);
   const [dateTo, setDateTo] = useState(initialDateTo ?? todayStr);
-  const [statusFilter, setStatusFilter] = useState<
-    "" | "ACCEPTED" | "VOID_ACCEPTED"
-  >(initialStatus ?? "ACCEPTED");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
+    initialStatus ?? "ACCEPTED",
+  );
 
   // Handle search — also syncs filters to URL for deep-linking
   function handleSearch(e: React.FormEvent) {
@@ -121,7 +122,7 @@ export function StoricoClient({
     const urlParams = new URLSearchParams();
     if (dateFrom) urlParams.set("dal", dateFrom);
     if (dateTo) urlParams.set("al", dateTo);
-    if (statusFilter) urlParams.set("stato", statusFilter);
+    urlParams.set("stato", statusFilter);
     router.replace(`/dashboard/storico?${urlParams.toString()}`);
 
     const params: SearchReceiptsParams = {};
@@ -205,11 +206,7 @@ export function StoricoClient({
             <select
               id="statusFilter"
               value={statusFilter}
-              onChange={(e) =>
-                setStatusFilter(
-                  e.target.value as "" | "ACCEPTED" | "VOID_ACCEPTED",
-                )
-              }
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
               className="dark:bg-input/30 border-input focus-visible:border-ring focus-visible:ring-ring/50 disabled:bg-input/50 h-8 w-full min-w-0 appearance-none rounded-lg border bg-transparent px-2.5 py-1 pr-7 text-base transition-colors outline-none focus-visible:ring-3 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
             >
               <option value="ACCEPTED">Emesso</option>
@@ -265,7 +262,6 @@ export function StoricoClient({
                       }
                     }}
                     tabIndex={hasDetail ? 0 : undefined}
-                    role={hasDetail ? "button" : undefined}
                     aria-label={
                       hasDetail
                         ? `Apri dettaglio scontrino ${formatProgressive(receipt.adeProgressive)}`
