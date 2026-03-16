@@ -54,7 +54,14 @@ export async function searchReceipts(
   }
 
   const docs = await db
-    .select()
+    .select({
+      id: commercialDocuments.id,
+      kind: commercialDocuments.kind,
+      status: commercialDocuments.status,
+      adeProgressive: commercialDocuments.adeProgressive,
+      adeTransactionId: commercialDocuments.adeTransactionId,
+      createdAt: commercialDocuments.createdAt,
+    })
     .from(commercialDocuments)
     .where(and(...conditions))
     .orderBy(desc(commercialDocuments.createdAt));

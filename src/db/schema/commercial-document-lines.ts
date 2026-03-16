@@ -1,5 +1,6 @@
 import {
   foreignKey,
+  index,
   integer,
   numeric,
   pgTable,
@@ -39,6 +40,7 @@ export const commercialDocumentLines = pgTable(
       columns: [table.documentId],
       foreignColumns: [commercialDocuments.id],
     }).onDelete("cascade"),
+    index("idx_commercial_document_lines_document_id").on(table.documentId),
   ],
 );
 
