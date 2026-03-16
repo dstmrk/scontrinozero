@@ -33,7 +33,10 @@ function formatDate(date: Date): string {
 }
 
 function formatCurrency(amount: string): string {
-  return `€ ${Number.parseFloat(amount).toFixed(2).replace(".", ",")}`;
+  return new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR",
+  }).format(Number.parseFloat(amount));
 }
 
 function formatVat(vatCode: string): string {
@@ -86,7 +89,7 @@ export function VoidReceiptDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto overscroll-contain sm:max-w-lg">
         {view === "voidSuccess" && (
           // ── Stato 3: annullo avvenuto ──────────────────────────────────────
           <>
@@ -207,12 +210,15 @@ export function VoidReceiptDialog({
                   >
                     Annulla scontrino
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => window.open(`/r/${receipt.id}`, "_blank")}
-                  >
-                    <Send className="mr-2 h-4 w-4" />
-                    Invia ricevuta
+                  <Button variant="outline" asChild>
+                    <a
+                      href={`/r/${receipt.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Send className="mr-2 h-4 w-4" aria-hidden="true" />
+                      Invia ricevuta
+                    </a>
                   </Button>
                 </>
               )}

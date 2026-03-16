@@ -189,7 +189,7 @@ export function OnboardingForm({
                     id="firstName"
                     name="firstName"
                     required
-                    placeholder="Mario"
+                    placeholder="Mario…"
                   />
                 </div>
                 <div className="space-y-2">
@@ -198,7 +198,7 @@ export function OnboardingForm({
                     id="lastName"
                     name="lastName"
                     required
-                    placeholder="Rossi"
+                    placeholder="Rossi…"
                   />
                 </div>
               </div>
@@ -238,7 +238,7 @@ export function OnboardingForm({
                     id="address"
                     name="address"
                     required
-                    placeholder="Via Roma"
+                    placeholder="Via Roma…"
                   />
                 </div>
                 <div className="space-y-2">
@@ -246,7 +246,7 @@ export function OnboardingForm({
                   <Input
                     id="streetNumber"
                     name="streetNumber"
-                    placeholder="1"
+                    placeholder="1…"
                   />
                 </div>
               </div>
@@ -260,12 +260,12 @@ export function OnboardingForm({
                     name="zipCode"
                     required
                     maxLength={5}
-                    placeholder="00100"
+                    placeholder="00100…"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="city">Città</Label>
-                  <Input id="city" name="city" placeholder="Roma" />
+                  <Input id="city" name="city" placeholder="Roma…" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="province">Prov.</Label>
@@ -273,7 +273,7 @@ export function OnboardingForm({
                     id="province"
                     name="province"
                     maxLength={2}
-                    placeholder="RM"
+                    placeholder="RM…"
                   />
                 </div>
               </div>
@@ -282,7 +282,7 @@ export function OnboardingForm({
               <input type="hidden" name="nation" value="IT" />
 
               <Button type="submit" className="w-full" disabled={isPending}>
-                {isPending ? "Salvataggio..." : "Continua"}
+                {isPending ? "Salvataggio…" : "Continua"}
               </Button>
             </form>
           )}
@@ -301,6 +301,8 @@ export function OnboardingForm({
                   name="codiceFiscale"
                   required
                   maxLength={16}
+                  spellCheck={false}
+                  autoComplete="off"
                   onChange={(e) => {
                     e.target.value = e.target.value.toUpperCase();
                   }}
@@ -327,7 +329,7 @@ export function OnboardingForm({
                   Indietro
                 </Button>
                 <Button type="submit" className="flex-1" disabled={isPending}>
-                  {isPending ? "Salvataggio..." : "Continua"}
+                  {isPending ? "Salvataggio…" : "Continua"}
                 </Button>
               </div>
             </form>
@@ -342,7 +344,7 @@ export function OnboardingForm({
 
               <div className="flex flex-col gap-2">
                 <Button onClick={handleVerify} disabled={isPending}>
-                  {isPending ? "Verifica in corso..." : "Verifica connessione"}
+                  {isPending ? "Verifica in corso…" : "Verifica connessione"}
                 </Button>
                 <Button
                   variant="ghost"

@@ -30,9 +30,10 @@ export default function LoginPage() {
               id="email"
               name="email"
               type="email"
-              placeholder="mario@esempio.it"
+              placeholder="mario@esempio.it…"
               required
               autoComplete="email"
+              spellCheck={false}
               defaultValue={state?.email}
             />
           </div>
@@ -51,7 +52,7 @@ export default function LoginPage() {
           )}
 
           <Button type="submit" className="w-full" disabled={isPending}>
-            {isPending ? "Accesso in corso..." : "Accedi"}
+            {isPending ? "Accesso in corso…" : "Accedi"}
           </Button>
         </form>
 

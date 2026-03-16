@@ -60,7 +60,7 @@ export function AccountDeleteSection() {
       </div>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent>
+        <DialogContent className="overscroll-contain">
           <DialogHeader>
             <DialogTitle>Eliminare l&apos;account?</DialogTitle>
             <DialogDescription>
@@ -91,6 +91,7 @@ export function AccountDeleteSection() {
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
             placeholder={CONFIRM_WORD}
+            autoComplete="off"
             disabled={mutation.isPending}
           />
 

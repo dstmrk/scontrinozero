@@ -95,8 +95,9 @@ export default function RegisterPage() {
               id="email"
               name="email"
               type="email"
-              placeholder="mario@esempio.it"
+              placeholder="mario@esempio.it…"
               autoComplete="email"
+              spellCheck={false}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -209,7 +210,7 @@ export default function RegisterPage() {
           )}
 
           <Button type="submit" className="w-full" disabled={isPending}>
-            {isPending ? "Registrazione..." : "Registrati"}
+            {isPending ? "Registrazione…" : "Registrati"}
           </Button>
         </form>
 

@@ -210,9 +210,10 @@ export function CassaClient({
         <input
           type="text"
           placeholder="Descrizione (opzionale)"
+          autoComplete="off"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="bg-background focus:ring-primary w-full rounded-xl border px-4 py-3 text-base outline-none focus:ring-2"
+          className="bg-background focus-visible:ring-primary w-full rounded-xl border px-4 py-3 text-base outline-none focus-visible:ring-2"
         />
 
         {/* Display importo */}
@@ -331,7 +332,10 @@ export function CassaClient({
       {/* Lista articoli o stato vuoto */}
       {lines.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed py-12 text-center">
-          <ShoppingCart className="text-muted-foreground h-10 w-10" />
+          <ShoppingCart
+            className="text-muted-foreground h-10 w-10"
+            aria-hidden="true"
+          />
           <p className="text-muted-foreground text-sm">
             Nessun articolo.
             <br />

@@ -97,7 +97,10 @@ export function CatalogoClient({
       {/* Lista prodotti o empty state */}
       {items.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed py-12 text-center">
-          <Package className="text-muted-foreground h-10 w-10" />
+          <Package
+            className="text-muted-foreground h-10 w-10"
+            aria-hidden="true"
+          />
           <p className="text-muted-foreground text-sm">
             Nessun prodotto nel catalogo.
             <br />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { searchReceipts } from "@/server/storico-actions";
 import { VoidReceiptDialog } from "./void-receipt-dialog";
@@ -32,7 +33,10 @@ function formatProgressive(progressive: string | null): string {
 }
 
 function formatCurrency(amount: string): string {
-  return `€ ${Number.parseFloat(amount).toFixed(2).replace(".", ",")}`;
+  return new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR",
+  }).format(Number.parseFloat(amount));
 }
 
 function StatusBadge({
@@ -79,29 +83,46 @@ const PAGE_SIZE = 10;
 interface StoricoClientProps {
   readonly businessId: string;
   readonly initialData: ReceiptListItem[];
+  readonly initialDateFrom?: string;
+  readonly initialDateTo?: string;
+  readonly initialStatus?: "" | "ACCEPTED" | "VOID_ACCEPTED";
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
+export function StoricoClient({
+  businessId,
+  initialData,
+  initialDateFrom,
+  initialDateTo,
+  initialStatus,
+}: StoricoClientProps) {
+  const router = useRouter();
+  const todayStr = new Date().toISOString().split("T")[0];
+
   const [receipts, setReceipts] = useState<ReceiptListItem[]>(initialData);
   const [selected, setSelected] = useState<ReceiptListItem | null>(null);
   const [isPending, startTransition] = useTransition();
   const [page, setPage] = useState(1);
 
-  // Search form state — defaults aligned with page.tsx server-side prefetch
-  const todayStr = new Date().toISOString().split("T")[0];
-  const [dateFrom, setDateFrom] = useState(todayStr);
-  const [dateTo, setDateTo] = useState(todayStr);
+  // Search form state — initialised from URL params passed by server
+  const [dateFrom, setDateFrom] = useState(initialDateFrom ?? todayStr);
+  const [dateTo, setDateTo] = useState(initialDateTo ?? todayStr);
   const [statusFilter, setStatusFilter] = useState<
     "" | "ACCEPTED" | "VOID_ACCEPTED"
-  >("ACCEPTED");
+  >(initialStatus ?? "ACCEPTED");
 
-  // Handle search
+  // Handle search — also syncs filters to URL for deep-linking
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
+
+    const urlParams = new URLSearchParams();
+    if (dateFrom) urlParams.set("dal", dateFrom);
+    if (dateTo) urlParams.set("al", dateTo);
+    if (statusFilter) urlParams.set("stato", statusFilter);
+    router.replace(`/dashboard/storico?${urlParams.toString()}`);
 
     const params: SearchReceiptsParams = {};
     if (dateFrom) params.dateFrom = dateFrom;
@@ -217,7 +238,7 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
                 <th className="px-3 py-2 text-left font-medium">Progressivo</th>
                 <th className="px-3 py-2 text-right font-medium">Totale</th>
                 <th className="px-3 py-2 text-left font-medium">Stato</th>
-                <th className="px-3 py-2"></th>
+                <th className="px-3 py-2" aria-label="Dettaglio"></th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -233,10 +254,23 @@ export function StoricoClient({ businessId, initialData }: StoricoClientProps) {
                     key={receipt.id}
                     className={
                       hasDetail
-                        ? "hover:bg-muted/30 cursor-pointer"
+                        ? "hover:bg-muted/30 focus-visible:bg-muted/30 cursor-pointer outline-none"
                         : "opacity-60"
                     }
                     onClick={() => hasDetail && setSelected(receipt)}
+                    onKeyDown={(e) => {
+                      if (hasDetail && (e.key === "Enter" || e.key === " ")) {
+                        e.preventDefault();
+                        setSelected(receipt);
+                      }
+                    }}
+                    tabIndex={hasDetail ? 0 : undefined}
+                    role={hasDetail ? "button" : undefined}
+                    aria-label={
+                      hasDetail
+                        ? `Apri dettaglio scontrino ${formatProgressive(receipt.adeProgressive)}`
+                        : undefined
+                    }
                   >
                     <td className="px-3 py-2 whitespace-nowrap">
                       {formatDate(receipt.createdAt)}

@@ -53,7 +53,7 @@ export function ReceiptSuccess({
 
   return (
     <div className="mx-auto flex max-w-sm flex-col items-center gap-6 py-8 text-center">
-      <CheckCircle2 className="text-primary h-16 w-16" />
+      <CheckCircle2 className="text-primary h-16 w-16" aria-hidden="true" />
 
       <div className="space-y-1">
         <h2 className="text-2xl font-bold">Scontrino emesso</h2>
