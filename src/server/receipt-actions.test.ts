@@ -41,11 +41,19 @@ const mockUpdateWhere = vi.fn().mockResolvedValue(undefined);
 const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
 const mockUpdate = vi.fn().mockReturnValue({ set: mockUpdateSet });
 
+const mockTransaction = vi
+  .fn()
+  .mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => {
+    const tx = { select: mockSelect, insert: mockInsert, update: mockUpdate };
+    return callback(tx);
+  });
+
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({
     select: mockSelect,
     insert: mockInsert,
     update: mockUpdate,
+    transaction: mockTransaction,
   }),
 }));
 
@@ -123,6 +131,18 @@ describe("receipt-actions", () => {
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockCheckBusinessOwnership.mockResolvedValue(null);
     mockFetchAdePrerequisites.mockResolvedValue(FAKE_PREREQUISITES);
+
+    // Restore transaction default implementation after clearAllMocks
+    mockTransaction.mockImplementation(
+      async (callback: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          select: mockSelect,
+          insert: mockInsert,
+          update: mockUpdate,
+        };
+        return callback(tx);
+      },
+    );
 
     // DB: insert routing by table
     mockInsert.mockImplementation((table: unknown) => {
@@ -327,6 +347,13 @@ describe("receipt-actions", () => {
       const setArg = mockUpdateSet.mock.calls[0][0];
       expect(setArg.status).toBe("REJECTED");
       expect(setArg.adeResponse).toBeDefined();
+    });
+
+    it("insert is wrapped in a transaction (document + lines atomic)", async () => {
+      const { emitReceipt } = await import("./receipt-actions");
+      await emitReceipt(VALID_INPUT);
+
+      expect(mockTransaction).toHaveBeenCalledOnce();
     });
   });
 });

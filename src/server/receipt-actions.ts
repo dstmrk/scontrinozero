@@ -60,21 +60,40 @@ export async function emitReceipt(
 
   const db = getDb();
 
-  // Insert commercial document (idempotent via unique idempotencyKey)
-  const [document] = await db
-    .insert(commercialDocuments)
-    .values({
-      businessId: input.businessId,
-      kind: "SALE",
-      idempotencyKey: input.idempotencyKey,
-      publicRequest: { paymentMethod: input.paymentMethod },
-      status: "PENDING",
-    })
-    .onConflictDoNothing()
-    .returning({ id: commercialDocuments.id });
+  // Insert document + lines atomically: if either fails, nothing is persisted
+  const txResult = await db.transaction(async (tx) => {
+    const [document] = await tx
+      .insert(commercialDocuments)
+      .values({
+        businessId: input.businessId,
+        kind: "SALE",
+        idempotencyKey: input.idempotencyKey,
+        publicRequest: { paymentMethod: input.paymentMethod },
+        status: "PENDING",
+      })
+      .onConflictDoNothing()
+      .returning({ id: commercialDocuments.id });
 
-  // Idempotency: a document with this key already exists
-  if (!document) {
+    // Idempotency: a document with this key already exists
+    if (!document) {
+      return { alreadyExists: true };
+    }
+
+    await tx.insert(commercialDocumentLines).values(
+      input.lines.map((line, index) => ({
+        documentId: document.id,
+        lineIndex: index,
+        description: line.description,
+        quantity: String(line.quantity),
+        grossUnitPrice: String(line.grossUnitPrice),
+        vatCode: line.vatCode,
+      })),
+    );
+
+    return { alreadyExists: false, id: document.id };
+  });
+
+  if (txResult.alreadyExists) {
     const [existing] = await db
       .select({
         id: commercialDocuments.id,
@@ -101,19 +120,11 @@ export async function emitReceipt(
     };
   }
 
-  const documentId = document.id;
-
-  // Insert all document lines
-  await db.insert(commercialDocumentLines).values(
-    input.lines.map((line, index) => ({
-      documentId,
-      lineIndex: index,
-      description: line.description,
-      quantity: String(line.quantity),
-      grossUnitPrice: String(line.grossUnitPrice),
-      vatCode: line.vatCode,
-    })),
-  );
+  const documentId = txResult.id;
+  if (!documentId) {
+    logger.error({}, "Transaction returned no document ID");
+    return { error: "Errore interno: impossibile creare il documento." };
+  }
 
   // Build sale document request (round to 2 decimal places to avoid float imprecision)
   const totalAmount =
