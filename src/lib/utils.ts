@@ -20,7 +20,7 @@ export function formatCurrency(amount: number): string {
  */
 export function appendDigitCents(cents: number, digit: string): number {
   const MAX_CENTS = 999999;
-  const newCents = cents * 10 + parseInt(digit, 10);
+  const newCents = cents * 10 + Number.parseInt(digit, 10);
   return newCents > MAX_CENTS ? cents : newCents;
 }
 
