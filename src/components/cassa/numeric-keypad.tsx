@@ -1,11 +1,11 @@
 "use client";
 
 import { Delete } from "lucide-react";
-import { appendKeypadChar, backspaceKeypad, cn } from "@/lib/utils";
+import { appendDigitCents, backspaceCents, cn } from "@/lib/utils";
 
 interface NumericKeypadProps {
-  readonly value: string;
-  readonly onChange: (value: string) => void;
+  readonly value: number; // centesimi
+  readonly onChange: (value: number) => void;
 }
 
 const KEYS = [
@@ -15,22 +15,16 @@ const KEYS = [
 ] as const;
 
 export function NumericKeypad({ value, onChange }: NumericKeypadProps) {
-  const hasDecimal = value.includes(".");
-  const decimalDigits = hasDecimal ? value.length - value.indexOf(".") - 1 : 0;
-  const isDecimalDisabled = hasDecimal;
-  const isDigitDisabled = hasDecimal && decimalDigits >= 2;
-
   const handleDigit = (digit: string) => {
-    if (isDigitDisabled) return;
-    onChange(appendKeypadChar(value, digit));
+    onChange(appendDigitCents(value, digit));
   };
 
-  const handleDecimal = () => {
-    onChange(appendKeypadChar(value, "."));
+  const handle00 = () => {
+    onChange(appendDigitCents(appendDigitCents(value, "0"), "0"));
   };
 
   const handleBackspace = () => {
-    onChange(backspaceKeypad(value));
+    onChange(backspaceCents(value));
   };
 
   return (
@@ -45,13 +39,8 @@ export function NumericKeypad({ value, onChange }: NumericKeypadProps) {
         )),
       )}
 
-      {/* Bottom row: decimal | 0 | backspace */}
-      <KeyButton
-        label=","
-        onClick={handleDecimal}
-        disabled={isDecimalDisabled}
-        aria-label=","
-      />
+      {/* Bottom row: 00 | 0 | backspace */}
+      <KeyButton label="00" onClick={handle00} aria-label="00" />
       <KeyButton label="0" onClick={() => handleDigit("0")} />
       <button
         type="button"
