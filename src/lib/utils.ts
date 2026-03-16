@@ -14,35 +14,17 @@ export function formatCurrency(amount: number): string {
 }
 
 /**
- * Converte una stringa da tastierino numerico in numero.
- * "" → 0, "12" → 12, "12." → 12, "12.5" → 12.5
+ * Aggiunge una cifra al valore corrente (in centesimi) con logica cashier-style.
+ * Le cifre scorrono da destra: premere 1, 3, 5, 8 → 0,01 → 0,13 → 1,35 → 13,58
+ * Limite massimo: 999999 centesimi (€9.999,99).
  */
-export function parseAmount(value: string): number {
-  if (!value || value === ".") return 0;
-  return Number.parseFloat(value);
+export function appendDigitCents(cents: number, digit: string): number {
+  const MAX_CENTS = 999999;
+  const newCents = cents * 10 + Number.parseInt(digit, 10);
+  return newCents > MAX_CENTS ? cents : newCents;
 }
 
-/**
- * Aggiunge un carattere al valore corrente del tastierino.
- * Rispetta le regole: max 2 decimali, un solo punto decimale.
- */
-export function appendKeypadChar(current: string, char: string): string {
-  if (char === ".") {
-    if (current.includes(".")) return current;
-    return current === "" ? "0." : current + ".";
-  }
-
-  // Limit decimal digits to 2
-  const dotIndex = current.indexOf(".");
-  if (dotIndex !== -1 && current.length - dotIndex > 2) return current;
-
-  // Prevent leading zeros (e.g. "007")
-  if (current === "0" && char !== ".") return char;
-
-  return current + char;
-}
-
-/** Rimuove l'ultimo carattere dal valore del tastierino */
-export function backspaceKeypad(current: string): string {
-  return current.slice(0, -1);
+/** Rimuove l'ultima cifra dal valore in centesimi (backspace cashier-style). */
+export function backspaceCents(cents: number): number {
+  return Math.floor(cents / 10);
 }

@@ -13,7 +13,7 @@ import { CartLineItem } from "@/components/cassa/cart-line-item";
 import { ReceiptSummary } from "@/components/cassa/receipt-summary";
 import { ReceiptSuccess } from "@/components/cassa/receipt-success";
 import { Button } from "@/components/ui/button";
-import { formatCurrency, parseAmount } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { emitReceipt } from "@/server/receipt-actions";
 
 type Step = "cart" | "add-item" | "summary" | "success";
@@ -105,12 +105,12 @@ export function CassaClient({
 
   // Stato form aggiungi articolo
   const [description, setDescription] = useState("");
-  const [amount, setAmount] = useState("");
+  const [amountCents, setAmountCents] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [vatCode, setVatCode] = useState<VatCode>(defaultVat);
 
-  const parsedAmount = parseAmount(amount);
-  const canAdd = parsedAmount > 0;
+  const parsedAmount = amountCents / 100;
+  const canAdd = amountCents > 0;
 
   const mutation = useMutation({
     mutationFn: emitReceipt,
@@ -146,7 +146,7 @@ export function CassaClient({
     }
     // Reset form
     setDescription("");
-    setAmount("");
+    setAmountCents(0);
     setQuantity(1);
     setVatCode(defaultVat);
     setStep("cart");
@@ -195,7 +195,7 @@ export function CassaClient({
             size="sm"
             onClick={() => {
               setStep("cart");
-              setAmount("");
+              setAmountCents(0);
               setDescription("");
               setQuantity(1);
               setVatCode(defaultVat);
@@ -219,14 +219,14 @@ export function CassaClient({
         {/* Display importo */}
         <div className="bg-muted rounded-xl px-4 py-5 text-center">
           <span
-            className={`text-4xl font-bold tracking-tight transition-opacity ${amount ? "opacity-100" : "text-muted-foreground opacity-30"}`}
+            className={`text-4xl font-bold tracking-tight transition-opacity ${amountCents > 0 ? "opacity-100" : "text-muted-foreground opacity-30"}`}
           >
-            {amount ? formatCurrency(parsedAmount) : "€ 0,00"}
+            {formatCurrency(parsedAmount)}
           </span>
         </div>
 
         {/* Tastierino numerico */}
-        <NumericKeypad value={amount} onChange={setAmount} />
+        <NumericKeypad value={amountCents} onChange={setAmountCents} />
 
         {/* Quantità */}
         <div className="flex items-center justify-between rounded-xl border px-4 py-3">
@@ -356,7 +356,7 @@ export function CassaClient({
                 setDescription(
                   l.description === "Vendita" ? "" : l.description,
                 );
-                setAmount(String(l.grossUnitPrice));
+                setAmountCents(Math.round(l.grossUnitPrice * 100));
                 setQuantity(l.quantity);
                 setVatCode(l.vatCode);
                 setStep("add-item");

@@ -278,6 +278,9 @@ Fasi:
   2. Test con coverage (Vitest → lcov)
   3. SonarQube Cloud scan (analisi statica + coverage)
   4. Build
+- **Code review on-demand** (`claude-code-review.yml`): commenta `/claude review` su
+  una PR per avviare la code review di Claude. Il workflow parte solo se tutti i check
+  CI del commit HEAD sono verdi (il step "Check CI status" fallisce altrimenti).
 - **Pipeline Deploy** (su push di tag `v*.*.*`):
   - Build Docker → push immagine su GitHub Container Registry (ghcr.io)
   - Il deploy sulla VPS è **manuale**: via browser SSH Cloudflare Access:
