@@ -27,11 +27,6 @@ export const faqItems = [
   {
     question: "Quanto costa?",
     answer:
-      "Starter a €5,99/mese (o €29,99/anno) e Pro a €8,99/mese (o €49,99/anno). Entrambi includono 30 giorni di prova gratuita, senza inserire alcun metodo di pagamento. Se non scegli un piano alla scadenza, l'account passa in sola lettura: vedi lo storico scontrini ma non puoi emetterne di nuovi.",
-  },
-  {
-    question: "Posso installarlo da solo sul mio server?",
-    answer:
-      "Sì. ScontrinoZero è open source e puoi installarlo sul tuo server gratuitamente, senza limiti e senza abbonamento. Le credenziali Fisconline rimangono sul tuo server e non transitano da nessun servizio esterno.",
+      "Starter a €4,99/mese (o €29,99/anno) e Pro a €8,99/mese (o €49,99/anno). Entrambi includono 30 giorni di prova gratuita, senza inserire alcun metodo di pagamento. Se non scegli un piano alla scadenza, l'account passa in sola lettura: vedi lo storico scontrini ma non puoi emetterne di nuovi.",
   },
 ] as const;
