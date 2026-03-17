@@ -8,6 +8,41 @@
       "when": 1772398479211,
       "tag": "0000_initial",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1772398479212,
+      "tag": "0001_rls_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772398479213,
+      "tag": "0002_terms_acceptance",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1772398479214,
+      "tag": "0003_fix_fk_constraint_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1772398479215,
+      "tag": "0004_stripe_subscription",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1772398479216,
+      "tag": "0005_add_missing_indexes",
+      "breakpoints": true
     }
   ]
 }
