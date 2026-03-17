@@ -26,22 +26,11 @@ esercenti e micro-attività di emettere scontrini elettronici e trasmettere i co
 all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la procedura
 "Documento Commerciale Online".
 
-## Roadmap e piano di sviluppo
+**Versione corrente:** v0.9.1 ⬜ (Stabilità + E2E checkpoint) — roadmap completa in `PLAN.md`.
 
-Il piano di sviluppo — release semantiche, task per versione, storico fasi, test cumulativi —
-è in **`PLAN.md`** (root del repo).
-
-**Versione corrente:** v0.9.1 ⬜ (Stabilità + E2E checkpoint)
-
-**Approccio TDD:** Per ogni release, scrivere i test PRIMA dell'implementazione.
-I test di validazione e degli endpoint usano `vi.mock` per isolare le dipendenze (Drizzle, etc.).
-
-**Release roadmap (pre-lancio):**
-v0.7.0 ✅ → v0.8.0 ✅ (Resend) → v0.8.1 ✅ (landing) → v0.9.0 ✅ (Stripe) → v0.9.1 ⬜ (E2E checkpoint) → **v1.0.0** ⬜ (lancio pubblico)
+**Release roadmap (pre-lancio):** v0.9.1 ⬜ (E2E checkpoint) → **v1.0.0** ⬜ (lancio pubblico)
 
 **Post-lancio:** v1.1.0 (PWA) → v1.2.0 (billing polish) → v1.3.0 (receipt email) → v1.4.0+ (analytics, catalog sync, …)
-
-Storico fasi completate (0 → 4K): vedi PLAN.md § "Storico sviluppo".
 
 ## Principi di prodotto
 
@@ -93,7 +82,6 @@ giustificare la propria esistenza.
   hosting, aggiornamenti, backup, supporto
 - **O'Saasy License** — permissiva come MIT, ma vieta di usare il software per
   offrire un SaaS concorrente
-- Modello collaudato (GitLab, Plausible, Sentry, Umami)
 - La versione self-hosted è un selling point di fiducia: le credenziali Fisconline
   restano sul server dell'utente, nessun dato transita da terzi
 
@@ -163,8 +151,8 @@ nessuna logica Stripe. Bypassa tutti i gate come Pro.
 
 ### Autenticazione
 
-- **Supabase Auth** — email/password, magic link
-- NO SPID/CIE come metodo di login (richiede accreditamento AgID come SP privato)
+- **Supabase Auth** — email/password per il login all'app SaaS
+- SPID è usato solo per autenticazione sul portale AdE (non come metodo di login all'app)
 
 ### Integrazione Agenzia delle Entrate
 
@@ -181,20 +169,9 @@ L'AdE **non espone API REST pubbliche**. La procedura "Documento Commerciale Onl
 - Base legale: Interpello AdE n. 956-1523/2020 — l'AdE non si oppone ai
   "velocizzatori" purché rispettino le prescrizioni normative
 
-Fasi:
-
-1. Analizzare il portale Fatture e Corrispettivi (network tab, chiamate XHR/fetch)
-2. Mappare gli endpoint interni usati dalla web app dell'AdE
-3. Replicare il flusso (auth → emissione → conferma) dal nostro backend
-4. Gestire le credenziali utente in modo sicuro (cifratura at-rest)
-5. Implementare retry e fallback per indisponibilità AdE
-
 ### Pagamenti SaaS (subscription)
 
 - **Stripe** — fee più basse in EU (1.5% + €0.25 per carte europee)
-- Il target è B2B (esercenti italiani) → IVA gestibile, reverse charge
-- Stripe Billing per abbonamenti ricorrenti
-- Alternativa futura: Paddle come MoR se si espande all'estero
 - SDK: `stripe` npm v20.4.1, API version `2026-02-25.clover`
 
 **⚠️ Attenzione API version 2026-02-25.clover (breaking changes rispetto alle versioni precedenti):**
@@ -206,105 +183,53 @@ Fasi:
 
 ### Email transazionali
 
-- **Resend** — email transazionali (welcome, password reset, invio scontrino)
-- Free tier: 3.000 email/mese (sufficiente per fase iniziale)
-- DX moderna, integrazione React Email per template type-safe
-- Pro: $20/mese per 50k email quando si scala
+- **Resend** — email transazionali (welcome, password reset, account deletion)
+- Free tier: 3.000 email/mese; Pro $20/mese per 50k quando si scala
+- React Email per template type-safe nello stesso stack
 
 ### Deployment
 
-- **Docker self-hosted su VPS** (infrastruttura già disponibile)
-  - Next.js in modalità `standalone` (output ottimizzato per container)
-  - **Cloudflare Tunnel** (cloudflared) come ingress (già attivo sulla VPS)
-    - Nessuna porta da esporre pubblicamente
-    - HTTPS gestito da Cloudflare (no Let's Encrypt da configurare)
-    - CDN e DDoS protection inclusi
-    - IP del server nascosto
-  - Docker Compose per orchestrazione (next-app + cloudflared)
-  - Docker logging limits (`max-size: 10m`, `max-file: 3`) per evitare log bloat
-  - `.dockerignore` accurato: esclude tests, docs, `.github/`, `node_modules`
-  - Health check endpoint (`/api/health`) per Docker healthcheck e monitoring
-  - `.env.example` come template per onboarding rapido
-- **Supabase Cloud** per il database (free tier, nessun DB da gestire sulla VPS)
-- NO Vercel (il piano Hobby vieta uso commerciale; Pro costa $20/mese non necessario)
+- **Docker self-hosted su VPS** — Next.js `standalone`, Cloudflare Tunnel come ingress
+  - HTTPS automatico, CDN, DDoS protection, IP nascosto — zero porte pubbliche
+  - Docker Compose: next-app + cloudflared
+  - Health check endpoint: `/api/health`
+- **Supabase Cloud** per il database (no DB da gestire sulla VPS)
+- **Deploy manuale via tag** `v*.*.*` → GitHub Actions: build Docker → push GHCR → VPS:
+  ```bash
+  cd /opt/scontrinozero
+  docker compose pull && docker compose up -d
+  ```
+  (VPS accessibile solo via Cloudflare Access SSH)
 
-### Monitoring e observability
+### Monitoring, Analytics, Code quality
 
-- **Sentry** — error tracking e performance monitoring
-  - Free tier: 5k errori/mese, 10k transazioni performance
-  - SDK Next.js ufficiale (`@sentry/nextjs`)
-- **Structured logging** — tramite `pino` o logging nativo Next.js
-
-### Analytics
-
-- **Umami** (self-hosted su VPS) — web analytics privacy-first
-  - Open source, GDPR compliant senza cookie banner
-  - Stack: Next.js + PostgreSQL (stesso stack, può usare Supabase come DB)
-  - Free illimitato self-hosted
-  - Script leggero (~2 KB)
-  - Alternativa: Plausible (simile ma senza free tier cloud)
-
-### Code quality
-
-- **SonarQube Cloud** (ex SonarCloud) — analisi statica, sicurezza, code smells
-  - Free tier: fino a 50k LOC per repo privati, 5 utenti
-  - PR decoration: mostra problemi direttamente nelle pull request GitHub
-  - Quality Gate: blocca merge che introducono bug o abbassano la coverage
-  - Importante per sicurezza dato che gestiamo credenziali Fisconline
-- **ESLint + Prettier** — linting e formattazione
-- **lint-staged + husky** — pre-commit hooks (lint e format solo sui file staged)
-- **Dependabot** — aggiornamenti automatici dipendenze (settimanale, patch/minor raggruppati)
+| Tool                  | Ruolo                               | Note                                                |
+| --------------------- | ----------------------------------- | --------------------------------------------------- |
+| **Sentry**            | Error tracking + performance        | Free tier: 5k errori/mese; `@sentry/nextjs`         |
+| **pino**              | Structured logging                  |                                                     |
+| **Umami**             | Web analytics privacy-first         | Self-hosted, GDPR compliant, script ~2KB, no cookie |
+| **SonarQube Cloud**   | Analisi statica, SAST, coverage     | Free ≤50k LOC; PR decoration; Quality Gate          |
+| **ESLint + Prettier** | Linting e formattazione             | lint-staged + husky sui file staged                 |
+| **Dependabot**        | Aggiornamenti dipendenze automatici | Settimanale, patch/minor raggruppati                |
 
 ### CI/CD
 
-- **GitHub Actions** — test, lint, build, deploy automatizzato
-  - Free tier generoso per repo privati (2.000 minuti/mese)
-- **Smart skip**: i workflow analizzano il diff e saltano se non ci sono file rilevanti
-  (risparmio minuti CI su modifiche a soli `.md`, `static/`, etc.)
-- **Security audit**: attualmente `npm audit --audit-level=high` (blocca solo high/critical).
-  Prima di v1.0.0 va portato a `moderate` usando `audit-ci` con un file di allowlist
-  per le eccezioni documentate (es. esbuild in drizzle-kit è devDependency il cui
-  vettore d'attacco è irrilevante in CI). Le low non si auditano: rapporto segnale/rumore
-  pessimo senza benefici reali.
-- **Secret scanning**: **Gitleaks** come step CI per bloccare credenziali/chiavi
-  accidentalmente committate. Critico per un'app che gestisce credenziali Fisconline.
-- **Docker image scan**: **Trivy** nella pipeline deploy — scansiona l'immagine Docker
-  prima del push su GHCR (CVE nell'immagine base `node:alpine`).
-- **Branch protection** (GitHub Settings → Branches): oltre a no-force-push e no-delete,
-  abilitare **"Require status checks to pass before merging"** con i job CI obbligatori.
-  Senza questo, l'intera pipeline CI è decorativa: si può fare merge con CI rosso.
-- **Pipeline CI** (su push/PR verso main):
-  1. Lint (ESLint) + type-check (`tsc --noEmit`)
-  2. Test con coverage (Vitest → lcov)
-  3. SonarQube Cloud scan (analisi statica + coverage)
-  4. Build
-- **Code review on-demand** (`claude-code-review.yml`): commenta `/claude review` su
-  una PR per avviare la code review di Claude. Il workflow parte solo se tutti i check
-  CI del commit HEAD sono verdi (il step "Check CI status" fallisce altrimenti).
-- **Pipeline Deploy** (su push di tag `v*.*.*`):
-  - Build Docker → push immagine su GitHub Container Registry (ghcr.io)
-  - Il deploy sulla VPS è **manuale**: via browser SSH Cloudflare Access:
-    ```bash
-    cd /opt/scontrinozero
-    docker compose pull && docker compose up -d
-    ```
-  - La VPS è accessibile solo via Cloudflare Access SSH (no porta 22 pubblica),
-    quindi il deploy automatizzato via SSH non è configurato
+- **GitHub Actions** — pipeline su push/PR verso main:
+  1. Secret scan (Gitleaks, sempre attivo)
+  2. Security audit (`audit-ci` `--moderate` con allowlist `audit-ci.json`)
+  3. Parallel: lint + type-check, test+coverage (Vitest→lcov), SonarQube scan, build
+- **Pipeline Deploy** (tag `v*.*.*`): build Docker → Trivy scan CVE → push GHCR
+- **Code review on-demand** (`claude-code-review.yml`): commenta `/claude review` su PR
+- **Branch protection**: abilitare "Require status checks" su GitHub Settings → Branches
 
 ### Testing
 
 - **Approccio TDD** — test-first: scrivere i test prima dell'implementazione
-- **Vitest** — unit e integration test
-  - Coverage con `@vitest/coverage-v8` (report lcov per SonarQube)
-  - `vitest-sonar-reporter` per report esecuzione test
+- **Vitest** — unit e integration test; coverage `@vitest/coverage-v8` (report lcov)
 - **Playwright** — E2E test (solo in CI/dev, non in produzione)
 - I componenti shadcn/ui (`src/components/ui/`) sono esclusi dalla coverage
 - I componenti marketing (`src/components/marketing/**`) sono esclusi dalla coverage
   (pura UI presentazionale, zero logica di business — testati via E2E)
-
-### Monorepo (se necessario)
-
-- **Turborepo** — per separare packages (app, shared, etc.)
 
 ## Ambienti: test e produzione
 
@@ -459,173 +384,54 @@ Stesso progetto Next.js, non un sito separato:
 
 - Le pagine marketing (/, /prezzi, /funzionalita, /chi-siamo) sono route SSG
   nel Next.js App Router — generate staticamente al build, veloci
-- L'app SaaS vive sotto /dashboard (o /app) — route dinamiche protette da auth
-- Vantaggi: un solo deploy, un solo dominio, SEO integrato
-- shadcn/ui per i componenti anche nella landing (coerenza visiva)
-- Contenuti marketing: MDX per pagine rich-text (blog, guide, FAQ)
-
-### SEO e marketing
-
+- L'app SaaS vive sotto /dashboard — route dinamiche protette da auth
 - Meta tag e Open Graph automatici via Next.js `metadata` API
-- Sitemap generata automaticamente (`next-sitemap`)
-- Structured data (JSON-LD) per rich snippets Google
-- Blog/risorse in MDX per content marketing e SEO organico
+- Sitemap via `next-sitemap`; structured data JSON-LD per rich snippets
 
 ## Conformità legale
 
-- **Privacy Policy** — obbligatoria (GDPR), generabile con iubenda o simili
-- **Cookie Policy** — se si usano solo cookie tecnici (Supabase auth) e analytics
-  cookieless (Umami), il banner cookie non è necessario per GDPR
-- **Termini di Servizio** — contratto d'uso del SaaS
-- **Condizioni di vendita** — per gli abbonamenti Stripe
-- **Informativa trattamento dati** — specifica per credenziali Fisconline
-  (dato sensibile, cifratura at-rest, finalità limitate)
-- **GDPR art. 20 — Portabilità dati** — obbligo legale: l'utente deve poter esportare
-  tutti i propri dati (profilo, attività, scontrini) in formato machine-readable (JSON).
-  Implementare come "Esporta dati" in `/dashboard/settings` prima del lancio pubblico.
-- **Accettazione T&C tracciata** — al momento della registrazione, `signUp` salva su
-  `profiles` i campi `terms_accepted_at` (timestamp) e `terms_version` (es. `"v01"`).
-  La versione corrente è la costante `CURRENT_TERMS_VERSION` in `src/server/auth-actions.ts`.
-  **Versioning URL T&C:** il testo di ogni versione vive su `/termini/vXX` (permalink permanente);
-  `/termini` fa sempre redirect all'ultima versione. Quando si aggiornano i T&C:
-  1. Creare `src/app/(marketing)/termini/vXX/page.tsx` con il nuovo testo
-  2. Aggiornare il redirect in `src/app/(marketing)/termini/page.tsx` → `/termini/vXX`
-  3. Aggiornare `CURRENT_TERMS_VERSION = "vXX"` in `src/server/auth-actions.ts`
-  4. Aggiornare il testo del **secondo flag** (clausole vessatorie art. 1341 c.c.) in
-     `src/app/(auth)/register/page.tsx` — i numeri di paragrafo devono rispecchiare
-     la struttura della nuova versione (§ limitazione responsabilità, § no rimborso,
-     § sospensione unilaterale, § foro esclusivo)
-- **Privacy Policy — versioning URL** (nessun tracking in DB, ma stessa struttura permalink).
-  Il testo di ogni versione vive su `/privacy/vXX` (permalink permanente);
-  `/privacy` fa sempre redirect all'ultima versione. Quando si aggiorna la Privacy Policy:
-  1. Creare `src/app/(marketing)/privacy/vXX/page.tsx` con il nuovo testo
-  2. Aggiornare il redirect in `src/app/(marketing)/privacy/page.tsx` → `/privacy/vXX`
-  3. Aggiungere `/privacy/vXX` in `src/app/sitemap.ts` e aggiornare `sitemap.test.ts`
-  4. Aggiungere `src/app/(marketing)/privacy/vXX/page.tsx` alle `sonar.coverage.exclusions`
-     in `sonar-project.properties`
-  5. Notificare gli utenti via email/in-app almeno 15 giorni prima dell'entrata in vigore
+- **Privacy Policy** — obbligatoria (GDPR). Versione attuale: `/privacy/v01`
+- **Cookie Policy** — solo cookie tecnici (Supabase auth) + analytics cookieless (Umami) → no banner
+- **Termini di Servizio** — versione attuale: `/termini/v01`
+- **GDPR art. 20 — Portabilità dati** — `exportUserData()` in `src/server/export-actions.ts`; UI in `/dashboard/settings`
+- **Accettazione T&C tracciata** — `signUp` salva `terms_accepted_at` + `terms_version` su `profiles`.
+  La versione corrente è `CURRENT_TERMS_VERSION` in `src/server/auth-actions.ts`.
+
+**Procedura aggiornamento T&C:**
+
+1. Creare `src/app/(marketing)/termini/vXX/page.tsx` con il nuovo testo
+2. Aggiornare il redirect in `src/app/(marketing)/termini/page.tsx` → `/termini/vXX`
+3. Aggiornare `CURRENT_TERMS_VERSION = "vXX"` in `src/server/auth-actions.ts`
+4. Aggiornare il testo del **secondo flag** (clausole vessatorie art. 1341 c.c.) in
+   `src/app/(auth)/register/page.tsx` — i numeri di paragrafo devono rispecchiare
+   la struttura della nuova versione
+
+**Procedura aggiornamento Privacy Policy:**
+
+1. Creare `src/app/(marketing)/privacy/vXX/page.tsx`
+2. Aggiornare redirect in `src/app/(marketing)/privacy/page.tsx` → `/privacy/vXX`
+3. Aggiungere `/privacy/vXX` in `src/app/sitemap.ts` e aggiornare `sitemap.test.ts`
+4. Aggiungere `privacy/vXX/page.tsx` a `sonar.coverage.exclusions`
+5. Notificare gli utenti almeno 15 giorni prima dell'entrata in vigore
 
 ## Decisioni architetturali
 
-### Perché Next.js e non solo React (SPA)?
+| Scelta                       | Motivo chiave                                                                      |
+| ---------------------------- | ---------------------------------------------------------------------------------- |
+| **Next.js** vs SPA           | SSR per SEO + Server Actions eliminano backend separato                            |
+| **Supabase** vs Firebase     | PostgreSQL standard, RLS nativo, no vendor lock-in                                 |
+| **PWA** vs app nativa        | Un codebase, no App Store, aggiornamenti istantanei                                |
+| **shadcn/ui**                | Componenti accessibili, copia nel progetto (non dipendenza), Radix UI              |
+| **Integrazione diretta AdE** | Zero costo per scontrino, no dipendenza da terze parti                             |
+| **Cloudflare Tunnel**        | Già attivo sulla VPS, HTTPS/CDN/DDoS gratis, IP nascosto                           |
+| **Stripe**                   | Fee EU più basse (1.5% + €0.25), API eccellente; MoR rimandato a espansione estera |
+| **Resend**                   | Free tier 3k/mese, React Email type-safe, deliverability ottima                    |
+| **SonarQube Cloud**          | SAST gratuito ≤50k LOC, PR decoration, Quality Gate                                |
+| **TDD**                      | Fondamentale per l'integrazione AdE (fragile) e refactoring sicuro                 |
+| **Due ambienti**             | AdE irreversibile: un scontrino emesso non si cancella                             |
+| **Umami self-hosted**        | Analytics GDPR-compliant senza cookie, gratis sulla stessa VPS                     |
 
-- SSR per SEO (landing page, marketing)
-- Server Actions/API Routes eliminano bisogno di backend separato
-- Ecosystem maturo, standard de facto per React SaaS
-- Ottimo supporto PWA
-- Self-hosting eccellente con `output: 'standalone'`
-
-### Perché Supabase e non Firebase?
-
-- PostgreSQL standard (no vendor lock-in)
-- Open source, self-hostable in futuro se necessario
-- Pricing prevedibile (free tier generoso: 50k MAU, 500MB DB)
-- RLS nativo per multi-tenancy
-- Migrazione facile verso qualsiasi PostgreSQL host
-
-### Perché PWA e non app nativa?
-
-- Un solo codebase per mobile + desktop
-- Nessun costo App Store / Play Store
-- Installabile su home screen
-- Aggiornamenti istantanei (no review store)
-- Il target (micro-attività) preferisce semplicità
-- Si può valutare Capacitor in futuro se servono feature native
-
-### Perché shadcn/ui?
-
-- Componenti belli e accessibili out-of-the-box
-- Completamente customizzabili (copia nel progetto, non dipendenza)
-- Basato su Radix UI (accessibilità) + Tailwind CSS
-- Design minimale, perfetto per UX mobile-first
-- Grande community e ecosystem
-
-### Perché integrazione diretta AdE?
-
-- Nessun costo per scontrino (API terze parti addebitano per documento)
-- Nessuna dipendenza da servizi terzi (DataCash, Effatta, etc.)
-- Margini più alti sul prodotto SaaS
-- Più complessità tecnica, ma la stessa cosa che fanno tutti i competitor
-- Base legale confermata dall'interpello AdE
-
-### Perché Cloudflare Tunnel e non Caddy/Nginx?
-
-- Già attivo sulla VPS → zero configurazione aggiuntiva
-- Nessuna porta pubblica da esporre (outbound-only connection)
-- HTTPS automatico senza Let's Encrypt
-- CDN, DDoS protection e WAF inclusi gratuitamente
-- IP del server completamente nascosto
-- Docker Compose: basta aggiungere il servizio cloudflared
-
-### Perché Stripe?
-
-- Fee più basse in EU: 1.5% + €0.25 (vs 5% + $0.50 di Paddle/LemonSqueezy)
-- Payout in 2 giorni su conto italiano (€0.30 per payout, nessuna fee cross-border)
-- API eccellente, documentazione perfetta
-- Stripe Billing per gestione abbonamenti
-- Il target è solo Italia inizialmente → VAT semplice, non serve un MoR
-- Se in futuro si espande all'estero, si può migrare a Paddle come MoR
-
-### Perché Resend per email?
-
-- Free tier 3k email/mese (sufficiente per MVP e oltre)
-- React Email per template type-safe nello stesso stack
-- DX moderna, API semplice
-- Deliverability eccellente
-
-### Perché SonarQube Cloud?
-
-- Free tier generoso (50k LOC, 5 utenti) — costo zero
-- Analisi di sicurezza (SAST) cruciale per un'app che gestisce credenziali fiscali
-- PR decoration: feedback immediato su ogni pull request
-- Quality Gate: soglie configurabili su coverage, bug, vulnerabilità
-- Setup minimale: un file `sonar-project.properties` + uno step in GitHub Actions
-- Si integra nativamente con Vitest (report lcov + sonar-reporter)
-
-### Perché TDD?
-
-- Qualità del codice più alta fin dall'inizio
-- Meno regressioni: ogni feature nasce con i suoi test
-- Refactoring sicuro: i test proteggono il comportamento esistente
-- Design migliore: scrivere test prima forza a pensare alle interfacce
-- Fondamentale per l'integrazione AdE (fragile, richiede test robusti)
-
-### Perché due ambienti (test + prod)?
-
-- L'integrazione AdE è irreversibile: uno scontrino emesso non si cancella
-- Il mock AdE permette di testare tutto il flusso senza conseguenze fiscali
-- Stesso codice, stessa infra, solo l'ultimo step cambia (`ADE_MODE`)
-- Stripe test mode per verificare i pagamenti senza soldi reali
-- Deploy tag-based: processo chiaro, auditabile, con approval gate
-
-### Perché Umami per analytics?
-
-- Self-hosted gratis (nessun costo aggiuntivo, gira sulla stessa VPS)
-- GDPR compliant by design, nessun cookie → nessun banner cookie
-- Stesso stack tecnologico (Next.js + PostgreSQL)
-- Script leggero (~2 KB), non impatta le performance
-
-## Competitor analizzati
-
-| Nome            | Modello                  | Prezzo               | Recensioni             | Note                                                                            |
-| --------------- | ------------------------ | -------------------- | ---------------------- | ------------------------------------------------------------------------------- |
-| **Billy**       | App nativa + Web         | €70/anno (€7/mese)   | 4.9/5 Trustpilot (572) | Leader per recensioni, 6 integrazioni POS, modalità offline, 20 fatture incluse |
-| **Scontrina**   | App nativa (iOS/Android) | ~€80/anno (€10/mese) | 4.4/5 App Store (45)   | UI moderna, integrazione WooCommerce/Shopify, feature ristorazione              |
-| **MyCassa**     | App nativa + Web         | €49/anno             | N/D                    | Scanner barcode, preconti, interpello AdE ufficiale, 5 device gratis            |
-| **MyScontrino** | App + Web                | €79+IVA/anno         | N/D                    | Bundle hardware+software, distribuzione tramite rivenditori locali, UI datata   |
-| **Scontrinare** | Web app + App native     | €30/anno             | N/D                    | Il più economico, max ~8k scontrini/anno, feature set limitato                  |
-
-### Posizionamento ScontrinoZero vs competitor
-
-- **Nessun competitor ha una vera PWA moderna** — tutti usano app native o web basilari
-- **UX/UI**: la maggioranza ha interfacce datate; solo Scontrina è moderna
-- **Fascia di prezzo mercato**: €30-80/anno, sweet spot €49-70/anno
-- **Billy domina per social proof** (572 recensioni Trustpilot) — priorità raccogliere recensioni early
-- **Pricing flessibile è apprezzato**: Billy offre annuale/mensile/giornaliero
-- **Differenziatori da perseguire**: PWA installabile, dashboard web su desktop,
-  UX moderna (shadcn/ui), offline mode, import CSV prodotti
-
-## Struttura progetto (prevista)
+## Struttura progetto
 
 ```
 scontrinozero/
@@ -643,51 +449,12 @@ scontrinozero/
 │   └── types/              # TypeScript types/interfaces
 ├── public/                 # Static assets, PWA manifest, icons
 ├── supabase/               # Migrazioni DB, seed, config
-├── tests/                  # Test Vitest + Playwright
-├── docker/                 # Dockerfile, docker-compose.yml
-├── .github/
-│   └── workflows/          # GitHub Actions CI/CD
+├── e2e/                    # Playwright E2E tests
+├── tests/                  # Vitest unit tests
+├── .github/workflows/      # GitHub Actions CI/CD
 ├── CLAUDE.md
-├── README.md
-└── LICENSE.md
+└── PLAN.md
 ```
-
-## Costi stimati (fase iniziale)
-
-| Voce                                       | Costo                                 |
-| ------------------------------------------ | ------------------------------------- |
-| VPS (già pagata)                           | €0 aggiuntivi                         |
-| Cloudflare Tunnel (già attivo)             | €0                                    |
-| Supabase Cloud free tier (x2: prod + test) | €0                                    |
-| SonarQube Cloud free tier                  | €0                                    |
-| Resend free tier (3k email/mese)           | €0                                    |
-| Sentry free tier                           | €0                                    |
-| Umami self-hosted                          | €0                                    |
-| GitHub Actions free tier                   | €0                                    |
-| Stripe                                     | 1.5% + €0.25 per transazione          |
-| Dominio                                    | ~€10/anno                             |
-| **Totale fisso mensile**                   | **~€0** (solo costi variabili Stripe) |
-
-## Risorse e riferimenti
-
-- [AdE — Documento Commerciale Online](https://www.agenziaentrate.gov.it/portale/se-si-utilizza-la-procedura-documento-commerciale-online)
-- [Interpello AdE n. 956-1523/2020 (base legale)](https://www.my-cassa.it/wp-content/uploads/Interpello_CassApp.pdf)
-- [Next.js Self-Hosting Guide](https://nextjs.org/docs/app/guides/self-hosting)
-- [Cloudflare Tunnel + Docker setup](https://www.buildwithmatija.com/blog/cloudflared-tunnel-expose-docker-no-nginx-open-ports)
-- [Cloudflare Tunnel docs](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/get-started/)
-- [shadcn/ui docs](https://ui.shadcn.com/)
-- [Supabase docs](https://supabase.com/docs)
-- [Drizzle ORM docs](https://orm.drizzle.team/)
-- [Stripe Italia pricing](https://stripe.com/pricing)
-- [Resend docs](https://resend.com/docs)
-- [Umami docs](https://umami.is/docs)
-- [Sentry Next.js SDK](https://docs.sentry.io/platforms/javascript/guides/nextjs/)
-- [SonarQube Cloud docs](https://docs.sonarsource.com/sonarqube-cloud/)
-- [SonarQube Cloud free tier](https://www.sonarsource.com/products/sonarqube/cloud/new-pricing-plans/)
-- [Vitest coverage docs](https://vitest.dev/guide/coverage.html)
-- [vitest-sonar-reporter](https://www.npmjs.com/package/vitest-sonar-reporter)
-- [Effatta API (riferimento competitor)](https://effatta.it/scontrino-elettronico/)
-- [DataCash API (riferimento competitor)](https://datacash.it/api-developer/)
 
 ## File HAR da analizzare
 
