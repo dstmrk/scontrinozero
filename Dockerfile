@@ -31,6 +31,11 @@ ENV SENTRY_PROJECT=$SENTRY_PROJECT
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
+RUN npx esbuild scripts/migrate.ts \
+    --bundle \
+    --platform=node \
+    --outfile=.next/standalone/migrate.js
+
 # =============================================================================
 # Stage 3: Production
 # =============================================================================
@@ -57,4 +62,4 @@ ENV HOSTNAME="0.0.0.0"
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "node migrate.js && exec node server.js"]
