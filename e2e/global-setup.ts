@@ -21,8 +21,28 @@ export default async function globalSetup() {
   await page.fill("#password", E2E_USER.password);
   await page.click('button[type="submit"]');
 
-  // Wait for redirect to onboarding (fresh user, no profile yet)
-  await page.waitForURL(/\/(onboarding|dashboard)/, { timeout: 30_000 });
+  // Wait for redirect to onboarding (fresh user, no profile yet).
+  // On failure, capture the page state to make the CI error actionable.
+  try {
+    await page.waitForURL(/\/(onboarding|dashboard)/, { timeout: 30_000 });
+  } catch {
+    const currentUrl = page.url();
+    const errors = await page
+      .locator(".text-destructive")
+      .allTextContents()
+      .catch(() => []);
+    const bodySnippet = await page
+      .locator("body")
+      .innerText()
+      .catch(() => "")
+      .then((t) => t.slice(0, 400));
+    throw new Error(
+      `Login redirect non avvenuto.\n` +
+        `URL corrente: ${currentUrl}\n` +
+        `Errori visibili: ${errors.join(" | ") || "(nessuno)"}\n` +
+        `Testo pagina: ${bodySnippet}`,
+    );
+  }
 
   await context.storageState({ path: AUTH_STATE_PATH });
   await browser.close();

@@ -155,8 +155,8 @@ jobs:
     needs: [lint, type-check, test]
     if: needs.changes.outputs.src == 'true'
     runs-on: ubuntu-latest
-    # NEXT_PUBLIC_* vars are embedded at build time (not runtime) in standalone mode.
-    # Must match the values used by the E2E job so the bundle is valid for testing.
+    # NEXT_PUBLIC_* vars are baked into the client bundle at build time.
+    # Use the same test values as the E2E job so the bundle matches the test environment.
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
@@ -235,10 +235,6 @@ jobs:
       - name: Install Playwright system deps
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
-      - name: Prepare standalone server assets
-        run: |
-          cp -r public .next/standalone/public
-          cp -r .next/static .next/standalone/.next/static
       - name: Run E2E tests
         run: npm run test:e2e
       - name: Upload report
