@@ -2,6 +2,11 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import path from "path";
+import dns from "dns";
+
+// Force IPv4 — VPS/Docker containers often lack IPv6 but Supabase DNS
+// returns AAAA records first, causing ENETUNREACH.
+dns.setDefaultResultOrder("ipv4first");
 
 async function runMigrations() {
   const connectionString =
@@ -10,7 +15,7 @@ async function runMigrations() {
     throw new Error("DATABASE_URL_DIRECT or DATABASE_URL must be set");
   }
 
-  const sql = postgres(connectionString, { max: 1, family: 4 });
+  const sql = postgres(connectionString, { max: 1 });
   const db = drizzle(sql);
 
   const migrationsFolder = path.join(process.cwd(), "supabase", "migrations");
