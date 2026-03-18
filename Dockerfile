@@ -46,7 +46,11 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+    adduser --system --uid 1001 nextjs && \
+    # npm is not needed at runtime; removing it eliminates its bundled
+    # transitive deps (glob, minimatch, tar) from Trivy CVE scans
+    npm uninstall -g npm && \
+    rm -rf /usr/lib/node_modules/npm
 
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
