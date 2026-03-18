@@ -20,7 +20,7 @@ test.describe.serial("User journey", () => {
     // Fresh user → step 0 (Dati attivita)
     await expect(
       page.locator('[data-slot="card-title"]').getByText("Dati attivita"),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 10_000 });
 
     await page.fill("#firstName", E2E_BUSINESS.firstName);
     await page.fill("#lastName", E2E_BUSINESS.lastName);
@@ -57,16 +57,18 @@ test.describe.serial("User journey", () => {
     ).toBeVisible({ timeout: 10_000 });
   });
 
-  test("onboarding step 3 - salta verifica → /dashboard", async ({ page }) => {
+  test("onboarding step 3 - verifica AdE → /dashboard", async ({ page }) => {
     // Server resumes at step 2 (hasBusiness=true, hasCredentials=true)
     await page.goto("/onboarding");
     await expect(
       page.locator('[data-slot="card-title"]').getByText("Verifica"),
     ).toBeVisible({ timeout: 10_000 });
 
-    await page.getByRole("button", { name: "Salta per ora" }).click();
+    // Verify credentials (MockAdeClient succeeds in CI with ADE_MODE=mock)
+    // This sets verifiedAt in DB, required by emitReceipt → fetchAdePrerequisites
+    await page.getByRole("button", { name: "Verifica connessione" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 });
   });
 
   // ── Cassa ──────────────────────────────────────────────────────────────────
