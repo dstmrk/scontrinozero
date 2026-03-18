@@ -1,6 +1,6 @@
 # ScontrinoZero — Piano di sviluppo
 
-## Versione corrente: v0.9.1 ⬜
+## Versione corrente: v1.0.0 ⬜
 
 Il piano usa **release semantiche** (vx.y.z). La v1.0.0 è il lancio pubblico: prima di
 quella data nessun cliente paga, nessuno si aspetta stabilità di produzione.
@@ -18,7 +18,7 @@ quella data nessun cliente paga, nessuno si aspetta stabilità di produzione.
 | **v0.8.1** | Landing completeness         | ✅    |
 | **v0.8.2** | Email polish + DB fix        | ✅    |
 | **v0.9.0** | Stripe payments              | ✅    |
-| **v0.9.1** | Stabilità + E2E checkpoint   | ⬜    |
+| **v0.9.1** | Stabilità + E2E checkpoint   | ✅    |
 | **v1.0.0** | Lancio pubblico              | ⬜    |
 
 ---
@@ -90,8 +90,8 @@ Checkpoint obbligatorio: verificare che tutto funzioni prima di toccare la produ
   - reset password via Resend
 - ✅ Lighthouse audit: landing ≥90 mobile, dashboard ≥80 mobile
   (fix applicati: prefetch auth links, font display:optional per LCP)
-- ⬜ SonarCloud quality gate verde — verifica finale dopo ultima PR
-- ⬜ Smoke test su ambiente test con `ADE_MODE=mock`
+- ✅ SonarCloud quality gate verde — verifica finale dopo ultima PR
+- ✅ Smoke test su ambiente test con `ADE_MODE=mock`
 
 **Test effettivi (v0.9.1):** 17 unit aggiunti → **718 unit** + E2E suite completa
 
@@ -224,8 +224,8 @@ Quando annulliamo uno scontrino, AdE genera un nuovo documento commerciale di an
 | **v0.8.1** | 13                     | **572**     | 8          |
 | **v0.8.2** | 30                     | **602**     | 8          |
 | **v0.9.0** | 99                     | **701**     | 8          |
-| **v0.9.1** | 17 unit ✅; ~10 E2E ⬜ | **718**     | 8 (→~18)   |
-| **v1.0.0** | 0 (solo tag)           | ~718        | ~18        |
+| **v0.9.1** | 17 unit + E2E suite ✅ | **718**     | ~18        |
+| **v1.0.0** | 0 (solo tag)           | **718**     | ~18        |
 
 ---
 
