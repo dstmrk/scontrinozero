@@ -18,7 +18,9 @@ test.describe.serial("User journey", () => {
     await page.goto("/onboarding");
 
     // Fresh user → step 0 (Dati attivita)
-    await expect(page.getByText("Dati attivita")).toBeVisible();
+    await expect(
+      page.locator('[data-slot="card-title"]').getByText("Dati attivita"),
+    ).toBeVisible();
 
     await page.fill("#firstName", E2E_BUSINESS.firstName);
     await page.fill("#lastName", E2E_BUSINESS.lastName);
@@ -31,17 +33,17 @@ test.describe.serial("User journey", () => {
     await page.click('button[type="submit"]');
 
     // Client advances to step 1 (Credenziali AdE)
-    await expect(page.getByText("Credenziali AdE")).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(
+      page.locator('[data-slot="card-title"]').getByText("Credenziali AdE"),
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test("onboarding step 2 - credenziali AdE", async ({ page }) => {
     // Server resumes at step 1 (hasBusiness=true, hasCredentials=false)
     await page.goto("/onboarding");
-    await expect(page.getByText("Credenziali AdE")).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(
+      page.locator('[data-slot="card-title"]').getByText("Credenziali AdE"),
+    ).toBeVisible({ timeout: 10_000 });
 
     await page.fill("#codiceFiscale", E2E_ADE.codiceFiscale);
     await page.fill("#password", E2E_ADE.password);
@@ -50,13 +52,17 @@ test.describe.serial("User journey", () => {
     await page.click('button[type="submit"]');
 
     // Client advances to step 2 (Verifica)
-    await expect(page.getByText("Verifica")).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.locator('[data-slot="card-title"]').getByText("Verifica"),
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test("onboarding step 3 - salta verifica → /dashboard", async ({ page }) => {
     // Server resumes at step 2 (hasBusiness=true, hasCredentials=true)
     await page.goto("/onboarding");
-    await expect(page.getByText("Verifica")).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.locator('[data-slot="card-title"]').getByText("Verifica"),
+    ).toBeVisible({ timeout: 10_000 });
 
     await page.getByRole("button", { name: "Salta per ora" }).click();
 
