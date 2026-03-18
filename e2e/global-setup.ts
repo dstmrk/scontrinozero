@@ -12,39 +12,56 @@ export default async function globalSetup() {
   // Create a fresh, pre-verified test user
   await createTestUser();
 
-  // Sign in directly via the Supabase SDK (Node.js process, not through the
-  // browser or the Next.js signIn server action).
+  // Obtain a session using the admin API to bypass Supabase's CAPTCHA
+  // protection (Bot & Abuse Protection enabled on the test project).
   //
-  // Why: npm start with output:standalone bakes NEXT_PUBLIC_* values at build
-  // time. If the build-time anon key differs from the one used to create the
-  // test user (e.g. empty during the build job), signInWithPassword in the
-  // server action silently returns "Email o password non corretti". Signing in
-  // here uses the env vars directly and is immune to that build-time quirk.
+  // Flow:
+  //   1. Admin client (service role) generates a magic-link for the test user.
+  //      This hits /auth/v1/admin/generate_link — an admin endpoint that never
+  //      requires CAPTCHA.
+  //   2. We exchange the returned hashed_token via verifyOtp, which calls
+  //      /auth/v1/verify — also exempt from CAPTCHA checks.
+  //   3. The resulting session is injected as a cookie into the Playwright
+  //      context, exactly as before.
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  const serviceKey = process.env.SUPABASE_SECRET_KEY;
 
-  if (!supabaseUrl || !anonKey) {
+  if (!supabaseUrl || !serviceKey) {
     throw new Error(
-      "NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY " +
+      "NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SECRET_KEY " +
         "devono essere impostati per i test E2E",
     );
   }
 
-  const supabase = createClient(supabaseUrl, anonKey, {
+  const adminClient = createClient(supabaseUrl, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  // Step 1: generate a magic link for the test user (admin-only endpoint)
+  const { data: linkData, error: linkError } =
+    await adminClient.auth.admin.generateLink({
+      type: "magiclink",
+      email: E2E_USER.email,
+    });
+
+  if (linkError || !linkData) {
+    throw new Error(
+      `generateLink fallito: ${linkError?.message ?? "nessuna risposta"}`,
+    );
+  }
+
+  // Step 2: exchange the hashed token for a real session (no CAPTCHA)
   const {
     data: { session },
-    error,
-  } = await supabase.auth.signInWithPassword({
-    email: E2E_USER.email,
-    password: E2E_USER.password,
+    error: otpError,
+  } = await adminClient.auth.verifyOtp({
+    token_hash: linkData.properties.hashed_token,
+    type: "magiclink",
   });
 
-  if (error || !session) {
+  if (otpError || !session) {
     throw new Error(
-      `Supabase signInWithPassword fallito: ${error?.message ?? "nessuna sessione restituita"}`,
+      `verifyOtp fallito: ${otpError?.message ?? "nessuna sessione restituita"}`,
     );
   }
 
