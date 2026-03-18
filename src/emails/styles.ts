@@ -11,7 +11,7 @@ export const emailStyles = {
     overflow: "hidden" as const,
   },
   header: {
-    backgroundColor: "#0d9488",
+    backgroundColor: "#009689",
     borderRadius: "8px 8px 0 0",
     padding: "24px 32px",
   },
@@ -47,7 +47,7 @@ export const emailStyles = {
     margin: "12px 0",
   },
   button: {
-    backgroundColor: "#0d9488",
+    backgroundColor: "#009689",
     borderRadius: "6px",
     color: "#ffffff",
     fontSize: "15px",

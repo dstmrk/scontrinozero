@@ -84,16 +84,16 @@ Checkpoint obbligatorio: verificare che tutto funzioni prima di toccare la produ
 
 **Task pending:**
 
-- ⬜ Suite E2E completa su `test.scontrinozero.it`:
+- ✅ Suite E2E completa su `test.scontrinozero.it`:
   - register → onboard → emetti scontrino (MockAdeClient) → storico → storno
   - upgrade Free → Starter (Stripe test mode)
   - reset password via Resend
-- ⬜ Lighthouse audit: landing ≥90 mobile, dashboard ≥80 mobile
+- ✅ Lighthouse audit: landing ≥90 mobile, dashboard ≥80 mobile
+  (fix applicati: prefetch auth links, font display:optional per LCP)
 - ⬜ SonarCloud quality gate verde — verifica finale dopo ultima PR
 - ⬜ Smoke test su ambiente test con `ADE_MODE=mock`
 
-**Test effettivi (v0.9.1 in corso):** 17 unit aggiunti → **718 unit** + 8 E2E;
-~10 E2E attesi a completamento checkpoint
+**Test effettivi (v0.9.1):** 17 unit aggiunti → **718 unit** + E2E suite completa
 
 ---
 

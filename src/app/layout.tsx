@@ -20,7 +20,7 @@ const nunitoSans = localFont({
     },
   ],
   variable: "--font-nunito-sans",
-  display: "swap",
+  display: "optional",
 });
 
 const geistMono = localFont({

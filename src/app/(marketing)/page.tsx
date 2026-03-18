@@ -39,7 +39,7 @@ export default function Home() {
           </p>
           <div className="mt-8 flex flex-col items-center gap-4">
             <Button asChild size="lg">
-              <Link href="/register">
+              <Link href="/register" prefetch={false}>
                 Inizia gratis
                 <ArrowRight className="h-4 w-4" />
               </Link>

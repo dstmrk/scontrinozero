@@ -33,7 +33,9 @@ export function Header() {
         </nav>
 
         <Button size="sm" asChild>
-          <Link href="/login">Accedi</Link>
+          <Link href="/login" prefetch={false}>
+            Accedi
+          </Link>
         </Button>
       </div>
     </header>
