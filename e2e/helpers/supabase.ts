@@ -51,6 +51,17 @@ export async function createTestUser(
     throw new Error(`Failed to create test user: ${error.message}`);
   }
 
+  // Create the profile row that normally gets created during signUp()
+  const { error: profileError } = await admin
+    .from("profiles")
+    .insert({ auth_user_id: data.user.id, email });
+
+  if (profileError) {
+    throw new Error(
+      `Failed to create test user profile: ${profileError.message}`,
+    );
+  }
+
   return data.user.id;
 }
 
@@ -68,6 +79,10 @@ export async function deleteTestUser(email = E2E_USER.email): Promise<void> {
 
   const user = users.users.find((u) => u.email === email);
   if (!user) return;
+
+  // Delete profile first (cascades to businesses, ade_credentials, documents, etc.)
+  // profiles has no FK to auth.users, so we must clean it up manually
+  await admin.from("profiles").delete().eq("auth_user_id", user.id);
 
   const { error } = await admin.auth.admin.deleteUser(user.id);
   if (error) {
