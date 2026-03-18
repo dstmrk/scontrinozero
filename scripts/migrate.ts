@@ -10,7 +10,7 @@ async function runMigrations() {
     throw new Error("DATABASE_URL_DIRECT or DATABASE_URL must be set");
   }
 
-  const sql = postgres(connectionString, { max: 1 });
+  const sql = postgres(connectionString, { max: 1, family: 4 });
   const db = drizzle(sql);
 
   const migrationsFolder = path.join(process.cwd(), "supabase", "migrations");
