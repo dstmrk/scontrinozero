@@ -155,6 +155,13 @@ jobs:
     needs: [lint, type-check, test]
     if: needs.changes.outputs.src == 'true'
     runs-on: ubuntu-latest
+    # NEXT_PUBLIC_* vars are embedded at build time (not runtime) in standalone mode.
+    # Must match the values used by the E2E job so the bundle is valid for testing.
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA"
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
