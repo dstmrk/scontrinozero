@@ -114,6 +114,7 @@ function isRedirectError(
 describe("auth-actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.TURNSTILE_SECRET_KEY = "test-secret";
     mockRateLimiterCheck.mockReturnValue({ success: true, remaining: 4 });
     mockFetch.mockResolvedValue({
       ok: true,
@@ -507,7 +508,6 @@ describe("auth-actions", () => {
     });
 
     it("returns captcha error when TURNSTILE_SECRET_KEY is not configured", async () => {
-      const originalSecret = process.env.TURNSTILE_SECRET_KEY;
       delete process.env.TURNSTILE_SECRET_KEY;
       const { logger } = await import("@/lib/logger");
 
@@ -524,8 +524,7 @@ describe("auth-actions", () => {
       );
       expect(result).toEqual({ error: "Verifica CAPTCHA fallita. Riprova." });
       expect(logger.error).toHaveBeenCalled();
-
-      process.env.TURNSTILE_SECRET_KEY = originalSecret;
+      // beforeEach ripristinerà TURNSTILE_SECRET_KEY per il test successivo
     });
   });
 
