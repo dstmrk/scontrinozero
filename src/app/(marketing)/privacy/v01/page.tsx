@@ -44,10 +44,9 @@ export default function PrivacyV01Page() {
               1. Titolare del trattamento
             </h2>
             <p className="text-muted-foreground mt-2">
-              Il titolare del trattamento è il gestore del servizio
-              ScontrinoZero (denominazione legale, P.IVA e sede operativa
-              saranno indicati in questa pagina prima del lancio pubblico del
-              servizio).
+              Il titolare del trattamento è{" "}
+              <strong>Annadermolab</strong>, ditta individuale, con sede in
+              Torino (TO), P.IVA 11836750015.
             </p>
             <p className="text-muted-foreground mt-2">
               Per qualsiasi questione relativa al trattamento dei tuoi dati

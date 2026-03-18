@@ -26,9 +26,9 @@ esercenti e micro-attività di emettere scontrini elettronici e trasmettere i co
 all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la procedura
 "Documento Commerciale Online".
 
-**Versione corrente:** v0.9.1 ⬜ (Stabilità + E2E checkpoint) — roadmap completa in `PLAN.md`.
+**Versione corrente:** v1.0.0 ⬜ (lancio pubblico) — roadmap completa in `PLAN.md`.
 
-**Release roadmap (pre-lancio):** v0.9.1 ⬜ (E2E checkpoint) → **v1.0.0** ⬜ (lancio pubblico)
+**Release roadmap (pre-lancio):** v0.9.1 ✅ (E2E checkpoint) → **v1.0.0** ⬜ (lancio pubblico)
 
 **Post-lancio:** v1.1.0 (PWA) → v1.2.0 (billing polish) → v1.3.0 (receipt email) → v1.4.0+ (analytics, catalog sync, …)
 
