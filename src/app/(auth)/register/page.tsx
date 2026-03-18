@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Turnstile } from "@marsidev/react-turnstile";
 import { signUp } from "@/server/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +29,7 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [specificClausesAccepted, setSpecificClausesAccepted] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{
     email?: string;
     password?: string;
@@ -72,12 +74,14 @@ export default function RegisterPage() {
     formData.set("confirmPassword", confirmPassword);
     formData.set("termsAccepted", "true");
     formData.set("specificClausesAccepted", "true");
+    if (captchaToken) formData.set("captchaToken", captchaToken);
 
     const result = await signUp(formData);
     setIsPending(false);
 
     if (result?.error) {
       setServerError(result.error);
+      setCaptchaToken(null); // token single-use, force re-solve
     }
     // On success, signUp redirects to /verify-email — no need to handle here
   };
@@ -205,11 +209,23 @@ export default function RegisterPage() {
             )}
           </div>
 
+          <Turnstile
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+            onSuccess={(token) => setCaptchaToken(token)}
+            onExpire={() => setCaptchaToken(null)}
+            onError={() => setCaptchaToken(null)}
+            options={{ theme: "auto" }}
+          />
+
           {serverError && (
             <p className="text-destructive text-sm">{serverError}</p>
           )}
 
-          <Button type="submit" className="w-full" disabled={isPending}>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={isPending || captchaToken === null}
+          >
             {isPending ? "Registrazione…" : "Registrati"}
           </Button>
         </form>

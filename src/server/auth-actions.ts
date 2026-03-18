@@ -47,12 +47,38 @@ function checkRateLimit(ip: string, action: string): AuthActionResult | null {
   return null;
 }
 
+async function verifyCaptcha(token: string | null): Promise<boolean> {
+  if (!token) return false;
+  const secret = process.env.TURNSTILE_SECRET_KEY;
+  if (!secret) {
+    logger.error("TURNSTILE_SECRET_KEY not configured");
+    return false;
+  }
+  try {
+    const response = await fetch(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secret, response: token }),
+      },
+    );
+    if (!response.ok) return false;
+    const data = (await response.json()) as { success: boolean };
+    return data.success === true;
+  } catch (err) {
+    logger.error({ err }, "Turnstile verification request failed");
+    return false;
+  }
+}
+
 export async function signUp(formData: FormData): Promise<AuthActionResult> {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const confirmPassword = formData.get("confirmPassword") as string;
   const termsAccepted = formData.get("termsAccepted");
   const specificClausesAccepted = formData.get("specificClausesAccepted");
+  const captchaToken = formData.get("captchaToken") as string | null;
 
   if (!email || !isValidEmail(email)) {
     return { error: "Email non valida." };
@@ -75,6 +101,11 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
     return {
       error: "Devi accettare specificamente le clausole indicate.",
     };
+  }
+
+  const captchaOk = await verifyCaptcha(captchaToken);
+  if (!captchaOk) {
+    return { error: "Verifica CAPTCHA fallita. Riprova." };
   }
 
   const ip = await getClientIp();
