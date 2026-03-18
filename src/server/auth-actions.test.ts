@@ -79,6 +79,9 @@ vi.mock("@/lib/email", () => ({
   sendEmail: mockSendEmail,
 }));
 
+const mockFetch = vi.fn();
+vi.stubGlobal("fetch", mockFetch);
+
 vi.mock("@/emails/welcome", () => ({
   WelcomeEmail: vi.fn().mockReturnValue(null),
 }));
@@ -111,7 +114,12 @@ function isRedirectError(
 describe("auth-actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.TURNSTILE_SECRET_KEY = "test-secret";
     mockRateLimiterCheck.mockReturnValue({ success: true, remaining: 4 });
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true }),
+    });
     mockGenerateLink.mockResolvedValue({
       data: {
         properties: {
@@ -202,6 +210,7 @@ describe("auth-actions", () => {
             confirmPassword: "Secure#99x",
             termsAccepted: "true",
             specificClausesAccepted: "true",
+            captchaToken: "valid-token",
           }),
         );
         expect.fail("Expected redirect");
@@ -239,6 +248,7 @@ describe("auth-actions", () => {
           confirmPassword: "Secure#99x",
           termsAccepted: "true",
           specificClausesAccepted: "true",
+          captchaToken: "valid-token",
         }),
       );
       expect(result).toEqual({ error: "Registrazione fallita. Riprova." });
@@ -255,6 +265,7 @@ describe("auth-actions", () => {
           confirmPassword: "Secure#99x",
           termsAccepted: "true",
           specificClausesAccepted: "true",
+          captchaToken: "valid-token",
         }),
       );
       expect(result.error).toContain("Troppi tentativi");
@@ -278,6 +289,7 @@ describe("auth-actions", () => {
             confirmPassword: "Secure#99x",
             termsAccepted: "true",
             specificClausesAccepted: "true",
+            captchaToken: "valid-token",
           }),
         );
         expect.fail("Expected redirect");
@@ -307,6 +319,7 @@ describe("auth-actions", () => {
             confirmPassword: "Secure#99x",
             termsAccepted: "true",
             specificClausesAccepted: "true",
+            captchaToken: "valid-token",
           }),
         );
       } catch {
@@ -334,6 +347,7 @@ describe("auth-actions", () => {
           confirmPassword: "Secure#99x",
           termsAccepted: "true",
           specificClausesAccepted: "true",
+          captchaToken: "valid-token",
         }),
       );
 
@@ -359,6 +373,7 @@ describe("auth-actions", () => {
             confirmPassword: "Secure#99x",
             termsAccepted: "true",
             specificClausesAccepted: "true",
+            captchaToken: "valid-token",
           }),
         );
       } catch (err) {
@@ -386,6 +401,7 @@ describe("auth-actions", () => {
           confirmPassword: "Secure#99x",
           termsAccepted: "true",
           specificClausesAccepted: "true",
+          captchaToken: "valid-token",
         }),
       );
 
@@ -412,11 +428,103 @@ describe("auth-actions", () => {
           confirmPassword: "Secure#99x",
           termsAccepted: "true",
           specificClausesAccepted: "true",
+          captchaToken: "valid-token",
         }),
       );
 
       expect(result).toEqual({ error: "Registrazione fallita. Riprova." });
       expect(logger.error).toHaveBeenCalled();
+    });
+
+    it("returns captcha error when token is missing", async () => {
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          // captchaToken omitted
+        }),
+      );
+      expect(result).toEqual({ error: "Verifica CAPTCHA fallita. Riprova." });
+    });
+
+    it("returns captcha error when Turnstile returns success: false", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: false }),
+      });
+
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "invalid-token",
+        }),
+      );
+      expect(result).toEqual({ error: "Verifica CAPTCHA fallita. Riprova." });
+    });
+
+    it("returns captcha error when Turnstile API call throws (network error)", async () => {
+      mockFetch.mockRejectedValueOnce(new Error("network error"));
+      const { logger } = await import("@/lib/logger");
+
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "some-token",
+        }),
+      );
+      expect(result).toEqual({ error: "Verifica CAPTCHA fallita. Riprova." });
+      expect(logger.error).toHaveBeenCalled();
+    });
+
+    it("returns captcha error when Turnstile API returns non-ok HTTP status", async () => {
+      mockFetch.mockResolvedValueOnce({ ok: false });
+
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "some-token",
+        }),
+      );
+      expect(result).toEqual({ error: "Verifica CAPTCHA fallita. Riprova." });
+    });
+
+    it("returns captcha error when TURNSTILE_SECRET_KEY is not configured", async () => {
+      delete process.env.TURNSTILE_SECRET_KEY;
+      const { logger } = await import("@/lib/logger");
+
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "some-token",
+        }),
+      );
+      expect(result).toEqual({ error: "Verifica CAPTCHA fallita. Riprova." });
+      expect(logger.error).toHaveBeenCalled();
+      // beforeEach ripristinerà TURNSTILE_SECRET_KEY per il test successivo
     });
   });
 

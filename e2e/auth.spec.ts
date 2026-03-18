@@ -14,6 +14,10 @@ test.describe("Auth flows", () => {
     await page.fill("#confirmPassword", password);
     await page.check("#termsAccepted");
     await page.check("#specificClausesAccepted");
+    // Wait for Turnstile to resolve and enable the submit button
+    await page.waitForSelector('button[type="submit"]:not([disabled])', {
+      timeout: 15_000,
+    });
     await page.click('button[type="submit"]');
 
     await expect(page).toHaveURL(/verify-email/, { timeout: 15_000 });

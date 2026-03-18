@@ -155,6 +155,13 @@ jobs:
     needs: [lint, type-check, test]
     if: needs.changes.outputs.src == 'true'
     runs-on: ubuntu-latest
+    # NEXT_PUBLIC_* vars are baked into the client bundle at build time.
+    # Use the same test values as the E2E job so the bundle matches the test environment.
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA"
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -190,6 +197,9 @@ jobs:
       ENCRYPTION_KEY_VERSION: "1"
       ADE_MODE: "mock"
       NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+      # Cloudflare Turnstile — official always-pass test keys (never real keys in CI)
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA"
+      TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA"
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
