@@ -34,7 +34,11 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: "npm start",
+    // In CI the build uses output: standalone — next start does not work with it.
+    // Use node .next/standalone/server.js directly (requires static assets to be
+    // copied beforehand; see the e2e CI job in .github/workflows/ci.yml).
+    // Locally, reuse an already-running dev/prod server.
+    command: process.env.CI ? "node .next/standalone/server.js" : "npm start",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
