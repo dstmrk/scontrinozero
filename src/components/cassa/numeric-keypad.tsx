@@ -48,8 +48,8 @@ export function NumericKeypad({ value, onChange }: NumericKeypadProps) {
         onClick={handleBackspace}
         className={cn(
           "flex h-14 w-full items-center justify-center rounded-xl",
-          "bg-muted text-muted-foreground text-xl font-medium",
-          "hover:bg-muted/80 transition-transform active:scale-95",
+          "bg-background border-border/40 text-muted-foreground border text-xl font-medium shadow-sm",
+          "hover:bg-muted/30 transition-transform active:scale-95",
           "[touch-action:manipulation]",
         )}
       >
@@ -80,8 +80,8 @@ function KeyButton({
       disabled={disabled}
       className={cn(
         "flex h-14 w-full items-center justify-center rounded-xl",
-        "bg-muted text-foreground text-xl font-medium",
-        "hover:bg-muted/80 transition-transform active:scale-95",
+        "bg-background border-border/40 text-foreground border text-xl font-medium shadow-sm",
+        "hover:bg-muted/30 transition-transform active:scale-95",
         "disabled:cursor-not-allowed disabled:opacity-40",
         "[touch-action:manipulation]",
       )}

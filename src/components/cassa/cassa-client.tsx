@@ -217,7 +217,7 @@ export function CassaClient({
         />
 
         {/* Display importo */}
-        <div className="bg-muted rounded-xl px-4 py-5 text-center">
+        <div className="rounded-xl px-4 py-6 text-center">
           <span
             className={`text-4xl font-bold tracking-tight transition-opacity ${amountCents > 0 ? "opacity-100" : "text-muted-foreground opacity-30"}`}
           >
