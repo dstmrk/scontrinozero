@@ -30,6 +30,10 @@ export default defineConfig({
     {
       name: "mobile",
       use: { ...devices["Pixel 7"] },
+      // user-journey is stateful/serial and shares DB state with chromium.
+      // Running it twice against the same user would corrupt the onboarding
+      // step sequence. Smoke it on desktop only.
+      testIgnore: "**/user-journey.spec.ts",
     },
   ],
 
