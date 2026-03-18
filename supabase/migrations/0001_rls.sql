@@ -18,6 +18,7 @@ ALTER TABLE "ade_credentials" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "commercial_documents" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "commercial_document_lines" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "catalog_items" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "subscriptions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 
 -- profiles: each user can only access their own profile row
 DROP POLICY IF EXISTS "profiles_own" ON "profiles";--> statement-breakpoint
@@ -88,4 +89,10 @@ CREATE POLICY "catalog_items_own" ON "catalog_items"
       WHERE businesses.id = catalog_items.business_id
         AND profiles.auth_user_id = auth.uid()
     )
-  );
+  );--> statement-breakpoint
+
+-- subscriptions: each user can only access their own subscription row
+DROP POLICY IF EXISTS "subscriptions_own" ON "subscriptions";--> statement-breakpoint
+CREATE POLICY "subscriptions_own" ON "subscriptions"
+  FOR ALL
+  USING (user_id = auth.uid());
