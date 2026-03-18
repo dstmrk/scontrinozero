@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { subscriptions } from "@/db/schema";
 import { getAuthenticatedUser } from "@/lib/server-auth";
-import { getStripe, isValidPriceId } from "@/lib/stripe";
+import { getStripe, isValidPriceId, intervalFromPriceId } from "@/lib/stripe";
 import { RateLimiter } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 
@@ -61,9 +61,12 @@ export async function POST(req: Request): Promise<Response> {
     });
     stripeCustomerId = customer.id;
 
+    const interval = intervalFromPriceId(priceId) ?? "month";
     await db.insert(subscriptions).values({
       userId: user.id,
       stripeCustomerId,
+      stripePriceId: priceId,
+      interval,
       status: "pending",
     });
   }

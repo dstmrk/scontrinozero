@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   mockGetAuthenticatedUser,
   mockIsValidPriceId,
+  mockIntervalFromPriceId,
   mockGetStripe,
   mockGetDb,
   mockLimit,
@@ -20,6 +21,7 @@ const {
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
   mockIsValidPriceId: vi.fn(),
+  mockIntervalFromPriceId: vi.fn(),
   mockGetStripe: vi.fn(),
   mockGetDb: vi.fn(),
   mockLimit: vi.fn(),
@@ -46,6 +48,7 @@ vi.mock("@/lib/server-auth", () => ({
 vi.mock("@/lib/stripe", () => ({
   getStripe: mockGetStripe,
   isValidPriceId: mockIsValidPriceId,
+  intervalFromPriceId: mockIntervalFromPriceId,
 }));
 
 vi.mock("@/db", () => ({
@@ -85,6 +88,7 @@ describe("POST /api/stripe/checkout", () => {
       email: "user@example.com",
     });
     mockIsValidPriceId.mockReturnValue(true);
+    mockIntervalFromPriceId.mockReturnValue("month");
     mockGetStripe.mockReturnValue({
       customers: { create: mockCustomerCreate },
       checkout: { sessions: { create: mockSessionCreate } },
@@ -128,7 +132,8 @@ describe("POST /api/stripe/checkout", () => {
   });
 
   it("creates a new Stripe customer when no existing subscription", async () => {
-    await POST(makeRequest({ priceId: "price_starter_monthly" }));
+    mockIntervalFromPriceId.mockReturnValue("year");
+    await POST(makeRequest({ priceId: "price_starter_yearly" }));
     expect(mockCustomerCreate).toHaveBeenCalledWith({
       email: "user@example.com",
     });
@@ -136,6 +141,19 @@ describe("POST /api/stripe/checkout", () => {
       expect.objectContaining({
         userId: "user-123",
         stripeCustomerId: "cus_new_123",
+        stripePriceId: "price_starter_yearly",
+        interval: "year",
+        status: "pending",
+      }),
+    );
+  });
+
+  it("falls back to interval 'month' when intervalFromPriceId returns null", async () => {
+    mockIntervalFromPriceId.mockReturnValue(null);
+    await POST(makeRequest({ priceId: "price_unknown" }));
+    expect(mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        interval: "month",
       }),
     );
   });

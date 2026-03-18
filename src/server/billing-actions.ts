@@ -6,6 +6,7 @@ import { subscriptions } from "@/db/schema";
 import { getAuthenticatedUser } from "@/lib/server-auth";
 import { getPlan } from "@/lib/plans";
 import type { Plan } from "@/lib/plans";
+import { planFromPriceId } from "@/lib/stripe";
 
 export type ProfilePlanResult =
   | {
@@ -40,13 +41,24 @@ export async function getProfilePlan(): Promise<ProfilePlanResult> {
       id: subscriptions.id,
       status: subscriptions.status,
       interval: subscriptions.interval,
+      stripePriceId: subscriptions.stripePriceId,
     })
     .from(subscriptions)
     .where(eq(subscriptions.userId, user.id))
     .limit(1);
 
+  // If profiles.plan is still "trial" but the subscription row already has a
+  // known stripePriceId (set at checkout before the webhook fires), derive the
+  // display plan from it. This avoids showing "Prova gratuita" during the race
+  // window between checkout redirect and webhook processing.
+  // Note: profiles.plan is NOT mutated here — feature gates still read from DB.
+  const displayPlan: Plan =
+    planInfo.plan === "trial" && sub?.stripePriceId
+      ? (planFromPriceId(sub.stripePriceId) ?? planInfo.plan)
+      : planInfo.plan;
+
   return {
-    plan: planInfo.plan,
+    plan: displayPlan,
     trialStartedAt: planInfo.trialStartedAt,
     planExpiresAt: planInfo.planExpiresAt,
     hasSubscription: !!sub,
