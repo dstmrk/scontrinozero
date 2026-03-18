@@ -181,7 +181,7 @@ export function PricingSection() {
 
         <div className="mt-8 text-center">
           <Button asChild size="lg">
-            <Link href="/register">
+            <Link href="/register" prefetch={false}>
               Inizia i 30 giorni gratis
               <ArrowRight className="h-4 w-4" />
             </Link>
