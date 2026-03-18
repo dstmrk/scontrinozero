@@ -53,6 +53,7 @@ vi.mock("@/lib/stripe", () => ({
     checkout: { sessions: { create: mockSessionCreate } },
   }),
   isValidPriceId: mockIsValidPriceId,
+  intervalFromPriceId: vi.fn().mockReturnValue("month"),
 }));
 
 vi.mock("@/lib/logger", () => ({
