@@ -27,15 +27,23 @@ ScontrinoZero sfrutta la procedura web "Documento Commerciale Online" messa a di
 
 - **Emissione scontrini elettronici** — direttamente dal tuo dispositivo, con invio in tempo reale all'AdE
 - **Gestione resi e annullamenti** — con un tap
-- **Lotteria degli scontrini** — supporto integrato per la lettura del codice cliente
+- **Catalogo prodotti** — accesso rapido ai prodotti più venduti
 - **Multi-dispositivo** — usa la stessa cassa da smartphone, tablet o browser
-- **Stampa opzionale** — condividi lo scontrino via QR code, email, WhatsApp o stampa Bluetooth
-- **Dashboard vendite** — monitora incassi e corrispettivi in tempo reale
-- **Export dati** — esporta i corrispettivi in CSV/Excel per il commercialista
+- **Stampa e condivisione** — condividi lo scontrino via QR code, link pubblico o stampa
+- **Storico corrispettivi** — consulta e scarica i tuoi scontrini in qualsiasi momento
 
 ## Tech Stack
 
-> 🚧 In definizione — contributi e suggerimenti benvenuti
+| Layer        | Tecnologie                                                    |
+| ------------ | ------------------------------------------------------------- |
+| Frontend     | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4 |
+| Componenti   | shadcn/ui, TanStack Query v5                                  |
+| Database     | Supabase (PostgreSQL), Drizzle ORM, Row Level Security        |
+| Pagamenti    | Stripe (Starter €4.99/mese · Pro €8.99/mese · Self-hosted €0)|
+| Email        | Resend + React Email                                          |
+| Integrazione | HTTP dirette verso portale AdE (no headless browser)          |
+| Deploy       | Docker standalone su VPS, Cloudflare Tunnel                   |
+| Qualità      | Vitest, Playwright E2E, SonarCloud, Sentry                    |
 
 ## Conformità normativa
 
@@ -53,11 +61,11 @@ Pensato per chi emette scontrini ma non vuole (o non può) investire in un regis
 
 ## Stato del progetto
 
-📋 **Fase**: Definizione requisiti e architettura
+🚀 **v1.0.0 — in produzione su [scontrinozero.it](https://scontrinozero.it)**
 
 ## Licenza
-O’Saasy License
 
+O'Saasy License — self-hosted gratuito, SaaS a pagamento. Vietato usare il software per offrire un servizio hosted concorrente.
 
 ---
 
