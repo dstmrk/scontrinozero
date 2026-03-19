@@ -19,6 +19,11 @@ vi.mock("drizzle-orm/postgres-js", () => ({
   drizzle: mockDrizzleFn,
 }));
 
+// resolve4 returns the hostname as-is so the URL host is predictable in tests
+vi.mock("dns/promises", () => ({
+  resolve4: vi.fn((hostname: string) => Promise.resolve([hostname])),
+}));
+
 describe("instrumentation register()", () => {
   let originalNextRuntime: string | undefined;
   let originalDbUrl: string | undefined;
@@ -78,7 +83,7 @@ describe("instrumentation register()", () => {
     await register();
 
     expect(mockPostgresDefault).toHaveBeenCalledWith(
-      "postgres://direct",
+      "postgres://direct/",
       expect.any(Object),
     );
   });
@@ -92,7 +97,7 @@ describe("instrumentation register()", () => {
     await register();
 
     expect(mockPostgresDefault).toHaveBeenCalledWith(
-      "postgres://pooler",
+      "postgres://pooler/",
       expect.any(Object),
     );
   });
