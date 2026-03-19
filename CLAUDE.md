@@ -26,9 +26,9 @@ esercenti e micro-attività di emettere scontrini elettronici e trasmettere i co
 all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la procedura
 "Documento Commerciale Online".
 
-**Versione corrente:** v1.0.0 ⬜ (lancio pubblico) — roadmap completa in `PLAN.md`.
+**Versione corrente:** v1.0.0 ✅ (rilasciato in produzione) — roadmap completa in `PLAN.md`.
 
-**Release roadmap (pre-lancio):** v0.9.1 ✅ (E2E checkpoint) → **v1.0.0** ⬜ (lancio pubblico)
+**Prossima release:** v1.1.0 (PWA) | **Rilasciato:** v1.0.0 ✅
 
 **Post-lancio:** v1.1.0 (PWA) → v1.2.0 (billing polish) → v1.3.0 (receipt email) → v1.4.0+ (analytics, catalog sync, …)
 
@@ -186,6 +186,8 @@ L'AdE **non espone API REST pubbliche**. La procedura "Documento Commerciale Onl
 - **Resend** — email transazionali (welcome, password reset, account deletion)
 - Free tier: 3.000 email/mese; Pro $20/mese per 50k quando si scala
 - React Email per template type-safe nello stesso stack
+- **Welcome email**: inviata al completamento dell'onboarding (step finale), **non** al signUp —
+  evita email a utenti che abbandonano il wizard prima di completarlo
 
 ### Deployment
 
@@ -193,6 +195,7 @@ L'AdE **non espone API REST pubbliche**. La procedura "Documento Commerciale Onl
   - HTTPS automatico, CDN, DDoS protection, IP nascosto — zero porte pubbliche
   - Docker Compose: next-app + cloudflared
   - Health check endpoint: `/api/health`
+  - `start-period` healthcheck: **60s** (tempo per completare le migrazioni DB al primo avvio)
 - **Supabase Cloud** per il database (no DB da gestire sulla VPS)
 - **Deploy manuale via tag** `v*.*.*` → GitHub Actions: build Docker → push GHCR → VPS:
   ```bash
@@ -200,6 +203,11 @@ L'AdE **non espone API REST pubbliche**. La procedura "Documento Commerciale Onl
   docker compose pull && docker compose up -d
   ```
   (VPS accessibile solo via Cloudflare Access SSH)
+
+**⚠️ Variabili `NEXT_PUBLIC_*` nel Docker build:**
+Next.js bake le variabili `NEXT_PUBLIC_*` **durante la build**, non a runtime.
+Devono essere passate come `--build-arg` al `docker build` (configurato in GitHub Actions via `ARG` nel Dockerfile).
+In particolare: `NEXT_PUBLIC_TURNSTILE_SITE_KEY` — se manca al build, Turnstile non funziona in produzione.
 
 ### Monitoring, Analytics, Code quality
 
@@ -218,6 +226,8 @@ L'AdE **non espone API REST pubbliche**. La procedura "Documento Commerciale Onl
   1. Secret scan (Gitleaks, sempre attivo)
   2. Security audit (`audit-ci` `--moderate` con allowlist `audit-ci.json`)
   3. Parallel: lint + type-check, test+coverage (Vitest→lcov), SonarQube scan, build
+- **E2E test**: girano solo su push verso `main` e su PR che modificano file `e2e/**`.
+  In PR generiche: solo unit test (più veloce).
 - **Pipeline Deploy** (tag `v*.*.*`): build Docker → Trivy scan CVE → push GHCR
 - **Code review on-demand** (`claude-code-review.yml`): commenta `/claude review` su PR
 - **Branch protection**: abilitare "Require status checks" su GitHub Settings → Branches
@@ -387,6 +397,9 @@ Stesso progetto Next.js, non un sito separato:
 - L'app SaaS vive sotto /dashboard — route dinamiche protette da auth
 - Meta tag e Open Graph automatici via Next.js `metadata` API
 - Sitemap via `next-sitemap`; structured data JSON-LD per rich snippets
+- **Dati di contatto centralizzati** — P.IVA, email e altri riferimenti aziendali
+  sono in un file costanti condiviso (non duplicati nelle singole pagine marketing).
+  Aggiornare lì e si propagano ovunque automaticamente.
 
 ## Conformità legale
 
