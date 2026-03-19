@@ -6,12 +6,21 @@ export async function register() {
     const postgres = (await import("postgres")).default;
     const { drizzle } = await import("drizzle-orm/postgres-js");
 
-    const url = process.env.DATABASE_URL_DIRECT ?? process.env.DATABASE_URL;
-    if (!url) {
+    const rawUrl = process.env.DATABASE_URL_DIRECT ?? process.env.DATABASE_URL;
+    if (!rawUrl) {
       throw new Error(
         "DATABASE_URL_DIRECT or DATABASE_URL is required to run migrations",
       );
     }
+
+    // postgres.js v3 tries ALL resolved addresses (IPv4 + IPv6) in order.
+    // On VPSes without IPv6 routing, AAAA records cause ENETUNREACH before
+    // the IPv4 attempt. We resolve to IPv4 explicitly to skip that.
+    const { resolve4 } = await import("dns/promises");
+    const parsed = new URL(rawUrl);
+    const [ipv4] = await resolve4(parsed.hostname);
+    parsed.hostname = ipv4;
+    const url = parsed.toString();
 
     // max: 1 — dedicated connection just for migrations
     // prepare: false — required for Supabase transaction pooler (harmless for direct)
