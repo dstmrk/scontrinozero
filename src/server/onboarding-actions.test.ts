@@ -59,6 +59,15 @@ vi.mock("@/lib/logger", () => ({
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
 }));
 
+const mockSendEmail = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/lib/email", () => ({
+  sendEmail: mockSendEmail,
+}));
+
+vi.mock("@/emails/welcome", () => ({
+  WelcomeEmail: vi.fn().mockReturnValue(null),
+}));
+
 // --- Helpers ---
 
 function formData(entries: Record<string, string>): FormData {
@@ -426,6 +435,75 @@ describe("onboarding-actions", () => {
 
       expect(result.error).toContain("non autorizzato");
       expect(mockLogin).not.toHaveBeenCalled();
+    });
+
+    it("sends welcome email on first successful verification", async () => {
+      // Ownership check: profile found
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      // Ownership check: business belongs to profile
+      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+      // Credentials found — verifiedAt is null (first verification)
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          verifiedAt: null,
+        },
+      ]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "12345678901",
+          codiceFiscale: "RSSMRA80A01H501U",
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials("biz-789");
+
+      // fire-and-forget: advance microtasks so the void promise settles
+      await Promise.resolve();
+      expect(mockSendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ to: "test@example.com" }),
+      );
+    });
+
+    it("does not send welcome email on re-verification", async () => {
+      // Ownership check: profile found
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      // Ownership check: business belongs to profile
+      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+      // Credentials found — verifiedAt already set (re-verification)
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          verifiedAt: new Date("2026-01-01"),
+        },
+      ]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "12345678901",
+          codiceFiscale: "RSSMRA80A01H501U",
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials("biz-789");
+
+      await Promise.resolve();
+      expect(mockSendEmail).not.toHaveBeenCalled();
     });
   });
 

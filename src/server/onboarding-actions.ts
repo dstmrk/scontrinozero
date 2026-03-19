@@ -1,5 +1,6 @@
 "use server";
 
+import { createElement } from "react";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { businesses, adeCredentials, profiles } from "@/db/schema";
@@ -11,6 +12,8 @@ import {
 } from "@/lib/crypto";
 import { createAdeClient } from "@/lib/ade";
 import { logger } from "@/lib/logger";
+import { sendEmail } from "@/lib/email";
+import { WelcomeEmail } from "@/emails/welcome";
 import {
   getAuthenticatedUser,
   checkBusinessOwnership,
@@ -245,6 +248,15 @@ export async function verifyAdeCredentials(
     .update(adeCredentials)
     .set({ verifiedAt: new Date() })
     .where(eq(adeCredentials.businessId, businessId));
+
+  // Send welcome email on first successful verification (fire-and-forget)
+  if (!cred.verifiedAt && user.email) {
+    void sendEmail({
+      to: user.email,
+      subject: "Sei pronto! Inizia a emettere scontrini con ScontrinoZero",
+      react: createElement(WelcomeEmail, { email: user.email }),
+    }).catch((err) => logger.error({ err }, "Welcome email failed"));
+  }
 
   return { businessId };
 }
