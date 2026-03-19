@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { CONTACT_EMAIL } from "@/lib/contact";
+import { CONTACT_EMAIL, VAT_NUMBER } from "@/lib/contact";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -45,7 +45,7 @@ export default function PrivacyV01Page() {
             </h2>
             <p className="text-muted-foreground mt-2">
               Il titolare del trattamento è <strong>Annadermolab</strong>, ditta
-              individuale, con sede in Torino (TO), P.IVA 11836750015.
+              individuale, con sede in Torino (TO), P.IVA {VAT_NUMBER}.
             </p>
             <p className="text-muted-foreground mt-2">
               Per qualsiasi questione relativa al trattamento dei tuoi dati
