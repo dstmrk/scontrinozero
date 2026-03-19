@@ -83,7 +83,7 @@ describe("instrumentation register()", () => {
     await register();
 
     expect(mockPostgresDefault).toHaveBeenCalledWith(
-      "postgres://direct/",
+      "postgres://direct",
       expect.any(Object),
     );
   });
@@ -97,7 +97,7 @@ describe("instrumentation register()", () => {
     await register();
 
     expect(mockPostgresDefault).toHaveBeenCalledWith(
-      "postgres://pooler/",
+      "postgres://pooler",
       expect.any(Object),
     );
   });
