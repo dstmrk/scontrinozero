@@ -1,20 +1,49 @@
 "use client";
 
-import { useActionState } from "react";
+import { useTransition } from "react";
 import Link from "next/link";
-import { resetPassword, type AuthActionResult } from "@/server/auth-actions";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod/v4";
+import { resetPassword } from "@/server/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+
+const resetSchema = z.object({
+  email: z.string().email("Inserisci un'email valida."),
+});
+
+type ResetData = z.infer<typeof resetSchema>;
 
 export default function ResetPasswordPage() {
-  const [state, formAction, isPending] = useActionState<
-    AuthActionResult,
-    FormData
-  >(async (_prevState, formData) => {
-    return await resetPassword(formData);
-  }, {});
+  const [isPending, startTransition] = useTransition();
+
+  const form = useForm<ResetData>({
+    resolver: zodResolver(resetSchema),
+    defaultValues: { email: "" },
+  });
+
+  function handleSubmit(data: ResetData) {
+    const formData = new FormData();
+    formData.set("email", data.email);
+
+    startTransition(async () => {
+      const result = await resetPassword(formData);
+      if (result?.error) {
+        form.setError("root", { message: result.error });
+      }
+      // On success, resetPassword redirects or shows confirmation
+    });
+  }
 
   return (
     <Card>
@@ -27,27 +56,42 @@ export default function ResetPasswordPage() {
           password.
         </p>
 
-        <form action={formAction} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(handleSubmit)}
+            noValidate
+            className="space-y-4"
+          >
+            <FormField
+              control={form.control}
               name="email"
-              type="email"
-              placeholder="mario@esempio.it"
-              required
-              autoComplete="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      placeholder="mario@esempio.it"
+                      autoComplete="email"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
 
-          {state?.error && (
-            <p className="text-destructive text-sm">{state.error}</p>
-          )}
+            {form.formState.errors.root && (
+              <p className="text-destructive text-sm" role="alert">
+                {form.formState.errors.root.message}
+              </p>
+            )}
 
-          <Button type="submit" className="w-full" disabled={isPending}>
-            {isPending ? "Invio in corso..." : "Invia link di recupero"}
-          </Button>
-        </form>
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {isPending ? "Invio in corso..." : "Invia link di recupero"}
+            </Button>
+          </form>
+        </Form>
 
         <p className="mt-4 text-center text-sm">
           <Link href="/login" className="text-primary underline">
