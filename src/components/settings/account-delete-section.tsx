@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod/v4";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,37 +15,65 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
 import { deleteAccount } from "@/server/account-actions";
 
 const CONFIRM_WORD = "ELIMINA";
 
+const deleteSchema = z
+  .object({ confirmText: z.string() })
+  .superRefine((data, ctx) => {
+    if (data.confirmText !== CONFIRM_WORD) {
+      ctx.addIssue({
+        code: "custom",
+        message: `Scrivi ${CONFIRM_WORD} per confermare.`,
+        path: ["confirmText"],
+      });
+    }
+  });
+
+type DeleteData = z.infer<typeof deleteSchema>;
+
 export function AccountDeleteSection() {
   const [isOpen, setIsOpen] = useState(false);
-  const [confirmText, setConfirmText] = useState("");
-  const [error, setError] = useState<string | null>(null);
+
+  const form = useForm<DeleteData>({
+    resolver: zodResolver(deleteSchema),
+    defaultValues: { confirmText: "" },
+  });
+
+  const confirmTextValue = form.watch("confirmText");
 
   const mutation = useMutation({
     mutationFn: deleteAccount,
     onSuccess: (result) => {
-      if (result.error) setError(result.error);
+      if (result.error) {
+        form.setError("root", { message: result.error });
+      }
     },
     onError: (err) => {
       // NEXT_REDIRECT is thrown when redirect() is called server-side — navigation
       // is already in progress, no error to surface.
       const digest = (err as { digest?: string }).digest ?? "";
       if (digest.startsWith("NEXT_REDIRECT")) return;
-      setError("Si è verificato un errore. Riprova più tardi.");
+      form.setError("root", {
+        message: "Si è verificato un errore. Riprova più tardi.",
+      });
     },
   });
 
   function handleOpen() {
-    setConfirmText("");
-    setError(null);
+    form.reset();
     setIsOpen(true);
   }
 
-  function handleConfirm() {
-    if (confirmText !== CONFIRM_WORD) return;
+  function handleSubmit() {
     mutation.mutate();
   }
 
@@ -87,32 +118,59 @@ export function AccountDeleteSection() {
             Scrivi <strong>{CONFIRM_WORD}</strong> per confermare:
           </p>
 
-          <Input
-            value={confirmText}
-            onChange={(e) => setConfirmText(e.target.value)}
-            placeholder={CONFIRM_WORD}
-            autoComplete="off"
-            disabled={mutation.isPending}
-          />
-
-          {error && <p className="text-destructive text-sm">{error}</p>}
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsOpen(false)}
-              disabled={mutation.isPending}
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(handleSubmit)}
+              noValidate
+              className="space-y-3"
             >
-              Annulla
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleConfirm}
-              disabled={confirmText !== CONFIRM_WORD || mutation.isPending}
-            >
-              {mutation.isPending ? "Eliminazione…" : "Elimina definitivamente"}
-            </Button>
-          </DialogFooter>
+              <FormField
+                control={form.control}
+                name="confirmText"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input
+                        placeholder={CONFIRM_WORD}
+                        autoComplete="off"
+                        disabled={mutation.isPending}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {form.formState.errors.root && (
+                <p className="text-destructive text-sm" role="alert">
+                  {form.formState.errors.root.message}
+                </p>
+              )}
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsOpen(false)}
+                  disabled={mutation.isPending}
+                >
+                  Annulla
+                </Button>
+                <Button
+                  type="submit"
+                  variant="destructive"
+                  disabled={
+                    confirmTextValue !== CONFIRM_WORD || mutation.isPending
+                  }
+                >
+                  {mutation.isPending
+                    ? "Eliminazione…"
+                    : "Elimina definitivamente"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </>
