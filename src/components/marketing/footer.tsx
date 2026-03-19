@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ReceiptEuro } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { VAT_NUMBER } from "@/lib/contact";
 
 export function Footer() {
   return (
@@ -81,7 +82,10 @@ export function Footer() {
         <Separator className="my-8" />
 
         <div className="text-muted-foreground flex flex-col items-center justify-between gap-4 text-xs sm:flex-row">
-          <p>&copy; {new Date().getFullYear()} ScontrinoZero</p>
+          <p>
+            &copy; {new Date().getFullYear()} ScontrinoZero &mdash; P.IVA{" "}
+            {VAT_NUMBER}
+          </p>
           <p>
             Open source su{" "}
             <a
