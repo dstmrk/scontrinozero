@@ -301,7 +301,7 @@ export default function TerminiV01Page() {
               <strong>Piani a pagamento:</strong> i corrispettivi, le
               funzionalità incluse e i limiti di ciascun piano sono descritti
               nella{" "}
-              <Link href="/prezzi" className="text-primary underline">
+              <Link href="/#prezzi" className="text-primary underline">
                 pagina Prezzi
               </Link>
               . I pagamenti sono gestiti da Stripe Inc., che tratta i dati di
