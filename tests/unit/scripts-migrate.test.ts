@@ -3,22 +3,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── Mocks (hoisted before all imports) ─────────────────────────────────────
 
-const { mockResolve4, mockMigrate, mockSqlEnd, mockConsoleWarn } = vi.hoisted(
-  () => {
+const { mockResolve4, mockResolve6, mockMigrate, mockSqlEnd, mockConsoleWarn } =
+  vi.hoisted(() => {
     // Set DATABASE_URL here so it's available when the module auto-executes on import
     process.env.DATABASE_URL =
       "postgresql://user:pass@db.example.supabase.co:5432/postgres";
     return {
       mockResolve4: vi.fn().mockResolvedValue(["1.2.3.4"]),
+      mockResolve6: vi
+        .fn()
+        .mockRejectedValue(
+          Object.assign(new Error("ENODATA"), { code: "ENODATA" }),
+        ),
       mockMigrate: vi.fn().mockResolvedValue(undefined),
       mockSqlEnd: vi.fn().mockResolvedValue(undefined),
       mockConsoleWarn: vi.fn(),
     };
-  },
-);
+  });
 
 vi.mock("dns/promises", () => ({
   resolve4: mockResolve4,
+  resolve6: mockResolve6,
 }));
 
 vi.mock("postgres", () => ({
@@ -41,6 +46,7 @@ describe("toIPv4Url()", () => {
   beforeEach(() => {
     vi.spyOn(console, "warn").mockImplementation(mockConsoleWarn);
     mockResolve4.mockReset();
+    mockResolve6.mockReset();
   });
 
   afterEach(() => {
@@ -73,43 +79,44 @@ describe("toIPv4Url()", () => {
     expect(result).toContain("10.0.0.1");
   });
 
-  it("ritorna l'URL originale e logga un warning quando resolve4 fallisce con ENODATA", async () => {
-    const original =
-      "postgresql://user:pass@ipv6only.supabase.co:5432/postgres";
-    const err = Object.assign(new Error("ENODATA"), { code: "ENODATA" });
-    mockResolve4.mockRejectedValue(err);
-
-    const result = await toIPv4Url(original);
-
-    expect(result).toBe(original);
-    expect(console.warn).toHaveBeenCalledWith(
-      expect.stringContaining("ENODATA"),
+  it("lancia un errore con guidance quando il host è IPv6-only (ENODATA su A, successo su AAAA)", async () => {
+    mockResolve4.mockRejectedValue(
+      Object.assign(new Error("ENODATA"), { code: "ENODATA" }),
     );
+    mockResolve6.mockResolvedValue(["2a05:d018::1"]);
+
+    await expect(
+      toIPv4Url("postgresql://user:pass@ipv6only.supabase.co:5432/postgres"),
+    ).rejects.toThrow("only has IPv6");
   });
 
-  it("ritorna l'URL originale e logga un warning quando resolve4 fallisce con ENOTFOUND", async () => {
+  it("il messaggio di errore IPv6-only contiene il nome del host e il suggerimento Session Pooler", async () => {
+    mockResolve4.mockRejectedValue(
+      Object.assign(new Error("ENODATA"), { code: "ENODATA" }),
+    );
+    mockResolve6.mockResolvedValue(["2a05:d018::1"]);
+
+    await expect(
+      toIPv4Url(
+        "postgresql://user:pass@db.hjvxupqrlummlcoruoaj.supabase.co:5432/postgres",
+      ),
+    ).rejects.toThrow("Session pooler");
+  });
+
+  it("ritorna l'URL originale e logga warning quando sia resolve4 che resolve6 falliscono (host sconosciuto)", async () => {
+    mockResolve4.mockRejectedValue(
+      Object.assign(new Error("ENOTFOUND"), { code: "ENOTFOUND" }),
+    );
+    mockResolve6.mockRejectedValue(
+      Object.assign(new Error("ENOTFOUND"), { code: "ENOTFOUND" }),
+    );
     const original = "postgresql://user:pass@unknown.host.com:5432/postgres";
-    const err = Object.assign(new Error("ENOTFOUND"), { code: "ENOTFOUND" });
-    mockResolve4.mockRejectedValue(err);
 
     const result = await toIPv4Url(original);
 
     expect(result).toBe(original);
     expect(console.warn).toHaveBeenCalledWith(
-      expect.stringContaining("ENOTFOUND"),
-    );
-  });
-
-  it("include il codice di errore nel messaggio di warning", async () => {
-    const err = Object.assign(new Error("ENETUNREACH"), {
-      code: "ENETUNREACH",
-    });
-    mockResolve4.mockRejectedValue(err);
-
-    await toIPv4Url("postgresql://user:pass@host.example.com/db");
-
-    expect(console.warn).toHaveBeenCalledWith(
-      expect.stringMatching(/ENETUNREACH/),
+      expect.stringContaining("DNS resolution failed"),
     );
   });
 });
