@@ -16,14 +16,16 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Sentry vars — necessari a build time:
-# - NEXT_PUBLIC_SENTRY_DSN viene inlined nel bundle JS da Next.js
-# - Gli altri tre servono al plugin Sentry per uploadare le source maps
+# NEXT_PUBLIC_* vars — inlined nel bundle JS da Next.js a build time
 ARG NEXT_PUBLIC_SENTRY_DSN
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
+ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
+ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
+
+# Sentry plugin vars — servono per uploadare le source maps
 ARG SENTRY_AUTH_TOKEN
 ARG SENTRY_ORG
 ARG SENTRY_PROJECT
-ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
 ENV SENTRY_AUTH_TOKEN=$SENTRY_AUTH_TOKEN
 ENV SENTRY_ORG=$SENTRY_ORG
 ENV SENTRY_PROJECT=$SENTRY_PROJECT
