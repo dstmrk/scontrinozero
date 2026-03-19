@@ -10,7 +10,6 @@ import { isValidEmail, isStrongPassword } from "@/lib/validation";
 import { RateLimiter } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { sendEmail } from "@/lib/email";
-import { WelcomeEmail } from "@/emails/welcome";
 import { PasswordResetEmail } from "@/emails/password-reset";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
@@ -137,13 +136,6 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
       );
       return { error: "Registrazione fallita. Riprova." };
     }
-
-    // Send welcome email via Resend (fire-and-forget: non blocca la registrazione)
-    void sendEmail({
-      to: email,
-      subject: "Benvenuto in ScontrinoZero!",
-      react: createElement(WelcomeEmail, { email }),
-    }).catch((err) => logger.error({ err }, "Welcome email failed"));
   }
 
   redirect("/verify-email");
