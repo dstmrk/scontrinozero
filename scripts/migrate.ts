@@ -7,14 +7,25 @@ import { resolve4 } from "dns/promises";
 // postgres.js v3 tries ALL resolved addresses (IPv4 + IPv6) in order.
 // On VPSes without IPv6 routing, AAAA records cause ENETUNREACH before
 // the IPv4 attempt. We resolve to IPv4 explicitly to skip that.
-async function toIPv4Url(connectionString: string): Promise<string> {
+// If the host has no A records (ENODATA / ENOTFOUND), fall back to the
+// original hostname — Node is started with --dns-result-order=ipv4first
+// so it will still prefer IPv4 when both record types are present.
+export async function toIPv4Url(connectionString: string): Promise<string> {
   const url = new URL(connectionString);
-  const [ipv4] = await resolve4(url.hostname);
-  url.hostname = ipv4;
-  return url.toString();
+  try {
+    const [ipv4] = await resolve4(url.hostname);
+    url.hostname = ipv4;
+    return url.toString();
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    console.warn(
+      `resolve4 failed for ${url.hostname} (${code}), using original hostname`,
+    );
+    return connectionString;
+  }
 }
 
-async function runMigrations() {
+export async function runMigrations() {
   const connectionString =
     process.env.DATABASE_URL_DIRECT ?? process.env.DATABASE_URL;
   if (!connectionString) {
