@@ -524,7 +524,7 @@ export default function PrivacyV01Page() {
               disposizione una funzionalità di{" "}
               <strong>esportazione completa dei dati</strong> accessibile da{" "}
               <Link
-                href="/dashboard/impostazioni"
+                href="/dashboard/settings"
                 className="text-primary underline"
               >
                 Dashboard → Impostazioni → Esporta dati
