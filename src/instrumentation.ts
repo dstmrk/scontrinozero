@@ -16,7 +16,7 @@ export async function register() {
     // postgres.js v3 tries ALL resolved addresses (IPv4 + IPv6) in order.
     // On VPSes without IPv6 routing, AAAA records cause ENETUNREACH before
     // the IPv4 attempt. We resolve to IPv4 explicitly to skip that.
-    const { resolve4 } = await import("dns/promises");
+    const { resolve4 } = await import("node:dns/promises");
     const parsed = new URL(rawUrl);
     const [ipv4] = await resolve4(parsed.hostname);
     parsed.hostname = ipv4;

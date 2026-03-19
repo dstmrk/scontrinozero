@@ -20,7 +20,7 @@ vi.mock("drizzle-orm/postgres-js", () => ({
 }));
 
 // resolve4 returns the hostname as-is so the URL host is predictable in tests
-vi.mock("dns/promises", () => ({
+vi.mock("node:dns/promises", () => ({
   resolve4: vi.fn((hostname: string) => Promise.resolve([hostname])),
 }));
 
