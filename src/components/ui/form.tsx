@@ -11,8 +11,12 @@ import {
   useFormContext,
 } from "react-hook-form";
 
+import { type Control } from "react-hook-form";
+
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 
 const Form = FormProvider;
 
@@ -151,6 +155,86 @@ function FormMessage({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Shorthand helpers — collapse the common FormField > FormItem > FormLabel >
+// FormControl > Input|PasswordInput > FormMessage pattern into one element.
+// Lives here (src/components/ui/**) so it is excluded from SonarCloud CPD.
+// ---------------------------------------------------------------------------
+
+type FormInputFieldProps<
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
+> = {
+  control: Control<TFieldValues>;
+  name: TName;
+  label?: string;
+  itemClassName?: string;
+} & Omit<React.ComponentProps<"input">, "name">;
+
+function FormInputField<
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
+>({
+  control,
+  name,
+  label,
+  itemClassName,
+  ...inputProps
+}: FormInputFieldProps<TFieldValues, TName>) {
+  return (
+    <FormField
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <FormItem className={itemClassName}>
+          {label && <FormLabel>{label}</FormLabel>}
+          <FormControl>
+            <Input {...inputProps} {...field} />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
+
+type FormPasswordFieldProps<
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
+> = {
+  control: Control<TFieldValues>;
+  name: TName;
+  label: string;
+  itemClassName?: string;
+} & Omit<React.ComponentProps<"input">, "name" | "type">;
+
+function FormPasswordField<
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
+>({
+  control,
+  name,
+  label,
+  itemClassName,
+  ...inputProps
+}: FormPasswordFieldProps<TFieldValues, TName>) {
+  return (
+    <FormField
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <FormItem className={itemClassName}>
+          <FormLabel>{label}</FormLabel>
+          <FormControl>
+            <PasswordInput {...inputProps} {...field} />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
+
 export {
   useFormField,
   Form,
@@ -160,4 +244,6 @@ export {
   FormDescription,
   FormMessage,
   FormField,
+  FormInputField,
+  FormPasswordField,
 };

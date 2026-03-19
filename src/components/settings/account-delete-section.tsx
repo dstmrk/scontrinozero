@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod/v4";
 import { useMutation } from "@tanstack/react-query";
@@ -14,14 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-} from "@/components/ui/form";
+import { Form, FormInputField } from "@/components/ui/form";
 import { deleteAccount } from "@/server/account-actions";
 
 const CONFIRM_WORD = "ELIMINA";
@@ -48,7 +41,10 @@ export function AccountDeleteSection() {
     defaultValues: { confirmText: "" },
   });
 
-  const confirmTextValue = form.watch("confirmText");
+  const confirmTextValue = useWatch({
+    control: form.control,
+    name: "confirmText",
+  });
 
   const mutation = useMutation({
     mutationFn: deleteAccount,
@@ -124,22 +120,12 @@ export function AccountDeleteSection() {
               noValidate
               className="space-y-3"
             >
-              <FormField
+              <FormInputField
                 control={form.control}
                 name="confirmText"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input
-                        placeholder={CONFIRM_WORD}
-                        autoComplete="off"
-                        disabled={mutation.isPending}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                placeholder={CONFIRM_WORD}
+                autoComplete="off"
+                disabled={mutation.isPending}
               />
 
               {form.formState.errors.root && (

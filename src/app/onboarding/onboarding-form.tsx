@@ -8,14 +8,15 @@ import { z } from "zod/v4";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { PasswordInput } from "@/components/ui/password-input";
 import {
   Form,
   FormControl,
   FormField,
+  FormInputField,
   FormItem,
   FormLabel,
   FormMessage,
+  FormPasswordField,
 } from "@/components/ui/form";
 import {
   Select,
@@ -39,9 +40,7 @@ const step1Schema = z.object({
   lastName: z.string().min(1, "Il cognome è obbligatorio."),
   address: z.string().min(1, "L'indirizzo è obbligatorio."),
   streetNumber: z.string().optional(),
-  zipCode: z
-    .string()
-    .regex(/^\d{5}$/, "CAP non valido (5 cifre numeriche)."),
+  zipCode: z.string().regex(/^\d{5}$/, "CAP non valido (5 cifre numeriche)."),
   city: z.string().optional(),
   province: z.string().optional(),
   preferredVatCode: z.string().optional(),
@@ -125,11 +124,7 @@ export function OnboardingForm({
 
   const step2Form = useForm<Step2Data>({
     resolver: zodResolver(step2Schema),
-    defaultValues: {
-      codiceFiscale: "",
-      password: "",
-      pin: "",
-    },
+    defaultValues: { codiceFiscale: "", password: "", pin: "" },
   });
 
   function handleBusinessSubmit(data: Step1Data) {
@@ -208,49 +203,25 @@ export function OnboardingForm({
                 className="space-y-4"
                 noValidate
               >
-                <FormField
+                <FormInputField
                   control={step1Form.control}
                   name="businessName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome attività</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Es. Pizzeria Da Mario (opzionale)"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  label="Nome attività"
+                  placeholder="Es. Pizzeria Da Mario (opzionale)"
                 />
 
                 <div className="grid grid-cols-2 gap-4">
-                  <FormField
+                  <FormInputField
                     control={step1Form.control}
                     name="firstName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Mario…" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    label="Nome *"
+                    placeholder="Mario…"
                   />
-                  <FormField
+                  <FormInputField
                     control={step1Form.control}
                     name="lastName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Cognome *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Rossi…" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    label="Cognome *"
+                    placeholder="Rossi…"
                   />
                 </div>
 
@@ -283,81 +254,41 @@ export function OnboardingForm({
                 />
 
                 <div className="grid grid-cols-3 gap-4">
-                  <FormField
+                  <FormInputField
                     control={step1Form.control}
                     name="address"
-                    render={({ field }) => (
-                      <FormItem className="col-span-2">
-                        <FormLabel>Indirizzo *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Via Roma…" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    label="Indirizzo *"
+                    placeholder="Via Roma…"
+                    itemClassName="col-span-2"
                   />
-                  <FormField
+                  <FormInputField
                     control={step1Form.control}
                     name="streetNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>N. civico</FormLabel>
-                        <FormControl>
-                          <Input placeholder="1…" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    label="N. civico"
+                    placeholder="1…"
                   />
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
-                  <FormField
+                  <FormInputField
                     control={step1Form.control}
                     name="zipCode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>CAP *</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="00100…"
-                            maxLength={5}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    label="CAP *"
+                    placeholder="00100…"
+                    maxLength={5}
                   />
-                  <FormField
+                  <FormInputField
                     control={step1Form.control}
                     name="city"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Città</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Roma…" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    label="Città"
+                    placeholder="Roma…"
                   />
-                  <FormField
+                  <FormInputField
                     control={step1Form.control}
                     name="province"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Prov.</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="RM…"
-                            maxLength={2}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    label="Prov."
+                    placeholder="RM…"
+                    maxLength={2}
                   />
                 </div>
 
@@ -387,6 +318,7 @@ export function OnboardingForm({
                   vengono cifrate e conservate in modo sicuro.
                 </p>
 
+                {/* codiceFiscale needs a custom onChange (uppercase transform) */}
                 <FormField
                   control={step2Form.control}
                   name="codiceFiscale"
@@ -409,32 +341,16 @@ export function OnboardingForm({
                   )}
                 />
 
-                <FormField
+                <FormPasswordField
                   control={step2Form.control}
                   name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password Fisconline *</FormLabel>
-                      <FormControl>
-                        <PasswordInput {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  label="Password Fisconline *"
                 />
 
-                <FormField
+                <FormPasswordField
                   control={step2Form.control}
                   name="pin"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>PIN Fisconline *</FormLabel>
-                      <FormControl>
-                        <PasswordInput {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  label="PIN Fisconline *"
                 />
 
                 {step2Form.formState.errors.root && (
@@ -451,11 +367,7 @@ export function OnboardingForm({
                   >
                     Indietro
                   </Button>
-                  <Button
-                    type="submit"
-                    className="flex-1"
-                    disabled={isPending}
-                  >
+                  <Button type="submit" className="flex-1" disabled={isPending}>
                     {isPending ? "Salvataggio…" : "Continua"}
                   </Button>
                 </div>

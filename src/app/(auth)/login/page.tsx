@@ -8,16 +8,7 @@ import { z } from "zod/v4";
 import { signIn } from "@/server/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { PasswordInput } from "@/components/ui/password-input";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Form, FormInputField, FormPasswordField } from "@/components/ui/form";
 
 const loginSchema = z.object({
   email: z.string().email("Inserisci un'email valida."),
@@ -60,38 +51,21 @@ export default function LoginPage() {
             noValidate
             className="space-y-4"
           >
-            <FormField
+            <FormInputField
               control={form.control}
               name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="email"
-                      placeholder="mario@esempio.it…"
-                      autoComplete="email"
-                      spellCheck={false}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              label="Email"
+              type="email"
+              placeholder="mario@esempio.it…"
+              autoComplete="email"
+              spellCheck={false}
             />
 
-            <FormField
+            <FormPasswordField
               control={form.control}
               name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <PasswordInput autoComplete="current-password" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              label="Password"
+              autoComplete="current-password"
             />
 
             {form.formState.errors.root && (

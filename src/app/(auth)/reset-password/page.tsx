@@ -8,15 +8,7 @@ import { z } from "zod/v4";
 import { resetPassword } from "@/server/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Form, FormInputField } from "@/components/ui/form";
 
 const resetSchema = z.object({
   email: z.string().email("Inserisci un'email valida."),
@@ -62,23 +54,13 @@ export default function ResetPasswordPage() {
             noValidate
             className="space-y-4"
           >
-            <FormField
+            <FormInputField
               control={form.control}
               name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="email"
-                      placeholder="mario@esempio.it"
-                      autoComplete="email"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              label="Email"
+              type="email"
+              placeholder="mario@esempio.it"
+              autoComplete="email"
             />
 
             {form.formState.errors.root && (

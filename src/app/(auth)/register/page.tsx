@@ -9,16 +9,17 @@ import { Turnstile } from "@marsidev/react-turnstile";
 import { signUp } from "@/server/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import {
   Form,
   FormControl,
   FormDescription,
   FormField,
+  FormInputField,
   FormItem,
   FormLabel,
   FormMessage,
+  FormPasswordField,
 } from "@/components/ui/form";
 
 const registerSchema = z
@@ -95,26 +96,17 @@ export default function RegisterPage() {
             noValidate
             className="space-y-4"
           >
-            <FormField
+            <FormInputField
               control={form.control}
               name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="email"
-                      placeholder="mario@esempio.it…"
-                      autoComplete="email"
-                      spellCheck={false}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              label="Email"
+              type="email"
+              placeholder="mario@esempio.it…"
+              autoComplete="email"
+              spellCheck={false}
             />
 
+            {/* password: keeps explicit FormField for the conditional FormDescription */}
             <FormField
               control={form.control}
               name="password"
@@ -135,18 +127,11 @@ export default function RegisterPage() {
               )}
             />
 
-            <FormField
+            <FormPasswordField
               control={form.control}
               name="confirmPassword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Conferma password</FormLabel>
-                  <FormControl>
-                    <PasswordInput autoComplete="new-password" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              label="Conferma password"
+              autoComplete="new-password"
             />
 
             <FormField
@@ -213,12 +198,11 @@ export default function RegisterPage() {
                       htmlFor="specificClausesAccepted"
                       className="cursor-pointer text-sm leading-snug select-none"
                     >
-                      Accetto specificamente, ai sensi dell&apos;art. 1341
-                      c.c., le clausole: 9 (limitazione e cap di
-                      responsabilità), 10 (no rimborso corrispettivi già
-                      pagati), 11 (sospensione e cessazione unilaterale del
-                      servizio), 16 (foro esclusivo di Torino per controversie
-                      B2B).
+                      Accetto specificamente, ai sensi dell&apos;art. 1341 c.c.,
+                      le clausole: 9 (limitazione e cap di responsabilità), 10
+                      (no rimborso corrispettivi già pagati), 11 (sospensione e
+                      cessazione unilaterale del servizio), 16 (foro esclusivo
+                      di Torino per controversie B2B).
                     </label>
                   </div>
                   <FormMessage />
