@@ -2,6 +2,7 @@
 
 import { Delete } from "lucide-react";
 import { appendDigitCents, backspaceCents, cn } from "@/lib/utils";
+import { vibrate } from "@/lib/haptics";
 
 interface NumericKeypadProps {
   readonly value: number; // centesimi
@@ -45,6 +46,7 @@ export function NumericKeypad({ value, onChange }: NumericKeypadProps) {
       <button
         type="button"
         aria-label="⌫"
+        onPointerDown={() => vibrate("light")}
         onClick={handleBackspace}
         className={cn(
           "flex h-14 w-full items-center justify-center rounded-xl",
@@ -76,6 +78,7 @@ function KeyButton({
     <button
       type="button"
       aria-label={ariaLabel ?? label}
+      onPointerDown={() => vibrate("light")}
       onClick={onClick}
       disabled={disabled}
       className={cn(
