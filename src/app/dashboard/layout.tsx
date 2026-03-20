@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getOnboardingStatus } from "@/server/onboarding-actions";
@@ -29,8 +30,12 @@ export default async function DashboardLayout({
   return (
     <div className="flex min-h-screen flex-col">
       <header className="bg-background border-b">
-        <div className="container mx-auto flex items-center justify-between px-4 py-3">
-          <Link href="/dashboard" className="text-primary text-lg font-bold">
+        <div className="container mx-auto flex items-center justify-center px-4 py-3 md:justify-between">
+          <Link
+            href="/dashboard"
+            className="text-primary flex items-center gap-2 text-lg font-bold"
+          >
+            <Image src="/logo.png" alt="ScontrinoZero" width={20} height={20} />
             ScontrinoZero
           </Link>
 
