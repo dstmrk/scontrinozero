@@ -116,7 +116,7 @@ export function CassaClient({
     mutationFn: emitReceipt,
     onSuccess: (result) => {
       if (result.error) {
-          return; // Handled below via mutation.data
+        return; // Handled below via mutation.data
       }
       clearCart();
       setSuccessData({
