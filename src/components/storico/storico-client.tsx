@@ -171,9 +171,9 @@ export function StoricoClient({
       {/* Search form */}
       <form
         onSubmit={handleSearch}
-        className="grid grid-cols-2 gap-3 rounded-lg border px-3 py-2 sm:flex sm:flex-wrap sm:items-end"
+        className="flex flex-col gap-3 rounded-lg border px-3 py-2 sm:flex-row sm:flex-wrap sm:items-end"
       >
-        <div className="col-span-2 w-full sm:w-auto sm:min-w-[140px]">
+        <div className="w-full sm:w-auto sm:min-w-[140px]">
           <label htmlFor="dateFrom" className="mb-1 block text-xs font-medium">
             Dal
           </label>
@@ -184,7 +184,7 @@ export function StoricoClient({
             onChange={(e) => setDateFrom(e.target.value)}
           />
         </div>
-        <div className="col-span-2 w-full sm:w-auto sm:min-w-[140px]">
+        <div className="w-full sm:w-auto sm:min-w-[140px]">
           <label htmlFor="dateTo" className="mb-1 block text-xs font-medium">
             Al
           </label>
@@ -195,34 +195,38 @@ export function StoricoClient({
             onChange={(e) => setDateTo(e.target.value)}
           />
         </div>
-        <div className="w-full sm:w-auto sm:min-w-[140px]">
-          <label
-            htmlFor="statusFilter"
-            className="mb-1 block text-xs font-medium"
-          >
-            Stato
-          </label>
-          <div className="relative">
-            <select
-              id="statusFilter"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="dark:bg-input/30 border-input focus-visible:border-ring focus-visible:ring-ring/50 disabled:bg-input/50 h-8 w-full min-w-0 appearance-none rounded-lg border bg-transparent px-2.5 py-1 pr-7 text-base transition-colors outline-none focus-visible:ring-3 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+        <div className="flex gap-3 sm:contents">
+          <div className="w-full sm:w-auto sm:min-w-[140px]">
+            <label
+              htmlFor="statusFilter"
+              className="mb-1 block text-xs font-medium"
             >
-              <option value="ACCEPTED">Emesso</option>
-              <option value="VOID_ACCEPTED">Annullato</option>
-              <option value="">Tutti</option>
-            </select>
-            <ChevronDown className="text-muted-foreground pointer-events-none absolute top-1/2 right-2 h-4 w-4 -translate-y-1/2" />
+              Stato
+            </label>
+            <div className="relative">
+              <select
+                id="statusFilter"
+                value={statusFilter}
+                onChange={(e) =>
+                  setStatusFilter(e.target.value as StatusFilter)
+                }
+                className="dark:bg-input/30 border-input focus-visible:border-ring focus-visible:ring-ring/50 disabled:bg-input/50 h-8 w-full min-w-0 appearance-none rounded-lg border bg-transparent px-2.5 py-1 pr-7 text-base transition-colors outline-none focus-visible:ring-3 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+              >
+                <option value="ACCEPTED">Emesso</option>
+                <option value="VOID_ACCEPTED">Annullato</option>
+                <option value="">Tutti</option>
+              </select>
+              <ChevronDown className="text-muted-foreground pointer-events-none absolute top-1/2 right-2 h-4 w-4 -translate-y-1/2" />
+            </div>
           </div>
+          <Button
+            type="submit"
+            disabled={isPending}
+            className="w-full self-end sm:w-auto"
+          >
+            {isPending ? "Ricerca…" : "Cerca"}
+          </Button>
         </div>
-        <Button
-          type="submit"
-          disabled={isPending}
-          className="w-full self-end sm:w-auto"
-        >
-          {isPending ? "Ricerca…" : "Cerca"}
-        </Button>
       </form>
 
       {/* Table */}
