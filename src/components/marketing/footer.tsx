@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ReceiptEuro } from "lucide-react";
+import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
 import { VAT_NUMBER } from "@/lib/contact";
 
@@ -10,7 +10,12 @@ export function Footer() {
         <div className="grid gap-8 md:grid-cols-3">
           <div>
             <div className="flex items-center gap-2">
-              <ReceiptEuro className="text-primary h-5 w-5" />
+              <Image
+                src="/logo.png"
+                alt="ScontrinoZero"
+                width={20}
+                height={20}
+              />
               <span className="text-lg font-bold">ScontrinoZero</span>
             </div>
             <p className="text-muted-foreground mt-2 text-sm">
