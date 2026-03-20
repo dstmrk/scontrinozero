@@ -10,6 +10,7 @@ import { signUp } from "@/server/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PasswordInput } from "@/components/ui/password-input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -140,14 +141,13 @@ export default function RegisterPage() {
               render={({ field }) => (
                 <FormItem>
                   <div className="flex items-start gap-2">
-                    <input
+                    <Checkbox
                       id="termsAccepted"
-                      type="checkbox"
                       checked={field.value}
-                      onChange={(e) => field.onChange(e.target.checked)}
+                      onCheckedChange={field.onChange}
                       onBlur={field.onBlur}
                       name={field.name}
-                      className="accent-primary mt-0.5 h-4 w-4 shrink-0 cursor-pointer"
+                      className="mt-0.5 shrink-0"
                     />
                     <label
                       htmlFor="termsAccepted"
@@ -185,14 +185,13 @@ export default function RegisterPage() {
               render={({ field }) => (
                 <FormItem>
                   <div className="flex items-start gap-2">
-                    <input
+                    <Checkbox
                       id="specificClausesAccepted"
-                      type="checkbox"
                       checked={field.value}
-                      onChange={(e) => field.onChange(e.target.checked)}
+                      onCheckedChange={field.onChange}
                       onBlur={field.onBlur}
                       name={field.name}
-                      className="accent-primary mt-0.5 h-4 w-4 shrink-0 cursor-pointer"
+                      className="mt-0.5 shrink-0"
                     />
                     <label
                       htmlFor="specificClausesAccepted"

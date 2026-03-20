@@ -13,6 +13,7 @@ import { CartLineItem } from "@/components/cassa/cart-line-item";
 import { ReceiptSummary } from "@/components/cassa/receipt-summary";
 import { ReceiptSuccess } from "@/components/cassa/receipt-success";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
 import { emitReceipt } from "@/server/receipt-actions";
 
@@ -209,13 +210,13 @@ export function CassaClient({
         </div>
 
         {/* Descrizione */}
-        <input
+        <Input
           type="text"
           placeholder="Descrizione (opzionale)"
           autoComplete="off"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="bg-background focus-visible:ring-primary w-full rounded-xl border px-4 py-3 text-base outline-none focus-visible:ring-2"
+          className="rounded-xl py-3 text-base"
         />
 
         {/* Display importo */}
