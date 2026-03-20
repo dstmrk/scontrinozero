@@ -19,7 +19,7 @@ export function CartLineItem({ line, onRemove, onEdit }: CartLineItemProps) {
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{line.description}</p>
         <div className="text-muted-foreground mt-1 flex items-center gap-2 text-sm">
-          <span>
+          <span className="tabular-nums">
             {line.quantity} × {formatCurrency(line.grossUnitPrice)}
           </span>
           <span className="bg-muted rounded-full px-2 py-0.5 text-xs">
@@ -29,7 +29,7 @@ export function CartLineItem({ line, onRemove, onEdit }: CartLineItemProps) {
       </div>
 
       <div className="flex items-center gap-1">
-        <span className="mr-1 font-semibold">{formatCurrency(lineTotal)}</span>
+        <span className="mr-1 font-semibold tabular-nums">{formatCurrency(lineTotal)}</span>
         {onEdit && (
           <button
             type="button"
