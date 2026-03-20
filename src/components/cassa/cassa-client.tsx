@@ -219,7 +219,7 @@ export function CassaClient({
         {/* Display importo */}
         <div className="rounded-xl px-4 py-6 text-center">
           <span
-            className={`text-4xl font-bold tracking-tight transition-opacity ${amountCents > 0 ? "opacity-100" : "text-muted-foreground opacity-30"}`}
+            className={`text-4xl font-bold tracking-tight tabular-nums transition-opacity ${amountCents > 0 ? "opacity-100" : "text-muted-foreground opacity-30"}`}
           >
             {formatCurrency(parsedAmount)}
           </span>
@@ -370,7 +370,9 @@ export function CassaClient({
       {lines.length > 0 && (
         <div className="bg-muted flex items-center justify-between rounded-xl px-4 py-3">
           <span className="font-medium">Totale</span>
-          <span className="text-xl font-bold">{formatCurrency(total)}</span>
+          <span className="text-xl font-bold tabular-nums">
+            {formatCurrency(total)}
+          </span>
         </div>
       )}
 

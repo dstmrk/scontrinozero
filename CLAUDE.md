@@ -381,6 +381,16 @@ npx prettier --check src/  # nessun errore di formattazione
 npm run test:coverage # tutti i test verdi, coverage non in calo
 ```
 
+**⚠️ `prettier-plugin-tailwindcss` ordina automaticamente le classi Tailwind.**
+Dopo aver aggiunto o modificato classi Tailwind in file `.tsx`/`.ts`, eseguire sempre:
+
+```bash
+npx prettier --write <file modificati>
+```
+
+altrimenti il check `prettier --check` in CI fallisce. Il plugin è configurato in
+`.prettierrc` e riordina le classi secondo la sequenza canonica di Tailwind CSS.
+
 Controlli manuali:
 
 - [ ] Ogni `it()`/`test()` ha almeno un `expect()`
