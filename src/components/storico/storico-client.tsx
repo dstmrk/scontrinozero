@@ -171,32 +171,37 @@ export function StoricoClient({
       {/* Search form */}
       <form
         onSubmit={handleSearch}
-        className="flex flex-col gap-3 rounded-lg border px-3 py-2 sm:flex-row sm:flex-wrap sm:items-end"
+        className="flex flex-col gap-3 rounded-lg border px-3 py-2"
       >
-        <div className="sm:min-w-[140px]">
-          <label htmlFor="dateFrom" className="mb-1 block text-xs font-medium">
-            Dal
-          </label>
-          <Input
-            id="dateFrom"
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-          />
+        <div className="flex gap-2">
+          <div className="min-w-0 flex-1">
+            <label
+              htmlFor="dateFrom"
+              className="mb-1 block text-xs font-medium"
+            >
+              Dal
+            </label>
+            <Input
+              id="dateFrom"
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <label htmlFor="dateTo" className="mb-1 block text-xs font-medium">
+              Al
+            </label>
+            <Input
+              id="dateTo"
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+            />
+          </div>
         </div>
-        <div className="sm:min-w-[140px]">
-          <label htmlFor="dateTo" className="mb-1 block text-xs font-medium">
-            Al
-          </label>
-          <Input
-            id="dateTo"
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-          />
-        </div>
-        <div className="flex items-end gap-3">
-          <div className="flex-1 sm:min-w-[140px]">
+        <div className="flex gap-2">
+          <div className="min-w-0 flex-1">
             <label
               htmlFor="statusFilter"
               className="mb-1 block text-xs font-medium"
@@ -219,7 +224,11 @@ export function StoricoClient({
               <ChevronDown className="text-muted-foreground pointer-events-none absolute top-1/2 right-2 h-4 w-4 -translate-y-1/2" />
             </div>
           </div>
-          <Button type="submit" disabled={isPending} className="shrink-0">
+          <Button
+            type="submit"
+            disabled={isPending}
+            className="flex-1 self-end"
+          >
             {isPending ? "Ricerca…" : "Cerca"}
           </Button>
         </div>
