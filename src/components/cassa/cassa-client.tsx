@@ -15,7 +15,7 @@ import { ReceiptSuccess } from "@/components/cassa/receipt-success";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import { emitReceipt } from "@/server/receipt-actions";
-import { vibrate } from "@/lib/haptics";
+import { haptics } from "@/lib/haptics";
 
 type Step = "cart" | "add-item" | "summary" | "success";
 
@@ -117,10 +117,10 @@ export function CassaClient({
     mutationFn: emitReceipt,
     onSuccess: (result) => {
       if (result.error) {
-        vibrate("error");
+        haptics.trigger("error");
         return; // Handled below via mutation.data
       }
-      vibrate("success");
+      haptics.trigger("success");
       clearCart();
       setSuccessData({
         documentId: result.documentId,
