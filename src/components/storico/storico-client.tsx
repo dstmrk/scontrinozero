@@ -171,9 +171,9 @@ export function StoricoClient({
       {/* Search form */}
       <form
         onSubmit={handleSearch}
-        className="flex flex-wrap items-end gap-3 rounded-lg border px-3 py-2"
+        className="grid grid-cols-2 gap-3 rounded-lg border px-3 py-2 sm:flex sm:flex-wrap sm:items-end"
       >
-        <div className="min-w-[140px]">
+        <div className="w-full sm:w-auto sm:min-w-[140px]">
           <label htmlFor="dateFrom" className="mb-1 block text-xs font-medium">
             Dal
           </label>
@@ -184,7 +184,7 @@ export function StoricoClient({
             onChange={(e) => setDateFrom(e.target.value)}
           />
         </div>
-        <div className="min-w-[140px]">
+        <div className="w-full sm:w-auto sm:min-w-[140px]">
           <label htmlFor="dateTo" className="mb-1 block text-xs font-medium">
             Al
           </label>
@@ -195,7 +195,7 @@ export function StoricoClient({
             onChange={(e) => setDateTo(e.target.value)}
           />
         </div>
-        <div className="min-w-[140px]">
+        <div className="w-full sm:w-auto sm:min-w-[140px]">
           <label
             htmlFor="statusFilter"
             className="mb-1 block text-xs font-medium"
@@ -216,7 +216,11 @@ export function StoricoClient({
             <ChevronDown className="text-muted-foreground pointer-events-none absolute top-1/2 right-2 h-4 w-4 -translate-y-1/2" />
           </div>
         </div>
-        <Button type="submit" disabled={isPending}>
+        <Button
+          type="submit"
+          disabled={isPending}
+          className="w-full self-end sm:w-auto"
+        >
           {isPending ? "Ricerca…" : "Cerca"}
         </Button>
       </form>
