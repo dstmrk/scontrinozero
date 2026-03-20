@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { vibrate } from "./haptics";
 
 describe("vibrate", () => {
@@ -42,4 +42,14 @@ describe("vibrate", () => {
     expect(() => vibrate("light")).not.toThrow();
     expect(mockVibrate).not.toHaveBeenCalled();
   });
+
+  it("non lancia in ambiente SSR dove navigator non è definito", () => {
+    vi.stubGlobal("navigator", undefined);
+    expect(() => vibrate("light")).not.toThrow();
+    expect(mockVibrate).not.toHaveBeenCalled();
+  });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });

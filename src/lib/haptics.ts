@@ -29,7 +29,3 @@ export function vibrate(type: HapticType): void {
     return;
   navigator.vibrate(HAPTIC_PATTERNS[type]);
 }
-
-export function useHaptic() {
-  return { vibrate };
-}
