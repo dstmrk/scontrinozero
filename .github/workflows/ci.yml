@@ -180,11 +180,12 @@ jobs:
 
   e2e:
     needs: [build, changes]
-    # Run E2E on every push to main (safety net before deploy), or on PRs that touch e2e files.
-    # This avoids running slow E2E on every src-only PR; unit tests + lint are the gate there.
+    # Run E2E only on PRs that touch app code (src/**) or e2e files.
+    # Not on push to main: merges happen only after PR CI is already green.
     if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (needs.changes.outputs.e2e_files == 'true' && (needs.build.result == 'success' || needs.build.result == 'skipped'))
+      github.event_name == 'pull_request' &&
+      (needs.changes.outputs.src == 'true' || needs.changes.outputs.e2e_files == 'true') &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-latest
     # Env vars needed to run the Next.js app and global-setup/teardown.
     # Secrets must be configured in GitHub → Settings → Secrets and variables → Actions.
