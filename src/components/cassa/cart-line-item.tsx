@@ -29,7 +29,9 @@ export function CartLineItem({ line, onRemove, onEdit }: CartLineItemProps) {
       </div>
 
       <div className="flex items-center gap-1">
-        <span className="mr-1 font-semibold tabular-nums">{formatCurrency(lineTotal)}</span>
+        <span className="mr-1 font-semibold tabular-nums">
+          {formatCurrency(lineTotal)}
+        </span>
         {onEdit && (
           <button
             type="button"

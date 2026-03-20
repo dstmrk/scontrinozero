@@ -60,7 +60,9 @@ export function ReceiptSummary({
       {/* Total */}
       <div className="bg-muted flex items-center justify-between rounded-xl px-4 py-3">
         <span className="font-medium">Totale</span>
-        <span className="text-xl font-bold tabular-nums">{formatCurrency(total)}</span>
+        <span className="text-xl font-bold tabular-nums">
+          {formatCurrency(total)}
+        </span>
       </div>
 
       {/* Payment method */}
