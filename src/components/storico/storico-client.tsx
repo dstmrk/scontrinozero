@@ -173,8 +173,8 @@ export function StoricoClient({
         onSubmit={handleSearch}
         className="flex flex-col gap-3 rounded-lg border px-3 py-2"
       >
-        <div className="flex gap-2">
-          <div className="min-w-0 flex-1">
+        <div className="grid grid-cols-2 gap-2">
+          <div>
             <label
               htmlFor="dateFrom"
               className="mb-1 block text-xs font-medium"
@@ -188,7 +188,7 @@ export function StoricoClient({
               onChange={(e) => setDateFrom(e.target.value)}
             />
           </div>
-          <div className="min-w-0 flex-1">
+          <div>
             <label htmlFor="dateTo" className="mb-1 block text-xs font-medium">
               Al
             </label>
