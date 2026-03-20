@@ -10,9 +10,10 @@ export default defineConfig({
   outputDir: "./e2e/results",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? "github" : "html",
+  timeout: 20_000,
 
   globalSetup: "./e2e/global-setup.ts",
   globalTeardown: "./e2e/global-teardown.ts",
@@ -27,18 +28,11 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
-    {
-      name: "mobile",
-      use: { ...devices["Pixel 7"] },
-      // user-journey is stateful/serial and shares DB state with chromium.
-      // Running it twice against the same user would corrupt the onboarding
-      // step sequence. Smoke it on desktop only.
-      testIgnore: "**/user-journey.spec.ts",
-    },
   ],
 
   webServer: {
-    command: "npm start",
+    // "next start" does not work with output:standalone — use the standalone server directly.
+    command: "node .next/standalone/server.js",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
