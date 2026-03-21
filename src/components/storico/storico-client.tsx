@@ -209,8 +209,10 @@ export function StoricoClient({
             Stato
           </label>
           <Select
-            value={statusFilter}
-            onValueChange={(v) => setStatusFilter(v as StatusFilter)}
+            value={statusFilter === "" ? "ALL" : statusFilter}
+            onValueChange={(v) =>
+              setStatusFilter((v === "ALL" ? "" : v) as StatusFilter)
+            }
           >
             <SelectTrigger id="statusFilter" className="h-8 w-full">
               <SelectValue />
@@ -218,7 +220,7 @@ export function StoricoClient({
             <SelectContent>
               <SelectItem value="ACCEPTED">Emesso</SelectItem>
               <SelectItem value="VOID_ACCEPTED">Annullato</SelectItem>
-              <SelectItem value="">Tutti</SelectItem>
+              <SelectItem value="ALL">Tutti</SelectItem>
             </SelectContent>
           </Select>
         </div>
