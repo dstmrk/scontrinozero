@@ -264,7 +264,7 @@ export default function Home() {
                 icon: Percent,
                 title: "Regime forfettario",
                 description:
-                  "Sopra €25.000 di ricavi l'obbligo dei corrispettivi telematici ti riguarda. ScontrinoZero ti semplifica tutto.",
+                  "Se sei soggetto all'obbligo dei corrispettivi telematici, ScontrinoZero è la soluzione più economica: nessun registratore fisico, solo il tuo smartphone.",
               },
             ].map((item) => (
               <div
