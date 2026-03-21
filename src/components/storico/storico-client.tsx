@@ -2,11 +2,19 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown } from "lucide-react";
+import { format } from "date-fns";
+import type { DateRange } from "react-day-picker";
 import { searchReceipts } from "@/server/storico-actions";
 import { VoidReceiptDialog } from "./void-receipt-dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type {
   ReceiptListItem,
   SearchReceiptsParams,
@@ -101,16 +109,25 @@ export function StoricoClient({
   initialStatus,
 }: StoricoClientProps) {
   const router = useRouter();
-  const todayStr = new Date().toISOString().split("T")[0];
+  const today = new Date();
 
   const [receipts, setReceipts] = useState<ReceiptListItem[]>(initialData);
   const [selected, setSelected] = useState<ReceiptListItem | null>(null);
   const [isPending, startTransition] = useTransition();
   const [page, setPage] = useState(1);
 
+  // Parse optional YYYY-MM-DD string to Date (avoids UTC timezone shift)
+  function parseISODate(str: string | undefined): Date | undefined {
+    if (!str) return undefined;
+    const [y, m, d] = str.split("-").map(Number);
+    return new Date(y, (m ?? 1) - 1, d ?? 1);
+  }
+
   // Search form state — initialised from URL params passed by server
-  const [dateFrom, setDateFrom] = useState(initialDateFrom ?? todayStr);
-  const [dateTo, setDateTo] = useState(initialDateTo ?? todayStr);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: parseISODate(initialDateFrom) ?? today,
+    to: parseISODate(initialDateTo) ?? today,
+  });
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
     initialStatus ?? "ACCEPTED",
   );
@@ -118,6 +135,13 @@ export function StoricoClient({
   // Handle search — also syncs filters to URL for deep-linking
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
+
+    const dateFrom = dateRange?.from
+      ? format(dateRange.from, "yyyy-MM-dd")
+      : undefined;
+    const dateTo = dateRange?.to
+      ? format(dateRange.to, "yyyy-MM-dd")
+      : undefined;
 
     const urlParams = new URLSearchParams();
     if (dateFrom) urlParams.set("dal", dateFrom);
@@ -173,27 +197,9 @@ export function StoricoClient({
         onSubmit={handleSearch}
         className="flex flex-wrap items-end gap-3 rounded-lg border px-3 py-2"
       >
-        <div className="min-w-[140px]">
-          <label htmlFor="dateFrom" className="mb-1 block text-xs font-medium">
-            Dal
-          </label>
-          <Input
-            id="dateFrom"
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-          />
-        </div>
-        <div className="min-w-[140px]">
-          <label htmlFor="dateTo" className="mb-1 block text-xs font-medium">
-            Al
-          </label>
-          <Input
-            id="dateTo"
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-          />
+        <div className="min-w-[200px]">
+          <label className="mb-1 block text-xs font-medium">Periodo</label>
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
         </div>
         <div className="min-w-[140px]">
           <label
@@ -202,19 +208,21 @@ export function StoricoClient({
           >
             Stato
           </label>
-          <div className="relative">
-            <select
-              id="statusFilter"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="dark:bg-input/30 border-input focus-visible:border-ring focus-visible:ring-ring/50 disabled:bg-input/50 h-8 w-full min-w-0 appearance-none rounded-lg border bg-transparent px-2.5 py-1 pr-7 text-base transition-colors outline-none focus-visible:ring-3 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
-            >
-              <option value="ACCEPTED">Emesso</option>
-              <option value="VOID_ACCEPTED">Annullato</option>
-              <option value="">Tutti</option>
-            </select>
-            <ChevronDown className="text-muted-foreground pointer-events-none absolute top-1/2 right-2 h-4 w-4 -translate-y-1/2" />
-          </div>
+          <Select
+            value={statusFilter === "" ? "ALL" : statusFilter}
+            onValueChange={(v) =>
+              setStatusFilter((v === "ALL" ? "" : v) as StatusFilter)
+            }
+          >
+            <SelectTrigger id="statusFilter" className="h-8 w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ACCEPTED">Emesso</SelectItem>
+              <SelectItem value="VOID_ACCEPTED">Annullato</SelectItem>
+              <SelectItem value="ALL">Tutti</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <Button type="submit" disabled={isPending}>
           {isPending ? "Ricerca…" : "Cerca"}
