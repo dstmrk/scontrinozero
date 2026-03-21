@@ -19,6 +19,14 @@ import {
   Shield,
   CalendarRange,
   ArrowRight,
+  Check,
+  X,
+  ShoppingBag,
+  Scissors,
+  Wrench,
+  BedDouble,
+  Car,
+  Percent,
 } from "lucide-react";
 
 export default function Home() {
@@ -79,8 +87,97 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Come funziona */}
+      {/* Risparmio vs Registratore Fisico */}
       <section className="px-4 py-20">
+        <div className="mx-auto max-w-4xl">
+          <h2 className="text-center text-2xl font-bold">
+            Quanto risparmi rispetto a un registratore fisico?
+          </h2>
+          <p className="text-muted-foreground mx-auto mt-2 max-w-lg text-center">
+            Un registratore telematico fisico ha costi che si accumulano ogni
+            anno. ScontrinoZero no.
+          </p>
+          <div className="mt-10 overflow-hidden rounded-xl border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/50">
+                  <th className="px-4 py-3 text-left font-semibold"></th>
+                  <th className="px-4 py-3 text-center font-semibold">
+                    Registratore fisico
+                  </th>
+                  <th className="text-primary px-4 py-3 text-center font-semibold">
+                    ScontrinoZero
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {[
+                  {
+                    label: "Costo acquisto hardware",
+                    competitor: "€400–800",
+                    ours: "€0",
+                  },
+                  {
+                    label: "Canone annuo",
+                    competitor: "€100–200",
+                    ours: "da €29,99",
+                  },
+                  {
+                    label: "Installazione tecnico",
+                    competitor: false,
+                    ours: true,
+                  },
+                  {
+                    label: "Collaudo biennale",
+                    competitor: false,
+                    ours: true,
+                  },
+                  {
+                    label: "Aggiornamenti inclusi",
+                    competitor: false,
+                    ours: true,
+                  },
+                  {
+                    label: "Funziona da smartphone",
+                    competitor: false,
+                    ours: true,
+                  },
+                ].map((row) => (
+                  <tr key={row.label}>
+                    <td className="px-4 py-3">{row.label}</td>
+                    <td className="text-muted-foreground px-4 py-3 text-center">
+                      {typeof row.competitor === "string" ? (
+                        row.competitor
+                      ) : (
+                        <X className="mx-auto h-4 w-4 text-red-400" />
+                      )}
+                    </td>
+                    <td className="text-primary px-4 py-3 text-center font-semibold">
+                      {typeof row.ours === "string" ? (
+                        row.ours
+                      ) : (
+                        <Check className="mx-auto h-4 w-4" />
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-muted/50 font-semibold">
+                  <td className="px-4 py-3">Risparmio anno 1</td>
+                  <td className="px-4 py-3 text-center"></td>
+                  <td className="text-primary px-4 py-3 text-center">
+                    oltre €470
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* Come funziona */}
+      <section className="bg-muted/50 px-4 py-20">
         <div className="mx-auto max-w-5xl">
           <h2 className="text-center text-2xl font-bold">Come funziona</h2>
           <p className="text-muted-foreground mx-auto mt-2 max-w-lg text-center">
@@ -116,6 +213,71 @@ export default function Home() {
                 <p className="text-muted-foreground mt-2 text-sm">
                   {item.description}
                 </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Perfetto per... */}
+      <section className="px-4 py-20">
+        <div className="mx-auto max-w-5xl">
+          <h2 className="text-center text-2xl font-bold">
+            Perfetto per ogni attività
+          </h2>
+          <p className="text-muted-foreground mx-auto mt-2 max-w-lg text-center">
+            Dal banco al furgone, dallo studio al cantiere.
+          </p>
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              {
+                icon: ShoppingBag,
+                title: "Ambulanti e mercati",
+                description:
+                  "Emetti scontrini ovunque sei, con qualsiasi smartphone connesso a internet.",
+              },
+              {
+                icon: Scissors,
+                title: "Parrucchieri ed estetisti",
+                description:
+                  "Gestisci incassi e scontrini dal tablet o smartphone, senza hardware sul banco.",
+              },
+              {
+                icon: Wrench,
+                title: "Artigiani e professionisti",
+                description:
+                  "Idraulici, elettricisti, meccanici: emetti lo scontrino direttamente dal cantiere.",
+              },
+              {
+                icon: BedDouble,
+                title: "B&B e strutture ricettive",
+                description:
+                  "Ideale per attività stagionali che non vogliono un registratore fisso.",
+              },
+              {
+                icon: Car,
+                title: "NCC e taxi",
+                description:
+                  "Zero hardware aggiuntivo: basta lo smartphone che già usi ogni giorno.",
+              },
+              {
+                icon: Percent,
+                title: "Regime forfettario",
+                description:
+                  "Sopra €25.000 di ricavi l'obbligo dei corrispettivi telematici ti riguarda. ScontrinoZero ti semplifica tutto.",
+              },
+            ].map((item) => (
+              <div
+                key={item.title}
+                className="bg-background flex gap-4 rounded-xl border p-4"
+              >
+                <item.icon className="text-primary mt-0.5 h-5 w-5 shrink-0" />
+                <div>
+                  <h3 className="text-sm font-semibold">{item.title}</h3>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    {item.description}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
