@@ -238,7 +238,7 @@ export default function Home() {
               },
               {
                 icon: Scissors,
-                title: "Parrucchieri ed estetisti",
+                title: "Parrucchieri, estetisti e tatuatori",
                 description:
                   "Gestisci incassi e scontrini dal tablet o smartphone, senza hardware sul banco.",
               },
