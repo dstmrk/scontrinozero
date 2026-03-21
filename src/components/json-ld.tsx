@@ -17,7 +17,7 @@ export const softwareApplicationJsonLd = {
     {
       "@type": "Offer",
       name: "Starter",
-      price: "5.99",
+      price: "4.99",
       priceCurrency: "EUR",
     },
     {
