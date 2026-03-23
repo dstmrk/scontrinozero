@@ -12,8 +12,9 @@ test.describe("Auth flows", () => {
     await page.fill("[name='email']", email);
     await page.fill("[name='password']", password);
     await page.fill("[name='confirmPassword']", password);
-    await page.check("#termsAccepted");
-    await page.check("#specificClausesAccepted");
+    // Radix Checkbox renders as <button role="checkbox"> — use click(), not check()
+    await page.click("#termsAccepted");
+    await page.click("#specificClausesAccepted");
     // Wait for Turnstile to resolve and enable the submit button
     await page.waitForSelector('button[type="submit"]:not([disabled])', {
       timeout: 15_000,
@@ -33,8 +34,9 @@ test.describe("Auth flows", () => {
     await page.fill("[name='email']", "test@example.com");
     await page.fill("[name='password']", "abc");
     await page.fill("[name='confirmPassword']", "abc");
-    await page.check("#termsAccepted");
-    await page.check("#specificClausesAccepted");
+    // Radix Checkbox renders as <button role="checkbox"> — use click(), not check()
+    await page.click("#termsAccepted");
+    await page.click("#specificClausesAccepted");
     // Wait for Turnstile to resolve and enable the submit button
     await page.waitForSelector('button[type="submit"]:not([disabled])', {
       timeout: 15_000,
@@ -52,6 +54,10 @@ test.describe("Auth flows", () => {
     page,
   }) => {
     await page.goto("/reset-password");
+    // Wait for React to hydrate before interacting with the form.
+    // Without this, the button click may trigger a native GET form submission
+    // before onSubmit is attached, producing /reset-password?email=... in the URL.
+    await page.waitForLoadState("networkidle");
     await page.fill("[name='email']", E2E_USER.email);
     await page.click('button[type="submit"]');
 
