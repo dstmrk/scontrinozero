@@ -28,9 +28,9 @@ all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la pr
 
 **Versione corrente:** v1.0.0 ✅ (rilasciato in produzione) — roadmap completa in `PLAN.md`.
 
-**Prossima release:** v1.1.0 (PWA) | **Rilasciato:** v1.0.0 ✅
+**Prossima release:** v1.1.0 (Lotteria degli Scontrini)
 
-**Post-lancio:** v1.1.0 (PWA) → v1.2.0 (billing polish) → v1.3.0 (receipt email) → v1.4.0+ (analytics, catalog sync, …)
+**Post-lancio:** v1.1.0 (lotteria) → v1.2.0 (PWA) → v1.3.0 (landing SEO) → v1.4.0+ (analytics, catalog sync, …)
 
 ## Principi di prodotto
 
@@ -402,8 +402,9 @@ Controlli manuali:
 
 Stesso progetto Next.js, non un sito separato:
 
-- Le pagine marketing (/, /prezzi, /funzionalita, /chi-siamo) sono route SSG
-  nel Next.js App Router — generate staticamente al build, veloci
+- La pagina marketing principale (`/`) è una route SSG nel Next.js App Router —
+  generata staticamente al build, veloce. Le sezioni funzionalità e prezzi sono
+  anchor link sulla homepage (`#funzionalita`, `#prezzi`), non route separate.
 - L'app SaaS vive sotto /dashboard — route dinamiche protette da auth
 - Meta tag e Open Graph automatici via Next.js `metadata` API
 - Sitemap via `next-sitemap`; structured data JSON-LD per rich snippets
