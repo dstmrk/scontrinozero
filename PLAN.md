@@ -1,8 +1,8 @@
 # ScontrinoZero — Piano di sviluppo
 
-## Versione corrente: v1.0.0 ✅ — Prossima release: v1.1.0 (Lotteria degli Scontrini) ⬜
+## Versione corrente: v1.1.0 ✅ — Prossima release: v1.2.0 (PWA) ⬜
 
-Il piano usa **release semantiche** (vx.y.z). La v1.0.0 è stata rilasciata in produzione.
+Il piano usa **release semantiche** (vx.y.z). La v1.1.0 è stata rilasciata in produzione.
 
 **Approccio TDD:** per ogni release, i test si scrivono _prima_ dell'implementazione.
 
@@ -12,7 +12,7 @@ Il piano usa **release semantiche** (vx.y.z). La v1.0.0 è stata rilasciata in p
 
 | Versione     | Descrizione                                                                                                         |
 | ------------ | ------------------------------------------------------------------------------------------------------------------- |
-| **v1.1.0**   | Lotteria degli Scontrini: codice lotteria nel payload AdE, form emissione, storico, PDF                             |
+| **v1.1.0**   | ✅ Lotteria degli Scontrini: codice lotteria nel payload AdE, form emissione, storico, PDF                          |
 | **v1.2.0**   | PWA: `@serwist/next`, manifest, offline shell, install prompt                                                       |
 | **v1.3.0**   | Landing & SEO polish: social proof, pagine dedicate funzionalità/prezzi, screenshot UI                              |
 | **v1.4.0**   | Coupon/promo codes, referral program, Stripe Customer Portal polish                                                 |
@@ -27,7 +27,7 @@ Il piano usa **release semantiche** (vx.y.z). La v1.0.0 è stata rilasciata in p
 
 ---
 
-### v1.1.0 — Lotteria degli Scontrini ⬜
+### v1.1.0 — Lotteria degli Scontrini ✅
 
 Il documento commerciale può includere il codice lotteria del cliente (codice fiscale, 16 car.),
 trasmesso ad AdE nel payload. Il cliente può partecipare alla lotteria degli scontrini
@@ -35,16 +35,16 @@ inquadrando un QR code o comunicando verbalmente il codice fiscale.
 
 **Task (TDD — test prima):**
 
-- ⬜ Analizzare il campo codice lotteria nel payload AdE (verificare nome campo e posizione nel documento commerciale)
-- ⬜ Aggiungere colonna nullable `lottery_code` in `commercial_documents` (migration Drizzle)
-- ⬜ Estendere `buildPayload()` / mapper AdE per includere il codice lotteria quando valorizzato
-- ⬜ `MockAdeClient`: supportare il campo codice lotteria nelle risposte simulate
-- ⬜ UI form cassa: campo opzionale "Codice lotteria" con validazione (CF 16 caratteri alfanumerici)
-- ⬜ Server action `emitReceipt`: persistere il codice lotteria ricevuto
-- ⬜ Storico scontrini: mostrare codice lotteria se presente
-- ⬜ PDF scontrino (pdfkit): includere riga codice lotteria se presente
-- ⬜ Share link pubblico: mostrare codice lotteria se presente
-- ⬜ Test TDD: mapper payload, validazione CF, persistenza, rendering PDF e storico
+- ✅ Analizzare il campo codice lotteria nel payload AdE (verificare nome campo e posizione nel documento commerciale)
+- ✅ Aggiungere colonna nullable `lottery_code` in `commercial_documents` (migration Drizzle)
+- ✅ Estendere `buildPayload()` / mapper AdE per includere il codice lotteria quando valorizzato
+- ✅ `MockAdeClient`: supportare il campo codice lotteria nelle risposte simulate
+- ✅ UI form cassa: campo opzionale "Codice lotteria" con validazione (CF 16 caratteri alfanumerici)
+- ✅ Server action `emitReceipt`: persistere il codice lotteria ricevuto
+- ✅ Storico scontrini: mostrare codice lotteria se presente
+- ✅ PDF scontrino (pdfkit): includere riga codice lotteria se presente
+- ✅ Share link pubblico: mostrare codice lotteria se presente
+- ✅ Test TDD: mapper payload, validazione CF, persistenza, rendering PDF e storico
 
 ---
 

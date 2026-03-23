@@ -26,6 +26,7 @@ ScontrinoZero sfrutta la procedura web "Documento Commerciale Online" messa a di
 ### Funzionalità principali
 
 - **Emissione scontrini elettronici** — direttamente dal tuo dispositivo, con invio in tempo reale all'AdE
+- **Lotteria degli Scontrini** — inserisci il codice fiscale del cliente per partecipare automaticamente
 - **Gestione resi e annullamenti** — con un tap
 - **Catalogo prodotti** — accesso rapido ai prodotti più venduti
 - **Multi-dispositivo** — usa la stessa cassa da smartphone, tablet o browser
@@ -61,7 +62,7 @@ Pensato per chi emette scontrini ma non vuole (o non può) investire in un regis
 
 ## Stato del progetto
 
-🚀 **v1.0.0 — in produzione su [scontrinozero.it](https://scontrinozero.it)**
+🚀 **v1.1.0 — in produzione su [scontrinozero.it](https://scontrinozero.it)**
 
 ## Licenza
 

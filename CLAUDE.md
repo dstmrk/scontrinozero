@@ -26,11 +26,11 @@ esercenti e micro-attività di emettere scontrini elettronici e trasmettere i co
 all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la procedura
 "Documento Commerciale Online".
 
-**Versione corrente:** v1.0.0 ✅ (rilasciato in produzione) — roadmap completa in `PLAN.md`.
+**Versione corrente:** v1.1.0 ✅ (rilasciato in produzione) — roadmap completa in `PLAN.md`.
 
-**Prossima release:** v1.1.0 (Lotteria degli Scontrini)
+**Prossima release:** v1.2.0 (PWA)
 
-**Post-lancio:** v1.1.0 (lotteria) → v1.2.0 (PWA) → v1.3.0 (landing SEO) → v1.4.0+ (analytics, catalog sync, …)
+**Post-lancio:** v1.2.0 (PWA) → v1.3.0 (landing SEO) → v1.4.0+ (analytics, catalog sync, …)
 
 ## Principi di prodotto
 

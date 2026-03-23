@@ -32,7 +32,7 @@ export const faqItems = [
   {
     question: "È supportata la Lotteria degli Scontrini?",
     answer:
-      "La Lotteria degli Scontrini è attualmente in fase di integrazione e sarà disponibile nelle prossime versioni. Puoi seguire l'avanzamento sul nostro repository GitHub.",
+      "Sì. ScontrinoZero supporta la Lotteria degli Scontrini: puoi inserire il codice fiscale del cliente durante l'emissione e il codice lotteria viene trasmesso automaticamente all'Agenzia delle Entrate.",
   },
   {
     question: "Posso stampare lo scontrino su carta?",
