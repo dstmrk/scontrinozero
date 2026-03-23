@@ -37,7 +37,7 @@ jobs:
 
       - name: Select image ref for downstream jobs
         id: image-ref
-        run: echo "image-ref=${{ fromJSON(steps.meta.outputs.json).tags[0] }}" >> "$GITHUB_OUTPUT"
+        run: echo "image-ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -63,7 +63,7 @@ jobs:
       - name: Export built image archive
         run: |
           docker save \
-            "${{ fromJSON(steps.meta.outputs.json).tags[0] }}" \
+            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}" \
             "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" \
             --output "${IMAGE_ARCHIVE_PATH}"
 
@@ -170,7 +170,7 @@ jobs:
 
       - name: Show container logs on failure
         if: failure()
-        run: docker logs scontrinozero-e2e
+        run: docker logs scontrinozero-e2e || true
 
       - name: Stop container
         if: always()
