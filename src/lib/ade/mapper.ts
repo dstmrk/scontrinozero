@@ -274,7 +274,7 @@ export function mapSaleToAdePayload(
     .reduce((sum, v) => sum + Number.parseFloat(v.importo), 0);
 
   const documentoCommerciale: AdeDocumentoCommerciale = {
-    cfCessionarioCommittente: doc.customerTaxCode ?? "",
+    cfCessionarioCommittente: doc.lotteryCode ?? "",
     flagDocCommPerRegalo: doc.isGiftDocument,
     progressivoCollegato: "",
     dataOra: toAdeDate(doc.date),

@@ -47,6 +47,8 @@ export const commercialDocuments = pgTable(
     adeTransactionId: text("ade_transaction_id"),
     /** progressivo AdE — numero documento */
     adeProgressive: text("ade_progressive"),
+    /** Codice Lotteria degli Scontrini del cliente (8 char [A-Z0-9]) — solo per SALE con PE */
+    lotteryCode: text("lottery_code"),
     status: documentStatusEnum("status").notNull().default("PENDING"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

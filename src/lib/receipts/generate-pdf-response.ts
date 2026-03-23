@@ -39,9 +39,13 @@ export async function generatePdfResponse(
 ): Promise<Response> {
   const { doc, biz, lines } = data;
 
-  const publicReq = doc.publicRequest as { paymentMethod?: string } | null;
+  const publicReq = doc.publicRequest as {
+    paymentMethod?: string;
+    lotteryCode?: string;
+  } | null;
   const rawPayment = publicReq?.paymentMethod ?? "PC";
   const paymentMethod = rawPayment === "PE" ? "PE" : ("PC" as const);
+  const lotteryCode = publicReq?.lotteryCode ?? null;
 
   const pdfLines: SaleReceiptLine[] = lines.map((l) => ({
     description: l.description,
@@ -62,6 +66,7 @@ export async function generatePdfResponse(
     createdAt: doc.createdAt,
     adeProgressive: doc.adeProgressive ?? "",
     adeTransactionId: doc.adeTransactionId ?? "",
+    lotteryCode,
   });
 
   const safeProgressive = (doc.adeProgressive ?? "scontrino").replaceAll(

@@ -11,7 +11,7 @@ describe("saleRequestSchema", () => {
     idempotencyKey: "550e8400-e29b-41d4-a716-446655440000",
     document: {
       date: "2026-02-15",
-      customerTaxCode: null,
+      lotteryCode: null,
       isGiftDocument: false,
       lines: [
         {
@@ -178,15 +178,37 @@ describe("saleRequestSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("accepts customer tax code as string", () => {
+  it("accepts valid lottery code (8 uppercase alphanumeric chars)", () => {
     const result = saleRequestSchema.safeParse({
       ...validSale,
       document: {
         ...validSale.document,
-        customerTaxCode: "RSSMRA80A01H501A",
+        lotteryCode: "YYWLR30G",
       },
     });
     expect(result.success).toBe(true);
+  });
+
+  it("rejects lottery code that is not exactly 8 chars", () => {
+    const result = saleRequestSchema.safeParse({
+      ...validSale,
+      document: {
+        ...validSale.document,
+        lotteryCode: "SHORT",
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects lottery code with lowercase letters", () => {
+    const result = saleRequestSchema.safeParse({
+      ...validSale,
+      document: {
+        ...validSale.document,
+        lotteryCode: "abc12345",
+      },
+    });
+    expect(result.success).toBe(false);
   });
 });
 

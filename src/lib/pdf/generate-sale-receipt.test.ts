@@ -130,6 +130,29 @@ describe("generateSaleReceiptPdf", () => {
     expect(buf.subarray(0, 4).toString("ascii")).toBe("%PDF");
   });
 
+  it("genera un PDF valido con lotteryCode presente", async () => {
+    const buf = await generateSaleReceiptPdf({
+      ...BASE_DATA,
+      paymentMethod: "PE",
+      lotteryCode: "YYWLR30G",
+    });
+    expect(buf.subarray(0, 4).toString("ascii")).toBe("%PDF");
+  });
+
+  it("PDF con lotteryCode è diverso da PDF senza (il codice è incluso nel contenuto)", async () => {
+    const bufWith = await generateSaleReceiptPdf({
+      ...BASE_DATA,
+      paymentMethod: "PE",
+      lotteryCode: "YYWLR30G",
+    });
+    const bufWithout = await generateSaleReceiptPdf({
+      ...BASE_DATA,
+      paymentMethod: "PE",
+      lotteryCode: null,
+    });
+    expect(bufWith).not.toEqual(bufWithout);
+  });
+
   it("generates a taller page with more line items", async () => {
     // pdfkit FlateDecode compression makes raw buffer size unreliable as a
     // proxy for content length (more repetitive content can compress smaller).

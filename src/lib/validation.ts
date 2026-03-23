@@ -16,6 +16,14 @@ export function isStrongPassword(password: string): boolean {
 }
 
 /**
+ * Validates a lottery code (Codice Lotteria degli Scontrini):
+ * exactly 8 uppercase alphanumeric characters [A-Z0-9].
+ */
+export function isValidLotteryCode(code: string): boolean {
+  return /^[A-Z0-9]{8}$/.test(code);
+}
+
+/**
  * Validates email format using linear-time string checks (no regex backtracking).
  * This is a structural check, not RFC 5322 compliance — real validation
  * happens when the confirmation email is delivered.

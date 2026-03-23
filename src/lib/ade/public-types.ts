@@ -38,7 +38,8 @@ export interface PaymentRequest {
 
 export interface SaleDocumentRequest {
   date: string;
-  customerTaxCode: string | null;
+  /** Codice Lotteria degli Scontrini del cliente (8 char [A-Z0-9], solo con pagamento elettronico) */
+  lotteryCode: string | null;
   isGiftDocument: boolean;
   lines: SaleLineRequest[];
   payments: PaymentRequest[];

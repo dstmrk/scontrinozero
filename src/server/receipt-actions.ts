@@ -12,6 +12,7 @@ import {
   checkBusinessOwnership,
   fetchAdePrerequisites,
 } from "@/lib/server-auth";
+import { isValidLotteryCode } from "@/lib/validation";
 import type {
   SubmitReceiptInput,
   SubmitReceiptResult,
@@ -48,6 +49,20 @@ export async function emitReceipt(
     return { error: "Lo scontrino deve contenere almeno un articolo." };
   }
 
+  // Lottery code: only valid with electronic payment, must be 8 char [A-Z0-9]
+  const rawLotteryCode = input.lotteryCode ?? null;
+  const lotteryCode =
+    rawLotteryCode && input.paymentMethod === "PE" ? rawLotteryCode : null;
+  if (
+    rawLotteryCode &&
+    input.paymentMethod === "PE" &&
+    !isValidLotteryCode(rawLotteryCode)
+  ) {
+    return {
+      error: "Codice lotteria non valido. Deve essere di 8 caratteri [A-Z0-9].",
+    };
+  }
+
   const ownershipError = await checkBusinessOwnership(
     user.id,
     input.businessId,
@@ -62,13 +77,19 @@ export async function emitReceipt(
 
   // Insert document + lines atomically: if either fails, nothing is persisted
   const txResult = await db.transaction(async (tx) => {
+    const publicRequest: Record<string, unknown> = {
+      paymentMethod: input.paymentMethod,
+    };
+    if (lotteryCode) publicRequest.lotteryCode = lotteryCode;
+
     const [document] = await tx
       .insert(commercialDocuments)
       .values({
         businessId: input.businessId,
         kind: "SALE",
         idempotencyKey: input.idempotencyKey,
-        publicRequest: { paymentMethod: input.paymentMethod },
+        publicRequest,
+        lotteryCode,
         status: "PENDING",
       })
       .onConflictDoNothing()
@@ -136,7 +157,7 @@ export async function emitReceipt(
     ) / 100;
   const saleDocRequest: SaleDocumentRequest = {
     date: new Date().toISOString().split("T")[0],
-    customerTaxCode: null,
+    lotteryCode,
     isGiftDocument: false,
     lines: input.lines.map((line) => ({
       description: line.description,

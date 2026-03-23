@@ -79,9 +79,13 @@ export default async function PublicReceiptPage({
 
   const { doc, biz, lines } = data;
 
-  const publicReq = doc.publicRequest as { paymentMethod?: string } | null;
+  const publicReq = doc.publicRequest as {
+    paymentMethod?: string;
+    lotteryCode?: string;
+  } | null;
   const rawPayment = publicReq?.paymentMethod ?? "PC";
   const paymentMethod = rawPayment === "PE" ? "PE" : "PC";
+  const lotteryCode = publicReq?.lotteryCode ?? null;
 
   // Compute totals
   let grandTotal = 0;
@@ -199,6 +203,14 @@ export default async function PublicReceiptPage({
                 {PAYMENT_LABELS[paymentMethod] ?? paymentMethod}
               </span>
             </div>
+            {lotteryCode && (
+              <div className="flex justify-between">
+                <span>Cod. Lotteria</span>
+                <span className="font-mono font-medium text-gray-700">
+                  {lotteryCode}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span>Data</span>
               <span>{formatDate(doc.createdAt)}</span>

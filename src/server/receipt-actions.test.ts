@@ -176,7 +176,7 @@ describe("receipt-actions", () => {
       expect(mockMapSaleToAdePayload).toHaveBeenCalled();
       expect(mockSubmitSale).toHaveBeenCalled();
       expect(mockLogout).toHaveBeenCalled();
-      // publicRequest stores paymentMethod at insert time
+      // publicRequest stores paymentMethod (no lotteryCode when absent)
       const insertValuesArg = mockDocumentInsertValues.mock.calls[0][0];
       expect(insertValuesArg.publicRequest).toEqual({ paymentMethod: "PC" });
       // Document updated to ACCEPTED
@@ -354,6 +354,76 @@ describe("receipt-actions", () => {
       await emitReceipt(VALID_INPUT);
 
       expect(mockTransaction).toHaveBeenCalledOnce();
+    });
+
+    it("persiste lotteryCode in publicRequest e colonna quando PE + codice valido", async () => {
+      const { emitReceipt } = await import("./receipt-actions");
+      const input: SubmitReceiptInput = {
+        ...VALID_INPUT,
+        paymentMethod: "PE",
+        lotteryCode: "YYWLR30G",
+      };
+      const result = await emitReceipt(input);
+
+      expect(result.error).toBeUndefined();
+      const insertValuesArg = mockDocumentInsertValues.mock.calls[0][0];
+      expect(insertValuesArg.publicRequest).toEqual({
+        paymentMethod: "PE",
+        lotteryCode: "YYWLR30G",
+      });
+      expect(insertValuesArg.lotteryCode).toBe("YYWLR30G");
+    });
+
+    it("ignora lotteryCode quando il metodo di pagamento non è PE", async () => {
+      const { emitReceipt } = await import("./receipt-actions");
+      const input: SubmitReceiptInput = {
+        ...VALID_INPUT,
+        paymentMethod: "PC",
+        lotteryCode: "YYWLR30G",
+      };
+      const result = await emitReceipt(input);
+
+      expect(result.error).toBeUndefined();
+      const insertValuesArg = mockDocumentInsertValues.mock.calls[0][0];
+      expect(insertValuesArg.publicRequest).toEqual({ paymentMethod: "PC" });
+      expect(insertValuesArg.lotteryCode).toBeNull();
+    });
+
+    it("restituisce errore se lotteryCode non rispetta il formato 8 char [A-Z0-9]", async () => {
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt({
+        ...VALID_INPUT,
+        paymentMethod: "PE",
+        lotteryCode: "TOOLONG99",
+      });
+
+      expect(result.error).toBeDefined();
+      expect(result.error).toMatch(/lotteria/i);
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("passa lotteryCode al mapper AdE quando presente", async () => {
+      const { emitReceipt } = await import("./receipt-actions");
+      await emitReceipt({
+        ...VALID_INPUT,
+        paymentMethod: "PE",
+        lotteryCode: "YYWLR30G",
+      });
+
+      expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
+        expect.objectContaining({ lotteryCode: "YYWLR30G" }),
+        expect.anything(),
+      );
+    });
+
+    it("passa lotteryCode null al mapper quando non fornito", async () => {
+      const { emitReceipt } = await import("./receipt-actions");
+      await emitReceipt(VALID_INPUT);
+
+      expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
+        expect.objectContaining({ lotteryCode: null }),
+        expect.anything(),
+      );
     });
   });
 });

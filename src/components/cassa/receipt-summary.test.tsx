@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
 import { ReceiptSummary } from "./receipt-summary";
 import { CartLine } from "@/types/cassa";
 
@@ -241,6 +242,8 @@ describe("ReceiptSummary", () => {
         onRemoveLine={onRemoveLine}
         onSubmit={vi.fn()}
         onBack={vi.fn()}
+        lotteryCode=""
+        onLotteryCodeChange={vi.fn()}
       />,
     );
 
@@ -250,5 +253,111 @@ describe("ReceiptSummary", () => {
     fireEvent.click(removeButtons[0]);
 
     expect(onRemoveLine).toHaveBeenCalledWith("1");
+  });
+
+  describe("campo codice lotteria", () => {
+    it("non mostra il campo lotteria con pagamento PC (contanti)", () => {
+      render(
+        <ReceiptSummary
+          lines={lines}
+          total={TOTAL}
+          paymentMethod="PC"
+          onPaymentMethodChange={vi.fn()}
+          onRemoveLine={vi.fn()}
+          onSubmit={vi.fn()}
+          onBack={vi.fn()}
+          lotteryCode=""
+          onLotteryCodeChange={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.queryByPlaceholderText(/codice lotteria/i),
+      ).not.toBeInTheDocument();
+    });
+
+    it("mostra il campo lotteria con pagamento PE (carta)", () => {
+      render(
+        <ReceiptSummary
+          lines={lines}
+          total={TOTAL}
+          paymentMethod="PE"
+          onPaymentMethodChange={vi.fn()}
+          onRemoveLine={vi.fn()}
+          onSubmit={vi.fn()}
+          onBack={vi.fn()}
+          lotteryCode=""
+          onLotteryCodeChange={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.getByPlaceholderText(/codice lotteria/i),
+      ).toBeInTheDocument();
+    });
+
+    it("converte automaticamente l'input in maiuscolo", async () => {
+      const onLotteryCodeChange = vi.fn();
+      render(
+        <ReceiptSummary
+          lines={lines}
+          total={TOTAL}
+          paymentMethod="PE"
+          onPaymentMethodChange={vi.fn()}
+          onRemoveLine={vi.fn()}
+          onSubmit={vi.fn()}
+          onBack={vi.fn()}
+          lotteryCode=""
+          onLotteryCodeChange={onLotteryCodeChange}
+        />,
+      );
+
+      const input = screen.getByPlaceholderText(/codice lotteria/i);
+      fireEvent.change(input, { target: { value: "abc12345" } });
+
+      expect(onLotteryCodeChange).toHaveBeenCalledWith("ABC12345");
+    });
+
+    it("limita l'input a 8 caratteri (maxLength)", () => {
+      render(
+        <ReceiptSummary
+          lines={lines}
+          total={TOTAL}
+          paymentMethod="PE"
+          onPaymentMethodChange={vi.fn()}
+          onRemoveLine={vi.fn()}
+          onSubmit={vi.fn()}
+          onBack={vi.fn()}
+          lotteryCode="YYWLR30G"
+          onLotteryCodeChange={vi.fn()}
+        />,
+      );
+
+      const input = screen.getByPlaceholderText(
+        /codice lotteria/i,
+      ) as HTMLInputElement;
+      expect(input.maxLength).toBe(8);
+    });
+
+    it("mostra il valore corrente del codice lotteria", () => {
+      render(
+        <ReceiptSummary
+          lines={lines}
+          total={TOTAL}
+          paymentMethod="PE"
+          onPaymentMethodChange={vi.fn()}
+          onRemoveLine={vi.fn()}
+          onSubmit={vi.fn()}
+          onBack={vi.fn()}
+          lotteryCode="YYWLR30G"
+          onLotteryCodeChange={vi.fn()}
+        />,
+      );
+
+      const input = screen.getByPlaceholderText(
+        /codice lotteria/i,
+      ) as HTMLInputElement;
+      expect(input.value).toBe("YYWLR30G");
+    });
   });
 });

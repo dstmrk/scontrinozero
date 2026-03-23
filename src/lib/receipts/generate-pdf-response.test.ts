@@ -121,4 +121,24 @@ describe("generatePdfResponse", () => {
       expect.objectContaining({ paymentMethod: "PC" }),
     );
   });
+
+  it("passa lotteryCode al generatore PDF quando presente in publicRequest", async () => {
+    await generatePdfResponse({
+      ...MOCK_DATA,
+      doc: {
+        ...MOCK_DATA.doc,
+        publicRequest: { paymentMethod: "PE", lotteryCode: "YYWLR30G" },
+      },
+    });
+    expect(mockGeneratePdf).toHaveBeenCalledWith(
+      expect.objectContaining({ lotteryCode: "YYWLR30G" }),
+    );
+  });
+
+  it("passa lotteryCode null al generatore PDF quando assente in publicRequest", async () => {
+    await generatePdfResponse(MOCK_DATA);
+    expect(mockGeneratePdf).toHaveBeenCalledWith(
+      expect.objectContaining({ lotteryCode: null }),
+    );
+  });
 });
