@@ -13,69 +13,19 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  IMAGE_ARTIFACT_NAME: tested-docker-image
+  IMAGE_ARCHIVE_PATH: /tmp/scontrinozero-image.tar
+  LOCAL_IMAGE_TAG: scontrinozero:ci
 
 jobs:
-  e2e:
-    runs-on: ubuntu-latest
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
-      SUPABASE_SECRET_KEY: ${{ secrets.TEST_SUPABASE_SECRET_KEY }}
-      DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
-      ENCRYPTION_KEY: ${{ secrets.TEST_ENCRYPTION_KEY }}
-      ENCRYPTION_KEY_VERSION: "1"
-      ADE_MODE: "mock"
-      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
-      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA"
-      TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA"
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Build standalone
-        run: npm run build
-      - name: Cache Playwright browsers
-        uses: actions/cache@v5
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install chromium --with-deps
-      - name: Install Playwright system deps
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
-      - name: Run E2E tests
-        run: npm run test:e2e
-      - name: Upload report
-        uses: actions/upload-artifact@v7
-        if: ${{ !cancelled() }}
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 14
-
-  build-and-push:
-    needs: [e2e]
+  build-image:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
-
+    outputs:
+      image-ref: ${{ steps.image-ref.outputs.image-ref }}
     steps:
       - uses: actions/checkout@v6
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
@@ -85,6 +35,10 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=raw,value=latest
+
+      - name: Select image ref for downstream jobs
+        id: image-ref
+        run: echo "image-ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -96,7 +50,9 @@ jobs:
           platforms: linux/amd64
           push: false
           load: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ${{ steps.meta.outputs.tags }}
+            ${{ env.LOCAL_IMAGE_TAG }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -107,10 +63,161 @@ jobs:
             SENTRY_ORG=${{ secrets.SENTRY_ORG }}
             SENTRY_PROJECT=${{ secrets.SENTRY_PROJECT }}
 
+      - name: Export built image archive
+        run: |
+          docker save \
+            "${{ env.LOCAL_IMAGE_TAG }}" \
+            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}" \
+            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" \
+            --output "${IMAGE_ARCHIVE_PATH}"
+
+      - name: Upload built image archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.IMAGE_ARTIFACT_NAME }}
+          path: ${{ env.IMAGE_ARCHIVE_PATH }}
+          retention-days: 1
+
+  e2e:
+    needs: [build-image]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.TEST_SUPABASE_SECRET_KEY }}
+      DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+      ENCRYPTION_KEY: ${{ secrets.TEST_ENCRYPTION_KEY }}
+      ENCRYPTION_KEY_VERSION: "1"
+      ADE_MODE: "mock"
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+      TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA"
+      PLAYWRIGHT_USE_EXISTING_SERVER: "1"
+      PLAYWRIGHT_BASE_URL: "http://localhost:3000"
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium --with-deps
+
+      - name: Install Playwright system deps
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Download built image archive
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.IMAGE_ARTIFACT_NAME }}
+          path: /tmp
+
+      - name: Load built image archive
+        run: docker load --input "${IMAGE_ARCHIVE_PATH}"
+
+      - name: Start built image
+        run: |
+          docker run -d \
+            --name scontrinozero-e2e \
+            -p 3000:3000 \
+            -e NEXT_PUBLIC_SUPABASE_URL \
+            -e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY \
+            -e SUPABASE_SECRET_KEY \
+            -e DATABASE_URL \
+            -e ENCRYPTION_KEY \
+            -e ENCRYPTION_KEY_VERSION \
+            -e ADE_MODE \
+            -e NEXT_PUBLIC_APP_URL \
+            -e TURNSTILE_SECRET_KEY \
+            "${{ env.LOCAL_IMAGE_TAG }}" \
+            sh -c 'exec node --dns-result-order=ipv4first server.js'
+
+      - name: Wait for container health
+        run: |
+          for i in $(seq 1 60); do
+            status="$(docker inspect --format='{{.State.Status}}' scontrinozero-e2e 2>/dev/null || true)"
+            health="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' scontrinozero-e2e 2>/dev/null || true)"
+
+            if [ "$status" = "exited" ] || [ "$status" = "dead" ]; then
+              docker logs scontrinozero-e2e || true
+              exit 1
+            fi
+
+            if [ "$health" = "healthy" ]; then
+              exit 0
+            fi
+
+            if curl -fsS http://127.0.0.1:3000/api/health >/dev/null; then
+              exit 0
+            fi
+
+            sleep 2
+          done
+
+          docker logs scontrinozero-e2e || true
+          exit 1
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+
+      - name: Upload report
+        uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Show container logs on failure
+        if: failure()
+        run: docker logs scontrinozero-e2e || true
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f scontrinozero-e2e || true
+
+  push-image:
+    needs: [build-image, e2e]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Download built image archive
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.IMAGE_ARTIFACT_NAME }}
+          path: /tmp
+
+      - name: Load built image archive
+        run: docker load --input "${IMAGE_ARCHIVE_PATH}"
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Trivy — Docker image scan
         uses: aquasecurity/trivy-action@0.35.0
         with:
-          image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+          image-ref: ${{ needs.build-image.outputs.image-ref }}
           format: table
           exit-code: "1"
           ignore-unfixed: true
@@ -118,6 +225,4 @@ jobs:
           severity: CRITICAL,HIGH
 
       - name: Push image
-        # The image was already built and loaded into the local Docker daemon above.
-        # --all-tags pushes both the semver tag and latest without rebuilding layers.
         run: docker push --all-tags ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
