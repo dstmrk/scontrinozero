@@ -2,32 +2,51 @@ import { test, expect } from "@playwright/test";
 import { deleteTestUser, E2E_USER } from "./helpers/supabase";
 
 /**
- * Mocks the Cloudflare Turnstile CDN script so the widget resolves immediately
- * without external network calls. In CI, challenges.cloudflare.com is slow/unreachable,
- * causing captchaToken to stay null → submit button stays disabled → test times out.
+ * Mocks Cloudflare Turnstile so captchaToken is resolved immediately without
+ * any external network call. Uses two layers:
+ *
+ * 1. addInitScript — injects window.turnstile BEFORE any page script runs,
+ *    so @marsidev/react-turnstile finds the mock synchronously in its useEffect
+ *    and calls render() → opts.callback() → setCaptchaToken → button enabled.
+ *
+ * 2. page.route — intercepts the CDN request and returns an empty script body
+ *    so the script element loads successfully (no onerror) without a network round-trip.
  */
 async function setupTurnstileMock(page: import("@playwright/test").Page) {
+  await page.addInitScript(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).turnstile = {
+      render: function (
+        _el: Element,
+        opts: { callback?: (token: string) => void },
+      ) {
+        // setTimeout(0) lets React finish its current synchronous work before
+        // the state update fires, avoiding stale-closure issues.
+        if (opts && opts.callback)
+          setTimeout(function () {
+            opts.callback!("e2e-test-token");
+          }, 0);
+        return "mock-widget-id";
+      },
+      getResponse: function () {
+        return "e2e-test-token";
+      },
+      isExpired: function () {
+        return false;
+      },
+      reset: function () {},
+      remove: function () {},
+    };
+  });
+  // Serve an empty script so the <script> element loads without a network call.
+  // The library detects the element via MutationObserver (D flag) and then finds
+  // window.turnstile (set above) → triggers the render useEffect.
   await page.route(
     /challenges\.cloudflare\.com\/turnstile\/v0\/api\.js/,
     (route) => {
       route.fulfill({
         contentType: "application/javascript",
-        body: `
-          window.turnstile = {
-            render: function(el, opts) {
-              if (opts.callback) opts.callback('e2e-test-token');
-              if (opts.successCallback) opts.successCallback('e2e-test-token');
-              return 'mock-widget-id';
-            },
-            getResponse: function() { return 'e2e-test-token'; },
-            isExpired: function() { return false; },
-            reset: function() {},
-            remove: function() {}
-          };
-          for (var k in window) {
-            if (k.indexOf('onloadTurnstile') === 0 && typeof window[k] === 'function') window[k]();
-          }
-        `,
+        body: "/* turnstile mock */",
       });
     },
   );
@@ -89,14 +108,11 @@ test.describe("Auth flows", () => {
   }) => {
     await page.goto("/reset-password");
     // Wait for React to finish hydrating before interacting with the form.
-    // waitForLoadState("networkidle") is insufficient on slow CI runners:
-    // React hydration is CPU-bound JS execution that can lag 1-2s behind network idle.
-    // __reactFiber$ is attached to DOM nodes during the React hydration commit phase —
-    // its presence on the <form> element guarantees onSubmit is now active.
-    await page.waitForFunction(() => {
-      const form = document.querySelector("form");
-      return !!form && Object.keys(form).some((k) => k.startsWith("__reactFiber"));
-    });
+    // reset-password/page.tsx sets data-hydrated="true" on the <form> element
+    // inside a useEffect, which only fires after React has committed to the DOM
+    // and attached all event handlers. This is more reliable than checking
+    // __reactFiber$ keys, which are React internals subject to change.
+    await page.waitForSelector("form[data-hydrated]", { timeout: 15_000 });
     await page.fill("[name='email']", E2E_USER.email);
     await page.click('button[type="submit"]');
 

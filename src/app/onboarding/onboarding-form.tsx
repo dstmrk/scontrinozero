@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -106,6 +106,12 @@ export function OnboardingForm({
   );
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Signal to E2E tests that React has hydrated and event handlers are active.
+  useEffect(() => {
+    containerRef.current?.setAttribute("data-hydrated", "true");
+  }, []);
 
   const step1Form = useForm<Step1Data>({
     resolver: zodResolver(step1Schema),
@@ -188,7 +194,7 @@ export function OnboardingForm({
   }
 
   return (
-    <>
+    <div ref={containerRef}>
       <StepIndicator current={step} />
 
       <Card>
@@ -413,6 +419,6 @@ export function OnboardingForm({
           )}
         </CardContent>
       </Card>
-    </>
+    </div>
   );
 }

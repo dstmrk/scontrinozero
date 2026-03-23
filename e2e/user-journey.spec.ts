@@ -16,14 +16,10 @@ test.describe.serial("User journey", () => {
 
   test("onboarding step 1 - dati attività", async ({ page }) => {
     await page.goto("/onboarding");
-    // Wait for React to finish hydrating before interacting with the form.
-    // waitForLoadState("networkidle") is insufficient on slow CI runners:
-    // React hydration is CPU-bound and can lag 1-2s behind network idle.
-    // __reactFiber$ on the <form> element guarantees onSubmit is active.
-    await page.waitForFunction(() => {
-      const form = document.querySelector("form");
-      return !!form && Object.keys(form).some((k) => k.startsWith("__reactFiber"));
-    });
+    // OnboardingForm sets data-hydrated="true" on its container div inside a
+    // useEffect, which only fires after React has committed to the DOM and
+    // attached all event handlers. More reliable than __reactFiber$ internals.
+    await page.waitForSelector("[data-hydrated]", { timeout: 15_000 });
 
     // Fresh user → step 0 (Dati attivita)
     await expect(
@@ -49,10 +45,7 @@ test.describe.serial("User journey", () => {
   test("onboarding step 2 - credenziali AdE", async ({ page }) => {
     // Server resumes at step 1 (hasBusiness=true, hasCredentials=false)
     await page.goto("/onboarding");
-    await page.waitForFunction(() => {
-      const form = document.querySelector("form");
-      return !!form && Object.keys(form).some((k) => k.startsWith("__reactFiber"));
-    });
+    await page.waitForSelector("[data-hydrated]", { timeout: 15_000 });
     await expect(
       page.locator('[data-slot="card-title"]').getByText("Credenziali AdE"),
     ).toBeVisible({ timeout: 10_000 });
@@ -72,10 +65,7 @@ test.describe.serial("User journey", () => {
   test("onboarding step 3 - verifica AdE → /dashboard", async ({ page }) => {
     // Server resumes at step 2 (hasBusiness=true, hasCredentials=true)
     await page.goto("/onboarding");
-    await page.waitForFunction(() => {
-      const form = document.querySelector("form");
-      return !!form && Object.keys(form).some((k) => k.startsWith("__reactFiber"));
-    });
+    await page.waitForSelector("[data-hydrated]", { timeout: 15_000 });
     await expect(
       page.locator('[data-slot="card-title"]').getByText("Verifica"),
     ).toBeVisible({ timeout: 10_000 });

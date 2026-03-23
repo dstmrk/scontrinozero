@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useRef, useTransition } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,6 +18,12 @@ type ResetData = z.infer<typeof resetSchema>;
 
 export default function ResetPasswordPage() {
   const [isPending, startTransition] = useTransition();
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Signal to E2E tests that React has hydrated and event handlers are active.
+  useEffect(() => {
+    formRef.current?.setAttribute("data-hydrated", "true");
+  }, []);
 
   const form = useForm<ResetData>({
     resolver: zodResolver(resetSchema),
@@ -50,6 +56,7 @@ export default function ResetPasswordPage() {
 
         <Form {...form}>
           <form
+            ref={formRef}
             onSubmit={form.handleSubmit(handleSubmit)}
             noValidate
             className="space-y-4"
