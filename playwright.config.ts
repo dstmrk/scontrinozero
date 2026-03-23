@@ -5,6 +5,9 @@ import { config as loadEnv } from "dotenv";
 // when running locally without shell-level env vars.
 loadEnv({ path: ".env.local", override: false });
 
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
+const useExistingServer = process.env.PLAYWRIGHT_USE_EXISTING_SERVER === "1";
+
 export default defineConfig({
   testDir: "./e2e",
   outputDir: "./e2e/results",
@@ -19,7 +22,7 @@ export default defineConfig({
   globalTeardown: "./e2e/global-teardown.ts",
 
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL,
     trace: "on-first-retry",
   },
 
@@ -30,11 +33,13 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
-    // "next start" does not work with output:standalone — use the standalone server directly.
-    command: "node .next/standalone/server.js",
-    url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: useExistingServer
+    ? undefined
+    : {
+        // "next start" does not work with output:standalone — use the standalone server directly.
+        command: "node .next/standalone/server.js",
+        url: baseURL,
+        reuseExistingServer: !process.env.CI,
+        timeout: 120_000,
+      },
 });
