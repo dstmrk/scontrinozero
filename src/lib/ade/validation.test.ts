@@ -35,7 +35,8 @@ describe("saleRequestSchema", () => {
   });
 
   it("rejects missing idempotencyKey", () => {
-    const { idempotencyKey: _, ...noKey } = validSale;
+    const { idempotencyKey, ...noKey } = validSale;
+    void idempotencyKey;
     const result = saleRequestSchema.safeParse(noKey);
     expect(result.success).toBe(false);
   });

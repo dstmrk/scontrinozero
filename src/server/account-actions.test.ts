@@ -10,7 +10,6 @@ vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: () => mockGetAuthenticatedUser(),
 }));
 
-const mockDeleteWhere = vi.fn();
 const mockDeleteReturning = vi.fn();
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({

@@ -46,11 +46,13 @@ export class MockAdeClient implements AdeClient {
     return this.session;
   }
 
-  async submitSale(_payload: AdePayload): Promise<AdeResponse> {
+  async submitSale(payload: AdePayload): Promise<AdeResponse> {
+    void payload;
     return this.mockSubmit();
   }
 
-  async submitVoid(_payload: AdePayload): Promise<AdeResponse> {
+  async submitVoid(payload: AdePayload): Promise<AdeResponse> {
+    void payload;
     return this.mockSubmit();
   }
 
@@ -89,19 +91,21 @@ export class MockAdeClient implements AdeClient {
     return [];
   }
 
-  async getStampa(_idtrx: string, _isGift = false): Promise<string> {
+  async getStampa(idtrx: string, isGift = false): Promise<string> {
+    void idtrx;
+    void isGift;
     this.assertLoggedIn();
     return "";
   }
 
-  async getDocument(_idtrx: string): Promise<AdeDocumentDetail> {
+  async getDocument(idtrx: string): Promise<AdeDocumentDetail> {
     this.assertLoggedIn();
 
     // Return a minimal valid document matching the real API response structure.
     // HAR finding (annullo.har [04]): campi monetari sotto documentoCommerciale,
     // precisione variabile (non 8 decimali). resiPregressi assente negli elementi.
     return {
-      idtrx: _idtrx,
+      idtrx,
       documentoCommerciale: {
         cfCessionarioCommittente: "",
         flagDocCommPerRegalo: false,
@@ -121,7 +125,8 @@ export class MockAdeClient implements AdeClient {
     };
   }
 
-  async searchDocuments(_params: AdeSearchParams): Promise<AdeDocumentList> {
+  async searchDocuments(params: AdeSearchParams): Promise<AdeDocumentList> {
+    void params;
     this.assertLoggedIn();
     return { totalCount: 0, elencoRisultati: [] };
   }

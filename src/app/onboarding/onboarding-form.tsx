@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,6 +33,7 @@ import {
 import { VAT_CODES, VAT_DESCRIPTIONS } from "@/types/cassa";
 
 const STEPS = ["Dati attivita", "Credenziali AdE", "Verifica"];
+const emptySubscribe = () => () => {};
 
 const step1Schema = z.object({
   businessName: z.string().optional(),
@@ -106,6 +107,11 @@ export function OnboardingForm({
   );
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const isHydrated = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
 
   const step1Form = useForm<Step1Data>({
     resolver: zodResolver(step1Schema),
@@ -188,7 +194,7 @@ export function OnboardingForm({
   }
 
   return (
-    <>
+    <div data-e2e-ready={isHydrated ? "true" : "false"}>
       <StepIndicator current={step} />
 
       <Card>
@@ -413,6 +419,6 @@ export function OnboardingForm({
           )}
         </CardContent>
       </Card>
-    </>
+    </div>
   );
 }

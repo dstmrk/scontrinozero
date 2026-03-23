@@ -51,7 +51,8 @@ async function createPortalSession(userId: string): Promise<Response | string> {
   return session.url;
 }
 
-export async function GET(_req: Request): Promise<Response> {
+export async function GET(req: Request): Promise<Response> {
+  void req;
   let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
   try {
     user = await getAuthenticatedUser();
@@ -63,7 +64,8 @@ export async function GET(_req: Request): Promise<Response> {
   return Response.redirect(result);
 }
 
-export async function POST(_req: Request): Promise<Response> {
+export async function POST(req: Request): Promise<Response> {
+  void req;
   let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
   try {
     user = await getAuthenticatedUser();

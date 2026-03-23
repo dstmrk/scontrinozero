@@ -95,7 +95,9 @@ test.describe("Auth flows", () => {
     // its presence on the <form> element guarantees onSubmit is now active.
     await page.waitForFunction(() => {
       const form = document.querySelector("form");
-      return !!form && Object.keys(form).some((k) => k.startsWith("__reactFiber"));
+      return (
+        !!form && Object.keys(form).some((k) => k.startsWith("__reactFiber"))
+      );
     });
     await page.fill("[name='email']", E2E_USER.email);
     await page.click('button[type="submit"]');
