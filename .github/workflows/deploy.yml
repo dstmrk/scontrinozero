@@ -144,7 +144,8 @@ jobs:
             -e ADE_MODE \
             -e NEXT_PUBLIC_APP_URL \
             -e TURNSTILE_SECRET_KEY \
-            "${{ env.LOCAL_IMAGE_TAG }}"
+            "${{ env.LOCAL_IMAGE_TAG }}" \
+            sh -c 'exec node --dns-result-order=ipv4first server.js'
 
       - name: Wait for container health
         run: |
