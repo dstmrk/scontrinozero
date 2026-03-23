@@ -329,7 +329,7 @@ describe("mapSaleToAdePayload", () => {
   it("maps a simple sale to AdE payload", () => {
     const doc: SaleDocumentRequest = {
       date: "2026-02-15",
-      customerTaxCode: null,
+      lotteryCode: null,
       isGiftDocument: false,
       lines: [
         {
@@ -366,10 +366,10 @@ describe("mapSaleToAdePayload", () => {
     expect(dc.numeroProgressivo).toBeUndefined();
   });
 
-  it("includes customer tax code when provided", () => {
+  it("includes lottery code in cfCessionarioCommittente when provided", () => {
     const doc: SaleDocumentRequest = {
       date: "2026-02-15",
-      customerTaxCode: "BNCLRA80A01H501B",
+      lotteryCode: "YYWLR30G",
       isGiftDocument: false,
       lines: [
         {
@@ -388,14 +388,38 @@ describe("mapSaleToAdePayload", () => {
 
     const result = mapSaleToAdePayload(doc, mockCedentePrestatore);
     expect(result.documentoCommerciale.cfCessionarioCommittente).toBe(
-      "BNCLRA80A01H501B",
+      "YYWLR30G",
     );
+  });
+
+  it("uses empty string for cfCessionarioCommittente when lotteryCode is null", () => {
+    const doc: SaleDocumentRequest = {
+      date: "2026-02-15",
+      lotteryCode: null,
+      isGiftDocument: false,
+      lines: [
+        {
+          description: "Test",
+          quantity: 1,
+          unitPriceGross: 5,
+          unitDiscount: 0,
+          vatCode: "N2",
+          isGift: false,
+        },
+      ],
+      payments: [{ type: "CASH", amount: 5 }],
+      globalDiscount: 0,
+      deductibleAmount: 0,
+    };
+
+    const result = mapSaleToAdePayload(doc, mockCedentePrestatore);
+    expect(result.documentoCommerciale.cfCessionarioCommittente).toBe("");
   });
 
   it("maps multiple payment types including meal voucher with count", () => {
     const doc: SaleDocumentRequest = {
       date: "2026-02-15",
-      customerTaxCode: null,
+      lotteryCode: null,
       isGiftDocument: false,
       lines: [
         {
@@ -431,7 +455,7 @@ describe("mapSaleToAdePayload", () => {
   it("fills all 6 payment slots with zero defaults", () => {
     const doc: SaleDocumentRequest = {
       date: "2026-02-15",
-      customerTaxCode: null,
+      lotteryCode: null,
       isGiftDocument: false,
       lines: [
         {
@@ -465,7 +489,7 @@ describe("mapSaleToAdePayload", () => {
   it("computes document totals correctly", () => {
     const doc: SaleDocumentRequest = {
       date: "2026-02-15",
-      customerTaxCode: null,
+      lotteryCode: null,
       isGiftDocument: false,
       lines: [
         {

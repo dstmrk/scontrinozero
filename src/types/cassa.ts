@@ -84,6 +84,8 @@ export type SubmitReceiptInput = {
   lines: CartLine[];
   paymentMethod: PaymentMethod;
   idempotencyKey: string; // uuid generato client-side, per idempotenza
+  /** Codice Lotteria degli Scontrini (8 char [A-Z0-9], solo con pagamento PE) */
+  lotteryCode?: string | null;
 };
 
 /** Risultato della server action emitReceipt */

@@ -48,6 +48,7 @@ export function CassaClient({
   const [step, setStep] = useState<Step>("cart");
   // id dell'articolo in modifica (null = nuova aggiunta)
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const [lotteryCode, setLotteryCode] = useState("");
 
   // Ref guard: evita doppia esecuzione in React Strict Mode
   const catalogParamConsumed = useRef(false);
@@ -155,12 +156,18 @@ export function CassaClient({
     setStep("cart");
   };
 
+  const handlePaymentMethodChange = (method: typeof paymentMethod) => {
+    setPaymentMethod(method);
+    if (method !== "PE") setLotteryCode("");
+  };
+
   const handleSubmit = () => {
     mutation.mutate({
       businessId,
       lines,
       paymentMethod,
       idempotencyKey: crypto.randomUUID(),
+      lotteryCode: lotteryCode || null,
     });
   };
 
@@ -304,11 +311,13 @@ export function CassaClient({
           lines={lines}
           total={total}
           paymentMethod={paymentMethod}
-          onPaymentMethodChange={setPaymentMethod}
+          onPaymentMethodChange={handlePaymentMethodChange}
           onRemoveLine={removeLine}
           onSubmit={handleSubmit}
           onBack={() => setStep("cart")}
           isSubmitting={mutation.isPending}
+          lotteryCode={lotteryCode}
+          onLotteryCodeChange={setLotteryCode}
         />
       </div>
     );

@@ -19,6 +19,8 @@ export interface SaleReceiptPdfData {
   createdAt: Date;
   adeProgressive: string;
   adeTransactionId: string;
+  /** Codice Lotteria degli Scontrini (8 char, solo PE) */
+  lotteryCode?: string | null;
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -74,15 +76,25 @@ export function computeVatAmount(
   return lineTotalGross - lineTotalGross / (1 + rate / 100);
 }
 
-/** Estimates the page height based on number of lines and VAT rates.
+/** Estimates the page height based on number of lines, VAT rates and optional lottery code row.
  *
  * Calibrated empirically: fixed overhead ≈ 140pt (header + title + separators +
  * totals section + payment + footer with date+progressive only), 18pt per line
  * item (covers multi-qty wrap), 12pt per unique VAT rate row, 10pt bottom padding.
+ * +12pt when lottery code row is present.
  */
-function estimateHeight(lines: SaleReceiptLine[]): number {
+function estimateHeight(
+  lines: SaleReceiptLine[],
+  hasLotteryCode: boolean,
+): number {
   const uniqueVatRates = new Set(lines.map((l) => l.vatCode)).size;
-  return 110 + lines.length * 18 + uniqueVatRates * 12 + 8;
+  return (
+    110 +
+    lines.length * 18 +
+    uniqueVatRates * 12 +
+    (hasLotteryCode ? 12 : 0) +
+    8
+  );
 }
 
 // ─── Generator ──────────────────────────────────────────────────────────────
@@ -91,7 +103,7 @@ export function generateSaleReceiptPdf(
   data: SaleReceiptPdfData,
 ): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
-    const height = estimateHeight(data.lines);
+    const height = estimateHeight(data.lines, Boolean(data.lotteryCode));
     const buffers: Buffer[] = [];
 
     const doc = new PDFDocument({
@@ -285,6 +297,12 @@ export function generateSaleReceiptPdf(
       align: "right",
     });
     y = doc.y + 1;
+
+    // ─── LOTTERY CODE (optional) ────────────────────────────────────────────
+    if (data.lotteryCode) {
+      drawLine(`Cod. Lotteria: ${data.lotteryCode}`, { size: 7 });
+    }
+
     drawSeparator();
 
     // ─── FOOTER ────────────────────────────────────────────────────────────

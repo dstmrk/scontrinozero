@@ -6,6 +6,7 @@ import { CartLine, PaymentMethod } from "@/types/cassa";
 import { CartLineItem } from "./cart-line-item";
 import { PaymentMethodSelector } from "./payment-method-selector";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface ReceiptSummaryProps {
   readonly lines: CartLine[];
@@ -16,6 +17,8 @@ interface ReceiptSummaryProps {
   readonly onSubmit: () => void;
   readonly onBack: () => void;
   readonly isSubmitting?: boolean;
+  readonly lotteryCode?: string;
+  readonly onLotteryCodeChange?: (value: string) => void;
 }
 
 export function ReceiptSummary({
@@ -27,6 +30,8 @@ export function ReceiptSummary({
   onSubmit,
   onBack,
   isSubmitting = false,
+  lotteryCode = "",
+  onLotteryCodeChange,
 }: ReceiptSummaryProps) {
   const count = lines.length;
 
@@ -75,6 +80,31 @@ export function ReceiptSummary({
           onChange={onPaymentMethodChange}
         />
       </div>
+
+      {/* Lottery code — visible only for electronic payment */}
+      {paymentMethod === "PE" && (
+        <div>
+          <p className="text-muted-foreground mb-1 text-sm font-medium">
+            Codice lotteria <span className="font-normal">(opzionale)</span>
+          </p>
+          <Input
+            type="text"
+            placeholder="Codice lotteria (8 caratteri)"
+            maxLength={8}
+            spellCheck={false}
+            autoComplete="off"
+            autoCapitalize="characters"
+            value={lotteryCode}
+            onChange={(e) => {
+              onLotteryCodeChange?.(e.target.value.toUpperCase());
+            }}
+            className="rounded-xl font-mono uppercase"
+          />
+          <p className="text-muted-foreground mt-1 text-xs">
+            Per la Lotteria degli Scontrini — solo pagamenti con carta
+          </p>
+        </div>
+      )}
 
       {/* Submit */}
       <Button

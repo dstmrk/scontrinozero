@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { isValidEmail, isStrongPassword } from "./validation";
+import {
+  isValidEmail,
+  isStrongPassword,
+  isValidLotteryCode,
+} from "./validation";
 
 describe("isStrongPassword", () => {
   describe("valid passwords", () => {
@@ -84,6 +88,43 @@ describe("isValidEmail", () => {
 
     it("rejects multiple @ signs", () => {
       expect(isValidEmail("user@@example.com")).toBe(false);
+    });
+  });
+});
+
+describe("isValidLotteryCode", () => {
+  describe("valid codes", () => {
+    it.each(["YYWLR30G", "ABC12345", "12345678", "ABCDEFGH"])(
+      "accepts %s",
+      (code) => {
+        expect(isValidLotteryCode(code)).toBe(true);
+      },
+    );
+  });
+
+  describe("invalid codes", () => {
+    it("rejects empty string", () => {
+      expect(isValidLotteryCode("")).toBe(false);
+    });
+
+    it("rejects code shorter than 8 chars", () => {
+      expect(isValidLotteryCode("ABC123")).toBe(false);
+    });
+
+    it("rejects code longer than 8 chars", () => {
+      expect(isValidLotteryCode("ABC123456")).toBe(false);
+    });
+
+    it("rejects lowercase letters", () => {
+      expect(isValidLotteryCode("abc12345")).toBe(false);
+    });
+
+    it("rejects special characters", () => {
+      expect(isValidLotteryCode("ABC1234!")).toBe(false);
+    });
+
+    it("rejects spaces", () => {
+      expect(isValidLotteryCode("ABC 1234")).toBe(false);
     });
   });
 });

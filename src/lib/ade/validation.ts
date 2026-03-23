@@ -80,7 +80,10 @@ export const saleRequestSchema = z.object({
   idempotencyKey: z.uuid(),
   document: z.object({
     date: isoDateSchema,
-    customerTaxCode: z.string().nullable(),
+    lotteryCode: z
+      .string()
+      .regex(/^[A-Z0-9]{8}$/)
+      .nullable(),
     isGiftDocument: z.boolean(),
     lines: z.array(saleLineSchema).min(1),
     payments: z.array(paymentSchema).min(1),
