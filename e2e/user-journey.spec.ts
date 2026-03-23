@@ -22,13 +22,13 @@ test.describe.serial("User journey", () => {
       page.locator('[data-slot="card-title"]').getByText("Dati attivita"),
     ).toBeVisible({ timeout: 10_000 });
 
-    await page.fill("#firstName", E2E_BUSINESS.firstName);
-    await page.fill("#lastName", E2E_BUSINESS.lastName);
-    await page.fill("#address", E2E_BUSINESS.address);
-    await page.fill("#streetNumber", E2E_BUSINESS.streetNumber);
-    await page.fill("#zipCode", E2E_BUSINESS.zipCode);
-    await page.fill("#city", E2E_BUSINESS.city);
-    await page.fill("#province", E2E_BUSINESS.province);
+    await page.fill("[name='firstName']", E2E_BUSINESS.firstName);
+    await page.fill("[name='lastName']", E2E_BUSINESS.lastName);
+    await page.fill("[name='address']", E2E_BUSINESS.address);
+    await page.fill("[name='streetNumber']", E2E_BUSINESS.streetNumber);
+    await page.fill("[name='zipCode']", E2E_BUSINESS.zipCode);
+    await page.fill("[name='city']", E2E_BUSINESS.city);
+    await page.fill("[name='province']", E2E_BUSINESS.province);
 
     await page.click('button[type="submit"]');
 
@@ -45,9 +45,9 @@ test.describe.serial("User journey", () => {
       page.locator('[data-slot="card-title"]').getByText("Credenziali AdE"),
     ).toBeVisible({ timeout: 10_000 });
 
-    await page.fill("#codiceFiscale", E2E_ADE.codiceFiscale);
-    await page.fill("#password", E2E_ADE.password);
-    await page.fill("#pin", E2E_ADE.pin);
+    await page.fill("[name='codiceFiscale']", E2E_ADE.codiceFiscale);
+    await page.fill("[name='password']", E2E_ADE.password);
+    await page.fill("[name='pin']", E2E_ADE.pin);
 
     await page.click('button[type="submit"]');
 
