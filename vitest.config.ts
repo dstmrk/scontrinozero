@@ -19,10 +19,10 @@ export default defineConfig({
         "src/lib/contact.ts", // pure constant, no business logic
         "src/app/layout.tsx",
         "src/**/*.d.ts",
-        "src/app/**/page.tsx", // UI templates — tested via E2E
-        "src/app/**/layout.tsx", // layout shells — tested via E2E
+        "src/app/**/page.tsx", // UI page shells — pure presentation, no testable logic
+        "src/app/**/layout.tsx", // layout shells — pure presentation, no testable logic
         "src/app/**/loading.tsx", // loading skeletons — pure UI, no logic
-        // UI orchestration components — multi-step flows tested via E2E
+        // UI orchestration components — pure UI shells, no testable logic
         "src/app/onboarding/onboarding-form.tsx",
         "src/components/cassa/cassa-client.tsx",
         "src/components/cassa/receipt-success.tsx",
@@ -32,7 +32,7 @@ export default defineConfig({
         "src/components/marketing/**", // marketing UI components — tested via E2E
         "src/components/billing/checkout-button.tsx", // UI client component — pure fetch + redirect
         "src/components/settings/export-data-section.tsx", // UI client component — pure download trigger
-        "src/components/settings/account-delete-section.tsx", // UI client component — mutation + dialog, tested via E2E
+        "src/components/settings/account-delete-section.tsx", // UI client component — mutation + dialog, pure UI
       ],
     },
     reporters: ["default", "vitest-sonar-reporter"],

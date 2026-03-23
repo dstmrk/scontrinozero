@@ -40,11 +40,11 @@ ScontrinoZero sfrutta la procedura web "Documento Commerciale Online" messa a di
 | Frontend     | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4 |
 | Componenti   | shadcn/ui, TanStack Query v5                                  |
 | Database     | Supabase (PostgreSQL), Drizzle ORM, Row Level Security        |
-| Pagamenti    | Stripe (Starter €4.99/mese · Pro €8.99/mese · Self-hosted €0)|
+| Pagamenti    | Stripe (Starter €4.99/mese · Pro €8.99/mese · Self-hosted €0) |
 | Email        | Resend + React Email                                          |
 | Integrazione | HTTP dirette verso portale AdE (no headless browser)          |
 | Deploy       | Docker standalone su VPS, Cloudflare Tunnel                   |
-| Qualità      | Vitest, Playwright E2E, SonarCloud, Sentry                    |
+| Qualità      | Vitest, SonarCloud, Sentry                                    |
 
 ## Conformità normativa
 

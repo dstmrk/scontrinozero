@@ -226,9 +226,7 @@ In particolare: `NEXT_PUBLIC_TURNSTILE_SITE_KEY` — se manca al build, Turnstil
   1. Secret scan (Gitleaks, sempre attivo)
   2. Security audit (`audit-ci` `--moderate` con allowlist `audit-ci.json`)
   3. Parallel: lint + type-check, test+coverage (Vitest→lcov), SonarQube scan, build
-- **E2E test**: girano solo su push verso `main` e su PR che modificano file `e2e/**`.
-  In PR generiche: solo unit test (più veloce).
-- **Pipeline Deploy** (tag `v*.*.*`): build Docker → Trivy scan CVE → push GHCR
+- **Pipeline Deploy** (tag `v*.*.*`): build Docker → smoke test container → Trivy scan CVE → push GHCR
 - **Code review on-demand** (`claude-code-review.yml`): commenta `/claude review` su PR
 - **Branch protection**: abilitare "Require status checks" su GitHub Settings → Branches
 
@@ -236,10 +234,9 @@ In particolare: `NEXT_PUBLIC_TURNSTILE_SITE_KEY` — se manca al build, Turnstil
 
 - **Approccio TDD** — test-first: scrivere i test prima dell'implementazione
 - **Vitest** — unit e integration test; coverage `@vitest/coverage-v8` (report lcov)
-- **Playwright** — E2E test (solo in CI/dev, non in produzione)
 - I componenti shadcn/ui (`src/components/ui/`) sono esclusi dalla coverage
 - I componenti marketing (`src/components/marketing/**`) sono esclusi dalla coverage
-  (pura UI presentazionale, zero logica di business — testati via E2E)
+  (pura UI presentazionale, zero logica di business)
 
 ## Ambienti: test e produzione
 
@@ -473,7 +470,6 @@ scontrinozero/
 │   └── types/              # TypeScript types/interfaces
 ├── public/                 # Static assets, PWA manifest, icons
 ├── supabase/               # Migrazioni DB, seed, config
-├── e2e/                    # Playwright E2E tests
 ├── tests/                  # Vitest unit tests
 ├── .github/workflows/      # GitHub Actions CI/CD
 ├── CLAUDE.md
