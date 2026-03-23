@@ -52,7 +52,7 @@ export async function proxy(request: NextRequest) {
   const redirect = hostnameRedirect(request);
   if (redirect) return redirect;
 
-  // Skip auth checks if Supabase is not configured (E2E, local dev, self-hosted without auth)
+  // Skip auth checks if Supabase is not configured (local dev, self-hosted without auth)
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
     return NextResponse.next();
   }

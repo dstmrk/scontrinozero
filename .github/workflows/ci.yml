@@ -17,7 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       src: ${{ steps.filter.outputs.src }}
-      e2e_files: ${{ steps.filter.outputs.e2e_files }}
       lockfile: ${{ steps.filter.outputs.lockfile }}
     steps:
       - uses: actions/checkout@v6
@@ -33,9 +32,6 @@ jobs:
               - 'next.config.ts'
               - 'vitest.config.ts'
               - 'eslint.config.mjs'
-            e2e_files:
-              - 'e2e/**'
-              - 'playwright.config.ts'
             lockfile:
               - 'package-lock.json'
 
@@ -153,7 +149,7 @@ jobs:
     if: needs.changes.outputs.src == 'true'
     runs-on: ubuntu-latest
     # NEXT_PUBLIC_* vars are baked into the client bundle at build time.
-    # Use the same test values as the E2E job so the bundle matches the test environment.
+    # Use test values so the build succeeds in CI without production secrets.
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
@@ -178,71 +174,3 @@ jobs:
             !.next/cache
           retention-days: 1
 
-  e2e:
-    needs: [build, changes]
-    # Run E2E only on PRs that touch e2e files (to develop/validate the tests themselves).
-    # The pre-deploy gate is in deploy.yml (runs on tag before Docker build).
-    if: >-
-      github.event_name == 'pull_request' &&
-      needs.changes.outputs.e2e_files == 'true' &&
-      (needs.build.result == 'success' || needs.build.result == 'skipped')
-    runs-on: ubuntu-latest
-    # Env vars needed to run the Next.js app and global-setup/teardown.
-    # Secrets must be configured in GitHub → Settings → Secrets and variables → Actions.
-    # Use the TEST_* prefix to distinguish from production secrets.
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
-      SUPABASE_SECRET_KEY: ${{ secrets.TEST_SUPABASE_SECRET_KEY }}
-      DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
-      ENCRYPTION_KEY: ${{ secrets.TEST_ENCRYPTION_KEY }}
-      ENCRYPTION_KEY_VERSION: "1"
-      ADE_MODE: "mock"
-      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
-      # Cloudflare Turnstile — official always-pass test keys (never real keys in CI)
-      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA"
-      TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA"
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Download build output
-        # Try to reuse the artifact from the build job when it ran.
-        # continue-on-error so a missing artifact falls back to inline build.
-        id: download-build
-        if: needs.build.result == 'success'
-        uses: actions/download-artifact@v8
-        continue-on-error: true
-        with:
-          name: next-build
-          path: .next/
-      - name: Build
-        # Build inline when: build job was skipped (only e2e files changed)
-        # OR artifact download failed for any reason.
-        if: steps.download-build.outcome != 'success'
-        run: npm run build
-      - name: Cache Playwright browsers
-        uses: actions/cache@v5
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install chromium --with-deps
-      - name: Install Playwright system deps
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
-      - name: Run E2E tests
-        run: npm run test:e2e
-      - name: Upload report
-        uses: actions/upload-artifact@v7
-        if: ${{ !cancelled() }}
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 14
