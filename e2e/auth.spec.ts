@@ -9,9 +9,9 @@ test.describe("Auth flows", () => {
     const password = "E2e_Test_Password1!";
 
     await page.goto("/register");
-    await page.fill("#email", email);
-    await page.fill("#password", password);
-    await page.fill("#confirmPassword", password);
+    await page.fill("[name='email']", email);
+    await page.fill("[name='password']", password);
+    await page.fill("[name='confirmPassword']", password);
     await page.check("#termsAccepted");
     await page.check("#specificClausesAccepted");
     // Wait for Turnstile to resolve and enable the submit button
@@ -30,11 +30,15 @@ test.describe("Auth flows", () => {
     page,
   }) => {
     await page.goto("/register");
-    await page.fill("#email", "test@example.com");
-    await page.fill("#password", "abc");
-    await page.fill("#confirmPassword", "abc");
+    await page.fill("[name='email']", "test@example.com");
+    await page.fill("[name='password']", "abc");
+    await page.fill("[name='confirmPassword']", "abc");
     await page.check("#termsAccepted");
     await page.check("#specificClausesAccepted");
+    // Wait for Turnstile to resolve and enable the submit button
+    await page.waitForSelector('button[type="submit"]:not([disabled])', {
+      timeout: 15_000,
+    });
     await page.click('button[type="submit"]');
 
     // Password validation error appears
@@ -48,7 +52,7 @@ test.describe("Auth flows", () => {
     page,
   }) => {
     await page.goto("/reset-password");
-    await page.fill("#email", E2E_USER.email);
+    await page.fill("[name='email']", E2E_USER.email);
     await page.click('button[type="submit"]');
 
     // Server action always redirects to /verify-email (avoids email enumeration)
