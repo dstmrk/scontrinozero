@@ -50,9 +50,10 @@ jobs:
           build-args: |
             NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
             NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
-            SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
             SENTRY_ORG=${{ secrets.SENTRY_ORG }}
             SENTRY_PROJECT=${{ secrets.SENTRY_PROJECT }}
+          secrets: |
+            sentry_auth_token=${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Export built image archive
         run: |
@@ -74,11 +75,24 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
       SUPABASE_SECRET_KEY: ${{ secrets.TEST_SUPABASE_SECRET_KEY }}
-      DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+      DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:5432/postgres"
       ENCRYPTION_KEY: ${{ secrets.TEST_ENCRYPTION_KEY }}
       ENCRYPTION_KEY_VERSION: "1"
       ADE_MODE: "mock"
@@ -98,7 +112,7 @@ jobs:
         run: |
           docker run -d \
             --name scontrinozero-smoke \
-            -p 3000:3000 \
+            --network host \
             -e NEXT_PUBLIC_SUPABASE_URL \
             -e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY \
             -e SUPABASE_SECRET_KEY \

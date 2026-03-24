@@ -23,15 +23,15 @@ ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
 ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
 # Sentry plugin vars — servono per uploadare le source maps
-ARG SENTRY_AUTH_TOKEN
 ARG SENTRY_ORG
 ARG SENTRY_PROJECT
-ENV SENTRY_AUTH_TOKEN=$SENTRY_AUTH_TOKEN
 ENV SENTRY_ORG=$SENTRY_ORG
 ENV SENTRY_PROJECT=$SENTRY_PROJECT
 
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+ENV NO_UPDATE_NOTIFIER=1
+# SENTRY_AUTH_TOKEN passato come BuildKit secret (non scritto in nessun layer)
+RUN --mount=type=secret,id=sentry_auth_token,env=SENTRY_AUTH_TOKEN npm run build
 
 RUN npx esbuild scripts/migrate.ts \
     --bundle \
