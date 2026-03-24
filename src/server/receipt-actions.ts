@@ -49,7 +49,8 @@ export async function emitReceipt(
     return { error: "Lo scontrino deve contenere almeno un articolo." };
   }
 
-  // Lottery code: only valid with electronic payment, must be 8 char [A-Z0-9]
+  // Lottery code: only valid with electronic payment, must be 8 char [A-Z0-9],
+  // and requires a minimum total of €1.00
   const rawLotteryCode = input.lotteryCode ?? null;
   const lotteryCode =
     rawLotteryCode && input.paymentMethod === "PE" ? rawLotteryCode : null;
@@ -61,6 +62,17 @@ export async function emitReceipt(
     return {
       error: "Codice lotteria non valido. Deve essere di 8 caratteri [A-Z0-9].",
     };
+  }
+  if (lotteryCode) {
+    const receiptTotal = input.lines.reduce(
+      (sum, l) => sum + l.grossUnitPrice * l.quantity,
+      0,
+    );
+    if (receiptTotal < 1) {
+      return {
+        error: "Il codice lotteria richiede un importo minimo di €1,00.",
+      };
+    }
   }
 
   const ownershipError = await checkBusinessOwnership(

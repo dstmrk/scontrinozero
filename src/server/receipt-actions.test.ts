@@ -425,5 +425,67 @@ describe("receipt-actions", () => {
         expect.anything(),
       );
     });
+
+    it("restituisce errore se lotteryCode fornito con totale < €1 (PE)", async () => {
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt({
+        ...VALID_INPUT,
+        paymentMethod: "PE",
+        lotteryCode: "YYWLR30G",
+        lines: [
+          {
+            id: "line-1",
+            description: "Caramella",
+            quantity: 1,
+            grossUnitPrice: 0.5,
+            vatCode: "22",
+          },
+        ],
+      });
+
+      expect(result.error).toBeDefined();
+      expect(result.error).toMatch(/importo minimo/i);
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("accetta lotteryCode con totale esattamente €1,00 (PE, boundary)", async () => {
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt({
+        ...VALID_INPUT,
+        paymentMethod: "PE",
+        lotteryCode: "YYWLR30G",
+        lines: [
+          {
+            id: "line-1",
+            description: "Prodotto",
+            quantity: 1,
+            grossUnitPrice: 1.0,
+            vatCode: "22",
+          },
+        ],
+      });
+
+      expect(result.error).toBeUndefined();
+    });
+
+    it("non restituisce errore se lotteryCode assente con totale < €1 (PE)", async () => {
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt({
+        ...VALID_INPUT,
+        paymentMethod: "PE",
+        lotteryCode: null,
+        lines: [
+          {
+            id: "line-1",
+            description: "Caramella",
+            quantity: 1,
+            grossUnitPrice: 0.5,
+            vatCode: "22",
+          },
+        ],
+      });
+
+      expect(result.error).toBeUndefined();
+    });
   });
 });
