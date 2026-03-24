@@ -20,8 +20,6 @@ export const businesses = pgTable(
     province: text("province"),
     zipCode: text("zip_code"),
     preferredVatCode: text("preferred_vat_code"),
-    activityCode: text("activity_code"),
-    taxRegime: text("tax_regime"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

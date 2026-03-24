@@ -58,7 +58,6 @@ const FAKE_PROFILE = {
   email: "test@example.com",
   firstName: "Mario",
   lastName: "Rossi",
-  fullName: "Mario Rossi",
   plan: "trial",
   trialStartedAt: new Date("2026-03-01T00:00:00Z"),
   planExpiresAt: null,
@@ -81,8 +80,6 @@ const FAKE_BUSINESS = {
   province: "MI",
   zipCode: "20100",
   preferredVatCode: "22",
-  activityCode: null,
-  taxRegime: null,
   createdAt: new Date("2026-03-01T00:00:00Z"),
   updatedAt: new Date("2026-03-01T00:00:00Z"),
 };
