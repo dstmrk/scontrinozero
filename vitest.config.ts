@@ -12,7 +12,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage",
-      include: ["src/**/*.{ts,tsx}", "scripts/**/*.ts"],
+      include: ["src/**/*.{ts,tsx}", "scripts/**/*.{ts,mjs}"],
       exclude: [
         "src/components/ui/**",
         "src/db/schema/**", // Drizzle ORM declarations — pure config, no business logic

@@ -35,6 +35,15 @@ jobs:
             lockfile:
               - 'package-lock.json'
 
+  # Verifica che tutti i file .sql siano registrati in _journal.json
+  # Gira sempre (indipendente dal diff) — rileva migrazioni aggiunte senza aggiornare il journal
+  migrations-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check migration journal consistency
+        run: node scripts/check-migrations.mjs
+
   # Scansione segreti — gira su tutti i push/PR (indipendente dal diff)
   secret-scan:
     runs-on: ubuntu-latest
