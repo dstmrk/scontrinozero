@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { checkMigrations } from "../../../scripts/check-migrations.mjs";
 
-const mockReaddir = vi.fn();
-const mockReadFile = vi.fn();
+const { mockReaddir, mockReadFile } = vi.hoisted(() => ({
+  mockReaddir: vi.fn(),
+  mockReadFile: vi.fn(),
+}));
 
 vi.mock("fs/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof import("fs/promises")>();
@@ -67,9 +69,7 @@ describe("checkMigrations", () => {
 
   it("returns error when journal entry has no SQL file", async () => {
     mockReaddir.mockResolvedValue(makeDirents(["0000_initial.sql"]));
-    mockReadFile.mockResolvedValue(
-      makeJournal(["0000_initial", "0001_ghost"]),
-    );
+    mockReadFile.mockResolvedValue(makeJournal(["0000_initial", "0001_ghost"]));
 
     const result = await checkMigrations("/fake/migrations");
 
@@ -83,9 +83,7 @@ describe("checkMigrations", () => {
     mockReaddir.mockResolvedValue(
       makeDirents(["0000_initial.sql", "0002_extra.sql"]),
     );
-    mockReadFile.mockResolvedValue(
-      makeJournal(["0000_initial", "0001_ghost"]),
-    );
+    mockReadFile.mockResolvedValue(makeJournal(["0000_initial", "0001_ghost"]));
 
     const result = await checkMigrations("/fake/migrations");
 
