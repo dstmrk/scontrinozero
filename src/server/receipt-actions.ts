@@ -31,6 +31,37 @@ const PAYMENT_METHOD_TO_ADE: Record<PaymentMethod, PaymentType> = {
   PE: "ELECTRONIC",
 };
 
+/** Validates and resolves the effective lottery code from the input. */
+function resolveLotteryCode(input: SubmitReceiptInput): {
+  lotteryCode: string | null;
+  error?: string;
+} {
+  const raw = input.lotteryCode ?? null;
+  const code = raw && input.paymentMethod === "PE" ? raw : null;
+
+  if (raw && input.paymentMethod === "PE" && !isValidLotteryCode(raw)) {
+    return {
+      lotteryCode: null,
+      error: "Codice lotteria non valido. Deve essere di 8 caratteri [A-Z0-9].",
+    };
+  }
+
+  if (code) {
+    const total = input.lines.reduce(
+      (sum, l) => sum + l.grossUnitPrice * l.quantity,
+      0,
+    );
+    if (total < 1) {
+      return {
+        lotteryCode: null,
+        error: "Il codice lotteria richiede un importo minimo di €1,00.",
+      };
+    }
+  }
+
+  return { lotteryCode: code };
+}
+
 export async function emitReceipt(
   input: SubmitReceiptInput,
 ): Promise<SubmitReceiptResult> {
@@ -49,31 +80,8 @@ export async function emitReceipt(
     return { error: "Lo scontrino deve contenere almeno un articolo." };
   }
 
-  // Lottery code: only valid with electronic payment, must be 8 char [A-Z0-9],
-  // and requires a minimum total of €1.00
-  const rawLotteryCode = input.lotteryCode ?? null;
-  const lotteryCode =
-    rawLotteryCode && input.paymentMethod === "PE" ? rawLotteryCode : null;
-  if (
-    rawLotteryCode &&
-    input.paymentMethod === "PE" &&
-    !isValidLotteryCode(rawLotteryCode)
-  ) {
-    return {
-      error: "Codice lotteria non valido. Deve essere di 8 caratteri [A-Z0-9].",
-    };
-  }
-  if (lotteryCode) {
-    const receiptTotal = input.lines.reduce(
-      (sum, l) => sum + l.grossUnitPrice * l.quantity,
-      0,
-    );
-    if (receiptTotal < 1) {
-      return {
-        error: "Il codice lotteria richiede un importo minimo di €1,00.",
-      };
-    }
-  }
+  const { lotteryCode, error: lotteryCodeError } = resolveLotteryCode(input);
+  if (lotteryCodeError) return { error: lotteryCodeError };
 
   const ownershipError = await checkBusinessOwnership(
     user.id,
