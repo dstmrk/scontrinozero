@@ -5,6 +5,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Writable } from "node:stream";
 import pino from "pino";
 
+const mockCaptureException = vi.fn();
+const mockCaptureMessage = vi.fn();
+
+vi.mock("@sentry/nextjs", () => ({
+  captureException: mockCaptureException,
+  captureMessage: mockCaptureMessage,
+}));
+
 // Helper: create a logger that writes to a buffer so we can inspect output
 function createTestLogger(options: pino.LoggerOptions = {}): {
   logger: pino.Logger;
@@ -30,6 +38,8 @@ function createTestLogger(options: pino.LoggerOptions = {}): {
 describe("logger module", () => {
   beforeEach(() => {
     vi.resetModules();
+    mockCaptureException.mockReset();
+    mockCaptureMessage.mockReset();
   });
 
   afterEach(() => {
@@ -162,5 +172,97 @@ describe("logger module", () => {
     expect(parsed.msg).toBe("test message");
     expect(parsed.action).toBe("test");
     expect(parsed.time).toBeDefined();
+  });
+});
+
+describe("logger Sentry bridge", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    mockCaptureException.mockReset();
+    mockCaptureMessage.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("logger.error with { err: Error } calls captureException with extra context", async () => {
+    const { logger } = await import("./logger");
+    const err = new Error("AdE rejection");
+    logger.error({ err, documentId: "DOC-1" }, "emitReceipt failed");
+    expect(mockCaptureException).toHaveBeenCalledOnce();
+    expect(mockCaptureException).toHaveBeenCalledWith(err, {
+      extra: { err, documentId: "DOC-1" },
+    });
+    expect(mockCaptureMessage).not.toHaveBeenCalled();
+  });
+
+  it("logger.error with a bare Error calls captureException", async () => {
+    const { logger } = await import("./logger");
+    const err = new Error("something broke");
+    logger.error(err);
+    expect(mockCaptureException).toHaveBeenCalledOnce();
+    expect(mockCaptureException).toHaveBeenCalledWith(err);
+    expect(mockCaptureMessage).not.toHaveBeenCalled();
+  });
+
+  it("logger.error with plain context (no err) calls captureMessage", async () => {
+    const { logger } = await import("./logger");
+    logger.error({ userId: "user-1" }, "Profile not found");
+    expect(mockCaptureMessage).toHaveBeenCalledOnce();
+    expect(mockCaptureMessage).toHaveBeenCalledWith(
+      "Profile not found",
+      "error",
+    );
+    expect(mockCaptureException).not.toHaveBeenCalled();
+  });
+
+  it("logger.error with non-Error err field falls back to captureMessage", async () => {
+    const { logger } = await import("./logger");
+    logger.error({ err: "string-error" }, "unexpected shape");
+    expect(mockCaptureMessage).toHaveBeenCalledOnce();
+    expect(mockCaptureMessage).toHaveBeenCalledWith(
+      "unexpected shape",
+      "error",
+    );
+    expect(mockCaptureException).not.toHaveBeenCalled();
+  });
+
+  it("logger.fatal with { err: Error } calls captureException", async () => {
+    const { logger } = await import("./logger");
+    const err = new Error("fatal crash");
+    logger.fatal({ err }, "system failure");
+    expect(mockCaptureException).toHaveBeenCalledOnce();
+    expect(mockCaptureException).toHaveBeenCalledWith(err, {
+      extra: { err },
+    });
+  });
+
+  it("logger.warn does NOT call Sentry (warn is Docker-only)", async () => {
+    const { logger } = await import("./logger");
+    logger.warn({ userId: "user-1" }, "Rate limit exceeded");
+    expect(mockCaptureException).not.toHaveBeenCalled();
+    expect(mockCaptureMessage).not.toHaveBeenCalled();
+  });
+
+  it("logger.info does NOT call Sentry", async () => {
+    const { logger } = await import("./logger");
+    logger.info({ documentId: "DOC-1" }, "Receipt emitted successfully");
+    expect(mockCaptureException).not.toHaveBeenCalled();
+    expect(mockCaptureMessage).not.toHaveBeenCalled();
+  });
+
+  it("child logger (createRequestLogger) inherits Sentry bridge", async () => {
+    const { createRequestLogger } = await import("./logger");
+    const childLogger = createRequestLogger({
+      requestId: "req-abc",
+      userId: "u-1",
+    });
+    const err = new Error("child error");
+    childLogger.error({ err }, "error in child context");
+    expect(mockCaptureException).toHaveBeenCalledOnce();
+    expect(mockCaptureException).toHaveBeenCalledWith(err, {
+      extra: { err },
+    });
   });
 });
