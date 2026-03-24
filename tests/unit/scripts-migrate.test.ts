@@ -126,6 +126,7 @@ describe("runMigrations()", () => {
   const originalUrl = process.env.DATABASE_URL;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     mockResolve4.mockResolvedValue(["1.2.3.4"]);
     mockMigrate.mockResolvedValue(undefined);
     mockSqlEnd.mockResolvedValue(undefined);
@@ -142,7 +143,17 @@ describe("runMigrations()", () => {
     } else {
       process.env.DATABASE_URL = originalUrl;
     }
+    delete process.env.SKIP_MIGRATIONS;
     vi.clearAllMocks();
+  });
+
+  it("salta le migrazioni e non si connette al DB quando SKIP_MIGRATIONS=true", async () => {
+    process.env.SKIP_MIGRATIONS = "true";
+
+    await runMigrations();
+
+    expect(mockMigrate).not.toHaveBeenCalled();
+    expect(mockSqlEnd).not.toHaveBeenCalled();
   });
 
   it("lancia un errore se mancano sia DATABASE_URL_DIRECT che DATABASE_URL", async () => {

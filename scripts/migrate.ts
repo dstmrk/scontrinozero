@@ -40,6 +40,11 @@ export async function toIPv4Url(connectionString: string): Promise<string> {
 }
 
 export async function runMigrations() {
+  if (process.env.SKIP_MIGRATIONS === "true") {
+    console.log("SKIP_MIGRATIONS=true — skipping DB migrations.");
+    return;
+  }
+
   const connectionString =
     process.env.DATABASE_URL_DIRECT ?? process.env.DATABASE_URL;
   if (!connectionString) {
