@@ -38,6 +38,9 @@ export interface RealAdeClientOptions {
 }
 
 const ADE_BASE_URL = "https://ivaservizi.agenziaentrate.gov.it";
+const ADE_IAM_BASE_URL = "https://iampe.agenziaentrate.gov.it";
+const ADE_PORTALE_BASE_URL = "https://portale.agenziaentrate.gov.it";
+const ADE_INSTR_PATH = "/instr/instradamento-fatture-rest/rs";
 
 /**
  * Headers required for POST document submission (api-spec.md sez. 2.4).
@@ -149,84 +152,169 @@ export class RealAdeClient implements AdeClient {
   }
 
   // -----------------------------------------------------------------------
-  // Authentication phases (1-6)
+  // Authentication phases — nuovo flusso IAM (HAR: login_credenziali_fisconline.har)
   // -----------------------------------------------------------------------
 
   /**
-   * Phase 1: Initialize cookie jar by loading the portal home page.
+   * Phase A: Login via il nuovo sistema IAM iampe.agenziaentrate.gov.it.
    *
-   * HAR fix: use /portale/web/guest/home (not /portale/web/guest) to obtain
-   * the correct initial cookies (JSESSIONID, etc.).
-   */
-  private async initCookieJar(): Promise<void> {
-    await this.request(`${ADE_BASE_URL}/portale/web/guest/home`);
-  }
-
-  /**
-   * Phase 2: Login with Fisconline credentials.
+   * HAR fix (login_credenziali_fisconline.har entry 0): AdE ha migrato
+   * il login Fisconline dal vecchio portale Liferay al nuovo IAM.
+   * Il vecchio endpoint (portale/home?p_p_id=58&...) non funziona più.
    *
-   * HAR fixes (login_ade_fisconline.har):
-   * - URL: p_p_col_pos=4, p_p_col_count=6 (old code had 3 and 4 → portal mismatch)
-   * - Body: 4 required params were missing:
-   *     _58_saveLastPath=false, _58_redirect=, _58_doActionAfterLogin=false, ricorda-cf=on
-   *   Without them the portal did not establish an authenticated session and
-   *   redirected in a loop, causing "redirect count exceeded" in Node.js fetch.
-   * - Referer header added (sent by the browser in the HAR).
-   * - Redirect chain is exactly 2 hops: POST → /portale/c/... → /portale/web/guest/home
+   * Nuovo endpoint: POST /api/login/telematico
+   * Body JSON: {"username": CF, "password": pwd, "pin": pin}
+   * 200 = successo, non-200 → AdeAuthError
    */
-  private async postLogin(credentials: FisconlineCredentials): Promise<void> {
-    const url =
-      `${ADE_BASE_URL}/portale/home?p_p_id=58&p_p_lifecycle=1` +
-      `&p_p_state=normal&p_p_mode=view&p_p_col_id=column-1` +
-      `&p_p_col_pos=4&p_p_col_count=6` +
-      `&_58_struts_action=%2Flogin%2Flogin`;
-
-    const body = new URLSearchParams({
-      _58_saveLastPath: "false",
-      _58_redirect: "",
-      _58_doActionAfterLogin: "false",
-      _58_login: credentials.codiceFiscale,
-      _58_password: credentials.password,
-      _58_pin: credentials.pin,
-      "ricorda-cf": "on",
-    });
-
+  private async iampeLogin(credentials: FisconlineCredentials): Promise<void> {
+    const url = `${ADE_IAM_BASE_URL}/api/login/telematico`;
     const response = await this.request(url, {
       method: "POST",
-      body: body.toString(),
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Referer: `${ADE_BASE_URL}/portale/web/guest/home`,
-      },
-      followRedirects: false,
+      body: JSON.stringify({
+        username: credentials.codiceFiscale,
+        password: credentials.password,
+        pin: credentials.pin,
+      }),
+      headers: { "Content-Type": "application/json" },
     });
 
-    const location = response.headers.get("Location") ?? "";
-
-    // Successful login → portal returns 302 to /portale/c/<userId>/...
-    if (!location.includes("/portale/c")) {
+    if (!response.ok) {
       throw new AdeAuthError(
         "Login failed: invalid credentials or account locked",
       );
     }
-
-    // Follow the remaining redirect chain (ends at /portale/web/guest/home).
-    // IMPORTANT: must use followRedirectChain (not request) so that cookies
-    // from each intermediate redirect hop are captured in the jar.
-    // Using request() with redirect:'follow' misses intermediate Set-Cookie
-    // headers, leaving the jar incomplete and causing a redirect loop.
-    const redirectUrl = location.startsWith("http")
-      ? location
-      : `${ADE_BASE_URL}${location}`;
-    await this.followRedirectChain(redirectUrl);
   }
 
   /**
-   * Phase 3: Extract Liferay p_auth token from the authenticated home page.
+   * Phase B: Inizializza la home portale (SSO bridge tra iampe e ivaservizi).
    *
-   * HAR fix: /dp/api returns an EMPTY body (length 0) — cannot be used.
-   * Liferay.authToken is embedded in the /portale/web/guest/home HTML
-   * (verified at char position 11805 in the captured HAR response).
+   * HAR finding (login_credenziali_fisconline.har entry 1):
+   *   GET portale.agenziaentrate.gov.it/PortaleWeb/home?to=FATBTB
+   */
+  private async initPortalHome(): Promise<void> {
+    await this.request(`${ADE_PORTALE_BASE_URL}/PortaleWeb/home?to=FATBTB`);
+  }
+
+  /**
+   * Phase C: Inizializza il portale instradamento su ivaservizi.
+   *
+   * HAR finding (login_credenziali_fisconline.har entry 12):
+   *   GET ivaservizi.agenziaentrate.gov.it/instr/InstradamentofcWeb/home
+   * Può seguire redirect chain verso iampe e ritorno (SSO dance).
+   */
+  private async initInstradamento(): Promise<void> {
+    await this.followRedirectChain(
+      `${ADE_BASE_URL}/instr/InstradamentofcWeb/home`,
+    );
+  }
+
+  /**
+   * Phase D: Inizializza la sessione DataPower cross-domain (sostituisce /dp/api).
+   *
+   * HAR finding (login_credenziali_fisconline.har entry 24):
+   *   GET ivaservizi.agenziaentrate.gov.it/dp/PI2FC → 200 (body vuoto)
+   */
+  private async initDataPowerBridge(): Promise<void> {
+    await this.request(`${ADE_BASE_URL}/dp/PI2FC`);
+  }
+
+  /**
+   * Phase E: Ottieni il token x-appl dall'header di risposta di initLight.
+   *
+   * HAR finding (login_credenziali_fisconline.har entry 53):
+   *   GET /instr/instradamento-fatture-rest/rs/initLight?v={ts}
+   *   Response header: x-appl: <token>  (body vuoto)
+   */
+  private async fetchXAppl(): Promise<string> {
+    const url = `${ADE_BASE_URL}${ADE_INSTR_PATH}/initLight?v=${Date.now()}`;
+    const response = await this.request(url);
+
+    const xAppl = response.headers.get("x-appl");
+    if (!xAppl) {
+      throw new AdePortalError(
+        response.status,
+        "Failed to obtain x-appl token from initLight response header",
+      );
+    }
+    return xAppl;
+  }
+
+  /**
+   * Phase F: Recupera la prima P.IVA disponibile per l'utente.
+   *
+   * HAR finding (login_credenziali_fisconline.har entry 59):
+   *   GET /instr/instradamento-fatture-rest/rs/wizardTemplate
+   *   Response: {"PIva":[{"piva":"...","denominazione":"..."}],...}
+   * Richiede il token x-appl nell'header.
+   * Skippato durante la re-auth su 401 quando la P.IVA è già nota.
+   */
+  private async fetchWizardPiva(xAppl: string): Promise<string> {
+    const url = `${ADE_BASE_URL}${ADE_INSTR_PATH}/wizardTemplate`;
+    const response = await this.request(url, {
+      headers: { "x-appl": xAppl },
+    });
+
+    if (!response.ok) {
+      throw new AdePortalError(
+        response.status,
+        `wizardTemplate failed with status ${response.status}`,
+      );
+    }
+
+    const data = (await response.json()) as {
+      PIva?: { piva?: string }[];
+    };
+    const piva = data?.PIva?.[0]?.piva;
+
+    if (!piva) {
+      throw new AdePortalError(
+        200,
+        "Failed to extract P.IVA from wizardTemplate response",
+      );
+    }
+
+    return piva;
+  }
+
+  /**
+   * Phase G: Attiva la sessione sul backend instradamento-fatture.
+   *
+   * HAR finding (login_credenziali_fisconline.har entry 67):
+   *   POST /instr/instradamento-fatture-rest/rs/setUserChoice?v={ts}
+   *   Header: x-appl: <token>, Content-Type: application/json
+   *   Body: {"cf": CF, "pIva": PIVA, "tipoutenza": "meStesso"}
+   * Dopo questa chiamata, tutti gli endpoint /ser/api/* ritornano 200.
+   */
+  private async setUserChoiceStep(
+    cf: string,
+    pIva: string,
+    xAppl: string,
+  ): Promise<void> {
+    const url = `${ADE_BASE_URL}${ADE_INSTR_PATH}/setUserChoice?v=${Date.now()}`;
+    const response = await this.request(url, {
+      method: "POST",
+      body: JSON.stringify({ cf, pIva, tipoutenza: "meStesso" }),
+      headers: {
+        "Content-Type": "application/json",
+        "x-appl": xAppl,
+      },
+    });
+
+    if (!response.ok) {
+      throw new AdePortalError(
+        response.status,
+        `setUserChoice failed with status ${response.status}`,
+      );
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Legacy authentication helpers (usati solo dal flusso SPID, S11-S15)
+  // -----------------------------------------------------------------------
+
+  /**
+   * S11 (SPID): Extract Liferay p_auth token from the authenticated home page.
+   * Ancora necessario per il flusso SPID post-SAML (portale Liferay).
    */
   private async extractPAuth(): Promise<string> {
     const url = `${ADE_BASE_URL}/portale/web/guest/home`;
@@ -245,35 +333,16 @@ export class RealAdeClient implements AdeClient {
   }
 
   /**
-   * Phase 3b: Initialize the IBM DataPower cross-domain session.
-   *
-   * HAR fix (login_ade_fisconline.har entry 45): the portal page JS fires a
-   * GET /dp/api?v=<timestamp> call on every authenticated page load. This is
-   * NOT a data-fetching call (the response body is empty) — it is a
-   * DataPower session initialization ping. Without it, ALL /ser/api/*
-   * endpoints return 401 because DataPower has not established the
-   * backend session token for the current Liferay session cookies.
-   *
-   * HAR evidence:
-   *   entry 45: GET /dp/api?v=1740420665617  → 200 (empty body)
-   *   entry 46: GET /ser/api/.../stato/      → 401 (races with dp/api)
-   *   entry 48: GET /ser/api/.../stato/      → 200 (after dp/api completes)
-   *
-   * The previous code extracted Liferay.authToken from /dp/api — that was
-   * wrong; /dp/api returns an empty body. The authToken is in the home page
-   * HTML (Phase 3). But the /dp/api call itself is still required here.
+   * S12 (SPID): Initialize the IBM DataPower cross-domain session (legacy /dp/api).
+   * Ancora necessario per il flusso SPID post-SAML.
    */
   private async initDataPowerSession(): Promise<void> {
     await this.request(`${ADE_BASE_URL}/dp/api?v=${Date.now()}`);
   }
 
   /**
-   * Phase 4: Activate the portal session via the DatiOpzioni portlet.
-   *
-   * HAR fix (login_ade_fisconline.har entry 47): POST fires after dp/api
-   * and before the second adesione/stato call. While dp/api is the critical
-   * step for /ser/api/* auth, DatiOpzioni is also called by the portal JS
-   * on every page load and may set additional session state.
+   * S13 (SPID): Activate the portal session via the DatiOpzioni portlet.
+   * Ancora necessario per il flusso SPID post-SAML.
    */
   private async activateSession(): Promise<void> {
     const url =
@@ -294,7 +363,7 @@ export class RealAdeClient implements AdeClient {
     });
   }
 
-  /** Phase 5: Verify the session is active (ready probe). */
+  /** S14 (SPID): Verify the session is active (ready probe). */
   private async verifySession(): Promise<void> {
     const url = `${ADE_BASE_URL}/ser/api/fatture/v1/ul/me/adesione/stato/`;
     const response = await this.request(url);
@@ -388,23 +457,33 @@ export class RealAdeClient implements AdeClient {
     return piva;
   }
 
-  /** Full Fisconline authentication flow (Phases 1-6). */
+  /**
+   * Full Fisconline authentication flow (Phases A-G).
+   *
+   * @param credentials - Credenziali Fisconline
+   * @param knownPartitaIva - P.IVA già nota (re-auth su 401): salta Phase F (wizardTemplate)
+   */
   private async authenticate(
     credentials: FisconlineCredentials,
+    knownPartitaIva?: string,
   ): Promise<AdeSession> {
-    await this.initCookieJar(); // Phase 1: seed cookies
-    await this.postLogin(credentials); // Phase 2: login POST + redirect chain
-    const pAuth = await this.extractPAuth(); // Phase 3: grab authToken
-    await this.initDataPowerSession(); // Phase 3b: DataPower ping (REQUIRED before /ser/api/*)
-    await this.activateSession(); // Phase 4: DatiOpzioni portlet
-    await this.verifySession(); // Phase 5: 200 probe
-    const partitaIva = await this.fetchPartitaIva(); // Phase 6: real P.IVA (404→dati/fiscali)
+    await this.iampeLogin(credentials); // A: login IAM
+    await this.initPortalHome(); // B: SSO bridge portale
+    await this.initInstradamento(); // C: instradamento home
+    await this.initDataPowerBridge(); // D: DataPower session
+    const xAppl = await this.fetchXAppl(); // E: token x-appl
 
-    return {
-      pAuth,
+    // F: scopri P.IVA se non già nota (skip durante re-auth su 401)
+    const partitaIva = knownPartitaIva ?? (await this.fetchWizardPiva(xAppl));
+
+    await this.setUserChoiceStep(
+      // G: attiva sessione
+      credentials.codiceFiscale,
       partitaIva,
-      createdAt: Date.now(),
-    };
+      xAppl,
+    );
+
+    return { pAuth: "", partitaIva, createdAt: Date.now() };
   }
 
   // -----------------------------------------------------------------------
@@ -1031,23 +1110,21 @@ export class RealAdeClient implements AdeClient {
   }
 
   async logout(): Promise<void> {
-    const logoutPaths = [
-      "/cons/opt-services/logout",
-      "/cons/cons-services/logout",
-      "/cons/cons-other-services/logout",
-      "/cons/mass-services/logout",
-    ];
-
-    for (const path of logoutPaths) {
-      try {
-        await this.request(`${ADE_BASE_URL}${path}`);
-      } catch {
-        // Best-effort, ignore failures
-      }
+    // HAR finding (logout.har): nuovo logout tramite iampe.agenziaentrate.gov.it
+    try {
+      await this.request(
+        `${ADE_IAM_BASE_URL}/sam/UI/Logout?realm=/agenziaentrate`,
+      );
+    } catch {
+      // Best-effort
     }
 
     try {
-      await this.request(`${ADE_BASE_URL}/portale/c/portal/logout`);
+      await this.request(`${ADE_IAM_BASE_URL}/api/logout`, {
+        method: "POST",
+        body: "{}",
+        headers: { "Content-Type": "application/json" },
+      });
     } catch {
       // Best-effort
     }
@@ -1080,8 +1157,9 @@ export class RealAdeClient implements AdeClient {
       }
 
       try {
+        const knownPiva = this.session?.partitaIva;
         this.cookieJar.clear();
-        this.session = await this.authenticate(this.credentials);
+        this.session = await this.authenticate(this.credentials, knownPiva);
       } catch {
         throw new AdeSessionExpiredError();
       }

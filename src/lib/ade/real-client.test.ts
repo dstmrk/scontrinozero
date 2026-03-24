@@ -33,73 +33,62 @@ function mockResponse(opts: {
 }
 
 /**
- * Queue 8 mock responses for the full login flow (Phases 1-6b).
+ * Queue 7 mock responses for the full Fisconline login flow (Phases A-G).
  *
- * HTTP call map (HAR-verified, login_ade_fisconline.har):
- *   [0] Phase 1:  GET /portale/web/guest/home      — init cookie jar
- *   [1] Phase 2:  POST login                        — 302 to /portale/c/...
- *   [2] Phase 2b: GET /portale/c/...               — redirect chain follow-up
- *   [3] Phase 3:  GET /portale/web/guest/home       — extract Liferay.authToken
- *   [4] Phase 3b: GET /dp/api                       — DataPower session init (REQUIRED!)
- *   [5] Phase 4:  POST DatiOpzioni portlet           — activate Liferay portlet
- *   [6] Phase 5:  GET adesione/stato/               — verify session (200)
- *   [7] Phase 6:  GET gestori/me                    — fetch real P.IVA
- *
- * HAR fix (login_ade_fisconline.har entry 45): /dp/api initializes the IBM
- * DataPower cross-domain session. Without it, ALL /ser/api/* calls return 401.
+ * HTTP call map (HAR-verified, login_credenziali_fisconline.har):
+ *   [0] Phase A: POST iampe/api/login/telematico    — 200 (login IAM)
+ *   [1] Phase B: GET portale/PortaleWeb/home         — SSO bridge
+ *   [2] Phase C: GET ivaservizi/instr/...home        — instradamento home
+ *   [3] Phase D: GET ivaservizi/dp/PI2FC             — DataPower bridge
+ *   [4] Phase E: GET instr/.../initLight             — x-appl in risposta header
+ *   [5] Phase F: GET instr/.../wizardTemplate        — P.IVA list
+ *   [6] Phase G: POST instr/.../setUserChoice        — attiva sessione
  */
 function mockLoginSequence(fetchMock: ReturnType<typeof vi.fn>): void {
-  // Phase 1: GET /portale/web/guest/home — init cookie jar
+  // Phase A: POST iampe/api/login/telematico — 200
+  fetchMock.mockResolvedValueOnce(mockResponse({ status: 200 }));
+
+  // Phase B: GET portale/PortaleWeb/home?to=FATBTB — SSO bridge
+  fetchMock.mockResolvedValueOnce(mockResponse({}));
+
+  // Phase C: GET ivaservizi/instr/InstradamentofcWeb/home — instradamento
+  fetchMock.mockResolvedValueOnce(mockResponse({}));
+
+  // Phase D: GET ivaservizi/dp/PI2FC — DataPower session bridge
+  fetchMock.mockResolvedValueOnce(mockResponse({}));
+
+  // Phase E: GET initLight — x-appl in response header
   fetchMock.mockResolvedValueOnce(
     mockResponse({
-      headers: [["Set-Cookie", "JSESSIONID=abc123; Path=/; HttpOnly"]],
+      headers: [["x-appl", "test_x_appl_token"]],
     }),
   );
 
-  // Phase 2: POST login — 302 redirect to /portale/c/... indicating success
+  // Phase F: GET wizardTemplate — P.IVA list
   fetchMock.mockResolvedValueOnce(
     mockResponse({
-      status: 302,
-      location: "/portale/c/portal/layout",
-      headers: [["Set-Cookie", "LFR_SESSION=xyz789; Path=/"]],
+      body: { PIva: [{ piva: "12345678901", denominazione: "TEST SRL" }] },
     }),
   );
 
-  // Phase 2b: GET the redirect target (follows to /portale/web/guest/home)
+  // Phase G: POST setUserChoice — activate session
   fetchMock.mockResolvedValueOnce(mockResponse({}));
+}
 
-  // Phase 3: GET /portale/web/guest/home — HTML containing Liferay.authToken
-  // HAR fix: /dp/api returns empty body — authToken is in home page HTML
+/**
+ * Queue 6 mock responses for re-auth on 401 (Phases A-E + G, skip F).
+ *
+ * Phase F (wizardTemplate) è skippata perché la P.IVA è già nota.
+ */
+function mockReAuthSequence(fetchMock: ReturnType<typeof vi.fn>): void {
+  fetchMock.mockResolvedValueOnce(mockResponse({ status: 200 })); // A
+  fetchMock.mockResolvedValueOnce(mockResponse({})); // B
+  fetchMock.mockResolvedValueOnce(mockResponse({})); // C
+  fetchMock.mockResolvedValueOnce(mockResponse({})); // D
   fetchMock.mockResolvedValueOnce(
-    mockResponse({
-      body: '<html><script>Liferay.authToken = "test_p_auth_42";</script></html>',
-    }),
-  );
-
-  // Phase 3b: GET /dp/api — DataPower session initialization ping
-  // HAR fix (entry 45): /dp/api response body is empty, but the call itself
-  // initializes the backend session token for ALL /ser/api/* endpoints.
-  // Without this call, verifySession (Phase 5) returns 401.
-  fetchMock.mockResolvedValueOnce(mockResponse({}));
-
-  // Phase 4: POST DatiOpzioni_WAR_DatiOpzioniportlet — Liferay portlet activation
-  fetchMock.mockResolvedValueOnce(mockResponse({}));
-
-  // Phase 5: GET /ser/api/fatture/v1/ul/me/adesione/stato/ — verify session
-  fetchMock.mockResolvedValueOnce(mockResponse({}));
-
-  // Phase 6: GET /ser/api/portale/v1/gestori/me/ — fetch real P.IVA
-  // HAR fix: P.IVA must come from this endpoint, NOT derived from CF
-  fetchMock.mockResolvedValueOnce(
-    mockResponse({
-      body: {
-        anagrafica: {
-          piva: "12345678901",
-          cf: "RSSMRA80A01H501A",
-        },
-      },
-    }),
-  );
+    mockResponse({ headers: [["x-appl", "test_x_appl_token"]] }),
+  ); // E
+  fetchMock.mockResolvedValueOnce(mockResponse({})); // G (no F)
 }
 
 const mockCredentials = {
@@ -369,250 +358,197 @@ describe("RealAdeClient", () => {
   // -----------------------------------------------------------------------
 
   describe("login", () => {
-    it("completes 7-phase auth flow (8 HTTP calls) and returns AdeSession", async () => {
+    it("completes 7-phase auth flow (A-G, 7 HTTP calls) and returns AdeSession", async () => {
       mockLoginSequence(fetchMock);
 
       const session = await client.login(mockCredentials);
 
-      expect(session.pAuth).toBe("test_p_auth_42");
-      // P.IVA now comes from Phase 6 gestori/me, not derived from CF
+      expect(session.pAuth).toBe(""); // pAuth è obsoleto nel nuovo flusso IAM
       expect(session.partitaIva).toBe("12345678901");
       expect(session.createdAt).toBeGreaterThan(0);
-      // Total: 8 fetch calls (Phase 2 has a follow-up redirect + Phase 3b DataPower ping)
-      expect(fetchMock).toHaveBeenCalledTimes(8);
+      expect(fetchMock).toHaveBeenCalledTimes(7);
     });
 
-    it("calls Phase 1 GET /portale/web/guest/home (not /portale/web/guest)", async () => {
+    it("Phase A: POST JSON con credenziali a iampe.agenziaentrate.gov.it", async () => {
       mockLoginSequence(fetchMock);
 
       await client.login(mockCredentials);
 
-      const firstCall = fetchMock.mock.calls[0];
-      // HAR fix: must hit /portale/web/guest/home to get correct session cookies
-      expect(firstCall[0]).toContain("/portale/web/guest/home");
+      const callA = fetchMock.mock.calls[0];
+      expect(callA[0]).toContain(
+        "iampe.agenziaentrate.gov.it/api/login/telematico",
+      );
+      expect(callA[1].method).toBe("POST");
+
+      const body = JSON.parse(callA[1].body as string) as Record<
+        string,
+        string
+      >;
+      expect(body.username).toBe("RSSMRA80A01H501A");
+      expect(body.password).toBe("testpassword");
+      expect(body.pin).toBe("12345678");
     });
 
-    it("calls Phase 2 POST with correct form body (including 4 previously missing params)", async () => {
-      mockLoginSequence(fetchMock);
-
-      await client.login(mockCredentials);
-
-      const secondCall = fetchMock.mock.calls[1];
-      expect(secondCall[0]).toContain("_58_struts_action");
-      // HAR fix: correct col_pos and col_count
-      expect(secondCall[0]).toContain("p_p_col_pos=4");
-      expect(secondCall[0]).toContain("p_p_col_count=6");
-      expect(secondCall[1].method).toBe("POST");
-
-      const body = secondCall[1].body as string;
-      expect(body).toContain("_58_login=RSSMRA80A01H501A");
-      expect(body).toContain("_58_password=testpassword");
-      expect(body).toContain("_58_pin=12345678");
-      // HAR fix: 4 previously missing params
-      expect(body).toContain("_58_saveLastPath=false");
-      expect(body).toContain("_58_redirect=");
-      expect(body).toContain("_58_doActionAfterLogin=false");
-      expect(body).toContain("ricorda-cf=on");
-    });
-
-    it("calls Phase 2 with redirect manual to inspect Location", async () => {
-      mockLoginSequence(fetchMock);
-
-      await client.login(mockCredentials);
-
-      const secondCall = fetchMock.mock.calls[1];
-      expect(secondCall[1].redirect).toBe("manual");
-    });
-
-    it("follows Phase 2 redirect chain hop-by-hop, capturing cookies at each redirect", async () => {
-      // Regression test for: "redirect count exceeded" in postLogin.
-      //
-      // Root cause: using fetch with redirect:'follow' for the Phase 2
-      // follow-up meant intermediate redirect responses were consumed
-      // internally by Node.js without updating our cookie jar. If the portal
-      // set session cookies in an intermediate redirect, those were lost,
-      // making the next hop look unauthenticated → redirect loop → error.
-      //
-      // Fix: followRedirectChain() follows each hop manually via
-      // redirect:'manual', ensuring applyResponse() is called on every
-      // response and the cookie jar stays in sync.
-
-      // Phase 1
-      fetchMock.mockResolvedValueOnce(
-        mockResponse({
-          headers: [["Set-Cookie", "JSESSIONID=abc123; Path=/; HttpOnly"]],
-        }),
-      );
-      // Phase 2: POST login → 302
-      fetchMock.mockResolvedValueOnce(
-        mockResponse({
-          status: 302,
-          location: "/portale/c/portal/layout",
-          headers: [["Set-Cookie", "LFR_SESSION=xyz789; Path=/"]],
-        }),
-      );
-      // Phase 2 follow-up hop 1: intermediate redirect (sets a session cookie)
-      fetchMock.mockResolvedValueOnce(
-        mockResponse({
-          status: 302,
-          location: "/portale/web/guest/home",
-          headers: [["Set-Cookie", "SESSION_MARKER=important; Path=/"]],
-        }),
-      );
-      // Phase 2 follow-up hop 2: final 200
-      fetchMock.mockResolvedValueOnce(mockResponse({}));
-      // Phase 3
-      fetchMock.mockResolvedValueOnce(
-        mockResponse({
-          body: '<html><script>Liferay.authToken = "chain_auth_token";</script></html>',
-        }),
-      );
-      // Phase 3b: DataPower session init
-      fetchMock.mockResolvedValueOnce(mockResponse({}));
-      // Phase 4
-      fetchMock.mockResolvedValueOnce(mockResponse({}));
-      // Phase 5
-      fetchMock.mockResolvedValueOnce(mockResponse({}));
-      // Phase 6
-      fetchMock.mockResolvedValueOnce(
-        mockResponse({ body: { anagrafica: { piva: "12345678901" } } }),
-      );
-
-      const session = await client.login(mockCredentials);
-
-      // Login must succeed despite the intermediate redirect
-      expect(session.pAuth).toBe("chain_auth_token");
-
-      // Phase 2 follow-up now takes 2 fetch calls (hop1 + hop2)
-      // Total: 1(P1) + 1(P2 POST) + 2(P2 chain) + 1(P3) + 1(P3b) + 1(P4) + 1(P5) + 1(P6) = 9
-      expect(fetchMock).toHaveBeenCalledTimes(9);
-
-      // Each hop in the chain must use redirect:'manual'
-      expect(fetchMock.mock.calls[2][1].redirect).toBe("manual"); // hop 1
-      expect(fetchMock.mock.calls[3][1].redirect).toBe("manual"); // hop 2
-    });
-
-    it("throws AdeAuthError when Location header indicates failure", async () => {
-      // Phase 1
-      fetchMock.mockResolvedValueOnce(mockResponse({}));
-
-      // Phase 2: redirect to login page = failure
-      fetchMock.mockResolvedValueOnce(
-        mockResponse({
-          status: 302,
-          location: "/portale/home?p_p_id=58&error=true",
-        }),
-      );
+    it("Phase A: lancia AdeAuthError se la risposta non è 200", async () => {
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 401 }));
 
       await expect(client.login(mockCredentials)).rejects.toThrow(AdeAuthError);
     });
 
-    it("calls Phase 3 GET /portale/web/guest/home and extracts Liferay.authToken", async () => {
-      mockLoginSequence(fetchMock);
-
-      const session = await client.login(mockCredentials);
-
-      // Phase 3 is call index 3
-      const phase3Call = fetchMock.mock.calls[3];
-      // HAR fix: /dp/api returns empty body — token is in home page HTML
-      expect(phase3Call[0]).toContain("/portale/web/guest/home");
-      expect(phase3Call[0]).not.toContain("/dp/api");
-
-      expect(session.pAuth).toBe("test_p_auth_42");
-    });
-
-    it("calls Phase 3b GET /dp/api to initialize DataPower session", async () => {
+    it("Phase B: GET portale.agenziaentrate.gov.it/PortaleWeb/home?to=FATBTB", async () => {
       mockLoginSequence(fetchMock);
 
       await client.login(mockCredentials);
 
-      // Phase 3b is call index 4
-      // HAR fix (login_ade_fisconline.har entry 45): without this call ALL
-      // /ser/api/* endpoints return 401. The response body is empty — the
-      // call matters only for its side-effect (establishes DataPower session).
-      const phase3bCall = fetchMock.mock.calls[4];
-      expect(phase3bCall[0]).toContain("/dp/api");
+      const callB = fetchMock.mock.calls[1];
+      expect(callB[0]).toContain(
+        "portale.agenziaentrate.gov.it/PortaleWeb/home",
+      );
+      expect(callB[0]).toContain("to=FATBTB");
     });
 
-    it("throws AdePortalError when p_auth not found in bootstrap HTML", async () => {
-      // Phase 1
+    it("Phase C: GET instradamento home con redirect chain", async () => {
+      mockLoginSequence(fetchMock);
+
+      await client.login(mockCredentials);
+
+      const callC = fetchMock.mock.calls[2];
+      expect(callC[0]).toContain(
+        "ivaservizi.agenziaentrate.gov.it/instr/InstradamentofcWeb/home",
+      );
+    });
+
+    it("Phase C: segue redirect chain hop-by-hop catturando i cookie", async () => {
+      // Phase A
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 200 }));
+      // Phase B
+      fetchMock.mockResolvedValueOnce(mockResponse({}));
+      // Phase C hop 1: redirect intermedio (es. SSO iampe)
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 302,
+          location:
+            "https://ivaservizi.agenziaentrate.gov.it/instr/InstradamentofcWeb/home",
+          headers: [["Set-Cookie", "SESSION_MARKER=important; Path=/"]],
+        }),
+      );
+      // Phase C hop 2: risposta finale 200
+      fetchMock.mockResolvedValueOnce(mockResponse({}));
+      // Phase D
+      fetchMock.mockResolvedValueOnce(mockResponse({}));
+      // Phase E
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ headers: [["x-appl", "chain_x_appl"]] }),
+      );
+      // Phase F
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: { PIva: [{ piva: "12345678901" }] } }),
+      );
+      // Phase G
       fetchMock.mockResolvedValueOnce(mockResponse({}));
 
-      // Phase 2: success redirect
-      fetchMock.mockResolvedValueOnce(
-        mockResponse({ status: 302, location: "/portale/c/portal/layout" }),
-      );
+      const session = await client.login(mockCredentials);
 
-      // Phase 2 follow-up
+      expect(session.partitaIva).toBe("12345678901");
+      // 1(A) + 1(B) + 2(C redirect chain) + 1(D) + 1(E) + 1(F) + 1(G) = 8
+      expect(fetchMock).toHaveBeenCalledTimes(8);
+      // hop 2 usa redirect:'manual'
+      expect(fetchMock.mock.calls[3][1].redirect).toBe("manual");
+    });
+
+    it("Phase D: GET ivaservizi/dp/PI2FC per DataPower session bridge", async () => {
+      mockLoginSequence(fetchMock);
+
+      await client.login(mockCredentials);
+
+      const callD = fetchMock.mock.calls[3];
+      expect(callD[0]).toContain("ivaservizi.agenziaentrate.gov.it/dp/PI2FC");
+    });
+
+    it("Phase E: GET initLight ed estrae x-appl dall'header di risposta", async () => {
+      mockLoginSequence(fetchMock);
+
+      await client.login(mockCredentials);
+
+      const callE = fetchMock.mock.calls[4];
+      expect(callE[0]).toContain("initLight");
+    });
+
+    it("Phase E: lancia AdePortalError se l'header x-appl è assente", async () => {
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 200 })); // A
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // B
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // C
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // D
+      // E: initLight senza header x-appl
       fetchMock.mockResolvedValueOnce(mockResponse({}));
-
-      // Phase 3: HTML without p_auth
-      fetchMock.mockResolvedValueOnce(
-        mockResponse({ body: "<html>No token here</html>" }),
-      );
 
       await expect(client.login(mockCredentials)).rejects.toThrow(
         AdePortalError,
       );
     });
 
-    it("calls Phase 4 POST to DatiOpzioni portlet (required to activate session)", async () => {
-      mockLoginSequence(fetchMock);
-
-      await client.login(mockCredentials);
-
-      // Phase 4 is call index 5 (Phase 3b DataPower ping is at index 4)
-      const phase4Call = fetchMock.mock.calls[5];
-      // HAR fix: DatiOpzioni portlet replaces selectEntity (not in HAR flow)
-      expect(phase4Call[0]).toContain("DatiOpzioni_WAR_DatiOpzioniportlet");
-      expect(phase4Call[1].method).toBe("POST");
-
-      const body = phase4Call[1].body as string;
-      expect(body).toContain(
-        "_DatiOpzioni_WAR_DatiOpzioniportlet_reload=false",
-      );
-    });
-
-    it("calls Phase 5 GET ready probe", async () => {
-      mockLoginSequence(fetchMock);
-
-      await client.login(mockCredentials);
-
-      // Phase 5 is call index 6 (Phase 3b DataPower ping is at index 4)
-      const phase5Call = fetchMock.mock.calls[6];
-      expect(phase5Call[0]).toContain(
-        "/ser/api/fatture/v1/ul/me/adesione/stato/",
-      );
-    });
-
-    it("calls Phase 6 GET gestori/me and returns real P.IVA", async () => {
+    it("Phase F: GET wizardTemplate con x-appl header e restituisce P.IVA", async () => {
       mockLoginSequence(fetchMock);
 
       const session = await client.login(mockCredentials);
 
-      // Phase 6 is call index 7 (Phase 3b DataPower ping is at index 4)
-      const phase6Call = fetchMock.mock.calls[7];
-      // HAR fix: P.IVA from gestori/me, not derived from CF (slice+padEnd was wrong)
-      expect(phase6Call[0]).toContain("/ser/api/portale/v1/gestori/me/");
+      const callF = fetchMock.mock.calls[5];
+      expect(callF[0]).toContain("wizardTemplate");
+      const headers = callF[1].headers as Headers;
+      expect(headers.get("x-appl")).toBe("test_x_appl_token");
       expect(session.partitaIva).toBe("12345678901");
     });
 
-    it("throws AdePortalError when ready probe returns non-200", async () => {
-      fetchMock.mockResolvedValueOnce(mockResponse({})); // Phase 1
+    it("Phase F: lancia AdePortalError se la lista PIva è vuota", async () => {
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 200 })); // A
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // B
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // C
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // D
       fetchMock.mockResolvedValueOnce(
-        mockResponse({ status: 302, location: "/portale/c/portal/layout" }),
-      ); // Phase 2
-      fetchMock.mockResolvedValueOnce(mockResponse({})); // Phase 2 follow-up
-      fetchMock.mockResolvedValueOnce(
-        mockResponse({
-          body: '<script>Liferay.authToken = "tok";</script>',
-        }),
-      ); // Phase 3
-      fetchMock.mockResolvedValueOnce(mockResponse({})); // Phase 3b DataPower ping
-      fetchMock.mockResolvedValueOnce(mockResponse({})); // Phase 4 DatiOpzioni
+        mockResponse({ headers: [["x-appl", "tok"]] }),
+      ); // E
+      // F: lista PIva vuota
+      fetchMock.mockResolvedValueOnce(mockResponse({ body: { PIva: [] } }));
 
-      // Phase 5 verifySession: non-200 → should throw
-      fetchMock.mockResolvedValueOnce(mockResponse({ status: 503 }));
+      await expect(client.login(mockCredentials)).rejects.toThrow(
+        AdePortalError,
+      );
+    });
+
+    it("Phase G: POST setUserChoice con x-appl header e body corretto", async () => {
+      mockLoginSequence(fetchMock);
+
+      await client.login(mockCredentials);
+
+      const callG = fetchMock.mock.calls[6];
+      expect(callG[0]).toContain("setUserChoice");
+      expect(callG[1].method).toBe("POST");
+
+      const body = JSON.parse(callG[1].body as string) as Record<
+        string,
+        string
+      >;
+      expect(body.cf).toBe("RSSMRA80A01H501A");
+      expect(body.pIva).toBe("12345678901");
+      expect(body.tipoutenza).toBe("meStesso");
+
+      const headers = callG[1].headers as Headers;
+      expect(headers.get("x-appl")).toBe("test_x_appl_token");
+    });
+
+    it("Phase G: lancia AdePortalError se setUserChoice restituisce non-200", async () => {
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 200 })); // A
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // B
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // C
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // D
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ headers: [["x-appl", "tok"]] }),
+      ); // E
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: { PIva: [{ piva: "12345678901" }] } }),
+      ); // F
+      // G: setUserChoice → 500
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 500 }));
 
       await expect(client.login(mockCredentials)).rejects.toThrow(
         AdePortalError,
@@ -625,55 +561,6 @@ describe("RealAdeClient", () => {
       await expect(client.login(mockCredentials)).rejects.toThrow(
         AdeNetworkError,
       );
-    });
-
-    it("falls back to dati/fiscali when gestori/me returns 404", async () => {
-      // Phases 1-5 same as normal
-      fetchMock.mockResolvedValueOnce(
-        mockResponse({
-          headers: [["Set-Cookie", "JSESSIONID=abc123; Path=/; HttpOnly"]],
-        }),
-      ); // Phase 1
-      fetchMock.mockResolvedValueOnce(
-        mockResponse({ status: 302, location: "/portale/c/portal/layout" }),
-      ); // Phase 2
-      fetchMock.mockResolvedValueOnce(mockResponse({})); // Phase 2 follow-up
-      fetchMock.mockResolvedValueOnce(
-        mockResponse({
-          body: '<html><script>Liferay.authToken = "tok_fallback";</script></html>',
-        }),
-      ); // Phase 3
-      fetchMock.mockResolvedValueOnce(mockResponse({})); // Phase 3b DataPower
-      fetchMock.mockResolvedValueOnce(mockResponse({})); // Phase 4 DatiOpzioni
-      fetchMock.mockResolvedValueOnce(mockResponse({})); // Phase 5 verifySession
-
-      // Phase 6: gestori/me → 404
-      fetchMock.mockResolvedValueOnce(mockResponse({ status: 404 }));
-
-      // Fallback: dati/fiscali → P.IVA
-      fetchMock.mockResolvedValueOnce(
-        mockResponse({
-          body: {
-            identificativiFiscali: {
-              partitaIva: "98765432100",
-              codiceFiscale: "RSSMRA80A01H501A",
-              codicePaese: "IT",
-            },
-          },
-        }),
-      );
-
-      const session = await client.login(mockCredentials);
-
-      // P.IVA from dati/fiscali fallback
-      expect(session.partitaIva).toBe("98765432100");
-      expect(session.pAuth).toBe("tok_fallback");
-      // 8 normal calls + 1 fallback = 9 total
-      expect(fetchMock).toHaveBeenCalledTimes(9);
-
-      // Verify fallback URL
-      const fallbackCall = fetchMock.mock.calls[8];
-      expect(fallbackCall[0]).toContain("dati/fiscali");
     });
   });
 
@@ -986,8 +873,8 @@ describe("RealAdeClient", () => {
 
       await client.submitSale(makeSalePayload());
 
-      // Login uses 8 calls (Phases 1-6 + Phase 3b DataPower), so submit is call index 8
-      const submitCall = fetchMock.mock.calls[8];
+      // Login usa 7 chiamate (Phases A-G), quindi submit è all'indice 7
+      const submitCall = fetchMock.mock.calls[7];
       expect(submitCall[0]).toContain("/ser/api/documenti/v1/doc/documenti/");
       expect(submitCall[1].method).toBe("POST");
 
@@ -1012,15 +899,15 @@ describe("RealAdeClient", () => {
       expect(result.progressivo).toBe("DCW2026/5111-2188");
     });
 
-    it("retries with full re-auth on 401, then succeeds", async () => {
+    it("retries with re-auth on 401 (skip wizardTemplate, usa P.IVA nota)", async () => {
       mockLoginSequence(fetchMock);
       await client.login(mockCredentials);
 
       // First attempt: 401
       fetchMock.mockResolvedValueOnce(mockResponse({ status: 401 }));
 
-      // Re-auth sequence (6 calls)
-      mockLoginSequence(fetchMock);
+      // Re-auth: 6 chiamate (Phase F wizardTemplate skippata — pIva già nota)
+      mockReAuthSequence(fetchMock);
 
       // Retry: success
       fetchMock.mockResolvedValueOnce(mockResponse({ body: successResponse }));
@@ -1036,8 +923,8 @@ describe("RealAdeClient", () => {
       // First attempt: 401
       fetchMock.mockResolvedValueOnce(mockResponse({ status: 401 }));
 
-      // Re-auth sequence (6 calls)
-      mockLoginSequence(fetchMock);
+      // Re-auth: 6 chiamate
+      mockReAuthSequence(fetchMock);
 
       // Retry: still 401
       fetchMock.mockResolvedValueOnce(mockResponse({ status: 401 }));
@@ -1189,7 +1076,7 @@ describe("RealAdeClient", () => {
       const result = await client.getDocument("151085589");
 
       // URL corretto: /documenti/{idtrx}/
-      const call = fetchMock.mock.calls[8];
+      const call = fetchMock.mock.calls[7];
       expect(call[0]).toContain(
         "/ser/api/documenti/v1/doc/documenti/151085589/",
       );
@@ -1249,7 +1136,7 @@ describe("RealAdeClient", () => {
       });
 
       // HAR fix (annullo.har [03]): URL con query string corretta
-      const call = fetchMock.mock.calls[8];
+      const call = fetchMock.mock.calls[7];
       expect(call[0]).toContain("/ser/api/documenti/v1/doc/documenti/");
       expect(call[0]).toContain("dataDal=");
       expect(call[0]).toContain("02%2F15%2F2026");
@@ -1273,7 +1160,7 @@ describe("RealAdeClient", () => {
       });
 
       // HAR fix (annullo.har [04]): ricerca per progressivo
-      const call = fetchMock.mock.calls[8];
+      const call = fetchMock.mock.calls[7];
       expect(call[0]).toContain("numeroProgressivo=");
       expect(call[0]).toContain("tipoOperazione=V");
     });
@@ -1297,29 +1184,37 @@ describe("RealAdeClient", () => {
   // -----------------------------------------------------------------------
 
   describe("logout", () => {
-    it("calls all logout URLs (best-effort)", async () => {
+    it("chiama i due endpoint iampe (best-effort)", async () => {
       mockLoginSequence(fetchMock);
       await client.login(mockCredentials);
 
-      // 5 logout URLs: 4 service logouts + 1 portal logout
-      for (let i = 0; i < 5; i++) {
-        fetchMock.mockResolvedValueOnce(mockResponse({}));
-      }
+      // 2 logout calls: GET /sam/UI/Logout + POST /api/logout
+      fetchMock.mockResolvedValueOnce(mockResponse({}));
+      fetchMock.mockResolvedValueOnce(mockResponse({}));
 
       await client.logout();
 
-      // 8 login calls (Phases 1-6 + Phase 3b DataPower) + 5 logout calls = 13 total
-      expect(fetchMock).toHaveBeenCalledTimes(13);
+      // 7 login (Phases A-G) + 2 logout = 9 total
+      expect(fetchMock).toHaveBeenCalledTimes(9);
+
+      const logoutCall1 = fetchMock.mock.calls[7];
+      expect(logoutCall1[0]).toContain(
+        "iampe.agenziaentrate.gov.it/sam/UI/Logout",
+      );
+
+      const logoutCall2 = fetchMock.mock.calls[8];
+      expect(logoutCall2[0]).toContain(
+        "iampe.agenziaentrate.gov.it/api/logout",
+      );
+      expect(logoutCall2[1].method).toBe("POST");
     });
 
     it("does not throw if logout URLs fail", async () => {
       mockLoginSequence(fetchMock);
       await client.login(mockCredentials);
 
-      // All logout URLs fail
-      for (let i = 0; i < 5; i++) {
-        fetchMock.mockRejectedValueOnce(new Error("Network error"));
-      }
+      fetchMock.mockRejectedValueOnce(new Error("Network error"));
+      fetchMock.mockRejectedValueOnce(new Error("Network error"));
 
       await expect(client.logout()).resolves.toBeUndefined();
     });
@@ -1328,9 +1223,8 @@ describe("RealAdeClient", () => {
       mockLoginSequence(fetchMock);
       await client.login(mockCredentials);
 
-      for (let i = 0; i < 5; i++) {
-        fetchMock.mockResolvedValueOnce(mockResponse({}));
-      }
+      fetchMock.mockResolvedValueOnce(mockResponse({}));
+      fetchMock.mockResolvedValueOnce(mockResponse({}));
 
       await client.logout();
 
