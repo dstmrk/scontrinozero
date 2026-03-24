@@ -75,26 +75,14 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
       SUPABASE_SECRET_KEY: ${{ secrets.TEST_SUPABASE_SECRET_KEY }}
-      DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:5432/postgres"
+      DATABASE_URL: "postgresql://smoke:smoke@localhost:5432/smoke"
       ENCRYPTION_KEY: ${{ secrets.TEST_ENCRYPTION_KEY }}
       ENCRYPTION_KEY_VERSION: "1"
+      SKIP_MIGRATIONS: "true"
       ADE_MODE: "mock"
       NEXT_PUBLIC_APP_URL: "http://localhost:3000"
       TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA"
@@ -112,13 +100,14 @@ jobs:
         run: |
           docker run -d \
             --name scontrinozero-smoke \
-            --network host \
+            -p 3000:3000 \
             -e NEXT_PUBLIC_SUPABASE_URL \
             -e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY \
             -e SUPABASE_SECRET_KEY \
             -e DATABASE_URL \
             -e ENCRYPTION_KEY \
             -e ENCRYPTION_KEY_VERSION \
+            -e SKIP_MIGRATIONS \
             -e ADE_MODE \
             -e NEXT_PUBLIC_APP_URL \
             -e TURNSTILE_SECRET_KEY \
