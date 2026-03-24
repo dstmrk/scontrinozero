@@ -55,7 +55,7 @@ export default async function SettingsPage() {
   const displayName =
     profile?.firstName && profile?.lastName
       ? `${profile.firstName} ${profile.lastName}`
-      : profile?.fullName || null;
+      : null;
 
   const preferredVatLabel =
     business?.preferredVatCode &&
