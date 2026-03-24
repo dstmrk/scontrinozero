@@ -68,9 +68,7 @@ export async function checkMigrations(migrationsDir) {
 }
 
 // Run when executed directly (not when imported in tests)
-const isMain =
-  process.argv[1] != null &&
-  process.argv[1].endsWith("check-migrations.mjs");
+const isMain = process.argv[1]?.endsWith("check-migrations.mjs") === true;
 if (isMain) {
   const migrationsDir = join(process.cwd(), "supabase", "migrations");
   checkMigrations(migrationsDir).then((result) => {

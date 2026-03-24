@@ -1,17 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-
-// @ts-expect-error — .mjs import from .ts test; types not needed
 import { checkMigrations } from "../../../scripts/check-migrations.mjs";
 
-vi.mock("fs/promises", () => ({
-  readdir: vi.fn(),
-  readFile: vi.fn(),
-}));
+const mockReaddir = vi.fn();
+const mockReadFile = vi.fn();
 
-import * as fs from "fs/promises";
-
-const mockReaddir = vi.mocked(fs.readdir);
-const mockReadFile = vi.mocked(fs.readFile);
+vi.mock("fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("fs/promises")>();
+  return {
+    ...actual,
+    readdir: mockReaddir,
+    readFile: mockReadFile,
+  };
+});
 
 function makeDirents(names: string[]) {
   return names.map((name) => ({
@@ -24,7 +24,13 @@ function makeJournal(tags: string[]) {
   return JSON.stringify({
     version: "7",
     dialect: "postgresql",
-    entries: tags.map((tag, idx) => ({ idx, version: "7", when: 0, tag, breakpoints: true })),
+    entries: tags.map((tag, idx) => ({
+      idx,
+      version: "7",
+      when: 0,
+      tag,
+      breakpoints: true,
+    })),
   });
 }
 
@@ -34,8 +40,10 @@ beforeEach(() => {
 
 describe("checkMigrations", () => {
   it("returns ok when all SQL files match journal entries", async () => {
-    mockReaddir.mockResolvedValue(makeDirents(["0000_initial.sql", "0001_rls.sql"]) as never);
-    mockReadFile.mockResolvedValue(makeJournal(["0000_initial", "0001_rls"]) as never);
+    mockReaddir.mockResolvedValue(
+      makeDirents(["0000_initial.sql", "0001_rls.sql"]),
+    );
+    mockReadFile.mockResolvedValue(makeJournal(["0000_initial", "0001_rls"]));
 
     const result = await checkMigrations("/fake/migrations");
 
@@ -45,9 +53,9 @@ describe("checkMigrations", () => {
 
   it("returns error when SQL file is missing from journal", async () => {
     mockReaddir.mockResolvedValue(
-      makeDirents(["0000_initial.sql", "0002_new_feature.sql"]) as never,
+      makeDirents(["0000_initial.sql", "0002_new_feature.sql"]),
     );
-    mockReadFile.mockResolvedValue(makeJournal(["0000_initial"]) as never);
+    mockReadFile.mockResolvedValue(makeJournal(["0000_initial"]));
 
     const result = await checkMigrations("/fake/migrations");
 
@@ -58,8 +66,10 @@ describe("checkMigrations", () => {
   });
 
   it("returns error when journal entry has no SQL file", async () => {
-    mockReaddir.mockResolvedValue(makeDirents(["0000_initial.sql"]) as never);
-    mockReadFile.mockResolvedValue(makeJournal(["0000_initial", "0001_ghost"]) as never);
+    mockReaddir.mockResolvedValue(makeDirents(["0000_initial.sql"]));
+    mockReadFile.mockResolvedValue(
+      makeJournal(["0000_initial", "0001_ghost"]),
+    );
 
     const result = await checkMigrations("/fake/migrations");
 
@@ -71,9 +81,11 @@ describe("checkMigrations", () => {
 
   it("returns multiple errors when several files and entries are mismatched", async () => {
     mockReaddir.mockResolvedValue(
-      makeDirents(["0000_initial.sql", "0002_extra.sql"]) as never,
+      makeDirents(["0000_initial.sql", "0002_extra.sql"]),
     );
-    mockReadFile.mockResolvedValue(makeJournal(["0000_initial", "0001_ghost"]) as never);
+    mockReadFile.mockResolvedValue(
+      makeJournal(["0000_initial", "0001_ghost"]),
+    );
 
     const result = await checkMigrations("/fake/migrations");
 
@@ -82,8 +94,8 @@ describe("checkMigrations", () => {
   });
 
   it("returns ok with empty directory and empty journal", async () => {
-    mockReaddir.mockResolvedValue([] as never);
-    mockReadFile.mockResolvedValue(makeJournal([]) as never);
+    mockReaddir.mockResolvedValue([]);
+    mockReadFile.mockResolvedValue(makeJournal([]));
 
     const result = await checkMigrations("/fake/migrations");
 
@@ -93,7 +105,6 @@ describe("checkMigrations", () => {
 
   it("returns error when migrations directory cannot be read", async () => {
     mockReaddir.mockRejectedValue(new Error("ENOENT"));
-    mockReadFile.mockResolvedValue(makeJournal([]) as never);
 
     const result = await checkMigrations("/nonexistent");
 
@@ -102,7 +113,7 @@ describe("checkMigrations", () => {
   });
 
   it("returns error when journal file cannot be parsed", async () => {
-    mockReaddir.mockResolvedValue(makeDirents(["0000_initial.sql"]) as never);
+    mockReaddir.mockResolvedValue(makeDirents(["0000_initial.sql"]));
     mockReadFile.mockRejectedValue(new Error("ENOENT"));
 
     const result = await checkMigrations("/fake/migrations");
@@ -112,14 +123,12 @@ describe("checkMigrations", () => {
   });
 
   it("ignores non-SQL files and subdirectories", async () => {
-    mockReaddir.mockResolvedValue(
-      [
-        { name: "0000_initial.sql", isFile: () => true },
-        { name: "meta", isFile: () => false },
-        { name: "README.md", isFile: () => true },
-      ] as never,
-    );
-    mockReadFile.mockResolvedValue(makeJournal(["0000_initial"]) as never);
+    mockReaddir.mockResolvedValue([
+      { name: "0000_initial.sql", isFile: () => true },
+      { name: "meta", isFile: () => false },
+      { name: "README.md", isFile: () => true },
+    ]);
+    mockReadFile.mockResolvedValue(makeJournal(["0000_initial"]));
 
     const result = await checkMigrations("/fake/migrations");
 
