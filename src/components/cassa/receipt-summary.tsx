@@ -95,13 +95,16 @@ export function ReceiptSummary({
             autoComplete="off"
             autoCapitalize="characters"
             value={lotteryCode}
+            disabled={total < 1}
             onChange={(e) => {
               onLotteryCodeChange?.(e.target.value.toUpperCase());
             }}
             className="rounded-xl font-mono uppercase"
           />
           <p className="text-muted-foreground mt-1 text-xs">
-            Per la Lotteria degli Scontrini — solo pagamenti con carta
+            {total < 1
+              ? "Non disponibile per importi inferiori a €1,00"
+              : "Per la Lotteria degli Scontrini — solo pagamenti con carta"}
           </p>
         </div>
       )}

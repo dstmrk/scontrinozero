@@ -358,5 +358,87 @@ describe("ReceiptSummary", () => {
       ) as HTMLInputElement;
       expect(input.value).toBe("YYWLR30G");
     });
+
+    it("disabilita il campo quando total < 1 con pagamento PE", () => {
+      render(
+        <ReceiptSummary
+          lines={lines}
+          total={0.5}
+          paymentMethod="PE"
+          onPaymentMethodChange={vi.fn()}
+          onRemoveLine={vi.fn()}
+          onSubmit={vi.fn()}
+          onBack={vi.fn()}
+          lotteryCode=""
+          onLotteryCodeChange={vi.fn()}
+        />,
+      );
+
+      const input = screen.getByPlaceholderText(
+        /codice lotteria/i,
+      ) as HTMLInputElement;
+      expect(input).toBeDisabled();
+    });
+
+    it("abilita il campo quando total >= 1 con pagamento PE", () => {
+      render(
+        <ReceiptSummary
+          lines={lines}
+          total={1}
+          paymentMethod="PE"
+          onPaymentMethodChange={vi.fn()}
+          onRemoveLine={vi.fn()}
+          onSubmit={vi.fn()}
+          onBack={vi.fn()}
+          lotteryCode=""
+          onLotteryCodeChange={vi.fn()}
+        />,
+      );
+
+      const input = screen.getByPlaceholderText(
+        /codice lotteria/i,
+      ) as HTMLInputElement;
+      expect(input).not.toBeDisabled();
+    });
+
+    it("mostra testo helper disabilitato quando total < 1", () => {
+      render(
+        <ReceiptSummary
+          lines={lines}
+          total={0.5}
+          paymentMethod="PE"
+          onPaymentMethodChange={vi.fn()}
+          onRemoveLine={vi.fn()}
+          onSubmit={vi.fn()}
+          onBack={vi.fn()}
+          lotteryCode=""
+          onLotteryCodeChange={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.getByText(/non disponibile per importi inferiori a €1,00/i),
+      ).toBeInTheDocument();
+    });
+
+    it("mostra testo helper normale quando total >= 1", () => {
+      render(
+        <ReceiptSummary
+          lines={lines}
+          total={TOTAL}
+          paymentMethod="PE"
+          onPaymentMethodChange={vi.fn()}
+          onRemoveLine={vi.fn()}
+          onSubmit={vi.fn()}
+          onBack={vi.fn()}
+          lotteryCode=""
+          onLotteryCodeChange={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.getByText(/per la lotteria degli scontrini/i),
+      ).toBeInTheDocument();
+    });
   });
 });

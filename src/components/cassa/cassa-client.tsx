@@ -156,6 +156,13 @@ export function CassaClient({
     setStep("cart");
   };
 
+  // Auto-svuota il codice lotteria se il totale scende sotto €1
+  useEffect(() => {
+    if (total < 1 && lotteryCode) {
+      setLotteryCode("");
+    }
+  }, [total, lotteryCode]);
+
   const handlePaymentMethodChange = (method: typeof paymentMethod) => {
     setPaymentMethod(method);
     if (method !== "PE") setLotteryCode("");
