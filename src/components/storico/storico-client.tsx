@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
@@ -225,6 +226,7 @@ export function StoricoClient({
           </Select>
         </div>
         <Button type="submit" disabled={isPending}>
+          {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {isPending ? "Ricerca…" : "Cerca"}
         </Button>
       </form>
