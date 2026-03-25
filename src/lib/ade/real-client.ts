@@ -28,6 +28,7 @@ import {
   AdeSessionExpiredError,
   AdeSpidTimeoutError,
 } from "./errors";
+import { logger } from "@/lib/logger";
 
 /** Opzioni costruttore per RealAdeClient */
 export interface RealAdeClientOptions {
@@ -192,7 +193,26 @@ export class RealAdeClient implements AdeClient {
    *   GET portale.agenziaentrate.gov.it/PortaleWeb/home?to=FATBTB
    */
   private async initPortalHome(): Promise<void> {
-    await this.request(`${ADE_PORTALE_BASE_URL}/PortaleWeb/home?to=FATBTB`);
+    await this.followRedirectChain(
+      `${ADE_PORTALE_BASE_URL}/PortaleWeb/home?to=FATBTB`,
+    );
+  }
+
+  /**
+   * Phase B2: Chiama initPortale — endpoint JS-initiated dopo il caricamento della home portale.
+   *
+   * HAR finding (login_credenziali_fisconline.har entry 10):
+   *   GET portale.agenziaentrate.gov.it/portale-rest/rs/initPortale?v={ts}&to=FATBTB
+   *   Response: 501 con header x-red che punta a InstradamentofcWeb/home
+   * Nonostante il 501, la risposta setta cookie di sessione portale necessari per Phase C.
+   */
+  private async initPortale(): Promise<void> {
+    const url = `${ADE_PORTALE_BASE_URL}/portale-rest/rs/initPortale?v=${Date.now()}&to=FATBTB`;
+    const response = await this.request(url);
+    logger.debug(
+      { phase: "B2", status: response.status, cookies: this.cookieJar.size },
+      "ade:auth",
+    );
   }
 
   /**
@@ -231,6 +251,16 @@ export class RealAdeClient implements AdeClient {
 
     const xAppl = response.headers.get("x-appl");
     if (!xAppl) {
+      const body = await response.text().catch(() => "(unreadable)");
+      logger.warn(
+        {
+          phase: "E",
+          status: response.status,
+          headers: Object.fromEntries(response.headers.entries()),
+          body,
+        },
+        "ade:initLight failed",
+      );
       throw new AdePortalError(
         response.status,
         "Failed to obtain x-appl token from initLight response header",
@@ -468,10 +498,16 @@ export class RealAdeClient implements AdeClient {
     knownPartitaIva?: string,
   ): Promise<AdeSession> {
     await this.iampeLogin(credentials); // A: login IAM
+    logger.debug({ phase: "A", cookies: this.cookieJar.size }, "ade:auth");
     await this.initPortalHome(); // B: SSO bridge portale
+    logger.debug({ phase: "B", cookies: this.cookieJar.size }, "ade:auth");
+    await this.initPortale(); // B2: JS-initiated initPortale (setta cookie portale)
     await this.initInstradamento(); // C: instradamento home
+    logger.debug({ phase: "C", cookies: this.cookieJar.size }, "ade:auth");
     const xAppl = await this.fetchXAppl(); // E: token x-appl
+    logger.debug({ phase: "E", cookies: this.cookieJar.size }, "ade:auth");
     await this.initDataPowerBridge(); // D: DataPower session
+    logger.debug({ phase: "D", cookies: this.cookieJar.size }, "ade:auth");
 
     // F: scopri P.IVA se non già nota (skip durante re-auth su 401)
     const partitaIva = knownPartitaIva ?? (await this.fetchWizardPiva(xAppl));
