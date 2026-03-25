@@ -6,14 +6,10 @@ const { mockReaddir, mockReadFile } = vi.hoisted(() => ({
   mockReadFile: vi.fn(),
 }));
 
-vi.mock("fs/promises", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("fs/promises")>();
-  return {
-    ...actual,
-    readdir: mockReaddir,
-    readFile: mockReadFile,
-  };
-});
+vi.mock("fs/promises", () => ({
+  readdir: mockReaddir,
+  readFile: mockReadFile,
+}));
 
 function makeDirents(names: string[]) {
   return names.map((name) => ({
