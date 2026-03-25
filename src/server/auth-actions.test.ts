@@ -38,8 +38,12 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 const mockValues = vi.fn().mockResolvedValue(undefined);
 const mockInsert = vi.fn().mockReturnValue({ values: mockValues });
+const mockLimit = vi.fn().mockResolvedValue([]);
+const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
+const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
 vi.mock("@/db", () => ({
-  getDb: vi.fn().mockReturnValue({ insert: mockInsert }),
+  getDb: vi.fn().mockReturnValue({ insert: mockInsert, select: mockSelect }),
 }));
 
 vi.mock("@/db/schema", () => ({
@@ -296,6 +300,31 @@ describe("auth-actions", () => {
         }
       }
 
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("returns error when signUp returns existing user whose profile already exists", async () => {
+      // Supabase may return the existing user object (no error) when re-registering
+      // with an already-confirmed email — we must detect and block duplicate profile creation.
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "existing-user-uuid" } },
+        error: null,
+      });
+      mockLimit.mockResolvedValueOnce([{ id: "existing-profile-id" }]);
+
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "valid-token",
+        }),
+      );
+
+      expect(result.error).toContain("esiste già");
       expect(mockInsert).not.toHaveBeenCalled();
     });
 

@@ -4,6 +4,7 @@ import { createElement } from "react";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { profiles } from "@/db/schema";
 import { isValidEmail, isStrongPassword } from "@/lib/validation";
@@ -123,6 +124,23 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   if (data.user) {
     try {
       const db = getDb();
+
+      // Guard against re-registration: Supabase may return the existing user
+      // object (instead of an error) when signUp is called with an already-confirmed
+      // email, which would cause a duplicate profile insert attempt.
+      const [existingProfile] = await db
+        .select({ id: profiles.id })
+        .from(profiles)
+        .where(eq(profiles.authUserId, data.user.id))
+        .limit(1);
+
+      if (existingProfile) {
+        return {
+          error:
+            "Un account con questa email esiste già. Accedi oppure reimposta la password.",
+        };
+      }
+
       await db.insert(profiles).values({
         authUserId: data.user.id,
         email,
