@@ -33,16 +33,17 @@ function mockResponse(opts: {
 }
 
 /**
- * Queue 7 mock responses for the full Fisconline login flow (Phases A-G).
+ * Queue 8 mock responses for the full Fisconline login flow (Phases A-G).
  *
  * HTTP call map (HAR-verified, login_credenziali_fisconline.har):
- *   [0] Phase A: POST iampe/api/login/telematico    — 200 (login IAM)
- *   [1] Phase B: GET portale/PortaleWeb/home         — SSO bridge
- *   [2] Phase C: GET ivaservizi/instr/...home        — instradamento home
- *   [3] Phase E: GET instr/.../initLight             — x-appl in risposta header
- *   [4] Phase D: GET ivaservizi/dp/PI2FC             — DataPower bridge
- *   [5] Phase F: GET instr/.../wizardTemplate        — P.IVA list
- *   [6] Phase G: POST instr/.../setUserChoice        — attiva sessione
+ *   [0] Phase A:  POST iampe/api/login/telematico    — 200 (login IAM)
+ *   [1] Phase B:  GET portale/PortaleWeb/home         — SSO bridge
+ *   [2] Phase B2: GET portale-rest/rs/initPortale     — JS-initiated, setta cookie portale
+ *   [3] Phase C:  GET ivaservizi/instr/...home        — instradamento home
+ *   [4] Phase E:  GET instr/.../initLight             — x-appl in risposta header
+ *   [5] Phase D:  GET ivaservizi/dp/PI2FC             — DataPower bridge
+ *   [6] Phase F:  GET instr/.../wizardTemplate        — P.IVA list
+ *   [7] Phase G:  POST instr/.../setUserChoice        — attiva sessione
  */
 function mockLoginSequence(fetchMock: ReturnType<typeof vi.fn>): void {
   // Phase A: POST iampe/api/login/telematico — 200
@@ -50,6 +51,9 @@ function mockLoginSequence(fetchMock: ReturnType<typeof vi.fn>): void {
 
   // Phase B: GET portale/PortaleWeb/home?to=FATBTB — SSO bridge
   fetchMock.mockResolvedValueOnce(mockResponse({}));
+
+  // Phase B2: GET portale-rest/rs/initPortale — JS-initiated, setta cookie portale
+  fetchMock.mockResolvedValueOnce(mockResponse({ status: 501 }));
 
   // Phase C: GET ivaservizi/instr/InstradamentofcWeb/home — instradamento
   fetchMock.mockResolvedValueOnce(mockResponse({}));
@@ -76,13 +80,14 @@ function mockLoginSequence(fetchMock: ReturnType<typeof vi.fn>): void {
 }
 
 /**
- * Queue 6 mock responses for re-auth on 401 (Phases A-E + G, skip F).
+ * Queue 7 mock responses for re-auth on 401 (Phases A-E + G, skip F).
  *
  * Phase F (wizardTemplate) è skippata perché la P.IVA è già nota.
  */
 function mockReAuthSequence(fetchMock: ReturnType<typeof vi.fn>): void {
   fetchMock.mockResolvedValueOnce(mockResponse({ status: 200 })); // A
   fetchMock.mockResolvedValueOnce(mockResponse({})); // B
+  fetchMock.mockResolvedValueOnce(mockResponse({ status: 501 })); // B2
   fetchMock.mockResolvedValueOnce(mockResponse({})); // C
   fetchMock.mockResolvedValueOnce(
     mockResponse({ headers: [["x-appl", "test_x_appl_token"]] }),
@@ -358,7 +363,7 @@ describe("RealAdeClient", () => {
   // -----------------------------------------------------------------------
 
   describe("login", () => {
-    it("completes 7-phase auth flow (A-G, 7 HTTP calls) and returns AdeSession", async () => {
+    it("completes 8-phase auth flow (A-G incl. B2, 8 HTTP calls) and returns AdeSession", async () => {
       mockLoginSequence(fetchMock);
 
       const session = await client.login(mockCredentials);
@@ -366,7 +371,7 @@ describe("RealAdeClient", () => {
       expect(session.pAuth).toBe(""); // pAuth è obsoleto nel nuovo flusso IAM
       expect(session.partitaIva).toBe("12345678901");
       expect(session.createdAt).toBeGreaterThan(0);
-      expect(fetchMock).toHaveBeenCalledTimes(7);
+      expect(fetchMock).toHaveBeenCalledTimes(8);
     });
 
     it("Phase A: POST JSON con credenziali a iampe.agenziaentrate.gov.it", async () => {
@@ -407,12 +412,24 @@ describe("RealAdeClient", () => {
       expect(callB[0]).toContain("to=FATBTB");
     });
 
+    it("Phase B2: GET portale-rest/rs/initPortale per settare cookie portale", async () => {
+      mockLoginSequence(fetchMock);
+
+      await client.login(mockCredentials);
+
+      const callB2 = fetchMock.mock.calls[2];
+      expect(callB2[0]).toContain(
+        "portale.agenziaentrate.gov.it/portale-rest/rs/initPortale",
+      );
+      expect(callB2[0]).toContain("to=FATBTB");
+    });
+
     it("Phase C: GET instradamento home con redirect chain", async () => {
       mockLoginSequence(fetchMock);
 
       await client.login(mockCredentials);
 
-      const callC = fetchMock.mock.calls[2];
+      const callC = fetchMock.mock.calls[3];
       expect(callC[0]).toContain(
         "ivaservizi.agenziaentrate.gov.it/instr/InstradamentofcWeb/home",
       );
@@ -423,6 +440,8 @@ describe("RealAdeClient", () => {
       fetchMock.mockResolvedValueOnce(mockResponse({ status: 200 }));
       // Phase B
       fetchMock.mockResolvedValueOnce(mockResponse({}));
+      // Phase B2
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 501 }));
       // Phase C hop 1: redirect intermedio (es. SSO iampe)
       fetchMock.mockResolvedValueOnce(
         mockResponse({
@@ -450,10 +469,10 @@ describe("RealAdeClient", () => {
       const session = await client.login(mockCredentials);
 
       expect(session.partitaIva).toBe("12345678901");
-      // 1(A) + 1(B) + 2(C redirect chain) + 1(D) + 1(E) + 1(F) + 1(G) = 8
-      expect(fetchMock).toHaveBeenCalledTimes(8);
+      // 1(A) + 1(B) + 1(B2) + 2(C redirect chain) + 1(E) + 1(D) + 1(F) + 1(G) = 9
+      expect(fetchMock).toHaveBeenCalledTimes(9);
       // hop 2 usa redirect:'manual'
-      expect(fetchMock.mock.calls[3][1].redirect).toBe("manual");
+      expect(fetchMock.mock.calls[4][1].redirect).toBe("manual");
     });
 
     it("Phase E: GET initLight ed estrae x-appl dall'header di risposta", async () => {
@@ -461,7 +480,7 @@ describe("RealAdeClient", () => {
 
       await client.login(mockCredentials);
 
-      const callE = fetchMock.mock.calls[3];
+      const callE = fetchMock.mock.calls[4];
       expect(callE[0]).toContain("initLight");
     });
 
@@ -470,13 +489,14 @@ describe("RealAdeClient", () => {
 
       await client.login(mockCredentials);
 
-      const callD = fetchMock.mock.calls[4];
+      const callD = fetchMock.mock.calls[5];
       expect(callD[0]).toContain("ivaservizi.agenziaentrate.gov.it/dp/PI2FC");
     });
 
     it("Phase E: lancia AdePortalError se l'header x-appl è assente", async () => {
       fetchMock.mockResolvedValueOnce(mockResponse({ status: 200 })); // A
       fetchMock.mockResolvedValueOnce(mockResponse({})); // B
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 501 })); // B2
       fetchMock.mockResolvedValueOnce(mockResponse({})); // C
       // E: initLight senza header x-appl (D non viene mai chiamato)
       fetchMock.mockResolvedValueOnce(mockResponse({}));
@@ -491,7 +511,7 @@ describe("RealAdeClient", () => {
 
       const session = await client.login(mockCredentials);
 
-      const callF = fetchMock.mock.calls[5];
+      const callF = fetchMock.mock.calls[6];
       expect(callF[0]).toContain("wizardTemplate");
       const headers = callF[1].headers as Headers;
       expect(headers.get("x-appl")).toBe("test_x_appl_token");
@@ -501,11 +521,12 @@ describe("RealAdeClient", () => {
     it("Phase F: lancia AdePortalError se la lista PIva è vuota", async () => {
       fetchMock.mockResolvedValueOnce(mockResponse({ status: 200 })); // A
       fetchMock.mockResolvedValueOnce(mockResponse({})); // B
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 501 })); // B2
       fetchMock.mockResolvedValueOnce(mockResponse({})); // C
-      fetchMock.mockResolvedValueOnce(mockResponse({})); // D
       fetchMock.mockResolvedValueOnce(
         mockResponse({ headers: [["x-appl", "tok"]] }),
       ); // E
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // D
       // F: lista PIva vuota
       fetchMock.mockResolvedValueOnce(mockResponse({ body: { PIva: [] } }));
 
@@ -519,7 +540,7 @@ describe("RealAdeClient", () => {
 
       await client.login(mockCredentials);
 
-      const callG = fetchMock.mock.calls[6];
+      const callG = fetchMock.mock.calls[7];
       expect(callG[0]).toContain("setUserChoice");
       expect(callG[1].method).toBe("POST");
 
@@ -538,11 +559,12 @@ describe("RealAdeClient", () => {
     it("Phase G: lancia AdePortalError se setUserChoice restituisce non-200", async () => {
       fetchMock.mockResolvedValueOnce(mockResponse({ status: 200 })); // A
       fetchMock.mockResolvedValueOnce(mockResponse({})); // B
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 501 })); // B2
       fetchMock.mockResolvedValueOnce(mockResponse({})); // C
-      fetchMock.mockResolvedValueOnce(mockResponse({})); // D
       fetchMock.mockResolvedValueOnce(
         mockResponse({ headers: [["x-appl", "tok"]] }),
       ); // E
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // D
       fetchMock.mockResolvedValueOnce(
         mockResponse({ body: { PIva: [{ piva: "12345678901" }] } }),
       ); // F
@@ -872,8 +894,8 @@ describe("RealAdeClient", () => {
 
       await client.submitSale(makeSalePayload());
 
-      // Login usa 7 chiamate (Phases A-G), quindi submit è all'indice 7
-      const submitCall = fetchMock.mock.calls[7];
+      // Login usa 8 chiamate (Phases A-G), quindi submit è all'indice 8
+      const submitCall = fetchMock.mock.calls[8];
       expect(submitCall[0]).toContain("/ser/api/documenti/v1/doc/documenti/");
       expect(submitCall[1].method).toBe("POST");
 
@@ -1075,7 +1097,7 @@ describe("RealAdeClient", () => {
       const result = await client.getDocument("151085589");
 
       // URL corretto: /documenti/{idtrx}/
-      const call = fetchMock.mock.calls[7];
+      const call = fetchMock.mock.calls[8];
       expect(call[0]).toContain(
         "/ser/api/documenti/v1/doc/documenti/151085589/",
       );
@@ -1135,7 +1157,7 @@ describe("RealAdeClient", () => {
       });
 
       // HAR fix (annullo.har [03]): URL con query string corretta
-      const call = fetchMock.mock.calls[7];
+      const call = fetchMock.mock.calls[8];
       expect(call[0]).toContain("/ser/api/documenti/v1/doc/documenti/");
       expect(call[0]).toContain("dataDal=");
       expect(call[0]).toContain("02%2F15%2F2026");
@@ -1159,7 +1181,7 @@ describe("RealAdeClient", () => {
       });
 
       // HAR fix (annullo.har [04]): ricerca per progressivo
-      const call = fetchMock.mock.calls[7];
+      const call = fetchMock.mock.calls[8];
       expect(call[0]).toContain("numeroProgressivo=");
       expect(call[0]).toContain("tipoOperazione=V");
     });
@@ -1193,15 +1215,15 @@ describe("RealAdeClient", () => {
 
       await client.logout();
 
-      // 7 login (Phases A-G) + 2 logout = 9 total
-      expect(fetchMock).toHaveBeenCalledTimes(9);
+      // 8 login (Phases A-G) + 2 logout = 10 total
+      expect(fetchMock).toHaveBeenCalledTimes(10);
 
-      const logoutCall1 = fetchMock.mock.calls[7];
+      const logoutCall1 = fetchMock.mock.calls[8];
       expect(logoutCall1[0]).toContain(
         "iampe.agenziaentrate.gov.it/sam/UI/Logout",
       );
 
-      const logoutCall2 = fetchMock.mock.calls[8];
+      const logoutCall2 = fetchMock.mock.calls[9];
       expect(logoutCall2[0]).toContain(
         "iampe.agenziaentrate.gov.it/api/logout",
       );
