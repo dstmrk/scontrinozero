@@ -15,6 +15,20 @@
       "when": 1772398479212,
       "tag": "0001_rls_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1774259555000,
+      "tag": "0002_add_lottery_code",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1774363153000,
+      "tag": "0003_remove_unused_columns",
+      "breakpoints": true
     }
   ]
 }
