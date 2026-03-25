@@ -51,6 +51,11 @@ export async function searchReceipts(
   }
   if (params.status) {
     conditions.push(eq(commercialDocuments.status, params.status));
+  } else {
+    // "Tutti" means only successfully processed documents — never show failed attempts
+    conditions.push(
+      inArray(commercialDocuments.status, ["ACCEPTED", "VOID_ACCEPTED"]),
+    );
   }
 
   const docs = await db

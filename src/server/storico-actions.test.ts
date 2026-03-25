@@ -142,7 +142,7 @@ describe("storico-actions", () => {
       expect(result[0].status).toBe("ACCEPTED");
     });
 
-    it("returns all statuses when status param is omitted", async () => {
+    it("returns only ACCEPTED and VOID_ACCEPTED when status param is omitted", async () => {
       mockSelect
         .mockReturnValueOnce(makeSelectBuilder([FAKE_SALE_DOC]))
         .mockReturnValueOnce(makeSelectBuilder(FAKE_DOC_LINES));
@@ -151,6 +151,10 @@ describe("storico-actions", () => {
       const result = await searchReceipts("biz-789", {});
 
       expect(result).toHaveLength(1);
+      // Verify no ERROR/REJECTED/PENDING leak through
+      result.forEach((r) => {
+        expect(["ACCEPTED", "VOID_ACCEPTED"]).toContain(r.status);
+      });
     });
 
     it("filters by dateFrom when provided", async () => {
