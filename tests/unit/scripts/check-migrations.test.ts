@@ -7,6 +7,7 @@ const { mockReaddir, mockReadFile } = vi.hoisted(() => ({
 }));
 
 vi.mock("fs/promises", () => ({
+  default: { readdir: mockReaddir, readFile: mockReadFile },
   readdir: mockReaddir,
   readFile: mockReadFile,
 }));
