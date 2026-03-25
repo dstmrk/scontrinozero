@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import pino from "pino";
 
 export type LogContext = {
@@ -31,6 +32,26 @@ const REDACT_PATHS = [
   "*.encryptedPin",
 ];
 
+// pino numeric levels: error=50, fatal=60
+const PINO_ERROR_LEVEL = 50;
+
+function captureToSentry(obj: unknown, msg?: string): void {
+  if (
+    typeof obj === "object" &&
+    obj !== null &&
+    "err" in obj &&
+    (obj as { err: unknown }).err instanceof Error
+  ) {
+    Sentry.captureException((obj as { err: Error }).err, {
+      extra: obj as Record<string, unknown>,
+    });
+  } else if (obj instanceof Error) {
+    Sentry.captureException(obj);
+  } else {
+    Sentry.captureMessage(String(msg ?? obj), "error");
+  }
+}
+
 export const logger = pino({
   level:
     process.env.LOG_LEVEL ??
@@ -44,6 +65,17 @@ export const logger = pino({
     process.env.NODE_ENV === "production"
       ? undefined
       : { target: "pino-pretty", options: { colorize: true } },
+  hooks: {
+    logMethod(inputArgs, method, level) {
+      if (level >= PINO_ERROR_LEVEL) {
+        captureToSentry(
+          inputArgs[0],
+          typeof inputArgs[1] === "string" ? inputArgs[1] : undefined,
+        );
+      }
+      return method.apply(this, inputArgs);
+    },
+  },
 });
 
 /**
