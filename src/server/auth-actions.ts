@@ -112,6 +112,29 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   const rateLimited = checkRateLimit(ip, "signUp");
   if (rateLimited) return rateLimited;
 
+  // Pre-check: block re-registration before hitting Supabase.
+  // Supabase's behaviour for duplicate emails varies by config (anti-enumeration
+  // returns null user; auto-confirm may create a new auth user with a different UUID).
+  // Checking our own table by email is the only reliable guard in all cases.
+  try {
+    const db = getDb();
+    const [existingByEmail] = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.email, email))
+      .limit(1);
+
+    if (existingByEmail) {
+      return {
+        error:
+          "Un account con questa email esiste già. Accedi oppure reimposta la password.",
+      };
+    }
+  } catch (err) {
+    logger.error({ err }, "Pre-registration email check failed");
+    return { error: "Registrazione fallita. Riprova." };
+  }
+
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase.auth.signUp({ email, password });
 
@@ -124,22 +147,6 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   if (data.user) {
     try {
       const db = getDb();
-
-      // Guard against re-registration: Supabase may return the existing user
-      // object (instead of an error) when signUp is called with an already-confirmed
-      // email, which would cause a duplicate profile insert attempt.
-      const [existingProfile] = await db
-        .select({ id: profiles.id })
-        .from(profiles)
-        .where(eq(profiles.authUserId, data.user.id))
-        .limit(1);
-
-      if (existingProfile) {
-        return {
-          error:
-            "Un account con questa email esiste già. Accedi oppure reimposta la password.",
-        };
-      }
 
       await db.insert(profiles).values({
         authUserId: data.user.id,

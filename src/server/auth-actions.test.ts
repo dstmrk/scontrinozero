@@ -303,13 +303,9 @@ describe("auth-actions", () => {
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
-    it("returns error when signUp returns existing user whose profile already exists", async () => {
-      // Supabase may return the existing user object (no error) when re-registering
-      // with an already-confirmed email — we must detect and block duplicate profile creation.
-      mockSignUp.mockResolvedValue({
-        data: { user: { id: "existing-user-uuid" } },
-        error: null,
-      });
+    it("returns error before calling Supabase when email is already registered (pre-check)", async () => {
+      // Pre-check by email catches all duplicate cases regardless of Supabase config
+      // (anti-enumeration or auto-confirm). signUp must NOT be called at all.
       mockLimit.mockResolvedValueOnce([{ id: "existing-profile-id" }]);
 
       const { signUp } = await import("./auth-actions");
@@ -325,7 +321,29 @@ describe("auth-actions", () => {
       );
 
       expect(result.error).toContain("esiste già");
+      expect(mockSignUp).not.toHaveBeenCalled();
       expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("returns error when pre-registration email check throws", async () => {
+      mockLimit.mockRejectedValueOnce(new Error("DB connection error"));
+      const { logger } = await import("@/lib/logger");
+
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "valid-token",
+        }),
+      );
+
+      expect(result).toEqual({ error: "Registrazione fallita. Riprova." });
+      expect(logger.error).toHaveBeenCalled();
+      expect(mockSignUp).not.toHaveBeenCalled();
     });
 
     it("returns error when profile insert fails (terms acceptance is mandatory)", async () => {
