@@ -19,6 +19,31 @@
    - Duplicated lines on new code: **< 3%**
    - If a file has no testable logic (pure config, UI shell), add it to `sonar.coverage.exclusions` in `sonar-project.properties` AND to the `exclude` list in `vitest.config.ts` — never leave it untested without explicitly excluding it.
 
+8. **After solving a non-trivial problem, update CLAUDE.md autonomously.**
+   When a task is complete (bug fixed, feature shipped), reflect on what went wrong
+   or could have gone faster. If there's a reusable lesson — a debugging pattern,
+   a setup gotcha, a wrong assumption — add it to CLAUDE.md before committing.
+   Don't wait for the user to ask.
+
+9. **Debugging production HTTP flow errors (e.g. AdE 4xx): diagnose before fixing.**
+   When a production error suggests a wrong HTTP sequence, add diagnostic logging first
+   (phase labels, cookie counts, response status) and reproduce the error locally to
+   confirm the root cause. Only then write the fix. Never merge a hypothesis-based
+   fix without first seeing the diagnostic evidence.
+
+10. **HAR analysis: verify completeness, not just order.**
+    When comparing code against a HAR capture, explicitly check that **every request**
+    in the HAR is present in the implementation — not just that the order matches.
+    A missing call is harder to spot than a wrong order. Go through the HAR
+    request-by-request and cross-reference each one with the corresponding code path.
+
+11. **Git worktree setup checklist.**
+    When working in a worktree under `.claude/worktrees/<name>/`:
+    - Run `npm install` (no `node_modules` symlink from main repo)
+    - Copy `.env.local` from the main repo root
+    - Delete `.next` in both the worktree AND the main repo (`rm -rf .next`) before
+      starting the dev server to avoid Turbopack serving stale cached chunks
+
 ## Progetto
 
 ScontrinoZero è un registratore di cassa virtuale (SaaS) mobile-first che consente a
