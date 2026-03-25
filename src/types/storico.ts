@@ -40,7 +40,7 @@ export interface SearchReceiptsParams {
   dateTo?: string;
   /**
    * Filtro sullo stato del documento.
-   * Se omesso restituisce tutti gli stati (ACCEPTED + VOID_ACCEPTED + ERROR).
+   * Se omesso restituisce solo ACCEPTED e VOID_ACCEPTED (nessun tentativo fallito).
    */
   status?: "ACCEPTED" | "VOID_ACCEPTED";
 }

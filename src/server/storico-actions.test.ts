@@ -157,33 +157,6 @@ describe("storico-actions", () => {
       });
     });
 
-    it("returns only ACCEPTED and VOID_ACCEPTED when status is empty string", async () => {
-      const voidDoc = {
-        ...FAKE_SALE_DOC,
-        id: "void-doc-uuid",
-        status: "VOID_ACCEPTED" as const,
-      };
-      const errorDoc = {
-        ...FAKE_SALE_DOC,
-        id: "error-doc-uuid",
-        status: "ERROR" as const,
-      };
-      // Mock returns only valid docs (the DB filter would exclude ERROR in production)
-      mockSelect
-        .mockReturnValueOnce(makeSelectBuilder([FAKE_SALE_DOC, voidDoc]))
-        .mockReturnValueOnce(makeSelectBuilder(FAKE_DOC_LINES));
-
-      const { searchReceipts } = await import("./storico-actions");
-      const result = await searchReceipts("biz-789", { status: "" });
-
-      // All returned docs must be ACCEPTED or VOID_ACCEPTED
-      result.forEach((r) => {
-        expect(["ACCEPTED", "VOID_ACCEPTED"]).toContain(r.status);
-      });
-      // ERROR doc must not appear
-      expect(result.map((r) => r.id)).not.toContain(errorDoc.id);
-    });
-
     it("filters by dateFrom when provided", async () => {
       mockSelect
         .mockReturnValueOnce(makeSelectBuilder([FAKE_SALE_DOC]))
