@@ -39,8 +39,8 @@ function mockResponse(opts: {
  *   [0] Phase A: POST iampe/api/login/telematico    — 200 (login IAM)
  *   [1] Phase B: GET portale/PortaleWeb/home         — SSO bridge
  *   [2] Phase C: GET ivaservizi/instr/...home        — instradamento home
- *   [3] Phase D: GET ivaservizi/dp/PI2FC             — DataPower bridge
- *   [4] Phase E: GET instr/.../initLight             — x-appl in risposta header
+ *   [3] Phase E: GET instr/.../initLight             — x-appl in risposta header
+ *   [4] Phase D: GET ivaservizi/dp/PI2FC             — DataPower bridge
  *   [5] Phase F: GET instr/.../wizardTemplate        — P.IVA list
  *   [6] Phase G: POST instr/.../setUserChoice        — attiva sessione
  */
@@ -54,15 +54,15 @@ function mockLoginSequence(fetchMock: ReturnType<typeof vi.fn>): void {
   // Phase C: GET ivaservizi/instr/InstradamentofcWeb/home — instradamento
   fetchMock.mockResolvedValueOnce(mockResponse({}));
 
-  // Phase D: GET ivaservizi/dp/PI2FC — DataPower session bridge
-  fetchMock.mockResolvedValueOnce(mockResponse({}));
-
   // Phase E: GET initLight — x-appl in response header
   fetchMock.mockResolvedValueOnce(
     mockResponse({
       headers: [["x-appl", "test_x_appl_token"]],
     }),
   );
+
+  // Phase D: GET ivaservizi/dp/PI2FC — DataPower session bridge
+  fetchMock.mockResolvedValueOnce(mockResponse({}));
 
   // Phase F: GET wizardTemplate — P.IVA list
   fetchMock.mockResolvedValueOnce(
@@ -84,10 +84,10 @@ function mockReAuthSequence(fetchMock: ReturnType<typeof vi.fn>): void {
   fetchMock.mockResolvedValueOnce(mockResponse({ status: 200 })); // A
   fetchMock.mockResolvedValueOnce(mockResponse({})); // B
   fetchMock.mockResolvedValueOnce(mockResponse({})); // C
-  fetchMock.mockResolvedValueOnce(mockResponse({})); // D
   fetchMock.mockResolvedValueOnce(
     mockResponse({ headers: [["x-appl", "test_x_appl_token"]] }),
   ); // E
+  fetchMock.mockResolvedValueOnce(mockResponse({})); // D
   fetchMock.mockResolvedValueOnce(mockResponse({})); // G (no F)
 }
 
@@ -434,12 +434,12 @@ describe("RealAdeClient", () => {
       );
       // Phase C hop 2: risposta finale 200
       fetchMock.mockResolvedValueOnce(mockResponse({}));
-      // Phase D
-      fetchMock.mockResolvedValueOnce(mockResponse({}));
       // Phase E
       fetchMock.mockResolvedValueOnce(
         mockResponse({ headers: [["x-appl", "chain_x_appl"]] }),
       );
+      // Phase D
+      fetchMock.mockResolvedValueOnce(mockResponse({}));
       // Phase F
       fetchMock.mockResolvedValueOnce(
         mockResponse({ body: { PIva: [{ piva: "12345678901" }] } }),
@@ -456,30 +456,29 @@ describe("RealAdeClient", () => {
       expect(fetchMock.mock.calls[3][1].redirect).toBe("manual");
     });
 
-    it("Phase D: GET ivaservizi/dp/PI2FC per DataPower session bridge", async () => {
-      mockLoginSequence(fetchMock);
-
-      await client.login(mockCredentials);
-
-      const callD = fetchMock.mock.calls[3];
-      expect(callD[0]).toContain("ivaservizi.agenziaentrate.gov.it/dp/PI2FC");
-    });
-
     it("Phase E: GET initLight ed estrae x-appl dall'header di risposta", async () => {
       mockLoginSequence(fetchMock);
 
       await client.login(mockCredentials);
 
-      const callE = fetchMock.mock.calls[4];
+      const callE = fetchMock.mock.calls[3];
       expect(callE[0]).toContain("initLight");
+    });
+
+    it("Phase D: GET ivaservizi/dp/PI2FC per DataPower session bridge", async () => {
+      mockLoginSequence(fetchMock);
+
+      await client.login(mockCredentials);
+
+      const callD = fetchMock.mock.calls[4];
+      expect(callD[0]).toContain("ivaservizi.agenziaentrate.gov.it/dp/PI2FC");
     });
 
     it("Phase E: lancia AdePortalError se l'header x-appl è assente", async () => {
       fetchMock.mockResolvedValueOnce(mockResponse({ status: 200 })); // A
       fetchMock.mockResolvedValueOnce(mockResponse({})); // B
       fetchMock.mockResolvedValueOnce(mockResponse({})); // C
-      fetchMock.mockResolvedValueOnce(mockResponse({})); // D
-      // E: initLight senza header x-appl
+      // E: initLight senza header x-appl (D non viene mai chiamato)
       fetchMock.mockResolvedValueOnce(mockResponse({}));
 
       await expect(client.login(mockCredentials)).rejects.toThrow(

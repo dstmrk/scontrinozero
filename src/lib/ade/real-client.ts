@@ -470,8 +470,8 @@ export class RealAdeClient implements AdeClient {
     await this.iampeLogin(credentials); // A: login IAM
     await this.initPortalHome(); // B: SSO bridge portale
     await this.initInstradamento(); // C: instradamento home
-    await this.initDataPowerBridge(); // D: DataPower session
     const xAppl = await this.fetchXAppl(); // E: token x-appl
+    await this.initDataPowerBridge(); // D: DataPower session
 
     // F: scopri P.IVA se non già nota (skip durante re-auth su 401)
     const partitaIva = knownPartitaIva ?? (await this.fetchWizardPiva(xAppl));
