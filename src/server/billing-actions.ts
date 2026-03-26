@@ -22,6 +22,29 @@ export type ProfilePlanResult =
   | { error: string };
 
 /**
+ * Restituisce il piano effettivo dell'utente, applicando il fallback
+ * subscription-aware: se profiles.plan è ancora "trial" ma esiste già una
+ * subscription row con stripePriceId (set al checkout prima che arrivi il
+ * webhook), deriva il piano dal prezzo. Usato come base per tutti i feature
+ * gate che devono essere consistenti con la UI.
+ */
+export async function getEffectivePlan(userId: string): Promise<Plan> {
+  const planInfo = await getPlan(userId);
+
+  const db = getDb();
+  const [sub] = await db
+    .select({ stripePriceId: subscriptions.stripePriceId })
+    .from(subscriptions)
+    .where(eq(subscriptions.userId, userId))
+    .limit(1);
+
+  if (planInfo.plan === "trial" && sub?.stripePriceId) {
+    return planFromPriceId(sub.stripePriceId) ?? planInfo.plan;
+  }
+  return planInfo.plan;
+}
+
+/**
  * Restituisce il piano corrente dell'utente autenticato e indica
  * se ha una subscription Stripe attiva.
  */
@@ -47,11 +70,6 @@ export async function getProfilePlan(): Promise<ProfilePlanResult> {
     .where(eq(subscriptions.userId, user.id))
     .limit(1);
 
-  // If profiles.plan is still "trial" but the subscription row already has a
-  // known stripePriceId (set at checkout before the webhook fires), derive the
-  // display plan from it. This avoids showing "Prova gratuita" during the race
-  // window between checkout redirect and webhook processing.
-  // Note: profiles.plan is NOT mutated here — feature gates still read from DB.
   const displayPlan: Plan =
     planInfo.plan === "trial" && sub?.stripePriceId
       ? (planFromPriceId(sub.stripePriceId) ?? planInfo.plan)

@@ -6,13 +6,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const {
   mockGetAuthenticatedUser,
   mockCheckBusinessOwnership,
-  mockGetPlan,
+  mockGetEffectivePlan,
   mockCanUseApi,
   mockGenerateApiKey,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
   mockCheckBusinessOwnership: vi.fn(),
-  mockGetPlan: vi.fn(),
+  mockGetEffectivePlan: vi.fn(),
   mockCanUseApi: vi.fn(),
   mockGenerateApiKey: vi.fn(),
 }));
@@ -23,8 +23,11 @@ vi.mock("@/lib/server-auth", () => ({
 }));
 
 vi.mock("@/lib/plans", () => ({
-  getPlan: mockGetPlan,
   canUseApi: mockCanUseApi,
+}));
+
+vi.mock("@/server/billing-actions", () => ({
+  getEffectivePlan: mockGetEffectivePlan,
 }));
 
 vi.mock("@/lib/api-keys", () => ({
@@ -98,11 +101,7 @@ describe("listApiKeys", () => {
     vi.clearAllMocks();
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockCheckBusinessOwnership.mockResolvedValue(null);
-    mockGetPlan.mockResolvedValue({
-      plan: "pro",
-      trialStartedAt: null,
-      planExpiresAt: null,
-    });
+    mockGetEffectivePlan.mockResolvedValue("pro");
     mockCanUseApi.mockReturnValue(true);
     mockSelect.mockReturnValue(makeSelectBuilderNoLimit(FAKE_KEY_LIST));
   });
@@ -136,6 +135,18 @@ describe("listApiKeys", () => {
 
     expect(result.error).toMatch(/Pro/i);
   });
+
+  it("ritorna le chiavi se getEffectivePlan risolve 'pro' anche se DB plan è ancora 'trial' (race condition)", async () => {
+    // Simula la race condition: webhook non ancora arrivato ma subscription row presente
+    mockGetEffectivePlan.mockResolvedValue("pro");
+    mockCanUseApi.mockReturnValue(true);
+
+    const { listApiKeys } = await import("./api-key-actions");
+    const result = await listApiKeys("biz-uuid");
+
+    expect(result.error).toBeUndefined();
+    expect(result.keys).toBeDefined();
+  });
 });
 
 describe("createApiKey", () => {
@@ -143,11 +154,7 @@ describe("createApiKey", () => {
     vi.clearAllMocks();
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockCheckBusinessOwnership.mockResolvedValue(null);
-    mockGetPlan.mockResolvedValue({
-      plan: "pro",
-      trialStartedAt: null,
-      planExpiresAt: null,
-    });
+    mockGetEffectivePlan.mockResolvedValue("pro");
     mockCanUseApi.mockReturnValue(true);
     mockGenerateApiKey.mockReturnValue({
       raw: "szk_live_TESTKEY48CHARSLONGBODYXXXXXXXXXXXXXXXXXXXXXXXX",
