@@ -3,6 +3,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- Mocks ---
 
+const mockRevalidatePath = vi.fn();
+vi.mock("next/cache", () => ({
+  revalidatePath: mockRevalidatePath,
+}));
+
 const mockGetUser = vi.fn();
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabaseClient: vi.fn().mockResolvedValue({
@@ -88,6 +93,7 @@ describe("onboarding-actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetUser.mockResolvedValue({ data: { user: FAKE_USER } });
+    mockRevalidatePath.mockReset();
     process.env.ENCRYPTION_KEY = "a".repeat(64);
     process.env.ENCRYPTION_KEY_VERSION = "1";
     process.env.ADE_MODE = "mock";
@@ -219,6 +225,7 @@ describe("onboarding-actions", () => {
       expect(result.error).toBeUndefined();
       expect(mockEncrypt).toHaveBeenCalledTimes(3);
       expect(mockInsert).toHaveBeenCalled();
+      expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard", "layout");
     });
 
     it("returns error for missing businessId", async () => {
@@ -295,6 +302,7 @@ describe("onboarding-actions", () => {
 
       expect(result.businessId).toBe("biz-789");
       expect(mockUpdate).toHaveBeenCalled();
+      expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard", "layout");
     });
 
     it("returns error when business does not belong to the user (IDOR)", async () => {
@@ -316,6 +324,7 @@ describe("onboarding-actions", () => {
       expect(result.error).toContain("non autorizzato");
       expect(mockInsert).not.toHaveBeenCalled();
       expect(mockUpdate).not.toHaveBeenCalled();
+      expect(mockRevalidatePath).not.toHaveBeenCalled();
     });
   });
 
@@ -354,6 +363,7 @@ describe("onboarding-actions", () => {
       expect(mockLogout).toHaveBeenCalled();
       expect(mockGetFiscalData).toHaveBeenCalled();
       expect(mockUpdate).toHaveBeenCalledTimes(2); // businesses vatNumber/fiscalCode + adeCredentials verifiedAt
+      expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard", "layout");
     });
 
     it("marks credentials as verified even when getFiscalData fails", async () => {
@@ -385,6 +395,7 @@ describe("onboarding-actions", () => {
       expect(mockGetFiscalData).toHaveBeenCalled();
       // Only 1 update (adeCredentials verifiedAt); businesses update was skipped
       expect(mockUpdate).toHaveBeenCalledTimes(1);
+      expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard", "layout");
     });
 
     it("returns error when credentials not found", async () => {

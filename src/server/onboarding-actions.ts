@@ -1,6 +1,7 @@
 "use server";
 
 import { createElement } from "react";
+import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { businesses, adeCredentials, profiles } from "@/db/schema";
@@ -186,6 +187,11 @@ export async function saveAdeCredentials(
 
   logger.info({ businessId }, "ADE credentials updated");
 
+  // Invalida la Router Cache client-side del dashboard: dopo aver salvato le
+  // credenziali l'utente è eleggibile ad accedere al dashboard, ma il redirect
+  // precedente (dashboard → onboarding) potrebbe essere ancora in cache.
+  revalidatePath("/dashboard", "layout");
+
   return { businessId };
 }
 
@@ -257,6 +263,8 @@ export async function verifyAdeCredentials(
       react: createElement(WelcomeEmail, { email: user.email }),
     }).catch((err) => logger.error({ err }, "Welcome email failed"));
   }
+
+  revalidatePath("/dashboard", "layout");
 
   return { businessId };
 }
