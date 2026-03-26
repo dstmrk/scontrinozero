@@ -40,6 +40,14 @@ vi.mock("@/lib/logger", () => ({
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
 }));
 
+const { mockPlanFromPriceId } = vi.hoisted(() => ({
+  mockPlanFromPriceId: vi.fn(),
+}));
+
+vi.mock("@/lib/stripe", () => ({
+  planFromPriceId: mockPlanFromPriceId,
+}));
+
 // --- Fixtures ---
 
 const FAKE_USER = { id: "user-123" };
@@ -58,6 +66,7 @@ describe("billing-actions", () => {
 
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockGetPlan.mockResolvedValue(FAKE_PLAN_INFO);
+    mockPlanFromPriceId.mockReturnValue(null);
 
     mockGetDb.mockReturnValue({ select: mockSelect });
     mockSelect.mockReturnValue({ from: mockFrom });
@@ -175,6 +184,70 @@ describe("billing-actions", () => {
       expect(result.plan).toBe("trial");
       expect(result.trialStartedAt).toBeNull();
       expect(result.planExpiresAt).toBeNull();
+    });
+  });
+
+  describe("getEffectivePlan", () => {
+    it("ritorna il piano DB quando non è 'trial'", async () => {
+      mockGetPlan.mockResolvedValue({
+        plan: "pro",
+        trialStartedAt: null,
+        planExpiresAt: null,
+      });
+      mockSelectLimit.mockResolvedValue([]);
+
+      const { getEffectivePlan } = await import("./billing-actions");
+      const result = await getEffectivePlan("user-123");
+
+      expect(result).toBe("pro");
+      expect(mockPlanFromPriceId).not.toHaveBeenCalled();
+    });
+
+    it("ritorna il piano DB quando è 'trial' ma non esiste subscription row", async () => {
+      mockGetPlan.mockResolvedValue({
+        plan: "trial",
+        trialStartedAt: new Date(),
+        planExpiresAt: null,
+      });
+      mockSelectLimit.mockResolvedValue([]);
+
+      const { getEffectivePlan } = await import("./billing-actions");
+      const result = await getEffectivePlan("user-123");
+
+      expect(result).toBe("trial");
+    });
+
+    it("deriva il piano da stripePriceId quando DB è 'trial' ma subscription row esiste (race condition)", async () => {
+      mockGetPlan.mockResolvedValue({
+        plan: "trial",
+        trialStartedAt: new Date(),
+        planExpiresAt: null,
+      });
+      mockPlanFromPriceId.mockReturnValue("pro");
+      mockSelectLimit.mockResolvedValue([
+        { stripePriceId: "price_pro_monthly" },
+      ]);
+
+      const { getEffectivePlan } = await import("./billing-actions");
+      const result = await getEffectivePlan("user-123");
+
+      expect(result).toBe("pro");
+      expect(mockPlanFromPriceId).toHaveBeenCalledWith("price_pro_monthly");
+    });
+
+    it("mantiene 'trial' se planFromPriceId non riconosce il priceId", async () => {
+      mockGetPlan.mockResolvedValue({
+        plan: "trial",
+        trialStartedAt: new Date(),
+        planExpiresAt: null,
+      });
+      mockPlanFromPriceId.mockReturnValue(null);
+      mockSelectLimit.mockResolvedValue([{ stripePriceId: "price_unknown" }]);
+
+      const { getEffectivePlan } = await import("./billing-actions");
+      const result = await getEffectivePlan("user-123");
+
+      expect(result).toBe("trial");
     });
   });
 });
