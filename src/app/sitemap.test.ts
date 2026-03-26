@@ -5,7 +5,7 @@ describe("sitemap", () => {
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
-    expect(result).toHaveLength(9);
+    expect(result).toHaveLength(10);
     expect(result[0]).toMatchObject({
       url: "https://scontrinozero.it",
       changeFrequency: "monthly",
@@ -42,11 +42,16 @@ describe("sitemap", () => {
       priority: 0.3,
     });
     expect(result[7]).toMatchObject({
+      url: "https://scontrinozero.it/help",
+      changeFrequency: "monthly",
+      priority: 0.6,
+    });
+    expect(result[8]).toMatchObject({
       url: "https://scontrinozero.it/login",
       changeFrequency: "yearly",
       priority: 0.5,
     });
-    expect(result[8]).toMatchObject({
+    expect(result[9]).toMatchObject({
       url: "https://scontrinozero.it/register",
       changeFrequency: "yearly",
       priority: 0.5,
@@ -63,6 +68,7 @@ describe("sitemap", () => {
     expect(result[0].url).toBe("https://test.scontrinozero.it");
     expect(result[1].url).toBe("https://test.scontrinozero.it/privacy");
     expect(result[2].url).toBe("https://test.scontrinozero.it/privacy/v01");
+    expect(result[7].url).toBe("https://test.scontrinozero.it/help");
 
     vi.unstubAllEnvs();
   });
