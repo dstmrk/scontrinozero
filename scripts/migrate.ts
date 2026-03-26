@@ -87,7 +87,10 @@ export async function runMigrations() {
       );
       await sql.begin(async (tx) => {
         await tx.unsafe(content);
-        await tx`INSERT INTO __applied_migrations (filename) VALUES (${filename})`;
+        await tx.unsafe(
+          "INSERT INTO __applied_migrations (filename) VALUES ($1)",
+          [filename],
+        );
       });
       count++;
     }
