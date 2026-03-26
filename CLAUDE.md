@@ -44,16 +44,22 @@
     - Delete `.next` in both the worktree AND the main repo (`rm -rf .next`) before
       starting the dev server to avoid Turbopack serving stale cached chunks
 
-12. **DB migrations: file-based runner (no `_journal.json` dependency).**
-    `scripts/migrate.ts` uses a custom file-based runner instead of Drizzle's built-in
-    `migrate()`. It reads all `.sql` files from `supabase/migrations/` sorted by filename,
-    tracks applied files in a `__applied_migrations` table, and wraps each migration in a
-    transaction. **To add a migration: create a `.sql` file — no journal update needed.**
-    This prevents the class of bug where handwritten SQL files are not applied at deploy
-    because they were missing from `_journal.json`.
-    - File naming: `NNNN_description.sql` (e.g. `0007_add_new_table.sql`)
-    - The `check-migrations.mjs` CI script validates SQL files against the journal for
-      drizzle-kit compatibility — it's a separate concern from the runtime runner.
+12. **DB migrations: workflow misto drizzle-kit + SQL handwritten.**
+    Le migrazioni seguono un approccio ibrido obbligato:
+    - **Schema changes** (tabelle, colonne, indici, FK) → `npx drizzle-kit generate`
+      aggiorna automaticamente sia il file `.sql` sia il `_journal.json`.
+    - **RLS policies, trigger, funzioni PL/pgSQL** → non esprimibili nello schema Drizzle,
+      vanno scritte come file SQL a mano (es. `0005_api_keys_rls.sql`).
+
+    Il runtime usa un **file-based runner** (`scripts/migrate.ts`) invece di Drizzle's
+    built-in `migrate()`, proprio per gestire i file handwritten senza overhead manuale:
+    legge tutti i `.sql` da `supabase/migrations/` ordinati per nome, traccia i file
+    già applicati nella tabella `__applied_migrations`, e wrappa ogni migrazione in una
+    transazione. **Per aggiungere una migrazione: crea il file `.sql` — nessun aggiornamento
+    del journal necessario.**
+    - File naming: `NNNN_description.sql` (es. `0007_add_new_table.sql`)
+    - Il `check-migrations.mjs` CI script valida i file SQL contro il journal per
+      compatibilità drizzle-kit — è separato dal runtime runner.
 
 ## Progetto
 
