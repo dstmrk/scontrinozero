@@ -44,6 +44,17 @@
     - Delete `.next` in both the worktree AND the main repo (`rm -rf .next`) before
       starting the dev server to avoid Turbopack serving stale cached chunks
 
+12. **DB migrations: file-based runner (no `_journal.json` dependency).**
+    `scripts/migrate.ts` uses a custom file-based runner instead of Drizzle's built-in
+    `migrate()`. It reads all `.sql` files from `supabase/migrations/` sorted by filename,
+    tracks applied files in a `__applied_migrations` table, and wraps each migration in a
+    transaction. **To add a migration: create a `.sql` file — no journal update needed.**
+    This prevents the class of bug where handwritten SQL files are not applied at deploy
+    because they were missing from `_journal.json`.
+    - File naming: `NNNN_description.sql` (e.g. `0007_add_new_table.sql`)
+    - The `check-migrations.mjs` CI script validates SQL files against the journal for
+      drizzle-kit compatibility — it's a separate concern from the runtime runner.
+
 ## Progetto
 
 ScontrinoZero è un registratore di cassa virtuale (SaaS) mobile-first che consente a

@@ -1,8 +1,7 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
-import postgres from "postgres";
+import { readdir, readFile } from "fs/promises";
 import path from "path";
 import { resolve4, resolve6 } from "dns/promises";
+import postgres from "postgres";
 
 // postgres.js v3 tries ALL resolved addresses (IPv4 + IPv6) in order.
 // On VPSes without IPv6 routing, AAAA records cause ENETUNREACH before
@@ -53,15 +52,54 @@ export async function runMigrations() {
 
   const resolvedUrl = await toIPv4Url(connectionString);
   const sql = postgres(resolvedUrl, { max: 1 });
-  const db = drizzle(sql);
 
-  const migrationsFolder = path.join(process.cwd(), "supabase", "migrations");
+  try {
+    // Ensure tracking table exists
+    await sql`
+      CREATE TABLE IF NOT EXISTS __applied_migrations (
+        id         SERIAL PRIMARY KEY,
+        filename   TEXT NOT NULL UNIQUE,
+        applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `;
 
-  console.log("Running DB migrations...");
-  await migrate(db, { migrationsFolder });
-  console.log("Migrations completed successfully.");
+    // Fetch already-applied filenames
+    const rows = await sql<{ filename: string }[]>`
+      SELECT filename FROM __applied_migrations ORDER BY filename
+    `;
+    const applied = new Set(rows.map((r) => r.filename));
 
-  await sql.end();
+    // Collect .sql files sorted by name
+    const migrationsFolder = path.join(process.cwd(), "supabase", "migrations");
+    const entries = await readdir(migrationsFolder, { withFileTypes: true });
+    const sqlFiles = entries
+      .filter((e) => e.isFile() && e.name.endsWith(".sql"))
+      .map((e) => e.name)
+      .sort();
+
+    let count = 0;
+    for (const filename of sqlFiles) {
+      if (applied.has(filename)) continue;
+      console.log(`Applying migration: ${filename}`);
+      const content = await readFile(
+        path.join(migrationsFolder, filename),
+        "utf-8",
+      );
+      await sql.begin(async (tx) => {
+        await tx.unsafe(content);
+        await tx`INSERT INTO __applied_migrations (filename) VALUES (${filename})`;
+      });
+      count++;
+    }
+
+    if (count === 0) {
+      console.log("No new migrations to apply.");
+    } else {
+      console.log(`Migrations completed: ${count} applied.`);
+    }
+  } finally {
+    await sql.end();
+  }
 }
 
 runMigrations().catch((err) => {

@@ -3,39 +3,71 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── Mocks (hoisted before all imports) ─────────────────────────────────────
 
-const { mockResolve4, mockResolve6, mockMigrate, mockSqlEnd, mockConsoleWarn } =
-  vi.hoisted(() => {
-    // Set DATABASE_URL here so it's available when the module auto-executes on import
-    process.env.DATABASE_URL =
-      "postgresql://user:pass@db.example.supabase.co:5432/postgres";
-    return {
-      mockResolve4: vi.fn().mockResolvedValue(["1.2.3.4"]),
-      mockResolve6: vi
-        .fn()
-        .mockRejectedValue(
-          Object.assign(new Error("ENODATA"), { code: "ENODATA" }),
-        ),
-      mockMigrate: vi.fn().mockResolvedValue(undefined),
-      mockSqlEnd: vi.fn().mockResolvedValue(undefined),
-      mockConsoleWarn: vi.fn(),
-    };
+const {
+  mockResolve4,
+  mockResolve6,
+  mockSqlTag,
+  mockSqlEnd,
+  mockSqlBegin,
+  mockSqlUnsafe,
+  mockReaddir,
+  mockReadFile,
+  mockConsoleWarn,
+} = vi.hoisted(() => {
+  // Set DATABASE_URL here so it's available when the module auto-executes on import
+  process.env.DATABASE_URL =
+    "postgresql://user:pass@db.example.supabase.co:5432/postgres";
+
+  const mockSqlUnsafe = vi.fn().mockResolvedValue(undefined);
+  const mockSqlEnd = vi.fn().mockResolvedValue(undefined);
+  const mockSqlTag = vi.fn().mockResolvedValue([]);
+  const mockSqlBegin = vi
+    .fn()
+    .mockImplementation(async (fn: (tx: typeof mockTx) => Promise<void>) =>
+      fn(mockTx),
+    );
+  const mockTx = Object.assign(vi.fn().mockResolvedValue(undefined), {
+    unsafe: mockSqlUnsafe,
   });
+
+  return {
+    mockResolve4: vi.fn().mockResolvedValue(["1.2.3.4"]),
+    mockResolve6: vi
+      .fn()
+      .mockRejectedValue(
+        Object.assign(new Error("ENODATA"), { code: "ENODATA" }),
+      ),
+    mockSqlTag,
+    mockSqlEnd,
+    mockSqlBegin,
+    mockSqlUnsafe,
+    mockReaddir: vi.fn().mockResolvedValue([]),
+    mockReadFile: vi.fn().mockResolvedValue("-- sql content"),
+    mockConsoleWarn: vi.fn(),
+  };
+});
 
 vi.mock("dns/promises", () => ({
   resolve4: mockResolve4,
   resolve6: mockResolve6,
 }));
 
+vi.mock("fs/promises", () => ({
+  readdir: mockReaddir,
+  readFile: mockReadFile,
+}));
+
 vi.mock("postgres", () => ({
-  default: vi.fn().mockReturnValue({ end: mockSqlEnd }),
+  default: vi.fn().mockImplementation(function () {
+    return Object.assign(mockSqlTag, {
+      begin: mockSqlBegin,
+      end: mockSqlEnd,
+    });
+  }),
 }));
 
-vi.mock("drizzle-orm/postgres-js", () => ({
-  drizzle: vi.fn().mockReturnValue({}),
-}));
-
-vi.mock("drizzle-orm/postgres-js/migrator", () => ({
-  migrate: mockMigrate,
+vi.mock("@/lib/logger", () => ({
+  logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 
 import { toIPv4Url, runMigrations } from "../../scripts/migrate";
@@ -128,8 +160,19 @@ describe("runMigrations()", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockResolve4.mockResolvedValue(["1.2.3.4"]);
-    mockMigrate.mockResolvedValue(undefined);
     mockSqlEnd.mockResolvedValue(undefined);
+    mockReaddir.mockResolvedValue([]);
+    mockReadFile.mockResolvedValue("-- sql content");
+    // Default: CREATE TABLE and SELECT both return [] (no applied migrations)
+    mockSqlTag.mockResolvedValue([]);
+    mockSqlBegin.mockImplementation(
+      async (fn: (tx: { unsafe: typeof mockSqlUnsafe }) => Promise<void>) => {
+        const tx = Object.assign(vi.fn().mockResolvedValue(undefined), {
+          unsafe: mockSqlUnsafe,
+        });
+        return fn(tx);
+      },
+    );
   });
 
   afterEach(() => {
@@ -152,7 +195,7 @@ describe("runMigrations()", () => {
 
     await runMigrations();
 
-    expect(mockMigrate).not.toHaveBeenCalled();
+    expect(mockSqlTag).not.toHaveBeenCalled();
     expect(mockSqlEnd).not.toHaveBeenCalled();
   });
 
@@ -182,7 +225,6 @@ describe("runMigrations()", () => {
 
     await runMigrations();
 
-    expect(mockMigrate).toHaveBeenCalled();
     expect(mockSqlEnd).toHaveBeenCalled();
   });
 
@@ -191,6 +233,57 @@ describe("runMigrations()", () => {
       "postgresql://user:pass@host.example.com:5432/db";
 
     await runMigrations();
+
+    expect(mockSqlEnd).toHaveBeenCalled();
+  });
+
+  it("applica solo le migrazioni non ancora applicate", async () => {
+    process.env.DATABASE_URL =
+      "postgresql://user:pass@host.example.com:5432/db";
+    mockReaddir.mockResolvedValue([
+      { name: "0001_init.sql", isFile: () => true },
+      { name: "0002_add_column.sql", isFile: () => true },
+    ]);
+    // 0001 already applied
+    mockSqlTag
+      .mockResolvedValueOnce(undefined) // CREATE TABLE
+      .mockResolvedValueOnce([{ filename: "0001_init.sql" }]); // SELECT
+
+    await runMigrations();
+
+    expect(mockReadFile).toHaveBeenCalledTimes(1);
+    expect(mockReadFile).toHaveBeenCalledWith(
+      expect.stringContaining("0002_add_column.sql"),
+      "utf-8",
+    );
+    expect(mockSqlBegin).toHaveBeenCalledTimes(1);
+  });
+
+  it("non applica nessuna migrazione se tutte sono già state applicate", async () => {
+    process.env.DATABASE_URL =
+      "postgresql://user:pass@host.example.com:5432/db";
+    mockReaddir.mockResolvedValue([
+      { name: "0001_init.sql", isFile: () => true },
+    ]);
+    mockSqlTag
+      .mockResolvedValueOnce(undefined) // CREATE TABLE
+      .mockResolvedValueOnce([{ filename: "0001_init.sql" }]); // SELECT
+
+    await runMigrations();
+
+    expect(mockSqlBegin).not.toHaveBeenCalled();
+    expect(mockReadFile).not.toHaveBeenCalled();
+  });
+
+  it("chiude la connessione anche in caso di errore durante una migrazione", async () => {
+    process.env.DATABASE_URL =
+      "postgresql://user:pass@host.example.com:5432/db";
+    mockReaddir.mockResolvedValue([
+      { name: "0001_init.sql", isFile: () => true },
+    ]);
+    mockSqlBegin.mockRejectedValueOnce(new Error("TX failed"));
+
+    await expect(runMigrations()).rejects.toThrow("TX failed");
 
     expect(mockSqlEnd).toHaveBeenCalled();
   });
