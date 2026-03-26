@@ -9,8 +9,9 @@ import { AccountDeleteSection } from "@/components/settings/account-delete-secti
 import { ExportDataSection } from "@/components/settings/export-data-section";
 import { AdeCredentialsSection } from "@/components/settings/ade-credentials-section";
 import { getProfilePlan } from "@/server/billing-actions";
-import { isTrialExpired, TRIAL_DAYS } from "@/lib/plans";
+import { canUseApi, isTrialExpired, TRIAL_DAYS } from "@/lib/plans";
 import { PRICE_IDS } from "@/lib/stripe";
+import { ApiKeySection } from "@/components/settings/api-key-section";
 import { PlanBadge } from "@/components/billing/plan-badge";
 import { PlanSelection } from "@/components/billing/plan-selection";
 
@@ -287,6 +288,17 @@ export default async function SettingsPage() {
                 Aggiorna metodo di pagamento →
               </a>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {business && planData && canUseApi(planData.plan) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>API key</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ApiKeySection businessId={business.id} />
           </CardContent>
         </Card>
       )}

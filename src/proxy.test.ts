@@ -266,5 +266,31 @@ describe("proxy", () => {
       expect(location.hostname).toBe("app.scontrinozero.it");
       expect(location.pathname).toBe("/login");
     });
+
+    it("passes through /api/v1/receipts on api subdomain without redirect", async () => {
+      process.env.NEXT_PUBLIC_API_HOSTNAME = "api.scontrinozero.it";
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(
+        createRequestForHost("/api/v1/receipts", "api.scontrinozero.it"),
+      );
+      expect(response.status).toBe(200);
+    });
+
+    it("passes through /api/v1/* on api subdomain even without auth session", async () => {
+      process.env.NEXT_PUBLIC_API_HOSTNAME = "api.scontrinozero.it";
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { proxy } = await import("./proxy");
+
+      // Should not redirect to /login even though user is null
+      const response = await proxy(
+        createRequestForHost(
+          "/api/v1/receipts/doc-123",
+          "api.scontrinozero.it",
+        ),
+      );
+      expect(response.status).toBe(200);
+    });
   });
 });

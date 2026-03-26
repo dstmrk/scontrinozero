@@ -24,6 +24,11 @@ function hostnameRedirect(request: NextRequest): NextResponse | null {
     process.env.NEXT_PUBLIC_APP_HOSTNAME ?? "app.scontrinozero.it";
   const marketingHostname =
     process.env.NEXT_PUBLIC_MARKETING_HOSTNAME ?? "scontrinozero.it";
+  const apiHostname =
+    process.env.NEXT_PUBLIC_API_HOSTNAME ?? "api.scontrinozero.it";
+
+  // API subdomain: pass through — routes handle Bearer auth themselves
+  if (hostname === apiHostname) return null;
 
   const isMarketingDomain =
     hostname === marketingHostname || hostname === `www.${marketingHostname}`;
@@ -108,6 +113,6 @@ export const config = {
      * - monitoring (Sentry tunnel)
      * - Static assets (svg, png, jpg, etc.)
      */
-    "/((?!_next/static|_next/image|favicon\\.ico|sitemap\\.xml|robots\\.txt|api/health|monitoring|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)", // NOSONAR — String.raw breaks Next.js static analysis of matcher config
+    "/((?!_next/static|_next/image|favicon\\.ico|sitemap\\.xml|robots\\.txt|api/health|api/v1|monitoring|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)", // NOSONAR — String.raw breaks Next.js static analysis of matcher config
   ],
 };

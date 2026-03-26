@@ -23,12 +23,15 @@ vi.mock("@/db/schema", () => ({
 }));
 
 import {
+  DEVELOPER_MONTHLY_LIMITS,
   STARTER_CATALOG_LIMIT,
   TRIAL_DAYS,
   canAddCatalogItem,
   canEmit,
+  canUseApi,
   canUsePro,
   getPlan,
+  isDeveloperPlan,
   isTrialExpired,
 } from "./plans";
 
@@ -115,6 +118,67 @@ describe("canUsePro", () => {
   });
 });
 
+describe("isDeveloperPlan", () => {
+  it("returns true for developer_indie", () => {
+    expect(isDeveloperPlan("developer_indie")).toBe(true);
+  });
+
+  it("returns true for developer_business", () => {
+    expect(isDeveloperPlan("developer_business")).toBe(true);
+  });
+
+  it("returns true for developer_scale", () => {
+    expect(isDeveloperPlan("developer_scale")).toBe(true);
+  });
+
+  it("returns false for pro", () => {
+    expect(isDeveloperPlan("pro")).toBe(false);
+  });
+
+  it("returns false for trial/starter/unlimited", () => {
+    expect(isDeveloperPlan("trial")).toBe(false);
+    expect(isDeveloperPlan("starter")).toBe(false);
+    expect(isDeveloperPlan("unlimited")).toBe(false);
+  });
+});
+
+describe("canUseApi", () => {
+  it("returns true for pro", () => {
+    expect(canUseApi("pro")).toBe(true);
+  });
+
+  it("returns true for unlimited", () => {
+    expect(canUseApi("unlimited")).toBe(true);
+  });
+
+  it("returns true for all developer plans", () => {
+    expect(canUseApi("developer_indie")).toBe(true);
+    expect(canUseApi("developer_business")).toBe(true);
+    expect(canUseApi("developer_scale")).toBe(true);
+  });
+
+  it("returns false for trial", () => {
+    expect(canUseApi("trial")).toBe(false);
+  });
+
+  it("returns false for starter", () => {
+    expect(canUseApi("starter")).toBe(false);
+  });
+});
+
+describe("DEVELOPER_MONTHLY_LIMITS", () => {
+  it("has correct limits for each developer plan", () => {
+    expect(DEVELOPER_MONTHLY_LIMITS.developer_indie).toBe(300);
+    expect(DEVELOPER_MONTHLY_LIMITS.developer_business).toBe(1500);
+    expect(DEVELOPER_MONTHLY_LIMITS.developer_scale).toBe(5000);
+  });
+
+  it("has no entry for non-developer plans", () => {
+    expect(DEVELOPER_MONTHLY_LIMITS.pro).toBeUndefined();
+    expect(DEVELOPER_MONTHLY_LIMITS.unlimited).toBeUndefined();
+  });
+});
+
 describe("canAddCatalogItem", () => {
   it("allows trial plan with 0 items", () => {
     expect(canAddCatalogItem("trial", daysAgo(5), 0)).toBe(true);
@@ -146,6 +210,12 @@ describe("canAddCatalogItem", () => {
 
   it("blocks expired trial regardless of item count", () => {
     expect(canAddCatalogItem("trial", daysAgo(60), 0)).toBe(false);
+  });
+
+  it("allows developer plans with any number of items", () => {
+    expect(canAddCatalogItem("developer_indie", null, 999)).toBe(true);
+    expect(canAddCatalogItem("developer_business", null, 999)).toBe(true);
+    expect(canAddCatalogItem("developer_scale", null, 999)).toBe(true);
   });
 });
 

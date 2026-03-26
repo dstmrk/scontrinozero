@@ -2,7 +2,14 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { profiles } from "@/db/schema";
 
-export type Plan = "trial" | "starter" | "pro" | "unlimited";
+export type Plan =
+  | "trial"
+  | "starter"
+  | "pro"
+  | "unlimited"
+  | "developer_indie"
+  | "developer_business"
+  | "developer_scale";
 
 export type PlanInfo = {
   plan: Plan;
@@ -82,6 +89,36 @@ export function canUsePro(plan: Plan): boolean {
 }
 
 /**
+ * Ritorna true se il piano è un piano developer (Fase B: Partner API).
+ */
+export function isDeveloperPlan(plan: Plan): boolean {
+  return (
+    plan === "developer_indie" ||
+    plan === "developer_business" ||
+    plan === "developer_scale"
+  );
+}
+
+/**
+ * Ritorna true se il piano ha accesso alla Developer API.
+ * - Pro e Unlimited: accesso API come feature inclusa nel piano
+ * - Developer plans: accesso API con limiti mensili per volume
+ */
+export function canUseApi(plan: Plan): boolean {
+  return canUsePro(plan) || isDeveloperPlan(plan);
+}
+
+/**
+ * Limite mensile di scontrini emettibili via API per i piani developer.
+ * null = nessun limite (piani non-developer con accesso API).
+ */
+export const DEVELOPER_MONTHLY_LIMITS: Partial<Record<Plan, number>> = {
+  developer_indie: 300,
+  developer_business: 1500,
+  developer_scale: 5000,
+};
+
+/**
  * Ritorna true se l'utente può aggiungere un prodotto al catalogo.
  * - pro / unlimited → sempre true
  * - starter / trial (non scaduto) → solo se currentCount < STARTER_CATALOG_LIMIT
@@ -92,7 +129,8 @@ export function canAddCatalogItem(
   trialStartedAt: Date | null,
   currentCount: number,
 ): boolean {
-  if (plan === "pro" || plan === "unlimited") return true;
+  if (plan === "pro" || plan === "unlimited" || isDeveloperPlan(plan))
+    return true;
   if (plan === "trial" && isTrialExpired(trialStartedAt)) return false;
   return currentCount < STARTER_CATALOG_LIMIT;
 }

@@ -21,6 +21,8 @@ const REDACT_PATHS = [
   "encryptedCodiceFiscale",
   "encryptedPassword",
   "encryptedPin",
+  "keyHash",
+  "apiKeyRaw",
   "*.password",
   "*.pin",
   "*.credentials",
@@ -30,6 +32,8 @@ const REDACT_PATHS = [
   "*.encryptedCodiceFiscale",
   "*.encryptedPassword",
   "*.encryptedPin",
+  "*.keyHash",
+  "*.apiKeyRaw",
 ];
 
 // pino numeric levels: error=50, fatal=60

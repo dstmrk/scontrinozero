@@ -12,20 +12,32 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ["lucide-react"],
   },
   async headers() {
-    // Restrict API routes to the app's own origin only.
+    // Restrict internal API routes to the app's own origin only.
     // NEXT_PUBLIC_APP_URL is set per-environment (e.g. http://localhost:3000 in dev,
     // https://app.scontrinozero.it in production — API calls come from the app subdomain).
     const allowedOrigin =
       process.env.NEXT_PUBLIC_APP_URL ?? "https://app.scontrinozero.it";
     return [
       {
+        // Internal API routes — restricted to app origin
         source: "/api/:path*",
         headers: [
           { key: "Access-Control-Allow-Origin", value: allowedOrigin },
+          { key: "Access-Control-Allow-Methods", value: "GET, POST, OPTIONS" },
           {
-            key: "Access-Control-Allow-Methods",
-            value: "GET, POST, OPTIONS",
+            key: "Access-Control-Allow-Headers",
+            value: "Content-Type, Authorization",
           },
+        ],
+      },
+      {
+        // Developer API — open CORS (Bearer auth only, no cookies)
+        // Placed after the generic rule so it overrides Access-Control-Allow-Origin
+        // for /api/v1/* paths specifically.
+        source: "/api/v1/:path*",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Access-Control-Allow-Methods", value: "GET, POST, OPTIONS" },
           {
             key: "Access-Control-Allow-Headers",
             value: "Content-Type, Authorization",

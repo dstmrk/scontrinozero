@@ -10,6 +10,7 @@ import {
 import { sql } from "drizzle-orm";
 
 import { businesses } from "./businesses";
+import { apiKeys } from "./api-keys";
 
 export const documentKindEnum = pgEnum("document_kind", ["SALE", "VOID"]);
 
@@ -49,6 +50,10 @@ export const commercialDocuments = pgTable(
     adeProgressive: text("ade_progressive"),
     /** Codice Lotteria degli Scontrini del cliente (8 char [A-Z0-9]) — solo per SALE con PE */
     lotteryCode: text("lottery_code"),
+    /** API key usata per emettere lo scontrino. NULL = emissione via UI (session). */
+    apiKeyId: uuid("api_key_id").references(() => apiKeys.id, {
+      onDelete: "set null",
+    }),
     status: documentStatusEnum("status").notNull().default("PENDING"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -67,6 +72,7 @@ export const commercialDocuments = pgTable(
       table.businessId,
       table.status,
     ),
+    index("idx_commercial_documents_api_key").on(table.apiKeyId),
   ],
 );
 

@@ -5,9 +5,11 @@ import { adeCredentials } from "./ade-credentials";
 import { commercialDocuments } from "./commercial-documents";
 import { commercialDocumentLines } from "./commercial-document-lines";
 import { catalogItems } from "./catalog-items";
+import { apiKeys } from "./api-keys";
 
 export const profilesRelations = relations(profiles, ({ many }) => ({
   businesses: many(businesses),
+  apiKeys: many(apiKeys),
 }));
 
 export const businessesRelations = relations(businesses, ({ one, many }) => ({
@@ -18,6 +20,18 @@ export const businessesRelations = relations(businesses, ({ one, many }) => ({
   adeCredentials: one(adeCredentials),
   commercialDocuments: many(commercialDocuments),
   catalogItems: many(catalogItems),
+  apiKeys: many(apiKeys),
+}));
+
+export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
+  profile: one(profiles, {
+    fields: [apiKeys.profileId],
+    references: [profiles.id],
+  }),
+  business: one(businesses, {
+    fields: [apiKeys.businessId],
+    references: [businesses.id],
+  }),
 }));
 
 export const catalogItemsRelations = relations(catalogItems, ({ one }) => ({
@@ -40,6 +54,10 @@ export const commercialDocumentsRelations = relations(
     business: one(businesses, {
       fields: [commercialDocuments.businessId],
       references: [businesses.id],
+    }),
+    apiKey: one(apiKeys, {
+      fields: [commercialDocuments.apiKeyId],
+      references: [apiKeys.id],
     }),
     lines: many(commercialDocumentLines),
   }),
