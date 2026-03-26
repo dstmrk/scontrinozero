@@ -29,6 +29,27 @@
       "when": 1774363153000,
       "tag": "0003_remove_unused_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1774450000000,
+      "tag": "0004_add_api_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1774450001000,
+      "tag": "0005_api_keys_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1774450002000,
+      "tag": "0006_add_api_key_id_to_documents",
+      "breakpoints": true
     }
   ]
 }
