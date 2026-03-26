@@ -33,6 +33,7 @@ export default defineConfig({
         "src/components/billing/checkout-button.tsx", // UI client component — pure fetch + redirect
         "src/components/settings/export-data-section.tsx", // UI client component — pure download trigger
         "src/components/settings/account-delete-section.tsx", // UI client component — mutation + dialog, pure UI
+        "src/components/settings/api-key-section.tsx", // UI client component — mutation + dialog, pure UI
       ],
     },
     reporters: ["default", "vitest-sonar-reporter"],

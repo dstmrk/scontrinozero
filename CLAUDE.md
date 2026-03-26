@@ -2,49 +2,54 @@
 
 ## General Rules for Claude
 
-1. We are using a TDD approach
+1. **Commit/push sempre su branch separato, mai su `main` direttamente.**
+   Dopo aver completato il lavoro: crea un branch, committa, pusha, apri una PR.
+   Non fare mai merge autonomamente — il merge spetta all'utente, a meno che non
+   venga chiesto esplicitamente.
 
-2. If the requirements I give you are ambiguous, ask clarifying questions before writing any code.
+2. We are using a TDD approach
 
-3. After you finish writing any code, list the edge cases and add test cases to cover them as well.
+3. If the requirements I give you are ambiguous, ask clarifying questions before writing any code.
 
-4. If a task requires changes to more than 3 files, stop and break it into smaller tasks first.
+4. After you finish writing any code, list the edge cases and add test cases to cover them as well.
 
-5. Every time I correct you, reflect on what you did wrong and come up with a plan to never make the same mistake again.
+5. If a task requires changes to more than 3 files, stop and break it into smaller tasks first.
 
-6. Every new file with logic **must** have a corresponding test file. After writing any implementation, always write tests covering the edge cases before committing. No exceptions — even for infrastructure/bootstrap files (e.g. `instrumentation.ts`).
+6. Every time I correct you, reflect on what you did wrong and come up with a plan to never make the same mistake again.
 
-7. **SonarCloud quality gates (must not regress):**
+7. Every new file with logic **must** have a corresponding test file. After writing any implementation, always write tests covering the edge cases before committing. No exceptions — even for infrastructure/bootstrap files (e.g. `instrumentation.ts`).
+
+8. **SonarCloud quality gates (must not regress):**
    - Coverage on new code: **≥ 80%**
    - Duplicated lines on new code: **< 3%**
    - If a file has no testable logic (pure config, UI shell), add it to `sonar.coverage.exclusions` in `sonar-project.properties` AND to the `exclude` list in `vitest.config.ts` — never leave it untested without explicitly excluding it.
 
-8. **After solving a non-trivial problem, update CLAUDE.md autonomously.**
+9. **After solving a non-trivial problem, update CLAUDE.md autonomously.**
    When a task is complete (bug fixed, feature shipped), reflect on what went wrong
    or could have gone faster. If there's a reusable lesson — a debugging pattern,
    a setup gotcha, a wrong assumption — add it to CLAUDE.md before committing.
    Don't wait for the user to ask.
 
-9. **Debugging production HTTP flow errors (e.g. AdE 4xx): diagnose before fixing.**
-   When a production error suggests a wrong HTTP sequence, add diagnostic logging first
-   (phase labels, cookie counts, response status) and reproduce the error locally to
-   confirm the root cause. Only then write the fix. Never merge a hypothesis-based
-   fix without first seeing the diagnostic evidence.
+10. **Debugging production HTTP flow errors (e.g. AdE 4xx): diagnose before fixing.**
+    When a production error suggests a wrong HTTP sequence, add diagnostic logging first
+    (phase labels, cookie counts, response status) and reproduce the error locally to
+    confirm the root cause. Only then write the fix. Never merge a hypothesis-based
+    fix without first seeing the diagnostic evidence.
 
-10. **HAR analysis: verify completeness, not just order.**
+11. **HAR analysis: verify completeness, not just order.**
     When comparing code against a HAR capture, explicitly check that **every request**
     in the HAR is present in the implementation — not just that the order matches.
     A missing call is harder to spot than a wrong order. Go through the HAR
     request-by-request and cross-reference each one with the corresponding code path.
 
-11. **Git worktree setup checklist.**
+12. **Git worktree setup checklist.**
     When working in a worktree under `.claude/worktrees/<name>/`:
     - Run `npm install` (no `node_modules` symlink from main repo)
     - Copy `.env.local` from the main repo root
     - Delete `.next` in both the worktree AND the main repo (`rm -rf .next`) before
       starting the dev server to avoid Turbopack serving stale cached chunks
 
-12. **DB migrations: workflow misto drizzle-kit + SQL handwritten.**
+13. **DB migrations: workflow misto drizzle-kit + SQL handwritten.**
     Le migrazioni seguono un approccio ibrido obbligato:
     - **Schema changes** (tabelle, colonne, indici, FK) → `npx drizzle-kit generate`
       aggiorna automaticamente sia il file `.sql` sia il `_journal.json`.
