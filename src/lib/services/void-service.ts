@@ -136,7 +136,6 @@ export async function voidReceiptForBusiness(
       originalAdeDoc,
     );
     const adeResponse = await adeClient.submitVoid(payload);
-    await adeClient.logout();
 
     // AdE can return HTTP 200 with esito:false when it rejects the void.
     if (!adeResponse.esito) {
@@ -205,5 +204,9 @@ export async function voidReceiptForBusiness(
     return {
       error: "Errore durante l'annullo dello scontrino. Riprova più tardi.",
     };
+  } finally {
+    await adeClient
+      .logout()
+      .catch((err) => logger.warn({ err }, "AdE logout failed"));
   }
 }

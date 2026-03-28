@@ -516,6 +516,64 @@ describe("onboarding-actions", () => {
       await Promise.resolve();
       expect(mockSendEmail).not.toHaveBeenCalled();
     });
+
+    it("chiama logout anche se getFiscalData lancia un errore", async () => {
+      // Ownership check: profile found
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      // Ownership check: business belongs to profile
+      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+      // Credentials found
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          verifiedAt: null,
+        },
+      ]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockRejectedValue(new Error("fiscal data unavailable"));
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials("biz-789");
+
+      expect(mockLogout).toHaveBeenCalled();
+    });
+
+    it("chiama logout anche nel happy path di verifyAdeCredentials", async () => {
+      // Ownership check: profile found
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      // Ownership check: business belongs to profile
+      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+      // Credentials found
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          verifiedAt: null,
+        },
+      ]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "12345678901",
+          codiceFiscale: "RSSMRA80A01H501U",
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials("biz-789");
+
+      expect(mockLogout).toHaveBeenCalled();
+    });
   });
 
   describe("getOnboardingStatus", () => {

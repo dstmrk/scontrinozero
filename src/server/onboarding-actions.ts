@@ -232,22 +232,26 @@ export async function verifyAdeCredentials(
     return { error: "Verifica fallita. Controlla le credenziali Fisconline." };
   }
 
-  // Fetch fiscal data from AdE while session is active
   try {
-    const fiscalData = await adeClient.getFiscalData();
-    const vatNumber = fiscalData.identificativiFiscali.partitaIva;
-    const fiscalCode = fiscalData.identificativiFiscali.codiceFiscale;
+    // Fetch fiscal data from AdE while session is active
+    try {
+      const fiscalData = await adeClient.getFiscalData();
+      const vatNumber = fiscalData.identificativiFiscali.partitaIva;
+      const fiscalCode = fiscalData.identificativiFiscali.codiceFiscale;
 
-    await db
-      .update(businesses)
-      .set({ vatNumber, fiscalCode })
-      .where(eq(businesses.id, businessId));
-  } catch (err) {
-    logger.error({ err, businessId }, "Failed to fetch fiscal data from AdE");
-    // Non-blocking: verifica comunque riuscita, P.IVA/CF aggiunti in seguito
+      await db
+        .update(businesses)
+        .set({ vatNumber, fiscalCode })
+        .where(eq(businesses.id, businessId));
+    } catch (err) {
+      logger.error({ err, businessId }, "Failed to fetch fiscal data from AdE");
+      // Non-blocking: verifica comunque riuscita, P.IVA/CF aggiunti in seguito
+    }
+  } finally {
+    await adeClient
+      .logout()
+      .catch((err) => logger.warn({ err }, "AdE logout failed"));
   }
-
-  await adeClient.logout();
 
   // Mark credentials as verified
   await db

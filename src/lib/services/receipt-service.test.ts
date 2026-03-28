@@ -308,4 +308,20 @@ describe("emitReceiptForBusiness", () => {
       expect.anything(),
     );
   });
+
+  it("chiama logout anche se submitSale lancia un errore", async () => {
+    mockSubmitSale.mockRejectedValue(new Error("network error"));
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(mockLogout).toHaveBeenCalled();
+  });
+
+  it("chiama logout anche nel happy path", async () => {
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(mockLogout).toHaveBeenCalled();
+  });
 });

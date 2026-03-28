@@ -194,7 +194,6 @@ export async function emitReceiptForBusiness(
     await adeClient.login({ codiceFiscale, password, pin });
     const payload = mapSaleToAdePayload(saleDocRequest, cedentePrestatore);
     const adeResponse = await adeClient.submitSale(payload);
-    await adeClient.logout();
 
     // AdE can return HTTP 200 with esito:false when it rejects the document.
     if (!adeResponse.esito) {
@@ -252,5 +251,9 @@ export async function emitReceiptForBusiness(
     return {
       error: "Errore durante l'emissione dello scontrino. Riprova più tardi.",
     };
+  } finally {
+    await adeClient
+      .logout()
+      .catch((err) => logger.warn({ err }, "AdE logout failed"));
   }
 }
