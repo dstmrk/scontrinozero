@@ -3,6 +3,7 @@ import { authenticateApiKey, isApiKeyAuthError } from "@/lib/api-auth";
 import { canUseApi } from "@/lib/plans";
 import { voidReceiptForBusiness } from "@/lib/services/void-service";
 import { logger } from "@/lib/logger";
+import { isValidUuid } from "@/lib/uuid";
 
 // Rate limit: 20 voids per hour per API key
 const voidApiLimiter = new RateLimiter({
@@ -72,6 +73,10 @@ export async function POST(
   }
 
   const { id: documentId } = await params;
+
+  if (!isValidUuid(documentId)) {
+    return Response.json({ error: "ID non valido." }, { status: 400 });
+  }
 
   // ── Void ──────────────────────────────────────────────────────────────────
   const result = await voidReceiptForBusiness(
