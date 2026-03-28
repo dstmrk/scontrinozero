@@ -189,9 +189,11 @@ export async function emitReceiptForBusiness(
 
   const adeMode = (process.env.ADE_MODE as "mock" | "real") || "mock";
   const adeClient = createAdeClient(adeMode);
+  let loggedIn = false;
 
   try {
     await adeClient.login({ codiceFiscale, password, pin });
+    loggedIn = true;
     const payload = mapSaleToAdePayload(saleDocRequest, cedentePrestatore);
     const adeResponse = await adeClient.submitSale(payload);
 
@@ -252,8 +254,10 @@ export async function emitReceiptForBusiness(
       error: "Errore durante l'emissione dello scontrino. Riprova più tardi.",
     };
   } finally {
-    await adeClient
-      .logout()
-      .catch((err) => logger.warn({ err }, "AdE logout failed"));
+    if (loggedIn) {
+      await adeClient
+        .logout()
+        .catch((err) => logger.warn({ err }, "AdE logout failed"));
+    }
   }
 }

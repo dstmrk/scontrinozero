@@ -324,6 +324,15 @@ describe("voidReceiptForBusiness", () => {
     expect(setArg.status).toBe("ERROR");
   });
 
+  it("non chiama logout se AdE login fallisce (nessuna sessione aperta)", async () => {
+    mockLogin.mockRejectedValue(new Error("AdE login failed"));
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    await voidReceiptForBusiness(VALID_INPUT);
+
+    expect(mockLogout).not.toHaveBeenCalled();
+  });
+
   it("aggiorna VOID doc a VOID_ACCEPTED e segna SALE come VOID_ACCEPTED", async () => {
     const { voidReceiptForBusiness } = await import("./void-service");
     await voidReceiptForBusiness(VALID_INPUT);
