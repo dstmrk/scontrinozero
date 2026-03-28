@@ -224,8 +224,9 @@ describe("billing-actions", () => {
         planExpiresAt: null,
       });
       mockPlanFromPriceId.mockReturnValue("pro");
+      // status must be 'active': checkout completed + payment confirmed
       mockSelectLimit.mockResolvedValue([
-        { stripePriceId: "price_pro_monthly" },
+        { stripePriceId: "price_pro_monthly", status: "active" },
       ]);
 
       const { getEffectivePlan } = await import("./billing-actions");
