@@ -84,7 +84,8 @@
     },
     "minimatch@^9.0.0": {
       "brace-expansion": "2.0.2"
-    }
+    },
+    "path-to-regexp@>=8.0.0 <8.4.0": "8.4.0"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
