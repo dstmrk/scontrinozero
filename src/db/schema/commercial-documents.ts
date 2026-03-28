@@ -88,10 +88,11 @@ export const commercialDocuments = pgTable(
       table.idempotencyKey,
     ),
     // Self-referencing FK with explicit short name (auto-gen name exceeds PG 63-char limit)
+    // Use table.id (not commercialDocuments.id) to avoid circular type inference.
     foreignKey({
       name: "fk_comm_docs_voided_doc",
       columns: [table.voidedDocumentId],
-      foreignColumns: [commercialDocuments.id],
+      foreignColumns: [table.id],
     }).onDelete("set null"),
   ],
 );
