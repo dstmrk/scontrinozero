@@ -31,6 +31,11 @@ vi.mock("drizzle-orm", () => ({
   eq: vi.fn((_col, val) => `eq(${val})`),
 }));
 
+const mockLoggerWarn = vi.fn();
+vi.mock("@/lib/logger", () => ({
+  logger: { warn: mockLoggerWarn },
+}));
+
 // --- Fixtures ---
 
 const NOW = new Date("2026-03-26T10:00:00Z");
@@ -216,6 +221,24 @@ describe("authenticateApiKey", () => {
     const result = await authenticateApiKey(request);
 
     expect("status" in result).toBe(false);
+  });
+
+  it("non propaga eccezioni se l'aggiornamento di last_used_at fallisce", async () => {
+    mockLimit.mockResolvedValue([FAKE_ROW]);
+    mockUpdateWhere.mockRejectedValue(new Error("DB connection error"));
+
+    const { authenticateApiKey } = await import("./api-auth");
+    const request = new Request("https://api.scontrinozero.it/v1/receipts", {
+      headers: { authorization: "Bearer szk_live_validkey" },
+    });
+
+    const result = await authenticateApiKey(request);
+
+    // Should still return success despite the failed fire-and-forget update
+    expect("status" in result).toBe(false);
+    // Allow the fire-and-forget catch to settle
+    await Promise.resolve();
+    expect(mockLoggerWarn).toHaveBeenCalled();
   });
 
   it("avvia l'aggiornamento di last_used_at (fire-and-forget)", async () => {
