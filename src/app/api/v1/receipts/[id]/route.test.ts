@@ -53,8 +53,10 @@ const FAKE_AUTH = {
   trialStartedAt: null,
 };
 
+const DOC_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+
 const FAKE_DOC = {
-  id: "doc-uuid-123",
+  id: DOC_ID,
   kind: "SALE",
   status: "ACCEPTED",
   idempotencyKey: "550e8400-e29b-41d4-a716-446655440000",
@@ -64,10 +66,10 @@ const FAKE_DOC = {
 };
 
 function makeRequest() {
-  return new Request("http://localhost/api/v1/receipts/doc-uuid-123");
+  return new Request(`http://localhost/api/v1/receipts/${DOC_ID}`);
 }
 
-function makeParams(id = "doc-uuid-123") {
+function makeParams(id = DOC_ID) {
   return { params: Promise.resolve({ id }) };
 }
 
@@ -92,7 +94,7 @@ describe("GET /api/v1/receipts/[id]", () => {
     const res = await GET(makeRequest(), makeParams());
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.id).toBe("doc-uuid-123");
+    expect(body.id).toBe(DOC_ID);
     expect(body.status).toBe("ACCEPTED");
   });
 
@@ -127,7 +129,10 @@ describe("GET /api/v1/receipts/[id]", () => {
   it("ritorna 404 se documento non trovato (o appartiene ad altro business)", async () => {
     mockSelectLimit.mockResolvedValue([]);
 
-    const res = await GET(makeRequest(), makeParams("non-existent-id"));
+    const res = await GET(
+      makeRequest(),
+      makeParams("00000000-0000-0000-0000-000000000000"),
+    );
     expect(res.status).toBe(404);
   });
 });
