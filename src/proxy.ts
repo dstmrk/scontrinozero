@@ -18,7 +18,8 @@ const MARKETING_ONLY_ROUTES = ["/privacy", "/termini", "/cookie-policy"];
 function hostnameRedirect(request: NextRequest): NextResponse | null {
   if (process.env.NODE_ENV === "development") return null;
 
-  const hostname = request.headers.get("host") ?? "";
+  // Strip optional port from Host header (e.g. "scontrinozero.it:443" → "scontrinozero.it")
+  const hostname = (request.headers.get("host") ?? "").replace(/:\d+$/, "");
   const { pathname, search } = request.nextUrl;
   const appHostname =
     process.env.NEXT_PUBLIC_APP_HOSTNAME ?? "app.scontrinozero.it";
