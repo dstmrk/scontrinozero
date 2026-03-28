@@ -50,6 +50,27 @@
       "when": 1774450002000,
       "tag": "0006_add_api_key_id_to_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1774450003000,
+      "tag": "0007_add_voided_document_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1774450004000,
+      "tag": "0008_unique_email_profiles",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1774450005000,
+      "tag": "0009_idempotency_per_business",
+      "breakpoints": true
     }
   ]
 }

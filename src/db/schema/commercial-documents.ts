@@ -1,10 +1,12 @@
 import {
+  foreignKey,
   index,
   jsonb,
   pgEnum,
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -37,7 +39,8 @@ export const commercialDocuments = pgTable(
       .notNull()
       .references(() => businesses.id, { onDelete: "cascade" }),
     kind: documentKindEnum("kind").notNull(),
-    idempotencyKey: uuid("idempotency_key").notNull().unique(),
+    // Unique scoped per business — see migration 0009. NOT globally unique.
+    idempotencyKey: uuid("idempotency_key").notNull(),
     /** SaleRequest | VoidRequest — payload API pubblica ScontrinoZero */
     publicRequest: jsonb("public_request"),
     /** Payload JSON inviato all'AdE */
@@ -54,6 +57,12 @@ export const commercialDocuments = pgTable(
     apiKeyId: uuid("api_key_id").references(() => apiKeys.id, {
       onDelete: "set null",
     }),
+    /**
+     * Per documenti VOID: UUID del SALE annullato.
+     * Vincolo UNIQUE (parziale, WHERE NOT NULL) nel DB previene doppi VOID sullo stesso SALE.
+     * FK definita nella table config con nome corto per rispettare il limite di 63 chars PostgreSQL.
+     */
+    voidedDocumentId: uuid("voided_document_id"),
     status: documentStatusEnum("status").notNull().default("PENDING"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -73,6 +82,17 @@ export const commercialDocuments = pgTable(
       table.status,
     ),
     index("idx_commercial_documents_api_key").on(table.apiKeyId),
+    // Composite unique: idempotency scoped per business (migration 0009)
+    uniqueIndex("idx_commercial_documents_business_idempotency").on(
+      table.businessId,
+      table.idempotencyKey,
+    ),
+    // Self-referencing FK with explicit short name (auto-gen name exceeds PG 63-char limit)
+    foreignKey({
+      name: "fk_comm_docs_voided_doc",
+      columns: [table.voidedDocumentId],
+      foreignColumns: [commercialDocuments.id],
+    }).onDelete("set null"),
   ],
 );
 

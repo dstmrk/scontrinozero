@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { profiles } from "@/db/schema";
 import { isValidEmail, isStrongPassword } from "@/lib/validation";
@@ -74,7 +74,9 @@ async function verifyCaptcha(token: string | null): Promise<boolean> {
 }
 
 export async function signUp(formData: FormData): Promise<AuthActionResult> {
-  const email = formData.get("email") as string;
+  const rawEmail = formData.get("email") as string;
+  // Normalise email to lowercase — consistent with DB unique index lower(email).
+  const email = rawEmail?.trim().toLowerCase() ?? "";
   const password = formData.get("password") as string;
   const confirmPassword = formData.get("confirmPassword") as string;
   const termsAccepted = formData.get("termsAccepted");
@@ -117,12 +119,13 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   // Supabase's behaviour for duplicate emails varies by config (anti-enumeration
   // returns null user; auto-confirm may create a new auth user with a different UUID).
   // Checking our own table by email is the only reliable guard in all cases.
+  // Uses lower() for case-insensitive comparison, consistent with DB unique index.
   try {
     const db = getDb();
     const [existingByEmail] = await db
       .select({ id: profiles.id })
       .from(profiles)
-      .where(eq(profiles.email, email))
+      .where(sql`lower(${profiles.email}) = ${email}`)
       .limit(1);
 
     if (existingByEmail) {
@@ -156,6 +159,17 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
         termsVersion: CURRENT_TERMS_VERSION,
       });
     } catch (err) {
+      // Unique-constraint violation on lower(email): two concurrent signups raced.
+      // Return the same user-friendly message as the pre-check to avoid disclosing
+      // which constraint fired (prevents timing-based enumeration).
+      const pgCode =
+        err && typeof err === "object" && "code" in err ? err.code : null;
+      if (pgCode === "23505") {
+        return {
+          error:
+            "Un account con questa email esiste già. Accedi oppure reimposta la password.",
+        };
+      }
       logger.error(
         { err },
         "Failed to record terms acceptance; blocking signup",
@@ -270,14 +284,25 @@ export async function resetPassword(
   }
 
   // Defensive check: ensure the generated link points to our own domain.
-  // Guards against Supabase misconfiguration with overly permissive redirect URLs.
+  // Parse the URL explicitly instead of using startsWith — a prefix check can be
+  // bypassed via subdomain spoofing (e.g., https://app.scontrinozero.it.evil.tld/).
   const expectedHostname =
     process.env.NEXT_PUBLIC_APP_HOSTNAME ?? "app.scontrinozero.it";
   const actionLink = data.properties.action_link;
-  if (!actionLink.startsWith(`https://${expectedHostname}`)) {
+  let parsedActionLink: URL | null = null;
+  try {
+    parsedActionLink = new URL(actionLink);
+  } catch {
+    // Malformed URL — treat as mismatch
+  }
+  if (
+    !parsedActionLink ||
+    parsedActionLink.protocol !== "https:" ||
+    parsedActionLink.hostname !== expectedHostname
+  ) {
     logger.error(
       { actionLink, expectedHostname },
-      "Reset password: action_link hostname mismatch — email not sent",
+      "Reset password: action_link hostname mismatch or invalid URL — email not sent",
     );
     redirect("/verify-email");
   }

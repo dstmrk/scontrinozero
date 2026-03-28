@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { getClientIp } from "./get-client-ip";
 
 function makeHeaders(entries: Record<string, string>): Headers {
@@ -58,6 +58,27 @@ describe("getClientIp", () => {
     it("ritorna 'unknown' se nessun header IP è presente", () => {
       const headers = makeHeaders({});
       expect(getClientIp(headers)).toBe("unknown");
+    });
+  });
+
+  describe("produzione: XFF ignorato se CF-Connecting-IP assente (anti-spoof)", () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it("ritorna 'unknown' in produzione se CF-Connecting-IP è assente (non cade su XFF)", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      const headers = makeHeaders({ "x-forwarded-for": "attacker-ip" });
+      expect(getClientIp(headers)).toBe("unknown");
+    });
+
+    it("ritorna CF-Connecting-IP in produzione quando presente", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      const headers = makeHeaders({
+        "cf-connecting-ip": "1.2.3.4",
+        "x-forwarded-for": "attacker-ip",
+      });
+      expect(getClientIp(headers)).toBe("1.2.3.4");
     });
   });
 });

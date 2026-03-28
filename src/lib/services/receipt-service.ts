@@ -8,7 +8,7 @@
  * Accetta un `apiKeyId` opzionale: se fornito, viene salvato su
  * commercial_documents per tracciare le emissioni via Developer API.
  */
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
 import { createAdeClient } from "@/lib/ade";
@@ -133,7 +133,12 @@ export async function emitReceiptForBusiness(
         adeProgressive: commercialDocuments.adeProgressive,
       })
       .from(commercialDocuments)
-      .where(eq(commercialDocuments.idempotencyKey, input.idempotencyKey))
+      .where(
+        and(
+          eq(commercialDocuments.idempotencyKey, input.idempotencyKey),
+          eq(commercialDocuments.businessId, input.businessId),
+        ),
+      )
       .limit(1);
 
     if (existing?.status === "ACCEPTED") {

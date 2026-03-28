@@ -473,6 +473,62 @@ da 2 (profile + business separati) a 1 (risultato JOIN). In alternativa: mockare
 
 Cerca file affetti con: `grep -rn "FAKE_PROFILE\|Ownership check" tests/ src/ --include="*.test.ts"`
 
+### Testare NODE_ENV in unit test con `vi.stubEnv`
+
+`process.env.NODE_ENV` **non è direttamente scrivibile** in Vitest (TypeError se si usa
+`Object.defineProperty`). Usare sempre `vi.stubEnv` + `vi.unstubAllEnvs()` in `afterEach`:
+
+```typescript
+import { afterEach, it, vi } from "vitest";
+
+afterEach(() => vi.unstubAllEnvs());
+
+it("si comporta diversamente in produzione", () => {
+  vi.stubEnv("NODE_ENV", "production");
+  // ... assertions ...
+});
+```
+
+### URL parsing vs startsWith per controlli hostname
+
+Usare **sempre** `new URL(link)` + `url.hostname === expected` per verificare che un link
+punti al proprio dominio. `link.startsWith("https://mio.dominio.it")` è bypassabile con
+`https://mio.dominio.it.attacker.tld/`. Il check corretto:
+
+```typescript
+let parsed: URL | null = null;
+try {
+  parsed = new URL(link);
+} catch {
+  /* malformed */
+}
+if (
+  !parsed ||
+  parsed.protocol !== "https:" ||
+  parsed.hostname !== expectedHostname
+) {
+  // blocca
+}
+```
+
+### Race condition su operazioni multi-riga: preferire constraint DB all'application lock
+
+Per prevenire operazioni duplicate concorrenti (es. doppio VOID dello stesso SALE), la
+soluzione più robusta è un **constraint DB** (UNIQUE, partial index) piuttosto che un
+lock applicativo. Il DB garantisce atomicità; il codice applicativo può solo essere
+TOCTOU-vulnerabile. Pattern:
+
+1. Aggiungere `UNIQUE INDEX ... WHERE col IS NOT NULL` in una migrazione
+2. Inserire con `onConflictDoNothing()`
+3. Se `returning` è vuoto, discriminare il caso "stessa key" (idempotency) da "key diversa, stessa riga target" (race condition) via query separata
+
+### Scope idempotency key: sempre per-tenant, mai globale
+
+I vincoli UNIQUE su `idempotency_key` vanno sempre scoped al tenant (`business_id`):
+`UNIQUE(business_id, idempotency_key)`. Un constraint globale blocca business diversi
+che usano accidentalmente la stessa UUID e può esporre metadati cross-tenant. I fallback
+di lookup devono filtrare per `businessId` in aggiunta alla key.
+
 ### Checklist pre-PR
 
 Prima di aprire una PR verificare che la pipeline CI passi localmente:

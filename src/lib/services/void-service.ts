@@ -68,22 +68,29 @@ export async function voidReceiptForBusiness(
   if ("error" in prerequisites) return prerequisites;
   const { codiceFiscale, password, pin, cedentePrestatore } = prerequisites;
 
-  // 3. Insert VOID document (idempotent via unique idempotencyKey)
+  // 3. Insert VOID document.
+  //    Two uniqueness constraints provide layered protection:
+  //    - idempotencyKey (unique): same-request idempotency (retry-safe)
+  //    - voidedDocumentId (unique partial index, WHERE NOT NULL): race-condition guard —
+  //      if two concurrent requests try to void the same SALE with different keys,
+  //      only one INSERT succeeds; the second is silently dropped by onConflictDoNothing.
   const [voidDoc] = await db
     .insert(commercialDocuments)
     .values({
       businessId: input.businessId,
       kind: "VOID",
       idempotencyKey: input.idempotencyKey,
+      voidedDocumentId: input.documentId,
       apiKeyId: apiKeyId ?? null,
       status: "PENDING",
     })
     .onConflictDoNothing()
     .returning({ id: commercialDocuments.id });
 
-  // Idempotency: a VOID document with this key already exists
+  // Insert was skipped due to a constraint conflict — determine which one.
   if (!voidDoc) {
-    const [existing] = await db
+    // Case A: same idempotencyKey → same-request retry (true idempotency path)
+    const [existingByKey] = await db
       .select({
         id: commercialDocuments.id,
         status: commercialDocuments.status,
@@ -91,21 +98,35 @@ export async function voidReceiptForBusiness(
         adeProgressive: commercialDocuments.adeProgressive,
       })
       .from(commercialDocuments)
-      .where(eq(commercialDocuments.idempotencyKey, input.idempotencyKey))
+      .where(
+        and(
+          eq(commercialDocuments.idempotencyKey, input.idempotencyKey),
+          eq(commercialDocuments.businessId, input.businessId),
+        ),
+      )
       .limit(1);
 
-    if (existing?.status === "VOID_ACCEPTED") {
-      // Already voided successfully — true idempotency return
+    if (existingByKey) {
+      if (existingByKey.status === "VOID_ACCEPTED") {
+        // Already voided successfully — true idempotency return
+        return {
+          voidDocumentId: existingByKey.id,
+          adeTransactionId: existingByKey.adeTransactionId ?? undefined,
+          adeProgressive: existingByKey.adeProgressive ?? undefined,
+        };
+      }
+      // PENDING or ERROR: void was started but never completed
       return {
-        voidDocumentId: existing.id,
-        adeTransactionId: existing.adeTransactionId ?? undefined,
-        adeProgressive: existing.adeProgressive ?? undefined,
+        error:
+          "Annullo precedente in stato inconsistente. Riprova aprendo di nuovo il dialogo.",
       };
     }
-    // PENDING or ERROR: void was started but never completed
+
+    // Case B: different idempotencyKey, same voidedDocumentId → race condition blocked.
+    // Another concurrent request already created (or completed) a VOID for this SALE.
     return {
       error:
-        "Annullo precedente in stato inconsistente. Riprova aprendo di nuovo il dialogo.",
+        "Questo scontrino è già stato annullato o è in fase di annullo da un'altra richiesta.",
     };
   }
 
