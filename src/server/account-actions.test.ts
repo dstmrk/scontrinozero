@@ -90,6 +90,24 @@ describe("account-actions", () => {
       expect(mockRedirect).toHaveBeenCalledWith("/");
     });
 
+    it("signs out BEFORE deleting the auth user (session must be invalidated first)", async () => {
+      const callOrder: string[] = [];
+      mockSignOut.mockImplementation(async () => {
+        callOrder.push("signOut");
+      });
+      mockAdminDeleteUser.mockImplementation(async () => {
+        callOrder.push("deleteUser");
+        return { error: null };
+      });
+
+      const { deleteAccount } = await import("./account-actions");
+      await deleteAccount();
+
+      expect(callOrder.indexOf("signOut")).toBeLessThan(
+        callOrder.indexOf("deleteUser"),
+      );
+    });
+
     it("returns error when user is not authenticated", async () => {
       mockGetAuthenticatedUser.mockRejectedValue(
         new Error("Not authenticated"),

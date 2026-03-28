@@ -47,7 +47,13 @@ export async function deleteAccount(): Promise<AccountActionResult> {
     return { error: "Profilo non trovato." };
   }
 
-  // 2. Delete auth user via admin API (service role key)
+  // 2. Sign out current session before deleting the auth user.
+  // Supabase signOut may fail or behave unexpectedly if called after the
+  // auth user has already been removed, so we invalidate the session first.
+  const supabase = await createServerSupabaseClient();
+  await supabase.auth.signOut();
+
+  // 3. Delete auth user via admin API (service role key)
   const adminClient = createAdminSupabaseClient();
   const { error: adminError } = await adminClient.auth.admin.deleteUser(
     user.id,
@@ -63,7 +69,7 @@ export async function deleteAccount(): Promise<AccountActionResult> {
 
   logger.info({ userId: user.id }, "Account deleted");
 
-  // 3. Send deletion confirmation email (fire-and-forget)
+  // 4. Send deletion confirmation email (fire-and-forget)
   if (user.email) {
     void sendEmail({
       to: user.email,
@@ -71,10 +77,6 @@ export async function deleteAccount(): Promise<AccountActionResult> {
       react: createElement(AccountDeletionEmail, { email: user.email }),
     }).catch((err) => logger.warn({ err }, "Account deletion email failed"));
   }
-
-  // 4. Sign out current session before redirecting
-  const supabase = await createServerSupabaseClient();
-  await supabase.auth.signOut();
 
   redirect("/");
 }
