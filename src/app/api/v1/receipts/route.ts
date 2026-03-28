@@ -103,7 +103,8 @@ export async function POST(request: Request): Promise<Response> {
 
   const input: SubmitReceiptInput = {
     businessId: auth.businessId,
-    lines,
+    // `id` is a UI-only React key not used by the service layer; omitted from API schema
+    lines: lines.map((l) => ({ ...l, id: "" })),
     paymentMethod,
     idempotencyKey,
     lotteryCode: lotteryCode ?? null,
