@@ -62,7 +62,7 @@ function makeRequest(body: unknown = VALID_BODY) {
   });
 }
 
-function makeParams(id = "sale-doc-uuid") {
+function makeParams(id = "b2c3d4e5-f6a7-8901-bcde-f12345678901") {
   return { params: Promise.resolve({ id }) };
 }
 
@@ -94,10 +94,13 @@ describe("POST /api/v1/receipts/[id]/void", () => {
   });
 
   it("passa documentId dalla URL e businessId dalla API key al service", async () => {
-    await POST(makeRequest(), makeParams("sale-doc-uuid"));
+    await POST(
+      makeRequest(),
+      makeParams("b2c3d4e5-f6a7-8901-bcde-f12345678901"),
+    );
     expect(mockVoidReceiptForBusiness).toHaveBeenCalledWith(
       {
-        documentId: "sale-doc-uuid",
+        documentId: "b2c3d4e5-f6a7-8901-bcde-f12345678901",
         idempotencyKey: VALID_BODY.idempotencyKey,
         businessId: "biz-uuid",
       },

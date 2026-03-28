@@ -61,7 +61,7 @@ import { GET } from "./route";
 const MOCK_USER = { id: "user-123" };
 
 const MOCK_DOC = {
-  id: "doc-456",
+  id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   businessId: "biz-789",
   kind: "SALE",
   status: "ACCEPTED",
@@ -84,7 +84,7 @@ const MOCK_BIZ = {
 const MOCK_LINES = [
   {
     id: "line-1",
-    documentId: "doc-456",
+    documentId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
     lineIndex: 0,
     description: "Prodotto A",
     quantity: "1.000",
@@ -126,8 +126,10 @@ describe("GET /api/documents/[documentId]/pdf", () => {
   it("ritorna 401 se non autenticato", async () => {
     mockGetUser.mockResolvedValueOnce({ data: { user: null } });
 
-    const res = await GET(makeRequest("doc-456"), {
-      params: Promise.resolve({ documentId: "doc-456" }),
+    const res = await GET(makeRequest("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), {
+      params: Promise.resolve({
+        documentId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      }),
     });
 
     expect(res.status).toBe(401);
@@ -137,8 +139,10 @@ describe("GET /api/documents/[documentId]/pdf", () => {
     mockSelect.mockReset();
     mockSelect.mockReturnValueOnce(makeSelectBuilder([]));
 
-    const res = await GET(makeRequest("doc-456"), {
-      params: Promise.resolve({ documentId: "doc-456" }),
+    const res = await GET(makeRequest("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), {
+      params: Promise.resolve({
+        documentId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      }),
     });
 
     expect(res.status).toBe(404);
@@ -148,8 +152,10 @@ describe("GET /api/documents/[documentId]/pdf", () => {
     mockSelect.mockReset();
     mockSelect.mockReturnValueOnce(makeSelectBuilder([]));
 
-    const res = await GET(makeRequest("doc-456"), {
-      params: Promise.resolve({ documentId: "doc-456" }),
+    const res = await GET(makeRequest("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), {
+      params: Promise.resolve({
+        documentId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      }),
     });
 
     expect(res.status).toBe(404);
@@ -163,21 +169,27 @@ describe("GET /api/documents/[documentId]/pdf", () => {
       ]),
     );
 
-    const res = await GET(makeRequest("doc-456"), {
-      params: Promise.resolve({ documentId: "doc-456" }),
+    const res = await GET(makeRequest("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), {
+      params: Promise.resolve({
+        documentId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      }),
     });
 
     expect(res.status).toBe(400);
   });
 
   it("happy path: delega a generatePdfResponse con doc, biz e lines", async () => {
-    await GET(makeRequest("doc-456"), {
-      params: Promise.resolve({ documentId: "doc-456" }),
+    await GET(makeRequest("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), {
+      params: Promise.resolve({
+        documentId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      }),
     });
 
     expect(mockGeneratePdfResponse).toHaveBeenCalledWith(
       expect.objectContaining({
-        doc: expect.objectContaining({ id: "doc-456" }),
+        doc: expect.objectContaining({
+          id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        }),
         biz: expect.objectContaining({ businessName: "Negozio Test" }),
         lines: expect.arrayContaining([
           expect.objectContaining({ description: "Prodotto A" }),
@@ -187,8 +199,10 @@ describe("GET /api/documents/[documentId]/pdf", () => {
   });
 
   it("happy path: ritorna la Response prodotta da generatePdfResponse", async () => {
-    const res = await GET(makeRequest("doc-456"), {
-      params: Promise.resolve({ documentId: "doc-456" }),
+    const res = await GET(makeRequest("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), {
+      params: Promise.resolve({
+        documentId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      }),
     });
 
     expect(res.status).toBe(200);
