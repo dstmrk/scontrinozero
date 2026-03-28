@@ -3,6 +3,21 @@ import {
   type SaleReceiptLine,
 } from "@/lib/pdf/generate-sale-receipt";
 
+/**
+ * Sanitizes a string for use as a PDF filename component.
+ * Whitelist approach: keeps only [A-Za-z0-9._-], replaces the rest with "-",
+ * trims leading/trailing dashes, and falls back to "scontrino" if empty.
+ * Exported for testing.
+ */
+export function sanitizePdfFilename(raw: string): string {
+  return (
+    raw
+      .replace(/[^A-Za-z0-9._-]/g, "-")
+      .slice(0, 100)
+      .replace(/^-+|-+$/g, "") || "scontrino"
+  );
+}
+
 /** Minimum shape required to build the PDF Response. */
 interface PdfReceiptInput {
   doc: {
@@ -69,16 +84,17 @@ export async function generatePdfResponse(
     lotteryCode,
   });
 
-  const safeProgressive = (doc.adeProgressive ?? "scontrino").replaceAll(
-    /[/\\]/g,
-    "-",
+  const safeProgressive = sanitizePdfFilename(
+    doc.adeProgressive ?? "scontrino",
   );
+  const encodedProgressive = encodeURIComponent(safeProgressive);
 
   return new Response(new Uint8Array(pdfBuffer), {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="scontrino-${safeProgressive}.pdf"`,
+      // RFC 5987: filename* for non-ASCII safe encoding; filename for legacy clients
+      "Content-Disposition": `attachment; filename="scontrino-${safeProgressive}.pdf"; filename*=UTF-8''scontrino-${encodedProgressive}.pdf`,
       "Cache-Control": "private, no-store",
     },
   });
