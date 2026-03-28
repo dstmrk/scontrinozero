@@ -53,17 +53,29 @@ export async function deleteAccount(): Promise<AccountActionResult> {
   const supabase = await createServerSupabaseClient();
   await supabase.auth.signOut();
 
-  // 3. Delete auth user via admin API (service role key)
+  // 3. Delete auth user via admin API (service role key).
+  // Retry up to 3 times: a transient failure would leave an orphan auth entry
+  // that blocks re-registration with the same email.
   const adminClient = createAdminSupabaseClient();
-  const { error: adminError } = await adminClient.auth.admin.deleteUser(
-    user.id,
-  );
-  if (adminError) {
-    // Profile data is already deleted. The auth user becomes an orphan but is
-    // harmless — it has no data and cannot log in (profile check would fail).
+  let deleteAuthError: Error | null = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const { error } = await adminClient.auth.admin.deleteUser(user.id);
+    if (!error) {
+      deleteAuthError = null;
+      break;
+    }
+    deleteAuthError = error;
+    if (attempt < 3) {
+      await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+    }
+  }
+  if (deleteAuthError) {
+    // All retries exhausted. Profile is deleted but auth entry persists —
+    // the user cannot log in but CAN be blocked from re-registering.
+    // Requires manual cleanup via Supabase dashboard or admin script.
     logger.error(
-      { userId: user.id, err: adminError },
-      "deleteAccount: auth user deletion failed — orphaned auth entry",
+      { userId: user.id, err: deleteAuthError },
+      "deleteAccount: auth user deletion failed after retries — manual cleanup required",
     );
   }
 

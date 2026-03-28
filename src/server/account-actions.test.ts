@@ -133,18 +133,54 @@ describe("account-actions", () => {
       expect(mockRedirect).not.toHaveBeenCalled();
     });
 
+    it("retries deleteUser up to 3 times on failure then redirects", async () => {
+      vi.useFakeTimers();
+      mockAdminDeleteUser.mockResolvedValue({
+        error: { message: "Service unavailable" },
+      });
+
+      const { deleteAccount } = await import("./account-actions");
+      const promise = deleteAccount();
+      await vi.runAllTimersAsync();
+      await promise;
+
+      expect(mockAdminDeleteUser).toHaveBeenCalledTimes(3);
+      expect(mockRedirect).toHaveBeenCalledWith("/");
+      vi.useRealTimers();
+    });
+
+    it("stops retrying deleteUser as soon as it succeeds", async () => {
+      vi.useFakeTimers();
+      mockAdminDeleteUser
+        .mockResolvedValueOnce({ error: { message: "transient" } })
+        .mockResolvedValueOnce({ error: null });
+
+      const { deleteAccount } = await import("./account-actions");
+      const promise = deleteAccount();
+      await vi.runAllTimersAsync();
+      await promise;
+
+      expect(mockAdminDeleteUser).toHaveBeenCalledTimes(2);
+      expect(mockRedirect).toHaveBeenCalledWith("/");
+      vi.useRealTimers();
+    });
+
     it("still redirects when admin auth user deletion fails (profile already deleted)", async () => {
+      vi.useFakeTimers();
       mockAdminDeleteUser.mockResolvedValue({
         error: { message: "User not found" },
       });
 
       const { deleteAccount } = await import("./account-actions");
-      await deleteAccount();
+      const promise = deleteAccount();
+      await vi.runAllTimersAsync();
+      await promise;
 
       // Profile was deleted — redirect must still happen
       expect(mockDeleteReturning).toHaveBeenCalled();
       expect(mockSignOut).toHaveBeenCalled();
       expect(mockRedirect).toHaveBeenCalledWith("/");
+      vi.useRealTimers();
     });
 
     it("sends AccountDeletionEmail after successful deletion", async () => {

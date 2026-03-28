@@ -43,10 +43,11 @@ vi.mock("@/lib/logger", () => ({
 // --- Helpers ---
 
 const VALID_UUID = "550e8400-e29b-41d4-a716-446655440000";
+const VALID_IDEMPOTENCY_KEY = "660e8400-e29b-41d4-a716-446655440001";
 
 function makeRequest(
   id: string,
-  body = { idempotencyKey: "idem-123" },
+  body = { idempotencyKey: VALID_IDEMPOTENCY_KEY },
 ): Request {
   return new Request(`https://example.com/api/v1/receipts/${id}/void`, {
     method: "POST",
@@ -78,7 +79,7 @@ describe("POST /api/v1/receipts/[id]/void", () => {
     });
   });
 
-  describe("UUID validation", () => {
+  describe("UUID validation — document id", () => {
     it("returns 400 for a non-UUID id", async () => {
       const { POST } = await import("@/app/api/v1/receipts/[id]/void/route");
       const res = await POST(
@@ -100,6 +101,37 @@ describe("POST /api/v1/receipts/[id]/void", () => {
     it("does not call voidReceiptForBusiness for invalid UUID", async () => {
       const { POST } = await import("@/app/api/v1/receipts/[id]/void/route");
       await POST(makeRequest("invalid"), makeParams("invalid"));
+      expect(mockVoidReceiptForBusiness).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("UUID validation — idempotencyKey", () => {
+    it("returns 400 when idempotencyKey is not a valid UUID", async () => {
+      const { POST } = await import("@/app/api/v1/receipts/[id]/void/route");
+      const res = await POST(
+        makeRequest(VALID_UUID, { idempotencyKey: "not-a-uuid" }),
+        makeParams(VALID_UUID),
+      );
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toMatch(/idempotencyKey/i);
+    });
+
+    it("returns 400 when idempotencyKey is a plain string", async () => {
+      const { POST } = await import("@/app/api/v1/receipts/[id]/void/route");
+      const res = await POST(
+        makeRequest(VALID_UUID, { idempotencyKey: "my-custom-key-123" }),
+        makeParams(VALID_UUID),
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("does not call voidReceiptForBusiness when idempotencyKey is invalid", async () => {
+      const { POST } = await import("@/app/api/v1/receipts/[id]/void/route");
+      await POST(
+        makeRequest(VALID_UUID, { idempotencyKey: "bad-key" }),
+        makeParams(VALID_UUID),
+      );
       expect(mockVoidReceiptForBusiness).not.toHaveBeenCalled();
     });
   });

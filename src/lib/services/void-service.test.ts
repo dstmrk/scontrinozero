@@ -28,11 +28,20 @@ const mockUpdateWhere = vi.fn().mockResolvedValue(undefined);
 const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
 const mockUpdate = vi.fn().mockReturnValue({ set: mockUpdateSet });
 
+// transaction: calls the callback with a tx proxy that shares mockUpdate
+const mockTransaction = vi
+  .fn()
+  .mockImplementation(
+    async (callback: (tx: { update: typeof mockUpdate }) => Promise<void>) =>
+      callback({ update: mockUpdate }),
+  );
+
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({
     select: mockSelect,
     insert: mockInsert,
     update: mockUpdate,
+    transaction: mockTransaction,
   }),
 }));
 
@@ -159,6 +168,11 @@ describe("voidReceiptForBusiness", () => {
     mockGetDocument.mockResolvedValue(FAKE_ADE_DETAIL);
     mockSubmitVoid.mockResolvedValue(FAKE_ADE_RESPONSE);
     mockLogout.mockResolvedValue(undefined);
+
+    mockTransaction.mockImplementation(
+      async (callback: (tx: { update: typeof mockUpdate }) => Promise<void>) =>
+        callback({ update: mockUpdate }),
+    );
   });
 
   it("happy path: annulla scontrino e ritorna voidDocumentId + adeTransactionId", async () => {
@@ -359,5 +373,17 @@ describe("voidReceiptForBusiness", () => {
     await voidReceiptForBusiness(VALID_INPUT);
 
     expect(mockLogout).toHaveBeenCalled();
+  });
+
+  it("ritorna errore se la transaction finale fallisce (rollback atomico)", async () => {
+    mockTransaction.mockRejectedValue(new Error("DB transaction failed"));
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect(result.error).toBeDefined();
+    // The ERROR status update (outside the transaction) should have been called
+    const statusUpdates = mockUpdateSet.mock.calls.map((c) => c[0].status);
+    expect(statusUpdates).toContain("ERROR");
   });
 });

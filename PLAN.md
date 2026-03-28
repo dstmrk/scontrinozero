@@ -1,6 +1,6 @@
 # ScontrinoZero — Piano di sviluppo
 
-## Versione corrente: v1.1.0 ✅ — Prossima release: v1.2.0 (PWA) ⬜
+## Versione corrente: v1.1.2 ✅ — Prossima release: v1.2.0 (PWA) ⬜
 
 Il piano usa **release semantiche** (vx.y.z). La v1.1.0 è stata rilasciata in produzione.
 
@@ -13,6 +13,8 @@ Il piano usa **release semantiche** (vx.y.z). La v1.1.0 è stata rilasciata in p
 | Versione     | Descrizione                                                                                                                  |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | **v1.1.0**   | ✅ Lotteria degli Scontrini: codice lotteria nel payload AdE, form emissione, storico, PDF                                   |
+| **v1.1.1**   | ✅ Fix sicurezza/affidabilità: UUID validation, void atomicity, delete account retry, password reset hardening, trusted IP   |
+| **v1.1.2**   | ✅ Tech debt code review: consolidamento validazioni, ottimizzazione query DB (rinviato a v1.2.x)                            |
 | **v1.2.0**   | PWA: `@serwist/next`, manifest, offline shell, install prompt                                                                |
 | **v1.3.0**   | Landing & SEO polish: social proof, pagine dedicate funzionalità/prezzi, screenshot UI                                       |
 | **v1.4.0**   | Coupon/promo codes, referral program, Stripe Customer Portal polish                                                          |
@@ -46,6 +48,24 @@ inquadrando un QR code o comunicando verbalmente il codice fiscale.
 - ✅ PDF scontrino (pdfkit): includere riga codice lotteria se presente
 - ✅ Share link pubblico: mostrare codice lotteria se presente
 - ✅ Test TDD: mapper payload, validazione CF, persistenza, rendering PDF e storico
+
+---
+
+### v1.2.x — Tech debt dalla code review (backlog) ⬜
+
+Da pianificare come task separati tra v1.2.0 e v1.3.0, in ordine di priorità:
+
+**Validazioni (Issue #15):**
+
+- ⬜ Schemi Zod condivisi per input API e server actions (oggi validazione distribuita/manuale)
+- ⬜ Error model uniforme (`code`, `message`, `details`, `field`) per API e form errors
+- ⬜ `safeParse` + risposta 400 strutturata uniforme su tutte le route API
+
+**Query optimization (Issue #12):**
+
+- ⬜ `checkBusinessOwnership`: unire le 2 query (profile + business) in un JOIN unico
+- ⬜ `fetchAdePrerequisites`: unire le 2 query (ade_credentials + business) in un JOIN unico
+- ⬜ Benchmark roundtrip prima/dopo per misurare impatto reale
 
 ---
 

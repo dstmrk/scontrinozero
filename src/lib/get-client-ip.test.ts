@@ -7,40 +7,57 @@ function makeHeaders(entries: Record<string, string>): Headers {
 }
 
 describe("getClientIp", () => {
-  it("ritorna CF-Connecting-IP se presente (priorità massima)", () => {
-    const headers = makeHeaders({
-      "cf-connecting-ip": "1.2.3.4",
-      "x-forwarded-for": "5.6.7.8",
-      "x-real-ip": "9.10.11.12",
+  describe("CF-Connecting-IP (trusted, produzione Cloudflare)", () => {
+    it("ritorna CF-Connecting-IP con priorità massima quando presente", () => {
+      const headers = makeHeaders({
+        "cf-connecting-ip": "1.2.3.4",
+        "x-forwarded-for": "5.6.7.8",
+        "x-real-ip": "9.10.11.12",
+      });
+      expect(getClientIp(headers)).toBe("1.2.3.4");
     });
-    expect(getClientIp(headers)).toBe("1.2.3.4");
-  });
 
-  it("ritorna il primo IP da X-Forwarded-For se CF-Connecting-IP è assente", () => {
-    const headers = makeHeaders({
-      "x-forwarded-for": "5.6.7.8, 192.168.1.1",
-      "x-real-ip": "9.10.11.12",
+    it("ignora X-Forwarded-For quando CF-Connecting-IP è presente (anti-spoof)", () => {
+      const headers = makeHeaders({
+        "cf-connecting-ip": "1.2.3.4",
+        "x-forwarded-for": "evil-spoofed-ip",
+      });
+      expect(getClientIp(headers)).toBe("1.2.3.4");
     });
-    expect(getClientIp(headers)).toBe("5.6.7.8");
   });
 
-  it("ritorna X-Real-IP se CF e X-Forwarded-For sono assenti", () => {
-    const headers = makeHeaders({ "x-real-ip": "9.10.11.12" });
-    expect(getClientIp(headers)).toBe("9.10.11.12");
+  describe("X-Forwarded-For (fallback, solo dev/test senza Cloudflare)", () => {
+    it("ritorna il primo IP da X-Forwarded-For se CF-Connecting-IP è assente", () => {
+      const headers = makeHeaders({
+        "x-forwarded-for": "5.6.7.8, 192.168.1.1",
+      });
+      expect(getClientIp(headers)).toBe("5.6.7.8");
+    });
+
+    it("gestisce X-Forwarded-For con un solo IP (senza virgola)", () => {
+      const headers = makeHeaders({ "x-forwarded-for": "5.6.7.8" });
+      expect(getClientIp(headers)).toBe("5.6.7.8");
+    });
+
+    it("rimuove gli spazi dall'IP in X-Forwarded-For", () => {
+      const headers = makeHeaders({
+        "x-forwarded-for": "  5.6.7.8  , 1.2.3.4",
+      });
+      expect(getClientIp(headers)).toBe("5.6.7.8");
+    });
   });
 
-  it("ritorna 'unknown' se nessun header IP è presente", () => {
-    const headers = makeHeaders({});
-    expect(getClientIp(headers)).toBe("unknown");
+  describe("X-Real-IP (ignorato — non standard)", () => {
+    it("ritorna 'unknown' se solo X-Real-IP è presente (header non trusted)", () => {
+      const headers = makeHeaders({ "x-real-ip": "9.10.11.12" });
+      expect(getClientIp(headers)).toBe("unknown");
+    });
   });
 
-  it("gestisce X-Forwarded-For con un solo IP (senza virgola)", () => {
-    const headers = makeHeaders({ "x-forwarded-for": "5.6.7.8" });
-    expect(getClientIp(headers)).toBe("5.6.7.8");
-  });
-
-  it("rimuove gli spazi dall'IP in X-Forwarded-For", () => {
-    const headers = makeHeaders({ "x-forwarded-for": "  5.6.7.8  , 1.2.3.4" });
-    expect(getClientIp(headers)).toBe("5.6.7.8");
+  describe("fallback", () => {
+    it("ritorna 'unknown' se nessun header IP è presente", () => {
+      const headers = makeHeaders({});
+      expect(getClientIp(headers)).toBe("unknown");
+    });
   });
 });

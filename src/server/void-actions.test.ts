@@ -33,6 +33,7 @@ vi.mock("@/db", () => ({
     select: mockSelect,
     insert: mockInsert,
     update: mockUpdate,
+    transaction: mockTransaction,
   }),
 }));
 
@@ -94,6 +95,14 @@ const mockInsertValues = vi
 /** Update chain: set → where */
 const mockUpdateWhere = vi.fn().mockResolvedValue(undefined);
 const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
+
+/** Transaction: calls callback with a tx that shares mockUpdate */
+const mockTransaction = vi
+  .fn()
+  .mockImplementation(
+    async (callback: (tx: { update: typeof mockUpdate }) => Promise<void>) =>
+      callback({ update: mockUpdate }),
+  );
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -196,6 +205,12 @@ describe("void-actions", () => {
 
     // Update mock
     mockUpdate.mockReturnValue({ set: mockUpdateSet });
+
+    // Transaction mock: calls callback with a tx that shares mockUpdate
+    mockTransaction.mockImplementation(
+      async (callback: (tx: { update: typeof mockUpdate }) => Promise<void>) =>
+        callback({ update: mockUpdate }),
+    );
 
     // AdE mocks
     mockLogin.mockResolvedValue({});

@@ -71,6 +71,12 @@ export async function POST(
       { status: 400 },
     );
   }
+  if (!isValidUuid(idempotencyKey)) {
+    return Response.json(
+      { error: "Il campo 'idempotencyKey' deve essere un UUID valido." },
+      { status: 400 },
+    );
+  }
 
   const { id: documentId } = await params;
 

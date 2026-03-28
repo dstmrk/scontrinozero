@@ -125,7 +125,7 @@ describe("auth-actions", () => {
     mockGenerateLink.mockResolvedValue({
       data: {
         properties: {
-          action_link: "https://supabase.co/auth/recovery?token=abc",
+          action_link: "https://app.scontrinozero.it/auth/recovery?token=abc",
         },
       },
       error: null,
@@ -797,6 +797,47 @@ describe("auth-actions", () => {
 
       expect(redirectUrl).toBe("/verify-email");
     });
+
+    it("does not send email when action_link points to unexpected host", async () => {
+      mockGenerateLink.mockResolvedValue({
+        data: {
+          properties: {
+            action_link: "https://evil.example.com/auth/recovery?token=abc",
+          },
+        },
+        error: null,
+      });
+
+      const { resetPassword } = await import("./auth-actions");
+
+      try {
+        await resetPassword(formData({ email: "test@example.com" }));
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+        if (isRedirectError(err)) {
+          expect(err.url).toBe("/verify-email");
+        }
+      }
+
+      await Promise.resolve();
+      expect(mockSendEmail).not.toHaveBeenCalled();
+    });
+
+    it("sends email when action_link matches expected hostname", async () => {
+      const { resetPassword } = await import("./auth-actions");
+
+      try {
+        await resetPassword(formData({ email: "test@example.com" }));
+      } catch {
+        // redirect expected
+      }
+
+      await Promise.resolve();
+      expect(mockSendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ to: "test@example.com" }),
+      );
+    });
   });
 
   describe("getClientIp fallback paths", () => {
@@ -823,7 +864,7 @@ describe("auth-actions", () => {
       );
     });
 
-    it("falls back to x-real-ip when other headers are absent", async () => {
+    it("ignora X-Real-IP (non standard) e usa 'unknown'", async () => {
       const { headers: headersFn } = await import("next/headers");
       vi.mocked(headersFn).mockResolvedValueOnce({
         get: vi.fn().mockImplementation((name: string) => {
@@ -841,8 +882,9 @@ describe("auth-actions", () => {
       } catch {
         // redirect is expected
       }
+      // X-Real-IP is not trusted: falls back to "unknown"
       expect(mockRateLimiterCheck).toHaveBeenCalledWith(
-        expect.stringContaining("172.16.0.1"),
+        expect.stringContaining("unknown"),
       );
     });
 

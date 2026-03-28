@@ -269,11 +269,24 @@ export async function resetPassword(
     redirect("/verify-email");
   }
 
+  // Defensive check: ensure the generated link points to our own domain.
+  // Guards against Supabase misconfiguration with overly permissive redirect URLs.
+  const expectedHostname =
+    process.env.NEXT_PUBLIC_APP_HOSTNAME ?? "app.scontrinozero.it";
+  const actionLink = data.properties.action_link;
+  if (!actionLink.startsWith(`https://${expectedHostname}`)) {
+    logger.error(
+      { actionLink, expectedHostname },
+      "Reset password: action_link hostname mismatch — email not sent",
+    );
+    redirect("/verify-email");
+  }
+
   void sendEmail({
     to: email,
     subject: "Reimposta la tua password — ScontrinoZero",
     react: createElement(PasswordResetEmail, {
-      resetLink: data.properties.action_link,
+      resetLink: actionLink,
     }),
   }).catch((err) => logger.warn({ err }, "Password reset email failed"));
 
