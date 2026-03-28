@@ -159,22 +159,25 @@ export async function voidReceiptForBusiness(
       return { error: `Annullo rifiutato dall'AdE: ${errorDesc}` };
     }
 
-    // 4. Update VOID document
-    await db
-      .update(commercialDocuments)
-      .set({
-        status: "VOID_ACCEPTED",
-        adeTransactionId: adeResponse.idtrx ?? null,
-        adeProgressive: adeResponse.progressivo ?? null,
-        adeResponse: adeResponse as unknown as Record<string, unknown>,
-      })
-      .where(eq(commercialDocuments.id, voidDocumentId));
+    // 4+5. Update VOID document and mark original SALE atomically.
+    // Both must succeed or neither: an intermediate failure would leave
+    // the VOID accepted but the SALE still showing as ACCEPTED.
+    await db.transaction(async (tx) => {
+      await tx
+        .update(commercialDocuments)
+        .set({
+          status: "VOID_ACCEPTED",
+          adeTransactionId: adeResponse.idtrx ?? null,
+          adeProgressive: adeResponse.progressivo ?? null,
+          adeResponse: adeResponse as unknown as Record<string, unknown>,
+        })
+        .where(eq(commercialDocuments.id, voidDocumentId));
 
-    // 5. Mark original SALE as VOID_ACCEPTED
-    await db
-      .update(commercialDocuments)
-      .set({ status: "VOID_ACCEPTED" })
-      .where(eq(commercialDocuments.id, input.documentId));
+      await tx
+        .update(commercialDocuments)
+        .set({ status: "VOID_ACCEPTED" })
+        .where(eq(commercialDocuments.id, input.documentId));
+    });
 
     logger.info(
       {

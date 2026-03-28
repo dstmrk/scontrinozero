@@ -3,6 +3,7 @@ import { authenticateApiKey, isApiKeyAuthError } from "@/lib/api-auth";
 import { canUseApi } from "@/lib/plans";
 import { emitReceiptForBusiness } from "@/lib/services/receipt-service";
 import { logger } from "@/lib/logger";
+import { isValidUuid } from "@/lib/uuid";
 import type { SubmitReceiptInput } from "@/types/cassa";
 
 // Rate limit: 120 receipts per hour per API key
@@ -79,6 +80,12 @@ export async function POST(request: Request): Promise<Response> {
   if (typeof idempotencyKey !== "string" || !idempotencyKey) {
     return Response.json(
       { error: "Il campo 'idempotencyKey' è obbligatorio." },
+      { status: 400 },
+    );
+  }
+  if (!isValidUuid(idempotencyKey)) {
+    return Response.json(
+      { error: "Il campo 'idempotencyKey' deve essere un UUID valido." },
       { status: 400 },
     );
   }
