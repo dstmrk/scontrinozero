@@ -112,9 +112,11 @@ export async function voidReceiptForBusiness(
   const voidDocumentId = voidDoc.id;
   const adeMode = (process.env.ADE_MODE as "mock" | "real") || "mock";
   const adeClient = createAdeClient(adeMode);
+  let loggedIn = false;
 
   try {
     await adeClient.login({ codiceFiscale, password, pin });
+    loggedIn = true;
 
     // Fetch original document from AdE to get real idElementoContabile values
     const originalAdeDoc = await adeClient.getDocument(
@@ -205,8 +207,10 @@ export async function voidReceiptForBusiness(
       error: "Errore durante l'annullo dello scontrino. Riprova più tardi.",
     };
   } finally {
-    await adeClient
-      .logout()
-      .catch((err) => logger.warn({ err }, "AdE logout failed"));
+    if (loggedIn) {
+      await adeClient
+        .logout()
+        .catch((err) => logger.warn({ err }, "AdE logout failed"));
+    }
   }
 }

@@ -278,6 +278,15 @@ describe("emitReceiptForBusiness", () => {
     expect(setArg.status).toBe("ERROR");
   });
 
+  it("non chiama logout se AdE login fallisce (nessuna sessione aperta)", async () => {
+    mockLogin.mockRejectedValue(new Error("AdE login failed"));
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(mockLogout).not.toHaveBeenCalled();
+  });
+
   it("usa ELECTRONIC come tipo pagamento per PE", async () => {
     const { emitReceiptForBusiness } = await import("./receipt-service");
     await emitReceiptForBusiness({
