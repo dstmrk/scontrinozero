@@ -66,6 +66,48 @@
     - Il `check-migrations.mjs` CI script valida i file SQL contro il journal per
       compatibilità drizzle-kit — è separato dal runtime runner.
 
+14. **Client IP trust model: CF-Connecting-IP is the ONLY trusted source.**
+    When the app is behind Cloudflare Tunnel, `CF-Connecting-IP` is the only header
+    that Cloudflare sets and clients cannot spoof. Follow this priority in `getClientIp()`:
+    1. `CF-Connecting-IP` — always trusted (Cloudflare strips incoming copies)
+    2. `X-Forwarded-For` — dev/test fallback only; **explicitly comment** that it is
+       non-trusted outside Cloudflare
+    3. `X-Real-IP` — **drop entirely** (non-standard, no trust model)
+    Never silently fall through a chain of headers without documenting why each one is
+    or isn't trusted. Rate limiting built on a spoofable IP is no rate limiting at all.
+
+15. **Transaction safety for multi-document state changes is correctness, not optimization.**
+    Whenever an operation must update 2+ related DB records that must stay consistent
+    (e.g., void flow: write VOID document + mark original SALE as VOID_ACCEPTED),
+    wrap them in `db.transaction()` immediately. A mid-operation failure without a
+    transaction leaves the system in a silently inconsistent state that is hard to detect
+    and painful to repair. Don't defer this to "a later optimization sprint".
+
+16. **Retry + backoff for critical operations that leave orphan state on failure.**
+    Operations that (a) are irreversible on partial success, (b) can fail transiently
+    (network blip, external service timeout), and (c) leave the system inconsistent on
+    failure (e.g., Supabase auth user deletion leaving an orphan entry that blocks
+    re-registration) must have:
+    - 3 retry attempts with exponential backoff (500 ms → 1 s → 2 s)
+    - `logger.error({ critical: true }, …)` after all retries are exhausted
+    - A comment documenting what **manual cleanup** is required if retries fail
+    Silent failure here is worse than a visible error: the user is permanently blocked
+    with no actionable signal.
+
+17. **UUID validation at external API entry points — before the service layer.**
+    Every external-facing API route that accepts a UUID parameter (e.g., `idempotencyKey`,
+    `receiptId`) must validate the format with `isValidUuid()` and return 400 **before**
+    passing to any service or DB layer. Non-UUID strings passed to PostgreSQL UUID columns
+    produce unhandled 500 errors that bypass all application error handling.
+    UUID validation belongs at the route handler boundary, not inside the service.
+
+18. **Validate hostname of Supabase-generated action links before emailing them.**
+    Before emailing any Supabase-generated link (password reset, magic link, email change),
+    assert that the URL starts with `https://${expectedHostname}`. Supabase misconfiguration
+    (wrong Site URL setting) can produce links pointing to unexpected domains, enabling open
+    redirect attacks. If the check fails: log an error, do NOT send the email, and redirect
+    the user to `/verify-email` with a generic message.
+
 ## Progetto
 
 ScontrinoZero è un registratore di cassa virtuale (SaaS) mobile-first che consente a
