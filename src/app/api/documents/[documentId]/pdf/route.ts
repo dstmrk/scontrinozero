@@ -8,6 +8,7 @@ import {
 } from "@/db/schema";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { generatePdfResponse } from "@/lib/receipts/generate-pdf-response";
+import { isValidUuid } from "@/lib/uuid";
 
 export async function GET(
   _request: Request,
@@ -24,6 +25,11 @@ export async function GET(
   }
 
   const { documentId } = await params;
+
+  if (!isValidUuid(documentId)) {
+    return Response.json({ error: "ID non valido." }, { status: 400 });
+  }
+
   const db = getDb();
 
   // ── Fetch document + business (ownership check via JOIN on profiles) ───────
