@@ -583,6 +583,34 @@ describe("RealAdeClient", () => {
         AdeNetworkError,
       );
     });
+
+    it("passes AbortSignal.timeout to each fetch call with the configured fetchTimeoutMs", async () => {
+      const mockSignal = {} as AbortSignal;
+      const timeoutSpy = vi
+        .spyOn(AbortSignal, "timeout")
+        .mockReturnValue(mockSignal);
+
+      const timedClient = new RealAdeClient({
+        spidPollIntervalMs: 0,
+        fetchTimeoutMs: 12_000,
+      });
+      mockLoginSequence(fetchMock);
+      await timedClient.login(mockCredentials);
+
+      expect(timeoutSpy).toHaveBeenCalledWith(12_000);
+    });
+
+    it("throws AdeNetworkError when fetch times out (TimeoutError)", async () => {
+      const timeoutError = new DOMException(
+        "The operation timed out.",
+        "TimeoutError",
+      );
+      fetchMock.mockRejectedValueOnce(timeoutError);
+
+      await expect(client.login(mockCredentials)).rejects.toThrow(
+        AdeNetworkError,
+      );
+    });
   });
 
   // -----------------------------------------------------------------------
