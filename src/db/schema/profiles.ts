@@ -8,6 +8,8 @@ export const profiles = pgTable("profiles", {
   authUserId: uuid("auth_user_id").notNull().unique(),
   firstName: text("first_name"),
   lastName: text("last_name"),
+  // Unique case-insensitive — enforced via functional index lower(email) in migration 0008.
+  // Application layer normalises to lower-case before any insert/select.
   email: text("email").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

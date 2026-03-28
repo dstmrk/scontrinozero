@@ -49,6 +49,17 @@ Quando annulliamo uno scontrino, AdE genera un nuovo documento commerciale di an
 
 ---
 
+## Backlog sicurezza / tech debt
+
+| ID     | Descrizione                                                                                                                                                                                                                                                                                                  | Priorità |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
+| **B1** | **Stripe webhook dedup su `event.id`**: aggiungere tabella `stripe_webhook_events(event_id unique, processed_at, type, status)` + insert-if-not-exists atomico prima di processare. Stripe può inviare eventi duplicati; le operazioni del webhook sono idempotenti per natura ma la dedup riduce fragilità. | P2       |
+| **B2** | **Paginazione cursor-based su storico e export**: `searchReceipts` carica tutti i documenti in memoria; `exportUserData` esporta senza limiti. Da affrontare quando il volume per-tenant lo richiede.                                                                                                        | P2       |
+| **B3** | **Key rotation zero-downtime**: `decrypt()` supporta già `Map<number, Buffer>`. Callers usano ancora `new Map([[version, getEncryptionKey()]])`. Serve runbook + script re-encryption + test E2E.                                                                                                            | P3       |
+| **B4** | **Error envelope uniforme API**: standardizzare `{code, message, requestId}` su tutti gli endpoint; wrapping coerente delle integrazioni esterne con classificazione transient/permanent.                                                                                                                    | P3       |
+
+---
+
 ## Principi del piano
 
 1. **Minimalismo**: ogni release include solo quello che sblocca la successiva o il lancio.
