@@ -208,7 +208,16 @@ export async function emitReceiptForBusiness(
         adeResponse.errori
           ?.map((e) => `${e.codice}: ${e.descrizione}`)
           .join("; ") || "Errore sconosciuto";
-      logger.error({ adeResponse, documentId }, "AdE rejected sale");
+      logger.error(
+        {
+          documentId,
+          adeIdtrx: adeResponse.idtrx,
+          adeProgressivo: adeResponse.progressivo,
+          // Log only error codes — descriptions may contain fiscal content
+          adeErrorCodes: adeResponse.errori?.map((e) => e.codice),
+        },
+        "AdE rejected sale",
+      );
       await db
         .update(commercialDocuments)
         .set({

@@ -54,6 +54,7 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 import { POST } from "@/app/api/stripe/webhook/route";
+import { logger } from "@/lib/logger";
 
 // --- Helpers ---
 
@@ -65,8 +66,8 @@ function makeWebhookRequest(body: string, signature = "valid-sig"): Request {
   });
 }
 
-function makeStripeEvent(type: string, data: unknown) {
-  return { type, data: { object: data } };
+function makeStripeEvent(type: string, data: unknown, livemode = false) {
+  return { type, data: { object: data }, livemode };
 }
 
 function makeStripeSubscription(overrides: Record<string, unknown> = {}) {
@@ -115,6 +116,7 @@ describe("POST /api/stripe/webhook", () => {
 
   afterEach(() => {
     delete process.env.STRIPE_WEBHOOK_SECRET;
+    delete process.env.STRIPE_EXPECT_LIVEMODE;
   });
 
   it("returns 400 when stripe-signature header is missing", async () => {
@@ -326,5 +328,113 @@ describe("POST /api/stripe/webhook", () => {
       "sig_123",
       "whsec_test",
     );
+  });
+
+  // P1-01: unknown priceId must not silently assign "starter"
+  it("syncSubscriptionData: skips plan update and logs error on unknown priceId", async () => {
+    mockPlanFromPriceId.mockReturnValue(null);
+    mockIntervalFromPriceId.mockReturnValue(null);
+    const subscription = makeStripeSubscription({ status: "active" });
+    mockConstructEvent.mockReturnValue(
+      makeStripeEvent("customer.subscription.updated", subscription),
+    );
+
+    const response = await POST(makeWebhookRequest("{}"));
+
+    expect(response.status).toBe(200);
+    // profiles.plan must NOT be updated
+    const planUpdateCall = mockUpdateSet.mock.calls.find((args) =>
+      Object.keys(args[0] as Record<string, unknown>).includes("plan"),
+    );
+    expect(planUpdateCall).toBeUndefined();
+    // logger.error must be called with priceId context
+    expect(logger.error as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
+      expect.objectContaining({ priceId: "price_starter_monthly" }),
+      expect.any(String),
+    );
+  });
+
+  it("syncSubscriptionData: proceeds normally when priceId is known", async () => {
+    const subscription = makeStripeSubscription({ status: "active" });
+    mockConstructEvent.mockReturnValue(
+      makeStripeEvent("customer.subscription.updated", subscription),
+    );
+
+    const response = await POST(makeWebhookRequest("{}"));
+
+    expect(response.status).toBe(200);
+    const planUpdateCall = mockUpdateSet.mock.calls.find((args) =>
+      Object.keys(args[0] as Record<string, unknown>).includes("plan"),
+    );
+    expect(planUpdateCall).toBeDefined();
+  });
+
+  // P3-02: livemode guard
+  it("ignores event when livemode=false but STRIPE_EXPECT_LIVEMODE=true", async () => {
+    process.env.STRIPE_EXPECT_LIVEMODE = "true";
+    // event.livemode defaults to false in makeStripeEvent
+    mockConstructEvent.mockReturnValue(
+      makeStripeEvent(
+        "customer.subscription.updated",
+        makeStripeSubscription(),
+      ),
+    );
+
+    const response = await POST(makeWebhookRequest("{}"));
+
+    expect(response.status).toBe(200);
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(logger.warn as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
+      expect.objectContaining({ livemode: false, expected: true }),
+      expect.any(String),
+    );
+  });
+
+  it("ignores event when livemode=true but STRIPE_EXPECT_LIVEMODE=false", async () => {
+    process.env.STRIPE_EXPECT_LIVEMODE = "false";
+    mockConstructEvent.mockReturnValue(
+      makeStripeEvent(
+        "customer.subscription.updated",
+        makeStripeSubscription(),
+        true,
+      ),
+    );
+
+    const response = await POST(makeWebhookRequest("{}"));
+
+    expect(response.status).toBe(200);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("processes event normally when livemode matches STRIPE_EXPECT_LIVEMODE", async () => {
+    process.env.STRIPE_EXPECT_LIVEMODE = "false";
+    // livemode=false (default) matches expected=false
+    mockConstructEvent.mockReturnValue(
+      makeStripeEvent(
+        "customer.subscription.updated",
+        makeStripeSubscription(),
+      ),
+    );
+
+    const response = await POST(makeWebhookRequest("{}"));
+
+    expect(response.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalled();
+  });
+
+  it("skips livemode check when STRIPE_EXPECT_LIVEMODE is not set", async () => {
+    // No STRIPE_EXPECT_LIVEMODE env var set (deleted in afterEach, not set here)
+    mockConstructEvent.mockReturnValue(
+      makeStripeEvent(
+        "customer.subscription.updated",
+        makeStripeSubscription(),
+        true,
+      ),
+    );
+
+    const response = await POST(makeWebhookRequest("{}"));
+
+    expect(response.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalled();
   });
 });

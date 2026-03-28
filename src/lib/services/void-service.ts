@@ -167,7 +167,14 @@ export async function voidReceiptForBusiness(
           ?.map((e) => `${e.codice}: ${e.descrizione}`)
           .join("; ") || "Errore sconosciuto";
       logger.error(
-        { adeResponse, voidDocumentId, saleDocumentId: input.documentId },
+        {
+          voidDocumentId,
+          saleDocumentId: input.documentId,
+          adeIdtrx: adeResponse.idtrx,
+          adeProgressivo: adeResponse.progressivo,
+          // Log only error codes — descriptions may contain fiscal content
+          adeErrorCodes: adeResponse.errori?.map((e) => e.codice),
+        },
         "AdE rejected void",
       );
       await db
