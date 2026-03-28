@@ -28,10 +28,11 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 const mockGenerateLink = vi.fn();
+const mockDeleteUser = vi.fn();
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminSupabaseClient: vi.fn().mockReturnValue({
     auth: {
-      admin: { generateLink: mockGenerateLink },
+      admin: { generateLink: mockGenerateLink, deleteUser: mockDeleteUser },
     },
   }),
 }));
@@ -354,6 +355,7 @@ describe("auth-actions", () => {
       mockInsert.mockReturnValueOnce({
         values: vi.fn().mockRejectedValueOnce(new Error("DB error")),
       });
+      mockDeleteUser.mockResolvedValue({ error: null });
 
       const { signUp } = await import("./auth-actions");
       const { logger } = await import("@/lib/logger");
@@ -371,6 +373,31 @@ describe("auth-actions", () => {
 
       expect(result).toEqual({ error: "Registrazione fallita. Riprova." });
       expect(logger.error).toHaveBeenCalled();
+    });
+
+    it("cancella l'utente Supabase (compensating delete) se il profile insert fallisce", async () => {
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-to-delete" } },
+        error: null,
+      });
+      mockInsert.mockReturnValueOnce({
+        values: vi.fn().mockRejectedValueOnce(new Error("DB error")),
+      });
+      mockDeleteUser.mockResolvedValue({ error: null });
+
+      const { signUp } = await import("./auth-actions");
+      await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "valid-token",
+        }),
+      );
+
+      expect(mockDeleteUser).toHaveBeenCalledWith("user-to-delete");
     });
 
     it("returns captcha error when token is missing", async () => {

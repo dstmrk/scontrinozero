@@ -154,6 +154,16 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
         { err },
         "Failed to record terms acceptance; blocking signup",
       );
+      // Compensating delete: remove the auth user just created to avoid
+      // zombie accounts (Supabase user without a profile in our DB).
+      await createAdminSupabaseClient()
+        .auth.admin.deleteUser(data.user.id)
+        .catch((deleteErr) =>
+          logger.error(
+            { deleteErr },
+            "Failed to delete auth user after profile creation failure",
+          ),
+        );
       return { error: "Registrazione fallita. Riprova." };
     }
   }
