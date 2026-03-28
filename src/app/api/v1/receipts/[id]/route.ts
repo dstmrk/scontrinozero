@@ -5,6 +5,17 @@ import { authenticateApiKey, isApiKeyAuthError } from "@/lib/api-auth";
 import { canUseApi } from "@/lib/plans";
 import { isValidUuid } from "@/lib/uuid";
 
+export function OPTIONS(): Response {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    },
+  });
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },

@@ -16,6 +16,17 @@ const voidApiLimiter = new RateLimiter({
   windowMs: 60 * 60 * 1000,
 });
 
+export function OPTIONS(): Response {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    },
+  });
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
