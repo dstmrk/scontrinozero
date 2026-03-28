@@ -335,4 +335,20 @@ describe("voidReceiptForBusiness", () => {
     const secondSet = mockUpdateSet.mock.calls[1][0];
     expect(secondSet.status).toBe("VOID_ACCEPTED");
   });
+
+  it("chiama logout anche se submitVoid lancia un errore", async () => {
+    mockSubmitVoid.mockRejectedValue(new Error("network error"));
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    await voidReceiptForBusiness(VALID_INPUT);
+
+    expect(mockLogout).toHaveBeenCalled();
+  });
+
+  it("chiama logout anche nel happy path", async () => {
+    const { voidReceiptForBusiness } = await import("./void-service");
+    await voidReceiptForBusiness(VALID_INPUT);
+
+    expect(mockLogout).toHaveBeenCalled();
+  });
 });
