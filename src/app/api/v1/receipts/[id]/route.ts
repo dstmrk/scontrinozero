@@ -3,6 +3,7 @@ import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
 import { authenticateApiKey, isApiKeyAuthError } from "@/lib/api-auth";
 import { canUseApi } from "@/lib/plans";
+import { isValidUuid } from "@/lib/uuid";
 
 export async function GET(
   request: Request,
@@ -36,6 +37,10 @@ export async function GET(
   }
 
   const { id } = await params;
+
+  if (!isValidUuid(id)) {
+    return Response.json({ error: "ID non valido." }, { status: 400 });
+  }
 
   const db = getDb();
   const [doc] = await db
