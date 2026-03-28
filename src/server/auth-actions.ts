@@ -164,6 +164,14 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
       // zombie accounts (Supabase user without a profile in our DB).
       await createAdminSupabaseClient()
         .auth.admin.deleteUser(data.user.id)
+        .then(({ error: deleteErr }) => {
+          if (deleteErr) {
+            logger.error(
+              { deleteErr },
+              "Failed to delete auth user after profile creation failure",
+            );
+          }
+        })
         .catch((deleteErr) =>
           logger.error(
             { deleteErr },
