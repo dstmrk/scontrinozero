@@ -12,6 +12,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { apiKeys, profiles } from "@/db/schema";
 import { hashApiKey } from "@/lib/api-keys";
+import { logger } from "@/lib/logger";
 import type { Plan } from "@/lib/plans";
 import type { SelectApiKey } from "@/db/schema";
 
@@ -81,7 +82,8 @@ export async function authenticateApiKey(
   void db
     .update(apiKeys)
     .set({ lastUsedAt: new Date() })
-    .where(eq(apiKeys.id, row.apiKey.id));
+    .where(eq(apiKeys.id, row.apiKey.id))
+    .catch((err) => logger.warn({ err }, "Failed to update last_used_at"));
 
   return {
     apiKey: row.apiKey,
