@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { profiles } from "@/db/schema";
 import { isValidEmail, isStrongPassword } from "@/lib/validation";
+import { getClientIp } from "@/lib/get-client-ip";
 import { RateLimiter } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { sendEmail } from "@/lib/email";
@@ -26,15 +27,9 @@ export type AuthActionResult = {
   email?: string;
 };
 
-async function getClientIp(): Promise<string> {
+async function getClientIpFromNextHeaders(): Promise<string> {
   const hdrs = await headers();
-  // CF-Connecting-IP: trusted Cloudflare header (not forgeable via x-forwarded-for)
-  return (
-    hdrs.get("cf-connecting-ip") ||
-    hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    hdrs.get("x-real-ip") ||
-    "unknown"
-  );
+  return getClientIp(hdrs);
 }
 
 function checkRateLimit(ip: string, action: string): AuthActionResult | null {
@@ -108,7 +103,7 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
     return { error: "Verifica CAPTCHA fallita. Riprova." };
   }
 
-  const ip = await getClientIp();
+  const ip = await getClientIpFromNextHeaders();
   const rateLimited = checkRateLimit(ip, "signUp");
   if (rateLimited) return rateLimited;
 
@@ -177,7 +172,7 @@ export async function signIn(formData: FormData): Promise<AuthActionResult> {
     return { error: "Inserisci la password." };
   }
 
-  const ip = await getClientIp();
+  const ip = await getClientIpFromNextHeaders();
   const rateLimited = checkRateLimit(ip, "signIn");
   if (rateLimited) return rateLimited;
 
@@ -201,7 +196,7 @@ export async function signInWithMagicLink(
     return { error: "Email non valida." };
   }
 
-  const ip = await getClientIp();
+  const ip = await getClientIpFromNextHeaders();
   const rateLimited = checkRateLimit(ip, "magicLink");
   if (rateLimited) return rateLimited;
 
@@ -231,7 +226,7 @@ export async function resetPassword(
     return { error: "Email non valida." };
   }
 
-  const ip = await getClientIp();
+  const ip = await getClientIpFromNextHeaders();
   const rateLimited = checkRateLimit(ip, "resetPassword");
   if (rateLimited) return rateLimited;
 
