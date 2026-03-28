@@ -1,5 +1,6 @@
 import { fetchPublicReceipt } from "@/lib/receipts/fetch-public-receipt";
 import { generatePdfResponse } from "@/lib/receipts/generate-pdf-response";
+import { getClientIp } from "@/lib/get-client-ip";
 import { RateLimiter } from "@/lib/rate-limit";
 
 /**
@@ -18,11 +19,7 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ documentId: string }> },
 ): Promise<Response> {
-  const ip =
-    request.headers.get("cf-connecting-ip") ||
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    request.headers.get("x-real-ip") ||
-    "unknown";
+  const ip = getClientIp(request.headers);
 
   if (!pdfLimiter.check(`pdf:${ip}`).success) {
     return Response.json(
