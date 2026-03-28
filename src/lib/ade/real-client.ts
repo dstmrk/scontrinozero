@@ -36,6 +36,8 @@ export interface RealAdeClientOptions {
   spidPollIntervalMs?: number;
   /** Numero massimo di poll SPID prima del timeout (default: 30). */
   spidMaxPolls?: number;
+  /** Timeout per ogni singola chiamata HTTP all'AdE in ms (default: 30000). */
+  fetchTimeoutMs?: number;
 }
 
 const ADE_BASE_URL = "https://ivaservizi.agenziaentrate.gov.it";
@@ -98,6 +100,7 @@ export class RealAdeClient implements AdeClient {
         ...fetchOptions,
         headers,
         redirect: followRedirects === false ? "manual" : "follow",
+        signal: AbortSignal.timeout(this.options.fetchTimeoutMs ?? 30_000),
       });
       cookieJar.applyResponse(response);
       return response;
