@@ -36,6 +36,21 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ error: "Invalid signature." }, { status: 400 });
   }
 
+  // ── Livemode guard ───────────────────────────────────────────────────────
+  // If STRIPE_EXPECT_LIVEMODE is set, reject events that don't match the
+  // expected context (prevents test/live data contamination on misconfiguration).
+  const expectLivemodeEnv = process.env.STRIPE_EXPECT_LIVEMODE;
+  if (expectLivemodeEnv !== undefined) {
+    const expectedLivemode = expectLivemodeEnv === "true";
+    if (event.livemode !== expectedLivemode) {
+      logger.warn(
+        { livemode: event.livemode, expected: expectedLivemode },
+        "Stripe event livemode mismatch — ignoring",
+      );
+      return Response.json({ received: true });
+    }
+  }
+
   // ── Handle event ──────────────────────────────────────────────────────────
   try {
     await handleEvent(event, stripe);
@@ -155,8 +170,17 @@ async function syncSubscriptionData(
   stripeSub: Stripe.Subscription,
 ): Promise<void> {
   const priceId = stripeSub.items.data[0]?.price.id ?? "";
-  const plan = planFromPriceId(priceId) ?? "starter";
-  const interval = intervalFromPriceId(priceId) ?? "month";
+  const plan = planFromPriceId(priceId);
+  const interval = intervalFromPriceId(priceId);
+
+  if (!plan || !interval) {
+    logger.error(
+      { priceId, stripeSubscriptionId: stripeSub.id },
+      "Unknown priceId in Stripe webhook — skipping plan update",
+    );
+    return;
+  }
+
   const status = stripeSub.status;
   const currentPeriodEnd = new Date(
     (stripeSub.items.data[0]?.current_period_end ?? 0) * 1000,
