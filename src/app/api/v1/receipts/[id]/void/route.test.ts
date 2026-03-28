@@ -160,6 +160,14 @@ describe("POST /api/v1/receipts/[id]/void", () => {
     expect(res.status).toBe(400);
   });
 
+  it("ritorna 400 se idempotencyKey non è un UUID valido", async () => {
+    const res = await POST(
+      makeRequest({ idempotencyKey: "not-a-uuid" }),
+      makeParams(),
+    );
+    expect(res.status).toBe(400);
+  });
+
   it("ritorna 422 se il service ritorna un errore", async () => {
     mockVoidReceiptForBusiness.mockResolvedValue({
       error: "Scontrino non trovato.",

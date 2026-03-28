@@ -1,9 +1,14 @@
+import { z } from "zod/v4";
 import { RateLimiter } from "@/lib/rate-limit";
 import { authenticateApiKey, isApiKeyAuthError } from "@/lib/api-auth";
 import { canUseApi } from "@/lib/plans";
 import { voidReceiptForBusiness } from "@/lib/services/void-service";
 import { logger } from "@/lib/logger";
 import { isValidUuid } from "@/lib/uuid";
+
+const voidBodySchema = z.object({
+  idempotencyKey: z.string().uuid(),
+});
 
 // Rate limit: 20 voids per hour per API key
 const voidApiLimiter = new RateLimiter({
@@ -57,27 +62,24 @@ export async function POST(
   }
 
   // ── Parse body ────────────────────────────────────────────────────────────
-  let body: Record<string, unknown>;
+  let rawBody: unknown;
   try {
-    body = (await request.json()) as Record<string, unknown>;
+    rawBody = await request.json();
   } catch {
     return Response.json({ error: "Body non valido." }, { status: 400 });
   }
 
-  const { idempotencyKey } = body;
-  if (typeof idempotencyKey !== "string" || !idempotencyKey) {
-    return Response.json(
-      { error: "Il campo 'idempotencyKey' è obbligatorio." },
-      { status: 400 },
-    );
-  }
-  if (!isValidUuid(idempotencyKey)) {
-    return Response.json(
-      { error: "Il campo 'idempotencyKey' deve essere un UUID valido." },
-      { status: 400 },
-    );
+  const parsed = voidBodySchema.safeParse(rawBody);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const field = issue?.path?.join(".");
+    const msg = field
+      ? `Il campo '${field}' non è valido: ${issue.message}`
+      : (issue?.message ?? "Input non valido.");
+    return Response.json({ error: msg }, { status: 400 });
   }
 
+  const { idempotencyKey } = parsed.data;
   const { id: documentId } = await params;
 
   if (!isValidUuid(documentId)) {

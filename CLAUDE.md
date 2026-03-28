@@ -73,8 +73,8 @@
     2. `X-Forwarded-For` — dev/test fallback only; **explicitly comment** that it is
        non-trusted outside Cloudflare
     3. `X-Real-IP` — **drop entirely** (non-standard, no trust model)
-    Never silently fall through a chain of headers without documenting why each one is
-    or isn't trusted. Rate limiting built on a spoofable IP is no rate limiting at all.
+       Never silently fall through a chain of headers without documenting why each one is
+       or isn't trusted. Rate limiting built on a spoofable IP is no rate limiting at all.
 
 15. **Transaction safety for multi-document state changes is correctness, not optimization.**
     Whenever an operation must update 2+ related DB records that must stay consistent
@@ -91,8 +91,8 @@
     - 3 retry attempts with exponential backoff (500 ms → 1 s → 2 s)
     - `logger.error({ critical: true }, …)` after all retries are exhausted
     - A comment documenting what **manual cleanup** is required if retries fail
-    Silent failure here is worse than a visible error: the user is permanently blocked
-    with no actionable signal.
+      Silent failure here is worse than a visible error: the user is permanently blocked
+      with no actionable signal.
 
 17. **UUID validation at external API entry points — before the service layer.**
     Every external-facing API route that accepts a UUID parameter (e.g., `idempotencyKey`,
@@ -115,7 +115,7 @@ esercenti e micro-attività di emettere scontrini elettronici e trasmettere i co
 all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la procedura
 "Documento Commerciale Online".
 
-**Versione corrente:** v1.1.2 ✅ (rilasciato in produzione) — roadmap completa in `PLAN.md`.
+**Versione corrente:** v1.1.3 ✅ (rilasciato in produzione) — roadmap completa in `PLAN.md`.
 
 **Prossima release:** v1.2.0 (PWA)
 
@@ -456,6 +456,22 @@ export async function myAction(input: MyInput): Promise<MyResult> {
 - `checkout:<userId>` — `POST /api/stripe/checkout` → 10/ora
 - `portal:<userId>` — `GET|POST /api/stripe/portal` → 10/ora
 - Auth actions — 5/15min per-IP (in `src/server/auth-actions.ts`)
+
+### Aggiornare i mock quando si ottimizzano query DB con JOIN
+
+Quando si refactora una funzione che esegue N query separate in un JOIN singolo,
+**tutti** i file di test che chiamano quella funzione (anche indirettamente) devono
+aggiornare i propri mock. Il pattern da cercare:
+
+- Test che mockano `@/db` con chain `select().from().where().limit()` senza `innerJoin`
+- Funzioni nel codice sotto test che chiamano `checkBusinessOwnership` o simili
+  **senza mockare `@/lib/server-auth`** → usano la funzione reale, che ora usa JOIN
+
+Fix: aggiungere `innerJoin` al mock chain E ridurre le `mockLimit.mockResolvedValueOnce`
+da 2 (profile + business separati) a 1 (risultato JOIN). In alternativa: mockare sempre
+`@/lib/server-auth` nei test delle server actions che usano ownership check.
+
+Cerca file affetti con: `grep -rn "FAKE_PROFILE\|Ownership check" tests/ src/ --include="*.test.ts"`
 
 ### Checklist pre-PR
 

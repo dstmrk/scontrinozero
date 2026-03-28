@@ -34,6 +34,8 @@ export async function getAuthenticatedUser(): Promise<User> {
 /**
  * Checks that businessId belongs to the authenticated user's profile.
  * Returns an error object if the check fails, or null if ownership is confirmed.
+ *
+ * Uses a single JOIN query instead of two sequential queries to reduce DB roundtrips.
  */
 export async function checkBusinessOwnership(
   userId: string,
@@ -41,25 +43,17 @@ export async function checkBusinessOwnership(
 ): Promise<BusinessOwnershipError | null> {
   const db = getDb();
 
-  const [profile] = await db
-    .select({ id: profiles.id })
+  const [result] = await db
+    .select({ id: businesses.id })
     .from(profiles)
+    .innerJoin(
+      businesses,
+      and(eq(businesses.profileId, profiles.id), eq(businesses.id, businessId)),
+    )
     .where(eq(profiles.authUserId, userId))
     .limit(1);
 
-  if (!profile) {
-    return { error: "Profilo non trovato." };
-  }
-
-  const [business] = await db
-    .select({ id: businesses.id })
-    .from(businesses)
-    .where(
-      and(eq(businesses.id, businessId), eq(businesses.profileId, profile.id)),
-    )
-    .limit(1);
-
-  if (!business) {
+  if (!result) {
     return { error: "Business non trovato o non autorizzato." };
   }
 
@@ -70,24 +64,27 @@ export async function checkBusinessOwnership(
  * Fetches, validates, and decrypts AdE credentials for a business,
  * and builds the cedente/prestatore from local business data.
  * Returns an error object if any prerequisite is missing or invalid.
+ *
+ * Uses a single JOIN query instead of two sequential queries to reduce DB roundtrips.
  */
 export async function fetchAdePrerequisites(
   businessId: string,
 ): Promise<AdePrerequisites | { error: string }> {
   const db = getDb();
 
-  const [cred] = await db
-    .select()
+  const [row] = await db
+    .select({ cred: adeCredentials, business: businesses })
     .from(adeCredentials)
+    .innerJoin(businesses, eq(businesses.id, adeCredentials.businessId))
     .where(eq(adeCredentials.businessId, businessId))
     .limit(1);
 
-  if (!cred) {
+  if (!row) {
     return {
       error: "Credenziali AdE non trovate. Completa la configurazione.",
     };
   }
-  if (!cred.verifiedAt) {
+  if (!row.cred.verifiedAt) {
     return {
       error:
         "Credenziali AdE non verificate. Verifica le credenziali nelle impostazioni.",
@@ -95,21 +92,11 @@ export async function fetchAdePrerequisites(
   }
 
   const key = getEncryptionKey();
-  const keys = new Map<number, Buffer>([[cred.keyVersion, key]]);
-  const codiceFiscale = decrypt(cred.encryptedCodiceFiscale, keys);
-  const password = decrypt(cred.encryptedPassword, keys);
-  const pin = decrypt(cred.encryptedPin, keys);
+  const keys = new Map<number, Buffer>([[row.cred.keyVersion, key]]);
+  const codiceFiscale = decrypt(row.cred.encryptedCodiceFiscale, keys);
+  const password = decrypt(row.cred.encryptedPassword, keys);
+  const pin = decrypt(row.cred.encryptedPin, keys);
 
-  const [business] = await db
-    .select()
-    .from(businesses)
-    .where(eq(businesses.id, businessId))
-    .limit(1);
-
-  if (!business) {
-    return { error: "Dati business non trovati." };
-  }
-
-  const cedentePrestatore = buildCedenteFromBusiness(business);
+  const cedentePrestatore = buildCedenteFromBusiness(row.business);
   return { codiceFiscale, password, pin, cedentePrestatore };
 }

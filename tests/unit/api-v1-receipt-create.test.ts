@@ -46,7 +46,9 @@ const VALID_UUID = "550e8400-e29b-41d4-a716-446655440000";
 const VALID_IDEMPOTENCY_KEY = "660e8400-e29b-41d4-a716-446655440001";
 
 const VALID_BODY = {
-  lines: [{ description: "Caffè", quantity: 1, grossUnitPrice: 1.5 }],
+  lines: [
+    { description: "Caffè", quantity: 1, grossUnitPrice: 1.5, vatCode: "22" },
+  ],
   paymentMethod: "PC",
   idempotencyKey: VALID_IDEMPOTENCY_KEY,
 };

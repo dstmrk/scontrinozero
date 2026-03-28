@@ -18,7 +18,10 @@ vi.mock("@/lib/supabase/server", () => ({
 // Drizzle query mock chain
 const mockLimit = vi.fn();
 const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
-const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+const mockInnerJoin = vi.fn().mockReturnValue({ where: mockWhere });
+const mockFrom = vi
+  .fn()
+  .mockReturnValue({ where: mockWhere, innerJoin: mockInnerJoin });
 const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
 const mockReturning = vi.fn();
 const mockInsertValues = vi.fn().mockReturnValue({ returning: mockReturning });
@@ -204,10 +207,8 @@ describe("onboarding-actions", () => {
 
   describe("saveAdeCredentials", () => {
     it("encrypts and saves credentials", async () => {
-      // Ownership check: profile found
-      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
-      // Ownership check: business belongs to profile
-      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+      // Ownership check: JOIN profile+business
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       // No existing credentials
       mockLimit.mockResolvedValueOnce([]);
 
@@ -281,10 +282,8 @@ describe("onboarding-actions", () => {
     });
 
     it("updates existing credentials and resets verification", async () => {
-      // Ownership check: profile found
-      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
-      // Ownership check: business belongs to profile
-      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+      // Ownership check: JOIN profile+business
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       // Existing credentials found
       mockLimit.mockResolvedValueOnce([
         { id: "cred-123", businessId: "biz-789" },
@@ -306,9 +305,7 @@ describe("onboarding-actions", () => {
     });
 
     it("returns error when business does not belong to the user (IDOR)", async () => {
-      // Ownership check: profile found
-      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
-      // Ownership check: business NOT found for this profile
+      // Ownership check: JOIN returns no match
       mockLimit.mockResolvedValueOnce([]);
 
       const { saveAdeCredentials } = await import("./onboarding-actions");
@@ -330,10 +327,8 @@ describe("onboarding-actions", () => {
 
   describe("verifyAdeCredentials", () => {
     it("verifies credentials successfully and fetches fiscal data", async () => {
-      // Ownership check: profile found
-      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
-      // Ownership check: business belongs to profile
-      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+      // Ownership check: JOIN profile+business
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       // Credentials found
       mockLimit.mockResolvedValueOnce([
         {
@@ -367,10 +362,8 @@ describe("onboarding-actions", () => {
     });
 
     it("marks credentials as verified even when getFiscalData fails", async () => {
-      // Ownership check: profile found
-      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
-      // Ownership check: business belongs to profile
-      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+      // Ownership check: JOIN profile+business
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       // Credentials found
       mockLimit.mockResolvedValueOnce([
         {
@@ -399,10 +392,8 @@ describe("onboarding-actions", () => {
     });
 
     it("returns error when credentials not found", async () => {
-      // Ownership check: profile found
-      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
-      // Ownership check: business belongs to profile
-      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+      // Ownership check: JOIN profile+business
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       // No credentials
       mockLimit.mockResolvedValueOnce([]);
 
@@ -413,10 +404,8 @@ describe("onboarding-actions", () => {
     });
 
     it("returns error when AdE login fails", async () => {
-      // Ownership check: profile found
-      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
-      // Ownership check: business belongs to profile
-      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+      // Ownership check: JOIN profile+business
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       // Credentials found
       mockLimit.mockResolvedValueOnce([
         {
@@ -436,9 +425,7 @@ describe("onboarding-actions", () => {
     });
 
     it("returns error when business does not belong to the user (IDOR)", async () => {
-      // Ownership check: profile found
-      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
-      // Ownership check: business NOT found for this profile
+      // Ownership check: JOIN returns no match
       mockLimit.mockResolvedValueOnce([]);
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
@@ -449,10 +436,8 @@ describe("onboarding-actions", () => {
     });
 
     it("sends welcome email on first successful verification", async () => {
-      // Ownership check: profile found
-      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
-      // Ownership check: business belongs to profile
-      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+      // Ownership check: JOIN profile+business
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       // Credentials found — verifiedAt is null (first verification)
       mockLimit.mockResolvedValueOnce([
         {
@@ -485,10 +470,8 @@ describe("onboarding-actions", () => {
     });
 
     it("does not send welcome email on re-verification", async () => {
-      // Ownership check: profile found
-      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
-      // Ownership check: business belongs to profile
-      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+      // Ownership check: JOIN profile+business
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       // Credentials found — verifiedAt already set (re-verification)
       mockLimit.mockResolvedValueOnce([
         {
@@ -518,10 +501,8 @@ describe("onboarding-actions", () => {
     });
 
     it("chiama logout anche se getFiscalData lancia un errore", async () => {
-      // Ownership check: profile found
-      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
-      // Ownership check: business belongs to profile
-      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+      // Ownership check: JOIN profile+business
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       // Credentials found
       mockLimit.mockResolvedValueOnce([
         {
@@ -544,10 +525,8 @@ describe("onboarding-actions", () => {
     });
 
     it("chiama logout anche nel happy path di verifyAdeCredentials", async () => {
-      // Ownership check: profile found
-      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
-      // Ownership check: business belongs to profile
-      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+      // Ownership check: JOIN profile+business
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       // Credentials found
       mockLimit.mockResolvedValueOnce([
         {

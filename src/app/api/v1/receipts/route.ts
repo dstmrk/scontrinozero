@@ -1,10 +1,37 @@
+import { z } from "zod/v4";
 import { RateLimiter } from "@/lib/rate-limit";
 import { authenticateApiKey, isApiKeyAuthError } from "@/lib/api-auth";
 import { canUseApi } from "@/lib/plans";
 import { emitReceiptForBusiness } from "@/lib/services/receipt-service";
 import { logger } from "@/lib/logger";
-import { isValidUuid } from "@/lib/uuid";
 import type { SubmitReceiptInput } from "@/types/cassa";
+
+const receiptBodySchema = z.object({
+  lines: z
+    .array(
+      z.object({
+        description: z.string(),
+        quantity: z.number().positive(),
+        grossUnitPrice: z.number().nonnegative(),
+        vatCode: z.enum([
+          "4",
+          "5",
+          "10",
+          "22",
+          "N1",
+          "N2",
+          "N3",
+          "N4",
+          "N5",
+          "N6",
+        ]),
+      }),
+    )
+    .min(1),
+  paymentMethod: z.enum(["PC", "PE"]),
+  idempotencyKey: z.string().uuid(),
+  lotteryCode: z.string().nullable().optional(),
+});
 
 // Rate limit: 120 receipts per hour per API key
 const receiptApiLimiter = new RateLimiter({
@@ -55,47 +82,31 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   // ── Parse body ────────────────────────────────────────────────────────────
-  let body: Record<string, unknown>;
+  let rawBody: unknown;
   try {
-    body = (await request.json()) as Record<string, unknown>;
+    rawBody = await request.json();
   } catch {
     return Response.json({ error: "Body non valido." }, { status: 400 });
   }
 
-  const { lines, paymentMethod, idempotencyKey, lotteryCode } =
-    body as Partial<SubmitReceiptInput>;
+  const parsed = receiptBodySchema.safeParse(rawBody);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const field = issue?.path?.join(".");
+    const msg = field
+      ? `Il campo '${field}' non è valido: ${issue.message}`
+      : (issue?.message ?? "Input non valido.");
+    return Response.json({ error: msg }, { status: 400 });
+  }
 
-  if (!Array.isArray(lines) || lines.length === 0) {
-    return Response.json(
-      { error: "Il campo 'lines' è obbligatorio e non può essere vuoto." },
-      { status: 400 },
-    );
-  }
-  if (paymentMethod !== "PC" && paymentMethod !== "PE") {
-    return Response.json(
-      { error: "Il campo 'paymentMethod' deve essere 'PC' o 'PE'." },
-      { status: 400 },
-    );
-  }
-  if (typeof idempotencyKey !== "string" || !idempotencyKey) {
-    return Response.json(
-      { error: "Il campo 'idempotencyKey' è obbligatorio." },
-      { status: 400 },
-    );
-  }
-  if (!isValidUuid(idempotencyKey)) {
-    return Response.json(
-      { error: "Il campo 'idempotencyKey' deve essere un UUID valido." },
-      { status: 400 },
-    );
-  }
+  const { lines, paymentMethod, idempotencyKey, lotteryCode } = parsed.data;
 
   const input: SubmitReceiptInput = {
     businessId: auth.businessId,
     lines,
     paymentMethod,
     idempotencyKey,
-    lotteryCode: typeof lotteryCode === "string" ? lotteryCode : null,
+    lotteryCode: lotteryCode ?? null,
   };
 
   // ── Emit ──────────────────────────────────────────────────────────────────
