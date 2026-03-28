@@ -159,6 +159,9 @@ describe("runMigrations()", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // mockReset (not just clear) on mockSqlTag to flush any leftover mockResolvedValueOnce
+    // queue from previous tests — vi.clearAllMocks() does NOT clear the once-value queue.
+    mockSqlTag.mockReset();
     mockResolve4.mockResolvedValue(["1.2.3.4"]);
     mockSqlEnd.mockResolvedValue(undefined);
     mockReaddir.mockResolvedValue([]);
@@ -247,6 +250,7 @@ describe("runMigrations()", () => {
     // 0001 already applied
     mockSqlTag
       .mockResolvedValueOnce(undefined) // CREATE TABLE
+      .mockResolvedValueOnce(undefined) // ALTER TABLE ADD COLUMN
       .mockResolvedValueOnce([{ filename: "0001_init.sql" }]); // SELECT
 
     await runMigrations();
@@ -267,6 +271,7 @@ describe("runMigrations()", () => {
     ]);
     mockSqlTag
       .mockResolvedValueOnce(undefined) // CREATE TABLE
+      .mockResolvedValueOnce(undefined) // ALTER TABLE ADD COLUMN
       .mockResolvedValueOnce([{ filename: "0001_init.sql" }]); // SELECT
 
     await runMigrations();
@@ -286,5 +291,46 @@ describe("runMigrations()", () => {
     await expect(runMigrations()).rejects.toThrow("TX failed");
 
     expect(mockSqlEnd).toHaveBeenCalled();
+  });
+
+  it("lancia un errore se una migrazione già applicata è stata modificata (checksum diverso)", async () => {
+    process.env.DATABASE_URL =
+      "postgresql://user:pass@host.example.com:5432/db";
+    mockReaddir.mockResolvedValue([
+      { name: "0001_init.sql", isFile: () => true },
+    ]);
+    // Return a stored checksum that won't match any real SHA-256 of "-- sql content"
+    mockSqlTag
+      .mockResolvedValueOnce(undefined) // CREATE TABLE
+      .mockResolvedValueOnce(undefined) // ALTER TABLE ADD COLUMN
+      .mockResolvedValueOnce([
+        { filename: "0001_init.sql", checksum: "not_a_valid_sha256" },
+      ]); // SELECT
+
+    await expect(runMigrations()).rejects.toThrow("0001_init.sql");
+  });
+
+  it("include il checksum SHA-256 nel record quando applica una nuova migrazione", async () => {
+    process.env.DATABASE_URL =
+      "postgresql://user:pass@host.example.com:5432/db";
+    mockReaddir.mockResolvedValue([
+      { name: "0001_init.sql", isFile: () => true },
+    ]);
+    // No applied migrations
+    mockSqlTag
+      .mockResolvedValueOnce(undefined) // CREATE TABLE
+      .mockResolvedValueOnce(undefined) // ALTER TABLE ADD COLUMN
+      .mockResolvedValueOnce([]); // SELECT
+
+    await runMigrations();
+
+    const insertCall = mockSqlUnsafe.mock.calls.find(
+      (args: unknown[]) =>
+        typeof args[0] === "string" && (args[0] as string).includes("INSERT"),
+    );
+    expect(insertCall).toBeDefined();
+    const params = insertCall![1] as unknown[];
+    expect(params).toHaveLength(2);
+    expect(params[1] as string).toMatch(/^[a-f0-9]{64}$/);
   });
 });
