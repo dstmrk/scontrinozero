@@ -17,7 +17,50 @@ env:
   IMAGE_ARCHIVE_PATH: /tmp/scontrinozero-image.tar
 
 jobs:
+  check-ci:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: read
+    steps:
+      - name: Verify all CI checks are green on the tagged commit
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha = context.sha;
+            const { data } = await github.rest.checks.listForRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: sha,
+              per_page: 100,
+            });
+
+            const ciChecks = data.check_runs.filter(
+              r => r.app?.slug === 'github-actions' && r.name !== 'check-ci'
+            );
+
+            if (ciChecks.length === 0) {
+              core.setFailed(
+                `No CI checks found for ${sha.substring(0, 7)}. ` +
+                'Push to main and wait for CI to pass before tagging.'
+              );
+              return;
+            }
+
+            const notPassed = ciChecks.filter(
+              r => r.conclusion !== 'success' && r.conclusion !== 'skipped'
+            );
+
+            if (notPassed.length > 0) {
+              const names = notPassed
+                .map(r => `${r.name} (${r.status}/${r.conclusion ?? 'pending'})`)
+                .join(', ');
+              core.setFailed(`CI not green on ${sha.substring(0, 7)}: ${names}`);
+            } else {
+              core.info(`All ${ciChecks.length} CI checks passed on ${sha.substring(0, 7)}`);
+            }
+
   build-image:
+    needs: [check-ci]
     runs-on: ubuntu-latest
     permissions:
       contents: read
