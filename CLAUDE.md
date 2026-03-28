@@ -22,6 +22,8 @@
 8. **SonarCloud quality gates (must not regress):**
    - Coverage on new code: **≥ 80%**
    - Duplicated lines on new code: **< 3%**
+   - **0 new issues**: fix every SonarCloud issue before merging, even when the Quality Gate passes. Issues left open accumulate into tech debt and will block future PRs.
+   - Common quick fixes: Cognitive Complexity > 15 → extract helper functions; optional chain suggestions → replace `!x || x.prop` with `x?.prop`.
    - If a file has no testable logic (pure config, UI shell), add it to `sonar.coverage.exclusions` in `sonar-project.properties` AND to the `exclude` list in `vitest.config.ts` — never leave it untested without explicitly excluding it.
 
 9. **After solving a non-trivial problem, update CLAUDE.md autonomously.**
