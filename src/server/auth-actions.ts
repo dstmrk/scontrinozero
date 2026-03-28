@@ -59,8 +59,14 @@ async function verifyCaptcha(token: string | null): Promise<boolean> {
       },
     );
     if (!response.ok) return false;
-    const data = (await response.json()) as { success: boolean };
-    return data.success === true;
+    const data = (await response.json()) as {
+      success: boolean;
+      hostname: string;
+    };
+    if (!data.success) return false;
+    const expectedHostname =
+      process.env.NEXT_PUBLIC_APP_HOSTNAME ?? "app.scontrinozero.it";
+    return data.hostname === expectedHostname;
   } catch (err) {
     logger.error({ err }, "Turnstile verification request failed");
     return false;
