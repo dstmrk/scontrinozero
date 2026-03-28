@@ -1,294 +1,205 @@
-# REVIEW.md — Full code review (produzione)
+# REVIEW.md — Code review aggiornata (accuratezza-first)
 
-Data: 2026-03-26
-Scope: intero repository
-Priorità richiesta: **Sicurezza → Bug → Performance → CI/CD → Architettura**
+Data revisione: 2026-03-28  
+Scope: intero repository  
+Metodo: verifica puntuale dei punti aperti + analisi aggiuntiva su sicurezza, affidabilità, performance, architettura.
+
+---
 
 ## Executive summary
 
-Questa review è orientata alla **riduzione del rischio in produzione**.
-I punti più urgenti da risolvere subito sono:
+Stato generale: **molto migliorato** rispetto alla review precedente.  
+Ho verificato che **10/15 punti originali risultano risolti** (o sostanzialmente risolti), mentre **5/15 restano aperti** (2 critici, 2 alti, 1 medio).
 
-1. hardening del rate limiting (trust IP + storage distribuito),
-2. validazione UUID ai boundary API (evitare 500),
-3. chiusura sessioni AdE via `finally`,
-4. atomicità/coerenza lifecycle account (signup/delete),
-5. timeout difensivi su chiamate AdE esterne.
+Inoltre, dall’analisi del codice emergono **3 ulteriori miglioramenti importanti**:
 
----
-
-## CRITICAL
-
-### 1) [SECURITY] Rate-limit bypassabile via spoof IP headers
-
-**Contesto**
-
-- `src/server/auth-actions.ts` (`getClientIp`) usa fallback `x-forwarded-for` / `x-real-ip`.
-- `src/app/r/[documentId]/pdf/route.ts` stessa logica per PDF pubblico.
-
-**Rischio**
-Con proxy non rigidamente trusted, un attacker può cambiare header IP ad ogni request e aggirare rate-limit.
-
-**Fix (AI-actionable)**
-
-1. Introdurre utility centralizzata `getTrustedClientIp()`.
-2. In prod fidarsi solo di header del proxy trusted (es. Cloudflare) + fallback severo (`unknown`).
-3. Aggiungere test anti-spoof.
-
-**Acceptance criteria**
-
-- Variare `x-forwarded-for` senza cambiare header trusted non modifica bucket rate-limit.
+1. validazione di `idempotencyKey` lato API (evitare 500 su UUID malformati),
+2. atomicità degli update nel flusso di annullo (`VOID` + update documento `SALE`),
+3. hardening del reset password (evitare open redirect nei link recovery).
 
 ---
 
-### 2) [SECURITY/RELIABILITY] RateLimiter process-local (non distribuito)
+## Verifica puntuale dei punti della review precedente
 
-**Contesto**
-`src/lib/rate-limit.ts` usa `Map` in-memory.
+Legenda: ✅ risolto · 🟡 parziale · ❌ aperto
 
-**Rischio**
-Bypass su multi-instance, reset dopo restart/deploy, enforcement incoerente.
+### 1) [SECURITY] Rate-limit bypass via spoof IP headers
 
-**Fix**
+**Stato:** ❌ Aperto  
+`getClientIp()` continua ad accettare `x-forwarded-for` / `x-real-ip` senza modello di trusted proxy esplicito. In ambienti non rigidamente configurati, questo rimane spoofabile.
 
-1. Introdurre `RateLimitStore` (memory + Redis/Upstash).
-2. Usare store condiviso almeno per auth + API pubbliche.
-3. Emettere `Retry-After`.
+**Azione consigliata (P0):**
 
-**Acceptance criteria**
+- introdurre `getTrustedClientIp(headers, env)` con trust esplicito (es. `cf-connecting-ip` solo se traffico passa da Cloudflare),
+- fallback a `unknown` quando non c’è un header trusted,
+- test anti-spoof dedicati.
 
-- Contatori coerenti tra istanze diverse.
+### 2) [SECURITY/RELIABILITY] RateLimiter process-local
 
----
+**Stato:** ❌ Aperto  
+Il `RateLimiter` usa ancora `Map` in-memory. In multi-instance non garantisce enforcement coerente.
 
-## HIGH
+**Azione consigliata (P0):**
+
+- introdurre interfaccia `RateLimitStore` (memory + Redis/Upstash),
+- usare store distribuito almeno per endpoint pubblici/API/auth,
+- esporre `Retry-After` e (opzionale) header `X-RateLimit-*`.
 
 ### 3) [BUG] UUID non validato su `/api/v1/receipts/[id]`
 
-**Contesto**
-
-- `src/app/api/v1/receipts/[id]/route.ts`
-- `src/app/api/v1/receipts/[id]/void/route.ts`
-
-`id` usato direttamente su colonne UUID.
-
-**Rischio**
-Input malformato può causare errore DB e 500.
-
-**Fix**
-
-1. Utility condivisa `isUuid`.
-2. Return 400 prima della query.
-3. Test negativi su ID invalidi.
-
----
+**Stato:** ✅ Risolto  
+Presente validazione `isValidUuid(id)` con `400` prima della query.
 
 ### 4) [BUG] UUID non validato su route PDF autenticata
 
-**Contesto**
-`src/app/api/documents/[documentId]/pdf/route.ts` usa `documentId` senza pre-validazione.
+**Stato:** ✅ Risolto  
+`/api/documents/[documentId]/pdf` valida `documentId` prima del DB.
 
-**Rischio**
-500 evitabile con input non UUID.
+### 5) [BUG/ROBUSTNESS] Logout AdE non garantito in errore
 
-**Fix**
-Riutilizzare la stessa utility `isUuid` del punto #3.
+**Stato:** ✅ Risolto  
+Nei servizi AdE principali c’è `try/finally` con `logout` best effort.
 
----
+### 6) [BUG/COMPLIANCE] Signup non atomica (Auth vs profiles)
 
-### 5) [BUG/ROBUSTNESS] Logout AdE non garantito in caso di errore
-
-**Contesto**
-
-- `src/lib/services/receipt-service.ts`
-- `src/lib/services/void-service.ts`
-- `src/server/onboarding-actions.ts` (`verifyAdeCredentials`)
-
-Logout avviene solo nel percorso lineare.
-
-**Rischio**
-Sessioni AdE lasciate aperte su eccezioni post-login.
-
-**Fix**
-
-1. Pattern `try/finally`.
-2. `logout` best-effort nel `finally` con warning non bloccante.
-
-**Acceptance criteria**
-
-- Dopo login, logout sempre tentato una volta anche su errore.
-
----
-
-### 6) [BUG/COMPLIANCE] Signup non atomica (Auth vs `profiles`)
-
-**Contesto**
-`src/server/auth-actions.ts` crea utente Supabase Auth e poi scrive `profiles` separatamente.
-
-**Rischio**
-Se insert `profiles` fallisce, utente Auth può restare orfano e i termini non risultano registrati.
-
-**Fix**
-
-1. Compensazione: delete utente Auth su failure `profiles`.
-2. Gestione esplicita del caso `data.user` assente/no error.
-3. Alert su mismatch Auth/Profile.
-
----
+**Stato:** ✅ Risolto (con compensazione)  
+In caso di errore insert `profiles`, viene tentata delete utente Auth via admin API.
 
 ### 7) [BUG/ACCOUNT-LIFECYCLE] Delete account non atomica
 
-**Contesto**
-`src/server/account-actions.ts` elimina prima `profiles`, poi tenta delete Auth; se fallisce logga e continua.
+**Stato:** 🟡 Parziale  
+È stato chiarito il comportamento e migliorata la sequenza (sign-out prima della delete Auth), ma resta possibile orfano Auth se delete admin fallisce.
 
-**Rischio**
-Account Auth “zombie” (login possibile ma stato app incoerente).
+**Azione consigliata (P1):**
 
-**Fix**
-
-1. Retry affidabile (job/outbox) delete Auth.
-2. Guard globale per user autenticato senza `profile` con messaggio esplicito.
-3. Monitor orphan count.
-
----
+- outbox/retry job per `auth.admin.deleteUser`,
+- metrica/alert su orphan count,
+- guard centralizzata “user autenticato senza profile”.
 
 ### 8) [RELIABILITY/PERFORMANCE] Chiamate AdE senza timeout difensivo
 
-**Contesto**
-`src/lib/ade/real-client.ts` usa `fetch` senza `AbortController` timeout centralizzato.
-
-**Rischio**
-Request esterne lente possono saturare worker/istanze e aumentare latenza tail.
-
-**Fix**
-
-1. Wrapper fetch con timeout configurabile (es. env `ADE_HTTP_TIMEOUT_MS`).
-2. Retry limitato solo su errori transient idempotenti.
-3. Logging strutturato di timeout.
-
-**Acceptance criteria**
-
-- Endpoint fallisce in modo controllato entro timeout massimo definito.
-
----
+**Stato:** ✅ Risolto  
+`RealAdeClient.request()` usa `AbortSignal.timeout(...)` configurabile (`fetchTimeoutMs`).
 
 ### 9) [RELIABILITY] Fire-and-forget DB update senza `.catch`
 
-**Contesto**
-`src/lib/api-auth.ts`: update `lastUsedAt` con `void db.update(...)`.
-
-**Rischio**
-Possibile unhandled rejection in caso di errore DB.
-
-**Fix**
-Aggiungere `.catch((err) => logger.warn(...))` mantenendo la natura non bloccante.
-
----
-
-## MEDIUM
+**Stato:** ✅ Risolto  
+`authenticateApiKey()` ora usa `.catch(...)` con warning logger.
 
 ### 10) [BUG] Domain routing fragile su `Host` con porta
 
-**Contesto**
-`src/proxy.ts` confronta `host` con exact string match.
+**Stato:** ✅ Risolto  
+In `proxy.ts` host normalizzato con strip della porta.
 
-**Rischio**
-`Host: app.example.com:443` può rompere i redirect attesi.
+### 11) [PERFORMANCE] Doppio fetch DB ricevuta pubblica
 
-**Fix**
-Normalizzare host (lowercase + strip porta) prima del confronto.
-
----
-
-### 11) [PERFORMANCE] Doppio fetch DB sulla ricevuta pubblica
-
-**Contesto**
-`src/app/r/[documentId]/page.tsx` chiama `fetchPublicReceipt` in `generateMetadata` e nel page render.
-
-**Rischio**
-Due query per la stessa pagina.
-
-**Fix**
-Memoization server-side (`cache()`) o ridurre fetch nel metadata.
-
----
+**Stato:** ✅ Risolto  
+`fetchPublicReceipt` è wrapped in `cache()` e deduplica i fetch nello stesso render.
 
 ### 12) [PERFORMANCE] Roundtrip query evitabili in path hot
 
-**Contesto**
+**Stato:** 🟡 Parziale  
+Ci sono miglioramenti (join in alcuni endpoint), ma in helper core (`checkBusinessOwnership`, `fetchAdePrerequisites`) persistono query in più step.
 
-- `fetchAdePrerequisites` (`src/lib/server-auth.ts`) usa query separate.
-- Ownership checks spesso in 2 step profile→business.
+**Azione consigliata (P2):**
 
-**Fix**
-Unificare con join mirate e helper query condivisi.
+- unire lookup profile/business/credentials in query helper con join mirate,
+- ridurre roundtrip nei flussi cassa/annullo.
 
----
+### 13) [CI/CD] Deploy da tag senza gate CI green sullo stesso SHA
 
-### 13) [CI/CD] Deploy da tag non vincolato esplicitamente a CI green sullo stesso SHA
-
-**Contesto**
-`.github/workflows/deploy.yml` parte su tag; manca guard esplicita su esito CI del commit taggato.
-
-**Fix**
-`workflow_run` da CI green o controllo status checks via API prima del push immagine.
-
----
+**Stato:** ✅ Risolto  
+Workflow deploy include `check-ci` che verifica i check run sul commit taggato.
 
 ### 14) [CI/CD/SECURITY] Audit dipendenze condizionale al diff
 
-**Contesto**
-`.github/workflows/ci.yml` esegue `audit` solo su alcuni cambi file.
+**Stato:** ✅ Risolto  
+Presente workflow schedulato (`scheduled-audit.yml`) oltre all’audit in CI su cambi rilevanti.
 
-**Rischio**
-Nuove CVE su dipendenze esistenti possono non emergere su PR che non toccano quei file.
+### 15) [ARCHITECTURE] Validazioni duplicate tra route/action/service
 
-**Fix**
-Aggiungere audit schedulato (es. giornaliero/settimanale) + opzionale always-on su push main.
+**Stato:** 🟡 Parziale  
+Migliorata la validazione UUID e alcuni boundary, ma la validazione payload è ancora distribuita/manuale in più route/action.
 
----
+**Azione consigliata (P2):**
 
-### 15) [ARCHITECTURE] Validazioni distribuite e duplicate tra route/action/service
-
-**Rischio**
-Drift comportamentale tra canali UI/API e manutenzione più costosa.
-
-**Fix**
-Centralizzare schema validation server-side (es. Zod) + error model unico (`code/message/details`).
+- schemi Zod condivisi per input API/server actions,
+- `safeParse` + error model uniforme (`code`, `message`, `details`, `field`).
 
 ---
 
-## LOW
+## Nuovi miglioramenti emersi (non nella lista precedente)
 
-### 16) [SECURITY HARDENING] Verifica Turnstile solo su `success`
+### A) [HIGH][BUG] `idempotencyKey` non validata come UUID ai boundary API
 
-**Contesto**
-`src/server/auth-actions.ts` controlla principalmente `data.success`.
+**Contesto:**
 
-**Fix**
-Validare anche `hostname`/`action` ritornati dal provider.
+- `/api/v1/receipts` accetta `idempotencyKey` solo come stringa non vuota,
+- `/api/v1/receipts/[id]/void` idem.
+
+**Rischio:**
+le colonne DB sono UUID: input non UUID può generare errore DB e 500.
+
+**Fix consigliato (P1):**
+
+- validare `idempotencyKey` con `isValidUuid` prima di chiamare i service,
+- test negativi su payload con UUID malformato (expect 400).
+
+### B) [HIGH][CONSISTENCY] Void flow con update non atomici
+
+**Contesto:**
+in `voidReceiptForBusiness` lo stato del documento VOID e lo stato del SALE originale sono aggiornati in due query separate.
+
+**Rischio:**
+in caso di failure intermedio si può avere `VOID_ACCEPTED` sul documento di annullo ma `SALE` non aggiornato (incoerenza funzionale/reporting).
+
+**Fix consigliato (P1):**
+
+- racchiudere i due update finali in una transaction unica,
+- aggiungere test di rollback su errore al secondo update.
+
+### C) [MEDIUM][SECURITY] Possibile open redirect nel reset password
+
+**Contesto:**
+`resetPassword` usa `generateLink` e invia `action_link` raw via email.
+
+**Rischio:**
+in caso di configurazioni Supabase non rigorose su redirect whitelist, può introdurre link recovery verso host inattesi.
+
+**Fix consigliato (P2):**
+
+- costruire esplicitamente `redirectTo` verso dominio applicativo noto,
+- validare host del link prima dell’invio,
+- aggiungere test su dominio atteso.
 
 ---
 
-### 17) [CI/CD/RELIABILITY] Migration runner senza checksum immutability
+## Priorità operative suggerite
 
-**Contesto**
-`scripts/migrate.ts` traccia solo `filename` in `__applied_migrations`.
+### Sprint immediato (P0)
 
-**Rischio**
-Se un file SQL storico viene modificato accidentalmente/malevolmente, la deriva non è rilevata automaticamente.
+1. Trusted client IP + anti-spoof tests.
+2. Rate limiting distribuito + `Retry-After`.
 
-**Fix**
+### Sprint breve (P1)
 
-1. Salvare hash contenuto (es. SHA-256) in tabella migrazioni applicate.
-2. Verificare hash a startup prima di applicare nuove migrazioni.
+3. Validazione UUID di `idempotencyKey` in tutte le API interessate.
+4. Transaction nel commit finale del flow di annullo.
+5. Retry affidabile su delete Auth (account deletion).
+
+### Backlog ragionato (P2)
+
+6. Hardening redirect reset-password.
+7. Consolidamento validazioni con Zod + error model unico.
+8. Query helper ottimizzati per ownership/prerequisiti AdE.
 
 ---
 
-## Piano operativo consigliato (ordine esecuzione)
+## Note finali
 
-1. **Hotfix sicurezza/affidabilità**: #1 #2 #3 #4 #5 #8 #9
-2. **Coerenza account lifecycle**: #6 #7
-3. **Efficienza runtime**: #10 #11 #12
-4. **Hardening delivery process**: #13 #14 #17
-5. **Refactoring architetturale graduale**: #15 #16
+- La base complessiva è oggi **significativamente più solida** della versione precedente.
+- I principali rischi residui sono concentrati in due aree: **rate limiting** (trust + distribuzione) e **coerenza transazionale su lifecycle/accounting**.
+- Dopo i fix P0/P1 suggerisco una mini-review focalizzata solo su:
+  - edge di concorrenza,
+  - failure injection (DB/AdE timeout/error),
+  - test e2e sui flussi critici (emissione, annullo, account delete).
