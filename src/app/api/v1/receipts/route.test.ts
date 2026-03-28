@@ -183,6 +183,23 @@ describe("POST /api/v1/receipts", () => {
     expect(body.error).toBe("Credenziali AdE non trovate.");
   });
 
+  it("ritorna 400 se idempotencyKey non è un UUID valido", async () => {
+    const res = await POST(
+      makeRequest({ ...VALID_BODY, idempotencyKey: "not-a-uuid" }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("ritorna 400 se una line manca di campi obbligatori", async () => {
+    const res = await POST(
+      makeRequest({
+        ...VALID_BODY,
+        lines: [{ description: "Mela" }], // mancano quantity, grossUnitPrice, vatCode
+      }),
+    );
+    expect(res.status).toBe(400);
+  });
+
   it("passa lotteryCode al service quando presente nel body", async () => {
     await POST(
       makeRequest({
