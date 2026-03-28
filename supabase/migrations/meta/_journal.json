@@ -71,6 +71,13 @@
       "when": 1774450005000,
       "tag": "0009_idempotency_per_business",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1774450006000,
+      "tag": "0010_api_keys_constraints",
+      "breakpoints": true
     }
   ]
 }
