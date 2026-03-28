@@ -401,6 +401,37 @@ describe("auth-actions", () => {
       expect(mockDeleteUser).toHaveBeenCalledWith("user-to-delete");
     });
 
+    it("logga un errore se deleteUser si risolve con un error field (API-level failure)", async () => {
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-to-delete" } },
+        error: null,
+      });
+      mockInsert.mockReturnValueOnce({
+        values: vi.fn().mockRejectedValueOnce(new Error("DB error")),
+      });
+      mockDeleteUser.mockResolvedValue({
+        error: { message: "Invalid service role key" },
+      });
+      const { logger } = await import("@/lib/logger");
+
+      const { signUp } = await import("./auth-actions");
+      await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "valid-token",
+        }),
+      );
+
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ deleteErr: expect.anything() }),
+        expect.stringContaining("delete auth user"),
+      );
+    });
+
     it("returns captcha error when token is missing", async () => {
       const { signUp } = await import("./auth-actions");
       const result = await signUp(
