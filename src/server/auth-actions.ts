@@ -59,8 +59,14 @@ async function verifyCaptcha(token: string | null): Promise<boolean> {
       },
     );
     if (!response.ok) return false;
-    const data = (await response.json()) as { success: boolean };
-    return data.success === true;
+    const data = (await response.json()) as {
+      success: boolean;
+      hostname: string;
+    };
+    if (!data.success) return false;
+    const expectedHostname =
+      process.env.NEXT_PUBLIC_APP_HOSTNAME ?? "app.scontrinozero.it";
+    return data.hostname === expectedHostname;
   } catch (err) {
     logger.error({ err }, "Turnstile verification request failed");
     return false;
@@ -154,6 +160,16 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
         { err },
         "Failed to record terms acceptance; blocking signup",
       );
+      // Compensating delete: remove the auth user just created to avoid
+      // zombie accounts (Supabase user without a profile in our DB).
+      await createAdminSupabaseClient()
+        .auth.admin.deleteUser(data.user.id)
+        .catch((deleteErr) =>
+          logger.error(
+            { deleteErr },
+            "Failed to delete auth user after profile creation failure",
+          ),
+        );
       return { error: "Registrazione fallita. Riprova." };
     }
   }

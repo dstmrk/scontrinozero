@@ -28,10 +28,11 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 const mockGenerateLink = vi.fn();
+const mockDeleteUser = vi.fn();
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminSupabaseClient: vi.fn().mockReturnValue({
     auth: {
-      admin: { generateLink: mockGenerateLink },
+      admin: { generateLink: mockGenerateLink, deleteUser: mockDeleteUser },
     },
   }),
 }));
@@ -115,10 +116,11 @@ describe("auth-actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.TURNSTILE_SECRET_KEY = "test-secret";
+    process.env.NEXT_PUBLIC_APP_HOSTNAME = "app.scontrinozero.it";
     mockRateLimiterCheck.mockReturnValue({ success: true, remaining: 4 });
     mockFetch.mockResolvedValue({
       ok: true,
-      json: async () => ({ success: true }),
+      json: async () => ({ success: true, hostname: "app.scontrinozero.it" }),
     });
     mockGenerateLink.mockResolvedValue({
       data: {
@@ -354,6 +356,7 @@ describe("auth-actions", () => {
       mockInsert.mockReturnValueOnce({
         values: vi.fn().mockRejectedValueOnce(new Error("DB error")),
       });
+      mockDeleteUser.mockResolvedValue({ error: null });
 
       const { signUp } = await import("./auth-actions");
       const { logger } = await import("@/lib/logger");
@@ -371,6 +374,31 @@ describe("auth-actions", () => {
 
       expect(result).toEqual({ error: "Registrazione fallita. Riprova." });
       expect(logger.error).toHaveBeenCalled();
+    });
+
+    it("cancella l'utente Supabase (compensating delete) se il profile insert fallisce", async () => {
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-to-delete" } },
+        error: null,
+      });
+      mockInsert.mockReturnValueOnce({
+        values: vi.fn().mockRejectedValueOnce(new Error("DB error")),
+      });
+      mockDeleteUser.mockResolvedValue({ error: null });
+
+      const { signUp } = await import("./auth-actions");
+      await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "valid-token",
+        }),
+      );
+
+      expect(mockDeleteUser).toHaveBeenCalledWith("user-to-delete");
     });
 
     it("returns captcha error when token is missing", async () => {
@@ -462,6 +490,60 @@ describe("auth-actions", () => {
       expect(result).toEqual({ error: "Verifica CAPTCHA fallita. Riprova." });
       expect(logger.error).toHaveBeenCalled();
       // beforeEach ripristinerà TURNSTILE_SECRET_KEY per il test successivo
+    });
+
+    it("returns captcha error when Turnstile hostname doesn't match expected app hostname", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          hostname: "evil.example.com",
+        }),
+      });
+
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "stolen-token",
+        }),
+      );
+
+      expect(result).toEqual({ error: "Verifica CAPTCHA fallita. Riprova." });
+    });
+
+    it("passes captcha when Turnstile hostname matches NEXT_PUBLIC_APP_HOSTNAME", async () => {
+      process.env.NEXT_PUBLIC_APP_HOSTNAME = "custom.myapp.com";
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, hostname: "custom.myapp.com" }),
+      });
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-1" } },
+        error: null,
+      });
+
+      const { signUp } = await import("./auth-actions");
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+          }),
+        );
+      } catch (err) {
+        if (!isRedirectError(err)) throw err;
+      }
+
+      expect(mockSignUp).toHaveBeenCalled();
     });
   });
 

@@ -292,5 +292,17 @@ describe("proxy", () => {
       );
       expect(response.status).toBe(200);
     });
+
+    it("strips port from Host header before comparing hostnames (e.g. scontrinozero.it:443)", async () => {
+      const { proxy } = await import("./proxy");
+
+      // Host header includes port — should still be recognised as marketing domain
+      const response = await proxy(
+        createRequestForHost("/dashboard", "scontrinozero.it:443"),
+      );
+      expect(response.status).toBe(307);
+      const location = new URL(response.headers.get("location")!);
+      expect(location.hostname).toBe("app.scontrinozero.it");
+    });
   });
 });

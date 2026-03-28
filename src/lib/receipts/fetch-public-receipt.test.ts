@@ -5,9 +5,25 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const { mockSelect } = vi.hoisted(() => ({
-  mockSelect: vi.fn(),
-}));
+const { mockSelect, mockReactCache, getReactCacheCallCount } = vi.hoisted(
+  () => {
+    let callCount = 0;
+    const cache = <T extends (...args: unknown[]) => unknown>(fn: T): T => {
+      callCount++;
+      return fn;
+    };
+    return {
+      mockSelect: vi.fn(),
+      mockReactCache: cache,
+      getReactCacheCallCount: () => callCount,
+    };
+  },
+);
+
+vi.mock("react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react")>();
+  return { ...actual, cache: mockReactCache };
+});
 
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({ select: mockSelect }),
@@ -165,5 +181,9 @@ describe("fetchPublicReceipt", () => {
   it("accetta UUID in maiuscolo (case-insensitive)", async () => {
     const result = await fetchPublicReceipt(VALID_UUID.toUpperCase());
     expect(result).not.toBeNull();
+  });
+
+  it("è creata con React.cache() per deduplicare le query nel render", () => {
+    expect(getReactCacheCallCount()).toBeGreaterThan(0);
   });
 });

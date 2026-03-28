@@ -1,7 +1,12 @@
 import { readdir, readFile } from "fs/promises";
+import { createHash } from "crypto";
 import path from "path";
 import { resolve4, resolve6 } from "dns/promises";
 import postgres from "postgres";
+
+export function computeChecksum(content: string): string {
+  return createHash("sha256").update(content, "utf-8").digest("hex");
+}
 
 // postgres.js v3 tries ALL resolved addresses (IPv4 + IPv6) in order.
 // On VPSes without IPv6 routing, AAAA records cause ENETUNREACH before
@@ -63,11 +68,17 @@ export async function runMigrations() {
       )
     `;
 
-    // Fetch already-applied filenames
-    const rows = await sql<{ filename: string }[]>`
-      SELECT filename FROM __applied_migrations ORDER BY filename
+    // Add checksum column if upgrading from a pre-checksum installation
+    await sql`
+      ALTER TABLE __applied_migrations
+      ADD COLUMN IF NOT EXISTS checksum TEXT NOT NULL DEFAULT ''
     `;
-    const applied = new Set(rows.map((r) => r.filename));
+
+    // Fetch already-applied filenames and their stored checksums
+    const rows = await sql<{ filename: string; checksum: string }[]>`
+      SELECT filename, checksum FROM __applied_migrations ORDER BY filename
+    `;
+    const applied = new Map(rows.map((r) => [r.filename, r.checksum ?? ""]));
 
     // Collect .sql files sorted by name
     const migrationsFolder = path.join(process.cwd(), "supabase", "migrations");
@@ -79,17 +90,36 @@ export async function runMigrations() {
 
     let count = 0;
     for (const filename of sqlFiles) {
-      if (applied.has(filename)) continue;
+      if (applied.has(filename)) {
+        // Verify the file has not been modified since it was applied.
+        // Skip verification for legacy rows that have no stored checksum.
+        const storedChecksum = applied.get(filename)!;
+        if (storedChecksum) {
+          const content = await readFile(
+            path.join(migrationsFolder, filename),
+            "utf-8",
+          );
+          const currentChecksum = computeChecksum(content);
+          if (currentChecksum !== storedChecksum) {
+            throw new Error(
+              `Migration "${filename}" has been modified after being applied. ` +
+                `Stored checksum: ${storedChecksum}, current: ${currentChecksum}`,
+            );
+          }
+        }
+        continue;
+      }
       console.log(`Applying migration: ${filename}`);
       const content = await readFile(
         path.join(migrationsFolder, filename),
         "utf-8",
       );
+      const checksum = computeChecksum(content);
       await sql.begin(async (tx) => {
         await tx.unsafe(content);
         await tx.unsafe(
-          "INSERT INTO __applied_migrations (filename) VALUES ($1)",
-          [filename],
+          "INSERT INTO __applied_migrations (filename, checksum) VALUES ($1, $2)",
+          [filename, checksum],
         );
       });
       count++;
