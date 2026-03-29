@@ -56,6 +56,7 @@ async function verifyCaptcha(token: string | null): Promise<boolean> {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ secret, response: token }),
+        signal: AbortSignal.timeout(5000),
       },
     );
     if (!response.ok) return false;

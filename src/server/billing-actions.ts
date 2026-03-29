@@ -33,12 +33,21 @@ export async function getEffectivePlan(userId: string): Promise<Plan> {
 
   const db = getDb();
   const [sub] = await db
-    .select({ stripePriceId: subscriptions.stripePriceId })
+    .select({
+      stripePriceId: subscriptions.stripePriceId,
+      status: subscriptions.status,
+    })
     .from(subscriptions)
     .where(eq(subscriptions.userId, userId))
     .limit(1);
 
-  if (planInfo.plan === "trial" && sub?.stripePriceId) {
+  // Only derive plan from subscription when payment is confirmed (active).
+  // Excluding incomplete/past_due prevents premature access on failed payments.
+  if (
+    planInfo.plan === "trial" &&
+    sub?.stripePriceId &&
+    sub.status === "active"
+  ) {
     return planFromPriceId(sub.stripePriceId) ?? planInfo.plan;
   }
   return planInfo.plan;
@@ -71,7 +80,7 @@ export async function getProfilePlan(): Promise<ProfilePlanResult> {
     .limit(1);
 
   const displayPlan: Plan =
-    planInfo.plan === "trial" && sub?.stripePriceId
+    planInfo.plan === "trial" && sub?.stripePriceId && sub.status === "active"
       ? (planFromPriceId(sub.stripePriceId) ?? planInfo.plan)
       : planInfo.plan;
 

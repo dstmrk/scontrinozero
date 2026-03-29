@@ -10,9 +10,9 @@ const receiptBodySchema = z.object({
   lines: z
     .array(
       z.object({
-        description: z.string(),
-        quantity: z.number().positive(),
-        grossUnitPrice: z.number().nonnegative(),
+        description: z.string().min(1).max(200),
+        quantity: z.number().positive().max(9999),
+        grossUnitPrice: z.number().nonnegative().max(999_999.99),
         vatCode: z.enum([
           "4",
           "5",
@@ -27,10 +27,11 @@ const receiptBodySchema = z.object({
         ]),
       }),
     )
-    .min(1),
+    .min(1)
+    .max(100),
   paymentMethod: z.enum(["PC", "PE"]),
   idempotencyKey: z.string().uuid(),
-  lotteryCode: z.string().nullable().optional(),
+  lotteryCode: z.string().max(8).nullable().optional(),
 });
 
 // Rate limit: 120 receipts per hour per API key
@@ -38,6 +39,17 @@ const receiptApiLimiter = new RateLimiter({
   maxRequests: 120,
   windowMs: 60 * 60 * 1000,
 });
+
+export function OPTIONS(): Response {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*", // NOSONAR — developer API: auth via Bearer token (not cookies), wildcard is intentional
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    },
+  });
+}
 
 export async function POST(request: Request): Promise<Response> {
   // ── Auth ──────────────────────────────────────────────────────────────────

@@ -3,6 +3,33 @@ import {
   type SaleReceiptLine,
 } from "@/lib/pdf/generate-sale-receipt";
 
+/**
+ * Sanitizes a string for use as a PDF filename component.
+ * Whitelist approach: keeps only [A-Za-z0-9._-], replaces the rest with "-",
+ * trims leading/trailing dashes, and falls back to "scontrino" if empty.
+ * Implemented without regex to avoid S5852 ReDoS false-positive.
+ * Exported for testing.
+ */
+export function sanitizePdfFilename(raw: string): string {
+  const allowedSet = new Set(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-",
+  );
+
+  // Replace non-whitelisted chars and cap at 100 characters
+  let sanitized = "";
+  for (let i = 0; i < Math.min(raw.length, 100); i++) {
+    sanitized += allowedSet.has(raw[i]) ? raw[i] : "-";
+  }
+
+  // Trim leading/trailing dashes without regex
+  let start = 0;
+  while (start < sanitized.length && sanitized[start] === "-") start++;
+  let end = sanitized.length;
+  while (end > start && sanitized[end - 1] === "-") end--;
+
+  return sanitized.slice(start, end) || "scontrino";
+}
+
 /** Minimum shape required to build the PDF Response. */
 interface PdfReceiptInput {
   doc: {
@@ -69,16 +96,17 @@ export async function generatePdfResponse(
     lotteryCode,
   });
 
-  const safeProgressive = (doc.adeProgressive ?? "scontrino").replaceAll(
-    /[/\\]/g,
-    "-",
+  const safeProgressive = sanitizePdfFilename(
+    doc.adeProgressive ?? "scontrino",
   );
+  const encodedProgressive = encodeURIComponent(safeProgressive);
 
   return new Response(new Uint8Array(pdfBuffer), {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="scontrino-${safeProgressive}.pdf"`,
+      // RFC 5987: filename* for non-ASCII safe encoding; filename for legacy clients
+      "Content-Disposition": `attachment; filename="scontrino-${safeProgressive}.pdf"; filename*=UTF-8''scontrino-${encodedProgressive}.pdf`,
       "Cache-Control": "private, no-store",
     },
   });

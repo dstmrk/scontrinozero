@@ -25,6 +25,7 @@
    - **0 new issues**: fix every SonarCloud issue before merging, even when the Quality Gate passes. Issues left open accumulate into tech debt and will block future PRs.
    - Common quick fixes: Cognitive Complexity > 15 → extract helper functions; optional chain suggestions → replace `!x || x.prop` with `x?.prop`.
    - If a file has no testable logic (pure config, UI shell), add it to `sonar.coverage.exclusions` in `sonar-project.properties` AND to the `exclude` list in `vitest.config.ts` — never leave it untested without explicitly excluding it.
+   - **`// NOSONAR` does NOT suppress Security Hotspots** — it only suppresses Issues (Bug/CodeSmell/Vulnerability). Hotspots require either fixing the code so the rule no longer fires, or human review via the SonarCloud UI ("Mark as Safe"). For S5852 (ReDoS): replace regex with Set-based char loop + manual pointer trimming. For S5122 (CORS `*`): `// NOSONAR` is ineffective — the user must acknowledge in SonarCloud UI, or remove the wildcard.
 
 9. **After solving a non-trivial problem, update CLAUDE.md autonomously.**
    When a task is complete (bug fixed, feature shipped), reflect on what went wrong

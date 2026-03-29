@@ -171,6 +171,96 @@ describe("POST /api/v1/receipts", () => {
       );
       expect(res.status).toBe(400);
     });
+
+    // P1-05: cardinalità e limiti di dimensione
+    it("returns 400 when lines exceeds 100 items", async () => {
+      const { POST } = await import("@/app/api/v1/receipts/route");
+      const lines = Array.from({ length: 101 }, (_, i) => ({
+        description: `Item ${i}`,
+        quantity: 1,
+        grossUnitPrice: 1.0,
+        vatCode: "22",
+      }));
+      const res = await POST(makeRequest({ ...VALID_BODY, lines }));
+      expect(res.status).toBe(400);
+      expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
+    });
+
+    it("accepts 100 lines (boundary)", async () => {
+      const { POST } = await import("@/app/api/v1/receipts/route");
+      const lines = Array.from({ length: 100 }, (_, i) => ({
+        description: `Item ${i}`,
+        quantity: 1,
+        grossUnitPrice: 1.0,
+        vatCode: "22",
+      }));
+      const res = await POST(makeRequest({ ...VALID_BODY, lines }));
+      expect(res.status).toBe(201);
+    });
+
+    it("returns 400 when description exceeds 200 characters", async () => {
+      const { POST } = await import("@/app/api/v1/receipts/route");
+      const lines = [
+        {
+          description: "A".repeat(201),
+          quantity: 1,
+          grossUnitPrice: 1.0,
+          vatCode: "22",
+        },
+      ];
+      const res = await POST(makeRequest({ ...VALID_BODY, lines }));
+      expect(res.status).toBe(400);
+      expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 when quantity exceeds 9999", async () => {
+      const { POST } = await import("@/app/api/v1/receipts/route");
+      const lines = [
+        {
+          description: "Item",
+          quantity: 10000,
+          grossUnitPrice: 1.0,
+          vatCode: "22",
+        },
+      ];
+      const res = await POST(makeRequest({ ...VALID_BODY, lines }));
+      expect(res.status).toBe(400);
+    });
+
+    it("returns 400 when grossUnitPrice exceeds 999999.99", async () => {
+      const { POST } = await import("@/app/api/v1/receipts/route");
+      const lines = [
+        {
+          description: "Item",
+          quantity: 1,
+          grossUnitPrice: 1_000_000,
+          vatCode: "22",
+        },
+      ];
+      const res = await POST(makeRequest({ ...VALID_BODY, lines }));
+      expect(res.status).toBe(400);
+    });
+
+    it("returns 400 when lotteryCode exceeds 8 characters", async () => {
+      const { POST } = await import("@/app/api/v1/receipts/route");
+      const res = await POST(
+        makeRequest({ ...VALID_BODY, lotteryCode: "TOOLONGCODE" }),
+      );
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe("CORS preflight (P2-02)", () => {
+    it("OPTIONS returns 204 with CORS headers", async () => {
+      const { OPTIONS } = await import("@/app/api/v1/receipts/route");
+      const res = OPTIONS();
+      expect(res.status).toBe(204);
+      expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+      expect(res.headers.get("Access-Control-Allow-Methods")).toContain("POST");
+      expect(res.headers.get("Access-Control-Allow-Headers")).toContain(
+        "Authorization",
+      );
+    });
   });
 
   describe("business logic", () => {
