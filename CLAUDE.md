@@ -559,6 +559,59 @@ Controlli manuali:
 - [ ] I nomi delle variabili nel factory `vi.mock` iniziano con `mock`
 - [ ] Nessuna nuova issue SonarCloud Blocker/Critical introdotta
 
+### `react/cache` non deduplicaza tra Route Handler e RSC page
+
+`cache()` da `react` è scoped al singolo render tree RSC. **Non** deduplicata
+tra la page RSC `/r/[id]` e la Route Handler `/r/[id]/pdf` — sono HTTP request
+separate. Usare `cache()` in una funzione di data-access condivisa crea una
+falsa aspettativa. Preferire plain async function + chiamata diretta al DB in
+ogni entry point.
+
+### Pattern `INSERT ... ON CONFLICT DO NOTHING` per race condition sul creazione riga
+
+Quando un endpoint può essere invocato concorrentemente per lo stesso utente
+(es. doppio click su "Checkout"), il pattern "SELECT then INSERT" causa un
+unique-constraint violation → 500 sulla richiesta persa. Fix pattern Drizzle:
+
+```typescript
+const [inserted] = await db
+  .insert(table)
+  .values({...})
+  .onConflictDoNothing()
+  .returning({ col: table.col });
+
+if (!inserted) {
+  // Conflict: re-SELECT per recuperare il valore del "winner"
+  const [existing] = await db.select(...).where(...);
+}
+```
+
+### Mock Drizzle con `transaction`: il callback riceve `tx`, non `db`
+
+Quando il codice usa `db.transaction(async (tx) => { tx.update(...) })`, i
+test devono aggiungere `transaction` al mock di `getDb()` come passthrough:
+
+```typescript
+const mockTransaction = vi.fn();
+// In beforeEach (dopo vi.clearAllMocks()):
+mockTransaction.mockImplementation(async (fn) =>
+  fn({ select: mockSelect, insert: mockInsert, update: mockUpdate }),
+);
+```
+
+Se si dimentica, il codice chiama `db.transaction(undefined)` → TypeError silenzioso.
+
+### Aggiornamento `last_used_at` con WHERE condizionale anti-write-amplification
+
+Per evitare un DB write su ogni API request, usare:
+
+```typescript
+.where(and(eq(table.id, id), or(isNull(table.lastUsedAt), lt(table.lastUsedAt, threshold))))
+```
+
+Il DB aggiorna solo se `lastUsedAt IS NULL OR lastUsedAt < NOW - N_min`.
+Sempre fire-and-forget (`.catch(logger.warn)`). Throttle consigliato: 10 minuti.
+
 ## Sito vetrina (landing/marketing)
 
 Stesso progetto Next.js, non un sito separato:
