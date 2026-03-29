@@ -14,7 +14,8 @@ export function sanitizePdfFilename(raw: string): string {
     raw
       .replace(/[^A-Za-z0-9._-]/g, "-")
       .slice(0, 100)
-      .replace(/^-+|-+$/g, "") || "scontrino"
+      .replace(/^-+/, "")
+      .replace(/-+$/, "") || "scontrino"
   );
 }
 
