@@ -132,26 +132,29 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
     case "customer.subscription.deleted": {
       const sub = event.data.object as Stripe.Subscription;
 
-      // Find the userId from the subscriptions table
+      // Find the userId from the subscriptions table (read-only, outside tx)
       const [subRow] = await db
         .select({ userId: subscriptions.userId })
         .from(subscriptions)
         .where(eq(subscriptions.stripeSubscriptionId, sub.id))
         .limit(1);
 
-      // Mark subscription as canceled
-      await db
-        .update(subscriptions)
-        .set({ status: "canceled" })
-        .where(eq(subscriptions.stripeSubscriptionId, sub.id));
+      // Wrap both writes in a transaction: subscription + profile must stay
+      // consistent. A partial update (subscription canceled but plan not reset,
+      // or vice versa) would leave feature gates in an inconsistent state.
+      await db.transaction(async (tx) => {
+        await tx
+          .update(subscriptions)
+          .set({ status: "canceled" })
+          .where(eq(subscriptions.stripeSubscriptionId, sub.id));
 
-      // Downgrade profile to trial (read-only)
-      if (subRow) {
-        await db
-          .update(profiles)
-          .set({ plan: "trial" })
-          .where(eq(profiles.authUserId, subRow.userId));
-      }
+        if (subRow) {
+          await tx
+            .update(profiles)
+            .set({ plan: "trial" })
+            .where(eq(profiles.authUserId, subRow.userId));
+        }
+      });
       break;
     }
 
@@ -163,6 +166,9 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
 
 /**
  * Sync subscription data into DB and update the user's plan on profiles.
+ * Both writes are wrapped in a transaction to ensure consistency: if the
+ * profile update fails after the subscription update, the plan would be
+ * out of sync with the billing state.
  */
 async function syncSubscriptionData(
   db: ReturnType<typeof getDb>,
@@ -186,29 +192,30 @@ async function syncSubscriptionData(
     (stripeSub.items.data[0]?.current_period_end ?? 0) * 1000,
   );
 
-  // Update the subscription row
-  await db
-    .update(subscriptions)
-    .set({
-      stripeSubscriptionId: stripeSub.id,
-      stripePriceId: priceId,
-      status,
-      interval,
-      currentPeriodEnd,
-    })
-    .where(eq(subscriptions.stripeCustomerId, stripeCustomerId));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(subscriptions)
+      .set({
+        stripeSubscriptionId: stripeSub.id,
+        stripePriceId: priceId,
+        status,
+        interval,
+        currentPeriodEnd,
+      })
+      .where(eq(subscriptions.stripeCustomerId, stripeCustomerId));
 
-  // Get userId from subscriptions to update profiles
-  const [subRow] = await db
-    .select({ userId: subscriptions.userId })
-    .from(subscriptions)
-    .where(eq(subscriptions.stripeCustomerId, stripeCustomerId))
-    .limit(1);
+    // Get userId from subscriptions to update profiles
+    const [subRow] = await tx
+      .select({ userId: subscriptions.userId })
+      .from(subscriptions)
+      .where(eq(subscriptions.stripeCustomerId, stripeCustomerId))
+      .limit(1);
 
-  if (subRow) {
-    await db
-      .update(profiles)
-      .set({ plan, planExpiresAt: currentPeriodEnd })
-      .where(eq(profiles.authUserId, subRow.userId));
-  }
+    if (subRow) {
+      await tx
+        .update(profiles)
+        .set({ plan, planExpiresAt: currentPeriodEnd })
+        .where(eq(profiles.authUserId, subRow.userId));
+    }
+  });
 }

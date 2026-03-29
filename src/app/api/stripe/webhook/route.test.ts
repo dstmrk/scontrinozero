@@ -10,6 +10,7 @@ const {
   mockSubscriptionsRetrieve,
   mockUpdate,
   mockSelect,
+  mockTransaction,
   mockPlanFromPriceId,
   mockIntervalFromPriceId,
   mockLoggerError,
@@ -19,6 +20,7 @@ const {
   mockSubscriptionsRetrieve: vi.fn(),
   mockUpdate: vi.fn(),
   mockSelect: vi.fn(),
+  mockTransaction: vi.fn(),
   mockPlanFromPriceId: vi.fn(),
   mockIntervalFromPriceId: vi.fn(),
   mockLoggerError: vi.fn(),
@@ -35,7 +37,11 @@ vi.mock("@/lib/stripe", () => ({
 }));
 
 vi.mock("@/db", () => ({
-  getDb: vi.fn().mockReturnValue({ update: mockUpdate, select: mockSelect }),
+  getDb: vi.fn().mockReturnValue({
+    update: mockUpdate,
+    select: mockSelect,
+    transaction: mockTransaction,
+  }),
 }));
 
 vi.mock("@/db/schema", () => ({
@@ -81,6 +87,18 @@ function makeRequest(body = "{}", signature = "sig_test") {
     body,
     headers: { "stripe-signature": signature },
   });
+}
+
+/**
+ * Sets up mockTransaction to run the callback with a tx object that has
+ * the same update/select mocks as the outer db.
+ */
+function setupTransactionPassthrough() {
+  mockTransaction.mockImplementation(
+    async (fn: (tx: unknown) => Promise<void>) => {
+      await fn({ update: mockUpdate, select: mockSelect });
+    },
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -207,10 +225,11 @@ describe("POST /api/stripe/webhook — customer.subscription.deleted", () => {
     process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
   });
 
-  it("imposta status a 'canceled' e declassa il profilo a 'trial'", async () => {
+  it("imposta status a 'canceled' e declassa il profilo a 'trial' in una transazione", async () => {
     const updateBuilder = makeUpdateBuilder();
     mockUpdate.mockReturnValue(updateBuilder);
     mockSelect.mockReturnValue(makeSelectBuilder([{ userId: "user-abc" }]));
+    setupTransactionPassthrough();
 
     mockConstructEvent.mockReturnValue({
       type: "customer.subscription.deleted",
@@ -219,6 +238,7 @@ describe("POST /api/stripe/webhook — customer.subscription.deleted", () => {
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
+    expect(mockTransaction).toHaveBeenCalled();
     // First update: subscription → canceled
     expect(updateBuilder.set).toHaveBeenCalledWith({ status: "canceled" });
     // Second update: profile → trial
@@ -229,6 +249,7 @@ describe("POST /api/stripe/webhook — customer.subscription.deleted", () => {
     const updateBuilder = makeUpdateBuilder();
     mockUpdate.mockReturnValue(updateBuilder);
     mockSelect.mockReturnValue(makeSelectBuilder([]));
+    setupTransactionPassthrough();
 
     mockConstructEvent.mockReturnValue({
       type: "customer.subscription.deleted",
@@ -237,8 +258,24 @@ describe("POST /api/stripe/webhook — customer.subscription.deleted", () => {
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
+    expect(mockTransaction).toHaveBeenCalled();
     expect(updateBuilder.set).toHaveBeenCalledTimes(1);
     expect(updateBuilder.set).toHaveBeenCalledWith({ status: "canceled" });
+  });
+
+  it("restituisce 500 se la transazione fallisce (rollback garantito)", async () => {
+    mockSelect.mockReturnValue(makeSelectBuilder([{ userId: "user-abc" }]));
+    // Transaction itself throws → simulates DB error mid-transaction
+    mockTransaction.mockRejectedValue(new Error("DB error"));
+
+    mockConstructEvent.mockReturnValue({
+      type: "customer.subscription.deleted",
+      data: { object: { id: "sub_err_789", customer: "cus_789" } },
+    });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(500);
+    expect(mockLoggerError).toHaveBeenCalled();
   });
 });
 
@@ -264,7 +301,7 @@ describe("POST /api/stripe/webhook — checkout.session.completed type guard", (
     expect(mockSubscriptionsRetrieve).not.toHaveBeenCalled();
   });
 
-  it("recupera la subscription se subscription è una stringa", async () => {
+  it("recupera la subscription e la sincronizza in una transazione", async () => {
     const fakeSub = {
       id: "sub_123",
       status: "active",
@@ -280,6 +317,7 @@ describe("POST /api/stripe/webhook — checkout.session.completed type guard", (
     const updateBuilder = makeUpdateBuilder();
     mockUpdate.mockReturnValue(updateBuilder);
     mockSelect.mockReturnValue(makeSelectBuilder([]));
+    setupTransactionPassthrough();
 
     mockConstructEvent.mockReturnValue({
       type: "checkout.session.completed",
@@ -294,5 +332,6 @@ describe("POST /api/stripe/webhook — checkout.session.completed type guard", (
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
     expect(mockSubscriptionsRetrieve).toHaveBeenCalledWith("sub_123");
+    expect(mockTransaction).toHaveBeenCalled();
   });
 });

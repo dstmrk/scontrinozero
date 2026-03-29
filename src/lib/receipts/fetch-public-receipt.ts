@@ -1,4 +1,3 @@
-import { cache } from "react";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
@@ -23,15 +22,12 @@ export interface PublicReceiptData {
  * Fetches a public receipt without authentication.
  * The document UUID acts as an unguessable public token (122 bits).
  *
- * Wrapped with React.cache() to deduplicate DB queries within a single
- * React render (e.g., when both the page and PDF route read the same receipt).
- *
  * Returns null when:
  * - documentId is not a valid UUID format (avoids Postgres cast errors)
  * - the document does not exist
  * - the document is not an ACCEPTED SALE
  */
-export const fetchPublicReceipt = cache(async function fetchPublicReceipt(
+export async function fetchPublicReceipt(
   documentId: string,
 ): Promise<PublicReceiptData | null> {
   if (!UUID_REGEX.test(documentId)) return null;
@@ -58,4 +54,4 @@ export const fetchPublicReceipt = cache(async function fetchPublicReceipt(
     .orderBy(commercialDocumentLines.lineIndex);
 
   return { doc, biz, lines };
-});
+}

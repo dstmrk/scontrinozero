@@ -79,8 +79,18 @@ function makeSelectBuilder(result: unknown[]) {
   return builder;
 }
 
-function makeInsertBuilder() {
-  const builder = { values: vi.fn().mockResolvedValue(undefined) };
+/**
+ * Builds an insert mock that supports .values().onConflictDoNothing().returning().
+ * `returningResult` is what `.returning()` resolves with ([] = conflict, [row] = success).
+ */
+function makeInsertBuilder(returningResult: unknown[] = []) {
+  const builder = {
+    values: vi.fn(),
+    onConflictDoNothing: vi.fn(),
+    returning: vi.fn().mockResolvedValue(returningResult),
+  };
+  builder.values.mockReturnValue(builder);
+  builder.onConflictDoNothing.mockReturnValue(builder);
   return builder;
 }
 
@@ -171,13 +181,43 @@ describe("POST /api/stripe/checkout", () => {
     });
     mockSelect.mockReturnValue(makeSelectBuilder([]));
     mockCustomerCreate.mockResolvedValue({ id: "cus_new" });
-    mockInsert.mockReturnValue(makeInsertBuilder());
+    mockInsert.mockReturnValue(
+      makeInsertBuilder([{ stripeCustomerId: "cus_new" }]),
+    );
 
     const res = await POST(makeRequest({ priceId: "price_pro" }));
     expect(res.status).toBe(200);
     expect(mockCustomerCreate).toHaveBeenCalledWith({ email: "a@b.it" });
     expect(mockSessionCreate).toHaveBeenCalledWith(
       expect.objectContaining({ customer: "cus_new" }),
+    );
+  });
+
+  it("non restituisce 500 su conflict INSERT concorrente (race condition)", async () => {
+    // Simulate: initial SELECT finds nothing, INSERT conflicts (another request
+    // won the race), then re-SELECT finds the winner's customerId.
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: "user-1",
+      email: "a@b.it",
+    });
+    mockCustomerCreate.mockResolvedValue({ id: "cus_race_loser" });
+
+    // First SELECT: no existing subscription
+    // Second SELECT (after conflict): returns the winner's row
+    mockSelect
+      .mockReturnValueOnce(makeSelectBuilder([]))
+      .mockReturnValueOnce(
+        makeSelectBuilder([{ stripeCustomerId: "cus_race_winner" }]),
+      );
+
+    // INSERT returns [] → conflict
+    mockInsert.mockReturnValue(makeInsertBuilder([]));
+
+    const res = await POST(makeRequest({ priceId: "price_pro" }));
+    expect(res.status).toBe(200);
+    // Uses the winner's customerId, not the loser's
+    expect(mockSessionCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ customer: "cus_race_winner" }),
     );
   });
 
