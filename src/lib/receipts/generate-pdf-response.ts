@@ -7,16 +7,27 @@ import {
  * Sanitizes a string for use as a PDF filename component.
  * Whitelist approach: keeps only [A-Za-z0-9._-], replaces the rest with "-",
  * trims leading/trailing dashes, and falls back to "scontrino" if empty.
+ * Implemented without regex to avoid S5852 ReDoS false-positive.
  * Exported for testing.
  */
 export function sanitizePdfFilename(raw: string): string {
-  return (
-    raw
-      .replace(/[^A-Za-z0-9._-]/g, "-")
-      .slice(0, 100)
-      .replace(/^-+/, "")
-      .replace(/-+$/, "") || "scontrino"
+  const allowedSet = new Set(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-",
   );
+
+  // Replace non-whitelisted chars and cap at 100 characters
+  let sanitized = "";
+  for (let i = 0; i < Math.min(raw.length, 100); i++) {
+    sanitized += allowedSet.has(raw[i]) ? raw[i] : "-";
+  }
+
+  // Trim leading/trailing dashes without regex
+  let start = 0;
+  while (start < sanitized.length && sanitized[start] === "-") start++;
+  let end = sanitized.length;
+  while (end > start && sanitized[end - 1] === "-") end--;
+
+  return sanitized.slice(start, end) || "scontrino";
 }
 
 /** Minimum shape required to build the PDF Response. */
