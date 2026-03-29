@@ -28,7 +28,11 @@ vi.mock("@/db/schema", () => ({
 }));
 
 vi.mock("drizzle-orm", () => ({
-  eq: vi.fn((_col, val) => `eq(${val})`),
+  eq: vi.fn((_col, val) => `eq(${String(val)})`),
+  and: vi.fn((...args: unknown[]) => `and(${args.join(",")})`),
+  or: vi.fn((...args: unknown[]) => `or(${args.join(",")})`),
+  isNull: vi.fn((col) => `isNull(${String(col)})`),
+  lt: vi.fn((col, val) => `lt(${String(col)},${String(val)})`),
 }));
 
 const mockLoggerWarn = vi.fn();
@@ -256,6 +260,57 @@ describe("authenticateApiKey", () => {
     expect(mockUpdateSet).toHaveBeenCalledWith({
       lastUsedAt: expect.any(Date),
     });
+  });
+
+  it("usa WHERE con soglia temporale per evitare write amplification", async () => {
+    mockLimit.mockResolvedValue([FAKE_ROW]);
+    mockUpdateWhere.mockResolvedValue(undefined);
+
+    const { and, or, isNull, lt } = await import("drizzle-orm");
+    const { authenticateApiKey } = await import("./api-auth");
+    const request = new Request("https://api.scontrinozero.it/v1/receipts", {
+      headers: { authorization: "Bearer szk_live_validkey" },
+    });
+
+    await authenticateApiKey(request);
+
+    // Verifica che WHERE usi and(..., or(isNull, lt)) — non solo eq(id)
+    expect(and).toHaveBeenCalled();
+    expect(or).toHaveBeenCalled();
+    expect(isNull).toHaveBeenCalled();
+    expect(lt).toHaveBeenCalled();
+  });
+
+  it("non aggiorna last_used_at se aggiornato recentemente (< 10 min)", async () => {
+    // lastUsedAt = 5 minuti fa (< soglia di 10 min): il WHERE non match
+    // Il comportamento reale è gestito dal DB; qui verifichiamo che la soglia
+    // venga inclusa nel WHERE come Date nel passato recente.
+    const recentLastUsed = new Date(NOW.getTime() - 5 * 60 * 1000); // -5 min
+    mockLimit.mockResolvedValue([
+      {
+        ...FAKE_ROW,
+        apiKey: { ...FAKE_API_KEY, lastUsedAt: recentLastUsed },
+      },
+    ]);
+    mockUpdateWhere.mockResolvedValue(undefined);
+
+    const { lt } = await import("drizzle-orm");
+    const { authenticateApiKey } = await import("./api-auth");
+    const request = new Request("https://api.scontrinozero.it/v1/receipts", {
+      headers: { authorization: "Bearer szk_live_recentkey" },
+    });
+
+    await authenticateApiKey(request);
+
+    // Verifica che lt() venga chiamato con una soglia ~10 min prima di NOW
+    expect(lt).toHaveBeenCalled();
+    const ltCall = vi.mocked(lt).mock.calls[0];
+    const threshold = ltCall[1] as Date;
+    const expectedThreshold = new Date(NOW.getTime() - 10 * 60 * 1000);
+    expect(threshold).toBeInstanceOf(Date);
+    expect(
+      Math.abs(threshold.getTime() - expectedThreshold.getTime()),
+    ).toBeLessThan(1000);
   });
 });
 

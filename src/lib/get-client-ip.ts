@@ -1,3 +1,5 @@
+import { logger } from "@/lib/logger";
+
 /**
  * Estrae l'IP del client dai request headers con modello di trust esplicito.
  *
@@ -13,6 +15,8 @@
  * In produzione, se CF-Connecting-IP è assente (misconfiguration), si
  * restituisce "unknown" anziché cadere sul fallback falsificabile — il
  * rate limiting costruito su un IP spoofable sarebbe inefficace.
+ * In questo caso viene emesso un log di warning per rilevare rapidamente
+ * la misconfiguration Cloudflare.
  */
 export function getClientIp(headers: Headers): string {
   const cfIp = headers.get("cf-connecting-ip");
@@ -21,8 +25,15 @@ export function getClientIp(headers: Headers): string {
 
   // In production: trust only CF-Connecting-IP. If it's absent (Cloudflare
   // misconfiguration), return "unknown" rather than fall back to the
-  // spoofable X-Forwarded-For header.
-  if (process.env.NODE_ENV === "production") return "unknown";
+  // spoofable X-Forwarded-For header. Log a warning so ops can detect the
+  // misconfiguration quickly (all rate-limit buckets would otherwise share
+  // the same "unknown" key, making per-IP limiting ineffective).
+  if (process.env.NODE_ENV === "production") {
+    logger.warn(
+      "CF-Connecting-IP header missing in production — Cloudflare misconfiguration? Rate-limit buckets will be shared under 'unknown'",
+    );
+    return "unknown";
+  }
 
   // Dev / test fallback: X-Forwarded-For is acceptable when Cloudflare is not present.
   return headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
