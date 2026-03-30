@@ -61,7 +61,6 @@ const FAKE_PROFILE = {
   plan: "trial",
   trialStartedAt: new Date("2026-03-01T00:00:00Z"),
   planExpiresAt: null,
-  partitaIva: null,
   termsAcceptedAt: null,
   termsVersion: null,
   createdAt: new Date("2026-03-01T00:00:00Z"),
@@ -93,7 +92,6 @@ const FAKE_DOC = {
   adeTransactionId: "trx-001",
   idempotencyKey: "idem-001",
   publicRequest: null,
-  adeRequest: null,
   adeResponse: null,
   createdAt: new Date("2026-03-05T10:00:00Z"),
   updatedAt: new Date("2026-03-05T10:00:00Z"),
@@ -107,7 +105,6 @@ const FAKE_LINE = {
   quantity: "2.000",
   grossUnitPrice: "8.50",
   vatCode: "22",
-  adeLineId: null,
 };
 
 const FAKE_CATALOG_ITEM = {

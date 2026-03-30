@@ -20,6 +20,15 @@ import {
   checkBusinessOwnership,
 } from "@/lib/server-auth";
 
+function isUniqueConstraintViolation(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code: unknown }).code === "23505"
+  );
+}
+
 export type OnboardingActionResult = {
   error?: string;
   businessId?: string;
@@ -249,9 +258,20 @@ export async function verifyAdeCredentials(
         .update(businesses)
         .set({ vatNumber, fiscalCode })
         .where(eq(businesses.id, businessId));
+
+      // Anti-abuso trial: la P.IVA è UNIQUE su profiles per impedire trial multipli
+      // con email diverse ma stessa P.IVA. Vincolo DB garantisce atomicità.
+      await db
+        .update(profiles)
+        .set({ partitaIva: vatNumber })
+        .where(eq(profiles.authUserId, user.id));
     } catch (err) {
+      if (isUniqueConstraintViolation(err)) {
+        logger.warn({ businessId }, "P.IVA già in uso — possibile abuso trial");
+        return { error: "Questa P.IVA è già associata a un altro account." };
+      }
       logger.error({ err, businessId }, "Failed to fetch fiscal data from AdE");
-      // Non-blocking: verifica comunque riuscita, P.IVA/CF aggiunti in seguito
+      // Non-blocking per altri errori: verifica comunque riuscita, P.IVA/CF aggiunti in seguito
     }
   } finally {
     await adeClient

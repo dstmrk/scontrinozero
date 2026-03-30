@@ -19,6 +19,5 @@ describe("commercial_document_lines schema", () => {
     expect(cols).toContain("quantity");
     expect(cols).toContain("grossUnitPrice");
     expect(cols).toContain("vatCode");
-    expect(cols).toContain("adeLineId");
   });
 });

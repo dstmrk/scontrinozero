@@ -27,7 +27,7 @@ export const documentStatusEnum = pgEnum("document_status", [
 /**
  * Scontrini elettronici emessi tramite Documento Commerciale Online (AdE).
  * Ogni record corrisponde a una vendita (SALE) o un annullo (VOID).
- * I payload AdE (request + response) sono archiviati as-is per audit e replay.
+ * Il payload AdE response è archiviato as-is per audit.
  */
 export const commercialDocuments = pgTable(
   "commercial_documents",
@@ -43,8 +43,6 @@ export const commercialDocuments = pgTable(
     idempotencyKey: uuid("idempotency_key").notNull(),
     /** SaleRequest | VoidRequest — payload API pubblica ScontrinoZero */
     publicRequest: jsonb("public_request"),
-    /** Payload JSON inviato all'AdE */
-    adeRequest: jsonb("ade_request"),
     /** Risposta raw dell'AdE */
     adeResponse: jsonb("ade_response"),
     /** idtrx AdE — identificativo transazione */
