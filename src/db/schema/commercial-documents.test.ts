@@ -19,7 +19,6 @@ describe("commercial_documents schema", () => {
     expect(cols).toContain("kind");
     expect(cols).toContain("idempotencyKey");
     expect(cols).toContain("publicRequest");
-    expect(cols).toContain("adeRequest");
     expect(cols).toContain("adeResponse");
     expect(cols).toContain("adeTransactionId");
     expect(cols).toContain("adeProgressive");

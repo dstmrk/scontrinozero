@@ -141,7 +141,6 @@ export async function exportUserData(): Promise<ExportUserDataResult> {
     quantity: string;
     grossUnitPrice: string;
     vatCode: string;
-    adeLineId: string | null;
   }[] = [];
 
   if (docs.length > 0) {

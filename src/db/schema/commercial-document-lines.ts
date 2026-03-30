@@ -14,7 +14,6 @@ import { commercialDocuments } from "./commercial-documents";
 /**
  * Righe contabili degli scontrini elettronici.
  * Ogni riga corrisponde a un articolo/servizio nel documento commerciale.
- * adeLineId è il idElementoContabile AdE, necessario per i successivi annulli.
  */
 export const commercialDocumentLines = pgTable(
   "commercial_document_lines",
@@ -31,8 +30,6 @@ export const commercialDocumentLines = pgTable(
       scale: 2,
     }).notNull(),
     vatCode: text("vat_code").notNull(),
-    /** idElementoContabile AdE — richiesto per gli annulli parziali */
-    adeLineId: text("ade_line_id"),
   },
   (table) => [
     foreignKey({

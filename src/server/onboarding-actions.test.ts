@@ -388,7 +388,7 @@ describe("onboarding-actions", () => {
       expect(mockLogin).toHaveBeenCalled();
       expect(mockLogout).toHaveBeenCalled();
       expect(mockGetFiscalData).toHaveBeenCalled();
-      expect(mockUpdate).toHaveBeenCalledTimes(2); // businesses vatNumber/fiscalCode + adeCredentials verifiedAt
+      expect(mockUpdate).toHaveBeenCalledTimes(3); // businesses vatNumber/fiscalCode + profiles partitaIva + adeCredentials verifiedAt
       expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard", "layout");
     });
 
@@ -528,6 +528,52 @@ describe("onboarding-actions", () => {
       await verifyAdeCredentials("biz-789");
 
       await Promise.resolve();
+      expect(mockSendEmail).not.toHaveBeenCalled();
+    });
+
+    it("blocca la verifica se la P.IVA è già in uso su un altro account (anti-abuso trial)", async () => {
+      // Ownership check
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      // Credentials found — first verification
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          verifiedAt: null,
+        },
+      ]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "12345678901",
+          codiceFiscale: "RSSMRA80A01H501U",
+        },
+      });
+
+      // businesses update OK, profiles update → unique constraint violation
+      const pgConflictError = Object.assign(new Error("unique constraint"), {
+        code: "23505",
+      });
+      mockUpdateSet
+        .mockReturnValueOnce({ where: vi.fn().mockResolvedValue(undefined) }) // businesses
+        .mockReturnValueOnce({
+          where: vi.fn().mockRejectedValue(pgConflictError),
+        }); // profiles
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials("biz-789");
+
+      expect(result.error).toContain("P.IVA");
+      expect(result.businessId).toBeUndefined();
+      // Logout must still be called (finally block)
+      expect(mockLogout).toHaveBeenCalled();
+      // adeCredentials.verifiedAt must NOT be updated (returned early)
+      expect(mockUpdate).toHaveBeenCalledTimes(2); // businesses + profiles only
       expect(mockSendEmail).not.toHaveBeenCalled();
     });
 
