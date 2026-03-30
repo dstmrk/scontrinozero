@@ -286,6 +286,11 @@ describe("runMigrations()", () => {
     mockReaddir.mockResolvedValue([
       { name: "0001_init.sql", isFile: () => true },
     ]);
+    mockSqlTag
+      .mockResolvedValueOnce(undefined) // CREATE TABLE
+      .mockResolvedValueOnce(undefined) // ALTER TABLE ADD COLUMN
+      .mockResolvedValueOnce([]) // SELECT: vuota
+      .mockResolvedValueOnce([{ exists: false }]); // pg_type: fresh install
     mockSqlBegin.mockRejectedValueOnce(new Error("TX failed"));
 
     await expect(runMigrations()).rejects.toThrow("TX failed");
@@ -310,6 +315,47 @@ describe("runMigrations()", () => {
     await expect(runMigrations()).rejects.toThrow("0001_init.sql");
   });
 
+  it("bootstrap: segna tutte le migrazioni come applicate senza eseguirle quando la tabella è vuota ma lo schema esiste già", async () => {
+    process.env.DATABASE_URL =
+      "postgresql://user:pass@host.example.com:5432/db";
+    mockReaddir.mockResolvedValue([
+      { name: "0000_initial.sql", isFile: () => true },
+      { name: "0001_rls.sql", isFile: () => true },
+    ]);
+    mockSqlTag
+      .mockResolvedValueOnce(undefined) // CREATE TABLE
+      .mockResolvedValueOnce(undefined) // ALTER TABLE ADD COLUMN
+      .mockResolvedValueOnce([]) // SELECT: vuota → candidato bootstrap
+      .mockResolvedValueOnce([{ exists: true }]) // pg_type: schema esiste
+      .mockResolvedValueOnce(undefined) // INSERT 0000_initial.sql
+      .mockResolvedValueOnce(undefined); // INSERT 0001_rls.sql
+
+    await runMigrations();
+
+    // Nessuna transazione — il bootstrap non esegue SQL delle migrazioni
+    expect(mockSqlBegin).not.toHaveBeenCalled();
+    // Legge entrambi i file per calcolare i checksum
+    expect(mockReadFile).toHaveBeenCalledTimes(2);
+  });
+
+  it("non attiva il bootstrap quando la tabella è vuota e lo schema non esiste ancora (fresh install)", async () => {
+    process.env.DATABASE_URL =
+      "postgresql://user:pass@host.example.com:5432/db";
+    mockReaddir.mockResolvedValue([
+      { name: "0000_initial.sql", isFile: () => true },
+    ]);
+    mockSqlTag
+      .mockResolvedValueOnce(undefined) // CREATE TABLE
+      .mockResolvedValueOnce(undefined) // ALTER TABLE ADD COLUMN
+      .mockResolvedValueOnce([]) // SELECT: vuota
+      .mockResolvedValueOnce([{ exists: false }]); // pg_type: schema non esiste
+
+    await runMigrations();
+
+    // Fresh install → esegue normalmente la migrazione via transaction
+    expect(mockSqlBegin).toHaveBeenCalledTimes(1);
+  });
+
   it("include il checksum SHA-256 nel record quando applica una nuova migrazione", async () => {
     process.env.DATABASE_URL =
       "postgresql://user:pass@host.example.com:5432/db";
@@ -320,7 +366,8 @@ describe("runMigrations()", () => {
     mockSqlTag
       .mockResolvedValueOnce(undefined) // CREATE TABLE
       .mockResolvedValueOnce(undefined) // ALTER TABLE ADD COLUMN
-      .mockResolvedValueOnce([]); // SELECT
+      .mockResolvedValueOnce([]) // SELECT: vuota
+      .mockResolvedValueOnce([{ exists: false }]); // pg_type: fresh install
 
     await runMigrations();
 
