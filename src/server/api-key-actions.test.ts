@@ -8,12 +8,14 @@ const {
   mockCheckBusinessOwnership,
   mockGetEffectivePlan,
   mockCanUseApi,
+  mockGetApiKeyLimit,
   mockGenerateApiKey,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
   mockCheckBusinessOwnership: vi.fn(),
   mockGetEffectivePlan: vi.fn(),
   mockCanUseApi: vi.fn(),
+  mockGetApiKeyLimit: vi.fn(),
   mockGenerateApiKey: vi.fn(),
 }));
 
@@ -24,6 +26,7 @@ vi.mock("@/lib/server-auth", () => ({
 
 vi.mock("@/lib/plans", () => ({
   canUseApi: mockCanUseApi,
+  getApiKeyLimit: mockGetApiKeyLimit,
 }));
 
 vi.mock("@/server/billing-actions", () => ({
@@ -55,6 +58,7 @@ vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
   and: vi.fn(),
   isNull: vi.fn(),
+  count: vi.fn().mockReturnValue("count()"),
 }));
 
 // --- Helpers ---
@@ -156,6 +160,7 @@ describe("createApiKey", () => {
     mockCheckBusinessOwnership.mockResolvedValue(null);
     mockGetEffectivePlan.mockResolvedValue("pro");
     mockCanUseApi.mockReturnValue(true);
+    mockGetApiKeyLimit.mockReturnValue(null); // no limit by default
     mockGenerateApiKey.mockReturnValue({
       raw: "szk_live_TESTKEY48CHARSLONGBODYXXXXXXXXXXXXXXXXXXXXXXXX",
       hash: "abc123hash",
@@ -220,6 +225,67 @@ describe("createApiKey", () => {
 
     expect(result.error).toMatch(/Profilo/i);
     expect(mockInsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("createApiKey — limite per piano", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
+    mockCheckBusinessOwnership.mockResolvedValue(null);
+    mockGetEffectivePlan.mockResolvedValue("pro");
+    mockCanUseApi.mockReturnValue(true);
+    mockGenerateApiKey.mockReturnValue({
+      raw: "szk_live_TESTKEY48CHARSLONGBODYXXXXXXXXXXXXXXXXXXXXXXXX",
+      hash: "abc123hash",
+      prefix: "szk_live_XXX",
+    });
+
+    const mockReturning = vi.fn().mockResolvedValue([{ id: "new-key-uuid" }]);
+    const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+    mockInsert.mockReturnValue({ values: mockValues });
+  });
+
+  it("blocca la creazione quando il piano Pro ha raggiunto il limite di 3 key", async () => {
+    mockGetApiKeyLimit.mockReturnValue(3);
+    // count query returns 3 (at limit)
+    mockSelect.mockReturnValueOnce(makeSelectBuilderNoLimit([{ count: "3" }]));
+
+    const { createApiKey } = await import("./api-key-actions");
+    const result = await createApiKey("biz-uuid", "Fourth Key");
+
+    expect(result.error).toMatch(/limite/i);
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it("consente la creazione quando ci sono 2 key attive su 3 permesse (slot libero)", async () => {
+    mockGetApiKeyLimit.mockReturnValue(3);
+    // count query returns 2 (below limit)
+    mockSelect
+      .mockReturnValueOnce(makeSelectBuilderNoLimit([{ count: "2" }]))
+      .mockReturnValue(makeSelectBuilder([FAKE_PROFILE]));
+
+    const { createApiKey } = await import("./api-key-actions");
+    const result = await createApiKey("biz-uuid", "Third Key");
+
+    expect(result.error).toBeUndefined();
+    expect(result.apiKeyRaw).toBeDefined();
+    expect(mockInsert).toHaveBeenCalled();
+  });
+
+  it("nessun limite applicato per piano Unlimited (getApiKeyLimit ritorna null)", async () => {
+    mockGetEffectivePlan.mockResolvedValue("unlimited");
+    mockGetApiKeyLimit.mockReturnValue(null); // no limit
+    // Only profile select — count query is NOT executed
+    mockSelect.mockReturnValue(makeSelectBuilder([FAKE_PROFILE]));
+
+    const { createApiKey } = await import("./api-key-actions");
+    const result = await createApiKey("biz-uuid", "Unlimited Key");
+
+    expect(result.error).toBeUndefined();
+    expect(result.apiKeyRaw).toBeDefined();
+    // count query must NOT be called (no mockSelectBuilderNoLimit setup)
+    expect(mockInsert).toHaveBeenCalled();
   });
 });
 

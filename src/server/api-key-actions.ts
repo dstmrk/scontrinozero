@@ -1,10 +1,10 @@
 "use server";
 
-import { and, eq, isNull } from "drizzle-orm";
+import { and, count, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import { apiKeys, profiles } from "@/db/schema";
 import { generateApiKey } from "@/lib/api-keys";
-import { canUseApi } from "@/lib/plans";
+import { canUseApi, getApiKeyLimit } from "@/lib/plans";
 import { getEffectivePlan } from "@/server/billing-actions";
 import {
   checkBusinessOwnership,
@@ -73,6 +73,21 @@ export async function createApiKey(
   }
 
   const db = getDb();
+
+  const keyLimit = getApiKeyLimit(effectivePlan);
+  if (keyLimit !== null) {
+    const [{ count: activeKeyCount }] = await db
+      .select({ count: count() })
+      .from(apiKeys)
+      .where(
+        and(eq(apiKeys.businessId, businessId), isNull(apiKeys.revokedAt)),
+      );
+    if (Number(activeKeyCount) >= keyLimit) {
+      return {
+        error: `Hai raggiunto il limite di ${keyLimit} API key per il piano corrente. Revoca una chiave esistente per crearne una nuova.`,
+      };
+    }
+  }
 
   const [profile] = await db
     .select({ id: profiles.id })

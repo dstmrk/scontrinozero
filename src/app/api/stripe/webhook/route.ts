@@ -211,11 +211,17 @@ async function syncSubscriptionData(
       .where(eq(subscriptions.stripeCustomerId, stripeCustomerId))
       .limit(1);
 
-    if (subRow) {
-      await tx
-        .update(profiles)
-        .set({ plan, planExpiresAt: currentPeriodEnd })
-        .where(eq(profiles.authUserId, subRow.userId));
+    if (!subRow) {
+      logger.error(
+        { stripeCustomerId, stripeSubscriptionId: stripeSub.id },
+        "syncSubscriptionData: no subscription row found for stripeCustomerId — webhook processed without DB update",
+      );
+      return;
     }
+
+    await tx
+      .update(profiles)
+      .set({ plan, planExpiresAt: currentPeriodEnd })
+      .where(eq(profiles.authUserId, subRow.userId));
   });
 }

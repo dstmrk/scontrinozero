@@ -126,10 +126,16 @@ describe("resetPassword — hostname validation", () => {
     expect(mockSendEmail).not.toHaveBeenCalled();
     expect(mockLoggerError).toHaveBeenCalledWith(
       expect.objectContaining({
-        actionLink: expect.any(String),
+        hostname: `${EXPECTED_HOSTNAME}.evil.tld`,
         expectedHostname: EXPECTED_HOSTNAME,
+        hasToken: true,
       }),
       expect.stringContaining("hostname mismatch"),
+    );
+    // actionLink (with token) must never appear in log context
+    expect(mockLoggerError).not.toHaveBeenCalledWith(
+      expect.objectContaining({ actionLink: expect.any(String) }),
+      expect.any(String),
     );
   });
 

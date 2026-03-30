@@ -71,9 +71,10 @@ export async function voidReceiptForBusiness(
   // 3. Insert VOID document.
   //    Two uniqueness constraints provide layered protection:
   //    - idempotencyKey (unique): same-request idempotency (retry-safe)
-  //    - voidedDocumentId (unique partial index, WHERE NOT NULL): race-condition guard —
-  //      if two concurrent requests try to void the same SALE with different keys,
-  //      only one INSERT succeeds; the second is silently dropped by onConflictDoNothing.
+  //    - voidedDocumentId (unique partial index, WHERE NOT NULL AND status IN
+  //      ('PENDING','VOID_ACCEPTED')): race-condition guard for active voids.
+  //      REJECTED/ERROR records are intentionally excluded from the index so that
+  //      a failed attempt can be retried with a new idempotencyKey.
   const [voidDoc] = await db
     .insert(commercialDocuments)
     .values({

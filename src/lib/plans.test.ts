@@ -23,6 +23,7 @@ vi.mock("@/db/schema", () => ({
 }));
 
 import {
+  API_KEY_LIMITS,
   DEVELOPER_MONTHLY_LIMITS,
   STARTER_CATALOG_LIMIT,
   TRIAL_DAYS,
@@ -30,6 +31,7 @@ import {
   canEmit,
   canUseApi,
   canUsePro,
+  getApiKeyLimit,
   getPlan,
   isDeveloperPlan,
   isTrialExpired,
@@ -163,6 +165,29 @@ describe("canUseApi", () => {
 
   it("returns false for starter", () => {
     expect(canUseApi("starter")).toBe(false);
+  });
+});
+
+describe("API_KEY_LIMITS / getApiKeyLimit", () => {
+  it("Pro plan has a limit of 3 API keys", () => {
+    expect(API_KEY_LIMITS.pro).toBe(3);
+    expect(getApiKeyLimit("pro")).toBe(3);
+  });
+
+  it("Unlimited plan has no limit (null)", () => {
+    expect(API_KEY_LIMITS.unlimited).toBeUndefined();
+    expect(getApiKeyLimit("unlimited")).toBeNull();
+  });
+
+  it("Developer plans have no limit defined here (null) — enforced in Fase B", () => {
+    expect(getApiKeyLimit("developer_indie")).toBeNull();
+    expect(getApiKeyLimit("developer_business")).toBeNull();
+    expect(getApiKeyLimit("developer_scale")).toBeNull();
+  });
+
+  it("Starter/trial cannot use API at all — no limit constant needed", () => {
+    expect(API_KEY_LIMITS.starter).toBeUndefined();
+    expect(API_KEY_LIMITS.trial).toBeUndefined();
   });
 });
 

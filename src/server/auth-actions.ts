@@ -309,7 +309,11 @@ export async function resetPassword(
     parsedActionLink?.hostname !== expectedHostname
   ) {
     logger.error(
-      { actionLink, expectedHostname },
+      {
+        hostname: parsedActionLink?.hostname ?? null,
+        expectedHostname,
+        hasToken: true,
+      },
       "Reset password: action_link hostname mismatch or invalid URL — email not sent",
     );
     redirect("/verify-email");
