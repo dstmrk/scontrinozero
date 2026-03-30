@@ -88,6 +88,42 @@ export async function runMigrations() {
       .map((e) => e.name)
       .sort();
 
+    // Bootstrap: se __applied_migrations è vuota ma lo schema esiste già
+    // (DB inizializzato prima dell'introduzione del migration runner, es. via
+    // drizzle-kit o Supabase dashboard), segna tutte le migrazioni come
+    // applicate senza rieseguirle. Evita il crash loop "type already exists".
+    if (applied.size === 0 && sqlFiles.length > 0) {
+      const [{ exists }] = await sql<[{ exists: boolean }]>`
+        SELECT EXISTS(
+          SELECT 1 FROM pg_type
+          WHERE typname = 'document_kind'
+            AND typnamespace = 'public'::regnamespace
+        ) AS exists
+      `;
+      if (exists) {
+        console.log(
+          "Bootstrap: schema already exists but no migrations are tracked. " +
+            "Marking all migrations as applied without re-running them.",
+        );
+        for (const filename of sqlFiles) {
+          const content = await readFile(
+            path.join(migrationsFolder, filename),
+            "utf-8",
+          );
+          const checksum = computeChecksum(content);
+          await sql`
+            INSERT INTO __applied_migrations (filename, checksum)
+            VALUES (${filename}, ${checksum})
+            ON CONFLICT (filename) DO NOTHING
+          `;
+        }
+        console.log(
+          `Bootstrap complete: ${sqlFiles.length} migrations marked as applied.`,
+        );
+        return;
+      }
+    }
+
     let count = 0;
     for (const filename of sqlFiles) {
       if (applied.has(filename)) {

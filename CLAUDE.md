@@ -68,6 +68,23 @@
     - File naming: `NNNN_description.sql` (es. `0007_add_new_table.sql`)
     - Il `check-migrations.mjs` CI script valida i file SQL contro il journal per
       compatibilità drizzle-kit — è separato dal runtime runner.
+    - **Bootstrap su DB pre-esistente**: se il DB è stato inizializzato senza il
+      migration runner (via drizzle-kit, Supabase dashboard, restore), la tabella
+      `__applied_migrations` è vuota e il runner crasherà con "type already exists".
+      Il runner ha rilevamento automatico: se `__applied_migrations` è vuota ma il
+      tipo `document_kind` esiste già in `pg_type`, segna tutte le migrazioni come
+      applicate senza rieseguirle. Fix manuale di emergenza (se il runner non parte):
+      ```sql
+      INSERT INTO __applied_migrations (filename, checksum)
+      SELECT unnest(ARRAY[
+        '0000_initial.sql','0001_rls_policies.sql','0002_add_lottery_code.sql',
+        '0003_remove_unused_columns.sql','0004_add_api_keys.sql',
+        '0005_api_keys_rls.sql','0006_add_api_key_id_to_documents.sql',
+        '0007_add_voided_document_id.sql','0008_unique_email_profiles.sql',
+        '0009_idempotency_per_business.sql','0010_api_keys_constraints.sql'
+      ]), '' ON CONFLICT (filename) DO NOTHING;
+      ```
+      (aggiornare la lista se ci sono migrazioni più recenti)
 
 14. **Client IP trust model: CF-Connecting-IP is the ONLY trusted source.**
     When the app is behind Cloudflare Tunnel, `CF-Connecting-IP` is the only header
