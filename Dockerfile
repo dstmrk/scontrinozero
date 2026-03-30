@@ -5,7 +5,7 @@ FROM node:22-alpine AS deps
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm install -g npm@11.12.0 && npm ci --ignore-scripts
+RUN npm install -g npm@11.12.1 && npm ci --ignore-scripts
 
 # =============================================================================
 # Stage 2: Build
