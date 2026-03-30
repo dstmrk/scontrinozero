@@ -68,11 +68,24 @@ export function useCassa(): UseCassaReturn {
   }, [lines, paymentMethod, isHydrated]);
 
   const addLine = useCallback((input: AddLineInput) => {
-    const newLine: CartLine = {
-      id: crypto.randomUUID(),
-      ...input,
-    };
-    setCartState((prev) => ({ ...prev, lines: [...prev.lines, newLine] }));
+    setCartState((prev) => {
+      const existingIndex = prev.lines.findIndex(
+        (l) =>
+          l.description === input.description &&
+          l.grossUnitPrice === input.grossUnitPrice &&
+          l.vatCode === input.vatCode,
+      );
+      if (existingIndex !== -1) {
+        const updatedLines = prev.lines.map((l, i) =>
+          i === existingIndex
+            ? { ...l, quantity: l.quantity + input.quantity }
+            : l,
+        );
+        return { ...prev, lines: updatedLines };
+      }
+      const newLine: CartLine = { id: crypto.randomUUID(), ...input };
+      return { ...prev, lines: [...prev.lines, newLine] };
+    });
   }, []);
 
   const updateLine = useCallback((id: string, input: AddLineInput) => {
