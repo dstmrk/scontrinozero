@@ -5,25 +5,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const { mockSelect, mockReactCache, getReactCacheCallCount } = vi.hoisted(
-  () => {
-    let callCount = 0;
-    const cache = <T extends (...args: unknown[]) => unknown>(fn: T): T => {
-      callCount++;
-      return fn;
-    };
-    return {
-      mockSelect: vi.fn(),
-      mockReactCache: cache,
-      getReactCacheCallCount: () => callCount,
-    };
-  },
-);
-
-vi.mock("react", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("react")>();
-  return { ...actual, cache: mockReactCache };
-});
+const { mockSelect } = vi.hoisted(() => ({
+  mockSelect: vi.fn(),
+}));
 
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({ select: mockSelect }),
@@ -183,7 +167,26 @@ describe("fetchPublicReceipt", () => {
     expect(result).not.toBeNull();
   });
 
-  it("è creata con React.cache() per deduplicare le query nel render", () => {
-    expect(getReactCacheCallCount()).toBeGreaterThan(0);
+  it("effettua una nuova query DB ad ogni chiamata (nessuna cache tra request)", async () => {
+    // Reset e prepara due set di risultati distinti
+    mockSelect.mockReset();
+    mockSelect
+      .mockReturnValueOnce(
+        makeSelectBuilder([{ doc: MOCK_DOC, biz: MOCK_BIZ }]),
+      )
+      .mockReturnValueOnce(makeSelectBuilder(MOCK_LINES))
+      .mockReturnValueOnce(
+        makeSelectBuilder([
+          { doc: { ...MOCK_DOC, status: "REJECTED" }, biz: MOCK_BIZ },
+        ]),
+      );
+
+    const first = await fetchPublicReceipt(VALID_UUID);
+    const second = await fetchPublicReceipt(VALID_UUID);
+
+    // Prima chiamata: documento ACCEPTED → ritorna dati
+    expect(first).not.toBeNull();
+    // Seconda chiamata: documento REJECTED → ritorna null (fresh read)
+    expect(second).toBeNull();
   });
 });

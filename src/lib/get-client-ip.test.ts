@@ -1,5 +1,22 @@
 // @vitest-environment node
 import { afterEach, describe, it, expect, vi } from "vitest";
+
+// ---------------------------------------------------------------------------
+// Mocks
+// ---------------------------------------------------------------------------
+
+const { mockLoggerWarn } = vi.hoisted(() => ({
+  mockLoggerWarn: vi.fn(),
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logger: { warn: mockLoggerWarn },
+}));
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
 import { getClientIp } from "./get-client-ip";
 
 function makeHeaders(entries: Record<string, string>): Headers {
@@ -7,6 +24,11 @@ function makeHeaders(entries: Record<string, string>): Headers {
 }
 
 describe("getClientIp", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.clearAllMocks();
+  });
+
   describe("CF-Connecting-IP (trusted, produzione Cloudflare)", () => {
     it("ritorna CF-Connecting-IP con priorità massima quando presente", () => {
       const headers = makeHeaders({
@@ -62,10 +84,6 @@ describe("getClientIp", () => {
   });
 
   describe("produzione: XFF ignorato se CF-Connecting-IP assente (anti-spoof)", () => {
-    afterEach(() => {
-      vi.unstubAllEnvs();
-    });
-
     it("ritorna 'unknown' in produzione se CF-Connecting-IP è assente (non cade su XFF)", () => {
       vi.stubEnv("NODE_ENV", "production");
       const headers = makeHeaders({ "x-forwarded-for": "attacker-ip" });
@@ -79,6 +97,24 @@ describe("getClientIp", () => {
         "x-forwarded-for": "attacker-ip",
       });
       expect(getClientIp(headers)).toBe("1.2.3.4");
+    });
+
+    it("logga un warning in produzione quando CF-Connecting-IP è assente", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      const headers = makeHeaders({ "x-forwarded-for": "attacker-ip" });
+      getClientIp(headers);
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "CF-Connecting-IP header missing in production",
+        ),
+      );
+    });
+
+    it("non logga warning in produzione quando CF-Connecting-IP è presente", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      const headers = makeHeaders({ "cf-connecting-ip": "1.2.3.4" });
+      getClientIp(headers);
+      expect(mockLoggerWarn).not.toHaveBeenCalled();
     });
   });
 });

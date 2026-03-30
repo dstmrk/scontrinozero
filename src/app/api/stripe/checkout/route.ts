@@ -59,23 +59,45 @@ export async function POST(req: Request): Promise<Response> {
     const customer = await stripe.customers.create({
       email: user.email ?? undefined,
     });
-    stripeCustomerId = customer.id;
 
     const interval = intervalFromPriceId(priceId) ?? "month";
-    await db.insert(subscriptions).values({
-      userId: user.id,
-      stripeCustomerId,
-      stripePriceId: priceId,
-      interval,
-      status: "pending",
-    });
+
+    // Use ON CONFLICT DO NOTHING to handle concurrent requests from the same
+    // user (e.g. double-click). If another request already inserted the row,
+    // the insert is silently skipped and we fall back to a SELECT to retrieve
+    // the existing stripeCustomerId. The extra Stripe customer created here in
+    // the race case is acceptable (orphan, never used).
+    const [inserted] = await db
+      .insert(subscriptions)
+      .values({
+        userId: user.id,
+        stripeCustomerId: customer.id,
+        stripePriceId: priceId,
+        interval,
+        status: "pending",
+      })
+      .onConflictDoNothing()
+      .returning({ stripeCustomerId: subscriptions.stripeCustomerId });
+
+    if (inserted) {
+      stripeCustomerId = inserted.stripeCustomerId;
+    } else {
+      // Conflict: another concurrent request inserted first. Re-read the
+      // winner's stripeCustomerId to create the checkout session with it.
+      const [winner] = await db
+        .select({ stripeCustomerId: subscriptions.stripeCustomerId })
+        .from(subscriptions)
+        .where(eq(subscriptions.userId, user.id))
+        .limit(1);
+      stripeCustomerId = winner?.stripeCustomerId ?? customer.id;
+    }
   }
 
   // ── Create Stripe Checkout Session ────────────────────────────────────────
   // No Stripe trial: il trial è gestito internamente da ScontrinoZero.
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const session = await stripe.checkout.sessions.create({
-    customer: stripeCustomerId,
+    customer: stripeCustomerId ?? undefined,
     line_items: [{ price: priceId, quantity: 1 }],
     mode: "subscription",
     subscription_data: {

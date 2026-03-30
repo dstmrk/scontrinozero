@@ -28,12 +28,14 @@ const mockInsertValues = vi.fn().mockReturnValue({ returning: mockReturning });
 const mockInsert = vi.fn().mockReturnValue({ values: mockInsertValues });
 const mockUpdateSet = vi.fn().mockReturnValue({ where: vi.fn() });
 const mockUpdate = vi.fn().mockReturnValue({ set: mockUpdateSet });
+const mockTransaction = vi.fn();
 
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({
     select: mockSelect,
     insert: mockInsert,
     update: mockUpdate,
+    transaction: mockTransaction,
   }),
 }));
 
@@ -100,6 +102,11 @@ describe("onboarding-actions", () => {
     process.env.ENCRYPTION_KEY = "a".repeat(64);
     process.env.ENCRYPTION_KEY_VERSION = "1";
     process.env.ADE_MODE = "mock";
+    // Default: transaction is a passthrough that calls the callback with same mock db
+    mockTransaction.mockImplementation(
+      async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({ select: mockSelect, insert: mockInsert, update: mockUpdate }),
+    );
   });
 
   describe("saveBusiness", () => {
@@ -202,6 +209,30 @@ describe("onboarding-actions", () => {
       const result = await saveBusiness(formData(VALID_DATA));
 
       expect(result.error).toContain("Profilo non trovato");
+    });
+
+    it("esegue aggiornamento profilo e business in una transazione", async () => {
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      mockLimit.mockResolvedValueOnce([]);
+      mockReturning.mockResolvedValueOnce([{ id: "new-biz-id" }]);
+
+      const { saveBusiness } = await import("./onboarding-actions");
+      const result = await saveBusiness(formData(VALID_DATA));
+
+      expect(mockTransaction).toHaveBeenCalled();
+      expect(result.businessId).toBe("new-biz-id");
+    });
+
+    it("propaga errore se la transazione fallisce (rollback garantito)", async () => {
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      mockTransaction.mockRejectedValue(
+        new Error("DB error during transaction"),
+      );
+
+      const { saveBusiness } = await import("./onboarding-actions");
+      await expect(saveBusiness(formData(VALID_DATA))).rejects.toThrow(
+        "DB error during transaction",
+      );
     });
   });
 

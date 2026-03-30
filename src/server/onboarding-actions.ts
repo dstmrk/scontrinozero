@@ -75,23 +75,45 @@ export async function saveBusiness(
     return { error: "Profilo non trovato." };
   }
 
-  // Save firstName + lastName on the profile
-  await db
-    .update(profiles)
-    .set({ firstName, lastName })
-    .where(eq(profiles.id, profile.id));
+  // Wrap both writes in a transaction: updating the profile and upserting
+  // the business must stay consistent. A partial failure (profile updated but
+  // business insert failed) would leave the user in an incomplete onboarding
+  // state that is hard to recover from.
+  return db.transaction(async (tx) => {
+    // Save firstName + lastName on the profile
+    await tx
+      .update(profiles)
+      .set({ firstName, lastName })
+      .where(eq(profiles.id, profile.id));
 
-  // Upsert: check if business already exists for this profile
-  const [existing] = await db
-    .select()
-    .from(businesses)
-    .where(eq(businesses.profileId, profile.id))
-    .limit(1);
+    // Upsert: check if business already exists for this profile
+    const [existing] = await tx
+      .select()
+      .from(businesses)
+      .where(eq(businesses.profileId, profile.id))
+      .limit(1);
 
-  if (existing) {
-    await db
-      .update(businesses)
-      .set({
+    if (existing) {
+      await tx
+        .update(businesses)
+        .set({
+          businessName,
+          address,
+          streetNumber,
+          city,
+          province,
+          zipCode,
+          preferredVatCode,
+        })
+        .where(eq(businesses.id, existing.id));
+
+      return { businessId: existing.id };
+    }
+
+    const [newBiz] = await tx
+      .insert(businesses)
+      .values({
+        profileId: profile.id,
         businessName,
         address,
         streetNumber,
@@ -100,26 +122,10 @@ export async function saveBusiness(
         zipCode,
         preferredVatCode,
       })
-      .where(eq(businesses.id, existing.id));
+      .returning({ id: businesses.id });
 
-    return { businessId: existing.id };
-  }
-
-  const [newBiz] = await db
-    .insert(businesses)
-    .values({
-      profileId: profile.id,
-      businessName,
-      address,
-      streetNumber,
-      city,
-      province,
-      zipCode,
-      preferredVatCode,
-    })
-    .returning({ id: businesses.id });
-
-  return { businessId: newBiz.id };
+    return { businessId: newBiz.id };
+  });
 }
 
 export async function saveAdeCredentials(

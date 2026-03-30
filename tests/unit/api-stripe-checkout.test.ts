@@ -14,6 +14,8 @@ const {
   mockFrom,
   mockSelect,
   mockInsertValues,
+  mockInsertOnConflictDoNothing,
+  mockInsertReturning,
   mockInsert,
   mockCustomerCreate,
   mockSessionCreate,
@@ -29,6 +31,8 @@ const {
   mockFrom: vi.fn(),
   mockSelect: vi.fn(),
   mockInsertValues: vi.fn(),
+  mockInsertOnConflictDoNothing: vi.fn(),
+  mockInsertReturning: vi.fn(),
   mockInsert: vi.fn(),
   mockCustomerCreate: vi.fn(),
   mockSessionCreate: vi.fn(),
@@ -105,7 +109,15 @@ describe("POST /api/stripe/checkout", () => {
     mockWhere.mockReturnValue({ limit: mockLimit });
     mockLimit.mockResolvedValue([]);
     mockInsert.mockReturnValue({ values: mockInsertValues });
-    mockInsertValues.mockResolvedValue(undefined);
+    mockInsertValues.mockReturnValue({
+      onConflictDoNothing: mockInsertOnConflictDoNothing,
+    });
+    mockInsertOnConflictDoNothing.mockReturnValue({
+      returning: mockInsertReturning,
+    });
+    mockInsertReturning.mockResolvedValue([
+      { stripeCustomerId: "cus_new_123" },
+    ]);
   });
 
   it("returns 401 when not authenticated", async () => {
