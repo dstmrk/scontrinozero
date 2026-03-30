@@ -85,6 +85,11 @@
       ]), '' ON CONFLICT (filename) DO NOTHING;
       ```
       (aggiornare la lista se ci sono migrazioni più recenti)
+      ⚠️ **L'INSERT manuale va fatto SOLO per le migrazioni già effettivamente presenti
+      nel DB.** Inserire filename di migrazioni non eseguite le marca come applicate
+      senza eseguirle — schema silenziosamente incompleto. Per verificare quali
+      migrazioni sono realmente presenti prima di inserirle, controllare l'esistenza
+      delle tabelle/colonne chiave nel Supabase SQL editor o via MCP.
 
 14. **Client IP trust model: CF-Connecting-IP is the ONLY trusted source.**
     When the app is behind Cloudflare Tunnel, `CF-Connecting-IP` is the only header
