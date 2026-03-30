@@ -63,8 +63,10 @@
     built-in `migrate()`, proprio per gestire i file handwritten senza overhead manuale:
     legge tutti i `.sql` da `supabase/migrations/` ordinati per nome, traccia i file
     già applicati nella tabella `__applied_migrations`, e wrappa ogni migrazione in una
-    transazione. **Per aggiungere una migrazione: crea il file `.sql` — nessun aggiornamento
-    del journal necessario.**
+    transazione. **Per aggiungere una migrazione handwritten: crea il file `.sql` E aggiungi
+    la entry corrispondente in `supabase/migrations/meta/_journal.json`** (incrementa `idx`,
+    usa timestamp Unix in ms, tag = nome file senza `.sql`). Il runtime runner non ne ha
+    bisogno, ma il CI script `check-migrations.mjs` valida che ogni `.sql` sia registrato.
     - File naming: `NNNN_description.sql` (es. `0007_add_new_table.sql`)
     - Il `check-migrations.mjs` CI script valida i file SQL contro il journal per
       compatibilità drizzle-kit — è separato dal runtime runner.
