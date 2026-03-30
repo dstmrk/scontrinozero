@@ -18,6 +18,7 @@ const {
   mockSelectLimit,
   mockSelectFrom,
   mockSelect,
+  mockTransaction,
 } = vi.hoisted(() => ({
   mockConstructEvent: vi.fn(),
   mockGetStripe: vi.fn(),
@@ -32,6 +33,7 @@ const {
   mockSelectLimit: vi.fn(),
   mockSelectFrom: vi.fn(),
   mockSelect: vi.fn(),
+  mockTransaction: vi.fn(),
 }));
 
 vi.mock("@/lib/stripe", () => ({
@@ -104,7 +106,12 @@ describe("POST /api/stripe/webhook", () => {
     mockSubscriptionsRetrieve.mockResolvedValue(makeStripeSubscription());
 
     // DB chain
-    mockGetDb.mockReturnValue({ update: mockUpdate, select: mockSelect });
+    const mockDb = {
+      update: mockUpdate,
+      select: mockSelect,
+      transaction: mockTransaction,
+    };
+    mockGetDb.mockReturnValue(mockDb);
     mockUpdate.mockReturnValue({ set: mockUpdateSet });
     mockUpdateSet.mockReturnValue({ where: mockUpdateWhere });
     mockUpdateWhere.mockResolvedValue(undefined);
@@ -112,6 +119,10 @@ describe("POST /api/stripe/webhook", () => {
     mockSelectFrom.mockReturnValue({ where: mockSelectWhere });
     mockSelectWhere.mockReturnValue({ limit: mockSelectLimit });
     mockSelectLimit.mockResolvedValue([{ userId: "user-123" }]);
+    // transaction is a passthrough: calls callback with same mock db
+    mockTransaction.mockImplementation(
+      async (fn: (tx: unknown) => Promise<void>) => fn(mockDb),
+    );
   });
 
   afterEach(() => {
