@@ -287,4 +287,76 @@ describe("voidReceiptForBusiness", () => {
       });
     });
   });
+
+  describe("retry after failed void attempt (new idempotencyKey)", () => {
+    // These tests document the behaviour enabled by the partial unique index fix
+    // (migration 0012): REJECTED/ERROR voids no longer block a retry with a NEW key.
+    // At DB level the new index predicate is: WHERE voided_document_id IS NOT NULL
+    // AND status IN ('PENDING', 'VOID_ACCEPTED').
+
+    it("allows a new void attempt after the previous VOID was REJECTED", async () => {
+      setupHappyPathDb();
+      setupAdeClient();
+      // INSERT succeeds: the REJECTED row is not covered by the updated index
+      mockReturning.mockResolvedValue([{ id: VOID_ID }]);
+
+      const NEW_KEY = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee";
+      const { voidReceiptForBusiness } =
+        await import("@/lib/services/void-service");
+      const result = await voidReceiptForBusiness(
+        makeInput({ idempotencyKey: NEW_KEY }),
+      );
+      expect(result).toEqual({
+        voidDocumentId: VOID_ID,
+        adeTransactionId: "void-tx-1",
+        adeProgressive: "2",
+      });
+    });
+
+    it("allows a new void attempt after the previous VOID ended in ERROR", async () => {
+      setupHappyPathDb();
+      setupAdeClient();
+      // INSERT succeeds: the ERROR row is not covered by the updated index
+      mockReturning.mockResolvedValue([{ id: VOID_ID }]);
+
+      const NEW_KEY = "ffffffff-ffff-ffff-ffff-ffffffffffff";
+      const { voidReceiptForBusiness } =
+        await import("@/lib/services/void-service");
+      const result = await voidReceiptForBusiness(
+        makeInput({ idempotencyKey: NEW_KEY }),
+      );
+      expect(result).toEqual({
+        voidDocumentId: VOID_ID,
+        adeTransactionId: "void-tx-1",
+        adeProgressive: "2",
+      });
+    });
+
+    it("still blocks concurrent void when an active PENDING VOID exists (different key)", async () => {
+      setupHappyPathDb();
+      // INSERT skipped: PENDING is still covered by the updated index
+      mockReturning.mockResolvedValue([]);
+      // idempotencyKey lookup returns nothing (different key used by concurrent request)
+      mockLimit.mockResolvedValueOnce([FAKE_SALE]).mockResolvedValueOnce([]);
+
+      const { voidReceiptForBusiness } =
+        await import("@/lib/services/void-service");
+      const result = await voidReceiptForBusiness(makeInput());
+      expect(result).toHaveProperty("error");
+      expect((result as { error: string }).error).toMatch(/annullato|annullo/i);
+    });
+
+    it("still blocks re-void when VOID_ACCEPTED already exists (different key)", async () => {
+      setupHappyPathDb();
+      // INSERT skipped: VOID_ACCEPTED is still covered by the updated index
+      mockReturning.mockResolvedValue([]);
+      // idempotencyKey lookup returns nothing (different key was used)
+      mockLimit.mockResolvedValueOnce([FAKE_SALE]).mockResolvedValueOnce([]);
+
+      const { voidReceiptForBusiness } =
+        await import("@/lib/services/void-service");
+      const result = await voidReceiptForBusiness(makeInput());
+      expect(result).toHaveProperty("error");
+    });
+  });
 });

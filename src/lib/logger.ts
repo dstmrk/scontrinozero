@@ -23,6 +23,8 @@ const REDACT_PATHS = [
   "encryptedPin",
   "keyHash",
   "apiKeyRaw",
+  "actionLink",
+  "resetLink",
   "*.password",
   "*.pin",
   "*.credentials",
@@ -34,6 +36,8 @@ const REDACT_PATHS = [
   "*.encryptedPin",
   "*.keyHash",
   "*.apiKeyRaw",
+  "*.actionLink",
+  "*.resetLink",
 ];
 
 // pino numeric levels: error=50, fatal=60

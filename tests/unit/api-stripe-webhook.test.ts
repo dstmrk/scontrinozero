@@ -266,7 +266,7 @@ describe("POST /api/stripe/webhook", () => {
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  it("upsertSubscriptionData: skips profile update when no subscription row found", async () => {
+  it("syncSubscriptionData: skips profile update and logs error when no subscription row found", async () => {
     mockSelectLimit.mockResolvedValue([]); // no subRow
     const subscription = makeStripeSubscription({ status: "active" });
     mockConstructEvent.mockReturnValue(
@@ -276,11 +276,16 @@ describe("POST /api/stripe/webhook", () => {
     const response = await POST(makeWebhookRequest("{}"));
 
     expect(response.status).toBe(200);
-    // update called once for subscriptions table, not a second time for profiles
+    // profiles.plan must NOT be updated
     const profileUpdateCall = mockUpdateSet.mock.calls.find((args) =>
       Object.keys(args[0] as Record<string, unknown>).includes("plan"),
     );
     expect(profileUpdateCall).toBeUndefined();
+    // anomaly must be observable via logger.error (not a silent no-op)
+    expect(logger.error as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
+      expect.objectContaining({ stripeCustomerId: "cus_123" }),
+      expect.stringContaining("no subscription row found"),
+    );
   });
 
   it("handles customer.subscription.deleted: skips profile downgrade when subRow is null", async () => {

@@ -109,6 +109,24 @@ export function canUseApi(plan: Plan): boolean {
 }
 
 /**
+ * Numero massimo di API key attive (non revocate) per piano.
+ * null = nessun limite.
+ * Starter/trial non hanno accesso API (canUseApi = false), quindi non
+ * hanno una entry qui. I piani Developer sono gestiti nella Fase B.
+ */
+export const API_KEY_LIMITS: Partial<Record<Plan, number>> = {
+  pro: 3,
+};
+
+/**
+ * Ritorna il limite di API key attive per il piano dato.
+ * null significa nessun limite applicato (es. Unlimited, piani Developer).
+ */
+export function getApiKeyLimit(plan: Plan): number | null {
+  return API_KEY_LIMITS[plan] ?? null;
+}
+
+/**
  * Limite mensile di scontrini emettibili via API per i piani developer.
  * null = nessun limite (piani non-developer con accesso API).
  */

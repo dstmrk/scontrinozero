@@ -115,6 +115,44 @@ describe("logger module", () => {
     expect(output).not.toContain("12345678");
   });
 
+  it("redacts 'actionLink' field in log output", () => {
+    const { logger, getOutput } = createTestLogger({
+      redact: {
+        paths: ["actionLink", "resetLink", "*.actionLink", "*.resetLink"],
+        censor: "[REDACTED]",
+      },
+    });
+
+    logger.error(
+      {
+        actionLink: "https://app.scontrinozero.it/auth/v1/verify?token=SECRET",
+      },
+      "hostname mismatch",
+    );
+    const output = getOutput();
+    const parsed = JSON.parse(output);
+    expect(parsed.actionLink).toBe("[REDACTED]");
+    expect(output).not.toContain("SECRET");
+  });
+
+  it("redacts 'resetLink' field in log output", () => {
+    const { logger, getOutput } = createTestLogger({
+      redact: {
+        paths: ["actionLink", "resetLink", "*.actionLink", "*.resetLink"],
+        censor: "[REDACTED]",
+      },
+    });
+
+    logger.error(
+      { resetLink: "https://example.com/reset?token=TOPSECRET" },
+      "msg",
+    );
+    const output = getOutput();
+    const parsed = JSON.parse(output);
+    expect(parsed.resetLink).toBe("[REDACTED]");
+    expect(output).not.toContain("TOPSECRET");
+  });
+
   it("redacts nested sensitive fields (*.credentials)", () => {
     const { logger, getOutput } = createTestLogger({
       redact: {
