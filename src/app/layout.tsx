@@ -52,6 +52,11 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "default",
+    "apple-mobile-web-app-title": "ScontrinoZero",
+  },
 };
 
 export default function RootLayout({

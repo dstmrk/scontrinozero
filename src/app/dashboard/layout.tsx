@@ -6,6 +6,7 @@ import { getOnboardingStatus } from "@/server/onboarding-actions";
 import { signOut } from "@/server/auth-actions";
 import { Button } from "@/components/ui/button";
 import { BottomNav } from "@/components/dashboard/bottom-nav";
+import { PwaInstallPrompt } from "@/components/pwa/install-prompt";
 
 export default async function DashboardLayout({
   children,
@@ -79,6 +80,7 @@ export default async function DashboardLayout({
       </main>
 
       <BottomNav />
+      <PwaInstallPrompt />
     </div>
   );
 }
