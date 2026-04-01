@@ -24,7 +24,7 @@ export function PwaInstallPrompt() {
   // Lazy initializer: runs once on first client render.
   // Checks localStorage + iOS detection without triggering a setState-in-effect cycle.
   const [showIos, setShowIos] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
+    if (typeof globalThis.window === "undefined") return false;
     if (localStorage.getItem(DISMISSED_KEY)) return false;
     return isIos() && !isInStandalone();
   });
@@ -43,8 +43,9 @@ export function PwaInstallPrompt() {
       setShowAndroid(true);
     };
 
-    window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+    globalThis.window.addEventListener("beforeinstallprompt", handler);
+    return () =>
+      globalThis.window.removeEventListener("beforeinstallprompt", handler);
   }, [showIos]);
 
   const handleDismiss = () => {
@@ -64,10 +65,7 @@ export function PwaInstallPrompt() {
 
   if (showIos) {
     return (
-      <div
-        role="banner"
-        className="fixed right-0 bottom-0 left-0 z-50 border-t border-gray-200 bg-white px-4 py-4 shadow-lg"
-      >
+      <header className="fixed right-0 bottom-0 left-0 z-50 border-t border-gray-200 bg-white px-4 py-4 shadow-lg">
         <div className="mx-auto flex max-w-sm flex-col gap-3">
           <div className="flex items-start justify-between gap-3">
             <p className="text-sm font-semibold text-gray-900">
@@ -129,15 +127,12 @@ export function PwaInstallPrompt() {
             </li>
           </ol>
         </div>
-      </div>
+      </header>
     );
   }
 
   return (
-    <div
-      role="banner"
-      className="fixed right-0 bottom-0 left-0 z-50 border-t border-gray-200 bg-white px-4 py-4 shadow-lg"
-    >
+    <header className="fixed right-0 bottom-0 left-0 z-50 border-t border-gray-200 bg-white px-4 py-4 shadow-lg">
       <div className="mx-auto flex max-w-sm items-center gap-3">
         <div className="flex-1">
           <p className="text-sm font-semibold text-gray-900">
@@ -175,6 +170,6 @@ export function PwaInstallPrompt() {
           </svg>
         </button>
       </div>
-    </div>
+    </header>
   );
 }

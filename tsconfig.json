@@ -30,5 +30,11 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    // Service worker requires "webworker" lib globals (ServiceWorkerGlobalScope)
+    // which conflicts with the "dom" lib used by the main app.
+    // Serwist/webpack compiles it separately with the correct worker context.
+    "src/sw.ts"
+  ]
 }
