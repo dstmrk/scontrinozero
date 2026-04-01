@@ -143,7 +143,7 @@ export function PwaInstallPrompt() {
           </p>
         </div>
         <button
-          onClick={handleInstall}
+          onClick={() => void handleInstall()}
           className="rounded-md bg-black px-3 py-2 text-sm font-medium text-white hover:bg-gray-800"
         >
           Installa
