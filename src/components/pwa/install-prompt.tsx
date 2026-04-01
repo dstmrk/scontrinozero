@@ -24,7 +24,7 @@ export function PwaInstallPrompt() {
   // Lazy initializer: runs once on first client render.
   // Checks localStorage + iOS detection without triggering a setState-in-effect cycle.
   const [showIos, setShowIos] = useState<boolean>(() => {
-    if (typeof globalThis.window === "undefined") return false;
+    if (globalThis.window === undefined) return false;
     if (localStorage.getItem(DISMISSED_KEY)) return false;
     return isIos() && !isInStandalone();
   });
