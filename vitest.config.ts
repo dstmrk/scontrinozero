@@ -34,6 +34,8 @@ export default defineConfig({
         "src/components/settings/export-data-section.tsx", // UI client component — pure download trigger
         "src/components/settings/account-delete-section.tsx", // UI client component — mutation + dialog, pure UI
         "src/components/settings/api-key-section.tsx", // UI client component — mutation + dialog, pure UI
+        "src/sw.ts", // service worker entry point — pure infrastructure, no testable logic
+        "src/app/offline/page.tsx", // static offline shell — pure UI, no logic
       ],
     },
     reporters: ["default", "vitest-sonar-reporter"],

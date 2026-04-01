@@ -42,3 +42,9 @@ next-env.d.ts
 
 # sensitive files
 *.har
+
+# serwist — generated service worker files (built at compile time)
+/public/sw.js
+/public/sw.js.map
+/public/serwist-*.js
+/public/serwist-*.js.map
