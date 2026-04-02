@@ -77,6 +77,15 @@ const helpCategories = [
     ],
   },
   {
+    name: "API per sviluppatori",
+    description: "Integra l'emissione scontrini nel tuo gestionale o POS.",
+    articles: [
+      "Autenticazione e gestione chiavi API",
+      "Endpoint: emissione, stato e annullamento scontrino",
+      "Codici IVA, rate limit e gestione errori",
+    ],
+  },
+  {
     name: "Abbonamento, fatture e supporto",
     description: "Piano, pagamenti e assistenza.",
     articles: [
