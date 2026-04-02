@@ -142,7 +142,7 @@ export default function ApiDocsPage() {
           <span className="mr-2 font-mono text-green-700 dark:text-green-400">
             POST
           </span>
-          /v1/receipts
+          {"/v1/receipts"}
         </h3>
         <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
           Emette uno scontrino elettronico e lo trasmette all&apos;Agenzia delle
@@ -286,7 +286,7 @@ export default function ApiDocsPage() {
           <span className="mr-2 font-mono text-blue-700 dark:text-blue-400">
             GET
           </span>
-          /v1/receipts/{"{id}"}
+          {"/v1/receipts/{id}"}
         </h3>
         <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
           Restituisce i dettagli e lo stato di uno scontrino emesso. Utile per
@@ -340,7 +340,7 @@ export default function ApiDocsPage() {
           <span className="mr-2 font-mono text-green-700 dark:text-green-400">
             POST
           </span>
-          /v1/receipts/{"{id}"}/void
+          {"/v1/receipts/{id}/void"}
         </h3>
         <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
           Annulla uno scontrino precedentemente emesso. L&apos;annullamento è
