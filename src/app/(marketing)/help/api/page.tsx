@@ -44,14 +44,19 @@ export default function ApiDocsPage() {
             Unlimited).
           </li>
           <li>
-            Credenziali Fisconline configurate nella sezione{" "}
+            {"Credenziali Fisconline configurate nella sezione "}
             <em>Configurazione attività</em>.
           </li>
           <li>
-            Una chiave API di tipo <strong>business</strong> generata dalla
-            dashboard: vai su <strong>Impostazioni → API</strong>, clicca{" "}
-            <em>Genera nuova chiave</em>, assegnale un nome descrittivo (es.
-            &quot;POS principale&quot;) e copia la chiave — sarà mostrata{" "}
+            {"Una chiave API di tipo "}
+            <strong>business</strong>
+            {" generata dalla dashboard: vai su "}
+            <strong>Impostazioni → API</strong>
+            {", clicca "}
+            <em>Genera nuova chiave</em>
+            {
+              ', assegnale un nome descrittivo (es. "POS principale") e copia la chiave — sarà mostrata '
+            }
             <strong>una sola volta</strong>.
           </li>
         </ul>
@@ -59,11 +64,11 @@ export default function ApiDocsPage() {
         {/* ─── Autenticazione ─── */}
         <h2 className="mt-12 text-xl font-semibold">Autenticazione</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Includi la chiave API in ogni richiesta tramite l&apos;header{" "}
+          {"Includi la chiave API in ogni richiesta tramite l'header "}
           <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">
             Authorization
           </code>
-          :
+          {":"}
         </p>
         <pre className="bg-muted mt-3 overflow-x-auto rounded-md p-4 font-mono text-xs leading-relaxed">
           <code>
@@ -206,12 +211,12 @@ export default function ApiDocsPage() {
                 <td className="py-2 text-xs">
                   <code className="bg-muted rounded px-1 font-mono text-xs">
                     PC
-                  </code>{" "}
-                  = contanti,{" "}
+                  </code>
+                  {" = contanti, "}
                   <code className="bg-muted rounded px-1 font-mono text-xs">
                     PE
-                  </code>{" "}
-                  = carta/elettronico
+                  </code>
+                  {" = carta/elettronico"}
                 </td>
               </tr>
               <tr className="border-b">
@@ -225,11 +230,11 @@ export default function ApiDocsPage() {
                 <td className="py-2 pr-4 font-mono text-xs">lotteryCode</td>
                 <td className="py-2 pr-4 text-xs">string (max 8) | null</td>
                 <td className="py-2 text-xs">
-                  Codice lotteria scontrini (opzionale, solo con{" "}
+                  {"Codice lotteria scontrini (opzionale, solo con "}
                   <code className="bg-muted rounded px-1 font-mono text-xs">
                     PE
                   </code>
-                  )
+                  {")"}
                 </td>
               </tr>
             </tbody>
@@ -238,9 +243,9 @@ export default function ApiDocsPage() {
 
         <p className="mt-5 text-sm font-medium">Esempio</p>
         <pre className="bg-muted mt-2 overflow-x-auto rounded-md p-4 font-mono text-xs leading-relaxed">
-          <code>{`curl -X POST https://api.scontrinozero.it/v1/receipts \\
-  -H "Authorization: Bearer szk_live_XXXX" \\
-  -H "Content-Type: application/json" \\
+          <code>{String.raw`curl -X POST https://api.scontrinozero.it/v1/receipts \
+  -H "Authorization: Bearer szk_live_XXXX" \
+  -H "Content-Type: application/json" \
   -d '{
     "lines": [
       {
@@ -263,7 +268,7 @@ export default function ApiDocsPage() {
         </pre>
 
         <p className="mt-5 text-sm font-medium">
-          Risposta —{" "}
+          {"Risposta — "}
           <code className="bg-muted rounded px-1 font-mono text-xs">
             201 Created
           </code>
@@ -291,12 +296,12 @@ export default function ApiDocsPage() {
 
         <p className="mt-4 text-sm font-medium">Esempio</p>
         <pre className="bg-muted mt-2 overflow-x-auto rounded-md p-4 font-mono text-xs leading-relaxed">
-          <code>{`curl https://api.scontrinozero.it/v1/receipts/a1b2c3d4-e5f6-7890-abcd-ef1234567890 \\
+          <code>{String.raw`curl https://api.scontrinozero.it/v1/receipts/a1b2c3d4-e5f6-7890-abcd-ef1234567890 \
   -H "Authorization: Bearer szk_live_XXXX"`}</code>
         </pre>
 
         <p className="mt-5 text-sm font-medium">
-          Risposta —{" "}
+          {"Risposta — "}
           <code className="bg-muted rounded px-1 font-mono text-xs">
             200 OK
           </code>
@@ -313,15 +318,21 @@ export default function ApiDocsPage() {
 }`}</code>
         </pre>
         <p className="text-muted-foreground mt-3 text-xs">
-          Il campo <code className="bg-muted rounded px-1 font-mono">kind</code>{" "}
-          può essere{" "}
-          <code className="bg-muted rounded px-1 font-mono">SALE</code> o{" "}
-          <code className="bg-muted rounded px-1 font-mono">VOID</code>. Il
-          campo <code className="bg-muted rounded px-1 font-mono">status</code>{" "}
-          può essere{" "}
-          <code className="bg-muted rounded px-1 font-mono">ACCEPTED</code>,{" "}
-          <code className="bg-muted rounded px-1 font-mono">REJECTED</code> o{" "}
-          <code className="bg-muted rounded px-1 font-mono">PENDING</code>.
+          {"Il campo "}
+          <code className="bg-muted rounded px-1 font-mono">kind</code>
+          {" può essere "}
+          <code className="bg-muted rounded px-1 font-mono">SALE</code>
+          {" o "}
+          <code className="bg-muted rounded px-1 font-mono">VOID</code>
+          {". Il campo "}
+          <code className="bg-muted rounded px-1 font-mono">status</code>
+          {" può essere "}
+          <code className="bg-muted rounded px-1 font-mono">ACCEPTED</code>
+          {", "}
+          <code className="bg-muted rounded px-1 font-mono">REJECTED</code>
+          {" o "}
+          <code className="bg-muted rounded px-1 font-mono">PENDING</code>
+          {"."}
         </p>
 
         {/* ─── POST /v1/receipts/{id}/void ─── */}
@@ -366,14 +377,14 @@ export default function ApiDocsPage() {
 
         <p className="mt-4 text-sm font-medium">Esempio</p>
         <pre className="bg-muted mt-2 overflow-x-auto rounded-md p-4 font-mono text-xs leading-relaxed">
-          <code>{`curl -X POST https://api.scontrinozero.it/v1/receipts/a1b2c3d4-e5f6-7890-abcd-ef1234567890/void \\
-  -H "Authorization: Bearer szk_live_XXXX" \\
-  -H "Content-Type: application/json" \\
+          <code>{String.raw`curl -X POST https://api.scontrinozero.it/v1/receipts/a1b2c3d4-e5f6-7890-abcd-ef1234567890/void \
+  -H "Authorization: Bearer szk_live_XXXX" \
+  -H "Content-Type: application/json" \
   -d '{"idempotencyKey": "b2c3d4e5-f6a7-8901-bcde-f01234567890"}'`}</code>
         </pre>
 
         <p className="mt-5 text-sm font-medium">
-          Risposta —{" "}
+          {"Risposta — "}
           <code className="bg-muted rounded px-1 font-mono text-xs">
             200 OK
           </code>
@@ -389,11 +400,11 @@ export default function ApiDocsPage() {
         {/* ─── Codici IVA ─── */}
         <h2 className="mt-12 text-xl font-semibold">Codici IVA</h2>
         <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-          Il campo{" "}
+          {"Il campo "}
           <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">
             vatCode
-          </code>{" "}
-          accetta i seguenti valori:
+          </code>
+          {" accetta i seguenti valori:"}
         </p>
         <div className="text-muted-foreground mt-3 overflow-x-auto text-sm">
           <table className="w-full border-collapse">
@@ -438,18 +449,18 @@ export default function ApiDocsPage() {
         {/* ─── Idempotenza ─── */}
         <h2 className="mt-12 text-xl font-semibold">Idempotenza</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Ogni richiesta di emissione e annullamento richiede un campo{" "}
+          {"Ogni richiesta di emissione e annullamento richiede un campo "}
           <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">
             idempotencyKey
           </code>
-          : un UUID v4 univoco che identifichi quella specifica operazione.
+          {": un UUID v4 univoco che identifichi quella specifica operazione."}
         </p>
         <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-          Se invii la stessa richiesta due volte con lo stesso{" "}
+          {"Se invii la stessa richiesta due volte con lo stesso "}
           <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">
             idempotencyKey
-          </code>{" "}
-          (es. in seguito a un timeout di rete), il sistema restituisce il
+          </code>
+          {" (es. in seguito a un timeout di rete), il sistema restituisce il"}
           risultato dell&apos;operazione originale senza emettere un secondo
           scontrino. Genera una nuova chiave per ogni scontrino distinto.
         </p>
@@ -492,19 +503,19 @@ const idempotencyKey = crypto.randomUUID();`}</code>
           </table>
         </div>
         <p className="text-muted-foreground mt-3 text-sm">
-          Al superamento del limite ricevi una risposta{" "}
-          <code className="bg-muted rounded px-1 font-mono text-xs">429</code>.
-          Attendi qualche minuto e riprova.
+          {"Al superamento del limite ricevi una risposta "}
+          <code className="bg-muted rounded px-1 font-mono text-xs">429</code>
+          {". Attendi qualche minuto e riprova."}
         </p>
 
         {/* ─── Codici di errore ─── */}
         <h2 className="mt-12 text-xl font-semibold">Codici di errore</h2>
         <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-          Tutti gli errori restituiscono un oggetto JSON con il campo{" "}
+          {"Tutti gli errori restituiscono un oggetto JSON con il campo "}
           <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">
             error
           </code>
-          :
+          {":"}
         </p>
         <pre className="bg-muted mt-3 overflow-x-auto rounded-md p-4 font-mono text-xs leading-relaxed">
           <code>{`{ "error": "Descrizione dell'errore." }`}</code>
