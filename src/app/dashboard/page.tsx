@@ -16,10 +16,6 @@ export default async function DashboardPage() {
 
   const initialData = await getCatalogItems(status.businessId);
 
-  if (initialData.length === 0) {
-    redirect("/dashboard/cassa");
-  }
-
   return (
     <CatalogoClient businessId={status.businessId} initialData={initialData} />
   );

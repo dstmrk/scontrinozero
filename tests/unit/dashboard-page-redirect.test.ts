@@ -46,13 +46,7 @@ describe("DashboardPage — smart redirect", () => {
     expect(mockRedirect).toHaveBeenCalledWith("/onboarding");
   });
 
-  it("redirects to /dashboard/cassa when catalog is empty", async () => {
-    mockGetCatalogItems.mockResolvedValue([]);
-    await DashboardPage();
-    expect(mockRedirect).toHaveBeenCalledWith("/dashboard/cassa");
-  });
-
-  it("does NOT redirect to /dashboard/cassa when catalog has items", async () => {
+  it("renders CatalogoClient when catalog has items (no redirect)", async () => {
     mockGetCatalogItems.mockResolvedValue([
       {
         id: "item-uuid-1",
@@ -64,7 +58,13 @@ describe("DashboardPage — smart redirect", () => {
       },
     ]);
     await DashboardPage();
-    expect(mockRedirect).not.toHaveBeenCalledWith("/dashboard/cassa");
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
+  it("renders CatalogoClient even when catalog is empty (no redirect)", async () => {
+    mockGetCatalogItems.mockResolvedValue([]);
+    await DashboardPage();
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 
   it("passes businessId to getCatalogItems", async () => {
