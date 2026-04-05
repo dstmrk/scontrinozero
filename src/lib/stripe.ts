@@ -2,8 +2,13 @@ import Stripe from "stripe";
 
 const STRIPE_API_VERSION = "2026-03-25.dahlia" as const;
 
+// Module-level singleton: one instance per Node.js process.
+// Avoids creating a new Stripe client on every call to getStripe() which adds
+// unnecessary object churn on hot paths (webhook, checkout, portal).
+let _stripe: Stripe | null = null;
+
 /**
- * Restituisce un'istanza Stripe autenticata.
+ * Restituisce l'istanza Stripe condivisa (singleton per processo).
  * Lancia se STRIPE_SECRET_KEY non è definita (evita crash al build).
  */
 export function getStripe(): Stripe {
@@ -13,9 +18,20 @@ export function getStripe(): Stripe {
         "Set it to your Stripe secret key (sk_test_... or sk_live_...).",
     );
   }
-  return new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: STRIPE_API_VERSION,
-  });
+  if (!_stripe) {
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: STRIPE_API_VERSION,
+    });
+  }
+  return _stripe;
+}
+
+/**
+ * Resets the cached Stripe singleton. For use in tests only.
+ * @internal
+ */
+export function _resetStripeForTest(): void {
+  _stripe = null;
 }
 
 /**
