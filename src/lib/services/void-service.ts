@@ -163,18 +163,16 @@ export async function voidReceiptForBusiness(
 
     // AdE can return HTTP 200 with esito:false when it rejects the void.
     if (!adeResponse.esito) {
-      const errorDesc =
-        adeResponse.errori
-          ?.map((e) => `${e.codice}: ${e.descrizione}`)
-          .join("; ") || "Errore sconosciuto";
+      const errorCodes = adeResponse.errori?.map((e) => e.codice) ?? [];
       logger.error(
         {
           voidDocumentId,
           saleDocumentId: input.documentId,
           adeIdtrx: adeResponse.idtrx,
           adeProgressivo: adeResponse.progressivo,
-          // Log only error codes — descriptions may contain fiscal content
-          adeErrorCodes: adeResponse.errori?.map((e) => e.codice),
+          // Full descriptions are kept in adeResponse (persisted to DB below)
+          // but are NOT forwarded to the client to avoid leaking fiscal details.
+          adeErrorCodes: errorCodes,
         },
         "AdE rejected void",
       );
@@ -185,7 +183,11 @@ export async function voidReceiptForBusiness(
           adeResponse: adeResponse as unknown as Record<string, unknown>,
         })
         .where(eq(commercialDocuments.id, voidDocumentId));
-      return { error: `Annullo rifiutato dall'AdE: ${errorDesc}` };
+      const codeList =
+        errorCodes.length > 0 ? ` (${errorCodes.join(", ")})` : "";
+      return {
+        error: `Annullo rifiutato dall'AdE${codeList}. Verifica i dati e riprova.`,
+      };
     }
 
     // 4+5. Update VOID document and mark original SALE atomically.
