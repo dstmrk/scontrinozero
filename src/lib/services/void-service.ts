@@ -19,6 +19,57 @@ import type { VoidReceiptInput, VoidReceiptResult } from "@/types/storico";
 import type { VoidRequest } from "@/lib/ade/public-types";
 
 /**
+ * Called when the VOID document INSERT was skipped by ON CONFLICT DO NOTHING.
+ * Determines whether the conflict is due to the same idempotency key (retry-safe)
+ * or a different key targeting the same SALE (race condition).
+ */
+async function resolveVoidConflict(
+  db: ReturnType<typeof getDb>,
+  idempotencyKey: string,
+  businessId: string,
+): Promise<VoidReceiptResult> {
+  // Case A: same idempotencyKey → same-request retry (true idempotency path)
+  const [existingByKey] = await db
+    .select({
+      id: commercialDocuments.id,
+      status: commercialDocuments.status,
+      adeTransactionId: commercialDocuments.adeTransactionId,
+      adeProgressive: commercialDocuments.adeProgressive,
+    })
+    .from(commercialDocuments)
+    .where(
+      and(
+        eq(commercialDocuments.idempotencyKey, idempotencyKey),
+        eq(commercialDocuments.businessId, businessId),
+      ),
+    )
+    .limit(1);
+
+  if (existingByKey) {
+    if (existingByKey.status === "VOID_ACCEPTED") {
+      // Already voided successfully — true idempotency return
+      return {
+        voidDocumentId: existingByKey.id,
+        adeTransactionId: existingByKey.adeTransactionId ?? undefined,
+        adeProgressive: existingByKey.adeProgressive ?? undefined,
+      };
+    }
+    // PENDING or ERROR: void was started but never completed
+    return {
+      error:
+        "Annullo precedente in stato inconsistente. Riprova aprendo di nuovo il dialogo.",
+    };
+  }
+
+  // Case B: different idempotencyKey, same voidedDocumentId → race condition blocked.
+  // Another concurrent request already created (or completed) a VOID for this SALE.
+  return {
+    error:
+      "Questo scontrino è già stato annullato o è in fase di annullo da un'altra richiesta.",
+  };
+}
+
+/**
  * Annulla uno scontrino per il business indicato.
  *
  * Il chiamante deve aver già verificato:
@@ -88,47 +139,9 @@ export async function voidReceiptForBusiness(
     .onConflictDoNothing()
     .returning({ id: commercialDocuments.id });
 
-  // Insert was skipped due to a constraint conflict — determine which one.
+  // Insert was skipped due to a constraint conflict — delegate to helper.
   if (!voidDoc) {
-    // Case A: same idempotencyKey → same-request retry (true idempotency path)
-    const [existingByKey] = await db
-      .select({
-        id: commercialDocuments.id,
-        status: commercialDocuments.status,
-        adeTransactionId: commercialDocuments.adeTransactionId,
-        adeProgressive: commercialDocuments.adeProgressive,
-      })
-      .from(commercialDocuments)
-      .where(
-        and(
-          eq(commercialDocuments.idempotencyKey, input.idempotencyKey),
-          eq(commercialDocuments.businessId, input.businessId),
-        ),
-      )
-      .limit(1);
-
-    if (existingByKey) {
-      if (existingByKey.status === "VOID_ACCEPTED") {
-        // Already voided successfully — true idempotency return
-        return {
-          voidDocumentId: existingByKey.id,
-          adeTransactionId: existingByKey.adeTransactionId ?? undefined,
-          adeProgressive: existingByKey.adeProgressive ?? undefined,
-        };
-      }
-      // PENDING or ERROR: void was started but never completed
-      return {
-        error:
-          "Annullo precedente in stato inconsistente. Riprova aprendo di nuovo il dialogo.",
-      };
-    }
-
-    // Case B: different idempotencyKey, same voidedDocumentId → race condition blocked.
-    // Another concurrent request already created (or completed) a VOID for this SALE.
-    return {
-      error:
-        "Questo scontrino è già stato annullato o è in fase di annullo da un'altra richiesta.",
-    };
+    return resolveVoidConflict(db, input.idempotencyKey, input.businessId);
   }
 
   const voidDocumentId = voidDoc.id;
