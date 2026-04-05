@@ -627,6 +627,36 @@ mockTransaction.mockImplementation(async (fn) =>
 
 Se si dimentica, il codice chiama `db.transaction(undefined)` → TypeError silenzioso.
 
+### Sentry: pino logMethod hook fires BEFORE redaction — sanitize before captureException
+
+`pino`'s `redact` config runs during **serialisation** (when the log is written to output), but the `logMethod` hook fires before serialisation with the **raw** object. Any field forwarded to `Sentry.captureException/captureMessage` from inside `logMethod` is therefore un-redacted.
+
+Fix: always pass context through `sanitizeForTelemetry()` before any Sentry call. Use an explicit **allowlist** of safe keys (requestId, userId, path, documentId, adeErrorCodes, …) rather than a denylist — easier to reason about and impossible to accidentally miss new sensitive fields.
+
+Pattern in `src/lib/logger.ts`:
+
+```typescript
+function captureToSentry(obj: unknown, msg?: string): void {
+  const sanitized = sanitizeForTelemetry(obj); // allowlist, strips PII
+  if (... instanceof Error) {
+    Sentry.captureException(err, { extra: sanitized });
+  }
+}
+```
+
+Error objects in `extra` must be extracted as `{ name, message }` only — the stack trace and cause chain can embed request context (query params, headers) from the call site.
+
+### deleteAccount: delete auth user FIRST to prevent orphan auth entries
+
+The safe ordering for account deletion is **auth-first**:
+
+1. Delete Supabase Auth user (admin API, 3 retries × backoff)
+2. If auth deletion fails → return `{ error }` immediately; profile is untouched and user can still log in and retry
+3. If auth deletion succeeds → delete profile (FK cascade)
+4. If profile deletion fails → log `critical: true`, manual cleanup needed (but auth entry is gone, so no login is possible)
+
+Previous ordering (profile-first) left an orphan auth entry that blocked re-registration when auth deletion exhausted all retries. Inverting the order contains the failure: either nothing is deleted (safe), or only the profile orphan remains (less harmful).
+
 ### Aggiornamento `last_used_at` con WHERE condizionale anti-write-amplification
 
 Per evitare un DB write su ogni API request, usare:
