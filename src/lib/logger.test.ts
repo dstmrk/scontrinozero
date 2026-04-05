@@ -224,13 +224,19 @@ describe("logger Sentry bridge", () => {
     vi.restoreAllMocks();
   });
 
-  it("logger.error with { err: Error } calls captureException with extra context", async () => {
+  it("logger.error with { err: Error } calls captureException with sanitized extra context", async () => {
     const { logger } = await import("./logger");
     const err = new Error("AdE rejection");
     logger.error({ err, documentId: "DOC-1" }, "emitReceipt failed");
     expect(mockCaptureException).toHaveBeenCalledOnce();
+    // captureException receives the original Error, but extra is sanitized:
+    // - err becomes {name, message} only (no stack, no raw Error instance in extra)
+    // - documentId passes through (it is in the allowlist)
     expect(mockCaptureException).toHaveBeenCalledWith(err, {
-      extra: { err, documentId: "DOC-1" },
+      extra: {
+        err: { name: "Error", message: "AdE rejection" },
+        documentId: "DOC-1",
+      },
     });
     expect(mockCaptureMessage).not.toHaveBeenCalled();
   });
@@ -266,13 +272,13 @@ describe("logger Sentry bridge", () => {
     expect(mockCaptureException).not.toHaveBeenCalled();
   });
 
-  it("logger.fatal with { err: Error } calls captureException", async () => {
+  it("logger.fatal with { err: Error } calls captureException with sanitized extra", async () => {
     const { logger } = await import("./logger");
     const err = new Error("fatal crash");
     logger.fatal({ err }, "system failure");
     expect(mockCaptureException).toHaveBeenCalledOnce();
     expect(mockCaptureException).toHaveBeenCalledWith(err, {
-      extra: { err },
+      extra: { err: { name: "Error", message: "fatal crash" } },
     });
   });
 
@@ -300,7 +306,7 @@ describe("logger Sentry bridge", () => {
     childLogger.error({ err }, "error in child context");
     expect(mockCaptureException).toHaveBeenCalledOnce();
     expect(mockCaptureException).toHaveBeenCalledWith(err, {
-      extra: { err },
+      extra: { err: { name: "Error", message: "child error" } },
     });
   });
 });

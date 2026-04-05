@@ -90,7 +90,7 @@ describe("account-actions", () => {
       expect(mockRedirect).toHaveBeenCalledWith("/");
     });
 
-    it("signs out BEFORE deleting the auth user (session must be invalidated first)", async () => {
+    it("deletes auth user BEFORE deleting the profile (auth-first prevents orphan auth entries)", async () => {
       const callOrder: string[] = [];
       mockSignOut.mockImplementation(async () => {
         callOrder.push("signOut");
@@ -99,12 +99,21 @@ describe("account-actions", () => {
         callOrder.push("deleteUser");
         return { error: null };
       });
+      mockDeleteReturning.mockImplementation(async () => {
+        callOrder.push("deleteProfile");
+        return [{ id: "profile-456" }];
+      });
 
       const { deleteAccount } = await import("./account-actions");
       await deleteAccount();
 
-      expect(callOrder.indexOf("signOut")).toBeLessThan(
-        callOrder.indexOf("deleteUser"),
+      // Auth must be deleted first so that if it fails the profile is still intact
+      expect(callOrder.indexOf("deleteUser")).toBeLessThan(
+        callOrder.indexOf("deleteProfile"),
+      );
+      // signOut comes after auth deletion (best-effort cookie cleanup)
+      expect(callOrder.indexOf("deleteProfile")).toBeLessThan(
+        callOrder.indexOf("signOut"),
       );
     });
 
@@ -121,19 +130,19 @@ describe("account-actions", () => {
       expect(mockAdminDeleteUser).not.toHaveBeenCalled();
     });
 
-    it("returns error when profile is not found in DB", async () => {
-      mockDeleteReturning.mockResolvedValue([]); // No rows deleted
+    it("logs an error but still redirects when profile is not found after auth deletion", async () => {
+      // Auth user was deleted but profile row was not found (already cleaned up or never created).
+      // The function should log the anomaly and still redirect — not surface an error to the UI.
+      mockDeleteReturning.mockResolvedValue([]);
 
       const { deleteAccount } = await import("./account-actions");
-      const result = await deleteAccount();
+      await deleteAccount();
 
-      expect(result.error).toBeDefined();
-      expect(result.error).toContain("Profilo");
-      expect(mockAdminDeleteUser).not.toHaveBeenCalled();
-      expect(mockRedirect).not.toHaveBeenCalled();
+      expect(mockAdminDeleteUser).toHaveBeenCalledWith(FAKE_USER.id);
+      expect(mockRedirect).toHaveBeenCalledWith("/");
     });
 
-    it("retries deleteUser up to 3 times on failure then redirects", async () => {
+    it("retries deleteUser up to 3 times on failure then returns error (profile untouched)", async () => {
       vi.useFakeTimers();
       mockAdminDeleteUser.mockResolvedValue({
         error: { message: "Service unavailable" },
@@ -142,10 +151,13 @@ describe("account-actions", () => {
       const { deleteAccount } = await import("./account-actions");
       const promise = deleteAccount();
       await vi.runAllTimersAsync();
-      await promise;
+      const result = await promise;
 
       expect(mockAdminDeleteUser).toHaveBeenCalledTimes(3);
-      expect(mockRedirect).toHaveBeenCalledWith("/");
+      // Profile must NOT be deleted — user can still log in and retry
+      expect(mockDeleteReturning).not.toHaveBeenCalled();
+      expect(result.error).toBeDefined();
+      expect(mockRedirect).not.toHaveBeenCalled();
       vi.useRealTimers();
     });
 
@@ -165,7 +177,7 @@ describe("account-actions", () => {
       vi.useRealTimers();
     });
 
-    it("still redirects when admin auth user deletion fails (profile already deleted)", async () => {
+    it("returns error when admin auth user deletion fails exhausting all retries", async () => {
       vi.useFakeTimers();
       mockAdminDeleteUser.mockResolvedValue({
         error: { message: "User not found" },
@@ -174,12 +186,12 @@ describe("account-actions", () => {
       const { deleteAccount } = await import("./account-actions");
       const promise = deleteAccount();
       await vi.runAllTimersAsync();
-      await promise;
+      const result = await promise;
 
-      // Profile was deleted — redirect must still happen
-      expect(mockDeleteReturning).toHaveBeenCalled();
-      expect(mockSignOut).toHaveBeenCalled();
-      expect(mockRedirect).toHaveBeenCalledWith("/");
+      // Auth deletion failed — profile must be untouched and redirect must NOT happen
+      expect(mockDeleteReturning).not.toHaveBeenCalled();
+      expect(mockRedirect).not.toHaveBeenCalled();
+      expect(result.error).toBeDefined();
       vi.useRealTimers();
     });
 
@@ -202,14 +214,40 @@ describe("account-actions", () => {
       expect(mockRedirect).toHaveBeenCalledWith("/");
     });
 
-    it("does not send email when profile is not found", async () => {
+    it("still sends deletion email when profile row is not found (auth was deleted)", async () => {
+      // Profile row missing after auth deletion is an anomaly, but the user's
+      // auth entry is gone. We still send the email so the user is informed.
       mockDeleteReturning.mockResolvedValue([]);
 
       const { deleteAccount } = await import("./account-actions");
       await deleteAccount();
 
       await Promise.resolve();
-      expect(mockSendEmail).not.toHaveBeenCalled();
+      expect(mockSendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ to: FAKE_USER.email }),
+      );
+    });
+
+    it("logs critical error and still redirects when profile DB delete throws (auth already deleted)", async () => {
+      // Regression guard: after auth-first deletion, a transient DB error on the
+      // profile delete must NOT surface as an unhandled exception. The function
+      // must catch it, log critical (for manual cleanup), and redirect — because
+      // the user's auth entry is already gone and returning { error } would leave
+      // them stranded with no way to retry via the UI.
+      mockDeleteReturning.mockRejectedValue(new Error("DB connection lost"));
+
+      const { deleteAccount } = await import("./account-actions");
+      // Must not throw
+      await deleteAccount();
+
+      // Auth was already deleted, so redirect still happens
+      expect(mockRedirect).toHaveBeenCalledWith("/");
+      // Critical error must be logged for ops to clean up the orphaned profile
+      const { logger } = await import("@/lib/logger");
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ critical: true, userId: FAKE_USER.id }),
+        expect.stringContaining("manual cleanup"),
+      );
     });
   });
 });

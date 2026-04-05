@@ -204,17 +204,15 @@ export async function emitReceiptForBusiness(
 
     // AdE can return HTTP 200 with esito:false when it rejects the document.
     if (!adeResponse.esito) {
-      const errorDesc =
-        adeResponse.errori
-          ?.map((e) => `${e.codice}: ${e.descrizione}`)
-          .join("; ") || "Errore sconosciuto";
+      const errorCodes = adeResponse.errori?.map((e) => e.codice) ?? [];
       logger.error(
         {
           documentId,
           adeIdtrx: adeResponse.idtrx,
           adeProgressivo: adeResponse.progressivo,
-          // Log only error codes — descriptions may contain fiscal content
-          adeErrorCodes: adeResponse.errori?.map((e) => e.codice),
+          // Full descriptions are kept in adeResponse (persisted to DB below)
+          // but are NOT forwarded to the client to avoid leaking fiscal details.
+          adeErrorCodes: errorCodes,
         },
         "AdE rejected sale",
       );
@@ -225,7 +223,11 @@ export async function emitReceiptForBusiness(
           adeResponse: adeResponse as unknown as Record<string, unknown>,
         })
         .where(eq(commercialDocuments.id, documentId));
-      return { error: `Scontrino rifiutato dall'AdE: ${errorDesc}` };
+      const codeList =
+        errorCodes.length > 0 ? ` (${errorCodes.join(", ")})` : "";
+      return {
+        error: `Scontrino rifiutato dall'AdE${codeList}. Verifica i dati e riprova.`,
+      };
     }
 
     await db

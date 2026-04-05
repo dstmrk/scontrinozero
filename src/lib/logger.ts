@@ -40,10 +40,63 @@ const REDACT_PATHS = [
   "*.resetLink",
 ];
 
+/**
+ * Safe allowlist of context fields that may be sent to Sentry.
+ * IMPORTANT: pino's redaction runs during serialisation, AFTER the logMethod
+ * hook fires — so `inputArgs[0]` is the raw object at hook time.
+ * This function must be called before any Sentry capture to prevent PII/secrets
+ * (password, token, codiceFiscale, actionLink, cookie, …) from leaking to the
+ * third-party observability platform.
+ */
+export function sanitizeForTelemetry(obj: unknown): Record<string, unknown> {
+  if (typeof obj !== "object" || obj === null) return {};
+
+  const raw = obj as Record<string, unknown>;
+
+  // Only forward these safe, non-sensitive context keys.
+  const SAFE_KEYS: ReadonlyArray<string> = [
+    "requestId",
+    "path",
+    "method",
+    "userId",
+    "eventType",
+    "statusCode",
+    "documentId",
+    "businessId",
+    "voidDocumentId",
+    "saleDocumentId",
+    "apiKeyId",
+    "adeTransactionId",
+    "adeProgressivo",
+    "adeErrorCodes",
+    "action",
+    "ip",
+    "critical",
+  ];
+
+  const safe: Record<string, unknown> = {};
+  for (const key of SAFE_KEYS) {
+    if (key in raw) {
+      safe[key] = raw[key];
+    }
+  }
+
+  // Include error as {name, message} only — never the full stack or cause chain
+  // which may embed sensitive request data.
+  const rawErr = raw["err"];
+  if (rawErr instanceof Error) {
+    safe["err"] = { name: rawErr.name, message: rawErr.message };
+  }
+
+  return safe;
+}
+
 // pino numeric levels: error=50, fatal=60
 const PINO_ERROR_LEVEL = 50;
 
 function captureToSentry(obj: unknown, msg?: string): void {
+  const sanitized = sanitizeForTelemetry(obj);
+
   if (
     typeof obj === "object" &&
     obj !== null &&
@@ -51,7 +104,7 @@ function captureToSentry(obj: unknown, msg?: string): void {
     (obj as { err: unknown }).err instanceof Error
   ) {
     Sentry.captureException((obj as { err: Error }).err, {
-      extra: obj as Record<string, unknown>,
+      extra: sanitized,
     });
   } else if (obj instanceof Error) {
     Sentry.captureException(obj);
