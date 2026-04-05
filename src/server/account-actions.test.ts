@@ -227,5 +227,27 @@ describe("account-actions", () => {
         expect.objectContaining({ to: FAKE_USER.email }),
       );
     });
+
+    it("logs critical error and still redirects when profile DB delete throws (auth already deleted)", async () => {
+      // Regression guard: after auth-first deletion, a transient DB error on the
+      // profile delete must NOT surface as an unhandled exception. The function
+      // must catch it, log critical (for manual cleanup), and redirect — because
+      // the user's auth entry is already gone and returning { error } would leave
+      // them stranded with no way to retry via the UI.
+      mockDeleteReturning.mockRejectedValue(new Error("DB connection lost"));
+
+      const { deleteAccount } = await import("./account-actions");
+      // Must not throw
+      await deleteAccount();
+
+      // Auth was already deleted, so redirect still happens
+      expect(mockRedirect).toHaveBeenCalledWith("/");
+      // Critical error must be logged for ops to clean up the orphaned profile
+      const { logger } = await import("@/lib/logger");
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ critical: true, userId: FAKE_USER.id }),
+        expect.stringContaining("manual cleanup"),
+      );
+    });
   });
 });

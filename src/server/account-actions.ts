@@ -69,22 +69,35 @@ export async function deleteAccount(): Promise<AccountActionResult> {
   }
 
   // 2. Delete profile — FK cascade removes everything linked to this user.
-  //    Auth entry is already gone at this point. If this fails, the profile
-  //    is orphaned (no login possible) and requires manual cleanup:
-  //    DELETE FROM profiles WHERE auth_user_id = '<userId>' in Supabase dashboard.
+  //    Auth entry is already gone at this point. If this fails (transient DB error
+  //    or row not found), we log a critical error and continue to redirect:
+  //    the user can no longer log in (auth is gone) so returning { error } would
+  //    leave them stranded. Manual cleanup: DELETE FROM profiles WHERE
+  //    auth_user_id = '<userId>' in Supabase dashboard.
   const db = getDb();
-  const deleted = await db
-    .delete(profiles)
-    .where(eq(profiles.authUserId, user.id))
-    .returning({ id: profiles.id });
+  try {
+    const deleted = await db
+      .delete(profiles)
+      .where(eq(profiles.authUserId, user.id))
+      .returning({ id: profiles.id });
 
-  if (deleted.length === 0) {
-    // Auth deleted but no profile found — already partially cleaned up or
-    // profile was never created. Log for awareness.
+    if (deleted.length === 0) {
+      // Auth deleted but no profile found — already partially cleaned up or
+      // profile was never created. Log for awareness.
+      logger.error(
+        { userId: user.id },
+        "deleteAccount: auth user deleted but profile not found",
+      );
+    }
+  } catch (err) {
+    // Auth is already deleted — the user cannot log in. The profile is now
+    // orphaned and requires manual cleanup. Log critical so ops are alerted.
     logger.error(
-      { userId: user.id },
-      "deleteAccount: auth user deleted but profile not found",
+      { userId: user.id, err, critical: true },
+      "deleteAccount: profile deletion failed after auth user removed — manual cleanup required",
     );
+    // Do not return { error } here: the user's auth entry is gone, so they
+    // cannot retry via the UI. Redirect so they are cleanly signed out.
   }
 
   // 3. Sign out current session (best-effort: auth user is already deleted;
