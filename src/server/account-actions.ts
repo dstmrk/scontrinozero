@@ -24,7 +24,10 @@ export type AccountActionResult = {
  *                         → commercial_documents → commercial_document_lines
  *                         → catalog_items
  *
- * After DB deletion, the Supabase auth user is removed via the admin API.
+ * Order: auth user is deleted FIRST so that if it fails we can return an error
+ * without having touched any application data. If the profile delete fails after
+ * auth deletion, we log a critical error (auth entry is gone so the user cannot
+ * log in again, but a profile orphan requires manual cleanup via Supabase dashboard).
  */
 export async function deleteAccount(): Promise<AccountActionResult> {
   let user;
@@ -34,28 +37,11 @@ export async function deleteAccount(): Promise<AccountActionResult> {
     return { error: "Non autenticato." };
   }
 
-  const db = getDb();
-
-  // 1. Delete profile — FK cascade removes everything linked to this user
-  const deleted = await db
-    .delete(profiles)
-    .where(eq(profiles.authUserId, user.id))
-    .returning({ id: profiles.id });
-
-  if (deleted.length === 0) {
-    logger.error({ userId: user.id }, "deleteAccount: profile not found");
-    return { error: "Profilo non trovato." };
-  }
-
-  // 2. Sign out current session before deleting the auth user.
-  // Supabase signOut may fail or behave unexpectedly if called after the
-  // auth user has already been removed, so we invalidate the session first.
-  const supabase = await createServerSupabaseClient();
-  await supabase.auth.signOut();
-
-  // 3. Delete auth user via admin API (service role key).
-  // Retry up to 3 times: a transient failure would leave an orphan auth entry
-  // that blocks re-registration with the same email.
+  // 1. Delete auth user via admin API first (service role key).
+  //    Retry up to 3 times with exponential backoff. If all retries fail, return
+  //    an error — the profile is still intact so the user can log in and retry.
+  //    Supabase automatically invalidates all sessions when the auth user is
+  //    removed, so an explicit signOut before deletion is not needed here.
   const adminClient = createAdminSupabaseClient();
   let deleteAuthError: Error | null = null;
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -70,14 +56,48 @@ export async function deleteAccount(): Promise<AccountActionResult> {
     }
   }
   if (deleteAuthError) {
-    // All retries exhausted. Profile is deleted but auth entry persists —
-    // the user cannot log in but CAN be blocked from re-registering.
-    // Requires manual cleanup via Supabase dashboard or admin script.
+    // All retries exhausted. Profile is still intact — the user can log in
+    // and retry the deletion later.
     logger.error(
-      { userId: user.id, err: deleteAuthError },
-      "deleteAccount: auth user deletion failed after retries — manual cleanup required",
+      { userId: user.id, err: deleteAuthError, critical: true },
+      "deleteAccount: auth user deletion failed after retries — account not deleted",
+    );
+    return {
+      error:
+        "Eliminazione account fallita. Riprova oppure contatta il supporto.",
+    };
+  }
+
+  // 2. Delete profile — FK cascade removes everything linked to this user.
+  //    Auth entry is already gone at this point. If this fails, the profile
+  //    is orphaned (no login possible) and requires manual cleanup:
+  //    DELETE FROM profiles WHERE auth_user_id = '<userId>' in Supabase dashboard.
+  const db = getDb();
+  const deleted = await db
+    .delete(profiles)
+    .where(eq(profiles.authUserId, user.id))
+    .returning({ id: profiles.id });
+
+  if (deleted.length === 0) {
+    // Auth deleted but no profile found — already partially cleaned up or
+    // profile was never created. Log for awareness.
+    logger.error(
+      { userId: user.id },
+      "deleteAccount: auth user deleted but profile not found",
     );
   }
+
+  // 3. Sign out current session (best-effort: auth user is already deleted;
+  //    cookies may linger but cannot be used for re-authentication).
+  const supabase = await createServerSupabaseClient();
+  await supabase.auth
+    .signOut()
+    .catch((err) =>
+      logger.warn(
+        { err },
+        "signOut after account deletion failed (non-critical)",
+      ),
+    );
 
   logger.info({ userId: user.id }, "Account deleted");
 
