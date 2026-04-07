@@ -98,16 +98,14 @@ export default function ApiDocsPage() {
           <code>https://api.sandbox.scontrinozero.it/v1</code>
         </pre>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Il sandbox è identico alla produzione, ma ogni chiamata all&apos;AdE
-          è simulata — nessun documento viene trasmesso. Le risposte hanno la
+          Il sandbox è identico alla produzione, ma ogni chiamata all&apos;AdE è
+          simulata — nessun documento viene trasmesso. Le risposte hanno la
           stessa struttura di quelle reali, incluso un{" "}
           <code className="bg-muted rounded px-1 font-mono text-xs">
             adeTransactionId
           </code>{" "}
           fittizio (prefisso{" "}
-          <code className="bg-muted rounded px-1 font-mono text-xs">
-            MOCK-
-          </code>
+          <code className="bg-muted rounded px-1 font-mono text-xs">MOCK-</code>
           ).
         </p>
         <ul className="text-muted-foreground mt-3 list-disc space-y-1 pl-5 text-sm leading-relaxed">
