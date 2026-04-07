@@ -88,6 +88,48 @@ export default function ApiDocsPage() {
           <code>https://api.scontrinozero.it/v1</code>
         </pre>
 
+        {/* ─── Sandbox ─── */}
+        <h2 className="mt-12 text-xl font-semibold">Sandbox</h2>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Per sviluppare e testare la tua integrazione senza emettere scontrini
+          reali all&apos;Agenzia delle Entrate, usa l&apos;ambiente sandbox:
+        </p>
+        <pre className="bg-muted mt-3 overflow-x-auto rounded-md p-4 font-mono text-xs leading-relaxed">
+          <code>https://api.sandbox.scontrinozero.it/v1</code>
+        </pre>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Il sandbox è identico alla produzione, ma ogni chiamata all&apos;AdE
+          è simulata — nessun documento viene trasmesso. Le risposte hanno la
+          stessa struttura di quelle reali, incluso un{" "}
+          <code className="bg-muted rounded px-1 font-mono text-xs">
+            adeTransactionId
+          </code>{" "}
+          fittizio (prefisso{" "}
+          <code className="bg-muted rounded px-1 font-mono text-xs">
+            MOCK-
+          </code>
+          ).
+        </p>
+        <ul className="text-muted-foreground mt-3 list-disc space-y-1 pl-5 text-sm leading-relaxed">
+          <li>
+            Registra un account separato su{" "}
+            <strong>sandbox.scontrinozero.it</strong> (non collegato alla
+            produzione).
+          </li>
+          <li>
+            Le credenziali Fisconline accettano qualsiasi valore nel sandbox.
+          </li>
+          <li>I dati sandbox possono essere resettati senza preavviso.</li>
+          <li>
+            La chiave API sandbox inizia sempre con{" "}
+            <code className="bg-muted rounded px-1 font-mono text-xs">
+              szk_live_
+            </code>{" "}
+            — è un token di accesso all&apos;ambiente sandbox, non alla
+            produzione.
+          </li>
+        </ul>
+
         {/* ─── Endpoint ─── */}
         <h2 className="mt-12 text-xl font-semibold">Endpoint</h2>
         <div className="text-muted-foreground mt-1 text-sm">

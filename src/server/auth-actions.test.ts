@@ -576,6 +576,42 @@ describe("auth-actions", () => {
 
       expect(mockSignUp).toHaveBeenCalled();
     });
+
+    it("APP_HOSTNAME takes precedence over NEXT_PUBLIC_APP_HOSTNAME for Turnstile validation", async () => {
+      process.env.APP_HOSTNAME = "sandbox.scontrinozero.it";
+      process.env.NEXT_PUBLIC_APP_HOSTNAME = "app.scontrinozero.it";
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          hostname: "sandbox.scontrinozero.it",
+        }),
+      });
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-1" } },
+        error: null,
+      });
+
+      const { signUp } = await import("./auth-actions");
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+          }),
+        );
+      } catch (err) {
+        if (!isRedirectError(err)) throw err;
+      }
+
+      expect(mockSignUp).toHaveBeenCalled();
+
+      delete process.env.APP_HOSTNAME;
+    });
   });
 
   describe("signIn", () => {
@@ -837,6 +873,34 @@ describe("auth-actions", () => {
       expect(mockSendEmail).toHaveBeenCalledWith(
         expect.objectContaining({ to: "test@example.com" }),
       );
+    });
+
+    it("APP_HOSTNAME takes precedence over NEXT_PUBLIC_APP_HOSTNAME for action_link validation", async () => {
+      process.env.APP_HOSTNAME = "sandbox.scontrinozero.it";
+      process.env.NEXT_PUBLIC_APP_HOSTNAME = "app.scontrinozero.it";
+      mockGenerateLink.mockResolvedValueOnce({
+        data: {
+          properties: {
+            action_link:
+              "https://sandbox.scontrinozero.it/auth/recovery?token=abc",
+          },
+        },
+        error: null,
+      });
+
+      const { resetPassword } = await import("./auth-actions");
+      try {
+        await resetPassword(formData({ email: "test@example.com" }));
+      } catch {
+        // redirect expected
+      }
+
+      await Promise.resolve();
+      expect(mockSendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ to: "test@example.com" }),
+      );
+
+      delete process.env.APP_HOSTNAME;
     });
   });
 

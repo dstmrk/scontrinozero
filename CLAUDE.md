@@ -356,20 +356,27 @@ In particolare: `NEXT_PUBLIC_TURNSTILE_SITE_KEY` — se manca al build, Turnstil
 - I componenti marketing (`src/components/marketing/**`) sono esclusi dalla coverage
   (pura UI presentazionale, zero logica di business)
 
-## Ambienti: test e produzione
+## Ambienti: sandbox e produzione
 
 ### Due ambienti sulla stessa VPS
 
-|                   | **Test**                               | **Produzione**               |
-| ----------------- | -------------------------------------- | ---------------------------- |
-| URL               | `test.scontrinozero.it`                | `scontrinozero.it`           |
-| Cloudflare Tunnel | Route separata verso container test    | Route verso container prod   |
-| Docker Compose    | `/opt/scontrinozero-test/`             | `/opt/scontrinozero/`        |
-| DB Supabase       | Progetto Supabase separato (free tier) | Progetto Supabase principale |
-| Variabile         | `ADE_MODE=mock`                        | `ADE_MODE=real`              |
-| Stripe            | Stripe test mode (chiavi `sk_test_*`)  | Stripe live mode             |
+|                   | **Sandbox**                                   | **Produzione**               |
+| ----------------- | --------------------------------------------- | ---------------------------- |
+| URL               | `sandbox.scontrinozero.it`                    | `scontrinozero.it`           |
+| API URL           | `api.sandbox.scontrinozero.it`                | `api.scontrinozero.it`       |
+| Cloudflare Tunnel | Route separata verso container sandbox        | Route verso container prod   |
+| Docker Compose    | `/opt/scontrinozero-sandbox/`                 | `/opt/scontrinozero/`        |
+| DB Supabase       | Progetto Supabase separato (free tier)        | Progetto Supabase principale |
+| Variabile         | `ADE_MODE=mock`                               | `ADE_MODE=real`              |
+| Stripe            | Stripe test mode (chiavi `sk_test_*`)         | Stripe live mode             |
+| Scopo             | Test integrazione API per sviluppatori terzi  | Utenti finali                |
 
-### Strategia mock AdE per ambiente test
+**Nota runtime hostname:** `APP_HOSTNAME` (senza prefisso `NEXT_PUBLIC_`) è una
+variabile runtime che sovrascrive il valore baked nell'immagine Docker. Va impostata
+a `sandbox.scontrinozero.it` nel `.env` del container sandbox per la validazione
+Turnstile e dei link email. Utile anche per installazioni self-hosted su dominio custom.
+
+### Strategia mock AdE per ambiente sandbox
 
 L'integrazione AdE usa un **pattern adapter/strategy**:
 
@@ -379,7 +386,7 @@ L'integrazione AdE usa un **pattern adapter/strategy**:
   preparazione payload) ma si ferma prima dell'invio HTTP all'AdE, restituendo
   una risposta simulata
 - Controllato da `ADE_MODE=real|mock` (variabile d'ambiente)
-- Il codice in test è **identico** a quello in produzione, cambia solo l'ultimo step
+- Il codice in sandbox è **identico** a quello in produzione, cambia solo l'ultimo step
 
 ### Flusso di rilascio (tag-based)
 

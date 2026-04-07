@@ -66,7 +66,9 @@ async function verifyCaptcha(token: string | null): Promise<boolean> {
     };
     if (!data.success) return false;
     const expectedHostname =
-      process.env.NEXT_PUBLIC_APP_HOSTNAME ?? "app.scontrinozero.it";
+      process.env.APP_HOSTNAME ?? // runtime override (sandbox, self-hosted)
+      process.env.NEXT_PUBLIC_APP_HOSTNAME ?? // baked at build time
+      "app.scontrinozero.it";
     return data.hostname === expectedHostname;
   } catch (err) {
     logger.error({ err }, "Turnstile verification request failed");
@@ -296,7 +298,9 @@ export async function resetPassword(
   // Parse the URL explicitly instead of using startsWith — a prefix check can be
   // bypassed via subdomain spoofing (e.g., https://app.scontrinozero.it.evil.tld/).
   const expectedHostname =
-    process.env.NEXT_PUBLIC_APP_HOSTNAME ?? "app.scontrinozero.it";
+    process.env.APP_HOSTNAME ?? // runtime override (sandbox, self-hosted)
+    process.env.NEXT_PUBLIC_APP_HOSTNAME ?? // baked at build time
+    "app.scontrinozero.it";
   const actionLink = data.properties.action_link;
   let parsedActionLink: URL | null = null;
   try {
