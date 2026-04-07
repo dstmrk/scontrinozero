@@ -106,7 +106,7 @@ export default function ApiDocsPage() {
           </code>{" "}
           fittizio (prefisso{" "}
           <code className="bg-muted rounded px-1 font-mono text-xs">MOCK-</code>
-          ).
+          {")."}
         </p>
         <ul className="text-muted-foreground mt-3 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
