@@ -3,6 +3,10 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
+const HELP_BASE = process.env.NEXT_PUBLIC_HELP_HOSTNAME
+  ? `https://${process.env.NEXT_PUBLIC_HELP_HOSTNAME}`
+  : "/help";
+
 export const metadata: Metadata = {
   title: "API per sviluppatori | ScontrinoZero",
   description:
@@ -14,7 +18,7 @@ export default function ApiDocsPage() {
     <section className="px-4 py-16">
       <article className="mx-auto max-w-3xl">
         <Link
-          href="/help"
+          href={HELP_BASE}
           className="text-muted-foreground hover:text-foreground mb-8 inline-flex items-center gap-1 text-sm transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
