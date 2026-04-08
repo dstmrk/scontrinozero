@@ -98,7 +98,7 @@ export default function ApiDocsPage() {
           reali all&apos;Agenzia delle Entrate, usa l&apos;ambiente sandbox:
         </p>
         <pre className="bg-muted mt-3 overflow-x-auto rounded-md p-4 font-mono text-xs leading-relaxed">
-          <code>https://api.sandbox.scontrinozero.it/v1</code>
+          <code>https://api-sandbox.scontrinozero.it/v1</code>
         </pre>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Il sandbox è identico alla produzione, ma ogni chiamata all&apos;AdE è
