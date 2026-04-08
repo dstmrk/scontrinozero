@@ -20,9 +20,9 @@ import {
   type ApiKeyListItem,
 } from "@/server/api-key-actions";
 
-type Props = {
+type Props = Readonly<{
   businessId: string;
-};
+}>;
 
 export function ApiKeySection({ businessId }: Props) {
   const queryClient = useQueryClient();
@@ -39,11 +39,11 @@ export function ApiKeySection({ businessId }: Props) {
 
   const createMutation = useMutation({
     mutationFn: () => createApiKey(businessId, keyName),
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       if (result.error) return;
       setNewKeyRaw(result.apiKeyRaw ?? null);
       setKeyName("");
-      void queryClient.invalidateQueries({
+      await queryClient.invalidateQueries({
         queryKey: ["api-keys", businessId],
       });
     },
@@ -51,9 +51,9 @@ export function ApiKeySection({ businessId }: Props) {
 
   const revokeMutation = useMutation({
     mutationFn: (keyId: string) => revokeApiKey(keyId),
-    onSuccess: () => {
+    onSuccess: async () => {
       setRevokeTargetId(null);
-      void queryClient.invalidateQueries({
+      await queryClient.invalidateQueries({
         queryKey: ["api-keys", businessId],
       });
     },
@@ -140,8 +140,8 @@ export function ApiKeySection({ businessId }: Props) {
       <Dialog
         open={createOpen}
         onOpenChange={(open) => {
-          if (!open) handleCreateClose();
-          else setCreateOpen(true);
+          if (open) setCreateOpen(true);
+          else handleCreateClose();
         }}
       >
         <DialogContent>

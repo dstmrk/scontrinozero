@@ -86,8 +86,7 @@ export async function authenticateApiKey(
   // LAST_USED_THROTTLE_MS fa, per evitare write amplification su burst di
   // richieste consecutive dalla stessa key.
   const threshold = new Date(Date.now() - LAST_USED_THROTTLE_MS);
-  void db
-    .update(apiKeys)
+  db.update(apiKeys)
     .set({ lastUsedAt: new Date() })
     .where(
       and(

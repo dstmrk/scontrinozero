@@ -78,6 +78,13 @@ export function AdeCredentialsSection({
     });
   }
 
+  const buttonLabel =
+    verifyState.status === "pending"
+      ? "Verifica in corso…"
+      : verifyState.status === "error"
+        ? "Riprova"
+        : "Verifica connessione";
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
@@ -100,11 +107,7 @@ export function AdeCredentialsSection({
           ) : (
             <RefreshCw className="mr-2 h-4 w-4" />
           )}
-          {verifyState.status === "pending"
-            ? "Verifica in corso…"
-            : verifyState.status === "error"
-              ? "Riprova"
-              : "Verifica connessione"}
+          {buttonLabel}
         </Button>
       </div>
 
