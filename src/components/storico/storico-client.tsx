@@ -199,8 +199,14 @@ export function StoricoClient({
         className="flex flex-wrap items-end gap-3 rounded-lg border px-3 py-2"
       >
         <div className="min-w-[200px]">
-          <label className="mb-1 block text-xs font-medium">Periodo</label>
-          <DateRangePicker value={dateRange} onChange={setDateRange} />
+          <label htmlFor="periodo" className="mb-1 block text-xs font-medium">
+            Periodo
+          </label>
+          <DateRangePicker
+            id="periodo"
+            value={dateRange}
+            onChange={setDateRange}
+          />
         </div>
         <div className="min-w-[140px]">
           <label

@@ -21,6 +21,7 @@ interface DateRangePickerProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  id?: string;
 }
 
 export function DateRangePicker({
@@ -29,6 +30,7 @@ export function DateRangePicker({
   placeholder = "Seleziona periodo",
   className,
   disabled = false,
+  id,
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -50,6 +52,7 @@ export function DateRangePicker({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          id={id}
           type="button"
           variant="outline"
           disabled={disabled}
