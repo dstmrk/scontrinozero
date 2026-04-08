@@ -187,6 +187,11 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      # Opt into Node.js 24 runtime now; trivy-action@v0.35.0 pins
+      # actions/cache@v4.2.4 (node20) internally — force node24 until
+      # trivy-action ships a release that depends on actions/cache@v5.
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: Download built image archive
         uses: actions/download-artifact@v8
@@ -211,7 +216,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Trivy — Docker image scan
-        uses: aquasecurity/trivy-action@0.35.0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: ${{ steps.image-ref.outputs.value }}
           format: table
