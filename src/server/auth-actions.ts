@@ -7,7 +7,11 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { profiles } from "@/db/schema";
-import { isValidEmail, isStrongPassword } from "@/lib/validation";
+import {
+  isValidEmail,
+  isStrongPassword,
+  normalizeEmail,
+} from "@/lib/validation";
 import { getClientIp } from "@/lib/get-client-ip";
 import { RateLimiter } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
@@ -211,7 +215,7 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
 }
 
 export async function signIn(formData: FormData): Promise<AuthActionResult> {
-  const email = formData.get("email") as string;
+  const email = normalizeEmail((formData.get("email") as string) ?? "");
   const password = formData.get("password") as string;
 
   if (!email || !isValidEmail(email)) {
@@ -239,7 +243,7 @@ export async function signIn(formData: FormData): Promise<AuthActionResult> {
 export async function signInWithMagicLink(
   formData: FormData,
 ): Promise<AuthActionResult> {
-  const email = formData.get("email") as string;
+  const email = normalizeEmail((formData.get("email") as string) ?? "");
 
   if (!email || !isValidEmail(email)) {
     return { error: "Email non valida." };
@@ -269,7 +273,7 @@ export async function signOut(): Promise<void> {
 export async function resetPassword(
   formData: FormData,
 ): Promise<AuthActionResult> {
-  const email = formData.get("email") as string;
+  const email = normalizeEmail((formData.get("email") as string) ?? "");
 
   if (!email || !isValidEmail(email)) {
     return { error: "Email non valida." };

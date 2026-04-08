@@ -136,6 +136,23 @@ describe("POST /api/v1/receipts/[id]/void", () => {
     });
   });
 
+  describe("payload size", () => {
+    it("returns 413 when payload exceeds 8 KB", async () => {
+      const { POST } = await import("@/app/api/v1/receipts/[id]/void/route");
+      const oversizedBody = "x".repeat(9 * 1024);
+      const req = new Request(
+        `https://example.com/api/v1/receipts/${VALID_UUID}/void`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: oversizedBody,
+        },
+      );
+      const res = await POST(req, makeParams(VALID_UUID));
+      expect(res.status).toBe(413);
+    });
+  });
+
   describe("business logic", () => {
     it("returns 200 on successful void", async () => {
       const { POST } = await import("@/app/api/v1/receipts/[id]/void/route");

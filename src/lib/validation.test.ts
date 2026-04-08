@@ -3,6 +3,7 @@ import {
   isValidEmail,
   isStrongPassword,
   isValidLotteryCode,
+  normalizeEmail,
 } from "./validation";
 
 describe("isStrongPassword", () => {
@@ -89,6 +90,28 @@ describe("isValidEmail", () => {
     it("rejects multiple @ signs", () => {
       expect(isValidEmail("user@@example.com")).toBe(false);
     });
+  });
+});
+
+describe("normalizeEmail", () => {
+  it("lowercases uppercase email", () => {
+    expect(normalizeEmail("USER@EXAMPLE.COM")).toBe("user@example.com");
+  });
+
+  it("trims leading and trailing whitespace", () => {
+    expect(normalizeEmail("  user@example.com  ")).toBe("user@example.com");
+  });
+
+  it("trims and lowercases together", () => {
+    expect(normalizeEmail("  JOHN@EXAMPLE.COM  ")).toBe("john@example.com");
+  });
+
+  it("leaves an already-normalised email unchanged", () => {
+    expect(normalizeEmail("user@example.com")).toBe("user@example.com");
+  });
+
+  it("handles an empty string", () => {
+    expect(normalizeEmail("")).toBe("");
   });
 });
 

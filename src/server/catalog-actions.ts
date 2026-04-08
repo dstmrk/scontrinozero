@@ -44,6 +44,9 @@ function validateItemInput(
   if (!description.trim()) {
     return { error: "La descrizione è obbligatoria." };
   }
+  if (description.trim().length > 200) {
+    return { error: "La descrizione non può superare 200 caratteri." };
+  }
   const priceStr = defaultPrice === "" ? null : (defaultPrice ?? null);
   if (priceStr !== null) {
     const price = Number.parseFloat(priceStr);

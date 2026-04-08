@@ -4,6 +4,7 @@ import { authenticateApiKey, isApiKeyAuthError } from "@/lib/api-auth";
 import { canUseApi } from "@/lib/plans";
 import { emitReceiptForBusiness } from "@/lib/services/receipt-service";
 import { logger } from "@/lib/logger";
+import { readJsonWithLimit } from "@/lib/request-utils";
 import type { SubmitReceiptInput } from "@/types/cassa";
 
 const receiptBodySchema = z.object({
@@ -11,8 +12,20 @@ const receiptBodySchema = z.object({
     .array(
       z.object({
         description: z.string().min(1).max(200),
-        quantity: z.number().positive().max(9999),
-        grossUnitPrice: z.number().nonnegative().max(999_999.99),
+        // max 3 decimal places — matches DB column numeric(10,3).
+        // parseFloat(toFixed(3)) === v: roundtrips cleanly through string
+        // representation and handles IEEE-754 FP edge cases correctly.
+        quantity: z
+          .number()
+          .positive()
+          .max(9999)
+          .refine((v) => parseFloat(v.toFixed(3)) === v, "max 3 decimali"),
+        // max 2 decimal places — matches DB column numeric(10,2).
+        grossUnitPrice: z
+          .number()
+          .nonnegative()
+          .max(999_999.99)
+          .refine((v) => parseFloat(v.toFixed(2)) === v, "max 2 decimali"),
         vatCode: z.enum([
           "4",
           "5",
@@ -94,12 +107,15 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   // ── Parse body ────────────────────────────────────────────────────────────
-  let rawBody: unknown;
-  try {
-    rawBody = await request.json();
-  } catch {
-    return Response.json({ error: "Body non valido." }, { status: 400 });
+  // 32 KB covers even 100-line receipts with room to spare; rejects oversized
+  // payloads before JSON.parse to prevent memory/CPU pressure (DoS guard).
+  const bodyResult = await readJsonWithLimit(request, 32 * 1024);
+  if (!bodyResult.ok) {
+    return bodyResult.tooLarge
+      ? Response.json({ error: "Payload troppo grande." }, { status: 413 })
+      : Response.json({ error: "Body non valido." }, { status: 400 });
   }
+  const rawBody = bodyResult.data;
 
   const parsed = receiptBodySchema.safeParse(rawBody);
   if (!parsed.success) {

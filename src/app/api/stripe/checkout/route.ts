@@ -5,6 +5,7 @@ import { getAuthenticatedUser } from "@/lib/server-auth";
 import { getStripe, isValidPriceId, intervalFromPriceId } from "@/lib/stripe";
 import { RateLimiter } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
+import { readJsonWithLimit } from "@/lib/request-utils";
 
 const checkoutLimiter = new RateLimiter({
   maxRequests: 10,
@@ -31,12 +32,14 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   // ── Validate body ─────────────────────────────────────────────────────────
-  let body: Record<string, unknown>;
-  try {
-    body = (await req.json()) as Record<string, unknown>;
-  } catch {
-    return Response.json({ error: "Richiesta non valida." }, { status: 400 });
+  // 8 KB is ample for { priceId } — rejects oversized payloads before JSON.parse.
+  const bodyResult = await readJsonWithLimit(req, 8 * 1024);
+  if (!bodyResult.ok) {
+    return bodyResult.tooLarge
+      ? Response.json({ error: "Payload troppo grande." }, { status: 413 })
+      : Response.json({ error: "Richiesta non valida." }, { status: 400 });
   }
+  const body = bodyResult.data as Record<string, unknown>;
 
   const priceId = typeof body.priceId === "string" ? body.priceId : null;
   if (!priceId || !isValidPriceId(priceId)) {
@@ -56,9 +59,21 @@ export async function POST(req: Request): Promise<Response> {
   let stripeCustomerId = existingSub?.stripeCustomerId ?? null;
 
   if (!stripeCustomerId) {
-    const customer = await stripe.customers.create({
-      email: user.email ?? undefined,
-    });
+    let customer: Awaited<ReturnType<typeof stripe.customers.create>>;
+    try {
+      customer = await stripe.customers.create({
+        email: user.email ?? undefined,
+      });
+    } catch (err) {
+      logger.error({ err, userId: user.id }, "Stripe customer creation failed");
+      return Response.json(
+        {
+          error:
+            "Servizio di pagamento temporaneamente non disponibile. Riprova tra qualche istante.",
+        },
+        { status: 503 },
+      );
+    }
 
     const interval = intervalFromPriceId(priceId) ?? "month";
 
@@ -96,16 +111,31 @@ export async function POST(req: Request): Promise<Response> {
   // ── Create Stripe Checkout Session ────────────────────────────────────────
   // No Stripe trial: il trial è gestito internamente da ScontrinoZero.
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const session = await stripe.checkout.sessions.create({
-    customer: stripeCustomerId ?? undefined,
-    line_items: [{ price: priceId, quantity: 1 }],
-    mode: "subscription",
-    subscription_data: {
-      metadata: { userId: user.id },
-    },
-    success_url: `${appUrl}/dashboard/settings?success=1`,
-    cancel_url: `${appUrl}/dashboard/settings?canceled=1`,
-  });
+  let session: Awaited<ReturnType<typeof stripe.checkout.sessions.create>>;
+  try {
+    session = await stripe.checkout.sessions.create({
+      customer: stripeCustomerId ?? undefined,
+      line_items: [{ price: priceId, quantity: 1 }],
+      mode: "subscription",
+      subscription_data: {
+        metadata: { userId: user.id },
+      },
+      success_url: `${appUrl}/dashboard/settings?success=1`,
+      cancel_url: `${appUrl}/dashboard/settings?canceled=1`,
+    });
+  } catch (err) {
+    logger.error(
+      { err, userId: user.id },
+      "Stripe checkout session creation failed",
+    );
+    return Response.json(
+      {
+        error:
+          "Servizio di pagamento temporaneamente non disponibile. Riprova tra qualche istante.",
+      },
+      { status: 503 },
+    );
+  }
 
   return Response.json({ url: session.url });
 }

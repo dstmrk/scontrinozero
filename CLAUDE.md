@@ -137,6 +137,43 @@
     redirect attacks. If the check fails: log an error, do NOT send the email, and redirect
     the user to `/verify-email` with a generic message.
 
+19. **Body size guard before `JSON.parse` on every write endpoint.**
+    Never call `request.json()` directly on an API route that accepts arbitrary input.
+    Use a `readJsonWithLimit(req, maxBytes)` helper that reads the body as `ArrayBuffer`,
+    checks `byteLength` first, and only then calls `JSON.parse`. Return 413 on overflow.
+    Limits: 32 KB for receipt create (up to 100 lines), 8 KB for single-key bodies (void, checkout).
+    This prevents memory/CPU pressure from oversized payloads before any validation runs.
+
+20. **Monetary decimal precision must be enforced in the API layer, not only in the DB.**
+    DB columns `numeric(10,2)` and `numeric(10,3)` silently round/truncate overscale values.
+    The API layer must reject inputs with too many decimals (Zod `.refine`) so the client
+    never receives a confirmed receipt that contains different totals than what it submitted.
+    Refine pattern: `v => parseFloat(v.toFixed(2)) === v` for 2dp; `.toFixed(3)` for 3dp.
+    This roundtrips through the string representation and correctly handles IEEE-754 noise.
+    Do NOT use `Number.isInteger(Math.round(v * 100))` — `Math.round` always returns an integer,
+    so the check is vacuously true and never rejects anything.
+
+21. **Email normalisation must be uniform across ALL auth flows.**
+    `signUp` historically normalised the email (`trim().toLowerCase()`) but `signIn`,
+    `signInWithMagicLink`, and `resetPassword` did not, causing silent failures when users
+    typed `User@EXAMPLE.COM`. Centralise normalisation in a single `normalizeEmail()` helper
+    in `validation.ts` and apply it as the first line of every auth action before validation.
+
+22. **Wrap external SDK calls (Stripe, AdE, etc.) in try-catch — always.**
+    Uncaught errors from `stripe.customers.create()`, `stripe.checkout.sessions.create()`, or
+    any external service propagate as unhandled 500s with no log context, making incidents
+    impossible to diagnose. The correct pattern:
+    ```typescript
+    try {
+      result = await stripe.someMethod(…);
+    } catch (err) {
+      logger.error({ err, userId }, "Stripe <operation> failed");
+      return Response.json({ error: "Servizio temporaneamente non disponibile." }, { status: 503 });
+    }
+    ```
+    Use 503 (not 500) to signal transient external unavailability. B4 will later add a
+    `requestId` and structured error envelope on top.
+
 ## Progetto
 
 ScontrinoZero è un registratore di cassa virtuale (SaaS) mobile-first che consente a
@@ -144,7 +181,7 @@ esercenti e micro-attività di emettere scontrini elettronici e trasmettere i co
 all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la procedura
 "Documento Commerciale Online".
 
-**Versione corrente:** v1.1.3 ✅ (rilasciato in produzione) — roadmap completa in `PLAN.md`.
+**Versione corrente:** v1.1.4 ✅ (rilasciato in produzione) — roadmap completa in `PLAN.md`.
 
 **Prossima release:** v1.2.0 (PWA)
 
@@ -360,16 +397,16 @@ In particolare: `NEXT_PUBLIC_TURNSTILE_SITE_KEY` — se manca al build, Turnstil
 
 ### Due ambienti sulla stessa VPS
 
-|                   | **Sandbox**                                   | **Produzione**               |
-| ----------------- | --------------------------------------------- | ---------------------------- |
-| URL               | `sandbox.scontrinozero.it`                    | `scontrinozero.it`           |
-| API URL           | `api.sandbox.scontrinozero.it`                | `api.scontrinozero.it`       |
-| Cloudflare Tunnel | Route separata verso container sandbox        | Route verso container prod   |
-| Docker Compose    | `/opt/scontrinozero-sandbox/`                 | `/opt/scontrinozero/`        |
-| DB Supabase       | Progetto Supabase separato (free tier)        | Progetto Supabase principale |
-| Variabile         | `ADE_MODE=mock`                               | `ADE_MODE=real`              |
-| Stripe            | Stripe test mode (chiavi `sk_test_*`)         | Stripe live mode             |
-| Scopo             | Test integrazione API per sviluppatori terzi  | Utenti finali                |
+|                   | **Sandbox**                                  | **Produzione**               |
+| ----------------- | -------------------------------------------- | ---------------------------- |
+| URL               | `sandbox.scontrinozero.it`                   | `scontrinozero.it`           |
+| API URL           | `api.sandbox.scontrinozero.it`               | `api.scontrinozero.it`       |
+| Cloudflare Tunnel | Route separata verso container sandbox       | Route verso container prod   |
+| Docker Compose    | `/opt/scontrinozero-sandbox/`                | `/opt/scontrinozero/`        |
+| DB Supabase       | Progetto Supabase separato (free tier)       | Progetto Supabase principale |
+| Variabile         | `ADE_MODE=mock`                              | `ADE_MODE=real`              |
+| Stripe            | Stripe test mode (chiavi `sk_test_*`)        | Stripe live mode             |
+| Scopo             | Test integrazione API per sviluppatori terzi | Utenti finali                |
 
 **Nota runtime hostname:** `APP_HOSTNAME` (senza prefisso `NEXT_PUBLIC_`) è una
 variabile runtime che sovrascrive il valore baked nell'immagine Docker. Va impostata

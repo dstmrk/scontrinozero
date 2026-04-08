@@ -61,11 +61,29 @@ export async function saveBusiness(
   if (!firstName) {
     return { error: "Il nome è obbligatorio." };
   }
+  if (firstName.length > 80) {
+    return { error: "Il nome non può superare 80 caratteri." };
+  }
   if (!lastName) {
     return { error: "Il cognome è obbligatorio." };
   }
+  if (lastName.length > 80) {
+    return { error: "Il cognome non può superare 80 caratteri." };
+  }
+  if (businessName && businessName.length > 120) {
+    return { error: "La ragione sociale non può superare 120 caratteri." };
+  }
   if (!address) {
     return { error: "L'indirizzo è obbligatorio." };
+  }
+  if (address.length > 150) {
+    return { error: "L'indirizzo non può superare 150 caratteri." };
+  }
+  if (city && city.length > 80) {
+    return { error: "Il comune non può superare 80 caratteri." };
+  }
+  if (province && province.length > 3) {
+    return { error: "La provincia non può superare 3 caratteri." };
   }
   if (!zipCode || !/^\d{5}$/.test(zipCode)) {
     return { error: "CAP non valido (5 cifre numeriche)." };
@@ -254,17 +272,22 @@ export async function verifyAdeCredentials(
       const vatNumber = fiscalData.identificativiFiscali.partitaIva;
       const fiscalCode = fiscalData.identificativiFiscali.codiceFiscale;
 
-      await db
-        .update(businesses)
-        .set({ vatNumber, fiscalCode })
-        .where(eq(businesses.id, businessId));
+      // Wrap both DB writes in a transaction: if the profile update fails (e.g.
+      // unique constraint on partitaIva for trial-abuse detection), the businesses
+      // update must also be rolled back so neither record is left in a partial state.
+      await db.transaction(async (tx) => {
+        await tx
+          .update(businesses)
+          .set({ vatNumber, fiscalCode })
+          .where(eq(businesses.id, businessId));
 
-      // Anti-abuso trial: la P.IVA è UNIQUE su profiles per impedire trial multipli
-      // con email diverse ma stessa P.IVA. Vincolo DB garantisce atomicità.
-      await db
-        .update(profiles)
-        .set({ partitaIva: vatNumber })
-        .where(eq(profiles.authUserId, user.id));
+        // Anti-abuso trial: la P.IVA è UNIQUE su profiles per impedire trial multipli
+        // con email diverse ma stessa P.IVA. Vincolo DB garantisce atomicità.
+        await tx
+          .update(profiles)
+          .set({ partitaIva: vatNumber })
+          .where(eq(profiles.authUserId, user.id));
+      });
     } catch (err) {
       if (isUniqueConstraintViolation(err)) {
         logger.warn({ businessId }, "P.IVA già in uso — possibile abuso trial");

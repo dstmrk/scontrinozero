@@ -24,6 +24,15 @@ export function isValidLotteryCode(code: string): boolean {
 }
 
 /**
+ * Normalises an email address: trims whitespace and lowercases.
+ * Must be applied in every auth flow before validation and Supabase calls
+ * to ensure consistent treatment regardless of user input casing.
+ */
+export function normalizeEmail(raw: string): string {
+  return raw.trim().toLowerCase();
+}
+
+/**
  * Validates email format using linear-time string checks (no regex backtracking).
  * This is a structural check, not RFC 5322 compliance — real validation
  * happens when the confirmation email is delivered.
