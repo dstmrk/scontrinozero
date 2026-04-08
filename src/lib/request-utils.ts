@@ -24,7 +24,7 @@ export async function readJsonWithLimit(
   // still be caught by the streaming check below.
   const contentLength = req.headers.get("content-length");
   if (contentLength !== null) {
-    const declared = parseInt(contentLength, 10);
+    const declared = Number.parseInt(contentLength, 10);
     if (!Number.isNaN(declared) && declared > maxBytes) {
       return { ok: false, tooLarge: true };
     }

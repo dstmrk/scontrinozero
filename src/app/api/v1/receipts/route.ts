@@ -19,13 +19,19 @@ const receiptBodySchema = z.object({
           .number()
           .positive()
           .max(9999)
-          .refine((v) => parseFloat(v.toFixed(3)) === v, "max 3 decimali"),
+          .refine(
+            (v) => Number.parseFloat(v.toFixed(3)) === v,
+            "max 3 decimali",
+          ),
         // max 2 decimal places — matches DB column numeric(10,2).
         grossUnitPrice: z
           .number()
           .nonnegative()
           .max(999_999.99)
-          .refine((v) => parseFloat(v.toFixed(2)) === v, "max 2 decimali"),
+          .refine(
+            (v) => Number.parseFloat(v.toFixed(2)) === v,
+            "max 2 decimali",
+          ),
         vatCode: z.enum([
           "4",
           "5",
