@@ -40,8 +40,7 @@ export default function ApiDocsPage() {
         <h2 className="mt-12 text-xl font-semibold">Prerequisiti</h2>
         <ul className="text-muted-foreground mt-3 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
-            Account ScontrinoZero con <strong>Piano Pro</strong> attivo (o
-            Unlimited).
+            Account ScontrinoZero con <strong>Piano Pro</strong> attivo.
           </li>
           <li>
             {"Credenziali Fisconline configurate nella sezione "}
