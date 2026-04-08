@@ -223,6 +223,66 @@ describe("onboarding-actions", () => {
       expect(result.businessId).toBe("new-biz-id");
     });
 
+    it("returns error when firstName exceeds 80 characters", async () => {
+      const { saveBusiness } = await import("./onboarding-actions");
+      const result = await saveBusiness(
+        formData({ ...VALID_DATA, firstName: "A".repeat(81) }),
+      );
+      expect(result.error).toContain("80");
+    });
+
+    it("accepts firstName exactly 80 characters", async () => {
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      mockLimit.mockResolvedValueOnce([]);
+      mockReturning.mockResolvedValueOnce([{ id: "new-biz-id" }]);
+
+      const { saveBusiness } = await import("./onboarding-actions");
+      const result = await saveBusiness(
+        formData({ ...VALID_DATA, firstName: "A".repeat(80) }),
+      );
+      expect(result.error).toBeUndefined();
+    });
+
+    it("returns error when lastName exceeds 80 characters", async () => {
+      const { saveBusiness } = await import("./onboarding-actions");
+      const result = await saveBusiness(
+        formData({ ...VALID_DATA, lastName: "B".repeat(81) }),
+      );
+      expect(result.error).toContain("80");
+    });
+
+    it("returns error when businessName exceeds 120 characters", async () => {
+      const { saveBusiness } = await import("./onboarding-actions");
+      const result = await saveBusiness(
+        formData({ ...VALID_DATA, businessName: "X".repeat(121) }),
+      );
+      expect(result.error).toContain("120");
+    });
+
+    it("returns error when address exceeds 150 characters", async () => {
+      const { saveBusiness } = await import("./onboarding-actions");
+      const result = await saveBusiness(
+        formData({ ...VALID_DATA, address: "Y".repeat(151) }),
+      );
+      expect(result.error).toContain("150");
+    });
+
+    it("returns error when city exceeds 80 characters", async () => {
+      const { saveBusiness } = await import("./onboarding-actions");
+      const result = await saveBusiness(
+        formData({ ...VALID_DATA, city: "Z".repeat(81) }),
+      );
+      expect(result.error).toContain("80");
+    });
+
+    it("returns error when province exceeds 3 characters", async () => {
+      const { saveBusiness } = await import("./onboarding-actions");
+      const result = await saveBusiness(
+        formData({ ...VALID_DATA, province: "ROMA" }),
+      );
+      expect(result.error).toContain("3");
+    });
+
     it("propaga errore se la transazione fallisce (rollback garantito)", async () => {
       mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
       mockTransaction.mockRejectedValue(

@@ -111,7 +111,7 @@ export async function POST(request: Request): Promise<Response> {
   // payloads before JSON.parse to prevent memory/CPU pressure (DoS guard).
   const bodyResult = await readJsonWithLimit(request, 32 * 1024);
   if (!bodyResult.ok) {
-    return bodyResult.tooLarge
+    return "tooLarge" in bodyResult
       ? Response.json({ error: "Payload troppo grande." }, { status: 413 })
       : Response.json({ error: "Body non valido." }, { status: 400 });
   }

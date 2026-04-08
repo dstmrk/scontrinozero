@@ -204,6 +204,27 @@ describe("catalog-actions", () => {
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
+    it("ritorna errore se la descrizione supera 200 caratteri", async () => {
+      const { addCatalogItem } = await import("./catalog-actions");
+      const result = await addCatalogItem({
+        ...VALID_ADD_INPUT,
+        description: "A".repeat(201),
+      });
+
+      expect(result.error).toMatch(/200/);
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("accetta una descrizione di esattamente 200 caratteri", async () => {
+      const { addCatalogItem } = await import("./catalog-actions");
+      const result = await addCatalogItem({
+        ...VALID_ADD_INPUT,
+        description: "A".repeat(200),
+      });
+
+      expect(result.error).toBeUndefined();
+    });
+
     it("ritorna errore se il prezzo è negativo", async () => {
       const { addCatalogItem } = await import("./catalog-actions");
       const result = await addCatalogItem({

@@ -77,7 +77,7 @@ export async function POST(
   // 8 KB is generous for a void body (only idempotencyKey UUID needed).
   const bodyResult = await readJsonWithLimit(request, 8 * 1024);
   if (!bodyResult.ok) {
-    return bodyResult.tooLarge
+    return "tooLarge" in bodyResult
       ? Response.json({ error: "Payload troppo grande." }, { status: 413 })
       : Response.json({ error: "Body non valido." }, { status: 400 });
   }

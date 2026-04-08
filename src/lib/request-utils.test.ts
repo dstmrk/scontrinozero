@@ -58,4 +58,42 @@ describe("readJsonWithLimit", () => {
     const result = await readJsonWithLimit(req, 1024);
     expect(result).toEqual({ ok: true, data: [1, 2, 3] });
   });
+
+  describe("Content-Length pre-check", () => {
+    it("rejects early when Content-Length exceeds limit (before buffering)", async () => {
+      const body = JSON.stringify({ foo: "bar" });
+      const req = new Request("https://example.com/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "content-length": "9999",
+        },
+        body,
+      });
+      const result = await readJsonWithLimit(req, 10);
+      expect(result).toEqual({ ok: false, tooLarge: true });
+    });
+
+    it("proceeds normally when Content-Length is within limit", async () => {
+      const body = JSON.stringify({ foo: "bar" });
+      const req = new Request("https://example.com/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "content-length": String(body.length),
+        },
+        body,
+      });
+      const result = await readJsonWithLimit(req, 1024);
+      expect(result).toMatchObject({ ok: true });
+    });
+
+    it("falls through to byteLength check when Content-Length is absent", async () => {
+      // makeRequest does not set Content-Length; byteLength check still catches it
+      const body = "x".repeat(100);
+      const req = makeRequest(body);
+      const result = await readJsonWithLimit(req, 10);
+      expect(result).toEqual({ ok: false, tooLarge: true });
+    });
+  });
 });

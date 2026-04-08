@@ -35,7 +35,7 @@ export async function POST(req: Request): Promise<Response> {
   // 8 KB is ample for { priceId } — rejects oversized payloads before JSON.parse.
   const bodyResult = await readJsonWithLimit(req, 8 * 1024);
   if (!bodyResult.ok) {
-    return bodyResult.tooLarge
+    return "tooLarge" in bodyResult
       ? Response.json({ error: "Payload troppo grande." }, { status: 413 })
       : Response.json({ error: "Richiesta non valida." }, { status: 400 });
   }
