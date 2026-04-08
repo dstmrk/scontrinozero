@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = {
@@ -7,7 +8,14 @@ export const metadata: Metadata = {
     "Indice iniziale del centro assistenza ScontrinoZero con categorie e titoli degli articoli da pubblicare.",
 };
 
-const helpCategories = [
+interface HelpCategory {
+  name: string;
+  description: string;
+  articles: readonly string[];
+  href?: string;
+}
+
+const helpCategories: HelpCategory[] = [
   {
     name: "Partenza rapida",
     description: "Per iniziare in meno di 30 minuti.",
@@ -84,6 +92,7 @@ const helpCategories = [
       "Endpoint: emissione, stato e annullamento scontrino",
       "Codici IVA, rate limit e gestione errori",
     ],
+    href: "/help/api",
   },
   {
     name: "Abbonamento, fatture e supporto",
@@ -95,7 +104,7 @@ const helpCategories = [
       "Come contattare l'assistenza",
     ],
   },
-] as const;
+];
 
 export default function HelpHomePage() {
   return (
@@ -130,6 +139,14 @@ export default function HelpHomePage() {
                     <li key={article}>{article}</li>
                   ))}
                 </ul>
+                {category.href && (
+                  <Link
+                    href={category.href}
+                    className="text-primary mt-4 inline-block text-sm font-medium hover:underline"
+                  >
+                    Consulta la documentazione completa →
+                  </Link>
+                )}
               </CardContent>
             </Card>
           ))}
