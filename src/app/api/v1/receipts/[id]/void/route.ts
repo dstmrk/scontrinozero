@@ -5,6 +5,7 @@ import { canUseApi } from "@/lib/plans";
 import { voidReceiptForBusiness } from "@/lib/services/void-service";
 import { logger } from "@/lib/logger";
 import { isValidUuid } from "@/lib/uuid";
+import { readJsonWithLimit } from "@/lib/request-utils";
 
 const voidBodySchema = z.object({
   idempotencyKey: z.string().uuid(),
@@ -73,12 +74,14 @@ export async function POST(
   }
 
   // ── Parse body ────────────────────────────────────────────────────────────
-  let rawBody: unknown;
-  try {
-    rawBody = await request.json();
-  } catch {
-    return Response.json({ error: "Body non valido." }, { status: 400 });
+  // 8 KB is generous for a void body (only idempotencyKey UUID needed).
+  const bodyResult = await readJsonWithLimit(request, 8 * 1024);
+  if (!bodyResult.ok) {
+    return "tooLarge" in bodyResult
+      ? Response.json({ error: "Payload troppo grande." }, { status: 413 })
+      : Response.json({ error: "Body non valido." }, { status: 400 });
   }
+  const rawBody = bodyResult.data;
 
   const parsed = voidBodySchema.safeParse(rawBody);
   if (!parsed.success) {

@@ -171,4 +171,14 @@ describe("POST /api/stripe/portal", () => {
       }),
     );
   });
+
+  describe("Stripe error handling", () => {
+    it("returns 503 when billingPortal.sessions.create throws", async () => {
+      mockPortalSessionCreate.mockRejectedValue(new Error("Stripe timeout"));
+      const response = await POST(makeRequest());
+      expect(response.status).toBe(503);
+      const body = await response.json();
+      expect(body.error).toBeDefined();
+    });
+  });
 });

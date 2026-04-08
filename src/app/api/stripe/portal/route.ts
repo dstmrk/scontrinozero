@@ -43,10 +43,25 @@ async function createPortalSession(userId: string): Promise<Response | string> {
   // ── Create Billing Portal session ─────────────────────────────────────────
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const stripe = getStripe();
-  const session = await stripe.billingPortal.sessions.create({
-    customer: stripeCustomerId,
-    return_url: `${appUrl}/dashboard/settings`,
-  });
+  let session: Awaited<ReturnType<typeof stripe.billingPortal.sessions.create>>;
+  try {
+    session = await stripe.billingPortal.sessions.create({
+      customer: stripeCustomerId,
+      return_url: `${appUrl}/dashboard/settings`,
+    });
+  } catch (err) {
+    logger.error(
+      { err, userId },
+      "Stripe billing portal session creation failed",
+    );
+    return Response.json(
+      {
+        error:
+          "Servizio di pagamento temporaneamente non disponibile. Riprova tra qualche istante.",
+      },
+      { status: 503 },
+    );
+  }
 
   return session.url;
 }

@@ -71,6 +71,9 @@ export async function createApiKey(
   if (!trimmedName) {
     return { error: "Il nome della chiave è obbligatorio." };
   }
+  if (trimmedName.length > 64) {
+    return { error: "Il nome della chiave non può superare 64 caratteri." };
+  }
 
   const db = getDb();
 

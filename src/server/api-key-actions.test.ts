@@ -195,6 +195,21 @@ describe("createApiKey", () => {
     expect(mockInsert).not.toHaveBeenCalled();
   });
 
+  it("ritorna errore se il nome supera 64 caratteri", async () => {
+    const { createApiKey } = await import("./api-key-actions");
+    const result = await createApiKey("biz-uuid", "A".repeat(65));
+
+    expect(result.error).toMatch(/64/);
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it("accetta un nome di esattamente 64 caratteri", async () => {
+    const { createApiKey } = await import("./api-key-actions");
+    const result = await createApiKey("biz-uuid", "A".repeat(64));
+
+    expect(result.error).toBeUndefined();
+  });
+
   it("ritorna errore se ownership check fallisce", async () => {
     mockCheckBusinessOwnership.mockResolvedValue({
       error: "Business non trovato.",

@@ -238,4 +238,34 @@ describe("POST /api/stripe/checkout", () => {
     expect(mockSessionCreate).not.toHaveBeenCalled();
     expect(mockCustomerCreate).not.toHaveBeenCalled();
   });
+
+  describe("Stripe error handling", () => {
+    it("returns 503 when stripe.customers.create throws", async () => {
+      mockCustomerCreate.mockRejectedValue(new Error("Stripe network error"));
+      const response = await POST(
+        makeRequest({ priceId: "price_starter_monthly" }),
+      );
+      expect(response.status).toBe(503);
+      const body = await response.json();
+      expect(body.error).toBeDefined();
+    });
+
+    it("returns 503 when stripe.checkout.sessions.create throws", async () => {
+      // Existing customer scenario so customer.create is skipped
+      mockLimit.mockResolvedValue([{ stripeCustomerId: "cus_existing_456" }]);
+      mockSessionCreate.mockRejectedValue(new Error("Stripe timeout"));
+      const response = await POST(
+        makeRequest({ priceId: "price_starter_monthly" }),
+      );
+      expect(response.status).toBe(503);
+      const body = await response.json();
+      expect(body.error).toBeDefined();
+    });
+
+    it("does not call sessions.create when customers.create throws", async () => {
+      mockCustomerCreate.mockRejectedValue(new Error("Stripe error"));
+      await POST(makeRequest({ priceId: "price_starter_monthly" }));
+      expect(mockSessionCreate).not.toHaveBeenCalled();
+    });
+  });
 });

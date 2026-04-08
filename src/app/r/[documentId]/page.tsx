@@ -4,6 +4,17 @@ import type { Metadata } from "next";
 import { fetchPublicReceipt } from "@/lib/receipts/fetch-public-receipt";
 import { ShareButton } from "./share-button";
 
+// Static metadata — no DB query needed here.
+// Using a dynamic generateMetadata would double the DB fetch (metadata + page
+// component both call fetchPublicReceipt in the same RSC render tree), and
+// fetchPublicReceipt cannot be wrapped with cache() because the same function
+// is used from the /pdf Route Handler (a separate HTTP request where cache()
+// would create a false deduplication expectation).
+export const metadata: Metadata = {
+  title: "Documento Commerciale | ScontrinoZero",
+  robots: { index: false, follow: false },
+};
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function formatPrice(amount: number): string {
@@ -46,24 +57,6 @@ const PAYMENT_LABELS: Record<string, string> = {
   PC: "Contante",
   PE: "Elettronico",
 };
-
-// ─── Metadata ───────────────────────────────────────────────────────────────
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ documentId: string }>;
-}): Promise<Metadata> {
-  const { documentId } = await params;
-  const data = await fetchPublicReceipt(documentId);
-  if (!data) return { title: "Ricevuta non trovata" };
-
-  return {
-    title: `Ricevuta — ${data.biz.businessName}`,
-    description: `Documento commerciale del ${formatDate(data.doc.createdAt)} — ${data.biz.businessName}`,
-    robots: { index: false, follow: false },
-  };
-}
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 

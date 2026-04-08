@@ -248,6 +248,87 @@ describe("POST /api/v1/receipts", () => {
       );
       expect(res.status).toBe(400);
     });
+
+    it("returns 413 when payload exceeds 32 KB", async () => {
+      const { POST } = await import("@/app/api/v1/receipts/route");
+      const oversizedBody = "x".repeat(33 * 1024);
+      const req = new Request("https://example.com/api/v1/receipts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: oversizedBody,
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(413);
+    });
+  });
+
+  describe("monetary decimal precision", () => {
+    it("returns 400 when quantity has more than 3 decimal places", async () => {
+      const { POST } = await import("@/app/api/v1/receipts/route");
+      const lines = [
+        {
+          description: "Item",
+          quantity: 0.1234,
+          grossUnitPrice: 1.5,
+          vatCode: "22",
+        },
+      ];
+      const res = await POST(makeRequest({ ...VALID_BODY, lines }));
+      expect(res.status).toBe(400);
+      expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 when grossUnitPrice has more than 2 decimal places", async () => {
+      const { POST } = await import("@/app/api/v1/receipts/route");
+      const lines = [
+        {
+          description: "Item",
+          quantity: 1,
+          grossUnitPrice: 1.999,
+          vatCode: "22",
+        },
+      ];
+      const res = await POST(makeRequest({ ...VALID_BODY, lines }));
+      expect(res.status).toBe(400);
+      expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
+    });
+
+    it("accepts quantity with exactly 3 decimal places", async () => {
+      const { POST } = await import("@/app/api/v1/receipts/route");
+      const lines = [
+        {
+          description: "Item",
+          quantity: 0.125,
+          grossUnitPrice: 1.5,
+          vatCode: "22",
+        },
+      ];
+      const res = await POST(makeRequest({ ...VALID_BODY, lines }));
+      expect(res.status).toBe(201);
+    });
+
+    it("accepts grossUnitPrice with exactly 2 decimal places", async () => {
+      const { POST } = await import("@/app/api/v1/receipts/route");
+      const lines = [
+        {
+          description: "Item",
+          quantity: 1,
+          grossUnitPrice: 12.99,
+          vatCode: "22",
+        },
+      ];
+      const res = await POST(makeRequest({ ...VALID_BODY, lines }));
+      expect(res.status).toBe(201);
+    });
+
+    it("accepts integer quantity and price", async () => {
+      const { POST } = await import("@/app/api/v1/receipts/route");
+      const lines = [
+        { description: "Item", quantity: 2, grossUnitPrice: 10, vatCode: "22" },
+      ];
+      const res = await POST(makeRequest({ ...VALID_BODY, lines }));
+      expect(res.status).toBe(201);
+    });
   });
 
   describe("CORS preflight (P2-02)", () => {
