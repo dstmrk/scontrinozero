@@ -8,6 +8,10 @@ export const metadata: Metadata = {
     "Indice iniziale del centro assistenza ScontrinoZero con categorie e titoli degli articoli da pubblicare.",
 };
 
+const HELP_BASE = process.env.NEXT_PUBLIC_HELP_HOSTNAME
+  ? `https://${process.env.NEXT_PUBLIC_HELP_HOSTNAME}`
+  : "/help";
+
 interface HelpCategory {
   name: string;
   description: string;
@@ -92,7 +96,7 @@ const helpCategories: HelpCategory[] = [
       "Endpoint: emissione, stato e annullamento scontrino",
       "Codici IVA, rate limit e gestione errori",
     ],
-    href: "/help/api",
+    href: `${HELP_BASE}/api`,
   },
   {
     name: "Abbonamento, fatture e supporto",
