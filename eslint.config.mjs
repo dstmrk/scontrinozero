@@ -8,9 +8,7 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
-    // eslint-plugin-react (bundled in eslint-config-next) calls context.getFilename()
-    // which was removed in ESLint 10. Setting react.version explicitly prevents
-    // eslint-plugin-react from calling detectReactVersion() and triggering the error.
+    // Explicitly set react.version to avoid auto-detection overhead on every lint run.
     settings: {
       react: { version: "19" },
     },
