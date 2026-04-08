@@ -1,19 +1,14 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
-import { authenticateApiKey, isApiKeyAuthError } from "@/lib/api-auth";
-import { canUseApi } from "@/lib/plans";
 import { isValidUuid } from "@/lib/uuid";
+import {
+  requireBusinessApiAuth,
+  corsOptionsResponse,
+} from "@/lib/api-v1-helpers";
 
 export function OPTIONS(): Response {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*", // NOSONAR — developer API: auth via Bearer token (not cookies), wildcard is intentional
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Authorization, Content-Type",
-    },
-  });
+  return corsOptionsResponse("GET, OPTIONS");
 }
 
 export async function GET(
@@ -21,31 +16,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
   // ── Auth ──────────────────────────────────────────────────────────────────
-  const auth = await authenticateApiKey(request);
-  if (isApiKeyAuthError(auth)) {
-    return Response.json({ error: auth.error }, { status: auth.status });
-  }
-
-  // ── Plan gate ─────────────────────────────────────────────────────────────
-  if (!canUseApi(auth.plan)) {
-    return Response.json(
-      {
-        error:
-          "Il tuo piano non include l'accesso alle API. Passa al piano Pro o Developer.",
-      },
-      { status: 402 },
-    );
-  }
-
-  // ── Business key required ─────────────────────────────────────────────────
-  if (!auth.businessId) {
-    return Response.json(
-      {
-        error: "Questa API richiede una business key (szk_live_).",
-      },
-      { status: 403 },
-    );
-  }
+  const authResult = await requireBusinessApiAuth(request);
+  if ("error" in authResult) return authResult.error;
+  const { context: auth } = authResult;
 
   const { id } = await params;
 
