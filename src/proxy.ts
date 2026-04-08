@@ -27,17 +27,9 @@ function hostnameRedirect(request: NextRequest): NextResponse | null {
     process.env.NEXT_PUBLIC_MARKETING_HOSTNAME ?? "scontrinozero.it";
   const apiHostname =
     process.env.NEXT_PUBLIC_API_HOSTNAME ?? "api.scontrinozero.it";
-  const helpHostname =
-    process.env.NEXT_PUBLIC_HELP_HOSTNAME ?? "help.scontrinozero.it";
 
   // API subdomain: pass through — routes handle Bearer auth themselves
   if (hostname === apiHostname) return null;
-
-  // Help subdomain: rewrite to /help/* path prefix
-  if (hostname === helpHostname) {
-    const rewrittenPath = pathname === "/" ? "/help" : `/help${pathname}`;
-    return NextResponse.rewrite(new URL(rewrittenPath + search, request.url));
-  }
 
   const isMarketingDomain =
     hostname === marketingHostname || hostname === `www.${marketingHostname}`;
