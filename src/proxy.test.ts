@@ -304,5 +304,53 @@ describe("proxy", () => {
       const location = new URL(response.headers.get("location")!);
       expect(location.hostname).toBe("app.scontrinozero.it");
     });
+
+    describe("help subdomain routing", () => {
+      beforeEach(() => {
+        process.env.NEXT_PUBLIC_HELP_HOSTNAME = "help.scontrinozero.it";
+      });
+
+      afterEach(() => {
+        delete process.env.NEXT_PUBLIC_HELP_HOSTNAME;
+      });
+
+      it("rewrites / to /help on help subdomain", async () => {
+        const { proxy } = await import("./proxy");
+
+        const response = await proxy(
+          createRequestForHost("/", "help.scontrinozero.it"),
+        );
+        expect(response.status).toBe(200);
+        const rewriteUrl = response.headers.get("x-middleware-rewrite");
+        expect(rewriteUrl).toBeTruthy();
+        expect(new URL(rewriteUrl!).pathname).toBe("/help");
+      });
+
+      it("rewrites /api to /help/api on help subdomain", async () => {
+        const { proxy } = await import("./proxy");
+
+        const response = await proxy(
+          createRequestForHost("/api", "help.scontrinozero.it"),
+        );
+        expect(response.status).toBe(200);
+        const rewriteUrl = response.headers.get("x-middleware-rewrite");
+        expect(rewriteUrl).toBeTruthy();
+        expect(new URL(rewriteUrl!).pathname).toBe("/help/api");
+      });
+
+      it("preserves query string when rewriting on help subdomain", async () => {
+        const { proxy } = await import("./proxy");
+
+        const response = await proxy(
+          createRequestForHost("/api?tab=auth", "help.scontrinozero.it"),
+        );
+        expect(response.status).toBe(200);
+        const rewriteUrl = response.headers.get("x-middleware-rewrite");
+        expect(rewriteUrl).toBeTruthy();
+        const url = new URL(rewriteUrl!);
+        expect(url.pathname).toBe("/help/api");
+        expect(url.search).toBe("?tab=auth");
+      });
+    });
   });
 });
