@@ -131,8 +131,10 @@ jobs:
           retention-days: 1
 
   # SonarQube parte non appena i test finiscono, in parallelo con build
+  # Saltato per le PR di Dependabot: SONAR_TOKEN non è disponibile per i bot esterni
   sonar:
     needs: test
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
