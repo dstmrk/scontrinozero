@@ -59,6 +59,7 @@ vi.mock("@/lib/logger", () => ({
 
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
+  and: vi.fn(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -399,5 +400,98 @@ describe("POST /api/stripe/webhook — checkout.session.completed type guard", (
     expect(res.status).toBe(200);
     expect(mockSubscriptionsRetrieve).toHaveBeenCalledWith("sub_123");
     expect(mockTransaction).toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/stripe/webhook — checkout.session.expired", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+    mockInsert.mockReturnValue(makeInsertBuilder([{ eventId: "evt_test" }]));
+  });
+
+  it("marca la subscription pending come canceled quando la sessione scade", async () => {
+    const updateBuilder = makeUpdateBuilder();
+    mockUpdate.mockReturnValue(updateBuilder);
+
+    mockConstructEvent.mockReturnValue({
+      id: "evt_exp_001",
+      type: "checkout.session.expired",
+      data: { object: { customer: "cus_expired_123" } },
+    });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledWith("subscriptions-table");
+    expect(updateBuilder.set).toHaveBeenCalledWith({ status: "canceled" });
+    expect(updateBuilder.where).toHaveBeenCalled();
+  });
+
+  it("ignora l'evento se customer è assente nella sessione scaduta", async () => {
+    mockConstructEvent.mockReturnValue({
+      id: "evt_exp_002",
+      type: "checkout.session.expired",
+      data: { object: { customer: null } },
+    });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/stripe/webhook — charge.dispute.created", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+    mockInsert.mockReturnValue(makeInsertBuilder([{ eventId: "evt_test" }]));
+  });
+
+  it("loga l'errore con critical: true e i dettagli della disputa", async () => {
+    mockConstructEvent.mockReturnValue({
+      id: "evt_disp_001",
+      type: "charge.dispute.created",
+      data: {
+        object: {
+          id: "dp_dispute_123",
+          charge: "ch_charge_456",
+          amount: 999,
+          reason: "fraudulent",
+        },
+      },
+    });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        critical: true,
+        disputeId: "dp_dispute_123",
+        chargeId: "ch_charge_456",
+        amount: 999,
+        reason: "fraudulent",
+      }),
+      expect.stringContaining("dispute"),
+    );
+  });
+
+  it("non esegue operazioni DB per una disputa", async () => {
+    mockConstructEvent.mockReturnValue({
+      id: "evt_disp_002",
+      type: "charge.dispute.created",
+      data: {
+        object: {
+          id: "dp_002",
+          charge: "ch_002",
+          amount: 100,
+          reason: "duplicate",
+        },
+      },
+    });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockTransaction).not.toHaveBeenCalled();
   });
 });

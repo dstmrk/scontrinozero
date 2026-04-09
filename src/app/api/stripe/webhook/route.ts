@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { subscriptions, profiles, stripeWebhookEvents } from "@/db/schema";
 import { getStripe, planFromPriceId, intervalFromPriceId } from "@/lib/stripe";
@@ -87,6 +87,43 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
   const db = getDb();
 
   switch (event.type) {
+    case "checkout.session.expired": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (!session.customer) break;
+
+      // Cancel any pending subscription row created at checkout initiation.
+      // The WHERE status = "pending" guard prevents accidentally canceling a
+      // row that was already activated by a subsequent successful checkout
+      // session with the same Stripe customer (e.g. user retried after expiry).
+      await db
+        .update(subscriptions)
+        .set({ status: "canceled" })
+        .where(
+          and(
+            eq(subscriptions.stripeCustomerId, session.customer as string),
+            eq(subscriptions.status, "pending"),
+          ),
+        );
+      break;
+    }
+
+    case "charge.dispute.created": {
+      const dispute = event.data.object as Stripe.Dispute;
+      // Disputes (chargebacks) require immediate manual review.
+      // Log with critical: true so on-call alerting fires.
+      logger.error(
+        {
+          critical: true,
+          disputeId: dispute.id,
+          chargeId: dispute.charge as string,
+          amount: dispute.amount,
+          reason: dispute.reason,
+        },
+        "Stripe dispute created — immediate action required",
+      );
+      break;
+    }
+
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
       if (typeof session.subscription !== "string" || !session.customer) break;
