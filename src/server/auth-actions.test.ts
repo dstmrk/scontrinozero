@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // --- Mocks ---
 
@@ -113,6 +113,8 @@ function isRedirectError(
 // --- Tests ---
 
 describe("auth-actions", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.TURNSTILE_SECRET_KEY = "test-secret";
@@ -226,12 +228,56 @@ describe("auth-actions", () => {
       expect(mockSignUp).toHaveBeenCalledWith({
         email: "test@example.com",
         password: "Secure#99x",
+        options: {
+          emailRedirectTo: "https://app.scontrinozero.it/dashboard",
+        },
       });
       expect(mockInsert).toHaveBeenCalled();
       expect(mockValues).toHaveBeenCalledWith(
         expect.objectContaining({
           termsAcceptedAt: expect.any(Date),
           termsVersion: "v01",
+        }),
+      );
+    });
+
+    it("uses APP_HOSTNAME as emailRedirectTo when set (sandbox override)", async () => {
+      vi.stubEnv("APP_HOSTNAME", "sandbox.scontrinozero.it");
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          hostname: "sandbox.scontrinozero.it",
+        }),
+      });
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-123" } },
+        error: null,
+      });
+
+      const { signUp } = await import("./auth-actions");
+
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+          }),
+        );
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+      }
+
+      expect(mockSignUp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: {
+            emailRedirectTo: "https://sandbox.scontrinozero.it/dashboard",
+          },
         }),
       );
     });

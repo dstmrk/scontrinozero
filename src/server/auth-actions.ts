@@ -198,7 +198,15 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   }
 
   const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const hostname =
+    process.env.APP_HOSTNAME ??
+    process.env.NEXT_PUBLIC_APP_HOSTNAME ??
+    "app.scontrinozero.it";
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: `https://${hostname}/dashboard` },
+  });
 
   if (error) {
     logger.error({ error: error.message }, "signUp failed");
