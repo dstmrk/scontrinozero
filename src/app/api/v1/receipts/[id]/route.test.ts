@@ -7,17 +7,23 @@ const {
   mockAuthenticateApiKey,
   mockIsApiKeyAuthError,
   mockCanUseApi,
-  mockSelectLimit,
-  mockSelectWhere,
-  mockSelectFrom,
+  mockSelectDocLimit,
+  mockSelectDocWhere,
+  mockSelectDocFrom,
+  mockSelectLinesOrderBy,
+  mockSelectLinesWhere,
+  mockSelectLinesFrom,
   mockSelect,
 } = vi.hoisted(() => ({
   mockAuthenticateApiKey: vi.fn(),
   mockIsApiKeyAuthError: vi.fn(),
   mockCanUseApi: vi.fn(),
-  mockSelectLimit: vi.fn(),
-  mockSelectWhere: vi.fn(),
-  mockSelectFrom: vi.fn(),
+  mockSelectDocLimit: vi.fn(),
+  mockSelectDocWhere: vi.fn(),
+  mockSelectDocFrom: vi.fn(),
+  mockSelectLinesOrderBy: vi.fn(),
+  mockSelectLinesWhere: vi.fn(),
+  mockSelectLinesFrom: vi.fn(),
   mockSelect: vi.fn(),
 }));
 
@@ -36,11 +42,13 @@ vi.mock("@/db", () => ({
 
 vi.mock("@/db/schema", () => ({
   commercialDocuments: "commercial-documents-table",
+  commercialDocumentLines: "commercial-document-lines-table",
 }));
 
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn((col, val) => ({ col, val })),
   and: vi.fn((...args) => args),
+  asc: vi.fn((col) => ({ col, direction: "asc" })),
 }));
 
 // --- Fixtures ---
@@ -63,6 +71,19 @@ const FAKE_DOC = {
   adeTransactionId: "trx-001",
   adeProgressive: "001",
   createdAt: new Date("2026-03-01T10:00:00Z"),
+  publicRequest: { paymentMethod: "PC" },
+  lotteryCode: null as string | null,
+  voidedDocumentId: null as string | null,
+};
+
+const FAKE_LINE = {
+  id: "line-uuid-1",
+  documentId: DOC_ID,
+  lineIndex: 0,
+  description: "Espresso",
+  quantity: "2.000",
+  grossUnitPrice: "1.50",
+  vatCode: "22",
 };
 
 function makeRequest() {
@@ -71,6 +92,20 @@ function makeRequest() {
 
 function makeParams(id = DOC_ID) {
   return { params: Promise.resolve({ id }) };
+}
+
+function setupDocMock(doc: typeof FAKE_DOC | null) {
+  mockSelect.mockReturnValueOnce({ from: mockSelectDocFrom });
+  mockSelectDocFrom.mockReturnValue({ where: mockSelectDocWhere });
+  mockSelectDocWhere.mockReturnValue({ limit: mockSelectDocLimit });
+  mockSelectDocLimit.mockResolvedValue(doc ? [doc] : []);
+}
+
+function setupLinesMock(lines: (typeof FAKE_LINE)[]) {
+  mockSelect.mockReturnValueOnce({ from: mockSelectLinesFrom });
+  mockSelectLinesFrom.mockReturnValue({ where: mockSelectLinesWhere });
+  mockSelectLinesWhere.mockReturnValue({ orderBy: mockSelectLinesOrderBy });
+  mockSelectLinesOrderBy.mockResolvedValue(lines);
 }
 
 // --- Tests ---
@@ -84,10 +119,8 @@ describe("GET /api/v1/receipts/[id]", () => {
     mockAuthenticateApiKey.mockResolvedValue(FAKE_AUTH);
     mockCanUseApi.mockReturnValue(true);
 
-    mockSelect.mockReturnValue({ from: mockSelectFrom });
-    mockSelectFrom.mockReturnValue({ where: mockSelectWhere });
-    mockSelectWhere.mockReturnValue({ limit: mockSelectLimit });
-    mockSelectLimit.mockResolvedValue([FAKE_DOC]);
+    setupDocMock(FAKE_DOC);
+    setupLinesMock([FAKE_LINE]);
   });
 
   it("ritorna 200 con i dati del documento", async () => {
@@ -96,6 +129,69 @@ describe("GET /api/v1/receipts/[id]", () => {
     const body = await res.json();
     expect(body.id).toBe(DOC_ID);
     expect(body.status).toBe("ACCEPTED");
+  });
+
+  it("ritorna lines con i campi corretti", async () => {
+    const res = await GET(makeRequest(), makeParams());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lines).toHaveLength(1);
+    expect(body.lines[0]).toEqual({
+      description: "Espresso",
+      quantity: "2.000",
+      grossUnitPrice: "1.50",
+      vatCode: "22",
+    });
+  });
+
+  it("ritorna total calcolato correttamente", async () => {
+    // 2.000 * 1.50 = 3.00
+    const res = await GET(makeRequest(), makeParams());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.total).toBe("3.00");
+  });
+
+  it("ritorna paymentMethod estratto da publicRequest", async () => {
+    const res = await GET(makeRequest(), makeParams());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.paymentMethod).toBe("PC");
+  });
+
+  it("ritorna lotteryCode quando presente", async () => {
+    setupDocMock({ ...FAKE_DOC, lotteryCode: "ABCD1234" });
+    setupLinesMock([FAKE_LINE]);
+    const res = await GET(makeRequest(), makeParams());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lotteryCode).toBe("ABCD1234");
+  });
+
+  it("ritorna lotteryCode null quando assente", async () => {
+    const res = await GET(makeRequest(), makeParams());
+    const body = await res.json();
+    expect(body.lotteryCode).toBeNull();
+  });
+
+  it("ritorna voidedDocumentId per documenti VOID", async () => {
+    const voidedId = "00000000-0000-0000-0000-000000000001";
+    setupDocMock({ ...FAKE_DOC, kind: "VOID", voidedDocumentId: voidedId });
+    setupLinesMock([]);
+    const res = await GET(makeRequest(), makeParams());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.voidedDocumentId).toBe(voidedId);
+    expect(body.kind).toBe("VOID");
+  });
+
+  it("ritorna total 0.00 quando non ci sono righe", async () => {
+    setupDocMock(FAKE_DOC);
+    setupLinesMock([]);
+    const res = await GET(makeRequest(), makeParams());
+    const body = await res.json();
+    expect(body.total).toBe("0.00");
+    expect(body.lines).toHaveLength(0);
   });
 
   it("ritorna 401 se API key non valida", async () => {
@@ -127,7 +223,11 @@ describe("GET /api/v1/receipts/[id]", () => {
   });
 
   it("ritorna 404 se documento non trovato (o appartiene ad altro business)", async () => {
-    mockSelectLimit.mockResolvedValue([]);
+    vi.clearAllMocks();
+    mockIsApiKeyAuthError.mockReturnValue(false);
+    mockAuthenticateApiKey.mockResolvedValue(FAKE_AUTH);
+    mockCanUseApi.mockReturnValue(true);
+    setupDocMock(null);
 
     const res = await GET(
       makeRequest(),

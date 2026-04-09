@@ -353,26 +353,79 @@ export default function ApiDocsPage() {
   "idempotencyKey": "550e8400-e29b-41d4-a716-446655440000",
   "adeTransactionId": "151085589",
   "adeProgressive": "DCW2026/5111-2188",
-  "createdAt": "2026-03-26T10:00:00.000Z"
+  "createdAt": "2026-03-26T10:00:00.000Z",
+  "paymentMethod": "PE",
+  "lotteryCode": "ABCD1234",
+  "voidedDocumentId": null,
+  "total": "18.50",
+  "lines": [
+    {
+      "description": "Pizza Margherita",
+      "quantity": "2.000",
+      "grossUnitPrice": "8.00",
+      "vatCode": "10"
+    },
+    {
+      "description": "Acqua naturale",
+      "quantity": "1.000",
+      "grossUnitPrice": "2.50",
+      "vatCode": "10"
+    }
+  ]
 }`}</code>
         </pre>
-        <p className="text-muted-foreground mt-3 text-xs">
-          {"Il campo "}
-          <code className="bg-muted rounded px-1 font-mono">kind</code>
-          {" può essere "}
-          <code className="bg-muted rounded px-1 font-mono">SALE</code>
-          {" o "}
-          <code className="bg-muted rounded px-1 font-mono">VOID</code>
-          {". Il campo "}
-          <code className="bg-muted rounded px-1 font-mono">status</code>
-          {" può essere "}
-          <code className="bg-muted rounded px-1 font-mono">ACCEPTED</code>
-          {", "}
-          <code className="bg-muted rounded px-1 font-mono">REJECTED</code>
-          {" o "}
-          <code className="bg-muted rounded px-1 font-mono">PENDING</code>
-          {"."}
-        </p>
+        <div className="text-muted-foreground mt-3 overflow-x-auto text-sm">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b">
+                <th className="py-2 pr-4 text-left text-xs font-semibold tracking-wide uppercase">
+                  Campo
+                </th>
+                <th className="py-2 text-left text-xs font-semibold tracking-wide uppercase">
+                  Descrizione
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ["kind", "SALE (vendita) o VOID (annullo)."],
+                [
+                  "status",
+                  "ACCEPTED, VOID_ACCEPTED, REJECTED, ERROR o PENDING.",
+                ],
+                [
+                  "paymentMethod",
+                  "PC (contanti) o PE (carta/elettronico), così come inviato in emissione.",
+                ],
+                [
+                  "lotteryCode",
+                  "Codice lotteria scontrini, null se non fornito o se il metodo di pagamento è PC.",
+                ],
+                [
+                  "voidedDocumentId",
+                  "Presente solo per documenti VOID: UUID del SALE che è stato annullato.",
+                ],
+                [
+                  "total",
+                  'Totale calcolato dalle righe, con 2 decimali (es. "18.50").',
+                ],
+                [
+                  "lines[].quantity",
+                  'Stringa con 3 decimali fissi (es. "2.000").',
+                ],
+                [
+                  "lines[].grossUnitPrice",
+                  'Stringa con 2 decimali fissi (es. "8.00"), in euro.',
+                ],
+              ].map(([field, desc]) => (
+                <tr key={field} className="border-b last:border-0">
+                  <td className="py-2 pr-4 font-mono text-xs">{field}</td>
+                  <td className="py-2 text-xs">{desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         {/* ─── POST /v1/receipts/{id}/void ─── */}
         <h3 className="mt-10 text-base font-semibold">

@@ -8,18 +8,24 @@ const {
   mockIsApiKeyAuthError,
   mockCanUseApi,
   mockGetDb,
+  mockOrderBy,
   mockLimit,
   mockWhere,
   mockFrom,
+  mockLinesWhere,
+  mockLinesFrom,
   mockSelect,
 } = vi.hoisted(() => ({
   mockAuthenticateApiKey: vi.fn(),
   mockIsApiKeyAuthError: vi.fn(),
   mockCanUseApi: vi.fn(),
   mockGetDb: vi.fn(),
+  mockOrderBy: vi.fn(),
   mockLimit: vi.fn(),
   mockWhere: vi.fn(),
   mockFrom: vi.fn(),
+  mockLinesWhere: vi.fn(),
+  mockLinesFrom: vi.fn(),
   mockSelect: vi.fn(),
 }));
 
@@ -37,12 +43,14 @@ vi.mock("@/db", () => ({
 }));
 
 vi.mock("@/db/schema", () => ({
-  commercialDocuments: {},
+  commercialDocuments: "commercial-documents-table",
+  commercialDocumentLines: "commercial-document-lines-table",
 }));
 
 vi.mock("drizzle-orm", () => ({
   and: vi.fn(),
   eq: vi.fn(),
+  asc: vi.fn(),
 }));
 
 // --- Helpers ---
@@ -59,7 +67,8 @@ const VALID_UUID = "550e8400-e29b-41d4-a716-446655440000";
 
 describe("GET /api/v1/receipts/[id]", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    // resetAllMocks clears once-queues too, preventing accumulation across tests
+    vi.resetAllMocks();
 
     // Default: auth ok, plan ok, business key ok
     mockIsApiKeyAuthError.mockReturnValue(false);
@@ -69,11 +78,20 @@ describe("GET /api/v1/receipts/[id]", () => {
     });
     mockCanUseApi.mockReturnValue(true);
 
-    // Default DB chain
+    // Doc query chain: select().from().where().limit()
     mockLimit.mockResolvedValue([]);
     mockWhere.mockReturnValue({ limit: mockLimit });
     mockFrom.mockReturnValue({ where: mockWhere });
-    mockSelect.mockReturnValue({ from: mockFrom });
+
+    // Lines query chain: select().from().where().orderBy()
+    mockOrderBy.mockResolvedValue([]);
+    mockLinesWhere.mockReturnValue({ orderBy: mockOrderBy });
+    mockLinesFrom.mockReturnValue({ where: mockLinesWhere });
+
+    // First select() → doc chain, second select() → lines chain
+    mockSelect
+      .mockReturnValueOnce({ from: mockFrom })
+      .mockReturnValueOnce({ from: mockLinesFrom });
     mockGetDb.mockReturnValue({ select: mockSelect });
   });
 
@@ -147,14 +165,31 @@ describe("GET /api/v1/receipts/[id]", () => {
       expect(res.status).toBe(404);
     });
 
-    it("returns 200 with document when found", async () => {
-      const doc = { id: VALID_UUID, status: "SENT" };
+    it("returns 200 with document data and lines when found", async () => {
+      const doc = {
+        id: VALID_UUID,
+        status: "ACCEPTED",
+        publicRequest: { paymentMethod: "PC" },
+        lotteryCode: null,
+        voidedDocumentId: null,
+      };
+      const line = {
+        description: "Prodotto",
+        quantity: "1.000",
+        grossUnitPrice: "5.00",
+        vatCode: "22",
+      };
       mockLimit.mockResolvedValue([doc]);
+      mockOrderBy.mockResolvedValue([line]);
       const { GET } = await import("@/app/api/v1/receipts/[id]/route");
       const res = await GET(makeRequest(VALID_UUID), makeParams(VALID_UUID));
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body).toEqual(doc);
+      expect(body.id).toBe(VALID_UUID);
+      expect(body.status).toBe("ACCEPTED");
+      expect(body.paymentMethod).toBe("PC");
+      expect(body.lines).toHaveLength(1);
+      expect(body.total).toBe("5.00");
     });
   });
 });
