@@ -19,6 +19,16 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },
+  async rewrites() {
+    // Requests arriving at the API subdomain (api[-sandbox].scontrinozero.it) come in
+    // as /v1/... — rewrite to /api/v1/... where the actual route handlers live.
+    return [
+      {
+        source: "/v1/:path*",
+        destination: "/api/v1/:path*",
+      },
+    ];
+  },
   async headers() {
     // Restrict internal API routes to the app's own origin only.
     // NEXT_PUBLIC_APP_URL is set per-environment (e.g. http://localhost:3000 in dev,
@@ -43,6 +53,19 @@ const nextConfig: NextConfig = {
         // Placed after the generic rule so it overrides Access-Control-Allow-Origin
         // for /api/v1/* paths specifically.
         source: "/api/v1/:path*",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Access-Control-Allow-Methods", value: "GET, POST, OPTIONS" },
+          {
+            key: "Access-Control-Allow-Headers",
+            value: "Content-Type, Authorization",
+          },
+        ],
+      },
+      {
+        // Incoming /v1/* requests (from the API subdomain, before rewrite) also need
+        // open CORS — Next.js header rules match the original path, not the rewritten one.
+        source: "/v1/:path*",
         headers: [
           { key: "Access-Control-Allow-Origin", value: "*" },
           { key: "Access-Control-Allow-Methods", value: "GET, POST, OPTIONS" },
