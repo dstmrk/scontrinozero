@@ -1,6 +1,6 @@
 # ScontrinoZero — Piano di sviluppo
 
-## Versione corrente: v1.1.4 ✅ — Prossima release: v1.2.0 (PWA) ⬜
+## Versione corrente: v1.2.0 ✅ — Prossima release: v1.2.1 (fix paginazione storico) ⬜
 
 Il piano usa **release semantiche** (vx.y.z). La v1.1.0 è stata rilasciata in produzione.
 
@@ -17,7 +17,8 @@ Il piano usa **release semantiche** (vx.y.z). La v1.1.0 è stata rilasciata in p
 | **v1.1.2**   | ✅ Tech debt code review (parziale)                                                                                                                                                     |
 | **v1.1.3**   | ✅ Tech debt code review: Zod safeParse route API v1, JOIN singolo per checkBusinessOwnership e fetchAdePrerequisites                                                                   |
 | **v1.1.4**   | ✅ Fix code review indipendente: body size limits (DoS), decimal precision fiscale, double fetch, email norm, verifyAdeCredentials atomicity, length constraints, Stripe error handling |
-| **v1.2.0**   | PWA: `@serwist/next`, manifest, offline shell, install prompt                                                                                                                           |
+| **v1.2.0**   | ✅ PWA: `@serwist/next`, manifest, offline shell, install prompt                                                                                                                        |
+| **v1.2.1**   | Fix paginazione storico: server-side LIMIT/OFFSET, default intervallo 7gg (B2 parziale)                                                                                                 |
 | **v1.3.0**   | Landing & SEO polish: social proof, pagine dedicate funzionalità/prezzi, screenshot UI                                                                                                  |
 | **v1.4.0**   | Coupon/promo codes, referral program, Stripe Customer Portal polish                                                                                                                     |
 | **v1.5.0**   | Email scontrino al cliente (PDF allegato via Resend)                                                                                                                                    |
