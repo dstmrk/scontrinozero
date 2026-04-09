@@ -72,8 +72,8 @@ const FAKE_DOC = {
   adeProgressive: "001",
   createdAt: new Date("2026-03-01T10:00:00Z"),
   publicRequest: { paymentMethod: "PC" },
-  lotteryCode: null,
-  voidedDocumentId: null,
+  lotteryCode: null as string | null,
+  voidedDocumentId: null as string | null,
 };
 
 const FAKE_LINE = {
