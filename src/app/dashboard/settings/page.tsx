@@ -3,8 +3,10 @@ import { eq } from "drizzle-orm";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getDb } from "@/db";
 import { profiles, businesses, adeCredentials } from "@/db/schema";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { VAT_DESCRIPTIONS, type VatCode, VAT_CODES } from "@/types/cassa";
+import { signOut } from "@/server/auth-actions";
 import { AccountDeleteSection } from "@/components/settings/account-delete-section";
 import { ExportDataSection } from "@/components/settings/export-data-section";
 import { AdeCredentialsSection } from "@/components/settings/ade-credentials-section";
@@ -303,6 +305,22 @@ export default async function SettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Sessione</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground mb-4 text-sm">
+            Esci dall&apos;account su questo dispositivo.
+          </p>
+          <form action={signOut}>
+            <Button variant="outline" type="submit">
+              Esci
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       <ExportDataSection />
 
