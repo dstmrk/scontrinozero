@@ -214,6 +214,30 @@ describe("emitReceiptForBusiness", () => {
     expect(mockInsert).not.toHaveBeenCalled();
   });
 
+  it("accetta esattamente €1,00 con codice lotteria (no IEEE-754 falso negativo)", async () => {
+    // 0.1 * 10 = 0.9999999999999999 in IEEE-754; Math.round(0.9999... * 100) = 100 → accettato
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness({
+      ...VALID_INPUT,
+      paymentMethod: "PE",
+      lotteryCode: "YYWLR30G",
+      lines: [
+        {
+          id: "l1",
+          description: "Prodotto",
+          quantity: 10,
+          grossUnitPrice: 0.1, // 10 × 0.1 = 1.00 nominalmente (float instabile)
+          vatCode: "22",
+        },
+      ],
+    });
+
+    // Should NOT be rejected by the lottery threshold (€1.00 is the minimum)
+    expect(result.error).not.toBe(
+      "Il codice lotteria richiede un importo minimo di €1,00.",
+    );
+  });
+
   it("idempotency: ritorna IDs esistenti se il documento è già ACCEPTED", async () => {
     mockDocumentReturning.mockResolvedValue([]); // Conflict
     mockLimit.mockResolvedValueOnce([

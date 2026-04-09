@@ -55,8 +55,26 @@ export function isManagementKey(raw: string): boolean {
 }
 
 /**
- * Ritorna true se il formato della raw key è valido (business o management).
+ * Expected total length: prefix (9 chars) + body (48 base64url chars) = 57.
+ * Body charset: base64url = [A-Za-z0-9_-].
+ */
+const EXPECTED_KEY_LENGTH = 57; // 9-char prefix + 48-char base64url body
+const KEY_BODY_RE = /^[A-Za-z0-9_-]{48}$/;
+
+/**
+ * Ritorna true se il formato della raw key è valido:
+ * - prefisso corretto (szk_live_ o szk_mgmt_)
+ * - lunghezza totale attesa (57 caratteri)
+ * - charset body compatibile con base64url ([A-Za-z0-9_-]{48})
+ *
+ * Questo check viene eseguito PRIMA di qualsiasi operazione DB in
+ * authenticateApiKey(), per evitare hash+query su token garbage.
  */
 export function isValidApiKeyFormat(raw: string): boolean {
-  return raw.startsWith(BUSINESS_PREFIX) || raw.startsWith(MANAGEMENT_PREFIX);
+  if (raw.length !== EXPECTED_KEY_LENGTH) return false;
+  if (!raw.startsWith(BUSINESS_PREFIX) && !raw.startsWith(MANAGEMENT_PREFIX)) {
+    return false;
+  }
+  const body = raw.slice(BUSINESS_PREFIX.length); // both prefixes are 9 chars
+  return KEY_BODY_RE.test(body);
 }

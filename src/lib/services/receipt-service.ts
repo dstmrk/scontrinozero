@@ -15,6 +15,7 @@ import { createAdeClient } from "@/lib/ade";
 import { mapSaleToAdePayload } from "@/lib/ade/mapper";
 import { logger } from "@/lib/logger";
 import { fetchAdePrerequisites } from "@/lib/server-auth";
+import { getFiscalDate } from "@/lib/date-utils";
 import { isValidLotteryCode } from "@/lib/validation";
 import type {
   SubmitReceiptInput,
@@ -44,11 +45,13 @@ function resolveLotteryCode(input: SubmitReceiptInput): {
   }
 
   if (code) {
-    const total = input.lines.reduce(
-      (sum, l) => sum + l.grossUnitPrice * l.quantity,
-      0,
+    // Use Math.round(...* 100) to avoid IEEE-754 false negatives at €1.00.
+    // e.g. 0.1 * 10 = 0.9999...98 in float; Math.round(0.9999...98 * 100) = 100 ✓
+    const totalCents = Math.round(
+      input.lines.reduce((sum, l) => sum + l.grossUnitPrice * l.quantity, 0) *
+        100,
     );
-    if (total < 1) {
+    if (totalCents < 100) {
       return {
         lotteryCode: null,
         error: "Il codice lotteria richiede un importo minimo di €1,00.",
@@ -171,7 +174,7 @@ export async function emitReceiptForBusiness(
       ) * 100,
     ) / 100;
   const saleDocRequest: SaleDocumentRequest = {
-    date: new Date().toISOString().split("T")[0],
+    date: getFiscalDate(),
     lotteryCode,
     isGiftDocument: false,
     lines: input.lines.map((line) => ({

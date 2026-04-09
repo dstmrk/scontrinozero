@@ -5,6 +5,7 @@ import { isValidUuid } from "@/lib/uuid";
 import {
   requireBusinessApiAuth,
   corsOptionsResponse,
+  withCors,
 } from "@/lib/api-v1-helpers";
 
 export function OPTIONS(): Response {
@@ -23,7 +24,9 @@ export async function GET(
   const { id } = await params;
 
   if (!isValidUuid(id)) {
-    return Response.json({ error: "ID non valido." }, { status: 400 });
+    return withCors(
+      Response.json({ error: "ID non valido." }, { status: 400 }),
+    );
   }
 
   const db = getDb();
@@ -47,8 +50,10 @@ export async function GET(
     .limit(1);
 
   if (!doc) {
-    return Response.json({ error: "Documento non trovato." }, { status: 404 });
+    return withCors(
+      Response.json({ error: "Documento non trovato." }, { status: 404 }),
+    );
   }
 
-  return Response.json(doc);
+  return withCors(Response.json(doc));
 }

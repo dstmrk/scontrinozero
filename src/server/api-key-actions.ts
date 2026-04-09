@@ -134,10 +134,15 @@ export async function revokeApiKey(keyId: string): Promise<{ error?: string }> {
     return { error: "Profilo non trovato." };
   }
 
-  await db
+  const [updated] = await db
     .update(apiKeys)
     .set({ revokedAt: new Date() })
-    .where(and(eq(apiKeys.id, keyId), eq(apiKeys.profileId, profile.id)));
+    .where(and(eq(apiKeys.id, keyId), eq(apiKeys.profileId, profile.id)))
+    .returning({ id: apiKeys.id });
+
+  if (!updated) {
+    return { error: "Chiave non trovata o non autorizzata." };
+  }
 
   return {};
 }

@@ -14,6 +14,7 @@ import { commercialDocuments } from "@/db/schema";
 import { createAdeClient } from "@/lib/ade";
 import { mapVoidToAdePayload } from "@/lib/ade/mapper";
 import { logger } from "@/lib/logger";
+import { getFiscalDate } from "@/lib/date-utils";
 import { fetchAdePrerequisites } from "@/lib/server-auth";
 import type { VoidReceiptInput, VoidReceiptResult } from "@/types/storico";
 import type { VoidRequest } from "@/lib/ade/public-types";
@@ -163,7 +164,7 @@ export async function voidReceiptForBusiness(
       originalDocument: {
         transactionId: saleDoc.adeTransactionId,
         documentProgressive: saleDoc.adeProgressive,
-        date: saleDoc.createdAt.toISOString().split("T")[0],
+        date: getFiscalDate(saleDoc.createdAt),
       },
     };
 

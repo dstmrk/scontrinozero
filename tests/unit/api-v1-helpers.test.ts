@@ -44,6 +44,7 @@ import {
   corsOptionsResponse,
   checkRateLimitApi,
   parseAndValidateBody,
+  withCors,
 } from "@/lib/api-v1-helpers";
 
 // --- Helpers ---
@@ -61,8 +62,14 @@ const PRO_AUTH_CONTEXT = {
 };
 
 // Fake RateLimiter instance (duck-typed)
-function makeLimiter(success: boolean) {
-  return { check: mockRateLimiterCheck.mockReturnValue({ success }) };
+function makeLimiter(success: boolean, resetAt = Date.now() + 3600_000) {
+  return {
+    check: mockRateLimiterCheck.mockReturnValue({
+      success,
+      remaining: 0,
+      resetAt,
+    }),
+  };
 }
 
 // --- Tests ---
@@ -85,6 +92,7 @@ describe("requireBusinessApiAuth", () => {
     expect("error" in result).toBe(true);
     if ("error" in result) {
       expect(result.error.status).toBe(401);
+      expect(result.error.headers.get("Access-Control-Allow-Origin")).toBe("*");
     }
   });
 
@@ -94,6 +102,7 @@ describe("requireBusinessApiAuth", () => {
     expect("error" in result).toBe(true);
     if ("error" in result) {
       expect(result.error.status).toBe(402);
+      expect(result.error.headers.get("Access-Control-Allow-Origin")).toBe("*");
     }
   });
 
@@ -106,6 +115,7 @@ describe("requireBusinessApiAuth", () => {
     expect("error" in result).toBe(true);
     if ("error" in result) {
       expect(result.error.status).toBe(403);
+      expect(result.error.headers.get("Access-Control-Allow-Origin")).toBe("*");
     }
   });
 
@@ -141,6 +151,33 @@ describe("corsOptionsResponse", () => {
   });
 });
 
+describe("withCors", () => {
+  it("adds Access-Control-Allow-Origin header to an existing response", () => {
+    const original = Response.json({ ok: true }, { status: 200 });
+    const result = withCors(original);
+    expect(result.status).toBe(200);
+    expect(result.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+
+  it("preserves the original response status and body", async () => {
+    const original = Response.json({ id: "abc" }, { status: 201 });
+    const result = withCors(original);
+    expect(result.status).toBe(201);
+    const body = await result.json();
+    expect(body).toEqual({ id: "abc" });
+  });
+
+  it("preserves existing headers on the response", () => {
+    const original = new Response(null, {
+      status: 204,
+      headers: { "X-Custom": "value" },
+    });
+    const result = withCors(original);
+    expect(result.headers.get("X-Custom")).toBe("value");
+    expect(result.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+});
+
 describe("checkRateLimitApi", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -162,6 +199,45 @@ describe("checkRateLimitApi", () => {
     const result = checkRateLimitApi(limiter, "key", "api-key-id", "log msg");
     expect(result).not.toBeNull();
     expect(result?.status).toBe(429);
+  });
+
+  it("includes Access-Control-Allow-Origin header on 429", () => {
+    const limiter = makeLimiter(false) as unknown as Parameters<
+      typeof checkRateLimitApi
+    >[0];
+    const result = checkRateLimitApi(limiter, "key", "api-key-id", "log msg");
+    expect(result?.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+
+  it("includes Retry-After header with a positive integer on 429", () => {
+    const resetAt = Date.now() + 30_000; // 30s from now
+    const limiter = {
+      check: mockRateLimiterCheck.mockReturnValue({
+        success: false,
+        remaining: 0,
+        resetAt,
+      }),
+    } as unknown as Parameters<typeof checkRateLimitApi>[0];
+    const result = checkRateLimitApi(limiter, "key", "api-key-id", "log msg");
+    const retryAfter = result?.headers.get("Retry-After");
+    expect(retryAfter).not.toBeNull();
+    const seconds = Number(retryAfter);
+    expect(Number.isInteger(seconds)).toBe(true);
+    expect(seconds).toBeGreaterThanOrEqual(1);
+  });
+
+  it("Retry-After is at least 1 even when resetAt is in the past", () => {
+    const resetAt = Date.now() - 1000; // already expired
+    const limiter = {
+      check: mockRateLimiterCheck.mockReturnValue({
+        success: false,
+        remaining: 0,
+        resetAt,
+      }),
+    } as unknown as Parameters<typeof checkRateLimitApi>[0];
+    const result = checkRateLimitApi(limiter, "key", "api-key-id", "log msg");
+    const seconds = Number(result?.headers.get("Retry-After"));
+    expect(seconds).toBe(1);
   });
 
   it("logs a warning with apiKeyId when rate limit is exceeded", () => {
@@ -194,6 +270,7 @@ describe("parseAndValidateBody", () => {
     expect("error" in result).toBe(true);
     if ("error" in result) {
       expect(result.error.status).toBe(413);
+      expect(result.error.headers.get("Access-Control-Allow-Origin")).toBe("*");
     }
   });
 
@@ -205,6 +282,7 @@ describe("parseAndValidateBody", () => {
       expect(result.error.status).toBe(400);
       const body = await result.error.json();
       expect(body.error).toContain("Body non valido");
+      expect(result.error.headers.get("Access-Control-Allow-Origin")).toBe("*");
     }
   });
 
@@ -216,6 +294,7 @@ describe("parseAndValidateBody", () => {
       expect(result.error.status).toBe(400);
       const body = await result.error.json();
       expect(body.error).toContain("name");
+      expect(result.error.headers.get("Access-Control-Allow-Origin")).toBe("*");
     }
   });
 

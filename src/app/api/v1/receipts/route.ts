@@ -6,6 +6,7 @@ import {
   corsOptionsResponse,
   checkRateLimitApi,
   parseAndValidateBody,
+  withCors,
 } from "@/lib/api-v1-helpers";
 import type { SubmitReceiptInput } from "@/types/cassa";
 
@@ -105,15 +106,17 @@ export async function POST(request: Request): Promise<Response> {
   const result = await emitReceiptForBusiness(input, auth.apiKey.id);
 
   if (result.error) {
-    return Response.json({ error: result.error }, { status: 422 });
+    return withCors(Response.json({ error: result.error }, { status: 422 }));
   }
 
-  return Response.json(
-    {
-      documentId: result.documentId,
-      adeTransactionId: result.adeTransactionId,
-      adeProgressive: result.adeProgressive,
-    },
-    { status: 201 },
+  return withCors(
+    Response.json(
+      {
+        documentId: result.documentId,
+        adeTransactionId: result.adeTransactionId,
+        adeProgressive: result.adeProgressive,
+      },
+      { status: 201 },
+    ),
   );
 }
