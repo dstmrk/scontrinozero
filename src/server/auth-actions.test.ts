@@ -245,7 +245,10 @@ describe("auth-actions", () => {
       vi.stubEnv("APP_HOSTNAME", "sandbox.scontrinozero.it");
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ success: true, hostname: "sandbox.scontrinozero.it" }),
+        json: async () => ({
+          success: true,
+          hostname: "sandbox.scontrinozero.it",
+        }),
       });
       mockSignUp.mockResolvedValue({
         data: { user: { id: "user-123" } },
