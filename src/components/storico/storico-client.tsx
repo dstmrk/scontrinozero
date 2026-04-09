@@ -348,7 +348,7 @@ export function StoricoClient({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => void handlePageChange(page - 1)}
+              onClick={() => handlePageChange(page - 1)}
               disabled={page === 1 || isPending}
             >
               Precedente
@@ -356,7 +356,7 @@ export function StoricoClient({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => void handlePageChange(page + 1)}
+              onClick={() => handlePageChange(page + 1)}
               disabled={page === totalPages || isPending}
             >
               Successiva

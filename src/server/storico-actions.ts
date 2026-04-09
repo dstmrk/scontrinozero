@@ -106,7 +106,7 @@ export async function searchReceipts(
 
   const items = docs.map((doc) => {
     const docLines = linesByDocId.get(doc.id) ?? [];
-    const total =
+    const docTotal =
       Math.round(
         docLines.reduce(
           (sum, l) =>
@@ -123,7 +123,7 @@ export async function searchReceipts(
       adeProgressive: doc.adeProgressive,
       adeTransactionId: doc.adeTransactionId,
       createdAt: doc.createdAt,
-      total: total.toFixed(2),
+      total: docTotal.toFixed(2),
       lines: docLines.map((l) => ({
         description: l.description,
         quantity: l.quantity,
