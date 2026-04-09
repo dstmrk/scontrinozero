@@ -6,4 +6,5 @@ export * from "./commercial-document-lines";
 export * from "./catalog-items";
 export * from "./subscriptions";
 export * from "./api-keys";
+export * from "./stripe-webhook-events";
 export * from "./relations";
