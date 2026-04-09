@@ -184,11 +184,11 @@ esercenti e micro-attività di emettere scontrini elettronici e trasmettere i co
 all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la procedura
 "Documento Commerciale Online".
 
-**Versione corrente:** v1.2.0 ✅ (rilasciato in produzione) — roadmap completa in `PLAN.md`.
+**Versione corrente:** v1.2.2 ✅ (rilasciato in produzione) — roadmap completa in `PLAN.md`.
 
-**Prossima release:** v1.2.1 (fix paginazione storico + default 7gg)
+**Prossima release:** v1.3.0 (landing & SEO polish)
 
-**Post-lancio:** v1.2.0 (PWA) → v1.3.0 (landing SEO) → v1.4.0+ (analytics, catalog sync, …)
+**Post-lancio:** v1.2.2 (billing fix) → v1.3.0 (landing SEO) → v1.4.0+ (analytics, catalog sync, …)
 
 ## Principi di prodotto
 
@@ -714,6 +714,36 @@ Per evitare un DB write su ogni API request, usare:
 
 Il DB aggiorna solo se `lastUsedAt IS NULL OR lastUsedAt < NOW - N_min`.
 Sempre fire-and-forget (`.catch(logger.warn)`). Throttle consigliato: 10 minuti.
+
+### Stripe webhook: lista completa degli eventi da registrare
+
+Il webhook handler gestisce **8 eventi**. Ogni endpoint (prod, sandbox, dev locale) deve
+avere il proprio `whsec_*` separato generato da Stripe (Settings → Webhooks → Add endpoint).
+Non condividere mai lo stesso `STRIPE_WEBHOOK_SECRET` tra ambienti diversi.
+
+**Evento più critico da non dimenticare:** `customer.subscription.updated` — è l'unico che
+chiama `syncSubscriptionData` sui rinnovi, aggiornando `profiles.planExpiresAt`. Senza di
+esso la data di rinnovo in UI è sempre stale e la recovery da `past_due` non funziona mai.
+
+| Evento                            | Perché                                                       |
+| --------------------------------- | ------------------------------------------------------------ |
+| `checkout.session.completed`      | Attiva l'abbonamento dopo il pagamento                       |
+| `checkout.session.expired`        | Cleanup righe `pending` abbandonate (24h di default)         |
+| `customer.subscription.updated`   | Rinnovi, upgrade/downgrade, recovery da `past_due`           |
+| `customer.subscription.deleted`   | Cancellazione → reset a `trial` in transaction               |
+| `invoice.paid`                    | Aggiorna `currentPeriodEnd` su ogni rinnovo (safety net)     |
+| `invoice.payment_failed`          | Imposta status `past_due`                                    |
+| `invoice.payment_action_required` | 3D Secure / SCA obbligatorio in EU (PSD2)                    |
+| `charge.dispute.created`          | Alert chargeback con `critical: true` — nessuna scrittura DB |
+
+**Non serve registrare:** `customer.subscription.created` (coperto da `checkout.session.completed`),
+`payment_intent.*` (coperti dagli eventi `invoice.*`), `customer.subscription.paused/resumed`
+(feature non usata).
+
+**Stato "misto" subscription card (pending + trial):** se dopo un checkout la card mostra
+"Prova gratuita" + "Abbonamento annuale" + portale, la riga `subscriptions` è `pending`
+(webhook non arrivato o fallito). Verificare: (1) endpoint registrato su Stripe per
+quell'ambiente, (2) `STRIPE_WEBHOOK_SECRET` corretto, (3) log server per errori di firma.
 
 ## Sito vetrina (landing/marketing)
 
