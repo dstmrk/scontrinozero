@@ -89,7 +89,8 @@ export default async function SettingsPage() {
     if (planData.plan === "unlimited") return "unlimited";
     if (planData.hasSubscription && planData.subscriptionStatus === "past_due")
       return "past-due";
-    if (planData.hasSubscription) return "subscribed";
+    if (planData.hasSubscription && planData.subscriptionStatus === "active")
+      return "subscribed";
     if (isTrialExpired(planData.trialStartedAt)) return "trial-expired";
     return "trial-active";
   })();
