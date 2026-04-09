@@ -203,6 +203,21 @@ describe("getProfilePlan", () => {
     }
   });
 
+  it("keeps trial plan when subscription status is pending (pre-payment, P2-04)", async () => {
+    mockPlanFromPriceId.mockReturnValue("pro");
+    mockLimit.mockResolvedValue([
+      makeSubRow({ stripePriceId: "price_pro_yearly", status: "pending" }),
+    ]);
+    const result = await getProfilePlan();
+    expect("error" in result).toBe(false);
+    if (!("error" in result)) {
+      expect(result.plan).toBe("trial");
+      expect(result.hasSubscription).toBe(true); // row exists even though payment not confirmed
+      expect(result.subscriptionStatus).toBe("pending");
+      expect(mockPlanFromPriceId).not.toHaveBeenCalled();
+    }
+  });
+
   it("keeps trial plan when subscription status is canceled (P2-04)", async () => {
     mockPlanFromPriceId.mockReturnValue("starter");
     mockLimit.mockResolvedValue([
