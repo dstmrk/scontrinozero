@@ -24,8 +24,11 @@ export interface ReceiptListItem {
 }
 
 // ---------------------------------------------------------------------------
-// Search params
+// Search params + paginated result
 // ---------------------------------------------------------------------------
+
+/** Numero di scontrini per pagina nello storico. */
+export const STORICO_PAGE_SIZE = 10;
 
 /**
  * Valore del filtro stato nella pagina storico.
@@ -43,6 +46,16 @@ export interface SearchReceiptsParams {
    * Se omesso restituisce solo ACCEPTED e VOID_ACCEPTED (nessun tentativo fallito).
    */
   status?: "ACCEPTED" | "VOID_ACCEPTED";
+  /** Numero di pagina 1-based. Default 1. */
+  page?: number;
+  /** Dimensione pagina. Default STORICO_PAGE_SIZE. */
+  pageSize?: number;
+}
+
+export interface SearchReceiptsResult {
+  items: ReceiptListItem[];
+  /** Numero totale di documenti che corrispondono ai filtri (senza paginazione). */
+  total: number;
 }
 
 // ---------------------------------------------------------------------------

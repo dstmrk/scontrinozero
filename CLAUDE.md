@@ -184,9 +184,9 @@ esercenti e micro-attività di emettere scontrini elettronici e trasmettere i co
 all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la procedura
 "Documento Commerciale Online".
 
-**Versione corrente:** v1.1.4 ✅ (rilasciato in produzione) — roadmap completa in `PLAN.md`.
+**Versione corrente:** v1.2.0 ✅ (rilasciato in produzione) — roadmap completa in `PLAN.md`.
 
-**Prossima release:** v1.2.0 (PWA)
+**Prossima release:** v1.2.1 (fix paginazione storico + default 7gg)
 
 **Post-lancio:** v1.2.0 (PWA) → v1.3.0 (landing SEO) → v1.4.0+ (analytics, catalog sync, …)
 

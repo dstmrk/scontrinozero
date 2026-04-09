@@ -16,11 +16,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type {
-  ReceiptListItem,
-  SearchReceiptsParams,
-  StatusFilter,
-  VoidReceiptResult,
+import {
+  STORICO_PAGE_SIZE,
+  type ReceiptListItem,
+  type SearchReceiptsParams,
+  type StatusFilter,
+  type VoidReceiptResult,
 } from "@/types/storico";
 
 // ---------------------------------------------------------------------------
@@ -84,7 +85,7 @@ function StatusBadge({
 // Constants
 // ---------------------------------------------------------------------------
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = STORICO_PAGE_SIZE;
 
 // ---------------------------------------------------------------------------
 // Props
@@ -92,7 +93,8 @@ const PAGE_SIZE = 10;
 
 interface StoricoClientProps {
   readonly businessId: string;
-  readonly initialData: ReceiptListItem[];
+  readonly initialItems: ReceiptListItem[];
+  readonly initialTotal: number;
   readonly initialDateFrom?: string;
   readonly initialDateTo?: string;
   readonly initialStatus?: StatusFilter;
@@ -104,15 +106,19 @@ interface StoricoClientProps {
 
 export function StoricoClient({
   businessId,
-  initialData,
+  initialItems,
+  initialTotal,
   initialDateFrom,
   initialDateTo,
   initialStatus,
 }: StoricoClientProps) {
   const router = useRouter();
   const today = new Date();
+  const sevenDaysAgo = new Date(today);
+  sevenDaysAgo.setDate(today.getDate() - 6);
 
-  const [receipts, setReceipts] = useState<ReceiptListItem[]>(initialData);
+  const [receipts, setReceipts] = useState<ReceiptListItem[]>(initialItems);
+  const [total, setTotal] = useState(initialTotal);
   const [selected, setSelected] = useState<ReceiptListItem | null>(null);
   const [isPending, startTransition] = useTransition();
   const [page, setPage] = useState(1);
@@ -126,7 +132,7 @@ export function StoricoClient({
 
   // Search form state — initialised from URL params passed by server
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: parseISODate(initialDateFrom) ?? today,
+    from: parseISODate(initialDateFrom) ?? sevenDaysAgo,
     to: parseISODate(initialDateTo) ?? today,
   });
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
@@ -156,9 +162,37 @@ export function StoricoClient({
     if (statusFilter) params.status = statusFilter;
 
     startTransition(async () => {
-      const results = await searchReceipts(businessId, params);
-      setReceipts(results);
+      const result = await searchReceipts(businessId, {
+        ...params,
+        page: 1,
+        pageSize: PAGE_SIZE,
+      });
+      setReceipts(result.items);
+      setTotal(result.total);
       setPage(1);
+    });
+  }
+
+  // Handle page change — re-fetches from server with same filters, new page
+  function handlePageChange(newPage: number) {
+    const dateFrom = dateRange?.from
+      ? format(dateRange.from, "yyyy-MM-dd")
+      : undefined;
+    const dateTo = dateRange?.to
+      ? format(dateRange.to, "yyyy-MM-dd")
+      : undefined;
+
+    startTransition(async () => {
+      const result = await searchReceipts(businessId, {
+        ...(dateFrom ? { dateFrom } : {}),
+        ...(dateTo ? { dateTo } : {}),
+        ...(statusFilter ? { status: statusFilter } : {}),
+        page: newPage,
+        pageSize: PAGE_SIZE,
+      });
+      setReceipts(result.items);
+      setTotal(result.total);
+      setPage(newPage);
     });
   }
 
@@ -173,15 +207,8 @@ export function StoricoClient({
     setSelected(null);
   }
 
-  const voidableCount = receipts.filter((r) => r.status === "ACCEPTED").length;
-  const totalPages = Math.max(1, Math.ceil(receipts.length / PAGE_SIZE));
-  const pagedReceipts = receipts.slice(
-    (page - 1) * PAGE_SIZE,
-    page * PAGE_SIZE,
-  );
-  const voidableText =
-    voidableCount > 0 ? `, ${voidableCount} annullabili` : "";
-  const summaryText = `${receipts.length} scontrini trovati${voidableText}.`;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const summaryText = `${total} scontrini trovati.`;
 
   return (
     <div className="space-y-6">
@@ -189,7 +216,7 @@ export function StoricoClient({
       <div>
         <h1 className="text-2xl font-bold">Storico scontrini</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          {receipts.length === 0 ? "Nessuno scontrino trovato." : summaryText}
+          {total === 0 ? "Nessuno scontrino trovato." : summaryText}
         </p>
       </div>
 
@@ -238,7 +265,7 @@ export function StoricoClient({
       </form>
 
       {/* Table */}
-      {receipts.length === 0 ? (
+      {total === 0 ? (
         <div className="text-muted-foreground rounded-lg border py-12 text-center text-sm">
           Nessuno scontrino trovato per i filtri selezionati.
         </div>
@@ -255,7 +282,7 @@ export function StoricoClient({
               </tr>
             </thead>
             <tbody className="divide-y">
-              {pagedReceipts.map((receipt) => {
+              {receipts.map((receipt) => {
                 // SALE receipts (both ACCEPTED and VOID_ACCEPTED) can open the
                 // detail dialog to view lines and re-send the PDF receipt.
                 const hasDetail =
@@ -321,16 +348,16 @@ export function StoricoClient({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPage((p) => p - 1)}
-              disabled={page === 1}
+              onClick={() => void handlePageChange(page - 1)}
+              disabled={page === 1 || isPending}
             >
               Precedente
             </Button>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPage((p) => p + 1)}
-              disabled={page === totalPages}
+              onClick={() => void handlePageChange(page + 1)}
+              disabled={page === totalPages || isPending}
             >
               Successiva
             </Button>

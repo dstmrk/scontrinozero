@@ -1,20 +1,24 @@
 "use server";
 
-import { and, asc, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocumentLines, commercialDocuments } from "@/db/schema";
 import {
   checkBusinessOwnership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
-import type { ReceiptListItem, SearchReceiptsParams } from "@/types/storico";
+import {
+  STORICO_PAGE_SIZE,
+  type SearchReceiptsResult,
+  type SearchReceiptsParams,
+} from "@/types/storico";
 
 // ---------------------------------------------------------------------------
 // searchReceipts
 // ---------------------------------------------------------------------------
 
 /**
- * Restituisce la lista degli scontrini (SALE) del business, con filtri opzionali.
+ * Restituisce la lista paginata degli scontrini (SALE) del business, con filtri opzionali.
  *
  * Ordine: DESC createdAt (più recenti prima).
  * Source: DB locale (nessuna chiamata AdE).
@@ -22,7 +26,7 @@ import type { ReceiptListItem, SearchReceiptsParams } from "@/types/storico";
 export async function searchReceipts(
   businessId: string,
   params: SearchReceiptsParams = {},
-): Promise<ReceiptListItem[]> {
+): Promise<SearchReceiptsResult> {
   const user = await getAuthenticatedUser();
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) {
@@ -30,6 +34,9 @@ export async function searchReceipts(
   }
 
   const db = getDb();
+  const page = params.page ?? 1;
+  const pageSize = params.pageSize ?? STORICO_PAGE_SIZE;
+  const offset = (page - 1) * pageSize;
 
   // Build conditions
   const conditions = [
@@ -58,6 +65,12 @@ export async function searchReceipts(
     );
   }
 
+  // Total count (same conditions, no pagination)
+  const [{ value: total }] = await db
+    .select({ value: count() })
+    .from(commercialDocuments)
+    .where(and(...conditions));
+
   const docs = await db
     .select({
       id: commercialDocuments.id,
@@ -69,11 +82,13 @@ export async function searchReceipts(
     })
     .from(commercialDocuments)
     .where(and(...conditions))
-    .orderBy(desc(commercialDocuments.createdAt));
+    .orderBy(desc(commercialDocuments.createdAt))
+    .limit(pageSize)
+    .offset(offset);
 
-  if (docs.length === 0) return [];
+  if (docs.length === 0) return { items: [], total };
 
-  // Fetch all lines in a single query
+  // Fetch lines only for the current page's documents
   const docIds = docs.map((d) => d.id);
   const lines = await db
     .select()
@@ -89,7 +104,7 @@ export async function searchReceipts(
     linesByDocId.set(line.documentId, existing);
   }
 
-  return docs.map((doc) => {
+  const items = docs.map((doc) => {
     const docLines = linesByDocId.get(doc.id) ?? [];
     const total =
       Math.round(
@@ -117,4 +132,6 @@ export async function searchReceipts(
       })),
     };
   });
+
+  return { items, total };
 }
