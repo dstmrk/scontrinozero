@@ -195,6 +195,38 @@ describe("proxy", () => {
       expect(response.status).toBe(200);
     });
 
+    it("allows /help on marketing domain (marketing-only route)", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(
+        createRequestForHost("/help", "scontrinozero.it"),
+      );
+      expect(response.status).toBe(200);
+    });
+
+    it("allows /help/api on marketing domain (help subroute)", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(
+        createRequestForHost("/help/api", "scontrinozero.it"),
+      );
+      expect(response.status).toBe(200);
+    });
+
+    it("redirects /help on app domain to marketing domain", async () => {
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(
+        createRequestForHost("/help", "app.scontrinozero.it"),
+      );
+      expect(response.status).toBe(307);
+      const location = new URL(response.headers.get("location")!);
+      expect(location.hostname).toBe("scontrinozero.it");
+      expect(location.pathname).toBe("/help");
+    });
+
     it("redirects /dashboard on marketing domain to app domain", async () => {
       const { proxy } = await import("./proxy");
 
