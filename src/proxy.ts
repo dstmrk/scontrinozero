@@ -8,7 +8,12 @@ const PROTECTED_PREFIXES = ["/dashboard", "/onboarding"];
 const AUTH_ONLY_PATHS = ["/login", "/register", "/reset-password"];
 
 /** Routes served exclusively on the marketing domain */
-const MARKETING_ONLY_ROUTES = ["/privacy", "/termini", "/cookie-policy"];
+const MARKETING_ONLY_ROUTES = [
+  "/privacy",
+  "/termini",
+  "/cookie-policy",
+  "/help",
+];
 
 /**
  * Redirects based on hostname to enforce domain separation.
