@@ -305,12 +305,18 @@ describe("createApiKey — limite per piano", () => {
 });
 
 describe("revokeApiKey", () => {
+  // Mock chain: update().set().where().returning() → array
+  let mockUpdateReturning: ReturnType<typeof vi.fn>;
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockSelect.mockReturnValue(makeSelectBuilder([FAKE_PROFILE]));
 
-    const mockUpdateWhere = vi.fn().mockResolvedValue(undefined);
+    mockUpdateReturning = vi.fn().mockResolvedValue([{ id: "key-uuid" }]);
+    const mockUpdateWhere = vi
+      .fn()
+      .mockReturnValue({ returning: mockUpdateReturning });
     const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
     mockUpdate.mockReturnValue({ set: mockUpdateSet });
   });
@@ -320,6 +326,17 @@ describe("revokeApiKey", () => {
     const result = await revokeApiKey("key-uuid");
 
     expect(result.error).toBeUndefined();
+    expect(mockUpdate).toHaveBeenCalled();
+  });
+
+  it("ritorna errore se la chiave non esiste o non appartiene all'utente", async () => {
+    // Update matches 0 rows → returning() returns empty array
+    mockUpdateReturning.mockResolvedValue([]);
+
+    const { revokeApiKey } = await import("./api-key-actions");
+    const result = await revokeApiKey("nonexistent-key-uuid");
+
+    expect(result.error).toMatch(/non trovata|non autorizzata/i);
     expect(mockUpdate).toHaveBeenCalled();
   });
 

@@ -11,7 +11,7 @@
 import { eq, and, or, isNull, lt } from "drizzle-orm";
 import { getDb } from "@/db";
 import { apiKeys, profiles } from "@/db/schema";
-import { hashApiKey } from "@/lib/api-keys";
+import { hashApiKey, isValidApiKeyFormat } from "@/lib/api-keys";
 import { logger } from "@/lib/logger";
 import type { Plan } from "@/lib/plans";
 import type { SelectApiKey } from "@/db/schema";
@@ -54,6 +54,12 @@ export async function authenticateApiKey(
   const raw = authHeader.slice(7).trim();
   if (!raw) {
     return { error: "API key mancante.", status: 401 };
+  }
+
+  // Fast pre-check: reject malformed tokens before computing hash or querying DB.
+  // This avoids CPU + DB work for garbage tokens (brute-force, scan traffic, etc.).
+  if (!isValidApiKeyFormat(raw)) {
+    return { error: "API key non valida.", status: 401 };
   }
 
   const hash = hashApiKey(raw);

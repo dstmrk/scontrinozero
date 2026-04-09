@@ -81,18 +81,57 @@ describe("isManagementKey", () => {
 });
 
 describe("isValidApiKeyFormat", () => {
-  it("accetta business key", () => {
-    expect(isValidApiKeyFormat("szk_live_XXXXXXXX")).toBe(true);
+  // Valid full-length keys: prefix(9) + body(48 base64url chars) = 57
+  const VALID_LIVE = "szk_live_" + "A".repeat(48);
+  const VALID_MGMT = "szk_mgmt_" + "B".repeat(48);
+
+  it("accetta una business key completa (57 char)", () => {
+    expect(isValidApiKeyFormat(VALID_LIVE)).toBe(true);
   });
 
-  it("accetta management key", () => {
-    expect(isValidApiKeyFormat("szk_mgmt_XXXXXXXX")).toBe(true);
+  it("accetta una management key completa (57 char)", () => {
+    expect(isValidApiKeyFormat(VALID_MGMT)).toBe(true);
   });
 
-  it("rifiuta formato non valido", () => {
-    expect(isValidApiKeyFormat("sk_live_stripe")).toBe(false);
-    expect(isValidApiKeyFormat("szk_XXXXXXXX")).toBe(false);
+  it("accetta body con tutti i caratteri base64url validi", () => {
+    // base64url: A-Z, a-z, 0-9, -, _
+    const body = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwx01"; // 50 — no, must be 48
+    const body48 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwx".slice(
+      0,
+      48,
+    );
+    expect(isValidApiKeyFormat("szk_live_" + body48)).toBe(true);
+  });
+
+  it("accetta chiavi generate da generateApiKey", () => {
+    const { raw: liveRaw } = generateApiKey("business");
+    const { raw: mgmtRaw } = generateApiKey("management");
+    expect(isValidApiKeyFormat(liveRaw)).toBe(true);
+    expect(isValidApiKeyFormat(mgmtRaw)).toBe(true);
+  });
+
+  it("rifiuta prefisso errato", () => {
+    expect(isValidApiKeyFormat("sk_live_" + "A".repeat(49))).toBe(false); // wrong prefix, wrong length
+    expect(isValidApiKeyFormat("szk_LIVE_" + "A".repeat(48))).toBe(false); // uppercase prefix
+    expect(isValidApiKeyFormat("Bearer " + VALID_LIVE)).toBe(false);
+  });
+
+  it("rifiuta chiave troppo corta", () => {
+    expect(isValidApiKeyFormat("szk_live_XXXXXXXX")).toBe(false); // only 18 chars
+    expect(isValidApiKeyFormat("szk_live_" + "A".repeat(47))).toBe(false);
     expect(isValidApiKeyFormat("")).toBe(false);
-    expect(isValidApiKeyFormat("Bearer szk_live_X")).toBe(false);
+  });
+
+  it("rifiuta chiave troppo lunga", () => {
+    expect(isValidApiKeyFormat("szk_live_" + "A".repeat(49))).toBe(false);
+    expect(isValidApiKeyFormat("szk_live_" + "A".repeat(100))).toBe(false);
+  });
+
+  it("rifiuta body con caratteri non-base64url", () => {
+    // + and / are base64 but NOT base64url
+    expect(isValidApiKeyFormat("szk_live_" + "+".repeat(48))).toBe(false);
+    expect(isValidApiKeyFormat("szk_live_" + "/".repeat(48))).toBe(false);
+    expect(isValidApiKeyFormat("szk_live_" + "=".repeat(48))).toBe(false);
+    expect(isValidApiKeyFormat("szk_live_" + " ".repeat(48))).toBe(false);
   });
 });

@@ -7,6 +7,7 @@ import {
   corsOptionsResponse,
   checkRateLimitApi,
   parseAndValidateBody,
+  withCors,
 } from "@/lib/api-v1-helpers";
 
 const voidBodySchema = z.object({
@@ -54,7 +55,9 @@ export async function POST(
   const { id: documentId } = await params;
 
   if (!isValidUuid(documentId)) {
-    return Response.json({ error: "ID non valido." }, { status: 400 });
+    return withCors(
+      Response.json({ error: "ID non valido." }, { status: 400 }),
+    );
   }
 
   // ── Void ──────────────────────────────────────────────────────────────────
@@ -64,15 +67,17 @@ export async function POST(
   );
 
   if (result.error) {
-    return Response.json({ error: result.error }, { status: 422 });
+    return withCors(Response.json({ error: result.error }, { status: 422 }));
   }
 
-  return Response.json(
-    {
-      voidDocumentId: result.voidDocumentId,
-      adeTransactionId: result.adeTransactionId,
-      adeProgressive: result.adeProgressive,
-    },
-    { status: 200 },
+  return withCors(
+    Response.json(
+      {
+        voidDocumentId: result.voidDocumentId,
+        adeTransactionId: result.adeTransactionId,
+        adeProgressive: result.adeProgressive,
+      },
+      { status: 200 },
+    ),
   );
 }

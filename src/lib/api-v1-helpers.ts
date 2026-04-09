@@ -21,6 +21,33 @@ export type BusinessApiContext = Omit<ApiKeyContext, "businessId"> & {
 };
 
 /**
+ * CORS headers included on every /api/v1/* response (not only preflight).
+ * Authentication is via Bearer token, not cookies, so the wildcard origin
+ * is intentional and safe for this public developer API.
+ */
+// NOSONAR — developer API: auth via Bearer token (not cookies), wildcard is intentional
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+} as const;
+
+/**
+ * Returns a new Response with CORS headers added.
+ * Use this to add CORS headers to success responses in route handlers.
+ */
+export function withCors(response: Response): Response {
+  const headers = new Headers(response.headers);
+  headers.set(
+    "Access-Control-Allow-Origin",
+    CORS_HEADERS["Access-Control-Allow-Origin"],
+  );
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+/**
  * Runs auth, plan gate, and business key checks common to all v1 API routes.
  *
  * Returns `{ error: Response }` on any failure so the caller can do:
@@ -32,7 +59,10 @@ export async function requireBusinessApiAuth(
   const auth = await authenticateApiKey(request);
   if (isApiKeyAuthError(auth)) {
     return {
-      error: Response.json({ error: auth.error }, { status: auth.status }),
+      error: Response.json(
+        { error: auth.error },
+        { status: auth.status, headers: CORS_HEADERS },
+      ),
     };
   }
 
@@ -43,7 +73,7 @@ export async function requireBusinessApiAuth(
           error:
             "Il tuo piano non include l'accesso alle API. Passa al piano Pro o Developer.",
         },
-        { status: 402 },
+        { status: 402, headers: CORS_HEADERS },
       ),
     };
   }
@@ -52,7 +82,7 @@ export async function requireBusinessApiAuth(
     return {
       error: Response.json(
         { error: "Questa API richiede una business key (szk_live_)." },
-        { status: 403 },
+        { status: 403, headers: CORS_HEADERS },
       ),
     };
   }
@@ -78,6 +108,7 @@ export function corsOptionsResponse(methods: string): Response {
 
 /**
  * Checks rate limit and returns a 429 Response if exceeded, null otherwise.
+ * The response includes a `Retry-After` header (seconds) for machine-readable backoff.
  *
  * @param limiter  - RateLimiter instance (module-level singleton in the route)
  * @param key      - Rate limit bucket key, e.g. "api:emit:<apiKeyId>"
@@ -93,9 +124,19 @@ export function checkRateLimitApi(
   const result = limiter.check(key);
   if (!result.success) {
     logger.warn({ apiKeyId }, logMsg);
+    const retryAfterSeconds = Math.max(
+      1,
+      Math.ceil((result.resetAt - Date.now()) / 1000),
+    );
     return Response.json(
       { error: "Troppe richieste. Riprova tra qualche ora." },
-      { status: 429 },
+      {
+        status: 429,
+        headers: {
+          ...CORS_HEADERS,
+          "Retry-After": String(retryAfterSeconds),
+        },
+      },
     );
   }
   return null;
@@ -121,8 +162,14 @@ export async function parseAndValidateBody<T>(
     return {
       error:
         "tooLarge" in bodyResult
-          ? Response.json({ error: "Payload troppo grande." }, { status: 413 })
-          : Response.json({ error: "Body non valido." }, { status: 400 }),
+          ? Response.json(
+              { error: "Payload troppo grande." },
+              { status: 413, headers: CORS_HEADERS },
+            )
+          : Response.json(
+              { error: "Body non valido." },
+              { status: 400, headers: CORS_HEADERS },
+            ),
     };
   }
 
@@ -133,7 +180,12 @@ export async function parseAndValidateBody<T>(
     const msg = field
       ? `Il campo '${field}' non è valido: ${issue.message}`
       : (issue?.message ?? "Input non valido.");
-    return { error: Response.json({ error: msg }, { status: 400 }) };
+    return {
+      error: Response.json(
+        { error: msg },
+        { status: 400, headers: CORS_HEADERS },
+      ),
+    };
   }
 
   return { data: parsed.data };

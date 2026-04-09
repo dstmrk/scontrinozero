@@ -65,7 +65,61 @@ const FAKE_ROW = {
   trialStartedAt: null,
 };
 
+/**
+ * Build a valid 57-char business key (prefix + 48 base64url chars).
+ * The body is not a real random key — only format matters for these tests.
+ */
+const VALID_LIVE_KEY = "szk_live_" + "A".repeat(48);
+const VALID_MGMT_KEY = "szk_mgmt_" + "B".repeat(48);
+
 // --- Tests ---
+
+describe("authenticateApiKey — format pre-check (no DB call)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.setSystemTime(NOW);
+  });
+
+  it("ritorna 401 senza query DB se la chiave ha prefisso errato", async () => {
+    const { authenticateApiKey } = await import("./api-auth");
+    const request = new Request("https://api.scontrinozero.it/v1/receipts", {
+      headers: { authorization: "Bearer sk_live_" + "A".repeat(48) },
+    });
+    const result = await authenticateApiKey(request);
+    expect(result).toEqual({ error: "API key non valida.", status: 401 });
+    expect(mockSelectFields).not.toHaveBeenCalled();
+  });
+
+  it("ritorna 401 senza query DB se la chiave è troppo corta", async () => {
+    const { authenticateApiKey } = await import("./api-auth");
+    const request = new Request("https://api.scontrinozero.it/v1/receipts", {
+      headers: { authorization: "Bearer szk_live_XXXXXXXX" },
+    });
+    const result = await authenticateApiKey(request);
+    expect(result).toEqual({ error: "API key non valida.", status: 401 });
+    expect(mockSelectFields).not.toHaveBeenCalled();
+  });
+
+  it("ritorna 401 senza query DB se la chiave è troppo lunga", async () => {
+    const { authenticateApiKey } = await import("./api-auth");
+    const request = new Request("https://api.scontrinozero.it/v1/receipts", {
+      headers: { authorization: "Bearer szk_live_" + "A".repeat(100) },
+    });
+    const result = await authenticateApiKey(request);
+    expect(result).toEqual({ error: "API key non valida.", status: 401 });
+    expect(mockSelectFields).not.toHaveBeenCalled();
+  });
+
+  it("ritorna 401 senza query DB se il body contiene caratteri non base64url", async () => {
+    const { authenticateApiKey } = await import("./api-auth");
+    const request = new Request("https://api.scontrinozero.it/v1/receipts", {
+      headers: { authorization: "Bearer szk_live_" + "+".repeat(48) },
+    });
+    const result = await authenticateApiKey(request);
+    expect(result).toEqual({ error: "API key non valida.", status: 401 });
+    expect(mockSelectFields).not.toHaveBeenCalled();
+  });
+});
 
 describe("authenticateApiKey", () => {
   beforeEach(() => {
@@ -104,7 +158,7 @@ describe("authenticateApiKey", () => {
 
     const { authenticateApiKey } = await import("./api-auth");
     const request = new Request("https://api.scontrinozero.it/v1/receipts", {
-      headers: { authorization: "Bearer szk_live_unknownkey" },
+      headers: { authorization: `Bearer ${VALID_LIVE_KEY}` },
     });
 
     const result = await authenticateApiKey(request);
@@ -113,6 +167,7 @@ describe("authenticateApiKey", () => {
       error: "API key non valida.",
       status: 401,
     });
+    expect(mockSelectFields).toHaveBeenCalled();
   });
 
   it("ritorna 401 se la key è revocata", async () => {
@@ -128,7 +183,7 @@ describe("authenticateApiKey", () => {
 
     const { authenticateApiKey } = await import("./api-auth");
     const request = new Request("https://api.scontrinozero.it/v1/receipts", {
-      headers: { authorization: "Bearer szk_live_revokedkey" },
+      headers: { authorization: `Bearer ${VALID_LIVE_KEY}` },
     });
 
     const result = await authenticateApiKey(request);
@@ -152,7 +207,7 @@ describe("authenticateApiKey", () => {
 
     const { authenticateApiKey } = await import("./api-auth");
     const request = new Request("https://api.scontrinozero.it/v1/receipts", {
-      headers: { authorization: "Bearer szk_live_expiredkey" },
+      headers: { authorization: `Bearer ${VALID_LIVE_KEY}` },
     });
 
     const result = await authenticateApiKey(request);
@@ -169,7 +224,7 @@ describe("authenticateApiKey", () => {
 
     const { authenticateApiKey } = await import("./api-auth");
     const request = new Request("https://api.scontrinozero.it/v1/receipts", {
-      headers: { authorization: "Bearer szk_live_validkey" },
+      headers: { authorization: `Bearer ${VALID_LIVE_KEY}` },
     });
 
     const result = await authenticateApiKey(request);
@@ -196,7 +251,7 @@ describe("authenticateApiKey", () => {
     const request = new Request(
       "https://api.scontrinozero.it/v1/partner/businesses",
       {
-        headers: { authorization: "Bearer szk_mgmt_validkey" },
+        headers: { authorization: `Bearer ${VALID_MGMT_KEY}` },
       },
     );
 
@@ -219,7 +274,7 @@ describe("authenticateApiKey", () => {
 
     const { authenticateApiKey } = await import("./api-auth");
     const request = new Request("https://api.scontrinozero.it/v1/receipts", {
-      headers: { authorization: "Bearer szk_live_futureexpiry" },
+      headers: { authorization: `Bearer ${VALID_LIVE_KEY}` },
     });
 
     const result = await authenticateApiKey(request);
@@ -233,7 +288,7 @@ describe("authenticateApiKey", () => {
 
     const { authenticateApiKey } = await import("./api-auth");
     const request = new Request("https://api.scontrinozero.it/v1/receipts", {
-      headers: { authorization: "Bearer szk_live_validkey" },
+      headers: { authorization: `Bearer ${VALID_LIVE_KEY}` },
     });
 
     const result = await authenticateApiKey(request);
@@ -251,7 +306,7 @@ describe("authenticateApiKey", () => {
 
     const { authenticateApiKey } = await import("./api-auth");
     const request = new Request("https://api.scontrinozero.it/v1/receipts", {
-      headers: { authorization: "Bearer szk_live_validkey" },
+      headers: { authorization: `Bearer ${VALID_LIVE_KEY}` },
     });
 
     await authenticateApiKey(request);
@@ -269,7 +324,7 @@ describe("authenticateApiKey", () => {
     const { and, or, isNull, lt } = await import("drizzle-orm");
     const { authenticateApiKey } = await import("./api-auth");
     const request = new Request("https://api.scontrinozero.it/v1/receipts", {
-      headers: { authorization: "Bearer szk_live_validkey" },
+      headers: { authorization: `Bearer ${VALID_LIVE_KEY}` },
     });
 
     await authenticateApiKey(request);
@@ -297,7 +352,7 @@ describe("authenticateApiKey", () => {
     const { lt } = await import("drizzle-orm");
     const { authenticateApiKey } = await import("./api-auth");
     const request = new Request("https://api.scontrinozero.it/v1/receipts", {
-      headers: { authorization: "Bearer szk_live_recentkey" },
+      headers: { authorization: `Bearer ${VALID_LIVE_KEY}` },
     });
 
     await authenticateApiKey(request);
