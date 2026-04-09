@@ -1,6 +1,6 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { commercialDocuments } from "@/db/schema";
+import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
 import { isValidUuid } from "@/lib/uuid";
 import {
   requireBusinessApiAuth,
@@ -39,6 +39,9 @@ export async function GET(
       adeTransactionId: commercialDocuments.adeTransactionId,
       adeProgressive: commercialDocuments.adeProgressive,
       createdAt: commercialDocuments.createdAt,
+      lotteryCode: commercialDocuments.lotteryCode,
+      voidedDocumentId: commercialDocuments.voidedDocumentId,
+      publicRequest: commercialDocuments.publicRequest,
     })
     .from(commercialDocuments)
     .where(
@@ -55,5 +58,43 @@ export async function GET(
     );
   }
 
-  return withCors(Response.json(doc));
+  const lines = await db
+    .select()
+    .from(commercialDocumentLines)
+    .where(eq(commercialDocumentLines.documentId, doc.id))
+    .orderBy(asc(commercialDocumentLines.lineIndex));
+
+  const total =
+    Math.round(
+      lines.reduce(
+        (sum, l) =>
+          sum +
+          Number.parseFloat(l.grossUnitPrice) * Number.parseFloat(l.quantity),
+        0,
+      ) * 100,
+    ) / 100;
+
+  const pr = doc.publicRequest as { paymentMethod?: string } | null;
+
+  return withCors(
+    Response.json({
+      id: doc.id,
+      kind: doc.kind,
+      status: doc.status,
+      idempotencyKey: doc.idempotencyKey,
+      adeTransactionId: doc.adeTransactionId,
+      adeProgressive: doc.adeProgressive,
+      createdAt: doc.createdAt,
+      paymentMethod: pr?.paymentMethod ?? null,
+      lotteryCode: doc.lotteryCode,
+      voidedDocumentId: doc.voidedDocumentId,
+      total: total.toFixed(2),
+      lines: lines.map((l) => ({
+        description: l.description,
+        quantity: l.quantity,
+        grossUnitPrice: l.grossUnitPrice,
+        vatCode: l.vatCode,
+      })),
+    }),
+  );
 }

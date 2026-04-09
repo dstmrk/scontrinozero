@@ -157,13 +157,48 @@ curl -X POST https://api.scontrinozero.it/v1/receipts \
 
 ```json
 {
-  "id": "uuid",
-  "status": "ACCEPTED",
+  "documentId": "uuid",
   "adeTransactionId": "151085589",
-  "adeProgressive": "DCW2026/5111-2188",
-  "createdAt": "2026-03-26T10:00:00Z"
+  "adeProgressive": "DCW2026/5111-2188"
 }
 ```
+
+**Esempio GET scontrino:**
+
+```bash
+curl https://api.scontrinozero.it/v1/receipts/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Authorization: Bearer szk_live_XXXX"
+```
+
+**Risposta GET (200):**
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "kind": "SALE",
+  "status": "ACCEPTED",
+  "idempotencyKey": "550e8400-e29b-41d4-a716-446655440000",
+  "adeTransactionId": "151085589",
+  "adeProgressive": "DCW2026/5111-2188",
+  "createdAt": "2026-03-26T10:00:00Z",
+  "paymentMethod": "PE",
+  "lotteryCode": "ABCD1234",
+  "voidedDocumentId": null,
+  "total": "16.00",
+  "lines": [
+    {
+      "description": "Pizza Margherita",
+      "quantity": "2.000",
+      "grossUnitPrice": "8.00",
+      "vatCode": "10"
+    }
+  ]
+}
+```
+
+> `voidedDocumentId` è valorizzato solo per documenti `kind: "VOID"` e contiene l'UUID del SALE annullato.
+> `lotteryCode` è `null` se non fornito o se il metodo di pagamento è `"PC"` (contanti).
+> `quantity` e `grossUnitPrice` sono stringhe con precisione fissa (3 e 2 decimali rispettivamente).
 
 **Errori standard:**
 
