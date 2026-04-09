@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { subscriptions, profiles } from "@/db/schema";
+import { subscriptions, profiles, stripeWebhookEvents } from "@/db/schema";
 import { getStripe, planFromPriceId, intervalFromPriceId } from "@/lib/stripe";
 import { logger } from "@/lib/logger";
 import type Stripe from "stripe";
@@ -51,8 +51,26 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
 
-  // ── Handle event ──────────────────────────────────────────────────────────
+  // ── Dedup: insert event ID atomically ────────────────────────────────────
+  // Stripe may retry delivery of the same event on timeout/5xx. The INSERT
+  // ... ON CONFLICT DO NOTHING guarantees at-most-once processing per event ID.
   try {
+    const db = getDb();
+    const [inserted] = await db
+      .insert(stripeWebhookEvents)
+      .values({ eventId: event.id, eventType: event.type })
+      .onConflictDoNothing()
+      .returning({ eventId: stripeWebhookEvents.eventId });
+
+    if (!inserted) {
+      logger.warn(
+        { eventId: event.id, eventType: event.type },
+        "Duplicate Stripe webhook event — already processed, skipping",
+      );
+      return Response.json({ received: true });
+    }
+
+    // ── Handle event ────────────────────────────────────────────────────────
     await handleEvent(event, stripe);
   } catch (err) {
     logger.error(

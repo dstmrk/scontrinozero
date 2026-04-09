@@ -11,6 +11,10 @@ const {
   mockGetDb,
   mockSubscriptionsRetrieve,
   // DB chain mocks
+  mockInsertValues,
+  mockInsertOnConflict,
+  mockInsertReturning,
+  mockInsert,
   mockUpdateSet,
   mockUpdateWhere,
   mockUpdate,
@@ -26,6 +30,10 @@ const {
   mockIntervalFromPriceId: vi.fn(),
   mockGetDb: vi.fn(),
   mockSubscriptionsRetrieve: vi.fn(),
+  mockInsertValues: vi.fn(),
+  mockInsertOnConflict: vi.fn(),
+  mockInsertReturning: vi.fn(),
+  mockInsert: vi.fn(),
   mockUpdateSet: vi.fn(),
   mockUpdateWhere: vi.fn(),
   mockUpdate: vi.fn(),
@@ -49,6 +57,7 @@ vi.mock("@/db", () => ({
 vi.mock("@/db/schema", () => ({
   subscriptions: "subscriptions-table",
   profiles: "profiles-table",
+  stripeWebhookEvents: "stripe-webhook-events-table",
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -69,7 +78,7 @@ function makeWebhookRequest(body: string, signature = "valid-sig"): Request {
 }
 
 function makeStripeEvent(type: string, data: unknown, livemode = false) {
-  return { type, data: { object: data }, livemode };
+  return { id: "evt_test_default", type, data: { object: data }, livemode };
 }
 
 function makeStripeSubscription(overrides: Record<string, unknown> = {}) {
@@ -107,11 +116,19 @@ describe("POST /api/stripe/webhook", () => {
 
     // DB chain
     const mockDb = {
+      insert: mockInsert,
       update: mockUpdate,
       select: mockSelect,
       transaction: mockTransaction,
     };
     mockGetDb.mockReturnValue(mockDb);
+    // Dedup insert succeeds by default (new event)
+    mockInsertReturning.mockResolvedValue([{ eventId: "evt_test_default" }]);
+    mockInsertOnConflict.mockReturnValue({ returning: mockInsertReturning });
+    mockInsertValues.mockReturnValue({
+      onConflictDoNothing: mockInsertOnConflict,
+    });
+    mockInsert.mockReturnValue({ values: mockInsertValues });
     mockUpdate.mockReturnValue({ set: mockUpdateSet });
     mockUpdateSet.mockReturnValue({ where: mockUpdateWhere });
     mockUpdateWhere.mockResolvedValue(undefined);
