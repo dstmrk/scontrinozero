@@ -243,6 +243,10 @@ describe("auth-actions", () => {
 
     it("uses APP_HOSTNAME as emailRedirectTo when set (sandbox override)", async () => {
       vi.stubEnv("APP_HOSTNAME", "sandbox.scontrinozero.it");
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, hostname: "sandbox.scontrinozero.it" }),
+      });
       mockSignUp.mockResolvedValue({
         data: { user: { id: "user-123" } },
         error: null,
