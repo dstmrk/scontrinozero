@@ -15,84 +15,56 @@ export const metadata: Metadata = {
   },
 };
 
-const comparisonRows: {
+type ComparisonRow = {
   label: string;
   starter: string | boolean;
   pro: string | boolean;
   selfHosted: string | boolean;
-}[] = [
-  {
-    label: "Scontrini illimitati",
-    starter: true,
-    pro: true,
-    selfHosted: true,
-  },
-  {
-    label: "Trasmissione automatica AdE",
-    starter: true,
-    pro: true,
-    selfHosted: true,
-  },
-  {
-    label: "Lotteria degli Scontrini",
-    starter: true,
-    pro: true,
-    selfHosted: true,
-  },
-  {
-    label: "Condivisione digitale (SMS/email/WhatsApp)",
-    starter: true,
-    pro: true,
-    selfHosted: true,
-  },
-  {
-    label: "Analytics base",
-    starter: true,
-    pro: true,
-    selfHosted: true,
-  },
+};
+
+// Helpers to avoid repetition in the data definition
+const allTrue = (label: string): ComparisonRow => ({
+  label,
+  starter: true,
+  pro: true,
+  selfHosted: true,
+});
+const comingSoon = (label: string): ComparisonRow => ({
+  label,
+  starter: false,
+  pro: "In arrivo",
+  selfHosted: "In arrivo",
+});
+const hostedOnly = (label: string): ComparisonRow => ({
+  label,
+  starter: true,
+  pro: true,
+  selfHosted: false,
+});
+
+const comparisonRows: ComparisonRow[] = [
+  allTrue("Scontrini illimitati"),
+  allTrue("Trasmissione automatica AdE"),
+  allTrue("Lotteria degli Scontrini"),
+  allTrue("Condivisione digitale (SMS/email/WhatsApp)"),
+  allTrue("Analytics base"),
   {
     label: "Catalogo prodotti rapido",
     starter: "Fino a 5",
     pro: "Illimitato",
     selfHosted: "Illimitato",
   },
-  {
-    label: "Analytics avanzata",
-    starter: false,
-    pro: "In arrivo",
-    selfHosted: "In arrivo",
-  },
-  {
-    label: "Export CSV scontrini",
-    starter: false,
-    pro: "In arrivo",
-    selfHosted: "In arrivo",
-  },
-  {
-    label: "Recupero documenti da AdE",
-    starter: false,
-    pro: "In arrivo",
-    selfHosted: "In arrivo",
-  },
+  comingSoon("Analytics avanzata"),
+  comingSoon("Export CSV scontrini"),
+  comingSoon("Recupero documenti da AdE"),
   {
     label: "Supporto prioritario",
     starter: false,
     pro: true,
     selfHosted: false,
   },
-  {
-    label: "Hosting incluso",
-    starter: true,
-    pro: true,
-    selfHosted: false,
-  },
-  {
-    label: "Aggiornamenti automatici",
-    starter: true,
-    pro: true,
-    selfHosted: false,
-  },
+  hostedOnly("Hosting incluso"),
+  hostedOnly("Aggiornamenti automatici"),
 ];
 
 const pricingFaqs: { question: string; answer: string }[] = [
