@@ -215,16 +215,17 @@ export async function GET(request: Request): Promise<Response> {
   const limitStr = searchParams.get("limit");
   const kindStr = searchParams.get("kind");
 
-  const page = Math.max(1, parseInt(pageStr ?? "1", 10) || 1);
+  const page = Math.max(1, Number.parseInt(pageStr ?? "1", 10) || 1);
   const limit = Math.min(
     MAX_LIMIT,
     Math.max(
       1,
-      parseInt(limitStr ?? String(DEFAULT_LIMIT), 10) || DEFAULT_LIMIT,
+      Number.parseInt(limitStr ?? String(DEFAULT_LIMIT), 10) || DEFAULT_LIMIT,
     ),
   );
   const offset = (page - 1) * limit;
-  const kind = kindStr === "SALE" ? "SALE" : kindStr === "VOID" ? "VOID" : null;
+  const kind: "SALE" | "VOID" | null =
+    kindStr === "SALE" || kindStr === "VOID" ? kindStr : null;
 
   // ── DB queries ────────────────────────────────────────────────────────────
   const db = getDb();

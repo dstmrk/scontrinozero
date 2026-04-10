@@ -452,13 +452,13 @@ export default function ApiDocsPage() {
 }`}</code>
         </pre>
         <p className="text-muted-foreground mt-2 text-sm">
-          {"Nota: la risposta non include le righe ("}
-          <code className="bg-muted rounded px-1 font-mono text-xs">lines</code>
-          {"). Per i dettagli di un singolo scontrino usa "}
+          {
+            "La risposta non include le righe di dettaglio. Per il contenuto completo di uno scontrino usa "
+          }
           <code className="bg-muted rounded px-1 font-mono text-xs">
-            GET /v1/receipts/{"{id}"}
+            {"GET /v1/receipts/{id}"}
           </code>
-          {"."}
+          {" (campo lines incluso)."}
         </p>
 
         {/* ─── GET /v1/receipts/{id} ─── */}
