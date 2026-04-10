@@ -78,12 +78,12 @@ export function AdeCredentialsSection({
     });
   }
 
-  const buttonLabel =
-    verifyState.status === "pending"
-      ? "Verifica in corso…"
-      : verifyState.status === "error"
-        ? "Riprova"
-        : "Verifica connessione";
+  let buttonLabel = "Verifica connessione";
+  if (verifyState.status === "pending") {
+    buttonLabel = "Verifica in corso…";
+  } else if (verifyState.status === "error") {
+    buttonLabel = "Riprova";
+  }
 
   return (
     <div className="space-y-3">
