@@ -406,19 +406,19 @@ export default function ApiDocsPage() {
   -H "Authorization: Bearer szk_live_XXXX"`}</code>
         </pre>
         <p className="text-muted-foreground mt-2 text-sm">
-          Se sono stati emessi più di 100 scontrini nel periodo, usa{" "}
+          {"Se sono stati emessi più di 100 scontrini nel periodo, usa "}
           <code className="bg-muted rounded px-1 font-mono text-xs">
             &page=2
           </code>
-          ,{" "}
+          {", "}
           <code className="bg-muted rounded px-1 font-mono text-xs">
             &page=3
           </code>
-          , ecc. Il campo{" "}
+          {", ecc. Il campo "}
           <code className="bg-muted rounded px-1 font-mono text-xs">
             pagination.hasNextPage
-          </code>{" "}
-          indica se esistono ulteriori pagine.
+          </code>
+          {" indica se esistono ulteriori pagine."}
         </p>
 
         <p className="mt-5 text-sm font-medium">
@@ -452,13 +452,13 @@ export default function ApiDocsPage() {
 }`}</code>
         </pre>
         <p className="text-muted-foreground mt-2 text-sm">
-          Nota: la risposta non include le righe (
+          {"Nota: la risposta non include le righe ("}
           <code className="bg-muted rounded px-1 font-mono text-xs">lines</code>
-          ). Per i dettagli di un singolo scontrino usa{" "}
+          {"). Per i dettagli di un singolo scontrino usa "}
           <code className="bg-muted rounded px-1 font-mono text-xs">
             GET /v1/receipts/{"{id}"}
           </code>
-          .
+          {"."}
         </p>
 
         {/* ─── GET /v1/receipts/{id} ─── */}
