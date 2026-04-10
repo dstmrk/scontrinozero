@@ -91,7 +91,7 @@ const pricingFaqs: { question: string; answer: string }[] = [
   },
 ];
 
-function CellValue({ value }: { value: string | boolean }) {
+function CellValue({ value }: Readonly<{ value: string | boolean }>) {
   if (value === true) {
     return <Check className="text-primary mx-auto h-4 w-4" />;
   }

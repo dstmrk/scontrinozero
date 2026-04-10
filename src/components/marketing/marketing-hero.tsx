@@ -10,7 +10,7 @@ export function MarketingHero({
   title,
   subtitle,
   children,
-}: MarketingHeroProps) {
+}: Readonly<MarketingHeroProps>) {
   return (
     <section className="px-4 py-20">
       <div className="mx-auto max-w-3xl text-center">
