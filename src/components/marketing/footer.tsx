@@ -28,7 +28,7 @@ export function Footer() {
             <ul className="text-muted-foreground space-y-2 text-sm">
               <li>
                 <Link
-                  href="/#funzionalita"
+                  href="/funzionalita"
                   className="hover:text-foreground transition-colors"
                 >
                   Funzionalità
@@ -36,10 +36,18 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/#prezzi"
+                  href="/prezzi"
                   className="hover:text-foreground transition-colors"
                 >
                   Prezzi
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/help"
+                  className="hover:text-foreground transition-colors"
+                >
+                  Guida
                 </Link>
               </li>
               <li>

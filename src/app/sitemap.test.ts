@@ -5,53 +5,63 @@ describe("sitemap", () => {
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
-    expect(result).toHaveLength(10);
+    expect(result).toHaveLength(12);
     expect(result[0]).toMatchObject({
       url: "https://scontrinozero.it",
       changeFrequency: "monthly",
       priority: 1,
     });
     expect(result[1]).toMatchObject({
+      url: "https://scontrinozero.it/prezzi",
+      changeFrequency: "monthly",
+      priority: 0.8,
+    });
+    expect(result[2]).toMatchObject({
+      url: "https://scontrinozero.it/funzionalita",
+      changeFrequency: "monthly",
+      priority: 0.8,
+    });
+    expect(result[3]).toMatchObject({
       url: "https://scontrinozero.it/privacy",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[2]).toMatchObject({
+    expect(result[4]).toMatchObject({
       url: "https://scontrinozero.it/privacy/v01",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[3]).toMatchObject({
+    expect(result[5]).toMatchObject({
       url: "https://scontrinozero.it/termini",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[4]).toMatchObject({
+    expect(result[6]).toMatchObject({
       url: "https://scontrinozero.it/termini/v01",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[5]).toMatchObject({
+    expect(result[7]).toMatchObject({
       url: "https://scontrinozero.it/cookie-policy",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[6]).toMatchObject({
+    expect(result[8]).toMatchObject({
       url: "https://scontrinozero.it/cookie-policy/v01",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[7]).toMatchObject({
+    expect(result[9]).toMatchObject({
       url: "https://scontrinozero.it/help",
       changeFrequency: "monthly",
       priority: 0.6,
     });
-    expect(result[8]).toMatchObject({
+    expect(result[10]).toMatchObject({
       url: "https://scontrinozero.it/login",
       changeFrequency: "yearly",
       priority: 0.5,
     });
-    expect(result[9]).toMatchObject({
+    expect(result[11]).toMatchObject({
       url: "https://scontrinozero.it/register",
       changeFrequency: "yearly",
       priority: 0.5,
@@ -66,9 +76,10 @@ describe("sitemap", () => {
     const result = sitemap();
 
     expect(result[0].url).toBe("https://test.scontrinozero.it");
-    expect(result[1].url).toBe("https://test.scontrinozero.it/privacy");
-    expect(result[2].url).toBe("https://test.scontrinozero.it/privacy/v01");
-    expect(result[7].url).toBe("https://test.scontrinozero.it/help");
+    expect(result[1].url).toBe("https://test.scontrinozero.it/prezzi");
+    expect(result[2].url).toBe("https://test.scontrinozero.it/funzionalita");
+    expect(result[3].url).toBe("https://test.scontrinozero.it/privacy");
+    expect(result[9].url).toBe("https://test.scontrinozero.it/help");
 
     vi.unstubAllEnvs();
   });

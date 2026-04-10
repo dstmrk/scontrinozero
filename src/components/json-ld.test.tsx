@@ -8,6 +8,7 @@ import {
   organizationJsonLd,
   faqPageJsonLd,
 } from "./json-ld";
+import { faqItems } from "@/components/marketing/faq-items";
 
 describe("JsonLd component", () => {
   it("renders a script tag with type application/ld+json", () => {
@@ -63,8 +64,8 @@ describe("faqPageJsonLd", () => {
     expect(faqPageJsonLd["@type"]).toBe("FAQPage");
   });
 
-  it("includes at least 5 FAQ entries", () => {
-    expect(faqPageJsonLd.mainEntity.length).toBeGreaterThanOrEqual(5);
+  it("includes all FAQ entries from faqItems", () => {
+    expect(faqPageJsonLd.mainEntity.length).toBe(faqItems.length);
   });
 
   it("each entry has @type Question", () => {

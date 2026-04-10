@@ -19,7 +19,15 @@
 
 7. Every new file with logic **must** have a corresponding test file. After writing any implementation, always write tests covering the edge cases before committing. No exceptions — even for infrastructure/bootstrap files (e.g. `instrumentation.ts`).
 
-8. **SonarCloud quality gates (must not regress):**
+8. **When debugging opaque CI failures (SonarCloud, Gitleaks, etc.) where the
+   report detail is not visible in the PR diff or logs, STOP and ask the user
+   for the specific information needed** (e.g. "which file/lines does SonarCloud
+   flag as duplicated?") rather than attempting blind fixes. Multiple failed
+   guesses waste CI cycles and obscure the root cause. One targeted question
+   yields the answer in seconds; random trial-and-error can take hours and make
+   the problem harder to understand.
+
+9. **SonarCloud quality gates (must not regress):**
    - Coverage on new code: **≥ 80%**
    - Duplicated lines on new code: **< 3%**
    - **0 new issues**: fix every SonarCloud issue before merging, even when the Quality Gate passes. Issues left open accumulate into tech debt and will block future PRs.
@@ -32,32 +40,32 @@
    - **Gitleaks e pagine di documentazione**: i placeholder di chiavi API negli esempi curl (es. `szk_live_XXXX`, `Authorization: Bearer ...`) triggerano le regole `curl-auth-header` e `generic-api-key`. Sono falsi positivi — aggiungere i fingerprint al `.gitleaksignore`. **Attenzione**: i fingerprint sono commit-specifici (`COMMIT_SHA:FILE:RULE:LINE`). Ogni commit che modifica le righe coinvolte genera nuovi fingerprint. Aggiungere i fingerprint di tutti i commit in un'unica passata quando possibile, ispezionando le righe esatte con `grep -n`.
    - **`// NOSONAR` does NOT suppress Security Hotspots** — it only suppresses Issues (Bug/CodeSmell/Vulnerability). Hotspots require either fixing the code so the rule no longer fires, or human review via the SonarCloud UI ("Mark as Safe"). For S5852 (ReDoS): replace regex with Set-based char loop + manual pointer trimming. For S5122 (CORS `*`): `// NOSONAR` is ineffective — the user must acknowledge in SonarCloud UI, or remove the wildcard.
 
-9. **After solving a non-trivial problem, update CLAUDE.md autonomously.**
-   When a task is complete (bug fixed, feature shipped), reflect on what went wrong
-   or could have gone faster. If there's a reusable lesson — a debugging pattern,
-   a setup gotcha, a wrong assumption — add it to CLAUDE.md before committing.
-   Don't wait for the user to ask.
+10. **After solving a non-trivial problem, update CLAUDE.md autonomously.**
+    When a task is complete (bug fixed, feature shipped), reflect on what went wrong
+    or could have gone faster. If there's a reusable lesson — a debugging pattern,
+    a setup gotcha, a wrong assumption — add it to CLAUDE.md before committing.
+    Don't wait for the user to ask.
 
-10. **Debugging production HTTP flow errors (e.g. AdE 4xx): diagnose before fixing.**
+11. **Debugging production HTTP flow errors (e.g. AdE 4xx): diagnose before fixing.**
     When a production error suggests a wrong HTTP sequence, add diagnostic logging first
     (phase labels, cookie counts, response status) and reproduce the error locally to
     confirm the root cause. Only then write the fix. Never merge a hypothesis-based
     fix without first seeing the diagnostic evidence.
 
-11. **HAR analysis: verify completeness, not just order.**
+12. **HAR analysis: verify completeness, not just order.**
     When comparing code against a HAR capture, explicitly check that **every request**
     in the HAR is present in the implementation — not just that the order matches.
     A missing call is harder to spot than a wrong order. Go through the HAR
     request-by-request and cross-reference each one with the corresponding code path.
 
-12. **Git worktree setup checklist.**
+13. **Git worktree setup checklist.**
     When working in a worktree under `.claude/worktrees/<name>/`:
     - Run `npm install` (no `node_modules` symlink from main repo)
     - Copy `.env.local` from the main repo root
     - Delete `.next` in both the worktree AND the main repo (`rm -rf .next`) before
       starting the dev server to avoid Turbopack serving stale cached chunks
 
-13. **DB migrations: workflow misto drizzle-kit + SQL handwritten.**
+14. **DB migrations: workflow misto drizzle-kit + SQL handwritten.**
     Le migrazioni seguono un approccio ibrido obbligato:
     - **Schema changes** (tabelle, colonne, indici, FK) → `npx drizzle-kit generate`
       aggiorna automaticamente sia il file `.sql` sia il `_journal.json`.
@@ -98,7 +106,7 @@
       migrazioni sono realmente presenti prima di inserirle, controllare l'esistenza
       delle tabelle/colonne chiave nel Supabase SQL editor o via MCP.
 
-14. **Client IP trust model: CF-Connecting-IP is the ONLY trusted source.**
+15. **Client IP trust model: CF-Connecting-IP is the ONLY trusted source.**
     When the app is behind Cloudflare Tunnel, `CF-Connecting-IP` is the only header
     that Cloudflare sets and clients cannot spoof. Follow this priority in `getClientIp()`:
     1. `CF-Connecting-IP` — always trusted (Cloudflare strips incoming copies)
@@ -108,14 +116,14 @@
        Never silently fall through a chain of headers without documenting why each one is
        or isn't trusted. Rate limiting built on a spoofable IP is no rate limiting at all.
 
-15. **Transaction safety for multi-document state changes is correctness, not optimization.**
+16. **Transaction safety for multi-document state changes is correctness, not optimization.**
     Whenever an operation must update 2+ related DB records that must stay consistent
     (e.g., void flow: write VOID document + mark original SALE as VOID_ACCEPTED),
     wrap them in `db.transaction()` immediately. A mid-operation failure without a
     transaction leaves the system in a silently inconsistent state that is hard to detect
     and painful to repair. Don't defer this to "a later optimization sprint".
 
-16. **Retry + backoff for critical operations that leave orphan state on failure.**
+17. **Retry + backoff for critical operations that leave orphan state on failure.**
     Operations that (a) are irreversible on partial success, (b) can fail transiently
     (network blip, external service timeout), and (c) leave the system inconsistent on
     failure (e.g., Supabase auth user deletion leaving an orphan entry that blocks
@@ -126,28 +134,28 @@
       Silent failure here is worse than a visible error: the user is permanently blocked
       with no actionable signal.
 
-17. **UUID validation at external API entry points — before the service layer.**
+18. **UUID validation at external API entry points — before the service layer.**
     Every external-facing API route that accepts a UUID parameter (e.g., `idempotencyKey`,
     `receiptId`) must validate the format with `isValidUuid()` and return 400 **before**
     passing to any service or DB layer. Non-UUID strings passed to PostgreSQL UUID columns
     produce unhandled 500 errors that bypass all application error handling.
     UUID validation belongs at the route handler boundary, not inside the service.
 
-18. **Validate hostname of Supabase-generated action links before emailing them.**
+19. **Validate hostname of Supabase-generated action links before emailing them.**
     Before emailing any Supabase-generated link (password reset, magic link, email change),
     assert that the URL starts with `https://${expectedHostname}`. Supabase misconfiguration
     (wrong Site URL setting) can produce links pointing to unexpected domains, enabling open
     redirect attacks. If the check fails: log an error, do NOT send the email, and redirect
     the user to `/verify-email` with a generic message.
 
-19. **Body size guard before `JSON.parse` on every write endpoint.**
+20. **Body size guard before `JSON.parse` on every write endpoint.**
     Never call `request.json()` directly on an API route that accepts arbitrary input.
     Use a `readJsonWithLimit(req, maxBytes)` helper that reads the body as `ArrayBuffer`,
     checks `byteLength` first, and only then calls `JSON.parse`. Return 413 on overflow.
     Limits: 32 KB for receipt create (up to 100 lines), 8 KB for single-key bodies (void, checkout).
     This prevents memory/CPU pressure from oversized payloads before any validation runs.
 
-20. **Monetary decimal precision must be enforced in the API layer, not only in the DB.**
+21. **Monetary decimal precision must be enforced in the API layer, not only in the DB.**
     DB columns `numeric(10,2)` and `numeric(10,3)` silently round/truncate overscale values.
     The API layer must reject inputs with too many decimals (Zod `.refine`) so the client
     never receives a confirmed receipt that contains different totals than what it submitted.
@@ -156,13 +164,13 @@
     Do NOT use `Number.isInteger(Math.round(v * 100))` — `Math.round` always returns an integer,
     so the check is vacuously true and never rejects anything.
 
-21. **Email normalisation must be uniform across ALL auth flows.**
+22. **Email normalisation must be uniform across ALL auth flows.**
     `signUp` historically normalised the email (`trim().toLowerCase()`) but `signIn`,
     `signInWithMagicLink`, and `resetPassword` did not, causing silent failures when users
     typed `User@EXAMPLE.COM`. Centralise normalisation in a single `normalizeEmail()` helper
     in `validation.ts` and apply it as the first line of every auth action before validation.
 
-22. **Wrap external SDK calls (Stripe, AdE, etc.) in try-catch — always.**
+23. **Wrap external SDK calls (Stripe, AdE, etc.) in try-catch — always.**
     Uncaught errors from `stripe.customers.create()`, `stripe.checkout.sessions.create()`, or
     any external service propagate as unhandled 500s with no log context, making incidents
     impossible to diagnose. The correct pattern:
