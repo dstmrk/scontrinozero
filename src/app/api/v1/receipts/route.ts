@@ -1,4 +1,7 @@
 import { z } from "zod/v4";
+import { and, asc, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { getDb } from "@/db";
+import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
 import { RateLimiter } from "@/lib/rate-limit";
 import { emitReceiptForBusiness } from "@/lib/services/receipt-service";
 import {
@@ -62,8 +65,21 @@ const receiptApiLimiter = new RateLimiter({
   windowMs: 60 * 60 * 1000,
 });
 
+// Rate limit: 60 list requests per hour per API key (read but potentially heavy)
+const listApiLimiter = new RateLimiter({
+  maxRequests: 60,
+  windowMs: 60 * 60 * 1000,
+});
+
+const MAX_RANGE_DAYS = 31;
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 100;
+
+/** Matches YYYY-MM-DD dates. Lightweight format guard — value validity checked via Date parse. */
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
 export function OPTIONS(): Response {
-  return corsOptionsResponse("POST, OPTIONS");
+  return corsOptionsResponse("GET, POST, OPTIONS");
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -118,5 +134,199 @@ export async function POST(request: Request): Promise<Response> {
       },
       { status: 201 },
     ),
+  );
+}
+
+export async function GET(request: Request): Promise<Response> {
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  const authResult = await requireBusinessApiAuth(request);
+  if ("error" in authResult) return authResult.error;
+  const { context: auth } = authResult;
+
+  // ── Rate limit ────────────────────────────────────────────────────────────
+  const rateLimitError = checkRateLimitApi(
+    listApiLimiter,
+    `api:list:${auth.apiKey.id}`,
+    auth.apiKey.id,
+    "API receipt list rate limit exceeded",
+  );
+  if (rateLimitError) return rateLimitError;
+
+  // ── Query param validation ────────────────────────────────────────────────
+  const { searchParams } = new URL(request.url);
+  const fromStr = searchParams.get("from");
+  const toStr = searchParams.get("to");
+
+  if (!fromStr || !DATE_PATTERN.test(fromStr)) {
+    return withCors(
+      Response.json(
+        {
+          error:
+            "Il parametro 'from' è obbligatorio e deve essere nel formato YYYY-MM-DD.",
+        },
+        { status: 400 },
+      ),
+    );
+  }
+  if (!toStr || !DATE_PATTERN.test(toStr)) {
+    return withCors(
+      Response.json(
+        {
+          error:
+            "Il parametro 'to' è obbligatorio e deve essere nel formato YYYY-MM-DD.",
+        },
+        { status: 400 },
+      ),
+    );
+  }
+
+  // Append time component so Date.UTC is used unambiguously (avoids TZ-offset surprises)
+  const fromDate = new Date(fromStr + "T00:00:00.000Z");
+  const toDate = new Date(toStr + "T00:00:00.000Z");
+
+  if (toDate < fromDate) {
+    return withCors(
+      Response.json(
+        { error: "Il parametro 'to' non può essere precedente a 'from'." },
+        { status: 400 },
+      ),
+    );
+  }
+
+  const diffDays =
+    (toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24);
+  if (diffDays > MAX_RANGE_DAYS) {
+    return withCors(
+      Response.json(
+        {
+          error: `L'intervallo massimo consentito è ${MAX_RANGE_DAYS} giorni.`,
+        },
+        { status: 400 },
+      ),
+    );
+  }
+
+  // Include the entire 'to' day by advancing to the start of the next day
+  const toDateExclusive = new Date(toDate);
+  toDateExclusive.setUTCDate(toDateExclusive.getUTCDate() + 1);
+
+  // Optional params
+  const pageStr = searchParams.get("page");
+  const limitStr = searchParams.get("limit");
+  const kindStr = searchParams.get("kind");
+
+  const page = Math.max(1, Number.parseInt(pageStr ?? "1", 10) || 1);
+  const limit = Math.min(
+    MAX_LIMIT,
+    Math.max(
+      1,
+      Number.parseInt(limitStr ?? String(DEFAULT_LIMIT), 10) || DEFAULT_LIMIT,
+    ),
+  );
+  const offset = (page - 1) * limit;
+  const kind: "SALE" | "VOID" | null =
+    kindStr === "SALE" || kindStr === "VOID" ? kindStr : null;
+
+  // ── DB queries ────────────────────────────────────────────────────────────
+  const db = getDb();
+
+  const conditions = [
+    eq(commercialDocuments.businessId, auth.businessId),
+    gte(commercialDocuments.createdAt, fromDate),
+    lt(commercialDocuments.createdAt, toDateExclusive),
+    inArray(commercialDocuments.status, ["ACCEPTED", "VOID_ACCEPTED"]),
+  ];
+  if (kind) {
+    conditions.push(eq(commercialDocuments.kind, kind));
+  }
+
+  // Count total matching docs (no pagination)
+  const [{ value: total }] = await db
+    .select({ value: count() })
+    .from(commercialDocuments)
+    .where(and(...conditions));
+
+  // Fetch the current page
+  const docs = await db
+    .select({
+      id: commercialDocuments.id,
+      kind: commercialDocuments.kind,
+      status: commercialDocuments.status,
+      idempotencyKey: commercialDocuments.idempotencyKey,
+      adeTransactionId: commercialDocuments.adeTransactionId,
+      adeProgressive: commercialDocuments.adeProgressive,
+      lotteryCode: commercialDocuments.lotteryCode,
+      publicRequest: commercialDocuments.publicRequest,
+      createdAt: commercialDocuments.createdAt,
+    })
+    .from(commercialDocuments)
+    .where(and(...conditions))
+    .orderBy(desc(commercialDocuments.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  if (docs.length === 0) {
+    return withCors(
+      Response.json({
+        data: [],
+        pagination: { page, limit, total, hasNextPage: page * limit < total },
+      }),
+    );
+  }
+
+  // Fetch lines for total calculation (not included in response)
+  const docIds = docs.map((d) => d.id);
+  const lines = await db
+    .select()
+    .from(commercialDocumentLines)
+    .where(inArray(commercialDocumentLines.documentId, docIds))
+    .orderBy(asc(commercialDocumentLines.lineIndex));
+
+  // Group lines by documentId for O(1) lookup
+  const linesByDocId = new Map<string, typeof lines>();
+  for (const line of lines) {
+    const existing = linesByDocId.get(line.documentId) ?? [];
+    existing.push(line);
+    linesByDocId.set(line.documentId, existing);
+  }
+
+  const data = docs.map((doc) => {
+    const docLines = linesByDocId.get(doc.id) ?? [];
+    const docTotal =
+      Math.round(
+        docLines.reduce(
+          (sum, l) =>
+            sum +
+            Number.parseFloat(l.grossUnitPrice) * Number.parseFloat(l.quantity),
+          0,
+        ) * 100,
+      ) / 100;
+
+    const pr = doc.publicRequest as { paymentMethod?: string } | null;
+
+    return {
+      id: doc.id,
+      idempotencyKey: doc.idempotencyKey,
+      kind: doc.kind,
+      status: doc.status,
+      adeTransactionId: doc.adeTransactionId,
+      adeProgressive: doc.adeProgressive,
+      lotteryCode: doc.lotteryCode,
+      paymentMethod: pr?.paymentMethod ?? null,
+      total: docTotal.toFixed(2),
+      createdAt: doc.createdAt,
+    };
+  });
+
+  return withCors(
+    Response.json({
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        hasNextPage: page * limit < total,
+      },
+    }),
   );
 }

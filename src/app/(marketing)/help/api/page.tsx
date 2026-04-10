@@ -156,6 +156,15 @@ export default function ApiDocsPage() {
                 <td className="py-2 pr-6 font-mono text-xs font-bold text-blue-700 dark:text-blue-400">
                   GET
                 </td>
+                <td className="py-2 pr-6 font-mono text-xs">/v1/receipts</td>
+                <td className="py-2 text-xs">
+                  Lista scontrini in un intervallo di date
+                </td>
+              </tr>
+              <tr className="border-b">
+                <td className="py-2 pr-6 font-mono text-xs font-bold text-blue-700 dark:text-blue-400">
+                  GET
+                </td>
                 <td className="py-2 pr-6 font-mono text-xs">
                   /v1/receipts/{"{id}"}
                 </td>
@@ -319,6 +328,138 @@ export default function ApiDocsPage() {
   "adeProgressive": "DCW2026/5111-2188"
 }`}</code>
         </pre>
+
+        {/* ─── GET /v1/receipts ─── */}
+        <h3 className="mt-10 text-base font-semibold">
+          <span className="mr-2 font-mono text-blue-700 dark:text-blue-400">
+            GET
+          </span>
+          {"/v1/receipts"}
+        </h3>
+        <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
+          Restituisce la lista paginata degli scontrini emessi
+          nell&apos;intervallo di date indicato. Utile per riconciliazione
+          contabile, export periodico o sync verso sistemi gestionali.
+        </p>
+
+        <p className="mt-4 text-sm font-medium">Parametri query</p>
+        <div className="text-muted-foreground mt-2 overflow-x-auto text-sm">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b">
+                <th className="py-2 pr-4 text-left text-xs font-semibold tracking-wide uppercase">
+                  Parametro
+                </th>
+                <th className="py-2 pr-4 text-left text-xs font-semibold tracking-wide uppercase">
+                  Tipo
+                </th>
+                <th className="py-2 pr-4 text-left text-xs font-semibold tracking-wide uppercase">
+                  Req.
+                </th>
+                <th className="py-2 text-left text-xs font-semibold tracking-wide uppercase">
+                  Descrizione
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                [
+                  "from",
+                  "YYYY-MM-DD",
+                  "Sì",
+                  "Inizio intervallo (incluso, UTC)",
+                ],
+                [
+                  "to",
+                  "YYYY-MM-DD",
+                  "Sì",
+                  "Fine intervallo (incluso, UTC). Max 31 giorni da from.",
+                ],
+                ["page", "intero ≥ 1", "No", "Pagina (default: 1)"],
+                [
+                  "limit",
+                  "1–100",
+                  "No",
+                  "Risultati per pagina (default: 20, max: 100)",
+                ],
+                [
+                  "kind",
+                  "SALE | VOID",
+                  "No",
+                  "Filtra per tipo documento (default: entrambi)",
+                ],
+              ].map(([param, type, req, desc]) => (
+                <tr key={param} className="border-b last:border-0">
+                  <td className="py-2 pr-4 font-mono text-xs">{param}</td>
+                  <td className="py-2 pr-4 text-xs">{type}</td>
+                  <td className="py-2 pr-4 text-xs">{req}</td>
+                  <td className="py-2 text-xs">{desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="mt-5 text-sm font-medium">Esempio</p>
+        <pre className="bg-muted mt-2 overflow-x-auto rounded-md p-4 font-mono text-xs leading-relaxed">
+          <code>{String.raw`curl "https://api.scontrinozero.it/v1/receipts?from=2026-04-01&to=2026-04-30&limit=100" \
+  -H "Authorization: Bearer szk_live_XXXX"`}</code>
+        </pre>
+        <p className="text-muted-foreground mt-2 text-sm">
+          {"Se sono stati emessi più di 100 scontrini nel periodo, usa "}
+          <code className="bg-muted rounded px-1 font-mono text-xs">
+            &page=2
+          </code>
+          {", "}
+          <code className="bg-muted rounded px-1 font-mono text-xs">
+            &page=3
+          </code>
+          {", ecc. Il campo "}
+          <code className="bg-muted rounded px-1 font-mono text-xs">
+            pagination.hasNextPage
+          </code>
+          {" indica se esistono ulteriori pagine."}
+        </p>
+
+        <p className="mt-5 text-sm font-medium">
+          {"Risposta — "}
+          <code className="bg-muted rounded px-1 font-mono text-xs">
+            200 OK
+          </code>
+        </p>
+        <pre className="bg-muted mt-2 overflow-x-auto rounded-md p-4 font-mono text-xs leading-relaxed">
+          <code>{`{
+  "data": [
+    {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "idempotencyKey": "550e8400-e29b-41d4-a716-446655440000",
+      "kind": "SALE",
+      "status": "ACCEPTED",
+      "adeTransactionId": "151085589",
+      "adeProgressive": "DCW2026/5111-2188",
+      "lotteryCode": null,
+      "paymentMethod": "PE",
+      "total": "18.50",
+      "createdAt": "2026-04-05T10:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 100,
+    "total": 1,
+    "hasNextPage": false
+  }
+}`}</code>
+        </pre>
+        <p className="text-muted-foreground mt-2 text-sm">
+          {
+            "La risposta non include le righe di dettaglio. Per il contenuto completo di uno scontrino usa "
+          }
+          <code className="bg-muted rounded px-1 font-mono text-xs">
+            {"GET /v1/receipts/{id}"}
+          </code>
+          {" (campo lines incluso)."}
+        </p>
 
         {/* ─── GET /v1/receipts/{id} ─── */}
         <h3 className="mt-10 text-base font-semibold">
@@ -584,6 +725,12 @@ const idempotencyKey = crypto.randomUUID();`}</code>
                   POST /v1/receipts
                 </td>
                 <td className="py-2 text-xs">120 richieste / ora</td>
+              </tr>
+              <tr className="border-b">
+                <td className="py-2 pr-6 font-mono text-xs">
+                  GET /v1/receipts
+                </td>
+                <td className="py-2 text-xs">60 richieste / ora</td>
               </tr>
               <tr>
                 <td className="py-2 pr-6 font-mono text-xs">
