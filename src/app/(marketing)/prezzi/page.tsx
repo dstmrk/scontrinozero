@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MarketingHero } from "@/components/marketing/marketing-hero";
 import { PricingSection } from "@/components/marketing/pricing-section";
 
 export const metadata: Metadata = {
@@ -104,19 +105,16 @@ export default function PrezziPage() {
   return (
     <>
       {/* Hero */}
-      <section className="px-4 py-20">
-        <div className="mx-auto max-w-3xl text-center">
-          <h1 className="text-4xl font-extrabold tracking-tight md:text-5xl">
+      <MarketingHero
+        title={
+          <>
             Scegli il piano giusto
             <br />
             <span className="text-primary">per la tua attività</span>
-          </h1>
-          <p className="text-muted-foreground mx-auto mt-6 max-w-xl text-lg">
-            30 giorni di prova gratuita su tutti i piani. Nessuna carta di
-            credito richiesta per iniziare.
-          </p>
-        </div>
-      </section>
+          </>
+        }
+        subtitle="30 giorni di prova gratuita su tutti i piani. Nessuna carta di credito richiesta per iniziare."
+      />
 
       {/* Pricing toggle + cards */}
       <PricingSection />

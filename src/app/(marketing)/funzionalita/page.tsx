@@ -12,6 +12,7 @@ import {
   Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MarketingHero } from "@/components/marketing/marketing-hero";
 
 export const metadata: Metadata = {
   title: "Funzionalità",
@@ -131,25 +132,23 @@ export default function FunzionalitaPage() {
   return (
     <>
       {/* Hero */}
-      <section className="px-4 py-20">
-        <div className="mx-auto max-w-3xl text-center">
-          <h1 className="text-4xl font-extrabold tracking-tight md:text-5xl">
+      <MarketingHero
+        title={
+          <>
             Tutto quello che ti serve,
             <br />
             <span className="text-primary">niente di superfluo</span>
-          </h1>
-          <p className="text-muted-foreground mx-auto mt-6 max-w-xl text-lg">
-            ScontrinoZero è pensato per chi ha bisogno di emettere scontrini
-            fiscali in modo semplice, veloce e conforme alla normativa italiana.
-          </p>
-          <Button asChild size="lg" className="mt-8">
-            <Link href="/register" prefetch={false}>
-              Prova gratis per 30 giorni
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
-      </section>
+          </>
+        }
+        subtitle="ScontrinoZero è pensato per chi ha bisogno di emettere scontrini fiscali in modo semplice, veloce e conforme alla normativa italiana."
+      >
+        <Button asChild size="lg" className="mt-8">
+          <Link href="/register" prefetch={false}>
+            Prova gratis per 30 giorni
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </Button>
+      </MarketingHero>
 
       {/* Feature sections */}
       {sections.map((section, idx) => (
