@@ -17,7 +17,6 @@ type Billing = "annual" | "monthly";
 
 interface Feature {
   label: string;
-  comingSoon?: boolean;
 }
 
 const starterFeatures: Feature[] = [
@@ -31,10 +30,6 @@ const starterFeatures: Feature[] = [
 const proFeatures: Feature[] = [
   { label: "Tutto di Starter" },
   { label: "Catalogo illimitato" },
-  { label: "Analytics avanzata", comingSoon: true },
-  { label: "Export CSV scontrini", comingSoon: true },
-  { label: "Recupero documenti commerciali da AdE", comingSoon: true },
-  { label: "Sincronizzazione catalogo con portale AdE", comingSoon: true },
   { label: "Supporto prioritario" },
 ];
 
@@ -167,14 +162,14 @@ export function PricingSection() {
                   <li key={f.label} className="flex items-center gap-2">
                     <Check className="text-primary h-4 w-4 shrink-0" />
                     {f.label}
-                    {f.comingSoon && (
-                      <span className="text-muted-foreground bg-muted rounded px-1.5 py-0.5 text-xs">
-                        coming soon
-                      </span>
-                    )}
                   </li>
                 ))}
               </ul>
+              <p className="text-muted-foreground mt-4 text-xs">
+                Analytics avanzata, export CSV e sincronizzazione catalogo AdE
+                sono in sviluppo e saranno inclusi nel piano Pro non appena
+                disponibili.
+              </p>
             </CardContent>
           </Card>
         </div>

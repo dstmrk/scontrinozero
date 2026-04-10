@@ -39,4 +39,29 @@ export const faqItems = [
     answer:
       "Sì. Puoi stampare il documento commerciale da qualsiasi dispositivo collegato a una stampante. Per le stampanti termiche Bluetooth, la compatibilità dipende dal browser e dal sistema operativo; in alternativa, puoi condividere lo scontrino digitalmente via SMS, email o WhatsApp.",
   },
+  {
+    question: "Come vengono protette le mie credenziali Fisconline?",
+    answer:
+      "Le tue credenziali Fisconline vengono cifrate con AES-256-GCM prima di essere salvate e non vengono mai condivise con terze parti. Vengono usate esclusivamente per eseguire le operazioni che tu richiedi sul portale dell'Agenzia delle Entrate. Se scegli la versione self-hosted, restano sul tuo server e non transitano mai dai nostri sistemi.",
+  },
+  {
+    question: "Cosa succede alla scadenza dei 30 giorni di prova?",
+    answer:
+      "Alla scadenza, se non hai scelto un piano, l'account passa automaticamente in sola lettura: puoi consultare lo storico dei tuoi scontrini ma non puoi emetterne di nuovi. Non viene effettuato nessun addebito automatico. Puoi attivare un piano in qualsiasi momento per riprendere ad emettere.",
+  },
+  {
+    question: "Qual è la differenza concreta tra Starter e Pro?",
+    answer:
+      "Starter è ideale per ambulanti e micro-attività: scontrini illimitati, catalogo fino a 5 prodotti rapidi e analytics base. Pro aggiunge catalogo illimitato, analytics avanzata, export CSV degli scontrini, recupero documenti dal portale AdE e supporto prioritario. Entrambi includono 30 giorni di prova gratuita.",
+  },
+  {
+    question: "Esiste una versione completamente gratuita?",
+    answer:
+      "Sì. ScontrinoZero è open source: puoi scaricarlo e installarlo sul tuo server e usarlo gratuitamente per sempre, senza limitazioni di funzionalità. La versione hosted (Starter e Pro) è a pagamento e include hosting, aggiornamenti automatici e supporto.",
+  },
+  {
+    question: "Funziona anche con SPID o solo con Fisconline?",
+    answer:
+      "ScontrinoZero supporta sia Fisconline che SPID per l'autenticazione al portale dell'Agenzia delle Entrate. Puoi usare le credenziali che già hai: se hai SPID, usa SPID; se hai Fisconline, usa Fisconline.",
+  },
 ] as const;

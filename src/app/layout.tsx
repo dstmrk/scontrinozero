@@ -48,6 +48,12 @@ export const metadata: Metadata = {
     description:
       "Emetti scontrini elettronici e trasmetti i corrispettivi all'AdE senza registratore telematico. Da €29,99/anno, 30 giorni gratis.",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "ScontrinoZero — Scontrino Elettronico senza Registratore di Cassa",
+    description:
+      "Emetti scontrini elettronici e trasmetti i corrispettivi all'AdE senza registratore telematico. Da €29,99/anno, 30 giorni gratis.",
+  },
   robots: {
     index: true,
     follow: true,
