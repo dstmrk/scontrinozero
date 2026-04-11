@@ -140,7 +140,7 @@ export default function ComeColegarAde() {
             <strong>
               iampe.agenziaentrate.gov.it → Fisconline → Cambio PIN
             </strong>
-            .
+            {"."}
           </li>
           <li>
             Accedi con il vecchio PIN (anche se scaduto, il cambio è ancora
@@ -166,11 +166,13 @@ export default function ComeColegarAde() {
               abilitato&quot;
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Verifica che il codice fiscale inserito sia quello del
-              <strong> titolare dell&apos;esercizio commerciale</strong>, non
-              quello del commercialista o di un delegato. ScontrinoZero usa le
-              credenziali per accedere alla sezione <em>Corrispettivi</em> del
-              portale AdE.
+              {"Verifica che il codice fiscale inserito sia quello del "}
+              <strong>titolare dell&apos;esercizio commerciale</strong>
+              {
+                ", non quello del commercialista o di un delegato. ScontrinoZero usa le credenziali per accedere alla sezione "
+              }
+              <em>Corrispettivi</em>
+              {" del portale AdE."}
             </p>
           </div>
           <div>
@@ -220,14 +222,14 @@ export default function ComeColegarAde() {
         {/* ─── Footer articolo ─── */}
         <div className="border-border mt-12 border-t pt-6">
           <p className="text-muted-foreground text-xs">
-            Hai trovato un errore in questa guida?{" "}
+            {"Hai trovato un errore in questa guida? "}
             <a
               href="mailto:supporto@scontrinozero.it"
               className="text-primary hover:underline"
             >
               Segnalacelo
             </a>
-            .
+            {"."}
           </p>
         </div>
       </article>

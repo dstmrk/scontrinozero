@@ -71,8 +71,9 @@ export default function AnnullareScontinoPage() {
             il documento di annullamento deve essere emesso nel periodo
             d&apos;imposta in cui è stato emesso il documento originale
           </strong>
-          , salvo casi eccezionali. In pratica: prima annulli, meglio è. Evita
-          di lasciare annullamenti aperti per settimane o mesi.
+          {
+            ", salvo casi eccezionali. In pratica: prima annulli, meglio è. Evita di lasciare annullamenti aperti per settimane o mesi."
+          }
         </p>
 
         {/* ─── Come fare ─── */}
@@ -191,14 +192,14 @@ export default function AnnullareScontinoPage() {
         {/* ─── Footer articolo ─── */}
         <div className="border-border mt-12 border-t pt-6">
           <p className="text-muted-foreground text-xs">
-            Hai trovato un errore in questa guida?{" "}
+            {"Hai trovato un errore in questa guida? "}
             <a
               href="mailto:supporto@scontrinozero.it"
               className="text-primary hover:underline"
             >
               Segnalacelo
             </a>
-            .
+            {"."}
           </p>
         </div>
       </article>

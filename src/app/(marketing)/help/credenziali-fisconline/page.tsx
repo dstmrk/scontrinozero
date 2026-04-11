@@ -157,7 +157,7 @@ export default function CredenzialiPage() {
             <strong>
               iampe.agenziaentrate.gov.it/authSAMLservlet/Shibboleth.sso/Login
             </strong>
-            .
+            {"."}
           </li>
           <li>
             Seleziona <strong>Fisconline</strong> come metodo di accesso.
@@ -190,11 +190,11 @@ export default function CredenzialiPage() {
           </li>
           <li>Scegli un nuovo PIN di 8 cifre e confermalo.</li>
           <li>
-            Aggiorna il PIN nelle impostazioni di ScontrinoZero (
+            {"Aggiorna il PIN nelle impostazioni di ScontrinoZero ("}
             <strong>
               Impostazioni → Configurazione attività → Credenziali AdE
             </strong>
-            ).
+            {")."}
           </li>
         </ol>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
@@ -222,13 +222,13 @@ export default function CredenzialiPage() {
               Ho una società — quale codice fiscale uso?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Il{" "}
+              {"Il "}
               <strong>
                 codice fiscale personale del legale rappresentante
               </strong>
-              , non la partita IVA della società. Il portale Fatture e
-              Corrispettivi associa le credenziali alla persona fisica
-              responsabile.
+              {
+                ", non la partita IVA della società. Il portale Fatture e Corrispettivi associa le credenziali alla persona fisica responsabile."
+              }
             </p>
           </div>
           <div>
@@ -267,14 +267,14 @@ export default function CredenzialiPage() {
         {/* ─── Footer articolo ─── */}
         <div className="border-border mt-12 border-t pt-6">
           <p className="text-muted-foreground text-xs">
-            Hai trovato un errore in questa guida?{" "}
+            {"Hai trovato un errore in questa guida? "}
             <a
               href="mailto:supporto@scontrinozero.it"
               className="text-primary hover:underline"
             >
               Segnalacelo
             </a>
-            .
+            {"."}
           </p>
         </div>
       </article>

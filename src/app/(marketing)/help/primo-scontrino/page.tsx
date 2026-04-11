@@ -247,14 +247,14 @@ export default function PrimoScontinoPage() {
         {/* ─── Footer articolo ─── */}
         <div className="border-border mt-12 border-t pt-6">
           <p className="text-muted-foreground text-xs">
-            Hai trovato un errore in questa guida?{" "}
+            {"Hai trovato un errore in questa guida? "}
             <a
               href="mailto:supporto@scontrinozero.it"
               className="text-primary hover:underline"
             >
               Segnalacelo
             </a>
-            .
+            {"."}
           </p>
         </div>
       </article>

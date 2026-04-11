@@ -44,12 +44,13 @@ export default function RegimeForfettarioPage() {
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Chi aderisce al regime forfettario (art. 1, commi 54–89, legge
-          190/2014) è esonerato dall&apos;applicazione dell&apos;IVA:{" "}
+          {"190/2014) è esonerato dall\u2019applicazione dell\u2019IVA: "}
           <strong>
             non addebita IVA al cliente e non la detrae sugli acquisti
           </strong>
-          . Sullo scontrino o documento commerciale deve invece comparire la
-          dicitura di esonero.
+          {
+            ". Sullo scontrino o documento commerciale deve invece comparire la dicitura di esonero."
+          }
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           L&apos;errore più comune è impostare l&apos;aliquota IVA al 22% (o
@@ -67,7 +68,7 @@ export default function RegimeForfettarioPage() {
             <strong>
               Impostazioni → Configurazione attività → Regime fiscale
             </strong>
-            .
+            {"."}
           </li>
           <li>
             Seleziona <strong>Regime forfettario</strong> dall&apos;elenco a
@@ -219,16 +220,16 @@ export default function RegimeForfettarioPage() {
         {/* ─── Footer articolo ─── */}
         <div className="border-border mt-12 border-t pt-6">
           <p className="text-muted-foreground text-xs">
-            Le informazioni fiscali in questa guida hanno scopo orientativo. Per
-            casi specifici, consulta sempre un commercialista. Hai trovato un
-            errore?{" "}
+            {
+              "Le informazioni fiscali in questa guida hanno scopo orientativo. Per casi specifici, consulta sempre un commercialista. Hai trovato un errore? "
+            }
             <a
               href="mailto:supporto@scontrinozero.it"
               className="text-primary hover:underline"
             >
               Segnalacelo
             </a>
-            .
+            {"."}
           </p>
         </div>
       </article>
