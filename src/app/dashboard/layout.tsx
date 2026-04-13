@@ -7,6 +7,7 @@ import { getOnboardingStatus } from "@/server/onboarding-actions";
 import { signOut } from "@/server/auth-actions";
 import { Button } from "@/components/ui/button";
 import { BottomNav } from "@/components/dashboard/bottom-nav";
+import { HeaderNav } from "@/components/dashboard/header-nav";
 import { PwaInstallPrompt } from "@/components/pwa/install-prompt";
 
 export default async function DashboardLayout({
@@ -48,30 +49,7 @@ export default async function DashboardLayout({
           </form>
 
           <nav className="hidden items-center gap-4 md:flex">
-            <Link
-              href="/dashboard"
-              className="text-muted-foreground hover:text-foreground text-sm"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/dashboard/cassa"
-              className="text-muted-foreground hover:text-foreground text-sm font-medium"
-            >
-              Cassa
-            </Link>
-            <Link
-              href="/dashboard/storico"
-              className="text-muted-foreground hover:text-foreground text-sm"
-            >
-              Storico
-            </Link>
-            <Link
-              href="/dashboard/settings"
-              className="text-muted-foreground hover:text-foreground text-sm"
-            >
-              Impostazioni
-            </Link>
+            <HeaderNav />
 
             <form action={signOut}>
               <Button variant="ghost" size="sm" type="submit">
