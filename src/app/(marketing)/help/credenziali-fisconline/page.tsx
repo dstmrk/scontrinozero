@@ -120,7 +120,7 @@ export default function CredenzialiPage() {
           <div className="bg-muted/50 rounded-md p-4 text-sm">
             <p className="font-medium">PIN provvisorio</p>
             <p className="text-muted-foreground mt-1 leading-relaxed">
-              Formata dalle prime 4 cifre ricevute via email + le ultime 4
+              Formato dalle prime 4 cifre ricevute via email + le ultime 4
               ricevute per posta. Può essere usato per il primo accesso, ma{" "}
               <strong>non funziona con ScontrinoZero</strong> — devi prima
               cambiarlo in PIN definitivo.

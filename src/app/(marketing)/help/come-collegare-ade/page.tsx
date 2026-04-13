@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     "Guida passo-passo per collegare ScontrinoZero al portale Fatture e Corrispettivi dell'Agenzia delle Entrate tramite credenziali Fisconline.",
 };
 
-export default function ComeColegarAde() {
+export default function ComeCollegareAde() {
   return (
     <section className="px-4 py-16">
       <article className="mx-auto max-w-3xl">

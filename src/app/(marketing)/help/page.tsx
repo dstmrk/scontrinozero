@@ -146,7 +146,7 @@ const helpCategories: HelpCategory[] = [
     name: "Abbonamento, fatture e supporto",
     description: "Piano, pagamenti e assistenza.",
     articles: [
-      { title: "Piani disponibili: Starter, Pro, Self-hosted" },
+      { title: "Piani disponibili: Starter, Pro e versione gratuita" },
       { title: "Come passare da mensile ad annuale" },
       { title: "Dove trovare fatture e ricevute di pagamento" },
       { title: "Come contattare l'assistenza" },

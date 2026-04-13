@@ -43,8 +43,9 @@ export default function RegimeForfettarioPage() {
           Regime forfettario e IVA: il punto chiave
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Chi aderisce al regime forfettario (art. 1, commi 54–89, legge
-          {"190/2014) è esonerato dall\u2019applicazione dell\u2019IVA: "}
+          {
+            "Chi aderisce al regime forfettario (art. 1, commi 54\u201389, legge 190/2014) \u00e8 esonerato dall\u2019applicazione dell\u2019IVA: "
+          }
           <strong>
             non addebita IVA al cliente e non la detrae sugli acquisti
           </strong>

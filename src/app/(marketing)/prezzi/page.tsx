@@ -8,11 +8,11 @@ import { PricingSection } from "@/components/marketing/pricing-section";
 export const metadata: Metadata = {
   title: "Prezzi",
   description:
-    "Starter da €29,99/anno, Pro da €49,99/anno. 30 giorni di prova gratuita, nessuna carta di credito richiesta. Versione self-hosted disponibile gratuitamente.",
+    "Starter da €29,99/anno, Pro da €49,99/anno. 30 giorni di prova gratuita, nessuna carta di credito richiesta. Disponibile anche la versione gratuita per installazione autonoma.",
   openGraph: {
     title: "Prezzi ScontrinoZero | Starter €29,99/anno · Pro €49,99/anno",
     description:
-      "Starter da €29,99/anno, Pro da €49,99/anno. 30 giorni di prova gratuita, nessuna carta di credito richiesta. Versione self-hosted gratuita.",
+      "Starter da €29,99/anno, Pro da €49,99/anno. 30 giorni di prova gratuita, nessuna carta di credito richiesta. Disponibile anche la versione gratuita per installazione autonoma.",
   },
 };
 
@@ -85,7 +85,7 @@ const pricingFaqs: { question: string; answer: string }[] = [
       "L'account passa in modalità sola lettura: puoi consultare lo storico dei tuoi scontrini ma non puoi emetterne di nuovi. I tuoi dati rimangono al sicuro e puoi riattivare l'abbonamento in qualsiasi momento.",
   },
   {
-    question: "La versione self-hosted è davvero gratuita per sempre?",
+    question: "La versione gratuita è davvero gratuita per sempre?",
     answer:
       "Sì. ScontrinoZero è open source con licenza O'Saasy. Puoi scaricarlo, installarlo sul tuo server e usarlo senza limiti di tempo o funzionalità. Non include hosting, aggiornamenti automatici o supporto dedicato.",
   },
@@ -126,8 +126,8 @@ export default function PrezziPage() {
             Confronto completo dei piani
           </h2>
           <p className="text-muted-foreground mx-auto mt-2 max-w-lg text-center">
-            Incluso self-hosted gratuito per chi preferisce gestire il proprio
-            server.
+            Disponibile anche la versione gratuita per chi preferisce
+            installarlo e gestirlo autonomamente.
           </p>
           <div className="mt-10 overflow-hidden rounded-xl border">
             <table className="w-full text-sm">
@@ -141,7 +141,10 @@ export default function PrezziPage() {
                     Pro
                   </th>
                   <th className="px-4 py-3 text-center font-semibold">
-                    Self-hosted
+                    Gratuito
+                    <span className="text-muted-foreground block text-xs font-normal">
+                      installa sul tuo server
+                    </span>
                   </th>
                 </tr>
                 <tr className="border-t">
