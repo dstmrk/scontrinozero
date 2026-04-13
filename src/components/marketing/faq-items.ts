@@ -42,7 +42,7 @@ export const faqItems = [
   {
     question: "Come vengono protette le mie credenziali Fisconline?",
     answer:
-      "Le tue credenziali Fisconline vengono cifrate con AES-256-GCM prima di essere salvate e non vengono mai condivise con terze parti. Vengono usate esclusivamente per eseguire le operazioni che tu richiedi sul portale dell'Agenzia delle Entrate. Se scegli la versione self-hosted, restano sul tuo server e non transitano mai dai nostri sistemi.",
+      "Le tue credenziali Fisconline vengono cifrate con AES-256-GCM prima di essere salvate e non vengono mai condivise con terze parti. Vengono usate esclusivamente per eseguire le operazioni che tu richiedi sul portale dell'Agenzia delle Entrate. Se installi la versione gratuita sul tuo server, restano lì e non transitano mai dai nostri sistemi.",
   },
   {
     question: "Cosa succede alla scadenza dei 30 giorni di prova?",
@@ -58,10 +58,5 @@ export const faqItems = [
     question: "Esiste una versione completamente gratuita?",
     answer:
       "Sì. ScontrinoZero è open source: puoi scaricarlo e installarlo sul tuo server e usarlo gratuitamente per sempre, senza limitazioni di funzionalità. La versione hosted (Starter e Pro) è a pagamento e include hosting, aggiornamenti automatici e supporto.",
-  },
-  {
-    question: "Funziona anche con SPID o solo con Fisconline?",
-    answer:
-      "ScontrinoZero supporta sia Fisconline che SPID per l'autenticazione al portale dell'Agenzia delle Entrate. Puoi usare le credenziali che già hai: se hai SPID, usa SPID; se hai Fisconline, usa Fisconline.",
   },
 ] as const;
