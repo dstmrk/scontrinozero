@@ -68,7 +68,6 @@ const helpCategories: HelpCategory[] = [
         title: "Credenziali Fisconline: dove trovarle e come verificarle",
         href: "/help/credenziali-fisconline",
       },
-      { title: "SPID: quando usarlo e perché va rinnovato" },
       { title: "Dove verificare i corrispettivi nel cassetto fiscale" },
       { title: "Errori comuni di accesso AdE e come risolverli" },
     ],

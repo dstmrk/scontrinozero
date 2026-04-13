@@ -104,11 +104,10 @@ export default function PrivacyV01Page() {
               2.3 Credenziali di accesso ai servizi AdE
             </p>
             <p className="text-muted-foreground mt-1">
-              Credenziali Fisconline e/o token SPID temporanei forniti
-              volontariamente dall&apos;utente per abilitare la trasmissione
-              automatizzata al portale Fatture e Corrispettivi. Queste
-              credenziali sono soggette a misure di protezione rafforzate
-              descritte al <strong>§5</strong>
+              Credenziali Fisconline fornite volontariamente dall&apos;utente
+              per abilitare la trasmissione automatizzata al portale Fatture e
+              Corrispettivi. Queste credenziali sono soggette a misure di
+              protezione rafforzate descritte al <strong>§5</strong>
               {"."}
             </p>
 
@@ -227,7 +226,7 @@ export default function PrivacyV01Page() {
               servizio.
             </p>
             <p className="text-muted-foreground mt-2">
-              Il conferimento delle credenziali Fisconline/SPID (punto 2.3) è
+              Il conferimento delle credenziali Fisconline (punto 2.3) è
               facoltativo: l&apos;utente può scegliere di non fornirle e operare
               in modalità assistita, accedendo manualmente al portale AdE per
               completare la trasmissione.
@@ -237,7 +236,7 @@ export default function PrivacyV01Page() {
           {/* ─── 5. CREDENZIALI FISCONLINE ─── */}
           <section>
             <h2 className="text-lg font-semibold">
-              5. Trattamento speciale delle credenziali Fisconline / SPID
+              5. Trattamento speciale delle credenziali Fisconline
             </h2>
             <p className="text-muted-foreground mt-2">
               In considerazione della sensibilità delle credenziali di accesso
@@ -407,7 +406,7 @@ export default function PrivacyV01Page() {
                 Corrispettivi dell&apos;AdE.
               </li>
               <li>
-                <strong>Credenziali Fisconline/SPID:</strong> cancellate entro{" "}
+                <strong>Credenziali Fisconline:</strong> cancellate entro{" "}
                 <strong>30 giorni</strong> dalla chiusura dell&apos;account o
                 immediatamente su richiesta dell&apos;utente.
               </li>
@@ -417,8 +416,8 @@ export default function PrivacyV01Page() {
                 all&apos;Agenzia delle Entrate restano disponibili
                 permanentemente sul portale{" "}
                 <strong>Fatture e Corrispettivi</strong>, accessibile con
-                credenziali Fisconline/SPID/CIE, dove l&apos;AdE li conserva
-                secondo la normativa vigente.
+                credenziali Fisconline, dove l&apos;AdE li conserva secondo la
+                normativa vigente.
               </li>
               <li>
                 <strong>Log diagnostica (Sentry):</strong>{" "}

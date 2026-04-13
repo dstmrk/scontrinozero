@@ -61,13 +61,6 @@ export default function CredenzialiPage() {
             al momento dell&apos;attivazione.
           </li>
         </ul>
-        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Fisconline ≠ SPID.</strong> Sono due sistemi diversi. Anche se
-          puoi accedere al portale AdE tramite SPID, ScontrinoZero usa
-          esclusivamente le credenziali Fisconline (codice fiscale + PIN) per
-          l&apos;integrazione automatica.
-        </p>
-
         {/* ─── Come ottenere le credenziali ─── */}
         <h2 className="mt-10 text-xl font-semibold">
           Come ottenere le credenziali Fisconline
