@@ -1,6 +1,6 @@
 # ScontrinoZero — Piano di sviluppo
 
-## Versione corrente: v1.2.2 ✅ — Prossima release: v1.3.0 (landing & SEO polish) ⬜
+## Versione corrente: v1.2.5 ⬜ — Prossima release: v1.3.0 (landing & SEO polish)
 
 Il piano usa **release semantiche** (vx.y.z). La v1.1.0 è stata rilasciata in produzione.
 
@@ -20,7 +20,10 @@ Il piano usa **release semantiche** (vx.y.z). La v1.1.0 è stata rilasciata in p
 | **v1.2.0**   | ✅ PWA: `@serwist/next`, manifest, offline shell, install prompt                                                                                                                        |
 | **v1.2.1**   | ✅ Fix paginazione storico: server-side LIMIT/OFFSET, default 7gg (B2 parziale) + Stripe webhook dedup su `event.id` (B1)                                                               |
 | **v1.2.2**   | ✅ Fix subscription display (stato "pending" mostrava card mista) + webhook: `checkout.session.expired` cleanup + `charge.dispute.created` alerting                                     |
-| **v1.3.0**   | Landing & SEO polish: social proof, pagine dedicate funzionalità/prezzi, screenshot UI                                                                                                  |
+| **v1.2.3**   | ⬜ Landing & SEO polish: social proof, pagine dedicate funzionalità/prezzi, screenshot UI (gestita come patch)                                                                           |
+| **v1.2.4**   | ⬜ Help pages / documentazione utente (gestita come patch)                                                                                                                               |
+| **v1.2.5**   | ⬜ Security & GDPR polish: Turnstile nominato in Privacy Policy, key rotation runbook + script `rotate-encryption-key.ts`                                                                |
+| **v1.3.0**   | Analytics dashboard, export CSV, coupon/promo                                                                                                                                           |
 | **v1.4.0**   | Coupon/promo codes, referral program, Stripe Customer Portal polish                                                                                                                     |
 | **v1.5.0**   | Email scontrino al cliente (PDF allegato via Resend)                                                                                                                                    |
 | **v1.6.0**   | Dashboard analytics: totale giornaliero, sparkline revenue, export CSV                                                                                                                  |

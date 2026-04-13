@@ -357,8 +357,8 @@ export default function PrivacyV01Page() {
               </li>
               <li>
                 <strong>Cloudflare Inc.</strong>
-                {" ("}USA{") — "}CDN, sicurezza della rete, tunnel di accesso.
-                Data center EU. Privacy:{" "}
+                {" ("}USA{") — "}CDN, sicurezza della rete, tunnel di accesso,
+                verifica anti-bot (Turnstile). Data center EU. Privacy:{" "}
                 <a
                   href="https://www.cloudflare.com/privacypolicy/"
                   className="text-primary underline"
