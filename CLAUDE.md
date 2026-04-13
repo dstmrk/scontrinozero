@@ -185,6 +185,37 @@
     Use 503 (not 500) to signal transient external unavailability. B4 will later add a
     `requestId` and structured error envelope on top.
 
+24. **Key rotation: ENCRYPTION_KEY — procedura obbligatoria prima del deploy.**
+    Le credenziali Fisconline sono cifrate con AES-256-GCM; la chiave sta in `ENCRYPTION_KEY`
+    (env var, 64 hex chars). Se la chiave viene compromessa o va ruotata per policy:
+
+    **PRIMA di cambiare l'env var sul server**, eseguire la migrazione:
+    ```bash
+    npx tsx scripts/rotate-encryption-key.ts \
+      --old-key  $ENCRYPTION_KEY \
+      --old-version $ENCRYPTION_KEY_VERSION \
+      --new-key  <NEW_64_HEX_KEY> \
+      --new-version <NEW_VERSION>
+    ```
+    Lo script (in `scripts/rotate-encryption-key.ts`):
+    - Legge tutti i record `ade_credentials`
+    - Decifra con la vecchia chiave
+    - Ricicla con la nuova chiave
+    - Aggiorna `key_version` nel DB
+    - Wrappa tutto in `db.transaction()` → atomico
+
+    Dopo la migrazione verificare che tutti i record abbiano `key_version = NEW_VERSION`,
+    poi aggiornare le env var sul server e fare deploy.
+
+    **Rollback:** se il deploy fallisce, riportare le env var alla versione precedente —
+    i record con il vecchio `key_version` sono ancora decifrabili con la vecchia chiave
+    (presente nell'immagine Docker precedente).
+
+    **Generare una nuova chiave:**
+    ```bash
+    node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+    ```
+
 ## Progetto
 
 ScontrinoZero è un registratore di cassa virtuale (SaaS) mobile-first che consente a
@@ -192,11 +223,11 @@ esercenti e micro-attività di emettere scontrini elettronici e trasmettere i co
 all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la procedura
 "Documento Commerciale Online".
 
-**Versione corrente:** v1.2.2 ✅ (rilasciato in produzione) — roadmap completa in `PLAN.md`.
+**Versione corrente:** v1.2.5 ⬜ (in sviluppo) — roadmap completa in `PLAN.md`.
 
-**Prossima release:** v1.3.0 (landing & SEO polish)
+**Prossima release:** v1.2.5 (security & GDPR polish: Turnstile in Privacy Policy, key rotation runbook + script)
 
-**Post-lancio:** v1.2.2 (billing fix) → v1.3.0 (landing SEO) → v1.4.0+ (analytics, catalog sync, …)
+**Post-lancio:** v1.2.2 (billing fix) → v1.2.3–v1.2.5 (patch: landing SEO, security/GDPR polish) → v1.3.0+ (analytics, catalog sync, …)
 
 ## Principi di prodotto
 
