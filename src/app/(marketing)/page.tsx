@@ -272,7 +272,7 @@ export default function Home() {
                 icon: Percent,
                 title: "Regime forfettario",
                 description:
-                  "Se sei soggetto all'obbligo dei corrispettivi telematici, ScontrinoZero è la soluzione più economica: nessun registratore fisico, solo il tuo smartphone.",
+                  "ScontrinoZero è la soluzione più economica: nessun registratore fisico, solo il tuo smartphone.",
               },
             ].map((item) => (
               <div
@@ -340,8 +340,10 @@ export default function Home() {
             ].map((feature) => (
               <Card key={feature.title} className="border-border/50">
                 <CardHeader className="pb-2">
-                  <feature.icon className="text-primary h-5 w-5" />
-                  <CardTitle className="text-base">{feature.title}</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <feature.icon className="text-primary h-5 w-5 shrink-0" />
+                    <CardTitle className="text-base">{feature.title}</CardTitle>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <CardDescription>{feature.description}</CardDescription>
@@ -366,6 +368,13 @@ export default function Home() {
             Le risposte rapide ai dubbi più comuni su ScontrinoZero.
           </p>
           <FaqSection />
+          <p className="text-muted-foreground mt-8 text-center text-sm">
+            {"Hai altri dubbi? "}
+            <Link href="/help" className="text-primary hover:underline">
+              Consulta la sezione help completa
+            </Link>
+            {"."}
+          </p>
         </div>
       </section>
 

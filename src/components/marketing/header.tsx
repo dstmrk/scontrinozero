@@ -24,12 +24,6 @@ export function Header() {
           >
             Prezzi
           </Link>
-          <Link
-            href="/help"
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Guida
-          </Link>
         </nav>
 
         <Button size="sm" asChild>
