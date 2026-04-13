@@ -136,7 +136,9 @@ export async function rotateEncryptionKey(opts: {
           })
           .where(eq(schema.adeCredentials.id, row.id));
 
-        console.log(`  [ok]   ${row.id} — rotated v${oldVersion} → v${newVersion}`);
+        console.log(
+          `  [ok]   ${row.id} — rotated v${oldVersion} → v${newVersion}`,
+        );
         rotated++;
       }
     });
