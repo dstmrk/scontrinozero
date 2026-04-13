@@ -107,7 +107,7 @@ export function AccountDeleteSection() {
             restano disponibili sul portale{" "}
             <strong>Fatture e Corrispettivi</strong> anche dopo la cancellazione
             dell&apos;account. Puoi consultarli in qualsiasi momento accedendo
-            con le tue credenziali Fisconline/SPID/CIE.
+            con le tue credenziali Fisconline.
           </p>
 
           <p className="mt-2 text-sm">

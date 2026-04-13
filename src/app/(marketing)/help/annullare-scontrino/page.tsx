@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     "Scopri quando è possibile annullare uno scontrino elettronico, come farlo da ScontrinoZero e cosa succede sul portale dell'Agenzia delle Entrate.",
 };
 
-export default function AnnullareScontinoPage() {
+export default function AnnullareScontrinoPage() {
   return (
     <section className="px-4 py-16">
       <article className="mx-auto max-w-3xl">
@@ -194,7 +194,7 @@ export default function AnnullareScontinoPage() {
           <p className="text-muted-foreground text-xs">
             {"Hai trovato un errore in questa guida? "}
             <a
-              href="mailto:supporto@scontrinozero.it"
+              href="mailto:info@scontrinozero.it"
               className="text-primary hover:underline"
             >
               Segnalacelo

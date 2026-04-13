@@ -68,7 +68,6 @@ const helpCategories: HelpCategory[] = [
         title: "Credenziali Fisconline: dove trovarle e come verificarle",
         href: "/help/credenziali-fisconline",
       },
-      { title: "SPID: quando usarlo e perché va rinnovato" },
       { title: "Dove verificare i corrispettivi nel cassetto fiscale" },
       { title: "Errori comuni di accesso AdE e come risolverli" },
     ],
@@ -147,7 +146,7 @@ const helpCategories: HelpCategory[] = [
     name: "Abbonamento, fatture e supporto",
     description: "Piano, pagamenti e assistenza.",
     articles: [
-      { title: "Piani disponibili: Starter, Pro, Self-hosted" },
+      { title: "Piani disponibili: Starter, Pro e versione gratuita" },
       { title: "Come passare da mensile ad annuale" },
       { title: "Dove trovare fatture e ricevute di pagamento" },
       { title: "Come contattare l'assistenza" },
@@ -254,10 +253,10 @@ export default function HelpHomePage() {
           <p className="text-muted-foreground mt-1 text-sm">
             {"Scrivici a "}
             <a
-              href="mailto:supporto@scontrinozero.it"
+              href="mailto:info@scontrinozero.it"
               className="text-primary hover:underline"
             >
-              supporto@scontrinozero.it
+              info@scontrinozero.it
             </a>
             {" e ti rispondiamo entro 24 ore."}
           </p>

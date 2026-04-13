@@ -35,7 +35,7 @@ export function AccountDeletionEmail({ email }: AccountDeletionEmailProps) {
               I documenti commerciali già trasmessi all&apos;Agenzia delle
               Entrate restano disponibili sul portale{" "}
               <strong>Fatture e Corrispettivi</strong>, accessibile con le tue
-              credenziali Fisconline/SPID/CIE.
+              credenziali Fisconline.
             </Text>
             <Text style={emailStyles.text}>
               Per dubbi contattaci a <strong>{CONTACT_EMAIL}</strong>.

@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     "Guida passo-passo per emettere il primo scontrino elettronico con ScontrinoZero: apertura cassa, aggiunta prodotti, selezione pagamento e trasmissione AdE.",
 };
 
-export default function PrimoScontinoPage() {
+export default function PrimoScontrinoPage() {
   return (
     <section className="px-4 py-16">
       <article className="mx-auto max-w-3xl">
@@ -249,7 +249,7 @@ export default function PrimoScontinoPage() {
           <p className="text-muted-foreground text-xs">
             {"Hai trovato un errore in questa guida? "}
             <a
-              href="mailto:supporto@scontrinozero.it"
+              href="mailto:info@scontrinozero.it"
               className="text-primary hover:underline"
             >
               Segnalacelo

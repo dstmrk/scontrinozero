@@ -120,7 +120,7 @@ const sections = [
       },
       {
         icon: Shield,
-        title: "Versione self-hosted gratuita",
+        title: "Versione gratuita: installa sul tuo server",
         description:
           "ScontrinoZero è open source. Puoi scaricarlo e installarlo sul tuo server: tutte le funzionalità, gratuitamente per sempre. Le credenziali Fisconline restano sul tuo server.",
       },
