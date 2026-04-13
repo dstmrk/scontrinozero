@@ -225,7 +225,7 @@ export default function RegimeForfettarioPage() {
               "Le informazioni fiscali in questa guida hanno scopo orientativo. Per casi specifici, consulta sempre un commercialista. Hai trovato un errore? "
             }
             <a
-              href="mailto:supporto@scontrinozero.it"
+              href="mailto:info@scontrinozero.it"
               className="text-primary hover:underline"
             >
               Segnalacelo

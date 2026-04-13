@@ -141,7 +141,7 @@ export default function PrezziPage() {
                     Pro
                   </th>
                   <th className="px-4 py-3 text-center font-semibold">
-                    Gratuito
+                    {"Gratuito"}
                     <span className="text-muted-foreground block text-xs font-normal">
                       installa sul tuo server
                     </span>

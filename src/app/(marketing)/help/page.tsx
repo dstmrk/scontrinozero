@@ -253,10 +253,10 @@ export default function HelpHomePage() {
           <p className="text-muted-foreground mt-1 text-sm">
             {"Scrivici a "}
             <a
-              href="mailto:supporto@scontrinozero.it"
+              href="mailto:info@scontrinozero.it"
               className="text-primary hover:underline"
             >
-              supporto@scontrinozero.it
+              info@scontrinozero.it
             </a>
             {" e ti rispondiamo entro 24 ore."}
           </p>

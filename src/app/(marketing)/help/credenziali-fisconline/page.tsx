@@ -262,7 +262,7 @@ export default function CredenzialiPage() {
           <p className="text-muted-foreground text-xs">
             {"Hai trovato un errore in questa guida? "}
             <a
-              href="mailto:supporto@scontrinozero.it"
+              href="mailto:info@scontrinozero.it"
               className="text-primary hover:underline"
             >
               Segnalacelo
