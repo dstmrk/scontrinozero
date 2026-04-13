@@ -25,10 +25,10 @@ export function Header() {
             Prezzi
           </Link>
           <Link
-            href="/help"
+            href="/#faq"
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
-            Guida
+            FAQ
           </Link>
         </nav>
 
