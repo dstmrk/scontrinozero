@@ -10,6 +10,7 @@ import { signOut } from "@/server/auth-actions";
 import { AccountDeleteSection } from "@/components/settings/account-delete-section";
 import { ExportDataSection } from "@/components/settings/export-data-section";
 import { AdeCredentialsSection } from "@/components/settings/ade-credentials-section";
+import { EditAdeCredentialsSection } from "@/components/settings/edit-ade-credentials-section";
 import { EditProfileSection } from "@/components/settings/edit-profile-section";
 import { EditBusinessSection } from "@/components/settings/edit-business-section";
 import { ChangePasswordSection } from "@/components/settings/change-password-section";
@@ -200,8 +201,9 @@ export default async function SettingsPage() {
       )}
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Credenziali AdE</CardTitle>
+          {business && <EditAdeCredentialsSection businessId={business.id} />}
         </CardHeader>
         <CardContent>
           <AdeCredentialsSection

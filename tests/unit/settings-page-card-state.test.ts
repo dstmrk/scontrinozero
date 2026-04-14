@@ -96,6 +96,9 @@ vi.mock("@/components/settings/edit-business-section", () => ({
 vi.mock("@/components/settings/change-password-section", () => ({
   ChangePasswordSection: () => null,
 }));
+vi.mock("@/components/settings/edit-ade-credentials-section", () => ({
+  EditAdeCredentialsSection: () => null,
+}));
 vi.mock("@/types/cassa", () => ({
   VAT_DESCRIPTIONS: {},
   VAT_CODES: [],
