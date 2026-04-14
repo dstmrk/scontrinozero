@@ -35,6 +35,9 @@ export default defineConfig({
         "src/components/settings/account-delete-section.tsx", // UI client component — mutation + dialog, pure UI
         "src/components/settings/api-key-section.tsx", // UI client component — mutation + dialog, pure UI
         "src/components/settings/ade-credentials-section.tsx", // UI client component — verify action + timer, pure UI
+        "src/components/settings/change-password-section.tsx", // UI client component — form + dialog, pure UI
+        "src/components/settings/edit-profile-section.tsx", // UI client component — form + dialog, pure UI
+        "src/components/settings/edit-business-section.tsx", // UI client component — form + dialog, pure UI
         "src/sw.ts", // service worker entry point — pure infrastructure, no testable logic
         "src/app/offline/page.tsx", // static offline shell — pure UI, no logic
       ],

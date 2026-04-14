@@ -87,6 +87,15 @@ vi.mock("@/components/settings/export-data-section", () => ({
 vi.mock("@/components/settings/account-delete-section", () => ({
   AccountDeleteSection: () => null,
 }));
+vi.mock("@/components/settings/edit-profile-section", () => ({
+  EditProfileSection: () => null,
+}));
+vi.mock("@/components/settings/edit-business-section", () => ({
+  EditBusinessSection: () => null,
+}));
+vi.mock("@/components/settings/change-password-section", () => ({
+  ChangePasswordSection: () => null,
+}));
 vi.mock("@/types/cassa", () => ({
   VAT_DESCRIPTIONS: {},
   VAT_CODES: [],

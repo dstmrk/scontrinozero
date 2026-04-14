@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod/v4";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { signUp } from "@/server/auth-actions";
+import { passwordFieldSchema } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -26,13 +27,7 @@ import {
 const registerSchema = z
   .object({
     email: z.string().email("Inserisci un'email valida."),
-    password: z
-      .string()
-      .min(8, "Almeno 8 caratteri.")
-      .regex(/[A-Z]/, "Serve almeno una maiuscola.")
-      .regex(/[a-z]/, "Serve almeno una minuscola.")
-      .regex(/\d/, "Serve almeno un numero.")
-      .regex(/[^A-Za-z0-9]/, "Serve almeno un carattere speciale (es. !)."),
+    password: passwordFieldSchema,
     confirmPassword: z.string().min(1, "Conferma la password."),
     termsAccepted: z
       .boolean()
