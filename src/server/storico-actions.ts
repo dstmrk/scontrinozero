@@ -1,12 +1,17 @@
 "use server";
 
-import { and, asc, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { getDb } from "@/db";
-import { commercialDocumentLines, commercialDocuments } from "@/db/schema";
+import { commercialDocuments } from "@/db/schema";
 import {
   checkBusinessOwnership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
+import {
+  fetchLinesByDocIds,
+  groupLinesByDocId,
+  calcDocTotal,
+} from "@/lib/receipts/document-lines";
 import {
   STORICO_PAGE_SIZE,
   type SearchReceiptsResult,
@@ -94,31 +99,12 @@ export async function searchReceipts(
 
   // Fetch lines only for the current page's documents
   const docIds = docs.map((d) => d.id);
-  const lines = await db
-    .select()
-    .from(commercialDocumentLines)
-    .where(inArray(commercialDocumentLines.documentId, docIds))
-    .orderBy(asc(commercialDocumentLines.lineIndex));
-
-  // Group lines by documentId
-  const linesByDocId = new Map<string, typeof lines>();
-  for (const line of lines) {
-    const existing = linesByDocId.get(line.documentId) ?? [];
-    existing.push(line);
-    linesByDocId.set(line.documentId, existing);
-  }
+  const lines = await fetchLinesByDocIds(docIds);
+  const linesByDocId = groupLinesByDocId(lines);
 
   const items = docs.map((doc) => {
     const docLines = linesByDocId.get(doc.id) ?? [];
-    const docTotal =
-      Math.round(
-        docLines.reduce(
-          (sum, l) =>
-            sum +
-            Number.parseFloat(l.grossUnitPrice) * Number.parseFloat(l.quantity),
-          0,
-        ) * 100,
-      ) / 100;
+    const docTotal = calcDocTotal(docLines);
 
     return {
       id: doc.id,
