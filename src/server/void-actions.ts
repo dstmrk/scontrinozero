@@ -1,6 +1,7 @@
 "use server";
 
 import { logger } from "@/lib/logger";
+import { getPlan, canEmit } from "@/lib/plans";
 import { RateLimiter } from "@/lib/rate-limit";
 import {
   checkBusinessOwnership,
@@ -24,6 +25,16 @@ export async function voidReceipt(
   if (!rateLimitResult.success) {
     logger.warn({ userId: user.id }, "Receipt void rate limit exceeded");
     return { error: "Troppi annulli effettuati. Riprova tra qualche minuto." };
+  }
+
+  // P0-02: enforce plan/trial gate server-side — voiding is an emit operation
+  // so it follows the same canEmit policy as receipt creation
+  const planInfo = await getPlan(user.id);
+  if (!canEmit(planInfo.plan, planInfo.trialStartedAt)) {
+    return {
+      error:
+        "Il tuo periodo di prova è scaduto. Attiva un piano per continuare.",
+    };
   }
 
   const ownershipError = await checkBusinessOwnership(
