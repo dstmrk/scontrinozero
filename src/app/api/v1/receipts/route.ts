@@ -182,7 +182,24 @@ export async function GET(request: Request): Promise<Response> {
 
   // Append time component so Date.UTC is used unambiguously (avoids TZ-offset surprises)
   const fromDate = new Date(fromStr + "T00:00:00.000Z");
+  if (Number.isNaN(fromDate.getTime())) {
+    return withCors(
+      Response.json(
+        { error: "Il parametro 'from' non è una data valida." },
+        { status: 400 },
+      ),
+    );
+  }
+
   const toDate = new Date(toStr + "T00:00:00.000Z");
+  if (Number.isNaN(toDate.getTime())) {
+    return withCors(
+      Response.json(
+        { error: "Il parametro 'to' non è una data valida." },
+        { status: 400 },
+      ),
+    );
+  }
 
   if (toDate < fromDate) {
     return withCors(

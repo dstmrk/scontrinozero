@@ -51,18 +51,28 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
 
-  // ── Dedup: insert event ID atomically ────────────────────────────────────
-  // Stripe may retry delivery of the same event on timeout/5xx. The INSERT
-  // ... ON CONFLICT DO NOTHING guarantees at-most-once processing per event ID.
+  // ── Dedup + process ──────────────────────────────────────────────────────
+  // Strategy: SELECT-then-INSERT (not INSERT-then-process).
+  //
+  // Previous pattern (INSERT before handleEvent) had a fatal flaw: if
+  // handleEvent threw after the INSERT, the event was permanently marked as
+  // "processed" and all Stripe retries were silently skipped.
+  //
+  // New pattern:
+  //   1. SELECT — skip if already marked as processed (true duplicate).
+  //   2. handleEvent — if it throws → 500 → Stripe retries → safe.
+  //   3. INSERT after success — race-condition guard via ON CONFLICT DO NOTHING.
   try {
     const db = getDb();
-    const [inserted] = await db
-      .insert(stripeWebhookEvents)
-      .values({ eventId: event.id, eventType: event.type })
-      .onConflictDoNothing()
-      .returning({ eventId: stripeWebhookEvents.eventId });
 
-    if (!inserted) {
+    // 1. Check for already-processed duplicate
+    const [alreadyProcessed] = await db
+      .select({ eventId: stripeWebhookEvents.eventId })
+      .from(stripeWebhookEvents)
+      .where(eq(stripeWebhookEvents.eventId, event.id))
+      .limit(1);
+
+    if (alreadyProcessed) {
       logger.warn(
         { eventId: event.id, eventType: event.type },
         "Duplicate Stripe webhook event — already processed, skipping",
@@ -70,8 +80,15 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json({ received: true });
     }
 
-    // ── Handle event ────────────────────────────────────────────────────────
+    // 2. Process the event — if this throws, no INSERT happens → Stripe retries
     await handleEvent(event, stripe);
+
+    // 3. Mark as processed only after successful handling.
+    //    ON CONFLICT DO NOTHING guards against concurrent delivery of the same event.
+    await db
+      .insert(stripeWebhookEvents)
+      .values({ eventId: event.id, eventType: event.type })
+      .onConflictDoNothing();
   } catch (err) {
     logger.error(
       { err, eventType: event.type },
@@ -267,11 +284,17 @@ async function syncSubscriptionData(
       .limit(1);
 
     if (!subRow) {
+      // Throw instead of silently returning: this causes handleEvent to fail,
+      // the event is NOT marked as processed, and Stripe can retry. A silent
+      // return here would acknowledge the event as done while the profile was
+      // never updated — a silent desync with no recovery path.
       logger.error(
         { stripeCustomerId, stripeSubscriptionId: stripeSub.id },
-        "syncSubscriptionData: no subscription row found for stripeCustomerId — webhook processed without DB update",
+        "syncSubscriptionData: no subscription row found for stripeCustomerId — failing so Stripe can retry",
       );
-      return;
+      throw new Error(
+        `syncSubscriptionData: no subscription row for stripeCustomerId ${stripeCustomerId}`,
+      );
     }
 
     await tx

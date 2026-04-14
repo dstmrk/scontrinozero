@@ -21,6 +21,13 @@ vi.mock("@/lib/server-auth", () => ({
     mockFetchAdePrerequisites(...args),
 }));
 
+const mockGetPlan = vi.fn();
+const mockCanEmit = vi.fn();
+vi.mock("@/lib/plans", () => ({
+  getPlan: (...args: unknown[]) => mockGetPlan(...args),
+  canEmit: (...args: unknown[]) => mockCanEmit(...args),
+}));
+
 const mockLimit = vi.fn();
 const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
 const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
@@ -131,6 +138,12 @@ describe("receipt-actions", () => {
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockCheckBusinessOwnership.mockResolvedValue(null);
     mockFetchAdePrerequisites.mockResolvedValue(FAKE_PREREQUISITES);
+    mockGetPlan.mockResolvedValue({
+      plan: "trial",
+      trialStartedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+      planExpiresAt: null,
+    });
+    mockCanEmit.mockReturnValue(true);
 
     // Restore transaction default implementation after clearAllMocks
     mockTransaction.mockImplementation(
