@@ -1,3 +1,18 @@
+import { z } from "zod/v4";
+
+/**
+ * Shared Zod schema for password fields.
+ * Used by the registration form and the change-password form to ensure
+ * identical validation rules without duplication.
+ */
+export const passwordFieldSchema = z
+  .string()
+  .min(8, "Almeno 8 caratteri.")
+  .regex(/[A-Z]/, "Serve almeno una maiuscola.")
+  .regex(/[a-z]/, "Serve almeno una minuscola.")
+  .regex(/\d/, "Serve almeno un numero.")
+  .regex(/[^A-Za-z0-9]/, "Serve almeno un carattere speciale (es. !).");
+
 /**
  * Validates password strength:
  * - At least 8 characters

@@ -10,6 +10,10 @@ import { signOut } from "@/server/auth-actions";
 import { AccountDeleteSection } from "@/components/settings/account-delete-section";
 import { ExportDataSection } from "@/components/settings/export-data-section";
 import { AdeCredentialsSection } from "@/components/settings/ade-credentials-section";
+import { EditAdeCredentialsSection } from "@/components/settings/edit-ade-credentials-section";
+import { EditProfileSection } from "@/components/settings/edit-profile-section";
+import { EditBusinessSection } from "@/components/settings/edit-business-section";
+import { ChangePasswordSection } from "@/components/settings/change-password-section";
 import { getProfilePlan } from "@/server/billing-actions";
 import { canUseApi, isTrialExpired, TRIAL_DAYS } from "@/lib/plans";
 import { PRICE_IDS } from "@/lib/stripe";
@@ -111,8 +115,12 @@ export default async function SettingsPage() {
       <h1 className="text-2xl font-bold">Impostazioni</h1>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Profilo</CardTitle>
+          <EditProfileSection
+            firstName={profile?.firstName ?? null}
+            lastName={profile?.lastName ?? null}
+          />
         </CardHeader>
         <CardContent className="space-y-2">
           <p>
@@ -125,10 +133,28 @@ export default async function SettingsPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Sicurezza</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ChangePasswordSection />
+        </CardContent>
+      </Card>
+
       {business && (
         <Card>
-          <CardHeader>
-            <CardTitle>Attivita</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Attività</CardTitle>
+            <EditBusinessSection
+              businessId={business.id}
+              businessName={business.businessName ?? null}
+              address={business.address ?? null}
+              streetNumber={business.streetNumber ?? null}
+              city={business.city ?? null}
+              province={business.province ?? null}
+              zipCode={business.zipCode ?? null}
+            />
           </CardHeader>
           <CardContent className="space-y-2">
             {business.businessName && (
@@ -175,8 +201,9 @@ export default async function SettingsPage() {
       )}
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Credenziali AdE</CardTitle>
+          {business && <EditAdeCredentialsSection businessId={business.id} />}
         </CardHeader>
         <CardContent>
           <AdeCredentialsSection
