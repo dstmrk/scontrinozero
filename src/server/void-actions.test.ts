@@ -23,6 +23,13 @@ vi.mock("@/lib/server-auth", () => ({
     mockFetchAdePrerequisites(...args),
 }));
 
+const mockGetPlan = vi.fn();
+const mockCanEmit = vi.fn();
+vi.mock("@/lib/plans", () => ({
+  getPlan: (...args: unknown[]) => mockGetPlan(...args),
+  canEmit: (...args: unknown[]) => mockCanEmit(...args),
+}));
+
 // DB mock — ogni select() restituisce un builder riconfigurabile
 const mockSelect = vi.fn();
 const mockInsert = vi.fn();
@@ -198,6 +205,12 @@ describe("void-actions", () => {
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockCheckBusinessOwnership.mockResolvedValue(null);
     mockFetchAdePrerequisites.mockResolvedValue(FAKE_PREREQUISITES);
+    mockGetPlan.mockResolvedValue({
+      plan: "trial",
+      trialStartedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+      planExpiresAt: null,
+    });
+    mockCanEmit.mockReturnValue(true);
 
     // Insert mock
     mockInsert.mockReturnValue({ values: mockInsertValues });

@@ -31,11 +31,15 @@ const lineSchema = z.object({
 });
 
 const submitReceiptSchema = z.object({
-  businessId: z.string().min(1),
+  businessId: z.string().min(1, "Business ID obbligatorio."),
   lines: z.array(lineSchema).min(1).max(100),
   paymentMethod: z.enum(["PC", "PE"]),
   idempotencyKey: z.string().uuid(),
-  lotteryCode: z.string().max(8).nullable().optional(),
+  lotteryCode: z
+    .string()
+    .max(8, "Il codice lotteria non deve superare 8 caratteri.")
+    .nullable()
+    .optional(),
 });
 
 // Rate limit: 30 receipts per hour per user (per-user key, not per-IP)
