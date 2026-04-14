@@ -35,6 +35,7 @@
    - If a file has no testable logic (pure config, UI shell), add it to `sonar.coverage.exclusions` in `sonar-project.properties` AND to the `exclude` list in `vitest.config.ts` — never leave it untested without explicitly excluding it.
    - **Service worker files (`src/sw.ts`) must be added to `sonar.exclusions`** (not just `sonar.coverage.exclusions`). They use WebWorker-specific globals (`ServiceWorkerGlobalScope`, `declare const self`) that conflict with the DOM lib and trigger SonarCloud false positives (variable shadowing). Also add to `tsconfig.json` exclude for the same reason.
    - **Common SonarCloud style rules to anticipate**: `typeof x === "undefined"` → `x === undefined`; `window.*` → `globalThis.window.*` (es2020 portability); `<div role="banner">` → `<header>`; async functions as onClick → `onClick={() => void asyncFn()}`.
+   - **S6861 (React props not readonly)**: ogni `interface` di props di componente React deve avere tutti i campi marcati `readonly`. Applicare sistematicamente a ogni nuovo componente per evitare l'issue. Esempio: `interface MyProps { readonly foo: string; readonly bar: number; }`.
    - **S6772 (Ambiguous spacing in JSX)**: si attiva in due casi: (1) `{" "}` tra elementi JSX — fix: incorpora lo spazio nel testo adiacente come `{"testo "}` o `{" testo"}`; (2) testo nudo dopo `</span>` o `</code>` su riga separata — fix: usa `{"/v1/..."}` per renderlo espressione JSX esplicita. Prettier può re-introdurre `{" "}` riformattando: scrivi JSX in modo da non richiederlo.
    - **S7780 (Escape sequences in template literals)**: usa `String.raw\`...\``invece di template literal con`\\`quando il contenuto mostra backslash letterali (es. curl examples). Con`String.raw`, scrivi `\` singolo invece di `\\` e i newline del sorgente sono preservati.
    - **Gitleaks e pagine di documentazione**: i placeholder di chiavi API negli esempi curl (es. `szk_live_XXXX`, `Authorization: Bearer ...`) triggerano le regole `curl-auth-header` e `generic-api-key`. Sono falsi positivi — aggiungere i fingerprint al `.gitleaksignore`. **Attenzione**: i fingerprint sono commit-specifici (`COMMIT_SHA:FILE:RULE:LINE`). Ogni commit che modifica le righe coinvolte genera nuovi fingerprint. Aggiungere i fingerprint di tutti i commit in un'unica passata quando possibile, ispezionando le righe esatte con `grep -n`.
@@ -174,6 +175,7 @@
     Uncaught errors from `stripe.customers.create()`, `stripe.checkout.sessions.create()`, or
     any external service propagate as unhandled 500s with no log context, making incidents
     impossible to diagnose. The correct pattern:
+
     ```typescript
     try {
       result = await stripe.someMethod(…);
@@ -182,6 +184,7 @@
       return Response.json({ error: "Servizio temporaneamente non disponibile." }, { status: 503 });
     }
     ```
+
     Use 503 (not 500) to signal transient external unavailability. B4 will later add a
     `requestId` and structured error envelope on top.
 
@@ -190,6 +193,7 @@
     (env var, 64 hex chars). Se la chiave viene compromessa o va ruotata per policy:
 
     **PRIMA di cambiare l'env var sul server**, eseguire la migrazione:
+
     ```bash
     npx tsx scripts/rotate-encryption-key.ts \
       --old-key  $ENCRYPTION_KEY \
@@ -197,6 +201,7 @@
       --new-key  <NEW_64_HEX_KEY> \
       --new-version <NEW_VERSION>
     ```
+
     Lo script (in `scripts/rotate-encryption-key.ts`):
     - Legge tutti i record `ade_credentials`
     - Decifra con la vecchia chiave
@@ -212,6 +217,7 @@
     (presente nell'immagine Docker precedente).
 
     **Generare una nuova chiave:**
+
     ```bash
     node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
     ```
