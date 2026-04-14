@@ -236,6 +236,21 @@ describe("POST /api/stripe/checkout", () => {
     expect(body.url).toBe("https://checkout.stripe.com/session");
   });
 
+  it("passa allow_promotion_codes: true alla checkout session", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: "user-1",
+      email: "a@b.it",
+    });
+    mockSelect.mockReturnValue(
+      makeSelectBuilder([{ stripeCustomerId: "cus_existing" }]),
+    );
+
+    await POST(makeRequest({ priceId: "price_pro" }));
+    expect(mockSessionCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ allow_promotion_codes: true }),
+    );
+  });
+
   it("passa subscription_data.metadata con userId alla checkout session", async () => {
     mockGetAuthenticatedUser.mockResolvedValue({
       id: "user-42",

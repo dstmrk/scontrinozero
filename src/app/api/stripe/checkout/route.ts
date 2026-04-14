@@ -117,6 +117,7 @@ export async function POST(req: Request): Promise<Response> {
       customer: stripeCustomerId ?? undefined,
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
+      allow_promotion_codes: true,
       subscription_data: {
         metadata: { userId: user.id },
       },
