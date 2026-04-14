@@ -12,16 +12,16 @@ import {
 } from "@/components/ui/dialog";
 
 interface EditSettingsDialogProps {
-  ariaLabel: string;
-  title: string;
-  description: React.ReactNode;
-  isOpen: boolean;
-  isPending: boolean;
-  rootError?: string;
-  onOpen: () => void;
-  onClose: () => void;
-  onSubmit: React.FormEventHandler<HTMLFormElement>;
-  children: React.ReactNode;
+  readonly ariaLabel: string;
+  readonly title: string;
+  readonly description: React.ReactNode;
+  readonly isOpen: boolean;
+  readonly isPending: boolean;
+  readonly rootError?: string;
+  readonly onOpen: () => void;
+  readonly onClose: () => void;
+  readonly onSubmit: React.FormEventHandler<HTMLFormElement>;
+  readonly children: React.ReactNode;
 }
 
 /**

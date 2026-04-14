@@ -24,8 +24,8 @@ const editProfileSchema = z.object({
 type EditProfileData = z.infer<typeof editProfileSchema>;
 
 interface EditProfileSectionProps {
-  firstName: string | null;
-  lastName: string | null;
+  readonly firstName: string | null;
+  readonly lastName: string | null;
 }
 
 export function EditProfileSection({

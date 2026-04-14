@@ -37,13 +37,13 @@ const editBusinessSchema = z.object({
 type EditBusinessData = z.infer<typeof editBusinessSchema>;
 
 interface EditBusinessSectionProps {
-  businessId: string;
-  businessName: string | null;
-  address: string | null;
-  streetNumber: string | null;
-  city: string | null;
-  province: string | null;
-  zipCode: string | null;
+  readonly businessId: string;
+  readonly businessName: string | null;
+  readonly address: string | null;
+  readonly streetNumber: string | null;
+  readonly city: string | null;
+  readonly province: string | null;
+  readonly zipCode: string | null;
 }
 
 export function EditBusinessSection({
