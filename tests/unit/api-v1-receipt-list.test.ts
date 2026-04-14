@@ -299,6 +299,28 @@ describe("GET /api/v1/receipts (list)", () => {
       expect(res.status).toBe(200);
     });
 
+    it("returns 400 when 'from' passes regex but is an impossible date (month 13)", async () => {
+      const { GET } = await import("@/app/api/v1/receipts/route");
+      const res = await GET(makeRequest({ from: "2026-13-01", to: VALID_TO }));
+
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toMatch(/from/i);
+      expect(body.error).toMatch(/valida/i);
+    });
+
+    it("returns 400 when 'to' passes regex but is an impossible date (month 13)", async () => {
+      const { GET } = await import("@/app/api/v1/receipts/route");
+      const res = await GET(
+        makeRequest({ from: VALID_FROM, to: "2026-13-01" }),
+      );
+
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toMatch(/to/i);
+      expect(body.error).toMatch(/valida/i);
+    });
+
     it("does not query DB when params are invalid", async () => {
       const { GET } = await import("@/app/api/v1/receipts/route");
       await GET(makeRequest({ to: VALID_TO }));

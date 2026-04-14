@@ -46,14 +46,18 @@ export async function searchReceipts(
   ];
 
   if (params.dateFrom) {
+    // Explicit UTC midnight: avoids local-timezone off-by-one on servers outside UTC
     conditions.push(
-      gte(commercialDocuments.createdAt, new Date(params.dateFrom)),
+      gte(
+        commercialDocuments.createdAt,
+        new Date(params.dateFrom + "T00:00:00.000Z"),
+      ),
     );
   }
   if (params.dateTo) {
-    // Include the entire day by adding 1 day
-    const dateTo = new Date(params.dateTo);
-    dateTo.setDate(dateTo.getDate() + 1);
+    // Include the entire 'to' day by advancing to the start of the next UTC day
+    const dateTo = new Date(params.dateTo + "T00:00:00.000Z");
+    dateTo.setUTCDate(dateTo.getUTCDate() + 1);
     conditions.push(lt(commercialDocuments.createdAt, dateTo));
   }
   if (params.status) {
