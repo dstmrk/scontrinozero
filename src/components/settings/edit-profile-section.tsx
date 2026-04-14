@@ -6,18 +6,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod/v4";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { Pencil } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Form, FormInputField } from "@/components/ui/form";
 import { updateProfile } from "@/server/profile-actions";
+import { EditSettingsDialog } from "./edit-settings-dialog";
 
 const editProfileSchema = z.object({
   firstName: z
@@ -79,75 +70,35 @@ export function EditProfileSection({
     setIsOpen(true);
   }
 
-  function handleSubmit(data: EditProfileData) {
-    mutation.mutate(data);
-  }
-
   return (
-    <>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={handleOpen}
-        aria-label="Modifica profilo"
+    <Form {...form}>
+      <EditSettingsDialog
+        ariaLabel="Modifica profilo"
+        title="Modifica profilo"
+        description="Aggiorna il tuo nome e cognome."
+        isOpen={isOpen}
+        isPending={mutation.isPending}
+        rootError={form.formState.errors.root?.message}
+        onOpen={handleOpen}
+        onClose={() => setIsOpen(false)}
+        onSubmit={form.handleSubmit((data) => mutation.mutate(data))}
       >
-        <Pencil className="h-4 w-4" />
-      </Button>
+        <FormInputField
+          control={form.control}
+          name="firstName"
+          label="Nome"
+          autoComplete="given-name"
+          disabled={mutation.isPending}
+        />
 
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="overscroll-contain">
-          <DialogHeader>
-            <DialogTitle>Modifica profilo</DialogTitle>
-            <DialogDescription>
-              Aggiorna il tuo nome e cognome.
-            </DialogDescription>
-          </DialogHeader>
-
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(handleSubmit)}
-              noValidate
-              className="space-y-4"
-            >
-              <FormInputField
-                control={form.control}
-                name="firstName"
-                label="Nome"
-                autoComplete="given-name"
-                disabled={mutation.isPending}
-              />
-
-              <FormInputField
-                control={form.control}
-                name="lastName"
-                label="Cognome"
-                autoComplete="family-name"
-                disabled={mutation.isPending}
-              />
-
-              {form.formState.errors.root && (
-                <p className="text-destructive text-sm" role="alert">
-                  {form.formState.errors.root.message}
-                </p>
-              )}
-
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsOpen(false)}
-                  disabled={mutation.isPending}
-                >
-                  Annulla
-                </Button>
-                <Button type="submit" disabled={mutation.isPending}>
-                  {mutation.isPending ? "Salvataggio…" : "Salva"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-    </>
+        <FormInputField
+          control={form.control}
+          name="lastName"
+          label="Cognome"
+          autoComplete="family-name"
+          disabled={mutation.isPending}
+        />
+      </EditSettingsDialog>
+    </Form>
   );
 }

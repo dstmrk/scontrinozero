@@ -6,18 +6,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod/v4";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { Pencil } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Form, FormInputField } from "@/components/ui/form";
 import { updateBusiness } from "@/server/profile-actions";
+import { EditSettingsDialog } from "./edit-settings-dialog";
 
 const editBusinessSchema = z.object({
   businessName: z
@@ -120,116 +111,80 @@ export function EditBusinessSection({
     setIsOpen(true);
   }
 
-  function handleSubmit(data: EditBusinessData) {
-    mutation.mutate(data);
-  }
-
   return (
-    <>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={handleOpen}
-        aria-label="Modifica attività"
+    <Form {...form}>
+      <EditSettingsDialog
+        ariaLabel="Modifica attività"
+        title="Modifica attività"
+        description={
+          <>
+            Aggiorna i dati della tua attività. P.IVA e Codice Fiscale sono
+            gestiti dall&apos;Agenzia delle Entrate e non modificabili qui.
+          </>
+        }
+        isOpen={isOpen}
+        isPending={mutation.isPending}
+        rootError={form.formState.errors.root?.message}
+        onOpen={handleOpen}
+        onClose={() => setIsOpen(false)}
+        onSubmit={form.handleSubmit((data) => mutation.mutate(data))}
       >
-        <Pencil className="h-4 w-4" />
-      </Button>
+        <FormInputField
+          control={form.control}
+          name="businessName"
+          label="Ragione sociale"
+          autoComplete="organization"
+          disabled={mutation.isPending}
+        />
 
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="overscroll-contain">
-          <DialogHeader>
-            <DialogTitle>Modifica attività</DialogTitle>
-            <DialogDescription>
-              Aggiorna i dati della tua attività. P.IVA e Codice Fiscale sono
-              gestiti dall&apos;Agenzia delle Entrate e non modificabili qui.
-            </DialogDescription>
-          </DialogHeader>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="col-span-2">
+            <FormInputField
+              control={form.control}
+              name="address"
+              label="Indirizzo"
+              autoComplete="street-address"
+              disabled={mutation.isPending}
+            />
+          </div>
+          <FormInputField
+            control={form.control}
+            name="streetNumber"
+            label="Civico"
+            autoComplete="off"
+            disabled={mutation.isPending}
+          />
+        </div>
 
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(handleSubmit)}
-              noValidate
-              className="space-y-4"
-            >
-              <FormInputField
-                control={form.control}
-                name="businessName"
-                label="Ragione sociale"
-                autoComplete="organization"
-                disabled={mutation.isPending}
-              />
+        <div className="grid grid-cols-3 gap-3">
+          <div className="col-span-2">
+            <FormInputField
+              control={form.control}
+              name="city"
+              label="Comune"
+              autoComplete="address-level2"
+              disabled={mutation.isPending}
+            />
+          </div>
+          <FormInputField
+            control={form.control}
+            name="province"
+            label="Prov."
+            autoComplete="address-level1"
+            disabled={mutation.isPending}
+          />
+        </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2">
-                  <FormInputField
-                    control={form.control}
-                    name="address"
-                    label="Indirizzo"
-                    autoComplete="street-address"
-                    disabled={mutation.isPending}
-                  />
-                </div>
-                <FormInputField
-                  control={form.control}
-                  name="streetNumber"
-                  label="Civico"
-                  autoComplete="off"
-                  disabled={mutation.isPending}
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2">
-                  <FormInputField
-                    control={form.control}
-                    name="city"
-                    label="Comune"
-                    autoComplete="address-level2"
-                    disabled={mutation.isPending}
-                  />
-                </div>
-                <FormInputField
-                  control={form.control}
-                  name="province"
-                  label="Prov."
-                  autoComplete="address-level1"
-                  disabled={mutation.isPending}
-                />
-              </div>
-
-              <FormInputField
-                control={form.control}
-                name="zipCode"
-                label="CAP"
-                autoComplete="postal-code"
-                inputMode="numeric"
-                maxLength={5}
-                disabled={mutation.isPending}
-              />
-
-              {form.formState.errors.root && (
-                <p className="text-destructive text-sm" role="alert">
-                  {form.formState.errors.root.message}
-                </p>
-              )}
-
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsOpen(false)}
-                  disabled={mutation.isPending}
-                >
-                  Annulla
-                </Button>
-                <Button type="submit" disabled={mutation.isPending}>
-                  {mutation.isPending ? "Salvataggio…" : "Salva"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-    </>
+        <FormInputField
+          control={form.control}
+          name="zipCode"
+          label="CAP"
+          autoComplete="postal-code"
+          inputMode="numeric"
+          maxLength={5}
+          disabled={mutation.isPending}
+        />
+      </EditSettingsDialog>
+    </Form>
   );
 }
