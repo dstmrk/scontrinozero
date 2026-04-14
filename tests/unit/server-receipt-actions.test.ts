@@ -58,7 +58,7 @@ function makeValidInput(overrides: Record<string, unknown> = {}) {
         description: "Caffè",
         quantity: 1,
         grossUnitPrice: 1.5,
-        vatCode: "22",
+        vatCode: "22" as const,
       },
     ],
     paymentMethod: "PC" as const,
