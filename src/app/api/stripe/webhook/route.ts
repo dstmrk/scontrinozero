@@ -52,43 +52,57 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   // ── Dedup + process ──────────────────────────────────────────────────────
-  // Strategy: SELECT-then-INSERT (not INSERT-then-process).
+  // Strategy: INSERT-first atomic claim.
   //
-  // Previous pattern (INSERT before handleEvent) had a fatal flaw: if
-  // handleEvent threw after the INSERT, the event was permanently marked as
-  // "processed" and all Stripe retries were silently skipped.
+  // Previous SELECT-then-INSERT had a race: two concurrent deliveries of the
+  // same event both passed the SELECT check, both called handleEvent (double
+  // side effects on subscription/profile), then only one INSERT won. The dedup
+  // table showed a single "processed" entry, hiding the double execution.
   //
   // New pattern:
-  //   1. SELECT — skip if already marked as processed (true duplicate).
-  //   2. handleEvent — if it throws → 500 → Stripe retries → safe.
-  //   3. INSERT after success — race-condition guard via ON CONFLICT DO NOTHING.
+  //   1. INSERT with ON CONFLICT DO NOTHING + RETURNING. DB guarantees only
+  //      one concurrent request gets a row back. Others see empty RETURNING →
+  //      already claimed or processed → return 200 immediately.
+  //   2. Winner calls handleEvent. On failure: DELETE the claim (best-effort)
+  //      then re-throw → 500 → Stripe retries. If DELETE also fails: log
+  //      critical (manual cleanup: DELETE FROM stripe_webhook_events WHERE
+  //      event_id = '<id>').
+  //   3. On success: claim row stays → permanent dedup for future retries.
   try {
     const db = getDb();
 
-    // 1. Check for already-processed duplicate
-    const [alreadyProcessed] = await db
-      .select({ eventId: stripeWebhookEvents.eventId })
-      .from(stripeWebhookEvents)
-      .where(eq(stripeWebhookEvents.eventId, event.id))
-      .limit(1);
+    // 1. Atomic claim: only one concurrent request wins the INSERT
+    const [claimed] = await db
+      .insert(stripeWebhookEvents)
+      .values({ eventId: event.id, eventType: event.type })
+      .onConflictDoNothing()
+      .returning({ eventId: stripeWebhookEvents.eventId });
 
-    if (alreadyProcessed) {
+    if (!claimed) {
       logger.warn(
         { eventId: event.id, eventType: event.type },
-        "Duplicate Stripe webhook event — already processed, skipping",
+        "Duplicate Stripe webhook event — already claimed or processed, skipping",
       );
       return Response.json({ received: true });
     }
 
-    // 2. Process the event — if this throws, no INSERT happens → Stripe retries
-    await handleEvent(event, stripe);
-
-    // 3. Mark as processed only after successful handling.
-    //    ON CONFLICT DO NOTHING guards against concurrent delivery of the same event.
-    await db
-      .insert(stripeWebhookEvents)
-      .values({ eventId: event.id, eventType: event.type })
-      .onConflictDoNothing();
+    // 2. Process the event (we are the sole handler for this event)
+    try {
+      await handleEvent(event, stripe);
+    } catch (processErr) {
+      // Release claim so Stripe can retry this event.
+      try {
+        await db
+          .delete(stripeWebhookEvents)
+          .where(eq(stripeWebhookEvents.eventId, event.id));
+      } catch (deleteErr) {
+        logger.error(
+          { eventId: event.id, err: deleteErr },
+          "Failed to release Stripe webhook claim — event stuck, manual cleanup required",
+        );
+      }
+      throw processErr; // propagates to outer catch → 500 → Stripe retries
+    }
   } catch (err) {
     logger.error(
       { err, eventType: event.type },
