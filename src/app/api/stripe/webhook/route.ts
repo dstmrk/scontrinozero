@@ -87,22 +87,7 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     // 2. Process the event (we are the sole handler for this event)
-    try {
-      await handleEvent(event, stripe);
-    } catch (processErr) {
-      // Release claim so Stripe can retry this event.
-      try {
-        await db
-          .delete(stripeWebhookEvents)
-          .where(eq(stripeWebhookEvents.eventId, event.id));
-      } catch (deleteErr) {
-        logger.error(
-          { eventId: event.id, err: deleteErr },
-          "Failed to release Stripe webhook claim — event stuck, manual cleanup required",
-        );
-      }
-      throw processErr; // propagates to outer catch → 500 → Stripe retries
-    }
+    await processWithClaimRelease(db, event.id, event, stripe);
   } catch (err) {
     logger.error(
       { err, eventType: event.type },
@@ -112,6 +97,38 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   return Response.json({ received: true });
+}
+
+/**
+ * Call handleEvent and release the atomic claim if processing fails,
+ * so Stripe can retry the event. Extracted to reduce Cognitive Complexity
+ * of the POST handler (nested try/catch would push it over the allowed limit).
+ *
+ * On DELETE failure the claim stays locked — log critical and require manual
+ * cleanup: DELETE FROM stripe_webhook_events WHERE event_id = '<id>'.
+ */
+async function processWithClaimRelease(
+  db: ReturnType<typeof getDb>,
+  eventId: string,
+  event: Stripe.Event,
+  stripe: Stripe,
+): Promise<void> {
+  try {
+    await handleEvent(event, stripe);
+  } catch (processErr) {
+    // Release claim so Stripe can retry this event.
+    try {
+      await db
+        .delete(stripeWebhookEvents)
+        .where(eq(stripeWebhookEvents.eventId, eventId));
+    } catch (deleteErr) {
+      logger.error(
+        { eventId, err: deleteErr },
+        "Failed to release Stripe webhook claim — event stuck, manual cleanup required",
+      );
+    }
+    throw processErr; // propagates to outer catch → 500 → Stripe retries
+  }
 }
 
 async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
