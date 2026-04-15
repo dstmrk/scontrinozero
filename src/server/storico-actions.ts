@@ -19,6 +19,19 @@ import {
 } from "@/types/storico";
 
 // ---------------------------------------------------------------------------
+// Constants / helpers
+// ---------------------------------------------------------------------------
+
+const MAX_PAGE_SIZE = 100;
+
+/** Returns a valid UTC-midnight Date for an ISO yyyy-MM-dd string, or null if invalid. */
+function parseIsoDate(str: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return null;
+  const d = new Date(str + "T00:00:00.000Z");
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+// ---------------------------------------------------------------------------
 // searchReceipts
 // ---------------------------------------------------------------------------
 
@@ -39,8 +52,12 @@ export async function searchReceipts(
   }
 
   const db = getDb();
-  const page = params.page ?? 1;
-  const pageSize = params.pageSize ?? STORICO_PAGE_SIZE;
+  // Clamp page/pageSize: prevents large queries from tampered server action calls.
+  const page = Math.max(1, params.page ?? 1);
+  const pageSize = Math.min(
+    MAX_PAGE_SIZE,
+    Math.max(1, params.pageSize ?? STORICO_PAGE_SIZE),
+  );
   const offset = (page - 1) * pageSize;
 
   // Build conditions
@@ -51,19 +68,20 @@ export async function searchReceipts(
   ];
 
   if (params.dateFrom) {
-    // Explicit UTC midnight: avoids local-timezone off-by-one on servers outside UTC
-    conditions.push(
-      gte(
-        commercialDocuments.createdAt,
-        new Date(params.dateFrom + "T00:00:00.000Z"),
-      ),
-    );
+    // Validate format and value: silently ignore invalid dates instead of crashing.
+    const d = parseIsoDate(params.dateFrom);
+    if (d) {
+      // Explicit UTC midnight: avoids local-timezone off-by-one on servers outside UTC
+      conditions.push(gte(commercialDocuments.createdAt, d));
+    }
   }
   if (params.dateTo) {
-    // Include the entire 'to' day by advancing to the start of the next UTC day
-    const dateTo = new Date(params.dateTo + "T00:00:00.000Z");
-    dateTo.setUTCDate(dateTo.getUTCDate() + 1);
-    conditions.push(lt(commercialDocuments.createdAt, dateTo));
+    const d = parseIsoDate(params.dateTo);
+    if (d) {
+      // Include the entire 'to' day by advancing to the start of the next UTC day
+      d.setUTCDate(d.getUTCDate() + 1);
+      conditions.push(lt(commercialDocuments.createdAt, d));
+    }
   }
   if (params.status) {
     conditions.push(eq(commercialDocuments.status, params.status));
