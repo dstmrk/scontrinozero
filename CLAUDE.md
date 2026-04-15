@@ -229,11 +229,11 @@ esercenti e micro-attività di emettere scontrini elettronici e trasmettere i co
 all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la procedura
 "Documento Commerciale Online".
 
-**Versione corrente:** v1.2.5 ⬜ (in sviluppo) — roadmap completa in `PLAN.md`.
+**Versione corrente:** v1.2.6 ⬜ (in sviluppo) — roadmap completa in `PLAN.md`.
 
-**Prossima release:** v1.2.5 (security & GDPR polish: Turnstile in Privacy Policy, key rotation runbook + script)
+**Prossima release:** v1.2.6 (fix code review: webhook atomic claim, searchReceipts validation, changePassword rate limit, rows_affected check)
 
-**Post-lancio:** v1.2.2 (billing fix) → v1.2.3–v1.2.5 (patch: landing SEO, security/GDPR polish) → v1.3.0+ (analytics, catalog sync, …)
+**Post-lancio:** v1.2.2 (billing fix) → v1.2.3–v1.2.6 (patch: landing SEO, security/GDPR polish, code review fixes) → v1.3.0+ (analytics, catalog sync, …)
 
 ## Principi di prodotto
 

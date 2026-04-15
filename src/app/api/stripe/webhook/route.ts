@@ -87,22 +87,7 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     // 2. Process the event (we are the sole handler for this event)
-    try {
-      await handleEvent(event, stripe);
-    } catch (processErr) {
-      // Release claim so Stripe can retry this event.
-      try {
-        await db
-          .delete(stripeWebhookEvents)
-          .where(eq(stripeWebhookEvents.eventId, event.id));
-      } catch (deleteErr) {
-        logger.error(
-          { eventId: event.id, err: deleteErr },
-          "Failed to release Stripe webhook claim — event stuck, manual cleanup required",
-        );
-      }
-      throw processErr; // propagates to outer catch → 500 → Stripe retries
-    }
+    await processWithClaimRelease(db, event.id, event, stripe);
   } catch (err) {
     logger.error(
       { err, eventType: event.type },
@@ -112,6 +97,38 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   return Response.json({ received: true });
+}
+
+/**
+ * Call handleEvent and release the atomic claim if processing fails,
+ * so Stripe can retry the event. Extracted to reduce Cognitive Complexity
+ * of the POST handler (nested try/catch would push it over the allowed limit).
+ *
+ * On DELETE failure the claim stays locked — log critical and require manual
+ * cleanup: DELETE FROM stripe_webhook_events WHERE event_id = '<id>'.
+ */
+async function processWithClaimRelease(
+  db: ReturnType<typeof getDb>,
+  eventId: string,
+  event: Stripe.Event,
+  stripe: Stripe,
+): Promise<void> {
+  try {
+    await handleEvent(event, stripe);
+  } catch (processErr) {
+    // Release claim so Stripe can retry this event.
+    try {
+      await db
+        .delete(stripeWebhookEvents)
+        .where(eq(stripeWebhookEvents.eventId, eventId));
+    } catch (deleteErr) {
+      logger.error(
+        { eventId, err: deleteErr },
+        "Failed to release Stripe webhook claim — event stuck, manual cleanup required",
+      );
+    }
+    throw processErr; // propagates to outer catch → 500 → Stripe retries
+  }
 }
 
 async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
@@ -126,7 +143,7 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
       // The WHERE status = "pending" guard prevents accidentally canceling a
       // row that was already activated by a subsequent successful checkout
       // session with the same Stripe customer (e.g. user retried after expiry).
-      await db
+      const expiredUpdated = await db
         .update(subscriptions)
         .set({ status: "canceled" })
         .where(
@@ -134,7 +151,17 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
             eq(subscriptions.stripeCustomerId, session.customer as string),
             eq(subscriptions.status, "pending"),
           ),
+        )
+        .returning({ id: subscriptions.id });
+
+      if (expiredUpdated.length === 0) {
+        // Not an error: the pending row may never have existed (e.g. user never
+        // initiated checkout) or was already cleaned up. Log for observability.
+        logger.warn(
+          { stripeCustomerId: session.customer },
+          "checkout.session.expired: no pending subscription row found — nothing to cancel",
         );
+      }
       break;
     }
 
@@ -171,13 +198,12 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
       const invoice = event.data.object as Stripe.Invoice;
       const subscriptionId = invoice.parent?.subscription_details?.subscription;
       if (!subscriptionId) break;
-
-      await db
-        .update(subscriptions)
-        .set({ currentPeriodEnd: new Date(invoice.period_end * 1000) })
-        .where(
-          eq(subscriptions.stripeSubscriptionId, subscriptionId as string),
-        );
+      await applySubscriptionUpdate(
+        db,
+        subscriptionId as string,
+        { currentPeriodEnd: new Date(invoice.period_end * 1000) },
+        "invoice.paid",
+      );
       break;
     }
 
@@ -191,13 +217,12 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
       const invoice = event.data.object as Stripe.Invoice;
       const subscriptionId = invoice.parent?.subscription_details?.subscription;
       if (!subscriptionId) break;
-
-      await db
-        .update(subscriptions)
-        .set({ status: "incomplete" })
-        .where(
-          eq(subscriptions.stripeSubscriptionId, subscriptionId as string),
-        );
+      await applySubscriptionUpdate(
+        db,
+        subscriptionId as string,
+        { status: "incomplete" },
+        "invoice.payment_action_required",
+      );
       break;
     }
 
@@ -205,42 +230,18 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
       const invoice = event.data.object as Stripe.Invoice;
       const subscriptionId = invoice.parent?.subscription_details?.subscription;
       if (!subscriptionId) break;
-
-      await db
-        .update(subscriptions)
-        .set({ status: "past_due" })
-        .where(
-          eq(subscriptions.stripeSubscriptionId, subscriptionId as string),
-        );
+      await applySubscriptionUpdate(
+        db,
+        subscriptionId as string,
+        { status: "past_due" },
+        "invoice.payment_failed",
+      );
       break;
     }
 
     case "customer.subscription.deleted": {
       const sub = event.data.object as Stripe.Subscription;
-
-      // Find the userId from the subscriptions table (read-only, outside tx)
-      const [subRow] = await db
-        .select({ userId: subscriptions.userId })
-        .from(subscriptions)
-        .where(eq(subscriptions.stripeSubscriptionId, sub.id))
-        .limit(1);
-
-      // Wrap both writes in a transaction: subscription + profile must stay
-      // consistent. A partial update (subscription canceled but plan not reset,
-      // or vice versa) would leave feature gates in an inconsistent state.
-      await db.transaction(async (tx) => {
-        await tx
-          .update(subscriptions)
-          .set({ status: "canceled" })
-          .where(eq(subscriptions.stripeSubscriptionId, sub.id));
-
-        if (subRow) {
-          await tx
-            .update(profiles)
-            .set({ plan: "trial" })
-            .where(eq(profiles.authUserId, subRow.userId));
-        }
-      });
+      await handleSubscriptionDeleted(db, sub);
       break;
     }
 
@@ -248,6 +249,65 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
       // Unknown event type — ignore silently
       break;
   }
+}
+
+/**
+ * UPDATE subscriptions WHERE stripeSubscriptionId = subscriptionId, then warn
+ * if no row was found. Extracted to reduce Cognitive Complexity of handleEvent:
+ * three invoice handlers share this identical pattern.
+ */
+async function applySubscriptionUpdate(
+  db: ReturnType<typeof getDb>,
+  subscriptionId: string,
+  fields: { status?: string | null; currentPeriodEnd?: Date | null },
+  eventLabel: string,
+): Promise<void> {
+  const updated = await db
+    .update(subscriptions)
+    .set(fields)
+    .where(eq(subscriptions.stripeSubscriptionId, subscriptionId))
+    .returning({ id: subscriptions.id });
+
+  if (updated.length === 0) {
+    logger.warn(
+      { stripeSubscriptionId: subscriptionId },
+      `${eventLabel}: no subscription row found — event acknowledged`,
+    );
+  }
+}
+
+/**
+ * Cancel a deleted Stripe subscription and downgrade the user's plan to trial.
+ * Extracted to reduce Cognitive Complexity of handleEvent: the transaction
+ * callback adds nesting that would otherwise push handleEvent over the limit.
+ */
+async function handleSubscriptionDeleted(
+  db: ReturnType<typeof getDb>,
+  sub: Stripe.Subscription,
+): Promise<void> {
+  // Find the userId from the subscriptions table (read-only, outside tx)
+  const [subRow] = await db
+    .select({ userId: subscriptions.userId })
+    .from(subscriptions)
+    .where(eq(subscriptions.stripeSubscriptionId, sub.id))
+    .limit(1);
+
+  // Wrap both writes in a transaction: subscription + profile must stay
+  // consistent. A partial update (subscription canceled but plan not reset,
+  // or vice versa) would leave feature gates in an inconsistent state.
+  await db.transaction(async (tx) => {
+    await tx
+      .update(subscriptions)
+      .set({ status: "canceled" })
+      .where(eq(subscriptions.stripeSubscriptionId, sub.id));
+
+    if (subRow) {
+      await tx
+        .update(profiles)
+        .set({ plan: "trial" })
+        .where(eq(profiles.authUserId, subRow.userId));
+    }
+  });
 }
 
 /**

@@ -81,11 +81,17 @@ function makeInsertBuilder(result: unknown[]) {
 }
 
 function makeUpdateBuilder() {
+  // .where() returns the builder (for chaining .returning()).
+  // .returning() resolves to [row] by default (1 row updated).
+  // Handlers that do `await tx.update().set().where()` receive the builder
+  // object, which is discarded — that's fine since the value is never used.
   const builder = {
     set: vi.fn(),
-    where: vi.fn().mockResolvedValue(undefined),
+    where: vi.fn(),
+    returning: vi.fn().mockResolvedValue([{ id: "sub-id-default" }]),
   };
   builder.set.mockReturnValue(builder);
+  builder.where.mockReturnValue(builder);
   return builder;
 }
 
