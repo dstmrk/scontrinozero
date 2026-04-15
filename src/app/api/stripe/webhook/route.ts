@@ -198,19 +198,12 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
       const invoice = event.data.object as Stripe.Invoice;
       const subscriptionId = invoice.parent?.subscription_details?.subscription;
       if (!subscriptionId) break;
-
-      const paidUpdated = await db
-        .update(subscriptions)
-        .set({ currentPeriodEnd: new Date(invoice.period_end * 1000) })
-        .where(eq(subscriptions.stripeSubscriptionId, subscriptionId as string))
-        .returning({ id: subscriptions.id });
-
-      if (paidUpdated.length === 0) {
-        logger.warn(
-          { stripeSubscriptionId: subscriptionId },
-          "invoice.paid: no subscription row found — event acknowledged",
-        );
-      }
+      await applySubscriptionUpdate(
+        db,
+        subscriptionId as string,
+        { currentPeriodEnd: new Date(invoice.period_end * 1000) },
+        "invoice.paid",
+      );
       break;
     }
 
@@ -224,19 +217,12 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
       const invoice = event.data.object as Stripe.Invoice;
       const subscriptionId = invoice.parent?.subscription_details?.subscription;
       if (!subscriptionId) break;
-
-      const actionUpdated = await db
-        .update(subscriptions)
-        .set({ status: "incomplete" })
-        .where(eq(subscriptions.stripeSubscriptionId, subscriptionId as string))
-        .returning({ id: subscriptions.id });
-
-      if (actionUpdated.length === 0) {
-        logger.warn(
-          { stripeSubscriptionId: subscriptionId },
-          "invoice.payment_action_required: no subscription row found — event acknowledged",
-        );
-      }
+      await applySubscriptionUpdate(
+        db,
+        subscriptionId as string,
+        { status: "incomplete" },
+        "invoice.payment_action_required",
+      );
       break;
     }
 
@@ -244,48 +230,18 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
       const invoice = event.data.object as Stripe.Invoice;
       const subscriptionId = invoice.parent?.subscription_details?.subscription;
       if (!subscriptionId) break;
-
-      const failedUpdated = await db
-        .update(subscriptions)
-        .set({ status: "past_due" })
-        .where(eq(subscriptions.stripeSubscriptionId, subscriptionId as string))
-        .returning({ id: subscriptions.id });
-
-      if (failedUpdated.length === 0) {
-        logger.warn(
-          { stripeSubscriptionId: subscriptionId },
-          "invoice.payment_failed: no subscription row found — event acknowledged",
-        );
-      }
+      await applySubscriptionUpdate(
+        db,
+        subscriptionId as string,
+        { status: "past_due" },
+        "invoice.payment_failed",
+      );
       break;
     }
 
     case "customer.subscription.deleted": {
       const sub = event.data.object as Stripe.Subscription;
-
-      // Find the userId from the subscriptions table (read-only, outside tx)
-      const [subRow] = await db
-        .select({ userId: subscriptions.userId })
-        .from(subscriptions)
-        .where(eq(subscriptions.stripeSubscriptionId, sub.id))
-        .limit(1);
-
-      // Wrap both writes in a transaction: subscription + profile must stay
-      // consistent. A partial update (subscription canceled but plan not reset,
-      // or vice versa) would leave feature gates in an inconsistent state.
-      await db.transaction(async (tx) => {
-        await tx
-          .update(subscriptions)
-          .set({ status: "canceled" })
-          .where(eq(subscriptions.stripeSubscriptionId, sub.id));
-
-        if (subRow) {
-          await tx
-            .update(profiles)
-            .set({ plan: "trial" })
-            .where(eq(profiles.authUserId, subRow.userId));
-        }
-      });
+      await handleSubscriptionDeleted(db, sub);
       break;
     }
 
@@ -293,6 +249,65 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
       // Unknown event type — ignore silently
       break;
   }
+}
+
+/**
+ * UPDATE subscriptions WHERE stripeSubscriptionId = subscriptionId, then warn
+ * if no row was found. Extracted to reduce Cognitive Complexity of handleEvent:
+ * three invoice handlers share this identical pattern.
+ */
+async function applySubscriptionUpdate(
+  db: ReturnType<typeof getDb>,
+  subscriptionId: string,
+  fields: { status?: string | null; currentPeriodEnd?: Date | null },
+  eventLabel: string,
+): Promise<void> {
+  const updated = await db
+    .update(subscriptions)
+    .set(fields)
+    .where(eq(subscriptions.stripeSubscriptionId, subscriptionId))
+    .returning({ id: subscriptions.id });
+
+  if (updated.length === 0) {
+    logger.warn(
+      { stripeSubscriptionId: subscriptionId },
+      `${eventLabel}: no subscription row found — event acknowledged`,
+    );
+  }
+}
+
+/**
+ * Cancel a deleted Stripe subscription and downgrade the user's plan to trial.
+ * Extracted to reduce Cognitive Complexity of handleEvent: the transaction
+ * callback adds nesting that would otherwise push handleEvent over the limit.
+ */
+async function handleSubscriptionDeleted(
+  db: ReturnType<typeof getDb>,
+  sub: Stripe.Subscription,
+): Promise<void> {
+  // Find the userId from the subscriptions table (read-only, outside tx)
+  const [subRow] = await db
+    .select({ userId: subscriptions.userId })
+    .from(subscriptions)
+    .where(eq(subscriptions.stripeSubscriptionId, sub.id))
+    .limit(1);
+
+  // Wrap both writes in a transaction: subscription + profile must stay
+  // consistent. A partial update (subscription canceled but plan not reset,
+  // or vice versa) would leave feature gates in an inconsistent state.
+  await db.transaction(async (tx) => {
+    await tx
+      .update(subscriptions)
+      .set({ status: "canceled" })
+      .where(eq(subscriptions.stripeSubscriptionId, sub.id));
+
+    if (subRow) {
+      await tx
+        .update(profiles)
+        .set({ plan: "trial" })
+        .where(eq(profiles.authUserId, subRow.userId));
+    }
+  });
 }
 
 /**
