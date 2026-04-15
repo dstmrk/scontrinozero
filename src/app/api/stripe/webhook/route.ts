@@ -126,7 +126,7 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
       // The WHERE status = "pending" guard prevents accidentally canceling a
       // row that was already activated by a subsequent successful checkout
       // session with the same Stripe customer (e.g. user retried after expiry).
-      await db
+      const expiredUpdated = await db
         .update(subscriptions)
         .set({ status: "canceled" })
         .where(
@@ -134,7 +134,17 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
             eq(subscriptions.stripeCustomerId, session.customer as string),
             eq(subscriptions.status, "pending"),
           ),
+        )
+        .returning({ id: subscriptions.id });
+
+      if (expiredUpdated.length === 0) {
+        // Not an error: the pending row may never have existed (e.g. user never
+        // initiated checkout) or was already cleaned up. Log for observability.
+        logger.warn(
+          { stripeCustomerId: session.customer },
+          "checkout.session.expired: no pending subscription row found — nothing to cancel",
         );
+      }
       break;
     }
 
@@ -172,12 +182,18 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
       const subscriptionId = invoice.parent?.subscription_details?.subscription;
       if (!subscriptionId) break;
 
-      await db
+      const paidUpdated = await db
         .update(subscriptions)
         .set({ currentPeriodEnd: new Date(invoice.period_end * 1000) })
-        .where(
-          eq(subscriptions.stripeSubscriptionId, subscriptionId as string),
+        .where(eq(subscriptions.stripeSubscriptionId, subscriptionId as string))
+        .returning({ id: subscriptions.id });
+
+      if (paidUpdated.length === 0) {
+        logger.warn(
+          { stripeSubscriptionId: subscriptionId },
+          "invoice.paid: no subscription row found — event acknowledged",
         );
+      }
       break;
     }
 
@@ -192,12 +208,18 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
       const subscriptionId = invoice.parent?.subscription_details?.subscription;
       if (!subscriptionId) break;
 
-      await db
+      const actionUpdated = await db
         .update(subscriptions)
         .set({ status: "incomplete" })
-        .where(
-          eq(subscriptions.stripeSubscriptionId, subscriptionId as string),
+        .where(eq(subscriptions.stripeSubscriptionId, subscriptionId as string))
+        .returning({ id: subscriptions.id });
+
+      if (actionUpdated.length === 0) {
+        logger.warn(
+          { stripeSubscriptionId: subscriptionId },
+          "invoice.payment_action_required: no subscription row found — event acknowledged",
         );
+      }
       break;
     }
 
@@ -206,12 +228,18 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
       const subscriptionId = invoice.parent?.subscription_details?.subscription;
       if (!subscriptionId) break;
 
-      await db
+      const failedUpdated = await db
         .update(subscriptions)
         .set({ status: "past_due" })
-        .where(
-          eq(subscriptions.stripeSubscriptionId, subscriptionId as string),
+        .where(eq(subscriptions.stripeSubscriptionId, subscriptionId as string))
+        .returning({ id: subscriptions.id });
+
+      if (failedUpdated.length === 0) {
+        logger.warn(
+          { stripeSubscriptionId: subscriptionId },
+          "invoice.payment_failed: no subscription row found — event acknowledged",
         );
+      }
       break;
     }
 

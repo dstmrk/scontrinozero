@@ -17,6 +17,7 @@ const {
   mockInsert,
   mockUpdateSet,
   mockUpdateWhere,
+  mockUpdateReturning,
   mockUpdate,
   mockDeleteWhere,
   mockDelete,
@@ -38,6 +39,7 @@ const {
   mockInsert: vi.fn(),
   mockUpdateSet: vi.fn(),
   mockUpdateWhere: vi.fn(),
+  mockUpdateReturning: vi.fn(),
   mockUpdate: vi.fn(),
   mockDeleteWhere: vi.fn(),
   mockDelete: vi.fn(),
@@ -137,10 +139,17 @@ describe("POST /api/stripe/webhook", () => {
     });
     mockInsert.mockReturnValue({ values: mockInsertValues });
 
-    // UPDATE chain
+    // UPDATE chain.
+    // mockUpdateWhere returns { returning: mockUpdateReturning } synchronously.
+    // This supports two call patterns:
+    //   1. await tx.update().set().where()           → resolves to plain object (value unused)
+    //   2. await db.update().set().where().returning() → calls mockUpdateReturning
+    // Default: 1 row updated. Override with mockUpdateReturning.mockResolvedValueOnce([])
+    // to simulate 0-rows-affected in specific tests.
     mockUpdate.mockReturnValue({ set: mockUpdateSet });
     mockUpdateSet.mockReturnValue({ where: mockUpdateWhere });
-    mockUpdateWhere.mockResolvedValue(undefined);
+    mockUpdateWhere.mockReturnValue({ returning: mockUpdateReturning });
+    mockUpdateReturning.mockResolvedValue([{ id: "sub-id-default" }]);
 
     // DELETE chain — used to release the claim when handleEvent fails.
     mockDeleteWhere.mockResolvedValue(undefined);
@@ -520,7 +529,9 @@ describe("POST /api/stripe/webhook", () => {
   it("P0-01: releases claim (DELETE) when handleEvent fails — enables Stripe retry", async () => {
     // INSERT RETURNING = winner (default from beforeEach) → we are the sole handler.
     // Simulate handleEvent failure via DB error inside handleEvent.
-    mockUpdateWhere.mockRejectedValue(new Error("DB timeout"));
+    // invoice.paid now calls .where().returning(), so we reject on mockUpdateReturning
+    // (not on mockUpdateWhere, which only returns the sync { returning: fn } object).
+    mockUpdateReturning.mockRejectedValueOnce(new Error("DB timeout"));
     mockConstructEvent.mockReturnValue(
       makeStripeEvent("invoice.paid", {
         parent: { subscription_details: { subscription: "sub_123" } },
@@ -556,5 +567,80 @@ describe("POST /api/stripe/webhook", () => {
     );
     // DELETE must NOT have been called (success path keeps the claim as permanent dedup)
     expect(mockDelete).not.toHaveBeenCalled();
+  });
+
+  // ── B10: rows_affected check on write handlers ───────────────────────────
+  // When an UPDATE affects 0 rows (subscription not found in DB), the handler
+  // must log a warning so the anomaly is observable. The event is still
+  // acknowledged (200) — throwing would cause infinite Stripe retries since
+  // the missing row cannot self-heal via retry.
+
+  it("B10: invoice.paid — logs warn and returns 200 when no subscription row found (0 rows updated)", async () => {
+    mockUpdateReturning.mockResolvedValueOnce([]);
+    mockConstructEvent.mockReturnValue(
+      makeStripeEvent("invoice.paid", {
+        parent: { subscription_details: { subscription: "sub_missing" } },
+        period_end: 1800000000,
+      }),
+    );
+
+    const response = await POST(makeWebhookRequest("{}"));
+
+    expect(response.status).toBe(200);
+    expect(logger.warn as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
+      expect.objectContaining({ stripeSubscriptionId: "sub_missing" }),
+      expect.stringContaining("invoice.paid"),
+    );
+  });
+
+  it("B10: invoice.payment_failed — logs warn and returns 200 when no subscription row found (0 rows updated)", async () => {
+    mockUpdateReturning.mockResolvedValueOnce([]);
+    mockConstructEvent.mockReturnValue(
+      makeStripeEvent("invoice.payment_failed", {
+        parent: { subscription_details: { subscription: "sub_missing" } },
+      }),
+    );
+
+    const response = await POST(makeWebhookRequest("{}"));
+
+    expect(response.status).toBe(200);
+    expect(logger.warn as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
+      expect.objectContaining({ stripeSubscriptionId: "sub_missing" }),
+      expect.stringContaining("invoice.payment_failed"),
+    );
+  });
+
+  it("B10: invoice.payment_action_required — logs warn and returns 200 when no subscription row found (0 rows updated)", async () => {
+    mockUpdateReturning.mockResolvedValueOnce([]);
+    mockConstructEvent.mockReturnValue(
+      makeStripeEvent("invoice.payment_action_required", {
+        parent: { subscription_details: { subscription: "sub_missing" } },
+      }),
+    );
+
+    const response = await POST(makeWebhookRequest("{}"));
+
+    expect(response.status).toBe(200);
+    expect(logger.warn as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
+      expect.objectContaining({ stripeSubscriptionId: "sub_missing" }),
+      expect.stringContaining("invoice.payment_action_required"),
+    );
+  });
+
+  it("B10: checkout.session.expired — logs warn and returns 200 when no pending subscription row found (0 rows updated)", async () => {
+    mockUpdateReturning.mockResolvedValueOnce([]);
+    mockConstructEvent.mockReturnValue(
+      makeStripeEvent("checkout.session.expired", {
+        customer: "cus_missing",
+      }),
+    );
+
+    const response = await POST(makeWebhookRequest("{}"));
+
+    expect(response.status).toBe(200);
+    expect(logger.warn as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
+      expect.objectContaining({ stripeCustomerId: "cus_missing" }),
+      expect.stringContaining("checkout.session.expired"),
+    );
   });
 });
