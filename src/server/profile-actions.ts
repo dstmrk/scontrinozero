@@ -132,11 +132,15 @@ export async function changePassword(
     return { error: "Le password non coincidono." };
   }
 
+  // Rate limit per user.id (not per IP) to avoid locking out multiple users
+  // sharing the same NAT/proxy IP. IP is still logged for audit purposes.
   const hdrs = await headers();
   const ip = getClientIp(hdrs);
-  const rateLimitResult = changePasswordLimiter.check(`changePassword:${ip}`);
+  const rateLimitResult = changePasswordLimiter.check(
+    `changePassword:${user.id}`,
+  );
   if (!rateLimitResult.success) {
-    logger.warn({ ip }, "changePassword rate limit exceeded");
+    logger.warn({ userId: user.id, ip }, "changePassword rate limit exceeded");
     return { error: "Troppi tentativi. Riprova tra qualche minuto." };
   }
 

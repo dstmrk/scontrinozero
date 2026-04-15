@@ -11,6 +11,7 @@ const {
   mockInsert,
   mockUpdate,
   mockSelect,
+  mockDelete,
   mockTransaction,
   mockPlanFromPriceId,
   mockIntervalFromPriceId,
@@ -22,6 +23,7 @@ const {
   mockInsert: vi.fn(),
   mockUpdate: vi.fn(),
   mockSelect: vi.fn(),
+  mockDelete: vi.fn(),
   mockTransaction: vi.fn(),
   mockPlanFromPriceId: vi.fn(),
   mockIntervalFromPriceId: vi.fn(),
@@ -43,6 +45,7 @@ vi.mock("@/db", () => ({
     insert: mockInsert,
     update: mockUpdate,
     select: mockSelect,
+    delete: mockDelete,
     transaction: mockTransaction,
   }),
 }));
@@ -127,14 +130,12 @@ describe("POST /api/stripe/webhook — request validation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
-    // Dedup SELECT: no duplicate found by default
+    // INSERT-first atomic claim: default = winner (RETURNING returns a row)
+    mockInsert.mockReturnValue(makeInsertBuilder([{ eventId: "evt_default" }]));
+    // SELECT is used for subRow lookups only (dedup is now INSERT-based)
     mockSelect.mockReturnValue(makeSelectBuilder([]));
-    // Final INSERT after processing: no .returning() needed
-    mockInsert.mockReturnValue({
-      values: vi.fn().mockReturnValue({
-        onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
-      }),
-    });
+    // DELETE: called when handleEvent fails to release the claim
+    mockDelete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
   });
 
   it("restituisce 400 se manca l'header stripe-signature", async () => {
@@ -177,8 +178,8 @@ describe("POST /api/stripe/webhook — request validation", () => {
   });
 
   it("restituisce 200 { received: true } senza processare se evento duplicato", async () => {
-    // SELECT returns the event → already processed, skip handleEvent
-    mockSelect.mockReturnValue(makeSelectBuilder([{ eventId: "evt_dup_001" }]));
+    // INSERT RETURNING empty → event already claimed or processed, skip handleEvent
+    mockInsert.mockReturnValue(makeInsertBuilder([]));
     mockConstructEvent.mockReturnValue({
       id: "evt_dup_001",
       type: "customer.subscription.updated",
@@ -196,12 +197,12 @@ describe("POST /api/stripe/webhook — request validation", () => {
     );
   });
 
-  it("restituisce 500 se il DB select dedup fallisce", async () => {
-    // SELECT itself throws → caught by outer try/catch → 500
-    mockSelect.mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockRejectedValue(new Error("DB error")),
+  it("restituisce 500 se il DB INSERT claim fallisce", async () => {
+    // INSERT itself throws → caught by outer try/catch → 500
+    mockInsert.mockReturnValue({
+      values: vi.fn().mockReturnValue({
+        onConflictDoNothing: vi.fn().mockReturnValue({
+          returning: vi.fn().mockRejectedValue(new Error("DB error")),
         }),
       }),
     });
@@ -220,12 +221,9 @@ describe("POST /api/stripe/webhook — invoice.payment_action_required", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+    mockInsert.mockReturnValue(makeInsertBuilder([{ eventId: "evt_default" }]));
     mockSelect.mockReturnValue(makeSelectBuilder([]));
-    mockInsert.mockReturnValue({
-      values: vi.fn().mockReturnValue({
-        onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
-      }),
-    });
+    mockDelete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
   });
 
   it("imposta status a 'incomplete' quando subscriptionId è presente", async () => {
@@ -268,12 +266,9 @@ describe("POST /api/stripe/webhook — invoice.payment_failed", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+    mockInsert.mockReturnValue(makeInsertBuilder([{ eventId: "evt_default" }]));
     mockSelect.mockReturnValue(makeSelectBuilder([]));
-    mockInsert.mockReturnValue({
-      values: vi.fn().mockReturnValue({
-        onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
-      }),
-    });
+    mockDelete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
   });
 
   it("imposta status a 'past_due'", async () => {
@@ -302,23 +297,16 @@ describe("POST /api/stripe/webhook — customer.subscription.deleted", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
-    // Default: dedup SELECT returns empty (not yet processed)
+    mockInsert.mockReturnValue(makeInsertBuilder([{ eventId: "evt_default" }]));
     mockSelect.mockReturnValue(makeSelectBuilder([]));
-    mockInsert.mockReturnValue({
-      values: vi.fn().mockReturnValue({
-        onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
-      }),
-    });
+    mockDelete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
   });
 
   it("imposta status a 'canceled' e declassa il profilo a 'trial' in una transazione", async () => {
     const updateBuilder = makeUpdateBuilder();
     mockUpdate.mockReturnValue(updateBuilder);
-    // First call: dedup check → not yet processed
-    // Second call: userId lookup → has userId
-    mockSelect
-      .mockReturnValueOnce(makeSelectBuilder([]))
-      .mockReturnValue(makeSelectBuilder([{ userId: "user-abc" }]));
+    // SELECT inside transaction: userId lookup → has userId
+    mockSelect.mockReturnValue(makeSelectBuilder([{ userId: "user-abc" }]));
     setupTransactionPassthrough();
 
     mockConstructEvent.mockReturnValue({
@@ -357,11 +345,8 @@ describe("POST /api/stripe/webhook — customer.subscription.deleted", () => {
   });
 
   it("restituisce 500 se la transazione fallisce (rollback garantito)", async () => {
-    // First call: dedup check → not yet processed
-    // Second call: userId lookup → has userId (but tx throws before using it)
-    mockSelect
-      .mockReturnValueOnce(makeSelectBuilder([]))
-      .mockReturnValue(makeSelectBuilder([{ userId: "user-abc" }]));
+    // SELECT inside transaction: userId lookup (but tx throws before using it)
+    mockSelect.mockReturnValue(makeSelectBuilder([{ userId: "user-abc" }]));
     // Transaction itself throws → simulates DB error mid-transaction
     mockTransaction.mockRejectedValue(new Error("DB error"));
 
@@ -381,13 +366,9 @@ describe("POST /api/stripe/webhook — checkout.session.completed type guard", (
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
-    // Default: dedup SELECT returns empty (not yet processed)
+    mockInsert.mockReturnValue(makeInsertBuilder([{ eventId: "evt_default" }]));
     mockSelect.mockReturnValue(makeSelectBuilder([]));
-    mockInsert.mockReturnValue({
-      values: vi.fn().mockReturnValue({
-        onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
-      }),
-    });
+    mockDelete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
   });
 
   it("ignora la sessione se subscription non è una stringa", async () => {
@@ -422,11 +403,8 @@ describe("POST /api/stripe/webhook — checkout.session.completed type guard", (
 
     const updateBuilder = makeUpdateBuilder();
     mockUpdate.mockReturnValue(updateBuilder);
-    // First call: dedup check → not yet processed
-    // Second call (inside tx): subRow lookup → has userId
-    mockSelect
-      .mockReturnValueOnce(makeSelectBuilder([]))
-      .mockReturnValue(makeSelectBuilder([{ userId: "user-123" }]));
+    // SELECT inside transaction: subRow lookup → has userId
+    mockSelect.mockReturnValue(makeSelectBuilder([{ userId: "user-123" }]));
     setupTransactionPassthrough();
 
     mockConstructEvent.mockReturnValue({
@@ -451,12 +429,9 @@ describe("POST /api/stripe/webhook — checkout.session.expired", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+    mockInsert.mockReturnValue(makeInsertBuilder([{ eventId: "evt_default" }]));
     mockSelect.mockReturnValue(makeSelectBuilder([]));
-    mockInsert.mockReturnValue({
-      values: vi.fn().mockReturnValue({
-        onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
-      }),
-    });
+    mockDelete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
   });
 
   it("marca la subscription pending come canceled quando la sessione scade", async () => {
@@ -493,12 +468,9 @@ describe("POST /api/stripe/webhook — charge.dispute.created", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+    mockInsert.mockReturnValue(makeInsertBuilder([{ eventId: "evt_default" }]));
     mockSelect.mockReturnValue(makeSelectBuilder([]));
-    mockInsert.mockReturnValue({
-      values: vi.fn().mockReturnValue({
-        onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
-      }),
-    });
+    mockDelete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
   });
 
   it("loga l'errore con critical: true e i dettagli della disputa", async () => {

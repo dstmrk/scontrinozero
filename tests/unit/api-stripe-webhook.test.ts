@@ -13,10 +13,13 @@ const {
   // DB chain mocks
   mockInsertValues,
   mockInsertOnConflict,
+  mockInsertReturning,
   mockInsert,
   mockUpdateSet,
   mockUpdateWhere,
   mockUpdate,
+  mockDeleteWhere,
+  mockDelete,
   mockSelectWhere,
   mockSelectLimit,
   mockSelectFrom,
@@ -31,10 +34,13 @@ const {
   mockSubscriptionsRetrieve: vi.fn(),
   mockInsertValues: vi.fn(),
   mockInsertOnConflict: vi.fn(),
+  mockInsertReturning: vi.fn(),
   mockInsert: vi.fn(),
   mockUpdateSet: vi.fn(),
   mockUpdateWhere: vi.fn(),
   mockUpdate: vi.fn(),
+  mockDeleteWhere: vi.fn(),
+  mockDelete: vi.fn(),
   mockSelectWhere: vi.fn(),
   mockSelectLimit: vi.fn(),
   mockSelectFrom: vi.fn(),
@@ -117,12 +123,15 @@ describe("POST /api/stripe/webhook", () => {
       insert: mockInsert,
       update: mockUpdate,
       select: mockSelect,
+      delete: mockDelete,
       transaction: mockTransaction,
     };
     mockGetDb.mockReturnValue(mockDb);
 
-    // INSERT chain — used only AFTER successful handleEvent (no .returning() needed)
-    mockInsertOnConflict.mockResolvedValue(undefined);
+    // INSERT chain — INSERT-first atomic claim with RETURNING.
+    // Default: RETURNING returns a row → this request is the winner and will process.
+    mockInsertReturning.mockResolvedValue([{ eventId: "evt_test_default" }]);
+    mockInsertOnConflict.mockReturnValue({ returning: mockInsertReturning });
     mockInsertValues.mockReturnValue({
       onConflictDoNothing: mockInsertOnConflict,
     });
@@ -133,16 +142,16 @@ describe("POST /api/stripe/webhook", () => {
     mockUpdateSet.mockReturnValue({ where: mockUpdateWhere });
     mockUpdateWhere.mockResolvedValue(undefined);
 
-    // SELECT chain.
-    // The new dedup pattern is SELECT-then-INSERT:
-    //   1st SELECT call: dedup check → [] means "not yet processed, proceed"
-    //   2nd SELECT call (if any): subRow lookup inside syncSubscriptionData → [{ userId }]
+    // DELETE chain — used to release the claim when handleEvent fails.
+    mockDeleteWhere.mockResolvedValue(undefined);
+    mockDelete.mockReturnValue({ where: mockDeleteWhere });
+
+    // SELECT chain — used for subRow lookups inside syncSubscriptionData.
+    // (Dedup is now handled by INSERT-first, not SELECT.)
     mockSelect.mockReturnValue({ from: mockSelectFrom });
     mockSelectFrom.mockReturnValue({ where: mockSelectWhere });
     mockSelectWhere.mockReturnValue({ limit: mockSelectLimit });
-    mockSelectLimit
-      .mockResolvedValueOnce([]) // 1st call: dedup check (not yet processed)
-      .mockResolvedValue([{ userId: "user-123" }]); // subsequent: subRow lookups
+    mockSelectLimit.mockResolvedValue([{ userId: "user-123" }]); // subRow lookups
 
     // transaction is a passthrough: calls callback with same mock db
     mockTransaction.mockImplementation(
@@ -292,7 +301,7 @@ describe("POST /api/stripe/webhook", () => {
   });
 
   it("syncSubscriptionData: returns 500 and logs error when no subscription row found", async () => {
-    // Override: both dedup (1st) and subRow (2nd) return empty
+    // Override: subRow lookup returns empty → no subscription row found → throws
     mockSelectLimit.mockResolvedValue([]);
     const subscription = makeStripeSubscription({ status: "active" });
     mockConstructEvent.mockReturnValue(
@@ -316,7 +325,7 @@ describe("POST /api/stripe/webhook", () => {
   });
 
   it("handles customer.subscription.deleted: skips profile downgrade when subRow is null", async () => {
-    // Override: both calls return [] (dedup + subRow for customer.subscription.deleted)
+    // Override: subRow lookup returns [] → no userId → skip profile downgrade
     mockSelectLimit.mockResolvedValue([]);
     const subscription = makeStripeSubscription({ status: "canceled" });
     mockConstructEvent.mockReturnValue(
@@ -482,13 +491,12 @@ describe("POST /api/stripe/webhook", () => {
     expect(mockUpdate).toHaveBeenCalled();
   });
 
-  // ── P0-01: dedup correctness (SELECT-then-INSERT pattern) ─────────────────
+  // ── P0-01: dedup correctness (INSERT-first atomic claim pattern) ────────────
 
-  it("P0-01: skips already-processed event — dedup SELECT returns existing event", async () => {
-    // Override the entire SELECT chain: reset the queue set in beforeEach so the
-    // dedup check (1st call) returns the already-processed event instead of [].
-    mockSelectLimit.mockReset();
-    mockSelectLimit.mockResolvedValue([{ eventId: "evt_test_default" }]);
+  it("P0-01: skips already-claimed or -processed event — INSERT ON CONFLICT returns empty RETURNING", async () => {
+    // INSERT RETURNING empty → event already claimed by another request or already processed.
+    // No dedup SELECT needed — the INSERT itself is the atomic gate.
+    mockInsertReturning.mockResolvedValueOnce([]);
     mockConstructEvent.mockReturnValue(
       makeStripeEvent(
         "customer.subscription.updated",
@@ -501,17 +509,17 @@ describe("POST /api/stripe/webhook", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.received).toBe(true);
-    // handleEvent was NOT called: no updates, no INSERT to mark-as-processed
+    // handleEvent was NOT called: no DB updates
     expect(mockUpdate).not.toHaveBeenCalled();
-    expect(mockInsert).not.toHaveBeenCalled();
     expect(logger.warn as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
       expect.objectContaining({ eventId: "evt_test_default" }),
-      expect.stringContaining("already processed"),
+      expect.stringContaining("already claimed"),
     );
   });
 
-  it("P0-01: event not marked as processed when handleEvent fails (enables Stripe retry)", async () => {
-    // dedup SELECT returns [] (1st call) → event not yet processed, proceed
+  it("P0-01: releases claim (DELETE) when handleEvent fails — enables Stripe retry", async () => {
+    // INSERT RETURNING = winner (default from beforeEach) → we are the sole handler.
+    // Simulate handleEvent failure via DB error inside handleEvent.
     mockUpdateWhere.mockRejectedValue(new Error("DB timeout"));
     mockConstructEvent.mockReturnValue(
       makeStripeEvent("invoice.paid", {
@@ -524,12 +532,16 @@ describe("POST /api/stripe/webhook", () => {
 
     // Stripe receives 500 → will retry the event
     expect(response.status).toBe(500);
-    // The mark-as-processed INSERT must NOT have been called
-    // (event stays un-processed so the retry can re-run handleEvent)
-    expect(mockInsert).not.toHaveBeenCalled();
+    // Claim INSERT was called before processing
+    expect(mockInsert).toHaveBeenCalled();
+    // DELETE must have been called to release the claim so Stripe can retry
+    expect(mockDelete).toHaveBeenCalled();
+    expect(mockDeleteWhere).toHaveBeenCalled();
   });
 
-  it("P0-01: marks event as processed (INSERT) only after successful handleEvent", async () => {
+  it("P0-01: claim (INSERT) is made before processing; stays on success for permanent dedup", async () => {
+    // INSERT RETURNING = winner (default) → we process the event.
+    // On success, claim row stays → future duplicate deliveries see empty RETURNING.
     mockConstructEvent.mockReturnValue(
       makeStripeEvent("some.unknown.event", {}),
     );
@@ -537,10 +549,12 @@ describe("POST /api/stripe/webhook", () => {
     const response = await POST(makeWebhookRequest("{}"));
 
     expect(response.status).toBe(200);
-    // INSERT must have been called to mark the event as processed
+    // INSERT must have been called to claim the event before processing
     expect(mockInsert).toHaveBeenCalled();
     expect(mockInsertValues).toHaveBeenCalledWith(
       expect.objectContaining({ eventId: "evt_test_default" }),
     );
+    // DELETE must NOT have been called (success path keeps the claim as permanent dedup)
+    expect(mockDelete).not.toHaveBeenCalled();
   });
 });

@@ -176,6 +176,63 @@ describe("searchReceipts server action", () => {
     });
   });
 
+  // ── Input validation: date format + pagination clamping (P1-01, P1-02) ─────
+
+  describe("input validation (P1-01, P1-02)", () => {
+    it("ignores dateFrom with invalid format (not yyyy-MM-dd) — no gte condition", async () => {
+      const { searchReceipts } = await import("@/server/storico-actions");
+      const { gte } = await import("drizzle-orm");
+
+      await searchReceipts(BIZ_ID, { dateFrom: "abc" });
+
+      expect(gte).not.toHaveBeenCalled();
+    });
+
+    it("ignores dateFrom with impossible date value (e.g. 2026-99-99) — no gte condition", async () => {
+      const { searchReceipts } = await import("@/server/storico-actions");
+      const { gte } = await import("drizzle-orm");
+
+      await searchReceipts(BIZ_ID, { dateFrom: "2026-99-99" });
+
+      expect(gte).not.toHaveBeenCalled();
+    });
+
+    it("ignores dateTo with invalid format — no lt condition", async () => {
+      const { searchReceipts } = await import("@/server/storico-actions");
+      const { lt } = await import("drizzle-orm");
+
+      await searchReceipts(BIZ_ID, { dateTo: "not-a-date" });
+
+      expect(lt).not.toHaveBeenCalled();
+    });
+
+    it("clamps pageSize > MAX_PAGE_SIZE (100) to 100", async () => {
+      const { searchReceipts } = await import("@/server/storico-actions");
+
+      await searchReceipts(BIZ_ID, { pageSize: 9999 });
+
+      // .limit() is called with the clamped value (100), not the raw input
+      expect(mockDocsLimit).toHaveBeenCalledWith(100);
+    });
+
+    it("clamps pageSize = 0 to 1", async () => {
+      const { searchReceipts } = await import("@/server/storico-actions");
+
+      await searchReceipts(BIZ_ID, { pageSize: 0 });
+
+      expect(mockDocsLimit).toHaveBeenCalledWith(1);
+    });
+
+    it("clamps page = -5 to 1 — offset becomes 0", async () => {
+      const { searchReceipts } = await import("@/server/storico-actions");
+
+      await searchReceipts(BIZ_ID, { page: -5 });
+
+      // With page clamped to 1: offset = (1-1) * pageSize = 0
+      expect(mockDocsOffset).toHaveBeenCalledWith(0);
+    });
+  });
+
   // ── Auth / ownership ──────────────────────────────────────────────────────
 
   describe("auth and ownership", () => {
