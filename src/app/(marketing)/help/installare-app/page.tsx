@@ -80,7 +80,8 @@ export default function InstallareAppPage() {
         </p>
         <ol className="text-muted-foreground mt-3 list-decimal space-y-3 pl-5 text-sm leading-relaxed">
           <li>
-            Apri <strong>Safari</strong> e vai su{" "}
+            Apri <strong>Safari</strong>
+            {" e vai su "}
             <strong>scontrinozero.it</strong>. Effettua il login se non lo hai
             già fatto.
           </li>
@@ -89,7 +90,7 @@ export default function InstallareAppPage() {
             freccia verso l&apos;alto) nella barra in basso di Safari.
           </li>
           <li>
-            Scorri il menu verso il basso e tocca{" "}
+            {"Scorri il menu verso il basso e tocca "}
             <strong>&quot;Aggiungi a schermata Home&quot;</strong>.
           </li>
           <li>
@@ -118,20 +119,23 @@ export default function InstallareAppPage() {
         </p>
         <ol className="text-muted-foreground mt-3 list-decimal space-y-3 pl-5 text-sm leading-relaxed">
           <li>
-            Apri <strong>Chrome</strong> e vai su{" "}
+            Apri <strong>Chrome</strong>
+            {" e vai su "}
             <strong>scontrinozero.it</strong>. Effettua il login.
           </li>
           <li>
-            Chrome mostra automaticamente un banner in basso con la scritta{" "}
+            {"Chrome mostra automaticamente un banner in basso con la scritta "}
             <strong>
               &quot;Aggiungi ScontrinoZero alla schermata home&quot;
             </strong>
             . Toccalo.
           </li>
           <li>
-            Se il banner non compare, tocca il menu <strong>⋮</strong> (tre
-            puntini) in alto a destra e seleziona{" "}
-            <strong>&quot;Aggiungi a schermata Home&quot;</strong> o{" "}
+            {"Se il banner non compare, tocca il menu "}
+            <strong>⋮</strong>
+            {" (tre puntini) in alto a destra e seleziona "}
+            <strong>&quot;Aggiungi a schermata Home&quot;</strong>
+            {" o "}
             <strong>&quot;Installa app&quot;</strong>.
           </li>
           <li>
@@ -148,7 +152,7 @@ export default function InstallareAppPage() {
           Installazione su computer (Windows, Mac, Linux)
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Puoi installare ScontrinoZero come app desktop su{" "}
+          {"Puoi installare ScontrinoZero come app desktop su "}
           <strong>Chrome</strong> o <strong>Edge</strong>.
         </p>
 
@@ -159,8 +163,9 @@ export default function InstallareAppPage() {
             login.
           </li>
           <li>
-            Clicca sull&apos;icona di installazione (computer con freccia) nella
-            barra degli indirizzi, oppure vai nel menu{" "}
+            {
+              "Clicca sull'icona di installazione (computer con freccia) nella barra degli indirizzi, oppure vai nel menu "
+            }
             <strong>⋮ → Salva e condividi → Installa pagina come app</strong>.
           </li>
           <li>
@@ -240,14 +245,15 @@ export default function InstallareAppPage() {
               Funziona anche senza connessione internet?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              La shell dell&apos;app e le schermate già visitate vengono messe
-              in cache e sono disponibili offline. Tuttavia,{" "}
+              {
+                "La shell dell'app e le schermate già visitate vengono messe in cache e sono disponibili offline. Tuttavia, "
+              }
               <strong>
                 l&apos;emissione di scontrini richiede connessione internet
               </strong>
-              : la trasmissione all&apos;AdE avviene in tempo reale. Se perdi la
-              connessione durante l&apos;emissione, lo scontrino viene accodato
-              e trasmesso automaticamente al ripristino della connettività.
+              {
+                ": la trasmissione all'AdE avviene in tempo reale. Se perdi la connessione durante l'emissione, lo scontrino viene accodato e trasmesso automaticamente al ripristino della connettività."
+              }
             </p>
           </div>
         </div>

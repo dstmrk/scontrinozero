@@ -57,7 +57,7 @@ export default function ErroriAdePage() {
         </p>
         <ol className="text-muted-foreground mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            Vai su{" "}
+            {"Vai su "}
             <strong>
               ivaservizi.agenziaentrate.gov.it → Fisconline → Accedi
             </strong>
@@ -72,7 +72,7 @@ export default function ErroriAdePage() {
             immediatamente attivo.
           </li>
           <li>
-            Torna su ScontrinoZero, vai in{" "}
+            {"Torna su ScontrinoZero, vai in "}
             <strong>Impostazioni → Attività → Credenziali AdE</strong> e
             aggiorna il PIN con il nuovo valore.
           </li>
@@ -102,8 +102,9 @@ export default function ErroriAdePage() {
             inizialmente.
           </li>
           <li>
-            Verifica le credenziali accedendo direttamente al portale AdE. Se
-            funzionano lì ma non su ScontrinoZero, aggiornale in{" "}
+            {
+              "Verifica le credenziali accedendo direttamente al portale AdE. Se funzionano lì ma non su ScontrinoZero, aggiornale in "
+            }
             <strong>Impostazioni → Attività → Credenziali AdE</strong>.
           </li>
         </ul>
@@ -135,7 +136,7 @@ export default function ErroriAdePage() {
         </p>
         <ol className="text-muted-foreground mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            Accedi al portale{" "}
+            {"Accedi al portale "}
             <strong>
               ivaservizi.agenziaentrate.gov.it → Fatture e Corrispettivi →
               Documento Commerciale Online
@@ -160,7 +161,8 @@ export default function ErroriAdePage() {
           Portale AdE temporaneamente non disponibile o lento
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Sintomo:</strong> gli scontrini restano in stato{" "}
+          <strong>Sintomo:</strong>
+          {" gli scontrini restano in stato "}
           <strong>In elaborazione</strong> più a lungo del solito (oltre 5
           minuti), oppure il test di connessione fallisce con errori di timeout.
         </p>
@@ -182,13 +184,14 @@ export default function ErroriAdePage() {
             vengono trasmessi appena il portale torna disponibile.
           </li>
           <li>
-            Verifica lo stato del portale AdE su{" "}
+            {"Verifica lo stato del portale AdE su "}
             <strong>stato.agenziaentrate.gov.it</strong> o cercando
             &quot;Fatture e Corrispettivi manutenzione&quot; sul sito AdE.
           </li>
           <li>
-            Se il problema persiste per oltre 24 ore, contatta il supporto
-            ScontrinoZero a{" "}
+            {
+              "Se il problema persiste per oltre 24 ore, contatta il supporto ScontrinoZero a "
+            }
             <a
               href="mailto:info@scontrinozero.it"
               className="text-primary hover:underline"
@@ -238,8 +241,10 @@ export default function ErroriAdePage() {
           negato.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Causa:</strong> le credenziali delegate funzionano per alcune
-          sezioni del portale AdE, ma{" "}
+          <strong>Causa:</strong>
+          {
+            " le credenziali delegate funzionano per alcune sezioni del portale AdE, ma "
+          }
           <strong>
             il Documento Commerciale Online richiede le credenziali del titolare
             dell&apos;attività
@@ -247,8 +252,9 @@ export default function ErroriAdePage() {
           , non quelle di un intermediario.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Devi usare le tue credenziali Fisconline personali, associate al
-          codice fiscale del titolare/legale rappresentante dell&apos;attività.{" "}
+          {
+            "Devi usare le tue credenziali Fisconline personali, associate al codice fiscale del titolare/legale rappresentante dell'attività. "
+          }
           <Link
             href="/help/credenziali-fisconline"
             className="text-primary hover:underline"

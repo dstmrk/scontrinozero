@@ -48,8 +48,8 @@ export default function PrimaConfigurazioneePage() {
             d&apos;impresa).
           </li>
           <li>
-            <strong>Credenziali Fisconline</strong> (codice fiscale +
-            PIN/password). Non le hai ancora?{" "}
+            <strong>Credenziali Fisconline</strong>
+            {" (codice fiscale + PIN/password). Non le hai ancora? "}
             <Link
               href="/help/credenziali-fisconline"
               className="text-primary hover:underline"
@@ -72,13 +72,13 @@ export default function PrimaConfigurazioneePage() {
           Passo 1 — Crea l&apos;account
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Vai su{" "}
+          {"Vai su "}
           <Link href="/register" className="text-primary hover:underline">
             scontrinozero.it/register
-          </Link>{" "}
-          e inserisci email e password. Avrai 30 giorni di prova gratuita senza
-          inserire la carta di credito. Conferma l&apos;indirizzo email
-          cliccando il link che ricevi nella casella di posta.
+          </Link>
+          {
+            " e inserisci email e password. Avrai 30 giorni di prova gratuita senza inserire la carta di credito. Conferma l'indirizzo email cliccando il link che ricevi nella casella di posta."
+          }
         </p>
 
         {/* ─── Step 2 ─── */}
@@ -112,7 +112,7 @@ export default function PrimaConfigurazioneePage() {
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Questi dati possono essere modificati in seguito dalla sezione{" "}
+          {"Questi dati possono essere modificati in seguito dalla sezione "}
           <strong>Impostazioni → Attività</strong>.
         </p>
 
@@ -161,10 +161,9 @@ export default function PrimaConfigurazioneePage() {
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          ScontrinoZero esegue immediatamente un test di accesso per verificare
-          che le credenziali funzionino. Se il test ha successo, vedi una spunta
-          verde. Le credenziali vengono cifrate con AES-256-GCM e non sono mai
-          visibili in chiaro, nemmeno al nostro team.{" "}
+          {
+            "ScontrinoZero esegue immediatamente un test di accesso per verificare che le credenziali funzionino. Se il test ha successo, vedi una spunta verde. Le credenziali vengono cifrate con AES-256-GCM e non sono mai visibili in chiaro, nemmeno al nostro team. "
+          }
           <Link
             href="/help/sicurezza-credenziali"
             className="text-primary hover:underline"
@@ -184,7 +183,7 @@ export default function PrimaConfigurazioneePage() {
           prima di iniziare a lavorare sul serio.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Se preferisci saltarlo, puoi emetterlo manualmente dalla{" "}
+          {"Se preferisci saltarlo, puoi emetterlo manualmente dalla "}
           <strong>Cassa</strong> in qualsiasi momento.
         </p>
 
@@ -209,8 +208,9 @@ export default function PrimaConfigurazioneePage() {
             scontrini emessi.
           </li>
           <li>
-            Installare ScontrinoZero come app sul tuo smartphone per un accesso
-            più rapido.{" "}
+            {
+              "Installare ScontrinoZero come app sul tuo smartphone per un accesso più rapido. "
+            }
             <Link
               href="/help/installare-app"
               className="text-primary hover:underline"
@@ -228,9 +228,9 @@ export default function PrimaConfigurazioneePage() {
               Ho chiuso il wizard prima di finire — come lo riapro?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Finché l&apos;onboarding non è completato, compare un banner nella
-              dashboard con il link per riprendere dal punto in cui ti sei
-              fermato. In alternativa, vai su{" "}
+              {
+                "Finché l'onboarding non è completato, compare un banner nella dashboard con il link per riprendere dal punto in cui ti sei fermato. In alternativa, vai su "
+              }
               <strong>Impostazioni → Attività</strong> e inserisci manualmente i
               dati mancanti.
             </p>
@@ -240,7 +240,7 @@ export default function PrimaConfigurazioneePage() {
               Ho sbagliato il regime fiscale — posso cambiarlo?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Sì, in qualsiasi momento da{" "}
+              {"Sì, in qualsiasi momento da "}
               <strong>Impostazioni → Attività</strong>. Il cambio di regime non
               modifica gli scontrini già emessi, che restano validi con il
               regime in vigore al momento dell&apos;emissione.
@@ -252,9 +252,10 @@ export default function PrimaConfigurazioneePage() {
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               Verifica prima di tutto che funzionino sul portale AdE (
-              <strong>ivaservizi.agenziaentrate.gov.it</strong>). Gli errori più
-              comuni sono PIN scaduto, PIN temporaneo non ancora personalizzato,
-              o codice fiscale non corrispondente all&apos;account Fisconline.{" "}
+              <strong>ivaservizi.agenziaentrate.gov.it</strong>
+              {
+                "). Gli errori più comuni sono PIN scaduto, PIN temporaneo non ancora personalizzato, o codice fiscale non corrispondente all'account Fisconline. "
+              }
               <Link
                 href="/help/errori-ade"
                 className="text-primary hover:underline"

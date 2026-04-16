@@ -111,12 +111,12 @@ export default function SicurezzaCredenzialiPage() {
             la chiave i dati sono inutilizzabili.
           </li>
           <li>
-            Le credenziali vengono decifrate{" "}
+            {"Le credenziali vengono decifrate "}
             <strong>solo in memoria RAM</strong> al momento esatto in cui serve
             fare la chiamata al portale AdE, e immediatamente scartate.
           </li>
           <li>
-            I log applicativi sono configurati per{" "}
+            {"I log applicativi sono configurati per "}
             <strong>non registrare</strong> mai il valore delle credenziali.
             Anche in caso di bug o eccezione, il PIN non finisce nei log.
           </li>
@@ -127,7 +127,7 @@ export default function SicurezzaCredenzialiPage() {
           Dove sono fisicamente archiviate
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          I dati cifrati sono salvati nel database PostgreSQL su{" "}
+          {"I dati cifrati sono salvati nel database PostgreSQL su "}
           <strong>Supabase Cloud</strong> (datacenter in Europa, certificazioni
           ISO 27001, SOC 2 Type II). Il server applicativo gira su una VPS in un
           datacenter europeo.
