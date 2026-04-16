@@ -23,6 +23,10 @@ interface HelpCategory {
 
 const featuredArticles: HelpArticle[] = [
   {
+    title: "Prima configurazione passo-passo (onboarding completo)",
+    href: "/help/prima-configurazione",
+  },
+  {
     title: "Come collegare ScontrinoZero all'Agenzia delle Entrate",
     href: "/help/come-collegare-ade",
   },
@@ -35,12 +39,8 @@ const featuredArticles: HelpArticle[] = [
     href: "/help/primo-scontrino",
   },
   {
-    title: "Annullare uno scontrino: quando si può e come fare",
-    href: "/help/annullare-scontrino",
-  },
-  {
-    title: "Regime forfettario: configurazione IVA corretta",
-    href: "/help/regime-forfettario",
+    title: "Errori comuni di accesso AdE e come risolverli",
+    href: "/help/errori-ade",
   },
 ];
 
@@ -49,10 +49,17 @@ const helpCategories: HelpCategory[] = [
     name: "Partenza rapida",
     description: "Per iniziare in meno di 30 minuti.",
     articles: [
-      { title: "Prima configurazione passo-passo (onboarding completo)" },
+      {
+        title: "Prima configurazione passo-passo (onboarding completo)",
+        href: "/help/prima-configurazione",
+      },
       {
         title: "Come emettere il primo scontrino elettronico",
         href: "/help/primo-scontrino",
+      },
+      {
+        title: "Come installare ScontrinoZero come app sul tuo dispositivo",
+        href: "/help/installare-app",
       },
     ],
   },
@@ -69,7 +76,14 @@ const helpCategories: HelpCategory[] = [
         href: "/help/credenziali-fisconline",
       },
       { title: "Dove verificare i corrispettivi nel cassetto fiscale" },
-      { title: "Errori comuni di accesso AdE e come risolverli" },
+      {
+        title: "Errori comuni di accesso AdE e come risolverli",
+        href: "/help/errori-ade",
+      },
+      {
+        title: "Sicurezza e privacy: come proteggiamo le tue credenziali",
+        href: "/help/sicurezza-credenziali",
+      },
     ],
   },
   {
