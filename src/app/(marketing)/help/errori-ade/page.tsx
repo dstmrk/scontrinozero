@@ -49,9 +49,8 @@ export default function ErroriAdePage() {
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           <strong>Causa:</strong> il PIN Fisconline ha una validità di 3 anni.
-          Alla prima registrazione viene rilasciato un PIN temporaneo di 6
-          cifre che deve essere personalizzato in un PIN di 8 cifre entro 30
-          giorni.
+          Alla prima registrazione viene rilasciato un PIN temporaneo di 6 cifre
+          che deve essere personalizzato in un PIN di 8 cifre entro 30 giorni.
         </p>
         <p className="text-muted-foreground mt-3 text-sm font-medium">
           Soluzione:
@@ -59,7 +58,9 @@ export default function ErroriAdePage() {
         <ol className="text-muted-foreground mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
           <li>
             Vai su{" "}
-            <strong>ivaservizi.agenziaentrate.gov.it → Fisconline → Accedi</strong>
+            <strong>
+              ivaservizi.agenziaentrate.gov.it → Fisconline → Accedi
+            </strong>
             .
           </li>
           <li>
@@ -92,16 +93,17 @@ export default function ErroriAdePage() {
           <li>
             Il <strong>codice fiscale</strong> inserito deve corrispondere
             esattamente all&apos;account Fisconline. Per le ditte individuali è
-            il CF del titolare; per le società è il CF della persona che gestisce
-            l&apos;account Fisconline (non il CF della società).
+            il CF del titolare; per le società è il CF della persona che
+            gestisce l&apos;account Fisconline (non il CF della società).
           </li>
           <li>
-            Il <strong>PIN</strong> deve essere quello di 8 cifre personalizzato,
-            non il PIN temporaneo di 6 cifre ricevuto inizialmente.
+            Il <strong>PIN</strong> deve essere quello di 8 cifre
+            personalizzato, non il PIN temporaneo di 6 cifre ricevuto
+            inizialmente.
           </li>
           <li>
-            Verifica le credenziali accedendo direttamente al portale AdE.
-            Se funzionano lì ma non su ScontrinoZero, aggiornale in{" "}
+            Verifica le credenziali accedendo direttamente al portale AdE. Se
+            funzionano lì ma non su ScontrinoZero, aggiornale in{" "}
             <strong>Impostazioni → Attività → Credenziali AdE</strong>.
           </li>
         </ul>
@@ -117,9 +119,9 @@ export default function ErroriAdePage() {
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           <strong>Sintomo:</strong> le credenziali Fisconline funzionano sul
-          portale AdE, ma ScontrinoZero riceve un errore di tipo
-          &quot;soggetto non abilitato&quot; o &quot;partita IVA non trovata&quot;
-          al momento di emettere uno scontrino.
+          portale AdE, ma ScontrinoZero riceve un errore di tipo &quot;soggetto
+          non abilitato&quot; o &quot;partita IVA non trovata&quot; al momento
+          di emettere uno scontrino.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           <strong>Causa:</strong> per emettere documenti commerciali elettronici
@@ -141,8 +143,8 @@ export default function ErroriAdePage() {
             .
           </li>
           <li>
-            Se riesci ad accedere alla sezione e vedi il modulo di emissione,
-            la tua attività è abilitata: il problema è probabilmente nelle
+            Se riesci ad accedere alla sezione e vedi il modulo di emissione, la
+            tua attività è abilitata: il problema è probabilmente nelle
             credenziali inserite su ScontrinoZero (vedi errore precedente).
           </li>
           <li>
@@ -163,8 +165,8 @@ export default function ErroriAdePage() {
           minuti), oppure il test di connessione fallisce con errori di timeout.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Causa:</strong> il portale dell&apos;Agenzia delle Entrate
-          ha picchi di carico (in particolare a fine mese) o periodi di
+          <strong>Causa:</strong> il portale dell&apos;Agenzia delle Entrate ha
+          picchi di carico (in particolare a fine mese) o periodi di
           manutenzione programmata (solitamente la notte o il fine settimana).
         </p>
         <p className="text-muted-foreground mt-3 text-sm font-medium">
@@ -213,9 +215,7 @@ export default function ErroriAdePage() {
           Soluzione:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed">
-          <li>
-            Attendi 24 ore, poi accedi con le credenziali corrette.
-          </li>
+          <li>Attendi 24 ore, poi accedi con le credenziali corrette.</li>
           <li>
             Se non ricordi il PIN, puoi reimpostarlo tramite la funzione di
             recupero sul portale Fisconline o rivolgendoti a un CAF o a uno
@@ -241,8 +241,8 @@ export default function ErroriAdePage() {
           <strong>Causa:</strong> le credenziali delegate funzionano per alcune
           sezioni del portale AdE, ma{" "}
           <strong>
-            il Documento Commerciale Online richiede le credenziali del
-            titolare dell&apos;attività
+            il Documento Commerciale Online richiede le credenziali del titolare
+            dell&apos;attività
           </strong>
           , non quelle di un intermediario.
         </p>
@@ -276,12 +276,10 @@ export default function ErroriAdePage() {
             Le credenziali funzionano sul portale AdE ma non su ScontrinoZero.
           </li>
           <li>
-            Uno scontrino è rimasto in stato &quot;In elaborazione&quot; per
-            più di 24 ore.
+            Uno scontrino è rimasto in stato &quot;In elaborazione&quot; per più
+            di 24 ore.
           </li>
-          <li>
-            Ricevi messaggi di errore diversi da quelli descritti sopra.
-          </li>
+          <li>Ricevi messaggi di errore diversi da quelli descritti sopra.</li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Includi nella mail l&apos;ID dello scontrino problematico (visibile

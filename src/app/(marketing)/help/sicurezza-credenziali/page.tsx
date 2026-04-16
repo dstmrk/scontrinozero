@@ -31,8 +31,9 @@ export default function SicurezzaCredenzialiPage() {
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Sappiamo che chiederti le credenziali Fisconline è una richiesta
-          importante. Questa pagina spiega nel dettaglio come vengono archiviate,
-          chi può accedervi e come puoi revocare il consenso in qualsiasi momento.
+          importante. Questa pagina spiega nel dettaglio come vengono
+          archiviate, chi può accedervi e come puoi revocare il consenso in
+          qualsiasi momento.
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
           <strong>Ultimo aggiornamento:</strong> aprile 2026
@@ -77,22 +78,23 @@ export default function SicurezzaCredenzialiPage() {
             richiederebbe miliardi di anni.
           </li>
           <li>
-            <strong>GCM (Galois/Counter Mode)</strong>: modalità autenticata
-            che garantisce sia la riservatezza dei dati sia la loro integrità.
+            <strong>GCM (Galois/Counter Mode)</strong>: modalità autenticata che
+            garantisce sia la riservatezza dei dati sia la loro integrità.
             Qualsiasi modifica non autorizzata al dato cifrato viene rilevata e
             rifiutata.
           </li>
           <li>
             <strong>IV casuale per ogni cifratura</strong>: ogni volta che le
             credenziali vengono cifrate, viene generato un vettore di
-            inizializzazione (IV) unico. Lo stesso PIN cifrato due volte
-            produce due testi cifrati completamente diversi.
+            inizializzazione (IV) unico. Lo stesso PIN cifrato due volte produce
+            due testi cifrati completamente diversi.
           </li>
         </ul>
 
         {/* ─── Zero-knowledge ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Architettura zero-knowledge: il team non può leggere le tue credenziali
+          Architettura zero-knowledge: il team non può leggere le tue
+          credenziali
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Le credenziali non sono mai visibili in chiaro, nemmeno agli
@@ -109,14 +111,14 @@ export default function SicurezzaCredenzialiPage() {
             la chiave i dati sono inutilizzabili.
           </li>
           <li>
-            Le credenziali vengono decifrate <strong>solo in memoria RAM</strong>{" "}
-            al momento esatto in cui serve fare la chiamata al portale AdE, e
-            immediatamente scartate.
+            Le credenziali vengono decifrate{" "}
+            <strong>solo in memoria RAM</strong> al momento esatto in cui serve
+            fare la chiamata al portale AdE, e immediatamente scartate.
           </li>
           <li>
-            I log applicativi sono configurati per <strong>non registrare</strong>{" "}
-            mai il valore delle credenziali. Anche in caso di bug o eccezione,
-            il PIN non finisce nei log.
+            I log applicativi sono configurati per{" "}
+            <strong>non registrare</strong> mai il valore delle credenziali.
+            Anche in caso di bug o eccezione, il PIN non finisce nei log.
           </li>
         </ul>
 
@@ -127,8 +129,8 @@ export default function SicurezzaCredenzialiPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           I dati cifrati sono salvati nel database PostgreSQL su{" "}
           <strong>Supabase Cloud</strong> (datacenter in Europa, certificazioni
-          ISO 27001, SOC 2 Type II). Il server applicativo gira su una VPS in
-          un datacenter europeo.
+          ISO 27001, SOC 2 Type II). Il server applicativo gira su una VPS in un
+          datacenter europeo.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           ScontrinoZero è un progetto open source (licenza O&apos;Saasy). Puoi
@@ -146,9 +148,9 @@ export default function SicurezzaCredenzialiPage() {
             qualsiasi momento da <strong>Impostazioni → Attività</strong>.
           </li>
           <li>
-            <strong>Il server applicativo</strong> — usa le credenziali decifrate
-            solo al momento dell&apos;invio degli scontrini, operazione che
-            avviene solo su tua esplicita richiesta.
+            <strong>Il server applicativo</strong> — usa le credenziali
+            decifrate solo al momento dell&apos;invio degli scontrini,
+            operazione che avviene solo su tua esplicita richiesta.
           </li>
           <li>
             <strong>Nessun altro</strong> — il team ScontrinoZero, i database
@@ -174,7 +176,9 @@ export default function SicurezzaCredenzialiPage() {
           <li>
             Vai su <strong>Impostazioni → Attività → Credenziali AdE</strong>.
           </li>
-          <li>Clicca su <strong>Modifica credenziali</strong>.</li>
+          <li>
+            Clicca su <strong>Modifica credenziali</strong>.
+          </li>
           <li>Inserisci il nuovo PIN e salva.</li>
         </ol>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
@@ -199,8 +203,8 @@ export default function SicurezzaCredenzialiPage() {
         </ol>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Dopo la rimozione, ScontrinoZero non potrà trasmettere nuovi scontrini
-          all&apos;AdE fino a quando non inserirai nuovamente le credenziali.
-          I dati cifrati vengono eliminati definitivamente dal database.
+          all&apos;AdE fino a quando non inserirai nuovamente le credenziali. I
+          dati cifrati vengono eliminati definitivamente dal database.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Se elimini l&apos;account ScontrinoZero, tutte le credenziali e i dati

@@ -30,11 +30,11 @@ export default function InstallareAppPage() {
           <Badge variant="secondary">Partenza rapida</Badge>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          ScontrinoZero è una{" "}
-          <strong>Progressive Web App (PWA)</strong>: può essere installata
-          direttamente dal browser sulla schermata home dello smartphone o sul
-          desktop del computer, senza passare dall&apos;App Store o dal Google
-          Play. L&apos;esperienza è identica a quella di un&apos;app nativa.
+          ScontrinoZero è una <strong>Progressive Web App (PWA)</strong>: può
+          essere installata direttamente dal browser sulla schermata home dello
+          smartphone o sul desktop del computer, senza passare dall&apos;App
+          Store o dal Google Play. L&apos;esperienza è identica a quella di
+          un&apos;app nativa.
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
           <strong>Ultimo aggiornamento:</strong> aprile 2026
@@ -104,8 +104,8 @@ export default function InstallareAppPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           <strong>Nota iOS 16.4+:</strong> Apple ha aggiunto il supporto
           completo alle PWA a partire da iOS 16.4. Se hai una versione
-          precedente, l&apos;app funziona ma alcune funzionalità avanzate
-          (come le notifiche push future) potrebbero non essere disponibili.
+          precedente, l&apos;app funziona ma alcune funzionalità avanzate (come
+          le notifiche push future) potrebbero non essere disponibili.
         </p>
 
         {/* ─── Android ─── */}
@@ -123,7 +123,9 @@ export default function InstallareAppPage() {
           </li>
           <li>
             Chrome mostra automaticamente un banner in basso con la scritta{" "}
-            <strong>&quot;Aggiungi ScontrinoZero alla schermata home&quot;</strong>
+            <strong>
+              &quot;Aggiungi ScontrinoZero alla schermata home&quot;
+            </strong>
             . Toccalo.
           </li>
           <li>
@@ -146,8 +148,8 @@ export default function InstallareAppPage() {
           Installazione su computer (Windows, Mac, Linux)
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Puoi installare ScontrinoZero come app desktop su <strong>Chrome</strong>{" "}
-          o <strong>Edge</strong>.
+          Puoi installare ScontrinoZero come app desktop su{" "}
+          <strong>Chrome</strong> o <strong>Edge</strong>.
         </p>
 
         <h3 className="mt-6 text-base font-semibold">Chrome</h3>
@@ -157,8 +159,8 @@ export default function InstallareAppPage() {
             login.
           </li>
           <li>
-            Clicca sull&apos;icona di installazione (computer con freccia)
-            nella barra degli indirizzi, oppure vai nel menu{" "}
+            Clicca sull&apos;icona di installazione (computer con freccia) nella
+            barra degli indirizzi, oppure vai nel menu{" "}
             <strong>⋮ → Salva e condividi → Installa pagina come app</strong>.
           </li>
           <li>
@@ -195,8 +197,7 @@ export default function InstallareAppPage() {
               Gli aggiornamenti vengono applicati automaticamente in background.
               Se noti che l&apos;app è datata, chiudila completamente (scorri
               via dal task switcher su iOS/Android, o chiudi la finestra su
-              desktop) e riaprila. La nuova versione viene caricata al
-              riavvio.
+              desktop) e riaprila. La nuova versione viene caricata al riavvio.
             </p>
           </div>
           <div>
@@ -206,8 +207,8 @@ export default function InstallareAppPage() {
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               No. Tutti i dati (scontrini, impostazioni, credenziali) sono
               salvati sul cloud e collegati al tuo account. Disinstallare
-              l&apos;app rimuove solo il collegamento sulla schermata home;
-              i dati restano intatti. Puoi reinstallarla in qualsiasi momento.
+              l&apos;app rimuove solo il collegamento sulla schermata home; i
+              dati restano intatti. Puoi reinstallarla in qualsiasi momento.
             </p>
           </div>
           <div>
@@ -226,12 +227,12 @@ export default function InstallareAppPage() {
               Safari — perché?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Verifica di essere su{" "}
-              <strong>Safari</strong> (non Chrome o Firefox) e che il sito sia
-              caricato completamente (attendi la fine del caricamento). Se
-              l&apos;opzione non è visibile nello sheet di condivisione, scorri
-              l&apos;elenco delle azioni verso sinistra o verso il basso: su
-              alcuni dispositivi l&apos;opzione è nascosta in fondo all&apos;elenco.
+              Verifica di essere su <strong>Safari</strong> (non Chrome o
+              Firefox) e che il sito sia caricato completamente (attendi la fine
+              del caricamento). Se l&apos;opzione non è visibile nello sheet di
+              condivisione, scorri l&apos;elenco delle azioni verso sinistra o
+              verso il basso: su alcuni dispositivi l&apos;opzione è nascosta in
+              fondo all&apos;elenco.
             </p>
           </div>
           <div>
@@ -244,10 +245,9 @@ export default function InstallareAppPage() {
               <strong>
                 l&apos;emissione di scontrini richiede connessione internet
               </strong>
-              : la trasmissione all&apos;AdE avviene in tempo reale. Se perdi
-              la connessione durante l&apos;emissione, lo scontrino viene
-              accodato e trasmesso automaticamente al ripristino della
-              connettività.
+              : la trasmissione all&apos;AdE avviene in tempo reale. Se perdi la
+              connessione durante l&apos;emissione, lo scontrino viene accodato
+              e trasmesso automaticamente al ripristino della connettività.
             </p>
           </div>
         </div>
