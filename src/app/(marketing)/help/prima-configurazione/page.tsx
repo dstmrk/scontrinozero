@@ -127,8 +127,8 @@ export default function PrimaConfigurazioneePage() {
           <li>
             <strong>Regime forfettario</strong> — nessuna IVA in fattura; sullo
             scontrino comparirà automaticamente la dicitura legale obbligatoria
-            &quot;Operazione effettuata ai sensi dell&apos;art. 1, commi
-            54-89, L. 190/2014 — RF19&quot;.
+            &quot;Operazione effettuata ai sensi dell&apos;art. 1, commi 54-89,
+            L. 190/2014 — RF19&quot;.
           </li>
           <li>
             <strong>Regime ordinario / semplificato</strong> — puoi applicare
@@ -137,9 +137,9 @@ export default function PrimaConfigurazioneePage() {
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          In caso di dubbio, consulta il tuo commercialista. Puoi modificare il
-          regime in qualsiasi momento da <strong>Impostazioni → Attività</strong>
-          .
+          In caso di dubbio, consulta il tuo commercialista. Puoi modificare
+          {"il regime in qualsiasi momento da "}
+          <strong>Impostazioni → Attività</strong>.
         </p>
 
         {/* ─── Step 4 ─── */}
@@ -162,9 +162,9 @@ export default function PrimaConfigurazioneePage() {
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           ScontrinoZero esegue immediatamente un test di accesso per verificare
-          che le credenziali funzionino. Se il test ha successo, vedi una
-          spunta verde. Le credenziali vengono cifrate con AES-256-GCM e non
-          sono mai visibili in chiaro, nemmeno al nostro team.{" "}
+          che le credenziali funzionino. Se il test ha successo, vedi una spunta
+          verde. Le credenziali vengono cifrate con AES-256-GCM e non sono mai
+          visibili in chiaro, nemmeno al nostro team.{" "}
           <Link
             href="/help/sicurezza-credenziali"
             className="text-primary hover:underline"
@@ -240,10 +240,10 @@ export default function PrimaConfigurazioneePage() {
               Ho sbagliato il regime fiscale — posso cambiarlo?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Sì, in qualsiasi momento da <strong>Impostazioni → Attività</strong>
-              . Il cambio di regime non modifica gli scontrini già emessi, che
-              restano validi con il regime in vigore al momento
-              dell&apos;emissione.
+              Sì, in qualsiasi momento da{" "}
+              <strong>Impostazioni → Attività</strong>. Il cambio di regime non
+              modifica gli scontrini già emessi, che restano validi con il
+              regime in vigore al momento dell&apos;emissione.
             </p>
           </div>
           <div>
@@ -268,9 +268,9 @@ export default function PrimaConfigurazioneePage() {
               Posso usare ScontrinoZero per più attività con P.IVA diverse?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Ogni account ScontrinoZero è associato a una singola P.IVA.
-              Per gestire attività diverse devi creare account separati con
-              email diverse.
+              Ogni account ScontrinoZero è associato a una singola P.IVA. Per
+              gestire attività diverse devi creare account separati con email
+              diverse.
             </p>
           </div>
         </div>
