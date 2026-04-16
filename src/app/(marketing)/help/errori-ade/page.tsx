@@ -61,7 +61,7 @@ export default function ErroriAdePage() {
             <strong>
               ivaservizi.agenziaentrate.gov.it → Fisconline → Accedi
             </strong>
-            .
+            {"."}
           </li>
           <li>
             Prova ad accedere: se il PIN è scaduto, il portale AdE ti chiede
@@ -141,7 +141,7 @@ export default function ErroriAdePage() {
               ivaservizi.agenziaentrate.gov.it → Fatture e Corrispettivi →
               Documento Commerciale Online
             </strong>
-            .
+            {"."}
           </li>
           <li>
             Se riesci ad accedere alla sezione e vedi il modulo di emissione, la
@@ -198,7 +198,7 @@ export default function ErroriAdePage() {
             >
               info@scontrinozero.it
             </a>
-            .
+            {"."}
           </li>
         </ul>
 
@@ -249,7 +249,7 @@ export default function ErroriAdePage() {
             il Documento Commerciale Online richiede le credenziali del titolare
             dell&apos;attività
           </strong>
-          , non quelle di un intermediario.
+          {", non quelle di un intermediario."}
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           {
@@ -268,14 +268,14 @@ export default function ErroriAdePage() {
           Quando contattare il supporto
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Contatta il supporto ScontrinoZero (
+          {"Contatta il supporto ScontrinoZero ("}
           <a
             href="mailto:info@scontrinozero.it"
             className="text-primary hover:underline"
           >
             info@scontrinozero.it
           </a>
-          ) se:
+          {") se:"}
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>

@@ -200,7 +200,7 @@ export default function PrimaConfigurazioneePage() {
             Aprire la <strong>Cassa</strong> per emettere scontrini.
           </li>
           <li>
-            Aggiungere prodotti al catalogo rapido (
+            {"Aggiungere prodotti al catalogo rapido ("}
             <strong>Impostazioni → Catalogo</strong>).
           </li>
           <li>
@@ -251,7 +251,7 @@ export default function PrimaConfigurazioneePage() {
               Le mie credenziali Fisconline non vengono accettate — cosa faccio?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Verifica prima di tutto che funzionino sul portale AdE (
+              {"Verifica prima di tutto che funzionino sul portale AdE ("}
               <strong>ivaservizi.agenziaentrate.gov.it</strong>
               {
                 "). Gli errori più comuni sono PIN scaduto, PIN temporaneo non ancora personalizzato, o codice fiscale non corrispondente all'account Fisconline. "

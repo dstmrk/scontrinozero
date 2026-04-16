@@ -128,7 +128,7 @@ export default function InstallareAppPage() {
             <strong>
               &quot;Aggiungi ScontrinoZero alla schermata home&quot;
             </strong>
-            . Toccalo.
+            {". Toccalo."}
           </li>
           <li>
             {"Se il banner non compare, tocca il menu "}
