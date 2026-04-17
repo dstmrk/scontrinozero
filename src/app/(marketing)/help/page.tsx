@@ -75,7 +75,10 @@ const helpCategories: HelpCategory[] = [
         title: "Credenziali Fisconline: dove trovarle e come verificarle",
         href: "/help/credenziali-fisconline",
       },
-      { title: "Dove verificare i corrispettivi nel cassetto fiscale" },
+      {
+        title: "Dove verificare i corrispettivi nel cassetto fiscale",
+        href: "/help/cassetto-fiscale",
+      },
       {
         title: "Errori comuni di accesso AdE e come risolverli",
         href: "/help/errori-ade",
@@ -98,8 +101,14 @@ const helpCategories: HelpCategory[] = [
         title: "Annullare uno scontrino: quando si può e come fare",
         href: "/help/annullare-scontrino",
       },
-      { title: "Chiusura giornaliera: è obbligatoria?" },
-      { title: "Storico scontrini: filtri, ricerca ed esportazione" },
+      {
+        title: "Chiusura giornaliera: è obbligatoria?",
+        href: "/help/chiusura-giornaliera",
+      },
+      {
+        title: "Storico scontrini: filtri, ricerca ed esportazione",
+        href: "/help/storico-ed-esportazione",
+      },
     ],
   },
   {
@@ -110,7 +119,10 @@ const helpCategories: HelpCategory[] = [
         title: "Regime forfettario: configurazione IVA corretta",
         href: "/help/regime-forfettario",
       },
-      { title: "Come gestire aliquote IVA, reparti e metodi di pagamento" },
+      {
+        title: "Come gestire aliquote IVA, reparti e metodi di pagamento",
+        href: "/help/aliquote-iva",
+      },
       { title: "Personalizzare intestazione e dati dello scontrino" },
       { title: "Gestione operatori e permessi" },
     ],
@@ -123,7 +135,10 @@ const helpCategories: HelpCategory[] = [
       {
         title: "Come registrare un POS nel portale Fatture e Corrispettivi",
       },
-      { title: "Nuova normativa POS 2026: cosa cambia per gli esercenti" },
+      {
+        title: "Nuova normativa POS 2026: cosa cambia per gli esercenti",
+        href: "/help/normativa-pos-2026",
+      },
     ],
   },
   {
@@ -160,7 +175,10 @@ const helpCategories: HelpCategory[] = [
     name: "Abbonamento, fatture e supporto",
     description: "Piano, pagamenti e assistenza.",
     articles: [
-      { title: "Piani disponibili: Starter, Pro e versione gratuita" },
+      {
+        title: "Piani disponibili: Starter, Pro e versione gratuita",
+        href: "/help/piani-e-prezzi",
+      },
       { title: "Come passare da mensile ad annuale" },
       { title: "Dove trovare fatture e ricevute di pagamento" },
       { title: "Come contattare l'assistenza" },
