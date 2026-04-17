@@ -112,9 +112,9 @@ export default function StoricoEdEsportazionePage() {
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Dal dettaglio puoi anche avviare l&apos;
-          <strong>annullamento</strong> dello scontrino, se è in stato
-          Trasmesso.
+          {"Dal dettaglio puoi anche avviare l'"}
+          <strong>annullamento</strong>
+          {" dello scontrino, se è in stato Trasmesso."}
         </p>
 
         {/* ─── Export CSV ─── */}
