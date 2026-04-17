@@ -32,27 +32,29 @@ export default function StoricoEdEsportazionePage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           La sezione <strong>Storico</strong> raccoglie tutti gli scontrini
           emessi e annullati. Puoi filtrare per data e importo, aprire il
-          dettaglio di ogni documento e — con il piano Pro — esportare tutto
-          in CSV per il commercialista.
+          dettaglio di ogni documento e — con il piano Pro — esportare tutto in
+          CSV per il commercialista.
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
           <strong>Ultimo aggiornamento:</strong> aprile 2026
         </p>
 
         {/* ─── Come accedere ─── */}
-        <h2 className="mt-10 text-xl font-semibold">Come accedere allo Storico</h2>
+        <h2 className="mt-10 text-xl font-semibold">
+          Come accedere allo Storico
+        </h2>
         <ol className="text-muted-foreground mt-3 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            Dalla dashboard, tocca <strong>Storico</strong> nella barra
-            laterale (o nel menu in basso su mobile).
+            Dalla dashboard, tocca <strong>Storico</strong> nella barra laterale
+            (o nel menu in basso su mobile).
           </li>
           <li>
-            Vedrai l&apos;elenco degli scontrini in ordine cronologico
-            inverso, dal più recente al più vecchio.
+            Vedrai l&apos;elenco degli scontrini in ordine cronologico inverso,
+            dal più recente al più vecchio.
           </li>
           <li>
-            Ogni riga mostra: data, ora, importo totale, metodo di pagamento
-            e stato (Trasmesso, In elaborazione, Annullato).
+            Ogni riga mostra: data, ora, importo totale, metodo di pagamento e
+            stato (Trasmesso, In elaborazione, Annullato).
           </li>
         </ol>
 
@@ -74,10 +76,10 @@ export default function StoricoEdEsportazionePage() {
             <p className="text-sm font-medium">Stato</p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               Filtra per <strong>Trasmesso</strong>,{" "}
-              <strong>In elaborazione</strong> o <strong>Annullato</strong>.
-              Il filtro &quot;In elaborazione&quot; è utile per individuare
-              rapidamente documenti la cui trasmissione all&apos;AdE è ancora
-              in corso.
+              <strong>In elaborazione</strong> o <strong>Annullato</strong>. Il
+              filtro &quot;In elaborazione&quot; è utile per individuare
+              rapidamente documenti la cui trasmissione all&apos;AdE è ancora in
+              corso.
             </p>
           </div>
           <div>
@@ -103,9 +105,7 @@ export default function StoricoEdEsportazionePage() {
           <li>Elenco delle righe con descrizione, aliquota IVA e importo.</li>
           <li>Totale e ripartizione per metodo di pagamento.</li>
           <li>Codice lotteria (se applicabile).</li>
-          <li>
-            Stato trasmissione AdE con timestamp di conferma.
-          </li>
+          <li>Stato trasmissione AdE con timestamp di conferma.</li>
           <li>
             Link al PDF dello scontrino (condivisibile via WhatsApp, email,
             ecc.).
@@ -125,9 +125,9 @@ export default function StoricoEdEsportazionePage() {
           </Badge>
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Gli utenti con piano <strong>Pro</strong> possono esportare lo
-          storico scontrini in formato CSV. Il file è compatibile con Excel,
-          Google Sheets e qualsiasi software di contabilità.
+          Gli utenti con piano <strong>Pro</strong> possono esportare lo storico
+          scontrini in formato CSV. Il file è compatibile con Excel, Google
+          Sheets e qualsiasi software di contabilità.
         </p>
         <h3 className="mt-5 text-base font-semibold">Come esportare</h3>
         <ol className="text-muted-foreground mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
@@ -142,9 +142,7 @@ export default function StoricoEdEsportazionePage() {
             Il file viene generato e scaricato automaticamente nel browser.
           </li>
         </ol>
-        <h3 className="mt-5 text-base font-semibold">
-          Cosa contiene il CSV
-        </h3>
+        <h3 className="mt-5 text-base font-semibold">Cosa contiene il CSV</h3>
         <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
           Il file include una riga per ogni scontrino con le colonne:
         </p>
@@ -158,8 +156,8 @@ export default function StoricoEdEsportazionePage() {
           <li>Codice lotteria (se presente)</li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Se sei nel piano Starter e vuoi accedere all&apos;export CSV,
-          puoi passare a Pro dalla sezione{" "}
+          Se sei nel piano Starter e vuoi accedere all&apos;export CSV, puoi
+          passare a Pro dalla sezione{" "}
           <strong>Dashboard &gt; Impostazioni &gt; Abbonamento</strong>.
         </p>
 
@@ -182,8 +180,8 @@ export default function StoricoEdEsportazionePage() {
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               Usa il filtro per data e importo per identificare rapidamente lo
-              scontrino. Dal dettaglio puoi riaprire il PDF e ricondividerlo
-              via WhatsApp o email.
+              scontrino. Dal dettaglio puoi riaprire il PDF e ricondividerlo via
+              WhatsApp o email.
             </p>
           </div>
           <div>
@@ -192,8 +190,8 @@ export default function StoricoEdEsportazionePage() {
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               Filtra per stato <strong>In elaborazione</strong>: se vedi
-              documenti fermi da più di 15 minuti, potrebbe esserci un
-              problema di connessione o un errore AdE. Consulta la guida{" "}
+              documenti fermi da più di 15 minuti, potrebbe esserci un problema
+              di connessione o un errore AdE. Consulta la guida{" "}
               <Link
                 href="/help/errori-ade"
                 className="text-primary hover:underline"

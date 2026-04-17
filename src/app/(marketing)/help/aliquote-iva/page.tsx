@@ -49,35 +49,33 @@ export default function AliquoteIvaPage() {
           <table className="text-muted-foreground w-full text-sm">
             <thead>
               <tr className="border-border border-b text-left">
-                <th className="pb-2 font-semibold text-foreground">
-                  Aliquota
-                </th>
-                <th className="pb-2 font-semibold text-foreground">
+                <th className="text-foreground pb-2 font-semibold">Aliquota</th>
+                <th className="text-foreground pb-2 font-semibold">
                   Esempi di applicazione
                 </th>
               </tr>
             </thead>
             <tbody className="divide-border divide-y">
               <tr>
-                <td className="py-2 font-medium text-foreground">4%</td>
+                <td className="text-foreground py-2 font-medium">4%</td>
                 <td className="py-2">
                   Alimenti di prima necessità, libri, giornali, farmaci
                 </td>
               </tr>
               <tr>
-                <td className="py-2 font-medium text-foreground">10%</td>
+                <td className="text-foreground py-2 font-medium">10%</td>
                 <td className="py-2">
                   Alimenti, bevande, somministrazione al tavolo, spettacoli
                 </td>
               </tr>
               <tr>
-                <td className="py-2 font-medium text-foreground">22%</td>
+                <td className="text-foreground py-2 font-medium">22%</td>
                 <td className="py-2">
                   Prodotti generici, abbigliamento, elettronica, servizi
                 </td>
               </tr>
               <tr>
-                <td className="py-2 font-medium text-foreground">Esente</td>
+                <td className="text-foreground py-2 font-medium">Esente</td>
                 <td className="py-2">
                   Operazioni esenti ex art. 10 DPR 633/72 (servizi finanziari,
                   sanitari, formativi, ecc.)
@@ -98,8 +96,8 @@ export default function AliquoteIvaPage() {
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Le aliquote IVA sono pre-caricate nel sistema. Non devi attivarle
-          separatamente: compaiono come opzione ogni volta che aggiungi una
-          riga allo scontrino o crei un prodotto nel catalogo.
+          separatamente: compaiono come opzione ogni volta che aggiungi una riga
+          allo scontrino o crei un prodotto nel catalogo.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Al momento dell&apos;emissione, per ogni riga dello scontrino
@@ -121,26 +119,23 @@ export default function AliquoteIvaPage() {
         <h2 className="mt-10 text-xl font-semibold">Reparti merceologici</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Puoi organizzare i prodotti in <strong>reparti</strong> (es.
-          &quot;Alimentari&quot;, &quot;Bevande&quot;, &quot;Abbigliamento&quot;)
-          ai quali associare un&apos;aliquota IVA predefinita. In questo modo,
-          quando aggiungi una riga allo scontrino e selezioni il reparto,
-          l&apos;aliquota viene impostata automaticamente.
+          &quot;Alimentari&quot;, &quot;Bevande&quot;,
+          &quot;Abbigliamento&quot;) ai quali associare un&apos;aliquota IVA
+          predefinita. In questo modo, quando aggiungi una riga allo scontrino e
+          selezioni il reparto, l&apos;aliquota viene impostata automaticamente.
         </p>
-        <h3 className="mt-5 text-base font-semibold">
-          Come creare un reparto
-        </h3>
+        <h3 className="mt-5 text-base font-semibold">Come creare un reparto</h3>
         <ol className="text-muted-foreground mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            Vai in{" "}
-            <strong>Dashboard &gt; Impostazioni &gt; Reparti</strong>.
+            Vai in <strong>Dashboard &gt; Impostazioni &gt; Reparti</strong>.
           </li>
           <li>
             Clicca su <strong>Aggiungi reparto</strong>.
           </li>
           <li>Inserisci nome e aliquota IVA predefinita.</li>
           <li>
-            Salva. Il reparto sarà disponibile durante l&apos;emissione e
-            nella creazione di prodotti nel catalogo.
+            Salva. Il reparto sarà disponibile durante l&apos;emissione e nella
+            creazione di prodotti nel catalogo.
           </li>
         </ol>
 
@@ -169,9 +164,9 @@ export default function AliquoteIvaPage() {
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Al momento dell&apos;emissione, seleziona il metodo usato dal
-          cliente. I dati vengono trasmessi all&apos;AdE come parte del
-          documento commerciale.
+          Al momento dell&apos;emissione, seleziona il metodo usato dal cliente.
+          I dati vengono trasmessi all&apos;AdE come parte del documento
+          commerciale.
         </p>
 
         {/* ─── Pagamento misto ─── */}
@@ -183,20 +178,18 @@ export default function AliquoteIvaPage() {
           registrare entrambi i metodi sullo stesso scontrino:
         </p>
         <ol className="text-muted-foreground mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
-          <li>
-            Aggiungi le righe dello scontrino normalmente.
-          </li>
+          <li>Aggiungi le righe dello scontrino normalmente.</li>
           <li>
             Nella schermata di pagamento, seleziona{" "}
             <strong>Pagamento misto</strong>.
           </li>
           <li>
-            Inserisci l&apos;importo pagato in contante: ScontrinoZero
-            calcola automaticamente la quota residua da addebitare su carta.
+            Inserisci l&apos;importo pagato in contante: ScontrinoZero calcola
+            automaticamente la quota residua da addebitare su carta.
           </li>
           <li>
-            Conferma ed emetti. Il documento trasmesso all&apos;AdE riporta
-            la ripartizione corretta tra i due metodi.
+            Conferma ed emetti. Il documento trasmesso all&apos;AdE riporta la
+            ripartizione corretta tra i due metodi.
           </li>
         </ol>
 

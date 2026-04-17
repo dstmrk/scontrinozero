@@ -32,9 +32,8 @@ export default function CassettoFiscalePage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Dopo aver emesso uno scontrino con ScontrinoZero, i dati arrivano
           all&apos;Agenzia delle Entrate e sono consultabili nel{" "}
-          <strong>cassetto fiscale</strong> del portale Fatture e
-          Corrispettivi. Questa guida spiega dove cercarli e cosa fare se
-          qualcosa non torna.
+          <strong>cassetto fiscale</strong> del portale Fatture e Corrispettivi.
+          Questa guida spiega dove cercarli e cosa fare se qualcosa non torna.
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
           <strong>Ultimo aggiornamento:</strong> aprile 2026
@@ -47,10 +46,10 @@ export default function CassettoFiscalePage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Il cassetto fiscale è l&apos;area riservata del portale dell&apos;AdE
           dove confluiscono tutte le informazioni tributarie a te intestate:
-          dichiarazioni, fatture, corrispettivi, rimborsi e molto altro.
-          Nella sezione <strong>Corrispettivi</strong> trovi i documenti
-          commerciali emessi tramite la procedura online — inclusi quelli
-          inviati da ScontrinoZero.
+          dichiarazioni, fatture, corrispettivi, rimborsi e molto altro. Nella
+          sezione <strong>Corrispettivi</strong> trovi i documenti commerciali
+          emessi tramite la procedura online — inclusi quelli inviati da
+          ScontrinoZero.
         </p>
 
         {/* ─── Come accedere ─── */}
@@ -59,18 +58,15 @@ export default function CassettoFiscalePage() {
         </h2>
         <ol className="text-muted-foreground mt-3 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            Vai su{" "}
-            <strong>ivaservizi.agenziaentrate.gov.it</strong> (portale Fatture
-            e Corrispettivi).
+            Vai su <strong>ivaservizi.agenziaentrate.gov.it</strong> (portale
+            Fatture e Corrispettivi).
           </li>
           <li>
-            Accedi con le tue credenziali{" "}
-            <strong>Fisconline</strong>, SPID o CIE — le stesse usate per
-            collegare ScontrinoZero all&apos;AdE.
+            Accedi con le tue credenziali <strong>Fisconline</strong>, SPID o
+            CIE — le stesse usate per collegare ScontrinoZero all&apos;AdE.
           </li>
           <li>
-            Dal menu principale seleziona{" "}
-            <strong>Corrispettivi</strong>.
+            Dal menu principale seleziona <strong>Corrispettivi</strong>.
           </li>
           <li>
             Clicca su <strong>Consultazione documenti commerciali</strong>.
@@ -90,8 +86,8 @@ export default function CassettoFiscalePage() {
             trovare i documenti di un giorno o periodo specifico.
           </li>
           <li>
-            <strong>Numero documento</strong> — ogni scontrino ScontrinoZero
-            ha un numero progressivo visibile nel dettaglio dello scontrino.
+            <strong>Numero documento</strong> — ogni scontrino ScontrinoZero ha
+            un numero progressivo visibile nel dettaglio dello scontrino.
           </li>
           <li>
             <strong>Tipo documento</strong> — Vendita o Annullamento.
@@ -109,8 +105,8 @@ export default function CassettoFiscalePage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           I documenti trasmessi da ScontrinoZero compaiono nel cassetto fiscale
           in genere entro <strong>pochi minuti</strong>. In alcuni casi,
-          soprattutto nelle ore di punta del portale AdE, possono volerci fino
-          a <strong>24 ore</strong>. Se uno scontrino risulta{" "}
+          soprattutto nelle ore di punta del portale AdE, possono volerci fino a{" "}
+          <strong>24 ore</strong>. Se uno scontrino risulta{" "}
           <strong>Trasmesso</strong> in ScontrinoZero ma non compare ancora nel
           cassetto, attendi qualche ora prima di preoccuparti.
         </p>
@@ -127,9 +123,9 @@ export default function CassettoFiscalePage() {
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               Vai in <strong>Storico</strong> e controlla lo stato dello
               scontrino. Se è <strong>Trasmesso</strong>, il documento è
-              arrivato all&apos;AdE — attendi la visibilità nel cassetto.
-              Se è <strong>In elaborazione</strong>, la trasmissione è ancora
-              in corso: riprova dopo qualche minuto.
+              arrivato all&apos;AdE — attendi la visibilità nel cassetto. Se è{" "}
+              <strong>In elaborazione</strong>, la trasmissione è ancora in
+              corso: riprova dopo qualche minuto.
             </p>
           </div>
           <div>
@@ -138,8 +134,8 @@ export default function CassettoFiscalePage() {
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               Assicurati che l&apos;intervallo di date nel portale AdE includa
-              il giorno di emissione. Un filtro troppo stretto può escludere
-              il documento che cerchi.
+              il giorno di emissione. Un filtro troppo stretto può escludere il
+              documento che cerchi.
             </p>
           </div>
           <div>
@@ -147,16 +143,14 @@ export default function CassettoFiscalePage() {
               3. Verifica la P.IVA collegata
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Accertati di aver effettuato l&apos;accesso al portale AdE con
-              le credenziali della P.IVA configurata in ScontrinoZero. Se hai
-              più codici fiscali/P.IVA, i documenti potrebbero trovarsi sotto
+              Accertati di aver effettuato l&apos;accesso al portale AdE con le
+              credenziali della P.IVA configurata in ScontrinoZero. Se hai più
+              codici fiscali/P.IVA, i documenti potrebbero trovarsi sotto
               un&apos;altra posizione.
             </p>
           </div>
           <div>
-            <p className="text-sm font-medium">
-              4. Contatta l&apos;assistenza
-            </p>
+            <p className="text-sm font-medium">4. Contatta l&apos;assistenza</p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               Se lo scontrino è Trasmesso da più di 24 ore ma non compare nel
               cassetto, scrivici a{" "}
@@ -177,8 +171,8 @@ export default function CassettoFiscalePage() {
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Il portale AdE permette di esportare un prospetto riepilogativo dei
-          corrispettivi per periodo (mensile, trimestrale, annuale) — utile
-          per la liquidazione IVA e per i controlli del commercialista. Puoi
+          corrispettivi per periodo (mensile, trimestrale, annuale) — utile per
+          la liquidazione IVA e per i controlli del commercialista. Puoi
           accedervi dalla sezione{" "}
           <strong>Corrispettivi &gt; Riepilogo corrispettivi</strong>.
         </p>

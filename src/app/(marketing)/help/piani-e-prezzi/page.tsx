@@ -32,8 +32,8 @@ export default function PianiEPrezziPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           ScontrinoZero è disponibile in tre versioni: due piani hosted a
           pagamento (Starter e Pro) con un trial gratuito di 30 giorni, e una
-          versione self-hosted completamente gratuita per chi preferisce
-          gestire il proprio server.
+          versione self-hosted completamente gratuita per chi preferisce gestire
+          il proprio server.
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
           <strong>Ultimo aggiornamento:</strong> aprile 2026
@@ -45,27 +45,27 @@ export default function PianiEPrezziPage() {
           <table className="text-muted-foreground w-full text-sm">
             <thead>
               <tr className="border-border border-b text-left">
-                <th className="pb-2 font-semibold text-foreground">Piano</th>
-                <th className="pb-2 font-semibold text-foreground">Mensile</th>
-                <th className="pb-2 font-semibold text-foreground">Annuale</th>
-                <th className="pb-2 font-semibold text-foreground">Target</th>
+                <th className="text-foreground pb-2 font-semibold">Piano</th>
+                <th className="text-foreground pb-2 font-semibold">Mensile</th>
+                <th className="text-foreground pb-2 font-semibold">Annuale</th>
+                <th className="text-foreground pb-2 font-semibold">Target</th>
               </tr>
             </thead>
             <tbody className="divide-border divide-y">
               <tr>
-                <td className="py-2 font-medium text-foreground">Starter</td>
+                <td className="text-foreground py-2 font-medium">Starter</td>
                 <td className="py-2">€4,99/mese</td>
                 <td className="py-2">€29,99/anno</td>
                 <td className="py-2">Micro-attività, ambulanti</td>
               </tr>
               <tr>
-                <td className="py-2 font-medium text-foreground">Pro</td>
+                <td className="text-foreground py-2 font-medium">Pro</td>
                 <td className="py-2">€8,99/mese</td>
                 <td className="py-2">€49,99/anno</td>
                 <td className="py-2">Negozi, attività regolari</td>
               </tr>
               <tr>
-                <td className="py-2 font-medium text-foreground">
+                <td className="text-foreground py-2 font-medium">
                   Self-hosted
                 </td>
                 <td className="py-2 font-semibold text-green-600">Gratuito</td>
@@ -77,8 +77,8 @@ export default function PianiEPrezziPage() {
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           L&apos;abbonamento annuale fa risparmiare il <strong>50%</strong>{" "}
-          rispetto al mensile per Starter e il <strong>54%</strong> per Pro.
-          Non è richiesta nessuna carta di credito per iniziare il trial.
+          rispetto al mensile per Starter e il <strong>54%</strong> per Pro. Non
+          è richiesta nessuna carta di credito per iniziare il trial.
         </p>
 
         {/* ─── Piano Starter ─── */}
@@ -92,23 +92,25 @@ export default function PianiEPrezziPage() {
           <li>Scontrini elettronici illimitati</li>
           <li>Annullamento scontrini</li>
           <li>Metodi di pagamento misti (contante + carta + altro)</li>
-          <li>Catalogo rapido fino a <strong>5 prodotti</strong></li>
+          <li>
+            Catalogo rapido fino a <strong>5 prodotti</strong>
+          </li>
           <li>Analytics base (totale giornaliero, metodi di pagamento)</li>
           <li>Lotteria degli Scontrini</li>
           <li>PWA installabile su smartphone</li>
           <li>Supporto via email entro 48 ore</li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          A <strong>€29,99/anno</strong> è il prezzo più basso del mercato
-          per un registratore di cassa virtuale conforme all&apos;AdE.
+          A <strong>€29,99/anno</strong> è il prezzo più basso del mercato per
+          un registratore di cassa virtuale conforme all&apos;AdE.
         </p>
 
         {/* ─── Piano Pro ─── */}
         <h2 className="mt-10 text-xl font-semibold">Piano Pro</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Per esercenti con un volume di vendite regolare che hanno bisogno di
-          strumenti avanzati per la gestione e la contabilità. Tutto quello
-          che include Starter, più:
+          strumenti avanzati per la gestione e la contabilità. Tutto quello che
+          include Starter, più:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
@@ -119,9 +121,7 @@ export default function PianiEPrezziPage() {
             <strong>Export CSV</strong> dello storico scontrini (per
             commercialista o contabilità)
           </li>
-          <li>
-            Recupero corrispettivi da AdE (sincronizzazione dati storici)
-          </li>
+          <li>Recupero corrispettivi da AdE (sincronizzazione dati storici)</li>
           <li>Sync catalogo prodotti da rubrica AdE</li>
           <li>Supporto prioritario via email entro 24 ore</li>
         </ul>
@@ -136,10 +136,9 @@ export default function PianiEPrezziPage() {
           Versione self-hosted (gratuita)
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          ScontrinoZero è open source con licenza O&apos;Saasy. Puoi
-          scaricare il codice sorgente, installarlo sul tuo server e usarlo
-          gratuitamente con tutte le funzioni del piano Pro. È la scelta
-          giusta se:
+          ScontrinoZero è open source con licenza O&apos;Saasy. Puoi scaricare
+          il codice sorgente, installarlo sul tuo server e usarlo gratuitamente
+          con tutte le funzioni del piano Pro. È la scelta giusta se:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
@@ -149,9 +148,7 @@ export default function PianiEPrezziPage() {
             Vuoi che le tue credenziali Fisconline non transitino da server di
             terzi.
           </li>
-          <li>
-            Preferisci un controllo totale sull&apos;infrastruttura.
-          </li>
+          <li>Preferisci un controllo totale sull&apos;infrastruttura.</li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Con la versione self-hosted sei responsabile di hosting, backup e
@@ -191,63 +188,61 @@ export default function PianiEPrezziPage() {
           <table className="text-muted-foreground w-full text-sm">
             <thead>
               <tr className="border-border border-b text-left">
-                <th className="pb-2 font-semibold text-foreground">Feature</th>
-                <th className="pb-2 font-semibold text-foreground">Starter</th>
-                <th className="pb-2 font-semibold text-foreground">Pro</th>
+                <th className="text-foreground pb-2 font-semibold">Feature</th>
+                <th className="text-foreground pb-2 font-semibold">Starter</th>
+                <th className="text-foreground pb-2 font-semibold">Pro</th>
               </tr>
             </thead>
             <tbody className="divide-border divide-y">
               <tr>
-                <td className="py-2 font-medium text-foreground">
+                <td className="text-foreground py-2 font-medium">
                   Scontrini illimitati
                 </td>
                 <td className="py-2">✓</td>
                 <td className="py-2">✓</td>
               </tr>
               <tr>
-                <td className="py-2 font-medium text-foreground">
+                <td className="text-foreground py-2 font-medium">
                   Pagamenti misti
                 </td>
                 <td className="py-2">✓</td>
                 <td className="py-2">✓</td>
               </tr>
               <tr>
-                <td className="py-2 font-medium text-foreground">
+                <td className="text-foreground py-2 font-medium">
                   Lotteria Scontrini
                 </td>
                 <td className="py-2">✓</td>
                 <td className="py-2">✓</td>
               </tr>
               <tr>
-                <td className="py-2 font-medium text-foreground">
+                <td className="text-foreground py-2 font-medium">
                   Catalogo prodotti
                 </td>
                 <td className="py-2">Max 5</td>
                 <td className="py-2">Illimitato</td>
               </tr>
               <tr>
-                <td className="py-2 font-medium text-foreground">
+                <td className="text-foreground py-2 font-medium">
                   Analytics avanzata
                 </td>
                 <td className="py-2">—</td>
                 <td className="py-2">✓</td>
               </tr>
               <tr>
-                <td className="py-2 font-medium text-foreground">
-                  Export CSV
-                </td>
+                <td className="text-foreground py-2 font-medium">Export CSV</td>
                 <td className="py-2">—</td>
                 <td className="py-2">✓</td>
               </tr>
               <tr>
-                <td className="py-2 font-medium text-foreground">
+                <td className="text-foreground py-2 font-medium">
                   Recupero corrispettivi AdE
                 </td>
                 <td className="py-2">—</td>
                 <td className="py-2">✓</td>
               </tr>
               <tr>
-                <td className="py-2 font-medium text-foreground">
+                <td className="text-foreground py-2 font-medium">
                   Supporto prioritario
                 </td>
                 <td className="py-2">—</td>
@@ -290,8 +285,8 @@ export default function PianiEPrezziPage() {
           </div>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Ricorda: puoi provare tutto con il{" "}
-          <strong>trial di 30 giorni</strong> e decidere alla scadenza.
+          Ricorda: puoi provare tutto con il <strong>trial di 30 giorni</strong>{" "}
+          e decidere alla scadenza.
         </p>
 
         {/* ─── Articoli correlati ─── */}

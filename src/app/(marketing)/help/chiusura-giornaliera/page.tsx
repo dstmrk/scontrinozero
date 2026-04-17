@@ -4,8 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export const metadata: Metadata = {
-  title:
-    "Chiusura giornaliera: è obbligatoria? | ScontrinoZero Help",
+  title: "Chiusura giornaliera: è obbligatoria? | ScontrinoZero Help",
   description:
     "Con ScontrinoZero non devi fare nessuna chiusura giornaliera. Scopri perché il Documento Commerciale Online funziona diversamente dal registratore telematico fisico.",
 };
@@ -47,17 +46,16 @@ export default function ChiusuraGiornalieraPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           I registratori telematici fisici (RT) archiviano gli scontrini in
           memoria locale durante la giornata. A fine servizio l&apos;esercente
-          deve eseguire una{" "}
-          <strong>chiusura di cassa</strong> — un comando che stampa il
-          totale del giorno e invia i dati all&apos;AdE in un unico blocco
-          (il cosiddetto &quot;corrispettivo giornaliero&quot;).
+          deve eseguire una <strong>chiusura di cassa</strong> — un comando che
+          stampa il totale del giorno e invia i dati all&apos;AdE in un unico
+          blocco (il cosiddetto &quot;corrispettivo giornaliero&quot;).
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           ScontrinoZero usa la procedura{" "}
           <strong>Documento Commerciale Online</strong>, che funziona in modo
           completamente diverso: ogni scontrino viene trasmesso{" "}
-          <strong>individualmente e in tempo reale</strong> al portale Fatture
-          e Corrispettivi. Non c&apos;è nulla da raggruppare a fine giornata
+          <strong>individualmente e in tempo reale</strong> al portale Fatture e
+          Corrispettivi. Non c&apos;è nulla da raggruppare a fine giornata
           perché i dati sono già arrivati all&apos;AdE nel momento in cui hai
           premuto &quot;Emetti&quot;.
         </p>
@@ -72,8 +70,8 @@ export default function ChiusuraGiornalieraPage() {
           l&apos;app.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Se vuoi un riepilogo dei corrispettivi del giorno, puoi consultare
-          lo <strong>Storico</strong> e filtrare per data odierna: vedrai
+          Se vuoi un riepilogo dei corrispettivi del giorno, puoi consultare lo{" "}
+          <strong>Storico</strong> e filtrare per data odierna: vedrai
           l&apos;elenco di tutti gli scontrini emessi con importi e metodi di
           pagamento.
         </p>
@@ -86,27 +84,25 @@ export default function ChiusuraGiornalieraPage() {
           <table className="text-muted-foreground w-full text-sm">
             <thead>
               <tr className="border-border border-b text-left">
-                <th className="pb-2 font-semibold text-foreground">
-                  Aspetto
-                </th>
-                <th className="pb-2 font-semibold text-foreground">
+                <th className="text-foreground pb-2 font-semibold">Aspetto</th>
+                <th className="text-foreground pb-2 font-semibold">
                   RT fisico
                 </th>
-                <th className="pb-2 font-semibold text-foreground">
+                <th className="text-foreground pb-2 font-semibold">
                   ScontrinoZero (DCO)
                 </th>
               </tr>
             </thead>
             <tbody className="divide-border divide-y">
               <tr>
-                <td className="py-2 font-medium text-foreground">
+                <td className="text-foreground py-2 font-medium">
                   Trasmissione
                 </td>
                 <td className="py-2">Batch a fine giornata</td>
                 <td className="py-2">In tempo reale per ogni scontrino</td>
               </tr>
               <tr>
-                <td className="py-2 font-medium text-foreground">
+                <td className="text-foreground py-2 font-medium">
                   Chiusura giornaliera
                 </td>
                 <td className="py-2">Obbligatoria</td>
@@ -115,14 +111,14 @@ export default function ChiusuraGiornalieraPage() {
                 </td>
               </tr>
               <tr>
-                <td className="py-2 font-medium text-foreground">
+                <td className="text-foreground py-2 font-medium">
                   Rischio di dimenticarsi
                 </td>
                 <td className="py-2">Sì (sanzione)</td>
                 <td className="py-2">No</td>
               </tr>
               <tr>
-                <td className="py-2 font-medium text-foreground">
+                <td className="text-foreground py-2 font-medium">
                   Hardware richiesto
                 </td>
                 <td className="py-2">RT certificato (€200-800)</td>
@@ -137,11 +133,11 @@ export default function ChiusuraGiornalieraPage() {
           Rischio sanzioni per mancata chiusura
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Con gli RT fisici, dimenticare la chiusura giornaliera può
-          comportare sanzioni amministrative (omessa trasmissione dei
-          corrispettivi). Con ScontrinoZero questo rischio{" "}
-          <strong>non esiste</strong>: ogni scontrino emesso è già stato
-          trasmesso, indipendentemente da qualsiasi azione manuale.
+          Con gli RT fisici, dimenticare la chiusura giornaliera può comportare
+          sanzioni amministrative (omessa trasmissione dei corrispettivi). Con
+          ScontrinoZero questo rischio <strong>non esiste</strong>: ogni
+          scontrino emesso è già stato trasmesso, indipendentemente da qualsiasi
+          azione manuale.
         </p>
 
         {/* ─── FAQ ─── */}
@@ -149,8 +145,7 @@ export default function ChiusuraGiornalieraPage() {
         <div className="mt-3 space-y-4">
           <div>
             <p className="text-sm font-medium">
-              Se perdo la connessione durante la giornata, i dati vengono
-              persi?
+              Se perdo la connessione durante la giornata, i dati vengono persi?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               No. ScontrinoZero non permette di emettere uno scontrino senza
@@ -161,13 +156,13 @@ export default function ChiusuraGiornalieraPage() {
           </div>
           <div>
             <p className="text-sm font-medium">
-              Ho un POS fisico collegato a un RT: devo comunque fare la
-              chiusura sull&apos;RT?
+              Ho un POS fisico collegato a un RT: devo comunque fare la chiusura
+              sull&apos;RT?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Sì, se usi un RT fisico <em>in parallelo</em> a ScontrinoZero,
-              le obbligazioni dell&apos;RT rimangono invariate. ScontrinoZero
-              non sostituisce un RT già in uso: lo affianca o lo sostituisce
+              Sì, se usi un RT fisico <em>in parallelo</em> a ScontrinoZero, le
+              obbligazioni dell&apos;RT rimangono invariate. ScontrinoZero non
+              sostituisce un RT già in uso: lo affianca o lo sostituisce
               completamente a seconda del tuo setup.
             </p>
           </div>
@@ -177,8 +172,8 @@ export default function ChiusuraGiornalieraPage() {
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               No. I corrispettivi sono già registrati nel cassetto fiscale
-              dell&apos;AdE e nello Storico di ScontrinoZero. Puoi esportare
-              un CSV in qualsiasi momento per i tuoi archivi o per il
+              dell&apos;AdE e nello Storico di ScontrinoZero. Puoi esportare un
+              CSV in qualsiasi momento per i tuoi archivi o per il
               commercialista.
             </p>
           </div>

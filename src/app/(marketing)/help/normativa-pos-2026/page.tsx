@@ -30,10 +30,10 @@ export default function NormativaPos2026Page() {
           <Badge variant="secondary">POS e normativa</Badge>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Dal 2026 gli esercenti con registratore telematico devono integrare
-          il POS con il sistema di cassa. Questa guida spiega in modo chiaro
-          chi è obbligato, cosa cambia concretamente e perché chi usa
-          ScontrinoZero è già in una posizione vantaggiosa.
+          Dal 2026 gli esercenti con registratore telematico devono integrare il
+          POS con il sistema di cassa. Questa guida spiega in modo chiaro chi è
+          obbligato, cosa cambia concretamente e perché chi usa ScontrinoZero è
+          già in una posizione vantaggiosa.
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
           <strong>Ultimo aggiornamento:</strong> aprile 2026
@@ -42,8 +42,8 @@ export default function NormativaPos2026Page() {
         {/* ─── La normativa in sintesi ─── */}
         <h2 className="mt-10 text-xl font-semibold">La normativa in sintesi</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Il collegamento obbligatorio tra POS e registratore telematico (RT)
-          è previsto dalla{" "}
+          Il collegamento obbligatorio tra POS e registratore telematico (RT) è
+          previsto dalla{" "}
           <strong>Legge di Bilancio 2023 (art. 1, co. 385)</strong>, con
           attuazione progressiva. L&apos;obiettivo è che i pagamenti elettronici
           siano automaticamente abbinati agli scontrini fiscali, riducendo
@@ -86,16 +86,14 @@ export default function NormativaPos2026Page() {
             Soggetti in regime di esonero dall&apos;obbligo di scontrino (es.
             alcune categorie di venditori ambulanti).
           </li>
-          <li>
-            Professionisti che emettono esclusivamente fattura.
-          </li>
+          <li>Professionisti che emettono esclusivamente fattura.</li>
         </ul>
 
         {/* ─── Scadenze ─── */}
         <h2 className="mt-10 text-xl font-semibold">Scadenze operative</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Le scadenze per il collegamento tecnico POS-RT sono state
-          oggetto di proroghe successive. Al momento:
+          Le scadenze per il collegamento tecnico POS-RT sono state oggetto di
+          proroghe successive. Al momento:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
@@ -103,8 +101,8 @@ export default function NormativaPos2026Page() {
             produttori di RT e POS.
           </li>
           <li>
-            <strong>2026:</strong> obbligo operativo per i soggetti con RT.
-            I fornitori di POS (Nexi, SumUp, Stripe Terminal, ecc.) stanno
+            <strong>2026:</strong> obbligo operativo per i soggetti con RT. I
+            fornitori di POS (Nexi, SumUp, Stripe Terminal, ecc.) stanno
             rilasciando aggiornamenti firmware per la compatibilità.
           </li>
         </ul>
@@ -122,11 +120,9 @@ export default function NormativaPos2026Page() {
           <strong>Sì, e la situazione è ancora più semplice.</strong>{" "}
           ScontrinoZero usa la procedura{" "}
           <strong>Documento Commerciale Online</strong>, che trasmette ogni
-          scontrino all&apos;AdE in tempo reale, scontrino per scontrino.
-          Questa procedura{" "}
-          <strong>
-            non rientra nell&apos;obbligo di collegamento POS-RT
-          </strong>{" "}
+          scontrino all&apos;AdE in tempo reale, scontrino per scontrino. Questa
+          procedura{" "}
+          <strong>non rientra nell&apos;obbligo di collegamento POS-RT</strong>{" "}
           previsto dalla Legge di Bilancio 2023, che si applica solo ai
           registratori telematici fisici.
         </p>
@@ -147,23 +143,22 @@ export default function NormativaPos2026Page() {
           <li>
             <strong>Aggiornare l&apos;RT esistente</strong> con il firmware
             compatibile POS-RT fornito dal produttore (Epson, Custom, Ditron,
-            ecc.) e collegarlo al POS certificato. Costo: dipende dal
-            contratto con il fornitore.
+            ecc.) e collegarlo al POS certificato. Costo: dipende dal contratto
+            con il fornitore.
           </li>
           <li>
             <strong>Passare a ScontrinoZero</strong> come alternativa
             completamente software. Nessun hardware da aggiornare, nessun
-            collegamento POS-RT richiesto, costi fissi molto inferiori.
-            Il POS rimane indipendente e tu registri comunque ogni incasso
-            in ScontrinoZero.
+            collegamento POS-RT richiesto, costi fissi molto inferiori. Il POS
+            rimane indipendente e tu registri comunque ogni incasso in
+            ScontrinoZero.
           </li>
         </ol>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           La scelta dipende dalla tua attività, dal volume di transazioni e
           dalla necessità di funzionamento offline. Se vuoi valutare la
-          transizione, il{" "}
-          <strong>trial gratuito di 30 giorni</strong> di ScontrinoZero ti
-          permette di testare senza impegno.
+          transizione, il <strong>trial gratuito di 30 giorni</strong> di
+          ScontrinoZero ti permette di testare senza impegno.
         </p>
 
         {/* ─── Differenza RT vs DCO ─── */}
@@ -174,28 +169,30 @@ export default function NormativaPos2026Page() {
           <table className="text-muted-foreground w-full text-sm">
             <thead>
               <tr className="border-border border-b text-left">
-                <th className="pb-2 font-semibold text-foreground">Aspetto</th>
-                <th className="pb-2 font-semibold text-foreground">RT fisico</th>
-                <th className="pb-2 font-semibold text-foreground">
+                <th className="text-foreground pb-2 font-semibold">Aspetto</th>
+                <th className="text-foreground pb-2 font-semibold">
+                  RT fisico
+                </th>
+                <th className="text-foreground pb-2 font-semibold">
                   ScontrinoZero (DCO)
                 </th>
               </tr>
             </thead>
             <tbody className="divide-border divide-y">
               <tr>
-                <td className="py-2 font-medium text-foreground">Hardware</td>
+                <td className="text-foreground py-2 font-medium">Hardware</td>
                 <td className="py-2">RT certificato (€200-800+)</td>
                 <td className="py-2">Smartphone o PC</td>
               </tr>
               <tr>
-                <td className="py-2 font-medium text-foreground">
+                <td className="text-foreground py-2 font-medium">
                   Obbligo POS-RT 2026
                 </td>
                 <td className="py-2">Sì</td>
                 <td className="py-2 font-semibold text-green-600">No</td>
               </tr>
               <tr>
-                <td className="py-2 font-medium text-foreground">
+                <td className="text-foreground py-2 font-medium">
                   Chiusura giornaliera
                 </td>
                 <td className="py-2">Obbligatoria</td>
@@ -204,14 +201,14 @@ export default function NormativaPos2026Page() {
                 </td>
               </tr>
               <tr>
-                <td className="py-2 font-medium text-foreground">
+                <td className="text-foreground py-2 font-medium">
                   Manutenzione
                 </td>
                 <td className="py-2">Tecnico specializzato</td>
                 <td className="py-2">Aggiornamenti automatici</td>
               </tr>
               <tr>
-                <td className="py-2 font-medium text-foreground">
+                <td className="text-foreground py-2 font-medium">
                   Costo annuo
                 </td>
                 <td className="py-2">€150-400+ (canone + manutenzione)</td>
@@ -250,8 +247,8 @@ export default function NormativaPos2026Page() {
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               Le sanzioni per omessa o tardiva trasmissione dei corrispettivi
-              sono previste dall&apos;art. 2 comma 6 del D.Lgs. 127/2015.
-              I dettagli applicativi al collegamento POS-RT saranno chiariti
+              sono previste dall&apos;art. 2 comma 6 del D.Lgs. 127/2015. I
+              dettagli applicativi al collegamento POS-RT saranno chiariti
               dall&apos;AdE con appositi provvedimenti. Mantieniti aggiornato
               tramite il sito dell&apos;Agenzia delle Entrate o il tuo
               consulente fiscale.
