@@ -116,8 +116,9 @@ describe("parseStrictIsoDateUtc", () => {
 
   it("round-trip: returned Date has correct UTC year/month/day", () => {
     const d = parseStrictIsoDateUtc("2026-07-15");
-    expect(d?.getUTCFullYear()).toBe(2026);
-    expect(d?.getUTCMonth() + 1).toBe(7);
-    expect(d?.getUTCDate()).toBe(15);
+    expect(d).not.toBeNull();
+    expect(d!.getUTCFullYear()).toBe(2026);
+    expect(d!.getUTCMonth() + 1).toBe(7);
+    expect(d!.getUTCDate()).toBe(15);
   });
 });
