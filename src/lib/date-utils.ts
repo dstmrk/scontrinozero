@@ -21,3 +21,26 @@ export function getFiscalDate(
   // sv-SE locale uses ISO 8601 date format (YYYY-MM-DD) natively.
   return new Intl.DateTimeFormat("sv-SE", { timeZone: tz }).format(date);
 }
+
+/**
+ * Parses an ISO YYYY-MM-DD string to a UTC-midnight Date.
+ * Returns null for invalid format or impossible dates (e.g. 2026-02-31).
+ * Round-trip check: parsed year/month/day must equal input to catch JS Date
+ * normalisation of out-of-range values like month 13 or Feb 31.
+ */
+export function parseStrictIsoDateUtc(str: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return null;
+  const parts = str.split("-");
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const day = Number(parts[2]);
+  const d = new Date(Date.UTC(year, month - 1, day));
+  if (
+    d.getUTCFullYear() !== year ||
+    d.getUTCMonth() + 1 !== month ||
+    d.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return d;
+}

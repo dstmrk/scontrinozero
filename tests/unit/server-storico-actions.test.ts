@@ -179,30 +179,58 @@ describe("searchReceipts server action", () => {
   // ── Input validation: date format + pagination clamping (P1-01, P1-02) ─────
 
   describe("input validation (P1-01, P1-02)", () => {
-    it("ignores dateFrom with invalid format (not yyyy-MM-dd) — no gte condition", async () => {
+    it("returns error for dateFrom with invalid format (not yyyy-MM-dd)", async () => {
       const { searchReceipts } = await import("@/server/storico-actions");
       const { gte } = await import("drizzle-orm");
 
-      await searchReceipts(BIZ_ID, { dateFrom: "abc" });
+      const result = await searchReceipts(BIZ_ID, { dateFrom: "abc" });
 
+      expect(result.error).toBeDefined();
+      expect(result.error).toMatch(/dateFrom/);
       expect(gte).not.toHaveBeenCalled();
     });
 
-    it("ignores dateFrom with impossible date value (e.g. 2026-99-99) — no gte condition", async () => {
+    it("returns error for dateFrom with impossible date value (e.g. 2026-99-99)", async () => {
       const { searchReceipts } = await import("@/server/storico-actions");
       const { gte } = await import("drizzle-orm");
 
-      await searchReceipts(BIZ_ID, { dateFrom: "2026-99-99" });
+      const result = await searchReceipts(BIZ_ID, { dateFrom: "2026-99-99" });
 
+      expect(result.error).toBeDefined();
+      expect(result.error).toMatch(/dateFrom/);
       expect(gte).not.toHaveBeenCalled();
     });
 
-    it("ignores dateTo with invalid format — no lt condition", async () => {
+    it("returns error for dateFrom with impossible date (Feb 31 — JS normalises to March)", async () => {
+      const { searchReceipts } = await import("@/server/storico-actions");
+      const { gte } = await import("drizzle-orm");
+
+      const result = await searchReceipts(BIZ_ID, { dateFrom: "2026-02-31" });
+
+      expect(result.error).toBeDefined();
+      expect(result.error).toMatch(/dateFrom/);
+      expect(gte).not.toHaveBeenCalled();
+    });
+
+    it("returns error for dateTo with invalid format", async () => {
       const { searchReceipts } = await import("@/server/storico-actions");
       const { lt } = await import("drizzle-orm");
 
-      await searchReceipts(BIZ_ID, { dateTo: "not-a-date" });
+      const result = await searchReceipts(BIZ_ID, { dateTo: "not-a-date" });
 
+      expect(result.error).toBeDefined();
+      expect(result.error).toMatch(/dateTo/);
+      expect(lt).not.toHaveBeenCalled();
+    });
+
+    it("returns error for dateTo with impossible date (Apr 31)", async () => {
+      const { searchReceipts } = await import("@/server/storico-actions");
+      const { lt } = await import("drizzle-orm");
+
+      const result = await searchReceipts(BIZ_ID, { dateTo: "2026-04-31" });
+
+      expect(result.error).toBeDefined();
+      expect(result.error).toMatch(/dateTo/);
       expect(lt).not.toHaveBeenCalled();
     });
 

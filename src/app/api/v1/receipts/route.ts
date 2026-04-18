@@ -7,6 +7,7 @@ import {
   groupLinesByDocId,
   calcDocTotal,
 } from "@/lib/receipts/document-lines";
+import { parseStrictIsoDateUtc } from "@/lib/date-utils";
 import { RateLimiter } from "@/lib/rate-limit";
 import { emitReceiptForBusiness } from "@/lib/services/receipt-service";
 import {
@@ -79,9 +80,6 @@ const listApiLimiter = new RateLimiter({
 const MAX_RANGE_DAYS = 31;
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
-
-/** Matches YYYY-MM-DD dates. Lightweight format guard — value validity checked via Date parse. */
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export function OPTIONS(): Response {
   return corsOptionsResponse("GET, POST, OPTIONS");
@@ -162,7 +160,7 @@ export async function GET(request: Request): Promise<Response> {
   const fromStr = searchParams.get("from");
   const toStr = searchParams.get("to");
 
-  if (!fromStr || !DATE_PATTERN.test(fromStr)) {
+  if (!fromStr) {
     return withCors(
       Response.json(
         {
@@ -173,7 +171,17 @@ export async function GET(request: Request): Promise<Response> {
       ),
     );
   }
-  if (!toStr || !DATE_PATTERN.test(toStr)) {
+  const fromDate = parseStrictIsoDateUtc(fromStr);
+  if (!fromDate) {
+    return withCors(
+      Response.json(
+        { error: "Il parametro 'from' non è una data valida." },
+        { status: 400 },
+      ),
+    );
+  }
+
+  if (!toStr) {
     return withCors(
       Response.json(
         {
@@ -184,20 +192,8 @@ export async function GET(request: Request): Promise<Response> {
       ),
     );
   }
-
-  // Append time component so Date.UTC is used unambiguously (avoids TZ-offset surprises)
-  const fromDate = new Date(fromStr + "T00:00:00.000Z");
-  if (Number.isNaN(fromDate.getTime())) {
-    return withCors(
-      Response.json(
-        { error: "Il parametro 'from' non è una data valida." },
-        { status: 400 },
-      ),
-    );
-  }
-
-  const toDate = new Date(toStr + "T00:00:00.000Z");
-  if (Number.isNaN(toDate.getTime())) {
+  const toDate = parseStrictIsoDateUtc(toStr);
+  if (!toDate) {
     return withCors(
       Response.json(
         { error: "Il parametro 'to' non è una data valida." },
@@ -217,7 +213,8 @@ export async function GET(request: Request): Promise<Response> {
 
   const diffDays =
     (toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24);
-  if (diffDays > MAX_RANGE_DAYS) {
+  // +1: both from and to are inclusive days in the range
+  if (diffDays + 1 > MAX_RANGE_DAYS) {
     return withCors(
       Response.json(
         {

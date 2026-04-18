@@ -326,11 +326,16 @@ async function syncSubscriptionData(
   const interval = intervalFromPriceId(priceId);
 
   if (!plan || !interval) {
+    // Throw so processWithClaimRelease releases the claim and Stripe retries.
+    // Silently returning would acknowledge the event as done while the plan
+    // was never updated — a persistent desync with no recovery path.
     logger.error(
-      { priceId, stripeSubscriptionId: stripeSub.id },
-      "Unknown priceId in Stripe webhook — skipping plan update",
+      { priceId, stripeSubscriptionId: stripeSub.id, unknownPriceId: true },
+      "Unknown priceId in Stripe webhook — releasing claim for Stripe retry",
     );
-    return;
+    throw new Error(
+      `Unknown priceId ${priceId} — configure STRIPE_PRICE_ID_* env vars`,
+    );
   }
 
   const status = stripeSub.status;

@@ -231,7 +231,7 @@ all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la pr
 
 **Versione corrente:** v1.2.6 ⬜ (in sviluppo) — roadmap completa in `PLAN.md`.
 
-**Prossima release:** v1.2.6 (fix code review: webhook atomic claim, searchReceipts validation, changePassword rate limit, rows_affected check)
+**Prossima release:** v1.2.6 (fix code review: webhook atomic claim, searchReceipts validation, changePassword rate limit, rows_affected check, strict ISO date validation, off-by-one range check, webhook priceId retry)
 
 **Post-lancio:** v1.2.2 (billing fix) → v1.2.3–v1.2.6 (patch: landing SEO, security/GDPR polish, code review fixes) → v1.3.0+ (analytics, catalog sync, …)
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getFiscalDate } from "./date-utils";
+import { getFiscalDate, parseStrictIsoDateUtc } from "./date-utils";
 
 describe("getFiscalDate", () => {
   it("returns YYYY-MM-DD format", () => {
@@ -63,5 +63,62 @@ describe("getFiscalDate", () => {
       "Europe/Rome",
     );
     expect(result).toBe("2026-10-25");
+  });
+});
+
+describe("parseStrictIsoDateUtc", () => {
+  it("returns a UTC-midnight Date for valid dates", () => {
+    const d = parseStrictIsoDateUtc("2026-01-01");
+    expect(d).toEqual(new Date("2026-01-01T00:00:00.000Z"));
+  });
+
+  it("returns correct UTC midnight for end of February in a non-leap year", () => {
+    const d = parseStrictIsoDateUtc("2026-02-28");
+    expect(d).toEqual(new Date("2026-02-28T00:00:00.000Z"));
+  });
+
+  it("returns correct UTC midnight for Dec 31", () => {
+    const d = parseStrictIsoDateUtc("2026-12-31");
+    expect(d).toEqual(new Date("2026-12-31T00:00:00.000Z"));
+  });
+
+  it("returns null for Feb 31 (impossible date — JS normalises to March)", () => {
+    expect(parseStrictIsoDateUtc("2026-02-31")).toBeNull();
+  });
+
+  it("returns null for Apr 31 (impossible date — April has 30 days)", () => {
+    expect(parseStrictIsoDateUtc("2026-04-31")).toBeNull();
+  });
+
+  it("returns null for month 13", () => {
+    expect(parseStrictIsoDateUtc("2026-13-01")).toBeNull();
+  });
+
+  it("returns null for month 00", () => {
+    expect(parseStrictIsoDateUtc("2026-00-10")).toBeNull();
+  });
+
+  it("returns null for day 00", () => {
+    expect(parseStrictIsoDateUtc("2026-01-00")).toBeNull();
+  });
+
+  it("returns null for wrong format (no dashes)", () => {
+    expect(parseStrictIsoDateUtc("20260101")).toBeNull();
+  });
+
+  it("returns null for partial format (single-digit month)", () => {
+    expect(parseStrictIsoDateUtc("2026-1-1")).toBeNull();
+  });
+
+  it("returns null for non-date string", () => {
+    expect(parseStrictIsoDateUtc("foo")).toBeNull();
+  });
+
+  it("round-trip: returned Date has correct UTC year/month/day", () => {
+    const d = parseStrictIsoDateUtc("2026-07-15");
+    expect(d).not.toBeNull();
+    expect(d!.getUTCFullYear()).toBe(2026);
+    expect(d!.getUTCMonth() + 1).toBe(7);
+    expect(d!.getUTCDate()).toBe(15);
   });
 });

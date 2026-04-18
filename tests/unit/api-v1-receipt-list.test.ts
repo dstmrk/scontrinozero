@@ -279,14 +279,49 @@ describe("GET /api/v1/receipts (list)", () => {
       expect(body.error).toMatch(/31/);
     });
 
-    it("accepts range of exactly 31 days", async () => {
+    it("accepts range of exactly 31 inclusive days (diffDays=30)", async () => {
       setupDbMocksEmpty();
       const { GET } = await import("@/app/api/v1/receipts/route");
+      // Apr 1 → May 1 = 30 day diff = 31 inclusive days (Apr 1 … May 1) → allowed
+      const res = await GET(
+        makeRequest({ from: "2026-04-01", to: "2026-05-01" }),
+      );
+
+      expect(res.status).toBe(200);
+    });
+
+    it("returns 400 for range of 32 inclusive days (diffDays=31)", async () => {
+      const { GET } = await import("@/app/api/v1/receipts/route");
+      // Apr 1 → May 2 = 31 day diff = 32 inclusive days → exceeds limit
       const res = await GET(
         makeRequest({ from: "2026-04-01", to: "2026-05-02" }),
       );
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toMatch(/31/);
+    });
+
+    it("returns 400 when 'from' is an impossible date (Feb 31)", async () => {
+      const { GET } = await import("@/app/api/v1/receipts/route");
+      const res = await GET(makeRequest({ from: "2026-02-31", to: VALID_TO }));
+
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toMatch(/from/i);
+      expect(body.error).toMatch(/valida/i);
+    });
+
+    it("returns 400 when 'to' is an impossible date (Apr 31)", async () => {
+      const { GET } = await import("@/app/api/v1/receipts/route");
+      const res = await GET(
+        makeRequest({ from: VALID_FROM, to: "2026-04-31" }),
+      );
+
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toMatch(/to/i);
+      expect(body.error).toMatch(/valida/i);
     });
 
     it("accepts same-day range (from == to)", async () => {
