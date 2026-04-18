@@ -56,6 +56,8 @@ export interface SearchReceiptsResult {
   items: ReceiptListItem[];
   /** Numero totale di documenti che corrispondono ai filtri (senza paginazione). */
   total: number;
+  /** Presente se la richiesta è stata rifiutata per input non valido (es. data impossibile). */
+  error?: string;
 }
 
 // ---------------------------------------------------------------------------

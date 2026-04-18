@@ -12,6 +12,7 @@ import {
   groupLinesByDocId,
   calcDocTotal,
 } from "@/lib/receipts/document-lines";
+import { parseStrictIsoDateUtc } from "@/lib/date-utils";
 import {
   STORICO_PAGE_SIZE,
   type SearchReceiptsResult,
@@ -23,13 +24,6 @@ import {
 // ---------------------------------------------------------------------------
 
 const MAX_PAGE_SIZE = 100;
-
-/** Returns a valid UTC-midnight Date for an ISO yyyy-MM-dd string, or null if invalid. */
-function parseIsoDate(str: string): Date | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return null;
-  const d = new Date(str + "T00:00:00.000Z");
-  return Number.isNaN(d.getTime()) ? null : d;
-}
 
 // ---------------------------------------------------------------------------
 // searchReceipts
@@ -68,20 +62,22 @@ export async function searchReceipts(
   ];
 
   if (params.dateFrom) {
-    // Validate format and value: silently ignore invalid dates instead of crashing.
-    const d = parseIsoDate(params.dateFrom);
-    if (d) {
-      // Explicit UTC midnight: avoids local-timezone off-by-one on servers outside UTC
-      conditions.push(gte(commercialDocuments.createdAt, d));
-    }
+    const d = parseStrictIsoDateUtc(params.dateFrom);
+    if (!d)
+      return {
+        error: "Filtro data 'dateFrom' non valido.",
+        items: [],
+        total: 0,
+      };
+    conditions.push(gte(commercialDocuments.createdAt, d));
   }
   if (params.dateTo) {
-    const d = parseIsoDate(params.dateTo);
-    if (d) {
-      // Include the entire 'to' day by advancing to the start of the next UTC day
-      d.setUTCDate(d.getUTCDate() + 1);
-      conditions.push(lt(commercialDocuments.createdAt, d));
-    }
+    const d = parseStrictIsoDateUtc(params.dateTo);
+    if (!d)
+      return { error: "Filtro data 'dateTo' non valido.", items: [], total: 0 };
+    const toExclusive = new Date(d);
+    toExclusive.setUTCDate(toExclusive.getUTCDate() + 1);
+    conditions.push(lt(commercialDocuments.createdAt, toExclusive));
   }
   if (params.status) {
     conditions.push(eq(commercialDocuments.status, params.status));
