@@ -392,8 +392,8 @@ describe("POST /api/stripe/webhook", () => {
     );
   });
 
-  // P1-01: unknown priceId must not silently assign "starter"
-  it("syncSubscriptionData: skips plan update and logs error on unknown priceId", async () => {
+  // R-03: unknown priceId must release claim (500) so Stripe can retry
+  it("syncSubscriptionData: returns 500 and releases claim on unknown priceId", async () => {
     mockPlanFromPriceId.mockReturnValue(null);
     mockIntervalFromPriceId.mockReturnValue(null);
     const subscription = makeStripeSubscription({ status: "active" });
@@ -403,15 +403,21 @@ describe("POST /api/stripe/webhook", () => {
 
     const response = await POST(makeWebhookRequest("{}"));
 
-    expect(response.status).toBe(200);
+    // Must be 500 so Stripe retries (not 200 which would ack the event permanently)
+    expect(response.status).toBe(500);
     // profiles.plan must NOT be updated
     const planUpdateCall = mockUpdateSet.mock.calls.find((args) =>
       Object.keys(args[0] as Record<string, unknown>).includes("plan"),
     );
     expect(planUpdateCall).toBeUndefined();
-    // logger.error must be called with priceId context
+    // Claim must be released via DELETE so the event can be retried
+    expect(mockDeleteWhere).toHaveBeenCalled();
+    // logger.error must be called with priceId + unknownPriceId tag
     expect(logger.error as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
-      expect.objectContaining({ priceId: "price_starter_monthly" }),
+      expect.objectContaining({
+        priceId: "price_starter_monthly",
+        unknownPriceId: true,
+      }),
       expect.any(String),
     );
   });
