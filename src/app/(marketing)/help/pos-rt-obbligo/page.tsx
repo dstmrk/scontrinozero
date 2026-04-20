@@ -51,10 +51,11 @@ export default function PosRtObbligoPage() {
           all&apos;Agenzia delle Entrate.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          In pratica, quando un cliente paga con carta o bancomat, il sistema
-          deve essere in grado di abbinare il pagamento all&apos;operazione
-          fiscale (scontrino elettronico) senza operazioni manuali
-          dell&apos;esercente.
+          In pratica, ogni pagamento con carta o bancomat deve essere
+          tracciabile e abbinabile allo scontrino elettronico emesso per quella
+          transazione. Le modalità tecniche specifiche (es. integrazione
+          automatica POS-RT) sono in attesa di circolare attuativa
+          dell&apos;Agenzia delle Entrate.
         </p>
 
         {/* ─── Chi è obbligato ─── */}
