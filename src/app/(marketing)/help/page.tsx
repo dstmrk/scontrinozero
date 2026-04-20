@@ -123,7 +123,10 @@ const helpCategories: HelpCategory[] = [
         title: "Come gestire aliquote IVA, reparti e metodi di pagamento",
         href: "/help/aliquote-iva",
       },
-      { title: "Personalizzare intestazione e dati dello scontrino" },
+      {
+        title: "Personalizzare intestazione e dati dello scontrino",
+        href: "/help/intestazione-scontrino",
+      },
       { title: "Gestione operatori e permessi" },
     ],
   },
@@ -131,7 +134,10 @@ const helpCategories: HelpCategory[] = [
     name: "POS e normativa",
     description: "Obblighi 2026 e collegamento POS-RT.",
     articles: [
-      { title: "Collegamento POS-RT: chi è obbligato e scadenze" },
+      {
+        title: "Collegamento POS-RT: chi è obbligato e scadenze",
+        href: "/help/pos-rt-obbligo",
+      },
       {
         title: "Come registrare un POS nel portale Fatture e Corrispettivi",
       },
@@ -165,9 +171,18 @@ const helpCategories: HelpCategory[] = [
     name: "API per sviluppatori",
     description: "Integra l'emissione scontrini nel tuo gestionale o POS.",
     articles: [
-      { title: "Autenticazione e gestione chiavi API" },
-      { title: "Endpoint: emissione, stato e annullamento scontrino" },
-      { title: "Codici IVA, rate limit e gestione errori" },
+      {
+        title: "Autenticazione e gestione chiavi API",
+        href: "/help/api#autenticazione",
+      },
+      {
+        title: "Endpoint: emissione, stato e annullamento scontrino",
+        href: "/help/api#endpoint",
+      },
+      {
+        title: "Codici IVA, rate limit e gestione errori",
+        href: "/help/api#codici-iva",
+      },
     ],
     categoryHref: "/help/api",
   },
@@ -179,9 +194,18 @@ const helpCategories: HelpCategory[] = [
         title: "Piani disponibili: Starter, Pro e versione gratuita",
         href: "/help/piani-e-prezzi",
       },
-      { title: "Come passare da mensile ad annuale" },
-      { title: "Dove trovare fatture e ricevute di pagamento" },
-      { title: "Come contattare l'assistenza" },
+      {
+        title: "Come passare da mensile ad annuale",
+        href: "/help/cambio-piano",
+      },
+      {
+        title: "Dove trovare fatture e ricevute di pagamento",
+        href: "/help/fatture-e-ricevute",
+      },
+      {
+        title: "Come contattare l'assistenza",
+        href: "/help/contatto-assistenza",
+      },
     ],
   },
 ];

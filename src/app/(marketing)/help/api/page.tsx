@@ -61,7 +61,9 @@ export default function ApiDocsPage() {
         </ul>
 
         {/* ─── Autenticazione ─── */}
-        <h2 className="mt-12 text-xl font-semibold">Autenticazione</h2>
+        <h2 id="autenticazione" className="mt-12 text-xl font-semibold">
+          Autenticazione
+        </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           {"Includi la chiave API in ogni richiesta tramite l'header "}
           <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">
@@ -128,7 +130,9 @@ export default function ApiDocsPage() {
         </ul>
 
         {/* ─── Endpoint ─── */}
-        <h2 className="mt-12 text-xl font-semibold">Endpoint</h2>
+        <h2 id="endpoint" className="mt-12 text-xl font-semibold">
+          Endpoint
+        </h2>
         <div className="text-muted-foreground mt-1 text-sm">
           <table className="w-full border-collapse text-sm">
             <thead>
@@ -631,7 +635,9 @@ export default function ApiDocsPage() {
         </pre>
 
         {/* ─── Codici IVA ─── */}
-        <h2 className="mt-12 text-xl font-semibold">Codici IVA</h2>
+        <h2 id="codici-iva" className="mt-12 text-xl font-semibold">
+          Codici IVA
+        </h2>
         <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
           {"Il campo "}
           <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">
