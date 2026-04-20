@@ -64,14 +64,16 @@ export default function AnnullareScontrinoPage() {
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
-            Scontrini già annullati (badge{" "}
+            {"Scontrini già annullati (badge "}
             <strong>&quot;Annullato&quot;</strong>
-            ).
+            {")."}
           </li>
           <li>
-            Scontrini ancora in attesa di conferma AdE (badge giallo{" "}
-            <strong>&quot;PENDING&quot;</strong>): aspetta che diventino
-            <em> Emesso</em> prima di annullare.
+            {"Scontrini ancora in attesa di conferma AdE (badge giallo "}
+            <strong>&quot;PENDING&quot;</strong>
+            {": aspetta che diventino "}
+            <em>Emesso</em>
+            {" prima di annullare."}
           </li>
           <li>
             Scontrini con stato <strong>&quot;Errore&quot;</strong>: non sono
@@ -94,17 +96,16 @@ export default function AnnullareScontrinoPage() {
         {/* ─── Limiti temporali ─── */}
         <h2 className="mt-10 text-xl font-semibold">Limiti temporali</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Per il Documento Commerciale Online non esiste una finestra rigida di
-          annullo: puoi procedere anche diversi giorni dopo l&apos;emissione
-          (diversamente dai registratori telematici fisici, dove spesso la
-          finestra coincide con la chiusura giornaliera). La best practice
-          fiscale resta però di{" "}
+          {
+            "Per il Documento Commerciale Online non esiste una finestra rigida di annullo: puoi procedere anche diversi giorni dopo l\u2019emissione (diversamente dai registratori telematici fisici, dove spesso la finestra coincide con la chiusura giornaliera). La best practice fiscale resta però di "
+          }
           <strong>
             annullare il prima possibile e comunque entro il periodo
             d&apos;imposta
           </strong>
-          : ogni ritardo rende più complicata la riconciliazione dei
-          corrispettivi giornalieri nel cassetto fiscale.
+          {
+            ": ogni ritardo rende più complicata la riconciliazione dei corrispettivi giornalieri nel cassetto fiscale."
+          }
         </p>
 
         {/* ─── Come fare ─── */}
