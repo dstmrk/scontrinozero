@@ -5,12 +5,16 @@ describe("sitemap", () => {
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
-    expect(result).toHaveLength(17);
+    expect(result).toHaveLength(33);
+
+    // Root
     expect(result[0]).toMatchObject({
       url: "https://scontrinozero.it",
       changeFrequency: "monthly",
       priority: 1,
     });
+
+    // Marketing pages
     expect(result[1]).toMatchObject({
       url: "https://scontrinozero.it/prezzi",
       changeFrequency: "monthly",
@@ -21,6 +25,8 @@ describe("sitemap", () => {
       changeFrequency: "monthly",
       priority: 0.8,
     });
+
+    // Legal
     expect(result[3]).toMatchObject({
       url: "https://scontrinozero.it/privacy",
       changeFrequency: "yearly",
@@ -51,42 +57,50 @@ describe("sitemap", () => {
       changeFrequency: "yearly",
       priority: 0.3,
     });
+
+    // Help center hub
     expect(result[9]).toMatchObject({
       url: "https://scontrinozero.it/help",
       changeFrequency: "monthly",
       priority: 0.6,
     });
-    expect(result[10]).toMatchObject({
-      url: "https://scontrinozero.it/help/come-collegare-ade",
-      changeFrequency: "monthly",
-      priority: 0.6,
-    });
-    expect(result[11]).toMatchObject({
-      url: "https://scontrinozero.it/help/credenziali-fisconline",
-      changeFrequency: "monthly",
-      priority: 0.6,
-    });
-    expect(result[12]).toMatchObject({
-      url: "https://scontrinozero.it/help/primo-scontrino",
-      changeFrequency: "monthly",
-      priority: 0.6,
-    });
-    expect(result[13]).toMatchObject({
-      url: "https://scontrinozero.it/help/annullare-scontrino",
-      changeFrequency: "monthly",
-      priority: 0.6,
-    });
-    expect(result[14]).toMatchObject({
-      url: "https://scontrinozero.it/help/regime-forfettario",
-      changeFrequency: "monthly",
-      priority: 0.6,
-    });
-    expect(result[15]).toMatchObject({
+
+    // Help articles — verify all 21 are present (order may change as articles are added)
+    const helpUrls = result.map((e) => e.url);
+    const expectedHelpArticles = [
+      "https://scontrinozero.it/help/prima-configurazione",
+      "https://scontrinozero.it/help/primo-scontrino",
+      "https://scontrinozero.it/help/installare-app",
+      "https://scontrinozero.it/help/come-collegare-ade",
+      "https://scontrinozero.it/help/credenziali-fisconline",
+      "https://scontrinozero.it/help/cassetto-fiscale",
+      "https://scontrinozero.it/help/errori-ade",
+      "https://scontrinozero.it/help/sicurezza-credenziali",
+      "https://scontrinozero.it/help/annullare-scontrino",
+      "https://scontrinozero.it/help/chiusura-giornaliera",
+      "https://scontrinozero.it/help/storico-ed-esportazione",
+      "https://scontrinozero.it/help/regime-forfettario",
+      "https://scontrinozero.it/help/aliquote-iva",
+      "https://scontrinozero.it/help/normativa-pos-2026",
+      "https://scontrinozero.it/help/piani-e-prezzi",
+      "https://scontrinozero.it/help/api",
+      "https://scontrinozero.it/help/cambio-piano",
+      "https://scontrinozero.it/help/fatture-e-ricevute",
+      "https://scontrinozero.it/help/contatto-assistenza",
+      "https://scontrinozero.it/help/pos-rt-obbligo",
+      "https://scontrinozero.it/help/intestazione-scontrino",
+    ];
+    for (const url of expectedHelpArticles) {
+      expect(helpUrls).toContain(url);
+    }
+
+    // Auth pages (last two)
+    expect(result[31]).toMatchObject({
       url: "https://scontrinozero.it/login",
       changeFrequency: "yearly",
       priority: 0.5,
     });
-    expect(result[16]).toMatchObject({
+    expect(result[32]).toMatchObject({
       url: "https://scontrinozero.it/register",
       changeFrequency: "yearly",
       priority: 0.5,
