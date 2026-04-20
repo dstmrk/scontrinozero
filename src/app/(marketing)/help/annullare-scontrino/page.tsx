@@ -30,10 +30,10 @@ export default function AnnullareScontrinoPage() {
           <Badge variant="secondary">Gestione scontrini</Badge>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Un scontrino fiscale non si &quot;cancella&quot; — si emette un{" "}
-          <strong>documento di annullamento</strong> che rettifica il documento
+          Uno scontrino elettronico non si &quot;cancella&quot;: si emette un{" "}
+          <strong>documento di annullo</strong> che rettifica il documento
           originale nel cassetto fiscale dell&apos;Agenzia delle Entrate. Questa
-          guida spiega come fare e in quali casi è possibile.
+          guida spiega come farlo da ScontrinoZero e in quali casi è possibile.
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
           <strong>Ultimo aggiornamento:</strong> aprile 2026
@@ -44,35 +44,67 @@ export default function AnnullareScontrinoPage() {
           Quando è possibile annullare
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          L&apos;annullamento è consentito per:
+          In ScontrinoZero puoi annullare uno scontrino che è stato{" "}
+          <strong>accettato dall&apos;AdE</strong> (nello Storico vedrai il
+          badge verde <strong>&quot;Emesso&quot;</strong>). Il caso d&apos;uso
+          tipico è:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
-            Scontrini emessi per errore (importo sbagliato, prodotto errato).
+            Scontrino emesso per errore (importo sbagliato, prodotto errato,
+            duplicato).
           </li>
-          <li>Vendite stornate dal cliente (reso merce, recesso).</li>
           <li>
-            Scontrini trasmessi all&apos;AdE con stato{" "}
-            <strong>Trasmesso</strong>.
+            Storno concordato con il cliente prima che la vendita si consolidi
+            (p.es. il cliente cambia idea subito dopo l&apos;emissione).
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Non è possibile annullare</strong> scontrini già annullati o
-          scontrini in stato <em>In elaborazione</em> (attendi che la
-          trasmissione si completi prima di procedere).
+          <strong>Non è possibile annullare:</strong>
+        </p>
+        <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
+          <li>
+            {"Scontrini già annullati (badge "}
+            <strong>&quot;Annullato&quot;</strong>
+            {")."}
+          </li>
+          <li>
+            {"Scontrini ancora in attesa di conferma AdE (badge giallo "}
+            <strong>&quot;PENDING&quot;</strong>
+            {": aspetta che diventino "}
+            <em>Emesso</em>
+            {" prima di annullare."}
+          </li>
+          <li>
+            Scontrini con stato <strong>&quot;Errore&quot;</strong>: non sono
+            mai stati registrati dall&apos;AdE, quindi non c&apos;è nulla da
+            annullare. Riemetti la vendita dalla Cassa.
+          </li>
+        </ul>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          <strong>Reso merce post-vendita:</strong> il Provvedimento AdE sui
+          corrispettivi telematici prevede, per il reso di prodotti già
+          consegnati, un <em>documento commerciale per reso merce</em> distinto
+          dall&apos;annullo. In questa versione ScontrinoZero non espone quel
+          tipo di documento: in pratica il reso si gestisce annullando lo
+          scontrino originale e, se il reso è parziale, ri-emettendo dalla Cassa
+          uno scontrino con il solo importo effettivamente venduto. Per casi
+          complessi (reso dopo mesi, parziale con più prodotti) consulta il tuo
+          commercialista.
         </p>
 
         {/* ─── Limiti temporali ─── */}
         <h2 className="mt-10 text-xl font-semibold">Limiti temporali</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          La normativa AdE non fissa una scadenza precisa per
-          l&apos;annullamento, ma vale la regola generale:{" "}
+          {
+            "Per il Documento Commerciale Online non esiste una finestra rigida di annullo: puoi procedere anche diversi giorni dopo l\u2019emissione (diversamente dai registratori telematici fisici, dove spesso la finestra coincide con la chiusura giornaliera). La best practice fiscale resta però di "
+          }
           <strong>
-            il documento di annullamento deve essere emesso nel periodo
-            d&apos;imposta in cui è stato emesso il documento originale
+            annullare il prima possibile e comunque entro il periodo
+            d&apos;imposta
           </strong>
           {
-            ", salvo casi eccezionali. In pratica: prima annulli, meglio è. Evita di lasciare annullamenti aperti per settimane o mesi."
+            ": ogni ritardo rende più complicata la riconciliazione dei corrispettivi giornalieri nel cassetto fiscale."
           }
         </p>
 
@@ -85,40 +117,49 @@ export default function AnnullareScontrinoPage() {
             Vai nella sezione <strong>Storico</strong> dalla barra laterale.
           </li>
           <li>
-            Trova lo scontrino da annullare usando i filtri per data o importo.
+            Trova lo scontrino usando i filtri per intervallo di date o
+            paginando la lista.
           </li>
           <li>
-            Clicca sullo scontrino per aprire il dettaglio, poi tocca{" "}
-            <strong>Annulla scontrino</strong>.
+            Clicca sullo scontrino per aprire il dettaglio, quindi tocca{" "}
+            <strong>Annulla scontrino</strong> (il pulsante compare solo se lo
+            stato è <em>Emesso</em>).
           </li>
           <li>
-            Conferma l&apos;operazione nella finestra di dialogo. È
-            irreversibile.
+            Leggi il riepilogo, poi conferma cliccando di nuovo{" "}
+            <strong>Annulla scontrino</strong> nel dialog rosso. Un avviso ti
+            ricorda che l&apos;operazione è irreversibile.
           </li>
           <li>
-            ScontrinoZero invia il documento di annullamento all&apos;AdE. Lo
-            stato dello scontrino originale diventa <strong>Annullato</strong>.
+            ScontrinoZero invia il documento di annullo all&apos;AdE. A conferma
+            vedrai il <strong>progressivo dell&apos;annullo</strong>; lo
+            scontrino originale passa a stato <strong>Annullato</strong>.
           </li>
         </ol>
 
         {/* ─── Cosa succede dopo ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Cosa succede dopo l&apos;annullamento
+          Cosa succede dopo l&apos;annullo
         </h2>
         <ul className="text-muted-foreground mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            L&apos;AdE registra il documento di annullamento nel cassetto
-            fiscale e rettifica i corrispettivi di quel giorno.
+            L&apos;AdE registra il documento di annullo nel cassetto fiscale e
+            rettifica i corrispettivi del giorno.
           </li>
           <li>
-            Lo scontrino originale non viene eliminato — rimane nello Storico
-            con stato <strong>Annullato</strong>, insieme al riferimento al
-            documento di annullamento.
+            Lo scontrino originale <strong>non viene eliminato</strong>: rimane
+            nello Storico con badge <em>Annullato</em> e un riferimento al
+            documento di annullo.
+          </li>
+          <li>
+            Un secondo tentativo di annullo sullo stesso scontrino viene
+            bloccato automaticamente da un vincolo del database: è garantito che
+            non puoi creare due annulli per lo stesso documento.
           </li>
           <li>
             Se vuoi emettere uno scontrino corretto al posto di quello
-            annullato, devi farlo separatamente dalla <strong>Cassa</strong>{" "}
-            come una nuova vendita.
+            annullato, fallo separatamente dalla <strong>Cassa</strong> come
+            nuova vendita.
           </li>
         </ul>
 
@@ -127,7 +168,7 @@ export default function AnnullareScontrinoPage() {
           Reso merce: devo fare altro?
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          L&apos;annullamento dello scontrino è sufficiente ai fini fiscali. Il
+          L&apos;annullo dello scontrino è sufficiente ai fini fiscali. Il
           rimborso al cliente (contante, bonifico, voucher) è una questione
           commerciale separata che gestisci tu direttamente — non passa
           attraverso ScontrinoZero.
@@ -141,19 +182,32 @@ export default function AnnullareScontrinoPage() {
               Il pulsante &quot;Annulla scontrino&quot; non compare
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Verifica che lo scontrino sia in stato <strong>Trasmesso</strong>.
-              Se è ancora <em>In elaborazione</em>, attendi la conferma AdE
-              prima di procedere.
+              Succede quando lo scontrino non è in stato <em>Emesso</em>: se è
+              ancora <strong>PENDING</strong> aspetta la conferma AdE, se è{" "}
+              <strong>Errore</strong> non è stato registrato all&apos;origine
+              quindi non c&apos;è nulla da annullare, se è già{" "}
+              <strong>Annullato</strong> l&apos;operazione è stata fatta.
             </p>
           </div>
           <div>
             <p className="text-sm font-medium">
-              L&apos;annullamento è rimasto in stato &quot;In elaborazione&quot;
+              Ricevo un errore durante l&apos;annullo — cosa faccio?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Come per l&apos;emissione normale, il portale AdE può essere
-              temporaneamente lento. ScontrinoZero riprova automaticamente.
-              Controlla lo stato dopo qualche minuto.
+              L&apos;errore viene mostrato in rosso nel dialog e lo scontrino
+              resta in stato <em>Emesso</em> (l&apos;annullo non è andato a buon
+              fine). Puoi <strong>riprovare manualmente</strong> chiudendo e
+              riaprendo il dialog: ScontrinoZero usa una chiave di idempotenza
+              per garantire che eventuali retry non creino annulli duplicati. Se
+              l&apos;errore persiste, controlla lo stato del portale AdE e
+              contatta il supporto a{" "}
+              <a
+                href="mailto:info@scontrinozero.it"
+                className="text-primary hover:underline"
+              >
+                info@scontrinozero.it
+              </a>
+              {"."}
             </p>
           </div>
           <div>
@@ -161,8 +215,8 @@ export default function AnnullareScontrinoPage() {
               Ho annullato per errore — posso tornare indietro?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              No: il documento di annullamento trasmesso all&apos;AdE non può
-              essere ritirato. Devi emettere un nuovo scontrino dalla Cassa con
+              No: il documento di annullo trasmesso all&apos;AdE non può essere
+              ritirato. Devi emettere un nuovo scontrino dalla Cassa con
               l&apos;importo corretto.
             </p>
           </div>
@@ -177,6 +231,14 @@ export default function AnnullareScontrinoPage() {
               className="text-primary hover:underline"
             >
               Come emettere il primo scontrino elettronico
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/help/storico-ed-esportazione"
+              className="text-primary hover:underline"
+            >
+              Storico scontrini: filtri, ricerca ed esportazione
             </Link>
           </li>
           <li>
