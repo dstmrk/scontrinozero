@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod/v4";
+import { adePinSchema } from "@/lib/validation";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
@@ -25,7 +26,7 @@ const editAdeCredentialsSchema = z.object({
     .min(16, "Codice fiscale non valido (16 caratteri).")
     .max(16, "Codice fiscale non valido (16 caratteri)."),
   password: z.string().min(1, "La password Fisconline è obbligatoria."),
-  pin: z.string().min(6, "Il PIN deve essere di almeno 6 caratteri."),
+  pin: adePinSchema,
 });
 
 type EditAdeCredentialsData = z.infer<typeof editAdeCredentialsSchema>;

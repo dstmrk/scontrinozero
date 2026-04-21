@@ -309,7 +309,7 @@ describe("onboarding-actions", () => {
           businessId: "biz-789",
           codiceFiscale: "RSSMRA80A01H501U",
           password: "securepass",
-          pin: "123456",
+          pin: "1234567890",
         }),
       );
 
@@ -327,7 +327,7 @@ describe("onboarding-actions", () => {
           businessId: "",
           codiceFiscale: "RSSMRA80A01H501U",
           password: "pass",
-          pin: "123456",
+          pin: "1234567890",
         }),
       );
       expect(result.error).toContain("Business ID");
@@ -340,7 +340,7 @@ describe("onboarding-actions", () => {
           businessId: "biz-789",
           codiceFiscale: "RSSMRA80A01H501U",
           password: "",
-          pin: "123456",
+          pin: "1234567890",
         }),
       );
       expect(result.error).toContain("Password");
@@ -353,23 +353,85 @@ describe("onboarding-actions", () => {
           businessId: "biz-789",
           codiceFiscale: "SHORT",
           password: "pass",
-          pin: "123456",
+          pin: "1234567890",
         }),
       );
       expect(result.error).toContain("Codice fiscale");
     });
 
-    it("returns error for short PIN", async () => {
+    it("returns error for PIN with fewer than 10 digits", async () => {
       const { saveAdeCredentials } = await import("./onboarding-actions");
       const result = await saveAdeCredentials(
         formData({
           businessId: "biz-789",
           codiceFiscale: "RSSMRA80A01H501U",
           password: "pass",
-          pin: "12",
+          pin: "123456789",
         }),
       );
       expect(result.error).toContain("PIN");
+    });
+
+    it("returns error for PIN with more than 10 digits", async () => {
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const result = await saveAdeCredentials(
+        formData({
+          businessId: "biz-789",
+          codiceFiscale: "RSSMRA80A01H501U",
+          password: "pass",
+          pin: "12345678901",
+        }),
+      );
+      expect(result.error).toContain("PIN");
+    });
+
+    it("returns error for PIN containing non-numeric characters", async () => {
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const result = await saveAdeCredentials(
+        formData({
+          businessId: "biz-789",
+          codiceFiscale: "RSSMRA80A01H501U",
+          password: "pass",
+          pin: "abcdefghij",
+        }),
+      );
+      expect(result.error).toContain("PIN");
+    });
+
+    it("accepts PIN of exactly 10 numeric digits", async () => {
+      // Ownership check: JOIN profile+business
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      // No existing credentials
+      mockLimit.mockResolvedValueOnce([]);
+
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const result = await saveAdeCredentials(
+        formData({
+          businessId: "biz-789",
+          codiceFiscale: "RSSMRA80A01H501U",
+          password: "pass",
+          pin: "1234567890",
+        }),
+      );
+      expect(result.error).toBeUndefined();
+    });
+
+    it("accepts PIN with surrounding whitespace (server trims before validation)", async () => {
+      // Ownership check: JOIN profile+business
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      // No existing credentials
+      mockLimit.mockResolvedValueOnce([]);
+
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const result = await saveAdeCredentials(
+        formData({
+          businessId: "biz-789",
+          codiceFiscale: "RSSMRA80A01H501U",
+          password: "pass",
+          pin: " 1234567890 ",
+        }),
+      );
+      expect(result.error).toBeUndefined();
     });
 
     it("updates existing credentials and resets verification", async () => {
@@ -386,7 +448,7 @@ describe("onboarding-actions", () => {
           businessId: "biz-789",
           codiceFiscale: "RSSMRA80A01H501U",
           password: "newpass",
-          pin: "654321",
+          pin: "1234567890",
         }),
       );
 
@@ -405,7 +467,7 @@ describe("onboarding-actions", () => {
           businessId: "other-user-biz",
           codiceFiscale: "RSSMRA80A01H501U",
           password: "pass",
-          pin: "123456",
+          pin: "1234567890",
         }),
       );
 

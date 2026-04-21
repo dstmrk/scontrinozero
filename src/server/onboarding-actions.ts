@@ -19,6 +19,7 @@ import {
   getAuthenticatedUser,
   checkBusinessOwnership,
 } from "@/lib/server-auth";
+import { adePinSchema } from "@/lib/validation";
 
 function isUniqueConstraintViolation(err: unknown): boolean {
   return (
@@ -174,8 +175,11 @@ export async function saveAdeCredentials(
   if (!password) {
     return { error: "Password Fisconline obbligatoria." };
   }
-  if (!pin || pin.length < 6) {
-    return { error: "PIN Fisconline non valido (minimo 6 cifre)." };
+  const pinResult = adePinSchema.safeParse(pin ?? "");
+  if (!pinResult.success) {
+    return {
+      error: pinResult.error.issues[0]?.message ?? "PIN Fisconline non valido.",
+    };
   }
 
   const ownershipError = await checkBusinessOwnership(user.id, businessId);

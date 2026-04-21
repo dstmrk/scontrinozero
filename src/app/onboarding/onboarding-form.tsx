@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod/v4";
+import { adePinSchema } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -52,7 +53,7 @@ const step2Schema = z.object({
     .min(16, "Codice fiscale non valido (16 caratteri).")
     .max(16, "Codice fiscale non valido (16 caratteri)."),
   password: z.string().min(1, "La password Fisconline è obbligatoria."),
-  pin: z.string().min(6, "Il PIN deve essere di almeno 6 caratteri."),
+  pin: adePinSchema,
 });
 
 type Step1Data = z.infer<typeof step1Schema>;
