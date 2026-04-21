@@ -69,58 +69,63 @@ export default function PrimoScontrinoPage() {
           Passaggio 1 — Apri la Cassa
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Dal menu laterale della dashboard, clicca su <strong>Cassa</strong>.
-          Su mobile trovi il pulsante <strong>Cassa</strong> nella barra di
+          Da desktop, apri la dashboard e clicca <strong>Cassa</strong> nel menu
+          in alto. Su mobile trovi <strong>Cassa</strong> nella barra di
           navigazione in basso.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">
-          Passaggio 2 — Aggiungi i prodotti o l&apos;importo
+          Passaggio 2 — Aggiungi gli articoli
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Hai due modi per aggiungere quanto venduto:
+          Ogni scontrino è composto da una o più righe (massimo 100). Puoi
+          aggiungerle in due modi:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            <strong>Importo libero</strong> — digita direttamente l&apos;importo
-            totale della vendita usando il tastierino numerico. Ideale per
-            vendite rapide.
+            <strong>Riga manuale rapida</strong> — premi il pulsante{" "}
+            <strong>+</strong> nel carrello, inserisci il prezzo con il
+            tastierino numerico, scegli quantità e aliquota IVA, quindi premi{" "}
+            <strong>Aggiungi</strong>. La descrizione è facoltativa: se la lasci
+            vuota la riga comparirà come &quot;Vendita&quot;.
           </li>
           <li>
-            <strong>Prodotti dal catalogo</strong> — seleziona uno o più
-            prodotti salvati in precedenza (Piano Starter: fino a 5 prodotti;
-            Piano Pro: illimitati). L&apos;importo si calcola automaticamente.
+            <strong>Prodotti dal catalogo</strong> — tocca un prodotto salvato
+            in precedenza nella Dashboard per inserirlo nel carrello con prezzo
+            e IVA già compilati (piano Starter: fino a 5 prodotti nel catalogo;
+            piano Pro: illimitati).
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Puoi mescolare le due modalità: aggiungi prodotti dal catalogo e
-          aggiungi righe manuali per prodotti non catalogati.
+          inserisci righe manuali per gli articoli non catalogati. Le aliquote
+          disponibili sono 4%, 5%, 10%, 22% e sei codici natura a 0% (N1–N6) per
+          le operazioni non imponibili, esenti o escluse.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">
-          Passaggio 3 — Seleziona il metodo di pagamento
+          Passaggio 3 — Conferma il carrello e scegli il pagamento
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Scegli come il cliente ha pagato:
+          Quando il carrello è pronto premi <strong>Continua</strong>. Nella
+          schermata di riepilogo vedi le righe, il totale e scegli come il
+          cliente ha pagato:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
             <strong>Contanti</strong>
           </li>
           <li>
-            <strong>Carta / POS</strong> (bancomat, carta di credito)
-          </li>
-          <li>
-            <strong>Bonifico / altro</strong>
-          </li>
-          <li>
-            <strong>Pagamento misto</strong> — puoi suddividere l&apos;importo
-            tra più metodi (es. €10 contanti + €5 carta).
+            <strong>Carta</strong> (bancomat, carta di credito, altri strumenti
+            elettronici)
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Il metodo di pagamento è obbligatorio e viene incluso nel documento
-          commerciale trasmesso all&apos;AdE.
+          Il metodo di pagamento è obbligatorio: lo scontrino accetta un solo
+          metodo per documento (non sono previsti pagamenti misti). Se scegli{" "}
+          <strong>Carta</strong> puoi anche inserire il{" "}
+          <strong>Codice lotteria</strong> (8 caratteri, scontrini da almeno €1)
+          per far partecipare il cliente alla Lotteria degli Scontrini.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">
@@ -132,44 +137,52 @@ export default function PrimoScontrinoPage() {
         </p>
         <ol className="text-muted-foreground mt-3 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            Lo scontrino appare immediatamente nella schermata di successo con
-            numero progressivo e importo (&quot;effetto ottimistico&quot;: lo
-            vedi subito, la trasmissione AdE avviene in background).
+            Il pulsante si trasforma in <strong>Invio in corso…</strong> mentre
+            ScontrinoZero accede al portale Fatture e Corrispettivi
+            dell&apos;Agenzia delle Entrate con le tue credenziali Fisconline e
+            trasmette il documento commerciale.
           </li>
           <li>
-            ScontrinoZero invia il documento al portale Fatture e Corrispettivi
-            dell&apos;Agenzia delle Entrate e riceve la conferma.
+            Alla conferma dell&apos;AdE (in genere 1-3 secondi) si apre la
+            schermata di successo con l&apos;<strong>Identificativo AdE</strong>{" "}
+            (numero progressivo) e l&apos;<strong>ID transazione</strong>.
           </li>
           <li>
-            Lo stato dello scontrino passa da <strong>In elaborazione</strong> a{" "}
-            <strong>Trasmesso</strong> (di solito entro pochi secondi, raramente
-            qualche minuto se il portale AdE è sotto carico).
+            Nello Storico lo scontrino compare con il badge{" "}
+            <strong>Emesso</strong>. Se la trasmissione fallisce il pulsante
+            mostra l&apos;errore direttamente in cassa, prima di chiudere lo
+            scontrino.
           </li>
         </ol>
 
         <h2 className="mt-10 text-xl font-semibold">
-          Passaggio 5 — Condividi o stampa
+          Passaggio 5 — Condividi lo scontrino col cliente
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Dalla schermata di conferma puoi:
+          Dalla schermata di successo hai due pulsanti:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
-            <strong>Condividere il link</strong> — il cliente riceve un link
-            alla pagina pubblica dello scontrino (valido permanentemente).
+            <strong>Invia ricevuta</strong> — da mobile apre il menu di
+            condivisione del sistema (WhatsApp, email, SMS…); da desktop copia
+            negli appunti il link pubblico della ricevuta, nella forma{" "}
+            <code>/r/&lt;id&gt;</code>.
           </li>
           <li>
-            <strong>Scaricare il PDF</strong> — per inviarlo via WhatsApp, email
-            o stamparlo.
-          </li>
-          <li>
-            <strong>Stampare direttamente</strong> — se hai una stampante
-            termica Bluetooth configurata.
+            <strong>Nuovo scontrino</strong> — azzera il carrello e torna alla
+            cassa per la vendita successiva.
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Consegnare il documento al cliente (link, PDF o stampa) è obbligatorio
-          per legge.
+          Aprendo il link pubblico, tu o il cliente potete scaricare il PDF e
+          stamparlo con la funzione di stampa del browser o del sistema
+          operativo (inclusa una stampante termica Bluetooth associata al
+          dispositivo).
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Consegnare il documento commerciale al cliente — in forma cartacea o
+          digitale — è obbligatorio ai sensi del DM 7/12/2016 e del D.Lgs.
+          127/2015.
         </p>
 
         {/* ─── Domande frequenti ─── */}
@@ -177,15 +190,17 @@ export default function PrimoScontrinoPage() {
         <div className="mt-3 space-y-4">
           <div>
             <p className="text-sm font-medium">
-              Lo scontrino è rimasto in stato &quot;In elaborazione&quot; a
-              lungo — cosa faccio?
+              L&apos;emissione mi ha restituito un errore — cosa faccio?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Il portale AdE può essere lento o in manutenzione. Lo scontrino
-              viene ritentato automaticamente. Puoi controllare lo stato nello{" "}
-              <strong>Storico</strong>. Se dopo 30 minuti è ancora in
-              elaborazione, controlla che le credenziali AdE siano valide nelle
-              impostazioni.
+              L&apos;invio all&apos;AdE è sincrono: se qualcosa va storto il
+              messaggio compare subito in cassa e lo scontrino non viene chiuso.
+              Le cause più frequenti sono credenziali Fisconline scadute o
+              errate (verifica in{" "}
+              <strong>Impostazioni → Agenzia delle Entrate</strong>), portale
+              AdE momentaneamente non disponibile, oppure codici di errore AdE
+              riportati tra parentesi nel messaggio. Correggi l&apos;eventuale
+              dato e premi di nuovo <strong>Emetti scontrino</strong>.
             </p>
           </div>
           <div>
@@ -209,8 +224,9 @@ export default function PrimoScontrinoPage() {
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               Nella sezione <strong>Storico</strong> della dashboard. Puoi
-              filtrare per data, importo e stato di trasmissione, e scaricare il
-              PDF di qualsiasi scontrino precedente.
+              filtrare per <strong>Periodo</strong> e <strong>Stato</strong>{" "}
+              (Emesso, Annullato, Tutti), aprire il dettaglio di ogni scontrino
+              e condividere di nuovo la ricevuta al cliente.
             </p>
           </div>
         </div>
