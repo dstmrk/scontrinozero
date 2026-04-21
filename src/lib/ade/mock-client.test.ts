@@ -11,7 +11,7 @@ import type { AdePayload, AdeCedentePrestatore } from "./types";
 const mockCredentials = {
   codiceFiscale: "RSSMRA80A01H501A",
   password: "testpassword",
-  pin: "12345678",
+  pin: "1234567890",
 };
 
 const mockCedentePrestatore: AdeCedentePrestatore = {

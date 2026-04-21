@@ -99,7 +99,7 @@ function mockReAuthSequence(fetchMock: ReturnType<typeof vi.fn>): void {
 const mockCredentials = {
   codiceFiscale: "RSSMRA80A01H501A",
   password: "testpassword",
-  pin: "12345678",
+  pin: "1234567890",
 };
 
 const mockSpidCredentials: SpidCredentials = {
@@ -391,7 +391,7 @@ describe("RealAdeClient", () => {
       >;
       expect(body.username).toBe("RSSMRA80A01H501A");
       expect(body.password).toBe("testpassword");
-      expect(body.pin).toBe("12345678");
+      expect(body.pin).toBe("1234567890");
     });
 
     it("Phase A: lancia AdeAuthError se la risposta non è 200", async () => {

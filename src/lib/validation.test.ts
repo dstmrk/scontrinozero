@@ -1,10 +1,71 @@
 import { describe, it, expect } from "vitest";
 import {
+  adePinSchema,
   isValidEmail,
   isStrongPassword,
   isValidLotteryCode,
   normalizeEmail,
 } from "./validation";
+
+describe("adePinSchema", () => {
+  const PIN_ERROR =
+    "Il PIN Fisconline è composto da 10 cifre numeriche. Se ne hai solo 4, aspetta la lettera con le ultime 6 cifre per posta.";
+
+  it("accepts exactly 10 numeric digits", () => {
+    const result = adePinSchema.safeParse("1234567890");
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects empty string", () => {
+    const result = adePinSchema.safeParse("");
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe(PIN_ERROR);
+  });
+
+  it("rejects 9 digits (too short by 1)", () => {
+    const result = adePinSchema.safeParse("123456789");
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe(PIN_ERROR);
+  });
+
+  it("rejects 11 digits (too long by 1)", () => {
+    const result = adePinSchema.safeParse("12345678901");
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe(PIN_ERROR);
+  });
+
+  it("rejects 10 characters containing a letter", () => {
+    const result = adePinSchema.safeParse("123456789a");
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe(PIN_ERROR);
+  });
+
+  it("rejects 10 characters that are all letters", () => {
+    const result = adePinSchema.safeParse("abcdefghij");
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe(PIN_ERROR);
+  });
+
+  it("rejects PIN with internal space (9 digits + 1 space)", () => {
+    const result = adePinSchema.safeParse("12345 6789");
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe(PIN_ERROR);
+  });
+
+  it("rejects PIN with surrounding whitespace (schema does not trim)", () => {
+    // Trimming is the caller's responsibility before safeParse
+    const result = adePinSchema.safeParse(" 1234567890 ");
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe(PIN_ERROR);
+  });
+
+  it("rejects Arabic-Indic digits (\\d without /u flag matches only [0-9])", () => {
+    // U+0660–U+0669 are Arabic-Indic numerals; \d without the u flag ignores them
+    const result = adePinSchema.safeParse("٠١٢٣٤٥٦٧٨٩");
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe(PIN_ERROR);
+  });
+});
 
 describe("isStrongPassword", () => {
   describe("valid passwords", () => {

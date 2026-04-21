@@ -48,6 +48,19 @@ export function normalizeEmail(raw: string): string {
 }
 
 /**
+ * Shared Zod schema for the Fisconline PIN.
+ * AdE normativa: exactly 10 numeric digits (first 4 via portal/email,
+ * last 6 by postal letter). Server must .trim() the raw input before
+ * calling safeParse — the schema itself does not trim.
+ */
+export const adePinSchema = z
+  .string()
+  .regex(
+    /^\d{10}$/,
+    "Il PIN Fisconline è composto da 10 cifre numeriche. Se ne hai solo 4, aspetta la lettera con le ultime 6 cifre per posta.",
+  );
+
+/**
  * Validates email format using linear-time string checks (no regex backtracking).
  * This is a structural check, not RFC 5322 compliance — real validation
  * happens when the confirmation email is delivered.
