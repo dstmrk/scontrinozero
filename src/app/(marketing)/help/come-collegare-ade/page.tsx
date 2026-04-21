@@ -32,12 +32,26 @@ export default function ComeCollegareAde() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Prima di emettere scontrini elettronici devi collegare ScontrinoZero
           al portale <strong>Fatture e Corrispettivi</strong> dell&apos;Agenzia
-          delle Entrate. Questo processo richiede le tue credenziali Fisconline
-          e si completa in circa 5 minuti.
+          delle Entrate. Il processo richiede le credenziali Fisconline del
+          titolare dell&apos;attività e si completa in circa 5 minuti.
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
           <strong>Ultimo aggiornamento:</strong> aprile 2026
         </p>
+
+        {/* ─── Chi può usare Fisconline ─── */}
+        <div className="bg-muted/50 mt-6 rounded-md p-4 text-sm">
+          <p className="font-medium">Un promemoria importante</p>
+          <p className="text-muted-foreground mt-1 leading-relaxed">
+            {
+              "Dal 1° marzo 2021 (DL 76/2020) le credenziali Fisconline vengono rilasciate solo a "
+            }
+            <strong>titolari di partita IVA attiva</strong>
+            {
+              " o a soggetti già autorizzati a operare per conto di società, enti o professionisti. I cittadini senza P.IVA usano SPID/CIE/CNS per accedere al portale AdE, ma ScontrinoZero richiede specificamente Fisconline per la trasmissione automatica degli scontrini."
+            }
+          </p>
+        </div>
 
         {/* ─── Prerequisiti ─── */}
         <h2 className="mt-10 text-xl font-semibold">
@@ -45,8 +59,8 @@ export default function ComeCollegareAde() {
         </h2>
         <ul className="text-muted-foreground mt-3 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
-            <strong>Credenziali Fisconline</strong> attive (codice fiscale +
-            PIN). Non le hai ancora?{" "}
+            <strong>Credenziali Fisconline</strong> attive (codice fiscale,
+            password e PIN). Non le hai ancora?{" "}
             <Link
               href="/help/credenziali-fisconline"
               className="text-primary hover:underline"
@@ -60,130 +74,143 @@ export default function ComeCollegareAde() {
             attività inseriti).
           </li>
           <li>
-            Essere il titolare dell&apos;attività o avere delega Fisconline per
-            il codice fiscale dell&apos;esercente.
+            Essere il <strong>titolare dell&apos;attività</strong> (o il legale
+            rappresentante, in caso di società): le credenziali devono essere
+            personali, non quelle di un commercialista o di un delegato.
           </li>
         </ul>
 
         {/* ─── Passaggi ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Passaggio 1 — Accedi alle impostazioni attività
+          Passaggio 1 — Apri la sezione Credenziali AdE
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Dalla dashboard di ScontrinoZero, vai su{" "}
-          <strong>Impostazioni → Configurazione attività</strong>. Trovi il menu
-          nella barra laterale sinistra (su mobile: tocca l&apos;icona ☰ in
-          alto a sinistra).
+          Dalla dashboard di ScontrinoZero vai su{" "}
+          <strong>Impostazioni → Credenziali AdE</strong>. Trovi il link nella
+          barra laterale sinistra (su mobile: tocca l&apos;icona ☰ in alto a
+          sinistra) e la sezione è una card dedicata in fondo alla pagina
+          Impostazioni.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">
           Passaggio 2 — Inserisci le credenziali Fisconline
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Nella sezione <strong>Credenziali AdE</strong> trovi due campi:
+          Nel modulo <strong>Modifica credenziali Fisconline</strong> trovi tre
+          campi:
         </p>
         <ul className="text-muted-foreground mt-3 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
             <strong>Codice fiscale</strong> — il tuo codice fiscale personale
-            (16 caratteri), anche se sei una società.
+            (16 caratteri). Anche per una società si usa il CF del legale
+            rappresentante, non la partita IVA.
           </li>
           <li>
-            <strong>PIN Fisconline</strong> — il PIN di 8 cifre che hai ricevuto
-            al momento dell&apos;attivazione Fisconline o che hai cambiato
-            successivamente.
+            <strong>Password Fisconline</strong> — la password che hai scelto al
+            primo accesso al portale AdE. Scade ogni 90 giorni, quindi se non
+            accedi da un po&apos; potrebbe essere da rinnovare.
+          </li>
+          <li>
+            <strong>PIN Fisconline</strong> — il codice di{" "}
+            <strong>10 cifre</strong>
+            {
+              " assegnato dall'Agenzia (prime 4 cifre ricevute via portale/email + ultime 6 via posta). Il PIN è fisso: non scade e non si cambia."
+            }
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Le credenziali vengono cifrate e non sono mai visibili in chiaro, né a
-          te né a noi dopo il salvataggio.
+          Le credenziali vengono cifrate con AES-256-GCM prima di essere salvate
+          e non sono mai visibili in chiaro, nemmeno al team di ScontrinoZero.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">
-          Passaggio 3 — Verifica il collegamento
+          Passaggio 3 — Verifica la connessione
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Clicca su <strong>Verifica credenziali</strong>. ScontrinoZero esegue
-          un accesso di prova al portale AdE e mostra uno di questi risultati:
+          Clicca su <strong>Verifica connessione</strong>. ScontrinoZero esegue
+          un login di prova al portale AdE usando le credenziali appena salvate
+          e mostra uno di questi esiti:
         </p>
         <ul className="text-muted-foreground mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            <strong>✅ Collegamento riuscito</strong> — le credenziali sono
-            corrette. Puoi emettere scontrini.
+            <strong>Connessione verificata</strong> — le credenziali sono
+            corrette. Puoi iniziare a emettere scontrini.
           </li>
           <li>
-            <strong>❌ Credenziali non valide</strong> — codice fiscale o PIN
-            errato. Controlla di non aver invertito le cifre del PIN.
-          </li>
-          <li>
-            <strong>⚠️ PIN scaduto</strong> — il PIN Fisconline ha una validità
-            massima di 3 anni. Devi rinnovarlo sul portale AdE prima di
-            continuare.
-          </li>
-          <li>
-            <strong>⚠️ Servizio AdE temporaneamente non disponibile</strong> —
-            il portale dell&apos;Agenzia delle Entrate è in manutenzione.
-            Riprova tra qualche minuto.
+            {"«"}
+            <strong>
+              Verifica fallita. Controlla le credenziali Fisconline
+            </strong>
+            {
+              "» — il login al portale AdE non è riuscito. Il messaggio è unico e non distingue la causa: le possibilità più comuni sono elencate nella sezione successiva."
+            }
           </li>
         </ul>
 
-        {/* ─── PIN scaduto ─── */}
+        {/* ─── Cosa controllare se la verifica fallisce ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Il PIN è scaduto: come rinnovarlo
-        </h2>
-        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Il PIN Fisconline scade ogni 3 anni (o prima se lo reimposti tu). Per
-          rinnovarlo:
-        </p>
-        <ol className="text-muted-foreground mt-3 list-decimal space-y-1 pl-5 text-sm leading-relaxed">
-          <li>
-            Vai su{" "}
-            <strong>
-              iampe.agenziaentrate.gov.it → Fisconline → Cambio PIN
-            </strong>
-            {"."}
-          </li>
-          <li>
-            Accedi con il vecchio PIN (anche se scaduto, il cambio è ancora
-            possibile per un breve periodo).
-          </li>
-          <li>Scegli un nuovo PIN di 8 cifre.</li>
-          <li>Torna su ScontrinoZero e aggiorna il PIN nelle impostazioni.</li>
-        </ol>
-        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Se il PIN è scaduto da troppo tempo e non riesci ad accedere, contatta
-          il numero verde AdE <strong>800 90 96 96</strong> o vai a uno
-          sportello CAF/Patronato per la reattivazione.
-        </p>
-
-        {/* ─── Errori comuni ─── */}
-        <h2 className="mt-10 text-xl font-semibold">
-          Errori frequenti e soluzioni
+          Se la verifica fallisce: cosa controllare
         </h2>
         <div className="mt-3 space-y-4">
           <div>
             <p className="text-sm font-medium">
-              &quot;Accesso non autorizzato&quot; o &quot;Utente non
-              abilitato&quot;
+              La password Fisconline è scaduta
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              {"Verifica che il codice fiscale inserito sia quello del "}
-              <strong>titolare dell&apos;esercizio commerciale</strong>
               {
-                ", non quello del commercialista o di un delegato. ScontrinoZero usa le credenziali per accedere alla sezione "
+                "È la causa più frequente: la password Fisconline scade ogni 90 giorni. Accedi al portale AdE con codice fiscale, vecchia password e PIN: il sistema ti chiederà di sceglierne una nuova. Poi torna su ScontrinoZero e aggiornala in "
               }
-              <em>Corrispettivi</em>
-              {" del portale AdE."}
+              <strong>Impostazioni → Credenziali AdE</strong>
+              {"."}
             </p>
           </div>
           <div>
             <p className="text-sm font-medium">
-              &quot;Attività non registrata&quot;
+              Il PIN non è completo (hai solo le prime 4 cifre)
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Se la tua P.IVA è nuova (aperta di recente), potrebbe non essere
-              ancora visibile nel portale Fatture e Corrispettivi. I tempi di
-              propagazione dell&apos;AdE sono di solito 24–48 ore lavorative
-              dall&apos;apertura.
+              Il PIN Fisconline è di 10 cifre: le prime 4 arrivano subito via
+              portale o email, le ultime 6 per posta ordinaria entro 15 giorni
+              dalla richiesta. Finché non hai ricevuto la parte postale il PIN è
+              incompleto e il login fallisce. Se la lettera non arriva, puoi
+              chiederne la ristampa dall&apos;area riservata AdE (con SPID, CIE
+              o CNS) oppure presso un qualsiasi ufficio territoriale AdE.
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium">
+              {"«"}Accesso non autorizzato{"» / «"}Utente non abilitato{"»"}
+            </p>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+              {"Verifica che il codice fiscale inserito sia quello del "}
+              <strong>titolare dell&apos;esercizio</strong>
+              {
+                " (o del legale rappresentante), non quello del commercialista. ScontrinoZero usa le credenziali per operare sul portale "
+              }
+              <em>Fatture e Corrispettivi</em>
+              {
+                " e richiede che l'utente sia abilitato a operare in quella sezione per conto dell'attività."
+              }
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium">Attività non registrata</p>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+              Se la tua P.IVA è stata aperta di recente, potrebbero servire
+              alcuni giorni lavorativi prima che risulti abilitata sul portale
+              Fatture e Corrispettivi. Se il problema persiste dopo qualche
+              giorno, contatta l&apos;Agenzia delle Entrate per verificare
+              l&apos;abilitazione.
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium">
+              Servizio AdE temporaneamente non disponibile
+            </p>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+              Il portale dell&apos;Agenzia può essere in manutenzione o
+              sovraccarico. Riprova tra qualche minuto prima di assumere che ci
+              sia un problema con le tue credenziali.
             </p>
           </div>
           <div>
@@ -191,12 +218,35 @@ export default function ComeCollegareAde() {
               Il collegamento funzionava e ora non va più
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Controlla che il PIN non sia scaduto e che non sia stato cambiato
-              manualmente sul portale AdE. Se hai cambiato PIN, aggiorna anche
-              le credenziali su ScontrinoZero nelle impostazioni.
+              Nella quasi totalità dei casi è la{" "}
+              <strong>password scaduta</strong>
+              {
+                " (il rinnovo trimestrale obbligatorio ogni 90 giorni). Aggiorna la nuova password nelle impostazioni di ScontrinoZero: codice fiscale e PIN restano invariati."
+              }
             </p>
           </div>
         </div>
+
+        {/* ─── Supporto ─── */}
+        <h2 className="mt-10 text-xl font-semibold">
+          Se non riesci comunque ad accedere
+        </h2>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          {
+            "Per problemi con le credenziali AdE puoi contattare il numero verde "
+          }
+          <strong>800 90 96 96</strong>
+          {
+            " (gratuito da telefono fisso, lun–ven 9–17) oppure recarti a un ufficio territoriale dell'Agenzia delle Entrate. Per problemi con ScontrinoZero scrivici a "
+          }
+          <a
+            href="mailto:info@scontrinozero.it"
+            className="text-primary hover:underline"
+          >
+            info@scontrinozero.it
+          </a>
+          {"."}
+        </p>
 
         {/* ─── Link correlati ─── */}
         <h2 className="mt-10 text-xl font-semibold">Articoli correlati</h2>
