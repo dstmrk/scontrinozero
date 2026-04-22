@@ -8,3 +8,5 @@ a5a40835e95ef4240016a5fc5773f017461258e6:src/app/(marketing)/help/api/page.tsx:g
 7af6a44d0cac02543ab90fd96158544d6bc6251d:src/app/(marketing)/help/api/page.tsx:curl-auth-header:380
 018633dd87fd76911da874961a343d618972a90a:DEVELOPER.md:curl-auth-header:169
 d5cd231267e68e5146904677937ae81df9bda5e1:src/app/(marketing)/help/api/page.tsx:curl-auth-header:405
+61c69a3323cda09ee38fa0e6a6e431a611589692:tests/unit/change-ade-password-dialog.test.ts:generic-api-key:50
+61c69a3323cda09ee38fa0e6a6e431a611589692:tests/unit/change-ade-password-dialog.test.ts:generic-api-key:51
