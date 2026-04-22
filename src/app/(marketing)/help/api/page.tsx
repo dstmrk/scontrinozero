@@ -296,7 +296,7 @@ export default function ApiDocsPage() {
                   <code className="bg-muted rounded px-1 font-mono text-xs">
                     PC
                   </code>
-                  .
+                  {"."}
                 </td>
               </tr>
             </tbody>
