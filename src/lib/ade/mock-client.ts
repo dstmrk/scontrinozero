@@ -126,6 +126,15 @@ export class MockAdeClient implements AdeClient {
     return { totalCount: 0, elencoRisultati: [] };
   }
 
+  async changePasswordFisconline(_params: {
+    codiceFiscale: string;
+    oldPassword: string;
+    newPassword: string;
+    confirmNewPassword: string;
+  }): Promise<void> {
+    // Mock: always succeeds (no HTTP call)
+  }
+
   async logout(): Promise<void> {
     this.session = null;
   }

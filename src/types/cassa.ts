@@ -94,4 +94,5 @@ export type SubmitReceiptResult = {
   documentId?: string;
   adeTransactionId?: string;
   adeProgressive?: string;
+  passwordExpired?: boolean;
 };

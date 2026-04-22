@@ -6,7 +6,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { RealAdeClient } from "./real-client";
 import {
   AdeAuthError,
+  AdeError,
   AdeNetworkError,
+  AdePasswordExpiredError,
   AdePortalError,
   AdeSessionExpiredError,
   AdeSpidTimeoutError,
@@ -398,6 +400,46 @@ describe("RealAdeClient", () => {
       fetchMock.mockResolvedValueOnce(mockResponse({ status: 401 }));
 
       await expect(client.login(mockCredentials)).rejects.toThrow(AdeAuthError);
+    });
+
+    it("Phase A: lancia AdePasswordExpiredError se details è PASSWORD_EXPIRED", async () => {
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 401,
+          body: {
+            error: "Autenticazione fallita",
+            errorCode: "AUTH_ERROR",
+            details: "PASSWORD_EXPIRED",
+          },
+        }),
+      );
+
+      await expect(client.login(mockCredentials)).rejects.toThrow(
+        AdePasswordExpiredError,
+      );
+    });
+
+    it("Phase A: lancia AdeAuthError (non AdePasswordExpiredError) se details è INVALID_CREDENTIALS", async () => {
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 401,
+          body: { details: "INVALID_CREDENTIALS" },
+        }),
+      );
+
+      const err = await client.login(mockCredentials).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(AdeAuthError);
+      expect(err).not.toBeInstanceOf(AdePasswordExpiredError);
+    });
+
+    it("Phase A: lancia AdeAuthError anche se il body non è JSON parseable", async () => {
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ status: 401, body: "not json {{{{" }),
+      );
+
+      const err = await client.login(mockCredentials).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(AdeAuthError);
+      expect(err).not.toBeInstanceOf(AdePasswordExpiredError);
     });
 
     it("Phase B: GET portale.agenziaentrate.gov.it/PortaleWeb/home?to=FATBTB", async () => {
@@ -1231,6 +1273,103 @@ describe("RealAdeClient", () => {
   // -----------------------------------------------------------------------
   // logout
   // -----------------------------------------------------------------------
+
+  describe("changePasswordFisconline", () => {
+    const mockParams = {
+      codiceFiscale: "RSSMRA80A01H501A",
+      oldPassword: "OldPass123",
+      newPassword: "NewPass456",
+      confirmNewPassword: "NewPass456",
+    };
+
+    it("POST al corretto URL con form fields (user/oldpw/newpw/newpwf)", async () => {
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: "Cambio password effettuato con successo." }),
+      );
+
+      await client.changePasswordFisconline(mockParams);
+
+      const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain(
+        "telematici.agenziaentrate.gov.it/Abilitazione/CambioPassword/CambioPassword.do",
+      );
+      expect(url).toContain(`userCP=${mockParams.codiceFiscale}`);
+      expect(opts.method).toBe("POST");
+      const body = opts.body as string;
+      expect(body).toContain(`user=${mockParams.codiceFiscale}`);
+      expect(body).toContain(`oldpw=${mockParams.oldPassword}`);
+      expect(body).toContain(`newpw=${mockParams.newPassword}`);
+      expect(body).toContain(`newpwf=${mockParams.confirmNewPassword}`);
+    });
+
+    it("risolve void quando la risposta HTML contiene la stringa di successo", async () => {
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: "Cambio password effettuato con successo." }),
+      );
+
+      await expect(
+        client.changePasswordFisconline(mockParams),
+      ).resolves.toBeUndefined();
+    });
+
+    it("lancia AdeAuthError quando la password attuale è errata", async () => {
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: "L'utente non risulta associato alla password indicata oppure la password non è scaduta.",
+        }),
+      );
+
+      await expect(client.changePasswordFisconline(mockParams)).rejects.toThrow(
+        AdeAuthError,
+      );
+    });
+
+    it("lancia AdeError ADE_CHANGE_PW_MISMATCH quando nuova != conferma", async () => {
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: "Inserire la stessa password nel campo di conferma.",
+        }),
+      );
+
+      const err = await client
+        .changePasswordFisconline(mockParams)
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(AdeError);
+      expect((err as AdeError).code).toBe("ADE_CHANGE_PW_MISMATCH");
+    });
+
+    it("lancia AdeError ADE_CHANGE_PW_SAME quando nuova == attuale", async () => {
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: "La nuova password non puo' essere uguale a quella attuale.",
+        }),
+      );
+
+      const err = await client
+        .changePasswordFisconline(mockParams)
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(AdeError);
+      expect((err as AdeError).code).toBe("ADE_CHANGE_PW_SAME");
+    });
+
+    it("lancia AdePortalError se la risposta HTTP non è 200", async () => {
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 500, body: "" }));
+
+      await expect(client.changePasswordFisconline(mockParams)).rejects.toThrow(
+        AdePortalError,
+      );
+    });
+
+    it("lancia AdePortalError se la risposta HTML è inattesa", async () => {
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: "Risposta completamente inattesa dal portale." }),
+      );
+
+      await expect(client.changePasswordFisconline(mockParams)).rejects.toThrow(
+        AdePortalError,
+      );
+    });
+  });
 
   describe("logout", () => {
     it("chiama i due endpoint iampe (best-effort)", async () => {

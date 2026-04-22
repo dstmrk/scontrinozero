@@ -6,6 +6,7 @@ import { RefreshCw, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { verifyAdeCredentials } from "@/server/onboarding-actions";
+import { ChangeAdePasswordDialog } from "@/components/ade/change-ade-password-dialog";
 
 type VerifyState =
   | { status: "idle" }
@@ -32,6 +33,7 @@ export function AdeCredentialsSection({
     status: "idle",
   });
   const [hasEverVerified, setHasEverVerified] = useState(!!verifiedAt);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -63,6 +65,11 @@ export function AdeCredentialsSection({
       const result = await verifyAdeCredentials(id);
 
       if (result.error) {
+        if (result.passwordExpired) {
+          setVerifyState({ status: "idle" });
+          setChangePasswordOpen(true);
+          return;
+        }
         setVerifyState({ status: "error", message: result.error });
         return;
       }
@@ -86,55 +93,69 @@ export function AdeCredentialsSection({
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground text-sm">Stato:</span>
-          {hasEverVerified ? (
-            <Badge variant="default">Verificate</Badge>
-          ) : (
-            <Badge variant="secondary">Non verificate</Badge>
-          )}
+    <>
+      {businessId && (
+        <ChangeAdePasswordDialog
+          businessId={businessId}
+          open={changePasswordOpen}
+          onClose={() => setChangePasswordOpen(false)}
+          onSuccess={() => {
+            setChangePasswordOpen(false);
+            setHasEverVerified(true);
+            router.refresh();
+          }}
+        />
+      )}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground text-sm">Stato:</span>
+            {hasEverVerified ? (
+              <Badge variant="default">Verificate</Badge>
+            ) : (
+              <Badge variant="secondary">Non verificate</Badge>
+            )}
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleVerify}
+            disabled={verifyState.status === "pending"}
+          >
+            {verifyState.status === "pending" ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
+            {buttonLabel}
+          </Button>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleVerify}
-          disabled={verifyState.status === "pending"}
-        >
-          {verifyState.status === "pending" ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="mr-2 h-4 w-4" />
-          )}
-          {buttonLabel}
-        </Button>
+
+        {verifiedAt && verifyState.status !== "success" && (
+          <p className="text-muted-foreground text-xs">
+            Ultima verifica:{" "}
+            {verifiedAt.toLocaleDateString("it-IT", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}
+          </p>
+        )}
+
+        {verifyState.status === "success" && (
+          <p className="flex items-center gap-1.5 text-sm text-green-600">
+            <CheckCircle2 className="h-4 w-4" />
+            Connessione verificata.
+          </p>
+        )}
+
+        {verifyState.status === "error" && (
+          <p className="text-destructive flex items-center gap-1.5 text-sm">
+            <AlertCircle className="h-4 w-4" />
+            {verifyState.message}
+          </p>
+        )}
       </div>
-
-      {verifiedAt && verifyState.status !== "success" && (
-        <p className="text-muted-foreground text-xs">
-          Ultima verifica:{" "}
-          {verifiedAt.toLocaleDateString("it-IT", {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          })}
-        </p>
-      )}
-
-      {verifyState.status === "success" && (
-        <p className="flex items-center gap-1.5 text-sm text-green-600">
-          <CheckCircle2 className="h-4 w-4" />
-          Connessione verificata.
-        </p>
-      )}
-
-      {verifyState.status === "error" && (
-        <p className="text-destructive flex items-center gap-1.5 text-sm">
-          <AlertCircle className="h-4 w-4" />
-          {verifyState.message}
-        </p>
-      )}
-    </div>
+    </>
   );
 }

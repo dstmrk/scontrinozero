@@ -86,6 +86,20 @@ export interface AdeClient {
    */
   searchDocuments(params: AdeSearchParams): Promise<AdeDocumentList>;
 
+  /**
+   * Cambia la password Fisconline tramite il portale telematici AdE.
+   * Non richiede login previo — funziona anche con password scaduta.
+   *
+   * HAR: cambio_password_*.har
+   * Endpoint: POST telematici.agenziaentrate.gov.it/Abilitazione/CambioPassword/CambioPassword.do
+   */
+  changePasswordFisconline(params: {
+    codiceFiscale: string;
+    oldPassword: string;
+    newPassword: string;
+    confirmNewPassword: string;
+  }): Promise<void>;
+
   /** Logout dalla sessione AdE */
   logout(): Promise<void>;
 }

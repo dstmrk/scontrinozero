@@ -12,6 +12,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
 import { createAdeClient } from "@/lib/ade";
+import { AdePasswordExpiredError } from "@/lib/ade/errors";
 import { mapSaleToAdePayload } from "@/lib/ade/mapper";
 import { logger } from "@/lib/logger";
 import { fetchAdePrerequisites } from "@/lib/server-auth";
@@ -268,6 +269,14 @@ export async function emitReceiptForBusiness(
       .update(commercialDocuments)
       .set({ status: "ERROR" })
       .where(eq(commercialDocuments.id, documentId));
+
+    if (err instanceof AdePasswordExpiredError) {
+      return {
+        error:
+          "La password Fisconline è scaduta. Aggiornala per continuare a emettere scontrini.",
+        passwordExpired: true,
+      };
+    }
 
     return {
       error: "Errore durante l'emissione dello scontrino. Riprova più tardi.",

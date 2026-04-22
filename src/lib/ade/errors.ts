@@ -24,6 +24,20 @@ export class AdeAuthError extends AdeError {
   }
 }
 
+/**
+ * Fisconline password expired — user must change it via the AdE portal.
+ *
+ * HAR finding (login_password_scaduta.har): POST /api/login/telematico
+ * returns 401 with {"details":"PASSWORD_EXPIRED"} when the password has expired.
+ * This is distinct from wrong credentials ({"details":"INVALID_CREDENTIALS"}).
+ */
+export class AdePasswordExpiredError extends AdeError {
+  constructor() {
+    super("ADE_PASSWORD_EXPIRED", "Password Fisconline scaduta");
+    this.name = "AdePasswordExpiredError";
+  }
+}
+
 /** Session expired, re-auth was attempted and also failed. */
 export class AdeSessionExpiredError extends AdeError {
   constructor() {
