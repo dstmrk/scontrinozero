@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
 import { emitReceipt } from "@/server/receipt-actions";
+import { ChangeAdePasswordDialog } from "@/components/ade/change-ade-password-dialog";
 
 type Step = "cart" | "add-item" | "summary" | "success";
 
@@ -49,6 +50,7 @@ export function CassaClient({
   // id dell'articolo in modifica (null = nuova aggiunta)
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [lotteryCode, setLotteryCode] = useState("");
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   // Ref guard: evita doppia esecuzione in React Strict Mode
   const catalogParamConsumed = useRef(false);
@@ -296,24 +298,42 @@ export function CassaClient({
     return (
       <div className="mx-auto max-w-sm space-y-2">
         {mutationError && (
-          <p
+          <div
             role="alert"
-            className="text-destructive rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm"
+            className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm"
           >
-            {mutationError}
-            {mutationError.includes("Credenziali AdE non verificate") && (
-              <>
-                {" "}
-                <Link
-                  href="/dashboard/settings"
-                  className="font-medium underline"
-                >
-                  Verificale ora
-                </Link>
-              </>
+            <p className="text-destructive">
+              {mutationError}
+              {mutationError.includes("Credenziali AdE non verificate") && (
+                <>
+                  {" "}
+                  <Link
+                    href="/dashboard/settings"
+                    className="font-medium underline"
+                  >
+                    {"Verificale ora"}
+                  </Link>
+                </>
+              )}
+            </p>
+            {mutation.data?.passwordExpired && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={() => setChangePasswordOpen(true)}
+              >
+                {"Cambia password Fisconline"}
+              </Button>
             )}
-          </p>
+          </div>
         )}
+        <ChangeAdePasswordDialog
+          businessId={businessId}
+          open={changePasswordOpen}
+          onClose={() => setChangePasswordOpen(false)}
+          onSuccess={() => setChangePasswordOpen(false)}
+        />
         <ReceiptSummary
           lines={lines}
           total={total}

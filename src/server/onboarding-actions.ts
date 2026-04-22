@@ -12,6 +12,12 @@ import {
   getKeyVersion,
 } from "@/lib/crypto";
 import { createAdeClient } from "@/lib/ade";
+import {
+  AdeAuthError,
+  AdeError,
+  AdePasswordExpiredError,
+} from "@/lib/ade/errors";
+import { RateLimiter } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { sendEmail } from "@/lib/email";
 import { WelcomeEmail } from "@/emails/welcome";
@@ -33,7 +39,13 @@ function isUniqueConstraintViolation(err: unknown): boolean {
 export type OnboardingActionResult = {
   error?: string;
   businessId?: string;
+  passwordExpired?: boolean;
 };
+
+const changePasswordLimiter = new RateLimiter({
+  maxRequests: 5,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+});
 
 export type OnboardingStatus = {
   hasProfile: boolean;
@@ -265,6 +277,13 @@ export async function verifyAdeCredentials(
   try {
     await adeClient.login({ codiceFiscale, password, pin });
   } catch (err) {
+    if (err instanceof AdePasswordExpiredError) {
+      logger.warn({ businessId }, "AdE password scaduta durante verifica");
+      return {
+        error: "La password Fisconline è scaduta.",
+        passwordExpired: true,
+      };
+    }
     logger.error({ err, businessId }, "AdE credential verification failed");
     return { error: "Verifica fallita. Controlla le credenziali Fisconline." };
   }
@@ -373,4 +392,88 @@ export async function getOnboardingStatus(): Promise<OnboardingStatus> {
     hasCredentials: !!cred,
     credentialsVerified: !!cred?.verifiedAt,
   };
+}
+
+const ADE_PASSWORD_REGEX = /^[a-zA-Z0-9*+§°ç@^?=)(/&%$£!|\\<>]{8,15}$/;
+
+export async function changeAdePassword(
+  businessId: string,
+  currentPassword: string,
+  newPassword: string,
+  confirmNewPassword: string,
+): Promise<OnboardingActionResult> {
+  const user = await getAuthenticatedUser();
+
+  const ownershipError = await checkBusinessOwnership(user.id, businessId);
+  if (ownershipError) return ownershipError;
+
+  const rateLimitResult = changePasswordLimiter.check(
+    `change-ade-pw:${user.id}`,
+  );
+  if (!rateLimitResult.success) {
+    logger.warn({ userId: user.id }, "changeAdePassword rate limit exceeded");
+    return { error: "Troppi tentativi. Riprova tra qualche minuto." };
+  }
+
+  if (!ADE_PASSWORD_REGEX.test(newPassword)) {
+    return {
+      error:
+        "Password non valida. Usa 8–15 caratteri: lettere (non accentate), numeri o caratteri speciali.",
+    };
+  }
+  if (newPassword !== confirmNewPassword) {
+    return { error: "Le password non coincidono." };
+  }
+  if (newPassword === currentPassword) {
+    return {
+      error: "La nuova password deve essere diversa da quella attuale.",
+    };
+  }
+
+  const db = getDb();
+  const [cred] = await db
+    .select()
+    .from(adeCredentials)
+    .where(eq(adeCredentials.businessId, businessId))
+    .limit(1);
+
+  if (!cred) return { error: "Credenziali non trovate." };
+
+  const key = getEncryptionKey();
+  const keys = new Map<number, Buffer>([[cred.keyVersion, key]]);
+  const codiceFiscale = decrypt(cred.encryptedCodiceFiscale, keys);
+
+  const adeMode = (process.env.ADE_MODE as "mock" | "real") || "mock";
+  const adeClient = createAdeClient(adeMode);
+
+  try {
+    await adeClient.changePasswordFisconline({
+      codiceFiscale,
+      oldPassword: currentPassword,
+      newPassword,
+      confirmNewPassword,
+    });
+  } catch (err) {
+    if (err instanceof AdeAuthError) {
+      logger.warn({ businessId }, "changeAdePassword: password attuale errata");
+      return { error: "Password attuale non corretta." };
+    }
+    if (err instanceof AdeError && err.code === "ADE_CHANGE_PW_SAME") {
+      return {
+        error: "La nuova password deve essere diversa da quella attuale.",
+      };
+    }
+    logger.error({ err, businessId }, "Cambio password AdE fallito");
+    return { error: "Errore durante il cambio password. Riprova più tardi." };
+  }
+
+  const newEncryptedPassword = encrypt(newPassword, key, cred.keyVersion);
+  await db
+    .update(adeCredentials)
+    .set({ encryptedPassword: newEncryptedPassword, verifiedAt: new Date() })
+    .where(eq(adeCredentials.businessId, businessId));
+
+  revalidatePath("/dashboard", "layout");
+  logger.info({ businessId }, "Password Fisconline aggiornata con successo");
+  return { businessId };
 }

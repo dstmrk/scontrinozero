@@ -10,6 +10,10 @@ import { AdeCredentialsSection } from "./ade-credentials-section";
 
 // --- Mocks ---
 
+vi.mock("@/components/ade/change-ade-password-dialog", () => ({
+  ChangeAdePasswordDialog: () => null,
+}));
+
 const mockVerifyAdeCredentials = vi.fn();
 vi.mock("@/server/onboarding-actions", () => ({
   verifyAdeCredentials: (id: string) => mockVerifyAdeCredentials(id),

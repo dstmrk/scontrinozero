@@ -23,7 +23,9 @@ import type {
 import { CookieJar } from "./cookie-jar";
 import {
   AdeAuthError,
+  AdeError,
   AdeNetworkError,
+  AdePasswordExpiredError,
   AdePortalError,
   AdeSessionExpiredError,
   AdeSpidTimeoutError,
@@ -43,6 +45,7 @@ export interface RealAdeClientOptions {
 const ADE_BASE_URL = "https://ivaservizi.agenziaentrate.gov.it";
 const ADE_IAM_BASE_URL = "https://iampe.agenziaentrate.gov.it";
 const ADE_PORTALE_BASE_URL = "https://portale.agenziaentrate.gov.it";
+const ADE_TELEMATICI_BASE_URL = "https://telematici.agenziaentrate.gov.it";
 const ADE_INSTR_PATH = "/instr/instradamento-fatture-rest/rs";
 
 /**
@@ -183,6 +186,23 @@ export class RealAdeClient implements AdeClient {
     });
 
     if (!response.ok) {
+      let details: string | undefined;
+      try {
+        const body = (await response.json()) as { details?: string };
+        details = body.details;
+      } catch {
+        // ignore JSON parse error — fall through to generic auth error
+      }
+
+      if (details === "PASSWORD_EXPIRED") {
+        logger.warn(
+          { phase: "A", codiceFiscale: credentials.codiceFiscale },
+          "ade:password_expired",
+        );
+        throw new AdePasswordExpiredError();
+      }
+
+      logger.warn({ phase: "A", details }, "ade:auth_failed");
       throw new AdeAuthError(
         "Login failed: invalid credentials or account locked",
       );
@@ -1146,6 +1166,73 @@ export class RealAdeClient implements AdeClient {
     }
 
     return response.json() as Promise<AdeDocumentList>;
+  }
+
+  /**
+   * Cambia la password Fisconline tramite il portale telematici AdE.
+   * Non richiede login previo — funziona anche con password scaduta.
+   *
+   * HAR: cambio_password_*.har — form POST con campi user/oldpw/newpw/newpwf.
+   * Risposta sempre HTTP 200; esito rilevato via testo nel body HTML.
+   */
+  async changePasswordFisconline(params: {
+    codiceFiscale: string;
+    oldPassword: string;
+    newPassword: string;
+    confirmNewPassword: string;
+  }): Promise<void> {
+    const url =
+      `${ADE_TELEMATICI_BASE_URL}/Abilitazione/CambioPassword/CambioPassword.do` +
+      `?userCP=${encodeURIComponent(params.codiceFiscale)}`;
+
+    const body = new URLSearchParams({
+      user: params.codiceFiscale,
+      oldpw: params.oldPassword,
+      newpw: params.newPassword,
+      newpwf: params.confirmNewPassword,
+    });
+
+    const response = await this.request(url, {
+      method: "POST",
+      body: body.toString(),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
+
+    if (!response.ok) {
+      throw new AdePortalError(
+        response.status,
+        `changePasswordFisconline request failed with status ${response.status}`,
+      );
+    }
+
+    const html = await response.text();
+
+    if (html.includes("Cambio password effettuato con successo")) {
+      return;
+    }
+    if (
+      html.includes("L'utente non risulta associato alla password indicata")
+    ) {
+      throw new AdeAuthError("Wrong current Fisconline password");
+    }
+    if (html.includes("Inserire la stessa password nel campo di conferma")) {
+      throw new AdeError(
+        "ADE_CHANGE_PW_MISMATCH",
+        "New password confirmation does not match",
+      );
+    }
+    if (
+      html.includes("La nuova password non puo' essere uguale a quella attuale")
+    ) {
+      throw new AdeError(
+        "ADE_CHANGE_PW_SAME",
+        "New password must differ from current password",
+      );
+    }
+    throw new AdePortalError(
+      200,
+      "Unexpected changePasswordFisconline response",
+    );
   }
 
   async logout(): Promise<void> {
