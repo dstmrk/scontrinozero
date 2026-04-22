@@ -244,6 +244,33 @@ describe("changeAdePassword", () => {
     expect(result.error).toMatch(/Password attuale non corretta/);
   });
 
+  it("restituisce errore 'diversa da quella attuale' quando AdE lancia ADE_CHANGE_PW_SAME", async () => {
+    const { AdeError } = await import("@/lib/ade/errors");
+    mockAdeChangePassword.mockRejectedValue(
+      new AdeError("ADE_CHANGE_PW_SAME", "Same password"),
+    );
+    const { changeAdePassword } = await import("@/server/onboarding-actions");
+    const result = await changeAdePassword(
+      BIZ_ID,
+      "OldPass1",
+      "NewPass12",
+      "NewPass12",
+    );
+    expect(result.error).toMatch(/diversa da quella attuale/);
+  });
+
+  it("restituisce errore generico quando AdE lancia un errore non classificato", async () => {
+    mockAdeChangePassword.mockRejectedValue(new Error("Network error"));
+    const { changeAdePassword } = await import("@/server/onboarding-actions");
+    const result = await changeAdePassword(
+      BIZ_ID,
+      "OldPass1",
+      "NewPass12",
+      "NewPass12",
+    );
+    expect(result.error).toMatch(/Riprova più tardi/);
+  });
+
   it("aggiorna la password cifrata e verifiedAt in caso di successo", async () => {
     const { changeAdePassword } = await import("@/server/onboarding-actions");
     const result = await changeAdePassword(

@@ -41,6 +41,7 @@ export default defineConfig({
         "src/components/settings/edit-business-section.tsx", // UI client component — form + dialog, pure UI
         "src/components/settings/edit-settings-dialog.tsx", // UI client component — shared dialog shell, pure UI
         "src/components/settings/edit-ade-credentials-section.tsx", // UI client component — form + dialog, pure UI
+        "src/components/ade/change-ade-password-dialog.tsx", // UI client component — form + dialog, pure UI
         "src/sw.ts", // service worker entry point — pure infrastructure, no testable logic
         "src/app/offline/page.tsx", // static offline shell — pure UI, no logic
       ],
