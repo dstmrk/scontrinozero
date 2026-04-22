@@ -59,7 +59,7 @@ export default function PrimaConfigurazioneePage() {
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           {
-            "Non serve inserire manualmente Partita IVA, codice fiscale dell'attività o codice ATECO: ScontrinoZero li recupera automaticamente dall'Agenzia delle Entrate quando verifica le tue credenziali Fisconline."
+            "Non serve inserire manualmente Partita IVA né codice fiscale dell'attività: ScontrinoZero li recupera automaticamente dall'Agenzia delle Entrate quando verifica le tue credenziali Fisconline."
           }
         </p>
 
