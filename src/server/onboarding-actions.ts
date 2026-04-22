@@ -394,7 +394,7 @@ export async function getOnboardingStatus(): Promise<OnboardingStatus> {
   };
 }
 
-const ADE_PASSWORD_REGEX = /^[a-zA-Z0-9*+§°ç@^?=)(\/&%$£!|\\<>]{8,15}$/;
+const ADE_PASSWORD_REGEX = /^[a-zA-Z0-9*+§°ç@^?=)(/&%$£!|\\<>]{8,15}$/;
 
 export async function changeAdePassword(
   businessId: string,

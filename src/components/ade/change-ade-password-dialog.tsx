@@ -25,7 +25,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { changeAdePassword } from "@/server/onboarding-actions";
 
 // Lettere non accentate, numeri, caratteri speciali ammessi da Fisconline
-const ADE_PASSWORD_REGEX = /^[a-zA-Z0-9*+§°ç@^?=)(\/&%$£!|\\<>]{8,15}$/;
+const ADE_PASSWORD_REGEX = /^[a-zA-Z0-9*+§°ç@^?=)(/&%$£!|\\<>]{8,15}$/;
 
 const schema = z
   .object({
@@ -34,7 +34,7 @@ const schema = z
       .string()
       .regex(
         ADE_PASSWORD_REGEX,
-        "8–15 caratteri: lettere (non accentate), numeri o * + § ° ç @ ^ ? = ) ( / & % $ £ ! | \\ < >",
+        String.raw`8–15 caratteri: lettere (non accentate), numeri o * + § ° ç @ ^ ? = ) ( / & % $ £ ! | \ < >`,
       ),
     confirmNewPassword: z.string().min(1, "Conferma la nuova password."),
   })
