@@ -121,7 +121,7 @@ export default function ChiusuraGiornalieraPage() {
                 <td className="text-foreground py-2 font-medium">
                   Hardware richiesto
                 </td>
-                <td className="py-2">RT certificato (€200-800)</td>
+                <td className="py-2">RT certificato (€300-800)</td>
                 <td className="py-2">Smartphone o PC</td>
               </tr>
             </tbody>
@@ -148,10 +148,13 @@ export default function ChiusuraGiornalieraPage() {
               Se perdo la connessione durante la giornata, i dati vengono persi?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              No. ScontrinoZero non permette di emettere uno scontrino senza
-              connessione internet (la trasmissione all&apos;AdE avviene in
-              tempo reale). Se la connessione cade, l&apos;app ti avvisa e
-              attendi il ripristino prima di procedere.
+              No, perché senza connessione non vengono creati scontrini. La
+              trasmissione all&apos;AdE è sincrona: se al momento
+              dell&apos;emissione la rete non è disponibile l&apos;operazione
+              fallisce con un errore e nessun documento viene memorizzato. Se
+              provi a usare l&apos;app mentre sei offline, la PWA mostra la
+              pagina <strong>Sei offline</strong>. Attendi il ripristino della
+              connessione e premi di nuovo <strong>Emetti scontrino</strong>.
             </p>
           </div>
           <div>
@@ -172,9 +175,12 @@ export default function ChiusuraGiornalieraPage() {
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               No. I corrispettivi sono già registrati nel cassetto fiscale
-              dell&apos;AdE e nello Storico di ScontrinoZero. Puoi esportare un
-              CSV in qualsiasi momento per i tuoi archivi o per il
-              commercialista.
+              dell&apos;AdE e nello Storico di ScontrinoZero. Per dare i dati al
+              commercialista puoi filtrare lo Storico per il mese di riferimento
+              oppure scaricare l&apos;archivio completo dei tuoi dati (profilo,
+              scontrini, catalogo) dalle{" "}
+              <strong>Impostazioni → Portabilità dati</strong> — la funzione
+              prevista dall&apos;art. 20 GDPR produce un file JSON strutturato.
             </p>
           </div>
         </div>
