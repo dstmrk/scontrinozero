@@ -50,12 +50,12 @@ export default function ApiDocsPage() {
             {"Una chiave API di tipo "}
             <strong>business</strong>
             {" generata dalla dashboard: vai su "}
-            <strong>Impostazioni → API</strong>
+            <strong>Impostazioni → API key</strong>
             {", clicca "}
-            <em>Genera nuova chiave</em>
-            {
-              ', assegnale un nome descrittivo (es. "POS principale") e copia la chiave — sarà mostrata '
-            }
+            <em>+ Nuova API key</em>
+            {', assegnale un nome descrittivo (es. "POS principale"), clicca '}
+            <em>Genera</em>
+            {" e copia la chiave — sarà mostrata "}
             <strong>una sola volta</strong>.
           </li>
         </ul>
@@ -74,7 +74,7 @@ export default function ApiDocsPage() {
         <pre className="bg-muted mt-3 overflow-x-auto rounded-md p-4 font-mono text-xs leading-relaxed">
           <code>
             Authorization: Bearer
-            szk_live_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+            szk_live_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
           </code>
         </pre>
         <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800 dark:bg-amber-950">
@@ -101,12 +101,16 @@ export default function ApiDocsPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Il sandbox è identico alla produzione, ma ogni chiamata all&apos;AdE è
           simulata — nessun documento viene trasmesso. Le risposte hanno la
-          stessa struttura di quelle reali, incluso un{" "}
+          stessa struttura di quelle reali; il campo{" "}
           <code className="bg-muted rounded px-1 font-mono text-xs">
-            adeTransactionId
+            adeProgressive
           </code>{" "}
-          fittizio (prefisso{" "}
+          è fittizio e contiene il prefisso{" "}
           <code className="bg-muted rounded px-1 font-mono text-xs">MOCK-</code>
+          {" (es. "}
+          <code className="bg-muted rounded px-1 font-mono text-xs">
+            DCW2026/MOCK-1
+          </code>
           {")."}
         </p>
         <ul className="text-muted-foreground mt-3 list-disc space-y-1 pl-5 text-sm leading-relaxed">
@@ -236,8 +240,8 @@ export default function ApiDocsPage() {
                 <td className="py-2 pr-4 pl-4 font-mono text-xs">
                   lines[].quantity
                 </td>
-                <td className="py-2 pr-4 text-xs">number (0–9999)</td>
-                <td className="py-2 text-xs">Quantità (decimali ammessi)</td>
+                <td className="py-2 pr-4 text-xs">number (&gt; 0, ≤ 9999)</td>
+                <td className="py-2 text-xs">Quantità, max 3 decimali</td>
               </tr>
               <tr className="border-b">
                 <td className="py-2 pr-4 pl-4 font-mono text-xs">
@@ -280,13 +284,19 @@ export default function ApiDocsPage() {
               </tr>
               <tr>
                 <td className="py-2 pr-4 font-mono text-xs">lotteryCode</td>
-                <td className="py-2 pr-4 text-xs">string (max 8) | null</td>
+                <td className="py-2 pr-4 text-xs">
+                  string (8 char [A-Z0-9]) | null
+                </td>
                 <td className="py-2 text-xs">
-                  {"Codice lotteria scontrini (opzionale, solo con "}
+                  {"Codice lotteria scontrini (opzionale). Rilevante solo con "}
                   <code className="bg-muted rounded px-1 font-mono text-xs">
                     PE
                   </code>
-                  {")"}
+                  {" e se il totale scontrino è ≥ €1,00; viene ignorato con "}
+                  <code className="bg-muted rounded px-1 font-mono text-xs">
+                    PC
+                  </code>
+                  .
                 </td>
               </tr>
             </tbody>
@@ -750,7 +760,11 @@ const idempotencyKey = crypto.randomUUID();`}</code>
         <p className="text-muted-foreground mt-3 text-sm">
           {"Al superamento del limite ricevi una risposta "}
           <code className="bg-muted rounded px-1 font-mono text-xs">429</code>
-          {". Attendi qualche minuto e riprova."}
+          {" con header "}
+          <code className="bg-muted rounded px-1 font-mono text-xs">
+            Retry-After
+          </code>
+          {" che indica i secondi da attendere prima di riprovare."}
         </p>
 
         {/* ─── Codici di errore ─── */}
