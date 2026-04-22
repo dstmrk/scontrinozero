@@ -467,7 +467,7 @@ export async function changeAdePassword(
     return { error: "Errore durante il cambio password. Riprova più tardi." };
   }
 
-  const newEncryptedPassword = encrypt(newPassword, key);
+  const newEncryptedPassword = encrypt(newPassword, key, cred.keyVersion);
   await db
     .update(adeCredentials)
     .set({ encryptedPassword: newEncryptedPassword, verifiedAt: new Date() })

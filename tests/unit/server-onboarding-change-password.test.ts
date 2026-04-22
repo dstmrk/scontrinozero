@@ -254,7 +254,11 @@ describe("changeAdePassword", () => {
     );
     expect(result.error).toBeUndefined();
     expect(result.businessId).toBe(BIZ_ID);
-    expect(mockEncrypt).toHaveBeenCalledWith("NewPass12", FAKE_KEY);
+    expect(mockEncrypt).toHaveBeenCalledWith(
+      "NewPass12",
+      FAKE_KEY,
+      FAKE_CRED.keyVersion,
+    );
     expect(mockSet).toHaveBeenCalledWith(
       expect.objectContaining({ encryptedPassword: "new-enc-pw" }),
     );
