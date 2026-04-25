@@ -222,6 +222,18 @@
     node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
     ```
 
+25. **Quando si modifica una funzionalità, verificare se le pagine Help associate vanno aggiornate.**
+    Ogni modifica a UI label, percorsi di menu, stati visualizzati, opzioni di filtro,
+    flussi di errore, gating dei piani o nomi di bottoni può rendere obsoleta la documentazione
+    in `src/app/(marketing)/help/**/page.tsx`. Prima di chiudere un task che cambia uno di
+    questi aspetti, fare un grep mirato del termine modificato (es. `grep -rn "Verifica connessione" src/app/\(marketing\)/help`)
+    e aggiornare gli articoli che lo citano. Le revisioni periodiche del Help Center hanno già
+    rivelato discrepanze evidenti (es. label "Trasmesso" vs UI reale "Emesso", filtro "importo"
+    inesistente, sezioni che descrivevano feature ancora `comingSoon`): tenere allineata la
+    documentazione contestualmente al codice evita che si accumulino. Per le feature ancora
+    non implementate, riformulare al condizionale come roadmap (es. "In arrivo · Piano Pro")
+    anziché descriverle come attive.
+
 ## Progetto
 
 ScontrinoZero è un registratore di cassa virtuale (SaaS) mobile-first che consente a
