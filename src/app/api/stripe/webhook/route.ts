@@ -15,7 +15,7 @@ export async function POST(req: Request): Promise<Response> {
   // (not readJsonWithLimit) to preserve the raw payload.
   const bodyResult = await readTextWithLimit(req, WEBHOOK_MAX_BYTES);
   if (!bodyResult.ok) {
-    if (bodyResult.tooLarge) {
+    if ("tooLarge" in bodyResult) {
       return Response.json({ error: "Payload too large." }, { status: 413 });
     }
     return Response.json({ error: "Failed to read body." }, { status: 400 });

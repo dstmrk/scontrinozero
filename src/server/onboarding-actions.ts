@@ -2,7 +2,7 @@
 
 import { createElement } from "react";
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { businesses, adeCredentials, profiles } from "@/db/schema";
 import {
@@ -332,13 +332,16 @@ export async function verifyAdeCredentials(
 
   // Mark credentials as verified, but only if they haven't been replaced since
   // we read them (optimistic locking via updatedAt snapshot taken above).
+  // date_trunc to milliseconds: defaultNow() lets PostgreSQL set updatedAt via
+  // NOW() (microsecond precision), but JS Date is only millisecond-precise.
+  // Truncating before comparison prevents false mismatches on the first SELECT.
   const updated = await db
     .update(adeCredentials)
     .set({ verifiedAt: new Date() })
     .where(
       and(
         eq(adeCredentials.businessId, businessId),
-        eq(adeCredentials.updatedAt, credentialVersion),
+        sql`date_trunc('milliseconds', ${adeCredentials.updatedAt}) = ${credentialVersion}`,
       ),
     )
     .returning({ id: adeCredentials.id });

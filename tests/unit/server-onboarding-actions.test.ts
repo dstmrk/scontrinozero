@@ -233,7 +233,7 @@ describe("verifyAdeCredentials", () => {
 
   it("returns passwordExpired flag when AdE reports expired password", async () => {
     const { AdePasswordExpiredError } = await import("@/lib/ade/errors");
-    mockAdeLogin.mockRejectedValueOnce(new AdePasswordExpiredError("expired"));
+    mockAdeLogin.mockRejectedValueOnce(new AdePasswordExpiredError());
     const { verifyAdeCredentials } =
       await import("@/server/onboarding-actions");
 
@@ -263,7 +263,7 @@ describe("verifyAdeCredentials", () => {
     );
   });
 
-  it("optimistic lock: UPDATE includes updatedAt condition to detect stale credentials", async () => {
+  it("optimistic lock: UPDATE sets verifiedAt when credentials are unchanged", async () => {
     const { verifyAdeCredentials } =
       await import("@/server/onboarding-actions");
 
