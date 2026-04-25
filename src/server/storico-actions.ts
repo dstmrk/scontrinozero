@@ -61,21 +61,29 @@ export async function searchReceipts(
     eq(commercialDocuments.kind, "SALE"),
   ];
 
+  let dateFromDate: Date | null = null;
   if (params.dateFrom) {
-    const d = parseStrictIsoDateUtc(params.dateFrom);
-    if (!d)
+    dateFromDate = parseStrictIsoDateUtc(params.dateFrom);
+    if (!dateFromDate)
       return {
         error: "Filtro data 'dateFrom' non valido.",
         items: [],
         total: 0,
       };
-    conditions.push(gte(commercialDocuments.createdAt, d));
+    conditions.push(gte(commercialDocuments.createdAt, dateFromDate));
   }
+
   if (params.dateTo) {
-    const d = parseStrictIsoDateUtc(params.dateTo);
-    if (!d)
+    const dateToDate = parseStrictIsoDateUtc(params.dateTo);
+    if (!dateToDate)
       return { error: "Filtro data 'dateTo' non valido.", items: [], total: 0 };
-    const toExclusive = new Date(d);
+    if (dateFromDate && dateFromDate > dateToDate)
+      return {
+        error: "La data di inizio non può essere successiva alla data di fine.",
+        items: [],
+        total: 0,
+      };
+    const toExclusive = new Date(dateToDate);
     toExclusive.setUTCDate(toExclusive.getUTCDate() + 1);
     conditions.push(lt(commercialDocuments.createdAt, toExclusive));
   }
