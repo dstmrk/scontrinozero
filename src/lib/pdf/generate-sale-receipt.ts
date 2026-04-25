@@ -58,12 +58,21 @@ function formatPrice(amount: number): string {
 }
 
 function formatDate(date: Date): string {
-  const dd = String(date.getDate()).padStart(2, "0");
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const yyyy = date.getFullYear();
-  const hh = String(date.getHours()).padStart(2, "0");
-  const min = String(date.getMinutes()).padStart(2, "0");
-  return `${dd}-${mm}-${yyyy} ${hh}:${min}`;
+  // Extract date/time parts in Europe/Rome timezone, then assemble as
+  // DD-MM-YYYY HH:MM. Using formatToParts avoids locale-specific separators
+  // (it-IT uses "/" which would need a replace). In a UTC container,
+  // getHours()/getDate() etc. return UTC values and differ from Italy's local
+  // time near midnight and during DST transitions.
+  const parts = new Intl.DateTimeFormat("it-IT", {
+    timeZone: "Europe/Rome",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(date);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
+  return `${get("day")}-${get("month")}-${get("year")} ${get("hour")}:${get("minute")}`;
 }
 
 /** Returns the VAT amount for a gross line total given a vatCode. */
