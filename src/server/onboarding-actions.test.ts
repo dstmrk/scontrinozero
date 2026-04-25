@@ -26,7 +26,13 @@ const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
 const mockReturning = vi.fn();
 const mockInsertValues = vi.fn().mockReturnValue({ returning: mockReturning });
 const mockInsert = vi.fn().mockReturnValue({ values: mockInsertValues });
-const mockUpdateSet = vi.fn().mockReturnValue({ where: vi.fn() });
+// The returning mock defaults to 1 row (success). Override per-test with
+// mockUpdateReturning.mockResolvedValueOnce([]) to simulate 0-rows-affected.
+const mockUpdateReturning = vi.fn().mockResolvedValue([{ id: "mock-cred-id" }]);
+const mockUpdateWhere = vi
+  .fn()
+  .mockReturnValue({ returning: mockUpdateReturning });
+const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
 const mockUpdate = vi.fn().mockReturnValue({ set: mockUpdateSet });
 const mockTransaction = vi.fn();
 
