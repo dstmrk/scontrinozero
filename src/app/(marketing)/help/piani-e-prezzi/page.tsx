@@ -91,11 +91,11 @@ export default function PianiEPrezziPage() {
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>Scontrini elettronici illimitati</li>
           <li>Annullamento scontrini</li>
-          <li>Metodi di pagamento misti (contante + carta + altro)</li>
+          <li>Pagamento in contanti o con carta</li>
           <li>
             Catalogo rapido fino a <strong>5 prodotti</strong>
           </li>
-          <li>Analytics base (totale giornaliero, metodi di pagamento)</li>
+          <li>Storico scontrini con filtri per data e stato</li>
           <li>Lotteria degli Scontrini</li>
           <li>PWA installabile su smartphone</li>
           <li>Supporto via email entro 48 ore</li>
@@ -109,21 +109,30 @@ export default function PianiEPrezziPage() {
         <h2 className="mt-10 text-xl font-semibold">Piano Pro</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Per esercenti con un volume di vendite regolare che hanno bisogno di
-          strumenti avanzati per la gestione e la contabilità. Tutto quello che
-          include Starter, più:
+          strumenti avanzati per la gestione e la contabilità. Include tutto ciò
+          che è disponibile nel piano Starter, più il catalogo illimitato e il
+          supporto prioritario. Sono inoltre in sviluppo alcune feature
+          riservate al piano Pro:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
             Catalogo rapido <strong>illimitato</strong>
           </li>
-          <li>Analytics avanzata con dashboard storica</li>
-          <li>
-            <strong>Export CSV</strong> dello storico scontrini (per
-            commercialista o contabilità)
-          </li>
-          <li>Recupero corrispettivi da AdE (sincronizzazione dati storici)</li>
-          <li>Sync catalogo prodotti da rubrica AdE</li>
           <li>Supporto prioritario via email entro 24 ore</li>
+          <li>
+            <em>In arrivo:</em> analytics avanzata con dashboard storica
+          </li>
+          <li>
+            <em>In arrivo:</em> <strong>Export CSV</strong> dello storico
+            scontrini (per commercialista o contabilità)
+          </li>
+          <li>
+            <em>In arrivo:</em> recupero corrispettivi da AdE (sincronizzazione
+            dati storici)
+          </li>
+          <li>
+            <em>In arrivo:</em> sync catalogo prodotti da rubrica AdE
+          </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           A <strong>€49,99/anno</strong> Pro è più conveniente di Starter su
@@ -137,8 +146,10 @@ export default function PianiEPrezziPage() {
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           ScontrinoZero è open source con licenza O&apos;Saasy. Puoi scaricare
-          il codice sorgente, installarlo sul tuo server e usarlo gratuitamente
-          con tutte le funzioni del piano Pro. È la scelta giusta se:
+          il codice sorgente, installarlo sul tuo server e usarlo gratuitamente:
+          hai accesso a tutto il codice del progetto e ricevi le feature in
+          arrivo (analytics avanzata, export CSV, recupero corrispettivi AdE)
+          man mano che vengono rilasciate. È la scelta giusta se:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
@@ -203,7 +214,7 @@ export default function PianiEPrezziPage() {
               </tr>
               <tr>
                 <td className="text-foreground py-2 font-medium">
-                  Pagamenti misti
+                  Pagamento contanti o carta
                 </td>
                 <td className="py-2">✓</td>
                 <td className="py-2">✓</td>
@@ -227,19 +238,19 @@ export default function PianiEPrezziPage() {
                   Analytics avanzata
                 </td>
                 <td className="py-2">—</td>
-                <td className="py-2">✓</td>
+                <td className="py-2">In arrivo</td>
               </tr>
               <tr>
                 <td className="text-foreground py-2 font-medium">Export CSV</td>
                 <td className="py-2">—</td>
-                <td className="py-2">✓</td>
+                <td className="py-2">In arrivo</td>
               </tr>
               <tr>
                 <td className="text-foreground py-2 font-medium">
                   Recupero corrispettivi AdE
                 </td>
                 <td className="py-2">—</td>
-                <td className="py-2">✓</td>
+                <td className="py-2">In arrivo</td>
               </tr>
               <tr>
                 <td className="text-foreground py-2 font-medium">
@@ -261,10 +272,10 @@ export default function PianiEPrezziPage() {
             <p className="text-sm font-medium">Scegli Starter se:</p>
             <ul className="text-muted-foreground mt-1 list-disc space-y-1 pl-5 text-sm leading-relaxed">
               <li>Emetti meno di 20-30 scontrini al giorno.</li>
-              <li>Non hai bisogno di export CSV o analytics storica.</li>
+              <li>Hai un catalogo entro i 5 prodotti.</li>
               <li>
-                Hai un catalogo piccolo (ambulante, mercatino, servizio
-                occasionale).
+                Lavori in mobilità (ambulante, mercatino, servizio occasionale)
+                e ti basta lo storico scontrini con i filtri base.
               </li>
             </ul>
           </div>
@@ -272,14 +283,12 @@ export default function PianiEPrezziPage() {
             <p className="text-sm font-medium">Scegli Pro se:</p>
             <ul className="text-muted-foreground mt-1 list-disc space-y-1 pl-5 text-sm leading-relaxed">
               <li>Hai un negozio aperto tutti i giorni.</li>
-              <li>
-                Il tuo commercialista ti chiede un export mensile degli
-                scontrini.
-              </li>
               <li>Hai più di 5 prodotti nel catalogo rapido.</li>
+              <li>Vuoi il supporto prioritario via email entro 24 ore.</li>
               <li>
-                Vuoi sincronizzare il catalogo con il portale AdE (rubrica
-                prodotti).
+                Vuoi accedere alle feature in arrivo riservate al piano Pro
+                (export CSV scontrini, analytics avanzata, recupero
+                corrispettivi e sync catalogo da rubrica AdE).
               </li>
             </ul>
           </div>
