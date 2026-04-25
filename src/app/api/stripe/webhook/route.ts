@@ -3,11 +3,26 @@ import { getDb } from "@/db";
 import { subscriptions, profiles, stripeWebhookEvents } from "@/db/schema";
 import { getStripe, planFromPriceId, intervalFromPriceId } from "@/lib/stripe";
 import { logger } from "@/lib/logger";
+import { readTextWithLimit } from "@/lib/request-utils";
 import type Stripe from "stripe";
 
+const WEBHOOK_MAX_BYTES = 256 * 1024; // 256 KB — sufficient for all Stripe payloads
+
 export async function POST(req: Request): Promise<Response> {
+  // ── Body size guard ───────────────────────────────────────────────────────
+  // Read the raw body with a hard limit before any signature verification.
+  // Stripe requires the exact bytes for HMAC, so we use readTextWithLimit
+  // (not readJsonWithLimit) to preserve the raw payload.
+  const bodyResult = await readTextWithLimit(req, WEBHOOK_MAX_BYTES);
+  if (!bodyResult.ok) {
+    if ("tooLarge" in bodyResult) {
+      return Response.json({ error: "Payload too large." }, { status: 413 });
+    }
+    return Response.json({ error: "Failed to read body." }, { status: 400 });
+  }
+  const payload = bodyResult.text;
+
   // ── Verify Stripe signature (raw body required) ───────────────────────────
-  const payload = await req.text();
   const signature = req.headers.get("stripe-signature");
 
   if (!signature) {

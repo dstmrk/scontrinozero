@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Download } from "lucide-react";
 import type { Metadata } from "next";
 import { fetchPublicReceipt } from "@/lib/receipts/fetch-public-receipt";
+import { formatFiscalDateTime } from "@/lib/date-utils";
 import { ShareButton } from "./share-button";
 
 // Static metadata — no DB query needed here.
@@ -25,13 +26,7 @@ function formatPrice(amount: number): string {
 }
 
 function formatDate(date: Date): string {
-  return new Date(date).toLocaleString("it-IT", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatFiscalDateTime(new Date(date));
 }
 
 function computeVatAmount(lineTotalGross: number, vatCode: string): number {

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getFiscalDate, parseStrictIsoDateUtc } from "./date-utils";
+import {
+  getFiscalDate,
+  parseStrictIsoDateUtc,
+  formatFiscalDateTime,
+} from "./date-utils";
 
 describe("getFiscalDate", () => {
   it("returns YYYY-MM-DD format", () => {
@@ -63,6 +67,35 @@ describe("getFiscalDate", () => {
       "Europe/Rome",
     );
     expect(result).toBe("2026-10-25");
+  });
+});
+
+describe("formatFiscalDateTime", () => {
+  it("shows the Europe/Rome day, not UTC day, for a timestamp just past midnight UTC (winter, UTC+1)", () => {
+    // 2026-12-31T23:30:00Z = 2027-01-01T00:30:00 CET (UTC+1)
+    // A UTC-only formatter would show Dec 31; Rome-aware must show Jan 1 2027.
+    const result = formatFiscalDateTime(new Date("2026-12-31T23:30:00Z"));
+    expect(result).toContain("01");
+    expect(result).toContain("2027");
+  });
+
+  it("shows the Europe/Rome day and hour for a timestamp just past midnight UTC (summer, UTC+2)", () => {
+    // 2026-07-15T22:30:00Z = 2026-07-16T00:30:00 CEST (UTC+2)
+    // UTC-only formatter would show July 15; Rome-aware must show July 16.
+    const result = formatFiscalDateTime(new Date("2026-07-15T22:30:00Z"));
+    expect(result).toContain("16");
+    expect(result).toContain("07");
+    expect(result).toContain("2026");
+  });
+
+  it("returns the Italy time for a midday UTC timestamp (no ambiguity)", () => {
+    // 2026-02-15T12:30:00Z = 2026-02-15T13:30:00 CET (UTC+1)
+    const result = formatFiscalDateTime(new Date("2026-02-15T12:30:00Z"));
+    expect(result).toContain("15");
+    expect(result).toContain("02");
+    expect(result).toContain("2026");
+    // The Rome hour (13) must appear, not the UTC hour (12)
+    expect(result).toContain("13");
   });
 });
 

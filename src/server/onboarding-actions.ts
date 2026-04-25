@@ -2,7 +2,7 @@
 
 import { createElement } from "react";
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { businesses, adeCredentials, profiles } from "@/db/schema";
 import {
@@ -264,6 +264,11 @@ export async function verifyAdeCredentials(
     return { error: "Credenziali non trovate." };
   }
 
+  // Snapshot updatedAt to detect concurrent credential updates (optimistic locking).
+  // If the user saves new credentials while AdE login is in progress, the WHERE
+  // below will match 0 rows, preventing verifiedAt from being set on stale data.
+  const credentialVersion = cred.updatedAt;
+
   const key = getEncryptionKey();
   const keys = new Map<number, Buffer>([[cred.keyVersion, key]]);
 
@@ -325,11 +330,32 @@ export async function verifyAdeCredentials(
       .catch((err) => logger.warn({ err }, "AdE logout failed"));
   }
 
-  // Mark credentials as verified
-  await db
+  // Mark credentials as verified, but only if they haven't been replaced since
+  // we read them (optimistic locking via updatedAt snapshot taken above).
+  // date_trunc to milliseconds: defaultNow() lets PostgreSQL set updatedAt via
+  // NOW() (microsecond precision), but JS Date is only millisecond-precise.
+  // Truncating before comparison prevents false mismatches on the first SELECT.
+  const updated = await db
     .update(adeCredentials)
     .set({ verifiedAt: new Date() })
-    .where(eq(adeCredentials.businessId, businessId));
+    .where(
+      and(
+        eq(adeCredentials.businessId, businessId),
+        sql`date_trunc('milliseconds', ${adeCredentials.updatedAt}) = ${credentialVersion}`,
+      ),
+    )
+    .returning({ id: adeCredentials.id });
+
+  if (updated.length === 0) {
+    // Credentials were changed while AdE login was in progress.
+    // Return success with the businessId — the user's new credentials
+    // are not verified yet and will be checked on the next operation.
+    logger.warn(
+      { businessId },
+      "verifyAdeCredentials: credenziali modificate durante verifica, verifiedAt non impostato",
+    );
+    return { businessId };
+  }
 
   // Send welcome email on first successful verification (fire-and-forget)
   if (!cred.verifiedAt && user.email) {

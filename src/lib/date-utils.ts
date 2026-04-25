@@ -23,6 +23,25 @@ export function getFiscalDate(
 }
 
 /**
+ * Formats a Date as "DD/MM/YYYY HH:MM" in the Italian fiscal timezone
+ * (Europe/Rome), ensuring DST transitions are handled correctly.
+ *
+ * Use this instead of `date.getHours()` / `toLocaleString` without a timeZone
+ * option: in a UTC container the local timezone is UTC, which can differ from
+ * Europe/Rome by 1–2 hours, producing wrong times on receipts.
+ */
+export function formatFiscalDateTime(date: Date): string {
+  return new Intl.DateTimeFormat("it-IT", {
+    timeZone: "Europe/Rome",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+/**
  * Parses an ISO YYYY-MM-DD string to a UTC-midnight Date.
  * Returns null for invalid format or impossible dates (e.g. 2026-02-31).
  * Round-trip check: parsed year/month/day must equal input to catch JS Date

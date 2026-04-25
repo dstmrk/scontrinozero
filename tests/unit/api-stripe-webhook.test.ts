@@ -649,4 +649,37 @@ describe("POST /api/stripe/webhook", () => {
       expect.stringContaining("checkout.session.expired"),
     );
   });
+
+  // ── P0: body size guard ──────────────────────────────────────────────────
+  // An oversized payload must be rejected with 413 before signature verification,
+  // preventing memory/CPU exhaustion on the single-container deployment.
+
+  it("P0: returns 413 when Content-Length exceeds 256 KB limit", async () => {
+    const oversizedContentLength = String(256 * 1024 + 1); // 256 KB + 1 byte
+    const req = new Request("http://localhost/api/stripe/webhook", {
+      method: "POST",
+      headers: {
+        "stripe-signature": "valid-sig",
+        "content-length": oversizedContentLength,
+      },
+      body: "{}",
+    });
+
+    const response = await POST(req);
+
+    expect(response.status).toBe(413);
+    // constructEvent must NOT be called — the body was never consumed
+    expect(mockConstructEvent).not.toHaveBeenCalled();
+  });
+
+  it("P0: processes normally when body is within the 256 KB limit", async () => {
+    mockConstructEvent.mockReturnValue(
+      makeStripeEvent("some.unknown.event", {}),
+    );
+    // No content-length header → body is read via stream (small payload)
+    const response = await POST(makeWebhookRequest("{}"));
+
+    expect(response.status).toBe(200);
+    expect(mockConstructEvent).toHaveBeenCalled();
+  });
 });

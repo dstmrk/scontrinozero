@@ -259,6 +259,21 @@ describe("searchReceipts server action", () => {
       // With page clamped to 1: offset = (1-1) * pageSize = 0
       expect(mockDocsOffset).toHaveBeenCalledWith(0);
     });
+
+    it("returns error when dateFrom is after dateTo (inverted range)", async () => {
+      const { searchReceipts } = await import("@/server/storico-actions");
+
+      const result = await searchReceipts(BIZ_ID, {
+        dateFrom: "2026-03-10",
+        dateTo: "2026-03-01",
+      });
+
+      expect(result.error).toBeDefined();
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
+      // No DB queries should have been executed
+      expect(mockCountWhere).not.toHaveBeenCalled();
+    });
   });
 
   // ── Auth / ownership ──────────────────────────────────────────────────────
