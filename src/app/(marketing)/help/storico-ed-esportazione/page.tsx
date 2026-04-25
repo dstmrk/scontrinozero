@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title:
     "Storico scontrini: filtri, ricerca ed esportazione | ScontrinoZero Help",
   description:
-    "Come navigare lo storico degli scontrini in ScontrinoZero, usare i filtri di ricerca e esportare i dati in CSV per la contabilità.",
+    "Come navigare lo storico degli scontrini in ScontrinoZero, usare i filtri di ricerca e ricondividere il PDF dei singoli scontrini. L'export CSV è una funzione in arrivo sul piano Pro.",
 };
 
 export default function StoricoEdEsportazionePage() {
@@ -30,10 +30,11 @@ export default function StoricoEdEsportazionePage() {
           <Badge variant="secondary">Gestione scontrini</Badge>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          La sezione <strong>Storico</strong> raccoglie tutti gli scontrini
-          emessi e annullati. Puoi filtrare per data e importo, aprire il
-          dettaglio di ogni documento e — con il piano Pro — esportare tutto in
-          CSV per il commercialista.
+          La sezione <strong>Storico</strong> raccoglie gli scontrini emessi e
+          annullati con successo. Puoi filtrare per periodo e per stato, aprire
+          il dettaglio di ogni documento e ricondividerlo come PDF al cliente.
+          L&apos;esportazione CSV per il commercialista è una funzione in arrivo
+          sul piano Pro.
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
           <strong>Ultimo aggiornamento:</strong> aprile 2026
@@ -45,18 +46,34 @@ export default function StoricoEdEsportazionePage() {
         </h2>
         <ol className="text-muted-foreground mt-3 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            Dalla dashboard, tocca <strong>Storico</strong> nella barra laterale
-            (o nel menu in basso su mobile).
+            Dalla dashboard, tocca <strong>Storico</strong> nella barra di
+            navigazione (in alto su desktop, in basso su mobile).
           </li>
           <li>
             Vedrai l&apos;elenco degli scontrini in ordine cronologico inverso,
-            dal più recente al più vecchio.
+            dal più recente al più vecchio, con paginazione.
           </li>
           <li>
-            Ogni riga mostra: data, ora, importo totale, metodo di pagamento e
-            stato (Trasmesso, In elaborazione, Annullato).
+            Ogni riga mostra: <strong>data</strong>,{" "}
+            <strong>progressivo</strong> (numero scontrino assegnato
+            dall&apos;AdE), <strong>totale</strong> e <strong>stato</strong>{" "}
+            (Emesso o Annullato).
           </li>
         </ol>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Lo Storico mostra solo gli scontrini che hanno completato la
+          trasmissione all&apos;AdE: emessi correttamente o annullati. Se
+          un&apos;emissione fallisce, l&apos;errore viene mostrato subito nella
+          schermata di emissione e lo scontrino non viene aggiunto allo Storico.
+          Per i casi di errore vedi{" "}
+          <Link
+            href="/help/errori-ade"
+            className="text-primary hover:underline"
+          >
+            Errori comuni di accesso AdE
+          </Link>
+          {"."}
+        </p>
 
         {/* ─── Filtri disponibili ─── */}
         <h2 className="mt-10 text-xl font-semibold">Filtri disponibili</h2>
@@ -65,100 +82,86 @@ export default function StoricoEdEsportazionePage() {
         </p>
         <div className="mt-3 space-y-3">
           <div>
-            <p className="text-sm font-medium">Intervallo di date</p>
+            <p className="text-sm font-medium">Periodo</p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               Seleziona una data di inizio e una di fine per vedere solo gli
-              scontrini di quel periodo. Utile per riepilogo mensile o
-              trimestrale.
+              scontrini di quel periodo. Utile per il riepilogo mensile o
+              trimestrale da inviare al commercialista.
             </p>
           </div>
           <div>
             <p className="text-sm font-medium">Stato</p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Filtra per <strong>Trasmesso</strong>,{" "}
-              <strong>In elaborazione</strong> o <strong>Annullato</strong>. Il
-              filtro &quot;In elaborazione&quot; è utile per individuare
-              rapidamente documenti la cui trasmissione all&apos;AdE è ancora in
-              corso.
-            </p>
-          </div>
-          <div>
-            <p className="text-sm font-medium">Importo</p>
-            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Inserisci un importo minimo e/o massimo per trovare scontrini di
-              un certo valore — comodo per identificare una transazione
-              specifica.
+              Le opzioni sono <strong>Emesso</strong>,{" "}
+              <strong>Annullato</strong> e <strong>Tutti</strong>. La voce
+              &quot;Tutti&quot; mostra comunque solo gli scontrini emessi e
+              annullati con successo: gli scontrini la cui emissione è fallita
+              non compaiono mai nello Storico.
             </p>
           </div>
         </div>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Premi <strong>Cerca</strong> per applicare i filtri. Il numero totale
+          di scontrini trovati viene mostrato in alto.
+        </p>
 
         {/* ─── Dettaglio scontrino ─── */}
         <h2 className="mt-10 text-xl font-semibold">
           Aprire il dettaglio di uno scontrino
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Tocca una riga per aprire il dettaglio completo del documento. Qui
-          trovi:
+          Tocca una riga per aprire la finestra di dettaglio. Mostra:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
-          <li>Numero documento e data/ora di emissione.</li>
-          <li>Elenco delle righe con descrizione, aliquota IVA e importo.</li>
-          <li>Totale e ripartizione per metodo di pagamento.</li>
-          <li>Codice lotteria (se applicabile).</li>
-          <li>Stato trasmissione AdE con timestamp di conferma.</li>
+          <li>Numero scontrino (progressivo AdE) e data di emissione.</li>
           <li>
-            Link al PDF dello scontrino (condivisibile via WhatsApp, email,
-            ecc.).
+            Elenco delle righe con descrizione, quantità, prezzo unitario,
+            aliquota IVA e importo riga.
           </li>
+          <li>Totale dello scontrino.</li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          {"Dal dettaglio puoi anche avviare l'"}
-          <strong>annullamento</strong>
-          {" dello scontrino, se è in stato Trasmesso."}
+          {"Dalla finestra di dettaglio puoi inoltre:"}
         </p>
+        <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
+          <li>
+            Premere <strong>Invia ricevuta</strong> per aprire la pagina
+            pubblica dello scontrino: il link è condivisibile via WhatsApp,
+            email o messaggio, e dalla pagina il cliente può salvare il PDF.
+          </li>
+          <li>
+            Premere <strong>Annulla scontrino</strong> per avviare la procedura
+            di annullo, disponibile solo se lo scontrino è in stato{" "}
+            <strong>Emesso</strong>. Verrà chiesta una conferma esplicita perché
+            l&apos;annullo è irreversibile e viene trasmesso all&apos;AdE come
+            documento di annullo.
+          </li>
+        </ul>
 
-        {/* ─── Export CSV ─── */}
+        {/* ─── Export CSV (in arrivo) ─── */}
         <h2 className="mt-10 text-xl font-semibold">
           Esportazione CSV{" "}
           <Badge className="ml-1" variant="secondary">
-            Piano Pro
+            In arrivo · Piano Pro
           </Badge>
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Gli utenti con piano <strong>Pro</strong> possono esportare lo storico
-          scontrini in formato CSV. Il file è compatibile con Excel, Google
-          Sheets e qualsiasi software di contabilità.
+          L&apos;esportazione dello storico scontrini in formato CSV è una
+          funzione prevista per il piano <strong>Pro</strong> e non è ancora
+          disponibile nell&apos;app. Quando sarà rilasciata troverai un pulsante
+          dedicato nella pagina Storico e questo articolo verrà aggiornato con i
+          dettagli sulle colonne incluse.
         </p>
-        <h3 className="mt-5 text-base font-semibold">Come esportare</h3>
-        <ol className="text-muted-foreground mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
-          <li>
-            Vai in <strong>Storico</strong> e imposta i filtri desiderati
-            (periodo, stato).
-          </li>
-          <li>
-            Clicca su <strong>Esporta CSV</strong> in alto a destra.
-          </li>
-          <li>
-            Il file viene generato e scaricato automaticamente nel browser.
-          </li>
-        </ol>
-        <h3 className="mt-5 text-base font-semibold">Cosa contiene il CSV</h3>
-        <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-          Il file include una riga per ogni scontrino con le colonne:
-        </p>
-        <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
-          <li>Numero documento</li>
-          <li>Data e ora di emissione</li>
-          <li>Stato (Trasmesso / Annullato)</li>
-          <li>Importo lordo totale</li>
-          <li>IVA per aliquota (4%, 10%, 22%, Esente)</li>
-          <li>Metodo di pagamento (Contante, Carta, Altro)</li>
-          <li>Codice lotteria (se presente)</li>
-        </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Se sei nel piano Starter e vuoi accedere all&apos;export CSV, puoi
-          passare a Pro dalla sezione{" "}
-          <strong>Dashboard &gt; Impostazioni &gt; Abbonamento</strong>.
+          Nel frattempo, per il riepilogo periodico al commercialista puoi
+          filtrare lo Storico per periodo, prendere nota dei totali e dei
+          progressivi, e condividere all&apos;occorrenza i singoli scontrini
+          tramite il bottone <strong>Invia ricevuta</strong>.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Quando la funzione sarà attiva, gli utenti del piano Starter potranno
+          passare al Pro dalla sezione{" "}
+          <strong>Impostazioni → Piano e Abbonamento</strong> nella dashboard.
         </p>
 
         {/* ─── Casi d'uso comuni ─── */}
@@ -169,9 +172,10 @@ export default function StoricoEdEsportazionePage() {
               Riepilogo mensile per il commercialista
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Filtra per il mese di riferimento, esporta il CSV e invialo al
-              commercialista. Il file contiene già la ripartizione IVA per
-              aliquota, pronta per la liquidazione.
+              Filtra lo Storico per il mese di riferimento, comunica al
+              commercialista il totale degli scontrini emessi e
+              l&apos;intervallo di progressivi. L&apos;export CSV strutturato
+              arriverà sul piano Pro.
             </p>
           </div>
           <div>
@@ -179,26 +183,21 @@ export default function StoricoEdEsportazionePage() {
               Trovare uno scontrino specifico per un cliente
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Usa il filtro per data e importo per identificare rapidamente lo
-              scontrino. Dal dettaglio puoi riaprire il PDF e ricondividerlo via
-              WhatsApp o email.
+              Filtra per periodo per restringere la lista, individua lo
+              scontrino dal totale o dal progressivo, aprilo e premi{" "}
+              <strong>Invia ricevuta</strong> per ottenere il link pubblico da
+              condividere via WhatsApp o email.
             </p>
           </div>
           <div>
             <p className="text-sm font-medium">
-              Verificare scontrini in attesa di conferma AdE
+              Ricondividere il PDF a un cliente che lo ha perso
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Filtra per stato <strong>In elaborazione</strong>: se vedi
-              documenti fermi da più di 15 minuti, potrebbe esserci un problema
-              di connessione o un errore AdE. Consulta la guida{" "}
-              <Link
-                href="/help/errori-ade"
-                className="text-primary hover:underline"
-              >
-                Errori comuni di accesso AdE
-              </Link>{" "}
-              per diagnosticare.
+              Apri il dettaglio dello scontrino dallo Storico, premi{" "}
+              <strong>Invia ricevuta</strong>: si apre una pagina pubblica
+              dedicata, dalla quale il cliente può salvare o stampare il PDF. Il
+              link non scade.
             </p>
           </div>
         </div>

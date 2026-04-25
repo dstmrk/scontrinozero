@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 export const metadata: Metadata = {
   title: "Errori comuni di accesso AdE e come risolverli | ScontrinoZero Help",
   description:
-    "Guida alla risoluzione degli errori più frequenti nel collegamento con l'Agenzia delle Entrate: PIN scaduto, credenziali errate, attività non autorizzata e servizio non disponibile.",
+    "Guida alla risoluzione degli errori più frequenti nel collegamento con l'Agenzia delle Entrate: password scaduta, credenziali errate, password bloccata e portale non disponibile.",
 };
 
 export default function ErroriAdePage() {
@@ -30,8 +30,11 @@ export default function ErroriAdePage() {
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Quando ScontrinoZero non riesce a comunicare con il portale Fatture e
-          Corrispettivi dell&apos;Agenzia delle Entrate, lo scontrino rimane in
-          stato <strong>In elaborazione</strong> o mostra un errore esplicito.
+          Corrispettivi dell&apos;Agenzia delle Entrate, l&apos;emissione dello
+          scontrino fallisce subito e il documento viene marcato come{" "}
+          <strong>Errore</strong>, oppure il pulsante{" "}
+          <strong>Verifica connessione</strong> in{" "}
+          <strong>Impostazioni → Credenziali AdE</strong> mostra un messaggio.
           Questa guida copre i casi più frequenti con la soluzione per ciascuno.
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
@@ -40,51 +43,49 @@ export default function ErroriAdePage() {
 
         {/* ─── Errore 1 ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          PIN scaduto o non ancora personalizzato
+          Password Fisconline scaduta
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Sintomo:</strong> il test di connessione AdE fallisce con un
-          messaggio del tipo &quot;credenziali non valide&quot; o &quot;accesso
-          negato&quot;.
+          <strong>Sintomo:</strong> il pulsante{" "}
+          <strong>Verifica connessione</strong> apre automaticamente una
+          finestra di dialogo che ti chiede di impostare una nuova password
+          Fisconline.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Causa:</strong> il PIN Fisconline ha una validità di 3 anni.
-          Alla prima registrazione viene rilasciato un PIN temporaneo di 6 cifre
-          che deve essere personalizzato in un PIN di 8 cifre entro 30 giorni.
+          <strong>Causa:</strong> la password Fisconline scade ogni 90 giorni
+          per motivi di sicurezza. È il caso più frequente di blocco delle
+          credenziali e ScontrinoZero lo rileva automaticamente.
         </p>
         <p className="text-muted-foreground mt-3 text-sm font-medium">
           Soluzione:
         </p>
         <ol className="text-muted-foreground mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            {"Vai su "}
-            <strong>
-              ivaservizi.agenziaentrate.gov.it → Fisconline → Accedi
-            </strong>
-            {"."}
+            Nella finestra di dialogo inserisci la vecchia password e scegline
+            una nuova (8-15 caratteri tra lettere non accentate, numeri e
+            caratteri speciali).
           </li>
           <li>
-            Prova ad accedere: se il PIN è scaduto, il portale AdE ti chiede
-            direttamente di cambiarlo.
+            ScontrinoZero comunica direttamente con il portale AdE per
+            aggiornare la password e salva la nuova nelle credenziali del tuo
+            account.
           </li>
           <li>
-            Scegli un nuovo PIN di 8 cifre e confermalo. Il nuovo PIN è
-            immediatamente attivo.
-          </li>
-          <li>
-            {"Torna su ScontrinoZero, vai in "}
-            <strong>Impostazioni → Attività → Credenziali AdE</strong> e
-            aggiorna il PIN con il nuovo valore.
+            Al termine il badge dello stato torna su <strong>Verificate</strong>
+            {" e puoi emettere scontrini normalmente."}
           </li>
         </ol>
 
         {/* ─── Errore 2 ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Credenziali errate (codice fiscale o PIN sbagliato)
+          Credenziali errate (codice fiscale, PIN o password)
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Sintomo:</strong> il test fallisce con &quot;credenziali non
-          valide&quot; anche con un PIN che ritieni corretto.
+          <strong>Sintomo:</strong> il pulsante{" "}
+          <strong>Verifica connessione</strong> mostra il messaggio{" "}
+          <em>
+            &quot;Verifica fallita. Controlla le credenziali Fisconline.&quot;
+          </em>
         </p>
         <p className="text-muted-foreground mt-3 text-sm font-medium">
           Cosa verificare:
@@ -97,39 +98,88 @@ export default function ErroriAdePage() {
             gestisce l&apos;account Fisconline (non il CF della società).
           </li>
           <li>
-            Il <strong>PIN</strong> deve essere quello di 8 cifre
-            personalizzato, non il PIN temporaneo di 6 cifre ricevuto
-            inizialmente.
+            Il <strong>PIN</strong> Fisconline è composto da{" "}
+            <strong>10 caratteri totali</strong>: i primi 4 vengono forniti
+            online al momento della richiesta, gli ultimi 6 arrivano per posta
+            entro 15 giorni insieme alla password di primo accesso. Devi
+            inserire il PIN completo di 10 caratteri.
           </li>
           <li>
-            {
-              "Verifica le credenziali accedendo direttamente al portale AdE. Se funzionano lì ma non su ScontrinoZero, aggiornale in "
-            }
-            <strong>Impostazioni → Attività → Credenziali AdE</strong>.
+            La <strong>password</strong> ha lunghezza tra 8 e 15 caratteri ed è
+            case-sensitive. Se l&apos;hai appena cambiata, ricordati di
+            aggiornarla anche su ScontrinoZero.
+          </li>
+          <li>
+            {"Per aggiornare le credenziali vai in "}
+            <strong>Impostazioni → Credenziali AdE</strong> e usa il pulsante{" "}
+            <strong>Modifica</strong>.
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Attenzione: 5 tentativi falliti consecutivi sul portale AdE bloccano
-          l&apos;account per 24 ore. Se sei bloccato, attendi il giorno
-          successivo prima di ritentare.
+          Attenzione: dopo 8 tentativi consecutivi con password errata, la
+          password viene bloccata sul portale AdE. Vedi la sezione successiva.
         </p>
 
         {/* ─── Errore 3 ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Attività non registrata o non autorizzata sul portale AdE
+          Password Fisconline bloccata per troppi tentativi
+        </h2>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          <strong>Sintomo:</strong> il portale AdE mostra un messaggio del tipo
+          &quot;la password è stata bloccata poiché è stato superato il numero
+          di tentativi di accesso&quot;.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          <strong>Causa:</strong> 8 tentativi consecutivi con password errata
+          attivano il blocco automatico della password sui Servizi Telematici
+          dell&apos;AdE.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm font-medium">
+          Soluzione:
+        </p>
+        <ul className="text-muted-foreground mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed">
+          <li>
+            {"Esegui il "}
+            <strong>ripristino password</strong>
+            {" sul portale AdE: "}
+            <a
+              href="https://telematici.agenziaentrate.gov.it/Abilitazione/RipristinaPassword/IRipristinaPassword.jsp"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              telematici.agenziaentrate.gov.it → Ripristina Password
+            </a>
+            {"."}
+          </li>
+          <li>
+            In alternativa, accedi all&apos;area riservata AdE con SPID, CIE o
+            CNS e usa la funzione &quot;Prelievo credenziali&quot; in Profilo
+            utente per recuperare o reimpostare le credenziali Fisconline.
+          </li>
+          <li>
+            {"Una volta impostata la nuova password, aggiornala in "}
+            <strong>Impostazioni → Credenziali AdE → Modifica</strong>
+            {" su ScontrinoZero."}
+          </li>
+        </ul>
+
+        {/* ─── Errore 4 ─── */}
+        <h2 className="mt-10 text-xl font-semibold">
+          Attività non abilitata sul portale Fatture e Corrispettivi
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           <strong>Sintomo:</strong> le credenziali Fisconline funzionano sul
-          portale AdE, ma ScontrinoZero riceve un errore di tipo &quot;soggetto
-          non abilitato&quot; o &quot;partita IVA non trovata&quot; al momento
-          di emettere uno scontrino.
+          portale AdE, ma ScontrinoZero non riesce ad emettere scontrini con un
+          errore di tipo &quot;soggetto non abilitato&quot; o &quot;servizio non
+          disponibile per questo soggetto&quot;.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           <strong>Causa:</strong> per emettere documenti commerciali elettronici
           sul portale Fatture e Corrispettivi, l&apos;attività deve essere
           abilitata. L&apos;abilitazione avviene automaticamente per la maggior
-          parte delle attività, ma potrebbe non essere ancora attiva per le
-          P.IVA aperte di recente.
+          parte delle attività, ma può non essere ancora attiva per le P.IVA
+          aperte di recente.
         </p>
         <p className="text-muted-foreground mt-3 text-sm font-medium">
           Soluzione:
@@ -146,51 +196,58 @@ export default function ErroriAdePage() {
           <li>
             Se riesci ad accedere alla sezione e vedi il modulo di emissione, la
             tua attività è abilitata: il problema è probabilmente nelle
-            credenziali inserite su ScontrinoZero (vedi errore precedente).
+            credenziali (vedi le sezioni precedenti).
           </li>
           <li>
             Se il portale mostra &quot;servizio non disponibile per questo
-            soggetto&quot;, contatta il supporto AdE (800.90.96.96) o uno
-            sportello dell&apos;Agenzia delle Entrate per richiedere
-            l&apos;abilitazione.
+            soggetto&quot;, contatta l&apos;assistenza AdE da rete fissa al
+            numero <strong>800.90.96.96</strong> (lun-ven 9-17) oppure da mobile
+            al <strong>06.96668907</strong>, o rivolgiti a uno sportello
+            territoriale per richiedere l&apos;abilitazione.
           </li>
         </ol>
 
-        {/* ─── Errore 4 ─── */}
+        {/* ─── Errore 5 ─── */}
         <h2 className="mt-10 text-xl font-semibold">
           Portale AdE temporaneamente non disponibile o lento
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Sintomo:</strong>
-          {" gli scontrini restano in stato "}
-          <strong>In elaborazione</strong> più a lungo del solito (oltre 5
-          minuti), oppure il test di connessione fallisce con errori di timeout.
+          <strong>Sintomo:</strong> l&apos;emissione di uno scontrino fallisce
+          con un errore di rete o timeout, oppure il pulsante{" "}
+          <strong>Verifica connessione</strong> impiega molto tempo e poi
+          fallisce.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           <strong>Causa:</strong> il portale dell&apos;Agenzia delle Entrate ha
-          picchi di carico (in particolare a fine mese) o periodi di
-          manutenzione programmata (solitamente la notte o il fine settimana).
+          picchi di carico o periodi di manutenzione programmata (di solito di
+          notte o nel fine settimana).
         </p>
         <p className="text-muted-foreground mt-3 text-sm font-medium">
           Come comportarsi:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            ScontrinoZero riprova automaticamente la trasmissione a intervalli
-            crescenti per diverse ore. Non è necessario fare nulla.
+            <strong>Importante:</strong> ScontrinoZero non accoda né ritrasmette
+            automaticamente gli scontrini. Quando il portale AdE non risponde,
+            l&apos;emissione fallisce subito e lo scontrino non viene generato.
+            Devi ritentare manualmente l&apos;emissione una volta che il portale
+            torna disponibile.
           </li>
           <li>
-            Puoi continuare ad emettere scontrini normalmente: si accodano e
-            vengono trasmessi appena il portale torna disponibile.
-          </li>
-          <li>
-            {"Verifica lo stato del portale AdE su "}
-            <strong>stato.agenziaentrate.gov.it</strong> o cercando
-            &quot;Fatture e Corrispettivi manutenzione&quot; sul sito AdE.
+            {"Verifica gli avvisi di manutenzione su "}
+            <a
+              href="https://telematici.agenziaentrate.gov.it/Main/ArchivioNotizie.do?ambiente=ALL"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              telematici.agenziaentrate.gov.it → Avvisi
+            </a>
+            {"."}
           </li>
           <li>
             {
-              "Se il problema persiste per oltre 24 ore, contatta il supporto ScontrinoZero a "
+              "Se il problema persiste e nessun avviso di manutenzione è attivo, contatta il supporto ScontrinoZero a "
             }
             <a
               href="mailto:info@scontrinozero.it"
@@ -202,59 +259,26 @@ export default function ErroriAdePage() {
           </li>
         </ul>
 
-        {/* ─── Errore 5 ─── */}
-        <h2 className="mt-10 text-xl font-semibold">
-          Troppi tentativi — account Fisconline bloccato
-        </h2>
-        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Sintomo:</strong> il portale AdE mostra &quot;utente
-          bloccato&quot; o &quot;accesso sospeso per sicurezza&quot;.
-        </p>
-        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Causa:</strong> 5 tentativi di accesso falliti consecutivi
-          attivano un blocco automatico di sicurezza di 24 ore.
-        </p>
-        <p className="text-muted-foreground mt-3 text-sm font-medium">
-          Soluzione:
-        </p>
-        <ul className="text-muted-foreground mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed">
-          <li>Attendi 24 ore, poi accedi con le credenziali corrette.</li>
-          <li>
-            Se non ricordi il PIN, puoi reimpostarlo tramite la funzione di
-            recupero sul portale Fisconline o rivolgendoti a un CAF o a uno
-            sportello AdE.
-          </li>
-          <li>
-            Nel frattempo puoi continuare ad emettere scontrini su
-            ScontrinoZero: verranno trasmessi all&apos;AdE non appena le
-            credenziali saranno di nuovo valide.
-          </li>
-        </ul>
-
         {/* ─── Errore 6 ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Credenziali delegate (professionista o intermediario)
+          Credenziali del commercialista o intermediario fiscale
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           <strong>Sintomo:</strong> stai usando le credenziali del tuo
-          commercialista o intermediario fiscale e ricevi un errore di accesso
-          negato.
+          commercialista o intermediario e ricevi un errore di accesso negato.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Causa:</strong>
-          {
-            " le credenziali delegate funzionano per alcune sezioni del portale AdE, ma "
-          }
+          <strong>Causa:</strong> ScontrinoZero accede al portale Fatture e
+          Corrispettivi tramite il flusso Fisconline diretto. Servono quindi le{" "}
           <strong>
-            il Documento Commerciale Online richiede le credenziali del titolare
-            dell&apos;attività
+            credenziali Fisconline associate al codice fiscale del titolare o
+            legale rappresentante dell&apos;attività
           </strong>
-          {", non quelle di un intermediario."}
+          {", non quelle di un intermediario delegato. "}
+          Se hai sempre operato sul portale AdE tramite SPID, CIE o CNS, non hai
+          ancora un PIN Fisconline e devi richiederlo.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          {
-            "Devi usare le tue credenziali Fisconline personali, associate al codice fiscale del titolare/legale rappresentante dell'attività. "
-          }
           <Link
             href="/help/credenziali-fisconline"
             className="text-primary hover:underline"
@@ -279,18 +303,21 @@ export default function ErroriAdePage() {
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
-            Le credenziali funzionano sul portale AdE ma non su ScontrinoZero.
+            Le credenziali funzionano sul portale AdE ma il pulsante{" "}
+            <strong>Verifica connessione</strong> di ScontrinoZero continua a
+            fallire.
           </li>
           <li>
-            Uno scontrino è rimasto in stato &quot;In elaborazione&quot; per più
-            di 24 ore.
+            Uno scontrino è andato in stato <strong>Errore</strong> dopo
+            l&apos;emissione e non capisci perché.
           </li>
           <li>Ricevi messaggi di errore diversi da quelli descritti sopra.</li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Includi nella mail l&apos;ID dello scontrino problematico (visibile
-          nello Storico) e uno screenshot del messaggio di errore, se
-          disponibile.
+          Includi nella mail uno screenshot del messaggio di errore e, se
+          disponibile, l&apos;identificativo dello scontrino problematico: puoi
+          copiarlo dall&apos;URL della pagina di dettaglio dello scontrino (la
+          parte dopo <code>/r/</code>).
         </p>
 
         {/* ─── Articoli correlati ─── */}
