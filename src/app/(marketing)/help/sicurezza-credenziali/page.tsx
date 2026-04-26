@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title:
     "Sicurezza e privacy: come proteggiamo le tue credenziali | ScontrinoZero Help",
   description:
-    "Come ScontrinoZero protegge le credenziali Fisconline: cifratura AES-256-GCM, architettura zero-knowledge, chi può accedere ai tuoi dati e come revocare l'accesso.",
+    "Come ScontrinoZero protegge le credenziali Fisconline: cifratura AES-256-GCM at-rest, chiave fuori dal database, chi può accedere ai tuoi dati e come revocare l'accesso.",
 };
 
 export default function SicurezzaCredenzialiPage() {
@@ -66,10 +66,10 @@ export default function SicurezzaCredenzialiPage() {
           Cifratura AES-256-GCM: cosa significa in pratica
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Le tue credenziali (codice fiscale Fisconline e PIN) vengono cifrate
-          con <strong>AES-256-GCM</strong> prima di essere salvate nel database.
-          Questo è lo stesso standard usato dalle banche e dai servizi di
-          pagamento più sicuri al mondo.
+          Le tue credenziali Fisconline (codice fiscale, password e PIN) vengono
+          cifrate con <strong>AES-256-GCM</strong> prima di essere salvate nel
+          database. Questo è lo stesso standard usato dalle banche e dai servizi
+          di pagamento più sicuri al mondo.
         </p>
         <ul className="text-muted-foreground mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
@@ -91,14 +91,13 @@ export default function SicurezzaCredenzialiPage() {
           </li>
         </ul>
 
-        {/* ─── Zero-knowledge ─── */}
+        {/* ─── Cifratura at-rest ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Architettura zero-knowledge: il team non può leggere le tue
-          credenziali
+          Cifratura at-rest: il team non può leggere le tue credenziali
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Le credenziali non sono mai visibili in chiaro, nemmeno agli
-          amministratori di ScontrinoZero. Ecco perché:
+          Le credenziali non sono mai visibili in chiaro nel database, nemmeno
+          agli amministratori di ScontrinoZero. Ecco perché:
         </p>
         <ul className="text-muted-foreground mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
@@ -144,8 +143,8 @@ export default function SicurezzaCredenzialiPage() {
         </h2>
         <ul className="text-muted-foreground mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            <strong>Tu</strong> — puoi aggiornare o eliminare le credenziali in
-            qualsiasi momento da <strong>Impostazioni → Attività</strong>.
+            <strong>Tu</strong> — puoi aggiornare le credenziali in qualsiasi
+            momento da <strong>Impostazioni → Credenziali AdE</strong>.
           </li>
           <li>
             <strong>Il server applicativo</strong> — usa le credenziali
@@ -174,7 +173,7 @@ export default function SicurezzaCredenzialiPage() {
         </p>
         <ol className="text-muted-foreground mt-2 list-decimal space-y-1 pl-5 text-sm leading-relaxed">
           <li>
-            Vai su <strong>Impostazioni → Attività → Credenziali AdE</strong>.
+            Vai su <strong>Impostazioni → Credenziali AdE</strong>.
           </li>
           <li>
             Clicca su <strong>Modifica credenziali</strong>.
@@ -182,8 +181,10 @@ export default function SicurezzaCredenzialiPage() {
           <li>Inserisci il nuovo PIN e salva.</li>
         </ol>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Gli scontrini rimasti in coda vengono trasmessi automaticamente appena
-          le nuove credenziali sono valide.
+          Gli scontrini emessi prima dell&apos;aggiornamento e rifiutati
+          dall&apos;AdE per credenziali scadute vanno{" "}
+          <strong>riemessi manualmente</strong> dopo aver salvato le nuove
+          credenziali: al momento non è prevista una ritrasmissione automatica.
         </p>
 
         {/* ─── Come revocare ─── */}
@@ -191,25 +192,23 @@ export default function SicurezzaCredenzialiPage() {
           Come revocare l&apos;accesso e cancellare le credenziali
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Puoi eliminare le credenziali AdE salvate in qualsiasi momento:
-        </p>
-        <ol className="text-muted-foreground mt-2 list-decimal space-y-1 pl-5 text-sm leading-relaxed">
-          <li>
-            Vai su <strong>Impostazioni → Attività → Credenziali AdE</strong>.
-          </li>
-          <li>
-            Clicca su <strong>Rimuovi credenziali</strong> e conferma.
-          </li>
-        </ol>
-        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Dopo la rimozione, ScontrinoZero non potrà trasmettere nuovi scontrini
-          all&apos;AdE fino a quando non inserirai nuovamente le credenziali. I
-          dati cifrati vengono eliminati definitivamente dal database.
+          Per modificare le credenziali AdE salvate vai su{" "}
+          <strong>Impostazioni → Credenziali AdE</strong> e clicca{" "}
+          <strong>Modifica credenziali</strong>: i nuovi valori sostituiscono
+          quelli precedenti, che vengono cifrati di nuovo e sovrascritti nel
+          database.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Se elimini l&apos;account ScontrinoZero, tutte le credenziali e i dati
-          personali vengono eliminati entro 24 ore, come previsto dal diritto
-          alla cancellazione (GDPR art. 17).
+          Per <strong>revocare completamente</strong> l&apos;accesso e
+          cancellare i dati cifrati, puoi eliminare l&apos;account ScontrinoZero
+          da <strong>Impostazioni → Zona pericolosa → Elimina account</strong>:
+          la cancellazione è <strong>immediata</strong> e include credenziali
+          AdE, anagrafica, scontrini e catalogo (cascade delete sul profilo). Il
+          diritto alla cancellazione è garantito dal GDPR art. 17.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Un pulsante dedicato per rimuovere solo le credenziali AdE senza
+          eliminare l&apos;account è in roadmap.
         </p>
 
         {/* ─── FAQ ─── */}
