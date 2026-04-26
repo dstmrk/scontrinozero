@@ -40,14 +40,21 @@ export default function CambioPianoPage() {
 
         {/* ─── Istruzioni ─── */}
         <h2 className="mt-10 text-xl font-semibold">Istruzioni passo-passo</h2>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Questi passaggi valgono se hai già un abbonamento attivo (Starter o
+          Pro mensile). Se sei ancora in periodo di prova, dalla stessa
+          schermata vedrai direttamente i bottoni per scegliere il piano annuale
+          o mensile, senza passare dal portale.
+        </p>
         <ol className="text-muted-foreground mt-3 list-decimal space-y-3 pl-5 text-sm leading-relaxed">
           <li>
             Accedi a ScontrinoZero e vai su{" "}
-            <strong>Dashboard → Impostazioni → Abbonamento</strong>.
+            <strong>Dashboard → Impostazioni → Piano e Abbonamento</strong>.
           </li>
           <li>
-            Clicca il pulsante <strong>Gestisci abbonamento</strong>: si apre il
-            portale Stripe in una nuova scheda.
+            Nella sezione <strong>Gestisci abbonamento</strong> clicca il link{" "}
+            <strong>Vai al portale Stripe →</strong>: vieni reindirizzato al
+            portale di fatturazione Stripe.
           </li>
           <li>
             Nel portale Stripe, seleziona <strong>Aggiorna piano</strong> (o{" "}
@@ -90,9 +97,33 @@ export default function CambioPianoPage() {
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           La procedura è identica: nel portale Stripe scegli{" "}
-          <strong>Pro annuale</strong> invece di Starter. Lo switch da Starter a
-          Pro (anche mensile) sblocca immediatamente le funzioni Pro: catalogo
-          illimitato, export CSV, analytics avanzata e sync AdE.
+          <strong>Pro annuale</strong> (o Pro mensile) invece di Starter. Le
+          funzioni del piano Pro disponibili oggi sono:
+        </p>
+        <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
+          <li>
+            Catalogo rapido <strong>illimitato</strong> (Starter è limitato a 5
+            prodotti)
+          </li>
+          <li>Supporto prioritario via email entro 24 ore</li>
+          <li>
+            Accesso alla <strong>Developer API</strong> per emettere scontrini
+            da sistemi terzi
+          </li>
+        </ul>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Sono inoltre <em>in arrivo</em> sul piano Pro: analytics avanzata con
+          dashboard storica, export CSV dello storico scontrini, recupero
+          corrispettivi da AdE e sync catalogo prodotti dalla rubrica AdE.
+          Quando saranno rilasciate, verranno incluse automaticamente per chi ha
+          già un piano Pro attivo. Vedi il dettaglio in{" "}
+          <Link
+            href="/help/piani-e-prezzi"
+            className="text-primary hover:underline"
+          >
+            Piani disponibili
+          </Link>
+          {"."}
         </p>
 
         {/* ─── Fatturazione ─── */}
