@@ -66,10 +66,11 @@ export default function CassettoFiscalePage() {
             CIE — le stesse usate per collegare ScontrinoZero all&apos;AdE.
           </li>
           <li>
-            Dal menu principale seleziona <strong>Corrispettivi</strong>.
+            Dal menu principale seleziona <strong>Corrispettivi</strong>, poi{" "}
+            <strong>Documento commerciale on line</strong>.
           </li>
           <li>
-            Clicca su <strong>Consultazione documenti commerciali</strong>.
+            Clicca su <strong>Ricerca documento commerciale</strong>.
           </li>
         </ol>
 
@@ -94,8 +95,8 @@ export default function CassettoFiscalePage() {
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Ogni documento mostra: data, numero, importo, aliquote IVA e stato
-          (Trasmesso, Annullato).
+          Ogni documento mostra: data, numero progressivo, importo totale e
+          aliquote IVA applicate.
         </p>
 
         {/* ─── Tempistiche ─── */}
@@ -107,7 +108,7 @@ export default function CassettoFiscalePage() {
           in genere entro <strong>pochi minuti</strong>. In alcuni casi,
           soprattutto nelle ore di punta del portale AdE, possono volerci fino a{" "}
           <strong>24 ore</strong>. Se uno scontrino risulta{" "}
-          <strong>Trasmesso</strong> in ScontrinoZero ma non compare ancora nel
+          <strong>Emesso</strong> in ScontrinoZero ma non compare ancora nel
           cassetto, attendi qualche ora prima di preoccuparti.
         </p>
 
@@ -122,10 +123,17 @@ export default function CassettoFiscalePage() {
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               Vai in <strong>Storico</strong> e controlla lo stato dello
-              scontrino. Se è <strong>Trasmesso</strong>, il documento è
-              arrivato all&apos;AdE — attendi la visibilità nel cassetto. Se è{" "}
-              <strong>In elaborazione</strong>, la trasmissione è ancora in
-              corso: riprova dopo qualche minuto.
+              scontrino. Se è <strong>Emesso</strong>, il documento è stato
+              accettato dall&apos;AdE — attendi la visibilità nel cassetto. Se
+              uno scontrino atteso non compare in Storico, la trasmissione
+              potrebbe essere fallita: vedi{" "}
+              <Link
+                href="/help/errori-ade"
+                className="text-primary hover:underline"
+              >
+                {"Errori comuni AdE"}
+              </Link>
+              {"."}
             </p>
           </div>
           <div>
@@ -152,7 +160,7 @@ export default function CassettoFiscalePage() {
           <div>
             <p className="text-sm font-medium">4. Contatta l&apos;assistenza</p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Se lo scontrino è Trasmesso da più di 24 ore ma non compare nel
+              Se lo scontrino è Emesso da più di 24 ore ma non compare nel
               cassetto, scrivici a{" "}
               <a
                 href="mailto:info@scontrinozero.it"
@@ -170,16 +178,17 @@ export default function CassettoFiscalePage() {
           Riepilogo corrispettivi per periodo
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Il portale AdE permette di esportare un prospetto riepilogativo dei
+          Il portale AdE permette di consultare un prospetto riepilogativo dei
           corrispettivi per periodo (mensile, trimestrale, annuale) — utile per
           la liquidazione IVA e per i controlli del commercialista. Puoi
-          accedervi dalla sezione{" "}
-          <strong>Corrispettivi &gt; Riepilogo corrispettivi</strong>.
+          accedervi dalla sezione <strong>Corrispettivi</strong> del portale
+          Fatture e Corrispettivi.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          In alternativa, da ScontrinoZero puoi esportare direttamente un CSV
-          dello Storico con tutti i dati degli scontrini (funzione disponibile
-          nel piano Pro).
+          In alternativa, l&apos;esportazione dello Storico in CSV è una
+          funzione <strong>in arrivo sul piano Pro</strong>: appena disponibile
+          potrai scaricare tutti i dati degli scontrini direttamente
+          dall&apos;app.
         </p>
 
         {/* ─── Articoli correlati ─── */}
