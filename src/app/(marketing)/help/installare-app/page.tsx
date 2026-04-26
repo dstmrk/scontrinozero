@@ -40,6 +40,15 @@ export default function InstallareAppPage() {
           <strong>Ultimo aggiornamento:</strong> aprile 2026
         </p>
 
+        <div className="bg-muted text-muted-foreground mt-6 rounded-lg p-4 text-sm leading-relaxed">
+          <strong>Nota sul dominio.</strong>
+          {" Dopo il login il browser ti porta su "}
+          <strong>app.scontrinozero.it</strong>
+          {
+            ": è da quel dominio che conviene installare l'app, perché lì vivono la dashboard e l'area protetta. Se installi dal sito vetrina senza essere loggato, all'apertura dovrai comunque fare l'accesso e verrai reindirizzato all'app."
+          }
+        </div>
+
         {/* ─── Vantaggi ─── */}
         <h2 className="mt-10 text-xl font-semibold">
           Perché installare l&apos;app
@@ -82,8 +91,12 @@ export default function InstallareAppPage() {
           <li>
             Apri <strong>Safari</strong>
             {" e vai su "}
-            <strong>scontrinozero.it</strong>. Effettua il login se non lo hai
-            già fatto.
+            <strong>scontrinozero.it</strong>
+            {
+              ": effettua il login se non lo hai già fatto. Dopo l'accesso il browser sarà su "
+            }
+            <strong>app.scontrinozero.it</strong>
+            {" — installa l'app da quel dominio."}
           </li>
           <li>
             Tocca il pulsante <strong>Condividi</strong> (il quadrato con la
@@ -121,22 +134,27 @@ export default function InstallareAppPage() {
           <li>
             Apri <strong>Chrome</strong>
             {" e vai su "}
-            <strong>scontrinozero.it</strong>. Effettua il login.
+            <strong>scontrinozero.it</strong>
+            {": effettua il login. Dopo l'accesso il browser sarà su "}
+            <strong>app.scontrinozero.it</strong>.
           </li>
           <li>
-            {"Chrome mostra automaticamente un banner in basso con la scritta "}
-            <strong>
-              &quot;Aggiungi ScontrinoZero alla schermata home&quot;
-            </strong>
-            {". Toccalo."}
-          </li>
-          <li>
-            {"Se il banner non compare, tocca il menu "}
+            {"Tocca il menu "}
             <strong>⋮</strong>
             {" (tre puntini) in alto a destra e seleziona "}
+            <strong>&quot;Installa app&quot;</strong>
+            {" (in alcune versioni: "}
             <strong>&quot;Aggiungi a schermata Home&quot;</strong>
-            {" o "}
-            <strong>&quot;Installa app&quot;</strong>.
+            {")."}
+          </li>
+          <li>
+            {
+              "In alternativa, se Chrome riconosce il sito come installabile, mostra in fondo allo schermo una piccola barra ("
+            }
+            <em>mini-infobar</em>
+            {
+              ") con il prompt di installazione: toccala. Il prompt non sempre compare — dipende dall'utilizzo che hai fatto del sito."
+            }
           </li>
           <li>
             Conferma toccando <strong>Installa</strong> nella finestra di
@@ -159,8 +177,10 @@ export default function InstallareAppPage() {
         <h3 className="mt-6 text-base font-semibold">Chrome</h3>
         <ol className="text-muted-foreground mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            Apri <strong>scontrinozero.it</strong> in Chrome ed effettua il
-            login.
+            Apri <strong>scontrinozero.it</strong>
+            {" in Chrome ed effettua il login (sarai poi su "}
+            <strong>app.scontrinozero.it</strong>
+            {")."}
           </li>
           <li>
             {
@@ -181,7 +201,10 @@ export default function InstallareAppPage() {
         <h3 className="mt-6 text-base font-semibold">Microsoft Edge</h3>
         <ol className="text-muted-foreground mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            Apri <strong>scontrinozero.it</strong> in Edge ed effettua il login.
+            Apri <strong>scontrinozero.it</strong>
+            {" in Edge ed effettua il login (sarai poi su "}
+            <strong>app.scontrinozero.it</strong>
+            {")."}
           </li>
           <li>
             Clicca su <strong>⋯ → App → Installa questo sito come app</strong>.
@@ -223,7 +246,8 @@ export default function InstallareAppPage() {
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               Sì. Puoi installare l&apos;app su quanti dispositivi vuoi con lo
               stesso account. Gli scontrini emessi da qualsiasi dispositivo
-              compaiono in tempo reale nello Storico su tutti gli altri.
+              compaiono nello Storico degli altri ricaricando la pagina o
+              tornando alla schermata Storico.
             </p>
           </div>
           <div>
@@ -252,7 +276,7 @@ export default function InstallareAppPage() {
                 l&apos;emissione di scontrini richiede connessione internet
               </strong>
               {
-                ": la trasmissione all'AdE avviene in tempo reale. Se perdi la connessione durante l'emissione, lo scontrino viene accodato e trasmesso automaticamente al ripristino della connettività."
+                ": la trasmissione all'AdE avviene in tempo reale. Se perdi la connessione durante l'emissione, l'operazione viene interrotta con un errore — riprova quando torni online. Nessuno scontrino viene inviato all'AdE senza la tua conferma esplicita."
               }
             </p>
           </div>
