@@ -55,7 +55,7 @@ export default function IntestazioneScontrinoPage() {
             <strong>Modificabili in app</strong> — ragione sociale, indirizzo,
             civico, comune, provincia e CAP. Dopo il primo collegamento
             all&apos;AdE puoi aggiornarli in qualsiasi momento dalla dashboard:
-            il PDF degli scontrini emessi successivamente userà i nuovi valori.
+            il PDF degli scontrini userà i nuovi valori (vedi nota sotto).
           </li>
           <li>
             <strong>Non modificabili in app</strong> — partita IVA e codice
@@ -91,9 +91,12 @@ export default function IntestazioneScontrinoPage() {
           </li>
         </ol>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Gli scontrini già emessi mantengono l&apos;intestazione originale: il
-          PDF di un documento storico non cambia se aggiorni i dati
-          dell&apos;attività.
+          <strong>Importante:</strong> il PDF degli scontrini è generato al volo
+          dai dati attuali dell&apos;attività. Se aggiorni ragione sociale o
+          indirizzo, anche il PDF di un documento storico riscaricato mostrerà i
+          nuovi valori. Se hai bisogno di conservare l&apos;intestazione
+          com&apos;era al momento dell&apos;emissione, salva il PDF in locale
+          subito dopo aver emesso lo scontrino.
         </p>
 
         {/* ─── Variazione P.IVA / CF ─── */}
