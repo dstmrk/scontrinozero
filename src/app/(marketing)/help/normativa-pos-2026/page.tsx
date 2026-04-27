@@ -5,9 +5,9 @@ import { Badge } from "@/components/ui/badge";
 
 export const metadata: Metadata = {
   title:
-    "Nuova normativa POS 2026: cosa cambia per gli esercenti | ScontrinoZero Help",
+    "Collegamento POS-cassa 2026: cosa cambia per chi usa ScontrinoZero | ScontrinoZero Help",
   description:
-    "Tutto quello che devi sapere sugli obblighi di collegamento POS-RT del 2026: chi è coinvolto, le scadenze e come ScontrinoZero ti aiuta a essere in regola.",
+    "Obbligo di abbinamento POS al sistema di cassa dal 2026 (Legge 207/2024): scadenze, sanzioni e cosa devi fare se usi ScontrinoZero (procedura Documento Commerciale Online).",
 };
 
 export default function NormativaPos2026Page() {
@@ -25,146 +25,176 @@ export default function NormativaPos2026Page() {
         {/* ─── Intestazione ─── */}
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-3xl font-extrabold tracking-tight">
-            Nuova normativa POS 2026: cosa cambia per gli esercenti
+            Collegamento POS-cassa 2026: cosa cambia per chi usa ScontrinoZero
           </h1>
           <Badge variant="secondary">POS e normativa</Badge>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Dal 2026 gli esercenti con registratore telematico devono integrare il
-          POS con il sistema di cassa. Questa guida spiega in modo chiaro chi è
-          obbligato, cosa cambia concretamente e perché chi usa ScontrinoZero è
-          già in una posizione vantaggiosa.
+          Dal 2026 chi accetta pagamenti elettronici deve registrare il proprio
+          POS nel portale dell&apos;Agenzia delle Entrate, abbinandolo al
+          sistema con cui memorizza e trasmette i corrispettivi — registratore
+          telematico fisico (RT) o procedura web{" "}
+          <strong>Documento Commerciale Online</strong> (DCO). L&apos;obbligo si
+          applica <strong>anche a chi usa ScontrinoZero</strong>: questa guida
+          ti spiega cosa devi fare e quali sono le scadenze.
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
           <strong>Ultimo aggiornamento:</strong> aprile 2026
         </p>
 
+        <div className="mt-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800 dark:bg-amber-950">
+          <strong>In breve:</strong> se usi ScontrinoZero e accetti pagamenti
+          con POS, devi registrare il POS nel portale Fatture e Corrispettivi
+          dell&apos;AdE. Per i POS già attivi al 1° gennaio 2026 il termine
+          della prima comunicazione è il <strong>20 aprile 2026</strong>. Non
+          servono firmware né hardware aggiuntivi: l&apos;abbinamento è una
+          procedura web, da fare personalmente nell&apos;area riservata
+          dell&apos;AdE.
+        </div>
+
         {/* ─── La normativa in sintesi ─── */}
         <h2 className="mt-10 text-xl font-semibold">La normativa in sintesi</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Il collegamento obbligatorio tra POS e registratore telematico (RT) è
-          previsto dalla{" "}
-          <strong>Legge di Bilancio 2023 (art. 1, co. 385)</strong>, con
-          attuazione progressiva. L&apos;obiettivo è che i pagamenti elettronici
-          siano automaticamente abbinati agli scontrini fiscali, riducendo
-          l&apos;evasione sul fronte degli incassi.
+          La fonte è la{" "}
+          <strong>
+            Legge 207/2024 (Legge di Bilancio 2025), art. 1, commi 74-77
+          </strong>
+          , attuata dal{" "}
+          <strong>
+            Provvedimento del Direttore dell&apos;Agenzia delle Entrate n.
+            424470 del 31 ottobre 2025
+          </strong>
+          {
+            ". Dal 1° gennaio 2026 ogni dispositivo (hardware o software) usato per accettare pagamenti elettronici deve essere costantemente collegato al sistema con cui i corrispettivi vengono memorizzati e trasmessi all'AdE."
+          }
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          In pratica: quando un cliente paga con carta, il POS deve
-          &quot;parlare&quot; con il registratore telematico e i dati devono
-          confluire in un&apos;unica trasmissione all&apos;AdE.
+          L&apos;abbinamento si effettua nell&apos;area riservata del portale{" "}
+          <strong>Fatture e Corrispettivi</strong>, registrando
+          l&apos;identificativo del POS e associandolo a quello del proprio
+          sistema di cassa (RT o DCO).
         </p>
-
-        {/* ─── Chi è obbligato ─── */}
-        <h2 className="mt-10 text-xl font-semibold">
-          Chi è obbligato al collegamento POS-RT
-        </h2>
-        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          L&apos;obbligo riguarda gli esercenti che usano un{" "}
-          <strong>registratore telematico fisico</strong> (RT) e accettano
-          pagamenti con POS. In particolare:
-        </p>
-        <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
-          <li>
-            Commercianti al dettaglio, ristoratori, artigiani con RT già
-            installato.
-          </li>
-          <li>
-            Esercenti che hanno accettato almeno un pagamento elettronico
-            nell&apos;anno precedente.
-          </li>
-        </ul>
-        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Non sono obbligati</strong> (o hanno regole diverse):
-        </p>
-        <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
-          <li>
-            Chi usa la procedura <strong>Documento Commerciale Online</strong>{" "}
-            (come ScontrinoZero) — vedi sotto.
-          </li>
-          <li>
-            Soggetti in regime di esonero dall&apos;obbligo di scontrino (es.
-            alcune categorie di venditori ambulanti).
-          </li>
-          <li>Professionisti che emettono esclusivamente fattura.</li>
-        </ul>
 
         {/* ─── Scadenze ─── */}
         <h2 className="mt-10 text-xl font-semibold">Scadenze operative</h2>
-        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Le scadenze per il collegamento tecnico POS-RT sono state oggetto di
-          proroghe successive. Al momento:
-        </p>
-        <ul className="text-muted-foreground mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed">
+        <ul className="text-muted-foreground mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            <strong>2024–2025:</strong> fase sperimentale e adeguamento dei
-            produttori di RT e POS.
+            <strong>1° gennaio 2026</strong> — entrata in vigore della norma.
           </li>
           <li>
-            <strong>2026:</strong> obbligo operativo per i soggetti con RT. I
-            fornitori di POS (Nexi, SumUp, Stripe Terminal, ecc.) stanno
-            rilasciando aggiornamenti firmware per la compatibilità.
+            <strong>5 marzo 2026</strong> — apertura del servizio web AdE per
+            registrare l&apos;abbinamento POS-cassa.
+          </li>
+          <li>
+            <strong>20 aprile 2026</strong> — termine per la prima comunicazione
+            obbligatoria. Per i POS già in uso al 1° gennaio 2026, la regola è
+            45 giorni dalla disponibilità del servizio online (5 marzo 2026).
+          </li>
+          <li>
+            <strong>POS attivati dopo il 1° gennaio 2026</strong> —
+            comunicazione a partire dal sesto giorno del secondo mese successivo
+            all&apos;attivazione del POS, ed entro l&apos;ultimo giorno
+            lavorativo dello stesso mese.
+          </li>
+        </ul>
+
+        {/* ─── Chi è obbligato ─── */}
+        <h2 className="mt-10 text-xl font-semibold">
+          Chi è obbligato al collegamento
+        </h2>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          L&apos;obbligo riguarda{" "}
+          <strong>
+            tutti i soggetti tenuti alla memorizzazione elettronica e
+            trasmissione telematica dei corrispettivi
+          </strong>{" "}
+          che accettano pagamenti elettronici, indipendentemente dallo strumento
+          usato per registrare gli incassi:
+        </p>
+        <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
+          <li>Esercenti con registratore telematico (RT) fisico.</li>
+          <li>
+            Esercenti che usano la procedura web Documento Commerciale Online —
+            incluso chi usa ScontrinoZero.
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Ti consigliamo di verificare con il tuo fornitore RT e POS lo stato
-          dell&apos;adeguamento, poiché le scadenze esatte possono variare in
-          base all&apos;hardware in uso.
+          <strong>Esenzione</strong> — è prevista solo per chi dedica un POS{" "}
+          <em>esclusivamente</em> a operazioni esonerate dall&apos;obbligo di
+          scontrino (es. ricariche telefoniche, marche da bollo, multe).
+          L&apos;uso esclusivo va dichiarato nel portale AdE: senza la
+          dichiarazione il POS resta soggetto all&apos;obbligo di collegamento.
         </p>
 
-        {/* ─── ScontrinoZero e la normativa ─── */}
+        {/* ─── Cosa fare con ScontrinoZero ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          ScontrinoZero è già conforme?
+          Cosa devi fare se usi ScontrinoZero
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Sì, e la situazione è ancora più semplice.</strong>{" "}
-          ScontrinoZero usa la procedura{" "}
-          <strong>Documento Commerciale Online</strong>, che trasmette ogni
-          scontrino all&apos;AdE in tempo reale, scontrino per scontrino. Questa
-          procedura{" "}
-          <strong>non rientra nell&apos;obbligo di collegamento POS-RT</strong>{" "}
-          previsto dalla Legge di Bilancio 2023, che si applica solo ai
-          registratori telematici fisici.
+          La procedura DCO usata da ScontrinoZero è soggetta all&apos;obbligo
+          come gli RT fisici, ma il collegamento è significativamente più
+          semplice perché si fa tutto via web:
         </p>
-        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          In altre parole: se usi ScontrinoZero come unico sistema di cassa,{" "}
-          <strong>non devi fare nulla</strong> per essere conforme alla nuova
-          normativa POS-RT.
-        </p>
-
-        {/* ─── Cosa fare se hai un RT ─── */}
-        <h2 className="mt-10 text-xl font-semibold">
-          Ho già un RT fisico: devo passare a ScontrinoZero?
-        </h2>
-        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Non necessariamente. Hai due opzioni:
-        </p>
-        <ol className="text-muted-foreground mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
+        <ul className="text-muted-foreground mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            <strong>Aggiornare l&apos;RT esistente</strong> con il firmware
-            compatibile POS-RT fornito dal produttore (Epson, Custom, Ditron,
-            ecc.) e collegarlo al POS certificato. Costo: dipende dal contratto
-            con il fornitore.
+            <strong>Nessun firmware o hardware da aggiornare.</strong> Non devi
+            attendere release del produttore di un RT, né far intervenire un
+            tecnico per certificarlo.
           </li>
           <li>
-            <strong>Passare a ScontrinoZero</strong> come alternativa
-            completamente software. Nessun hardware da aggiornare, nessun
-            collegamento POS-RT richiesto, costi fissi molto inferiori. Il POS
-            rimane indipendente e tu registri comunque ogni incasso in
-            ScontrinoZero.
+            <strong>L&apos;abbinamento si fa nel portale AdE.</strong> Accedi a
+            Fatture e Corrispettivi con le tue credenziali Fisconline (le stesse
+            che già usi con ScontrinoZero), individui il POS nell&apos;elenco
+            dei terminali associati alla tua P.IVA e lo abbini al tuo sistema
+            DCO.
           </li>
-        </ol>
+          <li>
+            <strong>L&apos;operazione va fatta personalmente.</strong> Per chi
+            usa DCO l&apos;AdE non consente di delegare l&apos;abbinamento a un
+            intermediario.
+          </li>
+        </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          La scelta dipende dalla tua attività, dal volume di transazioni e
-          dalla necessità di funzionamento offline. Se vuoi valutare la
-          transizione, il <strong>trial gratuito di 30 giorni</strong> di
-          ScontrinoZero ti permette di testare senza impegno.
+          Per la prima comunicazione il termine è il{" "}
+          <strong>20 aprile 2026</strong> per i POS già in uso al 1° gennaio
+          2026. ScontrinoZero non gestisce questa registrazione al posto tuo
+          perché l&apos;AdE richiede che l&apos;esercente la faccia
+          direttamente.
         </p>
 
-        {/* ─── Differenza RT vs DCO ─── */}
+        {/* ─── Sanzioni ─── */}
+        <h2 className="mt-10 text-xl font-semibold">Sanzioni</h2>
+        <ul className="text-muted-foreground mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed">
+          <li>
+            <strong>Omessa o incompleta trasmissione dei corrispettivi</strong>{" "}
+            — 100 € per ogni operazione (D.Lgs. 471/1997, art. 11, comma
+            2-quinquies).
+          </li>
+          <li>
+            <strong>Omessa installazione o mancato collegamento</strong> — da
+            1.000 € a 4.000 €, con possibile sospensione della licenza o
+            autorizzazione da 15 giorni a 2 mesi (D.Lgs. 471/1997, art. 11,
+            comma 5).
+          </li>
+        </ul>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          È in discussione un emendamento per introdurre una{" "}
+          <strong>franchigia del 5%</strong>: sotto questa soglia di operazioni
+          non collegate non scatterebbe la sanzione. Verifica gli aggiornamenti
+          sul sito dell&apos;Agenzia delle Entrate o con il tuo commercialista,
+          perché la disciplina può evolvere nei mesi successivi alla prima
+          scadenza.
+        </p>
+
+        {/* ─── Differenze RT vs DCO ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          RT fisico vs. Documento Commerciale Online: differenze chiave
+          RT fisico vs. Documento Commerciale Online: confronto
         </h2>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Sull&apos;obbligo POS-cassa 2026 i due strumenti sono{" "}
+          <strong>parificati</strong>: la differenza sta nel modo di registrare
+          l&apos;abbinamento e nei costi di gestione complessivi.
+        </p>
         <div className="mt-3 overflow-x-auto">
           <table className="text-muted-foreground w-full text-sm">
             <thead>
@@ -186,10 +216,14 @@ export default function NormativaPos2026Page() {
               </tr>
               <tr>
                 <td className="text-foreground py-2 font-medium">
-                  Obbligo POS-RT 2026
+                  Modalità di abbinamento POS (2026)
                 </td>
-                <td className="py-2">Sì</td>
-                <td className="py-2 font-semibold text-green-600">No</td>
+                <td className="py-2">
+                  Firmware RT certificato + intervento tecnico
+                </td>
+                <td className="py-2 font-semibold text-green-600">
+                  Registrazione nel portale AdE (no hardware)
+                </td>
               </tr>
               <tr>
                 <td className="text-foreground py-2 font-medium">
@@ -223,35 +257,57 @@ export default function NormativaPos2026Page() {
         <div className="mt-3 space-y-4">
           <div>
             <p className="text-sm font-medium">
-              Uso SumUp o Square come POS: sono obbligato al collegamento?
+              Uso SumUp o un POS bancario: sono obbligato al collegamento anche
+              se uso ScontrinoZero?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Solo se hai anche un RT fisico. Se usi ScontrinoZero al posto
-              dell&apos;RT, non c&apos;è nessun obbligo di collegamento POS-RT.
-              Il POS rimane indipendente.
+              Sì. L&apos;obbligo si applica a chiunque accetti pagamenti
+              elettronici e sia tenuto alla trasmissione telematica dei
+              corrispettivi, indipendentemente dal sistema di cassa. La
+              registrazione del POS avviene nel portale AdE Fatture e
+              Corrispettivi. L&apos;unica esenzione è per POS dedicati
+              esclusivamente a operazioni esonerate dall&apos;obbligo di
+              scontrino, da dichiarare nel portale stesso.
             </p>
           </div>
           <div>
             <p className="text-sm font-medium">
-              Sono un ambulante: mi riguarda questa normativa?
+              Sono un ambulante: mi riguarda?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Dipende dal tuo regime. Molti ambulanti rientrano in esoneri
-              specifici. Ti consigliamo di verificare con il tuo commercialista
-              quale obbligo si applica alla tua attività specifica.
+              Dipende dal tuo regime. Alcune categorie di venditori ambulanti
+              rientrano in esoneri specifici previsti dal D.Lgs. 127/2015 e dai
+              provvedimenti AdE. Se sei esonerato dall&apos;obbligo di
+              scontrino, lo sei anche dal collegamento POS-cassa. Verifica con
+              il tuo commercialista quale obbligo si applica alla tua attività.
             </p>
           </div>
           <div>
             <p className="text-sm font-medium">
-              Esiste una sanzione per chi non adegua l&apos;RT entro il 2026?
+              Cosa succede se non comunico il POS entro il 20 aprile 2026?
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Le sanzioni per omessa o tardiva trasmissione dei corrispettivi
-              sono previste dall&apos;art. 2 comma 6 del D.Lgs. 127/2015. I
-              dettagli applicativi al collegamento POS-RT saranno chiariti
-              dall&apos;AdE con appositi provvedimenti. Mantieniti aggiornato
-              tramite il sito dell&apos;Agenzia delle Entrate o il tuo
-              consulente fiscale.
+              Si applicano le sanzioni del D.Lgs. 471/1997, art. 11: da 1.000 €
+              a 4.000 € con possibile sospensione della licenza per omessa
+              installazione o mancato collegamento; 100 € per operazione per
+              omessa trasmissione dei corrispettivi. Verifica con il tuo
+              commercialista il quadro sanzionatorio aggiornato e
+              l&apos;eventuale franchigia del 5% in discussione.
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium">
+              Ho un RT fisico e sto valutando il passaggio a ScontrinoZero: ha
+              senso oggi?
+            </p>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+              Il vantaggio principale di ScontrinoZero non è l&apos;esenzione
+              dall&apos;obbligo POS-cassa (entrambi soggetti), ma il fatto che
+              non ci sono firmware né hardware da aggiornare e i costi fissi
+              sono molto più bassi. Se hai un RT da rinnovare o un contratto di
+              manutenzione costoso, il passaggio può essere interessante. Puoi
+              provare la prova gratuita di 30 giorni senza inserire la carta di
+              credito.
             </p>
           </div>
         </div>

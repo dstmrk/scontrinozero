@@ -41,11 +41,17 @@ export default function FattureERicevutePage() {
         {/* ─── Ricevuta via email ─── */}
         <h2 className="mt-10 text-xl font-semibold">Ricevute via email</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Dopo ogni addebito riuscito Stripe invia automaticamente una ricevuta
-          all&apos;indirizzo email del tuo account. L&apos;email proviene da{" "}
-          <strong>receipt@stripe.com</strong> con oggetto{" "}
-          <em>&ldquo;Il tuo ricevuto da ScontrinoZero&rdquo;</em>. Se non la
-          trovi, controlla la cartella spam.
+          Dopo ogni addebito riuscito Stripe invia automaticamente un&apos;email
+          con la ricevuta del pagamento all&apos;indirizzo del tuo account. Il
+          mittente è un dominio <strong>@stripe.com</strong>: se non trovi
+          l&apos;email, controlla la cartella spam o cerca nella inbox per
+          mittente che termina con <strong>stripe.com</strong>.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          L&apos;oggetto e il dominio esatti possono variare in base alla lingua
+          del tuo account e alla versione del template di Stripe; se
+          l&apos;email non arriva, puoi sempre scaricare la ricevuta dal portale
+          di fatturazione (vedi sotto).
         </p>
 
         {/* ─── Portale Stripe ─── */}
@@ -58,35 +64,48 @@ export default function FattureERicevutePage() {
         </p>
         <ol className="text-muted-foreground mt-3 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
           <li>
-            Vai su <strong>Dashboard → Impostazioni → Abbonamento</strong>.
+            Apri la dashboard, vai su <strong>Impostazioni</strong> e scorri
+            fino alla card <strong>Piano e Abbonamento</strong>.
           </li>
           <li>
-            Clicca <strong>Gestisci abbonamento</strong>: si apre il portale
-            Stripe.
+            Sotto <strong>Gestisci abbonamento</strong>, clicca il link{" "}
+            <strong>Vai al portale Stripe →</strong>: si apre il portale di
+            fatturazione di Stripe.
           </li>
           <li>
-            Nella sezione <strong>Cronologia fatturazione</strong> trovi tutti i
-            pagamenti con il relativo PDF scaricabile.
+            Nella sezione storico fatture/pagamenti del portale trovi tutte le
+            ricevute con il relativo PDF scaricabile.
           </li>
         </ol>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          <strong>Nota:</strong> il link <em>Vai al portale Stripe →</em>{" "}
+          compare solo se hai un abbonamento attivo. Durante il periodo di prova
+          gratuita o dopo una cancellazione non ci sono ancora pagamenti da
+          consultare.
+        </p>
 
-        {/* ─── Nota IVA ─── */}
+        {/* ─── Nota fattura intestata ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Nota sulla detraibilità IVA
+          Vuoi una fattura intestata alla tua attività?
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Le ricevute Stripe indicano l&apos;importo pagato ma non contengono
-          gli estremi per la detrazione IVA (partita IVA, indirizzo fiscale). Se
-          hai bisogno di una <strong>fattura fiscale</strong> detraibile per la
-          tua attività, contattaci a{" "}
+          Le ricevute generate automaticamente da Stripe riportano
+          l&apos;importo pagato ma non includono i tuoi dati fiscali (ragione
+          sociale, partita IVA, indirizzo): in fase di checkout ScontrinoZero
+          non li raccoglie.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Se ti serve una fattura intestata alla tua attività, scrivici a{" "}
           <a
             href="mailto:info@scontrinozero.it"
             className="text-primary hover:underline"
           >
             info@scontrinozero.it
           </a>{" "}
-          indicando i tuoi dati fiscali (ragione sociale, P.IVA, indirizzo) e il
-          periodo di riferimento.
+          indicando ragione sociale, partita IVA, indirizzo e il periodo di
+          riferimento. Ti faremo sapere caso per caso quale documento possiamo
+          emettere: la detraibilità IVA dipende dal regime fiscale del venditore
+          e va valutata con il tuo commercialista.
         </p>
 
         {/* ─── Articoli correlati ─── */}
