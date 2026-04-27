@@ -117,8 +117,9 @@ export default function ContattoAssistenzaPage() {
           >
             Errori comuni di accesso AdE e come risolverli
           </Link>
-          . La maggior parte dei problemi si risolve rinnovando la sessione AdE
-          senza dover contattare il supporto.
+          . La maggior parte dei problemi si risolve cliccando{" "}
+          <strong>Verifica connessione</strong> in Impostazioni → Credenziali
+          AdE, senza dover contattare il supporto.
         </p>
 
         {/* ─── Articoli correlati ─── */}
