@@ -76,7 +76,7 @@ export default function IntestazioneScontrinoPage() {
           <li>
             Individua la card <strong>Attività</strong> e clicca il pulsante di
             modifica accanto al titolo (icona matita, <em>Modifica attività</em>
-            ).
+            {")."}
           </li>
           <li>
             Nel form puoi aggiornare <strong>Ragione sociale</strong>,{" "}
