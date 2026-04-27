@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getOnboardingStatus } from "@/server/onboarding-actions";
 import { signOut } from "@/server/auth-actions";
@@ -42,11 +42,28 @@ export default async function DashboardLayout({
             ScontrinoZero
           </Link>
 
-          <form action={signOut} className="md:hidden">
-            <Button variant="ghost" size="icon" type="submit" aria-label="Esci">
-              <LogOut className="h-5 w-5" />
+          <div className="flex items-center md:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              asChild
+              aria-label="Impostazioni"
+            >
+              <Link href="/dashboard/settings">
+                <Settings className="h-5 w-5" />
+              </Link>
             </Button>
-          </form>
+            <form action={signOut}>
+              <Button
+                variant="ghost"
+                size="icon"
+                type="submit"
+                aria-label="Esci"
+              >
+                <LogOut className="h-5 w-5" />
+              </Button>
+            </form>
+          </div>
 
           <nav className="hidden items-center gap-4 md:flex">
             <HeaderNav />

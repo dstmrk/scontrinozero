@@ -28,13 +28,14 @@ vi.mock("next/link", () => ({
 // --- Tests ---
 
 describe("HeaderNav", () => {
-  it("renderizza i 4 link di navigazione", () => {
+  it("renderizza i 5 link di navigazione", () => {
     mockUsePathname.mockReturnValue("/dashboard");
     render(<HeaderNav />);
 
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
     expect(screen.getByText("Cassa")).toBeInTheDocument();
     expect(screen.getByText("Storico")).toBeInTheDocument();
+    expect(screen.getByText("Analytics")).toBeInTheDocument();
     expect(screen.getByText("Impostazioni")).toBeInTheDocument();
   });
 
@@ -53,6 +54,10 @@ describe("HeaderNav", () => {
     expect(screen.getByText("Storico").closest("a")).toHaveAttribute(
       "href",
       "/dashboard/storico",
+    );
+    expect(screen.getByText("Analytics").closest("a")).toHaveAttribute(
+      "href",
+      "/dashboard/analytics",
     );
     expect(screen.getByText("Impostazioni").closest("a")).toHaveAttribute(
       "href",
@@ -96,6 +101,15 @@ describe("HeaderNav", () => {
     expect(storicoLink?.className).toContain("text-foreground");
   });
 
+  it("Analytics è attivo su /dashboard/analytics", () => {
+    mockUsePathname.mockReturnValue("/dashboard/analytics");
+    render(<HeaderNav />);
+
+    const analyticsLink = screen.getByText("Analytics").closest("a");
+    expect(analyticsLink?.className).toContain("font-semibold");
+    expect(analyticsLink?.className).toContain("text-foreground");
+  });
+
   it("Impostazioni è attivo su /dashboard/settings", () => {
     mockUsePathname.mockReturnValue("/dashboard/settings");
     render(<HeaderNav />);
@@ -120,7 +134,7 @@ describe("HeaderNav", () => {
     mockUsePathname.mockReturnValue("/dashboard/cassa");
     render(<HeaderNav />);
 
-    const inactiveLinks = ["Dashboard", "Storico", "Impostazioni"];
+    const inactiveLinks = ["Dashboard", "Storico", "Analytics", "Impostazioni"];
     for (const label of inactiveLinks) {
       const link = screen.getByText(label).closest("a");
       expect(link?.className).toContain("text-muted-foreground");

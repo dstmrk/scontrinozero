@@ -35,7 +35,7 @@ describe("BottomNav", () => {
     expect(screen.getByText("Catalogo")).toBeInTheDocument();
     expect(screen.getByText("Cassa")).toBeInTheDocument();
     expect(screen.getByText("Storico")).toBeInTheDocument();
-    expect(screen.getByText("Impostazioni")).toBeInTheDocument();
+    expect(screen.getByText("Analytics")).toBeInTheDocument();
   });
 
   it("i link puntano agli href corretti", () => {
@@ -54,9 +54,9 @@ describe("BottomNav", () => {
       "href",
       "/dashboard/storico",
     );
-    expect(screen.getByText("Impostazioni").closest("a")).toHaveAttribute(
+    expect(screen.getByText("Analytics").closest("a")).toHaveAttribute(
       "href",
-      "/dashboard/settings",
+      "/dashboard/analytics",
     );
   });
 
@@ -92,11 +92,11 @@ describe("BottomNav", () => {
     expect(storicoLink?.className).toContain("text-primary");
   });
 
-  it("Impostazioni è attivo su /dashboard/settings", () => {
-    mockUsePathname.mockReturnValue("/dashboard/settings");
+  it("Analytics è attivo su /dashboard/analytics", () => {
+    mockUsePathname.mockReturnValue("/dashboard/analytics");
     render(<BottomNav />);
 
-    const settingsLink = screen.getByText("Impostazioni").closest("a");
-    expect(settingsLink?.className).toContain("text-primary");
+    const analyticsLink = screen.getByText("Analytics").closest("a");
+    expect(analyticsLink?.className).toContain("text-primary");
   });
 });

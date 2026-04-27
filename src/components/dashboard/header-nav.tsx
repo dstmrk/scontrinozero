@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", exact: true },
   { href: "/dashboard/cassa", label: "Cassa", exact: false },
   { href: "/dashboard/storico", label: "Storico", exact: false },
+  { href: "/dashboard/analytics", label: "Analytics", exact: false },
   { href: "/dashboard/settings", label: "Impostazioni", exact: false },
 ] as const;
 
