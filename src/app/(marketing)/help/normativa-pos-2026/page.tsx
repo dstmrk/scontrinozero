@@ -64,10 +64,9 @@ export default function NormativaPos2026Page() {
             Provvedimento del Direttore dell&apos;Agenzia delle Entrate n.
             424470 del 31 ottobre 2025
           </strong>
-          . Dal 1° gennaio 2026 ogni dispositivo (hardware o software) usato per
-          accettare pagamenti elettronici deve essere costantemente collegato al
-          sistema con cui i corrispettivi vengono memorizzati e trasmessi
-          all&apos;AdE.
+          {
+            ". Dal 1° gennaio 2026 ogni dispositivo (hardware o software) usato per accettare pagamenti elettronici deve essere costantemente collegato al sistema con cui i corrispettivi vengono memorizzati e trasmessi all'AdE."
+          }
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           L&apos;abbinamento si effettua nell&apos;area riservata del portale{" "}
