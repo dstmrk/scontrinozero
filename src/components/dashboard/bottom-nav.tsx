@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Package, ShoppingCart, History, Settings } from "lucide-react";
+import { Package, ShoppingCart, History, BarChart2 } from "lucide-react";
 
 const NAV_ITEMS = [
   {
@@ -25,9 +25,9 @@ const NAV_ITEMS = [
     exact: false,
   },
   {
-    href: "/dashboard/settings",
-    label: "Impostazioni",
-    icon: Settings,
+    href: "/dashboard/analytics",
+    label: "Analytics",
+    icon: BarChart2,
     exact: false,
   },
 ] as const;
