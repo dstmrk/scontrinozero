@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
 
 export const metadata: Metadata = {
   title: "API per sviluppatori | ScontrinoZero",
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
 export default function ApiDocsPage() {
   return (
     <section className="px-4 py-16">
+      <JsonLd data={helpArticleBreadcrumb("api", "API per sviluppatori")} />
       <article className="mx-auto max-w-3xl">
         <Link
           href="/help"

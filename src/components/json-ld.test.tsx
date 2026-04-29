@@ -7,6 +7,8 @@ import {
   softwareApplicationJsonLd,
   organizationJsonLd,
   faqPageJsonLd,
+  breadcrumbListJsonLd,
+  helpArticleBreadcrumb,
 } from "./json-ld";
 import { faqItems } from "@/components/marketing/faq-items";
 
@@ -43,6 +45,29 @@ describe("softwareApplicationJsonLd", () => {
       expect(offer.priceCurrency).toBe("EUR");
     }
   });
+
+  it("declares Italian language", () => {
+    expect(softwareApplicationJsonLd.inLanguage).toBe("it-IT");
+  });
+
+  it("has an absolute https url", () => {
+    expect(softwareApplicationJsonLd.url).toMatch(/^https:\/\//);
+  });
+
+  it("has a non-empty description", () => {
+    expect(softwareApplicationJsonLd.description.length).toBeGreaterThan(20);
+  });
+
+  it("has a featureList with at least 4 entries", () => {
+    expect(Array.isArray(softwareApplicationJsonLd.featureList)).toBe(true);
+    expect(softwareApplicationJsonLd.featureList.length).toBeGreaterThanOrEqual(
+      4,
+    );
+    for (const feature of softwareApplicationJsonLd.featureList) {
+      expect(typeof feature).toBe("string");
+      expect(feature.length).toBeGreaterThan(0);
+    }
+  });
 });
 
 describe("organizationJsonLd", () => {
@@ -56,6 +81,31 @@ describe("organizationJsonLd", () => {
 
   it("has a url", () => {
     expect(organizationJsonLd.url).toBeTruthy();
+  });
+
+  it("has an absolute https logo URL", () => {
+    expect(organizationJsonLd.logo).toMatch(/^https:\/\//);
+  });
+
+  it("includes sameAs with at least one absolute URL", () => {
+    expect(Array.isArray(organizationJsonLd.sameAs)).toBe(true);
+    expect(organizationJsonLd.sameAs.length).toBeGreaterThanOrEqual(1);
+    for (const url of organizationJsonLd.sameAs) {
+      expect(url).toMatch(/^https:\/\//);
+    }
+  });
+
+  it("has a contactPoint with email matching CONTACT_EMAIL", async () => {
+    const { CONTACT_EMAIL } = await import("@/lib/contact");
+    expect(organizationJsonLd.contactPoint["@type"]).toBe("ContactPoint");
+    expect(organizationJsonLd.contactPoint.email).toBe(CONTACT_EMAIL);
+    expect(organizationJsonLd.contactPoint.contactType).toBeTruthy();
+  });
+
+  it("declares Italian as available language", () => {
+    expect(organizationJsonLd.contactPoint.availableLanguage).toContain(
+      "Italian",
+    );
   });
 });
 
@@ -79,5 +129,69 @@ describe("faqPageJsonLd", () => {
       expect(entry.name).toBeTruthy();
       expect(entry.acceptedAnswer.text).toBeTruthy();
     }
+  });
+});
+
+describe("breadcrumbListJsonLd", () => {
+  it("has @type BreadcrumbList and @context schema.org", () => {
+    const ld = breadcrumbListJsonLd([
+      { name: "Home", url: "https://scontrinozero.it" },
+      { name: "Help", url: "https://scontrinozero.it/help" },
+    ]);
+    expect(ld["@type"]).toBe("BreadcrumbList");
+    expect(ld["@context"]).toBe("https://schema.org");
+  });
+
+  it("emits ListItem entries with sequential positions starting at 1", () => {
+    const ld = breadcrumbListJsonLd([
+      { name: "Home", url: "https://scontrinozero.it" },
+      { name: "Help", url: "https://scontrinozero.it/help" },
+      {
+        name: "Aliquote IVA",
+        url: "https://scontrinozero.it/help/aliquote-iva",
+      },
+    ]);
+    expect(ld.itemListElement).toHaveLength(3);
+    ld.itemListElement.forEach((entry, i) => {
+      expect(entry["@type"]).toBe("ListItem");
+      expect(entry.position).toBe(i + 1);
+      expect(entry.name).toBeTruthy();
+      expect(entry.item).toMatch(/^https:\/\//);
+    });
+  });
+
+  it("rejects empty input", () => {
+    expect(() => breadcrumbListJsonLd([])).toThrow();
+  });
+});
+
+describe("helpArticleBreadcrumb", () => {
+  it("produces a 3-level breadcrumb (Home → Help Center → article)", () => {
+    const ld = helpArticleBreadcrumb("aliquote-iva", "Aliquote IVA");
+    expect(ld.itemListElement).toHaveLength(3);
+    expect(ld.itemListElement[0].name).toBe("Home");
+    expect(ld.itemListElement[1].name).toBe("Help Center");
+    expect(ld.itemListElement[2].name).toBe("Aliquote IVA");
+  });
+
+  it("article URL contains the slug under /help", () => {
+    const ld = helpArticleBreadcrumb(
+      "regime-forfettario",
+      "Regime forfettario",
+    );
+    expect(ld.itemListElement[2].item).toBe(
+      "https://scontrinozero.it/help/regime-forfettario",
+    );
+  });
+
+  it("Home and Help Center URLs are absolute https", () => {
+    const ld = helpArticleBreadcrumb("primo-scontrino", "Primo scontrino");
+    expect(ld.itemListElement[0].item).toBe("https://scontrinozero.it");
+    expect(ld.itemListElement[1].item).toBe("https://scontrinozero.it/help");
+  });
+
+  it("rejects empty slug or empty name", () => {
+    expect(() => helpArticleBreadcrumb("", "Title")).toThrow();
+    expect(() => helpArticleBreadcrumb("slug", "")).toThrow();
   });
 });

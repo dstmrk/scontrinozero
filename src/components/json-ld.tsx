@@ -1,3 +1,6 @@
+import { CONTACT_EMAIL } from "@/lib/contact";
+import { faqItems } from "@/components/marketing/faq-items";
+
 export function JsonLd({ data }: { readonly data: Record<string, unknown> }) {
   return (
     <script
@@ -7,12 +10,27 @@ export function JsonLd({ data }: { readonly data: Record<string, unknown> }) {
   );
 }
 
+const SITE_URL = "https://scontrinozero.it";
+
 export const softwareApplicationJsonLd = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   name: "ScontrinoZero",
+  url: SITE_URL,
+  inLanguage: "it-IT",
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web, iOS, Android",
+  description:
+    "Registratore di cassa virtuale per partite IVA: emetti scontrini elettronici e trasmetti i corrispettivi all'Agenzia delle Entrate dal cellulare, senza registratore telematico fisico.",
+  featureList: [
+    "Emissione scontrino elettronico in 5 secondi",
+    "Trasmissione automatica all'Agenzia delle Entrate",
+    "Annullamento scontrino conforme",
+    "Lotteria degli Scontrini",
+    "Multi-metodo di pagamento (contanti, carte, misti)",
+    "Storico scontrini ed esportazione",
+    "App installabile (PWA) su iOS e Android",
+  ],
   offers: [
     {
       "@type": "Offer",
@@ -33,10 +51,47 @@ export const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
   name: "ScontrinoZero",
-  url: "https://scontrinozero.it",
+  url: SITE_URL,
+  logo: `${SITE_URL}/logo.png`,
+  sameAs: ["https://github.com/dstmrk"],
+  contactPoint: {
+    "@type": "ContactPoint",
+    contactType: "customer support",
+    email: CONTACT_EMAIL,
+    availableLanguage: ["Italian"],
+  },
 } as const;
 
-import { faqItems } from "@/components/marketing/faq-items";
+export interface BreadcrumbItem {
+  readonly name: string;
+  readonly url: string;
+}
+
+export function breadcrumbListJsonLd(items: readonly BreadcrumbItem[]) {
+  if (items.length === 0) {
+    throw new Error("breadcrumbListJsonLd requires at least one item");
+  }
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem" as const,
+      position: index + 1,
+      name: item.name,
+      item: item.url,
+    })),
+  } as const;
+}
+
+export function helpArticleBreadcrumb(slug: string, name: string) {
+  if (!slug) throw new Error("helpArticleBreadcrumb: slug is required");
+  if (!name) throw new Error("helpArticleBreadcrumb: name is required");
+  return breadcrumbListJsonLd([
+    { name: "Home", url: SITE_URL },
+    { name: "Help Center", url: `${SITE_URL}/help` },
+    { name, url: `${SITE_URL}/help/${slug}` },
+  ]);
+}
 
 export const faqPageJsonLd = {
   "@context": "https://schema.org",
