@@ -1,8 +1,9 @@
 import { ImageResponse } from "next/og";
 import { OgImageTemplate, OG_SIZE } from "@/components/og-image-template";
 
+export { OG_SIZE as size } from "@/components/og-image-template";
+
 export const alt = "ScontrinoZero — scontrini elettronici senza registratore";
-export const size = OG_SIZE;
 export const contentType = "image/png";
 
 export default async function Image() {

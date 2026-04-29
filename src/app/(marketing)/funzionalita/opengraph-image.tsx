@@ -1,9 +1,10 @@
 import { ImageResponse } from "next/og";
 import { OgImageTemplate, OG_SIZE } from "@/components/og-image-template";
 
+export { OG_SIZE as size } from "@/components/og-image-template";
+
 export const alt =
   "Funzionalità ScontrinoZero — emissione, gestione, compliance AdE";
-export const size = OG_SIZE;
 export const contentType = "image/png";
 
 export default async function Image() {
