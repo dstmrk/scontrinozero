@@ -23,6 +23,7 @@ export default defineConfig({
         "src/app/**/page.tsx", // UI page shells — pure presentation, no testable logic
         "src/app/**/layout.tsx", // layout shells — pure presentation, no testable logic
         "src/app/**/loading.tsx", // loading skeletons — pure UI, no logic
+        "src/app/**/opengraph-image.tsx", // OG route files — thin next/og wrappers, render covered via og-image-template
         // UI orchestration components — pure UI shells, no testable logic
         "src/app/onboarding/onboarding-form.tsx",
         "src/components/cassa/cassa-client.tsx",
