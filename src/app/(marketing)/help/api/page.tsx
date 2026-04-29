@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
   title: "API per sviluppatori | ScontrinoZero",
@@ -821,6 +822,7 @@ const idempotencyKey = crypto.randomUUID();`}</code>
             </tbody>
           </table>
         </div>
+        <RelatedHelpArticles slug="api" />
       </article>
     </section>
   );

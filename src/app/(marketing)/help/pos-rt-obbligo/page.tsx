@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
   title:
@@ -204,34 +205,7 @@ export default function PosRtObbligoPage() {
           indicate per evitare sanzioni.
         </p>
 
-        {/* ─── Articoli correlati ─── */}
-        <h2 className="mt-10 text-xl font-semibold">Articoli correlati</h2>
-        <ul className="mt-3 space-y-1 text-sm">
-          <li>
-            <Link
-              href="/help/normativa-pos-2026"
-              className="text-primary hover:underline"
-            >
-              Nuova normativa POS 2026: cosa cambia per gli esercenti
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/primo-scontrino"
-              className="text-primary hover:underline"
-            >
-              Come emettere il primo scontrino elettronico
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/come-collegare-ade"
-              className="text-primary hover:underline"
-            >
-              Come collegare ScontrinoZero all&apos;Agenzia delle Entrate
-            </Link>
-          </li>
-        </ul>
+        <RelatedHelpArticles slug="pos-rt-obbligo" />
 
         {/* ─── Footer articolo ─── */}
         <div className="border-border mt-12 border-t pt-6">

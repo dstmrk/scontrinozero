@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
   title: "Regime forfettario: configurazione IVA corretta | ScontrinoZero Help",
@@ -255,35 +256,7 @@ export default function RegimeForfettarioPage() {
             </p>
           </div>
         </div>
-
-        {/* ─── Link correlati ─── */}
-        <h2 className="mt-10 text-xl font-semibold">Articoli correlati</h2>
-        <ul className="mt-3 space-y-1 text-sm">
-          <li>
-            <Link
-              href="/help/primo-scontrino"
-              className="text-primary hover:underline"
-            >
-              Come emettere il primo scontrino elettronico
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/annullare-scontrino"
-              className="text-primary hover:underline"
-            >
-              Annullare uno scontrino: quando si può e come fare
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/come-collegare-ade"
-              className="text-primary hover:underline"
-            >
-              Come collegare ScontrinoZero all&apos;Agenzia delle Entrate
-            </Link>
-          </li>
-        </ul>
+        <RelatedHelpArticles slug="regime-forfettario" />
 
         {/* ─── Footer articolo ─── */}
         <div className="border-border mt-12 border-t pt-6">

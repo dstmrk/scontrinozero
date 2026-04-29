@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
   title: "Chiusura giornaliera: è obbligatoria? | ScontrinoZero Help",
@@ -192,34 +193,7 @@ export default function ChiusuraGiornalieraPage() {
           </div>
         </div>
 
-        {/* ─── Articoli correlati ─── */}
-        <h2 className="mt-10 text-xl font-semibold">Articoli correlati</h2>
-        <ul className="mt-3 space-y-1 text-sm">
-          <li>
-            <Link
-              href="/help/primo-scontrino"
-              className="text-primary hover:underline"
-            >
-              Come emettere il primo scontrino elettronico
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/cassetto-fiscale"
-              className="text-primary hover:underline"
-            >
-              Dove verificare i corrispettivi nel cassetto fiscale
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/storico-ed-esportazione"
-              className="text-primary hover:underline"
-            >
-              Storico scontrini: filtri, ricerca ed esportazione
-            </Link>
-          </li>
-        </ul>
+        <RelatedHelpArticles slug="chiusura-giornaliera" />
 
         {/* ─── Footer articolo ─── */}
         <div className="border-border mt-12 border-t pt-6">

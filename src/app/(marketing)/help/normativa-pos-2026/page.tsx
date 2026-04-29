@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
   title:
@@ -319,34 +320,7 @@ export default function NormativaPos2026Page() {
           </div>
         </div>
 
-        {/* ─── Articoli correlati ─── */}
-        <h2 className="mt-10 text-xl font-semibold">Articoli correlati</h2>
-        <ul className="mt-3 space-y-1 text-sm">
-          <li>
-            <Link
-              href="/help/prima-configurazione"
-              className="text-primary hover:underline"
-            >
-              Prima configurazione passo-passo (onboarding completo)
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/chiusura-giornaliera"
-              className="text-primary hover:underline"
-            >
-              Chiusura giornaliera: è obbligatoria?
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/regime-forfettario"
-              className="text-primary hover:underline"
-            >
-              Regime forfettario: configurazione IVA corretta
-            </Link>
-          </li>
-        </ul>
+        <RelatedHelpArticles slug="normativa-pos-2026" />
 
         {/* ─── Footer articolo ─── */}
         <div className="border-border mt-12 border-t pt-6">

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
   title: "Dove trovare fatture e ricevute di pagamento | ScontrinoZero Help",
@@ -112,26 +113,7 @@ export default function FattureERicevutePage() {
           e va valutata con il tuo commercialista.
         </p>
 
-        {/* ─── Articoli correlati ─── */}
-        <h2 className="mt-10 text-xl font-semibold">Articoli correlati</h2>
-        <ul className="mt-3 space-y-1 text-sm">
-          <li>
-            <Link
-              href="/help/piani-e-prezzi"
-              className="text-primary hover:underline"
-            >
-              Piani disponibili: Starter, Pro e self-hosted gratuito
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/cambio-piano"
-              className="text-primary hover:underline"
-            >
-              Come passare da mensile ad annuale
-            </Link>
-          </li>
-        </ul>
+        <RelatedHelpArticles slug="fatture-e-ricevute" />
 
         {/* ─── Footer articolo ─── */}
         <div className="border-border mt-12 border-t pt-6">

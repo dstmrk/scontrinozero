@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
   title:
@@ -257,34 +258,7 @@ export default function SicurezzaCredenzialiPage() {
           </div>
         </div>
 
-        {/* ─── Articoli correlati ─── */}
-        <h2 className="mt-10 text-xl font-semibold">Articoli correlati</h2>
-        <ul className="mt-3 space-y-1 text-sm">
-          <li>
-            <Link
-              href="/help/credenziali-fisconline"
-              className="text-primary hover:underline"
-            >
-              Credenziali Fisconline: dove trovarle e come verificarle
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/come-collegare-ade"
-              className="text-primary hover:underline"
-            >
-              Come collegare ScontrinoZero all&apos;Agenzia delle Entrate
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/errori-ade"
-              className="text-primary hover:underline"
-            >
-              Errori comuni di accesso AdE e come risolverli
-            </Link>
-          </li>
-        </ul>
+        <RelatedHelpArticles slug="sicurezza-credenziali" />
 
         {/* ─── Footer articolo ─── */}
         <div className="border-border mt-12 border-t pt-6">

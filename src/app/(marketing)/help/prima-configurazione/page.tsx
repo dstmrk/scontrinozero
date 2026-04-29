@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
   title: "Prima configurazione passo-passo | ScontrinoZero Help",
@@ -290,50 +291,7 @@ export default function PrimaConfigurazioneePage() {
           </div>
         </div>
 
-        {/* ─── Articoli correlati ─── */}
-        <h2 className="mt-10 text-xl font-semibold">Articoli correlati</h2>
-        <ul className="mt-3 space-y-1 text-sm">
-          <li>
-            <Link
-              href="/help/credenziali-fisconline"
-              className="text-primary hover:underline"
-            >
-              Credenziali Fisconline: dove trovarle e come verificarle
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/come-collegare-ade"
-              className="text-primary hover:underline"
-            >
-              Come collegare ScontrinoZero all&apos;Agenzia delle Entrate
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/regime-forfettario"
-              className="text-primary hover:underline"
-            >
-              Regime forfettario: configurazione IVA corretta
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/primo-scontrino"
-              className="text-primary hover:underline"
-            >
-              Come emettere il primo scontrino elettronico
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/installare-app"
-              className="text-primary hover:underline"
-            >
-              Come installare ScontrinoZero come app sul tuo dispositivo
-            </Link>
-          </li>
-        </ul>
+        <RelatedHelpArticles slug="prima-configurazione" />
 
         {/* ─── Footer articolo ─── */}
         <div className="border-border mt-12 border-t pt-6">
