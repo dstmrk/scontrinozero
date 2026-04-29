@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
   title:
@@ -169,34 +170,7 @@ export default function IntestazioneScontrinoPage() {
           Questa funzione è pianificata per una release futura.
         </p>
 
-        {/* ─── Articoli correlati ─── */}
-        <h2 className="mt-10 text-xl font-semibold">Articoli correlati</h2>
-        <ul className="mt-3 space-y-1 text-sm">
-          <li>
-            <Link
-              href="/help/prima-configurazione"
-              className="text-primary hover:underline"
-            >
-              Prima configurazione passo-passo (onboarding completo)
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/come-collegare-ade"
-              className="text-primary hover:underline"
-            >
-              Come collegare ScontrinoZero all&apos;Agenzia delle Entrate
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/cassetto-fiscale"
-              className="text-primary hover:underline"
-            >
-              Dove verificare i corrispettivi nel cassetto fiscale
-            </Link>
-          </li>
-        </ul>
+        <RelatedHelpArticles slug="intestazione-scontrino" />
 
         {/* ─── Footer articolo ─── */}
         <div className="border-border mt-12 border-t pt-6">

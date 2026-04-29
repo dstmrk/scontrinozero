@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
   title:
@@ -195,34 +196,7 @@ export default function CassettoFiscalePage() {
           dall&apos;app.
         </p>
 
-        {/* ─── Articoli correlati ─── */}
-        <h2 className="mt-10 text-xl font-semibold">Articoli correlati</h2>
-        <ul className="mt-3 space-y-1 text-sm">
-          <li>
-            <Link
-              href="/help/primo-scontrino"
-              className="text-primary hover:underline"
-            >
-              Come emettere il primo scontrino elettronico
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/errori-ade"
-              className="text-primary hover:underline"
-            >
-              Errori comuni di accesso AdE e come risolverli
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/storico-ed-esportazione"
-              className="text-primary hover:underline"
-            >
-              Storico scontrini: filtri, ricerca ed esportazione
-            </Link>
-          </li>
-        </ul>
+        <RelatedHelpArticles slug="cassetto-fiscale" />
 
         {/* ─── Footer articolo ─── */}
         <div className="border-border mt-12 border-t pt-6">

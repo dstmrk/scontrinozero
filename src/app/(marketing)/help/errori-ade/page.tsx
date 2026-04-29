@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
   title: "Errori comuni di accesso AdE e come risolverli | ScontrinoZero Help",
@@ -324,34 +325,7 @@ export default function ErroriAdePage() {
           parte dopo <code>/r/</code>).
         </p>
 
-        {/* ─── Articoli correlati ─── */}
-        <h2 className="mt-10 text-xl font-semibold">Articoli correlati</h2>
-        <ul className="mt-3 space-y-1 text-sm">
-          <li>
-            <Link
-              href="/help/credenziali-fisconline"
-              className="text-primary hover:underline"
-            >
-              Credenziali Fisconline: dove trovarle e come verificarle
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/come-collegare-ade"
-              className="text-primary hover:underline"
-            >
-              Come collegare ScontrinoZero all&apos;Agenzia delle Entrate
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/sicurezza-credenziali"
-              className="text-primary hover:underline"
-            >
-              Sicurezza e privacy: come proteggiamo le tue credenziali
-            </Link>
-          </li>
-        </ul>
+        <RelatedHelpArticles slug="errori-ade" />
 
         {/* ─── Footer articolo ─── */}
         <div className="border-border mt-12 border-t pt-6">

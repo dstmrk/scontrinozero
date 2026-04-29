@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
   title:
@@ -302,34 +303,7 @@ export default function PianiEPrezziPage() {
           e decidere alla scadenza.
         </p>
 
-        {/* ─── Articoli correlati ─── */}
-        <h2 className="mt-10 text-xl font-semibold">Articoli correlati</h2>
-        <ul className="mt-3 space-y-1 text-sm">
-          <li>
-            <Link
-              href="/help/prima-configurazione"
-              className="text-primary hover:underline"
-            >
-              Prima configurazione passo-passo (onboarding completo)
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/storico-ed-esportazione"
-              className="text-primary hover:underline"
-            >
-              Storico scontrini: filtri, ricerca ed esportazione
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/help/sicurezza-credenziali"
-              className="text-primary hover:underline"
-            >
-              Sicurezza e privacy: come proteggiamo le tue credenziali
-            </Link>
-          </li>
-        </ul>
+        <RelatedHelpArticles slug="piani-e-prezzi" />
 
         {/* ─── Footer articolo ─── */}
         <div className="border-border mt-12 border-t pt-6">
