@@ -7,6 +7,8 @@ import {
   softwareApplicationJsonLd,
   organizationJsonLd,
   faqPageJsonLd,
+  breadcrumbListJsonLd,
+  helpArticleBreadcrumb,
 } from "./json-ld";
 import { faqItems } from "@/components/marketing/faq-items";
 
@@ -127,5 +129,69 @@ describe("faqPageJsonLd", () => {
       expect(entry.name).toBeTruthy();
       expect(entry.acceptedAnswer.text).toBeTruthy();
     }
+  });
+});
+
+describe("breadcrumbListJsonLd", () => {
+  it("has @type BreadcrumbList and @context schema.org", () => {
+    const ld = breadcrumbListJsonLd([
+      { name: "Home", url: "https://scontrinozero.it" },
+      { name: "Help", url: "https://scontrinozero.it/help" },
+    ]);
+    expect(ld["@type"]).toBe("BreadcrumbList");
+    expect(ld["@context"]).toBe("https://schema.org");
+  });
+
+  it("emits ListItem entries with sequential positions starting at 1", () => {
+    const ld = breadcrumbListJsonLd([
+      { name: "Home", url: "https://scontrinozero.it" },
+      { name: "Help", url: "https://scontrinozero.it/help" },
+      {
+        name: "Aliquote IVA",
+        url: "https://scontrinozero.it/help/aliquote-iva",
+      },
+    ]);
+    expect(ld.itemListElement).toHaveLength(3);
+    ld.itemListElement.forEach((entry, i) => {
+      expect(entry["@type"]).toBe("ListItem");
+      expect(entry.position).toBe(i + 1);
+      expect(entry.name).toBeTruthy();
+      expect(entry.item).toMatch(/^https:\/\//);
+    });
+  });
+
+  it("rejects empty input", () => {
+    expect(() => breadcrumbListJsonLd([])).toThrow();
+  });
+});
+
+describe("helpArticleBreadcrumb", () => {
+  it("produces a 3-level breadcrumb (Home → Help Center → article)", () => {
+    const ld = helpArticleBreadcrumb("aliquote-iva", "Aliquote IVA");
+    expect(ld.itemListElement).toHaveLength(3);
+    expect(ld.itemListElement[0].name).toBe("Home");
+    expect(ld.itemListElement[1].name).toBe("Help Center");
+    expect(ld.itemListElement[2].name).toBe("Aliquote IVA");
+  });
+
+  it("article URL contains the slug under /help", () => {
+    const ld = helpArticleBreadcrumb(
+      "regime-forfettario",
+      "Regime forfettario",
+    );
+    expect(ld.itemListElement[2].item).toBe(
+      "https://scontrinozero.it/help/regime-forfettario",
+    );
+  });
+
+  it("Home and Help Center URLs are absolute https", () => {
+    const ld = helpArticleBreadcrumb("primo-scontrino", "Primo scontrino");
+    expect(ld.itemListElement[0].item).toBe("https://scontrinozero.it");
+    expect(ld.itemListElement[1].item).toBe("https://scontrinozero.it/help");
+  });
+
+  it("rejects empty slug or empty name", () => {
+    expect(() => helpArticleBreadcrumb("", "Title")).toThrow();
+    expect(() => helpArticleBreadcrumb("slug", "")).toThrow();
   });
 });

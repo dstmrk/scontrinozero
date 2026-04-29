@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
 
 export const metadata: Metadata = {
   title: "Chiusura giornaliera: è obbligatoria? | ScontrinoZero Help",
@@ -12,6 +13,12 @@ export const metadata: Metadata = {
 export default function ChiusuraGiornalieraPage() {
   return (
     <section className="px-4 py-16">
+      <JsonLd
+        data={helpArticleBreadcrumb(
+          "chiusura-giornaliera",
+          "Chiusura giornaliera",
+        )}
+      />
       <article className="mx-auto max-w-3xl">
         <Link
           href="/help"

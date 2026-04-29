@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChevronRight } from "lucide-react";
+import { JsonLd, breadcrumbListJsonLd } from "@/components/json-ld";
 
 export const metadata: Metadata = {
   title: "Help Center | ScontrinoZero",
@@ -213,6 +214,12 @@ const helpCategories: HelpCategory[] = [
 export default function HelpHomePage() {
   return (
     <section className="px-4 py-16 md:py-24">
+      <JsonLd
+        data={breadcrumbListJsonLd([
+          { name: "Home", url: "https://scontrinozero.it" },
+          { name: "Help Center", url: "https://scontrinozero.it/help" },
+        ])}
+      />
       <div className="mx-auto max-w-6xl space-y-12">
         {/* ─── Intestazione ─── */}
         <div className="space-y-3">

@@ -62,6 +62,37 @@ export const organizationJsonLd = {
   },
 } as const;
 
+export interface BreadcrumbItem {
+  readonly name: string;
+  readonly url: string;
+}
+
+export function breadcrumbListJsonLd(items: readonly BreadcrumbItem[]) {
+  if (items.length === 0) {
+    throw new Error("breadcrumbListJsonLd requires at least one item");
+  }
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem" as const,
+      position: index + 1,
+      name: item.name,
+      item: item.url,
+    })),
+  } as const;
+}
+
+export function helpArticleBreadcrumb(slug: string, name: string) {
+  if (!slug) throw new Error("helpArticleBreadcrumb: slug is required");
+  if (!name) throw new Error("helpArticleBreadcrumb: name is required");
+  return breadcrumbListJsonLd([
+    { name: "Home", url: SITE_URL },
+    { name: "Help Center", url: `${SITE_URL}/help` },
+    { name, url: `${SITE_URL}/help/${slug}` },
+  ]);
+}
+
 export const faqPageJsonLd = {
   "@context": "https://schema.org",
   "@type": "FAQPage",

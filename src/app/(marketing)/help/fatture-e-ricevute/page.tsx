@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
 
 export const metadata: Metadata = {
   title: "Dove trovare fatture e ricevute di pagamento | ScontrinoZero Help",
@@ -12,6 +13,9 @@ export const metadata: Metadata = {
 export default function FattureERicevutePage() {
   return (
     <section className="px-4 py-16">
+      <JsonLd
+        data={helpArticleBreadcrumb("fatture-e-ricevute", "Fatture e ricevute")}
+      />
       <article className="mx-auto max-w-3xl">
         <Link
           href="/help"
