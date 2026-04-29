@@ -43,6 +43,29 @@ describe("softwareApplicationJsonLd", () => {
       expect(offer.priceCurrency).toBe("EUR");
     }
   });
+
+  it("declares Italian language", () => {
+    expect(softwareApplicationJsonLd.inLanguage).toBe("it-IT");
+  });
+
+  it("has an absolute https url", () => {
+    expect(softwareApplicationJsonLd.url).toMatch(/^https:\/\//);
+  });
+
+  it("has a non-empty description", () => {
+    expect(softwareApplicationJsonLd.description.length).toBeGreaterThan(20);
+  });
+
+  it("has a featureList with at least 4 entries", () => {
+    expect(Array.isArray(softwareApplicationJsonLd.featureList)).toBe(true);
+    expect(softwareApplicationJsonLd.featureList.length).toBeGreaterThanOrEqual(
+      4,
+    );
+    for (const feature of softwareApplicationJsonLd.featureList) {
+      expect(typeof feature).toBe("string");
+      expect(feature.length).toBeGreaterThan(0);
+    }
+  });
 });
 
 describe("organizationJsonLd", () => {
@@ -56,6 +79,31 @@ describe("organizationJsonLd", () => {
 
   it("has a url", () => {
     expect(organizationJsonLd.url).toBeTruthy();
+  });
+
+  it("has an absolute https logo URL", () => {
+    expect(organizationJsonLd.logo).toMatch(/^https:\/\//);
+  });
+
+  it("includes sameAs with at least one absolute URL", () => {
+    expect(Array.isArray(organizationJsonLd.sameAs)).toBe(true);
+    expect(organizationJsonLd.sameAs.length).toBeGreaterThanOrEqual(1);
+    for (const url of organizationJsonLd.sameAs) {
+      expect(url).toMatch(/^https:\/\//);
+    }
+  });
+
+  it("has a contactPoint with email matching CONTACT_EMAIL", async () => {
+    const { CONTACT_EMAIL } = await import("@/lib/contact");
+    expect(organizationJsonLd.contactPoint["@type"]).toBe("ContactPoint");
+    expect(organizationJsonLd.contactPoint.email).toBe(CONTACT_EMAIL);
+    expect(organizationJsonLd.contactPoint.contactType).toBeTruthy();
+  });
+
+  it("declares Italian as available language", () => {
+    expect(organizationJsonLd.contactPoint.availableLanguage).toContain(
+      "Italian",
+    );
   });
 });
 
