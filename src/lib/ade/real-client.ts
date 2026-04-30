@@ -1302,11 +1302,14 @@ export class RealAdeClient implements AdeClient {
     }
 
     if (!response.ok) {
-      // AdE può tornare 5xx con body utile (errori[], stack trace, HTML).
-      // Catturiamo un estratto per diagnosticare la causa lato AdE invece di
-      // lanciare un errore opaco. Mai loggare il payload inviato: contiene
-      // dati fiscali (importi, CF cliente). Per correlare basta voidDocumentId
-      // dal chiamante.
+      // AdE può tornare 5xx con body utile (errori[], stack trace, HTML) o 4xx
+      // con dettagli su payload malformato/auth. Catturiamo un estratto per
+      // diagnostica invece di lanciare un errore opaco. Mai loggare il payload
+      // inviato: contiene dati fiscali (importi, CF cliente). Per correlare
+      // basta voidDocumentId dal chiamante.
+      // Livello: warn per 4xx (visibilità senza alerting — i rifiuti logici
+      // AdE arrivano come 200 esito:false, quindi 4xx è sempre anomalo ma non
+      // necessariamente un'outage); error per 5xx (genuine portal failure).
       let bodyExcerpt = "";
       try {
         const text = await response.text();
@@ -1314,15 +1317,17 @@ export class RealAdeClient implements AdeClient {
       } catch {
         bodyExcerpt = "<unreadable>";
       }
-      logger.error(
-        {
-          statusCode: response.status,
-          contentType: response.headers.get("content-type") ?? null,
-          bodyExcerpt,
-          endpoint: "/ser/api/documenti/v1/doc/documenti/",
-        },
-        "ade:submit_failed",
-      );
+      const logCtx = {
+        statusCode: response.status,
+        contentType: response.headers.get("content-type") ?? null,
+        bodyExcerpt,
+        endpoint: "/ser/api/documenti/v1/doc/documenti/",
+      };
+      if (response.status >= 500) {
+        logger.error(logCtx, "ade:submit_failed");
+      } else {
+        logger.warn(logCtx, "ade:submit_failed");
+      }
       throw new AdePortalError(
         response.status,
         `Document submission failed with status ${response.status}`,

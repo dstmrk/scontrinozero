@@ -1127,6 +1127,29 @@ describe("RealAdeClient", () => {
       );
     });
 
+    it("logs at warn level (not error) for 4xx responses", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 400,
+          body: { errori: [{ codice: "E400", descrizione: "Bad payload" }] },
+        }),
+      );
+
+      await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
+        AdePortalError,
+      );
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          statusCode: 400,
+        }),
+        "ade:submit_failed",
+      );
+    });
+
     it("throws if not logged in", async () => {
       await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
         "Not logged in",
