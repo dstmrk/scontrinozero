@@ -13,7 +13,17 @@ import {
   AdeSessionExpiredError,
   AdeSpidTimeoutError,
 } from "./errors";
+import { logger } from "@/lib/logger";
 import type { AdePayload, AdeResponse, SpidCredentials } from "./types";
+
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1033,6 +1043,110 @@ describe("RealAdeClient", () => {
 
       await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
         AdePortalError,
+      );
+    });
+
+    it("logs response body excerpt and content-type when AdE returns 500 with JSON", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      const adeErrorBody = {
+        esito: false,
+        errori: [{ codice: "E001", descrizione: "Documento non annullabile" }],
+      };
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 500,
+          body: adeErrorBody,
+          headers: [["Content-Type", "application/json;charset=UTF-8"]],
+        }),
+      );
+
+      await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
+        AdePortalError,
+      );
+
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          statusCode: 500,
+          contentType: "application/json;charset=UTF-8",
+          bodyExcerpt: JSON.stringify(adeErrorBody),
+          endpoint: "/ser/api/documenti/v1/doc/documenti/",
+        }),
+        "ade:submit_failed",
+      );
+    });
+
+    it("logs body excerpt when AdE returns 500 with HTML/plain text body", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      const htmlBody =
+        "<html><body><h1>Internal Server Error</h1><p>Generic AdE failure</p></body></html>";
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 500,
+          body: htmlBody,
+          headers: [["Content-Type", "text/html; charset=UTF-8"]],
+        }),
+      );
+
+      await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
+        AdePortalError,
+      );
+
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          statusCode: 500,
+          contentType: "text/html; charset=UTF-8",
+          bodyExcerpt: htmlBody,
+        }),
+        "ade:submit_failed",
+      );
+    });
+
+    it("truncates body excerpt to 2048 chars when body is large", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      const largeBody = "x".repeat(5000);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ status: 500, body: largeBody }),
+      );
+
+      await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
+        AdePortalError,
+      );
+
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          statusCode: 500,
+          bodyExcerpt: "x".repeat(2048),
+        }),
+        "ade:submit_failed",
+      );
+    });
+
+    it("logs at warn level (not error) for 4xx responses", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 400,
+          body: { errori: [{ codice: "E400", descrizione: "Bad payload" }] },
+        }),
+      );
+
+      await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
+        AdePortalError,
+      );
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          statusCode: 400,
+        }),
+        "ade:submit_failed",
       );
     });
 
