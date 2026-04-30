@@ -1302,6 +1302,27 @@ export class RealAdeClient implements AdeClient {
     }
 
     if (!response.ok) {
+      // AdE può tornare 5xx con body utile (errori[], stack trace, HTML).
+      // Catturiamo un estratto per diagnosticare la causa lato AdE invece di
+      // lanciare un errore opaco. Mai loggare il payload inviato: contiene
+      // dati fiscali (importi, CF cliente). Per correlare basta voidDocumentId
+      // dal chiamante.
+      let bodyExcerpt = "";
+      try {
+        const text = await response.text();
+        bodyExcerpt = text.slice(0, 2048);
+      } catch {
+        bodyExcerpt = "<unreadable>";
+      }
+      logger.error(
+        {
+          statusCode: response.status,
+          contentType: response.headers.get("content-type") ?? null,
+          bodyExcerpt,
+          endpoint: "/ser/api/documenti/v1/doc/documenti/",
+        },
+        "ade:submit_failed",
+      );
       throw new AdePortalError(
         response.status,
         `Document submission failed with status ${response.status}`,
