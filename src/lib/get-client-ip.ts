@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { logger } from "@/lib/logger";
 
 /**
@@ -37,4 +38,24 @@ export function getClientIp(headers: Headers): string {
 
   // Dev / test fallback: X-Forwarded-For is acceptable when Cloudflare is not present.
   return headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+}
+
+/**
+ * Returns a short non-reversible-by-rainbow-table-alone tag for an IP.
+ *
+ * Useful for structured logs where we want to correlate events from the same
+ * source (rate-limit floods, brute-force) without writing the raw IP — keeping
+ * logs out of the GDPR "personal data" classification by default.
+ *
+ * The salt is `LOG_HASH_SALT` (env). If unset we still return a stable hash
+ * (no salt), which is enough for correlation in a single deploy. Logs should
+ * not be retained long-term anyway.
+ */
+export function hashIp(ip: string): string {
+  if (!ip || ip === "unknown") return "unknown";
+  const salt = process.env.LOG_HASH_SALT ?? "";
+  return createHash("sha256")
+    .update(salt + ip)
+    .digest("hex")
+    .slice(0, 12);
 }
