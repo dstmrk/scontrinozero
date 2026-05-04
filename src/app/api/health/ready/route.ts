@@ -6,6 +6,9 @@ import { logger } from "@/lib/logger";
 export const dynamic = "force-dynamic";
 
 const DB_PING_TIMEOUT_MS = 1500;
+// Grace margin for the JS-side race: only fires if even the SET LOCAL itself
+// is hung (e.g. TCP-level stall before Postgres can apply the timeout).
+const JS_RACE_TIMEOUT_MS = DB_PING_TIMEOUT_MS + 500;
 
 /**
  * Readiness probe: returns 200 only when the process can serve traffic — i.e.
@@ -17,8 +20,12 @@ const DB_PING_TIMEOUT_MS = 1500;
  * - `/api/health/ready` → DB reachable. A failed DB ping returns 503 so the
  *   instance is taken out of rotation without being restarted.
  *
- * We keep the per-check timeout short on purpose: a slow DB is treated as
- * unready, not as a transient blip — the orchestrator will retry.
+ * Cancellation:
+ * Wrapping the ping in a transaction with `SET LOCAL statement_timeout` makes
+ * Postgres abort and reclaim the connection if the SELECT exceeds the budget,
+ * even when the response has already returned via the JS race. Without this,
+ * a slow DB would let probe queries accumulate and exhaust the pool right
+ * when the service is already degraded.
  */
 export async function GET() {
   const checks: Record<string, "ok" | "fail"> = {};
@@ -26,12 +33,22 @@ export async function GET() {
 
   try {
     const db = getDb();
+    const dbPing = db.transaction(async (tx) => {
+      // SET LOCAL is bounded to this transaction, so it can never leak into
+      // another pooled connection. The literal value is a compile-time
+      // constant — no SQL injection surface.
+      await tx.execute(
+        sql.raw(`SET LOCAL statement_timeout = ${DB_PING_TIMEOUT_MS}`),
+      );
+      await tx.execute(sql`SELECT 1`);
+    });
+
     await Promise.race([
-      db.execute(sql`select 1`),
+      dbPing,
       new Promise((_, reject) =>
         setTimeout(
           () => reject(new Error("db ping timeout")),
-          DB_PING_TIMEOUT_MS,
+          JS_RACE_TIMEOUT_MS,
         ),
       ),
     ]);
