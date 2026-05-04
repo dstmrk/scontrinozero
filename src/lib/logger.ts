@@ -71,6 +71,9 @@ export function sanitizeForTelemetry(obj: unknown): Record<string, unknown> {
     "adeErrorCodes",
     "action",
     "ip",
+    "ipHash",
+    "errorClass",
+    "captchaHostname",
     "critical",
   ];
 

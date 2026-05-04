@@ -35,7 +35,39 @@ const nextConfig: NextConfig = {
     // https://app.scontrinozero.it in production — API calls come from the app subdomain).
     const allowedOrigin =
       process.env.NEXT_PUBLIC_APP_URL ?? "https://app.scontrinozero.it";
+
+    // Baseline security headers applied to every response. CSP is intentionally
+    // *not* set here — a correct CSP needs to map every external origin
+    // (Sentry, Turnstile, Stripe, Resend, Supabase, fonts, …) and is rolled
+    // out in a dedicated release with a report-only phase first to avoid
+    // breaking production. See PLAN.md backlog (B14).
+    const securityHeaders: { key: string; value: string }[] = [
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      { key: "X-Frame-Options", value: "DENY" },
+      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+      // Disallow features we do not use; payment is left enabled because
+      // Stripe Elements / Payment Request can rely on it.
+      {
+        key: "Permissions-Policy",
+        value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+      },
+    ];
+    if (process.env.NODE_ENV === "production") {
+      // Cloudflare Tunnel already injects HSTS in front of us; setting it at
+      // the app layer is defense-in-depth so self-hosted deployments without
+      // Cloudflare still get HSTS.
+      securityHeaders.push({
+        key: "Strict-Transport-Security",
+        value: "max-age=31536000; includeSubDomains",
+      });
+    }
+
     return [
+      {
+        // Apply baseline security headers to every response.
+        source: "/:path*",
+        headers: securityHeaders,
+      },
       {
         // Internal API routes — restricted to app origin
         source: "/api/:path*",

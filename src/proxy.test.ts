@@ -336,5 +336,41 @@ describe("proxy", () => {
       const location = new URL(response.headers.get("location")!);
       expect(location.hostname).toBe("app.scontrinozero.it");
     });
+
+    it("does not redirect cross-domain when hostname is outside the allowlist (safe-deny)", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { proxy } = await import("./proxy");
+
+      // Spoofed/unknown host: must NOT trigger an implicit cross-domain redirect.
+      const response = await proxy(
+        createRequestForHost("/dashboard", "evil.example.com"),
+      );
+      // Still subject to auth gating: /dashboard with no user → /login on same host.
+      // The key invariant is that we never redirect to app/marketing hostname.
+      const location = response.headers.get("location");
+      if (location) {
+        const url = new URL(location);
+        expect(url.hostname).not.toBe("app.scontrinozero.it");
+        expect(url.hostname).not.toBe("scontrinozero.it");
+      } else {
+        expect(response.status).toBe(200);
+      }
+    });
+
+    it("ignores a spoofed Host header when nextUrl.hostname differs", async () => {
+      const { proxy } = await import("./proxy");
+
+      // The actual URL is on the marketing domain; an attacker-controlled Host
+      // header claiming to be the app domain must not change routing decisions.
+      const req = new NextRequest("https://scontrinozero.it/dashboard", {
+        headers: { host: "app.scontrinozero.it" },
+      });
+      const response = await proxy(req);
+      expect(response.status).toBe(307);
+      const location = new URL(response.headers.get("location")!);
+      // Decision is based on nextUrl.hostname (marketing) → redirect to app.
+      expect(location.hostname).toBe("app.scontrinozero.it");
+      expect(location.pathname).toBe("/dashboard");
+    });
   });
 });

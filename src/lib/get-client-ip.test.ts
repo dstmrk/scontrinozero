@@ -17,7 +17,7 @@ vi.mock("@/lib/logger", () => ({
 // Tests
 // ---------------------------------------------------------------------------
 
-import { getClientIp } from "./get-client-ip";
+import { getClientIp, hashIp } from "./get-client-ip";
 
 function makeHeaders(entries: Record<string, string>): Headers {
   return new Headers(entries);
@@ -116,5 +116,42 @@ describe("getClientIp", () => {
       getClientIp(headers);
       expect(mockLoggerWarn).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("hashIp", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("returns 'unknown' for empty or 'unknown' input", () => {
+    expect(hashIp("")).toBe("unknown");
+    expect(hashIp("unknown")).toBe("unknown");
+  });
+
+  it("returns a stable 12-char tag for the same IP", () => {
+    const a = hashIp("1.2.3.4");
+    const b = hashIp("1.2.3.4");
+    expect(a).toBe(b);
+    expect(a).toHaveLength(12);
+  });
+
+  it("produces different tags for different IPs", () => {
+    expect(hashIp("1.2.3.4")).not.toBe(hashIp("5.6.7.8"));
+  });
+
+  it("does not include the raw IP in the tag", () => {
+    const tag = hashIp("203.0.113.42");
+    expect(tag).not.toContain("203");
+    expect(tag).not.toContain("113");
+    expect(tag).toMatch(/^[0-9a-f]{12}$/);
+  });
+
+  it("changes the hash when LOG_HASH_SALT changes (rainbow-table resistance)", () => {
+    vi.stubEnv("LOG_HASH_SALT", "salt-a");
+    const withA = hashIp("1.2.3.4");
+    vi.stubEnv("LOG_HASH_SALT", "salt-b");
+    const withB = hashIp("1.2.3.4");
+    expect(withA).not.toBe(withB);
   });
 });

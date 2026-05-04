@@ -12,7 +12,7 @@ import {
   isStrongPassword,
   normalizeEmail,
 } from "@/lib/validation";
-import { getClientIp } from "@/lib/get-client-ip";
+import { getClientIp, hashIp } from "@/lib/get-client-ip";
 import { RateLimiter } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { sendEmail } from "@/lib/email";
@@ -46,7 +46,10 @@ function checkRateLimit(ip: string, action: string): AuthActionResult | null {
   return null;
 }
 
-async function verifyCaptcha(token: string | null): Promise<boolean> {
+async function verifyCaptcha(
+  token: string | null,
+  remoteIp?: string,
+): Promise<boolean> {
   if (!token) return false;
   const secret = process.env.TURNSTILE_SECRET_KEY;
   if (!secret) {
@@ -54,12 +57,21 @@ async function verifyCaptcha(token: string | null): Promise<boolean> {
     return false;
   }
   try {
+    // Forwarding `remoteip` lets Cloudflare correlate the verify call with the
+    // visitor that solved the challenge (extra protection against token replay
+    // from a different IP). We only send a non-empty trusted IP — see
+    // CLAUDE.md §15: "CF-Connecting-IP is the only trusted source".
+    const payload: Record<string, string> = { secret, response: token };
+    if (remoteIp && remoteIp !== "unknown") {
+      payload.remoteip = remoteIp;
+    }
+
     const response = await fetch(
       "https://challenges.cloudflare.com/turnstile/v0/siteverify",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ secret, response: token }),
+        body: JSON.stringify(payload),
         signal: AbortSignal.timeout(5000),
       },
     );
@@ -73,7 +85,17 @@ async function verifyCaptcha(token: string | null): Promise<boolean> {
       process.env.APP_HOSTNAME ?? // runtime override (sandbox, self-hosted)
       process.env.NEXT_PUBLIC_APP_HOSTNAME ?? // baked at build time
       "app.scontrinozero.it";
-    return data.hostname === expectedHostname;
+    if (data.hostname !== expectedHostname) {
+      logger.warn(
+        {
+          captchaHostname: data.hostname,
+          errorClass: "captcha_hostname_mismatch",
+        },
+        "Turnstile hostname mismatch",
+      );
+      return false;
+    }
+    return true;
   } catch (err) {
     logger.error({ err }, "Turnstile verification request failed");
     return false;
@@ -166,10 +188,10 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   );
   if (validationError) return { error: validationError };
 
-  const captchaOk = await verifyCaptcha(captchaToken);
+  const ip = await getClientIpFromNextHeaders();
+  const captchaOk = await verifyCaptcha(captchaToken, ip);
   if (!captchaOk) return { error: "Verifica CAPTCHA fallita. Riprova." };
 
-  const ip = await getClientIpFromNextHeaders();
   const rateLimited = checkRateLimit(ip, "signUp");
   if (rateLimited) return rateLimited;
 
@@ -241,11 +263,42 @@ export async function signIn(formData: FormData): Promise<AuthActionResult> {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    logger.warn("signIn failed");
+    // Structured failure log: classify the Supabase error so dashboards can
+    // separate "user typed wrong password" from "auth provider down" without
+    // reading raw messages, and correlate floods via ipHash without leaking PII.
+    logger.warn(
+      {
+        action: "signIn",
+        ipHash: hashIp(ip),
+        errorClass: classifySupabaseAuthError(error),
+      },
+      "signIn failed",
+    );
     return { error: "Email o password non corretti.", email };
   }
 
   redirect("/dashboard");
+}
+
+/**
+ * Maps a Supabase Auth error to a small, machine-readable category.
+ * The category names are stable across deploys and safe to put on a dashboard;
+ * the underlying error.message is not (it can change with Supabase upgrades).
+ */
+function classifySupabaseAuthError(err: {
+  message?: string;
+  status?: number;
+}): string {
+  const status = err.status ?? 0;
+  const msg = (err.message ?? "").toLowerCase();
+  if (status === 400 && msg.includes("invalid login"))
+    return "invalid_credentials";
+  if (status === 400 && msg.includes("email not confirmed"))
+    return "email_not_confirmed";
+  if (status === 422) return "validation_error";
+  if (status === 429) return "auth_provider_throttled";
+  if (status >= 500) return "auth_provider_5xx";
+  return "other";
 }
 
 export async function signInWithMagicLink(

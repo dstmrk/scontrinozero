@@ -17,14 +17,25 @@ const MARKETING_ONLY_ROUTES = [
 
 /**
  * Redirects based on hostname to enforce domain separation.
- * Returns null if no redirect is needed.
- * Skipped in local development where both domains share localhost:3000.
+ *
+ * Trust model:
+ * - Primary source is `request.nextUrl.hostname` (Next.js parses this from the
+ *   incoming URL — same byte source as the Host header but normalised).
+ * - Hostname matching is done against an explicit allowlist (app, marketing,
+ *   www-marketing, api). Anything outside the allowlist is left untouched
+ *   (safe-deny: no implicit cross-domain redirect on unknown hosts), so a
+ *   spoofed Host header never triggers a redirect to an arbitrary destination.
+ * - Skipped in local development where both domains share localhost:3000.
  */
 function hostnameRedirect(request: NextRequest): NextResponse | null {
   if (process.env.NODE_ENV === "development") return null;
 
-  // Strip optional port from Host header (e.g. "scontrinozero.it:443" → "scontrinozero.it")
-  const hostname = (request.headers.get("host") ?? "").replace(/:\d+$/, "");
+  // request.nextUrl.hostname is Next.js's parsed view of the request URL —
+  // already lowercased and without port. We strip a stray port defensively
+  // (some platforms surface "host:port" in nextUrl.hostname).
+  const hostname = (request.nextUrl.hostname || "")
+    .toLowerCase()
+    .replace(/:\d+$/, "");
   const { pathname, search } = request.nextUrl;
   const appHostname =
     process.env.NEXT_PUBLIC_APP_HOSTNAME ?? "app.scontrinozero.it";
@@ -32,6 +43,16 @@ function hostnameRedirect(request: NextRequest): NextResponse | null {
     process.env.NEXT_PUBLIC_MARKETING_HOSTNAME ?? "scontrinozero.it";
   const apiHostname =
     process.env.NEXT_PUBLIC_API_HOSTNAME ?? "api.scontrinozero.it";
+
+  const allowedHostnames = new Set([
+    appHostname,
+    marketingHostname,
+    `www.${marketingHostname}`,
+    apiHostname,
+  ]);
+
+  // Safe-deny: unknown host → never trigger cross-domain redirect.
+  if (!allowedHostnames.has(hostname)) return null;
 
   // API subdomain: pass through — routes handle Bearer auth themselves
   if (hostname === apiHostname) return null;
