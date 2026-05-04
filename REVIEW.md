@@ -1,9 +1,9 @@
 # Code Review — ScontrinoZero
 <!-- STATE: in_progress -->
 <!-- LAST_PASS: 1 -->
-<!-- LAST_AREA_COMPLETED: scripts -->
-<!-- NEXT_AREA_TO_SCAN: src/server -->
-<!-- AREAS_REMAINING: src/server, src/lib, src/components, tests, config-infra -->
+<!-- LAST_AREA_COMPLETED: src/components -->
+<!-- NEXT_AREA_TO_SCAN: tests -->
+<!-- AREAS_REMAINING: tests, config-infra -->
 
 ## Findings (ordinati per priorità)
 <!-- I finding vengono aggiunti incrementalmente, mai persi -->
@@ -40,6 +40,35 @@
   ```
   Aggiornare `_journal.json` come da regola 14 di CLAUDE.md.
 - **Test da aggiungere**: integration test che tenta `INSERT` con valore negativo e verifica che il DB risponda `23514 check_violation`. In alternativa, un test che esegue la migrazione e verifica `pg_constraint` per la presenza dei vincoli.
+- **Trovato in passata**: 1
+
+### [P3] `JSON.stringify` in `<script type="application/ld+json">` non escapa `</script>` (XSS futuro su route dinamiche)
+- **Categoria**: sicurezza (defense in depth)
+- **File**: `src/components/json-ld.tsx:8`
+- **Problema**: `<script ... dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}>` inietta il JSON-LD nel DOM senza escape di `<`/`>`/`&`. Oggi tutti i `data` sono statici (`softwareApplicationJsonLd`, `organizationJsonLd`, `breadcrumbListJsonLd` chiamato con costanti). Le release roadmap v1.2.9-v1.2.13 introdurranno route dinamiche `/per/[slug]`, `/guide/[slug]`, `/confronto/[slug]` che probabilmente passeranno parti dello slug nel JSON-LD. Se anche solo uno di questi parametri arriva da un input utente o da contenuto editoriale non controllato, una stringa contenente `</script>` chiude prematuramente il tag e permette XSS riflesso.
+- **Impatto**: nullo oggi; rischio elevato non appena si introducono campi user-controllable nel JSON-LD (es. `aggregateRating` con review degli utenti pianificato in v1.2.14, `Service` per landing categoria con descrizioni editoriali, ecc.). Senza escape preventivo, è facile dimenticare di sanitizzare in ogni punto di chiamata.
+- **Fix proposto**: in `src/components/json-ld.tsx:8` sostituire con escape sicuro:
+  ```tsx
+  const safe = JSON.stringify(data).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safe }} />;
+  ```
+  Estendere il fix prima di v1.2.9 quando arriveranno le route dinamiche.
+- **Test da aggiungere**: in `src/components/json-ld.test.tsx`: chiamare `JsonLd` con `data = { name: "</script><script>alert(1)</script>" }` e assert che il `__html` contenga `</script>` (non la sequenza letterale).
+- **Trovato in passata**: 1
+
+### [P3] CF-Connecting-IP mancante in produzione: `logger.warn` non triggera Sentry
+- **Categoria**: sicurezza (osservabilità)
+- **File**: `src/lib/get-client-ip.ts:33-36`
+- **Problema**: in `getClientIp()`, quando `cf-connecting-ip` è assente in produzione, viene loggato a `logger.warn(...)`. Il logger pino in `src/lib/logger.ts:134` ha `PINO_ERROR_LEVEL = 50` e il `logMethod` hook chiama `captureToSentry` solo su `level >= 50`. Pino `warn` è level 40, quindi **non** finisce in Sentry. La misconfiguration di Cloudflare Tunnel — che farebbe condividere il bucket "unknown" a tutto il traffico, neutralizzando il rate limit per-IP — sarebbe visibile solo nei log di stdout del container, senza alert su Sentry.
+- **Impatto**: silent degradation del rate limiting per-IP. Senza alert su Sentry, ops potrebbe accorgersene solo dopo un'ondata di abuso (account takeover, brute force su login, scraping).
+- **Fix proposto**: in `src/lib/get-client-ip.ts` promuovere a `logger.error({ critical: true }, ...)` (campo già nella SAFE_KEYS allowlist di `sanitizeForTelemetry`). Eventualmente throttle dell'errore (sample rate ≤ 1/min) per evitare flooding di Sentry. Snippet:
+  ```ts
+  if (process.env.NODE_ENV === "production") {
+    logger.error({ critical: true }, "CF-Connecting-IP header missing in production — Cloudflare misconfiguration?");
+    return "unknown";
+  }
+  ```
+- **Test da aggiungere**: in `src/lib/get-client-ip.test.ts`, aggiungere caso con `vi.stubEnv("NODE_ENV", "production")`, mock di `logger.error`, verificare che venga chiamato con `{ critical: true }` e che il return sia "unknown".
 - **Trovato in passata**: 1
 
 ### [P3] Length constraint mancanti su colonne `text` user-controlled
