@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { RealAdeClient } from "./real-client";
+import { RealAdeClient, resolveAdeRedirect } from "./real-client";
 import {
   AdeAuthError,
   AdeError,
@@ -1534,5 +1534,66 @@ describe("RealAdeClient", () => {
         "Not logged in",
       );
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveAdeRedirect (anti-SSRF)
+// ---------------------------------------------------------------------------
+
+describe("resolveAdeRedirect", () => {
+  const currentUrl = "https://ivaservizi.agenziaentrate.gov.it/portale/home";
+
+  it("ammette redirect assoluti verso host AdE consentiti (https)", () => {
+    expect(
+      resolveAdeRedirect(
+        currentUrl,
+        "https://iampe.agenziaentrate.gov.it/api/login/telematico",
+      ),
+    ).toBe("https://iampe.agenziaentrate.gov.it/api/login/telematico");
+  });
+
+  it("ammette redirect relativi risolvendo rispetto all'origin corrente", () => {
+    expect(resolveAdeRedirect(currentUrl, "/portale/c/portal/layout")).toBe(
+      "https://ivaservizi.agenziaentrate.gov.it/portale/c/portal/layout",
+    );
+  });
+
+  it("ammette redirect relativo cross-domain risolvendolo sull'origin corrente (no host swap)", () => {
+    // Path-only Location risolto sull'origin corrente, non su un base fisso
+    const otherCurrent = "https://portale.agenziaentrate.gov.it/PortaleWeb/x";
+    expect(resolveAdeRedirect(otherCurrent, "/PortaleWeb/home?to=FATBTB")).toBe(
+      "https://portale.agenziaentrate.gov.it/PortaleWeb/home?to=FATBTB",
+    );
+  });
+
+  it("rifiuta redirect verso host non in allowlist (potenziale SSRF)", () => {
+    expect(() =>
+      resolveAdeRedirect(currentUrl, "https://attacker.example.com/exfil"),
+    ).toThrow(AdePortalError);
+  });
+
+  it("rifiuta redirect look-alike (subdomain attack)", () => {
+    expect(() =>
+      resolveAdeRedirect(
+        currentUrl,
+        "https://ivaservizi.agenziaentrate.gov.it.attacker.tld/x",
+      ),
+    ).toThrow(AdePortalError);
+  });
+
+  it("rifiuta redirect con scheme non https", () => {
+    expect(() =>
+      resolveAdeRedirect(
+        currentUrl,
+        "http://ivaservizi.agenziaentrate.gov.it/insecure",
+      ),
+    ).toThrow(/non-https/);
+  });
+
+  it("rifiuta redirect cross-domain assoluto verso scheme non-http (es. file://)", () => {
+    expect(() => resolveAdeRedirect(currentUrl, "file:///etc/passwd")).toThrow(
+      /non-https/,
+    );
   });
 });

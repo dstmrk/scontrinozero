@@ -110,9 +110,29 @@ export function getEncryptionKey(): Buffer {
 
 /**
  * Return the current key version from ENCRYPTION_KEY_VERSION (default: 1).
+ *
+ * Validazione strict: deve essere un intero in [1, 255]. Valori sporchi
+ * (`NaN`, `0`, `-1`, `999`, `"abc"`, `"1.5"`) producono fail-fast con messaggio
+ * esplicito, evitando di propagare configurazioni invalide fino al primo
+ * `encrypt()` (che fallirebbe a runtime con stato applicativo incoerente).
  */
 export function getKeyVersion(): number {
-  return Number.parseInt(process.env.ENCRYPTION_KEY_VERSION || "1", 10);
+  const raw = process.env.ENCRYPTION_KEY_VERSION;
+  if (raw === undefined || raw === "") return 1;
+
+  if (!/^\d+$/.test(raw)) {
+    throw new Error(
+      `ENCRYPTION_KEY_VERSION must be a positive integer (1-255), got: ${raw}`,
+    );
+  }
+
+  const version = Number.parseInt(raw, 10);
+  if (!Number.isInteger(version) || version < 1 || version > 255) {
+    throw new Error(
+      `ENCRYPTION_KEY_VERSION must be an integer in range [1, 255], got: ${raw}`,
+    );
+  }
+  return version;
 }
 
 /**
