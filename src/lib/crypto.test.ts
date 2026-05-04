@@ -158,8 +158,36 @@ describe("getKeyVersion", () => {
     expect(getKeyVersion()).toBe(1);
   });
 
+  it("returns 1 when ENCRYPTION_KEY_VERSION is empty string", () => {
+    process.env.ENCRYPTION_KEY_VERSION = "";
+    expect(getKeyVersion()).toBe(1);
+  });
+
   it("returns the configured version", () => {
     process.env.ENCRYPTION_KEY_VERSION = "3";
     expect(getKeyVersion()).toBe(3);
   });
+
+  it("accepts boundary values 1 and 255", () => {
+    process.env.ENCRYPTION_KEY_VERSION = "1";
+    expect(getKeyVersion()).toBe(1);
+    process.env.ENCRYPTION_KEY_VERSION = "255";
+    expect(getKeyVersion()).toBe(255);
+  });
+
+  it.each(["0", "-1", "256", "999"])(
+    "throws on out-of-range value %s",
+    (val) => {
+      process.env.ENCRYPTION_KEY_VERSION = val;
+      expect(() => getKeyVersion()).toThrow(/ENCRYPTION_KEY_VERSION/);
+    },
+  );
+
+  it.each(["abc", "1.5", "1e2", " 1 ", "0x1", "+1", "--1"])(
+    "throws on non-integer value %s",
+    (val) => {
+      process.env.ENCRYPTION_KEY_VERSION = val;
+      expect(() => getKeyVersion()).toThrow(/ENCRYPTION_KEY_VERSION/);
+    },
+  );
 });

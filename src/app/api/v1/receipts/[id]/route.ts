@@ -7,6 +7,7 @@ import {
   corsOptionsResponse,
   withCors,
 } from "@/lib/api-v1-helpers";
+import { calcDocTotal } from "@/lib/receipts/document-lines";
 
 export function OPTIONS(): Response {
   return corsOptionsResponse("GET, OPTIONS");
@@ -64,15 +65,7 @@ export async function GET(
     .where(eq(commercialDocumentLines.documentId, doc.id))
     .orderBy(asc(commercialDocumentLines.lineIndex));
 
-  const total =
-    Math.round(
-      lines.reduce(
-        (sum, l) =>
-          sum +
-          Number.parseFloat(l.grossUnitPrice) * Number.parseFloat(l.quantity),
-        0,
-      ) * 100,
-    ) / 100;
+  const total = calcDocTotal(lines);
 
   const pr = doc.publicRequest as { paymentMethod?: string } | null;
 

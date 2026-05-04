@@ -49,8 +49,90 @@ const ADE_TELEMATICI_BASE_URL = "https://telematici.agenziaentrate.gov.it";
 const ADE_INSTR_PATH = "/instr/instradamento-fatture-rest/rs";
 
 /**
+ * Hostname allowlist per il follow dei redirect (anti-SSRF).
+ * Ogni redirect verso un host diverso da questi è rifiutato con AdePortalError.
+ */
+const ADE_ALLOWED_HOSTS: ReadonlySet<string> = new Set([
+  "ivaservizi.agenziaentrate.gov.it",
+  "iampe.agenziaentrate.gov.it",
+  "portale.agenziaentrate.gov.it",
+  "telematici.agenziaentrate.gov.it",
+]);
+
+/**
+ * Risolve un Location header rispetto alla URL corrente e ne valida
+ * scheme + host contro la allowlist AdE (anti-SSRF).
+ *
+ * - Location assolute (`http://…` o `https://…`): valutate as-is.
+ * - Location relative (path-only o protocol-relative): risolte rispetto
+ *   all'origin dell'URL corrente.
+ * - Solo `https:` è ammesso.
+ * - L'host risolto deve appartenere a `ADE_ALLOWED_HOSTS`.
+ *
+ * Esportata per testabilità.
+ */
+export function resolveAdeRedirect(
+  currentUrl: string,
+  location: string,
+): string {
+  let resolved: URL;
+  try {
+    resolved = new URL(location, currentUrl);
+  } catch {
+    logger.warn(
+      { currentUrl, location },
+      "ade:redirect_blocked_malformed_location",
+    );
+    throw new AdePortalError(302, "Redirect Location is malformed");
+  }
+
+  if (resolved.protocol !== "https:") {
+    logger.warn(
+      {
+        fromHost: safeHost(currentUrl),
+        toHost: resolved.hostname,
+        scheme: resolved.protocol,
+      },
+      "ade:redirect_blocked_scheme",
+    );
+    throw new AdePortalError(
+      302,
+      `Redirect to non-https scheme (${resolved.protocol}) blocked`,
+    );
+  }
+
+  if (!ADE_ALLOWED_HOSTS.has(resolved.hostname)) {
+    logger.warn(
+      { fromHost: safeHost(currentUrl), toHost: resolved.hostname },
+      "ade:redirect_blocked_host",
+    );
+    throw new AdePortalError(
+      302,
+      `Redirect to disallowed host (${resolved.hostname}) blocked`,
+    );
+  }
+
+  return resolved.toString();
+}
+
+function safeHost(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "(unparseable)";
+  }
+}
+
+/**
  * Headers required for POST document submission (api-spec.md sez. 2.4).
- * HAR fix (vendita.har): added Referer header sent by the browser.
+ *
+ * Solo header effettivamente usati dal browser nelle catture HAR (vendita.har):
+ * Accept/Content-Type per il content negotiation, Origin/Referer per i CORS check
+ * lato AdE, User-Agent per coerenza con la sessione browser. Header tipicamente
+ * "di risposta" come X-Frame-Options, X-Content-Type-Options, X-XSS-Protection
+ * e Strict-Transport-Security sono stati rimossi: in fase di richiesta non
+ * apportano valore di sicurezza e possono diventare incompatibili se l'upstream
+ * inizia a fare validazioni strette.
  */
 const SUBMIT_HEADERS: Record<string, string> = {
   Accept: "application/json, text/plain, */*",
@@ -60,10 +142,6 @@ const SUBMIT_HEADERS: Record<string, string> = {
     "https://ivaservizi.agenziaentrate.gov.it/ser/documenticommercialionline/",
   "User-Agent":
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
-  "X-Content-Type-Options": "nosniff",
-  "X-Frame-Options": "deny",
-  "X-XSS-Protection": "1; mode=block",
-  "Strict-Transport-Security": "max-age=16070400; includeSubDomains",
 };
 
 export class RealAdeClient implements AdeClient {
@@ -145,13 +223,12 @@ export class RealAdeClient implements AdeClient {
         return response;
       }
 
-      // Redirect: resolve Location and continue
+      // Redirect: resolve Location relative to the current URL's origin and
+      // validate against the AdE host allowlist (anti-SSRF).
       const location = response.headers.get("Location");
       if (!location) return response;
 
-      url = location.startsWith("http")
-        ? location
-        : `${ADE_BASE_URL}${location}`;
+      url = resolveAdeRedirect(url, location);
       hops++;
     }
 
@@ -942,9 +1019,7 @@ export class RealAdeClient implements AdeClient {
       );
     }
 
-    const redirectUrl = location.startsWith("http")
-      ? location
-      : `${ADE_BASE_URL}${location}`;
+    const redirectUrl = resolveAdeRedirect(formAction, location);
 
     await this.followRedirectChain(redirectUrl);
   }
