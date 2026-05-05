@@ -1,9 +1,9 @@
 # Code Review — ScontrinoZero
 <!-- STATE: in_progress -->
 <!-- LAST_PASS: 4 -->
-<!-- LAST_AREA_COMPLETED: src/server + src/lib (Pass 4 bad practice) -->
-<!-- NEXT_AREA_TO_SCAN: src/app (Pass 4 bad practice) -->
-<!-- AREAS_REMAINING: src/app, src/components, supabase, scripts, tests, config-infra (Pass 4) -->
+<!-- LAST_AREA_COMPLETED: src/server + src/lib + src/app (Pass 4 bad practice) -->
+<!-- NEXT_AREA_TO_SCAN: src/components (Pass 4 bad practice) -->
+<!-- AREAS_REMAINING: src/components, supabase, scripts, tests, config-infra (Pass 4) -->
 
 ## Findings (ordinati per priorità)
 <!-- I finding vengono aggiunti incrementalmente, mai persi -->
@@ -447,5 +447,75 @@
   ```
   Sostituire `src/lib/api-v1-helpers.ts:132` con `ERROR_MESSAGES.RATE_LIMIT_API_HOURS`. Lasciare i caller di src/server sul `RATE_LIMIT_AUTH_MINUTES` (window 15 min). Documentare in commento la differenza di tone.
 - **Test da aggiungere**: nessun test runtime nuovo — refactor che si appoggia ai test esistenti dei rate limiter. Optional: smoke test che `ERROR_MESSAGES.RATE_LIMIT_API_HOURS` venga ritornato dalla risposta 429 di `checkRateLimitApi()`.
+- **Trovato in passata**: 4
+
+### [P2] `PAYMENT_LABELS` divergente tra ricevuta web e PDF: stesso codice mostra testo diverso all'utente
+- **Categoria**: bad practice / inconsistent UX (con potenziale confusion utente)
+- **File**: `src/app/r/[documentId]/page.tsx:51-54` (`PC: "Contante"`, `PE: "Elettronico"`) vs `src/lib/pdf/generate-sale-receipt.ts:46-49` (`PC: "Pagamento contante"`, `PE: "Pagamento elettronico"`)
+- **Problema**: `PAYMENT_LABELS` è duplicato in due file con **mapping divergente** per le stesse chiavi: lo scontrino visto sul web mostra "Contante", lo stesso scontrino esportato in PDF mostra "Pagamento contante". Stesso fenomeno per "Elettronico"/"Pagamento elettronico". Questo non è solo DRY: è un drift già accaduto, dimostrato dal fatto che le due copie hanno copy diversi. Probabilmente uno è stato modificato senza aggiornare l'altro. La regola CLAUDE.md 25 ("Quando si modifica una funzionalità, verificare se le pagine Help associate vanno aggiornate") si applica anche qui per lookup table di etichette UI.
+- **Impatto**: utente confuso che condivide il link pubblico con un cliente e poi gli manda anche il PDF — vede due wording diversi e si domanda se sono lo stesso scontrino. Bug UX reale, non solo theoretical drift. Inoltre, futuri formati di esportazione (CSV pianificato, ZUGFeRD se mai) avranno una terza tabella e il drift si amplifica.
+- **Fix proposto**: introdurre `src/lib/receipt-labels.ts` con la copia canonica e un solo allineamento di tono:
+  ```ts
+  export const PAYMENT_LABELS: Record<string, string> = {
+    PC: "Contante",
+    PE: "Elettronico",
+  } as const;
+  ```
+  Decidere quale stringa è la "verità" (consigliato: la versione corta "Contante" ovunque, perché PDF da scontrino fiscale ha già il contesto). Importare da `r/[documentId]/page.tsx` e `lib/pdf/generate-sale-receipt.ts`. Estendere il refactor a `VAT_LABELS` (anch'esso triplicato: `src/types/cassa.ts:31` canonico + duplicati in `src/app/r/[documentId]/page.tsx:38` e `src/lib/pdf/generate-sale-receipt.ts:33` — tutti uguali oggi, ma con la stessa fragilità) e `formatPrice` (definito identicamente in `src/app/r/[documentId]/page.tsx:21` e `src/lib/pdf/generate-sale-receipt.ts:53`, distinto da `formatCurrency` di `src/lib/utils.ts` perché senza simbolo €). Centralizzare quindi in `src/lib/receipt-format.ts`:
+  ```ts
+  export const VAT_LABELS = (vedi types/cassa.ts) as const;
+  export const PAYMENT_LABELS = { PC: "Contante", PE: "Elettronico" } as const;
+  export function formatReceiptPrice(amount: number): string {
+    return new Intl.NumberFormat("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+  }
+  ```
+- **Test da aggiungere**: in `tests/unit/receipt-labels.test.ts`: snapshot test delle costanti per catturare drift accidentale. Test di regressione che `r/[documentId]/page.tsx` e PDF generator producano la stessa stringa per i payment method (snapshot allineati). In CI, eventuale lint custom che `grep -rn "Pagamento contante\|Pagamento elettronico" src/` ritorni 0 risultati dopo il fix (impedire reintroduzione).
+- **Trovato in passata**: 4
+
+### [P3] Regex CAP `/^\d{5}$/` ripetuto anche nel client (`onboarding-form.tsx`) — terza occorrenza
+- **Categoria**: bad practice / DRY (estensione del finding precedente)
+- **File**: `src/app/onboarding/onboarding-form.tsx:44` (`zipCode: z.string().regex(/^\d{5}$/, "CAP non valido (5 cifre numeriche).")`)
+- **Problema**: dopo aver già notato la duplicazione del regex CAP tra `onboarding-actions.ts` e `profile-actions.ts` (Pass 4 finding precedente), il regex compare una **terza volta** nel client onboarding form. Lo schema Zod del client validate inline con `.regex(/^\d{5}$/)`. Il messaggio di errore "CAP non valido (5 cifre numeriche)." è anche identico a quello server-side, ma manualmente sincronizzato — basta un typo a divergere. Combinato con il finding precedente: 3 punti da sincronizzare manualmente per regex + messaggio.
+- **Impatto**: drift sicuro a tempo (due lati del fence client+server, due flussi server). Se un giorno si supportano CAP esteri o si aggiunge tolleranza per spaces, è un refactor a triple touch.
+- **Fix proposto**: nel fix proposto per il finding CAP precedente, esportare anche un Zod schema riusabile da `src/lib/validation.ts`:
+  ```ts
+  export const ITALIAN_ZIP_REGEX = /^\d{5}$/;
+  export const ITALIAN_ZIP_MESSAGE = "CAP non valido (5 cifre numeriche).";
+  export function isValidItalianZipCode(zipCode: string): boolean {
+    return ITALIAN_ZIP_REGEX.test(zipCode);
+  }
+  // Esportare anche una factory per Zod
+  export const zItalianZipCode = () =>
+    z.string().regex(ITALIAN_ZIP_REGEX, ITALIAN_ZIP_MESSAGE);
+  ```
+  Usare `zItalianZipCode()` nello schema client di `onboarding-form.tsx` e nel resto degli onboarding/profile schemas.
+- **Test da aggiungere**: già coperti dal fix CAP server-side. Aggiungere un test che lo schema client rifiuti `"1234"` e `"abcde"` con il messaggio canonico.
+- **Trovato in passata**: 4
+
+### [P3] `FormData` costruita manualmente con 7 `.set()` ripetuti in `handleBusinessSubmit`
+- **Categoria**: bad practice / type safety
+- **File**: `src/app/onboarding/onboarding-form.tsx:131-142`, `155-161`
+- **Problema**: entrambi i submit handler costruiscono `FormData` manualmente con `formData.set("firstName", data.firstName); formData.set("lastName", data.lastName); …` per 7-9 campi. È il counterpart sul lato client del finding "(formData.get as string)?.trim()" già notato server-side. Ogni nuovo campo richiede aggiornamento manuale della costruzione, e TypeScript non verifica che le chiavi `.set("xxx", …)` corrispondano ai nomi attesi dalla server action. Un rename di field nello schema Zod non spezza il build.
+- **Impatto**: refactor fragile. Se aggiungo `phoneNumber` a step 1, devo: aggiornare schema Zod, aggiornare default values, aggiungere `<input>`, e ricordarmi di `formData.set("phoneNumber", data.phoneNumber)`. La dimenticanza porta a salvataggio silenzioso senza il nuovo campo (server riceve `null`), nessun errore visibile.
+- **Fix proposto**: piccolo helper in `src/lib/form-utils.ts` (lo stesso file proposto per `getFormString`/`getFormStringOrNull`):
+  ```ts
+  export function objectToFormData<T extends Record<string, string | null | undefined>>(obj: T): FormData {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(obj)) {
+      if (v != null) fd.set(k, String(v));
+    }
+    return fd;
+  }
+  ```
+  Refactor:
+  ```diff
+  -  const formData = new FormData();
+  -  formData.set("firstName", data.firstName);
+  -  formData.set("lastName", data.lastName);
+  -  // … 7 .set() ripetuti
+  +  const formData = objectToFormData(data);
+  ```
+  Type-safe perché `data` è già tipato dal Zod schema. In più, è più chiaro al diff: l'aggiunta di un campo si vede in un solo posto (lo schema).
+- **Test da aggiungere**: in `tests/unit/form-utils.test.ts`: test che `objectToFormData({a: "1", b: null, c: "2"})` produce FormData con solo `a` e `c` (skip null). Test che chiavi numeriche/Date vengano stringificate correttamente.
 - **Trovato in passata**: 4
 
