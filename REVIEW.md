@@ -1,9 +1,9 @@
 # Code Review — ScontrinoZero
 <!-- STATE: in_progress -->
-<!-- LAST_PASS: 1 -->
-<!-- LAST_AREA_COMPLETED: config-infra -->
-<!-- NEXT_AREA_TO_SCAN: src/app -->
-<!-- AREAS_REMAINING: src/app, src/server, src/lib, src/components, supabase, scripts, tests, config-infra (Pass 2) -->
+<!-- LAST_PASS: 2 -->
+<!-- LAST_AREA_COMPLETED: src/app + src/server + supabase -->
+<!-- NEXT_AREA_TO_SCAN: src/lib (Pass 3 architettura) -->
+<!-- AREAS_REMAINING: src/lib, src/components, scripts, tests, config-infra (Pass 3) -->
 
 ## Findings (ordinati per priorità)
 <!-- I finding vengono aggiunti incrementalmente, mai persi -->
@@ -131,4 +131,90 @@
   Calibrare i numeri leggendo i Zod schema effettivi prima di applicare.
 - **Test da aggiungere**: per ogni constraint, INSERT con stringa oversized → assert `23514`. Test che la migrazione sia idempotente (re-run safe).
 - **Trovato in passata**: 1
+
+### [P1] `getOnboardingStatus()` chiamato 2× per ogni page load del dashboard (6 query DB invece di 3)
+- **Categoria**: performance
+- **File**: `src/server/onboarding-actions.ts:374-421` + `src/app/dashboard/layout.tsx:28` + `src/app/dashboard/page.tsx:11` + `src/app/dashboard/cassa/page.tsx:11` + `src/app/dashboard/storico/page.tsx:30`
+- **Problema**: `getOnboardingStatus()` esegue 3 query Drizzle sequenziali con dipendenza dato (profile → business → ade_credentials, righe 378-412). La funzione viene invocata sia in `dashboard/layout.tsx:28` (parent layout RSC) sia in ogni `dashboard/<segment>/page.tsx` (cassa/page.tsx:11, storico/page.tsx:30, page.tsx:11). Per una singola navigazione a `/dashboard/cassa`, la funzione viene chiamata 2 volte → **6 round-trip DB** sequenziali (3 per layout + 3 per page) invece dei 3 minimi. React `cache()` (da `react`) non è applicato, quindi le due call non sono dedupate. Su una connessione a Supabase Cloud (RTT ~30-100ms da VPS EU), questo significa 180-600ms di latenza pura sprecata per ogni page load del dashboard.
+- **Impatto**: TTFB del dashboard significativamente più lento del necessario, percepibile su mobile / connessione 4G dove ogni RTT pesa di più. Costo DB raddoppiato sulle pagine più navigate dell'app SaaS. Confligge con il principio di prodotto "performance percepita come priorità #1" in CLAUDE.md.
+- **Fix proposto**: due interventi compatibili:
+  1. **Deduplicare** con `cache()` di React (NON `unstable_cache` di Next): in `src/server/onboarding-actions.ts` wrappare l'export con `cache()` da `react`:
+     ```ts
+     import { cache } from "react";
+     export const getOnboardingStatus = cache(async (): Promise<OnboardingStatus> => {
+       // … corpo attuale …
+     });
+     ```
+     `cache()` deduplicaza all'interno dello stesso render tree RSC (layout + page condividono lo stesso request), eliminando la doppia chiamata. Nota: CLAUDE.md ricorda che `cache()` non funziona tra RSC e Route Handler — qui funziona perché entrambi i caller sono RSC nello stesso request.
+  2. **Single JOIN** invece di 3 query: sostituire i 3 `select()` con un'unica `LEFT JOIN`:
+     ```ts
+     const [row] = await db
+       .select({
+         profileId: profiles.id,
+         businessId: businesses.id,
+         credentialsVerified: adeCredentials.verifiedAt,
+         hasCredentials: sql<boolean>`${adeCredentials.id} IS NOT NULL`,
+       })
+       .from(profiles)
+       .leftJoin(businesses, eq(businesses.profileId, profiles.id))
+       .leftJoin(adeCredentials, eq(adeCredentials.businessId, businesses.id))
+       .where(eq(profiles.authUserId, user.id))
+       .limit(1);
+     ```
+     Con `cache()` + JOIN: una sola query DB per page load, indipendente dal numero di RSC che chiamano `getOnboardingStatus()`.
+- **Test da aggiungere**:
+  1. In `src/server/onboarding-actions.test.ts`: mock `getDb()` → spy contatore di query → render simulato di layout+page → assert che `getOnboardingStatus()` interno faccia **1 query** (non 3) e che venga invocata **una sola volta** nello stesso render scope.
+  2. Test che il return shape (`OnboardingStatus`) resti invariato per non regredire i caller esistenti.
+- **Trovato in passata**: 2
+
+### [P2] `getCatalogItems` carica l'intero catalogo senza LIMIT (Pro plan illimitato)
+- **Categoria**: performance
+- **File**: `src/server/catalog-actions.ts:79-93`
+- **Problema**: la query `db.select().from(catalogItems).where(eq(catalogItems.businessId, businessId)).orderBy(asc(catalogItems.description))` non ha `LIMIT`. Per piano **Starter** il limite a 5 items è applicativo e non c'è rischio. Per piano **Pro** il catalogo è "illimitato" (`PLAN.md` "Pricing"): un business con 5.000-10.000 articoli (es. negozio di alimentari, ferramenta) carica l'intera collezione ad ogni apertura del POS / aggiunta riga. Il payload JSON serializzato cresce a 1-5 MB, allocato in memoria server-side prima del send-down RSC.
+- **Impatto**: latenza UI percepita su catalogo grande (>1k items): tempo di parse JSON RSC + render della Combobox prodotti supera 1s. Memoria heap del processo Node cresce a ogni richiesta (visibile come spike GC su Sentry performance). NON è coperto da B2 (B2 traccia paginazione cursor solo per `searchReceipts` / `exportUserData` / Developer API — non per il catalogo, che è un endpoint UI-driven differente).
+- **Fix proposto**: introdurre paginazione + ricerca server-side, oppure per il caso "POS dropdown" caricare solo i top-N items per uso recente.
+  ```ts
+  export async function getCatalogItems(
+    businessId: string,
+    opts: { limit?: number; offset?: number; q?: string } = {},
+  ): Promise<CatalogItem[]> {
+    const limit = Math.min(opts.limit ?? 200, 500);
+    const offset = opts.offset ?? 0;
+    const filter = opts.q
+      ? and(eq(catalogItems.businessId, businessId), ilike(catalogItems.description, `%${opts.q}%`))
+      : eq(catalogItems.businessId, businessId);
+    // … select con .limit(limit).offset(offset)
+  }
+  ```
+  L'UI POS deve passare a un autocomplete server-side (debounced search) invece del dropdown full-list. Per la pagina `/dashboard/catalogo` introdurre paginazione UI a 50/pag.
+- **Test da aggiungere**:
+  1. In `src/server/catalog-actions.test.ts` (esistente): seed 250 items in mock DB → assert che default `limit` ritorni max 200 e che `q="filtro"` applichi `ilike`.
+  2. Test che `limit > 500` venga clampato a 500.
+- **Trovato in passata**: 2
+
+### [P3] Marketing homepage: CTA primario "Inizia gratis" con `prefetch={false}`
+- **Categoria**: performance
+- **File**: `src/app/(marketing)/page.tsx:51`
+- **Problema**: il CTA principale del funnel di conversione (`<Link href="/register" prefetch={false}>`) disabilita esplicitamente il prefetch automatico di Next.js. Per default i `<Link>` visibili nel viewport vengono prefetchati: `/register` (auth route group) verrebbe pre-caricato non appena l'utente vede il bottone, riducendo il TTFB percepito al click. Con `prefetch={false}` l'utente attende l'intero round-trip RSC al click. Su mobile 4G questo aggiunge 300-800ms perceivable al tempo di apertura della pagina di registrazione, esattamente nel momento più critico della conversione.
+- **Impatto**: friction sul funnel di conversione principale. Nessun beneficio concreto del `prefetch={false}` qui — la decisione potrebbe essere stata copiata da una linea guida per link verso route protette in dashboard (dove ha senso evitare prefetch RSC autenticato), ma `/register` è una pagina pubblica leggera.
+- **Fix proposto**: rimuovere l'attributo (default `prefetch={null}` in Next 15+ è "viewport prefetch"). Verificare in parallelo gli altri CTA in `(marketing)/page.tsx` (header, sezioni intermedie, footer) e su `/funzionalita`, `/prezzi` per applicare lo stesso fix dove pertinente.
+- **Test da aggiungere**: snapshot test del componente `<HomePage />` che assert `getByRole('link', { name: /inizia gratis/i }).getAttribute('data-prefetch')` non sia "false". In alternativa: e2e test che il navigation a `/register` sia <100ms da viewport-visible (richiede setup Playwright; in alternativa misurare manualmente con Lighthouse).
+- **Trovato in passata**: 2
+
+### [P3] Indice composito mancante su `api_keys (business_id, revoked_at)` per lookup chiavi attive
+- **Categoria**: performance
+- **File**: `src/db/schema/api-keys.ts:58-60` + `supabase/migrations/0004_add_api_keys.sql:25-27`
+- **Problema**: `listApiKeys()` (`src/server/api-key-actions.ts:39-49`) e altri caller filtrano su `WHERE business_id = $1 AND revoked_at IS NULL ORDER BY created_at DESC`. Lo schema ha tre indici single-column (`idx_api_keys_key_hash`, `idx_api_keys_profile_id`, `idx_api_keys_business_id`) ma nessun indice composito `(business_id, revoked_at)`. Postgres usa `idx_api_keys_business_id` come accesso primario e poi filtra `revoked_at IS NULL` in heap-fetch. Oggi il piano consente max 1 chiave attiva per business (B12 traccia la race condition), quindi la cardinalità è 1-2 righe per business e l'indice composito non sposta misurabilmente la query. Il finding diventa rilevante quando si introdurranno **piani Developer multi-key** (roadmap v2.0.0 "Developer API Fase B: piani developer, multi-operatore" in PLAN).
+- **Impatto**: oggi nullo (low cardinality), futuro: con piani che permettono 10-50 chiavi per business e tabella che cresce a 10k+ chiavi totali, la query passa da index-only-scan a index+heap-filter (10-30 ms aggiuntivi). Nessun impatto correttezza.
+- **Fix proposto**: nuova migrazione `supabase/migrations/0014_api_keys_business_revoked_index.sql`:
+  ```sql
+  CREATE INDEX idx_api_keys_business_revoked
+    ON api_keys (business_id, revoked_at)
+    WHERE revoked_at IS NULL;
+  -- Partial index su NULL: massima compattezza, query plan ottimale.
+  -- Se serve anche per .where(...isNotNull(revoked_at)) (audit), sostituire con full index.
+  ```
+  Aggiornare `_journal.json` come da regola 14 di CLAUDE.md. **Da rimandare al PR di v2.0.0 (Developer API Fase B)** — applicarlo ora aggiunge complessità di migrazione senza beneficio misurabile sui workload attuali.
+- **Test da aggiungere**: integration test `EXPLAIN (FORMAT JSON) SELECT … WHERE business_id = $1 AND revoked_at IS NULL` che verifica `Index Cond: ((business_id = $1) AND (revoked_at IS NULL))` e plan = `Index Only Scan` (non `Index Scan` + `Filter`).
+- **Trovato in passata**: 2
 
