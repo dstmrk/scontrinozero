@@ -1,9 +1,9 @@
 # Code Review — ScontrinoZero
 <!-- STATE: in_progress -->
-<!-- LAST_PASS: 3 -->
-<!-- LAST_AREA_COMPLETED: src/server + src/lib + src/components -->
-<!-- NEXT_AREA_TO_SCAN: src/server (Pass 4 bad practice) -->
-<!-- AREAS_REMAINING: tutte (Pass 4) -->
+<!-- LAST_PASS: 4 -->
+<!-- LAST_AREA_COMPLETED: src/server (Pass 4 bad practice) -->
+<!-- NEXT_AREA_TO_SCAN: src/lib (Pass 4 bad practice) -->
+<!-- AREAS_REMAINING: src/lib, src/app, src/components, supabase, scripts, tests, config-infra (Pass 4) -->
 
 ## Findings (ordinati per priorità)
 <!-- I finding vengono aggiunti incrementalmente, mai persi -->
@@ -308,4 +308,91 @@
   Default conservativo: 50k chiavi (~5MB di overhead). Esporre `maxKeys` per casi specifici (es. webhook handler usa 10k).
 - **Test da aggiungere**: in `tests/unit/rate-limit.test.ts`: test che inserisce `maxKeys + 100` chiavi distinte e verifica che `size` resti `<= maxKeys`. Test che la chiave più vecchia viene evicted (FIFO) prima di una recente.
 - **Trovato in passata**: 3
+
+### [P2] Pattern `(formData.get("x") as string)?.trim()` duplicato 35× nelle server actions
+- **Categoria**: bad practice / type safety
+- **File**: `src/server/onboarding-actions.ts:63-72,176`, `src/server/profile-actions.ts:40-41,75-89,120-122`, `src/server/auth-actions.ts:173-180,332-336,371`, e altri (35 occorrenze totali in `src/server/*.ts` confermate via `grep -rn "formData.get("`)
+- **Problema**: il pattern `(formData.get("fieldName") as string)?.trim()` (con varianti `|| null`, `|| ""`) è ripetuto in 35 punti senza un helper centralizzato. Il cast `as string` è type-unsafe: `FormData.get()` ritorna `FormDataEntryValue | null` (cioè `string | File | null`), il cast nasconde un cast non controllato verso `string` che fallirebbe silenziosamente se il client mandasse un file binario. Non c'è un singolo punto in cui modificare la logica di sanitizzazione (oggi solo `.trim()`; domani potrebbe servire normalizzazione Unicode NFKC, strip di control char, o trim Unicode whitespace).
+- **Impatto**: drift hazard alto. Se la policy di sanitizzazione cambia, ci sono 35 punti da aggiornare con rischio elevato di dimenticarne uno. Type safety bypassed dal cast `as string`. Codice rumoroso e poco leggibile (`(formData.get("zipCode") as string)?.trim()` vs `getFormString(fd, "zipCode")`).
+- **Fix proposto**: nuovo file `src/lib/form-utils.ts` con due helper:
+  ```ts
+  export function getFormString(fd: FormData, key: string): string {
+    const raw = fd.get(key);
+    return typeof raw === "string" ? raw.trim() : "";
+  }
+  export function getFormStringOrNull(fd: FormData, key: string): string | null {
+    const v = getFormString(fd, key);
+    return v || null;
+  }
+  ```
+  Refactor incrementale: sostituire prima nei file più grandi (`onboarding-actions.ts`, `auth-actions.ts`, `profile-actions.ts`). Aggiungere ESLint rule custom o regex-based `no-restricted-syntax` per bloccare nuove occorrenze del cast diretto.
+- **Test da aggiungere**: in `tests/unit/form-utils.test.ts`: test che `getFormString` ritorna `""` per `null`, per `File`, per stringa vuota; ritorna trimmed per stringa con whitespace; rispetta Unicode whitespace se la policy lo richiede. Test che `getFormStringOrNull` ritorna `null` per stringa whitespace-only.
+- **Trovato in passata**: 4
+
+### [P3] Stringa "Troppi tentativi. Riprova tra qualche minuto." hard-coded in 5 punti
+- **Categoria**: bad practice / DRY
+- **File**: `src/server/auth-actions.ts:44`, `src/server/onboarding-actions.ts:441`, `src/server/profile-actions.ts:55,102,144` (5 occorrenze identiche confermate)
+- **Problema**: il messaggio di errore rate-limit è copiato letteralmente in 5 punti. Viola DRY ed è un copy product/UX che dovrebbe vivere in un dizionario centralizzato. Future modifiche di copy (es. "Hai raggiunto il limite, riprova tra 15 minuti") richiedono touch su 5 file con rischio di drift (uno scappa). Inoltre, la futura introduzione di i18n richiederebbe estrarre tutte queste stringhe — fare il consolidamento ora abbassa il costo del lavoro futuro.
+- **Impatto**: maintainability ridotta, rischio di inconsistenza UX. Costo i18n futuro più alto.
+- **Fix proposto**: file `src/lib/error-messages.ts` con costanti centralizzate:
+  ```ts
+  export const ERROR_MESSAGES = {
+    RATE_LIMIT_EXCEEDED: "Troppi tentativi. Riprova tra qualche minuto.",
+    PASSWORD_NOT_STRONG: "Password non sicura. Usa almeno 8 caratteri con maiuscola, minuscola, numero e carattere speciale.",
+    PASSWORDS_MISMATCH: "Le password non coincidono.",
+    UNAUTHORIZED: "Non autorizzato.",
+  } as const;
+  ```
+  Sostituire i 5 punti con `ERROR_MESSAGES.RATE_LIMIT_EXCEEDED`. Estendere progressivamente ad altri messaggi ricorrenti.
+- **Test da aggiungere**: in `tests/unit/error-messages.test.ts`: smoke test che le costanti esistono e non sono empty. Optional: lint rule `no-restricted-syntax` che blocca string letterali "Troppi tentativi" fuori da `error-messages.ts`.
+- **Trovato in passata**: 4
+
+### [P3] Magic number `15 * 60 * 1000` ripetuto in 3 RateLimiter senza costante condivisa
+- **Categoria**: bad practice / magic numbers
+- **File**: `src/server/auth-actions.ts:26`, `src/server/onboarding-actions.ts:47`, `src/server/profile-actions.ts:32` (3 occorrenze confermate)
+- **Problema**: la finestra di 15 minuti per i rate limiter di auth e onboarding è inline come `15 * 60 * 1000` in 3 file. Magic number che ripete la stessa intenzione senza nome esplicito. Se la security policy cambia (es. "30 minuti per change-password, 5 minuti per signin") non c'è un punto centrale di tuning; ogni file va modificato separatamente.
+- **Impatto**: configurabilità ridotta. Audit di "quali sono le finestre rate limit?" richiede grep su tutta la codebase. Se in futuro si vuole differenziare per piano (trial più aggressivo) il refactor è capillare.
+- **Fix proposto**: in `src/lib/rate-limit.ts` (o nuovo `src/lib/rate-limit-config.ts`):
+  ```ts
+  export const RATE_LIMIT_WINDOWS = {
+    AUTH_15_MIN: 15 * 60 * 1000,
+    HOURLY: 60 * 60 * 1000,
+  } as const;
+  ```
+  Sostituire le 3 occorrenze con `RATE_LIMIT_WINDOWS.AUTH_15_MIN`. Estendere ad altri usi inline (`60 * 60 * 1000` per gli emit/void/checkout limiter).
+- **Test da aggiungere**: nessun test runtime nuovo necessario (è un refactor). Eventualmente uno snapshot test che verifica i valori delle costanti.
+- **Trovato in passata**: 4
+
+### [P3] Messaggio "Password non sicura..." duplicato e con tono divergente tra `auth-actions` e `profile-actions`
+- **Categoria**: bad practice / inconsistent UX
+- **File**: `src/server/auth-actions.ts:114` ("Password non sicura. Usa almeno 8 caratteri con maiuscola, minuscola, numero e carattere speciale.") vs `src/server/profile-actions.ts:128` ("La nuova password non è sicura. Usa almeno 8 caratteri con maiuscola, minuscola, numero e carattere speciale.")
+- **Problema**: lo stesso vincolo (`isStrongPassword()` da `src/lib/validation.ts`) genera due messaggi di errore con preambolo divergente ("Password non sicura" vs "La nuova password non è sicura"). L'utente percepisce due UX diverse per la stessa regola applicata in due flussi (signup vs change-password). Inoltre, i requisiti ("8 caratteri, maiuscola, minuscola, numero, speciale") sono hardcoded nel messaggio — se mai si cambia `isStrongPassword()` (es. a 12 caratteri) il messaggio diventa silenziosamente sbagliato in entrambi i posti.
+- **Impatto**: drift tra implementazione e copy. UX inconsistente. Manutenzione fragile (cambio della regola = cambio in 2+ posti separati).
+- **Fix proposto**: aggiungere helper in `src/lib/validation.ts` co-locato con `isStrongPassword()`:
+  ```ts
+  export const PASSWORD_REQUIREMENTS_MESSAGE =
+    "Almeno 8 caratteri con maiuscola, minuscola, numero e carattere speciale.";
+  export function validatePassword(pwd: string): string | null {
+    return isStrongPassword(pwd) ? null : `Password non sicura. ${PASSWORD_REQUIREMENTS_MESSAGE}`;
+  }
+  ```
+  Usare in entrambi i caller: `const err = validatePassword(newPassword); if (err) return { error: err };`. Oppure includere `PASSWORD_REQUIREMENTS_MESSAGE` in `ERROR_MESSAGES` (vedi finding precedente).
+- **Test da aggiungere**: in `tests/unit/validation.test.ts`: test che `validatePassword` ritorna `null` per password forti e il messaggio per deboli. Snapshot del messaggio per catturare drift.
+- **Trovato in passata**: 4
+
+### [P3] Regex `/^\d{5}$/` per validazione CAP duplicato inline in 2 server actions
+- **Categoria**: bad practice / DRY
+- **File**: `src/server/onboarding-actions.ts:101`, `src/server/profile-actions.ts:91` (2 occorrenze identiche)
+- **Problema**: la validazione CAP italiano è inline come `/^\d{5}$/.test(zipCode)` in `saveBusiness()` e `updateBusiness()`. Niente helper, niente nome esplicito (richiede commento per spiegare che è CAP). Se la regola cambia (es. accettare codici speciali di uffici postali militari, o trim leading zero, o supportare CAP esteri per business cross-border), il refactor tocca 2 punti con rischio di drift.
+- **Impatto**: validazione non centralizzata. Bassa scoverability — un terzo flusso che aggiunge un campo CAP potrebbe ricreare il pattern una terza volta invece di riusare un helper.
+- **Fix proposto**: in `src/lib/validation.ts` (dove vivono già `isStrongPassword`, `isValidUuid`, `normalizeEmail`):
+  ```ts
+  const ITALIAN_ZIP_REGEX = /^\d{5}$/;
+  export function isValidItalianZipCode(zipCode: string): boolean {
+    return ITALIAN_ZIP_REGEX.test(zipCode);
+  }
+  ```
+  Sostituire le 2 occorrenze inline con `!isValidItalianZipCode(zipCode)`.
+- **Test da aggiungere**: in `tests/unit/validation.test.ts`: test parametrizzato — `"00100"` (Roma) → true, `"20121"` (Milano) → true, `"1234"` → false, `"123456"` → false, `"1234a"` → false, `""` → false.
+- **Trovato in passata**: 4
 
