@@ -1,9 +1,9 @@
 # Code Review — ScontrinoZero
 <!-- STATE: in_progress -->
 <!-- LAST_PASS: 1 -->
-<!-- LAST_AREA_COMPLETED: src/components -->
-<!-- NEXT_AREA_TO_SCAN: tests -->
-<!-- AREAS_REMAINING: tests, config-infra -->
+<!-- LAST_AREA_COMPLETED: config-infra -->
+<!-- NEXT_AREA_TO_SCAN: src/app -->
+<!-- AREAS_REMAINING: src/app, src/server, src/lib, src/components, supabase, scripts, tests, config-infra (Pass 2) -->
 
 ## Findings (ordinati per priorità)
 <!-- I finding vengono aggiunti incrementalmente, mai persi -->
@@ -69,6 +69,48 @@
   }
   ```
 - **Test da aggiungere**: in `src/lib/get-client-ip.test.ts`, aggiungere caso con `vi.stubEnv("NODE_ENV", "production")`, mock di `logger.error`, verificare che venga chiamato con `{ critical: true }` e che il return sia "unknown".
+- **Trovato in passata**: 1
+
+### [P2] Stripe Price ID env var con fallback silenzioso a stringa vuota
+- **Categoria**: sicurezza (configurazione) / funzionalità
+- **File**: `src/lib/stripe.ts:55-68`
+- **Problema**: i 4 getter di `PRICE_IDS` (`starterMonthly`, `starterYearly`, `proMonthly`, `proYearly`) usano il pattern `process.env.STRIPE_PRICE_X ?? ""`. Se una di queste env var manca o è vuota in produzione (deploy mal configurato, secret rotation parziale, refactor del compose), il getter restituisce `""` invece di lanciare. `isValidPriceId("")` ritorna `false`, `planFromPriceId("")` ritorna `null`, e il checkout fallisce a runtime con errore generico al primo utente che tenta l'upgrade. Nessun fail-fast all'avvio del container — il problema si manifesta solo al primo checkout.
+- **Impatto**: revenue loss silenzioso. Nessun alert su Sentry finché un utente non tenta checkout (potenzialmente ore/giorni dopo il deploy). Debug difficile perché l'errore client è generico ("Servizio temporaneamente non disponibile") e non c'è log strutturato di "STRIPE_PRICE_* missing".
+- **Fix proposto**: in `src/lib/stripe.ts` sostituire i 4 getter con una funzione che valida una volta sola e fa fail-fast all'import:
+  ```ts
+  function requirePriceEnv(name: string): string {
+    const v = process.env[name];
+    if (!v) throw new Error(`Missing required env var ${name}`);
+    return v;
+  }
+  // popolato lazily al primo accesso ma con throw esplicito
+  export const PRICE_IDS = {
+    get starterMonthly() { return requirePriceEnv("STRIPE_PRICE_STARTER_MONTHLY"); },
+    // … idem per gli altri 3
+  } as const;
+  ```
+  In alternativa: validare i 4 valori in `instrumentation.ts` (o `register()` startup hook) e crashare il processo prima che il container risulti `healthy`. Aggiornare anche `instrumentation.ts` o lo healthcheck `/api/health/ready` per riflettere la dipendenza.
+- **Test da aggiungere**: in `src/lib/stripe.test.ts` (creare se assente): test che `delete process.env.STRIPE_PRICE_STARTER_MONTHLY; expect(() => PRICE_IDS.starterMonthly).toThrow(/STRIPE_PRICE_STARTER_MONTHLY/)`. Usare `vi.stubEnv` per non leakare tra test.
+- **Trovato in passata**: 1
+
+### [P2] GitHub Actions non pinnate a commit SHA (supply chain risk)
+- **Categoria**: sicurezza (supply chain)
+- **File**: `.github/workflows/ci.yml:22,55,153,170-180` + `.github/workflows/deploy.yml:72,80,83,212,219` + `.github/workflows/scheduled-audit.yml:13-15` + `.github/workflows/claude*.yml:23-54`
+- **Problema**: tutte le action third-party sono pinnate a tag mutabili (es. `actions/checkout@v6`, `gitleaks/gitleaks-action@v2`, `SonarSource/sonarqube-scan-action@v7`, `docker/build-push-action@v7`, `aquasecurity/trivy-action@v0.35.0`, `anthropics/claude-code-action@v1.0.102`). Un tag — anche un patch tag come `@v0.35.0` — può essere force-pushato sull'upstream se l'action publisher viene compromessa. Le action di terze parti vengono eseguite con accesso al `GITHUB_TOKEN`, quindi una compromissione consente di iniettare codice malevolo nel build, leakare secret (GHCR push token, Sonar token, SENTRY_AUTH_TOKEN, ecc.) o pubblicare immagini compromesse su GHCR.
+- **Impatto**: account/secret takeover via supply-chain attack. Il blast radius include push su GHCR (immagini Docker per produzione + sandbox), accesso al token Sonar/Sentry/Cloudflare, e potenziale RCE sui runner. CWE-829 (Inclusion of Functionality from Untrusted Control Sphere). Standard SLSA L3 richiede pin a SHA full-length per tutte le action non first-party.
+- **Fix proposto**:
+  1. Per ogni `uses: <owner>/<repo>@v*` non-`actions/*` first-party (anche `actions/*` è raccomandato), sostituire con SHA full a 40 caratteri + commento di versione:
+     ```yaml
+     - uses: gitleaks/gitleaks-action@<sha>  # v2.x
+     - uses: SonarSource/sonarqube-scan-action@<sha>  # v7
+     - uses: docker/build-push-action@<sha>  # v7
+     - uses: aquasecurity/trivy-action@<sha>  # v0.35.0
+     - uses: anthropics/claude-code-action@<sha>  # v1.0.102
+     ```
+     Recuperare ogni SHA da `gh api repos/<owner>/<repo>/git/ref/tags/<tag>` e committare in un'unica passata.
+  2. Abilitare Dependabot per `.github/workflows/` (gruppo `github-actions`) — esiste già la config Dependabot per npm; estenderla a actions con update settimanale.
+  3. Aggiungere step CI di lint che fallisce se `grep -E 'uses: [^ ]+@(v[0-9]|main|master|latest)' .github/workflows/*.yml` trova match (esclusi `actions/checkout` e altri first-party trusted via allowlist esplicita).
+- **Test da aggiungere**: script `scripts/check-action-pins.mjs` che parsea i workflow YAML e fallisce su pattern `@v*` o `@main` per action non whitelisted; integrare in CI come step lint nel job `lint`.
 - **Trovato in passata**: 1
 
 ### [P3] Length constraint mancanti su colonne `text` user-controlled
