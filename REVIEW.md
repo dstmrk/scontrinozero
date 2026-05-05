@@ -1,9 +1,9 @@
 # Code Review — ScontrinoZero
 <!-- STATE: in_progress -->
-<!-- LAST_PASS: 2 -->
-<!-- LAST_AREA_COMPLETED: src/app + src/server + supabase -->
-<!-- NEXT_AREA_TO_SCAN: src/lib (Pass 3 architettura) -->
-<!-- AREAS_REMAINING: src/lib, src/components, scripts, tests, config-infra (Pass 3) -->
+<!-- LAST_PASS: 3 -->
+<!-- LAST_AREA_COMPLETED: src/server + src/lib + src/components -->
+<!-- NEXT_AREA_TO_SCAN: src/server (Pass 4 bad practice) -->
+<!-- AREAS_REMAINING: tutte (Pass 4) -->
 
 ## Findings (ordinati per priorità)
 <!-- I finding vengono aggiunti incrementalmente, mai persi -->
@@ -217,4 +217,95 @@
   Aggiornare `_journal.json` come da regola 14 di CLAUDE.md. **Da rimandare al PR di v2.0.0 (Developer API Fase B)** — applicarlo ora aggiunge complessità di migrazione senza beneficio misurabile sui workload attuali.
 - **Test da aggiungere**: integration test `EXPLAIN (FORMAT JSON) SELECT … WHERE business_id = $1 AND revoked_at IS NULL` che verifica `Index Cond: ((business_id = $1) AND (revoked_at IS NULL))` e plan = `Index Only Scan` (non `Index Scan` + `Filter`).
 - **Trovato in passata**: 2
+
+### [P2] `signUp` normalizza l'email inline invece di usare `normalizeEmail()` (drift risk)
+- **Categoria**: architettura / bad practice
+- **File**: `src/server/auth-actions.ts:175`
+- **Problema**: `signUp` esegue `const email = rawEmail?.trim().toLowerCase() ?? "";` direttamente, mentre `signIn` (riga 248), `signInWithMagicLink` (307) e `resetPassword` (337) usano l'helper centralizzato `normalizeEmail()` da `@/lib/validation`. Questo viola direttamente la **CLAUDE.md regola 22** ("Email normalisation must be uniform across ALL auth flows. Centralise normalisation in a single `normalizeEmail()` helper in `validation.ts` and apply it as the first line of every auth action before validation"). Una futura evoluzione di `normalizeEmail()` (es. aggiungere normalizzazione Unicode NFKC, gestione `+` aliases, IDN normalization) introdurrà silenziosamente una divergenza tra account creati prima e dopo la modifica.
+- **Impatto**: silent inconsistency hazard. Oggi i due path producono lo stesso risultato per ASCII puro, ma divergono già su edge case (es. caratteri Unicode da combinare, whitespace non-ASCII). Account creati con un percorso non saranno trovati dall'altro dopo un futuro change. Il fix è gratuito (1 import + 1 sostituzione di riga) e si allinea alla regola già documentata.
+- **Fix proposto**: in `src/server/auth-actions.ts` sostituire la riga 175:
+  ```diff
+  -  const email = rawEmail?.trim().toLowerCase() ?? "";
+  +  const email = normalizeEmail(rawEmail);
+  ```
+  Verificare che `normalizeEmail` sia già importato (lo è — usato negli altri 3 path). Cercare con `grep -rn "trim().toLowerCase()" src/server` per scovare eventuali altri usi inline ancora vivi.
+- **Test da aggiungere**: in `tests/unit/auth-actions-signup.test.ts` (esistente): test parametrizzato che `signUp` con email `"  User@EXAMPLE.COM  "` accetta il signin successivo con `"user@example.com"`. Aggiungere snapshot test che `signUp`, `signIn`, `magicLink`, `resetPassword` producano la stessa stringa normalizzata su 5 input edge case (uppercase, leading/trailing spaces, mixed unicode, IDN-like).
+- **Trovato in passata**: 3
+
+### [P2] `searchReceipts` lancia eccezione su ownership failure invece di ritornare error envelope
+- **Categoria**: architettura
+- **File**: `src/server/storico-actions.ts:43-46`
+- **Problema**: dopo `checkBusinessOwnership(user.id, businessId)`, se l'ownership fallisce la action esegue `throw new Error("Non autorizzato.")`. Tutte le altre actions del repo (`emitReceipt`, `voidReceipt`, `saveAdeCredentials`, `updateProfile`, `getCatalogItems`, ecc.) seguono il pattern "ritorna `ownershipError`" che è un oggetto `{ error: string }`. Il throw qui rompe il contratto unico. I caller (RSC `dashboard/storico/page.tsx`) si trovano a dover gestire un'eccezione che non si aspettano: la pagina mostra il fallback Next `error.tsx` invece di un messaggio inline gestito.
+- **Impatto**: UX inconsistente — un tentativo di IDOR (cambio `businessId` dalla URL/query) mostra una error boundary invece di un messaggio garbato. Il logger non riceve il context strutturato (`{ userId, businessId }`) perché l'eccezione è generica. Audit log debole. Inoltre, il pattern `throw + catch` su React Server Components è gestito diversamente dal client RSC fallback (Next streaming), e il throw bypassa la possibilità di tornare uno stato vuoto e segnalare via UI.
+- **Fix proposto**:
+  ```diff
+  -    if (ownershipError) {
+  -      throw new Error("Non autorizzato.");
+  -    }
+  +    if (ownershipError) {
+  +      logger.warn(
+  +        { userId: user.id, businessId },
+  +        "searchReceipts: ownership check failed",
+  +      );
+  +      return { error: ownershipError.error, items: [], total: 0 };
+  +    }
+  ```
+  Aggiornare il `SearchReceiptsResult` type se necessario per includere il caso `error`. Aggiornare `dashboard/storico/page.tsx` per gestire `result.error` mostrando un messaggio inline.
+- **Test da aggiungere**: in `tests/unit/storico-actions.test.ts`: test che chiama `searchReceipts` con `businessId` di un altro utente e assert che ritorni `{ error: ..., items: [], total: 0 }` invece di lanciare. Test che `logger.warn` venga chiamato con `{ userId, businessId }`.
+- **Trovato in passata**: 3
+
+### [P3] `saveAdeCredentials`: SELECT-then-INSERT/UPDATE non atomico (preferire `onConflictDoUpdate`)
+- **Categoria**: architettura / edge case
+- **File**: `src/server/onboarding-actions.ts:210-235`
+- **Problema**: il codice esegue `SELECT existing → if/else INSERT/UPDATE` invece di `INSERT … ON CONFLICT DO UPDATE` atomico. CLAUDE.md "Pattern `INSERT ... ON CONFLICT DO NOTHING`" raccomanda esplicitamente questo idiom per evitare race condition fra "SELECT then INSERT" su unique constraint. Due richieste concorrenti dello stesso utente (es. doppio submit del form Onboarding step credenziali) possono entrambe vedere `existing = null`, entrambe tentare INSERT, e una fallisce con `23505 unique_violation` → 500 al client invece del comportamento atteso (upsert idempotente).
+- **Impatto**: oggi il rischio è basso perché la UI fa un singolo submit, ma un crash di rete con auto-retry o un doppio click porta a errore 500 visibile. Inoltre, due update concorrenti generano "lost update" (la seconda UPDATE sovrascrive con cifratura calcolata su un'istanza precedente di password). Per credenziali AdE — irreversibili, sensibili — la robustezza è importante.
+- **Fix proposto**: sostituire le righe 210-235 con un singolo upsert:
+  ```ts
+  await db
+    .insert(adeCredentials)
+    .values({
+      businessId,
+      encryptedCodiceFiscale,
+      encryptedPassword,
+      encryptedPin,
+      keyVersion,
+    })
+    .onConflictDoUpdate({
+      target: adeCredentials.businessId, // assume vincolo UNIQUE su businessId
+      set: {
+        encryptedCodiceFiscale,
+        encryptedPassword,
+        encryptedPin,
+        keyVersion,
+        verifiedAt: null, // reset verifica su credential change
+      },
+    });
+  ```
+  Verificare in `src/db/schema/ade-credentials.ts` (o equivalente) che `businessId` abbia il vincolo UNIQUE — se manca, aggiungerlo prima del fix in una migrazione handwritten dedicata (CLAUDE.md regola 14).
+- **Test da aggiungere**: integration test che chiama `saveAdeCredentials` due volte concorrentemente (`Promise.all`) per lo stesso `businessId` con valori diversi e verifica che (a) entrambe ritornino `{ businessId }` (no 500), (b) il record finale contenga uno dei due insiemi di valori (vince l'ultimo) — non corrompimento.
+- **Trovato in passata**: 3
+
+### [P3] `RateLimiter` Map non ha cap massimo tra le finestre di cleanup
+- **Categoria**: architettura
+- **File**: `src/lib/rate-limit.ts:25,34-35,88` (`windows = new Map()`, cleanup ogni `cleanupIntervalMs ?? 60_000`)
+- **Problema**: `windows: Map<string, WindowEntry>` cresce ad ogni nuova chiave (`emit:<userId>`, `signIn:<ip>`, ecc.) e viene potata solo dal `cleanup()` periodico ogni 60 secondi. In una finestra di 60s di traffico distribuito da molti IP unici (es. burst da uno scanner di rete che colpisce route auth pubbliche, anche se rate-limited), il Map può contenere decine di migliaia di entry simultanee. Niente cap hardcoded → in scenario worst case un attaccante può forzare la process Node a consumare ~100MB di RAM nella struct rate-limiter (tipica VPS hobby ha 1-2GB), prima che il prossimo `cleanup()` riconosci scadenze.
+- **Impatto**: rischio DoS via memory pressure su VPS limitata. Lo scenario richiede un attaccante con accesso a molti IP distinti (botnet, residential proxy), quindi la probabilità è bassa per una piattaforma SaaS hobby. Il rate limit per-IP funziona correttamente per l'attacco "tante richieste da 1 IP". L'edge case è solo per il pattern "1 richiesta da N IP".
+- **Fix proposto**: aggiungere cap configurabile + LRU eviction. Snippet:
+  ```ts
+  interface RateLimiterOptions {
+    maxRequests: number;
+    windowMs: number;
+    cleanupIntervalMs?: number;
+    maxKeys?: number; // nuovo: hard cap
+  }
+  // dentro check():
+  if (this.windows.size >= (this.maxKeys ?? 50_000)) {
+    // Evict the oldest expired-or-about-to-expire entry
+    const [oldestKey] = this.windows.keys();
+    this.windows.delete(oldestKey);
+  }
+  ```
+  Default conservativo: 50k chiavi (~5MB di overhead). Esporre `maxKeys` per casi specifici (es. webhook handler usa 10k).
+- **Test da aggiungere**: in `tests/unit/rate-limit.test.ts`: test che inserisce `maxKeys + 100` chiavi distinte e verifica che `size` resti `<= maxKeys`. Test che la chiave più vecchia viene evicted (FIFO) prima di una recente.
+- **Trovato in passata**: 3
 
