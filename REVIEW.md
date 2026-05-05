@@ -1,9 +1,9 @@
 # Code Review — ScontrinoZero
 <!-- STATE: in_progress -->
 <!-- LAST_PASS: 4 -->
-<!-- LAST_AREA_COMPLETED: src/server (Pass 4 bad practice) -->
-<!-- NEXT_AREA_TO_SCAN: src/lib (Pass 4 bad practice) -->
-<!-- AREAS_REMAINING: src/lib, src/app, src/components, supabase, scripts, tests, config-infra (Pass 4) -->
+<!-- LAST_AREA_COMPLETED: src/server + src/lib (Pass 4 bad practice) -->
+<!-- NEXT_AREA_TO_SCAN: src/app (Pass 4 bad practice) -->
+<!-- AREAS_REMAINING: src/app, src/components, supabase, scripts, tests, config-infra (Pass 4) -->
 
 ## Findings (ordinati per priorità)
 <!-- I finding vengono aggiunti incrementalmente, mai persi -->
@@ -394,5 +394,58 @@
   ```
   Sostituire le 2 occorrenze inline con `!isValidItalianZipCode(zipCode)`.
 - **Test da aggiungere**: in `tests/unit/validation.test.ts`: test parametrizzato — `"00100"` (Roma) → true, `"20121"` (Milano) → true, `"1234"` → false, `"123456"` → false, `"1234a"` → false, `""` → false.
+- **Trovato in passata**: 4
+
+### [P3] `Resend` client istanziato ad ogni `sendEmail()` invece di singleton a livello di modulo
+- **Categoria**: bad practice / consistency
+- **File**: `src/lib/email.ts:19` (`const resend = new Resend(process.env.RESEND_API_KEY);` dentro la funzione `sendEmail`)
+- **Problema**: ogni invocazione di `sendEmail()` istanzia un nuovo `Resend(...)`. Il pattern adottato altrove nel repo è singleton a module-scope (vedi `src/lib/stripe.ts` che esporta `stripe = new Stripe(...)` una volta sola). Il client Resend è stateless lato app, quindi non c'è motivo di re-istanziarlo per chiamata: spreca allocazioni e potenziale setup di pool HTTP interni dell'SDK. La leggibilità soffre — un lettore vede `new Resend()` dentro una hot function e si chiede se c'è ragione (non c'è).
+- **Impatto**: micro-overhead per email (registrazione, password reset, account deletion, welcome). Inconsistenza interna con il pattern Stripe — fonte di confusione per nuovi contributor. Non critico in termini di performance, ma sintomo di code drift.
+- **Fix proposto**: in `src/lib/email.ts` spostare a module-scope, dopo i `validate*` env helper:
+  ```ts
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
+  export async function sendEmail(opts: SendEmailOptions): Promise<void> {
+    // … validation …
+    const { error } = await resend.emails.send({ … });
+    // …
+  }
+  ```
+  Verificare che la lazy-init non sia richiesta da test (alcuni test mockano `process.env.RESEND_API_KEY` prima di importare il modulo — controllare `src/lib/email.test.ts` e adattare se rompe). Se il test setup richiede un import dinamico, mantenere il pattern ma estrarre la lazy-init in un `getResendClient()` memoizzato.
+- **Test da aggiungere**: in `src/lib/email.test.ts`: spy sul constructor `Resend` (via `vi.mock("resend")`) e verificare che venga chiamato esattamente una volta indipendentemente dal numero di `sendEmail()` invocati nello stesso processo.
+- **Trovato in passata**: 4
+
+### [P3] `UUID_REGEX` reinventato inline in `fetch-public-receipt.ts` invece di usare `isValidUuid()` esistente
+- **Categoria**: bad practice / DRY
+- **File**: `src/lib/receipts/fetch-public-receipt.ts:12-13,33` vs `src/lib/uuid.ts:1-5`
+- **Problema**: `fetch-public-receipt.ts` definisce `const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;` e lo usa con `UUID_REGEX.test(documentId)`. Lo stesso identico regex è già esportato come helper `isValidUuid()` in `src/lib/uuid.ts` ed è usato consistentemente in 3+ route (`src/app/api/v1/receipts/[id]/route.ts:27`, `src/app/api/v1/receipts/[id]/void/route.ts:57`, `src/app/api/documents/[documentId]/pdf/route.ts:29`). Il duplicato in `fetch-public-receipt.ts` è una sostituzione inutile dell'helper, contraria alla regola 18 di CLAUDE.md ("UUID validation belongs at the route handler boundary, not inside the service").
+- **Impatto**: duplicazione del regex. Se la regex evolve (es. accettare UUID v6/v7) c'è un punto da non dimenticare. Bassa scoverability — un terzo helper potrebbe nascere senza notare l'esistente.
+- **Fix proposto**: in `src/lib/receipts/fetch-public-receipt.ts`:
+  ```diff
+  -const UUID_REGEX =
+  -  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  +import { isValidUuid } from "@/lib/uuid";
+   …
+  -  if (!UUID_REGEX.test(documentId)) return null;
+  +  if (!isValidUuid(documentId)) return null;
+  ```
+- **Test da aggiungere**: aggiornare i test esistenti di `fetch-public-receipt` (se presenti) per coprire input non-UUID; nessun test nuovo strettamente necessario perché l'helper è già coperto dai propri test.
+- **Trovato in passata**: 4
+
+### [P3] Messaggio rate-limit "Troppe richieste. Riprova tra qualche ora." in API v1 incoerente con il messaggio "Troppi tentativi" usato altrove
+- **Categoria**: bad practice / inconsistent UX
+- **File**: `src/lib/api-v1-helpers.ts:132` ("Troppe richieste. Riprova tra qualche ora.") vs i 5 punti in `src/server/*` con "Troppi tentativi. Riprova tra qualche minuto."
+- **Problema**: il sistema espone all'utente due varianti di messaggio rate-limit con tono e tempistica diverse: "Troppi tentativi … minuto" sui flussi UI auth/profile, "Troppe richieste … ora" sull'API v1 pubblica. Le due varianti sono semanticamente corrette (window diverse, soggetto diverso: "tentativi" interattivi vs "richieste" automatiche), ma la stringa è hardcoded in entrambi i posti senza alcun riferimento a un dizionario centralizzato. Si combina con il finding precedente "Stringa Troppi tentativi hard-coded in 5 punti" → consolidare insieme.
+- **Impatto**: futura i18n richiede 2 chiavi separate, drift del copy a manutenzione, esperienza UX non normata.
+- **Fix proposto**: in `src/lib/error-messages.ts` (file da introdurre con il fix del finding precedente) aggiungere entrambe le varianti:
+  ```ts
+  export const ERROR_MESSAGES = {
+    RATE_LIMIT_AUTH_MINUTES: "Troppi tentativi. Riprova tra qualche minuto.",
+    RATE_LIMIT_API_HOURS: "Troppe richieste. Riprova tra qualche ora.",
+    // …
+  } as const;
+  ```
+  Sostituire `src/lib/api-v1-helpers.ts:132` con `ERROR_MESSAGES.RATE_LIMIT_API_HOURS`. Lasciare i caller di src/server sul `RATE_LIMIT_AUTH_MINUTES` (window 15 min). Documentare in commento la differenza di tone.
+- **Test da aggiungere**: nessun test runtime nuovo — refactor che si appoggia ai test esistenti dei rate limiter. Optional: smoke test che `ERROR_MESSAGES.RATE_LIMIT_API_HOURS` venga ritornato dalla risposta 429 di `checkRateLimitApi()`.
 - **Trovato in passata**: 4
 
