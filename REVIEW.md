@@ -1,9 +1,9 @@
 # Code Review — ScontrinoZero
 <!-- STATE: in_progress -->
 <!-- LAST_PASS: 4 -->
-<!-- LAST_AREA_COMPLETED: src/server + src/lib + src/app + src/components (Pass 4 bad practice) -->
-<!-- NEXT_AREA_TO_SCAN: supabase + scripts + tests + config-infra (Pass 4 bad practice) -->
-<!-- AREAS_REMAINING: supabase, scripts, tests, config-infra (Pass 4) -->
+<!-- LAST_AREA_COMPLETED: all areas (Pass 4 bad practice complete) -->
+<!-- NEXT_AREA_TO_SCAN: — (final polish + close out) -->
+<!-- AREAS_REMAINING: none (all 4 passes done) -->
 
 ## Findings (ordinati per priorità)
 <!-- I finding vengono aggiunti incrementalmente, mai persi -->
@@ -567,5 +567,41 @@
   ```
   Preferito: aggiungere `id` o `lineNumber` al tipo `ReceiptListItem.lines[number]`.
 - **Test da aggiungere**: rendering test (`@testing-library/react`) che monta `VoidReceiptDialog` con un `receipt.lines` contenente due righe identiche e verifica che non ci sia warning React in `console.error`.
+- **Trovato in passata**: 4
+
+### [P3] `package.json` senza campo `engines.node` — versione Node.js non vincolata
+- **Categoria**: infra / reproducibility
+- **File**: `package.json` (campo `engines` assente)
+- **Problema**: il `package.json` specifica `"packageManager": "npm@11.12.1"` ma non ha il campo `"engines"` che vincoli la versione di Node.js. Il progetto richiede implicitamente Node.js ≥ 22 (Next.js 16, `import type` runtime, `tsx`, `postgres@3.4` con `dns/promises`), e il `Dockerfile` di runtime usa `node:22-alpine`. Senza `engines`, npm non emette warning quando viene fatto `npm install` su una Node mismatch in dev locale. Il primo segnale di errore arriva solo in fase di build/runtime.
+- **Impatto**: developer experience: contributor con Node 18 o 20 incappano in errori cryptici (`SyntaxError`, `module not found` su `node:` prefisso) invece di un warning chiaro a `npm install`. Mismatch silenzioso tra dev locale e CI/Docker.
+- **Fix proposto**: in `package.json` aggiungere:
+  ```json
+  {
+    "packageManager": "npm@11.12.1",
+    "engines": {
+      "node": ">=22.0.0"
+    },
+  }
+  ```
+  Allineare anche con `node:22-alpine` del Dockerfile e `actions/setup-node` (verificare la versione su `.github/workflows/*`). Considerare `engineStrict: true` in `.npmrc` se si vuole bloccare hard l'install.
+- **Test da aggiungere**: in CI workflow, un job a parte che fallisce se la versione Node attiva non rispetta `engines` (`node -v` confrontato con `package.json`). Oppure delegare a `npm install --engine-strict`.
+- **Trovato in passata**: 4
+
+### [P3] UUID fixture hard-coded duplicato in 9 test file — assenza di `tests/_helpers/fixtures.ts`
+- **Categoria**: DRY / test maintenance
+- **File**: 9 test in `tests/unit/` (tra cui `api-v1-receipt-*.test.ts`, `server-receipt-actions.test.ts`, `server-void-actions.test.ts`, `receipt-service-password-expired.test.ts`, `api-documents-pdf.test.ts`, `lib-uuid.test.ts`)
+- **Problema**: il literal UUID `"550e8400-e29b-41d4-a716-446655440000"` ricorre 9 volte come ID fittizio (business/profile/document a seconda del test); `"660e8400-e29b-41d4-a716-446655440001"` ricorre 3 volte. Non c'è un modulo `tests/_helpers/fixtures.ts` o equivalente che centralizzi le UUID-fixture. Ogni nuovo test ricopia il literal e deve indovinare quale UUID usare se vuole essere coerente con altri test che condividono lo stesso scenario.
+- **Impatto**: friction nello scrivere nuovi test; rischio che un refactor cambi il significato di una UUID in un file e non in un altro creando test silenziosamente non rappresentativi. Niente single source of truth per "la UUID del business test", "la UUID del documento test", ecc.
+- **Fix proposto**: creare `tests/_helpers/fixtures.ts`:
+  ```ts
+  // UUID v4 fissi per fixture cross-test (mantenere stabili!)
+  export const TEST_BUSINESS_ID = "550e8400-e29b-41d4-a716-446655440000";
+  export const TEST_DOCUMENT_ID = "660e8400-e29b-41d4-a716-446655440001";
+  export const TEST_PROFILE_ID  = "770e8400-e29b-41d4-a716-446655440002";
+  export const TEST_USER_AUTH_ID = "880e8400-e29b-41d4-a716-446655440003";
+  // …altre fixture comuni: TEST_API_KEY_ID, TEST_LINE_ID, etc.
+  ```
+  Migrare progressivamente i 9 file: `import { TEST_BUSINESS_ID } from "../_helpers/fixtures"`. Aggiungere alla CLAUDE.md una nota sotto "Linee guida test" sull'uso di `tests/_helpers/`.
+- **Test da aggiungere**: ESLint rule custom (o lint-staged check) che vieta UUID hard-coded nei file `tests/unit/*.test.ts` se appaiono già in `_helpers/fixtures.ts`. In alternativa, smoke test della migrazione: `grep -c "550e8400-e29b-41d4-a716-446655440000" tests/unit/*.test.ts | awk -F: '$2>0' | wc -l` deve essere 0 dopo il refactor.
 - **Trovato in passata**: 4
 
