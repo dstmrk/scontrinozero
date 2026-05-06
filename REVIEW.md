@@ -1,9 +1,9 @@
 # Code Review — ScontrinoZero
 <!-- STATE: in_progress -->
 <!-- LAST_PASS: 4 -->
-<!-- LAST_AREA_COMPLETED: src/server + src/lib + src/app (Pass 4 bad practice) -->
-<!-- NEXT_AREA_TO_SCAN: src/components (Pass 4 bad practice) -->
-<!-- AREAS_REMAINING: src/components, supabase, scripts, tests, config-infra (Pass 4) -->
+<!-- LAST_AREA_COMPLETED: src/server + src/lib + src/app + src/components (Pass 4 bad practice) -->
+<!-- NEXT_AREA_TO_SCAN: supabase + scripts + tests + config-infra (Pass 4 bad practice) -->
+<!-- AREAS_REMAINING: supabase, scripts, tests, config-infra (Pass 4) -->
 
 ## Findings (ordinati per priorità)
 <!-- I finding vengono aggiunti incrementalmente, mai persi -->
@@ -517,5 +517,55 @@
   ```
   Type-safe perché `data` è già tipato dal Zod schema. In più, è più chiaro al diff: l'aggiunta di un campo si vede in un solo posto (lo schema).
 - **Test da aggiungere**: in `tests/unit/form-utils.test.ts`: test che `objectToFormData({a: "1", b: null, c: "2"})` produce FormData con solo `a` e `c` (skip null). Test che chiavi numeriche/Date vengano stringificate correttamente.
+- **Trovato in passata**: 4
+
+### [P2] `formatCurrency` reimplementato in storico components con signature divergente da `@/lib/utils`
+- **Categoria**: DRY / inconsistenza API
+- **File**: `src/components/storico/storico-client.tsx:46-51`, `src/components/storico/void-receipt-dialog.tsx:35-40`
+- **Problema**: `@/lib/utils.ts:9` esporta `formatCurrency(amount: number)`, usato da `cassa-client`, `cart-line-item`, `receipt-summary`, `catalogo-client`. I due file dello storico definiscono localmente una loro versione `formatCurrency(amount: string)` che fa internamente `Number.parseFloat(amount)`. Stessa funzione, due signature diverse, due implementazioni. La duplicazione è anche una sorgente di code smell secondario: in `void-receipt-dialog.tsx:188-193` si vede il triplo cast `formatCurrency(String(Number.parseFloat(x) * Number.parseFloat(y)))` che esiste solo perché la versione locale richiede una `string` come input.
+- **Impatto**: violazione DRY, manutenzione split (un cambiamento di formattazione monetaria — es. spazio non-breaking, simbolo prima/dopo per cambio locale futuro — va replicato in 3 punti). Inconsistenza visiva latente: oggi le tre versioni rendono identicamente perché usano lo stesso `Intl.NumberFormat`, ma divergeranno alla prima modifica dimenticata.
+- **Fix proposto**: estendere il `formatCurrency` di `@/lib/utils.ts` per accettare anche `string`:
+  ```ts
+  export function formatCurrency(amount: number | string): string {
+    const n = typeof amount === "string" ? Number.parseFloat(amount) : amount;
+    return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n);
+  }
+  ```
+  Eliminare le due definizioni locali in `storico-client.tsx` e `void-receipt-dialog.tsx`, sostituendole con `import { formatCurrency } from "@/lib/utils"`. Semplificare anche `void-receipt-dialog.tsx:188-193` rimuovendo il `String(...)` esterno e passando direttamente il `number` calcolato.
+- **Test da aggiungere**: in `tests/unit/lib/utils.test.ts` (creare se non esiste): test che `formatCurrency("12.50")` e `formatCurrency(12.5)` ritornano lo stesso output `"12,50 €"`. Test edge case `formatCurrency("0")` e `formatCurrency(NaN)` (probabilmente "NaN €", documentare il comportamento).
+- **Trovato in passata**: 4
+
+### [P2] `formatDate` duplicato in 2 storico components con `year` divergente — UI inconsistente
+- **Categoria**: DRY / inconsistenza UX
+- **File**: `src/components/storico/storico-client.tsx:31-37`, `src/components/storico/void-receipt-dialog.tsx:27-33`
+- **Problema**: due funzioni `formatDate` con la stessa firma e stesse opzioni `day: "2-digit", month: "2-digit"`, ma diversa opzione `year`: `storico-client` usa `"2-digit"` (es. `"20/05/26"`), mentre `void-receipt-dialog` usa `"numeric"` (es. `"20/05/2026"`). Lo stesso scontrino mostra una data con 2 cifre per l'anno nella tabella e con 4 cifre nel dialog di annullo. Inoltre non esiste un helper `formatDate` condiviso in `@/lib/utils`, quindi la duplicazione si propaga a ogni nuovo componente che mostra date.
+- **Impatto**: incoerenza visiva diretta nel flusso utente (lista → click su una riga → dialog dettaglio → la data cambia formato). Maintenance debt che cresce ad ogni nuovo componente che formatta date. Niente type safety sull'opzione di anno.
+- **Fix proposto**: aggiungere a `@/lib/utils.ts`:
+  ```ts
+  export function formatDate(date: Date | string, year: "2-digit" | "numeric" = "numeric"): string {
+    return new Date(date).toLocaleDateString("it-IT", {
+      day: "2-digit",
+      month: "2-digit",
+      year,
+    });
+  }
+  ```
+  Decidere quale formato è canonico per l'app (`"numeric"` è più leggibile e già usato nel dialog) e applicarlo ovunque. Rimuovere le due definizioni locali e fare `import { formatDate } from "@/lib/utils"`.
+- **Test da aggiungere**: in `tests/unit/lib/utils.test.ts`: `formatDate(new Date("2026-05-20"))` ritorna `"20/05/2026"`; con override `"2-digit"` ritorna `"20/05/26"`. Test che accetti sia `Date` che `string` ISO.
+- **Trovato in passata**: 4
+
+### [P3] React `key` costruito da concatenazione di campi contenuto in `void-receipt-dialog`
+- **Categoria**: bad practice React
+- **File**: `src/components/storico/void-receipt-dialog.tsx:176`
+- **Problema**: `key={`${line.description}-${line.vatCode}-${line.grossUnitPrice}-${line.quantity}`}` usa il contenuto della riga come chiave. Due righe con stessa descrizione, stesso codice IVA, stesso prezzo e stessa quantità (caso reale: "Caffè · 22 · 1,50 · 1") collidono → React emette warning `Encountered two children with the same key`, e in caso di update il diff può diventare inconsistente. Il delimitatore `-` può anche introdurre ambiguità se uno dei campi lo contiene (`"Coffee-Maker"`).
+- **Impatto**: bug latente: oggi le righe del dialog non vengono né riordinate né aggiunte/rimosse durante il ciclo di vita del componente (i dati arrivano statici da una RSC), quindi il warning compare in console ma non causa visual glitch. Diventerà un bug reale se in futuro si introduce edit inline delle righe o riordino.
+- **Fix proposto**: aggiungere un `id` stabile alle righe già nel mapping server-side (`storico-actions.ts` quando carica le righe), e usarlo come key. In alternativa più rapida, usare `index` esplicitamente — accettabile in questo caso perché le righe non si riordinano:
+  ```tsx
+  {receipt.lines.map((line, index) => (
+    <div key={`${receipt.id}-line-${index}`} ...>
+  ))}
+  ```
+  Preferito: aggiungere `id` o `lineNumber` al tipo `ReceiptListItem.lines[number]`.
+- **Test da aggiungere**: rendering test (`@testing-library/react`) che monta `VoidReceiptDialog` con un `receipt.lines` contenente due righe identiche e verifica che non ci sia warning React in `console.error`.
 - **Trovato in passata**: 4
 
