@@ -52,6 +52,7 @@ vi.mock("@/lib/rate-limit", () => ({
   RateLimiter: vi.fn().mockImplementation(function () {
     return { check: mockRateLimiterCheck };
   }),
+  RATE_LIMIT_WINDOWS: { AUTH_15_MIN: 15 * 60 * 1000, HOURLY: 60 * 60 * 1000 },
 }));
 
 vi.mock("@/db", () => ({ getDb: mockGetDb }));
@@ -99,7 +100,12 @@ vi.mock("@/lib/logger", () => ({
 }));
 vi.mock("@/lib/email", () => ({ sendEmail: vi.fn() }));
 vi.mock("@/emails/welcome", () => ({ WelcomeEmail: vi.fn() }));
-vi.mock("react", () => ({ createElement: vi.fn() }));
+// `cache` è usato da getOnboardingStatus per dedupare nello stesso render
+// tree RSC. Nei test fa solo da passthrough.
+vi.mock("react", () => ({
+  createElement: vi.fn(),
+  cache: <T>(fn: T) => fn,
+}));
 vi.mock("@/lib/validation", () => ({ adePinSchema: { parse: vi.fn() } }));
 
 // --- Helpers ---

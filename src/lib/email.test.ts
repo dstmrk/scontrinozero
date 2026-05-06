@@ -1,15 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const mockResendSend = vi.fn();
+const mockResendConstructor = vi.fn().mockImplementation(function () {
+  return { emails: { send: mockResendSend } };
+});
 
 vi.mock("resend", () => ({
-  Resend: vi.fn().mockImplementation(function () {
-    return { emails: { send: mockResendSend } };
-  }),
+  Resend: mockResendConstructor,
 }));
 
 // Must import after vi.mock
-const { sendEmail } = await import("./email");
+const { sendEmail, _resetResendForTest } = await import("./email");
 
 const fakeReact = { type: "div", props: {} } as unknown as Parameters<
   typeof sendEmail
@@ -18,6 +19,7 @@ const fakeReact = { type: "div", props: {} } as unknown as Parameters<
 describe("sendEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    _resetResendForTest();
     process.env.FROM_EMAIL = "Test <test@mail.example.com>";
   });
 
@@ -86,5 +88,15 @@ describe("sendEmail", () => {
     await expect(
       sendEmail({ to: "a@b.com", subject: "s", react: fakeReact }),
     ).rejects.toThrow("network error");
+  });
+
+  it("istanzia Resend una sola volta anche su più chiamate (singleton)", async () => {
+    mockResendSend.mockResolvedValue({ data: { id: "x" }, error: null });
+
+    await sendEmail({ to: "a@b.com", subject: "s", react: fakeReact });
+    await sendEmail({ to: "b@b.com", subject: "s2", react: fakeReact });
+    await sendEmail({ to: "c@b.com", subject: "s3", react: fakeReact });
+
+    expect(mockResendConstructor).toHaveBeenCalledTimes(1);
   });
 });

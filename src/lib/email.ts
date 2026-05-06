@@ -7,6 +7,25 @@ export type SendEmailOptions = {
   react: ReactElement;
 };
 
+// Module-level singleton: il client Resend è stateless lato app, niente
+// motivo di re-istanziarlo per ogni invio (sprecava allocazioni e setup pool
+// HTTP interni). Lazy init: la prima chiamata costruisce l'istanza, le
+// successive la riusano. Pattern coerente con `getStripe()`.
+let _resend: Resend | null = null;
+
+function getResendClient(): Resend {
+  _resend ??= new Resend(process.env.RESEND_API_KEY);
+  return _resend;
+}
+
+/**
+ * Resets the cached Resend singleton. For use in tests only.
+ * @internal
+ */
+export function _resetResendForTest(): void {
+  _resend = null;
+}
+
 export async function sendEmail(options: SendEmailOptions): Promise<void> {
   const from = process.env.FROM_EMAIL;
   if (!from) {
@@ -16,8 +35,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
         "e.g. YourApp <noreply@mail.yourdomain.com>",
     );
   }
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const { error } = await resend.emails.send({
+  const { error } = await getResendClient().emails.send({
     from,
     to: options.to,
     subject: options.subject,

@@ -3,6 +3,9 @@ import { Download } from "lucide-react";
 import type { Metadata } from "next";
 import { fetchPublicReceipt } from "@/lib/receipts/fetch-public-receipt";
 import { formatFiscalDateTime } from "@/lib/date-utils";
+import { PAYMENT_LABELS, formatReceiptPrice } from "@/lib/receipt-format";
+import { VAT_LABELS as CASSA_VAT_LABELS } from "@/types/cassa";
+import type { VatCode } from "@/types/cassa";
 import { ShareButton } from "./share-button";
 
 // Static metadata — no DB query needed here.
@@ -18,13 +21,6 @@ export const metadata: Metadata = {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function formatPrice(amount: number): string {
-  return new Intl.NumberFormat("it-IT", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
-}
-
 function formatDate(date: Date): string {
   return formatFiscalDateTime(new Date(date));
 }
@@ -35,23 +31,9 @@ function computeVatAmount(lineTotalGross: number, vatCode: string): number {
   return lineTotalGross - lineTotalGross / (1 + rate / 100);
 }
 
-const VAT_LABELS: Record<string, string> = {
-  "4": "4%",
-  "5": "5%",
-  "10": "10%",
-  "22": "22%",
-  N1: "0% – Art. 15",
-  N2: "0% – Non sogg.",
-  N3: "0% – Non imp.",
-  N4: "0% – Esente",
-  N5: "0% – Margine",
-  N6: "0% – Inv. cont.",
-};
-
-const PAYMENT_LABELS: Record<string, string> = {
-  PC: "Contante",
-  PE: "Elettronico",
-};
+function vatLabelOf(vatCode: string): string {
+  return CASSA_VAT_LABELS[vatCode as VatCode] ?? vatCode;
+}
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
@@ -134,7 +116,7 @@ export default async function PublicReceiptPage({
                 const qty = Number.parseFloat(line.quantity ?? "1");
                 const price = Number.parseFloat(line.grossUnitPrice ?? "0");
                 const lineTotal = qty * price;
-                const vatLabel = VAT_LABELS[line.vatCode] ?? line.vatCode;
+                const vatLabel = vatLabelOf(line.vatCode);
                 return (
                   <div key={line.id} className="flex items-start gap-1 text-sm">
                     <div className="min-w-0 flex-1">
@@ -144,7 +126,7 @@ export default async function PublicReceiptPage({
                       {qty !== 1 && (
                         <p className="text-xs text-gray-400">
                           {qty % 1 === 0 ? Math.round(qty) : qty} ×{" "}
-                          {formatPrice(price)}
+                          {formatReceiptPrice(price)}
                         </p>
                       )}
                     </div>
@@ -152,7 +134,7 @@ export default async function PublicReceiptPage({
                       {vatLabel}
                     </span>
                     <span className="w-16 flex-shrink-0 text-right font-medium">
-                      {formatPrice(lineTotal)}
+                      {formatReceiptPrice(lineTotal)}
                     </span>
                   </div>
                 );
@@ -164,7 +146,7 @@ export default async function PublicReceiptPage({
           <div className="space-y-1 border-b border-dashed border-gray-200 px-6 py-4">
             <div className="flex justify-between text-sm text-gray-600">
               <span>Subtotale</span>
-              <span>{formatPrice(grandTotal)}</span>
+              <span>{formatReceiptPrice(grandTotal)}</span>
             </div>
             {Array.from(vatByCode.entries())
               .filter(([, v]) => v > 0.005)
@@ -173,13 +155,13 @@ export default async function PublicReceiptPage({
                   key={code}
                   className="flex justify-between text-xs text-gray-400"
                 >
-                  <span>di cui IVA {VAT_LABELS[code] ?? code}</span>
-                  <span>{formatPrice(vatAmount)}</span>
+                  <span>di cui IVA {vatLabelOf(code)}</span>
+                  <span>{formatReceiptPrice(vatAmount)}</span>
                 </div>
               ))}
             <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-bold">
               <span>Totale</span>
-              <span>€ {formatPrice(grandTotal)}</span>
+              <span>€ {formatReceiptPrice(grandTotal)}</span>
             </div>
           </div>
 

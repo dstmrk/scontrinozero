@@ -152,13 +152,16 @@ describe("storico-actions", () => {
       await expect(searchReceipts("biz-789")).rejects.toThrow();
     });
 
-    it("throws when business ownership check fails", async () => {
+    it("returns error envelope when business ownership check fails", async () => {
       mockCheckBusinessOwnership.mockResolvedValue({
         error: "Business non trovato o non autorizzato.",
       });
 
       const { searchReceipts } = await import("./storico-actions");
-      await expect(searchReceipts("biz-789")).rejects.toThrow("autorizzato");
+      const result = await searchReceipts("biz-789");
+      expect(result.error).toBe("Business non trovato o non autorizzato.");
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
     });
 
     it("filters by status when provided", async () => {

@@ -1,4 +1,7 @@
 import PDFDocument from "pdfkit";
+import { PAYMENT_LABELS, formatReceiptPrice } from "@/lib/receipt-format";
+import { VAT_LABELS as CASSA_VAT_LABELS } from "@/types/cassa";
+import type { VatCode } from "@/types/cassa";
 
 export interface SaleReceiptLine {
   description: string;
@@ -30,32 +33,11 @@ const PAGE_WIDTH = 165;
 const MARGIN = 6;
 const CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN;
 
-const VAT_LABELS: Record<string, string> = {
-  "4": "4%",
-  "5": "5%",
-  "10": "10%",
-  "22": "22%",
-  N1: "0% – Art. 15",
-  N2: "0% – Non sogg.",
-  N3: "0% – Non imp.",
-  N4: "0% – Esente",
-  N5: "0% – Margine",
-  N6: "0% – Inv. cont.",
-};
-
-const PAYMENT_LABELS: Record<string, string> = {
-  PC: "Pagamento contante",
-  PE: "Pagamento elettronico",
-};
+function vatLabelOf(vatCode: string): string {
+  return CASSA_VAT_LABELS[vatCode as VatCode] ?? vatCode;
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-function formatPrice(amount: number): string {
-  return new Intl.NumberFormat("it-IT", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
-}
 
 function formatDate(date: Date): string {
   // Extract date/time parts in Europe/Rome timezone, then assemble as
@@ -223,14 +205,14 @@ export function generateSaleReceiptPdf(
         existingVat + computeVatAmount(lineTotal, line.vatCode),
       );
 
-      const vatLabel = VAT_LABELS[line.vatCode] ?? line.vatCode;
-      const priceDisplay = formatPrice(lineTotal);
+      const vatLabel = vatLabelOf(line.vatCode);
+      const priceDisplay = formatReceiptPrice(lineTotal);
 
       // For quantities > 1: show "n.Q × unit_price"
       const hasMultipleQty = qty !== 1;
       const qtyDisplay = qty % 1 === 0 ? Math.round(qty) : qty;
       const descDisplay = hasMultipleQty
-        ? `${line.description}\nn.${qtyDisplay} × ${formatPrice(price)}`
+        ? `${line.description}\nn.${qtyDisplay} × ${formatReceiptPrice(price)}`
         : line.description;
 
       const rowStartY = y;
@@ -263,7 +245,7 @@ export function generateSaleReceiptPdf(
     // Subtotale
     doc.font("Helvetica").fontSize(7);
     doc.text("Subtotale", MARGIN, y, { width: LABEL_W, align: "left" });
-    doc.text(formatPrice(grandTotal), AMT_X, y, {
+    doc.text(formatReceiptPrice(grandTotal), AMT_X, y, {
       width: AMT_W,
       align: "right",
     });
@@ -273,9 +255,9 @@ export function generateSaleReceiptPdf(
     doc.font("Helvetica").fontSize(6.5);
     for (const [code, vatAmount] of vatByCode.entries()) {
       if (vatAmount > 0.005) {
-        const label = `di cui IVA ${VAT_LABELS[code] ?? code}`;
+        const label = `di cui IVA ${vatLabelOf(code)}`;
         doc.text(label, MARGIN, y, { width: LABEL_W, align: "left" });
-        doc.text(formatPrice(vatAmount), AMT_X, y, {
+        doc.text(formatReceiptPrice(vatAmount), AMT_X, y, {
           width: AMT_W,
           align: "right",
         });
@@ -289,7 +271,7 @@ export function generateSaleReceiptPdf(
       width: LABEL_W,
       align: "left",
     });
-    doc.text(formatPrice(grandTotal), AMT_X, y, {
+    doc.text(formatReceiptPrice(grandTotal), AMT_X, y, {
       width: AMT_W,
       align: "right",
     });
@@ -301,7 +283,7 @@ export function generateSaleReceiptPdf(
       PAYMENT_LABELS[data.paymentMethod] ?? data.paymentMethod;
     doc.font("Helvetica").fontSize(7);
     doc.text(paymentLabel, MARGIN, y, { width: LABEL_W, align: "left" });
-    doc.text(formatPrice(grandTotal), AMT_X, y, {
+    doc.text(formatReceiptPrice(grandTotal), AMT_X, y, {
       width: AMT_W,
       align: "right",
     });

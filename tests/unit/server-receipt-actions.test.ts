@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { TEST_BUSINESS_ID } from "../_helpers/fixtures";
 
 // --- Mocks ---
 
@@ -33,6 +34,7 @@ vi.mock("@/lib/rate-limit", () => ({
   RateLimiter: vi.fn().mockImplementation(function () {
     return { check: mockRateLimiterCheck };
   }),
+  RATE_LIMIT_WINDOWS: { AUTH_15_MIN: 15 * 60 * 1000, HOURLY: 60 * 60 * 1000 },
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -47,7 +49,7 @@ vi.mock("@/lib/services/receipt-service", () => ({
 
 const USER_ID = "user-abc";
 const BIZ_ID = "biz-xyz";
-const VALID_UUID = "550e8400-e29b-41d4-a716-446655440000";
+const VALID_UUID = TEST_BUSINESS_ID;
 
 function makeValidInput(overrides: Record<string, unknown> = {}) {
   return {

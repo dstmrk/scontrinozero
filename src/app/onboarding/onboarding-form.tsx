@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod/v4";
-import { adePinSchema } from "@/lib/validation";
+import { adePinSchema, italianZipCodeSchema } from "@/lib/validation";
+import { objectToFormData } from "@/lib/form-utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -41,7 +42,7 @@ const step1Schema = z.object({
   lastName: z.string().min(1, "Il cognome è obbligatorio."),
   address: z.string().min(1, "L'indirizzo è obbligatorio."),
   streetNumber: z.string().optional(),
-  zipCode: z.string().regex(/^\d{5}$/, "CAP non valido (5 cifre numeriche)."),
+  zipCode: italianZipCodeSchema,
   city: z.string().optional(),
   province: z.string().optional(),
   preferredVatCode: z.string().optional(),
@@ -129,17 +130,7 @@ export function OnboardingForm({
   });
 
   function handleBusinessSubmit(data: Step1Data) {
-    const formData = new FormData();
-    formData.set("businessName", data.businessName ?? "");
-    formData.set("firstName", data.firstName);
-    formData.set("lastName", data.lastName);
-    formData.set("address", data.address);
-    formData.set("streetNumber", data.streetNumber ?? "");
-    formData.set("zipCode", data.zipCode);
-    formData.set("city", data.city ?? "");
-    formData.set("province", data.province ?? "");
-    formData.set("preferredVatCode", data.preferredVatCode ?? "");
-    formData.set("nation", "IT");
+    const formData = objectToFormData({ ...data, nation: "IT" });
 
     startTransition(async () => {
       const result = await saveBusiness(formData);
@@ -154,11 +145,7 @@ export function OnboardingForm({
 
   function handleCredentialsSubmit(data: Step2Data) {
     if (!businessId) return;
-    const formData = new FormData();
-    formData.set("businessId", businessId);
-    formData.set("codiceFiscale", data.codiceFiscale);
-    formData.set("password", data.password);
-    formData.set("pin", data.pin);
+    const formData = objectToFormData({ businessId, ...data });
 
     startTransition(async () => {
       const result = await saveAdeCredentials(formData);

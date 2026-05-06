@@ -19,12 +19,26 @@ vi.mock("@/lib/supabase/server", () => ({
 const mockLimit = vi.fn();
 const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
 const mockInnerJoin = vi.fn().mockReturnValue({ where: mockWhere });
-const mockFrom = vi
-  .fn()
-  .mockReturnValue({ where: mockWhere, innerJoin: mockInnerJoin });
+// leftJoin è chainable (può essere chiamato 2 volte per profile→business→creds);
+// ritorna un oggetto che espone leftJoin/innerJoin/where per terminare la chain.
+const mockLeftJoin: ReturnType<typeof vi.fn> = vi.fn();
+mockLeftJoin.mockReturnValue({
+  leftJoin: mockLeftJoin,
+  innerJoin: mockInnerJoin,
+  where: mockWhere,
+});
+const mockFrom = vi.fn().mockReturnValue({
+  where: mockWhere,
+  innerJoin: mockInnerJoin,
+  leftJoin: mockLeftJoin,
+});
 const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
 const mockReturning = vi.fn();
-const mockInsertValues = vi.fn().mockReturnValue({ returning: mockReturning });
+const mockOnConflictDoUpdate = vi.fn().mockResolvedValue(undefined);
+const mockInsertValues = vi.fn().mockReturnValue({
+  returning: mockReturning,
+  onConflictDoUpdate: mockOnConflictDoUpdate,
+});
 const mockInsert = vi.fn().mockReturnValue({ values: mockInsertValues });
 // The returning mock defaults to 1 row (success). Override per-test with
 // mockUpdateReturning.mockResolvedValueOnce([]) to simulate 0-rows-affected.
@@ -103,6 +117,15 @@ const FAKE_BUSINESS = { id: "biz-789", profileId: "profile-456" };
 describe("onboarding-actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // vi.clearAllMocks resetta calls/results ma NON la coda di mockReturnValueOnce.
+    // Resettiamo esplicitamente i mock con .mockResolvedValueOnce su mockLimit,
+    // mockReturning e mockOnConflictDoUpdate per evitare leakage tra test che
+    // refactoring del codice possono indurre (es. saveAdeCredentials oggi non
+    // fa più SELECT existing credenziali, lasciando in coda l'item dei test
+    // precedenti).
+    mockLimit.mockReset();
+    mockReturning.mockReset();
+    mockOnConflictDoUpdate.mockReset().mockResolvedValue(undefined);
     mockGetUser.mockResolvedValue({ data: { user: FAKE_USER } });
     mockRevalidatePath.mockReset();
     process.env.ENCRYPTION_KEY = "a".repeat(64);
@@ -440,13 +463,9 @@ describe("onboarding-actions", () => {
       expect(result.error).toBeUndefined();
     });
 
-    it("updates existing credentials and resets verification", async () => {
+    it("upserts credentials atomically and resets verifiedAt on conflict", async () => {
       // Ownership check: JOIN profile+business
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
-      // Existing credentials found
-      mockLimit.mockResolvedValueOnce([
-        { id: "cred-123", businessId: "biz-789" },
-      ]);
 
       const { saveAdeCredentials } = await import("./onboarding-actions");
       const result = await saveAdeCredentials(
@@ -459,7 +478,14 @@ describe("onboarding-actions", () => {
       );
 
       expect(result.businessId).toBe("biz-789");
-      expect(mockUpdate).toHaveBeenCalled();
+      // Atomic upsert: insert + onConflictDoUpdate (target businessId).
+      // Niente più SELECT-then-UPDATE, niente race condition possibile.
+      expect(mockInsert).toHaveBeenCalled();
+      expect(mockOnConflictDoUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          set: expect.objectContaining({ verifiedAt: null }),
+        }),
+      );
       expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard", "layout");
     });
 
@@ -761,8 +787,10 @@ describe("onboarding-actions", () => {
   });
 
   describe("getOnboardingStatus", () => {
+    // Single JOIN query: profile -> business (leftJoin) -> credentials (leftJoin).
+    // Una sola riga risultato, niente più 3 round-trip DB sequenziali.
     it("returns all false when no profile", async () => {
-      mockLimit.mockResolvedValueOnce([]); // No profile
+      mockLimit.mockResolvedValueOnce([]);
 
       const { getOnboardingStatus } = await import("./onboarding-actions");
       const status = await getOnboardingStatus();
@@ -773,24 +801,36 @@ describe("onboarding-actions", () => {
         hasCredentials: false,
         credentialsVerified: false,
       });
+      // Esattamente 1 query DB: profile JOIN business JOIN creds
+      expect(mockSelect).toHaveBeenCalledTimes(1);
     });
 
     it("returns hasBusiness false when profile exists but no business", async () => {
-      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]); // Profile found
-      mockLimit.mockResolvedValueOnce([]); // No business
+      mockLimit.mockResolvedValueOnce([
+        {
+          profileId: "profile-456",
+          businessId: null,
+          hasCredentials: false,
+          credentialsVerified: false,
+        },
+      ]);
 
       const { getOnboardingStatus } = await import("./onboarding-actions");
       const status = await getOnboardingStatus();
 
       expect(status.hasProfile).toBe(true);
       expect(status.hasBusiness).toBe(false);
+      expect(mockSelect).toHaveBeenCalledTimes(1);
     });
 
     it("returns complete status when all steps done", async () => {
-      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
-      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
       mockLimit.mockResolvedValueOnce([
-        { businessId: "biz-789", verifiedAt: new Date() },
+        {
+          profileId: "profile-456",
+          businessId: "biz-789",
+          hasCredentials: true,
+          credentialsVerified: true,
+        },
       ]);
 
       const { getOnboardingStatus } = await import("./onboarding-actions");
@@ -803,6 +843,7 @@ describe("onboarding-actions", () => {
         hasCredentials: true,
         credentialsVerified: true,
       });
+      expect(mockSelect).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -5,12 +5,27 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** Formatta un importo in euro nel formato italiano (es. 12,50 €) */
-export function formatCurrency(amount: number): string {
+/** Formatta un importo in euro nel formato italiano (es. 12,50 €).
+ * Accetta sia number che string (Drizzle restituisce numeric come string). */
+export function formatCurrency(amount: number | string): string {
+  const value = typeof amount === "string" ? Number.parseFloat(amount) : amount;
   return new Intl.NumberFormat("it-IT", {
     style: "currency",
     currency: "EUR",
-  }).format(amount);
+  }).format(value);
+}
+
+/** Formatta una data nel formato italiano (DD/MM/YYYY o DD/MM/YY).
+ * Default: anno a 4 cifre — più leggibile e canonico nell'app. */
+export function formatDate(
+  date: Date | string,
+  year: "2-digit" | "numeric" = "numeric",
+): string {
+  return new Date(date).toLocaleDateString("it-IT", {
+    day: "2-digit",
+    month: "2-digit",
+    year,
+  });
 }
 
 /**

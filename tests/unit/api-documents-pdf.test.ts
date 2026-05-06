@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { TEST_BUSINESS_ID } from "../_helpers/fixtures";
 
 // --- Mocks ---
 
@@ -61,7 +62,7 @@ vi.mock("@/lib/receipts/generate-pdf-response", () => ({
 
 // --- Helpers ---
 
-const VALID_UUID = "550e8400-e29b-41d4-a716-446655440000";
+const VALID_UUID = TEST_BUSINESS_ID;
 
 function makeRequest(): Request {
   return new Request(`https://example.com/api/documents/${VALID_UUID}/pdf`);

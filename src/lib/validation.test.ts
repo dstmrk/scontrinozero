@@ -4,7 +4,10 @@ import {
   isValidEmail,
   isStrongPassword,
   isValidLotteryCode,
+  isValidItalianZipCode,
+  italianZipCodeSchema,
   normalizeEmail,
+  ITALIAN_ZIP_MESSAGE,
 } from "./validation";
 
 describe("adePinSchema", () => {
@@ -210,5 +213,40 @@ describe("isValidLotteryCode", () => {
     it("rejects spaces", () => {
       expect(isValidLotteryCode("ABC 1234")).toBe(false);
     });
+  });
+});
+
+describe("isValidItalianZipCode", () => {
+  it("accepts valid 5-digit CAPs", () => {
+    expect(isValidItalianZipCode("00100")).toBe(true);
+    expect(isValidItalianZipCode("20121")).toBe(true);
+  });
+
+  it("rejects too short", () => {
+    expect(isValidItalianZipCode("1234")).toBe(false);
+  });
+
+  it("rejects too long", () => {
+    expect(isValidItalianZipCode("123456")).toBe(false);
+  });
+
+  it("rejects non-numeric chars", () => {
+    expect(isValidItalianZipCode("1234a")).toBe(false);
+  });
+
+  it("rejects empty string", () => {
+    expect(isValidItalianZipCode("")).toBe(false);
+  });
+});
+
+describe("italianZipCodeSchema", () => {
+  it("accepts a valid CAP", () => {
+    expect(italianZipCodeSchema.safeParse("00100").success).toBe(true);
+  });
+
+  it("rejects invalid input with the canonical message", () => {
+    const result = italianZipCodeSchema.safeParse("12");
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe(ITALIAN_ZIP_MESSAGE);
   });
 });

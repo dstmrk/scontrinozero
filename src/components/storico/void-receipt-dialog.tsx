@@ -16,27 +16,13 @@ import { voidReceipt } from "@/server/void-actions";
 import type { ReceiptListItem, VoidReceiptResult } from "@/types/storico";
 import { VAT_LABELS } from "@/types/cassa";
 import type { VatCode } from "@/types/cassa";
+import { formatCurrency, formatDate } from "@/lib/utils";
 
 interface VoidReceiptDialogProps {
   readonly receipt: ReceiptListItem;
   readonly businessId: string;
   readonly onClose: () => void;
   readonly onSuccess: (result: VoidReceiptResult, originalId: string) => void;
-}
-
-function formatDate(date: Date): string {
-  return new Date(date).toLocaleDateString("it-IT", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
-function formatCurrency(amount: string): string {
-  return new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR",
-  }).format(Number.parseFloat(amount));
 }
 
 function formatVat(vatCode: string): string {
@@ -171,9 +157,9 @@ export function VoidReceiptDialog({
 
             {/* Lines */}
             <div className="divide-y rounded-md border">
-              {receipt.lines.map((line) => (
+              {receipt.lines.map((line, index) => (
                 <div
-                  key={`${line.description}-${line.vatCode}-${line.grossUnitPrice}-${line.quantity}`}
+                  key={`${receipt.id}-line-${index}`}
                   className="flex items-center justify-between px-3 py-2 text-sm"
                 >
                   <div className="min-w-0 flex-1 pr-2">
@@ -186,17 +172,15 @@ export function VoidReceiptDialog({
                   </div>
                   <p className="shrink-0 font-medium">
                     {formatCurrency(
-                      String(
-                        Number.parseFloat(line.grossUnitPrice) *
-                          Number.parseFloat(line.quantity),
-                      ),
+                      Number.parseFloat(line.grossUnitPrice) *
+                        Number.parseFloat(line.quantity),
                     )}
                   </p>
                 </div>
               ))}
               <div className="flex justify-between px-3 py-2 text-sm font-semibold">
                 <span>Totale</span>
-                <span>{formatCurrency(String(subtotal))}</span>
+                <span>{formatCurrency(subtotal)}</span>
               </div>
             </div>
 

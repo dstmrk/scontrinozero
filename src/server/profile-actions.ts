@@ -10,26 +10,33 @@ import {
   getAuthenticatedUser,
   checkBusinessOwnership,
 } from "@/lib/server-auth";
-import { isStrongPassword } from "@/lib/validation";
+import {
+  isStrongPassword,
+  isValidItalianZipCode,
+  ITALIAN_ZIP_MESSAGE,
+} from "@/lib/validation";
 import { getClientIp } from "@/lib/get-client-ip";
-import { RateLimiter } from "@/lib/rate-limit";
+import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
+import { ERROR_MESSAGES } from "@/lib/error-messages";
+import { getFormString, getFormStringOrNull } from "@/lib/form-utils";
 
 export type ProfileActionResult = { error?: string };
 
 const updateProfileLimiter = new RateLimiter({
   maxRequests: 10,
-  windowMs: 60 * 60 * 1000, // 1 hour
+  windowMs: RATE_LIMIT_WINDOWS.HOURLY,
 });
 
 const updateBusinessLimiter = new RateLimiter({
   maxRequests: 10,
-  windowMs: 60 * 60 * 1000, // 1 hour
+  windowMs: RATE_LIMIT_WINDOWS.HOURLY,
 });
 
 const changePasswordLimiter = new RateLimiter({
   maxRequests: 5,
-  windowMs: 15 * 60 * 1000, // 15 minutes — same threshold as other auth actions
+  // same threshold as other auth actions
+  windowMs: RATE_LIMIT_WINDOWS.AUTH_15_MIN,
 });
 
 export async function updateProfile(
@@ -37,8 +44,8 @@ export async function updateProfile(
 ): Promise<ProfileActionResult> {
   const user = await getAuthenticatedUser();
 
-  const firstName = (formData.get("firstName") as string)?.trim();
-  const lastName = (formData.get("lastName") as string)?.trim();
+  const firstName = getFormString(formData, "firstName");
+  const lastName = getFormString(formData, "lastName");
 
   if (!firstName) return { error: "Il nome è obbligatorio." };
   if (firstName.length > 80)
@@ -52,7 +59,7 @@ export async function updateProfile(
   );
   if (!rateLimitResult.success) {
     logger.warn({ userId: user.id }, "updateProfile rate limit exceeded");
-    return { error: "Troppi tentativi. Riprova tra qualche minuto." };
+    return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
   }
 
   const db = getDb();
@@ -70,13 +77,13 @@ export async function updateBusiness(
 ): Promise<ProfileActionResult> {
   const user = await getAuthenticatedUser();
 
-  const businessId = (formData.get("businessId") as string)?.trim();
-  const businessName = (formData.get("businessName") as string)?.trim() || null;
-  const address = (formData.get("address") as string)?.trim();
-  const streetNumber = (formData.get("streetNumber") as string)?.trim() || null;
-  const city = (formData.get("city") as string)?.trim() || null;
-  const province = (formData.get("province") as string)?.trim() || null;
-  const zipCode = (formData.get("zipCode") as string)?.trim();
+  const businessId = getFormString(formData, "businessId");
+  const businessName = getFormStringOrNull(formData, "businessName");
+  const address = getFormString(formData, "address");
+  const streetNumber = getFormStringOrNull(formData, "streetNumber");
+  const city = getFormStringOrNull(formData, "city");
+  const province = getFormStringOrNull(formData, "province");
+  const zipCode = getFormString(formData, "zipCode");
 
   if (!businessId) return { error: "Business ID mancante." };
   if (businessName && businessName.length > 120)
@@ -88,8 +95,7 @@ export async function updateBusiness(
     return { error: "Il comune non può superare 80 caratteri." };
   if (province && province.length > 3)
     return { error: "La provincia non può superare 3 caratteri." };
-  if (!zipCode || !/^\d{5}$/.test(zipCode))
-    return { error: "CAP non valido (5 cifre numeriche)." };
+  if (!isValidItalianZipCode(zipCode)) return { error: ITALIAN_ZIP_MESSAGE };
 
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) return ownershipError;
@@ -99,7 +105,7 @@ export async function updateBusiness(
   );
   if (!rateLimitResult.success) {
     logger.warn({ userId: user.id }, "updateBusiness rate limit exceeded");
-    return { error: "Troppi tentativi. Riprova tra qualche minuto." };
+    return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
   }
 
   const db = getDb();
@@ -117,19 +123,16 @@ export async function changePassword(
 ): Promise<ProfileActionResult> {
   const user = await getAuthenticatedUser();
 
-  const currentPassword = formData.get("currentPassword") as string;
-  const newPassword = formData.get("newPassword") as string;
-  const confirmPassword = formData.get("confirmPassword") as string;
+  const currentPassword = getFormString(formData, "currentPassword");
+  const newPassword = getFormString(formData, "newPassword");
+  const confirmPassword = getFormString(formData, "confirmPassword");
 
   if (!currentPassword) return { error: "Inserisci la password attuale." };
   if (!newPassword || !isStrongPassword(newPassword)) {
-    return {
-      error:
-        "La nuova password non è sicura. Usa almeno 8 caratteri con maiuscola, minuscola, numero e carattere speciale.",
-    };
+    return { error: ERROR_MESSAGES.NEW_PASSWORD_NOT_STRONG };
   }
   if (newPassword !== confirmPassword) {
-    return { error: "Le password non coincidono." };
+    return { error: ERROR_MESSAGES.PASSWORDS_MISMATCH };
   }
 
   // Rate limit per user.id (not per IP) to avoid locking out multiple users
@@ -141,7 +144,7 @@ export async function changePassword(
   );
   if (!rateLimitResult.success) {
     logger.warn({ userId: user.id, ip }, "changePassword rate limit exceeded");
-    return { error: "Troppi tentativi. Riprova tra qualche minuto." };
+    return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
   }
 
   const email = user.email;
