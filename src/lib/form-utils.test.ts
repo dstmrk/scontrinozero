@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getFormString,
   getFormStringOrNull,
+  getFormStringRaw,
   objectToFormData,
 } from "./form-utils";
 
@@ -27,6 +28,31 @@ describe("getFormString", () => {
     const fd = new FormData();
     fd.set("blank", "   ");
     expect(getFormString(fd, "blank")).toBe("");
+  });
+});
+
+describe("getFormStringRaw", () => {
+  it("preserva gli spazi (campi password — semantica byte-per-byte)", () => {
+    const fd = new FormData();
+    fd.set("password", "  myPassword  ");
+    expect(getFormStringRaw(fd, "password")).toBe("  myPassword  ");
+  });
+
+  it("ritorna stringa vuota se la chiave manca", () => {
+    const fd = new FormData();
+    expect(getFormStringRaw(fd, "missing")).toBe("");
+  });
+
+  it("ritorna stringa vuota se il valore è un File", () => {
+    const fd = new FormData();
+    fd.set("upload", new File(["data"], "f.txt", { type: "text/plain" }));
+    expect(getFormStringRaw(fd, "upload")).toBe("");
+  });
+
+  it("preserva whitespace puro (l'input password può essere solo spazi)", () => {
+    const fd = new FormData();
+    fd.set("blank", "   ");
+    expect(getFormStringRaw(fd, "blank")).toBe("   ");
   });
 });
 

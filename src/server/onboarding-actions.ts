@@ -31,7 +31,11 @@ import {
   ITALIAN_ZIP_MESSAGE,
 } from "@/lib/validation";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
-import { getFormString, getFormStringOrNull } from "@/lib/form-utils";
+import {
+  getFormString,
+  getFormStringOrNull,
+  getFormStringRaw,
+} from "@/lib/form-utils";
 
 function isUniqueConstraintViolation(err: unknown): boolean {
   return (
@@ -180,7 +184,12 @@ export async function saveAdeCredentials(
 
   const businessId = getFormString(formData, "businessId");
   const codiceFiscale = getFormString(formData, "codiceFiscale");
-  const password = getFormString(formData, "password");
+  // La password Fisconline è una credenziale opaca (regole AdE: 8–15 char,
+  // charset misto). Non trimmare: ogni byte ha significato semantico —
+  // lo stesso principio della password app.
+  const password = getFormStringRaw(formData, "password");
+  // PIN già validato a regex `^\d{10}$`: trimming è sicuro perché
+  // qualsiasi whitespace verrebbe comunque rifiutato dallo schema.
   const pin = getFormString(formData, "pin");
 
   if (!businessId) {

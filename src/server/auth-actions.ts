@@ -19,7 +19,7 @@ import { sendEmail } from "@/lib/email";
 import { PasswordResetEmail } from "@/emails/password-reset";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
-import { getFormString } from "@/lib/form-utils";
+import { getFormString, getFormStringRaw } from "@/lib/form-utils";
 
 const CURRENT_TERMS_VERSION = "v01";
 
@@ -175,8 +175,11 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   // Centralised email normalisation — consistent across signUp / signIn /
   // magicLink / resetPassword (CLAUDE.md regola 22).
   const email = normalizeEmail(getFormString(formData, "email"));
-  const password = getFormString(formData, "password");
-  const confirmPassword = getFormString(formData, "confirmPassword");
+  // CRITICAL: passwords must NOT be trimmed — trimming changes credential
+  // semantics and breaks login for users registered with leading/trailing
+  // whitespace. See `getFormStringRaw` doc.
+  const password = getFormStringRaw(formData, "password");
+  const confirmPassword = getFormStringRaw(formData, "confirmPassword");
   const termsAccepted = formData.get("termsAccepted");
   const specificClausesAccepted = formData.get("specificClausesAccepted");
   const captchaToken = getFormString(formData, "captchaToken");
@@ -248,7 +251,9 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
 
 export async function signIn(formData: FormData): Promise<AuthActionResult> {
   const email = normalizeEmail(getFormString(formData, "email"));
-  const password = getFormString(formData, "password");
+  // Raw read: trimming would break login for users whose password has
+  // significant whitespace (see `getFormStringRaw`).
+  const password = getFormStringRaw(formData, "password");
 
   if (!email || !isValidEmail(email)) {
     return { error: "Email non valida." };

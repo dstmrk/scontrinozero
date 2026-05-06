@@ -19,7 +19,11 @@ import { getClientIp } from "@/lib/get-client-ip";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
-import { getFormString, getFormStringOrNull } from "@/lib/form-utils";
+import {
+  getFormString,
+  getFormStringOrNull,
+  getFormStringRaw,
+} from "@/lib/form-utils";
 
 export type ProfileActionResult = { error?: string };
 
@@ -123,9 +127,12 @@ export async function changePassword(
 ): Promise<ProfileActionResult> {
   const user = await getAuthenticatedUser();
 
-  const currentPassword = getFormString(formData, "currentPassword");
-  const newPassword = getFormString(formData, "newPassword");
-  const confirmPassword = getFormString(formData, "confirmPassword");
+  // Raw read sui campi password: il trim() cambierebbe la semantica delle
+  // credenziali e bloccherebbe login a utenti registrati con whitespace
+  // significativo (vedi `getFormStringRaw`).
+  const currentPassword = getFormStringRaw(formData, "currentPassword");
+  const newPassword = getFormStringRaw(formData, "newPassword");
+  const confirmPassword = getFormStringRaw(formData, "confirmPassword");
 
   if (!currentPassword) return { error: "Inserisci la password attuale." };
   if (!newPassword || !isStrongPassword(newPassword)) {
