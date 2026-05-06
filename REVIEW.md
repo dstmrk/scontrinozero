@@ -1,12 +1,19 @@
 # Code Review — ScontrinoZero
-<!-- STATE: in_progress -->
+<!-- STATE: complete -->
 <!-- LAST_PASS: 4 -->
 <!-- LAST_AREA_COMPLETED: all areas (Pass 4 bad practice complete) -->
-<!-- NEXT_AREA_TO_SCAN: — (final polish + close out) -->
+<!-- NEXT_AREA_TO_SCAN: — -->
 <!-- AREAS_REMAINING: none (all 4 passes done) -->
 
-## Findings (ordinati per priorità)
-<!-- I finding vengono aggiunti incrementalmente, mai persi -->
+**Stato:** review completata. 4 passate effettuate (sicurezza, performance, architettura, bad practice) su tutte le aree del repo (`src/app`, `src/server`, `src/lib`, `src/components`, `supabase/`, `scripts/`, `tests/`, config-infra).
+
+**Totale finding:** **31** (1 P1 · 9 P2 · 21 P3).
+
+Vedere [Riepilogo finale](#riepilogo-finale) in fondo al documento per priorità di intervento e indice cliccabile.
+
+## Findings (in ordine di scoperta)
+<!-- I finding sono elencati nell'ordine in cui sono stati identificati durante le 4 passate.
+     Per la lista ordinata per priorità vedere "Riepilogo finale" in fondo al documento. -->
 
 ### [P3] UUID non validato a route boundary su `/r/[documentId]/pdf`
 - **Categoria**: sicurezza
@@ -604,4 +611,58 @@
   Migrare progressivamente i 9 file: `import { TEST_BUSINESS_ID } from "../_helpers/fixtures"`. Aggiungere alla CLAUDE.md una nota sotto "Linee guida test" sull'uso di `tests/_helpers/`.
 - **Test da aggiungere**: ESLint rule custom (o lint-staged check) che vieta UUID hard-coded nei file `tests/unit/*.test.ts` se appaiono già in `_helpers/fixtures.ts`. In alternativa, smoke test della migrazione: `grep -c "550e8400-e29b-41d4-a716-446655440000" tests/unit/*.test.ts | awk -F: '$2>0' | wc -l` deve essere 0 dopo il refactor.
 - **Trovato in passata**: 4
+
+---
+
+## Riepilogo finale
+
+**Finding totali: 31** — 1 P1 · 9 P2 · 21 P3.
+
+Distribuzione per categoria:
+
+| Categoria                         | P1 | P2 | P3 | Totale |
+| --------------------------------- | -- | -- | -- | ------ |
+| Sicurezza / defense in depth      | 0  | 1  | 6  | 7      |
+| Performance                       | 1  | 1  | 1  | 3      |
+| Architettura / API design         | 0  | 2  | 2  | 4      |
+| Bad practice / DRY / consistenza  | 0  | 5  | 12 | 17     |
+
+### Priorità di intervento consigliata
+
+L'ordine seguente massimizza il rapporto rischio/sforzo: prima i finding che riducono il blast radius di errori (sicurezza/correttezza), poi DRY e consistenza che pagano sui prossimi feature dev.
+
+**1. Bloccanti (P1) — fix prima di v1.2.6**
+
+- **`getOnboardingStatus()` chiamato 2× per page load** — `src/server/onboarding-actions.ts` + dashboard layout/pages. Riduce le query DB del 50% sull'hot path autenticato. Stimato: 1–2h.
+
+**2. Importanti (P2) — pianificare entro v1.2.7–v1.2.8**
+
+In ordine di impatto:
+
+- **Stripe Price ID con fallback `""` silenzioso** — `src/lib/stripe.ts:55-68`. Revenue loss invisibile fino al primo checkout. Fail-fast all'import.
+- **GitHub Actions non pinnate a commit SHA** — `.github/workflows/*.yml`. Supply chain risk.
+- **`searchReceipts` lancia eccezione su ownership failure** — `src/server/storico-actions.ts`. Inconsistente con il resto del contratto server actions.
+- **`signUp` normalizza email inline** — `src/server/auth-actions.ts`. Drift contro la regola 22 di CLAUDE.md.
+- **`PAYMENT_LABELS` divergente web vs PDF** — bug UX visibile (stesso codice → testo diverso).
+- **`getCatalogItems` senza LIMIT** — `src/server/catalog-actions.ts`. Pro illimitato → pagina cassa OOM possibile.
+- **Pattern `(formData.get(x) as string)?.trim()` × 35** — server actions. Helper `getFormString`.
+- **`formatCurrency` duplicato in storico** — signature divergente da `@/lib/utils`.
+- **`formatDate` duplicato con `year` divergente** — UI inconsistente.
+
+**3. Minori (P3) — backlog ordinario**
+
+I 21 finding P3 sono prevalentemente DRY, magic number, messaggi UX inconsistenti e validazioni mancanti a route boundary. Possono essere indirizzati in batch tematici:
+
+- **Batch "validazione UUID a boundary"**: il finding su `/r/[documentId]/pdf` (regola 18 CLAUDE.md).
+- **Batch "messaggi UX condivisi"**: estrarre messaggi rate-limit/password in `src/lib/messages.ts` (4 finding).
+- **Batch "regex CAP"**: una funzione `zItalianZipCode()` (3 finding).
+- **Batch "schema DB defense-in-depth"**: nuova migrazione `0014_check_constraints.sql` con CHECK su numeric e length su text.
+- **Batch "test infrastructure"**: creare `tests/_helpers/fixtures.ts` + aggiungere `engines.node` a `package.json`.
+- **Batch "altri singoli"**: `Resend` singleton, JSON-LD escape, `RateLimiter` Map cap, indice composito `api_keys`, ecc.
+
+### Note di metodo
+
+- Ogni finding è stato verificato leggendo il file e confermando le righe coinvolte. I finding generati dagli agenti che non superavano la verifica sono stati scartati (≈ 30% dei candidati).
+- I finding già coperti da regole CLAUDE.md o da PLAN.md non sono stati riproposti, ma quando il codice attuale violava una regola esistente è stato segnalato (es. regola 18 UUID validation, regola 22 email normalisation, regola 23 try/catch SDK esterni).
+- I file di marketing (`src/components/marketing/**`), shadcn UI (`src/components/ui/**`) e test individuali sono fuori scope per Pass 4 perché esclusi da SonarCloud coverage.
 
