@@ -19,62 +19,74 @@ import {
 } from "@/lib/api-v1-helpers";
 import type { SubmitReceiptInput } from "@/types/cassa";
 
-const receiptBodySchema = z.object({
-  lines: z
-    .array(
-      z.object({
-        description: z.string().min(1).max(200),
-        // max 3 decimal places — matches DB column numeric(10,3).
-        // parseFloat(toFixed(3)) === v: roundtrips cleanly through string
-        // representation and handles IEEE-754 FP edge cases correctly.
-        quantity: z
-          .number()
-          .positive()
-          .max(9999)
-          .refine(
-            (v) => Number.parseFloat(v.toFixed(3)) === v,
-            "max 3 decimali",
-          ),
-        // max 2 decimal places — matches DB column numeric(10,2).
-        grossUnitPrice: z
-          .number()
-          .nonnegative()
-          .max(999_999.99)
-          .refine(
-            (v) => Number.parseFloat(v.toFixed(2)) === v,
-            "max 2 decimali",
-          ),
-        vatCode: z.enum([
-          "4",
-          "5",
-          "10",
-          "22",
-          "N1",
-          "N2",
-          "N3",
-          "N4",
-          "N5",
-          "N6",
-        ]),
-      }),
-    )
-    .min(1)
-    .max(100),
-  paymentMethod: z.enum(["PC", "PE"]),
-  idempotencyKey: z.string().uuid(),
-  // 8 uppercase alphanumeric chars per AdE Lotteria degli Scontrini spec.
-  // Same regex used in `src/lib/ade/validation.ts` and `isValidLotteryCode`.
-  // The service layer rejects invalid codes with 422; validating at the API
-  // boundary returns 400 with a clearer error and avoids hitting the service.
-  lotteryCode: z
-    .string()
-    .regex(
-      /^[A-Z0-9]{8}$/,
-      "Codice lotteria non valido (8 caratteri [A-Z0-9]).",
-    )
-    .nullable()
-    .optional(),
-});
+const LOTTERY_CODE_REGEX = /^[A-Z0-9]{8}$/;
+
+const receiptBodySchema = z
+  .object({
+    lines: z
+      .array(
+        z.object({
+          description: z.string().min(1).max(200),
+          // max 3 decimal places — matches DB column numeric(10,3).
+          // parseFloat(toFixed(3)) === v: roundtrips cleanly through string
+          // representation and handles IEEE-754 FP edge cases correctly.
+          quantity: z
+            .number()
+            .positive()
+            .max(9999)
+            .refine(
+              (v) => Number.parseFloat(v.toFixed(3)) === v,
+              "max 3 decimali",
+            ),
+          // max 2 decimal places — matches DB column numeric(10,2).
+          grossUnitPrice: z
+            .number()
+            .nonnegative()
+            .max(999_999.99)
+            .refine(
+              (v) => Number.parseFloat(v.toFixed(2)) === v,
+              "max 2 decimali",
+            ),
+          vatCode: z.enum([
+            "4",
+            "5",
+            "10",
+            "22",
+            "N1",
+            "N2",
+            "N3",
+            "N4",
+            "N5",
+            "N6",
+          ]),
+        }),
+      )
+      .min(1)
+      .max(100),
+    paymentMethod: z.enum(["PC", "PE"]),
+    idempotencyKey: z.string().uuid(),
+    // Format-validated only when paymentMethod === "PE" (lottery applies only
+    // to electronic payments per AdE rules; the service layer would silently
+    // null it out for PC anyway). See `superRefine` below.
+    lotteryCode: z.string().nullable().optional(),
+  })
+  // Conditional regex: enforce 8 uppercase alphanumeric chars only when the
+  // code is actually applicable (PE). For PC, any value is ignored downstream
+  // by `resolveLotteryCode` — keep it permissive to avoid breaking clients
+  // that send placeholder/legacy lottery values on cash receipts.
+  .superRefine((data, ctx) => {
+    if (
+      data.paymentMethod === "PE" &&
+      data.lotteryCode != null &&
+      !LOTTERY_CODE_REGEX.test(data.lotteryCode)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["lotteryCode"],
+        message: "Codice lotteria non valido (8 caratteri [A-Z0-9]).",
+      });
+    }
+  });
 
 // Rate limit: 120 receipts per hour per API key
 const receiptApiLimiter = new RateLimiter({

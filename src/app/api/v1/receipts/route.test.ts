@@ -262,4 +262,18 @@ describe("POST /api/v1/receipts", () => {
     expect(res.status).toBe(400);
     expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
   });
+
+  it("accetta lotteryCode malformato con paymentMethod=PC (backward compat)", async () => {
+    // PC ignora il lotteryCode lato service — non rifiutarlo al boundary
+    // per non rompere client legacy che inviano placeholder su scontrini cash.
+    const res = await POST(
+      makeRequest({
+        ...VALID_BODY,
+        paymentMethod: "PC",
+        lotteryCode: "garbage-value",
+      }),
+    );
+    expect(res.status).toBe(201);
+    expect(mockEmitReceiptForBusiness).toHaveBeenCalled();
+  });
 });
