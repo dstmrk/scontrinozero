@@ -15,14 +15,12 @@ vi.mock("@/lib/rate-limit", () => ({
 
 const mockSignUp = vi.fn();
 const mockSignInWithPassword = vi.fn();
-const mockSignInWithOtp = vi.fn();
 const mockSignOut = vi.fn();
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabaseClient: vi.fn().mockResolvedValue({
     auth: {
       signUp: mockSignUp,
       signInWithPassword: mockSignInWithPassword,
-      signInWithOtp: mockSignInWithOtp,
       signOut: mockSignOut,
     },
   }),
@@ -735,43 +733,6 @@ describe("auth-actions", () => {
         error: "Email o password non corretti.",
         email: "test@example.com",
       });
-    });
-  });
-
-  describe("signInWithMagicLink", () => {
-    it("redirects to verify-email on success", async () => {
-      mockSignInWithOtp.mockResolvedValue({ error: null });
-
-      const { signInWithMagicLink } = await import("./auth-actions");
-
-      try {
-        await signInWithMagicLink(formData({ email: "test@example.com" }));
-        expect.fail("Expected redirect");
-      } catch (err) {
-        expect(isRedirectError(err)).toBe(true);
-      }
-
-      expect(mockSignInWithOtp).toHaveBeenCalledWith({
-        email: "test@example.com",
-      });
-    });
-
-    it("returns error for invalid email", async () => {
-      const { signInWithMagicLink } = await import("./auth-actions");
-      const result = await signInWithMagicLink(formData({ email: "bad" }));
-      expect(result).toEqual({ error: "Email non valida." });
-    });
-
-    it("returns error when magic link fails", async () => {
-      mockSignInWithOtp.mockResolvedValue({
-        error: { message: "Rate limit exceeded" },
-      });
-
-      const { signInWithMagicLink } = await import("./auth-actions");
-      const result = await signInWithMagicLink(
-        formData({ email: "test@example.com" }),
-      );
-      expect(result).toEqual({ error: "Invio link fallito. Riprova." });
     });
   });
 

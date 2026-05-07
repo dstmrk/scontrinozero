@@ -308,30 +308,6 @@ function classifySupabaseAuthError(err: {
   return "other";
 }
 
-export async function signInWithMagicLink(
-  formData: FormData,
-): Promise<AuthActionResult> {
-  const email = normalizeEmail(getFormString(formData, "email"));
-
-  if (!email || !isValidEmail(email)) {
-    return { error: "Email non valida." };
-  }
-
-  const ip = await getClientIpFromNextHeaders();
-  const rateLimited = checkRateLimit(ip, "magicLink");
-  if (rateLimited) return rateLimited;
-
-  const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.auth.signInWithOtp({ email });
-
-  if (error) {
-    logger.error({ error: error.message }, "Magic link failed");
-    return { error: "Invio link fallito. Riprova." };
-  }
-
-  redirect("/verify-email");
-}
-
 export async function signOut(): Promise<void> {
   const supabase = await createServerSupabaseClient();
   await supabase.auth.signOut();
