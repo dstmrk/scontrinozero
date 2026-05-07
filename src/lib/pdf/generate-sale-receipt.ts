@@ -189,21 +189,30 @@ export function generateSaleReceiptPdf(
     });
     y = doc.y + 2;
 
-    let grandTotal = 0;
-    const vatByCode: Map<string, number> = new Map();
+    // Cents-based integer math: keeps the PDF's grandTotal and VAT split
+    // numerically identical to the public web page (computeReceiptTotals).
+    let grandTotalCents = 0;
+    const vatByCodeCents: Map<string, number> = new Map();
 
     for (const line of data.lines) {
       const qty = line.quantity;
       const price = line.grossUnitPrice;
-      const lineTotal = qty * price;
-      grandTotal += lineTotal;
+      const lineTotalCents = Math.round(qty * price * 100);
+      grandTotalCents += lineTotalCents;
+      const lineTotal = lineTotalCents / 100;
 
-      // Accumulate VAT by code
-      const existingVat = vatByCode.get(line.vatCode) ?? 0;
-      vatByCode.set(
-        line.vatCode,
-        existingVat + computeVatAmount(lineTotal, line.vatCode),
-      );
+      // Accumulate VAT by code in cents (gross − gross/(1+rate/100))
+      const rate = Number.parseFloat(line.vatCode);
+      if (!Number.isNaN(rate) && rate !== 0) {
+        const netCents = Math.round(lineTotalCents / (1 + rate / 100));
+        const vatCents = lineTotalCents - netCents;
+        if (vatCents > 0) {
+          vatByCodeCents.set(
+            line.vatCode,
+            (vatByCodeCents.get(line.vatCode) ?? 0) + vatCents,
+          );
+        }
+      }
 
       const vatLabel = vatLabelOf(line.vatCode);
       const priceDisplay = formatReceiptPrice(lineTotal);
@@ -233,6 +242,12 @@ export function generateSaleReceiptPdf(
       });
 
       y = Math.max(afterDescY, rowStartY + 10) + 2;
+    }
+
+    const grandTotal = grandTotalCents / 100;
+    const vatByCode = new Map<string, number>();
+    for (const [code, cents] of vatByCodeCents.entries()) {
+      vatByCode.set(code, cents / 100);
     }
 
     drawSeparator();

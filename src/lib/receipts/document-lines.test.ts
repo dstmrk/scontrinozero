@@ -38,6 +38,7 @@ import {
   fetchLinesByDocIds,
   groupLinesByDocId,
   calcDocTotal,
+  computeReceiptTotals,
 } from "./document-lines";
 
 const DOC_A = "doc-aaaa";
@@ -169,5 +170,87 @@ describe("calcDocTotal", () => {
   it("calcola il totale per una singola riga", () => {
     // 3 * 8.00 = 24.00
     expect(calcDocTotal([LINE_B1])).toBe(24.0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeReceiptTotals
+// ---------------------------------------------------------------------------
+
+describe("computeReceiptTotals", () => {
+  it("restituisce zero/empty per input vuoto", () => {
+    const t = computeReceiptTotals([]);
+    expect(t.grandTotal).toBe(0);
+    expect(t.perLine).toEqual([]);
+    expect(t.vatByCode.size).toBe(0);
+  });
+
+  it("calcola lineTotal e grandTotal con math in centesimi (no FP drift)", () => {
+    // 3 lines: 0.10 + 0.20 + 0.10 = 0.40 esatto (in float: 0.30000004 + 0.10)
+    const lines = [
+      { ...LINE_A1, quantity: "1.000", grossUnitPrice: "0.10", vatCode: "22" },
+      { ...LINE_A1, quantity: "1.000", grossUnitPrice: "0.20", vatCode: "22" },
+      { ...LINE_A1, quantity: "1.000", grossUnitPrice: "0.10", vatCode: "22" },
+    ];
+    const t = computeReceiptTotals(lines);
+    expect(t.grandTotal).toBe(0.4);
+    expect(t.perLine.map((l) => l.lineTotal)).toEqual([0.1, 0.2, 0.1]);
+  });
+
+  it("calcola IVA per codice (gross − gross/(1+rate/100))", () => {
+    // 100€ con IVA 22%: imponibile = 100 / 1.22 = 81,97 → IVA = 18,03
+    const t = computeReceiptTotals([
+      {
+        ...LINE_A1,
+        quantity: "1.000",
+        grossUnitPrice: "100.00",
+        vatCode: "22",
+      },
+    ]);
+    expect(t.grandTotal).toBe(100);
+    expect(t.vatByCode.get("22")).toBe(18.03);
+  });
+
+  it("aggrega IVA per codice sommando in centesimi", () => {
+    const t = computeReceiptTotals([
+      { ...LINE_A1, quantity: "1.000", grossUnitPrice: "10.00", vatCode: "22" },
+      { ...LINE_A1, quantity: "1.000", grossUnitPrice: "5.00", vatCode: "22" },
+      { ...LINE_A1, quantity: "1.000", grossUnitPrice: "11.00", vatCode: "10" },
+    ]);
+    // 10€ @22% → IVA 1,80 ; 5€ @22% → IVA 0,90 ; 11€ @10% → IVA 1,00
+    expect(t.vatByCode.get("22")).toBe(2.7);
+    expect(t.vatByCode.get("10")).toBe(1.0);
+    expect(t.grandTotal).toBe(26.0);
+  });
+
+  it("salta l'IVA per codici N* (esenti) e per rate 0", () => {
+    const t = computeReceiptTotals([
+      { ...LINE_A1, quantity: "1.000", grossUnitPrice: "50.00", vatCode: "N1" },
+    ]);
+    expect(t.grandTotal).toBe(50);
+    expect(t.vatByCode.size).toBe(0);
+  });
+
+  it("gestisce quantità decimali a 3dp senza drift", () => {
+    // 1.5 × 4.99 = 7.485 → arrotondato a 7,49
+    const t = computeReceiptTotals([
+      { ...LINE_A1, quantity: "1.500", grossUnitPrice: "4.99", vatCode: "22" },
+    ]);
+    expect(t.grandTotal).toBe(7.49);
+    expect(t.perLine[0].lineTotal).toBe(7.49);
+  });
+
+  it("usa default qty=1, price=0 quando i campi sono assenti", () => {
+    const t = computeReceiptTotals([
+      {
+        ...LINE_A1,
+        // simulate missing fields via empty/null to mimic legacy rows
+        quantity: null as unknown as string,
+        grossUnitPrice: null as unknown as string,
+      },
+    ]);
+    expect(t.grandTotal).toBe(0);
+    expect(t.perLine[0].qty).toBe(1);
+    expect(t.perLine[0].price).toBe(0);
   });
 });

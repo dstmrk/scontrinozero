@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Download } from "lucide-react";
 import type { Metadata } from "next";
 import { fetchPublicReceipt } from "@/lib/receipts/fetch-public-receipt";
+import { computeReceiptTotals } from "@/lib/receipts/document-lines";
 import { formatFiscalDateTime } from "@/lib/date-utils";
 import { PAYMENT_LABELS, formatReceiptPrice } from "@/lib/receipt-format";
 import { VAT_LABELS as CASSA_VAT_LABELS } from "@/types/cassa";
@@ -23,12 +24,6 @@ export const metadata: Metadata = {
 
 function formatDate(date: Date): string {
   return formatFiscalDateTime(new Date(date));
-}
-
-function computeVatAmount(lineTotalGross: number, vatCode: string): number {
-  const rate = Number.parseFloat(vatCode);
-  if (Number.isNaN(rate) || rate === 0) return 0;
-  return lineTotalGross - lineTotalGross / (1 + rate / 100);
 }
 
 function vatLabelOf(vatCode: string): string {
@@ -57,22 +52,9 @@ export default async function PublicReceiptPage({
   const paymentMethod = rawPayment === "PE" ? "PE" : "PC";
   const lotteryCode = publicReq?.lotteryCode ?? null;
 
-  // Compute totals
-  let grandTotal = 0;
-  const vatByCode = new Map<string, number>();
-
-  for (const line of lines) {
-    const qty = Number.parseFloat(line.quantity ?? "1");
-    const price = Number.parseFloat(line.grossUnitPrice ?? "0");
-    const lineTotal = qty * price;
-    grandTotal += lineTotal;
-
-    const existing = vatByCode.get(line.vatCode) ?? 0;
-    vatByCode.set(
-      line.vatCode,
-      existing + computeVatAmount(lineTotal, line.vatCode),
-    );
-  }
+  // Cents-based deterministic totals (avoid IEEE-754 drift on many/decimal lines)
+  const totals = computeReceiptTotals(lines);
+  const { grandTotal, vatByCode } = totals;
 
   const addressLine = [biz.address, biz.city, biz.province, biz.zipCode]
     .filter(Boolean)
@@ -112,10 +94,8 @@ export default async function PublicReceiptPage({
               <span className="w-16 text-right">€</span>
             </div>
             <div className="space-y-2">
-              {lines.map((line) => {
-                const qty = Number.parseFloat(line.quantity ?? "1");
-                const price = Number.parseFloat(line.grossUnitPrice ?? "0");
-                const lineTotal = qty * price;
+              {lines.map((line, idx) => {
+                const { qty, price, lineTotal } = totals.perLine[idx];
                 const vatLabel = vatLabelOf(line.vatCode);
                 return (
                   <div key={line.id} className="flex items-start gap-1 text-sm">
