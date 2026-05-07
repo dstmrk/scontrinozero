@@ -7,6 +7,7 @@ import {
   groupLinesByDocId,
   calcDocTotal,
 } from "@/lib/receipts/document-lines";
+import { refineLotteryCode } from "@/lib/receipts/lottery-code-schema";
 import { parseStrictIsoDateUtc } from "@/lib/date-utils";
 import { RateLimiter } from "@/lib/rate-limit";
 import { emitReceiptForBusiness } from "@/lib/services/receipt-service";
@@ -18,8 +19,6 @@ import {
   withCors,
 } from "@/lib/api-v1-helpers";
 import type { SubmitReceiptInput } from "@/types/cassa";
-
-const LOTTERY_CODE_REGEX = /^[A-Z0-9]{8}$/;
 
 const receiptBodySchema = z
   .object({
@@ -65,28 +64,10 @@ const receiptBodySchema = z
       .max(100),
     paymentMethod: z.enum(["PC", "PE"]),
     idempotencyKey: z.string().uuid(),
-    // Format-validated only when paymentMethod === "PE" (lottery applies only
-    // to electronic payments per AdE rules; the service layer would silently
-    // null it out for PC anyway). See `superRefine` below.
+    // Format-validated only when paymentMethod === "PE" — see refineLotteryCode.
     lotteryCode: z.string().nullable().optional(),
   })
-  // Conditional regex: enforce 8 uppercase alphanumeric chars only when the
-  // code is actually applicable (PE). For PC, any value is ignored downstream
-  // by `resolveLotteryCode` — keep it permissive to avoid breaking clients
-  // that send placeholder/legacy lottery values on cash receipts.
-  .superRefine((data, ctx) => {
-    if (
-      data.paymentMethod === "PE" &&
-      data.lotteryCode != null &&
-      !LOTTERY_CODE_REGEX.test(data.lotteryCode)
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["lotteryCode"],
-        message: "Codice lotteria non valido (8 caratteri [A-Z0-9]).",
-      });
-    }
-  });
+  .superRefine(refineLotteryCode);
 
 // Rate limit: 120 receipts per hour per API key
 const receiptApiLimiter = new RateLimiter({

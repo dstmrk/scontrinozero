@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { logger } from "@/lib/logger";
 import { getPlan, canEmit } from "@/lib/plans";
 import { RateLimiter } from "@/lib/rate-limit";
+import { refineLotteryCode } from "@/lib/receipts/lottery-code-schema";
 import {
   getAuthenticatedUser,
   checkBusinessOwnership,
@@ -30,34 +31,16 @@ const lineSchema = z.object({
   vatCode: z.enum(["4", "5", "10", "22", "N1", "N2", "N3", "N4", "N5", "N6"]),
 });
 
-const LOTTERY_CODE_REGEX = /^[A-Z0-9]{8}$/;
-
 const submitReceiptSchema = z
   .object({
     businessId: z.string().min(1, "Business ID obbligatorio."),
     lines: z.array(lineSchema).min(1).max(100),
     paymentMethod: z.enum(["PC", "PE"]),
     idempotencyKey: z.string().uuid(),
-    // Format-validated only when paymentMethod === "PE" — see superRefine.
+    // Format-validated only when paymentMethod === "PE" — see refineLotteryCode.
     lotteryCode: z.string().nullable().optional(),
   })
-  // Conditional regex: enforce 8 uppercase alphanumeric chars only when
-  // applicable (PE). For PC, the service layer ignores the value, so a
-  // permissive schema avoids breaking clients sending placeholder lottery
-  // codes on cash receipts.
-  .superRefine((data, ctx) => {
-    if (
-      data.paymentMethod === "PE" &&
-      data.lotteryCode != null &&
-      !LOTTERY_CODE_REGEX.test(data.lotteryCode)
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["lotteryCode"],
-        message: "Codice lotteria non valido (8 caratteri [A-Z0-9]).",
-      });
-    }
-  });
+  .superRefine(refineLotteryCode);
 
 // Rate limit: 30 receipts per hour per user (per-user key, not per-IP)
 const receiptLimiter = new RateLimiter({
