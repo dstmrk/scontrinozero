@@ -214,4 +214,66 @@ describe("POST /api/v1/receipts", () => {
       "key-uuid-123",
     );
   });
+
+  it("ritorna 400 se lotteryCode contiene caratteri non alfanumerici", async () => {
+    const res = await POST(
+      makeRequest({
+        ...VALID_BODY,
+        paymentMethod: "PE",
+        lotteryCode: "ABC-2345",
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
+  });
+
+  it("ritorna 400 se lotteryCode è in minuscolo", async () => {
+    const res = await POST(
+      makeRequest({
+        ...VALID_BODY,
+        paymentMethod: "PE",
+        lotteryCode: "abc12345",
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
+  });
+
+  it("ritorna 400 se lotteryCode è una stringa vuota", async () => {
+    const res = await POST(
+      makeRequest({
+        ...VALID_BODY,
+        paymentMethod: "PE",
+        lotteryCode: "",
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
+  });
+
+  it("ritorna 400 se lotteryCode è più corto di 8 caratteri", async () => {
+    const res = await POST(
+      makeRequest({
+        ...VALID_BODY,
+        paymentMethod: "PE",
+        lotteryCode: "ABC123",
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
+  });
+
+  it("accetta lotteryCode malformato con paymentMethod=PC (backward compat)", async () => {
+    // PC ignora il lotteryCode lato service — non rifiutarlo al boundary
+    // per non rompere client legacy che inviano placeholder su scontrini cash.
+    const res = await POST(
+      makeRequest({
+        ...VALID_BODY,
+        paymentMethod: "PC",
+        lotteryCode: "garbage-value",
+      }),
+    );
+    expect(res.status).toBe(201);
+    expect(mockEmitReceiptForBusiness).toHaveBeenCalled();
+  });
 });

@@ -7,6 +7,7 @@ import {
   groupLinesByDocId,
   calcDocTotal,
 } from "@/lib/receipts/document-lines";
+import { refineLotteryCode } from "@/lib/receipts/lottery-code-schema";
 import { parseStrictIsoDateUtc } from "@/lib/date-utils";
 import { RateLimiter } from "@/lib/rate-limit";
 import { emitReceiptForBusiness } from "@/lib/services/receipt-service";
@@ -19,51 +20,54 @@ import {
 } from "@/lib/api-v1-helpers";
 import type { SubmitReceiptInput } from "@/types/cassa";
 
-const receiptBodySchema = z.object({
-  lines: z
-    .array(
-      z.object({
-        description: z.string().min(1).max(200),
-        // max 3 decimal places — matches DB column numeric(10,3).
-        // parseFloat(toFixed(3)) === v: roundtrips cleanly through string
-        // representation and handles IEEE-754 FP edge cases correctly.
-        quantity: z
-          .number()
-          .positive()
-          .max(9999)
-          .refine(
-            (v) => Number.parseFloat(v.toFixed(3)) === v,
-            "max 3 decimali",
-          ),
-        // max 2 decimal places — matches DB column numeric(10,2).
-        grossUnitPrice: z
-          .number()
-          .nonnegative()
-          .max(999_999.99)
-          .refine(
-            (v) => Number.parseFloat(v.toFixed(2)) === v,
-            "max 2 decimali",
-          ),
-        vatCode: z.enum([
-          "4",
-          "5",
-          "10",
-          "22",
-          "N1",
-          "N2",
-          "N3",
-          "N4",
-          "N5",
-          "N6",
-        ]),
-      }),
-    )
-    .min(1)
-    .max(100),
-  paymentMethod: z.enum(["PC", "PE"]),
-  idempotencyKey: z.string().uuid(),
-  lotteryCode: z.string().max(8).nullable().optional(),
-});
+const receiptBodySchema = z
+  .object({
+    lines: z
+      .array(
+        z.object({
+          description: z.string().min(1).max(200),
+          // max 3 decimal places — matches DB column numeric(10,3).
+          // parseFloat(toFixed(3)) === v: roundtrips cleanly through string
+          // representation and handles IEEE-754 FP edge cases correctly.
+          quantity: z
+            .number()
+            .positive()
+            .max(9999)
+            .refine(
+              (v) => Number.parseFloat(v.toFixed(3)) === v,
+              "max 3 decimali",
+            ),
+          // max 2 decimal places — matches DB column numeric(10,2).
+          grossUnitPrice: z
+            .number()
+            .nonnegative()
+            .max(999_999.99)
+            .refine(
+              (v) => Number.parseFloat(v.toFixed(2)) === v,
+              "max 2 decimali",
+            ),
+          vatCode: z.enum([
+            "4",
+            "5",
+            "10",
+            "22",
+            "N1",
+            "N2",
+            "N3",
+            "N4",
+            "N5",
+            "N6",
+          ]),
+        }),
+      )
+      .min(1)
+      .max(100),
+    paymentMethod: z.enum(["PC", "PE"]),
+    idempotencyKey: z.string().uuid(),
+    // Format-validated only when paymentMethod === "PE" — see refineLotteryCode.
+    lotteryCode: z.string().nullable().optional(),
+  })
+  .superRefine(refineLotteryCode);
 
 // Rate limit: 120 receipts per hour per API key
 const receiptApiLimiter = new RateLimiter({

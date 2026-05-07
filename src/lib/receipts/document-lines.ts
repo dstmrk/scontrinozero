@@ -48,3 +48,67 @@ export function calcDocTotal(lines: SelectCommercialDocumentLine[]): number {
     ) / 100
   );
 }
+
+export interface ReceiptLineCalc {
+  readonly qty: number;
+  readonly price: number;
+  /** Line total (qty * price) rounded to 2 decimals. */
+  readonly lineTotal: number;
+}
+
+export interface ReceiptTotals {
+  readonly perLine: readonly ReceiptLineCalc[];
+  /** Sum of all line totals, rounded to 2 decimals. */
+  readonly grandTotal: number;
+  /** VAT amount per vatCode, each rounded to 2 decimals (only entries > 0). */
+  readonly vatByCode: ReadonlyMap<string, number>;
+}
+
+/**
+ * Computes deterministic totals for a receipt using cents-based integer math.
+ * All summations and VAT splits happen in integer cents, then converted back
+ * to euros at the end. This avoids IEEE-754 drift visible to users when many
+ * lines or fractional quantities accumulate (e.g. 0.1 + 0.2 ≠ 0.3 in float).
+ *
+ * Used by the public receipt page and the PDF renderer.
+ */
+export function computeReceiptTotals(
+  lines: readonly SelectCommercialDocumentLine[],
+): ReceiptTotals {
+  const perLine: ReceiptLineCalc[] = [];
+  const vatByCodeCents = new Map<string, number>();
+  let grandTotalCents = 0;
+
+  for (const line of lines) {
+    const qty = Number.parseFloat(line.quantity ?? "1");
+    const price = Number.parseFloat(line.grossUnitPrice ?? "0");
+    const lineTotalCents = Math.round(qty * price * 100);
+    grandTotalCents += lineTotalCents;
+
+    perLine.push({ qty, price, lineTotal: lineTotalCents / 100 });
+
+    const rate = Number.parseFloat(line.vatCode);
+    if (Number.isNaN(rate) || rate === 0) continue;
+
+    // VAT = gross − gross / (1 + rate/100). Computed in cents to keep precision.
+    const netCents = Math.round(lineTotalCents / (1 + rate / 100));
+    const vatCents = lineTotalCents - netCents;
+    if (vatCents <= 0) continue;
+
+    vatByCodeCents.set(
+      line.vatCode,
+      (vatByCodeCents.get(line.vatCode) ?? 0) + vatCents,
+    );
+  }
+
+  const vatByCode = new Map<string, number>();
+  for (const [code, cents] of vatByCodeCents.entries()) {
+    vatByCode.set(code, cents / 100);
+  }
+
+  return {
+    perLine,
+    grandTotal: grandTotalCents / 100,
+    vatByCode,
+  };
+}

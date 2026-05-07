@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { logger } from "@/lib/logger";
 import { getPlan, canEmit } from "@/lib/plans";
 import { RateLimiter } from "@/lib/rate-limit";
+import { refineLotteryCode } from "@/lib/receipts/lottery-code-schema";
 import {
   getAuthenticatedUser,
   checkBusinessOwnership,
@@ -30,17 +31,16 @@ const lineSchema = z.object({
   vatCode: z.enum(["4", "5", "10", "22", "N1", "N2", "N3", "N4", "N5", "N6"]),
 });
 
-const submitReceiptSchema = z.object({
-  businessId: z.string().min(1, "Business ID obbligatorio."),
-  lines: z.array(lineSchema).min(1).max(100),
-  paymentMethod: z.enum(["PC", "PE"]),
-  idempotencyKey: z.string().uuid(),
-  lotteryCode: z
-    .string()
-    .max(8, "Il codice lotteria non deve superare 8 caratteri.")
-    .nullable()
-    .optional(),
-});
+const submitReceiptSchema = z
+  .object({
+    businessId: z.string().min(1, "Business ID obbligatorio."),
+    lines: z.array(lineSchema).min(1).max(100),
+    paymentMethod: z.enum(["PC", "PE"]),
+    idempotencyKey: z.string().uuid(),
+    // Format-validated only when paymentMethod === "PE" — see refineLotteryCode.
+    lotteryCode: z.string().nullable().optional(),
+  })
+  .superRefine(refineLotteryCode);
 
 // Rate limit: 30 receipts per hour per user (per-user key, not per-IP)
 const receiptLimiter = new RateLimiter({

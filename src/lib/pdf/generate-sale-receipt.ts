@@ -67,6 +67,44 @@ export function computeVatAmount(
   return lineTotalGross - lineTotalGross / (1 + rate / 100);
 }
 
+/**
+ * Mutates `acc` by adding the VAT cents for `line` under its vatCode key.
+ * Skips N-codes (rate 0 / NaN) and zero-VAT cases. Extracted out of the main
+ * generator to keep its cognitive complexity below SonarCloud's threshold.
+ */
+function accumulateVatCents(
+  acc: Map<string, number>,
+  vatCode: string,
+  lineTotalCents: number,
+): void {
+  const rate = Number.parseFloat(vatCode);
+  if (Number.isNaN(rate) || rate === 0) return;
+  const netCents = Math.round(lineTotalCents / (1 + rate / 100));
+  const vatCents = lineTotalCents - netCents;
+  if (vatCents <= 0) return;
+  acc.set(vatCode, (acc.get(vatCode) ?? 0) + vatCents);
+}
+
+/** Converts a cents-keyed Map to a euros-keyed Map (1 cent = 0.01 €). */
+function centsMapToEuros(
+  cents: ReadonlyMap<string, number>,
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const [k, v] of cents.entries()) out.set(k, v / 100);
+  return out;
+}
+
+/**
+ * Renders the line description for the PDF. For quantities ≠ 1, appends
+ * a second row "n.Q × unit_price" so the customer sees the breakdown.
+ */
+function renderLineDescription(line: SaleReceiptLine): string {
+  if (line.quantity === 1) return line.description;
+  const qtyDisplay =
+    line.quantity % 1 === 0 ? Math.round(line.quantity) : line.quantity;
+  return `${line.description}\nn.${qtyDisplay} × ${formatReceiptPrice(line.grossUnitPrice)}`;
+}
+
 /** Estimates the page height based on number of lines, VAT rates and optional lottery code row.
  *
  * Calibrated empirically: fixed overhead ≈ 140pt (header + title + separators +
@@ -189,31 +227,22 @@ export function generateSaleReceiptPdf(
     });
     y = doc.y + 2;
 
-    let grandTotal = 0;
-    const vatByCode: Map<string, number> = new Map();
+    // Cents-based integer math: keeps the PDF's grandTotal and VAT split
+    // numerically identical to the public web page (computeReceiptTotals).
+    let grandTotalCents = 0;
+    const vatByCodeCents: Map<string, number> = new Map();
 
     for (const line of data.lines) {
-      const qty = line.quantity;
-      const price = line.grossUnitPrice;
-      const lineTotal = qty * price;
-      grandTotal += lineTotal;
-
-      // Accumulate VAT by code
-      const existingVat = vatByCode.get(line.vatCode) ?? 0;
-      vatByCode.set(
-        line.vatCode,
-        existingVat + computeVatAmount(lineTotal, line.vatCode),
+      const lineTotalCents = Math.round(
+        line.quantity * line.grossUnitPrice * 100,
       );
+      grandTotalCents += lineTotalCents;
+      accumulateVatCents(vatByCodeCents, line.vatCode, lineTotalCents);
 
+      const lineTotal = lineTotalCents / 100;
       const vatLabel = vatLabelOf(line.vatCode);
       const priceDisplay = formatReceiptPrice(lineTotal);
-
-      // For quantities > 1: show "n.Q × unit_price"
-      const hasMultipleQty = qty !== 1;
-      const qtyDisplay = qty % 1 === 0 ? Math.round(qty) : qty;
-      const descDisplay = hasMultipleQty
-        ? `${line.description}\nn.${qtyDisplay} × ${formatReceiptPrice(price)}`
-        : line.description;
+      const descDisplay = renderLineDescription(line);
 
       const rowStartY = y;
       doc.font("Helvetica").fontSize(6.5);
@@ -234,6 +263,9 @@ export function generateSaleReceiptPdf(
 
       y = Math.max(afterDescY, rowStartY + 10) + 2;
     }
+
+    const grandTotal = grandTotalCents / 100;
+    const vatByCode = centsMapToEuros(vatByCodeCents);
 
     drawSeparator();
 
