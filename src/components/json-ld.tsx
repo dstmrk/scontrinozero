@@ -9,9 +9,9 @@ import { faqItems } from "@/components/marketing/faq-items";
  */
 function safeJsonLd(data: Record<string, unknown>): string {
   return JSON.stringify(data)
-    .replace(/</g, "\\u003c")
-    .replace(/>/g, "\\u003e")
-    .replace(/&/g, "\\u0026");
+    .replaceAll("<", String.raw`\u003c`)
+    .replaceAll(">", String.raw`\u003e`)
+    .replaceAll("&", String.raw`\u0026`);
 }
 
 export function JsonLd({ data }: { readonly data: Record<string, unknown> }) {
