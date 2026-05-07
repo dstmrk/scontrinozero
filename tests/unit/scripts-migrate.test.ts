@@ -290,7 +290,13 @@ describe("runMigrations()", () => {
       .mockResolvedValueOnce(undefined) // CREATE TABLE
       .mockResolvedValueOnce(undefined) // ALTER TABLE ADD COLUMN
       .mockResolvedValueOnce([]) // SELECT: vuota
-      .mockResolvedValueOnce([{ exists: false }]); // pg_type: fresh install
+      // Fresh install: type assente + tutte le tabelle assenti
+      .mockResolvedValueOnce([{ exists: false }]) // type:document_kind
+      .mockResolvedValueOnce([{ exists: false }]) // table:profiles
+      .mockResolvedValueOnce([{ exists: false }]) // table:businesses
+      .mockResolvedValueOnce([{ exists: false }]) // table:commercial_documents
+      .mockResolvedValueOnce([{ exists: false }]) // table:commercial_document_lines
+      .mockResolvedValueOnce([{ exists: false }]); // table:ade_credentials
     mockSqlBegin.mockRejectedValueOnce(new Error("TX failed"));
 
     await expect(runMigrations()).rejects.toThrow("TX failed");
@@ -315,7 +321,7 @@ describe("runMigrations()", () => {
     await expect(runMigrations()).rejects.toThrow("0001_init.sql");
   });
 
-  it("bootstrap: segna tutte le migrazioni come applicate senza eseguirle quando la tabella è vuota ma lo schema esiste già", async () => {
+  it("bootstrap: segna tutte le migrazioni come applicate quando TUTTE le invarianti core sono presenti", async () => {
     process.env.DATABASE_URL =
       "postgresql://user:pass@host.example.com:5432/db";
     mockReaddir.mockResolvedValue([
@@ -326,7 +332,13 @@ describe("runMigrations()", () => {
       .mockResolvedValueOnce(undefined) // CREATE TABLE
       .mockResolvedValueOnce(undefined) // ALTER TABLE ADD COLUMN
       .mockResolvedValueOnce([]) // SELECT: vuota → candidato bootstrap
-      .mockResolvedValueOnce([{ exists: true }]) // pg_type: schema esiste
+      // Tutte le 6 invarianti presenti
+      .mockResolvedValueOnce([{ exists: true }]) // type:document_kind
+      .mockResolvedValueOnce([{ exists: true }]) // table:profiles
+      .mockResolvedValueOnce([{ exists: true }]) // table:businesses
+      .mockResolvedValueOnce([{ exists: true }]) // table:commercial_documents
+      .mockResolvedValueOnce([{ exists: true }]) // table:commercial_document_lines
+      .mockResolvedValueOnce([{ exists: true }]) // table:ade_credentials
       .mockResolvedValueOnce(undefined) // INSERT 0000_initial.sql
       .mockResolvedValueOnce(undefined); // INSERT 0001_rls.sql
 
@@ -338,7 +350,7 @@ describe("runMigrations()", () => {
     expect(mockReadFile).toHaveBeenCalledTimes(2);
   });
 
-  it("non attiva il bootstrap quando la tabella è vuota e lo schema non esiste ancora (fresh install)", async () => {
+  it("non attiva il bootstrap quando la tabella è vuota e nessuna invariante è presente (fresh install)", async () => {
     process.env.DATABASE_URL =
       "postgresql://user:pass@host.example.com:5432/db";
     mockReaddir.mockResolvedValue([
@@ -348,12 +360,47 @@ describe("runMigrations()", () => {
       .mockResolvedValueOnce(undefined) // CREATE TABLE
       .mockResolvedValueOnce(undefined) // ALTER TABLE ADD COLUMN
       .mockResolvedValueOnce([]) // SELECT: vuota
-      .mockResolvedValueOnce([{ exists: false }]); // pg_type: schema non esiste
+      // Tutte le invarianti assenti → fresh install
+      .mockResolvedValueOnce([{ exists: false }]) // type:document_kind
+      .mockResolvedValueOnce([{ exists: false }]) // table:profiles
+      .mockResolvedValueOnce([{ exists: false }]) // table:businesses
+      .mockResolvedValueOnce([{ exists: false }]) // table:commercial_documents
+      .mockResolvedValueOnce([{ exists: false }]) // table:commercial_document_lines
+      .mockResolvedValueOnce([{ exists: false }]); // table:ade_credentials
 
     await runMigrations();
 
     // Fresh install → esegue normalmente la migrazione via transaction
     expect(mockSqlBegin).toHaveBeenCalledTimes(1);
+  });
+
+  it("bootstrap: fail hard se il tipo enum esiste ma alcune tabelle core mancano (schema parziale)", async () => {
+    process.env.DATABASE_URL =
+      "postgresql://user:pass@host.example.com:5432/db";
+    mockReaddir.mockResolvedValue([
+      { name: "0000_initial.sql", isFile: () => true },
+    ]);
+    mockSqlTag
+      .mockResolvedValueOnce(undefined) // CREATE TABLE
+      .mockResolvedValueOnce(undefined) // ALTER TABLE ADD COLUMN
+      .mockResolvedValueOnce([]) // SELECT: vuota
+      // Schema parzialmente presente: tipo + alcune tabelle, altre mancanti
+      .mockResolvedValueOnce([{ exists: true }]) // type:document_kind
+      .mockResolvedValueOnce([{ exists: true }]) // table:profiles
+      .mockResolvedValueOnce([{ exists: true }]) // table:businesses
+      .mockResolvedValueOnce([{ exists: false }]) // table:commercial_documents (MISSING)
+      .mockResolvedValueOnce([{ exists: false }]) // table:commercial_document_lines (MISSING)
+      .mockResolvedValueOnce([{ exists: false }]); // table:ade_credentials (MISSING)
+
+    await expect(runMigrations()).rejects.toThrow(
+      /partially initialised|partially initialized|aborted/i,
+    );
+
+    // Niente transazione, niente INSERT bootstrap su schema parziale
+    expect(mockSqlBegin).not.toHaveBeenCalled();
+    expect(mockReadFile).not.toHaveBeenCalled();
+    // Connessione comunque chiusa nel finally
+    expect(mockSqlEnd).toHaveBeenCalled();
   });
 
   it("include il checksum SHA-256 nel record quando applica una nuova migrazione", async () => {
@@ -362,12 +409,17 @@ describe("runMigrations()", () => {
     mockReaddir.mockResolvedValue([
       { name: "0001_init.sql", isFile: () => true },
     ]);
-    // No applied migrations
+    // No applied migrations + fresh install (nessuna invariante presente)
     mockSqlTag
       .mockResolvedValueOnce(undefined) // CREATE TABLE
       .mockResolvedValueOnce(undefined) // ALTER TABLE ADD COLUMN
       .mockResolvedValueOnce([]) // SELECT: vuota
-      .mockResolvedValueOnce([{ exists: false }]); // pg_type: fresh install
+      .mockResolvedValueOnce([{ exists: false }]) // type:document_kind
+      .mockResolvedValueOnce([{ exists: false }]) // table:profiles
+      .mockResolvedValueOnce([{ exists: false }]) // table:businesses
+      .mockResolvedValueOnce([{ exists: false }]) // table:commercial_documents
+      .mockResolvedValueOnce([{ exists: false }]) // table:commercial_document_lines
+      .mockResolvedValueOnce([{ exists: false }]); // table:ade_credentials
 
     await runMigrations();
 

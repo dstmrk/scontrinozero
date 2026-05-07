@@ -43,6 +43,66 @@ export async function toIPv4Url(connectionString: string): Promise<string> {
   }
 }
 
+/**
+ * Core schema invariants that must ALL be present for bootstrap to be safe.
+ * If only some are present, the schema is partially initialised and we abort
+ * rather than silently mark every migration as applied.
+ */
+const REQUIRED_TYPES = ["document_kind"] as const;
+const REQUIRED_TABLES = [
+  "profiles",
+  "businesses",
+  "commercial_documents",
+  "commercial_document_lines",
+  "ade_credentials",
+] as const;
+
+export interface SchemaInvariantResult {
+  /** Names of objects (types + tables) found in the database. */
+  present: string[];
+  /** Names of objects (types + tables) NOT found in the database. */
+  missing: string[];
+  /** True only when every required type and table is present. */
+  allPresent: boolean;
+  /** True when at least one required object is present and at least one is missing. */
+  partiallyPresent: boolean;
+}
+
+export async function checkSchemaInvariants(
+  sql: postgres.Sql,
+): Promise<SchemaInvariantResult> {
+  const present: string[] = [];
+  const missing: string[] = [];
+
+  for (const typename of REQUIRED_TYPES) {
+    const [{ exists }] = await sql<[{ exists: boolean }]>`
+      SELECT EXISTS(
+        SELECT 1 FROM pg_type
+        WHERE typname = ${typename}
+          AND typnamespace = 'public'::regnamespace
+      ) AS exists
+    `;
+    (exists ? present : missing).push(`type:${typename}`);
+  }
+
+  for (const tablename of REQUIRED_TABLES) {
+    const [{ exists }] = await sql<[{ exists: boolean }]>`
+      SELECT EXISTS(
+        SELECT 1 FROM pg_tables
+        WHERE schemaname = 'public' AND tablename = ${tablename}
+      ) AS exists
+    `;
+    (exists ? present : missing).push(`table:${tablename}`);
+  }
+
+  return {
+    present,
+    missing,
+    allPresent: missing.length === 0,
+    partiallyPresent: present.length > 0 && missing.length > 0,
+  };
+}
+
 export async function runMigrations() {
   if (process.env.SKIP_MIGRATIONS === "true") {
     console.log("SKIP_MIGRATIONS=true — skipping DB migrations.");
@@ -92,15 +152,16 @@ export async function runMigrations() {
     // (DB inizializzato prima dell'introduzione del migration runner, es. via
     // drizzle-kit o Supabase dashboard), segna tutte le migrazioni come
     // applicate senza rieseguirle. Evita il crash loop "type already exists".
+    //
+    // Sicurezza: una sola sentinel (es. `document_kind`) è insufficiente perché
+    // un DB parzialmente inizializzato (oggetti creati a mano, restore parziale)
+    // farebbe falso positivo, marcando "applied" su uno schema in realtà
+    // incompleto. Verifichiamo l'intero set di invarianti core (tipo enum + 5
+    // tabelle critiche): presenti TUTTI → bootstrap legittimo; presenti SOLO
+    // alcuni → drift, fail hard con report degli oggetti mancanti.
     if (applied.size === 0 && sqlFiles.length > 0) {
-      const [{ exists }] = await sql<[{ exists: boolean }]>`
-        SELECT EXISTS(
-          SELECT 1 FROM pg_type
-          WHERE typname = 'document_kind'
-            AND typnamespace = 'public'::regnamespace
-        ) AS exists
-      `;
-      if (exists) {
+      const invariants = await checkSchemaInvariants(sql);
+      if (invariants.allPresent) {
         console.log(
           "Bootstrap: schema already exists but no migrations are tracked. " +
             "Marking all migrations as applied without re-running them.",
@@ -121,6 +182,15 @@ export async function runMigrations() {
           `Bootstrap complete: ${sqlFiles.length} migrations marked as applied.`,
         );
         return;
+      }
+      if (invariants.partiallyPresent) {
+        throw new Error(
+          `Migration bootstrap aborted: __applied_migrations is empty but the schema is only partially initialised. ` +
+            `Present: [${invariants.present.join(", ")}]. ` +
+            `Missing: [${invariants.missing.join(", ")}]. ` +
+            `Refusing to mark migrations as applied on an incomplete schema. ` +
+            `Resolve manually before retrying (see CLAUDE.md regola 14).`,
+        );
       }
     }
 
