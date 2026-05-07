@@ -1,6 +1,6 @@
 "use server";
 
-import { createElement } from "react";
+import { cache, createElement } from "react";
 import { revalidatePath } from "next/cache";
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
@@ -17,7 +17,7 @@ import {
   AdeError,
   AdePasswordExpiredError,
 } from "@/lib/ade/errors";
-import { RateLimiter } from "@/lib/rate-limit";
+import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { sendEmail } from "@/lib/email";
 import { WelcomeEmail } from "@/emails/welcome";
@@ -25,7 +25,17 @@ import {
   getAuthenticatedUser,
   checkBusinessOwnership,
 } from "@/lib/server-auth";
-import { adePinSchema } from "@/lib/validation";
+import {
+  adePinSchema,
+  isValidItalianZipCode,
+  ITALIAN_ZIP_MESSAGE,
+} from "@/lib/validation";
+import { ERROR_MESSAGES } from "@/lib/error-messages";
+import {
+  getFormString,
+  getFormStringOrNull,
+  getFormStringRaw,
+} from "@/lib/form-utils";
 
 function isUniqueConstraintViolation(err: unknown): boolean {
   return (
@@ -44,7 +54,7 @@ export type OnboardingActionResult = {
 
 const changePasswordLimiter = new RateLimiter({
   maxRequests: 5,
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: RATE_LIMIT_WINDOWS.AUTH_15_MIN,
 });
 
 export type OnboardingStatus = {
@@ -60,16 +70,15 @@ export async function saveBusiness(
 ): Promise<OnboardingActionResult> {
   const user = await getAuthenticatedUser();
 
-  const firstName = (formData.get("firstName") as string)?.trim();
-  const lastName = (formData.get("lastName") as string)?.trim();
-  const businessName = (formData.get("businessName") as string)?.trim() || null;
-  const address = (formData.get("address") as string)?.trim();
-  const streetNumber = (formData.get("streetNumber") as string)?.trim() || null;
-  const zipCode = (formData.get("zipCode") as string)?.trim();
-  const city = (formData.get("city") as string)?.trim() || null;
-  const province = (formData.get("province") as string)?.trim() || null;
-  const preferredVatCode =
-    (formData.get("preferredVatCode") as string)?.trim() || null;
+  const firstName = getFormString(formData, "firstName");
+  const lastName = getFormString(formData, "lastName");
+  const businessName = getFormStringOrNull(formData, "businessName");
+  const address = getFormString(formData, "address");
+  const streetNumber = getFormStringOrNull(formData, "streetNumber");
+  const zipCode = getFormString(formData, "zipCode");
+  const city = getFormStringOrNull(formData, "city");
+  const province = getFormStringOrNull(formData, "province");
+  const preferredVatCode = getFormStringOrNull(formData, "preferredVatCode");
 
   if (!firstName) {
     return { error: "Il nome è obbligatorio." };
@@ -98,8 +107,8 @@ export async function saveBusiness(
   if (province && province.length > 3) {
     return { error: "La provincia non può superare 3 caratteri." };
   }
-  if (!zipCode || !/^\d{5}$/.test(zipCode)) {
-    return { error: "CAP non valido (5 cifre numeriche)." };
+  if (!isValidItalianZipCode(zipCode)) {
+    return { error: ITALIAN_ZIP_MESSAGE };
   }
 
   const db = getDb();
@@ -173,21 +182,26 @@ export async function saveAdeCredentials(
 ): Promise<OnboardingActionResult> {
   const user = await getAuthenticatedUser();
 
-  const businessId = formData.get("businessId") as string;
-  const codiceFiscale = (formData.get("codiceFiscale") as string)?.trim();
-  const password = formData.get("password") as string;
-  const pin = (formData.get("pin") as string)?.trim();
+  const businessId = getFormString(formData, "businessId");
+  const codiceFiscale = getFormString(formData, "codiceFiscale");
+  // La password Fisconline è una credenziale opaca (regole AdE: 8–15 char,
+  // charset misto). Non trimmare: ogni byte ha significato semantico —
+  // lo stesso principio della password app.
+  const password = getFormStringRaw(formData, "password");
+  // PIN già validato a regex `^\d{10}$`: trimming è sicuro perché
+  // qualsiasi whitespace verrebbe comunque rifiutato dallo schema.
+  const pin = getFormString(formData, "pin");
 
   if (!businessId) {
     return { error: "Business ID mancante." };
   }
-  if (codiceFiscale?.length !== 16) {
+  if (codiceFiscale.length !== 16) {
     return { error: "Codice fiscale non valido (16 caratteri)." };
   }
   if (!password) {
     return { error: "Password Fisconline obbligatoria." };
   }
-  const pinResult = adePinSchema.safeParse(pin ?? "");
+  const pinResult = adePinSchema.safeParse(pin);
   if (!pinResult.success) {
     return {
       error: pinResult.error.issues[0]?.message ?? "PIN Fisconline non valido.",
@@ -206,33 +220,29 @@ export async function saveAdeCredentials(
 
   const db = getDb();
 
-  // Upsert credentials
-  const [existing] = await db
-    .select()
-    .from(adeCredentials)
-    .where(eq(adeCredentials.businessId, businessId))
-    .limit(1);
-
-  if (existing) {
-    await db
-      .update(adeCredentials)
-      .set({
-        encryptedCodiceFiscale,
-        encryptedPassword,
-        encryptedPin,
-        keyVersion,
-        verifiedAt: null, // Reset verification on credential change
-      })
-      .where(eq(adeCredentials.id, existing.id));
-  } else {
-    await db.insert(adeCredentials).values({
+  // Atomic upsert per evitare race condition (doppio submit del form, retry
+  // di rete) — il vincolo UNIQUE su business_id garantisce 1:1.
+  // verifiedAt: null al re-insert E al conflict update — credenziali nuove
+  // non sono ancora state verificate contro AdE.
+  await db
+    .insert(adeCredentials)
+    .values({
       businessId,
       encryptedCodiceFiscale,
       encryptedPassword,
       encryptedPin,
       keyVersion,
+    })
+    .onConflictDoUpdate({
+      target: adeCredentials.businessId,
+      set: {
+        encryptedCodiceFiscale,
+        encryptedPassword,
+        encryptedPin,
+        keyVersion,
+        verifiedAt: null,
+      },
     });
-  }
 
   logger.info({ businessId }, "ADE credentials updated");
 
@@ -371,54 +381,63 @@ export async function verifyAdeCredentials(
   return { businessId };
 }
 
-export async function getOnboardingStatus(): Promise<OnboardingStatus> {
-  const user = await getAuthenticatedUser();
-  const db = getDb();
+/**
+ * Restituisce lo stato di onboarding dell'utente con un'unica query JOIN
+ * (profile → business → credentials) anziché 3 query sequenziali.
+ *
+ * `cache()` di React deduplicaza le chiamate nello stesso render tree RSC:
+ * `dashboard/layout.tsx` + `dashboard/<segment>/page.tsx` ora condividono
+ * la stessa risposta invece di colpire il DB due volte. Combinato con il
+ * JOIN, una page navigation dashboard scende da 6 query a 1.
+ *
+ * Nota CLAUDE.md: `cache()` non deduplicaza tra Route Handler e RSC, ma qui
+ * tutti i caller sono RSC nello stesso request — funziona.
+ */
+export const getOnboardingStatus = cache(
+  async (): Promise<OnboardingStatus> => {
+    const user = await getAuthenticatedUser();
+    const db = getDb();
 
-  const [profile] = await db
-    .select()
-    .from(profiles)
-    .where(eq(profiles.authUserId, user.id))
-    .limit(1);
+    const [row] = await db
+      .select({
+        profileId: profiles.id,
+        businessId: businesses.id,
+        hasCredentials: sql<boolean>`(${adeCredentials.id} is not null)`,
+        credentialsVerified: sql<boolean>`(${adeCredentials.verifiedAt} is not null)`,
+      })
+      .from(profiles)
+      .leftJoin(businesses, eq(businesses.profileId, profiles.id))
+      .leftJoin(adeCredentials, eq(adeCredentials.businessId, businesses.id))
+      .where(eq(profiles.authUserId, user.id))
+      .limit(1);
 
-  if (!profile) {
-    return {
-      hasProfile: false,
-      hasBusiness: false,
-      hasCredentials: false,
-      credentialsVerified: false,
-    };
-  }
+    if (!row) {
+      return {
+        hasProfile: false,
+        hasBusiness: false,
+        hasCredentials: false,
+        credentialsVerified: false,
+      };
+    }
 
-  const [business] = await db
-    .select()
-    .from(businesses)
-    .where(eq(businesses.profileId, profile.id))
-    .limit(1);
+    if (!row.businessId) {
+      return {
+        hasProfile: true,
+        hasBusiness: false,
+        hasCredentials: false,
+        credentialsVerified: false,
+      };
+    }
 
-  if (!business) {
     return {
       hasProfile: true,
-      hasBusiness: false,
-      hasCredentials: false,
-      credentialsVerified: false,
+      hasBusiness: true,
+      businessId: row.businessId,
+      hasCredentials: row.hasCredentials,
+      credentialsVerified: row.credentialsVerified,
     };
-  }
-
-  const [cred] = await db
-    .select()
-    .from(adeCredentials)
-    .where(eq(adeCredentials.businessId, business.id))
-    .limit(1);
-
-  return {
-    hasProfile: true,
-    hasBusiness: true,
-    businessId: business.id,
-    hasCredentials: !!cred,
-    credentialsVerified: !!cred?.verifiedAt,
-  };
-}
+  },
+);
 
 const ADE_PASSWORD_REGEX = /^[a-zA-Z0-9*+§°ç@^?=)(/&%$£!|\\<>]{8,15}$/;
 
@@ -438,7 +457,7 @@ export async function changeAdePassword(
   );
   if (!rateLimitResult.success) {
     logger.warn({ userId: user.id }, "changeAdePassword rate limit exceeded");
-    return { error: "Troppi tentativi. Riprova tra qualche minuto." };
+    return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
   }
 
   if (!ADE_PASSWORD_REGEX.test(newPassword)) {

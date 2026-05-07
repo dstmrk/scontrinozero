@@ -27,6 +27,7 @@ vi.mock("@/lib/rate-limit", () => ({
   RateLimiter: vi.fn().mockImplementation(function () {
     return { check: vi.fn() };
   }),
+  RATE_LIMIT_WINDOWS: { AUTH_15_MIN: 15 * 60 * 1000, HOURLY: 60 * 60 * 1000 },
 }));
 
 vi.mock("@/lib/logger", () => ({

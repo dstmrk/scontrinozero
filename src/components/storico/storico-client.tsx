@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   STORICO_PAGE_SIZE,
   type ReceiptListItem,
@@ -28,26 +29,11 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatDate(date: Date): string {
-  return new Date(date).toLocaleDateString("it-IT", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-  });
-}
-
 function formatProgressive(progressive: string | null): string {
   if (!progressive) return "—";
   const slashIndex = progressive.indexOf("/");
   if (slashIndex === -1) return progressive;
   return progressive.slice(slashIndex + 1);
-}
-
-function formatCurrency(amount: string): string {
-  return new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR",
-  }).format(Number.parseFloat(amount));
 }
 
 function StatusBadge({

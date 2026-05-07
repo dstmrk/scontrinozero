@@ -8,9 +8,7 @@ import {
 import type { SelectCommercialDocument } from "@/db/schema/commercial-documents";
 import type { SelectBusiness } from "@/db/schema/businesses";
 import type { SelectCommercialDocumentLine } from "@/db/schema/commercial-document-lines";
-
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isValidUuid } from "@/lib/uuid";
 
 export interface PublicReceiptData {
   doc: SelectCommercialDocument;
@@ -30,7 +28,7 @@ export interface PublicReceiptData {
 export async function fetchPublicReceipt(
   documentId: string,
 ): Promise<PublicReceiptData | null> {
-  if (!UUID_REGEX.test(documentId)) return null;
+  if (!isValidUuid(documentId)) return null;
 
   const db = getDb();
 

@@ -279,15 +279,18 @@ describe("searchReceipts server action", () => {
   // ── Auth / ownership ──────────────────────────────────────────────────────
 
   describe("auth and ownership", () => {
-    it("throws when user is not owner of business", async () => {
+    it("ritorna error envelope quando l'utente non è owner del business", async () => {
       mockCheckBusinessOwnership.mockResolvedValue({
         error: "Non autorizzato.",
         status: 403,
       });
 
       const { searchReceipts } = await import("@/server/storico-actions");
+      const result = await searchReceipts(BIZ_ID);
 
-      await expect(searchReceipts(BIZ_ID)).rejects.toThrow("Non autorizzato.");
+      expect(result.error).toBe("Non autorizzato.");
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
     });
 
     it("returns result when user is authorized", async () => {

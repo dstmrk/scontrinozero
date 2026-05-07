@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { TEST_BUSINESS_ID, TEST_IDEMPOTENCY_KEY } from "../_helpers/fixtures";
 
 // --- Mocks ---
 
@@ -34,6 +35,7 @@ vi.mock("@/lib/rate-limit", () => ({
   RateLimiter: vi.fn().mockImplementation(function () {
     return { check: mockRateLimiterCheck };
   }),
+  RATE_LIMIT_WINDOWS: { AUTH_15_MIN: 15 * 60 * 1000, HOURLY: 60 * 60 * 1000 },
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -42,8 +44,8 @@ vi.mock("@/lib/logger", () => ({
 
 // --- Helpers ---
 
-const VALID_UUID = "550e8400-e29b-41d4-a716-446655440000";
-const VALID_IDEMPOTENCY_KEY = "660e8400-e29b-41d4-a716-446655440001";
+const VALID_UUID = TEST_BUSINESS_ID;
+const VALID_IDEMPOTENCY_KEY = TEST_IDEMPOTENCY_KEY;
 
 function makeRequest(
   id: string,

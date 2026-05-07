@@ -5,12 +5,13 @@ import { afterEach, describe, it, expect, vi } from "vitest";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const { mockLoggerWarn } = vi.hoisted(() => ({
+const { mockLoggerWarn, mockLoggerError } = vi.hoisted(() => ({
   mockLoggerWarn: vi.fn(),
+  mockLoggerError: vi.fn(),
 }));
 
 vi.mock("@/lib/logger", () => ({
-  logger: { warn: mockLoggerWarn },
+  logger: { warn: mockLoggerWarn, error: mockLoggerError },
 }));
 
 // ---------------------------------------------------------------------------
@@ -99,22 +100,26 @@ describe("getClientIp", () => {
       expect(getClientIp(headers)).toBe("1.2.3.4");
     });
 
-    it("logga un warning in produzione quando CF-Connecting-IP è assente", () => {
+    it("emette logger.error con critical:true in produzione quando CF-Connecting-IP è assente", () => {
       vi.stubEnv("NODE_ENV", "production");
       const headers = makeHeaders({ "x-forwarded-for": "attacker-ip" });
       getClientIp(headers);
-      expect(mockLoggerWarn).toHaveBeenCalledWith(
+      // pino logMethod hook inoltra a Sentry solo level >= 50 (error).
+      // Il warning storico non triggerava Sentry.
+      expect(mockLoggerError).toHaveBeenCalledWith(
+        { critical: true },
         expect.stringContaining(
           "CF-Connecting-IP header missing in production",
         ),
       );
+      expect(mockLoggerWarn).not.toHaveBeenCalled();
     });
 
-    it("non logga warning in produzione quando CF-Connecting-IP è presente", () => {
+    it("non logga error in produzione quando CF-Connecting-IP è presente", () => {
       vi.stubEnv("NODE_ENV", "production");
       const headers = makeHeaders({ "cf-connecting-ip": "1.2.3.4" });
       getClientIp(headers);
-      expect(mockLoggerWarn).not.toHaveBeenCalled();
+      expect(mockLoggerError).not.toHaveBeenCalled();
     });
   });
 });

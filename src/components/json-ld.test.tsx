@@ -25,6 +25,25 @@ describe("JsonLd component", () => {
     expect(html).toContain('"SoftwareApplication"');
     expect(html).toContain('"TestApp"');
   });
+
+  it("escapes </script> sequences to prevent script-tag breakout", () => {
+    const data = {
+      name: "</script><script>alert(1)</script>",
+    };
+    const html = renderToStaticMarkup(createElement(JsonLd, { data }));
+    const closings = html.match(/<\/script>/g) ?? [];
+    expect(closings.length).toBe(1);
+    expect(html).toContain("\\u003c/script\\u003e");
+  });
+
+  it("escapes < > & even when inside legitimate values", () => {
+    const data = { description: "A & B < C > D" };
+    const html = renderToStaticMarkup(createElement(JsonLd, { data }));
+    expect(html).not.toContain("A & B < C > D");
+    expect(html).toContain("\\u0026");
+    expect(html).toContain("\\u003c");
+    expect(html).toContain("\\u003e");
+  });
 });
 
 describe("softwareApplicationJsonLd", () => {

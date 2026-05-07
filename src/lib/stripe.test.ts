@@ -169,3 +169,39 @@ describe("intervalFromPriceId", () => {
     expect(intervalFromPriceId("price_unknown")).toBeNull();
   });
 });
+
+describe("PRICE_IDS fail-fast", () => {
+  let PRICE_IDS: { readonly starterMonthly: string };
+
+  afterEach(() => {
+    delete process.env.STRIPE_PRICE_STARTER_MONTHLY;
+    delete process.env.STRIPE_PRICE_STARTER_YEARLY;
+    delete process.env.STRIPE_PRICE_PRO_MONTHLY;
+    delete process.env.STRIPE_PRICE_PRO_YEARLY;
+  });
+
+  it("throws when STRIPE_PRICE_STARTER_MONTHLY is missing", async () => {
+    vi.resetModules();
+    delete process.env.STRIPE_PRICE_STARTER_MONTHLY;
+    ({ PRICE_IDS } = await import("./stripe"));
+    expect(() => PRICE_IDS.starterMonthly).toThrow(
+      /STRIPE_PRICE_STARTER_MONTHLY/,
+    );
+  });
+
+  it("throws when STRIPE_PRICE_STARTER_MONTHLY is empty string", async () => {
+    vi.resetModules();
+    process.env.STRIPE_PRICE_STARTER_MONTHLY = "";
+    ({ PRICE_IDS } = await import("./stripe"));
+    expect(() => PRICE_IDS.starterMonthly).toThrow(
+      /STRIPE_PRICE_STARTER_MONTHLY/,
+    );
+  });
+
+  it("returns the configured value when env is set", async () => {
+    vi.resetModules();
+    process.env.STRIPE_PRICE_STARTER_MONTHLY = "price_test_xyz";
+    ({ PRICE_IDS } = await import("./stripe"));
+    expect(PRICE_IDS.starterMonthly).toBe("price_test_xyz");
+  });
+});

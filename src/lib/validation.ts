@@ -61,6 +61,23 @@ export const adePinSchema = z
   );
 
 /**
+ * CAP italiano: esattamente 5 cifre numeriche.
+ */
+export const ITALIAN_ZIP_REGEX = /^\d{5}$/;
+export const ITALIAN_ZIP_MESSAGE = "CAP non valido (5 cifre numeriche).";
+
+export function isValidItalianZipCode(zipCode: string): boolean {
+  return ITALIAN_ZIP_REGEX.test(zipCode);
+}
+
+/**
+ * Zod schema riusabile per il CAP italiano (server + client).
+ */
+export const italianZipCodeSchema = z
+  .string()
+  .regex(ITALIAN_ZIP_REGEX, ITALIAN_ZIP_MESSAGE);
+
+/**
  * Validates email format using linear-time string checks (no regex backtracking).
  * This is a structural check, not RFC 5322 compliance — real validation
  * happens when the confirmation email is delivered.

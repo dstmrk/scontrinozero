@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { RateLimiter } from "./rate-limit";
+import { RateLimiter, RATE_LIMIT_WINDOWS } from "./rate-limit";
 
 describe("RateLimiter", () => {
   let limiter: RateLimiter;
@@ -107,5 +107,45 @@ describe("RateLimiter", () => {
     vi.advanceTimersByTime(200);
 
     expect(limiter.size).toBe(0);
+  });
+
+  it("enforces maxKeys cap with FIFO eviction", () => {
+    limiter = new RateLimiter({
+      maxRequests: 5,
+      windowMs: 60_000,
+      maxKeys: 3,
+    });
+
+    limiter.check("a");
+    limiter.check("b");
+    limiter.check("c");
+    expect(limiter.size).toBe(3);
+
+    limiter.check("d");
+    expect(limiter.size).toBe(3);
+
+    const aFresh = limiter.check("a");
+    expect(aFresh.success).toBe(true);
+    expect(aFresh.remaining).toBe(4);
+  });
+
+  it("does not double-count when re-checking an existing key under the cap", () => {
+    limiter = new RateLimiter({
+      maxRequests: 5,
+      windowMs: 60_000,
+      maxKeys: 2,
+    });
+
+    limiter.check("a");
+    limiter.check("b");
+    limiter.check("a");
+    expect(limiter.size).toBe(2);
+  });
+});
+
+describe("RATE_LIMIT_WINDOWS", () => {
+  it("expone le finestre canoniche", () => {
+    expect(RATE_LIMIT_WINDOWS.AUTH_15_MIN).toBe(15 * 60 * 1000);
+    expect(RATE_LIMIT_WINDOWS.HOURLY).toBe(60 * 60 * 1000);
   });
 });

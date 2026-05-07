@@ -26,11 +26,14 @@ export function getClientIp(headers: Headers): string {
 
   // In production: trust only CF-Connecting-IP. If it's absent (Cloudflare
   // misconfiguration), return "unknown" rather than fall back to the
-  // spoofable X-Forwarded-For header. Log a warning so ops can detect the
-  // misconfiguration quickly (all rate-limit buckets would otherwise share
-  // the same "unknown" key, making per-IP limiting ineffective).
+  // spoofable X-Forwarded-For header. Promuoviamo a logger.error con
+  // critical: true: il pino logMethod hook (level >= 50) inoltra a Sentry
+  // solo gli error, non i warn. Senza questo segnale ops scopre la
+  // misconfig solo dopo un'ondata di abuso (tutti i bucket rate-limit
+  // per-IP collassano sulla stessa chiave "unknown").
   if (process.env.NODE_ENV === "production") {
-    logger.warn(
+    logger.error(
+      { critical: true },
       "CF-Connecting-IP header missing in production — Cloudflare misconfiguration? Rate-limit buckets will be shared under 'unknown'",
     );
     return "unknown";

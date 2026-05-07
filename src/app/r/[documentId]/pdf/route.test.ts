@@ -1,5 +1,11 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import {
+  TEST_BUSINESS_ID,
+  INVALID_UUID,
+} from "../../../../../tests/_helpers/fixtures";
+
+const VALID_DOC_ID = TEST_BUSINESS_ID;
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -56,24 +62,24 @@ describe("GET /r/[documentId]/pdf (public)", () => {
   it("ritorna 404 se fetchPublicReceipt ritorna null", async () => {
     mockFetchPublicReceipt.mockResolvedValueOnce(null);
 
-    const res = await GET(makeRequest("doc-456"), {
-      params: Promise.resolve({ documentId: "doc-456" }),
+    const res = await GET(makeRequest(VALID_DOC_ID), {
+      params: Promise.resolve({ documentId: VALID_DOC_ID }),
     });
 
     expect(res.status).toBe(404);
   });
 
   it("delega a generatePdfResponse con i dati del documento", async () => {
-    await GET(makeRequest("doc-456"), {
-      params: Promise.resolve({ documentId: "doc-456" }),
+    await GET(makeRequest(VALID_DOC_ID), {
+      params: Promise.resolve({ documentId: VALID_DOC_ID }),
     });
 
     expect(mockGeneratePdfResponse).toHaveBeenCalledWith(MOCK_RECEIPT_DATA);
   });
 
   it("ritorna la Response prodotta da generatePdfResponse", async () => {
-    const res = await GET(makeRequest("doc-456"), {
-      params: Promise.resolve({ documentId: "doc-456" }),
+    const res = await GET(makeRequest(VALID_DOC_ID), {
+      params: Promise.resolve({ documentId: VALID_DOC_ID }),
     });
 
     expect(res.status).toBe(200);
@@ -83,10 +89,19 @@ describe("GET /r/[documentId]/pdf (public)", () => {
   it("non richiede autenticazione — nessuna dipendenza da Supabase", async () => {
     // Il route usa solo fetchPublicReceipt + generatePdfResponse.
     // Il test passa senza mock Supabase → conferma assenza di auth.
-    const res = await GET(makeRequest("doc-456"), {
-      params: Promise.resolve({ documentId: "doc-456" }),
+    const res = await GET(makeRequest(VALID_DOC_ID), {
+      params: Promise.resolve({ documentId: VALID_DOC_ID }),
     });
 
     expect(res.status).toBe(200);
+  });
+
+  it("ritorna 404 su UUID invalido senza chiamare il DB (regola 18 CLAUDE.md)", async () => {
+    const res = await GET(makeRequest(INVALID_UUID), {
+      params: Promise.resolve({ documentId: INVALID_UUID }),
+    });
+
+    expect(res.status).toBe(404);
+    expect(mockFetchPublicReceipt).not.toHaveBeenCalled();
   });
 });

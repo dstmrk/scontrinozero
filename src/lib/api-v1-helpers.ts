@@ -13,6 +13,7 @@ import { canUseApi } from "@/lib/plans";
 import { logger } from "@/lib/logger";
 import { readJsonWithLimit } from "@/lib/request-utils";
 import type { RateLimiter } from "@/lib/rate-limit";
+import { ERROR_MESSAGES } from "@/lib/error-messages";
 import type { ZodType } from "zod/v4";
 
 /** ApiKeyContext with businessId narrowed to string (management keys excluded). */
@@ -129,7 +130,7 @@ export function checkRateLimitApi(
       Math.ceil((result.resetAt - Date.now()) / 1000),
     );
     return Response.json(
-      { error: "Troppe richieste. Riprova tra qualche ora." },
+      { error: ERROR_MESSAGES.RATE_LIMIT_API_HOURS },
       {
         status: 429,
         headers: {

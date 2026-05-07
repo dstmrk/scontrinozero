@@ -13,6 +13,7 @@ import {
   calcDocTotal,
 } from "@/lib/receipts/document-lines";
 import { parseStrictIsoDateUtc } from "@/lib/date-utils";
+import { logger } from "@/lib/logger";
 import {
   STORICO_PAGE_SIZE,
   type SearchReceiptsResult,
@@ -42,7 +43,14 @@ export async function searchReceipts(
   const user = await getAuthenticatedUser();
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) {
-    throw new Error("Non autorizzato.");
+    // Allinea il contratto a tutte le altre server actions: error envelope
+    // invece di throw. Evita che la pagina RSC mostri il fallback error.tsx
+    // su un IDOR e permette messaggi inline gestiti.
+    logger.warn(
+      { userId: user.id, businessId },
+      "searchReceipts: ownership check failed",
+    );
+    return { error: ownershipError.error, items: [], total: 0 };
   }
 
   const db = getDb();

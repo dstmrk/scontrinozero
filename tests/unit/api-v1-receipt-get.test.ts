@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { TEST_BUSINESS_ID } from "../_helpers/fixtures";
 
 // --- Mocks ---
 
@@ -63,7 +64,7 @@ function makeParams(id: string): { params: Promise<{ id: string }> } {
   return { params: Promise.resolve({ id }) };
 }
 
-const VALID_UUID = "550e8400-e29b-41d4-a716-446655440000";
+const VALID_UUID = TEST_BUSINESS_ID;
 
 describe("GET /api/v1/receipts/[id]", () => {
   beforeEach(() => {

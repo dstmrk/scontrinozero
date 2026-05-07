@@ -1,11 +1,24 @@
 import { CONTACT_EMAIL } from "@/lib/contact";
 import { faqItems } from "@/components/marketing/faq-items";
 
+/**
+ * Escapa i caratteri pericolosi nel JSON-LD per evitare che payload contenenti
+ * `</script>` (anche se solo indirettamente, via dati editoriali futuri) chiudano
+ * prematuramente lo script tag e introducano XSS riflesso. Defense in depth
+ * attiva oggi su payload statici, obbligatoria quando arriveranno route dinamiche.
+ */
+function safeJsonLd(data: Record<string, unknown>): string {
+  return JSON.stringify(data)
+    .replaceAll("<", String.raw`\u003c`)
+    .replaceAll(">", String.raw`\u003e`)
+    .replaceAll("&", String.raw`\u0026`);
+}
+
 export function JsonLd({ data }: { readonly data: Record<string, unknown> }) {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      dangerouslySetInnerHTML={{ __html: safeJsonLd(data) }}
     />
   );
 }

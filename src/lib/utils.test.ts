@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { cn, formatCurrency, appendDigitCents, backspaceCents } from "./utils";
+import {
+  cn,
+  formatCurrency,
+  formatDate,
+  appendDigitCents,
+  backspaceCents,
+} from "./utils";
 
 describe("cn utility", () => {
   it("merges class names", () => {
@@ -34,6 +40,31 @@ describe("formatCurrency", () => {
   it("formats large amount in euros", () => {
     // Accetta sia "1.000,00 €" che "1000,00 €" a seconda dell'ICU data presente
     expect(norm(formatCurrency(1000))).toMatch(/1\.?000,00 €/);
+  });
+
+  it("accetta una stringa numerica e produce lo stesso output di un number", () => {
+    expect(norm(formatCurrency("12.50"))).toBe("12,50 €");
+    expect(norm(formatCurrency("12.50"))).toBe(norm(formatCurrency(12.5)));
+  });
+
+  it("ritorna 'NaN €' se la stringa non è numerica", () => {
+    expect(norm(formatCurrency("non-num"))).toBe("NaN €");
+  });
+});
+
+describe("formatDate", () => {
+  it("default 'numeric' produce DD/MM/YYYY", () => {
+    expect(formatDate(new Date("2026-05-20T00:00:00Z"))).toBe("20/05/2026");
+  });
+
+  it("opzione '2-digit' produce DD/MM/YY", () => {
+    expect(formatDate(new Date("2026-05-20T00:00:00Z"), "2-digit")).toBe(
+      "20/05/26",
+    );
+  });
+
+  it("accetta una stringa ISO", () => {
+    expect(formatDate("2026-05-20T00:00:00Z")).toBe("20/05/2026");
   });
 });
 

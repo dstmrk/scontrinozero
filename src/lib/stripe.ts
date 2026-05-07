@@ -49,21 +49,39 @@ export function isValidPriceId(priceId: string): boolean {
 }
 
 /**
+ * Lazy fail-fast getter per le 4 env var STRIPE_PRICE_*.
+ * Se l'env è missing/empty al momento dell'accesso, lanciamo subito invece di
+ * propagare una stringa vuota — evita revenue loss silenzioso (un checkout
+ * che fallisce solo al primo utente reale che tenta l'upgrade, ore/giorni
+ * dopo il deploy, senza alert su Sentry).
+ */
+function requirePriceEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) {
+    throw new Error(
+      `Missing required Stripe price env var: ${name}. ` +
+        "Set the 4 STRIPE_PRICE_* variables before deploy.",
+    );
+  }
+  return v;
+}
+
+/**
  * Price ID per piano e intervallo — acceduti dai valori correnti di env.
  * Usare `isValidPriceId()` per validazione; usare queste costanti per riferimento.
  */
 export const PRICE_IDS = {
   get starterMonthly() {
-    return process.env.STRIPE_PRICE_STARTER_MONTHLY ?? "";
+    return requirePriceEnv("STRIPE_PRICE_STARTER_MONTHLY");
   },
   get starterYearly() {
-    return process.env.STRIPE_PRICE_STARTER_YEARLY ?? "";
+    return requirePriceEnv("STRIPE_PRICE_STARTER_YEARLY");
   },
   get proMonthly() {
-    return process.env.STRIPE_PRICE_PRO_MONTHLY ?? "";
+    return requirePriceEnv("STRIPE_PRICE_PRO_MONTHLY");
   },
   get proYearly() {
-    return process.env.STRIPE_PRICE_PRO_YEARLY ?? "";
+    return requirePriceEnv("STRIPE_PRICE_PRO_YEARLY");
   },
 } as const;
 

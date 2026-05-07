@@ -13,17 +13,19 @@ import {
   normalizeEmail,
 } from "@/lib/validation";
 import { getClientIp, hashIp } from "@/lib/get-client-ip";
-import { RateLimiter } from "@/lib/rate-limit";
+import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { sendEmail } from "@/lib/email";
 import { PasswordResetEmail } from "@/emails/password-reset";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { ERROR_MESSAGES } from "@/lib/error-messages";
+import { getFormString, getFormStringRaw } from "@/lib/form-utils";
 
 const CURRENT_TERMS_VERSION = "v01";
 
 const authLimiter = new RateLimiter({
   maxRequests: 5,
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: RATE_LIMIT_WINDOWS.AUTH_15_MIN,
 });
 
 export type AuthActionResult = {
@@ -41,7 +43,7 @@ function checkRateLimit(ip: string, action: string): AuthActionResult | null {
   const result = authLimiter.check(key);
   if (!result.success) {
     logger.warn({ ip, action }, "Auth rate limit exceeded");
-    return { error: "Troppi tentativi. Riprova tra qualche minuto." };
+    return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
   }
   return null;
 }
@@ -111,8 +113,8 @@ function validateSignUpInput(
 ): string | null {
   if (!email || !isValidEmail(email)) return "Email non valida.";
   if (!password || !isStrongPassword(password))
-    return "Password non sicura. Usa almeno 8 caratteri con maiuscola, minuscola, numero e carattere speciale.";
-  if (password !== confirmPassword) return "Le password non coincidono.";
+    return ERROR_MESSAGES.PASSWORD_NOT_STRONG;
+  if (password !== confirmPassword) return ERROR_MESSAGES.PASSWORDS_MISMATCH;
   if (termsAccepted !== "true")
     return "Devi accettare i Termini di servizio e la Privacy Policy.";
   if (specificClausesAccepted !== "true")
@@ -170,14 +172,17 @@ async function insertProfileOrRollback(
 }
 
 export async function signUp(formData: FormData): Promise<AuthActionResult> {
-  const rawEmail = formData.get("email") as string;
-  // Normalise email to lowercase — consistent with DB unique index lower(email).
-  const email = rawEmail?.trim().toLowerCase() ?? "";
-  const password = formData.get("password") as string;
-  const confirmPassword = formData.get("confirmPassword") as string;
+  // Centralised email normalisation — consistent across signUp / signIn /
+  // magicLink / resetPassword (CLAUDE.md regola 22).
+  const email = normalizeEmail(getFormString(formData, "email"));
+  // CRITICAL: passwords must NOT be trimmed — trimming changes credential
+  // semantics and breaks login for users registered with leading/trailing
+  // whitespace. See `getFormStringRaw` doc.
+  const password = getFormStringRaw(formData, "password");
+  const confirmPassword = getFormStringRaw(formData, "confirmPassword");
   const termsAccepted = formData.get("termsAccepted");
   const specificClausesAccepted = formData.get("specificClausesAccepted");
-  const captchaToken = formData.get("captchaToken") as string | null;
+  const captchaToken = getFormString(formData, "captchaToken");
 
   const validationError = validateSignUpInput(
     email,
@@ -245,8 +250,10 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
 }
 
 export async function signIn(formData: FormData): Promise<AuthActionResult> {
-  const email = normalizeEmail((formData.get("email") as string) ?? "");
-  const password = formData.get("password") as string;
+  const email = normalizeEmail(getFormString(formData, "email"));
+  // Raw read: trimming would break login for users whose password has
+  // significant whitespace (see `getFormStringRaw`).
+  const password = getFormStringRaw(formData, "password");
 
   if (!email || !isValidEmail(email)) {
     return { error: "Email non valida." };
@@ -304,7 +311,7 @@ function classifySupabaseAuthError(err: {
 export async function signInWithMagicLink(
   formData: FormData,
 ): Promise<AuthActionResult> {
-  const email = normalizeEmail((formData.get("email") as string) ?? "");
+  const email = normalizeEmail(getFormString(formData, "email"));
 
   if (!email || !isValidEmail(email)) {
     return { error: "Email non valida." };
@@ -334,7 +341,7 @@ export async function signOut(): Promise<void> {
 export async function resetPassword(
   formData: FormData,
 ): Promise<AuthActionResult> {
-  const email = normalizeEmail((formData.get("email") as string) ?? "");
+  const email = normalizeEmail(getFormString(formData, "email"));
 
   if (!email || !isValidEmail(email)) {
     return { error: "Email non valida." };
