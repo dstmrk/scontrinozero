@@ -243,10 +243,16 @@ describe("POST /api/v1/receipts", () => {
       expect(res.status).toBe(400);
     });
 
-    it("returns 400 when lotteryCode exceeds 8 characters", async () => {
+    it("returns 400 when lotteryCode is malformed and paymentMethod is PE", async () => {
+      // Conditional validation: lotteryCode regex applies only when PE
+      // (CLAUDE.md / AdE: lottery applies to electronic payments only).
       const { POST } = await import("@/app/api/v1/receipts/route");
       const res = await POST(
-        makeRequest({ ...VALID_BODY, lotteryCode: "TOOLONGCODE" }),
+        makeRequest({
+          ...VALID_BODY,
+          paymentMethod: "PE",
+          lotteryCode: "TOOLONGCODE",
+        }),
       );
       expect(res.status).toBe(400);
     });
