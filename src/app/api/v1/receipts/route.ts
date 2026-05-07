@@ -62,7 +62,18 @@ const receiptBodySchema = z.object({
     .max(100),
   paymentMethod: z.enum(["PC", "PE"]),
   idempotencyKey: z.string().uuid(),
-  lotteryCode: z.string().max(8).nullable().optional(),
+  // 8 uppercase alphanumeric chars per AdE Lotteria degli Scontrini spec.
+  // Same regex used in `src/lib/ade/validation.ts` and `isValidLotteryCode`.
+  // The service layer rejects invalid codes with 422; validating at the API
+  // boundary returns 400 with a clearer error and avoids hitting the service.
+  lotteryCode: z
+    .string()
+    .regex(
+      /^[A-Z0-9]{8}$/,
+      "Codice lotteria non valido (8 caratteri [A-Z0-9]).",
+    )
+    .nullable()
+    .optional(),
 });
 
 // Rate limit: 120 receipts per hour per API key

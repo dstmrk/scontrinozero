@@ -35,9 +35,13 @@ const submitReceiptSchema = z.object({
   lines: z.array(lineSchema).min(1).max(100),
   paymentMethod: z.enum(["PC", "PE"]),
   idempotencyKey: z.string().uuid(),
+  // 8 uppercase alphanumeric chars per AdE Lotteria degli Scontrini spec.
   lotteryCode: z
     .string()
-    .max(8, "Il codice lotteria non deve superare 8 caratteri.")
+    .regex(
+      /^[A-Z0-9]{8}$/,
+      "Codice lotteria non valido (8 caratteri [A-Z0-9]).",
+    )
     .nullable()
     .optional(),
 });
