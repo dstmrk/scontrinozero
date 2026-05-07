@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 
-const STRIPE_API_VERSION = "2026-03-25.dahlia" as const;
+const STRIPE_API_VERSION = "2026-04-22.dahlia" as const;
 
 // Module-level singleton: one instance per Node.js process.
 // Avoids creating a new Stripe client on every call to getStripe() which adds
