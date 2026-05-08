@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { buildCspReportOnly, sanitizeCspViolation } from "./csp";
+import {
+  buildCspReportOnly,
+  buildReportingEndpoints,
+  sanitizeCspViolation,
+} from "./csp";
 
 describe("buildCspReportOnly", () => {
   const policy = buildCspReportOnly();
@@ -65,6 +69,38 @@ describe("buildCspReportOnly", () => {
 
   it("è deterministico tra invocazioni successive (snapshot regression)", () => {
     expect(buildCspReportOnly()).toBe(policy);
+  });
+});
+
+describe("buildReportingEndpoints", () => {
+  it("usa URL assoluto come richiesto dalla Reporting API", () => {
+    const value = buildReportingEndpoints("https://app.scontrinozero.it");
+    expect(value).toBe(
+      'csp-endpoint="https://app.scontrinozero.it/api/csp-report"',
+    );
+  });
+
+  it("rimuove la trailing slash dalla base URL", () => {
+    const value = buildReportingEndpoints("https://app.scontrinozero.it/");
+    expect(value).toBe(
+      'csp-endpoint="https://app.scontrinozero.it/api/csp-report"',
+    );
+  });
+
+  it("supporta hostname sandbox e custom (self-hosted)", () => {
+    expect(buildReportingEndpoints("https://sandbox.scontrinozero.it")).toBe(
+      'csp-endpoint="https://sandbox.scontrinozero.it/api/csp-report"',
+    );
+    expect(buildReportingEndpoints("https://cassa.miosito.it")).toBe(
+      'csp-endpoint="https://cassa.miosito.it/api/csp-report"',
+    );
+  });
+
+  it("non concatena URL malformata se manca lo schema (caller deve passare absolute)", () => {
+    // Documenta il contratto: il caller (next.config.ts) è responsabile di
+    // passare un URL assoluto. La funzione non normalizza/valida lo schema.
+    const value = buildReportingEndpoints("scontrinozero.it");
+    expect(value).toBe('csp-endpoint="scontrinozero.it/api/csp-report"');
   });
 });
 

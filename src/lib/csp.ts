@@ -24,6 +24,8 @@ const SUPABASE_HOSTS = [
 const SENTRY_HOSTS = ["https://*.ingest.sentry.io"] as const;
 const TURNSTILE_HOSTS = ["https://challenges.cloudflare.com"] as const;
 
+const CSP_REPORT_PATH = "/api/csp-report";
+
 const DIRECTIVES: ReadonlyArray<readonly [string, ReadonlyArray<string>]> = [
   ["default-src", ["'self'"]],
   ["script-src", ["'self'", "'unsafe-inline'", "challenges.cloudflare.com"]],
@@ -39,7 +41,11 @@ const DIRECTIVES: ReadonlyArray<readonly [string, ReadonlyArray<string>]> = [
   ["base-uri", ["'self'"]],
   ["form-action", ["'self'"]],
   ["object-src", ["'none'"]],
-  ["report-uri", ["/api/csp-report"]],
+  // CSP3: report-uri ammette URL relativi, risolti rispetto al documento.
+  ["report-uri", [CSP_REPORT_PATH]],
+  // Reporting API: il token deve combaciare con una entry dell'header
+  // `Reporting-Endpoints` (vedi buildReportingEndpoints), che richiede URL
+  // assoluto.
   ["report-to", ["csp-endpoint"]],
 ];
 
@@ -53,6 +59,20 @@ export function buildCspReportOnly(): string {
   return DIRECTIVES.map(
     ([directive, sources]) => `${directive} ${sources.join(" ")}`,
   ).join("; ");
+}
+
+/**
+ * Costruisce il valore dell'header `Reporting-Endpoints`.
+ *
+ * La spec Reporting API richiede URL assoluti (potentially-trustworthy):
+ * un valore relativo viene parseato dal browser ma il delivery dei report
+ * fallisce silenziosamente. Chrome prioritizza `report-to` su `report-uri`,
+ * quindi senza URL assoluto le violation reports della maggioranza del
+ * traffico vanno perse.
+ */
+export function buildReportingEndpoints(appUrl: string): string {
+  const base = appUrl.endsWith("/") ? appUrl.slice(0, -1) : appUrl;
+  return `csp-endpoint="${base}${CSP_REPORT_PATH}"`;
 }
 
 // ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 import withSerwistInit from "@serwist/next";
-import { buildCspReportOnly } from "./src/lib/csp";
+import { buildCspReportOnly, buildReportingEndpoints } from "./src/lib/csp";
 
 const withSerwist = withSerwistInit({
   swSrc: "src/sw.ts",
@@ -58,8 +58,10 @@ const nextConfig: NextConfig = {
         value: buildCspReportOnly(),
       },
       {
+        // Reporting API richiede URL assoluto: i browser che prioritizzano
+        // `report-to` (Chrome) scartano silenziosamente endpoint relativi.
         key: "Reporting-Endpoints",
-        value: 'csp-endpoint="/api/csp-report"',
+        value: buildReportingEndpoints(allowedOrigin),
       },
     ];
     if (process.env.NODE_ENV === "production") {
