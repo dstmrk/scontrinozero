@@ -16,6 +16,8 @@ const {
   mockLinesWhere,
   mockLinesFrom,
   mockSelect,
+  mockTransaction,
+  mockTxExecute,
 } = vi.hoisted(() => ({
   mockAuthenticateApiKey: vi.fn(),
   mockIsApiKeyAuthError: vi.fn(),
@@ -28,6 +30,8 @@ const {
   mockLinesWhere: vi.fn(),
   mockLinesFrom: vi.fn(),
   mockSelect: vi.fn(),
+  mockTransaction: vi.fn(),
+  mockTxExecute: vi.fn(),
 }));
 
 vi.mock("@/lib/api-auth", () => ({
@@ -52,6 +56,7 @@ vi.mock("drizzle-orm", () => ({
   and: vi.fn(),
   eq: vi.fn(),
   asc: vi.fn(),
+  sql: { raw: vi.fn((s) => ({ raw: s })) },
 }));
 
 // --- Helpers ---
@@ -93,7 +98,18 @@ describe("GET /api/v1/receipts/[id]", () => {
     mockSelect
       .mockReturnValueOnce({ from: mockFrom })
       .mockReturnValueOnce({ from: mockLinesFrom });
-    mockGetDb.mockReturnValue({ select: mockSelect });
+
+    // withStatementTimeout wraps queries in db.transaction(cb) — wire the
+    // tx callback to expose the same select chain configured above.
+    mockTransaction.mockImplementation(async (cb) =>
+      cb({ execute: mockTxExecute, select: mockSelect }),
+    );
+    mockTxExecute.mockResolvedValue(undefined);
+
+    mockGetDb.mockReturnValue({
+      select: mockSelect,
+      transaction: mockTransaction,
+    });
   });
 
   describe("UUID validation", () => {

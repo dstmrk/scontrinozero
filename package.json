@@ -92,6 +92,7 @@
     "yaml": ">=2.8.3",
     "picomatch": "4.0.4",
     "express-rate-limit": "^8.5.1",
+    "fast-uri": "^3.1.2",
     "micromatch": {
       "picomatch": "2.3.2"
     },
