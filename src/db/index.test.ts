@@ -49,6 +49,9 @@ describe("db initialization", () => {
     expect(dbModule.getDb()).toBe(drizzleDb);
     expect(postgres).toHaveBeenCalledWith(process.env.DATABASE_URL, {
       prepare: false,
+      max: 10,
+      connect_timeout: 10,
+      idle_timeout: 30,
     });
     expect(drizzle).toHaveBeenCalledWith({
       client: postgresClient,

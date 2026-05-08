@@ -1,13 +1,20 @@
 import { and, asc, eq } from "drizzle-orm";
-import { getDb } from "@/db";
 import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
+import { dbTimeoutResponse, isStatementTimeoutError } from "@/lib/api-errors";
+import { withStatementTimeout } from "@/lib/db-timeout";
 import { isValidUuid } from "@/lib/uuid";
+import { logger } from "@/lib/logger";
 import {
   requireBusinessApiAuth,
   corsOptionsResponse,
   withCors,
 } from "@/lib/api-v1-helpers";
 import { calcDocTotal } from "@/lib/receipts/document-lines";
+
+// Single-doc read: 2 indexed SELECT, atteso < 50ms p99. 3s di budget cattura
+// solo gli stalli reali (DB sovraccarico, lock attesi) senza falsi positivi.
+const STATEMENT_TIMEOUT_MS = 3000;
+const ROUTE = "GET /api/v1/receipts/[id]";
 
 export function OPTIONS(): Response {
   return corsOptionsResponse("GET, OPTIONS");
@@ -30,40 +37,59 @@ export async function GET(
     );
   }
 
-  const db = getDb();
-  const [doc] = await db
-    .select({
-      id: commercialDocuments.id,
-      kind: commercialDocuments.kind,
-      status: commercialDocuments.status,
-      idempotencyKey: commercialDocuments.idempotencyKey,
-      adeTransactionId: commercialDocuments.adeTransactionId,
-      adeProgressive: commercialDocuments.adeProgressive,
-      createdAt: commercialDocuments.createdAt,
-      lotteryCode: commercialDocuments.lotteryCode,
-      voidedDocumentId: commercialDocuments.voidedDocumentId,
-      publicRequest: commercialDocuments.publicRequest,
-    })
-    .from(commercialDocuments)
-    .where(
-      and(
-        eq(commercialDocuments.id, id),
-        eq(commercialDocuments.businessId, auth.businessId),
-      ),
-    )
-    .limit(1);
+  let result;
+  try {
+    result = await withStatementTimeout(STATEMENT_TIMEOUT_MS, async (tx) => {
+      const [doc] = await tx
+        .select({
+          id: commercialDocuments.id,
+          kind: commercialDocuments.kind,
+          status: commercialDocuments.status,
+          idempotencyKey: commercialDocuments.idempotencyKey,
+          adeTransactionId: commercialDocuments.adeTransactionId,
+          adeProgressive: commercialDocuments.adeProgressive,
+          createdAt: commercialDocuments.createdAt,
+          lotteryCode: commercialDocuments.lotteryCode,
+          voidedDocumentId: commercialDocuments.voidedDocumentId,
+          publicRequest: commercialDocuments.publicRequest,
+        })
+        .from(commercialDocuments)
+        .where(
+          and(
+            eq(commercialDocuments.id, id),
+            eq(commercialDocuments.businessId, auth.businessId),
+          ),
+        )
+        .limit(1);
 
-  if (!doc) {
+      if (!doc) return null;
+
+      const lines = await tx
+        .select()
+        .from(commercialDocumentLines)
+        .where(eq(commercialDocumentLines.documentId, doc.id))
+        .orderBy(asc(commercialDocumentLines.lineIndex));
+
+      return { doc, lines };
+    });
+  } catch (err) {
+    if (isStatementTimeoutError(err)) {
+      logger.warn(
+        { err, path: ROUTE, statusCode: 503 },
+        "DB statement timeout",
+      );
+      return withCors(dbTimeoutResponse());
+    }
+    throw err;
+  }
+
+  if (!result) {
     return withCors(
       Response.json({ error: "Documento non trovato." }, { status: 404 }),
     );
   }
 
-  const lines = await db
-    .select()
-    .from(commercialDocumentLines)
-    .where(eq(commercialDocumentLines.documentId, doc.id))
-    .orderBy(asc(commercialDocumentLines.lineIndex));
+  const { doc, lines } = result;
 
   const total = calcDocTotal(lines);
 

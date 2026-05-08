@@ -14,6 +14,9 @@ const {
   mockSelectLinesWhere,
   mockSelectLinesFrom,
   mockSelect,
+  mockTransaction,
+  mockTxExecute,
+  mockLoggerWarn,
 } = vi.hoisted(() => ({
   mockAuthenticateApiKey: vi.fn(),
   mockIsApiKeyAuthError: vi.fn(),
@@ -25,6 +28,9 @@ const {
   mockSelectLinesWhere: vi.fn(),
   mockSelectLinesFrom: vi.fn(),
   mockSelect: vi.fn(),
+  mockTransaction: vi.fn(),
+  mockTxExecute: vi.fn(),
+  mockLoggerWarn: vi.fn(),
 }));
 
 vi.mock("@/lib/api-auth", () => ({
@@ -37,7 +43,13 @@ vi.mock("@/lib/plans", () => ({
 }));
 
 vi.mock("@/db", () => ({
-  getDb: vi.fn().mockReturnValue({ select: mockSelect }),
+  getDb: vi
+    .fn()
+    .mockReturnValue({ select: mockSelect, transaction: mockTransaction }),
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logger: { warn: mockLoggerWarn, error: vi.fn() },
 }));
 
 vi.mock("@/db/schema", () => ({
@@ -48,6 +60,7 @@ vi.mock("@/db/schema", () => ({
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn((col, val) => ({ col, val })),
   and: vi.fn((...args) => args),
+  sql: { raw: vi.fn((s) => ({ raw: s })) },
   asc: vi.fn((col) => ({ col, direction: "asc" })),
 }));
 
@@ -118,6 +131,15 @@ describe("GET /api/v1/receipts/[id]", () => {
     mockIsApiKeyAuthError.mockReturnValue(false);
     mockAuthenticateApiKey.mockResolvedValue(FAKE_AUTH);
     mockCanUseApi.mockReturnValue(true);
+
+    // withStatementTimeout(timeoutMs, fn) calls db.transaction(cb) where cb
+    // does `tx.execute(SET LOCAL ...)` then `fn(tx)`. Wire the mock so the
+    // tx object exposes the same `select` chain the existing setup helpers
+    // configure on the parent db mock.
+    mockTransaction.mockImplementation(async (cb) =>
+      cb({ execute: mockTxExecute, select: mockSelect }),
+    );
+    mockTxExecute.mockResolvedValue(undefined);
 
     setupDocMock(FAKE_DOC);
     setupLinesMock([FAKE_LINE]);
@@ -227,6 +249,10 @@ describe("GET /api/v1/receipts/[id]", () => {
     mockIsApiKeyAuthError.mockReturnValue(false);
     mockAuthenticateApiKey.mockResolvedValue(FAKE_AUTH);
     mockCanUseApi.mockReturnValue(true);
+    mockTransaction.mockImplementation(async (cb) =>
+      cb({ execute: mockTxExecute, select: mockSelect }),
+    );
+    mockTxExecute.mockResolvedValue(undefined);
     setupDocMock(null);
 
     const res = await GET(
@@ -234,5 +260,41 @@ describe("GET /api/v1/receipts/[id]", () => {
       makeParams("00000000-0000-0000-0000-000000000000"),
     );
     expect(res.status).toBe(404);
+  });
+
+  it("ritorna 503 con Retry-After su statement timeout DB (Postgres 57014)", async () => {
+    const timeoutErr = Object.assign(
+      new Error("canceling statement due to statement timeout"),
+      { code: "57014" },
+    );
+    mockTransaction.mockImplementationOnce(async () => {
+      throw timeoutErr;
+    });
+
+    const res = await GET(makeRequest(), makeParams());
+    expect(res.status).toBe(503);
+    expect(res.headers.get("retry-after")).toBe("5");
+    const body = await res.json();
+    expect(body.code).toBe("DB_TIMEOUT");
+
+    expect(mockLoggerWarn).toHaveBeenCalledOnce();
+    const [ctx, msg] = mockLoggerWarn.mock.calls[0];
+    expect(msg).toMatch(/timeout/i);
+    expect(ctx.path).toBe("GET /api/v1/receipts/[id]");
+    expect(ctx.statusCode).toBe(503);
+  });
+
+  it("propaga errori DB non-timeout (status default Next.js, non 503)", async () => {
+    const otherErr = Object.assign(new Error("unique violation"), {
+      code: "23505",
+    });
+    mockTransaction.mockImplementationOnce(async () => {
+      throw otherErr;
+    });
+
+    await expect(GET(makeRequest(), makeParams())).rejects.toMatchObject({
+      code: "23505",
+    });
+    expect(mockLoggerWarn).not.toHaveBeenCalled();
   });
 });
