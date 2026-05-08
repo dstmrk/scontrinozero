@@ -8,7 +8,7 @@
  * Accetta un `apiKeyId` opzionale: se fornito, viene salvato su
  * commercial_documents per tracciare le emissioni via Developer API.
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
 import { createAdeClient } from "@/lib/ade";
@@ -29,6 +29,11 @@ const PAYMENT_METHOD_TO_ADE: Record<PaymentMethod, PaymentType> = {
   PC: "CASH",
   PE: "ELECTRONIC",
 };
+
+// Emit transaction: INSERT documento + N linee + post-AdE UPDATE.
+// 8s di budget assorbe il p99 anche con catalogo esteso, e protegge dal
+// caso peggiore in cui un lock su `idempotency_key` rimane fermo a lungo.
+const EMIT_TX_TIMEOUT_MS = 8000;
 
 /** Validates and resolves the effective lottery code from the input. */
 function resolveLotteryCode(input: SubmitReceiptInput): {
@@ -88,8 +93,14 @@ export async function emitReceiptForBusiness(
 
   const db = getDb();
 
-  // Insert document + lines atomically: if either fails, nothing is persisted
+  // Insert document + lines atomically: if either fails, nothing is persisted.
+  // SET LOCAL statement_timeout protegge dal caso in cui un lock prolungato
+  // sull'idempotency key (race con un retry duplicato) blocchi il request.
   const txResult = await db.transaction(async (tx) => {
+    await tx.execute(
+      sql.raw(`SET LOCAL statement_timeout = ${EMIT_TX_TIMEOUT_MS}`),
+    );
+
     const publicRequest: Record<string, unknown> = {
       paymentMethod: input.paymentMethod,
     };

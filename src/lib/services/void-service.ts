@@ -8,7 +8,7 @@
  * Accetta un `apiKeyId` opzionale: se fornito, viene salvato su
  * commercial_documents per tracciare le emissioni via Developer API.
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
 import { createAdeClient } from "@/lib/ade";
@@ -18,6 +18,11 @@ import { getFiscalDate } from "@/lib/date-utils";
 import { fetchAdePrerequisites } from "@/lib/server-auth";
 import type { VoidReceiptInput, VoidReceiptResult } from "@/types/storico";
 import type { VoidRequest } from "@/lib/ade/public-types";
+
+// Void transaction: 2 UPDATE su commercial_documents (VOID + originale).
+// 8s di budget tiene anche se l'UPDATE finisce in coda dietro un lock di
+// emit concorrente sulla stessa riga SALE.
+const VOID_TX_TIMEOUT_MS = 8000;
 
 /**
  * Called when the VOID document INSERT was skipped by ON CONFLICT DO NOTHING.
@@ -207,7 +212,12 @@ export async function voidReceiptForBusiness(
     // 4+5. Update VOID document and mark original SALE atomically.
     // Both must succeed or neither: an intermediate failure would leave
     // the VOID accepted but the SALE still showing as ACCEPTED.
+    // SET LOCAL statement_timeout protegge dal caso in cui un lock
+    // prolungato sulla riga SALE (race con un emit) blocchi l'update.
     await db.transaction(async (tx) => {
+      await tx.execute(
+        sql.raw(`SET LOCAL statement_timeout = ${VOID_TX_TIMEOUT_MS}`),
+      );
       await tx
         .update(commercialDocuments)
         .set({

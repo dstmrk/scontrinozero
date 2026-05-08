@@ -83,6 +83,7 @@ vi.mock("drizzle-orm", () => ({
   count: vi.fn(),
   inArray: vi.fn(),
   asc: vi.fn(),
+  sql: { raw: vi.fn((s) => ({ raw: s })) },
 }));
 
 // --- Helpers ---
@@ -127,7 +128,14 @@ function setupDbMocks(
     .mockReturnValueOnce({ from: mockDocsFrom }) // 2nd call → docs
     .mockReturnValueOnce({ from: mockLinesFrom }); // 3rd call → lines
 
-  mockGetDb.mockReturnValue({ select: mockSelect });
+  // withStatementTimeout wraps queries in db.transaction(cb): expose select +
+  // execute on the tx so the SET LOCAL no-op succeeds and the chain runs.
+  const tx = {
+    select: mockSelect,
+    execute: vi.fn().mockResolvedValue(undefined),
+  };
+  const transaction = vi.fn(async (cb: (t: typeof tx) => unknown) => cb(tx));
+  mockGetDb.mockReturnValue({ select: mockSelect, transaction });
 }
 
 /** Sets up DB mocks for empty result (count + docs only, no lines query). */
@@ -145,7 +153,12 @@ function setupDbMocksEmpty(total = 0): void {
     .mockReturnValueOnce({ from: mockCountFrom })
     .mockReturnValueOnce({ from: mockDocsFrom });
 
-  mockGetDb.mockReturnValue({ select: mockSelect });
+  const tx = {
+    select: mockSelect,
+    execute: vi.fn().mockResolvedValue(undefined),
+  };
+  const transaction = vi.fn(async (cb: (t: typeof tx) => unknown) => cb(tx));
+  mockGetDb.mockReturnValue({ select: mockSelect, transaction });
 }
 
 const VALID_FROM = "2026-04-01";

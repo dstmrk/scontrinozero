@@ -1,6 +1,5 @@
 import { z } from "zod/v4";
 import { and, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
-import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
 import {
   fetchLinesByDocIds,
@@ -9,6 +8,9 @@ import {
 } from "@/lib/receipts/document-lines";
 import { refineLotteryCode } from "@/lib/receipts/lottery-code-schema";
 import { parseStrictIsoDateUtc } from "@/lib/date-utils";
+import { dbTimeoutResponse, isStatementTimeoutError } from "@/lib/api-errors";
+import { withStatementTimeout } from "@/lib/db-timeout";
+import { logger } from "@/lib/logger";
 import { RateLimiter } from "@/lib/rate-limit";
 import { emitReceiptForBusiness } from "@/lib/services/receipt-service";
 import {
@@ -84,6 +86,12 @@ const listApiLimiter = new RateLimiter({
 const MAX_RANGE_DAYS = 31;
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
+
+// list query: count + select fino a 100 doc + lines fetch su quel batch.
+// 5s di budget tiene il p95 anche su un page=100 con catalogo grande, e
+// taglia gli stalli prima che il client web dia "richiesta non risponde".
+const LIST_TIMEOUT_MS = 5000;
+const LIST_ROUTE = "GET /api/v1/receipts";
 
 export function OPTIONS(): Response {
   return corsOptionsResponse("GET, POST, OPTIONS");
@@ -251,8 +259,6 @@ export async function GET(request: Request): Promise<Response> {
     kindStr === "SALE" || kindStr === "VOID" ? kindStr : null;
 
   // ── DB queries ────────────────────────────────────────────────────────────
-  const db = getDb();
-
   const conditions = [
     eq(commercialDocuments.businessId, auth.businessId),
     gte(commercialDocuments.createdAt, fromDate),
@@ -263,30 +269,66 @@ export async function GET(request: Request): Promise<Response> {
     conditions.push(eq(commercialDocuments.kind, kind));
   }
 
-  // Count total matching docs (no pagination)
-  const [{ value: total }] = await db
-    .select({ value: count() })
-    .from(commercialDocuments)
-    .where(and(...conditions));
+  let queryResult: {
+    total: number;
+    docs: Array<{
+      id: string;
+      kind: "SALE" | "VOID";
+      status: string;
+      idempotencyKey: string;
+      adeTransactionId: string | null;
+      adeProgressive: string | null;
+      lotteryCode: string | null;
+      publicRequest: unknown;
+      createdAt: Date;
+    }>;
+    lines: Awaited<ReturnType<typeof fetchLinesByDocIds>>;
+  };
+  try {
+    queryResult = await withStatementTimeout(LIST_TIMEOUT_MS, async (tx) => {
+      const [{ value: total }] = await tx
+        .select({ value: count() })
+        .from(commercialDocuments)
+        .where(and(...conditions));
 
-  // Fetch the current page
-  const docs = await db
-    .select({
-      id: commercialDocuments.id,
-      kind: commercialDocuments.kind,
-      status: commercialDocuments.status,
-      idempotencyKey: commercialDocuments.idempotencyKey,
-      adeTransactionId: commercialDocuments.adeTransactionId,
-      adeProgressive: commercialDocuments.adeProgressive,
-      lotteryCode: commercialDocuments.lotteryCode,
-      publicRequest: commercialDocuments.publicRequest,
-      createdAt: commercialDocuments.createdAt,
-    })
-    .from(commercialDocuments)
-    .where(and(...conditions))
-    .orderBy(desc(commercialDocuments.createdAt))
-    .limit(limit)
-    .offset(offset);
+      const docs = await tx
+        .select({
+          id: commercialDocuments.id,
+          kind: commercialDocuments.kind,
+          status: commercialDocuments.status,
+          idempotencyKey: commercialDocuments.idempotencyKey,
+          adeTransactionId: commercialDocuments.adeTransactionId,
+          adeProgressive: commercialDocuments.adeProgressive,
+          lotteryCode: commercialDocuments.lotteryCode,
+          publicRequest: commercialDocuments.publicRequest,
+          createdAt: commercialDocuments.createdAt,
+        })
+        .from(commercialDocuments)
+        .where(and(...conditions))
+        .orderBy(desc(commercialDocuments.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+      if (docs.length === 0) return { total, docs, lines: [] };
+
+      const lines = await fetchLinesByDocIds(
+        docs.map((d) => d.id),
+        tx,
+      );
+      return { total, docs, lines };
+    });
+  } catch (err) {
+    if (isStatementTimeoutError(err)) {
+      logger.warn(
+        { err, path: LIST_ROUTE, statusCode: 503 },
+        "DB statement timeout",
+      );
+      return withCors(dbTimeoutResponse());
+    }
+    throw err;
+  }
+
+  const { total, docs, lines } = queryResult;
 
   if (docs.length === 0) {
     return withCors(
@@ -297,9 +339,6 @@ export async function GET(request: Request): Promise<Response> {
     );
   }
 
-  // Fetch lines for total calculation (not included in response)
-  const docIds = docs.map((d) => d.id);
-  const lines = await fetchLinesByDocIds(docIds);
   const linesByDocId = groupLinesByDocId(lines);
 
   const data = docs.map((doc) => {

@@ -54,6 +54,7 @@ vi.mock("@/db/schema", () => ({
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
   and: vi.fn(),
+  sql: { raw: vi.fn((s) => ({ raw: s })) },
 }));
 
 vi.mock("@/lib/receipts/generate-pdf-response", () => ({
@@ -106,7 +107,14 @@ describe("GET /api/documents/[documentId]/pdf", () => {
       return { from: mockFromLines };
     });
 
-    mockGetDb.mockReturnValue({ select: mockSelect });
+    // withStatementTimeout wraps queries in db.transaction(cb): expose select
+    // + execute on the tx so the SET LOCAL no-op succeeds.
+    const tx = {
+      select: mockSelect,
+      execute: vi.fn().mockResolvedValue(undefined),
+    };
+    const transaction = vi.fn(async (cb: (t: typeof tx) => unknown) => cb(tx));
+    mockGetDb.mockReturnValue({ select: mockSelect, transaction });
 
     mockGeneratePdfResponse.mockReturnValue(
       new Response("pdf-content", { status: 200 }),

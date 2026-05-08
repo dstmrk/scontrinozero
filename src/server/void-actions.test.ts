@@ -105,11 +105,16 @@ const mockUpdateWhere = vi.fn().mockResolvedValue(undefined);
 const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
 
 /** Transaction: calls callback with a tx that shares mockUpdate */
+const mockTxExecute = vi.fn().mockResolvedValue(undefined);
 const mockTransaction = vi
   .fn()
   .mockImplementation(
-    async (callback: (tx: { update: typeof mockUpdate }) => Promise<void>) =>
-      callback({ update: mockUpdate }),
+    async (
+      callback: (tx: {
+        update: typeof mockUpdate;
+        execute: typeof mockTxExecute;
+      }) => Promise<void>,
+    ) => callback({ update: mockUpdate, execute: mockTxExecute }),
   );
 
 // ---------------------------------------------------------------------------
@@ -221,9 +226,14 @@ describe("void-actions", () => {
     mockUpdate.mockReturnValue({ set: mockUpdateSet });
 
     // Transaction mock: calls callback with a tx that shares mockUpdate
+    mockTxExecute.mockResolvedValue(undefined);
     mockTransaction.mockImplementation(
-      async (callback: (tx: { update: typeof mockUpdate }) => Promise<void>) =>
-        callback({ update: mockUpdate }),
+      async (
+        callback: (tx: {
+          update: typeof mockUpdate;
+          execute: typeof mockTxExecute;
+        }) => Promise<void>,
+      ) => callback({ update: mockUpdate, execute: mockTxExecute }),
     );
 
     // AdE mocks
