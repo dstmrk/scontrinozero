@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 import withSerwistInit from "@serwist/next";
+import { buildCspReportOnly } from "./src/lib/csp";
 
 const withSerwist = withSerwistInit({
   swSrc: "src/sw.ts",
@@ -36,11 +37,12 @@ const nextConfig: NextConfig = {
     const allowedOrigin =
       process.env.NEXT_PUBLIC_APP_URL ?? "https://app.scontrinozero.it";
 
-    // Baseline security headers applied to every response. CSP is intentionally
-    // *not* set here — a correct CSP needs to map every external origin
-    // (Sentry, Turnstile, Stripe, Resend, Supabase, fonts, …) and is rolled
-    // out in a dedicated release with a report-only phase first to avoid
-    // breaking production. See PLAN.md backlog (B14).
+    // Baseline security headers applied to every response.
+    //
+    // CSP è in fase Report-Only: la policy non blocca nulla, ma le violazioni
+    // vengono inviate a /api/csp-report (vedi src/lib/csp.ts e PLAN.md B14).
+    // Promozione a `Content-Security-Policy` enforce dopo ≥1 settimana con
+    // zero violazioni reali in produzione.
     const securityHeaders: { key: string; value: string }[] = [
       { key: "X-Content-Type-Options", value: "nosniff" },
       { key: "X-Frame-Options", value: "DENY" },
@@ -50,6 +52,14 @@ const nextConfig: NextConfig = {
       {
         key: "Permissions-Policy",
         value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+      },
+      {
+        key: "Content-Security-Policy-Report-Only",
+        value: buildCspReportOnly(),
+      },
+      {
+        key: "Reporting-Endpoints",
+        value: 'csp-endpoint="/api/csp-report"',
       },
     ];
     if (process.env.NODE_ENV === "production") {
