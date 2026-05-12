@@ -29,16 +29,11 @@ const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
 const mockUpdate = vi.fn().mockReturnValue({ set: mockUpdateSet });
 
 // transaction: calls the callback with a tx proxy that shares mockUpdate
-const mockTxExecute = vi.fn().mockResolvedValue(undefined);
 const mockTransaction = vi
   .fn()
   .mockImplementation(
-    async (
-      callback: (tx: {
-        update: typeof mockUpdate;
-        execute: typeof mockTxExecute;
-      }) => Promise<void>,
-    ) => callback({ update: mockUpdate, execute: mockTxExecute }),
+    async (callback: (tx: { update: typeof mockUpdate }) => Promise<void>) =>
+      callback({ update: mockUpdate }),
   );
 
 vi.mock("@/db", () => ({
@@ -174,14 +169,9 @@ describe("voidReceiptForBusiness", () => {
     mockSubmitVoid.mockResolvedValue(FAKE_ADE_RESPONSE);
     mockLogout.mockResolvedValue(undefined);
 
-    mockTxExecute.mockResolvedValue(undefined);
     mockTransaction.mockImplementation(
-      async (
-        callback: (tx: {
-          update: typeof mockUpdate;
-          execute: typeof mockTxExecute;
-        }) => Promise<void>,
-      ) => callback({ update: mockUpdate, execute: mockTxExecute }),
+      async (callback: (tx: { update: typeof mockUpdate }) => Promise<void>) =>
+        callback({ update: mockUpdate }),
     );
   });
 

@@ -602,4 +602,40 @@ describe("GET /api/v1/receipts (list)", () => {
       expect(res.status).toBe(200);
     });
   });
+
+  describe("DB statement timeout", () => {
+    it("returns 503 with Retry-After on Postgres 57014", async () => {
+      const timeoutErr = Object.assign(
+        new Error("canceling statement due to statement timeout"),
+        { code: "57014" },
+      );
+      const transaction = vi.fn(async () => {
+        throw timeoutErr;
+      });
+      mockGetDb.mockReturnValue({ select: mockSelect, transaction });
+
+      const { GET } = await import("@/app/api/v1/receipts/route");
+      const res = await GET(makeRequest({ from: VALID_FROM, to: VALID_TO }));
+
+      expect(res.status).toBe(503);
+      expect(res.headers.get("retry-after")).toBe("5");
+      const body = await res.json();
+      expect(body.code).toBe("DB_TIMEOUT");
+    });
+
+    it("re-throws non-timeout DB errors (unique violation, etc.)", async () => {
+      const otherErr = Object.assign(new Error("unique violation"), {
+        code: "23505",
+      });
+      const transaction = vi.fn(async () => {
+        throw otherErr;
+      });
+      mockGetDb.mockReturnValue({ select: mockSelect, transaction });
+
+      const { GET } = await import("@/app/api/v1/receipts/route");
+      await expect(
+        GET(makeRequest({ from: VALID_FROM, to: VALID_TO })),
+      ).rejects.toMatchObject({ code: "23505" });
+    });
+  });
 });

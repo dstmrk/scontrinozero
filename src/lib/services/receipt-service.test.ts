@@ -29,16 +29,10 @@ const mockUpdateWhere = vi.fn().mockResolvedValue(undefined);
 const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
 const mockUpdate = vi.fn().mockReturnValue({ set: mockUpdateSet });
 
-const mockTxExecute = vi.fn().mockResolvedValue(undefined);
 const mockTransaction = vi
   .fn()
   .mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => {
-    const tx = {
-      select: mockSelect,
-      insert: mockInsert,
-      update: mockUpdate,
-      execute: mockTxExecute,
-    };
+    const tx = { select: mockSelect, insert: mockInsert, update: mockUpdate };
     return callback(tx);
   });
 
@@ -118,14 +112,12 @@ describe("emitReceiptForBusiness", () => {
 
     mockFetchAdePrerequisites.mockResolvedValue(FAKE_PREREQUISITES);
 
-    mockTxExecute.mockResolvedValue(undefined);
     mockTransaction.mockImplementation(
       async (callback: (tx: unknown) => Promise<unknown>) => {
         const tx = {
           select: mockSelect,
           insert: mockInsert,
           update: mockUpdate,
-          execute: mockTxExecute,
         };
         return callback(tx);
       },

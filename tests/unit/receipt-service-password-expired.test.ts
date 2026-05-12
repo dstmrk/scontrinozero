@@ -141,7 +141,6 @@ function setupDb() {
         insert: mockInsert,
         select: mockSelect,
         update: mockUpdate,
-        execute: vi.fn().mockResolvedValue(undefined),
       }),
   );
 

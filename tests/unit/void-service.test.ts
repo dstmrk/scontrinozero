@@ -127,7 +127,6 @@ function setupHappyPathDb() {
         update: () => ({
           set: () => ({ where: vi.fn().mockResolvedValue(undefined) }),
         }),
-        execute: vi.fn().mockResolvedValue(undefined),
       };
       return fn(tx);
     },
