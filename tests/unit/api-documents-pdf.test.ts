@@ -54,6 +54,7 @@ vi.mock("@/db/schema", () => ({
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
   and: vi.fn(),
+  sql: { raw: vi.fn((s) => ({ raw: s })) },
 }));
 
 vi.mock("@/lib/receipts/generate-pdf-response", () => ({
@@ -106,7 +107,14 @@ describe("GET /api/documents/[documentId]/pdf", () => {
       return { from: mockFromLines };
     });
 
-    mockGetDb.mockReturnValue({ select: mockSelect });
+    // withStatementTimeout wraps queries in db.transaction(cb): expose select
+    // + execute on the tx so the SET LOCAL no-op succeeds.
+    const tx = {
+      select: mockSelect,
+      execute: vi.fn().mockResolvedValue(undefined),
+    };
+    const transaction = vi.fn(async (cb: (t: typeof tx) => unknown) => cb(tx));
+    mockGetDb.mockReturnValue({ select: mockSelect, transaction });
 
     mockGeneratePdfResponse.mockReturnValue(
       new Response("pdf-content", { status: 200 }),
@@ -174,6 +182,45 @@ describe("GET /api/documents/[documentId]/pdf", () => {
       const res = await GET(makeRequest(), makeParams(VALID_UUID));
       expect(mockGeneratePdfResponse).toHaveBeenCalled();
       expect(res.status).toBe(200);
+    });
+  });
+
+  describe("DB statement timeout", () => {
+    it("returns 503 with Retry-After on Postgres 57014", async () => {
+      const timeoutErr = Object.assign(
+        new Error("canceling statement due to statement timeout"),
+        { code: "57014" },
+      );
+      const transaction = vi.fn(async () => {
+        throw timeoutErr;
+      });
+      mockGetDb.mockReturnValue({ select: mockSelect, transaction });
+
+      const { GET } =
+        await import("@/app/api/documents/[documentId]/pdf/route");
+      const res = await GET(makeRequest(), makeParams(VALID_UUID));
+
+      expect(res.status).toBe(503);
+      expect(res.headers.get("retry-after")).toBe("5");
+      const body = await res.json();
+      expect(body.code).toBe("DB_TIMEOUT");
+      expect(mockGeneratePdfResponse).not.toHaveBeenCalled();
+    });
+
+    it("re-throws non-timeout DB errors (deadlock, etc.)", async () => {
+      const otherErr = Object.assign(new Error("deadlock detected"), {
+        code: "40P01",
+      });
+      const transaction = vi.fn(async () => {
+        throw otherErr;
+      });
+      mockGetDb.mockReturnValue({ select: mockSelect, transaction });
+
+      const { GET } =
+        await import("@/app/api/documents/[documentId]/pdf/route");
+      await expect(
+        GET(makeRequest(), makeParams(VALID_UUID)),
+      ).rejects.toMatchObject({ code: "40P01" });
     });
   });
 });

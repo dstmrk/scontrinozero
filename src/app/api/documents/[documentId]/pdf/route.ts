@@ -1,14 +1,22 @@
 import { eq, and } from "drizzle-orm";
-import { getDb } from "@/db";
 import {
   commercialDocuments,
   commercialDocumentLines,
   businesses,
   profiles,
 } from "@/db/schema";
+import { dbTimeoutResponse, isStatementTimeoutError } from "@/lib/api-errors";
+import { withStatementTimeout } from "@/lib/db-timeout";
+import { logger } from "@/lib/logger";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { generatePdfResponse } from "@/lib/receipts/generate-pdf-response";
 import { isValidUuid } from "@/lib/uuid";
+
+// PDF lookup: 1 JOIN auth + 1 SELECT lines + render in-process. 4s coprono
+// anche scontrini con molte righe; il rendering pdfkit è CPU-bound, fuori
+// dal budget DB. Su 57014 ritorniamo 503 retryable invece di un PDF rotto.
+const STATEMENT_TIMEOUT_MS = 4000;
+const ROUTE = "GET /api/documents/[documentId]/pdf";
 
 export async function GET(
   _request: Request,
@@ -30,29 +38,59 @@ export async function GET(
     return Response.json({ error: "ID non valido." }, { status: 400 });
   }
 
-  const db = getDb();
+  let queryResult;
+  try {
+    queryResult = await withStatementTimeout(
+      STATEMENT_TIMEOUT_MS,
+      async (tx) => {
+        const rows = await tx
+          .select({ doc: commercialDocuments, biz: businesses })
+          .from(commercialDocuments)
+          .innerJoin(
+            businesses,
+            eq(commercialDocuments.businessId, businesses.id),
+          )
+          .innerJoin(profiles, eq(businesses.profileId, profiles.id))
+          .where(
+            and(
+              eq(commercialDocuments.id, documentId),
+              eq(profiles.authUserId, user.id),
+            ),
+          )
+          .limit(1);
 
-  // ── Fetch document + business (ownership check via JOIN on profiles) ───────
-  const rows = await db
-    .select({ doc: commercialDocuments, biz: businesses })
-    .from(commercialDocuments)
-    .innerJoin(businesses, eq(commercialDocuments.businessId, businesses.id))
-    .innerJoin(profiles, eq(businesses.profileId, profiles.id))
-    .where(
-      and(
-        eq(commercialDocuments.id, documentId),
-        eq(profiles.authUserId, user.id),
-      ),
-    )
-    .limit(1);
+        if (rows.length === 0) return null;
 
-  if (rows.length === 0) {
+        const { doc, biz } = rows[0];
+        if (doc.kind !== "SALE") return { doc, biz, lines: null };
+
+        const lines = await tx
+          .select()
+          .from(commercialDocumentLines)
+          .where(eq(commercialDocumentLines.documentId, doc.id))
+          .orderBy(commercialDocumentLines.lineIndex);
+
+        return { doc, biz, lines };
+      },
+    );
+  } catch (err) {
+    if (isStatementTimeoutError(err)) {
+      logger.warn(
+        { err, path: ROUTE, statusCode: 503 },
+        "DB statement timeout",
+      );
+      return dbTimeoutResponse();
+    }
+    throw err;
+  }
+
+  if (!queryResult) {
     return Response.json({ error: "Documento non trovato." }, { status: 404 });
   }
 
-  const { doc, biz } = rows[0];
+  const { doc, biz, lines } = queryResult;
 
-  if (doc.kind !== "SALE") {
+  if (lines === null) {
     return Response.json(
       {
         error:
@@ -62,12 +100,5 @@ export async function GET(
     );
   }
 
-  // ── Fetch lines ────────────────────────────────────────────────────────────
-  const dbLines = await db
-    .select()
-    .from(commercialDocumentLines)
-    .where(eq(commercialDocumentLines.documentId, doc.id))
-    .orderBy(commercialDocumentLines.lineIndex);
-
-  return generatePdfResponse({ doc, biz, lines: dbLines });
+  return generatePdfResponse({ doc, biz, lines });
 }

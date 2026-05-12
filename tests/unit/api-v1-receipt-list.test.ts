@@ -83,6 +83,7 @@ vi.mock("drizzle-orm", () => ({
   count: vi.fn(),
   inArray: vi.fn(),
   asc: vi.fn(),
+  sql: { raw: vi.fn((s) => ({ raw: s })) },
 }));
 
 // --- Helpers ---
@@ -127,7 +128,14 @@ function setupDbMocks(
     .mockReturnValueOnce({ from: mockDocsFrom }) // 2nd call → docs
     .mockReturnValueOnce({ from: mockLinesFrom }); // 3rd call → lines
 
-  mockGetDb.mockReturnValue({ select: mockSelect });
+  // withStatementTimeout wraps queries in db.transaction(cb): expose select +
+  // execute on the tx so the SET LOCAL no-op succeeds and the chain runs.
+  const tx = {
+    select: mockSelect,
+    execute: vi.fn().mockResolvedValue(undefined),
+  };
+  const transaction = vi.fn(async (cb: (t: typeof tx) => unknown) => cb(tx));
+  mockGetDb.mockReturnValue({ select: mockSelect, transaction });
 }
 
 /** Sets up DB mocks for empty result (count + docs only, no lines query). */
@@ -145,7 +153,12 @@ function setupDbMocksEmpty(total = 0): void {
     .mockReturnValueOnce({ from: mockCountFrom })
     .mockReturnValueOnce({ from: mockDocsFrom });
 
-  mockGetDb.mockReturnValue({ select: mockSelect });
+  const tx = {
+    select: mockSelect,
+    execute: vi.fn().mockResolvedValue(undefined),
+  };
+  const transaction = vi.fn(async (cb: (t: typeof tx) => unknown) => cb(tx));
+  mockGetDb.mockReturnValue({ select: mockSelect, transaction });
 }
 
 const VALID_FROM = "2026-04-01";
@@ -587,6 +600,42 @@ describe("GET /api/v1/receipts (list)", () => {
       const res = await GET(makeRequest({ from: VALID_FROM, to: VALID_TO }));
 
       expect(res.status).toBe(200);
+    });
+  });
+
+  describe("DB statement timeout", () => {
+    it("returns 503 with Retry-After on Postgres 57014", async () => {
+      const timeoutErr = Object.assign(
+        new Error("canceling statement due to statement timeout"),
+        { code: "57014" },
+      );
+      const transaction = vi.fn(async () => {
+        throw timeoutErr;
+      });
+      mockGetDb.mockReturnValue({ select: mockSelect, transaction });
+
+      const { GET } = await import("@/app/api/v1/receipts/route");
+      const res = await GET(makeRequest({ from: VALID_FROM, to: VALID_TO }));
+
+      expect(res.status).toBe(503);
+      expect(res.headers.get("retry-after")).toBe("5");
+      const body = await res.json();
+      expect(body.code).toBe("DB_TIMEOUT");
+    });
+
+    it("re-throws non-timeout DB errors (unique violation, etc.)", async () => {
+      const otherErr = Object.assign(new Error("unique violation"), {
+        code: "23505",
+      });
+      const transaction = vi.fn(async () => {
+        throw otherErr;
+      });
+      mockGetDb.mockReturnValue({ select: mockSelect, transaction });
+
+      const { GET } = await import("@/app/api/v1/receipts/route");
+      await expect(
+        GET(makeRequest({ from: VALID_FROM, to: VALID_TO })),
+      ).rejects.toMatchObject({ code: "23505" });
     });
   });
 });

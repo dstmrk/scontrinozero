@@ -5,10 +5,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mocks  (vi.hoisted garantisce l'inizializzazione prima dei vi.mock factory)
 // ---------------------------------------------------------------------------
 
-const { mockGetUser, mockSelect, mockGeneratePdfResponse } = vi.hoisted(() => ({
+const {
+  mockGetUser,
+  mockSelect,
+  mockGeneratePdfResponse,
+  mockTransaction,
+  mockTxExecute,
+} = vi.hoisted(() => ({
   mockGetUser: vi.fn(),
   mockSelect: vi.fn(),
   mockGeneratePdfResponse: vi.fn(),
+  mockTransaction: vi.fn(),
+  mockTxExecute: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -20,6 +28,7 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({
     select: mockSelect,
+    transaction: mockTransaction,
   }),
 }));
 
@@ -121,6 +130,13 @@ describe("GET /api/documents/[documentId]/pdf", () => {
         makeSelectBuilder([{ doc: MOCK_DOC, biz: MOCK_BIZ }]),
       )
       .mockReturnValueOnce(makeSelectBuilder(MOCK_LINES));
+    // withStatementTimeout(ms, fn) → db.transaction(cb) where cb does
+    // tx.execute(SET LOCAL ...) then fn(tx). Wire the tx to the same
+    // select chain configured above.
+    mockTxExecute.mockResolvedValue(undefined);
+    mockTransaction.mockImplementation(async (cb) =>
+      cb({ execute: mockTxExecute, select: mockSelect }),
+    );
   });
 
   it("ritorna 401 se non autenticato", async () => {

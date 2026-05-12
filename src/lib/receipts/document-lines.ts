@@ -4,13 +4,27 @@ import { commercialDocumentLines } from "@/db/schema";
 import type { SelectCommercialDocumentLine } from "@/db/schema/commercial-document-lines";
 
 /**
+ * Minimal slice of Drizzle's tx/db API used here. Accepting both the pooled
+ * `getDb()` instance and a `tx` from `db.transaction()` lets callers wrap
+ * the call inside `withStatementTimeout()` without forking the function.
+ */
+type LineQueryRunner = {
+  select: ReturnType<typeof getDb>["select"];
+};
+
+/**
  * Fetches all lines for a given set of document IDs, ordered by lineIndex.
+ *
+ * Pass `runner` to execute inside an existing transaction (so a parent
+ * `SET LOCAL statement_timeout` applies to this query too). Defaults to the
+ * pooled db instance when no runner is provided — preserves the legacy call
+ * sites that don't need a shared transaction.
  */
 export async function fetchLinesByDocIds(
   docIds: string[],
+  runner: LineQueryRunner = getDb(),
 ): Promise<SelectCommercialDocumentLine[]> {
-  const db = getDb();
-  return db
+  return runner
     .select()
     .from(commercialDocumentLines)
     .where(inArray(commercialDocumentLines.documentId, docIds))
