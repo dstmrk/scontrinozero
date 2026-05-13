@@ -234,6 +234,32 @@
     non implementate, riformulare al condizionale come roadmap (es. "In arrivo · Piano Pro")
     anziché descriverle come attive.
 
+26. **Lookup su Record con chiave user-controlled: valida via Set/type guard, mai `record[input]` diretto.**
+    Quando una route dinamica (es. `/per/[slug]`, `/help/[slug]`, `/guide/[slug]`) fa il lookup
+    su un `Record<Slug, T>` con la chiave presa da `params`, `record[slug as Slug]` permette ai
+    nomi del prototype chain (`__proto__`, `constructor`, `toString`, `hasOwnProperty`) di
+    risolvere come truthy, bypassando il guard `notFound()` e generando un 500 server-side
+    nelle property access successive (`category.relatedHelp.map(...)` esplode su un oggetto
+    prototype). Pattern obbligato:
+
+    ```typescript
+    const VALID_SLUGS: ReadonlySet<string> = new Set(slugs);
+
+    export function isValidSlug(slug: string): slug is Slug {
+      return VALID_SLUGS.has(slug);
+    }
+
+    // route handler
+    if (!isValidSlug(slug)) notFound();
+    const item = records[slug]; // type-safe, no prototype risk
+    ```
+
+    `Object.hasOwn(record, slug)` è un'alternativa valida ma meno espressiva del type guard.
+    Aggiungere sempre test mirati per i 4 nomi del prototype chain
+    (`__proto__`, `constructor`, `toString`, `hasOwnProperty`) per documentare l'invariante.
+    Trovato in v1.2.9 da Codex su PR #463 — applicare lo stesso pattern a ogni nuova route
+    dinamica.
+
 ## Progetto
 
 ScontrinoZero è un registratore di cassa virtuale (SaaS) mobile-first che consente a
@@ -241,11 +267,11 @@ esercenti e micro-attività di emettere scontrini elettronici e trasmettere i co
 all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la procedura
 "Documento Commerciale Online".
 
-**Versione corrente:** v1.2.6 ⬜ (in sviluppo) — roadmap completa in `PLAN.md`.
+**Versione corrente:** v1.2.9 ✅ — roadmap completa in `PLAN.md`.
 
-**Prossima release:** v1.2.6 (fix code review: webhook atomic claim, searchReceipts validation, changePassword rate limit, rows_affected check, strict ISO date validation, off-by-one range check, webhook priceId retry)
+**Prossima release:** v1.2.10 (Pagine comparative `/confronto/[slug]`: registratore-telematico, scontrinare, fatture-in-cloud).
 
-**Post-lancio:** v1.2.2 (billing fix) → v1.2.3–v1.2.6 (patch: landing SEO, security/GDPR polish, code review fixes) → v1.3.0+ (analytics, catalog sync, …)
+**Post-lancio:** v1.2.2 (billing fix) → v1.2.3–v1.2.7 (patch: landing SEO, security/GDPR polish, code review fixes, Help Center expansion) → v1.2.8 (SEO foundations + hardening) → v1.2.9 (landing per categoria + B19) → v1.2.10–v1.2.14 (confronti, tool, guide, lancio soft, lancio hard) → v1.3.0+ (analytics, catalog sync, …)
 
 ## Principi di prodotto
 
