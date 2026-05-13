@@ -1,12 +1,8 @@
 import { describe, it, expect } from "vitest";
-import {
-  buildCspReportOnly,
-  buildReportingEndpoints,
-  sanitizeCspViolation,
-} from "./csp";
+import { buildCsp, buildReportingEndpoints, sanitizeCspViolation } from "./csp";
 
-describe("buildCspReportOnly", () => {
-  const policy = buildCspReportOnly();
+describe("buildCsp", () => {
+  const policy = buildCsp();
 
   it("contiene default-src self", () => {
     expect(policy).toMatch(/default-src 'self'/);
@@ -43,7 +39,8 @@ describe("buildCspReportOnly", () => {
   });
 
   it("ammette unsafe-inline su script-src per i payload JSON-LD escaped", () => {
-    // Nota: temporaneo, da migrare a nonce-based in PR follow-up.
+    // Mitigato da safeJsonLd() (escape <>&) e dal fatto che TUTTI i payload
+    // JSON-LD sono statici a build time. Follow-up B14b per nonce/hash.
     expect(policy).toMatch(/script-src[^;]*'unsafe-inline'[^;]*;/);
   });
 
@@ -68,7 +65,7 @@ describe("buildCspReportOnly", () => {
   });
 
   it("è deterministico tra invocazioni successive (snapshot regression)", () => {
-    expect(buildCspReportOnly()).toBe(policy);
+    expect(buildCsp()).toBe(policy);
   });
 });
 
