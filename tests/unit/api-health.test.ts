@@ -12,18 +12,6 @@ vi.mock("@/lib/logger", () => ({
   logger: { warn: mockWarn },
 }));
 
-describe("/api/health (legacy alias)", () => {
-  it("returns 200 with status ok without touching the DB", async () => {
-    const { GET } = await import("@/app/api/health/route");
-    const res = GET();
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { status: string; timestamp: string };
-    expect(body.status).toBe("ok");
-    expect(typeof body.timestamp).toBe("string");
-    expect(mockExecute).not.toHaveBeenCalled();
-  });
-});
-
 describe("/api/health/live", () => {
   it("returns 200 with status live", async () => {
     const { GET } = await import("@/app/api/health/live/route");

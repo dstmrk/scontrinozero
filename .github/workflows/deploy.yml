@@ -164,7 +164,7 @@ jobs:
               docker logs scontrinozero-smoke || true
               exit 1
             fi
-            if curl -fsS http://127.0.0.1:3000/api/health >/dev/null; then
+            if curl -fsS http://127.0.0.1:3000/api/health/live >/dev/null; then
               echo "Container healthy after ${i} attempts"
               exit 0
             fi
