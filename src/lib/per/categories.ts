@@ -146,7 +146,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Emissione mobile: lo smartphone che hai già è il tuo registratore di cassa.",
       'Gestione del catalogo di servizi ricorrenti (es. "manutenzione caldaia", "sostituzione lampadario") per emettere in pochi tap.',
       "Annullamento conforme di scontrini errati, senza rifare carte o chiamare il commercialista.",
-      "Backup automatico cloud: niente blocchetti smarriti tra il furgone e l'officina.",
+      "Dati centralizzati e accessibili da qualsiasi dispositivo: niente blocchetti smarriti tra il furgone e l'officina.",
     ],
     faq: [
       {
@@ -180,7 +180,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     audience:
       "gestori di B&B, affittacamere, case vacanza e strutture ricettive minori",
     useCase:
-      "Se gestisci un B&B aperto solo nei mesi estivi o nei weekend, un registratore di cassa telematico è uno spreco: paghi canone tutto l'anno per usarlo poche settimane. Con ScontrinoZero emetti lo scontrino al check-out dal telefono o dal tablet, e paghi solo quando ti serve. Stagione finita? Sospendi e basta.",
+      "Se gestisci un B&B aperto solo nei mesi estivi o nei weekend, un registratore di cassa telematico è uno spreco: paghi canone tutto l'anno per usarlo poche settimane. Con ScontrinoZero emetti lo scontrino al check-out dal telefono o dal tablet, e paghi solo quando ti serve. Stagione finita? Disdici e riattiva quando vuoi — lo storico resta sempre accessibile sul tuo account.",
     obligations: [
       "Emissione del Documento Commerciale Online per il servizio di pernottamento (aliquota IVA 10%).",
       "Imposta di soggiorno (dove applicata) calcolata separatamente, non soggetta a IVA.",
@@ -234,7 +234,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Emissione veloce: importo, IVA al 10% pre-configurato, scontrino in pochi secondi.",
       "Pagamento misto contanti/POS gestito in un'unica transazione.",
       "Funziona sul telefono che già usi per il navigatore e l'app di prenotazione.",
-      "Storico corse esportabile a fine mese per la contabilità.",
+      "Storico corse consultabile e ricercabile; export CSV in arrivo sul piano Pro.",
     ],
     faq: [
       {
@@ -276,10 +276,10 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Limite di ricavi €85.000/anno per restare nel regime forfettario.",
     ],
     benefits: [
-      "Configurazione automatica della natura N2.2 sul forfettario: niente errori di compilazione.",
+      "Selezione guidata della natura N2.2 in fase di onboarding, pre-configurata sugli scontrini.",
       "Costo mensile più basso del mercato: a partire da €2,50/mese (annuale).",
       "Zero hardware da acquistare: solo lo smartphone che già hai.",
-      "Storico ordinato e esportabile per la dichiarazione dei redditi.",
+      "Storico ordinato e ricercabile; export CSV in arrivo sul piano Pro.",
     ],
     faq: [
       {
@@ -290,7 +290,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       {
         question: "Cosa cambia se supero gli €85.000 di ricavi?",
         answer:
-          "Esci dal regime forfettario e applichi l'IVA ordinaria dall'anno successivo (o subito se superi €100.000). ScontrinoZero gestisce entrambi i regimi: puoi cambiare le impostazioni IVA quando esci dal forfettario.",
+          "Esci dal regime forfettario e applichi l'IVA ordinaria dall'anno successivo (o subito se superi €100.000). ScontrinoZero supporta entrambi i regimi: per cambiare l'aliquota prevalente dopo l'onboarding contatta il supporto (un'autonoma riconfigurazione da Impostazioni è prevista in una versione futura).",
       },
       {
         question: "Devo applicare la marca da bollo da €2 sullo scontrino?",
@@ -322,7 +322,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     benefits: [
       "Una sola app per gestire scontrini e storico, separata dal gestionale fatture.",
       "Emissione veloce in mobilità: a fine sessione, dal telefono, senza tornare in studio.",
-      "Storico esportabile da consegnare al commercialista a fine mese.",
+      "Storico consultabile; export CSV da consegnare al commercialista in arrivo sul piano Pro.",
       "Costo contenuto: meno di una cena al ristorante al mese per il piano Starter.",
     ],
     faq: [
