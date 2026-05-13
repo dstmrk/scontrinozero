@@ -2,7 +2,7 @@
 
 import { and, count, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
-import { apiKeys, profiles } from "@/db/schema";
+import { apiKeys, businesses, profiles } from "@/db/schema";
 import { generateApiKey } from "@/lib/api-keys";
 import { canUseApi, getApiKeyLimit } from "@/lib/plans";
 import { getEffectivePlan } from "@/server/billing-actions";
@@ -78,19 +78,6 @@ export async function createApiKey(
   const db = getDb();
 
   const keyLimit = getApiKeyLimit(effectivePlan);
-  if (keyLimit !== null) {
-    const [{ count: activeKeyCount }] = await db
-      .select({ count: count() })
-      .from(apiKeys)
-      .where(
-        and(eq(apiKeys.businessId, businessId), isNull(apiKeys.revokedAt)),
-      );
-    if (Number(activeKeyCount) >= keyLimit) {
-      return {
-        error: `Hai raggiunto il limite di ${keyLimit} API key per il piano corrente. Revoca una chiave esistente per crearne una nuova.`,
-      };
-    }
-  }
 
   const [profile] = await db
     .select({ id: profiles.id })
@@ -104,19 +91,45 @@ export async function createApiKey(
 
   const generated = generateApiKey("business");
 
-  const [inserted] = await db
-    .insert(apiKeys)
-    .values({
-      profileId: profile.id,
-      businessId,
-      type: "business",
-      name: trimmedName,
-      keyHash: generated.hash,
-      keyPrefix: generated.prefix,
-    })
-    .returning({ id: apiKeys.id });
+  // Serializza count + insert per business con SELECT ... FOR UPDATE sulla
+  // riga business. Senza lock due richieste concorrenti possono entrambe
+  // superare il check (vedono N < limit) e inserire, eccedendo il limite del
+  // piano di 1 unità (CLAUDE.md B12 / regola 16).
+  return db.transaction(async (tx) => {
+    await tx
+      .select({ id: businesses.id })
+      .from(businesses)
+      .where(eq(businesses.id, businessId))
+      .for("update");
 
-  return { apiKeyRaw: generated.raw, keyId: inserted.id };
+    if (keyLimit !== null) {
+      const [{ count: activeKeyCount }] = await tx
+        .select({ count: count() })
+        .from(apiKeys)
+        .where(
+          and(eq(apiKeys.businessId, businessId), isNull(apiKeys.revokedAt)),
+        );
+      if (Number(activeKeyCount) >= keyLimit) {
+        return {
+          error: `Hai raggiunto il limite di ${keyLimit} API key per il piano corrente. Revoca una chiave esistente per crearne una nuova.`,
+        };
+      }
+    }
+
+    const [inserted] = await tx
+      .insert(apiKeys)
+      .values({
+        profileId: profile.id,
+        businessId,
+        type: "business",
+        name: trimmedName,
+        keyHash: generated.hash,
+        keyPrefix: generated.prefix,
+      })
+      .returning({ id: apiKeys.id });
+
+    return { apiKeyRaw: generated.raw, keyId: inserted.id };
+  });
 }
 
 export async function revokeApiKey(keyId: string): Promise<{ error?: string }> {
