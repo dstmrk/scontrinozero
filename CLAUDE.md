@@ -435,7 +435,7 @@ L'AdE **non espone API REST pubbliche**. La procedura "Documento Commerciale Onl
 - **Docker self-hosted su VPS** — Next.js `standalone`, Cloudflare Tunnel come ingress
   - HTTPS automatico, CDN, DDoS protection, IP nascosto — zero porte pubbliche
   - Docker Compose: next-app + cloudflared
-  - Health check endpoint: `/api/health`
+  - Health check endpoint: `/api/health/live` (liveness), `/api/health/ready` (readiness, DB ping)
   - `start-period` healthcheck: **60s** (tempo per completare le migrazioni DB al primo avvio)
 - **Supabase Cloud** per il database (no DB da gestire sulla VPS)
 - **Deploy manuale via tag** `v*.*.*` → GitHub Actions: build Docker → push GHCR → VPS:

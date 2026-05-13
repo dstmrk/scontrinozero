@@ -20,6 +20,7 @@ import { PasswordResetEmail } from "@/emails/password-reset";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
 import { getFormString, getFormStringRaw } from "@/lib/form-utils";
+import { isUniqueConstraintViolation } from "@/lib/db-errors";
 
 const CURRENT_TERMS_VERSION = "v01";
 
@@ -139,9 +140,7 @@ async function insertProfileOrRollback(
     // Unique-constraint violation on lower(email): two concurrent signups raced.
     // Return the same user-friendly message as the pre-check to avoid disclosing
     // which constraint fired (prevents timing-based enumeration).
-    const pgCode =
-      err && typeof err === "object" && "code" in err ? err.code : null;
-    if (pgCode === "23505") {
+    if (isUniqueConstraintViolation(err)) {
       return {
         error:
           "Un account con questa email esiste già. Accedi oppure reimposta la password.",

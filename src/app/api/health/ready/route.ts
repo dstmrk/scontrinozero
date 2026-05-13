@@ -16,7 +16,7 @@ const JS_RACE_TIMEOUT_MS = DB_PING_TIMEOUT_MS + 500;
  * requests to this instance.
  *
  * Liveness vs readiness:
- * - `/api/health/live` (and the legacy `/api/health` alias) → process up.
+ * - `/api/health/live` → process up.
  * - `/api/health/ready` → DB reachable. A failed DB ping returns 503 so the
  *   instance is taken out of rotation without being restarted.
  *
