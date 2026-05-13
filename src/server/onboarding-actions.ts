@@ -36,15 +36,7 @@ import {
   getFormStringOrNull,
   getFormStringRaw,
 } from "@/lib/form-utils";
-
-function isUniqueConstraintViolation(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    "code" in err &&
-    (err as { code: unknown }).code === "23505"
-  );
-}
+import { isUniqueConstraintViolation } from "@/lib/db-errors";
 
 export type OnboardingActionResult = {
   error?: string;
