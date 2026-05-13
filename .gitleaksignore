@@ -11,3 +11,4 @@ d5cd231267e68e5146904677937ae81df9bda5e1:src/app/(marketing)/help/api/page.tsx:c
 61c69a3323cda09ee38fa0e6a6e431a611589692:tests/unit/change-ade-password-dialog.test.ts:generic-api-key:50
 61c69a3323cda09ee38fa0e6a6e431a611589692:tests/unit/change-ade-password-dialog.test.ts:generic-api-key:51
 b83c5c62d799e4054f80bbfd0dd180403fcf4437:REVIEW.md:generic-api-key:601
+db566792da8fa165e112c02e5564ad1224c310bb:scripts/indexnow-submit.ts:generic-api-key:18
