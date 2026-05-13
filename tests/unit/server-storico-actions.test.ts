@@ -14,9 +14,6 @@ const {
   mockDocsWhere,
   mockDocsFrom,
   mockCountFrom,
-  mockLinesOrderBy,
-  mockLinesWhere,
-  mockLinesFrom,
   mockSelect,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
@@ -29,9 +26,6 @@ const {
   mockDocsWhere: vi.fn(),
   mockDocsFrom: vi.fn(),
   mockCountFrom: vi.fn(),
-  mockLinesOrderBy: vi.fn(),
-  mockLinesWhere: vi.fn(),
-  mockLinesFrom: vi.fn(),
   mockSelect: vi.fn(),
 }));
 

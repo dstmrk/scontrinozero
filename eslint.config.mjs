@@ -15,6 +15,18 @@ const eslintConfig = defineConfig([
     plugins: { prettier: prettierPlugin },
     rules: {
       "prettier/prettier": "error",
+      // Honor the `_` prefix convention for intentionally unused variables/args.
+      // Required when an interface or signature forces a parameter name (e.g.
+      // route handlers `GET(_req)`, mock client `submitSale(_payload)`).
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+        },
+      ],
     },
   },
   prettierConfig,
