@@ -27,6 +27,7 @@ import {
   BedDouble,
   Car,
   Percent,
+  Briefcase,
 } from "lucide-react";
 
 export default function Home() {
@@ -48,7 +49,7 @@ export default function Home() {
           </p>
           <div className="mt-8 flex flex-col items-center gap-4">
             <Button asChild size="lg">
-              <Link href="/register" prefetch={false}>
+              <Link href="/register">
                 Inizia gratis
                 <ArrowRight className="h-4 w-4" />
               </Link>
@@ -240,44 +241,58 @@ export default function Home() {
             {[
               {
                 icon: ShoppingBag,
+                slug: "ambulanti",
                 title: "Ambulanti e mercati",
                 description:
                   "Emetti scontrini ovunque sei, con qualsiasi smartphone connesso a internet.",
               },
               {
                 icon: Scissors,
+                slug: "parrucchieri-estetisti",
                 title: "Parrucchieri, estetisti e tatuatori",
                 description:
                   "Gestisci incassi e scontrini dal tablet o smartphone, senza hardware sul banco.",
               },
               {
                 icon: Wrench,
-                title: "Artigiani e professionisti",
+                slug: "artigiani",
+                title: "Artigiani e installatori",
                 description:
                   "Idraulici, elettricisti, meccanici: emetti lo scontrino direttamente dal cantiere.",
               },
               {
+                icon: Briefcase,
+                slug: "professionisti",
+                title: "Liberi professionisti",
+                description:
+                  "Consulenti, tutor, personal trainer: scontrino al cliente che paga al momento.",
+              },
+              {
                 icon: BedDouble,
+                slug: "b-and-b",
                 title: "B&B e strutture ricettive",
                 description:
                   "Ideale per attività stagionali che non vogliono un registratore fisso.",
               },
               {
                 icon: Car,
+                slug: "ncc-taxi",
                 title: "NCC e taxi",
                 description:
                   "Zero hardware aggiuntivo: basta lo smartphone che già usi ogni giorno.",
               },
               {
                 icon: Percent,
+                slug: "regime-forfettario",
                 title: "Regime forfettario",
                 description:
                   "ScontrinoZero è la soluzione più economica: nessun registratore fisico, solo il tuo smartphone.",
               },
             ].map((item) => (
-              <div
-                key={item.title}
-                className="bg-background flex gap-4 rounded-xl border p-4"
+              <Link
+                key={item.slug}
+                href={`/per/${item.slug}`}
+                className="bg-background hover:border-primary/40 hover:bg-muted/30 flex gap-4 rounded-xl border p-4 transition-colors"
               >
                 <item.icon className="text-primary mt-0.5 h-5 w-5 shrink-0" />
                 <div>
@@ -286,7 +301,7 @@ export default function Home() {
                     {item.description}
                   </p>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
