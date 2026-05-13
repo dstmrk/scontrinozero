@@ -118,12 +118,38 @@ Diagnosi/azione prevista nelle release successive (non blocca v1.2.8 → v1.2.9)
   hub di internal linking, aumentando PageRank interno verso le `/help/*`
 - v1.2.13 (lancio soft) → primi backlink esterni reali (Reddit, IndieHackers, LinkedIn)
   che sbloccano il crawl budget
-- Possibili azioni a basso costo da valutare prima di v1.2.9:
-  - Submit IndexNow a Bing/Yandex (gratuito, immediato)
-  - "Richiedi indicizzazione" manuale GSC per le 5–10 URL prioritarie (`/prezzi`,
-    `/funzionalita`, top 5 articoli `/help/*`) — quota giornaliera limitata
-  - Verificare `robots.txt`, `sitemap.xml` consegnati correttamente
-  - Core Web Vitals: lighthouse sulle pagine non indicizzate per escludere LCP/TBT lenti
+  Azioni a basso costo eseguite/da eseguire prima di v1.2.9:
+
+- ✅ **IndexNow (Bing/Yandex)**: script `npm run seo:indexnow` POSTa il sitemap
+  intero a `api.indexnow.org`. Ownership key statica in `public/<key>.txt`.
+  Eseguibile dopo ogni deploy o on-demand. Google non partecipa al protocollo —
+  IndexNow copre solo Bing/Yandex/Naver/Seznam.
+- ⬜ **Richiesta indicizzazione manuale GSC** (quota giornaliera ~10 URL).
+  Lista prioritaria (alta-intent / alta-volume keyword):
+  1. `/prezzi`
+  2. `/funzionalita`
+  3. `/help` (hub)
+  4. `/help/pos-rt-obbligo`
+  5. `/help/normativa-pos-2026`
+  6. `/help/regime-forfettario`
+  7. `/help/prima-configurazione`
+  8. `/help/primo-scontrino`
+  9. `/help/come-collegare-ade`
+  10. `/help/piani-e-prezzi`
+- ⬜ **Core Web Vitals**: PageSpeed Insights manuale su `/`, `/prezzi`,
+  `/help/pos-rt-obbligo` per escludere LCP/CLS/INP problematici (require browser).
+
+**Verifica tecnica sitemap/robots (post-deploy v1.2.8):**
+
+- `robots.ts` OK: `allow: /`, `disallow: /dashboard/ /onboarding/`, sitemap pointer
+  presente. Nessuna modifica necessaria.
+- `sitemap.ts` ha **2 finding da considerare** (non urgenti):
+  1. `lastModified: new Date()` rigenera la data corrente su ogni request: Google
+     vede tutte le 33 URL come "appena modificate" a ogni crawl, rumore di freshness.
+     Fix: hardcodare la data di ultima modifica per pagina (o usare build timestamp).
+     Da affrontare quando si tocca il sitemap (v1.2.9 aggiunge entry per `/per/*`).
+  2. `/help` hub e articoli `/help/*` hanno la stessa `priority: 0.6` — l'hub
+     dovrebbe avere priorità ≥ dei figli (es. 0.7). Da fixare contestualmente.
 
 ---
 
