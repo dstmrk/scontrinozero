@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import type { AdeCedentePrestatore, AdeDocumentDetail } from "./types";
 import type {
-  PaymentRequest,
   SaleDocumentRequest,
   SaleLineRequest,
   VoidRequest,

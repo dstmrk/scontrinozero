@@ -55,6 +55,9 @@ jobs:
         uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # gitleaks-action v2 is still pinned to Node 20. Opt into Node 24 to
+          # silence the deprecation warning until upstream ships a Node 24 build.
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
   # Audit dipendenze — gira anche su modifiche al solo lockfile
   audit:
@@ -181,6 +184,6 @@ jobs:
         with:
           name: next-build
           path: |
-            .next/
-            !.next/cache
+            .next/**
+            !.next/cache/**
           retention-days: 1

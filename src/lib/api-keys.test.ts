@@ -95,7 +95,6 @@ describe("isValidApiKeyFormat", () => {
 
   it("accetta body con tutti i caratteri base64url validi", () => {
     // base64url: A-Z, a-z, 0-9, -, _
-    const body = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwx01"; // 50 — no, must be 48
     const body48 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwx".slice(
       0,
       48,

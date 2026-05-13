@@ -135,7 +135,6 @@ describe("rotateEncryptionKey", () => {
     const oldKeyHex = makeKeyHex();
     const newKeyHex = makeKeyHex();
     const oldKeyBuf = Buffer.from(oldKeyHex, "hex");
-    const newKeyBuf = Buffer.from(newKeyHex, "hex");
 
     const row1 = makeRow("id-1", 1, oldKeyBuf, "CF001", "pass001", "1111");
     const row2 = makeRow("id-2", 1, oldKeyBuf, "CF002", "pass002", "2222");
