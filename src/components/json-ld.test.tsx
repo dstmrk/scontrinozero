@@ -9,6 +9,7 @@ import {
   faqPageJsonLd,
   breadcrumbListJsonLd,
   helpArticleBreadcrumb,
+  serviceJsonLd,
 } from "./json-ld";
 import { faqItems } from "@/components/marketing/faq-items";
 
@@ -212,5 +213,99 @@ describe("helpArticleBreadcrumb", () => {
   it("rejects empty slug or empty name", () => {
     expect(() => helpArticleBreadcrumb("", "Title")).toThrow();
     expect(() => helpArticleBreadcrumb("slug", "")).toThrow();
+  });
+});
+
+describe("serviceJsonLd", () => {
+  it("has @type Service and @context schema.org", () => {
+    const ld = serviceJsonLd({
+      name: "ScontrinoZero per ambulanti",
+      description: "Registratore di cassa virtuale per ambulanti.",
+      url: "https://scontrinozero.it/per/ambulanti",
+      audience: "ambulanti e operatori di mercato",
+    });
+    expect(ld["@type"]).toBe("Service");
+    expect(ld["@context"]).toBe("https://schema.org");
+  });
+
+  it("includes the provider as an Organization", () => {
+    const ld = serviceJsonLd({
+      name: "X",
+      description: "Y",
+      url: "https://scontrinozero.it/per/x",
+      audience: "z",
+    });
+    expect(ld.provider["@type"]).toBe("Organization");
+    expect(ld.provider.name).toBe("ScontrinoZero");
+  });
+
+  it("defaults areaServed to Italy when not provided", () => {
+    const ld = serviceJsonLd({
+      name: "X",
+      description: "Y",
+      url: "https://scontrinozero.it/per/x",
+      audience: "z",
+    });
+    expect(ld.areaServed).toBe("IT");
+  });
+
+  it("uses provided areaServed when given", () => {
+    const ld = serviceJsonLd({
+      name: "X",
+      description: "Y",
+      url: "https://scontrinozero.it/per/x",
+      audience: "z",
+      areaServed: "EU",
+    });
+    expect(ld.areaServed).toBe("EU");
+  });
+
+  it("emits an audience object", () => {
+    const ld = serviceJsonLd({
+      name: "X",
+      description: "Y",
+      url: "https://scontrinozero.it/per/x",
+      audience: "ambulanti",
+    });
+    expect(ld.audience["@type"]).toBe("Audience");
+    expect(ld.audience.audienceType).toBe("ambulanti");
+  });
+
+  it("rejects empty name, description or url", () => {
+    expect(() =>
+      serviceJsonLd({
+        name: "",
+        description: "Y",
+        url: "https://scontrinozero.it/per/x",
+        audience: "z",
+      }),
+    ).toThrow();
+    expect(() =>
+      serviceJsonLd({
+        name: "X",
+        description: "",
+        url: "https://scontrinozero.it/per/x",
+        audience: "z",
+      }),
+    ).toThrow();
+    expect(() =>
+      serviceJsonLd({
+        name: "X",
+        description: "Y",
+        url: "",
+        audience: "z",
+      }),
+    ).toThrow();
+  });
+
+  it("serviceType is set when provided", () => {
+    const ld = serviceJsonLd({
+      name: "X",
+      description: "Y",
+      url: "https://scontrinozero.it/per/x",
+      audience: "z",
+      serviceType: "Software fiscale",
+    });
+    expect(ld.serviceType).toBe("Software fiscale");
   });
 });

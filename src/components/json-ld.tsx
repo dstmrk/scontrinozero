@@ -106,6 +106,37 @@ export function helpArticleBreadcrumb(slug: string, name: string) {
   ]);
 }
 
+export interface ServiceJsonLdInput {
+  readonly name: string;
+  readonly description: string;
+  readonly url: string;
+  readonly audience: string;
+  readonly areaServed?: string;
+  readonly serviceType?: string;
+}
+
+export function serviceJsonLd(input: ServiceJsonLdInput) {
+  if (!input.name) throw new Error("serviceJsonLd: name is required");
+  if (!input.description)
+    throw new Error("serviceJsonLd: description is required");
+  if (!input.url) throw new Error("serviceJsonLd: url is required");
+  if (!input.audience) throw new Error("serviceJsonLd: audience is required");
+  return {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    name: input.name,
+    description: input.description,
+    url: input.url,
+    areaServed: input.areaServed ?? "IT",
+    serviceType: input.serviceType ?? "Registratore di cassa virtuale",
+    provider: organizationJsonLd,
+    audience: {
+      "@type": "Audience" as const,
+      audienceType: input.audience,
+    },
+  } as const;
+}
+
 export const faqPageJsonLd = {
   "@context": "https://schema.org",
   "@type": "FAQPage",

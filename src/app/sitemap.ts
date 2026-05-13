@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { categorySlugs } from "@/lib/per/categories";
 
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://scontrinozero.it";
 
@@ -7,6 +8,13 @@ const marketingPages = ["/prezzi", "/funzionalita"].map((path) => ({
   lastModified: new Date(),
   changeFrequency: "monthly" as const,
   priority: 0.8,
+}));
+
+const categoryLandingPages = categorySlugs.map((slug) => ({
+  url: `${baseUrl}/per/${slug}`,
+  lastModified: new Date(),
+  changeFrequency: "monthly" as const,
+  priority: 0.7,
 }));
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -18,6 +26,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1,
     },
     ...marketingPages,
+    ...categoryLandingPages,
     {
       url: `${baseUrl}/privacy`,
       lastModified: new Date(),
