@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { categories, categorySlugs, getCategory } from "./categories";
+import {
+  categories,
+  categorySlugs,
+  getCategory,
+  isCategorySlug,
+} from "./categories";
 
 describe("categorySlugs", () => {
   it("contains exactly 7 slugs", () => {
@@ -114,6 +119,33 @@ describe("getCategory", () => {
 
   it("throws for an empty slug", () => {
     expect(() => getCategory("")).toThrow();
+  });
+
+  it("throws for prototype-chain keys (e.g. __proto__, constructor)", () => {
+    expect(() => getCategory("__proto__")).toThrow();
+    expect(() => getCategory("constructor")).toThrow();
+    expect(() => getCategory("toString")).toThrow();
+    expect(() => getCategory("hasOwnProperty")).toThrow();
+  });
+});
+
+describe("isCategorySlug", () => {
+  it("returns true for known slugs", () => {
+    for (const slug of categorySlugs) {
+      expect(isCategorySlug(slug)).toBe(true);
+    }
+  });
+
+  it("returns false for unknown slugs", () => {
+    expect(isCategorySlug("unknown")).toBe(false);
+    expect(isCategorySlug("")).toBe(false);
+  });
+
+  it("returns false for prototype-chain keys", () => {
+    expect(isCategorySlug("__proto__")).toBe(false);
+    expect(isCategorySlug("constructor")).toBe(false);
+    expect(isCategorySlug("toString")).toBe(false);
+    expect(isCategorySlug("hasOwnProperty")).toBe(false);
   });
 });
 

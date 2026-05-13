@@ -11,7 +11,7 @@ import {
 import {
   categories,
   categorySlugs,
-  type CategorySlug,
+  isCategorySlug,
 } from "@/lib/per/categories";
 import { helpArticles } from "@/lib/help/articles";
 
@@ -29,10 +29,10 @@ export async function generateMetadata({
   params,
 }: PageParams): Promise<Metadata> {
   const { slug } = await params;
-  const category = categories[slug as CategorySlug];
-  if (!category) {
+  if (!isCategorySlug(slug)) {
     return { title: "Categoria non trovata | ScontrinoZero" };
   }
+  const category = categories[slug];
   return {
     title: category.metaTitle,
     description: category.metaDescription,
@@ -49,10 +49,10 @@ export async function generateMetadata({
 
 export default async function CategoryLandingPage({ params }: PageParams) {
   const { slug } = await params;
-  const category = categories[slug as CategorySlug];
-  if (!category) {
+  if (!isCategorySlug(slug)) {
     notFound();
   }
+  const category = categories[slug];
 
   const pageUrl = `${SITE_URL}/per/${category.slug}`;
   const relatedArticles = category.relatedHelp

@@ -352,13 +352,15 @@ export const categories: Record<CategorySlug, CategoryContent> = {
   },
 };
 
+const CATEGORY_SLUG_SET: ReadonlySet<string> = new Set(categorySlugs);
+
+export function isCategorySlug(slug: string): slug is CategorySlug {
+  return CATEGORY_SLUG_SET.has(slug);
+}
+
 export function getCategory(slug: string): CategoryContent {
-  if (!slug) {
-    throw new Error("getCategory: slug is required");
-  }
-  const category = categories[slug as CategorySlug];
-  if (!category) {
+  if (!isCategorySlug(slug)) {
     throw new Error(`Unknown category slug: ${slug}`);
   }
-  return category;
+  return categories[slug];
 }
