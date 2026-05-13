@@ -40,17 +40,20 @@ vi.mock("@/lib/api-keys", () => ({
 const mockSelect = vi.fn();
 const mockInsert = vi.fn();
 const mockUpdate = vi.fn();
+const mockTransaction = vi.fn();
 
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({
     select: mockSelect,
     insert: mockInsert,
     update: mockUpdate,
+    transaction: mockTransaction,
   }),
 }));
 
 vi.mock("@/db/schema", () => ({
   apiKeys: "api-keys-table",
+  businesses: "businesses-table",
   profiles: "profiles-table",
 }));
 
@@ -68,6 +71,7 @@ function makeSelectBuilder(result: unknown[]) {
     from: vi.fn(),
     where: vi.fn(),
     limit: vi.fn().mockResolvedValue(result),
+    for: vi.fn().mockResolvedValue(result),
   };
   builder.from.mockReturnValue(builder);
   builder.where.mockReturnValue(builder);
@@ -81,6 +85,28 @@ function makeSelectBuilderNoLimit(result: unknown[]) {
   };
   builder.from.mockReturnValue(builder);
   return builder;
+}
+
+function makeSelectBuilderForUpdate(result: unknown[]) {
+  const builder = {
+    from: vi.fn(),
+    where: vi.fn(),
+    for: vi.fn().mockResolvedValue(result),
+  };
+  builder.from.mockReturnValue(builder);
+  builder.where.mockReturnValue(builder);
+  return builder;
+}
+
+function setupPassthroughTransaction() {
+  mockTransaction.mockImplementation(
+    async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn({
+        select: mockSelect,
+        insert: mockInsert,
+        update: mockUpdate,
+      }),
+  );
 }
 
 // --- Fixtures ---
@@ -156,6 +182,7 @@ describe("listApiKeys", () => {
 describe("createApiKey", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setupPassthroughTransaction();
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockCheckBusinessOwnership.mockResolvedValue(null);
     mockGetEffectivePlan.mockResolvedValue("pro");
@@ -167,8 +194,11 @@ describe("createApiKey", () => {
       prefix: "szk_live_XXX",
     });
 
-    // Profile lookup
-    mockSelect.mockReturnValue(makeSelectBuilder([FAKE_PROFILE]));
+    // SELECT order: profile lookup, then SELECT ... FOR UPDATE on businesses
+    // inside the transaction. With keyLimit=null the count query is skipped.
+    mockSelect
+      .mockReturnValueOnce(makeSelectBuilder([FAKE_PROFILE]))
+      .mockReturnValueOnce(makeSelectBuilderForUpdate([{ id: "biz-uuid" }]));
 
     // Insert chain: values → returning
     const mockReturning = vi.fn().mockResolvedValue([{ id: "new-key-uuid" }]);
@@ -233,6 +263,7 @@ describe("createApiKey", () => {
   });
 
   it("ritorna errore se profilo non trovato", async () => {
+    mockSelect.mockReset();
     mockSelect.mockReturnValue(makeSelectBuilder([]));
 
     const { createApiKey } = await import("./api-key-actions");
@@ -240,12 +271,27 @@ describe("createApiKey", () => {
 
     expect(result.error).toMatch(/Profilo/i);
     expect(mockInsert).not.toHaveBeenCalled();
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it("avvolge count + insert in una transaction (race condition guard)", async () => {
+    mockGetApiKeyLimit.mockReturnValue(3);
+    // Per questo test serve un terzo select per la count query.
+    mockSelect.mockReturnValueOnce(makeSelectBuilderNoLimit([{ count: "1" }]));
+
+    const { createApiKey } = await import("./api-key-actions");
+    const result = await createApiKey("biz-uuid", "Race Key");
+
+    expect(result.error).toBeUndefined();
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+    expect(mockInsert).toHaveBeenCalled();
   });
 });
 
 describe("createApiKey — limite per piano", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setupPassthroughTransaction();
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockCheckBusinessOwnership.mockResolvedValue(null);
     mockGetEffectivePlan.mockResolvedValue("pro");
@@ -263,22 +309,29 @@ describe("createApiKey — limite per piano", () => {
 
   it("blocca la creazione quando il piano Pro ha raggiunto il limite di 3 key", async () => {
     mockGetApiKeyLimit.mockReturnValue(3);
-    // count query returns 3 (at limit)
-    mockSelect.mockReturnValueOnce(makeSelectBuilderNoLimit([{ count: "3" }]));
+    // Order: profile → FOR UPDATE (businesses) → count (3 = at limit)
+    mockSelect
+      .mockReturnValueOnce(makeSelectBuilder([FAKE_PROFILE]))
+      .mockReturnValueOnce(makeSelectBuilderForUpdate([{ id: "biz-uuid" }]))
+      .mockReturnValueOnce(makeSelectBuilderNoLimit([{ count: "3" }]));
 
     const { createApiKey } = await import("./api-key-actions");
     const result = await createApiKey("biz-uuid", "Fourth Key");
 
     expect(result.error).toMatch(/limite/i);
     expect(mockInsert).not.toHaveBeenCalled();
+    // Transaction is entered (so the count check is serialised with insert)
+    // even when the limit is reached: the early return happens inside the tx.
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
   });
 
   it("consente la creazione quando ci sono 2 key attive su 3 permesse (slot libero)", async () => {
     mockGetApiKeyLimit.mockReturnValue(3);
-    // count query returns 2 (below limit)
+    // Order: profile → FOR UPDATE → count (2 = below limit) → insert
     mockSelect
-      .mockReturnValueOnce(makeSelectBuilderNoLimit([{ count: "2" }]))
-      .mockReturnValue(makeSelectBuilder([FAKE_PROFILE]));
+      .mockReturnValueOnce(makeSelectBuilder([FAKE_PROFILE]))
+      .mockReturnValueOnce(makeSelectBuilderForUpdate([{ id: "biz-uuid" }]))
+      .mockReturnValueOnce(makeSelectBuilderNoLimit([{ count: "2" }]));
 
     const { createApiKey } = await import("./api-key-actions");
     const result = await createApiKey("biz-uuid", "Third Key");
@@ -291,16 +344,47 @@ describe("createApiKey — limite per piano", () => {
   it("nessun limite applicato per piano Unlimited (getApiKeyLimit ritorna null)", async () => {
     mockGetEffectivePlan.mockResolvedValue("unlimited");
     mockGetApiKeyLimit.mockReturnValue(null); // no limit
-    // Only profile select — count query is NOT executed
-    mockSelect.mockReturnValue(makeSelectBuilder([FAKE_PROFILE]));
+    // Order: profile → FOR UPDATE → insert (count query skipped)
+    mockSelect
+      .mockReturnValueOnce(makeSelectBuilder([FAKE_PROFILE]))
+      .mockReturnValueOnce(makeSelectBuilderForUpdate([{ id: "biz-uuid" }]));
 
     const { createApiKey } = await import("./api-key-actions");
     const result = await createApiKey("biz-uuid", "Unlimited Key");
 
     expect(result.error).toBeUndefined();
     expect(result.apiKeyRaw).toBeDefined();
-    // count query must NOT be called (no mockSelectBuilderNoLimit setup)
     expect(mockInsert).toHaveBeenCalled();
+  });
+
+  it("non inserisce se due richieste concorrenti vedrebbero entrambe N < limit (race condition serializzata)", async () => {
+    // Pre-condition: 1 chiave attiva, limite 2. Simuliamo due chiamate
+    // sequenziali (perché il mock transaction è passthrough). La prima
+    // chiamata vede count=1 e inserisce. Senza il SELECT FOR UPDATE le due
+    // count concorrenti potrebbero entrambe vedere count=1 in DB reale; col
+    // lock la seconda vede count=2 dopo il commit della prima e viene
+    // bloccata. Qui verifichiamo che la prima passa e la seconda viene
+    // bloccata dalla logica di count + transaction.
+    mockGetApiKeyLimit.mockReturnValue(2);
+
+    // Prima chiamata: profile → FOR UPDATE → count=1 → insert OK
+    // Seconda chiamata: profile → FOR UPDATE → count=2 → blocca
+    mockSelect
+      .mockReturnValueOnce(makeSelectBuilder([FAKE_PROFILE]))
+      .mockReturnValueOnce(makeSelectBuilderForUpdate([{ id: "biz-uuid" }]))
+      .mockReturnValueOnce(makeSelectBuilderNoLimit([{ count: "1" }]))
+      .mockReturnValueOnce(makeSelectBuilder([FAKE_PROFILE]))
+      .mockReturnValueOnce(makeSelectBuilderForUpdate([{ id: "biz-uuid" }]))
+      .mockReturnValueOnce(makeSelectBuilderNoLimit([{ count: "2" }]));
+
+    const { createApiKey } = await import("./api-key-actions");
+    const first = await createApiKey("biz-uuid", "Key 1");
+    const second = await createApiKey("biz-uuid", "Key 2");
+
+    expect(first.error).toBeUndefined();
+    expect(second.error).toMatch(/limite/i);
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(mockTransaction).toHaveBeenCalledTimes(2);
   });
 });
 
