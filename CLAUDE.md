@@ -260,6 +260,51 @@
     Trovato in v1.2.9 da Codex su PR #463 — applicare lo stesso pattern a ogni nuova route
     dinamica.
 
+27. **CSP rollout: Report-Only → Enforce è un cambio di UNA chiave header.**
+    Flusso seguito per B14 (chiuso in v1.2.10): in v1.2.8 introdotto
+    `Content-Security-Policy-Report-Only` con la policy completa + endpoint
+    `/api/csp-report` (rate-limited, allowlist sanitization). Dopo 14 giorni di
+    zero violation reali in produzione (audit via Sentry MCP — query
+    `message:"CSP violation report received"` su `dataset:logs` con `statsPeriod:14d`),
+    in v1.2.10 si è semplicemente rinominata la chiave in `Content-Security-Policy`.
+    Policy invariata byte-per-byte.
+    - **Decisione: `'unsafe-inline'` MANTENUTO su `script-src`** per non over-ingegnerizzare.
+      Mitigato da `safeJsonLd()` in `src/components/json-ld.tsx` (escape di `<>&`) e dal
+      fatto che TUTTI i payload JSON-LD sono statici a build time. Il valore di sicurezza
+      della CSP enforce sta nell'**allowlist di origin** (`default-src 'self'`,
+      `connect-src` restrittivo, `frame-ancestors 'none'`, `object-src 'none'`), non nel
+      divieto di inline. Rimozione tramite hash/nonce rinviata a B14b (P2).
+    - **Enforce solo in production, Report-Only in dev/test**: `buildSecurityHeaders`
+      sceglie la chiave header in base a `process.env.NODE_ENV`. Motivo: Next.js dev mode
+      (Turbopack/Webpack HMR + React error overlay) usa `eval()`, e l'enforce senza
+      `'unsafe-eval'` riempie la console di `Refused to evaluate a string as JavaScript`
+      e può rompere HMR. Tenere Report-Only in dev permette di vedere comunque le
+      violation in `/api/csp-report` (parità di telemetria) senza degradare il workflow
+      locale. Pattern simmetrico a HSTS (anch'esso gated a production).
+    - **Anti-pattern evitato**: hash-based per JSON-LD. Avrebbe richiesto ricalcolo
+      SHA-256 ad ogni edit di `softwareApplicationJsonLd`, `organizationJsonLd`,
+      `faqPageJsonLd` e dei ~17 breadcrumb help dinamici. Fragile.
+    - **Anti-pattern evitato**: nonce-based su `script-src`. Incompatibile con SSG
+      marketing largo del sito (il nonce dev'essere per-request, le pagine SSG sono
+      cached statiche).
+    - **Lesson "verify the rollout, not the policy"**: la verifica post-deploy NON è
+      "la policy è corretta" (era già stata validata in Report-Only) ma "la chiave
+      header è cambiata e il browser ora ENFORCE". Smoke test: `curl -I` su prod
+      verifica `Content-Security-Policy:` (no `-Report-Only`) + DevTools console
+      pulita su tutti i percorsi critici (homepage, login con Turnstile, dashboard
+      con Supabase REST/WS, Sentry connect).
+    - **Estrarre `securityHeaders` in modulo testabile** (`src/lib/security-headers.ts`)
+      è la pratica corretta quando si vuole regression test sulla chiave header:
+      `next.config.ts` non è facilmente unit-testabile, ma una funzione pura
+      `buildSecurityHeaders({nodeEnv, allowedOrigin}): {key, value}[]` sì. Test
+      essenziali: chiave CSP enforce (no Report-Only), HSTS condizionale a
+      `nodeEnv === "production"`, `Reporting-Endpoints` con URL assoluto.
+    - **`Reporting-Endpoints` resta indispensabile in enforce**: l'endpoint
+      `/api/csp-report` continua a ricevere telemetria di violation in produzione,
+      utile per detection di XSS attempt e drift della policy (nuove dipendenze che
+      caricano script da CDN non in allowlist). Soglia di allarme: >50 violation/giorno
+      o qualsiasi `blockedUri` riconducibile a un nostro asset legittimo.
+
 ## Progetto
 
 ScontrinoZero è un registratore di cassa virtuale (SaaS) mobile-first che consente a
@@ -269,9 +314,9 @@ all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la pr
 
 **Versione corrente:** v1.2.9 ✅ — roadmap completa in `PLAN.md`.
 
-**Prossima release:** v1.2.10 (Pagine comparative `/confronto/[slug]`: registratore-telematico, scontrinare, fatture-in-cloud).
+**Prossima release:** v1.2.10 (CSP enforce — B14 chiuso).
 
-**Post-lancio:** v1.2.2 (billing fix) → v1.2.3–v1.2.7 (patch: landing SEO, security/GDPR polish, code review fixes, Help Center expansion) → v1.2.8 (SEO foundations + hardening) → v1.2.9 (landing per categoria + B19) → v1.2.10–v1.2.14 (confronti, tool, guide, lancio soft, lancio hard) → v1.3.0+ (analytics, catalog sync, …)
+**Post-lancio:** v1.2.2 (billing fix) → v1.2.3–v1.2.7 (patch: landing SEO, security/GDPR polish, code review fixes, Help Center expansion) → v1.2.8 (SEO foundations + hardening) → v1.2.9 (landing per categoria + B19) → v1.2.10 (CSP enforce — B14) → v1.2.11–v1.2.15 (confronti, tool, guide, lancio soft, lancio hard) → v1.3.0+ (analytics, catalog sync, …)
 
 ## Principi di prodotto
 

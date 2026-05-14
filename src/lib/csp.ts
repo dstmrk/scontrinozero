@@ -1,18 +1,18 @@
 /**
- * Content-Security-Policy in modalità Report-Only.
+ * Content-Security-Policy in modalità enforce.
  *
- * Strategia di rollout (vedi PLAN.md backlog B14):
- *  1. Deploy con header `Content-Security-Policy-Report-Only` in produzione.
- *  2. Raccolta violazioni reali via `/api/csp-report` per ≥ 1 settimana.
- *  3. Promozione a `Content-Security-Policy` (enforce) in PR follow-up dopo
- *     zero violation reali.
+ * Storia rollout (B14, chiuso in v1.2.10):
+ *  - v1.2.8: deploy in `Content-Security-Policy-Report-Only` con endpoint
+ *    `/api/csp-report` per raccolta violation.
+ *  - v1.2.10: zero violation reali in ≥14gg → flip della chiave header a
+ *    `Content-Security-Policy` (enforce). Policy invariata byte-per-byte.
  *
- * Limitazioni note di questa fase:
- *  - `script-src 'unsafe-inline'` è temporaneo: serve per i payload JSON-LD
- *    inseriti via `dangerouslySetInnerHTML` in `src/components/json-ld.tsx`.
- *    I contenuti sono già escaped (`safeJsonLd`), quindi sicuri. La migrazione
- *    a nonce-based è scope di una PR successiva (richiede tocco di tutti gli
- *    inserimenti `<JsonLd>` per ricevere il nonce dal middleware).
+ * Limitazioni note (follow-up B14b):
+ *  - `script-src 'unsafe-inline'` resta in enforce. Mitigato da `safeJsonLd()`
+ *    in `src/components/json-ld.tsx` (escape `<>&`) e dal fatto che TUTTI i
+ *    payload JSON-LD sono statici a build time (nessun input utente raggiunge
+ *    `dangerouslySetInnerHTML`). Rimozione tramite hash/nonce pianificata in
+ *    B14b — vedi PLAN.md.
  *  - `style-src 'unsafe-inline'` resta: Tailwind 4 inline + Radix UI portali
  *    iniettano style runtime non isolabili senza nonce dinamico.
  */
@@ -50,12 +50,12 @@ const DIRECTIVES: ReadonlyArray<readonly [string, ReadonlyArray<string>]> = [
 ];
 
 /**
- * Costruisce la stringa CSP report-only deterministica.
+ * Costruisce la stringa CSP deterministica.
  *
  * Output esempio:
  *   default-src 'self'; script-src 'self' 'unsafe-inline' challenges.cloudflare.com; ...
  */
-export function buildCspReportOnly(): string {
+export function buildCsp(): string {
   return DIRECTIVES.map(
     ([directive, sources]) => `${directive} ${sources.join(" ")}`,
   ).join("; ");

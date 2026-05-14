@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 import withSerwistInit from "@serwist/next";
-import { buildCspReportOnly, buildReportingEndpoints } from "./src/lib/csp";
+import { buildSecurityHeaders } from "./src/lib/security-headers";
 
 const withSerwist = withSerwistInit({
   swSrc: "src/sw.ts",
@@ -39,40 +39,16 @@ const nextConfig: NextConfig = {
 
     // Baseline security headers applied to every response.
     //
-    // CSP è in fase Report-Only: la policy non blocca nulla, ma le violazioni
-    // vengono inviate a /api/csp-report (vedi src/lib/csp.ts e PLAN.md B14).
-    // Promozione a `Content-Security-Policy` enforce dopo ≥1 settimana con
-    // zero violazioni reali in produzione.
-    const securityHeaders: { key: string; value: string }[] = [
-      { key: "X-Content-Type-Options", value: "nosniff" },
-      { key: "X-Frame-Options", value: "DENY" },
-      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-      // Disallow features we do not use; payment is left enabled because
-      // Stripe Elements / Payment Request can rely on it.
-      {
-        key: "Permissions-Policy",
-        value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
-      },
-      {
-        key: "Content-Security-Policy-Report-Only",
-        value: buildCspReportOnly(),
-      },
-      {
-        // Reporting API richiede URL assoluto: i browser che prioritizzano
-        // `report-to` (Chrome) scartano silenziosamente endpoint relativi.
-        key: "Reporting-Endpoints",
-        value: buildReportingEndpoints(allowedOrigin),
-      },
-    ];
-    if (process.env.NODE_ENV === "production") {
-      // Cloudflare Tunnel already injects HSTS in front of us; setting it at
-      // the app layer is defense-in-depth so self-hosted deployments without
-      // Cloudflare still get HSTS.
-      securityHeaders.push({
-        key: "Strict-Transport-Security",
-        value: "max-age=31536000; includeSubDomains",
-      });
-    }
+    // CSP è in modalità enforce in production (B14 chiuso in v1.2.10) e in
+    // Report-Only in dev/test per non bloccare l'HMR di Next.js e il React
+    // error overlay (entrambi usano `eval()`). Lo storico del rollout
+    // Report-Only → enforce è documentato in `src/lib/csp.ts`.
+    // La logica della lista header è in `src/lib/security-headers.ts` per
+    // permettere unit test diretti.
+    const securityHeaders = buildSecurityHeaders({
+      nodeEnv: process.env.NODE_ENV,
+      allowedOrigin,
+    });
 
     return [
       {
