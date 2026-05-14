@@ -170,6 +170,29 @@ export default function Home() {
               {"vs Fatture in Cloud"}
             </Link>
           </p>
+          <p className="text-muted-foreground mt-3 text-center text-sm">
+            {"Strumenti gratis: "}
+            <Link
+              href="/strumenti/scorporo-iva"
+              className="text-primary hover:underline"
+            >
+              {"Scorporo IVA"}
+            </Link>
+            {" · "}
+            <Link
+              href="/strumenti/verifica-codice-lotteria"
+              className="text-primary hover:underline"
+            >
+              {"Verifica codice lotteria"}
+            </Link>
+            {" · "}
+            <Link
+              href="/strumenti/calcolatore-risparmio-rt"
+              className="text-primary hover:underline"
+            >
+              {"Calcolatore risparmio vs RT"}
+            </Link>
+          </p>
         </div>
       </section>
 

@@ -50,6 +50,14 @@ export function Footer() {
                   Domande Frequenti
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/strumenti/scorporo-iva"
+                  className="hover:text-foreground transition-colors"
+                >
+                  Strumenti gratis
+                </Link>
+              </li>
             </ul>
           </div>
 
