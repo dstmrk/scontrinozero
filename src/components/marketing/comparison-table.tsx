@@ -1,4 +1,5 @@
 import { Check, X } from "lucide-react";
+import type { ReactNode } from "react";
 
 export interface ComparisonRow {
   readonly label: string;
@@ -15,6 +16,19 @@ interface ComparisonTableProps {
     readonly label: string;
     readonly value: string;
   };
+}
+
+function renderCell(
+  value: string | boolean,
+  variant: "competitor" | "ours",
+): ReactNode {
+  if (typeof value === "string") return value;
+  if (value) return <Check className="mx-auto h-4 w-4" />;
+  const xClassName =
+    variant === "competitor"
+      ? "mx-auto h-4 w-4 text-red-400"
+      : "text-muted-foreground mx-auto h-4 w-4";
+  return <X className={xClassName} />;
 }
 
 export function ComparisonTable({
@@ -49,22 +63,10 @@ export function ComparisonTable({
                 )}
               </td>
               <td className="text-muted-foreground px-4 py-3 text-center">
-                {typeof row.competitor === "string" ? (
-                  row.competitor
-                ) : row.competitor ? (
-                  <Check className="mx-auto h-4 w-4" />
-                ) : (
-                  <X className="mx-auto h-4 w-4 text-red-400" />
-                )}
+                {renderCell(row.competitor, "competitor")}
               </td>
               <td className="text-primary px-4 py-3 text-center font-semibold">
-                {typeof row.ours === "string" ? (
-                  row.ours
-                ) : row.ours ? (
-                  <Check className="mx-auto h-4 w-4" />
-                ) : (
-                  <X className="text-muted-foreground mx-auto h-4 w-4" />
-                )}
+                {renderCell(row.ours, "ours")}
               </td>
             </tr>
           ))}
