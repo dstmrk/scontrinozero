@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { parseItalianNumber } from "@/lib/strumenti/parse-number";
 import { computeRtSavings } from "@/lib/strumenti/risparmio-rt";
 import { formatCurrency } from "@/lib/utils";
 
@@ -14,8 +15,7 @@ export function CalcolatoreRisparmioTool() {
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const parsed = Number.parseFloat(value.replace(",", "."));
-    setSubmitted(parsed);
+    setSubmitted(parseItalianNumber(value));
   };
 
   const result =

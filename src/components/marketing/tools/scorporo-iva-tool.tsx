@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { parseItalianNumber } from "@/lib/strumenti/parse-number";
 import { splitVat, type VatSplitResult } from "@/lib/strumenti/scorporo-iva";
 import { formatCurrency } from "@/lib/utils";
 
@@ -18,8 +19,8 @@ export function ScorporoIvaTool() {
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const grossNum = Number.parseFloat(gross.replace(",", "."));
-    const rateNum = Number.parseFloat(rate.replace(",", "."));
+    const grossNum = parseItalianNumber(gross);
+    const rateNum = parseItalianNumber(rate);
     setResult(splitVat({ grossAmount: grossNum, vatRate: rateNum }));
   };
 
