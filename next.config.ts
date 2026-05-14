@@ -39,11 +39,12 @@ const nextConfig: NextConfig = {
 
     // Baseline security headers applied to every response.
     //
-    // CSP è in modalità enforce dal v1.2.10 (B14 chiuso). Lo storico del
-    // rollout Report-Only → enforce è documentato in `src/lib/csp.ts`.
+    // CSP è in modalità enforce in production (B14 chiuso in v1.2.10) e in
+    // Report-Only in dev/test per non bloccare l'HMR di Next.js e il React
+    // error overlay (entrambi usano `eval()`). Lo storico del rollout
+    // Report-Only → enforce è documentato in `src/lib/csp.ts`.
     // La logica della lista header è in `src/lib/security-headers.ts` per
-    // permettere unit test diretti (regression test su HSTS condizionale,
-    // chiave CSP enforce, Reporting-Endpoints absoluto).
+    // permettere unit test diretti.
     const securityHeaders = buildSecurityHeaders({
       nodeEnv: process.env.NODE_ENV,
       allowedOrigin,

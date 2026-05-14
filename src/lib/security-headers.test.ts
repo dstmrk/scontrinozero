@@ -4,7 +4,7 @@ import { buildSecurityHeaders } from "./security-headers";
 const ALLOWED_ORIGIN = "https://app.scontrinozero.it";
 
 describe("buildSecurityHeaders", () => {
-  it("imposta CSP in modalità enforce (no Report-Only)", () => {
+  it("imposta CSP in modalità enforce in production", () => {
     const headers = buildSecurityHeaders({
       nodeEnv: "production",
       allowedOrigin: ALLOWED_ORIGIN,
@@ -13,6 +13,42 @@ describe("buildSecurityHeaders", () => {
 
     expect(cspKeys).toContain("Content-Security-Policy");
     expect(cspKeys).not.toContain("Content-Security-Policy-Report-Only");
+  });
+
+  it("imposta CSP in modalità Report-Only in development e test", () => {
+    // Next.js dev (Turbopack/Webpack HMR + React error overlay) usa eval(),
+    // non compatibile senza 'unsafe-eval'. Tenere Report-Only in dev permette
+    // di vedere le violation senza rompere HMR.
+    for (const env of ["development", "test", undefined] as const) {
+      const headers = buildSecurityHeaders({
+        nodeEnv: env,
+        allowedOrigin: ALLOWED_ORIGIN,
+      });
+      const cspKeys = headers.map((h) => h.key);
+
+      expect(cspKeys).toContain("Content-Security-Policy-Report-Only");
+      expect(cspKeys).not.toContain("Content-Security-Policy");
+    }
+  });
+
+  it("la policy CSP è invariata byte-per-byte tra enforce e Report-Only", () => {
+    // Stesso contenuto, cambia solo la chiave header. Garantisce parità di
+    // copertura della telemetria tra dev e prod.
+    const prod = buildSecurityHeaders({
+      nodeEnv: "production",
+      allowedOrigin: ALLOWED_ORIGIN,
+    });
+    const dev = buildSecurityHeaders({
+      nodeEnv: "development",
+      allowedOrigin: ALLOWED_ORIGIN,
+    });
+
+    const prodCsp = prod.find((h) => h.key === "Content-Security-Policy");
+    const devCsp = dev.find(
+      (h) => h.key === "Content-Security-Policy-Report-Only",
+    );
+
+    expect(prodCsp!.value).toBe(devCsp!.value);
   });
 
   it("la CSP contiene la baseline allowlist (default-src self, object-src none)", () => {

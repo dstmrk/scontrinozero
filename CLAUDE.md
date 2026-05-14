@@ -274,6 +274,13 @@
       della CSP enforce sta nell'**allowlist di origin** (`default-src 'self'`,
       `connect-src` restrittivo, `frame-ancestors 'none'`, `object-src 'none'`), non nel
       divieto di inline. Rimozione tramite hash/nonce rinviata a B14b (P2).
+    - **Enforce solo in production, Report-Only in dev/test**: `buildSecurityHeaders`
+      sceglie la chiave header in base a `process.env.NODE_ENV`. Motivo: Next.js dev mode
+      (Turbopack/Webpack HMR + React error overlay) usa `eval()`, e l'enforce senza
+      `'unsafe-eval'` riempie la console di `Refused to evaluate a string as JavaScript`
+      e può rompere HMR. Tenere Report-Only in dev permette di vedere comunque le
+      violation in `/api/csp-report` (parità di telemetria) senza degradare il workflow
+      locale. Pattern simmetrico a HSTS (anch'esso gated a production).
     - **Anti-pattern evitato**: hash-based per JSON-LD. Avrebbe richiesto ricalcolo
       SHA-256 ad ogni edit di `softwareApplicationJsonLd`, `organizationJsonLd`,
       `faqPageJsonLd` e dei ~17 breadcrumb help dinamici. Fragile.
