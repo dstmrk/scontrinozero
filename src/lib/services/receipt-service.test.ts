@@ -118,6 +118,7 @@ describe("emitReceiptForBusiness", () => {
           select: mockSelect,
           insert: mockInsert,
           update: mockUpdate,
+          execute: vi.fn().mockResolvedValue(undefined),
         };
         return callback(tx);
       },
@@ -440,5 +441,23 @@ describe("emitReceiptForBusiness", () => {
     await emitReceiptForBusiness(VALID_INPUT);
 
     expect(mockLogout).toHaveBeenCalled();
+  });
+
+  it("ritorna code DB_TIMEOUT se l'INSERT iniziale va in statement timeout (B20)", async () => {
+    const timeoutErr = Object.assign(
+      new Error("canceling statement due to statement timeout"),
+      { code: "57014" },
+    );
+    mockTransaction.mockImplementationOnce(async () => {
+      throw timeoutErr;
+    });
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("DB_TIMEOUT");
+    expect(result.error).toMatch(/sovracc/i);
+    // L'AdE login NON deve essere stato chiamato: timeout PRE-AdE
+    expect(mockLogin).not.toHaveBeenCalled();
   });
 });

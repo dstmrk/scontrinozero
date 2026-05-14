@@ -13,6 +13,11 @@ import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
 import { createAdeClient } from "@/lib/ade";
 import { mapVoidToAdePayload } from "@/lib/ade/mapper";
+import { isStatementTimeoutError } from "@/lib/api-errors";
+import {
+  retryOnStatementTimeout,
+  withStatementTimeout,
+} from "@/lib/db-timeout";
 import { logger } from "@/lib/logger";
 import { getFiscalDate } from "@/lib/date-utils";
 import { fetchAdePrerequisites } from "@/lib/server-auth";
@@ -161,23 +166,27 @@ async function finalizeVoidOnly(
   adeTransactionId: string,
   adeProgressive: string,
 ): Promise<VoidReceiptResult> {
-  const db = getDb();
   try {
-    await db.transaction(async (tx) => {
-      await tx
-        .update(commercialDocuments)
-        .set({
-          status: "VOID_ACCEPTED",
-          adeTransactionId,
-          adeProgressive,
-        })
-        .where(eq(commercialDocuments.id, voidDocumentId));
+    // B20: retry on statement timeout + SET LOCAL statement_timeout (3s).
+    // submitVoid è già andato a buon fine, dobbiamo riuscire a finalizzare
+    // prima di rinunciare (3 tentativi: 200ms → 500ms → 1s).
+    await retryOnStatementTimeout("void-finalize-only", () =>
+      withStatementTimeout(3000, async (tx) => {
+        await tx
+          .update(commercialDocuments)
+          .set({
+            status: "VOID_ACCEPTED",
+            adeTransactionId,
+            adeProgressive,
+          })
+          .where(eq(commercialDocuments.id, voidDocumentId));
 
-      await tx
-        .update(commercialDocuments)
-        .set({ status: "VOID_ACCEPTED" })
-        .where(eq(commercialDocuments.id, saleDocumentId));
-    });
+        await tx
+          .update(commercialDocuments)
+          .set({ status: "VOID_ACCEPTED" })
+          .where(eq(commercialDocuments.id, saleDocumentId));
+      }),
+    );
 
     logger.info(
       { voidDocumentId, saleDocumentId, adeTransactionId, recovery: true },
@@ -229,17 +238,36 @@ export async function voidReceiptForBusiness(
 ): Promise<VoidReceiptResult> {
   const db = getDb();
 
-  // 1. Fetch the SALE document to void (businessId filter prevents IDOR)
-  const [saleDoc] = await db
-    .select()
-    .from(commercialDocuments)
-    .where(
-      and(
-        eq(commercialDocuments.id, input.documentId),
-        eq(commercialDocuments.businessId, input.businessId),
-      ),
-    )
-    .limit(1);
+  // B20: catch statement timeouts on the pre-AdE SELECT.
+  let saleDoc: typeof commercialDocuments.$inferSelect | undefined;
+  try {
+    // 1. Fetch the SALE document to void (businessId filter prevents IDOR)
+    saleDoc = (
+      await db
+        .select()
+        .from(commercialDocuments)
+        .where(
+          and(
+            eq(commercialDocuments.id, input.documentId),
+            eq(commercialDocuments.businessId, input.businessId),
+          ),
+        )
+        .limit(1)
+    )[0];
+  } catch (err) {
+    if (isStatementTimeoutError(err)) {
+      logger.warn(
+        { businessId: input.businessId, saleDocumentId: input.documentId },
+        "voidReceipt SELECT SALE timed out (B20)",
+      );
+      return {
+        error:
+          "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
+        code: "DB_TIMEOUT",
+      };
+    }
+    throw err;
+  }
 
   if (!saleDoc) {
     return { error: "Scontrino non trovato." };
@@ -267,49 +295,64 @@ export async function voidReceiptForBusiness(
   //    - idempotencyKey (unique): same-request idempotency (retry-safe)
   //    - voidedDocumentId (unique partial index, WHERE NOT NULL AND status IN
   //      ('PENDING','VOID_ACCEPTED')): race-condition guard for active voids.
-  //      REJECTED/ERROR records are intentionally excluded from the index so that
-  //      a failed attempt can be retried with a new idempotencyKey.
-  const [voidDoc] = await db
-    .insert(commercialDocuments)
-    .values({
-      businessId: input.businessId,
-      kind: "VOID",
-      idempotencyKey: input.idempotencyKey,
-      voidedDocumentId: input.documentId,
-      apiKeyId: apiKeyId ?? null,
-      status: "PENDING",
-    })
-    .onConflictDoNothing()
-    .returning({ id: commercialDocuments.id });
-
-  // Insert was skipped due to a constraint conflict — delegate to helper.
+  //      REJECTED/ERROR records are intentionally excluded from the index so
+  //      that a failed attempt can be retried with a new idempotencyKey.
   let voidDocumentId: string;
-  if (!voidDoc) {
-    const conflict = await resolveVoidConflict(
-      db,
-      input.idempotencyKey,
-      input.businessId,
-    );
-    if (conflict.kind === "done") return conflict.result;
-    voidDocumentId = conflict.voidDocumentId;
-    // If submitVoid already succeeded on AdE (adeTransactionId set), don't
-    // resubmit — submitVoid is irreversible and a second call would create
-    // a duplicate annullo. Skip directly to the final UPDATE using the
-    // existing AdE IDs.
-    if (
-      conflict.hasAdeTransaction &&
-      conflict.existingAdeTransactionId &&
-      conflict.existingAdeProgressive
-    ) {
-      return finalizeVoidOnly(
-        voidDocumentId,
-        input.documentId,
-        conflict.existingAdeTransactionId,
-        conflict.existingAdeProgressive,
+  try {
+    const [voidDoc] = await db
+      .insert(commercialDocuments)
+      .values({
+        businessId: input.businessId,
+        kind: "VOID",
+        idempotencyKey: input.idempotencyKey,
+        voidedDocumentId: input.documentId,
+        apiKeyId: apiKeyId ?? null,
+        status: "PENDING",
+      })
+      .onConflictDoNothing()
+      .returning({ id: commercialDocuments.id });
+
+    // Insert was skipped due to a constraint conflict — delegate to helper.
+    if (!voidDoc) {
+      const conflict = await resolveVoidConflict(
+        db,
+        input.idempotencyKey,
+        input.businessId,
       );
+      if (conflict.kind === "done") return conflict.result;
+      voidDocumentId = conflict.voidDocumentId;
+      // If submitVoid already succeeded on AdE (adeTransactionId set), don't
+      // resubmit — submitVoid is irreversible and a second call would create
+      // a duplicate annullo. Skip directly to the final UPDATE using the
+      // existing AdE IDs.
+      if (
+        conflict.hasAdeTransaction &&
+        conflict.existingAdeTransactionId &&
+        conflict.existingAdeProgressive
+      ) {
+        return finalizeVoidOnly(
+          voidDocumentId,
+          input.documentId,
+          conflict.existingAdeTransactionId,
+          conflict.existingAdeProgressive,
+        );
+      }
+    } else {
+      voidDocumentId = voidDoc.id;
     }
-  } else {
-    voidDocumentId = voidDoc.id;
+  } catch (err) {
+    if (isStatementTimeoutError(err)) {
+      logger.warn(
+        { businessId: input.businessId, saleDocumentId: input.documentId },
+        "voidReceipt INSERT VOID timed out (B20)",
+      );
+      return {
+        error:
+          "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
+        code: "DB_TIMEOUT",
+      };
+    }
+    throw err;
   }
   const adeMode = (process.env.ADE_MODE as "mock" | "real") || "mock";
   const adeClient = createAdeClient(adeMode);
@@ -355,13 +398,18 @@ export async function voidReceiptForBusiness(
         },
         "AdE rejected void",
       );
-      await db
-        .update(commercialDocuments)
-        .set({
-          status: "REJECTED",
-          adeResponse: adeResponse as unknown as Record<string, unknown>,
-        })
-        .where(eq(commercialDocuments.id, voidDocumentId));
+      // B20: retry on statement timeout. AdE ha rifiutato → la submitVoid
+      // è ininfluente, ma il DB deve riflettere REJECTED altrimenti la riga
+      // resta PENDING e bloccherebbe retry con nuova key (partial index).
+      await retryOnStatementTimeout("void-update-rejected", () =>
+        db
+          .update(commercialDocuments)
+          .set({
+            status: "REJECTED",
+            adeResponse: adeResponse as unknown as Record<string, unknown>,
+          })
+          .where(eq(commercialDocuments.id, voidDocumentId)),
+      );
       const codeList =
         errorCodes.length > 0 ? ` (${errorCodes.join(", ")})` : "";
       return {
@@ -372,22 +420,48 @@ export async function voidReceiptForBusiness(
     // 4+5. Update VOID document and mark original SALE atomically.
     // Both must succeed or neither: an intermediate failure would leave
     // the VOID accepted but the SALE still showing as ACCEPTED.
-    await db.transaction(async (tx) => {
-      await tx
-        .update(commercialDocuments)
-        .set({
-          status: "VOID_ACCEPTED",
-          adeTransactionId: adeResponse.idtrx ?? null,
-          adeProgressive: adeResponse.progressivo ?? null,
-          adeResponse: adeResponse as unknown as Record<string, unknown>,
-        })
-        .where(eq(commercialDocuments.id, voidDocumentId));
+    // B20: retry on timeout + SET LOCAL statement_timeout (3s). submitVoid
+    // è già successa: se la finalizzazione fallisce in modo definitivo NON
+    // marcare ERROR (vedi catch sotto e finalizeVoidOnly).
+    try {
+      await retryOnStatementTimeout("void-finalize-main", () =>
+        withStatementTimeout(3000, async (tx) => {
+          await tx
+            .update(commercialDocuments)
+            .set({
+              status: "VOID_ACCEPTED",
+              adeTransactionId: adeResponse.idtrx ?? null,
+              adeProgressive: adeResponse.progressivo ?? null,
+              adeResponse: adeResponse as unknown as Record<string, unknown>,
+            })
+            .where(eq(commercialDocuments.id, voidDocumentId));
 
-      await tx
-        .update(commercialDocuments)
-        .set({ status: "VOID_ACCEPTED" })
-        .where(eq(commercialDocuments.id, input.documentId));
-    });
+          await tx
+            .update(commercialDocuments)
+            .set({ status: "VOID_ACCEPTED" })
+            .where(eq(commercialDocuments.id, input.documentId));
+        }),
+      );
+    } catch (finalizeErr) {
+      logger.error(
+        {
+          err: finalizeErr,
+          critical: true,
+          voidDocumentId,
+          saleDocumentId: input.documentId,
+          adeTransactionId: adeResponse.idtrx,
+        },
+        "Void finalization failed after submitVoid succeeded — MANUAL CLEANUP NEEDED",
+      );
+      // Do NOT mark ERROR: partial unique index excludes ERROR, allowing a
+      // new VOID for an already-voided SALE on AdE (duplicate). The outer
+      // finally still handles AdE logout.
+      return {
+        error:
+          "Annullo registrato su AdE ma sincronizzazione DB in errore. Contatta il supporto.",
+        code: "VOID_SYNC_FAILED",
+      };
+    }
 
     logger.info(
       {
@@ -411,10 +485,31 @@ export async function voidReceiptForBusiness(
       "voidReceiptForBusiness failed",
     );
 
-    await db
-      .update(commercialDocuments)
-      .set({ status: "ERROR" })
-      .where(eq(commercialDocuments.id, voidDocumentId));
+    // B20: don't mark ERROR on timeout. Leave the row PENDING so:
+    // - B7 recovery can re-attempt (submitVoid not yet called → safe)
+    // - OR if submitVoid already succeeded, the partial unique index still
+    //   blocks duplicate VOIDs (which would NOT be the case if status=ERROR).
+    if (!isStatementTimeoutError(err)) {
+      try {
+        await db
+          .update(commercialDocuments)
+          .set({ status: "ERROR" })
+          .where(eq(commercialDocuments.id, voidDocumentId));
+      } catch (updateErr) {
+        logger.warn(
+          { err: updateErr, voidDocumentId },
+          "Failed to mark VOID as ERROR after void failure",
+        );
+      }
+    }
+
+    if (isStatementTimeoutError(err)) {
+      return {
+        error:
+          "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
+        code: "DB_TIMEOUT",
+      };
+    }
 
     return {
       error: "Errore durante l'annullo dello scontrino. Riprova più tardi.",

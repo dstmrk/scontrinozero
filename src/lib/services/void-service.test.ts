@@ -170,8 +170,16 @@ describe("voidReceiptForBusiness", () => {
     mockLogout.mockResolvedValue(undefined);
 
     mockTransaction.mockImplementation(
-      async (callback: (tx: { update: typeof mockUpdate }) => Promise<void>) =>
-        callback({ update: mockUpdate }),
+      async (
+        callback: (tx: {
+          update: typeof mockUpdate;
+          execute: ReturnType<typeof vi.fn>;
+        }) => Promise<void>,
+      ) =>
+        callback({
+          update: mockUpdate,
+          execute: vi.fn().mockResolvedValue(undefined),
+        }),
     );
   });
 
@@ -375,15 +383,39 @@ describe("voidReceiptForBusiness", () => {
     expect(mockLogout).toHaveBeenCalled();
   });
 
-  it("ritorna errore se la transaction finale fallisce (rollback atomico)", async () => {
+  it("ritorna code DB_TIMEOUT se il flusso pre-AdE va in statement timeout (B20)", async () => {
+    const timeoutErr = Object.assign(
+      new Error("canceling statement due to statement timeout"),
+      { code: "57014" },
+    );
+    // Simula timeout sul fetch SALE → primo SELECT fallisce
+    mockSelectLimit.mockRejectedValueOnce(timeoutErr);
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect((result as { code?: string }).code).toBe("DB_TIMEOUT");
+    // Non viene mai chiamato AdE login
+    expect(mockLogin).not.toHaveBeenCalled();
+    // CRITICAL: non marca ERROR (nessuna submitVoid è ancora avvenuta, ma
+    // la riga VOID non esiste neanche, quindi il safety check del partial
+    // unique index non si applica — qui solo per coerenza con la regola
+    // generale di non marcare ERROR su timeout).
+    const statusUpdates = mockUpdateSet.mock.calls.map((c) => c[0].status);
+    expect(statusUpdates).not.toContain("ERROR");
+  });
+
+  it("ritorna VOID_SYNC_FAILED se la transaction finale fallisce dopo submitVoid (B20)", async () => {
     mockTransaction.mockRejectedValue(new Error("DB transaction failed"));
 
     const { voidReceiptForBusiness } = await import("./void-service");
     const result = await voidReceiptForBusiness(VALID_INPUT);
 
     expect(result.error).toBeDefined();
-    // The ERROR status update (outside the transaction) should have been called
+    expect((result as { code?: string }).code).toBe("VOID_SYNC_FAILED");
+    // CRITICAL: NON deve marcare ERROR — il partial unique index escluderebbe
+    // ERROR e permetterebbe un secondo VOID per la stessa SALE su AdE.
     const statusUpdates = mockUpdateSet.mock.calls.map((c) => c[0].status);
-    expect(statusUpdates).toContain("ERROR");
+    expect(statusUpdates).not.toContain("ERROR");
   });
 });

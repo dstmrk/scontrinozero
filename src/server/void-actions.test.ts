@@ -222,8 +222,16 @@ describe("void-actions", () => {
 
     // Transaction mock: calls callback with a tx that shares mockUpdate
     mockTransaction.mockImplementation(
-      async (callback: (tx: { update: typeof mockUpdate }) => Promise<void>) =>
-        callback({ update: mockUpdate }),
+      async (
+        callback: (tx: {
+          update: typeof mockUpdate;
+          execute: ReturnType<typeof vi.fn>;
+        }) => Promise<void>,
+      ) =>
+        callback({
+          update: mockUpdate,
+          execute: vi.fn().mockResolvedValue(undefined),
+        }),
     );
 
     // AdE mocks

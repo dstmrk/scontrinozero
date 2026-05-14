@@ -153,6 +153,7 @@ describe("receipt-actions", () => {
           select: mockSelect,
           insert: mockInsert,
           update: mockUpdate,
+          execute: vi.fn().mockResolvedValue(undefined),
         };
         return callback(tx);
       },
