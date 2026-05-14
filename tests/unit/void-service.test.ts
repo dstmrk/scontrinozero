@@ -232,7 +232,7 @@ describe("voidReceiptForBusiness", () => {
       });
     });
 
-    it("returns inconsistent-state error when existing VOID is PENDING", async () => {
+    it("returns VOID_PENDING_IN_PROGRESS when existing VOID is fresh PENDING (B7)", async () => {
       setupHappyPathDb();
       mockReturning.mockResolvedValue([]); // INSERT conflict
 
@@ -242,6 +242,7 @@ describe("voidReceiptForBusiness", () => {
           status: "PENDING",
           adeTransactionId: null,
           adeProgressive: null,
+          createdAt: new Date(Date.now() - 10_000),
         },
       ]);
 
@@ -249,7 +250,9 @@ describe("voidReceiptForBusiness", () => {
         await import("@/lib/services/void-service");
       const result = await voidReceiptForBusiness(makeInput());
       expect(result).toHaveProperty("error");
-      expect((result as { error: string }).error).toMatch(/inconsistente/i);
+      expect((result as { code?: string }).code).toBe(
+        "VOID_PENDING_IN_PROGRESS",
+      );
     });
   });
 
@@ -357,6 +360,89 @@ describe("voidReceiptForBusiness", () => {
         await import("@/lib/services/void-service");
       const result = await voidReceiptForBusiness(makeInput());
       expect(result).toHaveProperty("error");
+    });
+  });
+
+  describe("stale PENDING recovery (B7)", () => {
+    it("stale PENDING without AdE transaction → re-submits void to AdE", async () => {
+      setupHappyPathDb();
+      setupAdeClient();
+      // INSERT conflict: existing VOID PENDING > threshold
+      mockReturning.mockResolvedValue([]);
+      mockLimit.mockResolvedValueOnce([FAKE_SALE]).mockResolvedValueOnce([
+        {
+          id: VOID_ID,
+          status: "PENDING",
+          adeTransactionId: null,
+          adeProgressive: null,
+          createdAt: new Date(Date.now() - 10 * 60 * 1000),
+        },
+      ]);
+
+      const { voidReceiptForBusiness } =
+        await import("@/lib/services/void-service");
+      const result = await voidReceiptForBusiness(makeInput());
+
+      // Recovery completata via submitVoid + finalizzazione
+      expect(mockAdeSubmitVoid).toHaveBeenCalled();
+      expect(result).toMatchObject({
+        voidDocumentId: VOID_ID,
+        adeTransactionId: "void-tx-1",
+        adeProgressive: "2",
+      });
+    });
+
+    it("stale PENDING WITH AdE transaction → finalizes only, skips submitVoid", async () => {
+      setupHappyPathDb();
+      setupAdeClient();
+      // INSERT conflict: existing PENDING with submitVoid già successo
+      mockReturning.mockResolvedValue([]);
+      mockLimit.mockResolvedValueOnce([FAKE_SALE]).mockResolvedValueOnce([
+        {
+          id: VOID_ID,
+          status: "PENDING",
+          adeTransactionId: "previously-submitted-tx",
+          adeProgressive: "5",
+          createdAt: new Date(Date.now() - 10 * 60 * 1000),
+        },
+      ]);
+
+      const { voidReceiptForBusiness } =
+        await import("@/lib/services/void-service");
+      const result = await voidReceiptForBusiness(makeInput());
+
+      // NESSUNA chiamata a submitVoid (sarebbe doppione su AdE)
+      expect(mockAdeSubmitVoid).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        voidDocumentId: VOID_ID,
+        adeTransactionId: "previously-submitted-tx",
+        adeProgressive: "5",
+      });
+    });
+
+    it("returns VOID_SYNC_FAILED when finalize-only transaction fails", async () => {
+      setupHappyPathDb();
+      mockReturning.mockResolvedValue([]);
+      mockLimit.mockResolvedValueOnce([FAKE_SALE]).mockResolvedValueOnce([
+        {
+          id: VOID_ID,
+          status: "PENDING",
+          adeTransactionId: "tx-prev",
+          adeProgressive: "9",
+          createdAt: new Date(Date.now() - 10 * 60 * 1000),
+        },
+      ]);
+      // Tx finalizzazione fallisce
+      mockTransaction.mockImplementationOnce(async () => {
+        throw new Error("connection lost");
+      });
+
+      const { voidReceiptForBusiness } =
+        await import("@/lib/services/void-service");
+      const result = await voidReceiptForBusiness(makeInput());
+
+      expect((result as { code?: string }).code).toBe("VOID_SYNC_FAILED");
+      // Critical: non marca ERROR (eviterebbe il blocco da partial unique index)
     });
   });
 });

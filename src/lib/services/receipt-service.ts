@@ -24,11 +24,28 @@ import type {
   PaymentMethod,
 } from "@/types/cassa";
 import type { PaymentType, SaleDocumentRequest } from "@/lib/ade/public-types";
+import type { AdeCedentePrestatore } from "@/lib/ade/types";
 
 const PAYMENT_METHOD_TO_ADE: Record<PaymentMethod, PaymentType> = {
   PC: "CASH",
   PE: "ELECTRONIC",
 };
+
+/**
+ * Soglia oltre la quale un documento PENDING/ERROR è considerato "stale" (B7).
+ * Sopra questa soglia, un retry con la stessa idempotencyKey entra nel
+ * recovery path invece di ricevere "stato inconsistente".
+ *
+ * Default: 5 minuti. Override via env STALE_PENDING_THRESHOLD_MINUTES.
+ * 5 min è ampiamente sopra il p99 di submitSale AdE (~2-5s) + tx DB (~100ms),
+ * ma sotto la pazienza dell'utente.
+ */
+function getStalePendingThresholdMs(): number {
+  const raw = process.env.STALE_PENDING_THRESHOLD_MINUTES;
+  const minutes = raw ? parseFloat(raw) : NaN;
+  const effective = Number.isFinite(minutes) && minutes > 0 ? minutes : 5;
+  return effective * 60 * 1000;
+}
 
 /** Validates and resolves the effective lottery code from the input. */
 function resolveLotteryCode(input: SubmitReceiptInput): {
@@ -135,6 +152,7 @@ export async function emitReceiptForBusiness(
         status: commercialDocuments.status,
         adeTransactionId: commercialDocuments.adeTransactionId,
         adeProgressive: commercialDocuments.adeProgressive,
+        createdAt: commercialDocuments.createdAt,
       })
       .from(commercialDocuments)
       .where(
@@ -145,7 +163,19 @@ export async function emitReceiptForBusiness(
       )
       .limit(1);
 
-    if (existing?.status === "ACCEPTED") {
+    if (!existing) {
+      // Shouldn't happen: conflict but no row visible. Treat as transient.
+      logger.warn(
+        { businessId: input.businessId },
+        "Idempotency conflict without matching row",
+      );
+      return {
+        error: "Errore interno: ritenta l'emissione.",
+        code: "PENDING_IN_PROGRESS",
+      };
+    }
+
+    if (existing.status === "ACCEPTED") {
       // Already submitted successfully — true idempotency return
       return {
         documentId: existing.id,
@@ -153,11 +183,49 @@ export async function emitReceiptForBusiness(
         adeProgressive: existing.adeProgressive ?? undefined,
       };
     }
-    // PENDING or ERROR: document exists but submission never completed
-    return {
-      error:
-        "Scontrino precedente in stato inconsistente. Svuota il carrello e riprova.",
-    };
+
+    if (existing.status === "REJECTED") {
+      return {
+        error:
+          "Scontrino precedente già rifiutato dall'AdE. Usa una nuova chiave di idempotenza.",
+        code: "ALREADY_REJECTED",
+      };
+    }
+
+    // PENDING or ERROR: a previous attempt didn't complete the AdE submit.
+    // B7: if the row is "stale" (older than threshold), allow recovery instead
+    // of forcing the client to abandon the idempotency key. Missing/invalid
+    // createdAt is treated as fresh (fail-safe: no risk of duplicate AdE submit).
+    const createdAtMs =
+      existing.createdAt != null ? new Date(existing.createdAt).getTime() : NaN;
+    const isStale =
+      Number.isFinite(createdAtMs) &&
+      Date.now() - createdAtMs > getStalePendingThresholdMs();
+    if (!isStale) {
+      return {
+        error:
+          "Scontrino precedente ancora in elaborazione. Riprova tra qualche secondo.",
+        code: "PENDING_IN_PROGRESS",
+      };
+    }
+
+    logger.warn(
+      {
+        documentId: existing.id,
+        businessId: input.businessId,
+        status: existing.status,
+        ageMs: Date.now() - createdAtMs,
+      },
+      "Recovering stale PENDING/ERROR receipt",
+    );
+    return submitSaleToAde(
+      existing.id,
+      input,
+      lotteryCode,
+      { codiceFiscale, password, pin, cedentePrestatore },
+      apiKeyId,
+      { recovery: true },
+    );
   }
 
   const documentId = txResult.id;
@@ -166,7 +234,40 @@ export async function emitReceiptForBusiness(
     return { error: "Errore interno: impossibile creare il documento." };
   }
 
-  // Build sale document request (round to 2 decimal places to avoid float imprecision)
+  return submitSaleToAde(
+    documentId,
+    input,
+    lotteryCode,
+    { codiceFiscale, password, pin, cedentePrestatore },
+    apiKeyId,
+    { recovery: false },
+  );
+}
+
+/**
+ * Esegue la submitSale AdE e aggiorna il documento esistente con il risultato.
+ * Usato sia per la prima emissione sia per la recovery di un PENDING/ERROR stale (B7).
+ *
+ * Se `options.recovery` è true ed esiste un AdE transaction id pregresso sulla
+ * riga, NON viene rieseguito submitSale (sarebbe un doppione AdE): si tenta
+ * direttamente la transizione a ACCEPTED leggendo lo stato già registrato.
+ */
+async function submitSaleToAde(
+  documentId: string,
+  input: SubmitReceiptInput,
+  lotteryCode: string | null,
+  prerequisites: {
+    codiceFiscale: string;
+    password: string;
+    pin: string;
+    cedentePrestatore: AdeCedentePrestatore;
+  },
+  apiKeyId: string | null | undefined,
+  options: { recovery: boolean },
+): Promise<SubmitReceiptResult> {
+  const db = getDb();
+  const { codiceFiscale, password, pin, cedentePrestatore } = prerequisites;
+
   const totalAmount =
     Math.round(
       input.lines.reduce(
@@ -206,7 +307,6 @@ export async function emitReceiptForBusiness(
     const payload = mapSaleToAdePayload(saleDocRequest, cedentePrestatore);
     const adeResponse = await adeClient.submitSale(payload);
 
-    // AdE can return HTTP 200 with esito:false when it rejects the document.
     if (!adeResponse.esito) {
       const errorCodes = adeResponse.errori?.map((e) => e.codice) ?? [];
       logger.error(
@@ -214,9 +314,8 @@ export async function emitReceiptForBusiness(
           documentId,
           adeIdtrx: adeResponse.idtrx,
           adeProgressivo: adeResponse.progressivo,
-          // Full descriptions are kept in adeResponse (persisted to DB below)
-          // but are NOT forwarded to the client to avoid leaking fiscal details.
           adeErrorCodes: errorCodes,
+          recovery: options.recovery,
         },
         "AdE rejected sale",
       );
@@ -250,6 +349,7 @@ export async function emitReceiptForBusiness(
         businessId: input.businessId,
         adeTransactionId: adeResponse.idtrx,
         apiKeyId: apiKeyId ?? undefined,
+        recovery: options.recovery,
       },
       "Receipt emitted successfully",
     );
@@ -261,7 +361,12 @@ export async function emitReceiptForBusiness(
     };
   } catch (err) {
     logger.error(
-      { err, documentId, businessId: input.businessId },
+      {
+        err,
+        documentId,
+        businessId: input.businessId,
+        recovery: options.recovery,
+      },
       "emitReceiptForBusiness failed",
     );
 

@@ -20,15 +20,40 @@ import type { VoidReceiptInput, VoidReceiptResult } from "@/types/storico";
 import type { VoidRequest } from "@/lib/ade/public-types";
 
 /**
+ * Soglia oltre la quale un VOID PENDING/ERROR è considerato "stale" (B7).
+ * Sopra questa soglia, un retry con la stessa idempotencyKey entra nel
+ * recovery path. Default: 5 min. Override via STALE_PENDING_THRESHOLD_MINUTES.
+ */
+function getStalePendingThresholdMs(): number {
+  const raw = process.env.STALE_PENDING_THRESHOLD_MINUTES;
+  const minutes = raw ? parseFloat(raw) : NaN;
+  const effective = Number.isFinite(minutes) && minutes > 0 ? minutes : 5;
+  return effective * 60 * 1000;
+}
+
+type ConflictOutcome =
+  | { kind: "done"; result: VoidReceiptResult }
+  | {
+      kind: "recover";
+      voidDocumentId: string;
+      hasAdeTransaction: boolean;
+      existingAdeTransactionId: string | null;
+      existingAdeProgressive: string | null;
+    };
+
+/**
  * Called when the VOID document INSERT was skipped by ON CONFLICT DO NOTHING.
  * Determines whether the conflict is due to the same idempotency key (retry-safe)
  * or a different key targeting the same SALE (race condition).
+ *
+ * B7: when the existing PENDING/ERROR is stale, returns `{ kind: "recover" }`
+ * so the caller can re-execute the submitVoid flow with the existing row.
  */
 async function resolveVoidConflict(
   db: ReturnType<typeof getDb>,
   idempotencyKey: string,
   businessId: string,
-): Promise<VoidReceiptResult> {
+): Promise<ConflictOutcome> {
   // Case A: same idempotencyKey → same-request retry (true idempotency path)
   const [existingByKey] = await db
     .select({
@@ -36,6 +61,7 @@ async function resolveVoidConflict(
       status: commercialDocuments.status,
       adeTransactionId: commercialDocuments.adeTransactionId,
       adeProgressive: commercialDocuments.adeProgressive,
+      createdAt: commercialDocuments.createdAt,
     })
     .from(commercialDocuments)
     .where(
@@ -50,24 +76,140 @@ async function resolveVoidConflict(
     if (existingByKey.status === "VOID_ACCEPTED") {
       // Already voided successfully — true idempotency return
       return {
-        voidDocumentId: existingByKey.id,
-        adeTransactionId: existingByKey.adeTransactionId ?? undefined,
-        adeProgressive: existingByKey.adeProgressive ?? undefined,
+        kind: "done",
+        result: {
+          voidDocumentId: existingByKey.id,
+          adeTransactionId: existingByKey.adeTransactionId ?? undefined,
+          adeProgressive: existingByKey.adeProgressive ?? undefined,
+        },
       };
     }
-    // PENDING or ERROR: void was started but never completed
+
+    if (existingByKey.status === "REJECTED") {
+      return {
+        kind: "done",
+        result: {
+          error:
+            "Annullo precedente rifiutato dall'AdE. Riapri il dialogo con una nuova chiave.",
+        },
+      };
+    }
+
+    // PENDING or ERROR: void was started but never completed.
+    // B7: if the row is "stale", enter recovery instead of blocking the client.
+    const createdAtMs =
+      existingByKey.createdAt != null
+        ? new Date(existingByKey.createdAt).getTime()
+        : NaN;
+    const isStale =
+      Number.isFinite(createdAtMs) &&
+      Date.now() - createdAtMs > getStalePendingThresholdMs();
+
+    if (!isStale) {
+      return {
+        kind: "done",
+        result: {
+          error:
+            "Annullo precedente ancora in elaborazione. Riprova tra qualche secondo.",
+          code: "VOID_PENDING_IN_PROGRESS",
+        },
+      };
+    }
+
+    logger.warn(
+      {
+        voidDocumentId: existingByKey.id,
+        businessId,
+        status: existingByKey.status,
+        ageMs: Date.now() - createdAtMs,
+      },
+      "Recovering stale PENDING/ERROR void",
+    );
     return {
-      error:
-        "Annullo precedente in stato inconsistente. Riprova aprendo di nuovo il dialogo.",
+      kind: "recover",
+      voidDocumentId: existingByKey.id,
+      hasAdeTransaction: existingByKey.adeTransactionId != null,
+      existingAdeTransactionId: existingByKey.adeTransactionId,
+      existingAdeProgressive: existingByKey.adeProgressive,
     };
   }
 
   // Case B: different idempotencyKey, same voidedDocumentId → race condition blocked.
-  // Another concurrent request already created (or completed) a VOID for this SALE.
   return {
-    error:
-      "Questo scontrino è già stato annullato o è in fase di annullo da un'altra richiesta.",
+    kind: "done",
+    result: {
+      error:
+        "Questo scontrino è già stato annullato o è in fase di annullo da un'altra richiesta.",
+      code: "VOID_ALREADY_TARGETED",
+    },
   };
+}
+
+/**
+ * Esegue solo le UPDATE finali del flusso void senza chiamare submitVoid.
+ *
+ * Usato nel recovery (B7) quando submitVoid era già andato a buon fine su AdE
+ * ma la transazione finale di UPDATE era fallita: il VOID resta PENDING con
+ * adeTransactionId valorizzato e la SALE resta ACCEPTED. Re-chiamare
+ * submitVoid produrrebbe un doppio annullo su AdE (irreversibile).
+ *
+ * Le due UPDATE sono naturalmente idempotenti (impostano stato finale).
+ */
+async function finalizeVoidOnly(
+  voidDocumentId: string,
+  saleDocumentId: string,
+  adeTransactionId: string,
+  adeProgressive: string,
+): Promise<VoidReceiptResult> {
+  const db = getDb();
+  try {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(commercialDocuments)
+        .set({
+          status: "VOID_ACCEPTED",
+          adeTransactionId,
+          adeProgressive,
+        })
+        .where(eq(commercialDocuments.id, voidDocumentId));
+
+      await tx
+        .update(commercialDocuments)
+        .set({ status: "VOID_ACCEPTED" })
+        .where(eq(commercialDocuments.id, saleDocumentId));
+    });
+
+    logger.info(
+      { voidDocumentId, saleDocumentId, adeTransactionId, recovery: true },
+      "Void finalized from stale PENDING (B7 recovery)",
+    );
+
+    return {
+      voidDocumentId,
+      adeTransactionId,
+      adeProgressive,
+    };
+  } catch (err) {
+    // Don't mark ERROR: the partial unique index excludes ERROR, so flipping
+    // status here would let a fresh idempotency key insert a SECOND VOID for
+    // an already-voided SALE on AdE (irreversible duplicate). Leave the row
+    // PENDING so the next retry re-enters this same finalization path.
+    logger.error(
+      {
+        err,
+        critical: true,
+        voidDocumentId,
+        saleDocumentId,
+        adeTransactionId,
+      },
+      "Void finalization failed after submitVoid succeeded — MANUAL CLEANUP NEEDED",
+    );
+    return {
+      error:
+        "Annullo registrato su AdE ma sincronizzazione DB in errore. Contatta il supporto.",
+      code: "VOID_SYNC_FAILED",
+    };
+  }
 }
 
 /**
@@ -141,11 +283,34 @@ export async function voidReceiptForBusiness(
     .returning({ id: commercialDocuments.id });
 
   // Insert was skipped due to a constraint conflict — delegate to helper.
+  let voidDocumentId: string;
   if (!voidDoc) {
-    return resolveVoidConflict(db, input.idempotencyKey, input.businessId);
+    const conflict = await resolveVoidConflict(
+      db,
+      input.idempotencyKey,
+      input.businessId,
+    );
+    if (conflict.kind === "done") return conflict.result;
+    voidDocumentId = conflict.voidDocumentId;
+    // If submitVoid already succeeded on AdE (adeTransactionId set), don't
+    // resubmit — submitVoid is irreversible and a second call would create
+    // a duplicate annullo. Skip directly to the final UPDATE using the
+    // existing AdE IDs.
+    if (
+      conflict.hasAdeTransaction &&
+      conflict.existingAdeTransactionId &&
+      conflict.existingAdeProgressive
+    ) {
+      return finalizeVoidOnly(
+        voidDocumentId,
+        input.documentId,
+        conflict.existingAdeTransactionId,
+        conflict.existingAdeProgressive,
+      );
+    }
+  } else {
+    voidDocumentId = voidDoc.id;
   }
-
-  const voidDocumentId = voidDoc.id;
   const adeMode = (process.env.ADE_MODE as "mock" | "real") || "mock";
   const adeClient = createAdeClient(adeMode);
   let loggedIn = false;

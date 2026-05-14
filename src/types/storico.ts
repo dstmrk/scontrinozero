@@ -73,8 +73,27 @@ export interface VoidReceiptInput {
   businessId: string;
 }
 
+/**
+ * Codici errore machine-readable per voidReceipt.
+ *
+ * - VOID_PENDING_IN_PROGRESS: un annullo precedente con la stessa idempotencyKey
+ *   è ancora in corso (fresh PENDING). Il client dovrebbe ritentare dopo
+ *   qualche secondo.
+ * - VOID_ALREADY_TARGETED: un altro annullo concorrente sta agendo sulla stessa
+ *   SALE (race condition fra utenti).
+ * - DB_TIMEOUT: timeout DB; servizio temporaneamente sovraccarico (B20).
+ * - VOID_SYNC_FAILED: l'annullo è stato registrato su AdE ma la sincronizzazione
+ *   DB finale è fallita. Richiede cleanup manuale.
+ */
+export type VoidReceiptErrorCode =
+  | "VOID_PENDING_IN_PROGRESS"
+  | "VOID_ALREADY_TARGETED"
+  | "DB_TIMEOUT"
+  | "VOID_SYNC_FAILED";
+
 export interface VoidReceiptResult {
   error?: string;
+  code?: VoidReceiptErrorCode;
   voidDocumentId?: string;
   adeTransactionId?: string;
   adeProgressive?: string;

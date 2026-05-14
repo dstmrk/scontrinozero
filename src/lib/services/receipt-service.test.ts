@@ -257,7 +257,7 @@ describe("emitReceiptForBusiness", () => {
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
-  it("idempotency: ritorna errore se il documento esistente è PENDING", async () => {
+  it("idempotency: PENDING fresh ritorna code PENDING_IN_PROGRESS (B7)", async () => {
     mockDocumentReturning.mockResolvedValue([]);
     mockLimit.mockResolvedValueOnce([
       {
@@ -265,13 +265,97 @@ describe("emitReceiptForBusiness", () => {
         status: "PENDING",
         adeTransactionId: null,
         adeProgressive: null,
+        // createdAt fresh: 10 secondi fa
+        createdAt: new Date(Date.now() - 10_000),
       },
     ]);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
     const result = await emitReceiptForBusiness(VALID_INPUT);
 
+    expect(result.code).toBe("PENDING_IN_PROGRESS");
     expect(result.error).toBeDefined();
+    expect(mockLogin).not.toHaveBeenCalled();
+  });
+
+  it("idempotency: PENDING stale entra in recovery path (B7)", async () => {
+    mockDocumentReturning.mockResolvedValue([]);
+    // createdAt > 5 minuti (default threshold) → stale
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-123",
+        status: "PENDING",
+        adeTransactionId: null,
+        adeProgressive: null,
+        createdAt: new Date(Date.now() - 10 * 60 * 1000),
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    // Recovery completata: ritorna ACCEPTED via submitSaleToAde
+    expect(result.error).toBeUndefined();
+    expect(result.documentId).toBe("doc-123");
+    expect(mockLogin).toHaveBeenCalled();
+    expect(mockSubmitSale).toHaveBeenCalled();
+  });
+
+  it("idempotency: ERROR stale entra in recovery path (B7)", async () => {
+    mockDocumentReturning.mockResolvedValue([]);
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-456",
+        status: "ERROR",
+        adeTransactionId: null,
+        adeProgressive: null,
+        createdAt: new Date(Date.now() - 10 * 60 * 1000),
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.error).toBeUndefined();
+    expect(result.documentId).toBe("doc-456");
+    expect(mockSubmitSale).toHaveBeenCalled();
+  });
+
+  it("idempotency: REJECTED esistente ritorna code ALREADY_REJECTED", async () => {
+    mockDocumentReturning.mockResolvedValue([]);
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-rej",
+        status: "REJECTED",
+        adeTransactionId: null,
+        adeProgressive: null,
+        createdAt: new Date(),
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("ALREADY_REJECTED");
+    expect(mockLogin).not.toHaveBeenCalled();
+  });
+
+  it("idempotency: PENDING senza createdAt è trattato come fresh (fail-safe)", async () => {
+    mockDocumentReturning.mockResolvedValue([]);
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-bad",
+        status: "PENDING",
+        adeTransactionId: null,
+        adeProgressive: null,
+        createdAt: null,
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("PENDING_IN_PROGRESS");
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
