@@ -7,8 +7,8 @@ import {
 } from "./categories";
 
 describe("categorySlugs", () => {
-  it("contains exactly 7 slugs", () => {
-    expect(categorySlugs).toHaveLength(7);
+  it("contains exactly 6 slugs", () => {
+    expect(categorySlugs).toHaveLength(6);
   });
 
   it("contains the expected slugs", () => {
@@ -18,7 +18,6 @@ describe("categorySlugs", () => {
         "parrucchieri-estetisti",
         "artigiani",
         "b-and-b",
-        "ncc-taxi",
         "regime-forfettario",
         "professionisti",
       ]),
@@ -36,7 +35,6 @@ describe("categories dictionary", () => {
     "parrucchieri-estetisti",
     "artigiani",
     "b-and-b",
-    "ncc-taxi",
     "regime-forfettario",
     "professionisti",
   ] as const) {

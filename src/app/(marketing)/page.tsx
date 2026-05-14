@@ -25,7 +25,6 @@ import {
   Scissors,
   Wrench,
   BedDouble,
-  Car,
   Percent,
   Briefcase,
 } from "lucide-react";
@@ -273,13 +272,6 @@ export default function Home() {
                 title: "B&B e strutture ricettive",
                 description:
                   "Ideale per attività stagionali che non vogliono un registratore fisso.",
-              },
-              {
-                icon: Car,
-                slug: "ncc-taxi",
-                title: "NCC e taxi",
-                description:
-                  "Zero hardware aggiuntivo: basta lo smartphone che già usi ogni giorno.",
               },
               {
                 icon: Percent,
