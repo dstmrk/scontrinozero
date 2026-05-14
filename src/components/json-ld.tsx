@@ -137,6 +137,37 @@ export function serviceJsonLd(input: ServiceJsonLdInput) {
   } as const;
 }
 
+export interface WebApplicationJsonLdInput {
+  readonly name: string;
+  readonly description: string;
+  readonly url: string;
+  readonly applicationCategory?: string;
+}
+
+export function webApplicationJsonLd(input: WebApplicationJsonLdInput) {
+  if (!input.name) throw new Error("webApplicationJsonLd: name is required");
+  if (!input.description)
+    throw new Error("webApplicationJsonLd: description is required");
+  if (!input.url) throw new Error("webApplicationJsonLd: url is required");
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    name: input.name,
+    description: input.description,
+    url: input.url,
+    applicationCategory: input.applicationCategory ?? "BusinessApplication",
+    operatingSystem: "Web",
+    inLanguage: "it-IT",
+    isAccessibleForFree: true,
+    offers: {
+      "@type": "Offer" as const,
+      price: "0",
+      priceCurrency: "EUR",
+    },
+    provider: organizationJsonLd,
+  } as const;
+}
+
 export const faqPageJsonLd = {
   "@context": "https://schema.org",
   "@type": "FAQPage",

@@ -5,7 +5,7 @@ describe("sitemap", () => {
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
-    expect(result).toHaveLength(42);
+    expect(result).toHaveLength(45);
 
     // Root
     expect(result[0]).toMatchObject({
@@ -60,40 +60,55 @@ describe("sitemap", () => {
       });
     }
 
+    // Tool pages (v1.2.12)
+    const expectedToolUrls = [
+      "https://scontrinozero.it/strumenti/scorporo-iva",
+      "https://scontrinozero.it/strumenti/verifica-codice-lotteria",
+      "https://scontrinozero.it/strumenti/calcolatore-risparmio-rt",
+    ];
+    for (const url of expectedToolUrls) {
+      expect(allUrls).toContain(url);
+      const entry = result.find((e) => e.url === url);
+      expect(entry).toMatchObject({
+        changeFrequency: "monthly",
+        priority: 0.6,
+      });
+    }
+
     // Legal
-    expect(result[12]).toMatchObject({
+    expect(result[15]).toMatchObject({
       url: "https://scontrinozero.it/privacy",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[13]).toMatchObject({
+    expect(result[16]).toMatchObject({
       url: "https://scontrinozero.it/privacy/v01",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[14]).toMatchObject({
+    expect(result[17]).toMatchObject({
       url: "https://scontrinozero.it/termini",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[15]).toMatchObject({
+    expect(result[18]).toMatchObject({
       url: "https://scontrinozero.it/termini/v01",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[16]).toMatchObject({
+    expect(result[19]).toMatchObject({
       url: "https://scontrinozero.it/cookie-policy",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[17]).toMatchObject({
+    expect(result[20]).toMatchObject({
       url: "https://scontrinozero.it/cookie-policy/v01",
       changeFrequency: "yearly",
       priority: 0.3,
     });
 
     // Help center hub
-    expect(result[18]).toMatchObject({
+    expect(result[21]).toMatchObject({
       url: "https://scontrinozero.it/help",
       changeFrequency: "monthly",
       priority: 0.6,
@@ -129,12 +144,12 @@ describe("sitemap", () => {
     }
 
     // Auth pages (last two)
-    expect(result[40]).toMatchObject({
+    expect(result[43]).toMatchObject({
       url: "https://scontrinozero.it/login",
       changeFrequency: "yearly",
       priority: 0.5,
     });
-    expect(result[41]).toMatchObject({
+    expect(result[44]).toMatchObject({
       url: "https://scontrinozero.it/register",
       changeFrequency: "yearly",
       priority: 0.5,
@@ -155,8 +170,11 @@ describe("sitemap", () => {
     expect(result[9].url).toBe(
       "https://test.scontrinozero.it/confronto/registratore-telematico",
     );
-    expect(result[12].url).toBe("https://test.scontrinozero.it/privacy");
-    expect(result[18].url).toBe("https://test.scontrinozero.it/help");
+    expect(result[12].url).toBe(
+      "https://test.scontrinozero.it/strumenti/scorporo-iva",
+    );
+    expect(result[15].url).toBe("https://test.scontrinozero.it/privacy");
+    expect(result[21].url).toBe("https://test.scontrinozero.it/help");
 
     vi.unstubAllEnvs();
   });

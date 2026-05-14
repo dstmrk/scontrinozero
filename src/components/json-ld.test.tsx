@@ -10,6 +10,7 @@ import {
   breadcrumbListJsonLd,
   helpArticleBreadcrumb,
   serviceJsonLd,
+  webApplicationJsonLd,
 } from "./json-ld";
 import { faqItems } from "@/components/marketing/faq-items";
 
@@ -307,5 +308,68 @@ describe("serviceJsonLd", () => {
       serviceType: "Software fiscale",
     });
     expect(ld.serviceType).toBe("Software fiscale");
+  });
+});
+
+describe("webApplicationJsonLd", () => {
+  it("has @type WebApplication and @context schema.org", () => {
+    const ld = webApplicationJsonLd({
+      name: "Scorporo IVA",
+      description: "Calcolatore gratuito per scorporare IVA da un lordo.",
+      url: "https://scontrinozero.it/strumenti/scorporo-iva",
+    });
+    expect(ld["@type"]).toBe("WebApplication");
+    expect(ld["@context"]).toBe("https://schema.org");
+  });
+
+  it("marks the tool as free (price 0 EUR, isAccessibleForFree)", () => {
+    const ld = webApplicationJsonLd({
+      name: "X",
+      description: "Y",
+      url: "https://scontrinozero.it/strumenti/x",
+    });
+    expect(ld.isAccessibleForFree).toBe(true);
+    expect(ld.offers.price).toBe("0");
+    expect(ld.offers.priceCurrency).toBe("EUR");
+  });
+
+  it("defaults applicationCategory to BusinessApplication", () => {
+    const ld = webApplicationJsonLd({
+      name: "X",
+      description: "Y",
+      url: "https://scontrinozero.it/strumenti/x",
+    });
+    expect(ld.applicationCategory).toBe("BusinessApplication");
+  });
+
+  it("uses provided applicationCategory when given", () => {
+    const ld = webApplicationJsonLd({
+      name: "X",
+      description: "Y",
+      url: "https://scontrinozero.it/strumenti/x",
+      applicationCategory: "UtilitiesApplication",
+    });
+    expect(ld.applicationCategory).toBe("UtilitiesApplication");
+  });
+
+  it("includes provider Organization", () => {
+    const ld = webApplicationJsonLd({
+      name: "X",
+      description: "Y",
+      url: "https://scontrinozero.it/strumenti/x",
+    });
+    expect(ld.provider["@type"]).toBe("Organization");
+  });
+
+  it("rejects empty name, description or url", () => {
+    expect(() =>
+      webApplicationJsonLd({ name: "", description: "Y", url: "https://x" }),
+    ).toThrow();
+    expect(() =>
+      webApplicationJsonLd({ name: "X", description: "", url: "https://x" }),
+    ).toThrow();
+    expect(() =>
+      webApplicationJsonLd({ name: "X", description: "Y", url: "" }),
+    ).toThrow();
   });
 });
