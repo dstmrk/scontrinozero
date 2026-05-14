@@ -22,7 +22,6 @@ export type CategorySlug =
   | "parrucchieri-estetisti"
   | "artigiani"
   | "b-and-b"
-  | "ncc-taxi"
   | "regime-forfettario"
   | "professionisti";
 
@@ -31,7 +30,6 @@ export const categorySlugs: readonly CategorySlug[] = [
   "parrucchieri-estetisti",
   "artigiani",
   "b-and-b",
-  "ncc-taxi",
   "regime-forfettario",
   "professionisti",
 ];
@@ -212,50 +210,6 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       },
     ],
     relatedHelp: ["primo-scontrino", "aliquote-iva", "intestazione-scontrino"],
-  },
-  "ncc-taxi": {
-    slug: "ncc-taxi",
-    title: "Scontrino elettronico per NCC e taxi",
-    metaTitle: "Scontrino elettronico per NCC e taxi | ScontrinoZero",
-    metaDescription:
-      "Emetti lo scontrino al passeggero direttamente dallo smartphone, a fine corsa. Senza tassametro fiscale aggiuntivo. Da €2,50/mese, prova 30 giorni.",
-    heroSubtitle:
-      "Emetti lo scontrino a fine corsa direttamente dal telefono che usi già per il navigatore. Niente cassetto fiscale aggiuntivo in vettura.",
-    audience: "noleggiatori con conducente (NCC), tassisti, autisti turistici",
-    useCase:
-      "Gli NCC e i taxi sono obbligati a rilasciare lo scontrino al passeggero per la corsa effettuata. ScontrinoZero ti permette di emetterlo dal telefono al termine della corsa, con l'importo già calcolato. Il passeggero riceve il documento via link o QR. Nessun hardware in più rispetto a quello che hai già in vettura.",
-    obligations: [
-      "Emissione del Documento Commerciale Online per la corsa effettuata, su richiesta del passeggero o automaticamente per importi rilevanti.",
-      "Applicazione dell'aliquota IVA 10% per il trasporto urbano e suburbano di persone (DPR 633/72 Tab. A, parte III, n. 127-novies).",
-      "Trasmissione corrispettivi all'Agenzia delle Entrate entro 12 giorni.",
-      "Per gli NCC: rispetto della disciplina specifica L. 21/1992 e successive modifiche.",
-    ],
-    benefits: [
-      "Emissione veloce: importo, IVA al 10% pre-configurato, scontrino in pochi secondi.",
-      "Pagamento misto contanti/POS gestito in un'unica transazione.",
-      "Funziona sul telefono che già usi per il navigatore e l'app di prenotazione.",
-      "Storico corse consultabile e ricercabile; export CSV in arrivo sul piano Pro.",
-    ],
-    faq: [
-      {
-        question:
-          "Va bene anche per chi lavora con piattaforme tipo Uber o Bolt?",
-        answer:
-          'Per le corse intermediate da piattaforme la fatturazione segue regole specifiche definite dal contratto con la piattaforma stessa. Per le corse "private" effettuate al di fuori della piattaforma, ScontrinoZero è la soluzione naturale.',
-      },
-      {
-        question: "L'aliquota 10% si applica a tutte le corse?",
-        answer:
-          "Si applica al trasporto urbano e suburbano di persone. Per altre prestazioni (es. tour turistici, transfer aeroportuali extraurbani) verifica con il commercialista l'aliquota applicabile.",
-      },
-      {
-        question:
-          "Posso emettere lo scontrino se il passeggero paga in contanti?",
-        answer:
-          "Sì. ScontrinoZero gestisce pagamenti in contanti, con carta o misti. L'importante è che lo scontrino sia emesso a conclusione della corsa.",
-      },
-    ],
-    relatedHelp: ["primo-scontrino", "aliquote-iva", "installare-app"],
   },
   "regime-forfettario": {
     slug: "regime-forfettario",
