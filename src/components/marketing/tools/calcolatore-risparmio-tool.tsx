@@ -19,9 +19,9 @@ export function CalcolatoreRisparmioTool() {
   };
 
   const result =
-    submitted !== null
-      ? computeRtSavings({ receiptsPerMonth: submitted })
-      : null;
+    submitted === null
+      ? null
+      : computeRtSavings({ receiptsPerMonth: submitted });
 
   return (
     <div className="bg-card mt-6 rounded-lg border p-5">
