@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { categorySlugs } from "@/lib/per/categories";
 import { comparisonSlugs } from "@/lib/confronto/comparisons";
+import { guideSlugs } from "@/lib/guide/articles";
 import { toolSlugs } from "@/lib/strumenti/tools";
 
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://scontrinozero.it";
@@ -33,6 +34,13 @@ const toolPages = toolSlugs.map((slug) => ({
   priority: 0.6,
 }));
 
+const guidePages = guideSlugs.map((slug) => ({
+  url: `${baseUrl}/guide/${slug}`,
+  lastModified: new Date(),
+  changeFrequency: "monthly" as const,
+  priority: 0.7,
+}));
+
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
@@ -45,6 +53,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...categoryLandingPages,
     ...comparisonPages,
     ...toolPages,
+    {
+      url: `${baseUrl}/guide`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    ...guidePages,
     {
       url: `${baseUrl}/privacy`,
       lastModified: new Date(),

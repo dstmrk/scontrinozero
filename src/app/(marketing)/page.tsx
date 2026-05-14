@@ -193,6 +193,29 @@ export default function Home() {
               {"Calcolatore risparmio vs RT"}
             </Link>
           </p>
+          <p className="text-muted-foreground mt-3 text-center text-sm">
+            {"Guide pratiche: "}
+            <Link
+              href="/guide/documento-commerciale-online"
+              className="text-primary hover:underline"
+            >
+              {"Documento commerciale online"}
+            </Link>
+            {" · "}
+            <Link
+              href="/guide/pos-rt-obbligo-2026"
+              className="text-primary hover:underline"
+            >
+              {"POS-RT 2026"}
+            </Link>
+            {" · "}
+            <Link
+              href="/guide/scontrino-regime-forfettario"
+              className="text-primary hover:underline"
+            >
+              {"Scontrino forfettario"}
+            </Link>
+          </p>
         </div>
       </section>
 
