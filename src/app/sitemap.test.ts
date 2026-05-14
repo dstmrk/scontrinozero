@@ -5,7 +5,7 @@ describe("sitemap", () => {
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
-    expect(result).toHaveLength(39);
+    expect(result).toHaveLength(42);
 
     // Root
     expect(result[0]).toMatchObject({
@@ -45,40 +45,55 @@ describe("sitemap", () => {
       });
     }
 
+    // Comparison pages (v1.2.11)
+    const expectedComparisonUrls = [
+      "https://scontrinozero.it/confronto/registratore-telematico",
+      "https://scontrinozero.it/confronto/scontrinare",
+      "https://scontrinozero.it/confronto/fatture-in-cloud",
+    ];
+    for (const url of expectedComparisonUrls) {
+      expect(allUrls).toContain(url);
+      const entry = result.find((e) => e.url === url);
+      expect(entry).toMatchObject({
+        changeFrequency: "monthly",
+        priority: 0.65,
+      });
+    }
+
     // Legal
-    expect(result[9]).toMatchObject({
+    expect(result[12]).toMatchObject({
       url: "https://scontrinozero.it/privacy",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[10]).toMatchObject({
+    expect(result[13]).toMatchObject({
       url: "https://scontrinozero.it/privacy/v01",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[11]).toMatchObject({
+    expect(result[14]).toMatchObject({
       url: "https://scontrinozero.it/termini",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[12]).toMatchObject({
+    expect(result[15]).toMatchObject({
       url: "https://scontrinozero.it/termini/v01",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[13]).toMatchObject({
+    expect(result[16]).toMatchObject({
       url: "https://scontrinozero.it/cookie-policy",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[14]).toMatchObject({
+    expect(result[17]).toMatchObject({
       url: "https://scontrinozero.it/cookie-policy/v01",
       changeFrequency: "yearly",
       priority: 0.3,
     });
 
     // Help center hub
-    expect(result[15]).toMatchObject({
+    expect(result[18]).toMatchObject({
       url: "https://scontrinozero.it/help",
       changeFrequency: "monthly",
       priority: 0.6,
@@ -114,12 +129,12 @@ describe("sitemap", () => {
     }
 
     // Auth pages (last two)
-    expect(result[37]).toMatchObject({
+    expect(result[40]).toMatchObject({
       url: "https://scontrinozero.it/login",
       changeFrequency: "yearly",
       priority: 0.5,
     });
-    expect(result[38]).toMatchObject({
+    expect(result[41]).toMatchObject({
       url: "https://scontrinozero.it/register",
       changeFrequency: "yearly",
       priority: 0.5,
@@ -137,8 +152,11 @@ describe("sitemap", () => {
     expect(result[1].url).toBe("https://test.scontrinozero.it/prezzi");
     expect(result[2].url).toBe("https://test.scontrinozero.it/funzionalita");
     expect(result[3].url).toBe("https://test.scontrinozero.it/per/ambulanti");
-    expect(result[9].url).toBe("https://test.scontrinozero.it/privacy");
-    expect(result[15].url).toBe("https://test.scontrinozero.it/help");
+    expect(result[9].url).toBe(
+      "https://test.scontrinozero.it/confronto/registratore-telematico",
+    );
+    expect(result[12].url).toBe("https://test.scontrinozero.it/privacy");
+    expect(result[18].url).toBe("https://test.scontrinozero.it/help");
 
     vi.unstubAllEnvs();
   });
