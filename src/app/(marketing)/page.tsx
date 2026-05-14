@@ -12,6 +12,10 @@ import {
 import { FaqSection } from "@/components/marketing/faq-section";
 import { PricingSection } from "@/components/marketing/pricing-section";
 import {
+  ComparisonTable,
+  type ComparisonRow,
+} from "@/components/marketing/comparison-table";
+import {
   Smartphone,
   ReceiptEuro,
   Undo2,
@@ -19,8 +23,6 @@ import {
   Shield,
   CalendarRange,
   ArrowRight,
-  Check,
-  X,
   ShoppingBag,
   Scissors,
   Wrench,
@@ -28,6 +30,39 @@ import {
   Percent,
   Briefcase,
 } from "lucide-react";
+
+const HOME_COMPARISON_ROWS: readonly ComparisonRow[] = [
+  {
+    label: "Costo acquisto hardware",
+    competitor: "€400–800",
+    ours: "€0",
+  },
+  {
+    label: "Canone annuo",
+    competitor: "€100–200",
+    ours: "da €29,99",
+  },
+  {
+    label: "Installazione tecnico",
+    competitor: false,
+    ours: true,
+  },
+  {
+    label: "Collaudo biennale",
+    competitor: false,
+    ours: true,
+  },
+  {
+    label: "Aggiornamenti inclusi",
+    competitor: false,
+    ours: true,
+  },
+  {
+    label: "Funziona da smartphone",
+    competitor: false,
+    ours: true,
+  },
+];
 
 export default function Home() {
   return (
@@ -105,82 +140,36 @@ export default function Home() {
             Un registratore telematico fisico ha costi che si accumulano ogni
             anno. ScontrinoZero no.
           </p>
-          <div className="mt-10 overflow-hidden rounded-xl border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-muted/50">
-                  <th className="px-4 py-3 text-left font-semibold"></th>
-                  <th className="px-4 py-3 text-center font-semibold">
-                    Registratore fisico
-                  </th>
-                  <th className="text-primary px-4 py-3 text-center font-semibold">
-                    ScontrinoZero
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {[
-                  {
-                    label: "Costo acquisto hardware",
-                    competitor: "€400–800",
-                    ours: "€0",
-                  },
-                  {
-                    label: "Canone annuo",
-                    competitor: "€100–200",
-                    ours: "da €29,99",
-                  },
-                  {
-                    label: "Installazione tecnico",
-                    competitor: false,
-                    ours: true,
-                  },
-                  {
-                    label: "Collaudo biennale",
-                    competitor: false,
-                    ours: true,
-                  },
-                  {
-                    label: "Aggiornamenti inclusi",
-                    competitor: false,
-                    ours: true,
-                  },
-                  {
-                    label: "Funziona da smartphone",
-                    competitor: false,
-                    ours: true,
-                  },
-                ].map((row) => (
-                  <tr key={row.label}>
-                    <td className="px-4 py-3">{row.label}</td>
-                    <td className="text-muted-foreground px-4 py-3 text-center">
-                      {typeof row.competitor === "string" ? (
-                        row.competitor
-                      ) : (
-                        <X className="mx-auto h-4 w-4 text-red-400" />
-                      )}
-                    </td>
-                    <td className="text-primary px-4 py-3 text-center font-semibold">
-                      {typeof row.ours === "string" ? (
-                        row.ours
-                      ) : (
-                        <Check className="mx-auto h-4 w-4" />
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-muted/50 font-semibold">
-                  <td className="px-4 py-3">Risparmio anno 1</td>
-                  <td className="px-4 py-3 text-center"></td>
-                  <td className="text-primary px-4 py-3 text-center">
-                    oltre €470
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+          <div className="mt-10">
+            <ComparisonTable
+              competitorLabel="Registratore fisico"
+              rows={HOME_COMPARISON_ROWS}
+              footer={{ label: "Risparmio anno 1", value: "oltre €470" }}
+            />
           </div>
+          <p className="text-muted-foreground mt-6 text-center text-sm">
+            {"Stai valutando alternative? "}
+            <Link
+              href="/confronto/registratore-telematico"
+              className="text-primary hover:underline"
+            >
+              {"Confronto completo vs registratore telematico"}
+            </Link>
+            {" · "}
+            <Link
+              href="/confronto/scontrinare"
+              className="text-primary hover:underline"
+            >
+              {"vs Scontrinare"}
+            </Link>
+            {" · "}
+            <Link
+              href="/confronto/fatture-in-cloud"
+              className="text-primary hover:underline"
+            >
+              {"vs Fatture in Cloud"}
+            </Link>
+          </p>
         </div>
       </section>
 
