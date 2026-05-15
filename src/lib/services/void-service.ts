@@ -347,7 +347,9 @@ type PrepareVoidOutcome =
   | { kind: "done"; result: VoidReceiptResult }
   | {
       kind: "ready";
-      saleDoc: SaleDoc & { adeTransactionId: string; adeProgressive: string };
+      saleAdeTransactionId: string;
+      saleAdeProgressive: string;
+      saleCreatedAt: Date;
       voidDocumentId: string;
       prerequisites: {
         codiceFiscale: string;
@@ -428,7 +430,10 @@ async function prepareVoidDocument(
       },
     };
   }
-  if (!saleDoc.adeTransactionId || !saleDoc.adeProgressive) {
+  // Destructure: const-narrowing su questi campi sopravvive agli await
+  // successivi, evitando un cast `as` sul saleDoc (Sonar S4325).
+  const { adeTransactionId, adeProgressive, createdAt } = saleDoc;
+  if (!adeTransactionId || !adeProgressive) {
     return {
       kind: "done",
       result: { error: "Dati AdE mancanti per l'annullo." },
@@ -445,10 +450,9 @@ async function prepareVoidDocument(
 
   return {
     kind: "ready",
-    saleDoc: saleDoc as SaleDoc & {
-      adeTransactionId: string;
-      adeProgressive: string;
-    },
+    saleAdeTransactionId: adeTransactionId,
+    saleAdeProgressive: adeProgressive,
+    saleCreatedAt: createdAt,
     voidDocumentId: insertOutcome.voidDocumentId,
     prerequisites,
   };
@@ -529,7 +533,12 @@ export async function voidReceiptForBusiness(
 
   const prep = await prepareVoidDocument(input, apiKeyId);
   if (prep.kind === "done") return prep.result;
-  const { saleDoc, voidDocumentId } = prep;
+  const {
+    saleAdeTransactionId,
+    saleAdeProgressive,
+    saleCreatedAt,
+    voidDocumentId,
+  } = prep;
   const { codiceFiscale, password, pin, cedentePrestatore } =
     prep.prerequisites;
 
@@ -542,16 +551,14 @@ export async function voidReceiptForBusiness(
     loggedIn = true;
 
     // Fetch original document from AdE to get real idElementoContabile values
-    const originalAdeDoc = await adeClient.getDocument(
-      saleDoc.adeTransactionId,
-    );
+    const originalAdeDoc = await adeClient.getDocument(saleAdeTransactionId);
 
     const voidReq: VoidRequest = {
       idempotencyKey: input.idempotencyKey,
       originalDocument: {
-        transactionId: saleDoc.adeTransactionId,
-        documentProgressive: saleDoc.adeProgressive,
-        date: getFiscalDate(saleDoc.createdAt),
+        transactionId: saleAdeTransactionId,
+        documentProgressive: saleAdeProgressive,
+        date: getFiscalDate(saleCreatedAt),
       },
     };
 
