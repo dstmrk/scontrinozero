@@ -99,3 +99,59 @@ describe("withStatementTimeout", () => {
     ).rejects.toMatchObject({ code: "57014" });
   });
 });
+
+describe("retryOnStatementTimeout (B20)", () => {
+  it("ritorna immediatamente il valore se la fn ha successo al primo tentativo", async () => {
+    vi.useFakeTimers();
+    const { retryOnStatementTimeout } = await import("./db-timeout");
+    const fn = vi.fn().mockResolvedValue("ok");
+    const result = await retryOnStatementTimeout("test", fn);
+    expect(result).toBe("ok");
+    expect(fn).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it("rilancia immediatamente errori non-timeout (no retry)", async () => {
+    vi.useFakeTimers();
+    const { retryOnStatementTimeout } = await import("./db-timeout");
+    const nonTimeoutErr = new Error("connection lost");
+    const fn = vi.fn().mockRejectedValue(nonTimeoutErr);
+    await expect(retryOnStatementTimeout("test", fn)).rejects.toThrow(
+      "connection lost",
+    );
+    expect(fn).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it("ritenta su 57014 e ritorna il valore al recupero", async () => {
+    vi.useFakeTimers();
+    const { retryOnStatementTimeout } = await import("./db-timeout");
+    const timeoutErr = Object.assign(new Error("timeout"), { code: "57014" });
+    const fn = vi
+      .fn()
+      .mockRejectedValueOnce(timeoutErr)
+      .mockResolvedValue("recovered");
+    const promise = retryOnStatementTimeout("test", fn);
+    await vi.advanceTimersByTimeAsync(200);
+    const result = await promise;
+    expect(result).toBe("recovered");
+    expect(fn).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  it("backoff progressivo 200 → 500 → 1000 ms, 4 tentativi totali, poi rilancia ultimo errore", async () => {
+    vi.useFakeTimers();
+    const { retryOnStatementTimeout } = await import("./db-timeout");
+    const timeoutErr = Object.assign(new Error("timeout"), { code: "57014" });
+    const fn = vi.fn().mockRejectedValue(timeoutErr);
+    const promise = retryOnStatementTimeout("test", fn);
+    // Necessario per evitare unhandled rejection durante l'esecuzione
+    promise.catch(() => {});
+    // Avanza per tutti i backoff: 200 + 500 + 1000 = 1700ms
+    await vi.advanceTimersByTimeAsync(1700);
+    await expect(promise).rejects.toMatchObject({ code: "57014" });
+    // 1 tentativo iniziale + 3 retry = 4
+    expect(fn).toHaveBeenCalledTimes(4);
+    vi.useRealTimers();
+  });
+});

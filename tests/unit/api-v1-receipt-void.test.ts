@@ -197,6 +197,18 @@ describe("POST /api/v1/receipts/[id]/void", () => {
       expect(body.code).toBe("VOID_PENDING_IN_PROGRESS");
     });
 
+    it("returns 409 when void service returns VOID_ALREADY_TARGETED (race condition)", async () => {
+      mockVoidReceiptForBusiness.mockResolvedValue({
+        error: "Questo scontrino è già stato annullato.",
+        code: "VOID_ALREADY_TARGETED",
+      });
+      const { POST } = await import("@/app/api/v1/receipts/[id]/void/route");
+      const res = await POST(makeRequest(VALID_UUID), makeParams(VALID_UUID));
+      expect(res.status).toBe(409);
+      const body = await res.json();
+      expect(body.code).toBe("VOID_ALREADY_TARGETED");
+    });
+
     it("returns 500 + VOID_SYNC_FAILED when finalize fails post-AdE (B20)", async () => {
       mockVoidReceiptForBusiness.mockResolvedValue({
         error: "Annullo registrato su AdE ma sincronizzazione DB in errore.",

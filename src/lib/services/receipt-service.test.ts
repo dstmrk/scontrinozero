@@ -460,4 +460,71 @@ describe("emitReceiptForBusiness", () => {
     // L'AdE login NON deve essere stato chiamato: timeout PRE-AdE
     expect(mockLogin).not.toHaveBeenCalled();
   });
+
+  it("recovery con adeTransactionId valorizzato finalizza senza richiamare submitSale (P1 Codex)", async () => {
+    mockDocumentReturning.mockResolvedValue([]); // INSERT conflict
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-recovered",
+        status: "PENDING",
+        // submitSale era già successo nel precedente tentativo
+        adeTransactionId: "prev-tx-id",
+        adeProgressive: "prev-prog",
+        createdAt: new Date(Date.now() - 10 * 60 * 1000),
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    // CRITICO: submitSale NON deve essere ri-chiamato (doppio doc fiscale)
+    expect(mockLogin).not.toHaveBeenCalled();
+    expect(mockSubmitSale).not.toHaveBeenCalled();
+    // Result rispecchia l'AdE IDs già pre-esistenti
+    expect(result).toEqual({
+      documentId: "doc-recovered",
+      adeTransactionId: "prev-tx-id",
+      adeProgressive: "prev-prog",
+    });
+  });
+
+  it("submitSaleToAde catch: timeout DB durante UPDATE finale → DB_TIMEOUT senza marcare ERROR (B20)", async () => {
+    // emit normale (no conflict): submitSale ha successo, ma l'UPDATE
+    // ACCEPTED finale va in timeout esaurendo i retry
+    const timeoutErr = Object.assign(new Error("timeout"), { code: "57014" });
+    mockUpdateWhere.mockRejectedValue(timeoutErr);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("DB_TIMEOUT");
+    // submitSale è stata chiamata (path fresh, no recovery)
+    expect(mockSubmitSale).toHaveBeenCalled();
+    // Non deve essere stato chiamato un UPDATE a ERROR
+    // (il timeout outer ramo skippa la mark-ERROR per non rompere B7 recovery)
+    const updateSets = mockUpdateSet.mock.calls.map((c) => c[0].status);
+    expect(updateSets).not.toContain("ERROR");
+  });
+
+  it("finalizeSaleOnly ritorna DB_TIMEOUT se l'UPDATE finalize esaurisce i retry", async () => {
+    mockDocumentReturning.mockResolvedValue([]); // INSERT conflict
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-stuck",
+        status: "PENDING",
+        adeTransactionId: "tx-prev",
+        adeProgressive: "prog-prev",
+        createdAt: new Date(Date.now() - 10 * 60 * 1000),
+      },
+    ]);
+    // Tutte le UPDATE post-conflict falliscono in timeout (4 tentativi)
+    const timeoutErr = Object.assign(new Error("timeout"), { code: "57014" });
+    mockUpdateWhere.mockRejectedValue(timeoutErr);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("DB_TIMEOUT");
+    expect(mockSubmitSale).not.toHaveBeenCalled();
+  });
 });

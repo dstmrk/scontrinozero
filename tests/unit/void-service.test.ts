@@ -233,6 +233,28 @@ describe("voidReceiptForBusiness", () => {
       });
     });
 
+    it("returns rejection error when existing VOID is REJECTED (same key)", async () => {
+      setupHappyPathDb();
+      mockReturning.mockResolvedValue([]); // INSERT conflict
+
+      mockLimit.mockResolvedValueOnce([FAKE_SALE]).mockResolvedValueOnce([
+        {
+          id: VOID_ID,
+          status: "REJECTED",
+          adeTransactionId: null,
+          adeProgressive: null,
+          createdAt: new Date(),
+        },
+      ]);
+
+      const { voidReceiptForBusiness } =
+        await import("@/lib/services/void-service");
+      const result = await voidReceiptForBusiness(makeInput());
+      expect(result.error).toMatch(/rifiutato/i);
+      // Non viene chiamato AdE
+      expect(mockAdeSubmitVoid).not.toHaveBeenCalled();
+    });
+
     it("returns VOID_PENDING_IN_PROGRESS when existing VOID is fresh PENDING (B7)", async () => {
       setupHappyPathDb();
       mockReturning.mockResolvedValue([]); // INSERT conflict
