@@ -178,5 +178,22 @@ export async function changePassword(
     return { error: "Aggiornamento password fallito. Riprova." };
   }
 
+  // P2-04: revoca le altre sessioni dell'utente. Supabase per default NON
+  // invalida i refresh token sugli altri device quando la password cambia;
+  // un attaccante che era già loggato resterebbe loggato altrove.
+  // scope: "others" mantiene la sessione corrente (l'utente che ha appena
+  // cambiato password resta connesso) e butta fuori tutti gli altri.
+  // Fire-and-forget: se fallisce non vogliamo mostrare un errore — il cambio
+  // password è già committato.
+  const { error: revokeError } = await supabase.auth.signOut({
+    scope: "others",
+  });
+  if (revokeError) {
+    logger.warn(
+      { err: revokeError, userId: user.id },
+      "changePassword: revoke other sessions failed (password already changed)",
+    );
+  }
+
   return {};
 }
