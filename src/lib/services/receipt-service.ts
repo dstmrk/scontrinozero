@@ -47,7 +47,7 @@ const PAYMENT_METHOD_TO_ADE: Record<PaymentMethod, PaymentType> = {
  */
 function getStalePendingThresholdMs(): number {
   const raw = process.env.STALE_PENDING_THRESHOLD_MINUTES;
-  const minutes = raw ? parseFloat(raw) : NaN;
+  const minutes = raw ? Number.parseFloat(raw) : Number.NaN;
   const effective = Number.isFinite(minutes) && minutes > 0 ? minutes : 5;
   return effective * 60 * 1000;
 }
@@ -218,36 +218,27 @@ export async function emitReceiptForBusiness(
     // B7: if the row is "stale" (older than threshold), allow recovery instead
     // of forcing the client to abandon the idempotency key. Missing/invalid
     // createdAt is treated as fresh (fail-safe: no risk of duplicate AdE submit).
-    const createdAtMs =
-      existing.createdAt != null ? new Date(existing.createdAt).getTime() : NaN;
+    const createdAtMs = existing.createdAt
+      ? new Date(existing.createdAt).getTime()
+      : Number.NaN;
     const isStale =
       Number.isFinite(createdAtMs) &&
       Date.now() - createdAtMs > getStalePendingThresholdMs();
-    if (!isStale) {
-      return {
-        error:
-          "Scontrino precedente ancora in elaborazione. Riprova tra qualche secondo.",
-        code: "PENDING_IN_PROGRESS",
-      };
+    if (isStale) {
+      return await recoverStaleReceipt({
+        existing,
+        input,
+        lotteryCode,
+        prerequisites: { codiceFiscale, password, pin, cedentePrestatore },
+        apiKeyId,
+        createdAtMs,
+      });
     }
-
-    logger.warn(
-      {
-        documentId: existing.id,
-        businessId: input.businessId,
-        status: existing.status,
-        ageMs: Date.now() - createdAtMs,
-      },
-      "Recovering stale PENDING/ERROR receipt",
-    );
-    return submitSaleToAde(
-      existing.id,
-      input,
-      lotteryCode,
-      { codiceFiscale, password, pin, cedentePrestatore },
-      apiKeyId,
-      { recovery: true },
-    );
+    return {
+      error:
+        "Scontrino precedente ancora in elaborazione. Riprova tra qualche secondo.",
+      code: "PENDING_IN_PROGRESS",
+    };
   }
 
   const documentId = txResult.id;
@@ -266,13 +257,122 @@ export async function emitReceiptForBusiness(
   );
 }
 
+/** Recovery path for stale PENDING/ERROR receipts (B7). Extracted to keep
+ *  `emitReceiptForBusiness` cognitive complexity below 15 (SonarCloud). */
+async function recoverStaleReceipt(args: {
+  existing: {
+    id: string;
+    status: string;
+    adeTransactionId: string | null;
+    adeProgressive: string | null;
+  };
+  input: SubmitReceiptInput;
+  lotteryCode: string | null;
+  prerequisites: {
+    codiceFiscale: string;
+    password: string;
+    pin: string;
+    cedentePrestatore: AdeCedentePrestatore;
+  };
+  apiKeyId: string | null | undefined;
+  createdAtMs: number;
+}): Promise<SubmitReceiptResult> {
+  const { existing, input, lotteryCode, prerequisites, apiKeyId, createdAtMs } =
+    args;
+  logger.warn(
+    {
+      documentId: existing.id,
+      businessId: input.businessId,
+      status: existing.status,
+      hasAdeTransaction: existing.adeTransactionId != null,
+      ageMs: Date.now() - createdAtMs,
+    },
+    "Recovering stale PENDING/ERROR receipt",
+  );
+
+  // P1 (Codex review #475): if submitSale already succeeded on AdE
+  // (adeTransactionId set), do NOT resubmit — submitSale is irreversible
+  // and a second call would create a duplicate fiscal document on AdE.
+  // Just retry the final UPDATE using the existing AdE IDs.
+  if (existing.adeTransactionId && existing.adeProgressive) {
+    return finalizeSaleOnly(
+      existing.id,
+      existing.adeTransactionId,
+      existing.adeProgressive,
+    );
+  }
+
+  return submitSaleToAde(
+    existing.id,
+    input,
+    lotteryCode,
+    prerequisites,
+    apiKeyId,
+    {
+      recovery: true,
+    },
+  );
+}
+
+/**
+ * Esegue solo la UPDATE finale del flusso sale senza chiamare submitSale.
+ *
+ * Usato nel recovery B7 quando submitSale era già andato a buon fine su AdE
+ * ma la UPDATE finale a ACCEPTED era fallita: il documento resta PENDING con
+ * adeTransactionId valorizzato. Re-chiamare submitSale produrrebbe un doppio
+ * documento fiscale su AdE (irreversibile). La UPDATE è naturalmente
+ * idempotente (imposta uno stato finale).
+ *
+ * Pattern simmetrico a finalizeVoidOnly in void-service.ts.
+ */
+async function finalizeSaleOnly(
+  documentId: string,
+  adeTransactionId: string,
+  adeProgressive: string,
+): Promise<SubmitReceiptResult> {
+  const db = getDb();
+  try {
+    await retryOnStatementTimeout("emit-finalize-only", () =>
+      db
+        .update(commercialDocuments)
+        .set({
+          status: "ACCEPTED",
+          adeTransactionId,
+          adeProgressive,
+        })
+        .where(eq(commercialDocuments.id, documentId)),
+    );
+    logger.info(
+      { documentId, adeTransactionId, recovery: true },
+      "Sale finalized from stale PENDING (B7 recovery)",
+    );
+    return {
+      documentId,
+      adeTransactionId,
+      adeProgressive,
+    };
+  } catch (err) {
+    logger.error(
+      { err, critical: true, documentId, adeTransactionId },
+      "Sale finalization failed after submitSale succeeded — MANUAL CLEANUP NEEDED",
+    );
+    if (isStatementTimeoutError(err)) {
+      return {
+        error:
+          "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
+        code: "DB_TIMEOUT",
+      };
+    }
+    return {
+      error:
+        "Errore durante la finalizzazione dello scontrino. Riprova più tardi.",
+    };
+  }
+}
+
 /**
  * Esegue la submitSale AdE e aggiorna il documento esistente con il risultato.
  * Usato sia per la prima emissione sia per la recovery di un PENDING/ERROR stale (B7).
- *
- * Se `options.recovery` è true ed esiste un AdE transaction id pregresso sulla
- * riga, NON viene rieseguito submitSale (sarebbe un doppione AdE): si tenta
- * direttamente la transizione a ACCEPTED leggendo lo stato già registrato.
  */
 async function submitSaleToAde(
   documentId: string,

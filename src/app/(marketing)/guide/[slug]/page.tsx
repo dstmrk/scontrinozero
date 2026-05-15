@@ -51,8 +51,8 @@ export async function generateMetadata({
 
 function lastDayOfMonth(yyyyMm: string): string {
   const [yStr, mStr] = yyyyMm.split("-");
-  const y = parseInt(yStr, 10);
-  const m = parseInt(mStr, 10);
+  const y = Number.parseInt(yStr, 10);
+  const m = Number.parseInt(mStr, 10);
   const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
   return `${yyyyMm}-${String(lastDay).padStart(2, "0")}`;
 }

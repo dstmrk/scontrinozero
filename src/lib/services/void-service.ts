@@ -23,6 +23,7 @@ import { getFiscalDate } from "@/lib/date-utils";
 import { fetchAdePrerequisites } from "@/lib/server-auth";
 import type { VoidReceiptInput, VoidReceiptResult } from "@/types/storico";
 import type { VoidRequest } from "@/lib/ade/public-types";
+import type { AdeResponse } from "@/lib/ade/types";
 
 /**
  * Soglia oltre la quale un VOID PENDING/ERROR è considerato "stale" (B7).
@@ -31,7 +32,7 @@ import type { VoidRequest } from "@/lib/ade/public-types";
  */
 function getStalePendingThresholdMs(): number {
   const raw = process.env.STALE_PENDING_THRESHOLD_MINUTES;
-  const minutes = raw ? parseFloat(raw) : NaN;
+  const minutes = raw ? Number.parseFloat(raw) : Number.NaN;
   const effective = Number.isFinite(minutes) && minutes > 0 ? minutes : 5;
   return effective * 60 * 1000;
 }
@@ -102,40 +103,39 @@ async function resolveVoidConflict(
 
     // PENDING or ERROR: void was started but never completed.
     // B7: if the row is "stale", enter recovery instead of blocking the client.
-    const createdAtMs =
-      existingByKey.createdAt != null
-        ? new Date(existingByKey.createdAt).getTime()
-        : NaN;
+    const createdAtMs = existingByKey.createdAt
+      ? new Date(existingByKey.createdAt).getTime()
+      : Number.NaN;
     const isStale =
       Number.isFinite(createdAtMs) &&
       Date.now() - createdAtMs > getStalePendingThresholdMs();
 
-    if (!isStale) {
-      return {
-        kind: "done",
-        result: {
-          error:
-            "Annullo precedente ancora in elaborazione. Riprova tra qualche secondo.",
-          code: "VOID_PENDING_IN_PROGRESS",
+    if (isStale) {
+      logger.warn(
+        {
+          voidDocumentId: existingByKey.id,
+          businessId,
+          status: existingByKey.status,
+          ageMs: Date.now() - createdAtMs,
         },
+        "Recovering stale PENDING/ERROR void",
+      );
+      return {
+        kind: "recover",
+        voidDocumentId: existingByKey.id,
+        hasAdeTransaction: existingByKey.adeTransactionId != null,
+        existingAdeTransactionId: existingByKey.adeTransactionId,
+        existingAdeProgressive: existingByKey.adeProgressive,
       };
     }
 
-    logger.warn(
-      {
-        voidDocumentId: existingByKey.id,
-        businessId,
-        status: existingByKey.status,
-        ageMs: Date.now() - createdAtMs,
-      },
-      "Recovering stale PENDING/ERROR void",
-    );
     return {
-      kind: "recover",
-      voidDocumentId: existingByKey.id,
-      hasAdeTransaction: existingByKey.adeTransactionId != null,
-      existingAdeTransactionId: existingByKey.adeTransactionId,
-      existingAdeProgressive: existingByKey.adeProgressive,
+      kind: "done",
+      result: {
+        error:
+          "Annullo precedente ancora in elaborazione. Riprova tra qualche secondo.",
+        code: "VOID_PENDING_IN_PROGRESS",
+      },
     };
   }
 
@@ -219,6 +219,115 @@ async function finalizeVoidOnly(
       code: "VOID_SYNC_FAILED",
     };
   }
+}
+
+/**
+ * Gestisce la risposta AdE a submitVoid: rifiuto → REJECTED + return error;
+ * accettazione → finalize transazionale + return successo. Su finalize fallita
+ * dopo submitVoid riuscita, return VOID_SYNC_FAILED senza marcare ERROR
+ * (vedi finalizeVoidOnly).
+ *
+ * Estratto da `voidReceiptForBusiness` per ridurre cognitive complexity.
+ */
+async function processVoidAdeResponse(args: {
+  adeResponse: AdeResponse;
+  voidDocumentId: string;
+  saleDocumentId: string;
+  businessId: string;
+  apiKeyId: string | null | undefined;
+}): Promise<VoidReceiptResult> {
+  const { adeResponse, voidDocumentId, saleDocumentId, businessId, apiKeyId } =
+    args;
+  const db = getDb();
+
+  // AdE can return HTTP 200 with esito:false when it rejects the void.
+  if (!adeResponse.esito) {
+    const errorCodes = adeResponse.errori?.map((e) => e.codice) ?? [];
+    logger.error(
+      {
+        voidDocumentId,
+        saleDocumentId,
+        adeIdtrx: adeResponse.idtrx,
+        adeProgressivo: adeResponse.progressivo,
+        adeErrorCodes: errorCodes,
+      },
+      "AdE rejected void",
+    );
+    // B20: retry on statement timeout. AdE ha rifiutato → la submitVoid è
+    // ininfluente, ma il DB deve riflettere REJECTED altrimenti la riga
+    // resta PENDING e bloccherebbe retry con nuova key (partial index).
+    await retryOnStatementTimeout("void-update-rejected", () =>
+      db
+        .update(commercialDocuments)
+        .set({
+          status: "REJECTED",
+          adeResponse: adeResponse as unknown as Record<string, unknown>,
+        })
+        .where(eq(commercialDocuments.id, voidDocumentId)),
+    );
+    const codeList = errorCodes.length > 0 ? ` (${errorCodes.join(", ")})` : "";
+    return {
+      error: `Annullo rifiutato dall'AdE${codeList}. Verifica i dati e riprova.`,
+    };
+  }
+
+  // 4+5. Update VOID document and mark original SALE atomically.
+  // B20: retry on timeout + SET LOCAL statement_timeout (3s). submitVoid
+  // è già successa: se la finalizzazione fallisce in modo definitivo NON
+  // marcare ERROR (vedi finalizeVoidOnly).
+  try {
+    await retryOnStatementTimeout("void-finalize-main", () =>
+      withStatementTimeout(3000, async (tx) => {
+        await tx
+          .update(commercialDocuments)
+          .set({
+            status: "VOID_ACCEPTED",
+            adeTransactionId: adeResponse.idtrx ?? null,
+            adeProgressive: adeResponse.progressivo ?? null,
+            adeResponse: adeResponse as unknown as Record<string, unknown>,
+          })
+          .where(eq(commercialDocuments.id, voidDocumentId));
+
+        await tx
+          .update(commercialDocuments)
+          .set({ status: "VOID_ACCEPTED" })
+          .where(eq(commercialDocuments.id, saleDocumentId));
+      }),
+    );
+  } catch (finalizeErr) {
+    logger.error(
+      {
+        err: finalizeErr,
+        critical: true,
+        voidDocumentId,
+        saleDocumentId,
+        adeTransactionId: adeResponse.idtrx,
+      },
+      "Void finalization failed after submitVoid succeeded — MANUAL CLEANUP NEEDED",
+    );
+    return {
+      error:
+        "Annullo registrato su AdE ma sincronizzazione DB in errore. Contatta il supporto.",
+      code: "VOID_SYNC_FAILED",
+    };
+  }
+
+  logger.info(
+    {
+      voidDocumentId,
+      saleDocumentId,
+      businessId,
+      adeTransactionId: adeResponse.idtrx,
+      apiKeyId: apiKeyId ?? undefined,
+    },
+    "Receipt voided successfully",
+  );
+
+  return {
+    voidDocumentId,
+    adeTransactionId: adeResponse.idtrx ?? undefined,
+    adeProgressive: adeResponse.progressivo ?? undefined,
+  };
 }
 
 /**
@@ -312,8 +421,10 @@ export async function voidReceiptForBusiness(
       .onConflictDoNothing()
       .returning({ id: commercialDocuments.id });
 
-    // Insert was skipped due to a constraint conflict — delegate to helper.
-    if (!voidDoc) {
+    if (voidDoc) {
+      voidDocumentId = voidDoc.id;
+    } else {
+      // Insert was skipped due to a constraint conflict — delegate to helper.
       const conflict = await resolveVoidConflict(
         db,
         input.idempotencyKey,
@@ -337,8 +448,6 @@ export async function voidReceiptForBusiness(
           conflict.existingAdeProgressive,
         );
       }
-    } else {
-      voidDocumentId = voidDoc.id;
     }
   } catch (err) {
     if (isStatementTimeoutError(err)) {
@@ -382,103 +491,13 @@ export async function voidReceiptForBusiness(
       originalAdeDoc,
     );
     const adeResponse = await adeClient.submitVoid(payload);
-
-    // AdE can return HTTP 200 with esito:false when it rejects the void.
-    if (!adeResponse.esito) {
-      const errorCodes = adeResponse.errori?.map((e) => e.codice) ?? [];
-      logger.error(
-        {
-          voidDocumentId,
-          saleDocumentId: input.documentId,
-          adeIdtrx: adeResponse.idtrx,
-          adeProgressivo: adeResponse.progressivo,
-          // Full descriptions are kept in adeResponse (persisted to DB below)
-          // but are NOT forwarded to the client to avoid leaking fiscal details.
-          adeErrorCodes: errorCodes,
-        },
-        "AdE rejected void",
-      );
-      // B20: retry on statement timeout. AdE ha rifiutato → la submitVoid
-      // è ininfluente, ma il DB deve riflettere REJECTED altrimenti la riga
-      // resta PENDING e bloccherebbe retry con nuova key (partial index).
-      await retryOnStatementTimeout("void-update-rejected", () =>
-        db
-          .update(commercialDocuments)
-          .set({
-            status: "REJECTED",
-            adeResponse: adeResponse as unknown as Record<string, unknown>,
-          })
-          .where(eq(commercialDocuments.id, voidDocumentId)),
-      );
-      const codeList =
-        errorCodes.length > 0 ? ` (${errorCodes.join(", ")})` : "";
-      return {
-        error: `Annullo rifiutato dall'AdE${codeList}. Verifica i dati e riprova.`,
-      };
-    }
-
-    // 4+5. Update VOID document and mark original SALE atomically.
-    // Both must succeed or neither: an intermediate failure would leave
-    // the VOID accepted but the SALE still showing as ACCEPTED.
-    // B20: retry on timeout + SET LOCAL statement_timeout (3s). submitVoid
-    // è già successa: se la finalizzazione fallisce in modo definitivo NON
-    // marcare ERROR (vedi catch sotto e finalizeVoidOnly).
-    try {
-      await retryOnStatementTimeout("void-finalize-main", () =>
-        withStatementTimeout(3000, async (tx) => {
-          await tx
-            .update(commercialDocuments)
-            .set({
-              status: "VOID_ACCEPTED",
-              adeTransactionId: adeResponse.idtrx ?? null,
-              adeProgressive: adeResponse.progressivo ?? null,
-              adeResponse: adeResponse as unknown as Record<string, unknown>,
-            })
-            .where(eq(commercialDocuments.id, voidDocumentId));
-
-          await tx
-            .update(commercialDocuments)
-            .set({ status: "VOID_ACCEPTED" })
-            .where(eq(commercialDocuments.id, input.documentId));
-        }),
-      );
-    } catch (finalizeErr) {
-      logger.error(
-        {
-          err: finalizeErr,
-          critical: true,
-          voidDocumentId,
-          saleDocumentId: input.documentId,
-          adeTransactionId: adeResponse.idtrx,
-        },
-        "Void finalization failed after submitVoid succeeded — MANUAL CLEANUP NEEDED",
-      );
-      // Do NOT mark ERROR: partial unique index excludes ERROR, allowing a
-      // new VOID for an already-voided SALE on AdE (duplicate). The outer
-      // finally still handles AdE logout.
-      return {
-        error:
-          "Annullo registrato su AdE ma sincronizzazione DB in errore. Contatta il supporto.",
-        code: "VOID_SYNC_FAILED",
-      };
-    }
-
-    logger.info(
-      {
-        voidDocumentId,
-        saleDocumentId: input.documentId,
-        businessId: input.businessId,
-        adeTransactionId: adeResponse.idtrx,
-        apiKeyId: apiKeyId ?? undefined,
-      },
-      "Receipt voided successfully",
-    );
-
-    return {
+    return await processVoidAdeResponse({
+      adeResponse,
       voidDocumentId,
-      adeTransactionId: adeResponse.idtrx ?? undefined,
-      adeProgressive: adeResponse.progressivo ?? undefined,
-    };
+      saleDocumentId: input.documentId,
+      businessId: input.businessId,
+      apiKeyId,
+    });
   } catch (err) {
     logger.error(
       { err, voidDocumentId, saleDocumentId: input.documentId },
