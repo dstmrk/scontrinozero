@@ -5,7 +5,7 @@ describe("sitemap", () => {
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
-    expect(result).toHaveLength(51);
+    expect(result).toHaveLength(56);
 
     // Root
     expect(result[0]).toMatchObject({
@@ -75,7 +75,7 @@ describe("sitemap", () => {
       });
     }
 
-    // Guide hub + articles (v1.2.13)
+    // Guide hub + articles (v1.2.13 + v1.2.14 fase 2)
     expect(allUrls).toContain("https://scontrinozero.it/guide");
     const expectedGuideUrls = [
       "https://scontrinozero.it/guide/documento-commerciale-online",
@@ -83,6 +83,11 @@ describe("sitemap", () => {
       "https://scontrinozero.it/guide/differenza-scontrino-ricevuta-fattura",
       "https://scontrinozero.it/guide/pos-rt-obbligo-2026",
       "https://scontrinozero.it/guide/scontrino-regime-forfettario",
+      "https://scontrinozero.it/guide/migrare-da-registratore-telematico-a-software",
+      "https://scontrinozero.it/guide/chiusura-giornaliera-corrispettivi",
+      "https://scontrinozero.it/guide/annullare-scontrino-elettronico",
+      "https://scontrinozero.it/guide/lotteria-scontrini-commerciante",
+      "https://scontrinozero.it/guide/scegliere-software-scontrini-elettronici",
     ];
     for (const url of expectedGuideUrls) {
       expect(allUrls).toContain(url);
@@ -93,40 +98,40 @@ describe("sitemap", () => {
       });
     }
 
-    // Legal
-    expect(result[21]).toMatchObject({
+    // Legal (shifted +5 by v1.2.14 guide fase 2)
+    expect(result[26]).toMatchObject({
       url: "https://scontrinozero.it/privacy",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[22]).toMatchObject({
+    expect(result[27]).toMatchObject({
       url: "https://scontrinozero.it/privacy/v01",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[23]).toMatchObject({
+    expect(result[28]).toMatchObject({
       url: "https://scontrinozero.it/termini",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[24]).toMatchObject({
+    expect(result[29]).toMatchObject({
       url: "https://scontrinozero.it/termini/v01",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[25]).toMatchObject({
+    expect(result[30]).toMatchObject({
       url: "https://scontrinozero.it/cookie-policy",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[26]).toMatchObject({
+    expect(result[31]).toMatchObject({
       url: "https://scontrinozero.it/cookie-policy/v01",
       changeFrequency: "yearly",
       priority: 0.3,
     });
 
     // Help center hub
-    expect(result[27]).toMatchObject({
+    expect(result[32]).toMatchObject({
       url: "https://scontrinozero.it/help",
       changeFrequency: "monthly",
       priority: 0.6,
@@ -161,13 +166,13 @@ describe("sitemap", () => {
       expect(helpUrls).toContain(url);
     }
 
-    // Auth pages (last two)
-    expect(result[49]).toMatchObject({
+    // Auth pages (last two, shifted +5 by v1.2.14 guide fase 2)
+    expect(result[54]).toMatchObject({
       url: "https://scontrinozero.it/login",
       changeFrequency: "yearly",
       priority: 0.5,
     });
-    expect(result[50]).toMatchObject({
+    expect(result[55]).toMatchObject({
       url: "https://scontrinozero.it/register",
       changeFrequency: "yearly",
       priority: 0.5,
@@ -195,8 +200,8 @@ describe("sitemap", () => {
     expect(result[16].url).toBe(
       "https://test.scontrinozero.it/guide/documento-commerciale-online",
     );
-    expect(result[21].url).toBe("https://test.scontrinozero.it/privacy");
-    expect(result[27].url).toBe("https://test.scontrinozero.it/help");
+    expect(result[26].url).toBe("https://test.scontrinozero.it/privacy");
+    expect(result[32].url).toBe("https://test.scontrinozero.it/help");
 
     vi.unstubAllEnvs();
   });

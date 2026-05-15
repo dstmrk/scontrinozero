@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { getGuide, guideArticles, guideSlugs, isGuideSlug } from "./articles";
 
 describe("guideSlugs", () => {
-  it("contains exactly 5 slugs", () => {
-    expect(guideSlugs).toHaveLength(5);
+  it("contains exactly 10 slugs", () => {
+    expect(guideSlugs).toHaveLength(10);
   });
 
   it("contains the expected slugs", () => {
@@ -14,6 +14,11 @@ describe("guideSlugs", () => {
         "differenza-scontrino-ricevuta-fattura",
         "pos-rt-obbligo-2026",
         "scontrino-regime-forfettario",
+        "migrare-da-registratore-telematico-a-software",
+        "chiusura-giornaliera-corrispettivi",
+        "annullare-scontrino-elettronico",
+        "lotteria-scontrini-commerciante",
+        "scegliere-software-scontrini-elettronici",
       ]),
     );
   });
