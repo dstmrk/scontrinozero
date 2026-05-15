@@ -66,24 +66,53 @@
     - Delete `.next` in both the worktree AND the main repo (`rm -rf .next`) before
       starting the dev server to avoid Turbopack serving stale cached chunks
 
-14. **DB migrations: workflow misto drizzle-kit + SQL handwritten.**
-    Le migrazioni seguono un approccio ibrido obbligato:
-    - **Schema changes** (tabelle, colonne, indici, FK) → `npx drizzle-kit generate`
-      aggiorna automaticamente sia il file `.sql` sia il `_journal.json`.
-    - **RLS policies, trigger, funzioni PL/pgSQL** → non esprimibili nello schema Drizzle,
-      vanno scritte come file SQL a mano (es. `0005_api_keys_rls.sql`).
+14. **DB migrations: TUTTE handwritten dopo lo schema iniziale.**
 
-    Il runtime usa un **file-based runner** (`scripts/migrate.ts`) invece di Drizzle's
-    built-in `migrate()`, proprio per gestire i file handwritten senza overhead manuale:
-    legge tutti i `.sql` da `supabase/migrations/` ordinati per nome, traccia i file
-    già applicati nella tabella `__applied_migrations`, e wrappa ogni migrazione in una
-    transazione. **Per aggiungere una migrazione handwritten: crea il file `.sql` E aggiungi
-    la entry corrispondente in `supabase/migrations/meta/_journal.json`** (incrementa `idx`,
-    usa timestamp Unix in ms, tag = nome file senza `.sql`). Il runtime runner non ne ha
-    bisogno, ma il CI script `check-migrations.mjs` valida che ogni `.sql` sia registrato.
-    - File naming: `NNNN_description.sql` (es. `0007_add_new_table.sql`)
-    - Il `check-migrations.mjs` CI script valida i file SQL contro il journal per
-      compatibilità drizzle-kit — è separato dal runtime runner.
+    ⚠️ **Stato reale del repo (importante):** drizzle-kit è stato usato UNA SOLA volta per generare
+    lo schema iniziale `0000_initial.sql` + `0000_snapshot.json`. Tutte le migrazioni successive
+    (`0001`–`0013`+) sono **scritte a mano**. In `supabase/migrations/meta/` esiste UN solo snapshot
+    (`0000_snapshot.json`), non gli snapshot intermedi.
+
+    🚫 **NON ESEGUIRE MAI `npx drizzle-kit generate` su questo repo nello stato attuale.**
+    Genererebbe una mega-migrazione che riapplica tutto ciò che è successo dopo `0000`
+    (lottery_code, RLS, api_keys, …) confliggendo con le 13 migrazioni handwritten esistenti.
+    Per riattivare drizzle-kit serve prima un task dedicato di **rebuild degli snapshot
+    intermedi** (out of scope finché non diventa pain).
+
+    **Workflow obbligatorio per ogni nuova migrazione (incluse ALTER TABLE ADD/DROP COLUMN):**
+    1. Crea il file `.sql` in `supabase/migrations/` con naming `NNNN_description.sql`
+       (es. `0014_add_signup_source_to_profiles.sql`). Header comment che spiega il "perché".
+    2. Aggiungi la entry in `supabase/migrations/meta/_journal.json`:
+       ```json
+       { "idx": 14, "version": "7", "when": <Date.now() in ms>, "tag": "0014_add_signup_source_to_profiles", "breakpoints": true }
+       ```
+       `idx` incrementale, `when` = `Date.now()` in millisecondi, `tag` = nome file senza `.sql`.
+    3. Aggiorna il file Drizzle in `src/db/schema/<table>.ts` per riflettere il nuovo schema
+       (es. aggiungi `signupSource: text("signup_source")`). Senza questo, TypeScript non vede
+       la colonna e le query falliscono al type check.
+    4. Esegui localmente `node scripts/check-migrations.mjs` per verificare la coerenza
+       SQL ↔ journal (lo stesso check gira in CI).
+    5. Testa su DB locale: `npx tsx scripts/migrate.ts` deve applicare la migrazione
+       senza errori e idempotentemente al re-run.
+
+    **Runtime runner:** `scripts/migrate.ts` legge i `.sql` ordinati per nome, traccia i file
+    applicati nella tabella `__applied_migrations`, wrappa ogni migrazione in transazione.
+    Non legge il journal — quello è solo per il check CI di completezza.
+
+    **Pattern per ALTER TABLE ADD COLUMN (caso comune):**
+    Usa sempre `ADD COLUMN IF NOT EXISTS` (vedi `0002_add_lottery_code.sql`) per idempotenza.
+    Esempio minimo:
+
+    ```sql
+    -- Migration: add <column> to <table>
+    -- Feature/motivo: <link a issue o release>
+    ALTER TABLE <table>
+      ADD COLUMN IF NOT EXISTS <column> <type>;
+    ```
+
+    Niente `NOT NULL` su colonne aggiunte a tabelle popolate senza default — fallisce su
+    righe esistenti. Aggiungi prima la colonna nullable, fai il backfill, poi una migration
+    successiva con `ALTER COLUMN SET NOT NULL`.
     - **Bootstrap su DB pre-esistente**: se il DB è stato inizializzato senza il
       migration runner (via drizzle-kit, Supabase dashboard, restore), la tabella
       `__applied_migrations` è vuota e il runner crasherà con "type already exists".
@@ -312,11 +341,11 @@ esercenti e micro-attività di emettere scontrini elettronici e trasmettere i co
 all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la procedura
 "Documento Commerciale Online".
 
-**Versione corrente:** v1.2.9 ✅ — roadmap completa in `PLAN.md`.
+**Versione corrente:** v1.2.14 ✅ — roadmap completa in `PLAN.md`.
 
-**Prossima release:** v1.2.10 (CSP enforce — B14 chiuso).
+**Prossima release:** v1.2.15 (lancio hard — milestone gated, non a calendario).
 
-**Post-lancio:** v1.2.2 (billing fix) → v1.2.3–v1.2.7 (patch: landing SEO, security/GDPR polish, code review fixes, Help Center expansion) → v1.2.8 (SEO foundations + hardening) → v1.2.9 (landing per categoria + B19) → v1.2.10 (CSP enforce — B14) → v1.2.11–v1.2.15 (confronti, tool, guide, lancio soft, lancio hard) → v1.3.0+ (analytics, catalog sync, …)
+**Post-lancio:** v1.2.2 (billing fix) → v1.2.3–v1.2.7 (patch: landing SEO, security/GDPR polish, code review fixes, Help Center expansion) → v1.2.8 (SEO foundations + hardening) → v1.2.9 (landing per categoria + B19) → v1.2.10 (CSP enforce — B14) → v1.2.11 (pagine comparative) → v1.2.12 (tool gratuiti backlink magnets) → v1.2.13 (guide evergreen fase 1 + B7/B20) → v1.2.14 (guide evergreen fase 2 + signup tracking) → v1.2.15 (lancio hard) → v1.3.0+ (analytics, catalog sync, …)
 
 ## Principi di prodotto
 
