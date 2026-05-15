@@ -28,6 +28,9 @@ export const profiles = pgTable("profiles", {
   planExpiresAt: timestamp("plan_expires_at", { withTimezone: true }),
   // Anti-abuso trial: UNIQUE per P.IVA
   partitaIva: text("partita_iva").unique(),
+  // Attribution: provenance from ?ref= query string at signup time.
+  // Validated against allowlist in src/lib/signup-source.ts before insert.
+  signupSource: text("signup_source"),
 });
 
 export type InsertProfile = typeof profiles.$inferInsert;

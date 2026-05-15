@@ -21,6 +21,7 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
 import { getFormString, getFormStringRaw } from "@/lib/form-utils";
 import { isUniqueConstraintViolation } from "@/lib/db-errors";
+import { normalizeSignupSource } from "@/lib/signup-source";
 
 const CURRENT_TERMS_VERSION = "v01";
 
@@ -126,6 +127,7 @@ function validateSignUpInput(
 async function insertProfileOrRollback(
   authUserId: string,
   email: string,
+  signupSource: string | null,
 ): Promise<AuthActionResult | null> {
   try {
     const db = getDb();
@@ -134,6 +136,7 @@ async function insertProfileOrRollback(
       email,
       termsAcceptedAt: new Date(),
       termsVersion: CURRENT_TERMS_VERSION,
+      signupSource,
     });
     return null;
   } catch (err) {
@@ -182,6 +185,7 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   const termsAccepted = formData.get("termsAccepted");
   const specificClausesAccepted = formData.get("specificClausesAccepted");
   const captchaToken = getFormString(formData, "captchaToken");
+  const signupSource = normalizeSignupSource(getFormString(formData, "ref"));
 
   const validationError = validateSignUpInput(
     email,
@@ -241,7 +245,11 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
 
   // Create profile in our DB (mandatory: records terms acceptance for compliance)
   if (data.user) {
-    const profileError = await insertProfileOrRollback(data.user.id, email);
+    const profileError = await insertProfileOrRollback(
+      data.user.id,
+      email,
+      signupSource,
+    );
     if (profileError) return profileError;
   }
 

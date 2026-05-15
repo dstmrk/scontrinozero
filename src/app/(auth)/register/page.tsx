@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Suspense, useState, useTransition } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod/v4";
@@ -46,9 +47,14 @@ const registerSchema = z
 
 type RegisterData = z.infer<typeof registerSchema>;
 
-export default function RegisterPage() {
+function RegisterForm() {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  // Source attribution (?ref=reddit, ?ref=indiehackers, ...) for soft-launch
+  // tracking. Validated against allowlist server-side in signup-source.ts.
+  // Suspense boundary in RegisterPage required by Next.js for useSearchParams
+  // during SSG prerender (CSR bailout).
+  const refParam = useSearchParams().get("ref");
 
   const form = useForm<RegisterData>({
     resolver: zodResolver(registerSchema),
@@ -69,6 +75,7 @@ export default function RegisterPage() {
     formData.set("termsAccepted", "true");
     formData.set("specificClausesAccepted", "true");
     if (captchaToken) formData.set("captchaToken", captchaToken);
+    if (refParam) formData.set("ref", refParam);
 
     startTransition(async () => {
       const result = await signUp(formData);
@@ -238,5 +245,13 @@ export default function RegisterPage() {
         </p>
       </CardContent>
     </Card>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterForm />
+    </Suspense>
   );
 }

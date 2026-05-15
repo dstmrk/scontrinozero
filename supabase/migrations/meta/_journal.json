@@ -99,6 +99,13 @@
       "when": 1744243200000,
       "tag": "0013_stripe_webhook_events",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1779148800000,
+      "tag": "0014_add_signup_source_to_profiles",
+      "breakpoints": true
     }
   ]
 }
