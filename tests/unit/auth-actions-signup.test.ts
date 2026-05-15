@@ -156,39 +156,34 @@ describe("signUp — email normalisation and uniqueness", () => {
     );
   });
 
-  it("returns user-friendly message when pre-check finds existing email", async () => {
+  it("anti-enumeration: redirects to /verify-email when pre-check finds existing email", async () => {
     setupCaptchaOk();
     setupDbNoExistingEmail();
     // Override: existing profile found
     mockSelectLimit.mockResolvedValue([{ id: "existing-uuid" }]);
 
     const { signUp } = await import("@/server/auth-actions");
-    const result = await signUp(makeFormData());
-
-    expect(result).toEqual({
-      error:
-        "Un account con questa email esiste già. Accedi oppure reimposta la password.",
+    await expect(signUp(makeFormData())).rejects.toMatchObject({
+      message: "NEXT_REDIRECT",
+      url: "/verify-email",
     });
     expect(mockSupabaseSignUp).not.toHaveBeenCalled();
   });
 
-  it("returns user-friendly message when profile insert violates unique email constraint (race condition)", async () => {
+  it("P1-01: compensating delete + redirect when profile insert violates unique email constraint (race)", async () => {
     setupCaptchaOk();
     setupDbNoExistingEmail();
-    // Simulate unique constraint violation (23505) on insert
     mockInsertValues.mockRejectedValue(
       Object.assign(new Error("duplicate key value"), { code: "23505" }),
     );
 
     const { signUp } = await import("@/server/auth-actions");
-    const result = await signUp(makeFormData());
-
-    expect(result).toEqual({
-      error:
-        "Un account con questa email esiste già. Accedi oppure reimposta la password.",
+    await expect(signUp(makeFormData())).rejects.toMatchObject({
+      message: "NEXT_REDIRECT",
+      url: "/verify-email",
     });
-    // Should NOT call deleteUser for uniqueness violations (no Supabase user was created yet
-    // at the profile insert stage, but deleteUser is called in the catch for other errors)
+    // The orphan auth user MUST be cleaned up (CLAUDE.md regola #17).
+    expect(mockDeleteUser).toHaveBeenCalledWith("user-uuid-1");
   });
 
   it("performs compensating delete and returns generic error for non-unique DB failures", async () => {

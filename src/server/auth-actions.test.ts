@@ -350,24 +350,30 @@ describe("auth-actions", () => {
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
-    it("returns error before calling Supabase when email is already registered (pre-check)", async () => {
-      // Pre-check by email catches all duplicate cases regardless of Supabase config
-      // (anti-enumeration or auto-confirm). signUp must NOT be called at all.
+    it("redirects to /verify-email when email is already registered (pre-check, anti-enumeration)", async () => {
+      // Anti-enumeration: surface the same UX as the resetPassword flow.
+      // signUp must NOT be called at all when the email already exists.
       mockLimit.mockResolvedValueOnce([{ id: "existing-profile-id" }]);
 
       const { signUp } = await import("./auth-actions");
-      const result = await signUp(
-        formData({
-          email: "test@example.com",
-          password: "Secure#99x",
-          confirmPassword: "Secure#99x",
-          termsAccepted: "true",
-          specificClausesAccepted: "true",
-          captchaToken: "valid-token",
-        }),
-      );
-
-      expect(result.error).toContain("esiste già");
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+          }),
+        );
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+        if (isRedirectError(err)) {
+          expect(err.url).toBe("/verify-email");
+        }
+      }
       expect(mockSignUp).not.toHaveBeenCalled();
       expect(mockInsert).not.toHaveBeenCalled();
     });
@@ -446,17 +452,81 @@ describe("auth-actions", () => {
       expect(mockDeleteUser).toHaveBeenCalledWith("user-to-delete");
     });
 
-    it("logga un errore se deleteUser si risolve con un error field (API-level failure)", async () => {
+    it("chiama deleteUser anche quando l'insert profile fallisce con UNIQUE constraint (P1-01: no orphan auth user)", async () => {
       mockSignUp.mockResolvedValue({
-        data: { user: { id: "user-to-delete" } },
+        data: { user: { id: "loser-of-race" } },
+        error: null,
+      });
+      const uniqueErr = Object.assign(new Error("duplicate key"), {
+        code: "23505",
+      });
+      mockInsert.mockReturnValueOnce({
+        values: vi.fn().mockRejectedValueOnce(uniqueErr),
+      });
+      mockDeleteUser.mockResolvedValue({ error: null });
+
+      const { signUp } = await import("./auth-actions");
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+          }),
+        );
+      } catch (err) {
+        // Anti-enumeration: expect redirect to /verify-email
+        expect(isRedirectError(err)).toBe(true);
+        if (isRedirectError(err)) {
+          expect(err.url).toBe("/verify-email");
+        }
+      }
+
+      // The orphan auth user MUST be deleted (CLAUDE.md regola #17).
+      expect(mockDeleteUser).toHaveBeenCalledWith("loser-of-race");
+    });
+
+    it("ritenta deleteUser con backoff su errore transitorio (compensating delete)", async () => {
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-retry" } },
         error: null,
       });
       mockInsert.mockReturnValueOnce({
         values: vi.fn().mockRejectedValueOnce(new Error("DB error")),
       });
-      mockDeleteUser.mockResolvedValue({
-        error: { message: "Invalid service role key" },
+      // 2 failures then success
+      mockDeleteUser
+        .mockResolvedValueOnce({ error: { message: "transient" } })
+        .mockResolvedValueOnce({ error: { message: "transient" } })
+        .mockResolvedValueOnce({ error: null });
+
+      const { signUp } = await import("./auth-actions");
+      await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "valid-token",
+        }),
+      );
+
+      expect(mockDeleteUser).toHaveBeenCalledTimes(3);
+    });
+
+    it("logga critical:true se deleteUser fallisce su tutti i 3 retry", async () => {
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "stubborn-orphan" } },
+        error: null,
       });
+      mockInsert.mockReturnValueOnce({
+        values: vi.fn().mockRejectedValueOnce(new Error("DB error")),
+      });
+      mockDeleteUser.mockResolvedValue({ error: { message: "persistent" } });
       const { logger } = await import("@/lib/logger");
 
       const { signUp } = await import("./auth-actions");
@@ -471,9 +541,10 @@ describe("auth-actions", () => {
         }),
       );
 
+      expect(mockDeleteUser).toHaveBeenCalledTimes(3);
       expect(logger.error).toHaveBeenCalledWith(
-        expect.objectContaining({ deleteErr: expect.anything() }),
-        expect.stringContaining("delete auth user"),
+        expect.objectContaining({ critical: true }),
+        expect.any(String),
       );
     });
 

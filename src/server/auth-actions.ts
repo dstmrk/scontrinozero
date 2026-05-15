@@ -124,6 +124,42 @@ function validateSignUpInput(
   return null;
 }
 
+/**
+ * Compensating delete: remove an orphan Supabase auth user (e.g. when the
+ * profile INSERT fails after `auth.signUp` already succeeded). Always invoked
+ * on any insertProfileOrRollback failure — including UNIQUE constraint races,
+ * where one of two concurrent signups loses the profile insert and would
+ * otherwise leave a zombie auth user without a profile (CLAUDE.md regola #17).
+ *
+ * 3 retry with exponential backoff (500ms / 1s / 2s). On exhaustion logs
+ * `critical: true` — manual cleanup via Supabase dashboard required.
+ */
+async function compensatingDeleteAuthUser(authUserId: string): Promise<void> {
+  const adminClient = createAdminSupabaseClient();
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const { error } = await adminClient.auth.admin.deleteUser(authUserId);
+      if (!error) return;
+      if (attempt === 3) {
+        logger.error(
+          { err: error, authUserId, critical: true },
+          "Compensating delete failed after 3 retries — manual cleanup required (auth.users)",
+        );
+        return;
+      }
+    } catch (deleteErr) {
+      if (attempt === 3) {
+        logger.error(
+          { err: deleteErr, authUserId, critical: true },
+          "Compensating delete threw after 3 retries — manual cleanup required (auth.users)",
+        );
+        return;
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+  }
+}
+
 async function insertProfileOrRollback(
   authUserId: string,
   email: string,
@@ -140,35 +176,17 @@ async function insertProfileOrRollback(
     });
     return null;
   } catch (err) {
-    // Unique-constraint violation on lower(email): two concurrent signups raced.
-    // Return the same user-friendly message as the pre-check to avoid disclosing
-    // which constraint fired (prevents timing-based enumeration).
+    // Any insert failure means the auth user just created has no matching
+    // profile and must be removed to avoid orphans (CLAUDE.md regola #17).
+    // This covers both the UNIQUE-constraint race (two concurrent signups for
+    // the same email) and transient DB errors.
+    await compensatingDeleteAuthUser(authUserId);
+
     if (isUniqueConstraintViolation(err)) {
-      return {
-        error:
-          "Un account con questa email esiste già. Accedi oppure reimposta la password.",
-      };
+      // Anti-enumeration: redirect like resetPassword, no distinct error.
+      redirect("/verify-email");
     }
     logger.error({ err }, "Failed to record terms acceptance; blocking signup");
-    // Compensating delete: remove the auth user just created to avoid
-    // zombie accounts (Supabase user without a profile in our DB).
-    // Manual cleanup if retries fail: delete from auth.users by UUID in Supabase dashboard.
-    const adminClient = createAdminSupabaseClient();
-    try {
-      const { error: deleteErr } =
-        await adminClient.auth.admin.deleteUser(authUserId);
-      if (deleteErr) {
-        logger.error(
-          { deleteErr },
-          "Failed to delete auth user after profile creation failure",
-        );
-      }
-    } catch (deleteErr) {
-      logger.error(
-        { deleteErr },
-        "Failed to delete auth user after profile creation failure",
-      );
-    }
     return { error: "Registrazione fallita. Riprova." };
   }
 }
@@ -208,6 +226,7 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   // returns null user; auto-confirm may create a new auth user with a different UUID).
   // Checking our own table by email is the only reliable guard in all cases.
   // Uses lower() for case-insensitive comparison, consistent with DB unique index.
+  let emailAlreadyRegistered = false;
   try {
     const db = getDb();
     const [existingByEmail] = await db
@@ -216,15 +235,16 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
       .where(sql`lower(${profiles.email}) = ${email}`)
       .limit(1);
 
-    if (existingByEmail) {
-      return {
-        error:
-          "Un account con questa email esiste già. Accedi oppure reimposta la password.",
-      };
-    }
+    emailAlreadyRegistered = Boolean(existingByEmail);
   } catch (err) {
     logger.error({ err }, "Pre-registration email check failed");
     return { error: "Registrazione fallita. Riprova." };
+  }
+  if (emailAlreadyRegistered) {
+    // Anti-enumeration: silent redirect to /verify-email so that an attacker
+    // cannot distinguish "already registered" from a normal new signup. Mirrors
+    // the resetPassword flow (CLAUDE.md regola #19 spirit).
+    redirect("/verify-email");
   }
 
   const supabase = await createServerSupabaseClient();
