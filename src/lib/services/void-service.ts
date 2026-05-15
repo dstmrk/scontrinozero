@@ -341,16 +341,50 @@ async function processVoidAdeResponse(args: {
  * @param input    Dati dell'annullo (documentId + idempotencyKey + businessId)
  * @param apiKeyId UUID della API key usata, o null/undefined per UI session
  */
-export async function voidReceiptForBusiness(
+type SaleDoc = typeof commercialDocuments.$inferSelect;
+
+type PrepareVoidOutcome =
+  | { kind: "done"; result: VoidReceiptResult }
+  | {
+      kind: "ready";
+      saleDoc: SaleDoc & { adeTransactionId: string; adeProgressive: string };
+      voidDocumentId: string;
+      prerequisites: {
+        codiceFiscale: string;
+        password: string;
+        pin: string;
+        cedentePrestatore: NonNullable<
+          Awaited<ReturnType<typeof fetchAdePrerequisites>> extends infer T
+            ? T extends { cedentePrestatore: infer C }
+              ? C
+              : never
+            : never
+        >;
+      };
+    };
+
+const dbTimeoutResult: VoidReceiptResult = {
+  error: "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
+  code: "DB_TIMEOUT",
+};
+
+/**
+ * Risolve tutta la fase pre-AdE del void: fetch SALE, validation, fetch
+ * prerequisites, INSERT VOID, conflict resolution.
+ *
+ * Estratto da `voidReceiptForBusiness` per ridurre la cognitive complexity
+ * sotto 15 (SonarCloud). Ritorna `done` se il flusso può fermarsi (errore o
+ * idempotency hit o finalize-only B7), `ready` se tutto è pronto per la
+ * submitVoid AdE.
+ */
+async function prepareVoidDocument(
   input: VoidReceiptInput,
-  apiKeyId?: string | null,
-): Promise<VoidReceiptResult> {
+  apiKeyId: string | null | undefined,
+): Promise<PrepareVoidOutcome> {
   const db = getDb();
 
-  // B20: catch statement timeouts on the pre-AdE SELECT.
-  let saleDoc: typeof commercialDocuments.$inferSelect | undefined;
+  let saleDoc: SaleDoc | undefined;
   try {
-    // 1. Fetch the SALE document to void (businessId filter prevents IDOR)
     saleDoc = (
       await db
         .select()
@@ -369,44 +403,69 @@ export async function voidReceiptForBusiness(
         { businessId: input.businessId, saleDocumentId: input.documentId },
         "voidReceipt SELECT SALE timed out (B20)",
       );
-      return {
-        error:
-          "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
-        code: "DB_TIMEOUT",
-      };
+      return { kind: "done", result: dbTimeoutResult };
     }
     throw err;
   }
 
   if (!saleDoc) {
-    return { error: "Scontrino non trovato." };
+    return { kind: "done", result: { error: "Scontrino non trovato." } };
   }
   if (saleDoc.kind !== "SALE") {
-    return { error: "Solo i documenti di vendita possono essere annullati." };
+    return {
+      kind: "done",
+      result: {
+        error: "Solo i documenti di vendita possono essere annullati.",
+      },
+    };
   }
   if (saleDoc.status !== "ACCEPTED") {
     return {
-      error:
-        "Il documento non è in uno stato annullabile (già annullato o in errore).",
+      kind: "done",
+      result: {
+        error:
+          "Il documento non è in uno stato annullabile (già annullato o in errore).",
+      },
     };
   }
   if (!saleDoc.adeTransactionId || !saleDoc.adeProgressive) {
-    return { error: "Dati AdE mancanti per l'annullo." };
+    return {
+      kind: "done",
+      result: { error: "Dati AdE mancanti per l'annullo." },
+    };
   }
 
-  // 2. Fetch and decrypt AdE credentials + local business data
   const prerequisites = await fetchAdePrerequisites(input.businessId);
-  if ("error" in prerequisites) return prerequisites;
-  const { codiceFiscale, password, pin, cedentePrestatore } = prerequisites;
+  if ("error" in prerequisites) {
+    return { kind: "done", result: prerequisites };
+  }
 
-  // 3. Insert VOID document.
-  //    Two uniqueness constraints provide layered protection:
-  //    - idempotencyKey (unique): same-request idempotency (retry-safe)
-  //    - voidedDocumentId (unique partial index, WHERE NOT NULL AND status IN
-  //      ('PENDING','VOID_ACCEPTED')): race-condition guard for active voids.
-  //      REJECTED/ERROR records are intentionally excluded from the index so
-  //      that a failed attempt can be retried with a new idempotencyKey.
-  let voidDocumentId: string;
+  const insertOutcome = await insertOrResolveVoid(input, apiKeyId);
+  if (insertOutcome.kind === "done") return insertOutcome;
+
+  return {
+    kind: "ready",
+    saleDoc: saleDoc as SaleDoc & {
+      adeTransactionId: string;
+      adeProgressive: string;
+    },
+    voidDocumentId: insertOutcome.voidDocumentId,
+    prerequisites,
+  };
+}
+
+/**
+ * Inserisce la riga VOID PENDING e, su conflitto, delega a resolveVoidConflict
+ * + finalizeVoidOnly. Estratto per ridurre la complexity di prepareVoidDocument.
+ */
+async function insertOrResolveVoid(
+  input: VoidReceiptInput,
+  apiKeyId: string | null | undefined,
+): Promise<
+  | { kind: "done"; result: VoidReceiptResult }
+  | { kind: "inserted"; voidDocumentId: string }
+> {
+  const db = getDb();
   try {
     const [voidDoc] = await db
       .insert(commercialDocuments)
@@ -422,47 +481,58 @@ export async function voidReceiptForBusiness(
       .returning({ id: commercialDocuments.id });
 
     if (voidDoc) {
-      voidDocumentId = voidDoc.id;
-    } else {
-      // Insert was skipped due to a constraint conflict — delegate to helper.
-      const conflict = await resolveVoidConflict(
-        db,
-        input.idempotencyKey,
-        input.businessId,
-      );
-      if (conflict.kind === "done") return conflict.result;
-      voidDocumentId = conflict.voidDocumentId;
-      // If submitVoid already succeeded on AdE (adeTransactionId set), don't
-      // resubmit — submitVoid is irreversible and a second call would create
-      // a duplicate annullo. Skip directly to the final UPDATE using the
-      // existing AdE IDs.
-      if (
-        conflict.hasAdeTransaction &&
-        conflict.existingAdeTransactionId &&
-        conflict.existingAdeProgressive
-      ) {
-        return finalizeVoidOnly(
-          voidDocumentId,
-          input.documentId,
-          conflict.existingAdeTransactionId,
-          conflict.existingAdeProgressive,
-        );
-      }
+      return { kind: "inserted", voidDocumentId: voidDoc.id };
     }
+
+    // INSERT skipped due to a constraint conflict — delegate.
+    const conflict = await resolveVoidConflict(
+      db,
+      input.idempotencyKey,
+      input.businessId,
+    );
+    if (conflict.kind === "done")
+      return { kind: "done", result: conflict.result };
+
+    // Recovery: submitVoid già successo → finalize-only.
+    if (
+      conflict.hasAdeTransaction &&
+      conflict.existingAdeTransactionId &&
+      conflict.existingAdeProgressive
+    ) {
+      const finalize = await finalizeVoidOnly(
+        conflict.voidDocumentId,
+        input.documentId,
+        conflict.existingAdeTransactionId,
+        conflict.existingAdeProgressive,
+      );
+      return { kind: "done", result: finalize };
+    }
+
+    return { kind: "inserted", voidDocumentId: conflict.voidDocumentId };
   } catch (err) {
     if (isStatementTimeoutError(err)) {
       logger.warn(
         { businessId: input.businessId, saleDocumentId: input.documentId },
         "voidReceipt INSERT VOID timed out (B20)",
       );
-      return {
-        error:
-          "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
-        code: "DB_TIMEOUT",
-      };
+      return { kind: "done", result: dbTimeoutResult };
     }
     throw err;
   }
+}
+
+export async function voidReceiptForBusiness(
+  input: VoidReceiptInput,
+  apiKeyId?: string | null,
+): Promise<VoidReceiptResult> {
+  const db = getDb();
+
+  const prep = await prepareVoidDocument(input, apiKeyId);
+  if (prep.kind === "done") return prep.result;
+  const { saleDoc, voidDocumentId } = prep;
+  const { codiceFiscale, password, pin, cedentePrestatore } =
+    prep.prerequisites;
+
   const adeMode = (process.env.ADE_MODE as "mock" | "real") || "mock";
   const adeClient = createAdeClient(adeMode);
   let loggedIn = false;

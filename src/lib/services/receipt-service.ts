@@ -108,8 +108,6 @@ export async function emitReceiptForBusiness(
   if ("error" in prerequisites) return prerequisites;
   const { codiceFiscale, password, pin, cedentePrestatore } = prerequisites;
 
-  const db = getDb();
-
   // Insert document + lines atomically, with statement_timeout (B20): if the
   // DB is overloaded we surface 503 invece di un 500 senza contesto.
   let txResult: { alreadyExists: true } | { alreadyExists: false; id: string };
@@ -168,77 +166,12 @@ export async function emitReceiptForBusiness(
   }
 
   if (txResult.alreadyExists) {
-    const [existing] = await db
-      .select({
-        id: commercialDocuments.id,
-        status: commercialDocuments.status,
-        adeTransactionId: commercialDocuments.adeTransactionId,
-        adeProgressive: commercialDocuments.adeProgressive,
-        createdAt: commercialDocuments.createdAt,
-      })
-      .from(commercialDocuments)
-      .where(
-        and(
-          eq(commercialDocuments.idempotencyKey, input.idempotencyKey),
-          eq(commercialDocuments.businessId, input.businessId),
-        ),
-      )
-      .limit(1);
-
-    if (!existing) {
-      // Shouldn't happen: conflict but no row visible. Treat as transient.
-      logger.warn(
-        { businessId: input.businessId },
-        "Idempotency conflict without matching row",
-      );
-      return {
-        error: "Errore interno: ritenta l'emissione.",
-        code: "PENDING_IN_PROGRESS",
-      };
-    }
-
-    if (existing.status === "ACCEPTED") {
-      // Already submitted successfully — true idempotency return
-      return {
-        documentId: existing.id,
-        adeTransactionId: existing.adeTransactionId ?? undefined,
-        adeProgressive: existing.adeProgressive ?? undefined,
-      };
-    }
-
-    if (existing.status === "REJECTED") {
-      return {
-        error:
-          "Scontrino precedente già rifiutato dall'AdE. Usa una nuova chiave di idempotenza.",
-        code: "ALREADY_REJECTED",
-      };
-    }
-
-    // PENDING or ERROR: a previous attempt didn't complete the AdE submit.
-    // B7: if the row is "stale" (older than threshold), allow recovery instead
-    // of forcing the client to abandon the idempotency key. Missing/invalid
-    // createdAt is treated as fresh (fail-safe: no risk of duplicate AdE submit).
-    const createdAtMs = existing.createdAt
-      ? new Date(existing.createdAt).getTime()
-      : Number.NaN;
-    const isStale =
-      Number.isFinite(createdAtMs) &&
-      Date.now() - createdAtMs > getStalePendingThresholdMs();
-    if (isStale) {
-      return await recoverStaleReceipt({
-        existing,
-        input,
-        lotteryCode,
-        prerequisites: { codiceFiscale, password, pin, cedentePrestatore },
-        apiKeyId,
-        createdAtMs,
-      });
-    }
-    return {
-      error:
-        "Scontrino precedente ancora in elaborazione. Riprova tra qualche secondo.",
-      code: "PENDING_IN_PROGRESS",
-    };
+    return handleExistingReceipt({
+      input,
+      lotteryCode,
+      prerequisites: { codiceFiscale, password, pin, cedentePrestatore },
+      apiKeyId,
+    });
   }
 
   const documentId = txResult.id;
@@ -255,6 +188,100 @@ export async function emitReceiptForBusiness(
     apiKeyId,
     { recovery: false },
   );
+}
+
+/**
+ * Risolve il branch "documento già esistente" dell'emit (idempotency).
+ *
+ * Estratto da `emitReceiptForBusiness` per ridurre la cognitive complexity
+ * sotto 15 (SonarCloud). Branch:
+ *  - ACCEPTED → return idempotente OK.
+ *  - REJECTED → return ALREADY_REJECTED.
+ *  - PENDING/ERROR fresh → return PENDING_IN_PROGRESS.
+ *  - PENDING/ERROR stale → delega a `recoverStaleReceipt`.
+ *  - Row non trovata (caso patologico) → PENDING_IN_PROGRESS.
+ */
+async function handleExistingReceipt(args: {
+  input: SubmitReceiptInput;
+  lotteryCode: string | null;
+  prerequisites: {
+    codiceFiscale: string;
+    password: string;
+    pin: string;
+    cedentePrestatore: AdeCedentePrestatore;
+  };
+  apiKeyId: string | null | undefined;
+}): Promise<SubmitReceiptResult> {
+  const { input, lotteryCode, prerequisites, apiKeyId } = args;
+  const db = getDb();
+
+  const [existing] = await db
+    .select({
+      id: commercialDocuments.id,
+      status: commercialDocuments.status,
+      adeTransactionId: commercialDocuments.adeTransactionId,
+      adeProgressive: commercialDocuments.adeProgressive,
+      createdAt: commercialDocuments.createdAt,
+    })
+    .from(commercialDocuments)
+    .where(
+      and(
+        eq(commercialDocuments.idempotencyKey, input.idempotencyKey),
+        eq(commercialDocuments.businessId, input.businessId),
+      ),
+    )
+    .limit(1);
+
+  if (!existing) {
+    // Shouldn't happen: conflict but no row visible. Treat as transient.
+    logger.warn(
+      { businessId: input.businessId },
+      "Idempotency conflict without matching row",
+    );
+    return {
+      error: "Errore interno: ritenta l'emissione.",
+      code: "PENDING_IN_PROGRESS",
+    };
+  }
+
+  if (existing.status === "ACCEPTED") {
+    return {
+      documentId: existing.id,
+      adeTransactionId: existing.adeTransactionId ?? undefined,
+      adeProgressive: existing.adeProgressive ?? undefined,
+    };
+  }
+
+  if (existing.status === "REJECTED") {
+    return {
+      error:
+        "Scontrino precedente già rifiutato dall'AdE. Usa una nuova chiave di idempotenza.",
+      code: "ALREADY_REJECTED",
+    };
+  }
+
+  // PENDING or ERROR: B7 stale recovery decision.
+  const createdAtMs = existing.createdAt
+    ? new Date(existing.createdAt).getTime()
+    : Number.NaN;
+  const isStale =
+    Number.isFinite(createdAtMs) &&
+    Date.now() - createdAtMs > getStalePendingThresholdMs();
+  if (isStale) {
+    return recoverStaleReceipt({
+      existing,
+      input,
+      lotteryCode,
+      prerequisites,
+      apiKeyId,
+      createdAtMs,
+    });
+  }
+  return {
+    error:
+      "Scontrino precedente ancora in elaborazione. Riprova tra qualche secondo.",
+    code: "PENDING_IN_PROGRESS",
+  };
 }
 
 /** Recovery path for stale PENDING/ERROR receipts (B7). Extracted to keep
