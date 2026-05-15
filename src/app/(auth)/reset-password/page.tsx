@@ -67,7 +67,10 @@ export default function ResetPasswordPage() {
               autoComplete="email"
             />
 
-            <TurnstileWidget onToken={setCaptchaToken} />
+            <TurnstileWidget
+              onToken={setCaptchaToken}
+              action="reset-password"
+            />
 
             {form.formState.errors.root && (
               <p className="text-destructive text-sm" role="alert">

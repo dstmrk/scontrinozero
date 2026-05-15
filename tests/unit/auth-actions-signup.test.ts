@@ -86,9 +86,11 @@ function makeFormData(overrides: Record<string, string> = {}): FormData {
 }
 
 function setupCaptchaOk(hostname = "app.scontrinozero.it") {
+  // P1-01: verifyCaptcha now validates the `action` field on the siteverify
+  // response. signUp passes expectedAction="signup" — echo it back.
   mockFetch.mockResolvedValue({
     ok: true,
-    json: async () => ({ success: true, hostname }),
+    json: async () => ({ success: true, hostname, action: "signup" }),
   });
   process.env.NEXT_PUBLIC_APP_HOSTNAME = hostname;
   process.env.TURNSTILE_SECRET_KEY = "secret-key";

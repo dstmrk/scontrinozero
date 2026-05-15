@@ -217,7 +217,7 @@ function RegisterForm() {
                 onSuccess={(token) => setCaptchaToken(token)}
                 onExpire={() => setCaptchaToken(null)}
                 onError={() => setCaptchaToken(null)}
-                options={{ theme: "auto" }}
+                options={{ theme: "auto", action: "signup" }}
               />
             )}
 

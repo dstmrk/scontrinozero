@@ -72,7 +72,7 @@ export default function LoginPage() {
               autoComplete="current-password"
             />
 
-            <TurnstileWidget onToken={setCaptchaToken} />
+            <TurnstileWidget onToken={setCaptchaToken} action="signin" />
 
             {form.formState.errors.root && (
               <p className="text-destructive text-sm" role="alert">

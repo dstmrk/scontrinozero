@@ -44,15 +44,21 @@ function checkRateLimit(ip: string, action: string): AuthActionResult | null {
   const key = `${action}:${ip}`;
   const result = authLimiter.check(key);
   if (!result.success) {
-    logger.warn({ ip, action }, "Auth rate limit exceeded");
+    // P2-01: log l'IP hashato — evita di scrivere PII nei sistemi downstream
+    // (Sentry, log shipping, retention). La correlazione tra eventi dallo
+    // stesso source resta possibile via hash deterministico (vedi `hashIp`).
+    logger.warn({ ipHash: hashIp(ip), action }, "Auth rate limit exceeded");
     return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
   }
   return null;
 }
 
+type CaptchaAction = "signup" | "signin" | "reset-password";
+
 async function verifyCaptcha(
   token: string | null,
-  remoteIp?: string,
+  remoteIp: string | undefined,
+  expectedAction: CaptchaAction,
 ): Promise<boolean> {
   if (!token) return false;
   const secret = process.env.TURNSTILE_SECRET_KEY;
@@ -83,6 +89,7 @@ async function verifyCaptcha(
     const data = (await response.json()) as {
       success: boolean;
       hostname: string;
+      action?: string;
     };
     if (!data.success) return false;
     const expectedHostname =
@@ -96,6 +103,20 @@ async function verifyCaptcha(
           errorClass: "captcha_hostname_mismatch",
         },
         "Turnstile hostname mismatch",
+      );
+      return false;
+    }
+    // Action isolation: il token deve essere stato emesso esattamente per il
+    // flow corrente. Senza questo check, un token catturato su signup può
+    // essere riusato su signin/reset-password entro la finestra di validità.
+    if (data.action !== expectedAction) {
+      logger.warn(
+        {
+          captchaAction: data.action ?? null,
+          expectedAction,
+          errorClass: "captcha_action_mismatch",
+        },
+        "Turnstile action mismatch",
       );
       return false;
     }
@@ -215,7 +236,7 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   if (validationError) return { error: validationError };
 
   const ip = await getClientIpFromNextHeaders();
-  const captchaOk = await verifyCaptcha(captchaToken, ip);
+  const captchaOk = await verifyCaptcha(captchaToken, ip, "signup");
   if (!captchaOk) return { error: "Verifica CAPTCHA fallita. Riprova." };
 
   const rateLimited = checkRateLimit(ip, "signUp");
@@ -294,7 +315,7 @@ export async function signIn(formData: FormData): Promise<AuthActionResult> {
   // P2-01: Turnstile su signIn — il rate-limit per-IP da solo non frena
   // credential-stuffing su botnet con IP rotation. Il captcha forza un costo
   // marginale per ogni tentativo.
-  const captchaOk = await verifyCaptcha(captchaToken, ip);
+  const captchaOk = await verifyCaptcha(captchaToken, ip, "signin");
   if (!captchaOk) return { error: "Verifica CAPTCHA fallita. Riprova." };
 
   const rateLimited = checkRateLimit(ip, "signIn");
@@ -362,7 +383,7 @@ export async function resetPassword(
   // P2-02: Turnstile su resetPassword — endpoint pubblico che fa partire email
   // transazionali via Resend. Senza captcha un attacker può esaurire la quota
   // free-tier (3000/mese) e degradare la deliverability del dominio.
-  const captchaOk = await verifyCaptcha(captchaToken, ip);
+  const captchaOk = await verifyCaptcha(captchaToken, ip, "reset-password");
   if (!captchaOk) return { error: "Verifica CAPTCHA fallita. Riprova." };
 
   const rateLimited = checkRateLimit(ip, "resetPassword");
