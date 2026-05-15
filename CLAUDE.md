@@ -361,11 +361,11 @@ esercenti e micro-attività di emettere scontrini elettronici e trasmettere i co
 all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la procedura
 "Documento Commerciale Online".
 
-**Versione corrente:** v1.2.14 ✅ — roadmap completa in `PLAN.md`.
+**Versione corrente:** v1.2.15 ✅ — roadmap completa in `PLAN.md`.
 
-**Prossima release:** v1.2.15 (lancio hard — milestone gated, non a calendario).
+**Prossima release:** TBD (Export CSV / Analytics dashboard come prerequisiti del lancio hard rinviato).
 
-**Post-lancio:** v1.2.2 (billing fix) → v1.2.3–v1.2.7 (patch: landing SEO, security/GDPR polish, code review fixes, Help Center expansion) → v1.2.8 (SEO foundations + hardening) → v1.2.9 (landing per categoria + B19) → v1.2.10 (CSP enforce — B14) → v1.2.11 (pagine comparative) → v1.2.12 (tool gratuiti backlink magnets) → v1.2.13 (guide evergreen fase 1 + B7/B20) → v1.2.14 (guide evergreen fase 2 + signup tracking) → v1.2.15 (lancio hard) → v1.3.0+ (analytics, catalog sync, …)
+**Post-lancio:** v1.2.2 (billing fix) → v1.2.3–v1.2.7 (patch: landing SEO, security/GDPR polish, code review fixes, Help Center expansion) → v1.2.8 (SEO foundations + hardening) → v1.2.9 (landing per categoria + B19) → v1.2.10 (CSP enforce — B14) → v1.2.11 (pagine comparative) → v1.2.12 (tool gratuiti backlink magnets) → v1.2.13 (guide evergreen fase 1 + B7/B20) → v1.2.14 (guide evergreen fase 2 + signup tracking) → v1.2.15 (hardening: review multi-agent + 4 P1 + 5 P2 security) → v1.3.0+ (analytics, catalog sync, …). Il "lancio hard" originario di v1.2.15 è stato rinviato a quando i criteri gate (≥30 utenti paganti, ≥5 review, Export CSV e Analytics live, indicizzazione GSC ≥90%) saranno verdi.
 
 ## Principi di prodotto
 
