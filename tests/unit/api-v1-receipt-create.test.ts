@@ -374,5 +374,44 @@ describe("POST /api/v1/receipts", () => {
       const res = await POST(makeRequest());
       expect(res.status).toBe(429);
     });
+
+    it("returns 503 + Retry-After when service returns DB_TIMEOUT (B20)", async () => {
+      mockEmitReceiptForBusiness.mockResolvedValue({
+        error:
+          "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
+        code: "DB_TIMEOUT",
+      });
+      const { POST } = await import("@/app/api/v1/receipts/route");
+      const res = await POST(makeRequest());
+      expect(res.status).toBe(503);
+      expect(res.headers.get("Retry-After")).toBe("5");
+      const body = await res.json();
+      expect(body.code).toBe("DB_TIMEOUT");
+    });
+
+    it("returns 409 + Retry-After when service returns PENDING_IN_PROGRESS (B7)", async () => {
+      mockEmitReceiptForBusiness.mockResolvedValue({
+        error: "Scontrino precedente ancora in elaborazione.",
+        code: "PENDING_IN_PROGRESS",
+      });
+      const { POST } = await import("@/app/api/v1/receipts/route");
+      const res = await POST(makeRequest());
+      expect(res.status).toBe(409);
+      expect(res.headers.get("Retry-After")).toBe("2");
+      const body = await res.json();
+      expect(body.code).toBe("PENDING_IN_PROGRESS");
+    });
+
+    it("returns 409 when service returns ALREADY_REJECTED (B7)", async () => {
+      mockEmitReceiptForBusiness.mockResolvedValue({
+        error: "Scontrino precedente già rifiutato.",
+        code: "ALREADY_REJECTED",
+      });
+      const { POST } = await import("@/app/api/v1/receipts/route");
+      const res = await POST(makeRequest());
+      expect(res.status).toBe(409);
+      const body = await res.json();
+      expect(body.code).toBe("ALREADY_REJECTED");
+    });
   });
 });

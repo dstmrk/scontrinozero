@@ -88,9 +88,25 @@ export type SubmitReceiptInput = {
   lotteryCode?: string | null;
 };
 
+/**
+ * Codici errore machine-readable per emitReceipt.
+ *
+ * - PENDING_IN_PROGRESS: una richiesta precedente con la stessa idempotencyKey
+ *   è ancora in corso (fresh PENDING). Il client dovrebbe ritentare dopo
+ *   qualche secondo, senza svuotare il carrello.
+ * - DB_TIMEOUT: timeout DB; servizio temporaneamente sovraccarico (B20).
+ * - ALREADY_REJECTED: il documento esistente è stato rifiutato dall'AdE.
+ *   Va emesso uno scontrino nuovo con una key diversa.
+ */
+export type SubmitReceiptErrorCode =
+  | "PENDING_IN_PROGRESS"
+  | "DB_TIMEOUT"
+  | "ALREADY_REJECTED";
+
 /** Risultato della server action emitReceipt */
 export type SubmitReceiptResult = {
   error?: string;
+  code?: SubmitReceiptErrorCode;
   documentId?: string;
   adeTransactionId?: string;
   adeProgressive?: string;

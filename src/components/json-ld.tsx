@@ -168,6 +168,75 @@ export function webApplicationJsonLd(input: WebApplicationJsonLdInput) {
   } as const;
 }
 
+export function guideArticleBreadcrumb(slug: string, name: string) {
+  if (!slug) throw new Error("guideArticleBreadcrumb: slug is required");
+  if (!name) throw new Error("guideArticleBreadcrumb: name is required");
+  return breadcrumbListJsonLd([
+    { name: "Home", url: SITE_URL },
+    { name: "Guide", url: `${SITE_URL}/guide` },
+    { name, url: `${SITE_URL}/guide/${slug}` },
+  ]);
+}
+
+export interface ArticleJsonLdInput {
+  readonly headline: string;
+  readonly description: string;
+  readonly url: string;
+  readonly datePublished: string;
+  readonly dateModified: string;
+  readonly authorName?: string;
+  readonly publisherName?: string;
+  readonly publisherLogoUrl?: string;
+}
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function articleJsonLd(input: ArticleJsonLdInput) {
+  if (!input.headline) throw new Error("articleJsonLd: headline is required");
+  if (input.headline.length > 110) {
+    throw new Error(
+      "articleJsonLd: headline must be ≤ 110 chars (Google rich result limit)",
+    );
+  }
+  if (!input.description) {
+    throw new Error("articleJsonLd: description is required");
+  }
+  if (!input.url) throw new Error("articleJsonLd: url is required");
+  if (!input.url.startsWith("https://")) {
+    throw new Error("articleJsonLd: url must be absolute HTTPS");
+  }
+  if (!ISO_DATE_RE.test(input.datePublished)) {
+    throw new Error("articleJsonLd: datePublished must be YYYY-MM-DD");
+  }
+  if (!ISO_DATE_RE.test(input.dateModified)) {
+    throw new Error("articleJsonLd: dateModified must be YYYY-MM-DD");
+  }
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: input.headline,
+    description: input.description,
+    url: input.url,
+    mainEntityOfPage: input.url,
+    inLanguage: "it-IT",
+    datePublished: input.datePublished,
+    dateModified: input.dateModified,
+    author: {
+      "@type": "Organization" as const,
+      name: input.authorName ?? "Team ScontrinoZero",
+      url: SITE_URL,
+    },
+    publisher: {
+      "@type": "Organization" as const,
+      name: input.publisherName ?? "ScontrinoZero",
+      logo: {
+        "@type": "ImageObject" as const,
+        url: input.publisherLogoUrl ?? `${SITE_URL}/logo.png`,
+      },
+    },
+  } as const;
+}
+
 export const faqPageJsonLd = {
   "@context": "https://schema.org",
   "@type": "FAQPage",

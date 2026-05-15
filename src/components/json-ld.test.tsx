@@ -11,6 +11,8 @@ import {
   helpArticleBreadcrumb,
   serviceJsonLd,
   webApplicationJsonLd,
+  guideArticleBreadcrumb,
+  articleJsonLd,
 } from "./json-ld";
 import { faqItems } from "@/components/marketing/faq-items";
 
@@ -370,6 +372,111 @@ describe("webApplicationJsonLd", () => {
     ).toThrow();
     expect(() =>
       webApplicationJsonLd({ name: "X", description: "Y", url: "" }),
+    ).toThrow();
+  });
+});
+
+describe("guideArticleBreadcrumb", () => {
+  it("produces a 3-level breadcrumb (Home → Guide → article)", () => {
+    const ld = guideArticleBreadcrumb(
+      "documento-commerciale-online",
+      "Doc commerciale",
+    );
+    expect(ld.itemListElement).toHaveLength(3);
+    expect(ld.itemListElement[0].name).toBe("Home");
+    expect(ld.itemListElement[1].name).toBe("Guide");
+    expect(ld.itemListElement[2].name).toBe("Doc commerciale");
+  });
+
+  it("article URL contains the slug under /guide", () => {
+    const ld = guideArticleBreadcrumb("foo-bar", "Foo bar");
+    expect(ld.itemListElement[2].item).toContain("/guide/foo-bar");
+    expect(ld.itemListElement[2].item.startsWith("https://")).toBe(true);
+  });
+
+  it("rejects empty slug or empty name", () => {
+    expect(() => guideArticleBreadcrumb("", "name")).toThrow();
+    expect(() => guideArticleBreadcrumb("slug", "")).toThrow();
+  });
+});
+
+describe("articleJsonLd", () => {
+  const validInput = {
+    headline: "Headline guide",
+    description: "Descrizione di test sufficientemente lunga.",
+    url: "https://scontrinozero.it/guide/test",
+    datePublished: "2026-05-14",
+    dateModified: "2026-05-14",
+  };
+
+  it("has @type Article and @context schema.org", () => {
+    const ld = articleJsonLd(validInput);
+    expect(ld["@type"]).toBe("Article");
+    expect(ld["@context"]).toBe("https://schema.org");
+  });
+
+  it("emits headline, description and url verbatim", () => {
+    const ld = articleJsonLd(validInput);
+    expect(ld.headline).toBe(validInput.headline);
+    expect(ld.description).toBe(validInput.description);
+    expect(ld.url).toBe(validInput.url);
+    expect(ld.mainEntityOfPage).toBe(validInput.url);
+  });
+
+  it("declares Italian language", () => {
+    const ld = articleJsonLd(validInput);
+    expect(ld.inLanguage).toBe("it-IT");
+  });
+
+  it("emits datePublished and dateModified as ISO date strings", () => {
+    const ld = articleJsonLd(validInput);
+    expect(ld.datePublished).toBe("2026-05-14");
+    expect(ld.dateModified).toBe("2026-05-14");
+  });
+
+  it("uses default author and publisher when not provided", () => {
+    const ld = articleJsonLd(validInput);
+    expect(ld.author.name).toBe("Team ScontrinoZero");
+    expect(ld.publisher.name).toBe("ScontrinoZero");
+    expect(ld.publisher.logo.url.startsWith("https://")).toBe(true);
+  });
+
+  it("uses provided author and publisher when given", () => {
+    const ld = articleJsonLd({
+      ...validInput,
+      authorName: "Mario Rossi",
+      publisherName: "Custom Pub",
+      publisherLogoUrl: "https://example.com/logo.png",
+    });
+    expect(ld.author.name).toBe("Mario Rossi");
+    expect(ld.publisher.name).toBe("Custom Pub");
+    expect(ld.publisher.logo.url).toBe("https://example.com/logo.png");
+  });
+
+  it("rejects empty headline, description or url", () => {
+    expect(() => articleJsonLd({ ...validInput, headline: "" })).toThrow();
+    expect(() => articleJsonLd({ ...validInput, description: "" })).toThrow();
+    expect(() => articleJsonLd({ ...validInput, url: "" })).toThrow();
+  });
+
+  it("rejects headline longer than 110 chars (Google rich result limit)", () => {
+    expect(() =>
+      articleJsonLd({ ...validInput, headline: "x".repeat(111) }),
+    ).toThrow();
+  });
+
+  it("rejects non-HTTPS url", () => {
+    expect(() =>
+      articleJsonLd({ ...validInput, url: "http://scontrinozero.it/guide/x" }),
+    ).toThrow();
+  });
+
+  it("rejects malformed datePublished or dateModified", () => {
+    expect(() =>
+      articleJsonLd({ ...validInput, datePublished: "2026/05/14" }),
+    ).toThrow();
+    expect(() =>
+      articleJsonLd({ ...validInput, dateModified: "May 2026" }),
     ).toThrow();
   });
 });

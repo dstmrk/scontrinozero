@@ -67,6 +67,43 @@ export async function POST(
   );
 
   if (result.error) {
+    // B20: DB timeout → 503 + Retry-After
+    if (result.code === "DB_TIMEOUT") {
+      return withCors(
+        Response.json(
+          { code: "DB_TIMEOUT", error: result.error },
+          { status: 503, headers: { "Retry-After": "5" } },
+        ),
+      );
+    }
+    // B7: VOID_PENDING_IN_PROGRESS → 409
+    if (result.code === "VOID_PENDING_IN_PROGRESS") {
+      return withCors(
+        Response.json(
+          { code: "VOID_PENDING_IN_PROGRESS", error: result.error },
+          { status: 409, headers: { "Retry-After": "2" } },
+        ),
+      );
+    }
+    // VOID_ALREADY_TARGETED: 409 (race condition)
+    if (result.code === "VOID_ALREADY_TARGETED") {
+      return withCors(
+        Response.json(
+          { code: "VOID_ALREADY_TARGETED", error: result.error },
+          { status: 409 },
+        ),
+      );
+    }
+    // VOID_SYNC_FAILED: 500 + machine-readable code (DB out of sync con AdE,
+    // richiede cleanup manuale, non un retry automatico utile)
+    if (result.code === "VOID_SYNC_FAILED") {
+      return withCors(
+        Response.json(
+          { code: "VOID_SYNC_FAILED", error: result.error },
+          { status: 500 },
+        ),
+      );
+    }
     return withCors(Response.json({ error: result.error }, { status: 422 }));
   }
 

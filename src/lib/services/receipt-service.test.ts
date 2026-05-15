@@ -118,6 +118,7 @@ describe("emitReceiptForBusiness", () => {
           select: mockSelect,
           insert: mockInsert,
           update: mockUpdate,
+          execute: vi.fn().mockResolvedValue(undefined),
         };
         return callback(tx);
       },
@@ -257,7 +258,7 @@ describe("emitReceiptForBusiness", () => {
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
-  it("idempotency: ritorna errore se il documento esistente è PENDING", async () => {
+  it("idempotency: PENDING fresh ritorna code PENDING_IN_PROGRESS (B7)", async () => {
     mockDocumentReturning.mockResolvedValue([]);
     mockLimit.mockResolvedValueOnce([
       {
@@ -265,13 +266,97 @@ describe("emitReceiptForBusiness", () => {
         status: "PENDING",
         adeTransactionId: null,
         adeProgressive: null,
+        // createdAt fresh: 10 secondi fa
+        createdAt: new Date(Date.now() - 10_000),
       },
     ]);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
     const result = await emitReceiptForBusiness(VALID_INPUT);
 
+    expect(result.code).toBe("PENDING_IN_PROGRESS");
     expect(result.error).toBeDefined();
+    expect(mockLogin).not.toHaveBeenCalled();
+  });
+
+  it("idempotency: PENDING stale entra in recovery path (B7)", async () => {
+    mockDocumentReturning.mockResolvedValue([]);
+    // createdAt > 5 minuti (default threshold) → stale
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-123",
+        status: "PENDING",
+        adeTransactionId: null,
+        adeProgressive: null,
+        createdAt: new Date(Date.now() - 10 * 60 * 1000),
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    // Recovery completata: ritorna ACCEPTED via submitSaleToAde
+    expect(result.error).toBeUndefined();
+    expect(result.documentId).toBe("doc-123");
+    expect(mockLogin).toHaveBeenCalled();
+    expect(mockSubmitSale).toHaveBeenCalled();
+  });
+
+  it("idempotency: ERROR stale entra in recovery path (B7)", async () => {
+    mockDocumentReturning.mockResolvedValue([]);
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-456",
+        status: "ERROR",
+        adeTransactionId: null,
+        adeProgressive: null,
+        createdAt: new Date(Date.now() - 10 * 60 * 1000),
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.error).toBeUndefined();
+    expect(result.documentId).toBe("doc-456");
+    expect(mockSubmitSale).toHaveBeenCalled();
+  });
+
+  it("idempotency: REJECTED esistente ritorna code ALREADY_REJECTED", async () => {
+    mockDocumentReturning.mockResolvedValue([]);
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-rej",
+        status: "REJECTED",
+        adeTransactionId: null,
+        adeProgressive: null,
+        createdAt: new Date(),
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("ALREADY_REJECTED");
+    expect(mockLogin).not.toHaveBeenCalled();
+  });
+
+  it("idempotency: PENDING senza createdAt è trattato come fresh (fail-safe)", async () => {
+    mockDocumentReturning.mockResolvedValue([]);
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-bad",
+        status: "PENDING",
+        adeTransactionId: null,
+        adeProgressive: null,
+        createdAt: null,
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("PENDING_IN_PROGRESS");
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
@@ -356,5 +441,90 @@ describe("emitReceiptForBusiness", () => {
     await emitReceiptForBusiness(VALID_INPUT);
 
     expect(mockLogout).toHaveBeenCalled();
+  });
+
+  it("ritorna code DB_TIMEOUT se l'INSERT iniziale va in statement timeout (B20)", async () => {
+    const timeoutErr = Object.assign(
+      new Error("canceling statement due to statement timeout"),
+      { code: "57014" },
+    );
+    mockTransaction.mockImplementationOnce(async () => {
+      throw timeoutErr;
+    });
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("DB_TIMEOUT");
+    expect(result.error).toMatch(/sovracc/i);
+    // L'AdE login NON deve essere stato chiamato: timeout PRE-AdE
+    expect(mockLogin).not.toHaveBeenCalled();
+  });
+
+  it("recovery con adeTransactionId valorizzato finalizza senza richiamare submitSale (P1 Codex)", async () => {
+    mockDocumentReturning.mockResolvedValue([]); // INSERT conflict
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-recovered",
+        status: "PENDING",
+        // submitSale era già successo nel precedente tentativo
+        adeTransactionId: "prev-tx-id",
+        adeProgressive: "prev-prog",
+        createdAt: new Date(Date.now() - 10 * 60 * 1000),
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    // CRITICO: submitSale NON deve essere ri-chiamato (doppio doc fiscale)
+    expect(mockLogin).not.toHaveBeenCalled();
+    expect(mockSubmitSale).not.toHaveBeenCalled();
+    // Result rispecchia l'AdE IDs già pre-esistenti
+    expect(result).toEqual({
+      documentId: "doc-recovered",
+      adeTransactionId: "prev-tx-id",
+      adeProgressive: "prev-prog",
+    });
+  });
+
+  it("submitSaleToAde catch: timeout DB durante UPDATE finale → DB_TIMEOUT senza marcare ERROR (B20)", async () => {
+    // emit normale (no conflict): submitSale ha successo, ma l'UPDATE
+    // ACCEPTED finale va in timeout esaurendo i retry
+    const timeoutErr = Object.assign(new Error("timeout"), { code: "57014" });
+    mockUpdateWhere.mockRejectedValue(timeoutErr);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("DB_TIMEOUT");
+    // submitSale è stata chiamata (path fresh, no recovery)
+    expect(mockSubmitSale).toHaveBeenCalled();
+    // Non deve essere stato chiamato un UPDATE a ERROR
+    // (il timeout outer ramo skippa la mark-ERROR per non rompere B7 recovery)
+    const updateSets = mockUpdateSet.mock.calls.map((c) => c[0].status);
+    expect(updateSets).not.toContain("ERROR");
+  });
+
+  it("finalizeSaleOnly ritorna DB_TIMEOUT se l'UPDATE finalize esaurisce i retry", async () => {
+    mockDocumentReturning.mockResolvedValue([]); // INSERT conflict
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-stuck",
+        status: "PENDING",
+        adeTransactionId: "tx-prev",
+        adeProgressive: "prog-prev",
+        createdAt: new Date(Date.now() - 10 * 60 * 1000),
+      },
+    ]);
+    // Tutte le UPDATE post-conflict falliscono in timeout (4 tentativi)
+    const timeoutErr = Object.assign(new Error("timeout"), { code: "57014" });
+    mockUpdateWhere.mockRejectedValue(timeoutErr);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("DB_TIMEOUT");
+    expect(mockSubmitSale).not.toHaveBeenCalled();
   });
 });

@@ -58,6 +58,14 @@ export function Footer() {
                   Strumenti gratis
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/guide"
+                  className="hover:text-foreground transition-colors"
+                >
+                  Guide
+                </Link>
+              </li>
             </ul>
           </div>
 

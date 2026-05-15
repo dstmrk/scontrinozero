@@ -170,5 +170,55 @@ describe("POST /api/v1/receipts/[id]/void", () => {
       const res = await POST(makeRequest(VALID_UUID), makeParams(VALID_UUID));
       expect(res.status).toBe(422);
     });
+
+    it("returns 503 + Retry-After when void service returns DB_TIMEOUT (B20)", async () => {
+      mockVoidReceiptForBusiness.mockResolvedValue({
+        error: "Servizio temporaneamente sovraccarico.",
+        code: "DB_TIMEOUT",
+      });
+      const { POST } = await import("@/app/api/v1/receipts/[id]/void/route");
+      const res = await POST(makeRequest(VALID_UUID), makeParams(VALID_UUID));
+      expect(res.status).toBe(503);
+      expect(res.headers.get("Retry-After")).toBe("5");
+      const body = await res.json();
+      expect(body.code).toBe("DB_TIMEOUT");
+    });
+
+    it("returns 409 when void service returns VOID_PENDING_IN_PROGRESS (B7)", async () => {
+      mockVoidReceiptForBusiness.mockResolvedValue({
+        error: "Annullo precedente ancora in elaborazione.",
+        code: "VOID_PENDING_IN_PROGRESS",
+      });
+      const { POST } = await import("@/app/api/v1/receipts/[id]/void/route");
+      const res = await POST(makeRequest(VALID_UUID), makeParams(VALID_UUID));
+      expect(res.status).toBe(409);
+      expect(res.headers.get("Retry-After")).toBe("2");
+      const body = await res.json();
+      expect(body.code).toBe("VOID_PENDING_IN_PROGRESS");
+    });
+
+    it("returns 409 when void service returns VOID_ALREADY_TARGETED (race condition)", async () => {
+      mockVoidReceiptForBusiness.mockResolvedValue({
+        error: "Questo scontrino è già stato annullato.",
+        code: "VOID_ALREADY_TARGETED",
+      });
+      const { POST } = await import("@/app/api/v1/receipts/[id]/void/route");
+      const res = await POST(makeRequest(VALID_UUID), makeParams(VALID_UUID));
+      expect(res.status).toBe(409);
+      const body = await res.json();
+      expect(body.code).toBe("VOID_ALREADY_TARGETED");
+    });
+
+    it("returns 500 + VOID_SYNC_FAILED when finalize fails post-AdE (B20)", async () => {
+      mockVoidReceiptForBusiness.mockResolvedValue({
+        error: "Annullo registrato su AdE ma sincronizzazione DB in errore.",
+        code: "VOID_SYNC_FAILED",
+      });
+      const { POST } = await import("@/app/api/v1/receipts/[id]/void/route");
+      const res = await POST(makeRequest(VALID_UUID), makeParams(VALID_UUID));
+      expect(res.status).toBe(500);
+      const body = await res.json();
+      expect(body.code).toBe("VOID_SYNC_FAILED");
+    });
   });
 });
