@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,6 +9,7 @@ import { signIn } from "@/server/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormInputField, FormPasswordField } from "@/components/ui/form";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 
 const loginSchema = z.object({
   email: z.string().email("Inserisci un'email valida."),
@@ -19,6 +20,7 @@ type LoginData = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const [isPending, startTransition] = useTransition();
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   const form = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
@@ -29,11 +31,13 @@ export default function LoginPage() {
     const formData = new FormData();
     formData.set("email", data.email);
     formData.set("password", data.password);
+    if (captchaToken) formData.set("captchaToken", captchaToken);
 
     startTransition(async () => {
       const result = await signIn(formData);
       if (result?.error) {
         form.setError("root", { message: result.error });
+        setCaptchaToken(null); // token single-use, force re-solve
       }
       // On success, signIn redirects to /dashboard
     });
@@ -68,13 +72,19 @@ export default function LoginPage() {
               autoComplete="current-password"
             />
 
+            <TurnstileWidget onToken={setCaptchaToken} />
+
             {form.formState.errors.root && (
               <p className="text-destructive text-sm" role="alert">
                 {form.formState.errors.root.message}
               </p>
             )}
 
-            <Button type="submit" className="w-full" disabled={isPending}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isPending || captchaToken === null}
+            >
               {isPending ? "Accesso in corso…" : "Accedi"}
             </Button>
           </form>

@@ -80,12 +80,23 @@ export async function authenticateApiKey(
     return { error: "API key non valida.", status: 401 };
   }
 
+  // P2-05: messaggi 401 unificati per non rivelare lo stato della key
+  // (revoked vs expired vs non-esistente) a chi è in possesso di una raw
+  // key. Il dettaglio resta nei log strutturati per audit.
   if (row.apiKey.revokedAt) {
-    return { error: "API key revocata.", status: 401 };
+    logger.warn(
+      { apiKeyId: row.apiKey.id, reason: "revoked" },
+      "API key authentication rejected",
+    );
+    return { error: "API key non valida.", status: 401 };
   }
 
   if (row.apiKey.expiresAt && row.apiKey.expiresAt < new Date()) {
-    return { error: "API key scaduta.", status: 401 };
+    logger.warn(
+      { apiKeyId: row.apiKey.id, reason: "expired" },
+      "API key authentication rejected",
+    );
+    return { error: "API key non valida.", status: 401 };
   }
 
   // Fire-and-forget: aggiorna last_used_at solo se null o aggiornato più di

@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,6 +9,7 @@ import { resetPassword } from "@/server/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormInputField } from "@/components/ui/form";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 
 const resetSchema = z.object({
   email: z.string().email("Inserisci un'email valida."),
@@ -18,6 +19,7 @@ type ResetData = z.infer<typeof resetSchema>;
 
 export default function ResetPasswordPage() {
   const [isPending, startTransition] = useTransition();
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   const form = useForm<ResetData>({
     resolver: zodResolver(resetSchema),
@@ -27,11 +29,13 @@ export default function ResetPasswordPage() {
   function handleSubmit(data: ResetData) {
     const formData = new FormData();
     formData.set("email", data.email);
+    if (captchaToken) formData.set("captchaToken", captchaToken);
 
     startTransition(async () => {
       const result = await resetPassword(formData);
       if (result?.error) {
         form.setError("root", { message: result.error });
+        setCaptchaToken(null); // token single-use, force re-solve
       }
       // On success, resetPassword redirects or shows confirmation
     });
@@ -63,13 +67,19 @@ export default function ResetPasswordPage() {
               autoComplete="email"
             />
 
+            <TurnstileWidget onToken={setCaptchaToken} />
+
             {form.formState.errors.root && (
               <p className="text-destructive text-sm" role="alert">
                 {form.formState.errors.root.message}
               </p>
             )}
 
-            <Button type="submit" className="w-full" disabled={isPending}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isPending || captchaToken === null}
+            >
               {isPending ? "Invio in corso..." : "Invia link di recupero"}
             </Button>
           </form>

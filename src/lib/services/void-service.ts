@@ -28,12 +28,19 @@ import type { AdeResponse } from "@/lib/ade/types";
 /**
  * Soglia oltre la quale un VOID PENDING/ERROR è considerato "stale" (B7).
  * Sopra questa soglia, un retry con la stessa idempotencyKey entra nel
- * recovery path. Default: 5 min. Override via STALE_PENDING_THRESHOLD_MINUTES.
+ * recovery path. Default: 30 min. Override via STALE_PENDING_THRESHOLD_MINUTES.
+ *
+ * Rischio residuo (P1-03, quick fix): vedi receipt-service.ts per il commento
+ * esteso. AdE non accetta una idempotency-key nel payload submitVoid: se la
+ * risposta del primo submit si è persa in volo, un retry crea un VOID
+ * duplicato IRREVERSIBILE. La soglia alzata da 5 → 30 min riduce la finestra
+ * ma non la elimina. Soluzione corretta (lookup AdE pre-retry) rinviata a
+ * v1.11.0.
  */
 function getStalePendingThresholdMs(): number {
   const raw = process.env.STALE_PENDING_THRESHOLD_MINUTES;
   const minutes = raw ? Number.parseFloat(raw) : Number.NaN;
-  const effective = Number.isFinite(minutes) && minutes > 0 ? minutes : 5;
+  const effective = Number.isFinite(minutes) && minutes > 0 ? minutes : 30;
   return effective * 60 * 1000;
 }
 
@@ -512,6 +519,17 @@ async function insertOrResolveVoid(
       return { kind: "done", result: finalize };
     }
 
+    // Recovery path SENZA adeTransactionId noto: il retry rieseguirà submitVoid.
+    // Rischio P1-03: se il primo attempt era arrivato ad AdE ma la response si è
+    // persa, qui creiamo un VOID duplicato. Logging esplicito per audit.
+    logger.warn(
+      {
+        voidDocumentId: conflict.voidDocumentId,
+        saleDocumentId: input.documentId,
+        businessId: input.businessId,
+      },
+      "Void recovery: re-submitting submitVoid without AdE idempotency check (P1-03 residual risk)",
+    );
     return { kind: "inserted", voidDocumentId: conflict.voidDocumentId };
   } catch (err) {
     if (isStatementTimeoutError(err)) {

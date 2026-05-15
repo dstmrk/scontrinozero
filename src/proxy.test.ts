@@ -26,17 +26,43 @@ describe("proxy", () => {
     vi.clearAllMocks();
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
   });
+  afterEach(() => vi.unstubAllEnvs());
 
   describe("Supabase not configured", () => {
-    it("passes through all routes when NEXT_PUBLIC_SUPABASE_URL is not set", async () => {
+    it("dev/test: passes through all routes when NEXT_PUBLIC_SUPABASE_URL is not set", async () => {
+      vi.stubEnv("NODE_ENV", "test");
       delete process.env.NEXT_PUBLIC_SUPABASE_URL;
       vi.resetModules();
       const { proxy } = await import("./proxy");
 
-      // Even protected routes should pass through
+      // Even protected routes should pass through in non-production envs
       const response = await proxy(createRequest("/dashboard"));
       expect(response.status).toBe(200);
       expect(mockGetUser).not.toHaveBeenCalled();
+    });
+
+    it("P2-03: production: fail-closed redirects protected routes to /login when SUPABASE_URL missing", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      vi.resetModules();
+      const { proxy } = await import("./proxy");
+
+      // Protected routes must NOT pass through silently in production —
+      // would be fail-open auth bypass on RSC pages.
+      const response = await proxy(createRequest("/dashboard"));
+      expect(response.status).toBe(307);
+      expect(response.headers.get("location")).toContain("/login");
+      expect(mockGetUser).not.toHaveBeenCalled();
+    });
+
+    it("P2-03: production: public routes still pass through when SUPABASE_URL missing", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      vi.resetModules();
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(createRequest("/"));
+      expect(response.status).toBe(200);
     });
   });
 
