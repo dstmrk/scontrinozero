@@ -43,8 +43,21 @@ vi.mock("@/lib/stripe", () => ({
 }));
 
 vi.mock("@/lib/logger", () => ({
-  logger: { warn: vi.fn() },
+  logger: { warn: vi.fn(), error: vi.fn() },
 }));
+
+const { mockGetTrustedAppUrl } = vi.hoisted(() => ({
+  mockGetTrustedAppUrl: vi.fn(),
+}));
+vi.mock("@/lib/trusted-app-url", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/trusted-app-url")>(
+    "@/lib/trusted-app-url",
+  );
+  return {
+    ...actual,
+    getTrustedAppUrl: mockGetTrustedAppUrl,
+  };
+});
 
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
@@ -77,6 +90,7 @@ describe("GET /api/stripe/portal", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRateLimiterCheck.mockReturnValue({ success: true });
+    mockGetTrustedAppUrl.mockReturnValue("https://app.scontrinozero.it");
   });
 
   it("restituisce 401 se non autenticato", async () => {
@@ -114,6 +128,21 @@ describe("GET /api/stripe/portal", () => {
     );
   });
 
+  it("P1-02: restituisce 503 se NEXT_PUBLIC_APP_URL non passa la validazione", async () => {
+    const { TrustedAppUrlError } = await import("@/lib/trusted-app-url");
+    mockGetAuthenticatedUser.mockResolvedValue({ id: "user-1" });
+    mockSelect.mockReturnValue(
+      makeSelectBuilder([{ stripeCustomerId: "cus_123" }]),
+    );
+    mockGetTrustedAppUrl.mockImplementationOnce(() => {
+      throw new TrustedAppUrlError("hostname not in allowlist");
+    });
+
+    const res = await GET(fakeRequest);
+    expect(res.status).toBe(503);
+    expect(mockSessionCreate).not.toHaveBeenCalled();
+  });
+
   it("usa il return_url corretto", async () => {
     mockGetAuthenticatedUser.mockResolvedValue({ id: "user-1" });
     mockSelect.mockReturnValue(
@@ -136,6 +165,7 @@ describe("POST /api/stripe/portal", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRateLimiterCheck.mockReturnValue({ success: true });
+    mockGetTrustedAppUrl.mockReturnValue("https://app.scontrinozero.it");
   });
 
   it("restituisce 401 se non autenticato", async () => {

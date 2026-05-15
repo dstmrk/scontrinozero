@@ -6,6 +6,7 @@ import { getStripe, isValidPriceId, intervalFromPriceId } from "@/lib/stripe";
 import { RateLimiter } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { readJsonWithLimit } from "@/lib/request-utils";
+import { getTrustedAppUrl, TrustedAppUrlError } from "@/lib/trusted-app-url";
 
 const checkoutLimiter = new RateLimiter({
   maxRequests: 10,
@@ -110,7 +111,23 @@ export async function POST(req: Request): Promise<Response> {
 
   // ── Create Stripe Checkout Session ────────────────────────────────────────
   // No Stripe trial: il trial è gestito internamente da ScontrinoZero.
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  // P1-02: validate appUrl prima di passare a Stripe — una misconfigurazione
+  // env produrrebbe `success_url`/`cancel_url` verso un dominio non fidato.
+  let appUrl: string;
+  try {
+    appUrl = getTrustedAppUrl();
+  } catch (err) {
+    if (err instanceof TrustedAppUrlError) {
+      return Response.json(
+        {
+          error:
+            "Servizio di pagamento temporaneamente non disponibile. Riprova tra qualche istante.",
+        },
+        { status: 503 },
+      );
+    }
+    throw err;
+  }
   let session: Awaited<ReturnType<typeof stripe.checkout.sessions.create>>;
   try {
     session = await stripe.checkout.sessions.create({
