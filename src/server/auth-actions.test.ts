@@ -773,6 +773,32 @@ describe("auth-actions", () => {
       expect(result).toEqual({ error: "Inserisci la password." });
     });
 
+    it("P2-01: returns captcha error when token is missing", async () => {
+      const { signIn } = await import("./auth-actions");
+      const result = await signIn(
+        formData({ email: "test@example.com", password: "securepass123" }),
+      );
+      expect(result).toEqual({ error: "Verifica CAPTCHA fallita. Riprova." });
+      expect(mockSignInWithPassword).not.toHaveBeenCalled();
+    });
+
+    it("P2-01: returns captcha error when Turnstile validation fails", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: false }),
+      });
+      const { signIn } = await import("./auth-actions");
+      const result = await signIn(
+        formData({
+          email: "test@example.com",
+          password: "securepass123",
+          captchaToken: "bad-token",
+        }),
+      );
+      expect(result).toEqual({ error: "Verifica CAPTCHA fallita. Riprova." });
+      expect(mockSignInWithPassword).not.toHaveBeenCalled();
+    });
+
     it("redirects to dashboard on success", async () => {
       mockSignInWithPassword.mockResolvedValue({ error: null });
 
@@ -780,7 +806,11 @@ describe("auth-actions", () => {
 
       try {
         await signIn(
-          formData({ email: "test@example.com", password: "securepass123" }),
+          formData({
+            email: "test@example.com",
+            password: "securepass123",
+            captchaToken: "valid-token",
+          }),
         );
         expect.fail("Expected redirect");
       } catch (err) {
@@ -798,7 +828,11 @@ describe("auth-actions", () => {
 
       const { signIn } = await import("./auth-actions");
       const result = await signIn(
-        formData({ email: "test@example.com", password: "wrongpass" }),
+        formData({
+          email: "test@example.com",
+          password: "wrongpass",
+          captchaToken: "valid-token",
+        }),
       );
       expect(result).toEqual({
         error: "Email o password non corretti.",
@@ -828,11 +862,36 @@ describe("auth-actions", () => {
   });
 
   describe("resetPassword", () => {
+    it("P2-02: returns captcha error when token is missing (prevents email-bomb)", async () => {
+      const { resetPassword } = await import("./auth-actions");
+      const result = await resetPassword(
+        formData({ email: "test@example.com" }),
+      );
+      expect(result).toEqual({ error: "Verifica CAPTCHA fallita. Riprova." });
+      expect(mockGenerateLink).not.toHaveBeenCalled();
+      expect(mockSendEmail).not.toHaveBeenCalled();
+    });
+
+    it("P2-02: returns captcha error when Turnstile validation fails", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: false }),
+      });
+      const { resetPassword } = await import("./auth-actions");
+      const result = await resetPassword(
+        formData({ email: "test@example.com", captchaToken: "bad-token" }),
+      );
+      expect(result).toEqual({ error: "Verifica CAPTCHA fallita. Riprova." });
+      expect(mockGenerateLink).not.toHaveBeenCalled();
+    });
+
     it("always redirects to verify-email (no email enumeration)", async () => {
       const { resetPassword } = await import("./auth-actions");
 
       try {
-        await resetPassword(formData({ email: "test@example.com" }));
+        await resetPassword(
+          formData({ email: "test@example.com", captchaToken: "valid-token" }),
+        );
         expect.fail("Expected redirect");
       } catch (err) {
         expect(isRedirectError(err)).toBe(true);
@@ -852,7 +911,9 @@ describe("auth-actions", () => {
       const { resetPassword } = await import("./auth-actions");
 
       try {
-        await resetPassword(formData({ email: "test@example.com" }));
+        await resetPassword(
+          formData({ email: "test@example.com", captchaToken: "valid-token" }),
+        );
       } catch {
         // redirect expected
       }
@@ -867,7 +928,9 @@ describe("auth-actions", () => {
       const { resetPassword } = await import("./auth-actions");
 
       try {
-        await resetPassword(formData({ email: "test@example.com" }));
+        await resetPassword(
+          formData({ email: "test@example.com", captchaToken: "valid-token" }),
+        );
       } catch {
         // redirect expected
       }
@@ -890,7 +953,9 @@ describe("auth-actions", () => {
       const { resetPassword } = await import("./auth-actions");
 
       try {
-        await resetPassword(formData({ email: "test@example.com" }));
+        await resetPassword(
+          formData({ email: "test@example.com", captchaToken: "valid-token" }),
+        );
         expect.fail("Expected redirect");
       } catch (err) {
         expect(isRedirectError(err)).toBe(true);
@@ -912,7 +977,9 @@ describe("auth-actions", () => {
       const { resetPassword } = await import("./auth-actions");
 
       try {
-        await resetPassword(formData({ email: "test@example.com" }));
+        await resetPassword(
+          formData({ email: "test@example.com", captchaToken: "valid-token" }),
+        );
         expect.fail("Expected redirect");
       } catch (err) {
         expect(isRedirectError(err)).toBe(true);
@@ -932,7 +999,9 @@ describe("auth-actions", () => {
 
       let redirectUrl: string | undefined;
       try {
-        await resetPassword(formData({ email: "test@example.com" }));
+        await resetPassword(
+          formData({ email: "test@example.com", captchaToken: "valid-token" }),
+        );
         expect.fail("Expected redirect");
       } catch (err) {
         if (isRedirectError(err)) redirectUrl = err.url;
@@ -954,7 +1023,9 @@ describe("auth-actions", () => {
       const { resetPassword } = await import("./auth-actions");
 
       try {
-        await resetPassword(formData({ email: "test@example.com" }));
+        await resetPassword(
+          formData({ email: "test@example.com", captchaToken: "valid-token" }),
+        );
         expect.fail("Expected redirect");
       } catch (err) {
         expect(isRedirectError(err)).toBe(true);
@@ -971,7 +1042,9 @@ describe("auth-actions", () => {
       const { resetPassword } = await import("./auth-actions");
 
       try {
-        await resetPassword(formData({ email: "test@example.com" }));
+        await resetPassword(
+          formData({ email: "test@example.com", captchaToken: "valid-token" }),
+        );
       } catch {
         // redirect expected
       }
@@ -985,6 +1058,13 @@ describe("auth-actions", () => {
     it("APP_HOSTNAME takes precedence over NEXT_PUBLIC_APP_HOSTNAME for action_link validation", async () => {
       process.env.APP_HOSTNAME = "sandbox.scontrinozero.it";
       process.env.NEXT_PUBLIC_APP_HOSTNAME = "app.scontrinozero.it";
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          hostname: "sandbox.scontrinozero.it",
+        }),
+      });
       mockGenerateLink.mockResolvedValueOnce({
         data: {
           properties: {
@@ -997,7 +1077,9 @@ describe("auth-actions", () => {
 
       const { resetPassword } = await import("./auth-actions");
       try {
-        await resetPassword(formData({ email: "test@example.com" }));
+        await resetPassword(
+          formData({ email: "test@example.com", captchaToken: "valid-token" }),
+        );
       } catch {
         // redirect expected
       }
@@ -1017,7 +1099,9 @@ describe("auth-actions", () => {
 
       const { resetPassword } = await import("./auth-actions");
       try {
-        await resetPassword(formData({ email: "test@example.com" }));
+        await resetPassword(
+          formData({ email: "test@example.com", captchaToken: "valid-token" }),
+        );
       } catch {
         // redirect expected
       }
@@ -1043,7 +1127,11 @@ describe("auth-actions", () => {
       const { signIn } = await import("./auth-actions");
       try {
         await signIn(
-          formData({ email: "test@example.com", password: "anypass" }),
+          formData({
+            email: "test@example.com",
+            password: "anypass",
+            captchaToken: "valid-token",
+          }),
         );
       } catch {
         // redirect is expected
@@ -1066,7 +1154,11 @@ describe("auth-actions", () => {
       const { signIn } = await import("./auth-actions");
       try {
         await signIn(
-          formData({ email: "test@example.com", password: "anypass" }),
+          formData({
+            email: "test@example.com",
+            password: "anypass",
+            captchaToken: "valid-token",
+          }),
         );
       } catch {
         // redirect is expected
@@ -1087,7 +1179,11 @@ describe("auth-actions", () => {
       const { signIn } = await import("./auth-actions");
       try {
         await signIn(
-          formData({ email: "test@example.com", password: "anypass" }),
+          formData({
+            email: "test@example.com",
+            password: "anypass",
+            captchaToken: "valid-token",
+          }),
         );
       } catch {
         // redirect is expected

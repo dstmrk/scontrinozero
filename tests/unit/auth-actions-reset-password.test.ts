@@ -71,8 +71,14 @@ vi.mock("@/db", () => ({
 function makeFormData(email: string): FormData {
   const fd = new FormData();
   fd.set("email", email);
+  // P2-02: resetPassword now requires Turnstile token
+  fd.set("captchaToken", "valid-token");
   return fd;
 }
+
+// Mock global fetch for Turnstile siteverify (used by verifyCaptcha)
+const mockFetch = vi.fn();
+vi.stubGlobal("fetch", mockFetch);
 
 function mockSuccessfulGenerateLink(actionLink: string): void {
   mockGenerateLink.mockResolvedValue({
@@ -97,8 +103,13 @@ describe("resetPassword — hostname validation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.NEXT_PUBLIC_APP_HOSTNAME = EXPECTED_HOSTNAME;
+    process.env.TURNSTILE_SECRET_KEY = "test-secret";
     mockRateLimiterCheck.mockReturnValue({ success: true });
     mockSendEmail.mockResolvedValue(undefined);
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, hostname: EXPECTED_HOSTNAME }),
+    });
     setupRedirectThrows();
   });
 

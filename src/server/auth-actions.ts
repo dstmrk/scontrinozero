@@ -289,7 +289,14 @@ export async function signIn(formData: FormData): Promise<AuthActionResult> {
     return { error: "Inserisci la password." };
   }
 
+  const captchaToken = getFormString(formData, "captchaToken");
   const ip = await getClientIpFromNextHeaders();
+  // P2-01: Turnstile su signIn — il rate-limit per-IP da solo non frena
+  // credential-stuffing su botnet con IP rotation. Il captcha forza un costo
+  // marginale per ogni tentativo.
+  const captchaOk = await verifyCaptcha(captchaToken, ip);
+  if (!captchaOk) return { error: "Verifica CAPTCHA fallita. Riprova." };
+
   const rateLimited = checkRateLimit(ip, "signIn");
   if (rateLimited) return rateLimited;
 
@@ -350,7 +357,14 @@ export async function resetPassword(
     return { error: "Email non valida." };
   }
 
+  const captchaToken = getFormString(formData, "captchaToken");
   const ip = await getClientIpFromNextHeaders();
+  // P2-02: Turnstile su resetPassword — endpoint pubblico che fa partire email
+  // transazionali via Resend. Senza captcha un attacker può esaurire la quota
+  // free-tier (3000/mese) e degradare la deliverability del dominio.
+  const captchaOk = await verifyCaptcha(captchaToken, ip);
+  if (!captchaOk) return { error: "Verifica CAPTCHA fallita. Riprova." };
+
   const rateLimited = checkRateLimit(ip, "resetPassword");
   if (rateLimited) return rateLimited;
 
