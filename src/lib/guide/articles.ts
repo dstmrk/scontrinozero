@@ -528,7 +528,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         question: "Posso annullare uno scontrino emesso ieri?",
         answer:
-          "Tecnicamente sì, l'AdE accetta l'annullamento entro termini ragionevoli. In pratica, se è passato più di un giorno e il cliente è tornato per restituzione, è più corretto trattare il caso come reso (DCO negativo) anziché come annullamento, perché lo scontrino originale ha già documentato un\'operazione reale.",
+          "Tecnicamente sì, l'AdE accetta l'annullamento entro termini ragionevoli. In pratica, se è passato più di un giorno e il cliente è tornato per restituzione, è più corretto trattare il caso come reso (DCO negativo) anziché come annullamento, perché lo scontrino originale ha già documentato un'operazione reale.",
       },
       {
         question: "Cosa succede se annullo uno scontrino con codice lotteria?",
