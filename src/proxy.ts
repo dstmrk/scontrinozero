@@ -84,8 +84,21 @@ export async function proxy(request: NextRequest) {
   const redirect = hostnameRedirect(request);
   if (redirect) return redirect;
 
-  // Skip auth checks if Supabase is not configured (local dev, self-hosted without auth)
+  // Supabase non configurato:
+  // - dev/test: passthrough (local dev senza auth, self-hosted in fase di setup)
+  // - production: fail-closed sui PROTECTED_PREFIXES (P2-03). Lasciar passare
+  //   /dashboard senza auth check vorrebbe dire rendere pagine RSC private
+  //   senza la guardia che si aspettano. Le pagine pubbliche restano accessibili.
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    if (process.env.NODE_ENV === "production") {
+      const { pathname } = request.nextUrl;
+      if (PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+        const loginUrl = request.nextUrl.clone();
+        loginUrl.pathname = "/login";
+        loginUrl.searchParams.set("redirect", pathname);
+        return NextResponse.redirect(loginUrl);
+      }
+    }
     return NextResponse.next();
   }
 
