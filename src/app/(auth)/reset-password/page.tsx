@@ -5,11 +5,11 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod/v4";
-import { Turnstile } from "@marsidev/react-turnstile";
 import { resetPassword } from "@/server/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormInputField } from "@/components/ui/form";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 
 const resetSchema = z.object({
   email: z.string().email("Inserisci un'email valida."),
@@ -66,15 +66,7 @@ export default function ResetPasswordPage() {
               autoComplete="email"
             />
 
-            {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
-              <Turnstile
-                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
-                onSuccess={(token) => setCaptchaToken(token)}
-                onExpire={() => setCaptchaToken(null)}
-                onError={() => setCaptchaToken(null)}
-                options={{ theme: "auto" }}
-              />
-            )}
+            <TurnstileWidget onToken={setCaptchaToken} />
 
             {form.formState.errors.root && (
               <p className="text-destructive text-sm" role="alert">
