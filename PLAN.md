@@ -1,6 +1,8 @@
 # ScontrinoZero — Piano di sviluppo
 
-## Versione corrente: v1.2.15 ✅ — Prossima release: TBD (gate del lancio hard ancora aperto)
+## Versione pubblicata corrente: v1.2.11 ✅ — Prossima release: TBD (gate del lancio hard ancora aperto)
+
+> **Nota sulla numerazione storica.** L'ultimo tag git pubblicato prima di questa release era `v1.2.10`. Le release "logiche" elencate sotto come v1.2.11 → v1.2.15 corrispondono a feature/fix consolidati in un'unica release pubblica `v1.2.11`. La granularità storica resta nelle sezioni dettagliate del PLAN per audit trail; `package.json` e i tag riflettono la versione pubblica.
 
 Il piano usa **release semantiche** (vx.y.z). La v1.1.0 è stata rilasciata in produzione.
 
