@@ -10,6 +10,7 @@ const {
   mockCheck,
   mockSignInWithPassword,
   mockUpdateUser,
+  mockSignOut,
   mockCreateServerSupabaseClient,
   mockIsStrongPassword,
 } = vi.hoisted(() => ({
@@ -19,6 +20,7 @@ const {
   mockCheck: vi.fn(),
   mockSignInWithPassword: vi.fn(),
   mockUpdateUser: vi.fn(),
+  mockSignOut: vi.fn(),
   mockCreateServerSupabaseClient: vi.fn(),
   mockIsStrongPassword: vi.fn(),
 }));
@@ -106,10 +108,12 @@ describe("changePassword server action", () => {
     mockIsStrongPassword.mockReturnValue(true); // valid password by default
     mockSignInWithPassword.mockResolvedValue({ error: null });
     mockUpdateUser.mockResolvedValue({ error: null });
+    mockSignOut.mockResolvedValue({ error: null });
     mockCreateServerSupabaseClient.mockResolvedValue({
       auth: {
         signInWithPassword: mockSignInWithPassword,
         updateUser: mockUpdateUser,
+        signOut: mockSignOut,
       },
     });
   });
