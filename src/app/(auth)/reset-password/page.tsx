@@ -35,6 +35,7 @@ export default function ResetPasswordPage() {
       const result = await resetPassword(formData);
       if (result?.error) {
         form.setError("root", { message: result.error });
+        setCaptchaToken(null); // token single-use, force re-solve
       }
       // On success, resetPassword redirects or shows confirmation
     });

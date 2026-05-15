@@ -37,6 +37,7 @@ export default function LoginPage() {
       const result = await signIn(formData);
       if (result?.error) {
         form.setError("root", { message: result.error });
+        setCaptchaToken(null); // token single-use, force re-solve
       }
       // On success, signIn redirects to /dashboard
     });
