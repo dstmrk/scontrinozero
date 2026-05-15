@@ -170,7 +170,7 @@ describe("authenticateApiKey", () => {
     expect(mockSelectFields).toHaveBeenCalled();
   });
 
-  it("ritorna 401 se la key è revocata", async () => {
+  it("P2-05: ritorna 401 generico se la key è revocata (no info leak su stato)", async () => {
     mockLimit.mockResolvedValue([
       {
         ...FAKE_ROW,
@@ -180,7 +180,6 @@ describe("authenticateApiKey", () => {
         },
       },
     ]);
-
     const { authenticateApiKey } = await import("./api-auth");
     const request = new Request("https://api.scontrinozero.it/v1/receipts", {
       headers: { authorization: `Bearer ${VALID_LIVE_KEY}` },
@@ -188,13 +187,18 @@ describe("authenticateApiKey", () => {
 
     const result = await authenticateApiKey(request);
 
+    // Stesso body di "key non esiste" — il dettaglio resta solo nei log.
     expect(result).toEqual({
-      error: "API key revocata.",
+      error: "API key non valida.",
       status: 401,
     });
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: "revoked" }),
+      expect.any(String),
+    );
   });
 
-  it("ritorna 401 se la key è scaduta", async () => {
+  it("P2-05: ritorna 401 generico se la key è scaduta (no info leak su stato)", async () => {
     mockLimit.mockResolvedValue([
       {
         ...FAKE_ROW,
@@ -204,7 +208,6 @@ describe("authenticateApiKey", () => {
         },
       },
     ]);
-
     const { authenticateApiKey } = await import("./api-auth");
     const request = new Request("https://api.scontrinozero.it/v1/receipts", {
       headers: { authorization: `Bearer ${VALID_LIVE_KEY}` },
@@ -213,9 +216,13 @@ describe("authenticateApiKey", () => {
     const result = await authenticateApiKey(request);
 
     expect(result).toEqual({
-      error: "API key scaduta.",
+      error: "API key non valida.",
       status: 401,
     });
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: "expired" }),
+      expect.any(String),
+    );
   });
 
   it("ritorna il contesto per una key valida", async () => {
