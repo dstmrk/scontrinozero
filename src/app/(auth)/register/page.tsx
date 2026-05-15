@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod/v4";
@@ -49,6 +50,9 @@ type RegisterData = z.infer<typeof registerSchema>;
 export default function RegisterPage() {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  // Source attribution (?ref=reddit, ?ref=indiehackers, ...) for soft-launch
+  // tracking. Validated against allowlist server-side in signup-source.ts.
+  const refParam = useSearchParams().get("ref");
 
   const form = useForm<RegisterData>({
     resolver: zodResolver(registerSchema),
@@ -69,6 +73,7 @@ export default function RegisterPage() {
     formData.set("termsAccepted", "true");
     formData.set("specificClausesAccepted", "true");
     if (captchaToken) formData.set("captchaToken", captchaToken);
+    if (refParam) formData.set("ref", refParam);
 
     startTransition(async () => {
       const result = await signUp(formData);

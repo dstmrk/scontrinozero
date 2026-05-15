@@ -204,3 +204,86 @@ describe("signUp — email normalisation and uniqueness", () => {
     expect(mockDeleteUser).toHaveBeenCalled();
   });
 });
+
+describe("signUp — signup_source attribution from ?ref=", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRateLimiterCheck.mockReturnValue({ success: true });
+    mockRedirect.mockImplementation((url: string) => {
+      throw Object.assign(new Error("NEXT_REDIRECT"), { url });
+    });
+    mockSupabaseSignUp.mockResolvedValue({
+      data: { user: { id: "user-uuid-1" } },
+      error: null,
+    });
+    mockDeleteUser.mockResolvedValue({ error: null });
+  });
+
+  it("persists allowlisted ref as signupSource on profile insert", async () => {
+    setupCaptchaOk();
+    setupDbNoExistingEmail();
+
+    const { signUp } = await import("@/server/auth-actions");
+    const fd = makeFormData();
+    fd.set("ref", "reddit");
+    await expect(signUp(fd)).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ signupSource: "reddit" }),
+    );
+  });
+
+  it("normalises mixed-case ref to lowercase", async () => {
+    setupCaptchaOk();
+    setupDbNoExistingEmail();
+
+    const { signUp } = await import("@/server/auth-actions");
+    const fd = makeFormData();
+    fd.set("ref", "LinkedIn");
+    await expect(signUp(fd)).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ signupSource: "linkedin" }),
+    );
+  });
+
+  it("silently drops ref outside the allowlist", async () => {
+    setupCaptchaOk();
+    setupDbNoExistingEmail();
+
+    const { signUp } = await import("@/server/auth-actions");
+    const fd = makeFormData();
+    fd.set("ref", "hacker");
+    await expect(signUp(fd)).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ signupSource: null }),
+    );
+  });
+
+  it("silently drops malicious ref containing non-allowed characters", async () => {
+    setupCaptchaOk();
+    setupDbNoExistingEmail();
+
+    const { signUp } = await import("@/server/auth-actions");
+    const fd = makeFormData();
+    fd.set("ref", "reddit;DROP TABLE profiles");
+    await expect(signUp(fd)).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ signupSource: null }),
+    );
+  });
+
+  it("persists null signupSource when ref is absent (backwards compat)", async () => {
+    setupCaptchaOk();
+    setupDbNoExistingEmail();
+
+    const { signUp } = await import("@/server/auth-actions");
+    await expect(signUp(makeFormData())).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ signupSource: null }),
+    );
+  });
+});
