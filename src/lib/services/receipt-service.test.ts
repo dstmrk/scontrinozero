@@ -281,14 +281,14 @@ describe("emitReceiptForBusiness", () => {
 
   it("idempotency: PENDING stale entra in recovery path (B7)", async () => {
     mockDocumentReturning.mockResolvedValue([]);
-    // createdAt > 5 minuti (default threshold) → stale
+    // createdAt > 30 minuti (default threshold post-P1-03) → stale
     mockLimit.mockResolvedValueOnce([
       {
         id: "doc-123",
         status: "PENDING",
         adeTransactionId: null,
         adeProgressive: null,
-        createdAt: new Date(Date.now() - 10 * 60 * 1000),
+        createdAt: new Date(Date.now() - 35 * 60 * 1000),
       },
     ]);
 
@@ -310,7 +310,7 @@ describe("emitReceiptForBusiness", () => {
         status: "ERROR",
         adeTransactionId: null,
         adeProgressive: null,
-        createdAt: new Date(Date.now() - 10 * 60 * 1000),
+        createdAt: new Date(Date.now() - 35 * 60 * 1000),
       },
     ]);
 
@@ -320,6 +320,27 @@ describe("emitReceiptForBusiness", () => {
     expect(result.error).toBeUndefined();
     expect(result.documentId).toBe("doc-456");
     expect(mockSubmitSale).toHaveBeenCalled();
+  });
+
+  it("P1-03: PENDING di 10 min NON è stale (soglia alzata a 30 min) — ritorna PENDING_IN_PROGRESS", async () => {
+    mockDocumentReturning.mockResolvedValue([]);
+    // 10 min: prima entrava in recovery rischiando doppio submitSale ad AdE
+    // se la risposta del primo era stata persa in volo. Soglia ora a 30 min.
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-not-stale",
+        status: "PENDING",
+        adeTransactionId: null,
+        adeProgressive: null,
+        createdAt: new Date(Date.now() - 10 * 60 * 1000),
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("PENDING_IN_PROGRESS");
+    expect(mockSubmitSale).not.toHaveBeenCalled();
   });
 
   it("idempotency: REJECTED esistente ritorna code ALREADY_REJECTED", async () => {
@@ -470,7 +491,7 @@ describe("emitReceiptForBusiness", () => {
         // submitSale era già successo nel precedente tentativo
         adeTransactionId: "prev-tx-id",
         adeProgressive: "prev-prog",
-        createdAt: new Date(Date.now() - 10 * 60 * 1000),
+        createdAt: new Date(Date.now() - 35 * 60 * 1000),
       },
     ]);
 
@@ -514,7 +535,7 @@ describe("emitReceiptForBusiness", () => {
         status: "PENDING",
         adeTransactionId: "tx-prev",
         adeProgressive: "prog-prev",
-        createdAt: new Date(Date.now() - 10 * 60 * 1000),
+        createdAt: new Date(Date.now() - 35 * 60 * 1000),
       },
     ]);
     // Tutte le UPDATE post-conflict falliscono in timeout (4 tentativi)

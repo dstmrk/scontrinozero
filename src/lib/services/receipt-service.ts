@@ -41,14 +41,23 @@ const PAYMENT_METHOD_TO_ADE: Record<PaymentMethod, PaymentType> = {
  * Sopra questa soglia, un retry con la stessa idempotencyKey entra nel
  * recovery path invece di ricevere "stato inconsistente".
  *
- * Default: 5 minuti. Override via env STALE_PENDING_THRESHOLD_MINUTES.
- * 5 min è ampiamente sopra il p99 di submitSale AdE (~2-5s) + tx DB (~100ms),
- * ma sotto la pazienza dell'utente.
+ * Default: 30 minuti. Override via env STALE_PENDING_THRESHOLD_MINUTES.
+ *
+ * Rischio residuo (P1-03, quick fix): AdE non supporta una chiave d'idempotenza
+ * nel payload submitSale. Se il primo submit è arrivato ad AdE ma la risposta
+ * è andata persa (timeout / connessione interrotta), un retry sotto la soglia
+ * ritorna PENDING_IN_PROGRESS e l'utente lo riproverà più tardi. Sopra la
+ * soglia si rientra in recovery e potenzialmente si fa un SECONDO submit ad
+ * AdE — scontrino duplicato. La soglia alzata da 5 → 30 min riduce
+ * drasticamente la collision window (la sessione AdE è quasi sempre scaduta
+ * dopo 30 min, e un nuovo submit fallisce a monte). Soluzione corretta:
+ * lookup AdE pre-retry via searchDocuments — rinviata a v1.11.0 quando il
+ * client AdE avrà l'endpoint di ricerca (vedi ricerca_documento.har in roadmap).
  */
 function getStalePendingThresholdMs(): number {
   const raw = process.env.STALE_PENDING_THRESHOLD_MINUTES;
   const minutes = raw ? Number.parseFloat(raw) : Number.NaN;
-  const effective = Number.isFinite(minutes) && minutes > 0 ? minutes : 5;
+  const effective = Number.isFinite(minutes) && minutes > 0 ? minutes : 30;
   return effective * 60 * 1000;
 }
 
@@ -328,6 +337,18 @@ async function recoverStaleReceipt(args: {
       existing.adeProgressive,
     );
   }
+
+  // P1-03 residual risk: re-eseguiamo submitSale senza poter verificare lato
+  // AdE se il primo attempt era già arrivato (no idempotency-key supportato).
+  // Se la response del primo era andata persa in volo, qui creiamo uno
+  // scontrino fiscale duplicato. Risk-mitigation: soglia stale a 30 min.
+  logger.warn(
+    {
+      documentId: existing.id,
+      businessId: input.businessId,
+    },
+    "Sale recovery: re-submitting submitSale without AdE idempotency check (P1-03 residual risk)",
+  );
 
   return submitSaleToAde(
     existing.id,

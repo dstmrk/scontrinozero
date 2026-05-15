@@ -334,6 +334,26 @@
       caricano script da CDN non in allowlist). Soglia di allarme: >50 violation/giorno
       o qualsiasi `blockedUri` riconducibile a un nostro asset legittimo.
 
+28. **B7 stale recovery: rischio duplicato AdE su perdita response (P1-03 — quick fix v1.2.15).**
+    Il recovery di una row PENDING/ERROR senza `adeTransactionId` ri-invoca
+    `submitSale`/`submitVoid`. AdE non accetta una idempotency-key nel payload
+    → se la prima call era arrivata ad AdE ma la response si è persa in volo
+    (timeout, container kill, network glitch), il retry crea un documento
+    fiscale duplicato (per submitSale) o un VOID duplicato (per submitVoid),
+    **irreversibile**. Mitigazione quick (v1.2.15): soglia stale alzata da
+    5 → 30 min in `getStalePendingThresholdMs()` (sia `receipt-service` che
+    `void-service`). 30 min è sopra la durata sessione AdE tipica, quindi un
+    retry sotto soglia ritorna `PENDING_IN_PROGRESS` e l'utente lo riproverà
+    quando la sessione AdE non sarà più valida. Logging esplicito al rientro
+    in recovery senza `adeTransactionId` (`logger.warn` con marker
+    "P1-03 residual risk") per audit. **Soluzione corretta rinviata a
+    v1.11.0** (storno avanzato): `searchDocuments`/`getDocument` su AdE
+    pre-retry per scoprire se un documento collegato esiste già — richiede
+    l'endpoint AdE di ricerca, oggi non implementato nel client (vedi
+    `ricerca_documento.har` in roadmap). Override env disponibile per
+    abbassare la soglia in test E2E o ambienti controllati:
+    `STALE_PENDING_THRESHOLD_MINUTES=5`.
+
 ## Progetto
 
 ScontrinoZero è un registratore di cassa virtuale (SaaS) mobile-first che consente a

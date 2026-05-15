@@ -398,7 +398,7 @@ describe("voidReceiptForBusiness", () => {
           status: "PENDING",
           adeTransactionId: null,
           adeProgressive: null,
-          createdAt: new Date(Date.now() - 10 * 60 * 1000),
+          createdAt: new Date(Date.now() - 35 * 60 * 1000),
         },
       ]);
 
@@ -426,7 +426,7 @@ describe("voidReceiptForBusiness", () => {
           status: "PENDING",
           adeTransactionId: "previously-submitted-tx",
           adeProgressive: "5",
-          createdAt: new Date(Date.now() - 10 * 60 * 1000),
+          createdAt: new Date(Date.now() - 35 * 60 * 1000),
         },
       ]);
 
@@ -452,7 +452,7 @@ describe("voidReceiptForBusiness", () => {
           status: "PENDING",
           adeTransactionId: "tx-prev",
           adeProgressive: "9",
-          createdAt: new Date(Date.now() - 10 * 60 * 1000),
+          createdAt: new Date(Date.now() - 35 * 60 * 1000),
         },
       ]);
       // Tx finalizzazione fallisce
