@@ -308,7 +308,7 @@ describe("POST /api/stripe/webhook — customer.subscription.deleted", () => {
     mockDelete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
   });
 
-  it("imposta status a 'canceled' e declassa il profilo a 'trial' in una transazione", async () => {
+  it("P1-02: azzera anche stripeSubscriptionId/stripePriceId/currentPeriodEnd su cancellazione (no stale state per re-checkout)", async () => {
     const updateBuilder = makeUpdateBuilder();
     mockUpdate.mockReturnValue(updateBuilder);
     // SELECT inside transaction: userId lookup → has userId
@@ -324,8 +324,15 @@ describe("POST /api/stripe/webhook — customer.subscription.deleted", () => {
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
     expect(mockTransaction).toHaveBeenCalled();
-    // First update: subscription → canceled
-    expect(updateBuilder.set).toHaveBeenCalledWith({ status: "canceled" });
+    // First update: subscription → canceled + null su id/price/period.
+    // Necessario perché un futuro customer.subscription.updated cerca per
+    // stripeSubscriptionId e non troverebbe la nuova sub se la riga ne porta uno stale.
+    expect(updateBuilder.set).toHaveBeenCalledWith({
+      status: "canceled",
+      stripeSubscriptionId: null,
+      stripePriceId: null,
+      currentPeriodEnd: null,
+    });
     // Second update: profile → trial
     expect(updateBuilder.set).toHaveBeenCalledWith({ plan: "trial" });
   });
@@ -347,7 +354,12 @@ describe("POST /api/stripe/webhook — customer.subscription.deleted", () => {
     expect(res.status).toBe(200);
     expect(mockTransaction).toHaveBeenCalled();
     expect(updateBuilder.set).toHaveBeenCalledTimes(1);
-    expect(updateBuilder.set).toHaveBeenCalledWith({ status: "canceled" });
+    expect(updateBuilder.set).toHaveBeenCalledWith({
+      status: "canceled",
+      stripeSubscriptionId: null,
+      stripePriceId: null,
+      currentPeriodEnd: null,
+    });
   });
 
   it("restituisce 500 se la transazione fallisce (rollback garantito)", async () => {

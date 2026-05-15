@@ -311,9 +311,18 @@ async function handleSubscriptionDeleted(
   // consistent. A partial update (subscription canceled but plan not reset,
   // or vice versa) would leave feature gates in an inconsistent state.
   await db.transaction(async (tx) => {
+    // P1-02: azzera anche stripeSubscriptionId/stripePriceId/currentPeriodEnd.
+    // Lasciarli stale fa fallire `applySubscriptionUpdate` quando arriva un
+    // customer.subscription.updated per la sub successiva creata dopo un
+    // re-checkout (lookup per stripeSubscriptionId non trova la nuova).
     await tx
       .update(subscriptions)
-      .set({ status: "canceled" })
+      .set({
+        status: "canceled",
+        stripeSubscriptionId: null,
+        stripePriceId: null,
+        currentPeriodEnd: null,
+      })
       .where(eq(subscriptions.stripeSubscriptionId, sub.id));
 
     if (subRow) {
