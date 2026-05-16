@@ -90,6 +90,33 @@ describe("sendEmail", () => {
     ).rejects.toThrow("network error");
   });
 
+  it("times out when Resend hangs longer than the configured ceiling", async () => {
+    // Resend SDK has no AbortSignal hook → we enforce a hard ceiling via
+    // Promise.race. Simulate a hanging provider by returning a promise that
+    // never resolves; expect the call to reject with the timeout marker.
+    vi.useFakeTimers();
+    try {
+      mockResendSend.mockImplementation(
+        () => new Promise(() => undefined), // never resolves
+      );
+
+      const sendPromise = sendEmail({
+        to: "user@example.com",
+        subject: "stuck",
+        react: fakeReact,
+      });
+      // Attach rejection handler synchronously so Node doesn't flag it as
+      // an unhandledRejection while the fake timers advance.
+      const assertion = expect(sendPromise).rejects.toThrow(
+        /sendEmail timed out after \d+ms/,
+      );
+      await vi.advanceTimersByTimeAsync(8_000);
+      await assertion;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("istanzia Resend una sola volta anche su più chiamate (singleton)", async () => {
     mockResendSend.mockResolvedValue({ data: { id: "x" }, error: null });
 

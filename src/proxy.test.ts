@@ -383,6 +383,25 @@ describe("proxy", () => {
       }
     });
 
+    it("falls back to default when NEXT_PUBLIC_APP_HOSTNAME is malformed (no scheme leak)", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      // Attacker-controlled env var with scheme leak: must be rejected and
+      // the default app hostname used instead — never honour the malformed value.
+      process.env.NEXT_PUBLIC_APP_HOSTNAME = "https://evil.com";
+      vi.resetModules();
+      const { proxy } = await import("./proxy");
+
+      // Request /dashboard on marketing → expect redirect to the *default*
+      // app hostname, not to evil.com.
+      const response = await proxy(
+        createRequestForHost("/dashboard", "scontrinozero.it"),
+      );
+      expect(response.status).toBe(307);
+      const location = new URL(response.headers.get("location")!);
+      expect(location.hostname).toBe("app.scontrinozero.it");
+      expect(location.hostname).not.toBe("evil.com");
+    });
+
     it("ignores a spoofed Host header when nextUrl.hostname differs", async () => {
       const { proxy } = await import("./proxy");
 

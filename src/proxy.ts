@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { parseTrustedHostnameEnv } from "@/lib/hostname-env";
 import { createMiddlewareSupabaseClient } from "@/lib/supabase/middleware";
 
 /** Routes that require authentication */
@@ -37,12 +38,22 @@ function hostnameRedirect(request: NextRequest): NextResponse | null {
     .toLowerCase()
     .replace(/:\d+$/, "");
   const { pathname, search } = request.nextUrl;
-  const appHostname =
-    process.env.NEXT_PUBLIC_APP_HOSTNAME ?? "app.scontrinozero.it";
-  const marketingHostname =
-    process.env.NEXT_PUBLIC_MARKETING_HOSTNAME ?? "scontrinozero.it";
-  const apiHostname =
-    process.env.NEXT_PUBLIC_API_HOSTNAME ?? "api.scontrinozero.it";
+  // Trusted hostnames must be parsed/validated: a malformed env var
+  // (scheme leak, trailing slash, spaces, …) would otherwise alter routing
+  // decisions silently. `parseTrustedHostnameEnv` fails closed to the fallback
+  // and logs `critical:true` in production.
+  const appHostname = parseTrustedHostnameEnv(
+    "NEXT_PUBLIC_APP_HOSTNAME",
+    "app.scontrinozero.it",
+  );
+  const marketingHostname = parseTrustedHostnameEnv(
+    "NEXT_PUBLIC_MARKETING_HOSTNAME",
+    "scontrinozero.it",
+  );
+  const apiHostname = parseTrustedHostnameEnv(
+    "NEXT_PUBLIC_API_HOSTNAME",
+    "api.scontrinozero.it",
+  );
 
   const allowedHostnames = new Set([
     appHostname,
