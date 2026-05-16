@@ -2,6 +2,31 @@ import Stripe from "stripe";
 
 const STRIPE_API_VERSION = "2026-04-22.dahlia" as const;
 
+/**
+ * Per-request options da applicare alle chiamate Stripe nel webhook handler.
+ *
+ * Motivazione (P2 REVIEW.md): il webhook handler invoca
+ * `stripe.subscriptions.retrieve` sincronicamente prima di acknoledgiare;
+ * senza timeout, una degradazione esterna farebbe pendere il worker
+ * indefinitamente, saturando il pool e amplificando i retry concorrenti
+ * di Stripe (deadline ack 30s).
+ *
+ * IMPORTANTE: NON va applicato globalmente al singleton — i write delle
+ * route checkout/portal (`customers.create`, `checkout.sessions.create`)
+ * non passano un `Idempotency-Key` esplicito a livello applicativo. Se la
+ * SDK timeoutasse client-side dopo che Stripe ha completato il write, un
+ * retry utente creerebbe risorse duplicate. Quei write devono mantenere
+ * il timeout di default più ampio della SDK; il webhook resta bounded
+ * grazie agli override per-request qui sotto.
+ *
+ * 10s = ~3x p99 osservato per `subscriptions.retrieve` (< 800ms), sotto
+ * il deadline ack di Stripe e con margine per i 2 retry SDK.
+ */
+export const STRIPE_WEBHOOK_REQUEST_OPTIONS: Stripe.RequestOptions = {
+  timeout: 10_000,
+  maxNetworkRetries: 2,
+};
+
 // Module-level singleton: one instance per Node.js process.
 // Avoids creating a new Stripe client on every call to getStripe() which adds
 // unnecessary object churn on hot paths (webhook, checkout, portal).

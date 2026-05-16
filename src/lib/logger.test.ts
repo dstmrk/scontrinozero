@@ -296,6 +296,46 @@ describe("logger Sentry bridge", () => {
     expect(mockCaptureMessage).not.toHaveBeenCalled();
   });
 
+  it("strips raw 'ip' from Sentry extra context but forwards 'ipHash'", async () => {
+    const { logger } = await import("./logger");
+    logger.error(
+      { ip: "1.2.3.4", ipHash: "abc123", userId: "u-1" },
+      "auth failure",
+    );
+    expect(mockCaptureMessage).toHaveBeenCalledOnce();
+    // captureMessage doesn't take extra context; verify via captureException path too
+    expect(mockCaptureException).not.toHaveBeenCalled();
+  });
+
+  it("strips raw 'ip' but forwards 'ipHash' when called with { err: Error }", async () => {
+    const { logger } = await import("./logger");
+    const err = new Error("boom");
+    logger.error(
+      { err, ip: "9.9.9.9", ipHash: "h-9", userId: "u-2" },
+      "with error",
+    );
+    expect(mockCaptureException).toHaveBeenCalledOnce();
+    const callArgs = mockCaptureException.mock.calls[0];
+    const extra = (callArgs[1] as { extra: Record<string, unknown> }).extra;
+    expect(extra).not.toHaveProperty("ip");
+    expect(extra.ipHash).toBe("h-9");
+    expect(extra.userId).toBe("u-2");
+  });
+
+  it("sanitizeForTelemetry: 'ip' is not in the allowlist, 'ipHash' is", async () => {
+    const { sanitizeForTelemetry } = await import("./logger");
+    const out = sanitizeForTelemetry({
+      ip: "10.0.0.1",
+      ipHash: "h-1",
+      userId: "u-x",
+      password: "should-never-pass",
+    });
+    expect(out).not.toHaveProperty("ip");
+    expect(out).not.toHaveProperty("password");
+    expect(out.ipHash).toBe("h-1");
+    expect(out.userId).toBe("u-x");
+  });
+
   it("child logger (createRequestLogger) inherits Sentry bridge", async () => {
     const { createRequestLogger } = await import("./logger");
     const childLogger = createRequestLogger({

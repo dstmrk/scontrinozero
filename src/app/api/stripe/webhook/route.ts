@@ -1,7 +1,12 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { subscriptions, profiles, stripeWebhookEvents } from "@/db/schema";
-import { getStripe, planFromPriceId, intervalFromPriceId } from "@/lib/stripe";
+import {
+  getStripe,
+  planFromPriceId,
+  intervalFromPriceId,
+  STRIPE_WEBHOOK_REQUEST_OPTIONS,
+} from "@/lib/stripe";
 import { logger } from "@/lib/logger";
 import { readTextWithLimit } from "@/lib/request-utils";
 import type Stripe from "stripe";
@@ -201,10 +206,31 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
       const session = event.data.object as Stripe.Checkout.Session;
       if (typeof session.subscription !== "string" || !session.customer) break;
 
-      // Retrieve full subscription object for price/interval data
-      const stripeSub = await stripe.subscriptions.retrieve(
-        session.subscription,
-      );
+      // Retrieve full subscription object for price/interval data.
+      // Webhook-scoped timeout + retries (vedi STRIPE_WEBHOOK_REQUEST_OPTIONS).
+      // NB: questa è una read, idempotente per natura — i retry SDK sono safe.
+      // Loggiamo con errorClass per discriminare nei dashboard gli errori del
+      // call outbound dagli errori della logica DB downstream.
+      let stripeSub: Stripe.Subscription;
+      try {
+        stripeSub = await stripe.subscriptions.retrieve(
+          session.subscription,
+          undefined,
+          STRIPE_WEBHOOK_REQUEST_OPTIONS,
+        );
+      } catch (err) {
+        logger.error(
+          {
+            err,
+            eventType: event.type,
+            errorClass: (err as Error)?.constructor?.name ?? "Unknown",
+          },
+          "stripe.subscriptions.retrieve failed in webhook",
+        );
+        // Rilancia: il claim verrà rilasciato da processWithClaimRelease e
+        // Stripe ritenterà l'evento.
+        throw err;
+      }
       await syncSubscriptionData(db, session.customer as string, stripeSub);
       break;
     }

@@ -44,6 +44,34 @@ describe("getStripe", () => {
       expect.any(Object),
     );
   });
+
+  it("non applica timeout/maxNetworkRetries globalmente (write checkout/portal restano col default SDK)", () => {
+    // Stripe write senza Idempotency-Key applicativo: un timeout client-side
+    // troppo aggressivo sul singleton condiviso causerebbe duplicati su retry
+    // utente. Timeout va applicato per-request nel solo webhook handler.
+    process.env.STRIPE_SECRET_KEY = "sk_test_no_global_timeout";
+    getStripe();
+    const [, opts] = mockStripeConstructor.mock.calls[0] as [
+      string,
+      Record<string, unknown>,
+    ];
+    expect(opts).not.toHaveProperty("timeout");
+    expect(opts).not.toHaveProperty("maxNetworkRetries");
+  });
+});
+
+describe("STRIPE_WEBHOOK_REQUEST_OPTIONS", () => {
+  it("definisce timeout e maxNetworkRetries per il webhook path", async () => {
+    const { STRIPE_WEBHOOK_REQUEST_OPTIONS } = await import("./stripe");
+    // Webhook deadline lato Stripe è 30s: timeout < deadline per lasciare
+    // spazio ai retry SDK interni.
+    expect(STRIPE_WEBHOOK_REQUEST_OPTIONS.timeout).toBeGreaterThan(0);
+    expect(STRIPE_WEBHOOK_REQUEST_OPTIONS.timeout).toBeLessThan(30_000);
+    // Almeno 1 retry per assorbire blip transienti.
+    expect(
+      STRIPE_WEBHOOK_REQUEST_OPTIONS.maxNetworkRetries,
+    ).toBeGreaterThanOrEqual(1);
+  });
 });
 
 describe("isValidPriceId", () => {

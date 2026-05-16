@@ -11,7 +11,9 @@
 import { eq, and, or, isNull, lt } from "drizzle-orm";
 import { getDb } from "@/db";
 import { apiKeys, profiles } from "@/db/schema";
+import { isStatementTimeoutError } from "@/lib/api-errors";
 import { hashApiKey, isValidApiKeyFormat } from "@/lib/api-keys";
+import { withStatementTimeout } from "@/lib/db-timeout";
 import { logger } from "@/lib/logger";
 import type { Plan } from "@/lib/plans";
 import type { SelectApiKey } from "@/db/schema";
@@ -19,6 +21,12 @@ import type { SelectApiKey } from "@/db/schema";
 // Throttle last_used_at writes: only update if the field is null or older
 // than this threshold. Avoids a DB write on every API request under burst load.
 const LAST_USED_THROTTLE_MS = 10 * 60 * 1000; // 10 minutes
+
+// Statement timeout sull'hot path di auth: ogni richiesta /api/v1/* passa
+// di qui PRIMA della business logic. Budget di 2s cattura DB sovraccarico
+// senza falsi positivi su query indicizzate (un singolo SELECT con
+// innerJoin su apiKeys.keyHash + profiles.id, atteso < 30ms p99).
+const AUTH_QUERY_TIMEOUT_MS = 2000;
 
 export type ApiKeyContext = {
   apiKey: SelectApiKey;
@@ -31,7 +39,12 @@ export type ApiKeyContext = {
 
 export type ApiKeyAuthError = {
   error: string;
-  status: 401;
+  status: 401 | 503;
+  /**
+   * Machine-readable error code per discriminare retry automatici lato client.
+   * Presente solo per 503 (DB sovraccarico). Errori 401 sono permanenti.
+   */
+  code?: "DB_TIMEOUT";
 };
 
 /**
@@ -65,16 +78,44 @@ export async function authenticateApiKey(
   const hash = hashApiKey(raw);
   const db = getDb();
 
-  const [row] = await db
-    .select({
-      apiKey: apiKeys,
-      plan: profiles.plan,
-      trialStartedAt: profiles.trialStartedAt,
-    })
-    .from(apiKeys)
-    .innerJoin(profiles, eq(apiKeys.profileId, profiles.id))
-    .where(eq(apiKeys.keyHash, hash))
-    .limit(1);
+  let row:
+    | {
+        apiKey: SelectApiKey;
+        plan: string;
+        trialStartedAt: Date | null;
+      }
+    | undefined;
+  try {
+    const rows = await withStatementTimeout(AUTH_QUERY_TIMEOUT_MS, async (tx) =>
+      tx
+        .select({
+          apiKey: apiKeys,
+          plan: profiles.plan,
+          trialStartedAt: profiles.trialStartedAt,
+        })
+        .from(apiKeys)
+        .innerJoin(profiles, eq(apiKeys.profileId, profiles.id))
+        .where(eq(apiKeys.keyHash, hash))
+        .limit(1),
+    );
+    row = rows[0];
+  } catch (err) {
+    if (isStatementTimeoutError(err)) {
+      // 503 retryable: DB sovraccarico, non un problema di chiave.
+      // Il client deve poter discriminare da un 401 (chiave permanentemente invalida).
+      logger.warn(
+        { err, action: "auth", statusCode: 503 },
+        "API key auth DB statement timeout",
+      );
+      return {
+        error:
+          "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
+        status: 503,
+        code: "DB_TIMEOUT",
+      };
+    }
+    throw err;
+  }
 
   if (!row) {
     return { error: "API key non valida.", status: 401 };

@@ -54,6 +54,8 @@ export function sanitizeForTelemetry(obj: unknown): Record<string, unknown> {
   const raw = obj as Record<string, unknown>;
 
   // Only forward these safe, non-sensitive context keys.
+  // NOTE: `ip` is intentionally excluded — raw IPs are personal data (GDPR) and must
+  // never reach third-party telemetry. Use `ipHash` for correlation.
   const SAFE_KEYS: ReadonlyArray<string> = [
     "requestId",
     "path",
@@ -70,7 +72,6 @@ export function sanitizeForTelemetry(obj: unknown): Record<string, unknown> {
     "adeProgressivo",
     "adeErrorCodes",
     "action",
-    "ip",
     "ipHash",
     "errorClass",
     "captchaHostname",
