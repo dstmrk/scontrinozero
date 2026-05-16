@@ -9,6 +9,7 @@
  */
 import { authenticateApiKey, isApiKeyAuthError } from "@/lib/api-auth";
 import type { ApiKeyContext } from "@/lib/api-auth";
+import { dbTimeoutResponse } from "@/lib/api-errors";
 import { canUseApi } from "@/lib/plans";
 import { logger } from "@/lib/logger";
 import { readJsonWithLimit } from "@/lib/request-utils";
@@ -59,6 +60,12 @@ export async function requireBusinessApiAuth(
 ): Promise<{ error: Response } | { context: BusinessApiContext }> {
   const auth = await authenticateApiKey(request);
   if (isApiKeyAuthError(auth)) {
+    // 503: DB sovraccarico durante l'auth lookup. Risposta retryable con
+    // `Retry-After` e `code: DB_TIMEOUT`, coerente con i timeout sulle read
+    // route v1 (cfr. dbTimeoutResponse).
+    if (auth.status === 503) {
+      return { error: withCors(dbTimeoutResponse()) };
+    }
     return {
       error: Response.json(
         { error: auth.error },

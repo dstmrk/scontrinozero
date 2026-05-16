@@ -15,6 +15,15 @@ const mockUpdateWhere = vi.fn();
 const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
 const mockUpdate = vi.fn().mockReturnValue({ set: mockUpdateSet });
 
+// withStatementTimeout(ms, fn) is bypassed in tests: we run fn(tx) directly
+// with a passthrough tx that exposes the same select chain as the outer db.
+// The plumbing (db.transaction + SET LOCAL statement_timeout) is tested in
+// db-timeout.test.ts — here we only care about authenticateApiKey behavior.
+const mockWithStatementTimeout = vi.fn();
+vi.mock("@/lib/db-timeout", () => ({
+  withStatementTimeout: mockWithStatementTimeout,
+}));
+
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({
     select: mockSelectFields,
@@ -78,6 +87,10 @@ describe("authenticateApiKey — format pre-check (no DB call)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.setSystemTime(NOW);
+    // Default: passthrough — invoca fn(tx) con tx che riusa il select chain.
+    mockWithStatementTimeout.mockImplementation((_ms, fn) =>
+      fn({ select: mockSelectFields }),
+    );
   });
 
   it("ritorna 401 senza query DB se la chiave ha prefisso errato", async () => {
@@ -125,6 +138,10 @@ describe("authenticateApiKey", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.setSystemTime(NOW);
+    // Default: passthrough — invoca fn(tx) con tx che riusa il select chain.
+    mockWithStatementTimeout.mockImplementation((_ms, fn) =>
+      fn({ select: mockSelectFields }),
+    );
   });
 
   it("ritorna 401 se manca l'header Authorization", async () => {
@@ -341,6 +358,62 @@ describe("authenticateApiKey", () => {
     expect(or).toHaveBeenCalled();
     expect(isNull).toHaveBeenCalled();
     expect(lt).toHaveBeenCalled();
+  });
+
+  it("ritorna 503 DB_TIMEOUT se la query auth eccede statement_timeout", async () => {
+    // Postgres SQLSTATE 57014 = query_canceled (timeout o cancel esplicito)
+    mockLimit.mockRejectedValue({
+      code: "57014",
+      message: "canceling statement due to statement timeout",
+    });
+
+    const { authenticateApiKey } = await import("./api-auth");
+    const request = new Request("https://api.scontrinozero.it/v1/receipts", {
+      headers: { authorization: `Bearer ${VALID_LIVE_KEY}` },
+    });
+
+    const result = await authenticateApiKey(request);
+
+    expect(result).toEqual({
+      error: expect.stringContaining("sovracc"),
+      status: 503,
+      code: "DB_TIMEOUT",
+    });
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "auth",
+        statusCode: 503,
+      }),
+      expect.stringContaining("timeout"),
+    );
+  });
+
+  it("ripropaga errori DB non-timeout (es. connection refused)", async () => {
+    mockLimit.mockRejectedValue(new Error("ECONNREFUSED"));
+
+    const { authenticateApiKey } = await import("./api-auth");
+    const request = new Request("https://api.scontrinozero.it/v1/receipts", {
+      headers: { authorization: `Bearer ${VALID_LIVE_KEY}` },
+    });
+
+    await expect(authenticateApiKey(request)).rejects.toThrow("ECONNREFUSED");
+  });
+
+  it("esegue la query auth dentro withStatementTimeout con budget 2000ms", async () => {
+    mockLimit.mockResolvedValue([FAKE_ROW]);
+    mockUpdateWhere.mockResolvedValue(undefined);
+
+    const { authenticateApiKey } = await import("./api-auth");
+    const request = new Request("https://api.scontrinozero.it/v1/receipts", {
+      headers: { authorization: `Bearer ${VALID_LIVE_KEY}` },
+    });
+
+    await authenticateApiKey(request);
+
+    expect(mockWithStatementTimeout).toHaveBeenCalledWith(
+      2000,
+      expect.any(Function),
+    );
   });
 
   it("non aggiorna last_used_at se aggiornato recentemente (< 10 min)", async () => {
