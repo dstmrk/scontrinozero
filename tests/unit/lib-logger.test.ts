@@ -21,10 +21,21 @@ describe("sanitizeForTelemetry", () => {
       documentId: "doc-uuid",
       businessId: "biz-uuid",
       action: "signUp",
-      ip: "1.2.3.4",
+      ipHash: "h-abc",
     };
     const result = sanitizeForTelemetry(input);
     expect(result).toEqual(input);
+  });
+
+  it("strips raw 'ip' from telemetry (GDPR — P1 REVIEW.md)", () => {
+    const result = sanitizeForTelemetry({
+      userId: "u1",
+      ip: "1.2.3.4",
+      ipHash: "h-abc",
+    });
+    expect(result).not.toHaveProperty("ip");
+    expect(result).toHaveProperty("ipHash", "h-abc");
+    expect(result).toHaveProperty("userId", "u1");
   });
 
   it("strips sensitive fields: password", () => {

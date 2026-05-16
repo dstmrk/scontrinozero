@@ -33,6 +33,8 @@ describe("getStripe", () => {
     expect(instance).toBeDefined();
     expect(mockStripeConstructor).toHaveBeenCalledWith("sk_test_abc", {
       apiVersion: expect.stringContaining("2026"),
+      timeout: expect.any(Number),
+      maxNetworkRetries: expect.any(Number),
     });
   });
 
@@ -43,6 +45,21 @@ describe("getStripe", () => {
       "sk_test_xyz",
       expect.any(Object),
     );
+  });
+
+  it("configures explicit timeout to bound outbound HTTP calls (P2 REVIEW.md)", () => {
+    process.env.STRIPE_SECRET_KEY = "sk_test_timeout";
+    getStripe();
+    const [, opts] = mockStripeConstructor.mock.calls[0] as [
+      string,
+      { timeout: number; maxNetworkRetries: number },
+    ];
+    // Webhook deadline lato Stripe è 30s: budget < deadline per lasciare
+    // spazio ai retry SDK interni.
+    expect(opts.timeout).toBeGreaterThan(0);
+    expect(opts.timeout).toBeLessThan(30_000);
+    // Almeno 1 retry per assorbire blip transienti senza eccedere il deadline.
+    expect(opts.maxNetworkRetries).toBeGreaterThanOrEqual(1);
   });
 });
 

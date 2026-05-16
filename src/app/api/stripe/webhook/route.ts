@@ -201,10 +201,26 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
       const session = event.data.object as Stripe.Checkout.Session;
       if (typeof session.subscription !== "string" || !session.customer) break;
 
-      // Retrieve full subscription object for price/interval data
-      const stripeSub = await stripe.subscriptions.retrieve(
-        session.subscription,
-      );
+      // Retrieve full subscription object for price/interval data.
+      // Stripe SDK enforce timeout + auto-retry (vedi getStripe). Loggiamo
+      // qui con errorClass per discriminare nei dashboard gli errori del
+      // call outbound dagli errori della logica DB downstream.
+      let stripeSub: Stripe.Subscription;
+      try {
+        stripeSub = await stripe.subscriptions.retrieve(session.subscription);
+      } catch (err) {
+        logger.error(
+          {
+            err,
+            eventType: event.type,
+            errorClass: (err as Error)?.constructor?.name ?? "Unknown",
+          },
+          "stripe.subscriptions.retrieve failed in webhook",
+        );
+        // Rilancia: il claim verrà rilasciato da processWithClaimRelease e
+        // Stripe ritenterà l'evento.
+        throw err;
+      }
       await syncSubscriptionData(db, session.customer as string, stripeSub);
       break;
     }

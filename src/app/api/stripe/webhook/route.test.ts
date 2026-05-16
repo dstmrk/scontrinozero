@@ -441,6 +441,42 @@ describe("POST /api/stripe/webhook — checkout.session.completed type guard", (
     expect(mockSubscriptionsRetrieve).toHaveBeenCalledWith("sub_123");
     expect(mockTransaction).toHaveBeenCalled();
   });
+
+  it("logga errorClass + rilascia il claim se stripe.subscriptions.retrieve fallisce (P2 REVIEW.md)", async () => {
+    class StripeConnectionError extends Error {
+      constructor() {
+        super("upstream connect timeout");
+        this.name = "StripeConnectionError";
+      }
+    }
+    mockSubscriptionsRetrieve.mockRejectedValue(new StripeConnectionError());
+
+    mockConstructEvent.mockReturnValue({
+      id: "evt_co_err_001",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          subscription: "sub_123",
+          customer: "cus_123",
+        },
+      },
+    });
+
+    const res = await POST(makeRequest());
+    // 500 → Stripe retries; claim released so the retry can re-process.
+    expect(res.status).toBe(500);
+    expect(mockSubscriptionsRetrieve).toHaveBeenCalled();
+    // Structured log con errorClass per dashboard/observability
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errorClass: "StripeConnectionError",
+        eventType: "checkout.session.completed",
+      }),
+      expect.stringContaining("stripe.subscriptions.retrieve"),
+    );
+    // DELETE chiamato per liberare il claim atomico
+    expect(mockDelete).toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/stripe/webhook — checkout.session.expired", () => {
