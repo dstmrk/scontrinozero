@@ -54,6 +54,7 @@ vi.mock("@/lib/stripe", () => ({
   getStripe: mockGetStripe,
   planFromPriceId: mockPlanFromPriceId,
   intervalFromPriceId: mockIntervalFromPriceId,
+  STRIPE_WEBHOOK_REQUEST_OPTIONS: { timeout: 10_000, maxNetworkRetries: 2 },
 }));
 
 vi.mock("@/db", () => ({
@@ -214,7 +215,16 @@ describe("POST /api/stripe/webhook", () => {
     const response = await POST(makeWebhookRequest("{}"));
 
     expect(response.status).toBe(200);
-    expect(mockSubscriptionsRetrieve).toHaveBeenCalledWith("sub_123");
+    // Stripe SDK signature: retrieve(id, params?, options?).
+    // P2 REVIEW.md: timeout + maxNetworkRetries per-request nel webhook path.
+    expect(mockSubscriptionsRetrieve).toHaveBeenCalledWith(
+      "sub_123",
+      undefined,
+      expect.objectContaining({
+        timeout: expect.any(Number),
+        maxNetworkRetries: expect.any(Number),
+      }),
+    );
     expect(mockUpdate).toHaveBeenCalled();
   });
 

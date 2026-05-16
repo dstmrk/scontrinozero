@@ -2,20 +2,30 @@ import Stripe from "stripe";
 
 const STRIPE_API_VERSION = "2026-04-22.dahlia" as const;
 
-// Timeout esplicito su ogni chiamata HTTP outbound a Stripe.
-// Motivazione (P2 REVIEW.md): il webhook handler chiama
-// `stripe.subscriptions.retrieve` sincronicamente prima di acknoledgiare;
-// senza timeout, una degradazione esterna farebbe pendere il worker
-// indefinitamente (default Node ~120s socket idle), saturando il pool
-// e amplificando i retry concorrenti di Stripe (deadline ack 30s).
-// 10s è 3x il p99 osservato per `subscriptions.retrieve` (< 800ms) ma
-// resta sotto il deadline di Stripe permettendo retry interni.
-const STRIPE_REQUEST_TIMEOUT_MS = 10_000;
-
-// maxNetworkRetries: la SDK ritenta automaticamente con exponential backoff
-// errori transienti (5xx Stripe, network blip, timeout). 2 retry sono
-// sufficienti per assorbire i blip senza eccedere il deadline ack del webhook.
-const STRIPE_MAX_NETWORK_RETRIES = 2;
+/**
+ * Per-request options da applicare alle chiamate Stripe nel webhook handler.
+ *
+ * Motivazione (P2 REVIEW.md): il webhook handler invoca
+ * `stripe.subscriptions.retrieve` sincronicamente prima di acknoledgiare;
+ * senza timeout, una degradazione esterna farebbe pendere il worker
+ * indefinitamente, saturando il pool e amplificando i retry concorrenti
+ * di Stripe (deadline ack 30s).
+ *
+ * IMPORTANTE: NON va applicato globalmente al singleton — i write delle
+ * route checkout/portal (`customers.create`, `checkout.sessions.create`)
+ * non passano un `Idempotency-Key` esplicito a livello applicativo. Se la
+ * SDK timeoutasse client-side dopo che Stripe ha completato il write, un
+ * retry utente creerebbe risorse duplicate. Quei write devono mantenere
+ * il timeout di default più ampio della SDK; il webhook resta bounded
+ * grazie agli override per-request qui sotto.
+ *
+ * 10s = ~3x p99 osservato per `subscriptions.retrieve` (< 800ms), sotto
+ * il deadline ack di Stripe e con margine per i 2 retry SDK.
+ */
+export const STRIPE_WEBHOOK_REQUEST_OPTIONS: Stripe.RequestOptions = {
+  timeout: 10_000,
+  maxNetworkRetries: 2,
+};
 
 // Module-level singleton: one instance per Node.js process.
 // Avoids creating a new Stripe client on every call to getStripe() which adds
@@ -36,8 +46,6 @@ export function getStripe(): Stripe {
   if (!_stripe) {
     _stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
       apiVersion: STRIPE_API_VERSION,
-      timeout: STRIPE_REQUEST_TIMEOUT_MS,
-      maxNetworkRetries: STRIPE_MAX_NETWORK_RETRIES,
     });
   }
   return _stripe;
