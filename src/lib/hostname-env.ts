@@ -53,6 +53,21 @@ export function parseTrustedHostnameEnv(
   return stripTrailingDot(trimmed);
 }
 
+// Characters/substrings that disqualify a hostname outright. Listed once so
+// the syntax check stays linear and the rule is easy to extend.
+const FORBIDDEN_HOSTNAME_SUBSTRINGS = ["://", "/", "?", "#", ":", " "] as const;
+const HOSTNAME_LABEL_RE = /^[a-z0-9-]+$/;
+
+function hasForbiddenChars(value: string): boolean {
+  return FORBIDDEN_HOSTNAME_SUBSTRINGS.some((s) => value.includes(s));
+}
+
+function isValidLabel(label: string): boolean {
+  if (label.length === 0 || label.length > 63) return false;
+  if (label.startsWith("-") || label.endsWith("-")) return false;
+  return HOSTNAME_LABEL_RE.test(label);
+}
+
 /**
  * Strict hostname syntax check.
  *
@@ -61,25 +76,14 @@ export function parseTrustedHostnameEnv(
  */
 function isValidHostnameSyntax(value: string): boolean {
   if (value.length === 0 || value.length > 253) return false;
-  if (value.includes("://")) return false;
-  if (value.includes("/")) return false;
-  if (value.includes("?")) return false;
-  if (value.includes("#")) return false;
-  if (value.includes(":")) return false;
-  if (value.includes(" ")) return false;
+  if (hasForbiddenChars(value)) return false;
   if (value.startsWith(".") || value.startsWith("-")) return false;
 
   // Each label: 1..63 chars, [a-z0-9-], no leading/trailing hyphen.
   // Strip a single trailing dot for the per-label check (root FQDN form).
   const bare = stripTrailingDot(value);
   if (bare.length === 0) return false;
-  const labels = bare.split(".");
-  for (const label of labels) {
-    if (label.length === 0 || label.length > 63) return false;
-    if (label.startsWith("-") || label.endsWith("-")) return false;
-    if (!/^[a-z0-9-]+$/.test(label)) return false;
-  }
-  return true;
+  return bare.split(".").every(isValidLabel);
 }
 
 function stripTrailingDot(value: string): string {

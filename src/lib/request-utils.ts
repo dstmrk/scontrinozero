@@ -1,83 +1,90 @@
-/**
- * Reads the request body as raw bytes, enforcing a maximum size limit.
- *
- * Three-layer protection:
- * 1. Content-Length fast-path: rejects immediately (before any I/O) when the
- *    declared size already exceeds the limit.
- * 2. Pre-allocation when Content-Length is valid: a single Uint8Array sized to
- *    the declared length is filled in-place from the stream — no chunks[] array,
- *    no second-pass merge. Covers the common case (Stripe webhooks, browser fetch).
- * 3. Streaming fallback when Content-Length is absent: still aborts as soon as
- *    the running total exceeds maxBytes — so a large payload is never fully buffered.
- *
- * Returns `{ ok: true, bytes }` on success.
- * Returns `{ ok: false, tooLarge: true }` when the payload exceeds `maxBytes`.
- * Returns `{ ok: false, readError: true }` on I/O failure or missing body.
- */
-async function readBodyWithLimit(
-  req: Request,
-  maxBytes: number,
-): Promise<
+type ReadResult =
   | { ok: true; bytes: Uint8Array }
   | { ok: false; tooLarge: true }
-  | { ok: false; readError: true }
-> {
-  let declaredLength: number | null = null;
-  const contentLength = req.headers.get("content-length");
-  if (contentLength !== null) {
-    const declared = Number.parseInt(contentLength, 10);
-    if (!Number.isNaN(declared)) {
-      if (declared > maxBytes) {
-        return { ok: false, tooLarge: true };
-      }
-      if (declared >= 0) declaredLength = declared;
-    }
-  }
+  | { ok: false; readError: true };
 
-  if (!req.body) {
+type StreamReader = ReadableStreamDefaultReader<Uint8Array>;
+
+/**
+ * Parses the Content-Length header. Returns the declared byte count when the
+ * header is present, parseable, and within `maxBytes`. Returns `"tooLarge"`
+ * when the declared size already exceeds the limit (no I/O needed). Returns
+ * `null` when the header is absent or unusable — caller falls back to streaming.
+ */
+function parseContentLength(
+  req: Request,
+  maxBytes: number,
+): number | "tooLarge" | null {
+  const raw = req.headers.get("content-length");
+  if (raw === null) return null;
+  const declared = Number.parseInt(raw, 10);
+  if (Number.isNaN(declared) || declared < 0) return null;
+  if (declared > maxBytes) return "tooLarge";
+  return declared;
+}
+
+/**
+ * Fast path: pre-allocate a single Uint8Array of the declared size and fill
+ * it in-place. No `chunks[]` array, no merge pass. Defends against clients
+ * that lie about Content-Length (sending more or fewer bytes than declared).
+ */
+async function readPreAllocated(
+  reader: StreamReader,
+  declaredLength: number,
+  maxBytes: number,
+): Promise<ReadResult> {
+  const buffer = new Uint8Array(declaredLength);
+  let offset = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (offset + value.byteLength > declaredLength) {
+        await reader.cancel();
+        // Stream over-delivers vs. declared CL.
+        // - If even the partial extra would push past maxBytes → tooLarge.
+        // - Otherwise the body is untrustworthy: stream already consumed, can't
+        //   restart; signal readError so the caller fails cleanly.
+        return declaredLength + value.byteLength > maxBytes
+          ? { ok: false, tooLarge: true }
+          : { ok: false, readError: true };
+      }
+      buffer.set(value, offset);
+      offset += value.byteLength;
+    }
+  } catch {
     return { ok: false, readError: true };
   }
+  // Client under-delivered → trim.
+  return {
+    ok: true,
+    bytes: offset === declaredLength ? buffer : buffer.subarray(0, offset),
+  };
+}
 
-  const reader = req.body.getReader();
+/**
+ * Picks the next buffer size when the growing-buffer path needs more room.
+ * Doubles from the current size until it fits, then caps at `maxBytes`.
+ */
+function nextBufferSize(
+  currentSize: number,
+  required: number,
+  maxBytes: number,
+): number {
+  let next = currentSize * 2;
+  while (next < required) next *= 2;
+  return Math.min(next, maxBytes);
+}
 
-  // Fast path: trusted Content-Length → pre-allocate exact size, fill in-place.
-  // Avoids the chunks[] + final merge double allocation entirely.
-  if (declaredLength !== null) {
-    const buffer = new Uint8Array(declaredLength);
-    let offset = 0;
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        // Client lied about Content-Length (sent more than declared).
-        // Cap at declared+1 so we report tooLarge consistently instead of
-        // crashing with a RangeError on buffer.set.
-        if (offset + value.byteLength > declaredLength) {
-          await reader.cancel();
-          if (declaredLength + value.byteLength > maxBytes) {
-            return { ok: false, tooLarge: true };
-          }
-          // Declared ≤ maxBytes but actual exceeds declared and still ≤ maxBytes:
-          // fall through to a fresh streaming read would require re-reading the
-          // body (impossible — stream is consumed). Treat as readError.
-          return { ok: false, readError: true };
-        }
-        buffer.set(value, offset);
-        offset += value.byteLength;
-      }
-    } catch {
-      return { ok: false, readError: true };
-    }
-    // Client lied (sent less than declared) → trim.
-    return {
-      ok: true,
-      bytes: offset === declaredLength ? buffer : buffer.subarray(0, offset),
-    };
-  }
-
-  // Streaming fallback (no Content-Length): grow a single buffer by doubling,
-  // copying once on each grow. Worst case allocation is 2× the final size,
-  // but no per-chunk array + final merge pass.
+/**
+ * Fallback path (no Content-Length): grows a single buffer by doubling.
+ * Aborts as soon as the running total exceeds `maxBytes` — large payloads
+ * are never fully buffered. Worst-case allocation is 2× the final size.
+ */
+async function readGrowingBuffer(
+  reader: StreamReader,
+  maxBytes: number,
+): Promise<ReadResult> {
   let buffer = new Uint8Array(Math.min(4096, maxBytes));
   let totalBytes = 0;
 
@@ -91,10 +98,9 @@ async function readBodyWithLimit(
         return { ok: false, tooLarge: true };
       }
       if (nextTotal > buffer.byteLength) {
-        let newSize = buffer.byteLength * 2;
-        while (newSize < nextTotal) newSize *= 2;
-        if (newSize > maxBytes) newSize = maxBytes;
-        const grown = new Uint8Array(newSize);
+        const grown = new Uint8Array(
+          nextBufferSize(buffer.byteLength, nextTotal, maxBytes),
+        );
         grown.set(buffer.subarray(0, totalBytes), 0);
         buffer = grown;
       }
@@ -112,6 +118,32 @@ async function readBodyWithLimit(
         ? buffer
         : buffer.subarray(0, totalBytes),
   };
+}
+
+/**
+ * Reads the request body as raw bytes, enforcing a maximum size limit.
+ *
+ * Three-layer protection:
+ * 1. Content-Length fast-path: rejects immediately when the declared size
+ *    already exceeds the limit (no I/O).
+ * 2. Pre-allocation when CL is valid: single Uint8Array sized exactly,
+ *    filled in-place. Covers the common case (Stripe webhooks, browser fetch).
+ * 3. Streaming fallback when CL is absent: single growing buffer, no
+ *    chunks[] array. Aborts at maxBytes — large payloads never fully buffered.
+ */
+async function readBodyWithLimit(
+  req: Request,
+  maxBytes: number,
+): Promise<ReadResult> {
+  const declared = parseContentLength(req, maxBytes);
+  if (declared === "tooLarge") return { ok: false, tooLarge: true };
+
+  if (!req.body) return { ok: false, readError: true };
+
+  const reader = req.body.getReader();
+  return declared !== null
+    ? readPreAllocated(reader, declared, maxBytes)
+    : readGrowingBuffer(reader, maxBytes);
 }
 
 /**
