@@ -388,6 +388,32 @@ non è compatibile con MFA. Da verificare configurazione Supabase di prod: se MF
 - B21 (nuovo) — `stripe_webhook_events` RLS no-policy: commento SQL esplicito su
   default-deny intenzionale per evitare regression future (docs only, P3).
 
+**Follow-up hardening (2026-05-15)** — passata indipendente post v1.2.15. 2 P1 + 1 P2
+chiusi tutti immediatamente (zero postponed, audit completato in REVIEW.md prima della
+cancellazione del file):
+
+- ✅ **P1-01** — Turnstile action validation: `verifyCaptcha` ora verifica che il campo
+  `action` del token (echoed da Cloudflare siteverify) corrisponda al flow corrente
+  (`signup` / `signin` / `reset-password`). Senza questo check, un token catturato su
+  signup poteva essere riusato su signin/reset-password entro la finestra di validità
+  (cross-flow replay). `TurnstileWidget` accetta prop `action`; pagine `/login`,
+  `/reset-password`, `/register` la passano. Log strutturato `captcha_action_mismatch`
+  sul mismatch.
+- ✅ **P1-02** — `getTrustedAppUrl()` helper in `src/lib/trusted-app-url.ts`: validazione
+  runtime di `NEXT_PUBLIC_APP_URL` (`https:` obbligatorio in produzione, hostname in
+  allowlist derivata da `APP_HOSTNAME` / `NEXT_PUBLIC_APP_HOSTNAME`). Stripe checkout
+  e portal route catch `TrustedAppUrlError` e ritornano 503 fail-closed. Defense-in-depth
+  contro misconfigurazione env o pipeline compromessa (i `success_url` / `cancel_url` /
+  `return_url` passati a Stripe non possono più puntare a domini non fidati).
+- ✅ **P2-01** — `checkRateLimit` ora logga `ipHash` (via helper `hashIp` esistente)
+  invece dell'IP raw. Allinea al pattern già usato in `signIn` failure log e in
+  `csp-report`; riduce esposizione PII nei sistemi downstream (Sentry, log shipping).
+
+**Closeout:**
+
+- ✅ Test suite 2151/2151 verde, lint pulito, prettier pulito, tsc clean
+- ✅ REVIEW.md eliminato (audit completato, dettagli nella PR e nei commit)
+
 ---
 
 ### v1.2.16+ — Lancio hard (milestone gated) ⬜

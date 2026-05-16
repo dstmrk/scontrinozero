@@ -5,6 +5,7 @@ import { getAuthenticatedUser } from "@/lib/server-auth";
 import { getStripe } from "@/lib/stripe";
 import { RateLimiter } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
+import { getTrustedAppUrl, TrustedAppUrlError } from "@/lib/trusted-app-url";
 
 const portalLimiter = new RateLimiter({
   maxRequests: 10,
@@ -41,7 +42,23 @@ async function createPortalSession(userId: string): Promise<Response | string> {
   }
 
   // ── Create Billing Portal session ─────────────────────────────────────────
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  // P1-02: validate appUrl prima di passare a Stripe — una misconfigurazione
+  // env produrrebbe `return_url` verso un dominio non fidato dopo il portal.
+  let appUrl: string;
+  try {
+    appUrl = getTrustedAppUrl();
+  } catch (err) {
+    if (err instanceof TrustedAppUrlError) {
+      return Response.json(
+        {
+          error:
+            "Servizio di pagamento temporaneamente non disponibile. Riprova tra qualche istante.",
+        },
+        { status: 503 },
+      );
+    }
+    throw err;
+  }
   const stripe = getStripe();
   let session: Awaited<ReturnType<typeof stripe.billingPortal.sessions.create>>;
   try {

@@ -106,9 +106,14 @@ describe("resetPassword — hostname validation", () => {
     process.env.TURNSTILE_SECRET_KEY = "test-secret";
     mockRateLimiterCheck.mockReturnValue({ success: true });
     mockSendEmail.mockResolvedValue(undefined);
+    // P1-01: verifyCaptcha validates `action` — echo "reset-password".
     mockFetch.mockResolvedValue({
       ok: true,
-      json: async () => ({ success: true, hostname: EXPECTED_HOSTNAME }),
+      json: async () => ({
+        success: true,
+        hostname: EXPECTED_HOSTNAME,
+        action: "reset-password",
+      }),
     });
     setupRedirectThrows();
   });

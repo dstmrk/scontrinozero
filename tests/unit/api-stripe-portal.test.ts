@@ -52,6 +52,19 @@ vi.mock("@/lib/logger", () => ({
   logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 
+const { mockGetTrustedAppUrl } = vi.hoisted(() => ({
+  mockGetTrustedAppUrl: vi.fn(),
+}));
+vi.mock("@/lib/trusted-app-url", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/trusted-app-url")>(
+    "@/lib/trusted-app-url",
+  );
+  return {
+    ...actual,
+    getTrustedAppUrl: mockGetTrustedAppUrl,
+  };
+});
+
 import { POST } from "@/app/api/stripe/portal/route";
 
 // --- Helpers ---
@@ -69,6 +82,7 @@ describe("POST /api/stripe/portal", () => {
     vi.clearAllMocks();
 
     process.env.NEXT_PUBLIC_APP_URL = "https://test.scontrinozero.it";
+    mockGetTrustedAppUrl.mockReturnValue("https://test.scontrinozero.it");
 
     mockRateLimiterCheck.mockReturnValue({
       success: true,
@@ -165,6 +179,7 @@ describe("POST /api/stripe/portal", () => {
 
   it("uses localhost as fallback when NEXT_PUBLIC_APP_URL is not set", async () => {
     delete process.env.NEXT_PUBLIC_APP_URL;
+    mockGetTrustedAppUrl.mockReturnValue("http://localhost:3000");
     await POST(makeRequest());
     expect(mockPortalSessionCreate).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -114,15 +114,25 @@ function isRedirectError(
 describe("auth-actions", () => {
   afterEach(() => vi.unstubAllEnvs());
 
+  // Helper: builds a Turnstile siteverify response. Each describe block calls
+  // it in its own beforeEach to set the matching `action` (signup / signin /
+  // reset-password) — P1-01: verifyCaptcha now rejects tokens whose action
+  // does not match the flow.
+  function captchaResponse(action: string, hostname = "app.scontrinozero.it") {
+    return {
+      ok: true,
+      json: async () => ({ success: true, hostname, action }),
+    };
+  }
+
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.TURNSTILE_SECRET_KEY = "test-secret";
     process.env.NEXT_PUBLIC_APP_HOSTNAME = "app.scontrinozero.it";
     mockRateLimiterCheck.mockReturnValue({ success: true, remaining: 4 });
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ success: true, hostname: "app.scontrinozero.it" }),
-    });
+    // Default: action="signup" (most-tested). signIn / resetPassword describe
+    // blocks override this in nested beforeEach with the matching action.
+    mockFetch.mockResolvedValue(captchaResponse("signup"));
     mockGenerateLink.mockResolvedValue({
       data: {
         properties: {
@@ -242,13 +252,9 @@ describe("auth-actions", () => {
 
     it("uses APP_HOSTNAME as emailRedirectTo when set (sandbox override)", async () => {
       vi.stubEnv("APP_HOSTNAME", "sandbox.scontrinozero.it");
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          hostname: "sandbox.scontrinozero.it",
-        }),
-      });
+      mockFetch.mockResolvedValueOnce(
+        captchaResponse("signup", "sandbox.scontrinozero.it"),
+      );
       mockSignUp.mockResolvedValue({
         data: { user: { id: "user-123" } },
         error: null,
@@ -316,6 +322,37 @@ describe("auth-actions", () => {
         }),
       );
       expect(result.error).toContain("Troppi tentativi");
+    });
+
+    it("P2-01: rate-limit warning log uses ipHash, never raw IP", async () => {
+      mockRateLimiterCheck.mockReturnValue({ success: false, remaining: 0 });
+      const { logger } = await import("@/lib/logger");
+
+      const { signUp } = await import("./auth-actions");
+      await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "valid-token",
+        }),
+      );
+
+      const warnCalls = vi.mocked(logger.warn).mock.calls;
+      const rateLimitCall = warnCalls.find(
+        (c) => c[1] === "Auth rate limit exceeded",
+      );
+      if (!rateLimitCall) {
+        throw new Error("Expected rate-limit warn log to have been emitted");
+      }
+      const payload = rateLimitCall[0] as Record<string, unknown>;
+      expect(payload).toHaveProperty("ipHash");
+      expect(payload).not.toHaveProperty("ip");
+      // Hash for "127.0.0.1" should be a short hex string, not the raw IP.
+      expect(payload.ipHash).not.toBe("127.0.0.1");
+      expect(typeof payload.ipHash).toBe("string");
     });
 
     it("redirects to verify-email when signUp returns null user without error (duplicate unconfirmed email)", async () => {
@@ -640,13 +677,9 @@ describe("auth-actions", () => {
     });
 
     it("returns captcha error when Turnstile hostname doesn't match expected app hostname", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          hostname: "evil.example.com",
-        }),
-      });
+      mockFetch.mockResolvedValueOnce(
+        captchaResponse("signup", "evil.example.com"),
+      );
 
       const { signUp } = await import("./auth-actions");
       const result = await signUp(
@@ -665,10 +698,9 @@ describe("auth-actions", () => {
 
     it("passes captcha when Turnstile hostname matches NEXT_PUBLIC_APP_HOSTNAME", async () => {
       process.env.NEXT_PUBLIC_APP_HOSTNAME = "custom.myapp.com";
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, hostname: "custom.myapp.com" }),
-      });
+      mockFetch.mockResolvedValueOnce(
+        captchaResponse("signup", "custom.myapp.com"),
+      );
       mockSignUp.mockResolvedValue({
         data: { user: { id: "user-1" } },
         error: null,
@@ -696,13 +728,9 @@ describe("auth-actions", () => {
     it("APP_HOSTNAME takes precedence over NEXT_PUBLIC_APP_HOSTNAME for Turnstile validation", async () => {
       process.env.APP_HOSTNAME = "sandbox.scontrinozero.it";
       process.env.NEXT_PUBLIC_APP_HOSTNAME = "app.scontrinozero.it";
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          hostname: "sandbox.scontrinozero.it",
-        }),
-      });
+      mockFetch.mockResolvedValueOnce(
+        captchaResponse("signup", "sandbox.scontrinozero.it"),
+      );
       mockSignUp.mockResolvedValue({
         data: { user: { id: "user-1" } },
         error: null,
@@ -727,6 +755,58 @@ describe("auth-actions", () => {
       expect(mockSignUp).toHaveBeenCalled();
 
       delete process.env.APP_HOSTNAME;
+    });
+
+    it("P1-01: rejects a captcha token whose action does not match (cross-flow replay)", async () => {
+      // Simulate replay: a token solved for signin/reset-password is presented
+      // to signUp. verifyCaptcha must refuse it even though success+hostname
+      // are valid.
+      mockFetch.mockResolvedValueOnce(
+        captchaResponse("signin"), // action mismatch (signUp expects "signup")
+      );
+
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "stolen-from-signin",
+        }),
+      );
+
+      expect(result).toEqual({ error: "Verifica CAPTCHA fallita. Riprova." });
+      expect(mockSignUp).not.toHaveBeenCalled();
+    });
+
+    it("P1-01: rejects a captcha token when action is missing from response", async () => {
+      // Older client integrations or misconfigured widgets may not attach an
+      // action. We treat missing action as mismatch — fail-closed.
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          hostname: "app.scontrinozero.it",
+          // action intentionally omitted
+        }),
+      });
+
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "no-action-token",
+        }),
+      );
+
+      expect(result).toEqual({ error: "Verifica CAPTCHA fallita. Riprova." });
+      expect(mockSignUp).not.toHaveBeenCalled();
     });
 
     it("falls back to hardcoded default when both APP_HOSTNAME and NEXT_PUBLIC_APP_HOSTNAME are unset", async () => {
@@ -759,6 +839,11 @@ describe("auth-actions", () => {
   });
 
   describe("signIn", () => {
+    beforeEach(() => {
+      // P1-01: signIn expects action="signin"
+      mockFetch.mockResolvedValue(captchaResponse("signin"));
+    });
+
     it("returns error for invalid email", async () => {
       const { signIn } = await import("./auth-actions");
       const result = await signIn(formData({ email: "bad", password: "pass" }));
@@ -862,6 +947,11 @@ describe("auth-actions", () => {
   });
 
   describe("resetPassword", () => {
+    beforeEach(() => {
+      // P1-01: resetPassword expects action="reset-password"
+      mockFetch.mockResolvedValue(captchaResponse("reset-password"));
+    });
+
     it("P2-02: returns captcha error when token is missing (prevents email-bomb)", async () => {
       const { resetPassword } = await import("./auth-actions");
       const result = await resetPassword(
@@ -1058,13 +1148,9 @@ describe("auth-actions", () => {
     it("APP_HOSTNAME takes precedence over NEXT_PUBLIC_APP_HOSTNAME for action_link validation", async () => {
       process.env.APP_HOSTNAME = "sandbox.scontrinozero.it";
       process.env.NEXT_PUBLIC_APP_HOSTNAME = "app.scontrinozero.it";
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          hostname: "sandbox.scontrinozero.it",
-        }),
-      });
+      mockFetch.mockResolvedValueOnce(
+        captchaResponse("reset-password", "sandbox.scontrinozero.it"),
+      );
       mockGenerateLink.mockResolvedValueOnce({
         data: {
           properties: {
@@ -1114,6 +1200,11 @@ describe("auth-actions", () => {
   });
 
   describe("getClientIp fallback paths", () => {
+    beforeEach(() => {
+      // These tests exercise signIn, which expects action="signin"
+      mockFetch.mockResolvedValue(captchaResponse("signin"));
+    });
+
     it("falls back to x-forwarded-for when cf-connecting-ip is absent", async () => {
       const { headers: headersFn } = await import("next/headers");
       vi.mocked(headersFn).mockResolvedValueOnce({
