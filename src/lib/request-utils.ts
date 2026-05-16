@@ -141,9 +141,9 @@ async function readBodyWithLimit(
   if (!req.body) return { ok: false, readError: true };
 
   const reader = req.body.getReader();
-  return declared !== null
-    ? readPreAllocated(reader, declared, maxBytes)
-    : readGrowingBuffer(reader, maxBytes);
+  return declared === null
+    ? readGrowingBuffer(reader, maxBytes)
+    : readPreAllocated(reader, declared, maxBytes);
 }
 
 /**
