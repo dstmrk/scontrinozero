@@ -30,6 +30,24 @@ const authLimiter = new RateLimiter({
   windowMs: RATE_LIMIT_WINDOWS.AUTH_15_MIN,
 });
 
+/**
+ * Pre-captcha rate limiter (REVIEW.md P1).
+ *
+ * `verifyCaptcha` performs a 5s-timeout HTTP call to Cloudflare Turnstile on
+ * every request. Without an upfront gate, an attacker can force many outbound
+ * Turnstile verifications and tie up server sockets/promises before the
+ * functional auth limiter (5/15min) kicks in.
+ *
+ * Threshold is intentionally **more permissive** than `authLimiter` (30/15min
+ * vs 5/15min): a legitimate user who retries a captcha challenge a handful of
+ * times must never trip the pre-limit. The pre-limit only catches abusive
+ * volumes (bots, scripted floods).
+ */
+const captchaPreLimiter = new RateLimiter({
+  maxRequests: 30,
+  windowMs: RATE_LIMIT_WINDOWS.AUTH_15_MIN,
+});
+
 export type AuthActionResult = {
   error?: string;
   email?: string;
@@ -47,7 +65,33 @@ function checkRateLimit(ip: string, action: string): AuthActionResult | null {
     // P2-01: log l'IP hashato — evita di scrivere PII nei sistemi downstream
     // (Sentry, log shipping, retention). La correlazione tra eventi dallo
     // stesso source resta possibile via hash deterministico (vedi `hashIp`).
-    logger.warn({ ipHash: hashIp(ip), action }, "Auth rate limit exceeded");
+    logger.warn(
+      { ipHash: hashIp(ip), action, errorClass: "auth_rate_limit" },
+      "Auth rate limit exceeded",
+    );
+    return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
+  }
+  return null;
+}
+
+/**
+ * Pre-captcha gate (REVIEW.md P1).
+ *
+ * Returns a rate-limit error result if the IP has exceeded the captcha
+ * pre-limit. Logged with `errorClass: captcha_prelimit` so dashboards can
+ * separate "Turnstile call suppressed" from "auth attempts blocked".
+ */
+function checkCaptchaPreLimit(
+  ip: string,
+  action: CaptchaAction,
+): AuthActionResult | null {
+  const key = `captchaPre:${action}:${ip}`;
+  const result = captchaPreLimiter.check(key);
+  if (!result.success) {
+    logger.warn(
+      { ipHash: hashIp(ip), action, errorClass: "captcha_prelimit" },
+      "Captcha pre-limit exceeded — Turnstile call suppressed",
+    );
     return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
   }
   return null;
@@ -236,6 +280,13 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   if (validationError) return { error: validationError };
 
   const ip = await getClientIpFromNextHeaders();
+  // P1 (REVIEW.md): pre-captcha gate. Suppresses the Turnstile siteverify
+  // call when the IP is already over the abuse threshold — protects the
+  // 5s-timeout outbound HTTP call from being weaponised as a server load
+  // vector before the functional auth limit kicks in.
+  const captchaPreLimited = checkCaptchaPreLimit(ip, "signup");
+  if (captchaPreLimited) return captchaPreLimited;
+
   const captchaOk = await verifyCaptcha(captchaToken, ip, "signup");
   if (!captchaOk) return { error: "Verifica CAPTCHA fallita. Riprova." };
 
@@ -312,6 +363,10 @@ export async function signIn(formData: FormData): Promise<AuthActionResult> {
 
   const captchaToken = getFormString(formData, "captchaToken");
   const ip = await getClientIpFromNextHeaders();
+  // P1 (REVIEW.md): pre-captcha gate prima dell'HTTP call esterna a Turnstile.
+  const captchaPreLimited = checkCaptchaPreLimit(ip, "signin");
+  if (captchaPreLimited) return captchaPreLimited;
+
   // P2-01: Turnstile su signIn — il rate-limit per-IP da solo non frena
   // credential-stuffing su botnet con IP rotation. Il captcha forza un costo
   // marginale per ogni tentativo.
@@ -380,6 +435,10 @@ export async function resetPassword(
 
   const captchaToken = getFormString(formData, "captchaToken");
   const ip = await getClientIpFromNextHeaders();
+  // P1 (REVIEW.md): pre-captcha gate prima dell'HTTP call esterna a Turnstile.
+  const captchaPreLimited = checkCaptchaPreLimit(ip, "reset-password");
+  if (captchaPreLimited) return captchaPreLimited;
+
   // P2-02: Turnstile su resetPassword — endpoint pubblico che fa partire email
   // transazionali via Resend. Senza captcha un attacker può esaurire la quota
   // free-tier (3000/mese) e degradare la deliverability del dominio.
