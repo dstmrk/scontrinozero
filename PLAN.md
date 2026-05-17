@@ -414,6 +414,31 @@ cancellazione del file):
 - ✅ Test suite 2151/2151 verde, lint pulito, prettier pulito, tsc clean
 - ✅ REVIEW.md eliminato (audit completato, dettagli nella PR e nei commit)
 
+**Follow-up code audit (2026-05-17)** — terza passata deep-pass indipendente. 1 P1 +
+1 P2 + 1 P3 chiusi tutti immediatamente (zero postponed, REVIEW.md eliminato
+contestualmente alla chiusura dei fix):
+
+- ✅ **P1** — Pre-captcha rate-limit gate: `signUp`/`signIn`/`resetPassword`
+  ora applicano un pre-limit (30/15min per-IP, bucket `captchaPre:<action>:<ip>`)
+  PRIMA della call esterna a Turnstile. Senza il pre-limit, un attaccante poteva
+  forzare HTTP outbound verso Cloudflare e tenere aperte socket/promise prima
+  che il rate limit funzionale (5/15min) bloccasse l'azione. Log strutturati
+  `errorClass: "captcha_prelimit"` vs `"auth_rate_limit"` per osservabilità.
+- ✅ **P2** — Querystring preservation nel redirect del middleware: `proxy.ts`
+  ora usa `pathname + search` invece del solo `pathname` quando setta il
+  param `redirect` di `/login`. Permette il ripristino dello stato deep-link
+  (es. `/dashboard/storico?from=…&to=…`) post-login. Il consumer
+  (`(auth)/callback/route.ts`) già sanifica il param come path relativa.
+- ✅ **P3** — `RateLimiter` ora chiama `cleanupTimer.unref?.()` subito dopo
+  `setInterval` per non bloccare l'exit del processo Node in contesti
+  short-lived (script, test runner, job one-shot). Comportamento server
+  long-running invariato.
+
+**Closeout:**
+
+- ✅ Test suite 2210/2210 verde, lint pulito, prettier pulito, tsc clean
+- ✅ REVIEW.md eliminato (audit completato)
+
 ---
 
 ### v1.2.16+ — Lancio hard (milestone gated) ⬜

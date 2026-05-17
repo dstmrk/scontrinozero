@@ -354,6 +354,53 @@
     abbassare la soglia in test E2E o ambienti controllati:
     `STALE_PENDING_THRESHOLD_MINUTES=5`.
 
+29. **Double-gate rate limit prima di chiamate esterne costose (Turnstile, AdE, ecc.).**
+    Quando un endpoint pubblico chiama un servizio esterno (HTTP outbound con timeout
+    non banale, es. 5s su Cloudflare siteverify), il rate limit funzionale per-utente
+    (es. 5/15min per auth) **non è sufficiente** a proteggere il costo della call
+    esterna: prima di raggiungere quella soglia un attaccante può già aver generato
+    n×timeout secondi di socket/promise pendenti e n×call HTTP outbound. Pattern
+    obbligato:
+    1. **Pre-limit** con bucket dedicato (`captchaPre:<action>:<ip>`, threshold
+       più permissivo del limite funzionale — es. 30/15min vs 5/15min) PRIMA
+       della chiamata esterna. Non penalizza l'utente legittimo, blocca i volumi
+       abusivi.
+    2. **Limite funzionale post-call** invariato per bloccare brute-force
+       applicativo (credential stuffing, scraping).
+    3. **Log strutturati separati** (`errorClass: "captcha_prelimit"` vs
+       `"auth_rate_limit"`) per dashboard ops che vogliano distinguere
+       "Turnstile call suppressed" da "auth attempts blocked".
+    4. **Bucket keys namespaced** per evitare collision (`captchaPre:<action>:<ip>`
+       vs `<action>:<ip>`).
+    5. **Test invariant cardinale**: con pre-limit failure, `fetch`/external call
+       NON deve mai essere invocata (`expect(mockFetch).not.toHaveBeenCalled()`).
+
+    Applicato a `signUp`/`signIn`/`resetPassword` in v1.2.11 follow-up audit
+    (REVIEW.md P1). Lo stesso pattern si applica a qualsiasi endpoint che
+    inneschi: invio email (Resend), call AdE, generazione PDF costosa, ecc.
+
+30. **`setInterval` in costruttori long-lived: chiamare sempre `.unref?.()`.**
+    Qualsiasi classe che instanzia un `setInterval` nel costruttore (es.
+    `RateLimiter`, scheduler, cache evictor) deve invocare `.unref?.()` sul
+    timer restituito. Senza unref il timer mantiene il process Node alive
+    anche dopo che tutto il lavoro è completato — irrilevante per il container
+    server (event loop ha sempre altre referenze), ma fragile per script
+    one-shot, test runner e job di setup che si aspettano un exit pulito.
+    Optional chaining (`?.`) per safety in edge runtimes che non espongono
+    l'API. Test: spy su `setInterval` con `mockReturnValueOnce({ unref })`
+    e verifica `expect(unref).toHaveBeenCalledTimes(1)` — richiede
+    `vi.useRealTimers()` quando il file usa `vi.useFakeTimers()`.
+
+31. **Redirect param dal middleware deve preservare il querystring.**
+    Quando il middleware (`proxy.ts`) reindirizza a `/login` per autenticazione,
+    il param `redirect` deve essere valorizzato con `pathname + search`, NON solo
+    `pathname`. Una deep link tipo `/dashboard/storico?from=2024-01-01&to=2024-01-31`
+    altrimenti perde i filtri post-login, costringendo l'utente a re-impostare lo
+    stato. Il consumer (`(auth)/callback/route.ts`) deve sanificare il param
+    ricevuto come path relativa (`startsWith("/")` ma NON `startsWith("//")` per
+    bloccare protocol-relative URLs di open redirect) e poi `new URL(redirect, origin)`
+    parsifica correttamente il querystring senza rischi.
+
 ## Progetto
 
 ScontrinoZero è un registratore di cassa virtuale (SaaS) mobile-first che consente a
