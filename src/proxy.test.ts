@@ -117,6 +117,48 @@ describe("proxy", () => {
       expect(location.searchParams.get("redirect")).toBe("/dashboard/settings");
     });
 
+    it("preserves query string in the redirect param (deep-link state)", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(
+        createRequest("/dashboard/storico?from=2024-01-01&to=2024-01-31"),
+      );
+      expect(response.status).toBe(307);
+      const location = new URL(response.headers.get("location")!);
+      expect(location.pathname).toBe("/login");
+      expect(location.searchParams.get("redirect")).toBe(
+        "/dashboard/storico?from=2024-01-01&to=2024-01-31",
+      );
+    });
+
+    it("keeps redirect param equal to pathname when there is no query string", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(createRequest("/dashboard/storico"));
+      expect(response.status).toBe(307);
+      const location = new URL(response.headers.get("location")!);
+      expect(location.searchParams.get("redirect")).toBe("/dashboard/storico");
+    });
+
+    it("preserves query string when Supabase is not configured in production (fail-closed)", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      vi.resetModules();
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(
+        createRequest("/dashboard/storico?from=2024-01-01"),
+      );
+      expect(response.status).toBe(307);
+      const location = new URL(response.headers.get("location")!);
+      expect(location.pathname).toBe("/login");
+      expect(location.searchParams.get("redirect")).toBe(
+        "/dashboard/storico?from=2024-01-01",
+      );
+    });
+
     it("redirects /onboarding to /login", async () => {
       mockGetUser.mockResolvedValue({ data: { user: null } });
       const { proxy } = await import("./proxy");
