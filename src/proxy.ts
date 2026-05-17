@@ -102,11 +102,13 @@ export async function proxy(request: NextRequest) {
   //   senza la guardia che si aspettano. Le pagine pubbliche restano accessibili.
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
     if (process.env.NODE_ENV === "production") {
-      const { pathname } = request.nextUrl;
+      const { pathname, search } = request.nextUrl;
       if (PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
         const loginUrl = request.nextUrl.clone();
         loginUrl.pathname = "/login";
-        loginUrl.searchParams.set("redirect", pathname);
+        // Preserve the original query string so a deep link like
+        // /dashboard/storico?from=…&to=… can fully restore state post-login.
+        loginUrl.searchParams.set("redirect", pathname + search);
         return NextResponse.redirect(loginUrl);
       }
     }
@@ -120,7 +122,7 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
 
   // Protected routes: redirect to /login if not authenticated
   if (
@@ -129,7 +131,9 @@ export async function proxy(request: NextRequest) {
   ) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
-    loginUrl.searchParams.set("redirect", pathname);
+    // Preserve the original query string so a deep link like
+    // /dashboard/storico?from=…&to=… can fully restore state post-login.
+    loginUrl.searchParams.set("redirect", pathname + search);
     const redirectResponse = NextResponse.redirect(loginUrl);
     // Propagate Supabase session cookies so token refresh survives the redirect
     response()

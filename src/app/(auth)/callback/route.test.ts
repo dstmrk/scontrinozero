@@ -97,6 +97,22 @@ describe("auth callback route", () => {
     expect(location.pathname).toBe("/dashboard");
   });
 
+  it("preserves query string inside the redirect param (deep-link state)", async () => {
+    mockExchangeCodeForSession.mockResolvedValue({ error: null });
+    const { GET } = await import("./route");
+
+    const request = new Request(
+      "http://localhost:3000/callback?code=test-code&redirect=/dashboard/storico%3Ffrom%3D2024-01-01%26to%3D2024-01-31",
+    );
+    const response = await GET(request);
+
+    const location = new URL(response.headers.get("location")!);
+    expect(location.hostname).toBe("localhost");
+    expect(location.pathname).toBe("/dashboard/storico");
+    expect(location.searchParams.get("from")).toBe("2024-01-01");
+    expect(location.searchParams.get("to")).toBe("2024-01-31");
+  });
+
   it("ignores protocol-relative redirect (//evil.com) to prevent open redirect", async () => {
     mockExchangeCodeForSession.mockResolvedValue({ error: null });
     const { GET } = await import("./route");

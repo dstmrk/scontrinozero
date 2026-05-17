@@ -325,7 +325,10 @@ describe("auth-actions", () => {
     });
 
     it("P2-01: rate-limit warning log uses ipHash, never raw IP", async () => {
-      mockRateLimiterCheck.mockReturnValue({ success: false, remaining: 0 });
+      // Pre-limit pass, post-limit fail — exercises the auth_rate_limit log.
+      mockRateLimiterCheck
+        .mockReturnValueOnce({ success: true, remaining: 29 })
+        .mockReturnValueOnce({ success: false, remaining: 0 });
       const { logger } = await import("@/lib/logger");
 
       const { signUp } = await import("./auth-actions");
@@ -353,6 +356,100 @@ describe("auth-actions", () => {
       // Hash for "127.0.0.1" should be a short hex string, not the raw IP.
       expect(payload.ipHash).not.toBe("127.0.0.1");
       expect(typeof payload.ipHash).toBe("string");
+      expect(payload).toMatchObject({ errorClass: "auth_rate_limit" });
+    });
+
+    it("P1 (REVIEW.md): pre-captcha gate blocks the request before Turnstile siteverify is called", async () => {
+      // First check (pre-limit) returns failure. fetch must never be called.
+      mockRateLimiterCheck.mockReturnValueOnce({
+        success: false,
+        remaining: 0,
+      });
+
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "any-token",
+        }),
+      );
+
+      expect(result.error).toContain("Troppi tentativi");
+      // The cardinal invariant: NO outbound Turnstile call when pre-limit fires.
+      expect(mockFetch).not.toHaveBeenCalled();
+      // post-limit must not be reached either
+      expect(mockRateLimiterCheck).toHaveBeenCalledTimes(1);
+      expect(mockSignUp).not.toHaveBeenCalled();
+    });
+
+    it("P1 (REVIEW.md): pre-captcha gate emits a structured warn log with captcha_prelimit errorClass", async () => {
+      mockRateLimiterCheck.mockReturnValueOnce({
+        success: false,
+        remaining: 0,
+      });
+      const { logger } = await import("@/lib/logger");
+
+      const { signUp } = await import("./auth-actions");
+      await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "any-token",
+        }),
+      );
+
+      const warnCalls = vi.mocked(logger.warn).mock.calls;
+      const preLimitCall = warnCalls.find(
+        (c) =>
+          c[1] === "Captcha pre-limit exceeded — Turnstile call suppressed",
+      );
+      if (!preLimitCall) {
+        throw new Error("Expected pre-captcha warn log to have been emitted");
+      }
+      const payload = preLimitCall[0] as Record<string, unknown>;
+      expect(payload).toMatchObject({
+        errorClass: "captcha_prelimit",
+        action: "signup",
+      });
+      expect(payload).toHaveProperty("ipHash");
+      expect(payload).not.toHaveProperty("ip");
+    });
+
+    it("P1 (REVIEW.md): pre-captcha gate uses a separate bucket key per action and ip", async () => {
+      mockRateLimiterCheck.mockReturnValue({ success: true, remaining: 29 });
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-1" } },
+        error: null,
+      });
+
+      const { signUp } = await import("./auth-actions");
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+          }),
+        );
+      } catch {
+        // redirect expected
+      }
+
+      // First call to the limiter must be the pre-captcha bucket; second must
+      // be the auth bucket. Bucket keys are namespaced to avoid collisions.
+      const calls = mockRateLimiterCheck.mock.calls;
+      expect(calls[0]?.[0]).toMatch(/^captchaPre:signup:/);
+      expect(calls[1]?.[0]).toMatch(/^signUp:/);
     });
 
     it("redirects to verify-email when signUp returns null user without error (duplicate unconfirmed email)", async () => {

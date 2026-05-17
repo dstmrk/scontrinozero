@@ -129,6 +129,28 @@ describe("RateLimiter", () => {
     expect(aFresh.remaining).toBe(4);
   });
 
+  it("unrefs the cleanup timer so it does not keep the Node process alive", () => {
+    // Use real timers for this assertion: fake-timer setInterval may not expose
+    // the same `unref` semantics we need to spy on. Restoring fake timers is
+    // covered by the afterEach.
+    vi.useRealTimers();
+
+    const unref = vi.fn();
+    const fakeTimer = { unref, ref: vi.fn() };
+    const setIntervalSpy = vi
+      .spyOn(globalThis, "setInterval")
+      .mockReturnValueOnce(
+        fakeTimer as unknown as ReturnType<typeof setInterval>,
+      );
+
+    limiter = new RateLimiter({ maxRequests: 1, windowMs: 60_000 });
+
+    expect(setIntervalSpy).toHaveBeenCalled();
+    expect(unref).toHaveBeenCalledTimes(1);
+
+    setIntervalSpy.mockRestore();
+  });
+
   it("does not double-count when re-checking an existing key under the cap", () => {
     limiter = new RateLimiter({
       maxRequests: 5,
