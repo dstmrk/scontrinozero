@@ -56,6 +56,12 @@ export class RateLimiter {
 
     const cleanupMs = options.cleanupIntervalMs ?? 60_000;
     this.cleanupTimer = setInterval(() => this.cleanup(), cleanupMs);
+    // Unref the timer so it doesn't keep the Node.js process alive on shutdown
+    // (scripts, test runners, one-shot jobs). In the long-running server the
+    // timer is harmless because the event loop has other refs; in short-lived
+    // contexts an unref'd timer lets the process exit cleanly even when
+    // `destroy()` was not invoked (CLAUDE.md "no half-finished cleanup").
+    this.cleanupTimer.unref?.();
   }
 
   /**
