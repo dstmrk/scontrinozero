@@ -6,9 +6,27 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod/v4";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { Form, FormInputField } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormInputField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { updateBusiness } from "@/server/profile-actions";
+import { VAT_CODES, VAT_DESCRIPTIONS } from "@/types/cassa";
 import { EditSettingsDialog } from "./edit-settings-dialog";
+
+const NO_VAT_PREFERENCE = "__none__";
 
 const editBusinessSchema = z.object({
   businessName: z
@@ -32,6 +50,7 @@ const editBusinessSchema = z.object({
     .optional()
     .or(z.literal("")),
   zipCode: z.string().regex(/^\d{5}$/, "CAP non valido (5 cifre numeriche)."),
+  preferredVatCode: z.enum(VAT_CODES).or(z.literal("")).optional(),
 });
 
 type EditBusinessData = z.infer<typeof editBusinessSchema>;
@@ -44,6 +63,7 @@ interface EditBusinessSectionProps {
   readonly city: string | null;
   readonly province: string | null;
   readonly zipCode: string | null;
+  readonly preferredVatCode: string | null;
 }
 
 export function EditBusinessSection({
@@ -54,6 +74,7 @@ export function EditBusinessSection({
   city,
   province,
   zipCode,
+  preferredVatCode,
 }: EditBusinessSectionProps) {
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
@@ -65,6 +86,9 @@ export function EditBusinessSection({
     city: city ?? "",
     province: province ?? "",
     zipCode: zipCode ?? "",
+    preferredVatCode: (preferredVatCode ?? "") as
+      | (typeof VAT_CODES)[number]
+      | "",
   };
 
   const form = useForm<EditBusinessData>({
@@ -82,6 +106,7 @@ export function EditBusinessSection({
       fd.set("city", data.city ?? "");
       fd.set("province", data.province ?? "");
       fd.set("zipCode", data.zipCode);
+      fd.set("preferredVatCode", data.preferredVatCode ?? "");
       return updateBusiness(fd);
     },
     onSuccess: (result) => {
@@ -107,6 +132,9 @@ export function EditBusinessSection({
       city: city ?? "",
       province: province ?? "",
       zipCode: zipCode ?? "",
+      preferredVatCode: (preferredVatCode ?? "") as
+        | (typeof VAT_CODES)[number]
+        | "",
     });
     setIsOpen(true);
   }
@@ -135,6 +163,40 @@ export function EditBusinessSection({
           label="Ragione sociale"
           autoComplete="organization"
           disabled={mutation.isPending}
+        />
+
+        <FormField
+          control={form.control}
+          name="preferredVatCode"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Aliquota IVA prevalente</FormLabel>
+              <Select
+                onValueChange={(value) =>
+                  field.onChange(value === NO_VAT_PREFERENCE ? "" : value)
+                }
+                value={field.value === "" ? NO_VAT_PREFERENCE : field.value}
+                disabled={mutation.isPending}
+              >
+                <FormControl>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Nessuna preferenza" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value={NO_VAT_PREFERENCE}>
+                    Nessuna preferenza
+                  </SelectItem>
+                  {VAT_CODES.map((code) => (
+                    <SelectItem key={code} value={code}>
+                      {VAT_DESCRIPTIONS[code]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
         />
 
         <div className="grid grid-cols-3 gap-3">

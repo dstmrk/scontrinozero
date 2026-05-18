@@ -15,6 +15,7 @@ import {
   isValidItalianZipCode,
   ITALIAN_ZIP_MESSAGE,
 } from "@/lib/validation";
+import { isInvalidPreferredVatCode } from "@/types/cassa";
 import { getClientIp } from "@/lib/get-client-ip";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
@@ -42,6 +43,44 @@ const changePasswordLimiter = new RateLimiter({
   // same threshold as other auth actions
   windowMs: RATE_LIMIT_WINDOWS.AUTH_15_MIN,
 });
+
+/**
+ * Builds the `preferredVatCode` slice of the business UPDATE payload AND emits
+ * the audit log when the value actually changes. Returns an empty patch when
+ * the field is absent from the submission so the existing value is preserved.
+ *
+ * Extracted as a helper to keep `updateBusiness` under SonarCloud's Cognitive
+ * Complexity threshold (S3776).
+ */
+async function preparePreferredVatCodeUpdate(opts: {
+  hasField: boolean;
+  newValue: string | null;
+  businessId: string;
+  userId: string;
+}): Promise<{ preferredVatCode?: string | null }> {
+  if (!opts.hasField) return {};
+
+  const [current] = await getDb()
+    .select({ preferredVatCode: businesses.preferredVatCode })
+    .from(businesses)
+    .where(eq(businesses.id, opts.businessId))
+    .limit(1);
+  const oldValue = current?.preferredVatCode ?? null;
+
+  if (oldValue !== opts.newValue) {
+    logger.info(
+      {
+        userId: opts.userId,
+        businessId: opts.businessId,
+        oldVatCode: oldValue,
+        newVatCode: opts.newValue,
+      },
+      "Business preferred VAT code changed",
+    );
+  }
+
+  return { preferredVatCode: opts.newValue };
+}
 
 export async function updateProfile(
   formData: FormData,
@@ -89,6 +128,14 @@ export async function updateBusiness(
   const province = getFormStringOrNull(formData, "province");
   const zipCode = getFormString(formData, "zipCode");
 
+  // Distinguish "field absent" (don't touch) from "field present and empty"
+  // (clear the preference). A missing key would otherwise wipe the existing
+  // value AND emit a misleading audit event.
+  const hasPreferredVatCode = formData.has("preferredVatCode");
+  const preferredVatCode = hasPreferredVatCode
+    ? getFormStringOrNull(formData, "preferredVatCode")
+    : null;
+
   if (!businessId) return { error: "Business ID mancante." };
   if (businessName && businessName.length > 120)
     return { error: "La ragione sociale non può superare 120 caratteri." };
@@ -100,6 +147,8 @@ export async function updateBusiness(
   if (province && province.length > 3)
     return { error: "La provincia non può superare 3 caratteri." };
   if (!isValidItalianZipCode(zipCode)) return { error: ITALIAN_ZIP_MESSAGE };
+  if (hasPreferredVatCode && isInvalidPreferredVatCode(preferredVatCode))
+    return { error: "Aliquota IVA non valida." };
 
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) return ownershipError;
@@ -112,10 +161,24 @@ export async function updateBusiness(
     return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
   }
 
-  const db = getDb();
-  await db
+  const vatPatch = await preparePreferredVatCodeUpdate({
+    hasField: hasPreferredVatCode,
+    newValue: preferredVatCode,
+    businessId,
+    userId: user.id,
+  });
+
+  await getDb()
     .update(businesses)
-    .set({ businessName, address, streetNumber, city, province, zipCode })
+    .set({
+      businessName,
+      address,
+      streetNumber,
+      city,
+      province,
+      zipCode,
+      ...vatPatch,
+    })
     .where(eq(businesses.id, businessId));
 
   revalidatePath("/dashboard/settings");

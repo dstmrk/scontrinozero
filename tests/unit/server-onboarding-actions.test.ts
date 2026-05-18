@@ -112,7 +112,29 @@ vi.mock("@/lib/logger", () => ({
 
 vi.mock("@/lib/validation", () => ({
   adePinSchema: { safeParse: vi.fn().mockReturnValue({ success: true }) },
+  isValidItalianZipCode: vi.fn().mockReturnValue(true),
+  ITALIAN_ZIP_MESSAGE: "CAP non valido (5 cifre numeriche).",
 }));
+
+vi.mock("@/types/cassa", () => {
+  const codes = new Set([
+    "4",
+    "5",
+    "10",
+    "22",
+    "N1",
+    "N2",
+    "N3",
+    "N4",
+    "N5",
+    "N6",
+  ]);
+  return {
+    VAT_CODES: ["4", "5", "10", "22", "N1", "N2", "N3", "N4", "N5", "N6"],
+    isInvalidPreferredVatCode: (code: string | null) =>
+      code !== null && !codes.has(code),
+  };
+});
 
 // --- Helpers ---
 
@@ -273,5 +295,40 @@ describe("verifyAdeCredentials", () => {
     expect(mockUpdateSet).toHaveBeenCalledWith(
       expect.objectContaining({ verifiedAt: expect.any(Date) }),
     );
+  });
+});
+
+describe("saveBusiness preferredVatCode validation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: USER_ID,
+      email: "user@example.com",
+    });
+    mockGetDb.mockReturnValue({
+      select: mockSelect,
+      transaction: mockTransaction,
+    });
+  });
+
+  function makeFd(preferredVatCode: string): FormData {
+    const fd = new FormData();
+    fd.append("firstName", "Mario");
+    fd.append("lastName", "Rossi");
+    fd.append("address", "Via Roma");
+    fd.append("zipCode", "00100");
+    fd.append("preferredVatCode", preferredVatCode);
+    return fd;
+  }
+
+  it("rejects preferredVatCode that is not in VAT_CODES", async () => {
+    const { saveBusiness } = await import("@/server/onboarding-actions");
+
+    const result = await saveBusiness(makeFd("99"));
+
+    expect(result.error).toBe("Aliquota IVA non valida.");
+    // Must not touch the DB beyond validation
+    expect(mockTransaction).not.toHaveBeenCalled();
   });
 });

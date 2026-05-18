@@ -154,6 +154,7 @@ export default async function SettingsPage() {
               city={business.city ?? null}
               province={business.province ?? null}
               zipCode={business.zipCode ?? null}
+              preferredVatCode={business.preferredVatCode ?? null}
             />
           </CardHeader>
           <CardContent className="space-y-2">

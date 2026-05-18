@@ -244,7 +244,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       {
         question: "Cosa cambia se supero gli €85.000 di ricavi?",
         answer:
-          "Esci dal regime forfettario e applichi l'IVA ordinaria dall'anno successivo (o subito se superi €100.000). ScontrinoZero supporta entrambi i regimi: per cambiare l'aliquota prevalente dopo l'onboarding contatta il supporto (un'autonoma riconfigurazione da Impostazioni è prevista in una versione futura).",
+          "Esci dal regime forfettario e applichi l'IVA ordinaria dall'anno successivo (o subito se superi €100.000). ScontrinoZero supporta entrambi i regimi: puoi cambiare l'aliquota IVA prevalente in qualsiasi momento da Impostazioni → Attività → Modifica.",
       },
       {
         question: "Devo applicare la marca da bollo da €2 sullo scontrino?",

@@ -75,6 +75,17 @@ export const VAT_CODES: VatCode[] = [
   "N6",
 ];
 
+const VAT_CODES_SET: ReadonlySet<string> = new Set(VAT_CODES);
+
+/**
+ * Returns true when `code` is non-null and NOT one of the supported VAT codes.
+ * `null` is treated as "no preference" (always valid) — callers that require
+ * a value should check for null separately.
+ */
+export function isInvalidPreferredVatCode(code: string | null): boolean {
+  return code !== null && !VAT_CODES_SET.has(code);
+}
+
 /** Metodi di pagamento disponibili */
 export const PAYMENT_METHODS: PaymentMethod[] = ["PC", "PE"];
 
