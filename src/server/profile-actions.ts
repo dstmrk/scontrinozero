@@ -89,7 +89,14 @@ export async function updateBusiness(
   const city = getFormStringOrNull(formData, "city");
   const province = getFormStringOrNull(formData, "province");
   const zipCode = getFormString(formData, "zipCode");
-  const preferredVatCode = getFormStringOrNull(formData, "preferredVatCode");
+
+  // Distinguish "field absent" (don't touch) from "field present and empty"
+  // (clear the preference). A missing key would otherwise wipe the existing
+  // value AND emit a misleading audit event.
+  const hasPreferredVatCode = formData.has("preferredVatCode");
+  const preferredVatCode = hasPreferredVatCode
+    ? getFormStringOrNull(formData, "preferredVatCode")
+    : null;
 
   if (!businessId) return { error: "Business ID mancante." };
   if (businessName && businessName.length > 120)
@@ -102,7 +109,11 @@ export async function updateBusiness(
   if (province && province.length > 3)
     return { error: "La provincia non può superare 3 caratteri." };
   if (!isValidItalianZipCode(zipCode)) return { error: ITALIAN_ZIP_MESSAGE };
-  if (preferredVatCode && !VAT_CODES.includes(preferredVatCode as VatCode))
+  if (
+    hasPreferredVatCode &&
+    preferredVatCode &&
+    !VAT_CODES.includes(preferredVatCode as VatCode)
+  )
     return { error: "Aliquota IVA non valida." };
 
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
@@ -118,30 +129,36 @@ export async function updateBusiness(
 
   const db = getDb();
 
-  // Read current value to emit an audit log only when the VAT code actually
-  // changes. Switching tax regime (e.g. forfettario N2 → ordinario 22) is a
-  // delicate event we want to trace.
-  const [current] = await db
-    .select({ preferredVatCode: businesses.preferredVatCode })
-    .from(businesses)
-    .where(eq(businesses.id, businessId))
-    .limit(1);
+  // Read the current VAT code only when we may need it for the audit diff —
+  // skip the SELECT entirely when the field is absent from the submission.
+  let oldVatCode: string | null = null;
+  if (hasPreferredVatCode) {
+    const [current] = await db
+      .select({ preferredVatCode: businesses.preferredVatCode })
+      .from(businesses)
+      .where(eq(businesses.id, businessId))
+      .limit(1);
+    oldVatCode = current?.preferredVatCode ?? null;
+  }
+
+  const updatePayload: Partial<typeof businesses.$inferInsert> = {
+    businessName,
+    address,
+    streetNumber,
+    city,
+    province,
+    zipCode,
+  };
+  if (hasPreferredVatCode) {
+    updatePayload.preferredVatCode = preferredVatCode;
+  }
 
   await db
     .update(businesses)
-    .set({
-      businessName,
-      address,
-      streetNumber,
-      city,
-      province,
-      zipCode,
-      preferredVatCode,
-    })
+    .set(updatePayload)
     .where(eq(businesses.id, businessId));
 
-  const oldVatCode = current?.preferredVatCode ?? null;
-  if (oldVatCode !== preferredVatCode) {
+  if (hasPreferredVatCode && oldVatCode !== preferredVatCode) {
     logger.info(
       {
         userId: user.id,

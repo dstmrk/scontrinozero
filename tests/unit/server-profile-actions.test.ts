@@ -393,12 +393,20 @@ describe("updateBusiness server action", () => {
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  it("succeeds when preferredVatCode field is absent from FormData", async () => {
+  it("does NOT touch preferredVatCode when the field is absent from FormData", async () => {
+    // Stale client omits the field — must preserve the existing value AND
+    // skip the audit log (no deliberate change to track).
+    mockSelectLimit.mockResolvedValue([{ preferredVatCode: "22" }]);
+
     const result = await updateBusiness(makeBusinessFormData());
 
     expect(result.error).toBeUndefined();
-    expect(mockUpdateSet).toHaveBeenCalledWith(
-      expect.objectContaining({ preferredVatCode: null }),
-    );
+    // Update payload must not contain preferredVatCode at all
+    const updatePayload = mockUpdateSet.mock.calls[0]?.[0];
+    expect(updatePayload).not.toHaveProperty("preferredVatCode");
+    // No SELECT for audit diff when the field is absent
+    expect(mockSelect).not.toHaveBeenCalled();
+    // No audit log
+    expect(logger.info as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
   });
 });
