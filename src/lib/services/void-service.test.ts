@@ -383,7 +383,7 @@ describe("voidReceiptForBusiness", () => {
     expect(mockLogout).toHaveBeenCalled();
   });
 
-  it("ritorna code DB_TIMEOUT se il flusso pre-AdE va in statement timeout (B20)", async () => {
+  it("ritorna code DB_TIMEOUT se il flusso pre-AdE va in statement timeout", async () => {
     const timeoutErr = Object.assign(
       new Error("canceling statement due to statement timeout"),
       { code: "57014" },
@@ -405,7 +405,7 @@ describe("voidReceiptForBusiness", () => {
     expect(statusUpdates).not.toContain("ERROR");
   });
 
-  it("ritorna VOID_SYNC_FAILED se la transaction finale fallisce dopo submitVoid (B20)", async () => {
+  it("ritorna VOID_SYNC_FAILED se la transaction finale fallisce dopo submitVoid", async () => {
     mockTransaction.mockRejectedValue(new Error("DB transaction failed"));
 
     const { voidReceiptForBusiness } = await import("./void-service");

@@ -90,9 +90,9 @@ describe("searchReceipts server action", () => {
     vi.resetModules();
   });
 
-  // ── P1-05: UTC day-boundary normalization ─────────────────────────────────
+  // ── UTC day-boundary normalization ───────────────────────────────────────
 
-  describe("date filter UTC normalization (P1-05)", () => {
+  describe("date filter UTC normalization", () => {
     // Note: commercialDocuments is mocked as a plain string so .createdAt is
     // undefined. We check only the Date argument (index [1]) from mock.calls
     // because that is what the UTC-normalization fix affects.
@@ -170,9 +170,9 @@ describe("searchReceipts server action", () => {
     });
   });
 
-  // ── Input validation: date format + pagination clamping (P1-01, P1-02) ─────
+  // ── Input validation: date format + pagination clamping ──────────────────
 
-  describe("input validation (P1-01, P1-02)", () => {
+  describe("input validation", () => {
     it("returns error for dateFrom with invalid format (not yyyy-MM-dd)", async () => {
       const { searchReceipts } = await import("@/server/storico-actions");
       const { gte } = await import("drizzle-orm");

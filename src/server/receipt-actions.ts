@@ -59,7 +59,7 @@ export async function emitReceipt(
     return { error: "Troppi scontrini emessi. Riprova tra qualche minuto." };
   }
 
-  // P0-02: enforce plan/trial gate server-side before any business logic
+  // Enforce plan/trial gate server-side before any business logic
   const planInfo = await getPlan(user.id);
   if (!canEmit(planInfo.plan, planInfo.trialStartedAt)) {
     return {
@@ -68,7 +68,7 @@ export async function emitReceipt(
     };
   }
 
-  // P1-03: runtime validation — same fiscal rules as API v1, applied to every
+  // Runtime validation — same fiscal rules as API v1, applied to every
   // channel including the server action so a tampered client cannot bypass them
   const validation = submitReceiptSchema.safeParse(input);
   if (!validation.success) {

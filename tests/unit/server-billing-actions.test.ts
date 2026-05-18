@@ -134,8 +134,8 @@ describe("getProfilePlan", () => {
     }
   });
 
-  // P2-04: subscription in non-active states must NOT grant premium access
-  it("keeps trial plan when subscription status is incomplete (P2-04)", async () => {
+  // Subscription in non-active states must NOT grant premium access
+  it("keeps trial plan when subscription status is incomplete", async () => {
     mockPlanFromPriceId.mockReturnValue("starter");
     mockLimit.mockResolvedValue([
       makeSubRow({
@@ -151,7 +151,7 @@ describe("getProfilePlan", () => {
     }
   });
 
-  it("keeps trial plan when subscription status is past_due (P2-04)", async () => {
+  it("keeps trial plan when subscription status is past_due", async () => {
     mockPlanFromPriceId.mockReturnValue("starter");
     mockLimit.mockResolvedValue([
       makeSubRow({ stripePriceId: "price_starter_yearly", status: "past_due" }),
@@ -203,7 +203,7 @@ describe("getProfilePlan", () => {
     }
   });
 
-  it("keeps trial plan when subscription status is pending (pre-payment, P2-04)", async () => {
+  it("keeps trial plan when subscription status is pending (pre-payment)", async () => {
     mockPlanFromPriceId.mockReturnValue("pro");
     mockLimit.mockResolvedValue([
       makeSubRow({ stripePriceId: "price_pro_yearly", status: "pending" }),
@@ -218,7 +218,7 @@ describe("getProfilePlan", () => {
     }
   });
 
-  it("keeps trial plan when subscription status is canceled (P2-04)", async () => {
+  it("keeps trial plan when subscription status is canceled", async () => {
     mockPlanFromPriceId.mockReturnValue("starter");
     mockLimit.mockResolvedValue([
       makeSubRow({ stripePriceId: "price_starter_yearly", status: "canceled" }),
@@ -246,7 +246,7 @@ describe("getProfilePlan", () => {
   });
 });
 
-describe("getEffectivePlan (P2-04)", () => {
+describe("getEffectivePlan", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -279,7 +279,7 @@ describe("getEffectivePlan (P2-04)", () => {
     expect(plan).toBe("pro");
   });
 
-  it("keeps trial when subscription is incomplete (P2-04)", async () => {
+  it("keeps trial when subscription is incomplete", async () => {
     mockPlanFromPriceId.mockReturnValue("pro");
     mockLimit.mockResolvedValue([
       { stripePriceId: "price_pro_monthly", status: "incomplete" },
@@ -289,7 +289,7 @@ describe("getEffectivePlan (P2-04)", () => {
     expect(mockPlanFromPriceId).not.toHaveBeenCalled();
   });
 
-  it("keeps trial when subscription is past_due (P2-04)", async () => {
+  it("keeps trial when subscription is past_due", async () => {
     mockPlanFromPriceId.mockReturnValue("pro");
     mockLimit.mockResolvedValue([
       { stripePriceId: "price_pro_monthly", status: "past_due" },

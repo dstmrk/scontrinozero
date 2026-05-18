@@ -216,7 +216,7 @@ describe("POST /api/stripe/webhook", () => {
 
     expect(response.status).toBe(200);
     // Stripe SDK signature: retrieve(id, params?, options?).
-    // P2 REVIEW.md: timeout + maxNetworkRetries per-request nel webhook path.
+    // Timeout + maxNetworkRetries per-request nel webhook path.
     expect(mockSubscriptionsRetrieve).toHaveBeenCalledWith(
       "sub_123",
       undefined,
@@ -447,7 +447,7 @@ describe("POST /api/stripe/webhook", () => {
     expect(planUpdateCall).toBeDefined();
   });
 
-  // P3-02: livemode guard
+  // Livemode guard
   it("ignores event when livemode=false but STRIPE_EXPECT_LIVEMODE=true", async () => {
     process.env.STRIPE_EXPECT_LIVEMODE = "true";
     // event.livemode defaults to false in makeStripeEvent
@@ -516,9 +516,9 @@ describe("POST /api/stripe/webhook", () => {
     expect(mockUpdate).toHaveBeenCalled();
   });
 
-  // ── P0-01: dedup correctness (INSERT-first atomic claim pattern) ────────────
+  // ── Dedup correctness (INSERT-first atomic claim pattern) ───────────────
 
-  it("P0-01: skips already-claimed or -processed event — INSERT ON CONFLICT returns empty RETURNING", async () => {
+  it("skips already-claimed or -processed event — INSERT ON CONFLICT returns empty RETURNING", async () => {
     // INSERT RETURNING empty → event already claimed by another request or already processed.
     // No dedup SELECT needed — the INSERT itself is the atomic gate.
     mockInsertReturning.mockResolvedValueOnce([]);
@@ -542,7 +542,7 @@ describe("POST /api/stripe/webhook", () => {
     );
   });
 
-  it("P0-01: releases claim (DELETE) when handleEvent fails — enables Stripe retry", async () => {
+  it("releases claim (DELETE) when handleEvent fails — enables Stripe retry", async () => {
     // INSERT RETURNING = winner (default from beforeEach) → we are the sole handler.
     // Simulate handleEvent failure via DB error inside handleEvent.
     // invoice.paid now calls .where().returning(), so we reject on mockUpdateReturning
@@ -566,7 +566,7 @@ describe("POST /api/stripe/webhook", () => {
     expect(mockDeleteWhere).toHaveBeenCalled();
   });
 
-  it("P0-01: claim (INSERT) is made before processing; stays on success for permanent dedup", async () => {
+  it("claim (INSERT) is made before processing; stays on success for permanent dedup", async () => {
     // INSERT RETURNING = winner (default) → we process the event.
     // On success, claim row stays → future duplicate deliveries see empty RETURNING.
     mockConstructEvent.mockReturnValue(
@@ -585,13 +585,13 @@ describe("POST /api/stripe/webhook", () => {
     expect(mockDelete).not.toHaveBeenCalled();
   });
 
-  // ── B10: rows_affected check on write handlers ───────────────────────────
+  // ── rows_affected check on write handlers ────────────────────────────────
   // When an UPDATE affects 0 rows (subscription not found in DB), the handler
   // must log a warning so the anomaly is observable. The event is still
   // acknowledged (200) — throwing would cause infinite Stripe retries since
   // the missing row cannot self-heal via retry.
 
-  it("B10: invoice.paid — logs warn and returns 200 when no subscription row found (0 rows updated)", async () => {
+  it("invoice.paid — logs warn and returns 200 when no subscription row found (0 rows updated)", async () => {
     mockUpdateReturning.mockResolvedValueOnce([]);
     mockConstructEvent.mockReturnValue(
       makeStripeEvent("invoice.paid", {
@@ -609,7 +609,7 @@ describe("POST /api/stripe/webhook", () => {
     );
   });
 
-  it("B10: invoice.payment_failed — logs warn and returns 200 when no subscription row found (0 rows updated)", async () => {
+  it("invoice.payment_failed — logs warn and returns 200 when no subscription row found (0 rows updated)", async () => {
     mockUpdateReturning.mockResolvedValueOnce([]);
     mockConstructEvent.mockReturnValue(
       makeStripeEvent("invoice.payment_failed", {
@@ -626,7 +626,7 @@ describe("POST /api/stripe/webhook", () => {
     );
   });
 
-  it("B10: invoice.payment_action_required — logs warn and returns 200 when no subscription row found (0 rows updated)", async () => {
+  it("invoice.payment_action_required — logs warn and returns 200 when no subscription row found (0 rows updated)", async () => {
     mockUpdateReturning.mockResolvedValueOnce([]);
     mockConstructEvent.mockReturnValue(
       makeStripeEvent("invoice.payment_action_required", {
@@ -643,7 +643,7 @@ describe("POST /api/stripe/webhook", () => {
     );
   });
 
-  it("B10: checkout.session.expired — logs warn and returns 200 when no pending subscription row found (0 rows updated)", async () => {
+  it("checkout.session.expired — logs warn and returns 200 when no pending subscription row found (0 rows updated)", async () => {
     mockUpdateReturning.mockResolvedValueOnce([]);
     mockConstructEvent.mockReturnValue(
       makeStripeEvent("checkout.session.expired", {

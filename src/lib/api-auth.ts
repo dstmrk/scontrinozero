@@ -121,7 +121,7 @@ export async function authenticateApiKey(
     return { error: "API key non valida.", status: 401 };
   }
 
-  // P2-05: messaggi 401 unificati per non rivelare lo stato della key
+  // Messaggi 401 unificati per non rivelare lo stato della key
   // (revoked vs expired vs non-esistente) a chi è in possesso di una raw
   // key. Il dettaglio resta nei log strutturati per audit.
   if (row.apiKey.revokedAt) {

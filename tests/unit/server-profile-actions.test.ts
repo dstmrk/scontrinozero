@@ -122,9 +122,9 @@ describe("changePassword server action", () => {
     vi.resetModules();
   });
 
-  // ── P1-03: rate limit key must be per user.id, not per IP ──────────────────
+  // ── Rate limit key must be per user.id, not per IP ───────────────────────
 
-  describe("rate limit key isolation (P1-03)", () => {
+  describe("rate limit key isolation", () => {
     it("uses user.id as the rate limit key (not IP)", async () => {
       await changePassword(makeFormData());
 

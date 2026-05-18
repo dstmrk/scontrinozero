@@ -309,7 +309,7 @@ describe("POST /api/stripe/webhook — customer.subscription.deleted", () => {
     mockDelete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
   });
 
-  it("P1-02: azzera anche stripeSubscriptionId/stripePriceId/currentPeriodEnd su cancellazione (no stale state per re-checkout)", async () => {
+  it("azzera anche stripeSubscriptionId/stripePriceId/currentPeriodEnd su cancellazione (no stale state per re-checkout)", async () => {
     const updateBuilder = makeUpdateBuilder();
     mockUpdate.mockReturnValue(updateBuilder);
     // SELECT inside transaction: userId lookup → has userId
@@ -439,7 +439,7 @@ describe("POST /api/stripe/webhook — checkout.session.completed type guard", (
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
-    // P2 REVIEW.md: timeout + maxNetworkRetries per-request (non globali)
+    // Timeout + maxNetworkRetries per-request (non globali)
     // Stripe SDK signature: retrieve(id, params?, options?)
     expect(mockSubscriptionsRetrieve).toHaveBeenCalledWith(
       "sub_123",
@@ -452,7 +452,7 @@ describe("POST /api/stripe/webhook — checkout.session.completed type guard", (
     expect(mockTransaction).toHaveBeenCalled();
   });
 
-  it("logga errorClass + rilascia il claim se stripe.subscriptions.retrieve fallisce (P2 REVIEW.md)", async () => {
+  it("logga errorClass + rilascia il claim se stripe.subscriptions.retrieve fallisce", async () => {
     class StripeConnectionError extends Error {
       constructor() {
         super("upstream connect timeout");

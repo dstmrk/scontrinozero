@@ -31,7 +31,7 @@ const authLimiter = new RateLimiter({
 });
 
 /**
- * Pre-captcha rate limiter (REVIEW.md P1).
+ * Pre-captcha rate limiter.
  *
  * `verifyCaptcha` performs a 5s-timeout HTTP call to Cloudflare Turnstile on
  * every request. Without an upfront gate, an attacker can force many outbound
@@ -62,7 +62,7 @@ function checkRateLimit(ip: string, action: string): AuthActionResult | null {
   const key = `${action}:${ip}`;
   const result = authLimiter.check(key);
   if (!result.success) {
-    // P2-01: log l'IP hashato — evita di scrivere PII nei sistemi downstream
+    // Log l'IP hashato — evita di scrivere PII nei sistemi downstream
     // (Sentry, log shipping, retention). La correlazione tra eventi dallo
     // stesso source resta possibile via hash deterministico (vedi `hashIp`).
     logger.warn(
@@ -75,7 +75,7 @@ function checkRateLimit(ip: string, action: string): AuthActionResult | null {
 }
 
 /**
- * Pre-captcha gate (REVIEW.md P1).
+ * Pre-captcha gate.
  *
  * Returns a rate-limit error result if the IP has exceeded the captcha
  * pre-limit. Logged with `errorClass: captcha_prelimit` so dashboards can
@@ -280,10 +280,10 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   if (validationError) return { error: validationError };
 
   const ip = await getClientIpFromNextHeaders();
-  // P1 (REVIEW.md): pre-captcha gate. Suppresses the Turnstile siteverify
-  // call when the IP is already over the abuse threshold — protects the
-  // 5s-timeout outbound HTTP call from being weaponised as a server load
-  // vector before the functional auth limit kicks in.
+  // Pre-captcha gate: suppresses the Turnstile siteverify call when the IP
+  // is already over the abuse threshold — protects the 5s-timeout outbound
+  // HTTP call from being weaponised as a server load vector before the
+  // functional auth limit kicks in.
   const captchaPreLimited = checkCaptchaPreLimit(ip, "signup");
   if (captchaPreLimited) return captchaPreLimited;
 
@@ -363,11 +363,11 @@ export async function signIn(formData: FormData): Promise<AuthActionResult> {
 
   const captchaToken = getFormString(formData, "captchaToken");
   const ip = await getClientIpFromNextHeaders();
-  // P1 (REVIEW.md): pre-captcha gate prima dell'HTTP call esterna a Turnstile.
+  // Pre-captcha gate prima dell'HTTP call esterna a Turnstile.
   const captchaPreLimited = checkCaptchaPreLimit(ip, "signin");
   if (captchaPreLimited) return captchaPreLimited;
 
-  // P2-01: Turnstile su signIn — il rate-limit per-IP da solo non frena
+  // Turnstile su signIn — il rate-limit per-IP da solo non frena
   // credential-stuffing su botnet con IP rotation. Il captcha forza un costo
   // marginale per ogni tentativo.
   const captchaOk = await verifyCaptcha(captchaToken, ip, "signin");
@@ -435,11 +435,11 @@ export async function resetPassword(
 
   const captchaToken = getFormString(formData, "captchaToken");
   const ip = await getClientIpFromNextHeaders();
-  // P1 (REVIEW.md): pre-captcha gate prima dell'HTTP call esterna a Turnstile.
+  // Pre-captcha gate prima dell'HTTP call esterna a Turnstile.
   const captchaPreLimited = checkCaptchaPreLimit(ip, "reset-password");
   if (captchaPreLimited) return captchaPreLimited;
 
-  // P2-02: Turnstile su resetPassword — endpoint pubblico che fa partire email
+  // Turnstile su resetPassword — endpoint pubblico che fa partire email
   // transazionali via Resend. Senza captcha un attacker può esaurire la quota
   // free-tier (3000/mese) e degradare la deliverability del dominio.
   const captchaOk = await verifyCaptcha(captchaToken, ip, "reset-password");

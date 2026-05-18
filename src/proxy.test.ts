@@ -41,7 +41,7 @@ describe("proxy", () => {
       expect(mockGetUser).not.toHaveBeenCalled();
     });
 
-    it("P2-03: production: fail-closed redirects protected routes to /login when SUPABASE_URL missing", async () => {
+    it("production: fail-closed redirects protected routes to /login when SUPABASE_URL missing", async () => {
       vi.stubEnv("NODE_ENV", "production");
       delete process.env.NEXT_PUBLIC_SUPABASE_URL;
       vi.resetModules();
@@ -55,7 +55,7 @@ describe("proxy", () => {
       expect(mockGetUser).not.toHaveBeenCalled();
     });
 
-    it("P2-03: production: public routes still pass through when SUPABASE_URL missing", async () => {
+    it("production: public routes still pass through when SUPABASE_URL missing", async () => {
       vi.stubEnv("NODE_ENV", "production");
       delete process.env.NEXT_PUBLIC_SUPABASE_URL;
       vi.resetModules();

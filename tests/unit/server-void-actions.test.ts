@@ -82,9 +82,9 @@ describe("voidReceipt server action", () => {
     });
   });
 
-  // ── P0-02: plan / trial enforcement ──────────────────────────────────────
+  // ── Plan / trial enforcement ─────────────────────────────────────────────
 
-  describe("plan enforcement (P0-02)", () => {
+  describe("plan enforcement", () => {
     it("allows void when trial is active", async () => {
       const { voidReceipt } = await import("@/server/void-actions");
 

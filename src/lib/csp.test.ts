@@ -40,7 +40,7 @@ describe("buildCsp", () => {
 
   it("ammette unsafe-inline su script-src per i payload JSON-LD escaped", () => {
     // Mitigato da safeJsonLd() (escape <>&) e dal fatto che TUTTI i payload
-    // JSON-LD sono statici a build time. Follow-up B14b per nonce/hash.
+    // JSON-LD sono statici a build time. Hash/nonce sono tracciati nel backlog.
     expect(policy).toMatch(/script-src[^;]*'unsafe-inline'[^;]*;/);
   });
 

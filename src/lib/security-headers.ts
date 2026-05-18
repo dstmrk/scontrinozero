@@ -19,8 +19,8 @@ export type BuildSecurityHeadersOptions = {
  *  - regression test che HSTS sia condizionale a `NODE_ENV === "production"`
  *  - regression test che `Reporting-Endpoints` usi URL assoluto
  *
- * La policy CSP è generata in `src/lib/csp.ts`. Vedi commento head di quel file
- * per lo storico del rollout (B14 chiuso in v1.2.10).
+ * La policy CSP è generata in `src/lib/csp.ts`. Vedi CLAUDE.md per il
+ * razionale CSP (Report-Only → Enforce).
  */
 export function buildSecurityHeaders(
   opts: BuildSecurityHeadersOptions,

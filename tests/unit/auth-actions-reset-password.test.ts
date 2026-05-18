@@ -71,7 +71,7 @@ vi.mock("@/db", () => ({
 function makeFormData(email: string): FormData {
   const fd = new FormData();
   fd.set("email", email);
-  // P2-02: resetPassword now requires Turnstile token
+  // resetPassword requires Turnstile token
   fd.set("captchaToken", "valid-token");
   return fd;
 }
@@ -106,7 +106,7 @@ describe("resetPassword — hostname validation", () => {
     process.env.TURNSTILE_SECRET_KEY = "test-secret";
     mockRateLimiterCheck.mockReturnValue({ success: true });
     mockSendEmail.mockResolvedValue(undefined);
-    // P1-01: verifyCaptcha validates `action` — echo "reset-password".
+    // verifyCaptcha validates `action` — echo "reset-password".
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => ({

@@ -187,7 +187,7 @@ describe("authenticateApiKey", () => {
     expect(mockSelectFields).toHaveBeenCalled();
   });
 
-  it("P2-05: ritorna 401 generico se la key è revocata (no info leak su stato)", async () => {
+  it("ritorna 401 generico se la key è revocata (no info leak su stato)", async () => {
     mockLimit.mockResolvedValue([
       {
         ...FAKE_ROW,
@@ -215,7 +215,7 @@ describe("authenticateApiKey", () => {
     );
   });
 
-  it("P2-05: ritorna 401 generico se la key è scaduta (no info leak su stato)", async () => {
+  it("ritorna 401 generico se la key è scaduta (no info leak su stato)", async () => {
     mockLimit.mockResolvedValue([
       {
         ...FAKE_ROW,

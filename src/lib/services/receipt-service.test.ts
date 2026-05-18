@@ -258,7 +258,7 @@ describe("emitReceiptForBusiness", () => {
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
-  it("idempotency: PENDING fresh ritorna code PENDING_IN_PROGRESS (B7)", async () => {
+  it("idempotency: PENDING fresh ritorna code PENDING_IN_PROGRESS", async () => {
     mockDocumentReturning.mockResolvedValue([]);
     mockLimit.mockResolvedValueOnce([
       {
@@ -279,9 +279,9 @@ describe("emitReceiptForBusiness", () => {
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
-  it("idempotency: PENDING stale entra in recovery path (B7)", async () => {
+  it("idempotency: PENDING stale entra in recovery path", async () => {
     mockDocumentReturning.mockResolvedValue([]);
-    // createdAt > 30 minuti (default threshold post-P1-03) → stale
+    // createdAt > 30 minuti (default threshold) → stale
     mockLimit.mockResolvedValueOnce([
       {
         id: "doc-123",
@@ -302,7 +302,7 @@ describe("emitReceiptForBusiness", () => {
     expect(mockSubmitSale).toHaveBeenCalled();
   });
 
-  it("idempotency: ERROR stale entra in recovery path (B7)", async () => {
+  it("idempotency: ERROR stale entra in recovery path", async () => {
     mockDocumentReturning.mockResolvedValue([]);
     mockLimit.mockResolvedValueOnce([
       {
@@ -322,7 +322,7 @@ describe("emitReceiptForBusiness", () => {
     expect(mockSubmitSale).toHaveBeenCalled();
   });
 
-  it("P1-03: PENDING di 10 min NON è stale (soglia alzata a 30 min) — ritorna PENDING_IN_PROGRESS", async () => {
+  it("PENDING di 10 min NON è stale (soglia a 30 min) — ritorna PENDING_IN_PROGRESS", async () => {
     mockDocumentReturning.mockResolvedValue([]);
     // 10 min: prima entrava in recovery rischiando doppio submitSale ad AdE
     // se la risposta del primo era stata persa in volo. Soglia ora a 30 min.
@@ -464,7 +464,7 @@ describe("emitReceiptForBusiness", () => {
     expect(mockLogout).toHaveBeenCalled();
   });
 
-  it("ritorna code DB_TIMEOUT se l'INSERT iniziale va in statement timeout (B20)", async () => {
+  it("ritorna code DB_TIMEOUT se l'INSERT iniziale va in statement timeout", async () => {
     const timeoutErr = Object.assign(
       new Error("canceling statement due to statement timeout"),
       { code: "57014" },
@@ -482,7 +482,7 @@ describe("emitReceiptForBusiness", () => {
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
-  it("recovery con adeTransactionId valorizzato finalizza senza richiamare submitSale (P1 Codex)", async () => {
+  it("recovery con adeTransactionId valorizzato finalizza senza richiamare submitSale", async () => {
     mockDocumentReturning.mockResolvedValue([]); // INSERT conflict
     mockLimit.mockResolvedValueOnce([
       {
@@ -509,7 +509,7 @@ describe("emitReceiptForBusiness", () => {
     });
   });
 
-  it("submitSaleToAde catch: timeout DB durante UPDATE finale → DB_TIMEOUT senza marcare ERROR (B20)", async () => {
+  it("submitSaleToAde catch: timeout DB durante UPDATE finale → DB_TIMEOUT senza marcare ERROR", async () => {
     // emit normale (no conflict): submitSale ha successo, ma l'UPDATE
     // ACCEPTED finale va in timeout esaurendo i retry
     const timeoutErr = Object.assign(new Error("timeout"), { code: "57014" });
@@ -522,7 +522,7 @@ describe("emitReceiptForBusiness", () => {
     // submitSale è stata chiamata (path fresh, no recovery)
     expect(mockSubmitSale).toHaveBeenCalled();
     // Non deve essere stato chiamato un UPDATE a ERROR
-    // (il timeout outer ramo skippa la mark-ERROR per non rompere B7 recovery)
+    // (il timeout outer ramo skippa la mark-ERROR per non rompere la stale recovery)
     const updateSets = mockUpdateSet.mock.calls.map((c) => c[0].status);
     expect(updateSets).not.toContain("ERROR");
   });

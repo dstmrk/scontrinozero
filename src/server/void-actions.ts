@@ -27,7 +27,7 @@ export async function voidReceipt(
     return { error: "Troppi annulli effettuati. Riprova tra qualche minuto." };
   }
 
-  // P0-02: enforce plan/trial gate server-side — voiding is an emit operation
+  // Enforce plan/trial gate server-side — voiding is an emit operation
   // so it follows the same canEmit policy as receipt creation
   const planInfo = await getPlan(user.id);
   if (!canEmit(planInfo.plan, planInfo.trialStartedAt)) {

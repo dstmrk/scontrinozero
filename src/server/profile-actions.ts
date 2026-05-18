@@ -178,7 +178,7 @@ export async function changePassword(
     return { error: "Aggiornamento password fallito. Riprova." };
   }
 
-  // P2-04: revoca le altre sessioni dell'utente. Supabase per default NON
+  // Revoca le altre sessioni dell'utente. Supabase per default NON
   // invalida i refresh token sugli altri device quando la password cambia;
   // un attaccante che era già loggato resterebbe loggato altrove.
   // scope: "others" mantiene la sessione corrente (l'utente che ha appena

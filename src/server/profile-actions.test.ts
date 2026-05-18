@@ -269,13 +269,13 @@ describe("profile-actions", () => {
       });
     });
 
-    it("P2-04: revoca le altre sessioni dopo updateUser riuscito", async () => {
+    it("revoca le altre sessioni dopo updateUser riuscito", async () => {
       const { changePassword } = await import("./profile-actions");
       await changePassword(formData(VALID));
       expect(mockSignOut).toHaveBeenCalledWith({ scope: "others" });
     });
 
-    it("P2-04: signOut others è fire-and-forget — non blocca il successo se fallisce", async () => {
+    it("signOut others è fire-and-forget — non blocca il successo se fallisce", async () => {
       mockSignOut.mockResolvedValue({ error: { message: "transient" } });
       const { changePassword } = await import("./profile-actions");
       const result = await changePassword(formData(VALID));

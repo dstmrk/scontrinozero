@@ -100,7 +100,7 @@ describe("withStatementTimeout", () => {
   });
 });
 
-describe("retryOnStatementTimeout (B20)", () => {
+describe("retryOnStatementTimeout", () => {
   it("ritorna immediatamente il valore se la fn ha successo al primo tentativo", async () => {
     vi.useFakeTimers();
     const { retryOnStatementTimeout } = await import("./db-timeout");

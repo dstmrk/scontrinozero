@@ -97,7 +97,7 @@ export async function proxy(request: NextRequest) {
 
   // Supabase non configurato:
   // - dev/test: passthrough (local dev senza auth, self-hosted in fase di setup)
-  // - production: fail-closed sui PROTECTED_PREFIXES (P2-03). Lasciar passare
+  // - production: fail-closed sui PROTECTED_PREFIXES. Lasciar passare
   //   /dashboard senza auth check vorrebbe dire rendere pagine RSC private
   //   senza la guardia che si aspettano. Le pagine pubbliche restano accessibili.
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {

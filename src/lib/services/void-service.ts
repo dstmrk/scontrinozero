@@ -26,16 +26,15 @@ import type { VoidRequest } from "@/lib/ade/public-types";
 import type { AdeResponse } from "@/lib/ade/types";
 
 /**
- * Soglia oltre la quale un VOID PENDING/ERROR è considerato "stale" (B7).
+ * Soglia oltre la quale un VOID PENDING/ERROR è considerato "stale".
  * Sopra questa soglia, un retry con la stessa idempotencyKey entra nel
  * recovery path. Default: 30 min. Override via STALE_PENDING_THRESHOLD_MINUTES.
  *
- * Rischio residuo (P1-03, quick fix): vedi receipt-service.ts per il commento
- * esteso. AdE non accetta una idempotency-key nel payload submitVoid: se la
- * risposta del primo submit si è persa in volo, un retry crea un VOID
- * duplicato IRREVERSIBILE. La soglia alzata da 5 → 30 min riduce la finestra
- * ma non la elimina. Soluzione corretta (lookup AdE pre-retry) rinviata a
- * v1.11.0.
+ * Rischio residuo: vedi receipt-service.ts per il commento esteso. AdE non
+ * accetta una idempotency-key nel payload submitVoid: se la risposta del primo
+ * submit si è persa in volo, un retry crea un VOID duplicato IRREVERSIBILE.
+ * La soglia di 30 min riduce la finestra ma non la elimina. La soluzione
+ * corretta (lookup AdE pre-retry) è tracciata nel backlog.
  */
 function getStalePendingThresholdMs(): number {
   const raw = process.env.STALE_PENDING_THRESHOLD_MINUTES;
@@ -59,7 +58,7 @@ type ConflictOutcome =
  * Determines whether the conflict is due to the same idempotency key (retry-safe)
  * or a different key targeting the same SALE (race condition).
  *
- * B7: when the existing PENDING/ERROR is stale, returns `{ kind: "recover" }`
+ * When the existing PENDING/ERROR is stale, returns `{ kind: "recover" }`
  * so the caller can re-execute the submitVoid flow with the existing row.
  */
 async function resolveVoidConflict(
@@ -109,7 +108,7 @@ async function resolveVoidConflict(
     }
 
     // PENDING or ERROR: void was started but never completed.
-    // B7: if the row is "stale", enter recovery instead of blocking the client.
+    // If the row is "stale", enter recovery instead of blocking the client.
     const createdAtMs = existingByKey.createdAt
       ? new Date(existingByKey.createdAt).getTime()
       : Number.NaN;
@@ -160,7 +159,7 @@ async function resolveVoidConflict(
 /**
  * Esegue solo le UPDATE finali del flusso void senza chiamare submitVoid.
  *
- * Usato nel recovery (B7) quando submitVoid era già andato a buon fine su AdE
+ * Usato nel recovery quando submitVoid era già andato a buon fine su AdE
  * ma la transazione finale di UPDATE era fallita: il VOID resta PENDING con
  * adeTransactionId valorizzato e la SALE resta ACCEPTED. Re-chiamare
  * submitVoid produrrebbe un doppio annullo su AdE (irreversibile).
@@ -174,7 +173,7 @@ async function finalizeVoidOnly(
   adeProgressive: string,
 ): Promise<VoidReceiptResult> {
   try {
-    // B20: retry on statement timeout + SET LOCAL statement_timeout (3s).
+    // Retry on statement timeout + SET LOCAL statement_timeout (3s).
     // submitVoid è già andato a buon fine, dobbiamo riuscire a finalizzare
     // prima di rinunciare (3 tentativi: 200ms → 500ms → 1s).
     await retryOnStatementTimeout("void-finalize-only", () =>
@@ -197,7 +196,7 @@ async function finalizeVoidOnly(
 
     logger.info(
       { voidDocumentId, saleDocumentId, adeTransactionId, recovery: true },
-      "Void finalized from stale PENDING (B7 recovery)",
+      "Void finalized from stale PENDING (recovery)",
     );
 
     return {
@@ -260,7 +259,7 @@ async function processVoidAdeResponse(args: {
       },
       "AdE rejected void",
     );
-    // B20: retry on statement timeout. AdE ha rifiutato → la submitVoid è
+    // Retry on statement timeout. AdE ha rifiutato → la submitVoid è
     // ininfluente, ma il DB deve riflettere REJECTED altrimenti la riga
     // resta PENDING e bloccherebbe retry con nuova key (partial index).
     await retryOnStatementTimeout("void-update-rejected", () =>
@@ -279,7 +278,7 @@ async function processVoidAdeResponse(args: {
   }
 
   // 4+5. Update VOID document and mark original SALE atomically.
-  // B20: retry on timeout + SET LOCAL statement_timeout (3s). submitVoid
+  // Retry on timeout + SET LOCAL statement_timeout (3s). submitVoid
   // è già successa: se la finalizzazione fallisce in modo definitivo NON
   // marcare ERROR (vedi finalizeVoidOnly).
   try {
@@ -383,8 +382,8 @@ const dbTimeoutResult: VoidReceiptResult = {
  *
  * Estratto da `voidReceiptForBusiness` per ridurre la cognitive complexity
  * sotto 15 (SonarCloud). Ritorna `done` se il flusso può fermarsi (errore o
- * idempotency hit o finalize-only B7), `ready` se tutto è pronto per la
- * submitVoid AdE.
+ * idempotency hit o finalize-only nel recovery), `ready` se tutto è pronto
+ * per la submitVoid AdE.
  */
 async function prepareVoidDocument(
   input: VoidReceiptInput,
@@ -410,7 +409,7 @@ async function prepareVoidDocument(
     if (isStatementTimeoutError(err)) {
       logger.warn(
         { businessId: input.businessId, saleDocumentId: input.documentId },
-        "voidReceipt SELECT SALE timed out (B20)",
+        "voidReceipt SELECT SALE timed out",
       );
       return { kind: "done", result: dbTimeoutResult };
     }
@@ -520,22 +519,22 @@ async function insertOrResolveVoid(
     }
 
     // Recovery path SENZA adeTransactionId noto: il retry rieseguirà submitVoid.
-    // Rischio P1-03: se il primo attempt era arrivato ad AdE ma la response si è
-    // persa, qui creiamo un VOID duplicato. Logging esplicito per audit.
+    // Rischio residuo: se il primo attempt era arrivato ad AdE ma la response
+    // si è persa, qui creiamo un VOID duplicato. Logging esplicito per audit.
     logger.warn(
       {
         voidDocumentId: conflict.voidDocumentId,
         saleDocumentId: input.documentId,
         businessId: input.businessId,
       },
-      "Void recovery: re-submitting submitVoid without AdE idempotency check (P1-03 residual risk)",
+      "Void recovery: re-submitting submitVoid without AdE idempotency check (residual risk)",
     );
     return { kind: "inserted", voidDocumentId: conflict.voidDocumentId };
   } catch (err) {
     if (isStatementTimeoutError(err)) {
       logger.warn(
         { businessId: input.businessId, saleDocumentId: input.documentId },
-        "voidReceipt INSERT VOID timed out (B20)",
+        "voidReceipt INSERT VOID timed out",
       );
       return { kind: "done", result: dbTimeoutResult };
     }
@@ -599,8 +598,8 @@ export async function voidReceiptForBusiness(
       "voidReceiptForBusiness failed",
     );
 
-    // B20: don't mark ERROR on timeout. Leave the row PENDING so:
-    // - B7 recovery can re-attempt (submitVoid not yet called → safe)
+    // Don't mark ERROR on timeout. Leave the row PENDING so:
+    // - Stale recovery can re-attempt (submitVoid not yet called → safe)
     // - OR if submitVoid already succeeded, the partial unique index still
     //   blocks duplicate VOIDs (which would NOT be the case if status=ERROR).
     if (!isStatementTimeoutError(err)) {

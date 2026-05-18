@@ -27,7 +27,7 @@ describe("sanitizeForTelemetry", () => {
     expect(result).toEqual(input);
   });
 
-  it("strips raw 'ip' from telemetry (GDPR — P1 REVIEW.md)", () => {
+  it("strips raw 'ip' from telemetry (GDPR)", () => {
     const result = sanitizeForTelemetry({
       userId: "u1",
       ip: "1.2.3.4",

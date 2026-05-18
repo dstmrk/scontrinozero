@@ -94,7 +94,7 @@ export async function createApiKey(
   // Serializza count + insert per business con SELECT ... FOR UPDATE sulla
   // riga business. Senza lock due richieste concorrenti possono entrambe
   // superare il check (vedono N < limit) e inserire, eccedendo il limite del
-  // piano di 1 unità (CLAUDE.md B12 / regola 16).
+  // piano di 1 unità.
   return db.transaction(async (tx) => {
     await tx
       .select({ id: businesses.id })

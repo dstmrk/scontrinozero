@@ -50,7 +50,7 @@ export async function withStatementTimeout<T>(
 const RETRY_BACKOFFS_MS = [200, 500, 1000] as const;
 
 /**
- * Ritenta una operazione DB con exponential backoff su statement timeout (B20).
+ * Ritenta una operazione DB con exponential backoff su statement timeout.
  *
  * Usato per UPDATE post-AdE: la submitSale/submitVoid è già andata a buon fine
  * (irreversibile) e dobbiamo riuscire a riflettere lo stato finale nel DB
@@ -59,7 +59,7 @@ const RETRY_BACKOFFS_MS = [200, 500, 1000] as const;
  * - Solo statement_timeout (57014) viene ritentato. Altri errori bubbleano
  *   immediatamente.
  * - Se TUTTI i tentativi falliscono, rilancia l'ultimo errore: il caller
- *   decide cosa fare (B20: NON marcare ERROR su void post-AdE, vedi
+ *   decide cosa fare (es. NON marcare ERROR su void post-AdE, vedi
  *   `finalizeVoidOnly`).
  */
 export async function retryOnStatementTimeout<T>(
