@@ -137,7 +137,7 @@ export async function POST(request: Request): Promise<Response> {
   const result = await emitReceiptForBusiness(input, auth.apiKey.id);
 
   if (result.error) {
-    // B20: DB timeout → 503 + Retry-After (transient, retryable)
+    // DB timeout → 503 + Retry-After (transient, retryable)
     if (result.code === "DB_TIMEOUT") {
       return withCors(
         Response.json(
@@ -146,7 +146,7 @@ export async function POST(request: Request): Promise<Response> {
         ),
       );
     }
-    // B7: PENDING_IN_PROGRESS → 409 (conflict, retryable a breve termine)
+    // PENDING_IN_PROGRESS → 409 (conflict, retryable a breve termine)
     if (result.code === "PENDING_IN_PROGRESS") {
       return withCors(
         Response.json(

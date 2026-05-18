@@ -37,22 +37,20 @@ const PAYMENT_METHOD_TO_ADE: Record<PaymentMethod, PaymentType> = {
 };
 
 /**
- * Soglia oltre la quale un documento PENDING/ERROR è considerato "stale" (B7).
+ * Soglia oltre la quale un documento PENDING/ERROR è considerato "stale".
  * Sopra questa soglia, un retry con la stessa idempotencyKey entra nel
  * recovery path invece di ricevere "stato inconsistente".
  *
  * Default: 30 minuti. Override via env STALE_PENDING_THRESHOLD_MINUTES.
  *
- * Rischio residuo (P1-03, quick fix): AdE non supporta una chiave d'idempotenza
- * nel payload submitSale. Se il primo submit è arrivato ad AdE ma la risposta
- * è andata persa (timeout / connessione interrotta), un retry sotto la soglia
- * ritorna PENDING_IN_PROGRESS e l'utente lo riproverà più tardi. Sopra la
- * soglia si rientra in recovery e potenzialmente si fa un SECONDO submit ad
- * AdE — scontrino duplicato. La soglia alzata da 5 → 30 min riduce
- * drasticamente la collision window (la sessione AdE è quasi sempre scaduta
- * dopo 30 min, e un nuovo submit fallisce a monte). Soluzione corretta:
- * lookup AdE pre-retry via searchDocuments — rinviata a v1.11.0 quando il
- * client AdE avrà l'endpoint di ricerca (vedi ricerca_documento.har in roadmap).
+ * Rischio residuo: AdE non supporta una chiave d'idempotenza nel payload
+ * submitSale. Se il primo submit è arrivato ad AdE ma la risposta è andata
+ * persa (timeout / connessione interrotta), un retry sotto la soglia ritorna
+ * PENDING_IN_PROGRESS e l'utente lo riproverà più tardi. Sopra la soglia si
+ * rientra in recovery e potenzialmente si fa un SECONDO submit ad AdE —
+ * scontrino duplicato. 30 min sopra la durata sessione AdE tipica riduce
+ * drasticamente la collision window. Soluzione corretta: lookup AdE pre-retry
+ * via searchDocuments — tracciata nel backlog (vedi ricerca_documento.har).
  */
 function getStalePendingThresholdMs(): number {
   const raw = process.env.STALE_PENDING_THRESHOLD_MINUTES;
@@ -117,7 +115,7 @@ export async function emitReceiptForBusiness(
   if ("error" in prerequisites) return prerequisites;
   const { codiceFiscale, password, pin, cedentePrestatore } = prerequisites;
 
-  // Insert document + lines atomically, with statement_timeout (B20): if the
+  // Insert document + lines atomically, with statement_timeout: if the
   // DB is overloaded we surface 503 invece di un 500 senza contesto.
   let txResult: { alreadyExists: true } | { alreadyExists: false; id: string };
   try {
@@ -163,7 +161,7 @@ export async function emitReceiptForBusiness(
     if (isStatementTimeoutError(err)) {
       logger.warn(
         { businessId: input.businessId },
-        "emitReceipt INSERT timed out (B20)",
+        "emitReceipt INSERT timed out",
       );
       return {
         error:
@@ -269,7 +267,7 @@ async function handleExistingReceipt(args: {
     };
   }
 
-  // PENDING or ERROR: B7 stale recovery decision.
+  // PENDING or ERROR: stale recovery decision.
   const createdAtMs = existing.createdAt
     ? new Date(existing.createdAt).getTime()
     : Number.NaN;
@@ -293,7 +291,7 @@ async function handleExistingReceipt(args: {
   };
 }
 
-/** Recovery path for stale PENDING/ERROR receipts (B7). Extracted to keep
+/** Recovery path for stale PENDING/ERROR receipts. Extracted to keep
  *  `emitReceiptForBusiness` cognitive complexity below 15 (SonarCloud). */
 async function recoverStaleReceipt(args: {
   existing: {
@@ -326,10 +324,10 @@ async function recoverStaleReceipt(args: {
     "Recovering stale PENDING/ERROR receipt",
   );
 
-  // P1 (Codex review #475): if submitSale already succeeded on AdE
-  // (adeTransactionId set), do NOT resubmit — submitSale is irreversible
-  // and a second call would create a duplicate fiscal document on AdE.
-  // Just retry the final UPDATE using the existing AdE IDs.
+  // If submitSale already succeeded on AdE (adeTransactionId set), do NOT
+  // resubmit — submitSale is irreversible and a second call would create a
+  // duplicate fiscal document on AdE. Just retry the final UPDATE using the
+  // existing AdE IDs.
   if (existing.adeTransactionId && existing.adeProgressive) {
     return finalizeSaleOnly(
       existing.id,
@@ -338,8 +336,8 @@ async function recoverStaleReceipt(args: {
     );
   }
 
-  // P1-03 residual risk: re-eseguiamo submitSale senza poter verificare lato
-  // AdE se il primo attempt era già arrivato (no idempotency-key supportato).
+  // Residual risk: re-eseguiamo submitSale senza poter verificare lato AdE
+  // se il primo attempt era già arrivato (no idempotency-key supportato).
   // Se la response del primo era andata persa in volo, qui creiamo uno
   // scontrino fiscale duplicato. Risk-mitigation: soglia stale a 30 min.
   logger.warn(
@@ -347,7 +345,7 @@ async function recoverStaleReceipt(args: {
       documentId: existing.id,
       businessId: input.businessId,
     },
-    "Sale recovery: re-submitting submitSale without AdE idempotency check (P1-03 residual risk)",
+    "Sale recovery: re-submitting submitSale without AdE idempotency check (residual risk)",
   );
 
   return submitSaleToAde(
@@ -365,7 +363,7 @@ async function recoverStaleReceipt(args: {
 /**
  * Esegue solo la UPDATE finale del flusso sale senza chiamare submitSale.
  *
- * Usato nel recovery B7 quando submitSale era già andato a buon fine su AdE
+ * Usato nel recovery quando submitSale era già andato a buon fine su AdE
  * ma la UPDATE finale a ACCEPTED era fallita: il documento resta PENDING con
  * adeTransactionId valorizzato. Re-chiamare submitSale produrrebbe un doppio
  * documento fiscale su AdE (irreversibile). La UPDATE è naturalmente
@@ -392,7 +390,7 @@ async function finalizeSaleOnly(
     );
     logger.info(
       { documentId, adeTransactionId, recovery: true },
-      "Sale finalized from stale PENDING (B7 recovery)",
+      "Sale finalized from stale PENDING (recovery)",
     );
     return {
       documentId,
@@ -420,7 +418,7 @@ async function finalizeSaleOnly(
 
 /**
  * Esegue la submitSale AdE e aggiorna il documento esistente con il risultato.
- * Usato sia per la prima emissione sia per la recovery di un PENDING/ERROR stale (B7).
+ * Usato sia per la prima emissione sia per la recovery di un PENDING/ERROR stale.
  */
 async function submitSaleToAde(
   documentId: string,
@@ -489,9 +487,10 @@ async function submitSaleToAde(
         },
         "AdE rejected sale",
       );
-      // B20: retry on timeout. La submitSale è già successa (esito:false è una
+      // Retry on timeout. La submitSale è già successa (esito:false è una
       // risposta valida AdE, non un errore di rete) — il DB deve riflettere
-      // REJECTED altrimenti B7 ritenterà invano una sale già rifiutata.
+      // REJECTED altrimenti la stale recovery ritenterà invano una sale già
+      // rifiutata.
       await retryOnStatementTimeout("emit-update-rejected", () =>
         db
           .update(commercialDocuments)
@@ -508,9 +507,9 @@ async function submitSaleToAde(
       };
     }
 
-    // B20: retry su timeout. La submitSale ha avuto esito true: AdE ha
-    // accettato lo scontrino. Se la UPDATE finale fallisce, la riga resta
-    // PENDING e B7 la recupera; ma il retry qui evita la maggior parte dei
+    // Retry su timeout. La submitSale ha avuto esito true: AdE ha accettato
+    // lo scontrino. Se la UPDATE finale fallisce, la riga resta PENDING e la
+    // stale recovery la recupera; ma il retry qui evita la maggior parte dei
     // casi di disallineamento DB↔AdE.
     await retryOnStatementTimeout("emit-update-accepted", () =>
       db
@@ -551,12 +550,12 @@ async function submitSaleToAde(
       "emitReceiptForBusiness failed",
     );
 
-    // B20: don't mark ERROR if the failure is a statement timeout — the row
-    // stays PENDING and B7 will recover. Marking ERROR here would be wrong
-    // because we don't know whether submitSale succeeded on AdE.
+    // Don't mark ERROR if the failure is a statement timeout — the row
+    // stays PENDING and stale recovery will retry. Marking ERROR here would
+    // be wrong because we don't know whether submitSale succeeded on AdE.
     if (!isStatementTimeoutError(err)) {
       // Best-effort UPDATE to ERROR; if it also times out we swallow it
-      // (the row stays PENDING — B7 recovery applies on next retry).
+      // (the row stays PENDING — stale recovery applies on next retry).
       try {
         await db
           .update(commercialDocuments)

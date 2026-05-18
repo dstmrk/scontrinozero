@@ -116,8 +116,8 @@ describe("auth-actions", () => {
 
   // Helper: builds a Turnstile siteverify response. Each describe block calls
   // it in its own beforeEach to set the matching `action` (signup / signin /
-  // reset-password) — P1-01: verifyCaptcha now rejects tokens whose action
-  // does not match the flow.
+  // reset-password) — verifyCaptcha rejects tokens whose action does not
+  // match the flow.
   function captchaResponse(action: string, hostname = "app.scontrinozero.it") {
     return {
       ok: true,
@@ -324,7 +324,7 @@ describe("auth-actions", () => {
       expect(result.error).toContain("Troppi tentativi");
     });
 
-    it("P2-01: rate-limit warning log uses ipHash, never raw IP", async () => {
+    it("rate-limit warning log uses ipHash, never raw IP", async () => {
       // Pre-limit pass, post-limit fail — exercises the auth_rate_limit log.
       mockRateLimiterCheck
         .mockReturnValueOnce({ success: true, remaining: 29 })
@@ -359,7 +359,7 @@ describe("auth-actions", () => {
       expect(payload).toMatchObject({ errorClass: "auth_rate_limit" });
     });
 
-    it("P1 (REVIEW.md): pre-captcha gate blocks the request before Turnstile siteverify is called", async () => {
+    it("pre-captcha gate blocks the request before Turnstile siteverify is called", async () => {
       // First check (pre-limit) returns failure. fetch must never be called.
       mockRateLimiterCheck.mockReturnValueOnce({
         success: false,
@@ -386,7 +386,7 @@ describe("auth-actions", () => {
       expect(mockSignUp).not.toHaveBeenCalled();
     });
 
-    it("P1 (REVIEW.md): pre-captcha gate emits a structured warn log with captcha_prelimit errorClass", async () => {
+    it("pre-captcha gate emits a structured warn log with captcha_prelimit errorClass", async () => {
       mockRateLimiterCheck.mockReturnValueOnce({
         success: false,
         remaining: 0,
@@ -422,7 +422,7 @@ describe("auth-actions", () => {
       expect(payload).not.toHaveProperty("ip");
     });
 
-    it("P1 (REVIEW.md): pre-captcha gate uses a separate bucket key per action and ip", async () => {
+    it("pre-captcha gate uses a separate bucket key per action and ip", async () => {
       mockRateLimiterCheck.mockReturnValue({ success: true, remaining: 29 });
       mockSignUp.mockResolvedValue({
         data: { user: { id: "user-1" } },
@@ -586,7 +586,7 @@ describe("auth-actions", () => {
       expect(mockDeleteUser).toHaveBeenCalledWith("user-to-delete");
     });
 
-    it("chiama deleteUser anche quando l'insert profile fallisce con UNIQUE constraint (P1-01: no orphan auth user)", async () => {
+    it("chiama deleteUser anche quando l'insert profile fallisce con UNIQUE constraint (no orphan auth user)", async () => {
       mockSignUp.mockResolvedValue({
         data: { user: { id: "loser-of-race" } },
         error: null,
@@ -854,7 +854,7 @@ describe("auth-actions", () => {
       delete process.env.APP_HOSTNAME;
     });
 
-    it("P1-01: rejects a captcha token whose action does not match (cross-flow replay)", async () => {
+    it("rejects a captcha token whose action does not match (cross-flow replay)", async () => {
       // Simulate replay: a token solved for signin/reset-password is presented
       // to signUp. verifyCaptcha must refuse it even though success+hostname
       // are valid.
@@ -878,7 +878,7 @@ describe("auth-actions", () => {
       expect(mockSignUp).not.toHaveBeenCalled();
     });
 
-    it("P1-01: rejects a captcha token when action is missing from response", async () => {
+    it("rejects a captcha token when action is missing from response", async () => {
       // Older client integrations or misconfigured widgets may not attach an
       // action. We treat missing action as mismatch — fail-closed.
       mockFetch.mockResolvedValueOnce({
@@ -937,7 +937,7 @@ describe("auth-actions", () => {
 
   describe("signIn", () => {
     beforeEach(() => {
-      // P1-01: signIn expects action="signin"
+      // signIn expects action="signin"
       mockFetch.mockResolvedValue(captchaResponse("signin"));
     });
 
@@ -955,7 +955,7 @@ describe("auth-actions", () => {
       expect(result).toEqual({ error: "Inserisci la password." });
     });
 
-    it("P2-01: returns captcha error when token is missing", async () => {
+    it("returns captcha error when token is missing", async () => {
       const { signIn } = await import("./auth-actions");
       const result = await signIn(
         formData({ email: "test@example.com", password: "securepass123" }),
@@ -964,7 +964,7 @@ describe("auth-actions", () => {
       expect(mockSignInWithPassword).not.toHaveBeenCalled();
     });
 
-    it("P2-01: returns captcha error when Turnstile validation fails", async () => {
+    it("returns captcha error when Turnstile validation fails", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ success: false }),
@@ -1045,11 +1045,11 @@ describe("auth-actions", () => {
 
   describe("resetPassword", () => {
     beforeEach(() => {
-      // P1-01: resetPassword expects action="reset-password"
+      // resetPassword expects action="reset-password"
       mockFetch.mockResolvedValue(captchaResponse("reset-password"));
     });
 
-    it("P2-02: returns captcha error when token is missing (prevents email-bomb)", async () => {
+    it("returns captcha error when token is missing (prevents email-bomb)", async () => {
       const { resetPassword } = await import("./auth-actions");
       const result = await resetPassword(
         formData({ email: "test@example.com" }),
@@ -1059,7 +1059,7 @@ describe("auth-actions", () => {
       expect(mockSendEmail).not.toHaveBeenCalled();
     });
 
-    it("P2-02: returns captcha error when Turnstile validation fails", async () => {
+    it("returns captcha error when Turnstile validation fails", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ success: false }),

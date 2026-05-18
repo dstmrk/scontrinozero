@@ -92,9 +92,9 @@ describe("emitReceipt server action", () => {
     });
   });
 
-  // ── P0-02: plan / trial enforcement ──────────────────────────────────────
+  // ── Plan / trial enforcement ─────────────────────────────────────────────
 
-  describe("plan enforcement (P0-02)", () => {
+  describe("plan enforcement", () => {
     it("allows emission when trial is active", async () => {
       const { emitReceipt } = await import("@/server/receipt-actions");
 
@@ -152,9 +152,9 @@ describe("emitReceipt server action", () => {
     });
   });
 
-  // ── P1-03: runtime Zod validation ────────────────────────────────────────
+  // ── Runtime Zod validation ───────────────────────────────────────────────
 
-  describe("input validation (P1-03)", () => {
+  describe("input validation", () => {
     it("accepts a valid input without error", async () => {
       const { emitReceipt } = await import("@/server/receipt-actions");
       const result = await emitReceipt(makeValidInput());

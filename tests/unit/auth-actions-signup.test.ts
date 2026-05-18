@@ -86,8 +86,8 @@ function makeFormData(overrides: Record<string, string> = {}): FormData {
 }
 
 function setupCaptchaOk(hostname = "app.scontrinozero.it") {
-  // P1-01: verifyCaptcha now validates the `action` field on the siteverify
-  // response. signUp passes expectedAction="signup" — echo it back.
+  // verifyCaptcha validates the `action` field on the siteverify response.
+  // signUp passes expectedAction="signup" — echo it back.
   mockFetch.mockResolvedValue({
     ok: true,
     json: async () => ({ success: true, hostname, action: "signup" }),
@@ -172,7 +172,7 @@ describe("signUp — email normalisation and uniqueness", () => {
     expect(mockSupabaseSignUp).not.toHaveBeenCalled();
   });
 
-  it("P1-01: compensating delete + redirect when profile insert violates unique email constraint (race)", async () => {
+  it("compensating delete + redirect when profile insert violates unique email constraint (race)", async () => {
     setupCaptchaOk();
     setupDbNoExistingEmail();
     mockInsertValues.mockRejectedValue(

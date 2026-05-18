@@ -81,7 +81,7 @@ export interface VoidReceiptInput {
  *   qualche secondo.
  * - VOID_ALREADY_TARGETED: un altro annullo concorrente sta agendo sulla stessa
  *   SALE (race condition fra utenti).
- * - DB_TIMEOUT: timeout DB; servizio temporaneamente sovraccarico (B20).
+ * - DB_TIMEOUT: timeout DB; servizio temporaneamente sovraccarico.
  * - VOID_SYNC_FAILED: l'annullo è stato registrato su AdE ma la sincronizzazione
  *   DB finale è fallita. Richiede cleanup manuale.
  */

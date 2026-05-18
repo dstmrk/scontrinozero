@@ -174,7 +174,7 @@ describe("POST /api/v1/receipts", () => {
       expect(res.status).toBe(400);
     });
 
-    // P1-05: cardinalità e limiti di dimensione
+    // Cardinalità e limiti di dimensione
     it("returns 400 when lines exceeds 100 items", async () => {
       const { POST } = await import("@/app/api/v1/receipts/route");
       const lines = Array.from({ length: 101 }, (_, i) => ({
@@ -339,7 +339,7 @@ describe("POST /api/v1/receipts", () => {
     });
   });
 
-  describe("CORS preflight (P2-02)", () => {
+  describe("CORS preflight", () => {
     it("OPTIONS returns 204 with CORS headers", async () => {
       const { OPTIONS } = await import("@/app/api/v1/receipts/route");
       const res = OPTIONS();
@@ -375,7 +375,7 @@ describe("POST /api/v1/receipts", () => {
       expect(res.status).toBe(429);
     });
 
-    it("returns 503 + Retry-After when service returns DB_TIMEOUT (B20)", async () => {
+    it("returns 503 + Retry-After when service returns DB_TIMEOUT", async () => {
       mockEmitReceiptForBusiness.mockResolvedValue({
         error:
           "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
@@ -389,7 +389,7 @@ describe("POST /api/v1/receipts", () => {
       expect(body.code).toBe("DB_TIMEOUT");
     });
 
-    it("returns 409 + Retry-After when service returns PENDING_IN_PROGRESS (B7)", async () => {
+    it("returns 409 + Retry-After when service returns PENDING_IN_PROGRESS", async () => {
       mockEmitReceiptForBusiness.mockResolvedValue({
         error: "Scontrino precedente ancora in elaborazione.",
         code: "PENDING_IN_PROGRESS",
@@ -402,7 +402,7 @@ describe("POST /api/v1/receipts", () => {
       expect(body.code).toBe("PENDING_IN_PROGRESS");
     });
 
-    it("returns 409 when service returns ALREADY_REJECTED (B7)", async () => {
+    it("returns 409 when service returns ALREADY_REJECTED", async () => {
       mockEmitReceiptForBusiness.mockResolvedValue({
         error: "Scontrino precedente già rifiutato.",
         code: "ALREADY_REJECTED",

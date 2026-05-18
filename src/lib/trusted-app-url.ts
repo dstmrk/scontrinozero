@@ -35,7 +35,7 @@ function getAllowedHostnames(): Set<string> {
  * `APP_HOSTNAME` / `NEXT_PUBLIC_APP_HOSTNAME` + default `app.scontrinozero.it`).
  * In dev/test ammette anche `http://localhost`.
  *
- * **Perché esiste** (P1-02): gli endpoint Stripe (`checkout/route.ts`,
+ * **Perché esiste**: gli endpoint Stripe (`checkout/route.ts`,
  * `portal/route.ts`) costruiscono `success_url`, `cancel_url`, `return_url`
  * concatenando `NEXT_PUBLIC_APP_URL`. Una misconfigurazione env (o pipeline
  * compromessa) può produrre redirect Stripe verso domini non fidati dopo

@@ -5,7 +5,7 @@ const STRIPE_API_VERSION = "2026-04-22.dahlia" as const;
 /**
  * Per-request options da applicare alle chiamate Stripe nel webhook handler.
  *
- * Motivazione (P2 REVIEW.md): il webhook handler invoca
+ * Motivazione: il webhook handler invoca
  * `stripe.subscriptions.retrieve` sincronicamente prima di acknoledgiare;
  * senza timeout, una degradazione esterna farebbe pendere il worker
  * indefinitamente, saturando il pool e amplificando i retry concorrenti

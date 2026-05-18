@@ -91,7 +91,7 @@ async function getOrCreateStripeCustomerId(args: {
 }
 
 /**
- * P1-02: legge `NEXT_PUBLIC_APP_URL` validato. Ritorna `Response` 503 se la
+ * Legge `NEXT_PUBLIC_APP_URL` validato. Ritorna `Response` 503 se la
  * validazione fallisce (URL non https in prod, hostname non in allowlist).
  */
 function resolveTrustedAppUrlOr503(): string | Response {
@@ -152,7 +152,7 @@ export async function POST(req: Request): Promise<Response> {
   if (customerResult instanceof Response) return customerResult;
   const stripeCustomerId = customerResult;
 
-  // ── Resolve trusted app URL (P1-02) ───────────────────────────────────────
+  // ── Resolve trusted app URL ──────────────────────────────────────────────
   const appUrlResult = resolveTrustedAppUrlOr503();
   if (appUrlResult instanceof Response) return appUrlResult;
   const appUrl = appUrlResult;

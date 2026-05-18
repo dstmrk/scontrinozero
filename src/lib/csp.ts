@@ -1,18 +1,14 @@
 /**
  * Content-Security-Policy in modalità enforce.
  *
- * Storia rollout (B14, chiuso in v1.2.10):
- *  - v1.2.8: deploy in `Content-Security-Policy-Report-Only` con endpoint
- *    `/api/csp-report` per raccolta violation.
- *  - v1.2.10: zero violation reali in ≥14gg → flip della chiave header a
- *    `Content-Security-Policy` (enforce). Policy invariata byte-per-byte.
+ * Vedi CLAUDE.md per il razionale del pattern Report-Only → Enforce.
  *
- * Limitazioni note (follow-up B14b):
+ * Limitazioni note (tracciate nel backlog):
  *  - `script-src 'unsafe-inline'` resta in enforce. Mitigato da `safeJsonLd()`
  *    in `src/components/json-ld.tsx` (escape `<>&`) e dal fatto che TUTTI i
  *    payload JSON-LD sono statici a build time (nessun input utente raggiunge
- *    `dangerouslySetInnerHTML`). Rimozione tramite hash/nonce pianificata in
- *    B14b — vedi PLAN.md.
+ *    `dangerouslySetInnerHTML`). Rimozione tramite hash/nonce pianificata
+ *    — vedi PLAN.md.
  *  - `style-src 'unsafe-inline'` resta: Tailwind 4 inline + Radix UI portali
  *    iniettano style runtime non isolabili senza nonce dinamico.
  */

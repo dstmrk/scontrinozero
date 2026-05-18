@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { sanitizePdfFilename } from "@/lib/receipts/generate-pdf-response";
 
-describe("sanitizePdfFilename (P3-01)", () => {
+describe("sanitizePdfFilename", () => {
   it("leaves safe characters untouched", () => {
     expect(sanitizePdfFilename("2024-001")).toBe("2024-001");
   });

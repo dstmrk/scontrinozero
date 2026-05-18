@@ -12,8 +12,7 @@
  *     il punto resta come separatore decimale ("1.5", "19.99").
  *   - più di una virgola → input ambiguo → NaN.
  *
- * Usato dai tool /strumenti/* per evitare che "1.234,56" venga letto come 1.234
- * (bug rilevato in code review Codex su PR #474, v1.2.12).
+ * Usato dai tool /strumenti/* per evitare che "1.234,56" venga letto come 1.234.
  */
 export function parseItalianNumber(input: string): number {
   const trimmed = input.trim();

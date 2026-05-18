@@ -42,7 +42,7 @@ async function createPortalSession(userId: string): Promise<Response | string> {
   }
 
   // ── Create Billing Portal session ─────────────────────────────────────────
-  // P1-02: validate appUrl prima di passare a Stripe — una misconfigurazione
+  // Validate appUrl prima di passare a Stripe — una misconfigurazione
   // env produrrebbe `return_url` verso un dominio non fidato dopo il portal.
   let appUrl: string;
   try {

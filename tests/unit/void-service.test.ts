@@ -255,7 +255,7 @@ describe("voidReceiptForBusiness", () => {
       expect(mockAdeSubmitVoid).not.toHaveBeenCalled();
     });
 
-    it("returns VOID_PENDING_IN_PROGRESS when existing VOID is fresh PENDING (B7)", async () => {
+    it("returns VOID_PENDING_IN_PROGRESS when existing VOID is fresh PENDING", async () => {
       setupHappyPathDb();
       mockReturning.mockResolvedValue([]); // INSERT conflict
 
@@ -386,7 +386,7 @@ describe("voidReceiptForBusiness", () => {
     });
   });
 
-  describe("stale PENDING recovery (B7)", () => {
+  describe("stale PENDING recovery", () => {
     it("stale PENDING without AdE transaction → re-submits void to AdE", async () => {
       setupHappyPathDb();
       setupAdeClient();

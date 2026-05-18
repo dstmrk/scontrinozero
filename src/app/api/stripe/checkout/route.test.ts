@@ -266,7 +266,7 @@ describe("POST /api/stripe/checkout", () => {
     );
   });
 
-  it("P1-02: restituisce 503 se NEXT_PUBLIC_APP_URL non passa la validazione", async () => {
+  it("restituisce 503 se NEXT_PUBLIC_APP_URL non passa la validazione", async () => {
     const { TrustedAppUrlError } = await import("@/lib/trusted-app-url");
     mockGetAuthenticatedUser.mockResolvedValue({
       id: "user-1",

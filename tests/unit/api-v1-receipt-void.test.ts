@@ -171,7 +171,7 @@ describe("POST /api/v1/receipts/[id]/void", () => {
       expect(res.status).toBe(422);
     });
 
-    it("returns 503 + Retry-After when void service returns DB_TIMEOUT (B20)", async () => {
+    it("returns 503 + Retry-After when void service returns DB_TIMEOUT", async () => {
       mockVoidReceiptForBusiness.mockResolvedValue({
         error: "Servizio temporaneamente sovraccarico.",
         code: "DB_TIMEOUT",
@@ -184,7 +184,7 @@ describe("POST /api/v1/receipts/[id]/void", () => {
       expect(body.code).toBe("DB_TIMEOUT");
     });
 
-    it("returns 409 when void service returns VOID_PENDING_IN_PROGRESS (B7)", async () => {
+    it("returns 409 when void service returns VOID_PENDING_IN_PROGRESS", async () => {
       mockVoidReceiptForBusiness.mockResolvedValue({
         error: "Annullo precedente ancora in elaborazione.",
         code: "VOID_PENDING_IN_PROGRESS",
@@ -209,7 +209,7 @@ describe("POST /api/v1/receipts/[id]/void", () => {
       expect(body.code).toBe("VOID_ALREADY_TARGETED");
     });
 
-    it("returns 500 + VOID_SYNC_FAILED when finalize fails post-AdE (B20)", async () => {
+    it("returns 500 + VOID_SYNC_FAILED when finalize fails post-AdE", async () => {
       mockVoidReceiptForBusiness.mockResolvedValue({
         error: "Annullo registrato su AdE ma sincronizzazione DB in errore.",
         code: "VOID_SYNC_FAILED",

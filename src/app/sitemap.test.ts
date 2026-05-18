@@ -26,7 +26,7 @@ describe("sitemap", () => {
       priority: 0.8,
     });
 
-    // Category landing pages (v1.2.9)
+    // Category landing pages
     const allUrls = result.map((e) => e.url);
     const expectedCategoryUrls = [
       "https://scontrinozero.it/per/ambulanti",
@@ -45,7 +45,7 @@ describe("sitemap", () => {
       });
     }
 
-    // Comparison pages (v1.2.11)
+    // Comparison pages
     const expectedComparisonUrls = [
       "https://scontrinozero.it/confronto/registratore-telematico",
       "https://scontrinozero.it/confronto/scontrinare",
@@ -60,7 +60,7 @@ describe("sitemap", () => {
       });
     }
 
-    // Tool pages (v1.2.12)
+    // Tool pages
     const expectedToolUrls = [
       "https://scontrinozero.it/strumenti/scorporo-iva",
       "https://scontrinozero.it/strumenti/verifica-codice-lotteria",
@@ -75,7 +75,7 @@ describe("sitemap", () => {
       });
     }
 
-    // Guide hub + articles (v1.2.13 + v1.2.14 fase 2)
+    // Guide hub + articles
     expect(allUrls).toContain("https://scontrinozero.it/guide");
     const expectedGuideUrls = [
       "https://scontrinozero.it/guide/documento-commerciale-online",
@@ -98,7 +98,7 @@ describe("sitemap", () => {
       });
     }
 
-    // Legal (shifted +5 by v1.2.14 guide fase 2)
+    // Legal
     expect(result[26]).toMatchObject({
       url: "https://scontrinozero.it/privacy",
       changeFrequency: "yearly",
@@ -166,7 +166,7 @@ describe("sitemap", () => {
       expect(helpUrls).toContain(url);
     }
 
-    // Auth pages (last two, shifted +5 by v1.2.14 guide fase 2)
+    // Auth pages (last two)
     expect(result[54]).toMatchObject({
       url: "https://scontrinozero.it/login",
       changeFrequency: "yearly",

@@ -67,7 +67,7 @@ export async function POST(
   );
 
   if (result.error) {
-    // B20: DB timeout → 503 + Retry-After
+    // DB timeout → 503 + Retry-After
     if (result.code === "DB_TIMEOUT") {
       return withCors(
         Response.json(
@@ -76,7 +76,7 @@ export async function POST(
         ),
       );
     }
-    // B7: VOID_PENDING_IN_PROGRESS → 409
+    // VOID_PENDING_IN_PROGRESS → 409
     if (result.code === "VOID_PENDING_IN_PROGRESS") {
       return withCors(
         Response.json(
