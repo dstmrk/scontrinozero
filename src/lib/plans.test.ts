@@ -27,6 +27,7 @@ import {
   DEVELOPER_MONTHLY_LIMITS,
   STARTER_CATALOG_LIMIT,
   TRIAL_DAYS,
+  assertProPlan,
   canAddCatalogItem,
   canEmit,
   canUseApi,
@@ -290,5 +291,101 @@ describe("getPlan", () => {
     await expect(getPlan("user-not-found")).rejects.toThrow(
       "Profilo non trovato",
     );
+  });
+});
+
+describe("assertProPlan", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetDb.mockReturnValue({ select: mockSelect });
+    mockSelect.mockReturnValue({ from: mockFrom });
+    mockFrom.mockReturnValue({ where: mockSelectWhere });
+    mockSelectWhere.mockReturnValue({ limit: mockLimit });
+  });
+
+  it("returns 401 when authUserId is null", async () => {
+    const result = await assertProPlan(null);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(401);
+      expect(result.error).toContain("Non autenticato");
+    }
+  });
+
+  it("returns 401 when authUserId is an empty string", async () => {
+    const result = await assertProPlan("");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(401);
+    }
+  });
+
+  it("returns 401 when the profile does not exist", async () => {
+    mockLimit.mockResolvedValue([]);
+    const result = await assertProPlan("user-no-profile");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(401);
+    }
+  });
+
+  it("returns 403 for the starter plan", async () => {
+    mockLimit.mockResolvedValue([
+      { plan: "starter", trialStartedAt: null, planExpiresAt: null },
+    ]);
+    const result = await assertProPlan("user-starter");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(403);
+      expect(result.error).toContain("Pro");
+    }
+  });
+
+  it("returns 403 for the trial plan", async () => {
+    mockLimit.mockResolvedValue([
+      { plan: "trial", trialStartedAt: new Date(), planExpiresAt: null },
+    ]);
+    const result = await assertProPlan("user-trial");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(403);
+    }
+  });
+
+  it("returns 403 for developer plans (Pro feature gate is plan-Pro only)", async () => {
+    mockLimit.mockResolvedValue([
+      {
+        plan: "developer_indie",
+        trialStartedAt: null,
+        planExpiresAt: null,
+      },
+    ]);
+    const result = await assertProPlan("user-dev");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(403);
+    }
+  });
+
+  it("returns ok=true for pro plan", async () => {
+    mockLimit.mockResolvedValue([
+      { plan: "pro", trialStartedAt: null, planExpiresAt: null },
+    ]);
+    const result = await assertProPlan("user-pro");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.plan).toBe("pro");
+    }
+  });
+
+  it("returns ok=true for unlimited plan", async () => {
+    mockLimit.mockResolvedValue([
+      { plan: "unlimited", trialStartedAt: null, planExpiresAt: null },
+    ]);
+    const result = await assertProPlan("user-unlimited");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.plan).toBe("unlimited");
+    }
   });
 });

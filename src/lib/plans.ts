@@ -88,6 +88,46 @@ export function canUsePro(plan: Plan): boolean {
   return plan === "pro" || plan === "unlimited";
 }
 
+export type AssertProPlanResult =
+  | { ok: true; plan: Plan }
+  | { ok: false; status: 401 | 403; error: string };
+
+/**
+ * Gate per route handler che proteggono una feature Pro.
+ * - authUserId null/empty → 401
+ * - profilo non trovato → 401
+ * - piano non Pro/Unlimited → 403
+ * - piano Pro/Unlimited → ok
+ *
+ * Da usare nelle route handler dove si vuole rispondere con uno status HTTP
+ * preciso senza try/catch. Per le server actions usare direttamente getPlan +
+ * canUsePro (i pattern esistenti).
+ */
+export async function assertProPlan(
+  authUserId: string | null,
+): Promise<AssertProPlanResult> {
+  if (!authUserId) {
+    return { ok: false, status: 401, error: "Non autenticato." };
+  }
+
+  let info: PlanInfo;
+  try {
+    info = await getPlan(authUserId);
+  } catch {
+    return { ok: false, status: 401, error: "Non autenticato." };
+  }
+
+  if (!canUsePro(info.plan)) {
+    return {
+      ok: false,
+      status: 403,
+      error: "Funzionalità riservata al piano Pro.",
+    };
+  }
+
+  return { ok: true, plan: info.plan };
+}
+
 /**
  * Ritorna true se il piano è un piano developer (Fase B: Partner API).
  */
