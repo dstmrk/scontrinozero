@@ -76,9 +76,25 @@ vi.mock("@/lib/validation", () => ({
   ITALIAN_ZIP_MESSAGE: "CAP non valido (5 cifre numeriche).",
 }));
 
-vi.mock("@/types/cassa", () => ({
-  VAT_CODES: ["4", "5", "10", "22", "N1", "N2", "N3", "N4", "N5", "N6"],
-}));
+vi.mock("@/types/cassa", () => {
+  const codes = new Set([
+    "4",
+    "5",
+    "10",
+    "22",
+    "N1",
+    "N2",
+    "N3",
+    "N4",
+    "N5",
+    "N6",
+  ]);
+  return {
+    VAT_CODES: ["4", "5", "10", "22", "N1", "N2", "N3", "N4", "N5", "N6"],
+    isInvalidPreferredVatCode: (code: string | null) =>
+      code !== null && !codes.has(code),
+  };
+});
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
