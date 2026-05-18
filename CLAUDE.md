@@ -70,12 +70,12 @@
 
     ⚠️ **Stato reale del repo (importante):** drizzle-kit è stato usato UNA SOLA volta per generare
     lo schema iniziale `0000_initial.sql` + `0000_snapshot.json`. Tutte le migrazioni successive
-    (`0001`–`0013`+) sono **scritte a mano**. In `supabase/migrations/meta/` esiste UN solo snapshot
+    sono **scritte a mano**. In `supabase/migrations/meta/` esiste UN solo snapshot
     (`0000_snapshot.json`), non gli snapshot intermedi.
 
     🚫 **NON ESEGUIRE MAI `npx drizzle-kit generate` su questo repo nello stato attuale.**
     Genererebbe una mega-migrazione che riapplica tutto ciò che è successo dopo `0000`
-    (lottery_code, RLS, api_keys, …) confliggendo con le 13 migrazioni handwritten esistenti.
+    confliggendo con le migrazioni handwritten esistenti.
     Per riattivare drizzle-kit serve prima un task dedicato di **rebuild degli snapshot
     intermedi** (out of scope finché non diventa pain).
 
@@ -122,14 +122,9 @@
       ```sql
       INSERT INTO __applied_migrations (filename, checksum)
       SELECT unnest(ARRAY[
-        '0000_initial.sql','0001_rls_policies.sql','0002_add_lottery_code.sql',
-        '0003_remove_unused_columns.sql','0004_add_api_keys.sql',
-        '0005_api_keys_rls.sql','0006_add_api_key_id_to_documents.sql',
-        '0007_add_voided_document_id.sql','0008_unique_email_profiles.sql',
-        '0009_idempotency_per_business.sql','0010_api_keys_constraints.sql'
+        -- elencare qui i nomi dei file .sql in supabase/migrations/ già presenti nel DB
       ]), '' ON CONFLICT (filename) DO NOTHING;
       ```
-      (aggiornare la lista se ci sono migrazioni più recenti)
       ⚠️ **L'INSERT manuale va fatto SOLO per le migrazioni già effettivamente presenti
       nel DB.** Inserire filename di migrazioni non eseguite le marca come applicate
       senza eseguirle — schema silenziosamente incompleto. Per verificare quali
@@ -214,8 +209,8 @@
     }
     ```
 
-    Use 503 (not 500) to signal transient external unavailability. B4 will later add a
-    `requestId` and structured error envelope on top.
+    Use 503 (not 500) to signal transient external unavailability. A uniform error
+    envelope (`{code, message, requestId}`) is tracked separately in the backlog.
 
 24. **Key rotation: ENCRYPTION_KEY — procedura obbligatoria prima del deploy.**
     Le credenziali Fisconline sono cifrate con AES-256-GCM; la chiave sta in `ENCRYPTION_KEY`
@@ -255,13 +250,10 @@
     Ogni modifica a UI label, percorsi di menu, stati visualizzati, opzioni di filtro,
     flussi di errore, gating dei piani o nomi di bottoni può rendere obsoleta la documentazione
     in `src/app/(marketing)/help/**/page.tsx`. Prima di chiudere un task che cambia uno di
-    questi aspetti, fare un grep mirato del termine modificato (es. `grep -rn "Verifica connessione" src/app/\(marketing\)/help`)
-    e aggiornare gli articoli che lo citano. Le revisioni periodiche del Help Center hanno già
-    rivelato discrepanze evidenti (es. label "Trasmesso" vs UI reale "Emesso", filtro "importo"
-    inesistente, sezioni che descrivevano feature ancora `comingSoon`): tenere allineata la
-    documentazione contestualmente al codice evita che si accumulino. Per le feature ancora
-    non implementate, riformulare al condizionale come roadmap (es. "In arrivo · Piano Pro")
-    anziché descriverle come attive.
+    questi aspetti, fare un grep mirato del termine modificato (es. `grep -rn "<termine>" src/app/\(marketing\)/help`)
+    e aggiornare gli articoli che lo citano. Per le feature ancora non implementate,
+    riformulare al condizionale come roadmap (es. "In arrivo · Piano Pro") anziché
+    descriverle come attive.
 
 26. **Lookup su Record con chiave user-controlled: valida via Set/type guard, mai `record[input]` diretto.**
     Quando una route dinamica (es. `/per/[slug]`, `/help/[slug]`, `/guide/[slug]`) fa il lookup
@@ -286,73 +278,51 @@
     `Object.hasOwn(record, slug)` è un'alternativa valida ma meno espressiva del type guard.
     Aggiungere sempre test mirati per i 4 nomi del prototype chain
     (`__proto__`, `constructor`, `toString`, `hasOwnProperty`) per documentare l'invariante.
-    Trovato in v1.2.9 da Codex su PR #463 — applicare lo stesso pattern a ogni nuova route
-    dinamica.
+    Applicare lo stesso pattern a ogni nuova route dinamica.
 
 27. **CSP rollout: Report-Only → Enforce è un cambio di UNA chiave header.**
-    Flusso seguito per B14 (chiuso in v1.2.10): in v1.2.8 introdotto
-    `Content-Security-Policy-Report-Only` con la policy completa + endpoint
-    `/api/csp-report` (rate-limited, allowlist sanitization). Dopo 14 giorni di
-    zero violation reali in produzione (audit via Sentry MCP — query
-    `message:"CSP violation report received"` su `dataset:logs` con `statsPeriod:14d`),
-    in v1.2.10 si è semplicemente rinominata la chiave in `Content-Security-Policy`.
-    Policy invariata byte-per-byte.
-    - **Decisione: `'unsafe-inline'` MANTENUTO su `script-src`** per non over-ingegnerizzare.
-      Mitigato da `safeJsonLd()` in `src/components/json-ld.tsx` (escape di `<>&`) e dal
-      fatto che TUTTI i payload JSON-LD sono statici a build time. Il valore di sicurezza
-      della CSP enforce sta nell'**allowlist di origin** (`default-src 'self'`,
-      `connect-src` restrittivo, `frame-ancestors 'none'`, `object-src 'none'`), non nel
-      divieto di inline. Rimozione tramite hash/nonce rinviata a B14b (P2).
-    - **Enforce solo in production, Report-Only in dev/test**: `buildSecurityHeaders`
+    Pattern: introdurre `Content-Security-Policy-Report-Only` con la policy completa
+    - endpoint `/api/csp-report` (rate-limited, allowlist sanitization). Dopo un
+      periodo di osservazione (es. 14 giorni) con zero violation reali in produzione
+      (audit via Sentry — query `message:"CSP violation report received"`),
+      rinominare la chiave in `Content-Security-Policy`. Policy invariata byte-per-byte.
+    * **`'unsafe-inline'` su `script-src`** può essere mantenuto se mitigato da
+      `safeJsonLd()` in `src/components/json-ld.tsx` (escape di `<>&`) e i payload
+      JSON-LD sono tutti statici a build time. Il valore di sicurezza della CSP enforce
+      sta nell'**allowlist di origin** (`default-src 'self'`, `connect-src` restrittivo,
+      `frame-ancestors 'none'`, `object-src 'none'`), non nel divieto di inline.
+    * **Enforce solo in production, Report-Only in dev/test**: `buildSecurityHeaders`
       sceglie la chiave header in base a `process.env.NODE_ENV`. Motivo: Next.js dev mode
       (Turbopack/Webpack HMR + React error overlay) usa `eval()`, e l'enforce senza
       `'unsafe-eval'` riempie la console di `Refused to evaluate a string as JavaScript`
-      e può rompere HMR. Tenere Report-Only in dev permette di vedere comunque le
-      violation in `/api/csp-report` (parità di telemetria) senza degradare il workflow
-      locale. Pattern simmetrico a HSTS (anch'esso gated a production).
-    - **Anti-pattern evitato**: hash-based per JSON-LD. Avrebbe richiesto ricalcolo
-      SHA-256 ad ogni edit di `softwareApplicationJsonLd`, `organizationJsonLd`,
-      `faqPageJsonLd` e dei ~17 breadcrumb help dinamici. Fragile.
-    - **Anti-pattern evitato**: nonce-based su `script-src`. Incompatibile con SSG
-      marketing largo del sito (il nonce dev'essere per-request, le pagine SSG sono
-      cached statiche).
-    - **Lesson "verify the rollout, not the policy"**: la verifica post-deploy NON è
-      "la policy è corretta" (era già stata validata in Report-Only) ma "la chiave
-      header è cambiata e il browser ora ENFORCE". Smoke test: `curl -I` su prod
-      verifica `Content-Security-Policy:` (no `-Report-Only`) + DevTools console
-      pulita su tutti i percorsi critici (homepage, login con Turnstile, dashboard
-      con Supabase REST/WS, Sentry connect).
-    - **Estrarre `securityHeaders` in modulo testabile** (`src/lib/security-headers.ts`)
-      è la pratica corretta quando si vuole regression test sulla chiave header:
+      e può rompere HMR. Pattern simmetrico a HSTS.
+    * **Anti-pattern**: nonce-based su `script-src`. Incompatibile con SSG largo del sito
+      marketing (il nonce dev'essere per-request, le pagine SSG sono cached statiche).
+    * **Estrarre `securityHeaders` in modulo testabile** (`src/lib/security-headers.ts`):
       `next.config.ts` non è facilmente unit-testabile, ma una funzione pura
       `buildSecurityHeaders({nodeEnv, allowedOrigin}): {key, value}[]` sì. Test
       essenziali: chiave CSP enforce (no Report-Only), HSTS condizionale a
       `nodeEnv === "production"`, `Reporting-Endpoints` con URL assoluto.
-    - **`Reporting-Endpoints` resta indispensabile in enforce**: l'endpoint
-      `/api/csp-report` continua a ricevere telemetria di violation in produzione,
-      utile per detection di XSS attempt e drift della policy (nuove dipendenze che
-      caricano script da CDN non in allowlist). Soglia di allarme: >50 violation/giorno
-      o qualsiasi `blockedUri` riconducibile a un nostro asset legittimo.
+    * **`Reporting-Endpoints` resta indispensabile in enforce**: utile per detection
+      di XSS attempt e drift della policy. Soglia di allarme: >50 violation/giorno
+      o qualsiasi `blockedUri` riconducibile a un asset legittimo.
 
-28. **B7 stale recovery: rischio duplicato AdE su perdita response (P1-03 — quick fix v1.2.15).**
+28. **Stale recovery di mutazioni esterne idempotenti senza idempotency-key lato remoto.**
     Il recovery di una row PENDING/ERROR senza `adeTransactionId` ri-invoca
-    `submitSale`/`submitVoid`. AdE non accetta una idempotency-key nel payload
-    → se la prima call era arrivata ad AdE ma la response si è persa in volo
+    `submitSale`/`submitVoid`. AdE non accetta una idempotency-key nel payload:
+    se la prima call era arrivata ad AdE ma la response si è persa in volo
     (timeout, container kill, network glitch), il retry crea un documento
-    fiscale duplicato (per submitSale) o un VOID duplicato (per submitVoid),
-    **irreversibile**. Mitigazione quick (v1.2.15): soglia stale alzata da
-    5 → 30 min in `getStalePendingThresholdMs()` (sia `receipt-service` che
-    `void-service`). 30 min è sopra la durata sessione AdE tipica, quindi un
-    retry sotto soglia ritorna `PENDING_IN_PROGRESS` e l'utente lo riproverà
-    quando la sessione AdE non sarà più valida. Logging esplicito al rientro
-    in recovery senza `adeTransactionId` (`logger.warn` con marker
-    "P1-03 residual risk") per audit. **Soluzione corretta rinviata a
-    v1.11.0** (storno avanzato): `searchDocuments`/`getDocument` su AdE
-    pre-retry per scoprire se un documento collegato esiste già — richiede
-    l'endpoint AdE di ricerca, oggi non implementato nel client (vedi
-    `ricerca_documento.har` in roadmap). Override env disponibile per
-    abbassare la soglia in test E2E o ambienti controllati:
+    fiscale duplicato o un VOID duplicato, **irreversibile**.
+    Mitigazione: soglia stale di 30 minuti in `getStalePendingThresholdMs()`
+    (sia `receipt-service` che `void-service`). 30 min è sopra la durata sessione
+    AdE tipica, quindi un retry sotto soglia ritorna `PENDING_IN_PROGRESS` e
+    l'utente lo riproverà quando la sessione AdE non sarà più valida. Logging
+    esplicito al rientro in recovery senza `adeTransactionId` per audit.
+    Override env per test E2E o ambienti controllati:
     `STALE_PENDING_THRESHOLD_MINUTES=5`.
+    **Soluzione corretta**: `searchDocuments`/`getDocument` su AdE pre-retry per
+    scoprire se un documento collegato esiste già — richiede l'endpoint AdE di
+    ricerca, tracciato in roadmap (vedi `ricerca_documento.har`).
 
 29. **Double-gate rate limit prima di chiamate esterne costose (Turnstile, AdE, ecc.).**
     Quando un endpoint pubblico chiama un servizio esterno (HTTP outbound con timeout
@@ -375,9 +345,9 @@
     5. **Test invariant cardinale**: con pre-limit failure, `fetch`/external call
        NON deve mai essere invocata (`expect(mockFetch).not.toHaveBeenCalled()`).
 
-    Applicato a `signUp`/`signIn`/`resetPassword` in v1.2.11 follow-up audit
-    (REVIEW.md P1). Lo stesso pattern si applica a qualsiasi endpoint che
-    inneschi: invio email (Resend), call AdE, generazione PDF costosa, ecc.
+    Applicato a `signUp`/`signIn`/`resetPassword`. Lo stesso pattern si applica
+    a qualsiasi endpoint che inneschi: invio email (Resend), call AdE, generazione
+    PDF costosa, ecc.
 
 30. **`setInterval` in costruttori long-lived: chiamare sempre `.unref?.()`.**
     Qualsiasi classe che instanzia un `setInterval` nel costruttore (es.
@@ -408,13 +378,7 @@ esercenti e micro-attività di emettere scontrini elettronici e trasmettere i co
 all'Agenzia delle Entrate senza registratore telematico fisico, sfruttando la procedura
 "Documento Commerciale Online".
 
-**Versione corrente:** v1.2.11 ✅ — roadmap completa in `PLAN.md`.
-
-> **Nota numerazione:** dopo il tag pubblicato `v1.2.10` non sono stati creati tag intermedi, quindi le release "logiche" v1.2.11–v1.2.15 menzionate in `PLAN.md` sono consolidate in un'unica release pubblica `v1.2.11`. Le sezioni storiche del PLAN restano per tracciabilità.
-
-**Prossima release:** TBD (Export CSV / Analytics dashboard come prerequisiti del lancio hard rinviato).
-
-**Post-lancio:** v1.2.2 (billing fix) → v1.2.3–v1.2.7 (patch: landing SEO, security/GDPR polish, code review fixes, Help Center expansion) → v1.2.8 (SEO foundations + hardening) → v1.2.9 (landing per categoria + B19) → v1.2.10 (CSP enforce — B14) → **v1.2.11 (release pubblica corrente)** che consolida: pagine comparative + tool gratuiti backlink magnets + guide evergreen fase 1 + B7/B20 + guide evergreen fase 2 + signup tracking + hardening release (multi-agent review + 4 P1 + 5 P2 security) → v1.3.0+ (analytics, catalog sync, …). Il "lancio hard" è stato rinviato a quando i criteri gate (≥30 utenti paganti, ≥5 review, Export CSV e Analytics live, indicizzazione GSC ≥90%) saranno verdi.
+La versione pubblicata è in `package.json`. Roadmap e backlog in `PLAN.md`. Lo storico delle release è ricostruibile dai tag git (`git tag -l "v1.*"`).
 
 ## Principi di prodotto
 
@@ -659,7 +623,7 @@ L'integrazione AdE usa un **pattern adapter/strategy**:
 ```
 sviluppo su branch → PR → merge su main → CI (test + lint + sonar)
                                               ↓
-                              git tag v1.0.0 → GitHub Actions: build + push su GHCR
+                              git tag vX.Y.Z → GitHub Actions: build + push su GHCR
                                               ↓
                               VPS (browser SSH Cloudflare Access):
                               cd /opt/scontrinozero
@@ -1056,13 +1020,12 @@ scontrinozero/
 
 Presenti nella root del repo, da analizzare prima delle relative release:
 
-| File                             | Feature                                            | Versione                                          |
-| -------------------------------- | -------------------------------------------------- | ------------------------------------------------- |
-| `dati_doc_commerciale.har`       | Aggiornamento dati business su AdE post-onboarding | post-v1.0.0 (rinviato, possibile feature premium) |
-| `aggiungi_prodotto_catalogo.har` | Aggiunta prodotto su rubrica AdE                   | v1.5.0                                            |
-| `modifica_prodotto_catalogo.har` | Modifica prodotto su rubrica AdE                   | v1.5.0                                            |
-| `elimina_prodotto_catalogo.har`  | Eliminazione prodotto su rubrica AdE               | v1.5.0                                            |
-| `ricerca_prodotto_catalogo.har`  | Ricerca prodotto su rubrica AdE                    | v1.5.0                                            |
-| `ricerca_documento.har`          | Ricerca documento su AdE                           | v2.0.0+                                           |
-| `login_spid.har`                 | SPID login flow (analizzato e implementato)        | ✅ v0.x                                           |
-| `login_cie.har`                  | CIE login flow                                     | v1.8.0+                                           |
+| File                             | Feature                                            | Target                               |
+| -------------------------------- | -------------------------------------------------- | ------------------------------------ |
+| `dati_doc_commerciale.har`       | Aggiornamento dati business su AdE post-onboarding | rinviato (possibile feature premium) |
+| `aggiungi_prodotto_catalogo.har` | Aggiunta prodotto su rubrica AdE                   | v1.7.0                               |
+| `modifica_prodotto_catalogo.har` | Modifica prodotto su rubrica AdE                   | v1.7.0                               |
+| `elimina_prodotto_catalogo.har`  | Eliminazione prodotto su rubrica AdE               | v1.7.0                               |
+| `ricerca_prodotto_catalogo.har`  | Ricerca prodotto su rubrica AdE                    | v1.7.0                               |
+| `ricerca_documento.har`          | Ricerca documento su AdE                           | v2.0.0+                              |
+| `login_cie.har`                  | CIE login flow                                     | v1.8.0+                              |

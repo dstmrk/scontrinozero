@@ -101,9 +101,9 @@ La versione self-hosted include tutte le funzionalità della versione SaaS; il v
 
 ## Stato del progetto
 
-🚀 **v1.2.11 — in produzione su [scontrinozero.it](https://scontrinozero.it)**
+🚀 **In produzione su [scontrinozero.it](https://scontrinozero.it)**
 
-Roadmap dettagliata in [`PLAN.md`](./PLAN.md). Lavoro in corso su SEO foundations (v1.2.8 → v1.2.15) e lancio open source.
+Roadmap dettagliata in [`PLAN.md`](./PLAN.md).
 
 ## Licenza
 
