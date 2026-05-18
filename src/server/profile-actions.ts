@@ -15,6 +15,7 @@ import {
   isValidItalianZipCode,
   ITALIAN_ZIP_MESSAGE,
 } from "@/lib/validation";
+import { VAT_CODES, type VatCode } from "@/types/cassa";
 import { getClientIp } from "@/lib/get-client-ip";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
@@ -88,6 +89,7 @@ export async function updateBusiness(
   const city = getFormStringOrNull(formData, "city");
   const province = getFormStringOrNull(formData, "province");
   const zipCode = getFormString(formData, "zipCode");
+  const preferredVatCode = getFormStringOrNull(formData, "preferredVatCode");
 
   if (!businessId) return { error: "Business ID mancante." };
   if (businessName && businessName.length > 120)
@@ -100,6 +102,8 @@ export async function updateBusiness(
   if (province && province.length > 3)
     return { error: "La provincia non può superare 3 caratteri." };
   if (!isValidItalianZipCode(zipCode)) return { error: ITALIAN_ZIP_MESSAGE };
+  if (preferredVatCode && !VAT_CODES.includes(preferredVatCode as VatCode))
+    return { error: "Aliquota IVA non valida." };
 
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) return ownershipError;
@@ -113,10 +117,41 @@ export async function updateBusiness(
   }
 
   const db = getDb();
+
+  // Read current value to emit an audit log only when the VAT code actually
+  // changes. Switching tax regime (e.g. forfettario N2 → ordinario 22) is a
+  // delicate event we want to trace.
+  const [current] = await db
+    .select({ preferredVatCode: businesses.preferredVatCode })
+    .from(businesses)
+    .where(eq(businesses.id, businessId))
+    .limit(1);
+
   await db
     .update(businesses)
-    .set({ businessName, address, streetNumber, city, province, zipCode })
+    .set({
+      businessName,
+      address,
+      streetNumber,
+      city,
+      province,
+      zipCode,
+      preferredVatCode,
+    })
     .where(eq(businesses.id, businessId));
+
+  const oldVatCode = current?.preferredVatCode ?? null;
+  if (oldVatCode !== preferredVatCode) {
+    logger.info(
+      {
+        userId: user.id,
+        businessId,
+        oldVatCode,
+        newVatCode: preferredVatCode,
+      },
+      "Business preferred VAT code changed",
+    );
+  }
 
   revalidatePath("/dashboard/settings");
   return {};

@@ -115,10 +115,11 @@ export default function RegimeForfettarioPage() {
           impostata in onboarding.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Attenzione:</strong> al momento l&apos;aliquota IVA prevalente
-          non è modificabile dalla pagina <em>Impostazioni</em> dopo
-          l&apos;onboarding. Se hai sbagliato la selezione iniziale contatta il
-          supporto scrivendo a{" "}
+          {"Puoi modificare l'aliquota IVA prevalente in qualsiasi momento da "}
+          <strong>Impostazioni → Attività → Modifica</strong>
+          {
+            ": utile se cambi regime fiscale (es. esci dal forfettario superando €85.000/€100.000) o se hai sbagliato la selezione iniziale. Per problemi scrivi a "
+          }
           <a
             href="mailto:info@scontrinozero.it"
             className="text-primary hover:underline"

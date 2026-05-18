@@ -42,9 +42,19 @@ vi.mock("@/lib/get-client-ip", () => ({ getClientIp: mockGetClientIp }));
 const mockDbUpdate = vi.fn();
 const mockDbUpdateSet = vi.fn().mockReturnValue({ where: vi.fn() });
 
+// SELECT chain for the audit log diff in updateBusiness:
+// `db.select({...}).from(...).where(...).limit(1)` → [{ preferredVatCode: null }]
+const mockDbSelectLimit = vi
+  .fn()
+  .mockResolvedValue([{ preferredVatCode: null }]);
+const mockDbSelectWhere = vi.fn().mockReturnValue({ limit: mockDbSelectLimit });
+const mockDbSelectFrom = vi.fn().mockReturnValue({ where: mockDbSelectWhere });
+const mockDbSelect = vi.fn().mockReturnValue({ from: mockDbSelectFrom });
+
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({
     update: mockDbUpdate,
+    select: mockDbSelect,
   }),
 }));
 

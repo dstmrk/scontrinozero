@@ -30,6 +30,7 @@ import {
   isValidItalianZipCode,
   ITALIAN_ZIP_MESSAGE,
 } from "@/lib/validation";
+import { VAT_CODES, type VatCode } from "@/types/cassa";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
 import {
   getFormString,
@@ -101,6 +102,9 @@ export async function saveBusiness(
   }
   if (!isValidItalianZipCode(zipCode)) {
     return { error: ITALIAN_ZIP_MESSAGE };
+  }
+  if (preferredVatCode && !VAT_CODES.includes(preferredVatCode as VatCode)) {
+    return { error: "Aliquota IVA non valida." };
   }
 
   const db = getDb();

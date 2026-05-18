@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockGetAuthenticatedUser,
+  mockCheckBusinessOwnership,
   mockNextHeaders,
   mockGetClientIp,
   mockCheck,
@@ -13,8 +14,18 @@ const {
   mockSignOut,
   mockCreateServerSupabaseClient,
   mockIsStrongPassword,
+  mockIsValidItalianZipCode,
+  mockGetDb,
+  mockSelect,
+  mockSelectFrom,
+  mockSelectWhere,
+  mockSelectLimit,
+  mockUpdate,
+  mockUpdateSet,
+  mockUpdateWhere,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
+  mockCheckBusinessOwnership: vi.fn(),
   mockNextHeaders: vi.fn(),
   mockGetClientIp: vi.fn(),
   mockCheck: vi.fn(),
@@ -23,11 +34,20 @@ const {
   mockSignOut: vi.fn(),
   mockCreateServerSupabaseClient: vi.fn(),
   mockIsStrongPassword: vi.fn(),
+  mockIsValidItalianZipCode: vi.fn(),
+  mockGetDb: vi.fn(),
+  mockSelect: vi.fn(),
+  mockSelectFrom: vi.fn(),
+  mockSelectWhere: vi.fn(),
+  mockSelectLimit: vi.fn(),
+  mockUpdate: vi.fn(),
+  mockUpdateSet: vi.fn(),
+  mockUpdateWhere: vi.fn(),
 }));
 
 vi.mock("@/lib/server-auth", () => ({
   getAuthenticatedUser: mockGetAuthenticatedUser,
-  checkBusinessOwnership: vi.fn().mockResolvedValue(null),
+  checkBusinessOwnership: mockCheckBusinessOwnership,
 }));
 
 vi.mock("next/headers", () => ({
@@ -52,6 +72,12 @@ vi.mock("@/lib/supabase/server", () => ({
 
 vi.mock("@/lib/validation", () => ({
   isStrongPassword: mockIsStrongPassword,
+  isValidItalianZipCode: mockIsValidItalianZipCode,
+  ITALIAN_ZIP_MESSAGE: "CAP non valido (5 cifre numeriche).",
+}));
+
+vi.mock("@/types/cassa", () => ({
+  VAT_CODES: ["4", "5", "10", "22", "N1", "N2", "N3", "N4", "N5", "N6"],
 }));
 
 vi.mock("next/cache", () => ({
@@ -59,7 +85,7 @@ vi.mock("next/cache", () => ({
 }));
 
 vi.mock("@/db", () => ({
-  getDb: vi.fn(),
+  getDb: mockGetDb,
 }));
 
 vi.mock("@/db/schema", () => ({
@@ -75,7 +101,7 @@ vi.mock("@/lib/logger", () => ({
   logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 
-import { changePassword } from "@/server/profile-actions";
+import { changePassword, updateBusiness } from "@/server/profile-actions";
 import { logger } from "@/lib/logger";
 
 // --- Helpers ---
@@ -231,5 +257,148 @@ describe("changePassword server action", () => {
       expect(result.error).toContain("Troppi tentativi");
       expect(mockSignInWithPassword).not.toHaveBeenCalled();
     });
+  });
+});
+
+// ─── updateBusiness ───────────────────────────────────────────────────────────
+
+const BIZ_ID = "biz-xyz";
+
+function makeBusinessFormData(
+  overrides: Record<string, string> = {},
+): FormData {
+  const fd = new FormData();
+  fd.append("businessId", overrides.businessId ?? BIZ_ID);
+  fd.append("businessName", overrides.businessName ?? "Acme srl");
+  fd.append("address", overrides.address ?? "Via Roma");
+  fd.append("streetNumber", overrides.streetNumber ?? "1");
+  fd.append("city", overrides.city ?? "Roma");
+  fd.append("province", overrides.province ?? "RM");
+  fd.append("zipCode", overrides.zipCode ?? "00100");
+  if (overrides.preferredVatCode !== undefined) {
+    fd.append("preferredVatCode", overrides.preferredVatCode);
+  }
+  return fd;
+}
+
+describe("updateBusiness server action", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: USER_ID,
+      email: USER_EMAIL,
+    });
+    mockCheckBusinessOwnership.mockResolvedValue(null);
+    mockIsValidItalianZipCode.mockReturnValue(true);
+    mockCheck.mockReturnValue({ success: true });
+
+    // SELECT chain: returns the current preferredVatCode for the audit diff
+    mockSelectLimit.mockResolvedValue([{ preferredVatCode: null }]);
+    mockSelectWhere.mockReturnValue({ limit: mockSelectLimit });
+    mockSelectFrom.mockReturnValue({ where: mockSelectWhere });
+    mockSelect.mockReturnValue({ from: mockSelectFrom });
+
+    // UPDATE chain: terminal `.where()` is awaited
+    mockUpdateWhere.mockResolvedValue(undefined);
+    mockUpdateSet.mockReturnValue({ where: mockUpdateWhere });
+    mockUpdate.mockReturnValue({ set: mockUpdateSet });
+
+    mockGetDb.mockReturnValue({
+      select: mockSelect,
+      update: mockUpdate,
+    });
+  });
+
+  afterEach(() => {
+    vi.resetModules();
+  });
+
+  it("persists preferredVatCode when valid", async () => {
+    const result = await updateBusiness(
+      makeBusinessFormData({ preferredVatCode: "22" }),
+    );
+
+    expect(result.error).toBeUndefined();
+    expect(mockUpdateSet).toHaveBeenCalledWith(
+      expect.objectContaining({ preferredVatCode: "22" }),
+    );
+  });
+
+  it("rejects a preferredVatCode that is not in VAT_CODES", async () => {
+    const result = await updateBusiness(
+      makeBusinessFormData({ preferredVatCode: "99" }),
+    );
+
+    expect(result.error).toBe("Aliquota IVA non valida.");
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("treats empty preferredVatCode as null (clears the preference)", async () => {
+    mockSelectLimit.mockResolvedValue([{ preferredVatCode: "22" }]);
+
+    const result = await updateBusiness(
+      makeBusinessFormData({ preferredVatCode: "" }),
+    );
+
+    expect(result.error).toBeUndefined();
+    expect(mockUpdateSet).toHaveBeenCalledWith(
+      expect.objectContaining({ preferredVatCode: null }),
+    );
+  });
+
+  it("logs an audit event when preferredVatCode changes", async () => {
+    mockSelectLimit.mockResolvedValue([{ preferredVatCode: "N2" }]);
+
+    await updateBusiness(makeBusinessFormData({ preferredVatCode: "22" }));
+
+    expect(logger.info as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: USER_ID,
+        businessId: BIZ_ID,
+        oldVatCode: "N2",
+        newVatCode: "22",
+      }),
+      "Business preferred VAT code changed",
+    );
+  });
+
+  it("does NOT log an audit event when preferredVatCode is unchanged", async () => {
+    mockSelectLimit.mockResolvedValue([{ preferredVatCode: "22" }]);
+
+    await updateBusiness(makeBusinessFormData({ preferredVatCode: "22" }));
+
+    expect(logger.info as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
+  });
+
+  it("returns a rate-limit error and does not update the DB", async () => {
+    mockCheck.mockReturnValue({ success: false });
+
+    const result = await updateBusiness(
+      makeBusinessFormData({ preferredVatCode: "22" }),
+    );
+
+    expect(result.error).toContain("Troppi tentativi");
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("blocks the update when ownership check fails", async () => {
+    mockCheckBusinessOwnership.mockResolvedValue({ error: "Non autorizzato." });
+
+    const result = await updateBusiness(
+      makeBusinessFormData({ preferredVatCode: "22" }),
+    );
+
+    expect(result.error).toBe("Non autorizzato.");
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("succeeds when preferredVatCode field is absent from FormData", async () => {
+    const result = await updateBusiness(makeBusinessFormData());
+
+    expect(result.error).toBeUndefined();
+    expect(mockUpdateSet).toHaveBeenCalledWith(
+      expect.objectContaining({ preferredVatCode: null }),
+    );
   });
 });
