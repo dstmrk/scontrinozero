@@ -210,11 +210,8 @@ export default function FunzionalitaPage() {
         </div>
         <p className="text-muted-foreground mt-6 text-sm">
           {"Stai valutando alternative? "}
-          <Link
-            href="/confronto/registratore-telematico"
-            className="text-primary hover:underline"
-          >
-            {"Confronta con un registratore telematico"}
+          <Link href="/confronto" className="text-primary hover:underline">
+            {"Confronto onesto con le alternative"}
           </Link>
         </p>
       </section>

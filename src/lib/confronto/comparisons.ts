@@ -1,342 +1,198 @@
-export const comparisonSlugs = [
-  "registratore-telematico",
-  "scontrinare",
-  "fatture-in-cloud",
-] as const;
+// Contenuto della pagina /confronto (consolidata): una sola landing che copre
+// tutte le categorie di alternative (registratore telematico, fatturazione B2B,
+// SaaS scontrino). I dati sui competitor sono lo snapshot pubblico rilevato
+// dai rispettivi siti — riportati senza inferenze per evitare claim falsi.
 
-export type ComparisonSlug = (typeof comparisonSlugs)[number];
-
-export interface ComparisonRow {
-  readonly label: string;
-  readonly competitor: string | boolean;
-  readonly ours: string | boolean;
-  readonly note?: string;
-}
-
-export interface ComparisonFaq {
+export interface ConfrontoFaq {
   readonly question: string;
   readonly answer: string;
 }
 
-export interface ComparisonContent {
-  readonly slug: ComparisonSlug;
+export interface CategorySection {
+  readonly id: string;
+  readonly title: string;
+  readonly intro: string;
+  readonly whenItFits: readonly string[];
+  readonly whenWeFit: readonly string[];
+}
+
+export interface CompetitorSnapshot {
+  readonly name: string;
+  readonly url: string;
+  readonly displayUrl: string;
+  readonly pricing: string;
+  readonly trial: string;
+  readonly notes: string;
+}
+
+export interface OurPositioning {
+  readonly bestFor: readonly string[];
+  readonly notBestFor: readonly string[];
+}
+
+export interface ConfrontoContent {
   readonly title: string;
   readonly metaTitle: string;
   readonly metaDescription: string;
-  readonly competitorName: string;
   readonly heroIntro: string;
-  readonly whenToChoose: {
-    readonly competitor: readonly string[];
-    readonly us: readonly string[];
-  };
-  readonly rows: readonly ComparisonRow[];
-  readonly lastUpdated: string;
-  readonly faq: readonly ComparisonFaq[];
+  readonly categories: readonly CategorySection[];
+  readonly saasIntro: string;
+  readonly saasCompetitors: readonly CompetitorSnapshot[];
+  readonly differentiators: readonly string[];
+  readonly ourPositioning: OurPositioning;
+  readonly faq: readonly ConfrontoFaq[];
   readonly relatedHelp: readonly string[];
+  readonly lastUpdated: string;
 }
 
-export const comparisons: Record<ComparisonSlug, ComparisonContent> = {
-  "registratore-telematico": {
-    slug: "registratore-telematico",
-    title: "ScontrinoZero vs registratore telematico",
-    metaTitle: "ScontrinoZero vs registratore telematico: confronto onesto",
-    metaDescription:
-      "Confronto fra ScontrinoZero (scontrino elettronico via smartphone) e un registratore telematico fisico: costi, installazione, collaudo, mobilità. Tradeoff onesti.",
-    competitorName: "Registratore telematico",
-    heroIntro:
-      "Il registratore telematico (RT) è la soluzione hardware classica: stampante fiscale fisica sul bancone, certificata dall'Agenzia delle Entrate. ScontrinoZero è la sua alternativa software per chi emette pochi scontrini al giorno o lavora in mobilità. Non sono uguali: ognuno ha senso in contesti diversi.",
-    whenToChoose: {
-      competitor: [
-        "Volumi elevati di scontrini al giorno (es. negozio con coda alla cassa).",
-        "Lavori in un punto vendita fisso con connessione internet poco affidabile.",
-        "Il cliente vuole vedere e ricevere subito uno scontrino di carta stampato al banco.",
+export const confrontoContent: ConfrontoContent = {
+  title: "ScontrinoZero a confronto con le alternative",
+  metaTitle: "Alternative a ScontrinoZero: confronto onesto",
+  metaDescription:
+    "Panoramica onesta delle alternative a ScontrinoZero: registratore telematico, gestionali di fatturazione, altri SaaS per scontrini elettronici (Scontrinare, Scontrina, ScontrinoSenzaCassa, CassaDigitale). Quando ha senso scegliere noi, quando no.",
+  heroIntro:
+    "Esistono diverse strade per emettere documenti fiscali in Italia: registratore telematico fisico, gestionali di fatturazione B2B, oppure SaaS che usano la procedura Documento Commerciale Online dell'Agenzia delle Entrate. Questa pagina riassume le opzioni e indica in modo trasparente quando ScontrinoZero è la scelta giusta e quando non lo è. I dati sui competitor sono presi dai loro siti pubblici alla data riportata in fondo: per informazioni aggiornate ti consigliamo di controllare direttamente i loro listini.",
+  categories: [
+    {
+      id: "registratore-telematico",
+      title: "Registratore telematico (hardware)",
+      intro:
+        "È la soluzione classica: stampante fiscale fisica sul bancone, certificata e collaudata periodicamente. Resta un'ottima scelta per attività con flusso costante di clienti al banco.",
+      whenItFits: [
+        "Volumi elevati di scontrini al giorno con coda al banco.",
+        "Punto vendita fisso dove il cliente si aspetta lo scontrino di carta stampato sul momento.",
+        "Connessione internet poco affidabile (il registratore lavora anche offline e trasmette in differita).",
       ],
-      us: [
-        "Sei un'attività mobile, stagionale o di piccole dimensioni (ambulanti, B&B, artigiani in cantiere).",
-        "Vuoi evitare €400–800 di hardware iniziale e i €100–200 annui di canone e collaudi.",
-        "Ti basta uno smartphone connesso a internet per emettere e trasmettere.",
+      whenWeFit: [
+        "Attività mobile, stagionale o di piccole dimensioni: ambulanti, B&B, artigiani in cantiere, food truck.",
+        "Vuoi evitare l'investimento iniziale per l'hardware e i canoni di manutenzione/verifica periodica.",
+        "Ti basta uno smartphone connesso a internet per emettere e trasmettere lo scontrino.",
         "Vuoi avere lo storico digitale degli scontrini sempre accessibile, anche da PC.",
       ],
     },
-    rows: [
-      {
-        label: "Costo acquisto hardware",
-        competitor: "€400–800",
-        ours: "€0",
-      },
-      {
-        label: "Canone annuo / abbonamento",
-        competitor: "€100–200",
-        ours: "da €29,99",
-      },
-      {
-        label: "Installazione tecnico abilitato",
-        competitor: "obbligatoria",
-        ours: false,
-      },
-      {
-        label: "Verifica/collaudo biennale",
-        competitor: "obbligatorio",
-        ours: false,
-      },
-      {
-        label: "Aggiornamenti firmware/software",
-        competitor: "a pagamento",
-        ours: "inclusi",
-      },
-      {
-        label: "Funziona da smartphone in mobilità",
-        competitor: false,
-        ours: true,
-      },
-      {
-        label: "Stampante termica integrata",
-        competitor: true,
-        ours: false,
-        note: "ScontrinoZero invia lo scontrino via QR / link; stampa cartacea opzionale con stampante esterna.",
-      },
-      {
-        label: "Funziona senza connessione internet",
-        competitor: true,
-        ours: false,
-        note: "Per la trasmissione AdE serve comunque connessione.",
-      },
-      {
-        label: "Trasmissione corrispettivi automatica",
-        competitor: true,
-        ours: true,
-      },
-      {
-        label: "Storico digitale ed esportazione",
-        competitor: "limitato",
-        ours: "completo",
-      },
-    ],
-    lastUpdated: "2026-05",
-    faq: [
-      {
-        question:
-          "Posso usare ScontrinoZero al posto del registratore telematico in modo legale?",
-        answer:
-          'Sì. ScontrinoZero usa la procedura ufficiale "Documento Commerciale Online" dell\'Agenzia delle Entrate (Fatture e Corrispettivi), riconosciuta come modalità alternativa al registratore telematico. Lo scontrino emesso è fiscalmente valido a tutti gli effetti.',
-      },
-      {
-        question:
-          "Se ho già un registratore telematico, mi conviene passare a ScontrinoZero?",
-        answer:
-          "Dipende dal volume di scontrini e dalla manutenzione che già paghi. Se emetti pochi scontrini al giorno e hai canoni di manutenzione elevati, il TCO a 5 anni di ScontrinoZero è significativamente più basso. Se hai volumi alti e una cassa fissa al banco, il registratore fisico resta più ergonomico.",
-      },
-      {
-        question: "Lo scontrino di ScontrinoZero ha valore probatorio fiscale?",
-        answer:
-          "Sì. Il documento commerciale online è equiparato allo scontrino del registratore telematico. Riporta progressivo, data, IVA distinta per aliquota, e codice lotteria. Può essere stampato o inviato digitalmente al cliente.",
-      },
-    ],
-    relatedHelp: ["pos-rt-obbligo", "primo-scontrino", "piani-e-prezzi"],
-  },
-  scontrinare: {
-    slug: "scontrinare",
-    title: "ScontrinoZero vs Scontrinare",
-    metaTitle: "ScontrinoZero vs Scontrinare: confronto fra alternative SaaS",
-    metaDescription:
-      "Confronto trasparente fra ScontrinoZero e Scontrinare: pricing, mobile-first, open source, integrazione AdE. Quando scegliere uno o l'altro.",
-    competitorName: "Scontrinare",
-    heroIntro:
-      "Scontrinare è uno dei competitor SaaS più noti per l'emissione del documento commerciale online in Italia. È sul mercato da più anni di noi e ha una base utenti consolidata. ScontrinoZero è più giovane, open source e con un'attenzione esplicita al mobile-first e al prezzo basso.",
-    whenToChoose: {
-      competitor: [
-        "Cerchi un servizio con più anni di mercato e una community consolidata.",
-        "Hai bisogno di feature avanzate che potrebbero essere già in catalogo da loro mentre da noi sono ancora in roadmap.",
-      ],
-      us: [
-        "Vuoi il prezzo annuale più basso del mercato (Starter €29,99/anno).",
-        "Preferisci un servizio open source con licenza permissiva: puoi auto-ospitarlo gratis sul tuo server.",
-        "Vuoi un'esperienza pensata mobile-first per emettere scontrini dallo smartphone in pochi secondi.",
-        "Vuoi sapere esattamente dove finiscono le tue credenziali Fisconline (codice ispezionabile su GitHub).",
-      ],
-    },
-    rows: [
-      {
-        label: "Piano d'ingresso (annuale)",
-        competitor: "circa €30/anno",
-        ours: "€29,99/anno",
-        note: "Verifica sempre il listino aggiornato sui siti ufficiali.",
-      },
-      {
-        label: "Trial senza carta di credito",
-        competitor: "verifica condizioni",
-        ours: "30 giorni",
-      },
-      {
-        label: "Emissione documento commerciale AdE",
-        competitor: true,
-        ours: true,
-      },
-      {
-        label: "Annullamento scontrino",
-        competitor: true,
-        ours: true,
-      },
-      {
-        label: "Lotteria degli Scontrini",
-        competitor: true,
-        ours: true,
-      },
-      {
-        label: "App installabile (PWA)",
-        competitor: "verifica",
-        ours: true,
-      },
-      {
-        label: "Open source / self-hosted gratis",
-        competitor: false,
-        ours: true,
-        note: "Licenza O'Saasy: codice su GitHub, auto-hosting libero per uso non-SaaS.",
-      },
-      {
-        label: "API per developer",
-        competitor: "verifica",
-        ours: "in arrivo",
-      },
-      {
-        label: "Storico ed esportazione",
-        competitor: true,
-        ours: true,
-      },
-    ],
-    lastUpdated: "2026-05",
-    faq: [
-      {
-        question:
-          "Posso migrare da Scontrinare a ScontrinoZero senza interrompere il servizio?",
-        answer:
-          "Sì. Le credenziali Fisconline restano le tue: basta crearle in ScontrinoZero, completare l'onboarding e iniziare a emettere. Lo storico precedente resta consultabile nel cassetto fiscale dell'Agenzia delle Entrate.",
-      },
-      {
-        question: "Cosa significa che ScontrinoZero è open source?",
-        answer:
-          "Il codice sorgente è pubblicato su GitHub con licenza O'Saasy (permissiva come MIT, ma vieta l'uso per offrire un SaaS concorrente). Puoi ispezionarlo, contribuire, o auto-ospitarlo sul tuo server senza pagare nulla. La versione hosted a pagamento è il servizio gestito che offriamo noi.",
-      },
-      {
-        question: "Le mie credenziali Fisconline sono al sicuro?",
-        answer:
-          "Sono cifrate AES-256-GCM con una chiave separata per ambiente e non sono mai trasmesse in chiaro né lette dal team di sviluppo. Il codice della cifratura è ispezionabile pubblicamente su GitHub, a differenza dei competitor closed source.",
-      },
-    ],
-    relatedHelp: [
-      "come-collegare-ade",
-      "credenziali-fisconline",
-      "piani-e-prezzi",
-      "primo-scontrino",
-    ],
-  },
-  "fatture-in-cloud": {
-    slug: "fatture-in-cloud",
-    title: "ScontrinoZero vs Fatture in Cloud",
-    metaTitle: "ScontrinoZero vs Fatture in Cloud: scontrino o fattura?",
-    metaDescription:
-      "Differenze fra ScontrinoZero (scontrini elettronici al cliente finale) e Fatture in Cloud (fatturazione elettronica B2B). Quando ti serve l'uno, quando l'altro.",
-    competitorName: "Fatture in Cloud",
-    heroIntro:
-      "Fatture in Cloud è uno dei gestionali di fatturazione elettronica più diffusi in Italia: fattura B2B, prima nota, gestione clienti e fornitori. ScontrinoZero fa una cosa sola e la fa bene: emettere scontrini elettronici (documenti commerciali online) al cliente finale. Sono complementari, non sostituti.",
-    whenToChoose: {
-      competitor: [
+    {
+      id: "fatturazione-b2b",
+      title: "Gestionali di fatturazione (es. Fatture in Cloud)",
+      intro:
+        "I gestionali di fatturazione elettronica (Fatture in Cloud, Aruba, FatturaPRO, ecc.) sono pensati per emettere fatture B2B verso aziende e partite IVA via Sistema di Interscambio. Non sono lo stesso strumento di un registratore di cassa: gestiscono adempimenti diversi e in molti casi sono complementari, non alternativi.",
+      whenItFits: [
         "Emetti principalmente fatture elettroniche B2B verso aziende e partite IVA.",
-        "Hai bisogno di gestione clienti/fornitori, prima nota e adempimenti contabili completi.",
-        "Vuoi un gestionale integrato per fatture, preventivi, magazzino e contabilità.",
+        "Hai bisogno di prima nota, anagrafica clienti/fornitori, preventivi e gestione contabile.",
+        "Cerchi un gestionale integrato per fatture, magazzino e adempimenti.",
       ],
-      us: [
-        "Emetti corrispettivi al cliente finale (B2C): bar, ambulanti, parrucchieri, artigiani.",
-        "Non hai bisogno di un gestionale completo, vuoi solo emettere lo scontrino velocemente.",
-        "Cerchi il costo più basso possibile per essere in regola con i corrispettivi.",
-        "Vuoi un'app mobile-first che funziona dallo smartphone, non un gestionale desktop.",
+      whenWeFit: [
+        "Vendi al cliente finale (B2C) e ti serve emettere lo scontrino, non la fattura.",
+        "Non hai bisogno di un gestionale completo, vuoi solo emettere il documento commerciale velocemente.",
+        "Vuoi un'app mobile-first che funzioni dallo smartphone in pochi secondi.",
       ],
     },
-    rows: [
-      {
-        label: "Scontrino elettronico (documento commerciale)",
-        competitor: false,
-        ours: true,
-        note: "Fatture in Cloud è specializzato in fatture, non in corrispettivi al cliente finale.",
-      },
-      {
-        label: "Fatturazione elettronica B2B (SDI)",
-        competitor: true,
-        ours: false,
-        note: "ScontrinoZero non è un gestionale di fatturazione.",
-      },
-      {
-        label: "Trasmissione corrispettivi automatica AdE",
-        competitor: false,
-        ours: true,
-      },
-      {
-        label: "Annullamento scontrino conforme",
-        competitor: false,
-        ours: true,
-      },
-      {
-        label: "Lotteria degli Scontrini",
-        competitor: false,
-        ours: true,
-      },
-      {
-        label: "Prima nota e gestione contabile",
-        competitor: true,
-        ours: false,
-      },
-      {
-        label: "Anagrafica clienti/fornitori",
-        competitor: true,
-        ours: false,
-      },
-      {
-        label: "Piano d'ingresso (annuale)",
-        competitor: "da circa €70/anno",
-        ours: "€29,99/anno",
-      },
-      {
-        label: "Open source / self-hosted",
-        competitor: false,
-        ours: true,
-      },
+    {
+      id: "saas-scontrino",
+      title: "Altri SaaS per scontrino elettronico",
+      intro:
+        "Esistono diversi servizi software che, come noi, sfruttano la procedura Documento Commerciale Online dell'Agenzia delle Entrate per emettere scontrini senza registratore fisico. La sezione qui sotto riassume le informazioni pubbliche dei principali competitor che conosciamo. Sono tutti SaaS legittimi: cerchiamo di darti un quadro onesto.",
+      whenItFits: [
+        "Trovi un servizio che ha già una feature avanzata che da noi è ancora in roadmap.",
+        "Preferisci un fornitore con più anni di mercato e una base utenti consolidata.",
+      ],
+      whenWeFit: [
+        "Cerchi i prezzi più bassi del mercato fra i SaaS comparabili.",
+        "Vuoi la possibilità di auto-ospitare il software gratis (siamo open source con licenza O'Saasy).",
+        "Vuoi un trial di 30 giorni senza inserire la carta di credito.",
+        "Ti interessa poter ispezionare pubblicamente il codice che gestisce le tue credenziali Fisconline.",
+      ],
+    },
+  ],
+  saasIntro:
+    "I dati qui sotto sono presi dai siti ufficiali dei competitor. Listini e funzionalità possono cambiare in qualsiasi momento: verifica sempre direttamente sul sito di riferimento prima di scegliere.",
+  saasCompetitors: [
+    {
+      name: "Scontrinare",
+      url: "https://www.scontrinare.it/",
+      displayUrl: "scontrinare.it",
+      pricing: "30 €/anno",
+      trial: "1° mese gratuito",
+      notes:
+        "App web e mobile (Android/iOS). Integrazione con POS SumUp e Nexi. Accesso con credenziali Fisconline.",
+    },
+    {
+      name: "Scontrina",
+      url: "https://scontrina.it/",
+      displayUrl: "scontrina.it",
+      pricing: "8,19 €/mese o 65,57 €/anno (IVA esclusa)",
+      trial: "Primo scontrino gratis",
+      notes:
+        "App mobile per smartphone/tablet. Integra SPID/Fisconline, e-commerce (WooCommerce, Shopify) e diversi POS. Dichiara modalità offline.",
+    },
+    {
+      name: "ScontrinoSenzaCassa (Billy)",
+      url: "https://www.scontrinosenzacassa.it/",
+      displayUrl: "scontrinosenzacassa.it",
+      pricing: "Non pubblicato in homepage",
+      trial: "Prova gratuita 7 giorni",
+      notes:
+        "Web + mobile. Integrazione con più sistemi di pagamento (Nexi, Banca Sella, Viva, SumUp, Dojo, Hobex, Satispay). Emette anche fatture con alcune limitazioni.",
+    },
+    {
+      name: "CassaDigitale",
+      url: "https://www.cassadigitale.eu/",
+      displayUrl: "cassadigitale.eu",
+      pricing: "4,99 €/mese + IVA",
+      trial: "30 giorni gratis",
+      notes:
+        "App mobile (iOS/Android) e web. Accesso via Fisconline/SPID. Emette scontrini e fatture, gestisce chiusure di cassa.",
+    },
+  ],
+  differentiators: [
+    "Open source con licenza O'Saasy: puoi auto-ospitare il software gratis sul tuo server, le credenziali Fisconline non transitano da noi.",
+    "Trial di 30 giorni senza carta di credito: alla scadenza l'account passa in sola lettura, nessun addebito a sorpresa.",
+    "Piani Starter da 29,99 €/anno e Pro da 49,99 €/anno: fra i listini più bassi del mercato.",
+    "Pensato mobile-first: emetti uno scontrino dallo smartphone in pochi secondi, anche da una PWA installabile.",
+    "Codice sorgente ispezionabile su GitHub, incluso il modulo che cifra le credenziali Fisconline.",
+  ],
+  ourPositioning: {
+    bestFor: [
+      "Micro-attività, ambulanti, professionisti e B&B che emettono pochi scontrini al giorno.",
+      "Chi cerca il costo annuale più basso e vuole un trial senza obblighi.",
+      "Chi apprezza la trasparenza dell'open source e/o vuole l'opzione self-hosted.",
     ],
-    lastUpdated: "2026-05",
-    faq: [
-      {
-        question: "Posso usare ScontrinoZero e Fatture in Cloud insieme?",
-        answer:
-          "Sì, e in molti casi è la scelta corretta. ScontrinoZero gestisce gli scontrini al cliente finale (B2C); Fatture in Cloud gestisce le fatture verso aziende (B2B). Sono adempimenti diversi che convivono per la stessa partita IVA: l'uno non sostituisce l'altro.",
-      },
-      {
-        question: "Quando emetto fattura e quando emetto scontrino?",
-        answer:
-          "Emetti fattura quando il cliente è una partita IVA o quando lo richiede esplicitamente. Emetti scontrino (documento commerciale) per le vendite al consumatore finale che paga al momento. Se il cliente paga e va via senza chiedere documenti specifici, lo scontrino è il documento corretto.",
-      },
-      {
-        question:
-          "Sono in regime forfettario: mi serve davvero uno scontrino elettronico?",
-        answer:
-          "Dipende dall'attività. Se vendi al pubblico (B2C) e non emetti fattura, sì: il documento commerciale è obbligatorio. Se la tua attività è principalmente B2B e fai solo fatture elettroniche, lo scontrino non si applica. Verifica sempre con il tuo commercialista in base al codice ATECO.",
-      },
-    ],
-    relatedHelp: [
-      "fatture-e-ricevute",
-      "primo-scontrino",
-      "regime-forfettario",
+    notBestFor: [
+      "Negozi con flussi elevati e cassa fissa al banco, dove un registratore telematico fisico resta più ergonomico.",
+      "Attività che fatturano principalmente B2B e hanno bisogno di un gestionale di fatturazione completo (prima nota, contabilità).",
+      "Chi cerca feature gestionali avanzate (magazzino integrato, multi-cassa, sincronizzazioni complesse): valuta soluzioni più mature.",
     ],
   },
+  faq: [
+    {
+      question:
+        "Posso usare un SaaS al posto del registratore telematico in modo legale?",
+      answer:
+        'Sì. La procedura "Documento Commerciale Online" dell\'Agenzia delle Entrate (Fatture e Corrispettivi) è una modalità alternativa al registratore telematico riconosciuta a livello normativo. Lo scontrino emesso ha lo stesso valore fiscale.',
+    },
+    {
+      question:
+        "Posso usare ScontrinoZero insieme a un gestionale di fatturazione come Fatture in Cloud?",
+      answer:
+        "Sì, ed è spesso la combinazione corretta. ScontrinoZero gestisce gli scontrini al cliente finale (B2C); un gestionale di fatturazione gestisce le fatture verso aziende (B2B). Sono adempimenti diversi che convivono per la stessa partita IVA.",
+    },
+    {
+      question:
+        "Cosa cambia rispetto agli altri SaaS che fanno scontrino elettronico?",
+      answer:
+        "I servizi citati in questa pagina sono tutti SaaS legittimi che usano la stessa procedura AdE. Le differenze principali stanno nel listino, nella maturità del prodotto e nelle feature offerte. ScontrinoZero punta su prezzo basso, open source e mobile-first; gli altri hanno punti di forza diversi che valutare caso per caso.",
+    },
+    {
+      question: "Posso migrare da un altro SaaS a ScontrinoZero?",
+      answer:
+        "Sì. Le credenziali Fisconline restano le tue: basta crearle in ScontrinoZero, completare l'onboarding e iniziare a emettere. Lo storico precedente resta consultabile nel cassetto fiscale dell'Agenzia delle Entrate, indipendentemente dal software che hai usato prima.",
+    },
+  ],
+  relatedHelp: [
+    "pos-rt-obbligo",
+    "primo-scontrino",
+    "piani-e-prezzi",
+    "come-collegare-ade",
+    "credenziali-fisconline",
+  ],
+  lastUpdated: "2026-05",
 };
-
-const COMPARISON_SLUG_SET: ReadonlySet<string> = new Set(comparisonSlugs);
-
-export function isComparisonSlug(slug: string): slug is ComparisonSlug {
-  return COMPARISON_SLUG_SET.has(slug);
-}
-
-export function getComparison(slug: string): ComparisonContent {
-  if (!isComparisonSlug(slug)) {
-    throw new Error(`Unknown comparison slug: ${slug}`);
-  }
-  return comparisons[slug];
-}

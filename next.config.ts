@@ -30,6 +30,27 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    // I tre vecchi articoli /confronto/[slug] sono stati consolidati in /confronto.
+    // 301 permanenti per preservare la SEO equity e i backlink esterni.
+    return [
+      {
+        source: "/confronto/registratore-telematico",
+        destination: "/confronto",
+        permanent: true,
+      },
+      {
+        source: "/confronto/scontrinare",
+        destination: "/confronto",
+        permanent: true,
+      },
+      {
+        source: "/confronto/fatture-in-cloud",
+        destination: "/confronto",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     // Restrict internal API routes to the app's own origin only.
     // NEXT_PUBLIC_APP_URL is set per-environment (e.g. http://localhost:3000 in dev,
