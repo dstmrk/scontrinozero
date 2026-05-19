@@ -160,15 +160,6 @@ const helpCategories: HelpCategory[] = [
     ],
   },
   {
-    name: "Integrazioni",
-    description: "Connessioni con canali di vendita esterni.",
-    articles: [
-      { title: "Integrazione con Shopify: panoramica e casi d'uso" },
-      { title: "Integrazione con WooCommerce: setup base" },
-      { title: "Collegare un registratore telematico esistente" },
-    ],
-  },
-  {
     name: "API per sviluppatori",
     description: "Integra l'emissione scontrini nel tuo gestionale o POS.",
     articles: [
