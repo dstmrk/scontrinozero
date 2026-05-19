@@ -36,13 +36,8 @@ function errorJson(status: number, error: string): Response {
   return Response.json({ error }, { status });
 }
 
-function buildFilename(
-  from: string | undefined,
-  to: string | undefined,
-): string {
-  const start = from ?? "tutti";
-  const end = to ?? "tutti";
-  return `scontrini-${start}-${end}.csv`;
+function buildFilename(from: string = "tutti", to: string = "tutti"): string {
+  return `scontrini-${from}-${to}.csv`;
 }
 
 export async function GET(req: Request): Promise<Response> {
