@@ -149,25 +149,8 @@ export default function Home() {
           </div>
           <p className="text-muted-foreground mt-6 text-center text-sm">
             {"Stai valutando alternative? "}
-            <Link
-              href="/confronto/registratore-telematico"
-              className="text-primary hover:underline"
-            >
-              {"Confronto completo vs registratore telematico"}
-            </Link>
-            {" · "}
-            <Link
-              href="/confronto/scontrinare"
-              className="text-primary hover:underline"
-            >
-              {"vs Scontrinare"}
-            </Link>
-            {" · "}
-            <Link
-              href="/confronto/fatture-in-cloud"
-              className="text-primary hover:underline"
-            >
-              {"vs Fatture in Cloud"}
+            <Link href="/confronto" className="text-primary hover:underline">
+              {"Confronto onesto con registratore telematico e altri SaaS"}
             </Link>
           </p>
           <p className="text-muted-foreground mt-3 text-center text-sm">

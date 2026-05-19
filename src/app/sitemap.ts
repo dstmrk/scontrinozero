@@ -1,6 +1,5 @@
 import type { MetadataRoute } from "next";
 import { categorySlugs } from "@/lib/per/categories";
-import { comparisonSlugs } from "@/lib/confronto/comparisons";
 import { guideSlugs } from "@/lib/guide/articles";
 import { toolSlugs } from "@/lib/strumenti/tools";
 
@@ -18,13 +17,6 @@ const categoryLandingPages = categorySlugs.map((slug) => ({
   lastModified: new Date(),
   changeFrequency: "monthly" as const,
   priority: 0.7,
-}));
-
-const comparisonPages = comparisonSlugs.map((slug) => ({
-  url: `${baseUrl}/confronto/${slug}`,
-  lastModified: new Date(),
-  changeFrequency: "monthly" as const,
-  priority: 0.65,
 }));
 
 const toolPages = toolSlugs.map((slug) => ({
@@ -51,7 +43,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     ...marketingPages,
     ...categoryLandingPages,
-    ...comparisonPages,
+    {
+      url: `${baseUrl}/confronto`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
     ...toolPages,
     {
       url: `${baseUrl}/guide`,
