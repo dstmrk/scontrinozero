@@ -30,6 +30,9 @@ export default defineConfig({
         "src/components/cassa/receipt-success.tsx",
         "src/components/storico/storico-client.tsx",
         "src/components/storico/void-receipt-dialog.tsx",
+        "src/components/analytics/analytics-client.tsx", // UI orchestrator — pure render + setState
+        "src/components/analytics/revenue-sparkline.tsx", // Recharts wrapper — UI shell
+        "src/components/analytics/payment-breakdown.tsx", // Recharts wrapper — UI shell
         "src/components/providers.tsx",
         "src/components/marketing/**", // marketing UI components — tested via E2E
         "src/components/billing/checkout-button.tsx", // UI client component — pure fetch + redirect

@@ -10,10 +10,9 @@ La versione pubblicata corrente Ã¨ in `package.json`. Lo storico delle release Ã
 
 | Versione     | Descrizione                                                                                                                  |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| **v1.3.0**   | Analytics dashboard, export CSV, coupon/promo                                                                                |
+| **v1.3.0**   | Analytics dashboard Pro (KPI + sparkline + breakdown) + Export CSV scontrini Pro (download diretto streaming)                |
 | **v1.4.0**   | Coupon/promo codes, referral program, Stripe Customer Portal polish                                                          |
 | **v1.5.0**   | Email scontrino al cliente (PDF allegato via Resend)                                                                         |
-| **v1.6.0**   | Dashboard analytics: totale giornaliero, sparkline revenue, export CSV                                                       |
 | **v1.7.0**   | Catalogo: modifica prodotto + sync AdE (HAR: aggiungi/modifica/elimina)                                                      |
 | **v1.8.0**   | AdE auth multi-metodo: SPID e CIE selezionabili in onboarding + settings; cookie jar cifrato, re-auth on 401                 |
 | **v1.9.0**   | CSV import prodotti, barcode scanner (BarcodeDetector API), Umami analytics                                                  |

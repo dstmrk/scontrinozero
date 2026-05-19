@@ -3,6 +3,8 @@ import { getOnboardingStatus } from "@/server/onboarding-actions";
 import { searchReceipts } from "@/server/storico-actions";
 import { StoricoClient } from "@/components/storico/storico-client";
 import { STORICO_PAGE_SIZE, type StatusFilter } from "@/types/storico";
+import { getAuthenticatedUser } from "@/lib/server-auth";
+import { getPlan } from "@/lib/plans";
 
 const STATUS_VALUES = new Set<StatusFilter>(["ACCEPTED", "VOID_ACCEPTED", ""]);
 
@@ -44,13 +46,17 @@ export default async function StoricoPage({
   const dateTo = al ?? todayStr;
   const statusParam = parseStatus(stato);
 
-  const initialResult = await searchReceipts(status.businessId, {
-    dateFrom,
-    dateTo,
-    ...(statusParam ? { status: statusParam } : {}),
-    page: 1,
-    pageSize: STORICO_PAGE_SIZE,
-  });
+  const [initialResult, user] = await Promise.all([
+    searchReceipts(status.businessId, {
+      dateFrom,
+      dateTo,
+      ...(statusParam ? { status: statusParam } : {}),
+      page: 1,
+      pageSize: STORICO_PAGE_SIZE,
+    }),
+    getAuthenticatedUser(),
+  ]);
+  const planInfo = await getPlan(user.id);
 
   return (
     <StoricoClient
@@ -60,6 +66,7 @@ export default async function StoricoPage({
       initialDateFrom={dateFrom}
       initialDateTo={dateTo}
       initialStatus={statusParam}
+      plan={planInfo.plan}
     />
   );
 }
