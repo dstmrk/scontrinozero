@@ -371,6 +371,25 @@
     bloccare protocol-relative URLs di open redirect) e poi `new URL(redirect, origin)`
     parsifica correttamente il querystring senza rischi.
 
+32. **Turnstile hostname check: lista, non single value.**
+    Cloudflare Turnstile ritorna in `data.hostname` l'hostname effettivo dove il
+    widget è stato risolto nel browser. Quando il sito ha sia un dominio app
+    (`app.scontrinozero.it`) sia un dominio marketing (`scontrinozero.it`), e il
+    form `/login` può essere caricato da entrambi — perché la client-side
+    navigation Next.js (`<Link href="/login">` dalla landing) non attraversa
+    sempre il redirect cross-origin del middleware, oppure perché il deploy è
+    single-domain — il check `data.hostname === expectedHostname` causa
+    `captcha_hostname_mismatch` sistemico e fail di ogni captcha.
+
+    Pattern obbligato in `verifyCaptcha` (`src/server/auth-actions.ts`): costruire
+    un `ReadonlySet<string>` con `appHostname`, `marketingHostname`, `www.<marketing>`
+    e usare `acceptedHostnames.has(data.hostname)`. Loggare la lista accettata
+    in caso di mismatch facilita il debug operativo.
+
+    Inoltre: il ramo `data.success: false` di Cloudflare deve **sempre** loggare
+    `data["error-codes"]` (es. `timeout-or-duplicate`, `invalid-input-response`).
+    Senza questo log la causa del rifiuto resta invisibile in produzione.
+
 ## Progetto
 
 ScontrinoZero è un registratore di cassa virtuale (SaaS) mobile-first che consente a
