@@ -79,8 +79,10 @@ vi.mock("@/lib/logger", () => ({
 
 import {
   fillMissingDays,
+  formatRomeDay,
   normalizePaymentMethod,
   rangeToBounds,
+  romeMidnightUtc,
 } from "./analytics-helpers";
 import {
   getAnalyticsKpis,
@@ -115,20 +117,53 @@ beforeEach(() => {
 // Pure helpers
 // ---------------------------------------------------------------------------
 
-describe("rangeToBounds", () => {
-  it("returns a [from, to) interval of the requested length in days", () => {
-    const { from, to } = rangeToBounds("30d", new Date("2026-05-19T12:00:00Z"));
-    expect(to.toISOString()).toBe("2026-05-20T00:00:00.000Z");
-    expect(from.toISOString()).toBe("2026-04-20T00:00:00.000Z");
+describe("formatRomeDay", () => {
+  it("returns the Italian fiscal day for an instant in CEST (summer)", () => {
+    // 19 maggio 2026 alle 00:30 Europe/Rome = 18 maggio 22:30 UTC (CEST = UTC+2)
+    expect(formatRomeDay(new Date("2026-05-18T22:30:00Z"))).toBe("2026-05-19");
   });
 
-  it("supports 7d and 90d ranges", () => {
-    const ref = new Date("2026-05-19T00:00:00Z");
-    expect(rangeToBounds("7d", ref).from.toISOString()).toBe(
-      "2026-05-13T00:00:00.000Z",
+  it("returns the Italian fiscal day for an instant in CET (winter)", () => {
+    // 15 gennaio 2026 alle 00:30 Europe/Rome = 14 gennaio 23:30 UTC (CET = UTC+1)
+    expect(formatRomeDay(new Date("2026-01-14T23:30:00Z"))).toBe("2026-01-15");
+  });
+});
+
+describe("romeMidnightUtc", () => {
+  it("returns the UTC instant of Rome midnight in CEST (summer = UTC+2)", () => {
+    expect(romeMidnightUtc("2026-05-20").toISOString()).toBe(
+      "2026-05-19T22:00:00.000Z",
     );
+  });
+
+  it("returns the UTC instant of Rome midnight in CET (winter = UTC+1)", () => {
+    expect(romeMidnightUtc("2026-02-19").toISOString()).toBe(
+      "2026-02-18T23:00:00.000Z",
+    );
+  });
+});
+
+describe("rangeToBounds", () => {
+  it("anchors [from, to) to Europe/Rome midnights for the requested length", () => {
+    // Reference 12:00 UTC del 19 maggio = 14:00 Rome → Rome day "2026-05-19"
+    const { from, to } = rangeToBounds("30d", new Date("2026-05-19T12:00:00Z"));
+    // `to` = mezzanotte Rome del 2026-05-20 (giorno dopo, exclusive) → 22:00Z (CEST)
+    expect(to.toISOString()).toBe("2026-05-19T22:00:00.000Z");
+    expect(formatRomeDay(to)).toBe("2026-05-20");
+    // `from` = mezzanotte Rome del 2026-04-20 → 22:00Z (CEST)
+    expect(from.toISOString()).toBe("2026-04-19T22:00:00.000Z");
+    expect(formatRomeDay(from)).toBe("2026-04-20");
+  });
+
+  it("supports 7d and 90d ranges and crosses DST boundaries correctly", () => {
+    const ref = new Date("2026-05-19T00:00:00Z"); // Rome day "2026-05-19"
+    // 7d → fromDay = 2026-05-13 (CEST) → 22:00Z del 12 maggio
+    expect(rangeToBounds("7d", ref).from.toISOString()).toBe(
+      "2026-05-12T22:00:00.000Z",
+    );
+    // 90d → fromDay = 2026-02-19 (CET — gli orologi italiani sono ancora su UTC+1)
     expect(rangeToBounds("90d", ref).from.toISOString()).toBe(
-      "2026-02-19T00:00:00.000Z",
+      "2026-02-18T23:00:00.000Z",
     );
   });
 });
@@ -152,15 +187,16 @@ describe("normalizePaymentMethod", () => {
 });
 
 describe("fillMissingDays", () => {
-  it("fills gaps with zero revenue across the full date range", () => {
+  it("fills gaps with zero revenue across the full Rome calendar range", () => {
     const data = new Map([
       ["2026-05-17", 1000],
       ["2026-05-19", 2500],
     ]);
+    // Bounds = mezzanotte Rome del 17 e del 20 maggio 2026 (CEST → 22:00Z giorno prima).
     const out = fillMissingDays(
       data,
-      new Date("2026-05-17T00:00:00Z"),
-      new Date("2026-05-20T00:00:00Z"),
+      romeMidnightUtc("2026-05-17"),
+      romeMidnightUtc("2026-05-20"),
     );
     expect(out).toEqual([
       { date: "2026-05-17", revenueCents: 1000 },
@@ -170,13 +206,8 @@ describe("fillMissingDays", () => {
   });
 
   it("returns an empty array when from >= to", () => {
-    expect(
-      fillMissingDays(
-        new Map(),
-        new Date("2026-05-19T00:00:00Z"),
-        new Date("2026-05-19T00:00:00Z"),
-      ),
-    ).toEqual([]);
+    const midnight = romeMidnightUtc("2026-05-19");
+    expect(fillMissingDays(new Map(), midnight, midnight)).toEqual([]);
   });
 });
 
@@ -261,7 +292,35 @@ describe("getAnalyticsKpis", () => {
 });
 
 describe("getRevenueTimeseries", () => {
-  it("groups revenue by UTC day and fills gaps with zero", async () => {
+  it("buckets a midnight-Rome receipt by the correct fiscal day (DST fix)", async () => {
+    // 2026-05-18T22:30Z = 00:30 Rome del 19 maggio (CEST). Deve finire
+    // nel bucket "2026-05-19" (giorno fiscale), non in "2026-05-18".
+    mockSelect.mockReturnValue(
+      makeSelectBuilder([
+        {
+          id: "d1",
+          status: "ACCEPTED",
+          createdAt: new Date("2026-05-18T22:30:00Z"),
+        },
+      ]),
+    );
+    mockFetchLinesByDocIds.mockResolvedValue([
+      { documentId: "d1", grossUnitPrice: "10.00", quantity: "1" },
+    ]);
+
+    const res = await getRevenueTimeseries(
+      "biz-1",
+      "7d",
+      new Date("2026-05-19T12:00:00Z"),
+    );
+
+    if (!Array.isArray(res)) throw new Error("Expected array");
+    const byDate = Object.fromEntries(res.map((p) => [p.date, p.revenueCents]));
+    expect(byDate["2026-05-19"]).toBe(1000);
+    expect(byDate["2026-05-18"]).toBe(0);
+  });
+
+  it("groups revenue by Italian fiscal day and fills gaps with zero", async () => {
     mockSelect.mockReturnValue(
       makeSelectBuilder([
         {

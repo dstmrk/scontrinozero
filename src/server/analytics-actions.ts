@@ -21,6 +21,7 @@ import {
   type RevenuePoint,
   VALID_RANGES,
   fillMissingDays,
+  formatRomeDay,
   normalizePaymentMethod,
   rangeToBounds,
   toCents,
@@ -175,7 +176,10 @@ export async function getRevenueTimeseries(
   const byDay = new Map<string, number>();
   for (const doc of docs) {
     if (doc.status !== "ACCEPTED") continue;
-    const key = doc.createdAt.toISOString().slice(0, 10);
+    // Bucket per giorno fiscale italiano (Europe/Rome), non UTC: uno
+    // scontrino emesso alle 00:30 ora locale del 19 maggio deve apparire
+    // nel giorno "2026-05-19", anche se internamente e' 22:30Z del 18.
+    const key = formatRomeDay(doc.createdAt);
     byDay.set(
       key,
       (byDay.get(key) ?? 0) + toCents(totalsByDoc.get(doc.id) ?? 0),
