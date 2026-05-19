@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { canUsePro, type Plan } from "@/lib/plans";
+import { canUsePro, type Plan } from "@/lib/plans-shared";
 
 interface ProFeatureGateProps {
   readonly plan: Plan;

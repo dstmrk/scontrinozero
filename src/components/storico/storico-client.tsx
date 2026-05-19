@@ -10,7 +10,7 @@ import { VoidReceiptDialog } from "./void-receipt-dialog";
 import { ExportCsvButton } from "@/app/dashboard/storico/export-csv-button";
 import { Button } from "@/components/ui/button";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
-import type { Plan } from "@/lib/plans";
+import type { Plan } from "@/lib/plans-shared";
 import {
   Select,
   SelectContent,
