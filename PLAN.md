@@ -10,7 +10,7 @@ La versione pubblicata corrente Ã¨ in `package.json`. Lo storico delle release Ã
 
 | Versione     | Descrizione                                                                                                                  |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| **v1.3.0**   | Analytics dashboard Pro (KPI + sparkline + breakdown) + Export CSV scontrini Pro asincrono via email                         |
+| **v1.3.0**   | Analytics dashboard Pro (KPI + sparkline + breakdown) + Export CSV scontrini Pro (download diretto streaming)                |
 | **v1.4.0**   | Coupon/promo codes, referral program, Stripe Customer Portal polish                                                          |
 | **v1.5.0**   | Email scontrino al cliente (PDF allegato via Resend)                                                                         |
 | **v1.7.0**   | Catalogo: modifica prodotto + sync AdE (HAR: aggiungi/modifica/elimina)                                                      |
