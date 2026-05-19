@@ -99,6 +99,26 @@ function checkCaptchaPreLimit(
 
 type CaptchaAction = "signup" | "signin" | "reset-password";
 
+/**
+ * Hostname accettati nella response Turnstile siteverify.
+ *
+ * Il widget può essere caricato sia dal dominio app sia dal dominio marketing:
+ * la client-side navigation di Next.js (`<Link href="/login">` dalla landing)
+ * non sempre attraversa il redirect del middleware cross-origin, quindi il
+ * browser può restare sull'hostname marketing quando renderizza /login. Anche
+ * i deploy single-domain (app servita dal dominio marketing) sono coperti da
+ * questa lista.
+ */
+function getAcceptedTurnstileHostnames(): ReadonlySet<string> {
+  const appHostname =
+    process.env.APP_HOSTNAME ?? // runtime override (sandbox, self-hosted)
+    process.env.NEXT_PUBLIC_APP_HOSTNAME ?? // baked at build time
+    "app.scontrinozero.it";
+  const marketingHostname =
+    process.env.NEXT_PUBLIC_MARKETING_HOSTNAME ?? "scontrinozero.it";
+  return new Set([appHostname, marketingHostname, `www.${marketingHostname}`]);
+}
+
 async function verifyCaptcha(
   token: string | null,
   remoteIp: string | undefined,
@@ -134,16 +154,26 @@ async function verifyCaptcha(
       success: boolean;
       hostname: string;
       action?: string;
+      "error-codes"?: string[];
     };
-    if (!data.success) return false;
-    const expectedHostname =
-      process.env.APP_HOSTNAME ?? // runtime override (sandbox, self-hosted)
-      process.env.NEXT_PUBLIC_APP_HOSTNAME ?? // baked at build time
-      "app.scontrinozero.it";
-    if (data.hostname !== expectedHostname) {
+    if (!data.success) {
+      // `error-codes` distingue `invalid-input-response`, `timeout-or-duplicate`,
+      // `internal-error`, ecc. — segnale necessario per diagnosi captcha in prod.
+      logger.warn(
+        {
+          errorCodes: data["error-codes"] ?? [],
+          errorClass: "captcha_verification_failed",
+        },
+        "Turnstile siteverify rejected token",
+      );
+      return false;
+    }
+    const acceptedHostnames = getAcceptedTurnstileHostnames();
+    if (!acceptedHostnames.has(data.hostname)) {
       logger.warn(
         {
           captchaHostname: data.hostname,
+          acceptedHostnames: [...acceptedHostnames],
           errorClass: "captcha_hostname_mismatch",
         },
         "Turnstile hostname mismatch",

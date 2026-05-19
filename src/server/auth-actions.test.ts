@@ -933,6 +933,154 @@ describe("auth-actions", () => {
 
       expect(mockSignUp).toHaveBeenCalled();
     });
+
+    it("accepts a captcha token whose hostname is the marketing domain (single-domain / client-side nav)", async () => {
+      // Reproduces the production bug: the widget is loaded from the marketing
+      // domain (e.g. via Next.js <Link> client-side navigation to /login) and
+      // Cloudflare therefore returns hostname=<marketing>, not <app>. Pre-fix
+      // verifyCaptcha rejected this as `captcha_hostname_mismatch`.
+      process.env.NEXT_PUBLIC_APP_HOSTNAME = "app.scontrinozero.it";
+      process.env.NEXT_PUBLIC_MARKETING_HOSTNAME = "scontrinozero.it";
+      mockFetch.mockResolvedValueOnce(
+        captchaResponse("signup", "scontrinozero.it"),
+      );
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-1" } },
+        error: null,
+      });
+
+      const { signUp } = await import("./auth-actions");
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+          }),
+        );
+      } catch (err) {
+        if (!isRedirectError(err)) throw err;
+      }
+
+      expect(mockSignUp).toHaveBeenCalled();
+    });
+
+    it("accepts a captcha token whose hostname is the www variant of the marketing domain", async () => {
+      process.env.NEXT_PUBLIC_APP_HOSTNAME = "app.scontrinozero.it";
+      process.env.NEXT_PUBLIC_MARKETING_HOSTNAME = "scontrinozero.it";
+      mockFetch.mockResolvedValueOnce(
+        captchaResponse("signup", "www.scontrinozero.it"),
+      );
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-1" } },
+        error: null,
+      });
+
+      const { signUp } = await import("./auth-actions");
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+          }),
+        );
+      } catch (err) {
+        if (!isRedirectError(err)) throw err;
+      }
+
+      expect(mockSignUp).toHaveBeenCalled();
+    });
+
+    it("still rejects hostnames outside the app/marketing/www allowlist (e.g. attacker domain)", async () => {
+      process.env.NEXT_PUBLIC_APP_HOSTNAME = "app.scontrinozero.it";
+      process.env.NEXT_PUBLIC_MARKETING_HOSTNAME = "scontrinozero.it";
+      mockFetch.mockResolvedValueOnce(
+        captchaResponse("signup", "evil.example.com"),
+      );
+
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "stolen-token",
+        }),
+      );
+
+      expect(result).toEqual({ error: "Verifica CAPTCHA fallita. Riprova." });
+      expect(mockSignUp).not.toHaveBeenCalled();
+    });
+
+    it("logs captcha_verification_failed with error-codes when Turnstile returns success:false", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: false,
+          "error-codes": ["timeout-or-duplicate"],
+        }),
+      });
+      const { logger } = await import("@/lib/logger");
+
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "duplicate-token",
+        }),
+      );
+
+      expect(result).toEqual({ error: "Verifica CAPTCHA fallita. Riprova." });
+      expect(mockSignUp).not.toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          errorClass: "captcha_verification_failed",
+          errorCodes: ["timeout-or-duplicate"],
+        }),
+        "Turnstile siteverify rejected token",
+      );
+    });
+
+    it("logs captcha_verification_failed with empty array when error-codes is absent", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: false }),
+      });
+      const { logger } = await import("@/lib/logger");
+
+      const { signUp } = await import("./auth-actions");
+      await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "bad-token",
+        }),
+      );
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          errorClass: "captcha_verification_failed",
+          errorCodes: [],
+        }),
+        "Turnstile siteverify rejected token",
+      );
+    });
   });
 
   describe("signIn", () => {
