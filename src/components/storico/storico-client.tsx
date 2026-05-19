@@ -7,8 +7,10 @@ import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { searchReceipts } from "@/server/storico-actions";
 import { VoidReceiptDialog } from "./void-receipt-dialog";
+import { ExportCsvButton } from "@/app/dashboard/storico/export-csv-button";
 import { Button } from "@/components/ui/button";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import type { Plan } from "@/lib/plans";
 import {
   Select,
   SelectContent,
@@ -84,6 +86,7 @@ interface StoricoClientProps {
   readonly initialDateFrom?: string;
   readonly initialDateTo?: string;
   readonly initialStatus?: StatusFilter;
+  readonly plan: Plan;
 }
 
 // ---------------------------------------------------------------------------
@@ -97,6 +100,7 @@ export function StoricoClient({
   initialDateFrom,
   initialDateTo,
   initialStatus,
+  plan,
 }: StoricoClientProps) {
   const router = useRouter();
   const today = new Date();
@@ -248,6 +252,20 @@ export function StoricoClient({
           {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {isPending ? "Ricerca…" : "Cerca"}
         </Button>
+        <ExportCsvButton
+          plan={plan}
+          dateFrom={
+            dateRange?.from
+              ? format(dateRange.from, "yyyy-MM-dd")
+              : format(sevenDaysAgo, "yyyy-MM-dd")
+          }
+          dateTo={
+            dateRange?.to
+              ? format(dateRange.to, "yyyy-MM-dd")
+              : format(today, "yyyy-MM-dd")
+          }
+          status={statusFilter === "" ? null : statusFilter}
+        />
       </form>
 
       {/* Table */}
