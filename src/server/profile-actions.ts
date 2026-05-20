@@ -45,15 +45,23 @@ const changePasswordLimiter = new RateLimiter({
   windowMs: RATE_LIMIT_WINDOWS.AUTH_15_MIN,
 });
 
+type DrizzleDb = ReturnType<typeof getDb>;
+type DrizzleTx = Parameters<Parameters<DrizzleDb["transaction"]>[0]>[0];
+
 /**
- * Builds the `preferredVatCode` slice of the business UPDATE payload AND emits
- * the audit log when the value actually changes. Returns an empty patch when
- * the field is absent from the submission so the existing value is preserved.
+ * Reads the current `preferredVatCode` taking a row lock (SELECT … FOR UPDATE)
+ * within the supplied transaction. Returning the value INSIDE the same locked
+ * transaction that issues the UPDATE prevents two concurrent updates from
+ * reading the same `current` and logging stale `oldVatCode` values.
+ *
+ * Returns an empty patch (and skips the audit log) when the field is absent
+ * from the submission, so the existing value is preserved.
  *
  * Extracted as a helper to keep `updateBusiness` under SonarCloud's Cognitive
  * Complexity threshold (S3776).
  */
 async function preparePreferredVatCodeUpdate(opts: {
+  tx: DrizzleTx;
   hasField: boolean;
   newValue: string | null;
   businessId: string;
@@ -61,10 +69,11 @@ async function preparePreferredVatCodeUpdate(opts: {
 }): Promise<{ preferredVatCode?: string | null }> {
   if (!opts.hasField) return {};
 
-  const [current] = await getDb()
+  const [current] = await opts.tx
     .select({ preferredVatCode: businesses.preferredVatCode })
     .from(businesses)
     .where(eq(businesses.id, opts.businessId))
+    .for("update")
     .limit(1);
   const oldValue = current?.preferredVatCode ?? null;
 
@@ -162,25 +171,32 @@ export async function updateBusiness(
     return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
   }
 
-  const vatPatch = await preparePreferredVatCodeUpdate({
-    hasField: hasPreferredVatCode,
-    newValue: preferredVatCode,
-    businessId,
-    userId: user.id,
-  });
+  // Lock + diff + UPDATE in una transazione: senza il lock pessimistico
+  // sulla riga, due update concorrenti dello stesso business possono
+  // leggere lo stesso "vecchio" valore e produrre audit log inconsistenti
+  // (entrambi loggano lo stesso oldVatCode, ma uno dei due UPDATE perde).
+  await getDb().transaction(async (tx) => {
+    const vatPatch = await preparePreferredVatCodeUpdate({
+      tx,
+      hasField: hasPreferredVatCode,
+      newValue: preferredVatCode,
+      businessId,
+      userId: user.id,
+    });
 
-  await getDb()
-    .update(businesses)
-    .set({
-      businessName,
-      address,
-      streetNumber,
-      city,
-      province,
-      zipCode,
-      ...vatPatch,
-    })
-    .where(eq(businesses.id, businessId));
+    await tx
+      .update(businesses)
+      .set({
+        businessName,
+        address,
+        streetNumber,
+        city,
+        province,
+        zipCode,
+        ...vatPatch,
+      })
+      .where(eq(businesses.id, businessId));
+  });
 
   revalidatePath("/dashboard/settings");
   return {};

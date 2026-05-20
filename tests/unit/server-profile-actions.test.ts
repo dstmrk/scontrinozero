@@ -19,10 +19,12 @@ const {
   mockSelect,
   mockSelectFrom,
   mockSelectWhere,
+  mockSelectFor,
   mockSelectLimit,
   mockUpdate,
   mockUpdateSet,
   mockUpdateWhere,
+  mockTransaction,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
   mockCheckBusinessOwnership: vi.fn(),
@@ -39,10 +41,12 @@ const {
   mockSelect: vi.fn(),
   mockSelectFrom: vi.fn(),
   mockSelectWhere: vi.fn(),
+  mockSelectFor: vi.fn(),
   mockSelectLimit: vi.fn(),
   mockUpdate: vi.fn(),
   mockUpdateSet: vi.fn(),
   mockUpdateWhere: vi.fn(),
+  mockTransaction: vi.fn(),
 }));
 
 vi.mock("@/lib/server-auth", () => ({
@@ -309,9 +313,14 @@ describe("updateBusiness server action", () => {
     mockIsValidItalianZipCode.mockReturnValue(true);
     mockCheck.mockReturnValue({ success: true });
 
-    // SELECT chain: returns the current preferredVatCode for the audit diff
+    // SELECT chain: returns the current preferredVatCode for the audit diff.
+    // .for("update") returns a chainable that has .limit().
     mockSelectLimit.mockResolvedValue([{ preferredVatCode: null }]);
-    mockSelectWhere.mockReturnValue({ limit: mockSelectLimit });
+    mockSelectFor.mockReturnValue({ limit: mockSelectLimit });
+    mockSelectWhere.mockReturnValue({
+      for: mockSelectFor,
+      limit: mockSelectLimit,
+    });
     mockSelectFrom.mockReturnValue({ where: mockSelectWhere });
     mockSelect.mockReturnValue({ from: mockSelectFrom });
 
@@ -320,9 +329,17 @@ describe("updateBusiness server action", () => {
     mockUpdateSet.mockReturnValue({ where: mockUpdateWhere });
     mockUpdate.mockReturnValue({ set: mockUpdateSet });
 
+    // Transaction passthrough: invoke the callback with a tx object that
+    // exposes the same chainable mocks as the outer db.
+    mockTransaction.mockImplementation(
+      async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({ select: mockSelect, update: mockUpdate }),
+    );
+
     mockGetDb.mockReturnValue({
       select: mockSelect,
       update: mockUpdate,
+      transaction: mockTransaction,
     });
   });
 
@@ -407,6 +424,19 @@ describe("updateBusiness server action", () => {
 
     expect(result.error).toBe("Non autorizzato.");
     expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("locks the row (SELECT … FOR UPDATE) inside a transaction before the audit diff", async () => {
+    mockSelectLimit.mockResolvedValue([{ preferredVatCode: "N2" }]);
+
+    await updateBusiness(makeBusinessFormData({ preferredVatCode: "22" }));
+
+    // The whole flow must run inside a transaction.
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+    // The pessimistic lock on the businesses row must be requested before
+    // the UPDATE: without it, two concurrent updates would race on the
+    // audit log "oldVatCode" diff.
+    expect(mockSelectFor).toHaveBeenCalledWith("update");
   });
 
   it("does NOT touch preferredVatCode when the field is absent from FormData", async () => {
