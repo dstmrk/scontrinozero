@@ -71,7 +71,16 @@ export async function saveBusiness(
   const zipCode = getFormString(formData, "zipCode");
   const city = getFormStringOrNull(formData, "city");
   const province = getFormStringOrNull(formData, "province");
-  const preferredVatCode = getFormStringOrNull(formData, "preferredVatCode");
+
+  // Distinguish "field absent" (don't touch existing preference on UPDATE)
+  // from "field present and empty" (clear it). `getFormStringOrNull` collapses
+  // both into null, which would silently wipe `preferredVatCode` for a user
+  // re-entering the onboarding wizard with a partial form. Same fix-class as
+  // `updateBusiness` in `profile-actions.ts`.
+  const hasPreferredVatCode = formData.has("preferredVatCode");
+  const preferredVatCode = hasPreferredVatCode
+    ? getFormStringOrNull(formData, "preferredVatCode")
+    : null;
 
   if (!firstName) {
     return { error: "Il nome è obbligatorio." };
@@ -103,7 +112,7 @@ export async function saveBusiness(
   if (!isValidItalianZipCode(zipCode)) {
     return { error: ITALIAN_ZIP_MESSAGE };
   }
-  if (isInvalidPreferredVatCode(preferredVatCode)) {
+  if (hasPreferredVatCode && isInvalidPreferredVatCode(preferredVatCode)) {
     return { error: "Aliquota IVA non valida." };
   }
 
@@ -139,6 +148,9 @@ export async function saveBusiness(
       .limit(1);
 
     if (existing) {
+      // Omit `preferredVatCode` from the UPDATE payload when the field is
+      // absent from the form — preserves the existing preference instead of
+      // overwriting it with null.
       await tx
         .update(businesses)
         .set({
@@ -148,7 +160,7 @@ export async function saveBusiness(
           city,
           province,
           zipCode,
-          preferredVatCode,
+          ...(hasPreferredVatCode && { preferredVatCode }),
         })
         .where(eq(businesses.id, existing.id));
 
