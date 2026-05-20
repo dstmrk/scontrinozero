@@ -39,11 +39,8 @@ const NO_VAT_PREFERENCE = "__none__";
  * `VatCode` valido, ricade su `""` (nessuna preferenza). Evita il cast cieco
  * `as VatCode | ""` che silenzia drift della colonna `profiles.preferred_vat_code`.
  */
-function normalizePreferredVatCode(
-  value: string | null | undefined,
-): VatCode | "" {
-  const normalized = value ?? "";
-  return isValidPreferredVatCode(normalized) ? normalized : "";
+function normalizePreferredVatCode(value: string | null = ""): VatCode | "" {
+  return isValidPreferredVatCode(value) ? value : "";
 }
 
 const editBusinessSchema = z.object({
