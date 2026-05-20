@@ -25,6 +25,7 @@ vi.mock("@/db/schema", () => ({
 import {
   API_KEY_LIMITS,
   DEVELOPER_MONTHLY_LIMITS,
+  PLAN_VALUES,
   STARTER_CATALOG_LIMIT,
   TRIAL_DAYS,
   assertProPlan,
@@ -35,6 +36,7 @@ import {
   getApiKeyLimit,
   getPlan,
   isDeveloperPlan,
+  isPlan,
   isTrialExpired,
 } from "./plans";
 
@@ -118,6 +120,43 @@ describe("canUsePro", () => {
 
   it("returns false for trial plan", () => {
     expect(canUsePro("trial")).toBe(false);
+  });
+});
+
+describe("isPlan", () => {
+  it.each(PLAN_VALUES)("accetta il valore valido %s", (plan) => {
+    expect(isPlan(plan)).toBe(true);
+  });
+
+  it("rifiuta null", () => {
+    expect(isPlan(null)).toBe(false);
+  });
+
+  it("rifiuta undefined", () => {
+    expect(isPlan(undefined)).toBe(false);
+  });
+
+  it("rifiuta numeri", () => {
+    expect(isPlan(42)).toBe(false);
+  });
+
+  it("rifiuta oggetti", () => {
+    expect(isPlan({ plan: "pro" })).toBe(false);
+  });
+
+  it("rifiuta stringhe non-enum (es. 'premium')", () => {
+    expect(isPlan("premium")).toBe(false);
+  });
+
+  it("è case-sensitive (rifiuta 'PRO')", () => {
+    expect(isPlan("PRO")).toBe(false);
+  });
+
+  it("rifiuta i nomi del prototype chain", () => {
+    expect(isPlan("__proto__")).toBe(false);
+    expect(isPlan("constructor")).toBe(false);
+    expect(isPlan("toString")).toBe(false);
+    expect(isPlan("hasOwnProperty")).toBe(false);
   });
 });
 
@@ -302,6 +341,15 @@ describe("getPlan", () => {
     } catch (err) {
       expect((err as Error).name).toBe("ProfileNotFoundError");
     }
+  });
+
+  it("rifiuta valori di plan non riconosciuti (drift schema DB)", async () => {
+    // DB row con plan corrotto/sconosciuto → fail-closed via
+    // ProfileNotFoundError + log critical, NON cast cieco a Plan.
+    mockLimit.mockResolvedValue([
+      { plan: "premium", trialStartedAt: null, planExpiresAt: null },
+    ]);
+    await expect(getPlan("user-drift")).rejects.toThrow("Profilo non trovato");
   });
 });
 

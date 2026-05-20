@@ -19,6 +19,32 @@ export type Plan =
   | "developer_business"
   | "developer_scale";
 
+/**
+ * Elenco esaustivo dei valori di `Plan`. Mantenere allineato all'union sopra.
+ * Esportato per consentire iterazioni e guard runtime in altri moduli.
+ */
+export const PLAN_VALUES: readonly Plan[] = [
+  "trial",
+  "starter",
+  "pro",
+  "unlimited",
+  "developer_indie",
+  "developer_business",
+  "developer_scale",
+];
+
+const PLAN_SET: ReadonlySet<string> = new Set(PLAN_VALUES);
+
+/**
+ * Type guard runtime: ritorna true se `value` è uno dei `Plan` validi.
+ * Usare prima di castare a `Plan` valori provenienti dal DB / dall'esterno
+ * per evitare silent drift quando lo schema cambia o un valore "nuovo"
+ * viene inserito manualmente.
+ */
+export function isPlan(value: unknown): value is Plan {
+  return typeof value === "string" && PLAN_SET.has(value);
+}
+
 /** Durata del trial in giorni */
 export const TRIAL_DAYS = 30;
 

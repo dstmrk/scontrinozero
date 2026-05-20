@@ -23,10 +23,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { updateBusiness } from "@/server/profile-actions";
-import { VAT_CODES, VAT_DESCRIPTIONS } from "@/types/cassa";
+import {
+  isValidPreferredVatCode,
+  VAT_CODES,
+  VAT_DESCRIPTIONS,
+  type VatCode,
+} from "@/types/cassa";
 import { EditSettingsDialog } from "./edit-settings-dialog";
 
 const NO_VAT_PREFERENCE = "__none__";
+
+/**
+ * Normalizza il valore proveniente dal DB / props: se non corrisponde a un
+ * `VatCode` valido, ricade su `""` (nessuna preferenza). Evita il cast cieco
+ * `as VatCode | ""` che silenzia drift della colonna `profiles.preferred_vat_code`.
+ */
+function normalizePreferredVatCode(
+  value: string | null | undefined,
+): VatCode | "" {
+  const normalized = value ?? "";
+  return isValidPreferredVatCode(normalized) ? normalized : "";
+}
 
 const editBusinessSchema = z.object({
   businessName: z
@@ -86,9 +103,7 @@ export function EditBusinessSection({
     city: city ?? "",
     province: province ?? "",
     zipCode: zipCode ?? "",
-    preferredVatCode: (preferredVatCode ?? "") as
-      | (typeof VAT_CODES)[number]
-      | "",
+    preferredVatCode: normalizePreferredVatCode(preferredVatCode),
   };
 
   const form = useForm<EditBusinessData>({
@@ -132,9 +147,7 @@ export function EditBusinessSection({
       city: city ?? "",
       province: province ?? "",
       zipCode: zipCode ?? "",
-      preferredVatCode: (preferredVatCode ?? "") as
-        | (typeof VAT_CODES)[number]
-        | "",
+      preferredVatCode: normalizePreferredVatCode(preferredVatCode),
     });
     setIsOpen(true);
   }
