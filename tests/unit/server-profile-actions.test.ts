@@ -415,6 +415,18 @@ describe("updateBusiness server action", () => {
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
+  it("rate-limit blocca PRIMA della ownership query (CLAUDE.md regola 29)", async () => {
+    // Un attaccante autenticato che martella con businessId arbitrari NON
+    // deve raggiungere checkBusinessOwnership: il rate-limit deve scattare
+    // prima, evitando di esporre query DB a brute-force.
+    mockCheck.mockReturnValue({ success: false });
+
+    await updateBusiness(makeBusinessFormData({ preferredVatCode: "22" }));
+
+    expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
   it("blocks the update when ownership check fails", async () => {
     mockCheckBusinessOwnership.mockResolvedValue({ error: "Non autorizzato." });
 

@@ -130,7 +130,25 @@ export async function updateBusiness(
 ): Promise<ProfileActionResult> {
   const user = await getAuthenticatedUser();
 
+  // CLAUDE.md regola 29: ordine difensivo rate-limit → ownership →
+  // validation → UPDATE. La ownership query (DB read) NON deve essere
+  // raggiungibile da un attaccante autenticato che martella la action
+  // con businessId arbitrari: prima si blocca il volume di richieste,
+  // poi si valida l'autorizzazione, poi si valida il payload.
+  const rateLimitResult = updateBusinessLimiter.check(
+    `updateBusiness:${user.id}`,
+  );
+  if (!rateLimitResult.success) {
+    logger.warn({ userId: user.id }, "updateBusiness rate limit exceeded");
+    return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
+  }
+
   const businessId = getFormString(formData, "businessId");
+  if (!businessId) return { error: "Business ID mancante." };
+
+  const ownershipError = await checkBusinessOwnership(user.id, businessId);
+  if (ownershipError) return ownershipError;
+
   const businessName = getFormStringOrNull(formData, "businessName");
   const address = getFormString(formData, "address");
   const streetNumber = getFormStringOrNull(formData, "streetNumber");
@@ -146,7 +164,6 @@ export async function updateBusiness(
     ? getFormStringOrNull(formData, "preferredVatCode")
     : null;
 
-  if (!businessId) return { error: "Business ID mancante." };
   if (businessName && businessName.length > 120)
     return { error: "La ragione sociale non può superare 120 caratteri." };
   if (!address) return { error: "L'indirizzo è obbligatorio." };
@@ -159,17 +176,6 @@ export async function updateBusiness(
   if (!isValidItalianZipCode(zipCode)) return { error: ITALIAN_ZIP_MESSAGE };
   if (hasPreferredVatCode && isInvalidPreferredVatCode(preferredVatCode))
     return { error: "Aliquota IVA non valida." };
-
-  const ownershipError = await checkBusinessOwnership(user.id, businessId);
-  if (ownershipError) return ownershipError;
-
-  const rateLimitResult = updateBusinessLimiter.check(
-    `updateBusiness:${user.id}`,
-  );
-  if (!rateLimitResult.success) {
-    logger.warn({ userId: user.id }, "updateBusiness rate limit exceeded");
-    return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
-  }
 
   // Lock + diff + UPDATE in una transazione: senza il lock pessimistico
   // sulla riga, due update concorrenti dello stesso business possono
