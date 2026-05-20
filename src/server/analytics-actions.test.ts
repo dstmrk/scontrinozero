@@ -39,7 +39,21 @@ vi.mock("@/lib/plans", async () => {
 });
 
 vi.mock("@/db", () => ({
-  getDb: vi.fn().mockReturnValue({ select: mockSelect }),
+  getDb: vi.fn().mockReturnValue({
+    select: mockSelect,
+    transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn({ select: mockSelect, execute: vi.fn() }),
+  }),
+}));
+
+// withStatementTimeout wraps the query inside a transaction. In tests we want
+// a passthrough that just invokes the callback with a fake tx exposing the
+// same select mock so existing `makeSelectBuilder` chains keep working.
+vi.mock("@/lib/db-timeout", () => ({
+  withStatementTimeout: async (
+    _timeoutMs: number,
+    fn: (tx: unknown) => Promise<unknown>,
+  ) => fn({ select: mockSelect, execute: vi.fn() }),
 }));
 
 vi.mock("@/db/schema", () => ({
@@ -105,9 +119,11 @@ function makeSelectBuilder(result: unknown[]) {
   const builder = {
     from: vi.fn(),
     where: vi.fn(),
+    limit: vi.fn(),
   };
   builder.from.mockReturnValue(builder);
-  builder.where.mockReturnValue(Promise.resolve(result));
+  builder.where.mockReturnValue(builder);
+  builder.limit.mockReturnValue(Promise.resolve(result));
   return builder;
 }
 
