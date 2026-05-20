@@ -53,7 +53,13 @@ const mockDbUpdateSet = vi.fn().mockReturnValue({ where: vi.fn() });
 const mockDbSelectLimit = vi
   .fn()
   .mockResolvedValue([{ preferredVatCode: null }]);
-const mockDbSelectWhere = vi.fn().mockReturnValue({ limit: mockDbSelectLimit });
+// SELECT chain now also supports .for("update") for the row lock used in
+// updateBusiness's transaction (preparePreferredVatCodeUpdate).
+const mockDbSelectFor = vi.fn().mockReturnValue({ limit: mockDbSelectLimit });
+const mockDbSelectWhere = vi.fn().mockReturnValue({
+  limit: mockDbSelectLimit,
+  for: mockDbSelectFor,
+});
 const mockDbSelectFrom = vi.fn().mockReturnValue({ where: mockDbSelectWhere });
 const mockDbSelect = vi.fn().mockReturnValue({ from: mockDbSelectFrom });
 
@@ -61,6 +67,11 @@ vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({
     update: mockDbUpdate,
     select: mockDbSelect,
+    // Transaction passthrough: invoke the callback with a tx object that
+    // exposes the same chainable mocks as the outer db (updateBusiness
+    // wraps its SELECT … FOR UPDATE + UPDATE in db.transaction).
+    transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn({ update: mockDbUpdate, select: mockDbSelect }),
   }),
 }));
 

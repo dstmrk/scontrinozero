@@ -21,6 +21,14 @@ export function RevenueSparkline({ data }: RevenueSparklineProps) {
     revenue: p.revenueCents / 100,
   }));
 
+  if (chartData.length === 0) {
+    return (
+      <div className="text-muted-foreground flex h-[220px] items-center justify-center text-sm">
+        Nessuno scontrino nel periodo selezionato.
+      </div>
+    );
+  }
+
   return (
     <div className="h-[220px] w-full">
       <ResponsiveContainer width="100%" height="100%">

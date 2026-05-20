@@ -12,6 +12,7 @@ import { AnalyticsClient } from "@/components/analytics/analytics-client";
 import { ProFeatureGate } from "@/components/billing/pro-feature-gate";
 import { getAuthenticatedUser } from "@/lib/server-auth";
 import { getPlan } from "@/lib/plans";
+import { logger } from "@/lib/logger";
 
 const ZERO_KPIS: AnalyticsKpis = {
   revenueCents: 0,
@@ -54,7 +55,30 @@ export default async function AnalyticsPage() {
     getPaymentBreakdown(businessId, "30d"),
   ]);
 
-  const safeKpis: AnalyticsKpis = "error" in kpis ? ZERO_KPIS : kpis;
+  // Non collassare silenziosamente {error} in zero: un utente con DB
+  // timeout o ownership glitch vedrebbe "0 €, 0 scontrini" indistinguibile
+  // da un negozio senza scontrini. Logghiamo lato server (Sentry) e
+  // passiamo un flag al client per mostrare un banner inline.
+  const kpisFailed = "error" in kpis;
+  const timeseriesFailed = !Array.isArray(timeseries);
+  const breakdownFailed = !Array.isArray(breakdown);
+  const loadFailed = kpisFailed || timeseriesFailed || breakdownFailed;
+
+  if (loadFailed) {
+    logger.warn(
+      {
+        userId: user.id,
+        businessId,
+        errorClass: "analytics_dashboard_load",
+        kpisError: kpisFailed ? kpis.error : undefined,
+        timeseriesError: timeseriesFailed ? timeseries.error : undefined,
+        breakdownError: breakdownFailed ? breakdown.error : undefined,
+      },
+      "analytics: server action failed",
+    );
+  }
+
+  const safeKpis: AnalyticsKpis = kpisFailed ? ZERO_KPIS : kpis;
   const safeTimeseries: RevenuePoint[] = Array.isArray(timeseries)
     ? timeseries
     : [];
@@ -69,6 +93,7 @@ export default async function AnalyticsPage() {
       initialKpis={safeKpis}
       initialTimeseries={safeTimeseries}
       initialBreakdown={safeBreakdown}
+      initialLoadFailed={loadFailed}
     />
   );
 }
