@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { getDb } from "@/db";
 import { profiles, businesses } from "@/db/schema";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   getAuthenticatedUser,
@@ -246,17 +247,37 @@ export async function changePassword(
   // un attaccante che era già loggato resterebbe loggato altrove.
   // scope: "others" mantiene la sessione corrente (l'utente che ha appena
   // cambiato password resta connesso) e butta fuori tutti gli altri.
-  // Fire-and-forget: se fallisce non vogliamo mostrare un errore — il cambio
-  // password è già committato.
-  const { error: revokeError } = await supabase.auth.signOut({
-    scope: "others",
-  });
-  if (revokeError) {
-    logger.warn(
-      { err: revokeError, userId: user.id },
-      "changePassword: revoke other sessions failed (password already changed)",
-    );
-  }
+  // Security-critical: retry+backoff per non lasciare sessioni orfane su
+  // network glitch (CLAUDE.md regola 17).
+  await revokeOtherSessionsWithRetry(supabase, user.id);
 
   return {};
+}
+
+/**
+ * Revoca le sessioni "altre" (non la corrente) con 3 retry + exponential
+ * backoff (500ms / 1s / 2s). Fire-and-forget: il cambio password è già
+ * committato lato Supabase quando questa viene chiamata, quindi anche su
+ * exhausted retornamo senza propagare l'errore — ma logghiamo
+ * `critical: true` perché un attaccante loggato altrove potrebbe restare
+ * attivo finché il refresh token non scade naturalmente.
+ *
+ * Stessa shape di `compensatingDeleteAuthUser` in `src/server/auth-actions.ts`.
+ */
+async function revokeOtherSessionsWithRetry(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<void> {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const { error } = await supabase.auth.signOut({ scope: "others" });
+    if (!error) return;
+    if (attempt === 3) {
+      logger.error(
+        { err: error, userId, critical: true },
+        "changePassword: revoke other sessions failed after 3 retries — other devices may still be authenticated until refresh token expiry",
+      );
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+  }
 }

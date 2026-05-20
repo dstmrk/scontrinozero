@@ -12,6 +12,9 @@ const {
   mockRevalidatePath,
   mockGetClientIp,
   mockHeaders,
+  mockLoggerError,
+  mockLoggerWarn,
+  mockLoggerInfo,
 } = vi.hoisted(() => ({
   mockGetUser: vi.fn(),
   mockSignInWithPassword: vi.fn(),
@@ -21,6 +24,9 @@ const {
   mockRevalidatePath: vi.fn(),
   mockGetClientIp: vi.fn().mockReturnValue("1.2.3.4"),
   mockHeaders: vi.fn(),
+  mockLoggerError: vi.fn(),
+  mockLoggerWarn: vi.fn(),
+  mockLoggerInfo: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: mockRevalidatePath }));
@@ -84,7 +90,11 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 
 vi.mock("@/lib/logger", () => ({
-  logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+  logger: {
+    error: mockLoggerError,
+    warn: mockLoggerWarn,
+    info: mockLoggerInfo,
+  },
 }));
 
 // --- Helpers ---
@@ -286,13 +296,51 @@ describe("profile-actions", () => {
     });
 
     it("signOut others è fire-and-forget — non blocca il successo se fallisce", async () => {
+      vi.useFakeTimers();
+      // Tutte e 3 le retry falliscono: nessun errore propagato all'utente.
       mockSignOut.mockResolvedValue({ error: { message: "transient" } });
       const { changePassword } = await import("./profile-actions");
-      const result = await changePassword(formData(VALID));
+      const promise = changePassword(formData(VALID));
+      await vi.runAllTimersAsync();
+      const result = await promise;
       // Il password change è già committato lato Supabase: non vogliamo
       // mostrare un errore all'utente se solo il revoke fallisce.
       expect(result).toEqual({});
       expect(mockSignOut).toHaveBeenCalledWith({ scope: "others" });
+      vi.useRealTimers();
+    });
+
+    it("ritenta signOut others 3 volte con backoff su errore transient", async () => {
+      vi.useFakeTimers();
+      mockSignOut
+        .mockResolvedValueOnce({ error: { message: "transient 1" } })
+        .mockResolvedValueOnce({ error: { message: "transient 2" } })
+        .mockResolvedValueOnce({ error: null });
+      const { changePassword } = await import("./profile-actions");
+      const promise = changePassword(formData(VALID));
+      await vi.runAllTimersAsync();
+      const result = await promise;
+      expect(result).toEqual({});
+      expect(mockSignOut).toHaveBeenCalledTimes(3);
+      // Successo al 3° tentativo → nessun log critical.
+      expect(mockLoggerError).not.toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+
+    it("logga critical:true dopo 3 retry esauriti su signOut others", async () => {
+      vi.useFakeTimers();
+      mockSignOut.mockResolvedValue({ error: { message: "persistent" } });
+      const { changePassword } = await import("./profile-actions");
+      const promise = changePassword(formData(VALID));
+      await vi.runAllTimersAsync();
+      const result = await promise;
+      expect(result).toEqual({});
+      expect(mockSignOut).toHaveBeenCalledTimes(3);
+      expect(mockLoggerError).toHaveBeenCalledWith(
+        expect.objectContaining({ critical: true, userId: FAKE_USER.id }),
+        expect.stringContaining("revoke other sessions"),
+      );
+      vi.useRealTimers();
     });
 
     it("returns error for missing currentPassword", async () => {
