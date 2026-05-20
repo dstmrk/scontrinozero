@@ -66,6 +66,11 @@ export function isTrialExpired(trialStartedAt: Date | null): boolean {
  * - trial non scaduto → ✅
  * - starter / pro / unlimited → ✅
  * - trial scaduto → ❌ (sola lettura)
+ * - developer_* → ✅ (ma SOLO via Developer API key; la dashboard UI
+ *   è gated da `canUseDashboardCashier`, vedi sotto)
+ *
+ * NB: `canEmit` non riflette il gate UI. Per gateare l'accesso alla
+ * pagina `/dashboard/cassa` usare `canUseDashboardCashier(plan)`.
  */
 export function canEmit(plan: Plan, trialStartedAt: Date | null): boolean {
   if (plan === "trial") return !isTrialExpired(trialStartedAt);
@@ -89,6 +94,19 @@ export function isDeveloperPlan(plan: Plan): boolean {
     plan === "developer_business" ||
     plan === "developer_scale"
   );
+}
+
+/**
+ * Ritorna true se il piano può accedere alla dashboard cassa / catalogo UI.
+ *
+ * Invariante: i piani `developer_*` emettono SOLO via Developer API key e
+ * non hanno una UI dashboard di emissione. Le pagine `/dashboard/cassa` e
+ * `/dashboard` (catalogo) devono fare un redirect verso `/dashboard/settings`
+ * quando questo helper ritorna false, per evitare di esporre una UI che
+ * apparirebbe funzionante ma che non riflette il modello d'uso del piano.
+ */
+export function canUseDashboardCashier(plan: Plan): boolean {
+  return !isDeveloperPlan(plan);
 }
 
 /**
@@ -133,6 +151,8 @@ export const DEVELOPER_MONTHLY_LIMITS: Partial<Record<Plan, number>> = {
  * - pro / unlimited → sempre true
  * - starter / trial (non scaduto) → solo se currentCount < STARTER_CATALOG_LIMIT
  * - trial scaduto → false
+ * - developer_* → true (consumato via API, ma vedi `canUseDashboardCashier`
+ *   per il gate UI: la dashboard catalogo non è esposta ai piani developer)
  */
 export function canAddCatalogItem(
   plan: Plan,

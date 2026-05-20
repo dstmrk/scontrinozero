@@ -17,6 +17,7 @@ export {
   canAddCatalogItem,
   canEmit,
   canUseApi,
+  canUseDashboardCashier,
   canUsePro,
   getApiKeyLimit,
   isDeveloperPlan,

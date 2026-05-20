@@ -32,6 +32,7 @@ import {
   canAddCatalogItem,
   canEmit,
   canUseApi,
+  canUseDashboardCashier,
   canUsePro,
   getApiKeyLimit,
   getPlan,
@@ -181,6 +182,38 @@ describe("isDeveloperPlan", () => {
     expect(isDeveloperPlan("trial")).toBe(false);
     expect(isDeveloperPlan("starter")).toBe(false);
     expect(isDeveloperPlan("unlimited")).toBe(false);
+  });
+});
+
+describe("canUseDashboardCashier", () => {
+  // Invariante: i piani developer_* emettono SOLO via Developer API key.
+  // La dashboard cassa / catalogo non è esposta loro.
+  it("ritorna true per trial", () => {
+    expect(canUseDashboardCashier("trial")).toBe(true);
+  });
+
+  it("ritorna true per starter", () => {
+    expect(canUseDashboardCashier("starter")).toBe(true);
+  });
+
+  it("ritorna true per pro", () => {
+    expect(canUseDashboardCashier("pro")).toBe(true);
+  });
+
+  it("ritorna true per unlimited", () => {
+    expect(canUseDashboardCashier("unlimited")).toBe(true);
+  });
+
+  it("ritorna false per developer_indie", () => {
+    expect(canUseDashboardCashier("developer_indie")).toBe(false);
+  });
+
+  it("ritorna false per developer_business", () => {
+    expect(canUseDashboardCashier("developer_business")).toBe(false);
+  });
+
+  it("ritorna false per developer_scale", () => {
+    expect(canUseDashboardCashier("developer_scale")).toBe(false);
   });
 });
 
