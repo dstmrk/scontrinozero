@@ -5,6 +5,7 @@ import { StoricoClient } from "@/components/storico/storico-client";
 import { STORICO_PAGE_SIZE, type StatusFilter } from "@/types/storico";
 import { getAuthenticatedUser } from "@/lib/server-auth";
 import { getPlan } from "@/lib/plans";
+import { defaultLast7DaysRomeRange } from "@/lib/storico-default-range";
 
 const STATUS_VALUES = new Set<StatusFilter>(["ACCEPTED", "VOID_ACCEPTED", ""]);
 
@@ -36,14 +37,11 @@ export default async function StoricoPage({
   }
 
   const { dal, al, stato } = await searchParams;
-  const today = new Date();
-  const sevenDaysAgo = new Date(today);
-  sevenDaysAgo.setDate(today.getDate() - 6); // 6 giorni fa + oggi = 7 giorni
-  const todayStr = today.toISOString().split("T")[0];
-  const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0];
+  const { dateFrom: defaultFrom, dateTo: defaultTo } =
+    defaultLast7DaysRomeRange();
 
-  const dateFrom = dal ?? sevenDaysAgoStr;
-  const dateTo = al ?? todayStr;
+  const dateFrom = dal ?? defaultFrom;
+  const dateTo = al ?? defaultTo;
   const statusParam = parseStatus(stato);
 
   const [initialResult, user] = await Promise.all([

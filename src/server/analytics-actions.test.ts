@@ -7,12 +7,21 @@ const {
   mockGetPlan,
   mockSelect,
   mockFetchLinesByDocIds,
+  mockRateLimitCheck,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
   mockCheckBusinessOwnership: vi.fn(),
   mockGetPlan: vi.fn(),
   mockSelect: vi.fn(),
   mockFetchLinesByDocIds: vi.fn(),
+  mockRateLimitCheck: vi.fn(),
+}));
+
+vi.mock("@/lib/rate-limit", () => ({
+  RATE_LIMIT_WINDOWS: { AUTH_15_MIN: 900_000, HOURLY: 3_600_000 },
+  RateLimiter: vi.fn().mockImplementation(function () {
+    return { check: mockRateLimitCheck };
+  }),
 }));
 
 vi.mock("@/lib/server-auth", () => ({
@@ -110,6 +119,11 @@ beforeEach(() => {
     plan: "pro",
     trialStartedAt: null,
     planExpiresAt: null,
+  });
+  mockRateLimitCheck.mockReturnValue({
+    success: true,
+    remaining: 59,
+    resetAt: Date.now() + 3_600_000,
   });
 });
 
@@ -299,6 +313,18 @@ describe("getAnalyticsKpis", () => {
     });
   });
 
+  it("returns rate-limit error and skips DB query when limiter rejects", async () => {
+    mockRateLimitCheck.mockReturnValue({
+      success: false,
+      remaining: 0,
+      resetAt: Date.now() + 3_600_000,
+    });
+    const res = await getAnalyticsKpis("biz-1", "30d");
+    expect(res).toMatchObject({ error: expect.stringMatching(/Troppe/i) });
+    expect(mockSelect).not.toHaveBeenCalled();
+    expect(mockRateLimitCheck).toHaveBeenCalledWith("analytics:user-1");
+  });
+
   it("does not divide by zero when computing AOV", async () => {
     mockSelect.mockReturnValue(
       makeSelectBuilder([
@@ -388,6 +414,17 @@ describe("getRevenueTimeseries", () => {
     expect(byDate["2026-05-19"]).toBe(1000);
   });
 
+  it("returns rate-limit error and skips DB query when limiter rejects", async () => {
+    mockRateLimitCheck.mockReturnValue({
+      success: false,
+      remaining: 0,
+      resetAt: Date.now() + 3_600_000,
+    });
+    const res = await getRevenueTimeseries("biz-1", "7d");
+    expect(res).toMatchObject({ error: expect.stringMatching(/Troppe/i) });
+    expect(mockSelect).not.toHaveBeenCalled();
+  });
+
   it("excludes VOID_ACCEPTED documents from the timeseries", async () => {
     mockSelect.mockReturnValue(
       makeSelectBuilder([
@@ -449,6 +486,17 @@ describe("getPaymentBreakdown", () => {
       count: 1,
       revenueCents: 100,
     });
+  });
+
+  it("returns rate-limit error and skips DB query when limiter rejects", async () => {
+    mockRateLimitCheck.mockReturnValue({
+      success: false,
+      remaining: 0,
+      resetAt: Date.now() + 3_600_000,
+    });
+    const res = await getPaymentBreakdown("biz-1", "30d");
+    expect(res).toMatchObject({ error: expect.stringMatching(/Troppe/i) });
+    expect(mockSelect).not.toHaveBeenCalled();
   });
 
   it("excludes VOID_ACCEPTED documents from the breakdown", async () => {

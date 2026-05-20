@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import {
   type AnalyticsKpis,
   type AnalyticsRange,
@@ -52,10 +52,16 @@ export function AnalyticsClient({
   const [breakdown, setBreakdown] =
     useState<PaymentBreakdownEntry[]>(initialBreakdown);
   const [isPending, startTransition] = useTransition();
+  // `latestRangeRef` traccia l'ultimo range richiesto. Se l'utente cambia
+  // range due volte velocemente e la prima Promise.all risolve dopo la
+  // seconda, la prima viene scartata: senza questo guard la UI mostrerebbe
+  // i KPI del range precedente sopra il selettore aggiornato.
+  const latestRangeRef = useRef<AnalyticsRange>(initialRange);
 
   function handleRangeChange(next: string) {
     if (next !== "7d" && next !== "30d" && next !== "90d") return;
     const nextRange = next;
+    latestRangeRef.current = nextRange;
     setRange(nextRange);
     startTransition(async () => {
       const [k, t, b] = await Promise.all([
@@ -63,6 +69,7 @@ export function AnalyticsClient({
         getRevenueTimeseries(businessId, nextRange),
         getPaymentBreakdown(businessId, nextRange),
       ]);
+      if (latestRangeRef.current !== nextRange) return;
       setKpis("error" in k ? ZERO_KPIS : k);
       setTimeseries(Array.isArray(t) ? t : []);
       setBreakdown(Array.isArray(b) ? b : []);

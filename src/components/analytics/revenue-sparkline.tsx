@@ -30,7 +30,9 @@ export function RevenueSparkline({ data }: RevenueSparklineProps) {
         >
           <XAxis
             dataKey="date"
-            tickFormatter={(value) => formatDate(value, "2-digit")}
+            tickFormatter={(value) =>
+              formatDate(value, "2-digit", "Europe/Rome")
+            }
             stroke="currentColor"
             fontSize={11}
             tickLine={false}
@@ -48,7 +50,7 @@ export function RevenueSparkline({ data }: RevenueSparklineProps) {
           <Tooltip
             labelFormatter={(value) =>
               typeof value === "string"
-                ? formatDate(value)
+                ? formatDate(value, "numeric", "Europe/Rome")
                 : String(value ?? "")
             }
             formatter={(value) => [
