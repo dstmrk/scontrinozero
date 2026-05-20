@@ -70,13 +70,9 @@ export default async function AnalyticsPage() {
         userId: user.id,
         businessId,
         errorClass: "analytics_dashboard_load",
-        kpisError: kpisFailed ? (kpis as { error: string }).error : undefined,
-        timeseriesError: timeseriesFailed
-          ? (timeseries as { error: string }).error
-          : undefined,
-        breakdownError: breakdownFailed
-          ? (breakdown as { error: string }).error
-          : undefined,
+        kpisError: kpisFailed ? kpis.error : undefined,
+        timeseriesError: timeseriesFailed ? timeseries.error : undefined,
+        breakdownError: breakdownFailed ? breakdown.error : undefined,
       },
       "analytics: server action failed",
     );

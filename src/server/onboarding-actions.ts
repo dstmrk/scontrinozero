@@ -166,7 +166,7 @@ export async function saveBusiness(
     // Aggiorna firstName/lastName su profile SOLO se l'onboarding non è già
     // stato completato (fiscalCode è valorizzato dalla verifica AdE). Edit
     // del nome post-onboarding deve passare da /dashboard/settings.
-    if (!existing || !existing.fiscalCode) {
+    if (!existing?.fiscalCode) {
       await tx
         .update(profiles)
         .set({ firstName, lastName })
