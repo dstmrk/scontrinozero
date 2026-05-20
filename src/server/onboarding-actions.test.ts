@@ -312,6 +312,60 @@ describe("onboarding-actions", () => {
       expect(result.error).toContain("3");
     });
 
+    it("preserva preferredVatCode esistente quando il field è assente dal form (UPDATE)", async () => {
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+
+      const { saveBusiness } = await import("./onboarding-actions");
+      // FormData senza la key preferredVatCode
+      const result = await saveBusiness(formData(VALID_DATA));
+
+      expect(result.businessId).toBe("biz-789");
+      // Due update: [0] profiles (firstName/lastName), [1] businesses
+      const businessSetPayload = mockUpdateSet.mock.calls[1]?.[0] as
+        | Record<string, unknown>
+        | undefined;
+      expect(businessSetPayload).toBeDefined();
+      expect(businessSetPayload).not.toHaveProperty("preferredVatCode");
+    });
+
+    it("azzera preferredVatCode quando il field è presente e vuoto (UPDATE)", async () => {
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+
+      const { saveBusiness } = await import("./onboarding-actions");
+      const result = await saveBusiness(
+        formData({ ...VALID_DATA, preferredVatCode: "" }),
+      );
+
+      expect(result.businessId).toBe("biz-789");
+      const businessSetPayload = mockUpdateSet.mock.calls[1]?.[0] as
+        | Record<string, unknown>
+        | undefined;
+      expect(businessSetPayload?.preferredVatCode).toBeNull();
+    });
+
+    it("non valida preferredVatCode quando assente dal form", async () => {
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      mockLimit.mockResolvedValueOnce([]);
+      mockReturning.mockResolvedValueOnce([{ id: "new-biz-id" }]);
+
+      const { saveBusiness } = await import("./onboarding-actions");
+      // Nessun campo preferredVatCode → validazione skip
+      const result = await saveBusiness(formData(VALID_DATA));
+
+      expect(result.error).toBeUndefined();
+      expect(result.businessId).toBe("new-biz-id");
+    });
+
+    it("rifiuta preferredVatCode invalido se presente e non vuoto", async () => {
+      const { saveBusiness } = await import("./onboarding-actions");
+      const result = await saveBusiness(
+        formData({ ...VALID_DATA, preferredVatCode: "99" }),
+      );
+      expect(result.error).toContain("Aliquota IVA non valida");
+    });
+
     it("propaga errore se la transazione fallisce (rollback garantito)", async () => {
       mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
       mockTransaction.mockRejectedValue(

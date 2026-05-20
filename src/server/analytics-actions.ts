@@ -7,7 +7,8 @@ import {
   checkBusinessOwnership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
-import { canUsePro, getPlan } from "@/lib/plans";
+import { canUsePro, getPlan, ProfileNotFoundError } from "@/lib/plans";
+import { isStatementTimeoutError } from "@/lib/api-errors";
 import {
   calcDocTotal,
   fetchLinesByDocIds,
@@ -56,7 +57,29 @@ async function authorizePro(businessId: string): Promise<AuthOk | AuthFail> {
     );
     return { ok: false, error: ownershipError.error };
   }
-  const planInfo = await getPlan(user.id);
+  let planInfo;
+  try {
+    planInfo = await getPlan(user.id);
+  } catch (err) {
+    if (err instanceof ProfileNotFoundError) {
+      logger.warn(
+        { userId: user.id },
+        "analytics: orphan auth user — profile missing",
+      );
+      return {
+        ok: false,
+        error: "Profilo non disponibile. Contatta il supporto.",
+      };
+    }
+    if (isStatementTimeoutError(err)) {
+      return {
+        ok: false,
+        error:
+          "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
+      };
+    }
+    throw err;
+  }
   if (!canUsePro(planInfo.plan)) {
     return { ok: false, error: "Funzionalità riservata al piano Pro." };
   }

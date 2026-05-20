@@ -58,6 +58,48 @@ export type OnboardingStatus = {
   businessId?: string;
 };
 
+type SaveBusinessInput = {
+  firstName: string;
+  lastName: string;
+  businessName: string | null;
+  address: string;
+  streetNumber: string | null;
+  zipCode: string;
+  city: string | null;
+  province: string | null;
+  hasPreferredVatCode: boolean;
+  preferredVatCode: string | null;
+};
+
+/**
+ * Validates the `saveBusiness` payload. Extracted from `saveBusiness` to keep
+ * its Cognitive Complexity under SonarCloud's S3776 threshold.
+ */
+function validateSaveBusinessInput(input: SaveBusinessInput): string | null {
+  if (!input.firstName) return "Il nome è obbligatorio.";
+  if (input.firstName.length > 80)
+    return "Il nome non può superare 80 caratteri.";
+  if (!input.lastName) return "Il cognome è obbligatorio.";
+  if (input.lastName.length > 80)
+    return "Il cognome non può superare 80 caratteri.";
+  if (input.businessName && input.businessName.length > 120)
+    return "La ragione sociale non può superare 120 caratteri.";
+  if (!input.address) return "L'indirizzo è obbligatorio.";
+  if (input.address.length > 150)
+    return "L'indirizzo non può superare 150 caratteri.";
+  if (input.city && input.city.length > 80)
+    return "Il comune non può superare 80 caratteri.";
+  if (input.province && input.province.length > 3)
+    return "La provincia non può superare 3 caratteri.";
+  if (!isValidItalianZipCode(input.zipCode)) return ITALIAN_ZIP_MESSAGE;
+  if (
+    input.hasPreferredVatCode &&
+    isInvalidPreferredVatCode(input.preferredVatCode)
+  )
+    return "Aliquota IVA non valida.";
+  return null;
+}
+
 export async function saveBusiness(
   formData: FormData,
 ): Promise<OnboardingActionResult> {
@@ -71,41 +113,30 @@ export async function saveBusiness(
   const zipCode = getFormString(formData, "zipCode");
   const city = getFormStringOrNull(formData, "city");
   const province = getFormStringOrNull(formData, "province");
-  const preferredVatCode = getFormStringOrNull(formData, "preferredVatCode");
 
-  if (!firstName) {
-    return { error: "Il nome è obbligatorio." };
-  }
-  if (firstName.length > 80) {
-    return { error: "Il nome non può superare 80 caratteri." };
-  }
-  if (!lastName) {
-    return { error: "Il cognome è obbligatorio." };
-  }
-  if (lastName.length > 80) {
-    return { error: "Il cognome non può superare 80 caratteri." };
-  }
-  if (businessName && businessName.length > 120) {
-    return { error: "La ragione sociale non può superare 120 caratteri." };
-  }
-  if (!address) {
-    return { error: "L'indirizzo è obbligatorio." };
-  }
-  if (address.length > 150) {
-    return { error: "L'indirizzo non può superare 150 caratteri." };
-  }
-  if (city && city.length > 80) {
-    return { error: "Il comune non può superare 80 caratteri." };
-  }
-  if (province && province.length > 3) {
-    return { error: "La provincia non può superare 3 caratteri." };
-  }
-  if (!isValidItalianZipCode(zipCode)) {
-    return { error: ITALIAN_ZIP_MESSAGE };
-  }
-  if (isInvalidPreferredVatCode(preferredVatCode)) {
-    return { error: "Aliquota IVA non valida." };
-  }
+  // Distinguish "field absent" (don't touch existing preference on UPDATE)
+  // from "field present and empty" (clear it). `getFormStringOrNull` collapses
+  // both into null, which would silently wipe `preferredVatCode` for a user
+  // re-entering the onboarding wizard with a partial form. Same fix-class as
+  // `updateBusiness` in `profile-actions.ts`.
+  const hasPreferredVatCode = formData.has("preferredVatCode");
+  const preferredVatCode = hasPreferredVatCode
+    ? getFormStringOrNull(formData, "preferredVatCode")
+    : null;
+
+  const validationError = validateSaveBusinessInput({
+    firstName,
+    lastName,
+    businessName,
+    address,
+    streetNumber,
+    zipCode,
+    city,
+    province,
+    hasPreferredVatCode,
+    preferredVatCode,
+  });
+  if (validationError) return { error: validationError };
 
   const db = getDb();
 
@@ -139,6 +170,9 @@ export async function saveBusiness(
       .limit(1);
 
     if (existing) {
+      // Omit `preferredVatCode` from the UPDATE payload when the field is
+      // absent from the form — preserves the existing preference instead of
+      // overwriting it with null.
       await tx
         .update(businesses)
         .set({
@@ -148,7 +182,7 @@ export async function saveBusiness(
           city,
           province,
           zipCode,
-          preferredVatCode,
+          ...(hasPreferredVatCode && { preferredVatCode }),
         })
         .where(eq(businesses.id, existing.id));
 

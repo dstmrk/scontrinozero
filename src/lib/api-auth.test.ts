@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // --- Mocks ---
 
@@ -85,12 +85,20 @@ const VALID_MGMT_KEY = "szk_mgmt_" + "B".repeat(48);
 
 describe("authenticateApiKey — format pre-check (no DB call)", () => {
   beforeEach(() => {
+    // `vi.useFakeTimers({ now })` è obbligatorio prima di `setSystemTime`:
+    // su alcune versioni Vitest, `setSystemTime` da solo è un no-op
+    // silenzioso. I test che dipendono da `NOW` (es. expiresAt < NOW)
+    // passerebbero solo per coincidenza temporale.
+    vi.useFakeTimers({ now: NOW });
     vi.clearAllMocks();
-    vi.setSystemTime(NOW);
     // Default: passthrough — invoca fn(tx) con tx che riusa il select chain.
     mockWithStatementTimeout.mockImplementation((_ms, fn) =>
       fn({ select: mockSelectFields }),
     );
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("ritorna 401 senza query DB se la chiave ha prefisso errato", async () => {
@@ -136,12 +144,16 @@ describe("authenticateApiKey — format pre-check (no DB call)", () => {
 
 describe("authenticateApiKey", () => {
   beforeEach(() => {
+    vi.useFakeTimers({ now: NOW });
     vi.clearAllMocks();
-    vi.setSystemTime(NOW);
     // Default: passthrough — invoca fn(tx) con tx che riusa il select chain.
     mockWithStatementTimeout.mockImplementation((_ms, fn) =>
       fn({ select: mockSelectFields }),
     );
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("ritorna 401 se manca l'header Authorization", async () => {

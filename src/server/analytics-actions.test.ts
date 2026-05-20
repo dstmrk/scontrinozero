@@ -232,6 +232,33 @@ describe("getAnalyticsKpis", () => {
     expect(res).toMatchObject({ error: expect.stringMatching(/Pro/i) });
   });
 
+  it("returns 'Profilo non disponibile' on ProfileNotFoundError (orphan auth user)", async () => {
+    const { ProfileNotFoundError } = await import("@/lib/plans");
+    mockGetPlan.mockRejectedValue(new ProfileNotFoundError("user-1"));
+    const res = await getAnalyticsKpis("biz-1", "30d");
+    expect(res).toMatchObject({
+      error: expect.stringContaining("Profilo non disponibile"),
+    });
+  });
+
+  it("returns 'sovraccarico' on DB statement timeout (57014)", async () => {
+    const timeoutErr = Object.assign(new Error("statement timeout"), {
+      code: "57014",
+    });
+    mockGetPlan.mockRejectedValue(timeoutErr);
+    const res = await getAnalyticsKpis("biz-1", "30d");
+    expect(res).toMatchObject({
+      error: expect.stringContaining("sovraccarico"),
+    });
+  });
+
+  it("rilancia errori imprevisti di getPlan invece di mascherarli", async () => {
+    mockGetPlan.mockRejectedValue(new Error("network glitch"));
+    await expect(getAnalyticsKpis("biz-1", "30d")).rejects.toThrow(
+      "network glitch",
+    );
+  });
+
   it("returns an error for an invalid range", async () => {
     const res = await getAnalyticsKpis("biz-1", "1y" as unknown as "30d");
     expect(res).toMatchObject({ error: expect.any(String) });

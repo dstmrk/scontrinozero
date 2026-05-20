@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { getDb } from "@/db";
 import { profiles, businesses } from "@/db/schema";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   getAuthenticatedUser,
@@ -220,7 +221,30 @@ export async function changePassword(
   const email = user.email;
   if (!email) return { error: "Email utente non disponibile." };
 
+  // Backlog v1.3.2: coprire la sequenza con un test E2E Playwright contro
+  // un'istanza Supabase reale per verificare le due invarianti documentate
+  // sotto. I test unitari sopra mockano @supabase/supabase-js e non
+  // possono validare il comportamento effettivo del cookie store SSR.
+  //
+  // Sequenza obbligata: signInWithPassword → updateUser → signOut({scope:"others"}).
+  // Invariante 1: la sessione corrente (cookie del browser che esegue il
+  //   cambio) DEVE restare valida dopo la sequenza completa. `scope:"others"`
+  //   opera sui refresh token di altre sessioni dell'utente; il refresh
+  //   token corrente (ruotato da `signInWithPassword` e nuovamente da
+  //   `updateUser`) viene preservato. Il cookie store SSR di @supabase/ssr
+  //   riscrive i cookie via `setAll()` durante `signInWithPassword`, e
+  //   l'istanza `supabase` riusata sotto continua a operare con quel
+  //   refresh token "corrente".
+  // Invariante 2: la sessione PRE-cambio password (su altri device) deve
+  //   essere invalidata. `signOut({scope:"others"})` revoca tutti i
+  //   refresh token attivi sull'utente eccetto quello in uso.
+  // Comportamento documentato in https://github.com/supabase/auth-js;
+  // verifica empirica condotta a maggio 2026.
+
   // Re-authenticate to verify the current password before allowing a change.
+  // NB: signInWithPassword RUOTA il refresh token corrente — il cookie store
+  // viene aggiornato via setAll() ed è ciò che mantiene viva la sessione
+  // dell'utente dopo signOut({scope:"others"}).
   const supabase = await createServerSupabaseClient();
   const { error: signInError } = await supabase.auth.signInWithPassword({
     email,
@@ -246,17 +270,37 @@ export async function changePassword(
   // un attaccante che era già loggato resterebbe loggato altrove.
   // scope: "others" mantiene la sessione corrente (l'utente che ha appena
   // cambiato password resta connesso) e butta fuori tutti gli altri.
-  // Fire-and-forget: se fallisce non vogliamo mostrare un errore — il cambio
-  // password è già committato.
-  const { error: revokeError } = await supabase.auth.signOut({
-    scope: "others",
-  });
-  if (revokeError) {
-    logger.warn(
-      { err: revokeError, userId: user.id },
-      "changePassword: revoke other sessions failed (password already changed)",
-    );
-  }
+  // Security-critical: retry+backoff per non lasciare sessioni orfane su
+  // network glitch (CLAUDE.md regola 17).
+  await revokeOtherSessionsWithRetry(supabase, user.id);
 
   return {};
+}
+
+/**
+ * Revoca le sessioni "altre" (non la corrente) con 3 retry + exponential
+ * backoff (500ms / 1s / 2s). Fire-and-forget: il cambio password è già
+ * committato lato Supabase quando questa viene chiamata, quindi anche su
+ * exhausted retornamo senza propagare l'errore — ma logghiamo
+ * `critical: true` perché un attaccante loggato altrove potrebbe restare
+ * attivo finché il refresh token non scade naturalmente.
+ *
+ * Stessa shape di `compensatingDeleteAuthUser` in `src/server/auth-actions.ts`.
+ */
+async function revokeOtherSessionsWithRetry(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<void> {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const { error } = await supabase.auth.signOut({ scope: "others" });
+    if (!error) return;
+    if (attempt === 3) {
+      logger.error(
+        { err: error, userId, critical: true },
+        "changePassword: revoke other sessions failed after 3 retries — other devices may still be authenticated until refresh token expiry",
+      );
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+  }
 }
