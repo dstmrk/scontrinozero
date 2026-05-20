@@ -1,7 +1,6 @@
 "use server";
 
 import { and, eq, gte, inArray, lt } from "drizzle-orm";
-import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
 import {
   checkBusinessOwnership,
@@ -9,6 +8,7 @@ import {
 } from "@/lib/server-auth";
 import { canUsePro, getPlan, ProfileNotFoundError } from "@/lib/plans";
 import { isStatementTimeoutError } from "@/lib/api-errors";
+import { withStatementTimeout } from "@/lib/db-timeout";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import {
   calcDocTotal,
@@ -126,13 +126,23 @@ type DocRow = {
   publicRequest?: unknown;
 };
 
+// 5s budget allineato con altri endpoint Pro: il range max e' 90d, su
+// dataset normali la query risponde in <200ms. Oltre i 5s significa
+// dataset degenere o contention DB — preferiamo errore 503 friendly
+// piuttosto che pinning della connessione.
+const ANALYTICS_QUERY_TIMEOUT_MS = 5_000;
+
+// Safety net contro tenant con volumi anomali: nessun business Pro reale
+// emette >50k scontrini in 90d (≈555/giorno). Oltre, la pagina analytics
+// produrrebbe un payload da MB e degraderebbe l'istanza.
+const ANALYTICS_MAX_DOCS = 50_000;
+
 async function fetchSaleDocsInRange(
   businessId: string,
   from: Date,
   to: Date,
   options: { includePublicRequest?: boolean } = {},
 ): Promise<DocRow[]> {
-  const db = getDb();
   const baseSelection = {
     id: commercialDocuments.id,
     status: commercialDocuments.status,
@@ -141,18 +151,23 @@ async function fetchSaleDocsInRange(
   const selection = options.includePublicRequest
     ? { ...baseSelection, publicRequest: commercialDocuments.publicRequest }
     : baseSelection;
-  const rows = await db
-    .select(selection)
-    .from(commercialDocuments)
-    .where(
-      and(
-        eq(commercialDocuments.businessId, businessId),
-        eq(commercialDocuments.kind, "SALE"),
-        inArray(commercialDocuments.status, ["ACCEPTED", "VOID_ACCEPTED"]),
-        gte(commercialDocuments.createdAt, from),
-        lt(commercialDocuments.createdAt, to),
-      ),
-    );
+  const rows = await withStatementTimeout(
+    ANALYTICS_QUERY_TIMEOUT_MS,
+    async (tx) =>
+      tx
+        .select(selection)
+        .from(commercialDocuments)
+        .where(
+          and(
+            eq(commercialDocuments.businessId, businessId),
+            eq(commercialDocuments.kind, "SALE"),
+            inArray(commercialDocuments.status, ["ACCEPTED", "VOID_ACCEPTED"]),
+            gte(commercialDocuments.createdAt, from),
+            lt(commercialDocuments.createdAt, to),
+          ),
+        )
+        .limit(ANALYTICS_MAX_DOCS),
+  );
   return rows as DocRow[];
 }
 
