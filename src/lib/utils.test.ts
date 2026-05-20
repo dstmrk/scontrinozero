@@ -66,6 +66,19 @@ describe("formatDate", () => {
   it("accetta una stringa ISO", () => {
     expect(formatDate("2026-05-20T00:00:00Z")).toBe("20/05/2026");
   });
+
+  it("con timeZone 'Europe/Rome' una stringa yyyy-MM-dd resta sempre quel giorno", () => {
+    // `new Date("2026-05-19")` = 2026-05-19T00:00Z. In America/New_York
+    // sarebbe 2026-05-18 20:00 → senza timeZone esplicito mostrerebbe "18/05".
+    // Con `timeZone: Europe/Rome` (UTC+2 a maggio) torna sempre "19/05/2026".
+    expect(formatDate("2026-05-19", "numeric", "Europe/Rome")).toBe(
+      "19/05/2026",
+    );
+  });
+
+  it("con timeZone 'Europe/Rome' e anno a 2 cifre", () => {
+    expect(formatDate("2026-05-19", "2-digit", "Europe/Rome")).toBe("19/05/26");
+  });
 });
 
 describe("appendDigitCents", () => {

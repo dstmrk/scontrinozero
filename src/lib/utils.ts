@@ -16,15 +16,21 @@ export function formatCurrency(amount: number | string): string {
 }
 
 /** Formatta una data nel formato italiano (DD/MM/YYYY o DD/MM/YY).
- * Default: anno a 4 cifre — più leggibile e canonico nell'app. */
+ * Default: anno a 4 cifre — più leggibile e canonico nell'app.
+ *
+ * `timeZone` opzionale: per stringhe `yyyy-MM-dd` (giorno fiscale italiano),
+ * passare `"Europe/Rome"` evita lo shift di ±1 giorno su client in fuso
+ * diverso (es. utente in roaming) — coerente col bucketing server-side. */
 export function formatDate(
   date: Date | string,
   year: "2-digit" | "numeric" = "numeric",
+  timeZone?: string,
 ): string {
   return new Date(date).toLocaleDateString("it-IT", {
     day: "2-digit",
     month: "2-digit",
     year,
+    ...(timeZone ? { timeZone } : {}),
   });
 }
 
