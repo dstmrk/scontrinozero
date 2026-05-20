@@ -285,12 +285,23 @@ describe("getPlan", () => {
     });
   });
 
-  it("throws when profile is not found", async () => {
+  it("throws ProfileNotFoundError when profile is not found", async () => {
     mockLimit.mockResolvedValue([]);
 
     await expect(getPlan("user-not-found")).rejects.toThrow(
       "Profilo non trovato",
     );
+  });
+
+  it("ProfileNotFoundError ha name === 'ProfileNotFoundError' (discriminante)", async () => {
+    mockLimit.mockResolvedValue([]);
+    try {
+      await getPlan("user-not-found");
+      // Se non lancia, fallisci il test esplicitamente.
+      expect.fail("getPlan avrebbe dovuto lanciare ProfileNotFoundError");
+    } catch (err) {
+      expect((err as Error).name).toBe("ProfileNotFoundError");
+    }
   });
 });
 
@@ -320,13 +331,38 @@ describe("assertProPlan", () => {
     }
   });
 
-  it("returns 401 when the profile does not exist", async () => {
+  it("returns 403 when the profile does not exist (orphan auth user)", async () => {
+    // Profilo orfano: utente autenticato ma profile row mancante. Va
+    // discriminato da "non autenticato" (401) — il caller deve sapere
+    // che serve intervento manuale, non un re-login.
     mockLimit.mockResolvedValue([]);
     const result = await assertProPlan("user-no-profile");
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.status).toBe(401);
+      expect(result.status).toBe(403);
+      expect(result.error).toContain("Profilo non disponibile");
     }
+  });
+
+  it("returns 503 on DB statement timeout", async () => {
+    // Postgres `query_canceled` (57014) — DB sovraccarico. Restituire 401
+    // sarebbe misleading per il client (il problema non è autenticativo).
+    const timeoutErr = Object.assign(new Error("statement timeout"), {
+      code: "57014",
+    });
+    mockLimit.mockRejectedValue(timeoutErr);
+    const result = await assertProPlan("user-x");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(503);
+      expect(result.error).toContain("sovraccarico");
+    }
+  });
+
+  it("rilancia errori imprevisti invece di trasformarli in 401", async () => {
+    const unknownErr = new Error("network glitch");
+    mockLimit.mockRejectedValue(unknownErr);
+    await expect(assertProPlan("user-x")).rejects.toThrow("network glitch");
   });
 
   it("returns 403 for the starter plan", async () => {
