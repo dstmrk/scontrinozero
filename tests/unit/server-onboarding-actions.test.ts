@@ -332,3 +332,85 @@ describe("saveBusiness preferredVatCode validation", () => {
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 });
+
+describe("saveBusiness re-entry on already-onboarded profile", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: USER_ID,
+      email: "user@example.com",
+    });
+
+    mockGetDb.mockReturnValue({
+      select: mockSelect,
+      transaction: mockTransaction,
+    });
+
+    mockSelectWhere.mockReturnValue({ limit: mockSelectLimit });
+    mockSelectFrom.mockReturnValue({ where: mockSelectWhere });
+    mockSelect.mockReturnValue({ from: mockSelectFrom });
+
+    mockUpdateWhere.mockResolvedValue(undefined);
+    mockUpdateSet.mockReturnValue({ where: mockUpdateWhere });
+    mockUpdate.mockReturnValue({ set: mockUpdateSet });
+  });
+
+  function makeValidFd(): FormData {
+    const fd = new FormData();
+    fd.append("firstName", "Mario");
+    fd.append("lastName", "Rossi");
+    fd.append("address", "Via Roma");
+    fd.append("zipCode", "00100");
+    return fd;
+  }
+
+  it("does NOT update profile firstName/lastName when business already has fiscalCode", async () => {
+    // First SELECT: profile found. Second SELECT (inside tx): business with fiscalCode set.
+    mockSelectLimit
+      .mockResolvedValueOnce([{ id: "profile-1" }])
+      .mockResolvedValueOnce([{ id: BIZ_ID, fiscalCode: "ABCDEF12G34H567I" }]);
+
+    mockTransaction.mockImplementationOnce(
+      async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({ update: mockUpdate, select: mockSelect, insert: vi.fn() }),
+    );
+
+    const { saveBusiness } = await import("@/server/onboarding-actions");
+    const result = await saveBusiness(makeValidFd());
+
+    expect(result.businessId).toBe(BIZ_ID);
+
+    // The UPDATE on profiles (firstName/lastName) must NOT be issued.
+    const setCalls = mockUpdateSet.mock.calls.map((c) => c[0]);
+    const profileNameUpdate = setCalls.find(
+      (payload: Record<string, unknown>) =>
+        "firstName" in payload || "lastName" in payload,
+    );
+    expect(profileNameUpdate).toBeUndefined();
+  });
+
+  it("updates profile firstName/lastName when business is not yet verified (no fiscalCode)", async () => {
+    mockSelectLimit
+      .mockResolvedValueOnce([{ id: "profile-1" }])
+      .mockResolvedValueOnce([{ id: BIZ_ID, fiscalCode: null }]);
+
+    mockTransaction.mockImplementationOnce(
+      async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({ update: mockUpdate, select: mockSelect, insert: vi.fn() }),
+    );
+
+    const { saveBusiness } = await import("@/server/onboarding-actions");
+    await saveBusiness(makeValidFd());
+
+    const setCalls = mockUpdateSet.mock.calls.map((c) => c[0]);
+    const profileNameUpdate = setCalls.find(
+      (payload: Record<string, unknown>) =>
+        "firstName" in payload && "lastName" in payload,
+    );
+    expect(profileNameUpdate).toEqual({
+      firstName: "Mario",
+      lastName: "Rossi",
+    });
+  });
+});

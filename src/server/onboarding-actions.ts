@@ -156,18 +156,22 @@ export async function saveBusiness(
   // business insert failed) would leave the user in an incomplete onboarding
   // state that is hard to recover from.
   return db.transaction(async (tx) => {
-    // Save firstName + lastName on the profile
-    await tx
-      .update(profiles)
-      .set({ firstName, lastName })
-      .where(eq(profiles.id, profile.id));
-
     // Upsert: check if business already exists for this profile
     const [existing] = await tx
       .select()
       .from(businesses)
       .where(eq(businesses.profileId, profile.id))
       .limit(1);
+
+    // Aggiorna firstName/lastName su profile SOLO se l'onboarding non è già
+    // stato completato (fiscalCode è valorizzato dalla verifica AdE). Edit
+    // del nome post-onboarding deve passare da /dashboard/settings.
+    if (!existing || !existing.fiscalCode) {
+      await tx
+        .update(profiles)
+        .set({ firstName, lastName })
+        .where(eq(profiles.id, profile.id));
+    }
 
     if (existing) {
       // Omit `preferredVatCode` from the UPDATE payload when the field is
