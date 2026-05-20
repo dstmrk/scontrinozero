@@ -289,6 +289,37 @@ describe("profile-actions", () => {
       });
     });
 
+    it("sequenza obbligata: signInWithPassword → updateUser → signOut(others)", async () => {
+      // Safety net contro un refactor che invertisse l'ordine — il cookie
+      // della sessione viene ruotato da signInWithPassword, e signOut
+      // (others) deve essere SEMPRE l'ultimo step per non revocare il
+      // refresh token appena emesso. Vedi commento "Invariante 1" in
+      // profile-actions.ts.
+      const { changePassword } = await import("./profile-actions");
+      await changePassword(formData(VALID));
+
+      const signInOrder = mockSignInWithPassword.mock.invocationCallOrder[0];
+      const updateOrder = mockUpdateUser.mock.invocationCallOrder[0];
+      const signOutOrder = mockSignOut.mock.invocationCallOrder[0];
+
+      expect(signInOrder).toBeLessThan(updateOrder);
+      expect(updateOrder).toBeLessThan(signOutOrder);
+    });
+
+    it("signOut viene chiamato con scope: 'others' esplicito (non global, non omesso)", async () => {
+      // Invariante 2: scope:"others" preserva la sessione corrente E
+      // revoca le altre. `global` killerebbe anche la corrente, undefined
+      // lascerebbe la sessione pre-cambio attiva su altri device.
+      const { changePassword } = await import("./profile-actions");
+      await changePassword(formData(VALID));
+      expect(mockSignOut).toHaveBeenCalledWith({ scope: "others" });
+      // Specificità: nessuna chiamata senza opzioni o con scope diverso.
+      const calls = mockSignOut.mock.calls;
+      for (const args of calls) {
+        expect(args[0]).toEqual({ scope: "others" });
+      }
+    });
+
     it("revoca le altre sessioni dopo updateUser riuscito", async () => {
       const { changePassword } = await import("./profile-actions");
       await changePassword(formData(VALID));

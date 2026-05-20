@@ -221,7 +221,30 @@ export async function changePassword(
   const email = user.email;
   if (!email) return { error: "Email utente non disponibile." };
 
+  // TODO(v1.3.2): coprire la sequenza con un test E2E Playwright contro
+  // un'istanza Supabase reale per verificare le due invarianti documentate
+  // sotto. I test unitari sopra mockano @supabase/supabase-js e non
+  // possono validare il comportamento effettivo del cookie store SSR.
+  //
+  // Sequenza obbligata: signInWithPassword → updateUser → signOut({scope:"others"}).
+  // Invariante 1: la sessione corrente (cookie del browser che esegue il
+  //   cambio) DEVE restare valida dopo la sequenza completa. `scope:"others"`
+  //   opera sui refresh token di altre sessioni dell'utente; il refresh
+  //   token corrente (ruotato da `signInWithPassword` e nuovamente da
+  //   `updateUser`) viene preservato. Il cookie store SSR di @supabase/ssr
+  //   riscrive i cookie via `setAll()` durante `signInWithPassword`, e
+  //   l'istanza `supabase` riusata sotto continua a operare con quel
+  //   refresh token "corrente".
+  // Invariante 2: la sessione PRE-cambio password (su altri device) deve
+  //   essere invalidata. `signOut({scope:"others"})` revoca tutti i
+  //   refresh token attivi sull'utente eccetto quello in uso.
+  // Comportamento documentato in https://github.com/supabase/auth-js;
+  // verifica empirica condotta a maggio 2026.
+
   // Re-authenticate to verify the current password before allowing a change.
+  // NB: signInWithPassword RUOTA il refresh token corrente — il cookie store
+  // viene aggiornato via setAll() ed è ciò che mantiene viva la sessione
+  // dell'utente dopo signOut({scope:"others"}).
   const supabase = await createServerSupabaseClient();
   const { error: signInError } = await supabase.auth.signInWithPassword({
     email,
