@@ -9,6 +9,7 @@ import {
 } from "@/lib/server-auth";
 import { canUsePro, getPlan, ProfileNotFoundError } from "@/lib/plans";
 import { isStatementTimeoutError } from "@/lib/api-errors";
+import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import {
   calcDocTotal,
   fetchLinesByDocIds,
@@ -39,6 +40,14 @@ export type {
 // Authorization
 // ---------------------------------------------------------------------------
 
+// Range fino a 90d scansiona migliaia di documenti + lines per call: senza
+// rate limit per-utente, una pagina aperta che retry'a o un client mal scritto
+// può martellare il DB. Soglia 60/h coerente con CLAUDE.md (pdf:<ip> 60/h).
+const analyticsLimiter = new RateLimiter({
+  maxRequests: 60,
+  windowMs: RATE_LIMIT_WINDOWS.HOURLY,
+});
+
 type AuthOk = { ok: true; userId: string };
 type AuthFail = { ok: false; error: string };
 
@@ -48,6 +57,17 @@ async function authorizePro(businessId: string): Promise<AuthOk | AuthFail> {
     user = await getAuthenticatedUser();
   } catch {
     return { ok: false, error: "Non autenticato." };
+  }
+  const rateLimitResult = analyticsLimiter.check(`analytics:${user.id}`);
+  if (!rateLimitResult.success) {
+    logger.warn(
+      { userId: user.id, errorClass: "analytics_rate_limit" },
+      "Analytics rate limit exceeded",
+    );
+    return {
+      ok: false,
+      error: "Troppe richieste. Riprova tra qualche minuto.",
+    };
   }
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) {
