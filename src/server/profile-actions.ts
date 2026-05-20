@@ -12,6 +12,7 @@ import {
   checkBusinessOwnership,
 } from "@/lib/server-auth";
 import {
+  BUSINESS_PROFILE_LIMITS,
   isStrongPassword,
   isValidItalianZipCode,
   ITALIAN_ZIP_MESSAGE,
@@ -101,11 +102,15 @@ export async function updateProfile(
   const lastName = getFormString(formData, "lastName");
 
   if (!firstName) return { error: "Il nome è obbligatorio." };
-  if (firstName.length > 80)
-    return { error: "Il nome non può superare 80 caratteri." };
+  if (firstName.length > BUSINESS_PROFILE_LIMITS.firstName)
+    return {
+      error: `Il nome non può superare ${BUSINESS_PROFILE_LIMITS.firstName} caratteri.`,
+    };
   if (!lastName) return { error: "Il cognome è obbligatorio." };
-  if (lastName.length > 80)
-    return { error: "Il cognome non può superare 80 caratteri." };
+  if (lastName.length > BUSINESS_PROFILE_LIMITS.lastName)
+    return {
+      error: `Il cognome non può superare ${BUSINESS_PROFILE_LIMITS.lastName} caratteri.`,
+    };
 
   const rateLimitResult = updateProfileLimiter.check(
     `updateProfile:${user.id}`,
@@ -164,15 +169,26 @@ export async function updateBusiness(
     ? getFormStringOrNull(formData, "preferredVatCode")
     : null;
 
-  if (businessName && businessName.length > 120)
-    return { error: "La ragione sociale non può superare 120 caratteri." };
+  if (
+    businessName &&
+    businessName.length > BUSINESS_PROFILE_LIMITS.businessName
+  )
+    return {
+      error: `La ragione sociale non può superare ${BUSINESS_PROFILE_LIMITS.businessName} caratteri.`,
+    };
   if (!address) return { error: "L'indirizzo è obbligatorio." };
-  if (address.length > 150)
-    return { error: "L'indirizzo non può superare 150 caratteri." };
-  if (city && city.length > 80)
-    return { error: "Il comune non può superare 80 caratteri." };
-  if (province && province.length > 3)
-    return { error: "La provincia non può superare 3 caratteri." };
+  if (address.length > BUSINESS_PROFILE_LIMITS.address)
+    return {
+      error: `L'indirizzo non può superare ${BUSINESS_PROFILE_LIMITS.address} caratteri.`,
+    };
+  if (city && city.length > BUSINESS_PROFILE_LIMITS.city)
+    return {
+      error: `Il comune non può superare ${BUSINESS_PROFILE_LIMITS.city} caratteri.`,
+    };
+  if (province && province.length > BUSINESS_PROFILE_LIMITS.province)
+    return {
+      error: `La provincia non può superare ${BUSINESS_PROFILE_LIMITS.province} caratteri.`,
+    };
   if (!isValidItalianZipCode(zipCode)) return { error: ITALIAN_ZIP_MESSAGE };
   if (hasPreferredVatCode && isInvalidPreferredVatCode(preferredVatCode))
     return { error: "Aliquota IVA non valida." };

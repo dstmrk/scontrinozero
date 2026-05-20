@@ -78,6 +78,21 @@ export const italianZipCodeSchema = z
   .regex(ITALIAN_ZIP_REGEX, ITALIAN_ZIP_MESSAGE);
 
 /**
+ * Limiti di lunghezza (in caratteri) per i campi di business + profilo.
+ * Sorgente unica di verità: usare queste costanti in Zod schema, server-side
+ * validation e qualsiasi label "max N caratteri" lato UI. Aggiornandone una
+ * qui si propaga ovunque.
+ */
+export const BUSINESS_PROFILE_LIMITS = {
+  firstName: 80,
+  lastName: 80,
+  businessName: 120,
+  address: 150,
+  city: 80,
+  province: 3,
+} as const;
+
+/**
  * Validates email format using linear-time string checks (no regex backtracking).
  * This is a structural check, not RFC 5322 compliance — real validation
  * happens when the confirmation email is delivered.

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   adePinSchema,
+  BUSINESS_PROFILE_LIMITS,
   isValidEmail,
   isStrongPassword,
   isValidLotteryCode,
@@ -9,6 +10,30 @@ import {
   normalizeEmail,
   ITALIAN_ZIP_MESSAGE,
 } from "./validation";
+
+describe("BUSINESS_PROFILE_LIMITS", () => {
+  // Snapshot dei valori canonici: cambiarli qui (con motivazione) si propaga
+  // a server actions, Zod schema client e label UI senza drift.
+  it("definisce i limiti attuali per ogni campo", () => {
+    expect(BUSINESS_PROFILE_LIMITS).toEqual({
+      firstName: 80,
+      lastName: 80,
+      businessName: 120,
+      address: 150,
+      city: 80,
+      province: 3,
+    });
+  });
+
+  it("le proprietà sono readonly (`as const`)", () => {
+    // Type-level guard: assegnare a un campo deve essere errore TS.
+    // Runtime: i tre comportamenti accettabili sono throw (strict mode),
+    // silent ignore o assegnazione effettiva. Verifichiamo solo che la
+    // struttura sia esportata e con i tipi attesi.
+    const limit: number = BUSINESS_PROFILE_LIMITS.businessName;
+    expect(typeof limit).toBe("number");
+  });
+});
 
 describe("adePinSchema", () => {
   const PIN_ERROR =

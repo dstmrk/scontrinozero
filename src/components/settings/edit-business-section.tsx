@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { updateBusiness } from "@/server/profile-actions";
+import { BUSINESS_PROFILE_LIMITS } from "@/lib/validation";
 import {
   isValidPreferredVatCode,
   VAT_CODES,
@@ -48,22 +49,34 @@ function normalizePreferredVatCode(
 const editBusinessSchema = z.object({
   businessName: z
     .string()
-    .max(120, "La ragione sociale non può superare 120 caratteri.")
+    .max(
+      BUSINESS_PROFILE_LIMITS.businessName,
+      `La ragione sociale non può superare ${BUSINESS_PROFILE_LIMITS.businessName} caratteri.`,
+    )
     .optional()
     .or(z.literal("")),
   address: z
     .string()
     .min(1, "L'indirizzo è obbligatorio.")
-    .max(150, "L'indirizzo non può superare 150 caratteri."),
+    .max(
+      BUSINESS_PROFILE_LIMITS.address,
+      `L'indirizzo non può superare ${BUSINESS_PROFILE_LIMITS.address} caratteri.`,
+    ),
   streetNumber: z.string().optional().or(z.literal("")),
   city: z
     .string()
-    .max(80, "Il comune non può superare 80 caratteri.")
+    .max(
+      BUSINESS_PROFILE_LIMITS.city,
+      `Il comune non può superare ${BUSINESS_PROFILE_LIMITS.city} caratteri.`,
+    )
     .optional()
     .or(z.literal("")),
   province: z
     .string()
-    .max(3, "La provincia non può superare 3 caratteri.")
+    .max(
+      BUSINESS_PROFILE_LIMITS.province,
+      `La provincia non può superare ${BUSINESS_PROFILE_LIMITS.province} caratteri.`,
+    )
     .optional()
     .or(z.literal("")),
   zipCode: z.string().regex(/^\d{5}$/, "CAP non valido (5 cifre numeriche)."),
