@@ -221,7 +221,7 @@ export async function changePassword(
   const email = user.email;
   if (!email) return { error: "Email utente non disponibile." };
 
-  // TODO(v1.3.2): coprire la sequenza con un test E2E Playwright contro
+  // Backlog v1.3.2: coprire la sequenza con un test E2E Playwright contro
   // un'istanza Supabase reale per verificare le due invarianti documentate
   // sotto. I test unitari sopra mockano @supabase/supabase-js e non
   // possono validare il comportamento effettivo del cookie store SSR.
