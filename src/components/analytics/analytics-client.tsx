@@ -29,6 +29,7 @@ interface AnalyticsClientProps {
   readonly initialKpis: AnalyticsKpis;
   readonly initialTimeseries: RevenuePoint[];
   readonly initialBreakdown: PaymentBreakdownEntry[];
+  readonly initialLoadFailed?: boolean;
 }
 
 const ZERO_KPIS: AnalyticsKpis = {
@@ -44,6 +45,7 @@ export function AnalyticsClient({
   initialKpis,
   initialTimeseries,
   initialBreakdown,
+  initialLoadFailed = false,
 }: AnalyticsClientProps) {
   const [range, setRange] = useState<AnalyticsRange>(initialRange);
   const [kpis, setKpis] = useState<AnalyticsKpis>(initialKpis);
@@ -51,6 +53,7 @@ export function AnalyticsClient({
     useState<RevenuePoint[]>(initialTimeseries);
   const [breakdown, setBreakdown] =
     useState<PaymentBreakdownEntry[]>(initialBreakdown);
+  const [loadFailed, setLoadFailed] = useState<boolean>(initialLoadFailed);
   const [isPending, startTransition] = useTransition();
   // `latestRangeRef` traccia l'ultimo range richiesto. Se l'utente cambia
   // range due volte velocemente e la prima Promise.all risolve dopo la
@@ -70,9 +73,11 @@ export function AnalyticsClient({
         getPaymentBreakdown(businessId, nextRange),
       ]);
       if (latestRangeRef.current !== nextRange) return;
+      const failed = "error" in k || !Array.isArray(t) || !Array.isArray(b);
       setKpis("error" in k ? ZERO_KPIS : k);
       setTimeseries(Array.isArray(t) ? t : []);
       setBreakdown(Array.isArray(b) ? b : []);
+      setLoadFailed(failed);
     });
   }
 
@@ -101,6 +106,15 @@ export function AnalyticsClient({
           </Select>
         </div>
       </div>
+
+      {loadFailed && (
+        <div
+          role="alert"
+          className="border-destructive/30 bg-destructive/10 text-destructive rounded-md border px-3 py-2 text-sm"
+        >
+          Impossibile caricare alcuni dati. Riprova tra qualche istante.
+        </div>
+      )}
 
       <KpiCards kpis={kpis} />
 
