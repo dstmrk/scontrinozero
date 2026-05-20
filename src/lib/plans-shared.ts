@@ -48,6 +48,13 @@ export function isPlan(value: unknown): value is Plan {
 /** Durata del trial in giorni */
 export const TRIAL_DAYS = 30;
 
+/**
+ * URL canonico della sezione "Abbonamento" nella pagina settings.
+ * Sorgente unica per ogni upsell / CTA "Passa a Pro": cambiandolo qui si
+ * propaga ovunque (gate Pro, pulsanti export CSV, banner trial scaduto, ecc.).
+ */
+export const BILLING_SETTINGS_HREF = "/dashboard/settings#billing";
+
 /** Numero massimo di prodotti nel catalogo per piano Starter e trial */
 export const STARTER_CATALOG_LIMIT = 5;
 

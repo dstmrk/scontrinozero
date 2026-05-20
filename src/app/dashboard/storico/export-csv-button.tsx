@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { canUsePro, type Plan } from "@/lib/plans-shared";
+import {
+  BILLING_SETTINGS_HREF,
+  canUsePro,
+  type Plan,
+} from "@/lib/plans-shared";
 
 interface ExportCsvButtonProps {
   readonly plan: Plan;
@@ -33,7 +37,7 @@ export function ExportCsvButton(props: ExportCsvButtonProps) {
   return (
     <Button asChild variant="outline">
       <Link
-        href="/dashboard/settings#billing"
+        href={BILLING_SETTINGS_HREF}
         title="Esportazione CSV disponibile sul piano Pro"
       >
         <Download className="size-4" aria-hidden />

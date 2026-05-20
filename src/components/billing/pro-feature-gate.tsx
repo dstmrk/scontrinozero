@@ -8,7 +8,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { canUsePro, type Plan } from "@/lib/plans-shared";
+import {
+  BILLING_SETTINGS_HREF,
+  canUsePro,
+  type Plan,
+} from "@/lib/plans-shared";
 
 interface ProFeatureGateProps {
   readonly plan: Plan;
@@ -42,7 +46,7 @@ export function ProFeatureGate({
       </CardHeader>
       <CardContent>
         <Button asChild>
-          <Link href="/dashboard/settings#billing">Passa a Pro</Link>
+          <Link href={BILLING_SETTINGS_HREF}>Passa a Pro</Link>
         </Button>
       </CardContent>
     </Card>
