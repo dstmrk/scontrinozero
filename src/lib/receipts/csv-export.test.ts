@@ -29,6 +29,16 @@ vi.mock("@/db/schema", () => ({
   },
 }));
 
+vi.mock("drizzle-orm/pg-core", () => ({
+  alias: (_table: unknown, name: string) => ({
+    _alias: name,
+    id: `${name}.id`,
+    kind: `${name}.kind`,
+    status: `${name}.status`,
+    voidedDocumentId: `${name}.voided_document_id`,
+  }),
+}));
+
 vi.mock("@/lib/receipts/document-lines", () => ({
   fetchLinesByDocIds: mockFetchLinesByDocIds,
   groupLinesByDocId: mockGroupLinesByDocId,
@@ -60,7 +70,7 @@ function doc(overrides: Partial<ReceiptDocRow> = {}): ReceiptDocRow {
     adeProgressive: "00042",
     adeTransactionId: "tx-12345",
     lotteryCode: null,
-    voidedDocumentId: null,
+    voidingDocumentId: null,
     publicRequest: { paymentMethod: "PC" },
     ...overrides,
   };
@@ -112,7 +122,7 @@ describe("formatReceiptRow", () => {
         adeProgressive: null,
         adeTransactionId: null,
         lotteryCode: null,
-        voidedDocumentId: null,
+        voidingDocumentId: null,
         publicRequest: null,
       }),
       0,
@@ -129,13 +139,23 @@ describe("formatReceiptRow", () => {
     expect(row[7]).toBe("ABCDEFGH");
   });
 
-  it("emits voidedDocumentId for VOID_ACCEPTED states", () => {
+  it("popola id_documento_annullato dal LEFT JOIN su VOID quando il SALE e' annullato", () => {
+    // Su un SALE VOID_ACCEPTED, voidingDocumentId arriva dal JOIN
+    // (= id del documento VOID che ha annullato questo SALE).
     const row = formatReceiptRow(
-      doc({ status: "VOID_ACCEPTED", voidedDocumentId: "doc-original" }),
+      doc({ status: "VOID_ACCEPTED", voidingDocumentId: "void-doc-99" }),
       0,
     );
     expect(row[4]).toBe("VOID_ACCEPTED");
-    expect(row[9]).toBe("doc-original");
+    expect(row[9]).toBe("void-doc-99");
+  });
+
+  it("lascia id_documento_annullato vuoto sui SALE non annullati", () => {
+    const row = formatReceiptRow(
+      doc({ status: "ACCEPTED", voidingDocumentId: null }),
+      0,
+    );
+    expect(row[9]).toBe("");
   });
 
   it("extracts paymentMethod from publicRequest jsonb", () => {
@@ -164,11 +184,13 @@ describe("buildReceiptsCsvStream", () => {
     const offset = vi.fn().mockReturnValue({ then: undefined });
     const order = vi.fn();
     const where = vi.fn();
+    const leftJoin = vi.fn();
     const from = vi.fn();
     const select = vi.fn();
 
     select.mockReturnValue({ from });
-    from.mockReturnValue({ where });
+    from.mockReturnValue({ leftJoin });
+    leftJoin.mockReturnValue({ where });
     where.mockReturnValue({ orderBy: order });
     order.mockReturnValue({ limit: () => ({ offset: offset }) });
     offset.mockImplementation((n: number) => {
@@ -245,11 +267,13 @@ describe("buildReceiptsCsvStream", () => {
     const limit = vi.fn();
     const order = vi.fn();
     const where = vi.fn();
+    const leftJoin = vi.fn();
     const from = vi.fn();
     const select = vi.fn();
 
     select.mockReturnValue({ from });
-    from.mockReturnValue({ where });
+    from.mockReturnValue({ leftJoin });
+    leftJoin.mockReturnValue({ where });
     where.mockReturnValue({ orderBy: order });
     order.mockReturnValue({
       limit: () => ({

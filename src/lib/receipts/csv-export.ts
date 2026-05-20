@@ -1,6 +1,13 @@
 import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
+
+// Alias self-join: per ogni SALE, troviamo il documento VOID che lo annulla
+// (se esiste). Senza il join la colonna `id_documento_annullato` del CSV
+// resterebbe sempre vuota — il campo `voided_document_id` e' popolato solo
+// sui VOID, e il CSV filtra `kind = "SALE"`.
+const voidDocAlias = alias(commercialDocuments, "void_doc");
 import {
   calcDocTotal,
   fetchLinesByDocIds,
@@ -38,7 +45,11 @@ export type ReceiptDocRow = {
   adeProgressive: string | null;
   adeTransactionId: string | null;
   lotteryCode: string | null;
-  voidedDocumentId: string | null;
+  /**
+   * ID del documento VOID che annulla questo SALE (NULL se mai annullato).
+   * Popolato da LEFT JOIN su commercial_documents AS void_doc.
+   */
+  voidingDocumentId: string | null;
   publicRequest: unknown;
 };
 
@@ -80,7 +91,7 @@ export function formatReceiptRow(doc: ReceiptDocRow, total: number): string[] {
     extractPaymentMethod(doc.publicRequest),
     doc.lotteryCode ?? "",
     doc.adeTransactionId ?? "",
-    doc.voidedDocumentId ?? "",
+    doc.voidingDocumentId ?? "",
   ];
 }
 
@@ -121,10 +132,18 @@ async function fetchDocsBatch(
       adeProgressive: commercialDocuments.adeProgressive,
       adeTransactionId: commercialDocuments.adeTransactionId,
       lotteryCode: commercialDocuments.lotteryCode,
-      voidedDocumentId: commercialDocuments.voidedDocumentId,
+      voidingDocumentId: voidDocAlias.id,
       publicRequest: commercialDocuments.publicRequest,
     })
     .from(commercialDocuments)
+    .leftJoin(
+      voidDocAlias,
+      and(
+        eq(voidDocAlias.voidedDocumentId, commercialDocuments.id),
+        eq(voidDocAlias.kind, "VOID"),
+        eq(voidDocAlias.status, "VOID_ACCEPTED"),
+      ),
+    )
     .where(and(...conditions))
     .orderBy(desc(commercialDocuments.createdAt))
     .limit(BATCH_SIZE)
