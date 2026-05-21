@@ -65,8 +65,26 @@ const helpCategories: HelpCategory[] = [
     ],
   },
   {
-    name: "Fiscalizzazione e Agenzia Entrate",
-    description: "Credenziali, collegamento e rinnovi.",
+    name: "Configurazione attività",
+    description: "Impostazioni fiscali e personalizzazioni.",
+    articles: [
+      {
+        title: "Regime forfettario: configurazione IVA corretta",
+        href: "/help/regime-forfettario",
+      },
+      {
+        title: "Come gestire aliquote IVA, reparti e metodi di pagamento",
+        href: "/help/aliquote-iva",
+      },
+      {
+        title: "Personalizzare intestazione e dati dello scontrino",
+        href: "/help/intestazione-scontrino",
+      },
+    ],
+  },
+  {
+    name: "Collegamento Agenzia Entrate",
+    description: "Credenziali Fisconline e troubleshooting accesso.",
     articles: [
       {
         title: "Come collegare ScontrinoZero all'Agenzia delle Entrate",
@@ -77,12 +95,18 @@ const helpCategories: HelpCategory[] = [
         href: "/help/credenziali-fisconline",
       },
       {
-        title: "Dove verificare i corrispettivi nel cassetto fiscale",
-        href: "/help/cassetto-fiscale",
-      },
-      {
         title: "Errori comuni di accesso AdE e come risolverli",
         href: "/help/errori-ade",
+      },
+    ],
+  },
+  {
+    name: "Sicurezza e cassetto fiscale",
+    description: "Verifica corrispettivi e protezione credenziali.",
+    articles: [
+      {
+        title: "Dove verificare i corrispettivi nel cassetto fiscale",
+        href: "/help/cassetto-fiscale",
       },
       {
         title: "Sicurezza e privacy: come proteggiamo le tue credenziali",
@@ -116,20 +140,24 @@ const helpCategories: HelpCategory[] = [
     ],
   },
   {
-    name: "Configurazione attività",
-    description: "Impostazioni fiscali e personalizzazioni.",
+    name: "Abbonamento, fatture e supporto",
+    description: "Piano, pagamenti e assistenza.",
     articles: [
       {
-        title: "Regime forfettario: configurazione IVA corretta",
-        href: "/help/regime-forfettario",
+        title: "Piani disponibili: Starter, Pro e versione gratuita",
+        href: "/help/piani-e-prezzi",
       },
       {
-        title: "Come gestire aliquote IVA, reparti e metodi di pagamento",
-        href: "/help/aliquote-iva",
+        title: "Come passare da mensile ad annuale",
+        href: "/help/cambio-piano",
       },
       {
-        title: "Personalizzare intestazione e dati dello scontrino",
-        href: "/help/intestazione-scontrino",
+        title: "Dove trovare fatture e ricevute di pagamento",
+        href: "/help/fatture-e-ricevute",
+      },
+      {
+        title: "Come contattare l'assistenza",
+        href: "/help/contatto-assistenza",
       },
     ],
   },
@@ -169,28 +197,6 @@ const helpCategories: HelpCategory[] = [
       },
     ],
     categoryHref: "/help/api",
-  },
-  {
-    name: "Abbonamento, fatture e supporto",
-    description: "Piano, pagamenti e assistenza.",
-    articles: [
-      {
-        title: "Piani disponibili: Starter, Pro e versione gratuita",
-        href: "/help/piani-e-prezzi",
-      },
-      {
-        title: "Come passare da mensile ad annuale",
-        href: "/help/cambio-piano",
-      },
-      {
-        title: "Dove trovare fatture e ricevute di pagamento",
-        href: "/help/fatture-e-ricevute",
-      },
-      {
-        title: "Come contattare l'assistenza",
-        href: "/help/contatto-assistenza",
-      },
-    ],
   },
 ];
 
