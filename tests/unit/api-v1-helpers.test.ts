@@ -44,6 +44,7 @@ import {
   corsOptionsResponse,
   checkRateLimitApi,
   parseAndValidateBody,
+  serviceErrorResponse,
   withCors,
 } from "@/lib/api-v1-helpers";
 
@@ -317,5 +318,84 @@ describe("parseAndValidateBody", () => {
     if ("data" in result) {
       expect(result.data).toEqual({ name: "Caffè" });
     }
+  });
+});
+
+describe("serviceErrorResponse", () => {
+  it("returns 503 + Retry-After 5 for DB_TIMEOUT", async () => {
+    const res = serviceErrorResponse({ error: "timeout", code: "DB_TIMEOUT" });
+    expect(res.status).toBe(503);
+    expect(res.headers.get("Retry-After")).toBe("5");
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    const body = await res.json();
+    expect(body).toEqual({ code: "DB_TIMEOUT", error: "timeout" });
+  });
+
+  it("returns 409 + Retry-After 2 for PENDING_IN_PROGRESS", async () => {
+    const res = serviceErrorResponse({
+      error: "pending",
+      code: "PENDING_IN_PROGRESS",
+    });
+    expect(res.status).toBe(409);
+    expect(res.headers.get("Retry-After")).toBe("2");
+    const body = await res.json();
+    expect(body.code).toBe("PENDING_IN_PROGRESS");
+  });
+
+  it("returns 409 (no Retry-After) for ALREADY_REJECTED", async () => {
+    const res = serviceErrorResponse({
+      error: "rejected",
+      code: "ALREADY_REJECTED",
+    });
+    expect(res.status).toBe(409);
+    expect(res.headers.get("Retry-After")).toBeNull();
+    const body = await res.json();
+    expect(body.code).toBe("ALREADY_REJECTED");
+  });
+
+  it("returns 409 + Retry-After 2 for VOID_PENDING_IN_PROGRESS", async () => {
+    const res = serviceErrorResponse({
+      error: "void pending",
+      code: "VOID_PENDING_IN_PROGRESS",
+    });
+    expect(res.status).toBe(409);
+    expect(res.headers.get("Retry-After")).toBe("2");
+  });
+
+  it("returns 409 (no Retry-After) for VOID_ALREADY_TARGETED", async () => {
+    const res = serviceErrorResponse({
+      error: "race",
+      code: "VOID_ALREADY_TARGETED",
+    });
+    expect(res.status).toBe(409);
+    expect(res.headers.get("Retry-After")).toBeNull();
+  });
+
+  it("returns 500 for VOID_SYNC_FAILED", async () => {
+    const res = serviceErrorResponse({
+      error: "sync failed",
+      code: "VOID_SYNC_FAILED",
+    });
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.code).toBe("VOID_SYNC_FAILED");
+  });
+
+  it("falls back to 422 with bare error envelope when code is unknown", async () => {
+    const res = serviceErrorResponse({
+      error: "boom",
+      code: "SOMETHING_ELSE",
+    });
+    expect(res.status).toBe(422);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    const body = await res.json();
+    expect(body).toEqual({ error: "boom" });
+  });
+
+  it("falls back to 422 when code is undefined", async () => {
+    const res = serviceErrorResponse({ error: "boom" });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body).toEqual({ error: "boom" });
   });
 });

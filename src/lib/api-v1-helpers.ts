@@ -151,6 +151,44 @@ export function checkRateLimitApi(
 }
 
 /**
+ * Maps service error codes (`emitReceiptForBusiness`, `voidReceiptForBusiness`)
+ * to HTTP responses. Centralised so route handlers don't repeat the same
+ * status/Retry-After mapping (SonarCloud duplicated-lines guard).
+ *
+ * Fallback (unknown / undefined code): 422 with `{ error }` envelope.
+ */
+const SERVICE_ERROR_STATUS_MAP: Record<
+  string,
+  { status: number; retryAfter?: number }
+> = {
+  DB_TIMEOUT: { status: 503, retryAfter: 5 },
+  PENDING_IN_PROGRESS: { status: 409, retryAfter: 2 },
+  ALREADY_REJECTED: { status: 409 },
+  VOID_PENDING_IN_PROGRESS: { status: 409, retryAfter: 2 },
+  VOID_ALREADY_TARGETED: { status: 409 },
+  VOID_SYNC_FAILED: { status: 500 },
+};
+
+export function serviceErrorResponse(result: {
+  error: string;
+  code?: string;
+}): Response {
+  const mapping = result.code
+    ? SERVICE_ERROR_STATUS_MAP[result.code]
+    : undefined;
+  if (!mapping) {
+    return withCors(Response.json({ error: result.error }, { status: 422 }));
+  }
+  const init: ResponseInit = { status: mapping.status };
+  if (mapping.retryAfter !== undefined) {
+    init.headers = { "Retry-After": String(mapping.retryAfter) };
+  }
+  return withCors(
+    Response.json({ code: result.code, error: result.error }, init),
+  );
+}
+
+/**
  * Reads and validates the request body against a Zod schema.
  *
  * Returns `{ error: Response }` on size/parse/validation failure,

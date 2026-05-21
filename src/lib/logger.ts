@@ -105,9 +105,9 @@ function captureToSentry(obj: unknown, msg?: string): void {
     typeof obj === "object" &&
     obj !== null &&
     "err" in obj &&
-    (obj as { err: unknown }).err instanceof Error
+    obj.err instanceof Error
   ) {
-    Sentry.captureException((obj as { err: Error }).err, {
+    Sentry.captureException(obj.err, {
       extra: sanitized,
     });
   } else if (obj instanceof Error) {
