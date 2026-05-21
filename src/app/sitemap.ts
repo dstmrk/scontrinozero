@@ -121,6 +121,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
       "/help/contatto-assistenza",
       "/help/pos-rt-obbligo",
       "/help/intestazione-scontrino",
+      "/help/stampare-scontrino-termica",
+      "/help/registrare-pos-portale-ade",
     ].map((path) => ({
       url: `${baseUrl}${path}`,
       lastModified: new Date(),

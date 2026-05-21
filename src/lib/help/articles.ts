@@ -116,10 +116,24 @@ export const helpArticles: Record<string, HelpArticle> = {
     title: "Regime forfettario: configurazione IVA corretta",
     related: ["aliquote-iva", "primo-scontrino", "annullare-scontrino"],
   },
+  "registrare-pos-portale-ade": {
+    slug: "registrare-pos-portale-ade",
+    title: "Registrare un POS nel portale Fatture e Corrispettivi",
+    related: ["pos-rt-obbligo", "normativa-pos-2026", "come-collegare-ade"],
+  },
   "sicurezza-credenziali": {
     slug: "sicurezza-credenziali",
     title: "Sicurezza e privacy delle credenziali",
     related: ["credenziali-fisconline", "errori-ade", "come-collegare-ade"],
+  },
+  "stampare-scontrino-termica": {
+    slug: "stampare-scontrino-termica",
+    title: "Stampare lo scontrino su carta termica",
+    related: [
+      "primo-scontrino",
+      "intestazione-scontrino",
+      "storico-ed-esportazione",
+    ],
   },
   "storico-ed-esportazione": {
     slug: "storico-ed-esportazione",

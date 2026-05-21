@@ -136,6 +136,7 @@ const helpCategories: HelpCategory[] = [
       },
       {
         title: "Come stampare lo scontrino su carta termica",
+        href: "/help/stampare-scontrino-termica",
       },
     ],
   },
@@ -171,6 +172,7 @@ const helpCategories: HelpCategory[] = [
       },
       {
         title: "Come registrare un POS nel portale Fatture e Corrispettivi",
+        href: "/help/registrare-pos-portale-ade",
       },
       {
         title: "Nuova normativa POS 2026: cosa cambia per gli esercenti",

@@ -5,7 +5,7 @@ describe("sitemap", () => {
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
-    expect(result).toHaveLength(54);
+    expect(result).toHaveLength(56);
 
     // Root
     expect(result[0]).toMatchObject({
@@ -143,7 +143,7 @@ describe("sitemap", () => {
       priority: 0.6,
     });
 
-    // Help articles — verify all 21 are present (order may change as articles are added)
+    // Help articles — verify all 23 are present (order may change as articles are added)
     const helpUrls = allUrls;
     const expectedHelpArticles = [
       "https://scontrinozero.it/help/prima-configurazione",
@@ -167,18 +167,20 @@ describe("sitemap", () => {
       "https://scontrinozero.it/help/contatto-assistenza",
       "https://scontrinozero.it/help/pos-rt-obbligo",
       "https://scontrinozero.it/help/intestazione-scontrino",
+      "https://scontrinozero.it/help/stampare-scontrino-termica",
+      "https://scontrinozero.it/help/registrare-pos-portale-ade",
     ];
     for (const url of expectedHelpArticles) {
       expect(helpUrls).toContain(url);
     }
 
     // Auth pages (last two)
-    expect(result[52]).toMatchObject({
+    expect(result[54]).toMatchObject({
       url: "https://scontrinozero.it/login",
       changeFrequency: "yearly",
       priority: 0.5,
     });
-    expect(result[53]).toMatchObject({
+    expect(result[55]).toMatchObject({
       url: "https://scontrinozero.it/register",
       changeFrequency: "yearly",
       priority: 0.5,
