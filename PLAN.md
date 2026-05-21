@@ -10,8 +10,6 @@ La versione pubblicata corrente è in `package.json`. Lo storico delle release �
 
 | Versione     | Descrizione                                                                                                                  |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| **v1.3.0**   | Analytics dashboard Pro (KPI + sparkline + breakdown) + Export CSV scontrini Pro (download diretto streaming)                |
-| **v1.3.1**   | Fix da code review v1.3.0 (security/correctness + UX/performance) — vedi backlog dedicato sotto                              |
 | **v1.4.0**   | Coupon/promo codes, referral program, Stripe Customer Portal polish                                                          |
 | **v1.5.0**   | Email scontrino al cliente (PDF allegato via Resend)                                                                         |
 | **v1.7.0**   | Catalogo: modifica prodotto + sync AdE (HAR: aggiungi/modifica/elimina)                                                      |
@@ -21,18 +19,6 @@ La versione pubblicata corrente è in `package.json`. Lo storico delle release �
 | **v1.11.0**  | Storno avanzato: memorizzare progressivo documento AdE di annullamento e stampare ricevuta di annullamento                   |
 | **v1.x**     | Developer API Fase A: API key per-merchant, Pro gate, endpoints emissione/annullamento — vedi [DEVELOPER.md](./DEVELOPER.md) |
 | **v2.0.0+**  | Developer API Fase B: partner account, management API, piani developer, webhook, multi-operatore                             |
-
----
-
-## Backlog v1.3.1 (post-review v1.3.0)
-
-15 task identificati nella code review del ciclo v1.3.0; tutti risolti.
-Storia: 5 P1 security/correctness (#1–#5) risolti in PR #499. Ulteriori 5 fix
-correctness/security (#7, #8, #9, #10, #12) risolti in PR successiva.
-3 task UX/performance (#11, #13, #15) risolti nel branch
-`claude/fix-top-bugs-rgwrd`. Gli ultimi 2 (#6 analytics dataset condiviso,
-#14 payment-breakdown test coverage) risolti nel branch
-`claude/fix-top-bugs-DE49e`.
 
 ---
 
