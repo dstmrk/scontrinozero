@@ -39,6 +39,16 @@ vi.mock("@/components/ui/select", () => ({
         onClick={() => onValueChange("30d")}
         type="button"
       />
+      <button
+        data-testid="range-ytd"
+        onClick={() => onValueChange("ytd")}
+        type="button"
+      />
+      <button
+        data-testid="range-invalid"
+        onClick={() => onValueChange("bogus")}
+        type="button"
+      />
     </div>
   ),
   SelectContent: ({ children }: { children: React.ReactNode }) => (
@@ -146,5 +156,59 @@ describe("AnalyticsClient handleRangeChange", () => {
       "revenueCents=3030",
     );
     expect(screen.getByTestId("kpis").textContent).not.toContain("7777");
+  });
+
+  it("invoca le server actions con range 'ytd' quando l'utente seleziona Da inizio anno", async () => {
+    const ytdKpis: AnalyticsKpis = {
+      revenueCents: 12345,
+      count: 7,
+      aovCents: 1763,
+      voidCount: 0,
+    };
+    mockGetAnalyticsKpis.mockResolvedValueOnce(ytdKpis);
+    mockGetRevenueTimeseries.mockResolvedValueOnce([]);
+    mockGetPaymentBreakdown.mockResolvedValueOnce([]);
+
+    render(
+      <AnalyticsClient
+        businessId="biz-1"
+        initialRange="30d"
+        initialKpis={INITIAL_KPIS}
+        initialTimeseries={[]}
+        initialBreakdown={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("range-ytd"));
+
+    await waitFor(() => {
+      expect(mockGetAnalyticsKpis).toHaveBeenCalledWith("biz-1", "ytd");
+    });
+    expect(mockGetRevenueTimeseries).toHaveBeenCalledWith("biz-1", "ytd");
+    expect(mockGetPaymentBreakdown).toHaveBeenCalledWith("biz-1", "ytd");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("kpis").textContent).toContain(
+        "revenueCents=12345",
+      );
+    });
+  });
+
+  it("ignora valori non validi senza invocare le server actions", () => {
+    render(
+      <AnalyticsClient
+        businessId="biz-1"
+        initialRange="30d"
+        initialKpis={INITIAL_KPIS}
+        initialTimeseries={[]}
+        initialBreakdown={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("range-invalid"));
+
+    expect(mockGetAnalyticsKpis).not.toHaveBeenCalled();
+    expect(mockGetRevenueTimeseries).not.toHaveBeenCalled();
+    expect(mockGetPaymentBreakdown).not.toHaveBeenCalled();
   });
 });

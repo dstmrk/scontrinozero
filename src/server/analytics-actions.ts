@@ -40,9 +40,10 @@ export type {
 // Authorization
 // ---------------------------------------------------------------------------
 
-// Range fino a 90d scansiona migliaia di documenti + lines per call: senza
-// rate limit per-utente, una pagina aperta che retry'a o un client mal scritto
-// può martellare il DB. Soglia 60/h coerente con CLAUDE.md (pdf:<ip> 60/h).
+// Range fino a YTD scansiona migliaia di documenti + lines per call (a fine
+// anno YTD ≈ 365 giorni, ben oltre il vecchio max 90d): senza rate limit
+// per-utente, una pagina aperta che retry'a o un client mal scritto può
+// martellare il DB. Soglia 60/h coerente con CLAUDE.md (pdf:<ip> 60/h).
 const analyticsLimiter = new RateLimiter({
   maxRequests: 60,
   windowMs: RATE_LIMIT_WINDOWS.HOURLY,
@@ -141,15 +142,16 @@ function isDocRow(value: unknown): value is DocRow {
   );
 }
 
-// 5s budget allineato con altri endpoint Pro: il range max e' 90d, su
-// dataset normali la query risponde in <200ms. Oltre i 5s significa
-// dataset degenere o contention DB — preferiamo errore 503 friendly
-// piuttosto che pinning della connessione.
+// 5s budget allineato con altri endpoint Pro: il range max e' YTD (~365d
+// a fine anno), su dataset normali la query risponde in <500ms. Oltre i 5s
+// significa dataset degenere o contention DB — preferiamo errore 503
+// friendly piuttosto che pinning della connessione.
 const ANALYTICS_QUERY_TIMEOUT_MS = 5_000;
 
 // Safety net contro tenant con volumi anomali: nessun business Pro reale
-// emette >50k scontrini in 90d (≈555/giorno). Oltre, la pagina analytics
-// produrrebbe un payload da MB e degraderebbe l'istanza.
+// emette >50k scontrini su un range YTD (≈137/giorno sull'intero anno).
+// Oltre, la pagina analytics produrrebbe un payload da MB e degraderebbe
+// l'istanza.
 const ANALYTICS_MAX_DOCS = 50_000;
 
 async function fetchSaleDocsInRange(

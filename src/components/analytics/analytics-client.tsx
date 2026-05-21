@@ -62,7 +62,8 @@ export function AnalyticsClient({
   const latestRangeRef = useRef<AnalyticsRange>(initialRange);
 
   function handleRangeChange(next: string) {
-    if (next !== "7d" && next !== "30d" && next !== "90d") return;
+    if (next !== "7d" && next !== "30d" && next !== "90d" && next !== "ytd")
+      return;
     const nextRange = next;
     latestRangeRef.current = nextRange;
     setRange(nextRange);
@@ -102,6 +103,7 @@ export function AnalyticsClient({
               <SelectItem value="7d">Ultimi 7 giorni</SelectItem>
               <SelectItem value="30d">Ultimi 30 giorni</SelectItem>
               <SelectItem value="90d">Ultimi 90 giorni</SelectItem>
+              <SelectItem value="ytd">Da inizio anno</SelectItem>
             </SelectContent>
           </Select>
         </div>
