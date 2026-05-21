@@ -110,6 +110,9 @@ const helpCategories: HelpCategory[] = [
         title: "Storico scontrini: filtri, ricerca ed esportazione",
         href: "/help/storico-ed-esportazione",
       },
+      {
+        title: "Come stampare lo scontrino su carta termica",
+      },
     ],
   },
   {
@@ -128,7 +131,6 @@ const helpCategories: HelpCategory[] = [
         title: "Personalizzare intestazione e dati dello scontrino",
         href: "/help/intestazione-scontrino",
       },
-      { title: "Gestione operatori e permessi" },
     ],
   },
   {
@@ -145,17 +147,6 @@ const helpCategories: HelpCategory[] = [
       {
         title: "Nuova normativa POS 2026: cosa cambia per gli esercenti",
         href: "/help/normativa-pos-2026",
-      },
-    ],
-  },
-  {
-    name: "Stampanti e hardware",
-    description: "Stampa scontrini e dispositivi supportati.",
-    articles: [
-      { title: "Quale stampante termica scegliere" },
-      { title: "Configurare una stampante Bluetooth" },
-      {
-        title: "Risolvere problemi di stampa (connessione, taglio, formato)",
       },
     ],
   },
