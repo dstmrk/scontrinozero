@@ -110,6 +110,9 @@ const helpCategories: HelpCategory[] = [
         title: "Storico scontrini: filtri, ricerca ed esportazione",
         href: "/help/storico-ed-esportazione",
       },
+      {
+        title: "Come stampare lo scontrino su carta termica",
+      },
     ],
   },
   {
@@ -128,7 +131,6 @@ const helpCategories: HelpCategory[] = [
         title: "Personalizzare intestazione e dati dello scontrino",
         href: "/help/intestazione-scontrino",
       },
-      { title: "Gestione operatori e permessi" },
     ],
   },
   {
@@ -149,19 +151,9 @@ const helpCategories: HelpCategory[] = [
     ],
   },
   {
-    name: "Stampanti e hardware",
-    description: "Stampa scontrini e dispositivi supportati.",
-    articles: [
-      { title: "Quale stampante termica scegliere" },
-      { title: "Configurare una stampante Bluetooth" },
-      {
-        title: "Risolvere problemi di stampa (connessione, taglio, formato)",
-      },
-    ],
-  },
-  {
     name: "API per sviluppatori",
-    description: "Integra l'emissione scontrini nel tuo gestionale o POS.",
+    description:
+      "Solo per chi integra ScontrinoZero da un gestionale o un POS. Se sei un commerciante, parti da Partenza rapida.",
     articles: [
       {
         title: "Autenticazione e gestione chiavi API",
@@ -278,8 +270,11 @@ export default function HelpHomePage() {
                             {article.title}
                           </Link>
                         ) : (
-                          <span className="text-muted-foreground">
+                          <span className="text-muted-foreground inline-flex items-center gap-2">
                             {article.title}
+                            <span className="bg-muted text-muted-foreground rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase">
+                              In arrivo
+                            </span>
                           </span>
                         )}
                       </li>

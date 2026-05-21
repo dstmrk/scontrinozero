@@ -68,6 +68,17 @@ Slug separati tra `/help` e `/guide` evitano canonical clash su keyword condivis
 
 ---
 
+## Backlog contenuti help center
+
+Articoli ancora da scrivere per chiudere la review dell'indice `/help`. Sono già listati nell'indice come placeholder "In arrivo" — vanno scritti **prima del tag v1.3.2** per poter dichiarare chiusa la passata di review marketing.
+
+| Articolo                                                   | Card di destinazione           | Note                                                                                                                                                                                                                                                |
+| ---------------------------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Come stampare lo scontrino su carta termica                | Emissione e gestione scontrini | Articolo unico che copre: scelta stampante (raccomandazioni 58/80 mm), pairing Bluetooth da Android/iOS/desktop, troubleshooting di base (taglio, formato, connessione persa). Niente lista marche esaustiva: principi + esempio funzionante basta. |
+| Come registrare un POS nel portale Fatture e Corrispettivi | POS e normativa                | Procedura sul portale AdE (Fatture e Corrispettivi → Corrispettivi → Gestore ed esercente → Censimento POS). Screenshot dei passaggi. Differenza fra POS bancario e POS-RT. Linkare a guida `/guide/pos-rt-obbligo-2026`.                           |
+
+---
+
 ## Principi del piano
 
 1. **Minimalismo**: ogni release include solo quello che sblocca la successiva o il lancio.

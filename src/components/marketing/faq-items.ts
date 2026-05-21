@@ -10,9 +10,10 @@ export const faqItems = [
       "Sì, è pensato per ambulanti, artigiani, professionisti e micro-attività che vogliono una soluzione semplice, economica e utilizzabile da smartphone o PC.",
   },
   {
-    question: "Il servizio è conforme alla normativa italiana?",
+    question:
+      "È davvero legale emettere scontrini senza registratore di cassa?",
     answer:
-      "ScontrinoZero è progettato per seguire i flussi previsti dall'Agenzia delle Entrate per documento commerciale e corrispettivi telematici. Resta sempre responsabilità dell'utente verificare i dati inseriti e gli esiti delle trasmissioni.",
+      'Sì. L\'Agenzia delle Entrate prevede da anni una procedura ufficiale chiamata Documento Commerciale Online che permette di emettere scontrini elettronici senza un registratore di cassa fisico. ScontrinoZero usa esattamente quella procedura. Spieghiamo nel dettaglio come funziona nella guida "Documento commerciale online".',
   },
   {
     question: "Serve una connessione internet per usarlo?",
@@ -42,7 +43,7 @@ export const faqItems = [
   {
     question: "Come vengono protette le mie credenziali Fisconline?",
     answer:
-      "Le tue credenziali Fisconline vengono cifrate con AES-256-GCM prima di essere salvate e non vengono mai condivise con terze parti. Vengono usate esclusivamente per eseguire le operazioni che tu richiedi sul portale dell'Agenzia delle Entrate. Se installi la versione gratuita sul tuo server, restano lì e non transitano mai dai nostri sistemi.",
+      "Le tue credenziali Fisconline vengono cifrate con tecnologia a livello bancario (AES-256-GCM) prima di essere salvate e non vengono mai condivise con terze parti. Vengono usate esclusivamente per eseguire le operazioni che tu richiedi sul portale dell'Agenzia delle Entrate. Se installi la versione gratuita sul tuo server, restano lì e non transitano mai dai nostri sistemi.",
   },
   {
     question: "Cosa succede alla scadenza dei 30 giorni di prova?",

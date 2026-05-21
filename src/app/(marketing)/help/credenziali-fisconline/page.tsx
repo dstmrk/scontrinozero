@@ -274,7 +274,7 @@ export default function CredenzialiPage() {
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               {
-                "Vengono cifrate con AES-256-GCM (cifratura autenticata) prima di essere salvate nel database e vengono decifrate solo dal server a runtime, nel momento esatto in cui serve comunicare con l'Agenzia delle Entrate. Non sono mai visibili in chiaro, nemmeno al team di ScontrinoZero, e non transitano mai in log o email."
+                "Vengono cifrate con tecnologia a livello bancario (AES-256-GCM) prima di essere salvate nel database e vengono decifrate solo nel momento esatto in cui serve comunicare con l'Agenzia delle Entrate. Non sono mai visibili in chiaro, nemmeno al team di ScontrinoZero, e non transitano mai in log o email."
               }
             </p>
           </div>

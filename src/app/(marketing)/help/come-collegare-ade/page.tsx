@@ -127,8 +127,9 @@ export default function ComeCollegareAde() {
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Le credenziali vengono cifrate con AES-256-GCM prima di essere salvate
-          e non sono mai visibili in chiaro, nemmeno al team di ScontrinoZero.
+          Le credenziali vengono cifrate con tecnologia a livello bancario
+          (AES-256-GCM) prima di essere salvate e non sono mai visibili in
+          chiaro, nemmeno al team di ScontrinoZero.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">

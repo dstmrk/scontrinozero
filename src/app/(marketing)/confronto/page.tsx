@@ -120,9 +120,9 @@ export default function ConfrontoPage() {
             ))}
           </div>
 
-          {/* SaaS comparabili */}
+          {/* Software comparabili */}
           <h2 className="mt-12 text-2xl font-semibold">
-            {"SaaS comparabili per lo scontrino elettronico"}
+            {"Software comparabili per lo scontrino elettronico"}
           </h2>
           <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
             {c.saasIntro}
@@ -179,7 +179,7 @@ export default function ConfrontoPage() {
                     </span>
                     <span className="text-muted-foreground mt-1 block text-xs leading-relaxed">
                       {
-                        "Open source (licenza O'Saasy), self-hosted gratis. Mobile-first. PWA installabile. Codice ispezionabile su GitHub."
+                        "Open source: lo installi gratis sul tuo computer o server. Pensato per lo smartphone, con la possibilità di installare l'app dal browser. Codice ispezionabile su GitHub."
                       }
                     </span>
                   </td>

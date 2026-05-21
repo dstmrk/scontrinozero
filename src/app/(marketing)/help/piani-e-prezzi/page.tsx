@@ -102,7 +102,7 @@ export default function PianiEPrezziPage() {
           </li>
           <li>Storico scontrini con filtri per data e stato</li>
           <li>Lotteria degli Scontrini</li>
-          <li>PWA installabile su smartphone</li>
+          <li>App installabile sullo smartphone direttamente dal browser</li>
           <li>Supporto via email entro 48 ore</li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">

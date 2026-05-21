@@ -189,8 +189,9 @@ export default function PrimoScontrinoPage() {
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Consegnare il documento commerciale al cliente — in forma cartacea o
-          digitale — è obbligatorio ai sensi del DM 7/12/2016 e del D.Lgs.
-          127/2015.
+          digitale — è obbligatorio per legge (DM 7 dicembre 2016 e D.Lgs.
+          127/2015, le norme che regolano i corrispettivi elettronici in
+          Italia).
         </p>
 
         {/* ─── Domande frequenti ─── */}

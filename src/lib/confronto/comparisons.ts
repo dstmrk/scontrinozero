@@ -49,9 +49,9 @@ export const confrontoContent: ConfrontoContent = {
   title: "ScontrinoZero a confronto con le alternative",
   metaTitle: "Alternative a ScontrinoZero: confronto onesto",
   metaDescription:
-    "Panoramica onesta delle alternative a ScontrinoZero: registratore telematico, gestionali di fatturazione, altri SaaS per scontrini elettronici (Scontrinare, Scontrina, ScontrinoSenzaCassa, CassaDigitale). Quando ha senso scegliere noi, quando no.",
+    "Panoramica onesta delle alternative a ScontrinoZero: registratore telematico, gestionali di fatturazione, altri software per scontrini elettronici (Scontrinare, Scontrina, ScontrinoSenzaCassa, CassaDigitale). Quando ha senso scegliere noi, quando no.",
   heroIntro:
-    "Esistono diverse strade per emettere documenti fiscali in Italia: registratore telematico fisico, gestionali di fatturazione B2B, oppure SaaS che usano la procedura Documento Commerciale Online dell'Agenzia delle Entrate. Questa pagina riassume le opzioni e indica in modo trasparente quando ScontrinoZero è la scelta giusta e quando non lo è. I dati sui competitor sono presi dai loro siti pubblici alla data riportata in fondo: per informazioni aggiornate ti consigliamo di controllare direttamente i loro listini.",
+    "Esistono diverse strade per emettere documenti fiscali in Italia: registratore telematico fisico, gestionali di fatturazione B2B, oppure software online che usano la procedura Documento Commerciale Online dell'Agenzia delle Entrate. Questa pagina riassume le opzioni e indica in modo trasparente quando ScontrinoZero è la scelta giusta e quando non lo è. I dati sui competitor sono presi dai loro siti pubblici alla data riportata in fondo: per informazioni aggiornate ti consigliamo di controllare direttamente i loro listini.",
   categories: [
     {
       id: "registratore-telematico",
@@ -88,16 +88,16 @@ export const confrontoContent: ConfrontoContent = {
     },
     {
       id: "saas-scontrino",
-      title: "Altri SaaS per scontrino elettronico",
+      title: "Altri software online per scontrino elettronico",
       intro:
-        "Esistono diversi servizi software che, come noi, sfruttano la procedura Documento Commerciale Online dell'Agenzia delle Entrate per emettere scontrini senza registratore fisico. La sezione qui sotto riassume le informazioni pubbliche dei principali competitor che conosciamo. Sono tutti SaaS legittimi: cerchiamo di darti un quadro onesto.",
+        "Esistono diversi software online che, come noi, sfruttano la procedura Documento Commerciale Online dell'Agenzia delle Entrate per emettere scontrini senza registratore fisico. La sezione qui sotto riassume le informazioni pubbliche dei principali competitor che conosciamo. Sono tutti software legittimi: cerchiamo di darti un quadro onesto.",
       whenItFits: [
         "Trovi un servizio che ha già una feature avanzata che da noi è ancora in roadmap.",
         "Preferisci un fornitore con più anni di mercato e una base utenti consolidata.",
       ],
       whenWeFit: [
-        "Cerchi i prezzi più bassi del mercato fra i SaaS comparabili.",
-        "Vuoi la possibilità di auto-ospitare il software gratis (siamo open source con licenza O'Saasy).",
+        "Cerchi i prezzi più bassi del mercato fra i software comparabili.",
+        "Vuoi la possibilità di auto-ospitare il software gratis sul tuo computer o server.",
         "Vuoi un trial di 30 giorni senza inserire la carta di credito.",
         "Ti interessa poter ispezionare pubblicamente il codice che gestisce le tue credenziali Fisconline.",
       ],
@@ -128,7 +128,8 @@ export const confrontoContent: ConfrontoContent = {
       name: "ScontrinoSenzaCassa (Billy)",
       url: "https://www.scontrinosenzacassa.it/",
       displayUrl: "scontrinosenzacassa.it",
-      pricing: "Non pubblicato in homepage",
+      pricing:
+        "70 €/anno o 7 €/mese (60 €/anno o 6 €/mese per regime forfettario, prezzi IVA esclusa). Disponibile anche un pacchetto da 50 giorni a 20 € per attività stagionali.",
       trial: "Prova gratuita 7 giorni",
       notes:
         "Web + mobile. Integrazione con più sistemi di pagamento (Nexi, Banca Sella, Viva, SumUp, Dojo, Hobex, Satispay). Emette anche fatture con alcune limitazioni.",
@@ -144,10 +145,10 @@ export const confrontoContent: ConfrontoContent = {
     },
   ],
   differentiators: [
-    "Open source con licenza O'Saasy: puoi auto-ospitare il software gratis sul tuo server, le credenziali Fisconline non transitano da noi.",
+    "Open source: puoi installarlo gratis sul tuo computer o server, le credenziali Fisconline non transitano da noi.",
     "Trial di 30 giorni senza carta di credito: alla scadenza l'account passa in sola lettura, nessun addebito a sorpresa.",
     "Piani Starter da 29,99 €/anno e Pro da 49,99 €/anno: fra i listini più bassi del mercato.",
-    "Pensato mobile-first: emetti uno scontrino dallo smartphone in pochi secondi, anche da una PWA installabile.",
+    "Pensato per lo smartphone: emetti uno scontrino in pochi secondi, e puoi anche installare l'app direttamente dal browser senza passare dagli store.",
     "Codice sorgente ispezionabile su GitHub, incluso il modulo che cifra le credenziali Fisconline.",
   ],
   ourPositioning: {
@@ -165,7 +166,7 @@ export const confrontoContent: ConfrontoContent = {
   faq: [
     {
       question:
-        "Posso usare un SaaS al posto del registratore telematico in modo legale?",
+        "Posso usare un software al posto del registratore telematico in modo legale?",
       answer:
         'Sì. La procedura "Documento Commerciale Online" dell\'Agenzia delle Entrate (Fatture e Corrispettivi) è una modalità alternativa al registratore telematico riconosciuta a livello normativo. Lo scontrino emesso ha lo stesso valore fiscale.',
     },
@@ -177,12 +178,12 @@ export const confrontoContent: ConfrontoContent = {
     },
     {
       question:
-        "Cosa cambia rispetto agli altri SaaS che fanno scontrino elettronico?",
+        "Cosa cambia rispetto agli altri software che fanno scontrino elettronico?",
       answer:
-        "I servizi citati in questa pagina sono tutti SaaS legittimi che usano la stessa procedura AdE. Le differenze principali stanno nel listino, nella maturità del prodotto e nelle feature offerte. ScontrinoZero punta su prezzo basso, open source e mobile-first; gli altri hanno punti di forza diversi che valutare caso per caso.",
+        "I servizi citati in questa pagina sono tutti software legittimi che usano la stessa procedura dell'Agenzia delle Entrate. Le differenze principali stanno nel listino, nella maturità del prodotto e nelle funzionalità offerte. ScontrinoZero punta su prezzo basso, open source e uso da smartphone; gli altri hanno punti di forza diversi da valutare caso per caso.",
     },
     {
-      question: "Posso migrare da un altro SaaS a ScontrinoZero?",
+      question: "Posso migrare da un altro software a ScontrinoZero?",
       answer:
         "Sì. Le credenziali Fisconline restano le tue: basta crearle in ScontrinoZero, completare l'onboarding e iniziare a emettere. Lo storico precedente resta consultabile nel cassetto fiscale dell'Agenzia delle Entrate, indipendentemente dal software che hai usato prima.",
     },

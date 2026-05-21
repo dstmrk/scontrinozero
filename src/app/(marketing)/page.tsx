@@ -150,7 +150,7 @@ export default function Home() {
           <p className="text-muted-foreground mt-6 text-center text-sm">
             {"Stai valutando alternative? "}
             <Link href="/confronto" className="text-primary hover:underline">
-              {"Confronto onesto con registratore telematico e altri SaaS"}
+              {"Confronto onesto con registratore telematico e altri software"}
             </Link>
           </p>
           <p className="text-muted-foreground mt-3 text-center text-sm">

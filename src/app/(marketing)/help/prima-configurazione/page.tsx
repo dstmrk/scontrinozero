@@ -162,7 +162,7 @@ export default function PrimaConfigurazioneePage() {
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           {
-            "Le credenziali vengono cifrate con AES-256-GCM sul nostro server e non sono mai visibili in chiaro, nemmeno al nostro team. "
+            "Le credenziali vengono cifrate con tecnologia a livello bancario (AES-256-GCM) sul nostro server e non sono mai visibili in chiaro, nemmeno al nostro team. "
           }
           <Link
             href="/help/sicurezza-credenziali"
