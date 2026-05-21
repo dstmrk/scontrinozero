@@ -434,6 +434,16 @@ describe("GET /api/v1/receipts (list)", () => {
       expect(body.pagination.hasNextPage).toBe(false);
     });
 
+    it("orders by createdAt DESC with id DESC tie-break for stable pagination", async () => {
+      setupDbMocksEmpty();
+      const { GET } = await import("@/app/api/v1/receipts/route");
+      await GET(makeRequest({ from: VALID_FROM, to: VALID_TO }));
+
+      expect(mockDocsOrderBy).toHaveBeenCalledTimes(1);
+      const orderByArgs = mockDocsOrderBy.mock.calls[0];
+      expect(orderByArgs).toHaveLength(2);
+    });
+
     it("returns correct page number in pagination", async () => {
       setupDbMocksEmpty(0);
       const { GET } = await import("@/app/api/v1/receipts/route");

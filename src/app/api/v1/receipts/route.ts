@@ -332,7 +332,10 @@ export async function GET(request: Request): Promise<Response> {
         })
         .from(commercialDocuments)
         .where(and(...conditions))
-        .orderBy(desc(commercialDocuments.createdAt))
+        .orderBy(
+          desc(commercialDocuments.createdAt),
+          desc(commercialDocuments.id),
+        )
         .limit(limit)
         .offset(offset);
 
