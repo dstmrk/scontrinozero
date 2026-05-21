@@ -110,9 +110,9 @@ export default function ErroriAdePage() {
             inserire il PIN completo di 10 caratteri.
           </li>
           <li>
-            La <strong>password</strong> ha lunghezza tra 8 e 15 caratteri ed è
-            case-sensitive. Se l&apos;hai appena cambiata, ricordati di
-            aggiornarla anche su ScontrinoZero.
+            La <strong>password</strong> ha lunghezza tra 8 e 15 caratteri e
+            distingue tra maiuscole e minuscole. Se l&apos;hai appena cambiata,
+            ricordati di aggiornarla anche su ScontrinoZero.
           </li>
           <li>
             {"Per aggiornare le credenziali vai in "}

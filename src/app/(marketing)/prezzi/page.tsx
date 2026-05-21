@@ -87,7 +87,7 @@ const pricingFaqs: { question: string; answer: string }[] = [
   {
     question: "La versione gratuita è davvero gratuita per sempre?",
     answer:
-      "Sì. ScontrinoZero è open source con licenza O'Saasy. Puoi scaricarlo, installarlo sul tuo server e usarlo senza limiti di tempo o funzionalità. Non include hosting, aggiornamenti automatici o supporto dedicato.",
+      "Sì. ScontrinoZero è open source: puoi scaricarlo, installarlo su un tuo computer o server e usarlo senza limiti di tempo o funzionalità. In questo modo i tuoi dati restano da te. Non include hosting, aggiornamenti automatici o supporto dedicato.",
   },
 ];
 
@@ -143,7 +143,7 @@ export default function PrezziPage() {
                   <th className="px-4 py-3 text-center font-semibold">
                     {"Gratuito"}
                     <span className="text-muted-foreground block text-xs font-normal">
-                      installa sul tuo server
+                      lo installi tu, i tuoi dati restano da te
                     </span>
                   </th>
                 </tr>

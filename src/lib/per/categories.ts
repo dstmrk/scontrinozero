@@ -204,7 +204,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       },
       {
         question:
-          "Va bene per affittacamere non imprenditoriale (codice ATECO 55.20.51)?",
+          "Va bene per affittacamere non imprenditoriale (codice ATECO 55.20.51, il codice di attività delle case e camere per vacanze)?",
         answer:
           "Sì, purché tu sia titolare di partita IVA e abbia credenziali Fisconline attive. L'obbligo di emissione del documento commerciale dipende dalla forma di esercizio: verifica con il commercialista se rientri nei casi obbligati.",
       },
@@ -222,7 +222,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     audience:
       "partite IVA in regime forfettario (L. 190/2014) con vendite o servizi B2C",
     useCase:
-      "Il regime forfettario non ti esonera dall'emissione del documento commerciale quando vendi a privati. Ma non ha senso pagare centinaia di euro per un registratore di cassa telematico se il tuo volume di scontrini è modesto. ScontrinoZero applica automaticamente la natura N2.2 (non soggetto IVA — regime forfettario) e ti fa risparmiare sull'hardware.",
+      "Il regime forfettario non ti esonera dall'emissione del documento commerciale quando vendi a privati. Ma non ha senso pagare centinaia di euro per un registratore di cassa telematico se il tuo volume di scontrini è modesto. ScontrinoZero applica automaticamente il codice natura N2.2 (il codice IVA che identifica chi è in regime forfettario, da indicare al posto dell'aliquota) e ti fa risparmiare sull'hardware.",
     obligations: [
       "Emissione del Documento Commerciale Online verso privati anche in regime forfettario.",
       "Indicazione della natura N2.2 sullo scontrino (operazione non soggetta IVA, art. 1 c. 54-89 L. 190/2014).",
@@ -270,7 +270,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     obligations: [
       "Obbligo di documentare ogni prestazione verso privato: fattura o documento commerciale (DPR 633/72 art. 22).",
       "Applicazione dell'aliquota IVA propria della prestazione (22% per la maggior parte delle consulenze; verifica casi specifici).",
-      "Per i professionisti iscritti a ordini con cassa propria: contributo integrativo gestito a parte rispetto allo scontrino.",
+      "Se sei iscritto a un ordine professionale con una cassa di previdenza propria (es. avvocati, geometri, architetti), il contributo da versare alla cassa si gestisce a parte rispetto allo scontrino.",
       "Trasmissione corrispettivi all'Agenzia delle Entrate entro 12 giorni.",
     ],
     benefits: [

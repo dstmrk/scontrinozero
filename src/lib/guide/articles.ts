@@ -69,7 +69,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Come si emette con ScontrinoZero",
-        body: 'ScontrinoZero replica la procedura ufficiale via API: inserisci gli articoli nel carrello, scegli il metodo di pagamento, opzionalmente aggiungi il codice lotteria del cliente, e tocca "Emetti". Il documento viene generato, firmato dalle tue credenziali Fisconline, trasmesso al portale AdE e archiviato nel tuo storico digitale. Tutto in 3-5 secondi.',
+        body: 'ScontrinoZero replica in automatico la procedura ufficiale del portale dell\'Agenzia delle Entrate: inserisci gli articoli nel carrello, scegli il metodo di pagamento, opzionalmente aggiungi il codice lotteria del cliente, e tocca "Emetti". Il documento viene generato, firmato dalle tue credenziali Fisconline, trasmesso al portale AdE e archiviato nel tuo storico digitale. Tutto in 3-5 secondi.',
       },
       {
         heading: "Vantaggi rispetto al registratore telematico",
@@ -378,7 +378,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Verifiche preliminari",
-        body: "Controlla: codice ATECO compatibile con DCO (la quasi totalità delle attività al pubblico lo sono), regime fiscale (forfettario o ordinario, entrambi gestibili), connessione internet stabile al punto vendita, dispositivo aggiornato (smartphone, tablet, PC). Stima il volume di scontrini medio giornaliero e di picco. Verifica con il commercialista che non ci siano impegni residui di garanzia o assistenza con il fornitore del RT.",
+        body: "Controlla: codice ATECO compatibile con il documento commerciale online (il codice ATECO è quello che identifica il tipo di attività nella tua partita IVA — la quasi totalità delle attività al pubblico è compatibile), regime fiscale (forfettario o ordinario, entrambi gestibili), connessione internet stabile al punto vendita, dispositivo aggiornato (smartphone, tablet, PC). Stima il volume di scontrini medio giornaliero e di picco. Verifica con il commercialista che non ci siano impegni residui di garanzia o assistenza con il fornitore del RT.",
       },
       {
         heading: "Procedura di dismissione del registratore telematico",

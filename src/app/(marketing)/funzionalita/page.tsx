@@ -85,7 +85,7 @@ const sections = [
         icon: Shield,
         title: "Credenziali Fisconline cifrate",
         description:
-          "Le tue credenziali Fisconline vengono cifrate con AES-256-GCM e non vengono mai condivise con terze parti. Vengono usate esclusivamente per le operazioni che tu richiedi.",
+          "Le tue credenziali Fisconline vengono cifrate con tecnologia a livello bancario (AES-256-GCM) e non vengono mai condivise con terze parti. Vengono usate esclusivamente per le operazioni che tu richiedi.",
       },
       {
         icon: ArrowRight,
@@ -95,9 +95,9 @@ const sections = [
       },
       {
         icon: Ticket,
-        title: "Conformità normativa 2026",
+        title: "Pronto per la normativa 2026",
         description:
-          "ScontrinoZero segue i flussi previsti dall'AdE per corrispettivi telematici. Aggiornamenti automatici inclusi per restare sempre in linea con la normativa.",
+          "Dal 1° gennaio 2026 il terminale POS che usi per le carte deve essere collegato al sistema di trasmissione dei corrispettivi. ScontrinoZero segue i flussi previsti dall'Agenzia delle Entrate e si aggiorna in automatico per restare in regola.",
       },
     ],
   },
@@ -120,9 +120,9 @@ const sections = [
       },
       {
         icon: Shield,
-        title: "Versione gratuita: installa sul tuo server",
+        title: "Versione gratuita: la installi tu",
         description:
-          "ScontrinoZero è open source. Puoi scaricarlo e installarlo sul tuo server: tutte le funzionalità, gratuitamente per sempre. Le credenziali Fisconline restano sul tuo server.",
+          "ScontrinoZero è open source. Puoi scaricarlo e installarlo sul tuo computer o sul server della tua attività: tutte le funzionalità, gratuitamente per sempre. In questo modo le credenziali Fisconline e i tuoi dati restano da te.",
       },
     ],
   },

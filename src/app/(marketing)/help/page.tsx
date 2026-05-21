@@ -161,7 +161,8 @@ const helpCategories: HelpCategory[] = [
   },
   {
     name: "API per sviluppatori",
-    description: "Integra l'emissione scontrini nel tuo gestionale o POS.",
+    description:
+      "Solo per chi integra ScontrinoZero da un gestionale o un POS. Se sei un commerciante, parti da Partenza rapida.",
     articles: [
       {
         title: "Autenticazione e gestione chiavi API",
@@ -278,8 +279,11 @@ export default function HelpHomePage() {
                             {article.title}
                           </Link>
                         ) : (
-                          <span className="text-muted-foreground">
+                          <span className="text-muted-foreground inline-flex items-center gap-2">
                             {article.title}
+                            <span className="bg-muted text-muted-foreground rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase">
+                              In arrivo
+                            </span>
                           </span>
                         )}
                       </li>

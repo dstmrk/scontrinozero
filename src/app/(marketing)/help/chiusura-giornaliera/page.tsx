@@ -160,9 +160,10 @@ export default function ChiusuraGiornalieraPage() {
               trasmissione all&apos;AdE è sincrona: se al momento
               dell&apos;emissione la rete non è disponibile l&apos;operazione
               fallisce con un errore e nessun documento viene memorizzato. Se
-              provi a usare l&apos;app mentre sei offline, la PWA mostra la
-              pagina <strong>Sei offline</strong>. Attendi il ripristino della
-              connessione e premi di nuovo <strong>Emetti scontrino</strong>.
+              provi a usare l&apos;app mentre sei offline, l&apos;applicazione
+              mostra la pagina <strong>Sei offline</strong>. Attendi il
+              ripristino della connessione e premi di nuovo{" "}
+              <strong>Emetti scontrino</strong>.
             </p>
           </div>
           <div>

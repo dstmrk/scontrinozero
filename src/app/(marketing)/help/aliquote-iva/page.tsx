@@ -53,9 +53,10 @@ export default function AliquoteIvaPage() {
           Le aliquote IVA in Italia
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Il sistema IVA italiano prevede quattro aliquote (DPR 633/72, Tabella
-          A parti II, II-bis e III) più una serie di operazioni esenti, non
-          soggette o non imponibili:
+          Il sistema IVA italiano prevede quattro aliquote (definite dal DPR
+          633/72, la legge italiana sull&apos;IVA, Tabella A parti II, II-bis e
+          III) più una serie di operazioni esenti, non soggette o non
+          imponibili:
         </p>
         <div className="mt-3 overflow-x-auto">
           <table className="text-muted-foreground w-full text-sm">
@@ -171,7 +172,9 @@ export default function AliquoteIvaPage() {
             d&apos;arte)
           </li>
           <li>
-            <strong>N6</strong> — Inversione contabile (reverse charge)
+            <strong>N6</strong> — Inversione contabile (chiamata anche{" "}
+            <em>reverse charge</em>: meccanismo per cui l&apos;IVA la versa chi
+            compra, non chi vende — riguarda solo casi specifici)
           </li>
         </ul>
 
