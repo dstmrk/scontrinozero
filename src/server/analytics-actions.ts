@@ -1,5 +1,6 @@
 "use server";
 
+import { cache } from "react";
 import { and, eq, gte, inArray, lt } from "drizzle-orm";
 import { commercialDocuments } from "@/db/schema";
 import {
@@ -22,11 +23,10 @@ import {
   type PaymentBreakdownEntry,
   type RevenuePoint,
   VALID_RANGES,
-  fillMissingDays,
-  formatRomeDay,
-  normalizePaymentMethod,
+  computeBreakdown,
+  computeKpis,
+  computeTimeseries,
   rangeToBounds,
-  toCents,
 } from "./analytics-helpers";
 
 export type {
@@ -215,6 +215,68 @@ async function computeTotalsByDoc(
 }
 
 // ---------------------------------------------------------------------------
+// Shared analytics dataset
+// ---------------------------------------------------------------------------
+
+type Dataset = {
+  ok: true;
+  docs: DocRow[];
+  totalsByDoc: Map<string, number>;
+  from: Date;
+  to: Date;
+};
+type DatasetError = { ok: false; error: string };
+
+async function buildAnalyticsDataset(
+  businessId: string,
+  range: AnalyticsRange,
+  reference?: Date,
+): Promise<Dataset | DatasetError> {
+  const rangeCheck = await validateRange(range);
+  if (!rangeCheck.ok) return { ok: false, error: rangeCheck.error };
+  const auth = await authorizePro(businessId);
+  if (!auth.ok) return { ok: false, error: auth.error };
+
+  const { from, to } = rangeToBounds(range, reference);
+  // Includiamo sempre publicRequest: il dataset condiviso serve KPI +
+  // timeseries (che non lo usano) e breakdown (che lo usa). Pagare un campo
+  // jsonb in piu' una volta sola e' molto piu' economico di 3 fetch separate.
+  const docs = await fetchSaleDocsInRange(businessId, from, to, {
+    includePublicRequest: true,
+  });
+  const totalsByDoc = await computeTotalsByDoc(docs);
+  return { ok: true, docs, totalsByDoc, from, to };
+}
+
+// Cached path: deduplicato per (businessId, range) nello stesso render RSC.
+// La firma esclude `reference` perche' react/cache richiede arg con uguaglianza
+// referenziale strict; le call site di produzione non passano reference
+// (default `new Date()` interno), quindi la dedup si attiva. I test che
+// iniettano `reference` esplicitamente bypassano la cache via reference path.
+//
+// Nota: `cache()` e' no-op fuori da un render RSC (es. unit test). E' OK:
+// la correttezza della funzione non dipende dalla cache, solo la
+// performance in produzione.
+const getCachedDataset: (
+  businessId: string,
+  range: AnalyticsRange,
+) => Promise<Dataset | DatasetError> = cache(
+  (businessId: string, range: AnalyticsRange) =>
+    buildAnalyticsDataset(businessId, range),
+);
+
+async function getAnalyticsDataset(
+  businessId: string,
+  range: AnalyticsRange,
+  reference?: Date,
+): Promise<Dataset | DatasetError> {
+  if (reference) {
+    return buildAnalyticsDataset(businessId, range, reference);
+  }
+  return getCachedDataset(businessId, range);
+}
+
+// ---------------------------------------------------------------------------
 // Server actions
 // ---------------------------------------------------------------------------
 
@@ -222,90 +284,31 @@ export async function getAnalyticsKpis(
   businessId: string,
   range: AnalyticsRange,
 ): Promise<AnalyticsKpis | { error: string }> {
-  const rangeCheck = await validateRange(range);
-  if (!rangeCheck.ok) return { error: rangeCheck.error };
-  const auth = await authorizePro(businessId);
-  if (!auth.ok) return { error: auth.error };
-
-  const { from, to } = rangeToBounds(range);
-  const docs = await fetchSaleDocsInRange(businessId, from, to);
-  const totalsByDoc = await computeTotalsByDoc(docs);
-
-  let revenueCents = 0;
-  let count = 0;
-  let voidCount = 0;
-  for (const doc of docs) {
-    if (doc.status === "ACCEPTED") {
-      count++;
-      revenueCents += toCents(totalsByDoc.get(doc.id) ?? 0);
-    } else if (doc.status === "VOID_ACCEPTED") {
-      voidCount++;
-    }
-  }
-  const aovCents = count === 0 ? 0 : Math.round(revenueCents / count);
-
-  return { revenueCents, count, aovCents, voidCount };
+  const result = await getAnalyticsDataset(businessId, range);
+  if (!result.ok) return { error: result.error };
+  return computeKpis(result.docs, result.totalsByDoc);
 }
 
 export async function getRevenueTimeseries(
   businessId: string,
   range: AnalyticsRange,
-  reference: Date = new Date(),
+  reference?: Date,
 ): Promise<RevenuePoint[] | { error: string }> {
-  const rangeCheck = await validateRange(range);
-  if (!rangeCheck.ok) return { error: rangeCheck.error };
-  const auth = await authorizePro(businessId);
-  if (!auth.ok) return { error: auth.error };
-
-  const { from, to } = rangeToBounds(range, reference);
-  const docs = await fetchSaleDocsInRange(businessId, from, to);
-  const totalsByDoc = await computeTotalsByDoc(docs);
-
-  const byDay = new Map<string, number>();
-  for (const doc of docs) {
-    if (doc.status !== "ACCEPTED") continue;
-    // Bucket per giorno fiscale italiano (Europe/Rome), non UTC: uno
-    // scontrino emesso alle 00:30 ora locale del 19 maggio deve apparire
-    // nel giorno "2026-05-19", anche se internamente e' 22:30Z del 18.
-    const key = formatRomeDay(doc.createdAt);
-    byDay.set(
-      key,
-      (byDay.get(key) ?? 0) + toCents(totalsByDoc.get(doc.id) ?? 0),
-    );
-  }
-  return fillMissingDays(byDay, from, to);
+  const result = await getAnalyticsDataset(businessId, range, reference);
+  if (!result.ok) return { error: result.error };
+  return computeTimeseries(
+    result.docs,
+    result.totalsByDoc,
+    result.from,
+    result.to,
+  );
 }
 
 export async function getPaymentBreakdown(
   businessId: string,
   range: AnalyticsRange,
 ): Promise<PaymentBreakdownEntry[] | { error: string }> {
-  const rangeCheck = await validateRange(range);
-  if (!rangeCheck.ok) return { error: rangeCheck.error };
-  const auth = await authorizePro(businessId);
-  if (!auth.ok) return { error: auth.error };
-
-  const { from, to } = rangeToBounds(range);
-  const docs = await fetchSaleDocsInRange(businessId, from, to, {
-    includePublicRequest: true,
-  });
-  const totalsByDoc = await computeTotalsByDoc(docs);
-
-  const byMethod = new Map<string, { count: number; revenueCents: number }>();
-  for (const doc of docs) {
-    if (doc.status !== "ACCEPTED") continue;
-    const method = normalizePaymentMethod(
-      doc.publicRequest && typeof doc.publicRequest === "object"
-        ? (doc.publicRequest as { paymentMethod?: unknown }).paymentMethod
-        : null,
-    );
-    const entry = byMethod.get(method) ?? { count: 0, revenueCents: 0 };
-    entry.count++;
-    entry.revenueCents += toCents(totalsByDoc.get(doc.id) ?? 0);
-    byMethod.set(method, entry);
-  }
-  return Array.from(byMethod.entries()).map(([method, agg]) => ({
-    method,
-    ...agg,
-  }));
+  const result = await getAnalyticsDataset(businessId, range);
+  if (!result.ok) return { error: result.error };
+  return computeBreakdown(result.docs, result.totalsByDoc);
 }
