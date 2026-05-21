@@ -386,13 +386,19 @@ export async function verifyAdeCredentials(
   // date_trunc to milliseconds: defaultNow() lets PostgreSQL set updatedAt via
   // NOW() (microsecond precision), but JS Date is only millisecond-precise.
   // Truncating before comparison prevents false mismatches on the first SELECT.
+  //
+  // The snapshot is serialized as ISO string + `::timestamptz` cast: inside a
+  // raw `sql` template Drizzle has no column-type context to tell postgres-js
+  // how to bind a JS Date, so passing one directly crashes
+  // `Buffer.byteLength(<Date>)` in postgres-js. ISO string + explicit cast is
+  // safe and lossless (millisecond precision is preserved).
   const updated = await db
     .update(adeCredentials)
     .set({ verifiedAt: new Date() })
     .where(
       and(
         eq(adeCredentials.businessId, businessId),
-        sql`date_trunc('milliseconds', ${adeCredentials.updatedAt}) = ${credentialVersion}`,
+        sql`date_trunc('milliseconds', ${adeCredentials.updatedAt}) = ${credentialVersion.toISOString()}::timestamptz`,
       ),
     )
     .returning({ id: adeCredentials.id });
