@@ -390,6 +390,37 @@
     `data["error-codes"]` (es. `timeout-or-duplicate`, `invalid-input-response`).
     Senza questo log la causa del rifiuto resta invisibile in produzione.
 
+33. **Drizzle raw ` sql` ``templates: JS`Date` (e qualsiasi valore non primitivo)
+    devono essere pre-serializzati e castati lato SQL.**
+    Dentro `db.update().set({...})` e `eq(col, value)` Drizzle conosce il tipo della
+    colonna e converte il JS value nel formato Postgres corretto (es. `Date` → ISO
+    timestamptz). Dentro un raw `` sql`...${value}...` `` template Drizzle non ha
+    contesto del tipo: il valore viene bindato così com'è a postgres-js, che per
+    valori non primitivi (Date, Buffer custom, oggetti) cade sul path di encoding
+    testuale (`.str(x) → Buffer.byteLength(x)`) e crasha con
+    `TypeError: The "string" argument must be of type string or an instance of Buffer or ArrayBuffer. Received an instance of Date`
+    (vedi Sentry `SCONTRINOZERO-TEST-7`, regressione nascosta per 14 giorni nel
+    flow "Verifica connessione" AdE).
+
+    **Pattern obbligato per ogni `Date` interpolato in ` sql` ``:**
+
+    ```typescript
+    sql`date_trunc('milliseconds', ${col}) = ${date.toISOString()}::timestamptz`;
+    ```
+
+    ISO string + cast esplicito (`::timestamptz`, `::timestamp` o `::date` in base
+    al tipo della colonna). La precisione al millisecondo è preservata.
+
+    **Test di regressione obbligato:** rendere il fragment con `PgDialect.sqlToQuery()`
+    e asserire che nessun `Date` finisca tra i `compiled.params`. I mock di `.where()`
+    in stile `vi.fn().mockReturnValue({ returning })` non catturano il bug perché
+    bypassano l'encoding di postgres-js.
+
+    **Smoke test post-deploy:** per i path DB introdotti ex novo (es. nuovi bottoni
+    di integrazione AdE, recovery flow, batch jobs) cliccare/eseguire almeno una
+    volta su sandbox subito dopo il rilascio del tag. I 2400+ unit test verdi non
+    garantiscono che postgres-js sappia binare i parametri reali.
+
 ## Progetto
 
 ScontrinoZero è un registratore di cassa virtuale (SaaS) mobile-first che consente a
