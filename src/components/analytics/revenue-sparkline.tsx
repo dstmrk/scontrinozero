@@ -74,7 +74,7 @@ export function RevenueSparkline({ data }: RevenueSparklineProps) {
           <Line
             type="monotone"
             dataKey="revenue"
-            stroke="hsl(var(--primary, 220 90% 56%))"
+            stroke="var(--primary)"
             strokeWidth={2}
             dot={false}
             activeDot={{ r: 4 }}

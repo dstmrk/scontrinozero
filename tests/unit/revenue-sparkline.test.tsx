@@ -11,7 +11,9 @@ vi.mock("recharts", () => ({
   LineChart: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="line-chart">{children}</div>
   ),
-  Line: () => null,
+  Line: ({ stroke }: { stroke?: string }) => (
+    <div data-testid="line" data-stroke={stroke} />
+  ),
   XAxis: () => null,
   YAxis: () => null,
   Tooltip: () => null,
@@ -41,5 +43,19 @@ describe("RevenueSparkline", () => {
     expect(
       screen.queryByText("Nessuno scontrino nel periodo selezionato."),
     ).toBeNull();
+  });
+
+  it("passes a valid CSS color to the Line stroke (no hsl()-wrapped oklch token)", () => {
+    // Regressione: `hsl(var(--primary))` produceva `hsl(oklch(...))` invalido
+    // con Tailwind v4 (--primary è un oklch), rendendo la linea trasparente.
+    render(
+      <RevenueSparkline
+        data={[{ date: "2026-05-19", revenueCents: 12_345 }]}
+      />,
+    );
+
+    const stroke = screen.getByTestId("line").getAttribute("data-stroke") ?? "";
+    expect(stroke).not.toMatch(/^hsl\(\s*var\(/);
+    expect(stroke).toBe("var(--primary)");
   });
 });
