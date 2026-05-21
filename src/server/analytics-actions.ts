@@ -126,6 +126,21 @@ type DocRow = {
   publicRequest?: unknown;
 };
 
+/**
+ * Type guard runtime su una riga restituita da `commercialDocuments`.
+ * Evita il cast cieco `as DocRow[]` che silenzia eventuali drift di schema
+ * (es. colonna rinominata, JOIN parziale, valore null inatteso).
+ */
+function isDocRow(value: unknown): value is DocRow {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.id === "string" &&
+    typeof v.status === "string" &&
+    v.createdAt instanceof Date
+  );
+}
+
 // 5s budget allineato con altri endpoint Pro: il range max e' 90d, su
 // dataset normali la query risponde in <200ms. Oltre i 5s significa
 // dataset degenere o contention DB — preferiamo errore 503 friendly
@@ -168,7 +183,22 @@ async function fetchSaleDocsInRange(
         )
         .limit(ANALYTICS_MAX_DOCS),
   );
-  return rows as DocRow[];
+  const validRows: DocRow[] = [];
+  let skipped = 0;
+  for (const row of rows) {
+    if (isDocRow(row)) {
+      validRows.push(row);
+    } else {
+      skipped++;
+    }
+  }
+  if (skipped > 0) {
+    logger.error(
+      { critical: true, businessId, skipped },
+      "analytics: DB drift — righe commercialDocuments scartate dal type guard",
+    );
+  }
+  return validRows;
 }
 
 async function computeTotalsByDoc(

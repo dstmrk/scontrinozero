@@ -25,16 +25,19 @@ vi.mock("@/db/schema", () => ({
 import {
   API_KEY_LIMITS,
   DEVELOPER_MONTHLY_LIMITS,
+  PLAN_VALUES,
   STARTER_CATALOG_LIMIT,
   TRIAL_DAYS,
   assertProPlan,
   canAddCatalogItem,
   canEmit,
   canUseApi,
+  canUseDashboardCashier,
   canUsePro,
   getApiKeyLimit,
   getPlan,
   isDeveloperPlan,
+  isPlan,
   isTrialExpired,
 } from "./plans";
 
@@ -121,6 +124,43 @@ describe("canUsePro", () => {
   });
 });
 
+describe("isPlan", () => {
+  it.each(PLAN_VALUES)("accetta il valore valido %s", (plan) => {
+    expect(isPlan(plan)).toBe(true);
+  });
+
+  it("rifiuta null", () => {
+    expect(isPlan(null)).toBe(false);
+  });
+
+  it("rifiuta undefined", () => {
+    expect(isPlan(undefined)).toBe(false);
+  });
+
+  it("rifiuta numeri", () => {
+    expect(isPlan(42)).toBe(false);
+  });
+
+  it("rifiuta oggetti", () => {
+    expect(isPlan({ plan: "pro" })).toBe(false);
+  });
+
+  it("rifiuta stringhe non-enum (es. 'premium')", () => {
+    expect(isPlan("premium")).toBe(false);
+  });
+
+  it("è case-sensitive (rifiuta 'PRO')", () => {
+    expect(isPlan("PRO")).toBe(false);
+  });
+
+  it("rifiuta i nomi del prototype chain", () => {
+    expect(isPlan("__proto__")).toBe(false);
+    expect(isPlan("constructor")).toBe(false);
+    expect(isPlan("toString")).toBe(false);
+    expect(isPlan("hasOwnProperty")).toBe(false);
+  });
+});
+
 describe("isDeveloperPlan", () => {
   it("returns true for developer_indie", () => {
     expect(isDeveloperPlan("developer_indie")).toBe(true);
@@ -142,6 +182,38 @@ describe("isDeveloperPlan", () => {
     expect(isDeveloperPlan("trial")).toBe(false);
     expect(isDeveloperPlan("starter")).toBe(false);
     expect(isDeveloperPlan("unlimited")).toBe(false);
+  });
+});
+
+describe("canUseDashboardCashier", () => {
+  // Invariante: i piani developer_* emettono SOLO via Developer API key.
+  // La dashboard cassa / catalogo non è esposta loro.
+  it("ritorna true per trial", () => {
+    expect(canUseDashboardCashier("trial")).toBe(true);
+  });
+
+  it("ritorna true per starter", () => {
+    expect(canUseDashboardCashier("starter")).toBe(true);
+  });
+
+  it("ritorna true per pro", () => {
+    expect(canUseDashboardCashier("pro")).toBe(true);
+  });
+
+  it("ritorna true per unlimited", () => {
+    expect(canUseDashboardCashier("unlimited")).toBe(true);
+  });
+
+  it("ritorna false per developer_indie", () => {
+    expect(canUseDashboardCashier("developer_indie")).toBe(false);
+  });
+
+  it("ritorna false per developer_business", () => {
+    expect(canUseDashboardCashier("developer_business")).toBe(false);
+  });
+
+  it("ritorna false per developer_scale", () => {
+    expect(canUseDashboardCashier("developer_scale")).toBe(false);
   });
 });
 
@@ -302,6 +374,15 @@ describe("getPlan", () => {
     } catch (err) {
       expect((err as Error).name).toBe("ProfileNotFoundError");
     }
+  });
+
+  it("rifiuta valori di plan non riconosciuti (drift schema DB)", async () => {
+    // DB row con plan corrotto/sconosciuto → fail-closed via
+    // ProfileNotFoundError + log critical, NON cast cieco a Plan.
+    mockLimit.mockResolvedValue([
+      { plan: "premium", trialStartedAt: null, planExpiresAt: null },
+    ]);
+    await expect(getPlan("user-drift")).rejects.toThrow("Profilo non trovato");
   });
 });
 

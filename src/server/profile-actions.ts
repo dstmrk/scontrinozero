@@ -12,6 +12,7 @@ import {
   checkBusinessOwnership,
 } from "@/lib/server-auth";
 import {
+  BUSINESS_PROFILE_LIMITS,
   isStrongPassword,
   isValidItalianZipCode,
   ITALIAN_ZIP_MESSAGE,
@@ -101,11 +102,15 @@ export async function updateProfile(
   const lastName = getFormString(formData, "lastName");
 
   if (!firstName) return { error: "Il nome è obbligatorio." };
-  if (firstName.length > 80)
-    return { error: "Il nome non può superare 80 caratteri." };
+  if (firstName.length > BUSINESS_PROFILE_LIMITS.firstName)
+    return {
+      error: `Il nome non può superare ${BUSINESS_PROFILE_LIMITS.firstName} caratteri.`,
+    };
   if (!lastName) return { error: "Il cognome è obbligatorio." };
-  if (lastName.length > 80)
-    return { error: "Il cognome non può superare 80 caratteri." };
+  if (lastName.length > BUSINESS_PROFILE_LIMITS.lastName)
+    return {
+      error: `Il cognome non può superare ${BUSINESS_PROFILE_LIMITS.lastName} caratteri.`,
+    };
 
   const rateLimitResult = updateProfileLimiter.check(
     `updateProfile:${user.id}`,
@@ -130,7 +135,25 @@ export async function updateBusiness(
 ): Promise<ProfileActionResult> {
   const user = await getAuthenticatedUser();
 
+  // CLAUDE.md regola 29: ordine difensivo rate-limit → ownership →
+  // validation → UPDATE. La ownership query (DB read) NON deve essere
+  // raggiungibile da un attaccante autenticato che martella la action
+  // con businessId arbitrari: prima si blocca il volume di richieste,
+  // poi si valida l'autorizzazione, poi si valida il payload.
+  const rateLimitResult = updateBusinessLimiter.check(
+    `updateBusiness:${user.id}`,
+  );
+  if (!rateLimitResult.success) {
+    logger.warn({ userId: user.id }, "updateBusiness rate limit exceeded");
+    return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
+  }
+
   const businessId = getFormString(formData, "businessId");
+  if (!businessId) return { error: "Business ID mancante." };
+
+  const ownershipError = await checkBusinessOwnership(user.id, businessId);
+  if (ownershipError) return ownershipError;
+
   const businessName = getFormStringOrNull(formData, "businessName");
   const address = getFormString(formData, "address");
   const streetNumber = getFormStringOrNull(formData, "streetNumber");
@@ -146,30 +169,29 @@ export async function updateBusiness(
     ? getFormStringOrNull(formData, "preferredVatCode")
     : null;
 
-  if (!businessId) return { error: "Business ID mancante." };
-  if (businessName && businessName.length > 120)
-    return { error: "La ragione sociale non può superare 120 caratteri." };
+  if (
+    businessName &&
+    businessName.length > BUSINESS_PROFILE_LIMITS.businessName
+  )
+    return {
+      error: `La ragione sociale non può superare ${BUSINESS_PROFILE_LIMITS.businessName} caratteri.`,
+    };
   if (!address) return { error: "L'indirizzo è obbligatorio." };
-  if (address.length > 150)
-    return { error: "L'indirizzo non può superare 150 caratteri." };
-  if (city && city.length > 80)
-    return { error: "Il comune non può superare 80 caratteri." };
-  if (province && province.length > 3)
-    return { error: "La provincia non può superare 3 caratteri." };
+  if (address.length > BUSINESS_PROFILE_LIMITS.address)
+    return {
+      error: `L'indirizzo non può superare ${BUSINESS_PROFILE_LIMITS.address} caratteri.`,
+    };
+  if (city && city.length > BUSINESS_PROFILE_LIMITS.city)
+    return {
+      error: `Il comune non può superare ${BUSINESS_PROFILE_LIMITS.city} caratteri.`,
+    };
+  if (province && province.length > BUSINESS_PROFILE_LIMITS.province)
+    return {
+      error: `La provincia non può superare ${BUSINESS_PROFILE_LIMITS.province} caratteri.`,
+    };
   if (!isValidItalianZipCode(zipCode)) return { error: ITALIAN_ZIP_MESSAGE };
   if (hasPreferredVatCode && isInvalidPreferredVatCode(preferredVatCode))
     return { error: "Aliquota IVA non valida." };
-
-  const ownershipError = await checkBusinessOwnership(user.id, businessId);
-  if (ownershipError) return ownershipError;
-
-  const rateLimitResult = updateBusinessLimiter.check(
-    `updateBusiness:${user.id}`,
-  );
-  if (!rateLimitResult.success) {
-    logger.warn({ userId: user.id }, "updateBusiness rate limit exceeded");
-    return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
-  }
 
   // Lock + diff + UPDATE in una transazione: senza il lock pessimistico
   // sulla riga, due update concorrenti dello stesso business possono

@@ -341,6 +341,27 @@ describe("getAnalyticsKpis", () => {
     expect(mockRateLimitCheck).toHaveBeenCalledWith("analytics:user-1");
   });
 
+  it("scarta le righe che non passano isDocRow (drift schema DB)", async () => {
+    // Drift simulato: una riga senza createdAt (Date) deve essere filtrata
+    // senza crashare la pipeline analytics.
+    mockSelect.mockReturnValue(
+      makeSelectBuilder([
+        { id: "d1", status: "ACCEPTED", createdAt: new Date() },
+        { id: "d2", status: "ACCEPTED" /* createdAt mancante */ },
+      ]),
+    );
+    mockFetchLinesByDocIds.mockResolvedValue([
+      { documentId: "d1", grossUnitPrice: "10.00", quantity: "1" },
+    ]);
+    const res = await getAnalyticsKpis("biz-1", "30d");
+    expect(res).toEqual({
+      revenueCents: 1000,
+      count: 1,
+      aovCents: 1000,
+      voidCount: 0,
+    });
+  });
+
   it("does not divide by zero when computing AOV", async () => {
     mockSelect.mockReturnValue(
       makeSelectBuilder([
@@ -466,24 +487,28 @@ describe("getRevenueTimeseries", () => {
 
 describe("getPaymentBreakdown", () => {
   it("groups ACCEPTED documents by paymentMethod with cents totals", async () => {
+    const at = new Date("2026-05-19T10:00:00Z");
     mockSelect.mockReturnValue(
       makeSelectBuilder([
         {
           id: "d1",
           status: "ACCEPTED",
+          createdAt: at,
           publicRequest: { paymentMethod: "PC" },
         },
         {
           id: "d2",
           status: "ACCEPTED",
+          createdAt: at,
           publicRequest: { paymentMethod: "PE" },
         },
         {
           id: "d3",
           status: "ACCEPTED",
+          createdAt: at,
           publicRequest: { paymentMethod: "PC" },
         },
-        { id: "d4", status: "ACCEPTED", publicRequest: null },
+        { id: "d4", status: "ACCEPTED", createdAt: at, publicRequest: null },
       ]),
     );
     mockFetchLinesByDocIds.mockResolvedValue([
@@ -521,6 +546,7 @@ describe("getPaymentBreakdown", () => {
         {
           id: "d1",
           status: "VOID_ACCEPTED",
+          createdAt: new Date("2026-05-19T10:00:00Z"),
           publicRequest: { paymentMethod: "PC" },
         },
       ]),

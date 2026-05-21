@@ -86,6 +86,17 @@ export function isInvalidPreferredVatCode(code: string | null): boolean {
   return code !== null && !VAT_CODES_SET.has(code);
 }
 
+/**
+ * Type guard positivo: ritorna true se `value` è una stringa vuota (nessuna
+ * preferenza) oppure un `VatCode` valido. Da usare al posto di cast diretto
+ * `as VatCode | ""` su valori provenienti da DB / form pre-popolato.
+ */
+export function isValidPreferredVatCode(value: unknown): value is VatCode | "" {
+  return (
+    value === "" || (typeof value === "string" && VAT_CODES_SET.has(value))
+  );
+}
+
 /** Metodi di pagamento disponibili */
 export const PAYMENT_METHODS: PaymentMethod[] = ["PC", "PE"];
 

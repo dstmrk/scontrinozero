@@ -114,6 +114,14 @@ vi.mock("@/lib/validation", () => ({
   adePinSchema: { safeParse: vi.fn().mockReturnValue({ success: true }) },
   isValidItalianZipCode: vi.fn().mockReturnValue(true),
   ITALIAN_ZIP_MESSAGE: "CAP non valido (5 cifre numeriche).",
+  BUSINESS_PROFILE_LIMITS: {
+    firstName: 80,
+    lastName: 80,
+    businessName: 120,
+    address: 150,
+    city: 80,
+    province: 3,
+  },
 }));
 
 vi.mock("@/types/cassa", () => {

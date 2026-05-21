@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { profiles } from "@/db/schema";
-import { canUsePro, type Plan } from "@/lib/plans-shared";
+import { canUsePro, isPlan, type Plan } from "@/lib/plans-shared";
 import { isStatementTimeoutError } from "@/lib/api-errors";
 import { logger } from "@/lib/logger";
 
@@ -11,14 +11,17 @@ import { logger } from "@/lib/logger";
 export {
   API_KEY_LIMITS,
   DEVELOPER_MONTHLY_LIMITS,
+  PLAN_VALUES,
   STARTER_CATALOG_LIMIT,
   TRIAL_DAYS,
   canAddCatalogItem,
   canEmit,
   canUseApi,
+  canUseDashboardCashier,
   canUsePro,
   getApiKeyLimit,
   isDeveloperPlan,
+  isPlan,
   isTrialExpired,
 } from "@/lib/plans-shared";
 export type { Plan } from "@/lib/plans-shared";
@@ -67,8 +70,20 @@ export async function getPlan(authUserId: string): Promise<PlanInfo> {
     throw new ProfileNotFoundError(authUserId);
   }
 
+  // Defense-in-depth: il DB column `profiles.plan` è di tipo `text` con CHECK
+  // su un enum applicativo. Un valore non riconosciuto qui indica drift di
+  // schema, migration parziale o INSERT manuale errato — situazioni critiche
+  // che vanno alertate e fallite chiuse, non silenziate da un cast `as Plan`.
+  if (!isPlan(profile.plan)) {
+    logger.error(
+      { critical: true, userId: authUserId },
+      "DB drift: profiles.plan ha un valore non riconosciuto",
+    );
+    throw new ProfileNotFoundError(authUserId);
+  }
+
   return {
-    plan: profile.plan as Plan,
+    plan: profile.plan,
     trialStartedAt: profile.trialStartedAt ?? null,
     planExpiresAt: profile.planExpiresAt ?? null,
   };

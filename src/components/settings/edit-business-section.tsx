@@ -23,30 +23,57 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { updateBusiness } from "@/server/profile-actions";
-import { VAT_CODES, VAT_DESCRIPTIONS } from "@/types/cassa";
+import { BUSINESS_PROFILE_LIMITS } from "@/lib/validation";
+import {
+  isValidPreferredVatCode,
+  VAT_CODES,
+  VAT_DESCRIPTIONS,
+  type VatCode,
+} from "@/types/cassa";
 import { EditSettingsDialog } from "./edit-settings-dialog";
 
 const NO_VAT_PREFERENCE = "__none__";
 
+/**
+ * Normalizza il valore proveniente dal DB / props: se non corrisponde a un
+ * `VatCode` valido, ricade su `""` (nessuna preferenza). Evita il cast cieco
+ * `as VatCode | ""` che silenzia drift della colonna `profiles.preferred_vat_code`.
+ */
+function normalizePreferredVatCode(value: string | null = ""): VatCode | "" {
+  return isValidPreferredVatCode(value) ? value : "";
+}
+
 const editBusinessSchema = z.object({
   businessName: z
     .string()
-    .max(120, "La ragione sociale non può superare 120 caratteri.")
+    .max(
+      BUSINESS_PROFILE_LIMITS.businessName,
+      `La ragione sociale non può superare ${BUSINESS_PROFILE_LIMITS.businessName} caratteri.`,
+    )
     .optional()
     .or(z.literal("")),
   address: z
     .string()
     .min(1, "L'indirizzo è obbligatorio.")
-    .max(150, "L'indirizzo non può superare 150 caratteri."),
+    .max(
+      BUSINESS_PROFILE_LIMITS.address,
+      `L'indirizzo non può superare ${BUSINESS_PROFILE_LIMITS.address} caratteri.`,
+    ),
   streetNumber: z.string().optional().or(z.literal("")),
   city: z
     .string()
-    .max(80, "Il comune non può superare 80 caratteri.")
+    .max(
+      BUSINESS_PROFILE_LIMITS.city,
+      `Il comune non può superare ${BUSINESS_PROFILE_LIMITS.city} caratteri.`,
+    )
     .optional()
     .or(z.literal("")),
   province: z
     .string()
-    .max(3, "La provincia non può superare 3 caratteri.")
+    .max(
+      BUSINESS_PROFILE_LIMITS.province,
+      `La provincia non può superare ${BUSINESS_PROFILE_LIMITS.province} caratteri.`,
+    )
     .optional()
     .or(z.literal("")),
   zipCode: z.string().regex(/^\d{5}$/, "CAP non valido (5 cifre numeriche)."),
@@ -86,9 +113,7 @@ export function EditBusinessSection({
     city: city ?? "",
     province: province ?? "",
     zipCode: zipCode ?? "",
-    preferredVatCode: (preferredVatCode ?? "") as
-      | (typeof VAT_CODES)[number]
-      | "",
+    preferredVatCode: normalizePreferredVatCode(preferredVatCode),
   };
 
   const form = useForm<EditBusinessData>({
@@ -132,9 +157,7 @@ export function EditBusinessSection({
       city: city ?? "",
       province: province ?? "",
       zipCode: zipCode ?? "",
-      preferredVatCode: (preferredVatCode ?? "") as
-        | (typeof VAT_CODES)[number]
-        | "",
+      preferredVatCode: normalizePreferredVatCode(preferredVatCode),
     });
     setIsOpen(true);
   }

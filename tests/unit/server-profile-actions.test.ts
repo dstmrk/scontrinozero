@@ -78,6 +78,14 @@ vi.mock("@/lib/validation", () => ({
   isStrongPassword: mockIsStrongPassword,
   isValidItalianZipCode: mockIsValidItalianZipCode,
   ITALIAN_ZIP_MESSAGE: "CAP non valido (5 cifre numeriche).",
+  BUSINESS_PROFILE_LIMITS: {
+    firstName: 80,
+    lastName: 80,
+    businessName: 120,
+    address: 150,
+    city: 80,
+    province: 3,
+  },
 }));
 
 vi.mock("@/types/cassa", () => {
@@ -412,6 +420,18 @@ describe("updateBusiness server action", () => {
     );
 
     expect(result.error).toContain("Troppi tentativi");
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rate-limit blocca PRIMA della ownership query (CLAUDE.md regola 29)", async () => {
+    // Un attaccante autenticato che martella con businessId arbitrari NON
+    // deve raggiungere checkBusinessOwnership: il rate-limit deve scattare
+    // prima, evitando di esporre query DB a brute-force.
+    mockCheck.mockReturnValue({ success: false });
+
+    await updateBusiness(makeBusinessFormData({ preferredVatCode: "22" }));
+
+    expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 

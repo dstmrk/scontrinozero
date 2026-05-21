@@ -27,6 +27,7 @@ import {
 } from "@/lib/server-auth";
 import {
   adePinSchema,
+  BUSINESS_PROFILE_LIMITS,
   isValidItalianZipCode,
   ITALIAN_ZIP_MESSAGE,
 } from "@/lib/validation";
@@ -77,20 +78,26 @@ type SaveBusinessInput = {
  */
 function validateSaveBusinessInput(input: SaveBusinessInput): string | null {
   if (!input.firstName) return "Il nome è obbligatorio.";
-  if (input.firstName.length > 80)
-    return "Il nome non può superare 80 caratteri.";
+  if (input.firstName.length > BUSINESS_PROFILE_LIMITS.firstName)
+    return `Il nome non può superare ${BUSINESS_PROFILE_LIMITS.firstName} caratteri.`;
   if (!input.lastName) return "Il cognome è obbligatorio.";
-  if (input.lastName.length > 80)
-    return "Il cognome non può superare 80 caratteri.";
-  if (input.businessName && input.businessName.length > 120)
-    return "La ragione sociale non può superare 120 caratteri.";
+  if (input.lastName.length > BUSINESS_PROFILE_LIMITS.lastName)
+    return `Il cognome non può superare ${BUSINESS_PROFILE_LIMITS.lastName} caratteri.`;
+  if (
+    input.businessName &&
+    input.businessName.length > BUSINESS_PROFILE_LIMITS.businessName
+  )
+    return `La ragione sociale non può superare ${BUSINESS_PROFILE_LIMITS.businessName} caratteri.`;
   if (!input.address) return "L'indirizzo è obbligatorio.";
-  if (input.address.length > 150)
-    return "L'indirizzo non può superare 150 caratteri.";
-  if (input.city && input.city.length > 80)
-    return "Il comune non può superare 80 caratteri.";
-  if (input.province && input.province.length > 3)
-    return "La provincia non può superare 3 caratteri.";
+  if (input.address.length > BUSINESS_PROFILE_LIMITS.address)
+    return `L'indirizzo non può superare ${BUSINESS_PROFILE_LIMITS.address} caratteri.`;
+  if (input.city && input.city.length > BUSINESS_PROFILE_LIMITS.city)
+    return `Il comune non può superare ${BUSINESS_PROFILE_LIMITS.city} caratteri.`;
+  if (
+    input.province &&
+    input.province.length > BUSINESS_PROFILE_LIMITS.province
+  )
+    return `La provincia non può superare ${BUSINESS_PROFILE_LIMITS.province} caratteri.`;
   if (!isValidItalianZipCode(input.zipCode)) return ITALIAN_ZIP_MESSAGE;
   if (
     input.hasPreferredVatCode &&
