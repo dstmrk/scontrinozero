@@ -15,6 +15,14 @@ import {
 } from "@/lib/plans-shared";
 
 interface ProFeatureGateProps {
+  /**
+   * Server prop: il valore proviene da `getPlan()` lato server. Per riflettere
+   * un upgrade post-checkout Stripe (mid-sessione, altra tab gia' aperta) la
+   * pagina deve essere re-renderizzata server-side via `router.refresh()`,
+   * page reload o redirect. Il componente NON osserva eventi di upgrade da
+   * solo. Vedi `RefreshOnSuccess` montato su `/dashboard/settings?success=1`
+   * per il pattern di invalidation cross-tab della cache RSC client.
+   */
   readonly plan: Plan;
   readonly children: React.ReactNode;
   readonly title?: string;

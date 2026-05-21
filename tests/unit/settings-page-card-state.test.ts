@@ -226,7 +226,7 @@ describe("SettingsPage — cardState state machine", () => {
         subscriptionInterval: "year",
       });
 
-      const jsx = await SettingsPage();
+      const jsx = await SettingsPage({ searchParams: Promise.resolve({}) });
 
       expect(hasComponent(jsx, PlanSelection)).toBe(true);
       expect(hasLink(jsx, "/api/stripe/portal")).toBe(false);
@@ -241,7 +241,7 @@ describe("SettingsPage — cardState state machine", () => {
       });
       mockCanUseApi.mockReturnValue(false);
 
-      const jsx = await SettingsPage();
+      const jsx = await SettingsPage({ searchParams: Promise.resolve({}) });
 
       expect(hasComponent(jsx, ApiKeySection)).toBe(false);
     });
@@ -251,7 +251,7 @@ describe("SettingsPage — cardState state machine", () => {
     it("shows portal link and hides PlanSelection when subscriptionStatus is active", async () => {
       mockGetProfilePlan.mockResolvedValue(makeActivePlanData("pro", "year"));
 
-      const jsx = await SettingsPage();
+      const jsx = await SettingsPage({ searchParams: Promise.resolve({}) });
 
       expect(hasLink(jsx, "/api/stripe/portal")).toBe(true);
       expect(hasComponent(jsx, PlanSelection)).toBe(false);
@@ -261,7 +261,7 @@ describe("SettingsPage — cardState state machine", () => {
       mockGetProfilePlan.mockResolvedValue(makeActivePlanData("pro", "year"));
       mockCanUseApi.mockReturnValue(true);
 
-      const jsx = await SettingsPage();
+      const jsx = await SettingsPage({ searchParams: Promise.resolve({}) });
 
       expect(hasComponent(jsx, ApiKeySection)).toBe(true);
     });
@@ -272,7 +272,7 @@ describe("SettingsPage — cardState state machine", () => {
       );
       mockCanUseApi.mockReturnValue(false);
 
-      const jsx = await SettingsPage();
+      const jsx = await SettingsPage({ searchParams: Promise.resolve({}) });
 
       expect(hasComponent(jsx, ApiKeySection)).toBe(false);
     });
@@ -289,7 +289,7 @@ describe("SettingsPage — cardState state machine", () => {
           subscriptionInterval: "year",
         });
 
-        const jsx = await SettingsPage();
+        const jsx = await SettingsPage({ searchParams: Promise.resolve({}) });
 
         expect(hasComponent(jsx, PlanSelection)).toBe(true);
         expect(hasLink(jsx, "/api/stripe/portal")).toBe(false);
@@ -304,7 +304,7 @@ describe("SettingsPage — cardState state machine", () => {
         subscriptionStatus: "past_due",
       });
 
-      const jsx = await SettingsPage();
+      const jsx = await SettingsPage({ searchParams: Promise.resolve({}) });
 
       // Portal link is present in past-due state (to update payment method)
       expect(hasLink(jsx, "/api/stripe/portal")).toBe(true);
@@ -316,7 +316,7 @@ describe("SettingsPage — cardState state machine", () => {
     it("shows PlanSelection when trial is active and no subscription row", async () => {
       mockGetProfilePlan.mockResolvedValue(TRIAL_PLAN_DATA);
 
-      const jsx = await SettingsPage();
+      const jsx = await SettingsPage({ searchParams: Promise.resolve({}) });
 
       expect(hasComponent(jsx, PlanSelection)).toBe(true);
       expect(hasLink(jsx, "/api/stripe/portal")).toBe(false);
@@ -326,7 +326,7 @@ describe("SettingsPage — cardState state machine", () => {
       mockIsTrialExpired.mockReturnValue(true);
       mockGetProfilePlan.mockResolvedValue(TRIAL_PLAN_DATA);
 
-      const jsx = await SettingsPage();
+      const jsx = await SettingsPage({ searchParams: Promise.resolve({}) });
 
       expect(hasComponent(jsx, PlanSelection)).toBe(true);
     });
@@ -339,7 +339,7 @@ describe("SettingsPage — cardState state machine", () => {
       // next/navigation's redirect() throws in production; the mock doesn't,
       // so the page continues and throws on user.id access — catch it.
       try {
-        await SettingsPage();
+        await SettingsPage({ searchParams: Promise.resolve({}) });
       } catch {
         // expected: page crashes after mocked redirect (null user.id)
       }
