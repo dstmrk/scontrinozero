@@ -576,6 +576,7 @@ describe("onboarding-actions", () => {
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
           keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
         },
       ]);
       mockLogin.mockResolvedValue({});
@@ -611,6 +612,7 @@ describe("onboarding-actions", () => {
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
           keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
         },
       ]);
       mockLogin.mockResolvedValue({});
@@ -653,6 +655,7 @@ describe("onboarding-actions", () => {
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
           keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
         },
       ]);
       mockLogin.mockRejectedValue(new Error("Invalid credentials"));
@@ -685,6 +688,7 @@ describe("onboarding-actions", () => {
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
           keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
           verifiedAt: null,
         },
       ]);
@@ -719,6 +723,7 @@ describe("onboarding-actions", () => {
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
           keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
           verifiedAt: new Date("2026-01-01"),
         },
       ]);
@@ -750,6 +755,7 @@ describe("onboarding-actions", () => {
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
           keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
           verifiedAt: null,
         },
       ]);
@@ -796,6 +802,7 @@ describe("onboarding-actions", () => {
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
           keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
           verifiedAt: null,
         },
       ]);
@@ -820,6 +827,7 @@ describe("onboarding-actions", () => {
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
           keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
           verifiedAt: null,
         },
       ]);
@@ -837,6 +845,52 @@ describe("onboarding-actions", () => {
       await verifyAdeCredentials("biz-789");
 
       expect(mockLogout).toHaveBeenCalled();
+    });
+
+    // Regression: postgres-js cannot encode a JS Date as a parameter inside a
+    // raw `sql` template (no column-type context), and crashes in
+    // `Buffer.byteLength(<Date>)`. The snapshot must be serialized to a string
+    // before being bound. See https://dstmrk.sentry.io/issues/SCONTRINOZERO-TEST-7
+    it("binds the updatedAt snapshot as ISO string, not as a raw Date", async () => {
+      const { PgDialect } = await import("drizzle-orm/pg-core");
+
+      const credentialUpdatedAt = new Date("2026-03-26T14:36:07.000Z");
+
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          verifiedAt: null,
+          updatedAt: credentialUpdatedAt,
+        },
+      ]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "12345678901",
+          codiceFiscale: "RSSMRA80A01H501U",
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials("biz-789");
+
+      // The last db.update(...).where(...) call targets adeCredentials.verifiedAt.
+      // Render the SQL fragment via the real PgDialect so we observe exactly
+      // what would be sent to postgres-js as bound parameters.
+      const whereArg = mockUpdateWhere.mock.calls.at(-1)?.[0];
+      const dialect = new PgDialect();
+      const compiled = dialect.sqlToQuery(whereArg);
+
+      expect(compiled.params.some((p) => p instanceof Date)).toBe(false);
+      expect(compiled.params).toContain(credentialUpdatedAt.toISOString());
+      expect(compiled.sql).toContain("::timestamptz");
     });
   });
 
