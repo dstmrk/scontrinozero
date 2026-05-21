@@ -10,7 +10,7 @@
  * giornalieri e fillMissingDays usano quindi sempre il calendario Rome.
  */
 
-export type AnalyticsRange = "7d" | "30d" | "90d";
+export type AnalyticsRange = "7d" | "30d" | "90d" | "ytd";
 
 export type AnalyticsKpis = {
   /** Totale ricavi (solo SALE ACCEPTED) espresso in centesimi. */
@@ -41,9 +41,12 @@ export const VALID_RANGES: ReadonlySet<AnalyticsRange> = new Set([
   "7d",
   "30d",
   "90d",
+  "ytd",
 ]);
 
-const RANGE_DAYS: Record<AnalyticsRange, number> = {
+// I range fixed-window hanno un numero costante di giorni. YTD e' variabile
+// (1..366), quindi gestito separatamente in rangeToBounds.
+const RANGE_DAYS: Record<Exclude<AnalyticsRange, "ytd">, number> = {
   "7d": 7,
   "30d": 30,
   "90d": 90,
@@ -117,16 +120,23 @@ function addCalendarDays(romeDay: string, n: number): string {
  *
  * - `to` = mezzanotte Rome del giorno successivo al reference (upper
  *   bound exclusive che include il giorno corrente per intero).
- * - `from` = `to` - `days` giorni di calendario fiscale italiano.
+ * - `from`:
+ *   - per i range fixed-window (`7d`/`30d`/`90d`) = `to` - `days` giorni di
+ *     calendario fiscale italiano.
+ *   - per `ytd` = mezzanotte Rome del 1° gennaio dell'anno fiscale italiano
+ *     della reference. La lunghezza varia tra 1 giorno (1° gennaio) e
+ *     366 giorni (31 dicembre di anno bisestile).
  */
 export function rangeToBounds(
   range: AnalyticsRange,
   reference: Date = new Date(),
 ): { from: Date; to: Date } {
-  const days = RANGE_DAYS[range];
   const todayRome = formatRomeDay(reference);
   const toDay = addCalendarDays(todayRome, 1);
-  const fromDay = addCalendarDays(toDay, -days);
+  const fromDay =
+    range === "ytd"
+      ? `${todayRome.slice(0, 4)}-01-01`
+      : addCalendarDays(toDay, -RANGE_DAYS[range]);
   return {
     from: romeMidnightUtc(fromDay),
     to: romeMidnightUtc(toDay),

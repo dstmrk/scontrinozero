@@ -196,6 +196,39 @@ describe("rangeToBounds", () => {
       "2026-02-18T23:00:00.000Z",
     );
   });
+
+  it("supports ytd: from = mezzanotte Rome del 1° gennaio dell'anno della reference", () => {
+    // Reference a maggio 2026 (CEST), 1° gennaio cade in CET (UTC+1).
+    const refMay = new Date("2026-05-19T12:00:00Z"); // Rome day "2026-05-19"
+    const ytdMay = rangeToBounds("ytd", refMay);
+    expect(ytdMay.from.toISOString()).toBe("2025-12-31T23:00:00.000Z");
+    expect(ytdMay.to.toISOString()).toBe("2026-05-19T22:00:00.000Z");
+  });
+
+  it("ytd il 1° gennaio produce un range di esattamente 1 giorno fiscale", () => {
+    // Rome day "2026-01-01" → from = 2026-01-01 00:00 Rome, to = 2026-01-02 00:00 Rome.
+    const refJan1 = new Date("2026-01-01T12:00:00Z");
+    const { from, to } = rangeToBounds("ytd", refJan1);
+    expect(formatRomeDay(from)).toBe("2026-01-01");
+    expect(formatRomeDay(to)).toBe("2026-01-02");
+    expect(to.getTime() - from.getTime()).toBe(24 * 60 * 60 * 1000);
+  });
+
+  it("ytd a fine anno bisestile copre 366 giorni fiscali", () => {
+    // 2028 e' bisestile. Reference 31 dicembre 2028.
+    const refDec31 = new Date("2028-12-31T12:00:00Z");
+    const { from, to } = rangeToBounds("ytd", refDec31);
+    expect(formatRomeDay(from)).toBe("2028-01-01");
+    expect(formatRomeDay(to)).toBe("2029-01-01");
+  });
+
+  it("ytd a cavallo del cambio anno usa l'anno fiscale italiano della reference", () => {
+    // Mezzanotte UTC del 1° gennaio 2026 = 01:00 Rome di "2026-01-01" (CET),
+    // quindi l'anno fiscale italiano e' 2026, non 2025.
+    const refMidnightUtc = new Date("2026-01-01T00:00:00Z");
+    const { from } = rangeToBounds("ytd", refMidnightUtc);
+    expect(formatRomeDay(from)).toBe("2026-01-01");
+  });
 });
 
 describe("normalizePaymentMethod", () => {
