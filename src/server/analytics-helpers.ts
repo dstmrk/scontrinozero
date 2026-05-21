@@ -166,3 +166,80 @@ export function fillMissingDays(
 export function toCents(amount: number): number {
   return Math.round(amount * 100);
 }
+
+// ---------------------------------------------------------------------------
+// Pure aggregations: derivano KPI/timeseries/breakdown da un dataset gia'
+// fetchato (docs + totalsByDoc). Estratte qui per testabilita' diretta e per
+// permettere a getAnalyticsDataset di fetchare i dati una volta sola e
+// derivare i 3 risultati in memoria invece di triplicare le query DB.
+// ---------------------------------------------------------------------------
+
+type AnalyticsDocRow = {
+  id: string;
+  status: string;
+  createdAt: Date;
+  publicRequest?: unknown;
+};
+
+export function computeKpis(
+  docs: readonly AnalyticsDocRow[],
+  totalsByDoc: ReadonlyMap<string, number>,
+): AnalyticsKpis {
+  let revenueCents = 0;
+  let count = 0;
+  let voidCount = 0;
+  for (const doc of docs) {
+    if (doc.status === "ACCEPTED") {
+      count++;
+      revenueCents += toCents(totalsByDoc.get(doc.id) ?? 0);
+    } else if (doc.status === "VOID_ACCEPTED") {
+      voidCount++;
+    }
+  }
+  const aovCents = count === 0 ? 0 : Math.round(revenueCents / count);
+  return { revenueCents, count, aovCents, voidCount };
+}
+
+export function computeTimeseries(
+  docs: readonly AnalyticsDocRow[],
+  totalsByDoc: ReadonlyMap<string, number>,
+  from: Date,
+  to: Date,
+): RevenuePoint[] {
+  const byDay = new Map<string, number>();
+  for (const doc of docs) {
+    if (doc.status !== "ACCEPTED") continue;
+    // Bucket per giorno fiscale italiano (Europe/Rome), non UTC: uno
+    // scontrino emesso alle 00:30 ora locale del 19 maggio deve apparire
+    // nel giorno "2026-05-19", anche se internamente e' 22:30Z del 18.
+    const key = formatRomeDay(doc.createdAt);
+    byDay.set(
+      key,
+      (byDay.get(key) ?? 0) + toCents(totalsByDoc.get(doc.id) ?? 0),
+    );
+  }
+  return fillMissingDays(byDay, from, to);
+}
+
+export function computeBreakdown(
+  docs: readonly AnalyticsDocRow[],
+  totalsByDoc: ReadonlyMap<string, number>,
+): PaymentBreakdownEntry[] {
+  const byMethod = new Map<string, { count: number; revenueCents: number }>();
+  for (const doc of docs) {
+    if (doc.status !== "ACCEPTED") continue;
+    const method = normalizePaymentMethod(
+      doc.publicRequest && typeof doc.publicRequest === "object"
+        ? (doc.publicRequest as { paymentMethod?: unknown }).paymentMethod
+        : null,
+    );
+    const entry = byMethod.get(method) ?? { count: 0, revenueCents: 0 };
+    entry.count++;
+    entry.revenueCents += toCents(totalsByDoc.get(doc.id) ?? 0);
+    byMethod.set(method, entry);
+  }
+  return Array.from(byMethod.entries()).map(([method, agg]) => ({
+    method,
+    ...agg,
+  }));
+}

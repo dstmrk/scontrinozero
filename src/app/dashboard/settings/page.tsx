@@ -20,8 +20,14 @@ import { PRICE_IDS } from "@/lib/stripe";
 import { ApiKeySection } from "@/components/settings/api-key-section";
 import { PlanBadge } from "@/components/billing/plan-badge";
 import { PlanSelection } from "@/components/billing/plan-selection";
+import { RefreshOnSuccess } from "@/components/billing/refresh-on-success";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  readonly searchParams: Promise<{ success?: string }>;
+}) {
+  const { success } = await searchParams;
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },
@@ -112,6 +118,7 @@ export default async function SettingsPage() {
 
   return (
     <div className="space-y-6">
+      <RefreshOnSuccess active={success === "1"} />
       <h1 className="text-2xl font-bold">Impostazioni</h1>
 
       <Card>

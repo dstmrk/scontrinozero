@@ -31,8 +31,11 @@ export default defineConfig({
         "src/components/storico/storico-client.tsx",
         "src/components/storico/void-receipt-dialog.tsx",
         "src/components/analytics/analytics-client.tsx", // UI orchestrator — pure render + setState
-        "src/components/analytics/revenue-sparkline.tsx", // Recharts wrapper — UI shell
-        "src/components/analytics/payment-breakdown.tsx", // Recharts wrapper — UI shell
+        // Recharts wrappers: il mapping label testabile e' coperto in
+        // tests/unit/payment-breakdown.test.tsx, ma i Tooltip/Axis formatter
+        // non sono raggiungibili in jsdom senza mockare l'intero recharts.
+        "src/components/analytics/revenue-sparkline.tsx",
+        "src/components/analytics/payment-breakdown.tsx",
         "src/components/providers.tsx",
         "src/components/marketing/**", // marketing UI components — tested via E2E
         "src/components/billing/checkout-button.tsx", // UI client component — pure fetch + redirect

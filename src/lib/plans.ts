@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { profiles } from "@/db/schema";
@@ -52,8 +53,14 @@ export class ProfileNotFoundError extends Error {
 /**
  * Recupera le informazioni sul piano dell'utente dal profilo.
  * Lancia `ProfileNotFoundError` se il profilo non viene trovato.
+ *
+ * Wrappato con `react/cache` per deduplicare le chiamate concorrenti nello
+ * stesso render RSC. Tipicamente una pagina chiama getPlan piu' volte
+ * (es. layout + page + Pro-gate + 3 server actions di analytics): senza
+ * cache una visita a /dashboard/analytics colpisce profiles 4-5 volte. La
+ * cache e' richiesta-scoped: nuove richieste rifanno la query.
  */
-export async function getPlan(authUserId: string): Promise<PlanInfo> {
+async function fetchPlan(authUserId: string): Promise<PlanInfo> {
   const db = getDb();
 
   const [profile] = await db
@@ -88,6 +95,9 @@ export async function getPlan(authUserId: string): Promise<PlanInfo> {
     planExpiresAt: profile.planExpiresAt ?? null,
   };
 }
+
+export const getPlan: (authUserId: string) => Promise<PlanInfo> =
+  cache(fetchPlan);
 
 export type AssertProPlanResult =
   | { ok: true; plan: Plan }
