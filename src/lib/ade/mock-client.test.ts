@@ -2,7 +2,11 @@ import { describe, expect, it, beforeEach } from "vitest";
 
 import { MockAdeClient } from "./mock-client";
 import { createAdeClient } from "./index";
-import type { AdePayload, AdeCedentePrestatore } from "./types";
+import type {
+  AdePayload,
+  AdeCedentePrestatore,
+  SpidCredentials,
+} from "./types";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -210,6 +214,104 @@ describe("MockAdeClient", () => {
 
     it("does not throw if already logged out", async () => {
       await expect(client.logout()).resolves.toBeUndefined();
+    });
+  });
+
+  describe("loginSpid", () => {
+    const spidCreds: SpidCredentials = {
+      codiceFiscale: "RSSMRA80A01H501A",
+      password: "spidpassword",
+      spidProvider: "poste",
+    };
+
+    it("returns a mock session marked as spid", async () => {
+      const session = await client.loginSpid(spidCreds);
+
+      expect(session.pAuth).toMatch(/^mock_p_auth_spid_/);
+      expect(session.partitaIva.length).toBe(11);
+      expect(session.createdAt).toBeGreaterThan(0);
+    });
+
+    it("enables subsequent operations like a regular login", async () => {
+      await client.loginSpid(spidCreds);
+      const response = await client.submitSale(makeSalePayload());
+
+      expect(response.esito).toBe(true);
+    });
+  });
+
+  describe("getProducts", () => {
+    it("returns an empty array when logged in", async () => {
+      await client.login(mockCredentials);
+      const products = await client.getProducts();
+
+      expect(products).toEqual([]);
+    });
+
+    it("throws if not logged in", async () => {
+      await expect(client.getProducts()).rejects.toThrow();
+    });
+  });
+
+  describe("getStampa", () => {
+    it("returns an empty string when logged in", async () => {
+      await client.login(mockCredentials);
+      const stampa = await client.getStampa("151000000");
+
+      expect(stampa).toBe("");
+    });
+
+    it("accepts the isGift parameter without error", async () => {
+      await client.login(mockCredentials);
+      const stampa = await client.getStampa("151000000", true);
+
+      expect(stampa).toBe("");
+    });
+
+    it("throws if not logged in", async () => {
+      await expect(client.getStampa("151000000")).rejects.toThrow();
+    });
+  });
+
+  describe("getDocument", () => {
+    it("returns a minimal document with the requested idtrx", async () => {
+      await client.login(mockCredentials);
+      const doc = await client.getDocument("151000123");
+
+      expect(doc.idtrx).toBe("151000123");
+      expect(doc.documentoCommerciale).toBeDefined();
+      expect(doc.documentoCommerciale.elementiContabili).toEqual([]);
+    });
+
+    it("throws if not logged in", async () => {
+      await expect(client.getDocument("151000000")).rejects.toThrow();
+    });
+  });
+
+  describe("searchDocuments", () => {
+    it("returns an empty list when logged in", async () => {
+      await client.login(mockCredentials);
+      const result = await client.searchDocuments({ tipoOperazione: "V" });
+
+      expect(result.totalCount).toBe(0);
+      expect(result.elencoRisultati).toEqual([]);
+    });
+
+    it("throws if not logged in", async () => {
+      await expect(client.searchDocuments({})).rejects.toThrow();
+    });
+  });
+
+  describe("changePasswordFisconline", () => {
+    it("resolves without throwing (mock no-op)", async () => {
+      await expect(
+        client.changePasswordFisconline({
+          codiceFiscale: "RSSMRA80A01H501A",
+          oldPassword: "oldpw",
+          newPassword: "newpw",
+          confirmNewPassword: "newpw",
+        }),
+      ).resolves.toBeUndefined();
     });
   });
 });
