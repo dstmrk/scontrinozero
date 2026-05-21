@@ -36,30 +36,6 @@ correctness/security (#7, #8, #9, #10, #12) risolti in PR successiva.
 
 ---
 
-## Lancio hard (milestone gated, non a calendario)
-
-**Non parte a calendario. Parte solo quando tutti i criteri sotto sono veri.**
-
-**Gate (tutti veri):**
-
-- ⬜ ≥2 feature "in arrivo" Pro rilasciate (Export CSV + Analytics dashboard)
-- ⬜ ≥5 recensioni reali per popolare `aggregateRating` su `SoftwareApplication`
-- ⬜ Indicizzazione GSC completa (≥90% delle URL della sitemap indicizzate)
-- ⬜ ≥30 utenti paganti per social proof onesto ("oltre 30 partite IVA…")
-
-**Task lancio (quando il gate è verde):**
-
-- ⬜ Listing su Capterra Italia, GetApp, AlternativeTo, SaaSHub (free)
-- ⬜ Microsurvey post-onboarding per raccogliere review (G2 / Trustpilot / Capterra)
-- ⬜ ProductHunt launch (lunedì/martedì mattina ora US)
-- ⬜ Show HN su Hacker News
-- ⬜ Outreach diretto a 3–5 commercialisti italiani con audience (newsletter / LinkedIn) per review indipendenti
-- ⬜ Press release a blog tech IT (es. SaaS Italia, fattureecorrispettivi.it)
-- ⬜ Monitorare Sentry/uptime durante il picco
-- ⬜ Retrospettiva post-lancio: cosa ha convertito, cosa no, prossimi step SEO
-
----
-
 ## Architettura contenuti SEO
 
 **Tesi.** Budget marketing zero, dominio nuovo, prodotto live: l'unica leva sostenibile è SEO + lancio open source mirato. La SEO classica è lenta (3–9 mesi a regime), quindi va **avviata subito** ma accompagnata da leve veloci (tool gratuiti, lancio comunità) che generino primi backlink e traffico in giorni invece che in mesi.
