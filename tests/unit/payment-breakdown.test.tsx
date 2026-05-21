@@ -19,7 +19,9 @@ vi.mock("recharts", () => ({
       {children}
     </div>
   ),
-  Bar: () => null,
+  Bar: ({ fill }: { fill?: string }) => (
+    <div data-testid="bar" data-fill={fill} />
+  ),
   XAxis: () => null,
   YAxis: () => null,
   CartesianGrid: () => null,
@@ -88,6 +90,20 @@ describe("PaymentBreakdown", () => {
     expect(chartData).toHaveLength(1);
     expect(chartData[0].method).toBe("Altro");
     expect(chartData[0].revenue).toBeCloseTo(9.99, 2);
+  });
+
+  it("passes a valid CSS color to the Bar fill (no hsl()-wrapped oklch token)", () => {
+    // Regressione: `hsl(var(--primary))` produceva `hsl(oklch(...))` invalido
+    // con Tailwind v4 (--primary è un oklch), rendendo le barre trasparenti.
+    render(
+      <PaymentBreakdown
+        data={[{ method: "PC", count: 1, revenueCents: 100 }]}
+      />,
+    );
+
+    const fill = screen.getByTestId("bar").getAttribute("data-fill") ?? "";
+    expect(fill).not.toMatch(/^hsl\(\s*var\(/);
+    expect(fill).toBe("var(--primary)");
   });
 
   it("falls back to the raw method code when not in the known label map", () => {

@@ -71,11 +71,7 @@ export function PaymentBreakdown({ data }: PaymentBreakdownProps) {
               fontSize: 12,
             }}
           />
-          <Bar
-            dataKey="revenue"
-            fill="hsl(var(--primary, 220 90% 56%))"
-            radius={[4, 4, 0, 0]}
-          />
+          <Bar dataKey="revenue" fill="var(--primary)" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>
