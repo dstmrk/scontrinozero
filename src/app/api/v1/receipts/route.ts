@@ -18,6 +18,7 @@ import {
   corsOptionsResponse,
   checkRateLimitApi,
   parseAndValidateBody,
+  serviceErrorResponse,
   withCors,
 } from "@/lib/api-v1-helpers";
 import type { SubmitReceiptInput } from "@/types/cassa";
@@ -137,34 +138,7 @@ export async function POST(request: Request): Promise<Response> {
   const result = await emitReceiptForBusiness(input, auth.apiKey.id);
 
   if (result.error) {
-    // DB timeout → 503 + Retry-After (transient, retryable)
-    if (result.code === "DB_TIMEOUT") {
-      return withCors(
-        Response.json(
-          { code: "DB_TIMEOUT", error: result.error },
-          { status: 503, headers: { "Retry-After": "5" } },
-        ),
-      );
-    }
-    // PENDING_IN_PROGRESS → 409 (conflict, retryable a breve termine)
-    if (result.code === "PENDING_IN_PROGRESS") {
-      return withCors(
-        Response.json(
-          { code: "PENDING_IN_PROGRESS", error: result.error },
-          { status: 409, headers: { "Retry-After": "2" } },
-        ),
-      );
-    }
-    // ALREADY_REJECTED: 409 con istruzione di usare nuova key
-    if (result.code === "ALREADY_REJECTED") {
-      return withCors(
-        Response.json(
-          { code: "ALREADY_REJECTED", error: result.error },
-          { status: 409 },
-        ),
-      );
-    }
-    return withCors(Response.json({ error: result.error }, { status: 422 }));
+    return serviceErrorResponse({ error: result.error, code: result.code });
   }
 
   return withCors(
