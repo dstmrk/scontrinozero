@@ -42,6 +42,33 @@ export function formatFiscalDateTime(date: Date): string {
 }
 
 /**
+ * Formats a Date as ISO 8601 with explicit Europe/Rome UTC offset,
+ * e.g. "2026-05-19T14:34:56+02:00". Milliseconds are intentionally dropped
+ * (fiscal CSV precision is seconds). Handles CET (+01:00) and CEST (+02:00)
+ * transitions correctly via Intl.
+ */
+export function formatIsoInRome(date: Date): string {
+  // sv-SE locale produces ISO-style "YYYY-MM-DD HH:mm:ss" without AM/PM noise.
+  const wall = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Rome",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date); // → "2026-05-19 14:34:56"
+  const isoWall = wall.replace(" ", "T"); // → "2026-05-19T14:34:56"
+  // Treat Rome wall-clock as fake UTC, then diff with real UTC to get the offset.
+  const offsetMs = new Date(isoWall + "Z").getTime() - date.getTime();
+  const sign = offsetMs >= 0 ? "+" : "-";
+  const absMin = Math.round(Math.abs(offsetMs) / 60000);
+  const hh = String(Math.floor(absMin / 60)).padStart(2, "0");
+  const mm = String(absMin % 60).padStart(2, "0");
+  return `${isoWall}${sign}${hh}:${mm}`; // → "2026-05-19T14:34:56+02:00"
+}
+
+/**
  * Parses an ISO YYYY-MM-DD string to a UTC-midnight Date.
  * Returns null for invalid format or impossible dates (e.g. 2026-02-31).
  * Round-trip check: parsed year/month/day must equal input to catch JS Date

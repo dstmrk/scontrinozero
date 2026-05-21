@@ -99,7 +99,7 @@ describe("formatReceiptRow", () => {
     expect(row).toEqual([
       "doc-1",
       "00042",
-      "2026-05-19T12:34:56.789Z",
+      "2026-05-19T14:34:56+02:00",
       "SALE",
       "ACCEPTED",
       "12,34",

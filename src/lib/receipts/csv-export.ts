@@ -14,6 +14,7 @@ import {
   groupLinesByDocId,
 } from "@/lib/receipts/document-lines";
 import { CSV_BOM, rowToCsv } from "@/lib/csv";
+import { formatIsoInRome } from "@/lib/date-utils";
 
 /**
  * Batch size per la cursor query. 500 e' un compromesso fra memoria
@@ -84,7 +85,7 @@ export function formatReceiptRow(doc: ReceiptDocRow, total: number): string[] {
   return [
     doc.id,
     doc.adeProgressive ?? "",
-    doc.createdAt.toISOString(),
+    formatIsoInRome(doc.createdAt),
     doc.kind,
     doc.status,
     formatItalianAmount(total),
