@@ -174,7 +174,7 @@ export default function StampareScontrinoTermicaPage() {
             >
               Installare ScontrinoZero come app
             </Link>
-            ) e vai su{" "}
+            {") e vai su "}
             <strong>Impostazioni → Stampante → Cerca dispositivo</strong>. In
             alcuni casi iOS mostra la stampante solo se la ricerca parte
             dall&apos;app che la userà.
@@ -231,11 +231,11 @@ export default function StampareScontrinoTermicaPage() {
               Verifica che non sia già abbinata a un altro dispositivo: se sì,
               scollegala da lì prima di cercarla dal nuovo telefono. Su Android,
               se l&apos;hai già abbinata e poi rimossa, può aiutare cancellare
-              la cache Bluetooth (
+              la cache Bluetooth {"("}
               <strong>
                 Impostazioni → App → Bluetooth → Memoria → Cancella cache
               </strong>
-              ) e riavviare.
+              {") e riavviare."}
             </p>
           </div>
           <div>
