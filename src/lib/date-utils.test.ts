@@ -3,6 +3,7 @@ import {
   getFiscalDate,
   parseStrictIsoDateUtc,
   formatFiscalDateTime,
+  formatIsoInRome,
 } from "./date-utils";
 
 describe("getFiscalDate", () => {
@@ -96,6 +97,44 @@ describe("formatFiscalDateTime", () => {
     expect(result).toContain("2026");
     // The Rome hour (13) must appear, not the UTC hour (12)
     expect(result).toContain("13");
+  });
+});
+
+describe("formatIsoInRome", () => {
+  it("returns ISO 8601 with +02:00 offset in summer (CEST)", () => {
+    // 2026-05-19T12:34:56.789Z → Rome CEST (UTC+2) → 14:34:56+02:00
+    expect(formatIsoInRome(new Date("2026-05-19T12:34:56.789Z"))).toBe(
+      "2026-05-19T14:34:56+02:00",
+    );
+  });
+
+  it("returns ISO 8601 with +01:00 offset in winter (CET)", () => {
+    // 2026-01-15T12:34:56Z → Rome CET (UTC+1) → 13:34:56+01:00
+    expect(formatIsoInRome(new Date("2026-01-15T12:34:56Z"))).toBe(
+      "2026-01-15T13:34:56+01:00",
+    );
+  });
+
+  it("uses Rome day, not UTC day, for a timestamp just past midnight UTC in summer", () => {
+    // 2026-07-15T22:30:00Z = 2026-07-16T00:30:00 CEST → July 16 in Rome
+    expect(formatIsoInRome(new Date("2026-07-15T22:30:00Z"))).toBe(
+      "2026-07-16T00:30:00+02:00",
+    );
+  });
+
+  it("uses Rome day, not UTC day, for a timestamp just past midnight UTC in winter", () => {
+    // 2026-12-31T23:30:00Z = 2027-01-01T00:30:00 CET → Jan 1 2027 in Rome
+    expect(formatIsoInRome(new Date("2026-12-31T23:30:00Z"))).toBe(
+      "2027-01-01T00:30:00+01:00",
+    );
+  });
+
+  it("drops milliseconds from the output", () => {
+    const result = formatIsoInRome(new Date("2026-05-01T10:00:00.999Z"));
+    expect(result).not.toContain(".");
+    expect(result).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/,
+    );
   });
 });
 
