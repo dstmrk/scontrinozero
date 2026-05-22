@@ -282,88 +282,102 @@ export function computeBreakdown(
  * letterale "Altro" — collide visivamente solo se il negoziante usa
  * davvero la parola "Altro" come nome prodotto, caso raro).
  */
-export function computeProductBreakdown(
+type ProductAgg = {
+  revenueCents: number;
+  count: number;
+  variants: Map<string, number>;
+};
+
+function aggregateProductLines(
   docs: readonly AnalyticsDocRow[],
   linesByDoc: ReadonlyMap<string, readonly AnalyticsLineRow[]>,
-  topN: number = 10,
-): ProductBreakdownEntry[] {
-  type Agg = {
-    revenueCents: number;
-    count: number;
-    variants: Map<string, number>;
-  };
-  const byKey = new Map<string, Agg>();
-
+): Map<string, ProductAgg> {
+  const byKey = new Map<string, ProductAgg>();
   for (const doc of docs) {
     if (doc.status !== "ACCEPTED") continue;
     const lines = linesByDoc.get(doc.id);
     if (!lines) continue;
     for (const line of lines) {
-      const trimmed = line.description.trim();
-      const key = trimmed === "" ? "" : trimmed.toLowerCase();
-      const qty = Number.parseFloat(line.quantity);
-      const price = Number.parseFloat(line.grossUnitPrice);
-      if (!Number.isFinite(qty) || !Number.isFinite(price)) continue;
-      const cents = Math.round(qty * price * 100);
-
-      const agg = byKey.get(key) ?? {
-        revenueCents: 0,
-        count: 0,
-        variants: new Map<string, number>(),
-      };
-      agg.revenueCents += cents;
-      agg.count++;
-      if (trimmed !== "") {
-        agg.variants.set(trimmed, (agg.variants.get(trimmed) ?? 0) + 1);
-      }
-      byKey.set(key, agg);
+      addLineToAggregate(byKey, line);
     }
   }
+  return byKey;
+}
 
-  // Su tie di frequenza scegliamo la variante alfabeticamente prima:
-  // garantisce label deterministica indipendente dall'ordine di iterazione.
+function addLineToAggregate(
+  byKey: Map<string, ProductAgg>,
+  line: AnalyticsLineRow,
+): void {
+  const trimmed = line.description.trim();
+  const key = trimmed === "" ? "" : trimmed.toLowerCase();
+  const qty = Number.parseFloat(line.quantity);
+  const price = Number.parseFloat(line.grossUnitPrice);
+  if (!Number.isFinite(qty) || !Number.isFinite(price)) return;
+  const cents = Math.round(qty * price * 100);
+
+  const agg = byKey.get(key) ?? {
+    revenueCents: 0,
+    count: 0,
+    variants: new Map<string, number>(),
+  };
+  agg.revenueCents += cents;
+  agg.count++;
+  if (trimmed !== "") {
+    agg.variants.set(trimmed, (agg.variants.get(trimmed) ?? 0) + 1);
+  }
+  byKey.set(key, agg);
+}
+
+/**
+ * Sceglie la variante "display" per un gruppo. Su tie di frequenza prende
+ * la prima in ordine alfabetico per garantire label deterministica.
+ */
+function pickDisplayLabel(key: string, variants: Map<string, number>): string {
+  if (key === "") return EMPTY_DESCRIPTION_LABEL;
+  let best: string | null = null;
+  let bestCount = -1;
+  for (const [variant, count] of variants) {
+    const isBetter =
+      count > bestCount ||
+      (count === bestCount && best !== null && variant < best);
+    if (isBetter) {
+      best = variant;
+      bestCount = count;
+    }
+  }
+  return best ?? key;
+}
+
+function aggregateTail(
+  tail: readonly ProductBreakdownEntry[],
+): ProductBreakdownEntry {
+  return tail.reduce<ProductBreakdownEntry>(
+    (acc, e) => ({
+      description: OTHER_BUCKET_LABEL,
+      revenueCents: acc.revenueCents + e.revenueCents,
+      count: acc.count + e.count,
+    }),
+    { description: OTHER_BUCKET_LABEL, revenueCents: 0, count: 0 },
+  );
+}
+
+export function computeProductBreakdown(
+  docs: readonly AnalyticsDocRow[],
+  linesByDoc: ReadonlyMap<string, readonly AnalyticsLineRow[]>,
+  topN: number = 10,
+): ProductBreakdownEntry[] {
+  const byKey = aggregateProductLines(docs, linesByDoc);
+
   const entries: ProductBreakdownEntry[] = Array.from(byKey.entries()).map(
-    ([key, agg]) => {
-      let label = EMPTY_DESCRIPTION_LABEL;
-      if (key !== "") {
-        let best: string | null = null;
-        let bestCount = -1;
-        for (const [variant, count] of agg.variants) {
-          if (
-            count > bestCount ||
-            (count === bestCount && best !== null && variant < best)
-          ) {
-            best = variant;
-            bestCount = count;
-          }
-        }
-        label = best ?? key;
-      }
-      return {
-        description: label,
-        revenueCents: agg.revenueCents,
-        count: agg.count,
-      };
-    },
+    ([key, agg]) => ({
+      description: pickDisplayLabel(key, agg.variants),
+      revenueCents: agg.revenueCents,
+      count: agg.count,
+    }),
   );
 
   entries.sort((a, b) => b.revenueCents - a.revenueCents);
 
   if (entries.length <= topN) return entries;
-
-  const top = entries.slice(0, topN);
-  const tail = entries.slice(topN);
-  const otherAgg = tail.reduce(
-    (acc, e) => ({
-      revenueCents: acc.revenueCents + e.revenueCents,
-      count: acc.count + e.count,
-    }),
-    { revenueCents: 0, count: 0 },
-  );
-  top.push({
-    description: OTHER_BUCKET_LABEL,
-    revenueCents: otherAgg.revenueCents,
-    count: otherAgg.count,
-  });
-  return top;
+  return [...entries.slice(0, topN), aggregateTail(entries.slice(topN))];
 }

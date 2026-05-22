@@ -23,6 +23,24 @@ const ZERO_KPIS: AnalyticsKpis = {
   voidCount: 0,
 };
 
+type ActionResult<T> = T | { error: string };
+
+/**
+ * Normalizza il risultato di una server action in `{ ok, data, error }`.
+ * Una action puo' fallire come `{ error: string }` (kpis) o come non-array
+ * (timeseries/breakdown ritornano `T[] | { error }`): la firma generica
+ * copre entrambi tramite il discriminante `"error" in result`.
+ */
+function unwrap<T>(
+  result: ActionResult<T>,
+  fallback: T,
+): { ok: boolean; data: T; error?: string } {
+  if (result && typeof result === "object" && "error" in result) {
+    return { ok: false, data: fallback, error: result.error };
+  }
+  return { ok: true, data: result };
+}
+
 export default async function AnalyticsPage() {
   const status = await getOnboardingStatus();
   if (!status.businessId) redirect("/onboarding");
@@ -51,23 +69,28 @@ export default async function AnalyticsPage() {
   }
 
   const businessId = status.businessId;
-  const [kpis, timeseries, breakdown, productBreakdown] = await Promise.all([
-    getAnalyticsKpis(businessId, "30d"),
-    getRevenueTimeseries(businessId, "30d"),
-    getPaymentBreakdown(businessId, "30d"),
-    getProductBreakdown(businessId, "30d"),
-  ]);
+  const [kpisRes, timeseriesRes, breakdownRes, productBreakdownRes] =
+    await Promise.all([
+      getAnalyticsKpis(businessId, "30d"),
+      getRevenueTimeseries(businessId, "30d"),
+      getPaymentBreakdown(businessId, "30d"),
+      getProductBreakdown(businessId, "30d"),
+    ]);
+
+  const kpis = unwrap<AnalyticsKpis>(kpisRes, ZERO_KPIS);
+  const timeseries = unwrap<RevenuePoint[]>(timeseriesRes, []);
+  const breakdown = unwrap<PaymentBreakdownEntry[]>(breakdownRes, []);
+  const productBreakdown = unwrap<ProductBreakdownEntry[]>(
+    productBreakdownRes,
+    [],
+  );
 
   // Non collassare silenziosamente {error} in zero: un utente con DB
   // timeout o ownership glitch vedrebbe "0 €, 0 scontrini" indistinguibile
   // da un negozio senza scontrini. Logghiamo lato server (Sentry) e
   // passiamo un flag al client per mostrare un banner inline.
-  const kpisFailed = "error" in kpis;
-  const timeseriesFailed = !Array.isArray(timeseries);
-  const breakdownFailed = !Array.isArray(breakdown);
-  const productBreakdownFailed = !Array.isArray(productBreakdown);
   const loadFailed =
-    kpisFailed || timeseriesFailed || breakdownFailed || productBreakdownFailed;
+    !kpis.ok || !timeseries.ok || !breakdown.ok || !productBreakdown.ok;
 
   if (loadFailed) {
     logger.warn(
@@ -75,38 +98,23 @@ export default async function AnalyticsPage() {
         userId: user.id,
         businessId,
         errorClass: "analytics_dashboard_load",
-        kpisError: kpisFailed ? kpis.error : undefined,
-        timeseriesError: timeseriesFailed ? timeseries.error : undefined,
-        breakdownError: breakdownFailed ? breakdown.error : undefined,
-        productBreakdownError: productBreakdownFailed
-          ? productBreakdown.error
-          : undefined,
+        kpisError: kpis.error,
+        timeseriesError: timeseries.error,
+        breakdownError: breakdown.error,
+        productBreakdownError: productBreakdown.error,
       },
       "analytics: server action failed",
     );
   }
 
-  const safeKpis: AnalyticsKpis = kpisFailed ? ZERO_KPIS : kpis;
-  const safeTimeseries: RevenuePoint[] = Array.isArray(timeseries)
-    ? timeseries
-    : [];
-  const safeBreakdown: PaymentBreakdownEntry[] = Array.isArray(breakdown)
-    ? breakdown
-    : [];
-  const safeProductBreakdown: ProductBreakdownEntry[] = Array.isArray(
-    productBreakdown,
-  )
-    ? productBreakdown
-    : [];
-
   return (
     <AnalyticsClient
       businessId={businessId}
       initialRange="30d"
-      initialKpis={safeKpis}
-      initialTimeseries={safeTimeseries}
-      initialBreakdown={safeBreakdown}
-      initialProductBreakdown={safeProductBreakdown}
+      initialKpis={kpis.data}
+      initialTimeseries={timeseries.data}
+      initialBreakdown={breakdown.data}
+      initialProductBreakdown={productBreakdown.data}
       initialLoadFailed={loadFailed}
     />
   );
