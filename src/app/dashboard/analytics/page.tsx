@@ -3,9 +3,11 @@ import { getOnboardingStatus } from "@/server/onboarding-actions";
 import {
   type AnalyticsKpis,
   type PaymentBreakdownEntry,
+  type ProductBreakdownEntry,
   type RevenuePoint,
   getAnalyticsKpis,
   getPaymentBreakdown,
+  getProductBreakdown,
   getRevenueTimeseries,
 } from "@/server/analytics-actions";
 import { AnalyticsClient } from "@/components/analytics/analytics-client";
@@ -49,10 +51,11 @@ export default async function AnalyticsPage() {
   }
 
   const businessId = status.businessId;
-  const [kpis, timeseries, breakdown] = await Promise.all([
+  const [kpis, timeseries, breakdown, productBreakdown] = await Promise.all([
     getAnalyticsKpis(businessId, "30d"),
     getRevenueTimeseries(businessId, "30d"),
     getPaymentBreakdown(businessId, "30d"),
+    getProductBreakdown(businessId, "30d"),
   ]);
 
   // Non collassare silenziosamente {error} in zero: un utente con DB
@@ -62,7 +65,9 @@ export default async function AnalyticsPage() {
   const kpisFailed = "error" in kpis;
   const timeseriesFailed = !Array.isArray(timeseries);
   const breakdownFailed = !Array.isArray(breakdown);
-  const loadFailed = kpisFailed || timeseriesFailed || breakdownFailed;
+  const productBreakdownFailed = !Array.isArray(productBreakdown);
+  const loadFailed =
+    kpisFailed || timeseriesFailed || breakdownFailed || productBreakdownFailed;
 
   if (loadFailed) {
     logger.warn(
@@ -73,6 +78,9 @@ export default async function AnalyticsPage() {
         kpisError: kpisFailed ? kpis.error : undefined,
         timeseriesError: timeseriesFailed ? timeseries.error : undefined,
         breakdownError: breakdownFailed ? breakdown.error : undefined,
+        productBreakdownError: productBreakdownFailed
+          ? productBreakdown.error
+          : undefined,
       },
       "analytics: server action failed",
     );
@@ -85,6 +93,11 @@ export default async function AnalyticsPage() {
   const safeBreakdown: PaymentBreakdownEntry[] = Array.isArray(breakdown)
     ? breakdown
     : [];
+  const safeProductBreakdown: ProductBreakdownEntry[] = Array.isArray(
+    productBreakdown,
+  )
+    ? productBreakdown
+    : [];
 
   return (
     <AnalyticsClient
@@ -93,6 +106,7 @@ export default async function AnalyticsPage() {
       initialKpis={safeKpis}
       initialTimeseries={safeTimeseries}
       initialBreakdown={safeBreakdown}
+      initialProductBreakdown={safeProductBreakdown}
       initialLoadFailed={loadFailed}
     />
   );

@@ -4,18 +4,21 @@ import { AnalyticsClient } from "./analytics-client";
 import type {
   AnalyticsKpis,
   PaymentBreakdownEntry,
+  ProductBreakdownEntry,
   RevenuePoint,
 } from "@/server/analytics-actions";
 
 const mockGetAnalyticsKpis = vi.fn();
 const mockGetRevenueTimeseries = vi.fn();
 const mockGetPaymentBreakdown = vi.fn();
+const mockGetProductBreakdown = vi.fn();
 
 vi.mock("@/server/analytics-actions", () => ({
   getAnalyticsKpis: (...args: unknown[]) => mockGetAnalyticsKpis(...args),
   getRevenueTimeseries: (...args: unknown[]) =>
     mockGetRevenueTimeseries(...args),
   getPaymentBreakdown: (...args: unknown[]) => mockGetPaymentBreakdown(...args),
+  getProductBreakdown: (...args: unknown[]) => mockGetProductBreakdown(...args),
 }));
 
 // Stub Radix UI Select per evitare di gestire portals/scrollIntoView nei test.
@@ -78,6 +81,11 @@ vi.mock("./payment-breakdown", () => ({
     <div data-testid="breakdown">{data.length} methods</div>
   ),
 }));
+vi.mock("./product-breakdown", () => ({
+  ProductBreakdown: ({ data }: { data: ProductBreakdownEntry[] }) => (
+    <div data-testid="product-breakdown">{data.length} products</div>
+  ),
+}));
 
 const INITIAL_KPIS: AnalyticsKpis = {
   revenueCents: 100,
@@ -102,6 +110,7 @@ describe("AnalyticsClient handleRangeChange", () => {
     mockGetAnalyticsKpis.mockImplementationOnce(() => slowKpis);
     mockGetRevenueTimeseries.mockImplementationOnce(() => Promise.resolve([]));
     mockGetPaymentBreakdown.mockImplementationOnce(() => Promise.resolve([]));
+    mockGetProductBreakdown.mockImplementationOnce(() => Promise.resolve([]));
 
     const fastKpis: AnalyticsKpis = {
       revenueCents: 3030,
@@ -114,6 +123,7 @@ describe("AnalyticsClient handleRangeChange", () => {
     );
     mockGetRevenueTimeseries.mockImplementationOnce(() => Promise.resolve([]));
     mockGetPaymentBreakdown.mockImplementationOnce(() => Promise.resolve([]));
+    mockGetProductBreakdown.mockImplementationOnce(() => Promise.resolve([]));
 
     render(
       <AnalyticsClient
@@ -122,6 +132,7 @@ describe("AnalyticsClient handleRangeChange", () => {
         initialKpis={INITIAL_KPIS}
         initialTimeseries={[]}
         initialBreakdown={[]}
+        initialProductBreakdown={[]}
       />,
     );
 
@@ -168,6 +179,7 @@ describe("AnalyticsClient handleRangeChange", () => {
     mockGetAnalyticsKpis.mockResolvedValueOnce(ytdKpis);
     mockGetRevenueTimeseries.mockResolvedValueOnce([]);
     mockGetPaymentBreakdown.mockResolvedValueOnce([]);
+    mockGetProductBreakdown.mockResolvedValueOnce([]);
 
     render(
       <AnalyticsClient
@@ -176,6 +188,7 @@ describe("AnalyticsClient handleRangeChange", () => {
         initialKpis={INITIAL_KPIS}
         initialTimeseries={[]}
         initialBreakdown={[]}
+        initialProductBreakdown={[]}
       />,
     );
 
@@ -186,6 +199,7 @@ describe("AnalyticsClient handleRangeChange", () => {
     });
     expect(mockGetRevenueTimeseries).toHaveBeenCalledWith("biz-1", "ytd");
     expect(mockGetPaymentBreakdown).toHaveBeenCalledWith("biz-1", "ytd");
+    expect(mockGetProductBreakdown).toHaveBeenCalledWith("biz-1", "ytd");
 
     await waitFor(() => {
       expect(screen.getByTestId("kpis").textContent).toContain(
@@ -202,6 +216,7 @@ describe("AnalyticsClient handleRangeChange", () => {
         initialKpis={INITIAL_KPIS}
         initialTimeseries={[]}
         initialBreakdown={[]}
+        initialProductBreakdown={[]}
       />,
     );
 
@@ -210,5 +225,6 @@ describe("AnalyticsClient handleRangeChange", () => {
     expect(mockGetAnalyticsKpis).not.toHaveBeenCalled();
     expect(mockGetRevenueTimeseries).not.toHaveBeenCalled();
     expect(mockGetPaymentBreakdown).not.toHaveBeenCalled();
+    expect(mockGetProductBreakdown).not.toHaveBeenCalled();
   });
 });

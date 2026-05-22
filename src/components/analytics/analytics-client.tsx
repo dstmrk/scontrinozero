@@ -6,13 +6,16 @@ import {
   type AnalyticsKpis,
   type AnalyticsRange,
   type PaymentBreakdownEntry,
+  type ProductBreakdownEntry,
   type RevenuePoint,
   getAnalyticsKpis,
   getPaymentBreakdown,
+  getProductBreakdown,
   getRevenueTimeseries,
 } from "@/server/analytics-actions";
 import { KpiCards } from "./kpi-cards";
 import { PaymentBreakdown } from "./payment-breakdown";
+import { ProductBreakdown } from "./product-breakdown";
 import { RevenueSparkline } from "./revenue-sparkline";
 import {
   Select,
@@ -29,6 +32,7 @@ interface AnalyticsClientProps {
   readonly initialKpis: AnalyticsKpis;
   readonly initialTimeseries: RevenuePoint[];
   readonly initialBreakdown: PaymentBreakdownEntry[];
+  readonly initialProductBreakdown: ProductBreakdownEntry[];
   readonly initialLoadFailed?: boolean;
 }
 
@@ -45,6 +49,7 @@ export function AnalyticsClient({
   initialKpis,
   initialTimeseries,
   initialBreakdown,
+  initialProductBreakdown,
   initialLoadFailed = false,
 }: AnalyticsClientProps) {
   const [range, setRange] = useState<AnalyticsRange>(initialRange);
@@ -53,6 +58,9 @@ export function AnalyticsClient({
     useState<RevenuePoint[]>(initialTimeseries);
   const [breakdown, setBreakdown] =
     useState<PaymentBreakdownEntry[]>(initialBreakdown);
+  const [productBreakdown, setProductBreakdown] = useState<
+    ProductBreakdownEntry[]
+  >(initialProductBreakdown);
   const [loadFailed, setLoadFailed] = useState<boolean>(initialLoadFailed);
   const [isPending, startTransition] = useTransition();
   // `latestRangeRef` traccia l'ultimo range richiesto. Se l'utente cambia
@@ -68,16 +76,22 @@ export function AnalyticsClient({
     latestRangeRef.current = nextRange;
     setRange(nextRange);
     startTransition(async () => {
-      const [k, t, b] = await Promise.all([
+      const [k, t, b, p] = await Promise.all([
         getAnalyticsKpis(businessId, nextRange),
         getRevenueTimeseries(businessId, nextRange),
         getPaymentBreakdown(businessId, nextRange),
+        getProductBreakdown(businessId, nextRange),
       ]);
       if (latestRangeRef.current !== nextRange) return;
-      const failed = "error" in k || !Array.isArray(t) || !Array.isArray(b);
+      const failed =
+        "error" in k ||
+        !Array.isArray(t) ||
+        !Array.isArray(b) ||
+        !Array.isArray(p);
       setKpis("error" in k ? ZERO_KPIS : k);
       setTimeseries(Array.isArray(t) ? t : []);
       setBreakdown(Array.isArray(b) ? b : []);
+      setProductBreakdown(Array.isArray(p) ? p : []);
       setLoadFailed(failed);
     });
   }
@@ -135,6 +149,17 @@ export function AnalyticsClient({
         </CardHeader>
         <CardContent>
           <PaymentBreakdown data={breakdown} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            Prodotti e servizi più venduti
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ProductBreakdown data={productBreakdown} />
         </CardContent>
       </Card>
     </div>
