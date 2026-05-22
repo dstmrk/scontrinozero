@@ -1,7 +1,11 @@
-# claude-security.md — IP trust, rate limit, hostname, CSP, input validation
+---
+name: security-patterns
+description: Use when implementing or reviewing security-sensitive boundaries — reading client IP (CF-Connecting-IP), rate limiting (single or double-gate with Turnstile), validating UUIDs/emails/decimals/hostnames/redirect params at API boundaries, enforcing body size limits before JSON.parse, wrapping external SDK calls (Stripe, AdE, Resend) in try-catch returning 503, configuring CSP/security headers in src/lib/security-headers.ts, normalizing emails in auth flows, building lookups from user-controlled keys (prototype pollution), or calling setInterval in long-lived constructors. Also covers the Turnstile hostname allowlist for app vs marketing domains.
+---
+
+# security-patterns — IP trust, rate limit, hostname, CSP, input validation
 
 Pattern di sicurezza per route handler, server actions e middleware.
-Riferimento dal `CLAUDE.md` core.
 
 ---
 

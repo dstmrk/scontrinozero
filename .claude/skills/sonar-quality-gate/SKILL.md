@@ -1,7 +1,11 @@
-# claude-sonar.md — Regole SonarCloud specifiche
+---
+name: sonar-quality-gate
+description: Use when fixing SonarCloud or Gitleaks findings — Cognitive Complexity > 15, S6861 readonly React props, S6772 ambiguous JSX spacing, S7780 escape sequences in template literals (use String.raw), S5852 ReDoS or S5122 CORS wildcard Security Hotspots (NOSONAR does not suppress hotspots), or curl-auth-header / generic-api-key false positives in docs requiring .gitleaksignore fingerprints. Also covers coverage exclusions in sonar-project.properties + vitest.config.ts, service worker exclusions, and the rule "ask the user when CI failure is opaque" instead of blind-fixing.
+---
 
-Quality gate ricorrente e regole che si attivano spesso. Riferimento dal
-`CLAUDE.md` core.
+# sonar-quality-gate — Regole SonarCloud specifiche
+
+Quality gate ricorrente e regole che si attivano spesso.
 
 ---
 

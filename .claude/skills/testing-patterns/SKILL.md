@@ -1,7 +1,12 @@
-# claude-testing.md — Vitest patterns e regole CI
+---
+name: testing-patterns
+description: Use when writing or fixing Vitest tests — avoiding SonarCloud S6661 Blocker (every it()/test() must have at least one expect()), mocking classes correctly with function/class keyword (never arrow), prefixing vi.mock factory variables with "mock" for hoisting, mocking Drizzle's db.transaction() callback with a passthrough, stubbing NODE_ENV with vi.stubEnv, updating mocks after refactoring N queries into a JOIN, INSERT ON CONFLICT DO NOTHING for race conditions, sanitizing context before Sentry.captureException via sanitizeForTelemetry(), auth-first ordering in deleteAccount, conditional last_used_at writes to prevent write-amplification, or react/cache deduplication across RSC and Route Handlers. Also lists the consolidated rate-limit thresholds for server actions (emit/void/pdf/checkout/portal/auth).
+---
+
+# testing-patterns — Vitest patterns e regole CI
 
 Lezioni operative per evitare i failure più comuni di SonarCloud e i bug silenziosi
-nei mock. Riferimento dal `CLAUDE.md` core.
+nei mock.
 
 ---
 

@@ -1,9 +1,9 @@
-# claude-db.md — Migrazioni handwritten, transazioni, gotchas Drizzle
-
-Riferimento dal `CLAUDE.md` core. La regola "tutte handwritten dopo `0000`" è
-ribadita anche nel core perché va sempre presente.
-
 ---
+name: db-migrations
+description: Use when creating or modifying SQL files under supabase/migrations/, updating Drizzle schema in src/db/schema/, editing supabase/migrations/meta/_journal.json, writing raw sql`` templates that bind Date values, debugging race conditions on UNIQUE constraints, designing per-tenant idempotency keys, or wrapping multi-row updates in db.transaction(). Covers the handwritten migrations workflow (NEVER run `npx drizzle-kit generate` in this repo), ADD COLUMN IF NOT EXISTS pattern, bootstrap on a pre-existing DB via __applied_migrations, and the Date-in-sql`` regression that crashed AdE "Verifica connessione".
+---
+
+# db-migrations — Migrazioni handwritten, transazioni, gotchas Drizzle
 
 ## DB migrations: TUTTE handwritten dopo lo schema iniziale
 

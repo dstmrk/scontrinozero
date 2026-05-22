@@ -44,9 +44,10 @@ tag git (`git tag -l "v1.*"`).
 5. **Task > 3 file → break in sub-task.** Stop e suddividere.
 6. **Riflessione dopo correzione:** quando l'utente corregge, capire perché ho
    sbagliato e come non rifarlo.
-7. **Aggiornare `CLAUDE.md` (o `docs/claude-*.md` pertinente) autonomamente**
-   dopo aver risolto un problema non triviale con lezione riusabile (debugging
-   pattern, setup gotcha, wrong assumption). Non aspettare che lo chiedano.
+7. **Aggiornare `CLAUDE.md` (o la skill pertinente in `.claude/skills/`)
+   autonomamente** dopo aver risolto un problema non triviale con lezione
+   riusabile (debugging pattern, setup gotcha, wrong assumption). Non
+   aspettare che lo chiedano.
 8. **Aggiornare pagine `/help`** se si modifica una funzionalità (label, menu,
    stati, filtri, error flow, gating piani, nomi bottoni). `grep -rn "<termine>"
    src/app/\(marketing\)/help` prima di chiudere il task. Feature non ancora
@@ -59,7 +60,8 @@ tag git (`git tag -l "v1.*"`).
     e response 503 — mai lasciare propagare 500 senza context.
 11. **DB migrations: TUTTE handwritten dopo `0000`.** 🚫 **MAI eseguire
     `npx drizzle-kit generate`** nello stato attuale del repo (conflitto con
-    handwritten migrations). Dettaglio workflow in `docs/claude-db.md`.
+    handwritten migrations). Workflow nella skill `db-migrations`. Un hook
+    PreToolUse blocca automaticamente questo comando.
 12. **Debug CI failure opachi:** se SonarCloud/Gitleaks flagga qualcosa non
     visibile nel diff/log, **chiedere all'utente** quale file/riga invece di
     tentare blind fix.
@@ -76,7 +78,7 @@ tag git (`git tag -l "v1.*"`).
 - **0 new issues** (fix sempre, anche con Quality Gate verde — accumulano debt)
 
 Regole specifiche ricorrenti (S6861 readonly props, S6772 JSX spacing, S7780
-template literals, S5852/S5122 hotspots, Gitleaks placeholder) → `docs/claude-sonar.md`.
+template literals, S5852/S5122 hotspots, Gitleaks placeholder) → skill `sonar-quality-gate`.
 
 ## Stripe API version `2026-02-25.clover` — breaking changes
 
@@ -84,8 +86,8 @@ template literals, S5852/S5122 hotspots, Gitleaks placeholder) → `docs/claude-
 - `Subscription.current_period_end` → `subscription.items.data[0]?.current_period_end`
 - Mai `!` su `process.env.STRIPE_WEBHOOK_SECRET` — guard esplicito
 
-Webhook events list (8 da registrare, niente di meno) e recovery patterns in
-`docs/claude-stripe.md`.
+Webhook events list (8 da registrare, niente di meno) e recovery patterns
+nella skill `stripe-webhooks`.
 
 ## Workflow operativi
 
@@ -99,8 +101,8 @@ Webhook events list (8 da registrare, niente di meno) e recovery patterns in
 5. `npx tsx scripts/migrate.ts` su DB locale, verificare idempotenza al re-run
 
 Pattern ADD COLUMN: `ADD COLUMN IF NOT EXISTS`, mai `NOT NULL` su tabelle già
-popolate senza default. Dettaglio + bootstrap su DB pre-esistente in
-`docs/claude-db.md`.
+popolate senza default. Dettaglio + bootstrap su DB pre-esistente nella skill
+`db-migrations`.
 
 ### Worktree setup (`.claude/worktrees/<name>/`)
 
@@ -162,27 +164,29 @@ prima dell'entrata in vigore.
 Feature gate canonico in `src/lib/plans.ts`. Trial 30 giorni Starter/Pro, no
 carta all'iscrizione. P.IVA UNIQUE nel DB (anti-abuso trial).
 
-## Indice docs di approfondimento
+## Skill dominio-specifiche
 
-Pattern e lezioni dettagliate consultabili al bisogno via `Read`/`grep`:
+Le lezioni dettagliate vivono in `.claude/skills/<name>/SKILL.md` e si
+auto-attivano quando il task matcha il `description`:
 
-- **`docs/claude-testing.md`** — Vitest: `expect()` obbligatori, mock di
-  classi, rate limit pattern, JOIN refactor, NODE_ENV, mock Drizzle
-  transaction, `react/cache`, INSERT ON CONFLICT, Sentry+pino, `deleteAccount`
-  ordering, `last_used_at` throttle
-- **`docs/claude-db.md`** — Migrazioni handwritten, bootstrap su DB
-  pre-esistente, transazioni multi-doc, Drizzle raw `sql\`\`` con `Date`,
-  race condition / constraint DB, idempotency key per-tenant
-- **`docs/claude-security.md`** — `CF-Connecting-IP` trust, retry+backoff,
-  UUID/body size/email guards, hostname validation, double-gate rate limit
-  con Turnstile, `setInterval.unref()`, redirect param query string, CSP
-  rollout
-- **`docs/claude-stripe.md`** — API version breaking changes, 8 webhook
-  events da registrare, stale recovery AdE
-- **`docs/claude-ade.md`** — Integrazione diretta (no headless),
-  adapter/strategy mock, debug HTTP, HAR analysis, key rotation `ENCRYPTION_KEY`
-- **`docs/claude-sonar.md`** — Regole specifiche S6861/S6772/S7780/S5852/S5122,
-  Gitleaks placeholder fingerprint, coverage exclusions
+- **`testing-patterns`** — Vitest, `expect()` obbligatori, mock di classi,
+  rate limit, JOIN refactor, NODE_ENV, mock Drizzle transaction, Sentry+pino
+- **`db-migrations`** — handwritten migrations, bootstrap DB pre-esistente,
+  Drizzle raw `sql\`\`` con `Date`, race / idempotency per-tenant
+- **`security-patterns`** — `CF-Connecting-IP`, UUID/body/email guards,
+  hostname validation, double-gate rate limit, CSP, prototype-safe lookup
+- **`stripe-webhooks`** — API `2026-02-25.clover`, 8 webhook events,
+  stale-pending recovery AdE
+- **`ade-integration`** — integrazione HTTP diretta, mock strategy, HAR
+  analysis, rotazione `ENCRYPTION_KEY`
+- **`sonar-quality-gate`** — regole S6861/S6772/S7780/S5852/S5122, Gitleaks,
+  coverage exclusions
+
+## Hook automatici (`.claude/hooks/`)
+
+- `block-drizzle-generate.sh` — blocca `drizzle-kit generate` (regola 11)
+- `block-push-to-main.sh` — blocca `git push` verso `main` / `HEAD:main`
+  (regola 1)
 
 Altri riferimenti già nel repo:
 
