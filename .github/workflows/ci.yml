@@ -20,6 +20,7 @@ jobs:
       marketing: ${{ steps.f.outputs.marketing }}
       lockfile: ${{ steps.f.outputs.lockfile }}
       migrations: ${{ steps.f.outputs.migrations }}
+      workflows: ${{ steps.f.outputs.workflows }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       # Filtri "semplici" — predicate-quantifier di default (`some`).
@@ -46,6 +47,8 @@ jobs:
             migrations:
               - 'supabase/migrations/**'
               - 'scripts/check-migrations.mjs'
+            workflows:
+              - '.github/workflows/**'
       # Filtro "src/** escluso marketing": serve `predicate-quantifier: every`
       # per far valere le negazioni. Con `some` (default), un file marketing
       # matcherebbe comunque `src/**` e setterebbe il flag a true.
@@ -96,6 +99,20 @@ jobs:
           # gitleaks-action v2 is still pinned to Node 20. Opt into Node 24 to
           # silence the deprecation warning until upstream ships a Node 24 build.
           FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+  # Lint dei file workflow — gira solo se .github/workflows/** cambia.
+  # Cattura errori sintattici/logici (anche in deploy.yml & co) prima del prossimo tag.
+  actionlint:
+    needs: changes
+    if: needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Download actionlint
+        id: get_actionlint
+        run: bash <(curl -sSf https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
+      - name: Run actionlint
+        run: ${{ steps.get_actionlint.outputs.executable }} -color
 
   # Audit dipendenze — gira anche su modifiche al solo lockfile
   audit:
