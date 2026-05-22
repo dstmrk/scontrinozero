@@ -1,9 +1,9 @@
-# claude-stripe.md — Stripe API version, webhook events, recovery patterns
-
-Riferimento dal `CLAUDE.md` core. La nota sull'API version 2026-02-25.clover è
-ripetuta nel core (è una breaking-change zone), il resto è qui.
-
 ---
+name: stripe-webhooks
+description: Use when working with Stripe billing — handling API version `2026-02-25.clover` breaking changes (Invoice.subscription moved to invoice.parent?.subscription_details?.subscription, Subscription.current_period_end moved to items[0]), registering the 8 required webhook events (checkout.session.completed/expired, customer.subscription.updated/deleted, invoice.paid/payment_failed/payment_action_required, charge.dispute.created), debugging "pending" subscription rows after checkout, or implementing stale-pending recovery thresholds for idempotent AdE mutations (getStalePendingThresholdMs in receipt-service/void-service). Files: src/server/stripe/, src/app/api/stripe/, webhook handler.
+---
+
+# stripe-webhooks — Stripe API version, webhook events, recovery patterns
 
 ## API version `2026-02-25.clover` — breaking changes
 

@@ -1,8 +1,9 @@
-# claude-ade.md — Integrazione Agenzia delle Entrate, mock, debug
-
-Riferimento dal `CLAUDE.md` core.
-
 ---
+name: ade-integration
+description: Use when working with the Agenzia delle Entrate (AdE) "Documento Commerciale Online" integration — editing files under src/server/ade/, handling Fisconline credential encryption/decryption, rotating ENCRYPTION_KEY via scripts/rotate-encryption-key.ts, reverse-engineering AdE HTTP flows from HAR captures (login_cie.har, ricerca_documento.har, etc.), wiring the RealAdeClient/MockAdeClient adapter for ADE_MODE=real|mock, or debugging production AdE 4xx/5xx errors. Covers why no headless browser is allowed and the diagnostic-logging-first debug pattern.
+---
+
+# ade-integration — Integrazione Agenzia delle Entrate, mock, debug
 
 ## Strategia: integrazione diretta (no API REST, no headless browser)
 
