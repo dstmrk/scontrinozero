@@ -16,21 +16,23 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      code: ${{ steps.filter.outputs.code }}
-      marketing: ${{ steps.filter.outputs.marketing }}
-      lockfile: ${{ steps.filter.outputs.lockfile }}
-      migrations: ${{ steps.filter.outputs.migrations }}
+      code: ${{ steps.agg.outputs.code }}
+      marketing: ${{ steps.f.outputs.marketing }}
+      lockfile: ${{ steps.f.outputs.lockfile }}
+      migrations: ${{ steps.f.outputs.migrations }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      # Filtri "semplici" — predicate-quantifier di default (`some`).
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
-        id: filter
+        id: f
         with:
           filters: |
-            code:
-              - 'src/**'
-              - '!src/app/(marketing)/**'
-              - '!src/components/marketing/**'
+            marketing:
+              - 'src/app/(marketing)/**'
+              - 'src/components/marketing/**'
+            tests:
               - 'tests/**'
+            config:
               - 'package.json'
               - 'package-lock.json'
               - 'tsconfig.json'
@@ -39,14 +41,35 @@ jobs:
               - 'eslint.config.mjs'
               - 'scripts/**'
               - '.github/workflows/ci.yml'
-            marketing:
-              - 'src/app/(marketing)/**'
-              - 'src/components/marketing/**'
             lockfile:
               - 'package-lock.json'
             migrations:
               - 'supabase/migrations/**'
               - 'scripts/check-migrations.mjs'
+      # Filtro "src/** escluso marketing": serve `predicate-quantifier: every`
+      # per far valere le negazioni. Con `some` (default), un file marketing
+      # matcherebbe comunque `src/**` e setterebbe il flag a true.
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        id: f_src
+        with:
+          predicate-quantifier: every
+          filters: |
+            non_marketing:
+              - 'src/**'
+              - '!src/app/(marketing)/**'
+              - '!src/components/marketing/**'
+      # Aggrega un singolo flag `code` = "richiede lint+type-check+test+build".
+      # true se: tests/, file di config, oppure src/ non-marketing cambiano.
+      - name: Aggregate code flag
+        id: agg
+        run: |
+          if [ "${{ steps.f.outputs.tests }}" = "true" ] \
+             || [ "${{ steps.f.outputs.config }}" = "true" ] \
+             || [ "${{ steps.f_src.outputs.non_marketing }}" = "true" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
 
   # Verifica che tutti i file .sql siano registrati in _journal.json.
   # Gira solo quando cambia supabase/migrations/** o lo script di check.
