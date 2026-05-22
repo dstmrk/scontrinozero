@@ -389,6 +389,74 @@ describe("computeProductBreakdown", () => {
     expect(out[0].description).toBe("PIZZA");
   });
 
+  it("matches doc-level rounding (calcDocTotal) so KPI and product totals reconcile", () => {
+    // 3 righe stesso prodotto, qty=0.333, price=1.00.
+    // Round per-riga: round(33.3) * 3 = 99 cents (WRONG, drift).
+    // Doc-level round: round((0.333+0.333+0.333) * 100) = round(99.9) = 100.
+    // Il breakdown DEVE usare il doc-level per essere coerente con i KPI.
+    const docs = [makeDoc("a", "ACCEPTED", new Date())];
+    const linesByDoc = makeLines([
+      {
+        documentId: "a",
+        description: "X",
+        quantity: "0.333",
+        grossUnitPrice: "1.00",
+      },
+      {
+        documentId: "a",
+        description: "X",
+        quantity: "0.333",
+        grossUnitPrice: "1.00",
+      },
+      {
+        documentId: "a",
+        description: "X",
+        quantity: "0.333",
+        grossUnitPrice: "1.00",
+      },
+    ]);
+    const out = computeProductBreakdown(docs, linesByDoc);
+    expect(out[0].revenueCents).toBe(100);
+    expect(out[0].count).toBe(3);
+  });
+
+  it("uses deterministic alphabetical tiebreak when revenues are equal", () => {
+    // Tre prodotti con stesso revenue (200 cents). Senza tiebreak l'ordine
+    // dipende dall'insertion order (e quindi dall'ordine delle righe DB).
+    // Con tiebreak per chiave normalizzata: banana → ciliegia → mela.
+    const docs = [
+      makeDoc("a", "ACCEPTED", new Date()),
+      makeDoc("b", "ACCEPTED", new Date()),
+      makeDoc("c", "ACCEPTED", new Date()),
+    ];
+    const linesByDoc = makeLines([
+      {
+        documentId: "a",
+        description: "mela",
+        quantity: "1",
+        grossUnitPrice: "2.00",
+      },
+      {
+        documentId: "b",
+        description: "ciliegia",
+        quantity: "1",
+        grossUnitPrice: "2.00",
+      },
+      {
+        documentId: "c",
+        description: "banana",
+        quantity: "1",
+        grossUnitPrice: "2.00",
+      },
+    ]);
+    const out = computeProductBreakdown(docs, linesByDoc);
+    expect(out.map((e) => e.description)).toEqual([
+      "banana",
+      "ciliegia",
+      "mela",
+    ]);
+  });
+
   it("respects a custom topN parameter", () => {
     const docs: ReturnType<typeof makeDoc>[] = [];
     const lines: LineRow[] = [];

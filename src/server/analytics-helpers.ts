@@ -283,7 +283,15 @@ export function computeBreakdown(
  * davvero la parola "Altro" come nome prodotto, caso raro).
  */
 type ProductAgg = {
-  revenueCents: number;
+  /**
+   * Somma `qty * price` in float, NON ancora arrotondata: per coerenza con
+   * `calcDocTotal` (`src/lib/receipts/document-lines.ts`) la conversione a
+   * centesimi avviene una sola volta in fondo. Arrotondare per riga produce
+   * drift osservabile (es. 3 × 0.333 × 1.00 = 99 cents per-line vs 100 cents
+   * doc-level), facendo non quadrare la somma del breakdown prodotti col
+   * ricavo KPI sullo stesso range.
+   */
+  revenueFloat: number;
   count: number;
   variants: Map<string, number>;
 };
@@ -313,14 +321,13 @@ function addLineToAggregate(
   const qty = Number.parseFloat(line.quantity);
   const price = Number.parseFloat(line.grossUnitPrice);
   if (!Number.isFinite(qty) || !Number.isFinite(price)) return;
-  const cents = Math.round(qty * price * 100);
 
   const agg = byKey.get(key) ?? {
-    revenueCents: 0,
+    revenueFloat: 0,
     count: 0,
     variants: new Map<string, number>(),
   };
-  agg.revenueCents += cents;
+  agg.revenueFloat += qty * price;
   agg.count++;
   if (trimmed !== "") {
     agg.variants.set(trimmed, (agg.variants.get(trimmed) ?? 0) + 1);
@@ -368,16 +375,33 @@ export function computeProductBreakdown(
 ): ProductBreakdownEntry[] {
   const byKey = aggregateProductLines(docs, linesByDoc);
 
-  const entries: ProductBreakdownEntry[] = Array.from(byKey.entries()).map(
-    ([key, agg]) => ({
-      description: pickDisplayLabel(key, agg.variants),
-      revenueCents: agg.revenueCents,
-      count: agg.count,
+  // Materializziamo `sortKey` (chiave normalizzata) per il tiebreak: l'ordine
+  // di iterazione del Map dipende dall'insertion order, che a sua volta
+  // dipende dall'ordine delle righe DB (non garantito). Senza tiebreak, due
+  // prodotti con stesso revenue potrebbero apparire in posizioni diverse a
+  // ogni refresh — e il taglio topN potrebbe includere/escludere prodotti
+  // diversi tra chiamate.
+  const entries = Array.from(byKey.entries()).map(([key, agg]) => ({
+    description: pickDisplayLabel(key, agg.variants),
+    revenueCents: toCents(agg.revenueFloat),
+    count: agg.count,
+    sortKey: key,
+  }));
+
+  entries.sort((a, b) => {
+    if (b.revenueCents !== a.revenueCents)
+      return b.revenueCents - a.revenueCents;
+    return a.sortKey.localeCompare(b.sortKey);
+  });
+
+  const stripped: ProductBreakdownEntry[] = entries.map(
+    ({ description, revenueCents, count }) => ({
+      description,
+      revenueCents,
+      count,
     }),
   );
 
-  entries.sort((a, b) => b.revenueCents - a.revenueCents);
-
-  if (entries.length <= topN) return entries;
-  return [...entries.slice(0, topN), aggregateTail(entries.slice(topN))];
+  if (stripped.length <= topN) return stripped;
+  return [...stripped.slice(0, topN), aggregateTail(stripped.slice(topN))];
 }
