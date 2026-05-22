@@ -110,6 +110,7 @@ import {
 import {
   getAnalyticsKpis,
   getPaymentBreakdown,
+  getProductBreakdown,
   getRevenueTimeseries,
 } from "./analytics-actions";
 
@@ -586,6 +587,97 @@ describe("getPaymentBreakdown", () => {
     );
     mockFetchLinesByDocIds.mockResolvedValue([]);
     const res = await getPaymentBreakdown("biz-1", "30d");
+    expect(res).toEqual([]);
+  });
+});
+
+describe("getProductBreakdown", () => {
+  it("returns an error when ownership check fails", async () => {
+    mockCheckBusinessOwnership.mockResolvedValue({ error: "Non autorizzato." });
+    const res = await getProductBreakdown("biz-1", "30d");
+    expect(res).toEqual({ error: "Non autorizzato." });
+  });
+
+  it("returns an error when the plan is not Pro", async () => {
+    mockGetPlan.mockResolvedValue({
+      plan: "starter",
+      trialStartedAt: null,
+      planExpiresAt: null,
+    });
+    const res = await getProductBreakdown("biz-1", "30d");
+    expect(res).toMatchObject({ error: expect.stringMatching(/Pro/i) });
+  });
+
+  it("returns rate-limit error and skips DB query when limiter rejects", async () => {
+    mockRateLimitCheck.mockReturnValue({
+      success: false,
+      remaining: 0,
+      resetAt: Date.now() + 3_600_000,
+    });
+    const res = await getProductBreakdown("biz-1", "30d");
+    expect(res).toMatchObject({ error: expect.stringMatching(/Troppe/i) });
+    expect(mockSelect).not.toHaveBeenCalled();
+  });
+
+  it("returns an error for an invalid range", async () => {
+    const res = await getProductBreakdown("biz-1", "1y" as unknown as "30d");
+    expect(res).toMatchObject({ error: expect.any(String) });
+  });
+
+  it("aggregates ACCEPTED lines by description (case-insensitive + trim)", async () => {
+    const at = new Date("2026-05-19T10:00:00Z");
+    mockSelect.mockReturnValue(
+      makeSelectBuilder([
+        { id: "d1", status: "ACCEPTED", createdAt: at },
+        { id: "d2", status: "ACCEPTED", createdAt: at },
+        { id: "d3", status: "VOID_ACCEPTED", createdAt: at },
+      ]),
+    );
+    mockFetchLinesByDocIds.mockResolvedValue([
+      {
+        documentId: "d1",
+        description: "Caffè",
+        quantity: "2",
+        grossUnitPrice: "1.50",
+      },
+      {
+        documentId: "d2",
+        description: " caffè ",
+        quantity: "1",
+        grossUnitPrice: "1.50",
+      },
+      {
+        documentId: "d2",
+        description: "Cornetto",
+        quantity: "1",
+        grossUnitPrice: "1.20",
+      },
+      {
+        documentId: "d3",
+        description: "Caffè",
+        quantity: "10",
+        grossUnitPrice: "1.50",
+      },
+    ]);
+    const res = await getProductBreakdown("biz-1", "30d");
+    if (!Array.isArray(res)) throw new Error("Expected array");
+    expect(res).toHaveLength(2);
+    expect(res[0]).toEqual({
+      description: "Caffè",
+      revenueCents: 450, // 2*1.50 + 1*1.50 = 4.50 (VOID escluso)
+      count: 2,
+    });
+    expect(res[1]).toEqual({
+      description: "Cornetto",
+      revenueCents: 120,
+      count: 1,
+    });
+  });
+
+  it("returns empty array when no documents are present", async () => {
+    mockSelect.mockReturnValue(makeSelectBuilder([]));
+    mockFetchLinesByDocIds.mockResolvedValue([]);
+    const res = await getProductBreakdown("biz-1", "30d");
     expect(res).toEqual([]);
   });
 });

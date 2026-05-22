@@ -16,15 +16,18 @@ import {
   fetchLinesByDocIds,
   groupLinesByDocId,
 } from "@/lib/receipts/document-lines";
+import type { SelectCommercialDocumentLine } from "@/db/schema/commercial-document-lines";
 import { logger } from "@/lib/logger";
 import {
   type AnalyticsKpis,
   type AnalyticsRange,
   type PaymentBreakdownEntry,
+  type ProductBreakdownEntry,
   type RevenuePoint,
   VALID_RANGES,
   computeBreakdown,
   computeKpis,
+  computeProductBreakdown,
   computeTimeseries,
   rangeToBounds,
 } from "./analytics-helpers";
@@ -33,6 +36,7 @@ export type {
   AnalyticsKpis,
   AnalyticsRange,
   PaymentBreakdownEntry,
+  ProductBreakdownEntry,
   RevenuePoint,
 } from "./analytics-helpers";
 
@@ -203,17 +207,24 @@ async function fetchSaleDocsInRange(
   return validRows;
 }
 
+type DocLineAggregates = {
+  totalsByDoc: Map<string, number>;
+  linesByDoc: Map<string, SelectCommercialDocumentLine[]>;
+};
+
 async function computeTotalsByDoc(
   docs: { id: string }[],
-): Promise<Map<string, number>> {
-  if (docs.length === 0) return new Map();
+): Promise<DocLineAggregates> {
+  if (docs.length === 0) {
+    return { totalsByDoc: new Map(), linesByDoc: new Map() };
+  }
   const lines = await fetchLinesByDocIds(docs.map((d) => d.id));
-  const grouped = groupLinesByDocId(lines);
+  const linesByDoc = groupLinesByDocId(lines);
   const totalsByDoc = new Map<string, number>();
   for (const doc of docs) {
-    totalsByDoc.set(doc.id, calcDocTotal(grouped.get(doc.id) ?? []));
+    totalsByDoc.set(doc.id, calcDocTotal(linesByDoc.get(doc.id) ?? []));
   }
-  return totalsByDoc;
+  return { totalsByDoc, linesByDoc };
 }
 
 // ---------------------------------------------------------------------------
@@ -224,6 +235,7 @@ type Dataset = {
   ok: true;
   docs: DocRow[];
   totalsByDoc: Map<string, number>;
+  linesByDoc: Map<string, SelectCommercialDocumentLine[]>;
   from: Date;
   to: Date;
 };
@@ -246,8 +258,8 @@ async function buildAnalyticsDataset(
   const docs = await fetchSaleDocsInRange(businessId, from, to, {
     includePublicRequest: true,
   });
-  const totalsByDoc = await computeTotalsByDoc(docs);
-  return { ok: true, docs, totalsByDoc, from, to };
+  const { totalsByDoc, linesByDoc } = await computeTotalsByDoc(docs);
+  return { ok: true, docs, totalsByDoc, linesByDoc, from, to };
 }
 
 // Cached path: deduplicato per (businessId, range) nello stesso render RSC.
@@ -313,4 +325,13 @@ export async function getPaymentBreakdown(
   const result = await getAnalyticsDataset(businessId, range);
   if (!result.ok) return { error: result.error };
   return computeBreakdown(result.docs, result.totalsByDoc);
+}
+
+export async function getProductBreakdown(
+  businessId: string,
+  range: AnalyticsRange,
+): Promise<ProductBreakdownEntry[] | { error: string }> {
+  const result = await getAnalyticsDataset(businessId, range);
+  if (!result.ok) return { error: result.error };
+  return computeProductBreakdown(result.docs, result.linesByDoc);
 }

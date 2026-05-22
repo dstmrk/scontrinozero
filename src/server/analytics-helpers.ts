@@ -37,6 +37,15 @@ export type PaymentBreakdownEntry = {
   revenueCents: number;
 };
 
+export type ProductBreakdownEntry = {
+  /** Variante "display" della descrizione (la più frequente nei dati). */
+  description: string;
+  /** Ricavo totale del prodotto/servizio in centesimi. */
+  revenueCents: number;
+  /** Numero di righe (occorrenze) che mappano su questa descrizione. */
+  count: number;
+};
+
 export const VALID_RANGES: ReadonlySet<AnalyticsRange> = new Set([
   "7d",
   "30d",
@@ -191,6 +200,15 @@ type AnalyticsDocRow = {
   publicRequest?: unknown;
 };
 
+type AnalyticsLineRow = {
+  description: string;
+  quantity: string;
+  grossUnitPrice: string;
+};
+
+const EMPTY_DESCRIPTION_LABEL = "(senza descrizione)";
+const OTHER_BUCKET_LABEL = "Altro";
+
 export function computeKpis(
   docs: readonly AnalyticsDocRow[],
   totalsByDoc: ReadonlyMap<string, number>,
@@ -252,4 +270,138 @@ export function computeBreakdown(
     method,
     ...agg,
   }));
+}
+
+/**
+ * Aggrega ricavo per descrizione di prodotto/servizio dalle righe degli
+ * scontrini ACCEPTED. La chiave di raggruppamento e' case-insensitive +
+ * trim: l'utente che scrive "Caffè" e "caffè" non vede due voci separate.
+ *
+ * Restituisce i top `topN` per ricavo decrescente. Se restano voci oltre
+ * il top, vengono aggregate in un bucket finale "Altro" (descrizione
+ * letterale "Altro" — collide visivamente solo se il negoziante usa
+ * davvero la parola "Altro" come nome prodotto, caso raro).
+ */
+type ProductAgg = {
+  /**
+   * Somma `qty * price` in float, NON ancora arrotondata: per coerenza con
+   * `calcDocTotal` (`src/lib/receipts/document-lines.ts`) la conversione a
+   * centesimi avviene una sola volta in fondo. Arrotondare per riga produce
+   * drift osservabile (es. 3 × 0.333 × 1.00 = 99 cents per-line vs 100 cents
+   * doc-level), facendo non quadrare la somma del breakdown prodotti col
+   * ricavo KPI sullo stesso range.
+   */
+  revenueFloat: number;
+  count: number;
+  variants: Map<string, number>;
+};
+
+function aggregateProductLines(
+  docs: readonly AnalyticsDocRow[],
+  linesByDoc: ReadonlyMap<string, readonly AnalyticsLineRow[]>,
+): Map<string, ProductAgg> {
+  const byKey = new Map<string, ProductAgg>();
+  for (const doc of docs) {
+    if (doc.status !== "ACCEPTED") continue;
+    const lines = linesByDoc.get(doc.id);
+    if (!lines) continue;
+    for (const line of lines) {
+      addLineToAggregate(byKey, line);
+    }
+  }
+  return byKey;
+}
+
+function addLineToAggregate(
+  byKey: Map<string, ProductAgg>,
+  line: AnalyticsLineRow,
+): void {
+  const trimmed = line.description.trim();
+  const key = trimmed === "" ? "" : trimmed.toLowerCase();
+  const qty = Number.parseFloat(line.quantity);
+  const price = Number.parseFloat(line.grossUnitPrice);
+  if (!Number.isFinite(qty) || !Number.isFinite(price)) return;
+
+  const agg = byKey.get(key) ?? {
+    revenueFloat: 0,
+    count: 0,
+    variants: new Map<string, number>(),
+  };
+  agg.revenueFloat += qty * price;
+  agg.count++;
+  if (trimmed !== "") {
+    agg.variants.set(trimmed, (agg.variants.get(trimmed) ?? 0) + 1);
+  }
+  byKey.set(key, agg);
+}
+
+/**
+ * Sceglie la variante "display" per un gruppo. Su tie di frequenza prende
+ * la prima in ordine alfabetico per garantire label deterministica.
+ */
+function pickDisplayLabel(key: string, variants: Map<string, number>): string {
+  if (key === "") return EMPTY_DESCRIPTION_LABEL;
+  let best: string | null = null;
+  let bestCount = -1;
+  for (const [variant, count] of variants) {
+    const isBetter =
+      count > bestCount ||
+      (count === bestCount && best !== null && variant < best);
+    if (isBetter) {
+      best = variant;
+      bestCount = count;
+    }
+  }
+  return best ?? key;
+}
+
+function aggregateTail(
+  tail: readonly ProductBreakdownEntry[],
+): ProductBreakdownEntry {
+  return tail.reduce<ProductBreakdownEntry>(
+    (acc, e) => ({
+      description: OTHER_BUCKET_LABEL,
+      revenueCents: acc.revenueCents + e.revenueCents,
+      count: acc.count + e.count,
+    }),
+    { description: OTHER_BUCKET_LABEL, revenueCents: 0, count: 0 },
+  );
+}
+
+export function computeProductBreakdown(
+  docs: readonly AnalyticsDocRow[],
+  linesByDoc: ReadonlyMap<string, readonly AnalyticsLineRow[]>,
+  topN: number = 10,
+): ProductBreakdownEntry[] {
+  const byKey = aggregateProductLines(docs, linesByDoc);
+
+  // Materializziamo `sortKey` (chiave normalizzata) per il tiebreak: l'ordine
+  // di iterazione del Map dipende dall'insertion order, che a sua volta
+  // dipende dall'ordine delle righe DB (non garantito). Senza tiebreak, due
+  // prodotti con stesso revenue potrebbero apparire in posizioni diverse a
+  // ogni refresh — e il taglio topN potrebbe includere/escludere prodotti
+  // diversi tra chiamate.
+  const entries = Array.from(byKey.entries()).map(([key, agg]) => ({
+    description: pickDisplayLabel(key, agg.variants),
+    revenueCents: toCents(agg.revenueFloat),
+    count: agg.count,
+    sortKey: key,
+  }));
+
+  entries.sort((a, b) => {
+    if (b.revenueCents !== a.revenueCents)
+      return b.revenueCents - a.revenueCents;
+    return a.sortKey.localeCompare(b.sortKey);
+  });
+
+  const stripped: ProductBreakdownEntry[] = entries.map(
+    ({ description, revenueCents, count }) => ({
+      description,
+      revenueCents,
+      count,
+    }),
+  );
+
+  if (stripped.length <= topN) return stripped;
+  return [...stripped.slice(0, topN), aggregateTail(stripped.slice(topN))];
 }

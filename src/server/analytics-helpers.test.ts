@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeBreakdown,
   computeKpis,
+  computeProductBreakdown,
   computeTimeseries,
   fillMissingDays,
   formatRomeDay,
@@ -192,6 +193,290 @@ describe("computeBreakdown", () => {
     const docs = [makeDoc("a", "VOID_ACCEPTED", new Date())];
     const totals = new Map([["a", 10]]);
     expect(computeBreakdown(docs, totals)).toEqual([]);
+  });
+});
+
+describe("computeProductBreakdown", () => {
+  type LineRow = {
+    documentId: string;
+    description: string;
+    quantity: string;
+    grossUnitPrice: string;
+  };
+  function makeLines(rows: LineRow[]): Map<string, LineRow[]> {
+    const map = new Map<string, LineRow[]>();
+    for (const r of rows) {
+      const arr = map.get(r.documentId) ?? [];
+      arr.push(r);
+      map.set(r.documentId, arr);
+    }
+    return map;
+  }
+
+  it("returns empty array when there are no docs", () => {
+    expect(computeProductBreakdown([], new Map())).toEqual([]);
+  });
+
+  it("excludes lines from VOID_ACCEPTED documents", () => {
+    const docs = [
+      makeDoc("a", "VOID_ACCEPTED", new Date("2026-05-01T10:00:00Z")),
+    ];
+    const linesByDoc = makeLines([
+      {
+        documentId: "a",
+        description: "Caffè",
+        quantity: "1",
+        grossUnitPrice: "1.50",
+      },
+    ]);
+    expect(computeProductBreakdown(docs, linesByDoc)).toEqual([]);
+  });
+
+  it("groups by case-insensitive + trimmed description (label = most frequent variant)", () => {
+    const docs = [
+      makeDoc("a", "ACCEPTED", new Date()),
+      makeDoc("b", "ACCEPTED", new Date()),
+      makeDoc("c", "ACCEPTED", new Date()),
+    ];
+    const linesByDoc = makeLines([
+      {
+        documentId: "a",
+        description: "Caffè",
+        quantity: "1",
+        grossUnitPrice: "1.00",
+      },
+      {
+        documentId: "b",
+        description: "  caffè ",
+        quantity: "1",
+        grossUnitPrice: "1.00",
+      },
+      {
+        documentId: "c",
+        description: "Caffè",
+        quantity: "1",
+        grossUnitPrice: "1.00",
+      },
+    ]);
+    const out = computeProductBreakdown(docs, linesByDoc);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toEqual({
+      description: "Caffè",
+      revenueCents: 300,
+      count: 3,
+    });
+  });
+
+  it("renders empty description as '(senza descrizione)'", () => {
+    const docs = [makeDoc("a", "ACCEPTED", new Date())];
+    const linesByDoc = makeLines([
+      {
+        documentId: "a",
+        description: "   ",
+        quantity: "2",
+        grossUnitPrice: "1.50",
+      },
+    ]);
+    const out = computeProductBreakdown(docs, linesByDoc);
+    expect(out).toEqual([
+      { description: "(senza descrizione)", revenueCents: 300, count: 1 },
+    ]);
+  });
+
+  it("orders by revenue desc and keeps Top 10 with 'Altro' bucket aggregating the tail", () => {
+    const docs: ReturnType<typeof makeDoc>[] = [];
+    const lines: LineRow[] = [];
+    // 12 distinct products: prod-01 revenue 12.00, prod-02 revenue 11.00, ...
+    // prod-12 revenue 1.00. Top 10 = prod-01..prod-10, "Altro" = prod-11 + prod-12 = 3.00.
+    for (let i = 1; i <= 12; i++) {
+      const id = `d${i}`;
+      docs.push(makeDoc(id, "ACCEPTED", new Date()));
+      const price = (13 - i).toFixed(2); // 12.00, 11.00, ..., 1.00
+      lines.push({
+        documentId: id,
+        description: `prod-${String(i).padStart(2, "0")}`,
+        quantity: "1",
+        grossUnitPrice: price,
+      });
+    }
+    const out = computeProductBreakdown(docs, makeLines(lines));
+    expect(out).toHaveLength(11);
+    expect(out[0]).toEqual({
+      description: "prod-01",
+      revenueCents: 1200,
+      count: 1,
+    });
+    expect(out[9]).toEqual({
+      description: "prod-10",
+      revenueCents: 300,
+      count: 1,
+    });
+    expect(out[10]).toEqual({
+      description: "Altro",
+      revenueCents: 300, // prod-11 (2.00) + prod-12 (1.00)
+      count: 2,
+    });
+  });
+
+  it("does not append 'Altro' when product count is <= topN", () => {
+    const docs: ReturnType<typeof makeDoc>[] = [];
+    const lines: LineRow[] = [];
+    for (let i = 1; i <= 10; i++) {
+      const id = `d${i}`;
+      docs.push(makeDoc(id, "ACCEPTED", new Date()));
+      lines.push({
+        documentId: id,
+        description: `prod-${i}`,
+        quantity: "1",
+        grossUnitPrice: (11 - i).toFixed(2),
+      });
+    }
+    const out = computeProductBreakdown(docs, makeLines(lines));
+    expect(out).toHaveLength(10);
+    expect(out.find((e) => e.description === "Altro")).toBeUndefined();
+  });
+
+  it("uses integer cents math (no IEEE-754 drift with fractional qty)", () => {
+    const docs = [makeDoc("a", "ACCEPTED", new Date())];
+    const linesByDoc = makeLines([
+      {
+        documentId: "a",
+        description: "X",
+        quantity: "0.1",
+        grossUnitPrice: "0.20",
+      },
+      {
+        documentId: "a",
+        description: "X",
+        quantity: "0.1",
+        grossUnitPrice: "0.20",
+      },
+      {
+        documentId: "a",
+        description: "X",
+        quantity: "0.1",
+        grossUnitPrice: "0.20",
+      },
+    ]);
+    const out = computeProductBreakdown(docs, linesByDoc);
+    // 3 × Math.round(0.1 * 0.20 * 100) = 3 × Math.round(2) = 6 cents
+    expect(out[0].revenueCents).toBe(6);
+    expect(out[0].count).toBe(3);
+  });
+
+  it("picks alphabetically-first variant on frequency tie (deterministic label)", () => {
+    const docs = [
+      makeDoc("a", "ACCEPTED", new Date()),
+      makeDoc("b", "ACCEPTED", new Date()),
+    ];
+    const linesByDoc = makeLines([
+      {
+        documentId: "a",
+        description: "Pizza",
+        quantity: "1",
+        grossUnitPrice: "5.00",
+      },
+      {
+        documentId: "b",
+        description: "PIZZA",
+        quantity: "1",
+        grossUnitPrice: "5.00",
+      },
+    ]);
+    const out = computeProductBreakdown(docs, linesByDoc);
+    expect(out).toHaveLength(1);
+    // Tie 1-1: alphabetical → "PIZZA" before "Pizza" (uppercase < lowercase)
+    expect(out[0].description).toBe("PIZZA");
+  });
+
+  it("matches doc-level rounding (calcDocTotal) so KPI and product totals reconcile", () => {
+    // 3 righe stesso prodotto, qty=0.333, price=1.00.
+    // Round per-riga: round(33.3) * 3 = 99 cents (WRONG, drift).
+    // Doc-level round: round((0.333+0.333+0.333) * 100) = round(99.9) = 100.
+    // Il breakdown DEVE usare il doc-level per essere coerente con i KPI.
+    const docs = [makeDoc("a", "ACCEPTED", new Date())];
+    const linesByDoc = makeLines([
+      {
+        documentId: "a",
+        description: "X",
+        quantity: "0.333",
+        grossUnitPrice: "1.00",
+      },
+      {
+        documentId: "a",
+        description: "X",
+        quantity: "0.333",
+        grossUnitPrice: "1.00",
+      },
+      {
+        documentId: "a",
+        description: "X",
+        quantity: "0.333",
+        grossUnitPrice: "1.00",
+      },
+    ]);
+    const out = computeProductBreakdown(docs, linesByDoc);
+    expect(out[0].revenueCents).toBe(100);
+    expect(out[0].count).toBe(3);
+  });
+
+  it("uses deterministic alphabetical tiebreak when revenues are equal", () => {
+    // Tre prodotti con stesso revenue (200 cents). Senza tiebreak l'ordine
+    // dipende dall'insertion order (e quindi dall'ordine delle righe DB).
+    // Con tiebreak per chiave normalizzata: banana → ciliegia → mela.
+    const docs = [
+      makeDoc("a", "ACCEPTED", new Date()),
+      makeDoc("b", "ACCEPTED", new Date()),
+      makeDoc("c", "ACCEPTED", new Date()),
+    ];
+    const linesByDoc = makeLines([
+      {
+        documentId: "a",
+        description: "mela",
+        quantity: "1",
+        grossUnitPrice: "2.00",
+      },
+      {
+        documentId: "b",
+        description: "ciliegia",
+        quantity: "1",
+        grossUnitPrice: "2.00",
+      },
+      {
+        documentId: "c",
+        description: "banana",
+        quantity: "1",
+        grossUnitPrice: "2.00",
+      },
+    ]);
+    const out = computeProductBreakdown(docs, linesByDoc);
+    expect(out.map((e) => e.description)).toEqual([
+      "banana",
+      "ciliegia",
+      "mela",
+    ]);
+  });
+
+  it("respects a custom topN parameter", () => {
+    const docs: ReturnType<typeof makeDoc>[] = [];
+    const lines: LineRow[] = [];
+    for (let i = 1; i <= 5; i++) {
+      const id = `d${i}`;
+      docs.push(makeDoc(id, "ACCEPTED", new Date()));
+      lines.push({
+        documentId: id,
+        description: `prod-${i}`,
+        quantity: "1",
+        grossUnitPrice: (6 - i).toFixed(2),
+      });
+    }
+    const out = computeProductBreakdown(docs, makeLines(lines), 3);
+    expect(out).toHaveLength(4); // Top 3 + Altro
+    expect(out[3]).toEqual({
+      description: "Altro",
+      revenueCents: 300, // 2 + 1 = 3.00
+      count: 2,
+    });
   });
 });
 
