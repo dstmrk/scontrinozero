@@ -16,28 +16,43 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      src: ${{ steps.filter.outputs.src }}
+      code: ${{ steps.filter.outputs.code }}
+      marketing: ${{ steps.filter.outputs.marketing }}
       lockfile: ${{ steps.filter.outputs.lockfile }}
+      migrations: ${{ steps.filter.outputs.migrations }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: filter
         with:
           filters: |
-            src:
+            code:
               - 'src/**'
+              - '!src/app/(marketing)/**'
+              - '!src/components/marketing/**'
               - 'tests/**'
               - 'package.json'
+              - 'package-lock.json'
               - 'tsconfig.json'
               - 'next.config.ts'
               - 'vitest.config.ts'
               - 'eslint.config.mjs'
+              - 'scripts/**'
+              - '.github/workflows/ci.yml'
+            marketing:
+              - 'src/app/(marketing)/**'
+              - 'src/components/marketing/**'
             lockfile:
               - 'package-lock.json'
+            migrations:
+              - 'supabase/migrations/**'
+              - 'scripts/check-migrations.mjs'
 
-  # Verifica che tutti i file .sql siano registrati in _journal.json
-  # Gira sempre (indipendente dal diff) — rileva migrazioni aggiunte senza aggiornare il journal
+  # Verifica che tutti i file .sql siano registrati in _journal.json.
+  # Gira solo quando cambia supabase/migrations/** o lo script di check.
   migrations-check:
+    needs: changes
+    if: needs.changes.outputs.migrations == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -62,7 +77,7 @@ jobs:
   # Audit dipendenze — gira anche su modifiche al solo lockfile
   audit:
     needs: changes
-    if: needs.changes.outputs.src == 'true' || needs.changes.outputs.lockfile == 'true'
+    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.lockfile == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -70,15 +85,23 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Cache node_modules
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.4
+        id: nm-cache
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
       - name: Install dependencies
-        run: npm ci
+        if: steps.nm-cache.outputs.cache-hit != 'true'
+        run: npm ci --prefer-offline --no-audit --no-fund
       - name: Security audit
         run: npx audit-ci --config audit-ci.json
 
-  # Parallel checks — lint, type-check e test girano in contemporanea
+  # Parallel checks — lint, type-check e test girano in contemporanea.
+  # lint e type-check girano anche su marketing-only (catturano refusi JSX/TS).
   lint:
     needs: changes
-    if: needs.changes.outputs.src == 'true'
+    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.marketing == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -86,14 +109,21 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Cache node_modules
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.4
+        id: nm-cache
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
       - name: Install dependencies
-        run: npm ci
+        if: steps.nm-cache.outputs.cache-hit != 'true'
+        run: npm ci --prefer-offline --no-audit --no-fund
       - name: Lint
         run: npm run lint
 
   type-check:
     needs: changes
-    if: needs.changes.outputs.src == 'true'
+    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.marketing == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -101,14 +131,24 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Cache node_modules
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.4
+        id: nm-cache
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
       - name: Install dependencies
-        run: npm ci
+        if: steps.nm-cache.outputs.cache-hit != 'true'
+        run: npm ci --prefer-offline --no-audit --no-fund
       - name: Type check
         run: npm run type-check
 
+  # test gira solo su modifiche a codice testabile.
+  # Marketing-only viene escluso: i path sono gia' fuori da coverage (vitest.config.ts)
+  # e nessun test esercita queste UI.
   test:
     needs: changes
-    if: needs.changes.outputs.src == 'true'
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -116,8 +156,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Cache node_modules
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.4
+        id: nm-cache
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
       - name: Install dependencies
-        run: npm ci
+        if: steps.nm-cache.outputs.cache-hit != 'true'
+        run: npm ci --prefer-offline --no-audit --no-fund
       - name: Test with coverage
         run: npm run test:coverage
       - name: Upload coverage report
@@ -133,11 +180,12 @@ jobs:
           path: test-report.xml
           retention-days: 1
 
-  # SonarQube parte non appena i test finiscono, in parallelo con build
-  # Saltato per le PR di Dependabot: SONAR_TOKEN non è disponibile per i bot esterni
+  # SonarQube parte non appena i test finiscono, in parallelo con build.
+  # Saltato per le PR di Dependabot (SONAR_TOKEN non disponibile per bot esterni)
+  # e quando test e' stato skippato (no artifact da scaricare).
   sonar:
-    needs: test
-    if: github.actor != 'dependabot[bot]'
+    needs: [changes, test]
+    if: needs.changes.outputs.code == 'true' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -157,10 +205,11 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-  # Build parte solo quando tutti e tre i check paralleli sono verdi
+  # Build parte quando lint, type-check e test sono verdi (test puo' essere skippato
+  # su marketing-only: GitHub Actions tratta "skipped" come "success" in needs:).
   build:
-    needs: [lint, type-check, test]
-    if: needs.changes.outputs.src == 'true'
+    needs: [changes, lint, type-check, test]
+    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.marketing == 'true'
     runs-on: ubuntu-latest
     # NEXT_PUBLIC_* vars are baked into the client bundle at build time.
     # Use test values so the build succeeds in CI without production secrets.
@@ -175,15 +224,14 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Cache node_modules
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.4
+        id: nm-cache
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
       - name: Install dependencies
-        run: npm ci
+        if: steps.nm-cache.outputs.cache-hit != 'true'
+        run: npm ci --prefer-offline --no-audit --no-fund
       - name: Build
         run: npm run build
-      - name: Upload build output
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: next-build
-          path: |
-            .next/**
-            !.next/cache/**
-          retention-days: 1
