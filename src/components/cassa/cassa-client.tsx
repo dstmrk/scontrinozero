@@ -161,8 +161,15 @@ export function CassaClient({
     setStep("cart");
   };
 
-  // Codice lotteria valido solo se totale ≥ €1 (derived: input mostra "" e submit invia null)
-  const effectiveLotteryCode = total >= 1 ? lotteryCode : "";
+  // Auto-svuota il codice lotteria se il totale scende sotto €1 (es. dopo clearCart o
+  // emissione di un nuovo scontrino): senza questo reset, il codice del cliente
+  // precedente sopravviverebbe nello state e verrebbe inviato al prossimo submit.
+  useEffect(() => {
+    if (total < 1 && lotteryCode) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLotteryCode("");
+    }
+  }, [total, lotteryCode]);
 
   const handlePaymentMethodChange = (method: typeof paymentMethod) => {
     setPaymentMethod(method);
@@ -175,7 +182,7 @@ export function CassaClient({
       lines,
       paymentMethod,
       idempotencyKey: crypto.randomUUID(),
-      lotteryCode: effectiveLotteryCode || null,
+      lotteryCode: lotteryCode || null,
     });
   };
 
@@ -342,7 +349,7 @@ export function CassaClient({
           onSubmit={handleSubmit}
           onBack={() => setStep("cart")}
           isSubmitting={mutation.isPending}
-          lotteryCode={effectiveLotteryCode}
+          lotteryCode={lotteryCode}
           onLotteryCodeChange={setLotteryCode}
         />
       </div>
