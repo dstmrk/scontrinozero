@@ -51,6 +51,17 @@ export function CassaClient({
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [lotteryCode, setLotteryCode] = useState("");
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [successData, setSuccessData] = useState<{
+    documentId?: string;
+    adeProgressive?: string;
+    adeTransactionId?: string;
+  } | null>(null);
+
+  // Stato form aggiungi articolo
+  const [description, setDescription] = useState("");
+  const [amountCents, setAmountCents] = useState(0);
+  const [quantity, setQuantity] = useState(1);
+  const [vatCode, setVatCode] = useState<VatCode>(defaultVat);
 
   // Ref guard: evita doppia esecuzione in React Strict Mode
   const catalogParamConsumed = useRef(false);
@@ -94,24 +105,16 @@ export function CassaClient({
       VAT_CODES.includes(prefillVatCode as VatCode)
     ) {
       catalogParamConsumed.current = true;
+      // Init-from-URL al mount: caso d'uso che React docs "You Might Not Need an Effect" elenca tra le eccezioni.
+      /* eslint-disable react-hooks/set-state-in-effect */
       setDescription(prefillDescription);
       setVatCode(prefillVatCode as VatCode);
       setStep("add-item");
+      /* eslint-enable react-hooks/set-state-in-effect */
       router.replace("/dashboard/cassa");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const [successData, setSuccessData] = useState<{
-    documentId?: string;
-    adeProgressive?: string;
-    adeTransactionId?: string;
-  } | null>(null);
-
-  // Stato form aggiungi articolo
-  const [description, setDescription] = useState("");
-  const [amountCents, setAmountCents] = useState(0);
-  const [quantity, setQuantity] = useState(1);
-  const [vatCode, setVatCode] = useState<VatCode>(defaultVat);
 
   const parsedAmount = amountCents / 100;
   const canAdd = amountCents > 0;
@@ -158,9 +161,12 @@ export function CassaClient({
     setStep("cart");
   };
 
-  // Auto-svuota il codice lotteria se il totale scende sotto €1
+  // Auto-svuota il codice lotteria se il totale scende sotto €1 (es. dopo clearCart o
+  // emissione di un nuovo scontrino): senza questo reset, il codice del cliente
+  // precedente sopravviverebbe nello state e verrebbe inviato al prossimo submit.
   useEffect(() => {
     if (total < 1 && lotteryCode) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLotteryCode("");
     }
   }, [total, lotteryCode]);
