@@ -51,6 +51,17 @@ export function CassaClient({
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [lotteryCode, setLotteryCode] = useState("");
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [successData, setSuccessData] = useState<{
+    documentId?: string;
+    adeProgressive?: string;
+    adeTransactionId?: string;
+  } | null>(null);
+
+  // Stato form aggiungi articolo
+  const [description, setDescription] = useState("");
+  const [amountCents, setAmountCents] = useState(0);
+  const [quantity, setQuantity] = useState(1);
+  const [vatCode, setVatCode] = useState<VatCode>(defaultVat);
 
   // Ref guard: evita doppia esecuzione in React Strict Mode
   const catalogParamConsumed = useRef(false);
@@ -94,24 +105,16 @@ export function CassaClient({
       VAT_CODES.includes(prefillVatCode as VatCode)
     ) {
       catalogParamConsumed.current = true;
+      // Init-from-URL al mount: caso d'uso che React docs "You Might Not Need an Effect" elenca tra le eccezioni.
+      /* eslint-disable react-hooks/set-state-in-effect */
       setDescription(prefillDescription);
       setVatCode(prefillVatCode as VatCode);
       setStep("add-item");
+      /* eslint-enable react-hooks/set-state-in-effect */
       router.replace("/dashboard/cassa");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const [successData, setSuccessData] = useState<{
-    documentId?: string;
-    adeProgressive?: string;
-    adeTransactionId?: string;
-  } | null>(null);
-
-  // Stato form aggiungi articolo
-  const [description, setDescription] = useState("");
-  const [amountCents, setAmountCents] = useState(0);
-  const [quantity, setQuantity] = useState(1);
-  const [vatCode, setVatCode] = useState<VatCode>(defaultVat);
 
   const parsedAmount = amountCents / 100;
   const canAdd = amountCents > 0;
@@ -158,12 +161,8 @@ export function CassaClient({
     setStep("cart");
   };
 
-  // Auto-svuota il codice lotteria se il totale scende sotto €1
-  useEffect(() => {
-    if (total < 1 && lotteryCode) {
-      setLotteryCode("");
-    }
-  }, [total, lotteryCode]);
+  // Codice lotteria valido solo se totale ≥ €1 (derived: input mostra "" e submit invia null)
+  const effectiveLotteryCode = total >= 1 ? lotteryCode : "";
 
   const handlePaymentMethodChange = (method: typeof paymentMethod) => {
     setPaymentMethod(method);
@@ -176,7 +175,7 @@ export function CassaClient({
       lines,
       paymentMethod,
       idempotencyKey: crypto.randomUUID(),
-      lotteryCode: lotteryCode || null,
+      lotteryCode: effectiveLotteryCode || null,
     });
   };
 
@@ -343,7 +342,7 @@ export function CassaClient({
           onSubmit={handleSubmit}
           onBack={() => setStep("cart")}
           isSubmitting={mutation.isPending}
-          lotteryCode={lotteryCode}
+          lotteryCode={effectiveLotteryCode}
           onLotteryCodeChange={setLotteryCode}
         />
       </div>
