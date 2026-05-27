@@ -1,0 +1,61 @@
+const HARDCODED_DEFAULT = "https://app.scontrinozero.it";
+
+/**
+ * Hostname accettati come destinazione del link cross-origin.
+ * Coerente con l'allowlist di `getTrustedAppUrl` (`src/lib/trusted-app-url.ts`)
+ * ma duplicata qui per evitare di importare il logger (pino) e quindi
+ * permettere l'uso anche dai client component (es. pricing-section).
+ */
+function allowedHostnames(): Set<string> {
+  const set = new Set<string>();
+  // APP_HOSTNAME è runtime e NON visibile al bundle client: in pratica
+  // questa entry rileva solo nei server component. Va bene: lato client
+  // ricade su NEXT_PUBLIC_APP_HOSTNAME, che è bakato al build.
+  const fromEnv =
+    process.env.APP_HOSTNAME ?? process.env.NEXT_PUBLIC_APP_HOSTNAME;
+  if (fromEnv) set.add(fromEnv);
+  set.add("app.scontrinozero.it");
+  if (process.env.NODE_ENV !== "production") {
+    set.add("localhost");
+    set.add("127.0.0.1");
+  }
+  return set;
+}
+
+function resolveBaseUrl(): string {
+  const raw = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return HARDCODED_DEFAULT;
+  }
+  if (process.env.NODE_ENV === "production" && parsed.protocol !== "https:") {
+    return HARDCODED_DEFAULT;
+  }
+  if (!allowedHostnames().has(parsed.hostname)) {
+    return HARDCODED_DEFAULT;
+  }
+  return raw.endsWith("/") ? raw.slice(0, -1) : raw;
+}
+
+/**
+ * Costruisce l'URL assoluto verso il subdomain app a partire da un path.
+ *
+ * Usato dalle pagine/componenti del gruppo `(marketing)/*` per forzare una
+ * navigazione cross-origin "hard" quando l'utente clicca un link auth
+ * (`/login`, `/register`, `/reset-password`). I `<Link>` di Next.js farebbero
+ * client-side soft navigation restando sull'origin `scontrinozero.it`,
+ * causando il rendering di `/login` sul dominio marketing — caso che ha già
+ * generato il bug `captcha_hostname_mismatch` su Turnstile (commit ac59efc).
+ *
+ * Non lancia mai: se l'env è malformato o l'hostname è fuori allowlist,
+ * ricade su `https://app.scontrinozero.it` per non rompere il render delle
+ * pagine marketing pubbliche.
+ *
+ * Safe sia dai server component sia dai client component (no dipendenze
+ * server-only come pino/Sentry).
+ */
+export function appHref(path: `/${string}`): string {
+  return `${resolveBaseUrl()}${path}`;
+}

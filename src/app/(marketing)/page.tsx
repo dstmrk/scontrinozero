@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { JsonLd, faqPageJsonLd } from "@/components/json-ld";
+import { appHref } from "@/lib/marketing-to-app-href";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -83,10 +84,10 @@ export default function Home() {
           </p>
           <div className="mt-8 flex flex-col items-center gap-4">
             <Button asChild size="lg">
-              <Link href="/register">
+              <a href={appHref("/register")}>
                 Inizia gratis
                 <ArrowRight className="h-4 w-4" />
-              </Link>
+              </a>
             </Button>
             <div className="text-muted-foreground flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm">
               <span>30 giorni gratis</span>

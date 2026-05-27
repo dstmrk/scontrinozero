@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { appHref } from "@/lib/marketing-to-app-href";
 
 export function Header() {
   return (
@@ -33,9 +34,10 @@ export function Header() {
         </nav>
 
         <Button size="sm" asChild>
-          <Link href="/login" prefetch={false}>
-            Accedi
-          </Link>
+          {/* Plain <a> per forzare hard cross-origin navigation verso il
+              subdomain app: i <Link> di Next farebbero soft routing restando
+              sul dominio marketing. Vedi src/lib/marketing-to-app-href.ts. */}
+          <a href={appHref("/login")}>Accedi</a>
         </Button>
       </div>
     </header>
