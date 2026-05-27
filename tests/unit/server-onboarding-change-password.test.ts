@@ -273,8 +273,10 @@ describe("changeAdePassword", () => {
       "NewPass12",
       "NewPass12",
     );
-    expect(result.error).toContain("portale Agenzia delle Entrate");
-    expect(result.error).toContain("codice 500");
+    expect(result.error).toContain(
+      "portale Agenzia delle Entrate Fatture e Corrispettivi",
+    );
+    expect(result.error).toContain("non risponde al momento");
   });
 
   it("aggiorna la password cifrata e verifiedAt in caso di successo", async () => {

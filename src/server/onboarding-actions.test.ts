@@ -686,8 +686,11 @@ describe("onboarding-actions", () => {
       const { verifyAdeCredentials } = await import("./onboarding-actions");
       const result = await verifyAdeCredentials("biz-789");
 
-      expect(result.error).toContain("portale Agenzia delle Entrate");
-      expect(result.error).toContain("codice 500");
+      expect(result.error).toContain(
+        "portale Agenzia delle Entrate Fatture e Corrispettivi",
+      );
+      expect(result.error).toContain("non risponde al momento");
+      expect(result.error).toContain("Non dipende da te né da ScontrinoZero");
       expect(result.error).not.toContain("Verifica fallita");
     });
 
@@ -709,7 +712,10 @@ describe("onboarding-actions", () => {
       const { verifyAdeCredentials } = await import("./onboarding-actions");
       const result = await verifyAdeCredentials("biz-789");
 
-      expect(result.error).toContain("non è raggiungibile");
+      expect(result.error).toContain(
+        "portale Agenzia delle Entrate Fatture e Corrispettivi",
+      );
+      expect(result.error).toContain("non è raggiungibile al momento");
       expect(result.error).not.toContain("Verifica fallita");
     });
 

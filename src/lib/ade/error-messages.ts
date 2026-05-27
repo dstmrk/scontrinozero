@@ -40,12 +40,13 @@ export function getUserFacingAdeErrorMessage(
   if (err instanceof AdeNetworkError) {
     return {
       message:
-        "Il portale Agenzia delle Entrate non è raggiungibile in questo momento. Riprova fra qualche minuto.",
+        "Il portale Agenzia delle Entrate Fatture e Corrispettivi non è raggiungibile al momento. Non dipende da te né da ScontrinoZero. Riprova tra qualche minuto.",
     };
   }
   if (err instanceof AdePortalError && err.statusCode >= 500) {
     return {
-      message: `Il portale Agenzia delle Entrate ha un problema temporaneo (codice ${err.statusCode}). Non dipende dalle tue credenziali, riprova fra qualche minuto.`,
+      message:
+        "Il portale Agenzia delle Entrate Fatture e Corrispettivi non risponde al momento. Non dipende da te né da ScontrinoZero. Riprova tra qualche minuto.",
     };
   }
   if (err instanceof AdeSpidTimeoutError) {

@@ -417,8 +417,10 @@ describe("emitReceiptForBusiness", () => {
     const { emitReceiptForBusiness } = await import("./receipt-service");
     const result = await emitReceiptForBusiness(VALID_INPUT);
 
-    expect(result.error).toContain("portale Agenzia delle Entrate");
-    expect(result.error).toContain("codice 503");
+    expect(result.error).toContain(
+      "portale Agenzia delle Entrate Fatture e Corrispettivi",
+    );
+    expect(result.error).toContain("non risponde al momento");
     expect(result.error).not.toContain("Riprova più tardi");
   });
 

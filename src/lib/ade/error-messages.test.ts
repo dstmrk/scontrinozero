@@ -37,7 +37,7 @@ describe("getUserFacingAdeErrorMessage", () => {
       FALLBACK,
     );
     expect(result.message).toBe(
-      "Il portale Agenzia delle Entrate non è raggiungibile in questo momento. Riprova fra qualche minuto.",
+      "Il portale Agenzia delle Entrate Fatture e Corrispettivi non è raggiungibile al momento. Non dipende da te né da ScontrinoZero. Riprova tra qualche minuto.",
     );
   });
 
@@ -47,16 +47,17 @@ describe("getUserFacingAdeErrorMessage", () => {
       FALLBACK,
     );
     expect(result.message).toBe(
-      "Il portale Agenzia delle Entrate ha un problema temporaneo (codice 500). Non dipende dalle tue credenziali, riprova fra qualche minuto.",
+      "Il portale Agenzia delle Entrate Fatture e Corrispettivi non risponde al momento. Non dipende da te né da ScontrinoZero. Riprova tra qualche minuto.",
     );
   });
 
-  it("includes the specific status code (503) in the portal-down message", () => {
+  it("returns the same portal-down message regardless of the specific 5xx code", () => {
     const result = getUserFacingAdeErrorMessage(
       new AdePortalError(503, "setUserChoice failed with status 503"),
       FALLBACK,
     );
-    expect(result.message).toContain("codice 503");
+    expect(result.message).toContain("non risponde al momento");
+    expect(result.message).not.toContain("503");
   });
 
   it("returns the fallback for AdePortalError with non-5xx status", () => {

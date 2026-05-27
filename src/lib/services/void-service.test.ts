@@ -355,8 +355,10 @@ describe("voidReceiptForBusiness", () => {
     const { voidReceiptForBusiness } = await import("./void-service");
     const result = await voidReceiptForBusiness(VALID_INPUT);
 
-    expect(result.error).toContain("portale Agenzia delle Entrate");
-    expect(result.error).toContain("codice 502");
+    expect(result.error).toContain(
+      "portale Agenzia delle Entrate Fatture e Corrispettivi",
+    );
+    expect(result.error).toContain("non risponde al momento");
     expect(result.error).not.toContain("Riprova più tardi");
   });
 
