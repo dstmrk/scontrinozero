@@ -23,6 +23,17 @@ function allowedHostnames(): Set<string> {
 }
 
 function resolveBaseUrl(): string {
+  // Priority 1: APP_HOSTNAME runtime override (server-only). Honours the
+  // documented "single image, per-env runtime override" pattern: a Docker
+  // image built with the production NEXT_PUBLIC_APP_URL but deployed in
+  // sandbox/self-hosted must emit links to the runtime hostname, not the
+  // baked one.
+  const runtimeHost = process.env.APP_HOSTNAME;
+  if (runtimeHost) {
+    const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
+    return `${protocol}://${runtimeHost}`;
+  }
+
   const raw = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   let parsed: URL;
   try {
@@ -53,8 +64,12 @@ function resolveBaseUrl(): string {
  * ricade su `https://app.scontrinozero.it` per non rompere il render delle
  * pagine marketing pubbliche.
  *
- * Safe sia dai server component sia dai client component (no dipendenze
- * server-only come pino/Sentry).
+ * **Server-only in pratica**: deve essere chiamata da server component / SSR.
+ * Dai client component (post-hydration) `APP_HOSTNAME` e
+ * `NEXT_PUBLIC_APP_URL` non sono nel bundle (non sono baked dal Dockerfile
+ * corrente) e la funzione cadrebbe sul default hardcoded di produzione,
+ * causando un mismatch in sandbox/self-hosted. Da un client component,
+ * calcolare l'href in un parent server component e passarlo come prop.
  */
 export function appHref(path: `/${string}`): string {
   return `${resolveBaseUrl()}${path}`;
