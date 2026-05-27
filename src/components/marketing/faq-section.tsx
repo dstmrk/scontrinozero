@@ -18,6 +18,7 @@ export function FaqSection() {
     <div className="mt-10 space-y-4">
       {faqItems.map((item, index) => {
         const isOpen = openIndex === index;
+        const panelId = `faq-panel-${index}`;
 
         return (
           <Card
@@ -29,6 +30,7 @@ export function FaqSection() {
               className="w-full py-4 text-left"
               onClick={() => setOpenIndex(isOpen ? null : index)}
               aria-expanded={isOpen}
+              aria-controls={panelId}
             >
               <CardHeader className="flex flex-row items-center justify-between gap-4 pb-0">
                 <CardTitle className="text-base">{item.question}</CardTitle>
@@ -41,6 +43,9 @@ export function FaqSection() {
             </button>
 
             <div
+              id={panelId}
+              role="region"
+              hidden={!isOpen}
               className={`grid transition-all duration-300 ease-out ${
                 isOpen
                   ? "grid-rows-[1fr] opacity-100"

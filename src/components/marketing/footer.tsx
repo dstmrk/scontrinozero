@@ -7,7 +7,7 @@ export function Footer() {
   return (
     <footer className="border-border/50 border-t">
       <div className="mx-auto max-w-5xl px-4 py-12">
-        <div className="grid gap-8 md:grid-cols-3">
+        <div className="grid gap-8 md:grid-cols-4">
           <div>
             <div className="flex items-center gap-2">
               <Image
@@ -24,7 +24,7 @@ export function Footer() {
           </div>
 
           <div>
-            <h3 className="mb-3 text-sm font-semibold">Info</h3>
+            <h3 className="mb-3 text-sm font-semibold">Prodotto</h3>
             <ul className="text-muted-foreground space-y-2 text-sm">
               <li>
                 <Link
@@ -44,18 +44,40 @@ export function Footer() {
               </li>
               <li>
                 <Link
+                  href="/per"
+                  className="hover:text-foreground transition-colors"
+                >
+                  Soluzioni per categoria
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/confronto"
+                  className="hover:text-foreground transition-colors"
+                >
+                  Confronto alternative
+                </Link>
+              </li>
+              <li>
+                <Link
                   href="/#faq"
                   className="hover:text-foreground transition-colors"
                 >
                   Domande Frequenti
                 </Link>
               </li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="mb-3 text-sm font-semibold">Risorse</h3>
+            <ul className="text-muted-foreground space-y-2 text-sm">
               <li>
                 <Link
-                  href="/strumenti/scorporo-iva"
+                  href="/help"
                   className="hover:text-foreground transition-colors"
                 >
-                  Strumenti gratis
+                  Help Center
                 </Link>
               </li>
               <li>
@@ -64,6 +86,14 @@ export function Footer() {
                   className="hover:text-foreground transition-colors"
                 >
                   Guide
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/strumenti/scorporo-iva"
+                  className="hover:text-foreground transition-colors"
+                >
+                  Strumenti gratis
                 </Link>
               </li>
             </ul>
