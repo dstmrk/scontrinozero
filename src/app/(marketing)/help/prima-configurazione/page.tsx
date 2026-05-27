@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { appHref } from "@/lib/marketing-to-app-href";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
@@ -77,9 +78,12 @@ export default function PrimaConfigurazioneePage() {
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           {"Vai su "}
-          <Link href="/register" className="text-primary hover:underline">
-            scontrinozero.it/register
-          </Link>
+          <a
+            href={appHref("/register")}
+            className="text-primary hover:underline"
+          >
+            app.scontrinozero.it/register
+          </a>
           {
             " e inserisci email e password. Hai 30 giorni di prova gratuita senza inserire alcuna carta di credito. Dopo la registrazione conferma l'indirizzo email cliccando il link che ricevi nella casella di posta: al primo login si aprirà automaticamente il wizard di onboarding."
           }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { appHref } from "@/lib/marketing-to-app-href";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -96,10 +97,10 @@ export default async function CategoryLandingPage({ params }: PageParams) {
 
           <div className="mt-6 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
             <Button asChild size="lg">
-              <Link href="/register">
+              <a href={appHref("/register")}>
                 {"Inizia gratis "}
                 <ArrowRight className="ml-1 h-4 w-4" />
-              </Link>
+              </a>
             </Button>
             <span className="text-muted-foreground text-sm">
               {"30 giorni gratis · da €2,50/mese · nessuna carta richiesta"}
@@ -180,10 +181,10 @@ export default async function CategoryLandingPage({ params }: PageParams) {
               {"30 giorni di prova gratuita, senza carta di credito."}
             </p>
             <Button asChild className="mt-3">
-              <Link href="/register">
+              <a href={appHref("/register")}>
                 {"Crea l'account "}
                 <ArrowRight className="ml-1 h-4 w-4" />
-              </Link>
+              </a>
             </Button>
           </div>
         </article>

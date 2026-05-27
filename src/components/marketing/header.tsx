@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { appHref } from "@/lib/marketing-to-app-href";
 
 const navLinks = [
   { href: "/funzionalita", label: "Funzionalità" },
@@ -42,10 +43,11 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
+          {/* Plain <a> per forzare hard cross-origin navigation verso il
+              subdomain app: i <Link> di Next farebbero soft routing restando
+              sul dominio marketing. Vedi src/lib/marketing-to-app-href.ts. */}
           <Button size="sm" asChild className="hidden sm:inline-flex">
-            <Link href="/login" prefetch={false}>
-              Accedi
-            </Link>
+            <a href={appHref("/login")}>Accedi</a>
           </Button>
           <button
             type="button"
@@ -86,14 +88,13 @@ export function Header() {
               </li>
             ))}
             <li className="sm:hidden">
-              <Link
-                href="/login"
-                prefetch={false}
+              <a
+                href={appHref("/login")}
                 onClick={() => setMobileOpen(false)}
                 className="text-foreground hover:bg-muted block rounded-md px-2 py-2 text-sm font-medium transition-colors"
               >
                 Accedi
-              </Link>
+              </a>
             </li>
           </ul>
         </nav>

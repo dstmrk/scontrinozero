@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
+import { appHref } from "@/lib/marketing-to-app-href";
 import { Button } from "@/components/ui/button";
 import { MarketingHero } from "@/components/marketing/marketing-hero";
 import { PricingSection } from "@/components/marketing/pricing-section";
@@ -117,7 +117,7 @@ export default function PrezziPage() {
       />
 
       {/* Pricing toggle + cards */}
-      <PricingSection />
+      <PricingSection registerHref={appHref("/register")} />
 
       {/* Comparison table */}
       <section className="px-4 py-16">
@@ -216,10 +216,10 @@ export default function PrezziPage() {
           30 giorni per provare tutto. Nessuna carta richiesta.
         </p>
         <Button asChild size="lg" className="mt-6">
-          <Link href="/register" prefetch={false}>
+          <a href={appHref("/register")}>
             Inizia i 30 giorni gratis
             <ArrowRight className="h-4 w-4" />
-          </Link>
+          </a>
         </Button>
       </section>
     </>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { appHref } from "@/lib/marketing-to-app-href";
 import {
   ArrowRight,
   Zap,
@@ -143,10 +144,10 @@ export default function FunzionalitaPage() {
         subtitle="ScontrinoZero è pensato per chi ha bisogno di emettere scontrini fiscali in modo semplice, veloce e conforme alla normativa italiana."
       >
         <Button asChild size="lg" className="mt-8">
-          <Link href="/register" prefetch={false}>
+          <a href={appHref("/register")}>
             Prova gratis per 30 giorni
             <ArrowRight className="h-4 w-4" />
-          </Link>
+          </a>
         </Button>
       </MarketingHero>
 
@@ -177,10 +178,10 @@ export default function FunzionalitaPage() {
             </div>
             <div className="mt-10 text-center">
               <Button asChild variant="outline" size="sm">
-                <Link href="/register" prefetch={false}>
+                <a href={appHref("/register")}>
                   Inizia gratis
                   <ArrowRight className="h-4 w-4" />
-                </Link>
+                </a>
               </Button>
             </div>
           </div>
@@ -197,10 +198,10 @@ export default function FunzionalitaPage() {
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-4">
           <Button asChild size="lg">
-            <Link href="/register" prefetch={false}>
+            <a href={appHref("/register")}>
               Inizia gratis
               <ArrowRight className="h-4 w-4" />
-            </Link>
+            </a>
           </Button>
           <Button asChild variant="outline" size="lg">
             <Link href="/prezzi" prefetch={false}>
