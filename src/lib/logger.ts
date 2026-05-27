@@ -71,6 +71,7 @@ export function sanitizeForTelemetry(obj: unknown): Record<string, unknown> {
     "adeTransactionId",
     "adeProgressivo",
     "adeErrorCodes",
+    "adeErrorDescriptions",
     "action",
     "ipHash",
     "errorClass",

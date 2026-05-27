@@ -133,12 +133,16 @@ describe("sanitizeForTelemetry", () => {
       token: "should-not-appear",
       codiceFiscale: "RSSMRA80A01H501U",
       adeErrorCodes: ["GEN001"],
+      adeErrorDescriptions: ["Documento non valido"],
       err: new Error("AdE rejected"),
     });
 
     expect(result).toHaveProperty("userId", "u1");
     expect(result).toHaveProperty("businessId", "b1");
     expect(result).toHaveProperty("adeErrorCodes");
+    expect(result).toHaveProperty("adeErrorDescriptions", [
+      "Documento non valido",
+    ]);
     expect(result["err"]).toMatchObject({
       name: "Error",
       message: "AdE rejected",

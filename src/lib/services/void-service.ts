@@ -250,13 +250,19 @@ async function processVoidAdeResponse(args: {
   // AdE can return HTTP 200 with esito:false when it rejects the void.
   if (!adeResponse.esito) {
     const errorCodes = adeResponse.errori?.map((e) => e.codice) ?? [];
-    logger.error(
+    const errorDescriptions =
+      adeResponse.errori?.map((e) => e.descrizione) ?? [];
+    // warn (level 40) — sotto la soglia Sentry: un rifiuto business AdE
+    // (esito:false) non è un errore applicativo, quindi non apre issue
+    // Sentry. Resta nei log Docker per indagine.
+    logger.warn(
       {
         voidDocumentId,
         saleDocumentId,
         adeIdtrx: adeResponse.idtrx,
         adeProgressivo: adeResponse.progressivo,
         adeErrorCodes: errorCodes,
+        adeErrorDescriptions: errorDescriptions,
       },
       "AdE rejected void",
     );
@@ -272,9 +278,9 @@ async function processVoidAdeResponse(args: {
         })
         .where(eq(commercialDocuments.id, voidDocumentId)),
     );
-    const codeList = errorCodes.length > 0 ? ` (${errorCodes.join(", ")})` : "";
     return {
-      error: `Annullo rifiutato dall'AdE${codeList}. Verifica i dati e riprova.`,
+      error:
+        "Il portale Agenzia delle Entrate Fatture e Corrispettivi ha rifiutato l'annullamento dello scontrino. Non dipende da te né da ScontrinoZero. Riprova tra qualche minuto.",
     };
   }
 
