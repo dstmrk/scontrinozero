@@ -92,7 +92,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         question: "Posso emettere DCO anche in regime forfettario?",
         answer:
-          "Sì. Il regime forfettario non esonera dall'obbligo di emettere il documento commerciale per le vendite B2C. Le aliquote IVA in fattura sono pari a 0 (operazione fuori campo IVA art. 1 c. 58 L. 190/2014), ma il documento va comunque emesso e trasmesso.",
+          "Sì. Il regime forfettario non esonera dall'obbligo di emettere il documento commerciale per le vendite B2C. Sul documento va indicata la natura N2.2 (operazione non soggetta IVA, art. 1 c. 54-89 L. 190/2014) al posto dell'aliquota, ma lo scontrino va comunque emesso e trasmesso.",
       },
     ],
     relatedHelp: [
@@ -149,7 +149,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         question: "Cosa succede se internet non funziona?",
         answer:
-          "L'Agenzia delle Entrate prevede una procedura di emergenza: emetti uno scontrino manuale (anche su carta) annotando i corrispettivi e li trasmetti entro 12 giorni dalla cessazione del guasto. ScontrinoZero rileva l'assenza di connessione e suggerisce la procedura.",
+          "L'Agenzia delle Entrate prevede una procedura di emergenza: emetti uno scontrino manuale (anche su carta) annotando i corrispettivi, e i dati vanno comunque trasmessi al portale entro 12 giorni dall'effettuazione dell'operazione, una volta ripristinata la connessione. ScontrinoZero rileva l'assenza di connessione e suggerisce la procedura.",
       },
       {
         question: "Devo informare l'Agenzia delle Entrate della mia scelta?",
@@ -315,7 +315,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Come configurare l'IVA",
-        body: "Sui documenti emessi da un forfettario, l'IVA è \"fuori campo\" ai sensi dell'art. 1 c. 58 L. 190/2014. Sul DCO va indicata aliquota IVA pari a 0% (o \"esente/non imponibile\" secondo l'interfaccia software) e va riportata la dicitura normativa di esenzione. In ScontrinoZero, in fase di onboarding indichi che sei in regime forfettario e l'app applica la configurazione corretta automaticamente.",
+        body: "Sui documenti emessi da un forfettario l'operazione è non soggetta a IVA ai sensi dell'art. 1 c. 54-89 L. 190/2014. Sul DCO va indicato il codice natura N2.2 (operazione non soggetta IVA) al posto dell'aliquota, con la dicitura normativa di esenzione. In ScontrinoZero, in fase di onboarding indichi che sei in regime forfettario e l'app applica automaticamente la configurazione corretta.",
       },
       {
         heading: "Lotteria degli Scontrini e altri aspetti",

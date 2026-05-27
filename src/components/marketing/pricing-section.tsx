@@ -17,13 +17,14 @@ type Billing = "annual" | "monthly";
 
 interface Feature {
   label: string;
+  upcoming?: boolean;
 }
 
 const starterFeatures: Feature[] = [
   { label: "Scontrini illimitati" },
   { label: "Catalogo fino a 5 prodotti" },
   { label: "Analytics base" },
-  { label: "Ricevuta condivisibile via SMS, mail e Whatsapp" },
+  { label: "Ricevuta condivisibile via SMS, email e WhatsApp" },
   { label: "Supporto base" },
 ];
 
@@ -31,6 +32,9 @@ const proFeatures: Feature[] = [
   { label: "Tutto di Starter" },
   { label: "Catalogo illimitato" },
   { label: "Supporto prioritario" },
+  { label: "Analytics avanzata", upcoming: true },
+  { label: "Export CSV degli scontrini", upcoming: true },
+  { label: "Sincronizzazione catalogo AdE", upcoming: true },
 ];
 
 export function PricingSection() {
@@ -167,14 +171,25 @@ export function PricingSection() {
                 {proFeatures.map((f) => (
                   <li key={f.label} className="flex items-center gap-2">
                     <Check className="text-primary h-4 w-4 shrink-0" />
-                    {f.label}
+                    <span
+                      className={
+                        f.upcoming ? "text-muted-foreground" : undefined
+                      }
+                    >
+                      {f.label}
+                    </span>
+                    {f.upcoming && (
+                      <Badge variant="outline" className="text-[10px]">
+                        in arrivo
+                      </Badge>
+                    )}
                   </li>
                 ))}
               </ul>
               <p className="text-muted-foreground mt-4 text-xs">
-                Analytics avanzata, export CSV e sincronizzazione catalogo AdE
-                sono in sviluppo e saranno inclusi nel piano Pro non appena
-                disponibili.
+                Le feature contrassegnate &quot;in arrivo&quot; saranno
+                rilasciate nei prossimi aggiornamenti e incluse nel piano Pro
+                senza costi aggiuntivi.
               </p>
             </CardContent>
           </Card>
