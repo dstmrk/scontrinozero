@@ -261,6 +261,22 @@ describe("changeAdePassword", () => {
     expect(result.error).toMatch(/Riprova più tardi/);
   });
 
+  it("restituisce messaggio dedicato 'portale AdE down' quando AdE risponde 5xx", async () => {
+    const { AdePortalError } = await import("@/lib/ade/errors");
+    mockAdeChangePassword.mockRejectedValue(
+      new AdePortalError(500, "changePassword failed with status 500"),
+    );
+    const { changeAdePassword } = await import("@/server/onboarding-actions");
+    const result = await changeAdePassword(
+      BIZ_ID,
+      "OldPass1",
+      "NewPass12",
+      "NewPass12",
+    );
+    expect(result.error).toContain("portale Agenzia delle Entrate");
+    expect(result.error).toContain("codice 500");
+  });
+
   it("aggiorna la password cifrata e verifiedAt in caso di successo", async () => {
     const { changeAdePassword } = await import("@/server/onboarding-actions");
     const result = await changeAdePassword(

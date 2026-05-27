@@ -408,6 +408,20 @@ describe("emitReceiptForBusiness", () => {
     expect(setArg.status).toBe("ERROR");
   });
 
+  it("ritorna messaggio dedicato 'portale AdE down' su 5xx invece del messaggio generico", async () => {
+    const { AdePortalError } = await import("@/lib/ade/errors");
+    mockLogin.mockRejectedValue(
+      new AdePortalError(503, "wizardTemplate failed with status 503"),
+    );
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.error).toContain("portale Agenzia delle Entrate");
+    expect(result.error).toContain("codice 503");
+    expect(result.error).not.toContain("Riprova più tardi");
+  });
+
   it("non chiama logout se AdE login fallisce (nessuna sessione aperta)", async () => {
     mockLogin.mockRejectedValue(new Error("AdE login failed"));
 

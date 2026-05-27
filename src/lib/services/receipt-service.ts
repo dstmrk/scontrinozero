@@ -13,6 +13,7 @@ import { getDb } from "@/db";
 import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
 import { createAdeClient } from "@/lib/ade";
 import { AdePasswordExpiredError } from "@/lib/ade/errors";
+import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
 import { mapSaleToAdePayload } from "@/lib/ade/mapper";
 import { isStatementTimeoutError } from "@/lib/api-errors";
 import {
@@ -585,8 +586,13 @@ async function submitSaleToAde(
       };
     }
 
+    const userFacing = getUserFacingAdeErrorMessage(
+      err,
+      "Errore durante l'emissione dello scontrino. Riprova più tardi.",
+    );
     return {
-      error: "Errore durante l'emissione dello scontrino. Riprova più tardi.",
+      error: userFacing.message,
+      ...(userFacing.passwordExpired ? { passwordExpired: true } : {}),
     };
   } finally {
     if (loggedIn) {

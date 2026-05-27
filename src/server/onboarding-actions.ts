@@ -564,7 +564,11 @@ export async function changeAdePassword(
       };
     }
     logger.error({ err, businessId }, "Cambio password AdE fallito");
-    return { error: "Errore durante il cambio password. Riprova più tardi." };
+    const userFacing = getUserFacingAdeErrorMessage(
+      err,
+      "Errore durante il cambio password. Riprova più tardi.",
+    );
+    return { error: userFacing.message };
   }
 
   const newEncryptedPassword = encrypt(newPassword, key, cred.keyVersion);
