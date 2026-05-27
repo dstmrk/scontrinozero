@@ -8,7 +8,7 @@ import { RelatedHelpArticles } from "@/components/help/related-articles";
 export const metadata: Metadata = {
   title: "Errori comuni di accesso AdE e come risolverli | ScontrinoZero Help",
   description:
-    "Guida alla risoluzione degli errori più frequenti nel collegamento con l'Agenzia delle Entrate: password scaduta, credenziali errate, password bloccata e portale non disponibile.",
+    "Guida alla risoluzione degli errori più frequenti nel collegamento con l'Agenzia delle Entrate: password scaduta, credenziali errate, password bloccata, portale non disponibile e scontrino rifiutato in fase di emissione.",
 };
 
 export default function ErroriAdePage() {
@@ -261,6 +261,54 @@ export default function ErroriAdePage() {
               info@scontrinozero.it
             </a>
             {"."}
+          </li>
+        </ul>
+
+        {/* ─── Scontrino rifiutato dall'AdE in fase di emissione ─── */}
+        <h2
+          id="scontrino-rifiutato"
+          className="mt-10 scroll-mt-20 text-xl font-semibold"
+        >
+          Scontrino rifiutato dall&apos;AdE in fase di emissione
+        </h2>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          <strong>Sintomo:</strong> in cassa, dopo aver premuto{" "}
+          <strong>Emetti</strong>, appare il messaggio{" "}
+          <em>
+            &quot;Il portale Agenzia delle Entrate Fatture e Corrispettivi ha
+            rifiutato l&apos;emissione dello scontrino. Non dipende da te né da
+            ScontrinoZero. Riprova tra qualche minuto.&quot;
+          </em>{" "}
+          Lo scontrino non viene emesso e nessuna trasmissione fiscale è andata
+          a buon fine.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          <strong>Causa:</strong> AdE ha risposto al tentativo di trasmissione
+          con un rifiuto applicativo (esito negativo). È diverso dai casi
+          precedenti: le credenziali sono corrette, l&apos;attività è abilitata
+          e il portale risponde, ma un controllo interno del portale ha respinto
+          quella specifica trasmissione. Capita raramente, di solito in modo
+          intermittente.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm font-medium">
+          Cosa fare:
+        </p>
+        <ul className="text-muted-foreground mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed">
+          <li>
+            Aspetta qualche secondo e riprova l&apos;emissione: nella maggior
+            parte dei casi il secondo tentativo va a buon fine.
+          </li>
+          <li>
+            Se l&apos;errore si ripete in modo continuativo sullo stesso
+            scontrino, scrivici a{" "}
+            <a
+              href="mailto:info@scontrinozero.it"
+              className="text-primary hover:underline"
+            >
+              info@scontrinozero.it
+            </a>{" "}
+            indicando data e ora del tentativo: dai nostri log possiamo risalire
+            al messaggio specifico restituito dall&apos;AdE e capire la causa.
           </li>
         </ul>
 

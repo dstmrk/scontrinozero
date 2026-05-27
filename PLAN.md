@@ -8,17 +8,18 @@ La versione pubblicata corrente è in `package.json`. Lo storico delle release �
 
 ## Roadmap
 
-| Versione     | Descrizione                                                                                                                  |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| **v1.4.0**   | Coupon/promo codes, referral program, Stripe Customer Portal polish                                                          |
-| **v1.5.0**   | Email scontrino al cliente (PDF allegato via Resend)                                                                         |
-| **v1.7.0**   | Catalogo: modifica prodotto + sync AdE (HAR: aggiungi/modifica/elimina)                                                      |
-| **v1.8.0**   | AdE auth multi-metodo: SPID e CIE selezionabili in onboarding + settings; cookie jar cifrato, re-auth on 401                 |
-| **v1.9.0**   | CSV import prodotti, barcode scanner (BarcodeDetector API), Umami analytics                                                  |
-| **v1.10.0+** | Bluetooth printing (58/80mm), Passkey                                                                                        |
-| **v1.11.0**  | Storno avanzato: memorizzare progressivo documento AdE di annullamento e stampare ricevuta di annullamento                   |
-| **v1.x**     | Developer API Fase A: API key per-merchant, Pro gate, endpoints emissione/annullamento — vedi [DEVELOPER.md](./DEVELOPER.md) |
-| **v2.0.0+**  | Developer API Fase B: partner account, management API, piani developer, webhook, multi-operatore                             |
+| Versione     | Descrizione                                                                                                                                                                                         |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **v1.4.0**   | Coupon/promo codes, referral program, Stripe Customer Portal polish                                                                                                                                 |
+| **v1.4.x**   | Supporto in-app: voce "Supporto" nelle impostazioni del dashboard (link a `/help/contatto-assistenza`, eventuale mailto pre-compilato). Da approfondire in conversazione ad-hoc prima della v1.5.0. |
+| **v1.5.0**   | Email scontrino al cliente (PDF allegato via Resend)                                                                                                                                                |
+| **v1.7.0**   | Catalogo: modifica prodotto + sync AdE (HAR: aggiungi/modifica/elimina)                                                                                                                             |
+| **v1.8.0**   | AdE auth multi-metodo: SPID e CIE selezionabili in onboarding + settings; cookie jar cifrato, re-auth on 401                                                                                        |
+| **v1.9.0**   | CSV import prodotti, barcode scanner (BarcodeDetector API), Umami analytics                                                                                                                         |
+| **v1.10.0+** | Bluetooth printing (58/80mm), Passkey                                                                                                                                                               |
+| **v1.11.0**  | Storno avanzato: memorizzare progressivo documento AdE di annullamento e stampare ricevuta di annullamento                                                                                          |
+| **v1.x**     | Developer API Fase A: API key per-merchant, Pro gate, endpoints emissione/annullamento — vedi [DEVELOPER.md](./DEVELOPER.md)                                                                        |
+| **v2.0.0+**  | Developer API Fase B: partner account, management API, piani developer, webhook, multi-operatore                                                                                                    |
 
 ---
 

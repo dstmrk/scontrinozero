@@ -382,19 +382,36 @@ describe("emitReceiptForBusiness", () => {
   });
 
   it("aggiorna documento a REJECTED se AdE ritorna esito:false", async () => {
+    const { logger } = await import("@/lib/logger");
     mockSubmitSale.mockResolvedValue({
       esito: false,
       idtrx: null,
       progressivo: null,
-      errori: [{ codice: "ERR002", descrizione: "Dati non validi" }],
+      errori: [{ codice: "EF0", descrizione: "Dati non validi" }],
     });
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
     const result = await emitReceiptForBusiness(VALID_INPUT);
 
-    expect(result.error).toMatch(/rifiutato/i);
+    expect(result.error).toContain(
+      "portale Agenzia delle Entrate Fatture e Corrispettivi",
+    );
+    expect(result.error).toContain("Non dipende da te né da ScontrinoZero");
+    expect(result.error).not.toContain("EF0");
+    expect(result.error).not.toMatch(/codice/i);
     const setArg = mockUpdateSet.mock.calls[0][0];
     expect(setArg.status).toBe("REJECTED");
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        adeErrorCodes: ["EF0"],
+        adeErrorDescriptions: ["Dati non validi"],
+      }),
+      "AdE rejected sale",
+    );
+    expect(logger.error).not.toHaveBeenCalledWith(
+      expect.anything(),
+      "AdE rejected sale",
+    );
   });
 
   it("aggiorna documento a ERROR e ritorna errore se AdE login fallisce", async () => {

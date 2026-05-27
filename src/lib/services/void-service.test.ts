@@ -318,21 +318,38 @@ describe("voidReceiptForBusiness", () => {
   });
 
   it("aggiorna documento a REJECTED se AdE ritorna esito:false", async () => {
+    const { logger } = await import("@/lib/logger");
     mockSubmitVoid.mockResolvedValue({
       esito: false,
       idtrx: null,
       progressivo: null,
-      errori: [{ codice: "ERR001", descrizione: "Documento già annullato" }],
+      errori: [{ codice: "EF0", descrizione: "Documento già annullato" }],
     });
 
     const { voidReceiptForBusiness } = await import("./void-service");
     const result = await voidReceiptForBusiness(VALID_INPUT);
 
-    expect(result.error).toMatch(/rifiutato/i);
+    expect(result.error).toContain(
+      "portale Agenzia delle Entrate Fatture e Corrispettivi",
+    );
+    expect(result.error).toContain("Non dipende da te né da ScontrinoZero");
+    expect(result.error).not.toContain("EF0");
+    expect(result.error).not.toMatch(/codice/i);
     const setArg = mockUpdateSet.mock.calls[0][0];
     expect(setArg.status).toBe("REJECTED");
     expect(setArg.adeResponse).toBeDefined();
     expect(mockUpdateSet.mock.calls).toHaveLength(1);
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        adeErrorCodes: ["EF0"],
+        adeErrorDescriptions: ["Documento già annullato"],
+      }),
+      "AdE rejected void",
+    );
+    expect(logger.error).not.toHaveBeenCalledWith(
+      expect.anything(),
+      "AdE rejected void",
+    );
   });
 
   it("aggiorna documento a ERROR e ritorna errore se AdE login fallisce", async () => {
