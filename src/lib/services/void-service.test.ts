@@ -352,6 +352,30 @@ describe("voidReceiptForBusiness", () => {
     );
   });
 
+  it("logga array vuoti se AdE ritorna esito:false senza errori array", async () => {
+    const { logger } = await import("@/lib/logger");
+    mockSubmitVoid.mockResolvedValue({
+      esito: false,
+      idtrx: null,
+      progressivo: null,
+      // errori intentionally omitted: AdE può non includere il campo.
+    });
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect(result.error).toContain(
+      "portale Agenzia delle Entrate Fatture e Corrispettivi",
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        adeErrorCodes: [],
+        adeErrorDescriptions: [],
+      }),
+      "AdE rejected void",
+    );
+  });
+
   it("aggiorna documento a ERROR e ritorna errore se AdE login fallisce", async () => {
     mockLogin.mockRejectedValue(new Error("AdE login failed"));
 
