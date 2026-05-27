@@ -98,6 +98,11 @@ vi.mock("@/emails/welcome", () => ({
   WelcomeEmail: vi.fn().mockReturnValue(null),
 }));
 
+const mockNotifyOperator = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/lib/operator-notification", () => ({
+  notifyOperatorOfNewSignup: mockNotifyOperator,
+}));
+
 // --- Helpers ---
 
 function formData(entries: Record<string, string>): FormData {
@@ -763,6 +768,42 @@ describe("onboarding-actions", () => {
       expect(mockSendEmail).toHaveBeenCalledWith(
         expect.objectContaining({ to: "test@example.com" }),
       );
+      expect(mockNotifyOperator).toHaveBeenCalledWith("user-123");
+    });
+
+    it("does not fail when operator notification rejects", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+          verifiedAt: null,
+        },
+      ]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "12345678901",
+          codiceFiscale: "RSSMRA80A01H501U",
+        },
+      });
+      mockNotifyOperator.mockRejectedValueOnce(new Error("resend down"));
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials("biz-789");
+
+      // Caller swallows the rejection via .catch — flush microtasks so the
+      // unhandled-rejection guard doesn't trip in the test runner.
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(result.businessId).toBe("biz-789");
+      expect(result.error).toBeUndefined();
     });
 
     it("does not send welcome email on re-verification", async () => {
@@ -795,6 +836,7 @@ describe("onboarding-actions", () => {
 
       await Promise.resolve();
       expect(mockSendEmail).not.toHaveBeenCalled();
+      expect(mockNotifyOperator).not.toHaveBeenCalled();
     });
 
     it("blocca la verifica se la P.IVA è già in uso su un altro account (anti-abuso trial)", async () => {

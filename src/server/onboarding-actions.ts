@@ -22,6 +22,7 @@ import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { sendEmail } from "@/lib/email";
 import { WelcomeEmail } from "@/emails/welcome";
+import { notifyOperatorOfNewSignup } from "@/lib/operator-notification";
 import {
   getAuthenticatedUser,
   checkBusinessOwnership,
@@ -429,6 +430,11 @@ export async function verifyAdeCredentials(
       subject: "Sei pronto! Inizia a emettere scontrini con ScontrinoZero",
       react: createElement(WelcomeEmail, { email: user.email }),
     }).catch((err) => logger.error({ err }, "Welcome email failed"));
+
+    // Internal notification (fire-and-forget, non-critical, env-gated).
+    void notifyOperatorOfNewSignup(user.id).catch((err) =>
+      logger.warn({ err }, "Operator signup notification failed"),
+    );
   }
 
   revalidatePath("/dashboard", "layout");
