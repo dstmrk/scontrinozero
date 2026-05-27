@@ -570,6 +570,15 @@ describe("onboarding-actions", () => {
   });
 
   describe("verifyAdeCredentials", () => {
+    beforeEach(() => {
+      // Default snapshot for the businesses.fiscalCode read added in
+      // verifyAdeCredentials (gates the welcome/operator emails on first
+      // onboarding). Tests that need "already onboarded" semantics override
+      // with mockResolvedValueOnce({ fiscalCode: "..." }) AFTER queuing the
+      // ownership + credentials mocks.
+      mockLimit.mockResolvedValue([{ fiscalCode: null }]);
+    });
+
     it("verifies credentials successfully and fetches fiscal data", async () => {
       // Ownership check: JOIN profile+business
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
@@ -806,7 +815,7 @@ describe("onboarding-actions", () => {
       expect(result.error).toBeUndefined();
     });
 
-    it("does not send welcome email on re-verification", async () => {
+    it("does not send welcome email when business is already onboarded", async () => {
       // Ownership check: JOIN profile+business
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       // Credentials found — verifiedAt already set (re-verification)
@@ -821,6 +830,47 @@ describe("onboarding-actions", () => {
           verifiedAt: new Date("2026-01-01"),
         },
       ]);
+      // Business snapshot: fiscalCode already set → already onboarded.
+      mockLimit.mockResolvedValueOnce([{ fiscalCode: "RSSMRA80A01H501U" }]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "12345678901",
+          codiceFiscale: "RSSMRA80A01H501U",
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials("biz-789");
+
+      await Promise.resolve();
+      expect(mockSendEmail).not.toHaveBeenCalled();
+      expect(mockNotifyOperator).not.toHaveBeenCalled();
+    });
+
+    // Regression: gating on cred.verifiedAt would re-send welcome + operator
+    // emails when the user replaces AdE credentials (saveAdeCredentials
+    // resets verifiedAt to null) and re-verifies. Gating on
+    // businesses.fiscalCode — set once on first successful verification and
+    // never reset — closes this hole.
+    it("does not re-send welcome email after credential reset", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      // verifiedAt is null (credentials were just replaced) BUT fiscalCode
+      // was already set on a previous successful verification.
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+          verifiedAt: null,
+        },
+      ]);
+      mockLimit.mockResolvedValueOnce([{ fiscalCode: "RSSMRA80A01H501U" }]);
       mockLogin.mockResolvedValue({});
       mockLogout.mockResolvedValue(undefined);
       mockGetFiscalData.mockResolvedValue({
