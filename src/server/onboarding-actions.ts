@@ -22,6 +22,7 @@ import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { sendEmail } from "@/lib/email";
 import { WelcomeEmail } from "@/emails/welcome";
+import { notifyOperatorOfNewSignup } from "@/lib/operator-notification";
 import {
   getAuthenticatedUser,
   checkBusinessOwnership,
@@ -316,6 +317,20 @@ export async function verifyAdeCredentials(
     return { error: "Credenziali non trovate." };
   }
 
+  // Snapshot fiscalCode BEFORE the transaction that sets it. fiscalCode is
+  // assigned once on the first successful AdE verification and never reset
+  // (saveBusiness/saveAdeCredentials preserve it), so its absence is the
+  // canonical "user has never completed onboarding" signal. Using
+  // cred.verifiedAt would re-fire welcome/operator emails when the user
+  // replaces credentials (saveAdeCredentials resets verifiedAt to null) and
+  // re-verifies — fiscalCode survives that path.
+  const [businessSnapshot] = await db
+    .select({ fiscalCode: businesses.fiscalCode })
+    .from(businesses)
+    .where(eq(businesses.id, businessId))
+    .limit(1);
+  const wasAlreadyOnboarded = Boolean(businessSnapshot?.fiscalCode);
+
   // Snapshot updatedAt to detect concurrent credential updates (optimistic locking).
   // If the user saves new credentials while AdE login is in progress, the WHERE
   // below will match 0 rows, preventing verifiedAt from being set on stale data.
@@ -422,13 +437,20 @@ export async function verifyAdeCredentials(
     return { businessId };
   }
 
-  // Send welcome email on first successful verification (fire-and-forget)
-  if (!cred.verifiedAt && user.email) {
+  // Send welcome email on first successful verification (fire-and-forget).
+  // Gated on fiscalCode (not verifiedAt) to avoid duplicate emails when the
+  // user replaces AdE credentials and re-verifies — see snapshot above.
+  if (!wasAlreadyOnboarded && user.email) {
     void sendEmail({
       to: user.email,
       subject: "Sei pronto! Inizia a emettere scontrini con ScontrinoZero",
       react: createElement(WelcomeEmail, { email: user.email }),
     }).catch((err) => logger.error({ err }, "Welcome email failed"));
+
+    // Internal notification (fire-and-forget, non-critical, env-gated).
+    void notifyOperatorOfNewSignup(user.id).catch((err) =>
+      logger.warn({ err }, "Operator signup notification failed"),
+    );
   }
 
   revalidatePath("/dashboard", "layout");
