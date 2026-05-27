@@ -50,7 +50,7 @@ tag git (`git tag -l "v1.*"`).
    aspettare che lo chiedano.
 8. **Aggiornare pagine `/help`** se si modifica una funzionalità (label, menu,
    stati, filtri, error flow, gating piani, nomi bottoni). `grep -rn "<termine>"
-   src/app/\(marketing\)/help` prima di chiudere il task. Feature non ancora
+src/app/\(marketing\)/help` prima di chiudere il task. Feature non ancora
    implementate → riformulare al condizionale come roadmap.
 9. **Boundary delle API:** UUID validation con `isValidUuid()` + 400 prima del
    service; body size guard con `readJsonWithLimit(req, maxBytes)` + 413 prima
@@ -154,12 +154,12 @@ prima dell'entrata in vigore.
 
 ## Pricing (per plan-gate nel codice)
 
-| Piano       | Mensile | Annuale | Note                                            |
-| ----------- | ------- | ------- | ----------------------------------------------- |
-| Starter     | €4.99   | €29.99  | Catalogo rapido max 5 prodotti                  |
-| Pro         | €8.99   | €49.99  | Catalogo ∞, analytics avanzata, export, AdE sync |
-| Self-hosted | €0      | €0      | Tutte le feature, gestione autonoma             |
-| Unlimited   | —       | —       | Invite-only, `plan='unlimited'` su `profiles`   |
+| Piano       | Mensile | Annuale | Note                                                                                                   |
+| ----------- | ------- | ------- | ------------------------------------------------------------------------------------------------------ |
+| Starter     | €4.99   | €29.99  | Catalogo rapido max 5 prodotti, analytics base                                                         |
+| Pro         | €8.99   | €49.99  | Attivo: catalogo ∞, supporto prioritario. In arrivo: analytics avanzata, export CSV, recupero/sync AdE |
+| Self-hosted | €0      | €0      | Tutte le feature, gestione autonoma                                                                    |
+| Unlimited   | —       | —       | Invite-only, `plan='unlimited'` su `profiles`                                                          |
 
 Feature gate canonico in `src/lib/plans.ts`. Trial 30 giorni Starter/Pro, no
 carta all'iscrizione. P.IVA UNIQUE nel DB (anti-abuso trial).
@@ -172,7 +172,7 @@ auto-attivano quando il task matcha il `description`:
 - **`testing-patterns`** — Vitest, `expect()` obbligatori, mock di classi,
   rate limit, JOIN refactor, NODE_ENV, mock Drizzle transaction, Sentry+pino
 - **`db-migrations`** — handwritten migrations, bootstrap DB pre-esistente,
-  Drizzle raw `sql\`\`` con `Date`, race / idempotency per-tenant
+  Drizzle raw `sql\`\``con`Date`, race / idempotency per-tenant
 - **`security-patterns`** — `CF-Connecting-IP`, UUID/body/email guards,
   hostname validation, double-gate rate limit, CSP, prototype-safe lookup
 - **`stripe-webhooks`** — API `2026-02-25.clover`, 8 webhook events,

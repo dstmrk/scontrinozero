@@ -53,7 +53,7 @@ export const faqItems = [
   {
     question: "Qual è la differenza concreta tra Starter e Pro?",
     answer:
-      "Starter è ideale per ambulanti e micro-attività: scontrini illimitati, catalogo fino a 5 prodotti rapidi e analytics base. Pro aggiunge catalogo illimitato, analytics avanzata, export CSV degli scontrini, recupero documenti dal portale AdE e supporto prioritario. Entrambi includono 30 giorni di prova gratuita.",
+      "Starter è pensato per ambulanti e micro-attività: scontrini illimitati, catalogo fino a 5 prodotti rapidi e analytics base. Pro è pensato per chi usa ScontrinoZero tutti i giorni: catalogo prodotti illimitato e supporto prioritario via email entro 24 ore. Sono inoltre in sviluppo, e saranno incluse nel piano Pro non appena rilasciate, l'analytics avanzata, l'export CSV degli scontrini, il recupero documenti dal portale AdE e la sincronizzazione del catalogo da rubrica AdE. Entrambi i piani includono 30 giorni di prova gratuita.",
   },
   {
     question: "Esiste una versione completamente gratuita?",
