@@ -42,6 +42,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1,
     },
     ...marketingPages,
+    {
+      url: `${baseUrl}/per`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
     ...categoryLandingPages,
     {
       url: `${baseUrl}/confronto`,

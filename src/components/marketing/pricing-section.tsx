@@ -16,13 +16,14 @@ type Billing = "annual" | "monthly";
 
 interface Feature {
   label: string;
+  upcoming?: boolean;
 }
 
 const starterFeatures: Feature[] = [
   { label: "Scontrini illimitati" },
   { label: "Catalogo fino a 5 prodotti" },
   { label: "Analytics base" },
-  { label: "Ricevuta condivisibile via SMS, mail e Whatsapp" },
+  { label: "Ricevuta condivisibile via SMS, email e WhatsApp" },
   { label: "Supporto base" },
 ];
 
@@ -30,6 +31,9 @@ const proFeatures: Feature[] = [
   { label: "Tutto di Starter" },
   { label: "Catalogo illimitato" },
   { label: "Supporto prioritario" },
+  { label: "Analytics avanzata", upcoming: true },
+  { label: "Export CSV degli scontrini", upcoming: true },
+  { label: "Sincronizzazione catalogo AdE", upcoming: true },
 ];
 
 interface PricingSectionProps {
@@ -98,17 +102,20 @@ export function PricingSection({ registerHref }: PricingSectionProps) {
                         /mese
                       </span>
                       <Badge variant="secondary" className="text-xs">
-                        -50%
+                        −50% vs mensile
                       </Badge>
                     </div>
                     <p className="text-muted-foreground mt-1 text-sm">
-                      fatturato €29,99/anno
+                      €29,99/anno (un solo addebito)
                     </p>
                   </>
                 ) : (
                   <>
                     <span className="text-3xl font-bold">€4,99</span>
                     <span className="text-muted-foreground text-sm">/mese</span>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                      o €29,99/anno (equivalente €2,50/mese)
+                    </p>
                   </>
                 )}
               </div>
@@ -147,17 +154,20 @@ export function PricingSection({ registerHref }: PricingSectionProps) {
                         /mese
                       </span>
                       <Badge variant="secondary" className="text-xs">
-                        -54%
+                        −54% vs mensile
                       </Badge>
                     </div>
                     <p className="text-muted-foreground mt-1 text-sm">
-                      fatturato €49,99/anno
+                      €49,99/anno (un solo addebito)
                     </p>
                   </>
                 ) : (
                   <>
                     <span className="text-3xl font-bold">€8,99</span>
                     <span className="text-muted-foreground text-sm">/mese</span>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                      o €49,99/anno (equivalente €4,17/mese)
+                    </p>
                   </>
                 )}
               </div>
@@ -167,14 +177,25 @@ export function PricingSection({ registerHref }: PricingSectionProps) {
                 {proFeatures.map((f) => (
                   <li key={f.label} className="flex items-center gap-2">
                     <Check className="text-primary h-4 w-4 shrink-0" />
-                    {f.label}
+                    <span
+                      className={
+                        f.upcoming ? "text-muted-foreground" : undefined
+                      }
+                    >
+                      {f.label}
+                    </span>
+                    {f.upcoming && (
+                      <Badge variant="outline" className="text-[10px]">
+                        in arrivo
+                      </Badge>
+                    )}
                   </li>
                 ))}
               </ul>
               <p className="text-muted-foreground mt-4 text-xs">
-                Analytics avanzata, export CSV e sincronizzazione catalogo AdE
-                sono in sviluppo e saranno inclusi nel piano Pro non appena
-                disponibili.
+                Le feature contrassegnate &quot;in arrivo&quot; saranno
+                rilasciate nei prossimi aggiornamenti e incluse nel piano Pro
+                senza costi aggiuntivi.
               </p>
             </CardContent>
           </Card>

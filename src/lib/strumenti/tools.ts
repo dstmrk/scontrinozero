@@ -94,7 +94,7 @@ export const tools: Record<ToolSlug, ToolContent> = {
     metaDescription:
       "Stima il TCO a 5 anni del registratore telematico fisico (hardware + canoni) e confrontalo con ScontrinoZero. Risultato istantaneo, basato sul volume mensile.",
     heroIntro:
-      "Inserisci quanti scontrini emetti al mese e calcoliamo quanto costa un registratore telematico (RT) fisico nei prossimi 5 anni rispetto al piano ScontrinoZero appropriato. Le stime usano costi medi di mercato (gennaio 2026).",
+      "Inserisci quanti scontrini emetti al mese e calcoliamo quanto costa un registratore telematico (RT) fisico nei prossimi 5 anni rispetto al piano ScontrinoZero appropriato. Le stime usano costi medi di mercato aggiornati al 2026.",
     howItWorks: [
       "Indica quanti scontrini emetti mediamente al mese.",
       "Ti suggeriamo il piano ScontrinoZero adatto al volume.",

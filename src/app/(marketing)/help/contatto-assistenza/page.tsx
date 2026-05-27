@@ -43,7 +43,7 @@ export default function ContattoAssistenzaPage() {
           dedicata.
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> aprile 2026
+          <strong>Ultimo aggiornamento:</strong> maggio 2026
         </p>
 
         {/* ─── Email ─── */}

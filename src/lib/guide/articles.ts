@@ -92,7 +92,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         question: "Posso emettere DCO anche in regime forfettario?",
         answer:
-          "Sì. Il regime forfettario non esonera dall'obbligo di emettere il documento commerciale per le vendite B2C. Le aliquote IVA in fattura sono pari a 0 (operazione fuori campo IVA art. 1 c. 58 L. 190/2014), ma il documento va comunque emesso e trasmesso.",
+          "Sì. Il regime forfettario non esonera dall'obbligo di emettere il documento commerciale per le vendite B2C. Sul documento va indicata la natura N2.2 (operazione non soggetta IVA, art. 1 c. 54-89 L. 190/2014) al posto dell'aliquota, ma lo scontrino va comunque emesso e trasmesso.",
       },
     ],
     relatedHelp: [
@@ -149,7 +149,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         question: "Cosa succede se internet non funziona?",
         answer:
-          "L'Agenzia delle Entrate prevede una procedura di emergenza: emetti uno scontrino manuale (anche su carta) annotando i corrispettivi e li trasmetti entro 12 giorni dalla cessazione del guasto. ScontrinoZero rileva l'assenza di connessione e suggerisce la procedura.",
+          "L'Agenzia delle Entrate prevede una procedura di emergenza: emetti uno scontrino manuale (anche su carta) annotando i corrispettivi, e i dati vanno comunque trasmessi al portale entro 12 giorni dall'effettuazione dell'operazione, una volta ripristinata la connessione. ScontrinoZero rileva l'assenza di connessione e suggerisce la procedura.",
       },
       {
         question: "Devo informare l'Agenzia delle Entrate della mia scelta?",
@@ -315,7 +315,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Come configurare l'IVA",
-        body: "Sui documenti emessi da un forfettario, l'IVA è \"fuori campo\" ai sensi dell'art. 1 c. 58 L. 190/2014. Sul DCO va indicata aliquota IVA pari a 0% (o \"esente/non imponibile\" secondo l'interfaccia software) e va riportata la dicitura normativa di esenzione. In ScontrinoZero, in fase di onboarding indichi che sei in regime forfettario e l'app applica la configurazione corretta automaticamente.",
+        body: "Sui documenti emessi da un forfettario l'operazione è non soggetta a IVA ai sensi dell'art. 1 c. 54-89 L. 190/2014. Sul DCO va indicato il codice natura N2.2 (operazione non soggetta IVA) al posto dell'aliquota, con la dicitura normativa di esenzione. In ScontrinoZero, in fase di onboarding indichi che sei in regime forfettario e l'app applica automaticamente la configurazione corretta.",
       },
       {
         heading: "Lotteria degli Scontrini e altri aspetti",
@@ -554,32 +554,32 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     title: "Lotteria degli Scontrini: cosa deve fare il commerciante",
     metaTitle: "Lotteria scontrini lato commerciante: obblighi e procedura",
     metaDescription:
-      "La Lotteria degli Scontrini vista dall'esercente: obblighi normativi, come acquisire il codice lotteria, gestire la lotteria istantanea, sanzioni in caso di rifiuto.",
+      "La Lotteria degli Scontrini vista dall'esercente: come acquisire il codice, cosa cambia in caso di rifiuto, stato attuale della lotteria istantanea e periodica.",
     heroIntro:
-      "La Lotteria degli Scontrini è un sistema premio per i consumatori che richiedono lo scontrino elettronico al momento dell'acquisto. Per il commerciante è un adempimento operativo importante: rifiutare il codice lotteria espone a sanzioni. Vediamo cosa devi sapere e cosa devi fare nella pratica quotidiana.",
+      "La Lotteria degli Scontrini è un sistema premio per i consumatori che presentano un codice al momento dell'acquisto. Per il commerciante è un'attività operativa semplice: contrariamente a quanto si legge in giro, oggi non esiste una sanzione amministrativa per il rifiuto del codice — la previsione iniziale del decreto fiscale 2020 fu eliminata in sede di conversione. Resta però un meccanismo di segnalazione del cliente sul Portale Lotteria, che alimenta l'analisi del rischio dell'Agenzia delle Entrate.",
     publishedAt: "2026-05-15",
     updatedAt: "2026-05",
     readingMinutes: 6,
     sections: [
       {
         heading: "Come funziona la Lotteria degli Scontrini",
-        body: "Il consumatore richiede gratuitamente sul sito lotteriadegliscontrini.gov.it un codice personale di 8 caratteri alfanumerici. Quando fa un acquisto, lo presenta all'esercente (cartaceo, smartphone o tessera plastificata): l'esercente lo inserisce nel DCO, il codice viene trasmesso ad AdE insieme allo scontrino, e ad ogni euro di spesa corrispondono uno o più biglietti virtuali per le estrazioni periodiche e istantanee.",
+        body: "Il consumatore richiede gratuitamente sul sito lotteriadegliscontrini.gov.it un codice personale di 8 caratteri alfanumerici. Quando fa un acquisto, lo presenta all'esercente (cartaceo, smartphone o tessera plastificata): l'esercente lo inserisce nel DCO, il codice viene trasmesso ad AdE insieme allo scontrino, e ad ogni euro di spesa corrispondono uno o più biglietti virtuali per le estrazioni periodiche.",
       },
       {
-        heading: "Obblighi del commerciante",
-        body: "Quando il cliente esibisce il codice lotteria, l'esercente è obbligato per legge ad acquisirlo e trasmetterlo insieme al DCO. Il rifiuto espone a una sanzione amministrativa pecuniaria. L'obbligo riguarda solo i pagamenti elettronici (carta, bancomat, app, bonifico istantaneo) per le estrazioni istantanee, ed estrazioni periodiche per tutti i pagamenti tracciati. Il codice è strettamente personale del cliente: non va memorizzato né riusato.",
+        heading: "Cosa deve fare il commerciante",
+        body: "Quando il cliente esibisce il codice lotteria, va inserito nel DCO e trasmesso ad AdE insieme allo scontrino. Non si tratta di un obbligo sanzionato: la sanzione amministrativa prevista dal decreto fiscale collegato alla Manovra 2020 fu eliminata in sede di conversione e non è mai stata reintrodotta. Resta però buona pratica accettare sempre il codice, sia per servizio al cliente sia per evitare segnalazioni sul Portale Lotteria (che possono alimentare l'analisi del rischio AdE/GdF). Il codice è strettamente personale del cliente: non va memorizzato né riusato.",
       },
       {
         heading: "Come acquisire il codice in fase di emissione",
-        body: 'Tutti i software certificati per DCO devono prevedere un campo "codice lotteria" in fase di emissione scontrino. Su ScontrinoZero, prima di confermare l\'emissione, compare un campo opzionale dove inserire il codice (8 caratteri maiuscoli e numeri). Una validazione lato app verifica il formato; il codice corretto viene incluso nel payload AdE come `cfCessionarioCommittente`. Tempo aggiuntivo per scontrino: 5-10 secondi.',
+        body: "Tutti i software che emettono DCO devono prevedere un campo dedicato per il codice lotteria. Su ScontrinoZero, prima di confermare l'emissione, compare un campo opzionale dove inserire il codice (8 caratteri maiuscoli o numeri). Una validazione lato app verifica il formato; il codice corretto viene incluso nel tracciato DCO trasmesso ad AdE. Tempo aggiuntivo per scontrino: 5-10 secondi.",
       },
       {
-        heading: "Lotteria istantanea vs periodica",
-        body: "Lotteria istantanea: vincita comunicata pochi secondi dopo l'emissione del DCO, premi medio-piccoli, valida solo per pagamenti elettronici. Lotteria periodica: estrazioni settimanali, mensili e annuali, premi più alti, valida per pagamenti sia elettronici sia in contanti. Il cliente partecipa automaticamente a tutte le estrazioni applicabili semplicemente con il codice nel DCO. Il commerciante non ha visibilità delle vincite (sono comunicate al cliente).",
+        heading: "Lotteria periodica e lotteria istantanea: stato attuale",
+        body: "Oggi è attiva solo la lotteria periodica: il sistema effettua estrazioni regolari (mensili e annuali) fra tutti gli scontrini trasmessi con un codice lotteria valido. La lotteria istantanea — vincita comunicata pochi secondi dopo l'emissione, riservata ai pagamenti elettronici — è stata annunciata più volte ma a maggio 2026 non risulta ancora avviata (le gare d'appalto per il sistema sono andate deserte). Quando partirà, il commerciante non dovrà cambiare nulla nel flusso di emissione: l'eventuale vincita viene comunicata direttamente al cliente.",
       },
       {
-        heading: "Sanzioni in caso di rifiuto",
-        body: "Rifiutare di acquisire un codice lotteria valido espone a sanzione amministrativa pecuniaria, che può essere applicata anche dalle stesse autorità di controllo che verificano l'emissione regolare dei corrispettivi. La sanzione è incrementata in caso di reiterazione. Il consumatore può segnalare il rifiuto tramite il portale lotteriadegliscontrini.gov.it; le segnalazioni alimentano i controlli AdE/GdF.",
+        heading: "Conseguenze del rifiuto",
+        body: "Non c'è una sanzione automatica. Il consumatore può però segnalare il rifiuto tramite il portale lotteriadegliscontrini.gov.it: le segnalazioni vengono aggregate da AdE e Guardia di Finanza e usate come indicatore nelle attività di analisi del rischio di evasione (insieme ad altri segnali, come la trasmissione irregolare dei corrispettivi). In altre parole, il rifiuto non comporta una multa immediata, ma alza il profilo di rischio del punto vendita.",
       },
       {
         heading: "Aspetti pratici quotidiani",
@@ -591,7 +591,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
         question:
           "Sono in regime forfettario: devo gestire la lotteria degli scontrini?",
         answer:
-          "Sì. La Lotteria degli Scontrini si applica al consumatore finale, non al regime fiscale dell'esercente. Anche da forfettario sei tenuto ad acquisire il codice lotteria quando il cliente lo presenta. Il DCO con IVA 0% include normalmente il campo lotteria.",
+          "Sì, anche in regime forfettario puoi (e in pratica conviene) accettare il codice lotteria del cliente: la lotteria si applica al consumatore finale, non al regime fiscale dell'esercente. Il DCO emesso da un forfettario include normalmente il campo lotteria, con la natura N2.2 (operazione non soggetta IVA art. 1 c. 54-89 L. 190/2014) al posto dell'aliquota.",
       },
       {
         question:

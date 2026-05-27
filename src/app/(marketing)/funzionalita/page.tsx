@@ -96,9 +96,9 @@ const sections = [
       },
       {
         icon: Ticket,
-        title: "Pronto per la normativa 2026",
+        title: "Allineato alla normativa POS 2026",
         description:
-          "Dal 1° gennaio 2026 il terminale POS che usi per le carte deve essere collegato al sistema di trasmissione dei corrispettivi. ScontrinoZero segue i flussi previsti dall'Agenzia delle Entrate e si aggiorna in automatico per restare in regola.",
+          "Dal 1° gennaio 2026 è in vigore l'obbligo di collegamento fra terminale POS e sistema di trasmissione dei corrispettivi. ScontrinoZero segue i flussi previsti dall'Agenzia delle Entrate e si aggiorna in automatico per restare in regola.",
       },
     ],
   },

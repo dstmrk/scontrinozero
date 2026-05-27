@@ -167,12 +167,12 @@ prima dell'entrata in vigore.
 
 ## Pricing (per plan-gate nel codice)
 
-| Piano       | Mensile | Annuale | Note                                             |
-| ----------- | ------- | ------- | ------------------------------------------------ |
-| Starter     | €4.99   | €29.99  | Catalogo rapido max 5 prodotti                   |
-| Pro         | €8.99   | €49.99  | Catalogo ∞, analytics avanzata, export, AdE sync |
-| Self-hosted | €0      | €0      | Tutte le feature, gestione autonoma              |
-| Unlimited   | —       | —       | Invite-only, `plan='unlimited'` su `profiles`    |
+| Piano       | Mensile | Annuale | Note                                                                                                   |
+| ----------- | ------- | ------- | ------------------------------------------------------------------------------------------------------ |
+| Starter     | €4.99   | €29.99  | Catalogo rapido max 5 prodotti, analytics base                                                         |
+| Pro         | €8.99   | €49.99  | Attivo: catalogo ∞, supporto prioritario. In arrivo: analytics avanzata, export CSV, recupero/sync AdE |
+| Self-hosted | €0      | €0      | Tutte le feature, gestione autonoma                                                                    |
+| Unlimited   | —       | —       | Invite-only, `plan='unlimited'` su `profiles`                                                          |
 
 Feature gate canonico in `src/lib/plans.ts`. Trial 30 giorni Starter/Pro, no
 carta all'iscrizione. P.IVA UNIQUE nel DB (anti-abuso trial).
