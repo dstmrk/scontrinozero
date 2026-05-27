@@ -102,12 +102,14 @@ type CaptchaAction = "signup" | "signin" | "reset-password";
 /**
  * Hostname accettati nella response Turnstile siteverify.
  *
- * Il widget può essere caricato sia dal dominio app sia dal dominio marketing:
- * la client-side navigation di Next.js (`<Link href="/login">` dalla landing)
- * non sempre attraversa il redirect del middleware cross-origin, quindi il
- * browser può restare sull'hostname marketing quando renderizza /login. Anche
- * i deploy single-domain (app servita dal dominio marketing) sono coperti da
- * questa lista.
+ * Da quando le pagine `(marketing)/*` usano `appHref()` + plain `<a>` per i
+ * link auth (vedi `src/lib/marketing-to-app-href.ts`), il widget Turnstile
+ * dovrebbe caricarsi solo sul subdomain app. Manteniamo comunque marketing +
+ * www come safety net: copre i deploy single-domain (app servita dal dominio
+ * marketing) e protegge da regressioni se in futuro un nuovo link marketing
+ * viene aggiunto come `<Link>` di Next dimenticando `appHref()`. Senza questo
+ * fallback il bug `captcha_hostname_mismatch` (commit ac59efc) tornerebbe a
+ * bloccare ogni login.
  */
 function getAcceptedTurnstileHostnames(): ReadonlySet<string> {
   const appHostname =

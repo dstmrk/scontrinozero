@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Clock } from "lucide-react";
+import { appHref } from "@/lib/marketing-to-app-href";
 import { Button } from "@/components/ui/button";
 import { JsonLd, breadcrumbListJsonLd } from "@/components/json-ld";
 import { guideArticles, guideSlugs } from "@/lib/guide/articles";
@@ -83,10 +84,10 @@ export default function GuideIndexPage() {
               {"30 giorni di prova gratuita, senza carta di credito."}
             </p>
             <Button asChild className="mt-3">
-              <Link href="/register">
+              <a href={appHref("/register")}>
                 {"Crea l'account "}
                 <ArrowRight className="ml-1 h-4 w-4" />
-              </Link>
+              </a>
             </Button>
           </div>
         </article>

@@ -23,12 +23,17 @@ describe("RelatedHelpArticles", () => {
     }
   });
 
-  it("renders a CTA link to /register", () => {
+  it("renders a CTA link to /register on the app subdomain (hard cross-origin)", () => {
     render(<RelatedHelpArticles slug="primo-scontrino" />);
     const cta = screen.getByRole("link", {
       name: /crea l'account|crea l’account/i,
     });
-    expect(cta.getAttribute("href")).toBe("/register");
+    // Deve essere un URL assoluto verso il subdomain app, non un path relativo,
+    // così il browser fa hard navigation e il widget Turnstile carica solo
+    // sul dominio app (vedi regola #15 in CLAUDE.md).
+    const href = cta.getAttribute("href") ?? "";
+    expect(href.endsWith("/register")).toBe(true);
+    expect(href.startsWith("http")).toBe(true);
   });
 
   it("throws for an unknown slug", () => {

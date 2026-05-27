@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
+import { appHref } from "@/lib/marketing-to-app-href";
 import { Button } from "@/components/ui/button";
 import { JsonLd, breadcrumbListJsonLd } from "@/components/json-ld";
 import { confrontoContent } from "@/lib/confronto/comparisons";
@@ -56,10 +57,10 @@ export default function ConfrontoPage() {
 
           <div className="mt-6 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
             <Button asChild size="lg">
-              <Link href="/register">
+              <a href={appHref("/register")}>
                 {"Prova ScontrinoZero gratis "}
                 <ArrowRight className="ml-1 h-4 w-4" />
-              </Link>
+              </a>
             </Button>
             <span className="text-muted-foreground text-sm">
               {"30 giorni gratis · da €2,50/mese · nessuna carta richiesta"}
@@ -292,10 +293,10 @@ export default function ConfrontoPage() {
               {"30 giorni di prova gratuita, senza carta di credito."}
             </p>
             <Button asChild className="mt-3">
-              <Link href="/register">
+              <a href={appHref("/register")}>
                 {"Crea l'account "}
                 <ArrowRight className="ml-1 h-4 w-4" />
-              </Link>
+              </a>
             </Button>
           </div>
         </article>

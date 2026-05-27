@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Check, ArrowRight } from "lucide-react";
+import { appHref } from "@/lib/marketing-to-app-href";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -176,10 +176,10 @@ export function PricingSection() {
 
         <div className="mt-8 text-center">
           <Button asChild size="lg">
-            <Link href="/register" prefetch={false}>
+            <a href={appHref("/register")}>
               Inizia i 30 giorni gratis
               <ArrowRight className="h-4 w-4" />
-            </Link>
+            </a>
           </Button>
           <p className="text-muted-foreground mt-3 text-sm">
             Nessun metodo di pagamento richiesto

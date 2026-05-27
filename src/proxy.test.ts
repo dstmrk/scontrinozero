@@ -367,6 +367,30 @@ describe("proxy", () => {
       expect(location.pathname).toBe("/login");
     });
 
+    it("redirects /login on bare marketing domain to app domain", async () => {
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(
+        createRequestForHost("/login", "scontrinozero.it"),
+      );
+      expect(response.status).toBe(307);
+      const location = new URL(response.headers.get("location")!);
+      expect(location.hostname).toBe("app.scontrinozero.it");
+      expect(location.pathname).toBe("/login");
+    });
+
+    it("redirects /register on bare marketing domain to app domain", async () => {
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(
+        createRequestForHost("/register", "scontrinozero.it"),
+      );
+      expect(response.status).toBe(307);
+      const location = new URL(response.headers.get("location")!);
+      expect(location.hostname).toBe("app.scontrinozero.it");
+      expect(location.pathname).toBe("/register");
+    });
+
     it("passes through /api/v1/receipts on api subdomain without redirect", async () => {
       process.env.NEXT_PUBLIC_API_HOSTNAME = "api.scontrinozero.it";
       mockGetUser.mockResolvedValue({ data: { user: null } });
