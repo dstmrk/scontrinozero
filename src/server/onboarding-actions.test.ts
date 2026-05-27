@@ -666,6 +666,59 @@ describe("onboarding-actions", () => {
       expect(result.error).toContain("Verifica fallita");
     });
 
+    it("returns a dedicated message when AdE responds with 5xx", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+        },
+      ]);
+      const { AdePortalError } = await import("@/lib/ade/errors");
+      mockLogin.mockRejectedValue(
+        new AdePortalError(500, "wizardTemplate failed with status 500"),
+      );
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials("biz-789");
+
+      expect(result.error).toContain(
+        "portale Agenzia delle Entrate Fatture e Corrispettivi",
+      );
+      expect(result.error).toContain("non risponde al momento");
+      expect(result.error).toContain("Non dipende da te né da ScontrinoZero");
+      expect(result.error).not.toContain("Verifica fallita");
+    });
+
+    it("returns a dedicated message when AdE is unreachable (network error)", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+        },
+      ]);
+      const { AdeNetworkError } = await import("@/lib/ade/errors");
+      mockLogin.mockRejectedValue(new AdeNetworkError(new Error("ECONNRESET")));
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials("biz-789");
+
+      expect(result.error).toContain(
+        "portale Agenzia delle Entrate Fatture e Corrispettivi",
+      );
+      expect(result.error).toContain("non è raggiungibile al momento");
+      expect(result.error).not.toContain("Verifica fallita");
+    });
+
     it("returns error when business does not belong to the user (IDOR)", async () => {
       // Ownership check: JOIN returns no match
       mockLimit.mockResolvedValueOnce([]);

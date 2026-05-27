@@ -13,6 +13,7 @@ import { getDb } from "@/db";
 import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
 import { createAdeClient } from "@/lib/ade";
 import { AdePasswordExpiredError } from "@/lib/ade/errors";
+import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
 import { mapSaleToAdePayload } from "@/lib/ade/mapper";
 import { isStatementTimeoutError } from "@/lib/api-errors";
 import {
@@ -416,6 +417,31 @@ async function finalizeSaleOnly(
   }
 }
 
+function formatEmitError(err: unknown): SubmitReceiptResult {
+  if (err instanceof AdePasswordExpiredError) {
+    return {
+      error:
+        "La password Fisconline è scaduta. Aggiornala per continuare a emettere scontrini.",
+      passwordExpired: true,
+    };
+  }
+  if (isStatementTimeoutError(err)) {
+    return {
+      error:
+        "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
+      code: "DB_TIMEOUT",
+    };
+  }
+  const userFacing = getUserFacingAdeErrorMessage(
+    err,
+    "Errore durante l'emissione dello scontrino. Riprova più tardi.",
+  );
+  return {
+    error: userFacing.message,
+    ...(userFacing.passwordExpired ? { passwordExpired: true } : {}),
+  };
+}
+
 /**
  * Esegue la submitSale AdE e aggiorna il documento esistente con il risultato.
  * Usato sia per la prima emissione sia per la recovery di un PENDING/ERROR stale.
@@ -569,25 +595,7 @@ async function submitSaleToAde(
       }
     }
 
-    if (err instanceof AdePasswordExpiredError) {
-      return {
-        error:
-          "La password Fisconline è scaduta. Aggiornala per continuare a emettere scontrini.",
-        passwordExpired: true,
-      };
-    }
-
-    if (isStatementTimeoutError(err)) {
-      return {
-        error:
-          "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
-        code: "DB_TIMEOUT",
-      };
-    }
-
-    return {
-      error: "Errore durante l'emissione dello scontrino. Riprova più tardi.",
-    };
+    return formatEmitError(err);
   } finally {
     if (loggedIn) {
       await adeClient

@@ -12,6 +12,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
 import { createAdeClient } from "@/lib/ade";
+import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
 import { mapVoidToAdePayload } from "@/lib/ade/mapper";
 import { isStatementTimeoutError } from "@/lib/api-errors";
 import {
@@ -624,9 +625,11 @@ export async function voidReceiptForBusiness(
       };
     }
 
-    return {
-      error: "Errore durante l'annullo dello scontrino. Riprova più tardi.",
-    };
+    const userFacing = getUserFacingAdeErrorMessage(
+      err,
+      "Errore durante l'annullo dello scontrino. Riprova più tardi.",
+    );
+    return { error: userFacing.message };
   } finally {
     if (loggedIn) {
       await adeClient

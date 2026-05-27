@@ -77,17 +77,12 @@ vi.mock("@/lib/ade", () => ({
   createAdeClient: mockCreateAdeClient,
 }));
 
-vi.mock("@/lib/ade/errors", () => ({
-  AdePasswordExpiredError: class AdePasswordExpiredError extends Error {},
-  AdeAuthError: class AdeAuthError extends Error {},
-  AdeError: class AdeError extends Error {
-    code: string;
-    constructor(msg: string, code: string) {
-      super(msg);
-      this.code = code;
-    }
-  },
-}));
+// Use the real error classes so that `instanceof` checks inside
+// `getUserFacingAdeErrorMessage` work as expected.
+vi.mock(import("@/lib/ade/errors"), async (importOriginal) => {
+  const actual = await importOriginal();
+  return actual;
+});
 
 vi.mock("@/lib/email", () => ({
   sendEmail: mockSendEmail,

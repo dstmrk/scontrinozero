@@ -73,25 +73,9 @@ vi.mock("@/lib/ade", () => ({
   createAdeClient: mockCreateAdeClient,
 }));
 
-vi.mock("@/lib/ade/errors", () => {
-  class AdeError extends Error {
-    code: string;
-    constructor(code: string, message: string) {
-      super(message);
-      this.code = code;
-    }
-  }
-  class AdeAuthError extends AdeError {
-    constructor(msg = "Auth failed") {
-      super("ADE_AUTH_FAILED", msg);
-    }
-  }
-  class AdePasswordExpiredError extends AdeError {
-    constructor() {
-      super("ADE_PASSWORD_EXPIRED", "Password scaduta");
-    }
-  }
-  return { AdeError, AdeAuthError, AdePasswordExpiredError };
+vi.mock(import("@/lib/ade/errors"), async (importOriginal) => {
+  const actual = await importOriginal();
+  return actual;
 });
 
 vi.mock("next/cache", () => ({ revalidatePath: mockRevalidatePath }));
@@ -277,6 +261,24 @@ describe("changeAdePassword", () => {
     expect(result.error).toMatch(/Riprova più tardi/);
   });
 
+  it("restituisce messaggio dedicato 'portale AdE down' quando AdE risponde 5xx", async () => {
+    const { AdePortalError } = await import("@/lib/ade/errors");
+    mockAdeChangePassword.mockRejectedValue(
+      new AdePortalError(500, "changePassword failed with status 500"),
+    );
+    const { changeAdePassword } = await import("@/server/onboarding-actions");
+    const result = await changeAdePassword(
+      BIZ_ID,
+      "OldPass1",
+      "NewPass12",
+      "NewPass12",
+    );
+    expect(result.error).toContain(
+      "portale Agenzia delle Entrate Fatture e Corrispettivi",
+    );
+    expect(result.error).toContain("non risponde al momento");
+  });
+
   it("aggiorna la password cifrata e verifiedAt in caso di successo", async () => {
     const { changeAdePassword } = await import("@/server/onboarding-actions");
     const result = await changeAdePassword(
@@ -338,6 +340,6 @@ describe("verifyAdeCredentials — AdePasswordExpiredError", () => {
       await import("@/server/onboarding-actions");
     const result = await verifyAdeCredentials(BIZ_ID);
     expect(result.passwordExpired).toBeUndefined();
-    expect(result.error).toMatch(/Verifica fallita/);
+    expect(result.error).toMatch(/Credenziali Fisconline non valide/);
   });
 });

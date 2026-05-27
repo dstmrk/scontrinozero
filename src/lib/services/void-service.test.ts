@@ -346,6 +346,22 @@ describe("voidReceiptForBusiness", () => {
     expect(setArg.status).toBe("ERROR");
   });
 
+  it("ritorna messaggio dedicato 'portale AdE down' su 5xx invece del messaggio generico", async () => {
+    const { AdePortalError } = await import("@/lib/ade/errors");
+    mockLogin.mockRejectedValue(
+      new AdePortalError(502, "wizardTemplate failed with status 502"),
+    );
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect(result.error).toContain(
+      "portale Agenzia delle Entrate Fatture e Corrispettivi",
+    );
+    expect(result.error).toContain("non risponde al momento");
+    expect(result.error).not.toContain("Riprova più tardi");
+  });
+
   it("non chiama logout se AdE login fallisce (nessuna sessione aperta)", async () => {
     mockLogin.mockRejectedValue(new Error("AdE login failed"));
 
