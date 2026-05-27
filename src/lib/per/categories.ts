@@ -112,12 +112,12 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       {
         question: "Serve uno scanner di codici a barre per i prodotti?",
         answer:
-          "No. Per chi vende pochi prodotti il catalogo manuale è sufficiente. Il barcode scanner via fotocamera arriverà in versione successiva (v1.9.0).",
+          "No. Per chi vende pochi prodotti il catalogo manuale è sufficiente. Il barcode scanner via fotocamera è una delle feature in roadmap per le prossime versioni.",
       },
       {
         question: "Posso stampare lo scontrino su carta?",
         answer:
-          "Lo scontrino è digitale per natura. Puoi consegnarlo via link/QR oppure stamparlo su carta termica con una stampante Bluetooth 58/80mm (supporto nativo in arrivo, v1.10.0). Già oggi puoi salvare il PDF e stamparlo.",
+          "Lo scontrino è digitale per natura. Puoi consegnarlo via link/QR oppure stamparlo su carta termica con una stampante Bluetooth 58/80mm (supporto nativo in arrivo). Già oggi puoi salvare il PDF e stamparlo da qualsiasi stampante collegata al dispositivo.",
       },
     ],
     relatedHelp: ["primo-scontrino", "aliquote-iva", "intestazione-scontrino"],
