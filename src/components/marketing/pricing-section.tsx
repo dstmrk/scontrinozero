@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Check, ArrowRight } from "lucide-react";
-import { appHref } from "@/lib/marketing-to-app-href";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,7 +32,14 @@ const proFeatures: Feature[] = [
   { label: "Supporto prioritario" },
 ];
 
-export function PricingSection() {
+interface PricingSectionProps {
+  // Precomputed in un server parent via `appHref("/register")`. Non chiamare
+  // `appHref` qui: in client bundle `NEXT_PUBLIC_APP_URL` non è baked, quindi
+  // ricadrebbe sul default hardcoded di produzione anche in sandbox.
+  readonly registerHref: string;
+}
+
+export function PricingSection({ registerHref }: PricingSectionProps) {
   const [billing, setBilling] = useState<Billing>("annual");
 
   const isAnnual = billing === "annual";
@@ -176,7 +182,7 @@ export function PricingSection() {
 
         <div className="mt-8 text-center">
           <Button asChild size="lg">
-            <a href={appHref("/register")}>
+            <a href={registerHref}>
               Inizia i 30 giorni gratis
               <ArrowRight className="h-4 w-4" />
             </a>

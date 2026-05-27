@@ -117,7 +117,7 @@ export default function PrezziPage() {
       />
 
       {/* Pricing toggle + cards */}
-      <PricingSection />
+      <PricingSection registerHref={appHref("/register")} />
 
       {/* Comparison table */}
       <section className="px-4 py-16">

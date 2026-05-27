@@ -77,7 +77,12 @@ src/app/\(marketing\)/help` prima di chiudere il task. Feature non ancora
     `<Link>` di Next.js. Serve a forzare la cross-origin navigation verso
     `app.scontrinozero.it`: il soft routing di Next farebbe restare l'utente
     sull'origin marketing, riportando il bug `captcha_hostname_mismatch` su
-    Turnstile (commit ac59efc).
+    Turnstile (commit ac59efc). **`appHref()` è server-only in pratica**:
+    da un client component (es. `pricing-section.tsx`) `NEXT_PUBLIC_APP_URL`
+    non è nel bundle (non baked dal Dockerfile) e `APP_HOSTNAME` non è
+    `NEXT_PUBLIC_*`, quindi cadrebbe sul default hardcoded di produzione
+    rompendo sandbox/self-hosted. Calcolare l'href nel parent server
+    component e passarlo come prop al client.
 
 ## SonarCloud quality gate
 

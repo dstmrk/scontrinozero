@@ -381,7 +381,7 @@ export default function Home() {
       </section>
 
       {/* Piani */}
-      <PricingSection />
+      <PricingSection registerHref={appHref("/register")} />
 
       {/* FAQ */}
       <section id="faq" className="bg-muted/50 px-4 py-20">
