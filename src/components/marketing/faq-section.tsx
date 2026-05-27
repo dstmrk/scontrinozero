@@ -44,7 +44,6 @@ export function FaqSection() {
 
             <div
               id={panelId}
-              role="region"
               hidden={!isOpen}
               className={`grid transition-all duration-300 ease-out ${
                 isOpen
