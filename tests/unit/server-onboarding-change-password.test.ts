@@ -73,25 +73,9 @@ vi.mock("@/lib/ade", () => ({
   createAdeClient: mockCreateAdeClient,
 }));
 
-vi.mock("@/lib/ade/errors", () => {
-  class AdeError extends Error {
-    code: string;
-    constructor(code: string, message: string) {
-      super(message);
-      this.code = code;
-    }
-  }
-  class AdeAuthError extends AdeError {
-    constructor(msg = "Auth failed") {
-      super("ADE_AUTH_FAILED", msg);
-    }
-  }
-  class AdePasswordExpiredError extends AdeError {
-    constructor() {
-      super("ADE_PASSWORD_EXPIRED", "Password scaduta");
-    }
-  }
-  return { AdeError, AdeAuthError, AdePasswordExpiredError };
+vi.mock(import("@/lib/ade/errors"), async (importOriginal) => {
+  const actual = await importOriginal();
+  return actual;
 });
 
 vi.mock("next/cache", () => ({ revalidatePath: mockRevalidatePath }));
@@ -338,6 +322,6 @@ describe("verifyAdeCredentials — AdePasswordExpiredError", () => {
       await import("@/server/onboarding-actions");
     const result = await verifyAdeCredentials(BIZ_ID);
     expect(result.passwordExpired).toBeUndefined();
-    expect(result.error).toMatch(/Verifica fallita/);
+    expect(result.error).toMatch(/Credenziali Fisconline non valide/);
   });
 });

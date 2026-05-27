@@ -17,6 +17,7 @@ import {
   AdeError,
   AdePasswordExpiredError,
 } from "@/lib/ade/errors";
+import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { sendEmail } from "@/lib/email";
@@ -341,7 +342,14 @@ export async function verifyAdeCredentials(
       };
     }
     logger.error({ err, businessId }, "AdE credential verification failed");
-    return { error: "Verifica fallita. Controlla le credenziali Fisconline." };
+    const userFacing = getUserFacingAdeErrorMessage(
+      err,
+      "Verifica fallita. Controlla le credenziali Fisconline.",
+    );
+    return {
+      error: userFacing.message,
+      ...(userFacing.passwordExpired ? { passwordExpired: true } : {}),
+    };
   }
 
   try {
