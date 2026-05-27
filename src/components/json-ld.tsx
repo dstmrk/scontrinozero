@@ -47,14 +47,56 @@ export const softwareApplicationJsonLd = {
   offers: [
     {
       "@type": "Offer",
-      name: "Starter",
+      name: "Starter mensile",
       price: "4.99",
       priceCurrency: "EUR",
+      priceSpecification: {
+        "@type": "UnitPriceSpecification",
+        price: "4.99",
+        priceCurrency: "EUR",
+        billingDuration: "P1M",
+      },
     },
     {
       "@type": "Offer",
-      name: "Pro",
+      name: "Starter annuale",
+      price: "29.99",
+      priceCurrency: "EUR",
+      priceSpecification: {
+        "@type": "UnitPriceSpecification",
+        price: "29.99",
+        priceCurrency: "EUR",
+        billingDuration: "P1Y",
+      },
+    },
+    {
+      "@type": "Offer",
+      name: "Pro mensile",
       price: "8.99",
+      priceCurrency: "EUR",
+      priceSpecification: {
+        "@type": "UnitPriceSpecification",
+        price: "8.99",
+        priceCurrency: "EUR",
+        billingDuration: "P1M",
+      },
+    },
+    {
+      "@type": "Offer",
+      name: "Pro annuale",
+      price: "49.99",
+      priceCurrency: "EUR",
+      priceSpecification: {
+        "@type": "UnitPriceSpecification",
+        price: "49.99",
+        priceCurrency: "EUR",
+        billingDuration: "P1Y",
+      },
+    },
+    {
+      "@type": "Offer",
+      name: "Self-hosted (open source)",
+      price: "0",
       priceCurrency: "EUR",
     },
   ],

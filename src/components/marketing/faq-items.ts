@@ -28,7 +28,7 @@ export const faqItems = [
   {
     question: "Quanto costa?",
     answer:
-      "Starter a €4,99/mese (o €29,99/anno) e Pro a €8,99/mese (o €49,99/anno). Entrambi includono 30 giorni di prova gratuita, senza inserire alcun metodo di pagamento. Se non scegli un piano alla scadenza, l'account passa in sola lettura: vedi lo storico scontrini ma non puoi emetterne di nuovi.",
+      "Starter €4,99/mese o €29,99/anno (equivalente a €2,50/mese). Pro €8,99/mese o €49,99/anno (equivalente a €4,17/mese). Entrambi includono 30 giorni di prova gratuita, senza inserire alcun metodo di pagamento. Se non scegli un piano alla scadenza, l'account passa in sola lettura: vedi lo storico scontrini ma non puoi emetterne di nuovi.",
   },
   {
     question: "È supportata la Lotteria degli Scontrini?",

@@ -185,6 +185,9 @@ export default function ConfrontoPage() {
                   </td>
                   <td className="text-primary px-4 py-3 text-sm font-semibold">
                     {"Starter 29,99 €/anno · Pro 49,99 €/anno"}
+                    <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
+                      {"(€2,50/mese · €4,17/mese equivalenti)"}
+                    </span>
                   </td>
                   <td className="text-primary px-4 py-3 text-sm font-semibold">
                     {"30 giorni, senza carta"}

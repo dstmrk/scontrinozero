@@ -8,11 +8,11 @@ import { PricingSection } from "@/components/marketing/pricing-section";
 export const metadata: Metadata = {
   title: "Prezzi",
   description:
-    "Starter da €29,99/anno, Pro da €49,99/anno. 30 giorni di prova gratuita, nessuna carta di credito richiesta. Disponibile anche la versione gratuita per installazione autonoma.",
+    "Starter da €2,50/mese (€29,99/anno), Pro da €4,17/mese (€49,99/anno). 30 giorni di prova gratuita, nessuna carta di credito richiesta. Disponibile anche la versione gratuita per installazione autonoma.",
   openGraph: {
-    title: "Prezzi ScontrinoZero | Starter €29,99/anno · Pro €49,99/anno",
+    title: "Prezzi ScontrinoZero | Starter da €2,50/mese · Pro da €4,17/mese",
     description:
-      "Starter da €29,99/anno, Pro da €49,99/anno. 30 giorni di prova gratuita, nessuna carta di credito richiesta. Disponibile anche la versione gratuita per installazione autonoma.",
+      "Starter da €2,50/mese (€29,99/anno), Pro da €4,17/mese (€49,99/anno). 30 giorni di prova gratuita, nessuna carta di credito richiesta. Disponibile anche la versione gratuita per installazione autonoma.",
   },
 };
 

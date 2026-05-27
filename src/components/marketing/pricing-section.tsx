@@ -92,17 +92,20 @@ export function PricingSection() {
                         /mese
                       </span>
                       <Badge variant="secondary" className="text-xs">
-                        -50%
+                        −50% vs mensile
                       </Badge>
                     </div>
                     <p className="text-muted-foreground mt-1 text-sm">
-                      fatturato €29,99/anno
+                      €29,99/anno (un solo addebito)
                     </p>
                   </>
                 ) : (
                   <>
                     <span className="text-3xl font-bold">€4,99</span>
                     <span className="text-muted-foreground text-sm">/mese</span>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                      o €29,99/anno (equivalente €2,50/mese)
+                    </p>
                   </>
                 )}
               </div>
@@ -141,17 +144,20 @@ export function PricingSection() {
                         /mese
                       </span>
                       <Badge variant="secondary" className="text-xs">
-                        -54%
+                        −54% vs mensile
                       </Badge>
                     </div>
                     <p className="text-muted-foreground mt-1 text-sm">
-                      fatturato €49,99/anno
+                      €49,99/anno (un solo addebito)
                     </p>
                   </>
                 ) : (
                   <>
                     <span className="text-3xl font-bold">€8,99</span>
                     <span className="text-muted-foreground text-sm">/mese</span>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                      o €49,99/anno (equivalente €4,17/mese)
+                    </p>
                   </>
                 )}
               </div>

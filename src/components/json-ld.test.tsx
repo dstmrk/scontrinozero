@@ -69,6 +69,58 @@ describe("softwareApplicationJsonLd", () => {
     }
   });
 
+  it("each offer has a non-empty name and price", () => {
+    for (const offer of softwareApplicationJsonLd.offers) {
+      expect(offer.name.length).toBeGreaterThan(0);
+      expect(offer.price.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("exposes both monthly and annual variants for Starter", () => {
+    const starterOffers = softwareApplicationJsonLd.offers.filter((o) =>
+      o.name.toLowerCase().startsWith("starter"),
+    );
+    expect(starterOffers.length).toBeGreaterThanOrEqual(2);
+    const durations = starterOffers
+      .map((o) =>
+        "priceSpecification" in o ? o.priceSpecification.billingDuration : null,
+      )
+      .filter(Boolean);
+    expect(durations).toContain("P1M");
+    expect(durations).toContain("P1Y");
+  });
+
+  it("exposes both monthly and annual variants for Pro", () => {
+    const proOffers = softwareApplicationJsonLd.offers.filter((o) =>
+      o.name.toLowerCase().startsWith("pro"),
+    );
+    expect(proOffers.length).toBeGreaterThanOrEqual(2);
+    const durations = proOffers
+      .map((o) =>
+        "priceSpecification" in o ? o.priceSpecification.billingDuration : null,
+      )
+      .filter(Boolean);
+    expect(durations).toContain("P1M");
+    expect(durations).toContain("P1Y");
+  });
+
+  it("includes a free self-hosted offer with price 0", () => {
+    const free = softwareApplicationJsonLd.offers.find((o) => o.price === "0");
+    expect(free).toBeDefined();
+    expect(free?.name.toLowerCase()).toContain("self");
+  });
+
+  it("annual offers price match the displayed pricing (29.99 / 49.99)", () => {
+    const annualOffers = softwareApplicationJsonLd.offers.filter(
+      (o) =>
+        "priceSpecification" in o &&
+        o.priceSpecification.billingDuration === "P1Y",
+    );
+    const prices = annualOffers.map((o) => o.price);
+    expect(prices).toContain("29.99");
+    expect(prices).toContain("49.99");
+  });
+
   it("declares Italian language", () => {
     expect(softwareApplicationJsonLd.inLanguage).toBe("it-IT");
   });
