@@ -83,7 +83,7 @@ describe("softwareApplicationJsonLd", () => {
     expect(starterOffers.length).toBeGreaterThanOrEqual(2);
     const durations = starterOffers
       .map((o) =>
-        "priceSpecification" in o ? o.priceSpecification.billingDuration : null,
+        o.priceSpecification ? o.priceSpecification.billingDuration : null,
       )
       .filter(Boolean);
     expect(durations).toContain("P1M");
@@ -97,7 +97,7 @@ describe("softwareApplicationJsonLd", () => {
     expect(proOffers.length).toBeGreaterThanOrEqual(2);
     const durations = proOffers
       .map((o) =>
-        "priceSpecification" in o ? o.priceSpecification.billingDuration : null,
+        o.priceSpecification ? o.priceSpecification.billingDuration : null,
       )
       .filter(Boolean);
     expect(durations).toContain("P1M");
@@ -112,9 +112,7 @@ describe("softwareApplicationJsonLd", () => {
 
   it("annual offers price match the displayed pricing (29.99 / 49.99)", () => {
     const annualOffers = softwareApplicationJsonLd.offers.filter(
-      (o) =>
-        "priceSpecification" in o &&
-        o.priceSpecification.billingDuration === "P1Y",
+      (o) => o.priceSpecification?.billingDuration === "P1Y",
     );
     const prices = annualOffers.map((o) => o.price);
     expect(prices).toContain("29.99");

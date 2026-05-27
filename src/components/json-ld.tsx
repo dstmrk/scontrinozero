@@ -25,6 +25,56 @@ export function JsonLd({ data }: { readonly data: Record<string, unknown> }) {
 
 const SITE_URL = "https://scontrinozero.it";
 
+type BillingDuration = "P1M" | "P1Y";
+
+interface RecurringOffer {
+  readonly name: string;
+  readonly price: string;
+  readonly duration: BillingDuration;
+}
+
+const RECURRING_OFFERS: readonly RecurringOffer[] = [
+  { name: "Starter mensile", price: "4.99", duration: "P1M" },
+  { name: "Starter annuale", price: "29.99", duration: "P1Y" },
+  { name: "Pro mensile", price: "8.99", duration: "P1M" },
+  { name: "Pro annuale", price: "49.99", duration: "P1Y" },
+];
+
+interface SoftwareOffer {
+  readonly "@type": "Offer";
+  readonly name: string;
+  readonly price: string;
+  readonly priceCurrency: "EUR";
+  readonly priceSpecification?: {
+    readonly "@type": "UnitPriceSpecification";
+    readonly price: string;
+    readonly priceCurrency: "EUR";
+    readonly billingDuration: BillingDuration;
+  };
+}
+
+function buildSoftwareOffers(): readonly SoftwareOffer[] {
+  const paid: SoftwareOffer[] = RECURRING_OFFERS.map((o) => ({
+    "@type": "Offer",
+    name: o.name,
+    price: o.price,
+    priceCurrency: "EUR",
+    priceSpecification: {
+      "@type": "UnitPriceSpecification",
+      price: o.price,
+      priceCurrency: "EUR",
+      billingDuration: o.duration,
+    },
+  }));
+  const free: SoftwareOffer = {
+    "@type": "Offer",
+    name: "Self-hosted (open source)",
+    price: "0",
+    priceCurrency: "EUR",
+  };
+  return [...paid, free];
+}
+
 export const softwareApplicationJsonLd = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
@@ -44,62 +94,7 @@ export const softwareApplicationJsonLd = {
     "Storico scontrini ed esportazione",
     "App installabile (PWA) su iOS e Android",
   ],
-  offers: [
-    {
-      "@type": "Offer",
-      name: "Starter mensile",
-      price: "4.99",
-      priceCurrency: "EUR",
-      priceSpecification: {
-        "@type": "UnitPriceSpecification",
-        price: "4.99",
-        priceCurrency: "EUR",
-        billingDuration: "P1M",
-      },
-    },
-    {
-      "@type": "Offer",
-      name: "Starter annuale",
-      price: "29.99",
-      priceCurrency: "EUR",
-      priceSpecification: {
-        "@type": "UnitPriceSpecification",
-        price: "29.99",
-        priceCurrency: "EUR",
-        billingDuration: "P1Y",
-      },
-    },
-    {
-      "@type": "Offer",
-      name: "Pro mensile",
-      price: "8.99",
-      priceCurrency: "EUR",
-      priceSpecification: {
-        "@type": "UnitPriceSpecification",
-        price: "8.99",
-        priceCurrency: "EUR",
-        billingDuration: "P1M",
-      },
-    },
-    {
-      "@type": "Offer",
-      name: "Pro annuale",
-      price: "49.99",
-      priceCurrency: "EUR",
-      priceSpecification: {
-        "@type": "UnitPriceSpecification",
-        price: "49.99",
-        priceCurrency: "EUR",
-        billingDuration: "P1Y",
-      },
-    },
-    {
-      "@type": "Offer",
-      name: "Self-hosted (open source)",
-      price: "0",
-      priceCurrency: "EUR",
-    },
-  ],
+  offers: buildSoftwareOffers(),
 } as const;
 
 export const organizationJsonLd = {
