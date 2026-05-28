@@ -318,6 +318,43 @@ describe("computeProductBreakdown", () => {
     });
   });
 
+  it("L1: tiebreak also handles the reverse order branch (a > b)", () => {
+    // Three products with same revenue, names that force the sort to call
+    // the comparator multiple times in both directions. Ensures both
+    // branches of the tiebreak (`< -1` and `> +1`) are exercised.
+    const docs = [
+      makeDoc("a", "ACCEPTED", new Date()),
+      makeDoc("b", "ACCEPTED", new Date()),
+      makeDoc("c", "ACCEPTED", new Date()),
+    ];
+    const linesByDoc = makeLines([
+      {
+        documentId: "a",
+        description: "ciliegia",
+        quantity: "1",
+        grossUnitPrice: "2.00",
+      },
+      {
+        documentId: "b",
+        description: "ananas",
+        quantity: "1",
+        grossUnitPrice: "2.00",
+      },
+      {
+        documentId: "c",
+        description: "banana",
+        quantity: "1",
+        grossUnitPrice: "2.00",
+      },
+    ]);
+    const out = computeProductBreakdown(docs, linesByDoc);
+    expect(out.map((e) => e.description)).toEqual([
+      "ananas",
+      "banana",
+      "ciliegia",
+    ]);
+  });
+
   it("L1: tiebreak is byte-wise Unicode (no localeCompare), stable across container locales", () => {
     // Due prodotti con stesso revenue ma chiavi che ordinano DIVERSAMENTE
     // sotto locale "it_IT" vs byte-wise. `caffè` (U+00E8) vs `caffé`

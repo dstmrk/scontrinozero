@@ -154,6 +154,29 @@ describe("emitReceiptForBusiness", () => {
     expect(mockLogout).toHaveBeenCalled();
   });
 
+  it("L2: defensive branch — transaction returns row without id → internal error + critical log", async () => {
+    // TS garantisce txResult.id se !alreadyExists, ma il branch resta come
+    // safety net contro drift Drizzle / edge case su onConflictDoNothing.
+    // Coverage del logger.error con businessId + idempotencyKey + critical.
+    mockDocumentReturning.mockResolvedValue([{} as { id?: string }]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.error).toContain("Errore interno");
+    expect(mockSubmitSale).not.toHaveBeenCalled();
+
+    const { logger } = await import("@/lib/logger");
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        businessId: VALID_INPUT.businessId,
+        idempotencyKey: VALID_INPUT.idempotencyKey,
+        critical: true,
+      }),
+      "Transaction returned no document ID",
+    );
+  });
+
   it("salva apiKeyId nel documento quando fornito", async () => {
     const { emitReceiptForBusiness } = await import("./receipt-service");
     await emitReceiptForBusiness(VALID_INPUT, "api-key-uuid-123");
