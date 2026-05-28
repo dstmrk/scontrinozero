@@ -13,7 +13,10 @@ import { getDb } from "@/db";
 import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
 import { createAdeClient } from "@/lib/ade";
 import { AdePasswordExpiredError } from "@/lib/ade/errors";
-import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
+import {
+  getUserFacingAdeErrorMessage,
+  isTransientAdeError,
+} from "@/lib/ade/error-messages";
 import { mapSaleToAdePayload } from "@/lib/ade/mapper";
 import { isStatementTimeoutError } from "@/lib/api-errors";
 import {
@@ -31,34 +34,12 @@ import type {
 } from "@/types/cassa";
 import type { PaymentType, SaleDocumentRequest } from "@/lib/ade/public-types";
 import type { AdeCedentePrestatore } from "@/lib/ade/types";
+import { getStalePendingThresholdMs } from "./ade-recovery";
 
 const PAYMENT_METHOD_TO_ADE: Record<PaymentMethod, PaymentType> = {
   PC: "CASH",
   PE: "ELECTRONIC",
 };
-
-/**
- * Soglia oltre la quale un documento PENDING/ERROR è considerato "stale".
- * Sopra questa soglia, un retry con la stessa idempotencyKey entra nel
- * recovery path invece di ricevere "stato inconsistente".
- *
- * Default: 30 minuti. Override via env STALE_PENDING_THRESHOLD_MINUTES.
- *
- * Rischio residuo: AdE non supporta una chiave d'idempotenza nel payload
- * submitSale. Se il primo submit è arrivato ad AdE ma la risposta è andata
- * persa (timeout / connessione interrotta), un retry sotto la soglia ritorna
- * PENDING_IN_PROGRESS e l'utente lo riproverà più tardi. Sopra la soglia si
- * rientra in recovery e potenzialmente si fa un SECONDO submit ad AdE —
- * scontrino duplicato. 30 min sopra la durata sessione AdE tipica riduce
- * drasticamente la collision window. Soluzione corretta: lookup AdE pre-retry
- * via searchDocuments — tracciata nel backlog (vedi ricerca_documento.har).
- */
-function getStalePendingThresholdMs(): number {
-  const raw = process.env.STALE_PENDING_THRESHOLD_MINUTES;
-  const minutes = raw ? Number.parseFloat(raw) : Number.NaN;
-  const effective = Number.isFinite(minutes) && minutes > 0 ? minutes : 30;
-  return effective * 60 * 1000;
-}
 
 /** Validates and resolves the effective lottery code from the input. */
 function resolveLotteryCode(input: SubmitReceiptInput): {
@@ -377,17 +358,22 @@ async function finalizeSaleOnly(
   adeTransactionId: string,
   adeProgressive: string,
 ): Promise<SubmitReceiptResult> {
-  const db = getDb();
   try {
+    // Retry on statement timeout + SET LOCAL statement_timeout (3s).
+    // submitSale è già andato a buon fine, dobbiamo riuscire a finalizzare
+    // prima di rinunciare (3 tentativi: 200ms → 500ms → 1s). Simmetrico a
+    // finalizeVoidOnly in void-service.ts.
     await retryOnStatementTimeout("emit-finalize-only", () =>
-      db
-        .update(commercialDocuments)
-        .set({
-          status: "ACCEPTED",
-          adeTransactionId,
-          adeProgressive,
-        })
-        .where(eq(commercialDocuments.id, documentId)),
+      withStatementTimeout(3000, async (tx) =>
+        tx
+          .update(commercialDocuments)
+          .set({
+            status: "ACCEPTED",
+            adeTransactionId,
+            adeProgressive,
+          })
+          .where(eq(commercialDocuments.id, documentId)),
+      ),
     );
     logger.info(
       { documentId, adeTransactionId, recovery: true },
@@ -571,14 +557,19 @@ async function submitSaleToAde(
       adeProgressive: adeResponse.progressivo ?? undefined,
     };
   } catch (err) {
-    logger.error(
+    const transient = isTransientAdeError(err);
+    const logFn = transient ? logger.warn : logger.error;
+    logFn(
       {
         err,
         documentId,
         businessId: input.businessId,
         recovery: options.recovery,
+        errorClass: transient ? "ade_transient" : "ade_failure",
       },
-      "emitReceiptForBusiness failed",
+      transient
+        ? "emitReceiptForBusiness AdE transient failure"
+        : "emitReceiptForBusiness failed",
     );
 
     // Don't mark ERROR if the failure is a statement timeout — the row

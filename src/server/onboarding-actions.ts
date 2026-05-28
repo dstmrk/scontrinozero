@@ -17,7 +17,10 @@ import {
   AdeError,
   AdePasswordExpiredError,
 } from "@/lib/ade/errors";
-import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
+import {
+  getUserFacingAdeErrorMessage,
+  isTransientAdeError,
+} from "@/lib/ade/error-messages";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { sendEmail } from "@/lib/email";
@@ -356,7 +359,18 @@ export async function verifyAdeCredentials(
         passwordExpired: true,
       };
     }
-    logger.error({ err, businessId }, "AdE credential verification failed");
+    const transient = isTransientAdeError(err);
+    const logFn = transient ? logger.warn : logger.error;
+    logFn(
+      {
+        err,
+        businessId,
+        errorClass: transient ? "ade_transient" : "ade_failure",
+      },
+      transient
+        ? "AdE credential verification: transient failure"
+        : "AdE credential verification failed",
+    );
     const userFacing = getUserFacingAdeErrorMessage(
       err,
       "Verifica fallita. Controlla le credenziali Fisconline.",
@@ -585,7 +599,18 @@ export async function changeAdePassword(
         error: "La nuova password deve essere diversa da quella attuale.",
       };
     }
-    logger.error({ err, businessId }, "Cambio password AdE fallito");
+    const transient = isTransientAdeError(err);
+    const logFn = transient ? logger.warn : logger.error;
+    logFn(
+      {
+        err,
+        businessId,
+        errorClass: transient ? "ade_transient" : "ade_failure",
+      },
+      transient
+        ? "changeAdePassword: AdE transient failure"
+        : "Cambio password AdE fallito",
+    );
     const userFacing = getUserFacingAdeErrorMessage(
       err,
       "Errore durante il cambio password. Riprova più tardi.",

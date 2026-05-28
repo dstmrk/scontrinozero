@@ -56,3 +56,21 @@ export function getUserFacingAdeErrorMessage(
   }
   return { message: fallback };
 }
+
+/**
+ * Ritorna true se l'errore è una condizione transient su cui ScontrinoZero
+ * non può fare nulla (downtime AdE, rete, SPID timeout).
+ *
+ * Usato dai catch site dei servizi AdE per decidere il log level: i
+ * transient vanno loggati a `warn` (non `error`) per non aprire issue
+ * Sentry spurie. Durante un downtime AdE da 100 utenti riceveremmo ~100
+ * issue identiche e non actionable per noi — il logger.ts hook a livello
+ * 50 (error) le farebbe scattare. Coerente con il downgrade di
+ * `esito:false` (rifiuto business AdE) a `warn` fatto in 8c654b5.
+ */
+export function isTransientAdeError(err: unknown): boolean {
+  if (err instanceof AdeNetworkError) return true;
+  if (err instanceof AdeSpidTimeoutError) return true;
+  if (err instanceof AdePortalError && err.statusCode >= 500) return true;
+  return false;
+}

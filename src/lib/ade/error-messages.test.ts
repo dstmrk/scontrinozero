@@ -9,7 +9,10 @@ import {
   AdeSessionExpiredError,
   AdeSpidTimeoutError,
 } from "./errors";
-import { getUserFacingAdeErrorMessage } from "./error-messages";
+import {
+  getUserFacingAdeErrorMessage,
+  isTransientAdeError,
+} from "./error-messages";
 
 const FALLBACK = "Operazione fallita. Riprova.";
 
@@ -105,5 +108,66 @@ describe("getUserFacingAdeErrorMessage", () => {
   it("returns the fallback for a non-Error value", () => {
     const result = getUserFacingAdeErrorMessage("oops", FALLBACK);
     expect(result.message).toBe(FALLBACK);
+  });
+});
+
+describe("isTransientAdeError", () => {
+  it("returns true for AdeNetworkError", () => {
+    expect(
+      isTransientAdeError(new AdeNetworkError(new Error("ECONNRESET"))),
+    ).toBe(true);
+  });
+
+  it("returns true for AdeSpidTimeoutError", () => {
+    expect(isTransientAdeError(new AdeSpidTimeoutError(30))).toBe(true);
+  });
+
+  it("returns true for AdePortalError with 5xx status", () => {
+    expect(isTransientAdeError(new AdePortalError(500, "boom"))).toBe(true);
+    expect(isTransientAdeError(new AdePortalError(503, "boom"))).toBe(true);
+    expect(isTransientAdeError(new AdePortalError(599, "boom"))).toBe(true);
+  });
+
+  it("returns false for AdePortalError with 4xx status (permanent: bad input)", () => {
+    expect(isTransientAdeError(new AdePortalError(400, "bad request"))).toBe(
+      false,
+    );
+    expect(isTransientAdeError(new AdePortalError(404, "not found"))).toBe(
+      false,
+    );
+  });
+
+  it("returns false for AdePortalError with 3xx status (redirect malformed)", () => {
+    expect(isTransientAdeError(new AdePortalError(302, "redirect"))).toBe(
+      false,
+    );
+  });
+
+  it("returns false for AdeAuthError (permanent: wrong credentials)", () => {
+    expect(isTransientAdeError(new AdeAuthError())).toBe(false);
+  });
+
+  it("returns false for AdePasswordExpiredError (permanent: user action required)", () => {
+    expect(isTransientAdeError(new AdePasswordExpiredError())).toBe(false);
+  });
+
+  it("returns false for AdeSessionExpiredError", () => {
+    expect(isTransientAdeError(new AdeSessionExpiredError())).toBe(false);
+  });
+
+  it("returns false for a generic AdeError", () => {
+    expect(isTransientAdeError(new AdeError("ADE_UNKNOWN", "boom"))).toBe(
+      false,
+    );
+  });
+
+  it("returns false for a non-Ade Error", () => {
+    expect(isTransientAdeError(new Error("unrelated"))).toBe(false);
+  });
+
+  it("returns false for a non-Error value", () => {
+    expect(isTransientAdeError("oops")).toBe(false);
+    expect(isTransientAdeError(null)).toBe(false);
+    expect(isTransientAdeError(undefined)).toBe(false);
   });
 });

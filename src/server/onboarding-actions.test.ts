@@ -744,6 +744,67 @@ describe("onboarding-actions", () => {
       expect(mockLogin).not.toHaveBeenCalled();
     });
 
+    it("M3: AdE transient (AdePortalError 5xx) logga a warn invece di error", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+        },
+      ]);
+      const { AdePortalError } = await import("@/lib/ade/errors");
+      mockLogin.mockRejectedValue(new AdePortalError(503, "down"));
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials("biz-789");
+
+      const { logger } = await import("@/lib/logger");
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          businessId: "biz-789",
+          errorClass: "ade_transient",
+        }),
+        expect.stringContaining("transient failure"),
+      );
+      const errorCalls = (logger.error as ReturnType<typeof vi.fn>).mock.calls;
+      const failedCalls = errorCalls.filter((c) =>
+        String(c[1] ?? "").includes("AdE credential verification failed"),
+      );
+      expect(failedCalls).toHaveLength(0);
+    });
+
+    it("M3: errore non transient (AdeAuthError) resta a logger.error", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+        },
+      ]);
+      const { AdeAuthError } = await import("@/lib/ade/errors");
+      mockLogin.mockRejectedValue(new AdeAuthError());
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials("biz-789");
+
+      const { logger } = await import("@/lib/logger");
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          businessId: "biz-789",
+          errorClass: "ade_failure",
+        }),
+        expect.stringContaining("AdE credential verification failed"),
+      );
+    });
+
     it("sends welcome email on first successful verification", async () => {
       // Ownership check: JOIN profile+business
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
