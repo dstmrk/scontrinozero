@@ -468,6 +468,56 @@ describe("proxy", () => {
       expect(location.hostname).not.toBe("evil.com");
     });
 
+    it("APP_HOSTNAME runtime override is honoured (sandbox/self-host)", async () => {
+      // Su sandbox/self-host l'immagine è buildata con NEXT_PUBLIC_APP_HOSTNAME=
+      // app.scontrinozero.it (baked) ma a runtime APP_HOSTNAME=sandbox.scontrinozero.it
+      // sovrascrive. Senza questa precedenza il proxy cadrebbe in safe-deny
+      // sull'host sandbox e non triggererebbe il redirect / → /dashboard.
+      process.env.APP_HOSTNAME = "sandbox.scontrinozero.it";
+      vi.resetModules();
+      try {
+        const { proxy } = await import("./proxy");
+
+        const response = await proxy(
+          createRequestForHost("/", "sandbox.scontrinozero.it"),
+        );
+        expect(response.status).toBe(307);
+        const location = new URL(response.headers.get("location")!);
+        expect(location.pathname).toBe("/dashboard");
+      } finally {
+        delete process.env.APP_HOSTNAME;
+      }
+    });
+
+    it("APP_HOSTNAME takes precedence over NEXT_PUBLIC_APP_HOSTNAME", async () => {
+      // Both set, runtime override wins. The baked hostname must NOT trigger
+      // the /  → /dashboard branch on its own host.
+      process.env.APP_HOSTNAME = "sandbox.scontrinozero.it";
+      // NEXT_PUBLIC_APP_HOSTNAME stays "app.scontrinozero.it" from beforeEach.
+      vi.resetModules();
+      try {
+        const { proxy } = await import("./proxy");
+
+        // Request on the baked hostname (app.scontrinozero.it): with the
+        // runtime override pointing to sandbox, app.scontrinozero.it is now
+        // OUTSIDE the allowlist → safe-deny, no app-domain redirect to /dashboard.
+        const response = await proxy(
+          createRequestForHost("/", "app.scontrinozero.it"),
+        );
+        // Either passes through (200) or routes through Supabase auth — the
+        // invariant is that no implicit cross-domain redirect was issued.
+        const location = response.headers.get("location");
+        if (location) {
+          const url = new URL(location);
+          expect(url.pathname).not.toBe("/dashboard");
+        } else {
+          expect(response.status).toBe(200);
+        }
+      } finally {
+        delete process.env.APP_HOSTNAME;
+      }
+    });
+
     it("ignores a spoofed Host header when nextUrl.hostname differs", async () => {
       const { proxy } = await import("./proxy");
 

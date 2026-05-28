@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 import withSerwistInit from "@serwist/next";
+import { parseTrustedHostnameEnv } from "./src/lib/hostname-env";
 import { buildSecurityHeaders } from "./src/lib/security-headers";
 
 const withSerwist = withSerwistInit({
@@ -27,6 +28,35 @@ const nextConfig: NextConfig = {
       {
         source: "/v1/:path*",
         destination: "/api/v1/:path*",
+      },
+    ];
+  },
+  async redirects() {
+    // `/` su dominio app → `/dashboard`. Lo stesso branch esiste in
+    // src/proxy.ts:hostnameRedirect ma in Next.js 16 la landing marketing
+    // (src/app/(marketing)/page.tsx) è prerenderizzata in build e servita
+    // dal Full Route Cache PRIMA che il proxy venga invocato (verificato in
+    // prod v1.3.2: GET https://app.scontrinozero.it/ → 200 con header
+    // `x-nextjs-prerender: 1` + `x-nextjs-cache: HIT`, niente 307).
+    // `redirects()` è valutato a livello routing, prima della FRC → scatta.
+    //
+    // Priorità host: APP_HOSTNAME (runtime override, sandbox/self-host) →
+    // NEXT_PUBLIC_APP_HOSTNAME (baked al build) → default. Coerente con
+    // auth-actions.ts, trusted-app-url.ts, marketing-to-app-href.ts.
+    const appHostnameEnv =
+      process.env.APP_HOSTNAME === undefined
+        ? "NEXT_PUBLIC_APP_HOSTNAME"
+        : "APP_HOSTNAME";
+    const appHostname = parseTrustedHostnameEnv(
+      appHostnameEnv,
+      "app.scontrinozero.it",
+    );
+    return [
+      {
+        source: "/",
+        has: [{ type: "host", value: appHostname }],
+        destination: "/dashboard",
+        permanent: false,
       },
     ];
   },
