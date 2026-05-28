@@ -43,13 +43,14 @@ const nextConfig: NextConfig = {
     // Priorità host: APP_HOSTNAME (runtime override, sandbox/self-host) →
     // NEXT_PUBLIC_APP_HOSTNAME (baked al build) → default. Coerente con
     // auth-actions.ts, trusted-app-url.ts, marketing-to-app-href.ts.
-    const appHostname =
-      process.env.APP_HOSTNAME !== undefined
-        ? parseTrustedHostnameEnv("APP_HOSTNAME", "app.scontrinozero.it")
-        : parseTrustedHostnameEnv(
-            "NEXT_PUBLIC_APP_HOSTNAME",
-            "app.scontrinozero.it",
-          );
+    const appHostnameEnv =
+      process.env.APP_HOSTNAME === undefined
+        ? "NEXT_PUBLIC_APP_HOSTNAME"
+        : "APP_HOSTNAME";
+    const appHostname = parseTrustedHostnameEnv(
+      appHostnameEnv,
+      "app.scontrinozero.it",
+    );
     return [
       {
         source: "/",

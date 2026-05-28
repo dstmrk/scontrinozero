@@ -1,4 +1,4 @@
-import { logger } from "@/lib/logger";
+import { logger } from "./logger";
 
 /**
  * Parses and validates a hostname read from an environment variable.
