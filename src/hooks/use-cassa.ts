@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { CartLine, PaymentMethod, VatCode } from "@/types/cassa";
 
-const SESSION_KEY = "cassa_cart";
+export const CASSA_SESSION_KEY = "cassa_cart";
 
 interface SessionData {
   lines: CartLine[];
@@ -16,7 +16,7 @@ interface CartState extends SessionData {
 
 function readFromSession(): SessionData {
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
+    const raw = sessionStorage.getItem(CASSA_SESSION_KEY);
     if (!raw) return { lines: [], paymentMethod: "PC" };
     return JSON.parse(raw) as SessionData;
   } catch {
@@ -62,7 +62,7 @@ export function useCassa(): UseCassaReturn {
   useEffect(() => {
     if (!isHydrated) return;
     sessionStorage.setItem(
-      SESSION_KEY,
+      CASSA_SESSION_KEY,
       JSON.stringify({ lines, paymentMethod }),
     );
   }, [lines, paymentMethod, isHydrated]);
