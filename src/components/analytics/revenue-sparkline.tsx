@@ -29,8 +29,20 @@ export function RevenueSparkline({ data }: RevenueSparklineProps) {
     );
   }
 
+  const accessibleSummary = chartData
+    .map(
+      (p) =>
+        `${formatDate(p.date, "numeric", "Europe/Rome")}: ${formatCurrency(p.revenue)}`,
+    )
+    .join(". ");
+
   return (
-    <div className="h-[220px] w-full">
+    <div
+      role="img"
+      aria-label="Grafico ricavi giornalieri."
+      className="h-[220px] w-full"
+    >
+      <span className="sr-only">{accessibleSummary}</span>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
           data={chartData}
@@ -67,7 +79,9 @@ export function RevenueSparkline({ data }: RevenueSparklineProps) {
             ]}
             contentStyle={{
               borderRadius: 8,
-              border: "1px solid rgba(0,0,0,0.08)",
+              border: "1px solid var(--border)",
+              background: "var(--popover)",
+              color: "var(--popover-foreground)",
               fontSize: 12,
             }}
           />

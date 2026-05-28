@@ -26,4 +26,31 @@ describe("ProductBreakdown", () => {
       screen.queryByText(/nessun prodotto venduto nel periodo selezionato/i),
     ).not.toBeInTheDocument();
   });
+
+  it("L4: exposes an accessible name for screen readers", () => {
+    render(
+      <ProductBreakdown
+        data={[{ description: "Caffè", revenueCents: 500, count: 5 }]}
+      />,
+    );
+    expect(
+      screen.getByRole("img", { name: /grafico ricavi per prodotto/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("L4: includes a sr-only summary of the data points", () => {
+    render(
+      <ProductBreakdown
+        data={[
+          { description: "Caffè", revenueCents: 500, count: 5 },
+          { description: "Cornetto", revenueCents: 300, count: 2 },
+        ]}
+      />,
+    );
+    const region = screen.getByRole("img", {
+      name: /grafico ricavi per prodotto/i,
+    });
+    expect(region.textContent).toContain("Caffè");
+    expect(region.textContent).toContain("Cornetto");
+  });
 });

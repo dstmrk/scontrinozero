@@ -38,8 +38,17 @@ export function ProductBreakdown({ data }: ProductBreakdownProps) {
     );
   }
 
+  const accessibleSummary = data
+    .map((e) => `${e.description}: ${formatCurrency(e.revenueCents / 100)}`)
+    .join(". ");
+
   return (
-    <div className="h-[260px] w-full">
+    <div
+      role="img"
+      aria-label={`Grafico ricavi per prodotto. Top ${data.length} prodotti del periodo selezionato.`}
+      className="h-[260px] w-full"
+    >
+      <span className="sr-only">{accessibleSummary}</span>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={chartData}
@@ -76,7 +85,9 @@ export function ProductBreakdown({ data }: ProductBreakdownProps) {
             ]}
             contentStyle={{
               borderRadius: 8,
-              border: "1px solid rgba(0,0,0,0.08)",
+              border: "1px solid var(--border)",
+              background: "var(--popover)",
+              color: "var(--popover-foreground)",
               fontSize: 12,
             }}
           />

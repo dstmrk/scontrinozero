@@ -37,8 +37,17 @@ export function PaymentBreakdown({ data }: PaymentBreakdownProps) {
     );
   }
 
+  const accessibleSummary = chartData
+    .map((e) => `${e.method}: ${formatCurrency(e.revenue)}`)
+    .join(". ");
+
   return (
-    <div className="h-[220px] w-full">
+    <div
+      role="img"
+      aria-label="Grafico metodi di pagamento."
+      className="h-[220px] w-full"
+    >
+      <span className="sr-only">{accessibleSummary}</span>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={chartData}
@@ -67,7 +76,9 @@ export function PaymentBreakdown({ data }: PaymentBreakdownProps) {
             ]}
             contentStyle={{
               borderRadius: 8,
-              border: "1px solid rgba(0,0,0,0.08)",
+              border: "1px solid var(--border)",
+              background: "var(--popover)",
+              color: "var(--popover-foreground)",
               fontSize: 12,
             }}
           />
