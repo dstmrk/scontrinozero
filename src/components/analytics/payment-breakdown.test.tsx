@@ -25,7 +25,7 @@ describe("PaymentBreakdown", () => {
     ).toBeInTheDocument();
   });
 
-  it("L4: includes a sr-only summary of the data points", () => {
+  it("L4: wires the sr-only summary via aria-describedby (Contanti/Elettronico labels)", () => {
     render(
       <PaymentBreakdown
         data={[
@@ -37,8 +37,12 @@ describe("PaymentBreakdown", () => {
     const region = screen.getByRole("img", {
       name: /grafico metodi di pagamento/i,
     });
+    const describedBy = region.getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+    const summary = document.getElementById(describedBy!);
+    expect(summary).not.toBeNull();
     // METHOD_LABELS mappa PC → Contanti, PE → Elettronico.
-    expect(region.textContent).toContain("Contanti");
-    expect(region.textContent).toContain("Elettronico");
+    expect(summary?.textContent).toContain("Contanti");
+    expect(summary?.textContent).toContain("Elettronico");
   });
 });

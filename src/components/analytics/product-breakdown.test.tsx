@@ -38,7 +38,9 @@ describe("ProductBreakdown", () => {
     ).toBeInTheDocument();
   });
 
-  it("L4: includes a sr-only summary of the data points", () => {
+  it("L4: wires the sr-only summary via aria-describedby so screen readers actually announce it", () => {
+    // role="img" rende i discendenti non navigabili: per essere annunciato
+    // il summary deve essere referenziato esplicitamente via aria-describedby.
     render(
       <ProductBreakdown
         data={[
@@ -50,7 +52,11 @@ describe("ProductBreakdown", () => {
     const region = screen.getByRole("img", {
       name: /grafico ricavi per prodotto/i,
     });
-    expect(region.textContent).toContain("Caffè");
-    expect(region.textContent).toContain("Cornetto");
+    const describedBy = region.getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+    const summary = document.getElementById(describedBy!);
+    expect(summary).not.toBeNull();
+    expect(summary?.textContent).toContain("Caffè");
+    expect(summary?.textContent).toContain("Cornetto");
   });
 });

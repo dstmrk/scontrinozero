@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import {
   Bar,
   BarChart,
@@ -24,6 +25,12 @@ function truncate(label: string): string {
 }
 
 export function ProductBreakdown({ data }: ProductBreakdownProps) {
+  // role="img" expone l'elemento come singola immagine: gli AT trattano i
+  // discendenti come parte del grafico e non li navigano come testo. Per
+  // far annunciare il summary serve agganciarlo via aria-describedby a un
+  // id stabile (utile anche se renderizziamo più widget nella stessa pagina).
+  // useId DEVE essere chiamato prima di qualsiasi early return.
+  const summaryId = useId();
   const chartData = data.map((e) => ({
     description: e.description,
     revenue: e.revenueCents / 100,
@@ -46,9 +53,12 @@ export function ProductBreakdown({ data }: ProductBreakdownProps) {
     <div
       role="img"
       aria-label={`Grafico ricavi per prodotto. Top ${data.length} prodotti del periodo selezionato.`}
+      aria-describedby={summaryId}
       className="h-[260px] w-full"
     >
-      <span className="sr-only">{accessibleSummary}</span>
+      <span id={summaryId} className="sr-only">
+        {accessibleSummary}
+      </span>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={chartData}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import {
   Bar,
   BarChart,
@@ -23,6 +24,10 @@ interface PaymentBreakdownProps {
 }
 
 export function PaymentBreakdown({ data }: PaymentBreakdownProps) {
+  // Vedi product-breakdown.tsx per la motivazione di aria-describedby:
+  // role="img" rende i discendenti non navigabili dagli AT.
+  // useId DEVE essere chiamato prima di qualsiasi early return.
+  const summaryId = useId();
   const chartData = data.map((e) => ({
     method: METHOD_LABELS[e.method] ?? e.method,
     revenue: e.revenueCents / 100,
@@ -45,9 +50,12 @@ export function PaymentBreakdown({ data }: PaymentBreakdownProps) {
     <div
       role="img"
       aria-label="Grafico metodi di pagamento."
+      aria-describedby={summaryId}
       className="h-[220px] w-full"
     >
-      <span className="sr-only">{accessibleSummary}</span>
+      <span id={summaryId} className="sr-only">
+        {accessibleSummary}
+      </span>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={chartData}
