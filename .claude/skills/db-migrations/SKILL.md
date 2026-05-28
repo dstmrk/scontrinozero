@@ -147,3 +147,7 @@ I vincoli UNIQUE su `idempotency_key` vanno scoped al tenant
 (`UNIQUE(business_id, idempotency_key)`). Un constraint globale blocca business
 diversi che usano accidentalmente la stessa UUID ed espone metadati cross-tenant.
 I fallback di lookup devono filtrare per `businessId` in aggiunta alla key.
+
+## Supabase official Skills
+https://raw.githubusercontent.com/supabase/agent-skills/refs/heads/main/skills/supabase/SKILL.md
+https://raw.githubusercontent.com/supabase/agent-skills/refs/heads/main/skills/supabase-postgres-best-practices/SKILL.md
