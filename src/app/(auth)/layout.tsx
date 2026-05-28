@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { ClearCassaCart } from "@/components/clear-cassa-cart";
 
 export default function AuthLayout({
   children,
@@ -8,6 +9,7 @@ export default function AuthLayout({
 }>) {
   return (
     <div className="bg-muted/30 flex min-h-screen flex-col items-center justify-center px-4 py-8">
+      <ClearCassaCart />
       <Link
         href="/"
         className="text-primary mb-8 flex items-center gap-2 text-2xl font-bold"
