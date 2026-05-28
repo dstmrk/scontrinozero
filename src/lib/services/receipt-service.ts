@@ -13,10 +13,8 @@ import { getDb } from "@/db";
 import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
 import { createAdeClient } from "@/lib/ade";
 import { AdePasswordExpiredError } from "@/lib/ade/errors";
-import {
-  getUserFacingAdeErrorMessage,
-  isTransientAdeError,
-} from "@/lib/ade/error-messages";
+import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
+import { logAdeFailure } from "@/lib/ade/log-failure";
 import { mapSaleToAdePayload } from "@/lib/ade/mapper";
 import { isStatementTimeoutError } from "@/lib/api-errors";
 import {
@@ -557,19 +555,17 @@ async function submitSaleToAde(
       adeProgressive: adeResponse.progressivo ?? undefined,
     };
   } catch (err) {
-    const transient = isTransientAdeError(err);
-    const logFn = transient ? logger.warn : logger.error;
-    logFn(
+    logAdeFailure(
+      err,
       {
-        err,
         documentId,
         businessId: input.businessId,
         recovery: options.recovery,
-        errorClass: transient ? "ade_transient" : "ade_failure",
       },
-      transient
-        ? "emitReceiptForBusiness AdE transient failure"
-        : "emitReceiptForBusiness failed",
+      {
+        transient: "emitReceiptForBusiness AdE transient failure",
+        failure: "emitReceiptForBusiness failed",
+      },
     );
 
     // Don't mark ERROR if the failure is a statement timeout — the row

@@ -12,10 +12,8 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
 import { createAdeClient } from "@/lib/ade";
-import {
-  getUserFacingAdeErrorMessage,
-  isTransientAdeError,
-} from "@/lib/ade/error-messages";
+import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
+import { logAdeFailure } from "@/lib/ade/log-failure";
 import { mapVoidToAdePayload } from "@/lib/ade/mapper";
 import { isStatementTimeoutError } from "@/lib/api-errors";
 import {
@@ -586,18 +584,13 @@ export async function voidReceiptForBusiness(
       apiKeyId,
     });
   } catch (err) {
-    const transient = isTransientAdeError(err);
-    const logFn = transient ? logger.warn : logger.error;
-    logFn(
+    logAdeFailure(
+      err,
+      { voidDocumentId, saleDocumentId: input.documentId },
       {
-        err,
-        voidDocumentId,
-        saleDocumentId: input.documentId,
-        errorClass: transient ? "ade_transient" : "ade_failure",
+        transient: "voidReceiptForBusiness AdE transient failure",
+        failure: "voidReceiptForBusiness failed",
       },
-      transient
-        ? "voidReceiptForBusiness AdE transient failure"
-        : "voidReceiptForBusiness failed",
     );
 
     // Don't mark ERROR on timeout. Leave the row PENDING so:
