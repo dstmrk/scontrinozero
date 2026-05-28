@@ -285,11 +285,17 @@ le richieste `/api/*`. Conseguenze:
 
 - **Server Action (POST)** → non cachate, sempre rete.
 - **Route Handler GET sotto `/api/*`** → potenzialmente serviti dalla cache
-  su timeout/offline. Per dati tenant-specifici, sensibili o che cambiano
-  spesso, il handler **deve** dichiarare `Cache-Control: no-store` (e/o
-  `Vary: Cookie/Authorization`) nella response per evitare stale cross-user.
-  In alternativa, override del `runtimeCaching` in `src/sw.ts` con una regola
-  `NetworkOnly` per il pattern specifico, prima di `defaultCache`.
+  su timeout/offline. ⚠️ `Cache-Control: no-store` sulla response **non
+  basta**: in Serwist 9.x la `NetworkFirst` scrive in cache via
+  `fetchAndCachePut`, e il `cacheOkAndOpaquePlugin` aggiunto di default
+  decide solo in base allo status (200/opaque) ignorando l'header
+  `Cache-Control`. Per dati tenant-specifici / sensibili / che cambiano
+  spesso bisogna **override esplicito** in `src/sw.ts`: una regola
+  `NetworkOnly` (o un matcher che esclude il pattern) registrata **prima**
+  di `defaultCache`, oppure una `NetworkFirst` con plugin custom che rifiuta
+  via `cacheWillUpdate` le response non cacheable. `Vary: Cookie/Authorization`
+  da solo non previene la scrittura in cache, al massimo isola la voce per
+  variante.
 - **Pagine / RSC payload** → cachate con strategia network-first analoga;
   per route autenticate fare affidamento su `cookies()`/redirect server-side,
   non su "il SW non interferisce".
