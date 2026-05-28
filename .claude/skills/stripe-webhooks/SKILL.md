@@ -81,3 +81,6 @@ Override env per test E2E o ambienti controllati:
 **Soluzione corretta (roadmap):** `searchDocuments`/`getDocument` su AdE
 pre-retry per scoprire se un documento collegato esiste già — richiede
 l'endpoint AdE di ricerca (vedi `ricerca_documento.har`).
+
+## Stripe official Skill
+https://raw.githubusercontent.com/stripe/ai/refs/heads/main/skills/stripe-best-practices/SKILL.md
