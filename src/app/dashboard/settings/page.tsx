@@ -21,6 +21,8 @@ import { ApiKeySection } from "@/components/settings/api-key-section";
 import { PlanBadge } from "@/components/billing/plan-badge";
 import { PlanSelection } from "@/components/billing/plan-selection";
 import { RefreshOnSuccess } from "@/components/billing/refresh-on-success";
+import { CONTACT_EMAIL } from "@/lib/contact";
+import { APP_VERSION, getBuildSha } from "@/lib/version";
 
 export default async function SettingsPage({
   searchParams,
@@ -360,6 +362,26 @@ export default async function SettingsPage({
       <ExportDataSection />
 
       <AccountDeleteSection />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Informazioni</CardTitle>
+        </CardHeader>
+        <CardContent className="text-muted-foreground space-y-2 text-sm">
+          <p>
+            ScontrinoZero {APP_VERSION} &mdash; build {getBuildSha()}
+          </p>
+          <p>
+            Per dubbi, domande o feedback contattaci:{" "}
+            <a
+              className="text-primary underline"
+              href={`mailto:${CONTACT_EMAIL}`}
+            >
+              {CONTACT_EMAIL}
+            </a>
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }
