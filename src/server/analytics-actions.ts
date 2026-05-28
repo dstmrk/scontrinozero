@@ -294,44 +294,40 @@ async function getAnalyticsDataset(
 // Server actions
 // ---------------------------------------------------------------------------
 
-export async function getAnalyticsKpis(
-  businessId: string,
-  range: AnalyticsRange,
-): Promise<AnalyticsKpis | { error: string }> {
-  const result = await getAnalyticsDataset(businessId, range);
-  if (!result.ok) return { error: result.error };
-  return computeKpis(result.docs, result.totalsByDoc);
-}
+export type AnalyticsBundle = {
+  kpis: AnalyticsKpis;
+  timeseries: RevenuePoint[];
+  breakdown: PaymentBreakdownEntry[];
+  productBreakdown: ProductBreakdownEntry[];
+};
 
-export async function getRevenueTimeseries(
+/**
+ * Aggregated server action returning all four analytics datasets in one
+ * round-trip. Server-side runs a single `getAnalyticsDataset` (cached by
+ * `react/cache()` during the RSC render) and computes all aggregates from
+ * the shared dataset. Client-side range changes used to invoke four
+ * separate Server Actions (kpis/timeseries/breakdown/productBreakdown):
+ * each instantiated its own `cache()` scope, so `getAnalyticsDataset` ran
+ * four times — quadrupling auth checks, DB fetches, and rate-limit tokens.
+ * Funneling through this single entry point preserves the cache benefit
+ * across both RSC initial render and client range-change paths.
+ */
+export async function getAnalyticsBundle(
   businessId: string,
   range: AnalyticsRange,
   reference?: Date,
-): Promise<RevenuePoint[] | { error: string }> {
+): Promise<AnalyticsBundle | { error: string }> {
   const result = await getAnalyticsDataset(businessId, range, reference);
   if (!result.ok) return { error: result.error };
-  return computeTimeseries(
-    result.docs,
-    result.totalsByDoc,
-    result.from,
-    result.to,
-  );
-}
-
-export async function getPaymentBreakdown(
-  businessId: string,
-  range: AnalyticsRange,
-): Promise<PaymentBreakdownEntry[] | { error: string }> {
-  const result = await getAnalyticsDataset(businessId, range);
-  if (!result.ok) return { error: result.error };
-  return computeBreakdown(result.docs, result.totalsByDoc);
-}
-
-export async function getProductBreakdown(
-  businessId: string,
-  range: AnalyticsRange,
-): Promise<ProductBreakdownEntry[] | { error: string }> {
-  const result = await getAnalyticsDataset(businessId, range);
-  if (!result.ok) return { error: result.error };
-  return computeProductBreakdown(result.docs, result.linesByDoc);
+  return {
+    kpis: computeKpis(result.docs, result.totalsByDoc),
+    timeseries: computeTimeseries(
+      result.docs,
+      result.totalsByDoc,
+      result.from,
+      result.to,
+    ),
+    breakdown: computeBreakdown(result.docs, result.totalsByDoc),
+    productBreakdown: computeProductBreakdown(result.docs, result.linesByDoc),
+  };
 }

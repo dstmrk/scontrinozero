@@ -2,23 +2,17 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AnalyticsClient } from "./analytics-client";
 import type {
+  AnalyticsBundle,
   AnalyticsKpis,
   PaymentBreakdownEntry,
   ProductBreakdownEntry,
   RevenuePoint,
 } from "@/server/analytics-actions";
 
-const mockGetAnalyticsKpis = vi.fn();
-const mockGetRevenueTimeseries = vi.fn();
-const mockGetPaymentBreakdown = vi.fn();
-const mockGetProductBreakdown = vi.fn();
+const mockGetAnalyticsBundle = vi.fn();
 
 vi.mock("@/server/analytics-actions", () => ({
-  getAnalyticsKpis: (...args: unknown[]) => mockGetAnalyticsKpis(...args),
-  getRevenueTimeseries: (...args: unknown[]) =>
-    mockGetRevenueTimeseries(...args),
-  getPaymentBreakdown: (...args: unknown[]) => mockGetPaymentBreakdown(...args),
-  getProductBreakdown: (...args: unknown[]) => mockGetProductBreakdown(...args),
+  getAnalyticsBundle: (...args: unknown[]) => mockGetAnalyticsBundle(...args),
 }));
 
 // Stub Radix UI Select per evitare di gestire portals/scrollIntoView nei test.
@@ -94,36 +88,39 @@ const INITIAL_KPIS: AnalyticsKpis = {
   voidCount: 0,
 };
 
+function makeBundle(kpis: AnalyticsKpis): AnalyticsBundle {
+  return {
+    kpis,
+    timeseries: [],
+    breakdown: [],
+    productBreakdown: [],
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
 describe("AnalyticsClient handleRangeChange", () => {
   it("scarta il risultato del range precedente se l'utente cambia range velocemente (race condition)", async () => {
-    // Prima chiamata (7d): risolve LENTAMENTE con 7777 cents
-    // Seconda chiamata (30d): risolve VELOCEMENTE con 3030 cents
+    // Prima chiamata (7d): risolve LENTAMENTE con bundle.kpis.revenueCents=7777
+    // Seconda chiamata (30d): risolve VELOCEMENTE con bundle.kpis.revenueCents=3030
     // Senza guard, il setKpis del 7d sovrascriverebbe quello del 30d.
-    let resolveSlow!: (v: AnalyticsKpis) => void;
-    const slowKpis = new Promise<AnalyticsKpis>((r) => {
+    let resolveSlow!: (v: AnalyticsBundle) => void;
+    const slowBundle = new Promise<AnalyticsBundle>((r) => {
       resolveSlow = r;
     });
-    mockGetAnalyticsKpis.mockImplementationOnce(() => slowKpis);
-    mockGetRevenueTimeseries.mockImplementationOnce(() => Promise.resolve([]));
-    mockGetPaymentBreakdown.mockImplementationOnce(() => Promise.resolve([]));
-    mockGetProductBreakdown.mockImplementationOnce(() => Promise.resolve([]));
+    mockGetAnalyticsBundle.mockImplementationOnce(() => slowBundle);
 
-    const fastKpis: AnalyticsKpis = {
+    const fastBundle: AnalyticsBundle = makeBundle({
       revenueCents: 3030,
       count: 5,
       aovCents: 606,
       voidCount: 0,
-    };
-    mockGetAnalyticsKpis.mockImplementationOnce(() =>
-      Promise.resolve(fastKpis),
+    });
+    mockGetAnalyticsBundle.mockImplementationOnce(() =>
+      Promise.resolve(fastBundle),
     );
-    mockGetRevenueTimeseries.mockImplementationOnce(() => Promise.resolve([]));
-    mockGetPaymentBreakdown.mockImplementationOnce(() => Promise.resolve([]));
-    mockGetProductBreakdown.mockImplementationOnce(() => Promise.resolve([]));
 
     render(
       <AnalyticsClient
@@ -141,7 +138,7 @@ describe("AnalyticsClient handleRangeChange", () => {
     fireEvent.click(screen.getByTestId("range-30d"));
 
     await waitFor(() => {
-      expect(mockGetAnalyticsKpis).toHaveBeenCalledTimes(2);
+      expect(mockGetAnalyticsBundle).toHaveBeenCalledTimes(2);
     });
 
     // La fast (30d) risolve → setKpis(3030)
@@ -152,12 +149,14 @@ describe("AnalyticsClient handleRangeChange", () => {
     });
 
     // Ora la slow (7d) risolve in ritardo: NON deve sovrascrivere lo state.
-    resolveSlow({
-      revenueCents: 7777,
-      count: 10,
-      aovCents: 778,
-      voidCount: 0,
-    });
+    resolveSlow(
+      makeBundle({
+        revenueCents: 7777,
+        count: 10,
+        aovCents: 778,
+        voidCount: 0,
+      }),
+    );
 
     // Lascia che il microtask della slow completi.
     await new Promise((r) => setTimeout(r, 10));
@@ -169,17 +168,14 @@ describe("AnalyticsClient handleRangeChange", () => {
     expect(screen.getByTestId("kpis").textContent).not.toContain("7777");
   });
 
-  it("invoca le server actions con range 'ytd' quando l'utente seleziona Da inizio anno", async () => {
-    const ytdKpis: AnalyticsKpis = {
+  it("invoca la server action con range 'ytd' quando l'utente seleziona Da inizio anno", async () => {
+    const ytdBundle: AnalyticsBundle = makeBundle({
       revenueCents: 12345,
       count: 7,
       aovCents: 1763,
       voidCount: 0,
-    };
-    mockGetAnalyticsKpis.mockResolvedValueOnce(ytdKpis);
-    mockGetRevenueTimeseries.mockResolvedValueOnce([]);
-    mockGetPaymentBreakdown.mockResolvedValueOnce([]);
-    mockGetProductBreakdown.mockResolvedValueOnce([]);
+    });
+    mockGetAnalyticsBundle.mockResolvedValueOnce(ytdBundle);
 
     render(
       <AnalyticsClient
@@ -195,11 +191,10 @@ describe("AnalyticsClient handleRangeChange", () => {
     fireEvent.click(screen.getByTestId("range-ytd"));
 
     await waitFor(() => {
-      expect(mockGetAnalyticsKpis).toHaveBeenCalledWith("biz-1", "ytd");
+      expect(mockGetAnalyticsBundle).toHaveBeenCalledWith("biz-1", "ytd");
     });
-    expect(mockGetRevenueTimeseries).toHaveBeenCalledWith("biz-1", "ytd");
-    expect(mockGetPaymentBreakdown).toHaveBeenCalledWith("biz-1", "ytd");
-    expect(mockGetProductBreakdown).toHaveBeenCalledWith("biz-1", "ytd");
+    // H1: una sola call al server, non quattro.
+    expect(mockGetAnalyticsBundle).toHaveBeenCalledTimes(1);
 
     await waitFor(() => {
       expect(screen.getByTestId("kpis").textContent).toContain(
@@ -208,7 +203,7 @@ describe("AnalyticsClient handleRangeChange", () => {
     });
   });
 
-  it("ignora valori non validi senza invocare le server actions", () => {
+  it("ignora valori non validi senza invocare la server action", () => {
     render(
       <AnalyticsClient
         businessId="biz-1"
@@ -222,9 +217,29 @@ describe("AnalyticsClient handleRangeChange", () => {
 
     fireEvent.click(screen.getByTestId("range-invalid"));
 
-    expect(mockGetAnalyticsKpis).not.toHaveBeenCalled();
-    expect(mockGetRevenueTimeseries).not.toHaveBeenCalled();
-    expect(mockGetPaymentBreakdown).not.toHaveBeenCalled();
-    expect(mockGetProductBreakdown).not.toHaveBeenCalled();
+    expect(mockGetAnalyticsBundle).not.toHaveBeenCalled();
+  });
+
+  it("mostra il banner di errore quando il bundle ritorna { error }", async () => {
+    mockGetAnalyticsBundle.mockResolvedValueOnce({ error: "Boom" });
+
+    render(
+      <AnalyticsClient
+        businessId="biz-1"
+        initialRange="30d"
+        initialKpis={INITIAL_KPIS}
+        initialTimeseries={[]}
+        initialBreakdown={[]}
+        initialProductBreakdown={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("range-7d"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+    });
+    // KPI azzerati sul fail (no carry-over del range precedente).
+    expect(screen.getByTestId("kpis").textContent).toContain("revenueCents=0");
   });
 });

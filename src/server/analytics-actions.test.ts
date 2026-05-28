@@ -101,18 +101,38 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 import {
+  type AnalyticsRange,
   fillMissingDays,
   formatRomeDay,
   normalizePaymentMethod,
   rangeToBounds,
   romeMidnightUtc,
 } from "./analytics-helpers";
-import {
-  getAnalyticsKpis,
-  getPaymentBreakdown,
-  getProductBreakdown,
-  getRevenueTimeseries,
-} from "./analytics-actions";
+import { getAnalyticsBundle } from "./analytics-actions";
+
+// Test helpers: unwrap the aggregated bundle for the specific dataset each
+// test cares about. Mirrors the old per-dataset Server Action surface so
+// existing test bodies keep their shape after the H1 consolidation.
+async function getAnalyticsKpis(businessId: string, range: AnalyticsRange) {
+  const res = await getAnalyticsBundle(businessId, range);
+  return "error" in res ? res : res.kpis;
+}
+async function getRevenueTimeseries(
+  businessId: string,
+  range: AnalyticsRange,
+  reference?: Date,
+) {
+  const res = await getAnalyticsBundle(businessId, range, reference);
+  return "error" in res ? res : res.timeseries;
+}
+async function getPaymentBreakdown(businessId: string, range: AnalyticsRange) {
+  const res = await getAnalyticsBundle(businessId, range);
+  return "error" in res ? res : res.breakdown;
+}
+async function getProductBreakdown(businessId: string, range: AnalyticsRange) {
+  const res = await getAnalyticsBundle(businessId, range);
+  return "error" in res ? res : res.productBreakdown;
+}
 
 // --- Helpers ---
 
@@ -349,9 +369,24 @@ describe("getAnalyticsKpis", () => {
       ]),
     );
     mockFetchLinesByDocIds.mockResolvedValue([
-      { documentId: "d1", grossUnitPrice: "10.00", quantity: "1" },
-      { documentId: "d2", grossUnitPrice: "5.00", quantity: "2" },
-      { documentId: "d3", grossUnitPrice: "99.00", quantity: "1" },
+      {
+        documentId: "d1",
+        description: "Caffè",
+        grossUnitPrice: "10.00",
+        quantity: "1",
+      },
+      {
+        documentId: "d2",
+        description: "Cornetto",
+        grossUnitPrice: "5.00",
+        quantity: "2",
+      },
+      {
+        documentId: "d3",
+        description: "Brioche",
+        grossUnitPrice: "99.00",
+        quantity: "1",
+      },
     ]);
     const res = await getAnalyticsKpis("biz-1", "30d");
     expect(res).toEqual({
@@ -385,7 +420,12 @@ describe("getAnalyticsKpis", () => {
       ]),
     );
     mockFetchLinesByDocIds.mockResolvedValue([
-      { documentId: "d1", grossUnitPrice: "10.00", quantity: "1" },
+      {
+        documentId: "d1",
+        description: "Caffè",
+        grossUnitPrice: "10.00",
+        quantity: "1",
+      },
     ]);
     const res = await getAnalyticsKpis("biz-1", "30d");
     expect(res).toEqual({
@@ -403,7 +443,12 @@ describe("getAnalyticsKpis", () => {
       ]),
     );
     mockFetchLinesByDocIds.mockResolvedValue([
-      { documentId: "d1", grossUnitPrice: "10.00", quantity: "1" },
+      {
+        documentId: "d1",
+        description: "Caffè",
+        grossUnitPrice: "10.00",
+        quantity: "1",
+      },
     ]);
     const res = await getAnalyticsKpis("biz-1", "30d");
     expect(res).toEqual({
@@ -429,7 +474,12 @@ describe("getRevenueTimeseries", () => {
       ]),
     );
     mockFetchLinesByDocIds.mockResolvedValue([
-      { documentId: "d1", grossUnitPrice: "10.00", quantity: "1" },
+      {
+        documentId: "d1",
+        description: "Caffè",
+        grossUnitPrice: "10.00",
+        quantity: "1",
+      },
     ]);
 
     const res = await getRevenueTimeseries(
@@ -465,9 +515,24 @@ describe("getRevenueTimeseries", () => {
       ]),
     );
     mockFetchLinesByDocIds.mockResolvedValue([
-      { documentId: "d1", grossUnitPrice: "10.00", quantity: "1" },
-      { documentId: "d2", grossUnitPrice: "5.00", quantity: "1" },
-      { documentId: "d3", grossUnitPrice: "5.00", quantity: "1" },
+      {
+        documentId: "d1",
+        description: "Caffè",
+        grossUnitPrice: "10.00",
+        quantity: "1",
+      },
+      {
+        documentId: "d2",
+        description: "Caffè",
+        grossUnitPrice: "5.00",
+        quantity: "1",
+      },
+      {
+        documentId: "d3",
+        description: "Cornetto",
+        grossUnitPrice: "5.00",
+        quantity: "1",
+      },
     ]);
 
     const res = await getRevenueTimeseries(
@@ -507,7 +572,12 @@ describe("getRevenueTimeseries", () => {
       ]),
     );
     mockFetchLinesByDocIds.mockResolvedValue([
-      { documentId: "d1", grossUnitPrice: "100.00", quantity: "1" },
+      {
+        documentId: "d1",
+        description: "Caffè",
+        grossUnitPrice: "100.00",
+        quantity: "1",
+      },
     ]);
     const res = await getRevenueTimeseries(
       "biz-1",
@@ -546,10 +616,30 @@ describe("getPaymentBreakdown", () => {
       ]),
     );
     mockFetchLinesByDocIds.mockResolvedValue([
-      { documentId: "d1", grossUnitPrice: "10.00", quantity: "1" },
-      { documentId: "d2", grossUnitPrice: "20.00", quantity: "1" },
-      { documentId: "d3", grossUnitPrice: "5.00", quantity: "2" },
-      { documentId: "d4", grossUnitPrice: "1.00", quantity: "1" },
+      {
+        documentId: "d1",
+        description: "Caffè",
+        grossUnitPrice: "10.00",
+        quantity: "1",
+      },
+      {
+        documentId: "d2",
+        description: "Cornetto",
+        grossUnitPrice: "20.00",
+        quantity: "1",
+      },
+      {
+        documentId: "d3",
+        description: "Caffè",
+        grossUnitPrice: "5.00",
+        quantity: "2",
+      },
+      {
+        documentId: "d4",
+        description: "Brioche",
+        grossUnitPrice: "1.00",
+        quantity: "1",
+      },
     ]);
     const res = await getPaymentBreakdown("biz-1", "30d");
     if (!Array.isArray(res)) throw new Error("Expected array");
@@ -679,5 +769,73 @@ describe("getProductBreakdown", () => {
     mockFetchLinesByDocIds.mockResolvedValue([]);
     const res = await getProductBreakdown("biz-1", "30d");
     expect(res).toEqual([]);
+  });
+});
+
+describe("getAnalyticsBundle", () => {
+  it("returns kpis/timeseries/breakdown/productBreakdown from a single dataset fetch", async () => {
+    const at = new Date("2026-05-19T10:00:00Z");
+    mockSelect.mockReturnValue(
+      makeSelectBuilder([
+        {
+          id: "d1",
+          status: "ACCEPTED",
+          createdAt: at,
+          publicRequest: { paymentMethod: "PC" },
+        },
+      ]),
+    );
+    mockFetchLinesByDocIds.mockResolvedValue([
+      {
+        documentId: "d1",
+        description: "Caffè",
+        quantity: "2",
+        grossUnitPrice: "1.50",
+      },
+    ]);
+
+    const res = await getAnalyticsBundle(
+      "biz-1",
+      "7d",
+      new Date("2026-05-19T12:00:00Z"),
+    );
+
+    if ("error" in res) throw new Error(`Expected bundle, got: ${res.error}`);
+    expect(res.kpis).toEqual({
+      revenueCents: 300,
+      count: 1,
+      aovCents: 300,
+      voidCount: 0,
+    });
+    expect(res.breakdown).toEqual([
+      { method: "PC", count: 1, revenueCents: 300 },
+    ]);
+    expect(res.productBreakdown).toEqual([
+      // count == lines (1), revenue == qty*price (2 * 1.50 = 3.00 → 300 cents)
+      { description: "Caffè", revenueCents: 300, count: 1 },
+    ]);
+    expect(
+      res.timeseries.find((p) => p.date === "2026-05-19")?.revenueCents,
+    ).toBe(300);
+  });
+
+  it("fetches the dataset only once per call (H1: collapses 4 round-trips into 1)", async () => {
+    mockSelect.mockReturnValue(makeSelectBuilder([]));
+    mockFetchLinesByDocIds.mockResolvedValue([]);
+
+    await getAnalyticsBundle("biz-1", "30d");
+
+    // mockSelect è chiamato 1× per fetchSaleDocsInRange.
+    // Senza l'aggregazione (4 server action separate) verrebbe chiamato 4×.
+    expect(mockSelect).toHaveBeenCalledTimes(1);
+    // fetchLinesByDocIds invocato 0× perché non ci sono documenti, ma anche
+    // con dati sarebbe 1× soltanto (mock helper sopra lo conferma).
+    expect(mockFetchLinesByDocIds).toHaveBeenCalledTimes(0);
+  });
+
+  it("returns { error } when auth fails (single error path for the whole bundle)", async () => {
+    mockCheckBusinessOwnership.mockResolvedValue({ error: "Non autorizzato." });
+    const res = await getAnalyticsBundle("biz-1", "30d");
+    expect(res).toEqual({ error: "Non autorizzato." });
   });
 });
