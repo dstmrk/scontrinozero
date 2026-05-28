@@ -391,7 +391,14 @@ export function computeProductBreakdown(
   entries.sort((a, b) => {
     if (b.revenueCents !== a.revenueCents)
       return b.revenueCents - a.revenueCents;
-    return a.sortKey.localeCompare(b.sortKey);
+    // Byte-wise Unicode comparison (NO localeCompare): in container Linux
+    // il locale di default può essere C / en_US.UTF-8 / it_IT.UTF-8 a
+    // seconda dell'image e dell'host, e su tiebreak con accenti il sort
+    // risulterebbe diverso fra dev/CI/prod/sandbox. Con topN=10 questo
+    // includerebbe/escluderebbe prodotti diversi tra request consecutive.
+    if (a.sortKey < b.sortKey) return -1;
+    if (a.sortKey > b.sortKey) return 1;
+    return 0;
   });
 
   const stripped: ProductBreakdownEntry[] = entries.map(

@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import {
   Line,
   LineChart,
@@ -16,6 +17,10 @@ interface RevenueSparklineProps {
 }
 
 export function RevenueSparkline({ data }: RevenueSparklineProps) {
+  // Vedi product-breakdown.tsx per la motivazione di aria-describedby:
+  // role="img" rende i discendenti non navigabili dagli AT.
+  // useId DEVE essere chiamato prima di qualsiasi early return.
+  const summaryId = useId();
   const chartData = data.map((p) => ({
     date: p.date,
     revenue: p.revenueCents / 100,
@@ -29,8 +34,23 @@ export function RevenueSparkline({ data }: RevenueSparklineProps) {
     );
   }
 
+  const accessibleSummary = chartData
+    .map(
+      (p) =>
+        `${formatDate(p.date, "numeric", "Europe/Rome")}: ${formatCurrency(p.revenue)}`,
+    )
+    .join(". ");
+
   return (
-    <div className="h-[220px] w-full">
+    <div
+      role="img"
+      aria-label="Grafico ricavi giornalieri."
+      aria-describedby={summaryId}
+      className="h-[220px] w-full"
+    >
+      <span id={summaryId} className="sr-only">
+        {accessibleSummary}
+      </span>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
           data={chartData}
@@ -67,7 +87,9 @@ export function RevenueSparkline({ data }: RevenueSparklineProps) {
             ]}
             contentStyle={{
               borderRadius: 8,
-              border: "1px solid rgba(0,0,0,0.08)",
+              border: "1px solid var(--border)",
+              background: "var(--popover)",
+              color: "var(--popover-foreground)",
               fontSize: 12,
             }}
           />

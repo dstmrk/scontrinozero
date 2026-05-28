@@ -318,6 +318,76 @@ describe("computeProductBreakdown", () => {
     });
   });
 
+  it("L1: tiebreak also handles the reverse order branch (a > b)", () => {
+    // Three products with same revenue, names that force the sort to call
+    // the comparator multiple times in both directions. Ensures both
+    // branches of the tiebreak (`< -1` and `> +1`) are exercised.
+    const docs = [
+      makeDoc("a", "ACCEPTED", new Date()),
+      makeDoc("b", "ACCEPTED", new Date()),
+      makeDoc("c", "ACCEPTED", new Date()),
+    ];
+    const linesByDoc = makeLines([
+      {
+        documentId: "a",
+        description: "ciliegia",
+        quantity: "1",
+        grossUnitPrice: "2.00",
+      },
+      {
+        documentId: "b",
+        description: "ananas",
+        quantity: "1",
+        grossUnitPrice: "2.00",
+      },
+      {
+        documentId: "c",
+        description: "banana",
+        quantity: "1",
+        grossUnitPrice: "2.00",
+      },
+    ]);
+    const out = computeProductBreakdown(docs, linesByDoc);
+    expect(out.map((e) => e.description)).toEqual([
+      "ananas",
+      "banana",
+      "ciliegia",
+    ]);
+  });
+
+  it("L1: tiebreak is byte-wise Unicode (no localeCompare), stable across container locales", () => {
+    // Due prodotti con stesso revenue ma chiavi che ordinano DIVERSAMENTE
+    // sotto locale "it_IT" vs byte-wise. `caffè` (U+00E8) vs `caffé`
+    // (U+00E9): byte-wise → "caffè" < "caffé" è FALSO (è > perché 0xE8 < 0xE9
+    // ma poiché entrambi hanno la stessa lunghezza, e8 < e9 → "caffè" < "caffé").
+    // Inversamente sotto locale italiano collation. Il test fissa l'ordine
+    // atteso per il confronto puro Unicode così che dev/CI/prod/sandbox
+    // restituiscano sempre lo stesso top-N.
+    const docs = [
+      makeDoc("a", "ACCEPTED", new Date()),
+      makeDoc("b", "ACCEPTED", new Date()),
+    ];
+    const linesByDoc = makeLines([
+      {
+        documentId: "a",
+        description: "caffè", // 0x63 0x61 0x66 0x66 0xE8
+        quantity: "1",
+        grossUnitPrice: "2.00",
+      },
+      {
+        documentId: "b",
+        description: "caffé", // 0x63 0x61 0x66 0x66 0xE9
+        quantity: "1",
+        grossUnitPrice: "2.00",
+      },
+    ]);
+    const out = computeProductBreakdown(docs, linesByDoc);
+    // Stesso revenue → tiebreak alfabetico byte-wise: 'è' (0xE8) viene
+    // prima di 'é' (0xE9), quindi "caffè" è primo.
+    expect(out[0]?.description).toBe("caffè");
+    expect(out[1]?.description).toBe("caffé");
+  });
+
   it("does not append 'Altro' when product count is <= topN", () => {
     const docs: ReturnType<typeof makeDoc>[] = [];
     const lines: LineRow[] = [];

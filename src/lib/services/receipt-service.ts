@@ -163,7 +163,18 @@ export async function emitReceiptForBusiness(
 
   const documentId = txResult.id;
   if (!documentId) {
-    logger.error({}, "Transaction returned no document ID");
+    // Branch difensivo (TS garantisce txResult.id: string se !alreadyExists),
+    // ma se mai dovesse triggerare a runtime — drift Drizzle, edge case su
+    // onConflictDoNothing — vogliamo il context minimo per identificare la
+    // richiesta in incident response.
+    logger.error(
+      {
+        businessId: input.businessId,
+        idempotencyKey: input.idempotencyKey,
+        critical: true,
+      },
+      "Transaction returned no document ID",
+    );
     return { error: "Errore interno: impossibile creare il documento." };
   }
 

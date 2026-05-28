@@ -26,4 +26,37 @@ describe("ProductBreakdown", () => {
       screen.queryByText(/nessun prodotto venduto nel periodo selezionato/i),
     ).not.toBeInTheDocument();
   });
+
+  it("L4: exposes an accessible name for screen readers", () => {
+    render(
+      <ProductBreakdown
+        data={[{ description: "Caffè", revenueCents: 500, count: 5 }]}
+      />,
+    );
+    expect(
+      screen.getByRole("img", { name: /grafico ricavi per prodotto/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("L4: wires the sr-only summary via aria-describedby so screen readers actually announce it", () => {
+    // role="img" rende i discendenti non navigabili: per essere annunciato
+    // il summary deve essere referenziato esplicitamente via aria-describedby.
+    render(
+      <ProductBreakdown
+        data={[
+          { description: "Caffè", revenueCents: 500, count: 5 },
+          { description: "Cornetto", revenueCents: 300, count: 2 },
+        ]}
+      />,
+    );
+    const region = screen.getByRole("img", {
+      name: /grafico ricavi per prodotto/i,
+    });
+    const describedBy = region.getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+    const summary = document.getElementById(describedBy!);
+    expect(summary).not.toBeNull();
+    expect(summary?.textContent).toContain("Caffè");
+    expect(summary?.textContent).toContain("Cornetto");
+  });
 });
