@@ -42,10 +42,17 @@ function hostnameRedirect(request: NextRequest): NextResponse | null {
   // (scheme leak, trailing slash, spaces, …) would otherwise alter routing
   // decisions silently. `parseTrustedHostnameEnv` fails closed to the fallback
   // and logs `critical:true` in production.
-  const appHostname = parseTrustedHostnameEnv(
-    "NEXT_PUBLIC_APP_HOSTNAME",
-    "app.scontrinozero.it",
-  );
+  // APP_HOSTNAME (runtime override per sandbox/self-host) > NEXT_PUBLIC_APP_HOSTNAME
+  // (baked al build) > default. Coerente con auth-actions.ts, trusted-app-url.ts,
+  // marketing-to-app-href.ts: senza questa precedenza il middleware su sandbox
+  // confronterebbe contro l'hostname baked di produzione e cadrebbe in safe-deny.
+  const appHostname =
+    process.env.APP_HOSTNAME !== undefined
+      ? parseTrustedHostnameEnv("APP_HOSTNAME", "app.scontrinozero.it")
+      : parseTrustedHostnameEnv(
+          "NEXT_PUBLIC_APP_HOSTNAME",
+          "app.scontrinozero.it",
+        );
   const marketingHostname = parseTrustedHostnameEnv(
     "NEXT_PUBLIC_MARKETING_HOSTNAME",
     "scontrinozero.it",
