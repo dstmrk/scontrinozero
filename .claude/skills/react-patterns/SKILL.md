@@ -276,12 +276,23 @@ l'ultima classe. Utile per override:
 
 ---
 
-## PWA / Serwist — niente trucchi React
+## PWA / Serwist — attenzione al `defaultCache`
 
-Il service worker (`src/app/sw.ts` + Serwist) intercetta le richieste, ma
-**non** le risposte di Server Action / Route Handler dinamici (rete sempre).
-Non assumere che `fetch` lato client sia cache-first: caching strategy è
-asset-only.
+Il service worker (`src/sw.ts`) usa `runtimeCaching: defaultCache` di
+`@serwist/next/worker`. **Non è asset-only:** `defaultCache` include strategie
+di runtime caching anche per same-origin GET, tra cui una `NetworkFirst` per
+le richieste `/api/*`. Conseguenze:
+
+- **Server Action (POST)** → non cachate, sempre rete.
+- **Route Handler GET sotto `/api/*`** → potenzialmente serviti dalla cache
+  su timeout/offline. Per dati tenant-specifici, sensibili o che cambiano
+  spesso, il handler **deve** dichiarare `Cache-Control: no-store` (e/o
+  `Vary: Cookie/Authorization`) nella response per evitare stale cross-user.
+  In alternativa, override del `runtimeCaching` in `src/sw.ts` con una regola
+  `NetworkOnly` per il pattern specifico, prima di `defaultCache`.
+- **Pagine / RSC payload** → cachate con strategia network-first analoga;
+  per route autenticate fare affidamento su `cookies()`/redirect server-side,
+  non su "il SW non interferisce".
 
 `src/components/pwa/` contiene gli hook lato client per install prompt e
 update detection — sono Client Components che usano `window.matchMedia` e
