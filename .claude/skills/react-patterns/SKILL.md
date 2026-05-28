@@ -276,12 +276,29 @@ l'ultima classe. Utile per override:
 
 ---
 
-## PWA / Serwist — niente trucchi React
+## PWA / Serwist — attenzione al `defaultCache`
 
-Il service worker (`src/app/sw.ts` + Serwist) intercetta le richieste, ma
-**non** le risposte di Server Action / Route Handler dinamici (rete sempre).
-Non assumere che `fetch` lato client sia cache-first: caching strategy è
-asset-only.
+Il service worker (`src/sw.ts`) usa `runtimeCaching: defaultCache` di
+`@serwist/next/worker`. **Non è asset-only:** `defaultCache` include strategie
+di runtime caching anche per same-origin GET, tra cui una `NetworkFirst` per
+le richieste `/api/*`. Conseguenze:
+
+- **Server Action (POST)** → non cachate, sempre rete.
+- **Route Handler GET sotto `/api/*`** → potenzialmente serviti dalla cache
+  su timeout/offline. ⚠️ `Cache-Control: no-store` sulla response **non
+  basta**: in Serwist 9.x la `NetworkFirst` scrive in cache via
+  `fetchAndCachePut`, e il `cacheOkAndOpaquePlugin` aggiunto di default
+  decide solo in base allo status (200/opaque) ignorando l'header
+  `Cache-Control`. Per dati tenant-specifici / sensibili / che cambiano
+  spesso bisogna **override esplicito** in `src/sw.ts`: una regola
+  `NetworkOnly` (o un matcher che esclude il pattern) registrata **prima**
+  di `defaultCache`, oppure una `NetworkFirst` con plugin custom che rifiuta
+  via `cacheWillUpdate` le response non cacheable. `Vary: Cookie/Authorization`
+  da solo non previene la scrittura in cache, al massimo isola la voce per
+  variante.
+- **Pagine / RSC payload** → cachate con strategia network-first analoga;
+  per route autenticate fare affidamento su `cookies()`/redirect server-side,
+  non su "il SW non interferisce".
 
 `src/components/pwa/` contiene gli hook lato client per install prompt e
 update detection — sono Client Components che usano `window.matchMedia` e
