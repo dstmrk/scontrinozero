@@ -403,6 +403,40 @@ describe("voidReceiptForBusiness", () => {
     expect(result.error).not.toContain("Riprova più tardi");
   });
 
+  it("M3: AdE transient (AdePortalError 5xx) logga a warn invece di error (no Sentry noise)", async () => {
+    const { AdePortalError } = await import("@/lib/ade/errors");
+    mockSubmitVoid.mockRejectedValue(
+      new AdePortalError(503, "service unavailable"),
+    );
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    await voidReceiptForBusiness(VALID_INPUT);
+
+    const { logger } = await import("@/lib/logger");
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ errorClass: "ade_transient" }),
+      expect.stringContaining("transient failure"),
+    );
+    const errorCalls = (logger.error as ReturnType<typeof vi.fn>).mock.calls;
+    const failedCalls = errorCalls.filter((c) =>
+      String(c[1] ?? "").includes("voidReceiptForBusiness failed"),
+    );
+    expect(failedCalls).toHaveLength(0);
+  });
+
+  it("M3: errore non transient (generic Error) resta a logger.error", async () => {
+    mockSubmitVoid.mockRejectedValue(new Error("unexpected boom"));
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    await voidReceiptForBusiness(VALID_INPUT);
+
+    const { logger } = await import("@/lib/logger");
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ errorClass: "ade_failure" }),
+      expect.stringContaining("voidReceiptForBusiness failed"),
+    );
+  });
+
   it("non chiama logout se AdE login fallisce (nessuna sessione aperta)", async () => {
     mockLogin.mockRejectedValue(new Error("AdE login failed"));
 

@@ -465,6 +465,57 @@ describe("emitReceiptForBusiness", () => {
     expect(result.error).not.toContain("Riprova più tardi");
   });
 
+  it("M3: AdE transient (AdePortalError 5xx) logga a warn invece di error (no Sentry noise)", async () => {
+    const { AdePortalError } = await import("@/lib/ade/errors");
+    mockSubmitSale.mockRejectedValue(
+      new AdePortalError(503, "service unavailable"),
+    );
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness(VALID_INPUT);
+
+    const { logger } = await import("@/lib/logger");
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ errorClass: "ade_transient" }),
+      expect.stringContaining("transient failure"),
+    );
+    // logger.error PUÒ essere chiamato per altri eventi (es. "Failed to mark
+    // document as ERROR"), ma NON per emitReceiptForBusiness failed.
+    const errorCalls = (logger.error as ReturnType<typeof vi.fn>).mock.calls;
+    const failedCalls = errorCalls.filter((c) =>
+      String(c[1] ?? "").includes("emitReceiptForBusiness failed"),
+    );
+    expect(failedCalls).toHaveLength(0);
+  });
+
+  it("M3: AdeNetworkError logga a warn (transient)", async () => {
+    const { AdeNetworkError } = await import("@/lib/ade/errors");
+    mockSubmitSale.mockRejectedValue(new AdeNetworkError(new Error("ECONN")));
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness(VALID_INPUT);
+
+    const { logger } = await import("@/lib/logger");
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ errorClass: "ade_transient" }),
+      expect.stringContaining("transient failure"),
+    );
+  });
+
+  it("M3: errore non transient (AdeAuthError) resta a logger.error", async () => {
+    const { AdeAuthError } = await import("@/lib/ade/errors");
+    mockSubmitSale.mockRejectedValue(new AdeAuthError());
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness(VALID_INPUT);
+
+    const { logger } = await import("@/lib/logger");
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ errorClass: "ade_failure" }),
+      expect.stringContaining("emitReceiptForBusiness failed"),
+    );
+  });
+
   it("non chiama logout se AdE login fallisce (nessuna sessione aperta)", async () => {
     mockLogin.mockRejectedValue(new Error("AdE login failed"));
 

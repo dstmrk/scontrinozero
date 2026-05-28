@@ -18,6 +18,7 @@ import {
   AdePasswordExpiredError,
 } from "@/lib/ade/errors";
 import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
+import { logAdeFailure } from "@/lib/ade/log-failure";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { sendEmail } from "@/lib/email";
@@ -356,7 +357,14 @@ export async function verifyAdeCredentials(
         passwordExpired: true,
       };
     }
-    logger.error({ err, businessId }, "AdE credential verification failed");
+    logAdeFailure(
+      err,
+      { businessId },
+      {
+        transient: "AdE credential verification: transient failure",
+        failure: "AdE credential verification failed",
+      },
+    );
     const userFacing = getUserFacingAdeErrorMessage(
       err,
       "Verifica fallita. Controlla le credenziali Fisconline.",
@@ -585,7 +593,14 @@ export async function changeAdePassword(
         error: "La nuova password deve essere diversa da quella attuale.",
       };
     }
-    logger.error({ err, businessId }, "Cambio password AdE fallito");
+    logAdeFailure(
+      err,
+      { businessId },
+      {
+        transient: "changeAdePassword: AdE transient failure",
+        failure: "Cambio password AdE fallito",
+      },
+    );
     const userFacing = getUserFacingAdeErrorMessage(
       err,
       "Errore durante il cambio password. Riprova più tardi.",

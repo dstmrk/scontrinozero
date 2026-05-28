@@ -89,4 +89,20 @@ describe("appHref", () => {
     const { appHref } = await import("./marketing-to-app-href");
     expect(appHref("/login")).toBe("https://app.scontrinozero.it/login");
   });
+
+  it("falls back to hardcoded default if APP_HOSTNAME contains a scheme (typo guard)", async () => {
+    // `.env` typo: APP_HOSTNAME=https://app.scontrinozero.it
+    // → senza guard produrrebbe `https://https://app.scontrinozero.it/login`.
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_HOSTNAME", "https://app.scontrinozero.it");
+    const { appHref } = await import("./marketing-to-app-href");
+    expect(appHref("/login")).toBe("https://app.scontrinozero.it/login");
+  });
+
+  it("falls back to hardcoded default if APP_HOSTNAME contains a path/slash", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_HOSTNAME", "app.scontrinozero.it/redirect");
+    const { appHref } = await import("./marketing-to-app-href");
+    expect(appHref("/login")).toBe("https://app.scontrinozero.it/login");
+  });
 });

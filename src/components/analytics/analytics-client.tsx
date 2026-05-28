@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useRef, useState, useTransition } from "react";
 import {
   type AnalyticsKpis,
@@ -11,9 +12,6 @@ import {
   getAnalyticsBundle,
 } from "@/server/analytics-actions";
 import { KpiCards } from "./kpi-cards";
-import { PaymentBreakdown } from "./payment-breakdown";
-import { ProductBreakdown } from "./product-breakdown";
-import { RevenueSparkline } from "./revenue-sparkline";
 import {
   Select,
   SelectContent,
@@ -22,6 +20,39 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+// Recharts pesa ~100KB gzipped. I 3 widget (sparkline/payment/product) lo
+// importano top-level: senza dynamic, recharts entra nel bundle iniziale
+// di /dashboard/analytics anche prima che KpiCards si renderizzi. Caricarli
+// dinamicamente sposta i 100KB in un chunk separato che viene fetchato
+// solo dopo l'hydration del client component, allineato al principio
+// CLAUDE.md "Leggeri sulle risorse" (target mobile 3G/4G).
+//
+// ssr: false perché recharts usa ResizeObserver (no-op in Node SSR) e i
+// dati arrivano via setState dal range change. Le altezze del loading
+// placeholder devono matchare quelle reali (220/220/260) per evitare
+// layout shift al mount.
+const PaymentBreakdown = dynamic(
+  () =>
+    import("./payment-breakdown").then((m) => ({
+      default: m.PaymentBreakdown,
+    })),
+  { ssr: false, loading: () => <div className="h-[220px]" /> },
+);
+const RevenueSparkline = dynamic(
+  () =>
+    import("./revenue-sparkline").then((m) => ({
+      default: m.RevenueSparkline,
+    })),
+  { ssr: false, loading: () => <div className="h-[220px]" /> },
+);
+const ProductBreakdown = dynamic(
+  () =>
+    import("./product-breakdown").then((m) => ({
+      default: m.ProductBreakdown,
+    })),
+  { ssr: false, loading: () => <div className="h-[260px]" /> },
+);
 
 interface AnalyticsClientProps {
   readonly businessId: string;

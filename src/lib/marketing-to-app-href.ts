@@ -30,6 +30,19 @@ function resolveBaseUrl(): string {
   // baked one.
   const runtimeHost = process.env.APP_HOSTNAME;
   if (runtimeHost) {
+    // Validate hostname-only: a typo nel `.env` come
+    // `APP_HOSTNAME=https://app.scontrinozero.it` produrrebbe l'URL
+    // malformato `https://https://app.scontrinozero.it/login`; un
+    // `APP_HOSTNAME=app.scontrinozero.it/redirect` produrrebbe link
+    // verso un path arbitrario. Ricadiamo sul default invece di emettere
+    // un href rotto. Niente check contro `allowedHostnames()`: la
+    // allowlist auto-include `APP_HOSTNAME` (riga 14-16) quindi sarebbe
+    // tautologica — la vera difesa contro la compromessione dell'env è
+    // fuori dal nostro perimetro (chi controlla l'env controlla anche la
+    // sua allowlist).
+    if (runtimeHost.includes("://") || runtimeHost.includes("/")) {
+      return HARDCODED_DEFAULT;
+    }
     const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
     return `${protocol}://${runtimeHost}`;
   }

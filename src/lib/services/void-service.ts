@@ -13,6 +13,7 @@ import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
 import { createAdeClient } from "@/lib/ade";
 import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
+import { logAdeFailure } from "@/lib/ade/log-failure";
 import { mapVoidToAdePayload } from "@/lib/ade/mapper";
 import { isStatementTimeoutError } from "@/lib/api-errors";
 import {
@@ -25,24 +26,7 @@ import { fetchAdePrerequisites } from "@/lib/server-auth";
 import type { VoidReceiptInput, VoidReceiptResult } from "@/types/storico";
 import type { VoidRequest } from "@/lib/ade/public-types";
 import type { AdeResponse } from "@/lib/ade/types";
-
-/**
- * Soglia oltre la quale un VOID PENDING/ERROR è considerato "stale".
- * Sopra questa soglia, un retry con la stessa idempotencyKey entra nel
- * recovery path. Default: 30 min. Override via STALE_PENDING_THRESHOLD_MINUTES.
- *
- * Rischio residuo: vedi receipt-service.ts per il commento esteso. AdE non
- * accetta una idempotency-key nel payload submitVoid: se la risposta del primo
- * submit si è persa in volo, un retry crea un VOID duplicato IRREVERSIBILE.
- * La soglia di 30 min riduce la finestra ma non la elimina. La soluzione
- * corretta (lookup AdE pre-retry) è tracciata nel backlog.
- */
-function getStalePendingThresholdMs(): number {
-  const raw = process.env.STALE_PENDING_THRESHOLD_MINUTES;
-  const minutes = raw ? Number.parseFloat(raw) : Number.NaN;
-  const effective = Number.isFinite(minutes) && minutes > 0 ? minutes : 30;
-  return effective * 60 * 1000;
-}
+import { getStalePendingThresholdMs } from "./ade-recovery";
 
 type ConflictOutcome =
   | { kind: "done"; result: VoidReceiptResult }
@@ -600,9 +584,13 @@ export async function voidReceiptForBusiness(
       apiKeyId,
     });
   } catch (err) {
-    logger.error(
-      { err, voidDocumentId, saleDocumentId: input.documentId },
-      "voidReceiptForBusiness failed",
+    logAdeFailure(
+      err,
+      { voidDocumentId, saleDocumentId: input.documentId },
+      {
+        transient: "voidReceiptForBusiness AdE transient failure",
+        failure: "voidReceiptForBusiness failed",
+      },
     );
 
     // Don't mark ERROR on timeout. Leave the row PENDING so:
