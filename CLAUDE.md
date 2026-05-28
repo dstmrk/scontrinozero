@@ -194,6 +194,10 @@ auto-attivano quando il task matcha il `description`:
   analysis, rotazione `ENCRYPTION_KEY`
 - **`sonar-quality-gate`** — regole S6861/S6772/S7780/S5852/S5122, Gitleaks,
   coverage exclusions
+- **`react-patterns`** — Server vs Client Components, Next.js 16 async
+  params/cookies/headers, React 19 Actions/`useOptimistic`/ref-as-prop,
+  shadcn/ui + Radix `asChild`, TanStack Query provider unico, hydration
+  mismatch, Tailwind 4 class ordering
 
 ## Hook automatici (`.claude/hooks/`)
 
