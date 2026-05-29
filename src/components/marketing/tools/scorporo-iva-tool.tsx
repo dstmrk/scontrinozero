@@ -74,7 +74,7 @@ export function ScorporoIvaTool() {
       </form>
 
       {result && (
-        <div role="status" aria-live="polite" className="mt-5 border-t pt-5">
+        <output aria-live="polite" className="mt-5 block border-t pt-5">
           {result.ok ? (
             <dl className="grid gap-3 sm:grid-cols-3">
               <div>
@@ -105,7 +105,7 @@ export function ScorporoIvaTool() {
           ) : (
             <p className="text-destructive text-sm">{result.error}</p>
           )}
-        </div>
+        </output>
       )}
     </div>
   );

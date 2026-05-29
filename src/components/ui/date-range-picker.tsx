@@ -50,32 +50,37 @@ export function DateRangePicker({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          id={id}
-          type="button"
-          variant="outline"
-          disabled={disabled}
-          className={cn(
-            "h-8 w-full min-w-[200px] justify-start gap-2 px-2.5 font-normal",
-            !value?.from && "text-muted-foreground",
-            className,
-          )}
-        >
-          <CalendarIcon className="h-4 w-4 shrink-0" />
-          <span className="flex-1 truncate text-left text-sm">{label}</span>
-          {value?.from && (
-            <span
-              role="button"
-              aria-label="Cancella periodo"
-              onClick={handleClear}
-              className="text-muted-foreground hover:text-foreground ml-auto text-xs"
-            >
-              ✕
-            </span>
-          )}
-        </Button>
-      </PopoverTrigger>
+      {/* relative wrapper: il bottone "Cancella" è un <button> reale fratello del
+          trigger, non annidato (un <button> dentro un <button> è HTML invalido). */}
+      <div className="relative w-full min-w-[200px]">
+        <PopoverTrigger asChild>
+          <Button
+            id={id}
+            type="button"
+            variant="outline"
+            disabled={disabled}
+            className={cn(
+              "h-8 w-full justify-start gap-2 px-2.5 font-normal",
+              !value?.from && "text-muted-foreground",
+              value?.from && "pr-7",
+              className,
+            )}
+          >
+            <CalendarIcon className="h-4 w-4 shrink-0" />
+            <span className="flex-1 truncate text-left text-sm">{label}</span>
+          </Button>
+        </PopoverTrigger>
+        {value?.from && (
+          <button
+            type="button"
+            aria-label="Cancella periodo"
+            onClick={handleClear}
+            className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2 text-xs"
+          >
+            ✕
+          </button>
+        )}
+      </div>
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar
           mode="range"

@@ -58,8 +58,7 @@ export function VerificaLotteriaTool() {
       </form>
 
       {result && (
-        <div
-          role="status"
+        <output
           aria-live="polite"
           className={
             "mt-5 flex items-start gap-3 rounded-md border p-4 text-sm " +
@@ -81,7 +80,7 @@ export function VerificaLotteriaTool() {
               </p>
             )}
           </div>
-        </div>
+        </output>
       )}
 
       <p className="text-muted-foreground mt-4 text-xs">

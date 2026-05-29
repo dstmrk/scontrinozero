@@ -72,6 +72,7 @@ export function PwaInstallPrompt() {
               Installa ScontrinoZero
             </p>
             <button
+              type="button"
               onClick={handleDismiss}
               aria-label="Non ora"
               className="shrink-0 text-gray-400 hover:text-gray-600"
@@ -143,12 +144,14 @@ export function PwaInstallPrompt() {
           </p>
         </div>
         <button
+          type="button"
           onClick={() => void handleInstall()}
           className="rounded-md bg-black px-3 py-2 text-sm font-medium text-white hover:bg-gray-800"
         >
           Installa
         </button>
         <button
+          type="button"
           onClick={handleDismiss}
           aria-label="Non ora"
           className="text-gray-400 hover:text-gray-600"

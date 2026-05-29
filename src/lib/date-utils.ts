@@ -30,15 +30,18 @@ export function getFiscalDate(
  * option: in a UTC container the local timezone is UTC, which can differ from
  * Europe/Rome by 1–2 hours, producing wrong times on receipts.
  */
+// Module-scope: costruire un Intl.DateTimeFormat è costoso, le opzioni sono costanti.
+const fiscalDateTimeFormatter = new Intl.DateTimeFormat("it-IT", {
+  timeZone: "Europe/Rome",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
 export function formatFiscalDateTime(date: Date): string {
-  return new Intl.DateTimeFormat("it-IT", {
-    timeZone: "Europe/Rome",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+  return fiscalDateTimeFormatter.format(date);
 }
 
 /**
@@ -47,17 +50,20 @@ export function formatFiscalDateTime(date: Date): string {
  * (fiscal CSV precision is seconds). Handles CET (+01:00) and CEST (+02:00)
  * transitions correctly via Intl.
  */
+// Module-scope: opzioni costanti, sv-SE per output ISO-style senza AM/PM.
+const romeWallClockFormatter = new Intl.DateTimeFormat("sv-SE", {
+  timeZone: "Europe/Rome",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
 export function formatIsoInRome(date: Date): string {
   // sv-SE locale produces ISO-style "YYYY-MM-DD HH:mm:ss" without AM/PM noise.
-  const wall = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Europe/Rome",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(date); // → "2026-05-19 14:34:56"
+  const wall = romeWallClockFormatter.format(date); // → "2026-05-19 14:34:56"
   const isoWall = wall.replace(" ", "T"); // → "2026-05-19T14:34:56"
   // Treat Rome wall-clock as fake UTC, then diff with real UTC to get the offset.
   const offsetMs = new Date(isoWall + "Z").getTime() - date.getTime();

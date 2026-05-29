@@ -18,7 +18,9 @@ export default function GlobalError({
     <html lang="it">
       <body>
         <h2>Si è verificato un errore</h2>
-        <button onClick={() => reset()}>Riprova</button>
+        <button type="button" onClick={() => reset()}>
+          Riprova
+        </button>
       </body>
     </html>
   );

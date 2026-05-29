@@ -5,14 +5,17 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Module-scope: costruire un Intl.NumberFormat è costoso, le opzioni sono costanti.
+const currencyFormatter = new Intl.NumberFormat("it-IT", {
+  style: "currency",
+  currency: "EUR",
+});
+
 /** Formatta un importo in euro nel formato italiano (es. 12,50 €).
  * Accetta sia number che string (Drizzle restituisce numeric come string). */
 export function formatCurrency(amount: number | string): string {
   const value = typeof amount === "string" ? Number.parseFloat(amount) : amount;
-  return new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR",
-  }).format(value);
+  return currencyFormatter.format(value);
 }
 
 /** Formatta una data nel formato italiano (DD/MM/YYYY o DD/MM/YY).

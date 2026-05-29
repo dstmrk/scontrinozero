@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd, faqPageJsonLd } from "@/components/json-ld";
 import { appHref } from "@/lib/marketing-to-app-href";
@@ -31,6 +32,26 @@ import {
   Percent,
   Briefcase,
 } from "lucide-react";
+
+// Homepage: pagina SEO #1 del progetto. Title assoluto (no template suffix),
+// description dedicata, canonical esplicito e Open Graph propri.
+export const metadata: Metadata = {
+  title: {
+    absolute:
+      "ScontrinoZero — Scontrino Elettronico senza Registratore di Cassa",
+  },
+  description:
+    "Registratore di cassa virtuale per esercenti e micro-attività: emetti scontrini elettronici e trasmetti i corrispettivi all'Agenzia delle Entrate dal telefono, senza registratore telematico. 30 giorni gratis, da €29,99/anno.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    url: "/",
+    title: "ScontrinoZero — Scontrino Elettronico senza Registratore di Cassa",
+    description:
+      "Emetti scontrini elettronici e trasmetti i corrispettivi all'AdE dal telefono, senza registratore telematico. Da €29,99/anno, 30 giorni gratis.",
+  },
+};
 
 const HOME_COMPARISON_ROWS: readonly ComparisonRow[] = [
   {

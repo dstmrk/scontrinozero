@@ -47,7 +47,7 @@ export function CalcolatoreRisparmioTool() {
       </form>
 
       {result && (
-        <div role="status" aria-live="polite" className="mt-6 border-t pt-6">
+        <output aria-live="polite" className="mt-6 block border-t pt-6">
           {result.ok ? (
             <div className="space-y-5">
               <div className="grid gap-4 sm:grid-cols-3">
@@ -100,7 +100,7 @@ export function CalcolatoreRisparmioTool() {
           ) : (
             <p className="text-destructive text-sm">{result.error}</p>
           )}
-        </div>
+        </output>
       )}
     </div>
   );
