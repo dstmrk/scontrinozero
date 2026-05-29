@@ -1,0 +1,19 @@
+[
+  {
+    "id": "scontrinozero-dev-deploy",
+    "execute-command": "/home/pi/docker-apps/scontrinozero-dev/deploy.sh",
+    "command-working-directory": "/home/pi/docker-apps/scontrinozero-dev",
+    "response-message": "deploy-dev triggered\n",
+    "include-command-output-in-response": false,
+    "trigger-rule": {
+      "match": {
+        "type": "payload-hmac-sha256",
+        "secret": "{{ getenv \"DEPLOY_HMAC_SECRET\" }}",
+        "parameter": {
+          "source": "header",
+          "name": "X-Hub-Signature-256"
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,82 @@
+name: Deploy (dev)
+
+# Ambiente dev su Raspberry Pi 5 (arm64). A differenza di prod/sandbox
+# (deploy tag-based vX.Y.Z, immagine linux/amd64), dev traccia `main`:
+# a ogni push (commit diretto o merge di PR) ricompila l'immagine arm64,
+# la pubblica su GHCR come :dev e notifica il Pi via webhook.
+on:
+  push:
+    branches:
+      - main
+
+# L'ultimo push su main vince: annulla eventuali build dev in corso.
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-deploy:
+    # Runner ARM nativo (gratis sui repo pubblici): build arm64 senza QEMU.
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push (arm64, :dev)
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev
+          # Cache GHA isolata da quella di prod (amd64) per evitare collisioni.
+          cache-from: type=gha,scope=dev-arm64
+          cache-to: type=gha,mode=max,scope=dev-arm64
+          build-args: |
+            NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+          # NEXT_PUBLIC_TURNSTILE_SITE_KEY è l'unica NEXT_PUBLIC_* letta in un
+          # client component (turnstile-widget.tsx) → inlinata nel bundle al
+          # build, quindi va passata. Dev riusa la stessa key di prod (il
+          # dominio dev è nell'allowlist Turnstile).
+          # Le altre NEXT_PUBLIC_* (Supabase, hostname, APP_URL) sono lette
+          # server-side a runtime in modalità standalone → bastano nel .env del Pi.
+          # Sentry OFF su dev: niente NEXT_PUBLIC_SENTRY_DSN (no DSN nel bundle)
+          # né SENTRY_AUTH_TOKEN/ORG/PROJECT (no upload source-map).
+
+      - name: Trigger Raspberry Pi deploy
+        env:
+          DEPLOY_WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
+          DEPLOY_HMAC_SECRET: ${{ secrets.DEPLOY_HMAC_SECRET }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+          BODY="$(printf '{"sha":"%s","ref":"%s"}' "${GITHUB_SHA}" "${GITHUB_REF_NAME}")"
+          # Firma HMAC-SHA256 del body — verificata da adnanh/webhook sul Pi.
+          SIG="$(printf '%s' "${BODY}" \
+            | openssl dgst -sha256 -hmac "${DEPLOY_HMAC_SECRET}" \
+            | sed 's/^.*=[[:space:]]*//')"
+          # CF Access service token: bloccato all'edge prima di arrivare al Pi.
+          curl --fail --silent --show-error --retry 3 --retry-delay 5 \
+            -X POST "${DEPLOY_WEBHOOK_URL}" \
+            -H "Content-Type: application/json" \
+            -H "CF-Access-Client-Id: ${CF_ACCESS_CLIENT_ID}" \
+            -H "CF-Access-Client-Secret: ${CF_ACCESS_CLIENT_SECRET}" \
+            -H "X-Hub-Signature-256: sha256=${SIG}" \
+            -d "${BODY}"
