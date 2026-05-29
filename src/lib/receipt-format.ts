@@ -12,12 +12,18 @@ export const PAYMENT_LABELS: Record<string, string> = {
 };
 
 /**
+ * Formatter monetario senza simbolo, istanziato una sola volta a module scope:
+ * costruire un `Intl.NumberFormat` è costoso e qui le opzioni sono costanti.
+ */
+const receiptPriceFormatter = new Intl.NumberFormat("it-IT", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/**
  * Formatta un importo in formato italiano senza simbolo (es. "12,50").
  * Distinto da `formatCurrency` di `@/lib/utils` che include "€".
  */
 export function formatReceiptPrice(amount: number): string {
-  return new Intl.NumberFormat("it-IT", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
+  return receiptPriceFormatter.format(amount);
 }

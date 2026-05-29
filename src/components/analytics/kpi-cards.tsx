@@ -10,8 +10,11 @@ function fromCents(cents: number): number {
   return cents / 100;
 }
 
+// Module-scope: costruire un Intl.NumberFormat è costoso, le opzioni sono costanti.
+const countFormatter = new Intl.NumberFormat("it-IT");
+
 function formatCount(value: number): string {
-  return new Intl.NumberFormat("it-IT").format(value);
+  return countFormatter.format(value);
 }
 
 interface KpiCardProps {
