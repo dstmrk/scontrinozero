@@ -47,6 +47,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# SHA del commit buildato — letto a runtime dal Server Component /dashboard/settings
+ARG BUILD_SHA
+ENV BUILD_SHA=$BUILD_SHA
+
 RUN apk upgrade --no-cache && \
     addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs && \
