@@ -129,13 +129,16 @@ export async function addCatalogItem(
   );
   if ("error" in validated) return validated;
 
-  // Plan gate: Starter e trial hanno catalogo limitato
+  // Plan gate: Starter e trial hanno catalogo limitato.
+  // getPlan e la conta articoli sono indipendenti → in parallelo.
   const db = getDb();
-  const planInfo = await getPlan(user.id);
-  const existingItems = await db
-    .select({ id: catalogItems.id })
-    .from(catalogItems)
-    .where(eq(catalogItems.businessId, input.businessId));
+  const [planInfo, existingItems] = await Promise.all([
+    getPlan(user.id),
+    db
+      .select({ id: catalogItems.id })
+      .from(catalogItems)
+      .where(eq(catalogItems.businessId, input.businessId)),
+  ]);
 
   if (
     !canAddCatalogItem(

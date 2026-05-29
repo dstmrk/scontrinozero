@@ -29,8 +29,11 @@ export default async function SettingsPage({
 }: {
   readonly searchParams: Promise<{ success?: string }>;
 }) {
-  const { success } = await searchParams;
-  const supabase = await createServerSupabaseClient();
+  // searchParams e creazione del client Supabase sono indipendenti → in parallelo.
+  const [{ success }, supabase] = await Promise.all([
+    searchParams,
+    createServerSupabaseClient(),
+  ]);
   const {
     data: { user },
   } = await supabase.auth.getUser();

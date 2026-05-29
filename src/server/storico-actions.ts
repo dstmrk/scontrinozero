@@ -104,26 +104,27 @@ export async function searchReceipts(
     );
   }
 
-  // Total count (same conditions, no pagination)
-  const [{ value: total }] = await db
-    .select({ value: count() })
-    .from(commercialDocuments)
-    .where(and(...conditions));
-
-  const docs = await db
-    .select({
-      id: commercialDocuments.id,
-      kind: commercialDocuments.kind,
-      status: commercialDocuments.status,
-      adeProgressive: commercialDocuments.adeProgressive,
-      adeTransactionId: commercialDocuments.adeTransactionId,
-      createdAt: commercialDocuments.createdAt,
-    })
-    .from(commercialDocuments)
-    .where(and(...conditions))
-    .orderBy(desc(commercialDocuments.createdAt))
-    .limit(pageSize)
-    .offset(offset);
+  // Total count + page (same conditions, no data-dependency) → in parallelo.
+  const [[{ value: total }], docs] = await Promise.all([
+    db
+      .select({ value: count() })
+      .from(commercialDocuments)
+      .where(and(...conditions)),
+    db
+      .select({
+        id: commercialDocuments.id,
+        kind: commercialDocuments.kind,
+        status: commercialDocuments.status,
+        adeProgressive: commercialDocuments.adeProgressive,
+        adeTransactionId: commercialDocuments.adeTransactionId,
+        createdAt: commercialDocuments.createdAt,
+      })
+      .from(commercialDocuments)
+      .where(and(...conditions))
+      .orderBy(desc(commercialDocuments.createdAt))
+      .limit(pageSize)
+      .offset(offset),
+  ]);
 
   if (docs.length === 0) return { items: [], total };
 

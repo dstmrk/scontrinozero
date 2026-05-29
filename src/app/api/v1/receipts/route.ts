@@ -287,31 +287,34 @@ export async function GET(request: Request): Promise<Response> {
   };
   try {
     queryResult = await withStatementTimeout(LIST_TIMEOUT_MS, async (tx) => {
-      const [{ value: total }] = await tx
-        .select({ value: count() })
-        .from(commercialDocuments)
-        .where(and(...conditions));
-
-      const docs = await tx
-        .select({
-          id: commercialDocuments.id,
-          kind: commercialDocuments.kind,
-          status: commercialDocuments.status,
-          idempotencyKey: commercialDocuments.idempotencyKey,
-          adeTransactionId: commercialDocuments.adeTransactionId,
-          adeProgressive: commercialDocuments.adeProgressive,
-          lotteryCode: commercialDocuments.lotteryCode,
-          publicRequest: commercialDocuments.publicRequest,
-          createdAt: commercialDocuments.createdAt,
-        })
-        .from(commercialDocuments)
-        .where(and(...conditions))
-        .orderBy(
-          desc(commercialDocuments.createdAt),
-          desc(commercialDocuments.id),
-        )
-        .limit(limit)
-        .offset(offset);
+      // count e select dei documenti sono indipendenti (stesse condizioni,
+      // nessuna data-dependency) → in parallelo.
+      const [[{ value: total }], docs] = await Promise.all([
+        tx
+          .select({ value: count() })
+          .from(commercialDocuments)
+          .where(and(...conditions)),
+        tx
+          .select({
+            id: commercialDocuments.id,
+            kind: commercialDocuments.kind,
+            status: commercialDocuments.status,
+            idempotencyKey: commercialDocuments.idempotencyKey,
+            adeTransactionId: commercialDocuments.adeTransactionId,
+            adeProgressive: commercialDocuments.adeProgressive,
+            lotteryCode: commercialDocuments.lotteryCode,
+            publicRequest: commercialDocuments.publicRequest,
+            createdAt: commercialDocuments.createdAt,
+          })
+          .from(commercialDocuments)
+          .where(and(...conditions))
+          .orderBy(
+            desc(commercialDocuments.createdAt),
+            desc(commercialDocuments.id),
+          )
+          .limit(limit)
+          .offset(offset),
+      ]);
 
       if (docs.length === 0) return { total, docs, lines: [] };
 
