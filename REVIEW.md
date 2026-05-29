@@ -9,9 +9,11 @@
 > coperti da `PLAN.md`**. Sono stati esclusi a monte: falsi positivi (la
 > maggioranza degli _error_, es. `server-auth-actions` su action che già usano
 > `getAuthenticatedUser()`), pattern intenzionali (JSON-LD escapato, `<a>` verso
-> API route, `role="img"` sui grafici recharts), il cleanup Tailwind cosmetico
-> (`w-4 h-4 → size-4`), e gli item già a roadmap (recharts via `next/dynamic`,
-> paginazione `getCatalogItems`).
+> API route, `role="img"` sui grafici recharts, gli effetti di idratazione/
+> prefill in `cassa-client.tsx` e `use-cassa.ts` — documentati con `eslint-disable`
+> e già avvolti in `<Suspense>` dalla pagina genitore), il cleanup Tailwind
+> cosmetico (`w-4 h-4 → size-4`), e gli item già a roadmap (recharts via
+> `next/dynamic`, paginazione `getCatalogItems`).
 >
 > Ogni voce è autosufficiente: un agente AI può applicare il fix senza ulteriore
 > contesto. I numeri di riga si riferiscono allo stato del repo alla data di
@@ -21,71 +23,24 @@
 
 | ID  | Tema                                              | Severità | Occorrenze | Priorità |
 | --- | ------------------------------------------------- | -------- | ---------- | -------- |
-| R1  | Antipattern state/effect + Suspense in CassaClient | warning  | 9          | Alta     |
-| R2  | Parallelizzare `await` indipendenti (perf)        | warning  | 5 (+3)     | Media    |
-| R3  | Hoist formatter `Intl` a module scope (perf)      | warning  | 7          | Media    |
-| R4  | Label accessibili sui controlli (a11y)            | warning  | 4          | Media    |
-| R5  | Elementi semantici al posto di `role` (a11y)      | warning  | 4          | Media    |
-| R6  | `type` esplicito sui `<button>` (correttezza)     | warning  | 8          | Media    |
-| R7  | Key stabile invece di indice array (correttezza)  | warning  | 1          | Media    |
-| R8  | `metadata` mancante su pagine marketing (SEO)     | warning  | 3          | Media    |
-| R9  | Hydration mismatch su `new Date()` in JSX         | warning  | 2          | Bassa    |
-| R10 | Dead code / dipendenze inutilizzate (pulizia)     | warning  | 6          | Bassa    |
-| R11 | Micro-ottimizzazioni perf                         | warning  | 2          | Bassa    |
-| R12 | Minori correttezza / modernizzazione              | warning  | 4          | Bassa    |
+| R1  | Parallelizzare `await` indipendenti (perf)        | warning  | 5 (+3)     | Media    |
+| R2  | Hoist formatter `Intl` a module scope (perf)      | warning  | 7          | Media    |
+| R3  | Label accessibili sui controlli (a11y)            | warning  | 4          | Media    |
+| R4  | Elementi semantici al posto di `role` (a11y)      | warning  | 4          | Media    |
+| R5  | `type` esplicito sui `<button>` (correttezza)     | warning  | 8          | Media    |
+| R6  | Key stabile invece di indice array (correttezza)  | warning  | 1          | Media    |
+| R7  | `metadata` mancante su pagine marketing (SEO)     | warning  | 3          | Media    |
+| R8  | Hydration mismatch su `new Date()` in JSX         | warning  | 2          | Bassa    |
+| R9  | Dead code / dipendenze inutilizzate (pulizia)     | warning  | 6          | Bassa    |
+| R10 | Micro-ottimizzazioni perf                         | warning  | 2          | Bassa    |
+| R11 | Minori correttezza / modernizzazione              | warning  | 4          | Bassa    |
 
 > **Convenzione TDD (CLAUDE.md regola 2):** dove un fix tocca logica, scrivere
 > prima il test. Ogni voce indica come verificare l'esito.
 
 ---
 
-## [Alta] R1 — Antipattern state/effect + Suspense in CassaClient
-
-**Regola:** `nextjs-no-use-search-params-without-suspense`, `no-initialize-state`,
-`no-derived-state`, `no-event-handler`, `exhaustive-deps`, `no-chain-state-updates`,
-`nextjs-no-client-side-redirect`
-**File:** `src/components/cassa/cassa-client.tsx`, `src/hooks/use-cassa.ts`
-
-**Problema.** Il componente POS concentra più antipattern React/Next correlati:
-
-- `cassa-client.tsx:36` — `useSearchParams()` **senza boundary `<Suspense>`**.
-  È il più concreto: in produzione costringe l'intera pagina al rendering
-  client-side (CSR bailout), peggiorando il TTFB e potenzialmente rompendo la
-  build statica.
-- `cassa-client.tsx:110-112` e `use-cassa.ts:58` — stato inizializzato dentro un
-  `useEffect` (`description`, `vatCode`, `step`) invece che nell'inizializzatore
-  di `useState`.
-- `cassa-client.tsx:111` — `vatCode` è **stato derivato**: andrebbe calcolato in
-  render (eventualmente con `useMemo`), non memorizzato.
-- `cassa-client.tsx:168` — effetto usato come event-handler.
-- `cassa-client.tsx:117` — `useEffect` con dipendenze mancanti
-  (`searchParams.get`, `addLine`, `router.replace`).
-- `cassa-client.tsx:170` — chaining di aggiornamenti di stato consecutivi.
-- `cassa-client.tsx:94,114` — `router.replace()` dentro `useEffect`.
-
-**Fix.**
-
-1. Avvolgere il sottoalbero che usa `useSearchParams()` in un `<Suspense>`
-   (o spostare la lettura dei searchParams in un Server Component genitore che li
-   passa come prop).
-2. Inizializzare `description`/`step` con il valore corretto direttamente in
-   `useState(() => ...)` (init lazy), eliminando l'effetto di sincronizzazione.
-3. Derivare `vatCode` in render invece di salvarlo in stato.
-4. Completare le dipendenze dell'`useEffect` o estrarre l'handler.
-
-**Cautele / edge case.** Alcuni effetti **prefillano lo stato da searchParams**
-(deep-link al POS, es. `?productId=`). Verificare l'intento prima di rimuovere:
-la prefill da query va preservata, semplicemente spostandola nell'init di
-`useState` / in un Server Component genitore. Non rimuovere `router.replace`
-senza capire se serve a "pulire" la query dopo la lettura.
-
-**Verifica.** Test di rendering e interazione della cassa verdi; `npm run build`
-senza warning "useSearchParams should be wrapped in a suspense boundary";
-emissione scontrino ancora istantanea (optimistic UI).
-
----
-
-## [Media] R2 — Parallelizzare `await` indipendenti (perf)
+## [Media] R1 — Parallelizzare `await` indipendenti (perf)
 
 **Regola:** `server-sequential-independent-await` (+ `async-await-in-loop`)
 **File:**
@@ -112,12 +67,11 @@ altri hit della stessa regola (`src/lib/request-utils.ts`, `src/lib/db-timeout.t
 `src/lib/ade/real-client.ts`) sono **retry/backoff sequenziali per design** e
 **non vanno toccati**.
 
-**Verifica.** Test esistenti invariati, stessi risultati; nessuna regressione su
-gestione errori delle API.
+**Verifica.** Test esistenti invariati, stessi risultati.
 
 ---
 
-## [Media] R3 — Hoist formatter `Intl` a module scope (perf)
+## [Media] R2 — Hoist formatter `Intl` a module scope (perf)
 
 **Regola:** `js-hoist-intl`
 **File:**
@@ -145,7 +99,7 @@ spostare.
 
 ---
 
-## [Media] R4 — Label accessibili sui controlli (a11y)
+## [Media] R3 — Label accessibili sui controlli (a11y)
 
 **Regola:** `control-has-associated-label`
 **File:** `src/app/(marketing)/prezzi/page.tsx:136`, `:151`;
@@ -161,7 +115,7 @@ una label che descriva l'azione (es. "Scegli piano Pro", "Confronta funzionalit�
 
 ---
 
-## [Media] R5 — Elementi semantici al posto di `role` (a11y)
+## [Media] R4 — Elementi semantici al posto di `role` (a11y)
 
 **Regola:** `prefer-tag-over-role` (+ `click-events-have-key-events`,
 `interactive-supports-focus`)
@@ -195,7 +149,7 @@ tool annunciati come live region.
 
 ---
 
-## [Media] R6 — `type` esplicito sui `<button>` (correttezza)
+## [Media] R5 — `type` esplicito sui `<button>` (correttezza)
 
 **Regola:** `button-has-type`
 **File:**
@@ -215,7 +169,7 @@ dentro un `<form>` provoca submit/refresh non voluti.
 
 ---
 
-## [Media] R7 — Key stabile invece di indice array (correttezza)
+## [Media] R6 — Key stabile invece di indice array (correttezza)
 
 **Regola:** `no-array-index-as-key`
 **File:** `src/components/storico/void-receipt-dialog.tsx:162`
@@ -230,7 +184,7 @@ elementi non hanno id univoco, comporre una chiave da campi stabili.
 
 ---
 
-## [Media] R8 — `metadata` mancante su pagine marketing (SEO)
+## [Media] R7 — `metadata` mancante su pagine marketing (SEO)
 
 **Regola:** `nextjs-missing-metadata`
 **File:**
@@ -256,7 +210,7 @@ snapshot SEO.
 
 ---
 
-## [Bassa] R9 — Hydration mismatch su `new Date()` in JSX
+## [Bassa] R8 — Hydration mismatch su `new Date()` in JSX
 
 **Regola:** `rendering-hydration-mismatch-time`
 **File:** `src/components/marketing/footer.tsx:137` (anno copyright);
@@ -273,7 +227,7 @@ la differenza è accettabile. Per il date-picker valutare il default lato client
 
 ---
 
-## [Bassa] R10 — Dead code / dipendenze inutilizzate (pulizia)
+## [Bassa] R9 — Dead code / dipendenze inutilizzate (pulizia)
 
 **Regola:** `unused-export`, `unused-dependency`, `unused-dev-dependency`
 **File / target:**
@@ -303,7 +257,7 @@ funzionanti.
 
 ---
 
-## [Bassa] R11 — Micro-ottimizzazioni perf
+## [Bassa] R10 — Micro-ottimizzazioni perf
 
 **Regola:** `js-set-map-lookups`, `js-combine-iterations`
 **File:**
@@ -317,7 +271,7 @@ funzionanti.
 
 ---
 
-## [Bassa] R12 — Minori correttezza / modernizzazione
+## [Bassa] R11 — Minori correttezza / modernizzazione
 
 - **`rerender-state-only-in-handlers`** — `src/app/onboarding/onboarding-form.tsx:106`:
   lo `useState` `businessId` è aggiornato ma mai letto nel return → se serve solo
