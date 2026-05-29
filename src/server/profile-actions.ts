@@ -181,6 +181,13 @@ export async function updateBusiness(
     return {
       error: `L'indirizzo non può superare ${BUSINESS_PROFILE_LIMITS.address} caratteri.`,
     };
+  if (
+    streetNumber &&
+    streetNumber.length > BUSINESS_PROFILE_LIMITS.streetNumber
+  )
+    return {
+      error: `Il numero civico non può superare ${BUSINESS_PROFILE_LIMITS.streetNumber} caratteri.`,
+    };
   if (city && city.length > BUSINESS_PROFILE_LIMITS.city)
     return {
       error: `Il comune non può superare ${BUSINESS_PROFILE_LIMITS.city} caratteri.`,

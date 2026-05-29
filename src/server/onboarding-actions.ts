@@ -94,6 +94,11 @@ function validateSaveBusinessInput(input: SaveBusinessInput): string | null {
   if (!input.address) return "L'indirizzo è obbligatorio.";
   if (input.address.length > BUSINESS_PROFILE_LIMITS.address)
     return `L'indirizzo non può superare ${BUSINESS_PROFILE_LIMITS.address} caratteri.`;
+  if (
+    input.streetNumber &&
+    input.streetNumber.length > BUSINESS_PROFILE_LIMITS.streetNumber
+  )
+    return `Il numero civico non può superare ${BUSINESS_PROFILE_LIMITS.streetNumber} caratteri.`;
   if (input.city && input.city.length > BUSINESS_PROFILE_LIMITS.city)
     return `Il comune non può superare ${BUSINESS_PROFILE_LIMITS.city} caratteri.`;
   if (
