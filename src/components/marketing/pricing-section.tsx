@@ -62,6 +62,7 @@ export function PricingSection({ registerHref }: PricingSectionProps) {
         <div className="mt-8 flex justify-center">
           <div className="bg-muted flex rounded-full p-1">
             <button
+              type="button"
               onClick={() => setBilling("monthly")}
               className={`rounded-full px-5 py-1.5 text-sm font-medium transition-colors ${
                 billing === "monthly"
@@ -72,6 +73,7 @@ export function PricingSection({ registerHref }: PricingSectionProps) {
               Mensile
             </button>
             <button
+              type="button"
               onClick={() => setBilling("annual")}
               className={`rounded-full px-5 py-1.5 text-sm font-medium transition-colors ${
                 billing === "annual"

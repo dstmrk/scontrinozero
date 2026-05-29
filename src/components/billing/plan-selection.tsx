@@ -28,6 +28,7 @@ export function PlanSelection({
       {/* Toggle Mensile / Annuale */}
       <div className="mb-4 flex items-center gap-2">
         <button
+          type="button"
           onClick={() => setInterval("month")}
           className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
             isAnnual
@@ -38,6 +39,7 @@ export function PlanSelection({
           Mensile
         </button>
         <button
+          type="button"
           onClick={() => setInterval("year")}
           className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium transition-colors ${
             isAnnual
