@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { profiles } from "./profiles";
 
@@ -28,7 +28,9 @@ export const businesses = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [index("idx_businesses_profile_id").on(table.profileId)],
+  // UNIQUE(profile_id): l'app assume 1 business per profilo (migration 0016,
+  // P1.2). Il vincolo crea già il proprio indice — niente index separato.
+  (table) => [unique("businesses_profile_id_unique").on(table.profileId)],
 );
 
 export type InsertBusiness = typeof businesses.$inferInsert;

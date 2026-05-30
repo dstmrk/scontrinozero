@@ -113,6 +113,13 @@
       "when": 1779667200000,
       "tag": "0015_stripe_webhook_events_comment",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1780099200000,
+      "tag": "0016_businesses_unique_profile_id",
+      "breakpoints": true
     }
   ]
 }

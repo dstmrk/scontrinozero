@@ -17,7 +17,10 @@ vi.mock("@/lib/supabase/server", () => ({
 
 // Drizzle query mock chain
 const mockLimit = vi.fn();
-const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
+// `.for("update")` (lock select P1.2) è terminale: viene awaitato e il
+// risultato ignorato. Risolve a [] di default.
+const mockFor = vi.fn().mockResolvedValue([]);
+const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit, for: mockFor });
 const mockInnerJoin = vi.fn().mockReturnValue({ where: mockWhere });
 // leftJoin è chainable (può essere chiamato 2 volte per profile→business→creds);
 // ritorna un oggetto che espone leftJoin/innerJoin/where per terminare la chain.
@@ -256,6 +259,19 @@ describe("onboarding-actions", () => {
 
       expect(mockTransaction).toHaveBeenCalled();
       expect(result.businessId).toBe("new-biz-id");
+    });
+
+    it("acquisisce un lock FOR UPDATE sul profilo per serializzare submit concorrenti (P1.2)", async () => {
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      mockLimit.mockResolvedValueOnce([]);
+      mockReturning.mockResolvedValueOnce([{ id: "new-biz-id" }]);
+
+      const { saveBusiness } = await import("./onboarding-actions");
+      await saveBusiness(formData(VALID_DATA));
+
+      // Il lock select è dentro la transazione, prima di leggere il profilo.
+      expect(mockFor).toHaveBeenCalledWith("update");
+      expect(mockTransaction).toHaveBeenCalled();
     });
 
     it("returns error when firstName exceeds 80 characters", async () => {
