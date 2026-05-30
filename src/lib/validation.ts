@@ -88,9 +88,46 @@ export const BUSINESS_PROFILE_LIMITS = {
   lastName: 80,
   businessName: 120,
   address: 150,
+  streetNumber: 20,
   city: 80,
   province: 3,
 } as const;
+
+/**
+ * Valida la lunghezza dei campi indirizzo opzionali di un business
+ * (`businessName`, `streetNumber`, `city`, `province`). Restituisce il messaggio
+ * d'errore del primo campo troppo lungo, o `null` se sono tutti validi.
+ *
+ * Estratto e condiviso tra `saveBusiness` (onboarding) e `updateBusiness`
+ * (settings) per evitare drift e tenere la Cognitive Complexity dei due
+ * caller sotto la soglia SonarCloud S3776 (15).
+ */
+export function validateBusinessOptionalFieldLengths(fields: {
+  businessName: string | null;
+  streetNumber: string | null;
+  city: string | null;
+  province: string | null;
+}): string | null {
+  const checks: ReadonlyArray<readonly [string | null, number, string]> = [
+    [
+      fields.businessName,
+      BUSINESS_PROFILE_LIMITS.businessName,
+      "La ragione sociale",
+    ],
+    [
+      fields.streetNumber,
+      BUSINESS_PROFILE_LIMITS.streetNumber,
+      "Il numero civico",
+    ],
+    [fields.city, BUSINESS_PROFILE_LIMITS.city, "Il comune"],
+    [fields.province, BUSINESS_PROFILE_LIMITS.province, "La provincia"],
+  ];
+  for (const [value, limit, label] of checks) {
+    if (value && value.length > limit)
+      return `${label} non può superare ${limit} caratteri.`;
+  }
+  return null;
+}
 
 /**
  * Validates email format using linear-time string checks (no regex backtracking).

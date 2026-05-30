@@ -16,6 +16,7 @@ import {
   isStrongPassword,
   isValidItalianZipCode,
   ITALIAN_ZIP_MESSAGE,
+  validateBusinessOptionalFieldLengths,
 } from "@/lib/validation";
 import { isInvalidPreferredVatCode } from "@/types/cassa";
 import { getClientIp } from "@/lib/get-client-ip";
@@ -169,26 +170,18 @@ export async function updateBusiness(
     ? getFormStringOrNull(formData, "preferredVatCode")
     : null;
 
-  if (
-    businessName &&
-    businessName.length > BUSINESS_PROFILE_LIMITS.businessName
-  )
-    return {
-      error: `La ragione sociale non può superare ${BUSINESS_PROFILE_LIMITS.businessName} caratteri.`,
-    };
   if (!address) return { error: "L'indirizzo è obbligatorio." };
   if (address.length > BUSINESS_PROFILE_LIMITS.address)
     return {
       error: `L'indirizzo non può superare ${BUSINESS_PROFILE_LIMITS.address} caratteri.`,
     };
-  if (city && city.length > BUSINESS_PROFILE_LIMITS.city)
-    return {
-      error: `Il comune non può superare ${BUSINESS_PROFILE_LIMITS.city} caratteri.`,
-    };
-  if (province && province.length > BUSINESS_PROFILE_LIMITS.province)
-    return {
-      error: `La provincia non può superare ${BUSINESS_PROFILE_LIMITS.province} caratteri.`,
-    };
+  const optionalError = validateBusinessOptionalFieldLengths({
+    businessName,
+    streetNumber,
+    city,
+    province,
+  });
+  if (optionalError) return { error: optionalError };
   if (!isValidItalianZipCode(zipCode)) return { error: ITALIAN_ZIP_MESSAGE };
   if (hasPreferredVatCode && isInvalidPreferredVatCode(preferredVatCode))
     return { error: "Aliquota IVA non valida." };

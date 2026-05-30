@@ -302,6 +302,26 @@ describe("onboarding-actions", () => {
       expect(result.error).toContain("150");
     });
 
+    it("returns error when streetNumber exceeds 20 characters", async () => {
+      const { saveBusiness } = await import("./onboarding-actions");
+      const result = await saveBusiness(
+        formData({ ...VALID_DATA, streetNumber: "1".repeat(21) }),
+      );
+      expect(result.error).toContain("numero civico");
+    });
+
+    it("accepts streetNumber exactly 20 characters", async () => {
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      mockLimit.mockResolvedValueOnce([]);
+      mockReturning.mockResolvedValueOnce([{ id: "new-biz-id" }]);
+
+      const { saveBusiness } = await import("./onboarding-actions");
+      const result = await saveBusiness(
+        formData({ ...VALID_DATA, streetNumber: "1".repeat(20) }),
+      );
+      expect(result.error).toBeUndefined();
+    });
+
     it("returns error when city exceeds 80 characters", async () => {
       const { saveBusiness } = await import("./onboarding-actions");
       const result = await saveBusiness(

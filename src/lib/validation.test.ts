@@ -20,6 +20,7 @@ describe("BUSINESS_PROFILE_LIMITS", () => {
       lastName: 80,
       businessName: 120,
       address: 150,
+      streetNumber: 20,
       city: 80,
       province: 3,
     });

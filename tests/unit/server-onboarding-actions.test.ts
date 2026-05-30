@@ -115,9 +115,11 @@ vi.mock("@/lib/validation", () => ({
     lastName: 80,
     businessName: 120,
     address: 150,
+    streetNumber: 20,
     city: 80,
     province: 3,
   },
+  validateBusinessOptionalFieldLengths: vi.fn().mockReturnValue(null),
 }));
 
 vi.mock("@/types/cassa", () => {
