@@ -685,6 +685,10 @@ Codici HTTP:
 
 - 200: invio accettato
 - 400: validazione input
+- 409: conflitto idempotency — un'altra richiesta con la stessa `idempotencyKey`
+  è in corso (`PENDING_IN_PROGRESS` / `VOID_PENDING_IN_PROGRESS`), è già stata
+  rifiutata (`ALREADY_REJECTED`), oppure la key è stata riusata con un payload
+  diverso (`IDEMPOTENCY_PAYLOAD_MISMATCH`: in tal caso usa una nuova key)
 - 422: rifiuto funzionale / errore AdE
 - 503: errore tecnico temporaneo AdE
 

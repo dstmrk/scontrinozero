@@ -353,7 +353,12 @@ describe("saveBusiness re-entry on already-onboarded profile", () => {
       transaction: mockTransaction,
     });
 
-    mockSelectWhere.mockReturnValue({ limit: mockSelectLimit });
+    // `.for("update")` è il lock select P1.2 sul profilo (terminale, awaited e
+    // ignorato); `.limit()` resta per le SELECT dati.
+    mockSelectWhere.mockReturnValue({
+      limit: mockSelectLimit,
+      for: vi.fn().mockResolvedValue([]),
+    });
     mockSelectFrom.mockReturnValue({ where: mockSelectWhere });
     mockSelect.mockReturnValue({ from: mockSelectFrom });
 

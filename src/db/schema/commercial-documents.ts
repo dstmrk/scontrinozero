@@ -43,6 +43,12 @@ export const commercialDocuments = pgTable(
     idempotencyKey: uuid("idempotency_key").notNull(),
     /** SaleRequest | VoidRequest — payload API pubblica ScontrinoZero */
     publicRequest: jsonb("public_request"),
+    /**
+     * Fingerprint SHA-256 canonico del payload SALE (P1.4): rileva il riuso di
+     * una idempotencyKey con un payload diverso. NULL su righe storiche e sui
+     * VOID (che usano il confronto diretto di voidedDocumentId).
+     */
+    requestHash: text("request_hash"),
     /** Risposta raw dell'AdE */
     adeResponse: jsonb("ade_response"),
     /** idtrx AdE — identificativo transazione */

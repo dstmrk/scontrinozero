@@ -119,11 +119,15 @@ export type SubmitReceiptInput = {
  * - DB_TIMEOUT: timeout DB; servizio temporaneamente sovraccarico.
  * - ALREADY_REJECTED: il documento esistente è stato rifiutato dall'AdE.
  *   Va emesso uno scontrino nuovo con una key diversa.
+ * - IDEMPOTENCY_PAYLOAD_MISMATCH: la idempotencyKey è già stata usata per una
+ *   richiesta con un payload diverso (righe/importi/pagamento/lotteria). Il
+ *   client deve usare una nuova key per la nuova richiesta.
  */
 export type SubmitReceiptErrorCode =
   | "PENDING_IN_PROGRESS"
   | "DB_TIMEOUT"
-  | "ALREADY_REJECTED";
+  | "ALREADY_REJECTED"
+  | "IDEMPOTENCY_PAYLOAD_MISMATCH";
 
 /** Risultato della server action emitReceipt */
 export type SubmitReceiptResult = {

@@ -120,7 +120,14 @@ function setupHappyPathDb() {
 
   mockUpdate.mockReturnValue({ set: mockSet });
   mockSet.mockReturnValue({ where: mockUpdateWhere });
-  mockUpdateWhere.mockResolvedValue(undefined);
+  // `.where()` è terminale per gli UPDATE post-AdE (awaited → undefined) ma il
+  // claim CAS (P1.3) vi concatena `.returning()`. Il thenable soddisfa entrambi.
+  // Default: claim vinto (1 riga).
+  mockUpdateWhere.mockReturnValue({
+    returning: vi.fn().mockResolvedValue([{ id: VOID_ID }]),
+    then: (onFulfilled: (value: undefined) => unknown) =>
+      onFulfilled(undefined),
+  });
 
   mockTransaction.mockImplementation(
     async (fn: (tx: unknown) => Promise<unknown>) => {
@@ -400,6 +407,7 @@ describe("voidReceiptForBusiness", () => {
           adeTransactionId: null,
           adeProgressive: null,
           createdAt: new Date(Date.now() - 35 * 60 * 1000),
+          updatedAt: new Date(Date.now() - 35 * 60 * 1000),
         },
       ]);
 

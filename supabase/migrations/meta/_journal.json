@@ -120,6 +120,13 @@
       "when": 1780099200000,
       "tag": "0016_businesses_unique_profile_id",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1780099201000,
+      "tag": "0017_add_request_hash_to_commercial_documents",
+      "breakpoints": true
     }
   ]
 }

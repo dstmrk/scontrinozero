@@ -83,6 +83,7 @@ vi.mock("@/lib/logger", () => ({
 // --- Fixtures ---
 
 import type { SubmitReceiptInput } from "@/types/cassa";
+import { hashSaleRequest } from "./request-hash";
 
 const FAKE_PREREQUISITES = {
   codiceFiscale: "decrypted-value",
@@ -289,6 +290,69 @@ describe("emitReceiptForBusiness", () => {
     expect(result.error).toBeUndefined();
     expect(result.documentId).toBe("doc-existing");
     expect(mockLogin).not.toHaveBeenCalled();
+  });
+
+  it("P1.4: stessa key + payload diverso → IDEMPOTENCY_PAYLOAD_MISMATCH", async () => {
+    mockDocumentReturning.mockResolvedValue([]); // conflict
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-existing",
+        status: "ACCEPTED",
+        adeTransactionId: "trx-existing",
+        adeProgressive: "prog",
+        requestHash: "hash-di-un-payload-completamente-diverso",
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("IDEMPOTENCY_PAYLOAD_MISMATCH");
+    // Nessun ritorno fuorviante del documento precedente.
+    expect(result.documentId).toBeUndefined();
+    expect(mockLogin).not.toHaveBeenCalled();
+  });
+
+  it("P1.4: stessa key + stesso payload → idempotenza OK (hash combacia)", async () => {
+    mockDocumentReturning.mockResolvedValue([]); // conflict
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-existing",
+        status: "ACCEPTED",
+        adeTransactionId: "trx-existing",
+        adeProgressive: "prog",
+        requestHash: hashSaleRequest({
+          lines: VALID_INPUT.lines,
+          paymentMethod: VALID_INPUT.paymentMethod,
+          lotteryCode: null,
+        }),
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBeUndefined();
+    expect(result.documentId).toBe("doc-existing");
+  });
+
+  it("P1.4: riga storica con requestHash NULL non rompe l'idempotenza (fallback)", async () => {
+    mockDocumentReturning.mockResolvedValue([]); // conflict
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-old",
+        status: "ACCEPTED",
+        adeTransactionId: "trx-old",
+        adeProgressive: "prog-old",
+        requestHash: null,
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBeUndefined();
+    expect(result.documentId).toBe("doc-old");
   });
 
   it("idempotency: PENDING fresh ritorna code PENDING_IN_PROGRESS", async () => {

@@ -306,6 +306,30 @@ describe("voidReceiptForBusiness", () => {
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
+  it("P1.4: stessa key per annullare un documento diverso → IDEMPOTENCY_PAYLOAD_MISMATCH", async () => {
+    mockReturning.mockResolvedValue([]); // INSERT conflict
+    mockSelectLimit
+      .mockResolvedValueOnce([FAKE_SALE_DOC]) // sale fetch (documentId = sale-doc-uuid)
+      .mockResolvedValueOnce([
+        {
+          id: "void-doc-uuid",
+          status: "VOID_ACCEPTED",
+          adeTransactionId: "trx-void",
+          adeProgressive: "prog",
+          // La key esistente annullava un SALE diverso da input.documentId.
+          voidedDocumentId: "another-sale-uuid",
+        },
+      ]);
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect((result as { code?: string }).code).toBe(
+      "IDEMPOTENCY_PAYLOAD_MISMATCH",
+    );
+    expect(mockLogin).not.toHaveBeenCalled();
+  });
+
   it("idempotency: ritorna errore se il documento VOID esistente è PENDING", async () => {
     mockReturning.mockResolvedValue([]); // conflict
 

@@ -167,6 +167,7 @@ const SERVICE_ERROR_STATUS_MAP: Record<
   VOID_PENDING_IN_PROGRESS: { status: 409, retryAfter: 2 },
   VOID_ALREADY_TARGETED: { status: 409 },
   VOID_SYNC_FAILED: { status: 500 },
+  IDEMPOTENCY_PAYLOAD_MISMATCH: { status: 409 },
 };
 
 export function serviceErrorResponse(result: {

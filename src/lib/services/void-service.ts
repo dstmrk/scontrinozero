@@ -51,6 +51,7 @@ async function resolveVoidConflict(
   db: ReturnType<typeof getDb>,
   idempotencyKey: string,
   businessId: string,
+  voidedDocumentId: string,
 ): Promise<ConflictOutcome> {
   // Case A: same idempotencyKey → same-request retry (true idempotency path)
   const [existingByKey] = await db
@@ -61,6 +62,7 @@ async function resolveVoidConflict(
       adeProgressive: commercialDocuments.adeProgressive,
       createdAt: commercialDocuments.createdAt,
       updatedAt: commercialDocuments.updatedAt,
+      voidedDocumentId: commercialDocuments.voidedDocumentId,
     })
     .from(commercialDocuments)
     .where(
@@ -72,6 +74,26 @@ async function resolveVoidConflict(
     .limit(1);
 
   if (existingByKey) {
+    // P1.4: stessa idempotencyKey ma SALE annullato diverso → 409. Evita di
+    // ritornare il risultato di un annullo che non corrisponde alla richiesta.
+    if (
+      existingByKey.voidedDocumentId != null &&
+      existingByKey.voidedDocumentId !== voidedDocumentId
+    ) {
+      logger.warn(
+        { businessId, voidDocumentId: existingByKey.id },
+        "Idempotency key reused to void a different document",
+      );
+      return {
+        kind: "done",
+        result: {
+          error:
+            "La chiave di idempotenza è già stata usata per annullare un altro documento. Usa una nuova chiave.",
+          code: "IDEMPOTENCY_PAYLOAD_MISMATCH",
+        },
+      };
+    }
+
     if (existingByKey.status === "VOID_ACCEPTED") {
       // Already voided successfully — true idempotency return
       return {
@@ -493,6 +515,7 @@ async function insertOrResolveVoid(
       db,
       input.idempotencyKey,
       input.businessId,
+      input.documentId,
     );
     if (conflict.kind === "done")
       return { kind: "done", result: conflict.result };

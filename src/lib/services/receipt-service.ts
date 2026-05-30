@@ -33,6 +33,7 @@ import type {
 import type { PaymentType, SaleDocumentRequest } from "@/lib/ade/public-types";
 import type { AdeCedentePrestatore } from "@/lib/ade/types";
 import { claimStaleDocument, getStalePendingThresholdMs } from "./ade-recovery";
+import { hashSaleRequest } from "./request-hash";
 
 const PAYMENT_METHOD_TO_ADE: Record<PaymentMethod, PaymentType> = {
   PC: "CASH",
@@ -91,6 +92,14 @@ export async function emitReceiptForBusiness(
   const { lotteryCode, error: lotteryCodeError } = resolveLotteryCode(input);
   if (lotteryCodeError) return { error: lotteryCodeError };
 
+  // P1.4: fingerprint del payload, salvato all'INSERT e confrontato su conflitto
+  // idempotency per rilevare il riuso della stessa key con contenuto diverso.
+  const requestHash = hashSaleRequest({
+    lines: input.lines,
+    paymentMethod: input.paymentMethod,
+    lotteryCode,
+  });
+
   const prerequisites = await fetchAdePrerequisites(input.businessId);
   if ("error" in prerequisites) return prerequisites;
   const { codiceFiscale, password, pin, cedentePrestatore } = prerequisites;
@@ -112,6 +121,7 @@ export async function emitReceiptForBusiness(
           kind: "SALE",
           idempotencyKey: input.idempotencyKey,
           publicRequest,
+          requestHash,
           lotteryCode,
           apiKeyId: apiKeyId ?? null,
           status: "PENDING",
@@ -221,6 +231,7 @@ async function handleExistingReceipt(args: {
       adeProgressive: commercialDocuments.adeProgressive,
       createdAt: commercialDocuments.createdAt,
       updatedAt: commercialDocuments.updatedAt,
+      requestHash: commercialDocuments.requestHash,
     })
     .from(commercialDocuments)
     .where(
@@ -240,6 +251,25 @@ async function handleExistingReceipt(args: {
     return {
       error: "Errore interno: ritenta l'emissione.",
       code: "PENDING_IN_PROGRESS",
+    };
+  }
+
+  // P1.4: stessa idempotencyKey ma payload diverso → 409. Le righe storiche
+  // (requestHash NULL) si saltano: fallback al comportamento precedente.
+  const currentHash = hashSaleRequest({
+    lines: input.lines,
+    paymentMethod: input.paymentMethod,
+    lotteryCode,
+  });
+  if (existing.requestHash != null && existing.requestHash !== currentHash) {
+    logger.warn(
+      { businessId: input.businessId, documentId: existing.id },
+      "Idempotency key reused with a different SALE payload",
+    );
+    return {
+      error:
+        "La chiave di idempotenza è già stata usata per uno scontrino con contenuto diverso. Usa una nuova chiave.",
+      code: "IDEMPOTENCY_PAYLOAD_MISMATCH",
     };
   }
 
