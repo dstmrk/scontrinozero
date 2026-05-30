@@ -96,13 +96,17 @@ function setupRedirectThrows(): void {
 }
 
 const VALID_EMAIL = "user@example.com";
-const EXPECTED_HOSTNAME = "app.scontrinozero.it";
-const VALID_ACTION_LINK = `https://${EXPECTED_HOSTNAME}/auth/v1/verify?token=abc123`;
+const APP_HOSTNAME = "app.scontrinozero.it";
+const SUPABASE_HOSTNAME = "test.supabase.co";
+// generateLink returns a link on the SUPABASE host (/auth/v1/verify), carrying
+// the app host in the redirect_to param — the real GoTrue shape.
+const VALID_ACTION_LINK = `https://${SUPABASE_HOSTNAME}/auth/v1/verify?token=abc123&type=recovery&redirect_to=https://${APP_HOSTNAME}/callback`;
 
 describe("resetPassword — hostname validation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.NEXT_PUBLIC_APP_HOSTNAME = EXPECTED_HOSTNAME;
+    process.env.NEXT_PUBLIC_APP_HOSTNAME = APP_HOSTNAME;
+    process.env.NEXT_PUBLIC_SUPABASE_URL = `https://${SUPABASE_HOSTNAME}`;
     process.env.TURNSTILE_SECRET_KEY = "test-secret";
     mockRateLimiterCheck.mockReturnValue({ success: true });
     mockSendEmail.mockResolvedValue(undefined);
@@ -111,14 +115,14 @@ describe("resetPassword — hostname validation", () => {
       ok: true,
       json: async () => ({
         success: true,
-        hostname: EXPECTED_HOSTNAME,
+        hostname: APP_HOSTNAME,
         action: "reset-password",
       }),
     });
     setupRedirectThrows();
   });
 
-  it("accepts a valid action link with the expected hostname and sends email", async () => {
+  it("accepts a link on the Supabase host with app-host redirect_to and sends email", async () => {
     mockSuccessfulGenerateLink(VALID_ACTION_LINK);
 
     const { resetPassword } = await import("@/server/auth-actions");
@@ -130,9 +134,9 @@ describe("resetPassword — hostname validation", () => {
     expect(mockLoggerError).not.toHaveBeenCalled();
   });
 
-  it("blocks subdomain-spoofing URL (e.g., app.scontrinozero.it.evil.tld)", async () => {
+  it("blocks subdomain-spoofing of the Supabase host (e.g., test.supabase.co.evil.tld)", async () => {
     mockSuccessfulGenerateLink(
-      `https://${EXPECTED_HOSTNAME}.evil.tld/auth/v1/verify?token=abc`,
+      `https://${SUPABASE_HOSTNAME}.evil.tld/auth/v1/verify?token=abc&redirect_to=https://${APP_HOSTNAME}/callback`,
     );
 
     const { resetPassword } = await import("@/server/auth-actions");
@@ -143,8 +147,8 @@ describe("resetPassword — hostname validation", () => {
     expect(mockSendEmail).not.toHaveBeenCalled();
     expect(mockLoggerError).toHaveBeenCalledWith(
       expect.objectContaining({
-        hostname: `${EXPECTED_HOSTNAME}.evil.tld`,
-        expectedHostname: EXPECTED_HOSTNAME,
+        actionLinkHostname: `${SUPABASE_HOSTNAME}.evil.tld`,
+        supabaseHostname: SUPABASE_HOSTNAME,
         hasToken: true,
       }),
       expect.stringContaining("hostname mismatch"),
@@ -156,9 +160,9 @@ describe("resetPassword — hostname validation", () => {
     );
   });
 
-  it("blocks URL where expected hostname appears only in query string", async () => {
+  it("blocks subdomain-spoofing of the app host in redirect_to", async () => {
     mockSuccessfulGenerateLink(
-      `https://evil.com/?next=https://${EXPECTED_HOSTNAME}/reset`,
+      `https://${SUPABASE_HOSTNAME}/auth/v1/verify?token=abc&redirect_to=https://${APP_HOSTNAME}.evil.tld/callback`,
     );
 
     const { resetPassword } = await import("@/server/auth-actions");
@@ -168,14 +172,17 @@ describe("resetPassword — hostname validation", () => {
 
     expect(mockSendEmail).not.toHaveBeenCalled();
     expect(mockLoggerError).toHaveBeenCalledWith(
-      expect.objectContaining({ expectedHostname: EXPECTED_HOSTNAME }),
+      expect.objectContaining({
+        redirectToHostname: `${APP_HOSTNAME}.evil.tld`,
+        appHostname: APP_HOSTNAME,
+      }),
       expect.stringContaining("hostname mismatch"),
     );
   });
 
-  it("blocks a URL served over plain HTTP (not HTTPS)", async () => {
+  it("blocks a link where the app host appears only in the action_link query string", async () => {
     mockSuccessfulGenerateLink(
-      `http://${EXPECTED_HOSTNAME}/auth/v1/verify?token=abc`,
+      `https://evil.com/?next=https://${APP_HOSTNAME}/reset`,
     );
 
     const { resetPassword } = await import("@/server/auth-actions");
@@ -185,7 +192,24 @@ describe("resetPassword — hostname validation", () => {
 
     expect(mockSendEmail).not.toHaveBeenCalled();
     expect(mockLoggerError).toHaveBeenCalledWith(
-      expect.objectContaining({ expectedHostname: EXPECTED_HOSTNAME }),
+      expect.objectContaining({ supabaseHostname: SUPABASE_HOSTNAME }),
+      expect.stringContaining("hostname mismatch"),
+    );
+  });
+
+  it("blocks a link served over plain HTTP (not HTTPS)", async () => {
+    mockSuccessfulGenerateLink(
+      `http://${SUPABASE_HOSTNAME}/auth/v1/verify?token=abc&redirect_to=https://${APP_HOSTNAME}/callback`,
+    );
+
+    const { resetPassword } = await import("@/server/auth-actions");
+    await expect(resetPassword(makeFormData(VALID_EMAIL))).rejects.toThrow(
+      "NEXT_REDIRECT",
+    );
+
+    expect(mockSendEmail).not.toHaveBeenCalled();
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      expect.objectContaining({ supabaseHostname: SUPABASE_HOSTNAME }),
       expect.stringContaining("hostname mismatch"),
     );
   });
@@ -201,6 +225,39 @@ describe("resetPassword — hostname validation", () => {
     expect(mockSendEmail).not.toHaveBeenCalled();
   });
 
+  it("blocks a link missing the redirect_to param", async () => {
+    mockSuccessfulGenerateLink(
+      `https://${SUPABASE_HOSTNAME}/auth/v1/verify?token=abc`,
+    );
+
+    const { resetPassword } = await import("@/server/auth-actions");
+    await expect(resetPassword(makeFormData(VALID_EMAIL))).rejects.toThrow(
+      "NEXT_REDIRECT",
+    );
+
+    expect(mockSendEmail).not.toHaveBeenCalled();
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      expect.objectContaining({ redirectToHostname: null }),
+      expect.stringContaining("hostname mismatch"),
+    );
+  });
+
+  it("blocks when NEXT_PUBLIC_SUPABASE_URL is missing", async () => {
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    mockSuccessfulGenerateLink(VALID_ACTION_LINK);
+
+    const { resetPassword } = await import("@/server/auth-actions");
+    await expect(resetPassword(makeFormData(VALID_EMAIL))).rejects.toThrow(
+      "NEXT_REDIRECT",
+    );
+
+    expect(mockSendEmail).not.toHaveBeenCalled();
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      expect.objectContaining({ supabaseHostname: null }),
+      expect.stringContaining("hostname mismatch"),
+    );
+  });
+
   it("blocks a malformed (non-URL) action link", async () => {
     mockSuccessfulGenerateLink("not-a-valid-url-at-all");
 
@@ -211,7 +268,7 @@ describe("resetPassword — hostname validation", () => {
 
     expect(mockSendEmail).not.toHaveBeenCalled();
     expect(mockLoggerError).toHaveBeenCalledWith(
-      expect.objectContaining({ expectedHostname: EXPECTED_HOSTNAME }),
+      expect.objectContaining({ actionLinkHostname: null }),
       expect.stringContaining("invalid URL"),
     );
   });
