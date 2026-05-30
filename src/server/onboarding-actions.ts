@@ -365,69 +365,96 @@ export async function verifyAdeCredentials(
     };
   }
 
+  // Fetch fiscal data from AdE while the session is still active. Best-effort:
+  // verification still succeeds (verifiedAt set) even if AdE doesn't return it;
+  // P.IVA/CF are then filled on a later run.
+  let fiscalData: Awaited<ReturnType<typeof adeClient.getFiscalData>> | null =
+    null;
   try {
-    // Fetch fiscal data from AdE while session is active
-    try {
-      const fiscalData = await adeClient.getFiscalData();
-      const vatNumber = fiscalData.identificativiFiscali.partitaIva;
-      const fiscalCode = fiscalData.identificativiFiscali.codiceFiscale;
-
-      // Wrap both DB writes in a transaction: if the profile update fails (e.g.
-      // unique constraint on partitaIva for trial-abuse detection), the businesses
-      // update must also be rolled back so neither record is left in a partial state.
-      await db.transaction(async (tx) => {
-        await tx
-          .update(businesses)
-          .set({ vatNumber, fiscalCode })
-          .where(eq(businesses.id, businessId));
-
-        // Anti-abuso trial: la P.IVA è UNIQUE su profiles per impedire trial multipli
-        // con email diverse ma stessa P.IVA. Vincolo DB garantisce atomicità.
-        await tx
-          .update(profiles)
-          .set({ partitaIva: vatNumber })
-          .where(eq(profiles.authUserId, user.id));
-      });
-    } catch (err) {
-      if (isUniqueConstraintViolation(err)) {
-        logger.warn({ businessId }, "P.IVA già in uso — possibile abuso trial");
-        return { error: "Questa P.IVA è già associata a un altro account." };
-      }
-      logger.error({ err, businessId }, "Failed to fetch fiscal data from AdE");
-      // Non-blocking per altri errori: verifica comunque riuscita, P.IVA/CF aggiunti in seguito
-    }
+    fiscalData = await adeClient.getFiscalData();
+  } catch (err) {
+    logger.error({ err, businessId }, "Failed to fetch fiscal data from AdE");
   } finally {
     await adeClient
       .logout()
       .catch((err) => logger.warn({ err }, "AdE logout failed"));
   }
 
-  // Mark credentials as verified, but only if they haven't been replaced since
-  // we read them (optimistic locking via updatedAt snapshot taken above).
+  // Finalize atomically AND optimistically in a single transaction guarded by
+  // the credential version snapshotted BEFORE talking to AdE. The guarded
+  // verifiedAt UPDATE is the FIRST statement: if the user replaced the
+  // credentials while AdE login/getFiscalData was in flight, it matches 0 rows
+  // and the whole transaction is abandoned — so fiscal identity from a STALE
+  // session is never written to businesses/profiles (review P1.1). Previously
+  // only verifiedAt was guarded while vatNumber/fiscalCode/partitaIva were
+  // written unconditionally, corrupting the business identity on a concurrent
+  // credential swap.
+  //
   // date_trunc to milliseconds: defaultNow() lets PostgreSQL set updatedAt via
   // NOW() (microsecond precision), but JS Date is only millisecond-precise.
   // Truncating before comparison prevents false mismatches on the first SELECT.
-  //
   // The snapshot is serialized as ISO string + `::timestamptz` cast: inside a
-  // raw `sql` template Drizzle has no column-type context to tell postgres-js
-  // how to bind a JS Date, so passing one directly crashes
-  // `Buffer.byteLength(<Date>)` in postgres-js. ISO string + explicit cast is
-  // safe and lossless (millisecond precision is preserved).
-  const updated = await db
-    .update(adeCredentials)
-    .set({ verifiedAt: new Date() })
-    .where(
-      and(
-        eq(adeCredentials.businessId, businessId),
-        sql`date_trunc('milliseconds', ${adeCredentials.updatedAt}) = ${credentialVersion.toISOString()}::timestamptz`,
-      ),
-    )
-    .returning({ id: adeCredentials.id });
+  // raw `sql` template Drizzle has no column-type context to bind a JS Date and
+  // would crash `Buffer.byteLength(<Date>)` in postgres-js.
+  let credentialsChanged = false;
+  try {
+    await db.transaction(async (tx) => {
+      const updated = await tx
+        .update(adeCredentials)
+        .set({ verifiedAt: new Date() })
+        .where(
+          and(
+            eq(adeCredentials.businessId, businessId),
+            sql`date_trunc('milliseconds', ${adeCredentials.updatedAt}) = ${credentialVersion.toISOString()}::timestamptz`,
+          ),
+        )
+        .returning({ id: adeCredentials.id });
 
-  if (updated.length === 0) {
-    // Credentials were changed while AdE login was in progress.
-    // Return success with the businessId — the user's new credentials
-    // are not verified yet and will be checked on the next operation.
+      if (updated.length === 0) {
+        // Optimistic-lock miss: credentials replaced during verification.
+        // Abort without writing any fiscal data from the stale session.
+        credentialsChanged = true;
+        return;
+      }
+
+      if (fiscalData) {
+        const vatNumber = fiscalData.identificativiFiscali.partitaIva;
+        const fiscalCode = fiscalData.identificativiFiscali.codiceFiscale;
+
+        await tx
+          .update(businesses)
+          .set({ vatNumber, fiscalCode })
+          .where(eq(businesses.id, businessId));
+
+        // Anti-abuso trial: la P.IVA è UNIQUE su profiles per impedire trial
+        // multipli con email diverse ma stessa P.IVA. Il vincolo DB fa fallire
+        // l'INSERT/UPDATE e l'intera transazione esegue rollback (verifiedAt
+        // incluso), così nessun dato resta in stato parziale.
+        await tx
+          .update(profiles)
+          .set({ partitaIva: vatNumber })
+          .where(eq(profiles.authUserId, user.id));
+      }
+    });
+  } catch (err) {
+    if (isUniqueConstraintViolation(err)) {
+      logger.warn({ businessId }, "P.IVA già in uso — possibile abuso trial");
+      return { error: "Questa P.IVA è già associata a un altro account." };
+    }
+    logger.error(
+      { err, businessId, critical: true },
+      "verifyAdeCredentials: finalizzazione DB fallita dopo verifica AdE",
+    );
+    return {
+      error:
+        "Verifica riuscita ma il salvataggio è fallito. Riprova tra qualche istante.",
+    };
+  }
+
+  if (credentialsChanged) {
+    // Credentials were replaced while AdE login was in progress: neither the
+    // fiscal identity nor verifiedAt was written. The new credentials will be
+    // verified on the next attempt.
     logger.warn(
       { businessId },
       "verifyAdeCredentials: credenziali modificate durante verifica, verifiedAt non impostato",

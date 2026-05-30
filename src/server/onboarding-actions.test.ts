@@ -996,11 +996,19 @@ describe("onboarding-actions", () => {
         },
       });
 
-      // businesses update OK, profiles update → unique constraint violation
+      // P1.1: la finalizzazione è una sola transazione che parte dall'UPDATE
+      // guardato di verifiedAt, poi businesses, poi profiles. Ordine dei
+      // .set(): [0] adeCredentials.verifiedAt (returning 1 riga → lock OK),
+      // [1] businesses OK, [2] profiles → unique constraint violation.
       const pgConflictError = Object.assign(new Error("unique constraint"), {
         code: "23505",
       });
       mockUpdateSet
+        .mockReturnValueOnce({
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([{ id: "mock-cred-id" }]),
+          }),
+        }) // adeCredentials verifiedAt (guard)
         .mockReturnValueOnce({ where: vi.fn().mockResolvedValue(undefined) }) // businesses
         .mockReturnValueOnce({
           where: vi.fn().mockRejectedValue(pgConflictError),
@@ -1011,10 +1019,71 @@ describe("onboarding-actions", () => {
 
       expect(result.error).toContain("P.IVA");
       expect(result.businessId).toBeUndefined();
-      // Logout must still be called (finally block)
+      // Logout must still be called (getFiscalData finally block)
       expect(mockLogout).toHaveBeenCalled();
-      // adeCredentials.verifiedAt must NOT be updated (returned early)
-      expect(mockUpdate).toHaveBeenCalledTimes(2); // businesses + profiles only
+      // Tutti e 3 gli UPDATE sono tentati nella stessa transazione (verifiedAt
+      // + businesses + profiles); il vincolo unique su profiles fa il rollback
+      // dell'intera transazione, verifiedAt incluso.
+      expect(mockUpdate).toHaveBeenCalledTimes(3);
+      expect(mockSendEmail).not.toHaveBeenCalled();
+    });
+
+    // P1.1 (code review): se le credenziali vengono sostituite mentre AdE
+    // login/getFiscalData è in corso, l'UPDATE guardato di verifiedAt matcha 0
+    // righe e l'intera transazione viene abbandonata: i dati fiscali della
+    // sessione STALE non devono MAI finire su businesses/profiles. Prima del
+    // fix solo verifiedAt era guardato, mentre vatNumber/fiscalCode/partitaIva
+    // venivano scritti incondizionatamente.
+    it("non scrive i dati fiscali su businesses/profiles se le credenziali cambiano durante la verifica (P1.1)", async () => {
+      // Ownership check
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      // Credentials found
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+          verifiedAt: null,
+        },
+      ]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "12345678901",
+          codiceFiscale: "RSSMRA80A01H501U",
+        },
+      });
+      // Optimistic-lock miss: l'UPDATE guardato di verifiedAt matcha 0 righe.
+      mockUpdateReturning.mockReset();
+      mockUpdateReturning.mockResolvedValue([]);
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials("biz-789");
+
+      // Ritorno non fatale con businessId (le nuove credenziali verranno
+      // verificate al prossimo tentativo) + warning sulla race.
+      expect(result.businessId).toBe("biz-789");
+      expect(result.error).toBeUndefined();
+      const { logger } = await import("@/lib/logger");
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ businessId: "biz-789" }),
+        expect.stringContaining("credenziali modificate"),
+      );
+
+      // Nessuna scrittura fiscale: l'unico UPDATE è il verifiedAt guardato
+      // (poi rollback). businesses/profiles non vengono toccati.
+      expect(mockUpdate).toHaveBeenCalledTimes(1);
+      const setPayloads = mockUpdateSet.mock.calls.map((c) => c[0]);
+      const wroteFiscalIdentity = setPayloads.some(
+        (p: Record<string, unknown>) =>
+          "vatNumber" in p || "fiscalCode" in p || "partitaIva" in p,
+      );
+      expect(wroteFiscalIdentity).toBe(false);
       expect(mockSendEmail).not.toHaveBeenCalled();
     });
 
@@ -1108,10 +1177,11 @@ describe("onboarding-actions", () => {
       const { verifyAdeCredentials } = await import("./onboarding-actions");
       await verifyAdeCredentials("biz-789");
 
-      // The last db.update(...).where(...) call targets adeCredentials.verifiedAt.
-      // Render the SQL fragment via the real PgDialect so we observe exactly
-      // what would be sent to postgres-js as bound parameters.
-      const whereArg = mockUpdateWhere.mock.calls.at(-1)?.[0];
+      // P1.1: l'UPDATE guardato di adeCredentials.verifiedAt è ora il PRIMO
+      // statement della transazione di finalizzazione, quindi la prima
+      // chiamata a db.update(...).where(...). Render del fragment SQL via il
+      // vero PgDialect per osservare i parametri inviati a postgres-js.
+      const whereArg = mockUpdateWhere.mock.calls[0]?.[0];
       const dialect = new PgDialect();
       const compiled = dialect.sqlToQuery(whereArg);
 
