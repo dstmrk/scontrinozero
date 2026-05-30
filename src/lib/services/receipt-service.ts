@@ -11,7 +11,7 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
-import { createAdeClient } from "@/lib/ade";
+import { createAdeClient, getAdeMode } from "@/lib/ade";
 import { AdePasswordExpiredError } from "@/lib/ade/errors";
 import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
 import { logAdeFailure } from "@/lib/ade/log-failure";
@@ -486,8 +486,7 @@ async function submitSaleToAde(
     deductibleAmount: 0,
   };
 
-  const adeMode = (process.env.ADE_MODE as "mock" | "real") || "mock";
-  const adeClient = createAdeClient(adeMode);
+  const adeClient = createAdeClient(getAdeMode());
   let loggedIn = false;
 
   try {

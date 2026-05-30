@@ -54,6 +54,7 @@ const mockLogout = vi.fn();
 const mockGetDocument = vi.fn();
 const mockSubmitVoid = vi.fn();
 vi.mock("@/lib/ade", () => ({
+  getAdeMode: () => "mock",
   createAdeClient: vi.fn().mockReturnValue({
     login: mockLogin,
     logout: mockLogout,

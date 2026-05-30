@@ -74,6 +74,7 @@ vi.mock("@/lib/crypto", () => ({
 }));
 
 vi.mock("@/lib/ade", () => ({
+  getAdeMode: () => "mock",
   createAdeClient: mockCreateAdeClient,
 }));
 
