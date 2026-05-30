@@ -1,6 +1,10 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { TEST_BUSINESS_ID, TEST_IDEMPOTENCY_KEY } from "../_helpers/fixtures";
+import {
+  TEST_BUSINESS_ID,
+  TEST_BUSINESS_ID_2,
+  TEST_IDEMPOTENCY_KEY,
+} from "../_helpers/fixtures";
 
 // --- Mocks ---
 
@@ -48,7 +52,7 @@ vi.mock("@/lib/services/void-service", () => ({
 // --- Helpers ---
 
 const USER_ID = "user-void";
-const BIZ_ID = "biz-void";
+const BIZ_ID = TEST_BUSINESS_ID_2;
 const VALID_UUID = TEST_BUSINESS_ID;
 
 function makeValidInput(overrides: Record<string, unknown> = {}) {
