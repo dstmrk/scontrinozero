@@ -110,8 +110,11 @@ const FAKE_ADE_RESPONSE = {
   errori: [],
 };
 
+// Valid UUID — businessId is a uuid column and the action validates it as such.
+const BIZ_ID = "11111111-1111-4111-8111-111111111111";
+
 const VALID_INPUT: SubmitReceiptInput = {
-  businessId: "biz-789",
+  businessId: BIZ_ID,
   lines: [
     {
       id: "line-1",
@@ -223,6 +226,18 @@ describe("receipt-actions", () => {
 
       expect(result.error).toBeDefined();
       expect(result.error).toContain("Business ID");
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("returns error when businessId is not a valid UUID (no DB query)", async () => {
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt({
+        ...VALID_INPUT,
+        businessId: "not-a-uuid",
+      });
+
+      expect(result.error).toContain("Business ID");
+      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
