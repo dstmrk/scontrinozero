@@ -68,6 +68,61 @@ Slug separati tra `/help` e `/guide` evitano canonical clash su keyword condivis
 
 ---
 
+## Code review indipendente (2026-05-29) — triage finding
+
+Review esterna (codex, senza contesto di progetto) su auth, onboarding AdE,
+emissione/annullo, API v1, billing, schema/migration, export/cancellazione
+account e pagine pubbliche. Triage e stato:
+
+### Tracciati in PR dedicate
+
+Ogni voce resta un finding aperto finché la sua PR non è mergiata su `main`:
+questo PR di cleanup può mergiare in qualsiasi ordine rispetto alle PR di fix
+senza che la rimozione di `REVIEW.md` lasci buchi non tracciati.
+
+- **P2.1 — UUID validation server action** → PR #543 (mergiata): `emitReceipt`
+  usa `z.string().uuid()` su `businessId`; nuovo `voidReceiptSchema`
+  (`businessId`/`documentId`/`idempotencyKey`) validato prima di ogni query.
+- **P3.2 — `ADE_MODE` fail-closed** → PR #542 (mergiata): helper `getAdeMode()`
+  wired in tutti i 4 call site; throw in produzione su valore mancante/garbage,
+  fallback `mock` solo in dev/test. NB: non si forza `real` in produzione perché
+  la sandbox gira con `NODE_ENV=production` + `ADE_MODE=mock`.
+- **P2.5 — limite lunghezza `streetNumber`** → PR #541 (in review): aggiunge
+  `streetNumber: 20` a `BUSINESS_PROFILE_LIMITS` con enforce server-side
+  (`saveBusiness` + `updateBusiness`) e client-side. **Finché #541 non è
+  mergiata, la validazione di `streetNumber` NON è presente su `main`**: il gap
+  resta aperto qui come promemoria.
+
+### Non azionabili / scelte intenzionali (no fix)
+
+- **P2.3 — `deleteAccount` cancella Auth prima dei dati applicativi**: ordine
+  **deliberato e documentato** (`account-actions.ts`): Auth-first permette di
+  ritornare un errore senza aver toccato dati se l'Auth delete fallisce; il caso
+  inverso (DB ok, Auth ko) lascerebbe l'utente loggato con dati cancellati. Il
+  fallimento del DB delete dopo Auth è già loggato `critical: true` per cleanup
+  manuale. Un soft-delete con job di completamento è un'evoluzione possibile ma
+  non un bug: non si interviene ora.
+
+### Da fare — bloccanti fiscali (P1), a backlog in attesa di prioritizzazione
+
+| Descrizione                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Priorità |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
+| **P1.1 — `verifyAdeCredentials` può salvare identità fiscale da credenziali stale**: il check ottimistico su `adeCredentials.updatedAt` protegge solo l'UPDATE finale di `verifiedAt`, ma le scritture di `vatNumber`/`fiscalCode` su `businesses` e `partitaIva` su `profiles` avvengono **prima** del check. Se l'utente sostituisce le credenziali durante `login()`/`getFiscalData()`, la business identity viene sovrascritta con i dati della sessione stale. Fix: spostare il controllo `updatedAt` (o renderlo atomico in transazione) **prima** di qualunque scrittura fiscale; se la versione non corrisponde, nessun dato scritto + errore "credenziali modificate durante la verifica". Solo codice + test, nessuna migration. | P1       |
+| **P1.2 — onboarding può creare più `businesses` per lo stesso profilo**: `businesses.profile_id` ha solo un indice, non un vincolo UNIQUE; `saveBusiness` fa SELECT-then-INSERT in transazione ma senza lock né vincolo che serializzi due submit concorrenti. L'app assume 1 business/profilo. Fix: migration handwritten `UNIQUE (profile_id)` + dedup/fail-fast dei duplicati esistenti in prod + upsert `onConflictDoUpdate` (o `SELECT … FOR UPDATE` su `profiles`) in `saveBusiness`. **Tocca dati di produzione**: richiede script di dedup preventivo.                                                                                                                                                                             | P1       |
+| **P1.3 — stale recovery SALE/VOID può duplicare operazioni fiscali con retry concorrenti**: `recoverStaleReceipt` / `insertOrResolveVoid` rieseguono `submitSale`/`submitVoid` quando non c'è `adeTransactionId` noto, senza lock applicativo/DB che serializzi due retry concorrenti oltre la soglia stale. Rischio residuo già documentato nel codice e mitigato dalla soglia 30 min + logging audit. Fix completo: `pg_advisory_xact_lock`/`SELECT … FOR UPDATE` per documento durante la recovery; secondo retry in corso → `PENDING_IN_PROGRESS`/`VOID_PENDING_IN_PROGRESS` con `Retry-After`. La soluzione robusta è il lookup AdE pre-retry via `searchDocuments` (già tracciato altrove).                                          | P1       |
+| **P1.4 — idempotency key riusata con payload diverso ritorna il risultato precedente**: su SALE, `handleExistingReceipt` ritorna il documento esistente con stessa `idempotencyKey` senza confrontare righe/importi/payment/lottery; su VOID, `existingByKey` non verifica che il `documentId` corrente coincida col `voidedDocumentId` esistente. Un client che riusa per errore la stessa key per una vendita/annullo diverso riceve un 201/200 fuorviante. Fix: salvare un `request_hash` SHA-256 canonico (nuova colonna → migration) e, su conflitto idempotency con hash diverso, rispondere `409 IDEMPOTENCY_PAYLOAD_MISMATCH`; per VOID confrontare `voidedDocumentId`.                                                            | P1       |
+
+### Già coperti dal backlog esistente (non duplicati)
+
+- **P2.2** (TTL/revoca link pubblici scontrini) → riga "TTL/revoca link pubblici scontrini" sopra.
+- **P2.4** (validazione param pagination/filter API v1) → cluster "Paginazione cursor-based … Developer API" sopra; estendere con schema Zod `page`/`limit`/`kind` che rifiuta valori invalidi con 400 invece di clamp silenzioso.
+- **P1.5** (checkout Stripe non idempotente) → riga "Stripe checkout: prevenzione customer orfani in race"; estendere con guard su subscription attiva/pending + idempotency key Stripe.
+- **P2.5-DB / P1-P2 length** (CHECK + length a livello DB, incluso `businesses.street_number`) → riga "DB defense-in-depth: CHECK constraints + length limits".
+- **P3.1** (validazione SALE duplicata route vs server action) → estrarre schema condiviso; affine a "Error envelope uniforme API".
+- **P3.3** (`fetchPublicReceipt` filtra stato/kind dopo la read) → micro-ottimizzazione boundary pubblico, spostare `kind='SALE' AND status='ACCEPTED'` nel WHERE; raggruppabile col lavoro su P2.2.
+
+---
+
 ## Backlog contenuti help center
 
 Articoli ancora da scrivere per chiudere la review dell'indice `/help`. Sono già listati nell'indice come placeholder "In arrivo" — vanno scritti **prima del tag v1.3.2** per poter dichiarare chiusa la passata di review marketing.
