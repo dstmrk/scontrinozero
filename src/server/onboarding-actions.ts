@@ -33,6 +33,7 @@ import {
   BUSINESS_PROFILE_LIMITS,
   isValidItalianZipCode,
   ITALIAN_ZIP_MESSAGE,
+  validateBusinessOptionalFieldLengths,
 } from "@/lib/validation";
 import { isInvalidPreferredVatCode } from "@/types/cassa";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
@@ -86,26 +87,11 @@ function validateSaveBusinessInput(input: SaveBusinessInput): string | null {
   if (!input.lastName) return "Il cognome è obbligatorio.";
   if (input.lastName.length > BUSINESS_PROFILE_LIMITS.lastName)
     return `Il cognome non può superare ${BUSINESS_PROFILE_LIMITS.lastName} caratteri.`;
-  if (
-    input.businessName &&
-    input.businessName.length > BUSINESS_PROFILE_LIMITS.businessName
-  )
-    return `La ragione sociale non può superare ${BUSINESS_PROFILE_LIMITS.businessName} caratteri.`;
   if (!input.address) return "L'indirizzo è obbligatorio.";
   if (input.address.length > BUSINESS_PROFILE_LIMITS.address)
     return `L'indirizzo non può superare ${BUSINESS_PROFILE_LIMITS.address} caratteri.`;
-  if (
-    input.streetNumber &&
-    input.streetNumber.length > BUSINESS_PROFILE_LIMITS.streetNumber
-  )
-    return `Il numero civico non può superare ${BUSINESS_PROFILE_LIMITS.streetNumber} caratteri.`;
-  if (input.city && input.city.length > BUSINESS_PROFILE_LIMITS.city)
-    return `Il comune non può superare ${BUSINESS_PROFILE_LIMITS.city} caratteri.`;
-  if (
-    input.province &&
-    input.province.length > BUSINESS_PROFILE_LIMITS.province
-  )
-    return `La provincia non può superare ${BUSINESS_PROFILE_LIMITS.province} caratteri.`;
+  const optionalError = validateBusinessOptionalFieldLengths(input);
+  if (optionalError) return optionalError;
   if (!isValidItalianZipCode(input.zipCode)) return ITALIAN_ZIP_MESSAGE;
   if (
     input.hasPreferredVatCode &&
