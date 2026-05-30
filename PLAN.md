@@ -74,18 +74,24 @@ Review esterna (codex, senza contesto di progetto) su auth, onboarding AdE,
 emissione/annullo, API v1, billing, schema/migration, export/cancellazione
 account e pagine pubbliche. Triage e stato:
 
-### Già risolti (PR separate, in attesa di merge)
+### Tracciati in PR dedicate
 
-- **P2.1 — UUID validation server action** → PR #543: `emitReceipt` usa
-  `z.string().uuid()` su `businessId`; nuovo `voidReceiptSchema`
+Ogni voce resta un finding aperto finché la sua PR non è mergiata su `main`:
+questo PR di cleanup può mergiare in qualsiasi ordine rispetto alle PR di fix
+senza che la rimozione di `REVIEW.md` lasci buchi non tracciati.
+
+- **P2.1 — UUID validation server action** → PR #543 (mergiata): `emitReceipt`
+  usa `z.string().uuid()` su `businessId`; nuovo `voidReceiptSchema`
   (`businessId`/`documentId`/`idempotencyKey`) validato prima di ogni query.
-- **P2.5 — limite lunghezza `streetNumber`** → PR #541: `streetNumber: 20`
-  in `BUSINESS_PROFILE_LIMITS`, enforce server-side (`saveBusiness` +
-  `updateBusiness`) e client-side.
-- **P3.2 — `ADE_MODE` fail-closed** → PR #542: helper `getAdeMode()` wired in
-  tutti i 4 call site; throw in produzione su valore mancante/garbage, fallback
-  `mock` solo in dev/test. NB: non si forza `real` in produzione perché la
-  sandbox gira con `NODE_ENV=production` + `ADE_MODE=mock`.
+- **P3.2 — `ADE_MODE` fail-closed** → PR #542 (mergiata): helper `getAdeMode()`
+  wired in tutti i 4 call site; throw in produzione su valore mancante/garbage,
+  fallback `mock` solo in dev/test. NB: non si forza `real` in produzione perché
+  la sandbox gira con `NODE_ENV=production` + `ADE_MODE=mock`.
+- **P2.5 — limite lunghezza `streetNumber`** → PR #541 (in review): aggiunge
+  `streetNumber: 20` a `BUSINESS_PROFILE_LIMITS` con enforce server-side
+  (`saveBusiness` + `updateBusiness`) e client-side. **Finché #541 non è
+  mergiata, la validazione di `streetNumber` NON è presente su `main`**: il gap
+  resta aperto qui come promemoria.
 
 ### Non azionabili / scelte intenzionali (no fix)
 
