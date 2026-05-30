@@ -25,7 +25,16 @@ const mockLinesInsertValues = vi.fn().mockResolvedValue(undefined);
 
 const mockInsert = vi.fn();
 
-const mockUpdateWhere = vi.fn().mockResolvedValue(undefined);
+// claim CAS (P1.3): db.update().set().where().returning() → rows rivendicate.
+// Default: claim vinto (1 riga). Override con mockResolvedValueOnce([]) per simulare
+// un retry concorrente che perde la corsa.
+const mockClaimReturning = vi.fn().mockResolvedValue([{ id: "doc-claimed" }]);
+// `.where()` è terminale per gli UPDATE post-AdE (awaited direttamente → undefined)
+// ma il claim CAS vi concatena `.returning()`. Il thenable soddisfa entrambi.
+const mockUpdateWhere = vi.fn().mockReturnValue({
+  returning: mockClaimReturning,
+  then: (onFulfilled: (value: undefined) => unknown) => onFulfilled(undefined),
+});
 const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
 const mockUpdate = vi.fn().mockReturnValue({ set: mockUpdateSet });
 
@@ -313,6 +322,7 @@ describe("emitReceiptForBusiness", () => {
         adeTransactionId: null,
         adeProgressive: null,
         createdAt: new Date(Date.now() - 35 * 60 * 1000),
+        updatedAt: new Date(Date.now() - 35 * 60 * 1000),
       },
     ]);
 
@@ -326,6 +336,30 @@ describe("emitReceiptForBusiness", () => {
     expect(mockSubmitSale).toHaveBeenCalled();
   });
 
+  it("P1.3: recovery concorrente che perde il claim ritorna PENDING_IN_PROGRESS senza ri-sottomettere", async () => {
+    mockDocumentReturning.mockResolvedValue([]);
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-123",
+        status: "PENDING",
+        adeTransactionId: null,
+        adeProgressive: null,
+        createdAt: new Date(Date.now() - 35 * 60 * 1000),
+        updatedAt: new Date(Date.now() - 35 * 60 * 1000),
+      },
+    ]);
+    // Claim CAS perso: un altro retry ha già rivendicato la riga (0 righe).
+    mockClaimReturning.mockResolvedValueOnce([]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("PENDING_IN_PROGRESS");
+    // CRITICO: nessun doppio submitSale ad AdE dal retry perdente.
+    expect(mockLogin).not.toHaveBeenCalled();
+    expect(mockSubmitSale).not.toHaveBeenCalled();
+  });
+
   it("idempotency: ERROR stale entra in recovery path", async () => {
     mockDocumentReturning.mockResolvedValue([]);
     mockLimit.mockResolvedValueOnce([
@@ -335,6 +369,7 @@ describe("emitReceiptForBusiness", () => {
         adeTransactionId: null,
         adeProgressive: null,
         createdAt: new Date(Date.now() - 35 * 60 * 1000),
+        updatedAt: new Date(Date.now() - 35 * 60 * 1000),
       },
     ]);
 

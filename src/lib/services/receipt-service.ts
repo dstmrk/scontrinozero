@@ -32,7 +32,7 @@ import type {
 } from "@/types/cassa";
 import type { PaymentType, SaleDocumentRequest } from "@/lib/ade/public-types";
 import type { AdeCedentePrestatore } from "@/lib/ade/types";
-import { getStalePendingThresholdMs } from "./ade-recovery";
+import { claimStaleDocument, getStalePendingThresholdMs } from "./ade-recovery";
 
 const PAYMENT_METHOD_TO_ADE: Record<PaymentMethod, PaymentType> = {
   PC: "CASH",
@@ -220,6 +220,7 @@ async function handleExistingReceipt(args: {
       adeTransactionId: commercialDocuments.adeTransactionId,
       adeProgressive: commercialDocuments.adeProgressive,
       createdAt: commercialDocuments.createdAt,
+      updatedAt: commercialDocuments.updatedAt,
     })
     .from(commercialDocuments)
     .where(
@@ -290,6 +291,7 @@ async function recoverStaleReceipt(args: {
     status: string;
     adeTransactionId: string | null;
     adeProgressive: string | null;
+    updatedAt: Date;
   };
   input: SubmitReceiptInput;
   lotteryCode: string | null;
@@ -327,10 +329,29 @@ async function recoverStaleReceipt(args: {
     );
   }
 
+  // P1.3: claim CAS su updated_at per serializzare due recovery concorrenti.
+  // Solo il primo retry vince e riesegue submitSale; gli altri ricevono
+  // PENDING_IN_PROGRESS senza ri-sottomettere (evita il doppio documento
+  // fiscale su AdE da retry concorrenti oltre la soglia stale).
+  const claimed = await claimStaleDocument(
+    getDb(),
+    existing.id,
+    existing.updatedAt,
+  );
+  if (!claimed) {
+    return {
+      error:
+        "Scontrino precedente ancora in elaborazione. Riprova tra qualche secondo.",
+      code: "PENDING_IN_PROGRESS",
+    };
+  }
+
   // Residual risk: re-eseguiamo submitSale senza poter verificare lato AdE
   // se il primo attempt era già arrivato (no idempotency-key supportato).
   // Se la response del primo era andata persa in volo, qui creiamo uno
-  // scontrino fiscale duplicato. Risk-mitigation: soglia stale a 30 min.
+  // scontrino fiscale duplicato. Il claim sopra serializza i retry concorrenti;
+  // la finestra residua (response persa in volo) resta mitigata dalla soglia
+  // stale a 30 min, in attesa del lookup AdE pre-retry via searchDocuments.
   logger.warn(
     {
       documentId: existing.id,

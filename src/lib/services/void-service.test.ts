@@ -24,7 +24,16 @@ const mockInsertValues = vi
   .mockReturnValue({ onConflictDoNothing: mockOnConflictDoNothing });
 const mockInsert = vi.fn().mockReturnValue({ values: mockInsertValues });
 
-const mockUpdateWhere = vi.fn().mockResolvedValue(undefined);
+// claim CAS (P1.3): db.update().set().where().returning() → rows rivendicate.
+// Default: claim vinto (1 riga). Override con mockResolvedValueOnce([]) per simulare
+// un retry concorrente che perde la corsa.
+const mockClaimReturning = vi.fn().mockResolvedValue([{ id: "void-claimed" }]);
+// `.where()` è terminale per gli UPDATE post-AdE (awaited direttamente → undefined)
+// ma il claim CAS vi concatena `.returning()`. Il thenable soddisfa entrambi.
+const mockUpdateWhere = vi.fn().mockReturnValue({
+  returning: mockClaimReturning,
+  then: (onFulfilled: (value: undefined) => unknown) => onFulfilled(undefined),
+});
 const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
 const mockUpdate = vi.fn().mockReturnValue({ set: mockUpdateSet });
 
@@ -316,6 +325,55 @@ describe("voidReceiptForBusiness", () => {
 
     expect(result.error).toBeDefined();
     expect(mockLogin).not.toHaveBeenCalled();
+  });
+
+  it("P1.3: void recovery stale vince il claim e riesegue submitVoid", async () => {
+    mockReturning.mockResolvedValue([]); // INSERT conflict
+    mockSelectLimit
+      .mockResolvedValueOnce([FAKE_SALE_DOC]) // sale fetch
+      .mockResolvedValueOnce([
+        {
+          id: "void-doc-uuid",
+          status: "PENDING",
+          adeTransactionId: null,
+          adeProgressive: null,
+          createdAt: new Date(Date.now() - 35 * 60 * 1000),
+          updatedAt: new Date(Date.now() - 35 * 60 * 1000),
+        },
+      ]);
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    // Claim vinto → riesegue submitVoid e finalizza.
+    expect(mockSubmitVoid).toHaveBeenCalled();
+    expect(result.voidDocumentId).toBe("void-doc-uuid");
+  });
+
+  it("P1.3: void recovery stale che perde il claim ritorna VOID_PENDING_IN_PROGRESS senza ri-sottomettere", async () => {
+    mockReturning.mockResolvedValue([]); // INSERT conflict
+    mockSelectLimit
+      .mockResolvedValueOnce([FAKE_SALE_DOC])
+      .mockResolvedValueOnce([
+        {
+          id: "void-doc-uuid",
+          status: "PENDING",
+          adeTransactionId: null,
+          adeProgressive: null,
+          createdAt: new Date(Date.now() - 35 * 60 * 1000),
+          updatedAt: new Date(Date.now() - 35 * 60 * 1000),
+        },
+      ]);
+    // Claim CAS perso: un altro retry ha già rivendicato la riga (0 righe).
+    mockClaimReturning.mockResolvedValueOnce([]);
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect((result as { code?: string }).code).toBe("VOID_PENDING_IN_PROGRESS");
+    // CRITICO: nessun doppio submitVoid ad AdE dal retry perdente.
+    expect(mockLogin).not.toHaveBeenCalled();
+    expect(mockSubmitVoid).not.toHaveBeenCalled();
   });
 
   it("aggiorna documento a REJECTED se AdE ritorna esito:false", async () => {
