@@ -11,7 +11,7 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
-import { createAdeClient } from "@/lib/ade";
+import { createAdeClient, getAdeMode } from "@/lib/ade";
 import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
 import { mapVoidToAdePayload } from "@/lib/ade/mapper";
 import { isStatementTimeoutError } from "@/lib/api-errors";
@@ -560,8 +560,7 @@ export async function voidReceiptForBusiness(
   const { codiceFiscale, password, pin, cedentePrestatore } =
     prep.prerequisites;
 
-  const adeMode = (process.env.ADE_MODE as "mock" | "real") || "mock";
-  const adeClient = createAdeClient(adeMode);
+  const adeClient = createAdeClient(getAdeMode());
   let loggedIn = false;
 
   try {

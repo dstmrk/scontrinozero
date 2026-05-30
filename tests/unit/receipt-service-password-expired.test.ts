@@ -53,6 +53,7 @@ vi.mock("@/lib/server-auth", () => ({
   fetchAdePrerequisites: mockFetchAdePrerequisites,
 }));
 vi.mock("@/lib/ade", () => ({
+  getAdeMode: () => "mock",
   createAdeClient: mockCreateAdeClient,
 }));
 vi.mock("@/lib/ade/mapper", () => ({

@@ -11,7 +11,7 @@ import {
   getEncryptionKey,
   getKeyVersion,
 } from "@/lib/crypto";
-import { createAdeClient } from "@/lib/ade";
+import { createAdeClient, getAdeMode } from "@/lib/ade";
 import {
   AdeAuthError,
   AdeError,
@@ -328,8 +328,7 @@ export async function verifyAdeCredentials(
   const password = decrypt(cred.encryptedPassword, keys);
   const pin = decrypt(cred.encryptedPin, keys);
 
-  const adeMode = (process.env.ADE_MODE as "mock" | "real") || "mock";
-  const adeClient = createAdeClient(adeMode);
+  const adeClient = createAdeClient(getAdeMode());
 
   try {
     await adeClient.login({ codiceFiscale, password, pin });
@@ -543,8 +542,7 @@ export async function changeAdePassword(
   const keys = new Map<number, Buffer>([[cred.keyVersion, key]]);
   const codiceFiscale = decrypt(cred.encryptedCodiceFiscale, keys);
 
-  const adeMode = (process.env.ADE_MODE as "mock" | "real") || "mock";
-  const adeClient = createAdeClient(adeMode);
+  const adeClient = createAdeClient(getAdeMode());
 
   try {
     await adeClient.changePasswordFisconline({
