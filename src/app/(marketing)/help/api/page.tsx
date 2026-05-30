@@ -806,6 +806,10 @@ const idempotencyKey = crypto.randomUUID();`}</code>
                   "Il piano attivo non include l'accesso alle API. Passa al Piano Pro.",
                 ],
                 [
+                  "409",
+                  "Conflitto di idempotenza: una richiesta con la stessa idempotencyKey è ancora in corso, è già stata rifiutata, oppure la chiave è stata riusata con un contenuto diverso. In quest'ultimo caso usa una nuova chiave.",
+                ],
+                [
                   "422",
                   "Errore di logica: scontrino già annullato, credenziali AdE mancanti, o risposta di rifiuto dall'Agenzia delle Entrate.",
                 ],

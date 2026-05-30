@@ -84,12 +84,15 @@ export interface VoidReceiptInput {
  * - DB_TIMEOUT: timeout DB; servizio temporaneamente sovraccarico.
  * - VOID_SYNC_FAILED: l'annullo è stato registrato su AdE ma la sincronizzazione
  *   DB finale è fallita. Richiede cleanup manuale.
+ * - IDEMPOTENCY_PAYLOAD_MISMATCH: la idempotencyKey è già stata usata per
+ *   annullare un documento diverso. Il client deve usare una nuova key.
  */
 export type VoidReceiptErrorCode =
   | "VOID_PENDING_IN_PROGRESS"
   | "VOID_ALREADY_TARGETED"
   | "DB_TIMEOUT"
-  | "VOID_SYNC_FAILED";
+  | "VOID_SYNC_FAILED"
+  | "IDEMPOTENCY_PAYLOAD_MISMATCH";
 
 export interface VoidReceiptResult {
   error?: string;

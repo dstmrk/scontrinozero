@@ -141,22 +141,33 @@ export async function saveBusiness(
 
   const db = getDb();
 
-  // Find the user's profile
-  const [profile] = await db
-    .select()
-    .from(profiles)
-    .where(eq(profiles.authUserId, user.id))
-    .limit(1);
-
-  if (!profile) {
-    return { error: "Profilo non trovato." };
-  }
-
   // Wrap both writes in a transaction: updating the profile and upserting
   // the business must stay consistent. A partial failure (profile updated but
   // business insert failed) would leave the user in an incomplete onboarding
   // state that is hard to recover from.
   return db.transaction(async (tx) => {
+    // P1.2: serializza submit concorrenti con SELECT ... FOR UPDATE sulla riga
+    // del profilo. Senza lock due richieste parallele leggono entrambe "nessun
+    // business esistente" e inseriscono, creando businesses duplicati per lo
+    // stesso profilo. Il vincolo UNIQUE(profile_id) (migration 0016) è il
+    // backstop DB. Stesso pattern di api-key-actions.ts.
+    await tx
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.authUserId, user.id))
+      .for("update");
+
+    // Find the user's profile (now that the row is locked)
+    const [profile] = await tx
+      .select()
+      .from(profiles)
+      .where(eq(profiles.authUserId, user.id))
+      .limit(1);
+
+    if (!profile) {
+      return { error: "Profilo non trovato." };
+    }
+
     // Upsert: check if business already exists for this profile
     const [existing] = await tx
       .select()

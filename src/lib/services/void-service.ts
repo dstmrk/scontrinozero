@@ -26,7 +26,7 @@ import { fetchAdePrerequisites } from "@/lib/server-auth";
 import type { VoidReceiptInput, VoidReceiptResult } from "@/types/storico";
 import type { VoidRequest } from "@/lib/ade/public-types";
 import type { AdeResponse } from "@/lib/ade/types";
-import { getStalePendingThresholdMs } from "./ade-recovery";
+import { claimStaleDocument, getStalePendingThresholdMs } from "./ade-recovery";
 
 type ConflictOutcome =
   | { kind: "done"; result: VoidReceiptResult }
@@ -36,6 +36,7 @@ type ConflictOutcome =
       hasAdeTransaction: boolean;
       existingAdeTransactionId: string | null;
       existingAdeProgressive: string | null;
+      existingUpdatedAt: Date;
     };
 
 /**
@@ -50,6 +51,7 @@ async function resolveVoidConflict(
   db: ReturnType<typeof getDb>,
   idempotencyKey: string,
   businessId: string,
+  voidedDocumentId: string,
 ): Promise<ConflictOutcome> {
   // Case A: same idempotencyKey → same-request retry (true idempotency path)
   const [existingByKey] = await db
@@ -59,6 +61,8 @@ async function resolveVoidConflict(
       adeTransactionId: commercialDocuments.adeTransactionId,
       adeProgressive: commercialDocuments.adeProgressive,
       createdAt: commercialDocuments.createdAt,
+      updatedAt: commercialDocuments.updatedAt,
+      voidedDocumentId: commercialDocuments.voidedDocumentId,
     })
     .from(commercialDocuments)
     .where(
@@ -70,6 +74,26 @@ async function resolveVoidConflict(
     .limit(1);
 
   if (existingByKey) {
+    // P1.4: stessa idempotencyKey ma SALE annullato diverso → 409. Evita di
+    // ritornare il risultato di un annullo che non corrisponde alla richiesta.
+    if (
+      existingByKey.voidedDocumentId != null &&
+      existingByKey.voidedDocumentId !== voidedDocumentId
+    ) {
+      logger.warn(
+        { businessId, voidDocumentId: existingByKey.id },
+        "Idempotency key reused to void a different document",
+      );
+      return {
+        kind: "done",
+        result: {
+          error:
+            "La chiave di idempotenza è già stata usata per annullare un altro documento. Usa una nuova chiave.",
+          code: "IDEMPOTENCY_PAYLOAD_MISMATCH",
+        },
+      };
+    }
+
     if (existingByKey.status === "VOID_ACCEPTED") {
       // Already voided successfully — true idempotency return
       return {
@@ -117,6 +141,7 @@ async function resolveVoidConflict(
         hasAdeTransaction: existingByKey.adeTransactionId != null,
         existingAdeTransactionId: existingByKey.adeTransactionId,
         existingAdeProgressive: existingByKey.adeProgressive,
+        existingUpdatedAt: existingByKey.updatedAt,
       };
     }
 
@@ -490,6 +515,7 @@ async function insertOrResolveVoid(
       db,
       input.idempotencyKey,
       input.businessId,
+      input.documentId,
     );
     if (conflict.kind === "done")
       return { kind: "done", result: conflict.result };
@@ -509,9 +535,31 @@ async function insertOrResolveVoid(
       return { kind: "done", result: finalize };
     }
 
+    // P1.3: claim CAS su updated_at per serializzare due recovery concorrenti.
+    // Solo il primo retry vince e riesegue submitVoid; gli altri ricevono
+    // VOID_PENDING_IN_PROGRESS senza ri-sottomettere (evita il doppio annullo
+    // su AdE da retry concorrenti oltre la soglia stale).
+    const claimed = await claimStaleDocument(
+      db,
+      conflict.voidDocumentId,
+      conflict.existingUpdatedAt,
+    );
+    if (!claimed) {
+      return {
+        kind: "done",
+        result: {
+          error:
+            "Annullo precedente ancora in elaborazione. Riprova tra qualche secondo.",
+          code: "VOID_PENDING_IN_PROGRESS",
+        },
+      };
+    }
+
     // Recovery path SENZA adeTransactionId noto: il retry rieseguirà submitVoid.
     // Rischio residuo: se il primo attempt era arrivato ad AdE ma la response
-    // si è persa, qui creiamo un VOID duplicato. Logging esplicito per audit.
+    // si è persa, qui creiamo un VOID duplicato. Il claim sopra serializza i
+    // retry concorrenti; la finestra residua resta mitigata dalla soglia stale,
+    // in attesa del lookup AdE pre-retry via searchDocuments.
     logger.warn(
       {
         voidDocumentId: conflict.voidDocumentId,
