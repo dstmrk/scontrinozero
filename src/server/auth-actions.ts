@@ -480,10 +480,20 @@ export async function resetPassword(
   const rateLimited = checkRateLimit(ip, "resetPassword");
   if (rateLimited) return rateLimited;
 
+  const appHostname =
+    process.env.APP_HOSTNAME ?? // runtime override (sandbox, self-hosted)
+    process.env.NEXT_PUBLIC_APP_HOSTNAME ?? // baked at build time
+    "app.scontrinozero.it";
+
   const supabaseAdmin = createAdminSupabaseClient();
   const { data, error } = await supabaseAdmin.auth.admin.generateLink({
     type: "recovery",
     email,
+    // Pin where the user lands after Supabase verifies the token. Must be in the
+    // Supabase Redirect URLs allow-list (the /callback route already is — used by
+    // signup/OAuth), otherwise GoTrue falls back to the Site URL. Makes the
+    // redirect_to validated below deterministic, not dependent on dashboard config.
+    options: { redirectTo: `https://${appHostname}/callback` },
   });
 
   if (error || !data.properties?.action_link) {
@@ -495,28 +505,48 @@ export async function resetPassword(
     redirect("/verify-email");
   }
 
-  // Defensive check: ensure the generated link points to our own domain.
-  // Parse the URL explicitly instead of using startsWith — a prefix check can be
-  // bypassed via subdomain spoofing (e.g., https://app.scontrinozero.it.evil.tld/).
-  const expectedHostname =
-    process.env.APP_HOSTNAME ?? // runtime override (sandbox, self-hosted)
-    process.env.NEXT_PUBLIC_APP_HOSTNAME ?? // baked at build time
-    "app.scontrinozero.it";
+  // Defensive check: the link the user clicks must point to OUR Supabase issuer
+  // (the /auth/v1/verify endpoint), and its embedded redirect_to must point back
+  // to OUR app domain. generateLink returns an action_link on the SUPABASE project
+  // host (e.g. <ref>.supabase.co), NOT on the app host — so the action_link is
+  // validated against NEXT_PUBLIC_SUPABASE_URL, while redirect_to carries the app
+  // host. Parse the URLs explicitly instead of using startsWith — a prefix check
+  // can be bypassed via subdomain spoofing (e.g., https://<host>.evil.tld/).
   const actionLink = data.properties.action_link;
+  let supabaseHostname: string | null = null;
+  try {
+    supabaseHostname = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "")
+      .hostname;
+  } catch {
+    // Missing or malformed NEXT_PUBLIC_SUPABASE_URL — treat as mismatch
+  }
   let parsedActionLink: URL | null = null;
   try {
     parsedActionLink = new URL(actionLink);
   } catch {
     // Malformed URL — treat as mismatch
   }
+  let parsedRedirectTo: URL | null = null;
+  try {
+    parsedRedirectTo = new URL(
+      parsedActionLink?.searchParams.get("redirect_to") ?? "",
+    );
+  } catch {
+    // Missing or malformed redirect_to — treat as mismatch
+  }
   if (
+    !supabaseHostname ||
     parsedActionLink?.protocol !== "https:" ||
-    parsedActionLink?.hostname !== expectedHostname
+    parsedActionLink.hostname !== supabaseHostname ||
+    parsedRedirectTo?.protocol !== "https:" ||
+    parsedRedirectTo.hostname !== appHostname
   ) {
     logger.error(
       {
-        hostname: parsedActionLink?.hostname ?? null,
-        expectedHostname,
+        actionLinkHostname: parsedActionLink?.hostname ?? null,
+        supabaseHostname,
+        redirectToHostname: parsedRedirectTo?.hostname ?? null,
+        appHostname,
         hasToken: true,
       },
       "Reset password: action_link hostname mismatch or invalid URL — email not sent",

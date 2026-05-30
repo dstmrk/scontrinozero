@@ -129,14 +129,18 @@ describe("auth-actions", () => {
     vi.clearAllMocks();
     process.env.TURNSTILE_SECRET_KEY = "test-secret";
     process.env.NEXT_PUBLIC_APP_HOSTNAME = "app.scontrinozero.it";
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
     mockRateLimiterCheck.mockReturnValue({ success: true, remaining: 4 });
     // Default: action="signup" (most-tested). signIn / resetPassword describe
     // blocks override this in nested beforeEach with the matching action.
     mockFetch.mockResolvedValue(captchaResponse("signup"));
+    // generateLink returns an action_link on the SUPABASE host, carrying the app
+    // host in the redirect_to param (the real GoTrue /auth/v1/verify shape).
     mockGenerateLink.mockResolvedValue({
       data: {
         properties: {
-          action_link: "https://app.scontrinozero.it/auth/recovery?token=abc",
+          action_link:
+            "https://test.supabase.co/auth/v1/verify?token=abc&type=recovery&redirect_to=https://app.scontrinozero.it/callback",
         },
       },
       error: null,
@@ -1256,6 +1260,7 @@ describe("auth-actions", () => {
       expect(mockGenerateLink).toHaveBeenCalledWith({
         type: "recovery",
         email: "test@example.com",
+        options: { redirectTo: "https://app.scontrinozero.it/callback" },
       });
     });
 
@@ -1345,11 +1350,12 @@ describe("auth-actions", () => {
       expect(redirectUrl).toBe("/verify-email");
     });
 
-    it("does not send email when action_link points to unexpected host", async () => {
+    it("does not send email when action_link host is not the Supabase host", async () => {
       mockGenerateLink.mockResolvedValue({
         data: {
           properties: {
-            action_link: "https://evil.example.com/auth/recovery?token=abc",
+            action_link:
+              "https://evil.example.com/auth/v1/verify?token=abc&redirect_to=https://app.scontrinozero.it/callback",
           },
         },
         error: null,
@@ -1373,7 +1379,85 @@ describe("auth-actions", () => {
       expect(mockSendEmail).not.toHaveBeenCalled();
     });
 
-    it("sends email when action_link matches expected hostname", async () => {
+    it("does not send email when redirect_to host is not the app host", async () => {
+      mockGenerateLink.mockResolvedValue({
+        data: {
+          properties: {
+            action_link:
+              "https://test.supabase.co/auth/v1/verify?token=abc&redirect_to=https://evil.example.com/callback",
+          },
+        },
+        error: null,
+      });
+
+      const { resetPassword } = await import("./auth-actions");
+
+      try {
+        await resetPassword(
+          formData({ email: "test@example.com", captchaToken: "valid-token" }),
+        );
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+        if (isRedirectError(err)) {
+          expect(err.url).toBe("/verify-email");
+        }
+      }
+
+      await Promise.resolve();
+      expect(mockSendEmail).not.toHaveBeenCalled();
+    });
+
+    it("does not send email when redirect_to is missing from action_link", async () => {
+      mockGenerateLink.mockResolvedValue({
+        data: {
+          properties: {
+            action_link: "https://test.supabase.co/auth/v1/verify?token=abc",
+          },
+        },
+        error: null,
+      });
+
+      const { resetPassword } = await import("./auth-actions");
+
+      try {
+        await resetPassword(
+          formData({ email: "test@example.com", captchaToken: "valid-token" }),
+        );
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+        if (isRedirectError(err)) {
+          expect(err.url).toBe("/verify-email");
+        }
+      }
+
+      await Promise.resolve();
+      expect(mockSendEmail).not.toHaveBeenCalled();
+    });
+
+    it("does not send email when NEXT_PUBLIC_SUPABASE_URL is missing", async () => {
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+      const { resetPassword } = await import("./auth-actions");
+
+      try {
+        await resetPassword(
+          formData({ email: "test@example.com", captchaToken: "valid-token" }),
+        );
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+        if (isRedirectError(err)) {
+          expect(err.url).toBe("/verify-email");
+        }
+      }
+
+      await Promise.resolve();
+      expect(mockSendEmail).not.toHaveBeenCalled();
+    });
+
+    it("sends email when action_link is on the Supabase host and redirect_to on the app host", async () => {
       const { resetPassword } = await import("./auth-actions");
 
       try {
@@ -1390,7 +1474,7 @@ describe("auth-actions", () => {
       );
     });
 
-    it("APP_HOSTNAME takes precedence over NEXT_PUBLIC_APP_HOSTNAME for action_link validation", async () => {
+    it("APP_HOSTNAME takes precedence over NEXT_PUBLIC_APP_HOSTNAME for redirect_to validation", async () => {
       process.env.APP_HOSTNAME = "sandbox.scontrinozero.it";
       process.env.NEXT_PUBLIC_APP_HOSTNAME = "app.scontrinozero.it";
       mockFetch.mockResolvedValueOnce(
@@ -1400,7 +1484,7 @@ describe("auth-actions", () => {
         data: {
           properties: {
             action_link:
-              "https://sandbox.scontrinozero.it/auth/recovery?token=abc",
+              "https://test.supabase.co/auth/v1/verify?token=abc&redirect_to=https://sandbox.scontrinozero.it/callback",
           },
         },
         error: null,
@@ -1415,6 +1499,12 @@ describe("auth-actions", () => {
         // redirect expected
       }
 
+      // redirectTo is built from APP_HOSTNAME (sandbox), not NEXT_PUBLIC_APP_HOSTNAME
+      expect(mockGenerateLink).toHaveBeenCalledWith({
+        type: "recovery",
+        email: "test@example.com",
+        options: { redirectTo: "https://sandbox.scontrinozero.it/callback" },
+      });
       await Promise.resolve();
       expect(mockSendEmail).toHaveBeenCalledWith(
         expect.objectContaining({ to: "test@example.com" }),
@@ -1423,10 +1513,10 @@ describe("auth-actions", () => {
       delete process.env.APP_HOSTNAME;
     });
 
-    it("falls back to hardcoded default hostname for action_link validation when both env vars are unset", async () => {
+    it("falls back to hardcoded default hostname for redirect_to validation when both env vars are unset", async () => {
       delete process.env.APP_HOSTNAME;
       delete process.env.NEXT_PUBLIC_APP_HOSTNAME;
-      // mockGenerateLink already returns action_link with "app.scontrinozero.it" by default
+      // default mockGenerateLink returns redirect_to on "app.scontrinozero.it"
 
       const { resetPassword } = await import("./auth-actions");
       try {
