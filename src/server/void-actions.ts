@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod/v4";
 import { logger } from "@/lib/logger";
 import { getPlan, canEmit } from "@/lib/plans";
 import { RateLimiter } from "@/lib/rate-limit";
@@ -14,6 +15,16 @@ import type { VoidReceiptInput, VoidReceiptResult } from "@/types/storico";
 const voidLimiter = new RateLimiter({
   maxRequests: 10,
   windowMs: 60 * 60 * 1000,
+});
+
+// Runtime validation — businessId/documentId/idempotencyKey are UUID columns
+// in Postgres. Without this guard a tampered client could send a non-UUID and
+// trigger a Postgres "invalid input syntax for type uuid" 500 (log noise + a
+// light DoS surface) instead of a clean application error.
+const voidReceiptSchema = z.object({
+  businessId: z.string().uuid("Business ID non valido."),
+  documentId: z.string().uuid("Documento non valido."),
+  idempotencyKey: z.string().uuid("Chiave di idempotenza non valida."),
 });
 
 export async function voidReceipt(
@@ -34,6 +45,15 @@ export async function voidReceipt(
     return {
       error:
         "Il tuo periodo di prova è scaduto. Attiva un piano per continuare.",
+    };
+  }
+
+  // Validate UUIDs before any DB query so malformed input returns an
+  // application error, not a Postgres uuid-syntax 500.
+  const validation = voidReceiptSchema.safeParse(input);
+  if (!validation.success) {
+    return {
+      error: validation.error.issues[0]?.message ?? "Input non valido.",
     };
   }
 

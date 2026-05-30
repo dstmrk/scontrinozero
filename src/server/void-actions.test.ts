@@ -120,6 +120,12 @@ import type { VoidReceiptInput } from "@/types/storico";
 
 const FAKE_USER = { id: "user-123" };
 
+// Valid UUIDs — businessId/documentId/idempotencyKey are uuid columns and the
+// action now validates them as such before any DB query.
+const BIZ_ID = "11111111-1111-4111-8111-111111111111";
+const SALE_DOC_ID = "22222222-2222-4222-8222-222222222222";
+const OTHER_DOC_ID = "33333333-3333-4333-8333-333333333333";
+
 const FAKE_SALE_DOC = {
   id: "sale-doc-uuid",
   businessId: "biz-789",
@@ -184,9 +190,9 @@ const FAKE_PREREQUISITES = {
 };
 
 const VALID_VOID_INPUT: VoidReceiptInput = {
-  documentId: "sale-doc-uuid",
+  documentId: SALE_DOC_ID,
   idempotencyKey: "550e8400-e29b-41d4-a716-446655440001",
-  businessId: "biz-789",
+  businessId: BIZ_ID,
 };
 
 // ---------------------------------------------------------------------------
@@ -302,6 +308,30 @@ describe("void-actions", () => {
       expect(mockLogin).not.toHaveBeenCalled();
     });
 
+    it("returns error when documentId is not a valid UUID (no ownership/DB query)", async () => {
+      const { voidReceipt } = await import("./void-actions");
+      const result = await voidReceipt({
+        ...VALID_VOID_INPUT,
+        documentId: "not-a-uuid",
+      });
+
+      expect(result.error).toMatch(/Documento non valido/i);
+      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockSelect).not.toHaveBeenCalled();
+      expect(mockLogin).not.toHaveBeenCalled();
+    });
+
+    it("returns error when businessId is not a valid UUID", async () => {
+      const { voidReceipt } = await import("./void-actions");
+      const result = await voidReceipt({
+        ...VALID_VOID_INPUT,
+        businessId: "biz-789",
+      });
+
+      expect(result.error).toMatch(/Business ID non valido/i);
+      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+    });
+
     it("returns error when SALE document is not found (also covers IDOR: wrong businessId)", async () => {
       mockSelect.mockReset();
       mockSelect.mockReturnValueOnce(makeSelectBuilder([])); // saleDoc not found
@@ -321,7 +351,7 @@ describe("void-actions", () => {
       const { voidReceipt } = await import("./void-actions");
       const result = await voidReceipt({
         ...VALID_VOID_INPUT,
-        documentId: "other-business-doc-uuid",
+        documentId: OTHER_DOC_ID,
       });
 
       expect(result.error).toMatch(/non trovato/i);

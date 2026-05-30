@@ -33,7 +33,7 @@ const lineSchema = z.object({
 
 const submitReceiptSchema = z
   .object({
-    businessId: z.string().min(1, "Business ID obbligatorio."),
+    businessId: z.string().uuid("Business ID non valido."),
     lines: z.array(lineSchema).min(1).max(100),
     paymentMethod: z.enum(["PC", "PE"]),
     idempotencyKey: z.string().uuid(),
