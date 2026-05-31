@@ -14,9 +14,25 @@ vi.mock("@/db", () => ({
 }));
 
 vi.mock("@/db/schema", () => ({
-  commercialDocuments: "commercial-documents-table",
-  commercialDocumentLines: "commercial-document-lines-table",
-  businesses: "businesses-table",
+  commercialDocuments: {
+    id: "cd.id",
+    kind: "cd.kind",
+    status: "cd.status",
+    businessId: "cd.businessId",
+  },
+  commercialDocumentLines: {
+    documentId: "cdl.documentId",
+    lineIndex: "cdl.lineIndex",
+  },
+  businesses: { id: "biz.id" },
+}));
+
+// Mock di `and`/`eq` per ispezionare la condizione WHERE: il filtro
+// kind='SALE' AND status='ACCEPTED' deve vivere nel WHERE, non in un
+// filtro JS post-read.
+vi.mock("drizzle-orm", () => ({
+  eq: vi.fn((col, val) => ({ __op: "eq", col, val })),
+  and: vi.fn((...conds) => ({ __op: "and", conds })),
 }));
 
 // ---------------------------------------------------------------------------
@@ -41,6 +57,7 @@ function makeSelectBuilder(result: unknown[]) {
 // Fixtures
 // ---------------------------------------------------------------------------
 
+import { and, eq } from "drizzle-orm";
 import { fetchPublicReceipt } from "./fetch-public-receipt";
 
 const VALID_UUID = "550e8400-e29b-41d4-a716-446655440000";
@@ -116,40 +133,37 @@ describe("fetchPublicReceipt", () => {
     expect(result).toBeNull();
   });
 
-  it("ritorna null se kind ≠ SALE", async () => {
+  it("ritorna null se la query filtrata non trova un SALE ACCEPTED", async () => {
+    // Il filtro kind/status vive nel WHERE: un documento non-SALE o
+    // non-ACCEPTED non viene restituito dal DB → zero righe.
     mockSelect.mockReset();
-    mockSelect.mockReturnValueOnce(
-      makeSelectBuilder([
-        { doc: { ...MOCK_DOC, kind: "VOID" }, biz: MOCK_BIZ },
-      ]),
-    );
+    mockSelect.mockReturnValueOnce(makeSelectBuilder([]));
 
     const result = await fetchPublicReceipt(VALID_UUID);
     expect(result).toBeNull();
   });
 
-  it("ritorna null se status ≠ ACCEPTED", async () => {
+  it("applica il filtro kind='SALE' AND status='ACCEPTED' nel WHERE", async () => {
     mockSelect.mockReset();
-    mockSelect.mockReturnValueOnce(
-      makeSelectBuilder([
-        { doc: { ...MOCK_DOC, status: "PENDING" }, biz: MOCK_BIZ },
-      ]),
-    );
+    const docBuilder = makeSelectBuilder([{ doc: MOCK_DOC, biz: MOCK_BIZ }]);
+    mockSelect
+      .mockReturnValueOnce(docBuilder)
+      .mockReturnValueOnce(makeSelectBuilder(MOCK_LINES));
 
-    const result = await fetchPublicReceipt(VALID_UUID);
-    expect(result).toBeNull();
-  });
+    await fetchPublicReceipt(VALID_UUID);
 
-  it("ritorna null se status = REJECTED", async () => {
-    mockSelect.mockReset();
-    mockSelect.mockReturnValueOnce(
-      makeSelectBuilder([
-        { doc: { ...MOCK_DOC, status: "REJECTED" }, biz: MOCK_BIZ },
-      ]),
-    );
-
-    const result = await fetchPublicReceipt(VALID_UUID);
-    expect(result).toBeNull();
+    // Il WHERE della query documento è un AND di id + kind + status.
+    expect(docBuilder.where).toHaveBeenCalledWith({
+      __op: "and",
+      conds: [
+        { __op: "eq", col: "cd.id", val: VALID_UUID },
+        { __op: "eq", col: "cd.kind", val: "SALE" },
+        { __op: "eq", col: "cd.status", val: "ACCEPTED" },
+      ],
+    });
+    expect(eq).toHaveBeenCalledWith("cd.kind", "SALE");
+    expect(eq).toHaveBeenCalledWith("cd.status", "ACCEPTED");
+    expect(and).toHaveBeenCalled();
   });
 
   it("happy path: ritorna doc, biz e lines per un SALE ACCEPTED", async () => {
@@ -175,18 +189,16 @@ describe("fetchPublicReceipt", () => {
         makeSelectBuilder([{ doc: MOCK_DOC, biz: MOCK_BIZ }]),
       )
       .mockReturnValueOnce(makeSelectBuilder(MOCK_LINES))
-      .mockReturnValueOnce(
-        makeSelectBuilder([
-          { doc: { ...MOCK_DOC, status: "REJECTED" }, biz: MOCK_BIZ },
-        ]),
-      );
+      // Seconda chiamata: il documento ora è REJECTED, quindi il filtro nel
+      // WHERE lo esclude → la query restituisce zero righe (fresh read).
+      .mockReturnValueOnce(makeSelectBuilder([]));
 
     const first = await fetchPublicReceipt(VALID_UUID);
     const second = await fetchPublicReceipt(VALID_UUID);
 
     // Prima chiamata: documento ACCEPTED → ritorna dati
     expect(first).not.toBeNull();
-    // Seconda chiamata: documento REJECTED → ritorna null (fresh read)
+    // Seconda chiamata: documento non più ACCEPTED → null (fresh read)
     expect(second).toBeNull();
   });
 });

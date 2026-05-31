@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   commercialDocuments,
@@ -36,14 +36,18 @@ export async function fetchPublicReceipt(
     .select({ doc: commercialDocuments, biz: businesses })
     .from(commercialDocuments)
     .innerJoin(businesses, eq(commercialDocuments.businessId, businesses.id))
-    .where(eq(commercialDocuments.id, documentId))
+    .where(
+      and(
+        eq(commercialDocuments.id, documentId),
+        eq(commercialDocuments.kind, "SALE"),
+        eq(commercialDocuments.status, "ACCEPTED"),
+      ),
+    )
     .limit(1);
 
   if (rows.length === 0) return null;
 
   const { doc, biz } = rows[0];
-
-  if (doc.kind !== "SALE" || doc.status !== "ACCEPTED") return null;
 
   const lines = await db
     .select()
