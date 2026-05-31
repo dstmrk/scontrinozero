@@ -1,7 +1,11 @@
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { Download } from "lucide-react";
 import type { Metadata } from "next";
 import { fetchPublicReceipt } from "@/lib/receipts/fetch-public-receipt";
+import { getClientIp } from "@/lib/get-client-ip";
+import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
+import { ERROR_MESSAGES } from "@/lib/error-messages";
 import { computeReceiptTotals } from "@/lib/receipts/document-lines";
 import { formatFiscalDateTime } from "@/lib/date-utils";
 import { PAYMENT_LABELS, formatReceiptPrice } from "@/lib/receipt-format";
@@ -19,6 +23,14 @@ export const metadata: Metadata = {
   title: "Documento Commerciale | ScontrinoZero",
   robots: { index: false, follow: false },
 };
+
+// Rate limit: 60 richieste/ora per IP — parità con la sibling route /pdf.
+// Bucket separato (chiave `receipt-page:`) così che le viste della pagina e i
+// download PDF abbiano budget indipendenti.
+const pageLimiter = new RateLimiter({
+  maxRequests: 60,
+  windowMs: RATE_LIMIT_WINDOWS.HOURLY,
+});
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -38,6 +50,22 @@ export default async function PublicReceiptPage({
   readonly params: Promise<{ documentId: string }>;
 }) {
   const { documentId } = await params;
+
+  // Rate-limit per-IP PRIMA della query DB non autenticata (fetchPublicReceipt).
+  // headers() è async in Next 16. Un RSC non può restituire un 429 reale come una
+  // Route Handler, ma la pagina è robots:noindex: rendiamo un blocco "troppe
+  // richieste" (HTTP 200) saltando la query — l'obiettivo anti-abuso è raggiunto.
+  const ip = getClientIp(await headers());
+  if (!pageLimiter.check(`receipt-page:${ip}`).success) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-100 px-4">
+        <p className="text-center text-sm text-gray-600">
+          {ERROR_MESSAGES.RATE_LIMIT_PUBLIC_MINUTES}
+        </p>
+      </div>
+    );
+  }
+
   const data = await fetchPublicReceipt(documentId);
 
   if (!data) notFound();
