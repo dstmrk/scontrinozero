@@ -51,6 +51,13 @@ const captchaPreLimiter = new RateLimiter({
 export type AuthActionResult = {
   error?: string;
   email?: string;
+  /**
+   * true quando il login fallisce perché l'email non è ancora confermata.
+   * La login page usa questo flag per mostrare il bottone "reinvia conferma"
+   * invece del generico "credenziali errate". Supabase ritorna questo stato
+   * SOLO con password corretta, quindi non è un leak di enumeration.
+   */
+  needsEmailConfirmation?: boolean;
 };
 
 async function getClientIpFromNextHeaders(): Promise<string> {
@@ -97,7 +104,11 @@ function checkCaptchaPreLimit(
   return null;
 }
 
-type CaptchaAction = "signup" | "signin" | "reset-password";
+type CaptchaAction =
+  | "signup"
+  | "signin"
+  | "reset-password"
+  | "resend-confirmation";
 
 /**
  * Hostname accettati nella response Turnstile siteverify.
@@ -415,14 +426,26 @@ export async function signIn(formData: FormData): Promise<AuthActionResult> {
     // Structured failure log: classify the Supabase error so dashboards can
     // separate "user typed wrong password" from "auth provider down" without
     // reading raw messages, and correlate floods via ipHash without leaking PII.
+    const errorClass = classifySupabaseAuthError(error);
     logger.warn(
       {
         action: "signIn",
         ipHash: hashIp(ip),
-        errorClass: classifySupabaseAuthError(error),
+        errorClass,
       },
       "signIn failed",
     );
+    // Email non confermata: messaggio dedicato + flag, così la login page può
+    // offrire il re-invio della conferma. Supabase ritorna questo stato solo
+    // con password corretta → nessun leak di enumeration.
+    if (errorClass === "email_not_confirmed") {
+      return {
+        error:
+          "Conferma prima la tua email per accedere. Controlla la posta (anche lo spam).",
+        email,
+        needsEmailConfirmation: true,
+      };
+    }
     return { error: "Email o password non corretti.", email };
   }
 
@@ -454,6 +477,65 @@ export async function signOut(): Promise<void> {
   const supabase = await createServerSupabaseClient();
   await supabase.auth.signOut();
   redirect("/login");
+}
+
+/**
+ * Re-invia l'email di conferma registrazione (Supabase `resend` type=signup).
+ *
+ * Stessi presidi anti-abuso degli altri endpoint auth pubblici: normalizzazione
+ * email, pre-captcha gate, Turnstile, rate-limit per-IP — l'invio parte da
+ * Resend e senza guardie un attacker potrebbe esaurire la quota free-tier e
+ * degradare la deliverability del dominio.
+ *
+ * Anti-enumeration: reindirizza SEMPRE a `/verify-email` (come signUp /
+ * resetPassword), senza distinguere email inesistente / già confermata.
+ */
+export async function resendConfirmationEmail(
+  formData: FormData,
+): Promise<AuthActionResult> {
+  const email = normalizeEmail(getFormString(formData, "email"));
+
+  if (!email || !isValidEmail(email)) {
+    return { error: "Email non valida." };
+  }
+
+  const captchaToken = getFormString(formData, "captchaToken");
+  const ip = await getClientIpFromNextHeaders();
+  const captchaPreLimited = checkCaptchaPreLimit(ip, "resend-confirmation");
+  if (captchaPreLimited) return captchaPreLimited;
+
+  const captchaOk = await verifyCaptcha(
+    captchaToken,
+    ip,
+    "resend-confirmation",
+  );
+  if (!captchaOk) return { error: "Verifica CAPTCHA fallita. Riprova." };
+
+  const rateLimited = checkRateLimit(ip, "resendConfirmation");
+  if (rateLimited) return rateLimited;
+
+  const hostname =
+    process.env.APP_HOSTNAME ??
+    process.env.NEXT_PUBLIC_APP_HOSTNAME ??
+    "app.scontrinozero.it";
+
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email,
+    options: { emailRedirectTo: `https://${hostname}/dashboard` },
+  });
+
+  if (error) {
+    // Non rivelare lo stato (inesistente / già confermata): logghiamo per
+    // diagnosi e reindirizziamo come nel flusso normale.
+    logger.warn(
+      { errorClass: classifySupabaseAuthError(error) },
+      "resendConfirmationEmail: supabase.auth.resend failed",
+    );
+  }
+
+  redirect("/verify-email");
 }
 
 export async function resetPassword(
