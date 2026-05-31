@@ -363,8 +363,9 @@ describe("emitReceiptForBusiness", () => {
         status: "PENDING",
         adeTransactionId: null,
         adeProgressive: null,
-        // createdAt fresh: 10 secondi fa
+        // fresh: aggiornato 10 secondi fa (staleness gated su updatedAt)
         createdAt: new Date(Date.now() - 10_000),
+        updatedAt: new Date(Date.now() - 10_000),
       },
     ]);
 
@@ -374,6 +375,34 @@ describe("emitReceiptForBusiness", () => {
     expect(result.code).toBe("PENDING_IN_PROGRESS");
     expect(result.error).toBeDefined();
     expect(mockLogin).not.toHaveBeenCalled();
+  });
+
+  it("P1.3 follow-up: retry sfalsato durante un claim in volo (updatedAt appena bumpato) ritorna PENDING_IN_PROGRESS senza ri-sottomettere", async () => {
+    mockDocumentReturning.mockResolvedValue([]);
+    // createdAt vecchio (>30 min) MA updatedAt appena bumpato: un claim
+    // concorrente (retry A) ha già rivendicato la riga ed è in volo su submitSale.
+    // Gateando la staleness su updatedAt, il retry B vede la riga come "recente"
+    // e ritorna in-progress senza vincere un secondo claim → niente doppio
+    // documento fiscale su AdE. Con la vecchia logica (createdAt) entrava in
+    // recovery e poteva ri-sottomettere.
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-123",
+        status: "PENDING",
+        adeTransactionId: null,
+        adeProgressive: null,
+        createdAt: new Date(Date.now() - 35 * 60 * 1000),
+        updatedAt: new Date(Date.now() - 2_000),
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("PENDING_IN_PROGRESS");
+    // CRITICO: nessun secondo claim, nessun doppio submitSale ad AdE.
+    expect(mockLogin).not.toHaveBeenCalled();
+    expect(mockSubmitSale).not.toHaveBeenCalled();
   });
 
   it("idempotency: PENDING stale entra in recovery path", async () => {
@@ -456,6 +485,7 @@ describe("emitReceiptForBusiness", () => {
         adeTransactionId: null,
         adeProgressive: null,
         createdAt: new Date(Date.now() - 10 * 60 * 1000),
+        updatedAt: new Date(Date.now() - 10 * 60 * 1000),
       },
     ]);
 
@@ -485,8 +515,11 @@ describe("emitReceiptForBusiness", () => {
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
-  it("idempotency: PENDING senza createdAt è trattato come fresh (fail-safe)", async () => {
+  it("idempotency: PENDING senza updatedAt è trattato come fresh (fail-safe)", async () => {
     mockDocumentReturning.mockResolvedValue([]);
+    // updatedAt mancante/null → staleness non determinabile → fail-safe a
+    // "fresh" (in-progress), mai recovery: non rischiamo un doppio submit su una
+    // riga il cui stato temporale è ignoto.
     mockLimit.mockResolvedValueOnce([
       {
         id: "doc-bad",
@@ -494,6 +527,7 @@ describe("emitReceiptForBusiness", () => {
         adeTransactionId: null,
         adeProgressive: null,
         createdAt: null,
+        updatedAt: null,
       },
     ]);
 
@@ -723,6 +757,7 @@ describe("emitReceiptForBusiness", () => {
         adeTransactionId: "prev-tx-id",
         adeProgressive: "prev-prog",
         createdAt: new Date(Date.now() - 35 * 60 * 1000),
+        updatedAt: new Date(Date.now() - 35 * 60 * 1000),
       },
     ]);
 
@@ -767,6 +802,7 @@ describe("emitReceiptForBusiness", () => {
         adeTransactionId: "tx-prev",
         adeProgressive: "prog-prev",
         createdAt: new Date(Date.now() - 35 * 60 * 1000),
+        updatedAt: new Date(Date.now() - 35 * 60 * 1000),
       },
     ]);
     // Tutte le UPDATE post-conflict falliscono in timeout (4 tentativi)

@@ -290,12 +290,23 @@ async function handleExistingReceipt(args: {
   }
 
   // PENDING or ERROR: stale recovery decision.
+  //
+  // Staleness is gated on updatedAt, NOT the immutable createdAt: claimStaleDocument
+  // bumps updated_at when a retry wins the claim, so a receipt whose recovery is
+  // already in flight (submitSale in progress, status still PENDING) looks
+  // "recent" and an overlapping retry gets PENDING_IN_PROGRESS instead of winning
+  // a second claim against the bumped snapshot — which would re-submit and create
+  // a duplicate fiscal document on AdE (irreversible). createdAt is kept only for
+  // age logging in recoverStaleReceipt.
   const createdAtMs = existing.createdAt
     ? new Date(existing.createdAt).getTime()
     : Number.NaN;
+  const updatedAtMs = existing.updatedAt
+    ? new Date(existing.updatedAt).getTime()
+    : Number.NaN;
   const isStale =
-    Number.isFinite(createdAtMs) &&
-    Date.now() - createdAtMs > getStalePendingThresholdMs();
+    Number.isFinite(updatedAtMs) &&
+    Date.now() - updatedAtMs > getStalePendingThresholdMs();
   if (isStale) {
     return recoverStaleReceipt({
       existing,

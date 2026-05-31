@@ -341,6 +341,9 @@ describe("voidReceiptForBusiness", () => {
           status: "PENDING",
           adeTransactionId: null,
           adeProgressive: null,
+          // fresh: aggiornato ora (staleness gated su updatedAt)
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       ]);
 
@@ -349,6 +352,34 @@ describe("voidReceiptForBusiness", () => {
 
     expect(result.error).toBeDefined();
     expect(mockLogin).not.toHaveBeenCalled();
+  });
+
+  it("P1.3 follow-up: void retry sfalsato durante un claim in volo (updatedAt appena bumpato) ritorna VOID_PENDING_IN_PROGRESS senza ri-sottomettere", async () => {
+    mockReturning.mockResolvedValue([]); // INSERT conflict
+    // createdAt vecchio (>30 min) MA updatedAt appena bumpato: un claim
+    // concorrente (retry A) ha già rivendicato la riga ed è in volo su submitVoid.
+    // Gateando la staleness su updatedAt il retry B vede la riga "recente" e
+    // ritorna in-progress senza vincere un secondo claim → niente doppio VOID.
+    mockSelectLimit
+      .mockResolvedValueOnce([FAKE_SALE_DOC])
+      .mockResolvedValueOnce([
+        {
+          id: "void-doc-uuid",
+          status: "PENDING",
+          adeTransactionId: null,
+          adeProgressive: null,
+          createdAt: new Date(Date.now() - 35 * 60 * 1000),
+          updatedAt: new Date(Date.now() - 2_000),
+        },
+      ]);
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect((result as { code?: string }).code).toBe("VOID_PENDING_IN_PROGRESS");
+    // CRITICO: nessun secondo claim, nessun doppio submitVoid ad AdE.
+    expect(mockLogin).not.toHaveBeenCalled();
+    expect(mockSubmitVoid).not.toHaveBeenCalled();
   });
 
   it("P1.3: void recovery stale vince il claim e riesegue submitVoid", async () => {
