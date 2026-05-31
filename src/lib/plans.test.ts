@@ -357,6 +357,53 @@ describe("getPlan", () => {
     });
   });
 
+  it("returns pro plan info", async () => {
+    const planExpiresAt = new Date("2027-01-31T00:00:00Z");
+    mockLimit.mockResolvedValue([
+      { plan: "pro", trialStartedAt: null, planExpiresAt },
+    ]);
+
+    const result = await getPlan("user-pro");
+
+    expect(result).toEqual({
+      plan: "pro",
+      trialStartedAt: null,
+      planExpiresAt,
+    });
+  });
+
+  it("returns unlimited plan info", async () => {
+    mockLimit.mockResolvedValue([
+      { plan: "unlimited", trialStartedAt: null, planExpiresAt: null },
+    ]);
+
+    const result = await getPlan("user-unlimited");
+
+    expect(result).toEqual({
+      plan: "unlimited",
+      trialStartedAt: null,
+      planExpiresAt: null,
+    });
+  });
+
+  it.each([
+    "developer_indie",
+    "developer_business",
+    "developer_scale",
+  ] as const)("returns %s plan info", async (plan) => {
+    mockLimit.mockResolvedValue([
+      { plan, trialStartedAt: null, planExpiresAt: null },
+    ]);
+
+    const result = await getPlan(`user-${plan}`);
+
+    expect(result).toEqual({
+      plan,
+      trialStartedAt: null,
+      planExpiresAt: null,
+    });
+  });
+
   it("throws ProfileNotFoundError when profile is not found", async () => {
     mockLimit.mockResolvedValue([]);
 

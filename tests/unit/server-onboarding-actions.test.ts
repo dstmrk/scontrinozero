@@ -425,3 +425,92 @@ describe("saveBusiness re-entry on already-onboarded profile", () => {
     });
   });
 });
+
+describe("saveBusiness preferredVatCode persistence", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: USER_ID,
+      email: "user@example.com",
+    });
+
+    mockGetDb.mockReturnValue({
+      select: mockSelect,
+      transaction: mockTransaction,
+    });
+
+    // `.for("update")` è il lock select P1.2 sul profilo; `.limit()` per le SELECT dati.
+    mockSelectWhere.mockReturnValue({
+      limit: mockSelectLimit,
+      for: vi.fn().mockResolvedValue([]),
+    });
+    mockSelectFrom.mockReturnValue({ where: mockSelectWhere });
+    mockSelect.mockReturnValue({ from: mockSelectFrom });
+
+    mockUpdateWhere.mockResolvedValue(undefined);
+    mockUpdateSet.mockReturnValue({ where: mockUpdateWhere });
+    mockUpdate.mockReturnValue({ set: mockUpdateSet });
+  });
+
+  function makeFd(preferredVatCode?: string): FormData {
+    const fd = new FormData();
+    fd.append("firstName", "Mario");
+    fd.append("lastName", "Rossi");
+    fd.append("address", "Via Roma");
+    fd.append("zipCode", "00100");
+    if (preferredVatCode !== undefined) {
+      fd.append("preferredVatCode", preferredVatCode);
+    }
+    return fd;
+  }
+
+  it("persiste un preferredVatCode valido nell'INSERT di un nuovo business", async () => {
+    const mockInsertValues = vi.fn().mockReturnValue({
+      returning: vi.fn().mockResolvedValue([{ id: BIZ_ID }]),
+    });
+    const mockInsert = vi.fn().mockReturnValue({ values: mockInsertValues });
+
+    // Profilo trovato, nessun business esistente → ramo INSERT.
+    mockSelectLimit
+      .mockResolvedValueOnce([{ id: "profile-1" }])
+      .mockResolvedValueOnce([]);
+
+    mockTransaction.mockImplementationOnce(
+      async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({ update: mockUpdate, select: mockSelect, insert: mockInsert }),
+    );
+
+    const { saveBusiness } = await import("@/server/onboarding-actions");
+    const result = await saveBusiness(makeFd("10"));
+
+    expect(result.businessId).toBe(BIZ_ID);
+    expect(mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ preferredVatCode: "10" }),
+    );
+  });
+
+  it("omette preferredVatCode dall'UPDATE quando il campo è assente dal form", async () => {
+    // Business esistente (con fiscalCode → salta l'update del nome profilo).
+    mockSelectLimit
+      .mockResolvedValueOnce([{ id: "profile-1" }])
+      .mockResolvedValueOnce([{ id: BIZ_ID, fiscalCode: "ABCDEF12G34H567I" }]);
+
+    mockTransaction.mockImplementationOnce(
+      async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({ update: mockUpdate, select: mockSelect, insert: vi.fn() }),
+    );
+
+    const { saveBusiness } = await import("@/server/onboarding-actions");
+    await saveBusiness(makeFd());
+
+    // L'UPDATE su businesses non deve includere la chiave preferredVatCode,
+    // così il valore esistente resta intatto invece di essere azzerato.
+    const setCalls = mockUpdateSet.mock.calls.map((c) => c[0]);
+    const bizUpdate = setCalls.find(
+      (payload: Record<string, unknown>) => "businessName" in payload,
+    );
+    expect(bizUpdate).toBeDefined();
+    expect(bizUpdate).not.toHaveProperty("preferredVatCode");
+  });
+});

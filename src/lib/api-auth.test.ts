@@ -331,9 +331,9 @@ describe("authenticateApiKey", () => {
 
     // Should still return success despite the failed fire-and-forget update
     expect("status" in result).toBe(false);
-    // Allow the fire-and-forget catch to settle
-    await Promise.resolve();
-    expect(mockLoggerWarn).toHaveBeenCalled();
+    // Wait for the fire-and-forget catch to settle without depending on the
+    // exact microtask timing of the untracked promise.
+    await vi.waitFor(() => expect(mockLoggerWarn).toHaveBeenCalled());
   });
 
   it("avvia l'aggiornamento di last_used_at (fire-and-forget)", async () => {
