@@ -21,7 +21,7 @@ vi.mock("next/headers", () => ({
 }));
 
 vi.mock("next/navigation", () => ({
-  notFound: (...args: unknown[]) => mockNotFound(...args),
+  notFound: () => mockNotFound(),
 }));
 
 // Note: get-client-ip and rate-limit use real implementations.
