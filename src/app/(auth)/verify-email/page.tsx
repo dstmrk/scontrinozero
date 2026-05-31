@@ -18,6 +18,17 @@ export default function VerifyEmailPage() {
         <p className="text-muted-foreground text-xs">
           Non trovi l&apos;email? Controlla la cartella spam.
         </p>
+        <p className="text-muted-foreground text-xs">
+          Hai già un account?{" "}
+          <Link href="/login" className="text-primary underline">
+            Accedi
+          </Link>{" "}
+          o{" "}
+          <Link href="/reset-password" className="text-primary underline">
+            reimposta la password
+          </Link>
+          .
+        </p>
         <Button variant="outline" asChild className="mt-4">
           <Link href="/login">Torna al login</Link>
         </Button>

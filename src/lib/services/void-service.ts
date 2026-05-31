@@ -118,12 +118,23 @@ async function resolveVoidConflict(
 
     // PENDING or ERROR: void was started but never completed.
     // If the row is "stale", enter recovery instead of blocking the client.
+    //
+    // Staleness is gated on updatedAt, NOT the immutable createdAt: claimStaleDocument
+    // bumps updated_at when a retry wins the claim, so a void whose recovery is
+    // already in flight (submitVoid in progress, status still PENDING) looks
+    // "recent" and an overlapping retry gets VOID_PENDING_IN_PROGRESS instead of
+    // winning a second claim against the bumped snapshot — which would re-submit
+    // and create a duplicate VOID on AdE (irreversible). createdAt is kept only
+    // for age logging.
     const createdAtMs = existingByKey.createdAt
       ? new Date(existingByKey.createdAt).getTime()
       : Number.NaN;
+    const updatedAtMs = existingByKey.updatedAt
+      ? new Date(existingByKey.updatedAt).getTime()
+      : Number.NaN;
     const isStale =
-      Number.isFinite(createdAtMs) &&
-      Date.now() - createdAtMs > getStalePendingThresholdMs();
+      Number.isFinite(updatedAtMs) &&
+      Date.now() - updatedAtMs > getStalePendingThresholdMs();
 
     if (isStale) {
       logger.warn(

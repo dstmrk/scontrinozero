@@ -16,12 +16,14 @@ vi.mock("@/lib/rate-limit", () => ({
 const mockSignUp = vi.fn();
 const mockSignInWithPassword = vi.fn();
 const mockSignOut = vi.fn();
+const mockResend = vi.fn();
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabaseClient: vi.fn().mockResolvedValue({
     auth: {
       signUp: mockSignUp,
       signInWithPassword: mockSignInWithPassword,
       signOut: mockSignOut,
+      resend: mockResend,
     },
   }),
 }));
@@ -1172,6 +1174,104 @@ describe("auth-actions", () => {
         error: "Email o password non corretti.",
         email: "test@example.com",
       });
+    });
+
+    it("returns needsEmailConfirmation when the email is not confirmed", async () => {
+      // Supabase ritorna questo stato solo con password corretta → niente leak.
+      mockSignInWithPassword.mockResolvedValue({
+        error: { message: "Email not confirmed", status: 400 },
+      });
+
+      const { signIn } = await import("./auth-actions");
+      const result = await signIn(
+        formData({
+          email: "test@example.com",
+          password: "securepass123",
+          captchaToken: "valid-token",
+        }),
+      );
+
+      expect(result.needsEmailConfirmation).toBe(true);
+      expect(result.email).toBe("test@example.com");
+      expect(result.error).toMatch(/conferma/i);
+    });
+  });
+
+  describe("resendConfirmationEmail", () => {
+    beforeEach(() => {
+      // resendConfirmationEmail expects action="resend-confirmation"
+      mockFetch.mockResolvedValue(captchaResponse("resend-confirmation"));
+    });
+
+    it("returns error for invalid email", async () => {
+      const { resendConfirmationEmail } = await import("./auth-actions");
+      const result = await resendConfirmationEmail(formData({ email: "bad" }));
+      expect(result).toEqual({ error: "Email non valida." });
+      expect(mockResend).not.toHaveBeenCalled();
+    });
+
+    it("returns captcha error when token is missing", async () => {
+      const { resendConfirmationEmail } = await import("./auth-actions");
+      const result = await resendConfirmationEmail(
+        formData({ email: "test@example.com" }),
+      );
+      expect(result).toEqual({ error: "Verifica CAPTCHA fallita. Riprova." });
+      expect(mockResend).not.toHaveBeenCalled();
+    });
+
+    it("blocks the request when rate-limited, without calling resend", async () => {
+      // Pre-captcha gate passa, il rate-limit funzionale (authLimiter) nega.
+      mockRateLimiterCheck
+        .mockReturnValueOnce({ success: true, remaining: 4 })
+        .mockReturnValueOnce({ success: false, remaining: 0 });
+
+      const { resendConfirmationEmail } = await import("./auth-actions");
+      const result = await resendConfirmationEmail(
+        formData({ email: "test@example.com", captchaToken: "valid-token" }),
+      );
+
+      expect(result.error).toBeDefined();
+      expect(mockResend).not.toHaveBeenCalled();
+    });
+
+    it("calls resend(type=signup) and redirects to /verify-email on success", async () => {
+      mockResend.mockResolvedValue({ error: null });
+
+      const { resendConfirmationEmail } = await import("./auth-actions");
+      try {
+        await resendConfirmationEmail(
+          formData({ email: "test@example.com", captchaToken: "valid-token" }),
+        );
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+        if (isRedirectError(err)) {
+          expect(err.url).toBe("/verify-email");
+        }
+      }
+
+      expect(mockResend).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "signup", email: "test@example.com" }),
+      );
+    });
+
+    it("redirects to /verify-email even when resend fails (anti-enumeration)", async () => {
+      mockResend.mockResolvedValue({
+        error: { message: "User not found", status: 400 },
+      });
+
+      const { resendConfirmationEmail } = await import("./auth-actions");
+      try {
+        await resendConfirmationEmail(
+          formData({ email: "ghost@example.com", captchaToken: "valid-token" }),
+        );
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+        if (isRedirectError(err)) {
+          expect(err.url).toBe("/verify-email");
+        }
+      }
     });
   });
 
