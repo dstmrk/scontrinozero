@@ -135,16 +135,19 @@ hidden field → `formData`), parallelo ma separato:
    ```
    - 0 righe → codice inesistente o già usato → vedi gestione sotto.
    - 1 riga → set `profiles.plan = 'unlimited'`, `profiles.referred_by = $code`,
-     `planExpiresAt` = +1 anno (o `null`, da confermare in "Decisioni").
+     `planExpiresAt = signup + 1 anno` (**anchor informativo**, non
+     auto-enforced: con `unlimited` né `canEmit` né `isTrialExpired` leggono
+     `planExpiresAt`; serve solo come data di rinnovo e per lo script di
+     sospensione — vedi Decisioni).
    - Usare `db.transaction()` con callback passthrough nei test (skill
      `testing-patterns`). Il claim DEVE essere atomico col profile insert per
      non lasciare codici consumati senza profilo (orfani).
-4. **Gestione codice invalido/già usato — DECISIONE DA CONFERMARE:**
-   (a) rifiutare la registrazione con errore esplicito ("Codice non valido o
-   già utilizzato"), oppure (b) fallback silenzioso a registrazione normale
-   (trial standard, `referred_by = NULL`). Default proposto: **(a)** se il
-   campo `code` è presente nel form (l'utente è arrivato da un link partner e
-   un codice rotto va segnalato, non degradato silenziosamente).
+4. **Gestione codice invalido/già usato — DECISO (a):** se il campo `code` è
+   presente nel form, rifiutare la registrazione con **errore esplicito**
+   ("Codice non valido o già utilizzato"). Niente fallback silenzioso a
+   registrazione normale: l'utente è arrivato da un link partner e un codice
+   rotto va segnalato, non degradato (e non vogliamo creargli per errore un
+   account trial standard).
 
 ### Reporting & fatturazione (script admin)
 
@@ -198,16 +201,21 @@ hidden field → `formData`), parallelo ma separato:
   (prezzo, prepagato, insoluti→sospensione nuovi, assistenza L1 a carico
   partner) è **contrattuale, fuori dal codice**.
 
-### Decisioni da confermare prima di implementare
+### Decisioni (confermate)
 
-1. **Valore del piano**: riuso `unlimited` (raccomandato, minimo lavoro) vs
-   nuovo `partner`.
-2. **`planExpiresAt`** sugli utenti partner: `+1 anno` (consente la logica di
-   rinnovo/sospensione) vs `null` (illimitato finché non sospeso manualmente).
-3. **Codice invalido in fase di signup**: errore esplicito (proposto) vs
-   fallback a trial normale.
-4. **Unità di fatturazione** confermata "per utente attivo a fine primo mese,
-   prepagato annuale" (allineata all'accordo commerciale col partner).
+1. **Valore del piano: `unlimited`** (riuso del gating esistente) +
+   `referred_by` per l'attribuzione. ✅
+2. **`planExpiresAt` = `signup + 1 anno`, come anchor informativo
+   non-enforced.** ✅ Con `unlimited` la scadenza non gatea (nessun taglio a
+   sorpresa); serve solo come data di rinnovo e per rendere autoconsistente lo
+   script di sospensione. La sospensione reale resta il **downgrade manuale**
+   (read-only via `plan='trial'` + `trialStartedAt` passato). Check minore:
+   verificare che la UI billing/settings non mostri una "scadenza" fuorviante
+   a un utente `unlimited` (gli invite-only hanno verosimilmente `null`).
+3. **Codice invalido al signup: errore esplicito, nessun fallback a trial.** ✅
+4. **Unità di fatturazione: per utente attivo a fine primo mese, prepagato
+   annuale.** ✅ (Allineata all'accordo commerciale col partner — proposta
+   nostra a NDS.)
 
 ### Suddivisione in sub-task (task > 3 file, regola 5)
 
