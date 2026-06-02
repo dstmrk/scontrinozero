@@ -50,12 +50,18 @@ jobs:
           cache-to: type=gha,mode=max,scope=dev-arm64
           build-args: |
             NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
-          # NEXT_PUBLIC_TURNSTILE_SITE_KEY è l'unica NEXT_PUBLIC_* letta in un
-          # client component (turnstile-widget.tsx) → inlinata nel bundle al
-          # build, quindi va passata. Dev riusa la stessa key di prod (il
-          # dominio dev è nell'allowlist Turnstile).
-          # Le altre NEXT_PUBLIC_* (Supabase, hostname, APP_URL) sono lette
-          # server-side a runtime in modalità standalone → bastano nel .env del Pi.
+            NEXT_PUBLIC_APP_URL=https://app-dev.scontrinozero.it
+            NEXT_PUBLIC_APP_HOSTNAME=app-dev.scontrinozero.it
+            NEXT_PUBLIC_MARKETING_HOSTNAME=dev.scontrinozero.it
+            NEXT_PUBLIC_API_HOSTNAME=api-dev.scontrinozero.it
+          # NEXT_PUBLIC_TURNSTILE_SITE_KEY: letta in un client component
+          # (turnstile-widget.tsx) → inlinata nel bundle. Dev riusa la key di prod.
+          # NEXT_PUBLIC_APP_URL/APP_HOSTNAME/MARKETING/API: valutati al build
+          # (marketing SSG, next.config redirects/headers, metadataBase) e nel
+          # bundle client (appHref in header.tsx). Bakati coi valori dev così i
+          # link Accedi/Registrati, il redirect /→/dashboard e il CORS puntano a
+          # app-dev (non al default prod). Non sono segreti → letterali qui.
+          # Supabase/Stripe/ecc. restano runtime (solo nel .env del Pi).
           # Sentry OFF su dev: niente NEXT_PUBLIC_SENTRY_DSN (no DSN nel bundle)
           # né SENTRY_AUTH_TOKEN/ORG/PROJECT (no upload source-map).
 

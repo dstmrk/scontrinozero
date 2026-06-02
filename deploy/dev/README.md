@@ -16,14 +16,20 @@ push/merge su main
         docker compose pull && up -d  →  container scontrinozero-dev riparte
 ```
 
-L'immagine `:dev` è **identica** a prod/sandbox (stesso `Dockerfile`), solo
-compilata per arm64. Quasi tutte le differenze d'ambiente arrivano dal `.env`
-a runtime: in modalità `standalone` il codice server legge le `NEXT_PUBLIC_*`
-dalla env del container a ogni avvio/richiesta (Supabase, hostname, `APP_URL`).
-L'unica `NEXT_PUBLIC_*` baked nel bundle al build è
-`NEXT_PUBLIC_TURNSTILE_SITE_KEY` (letta in un client component): è passata come
-build-arg e dev riusa la stessa key di prod. Sentry è disattivato su dev (nessun
-`NEXT_PUBLIC_SENTRY_DSN` al build → DSN assente nel bundle).
+L'immagine `:dev` usa lo stesso `Dockerfile` di prod/sandbox, compilata per
+arm64. Le differenze di runtime (Supabase, Stripe, `ADE_MODE`, secret) arrivano
+dal `.env` del container. Vengono invece **bakati al build** (build-arg nel
+workflow) i `NEXT_PUBLIC_*` che Next.js valuta a build time o inserisce nel
+bundle client:
+
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (client component) — stessa key di prod;
+- `NEXT_PUBLIC_APP_URL` / `_APP_HOSTNAME` / `_MARKETING_HOSTNAME` /
+  `_API_HOSTNAME` — coi valori **dev**, così marketing SSG, redirect
+  `/`→`/dashboard`, header CORS e i link auth (`appHref` in `header.tsx`)
+  puntano a `app-dev` e non al default prod.
+
+Sentry è disattivato su dev (nessun `NEXT_PUBLIC_SENTRY_DSN` al build → DSN
+assente nel bundle).
 
 ## Setup sul Pi (una tantum)
 
@@ -128,12 +134,11 @@ journalctl -u scontrinozero-dev-webhook -f
 
 ## Note
 
-- `app-dev.scontrinozero.it/` potrebbe mostrare la landing marketing invece di
-  redirigere a `/dashboard`: il redirect build-time in `next.config.ts` usa
-  l'hostname di default (prod), il runtime lo gestisce `src/proxy.ts`. È lo
-  stesso comportamento della sandbox — irrilevante in dev. (Stesso discorso per
-  `Access-Control-Allow-Origin` / `report-uri` CSP, valutati in `headers()` a
-  build-time: puntano a prod ma per le chiamate same-origin dell'app è ininfluente.)
+- Redirect `/`→`/dashboard`, header CORS e link auth (`appHref`) puntano
+  correttamente a `app-dev`: i `NEXT_PUBLIC_APP_URL`/`_APP_HOSTNAME` sono bakati
+  al build nell'immagine `:dev` (vedi Architettura). La **sandbox**, che
+  condivide l'immagine prod, su questi resta sul default prod — bug latente noto,
+  fuori dallo scope dev.
 - Sentry è disattivato su dev (nessun `NEXT_PUBLIC_SENTRY_DSN` nel `.env`).
 
 ### Troubleshooting
