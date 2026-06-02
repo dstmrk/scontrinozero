@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   title:
     "Storico scontrini: filtri, ricerca ed esportazione | ScontrinoZero Help",
   description:
-    "Come navigare lo storico degli scontrini in ScontrinoZero, usare i filtri di ricerca e ricondividere il PDF dei singoli scontrini. L'export CSV è una funzione in arrivo sul piano Pro.",
+    "Come navigare lo storico degli scontrini in ScontrinoZero, usare i filtri di ricerca e ricondividere il PDF dei singoli scontrini. L'export CSV è disponibile sul piano Pro.",
 };
 
 export default function StoricoEdEsportazionePage() {
@@ -41,8 +41,8 @@ export default function StoricoEdEsportazionePage() {
           La sezione <strong>Storico</strong> raccoglie gli scontrini emessi e
           annullati con successo. Puoi filtrare per periodo e per stato, aprire
           il dettaglio di ogni documento e ricondividerlo come PDF al cliente.
-          L&apos;esportazione CSV per il commercialista è una funzione in arrivo
-          sul piano Pro.
+          L&apos;esportazione CSV per il commercialista è disponibile sul piano
+          Pro.
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
           <strong>Ultimo aggiornamento:</strong> aprile 2026
@@ -146,29 +146,24 @@ export default function StoricoEdEsportazionePage() {
           </li>
         </ul>
 
-        {/* ─── Export CSV (in arrivo) ─── */}
+        {/* ─── Export CSV (Piano Pro) ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Esportazione CSV{" "}
+          {"Esportazione CSV "}
           <Badge className="ml-1" variant="secondary">
-            In arrivo · Piano Pro
+            Piano Pro
           </Badge>
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          L&apos;esportazione dello storico scontrini in formato CSV è una
-          funzione prevista per il piano <strong>Pro</strong> e non è ancora
-          disponibile nell&apos;app. Quando sarà rilasciata troverai un pulsante
-          dedicato nella pagina Storico e questo articolo verrà aggiornato con i
-          dettagli sulle colonne incluse.
+          Con il piano <strong>Pro</strong> trovi il pulsante{" "}
+          <strong>Esporta CSV</strong> nella pagina Storico: scarica gli
+          scontrini del periodo e dello stato selezionati in un file CSV pronto
+          da consegnare al commercialista o da importare nel gestionale
+          contabile. L&apos;esportazione rispetta i filtri attivi (intervallo di
+          date e stato del documento).
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Nel frattempo, per il riepilogo periodico al commercialista puoi
-          filtrare lo Storico per periodo, prendere nota dei totali e dei
-          progressivi, e condividere all&apos;occorrenza i singoli scontrini
-          tramite il bottone <strong>Invia ricevuta</strong>.
-        </p>
-        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Quando la funzione sarà attiva, gli utenti del piano Starter potranno
-          passare al Pro dalla sezione{" "}
+          Sul piano <strong>Starter</strong> il pulsante è visibile ma rimanda
+          all&apos;upgrade: puoi passare al Pro dalla sezione{" "}
           <strong>Impostazioni → Piano e Abbonamento</strong> nella dashboard.
         </p>
 
@@ -180,10 +175,11 @@ export default function StoricoEdEsportazionePage() {
               Riepilogo mensile per il commercialista
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Filtra lo Storico per il mese di riferimento, comunica al
-              commercialista il totale degli scontrini emessi e
-              l&apos;intervallo di progressivi. L&apos;export CSV strutturato
-              arriverà sul piano Pro.
+              Filtra lo Storico per il mese di riferimento e, con il piano Pro,
+              premi <strong>Esporta CSV</strong> per scaricare l&apos;elenco
+              completo da inviare al commercialista. Sul piano Starter puoi
+              comunque comunicare il totale degli scontrini emessi e
+              l&apos;intervallo di progressivi.
             </p>
           </div>
           <div>

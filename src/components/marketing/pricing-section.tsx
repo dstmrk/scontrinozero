@@ -30,6 +30,8 @@ const starterFeatures: Feature[] = [
 const proFeatures: Feature[] = [
   { label: "Tutto di Starter" },
   { label: "Catalogo illimitato" },
+  { label: "Analytics avanzata" },
+  { label: "Export CSV scontrini" },
   { label: "Supporto prioritario" },
 ];
 
@@ -166,9 +168,8 @@ export function PricingSection() {
                 ))}
               </ul>
               <p className="text-muted-foreground mt-4 text-xs">
-                Analytics avanzata, export CSV e sincronizzazione catalogo AdE
-                sono in sviluppo e saranno inclusi nel piano Pro non appena
-                disponibili.
+                La sincronizzazione del catalogo da AdE è in sviluppo e sarà
+                inclusa nel piano Pro non appena disponibile.
               </p>
             </CardContent>
           </Card>

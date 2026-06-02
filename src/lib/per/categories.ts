@@ -233,7 +233,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Selezione guidata della natura N2.2 in fase di onboarding, pre-configurata sugli scontrini.",
       "Costo mensile più basso del mercato: a partire da €2,50/mese (annuale).",
       "Zero hardware da acquistare: solo lo smartphone che già hai.",
-      "Storico ordinato e ricercabile; export CSV in arrivo sul piano Pro.",
+      "Storico ordinato e ricercabile; export CSV sul piano Pro.",
     ],
     faq: [
       {
@@ -276,7 +276,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     benefits: [
       "Una sola app per gestire scontrini e storico, separata dal gestionale fatture.",
       "Emissione veloce in mobilità: a fine sessione, dal telefono, senza tornare in studio.",
-      "Storico consultabile; export CSV da consegnare al commercialista in arrivo sul piano Pro.",
+      "Storico consultabile; export CSV da consegnare al commercialista sul piano Pro.",
       "Costo contenuto: meno di una cena al ristorante al mese per il piano Starter.",
     ],
     faq: [

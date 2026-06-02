@@ -42,6 +42,12 @@ const hostedOnly = (label: string): ComparisonRow => ({
   pro: true,
   selfHosted: false,
 });
+const proPlus = (label: string): ComparisonRow => ({
+  label,
+  starter: false,
+  pro: true,
+  selfHosted: true,
+});
 
 const comparisonRows: ComparisonRow[] = [
   allTrue("Scontrini illimitati"),
@@ -55,8 +61,8 @@ const comparisonRows: ComparisonRow[] = [
     pro: "Illimitato",
     selfHosted: "Illimitato",
   },
-  comingSoon("Analytics avanzata"),
-  comingSoon("Export CSV scontrini"),
+  proPlus("Analytics avanzata"),
+  proPlus("Export CSV scontrini"),
   comingSoon("Recupero documenti da AdE"),
   {
     label: "Supporto prioritario",

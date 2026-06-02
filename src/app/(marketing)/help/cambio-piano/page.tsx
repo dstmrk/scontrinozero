@@ -113,6 +113,14 @@ export default function CambioPianoPage() {
             Catalogo rapido <strong>illimitato</strong> (Starter è limitato a 5
             prodotti)
           </li>
+          <li>
+            <strong>Analytics avanzata</strong> con grafico ricavi giornaliero e
+            ripartizione per metodo di pagamento
+          </li>
+          <li>
+            <strong>Export CSV</strong> dello storico scontrini per il
+            commercialista
+          </li>
           <li>Supporto prioritario via email entro 24 ore</li>
           <li>
             Accesso alla <strong>Developer API</strong> per emettere scontrini
@@ -120,11 +128,10 @@ export default function CambioPianoPage() {
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Sono inoltre <em>in arrivo</em> sul piano Pro: analytics avanzata con
-          dashboard storica, export CSV dello storico scontrini, recupero
-          corrispettivi da AdE e sync catalogo prodotti dalla rubrica AdE.
-          Quando saranno rilasciate, verranno incluse automaticamente per chi ha
-          già un piano Pro attivo. Vedi il dettaglio in{" "}
+          Sono inoltre <em>in arrivo</em> sul piano Pro: recupero corrispettivi
+          da AdE e sync catalogo prodotti dalla rubrica AdE. Quando saranno
+          rilasciate, verranno incluse automaticamente per chi ha già un piano
+          Pro attivo. Vedi il dettaglio in{" "}
           <Link
             href="/help/piani-e-prezzi"
             className="text-primary hover:underline"

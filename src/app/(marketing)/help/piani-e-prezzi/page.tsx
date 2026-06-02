@@ -115,22 +115,21 @@ export default function PianiEPrezziPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Per esercenti con un volume di vendite regolare che hanno bisogno di
           strumenti avanzati per la gestione e la contabilità. Include tutto ciò
-          che è disponibile nel piano Starter, più il catalogo illimitato e il
-          supporto prioritario. Sono inoltre in sviluppo alcune feature
-          riservate al piano Pro:
+          che è disponibile nel piano Starter, più le funzioni riservate al
+          piano Pro:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
             Catalogo rapido <strong>illimitato</strong>
           </li>
+          <li>
+            Analytics avanzata con grafico ricavi e ripartizione pagamenti
+          </li>
+          <li>
+            <strong>Export CSV</strong> dello storico scontrini (per
+            commercialista o contabilità)
+          </li>
           <li>Supporto prioritario via email entro 24 ore</li>
-          <li>
-            <em>In arrivo:</em> analytics avanzata con dashboard storica
-          </li>
-          <li>
-            <em>In arrivo:</em> <strong>Export CSV</strong> dello storico
-            scontrini (per commercialista o contabilità)
-          </li>
           <li>
             <em>In arrivo:</em> recupero corrispettivi da AdE (sincronizzazione
             dati storici)
@@ -153,8 +152,8 @@ export default function PianiEPrezziPage() {
           ScontrinoZero è open source con licenza O&apos;Saasy. Puoi scaricare
           il codice sorgente, installarlo sul tuo server e usarlo gratuitamente:
           hai accesso a tutto il codice del progetto e ricevi le feature in
-          arrivo (analytics avanzata, export CSV, recupero corrispettivi AdE)
-          man mano che vengono rilasciate. È la scelta giusta se:
+          arrivo (recupero corrispettivi AdE, sync catalogo) man mano che
+          vengono rilasciate. È la scelta giusta se:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
@@ -243,12 +242,12 @@ export default function PianiEPrezziPage() {
                   Analytics avanzata
                 </td>
                 <td className="py-2">—</td>
-                <td className="py-2">In arrivo</td>
+                <td className="py-2">✓</td>
               </tr>
               <tr>
                 <td className="text-foreground py-2 font-medium">Export CSV</td>
                 <td className="py-2">—</td>
-                <td className="py-2">In arrivo</td>
+                <td className="py-2">✓</td>
               </tr>
               <tr>
                 <td className="text-foreground py-2 font-medium">
@@ -289,11 +288,14 @@ export default function PianiEPrezziPage() {
             <ul className="text-muted-foreground mt-1 list-disc space-y-1 pl-5 text-sm leading-relaxed">
               <li>Hai un negozio aperto tutti i giorni.</li>
               <li>Hai più di 5 prodotti nel catalogo rapido.</li>
+              <li>
+                Vuoi l&apos;analytics avanzata e l&apos;export CSV dello storico
+                scontrini.
+              </li>
               <li>Vuoi il supporto prioritario via email entro 24 ore.</li>
               <li>
                 Vuoi accedere alle feature in arrivo riservate al piano Pro
-                (export CSV scontrini, analytics avanzata, recupero
-                corrispettivi e sync catalogo da rubrica AdE).
+                (recupero corrispettivi e sync catalogo da rubrica AdE).
               </li>
             </ul>
           </div>
