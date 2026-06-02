@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   helpArticles,
   helpSlugs,
+  HELP_REVIEWED_DATE,
   getRelatedArticles,
   getHelpArticle,
 } from "./articles";
@@ -21,6 +22,18 @@ describe("helpArticles registry", () => {
     for (const article of Object.values(helpArticles)) {
       expect(article.slug.length).toBeGreaterThan(0);
       expect(article.title.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("each entry has a non-empty description", () => {
+    for (const article of Object.values(helpArticles)) {
+      expect(article.description.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it("each title fits the Article headline limit (≤ 110 chars)", () => {
+    for (const article of Object.values(helpArticles)) {
+      expect(article.title.length).toBeLessThanOrEqual(110);
     }
   });
 
@@ -49,6 +62,16 @@ describe("helpArticles registry", () => {
       const unique = new Set(article.related);
       expect(unique.size).toBe(article.related.length);
     }
+  });
+});
+
+describe("HELP_REVIEWED_DATE", () => {
+  it("is an ISO date in YYYY-MM-DD form (accettata da articleJsonLd)", () => {
+    expect(HELP_REVIEWED_DATE).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("is a real, parseable calendar date", () => {
+    expect(Number.isNaN(Date.parse(HELP_REVIEWED_DATE))).toBe(false);
   });
 });
 

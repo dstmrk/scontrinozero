@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
@@ -18,6 +19,7 @@ export default function CassettoFiscalePage() {
       <JsonLd
         data={helpArticleBreadcrumb("cassetto-fiscale", "Cassetto fiscale")}
       />
+      <HelpArticleJsonLd slug="cassetto-fiscale" />
       <article className="mx-auto max-w-3xl">
         <Link
           href="/help"

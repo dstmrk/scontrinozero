@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { appHref } from "@/lib/marketing-to-app-href";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
@@ -21,6 +22,7 @@ export default function PrimaConfigurazioneePage() {
           "Prima configurazione",
         )}
       />
+      <HelpArticleJsonLd slug="prima-configurazione" />
       <article className="mx-auto max-w-3xl">
         <Link
           href="/help"
