@@ -142,6 +142,13 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
 };
 
+/**
+ * Tutti gli slug degli articoli help, in ordine di inserimento. Unica fonte di
+ * verità per la sitemap (evita il drift dell'elenco hardcoded) e per qualunque
+ * iterazione sugli articoli.
+ */
+export const helpSlugs: readonly string[] = Object.keys(helpArticles);
+
 export function getHelpArticle(slug: string): HelpArticle {
   const article = helpArticles[slug];
   if (!article) {

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { helpSlugs } from "@/lib/help/articles";
 
 describe("sitemap", () => {
   it("returns all pages with correct structure", async () => {
@@ -143,35 +144,14 @@ describe("sitemap", () => {
       priority: 0.6,
     });
 
-    // Help articles — verify all 23 are present (order may change as articles are added)
-    const helpUrls = allUrls;
-    const expectedHelpArticles = [
-      "https://scontrinozero.it/help/prima-configurazione",
-      "https://scontrinozero.it/help/primo-scontrino",
-      "https://scontrinozero.it/help/installare-app",
-      "https://scontrinozero.it/help/come-collegare-ade",
-      "https://scontrinozero.it/help/credenziali-fisconline",
-      "https://scontrinozero.it/help/cassetto-fiscale",
-      "https://scontrinozero.it/help/errori-ade",
-      "https://scontrinozero.it/help/sicurezza-credenziali",
-      "https://scontrinozero.it/help/annullare-scontrino",
-      "https://scontrinozero.it/help/chiusura-giornaliera",
-      "https://scontrinozero.it/help/storico-ed-esportazione",
-      "https://scontrinozero.it/help/regime-forfettario",
-      "https://scontrinozero.it/help/aliquote-iva",
-      "https://scontrinozero.it/help/normativa-pos-2026",
-      "https://scontrinozero.it/help/piani-e-prezzi",
-      "https://scontrinozero.it/help/api",
-      "https://scontrinozero.it/help/cambio-piano",
-      "https://scontrinozero.it/help/fatture-e-ricevute",
-      "https://scontrinozero.it/help/contatto-assistenza",
-      "https://scontrinozero.it/help/pos-rt-obbligo",
-      "https://scontrinozero.it/help/intestazione-scontrino",
-      "https://scontrinozero.it/help/stampare-scontrino-termica",
-      "https://scontrinozero.it/help/registrare-pos-portale-ade",
-    ];
-    for (const url of expectedHelpArticles) {
-      expect(helpUrls).toContain(url);
+    // Help articles — derivati da helpSlugs (unica fonte di verità, anti-drift):
+    // ogni articolo definito in helpArticles deve comparire in sitemap.
+    const helpArticleUrls = allUrls.filter((u) =>
+      u.startsWith("https://scontrinozero.it/help/"),
+    );
+    expect(helpArticleUrls).toHaveLength(helpSlugs.length);
+    for (const slug of helpSlugs) {
+      expect(allUrls).toContain(`https://scontrinozero.it/help/${slug}`);
     }
 
     // Per index hub (inserted before category landings)

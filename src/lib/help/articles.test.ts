@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { helpArticles, getRelatedArticles, getHelpArticle } from "./articles";
+import {
+  helpArticles,
+  helpSlugs,
+  getRelatedArticles,
+  getHelpArticle,
+} from "./articles";
 
 describe("helpArticles registry", () => {
   it("contains at least 21 entries", () => {
@@ -43,6 +48,22 @@ describe("helpArticles registry", () => {
     for (const article of Object.values(helpArticles)) {
       const unique = new Set(article.related);
       expect(unique.size).toBe(article.related.length);
+    }
+  });
+});
+
+describe("helpSlugs", () => {
+  it("mirrors the keys of helpArticles in insertion order", () => {
+    expect(helpSlugs).toEqual(Object.keys(helpArticles));
+  });
+
+  it("has no duplicate slugs", () => {
+    expect(new Set(helpSlugs).size).toBe(helpSlugs.length);
+  });
+
+  it("every slug resolves to an article whose key matches", () => {
+    for (const slug of helpSlugs) {
+      expect(getHelpArticle(slug).slug).toBe(slug);
     }
   });
 });
