@@ -22,6 +22,21 @@ ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
 ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
+# Identity hostnames/URL — valutati sia al BUILD (marketing SSG, next.config
+# redirects/headers, metadataBase) sia nel bundle client (appHref in
+# header.tsx). Prod/sandbox NON li passano → restano vuoti → fallback al
+# default app.scontrinozero.it (corretto per prod). L'immagine :dev li passa
+# coi valori dev così link auth, redirect /→/dashboard e CORS puntano a
+# app-dev. Vedi deploy/dev/. (Coerente con CLAUDE.md regola 15.)
+ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_APP_HOSTNAME
+ARG NEXT_PUBLIC_MARKETING_HOSTNAME
+ARG NEXT_PUBLIC_API_HOSTNAME
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_APP_HOSTNAME=$NEXT_PUBLIC_APP_HOSTNAME
+ENV NEXT_PUBLIC_MARKETING_HOSTNAME=$NEXT_PUBLIC_MARKETING_HOSTNAME
+ENV NEXT_PUBLIC_API_HOSTNAME=$NEXT_PUBLIC_API_HOSTNAME
+
 # Sentry plugin vars — servono per uploadare le source maps
 ARG SENTRY_ORG
 ARG SENTRY_PROJECT

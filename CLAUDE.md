@@ -156,13 +156,18 @@ passate come `--build-arg` al `docker build`. `APP_HOSTNAME` (senza
 `NEXT_PUBLIC_`) è runtime e sovrascrive l'hostname baked — usato per sandbox
 e self-hosting su dominio custom.
 
-> Nota: un'unica immagine Docker serve prod/sandbox/dev/self-hosted perché la
-> maggior parte delle `NEXT_PUBLIC_*` (Supabase, `APP_URL`, hostname) è letta
-> **server-side a runtime** in modalità standalone (no inlining nel bundle
-> client). Sono baked nel bundle SOLO quelle lette in un client component —
+> Nota: un'unica immagine Docker serve prod/sandbox/dev/self-hosted. Molte
+> `NEXT_PUBLIC_*` (Supabase, Stripe) sono lette **server-side a runtime** in
+> standalone e bastano nel `.env`. MA quelle d'**identità** (`NEXT_PUBLIC_APP_URL`,
+> `_APP_HOSTNAME`, `_MARKETING_HOSTNAME`, `_API_HOSTNAME`) sono valutate anche al
+> **build** (marketing SSG, `next.config` redirects/headers, `metadataBase`) e
+> finiscono nel bundle client (`appHref` in `header.tsx`, client component):
+> vanno passate come `--build-arg` se servono valori non-prod. Il `Dockerfile`
+> le accetta; prod **non** le passa (→ default `app.scontrinozero.it`),
+> l'immagine `:dev` sì (→ `app-dev`). Sandbox condivide l'immagine prod → su
+> questi link resta sul default prod (limite noto). Idem
 > `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (`turnstile-widget.tsx`) e
-> `NEXT_PUBLIC_SENTRY_DSN` (`sentry.client.config.ts`) — che vanno quindi
-> passate come `--build-arg`. Coerente con regola 15.
+> `NEXT_PUBLIC_SENTRY_DSN` (`sentry.client.config.ts`). Coerente con regola 15.
 
 ### Deploy dev (push-based, Raspberry Pi)
 
