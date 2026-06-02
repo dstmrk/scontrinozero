@@ -1,17 +1,13 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { appHref } from "@/lib/marketing-to-app-href";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title: "Prima configurazione passo-passo",
-  description:
-    "Guida all'onboarding di ScontrinoZero: crea l'account, inserisci i dati dell'attività e collega le credenziali Fisconline per iniziare a emettere scontrini elettronici.",
-};
+export const metadata = helpArticleMetadata("prima-configurazione");
 
 export default function PrimaConfigurazioneePage() {
   return (

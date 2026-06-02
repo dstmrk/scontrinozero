@@ -1,17 +1,12 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title:
-    "Storico scontrini: filtri, ricerca ed esportazione | ScontrinoZero Help",
-  description:
-    "Come navigare lo storico degli scontrini in ScontrinoZero, usare i filtri di ricerca e ricondividere il PDF dei singoli scontrini. L'export CSV è una funzione in arrivo sul piano Pro.",
-};
+export const metadata = helpArticleMetadata("storico-ed-esportazione");
 
 export default function StoricoEdEsportazionePage() {
   return (

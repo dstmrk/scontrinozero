@@ -31,6 +31,18 @@ describe("helpArticles registry", () => {
     }
   });
 
+  it("each entry has a non-empty metaTitle", () => {
+    for (const article of Object.values(helpArticles)) {
+      expect(article.metaTitle.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it("no metaTitle hardcodes the brand suffix (added by the root template)", () => {
+    for (const article of Object.values(helpArticles)) {
+      expect(article.metaTitle).not.toMatch(/\| ScontrinoZero/);
+    }
+  });
+
   it("each title fits the Article headline limit (≤ 110 chars)", () => {
     for (const article of Object.values(helpArticles)) {
       expect(article.title.length).toBeLessThanOrEqual(110);

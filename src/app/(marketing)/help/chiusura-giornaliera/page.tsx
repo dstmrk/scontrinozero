@@ -1,16 +1,12 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title: "Chiusura giornaliera: è obbligatoria?",
-  description:
-    "Con ScontrinoZero non devi fare nessuna chiusura giornaliera. Scopri perché il Documento Commerciale Online funziona diversamente dal registratore telematico fisico.",
-};
+export const metadata = helpArticleMetadata("chiusura-giornaliera");
 
 export default function ChiusuraGiornalieraPage() {
   return (

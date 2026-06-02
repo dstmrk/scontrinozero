@@ -1,17 +1,12 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title:
-    "Sicurezza e privacy: come proteggiamo le tue credenziali | ScontrinoZero Help",
-  description:
-    "Come ScontrinoZero protegge le credenziali Fisconline: cifratura AES-256-GCM at-rest, chiave fuori dal database, chi può accedere ai tuoi dati e come revocare l'accesso.",
-};
+export const metadata = helpArticleMetadata("sicurezza-credenziali");
 
 export default function SicurezzaCredenzialiPage() {
   return (

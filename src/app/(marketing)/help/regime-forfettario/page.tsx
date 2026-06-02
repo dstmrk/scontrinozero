@@ -1,16 +1,12 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title: "Regime forfettario: configurazione IVA corretta",
-  description:
-    "Come configurare ScontrinoZero per il regime forfettario: natura IVA N2 per operazioni non soggette, impostazioni in onboarding e nel catalogo prodotti.",
-};
+export const metadata = helpArticleMetadata("regime-forfettario");
 
 export default function RegimeForfettarioPage() {
   return (

@@ -1,17 +1,12 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title:
-    "Collegamento POS-RT: chi è obbligato e scadenze 2026 | ScontrinoZero Help",
-  description:
-    "Tutto sull'obbligo di collegare il POS al registratore telematico dal 2026: fonte normativa, scadenze, sanzioni e come si effettua l'associazione POS-DCO sul portale Fatture e Corrispettivi dell'Agenzia delle Entrate.",
-};
+export const metadata = helpArticleMetadata("pos-rt-obbligo");
 
 export default function PosRtObbligoPage() {
   return (

@@ -1,17 +1,12 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title:
-    "Credenziali Fisconline: dove trovarle e come verificarle | ScontrinoZero Help",
-  description:
-    "Guida completa a Fisconline: cos'è, chi può ottenere le credenziali, come verificarle e cosa fare se la password è scaduta.",
-};
+export const metadata = helpArticleMetadata("credenziali-fisconline");
 
 export default function CredenzialiPage() {
   return (

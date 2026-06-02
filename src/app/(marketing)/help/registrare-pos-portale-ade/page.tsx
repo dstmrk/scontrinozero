@@ -1,17 +1,12 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title:
-    "Come registrare un POS nel portale Fatture e Corrispettivi | ScontrinoZero Help",
-  description:
-    "Guida passo-passo al Censimento POS sul portale Fatture e Corrispettivi dell'Agenzia delle Entrate: prerequisiti, percorso nel portale, differenza fra POS bancario e POS-RT, errori comuni.",
-};
+export const metadata = helpArticleMetadata("registrare-pos-portale-ade");
 
 export default function RegistrarePosPortaleAdePage() {
   return (

@@ -1,16 +1,12 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title: "Come contattare l'assistenza",
-  description:
-    "Canali di supporto disponibili, tempi di risposta e come segnalare un problema a ScontrinoZero.",
-};
+export const metadata = helpArticleMetadata("contatto-assistenza");
 
 export default function ContattoAssistenzaPage() {
   return (

@@ -1,17 +1,12 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title:
-    "Come installare ScontrinoZero come app sul tuo dispositivo | ScontrinoZero Help",
-  description:
-    "Installa ScontrinoZero come app PWA su iPhone, Android e desktop: istruzioni passo-passo per iOS (Safari), Android (Chrome) e computer. Accesso diretto dalla schermata home.",
-};
+export const metadata = helpArticleMetadata("installare-app");
 
 export default function InstallareAppPage() {
   return (
