@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd, faqPageJsonLd } from "@/components/json-ld";
+import { faqItems } from "@/components/marketing/faq-items";
 import { appHref } from "@/lib/marketing-to-app-href";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -89,7 +90,7 @@ const HOME_COMPARISON_ROWS: readonly ComparisonRow[] = [
 export default function Home() {
   return (
     <>
-      <JsonLd data={faqPageJsonLd} />
+      <JsonLd data={faqPageJsonLd(faqItems)} />
       {/* Hero */}
       <section className="px-4 py-20 md:py-32">
         <div className="mx-auto max-w-3xl text-center">

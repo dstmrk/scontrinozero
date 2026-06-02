@@ -534,4 +534,48 @@ describe("proxy", () => {
       expect(location.pathname).toBe("/dashboard");
     });
   });
+
+  describe("X-Robots-Tag noindex on non-production hosts", () => {
+    it("does NOT add noindex on the production marketing apex", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(
+        new NextRequest("https://scontrinozero.it/"),
+      );
+      expect(response.headers.get("X-Robots-Tag")).toBeNull();
+    });
+
+    it("adds noindex on the sandbox host", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(
+        new NextRequest("https://sandbox.scontrinozero.it/guide"),
+      );
+      expect(response.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
+    });
+
+    it("adds noindex on a self-hosted custom domain", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(
+        new NextRequest("https://cassa.example.com/"),
+      );
+      expect(response.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
+    });
+
+    it("adds noindex on non-prod hosts even when Supabase is not configured", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      vi.resetModules();
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(
+        new NextRequest("https://sandbox.scontrinozero.it/"),
+      );
+      expect(response.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
+    });
+  });
 });

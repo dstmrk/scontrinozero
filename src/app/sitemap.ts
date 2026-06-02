@@ -1,9 +1,13 @@
 import type { MetadataRoute } from "next";
 import { categorySlugs } from "@/lib/per/categories";
 import { guideSlugs } from "@/lib/guide/articles";
+import { helpSlugs } from "@/lib/help/articles";
 import { toolSlugs } from "@/lib/strumenti/tools";
+import { marketingBaseUrl } from "@/lib/seo-indexable";
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://scontrinozero.it";
+// Base = apex marketing (non NEXT_PUBLIC_APP_URL, che è il dominio app): gli URL
+// in sitemap devono stare sull'host indicizzabile, mai su quello in noindex.
+const baseUrl = marketingBaseUrl();
 
 const marketingPages = ["/prezzi", "/funzionalita"].map((path) => ({
   url: `${baseUrl}${path}`,
@@ -31,6 +35,13 @@ const guidePages = guideSlugs.map((slug) => ({
   lastModified: new Date(),
   changeFrequency: "monthly" as const,
   priority: 0.7,
+}));
+
+const helpPages = helpSlugs.map((slug) => ({
+  url: `${baseUrl}/help/${slug}`,
+  lastModified: new Date(),
+  changeFrequency: "monthly" as const,
+  priority: 0.6,
 }));
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -105,36 +116,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.6,
     },
-    ...[
-      "/help/prima-configurazione",
-      "/help/primo-scontrino",
-      "/help/installare-app",
-      "/help/come-collegare-ade",
-      "/help/credenziali-fisconline",
-      "/help/cassetto-fiscale",
-      "/help/errori-ade",
-      "/help/sicurezza-credenziali",
-      "/help/annullare-scontrino",
-      "/help/chiusura-giornaliera",
-      "/help/storico-ed-esportazione",
-      "/help/regime-forfettario",
-      "/help/aliquote-iva",
-      "/help/normativa-pos-2026",
-      "/help/piani-e-prezzi",
-      "/help/api",
-      "/help/cambio-piano",
-      "/help/fatture-e-ricevute",
-      "/help/contatto-assistenza",
-      "/help/pos-rt-obbligo",
-      "/help/intestazione-scontrino",
-      "/help/stampare-scontrino-termica",
-      "/help/registrare-pos-portale-ade",
-    ].map((path) => ({
-      url: `${baseUrl}${path}`,
-      lastModified: new Date(),
-      changeFrequency: "monthly" as const,
-      priority: 0.6,
-    })),
+    ...helpPages,
     {
       url: `${baseUrl}/login`,
       lastModified: new Date(),

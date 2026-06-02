@@ -1,15 +1,12 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
+import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title: "Come emettere il primo scontrino elettronico | ScontrinoZero Help",
-  description:
-    "Guida passo-passo per emettere il primo scontrino elettronico con ScontrinoZero: apertura cassa, aggiunta prodotti, selezione pagamento e trasmissione AdE.",
-};
+export const metadata = helpArticleMetadata("primo-scontrino");
 
 export default function PrimoScontrinoPage() {
   return (
@@ -20,6 +17,7 @@ export default function PrimoScontrinoPage() {
           "Primo scontrino elettronico",
         )}
       />
+      <HelpArticleJsonLd slug="primo-scontrino" />
       <article className="mx-auto max-w-3xl">
         <Link
           href="/help"

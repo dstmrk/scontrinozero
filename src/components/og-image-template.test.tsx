@@ -56,4 +56,16 @@ describe("OgImageTemplate", () => {
     const html = renderToStaticMarkup(<OgImageTemplate title="A&B <test>" />);
     expect(html).toContain("A&amp;B &lt;test&gt;");
   });
+
+  it("uses the default title font size of 88px when not overridden", () => {
+    const html = renderToStaticMarkup(<OgImageTemplate title="Default" />);
+    expect(html).toContain("font-size:88px");
+  });
+
+  it("applies a custom titleFontSize for long dynamic titles", () => {
+    const html = renderToStaticMarkup(
+      <OgImageTemplate title="Titolo lungo dinamico" titleFontSize={64} />,
+    );
+    expect(html).toContain("font-size:64px");
+  });
 });

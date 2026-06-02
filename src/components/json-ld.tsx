@@ -1,5 +1,4 @@
 import { CONTACT_EMAIL } from "@/lib/contact";
-import { faqItems } from "@/components/marketing/faq-items";
 
 /**
  * Escapa i caratteri pericolosi nel JSON-LD per evitare che payload contenenti
@@ -274,12 +273,28 @@ export function articleJsonLd(input: ArticleJsonLdInput) {
   } as const;
 }
 
-export const faqPageJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: faqItems.map((item) => ({
-    "@type": "Question" as const,
-    name: item.question,
-    acceptedAnswer: { "@type": "Answer" as const, text: item.answer },
-  })),
-};
+export interface FaqItem {
+  readonly question: string;
+  readonly answer: string;
+}
+
+/**
+ * Costruisce lo structured data FAQPage da un elenco di domande/risposte.
+ * Riusabile da qualunque pagina che renderizza una FAQ a video (home,
+ * /confronto, categorie /per, guide), così il contenuto già visibile diventa
+ * eleggibile per i rich result di Google.
+ */
+export function faqPageJsonLd(items: readonly FaqItem[]) {
+  if (items.length === 0) {
+    throw new Error("faqPageJsonLd requires at least one item");
+  }
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: items.map((item) => ({
+      "@type": "Question" as const,
+      name: item.question,
+      acceptedAnswer: { "@type": "Answer" as const, text: item.answer },
+    })),
+  };
+}

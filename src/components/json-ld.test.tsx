@@ -184,24 +184,44 @@ describe("organizationJsonLd", () => {
 
 describe("faqPageJsonLd", () => {
   it("has @type FAQPage", () => {
-    expect(faqPageJsonLd["@type"]).toBe("FAQPage");
+    expect(faqPageJsonLd(faqItems)["@type"]).toBe("FAQPage");
+  });
+
+  it("maps every provided FAQ entry into mainEntity", () => {
+    const items = [
+      { question: "Q1?", answer: "A1" },
+      { question: "Q2?", answer: "A2" },
+    ];
+    const result = faqPageJsonLd(items);
+    expect(result.mainEntity.length).toBe(items.length);
   });
 
   it("includes all FAQ entries from faqItems", () => {
-    expect(faqPageJsonLd.mainEntity.length).toBe(faqItems.length);
+    expect(faqPageJsonLd(faqItems).mainEntity.length).toBe(faqItems.length);
   });
 
   it("each entry has @type Question", () => {
-    for (const entry of faqPageJsonLd.mainEntity) {
+    for (const entry of faqPageJsonLd(faqItems).mainEntity) {
       expect(entry["@type"]).toBe("Question");
     }
   });
 
-  it("each entry has a name and acceptedAnswer", () => {
-    for (const entry of faqPageJsonLd.mainEntity) {
+  it("each entry maps question→name and answer→acceptedAnswer.text", () => {
+    const items = [{ question: "Domanda?", answer: "Risposta." }];
+    const [entry] = faqPageJsonLd(items).mainEntity;
+    expect(entry.name).toBe("Domanda?");
+    expect(entry.acceptedAnswer.text).toBe("Risposta.");
+  });
+
+  it("each entry has a non-empty name and acceptedAnswer", () => {
+    for (const entry of faqPageJsonLd(faqItems).mainEntity) {
       expect(entry.name).toBeTruthy();
       expect(entry.acceptedAnswer.text).toBeTruthy();
     }
+  });
+
+  it("throws when given an empty list", () => {
+    expect(() => faqPageJsonLd([])).toThrow("at least one item");
   });
 });
 

@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { parseTrustedHostnameEnv } from "@/lib/hostname-env";
+import { isIndexableHost } from "@/lib/seo-indexable";
 import { createMiddlewareSupabaseClient } from "@/lib/supabase/middleware";
 
 /** Routes that require authentication */
@@ -99,6 +100,26 @@ function hostnameRedirect(request: NextRequest): NextResponse | null {
   return null;
 }
 
+/**
+ * Aggiunge `X-Robots-Tag: noindex, nofollow` quando la risposta è servita da un
+ * host non di produzione (sandbox, dominio app, self-host custom). È il segnale
+ * autorevole di de-indicizzazione: a differenza del solo `Disallow` in
+ * robots.txt, garantisce che le pagine già note non restino nell'indice.
+ * Applicato solo alle risposte HTML pass-through (non ai redirect 3xx).
+ */
+function applyNoindexHeader(
+  response: NextResponse,
+  request: NextRequest,
+): NextResponse {
+  const hostname = (request.nextUrl.hostname || "")
+    .toLowerCase()
+    .replace(/:\d+$/, "");
+  if (!isIndexableHost(hostname)) {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
+  return response;
+}
+
 export async function proxy(request: NextRequest) {
   const redirect = hostnameRedirect(request);
   if (redirect) return redirect;
@@ -120,7 +141,7 @@ export async function proxy(request: NextRequest) {
         return NextResponse.redirect(loginUrl);
       }
     }
-    return NextResponse.next();
+    return applyNoindexHeader(NextResponse.next(), request);
   }
 
   const { supabase, response } = createMiddlewareSupabaseClient(request);
@@ -162,7 +183,7 @@ export async function proxy(request: NextRequest) {
     return redirectResponse;
   }
 
-  return response();
+  return applyNoindexHeader(response(), request);
 }
 
 export const config = {

@@ -1,16 +1,12 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
+import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title:
-    "Personalizzare intestazione e dati dello scontrino | ScontrinoZero Help",
-  description:
-    "Come modificare la ragione sociale, l'indirizzo e i dati fiscali che appaiono sull'intestazione dello scontrino emesso da ScontrinoZero.",
-};
+export const metadata = helpArticleMetadata("intestazione-scontrino");
 
 export default function IntestazioneScontrinoPage() {
   return (
@@ -21,6 +17,7 @@ export default function IntestazioneScontrinoPage() {
           "Intestazione scontrino",
         )}
       />
+      <HelpArticleJsonLd slug="intestazione-scontrino" />
       <article className="mx-auto max-w-3xl">
         <Link
           href="/help"

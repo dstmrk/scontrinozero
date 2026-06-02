@@ -1,15 +1,12 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
+import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title: "Dove trovare fatture e ricevute di pagamento | ScontrinoZero Help",
-  description:
-    "Come scaricare le ricevute e le fatture del tuo abbonamento ScontrinoZero per la contabilità e il commercialista.",
-};
+export const metadata = helpArticleMetadata("fatture-e-ricevute");
 
 export default function FattureERicevutePage() {
   return (
@@ -17,6 +14,7 @@ export default function FattureERicevutePage() {
       <JsonLd
         data={helpArticleBreadcrumb("fatture-e-ricevute", "Fatture e ricevute")}
       />
+      <HelpArticleJsonLd slug="fatture-e-ricevute" />
       <article className="mx-auto max-w-3xl">
         <Link
           href="/help"

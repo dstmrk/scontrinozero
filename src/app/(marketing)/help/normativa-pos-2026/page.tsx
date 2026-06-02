@@ -1,16 +1,12 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
+import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title:
-    "Collegamento POS-cassa 2026: cosa cambia per chi usa ScontrinoZero | ScontrinoZero Help",
-  description:
-    "Obbligo di abbinamento POS al sistema di cassa dal 2026 (Legge 207/2024): scadenze, sanzioni e cosa devi fare se usi ScontrinoZero (procedura Documento Commerciale Online).",
-};
+export const metadata = helpArticleMetadata("normativa-pos-2026");
 
 export default function NormativaPos2026Page() {
   return (
@@ -21,6 +17,7 @@ export default function NormativaPos2026Page() {
           "Collegamento POS-cassa 2026",
         )}
       />
+      <HelpArticleJsonLd slug="normativa-pos-2026" />
       <article className="mx-auto max-w-3xl">
         <Link
           href="/help"

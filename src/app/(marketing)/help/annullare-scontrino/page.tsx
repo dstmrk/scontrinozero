@@ -1,16 +1,12 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
+import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title:
-    "Annullare uno scontrino: quando si può e come fare | ScontrinoZero Help",
-  description:
-    "Scopri quando è possibile annullare uno scontrino elettronico, come farlo da ScontrinoZero e cosa succede sul portale dell'Agenzia delle Entrate.",
-};
+export const metadata = helpArticleMetadata("annullare-scontrino");
 
 export default function AnnullareScontrinoPage() {
   return (
@@ -21,6 +17,7 @@ export default function AnnullareScontrinoPage() {
           "Annullare uno scontrino",
         )}
       />
+      <HelpArticleJsonLd slug="annullare-scontrino" />
       <article className="mx-auto max-w-3xl">
         <Link
           href="/help"

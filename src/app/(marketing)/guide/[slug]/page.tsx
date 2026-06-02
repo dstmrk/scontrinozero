@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   JsonLd,
   articleJsonLd,
+  faqPageJsonLd,
   guideArticleBreadcrumb,
 } from "@/components/json-ld";
 import {
@@ -83,6 +84,7 @@ export default async function GuidePage({ params }: PageParams) {
           dateModified: lastDayOfMonth(g.updatedAt),
         })}
       />
+      {g.faq.length > 0 && <JsonLd data={faqPageJsonLd(g.faq)} />}
 
       <section className="px-4 py-16">
         <article className="mx-auto max-w-3xl">

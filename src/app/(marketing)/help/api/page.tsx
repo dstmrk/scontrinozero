@@ -1,20 +1,18 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
+import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title: "API per sviluppatori | ScontrinoZero",
-  description:
-    "Documentazione completa delle API REST di ScontrinoZero: autenticazione, endpoint, esempi curl e riferimenti tecnici.",
-};
+export const metadata = helpArticleMetadata("api");
 
 export default function ApiDocsPage() {
   return (
     <section className="px-4 py-16">
       <JsonLd data={helpArticleBreadcrumb("api", "API per sviluppatori")} />
+      <HelpArticleJsonLd slug="api" />
       <article className="mx-auto max-w-3xl">
         <Link
           href="/help"

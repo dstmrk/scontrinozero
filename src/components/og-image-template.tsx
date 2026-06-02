@@ -5,6 +5,12 @@ export const OG_SIZE = { width: 1200, height: 630 } as const;
 interface OgImageTemplateProps {
   readonly title: string;
   readonly subtitle?: string;
+  /**
+   * Dimensione del titolo. Default 88px (landing brevi). Le pagine dinamiche
+   * (guide, categorie, strumenti) passano un valore più piccolo per evitare
+   * che titoli lunghi vadano in overflow nei 630px di altezza.
+   */
+  readonly titleFontSize?: number;
 }
 
 const BRAND_GRADIENT = "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)";
@@ -12,6 +18,7 @@ const BRAND_GRADIENT = "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)";
 export function OgImageTemplate({
   title,
   subtitle,
+  titleFontSize = 88,
 }: OgImageTemplateProps): ReactElement {
   return (
     <div
@@ -42,7 +49,7 @@ export function OgImageTemplate({
       <div style={{ display: "flex", flexDirection: "column" }}>
         <div
           style={{
-            fontSize: "88px",
+            fontSize: `${titleFontSize}px`,
             fontWeight: 800,
             lineHeight: 1.05,
             letterSpacing: "-0.025em",

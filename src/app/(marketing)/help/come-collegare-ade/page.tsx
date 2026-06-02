@@ -1,16 +1,12 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
+import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title:
-    "Come collegare ScontrinoZero all'Agenzia delle Entrate | ScontrinoZero Help",
-  description:
-    "Guida passo-passo per collegare ScontrinoZero al portale Fatture e Corrispettivi dell'Agenzia delle Entrate tramite credenziali Fisconline.",
-};
+export const metadata = helpArticleMetadata("come-collegare-ade");
 
 export default function ComeCollegareAde() {
   return (
@@ -21,6 +17,7 @@ export default function ComeCollegareAde() {
           "Collegare l'Agenzia delle Entrate",
         )}
       />
+      <HelpArticleJsonLd slug="come-collegare-ade" />
       <article className="mx-auto max-w-3xl">
         <Link
           href="/help"

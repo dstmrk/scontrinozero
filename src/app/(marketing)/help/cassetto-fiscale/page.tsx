@@ -1,16 +1,12 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
+import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title:
-    "Dove verificare i corrispettivi nel cassetto fiscale | ScontrinoZero Help",
-  description:
-    "Scopri come accedere al cassetto fiscale dell'Agenzia delle Entrate per verificare che i tuoi scontrini siano stati trasmessi correttamente.",
-};
+export const metadata = helpArticleMetadata("cassetto-fiscale");
 
 export default function CassettoFiscalePage() {
   return (
@@ -18,6 +14,7 @@ export default function CassettoFiscalePage() {
       <JsonLd
         data={helpArticleBreadcrumb("cassetto-fiscale", "Cassetto fiscale")}
       />
+      <HelpArticleJsonLd slug="cassetto-fiscale" />
       <article className="mx-auto max-w-3xl">
         <Link
           href="/help"

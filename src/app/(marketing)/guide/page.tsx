@@ -9,7 +9,7 @@ import { guideArticles, guideSlugs } from "@/lib/guide/articles";
 const SITE_URL = "https://scontrinozero.it";
 
 export const metadata: Metadata = {
-  title: "Guide e approfondimenti | ScontrinoZero",
+  title: "Guide e approfondimenti",
   description:
     "Guide pratiche sullo scontrino elettronico, documento commerciale online, POS-RT, regime forfettario e novità normative per partite IVA italiane.",
   openGraph: {

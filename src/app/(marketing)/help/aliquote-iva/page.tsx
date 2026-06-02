@@ -1,16 +1,12 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
+import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title:
-    "Come gestire aliquote IVA, catalogo e metodi di pagamento | ScontrinoZero Help",
-  description:
-    "Guida alla configurazione delle aliquote IVA (4%, 5%, 10%, 22% e nature speciali), del catalogo prodotti e dei metodi di pagamento in ScontrinoZero.",
-};
+export const metadata = helpArticleMetadata("aliquote-iva");
 
 export default function AliquoteIvaPage() {
   return (
@@ -21,6 +17,7 @@ export default function AliquoteIvaPage() {
           "Aliquote IVA, catalogo e pagamenti",
         )}
       />
+      <HelpArticleJsonLd slug="aliquote-iva" />
       <article className="mx-auto max-w-3xl">
         <Link
           href="/help"

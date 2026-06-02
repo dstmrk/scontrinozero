@@ -4,10 +4,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChevronRight } from "lucide-react";
 import { JsonLd, breadcrumbListJsonLd } from "@/components/json-ld";
 
+const SITE_URL = "https://scontrinozero.it";
+const PAGE_URL = `${SITE_URL}/help`;
+
 export const metadata: Metadata = {
-  title: "Help Center | ScontrinoZero",
+  title: "Help Center",
   description:
     "Guide, tutorial e risposte alle domande frequenti su ScontrinoZero: collegamento AdE, emissione scontrini, configurazione fiscale e molto altro.",
+  openGraph: {
+    title: "Help Center | ScontrinoZero",
+    description:
+      "Guide, tutorial e risposte alle domande frequenti su ScontrinoZero: collegamento AdE, emissione scontrini, configurazione fiscale e molto altro.",
+    url: PAGE_URL,
+  },
+  alternates: {
+    canonical: PAGE_URL,
+  },
 };
 
 interface HelpArticle {

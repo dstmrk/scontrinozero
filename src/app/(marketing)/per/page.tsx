@@ -9,7 +9,7 @@ const SITE_URL = "https://scontrinozero.it";
 const PAGE_URL = `${SITE_URL}/per`;
 
 export const metadata: Metadata = {
-  title: "Soluzioni per categoria | ScontrinoZero",
+  title: "Soluzioni per categoria",
   description:
     "ScontrinoZero adattato per ambulanti, parrucchieri ed estetisti, artigiani, B&B, regime forfettario e liberi professionisti. Trova la pagina della tua categoria.",
   openGraph: {

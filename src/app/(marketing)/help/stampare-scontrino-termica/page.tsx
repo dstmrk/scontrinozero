@@ -1,15 +1,12 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
+import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title: "Come stampare lo scontrino su carta termica | ScontrinoZero Help",
-  description:
-    "Guida pratica alla scelta di una stampante termica per scontrini (58 o 80 mm), all'abbinamento Bluetooth da Android, iPhone e computer e alla risoluzione dei problemi più comuni.",
-};
+export const metadata = helpArticleMetadata("stampare-scontrino-termica");
 
 export default function StampareScontrinoTermicaPage() {
   return (
@@ -20,6 +17,7 @@ export default function StampareScontrinoTermicaPage() {
           "Stampare lo scontrino su carta termica",
         )}
       />
+      <HelpArticleJsonLd slug="stampare-scontrino-termica" />
       <article className="mx-auto max-w-3xl">
         <Link
           href="/help"

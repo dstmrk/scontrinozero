@@ -1,16 +1,12 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import { helpArticleMetadata } from "@/lib/help/metadata";
+import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
-export const metadata: Metadata = {
-  title:
-    "Piani disponibili: Starter, Pro e self-hosted gratuito | ScontrinoZero Help",
-  description:
-    "Scopri le differenze tra i piani Starter, Pro e la versione self-hosted gratuita di ScontrinoZero. Prezzi, feature e come scegliere il piano giusto.",
-};
+export const metadata = helpArticleMetadata("piani-e-prezzi");
 
 export default function PianiEPrezziPage() {
   return (
@@ -18,6 +14,7 @@ export default function PianiEPrezziPage() {
       <JsonLd
         data={helpArticleBreadcrumb("piani-e-prezzi", "Piani e prezzi")}
       />
+      <HelpArticleJsonLd slug="piani-e-prezzi" />
       <article className="mx-auto max-w-3xl">
         <Link
           href="/help"
