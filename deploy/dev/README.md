@@ -29,8 +29,20 @@ build-arg e dev riusa la stessa key di prod. Sentry è disattivato su dev (nessu
 
 > Sostituisci `pi` con il tuo utente reale (`whoami`) in tutti i path/file.
 
-1. **Dismetti il vecchio meccanismo**: ferma lo script di polling ogni 2 min e
-   l'`npm run` dentro code-server. Code-server resta, ma libera la porta 3000.
+1. **Dismetti il vecchio meccanismo** e libera la porta 3000. Verifica chi la
+   tiene:
+   ```bash
+   sudo ss -ltnp | grep ':3000'
+   ```
+   Se l'app girava via **PM2 dentro il container code-server** (utente `coder`,
+   node via nvm), rimuovila da PM2 (a prova di reboot):
+   ```bash
+   # path di node usato dal demone PM2:
+   ND=$(dirname "$(sudo readlink /proc/$(pgrep -f 'PM2 ' | head -1)/exe)")
+   docker exec -u coder -e PATH="$ND:/usr/bin:/bin" code-server pm2 delete all
+   docker exec -u coder -e PATH="$ND:/usr/bin:/bin" code-server pm2 save
+   ```
+   Code-server resta come editor; smette solo di far girare l'app.
 
 2. **Cartella e file applicativi**:
    ```bash
@@ -119,5 +131,27 @@ journalctl -u scontrinozero-dev-webhook -f
 - `app-dev.scontrinozero.it/` potrebbe mostrare la landing marketing invece di
   redirigere a `/dashboard`: il redirect build-time in `next.config.ts` usa
   l'hostname di default (prod), il runtime lo gestisce `src/proxy.ts`. È lo
-  stesso comportamento della sandbox — irrilevante in dev.
+  stesso comportamento della sandbox — irrilevante in dev. (Stesso discorso per
+  `Access-Control-Allow-Origin` / `report-uri` CSP, valutati in `headers()` a
+  build-time: puntano a prod ma per le chiamate same-origin dell'app è ininfluente.)
 - Sentry è disattivato su dev (nessun `NEXT_PUBLIC_SENTRY_DSN` nel `.env`).
+
+### Troubleshooting
+
+- **`hooks.json` è un Go template** (webhook gira con `-template`): le virgolette
+  dentro `{{ getenv "DEPLOY_HMAC_SECRET" }}` sono volutamente **semplici**, perciò
+  il file non è JSON valido a sé stante — webhook lo renderizza prima del parse.
+  Con virgolette escapate (`\"`) fallisce con `unexpected "\\" in operand` e carica
+  0 hook (`Hook not found` su ogni richiesta).
+- **Migrazioni in loop con `getaddrinfo EAI_AGAIN`** all'avvio del container:
+  `DATABASE_URL_DIRECT` punta all'host diretto `db.<ref>.supabase.co`, che è
+  **IPv6-only**, mentre il container gira sulla bridge Docker senza IPv6. Usa il
+  **session pooler** (porta 5432, IPv4). Vedi `.env.example`.
+- **`failed to bind host port 127.0.0.1:3000: address already in use`** al
+  deploy: un vecchio processo (es. `next-server` via PM2 in code-server) tiene
+  ancora la 3000. Liberala come al passo 1 del setup.
+- **`403` nello step del webhook (Action)**: è Cloudflare Access che rifiuta il
+  service token. La policy sull'app `deploy-dev.scontrinozero.it` deve essere
+  **Service Auth** (non "Allow"), con incluso il token i cui ID/secret sono nei
+  GitHub Secrets. Isola il livello con un POST locale su `http://127.0.0.1:9000`
+  (salta Cloudflare) vs uno su `https://deploy-dev...` (passa da Access).
