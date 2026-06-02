@@ -41,7 +41,9 @@ export type {
 type AuthOk = { ok: true; userId: string };
 type AuthFail = { ok: false; error: string };
 
-async function authorizePro(businessId: string): Promise<AuthOk | AuthFail> {
+// Base authorization: any authenticated owner. Used by the "Analytics base"
+// KPIs available to every plan (Starter included).
+async function authorizeOwner(businessId: string): Promise<AuthOk | AuthFail> {
   let user;
   try {
     user = await getAuthenticatedUser();
@@ -56,11 +58,19 @@ async function authorizePro(businessId: string): Promise<AuthOk | AuthFail> {
     );
     return { ok: false, error: ownershipError.error };
   }
-  const planInfo = await getPlan(user.id);
+  return { ok: true, userId: user.id };
+}
+
+// Pro authorization: owner + plan gate. Used by the advanced widgets
+// (timeseries, payment breakdown) reserved to Pro/Unlimited.
+async function authorizePro(businessId: string): Promise<AuthOk | AuthFail> {
+  const base = await authorizeOwner(businessId);
+  if (!base.ok) return base;
+  const planInfo = await getPlan(base.userId);
   if (!canUsePro(planInfo.plan)) {
     return { ok: false, error: "Funzionalità riservata al piano Pro." };
   }
-  return { ok: true, userId: user.id };
+  return { ok: true, userId: base.userId };
 }
 
 async function validateRange(
@@ -136,7 +146,7 @@ export async function getAnalyticsKpis(
 ): Promise<AnalyticsKpis | { error: string }> {
   const rangeCheck = await validateRange(range);
   if (!rangeCheck.ok) return { error: rangeCheck.error };
-  const auth = await authorizePro(businessId);
+  const auth = await authorizeOwner(businessId);
   if (!auth.ok) return { error: auth.error };
 
   const { from, to } = rangeToBounds(range);

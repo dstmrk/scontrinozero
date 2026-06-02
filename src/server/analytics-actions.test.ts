@@ -222,14 +222,21 @@ describe("getAnalyticsKpis", () => {
     expect(res).toEqual({ error: "Non autorizzato." });
   });
 
-  it("returns an error when the plan is not Pro", async () => {
+  it("returns KPIs to a non-Pro owner (analytics base)", async () => {
     mockGetPlan.mockResolvedValue({
       plan: "starter",
       trialStartedAt: null,
       planExpiresAt: null,
     });
+    mockSelect.mockReturnValue(makeSelectBuilder([]));
+    mockFetchLinesByDocIds.mockResolvedValue([]);
     const res = await getAnalyticsKpis("biz-1", "30d");
-    expect(res).toMatchObject({ error: expect.stringMatching(/Pro/i) });
+    expect(res).toEqual({
+      revenueCents: 0,
+      count: 0,
+      aovCents: 0,
+      voidCount: 0,
+    });
   });
 
   it("returns an error for an invalid range", async () => {
@@ -292,6 +299,16 @@ describe("getAnalyticsKpis", () => {
 });
 
 describe("getRevenueTimeseries", () => {
+  it("returns an error when the plan is not Pro", async () => {
+    mockGetPlan.mockResolvedValue({
+      plan: "starter",
+      trialStartedAt: null,
+      planExpiresAt: null,
+    });
+    const res = await getRevenueTimeseries("biz-1", "30d");
+    expect(res).toMatchObject({ error: expect.stringMatching(/Pro/i) });
+  });
+
   it("buckets a midnight-Rome receipt by the correct fiscal day (DST fix)", async () => {
     // 2026-05-18T22:30Z = 00:30 Rome del 19 maggio (CEST). Deve finire
     // nel bucket "2026-05-19" (giorno fiscale), non in "2026-05-18".
@@ -385,6 +402,16 @@ describe("getRevenueTimeseries", () => {
 });
 
 describe("getPaymentBreakdown", () => {
+  it("returns an error when the plan is not Pro", async () => {
+    mockGetPlan.mockResolvedValue({
+      plan: "starter",
+      trialStartedAt: null,
+      planExpiresAt: null,
+    });
+    const res = await getPaymentBreakdown("biz-1", "30d");
+    expect(res).toMatchObject({ error: expect.stringMatching(/Pro/i) });
+  });
+
   it("groups ACCEPTED documents by paymentMethod with cents totals", async () => {
     mockSelect.mockReturnValue(
       makeSelectBuilder([
