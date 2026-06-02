@@ -7,7 +7,7 @@ import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
-  title: "API per sviluppatori | ScontrinoZero",
+  title: "API per sviluppatori",
   description:
     "Documentazione completa delle API REST di ScontrinoZero: autenticazione, endpoint, esempi curl e riferimenti tecnici.",
 };

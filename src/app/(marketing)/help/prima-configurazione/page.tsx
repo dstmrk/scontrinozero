@@ -8,7 +8,7 @@ import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
-  title: "Prima configurazione passo-passo | ScontrinoZero Help",
+  title: "Prima configurazione passo-passo",
   description:
     "Guida all'onboarding di ScontrinoZero: crea l'account, inserisci i dati dell'attività e collega le credenziali Fisconline per iniziare a emettere scontrini elettronici.",
 };

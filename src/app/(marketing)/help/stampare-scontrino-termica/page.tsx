@@ -7,7 +7,7 @@ import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
-  title: "Come stampare lo scontrino su carta termica | ScontrinoZero Help",
+  title: "Come stampare lo scontrino su carta termica",
   description:
     "Guida pratica alla scelta di una stampante termica per scontrini (58 o 80 mm), all'abbinamento Bluetooth da Android, iPhone e computer e alla risoluzione dei problemi più comuni.",
 };

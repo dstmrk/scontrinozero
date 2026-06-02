@@ -7,7 +7,7 @@ import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
-  title: "Errori comuni di accesso AdE e come risolverli | ScontrinoZero Help",
+  title: "Errori comuni di accesso AdE e come risolverli",
   description:
     "Guida alla risoluzione degli errori più frequenti nel collegamento con l'Agenzia delle Entrate: password scaduta, credenziali errate, password bloccata, portale non disponibile e scontrino rifiutato in fase di emissione.",
 };

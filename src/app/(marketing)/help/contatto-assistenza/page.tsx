@@ -7,7 +7,7 @@ import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
-  title: "Come contattare l'assistenza | ScontrinoZero Help",
+  title: "Come contattare l'assistenza",
   description:
     "Canali di supporto disponibili, tempi di risposta e come segnalare un problema a ScontrinoZero.",
 };

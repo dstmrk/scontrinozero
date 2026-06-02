@@ -7,7 +7,7 @@ import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
-  title: "Come emettere il primo scontrino elettronico | ScontrinoZero Help",
+  title: "Come emettere il primo scontrino elettronico",
   description:
     "Guida passo-passo per emettere il primo scontrino elettronico con ScontrinoZero: apertura cassa, aggiunta prodotti, selezione pagamento e trasmissione AdE.",
 };

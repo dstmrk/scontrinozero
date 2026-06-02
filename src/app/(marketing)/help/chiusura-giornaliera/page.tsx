@@ -7,7 +7,7 @@ import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
-  title: "Chiusura giornaliera: è obbligatoria? | ScontrinoZero Help",
+  title: "Chiusura giornaliera: è obbligatoria?",
   description:
     "Con ScontrinoZero non devi fare nessuna chiusura giornaliera. Scopri perché il Documento Commerciale Online funziona diversamente dal registratore telematico fisico.",
 };

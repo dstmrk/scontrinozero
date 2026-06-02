@@ -7,7 +7,7 @@ import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata: Metadata = {
-  title: "Dove trovare fatture e ricevute di pagamento | ScontrinoZero Help",
+  title: "Dove trovare fatture e ricevute di pagamento",
   description:
     "Come scaricare le ricevute e le fatture del tuo abbonamento ScontrinoZero per la contabilità e il commercialista.",
 };
