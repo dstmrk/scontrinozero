@@ -6,6 +6,7 @@ import {
   softwareApplicationJsonLd,
   organizationJsonLd,
 } from "@/components/json-ld";
+import { marketingBaseUrl } from "@/lib/seo-indexable";
 import "./globals.css";
 
 const nunitoSans = localFont({
@@ -37,9 +38,9 @@ export const metadata: Metadata = {
   },
   description:
     "Registratore di cassa virtuale per micro-attività. Emetti scontrini elettronici e trasmetti i corrispettivi all'Agenzia delle Entrate senza registratore telematico. Il più economico del mercato: da €29,99/anno.",
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL ?? "https://scontrinozero.it",
-  ),
+  // Base per la risoluzione di URL relativi (es. OG image): apex marketing
+  // indicizzabile, non il dominio app.
+  metadataBase: new URL(marketingBaseUrl()),
   openGraph: {
     type: "website",
     locale: "it_IT",

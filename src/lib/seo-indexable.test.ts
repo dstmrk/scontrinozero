@@ -1,5 +1,25 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isIndexableHost } from "./seo-indexable";
+import { isIndexableHost, marketingBaseUrl } from "./seo-indexable";
+
+describe("marketingBaseUrl", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("defaults to the production marketing apex over https", () => {
+    expect(marketingBaseUrl()).toBe("https://scontrinozero.it");
+  });
+
+  it("honours a custom NEXT_PUBLIC_MARKETING_HOSTNAME", () => {
+    vi.stubEnv("NEXT_PUBLIC_MARKETING_HOSTNAME", "scontrini.example.org");
+    expect(marketingBaseUrl()).toBe("https://scontrini.example.org");
+  });
+
+  it("points at a host that isIndexableHost considers indexable (no noindex on sitemap URLs)", () => {
+    const host = new URL(marketingBaseUrl()).hostname;
+    expect(isIndexableHost(host)).toBe(true);
+  });
+});
 
 describe("isIndexableHost", () => {
   afterEach(() => {

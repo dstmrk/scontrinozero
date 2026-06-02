@@ -3,8 +3,11 @@ import { categorySlugs } from "@/lib/per/categories";
 import { guideSlugs } from "@/lib/guide/articles";
 import { helpSlugs } from "@/lib/help/articles";
 import { toolSlugs } from "@/lib/strumenti/tools";
+import { marketingBaseUrl } from "@/lib/seo-indexable";
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://scontrinozero.it";
+// Base = apex marketing (non NEXT_PUBLIC_APP_URL, che è il dominio app): gli URL
+// in sitemap devono stare sull'host indicizzabile, mai su quello in noindex.
+const baseUrl = marketingBaseUrl();
 
 const marketingPages = ["/prezzi", "/funzionalita"].map((path) => ({
   url: `${baseUrl}${path}`,

@@ -177,8 +177,8 @@ describe("sitemap", () => {
     });
   });
 
-  it("uses NEXT_PUBLIC_APP_URL when set", async () => {
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://test.scontrinozero.it");
+  it("derives the base from NEXT_PUBLIC_MARKETING_HOSTNAME (marketing apex, not the app domain)", async () => {
+    vi.stubEnv("NEXT_PUBLIC_MARKETING_HOSTNAME", "test.scontrinozero.it");
 
     vi.resetModules();
     const { default: sitemap } = await import("./sitemap");

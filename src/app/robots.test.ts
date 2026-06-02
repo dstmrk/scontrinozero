@@ -28,9 +28,9 @@ describe("robots", () => {
     });
   });
 
-  it("uses NEXT_PUBLIC_APP_URL for the sitemap URL on the apex", async () => {
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://test.scontrinozero.it");
-    mockHeaderGet.mockReturnValue("scontrinozero.it");
+  it("derives the sitemap URL from NEXT_PUBLIC_MARKETING_HOSTNAME on the apex", async () => {
+    vi.stubEnv("NEXT_PUBLIC_MARKETING_HOSTNAME", "test.scontrinozero.it");
+    mockHeaderGet.mockReturnValue("test.scontrinozero.it");
 
     vi.resetModules();
     const { default: robots } = await import("./robots");

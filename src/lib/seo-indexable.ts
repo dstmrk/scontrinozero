@@ -1,6 +1,30 @@
 import { parseTrustedHostnameEnv } from "./hostname-env";
 
 /**
+ * Hostname apex del sito marketing di produzione. Unica sorgente per decidere
+ * cosa è indicizzabile (`isIndexableHost`) e per costruire la base URL pubblica
+ * (`marketingBaseUrl`), così sitemap/robots/canonical e l'allowlist noindex non
+ * possono divergere.
+ */
+function marketingHostname(): string {
+  return parseTrustedHostnameEnv(
+    "NEXT_PUBLIC_MARKETING_HOSTNAME",
+    "scontrinozero.it",
+  );
+}
+
+/**
+ * Base URL pubblica del sito (es. `https://scontrinozero.it`), derivata
+ * dall'apex marketing. Da usare come base di sitemap, robots e `metadataBase`:
+ * garantisce per costruzione che gli URL pubblicizzati siano sullo stesso host
+ * che `isIndexableHost` considera indicizzabile (mai sul dominio app, che è
+ * noindex). NON usare `NEXT_PUBLIC_APP_URL`: è il dominio dell'app.
+ */
+export function marketingBaseUrl(): string {
+  return `https://${marketingHostname()}`;
+}
+
+/**
  * Decide se un hostname è il dominio di produzione che deve essere indicizzato
  * dai motori di ricerca.
  *
@@ -22,9 +46,6 @@ import { parseTrustedHostnameEnv } from "./hostname-env";
 export function isIndexableHost(hostname: string | null | undefined): boolean {
   if (!hostname) return false;
   const host = hostname.toLowerCase().replace(/:\d+$/, "");
-  const marketing = parseTrustedHostnameEnv(
-    "NEXT_PUBLIC_MARKETING_HOSTNAME",
-    "scontrinozero.it",
-  );
+  const marketing = marketingHostname();
   return host === marketing || host === `www.${marketing}`;
 }

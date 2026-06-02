@@ -1,8 +1,9 @@
 import type { MetadataRoute } from "next";
 import { headers } from "next/headers";
-import { isIndexableHost } from "@/lib/seo-indexable";
+import { isIndexableHost, marketingBaseUrl } from "@/lib/seo-indexable";
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://scontrinozero.it";
+// La sitemap referenziata è quella dell'apex marketing indicizzabile.
+const baseUrl = marketingBaseUrl();
 
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const host = (await headers()).get("host");
