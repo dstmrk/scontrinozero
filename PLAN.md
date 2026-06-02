@@ -124,16 +124,26 @@ hidden field → `formData`), parallelo ma separato:
    (regex `^[A-Z]{2,8}_[A-Z0-9]{8,10}$`, prefisso in allowlist `["NDS"]`,
    lunghezza max). NON tocca il DB. Boundary API: validazione prima del service
    (`CLAUDE.md` regola 9).
-3. In `signUp` (`src/server/auth-actions.ts`): dopo la validazione formato,
-   **claim atomico race-safe** in `insertProfileOrRollback` (o helper
-   dedicato), nella stessa transazione dell'insert profilo:
+3. In `signUp` (`src/server/auth-actions.ts`), **pre-check del codice PRIMA di
+   `supabase.auth.signUp()`** — specularmente al pre-check email già presente
+   (un `SELECT ... WHERE code = $code AND used_by IS NULL`). Se il codice manca
+   o è già usato → rifiuto immediato con errore esplicito **senza creare l'auth
+   user** (evita l'orfano nel caso comune). Questo pre-check è il motivo per cui
+   l'ordine conta: vedi edge case "auth user orfano" sotto.
+4. **Claim atomico race-safe DOPO la creazione dell'auth user**, nella stessa
+   transazione dell'insert profilo (in `insertProfileOrRollback` o helper
+   dedicato):
    ```
    UPDATE partner_codes
       SET used_by = $authUserId, used_at = now()
     WHERE code = $code AND used_by IS NULL
    RETURNING code;
    ```
-   - 0 righe → codice inesistente o già usato → vedi gestione sotto.
+   - 0 righe (TOCTOU: il codice è stato consumato tra pre-check e claim) →
+     **trattare come fallimento di registrazione: compensating delete dell'auth
+     user** (stessa `compensatingDeleteAuthUser` usata per il profile insert
+     failure) + errore esplicito. Senza questo si lascia un auth user orfano e
+     l'utente non può ritentare con la stessa email.
    - 1 riga → set `profiles.plan = 'unlimited'`, `profiles.referred_by = $code`,
      `planExpiresAt = signup + 1 anno` (**anchor informativo**, non
      auto-enforced: con `unlimited` né `canEmit` né `isTrialExpired` leggono
@@ -142,12 +152,14 @@ hidden field → `formData`), parallelo ma separato:
    - Usare `db.transaction()` con callback passthrough nei test (skill
      `testing-patterns`). Il claim DEVE essere atomico col profile insert per
      non lasciare codici consumati senza profilo (orfani).
-4. **Gestione codice invalido/già usato — DECISO (a):** se il campo `code` è
+5. **Gestione codice invalido/già usato — DECISO (a):** se il campo `code` è
    presente nel form, rifiutare la registrazione con **errore esplicito**
    ("Codice non valido o già utilizzato"). Niente fallback silenzioso a
    registrazione normale: l'utente è arrivato da un link partner e un codice
    rotto va segnalato, non degradato (e non vogliamo creargli per errore un
-   account trial standard).
+   account trial standard). Il rifiuto avviene preferibilmente nel pre-check
+   (punto 3, nessun auth user creato); nel caso raro di race al claim (punto 4)
+   il rifiuto è accompagnato dal compensating delete dell'auth user.
 
 ### Reporting & fatturazione (script admin)
 
@@ -178,7 +190,12 @@ hidden field → `formData`), parallelo ma separato:
 
 - Codice già usato (race tra due signup sullo stesso codice → solo uno vince,
   `INSERT/UPDATE ... WHERE used_by IS NULL`, skill `testing-patterns`).
-- Codice formato valido ma inesistente nel DB.
+- Codice formato valido ma inesistente nel DB → rifiuto al pre-check, **nessun
+  auth user creato** (assert: `compensatingDeleteAuthUser` non chiamata).
+- **Codice invalido/già usato che supera il pre-check ma fallisce al claim**
+  (TOCTOU): l'auth user è già stato creato → assert che venga fatto il
+  compensating delete (no auth user orfano, utente può ritentare con la stessa
+  email). Questo è il caso sollevato dalla review P2 su PR #555.
 - Codice prefisso non in allowlist (`XYZ_...`).
 - Utente **già registrato** che apre un link con `?code=` (il pre-check email
   esistente fa redirect a `/verify-email` prima del claim → il codice **non**
