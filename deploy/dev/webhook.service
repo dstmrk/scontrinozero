@@ -1,0 +1,35 @@
+# ScontrinoZero — receiver del deploy dev (adnanh/webhook).
+#
+# Installazione:
+#   1. sudo apt-get install -y webhook      # pacchetto Debian/RPi OS
+#   2. Sostituisci 'pi' con il tuo utente (output di `whoami`) ovunque qui sotto
+#   3. sudo cp webhook.service /etc/systemd/system/scontrinozero-dev-webhook.service
+#   4. sudo systemctl daemon-reload
+#   5. sudo systemctl enable --now scontrinozero-dev-webhook
+#
+# L'utente deve poter usare Docker senza sudo:
+#   sudo usermod -aG docker pi   (poi ri-login)
+#
+# Ascolta solo su 127.0.0.1:9000 — l'esposizione pubblica la fa cloudflared
+# (deploy-dev.scontrinozero.it -> http://localhost:9000), protetta da CF Access.
+[Unit]
+Description=ScontrinoZero dev deploy webhook
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+User=pi
+# File con DEPLOY_HMAC_SECRET=... (chmod 600, NON committato). Vedi README.
+EnvironmentFile=/home/pi/docker-apps/scontrinozero-dev/webhook.env
+ExecStart=/usr/bin/webhook \
+  -hooks /home/pi/docker-apps/scontrinozero-dev/hooks.json \
+  -ip 127.0.0.1 \
+  -port 9000 \
+  -template \
+  -verbose
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

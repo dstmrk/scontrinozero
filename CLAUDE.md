@@ -12,10 +12,13 @@ Drizzle ORM · Supabase Auth · Stripe (`2026-02-25.clover`) · Resend · Sentry
 pino · Umami · SonarCloud · Vitest. Deploy Docker self-hosted su VPS dietro
 Cloudflare Tunnel.
 
-**Due ambienti** sulla stessa VPS:
+**Tre ambienti:**
 
-- **Produzione** — `scontrinozero.it` · `ADE_MODE=real` · Stripe live
-- **Sandbox** — `sandbox.scontrinozero.it` · `ADE_MODE=mock` · Stripe test
+- **Produzione** — `scontrinozero.it` · `ADE_MODE=real` · Stripe live · VPS
+- **Sandbox** — `sandbox.scontrinozero.it` · `ADE_MODE=mock` · Stripe test · VPS
+- **Dev** — `dev.scontrinozero.it` (+ `app-dev`/`api-dev`) · `ADE_MODE=mock` ·
+  Stripe test · Raspberry Pi 5 (arm64). Auto-deploy a ogni push su `main`.
+  Setup completo in `deploy/dev/README.md`.
 
 Versione corrente in `package.json`. Roadmap in `PLAN.md`. Storico release dai
 tag git (`git tag -l "v1.*"`).
@@ -152,6 +155,24 @@ VPS (Cloudflare Access SSH):
 passate come `--build-arg` al `docker build`. `APP_HOSTNAME` (senza
 `NEXT_PUBLIC_`) è runtime e sovrascrive l'hostname baked — usato per sandbox
 e self-hosting su dominio custom.
+
+> Nota: un'unica immagine Docker serve prod/sandbox/dev/self-hosted perché la
+> maggior parte delle `NEXT_PUBLIC_*` (Supabase, `APP_URL`, hostname) è letta
+> **server-side a runtime** in modalità standalone (no inlining nel bundle
+> client). Sono baked nel bundle SOLO quelle lette in un client component —
+> `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (`turnstile-widget.tsx`) e
+> `NEXT_PUBLIC_SENTRY_DSN` (`sentry.client.config.ts`) — che vanno quindi
+> passate come `--build-arg`. Coerente con regola 15.
+
+### Deploy dev (push-based, Raspberry Pi)
+
+A differenza di prod/sandbox (tag-based), **dev traccia `main`**: a ogni push
+(commit o merge di PR) `.github/workflows/deploy-dev.yml` builda l'immagine
+**arm64** su runner `ubuntu-24.04-arm`, la pubblica come `ghcr.io/dstmrk/
+scontrinozero:dev` e notifica il Pi via webhook firmato (HMAC + Cloudflare
+Access). Sul Pi `adnanh/webhook` (systemd) esegue `docker compose pull && up -d`.
+Stessa immagine di prod, solo arch diversa; tutte le differenze d'ambiente
+vivono nel `.env` runtime. File e istruzioni in `deploy/dev/`.
 
 ### Procedura aggiornamento T&C
 

@@ -1,0 +1,35 @@
+# ScontrinoZero — ambiente DEV (Raspberry Pi 5, arm64)
+#
+# Gira sullo stesso Docker host di code-server, ma come stack SEPARATO
+# (code-server torna a fare solo code-server: l'app NON gira più al suo interno).
+#
+# Posizione consigliata sul Pi: ~/docker-apps/scontrinozero-dev/
+# In quella cartella servono: questo file + .env + deploy.sh + hooks.json
+#
+# Aggiornato automaticamente da deploy.sh (invocato dal webhook) a ogni
+# push su main. Vedi README.md.
+services:
+  app:
+    image: ghcr.io/dstmrk/scontrinozero:dev
+    container_name: scontrinozero-dev
+    restart: always
+    # `docker compose up -d` da solo non riscarica l'immagine; deploy.sh fa
+    # `pull` esplicito, ma pull_policy: always è una rete di sicurezza.
+    pull_policy: always
+    # Stesso schema di env di prod/sandbox. Qui vanno i valori DEV:
+    # Supabase dev, ADE_MODE=mock, Stripe test, APP_HOSTNAME=app-dev...,
+    # NEXT_PUBLIC_MARKETING_HOSTNAME=dev..., NEXT_PUBLIC_API_HOSTNAME=api-dev...
+    # Vedi .env.example.
+    env_file: .env
+    ports:
+      # Solo localhost: è cloudflared (systemd, sull'host) a fare reverse proxy
+      # per dev.scontrinozero.it / app-dev / api-dev verso questa porta.
+      - "127.0.0.1:3000:3000"
+    # Pi 5 ha headroom: un filo più della prod (512m) per migrate + cold start.
+    mem_limit: 768m
+    cpus: "1.5"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
