@@ -3,7 +3,11 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import { appHref } from "@/lib/marketing-to-app-href";
 import { Button } from "@/components/ui/button";
-import { JsonLd, breadcrumbListJsonLd } from "@/components/json-ld";
+import {
+  JsonLd,
+  breadcrumbListJsonLd,
+  faqPageJsonLd,
+} from "@/components/json-ld";
 import { confrontoContent } from "@/lib/confronto/comparisons";
 import { helpArticles } from "@/lib/help/articles";
 
@@ -37,6 +41,7 @@ export default function ConfrontoPage() {
           { name: "Confronto", url: PAGE_URL },
         ])}
       />
+      {c.faq.length > 0 && <JsonLd data={faqPageJsonLd(c.faq)} />}
 
       <section className="px-4 py-16">
         <article className="mx-auto max-w-3xl">

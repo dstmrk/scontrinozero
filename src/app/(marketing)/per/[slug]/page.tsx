@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   JsonLd,
   breadcrumbListJsonLd,
+  faqPageJsonLd,
   serviceJsonLd,
 } from "@/components/json-ld";
 import {
@@ -77,6 +78,7 @@ export default async function CategoryLandingPage({ params }: PageParams) {
           audience: category.audience,
         })}
       />
+      {category.faq.length > 0 && <JsonLd data={faqPageJsonLd(category.faq)} />}
 
       <section className="px-4 py-16">
         <article className="mx-auto max-w-3xl">
