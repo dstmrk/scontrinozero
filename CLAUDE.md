@@ -86,6 +86,33 @@ src/app/\(marketing\)/help` prima di chiudere il task. Feature non ancora
     `NEXT_PUBLIC_*`, quindi cadrebbe sul default hardcoded di produzione
     rompendo sandbox/self-hosted. Calcolare l'href nel parent server
     component e passarlo come prop al client.
+16. **Mock tipati (TS2556).** Mai fare spread di `...args` in un `vi.fn()` a
+    zero argomenti: tipare il mock con la **firma reale** del modulo mockato
+    (`notFound()` non prende argomenti, `redirect(path)` uno). Lo spread di
+    `unknown[]` rompe `npm run type-check` con **TS2556** _prima_ ancora che i
+    test partano — non lo cattura il run dei test (PR #553, #572). Correzione
+    ricorrente: vedi skill `testing-patterns`.
+17. **Ordini deterministici prima di slice/topN.** Ogni `sort` che precede uno
+    `slice`/topN deve avere una **chiave secondaria stabile** (es. descrizione
+    normalizzata) oltre alla metrica primaria: ordinare sui soli `revenueCents`
+    rende l'output non deterministico sui pareggi. E **coerenza arrotondamenti**:
+    aggregare con lo stesso helper del resto (`calcDocTotal`, arrotondamento
+    per-documento), mai per-riga, altrimenti i totali del breakdown non
+    combaciano con KPI/pagamenti sullo stesso range (PR #519, #534).
+18. **Env d'identità: build-vs-runtime e present-but-empty.** Un `?? default`
+    **non** scatta se la variabile è presente ma **vuota** (`""`): nel
+    `Dockerfile` bakare un default reale nell'`ARG`/`ENV` o **non** esportarla
+    affatto quando assente, altrimenti prod/sandbox bakano una stringa vuota
+    (CORS origin / reporting endpoint vuoti — PR #560). E `next.config.ts`
+    **non** può importare moduli con alias `@/`: la transpilation del config
+    non li risolve e `next build` fallisce _prima_ di generare le route — usare
+    import relativi (PR #536). Estende regola 15 e le note Deploy.
+19. **Server action di lettura: degradare, non lanciare.** Una server action che
+    alimenta la UI (KPI/analytics, ecc.) deve ritornare `{ error }` su fallimento
+    DB/SDK, **mai** propagare l'eccezione: il throw fa scattare l'error boundary
+    di Next al posto del fallback inline, rompendo la performance percepita
+    (priorità #1). Coerente con regola 10 e con il pattern `deleteAccount` della
+    skill `testing-patterns` (PR #572, `getStarterKpis`).
 
 ## SonarCloud quality gate
 
