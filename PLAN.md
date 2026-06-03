@@ -32,12 +32,10 @@ La versione pubblicata corrente è in `package.json`. Lo storico delle release �
 
 ### Obiettivo commerciale
 
-Modello **wholesale B2B**: un rivenditore (primo partner: National Digital
-Service SRLS, brand provvisorio "NDS Scontrini Digitale") porta esercenti sulla
+Modello **wholesale B2B**: un rivenditore porta esercenti sulla
 piattaforma ScontrinoZero standard. L'esercente **non paga noi**: paga il
-partner. Noi fatturiamo **al partner** un prezzo all'ingrosso per utente
-(ipotesi iniziale: **€30/anno per utente, prepagato annuale**); il partner
-rivende al prezzo che vuole e fa la **prima assistenza** alla propria rete.
+partner. Noi fatturiamo **al partner** un prezzo all'ingrosso per utente;
+il partner rivende al prezzo che vuole e fa la **prima assistenza** alla propria rete.
 
 Caratteristiche del modello scelto (le alternative white-label / licenza
 multi-cliente / sottodominio dedicato sono state valutate e **scartate** per
@@ -46,8 +44,8 @@ particolare riapre Turnstile hostname allowlist, cookie cross-origin e
 `NEXT_PUBLIC_*` baked al build, vedi `CLAUDE.md` regola 15):
 
 - **Attribuzione via codice univoco monouso** con prefisso per-partner
-  (`NDS_<univoco>`). Il prefisso permette il filtro/report con un semplice
-  `LIKE 'NDS_%'` senza tabella di mapping.
+  (`<partner_id>_<univoco>`). Il prefisso permette il filtro/report con un semplice
+  `LIKE '<partner_id>_%'` senza tabella di mapping.
 - **Monouso** = anti-leak: anche se il codice circola, vale una sola
   attivazione. Niente codice statico condiviso.
 - **Free first month = concetto di fatturazione, non gate tecnico.** L'utente
@@ -68,8 +66,8 @@ se servono, `relations.ts`). Eseguire `node scripts/check-migrations.mjs`.
 
 | Colonna      | Tipo                   | Note                                                         |
 | ------------ | ---------------------- | ------------------------------------------------------------ |
-| `code`       | `text` PK              | Es. `NDS_7K9F2QHX`. Formato validato lato app.               |
-| `partner`    | `text` NOT NULL        | Es. `"NDS"`. Coincide col prefisso prima del primo `_`.      |
+| `code`       | `text` PK              | Es. `PARTNER1_7K9F2QHX`. Formato validato lato app.               |
+| `partner`    | `text` NOT NULL        | Es. `"PARTNER2"`. Coincide col prefisso prima del primo `_`.      |
 | `used_by`    | `uuid` NULL            | `auth_user_id` (o `profiles.id`) che ha consumato il codice. |
 | `used_at`    | `timestamptz` NULL     | Valorizzato al claim.                                        |
 | `created_at` | `timestamptz` NOT NULL | `defaultNow()`.                                              |
@@ -101,7 +99,7 @@ tutti gli helper di gate e i relativi test. Da promuovere solo se la semantica
 
 `scripts/generate-partner-codes.mjs` (+ test):
 
-- Args: `--partner NDS --count 50`.
+- Args: `--partner <partner_id> --count 50`.
 - Parte univoca: **8–10 char base32 senza caratteri ambigui** (escludere
   `0 O 1 I L`) per leggibilità/dettatura al telefono. Generazione
   crittograficamente sicura (`crypto.randomBytes`).
@@ -116,12 +114,12 @@ Riusa il pattern `?ref=` esistente (catturato in
 hidden field → `formData`), parallelo ma separato:
 
 1. **Link precompilato** consegnato al partner:
-   `https://app.scontrinozero.it/register?code=NDS_7K9F2QHX` (niente
+   `https://app.scontrinozero.it/register?code=PARTNER1_7K9F2QHX` (niente
    sottodominio). Il client component legge `?code=`, lo mette in un campo
    (read-only o nascosto) e lo passa nel `formData`.
 2. **Nuovo modulo** `src/lib/partner-code.ts` (+ test), speculare a
    `signup-source.ts`: `normalizePartnerCode()` valida **solo il formato**
-   (regex `^[A-Z]{2,8}_[A-Z0-9]{8,10}$`, prefisso in allowlist `["NDS"]`,
+   (regex `^[A-Z]{2,8}_[A-Z0-9]{8,10}$`, prefisso in allowlist `["PARTNER1"]`,
    lunghezza max). NON tocca il DB. Boundary API: validazione prima del service
    (`CLAUDE.md` regola 9).
 3. In `signUp` (`src/server/auth-actions.ts`), **pre-check del codice PRIMA di
@@ -168,7 +166,7 @@ hidden field → `formData`), parallelo ma separato:
 
 `scripts/export-partner-billing.mjs` (+ test):
 
-- Args: `--partner NDS --from YYYY-MM-DD --to YYYY-MM-DD`.
+- Args: `--partner PARTNER1 --from YYYY-MM-DD --to YYYY-MM-DD`.
 - Query: `profiles WHERE referred_by LIKE 'NDS\_%'` (escape `_`) e
   `created_at` nella finestra. "Convertito/fatturabile" = oltre il primo mese
   (l'utente esiste, il free month è scaduto come concetto di billing).
@@ -234,8 +232,7 @@ hidden field → `formData`), parallelo ma separato:
    a un utente `unlimited` (gli invite-only hanno verosimilmente `null`).
 3. **Codice invalido al signup: errore esplicito, nessun fallback a trial.** ✅
 4. **Unità di fatturazione: per utente attivo a fine primo mese, prepagato
-   annuale.** ✅ (Allineata all'accordo commerciale col partner — proposta
-   nostra a NDS.)
+   annuale.** ✅ 
 
 ### Suddivisione in sub-task (task > 3 file, regola 5)
 
