@@ -118,7 +118,7 @@ export default function CambioPianoPage() {
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Il piano Pro include inoltre l&apos;
+          {"Il piano Pro include inoltre l'"}
           <strong>analytics avanzata</strong> (grafici e periodi estesi) e
           l&apos;<strong>export CSV</strong> dello storico scontrini. Sono
           invece <em>in arrivo</em> il recupero corrispettivi da AdE e il sync
