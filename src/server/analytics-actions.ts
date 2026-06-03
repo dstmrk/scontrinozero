@@ -368,8 +368,22 @@ export async function getStarterKpis(
   const auth = await authorizeOwner(businessId);
   if (!auth.ok) return { error: auth.error };
 
-  const { from, to } = rangeToBounds("30d", reference);
-  const docs = await fetchSaleDocsInRange(businessId, from, to);
-  const { totalsByDoc } = await computeTotalsByDoc(docs);
-  return { kpis: computeKpis(docs, totalsByDoc) };
+  try {
+    const { from, to } = rangeToBounds("30d", reference);
+    const docs = await fetchSaleDocsInRange(businessId, from, to);
+    const { totalsByDoc } = await computeTotalsByDoc(docs);
+    return { kpis: computeKpis(docs, totalsByDoc) };
+  } catch (err) {
+    // Un timeout DB (57014) sotto carico deve degradare nella vista base
+    // (alert inline + KPI a zero gestiti da AnalyticsPage), non propagare
+    // fino all'error boundary di Next. Gli errori imprevisti restano
+    // visibili (rethrow → Sentry), coerente con authorizeOwner.
+    if (isStatementTimeoutError(err)) {
+      return {
+        error:
+          "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
+      };
+    }
+    throw err;
+  }
 }

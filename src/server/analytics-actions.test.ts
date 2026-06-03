@@ -931,4 +931,42 @@ describe("getStarterKpis", () => {
       error: expect.stringContaining("Profilo non disponibile"),
     });
   });
+
+  it("degrades to { error } on a DB statement timeout during the fetch (57014)", async () => {
+    // Il timeout avviene nella query dei documenti (non in getPlan): deve
+    // tradursi nello shape di errore, non propagare all'error boundary.
+    const timeoutErr = Object.assign(new Error("statement timeout"), {
+      code: "57014",
+    });
+    const rejectingBuilder = {
+      from: vi.fn(),
+      where: vi.fn(),
+      limit: vi.fn(),
+    };
+    rejectingBuilder.from.mockReturnValue(rejectingBuilder);
+    rejectingBuilder.where.mockReturnValue(rejectingBuilder);
+    rejectingBuilder.limit.mockReturnValue(Promise.reject(timeoutErr));
+    mockSelect.mockReturnValue(rejectingBuilder);
+
+    const res = await getStarterKpis("biz-1");
+    expect(res).toMatchObject({
+      error: expect.stringContaining("sovraccarico"),
+    });
+  });
+
+  it("rethrows unexpected fetch errors instead of masking them", async () => {
+    const rejectingBuilder = {
+      from: vi.fn(),
+      where: vi.fn(),
+      limit: vi.fn(),
+    };
+    rejectingBuilder.from.mockReturnValue(rejectingBuilder);
+    rejectingBuilder.where.mockReturnValue(rejectingBuilder);
+    rejectingBuilder.limit.mockReturnValue(
+      Promise.reject(new Error("network glitch")),
+    );
+    mockSelect.mockReturnValue(rejectingBuilder);
+
+    await expect(getStarterKpis("biz-1")).rejects.toThrow("network glitch");
+  });
 });
