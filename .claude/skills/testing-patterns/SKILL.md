@@ -67,6 +67,35 @@ vi.mock("@/lib/rate-limit", () => ({
 
 ---
 
+## Mock tipati: niente spread in `vi.fn()` a zero argomenti (TS2556)
+
+Quando mocki una funzione e poi la invochi inoltrandole gli argomenti con uno
+spread, il `vi.fn()` ha firma `() => ...` (zero argomenti) e lo spread di
+`unknown[]` produce **TS2556** (`A spread argument must either have a tuple
+type or be passed to a rest parameter`). `npm run type-check` fallisce _prima_
+di eseguire i test — non lo cattura il run. Tipare il mock con la **firma reale**
+del modulo mockato (`notFound()` non prende argomenti; `redirect(path)` uno).
+
+```typescript
+// ❌ SBAGLIATO — TS2556: spread in un vi.fn() a zero argomenti
+const mockRedirect = vi.fn();
+vi.mock("next/navigation", () => ({
+  redirect: (...args: unknown[]) => mockRedirect(...args), // spread → TS2556
+  notFound: () => mockNotFound(),
+}));
+
+// ✅ CORRETTO — firma reale, nessuno spread inutile
+const mockRedirect = vi.fn<(path: string) => never>();
+vi.mock("next/navigation", () => ({
+  redirect: (path: string) => mockRedirect(path),
+  notFound: () => mockNotFound(), // notFound() è zero-arg: non spreddare nulla
+}));
+```
+
+Ricorrente: PR #553 (`notFound`), #572 (`redirect`), commit f227f81 e 4b2cfca.
+
+---
+
 ## Rate limiting su server actions autenticate
 
 Le server actions per utenti autenticati usano chiavi **per-user**.
