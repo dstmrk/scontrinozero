@@ -350,3 +350,57 @@ describe("logger Sentry bridge", () => {
     });
   });
 });
+
+// The Sentry pino integration (Sentry.pinoIntegration) forwards the *serialised*
+// log object to Sentry Logs — i.e. the output produced AFTER pino's redaction
+// runs (it taps the `pino_asJson` diagnostics channel). Unlike the exception
+// bridge (sanitizeForTelemetry, an allowlist), the Logs path is a DENYLIST:
+// every field that is NOT redacted is forwarded. Raw `ip` is GDPR personal data
+// and is logged at warn level (profile-actions changePassword rate limit,
+// csp-report), so it MUST be in REDACT_PATHS or it would leak to Sentry Logs.
+describe("logger REDACT_PATHS — Sentry Logs (pino integration) safety", () => {
+  it("REDACT_PATHS includes 'ip' and '*.ip' so raw IPs never reach Sentry Logs", async () => {
+    const { REDACT_PATHS } = await import("./logger");
+    expect(REDACT_PATHS).toContain("ip");
+    expect(REDACT_PATHS).toContain("*.ip");
+  });
+
+  it("a logger built with the real REDACT_PATHS censors top-level and nested 'ip'", async () => {
+    const { REDACT_PATHS } = await import("./logger");
+    const { logger, getOutput } = createTestLogger({
+      redact: { paths: [...REDACT_PATHS], censor: "[REDACTED]" },
+    });
+
+    logger.warn(
+      { userId: "u1", ip: "1.2.3.4", session: { ip: "5.6.7.8" } },
+      "changePassword rate limit exceeded",
+    );
+
+    const output = getOutput();
+    const parsed = JSON.parse(output);
+    expect(parsed.ip).toBe("[REDACTED]");
+    expect(parsed.session.ip).toBe("[REDACTED]");
+    expect(parsed.userId).toBe("u1");
+    expect(output).not.toContain("1.2.3.4");
+    expect(output).not.toContain("5.6.7.8");
+  });
+
+  it("the root logger carries the app release in its base bindings", async () => {
+    const { logger } = await import("./logger");
+    const { getAppRelease } = await import("./version");
+    expect(logger.bindings().release).toBe(getAppRelease());
+  });
+
+  it("redacting 'ip' does NOT affect the safe 'ipHash' correlation field", async () => {
+    const { REDACT_PATHS } = await import("./logger");
+    const { logger, getOutput } = createTestLogger({
+      redact: { paths: [...REDACT_PATHS], censor: "[REDACTED]" },
+    });
+
+    logger.warn({ ipHash: "abc123", ip: "1.2.3.4" }, "rate limit");
+
+    const parsed = JSON.parse(getOutput());
+    expect(parsed.ipHash).toBe("abc123");
+    expect(parsed.ip).toBe("[REDACTED]");
+  });
+});

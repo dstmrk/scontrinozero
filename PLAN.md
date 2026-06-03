@@ -66,8 +66,8 @@ se servono, `relations.ts`). Eseguire `node scripts/check-migrations.mjs`.
 
 | Colonna      | Tipo                   | Note                                                         |
 | ------------ | ---------------------- | ------------------------------------------------------------ |
-| `code`       | `text` PK              | Es. `PARTNER1_7K9F2QHX`. Formato validato lato app.               |
-| `partner`    | `text` NOT NULL        | Es. `"PARTNER2"`. Coincide col prefisso prima del primo `_`.      |
+| `code`       | `text` PK              | Es. `PARTNER1_7K9F2QHX`. Formato validato lato app.          |
+| `partner`    | `text` NOT NULL        | Es. `"PARTNER2"`. Coincide col prefisso prima del primo `_`. |
 | `used_by`    | `uuid` NULL            | `auth_user_id` (o `profiles.id`) che ha consumato il codice. |
 | `used_at`    | `timestamptz` NULL     | Valorizzato al claim.                                        |
 | `created_at` | `timestamptz` NOT NULL | `defaultNow()`.                                              |
@@ -232,7 +232,7 @@ hidden field → `formData`), parallelo ma separato:
    a un utente `unlimited` (gli invite-only hanno verosimilmente `null`).
 3. **Codice invalido al signup: errore esplicito, nessun fallback a trial.** ✅
 4. **Unità di fatturazione: per utente attivo a fine primo mese, prepagato
-   annuale.** ✅ 
+   annuale.** ✅
 
 ### Suddivisione in sub-task (task > 3 file, regola 5)
 

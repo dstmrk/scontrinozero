@@ -3,7 +3,12 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import pkg from "../../package.json";
-import { APP_VERSION, getBuildLabel, getBuildSha } from "./version";
+import {
+  APP_VERSION,
+  getAppRelease,
+  getBuildLabel,
+  getBuildSha,
+} from "./version";
 
 describe("APP_VERSION", () => {
   it("matches the version in package.json", () => {
@@ -54,5 +59,21 @@ describe("getBuildLabel", () => {
     vi.stubEnv("BUILD_CHANNEL", "dev");
     vi.stubEnv("BUILD_SHA", "");
     expect(getBuildLabel()).toBe("dev");
+  });
+});
+
+describe("getAppRelease", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("appends the short SHA as build metadata when BUILD_SHA is injected", () => {
+    vi.stubEnv("BUILD_SHA", "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678");
+    expect(getAppRelease()).toBe(`scontrinozero@${APP_VERSION}+a1b2c3d`);
+  });
+
+  it("omits the build metadata when no SHA is injected (local/self-host)", () => {
+    vi.stubEnv("BUILD_SHA", "");
+    expect(getAppRelease()).toBe(`scontrinozero@${APP_VERSION}`);
   });
 });
