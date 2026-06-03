@@ -248,25 +248,13 @@ Ogni sub-task è una PR separata con i suoi test (TDD), coverage on new code
 
 ---
 
-## Architettura contenuti SEO
+## Strategia SEO & lancio (GTM)
 
-**Tesi.** Budget marketing zero, dominio nuovo, prodotto live: l'unica leva sostenibile è SEO + lancio open source mirato. La SEO classica è lenta (3–9 mesi a regime), quindi va **avviata subito** ma accompagnata da leve veloci (tool gratuiti, lancio comunità) che generino primi backlink e traffico in giorni invece che in mesi.
+**Tesi.** Budget marketing zero, dominio nuovo, prodotto live: l'unica leva sostenibile è SEO + lancio open source mirato. La SEO classica è lenta (3–9 mesi a regime), quindi va **avviata subito** ma accompagnata da leve veloci (tool gratuiti su `/strumenti`, lancio comunità) che generino primi backlink e traffico in giorni invece che in mesi.
 
-**Architettura.**
+**Stato.** L'architettura dei contenuti è **già live**: `/guide` (educativo top-of-funnel), `/per/[slug]` (landing per categoria), `/confronto` (alta intenzione commerciale), `/strumenti/[slug]` (backlink-magnet), affiancati a `/help` (operativo). Gli **invarianti redazionali** (data file per route, niente promesse di feature non live, slug separati `/help` vs `/guide`, review umana) vivono in `CLAUDE.md` regola 8. Da qui resta da eseguire il **lancio**, non l'architettura.
 
-- `/help/*` — **operativo**: "come faccio X nel prodotto", middle-of-funnel, screenshot UI.
-- `/guide/*` — **educativo**: top-of-funnel SEO, "documento commerciale online: cos'è, normativa, esempi". Intercetta utenti che non conoscono ancora il prodotto.
-- `/per/[slug]` — **landing per categoria**, intercetta query "registratore di cassa per parrucchieri", "scontrini per ambulanti", ecc.
-- `/confronto` — **alta intenzione commerciale**, ScontrinoZero vs alternative (pagina unica consolidata: registratore telematico, fatturazione B2B, SaaS scontrino).
-- `/strumenti/[slug]` — **backlink magnets**: tool gratuiti che la gente linka spontaneamente.
-
-Slug separati tra `/help` e `/guide` evitano canonical clash su keyword condivise (es. `/help/regime-forfettario` ≠ `/guide/regime-forfettario-scontrini`); si linkano a vicenda.
-
-**Note operative.**
-
-- **Niente promesse di feature non ancora live nel marketing copy**: gli articoli SEO si basano solo su feature già rilasciate. Le 4 feature "in arrivo" sul Pro (Analytics avanzata, Export CSV, Recupero AdE, Sync catalogo) restano in roadmap.
-- **Tutti i contenuti generati via LLM con review umana**, in italiano, target Italia.
-- **Gate del lancio hard** è esplicito (sopra): ProductHunt/HN sono "one-shot a memoria lunga", vanno sparati solo quando il sito è pronto a convertire un picco e le promesse Pro sono onorate.
+**Gate di lancio (hard).** ProductHunt/HN sono "one-shot a memoria lunga": vanno sparati una volta sola, solo quando il sito è pronto a convertire un picco e le promesse Pro sono onorate. Non anticipare.
 
 ---
 

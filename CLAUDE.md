@@ -51,10 +51,24 @@ tag git (`git tag -l "v1.*"`).
    autonomamente** dopo aver risolto un problema non triviale con lezione
    riusabile (debugging pattern, setup gotcha, wrong assumption). Non
    aspettare che lo chiedano.
-8. **Aggiornare pagine `/help`** se si modifica una funzionalità (label, menu,
-   stati, filtri, error flow, gating piani, nomi bottoni). `grep -rn "<termine>"
-src/app/\(marketing\)/help` prima di chiudere il task. Feature non ancora
-   implementate → riformulare al condizionale come roadmap.
+8. **Contenuti marketing & SEO.** I contenuti vivono in route dedicate con un
+   data file ciascuna: `/help` (operativo, `src/app/(marketing)/help`), `/guide`
+   (educativo, `src/lib/guide/articles.ts`), `/per/[slug]` (categorie,
+   `src/lib/per/categories.ts`), `/confronto` (`src/lib/confronto/comparisons.ts`),
+   `/strumenti/[slug]` (tool gratuiti backlink-magnet, `src/lib/strumenti/tools.ts`).
+   Regole sempre valide:
+   - **Niente promesse di feature non live** in _nessun_ copy marketing: feature
+     non implementate → condizionale/roadmap, mai al presente. Oggi sul Pro
+     restano "in arrivo" solo recupero corrispettivi AdE e sync catalogo AdE;
+     Analytics avanzata ed Export CSV sono **spedite e Pro-gated** (commit
+     ae1c481).
+   - **Slug separati `/help` vs `/guide`** sulle keyword condivise per evitare
+     canonical clash (es. `/help/regime-forfettario` ≠
+     `/guide/regime-forfettario-scontrini`); si linkano a vicenda.
+   - Se modifichi una funzionalità (label, menu, stati, filtri, error flow,
+     gating piani, nomi bottoni) aggiorna i contenuti: `grep -rn "<termine>"
+src/app/\(marketing\)` prima di chiudere il task.
+   - Contenuti generati via LLM con **review umana**, in italiano, target Italia.
 9. **Boundary delle API:** UUID validation con `isValidUuid()` + 400 prima del
    service; body size guard con `readJsonWithLimit(req, maxBytes)` + 413 prima
    di `JSON.parse`; email normalizzata con `normalizeEmail()` in `validation.ts`
@@ -233,7 +247,7 @@ prima dell'entrata in vigore.
 | Piano       | Mensile | Annuale | Note                                                                                                   |
 | ----------- | ------- | ------- | ------------------------------------------------------------------------------------------------------ |
 | Starter     | €4.99   | €29.99  | Catalogo rapido max 5 prodotti, analytics base                                                         |
-| Pro         | €8.99   | €49.99  | Attivo: catalogo ∞, supporto prioritario. In arrivo: analytics avanzata, export CSV, recupero/sync AdE |
+| Pro         | €8.99   | €49.99  | Attivo: catalogo ∞, supporto prioritario, analytics avanzata, export CSV. In arrivo: recupero/sync AdE |
 | Self-hosted | €0      | €0      | Tutte le feature, gestione autonoma                                                                    |
 | Unlimited   | —       | —       | Invite-only, `plan='unlimited'` su `profiles`                                                          |
 
