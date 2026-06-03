@@ -9,7 +9,16 @@ export type LogContext = {
   [key: string]: unknown;
 };
 
-const REDACT_PATHS = [
+/**
+ * Pino redaction paths. Censored during serialisation (`asJson`), so they are
+ * stripped from BOTH the container stdout logs AND the Sentry Logs stream:
+ * `Sentry.pinoIntegration()` taps the post-serialisation `pino_asJson` channel,
+ * forwarding every NON-redacted field (a denylist). Any PII logged anywhere must
+ * therefore live here — e.g. raw `ip`/`*.ip` (GDPR personal data, logged at warn
+ * level by the changePassword rate limit and the CSP report endpoint). Use
+ * `ipHash` for correlation instead.
+ */
+export const REDACT_PATHS = [
   "password",
   "pin",
   "credentials",
@@ -17,6 +26,7 @@ const REDACT_PATHS = [
   "secret",
   "authorization",
   "cookie",
+  "ip",
   "codiceFiscale",
   "encryptedCodiceFiscale",
   "encryptedPassword",
@@ -30,6 +40,7 @@ const REDACT_PATHS = [
   "*.credentials",
   "*.token",
   "*.secret",
+  "*.ip",
   "*.codiceFiscale",
   "*.encryptedCodiceFiscale",
   "*.encryptedPassword",

@@ -107,8 +107,8 @@ valori overscale. L'API layer deve rigettare input con troppe decimali (Zod
 `.refine`):
 
 ```typescript
-v => parseFloat(v.toFixed(2)) === v   // 2 dp
-v => parseFloat(v.toFixed(3)) === v   // 3 dp
+(v) => parseFloat(v.toFixed(2)) === v; // 2 dp
+(v) => parseFloat(v.toFixed(3)) === v; // 3 dp
 ```
 
 Il roundtrip via stringa gestisce correttamente IEEE-754 noise.
@@ -273,3 +273,31 @@ Loggare la lista accettata in caso di mismatch facilita il debug operativo.
 Inoltre: il ramo `data.success: false` di Cloudflare deve **sempre** loggare
 `data["error-codes"]` (`timeout-or-duplicate`, `invalid-input-response`).
 Senza questo log la causa del rifiuto resta invisibile in produzione.
+
+---
+
+## Sentry Logs (pino integration): è una DENYLIST, non un'allowlist
+
+Il drain `pino → Sentry Logs` (`Sentry.pinoIntegration()` + `enableLogs: true`
+in `sentry.server.config.ts`) inoltra a Sentry **ogni campo non redatto** del
+log. È l'**opposto** del path-eccezioni: `sanitizeForTelemetry` (`src/lib/logger.ts`)
+è una **allowlist** (solo `SAFE_KEYS` escono, `ip` raw escluso a favore di
+`ipHash`); l'integrazione Logs è una **denylist** (tutto tranne i `REDACT_PATHS`).
+
+Conseguenza pratica: qualsiasi PII loggata anche solo a `info`/`warn` (es. `ip`
+raw in `profile-actions.ts` changePassword rate-limit e in `csp-report/route.ts`)
+**deve** stare nei `REDACT_PATHS`, altrimenti finisce in chiaro su un terzo
+(GDPR). `ip` + `*.ip` sono in `REDACT_PATHS` proprio per questo.
+
+Perché funziona — verificato sul sorgente di `@sentry/node-core` e `pino`:
+l'integrazione si sottoscrive al diagnostics channel `pino_asJson` e legge
+`JSON.parse(result)`, cioè l'output **post-serializzazione**; la redazione pino
+(`fast-redact`) è applicata dentro `_asJson` (i censori `[REDACTED]` sono
+stringifier per-path), quindi l'integrazione vede già il dato censurato. Questo
+NON vale per l'hook `logMethod` (che gira **prima** della serializzazione e vede
+il payload raw — per questo il path-eccezioni usa la allowlist).
+
+`error.levels` dell'integrazione va lasciato vuoto (default): gli errori sono
+già catturati come Issue dall'hook `captureToSentry`; abilitarlo creerebbe una
+doppia cattura. La regola "ogni nuova PII → `REDACT_PATHS`" è la difesa
+centralizzata che protegge anche futuri call site.
