@@ -108,7 +108,7 @@ import {
   rangeToBounds,
   romeMidnightUtc,
 } from "./analytics-helpers";
-import { getAnalyticsBundle } from "./analytics-actions";
+import { getAnalyticsBundle, getStarterKpis } from "./analytics-actions";
 
 // Test helpers: unwrap the aggregated bundle for the specific dataset each
 // test cares about. Mirrors the old per-dataset Server Action surface so
@@ -837,5 +837,98 @@ describe("getAnalyticsBundle", () => {
     mockCheckBusinessOwnership.mockResolvedValue({ error: "Non autorizzato." });
     const res = await getAnalyticsBundle("biz-1", "30d");
     expect(res).toEqual({ error: "Non autorizzato." });
+  });
+});
+
+describe("getStarterKpis", () => {
+  it("returns KPIs for a Starter owner (NOT Pro-gated)", async () => {
+    mockGetPlan.mockResolvedValue({
+      plan: "starter",
+      trialStartedAt: null,
+      planExpiresAt: null,
+    });
+    mockSelect.mockReturnValue(
+      makeSelectBuilder([
+        { id: "d1", status: "ACCEPTED", createdAt: new Date() },
+        { id: "d2", status: "ACCEPTED", createdAt: new Date() },
+        { id: "d3", status: "VOID_ACCEPTED", createdAt: new Date() },
+      ]),
+    );
+    mockFetchLinesByDocIds.mockResolvedValue([
+      {
+        documentId: "d1",
+        description: "Caffè",
+        grossUnitPrice: "10.00",
+        quantity: "1",
+      },
+      {
+        documentId: "d2",
+        description: "Cornetto",
+        grossUnitPrice: "5.00",
+        quantity: "2",
+      },
+      {
+        documentId: "d3",
+        description: "Brioche",
+        grossUnitPrice: "99.00",
+        quantity: "1",
+      },
+    ]);
+    const res = await getStarterKpis("biz-1");
+    expect(res).toEqual({
+      kpis: { revenueCents: 2000, count: 2, aovCents: 1000, voidCount: 1 },
+    });
+  });
+
+  it("returns KPIs for a Trial owner (same base view as Starter)", async () => {
+    mockGetPlan.mockResolvedValue({
+      plan: "trial",
+      trialStartedAt: new Date(),
+      planExpiresAt: null,
+    });
+    mockSelect.mockReturnValue(makeSelectBuilder([]));
+    mockFetchLinesByDocIds.mockResolvedValue([]);
+    const res = await getStarterKpis("biz-1");
+    expect(res).toEqual({
+      kpis: { revenueCents: 0, count: 0, aovCents: 0, voidCount: 0 },
+    });
+  });
+
+  it("also serves Pro owners (owner-level gate, not Pro-only)", async () => {
+    // mockGetPlan default è "pro" → la vista base non deve rifiutare i Pro.
+    mockSelect.mockReturnValue(makeSelectBuilder([]));
+    mockFetchLinesByDocIds.mockResolvedValue([]);
+    const res = await getStarterKpis("biz-1");
+    expect(res).toEqual({
+      kpis: { revenueCents: 0, count: 0, aovCents: 0, voidCount: 0 },
+    });
+  });
+
+  it("returns an error when ownership check fails", async () => {
+    mockCheckBusinessOwnership.mockResolvedValue({ error: "Non autorizzato." });
+    const res = await getStarterKpis("biz-1");
+    expect(res).toEqual({ error: "Non autorizzato." });
+    expect(mockSelect).not.toHaveBeenCalled();
+  });
+
+  it("returns rate-limit error and skips DB query when limiter rejects", async () => {
+    mockRateLimitCheck.mockReturnValue({
+      success: false,
+      remaining: 0,
+      resetAt: Date.now() + 3_600_000,
+    });
+    const res = await getStarterKpis("biz-1");
+    expect(res).toMatchObject({ error: expect.stringMatching(/Troppe/i) });
+    expect(mockSelect).not.toHaveBeenCalled();
+    expect(mockRateLimitCheck).toHaveBeenCalledWith("analytics:user-1");
+  });
+
+  it("returns 'Profilo non disponibile' on ProfileNotFoundError (orphan auth user)", async () => {
+    const { ProfileNotFoundError } = await import("@/lib/plans");
+    mockGetPlan.mockRejectedValue(new ProfileNotFoundError("user-1"));
+    const res = await getStarterKpis("biz-1");
+    expect(res).toMatchObject({
+      error: expect.stringContaining("Profilo non disponibile"),
+    });
   });
 });
