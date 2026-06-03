@@ -98,6 +98,10 @@ export default function PianiEPrezziPage() {
             Catalogo rapido fino a <strong>5 prodotti</strong>
           </li>
           <li>Storico scontrini con filtri per data e stato</li>
+          <li>
+            Analytics base: i KPI principali (ricavi, scontrini, scontrino
+            medio) sugli ultimi 30 giorni
+          </li>
           <li>Lotteria degli Scontrini</li>
           <li>App installabile sullo smartphone direttamente dal browser</li>
           <li>Supporto via email entro 48 ore</li>
@@ -112,9 +116,8 @@ export default function PianiEPrezziPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Per esercenti con un volume di vendite regolare che hanno bisogno di
           strumenti avanzati per la gestione e la contabilità. Include tutto ciò
-          che è disponibile nel piano Starter, più il catalogo illimitato e il
-          supporto prioritario. Sono inoltre in sviluppo alcune feature
-          riservate al piano Pro:
+          che è disponibile nel piano Starter, più il catalogo illimitato, il
+          supporto prioritario e gli strumenti di analisi avanzata:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
@@ -122,11 +125,13 @@ export default function PianiEPrezziPage() {
           </li>
           <li>Supporto prioritario via email entro 24 ore</li>
           <li>
-            <em>In arrivo:</em> analytics avanzata con dashboard storica
+            Analytics avanzata: grafici di andamento ricavi, ripartizione per
+            metodo di pagamento e prodotti più venduti, con periodi fino a
+            inizio anno
           </li>
           <li>
-            <em>In arrivo:</em> <strong>Export CSV</strong> dello storico
-            scontrini (per commercialista o contabilità)
+            <strong>Export CSV</strong> dello storico scontrini (per
+            commercialista o contabilità)
           </li>
           <li>
             <em>In arrivo:</em> recupero corrispettivi da AdE (sincronizzazione
@@ -149,9 +154,9 @@ export default function PianiEPrezziPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           ScontrinoZero è open source con licenza O&apos;Saasy. Puoi scaricare
           il codice sorgente, installarlo sul tuo server e usarlo gratuitamente:
-          hai accesso a tutto il codice del progetto e ricevi le feature in
-          arrivo (analytics avanzata, export CSV, recupero corrispettivi AdE)
-          man mano che vengono rilasciate. È la scelta giusta se:
+          hai accesso a tutte le funzioni, incluse analytics avanzata ed export
+          CSV, e ricevi le feature in arrivo (recupero corrispettivi AdE) man
+          mano che vengono rilasciate. È la scelta giusta se:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
@@ -237,15 +242,22 @@ export default function PianiEPrezziPage() {
               </tr>
               <tr>
                 <td className="text-foreground py-2 font-medium">
-                  Analytics avanzata
+                  Analytics base (KPI 30 giorni)
+                </td>
+                <td className="py-2">✓</td>
+                <td className="py-2">✓</td>
+              </tr>
+              <tr>
+                <td className="text-foreground py-2 font-medium">
+                  Analytics avanzata (grafici, periodi estesi)
                 </td>
                 <td className="py-2">—</td>
-                <td className="py-2">In arrivo</td>
+                <td className="py-2">✓</td>
               </tr>
               <tr>
                 <td className="text-foreground py-2 font-medium">Export CSV</td>
                 <td className="py-2">—</td>
-                <td className="py-2">In arrivo</td>
+                <td className="py-2">✓</td>
               </tr>
               <tr>
                 <td className="text-foreground py-2 font-medium">
@@ -288,9 +300,12 @@ export default function PianiEPrezziPage() {
               <li>Hai più di 5 prodotti nel catalogo rapido.</li>
               <li>Vuoi il supporto prioritario via email entro 24 ore.</li>
               <li>
+                Vuoi l&apos;analytics avanzata (grafici e periodi estesi) e
+                l&apos;export CSV dello storico scontrini per il commercialista.
+              </li>
+              <li>
                 Vuoi accedere alle feature in arrivo riservate al piano Pro
-                (export CSV scontrini, analytics avanzata, recupero
-                corrispettivi e sync catalogo da rubrica AdE).
+                (recupero corrispettivi e sync catalogo da rubrica AdE).
               </li>
             </ul>
           </div>

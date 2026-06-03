@@ -22,7 +22,7 @@ interface Feature {
 const starterFeatures: Feature[] = [
   { label: "Scontrini illimitati" },
   { label: "Catalogo fino a 5 prodotti" },
-  { label: "Analytics base" },
+  { label: "Analytics base (KPI a 30 giorni)" },
   { label: "Ricevuta condivisibile via SMS, email e WhatsApp" },
   { label: "Supporto base" },
 ];
@@ -30,9 +30,9 @@ const starterFeatures: Feature[] = [
 const proFeatures: Feature[] = [
   { label: "Tutto di Starter" },
   { label: "Catalogo illimitato" },
+  { label: "Analytics avanzata (grafici e periodi estesi)" },
+  { label: "Export CSV degli scontrini" },
   { label: "Supporto prioritario" },
-  { label: "Analytics avanzata", upcoming: true },
-  { label: "Export CSV degli scontrini", upcoming: true },
   { label: "Sincronizzazione catalogo AdE", upcoming: true },
 ];
 

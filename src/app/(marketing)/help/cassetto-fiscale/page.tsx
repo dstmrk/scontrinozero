@@ -187,10 +187,9 @@ export default function CassettoFiscalePage() {
           Fatture e Corrispettivi.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          In alternativa, l&apos;esportazione dello Storico in CSV è una
-          funzione <strong>in arrivo sul piano Pro</strong>: appena disponibile
-          potrai scaricare tutti i dati degli scontrini direttamente
-          dall&apos;app.
+          In alternativa, con il piano <strong>Pro</strong> puoi esportare lo
+          Storico in CSV direttamente dall&apos;app, scaricando tutti i dati
+          degli scontrini del periodo selezionato.
         </p>
 
         <RelatedHelpArticles slug="cassetto-fiscale" />

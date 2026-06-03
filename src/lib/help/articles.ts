@@ -221,7 +221,7 @@ export const helpArticles: Record<string, HelpArticle> = {
     title: "Storico scontrini: filtri, ricerca ed esportazione",
     metaTitle: "Storico scontrini: filtri, ricerca ed esportazione",
     description:
-      "Come navigare lo storico degli scontrini in ScontrinoZero, usare i filtri di ricerca e ricondividere il PDF dei singoli scontrini. L'export CSV è una funzione in arrivo sul piano Pro.",
+      "Come navigare lo storico degli scontrini in ScontrinoZero, usare i filtri di ricerca e ricondividere il PDF dei singoli scontrini. L'export CSV è disponibile sul piano Pro.",
     related: ["annullare-scontrino", "cassetto-fiscale", "piani-e-prezzi"],
   },
 };

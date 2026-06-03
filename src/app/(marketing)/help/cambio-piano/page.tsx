@@ -118,11 +118,13 @@ export default function CambioPianoPage() {
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Sono inoltre <em>in arrivo</em> sul piano Pro: analytics avanzata con
-          dashboard storica, export CSV dello storico scontrini, recupero
-          corrispettivi da AdE e sync catalogo prodotti dalla rubrica AdE.
-          Quando saranno rilasciate, verranno incluse automaticamente per chi ha
-          già un piano Pro attivo. Vedi il dettaglio in{" "}
+          Il piano Pro include inoltre l&apos;
+          <strong>analytics avanzata</strong> (grafici e periodi estesi) e
+          l&apos;<strong>export CSV</strong> dello storico scontrini. Sono
+          invece <em>in arrivo</em> il recupero corrispettivi da AdE e il sync
+          catalogo prodotti dalla rubrica AdE: quando saranno rilasciati,
+          verranno inclusi automaticamente per chi ha già un piano Pro attivo.
+          Vedi il dettaglio in{" "}
           <Link
             href="/help/piani-e-prezzi"
             className="text-primary hover:underline"
