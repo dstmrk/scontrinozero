@@ -301,3 +301,19 @@ il payload raw — per questo il path-eccezioni usa la allowlist).
 già catturati come Issue dall'hook `captureToSentry`; abilitarlo creerebbe una
 doppia cattura. La regola "ogni nuova PII → `REDACT_PATHS`" è la difesa
 centralizzata che protegge anche futuri call site.
+
+### `release` per legare un evento al commit in esecuzione
+
+`release: getAppRelease()` (da `@/lib/version`, formato `scontrinozero@<ver>+<sha>`)
+in `Sentry.init` tagga **automaticamente sia le Issue sia i Sentry Logs** col
+codice in esecuzione — non serve aggiungerlo come attributo. La stessa
+`getAppRelease()` alimenta il `base` del logger pino, così anche i `docker logs`
+grezzi portano `release` su ogni riga.
+
+Gotcha (estende regola 18, build-vs-runtime): `BUILD_SHA` è **runtime** e
+non-`NEXT_PUBLIC`, ed è bakato solo nello stage di produzione del `Dockerfile`
+(non nello stage di build). Quindi è leggibile da `sentry.server/edge.config.ts`
+e da `logger.ts` (runtime, Node), **ma non** dal bundle client: per taggare con
+la release anche gli errori browser servirebbe spostare `BUILD_SHA` allo stage
+di build ed esporlo come `NEXT_PUBLIC_*`. Gli errori che identificano "che
+codice gira" (AdE, Stripe, DB, webhook) sono comunque tutti server-side.

@@ -385,6 +385,12 @@ describe("logger REDACT_PATHS — Sentry Logs (pino integration) safety", () => 
     expect(output).not.toContain("5.6.7.8");
   });
 
+  it("the root logger carries the app release in its base bindings", async () => {
+    const { logger } = await import("./logger");
+    const { getAppRelease } = await import("./version");
+    expect(logger.bindings().release).toBe(getAppRelease());
+  });
+
   it("redacting 'ip' does NOT affect the safe 'ipHash' correlation field", async () => {
     const { REDACT_PATHS } = await import("./logger");
     const { logger, getOutput } = createTestLogger({

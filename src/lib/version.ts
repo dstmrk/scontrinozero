@@ -23,3 +23,17 @@ export function getBuildLabel(): string {
   }
   return sha;
 }
+
+/**
+ * Identificatore release nel formato Sentry `name@version+build`. Usato come
+ * `release` in Sentry.init (tagga Issue e Sentry Logs col codice in esecuzione)
+ * e come campo `release` nei log pino. Lo SHA breve fa da build metadata quando
+ * iniettato (`BUILD_SHA`); senza SHA (locale/self-host) resta la sola versione
+ * semantica. Letto a runtime: `BUILD_SHA` e' bakato nello stage di produzione.
+ */
+export function getAppRelease(): string {
+  const sha = getBuildSha();
+  return sha === "dev"
+    ? `scontrinozero@${APP_VERSION}`
+    : `scontrinozero@${APP_VERSION}+${sha}`;
+}

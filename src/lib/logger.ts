@@ -1,5 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
+import { hostname } from "node:os";
 import pino from "pino";
+import { getAppRelease } from "./version";
 
 export type LogContext = {
   requestId?: string;
@@ -133,6 +135,10 @@ export const logger = pino({
   level:
     process.env.LOG_LEVEL ??
     (process.env.NODE_ENV === "production" ? "info" : "debug"),
+  // `release` su ogni riga (docker logs + Sentry Logs) per legare un log al
+  // commit in esecuzione (getAppRelease() = scontrinozero@<versione>+<sha>).
+  // pid/hostname replicano il base di default di pino, che `base` sovrascrive.
+  base: { pid: process.pid, hostname: hostname(), release: getAppRelease() },
   redact: {
     paths: REDACT_PATHS,
     censor: "[REDACTED]",
