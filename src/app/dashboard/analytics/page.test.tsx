@@ -17,7 +17,7 @@ const {
   mockGetPlan: vi.fn(),
   mockGetStarterKpis: vi.fn(),
   mockGetAnalyticsBundle: vi.fn(),
-  mockRedirect: vi.fn(() => {
+  mockRedirect: vi.fn((..._args: unknown[]) => {
     throw new Error("NEXT_REDIRECT");
   }),
 }));
