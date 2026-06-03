@@ -32,7 +32,7 @@ describe("HeaderNav", () => {
     mockUsePathname.mockReturnValue("/dashboard");
     render(<HeaderNav />);
 
-    expect(screen.getByText("Dashboard")).toBeInTheDocument();
+    expect(screen.getByText("Catalogo")).toBeInTheDocument();
     expect(screen.getByText("Cassa")).toBeInTheDocument();
     expect(screen.getByText("Storico")).toBeInTheDocument();
     expect(screen.getByText("Analytics")).toBeInTheDocument();
@@ -43,7 +43,7 @@ describe("HeaderNav", () => {
     mockUsePathname.mockReturnValue("/dashboard");
     render(<HeaderNav />);
 
-    expect(screen.getByText("Dashboard").closest("a")).toHaveAttribute(
+    expect(screen.getByText("Catalogo").closest("a")).toHaveAttribute(
       "href",
       "/dashboard",
     );
@@ -65,20 +65,20 @@ describe("HeaderNav", () => {
     );
   });
 
-  it("Dashboard è attivo su /dashboard (match esatto)", () => {
+  it("Catalogo è attivo su /dashboard (match esatto)", () => {
     mockUsePathname.mockReturnValue("/dashboard");
     render(<HeaderNav />);
 
-    const dashLink = screen.getByText("Dashboard").closest("a");
+    const dashLink = screen.getByText("Catalogo").closest("a");
     expect(dashLink?.className).toContain("font-semibold");
     expect(dashLink?.className).toContain("text-foreground");
   });
 
-  it("Dashboard NON è attivo su /dashboard/cassa (match esatto, non prefix)", () => {
+  it("Catalogo NON è attivo su /dashboard/cassa (match esatto, non prefix)", () => {
     mockUsePathname.mockReturnValue("/dashboard/cassa");
     render(<HeaderNav />);
 
-    const dashLink = screen.getByText("Dashboard").closest("a");
+    const dashLink = screen.getByText("Catalogo").closest("a");
     expect(dashLink?.className).not.toContain("font-semibold");
     expect(dashLink?.className).toContain("text-muted-foreground");
   });
@@ -134,7 +134,7 @@ describe("HeaderNav", () => {
     mockUsePathname.mockReturnValue("/dashboard/cassa");
     render(<HeaderNav />);
 
-    const inactiveLinks = ["Dashboard", "Storico", "Analytics", "Impostazioni"];
+    const inactiveLinks = ["Catalogo", "Storico", "Analytics", "Impostazioni"];
     for (const label of inactiveLinks) {
       const link = screen.getByText(label).closest("a");
       expect(link?.className).toContain("text-muted-foreground");
