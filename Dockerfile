@@ -66,6 +66,12 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ARG BUILD_SHA
 ENV BUILD_SHA=$BUILD_SHA
 
+# Canale build: "dev" solo per l'immagine :dev (deploy-dev.yml), così la card
+# Informazioni mostra "build dev <sha>" invece del bare SHA di prod. Vuoto in
+# prod/sandbox/self-host.
+ARG BUILD_CHANNEL
+ENV BUILD_CHANNEL=$BUILD_CHANNEL
+
 RUN apk upgrade --no-cache && \
     addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs && \

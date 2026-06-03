@@ -22,7 +22,7 @@ import { PlanBadge } from "@/components/billing/plan-badge";
 import { PlanSelection } from "@/components/billing/plan-selection";
 import { RefreshOnSuccess } from "@/components/billing/refresh-on-success";
 import { CONTACT_EMAIL } from "@/lib/contact";
-import { APP_VERSION, getBuildSha } from "@/lib/version";
+import { APP_VERSION, getBuildLabel } from "@/lib/version";
 
 export default async function SettingsPage({
   searchParams,
@@ -372,7 +372,7 @@ export default async function SettingsPage({
         </CardHeader>
         <CardContent className="text-muted-foreground space-y-2 text-sm">
           <p>
-            ScontrinoZero {APP_VERSION} &mdash; build {getBuildSha()}
+            ScontrinoZero {APP_VERSION} &mdash; build {getBuildLabel()}
           </p>
           <p>
             Per dubbi, domande o feedback contattaci:{" "}

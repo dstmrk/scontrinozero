@@ -49,11 +49,17 @@ jobs:
           cache-from: type=gha,scope=dev-arm64
           cache-to: type=gha,mode=max,scope=dev-arm64
           build-args: |
+            BUILD_SHA=${{ github.sha }}
+            BUILD_CHANNEL=dev
             NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY_DEV || secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
             NEXT_PUBLIC_APP_URL=https://app-dev.scontrinozero.it
             NEXT_PUBLIC_APP_HOSTNAME=app-dev.scontrinozero.it
             NEXT_PUBLIC_MARKETING_HOSTNAME=dev.scontrinozero.it
             NEXT_PUBLIC_API_HOSTNAME=api-dev.scontrinozero.it
+          # BUILD_SHA=github.sha: dev traccia main e ribuilda a ogni push, quindi
+          # è esattamente il commit di main deployato. BUILD_CHANNEL=dev fa
+          # mostrare "build dev <sha>" nella card Informazioni (vs bare SHA prod).
+          # Entrambi letti a runtime (process.env) → niente NEXT_PUBLIC_, no bundle.
           # NEXT_PUBLIC_TURNSTILE_SITE_KEY: letta in un client component
           # (turnstile-widget.tsx) → inlinata nel bundle. Dev usa il SUO widget
           # Turnstile dedicato (secret `NEXT_PUBLIC_TURNSTILE_SITE_KEY_DEV`), così
