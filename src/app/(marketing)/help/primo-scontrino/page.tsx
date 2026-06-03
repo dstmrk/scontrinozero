@@ -97,8 +97,8 @@ export default function PrimoScontrinoPage() {
           </li>
           <li>
             <strong>Prodotti dal catalogo</strong> — tocca un prodotto salvato
-            in precedenza nella Dashboard per inserirlo nel carrello con prezzo
-            e IVA già compilati (piano Starter: fino a 5 prodotti nel catalogo;
+            in precedenza nel Catalogo per inserirlo nel carrello con prezzo e
+            IVA già compilati (piano Starter: fino a 5 prodotti nel catalogo;
             piano Pro: illimitati).
           </li>
         </ul>
