@@ -49,13 +49,20 @@ jobs:
           cache-from: type=gha,scope=dev-arm64
           cache-to: type=gha,mode=max,scope=dev-arm64
           build-args: |
-            NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+            NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY_DEV || secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
             NEXT_PUBLIC_APP_URL=https://app-dev.scontrinozero.it
             NEXT_PUBLIC_APP_HOSTNAME=app-dev.scontrinozero.it
             NEXT_PUBLIC_MARKETING_HOSTNAME=dev.scontrinozero.it
             NEXT_PUBLIC_API_HOSTNAME=api-dev.scontrinozero.it
           # NEXT_PUBLIC_TURNSTILE_SITE_KEY: letta in un client component
-          # (turnstile-widget.tsx) → inlinata nel bundle. Dev riusa la key di prod.
+          # (turnstile-widget.tsx) → inlinata nel bundle. Dev usa il SUO widget
+          # Turnstile dedicato (secret `NEXT_PUBLIC_TURNSTILE_SITE_KEY_DEV`), così
+          # site key bakata e `TURNSTILE_SECRET_KEY` runtime sul Pi appartengono
+          # allo stesso widget — altrimenti siteverify rifiuta il token
+          # (`invalid-input-secret`/`invalid-input-response`). Fallback alla key
+          # di prod se il secret dev non è ancora configurato (no key vuota nel
+          # bundle). ⚠️ La `TURNSTILE_SECRET_KEY` nel `.env` del Pi DEVE essere
+          # la secret di QUESTO stesso widget dev.
           # NEXT_PUBLIC_APP_URL/APP_HOSTNAME/MARKETING/API: valutati al build
           # (marketing SSG, next.config redirects/headers, metadataBase) e nel
           # bundle client (appHref in header.tsx). Bakati coi valori dev così i

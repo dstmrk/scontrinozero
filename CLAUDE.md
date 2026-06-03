@@ -168,6 +168,16 @@ e self-hosting su dominio custom.
 > questi link resta sul default prod (limite noto). Idem
 > `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (`turnstile-widget.tsx`) e
 > `NEXT_PUBLIC_SENTRY_DSN` (`sentry.client.config.ts`). Coerente con regola 15.
+>
+> **Turnstile per dev:** `:dev` baka un **widget Turnstile dedicato** (secret
+> `NEXT_PUBLIC_TURNSTILE_SITE_KEY_DEV` in `deploy-dev.yml`, fallback alla key
+> prod se assente). ⚠️ Site key bakata e `TURNSTILE_SECRET_KEY` runtime nel
+> `.env` del Pi **devono essere dello stesso widget**: la `NEXT_PUBLIC_*` è
+> baked → la riga `NEXT_PUBLIC_TURNSTILE_SITE_KEY` nel `.env` del Pi è ignorata.
+> Mismatch → siteverify risponde `invalid-input-secret` (secret non
+> riconosciuta) o `invalid-input-response` (token di un altro widget), e ogni
+> login fallisce con "Verifica CAPTCHA fallita". Diagnosi dall'`errorClass` in
+> `auth-actions.ts` (`captcha_verification_failed`).
 
 ### Deploy dev (push-based, Raspberry Pi)
 
