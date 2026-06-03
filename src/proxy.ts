@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import type { User } from "@supabase/supabase-js";
 import { parseTrustedHostnameEnv } from "@/lib/hostname-env";
 import { isIndexableHost } from "@/lib/seo-indexable";
 import { createMiddlewareSupabaseClient } from "@/lib/supabase/middleware";
@@ -146,10 +147,33 @@ export async function proxy(request: NextRequest) {
 
   const { supabase, response } = createMiddlewareSupabaseClient(request);
 
-  // Refresh the session — MUST be called before getUser() to keep tokens valid
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Refresh the session — MUST be called before getUser() to keep tokens valid.
+  // getUser() triggers an internal token refresh; if the refresh token is stale
+  // (rotated/expired/revoked, or the user signed out elsewhere) @supabase/ssr
+  // throws an AuthApiError (code: refresh_token_not_found). On the edge runtime
+  // that would surface as an unhandled 500 + raw stack trace in the logs. Treat
+  // any auth failure as "no session": protected routes redirect to /login,
+  // exactly as for an absent session. We log a structured, edge-safe breadcrumb
+  // via console.warn — pino is NOT edge-compatible, so it cannot be used here.
+  let user: User | null = null;
+  try {
+    ({
+      data: { user },
+    } = await supabase.auth.getUser());
+  } catch (err) {
+    const errorClass =
+      err && typeof err === "object" && "code" in err
+        ? String((err as { code?: unknown }).code)
+        : "auth_error";
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        action: "middlewareGetUser",
+        errorClass,
+        msg: "session refresh failed; treating request as unauthenticated",
+      }),
+    );
+  }
 
   const { pathname, search } = request.nextUrl;
 

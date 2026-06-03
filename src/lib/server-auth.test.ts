@@ -40,6 +40,15 @@ vi.mock("@/lib/ade/mapper", () => ({
     mockBuildCedenteFromBusiness(...args),
 }));
 
+const mockLoggerWarn = vi.fn();
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    warn: (...args: unknown[]) => mockLoggerWarn(...args),
+    error: vi.fn(),
+    info: vi.fn(),
+  },
+}));
+
 // --- Helpers ---
 
 const FAKE_USER = { id: "user-123", email: "test@example.com" };
@@ -76,6 +85,42 @@ describe("server-auth", () => {
       const { getAuthenticatedUser } = await import("./server-auth");
 
       await expect(getAuthenticatedUser()).rejects.toThrow("Not authenticated");
+    });
+
+    it("logs structured warn and throws when getUser rejects (stale refresh token)", async () => {
+      // @supabase/ssr throws an AuthApiError when the stored refresh token is
+      // missing/expired/revoked. It must NOT bubble up as a raw stack trace.
+      const authError = Object.assign(
+        new Error("Invalid Refresh Token: Refresh Token Not Found"),
+        { __isAuthError: true, status: 400, code: "refresh_token_not_found" },
+      );
+      mockGetUser.mockRejectedValue(authError);
+
+      const { getAuthenticatedUser } = await import("./server-auth");
+
+      await expect(getAuthenticatedUser()).rejects.toThrow("Not authenticated");
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "getAuthenticatedUser",
+          errorClass: "refresh_token_not_found",
+        }),
+        expect.any(String),
+      );
+    });
+
+    it("falls back to a generic errorClass when the rejection has no code", async () => {
+      mockGetUser.mockRejectedValue(new Error("network down"));
+
+      const { getAuthenticatedUser } = await import("./server-auth");
+
+      await expect(getAuthenticatedUser()).rejects.toThrow("Not authenticated");
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "getAuthenticatedUser",
+          errorClass: "auth_error",
+        }),
+        expect.any(String),
+      );
     });
   });
 

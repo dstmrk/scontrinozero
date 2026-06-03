@@ -4,6 +4,7 @@ import { getDb } from "@/db";
 import { adeCredentials, businesses, profiles } from "@/db/schema";
 import { decrypt, getEncryptionKey } from "@/lib/crypto";
 import { buildCedenteFromBusiness } from "@/lib/ade/mapper";
+import { logger } from "@/lib/logger";
 import type { User } from "@supabase/supabase-js";
 import type { AdeCedentePrestatore } from "@/lib/ade/types";
 export type { User } from "@supabase/supabase-js";
@@ -22,9 +23,28 @@ export type AdePrerequisites = {
  */
 export async function getAuthenticatedUser(): Promise<User> {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user: User | null = null;
+  try {
+    ({
+      data: { user },
+    } = await supabase.auth.getUser());
+  } catch (err) {
+    // getUser() refreshes the access token under the hood. A stale refresh
+    // token (rotated/expired/revoked, or sign-out elsewhere) makes @supabase/ssr
+    // throw an AuthApiError (code: refresh_token_not_found). Without this catch
+    // the raw AuthApiError bubbles up as an unhandled stack trace, bypassing
+    // pino + sanitizeForTelemetry. An expired session is expected, not an
+    // error — log it structured at warn (no Sentry capture below level 50) and
+    // fall through to the standard "Not authenticated" so callers redirect.
+    const errorClass =
+      err && typeof err === "object" && "code" in err
+        ? String((err as { code?: unknown }).code)
+        : "auth_error";
+    logger.warn(
+      { action: "getAuthenticatedUser", errorClass },
+      "auth session invalid",
+    );
+  }
   if (!user) {
     throw new Error("Not authenticated");
   }

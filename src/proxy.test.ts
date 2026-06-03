@@ -226,6 +226,55 @@ describe("proxy", () => {
     });
   });
 
+  describe("getUser failure (stale refresh token)", () => {
+    function makeAuthError() {
+      return Object.assign(
+        new Error("Invalid Refresh Token: Refresh Token Not Found"),
+        { __isAuthError: true, status: 400, code: "refresh_token_not_found" },
+      );
+    }
+
+    it("treats an AuthApiError as unauthenticated and redirects protected route to /login", async () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      mockGetUser.mockRejectedValue(makeAuthError());
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(createRequest("/dashboard"));
+      expect(response.status).toBe(307);
+      const location = new URL(response.headers.get("location")!);
+      expect(location.pathname).toBe("/login");
+      expect(location.searchParams.get("redirect")).toBe("/dashboard");
+      // A structured breadcrumb is emitted instead of a raw stack trace.
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("refresh_token_not_found"),
+      );
+      warnSpy.mockRestore();
+    });
+
+    it("does not block public routes when getUser throws", async () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      mockGetUser.mockRejectedValue(makeAuthError());
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(createRequest("/"));
+      expect(response.status).toBe(200);
+      warnSpy.mockRestore();
+    });
+
+    it("uses a generic errorClass when the thrown value has no code", async () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      mockGetUser.mockRejectedValue(new Error("network down"));
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(createRequest("/dashboard"));
+      expect(response.status).toBe(307);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("auth_error"),
+      );
+      warnSpy.mockRestore();
+    });
+  });
+
   describe("hostname routing", () => {
     function createRequestForHost(pathname: string, host: string): NextRequest {
       return new NextRequest(`https://${host}${pathname}`, {
