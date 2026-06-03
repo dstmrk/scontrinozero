@@ -1,18 +1,19 @@
 "use client";
 
-import { Suspense, useState, useTransition } from "react";
+import { Suspense, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod/v4";
-import { Turnstile } from "@marsidev/react-turnstile";
+import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { signUp } from "@/server/auth-actions";
 import { passwordFieldSchema } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 import {
   Form,
   FormControl,
@@ -50,6 +51,7 @@ type RegisterData = z.infer<typeof registerSchema>;
 function RegisterForm() {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const turnstileRef = useRef<TurnstileInstance | null>(null);
   // Source attribution (?ref=reddit, ?ref=indiehackers, ...) for soft-launch
   // tracking. Validated against allowlist server-side in signup-source.ts.
   // Suspense boundary in RegisterPage required by Next.js for useSearchParams
@@ -82,6 +84,7 @@ function RegisterForm() {
       if (result?.error) {
         form.setError("root", { message: result.error });
         setCaptchaToken(null); // token single-use, force re-solve
+        turnstileRef.current?.reset(); // ri-emette il token: riabilita il submit
       }
       // On success, signUp redirects to /verify-email
     });
@@ -95,7 +98,7 @@ function RegisterForm() {
       <CardContent>
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(handleSubmit)}
+            onSubmit={(e) => form.handleSubmit(handleSubmit)(e)}
             noValidate
             className="space-y-4"
           >
@@ -211,15 +214,11 @@ function RegisterForm() {
               )}
             />
 
-            {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
-              <Turnstile
-                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
-                onSuccess={(token) => setCaptchaToken(token)}
-                onExpire={() => setCaptchaToken(null)}
-                onError={() => setCaptchaToken(null)}
-                options={{ theme: "auto", action: "signup" }}
-              />
-            )}
+            <TurnstileWidget
+              ref={turnstileRef}
+              onToken={setCaptchaToken}
+              action="signup"
+            />
 
             {form.formState.errors.root && (
               <p className="text-destructive text-sm" role="alert">

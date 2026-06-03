@@ -1,6 +1,7 @@
 "use client";
 
-import { Turnstile } from "@marsidev/react-turnstile";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
+import type { Ref } from "react";
 
 /**
  * Widget Turnstile riusabile per i form auth (signUp, signIn, resetPassword).
@@ -15,18 +16,28 @@ import { Turnstile } from "@marsidev/react-turnstile";
  * "reset-password") riflessa nel token e verificata server-side da
  * `verifyCaptcha`. Impedisce il replay cross-flow di un token catturato su
  * un endpoint (es. signup) verso un altro (es. signin).
+ *
+ * Il prop `ref` espone l'istanza Turnstile (`reset()`, ...) ai form auth: il
+ * token è single-use, quindi dopo un errore il parent fa `ref.current?.reset()`
+ * per ri-emettere subito un nuovo token e riabilitare il pulsante di submit
+ * (altrimenti `captchaToken` resterebbe `null` fino alla scadenza ~5 min). Se
+ * la siteKey manca il widget non si monta: il ref resta `null` e il reset è un
+ * no-op sicuro (self-hosted/test).
  */
 export function TurnstileWidget({
   onToken,
   action,
+  ref,
 }: {
   readonly onToken: (token: string | null) => void;
   readonly action?: string;
+  readonly ref?: Ref<TurnstileInstance | null>;
 }) {
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   if (!siteKey) return null;
   return (
     <Turnstile
+      ref={ref}
       siteKey={siteKey}
       onSuccess={(token) => onToken(token)}
       onExpire={() => onToken(null)}
