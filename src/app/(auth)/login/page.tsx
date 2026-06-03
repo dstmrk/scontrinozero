@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod/v4";
+import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { signIn, resendConfirmationEmail } from "@/server/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +35,7 @@ export default function LoginPage() {
   // mostra il messaggio dedicato e offre il re-invio della conferma. Il captcha
   // viene resettato sull'action corretta ("resend-confirmation").
   const [mode, setMode] = useState<LoginMode>("login");
+  const turnstileRef = useRef<TurnstileInstance | null>(null);
 
   const form = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
@@ -53,6 +55,7 @@ export default function LoginPage() {
       if (result?.error) {
         form.setError("root", { message: result.error });
         setCaptchaToken(null);
+        turnstileRef.current?.reset(); // ri-emette il token: riabilita il submit
       }
     });
   }
@@ -76,6 +79,7 @@ export default function LoginPage() {
       if (result?.error) {
         form.setError("root", { message: result.error });
         setCaptchaToken(null); // token single-use, force re-solve
+        turnstileRef.current?.reset(); // ri-emette il token: riabilita il submit
       }
       // On success, signIn redirects to /dashboard
     });
@@ -103,7 +107,7 @@ export default function LoginPage() {
       <CardContent>
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(handleSubmit)}
+            onSubmit={(e) => form.handleSubmit(handleSubmit)(e)}
             noValidate
             className="space-y-4"
           >
@@ -128,6 +132,7 @@ export default function LoginPage() {
 
             <TurnstileWidget
               key={mode}
+              ref={turnstileRef}
               onToken={setCaptchaToken}
               action={turnstileAction}
             />

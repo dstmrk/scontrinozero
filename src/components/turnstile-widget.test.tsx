@@ -1,11 +1,14 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { createRef } from "react";
 import { render } from "@testing-library/react";
+import type { TurnstileInstance } from "@marsidev/react-turnstile";
 
 type TurnstileProps = {
   siteKey: string;
   onSuccess: (token: string) => void;
   onExpire: () => void;
   onError: () => void;
+  ref?: React.Ref<TurnstileInstance | null>;
 };
 
 const mockTurnstile = vi.fn();
@@ -63,5 +66,26 @@ describe("TurnstileWidget", () => {
 
     props.onError();
     expect(onToken).toHaveBeenLastCalledWith(null);
+  });
+
+  it("inoltra il ref al Turnstile sottostante (per reset imperativo)", async () => {
+    vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "test-site-key");
+    const { TurnstileWidget } = await import("./turnstile-widget");
+    const onToken = vi.fn();
+    const ref = createRef<TurnstileInstance | null>();
+    render(<TurnstileWidget onToken={onToken} ref={ref} />);
+    const props = mockTurnstile.mock.calls[0][0] as TurnstileProps;
+    expect(props.ref).toBe(ref);
+  });
+
+  it("non monta nulla (ref incluso) senza siteKey: reset è un no-op sicuro", async () => {
+    vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "");
+    const { TurnstileWidget } = await import("./turnstile-widget");
+    const onToken = vi.fn();
+    const ref = createRef<TurnstileInstance | null>();
+    render(<TurnstileWidget onToken={onToken} ref={ref} />);
+    expect(mockTurnstile).not.toHaveBeenCalled();
+    expect(ref.current).toBeNull();
+    expect(() => ref.current?.reset()).not.toThrow();
   });
 });
