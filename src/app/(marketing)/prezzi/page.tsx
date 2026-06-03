@@ -48,15 +48,30 @@ const comparisonRows: ComparisonRow[] = [
   allTrue("Trasmissione automatica AdE"),
   allTrue("Lotteria degli Scontrini"),
   allTrue("Condivisione digitale (SMS/email/WhatsApp)"),
-  allTrue("Analytics base"),
+  {
+    label: "Analytics base (KPI 30 giorni)",
+    starter: true,
+    pro: true,
+    selfHosted: true,
+  },
   {
     label: "Catalogo prodotti rapido",
     starter: "Fino a 5",
     pro: "Illimitato",
     selfHosted: "Illimitato",
   },
-  comingSoon("Analytics avanzata"),
-  comingSoon("Export CSV scontrini"),
+  {
+    label: "Analytics avanzata (grafici, periodi estesi)",
+    starter: false,
+    pro: true,
+    selfHosted: true,
+  },
+  {
+    label: "Export CSV scontrini",
+    starter: false,
+    pro: true,
+    selfHosted: true,
+  },
   comingSoon("Recupero documenti da AdE"),
   {
     label: "Supporto prioritario",

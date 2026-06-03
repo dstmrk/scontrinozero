@@ -7,7 +7,12 @@ import {
   checkBusinessOwnership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
-import { canUsePro, getPlan, ProfileNotFoundError } from "@/lib/plans";
+import {
+  canUsePro,
+  getPlan,
+  type Plan,
+  ProfileNotFoundError,
+} from "@/lib/plans";
 import { isStatementTimeoutError } from "@/lib/api-errors";
 import { withStatementTimeout } from "@/lib/db-timeout";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
@@ -53,10 +58,14 @@ const analyticsLimiter = new RateLimiter({
   windowMs: RATE_LIMIT_WINDOWS.HOURLY,
 });
 
-type AuthOk = { ok: true; userId: string };
+type AuthOk = { ok: true; userId: string; plan: Plan };
 type AuthFail = { ok: false; error: string };
 
-async function authorizePro(businessId: string): Promise<AuthOk | AuthFail> {
+// Owner-level gate: auth + rate-limit + ownership + plan fetch, SENZA il check
+// Pro. Usato sia dal path Pro (grafici, via authorizePro) sia dalla vista
+// "analytics base" Starter/Trial (solo KPI, via getStarterKpis): entrambi
+// condividono lo stesso budget rate-limit per-utente (`analytics:<id>`).
+async function authorizeOwner(businessId: string): Promise<AuthOk | AuthFail> {
   let user;
   try {
     user = await getAuthenticatedUser();
@@ -105,10 +114,19 @@ async function authorizePro(businessId: string): Promise<AuthOk | AuthFail> {
     }
     throw err;
   }
-  if (!canUsePro(planInfo.plan)) {
+  return { ok: true, userId: user.id, plan: planInfo.plan };
+}
+
+// Pro-only gate per i grafici (bundle completo): owner + check Pro. Tenere il
+// check qui — non solo nella UI — assicura che gli endpoint dei grafici non
+// siano raggiungibili da Starter/Trial via chiamata diretta alla server action.
+async function authorizePro(businessId: string): Promise<AuthOk | AuthFail> {
+  const auth = await authorizeOwner(businessId);
+  if (!auth.ok) return auth;
+  if (!canUsePro(auth.plan)) {
     return { ok: false, error: "Funzionalità riservata al piano Pro." };
   }
-  return { ok: true, userId: user.id };
+  return auth;
 }
 
 async function validateRange(
@@ -330,4 +348,42 @@ export async function getAnalyticsBundle(
     breakdown: computeBreakdown(result.docs, result.totalsByDoc),
     productBreakdown: computeProductBreakdown(result.docs, result.linesByDoc),
   };
+}
+
+export type StarterKpisResult = { kpis: AnalyticsKpis } | { error: string };
+
+// Vista "analytics base" del piano Starter/Trial: solo i 4 KPI su finestra
+// fissa 30 giorni rolling (niente selettore range, niente grafici → niente
+// recharts). Autorizzata a livello owner (NON Pro): canUsePro(starter/trial)
+// e' false ma questi piani devono comunque vedere i KPI base. I grafici
+// restano dietro authorizePro in getAnalyticsBundle.
+//
+// Non passa per il dataset cache-ato di getAnalyticsBundle: serve una sola
+// fetch server-side al render della pagina e non include `publicRequest`
+// (i KPI non lo usano), risparmiando il campo jsonb.
+export async function getStarterKpis(
+  businessId: string,
+  reference?: Date,
+): Promise<StarterKpisResult> {
+  const auth = await authorizeOwner(businessId);
+  if (!auth.ok) return { error: auth.error };
+
+  try {
+    const { from, to } = rangeToBounds("30d", reference);
+    const docs = await fetchSaleDocsInRange(businessId, from, to);
+    const { totalsByDoc } = await computeTotalsByDoc(docs);
+    return { kpis: computeKpis(docs, totalsByDoc) };
+  } catch (err) {
+    // Un timeout DB (57014) sotto carico deve degradare nella vista base
+    // (alert inline + KPI a zero gestiti da AnalyticsPage), non propagare
+    // fino all'error boundary di Next. Gli errori imprevisti restano
+    // visibili (rethrow → Sentry), coerente con authorizeOwner.
+    if (isStatementTimeoutError(err)) {
+      return {
+        error:
+          "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
+      };
+    }
+    throw err;
+  }
 }

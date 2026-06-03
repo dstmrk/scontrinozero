@@ -38,8 +38,8 @@ export default function StoricoEdEsportazionePage() {
           La sezione <strong>Storico</strong> raccoglie gli scontrini emessi e
           annullati con successo. Puoi filtrare per periodo e per stato, aprire
           il dettaglio di ogni documento e ricondividerlo come PDF al cliente.
-          L&apos;esportazione CSV per il commercialista è una funzione in arrivo
-          sul piano Pro.
+          L&apos;esportazione CSV per il commercialista è disponibile sul piano
+          Pro.
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
           <strong>Ultimo aggiornamento:</strong> aprile 2026
@@ -143,30 +143,28 @@ export default function StoricoEdEsportazionePage() {
           </li>
         </ul>
 
-        {/* ─── Export CSV (in arrivo) ─── */}
+        {/* ─── Export CSV (Piano Pro) ─── */}
         <h2 className="mt-10 text-xl font-semibold">
           Esportazione CSV{" "}
           <Badge className="ml-1" variant="secondary">
-            In arrivo · Piano Pro
+            Piano Pro
           </Badge>
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          L&apos;esportazione dello storico scontrini in formato CSV è una
-          funzione prevista per il piano <strong>Pro</strong> e non è ancora
-          disponibile nell&apos;app. Quando sarà rilasciata troverai un pulsante
-          dedicato nella pagina Storico e questo articolo verrà aggiornato con i
-          dettagli sulle colonne incluse.
+          L&apos;esportazione dello storico scontrini in formato CSV è
+          disponibile sul piano <strong>Pro</strong>. Dalla pagina{" "}
+          <strong>Storico</strong>, dopo aver impostato i filtri per periodo e
+          stato, premi il pulsante <strong>Esporta CSV</strong>: il file
+          scaricato contiene gli scontrini del periodo selezionato, pronto da
+          consegnare al commercialista o da importare nella tua contabilità.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Nel frattempo, per il riepilogo periodico al commercialista puoi
-          filtrare lo Storico per periodo, prendere nota dei totali e dei
-          progressivi, e condividere all&apos;occorrenza i singoli scontrini
-          tramite il bottone <strong>Invia ricevuta</strong>.
-        </p>
-        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Quando la funzione sarà attiva, gli utenti del piano Starter potranno
-          passare al Pro dalla sezione{" "}
-          <strong>Impostazioni → Piano e Abbonamento</strong> nella dashboard.
+          Gli utenti del piano <strong>Starter</strong> vedono lo stesso
+          pulsante con un invito a passare a Pro: l&apos;upgrade è immediato
+          dalla sezione <strong>Impostazioni → Piano e Abbonamento</strong>{" "}
+          nella dashboard. In alternativa puoi filtrare lo Storico per periodo,
+          prendere nota dei totali e dei progressivi, e condividere i singoli
+          scontrini tramite il bottone <strong>Invia ricevuta</strong>.
         </p>
 
         {/* ─── Casi d'uso comuni ─── */}
@@ -179,8 +177,8 @@ export default function StoricoEdEsportazionePage() {
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               Filtra lo Storico per il mese di riferimento, comunica al
               commercialista il totale degli scontrini emessi e
-              l&apos;intervallo di progressivi. L&apos;export CSV strutturato
-              arriverà sul piano Pro.
+              l&apos;intervallo di progressivi. Con il piano Pro puoi inviargli
+              direttamente l&apos;export CSV del periodo.
             </p>
           </div>
           <div>
