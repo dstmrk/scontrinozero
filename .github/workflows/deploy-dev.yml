@@ -26,35 +26,6 @@ jobs:
       contents: read
       packages: write
     steps:
-      # ⚠️ TEMPORANEO — diagnostica secret deploy. Rimuovere dopo aver risolto
-      # il 403. Stampa SOLO lunghezze e check booleani: i valori restano
-      # mascherati da GitHub, nessun segreto in chiaro.
-      - name: "DEBUG (temp): secret sanity"
-        env:
-          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-          DEPLOY_HMAC_SECRET: ${{ secrets.DEPLOY_HMAC_SECRET }}
-          DEPLOY_WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
-        run: |
-          echo "id len     = ${#CF_ACCESS_CLIENT_ID}   (atteso ~39, deve finire in .access)"
-          echo "secret len = ${#CF_ACCESS_CLIENT_SECRET} (atteso 64)"
-          echo "hmac len   = ${#DEPLOY_HMAC_SECRET}     (atteso 64)"
-          echo "url len    = ${#DEPLOY_WEBHOOK_URL}"
-          case "$CF_ACCESS_CLIENT_ID" in
-            *.access) echo "id finisce in .access : yes" ;;
-            *) echo "id finisce in .access : NO (sospetto)" ;;
-          esac
-          case "$DEPLOY_WEBHOOK_URL" in
-            "https://deploy-dev.scontrinozero.it/hooks/scontrinozero-dev-deploy")
-              echo "url esatto            : yes" ;;
-            *) echo "url esatto            : NO (controlla host/path/trailing)" ;;
-          esac
-          # spazi/newline nascosti senza stampare i valori (atteso 0 ovunque)
-          tid="$(printf '%s' "$CF_ACCESS_CLIENT_ID" | tr -d '[:space:]')"
-          tse="$(printf '%s' "$CF_ACCESS_CLIENT_SECRET" | tr -d '[:space:]')"
-          thm="$(printf '%s' "$DEPLOY_HMAC_SECRET" | tr -d '[:space:]')"
-          echo "whitespace id/secret/hmac = $(( ${#CF_ACCESS_CLIENT_ID}-${#tid} )) / $(( ${#CF_ACCESS_CLIENT_SECRET}-${#tse} )) / $(( ${#DEPLOY_HMAC_SECRET}-${#thm} ))"
-
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Docker Buildx
