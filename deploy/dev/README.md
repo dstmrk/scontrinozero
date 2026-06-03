@@ -155,8 +155,19 @@ journalctl -u scontrinozero-dev-webhook -f
 - **`failed to bind host port 127.0.0.1:3000: address already in use`** al
   deploy: un vecchio processo (es. `next-server` via PM2 in code-server) tiene
   ancora la 3000. Liberala come al passo 1 del setup.
-- **`403` nello step del webhook (Action)**: è Cloudflare Access che rifiuta il
-  service token. La policy sull'app `deploy-dev.scontrinozero.it` deve essere
-  **Service Auth** (non "Allow"), con incluso il token i cui ID/secret sono nei
-  GitHub Secrets. Isola il livello con un POST locale su `http://127.0.0.1:9000`
-  (salta Cloudflare) vs uno su `https://deploy-dev...` (passa da Access).
+- **`403` nello step del webhook (Action)**: due possibili layer.
+  1. **Cloudflare Access**: la policy su `deploy-dev.scontrinozero.it` deve essere
+     **Service Auth** (non "Allow"), col token i cui ID/secret sono nei GitHub
+     Secrets. Se in *Zero Trust → Logs → Access* la richiesta **compare** come
+     Denied → è qui.
+  2. **Bot Fight Mode** (gira *prima* di Access): se in Access Logs **non compare
+     nulla**, è il layer bot a bloccare il runner GitHub (IP datacenter =
+     "automatizzato"). ⚠️ Sul **free plan** Bot Fight Mode è **zone-wide e NON
+     esentabile per-host** (lo skip per-host esiste solo con Super Bot Fight Mode,
+     Pro+). Opzioni: tenerlo **off** (l'endpoint è già protetto da Access token +
+     HMAC), oppure mettere il deploy su un **dominio/zona separata** con BFM off
+     (BFM è una toggle **per-zona**), o passare a un trigger **pull-based**
+     (Watchtower) che non ha richieste in ingresso.
+
+  Isola il livello con un POST locale su `http://127.0.0.1:9000` (salta
+  Cloudflare) vs uno su `https://deploy-dev...` (passa da edge → bot → Access).
