@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { safeLocalStorage } from "@/lib/safe-storage";
 
 const DISMISSED_KEY = "pwa-install-dismissed";
 
@@ -25,7 +26,7 @@ export function PwaInstallPrompt() {
   // Checks localStorage + iOS detection without triggering a setState-in-effect cycle.
   const [showIos, setShowIos] = useState<boolean>(() => {
     if (globalThis.window === undefined) return false;
-    if (localStorage.getItem(DISMISSED_KEY)) return false;
+    if (safeLocalStorage.getItem(DISMISSED_KEY)) return false;
     return isIos() && !isInStandalone();
   });
 
@@ -34,7 +35,7 @@ export function PwaInstallPrompt() {
 
   useEffect(() => {
     // Skip Android prompt if iOS banner is visible or user already dismissed.
-    if (showIos || localStorage.getItem(DISMISSED_KEY)) return;
+    if (showIos || safeLocalStorage.getItem(DISMISSED_KEY)) return;
 
     // Called in an event callback — not synchronously in the effect body.
     const handler = (e: Event) => {
@@ -49,7 +50,7 @@ export function PwaInstallPrompt() {
   }, [showIos]);
 
   const handleDismiss = () => {
-    localStorage.setItem(DISMISSED_KEY, "1");
+    safeLocalStorage.setItem(DISMISSED_KEY, "1");
     setShowAndroid(false);
     setShowIos(false);
   };
