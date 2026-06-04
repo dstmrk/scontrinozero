@@ -8,6 +8,7 @@ vi.mock("@/lib/logger", () => ({
 import {
   AdeAuthError,
   AdeNetworkError,
+  AdePasswordExpiredError,
   AdePortalError,
   AdeSpidTimeoutError,
 } from "./errors";
@@ -77,17 +78,39 @@ describe("logAdeFailure", () => {
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
-  it("routes AdeAuthError to logger.error (permanent: wrong credentials)", () => {
+  it("routes AdeAuthError to logger.warn with errorClass ade_user_error (no Sentry noise: SCONTRINOZERO-7)", () => {
+    // Credenziali Fisconline sbagliate non sono un bug nostro: sono input
+    // utente prevedibile, come "password sbagliata" su /login. Vanno
+    // loggate per osservabilita' ma NON devono salire a Sentry come issue
+    // (regola 21 di CLAUDE.md). Storico: SCONTRINOZERO-7 ha collezionato
+    // 23 eventi in 5 settimane prima di essere archiviata come noise.
     logAdeFailure(
       new AdeAuthError(),
       {},
       { transient: "transient", failure: "failed" },
     );
 
-    expect(logger.error).toHaveBeenCalledWith(
-      expect.objectContaining({ errorClass: "ade_failure" }),
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ errorClass: "ade_user_error" }),
       "failed",
     );
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it("routes AdePasswordExpiredError to logger.warn with errorClass ade_user_error (no Sentry noise)", () => {
+    // Stesso ragionamento di AdeAuthError: la password scaduta richiede
+    // azione utente sul portale AdE, non e' un bug del nostro sistema.
+    logAdeFailure(
+      new AdePasswordExpiredError(),
+      {},
+      { transient: "transient", failure: "failed" },
+    );
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ errorClass: "ade_user_error" }),
+      "failed",
+    );
+    expect(logger.error).not.toHaveBeenCalled();
   });
 
   it("routes a generic Error to logger.error", () => {

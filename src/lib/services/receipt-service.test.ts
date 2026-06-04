@@ -659,9 +659,29 @@ describe("emitReceiptForBusiness", () => {
     );
   });
 
-  it("M3: errore non transient (AdeAuthError) resta a logger.error", async () => {
+  it("R21: AdeAuthError (credenziali sbagliate) logga warn con errorClass ade_user_error (no Sentry noise)", async () => {
+    // Credenziali Fisconline sbagliate sono input utente, non bug nostro:
+    // logger.warn + errorClass ade_user_error -> niente issue Sentry.
+    // Regola 21 di CLAUDE.md, fix di SCONTRINOZERO-7.
     const { AdeAuthError } = await import("@/lib/ade/errors");
     mockSubmitSale.mockRejectedValue(new AdeAuthError());
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness(VALID_INPUT);
+
+    const { logger } = await import("@/lib/logger");
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ errorClass: "ade_user_error" }),
+      expect.stringContaining("emitReceiptForBusiness"),
+    );
+    expect(logger.error).not.toHaveBeenCalledWith(
+      expect.objectContaining({ errorClass: "ade_failure" }),
+      expect.stringContaining("emitReceiptForBusiness failed"),
+    );
+  });
+
+  it("M3: errore non transient e non user (generic Error) resta a logger.error", async () => {
+    mockSubmitSale.mockRejectedValue(new Error("unexpected boom"));
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
     await emitReceiptForBusiness(VALID_INPUT);

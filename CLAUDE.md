@@ -127,6 +127,22 @@ src/app/\(marketing\)` prima di chiudere il task.
     di Next al posto del fallback inline, rompendo la performance percepita
     (priorità #1). Coerente con regola 10 e con il pattern `deleteAccount` della
     skill `testing-patterns` (PR #572, `getStarterKpis`).
+20. **Errori d'input utente: warn, non error (no Sentry noise).** Le condizioni
+    prevedibili dall'input utente — credenziali Fisconline sbagliate, password
+    AdE scaduta, P.IVA già registrata, token Turnstile scaduto — vanno loggate
+    a `logger.warn` (osservabilità in pino → Sentry Logs) ma **non** devono
+    salire a Sentry come issue: non sono bug nostri, esattamente come "password
+    sbagliata su `/login`". Il `logger.error` (level ≥ 50) →
+    `Sentry.captureException` va riservato a condizioni inattese (DB down, SDK
+    fallisce in modo non documentato). Pattern canonico per AdE:
+    `logAdeFailure()` in `src/lib/ade/log-failure.ts` con
+    `errorClass: "ade_user_error"` per `AdeAuthError` / `AdePasswordExpiredError`
+    (`isExpectedUserAdeError`), `ade_transient` per network/5xx/SPID timeout
+    (`isTransientAdeError`), `ade_failure` solo per il resto. Storico:
+    SCONTRINOZERO-7 ha collezionato 23 eventi in 5 settimane prima di essere
+    archiviata come noise, perché ogni utente che digitava credenziali AdE
+    sbagliate da `/dashboard/settings` finiva in Sentry. Estende la regola 19
+    alle server action di scrittura.
 
 ## SonarCloud quality gate
 

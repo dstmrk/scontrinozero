@@ -1,14 +1,26 @@
 import { logger } from "@/lib/logger";
-import { isTransientAdeError } from "./error-messages";
+import { isExpectedUserAdeError, isTransientAdeError } from "./error-messages";
 
 /**
- * Logga un errore AdE-side con il livello corretto.
+ * Logga un errore AdE-side con il livello corretto. Tre rami, in
+ * ordine di valutazione:
  *
- * - Transient (network, SPID timeout, AdE 5xx via `isTransientAdeError`)
- *   → `logger.warn` con `errorClass: "ade_transient"`. NON triggera
- *   Sentry capture (logger.ts hook a riga 136 cattura solo `level >= 50`),
- *   evitando ~100 issue Sentry identiche durante un downtime AdE.
- * - Non transient → `logger.error` con `errorClass: "ade_failure"`.
+ * - **User error** (`isExpectedUserAdeError`: AdeAuthError,
+ *   AdePasswordExpiredError) → `logger.warn` con
+ *   `errorClass: "ade_user_error"`, messaggio `messages.failure`. Sono
+ *   errori d'input utente prevedibili (credenziali sbagliate, password
+ *   scaduta), non bug nostri: come "password sbagliata" su `/login` non
+ *   devono salire a Sentry. Storico: SCONTRINOZERO-7 ha collezionato 23
+ *   eventi in 5 settimane prima di essere archiviata come noise. Regola
+ *   21 di `CLAUDE.md`.
+ * - **Transient** (`isTransientAdeError`: network, SPID timeout, AdE 5xx)
+ *   → `logger.warn` con `errorClass: "ade_transient"`, messaggio
+ *   `messages.transient`. Durante un downtime AdE da 100 utenti
+ *   eviterebbe ~100 issue Sentry identiche e non actionable per noi.
+ * - **Failure** (tutto il resto) → `logger.error` con
+ *   `errorClass: "ade_failure"`, messaggio `messages.failure`. È il solo
+ *   ramo che triggera Sentry capture (logger.ts hook a riga 136 cattura
+ *   solo `level >= 50`).
  *
  * Mai estrarre i metodi pino in una variabile (`const fn = logger.warn`):
  * pino li dispatcha tramite `this`-binding (accesso a `this.level`,
@@ -22,15 +34,22 @@ export function logAdeFailure(
   context: Record<string, unknown>,
   messages: { transient: string; failure: string },
 ): void {
-  const transient = isTransientAdeError(err);
-  const payload = {
-    err,
-    ...context,
-    errorClass: transient ? "ade_transient" : "ade_failure",
-  };
-  if (transient) {
-    logger.warn(payload, messages.transient);
-  } else {
-    logger.error(payload, messages.failure);
+  if (isExpectedUserAdeError(err)) {
+    logger.warn(
+      { err, ...context, errorClass: "ade_user_error" },
+      messages.failure,
+    );
+    return;
   }
+  if (isTransientAdeError(err)) {
+    logger.warn(
+      { err, ...context, errorClass: "ade_transient" },
+      messages.transient,
+    );
+    return;
+  }
+  logger.error(
+    { err, ...context, errorClass: "ade_failure" },
+    messages.failure,
+  );
 }
