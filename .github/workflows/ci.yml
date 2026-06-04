@@ -20,6 +20,7 @@ jobs:
       marketing: ${{ steps.f.outputs.marketing }}
       lockfile: ${{ steps.f.outputs.lockfile }}
       migrations: ${{ steps.f.outputs.migrations }}
+      hooks: ${{ steps.f.outputs.hooks }}
       workflows: ${{ steps.f.outputs.workflows }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -47,6 +48,8 @@ jobs:
             migrations:
               - 'supabase/migrations/**'
               - 'scripts/check-migrations.mjs'
+            hooks:
+              - '.claude/hooks/**'
             workflows:
               - '.github/workflows/**'
       # Filtro "src/** escluso marketing": serve `predicate-quantifier: every`
@@ -84,6 +87,21 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Check migration journal consistency
         run: node scripts/check-migrations.mjs
+
+  # Esegue le suite di test degli hook PreToolUse (.claude/hooks/).
+  # Gira solo quando cambia .claude/hooks/**. Difesa-in-profondità per le
+  # regole 1 e 11 di CLAUDE.md: un regex che smette di bloccare push su main
+  # o `drizzle-kit generate` deve fallire la CI, non passare silenzioso.
+  hook-tests:
+    needs: changes
+    if: needs.changes.outputs.hooks == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Run hook test suites
+        run: |
+          bash .claude/hooks/test-block-push-to-main.sh
+          bash .claude/hooks/test-block-drizzle-generate.sh
 
   # Scansione segreti — gira su tutti i push/PR (indipendente dal diff)
   secret-scan:
