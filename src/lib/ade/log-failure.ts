@@ -12,7 +12,7 @@ import { isExpectedUserAdeError, isTransientAdeError } from "./error-messages";
  *   scaduta), non bug nostri: come "password sbagliata" su `/login` non
  *   devono salire a Sentry. Storico: SCONTRINOZERO-7 ha collezionato 23
  *   eventi in 5 settimane prima di essere archiviata come noise. Regola
- *   21 di `CLAUDE.md`.
+ *   20 di `CLAUDE.md`.
  * - **Transient** (`isTransientAdeError`: network, SPID timeout, AdE 5xx)
  *   → `logger.warn` con `errorClass: "ade_transient"`, messaggio
  *   `messages.transient`. Durante un downtime AdE da 100 utenti
@@ -21,6 +21,16 @@ import { isExpectedUserAdeError, isTransientAdeError } from "./error-messages";
  *   `errorClass: "ade_failure"`, messaggio `messages.failure`. È il solo
  *   ramo che triggera Sentry capture (logger.ts hook a riga 136 cattura
  *   solo `level >= 50`).
+ *
+ * **Fingerprinting per flow** (regola 23): se `context.flow` è una
+ * stringa non vuota, sul solo ramo "failure" iniettiamo
+ * `sentryFingerprint: [flow, errorClass]`. `logger.ts` lo intercetta e
+ * fa `Sentry.withScope(s => s.setFingerprint(...))` attorno alla
+ * capture, così due errori dentro lo stesso flow che divergono solo per
+ * il `message` finiscono nello stesso group Sentry. SCONTRINOZERO-9 e
+ * SCONTRINOZERO-A (stesso trace_id, message diverso) sarebbero
+ * confluite in un'unica issue. I rami warn non ricevono il fingerprint:
+ * non salgono comunque a Sentry capture.
  *
  * Mai estrarre i metodi pino in una variabile (`const fn = logger.warn`):
  * pino li dispatcha tramite `this`-binding (accesso a `this.level`,
@@ -48,8 +58,14 @@ export function logAdeFailure(
     );
     return;
   }
-  logger.error(
-    { err, ...context, errorClass: "ade_failure" },
-    messages.failure,
-  );
+  const flow = typeof context.flow === "string" ? context.flow.trim() : "";
+  const errorPayload: Record<string, unknown> = {
+    err,
+    ...context,
+    errorClass: "ade_failure",
+  };
+  if (flow) {
+    errorPayload.sentryFingerprint = [flow, "ade_failure"];
+  }
+  logger.error(errorPayload, messages.failure);
 }

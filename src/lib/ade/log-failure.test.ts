@@ -126,6 +126,77 @@ describe("logAdeFailure", () => {
     );
   });
 
+  it("R23: context.flow injects sentryFingerprint [flow, errorClass] on the error path", () => {
+    // SCONTRINOZERO-9 ("wizardTemplate failed 500") e -A ("setUserChoice
+    // failed 500") avrebbero dovuto far parte di un singolo group Sentry —
+    // entrambe nel flow "onboarding-verify". context.flow fa propagare il
+    // fingerprint al logger.error, che lo applica via withScope.
+    logAdeFailure(
+      new Error("unexpected boom"),
+      { businessId: "biz-1", flow: "onboarding-verify" },
+      { transient: "transient", failure: "failed" },
+    );
+
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        businessId: "biz-1",
+        errorClass: "ade_failure",
+        sentryFingerprint: ["onboarding-verify", "ade_failure"],
+      }),
+      "failed",
+    );
+  });
+
+  it("R23: context without flow leaves the default Sentry grouping (no fingerprint)", () => {
+    logAdeFailure(
+      new Error("unexpected boom"),
+      { businessId: "biz-1" },
+      { transient: "transient", failure: "failed" },
+    );
+
+    const payload = (logger.error as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as Record<string, unknown> | undefined;
+    expect(payload).toBeDefined();
+    expect(payload).not.toHaveProperty("sentryFingerprint");
+  });
+
+  it("R23: warn path (transient) does NOT receive sentryFingerprint (it never reaches Sentry capture)", () => {
+    logAdeFailure(
+      new AdePortalError(503, "down"),
+      { businessId: "biz-1", flow: "onboarding-verify" },
+      { transient: "transient", failure: "failed" },
+    );
+
+    const payload = (logger.warn as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as Record<string, unknown> | undefined;
+    expect(payload).toBeDefined();
+    expect(payload).not.toHaveProperty("sentryFingerprint");
+  });
+
+  it("R23: warn path (user_error) does NOT receive sentryFingerprint", () => {
+    logAdeFailure(
+      new AdeAuthError(),
+      { businessId: "biz-1", flow: "onboarding-verify" },
+      { transient: "transient", failure: "failed" },
+    );
+
+    const payload = (logger.warn as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as Record<string, unknown> | undefined;
+    expect(payload).toBeDefined();
+    expect(payload).not.toHaveProperty("sentryFingerprint");
+  });
+
+  it("R23: empty/blank flow is ignored (no fingerprint)", () => {
+    logAdeFailure(
+      new Error("boom"),
+      { businessId: "biz-1", flow: "   " },
+      { transient: "transient", failure: "failed" },
+    );
+    const payload = (logger.error as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as Record<string, unknown> | undefined;
+    expect(payload).not.toHaveProperty("sentryFingerprint");
+  });
+
   it("forwards arbitrary context fields into the log payload", () => {
     logAdeFailure(
       new Error("boom"),
