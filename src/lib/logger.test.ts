@@ -7,10 +7,17 @@ import pino from "pino";
 
 const mockCaptureException = vi.fn();
 const mockCaptureMessage = vi.fn();
+const mockSetFingerprint = vi.fn();
+const mockWithScope = vi.fn(
+  (cb: (scope: { setFingerprint: typeof mockSetFingerprint }) => void) => {
+    cb({ setFingerprint: mockSetFingerprint });
+  },
+);
 
 vi.mock("@sentry/nextjs", () => ({
   captureException: mockCaptureException,
   captureMessage: mockCaptureMessage,
+  withScope: mockWithScope,
 }));
 
 // Helper: create a logger that writes to a buffer so we can inspect output
@@ -218,6 +225,8 @@ describe("logger Sentry bridge", () => {
     vi.resetModules();
     mockCaptureException.mockReset();
     mockCaptureMessage.mockReset();
+    mockSetFingerprint.mockReset();
+    mockWithScope.mockClear();
   });
 
   afterEach(() => {
@@ -280,6 +289,94 @@ describe("logger Sentry bridge", () => {
     expect(mockCaptureException).toHaveBeenCalledWith(err, {
       extra: { err: { name: "Error", message: "fatal crash" } },
     });
+  });
+
+  it("R23: logger.error with sentryFingerprint wraps captureException in withScope+setFingerprint", async () => {
+    // SCONTRINOZERO-9/-A condividevano trace_id ma generavano 2 issue Sentry
+    // distinte perche' i message ("wizardTemplate failed 500" vs
+    // "setUserChoice failed 500") rompevano il grouping di default. Un
+    // fingerprint esplicito sul flow li riunisce in un singolo group.
+    const { logger } = await import("./logger");
+    const err = new Error("AdE wizardTemplate failed");
+    logger.error(
+      {
+        err,
+        businessId: "biz-1",
+        sentryFingerprint: ["onboarding-verify", "ade_failure"],
+      },
+      "AdE credential verification failed",
+    );
+    expect(mockWithScope).toHaveBeenCalledOnce();
+    expect(mockSetFingerprint).toHaveBeenCalledWith([
+      "onboarding-verify",
+      "ade_failure",
+    ]);
+    expect(mockCaptureException).toHaveBeenCalledWith(err, {
+      extra: expect.objectContaining({
+        err: { name: "Error", message: "AdE wizardTemplate failed" },
+        businessId: "biz-1",
+      }),
+    });
+    // sentryFingerprint is routing metadata, NOT payload — keep it out of extra
+    // so Sentry doesn't echo the fingerprint string back into the issue context.
+    const extra = mockCaptureException.mock.calls[0]?.[1]?.extra as
+      | Record<string, unknown>
+      | undefined;
+    expect(extra).not.toHaveProperty("sentryFingerprint");
+  });
+
+  it("R23: logger.error without sentryFingerprint does NOT call withScope (back-compat)", async () => {
+    const { logger } = await import("./logger");
+    logger.error(
+      { err: new Error("boom"), businessId: "biz-2" },
+      "generic failure",
+    );
+    expect(mockWithScope).not.toHaveBeenCalled();
+    expect(mockSetFingerprint).not.toHaveBeenCalled();
+    expect(mockCaptureException).toHaveBeenCalledOnce();
+  });
+
+  it("R23: logger.error with empty sentryFingerprint array does NOT call withScope", async () => {
+    const { logger } = await import("./logger");
+    logger.error(
+      { err: new Error("boom"), sentryFingerprint: [] },
+      "still groups by default",
+    );
+    expect(mockWithScope).not.toHaveBeenCalled();
+    expect(mockCaptureException).toHaveBeenCalledOnce();
+  });
+
+  it("R23: logger.error with non-array sentryFingerprint is ignored", async () => {
+    const { logger } = await import("./logger");
+    logger.error(
+      {
+        err: new Error("boom"),
+        sentryFingerprint: "not-an-array" as unknown as string[],
+      },
+      "still groups by default",
+    );
+    expect(mockWithScope).not.toHaveBeenCalled();
+    expect(mockCaptureException).toHaveBeenCalledOnce();
+  });
+
+  it("R23: sentryFingerprint also wraps captureMessage path (plain err-less log)", async () => {
+    const { logger } = await import("./logger");
+    logger.error(
+      {
+        sentryFingerprint: ["onboarding-verify", "missing_credentials"],
+        businessId: "biz-3",
+      },
+      "Credenziali AdE non trovate",
+    );
+    expect(mockWithScope).toHaveBeenCalledOnce();
+    expect(mockSetFingerprint).toHaveBeenCalledWith([
+      "onboarding-verify",
+      "missing_credentials",
+    ]);
+    expect(mockCaptureMessage).toHaveBeenCalledWith(
+      "Credenziali AdE non trovate",
+      "error",
+    );
   });
 
   it("logger.warn does NOT call Sentry (warn is Docker-only)", async () => {
