@@ -22,6 +22,7 @@ jobs:
       migrations: ${{ steps.f.outputs.migrations }}
       hooks: ${{ steps.f.outputs.hooks }}
       workflows: ${{ steps.f.outputs.workflows }}
+      ci_scripts: ${{ steps.f.outputs.ci_scripts }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       # Filtri "semplici" — predicate-quantifier di default (`some`).
@@ -52,6 +53,9 @@ jobs:
               - '.claude/hooks/**'
             workflows:
               - '.github/workflows/**'
+            ci_scripts:
+              - 'scripts/ci/**'
+              - '.github/workflows/ci.yml'
       # Filtro "src/** escluso marketing": serve `predicate-quantifier: every`
       # per far valere le negazioni. Con `some` (default), un file marketing
       # matcherebbe comunque `src/**` e setterebbe il flag a true.
@@ -102,6 +106,19 @@ jobs:
         run: |
           bash .claude/hooks/test-block-push-to-main.sh
           bash .claude/hooks/test-block-drizzle-generate.sh
+
+  # Testa il wrapper dello scan Sonar (retry + tolleranza 403 del CDN).
+  # Gira solo quando cambia scripts/ci/** o ci.yml. Rete-di-sicurezza: una
+  # regressione che ingoiasse i fallimenti *reali* dello scan (perdita silente
+  # del quality gate) o che tornasse a fallire sul 403 deve far rosso la CI.
+  sonar-script-tests:
+    needs: changes
+    if: needs.changes.outputs.ci_scripts == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Run sonar-scan wrapper tests
+        run: bash scripts/ci/test-sonar-scan.sh
 
   # Scansione segreti — gira su tutti i push/PR (indipendente dal diff)
   secret-scan:
@@ -258,10 +275,16 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: test-execution-report
-      - name: SonarQube Cloud scan
-        uses: SonarSource/sonarqube-scan-action@59db25f34e16620e48ab4bb9e4a5dce155cb5432 # v8.0.0
+      # Wrapper around the scanner CLI instead of SonarSource/sonarqube-scan-action:
+      # that action has no retry and re-downloads the CLI from binaries.sonarsource.com
+      # every run, so an intermittent HTTP 403 from Sonar's CDN sinks the job (and
+      # spams notifications on main). The wrapper retries the download and, if the
+      # CDN stays unreachable, skips with a warning instead of failing — real scan
+      # errors still turn the job red. Logic covered by scripts/ci/test-sonar-scan.sh.
+      - name: SonarQube Cloud scan (retry + tolerate CDN 403)
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: bash scripts/ci/sonar-scan.sh
 
   # Build parte quando lint, type-check e test sono verdi (test puo' essere skippato
   # su marketing-only: GitHub Actions tratta "skipped" come "success" in needs:).
