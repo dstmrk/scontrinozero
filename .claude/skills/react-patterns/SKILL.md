@@ -334,6 +334,37 @@ le richieste `/api/*`. Conseguenze:
 update detection — sono Client Components che usano `window.matchMedia` e
 listener `beforeinstallprompt`. Da non importare in Server Component.
 
+### `beforeinstallprompt` — race del listener tardivo (Android)
+
+Chrome su Android emette `beforeinstallprompt` **molto presto** dopo il load
+(appena manifest + SW sono pronti) e **non lo ri-emette**. Se il listener è
+agganciato in una `useEffect` di un componente annidato — es. il banner
+montato in fondo al `dashboard/layout.tsx`, che è un Server Component `async`
+con `await` bloccanti prima del render — l'evento può scattare prima che React
+idrati e l'evento è perso → su Android il pulsante "Installa" non compare mai,
+mentre iOS (istruzioni statiche, niente evento) sembra funzionare. Asimmetria
+sintomatica.
+
+**Fix (commit PWA Android):** cattura l'evento in uno store singleton client
+(`src/lib/pwa/install-prompt-store.ts`) il cui `initInstallPromptCapture()` è
+chiamato a module-load da `Providers` (entry client condiviso del root layout,
+ben prima del mount del banner). Idempotente + SSR-safe. La UI legge via
+`useSyncExternalStore(subscribe, getDeferredPrompt, () => null)`, così vede
+anche un evento già bufferizzato. `getSnapshot` deve restituire un riferimento
+stabile (il module var), altrimenti loop di render. Reset del singleton tra
+test con `resetInstallPromptStoreForTests()`.
+
+### Asset PWA esclusi dal `proxy.ts` matcher
+
+`/sw.js` e `/manifest.webmanifest` **devono** stare nel negative-lookahead del
+`config.matcher` (come `_next/static`, favicon, ecc.): un service worker che
+riceve un 3xx fallisce la registrazione, e far girare `supabase.auth.getUser()`
+su ogni fetch di questi file è spreco puro. Estensioni `.js`/`.webmanifest`
+non sono coperte dalla lista asset statici (`svg|png|...`), quindi vanno
+aggiunte esplicitamente (`sw\.js|manifest\.webmanifest`). Test: costruire
+`new RegExp(\`^${config.matcher[0]}$\`)` e asserire che NON matcha gli asset PWA
+ma sì le route app.
+
 ---
 
 ## TDD per componenti

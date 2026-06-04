@@ -27,6 +27,15 @@ export default function manifest(): MetadataRoute.Manifest {
         type: "image/png",
         purpose: "any",
       },
+      // Variante maskable (contenuto nella safe-zone centrale 80%): senza questa
+      // Android letterboxa l'icona "any" in un blob bianco / la ritaglia con le
+      // maschere adattive. Va dichiarata separatamente da "any".
+      {
+        src: "/android-chrome-maskable-512x512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
+      },
     ],
   };
 }

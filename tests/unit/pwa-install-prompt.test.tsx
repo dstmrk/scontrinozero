@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { PwaInstallPrompt } from "@/components/pwa/install-prompt";
+import { resetInstallPromptStoreForTests } from "@/lib/pwa/install-prompt-store";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -45,6 +46,7 @@ const originalUserAgent = navigator.userAgent;
 
 beforeEach(() => {
   localStorage.clear();
+  resetInstallPromptStoreForTests();
   // Reset to non-iOS, non-standalone by default
   stubUserAgent(
     "Mozilla/5.0 (Linux; Android 10; Pixel 3) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36",
