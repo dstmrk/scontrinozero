@@ -19,7 +19,7 @@ import { useEffect } from "react";
  */
 export function ScrollToHash() {
   useEffect(() => {
-    const { hash } = window.location;
+    const { hash } = globalThis.location;
     if (!hash) return;
     const raw = hash.slice(1);
     // Fragment malformato (es. `#%E0%A4%A`) → decodeURIComponent lancia URIError:
