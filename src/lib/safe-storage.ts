@@ -22,7 +22,7 @@ export interface SafeStorage {
 
 function resolveStore(kind: "local" | "session"): Storage | null {
   try {
-    if (typeof globalThis.window === "undefined") return null;
+    if (globalThis.window === undefined) return null;
     return kind === "local"
       ? globalThis.window.localStorage
       : globalThis.window.sessionStorage;
