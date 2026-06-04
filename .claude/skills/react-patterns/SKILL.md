@@ -166,7 +166,10 @@ const mutation = useMutation({
   onMutate: async (input) => {
     await qc.cancelQueries({ queryKey: ["receipts"] });
     const prev = qc.getQueryData(["receipts"]);
-    qc.setQueryData(["receipts"], (old) => [optimisticRow(input), ...(old ?? [])]);
+    qc.setQueryData(["receipts"], (old) => [
+      optimisticRow(input),
+      ...(old ?? []),
+    ]);
     return { prev };
   },
   onError: (_e, _v, ctx) => qc.setQueryData(["receipts"], ctx?.prev),
@@ -201,10 +204,10 @@ const [isPending, startTransition] = useTransition();
 ### `useOptimistic` per liste
 
 ```tsx
-const [optimistic, addOptimistic] = useOptimistic(receipts, (state, draft: Receipt) => [
-  draft,
-  ...state,
-]);
+const [optimistic, addOptimistic] = useOptimistic(
+  receipts,
+  (state, draft: Receipt) => [draft, ...state],
+);
 ```
 
 Usato in combinazione con Server Action per UX istantanea senza TanStack
@@ -216,7 +219,10 @@ React 19: `ref` è una prop normale. Non scrivere più `forwardRef` in nuovo
 codice.
 
 ```tsx
-function Input({ ref, ...props }: Readonly<{ ref?: React.Ref<HTMLInputElement> } & InputProps>) {
+function Input({
+  ref,
+  ...props
+}: Readonly<{ ref?: React.Ref<HTMLInputElement> } & InputProps>) {
   return <input ref={ref} {...props} />;
 }
 ```
@@ -252,6 +258,30 @@ Errore "Hydration failed because the server rendered HTML didn't match…":
    layout, e il `ThemeProvider` deve avvolgere SOLO i figli del `<body>`.
 5. **HTML invalido annidato** (`<p>` dentro `<p>`, `<a>` dentro `<a>`,
    `<div>` dentro `<button>`) — React 19 logga warning più rumorosi.
+
+---
+
+## Web Storage: sempre via `safe-storage`
+
+Su browser con storage bloccato (modalità privacy, cookie di terze parti
+disabilitati, alcune webview mobile) **leggere la property stessa**
+`window.sessionStorage` / `window.localStorage` lancia `SecurityError`
+(DOMException 18) — **non** basta il try/catch sul singolo `getItem`/`setItem`,
+va protetto l'accesso allo store. Un throw dentro un `useEffect` o un lazy
+initializer di `useState` finisce in Sentry e può rompere il commit
+dell'effetto (visto in prod su `/login` da Chrome Mobile, Sentry
+SCONTRINOZERO-H).
+
+Mai toccare `sessionStorage`/`localStorage` diretti nei componenti: usa
+`safeSessionStorage` / `safeLocalStorage` da `@/lib/safe-storage` (degradano a
+`null` in lettura / no-op in scrittura, e sono SSR-safe). Per testare la
+degradazione si fa lo spy sul **getter** della property:
+
+```ts
+vi.spyOn(window, "sessionStorage", "get").mockImplementation(() => {
+  throw new DOMException("Access is denied", "SecurityError");
+});
+```
 
 ---
 

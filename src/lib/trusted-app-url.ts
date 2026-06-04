@@ -46,7 +46,18 @@ function getAllowedHostnames(): Set<string> {
  *         non in allowlist. Il chiamante deve gestire con 503.
  */
 export function getTrustedAppUrl(): string {
-  const raw = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  // `?? default` NON scatta su present-but-empty (`""`): il Dockerfile bakava
+  // `ENV NEXT_PUBLIC_APP_URL=` vuoto in prod/sandbox (ARG non passato), quindi
+  // `new URL("")` lanciava e ogni checkout/portal Stripe rispondeva 503
+  // (Sentry SCONTRINOZERO-F). Trattiamo empty/whitespace come assente. Il
+  // default è prod-aware: in produzione l'host app (https + in allowlist →
+  // passa la validazione qui sotto), localhost solo in dev/test. (regola 18.)
+  const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  const raw =
+    fromEnv ||
+    (process.env.NODE_ENV === "production"
+      ? "https://app.scontrinozero.it"
+      : "http://localhost:3000");
   let parsed: URL;
   try {
     parsed = new URL(raw);

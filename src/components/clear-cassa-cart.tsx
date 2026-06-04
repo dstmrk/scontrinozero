@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { CASSA_SESSION_KEY } from "@/hooks/use-cassa";
+import { safeSessionStorage } from "@/lib/safe-storage";
 
 // Pulisce il carrello in sessionStorage. Da montare sulle pagine raggiungibili
 // solo da utenti non autenticati (login/register/reset-password/verify-email):
@@ -9,7 +10,11 @@ import { CASSA_SESSION_KEY } from "@/hooks/use-cassa";
 // da chi accede dopo nella stessa tab.
 export function ClearCassaCart(): null {
   useEffect(() => {
-    sessionStorage.removeItem(CASSA_SESSION_KEY);
+    // safeSessionStorage degrada a no-op se lo storage è inaccessibile
+    // (privacy/cookie disabilitati → SecurityError sul solo accesso alla
+    // property, Sentry SCONTRINOZERO-H). Storage non disponibile = nessun
+    // carrello persistito da ripulire: il no-op è semanticamente corretto.
+    safeSessionStorage.removeItem(CASSA_SESSION_KEY);
   }, []);
 
   return null;

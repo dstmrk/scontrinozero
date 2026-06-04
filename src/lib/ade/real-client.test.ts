@@ -1066,7 +1066,10 @@ describe("RealAdeClient", () => {
         AdePortalError,
       );
 
-      expect(logger.error).toHaveBeenCalledWith(
+      // SCONTRINOZERO-G: i 5xx AdE sono loggati a warn (non error): la
+      // decisione Sentry è centralizzata nel caller via logAdeFailure
+      // (5xx → transient → fuori da Sentry).
+      expect(logger.warn).toHaveBeenCalledWith(
         expect.objectContaining({
           statusCode: 500,
           contentType: "application/json;charset=UTF-8",
@@ -1095,7 +1098,7 @@ describe("RealAdeClient", () => {
         AdePortalError,
       );
 
-      expect(logger.error).toHaveBeenCalledWith(
+      expect(logger.warn).toHaveBeenCalledWith(
         expect.objectContaining({
           statusCode: 500,
           contentType: "text/html; charset=UTF-8",
@@ -1118,7 +1121,7 @@ describe("RealAdeClient", () => {
         AdePortalError,
       );
 
-      expect(logger.error).toHaveBeenCalledWith(
+      expect(logger.warn).toHaveBeenCalledWith(
         expect.objectContaining({
           statusCode: 500,
           bodyExcerpt: "x".repeat(2048),

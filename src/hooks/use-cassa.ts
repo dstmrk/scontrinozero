@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { CartLine, PaymentMethod, VatCode } from "@/types/cassa";
+import { safeSessionStorage } from "@/lib/safe-storage";
 
 export const CASSA_SESSION_KEY = "cassa_cart";
 
@@ -15,8 +16,10 @@ interface CartState extends SessionData {
 }
 
 function readFromSession(): SessionData {
+  // safeSessionStorage non lancia su storage bloccato; il try/catch resta per
+  // il JSON.parse (dati corrotti → carrello vuoto).
   try {
-    const raw = sessionStorage.getItem(CASSA_SESSION_KEY);
+    const raw = safeSessionStorage.getItem(CASSA_SESSION_KEY);
     if (!raw) return { lines: [], paymentMethod: "PC" };
     return JSON.parse(raw) as SessionData;
   } catch {
@@ -61,7 +64,9 @@ export function useCassa(): UseCassaReturn {
   // Sincronizza su sessionStorage ad ogni cambiamento (solo dopo l'idratazione)
   useEffect(() => {
     if (!isHydrated) return;
-    sessionStorage.setItem(
+    // safeSessionStorage: su storage bloccato la scrittura è un no-op (il
+    // carrello resta in memoria) invece di lanciare SecurityError nell'effetto.
+    safeSessionStorage.setItem(
       CASSA_SESSION_KEY,
       JSON.stringify({ lines, paymentMethod }),
     );
