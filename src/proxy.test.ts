@@ -628,3 +628,32 @@ describe("proxy", () => {
     });
   });
 });
+
+describe("config.matcher", () => {
+  it("non intercetta gli asset PWA sw.js e manifest.webmanifest", async () => {
+    const { config } = await import("./proxy");
+    const pattern = new RegExp(`^${config.matcher[0]}$`);
+
+    // Esclusi: il proxy NON deve girare (niente redirect/getUser su SW e manifest).
+    expect(pattern.test("/sw.js")).toBe(false);
+    expect(pattern.test("/manifest.webmanifest")).toBe(false);
+  });
+
+  it("continua a intercettare le route applicative", async () => {
+    const { config } = await import("./proxy");
+    const pattern = new RegExp(`^${config.matcher[0]}$`);
+
+    expect(pattern.test("/dashboard")).toBe(true);
+    expect(pattern.test("/login")).toBe(true);
+    expect(pattern.test("/")).toBe(true);
+  });
+
+  it("continua a escludere gli asset statici e le route già esenti", async () => {
+    const { config } = await import("./proxy");
+    const pattern = new RegExp(`^${config.matcher[0]}$`);
+
+    expect(pattern.test("/logo.png")).toBe(false);
+    expect(pattern.test("/_next/static/chunk.js")).toBe(false);
+    expect(pattern.test("/api/health")).toBe(false);
+  });
+});

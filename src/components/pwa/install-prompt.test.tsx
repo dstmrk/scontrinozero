@@ -2,6 +2,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PwaInstallPrompt } from "./install-prompt";
+import { resetInstallPromptStoreForTests } from "@/lib/pwa/install-prompt-store";
 
 const DISMISSED_KEY = "pwa-install-dismissed";
 const IOS_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)";
@@ -17,12 +18,14 @@ function setUserAgent(ua: string) {
 describe("PwaInstallPrompt", () => {
   beforeEach(() => {
     localStorage.clear();
+    resetInstallPromptStoreForTests();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     setUserAgent(ORIGINAL_UA);
     localStorage.clear();
+    resetInstallPromptStoreForTests();
   });
 
   it("non renderizza nulla su browser non-iOS senza evento install", () => {

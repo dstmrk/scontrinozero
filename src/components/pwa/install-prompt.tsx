@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { safeLocalStorage } from "@/lib/safe-storage";
+import {
+  clearDeferredPrompt,
+  getDeferredPrompt,
+  subscribeInstallPrompt,
+} from "@/lib/pwa/install-prompt-store";
 
 const DISMISSED_KEY = "pwa-install-dismissed";
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-}
 
 function isIos(): boolean {
   return /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -30,36 +30,33 @@ export function PwaInstallPrompt() {
     return isIos() && !isInStandalone();
   });
 
-  const [showAndroid, setShowAndroid] = useState(false);
-  const deferredPromptRef = useRef<BeforeInstallPromptEvent | null>(null);
+  const [dismissed, setDismissed] = useState<boolean>(() => {
+    if (globalThis.window === undefined) return false;
+    return safeLocalStorage.getItem(DISMISSED_KEY) === "1";
+  });
 
-  useEffect(() => {
-    // Skip Android prompt if iOS banner is visible or user already dismissed.
-    if (showIos || safeLocalStorage.getItem(DISMISSED_KEY)) return;
+  // Legge l'evento beforeinstallprompt dallo store globale (catturato ASAP da
+  // `Providers`, prima che questo componente annidato monti — vedi
+  // install-prompt-store.ts). `subscribeInstallPrompt` garantisce anche l'init
+  // dei listener nei contesti in cui `Providers` non è montato (es. test).
+  const deferredPrompt = useSyncExternalStore(
+    subscribeInstallPrompt,
+    getDeferredPrompt,
+    () => null,
+  );
 
-    // Called in an event callback — not synchronously in the effect body.
-    const handler = (e: Event) => {
-      e.preventDefault();
-      deferredPromptRef.current = e as BeforeInstallPromptEvent;
-      setShowAndroid(true);
-    };
-
-    globalThis.window.addEventListener("beforeinstallprompt", handler);
-    return () =>
-      globalThis.window.removeEventListener("beforeinstallprompt", handler);
-  }, [showIos]);
+  const showAndroid = !dismissed && !showIos && deferredPrompt !== null;
 
   const handleDismiss = () => {
     safeLocalStorage.setItem(DISMISSED_KEY, "1");
-    setShowAndroid(false);
+    setDismissed(true);
     setShowIos(false);
   };
 
   const handleInstall = async () => {
-    if (!deferredPromptRef.current) return;
-    await deferredPromptRef.current.prompt();
-    deferredPromptRef.current = null;
-    setShowAndroid(false);
+    if (!deferredPrompt) return;
+    await deferredPrompt.prompt();
+    clearDeferredPrompt();
   };
 
   if (!showAndroid && !showIos) return null;
