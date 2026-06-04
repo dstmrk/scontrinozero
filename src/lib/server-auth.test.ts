@@ -49,6 +49,11 @@ vi.mock("@/lib/logger", () => ({
   },
 }));
 
+const mockSentrySetUser = vi.fn();
+vi.mock("@sentry/nextjs", () => ({
+  setUser: (...args: unknown[]) => mockSentrySetUser(...args),
+}));
+
 // --- Helpers ---
 
 const FAKE_USER = { id: "user-123", email: "test@example.com" };
@@ -121,6 +126,55 @@ describe("server-auth", () => {
         }),
         expect.any(String),
       );
+    });
+
+    it("R22: binds the authenticated user id to Sentry scope (Users Impacted)", async () => {
+      // Senza setUser ogni issue Sentry mostrava 'Users Impacted: 0' anche
+      // quando l'incidente toccava decine di utenti — il triage non poteva
+      // prioritizzare per impatto. Regola 22 di CLAUDE.md.
+      mockGetUser.mockResolvedValue({ data: { user: FAKE_USER } });
+
+      const { getAuthenticatedUser } = await import("./server-auth");
+      await getAuthenticatedUser();
+
+      expect(mockSentrySetUser).toHaveBeenCalledWith({ id: FAKE_USER.id });
+    });
+
+    it("R22: does NOT pass email or other PII to Sentry (only id)", async () => {
+      // L'UUID di Supabase Auth e' identificativo opaco (non PII diretta).
+      // Email/nome/ip restano fuori dallo scope Sentry per coerenza con il
+      // SAFE_KEYS denylist di logger.ts.
+      mockGetUser.mockResolvedValue({ data: { user: FAKE_USER } });
+
+      const { getAuthenticatedUser } = await import("./server-auth");
+      await getAuthenticatedUser();
+
+      const callArg = mockSentrySetUser.mock.calls[0]?.[0] as
+        | Record<string, unknown>
+        | undefined;
+      expect(callArg).toBeDefined();
+      expect(callArg).not.toHaveProperty("email");
+      expect(callArg).not.toHaveProperty("username");
+      expect(callArg).not.toHaveProperty("ip_address");
+      expect(Object.keys(callArg ?? {})).toEqual(["id"]);
+    });
+
+    it("R22: does NOT call Sentry.setUser when user is null (no leak)", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+
+      const { getAuthenticatedUser } = await import("./server-auth");
+      await expect(getAuthenticatedUser()).rejects.toThrow("Not authenticated");
+
+      expect(mockSentrySetUser).not.toHaveBeenCalled();
+    });
+
+    it("R22: does NOT call Sentry.setUser when getUser rejects", async () => {
+      mockGetUser.mockRejectedValue(new Error("network down"));
+
+      const { getAuthenticatedUser } = await import("./server-auth");
+      await expect(getAuthenticatedUser()).rejects.toThrow("Not authenticated");
+
+      expect(mockSentrySetUser).not.toHaveBeenCalled();
     });
   });
 

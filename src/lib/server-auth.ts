@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { and, eq } from "drizzle-orm";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getDb } from "@/db";
@@ -48,6 +49,14 @@ export async function getAuthenticatedUser(): Promise<User> {
   if (!user) {
     throw new Error("Not authenticated");
   }
+  // Bind l'auth user id allo scope Sentry per la richiesta corrente. Senza
+  // questo `Users Impacted` resta a 0 su ogni issue (ogni issue analizzata
+  // nelle 10 di SCONTRINOZERO aveva 0 utenti tracciati, vanificando il
+  // triage per impatto). Passiamo SOLO `id` (UUID opaco di Supabase Auth):
+  // niente email/username/ip per coerenza col denylist `SAFE_KEYS` di
+  // `src/lib/logger.ts` e con la policy GDPR del progetto. Regola 22 di
+  // CLAUDE.md.
+  Sentry.setUser({ id: user.id });
   return user;
 }
 

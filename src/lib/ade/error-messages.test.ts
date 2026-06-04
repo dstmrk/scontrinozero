@@ -11,6 +11,7 @@ import {
 } from "./errors";
 import {
   getUserFacingAdeErrorMessage,
+  isExpectedUserAdeError,
   isTransientAdeError,
 } from "./error-messages";
 
@@ -169,5 +170,50 @@ describe("isTransientAdeError", () => {
     expect(isTransientAdeError("oops")).toBe(false);
     expect(isTransientAdeError(null)).toBe(false);
     expect(isTransientAdeError(undefined)).toBe(false);
+  });
+});
+
+describe("isExpectedUserAdeError", () => {
+  it("returns true for AdeAuthError (wrong credentials are user input, not a bug)", () => {
+    expect(isExpectedUserAdeError(new AdeAuthError())).toBe(true);
+  });
+
+  it("returns true for AdePasswordExpiredError (user must rotate password on portal)", () => {
+    expect(isExpectedUserAdeError(new AdePasswordExpiredError())).toBe(true);
+  });
+
+  it("returns false for AdeNetworkError (transient, not user-actionable input)", () => {
+    expect(
+      isExpectedUserAdeError(new AdeNetworkError(new Error("ECONNRESET"))),
+    ).toBe(false);
+  });
+
+  it("returns false for AdePortalError (upstream failure, not user input)", () => {
+    expect(isExpectedUserAdeError(new AdePortalError(500, "boom"))).toBe(false);
+    expect(isExpectedUserAdeError(new AdePortalError(400, "bad"))).toBe(false);
+  });
+
+  it("returns false for AdeSpidTimeoutError (transient, retry path)", () => {
+    expect(isExpectedUserAdeError(new AdeSpidTimeoutError(30))).toBe(false);
+  });
+
+  it("returns false for AdeSessionExpiredError (internal state, not user input)", () => {
+    expect(isExpectedUserAdeError(new AdeSessionExpiredError())).toBe(false);
+  });
+
+  it("returns false for a generic AdeError", () => {
+    expect(isExpectedUserAdeError(new AdeError("ADE_UNKNOWN", "boom"))).toBe(
+      false,
+    );
+  });
+
+  it("returns false for a non-Ade Error", () => {
+    expect(isExpectedUserAdeError(new Error("unrelated"))).toBe(false);
+  });
+
+  it("returns false for a non-Error value", () => {
+    expect(isExpectedUserAdeError("oops")).toBe(false);
+    expect(isExpectedUserAdeError(null)).toBe(false);
+    expect(isExpectedUserAdeError(undefined)).toBe(false);
   });
 });

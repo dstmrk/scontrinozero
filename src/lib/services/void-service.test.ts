@@ -538,7 +538,7 @@ describe("voidReceiptForBusiness", () => {
     expect(failedCalls).toHaveLength(0);
   });
 
-  it("M3: errore non transient (generic Error) resta a logger.error", async () => {
+  it("M3: errore non transient (generic Error) resta a logger.error con sentryFingerprint per flow void-receipt (R23)", async () => {
     mockSubmitVoid.mockRejectedValue(new Error("unexpected boom"));
 
     const { voidReceiptForBusiness } = await import("./void-service");
@@ -546,7 +546,11 @@ describe("voidReceiptForBusiness", () => {
 
     const { logger } = await import("@/lib/logger");
     expect(logger.error).toHaveBeenCalledWith(
-      expect.objectContaining({ errorClass: "ade_failure" }),
+      expect.objectContaining({
+        errorClass: "ade_failure",
+        flow: "void-receipt",
+        sentryFingerprint: ["void-receipt", "ade_failure"],
+      }),
       expect.stringContaining("voidReceiptForBusiness failed"),
     );
   });

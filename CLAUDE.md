@@ -37,42 +37,38 @@ tag git (`git tag -l "v1.*"`).
 
 ## Regole sempre-attive (applicano a ogni task)
 
-1. **Branch separato sempre.** Mai commit/push diretti su `main`. PR sempre,
-   merge spetta all'utente (a meno che non chiesto esplicito).
-2. **TDD.** Test prima dell'implementazione. Ogni file con logica ha il suo
-   test file (anche `instrumentation.ts` e simili bootstrap).
-3. **Chiedi se ambiguo** prima di scrivere codice.
-4. **Edge case dopo ogni implementazione:** elencare gli edge case e aggiungere
-   test che li coprono prima di committare.
-5. **Task > 3 file → break in sub-task.** Stop e suddividere.
-6. **Riflessione dopo correzione:** quando l'utente corregge, capire perché ho
-   sbagliato e come non rifarlo.
-7. **Aggiornare `CLAUDE.md` (o la skill pertinente in `.claude/skills/`)
-   autonomamente** dopo aver risolto un problema non triviale con lezione
-   riusabile (debugging pattern, setup gotcha, wrong assumption). Non
-   aspettare che lo chiedano.
-8. **Contenuti marketing & SEO.** I contenuti vivono in route dedicate con un
-   data file ciascuna: `/help` (operativo, `src/app/(marketing)/help`), `/guide`
-   (educativo, `src/lib/guide/articles.ts`), `/per/[slug]` (categorie,
-   `src/lib/per/categories.ts`), `/confronto` (`src/lib/confronto/comparisons.ts`),
-   `/strumenti/[slug]` (tool gratuiti backlink-magnet, `src/lib/strumenti/tools.ts`).
-   Regole sempre valide:
-   - **Niente promesse di feature non live** in _nessun_ copy marketing: feature
-     non implementate → condizionale/roadmap, mai al presente. Oggi sul Pro
-     restano "in arrivo" solo recupero corrispettivi AdE e sync catalogo AdE;
-     Analytics avanzata ed Export CSV sono **spedite e Pro-gated** (commit
-     ae1c481).
-   - **Slug separati `/help` vs `/guide`** sulle keyword condivise per evitare
-     canonical clash (es. `/help/regime-forfettario` ≠
-     `/guide/regime-forfettario-scontrini`); si linkano a vicenda.
-   - Se modifichi una funzionalità (label, menu, stati, filtri, error flow,
-     gating piani, nomi bottoni) aggiorna i contenuti: `grep -rn "<termine>"
-src/app/\(marketing\)` prima di chiudere il task.
-   - Contenuti generati via LLM con **review umana**, in italiano, target Italia.
-9. **Boundary delle API:** UUID validation con `isValidUuid()` + 400 prima del
-   service; body size guard con `readJsonWithLimit(req, maxBytes)` + 413 prima
-   di `JSON.parse`; email normalizzata con `normalizeEmail()` in `validation.ts`
-   come prima riga di ogni auth action.
+1.  **Branch separato sempre.** Mai commit/push diretti su `main`. PR sempre,
+    merge spetta all'utente (a meno che non chiesto esplicito).
+2.  **TDD.** Test prima dell'implementazione. Ogni file con logica ha il suo
+    test file (anche `instrumentation.ts` e simili bootstrap).
+3.  **Chiedi se ambiguo** prima di scrivere codice.
+4.  **Edge case dopo ogni implementazione:** elencare gli edge case e aggiungere
+    test che li coprono prima di committare.
+5.  **Task > 3 file → break in sub-task.** Stop e suddividere.
+6.  **Riflessione dopo correzione:** quando l'utente corregge, capire perché ho
+    sbagliato e come non rifarlo.
+7.  **Aggiornare `CLAUDE.md` (o la skill pertinente in `.claude/skills/`)
+    autonomamente** dopo aver risolto un problema non triviale con lezione
+    riusabile (debugging pattern, setup gotcha, wrong assumption). Non
+    aspettare che lo chiedano.
+8.  **Contenuti marketing & SEO.** I contenuti vivono in route dedicate con un
+    data file ciascuna: `/help` (operativo, `src/app/(marketing)/help`), `/guide`
+    (educativo, `src/lib/guide/articles.ts`), `/per/[slug]` (categorie,
+    `src/lib/per/categories.ts`), `/confronto` (`src/lib/confronto/comparisons.ts`),
+    `/strumenti/[slug]` (tool gratuiti backlink-magnet, `src/lib/strumenti/tools.ts`).
+    Regole sempre valide: - **Niente promesse di feature non live** in _nessun_ copy marketing: feature
+    non implementate → condizionale/roadmap, mai al presente. Oggi sul Pro
+    restano "in arrivo" solo recupero corrispettivi AdE e sync catalogo AdE;
+    Analytics avanzata ed Export CSV sono **spedite e Pro-gated** (commit
+    ae1c481). - **Slug separati `/help` vs `/guide`** sulle keyword condivise per evitare
+    canonical clash (es. `/help/regime-forfettario` ≠
+    `/guide/regime-forfettario-scontrini`); si linkano a vicenda. - Se modifichi una funzionalità (label, menu, stati, filtri, error flow,
+    gating piani, nomi bottoni) aggiorna i contenuti: `grep -rn "<termine>"
+src/app/\(marketing\)` prima di chiudere il task. - Contenuti generati via LLM con **review umana**, in italiano, target Italia.
+9.  **Boundary delle API:** UUID validation con `isValidUuid()` + 400 prima del
+    service; body size guard con `readJsonWithLimit(req, maxBytes)` + 413 prima
+    di `JSON.parse`; email normalizzata con `normalizeEmail()` in `validation.ts`
+    come prima riga di ogni auth action.
 10. **Wrap SDK esterni (Stripe, AdE, Resend) in try-catch** con log strutturato
     e response 503 — mai lasciare propagare 500 senza context.
 11. **DB migrations: TUTTE handwritten dopo `0000`.** 🚫 **MAI eseguire
@@ -127,6 +123,111 @@ src/app/\(marketing\)` prima di chiudere il task.
     di Next al posto del fallback inline, rompendo la performance percepita
     (priorità #1). Coerente con regola 10 e con il pattern `deleteAccount` della
     skill `testing-patterns` (PR #572, `getStarterKpis`).
+20. **Errori d'input utente: warn, non error (no Sentry noise).** Le condizioni
+    prevedibili dall'input utente — credenziali Fisconline sbagliate, password
+    AdE scaduta, P.IVA già registrata, token Turnstile scaduto — vanno loggate
+    a `logger.warn` (osservabilità in pino → Sentry Logs) ma **non** devono
+    salire a Sentry come issue: non sono bug nostri, esattamente come "password
+    sbagliata su `/login`". Il `logger.error` (level ≥ 50) →
+    `Sentry.captureException` va riservato a condizioni inattese (DB down, SDK
+    fallisce in modo non documentato). Pattern canonico per AdE:
+    `logAdeFailure()` in `src/lib/ade/log-failure.ts` con
+    `errorClass: "ade_user_error"` per `AdeAuthError` / `AdePasswordExpiredError`
+    (`isExpectedUserAdeError`), `ade_transient` per network/5xx/SPID timeout
+    (`isTransientAdeError`), `ade_failure` solo per il resto. Storico:
+    SCONTRINOZERO-7 ha collezionato 23 eventi in 5 settimane prima di essere
+    archiviata come noise, perché ogni utente che digitava credenziali AdE
+    sbagliate da `/dashboard/settings` finiva in Sentry. Estende la regola 19
+    alle server action di scrittura.
+21. **Osservabilità: validare il drain end-to-end al rollout.** Quando si
+    abilita o si modifica una feature di telemetria (`enableLogs`,
+    `Sentry.pinoIntegration`, `Sentry.metrics`, Sentry Profiling, Replays,
+    nuovo `transport` pino, ecc.), il deploy **non è "concluso" finché una
+    sentinella intenzionale non appare in dashboard entro ~5 minuti**. Se
+    non appare → integrazione rotta = bug bloccante, si rollback o si
+    riapre la PR. Procedura: imposta `SENTRY_SENTINEL_TOKEN` sull'env
+    target e fai `curl -H "x-sentinel-token: $TOKEN"
+https://<host>/api/_debug/sentry-sentinel?id=<release>`; la response
+    contiene `sentryQuery`, una stringa già pronta da incollare nei filtri
+    Sentry — sia il dataset `logs` (info/warn/error) sia il pannello issues
+    (l'`error` emette anche `Sentry.captureException` via il hook a
+    `level≥50` in `src/lib/logger.ts`). Endpoint:
+    `src/app/api/_debug/sentry-sentinel/route.ts` — protetto da
+    timing-safe compare, risponde 404 se il token è assente o non combacia
+    (esistenza nascosta a chi non ha il secret). Riferimento: v1.3.6
+    (rollout `Sentry.pinoIntegration`) è stato il caso che ha forzato la
+    regola — il dataset `logs` era vuoto al momento dell'analisi e non si
+    poteva distinguere "drain rotto" da "rilasciato 40 minuti fa".
+22. **`Sentry.setUser({ id })` su ogni richiesta autenticata.** Tutte le
+    server action e i route handler che chiamano `getAuthenticatedUser()`
+    bindano automaticamente l'auth user UUID allo scope Sentry della
+    richiesta (visto che il bind è già dentro `getAuthenticatedUser` in
+    `src/lib/server-auth.ts:51`). Senza questo `Users Impacted` resta a 0
+    su ogni issue: tutte e 10 le issue Sentry analizzate (SCONTRINOZERO-7
+    a -H) avevano `Users: 0` anche quando il bug toccava più utenti in 2
+    minuti — il triage non poteva prioritizzare per impatto. Passare **solo
+    `id`** (UUID opaco di Supabase Auth): niente `email`/`username`/`ip`,
+    coerente con il denylist `SAFE_KEYS` di `src/lib/logger.ts` e con la
+    policy GDPR. Per le route che usano auth diversa (es. Bearer API key
+    in `/api/v1/*`) il fix è analogo ma puntuale a ciascun handler — non
+    propagato qui per non leakare l'`apiKeyId` come `user.id`.
+23. **Fingerprint Sentry per flow multi-step.** I flow AdE (login → wizard
+    → submit) generano errori in step diversi: oggi Sentry li raggruppa per
+    `message + stack`, quindi `wizardTemplate failed 500` e
+    `setUserChoice failed 500` finiscono in 2 issue distinte anche se
+    parte della stessa onboarding fallita (SCONTRINOZERO-9 + -A,
+    trace_id 5efe8519…). Per evitarlo, **passa `flow: "<nome-flow>"`
+    nel context di `logAdeFailure()`** (`src/lib/ade/log-failure.ts`):
+    sul ramo `ade_failure` viene iniettato
+    `sentryFingerprint: [flow, "ade_failure"]` nel payload pino, e
+    `captureToSentry` in `src/lib/logger.ts` lo applica via
+    `Sentry.withScope(s => s.setFingerprint(...))`. I rami warn
+    (transient/user_error) ignorano `flow`: non salgono a Sentry. Flow
+    già instrumentati: `onboarding-verify` (verifyAdeCredentials),
+    `emit-receipt` (receipt-service), `void-receipt` (void-service).
+    Per nuovi flow scegli uno slug stabile (no spazi, no version):
+    cambia il fingerprint = perdi la continuità storica del group.
+24. **Env d'identità: validazione fail-fast al boot.** Le env che producono
+    URL/redirect (`NEXT_PUBLIC_APP_URL` + le 6 varianti `*_HOSTNAME`)
+    sono validate da `assertIdentityEnv()` in `src/lib/identity-env.ts`,
+    chiamato come **prima istruzione** di `register()` in
+    `src/instrumentation.ts` (runtime nodejs). In produzione un valore
+    malformato fa **throware al boot** e il container non parte —
+    invece di produrre 503 al primo route che costruisce URL, come
+    succedeva con SCONTRINOZERO-F (5 eventi su utente FR/Stripe
+    checkout) e SCONTRINOZERO-D (action_link hostname mismatch). In
+    dev/test la stessa validation logga `warn` ma non blocca il loop.
+    Il check copre tre classi di failure: malformed URL/hostname,
+    present-but-empty (regola 18, `?? default` non scatta su `""`), e
+    `http` invece di `https` in prod. Le guardie lazy esistenti
+    (`getTrustedAppUrl()`, `parseTrustedHostnameEnv()`) restano in piedi
+    come secondo strato — defense in depth, non vengono toccate.
+25. **Smoke test post-deploy: tre health probe.** Dopo ogni rollout
+    (prod o sandbox o `:dev` Pi), prima di considerare il deploy
+    "concluso" hit i tre health probe e verifica la response:
+
+        curl -fsS https://<host>/api/health/live
+        curl -fsS https://<host>/api/_health/env | jq .
+        curl -fsS -H "x-sentinel-token: $TOKEN" \
+          "https://<host>/api/_debug/sentry-sentinel?id=v$VERSION"
+
+    - `/api/health/live` (`src/app/api/health/live/route.ts`) → 200 =
+      process up, event loop responsive.
+    - `/api/_health/env` (`src/app/api/_health/env/route.ts`) → 200 con
+      `{ appUrl, release, hostnames }`. **Confronta `release` e `appUrl`
+      con quanto rilasciato**: una `:dev` con `appUrl: app.scontrinozero.it`
+      è un Dockerfile build-arg dimenticato. 503 = identity env rotta
+      anche dopo la R24 (es. rotazione secret tra boot e prima request).
+    - `/api/_debug/sentry-sentinel` → 200 + `sentryQuery` da incollare
+      in Sentry per validare il drain (regola 21). Fallisce 404 senza
+      token corretto.
+
+    Il pattern è "live + env + drain": catturava `@react-email/render`
+    mancante (SCONTRINOZERO-B, gap dev container vs standalone),
+    `NEXT_PUBLIC_APP_URL` malformato (SCONTRINOZERO-F) e l'`action_link`
+    hostname mismatch (SCONTRINOZERO-D) **al primo rollout**, non al
+    primo utente. Integrazione in CI rimandata: oggi è uno script da
+    eseguire manualmente dopo `docker compose up -d`.
 
 ## SonarCloud quality gate
 
@@ -275,6 +376,10 @@ auto-attivano quando il task matcha il `description`:
   params/cookies/headers, React 19 Actions/`useOptimistic`/ref-as-prop,
   shadcn/ui + Radix `asChild`, TanStack Query provider unico, hydration
   mismatch, Tailwind 4 class ordering
+- **`sentry-hygiene`** — review periodico issue archived (UX nascosto vs
+  noise vero vs transient), filtri `beforeSend` documentati per ID issue,
+  smoke post-deploy `live + env + drain`, query canoniche
+  `errorClass:*` via Sentry MCP. Regole 20-25.
 
 ## Hook automatici (`.claude/hooks/`)
 

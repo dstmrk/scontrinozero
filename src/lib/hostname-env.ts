@@ -73,8 +73,12 @@ function isValidLabel(label: string): boolean {
  *
  * Allowed: letters, digits, hyphen, dot. Must not be empty, must not contain
  * scheme/path/query/port markers. Length must fit within the DNS limit (253).
+ *
+ * Exported so that `assertIdentityEnv()` (`src/lib/identity-env.ts`) can
+ * reuse the exact same rule for boot-time validation without duplicating
+ * the per-label / forbidden-char logic.
  */
-function isValidHostnameSyntax(value: string): boolean {
+export function isValidHostnameSyntax(value: string): boolean {
   if (value.length === 0 || value.length > 253) return false;
   if (hasForbiddenChars(value)) return false;
   if (value.startsWith(".") || value.startsWith("-")) return false;

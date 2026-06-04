@@ -8,6 +8,7 @@ vi.mock("@/lib/logger", () => ({
 import {
   AdeAuthError,
   AdeNetworkError,
+  AdePasswordExpiredError,
   AdePortalError,
   AdeSpidTimeoutError,
 } from "./errors";
@@ -77,17 +78,39 @@ describe("logAdeFailure", () => {
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
-  it("routes AdeAuthError to logger.error (permanent: wrong credentials)", () => {
+  it("routes AdeAuthError to logger.warn with errorClass ade_user_error (no Sentry noise: SCONTRINOZERO-7)", () => {
+    // Credenziali Fisconline sbagliate non sono un bug nostro: sono input
+    // utente prevedibile, come "password sbagliata" su /login. Vanno
+    // loggate per osservabilita' ma NON devono salire a Sentry come issue
+    // (regola 21 di CLAUDE.md). Storico: SCONTRINOZERO-7 ha collezionato
+    // 23 eventi in 5 settimane prima di essere archiviata come noise.
     logAdeFailure(
       new AdeAuthError(),
       {},
       { transient: "transient", failure: "failed" },
     );
 
-    expect(logger.error).toHaveBeenCalledWith(
-      expect.objectContaining({ errorClass: "ade_failure" }),
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ errorClass: "ade_user_error" }),
       "failed",
     );
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it("routes AdePasswordExpiredError to logger.warn with errorClass ade_user_error (no Sentry noise)", () => {
+    // Stesso ragionamento di AdeAuthError: la password scaduta richiede
+    // azione utente sul portale AdE, non e' un bug del nostro sistema.
+    logAdeFailure(
+      new AdePasswordExpiredError(),
+      {},
+      { transient: "transient", failure: "failed" },
+    );
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ errorClass: "ade_user_error" }),
+      "failed",
+    );
+    expect(logger.error).not.toHaveBeenCalled();
   });
 
   it("routes a generic Error to logger.error", () => {
@@ -101,6 +124,77 @@ describe("logAdeFailure", () => {
       expect.objectContaining({ errorClass: "ade_failure" }),
       "failed",
     );
+  });
+
+  it("R23: context.flow injects sentryFingerprint [flow, errorClass] on the error path", () => {
+    // SCONTRINOZERO-9 ("wizardTemplate failed 500") e -A ("setUserChoice
+    // failed 500") avrebbero dovuto far parte di un singolo group Sentry —
+    // entrambe nel flow "onboarding-verify". context.flow fa propagare il
+    // fingerprint al logger.error, che lo applica via withScope.
+    logAdeFailure(
+      new Error("unexpected boom"),
+      { businessId: "biz-1", flow: "onboarding-verify" },
+      { transient: "transient", failure: "failed" },
+    );
+
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        businessId: "biz-1",
+        errorClass: "ade_failure",
+        sentryFingerprint: ["onboarding-verify", "ade_failure"],
+      }),
+      "failed",
+    );
+  });
+
+  it("R23: context without flow leaves the default Sentry grouping (no fingerprint)", () => {
+    logAdeFailure(
+      new Error("unexpected boom"),
+      { businessId: "biz-1" },
+      { transient: "transient", failure: "failed" },
+    );
+
+    const payload = (logger.error as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as Record<string, unknown> | undefined;
+    expect(payload).toBeDefined();
+    expect(payload).not.toHaveProperty("sentryFingerprint");
+  });
+
+  it("R23: warn path (transient) does NOT receive sentryFingerprint (it never reaches Sentry capture)", () => {
+    logAdeFailure(
+      new AdePortalError(503, "down"),
+      { businessId: "biz-1", flow: "onboarding-verify" },
+      { transient: "transient", failure: "failed" },
+    );
+
+    const payload = (logger.warn as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as Record<string, unknown> | undefined;
+    expect(payload).toBeDefined();
+    expect(payload).not.toHaveProperty("sentryFingerprint");
+  });
+
+  it("R23: warn path (user_error) does NOT receive sentryFingerprint", () => {
+    logAdeFailure(
+      new AdeAuthError(),
+      { businessId: "biz-1", flow: "onboarding-verify" },
+      { transient: "transient", failure: "failed" },
+    );
+
+    const payload = (logger.warn as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as Record<string, unknown> | undefined;
+    expect(payload).toBeDefined();
+    expect(payload).not.toHaveProperty("sentryFingerprint");
+  });
+
+  it("R23: empty/blank flow is ignored (no fingerprint)", () => {
+    logAdeFailure(
+      new Error("boom"),
+      { businessId: "biz-1", flow: "   " },
+      { transient: "transient", failure: "failed" },
+    );
+    const payload = (logger.error as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as Record<string, unknown> | undefined;
+    expect(payload).not.toHaveProperty("sentryFingerprint");
   });
 
   it("forwards arbitrary context fields into the log payload", () => {

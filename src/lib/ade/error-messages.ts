@@ -74,3 +74,21 @@ export function isTransientAdeError(err: unknown): boolean {
   if (err instanceof AdePortalError && err.statusCode >= 500) return true;
   return false;
 }
+
+/**
+ * Ritorna true se l'errore è un caso prevedibile di **input utente
+ * invalido** (credenziali Fisconline sbagliate, password scaduta che
+ * l'utente deve ruotare sul portale AdE). Non è un bug del nostro
+ * sistema più di quanto lo sia "password sbagliata" su `/login`.
+ *
+ * Conseguenza per il logging: come per `isTransientAdeError`, va
+ * loggato a `warn` (non `error`) — niente issue Sentry. Storico:
+ * SCONTRINOZERO-7 ha accumulato 23 eventi in 5 settimane prima di
+ * essere archiviata come noise perché tutte le auth-failure salivano
+ * a Sentry come issue. Regola 21 di `CLAUDE.md`.
+ */
+export function isExpectedUserAdeError(err: unknown): boolean {
+  if (err instanceof AdeAuthError) return true;
+  if (err instanceof AdePasswordExpiredError) return true;
+  return false;
+}

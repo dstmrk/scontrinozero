@@ -90,6 +90,7 @@ export function sanitizeForTelemetry(obj: unknown): Record<string, unknown> {
     "errorClass",
     "captchaHostname",
     "critical",
+    "sentinelId",
   ];
 
   const safe: Record<string, unknown> = {};
@@ -112,7 +113,17 @@ export function sanitizeForTelemetry(obj: unknown): Record<string, unknown> {
 // pino numeric levels: error=50, fatal=60
 const PINO_ERROR_LEVEL = 50;
 
-function captureToSentry(obj: unknown, msg?: string): void {
+function extractFingerprint(obj: unknown): string[] | null {
+  if (typeof obj !== "object" || obj === null) return null;
+  const fp = (obj as Record<string, unknown>)["sentryFingerprint"];
+  if (!Array.isArray(fp) || fp.length === 0) return null;
+  // Defensive: drop non-string entries before passing to Sentry, which would
+  // otherwise stringify them in non-obvious ways and pollute the group key.
+  const stringFp = fp.filter((x): x is string => typeof x === "string");
+  return stringFp.length > 0 ? stringFp : null;
+}
+
+function doCapture(obj: unknown, msg?: string): void {
   const sanitized = sanitizeForTelemetry(obj);
 
   if (
@@ -129,6 +140,21 @@ function captureToSentry(obj: unknown, msg?: string): void {
   } else {
     Sentry.captureMessage(String(msg ?? obj), "error");
   }
+}
+
+function captureToSentry(obj: unknown, msg?: string): void {
+  const fingerprint = extractFingerprint(obj);
+  if (fingerprint) {
+    // Wrap the capture in a scope so the fingerprint only routes THIS event
+    // and doesn't leak into subsequent unrelated captures within the same
+    // async context. Regola 23 di CLAUDE.md (SCONTRINOZERO-9/-A grouping).
+    Sentry.withScope((scope) => {
+      scope.setFingerprint(fingerprint);
+      doCapture(obj, msg);
+    });
+    return;
+  }
+  doCapture(obj, msg);
 }
 
 export const logger = pino({

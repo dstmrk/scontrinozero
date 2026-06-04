@@ -644,7 +644,11 @@ export async function voidReceiptForBusiness(
   } catch (err) {
     logAdeFailure(
       err,
-      { voidDocumentId, saleDocumentId: input.documentId },
+      {
+        voidDocumentId,
+        saleDocumentId: input.documentId,
+        flow: "void-receipt",
+      },
       {
         transient: "voidReceiptForBusiness AdE transient failure",
         failure: "voidReceiptForBusiness failed",

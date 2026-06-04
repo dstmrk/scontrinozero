@@ -814,7 +814,11 @@ describe("onboarding-actions", () => {
       expect(failedCalls).toHaveLength(0);
     });
 
-    it("M3: errore non transient (AdeAuthError) resta a logger.error", async () => {
+    it("R21: AdeAuthError in verifyAdeCredentials logga warn con errorClass ade_user_error (no Sentry noise: SCONTRINOZERO-7)", async () => {
+      // Era il root cause di SCONTRINOZERO-7 (23 eventi in 5 settimane,
+      // archiviata come noise): utenti che digitano credenziali AdE
+      // sbagliate da /dashboard/settings finivano come logger.error ->
+      // Sentry issue. Ora -> warn + ade_user_error, niente Sentry.
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockLimit.mockResolvedValueOnce([
         {
@@ -833,10 +837,47 @@ describe("onboarding-actions", () => {
       await verifyAdeCredentials("biz-789");
 
       const { logger } = await import("@/lib/logger");
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          businessId: "biz-789",
+          errorClass: "ade_user_error",
+        }),
+        expect.stringContaining("AdE credential verification"),
+      );
+      expect(logger.error).not.toHaveBeenCalledWith(
+        expect.objectContaining({ errorClass: "ade_failure" }),
+        expect.anything(),
+      );
+    });
+
+    it("R23: generic Error in verifyAdeCredentials logga error con sentryFingerprint per flow onboarding-verify", async () => {
+      // SCONTRINOZERO-9/-A condividevano trace_id ma generavano 2 issue
+      // Sentry distinte perche' i message divergevano. Con il flow propagato,
+      // due errori "ade_failure" nello stesso flow finiscono in un unico
+      // group Sentry (regola 23 di CLAUDE.md).
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+        },
+      ]);
+      mockLogin.mockRejectedValue(new Error("unexpected wizard failure"));
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials("biz-789");
+
+      const { logger } = await import("@/lib/logger");
       expect(logger.error).toHaveBeenCalledWith(
         expect.objectContaining({
           businessId: "biz-789",
           errorClass: "ade_failure",
+          flow: "onboarding-verify",
+          sentryFingerprint: ["onboarding-verify", "ade_failure"],
         }),
         expect.stringContaining("AdE credential verification failed"),
       );

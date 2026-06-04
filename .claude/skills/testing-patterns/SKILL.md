@@ -1,6 +1,6 @@
 ---
 name: testing-patterns
-description: Use when writing or fixing Vitest tests — avoiding SonarCloud S6661 Blocker (every it()/test() must have at least one expect()), mocking classes correctly with function/class keyword (never arrow), prefixing vi.mock factory variables with "mock" for hoisting, mocking Drizzle's db.transaction() callback with a passthrough, stubbing NODE_ENV with vi.stubEnv, updating mocks after refactoring N queries into a JOIN, INSERT ON CONFLICT DO NOTHING for race conditions, sanitizing context before Sentry.captureException via sanitizeForTelemetry(), auth-first ordering in deleteAccount, conditional last_used_at writes to prevent write-amplification, or react/cache deduplication across RSC and Route Handlers. Also lists the consolidated rate-limit thresholds for server actions (emit/void/pdf/checkout/portal/auth).
+description: Use when writing or fixing Vitest tests — avoiding SonarCloud S6661 Blocker (every it()/test() must have at least one expect()), mocking classes correctly with function/class keyword (never arrow), prefixing vi.mock factory variables with "mock" for hoisting, mocking Drizzle's db.transaction() callback with a passthrough, stubbing NODE_ENV with vi.stubEnv, updating mocks after refactoring N queries into a JOIN, INSERT ON CONFLICT DO NOTHING for race conditions, sanitizing context before Sentry.captureException via sanitizeForTelemetry(), auth-first ordering in deleteAccount, conditional last_used_at writes to prevent write-amplification, react/cache deduplication across RSC and Route Handlers, simulating a hostile browser (sessionStorage/localStorage throwing SecurityError, in-app webview, cookies disabled) for UI components that read Web Storage, or mocking Sentry.withScope + scope.setFingerprint when testing logger.ts fingerprint-aware capture. Also lists the consolidated rate-limit thresholds for server actions (emit/void/pdf/checkout/portal/auth).
 ---
 
 # testing-patterns — Vitest patterns e regole CI
@@ -267,3 +267,118 @@ Per evitare DB write su ogni request:
 
 Il DB aggiorna solo se `lastUsedAt IS NULL OR lastUsedAt < NOW - N_min`.
 Sempre fire-and-forget (`.catch(logger.warn)`). Throttle consigliato: 10 min.
+
+---
+
+## Browser ostile: storage bloccato, in-app webview, cookies off
+
+**Storia (SCONTRINOZERO-H, Chrome Mobile su Android 10, 7 eventi in
+2 min):** `sessionStorage`/`localStorage` non sono sempre disponibili.
+Su browser in modalità privacy, cookie di terze parti bloccati, o
+all'interno di alcune in-app webview, anche solo **accedere alla
+property** `window.sessionStorage` lancia `SecurityError`
+(DOMException 18) — non basta un try/catch sul singolo `getItem`/`setItem`.
+Senza un wrapper safe, il throw dentro un `useEffect` finisce in
+Sentry e/o rompe il commit dell'effetto.
+
+**Wrapper canonico:** `src/lib/safe-storage.ts`. `safeSessionStorage` e
+`safeLocalStorage` degradano a `null` (lettura) / no-op (scrittura) +
+SSR-safe (senza `window` ritornano `null`/no-op). Ogni componente
+client che legge Web Storage deve usarli, **mai** `window.localStorage`
+diretto.
+
+**Mock pattern per testare la condizione ostile:**
+
+```typescript
+// Property-access throw (lo store stesso non è leggibile).
+// Mock PRIMA del primo render del componente sotto test.
+beforeEach(() => {
+  Object.defineProperty(window, "sessionStorage", {
+    configurable: true,
+    get: () => {
+      throw new DOMException("Access denied", "SecurityError");
+    },
+  });
+});
+
+afterEach(() => {
+  // Restore via configurable: true sopra.
+  Object.defineProperty(window, "sessionStorage", {
+    configurable: true,
+    value: originalSessionStorage,
+  });
+});
+
+it("non crasha quando sessionStorage lancia SecurityError", () => {
+  // Il componente deve usare safeSessionStorage internamente: lo store
+  // ritorna null/no-op invece di throware.
+  expect(() => render(<MyComponent />)).not.toThrow();
+});
+```
+
+Per il caso "store leggibile ma `getItem`/`setItem` throw" (quota
+exceeded, lockdown mode), basta sovrascrivere i singoli metodi:
+
+```typescript
+vi.spyOn(window.sessionStorage, "getItem").mockImplementation(() => {
+  throw new DOMException("Quota exceeded", "QuotaExceededError");
+});
+```
+
+**Cookies disabilitati:** `navigator.cookieEnabled = false`. Tutti gli
+auth flow devono degradare con un messaggio ("Abilita i cookie per
+continuare") invece di throware. Test pattern speculare allo storage.
+
+Esempio canonico di copertura: `src/lib/safe-storage.test.ts`.
+
+---
+
+## Mock di `Sentry.withScope` + `scope.setFingerprint` (R23)
+
+Quando testi `captureToSentry` in `src/lib/logger.ts` o qualsiasi codice
+che chiama `Sentry.withScope(s => s.setFingerprint([...]))`, il mock di
+`@sentry/nextjs` deve esporre **withScope come passthrough** che
+inietta uno scope finto con il metodo da spiare. Senza passthrough lo
+state interno della capture non viene mai eseguito.
+
+```typescript
+const mockSetFingerprint = vi.fn();
+const mockWithScope = vi.fn(
+  (cb: (scope: { setFingerprint: typeof mockSetFingerprint }) => void) => {
+    cb({ setFingerprint: mockSetFingerprint });
+  },
+);
+
+vi.mock("@sentry/nextjs", () => ({
+  captureException: vi.fn(),
+  captureMessage: vi.fn(),
+  withScope: mockWithScope,
+}));
+
+it("applica il fingerprint quando sentryFingerprint è nel payload", async () => {
+  const { logger } = await import("./logger");
+  logger.error(
+    {
+      err: new Error("boom"),
+      sentryFingerprint: ["onboarding-verify", "ade_failure"],
+    },
+    "AdE failed",
+  );
+  expect(mockWithScope).toHaveBeenCalledOnce();
+  expect(mockSetFingerprint).toHaveBeenCalledWith([
+    "onboarding-verify",
+    "ade_failure",
+  ]);
+});
+```
+
+Casi da testare sempre insieme:
+
+- `sentryFingerprint` array non-empty → `withScope` chiamato.
+- `sentryFingerprint` assente / empty array / non-array → `withScope`
+  NON chiamato (back-compat con il comportamento default di Sentry
+  grouping).
+- `sentryFingerprint` NON deve apparire in `extra` dell'eventuale
+  `captureException`: è metadato di routing, non payload.
+
+Esempio canonico: `src/lib/logger.test.ts:223`.

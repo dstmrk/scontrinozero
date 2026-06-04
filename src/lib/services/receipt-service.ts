@@ -633,6 +633,7 @@ async function submitSaleToAde(
         documentId,
         businessId: input.businessId,
         recovery: options.recovery,
+        flow: "emit-receipt",
       },
       {
         transient: "emitReceiptForBusiness AdE transient failure",
