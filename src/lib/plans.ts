@@ -15,6 +15,7 @@ export {
   PLAN_VALUES,
   STARTER_CATALOG_LIMIT,
   TRIAL_DAYS,
+  TRIAL_EXPIRED_MESSAGE,
   canAddCatalogItem,
   canEmit,
   canUseApi,

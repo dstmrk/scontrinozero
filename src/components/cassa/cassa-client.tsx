@@ -17,6 +17,8 @@ import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
 import { emitReceipt } from "@/server/receipt-actions";
 import { ChangeAdePasswordDialog } from "@/components/ade/change-ade-password-dialog";
+import { TrialExpiredMessage } from "@/components/billing/trial-expired-message";
+import { TRIAL_EXPIRED_MESSAGE } from "@/lib/plans-shared";
 
 type Step = "cart" | "add-item" | "summary" | "success";
 
@@ -309,16 +311,22 @@ export function CassaClient({
             className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm"
           >
             <p className="text-destructive">
-              {mutationError}
-              {mutationError.includes("Credenziali AdE non verificate") && (
+              {mutationError === TRIAL_EXPIRED_MESSAGE ? (
+                <TrialExpiredMessage />
+              ) : (
                 <>
-                  {" "}
-                  <Link
-                    href="/dashboard/settings"
-                    className="font-medium underline"
-                  >
-                    {"Verificale ora"}
-                  </Link>
+                  {mutationError}
+                  {mutationError.includes("Credenziali AdE non verificate") && (
+                    <>
+                      {" "}
+                      <Link
+                        href="/dashboard/settings"
+                        className="font-medium underline"
+                      >
+                        {"Verificale ora"}
+                      </Link>
+                    </>
+                  )}
                 </>
               )}
             </p>

@@ -32,6 +32,8 @@ vi.mock("@/lib/server-auth", () => ({
 vi.mock("@/lib/plans", () => ({
   getPlan: mockGetPlan,
   canEmit: mockCanEmit,
+  TRIAL_EXPIRED_MESSAGE:
+    "Il tuo periodo di prova è scaduto. Attiva un piano per continuare.",
 }));
 
 vi.mock("@/lib/rate-limit", () => ({

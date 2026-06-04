@@ -7,7 +7,13 @@ import {
   checkBusinessOwnership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
-import { canAddCatalogItem, getPlan, STARTER_CATALOG_LIMIT } from "@/lib/plans";
+import {
+  canAddCatalogItem,
+  getPlan,
+  isTrialExpired,
+  STARTER_CATALOG_LIMIT,
+  TRIAL_EXPIRED_MESSAGE,
+} from "@/lib/plans";
 import { logger } from "@/lib/logger";
 import { VAT_CODES } from "@/types/cassa";
 import type { VatCode } from "@/types/cassa";
@@ -147,6 +153,12 @@ export async function addCatalogItem(
       existingItems.length,
     )
   ) {
+    // Trial scaduto: stesso messaggio della cassa (coerenza UX). Il limite di
+    // 5 prodotti su Starter / trial attivo resta invece il suo messaggio
+    // specifico — è un limite di piano corretto, non una scadenza.
+    if (planInfo.plan === "trial" && isTrialExpired(planInfo.trialStartedAt)) {
+      return { error: TRIAL_EXPIRED_MESSAGE };
+    }
     return {
       error: `Piano Starter: massimo ${STARTER_CATALOG_LIMIT} prodotti nel catalogo. Passa a Pro per catalogo illimitato.`,
     };

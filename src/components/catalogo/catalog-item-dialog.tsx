@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { VatSelector } from "@/components/cassa/vat-selector";
+import { TrialExpiredMessage } from "@/components/billing/trial-expired-message";
+import { TRIAL_EXPIRED_MESSAGE } from "@/lib/plans-shared";
 import type { VatCode } from "@/types/cassa";
 
 interface CatalogItemDialogProps {
@@ -107,7 +109,11 @@ export function CatalogItemDialog({
 
           {error && (
             <p role="alert" className="text-destructive text-sm">
-              {error}
+              {error === TRIAL_EXPIRED_MESSAGE ? (
+                <TrialExpiredMessage />
+              ) : (
+                error
+              )}
             </p>
           )}
 

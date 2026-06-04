@@ -55,6 +55,15 @@ export const TRIAL_DAYS = 30;
  */
 export const BILLING_SETTINGS_HREF = "/dashboard/settings#billing";
 
+/**
+ * Messaggio canonico mostrato quando il trial è scaduto, condiviso tra cassa
+ * (emissione), annullo scontrino e catalogo. Confrontare per uguaglianza
+ * (`error === TRIAL_EXPIRED_MESSAGE`) per decidere se rendere la frase
+ * "Attiva un piano" come link verso `BILLING_SETTINGS_HREF`.
+ */
+export const TRIAL_EXPIRED_MESSAGE =
+  "Il tuo periodo di prova è scaduto. Attiva un piano per continuare.";
+
 /** Numero massimo di prodotti nel catalogo per piano Starter e trial */
 export const STARTER_CATALOG_LIMIT = 5;
 

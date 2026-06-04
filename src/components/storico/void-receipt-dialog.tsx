@@ -12,6 +12,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { TrialExpiredMessage } from "@/components/billing/trial-expired-message";
+import { TRIAL_EXPIRED_MESSAGE } from "@/lib/plans-shared";
 import { voidReceipt } from "@/server/void-actions";
 import type { ReceiptListItem, VoidReceiptResult } from "@/types/storico";
 import { VAT_LABELS } from "@/types/cassa";
@@ -120,7 +122,11 @@ export function VoidReceiptDialog({
             {/* Error: da server action (result.error) o eccezione imprevista */}
             {(mutation.data?.error ?? mutation.isError) && (
               <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
-                {mutation.data?.error ?? "Errore imprevisto. Riprova."}
+                {mutation.data?.error === TRIAL_EXPIRED_MESSAGE ? (
+                  <TrialExpiredMessage />
+                ) : (
+                  (mutation.data?.error ?? "Errore imprevisto. Riprova.")
+                )}
               </div>
             )}
 

@@ -228,7 +228,10 @@ export default async function SettingsPage({
       </Card>
 
       {planData && (
-        <Card>
+        // id="billing" → ancora del deep-link BILLING_SETTINGS_HREF
+        // (/dashboard/settings#billing). scroll-mt evita che la sticky header
+        // copra il titolo quando si atterra sull'ancora.
+        <Card id="billing" className="scroll-mt-20">
           <CardHeader>
             <CardTitle>Piano e Abbonamento</CardTitle>
           </CardHeader>

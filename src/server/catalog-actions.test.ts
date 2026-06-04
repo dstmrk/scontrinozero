@@ -48,10 +48,15 @@ vi.mock("@/lib/logger", () => ({
 
 const mockGetPlan = vi.fn();
 const mockCanAddCatalogItem = vi.fn();
+const mockIsTrialExpired = vi.fn();
+const TRIAL_EXPIRED_MESSAGE =
+  "Il tuo periodo di prova è scaduto. Attiva un piano per continuare.";
 vi.mock("@/lib/plans", () => ({
   getPlan: (...args: unknown[]) => mockGetPlan(...args),
   canAddCatalogItem: (...args: unknown[]) => mockCanAddCatalogItem(...args),
+  isTrialExpired: (...args: unknown[]) => mockIsTrialExpired(...args),
   STARTER_CATALOG_LIMIT: 5,
+  TRIAL_EXPIRED_MESSAGE,
 }));
 
 // --- Fixtures ---
@@ -98,6 +103,7 @@ describe("catalog-actions", () => {
       planExpiresAt: null,
     });
     mockCanAddCatalogItem.mockReturnValue(true);
+    mockIsTrialExpired.mockReturnValue(false);
   });
 
   // ---------------------------------------------------------------------------
@@ -340,18 +346,53 @@ describe("catalog-actions", () => {
       expect(mockInsert).toHaveBeenCalledWith("catalog-items-table");
     });
 
-    it("ritorna errore con piano trial quando il limite è raggiunto", async () => {
+    it("trial ATTIVO al limite di 5 prodotti → messaggio 'massimo 5 prodotti'", async () => {
+      mockGetPlan.mockResolvedValue({
+        plan: "trial",
+        trialStartedAt: new Date("2026-06-01"),
+        planExpiresAt: null,
+      });
+      mockCanAddCatalogItem.mockReturnValue(false);
+      mockIsTrialExpired.mockReturnValue(false); // trial ancora attivo
+
+      const { addCatalogItem } = await import("./catalog-actions");
+      const result = await addCatalogItem(VALID_ADD_INPUT);
+
+      expect(result.error).toMatch(/Starter/i);
+      expect(result.error).not.toBe(TRIAL_EXPIRED_MESSAGE);
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("trial SCADUTO → messaggio coerente con la cassa (trial scaduto)", async () => {
       mockGetPlan.mockResolvedValue({
         plan: "trial",
         trialStartedAt: new Date("2026-01-01"),
         planExpiresAt: null,
       });
       mockCanAddCatalogItem.mockReturnValue(false);
+      mockIsTrialExpired.mockReturnValue(true); // trial scaduto
 
       const { addCatalogItem } = await import("./catalog-actions");
       const result = await addCatalogItem(VALID_ADD_INPUT);
 
-      expect(result.error).toBeDefined();
+      expect(result.error).toBe(TRIAL_EXPIRED_MESSAGE);
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("Starter (pagante) al limite → messaggio 'massimo 5', non quello del trial", async () => {
+      mockGetPlan.mockResolvedValue({
+        plan: "starter",
+        trialStartedAt: null,
+        planExpiresAt: null,
+      });
+      mockCanAddCatalogItem.mockReturnValue(false);
+      mockIsTrialExpired.mockReturnValue(true); // irrilevante: plan !== "trial"
+
+      const { addCatalogItem } = await import("./catalog-actions");
+      const result = await addCatalogItem(VALID_ADD_INPUT);
+
+      expect(result.error).toMatch(/Starter/i);
+      expect(result.error).not.toBe(TRIAL_EXPIRED_MESSAGE);
       expect(mockInsert).not.toHaveBeenCalled();
     });
   });

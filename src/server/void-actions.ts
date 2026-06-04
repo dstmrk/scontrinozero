@@ -2,7 +2,7 @@
 
 import { z } from "zod/v4";
 import { logger } from "@/lib/logger";
-import { getPlan, canEmit } from "@/lib/plans";
+import { getPlan, canEmit, TRIAL_EXPIRED_MESSAGE } from "@/lib/plans";
 import { RateLimiter } from "@/lib/rate-limit";
 import {
   checkBusinessOwnership,
@@ -42,10 +42,7 @@ export async function voidReceipt(
   // so it follows the same canEmit policy as receipt creation
   const planInfo = await getPlan(user.id);
   if (!canEmit(planInfo.plan, planInfo.trialStartedAt)) {
-    return {
-      error:
-        "Il tuo periodo di prova è scaduto. Attiva un piano per continuare.",
-    };
+    return { error: TRIAL_EXPIRED_MESSAGE };
   }
 
   // Validate UUIDs before any DB query so malformed input returns an
