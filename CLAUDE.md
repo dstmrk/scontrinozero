@@ -37,42 +37,42 @@ tag git (`git tag -l "v1.*"`).
 
 ## Regole sempre-attive (applicano a ogni task)
 
-1. **Branch separato sempre.** Mai commit/push diretti su `main`. PR sempre,
-   merge spetta all'utente (a meno che non chiesto esplicito).
-2. **TDD.** Test prima dell'implementazione. Ogni file con logica ha il suo
-   test file (anche `instrumentation.ts` e simili bootstrap).
-3. **Chiedi se ambiguo** prima di scrivere codice.
-4. **Edge case dopo ogni implementazione:** elencare gli edge case e aggiungere
-   test che li coprono prima di committare.
-5. **Task > 3 file → break in sub-task.** Stop e suddividere.
-6. **Riflessione dopo correzione:** quando l'utente corregge, capire perché ho
-   sbagliato e come non rifarlo.
-7. **Aggiornare `CLAUDE.md` (o la skill pertinente in `.claude/skills/`)
-   autonomamente** dopo aver risolto un problema non triviale con lezione
-   riusabile (debugging pattern, setup gotcha, wrong assumption). Non
-   aspettare che lo chiedano.
-8. **Contenuti marketing & SEO.** I contenuti vivono in route dedicate con un
-   data file ciascuna: `/help` (operativo, `src/app/(marketing)/help`), `/guide`
-   (educativo, `src/lib/guide/articles.ts`), `/per/[slug]` (categorie,
-   `src/lib/per/categories.ts`), `/confronto` (`src/lib/confronto/comparisons.ts`),
-   `/strumenti/[slug]` (tool gratuiti backlink-magnet, `src/lib/strumenti/tools.ts`).
-   Regole sempre valide:
-   - **Niente promesse di feature non live** in _nessun_ copy marketing: feature
-     non implementate → condizionale/roadmap, mai al presente. Oggi sul Pro
-     restano "in arrivo" solo recupero corrispettivi AdE e sync catalogo AdE;
-     Analytics avanzata ed Export CSV sono **spedite e Pro-gated** (commit
-     ae1c481).
-   - **Slug separati `/help` vs `/guide`** sulle keyword condivise per evitare
-     canonical clash (es. `/help/regime-forfettario` ≠
-     `/guide/regime-forfettario-scontrini`); si linkano a vicenda.
-   - Se modifichi una funzionalità (label, menu, stati, filtri, error flow,
-     gating piani, nomi bottoni) aggiorna i contenuti: `grep -rn "<termine>"
+1.  **Branch separato sempre.** Mai commit/push diretti su `main`. PR sempre,
+    merge spetta all'utente (a meno che non chiesto esplicito).
+2.  **TDD.** Test prima dell'implementazione. Ogni file con logica ha il suo
+    test file (anche `instrumentation.ts` e simili bootstrap).
+3.  **Chiedi se ambiguo** prima di scrivere codice.
+4.  **Edge case dopo ogni implementazione:** elencare gli edge case e aggiungere
+    test che li coprono prima di committare.
+5.  **Task > 3 file → break in sub-task.** Stop e suddividere.
+6.  **Riflessione dopo correzione:** quando l'utente corregge, capire perché ho
+    sbagliato e come non rifarlo.
+7.  **Aggiornare `CLAUDE.md` (o la skill pertinente in `.claude/skills/`)
+    autonomamente** dopo aver risolto un problema non triviale con lezione
+    riusabile (debugging pattern, setup gotcha, wrong assumption). Non
+    aspettare che lo chiedano.
+8.  **Contenuti marketing & SEO.** I contenuti vivono in route dedicate con un
+    data file ciascuna: `/help` (operativo, `src/app/(marketing)/help`), `/guide`
+    (educativo, `src/lib/guide/articles.ts`), `/per/[slug]` (categorie,
+    `src/lib/per/categories.ts`), `/confronto` (`src/lib/confronto/comparisons.ts`),
+    `/strumenti/[slug]` (tool gratuiti backlink-magnet, `src/lib/strumenti/tools.ts`).
+    Regole sempre valide:
+    - **Niente promesse di feature non live** in _nessun_ copy marketing: feature
+      non implementate → condizionale/roadmap, mai al presente. Oggi sul Pro
+      restano "in arrivo" solo recupero corrispettivi AdE e sync catalogo AdE;
+      Analytics avanzata ed Export CSV sono **spedite e Pro-gated** (commit
+      ae1c481).
+    - **Slug separati `/help` vs `/guide`** sulle keyword condivise per evitare
+      canonical clash (es. `/help/regime-forfettario` ≠
+      `/guide/regime-forfettario-scontrini`); si linkano a vicenda.
+    - Se modifichi una funzionalità (label, menu, stati, filtri, error flow,
+      gating piani, nomi bottoni) aggiorna i contenuti: `grep -rn "<termine>"
 src/app/\(marketing\)` prima di chiudere il task.
-   - Contenuti generati via LLM con **review umana**, in italiano, target Italia.
-9. **Boundary delle API:** UUID validation con `isValidUuid()` + 400 prima del
-   service; body size guard con `readJsonWithLimit(req, maxBytes)` + 413 prima
-   di `JSON.parse`; email normalizzata con `normalizeEmail()` in `validation.ts`
-   come prima riga di ogni auth action.
+    - Contenuti generati via LLM con **review umana**, in italiano, target Italia.
+9.  **Boundary delle API:** UUID validation con `isValidUuid()` + 400 prima del
+    service; body size guard con `readJsonWithLimit(req, maxBytes)` + 413 prima
+    di `JSON.parse`; email normalizzata con `normalizeEmail()` in `validation.ts`
+    come prima riga di ogni auth action.
 10. **Wrap SDK esterni (Stripe, AdE, Resend) in try-catch** con log strutturato
     e response 503 — mai lasciare propagare 500 senza context.
 11. **DB migrations: TUTTE handwritten dopo `0000`.** 🚫 **MAI eseguire
@@ -206,6 +206,32 @@ https://<host>/api/_debug/sentry-sentinel?id=<release>`; la response
     `http` invece di `https` in prod. Le guardie lazy esistenti
     (`getTrustedAppUrl()`, `parseTrustedHostnameEnv()`) restano in piedi
     come secondo strato — defense in depth, non vengono toccate.
+25. **Smoke test post-deploy: tre health probe.** Dopo ogni rollout
+    (prod o sandbox o `:dev` Pi), prima di considerare il deploy
+    "concluso" hit i tre health probe e verifica la response:
+
+        curl -fsS https://<host>/api/health/live
+        curl -fsS https://<host>/api/_health/env | jq .
+        curl -fsS -H "x-sentinel-token: $TOKEN" \
+          "https://<host>/api/_debug/sentry-sentinel?id=v$VERSION"
+
+    - `/api/health/live` (`src/app/api/health/live/route.ts`) → 200 =
+      process up, event loop responsive.
+    - `/api/_health/env` (`src/app/api/_health/env/route.ts`) → 200 con
+      `{ appUrl, release, hostnames }`. **Confronta `release` e `appUrl`
+      con quanto rilasciato**: una `:dev` con `appUrl: app.scontrinozero.it`
+      è un Dockerfile build-arg dimenticato. 503 = identity env rotta
+      anche dopo la R24 (es. rotazione secret tra boot e prima request).
+    - `/api/_debug/sentry-sentinel` → 200 + `sentryQuery` da incollare
+      in Sentry per validare il drain (regola 21). Fallisce 404 senza
+      token corretto.
+
+    Il pattern è "live + env + drain": catturava `@react-email/render`
+    mancante (SCONTRINOZERO-B, gap dev container vs standalone),
+    `NEXT_PUBLIC_APP_URL` malformato (SCONTRINOZERO-F) e l'`action_link`
+    hostname mismatch (SCONTRINOZERO-D) **al primo rollout**, non al
+    primo utente. Integrazione in CI rimandata: oggi è uno script da
+    eseguire manualmente dopo `docker compose up -d`.
 
 ## SonarCloud quality gate
 
