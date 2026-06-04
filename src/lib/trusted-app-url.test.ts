@@ -100,6 +100,48 @@ describe("getTrustedAppUrl", () => {
     expect(getTrustedAppUrl()).toBe("http://localhost:3000");
   });
 
+  // SCONTRINOZERO-F: il Dockerfile bakava `ENV NEXT_PUBLIC_APP_URL=` (stringa
+  // vuota) quando l'ARG non veniva passato (prod/sandbox). Il `?? default`
+  // NON scatta su present-but-empty → `new URL("")` lanciava → 503 su ogni
+  // checkout/portal Stripe. Empty/whitespace va trattato come assente, e in
+  // produzione il default deve essere l'host app (https + allowlist), non
+  // localhost. (CLAUDE.md regola 18.)
+  it("defaults to the prod app URL when NEXT_PUBLIC_APP_URL is present-but-empty in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "");
+    const { getTrustedAppUrl } = await import("./trusted-app-url");
+    expect(getTrustedAppUrl()).toBe("https://app.scontrinozero.it");
+  });
+
+  it("treats a whitespace-only NEXT_PUBLIC_APP_URL as unset in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "   ");
+    const { getTrustedAppUrl } = await import("./trusted-app-url");
+    expect(getTrustedAppUrl()).toBe("https://app.scontrinozero.it");
+  });
+
+  it("defaults to the prod app URL when NEXT_PUBLIC_APP_URL is unset in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const { getTrustedAppUrl } = await import("./trusted-app-url");
+    expect(getTrustedAppUrl()).toBe("https://app.scontrinozero.it");
+  });
+
+  it("falls back to localhost when NEXT_PUBLIC_APP_URL is present-but-empty in dev", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "");
+    const { getTrustedAppUrl } = await import("./trusted-app-url");
+    expect(getTrustedAppUrl()).toBe("http://localhost:3000");
+  });
+
+  it("does NOT log a critical error when env is empty in production (no false alarm)", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "");
+    const { logger } = await import("@/lib/logger");
+    const { getTrustedAppUrl } = await import("./trusted-app-url");
+    getTrustedAppUrl();
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
   it("logs critical:true when validation fails", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://evil.example.com");

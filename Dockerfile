@@ -24,11 +24,16 @@ ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
 # Identity hostnames/URL — valutati sia al BUILD (marketing SSG, next.config
 # redirects/headers, metadataBase) sia nel bundle client (appHref in
-# header.tsx). Prod/sandbox NON li passano → restano vuoti → fallback al
-# default app.scontrinozero.it (corretto per prod). L'immagine :dev li passa
-# coi valori dev così link auth, redirect /→/dashboard e CORS puntano a
-# app-dev. Vedi deploy/dev/. (Coerente con CLAUDE.md regola 15.)
-ARG NEXT_PUBLIC_APP_URL
+# header.tsx). Prod/sandbox NON li passano → l'ARG cade sul default prod.
+# L'immagine :dev li passa coi valori dev così link auth, redirect /→/dashboard
+# e CORS puntano a app-dev. Vedi deploy/dev/. (Coerente con CLAUDE.md regola 15.)
+#
+# ⚠️ `NEXT_PUBLIC_APP_URL` ha un default REALE nell'ARG (non stringa vuota): un
+# `ENV NEXT_PUBLIC_APP_URL=` baked-empty NON viene catturato dai `?? default`
+# dei consumer (`next.config.ts` allowedOrigin, getTrustedAppUrl) — un
+# `?? default` non scatta su present-but-empty `""` → CORS origin vuoto +
+# 503 su checkout/portal Stripe (Sentry SCONTRINOZERO-F). (CLAUDE.md regola 18.)
+ARG NEXT_PUBLIC_APP_URL=https://app.scontrinozero.it
 ARG NEXT_PUBLIC_APP_HOSTNAME
 ARG NEXT_PUBLIC_MARKETING_HOSTNAME
 ARG NEXT_PUBLIC_API_HOSTNAME
