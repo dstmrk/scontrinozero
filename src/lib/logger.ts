@@ -90,6 +90,7 @@ export function sanitizeForTelemetry(obj: unknown): Record<string, unknown> {
     "errorClass",
     "captchaHostname",
     "critical",
+    "sentinelId",
   ];
 
   const safe: Record<string, unknown> = {};

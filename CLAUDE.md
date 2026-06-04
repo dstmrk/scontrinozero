@@ -143,6 +143,25 @@ src/app/\(marketing\)` prima di chiudere il task.
     archiviata come noise, perché ogni utente che digitava credenziali AdE
     sbagliate da `/dashboard/settings` finiva in Sentry. Estende la regola 19
     alle server action di scrittura.
+21. **Osservabilità: validare il drain end-to-end al rollout.** Quando si
+    abilita o si modifica una feature di telemetria (`enableLogs`,
+    `Sentry.pinoIntegration`, `Sentry.metrics`, Sentry Profiling, Replays,
+    nuovo `transport` pino, ecc.), il deploy **non è "concluso" finché una
+    sentinella intenzionale non appare in dashboard entro ~5 minuti**. Se
+    non appare → integrazione rotta = bug bloccante, si rollback o si
+    riapre la PR. Procedura: imposta `SENTRY_SENTINEL_TOKEN` sull'env
+    target e fai `curl -H "x-sentinel-token: $TOKEN"
+https://<host>/api/_debug/sentry-sentinel?id=<release>`; la response
+    contiene `sentryQuery`, una stringa già pronta da incollare nei filtri
+    Sentry — sia il dataset `logs` (info/warn/error) sia il pannello issues
+    (l'`error` emette anche `Sentry.captureException` via il hook a
+    `level≥50` in `src/lib/logger.ts`). Endpoint:
+    `src/app/api/_debug/sentry-sentinel/route.ts` — protetto da
+    timing-safe compare, risponde 404 se il token è assente o non combacia
+    (esistenza nascosta a chi non ha il secret). Riferimento: v1.3.6
+    (rollout `Sentry.pinoIntegration`) è stato il caso che ha forzato la
+    regola — il dataset `logs` era vuoto al momento dell'analisi e non si
+    poteva distinguere "drain rotto" da "rilasciato 40 minuti fa".
 
 ## SonarCloud quality gate
 
