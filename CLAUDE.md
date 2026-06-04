@@ -56,19 +56,15 @@ tag git (`git tag -l "v1.*"`).
     (educativo, `src/lib/guide/articles.ts`), `/per/[slug]` (categorie,
     `src/lib/per/categories.ts`), `/confronto` (`src/lib/confronto/comparisons.ts`),
     `/strumenti/[slug]` (tool gratuiti backlink-magnet, `src/lib/strumenti/tools.ts`).
-    Regole sempre valide:
-    - **Niente promesse di feature non live** in _nessun_ copy marketing: feature
-      non implementate → condizionale/roadmap, mai al presente. Oggi sul Pro
-      restano "in arrivo" solo recupero corrispettivi AdE e sync catalogo AdE;
-      Analytics avanzata ed Export CSV sono **spedite e Pro-gated** (commit
-      ae1c481).
-    - **Slug separati `/help` vs `/guide`** sulle keyword condivise per evitare
-      canonical clash (es. `/help/regime-forfettario` ≠
-      `/guide/regime-forfettario-scontrini`); si linkano a vicenda.
-    - Se modifichi una funzionalità (label, menu, stati, filtri, error flow,
-      gating piani, nomi bottoni) aggiorna i contenuti: `grep -rn "<termine>"
-src/app/\(marketing\)` prima di chiudere il task.
-    - Contenuti generati via LLM con **review umana**, in italiano, target Italia.
+    Regole sempre valide: - **Niente promesse di feature non live** in _nessun_ copy marketing: feature
+    non implementate → condizionale/roadmap, mai al presente. Oggi sul Pro
+    restano "in arrivo" solo recupero corrispettivi AdE e sync catalogo AdE;
+    Analytics avanzata ed Export CSV sono **spedite e Pro-gated** (commit
+    ae1c481). - **Slug separati `/help` vs `/guide`** sulle keyword condivise per evitare
+    canonical clash (es. `/help/regime-forfettario` ≠
+    `/guide/regime-forfettario-scontrini`); si linkano a vicenda. - Se modifichi una funzionalità (label, menu, stati, filtri, error flow,
+    gating piani, nomi bottoni) aggiorna i contenuti: `grep -rn "<termine>"
+src/app/\(marketing\)` prima di chiudere il task. - Contenuti generati via LLM con **review umana**, in italiano, target Italia.
 9.  **Boundary delle API:** UUID validation con `isValidUuid()` + 400 prima del
     service; body size guard con `readJsonWithLimit(req, maxBytes)` + 413 prima
     di `JSON.parse`; email normalizzata con `normalizeEmail()` in `validation.ts`
@@ -380,6 +376,10 @@ auto-attivano quando il task matcha il `description`:
   params/cookies/headers, React 19 Actions/`useOptimistic`/ref-as-prop,
   shadcn/ui + Radix `asChild`, TanStack Query provider unico, hydration
   mismatch, Tailwind 4 class ordering
+- **`sentry-hygiene`** — review periodico issue archived (UX nascosto vs
+  noise vero vs transient), filtri `beforeSend` documentati per ID issue,
+  smoke post-deploy `live + env + drain`, query canoniche
+  `errorClass:*` via Sentry MCP. Regole 20-25.
 
 ## Hook automatici (`.claude/hooks/`)
 
