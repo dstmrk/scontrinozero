@@ -1,11 +1,15 @@
 import { render } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ClearCassaCart } from "./clear-cassa-cart";
 import { CASSA_SESSION_KEY } from "@/hooks/use-cassa";
 
 describe("ClearCassaCart", () => {
   beforeEach(() => {
     sessionStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("rimuove cassa_cart da sessionStorage al mount", () => {
@@ -37,5 +41,31 @@ describe("ClearCassaCart", () => {
   it("non renderizza nulla nel DOM", () => {
     const { container } = render(<ClearCassaCart />);
     expect(container.firstChild).toBeNull();
+  });
+
+  // SCONTRINOZERO-H: su Chrome Mobile con storage bloccato (privacy/cookie
+  // disabilitati), anche solo accedere a `window.sessionStorage` lancia
+  // SecurityError (DOMException 18). Il componente è montato nel layout (auth)
+  // → /login: deve degradare in silenzio, non propagare l'eccezione.
+  it("non solleva se l'accesso a sessionStorage è negato (SecurityError)", () => {
+    vi.spyOn(window, "sessionStorage", "get").mockImplementation(() => {
+      throw new DOMException(
+        "Access is denied for this document.",
+        "SecurityError",
+      );
+    });
+
+    expect(() => render(<ClearCassaCart />)).not.toThrow();
+  });
+
+  it("non solleva se removeItem lancia SecurityError", () => {
+    vi.spyOn(sessionStorage, "removeItem").mockImplementation(() => {
+      throw new DOMException(
+        "Access is denied for this document.",
+        "SecurityError",
+      );
+    });
+
+    expect(() => render(<ClearCassaCart />)).not.toThrow();
   });
 });
