@@ -109,6 +109,33 @@ le righe esatte con `grep -n`.
 
 ---
 
+## Scan Sonar in CI: wrapper, non l'action
+
+Il job `sonar` di `ci.yml` **non** usa più `SonarSource/sonarqube-scan-action`
+direttamente: gira `scripts/ci/sonar-scan.sh`. Motivo: l'action non ha retry e
+riscarica il CLI da `binaries.sonarsource.com` a ogni run; quel CDN risponde a
+volte **HTTP 403** in modo intermittente (flakiness lato Sonar, nessun problema
+nel nostro codice) e faceva fallire il job — fastidioso su `main` post-merge
+(notifiche). Il wrapper:
+
+1. scarica il CLI con **retry + backoff** (il 403 sparisce quasi sempre al 2°
+   tentativo);
+2. se il **download** fallisce su tutti i tentativi → `::warning::` + `exit 0`
+   (job verde, niente notifica). Tollera **solo** la fase di download;
+3. se lo **scan** fallisce (config/auth/analisi reale) → exit non-zero, job
+   rosso. I problemi veri restano visibili.
+
+PR/branch decoration: auto-rilevati dallo scanner dall'ambiente GitHub Actions
+(no `sonar.pullrequest.*`). Il `-linux-x64.zip` include la JRE. Versione CLI
+pinnata in `SCANNER_VERSION` (bump = una riga). Logica coperta da
+`scripts/ci/test-sonar-scan.sh` (gira nel job `sonar-script-tests` quando cambia
+`scripts/ci/**` o `ci.yml`). Trade-off noto: niente verifica OpenPGP del binario
+(solo TLS dall'host ufficiale).
+
+⚠️ Se devi tornare all'action o cambiare il comportamento di tolleranza, ricorda
+che questo job **non** enforce il quality gate (è un check separato della
+SonarCloud GitHub App): il suo unico failure mode ripetibile è il download.
+
 ## Debug di CI failure opachi
 
 Quando un CI fail (SonarCloud, Gitleaks, ecc.) **non è visibile** nel diff PR o
