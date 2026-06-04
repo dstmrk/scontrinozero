@@ -19,7 +19,6 @@ const IDENTITY_ENV_VARS = [
   "NEXT_PUBLIC_MARKETING_HOSTNAME",
   "API_HOSTNAME",
   "NEXT_PUBLIC_API_HOSTNAME",
-  "NODE_ENV",
 ] as const;
 
 let originalEnv: Record<string, string | undefined> = {};
@@ -32,6 +31,10 @@ beforeEach(() => {
     originalEnv[k] = process.env[k];
     delete process.env[k];
   }
+  // NODE_ENV è readonly nei tipi TS — va manipolata via vi.stubEnv
+  // (skill testing-patterns). Default in beforeEach: "test"; ogni test
+  // che vuole un valore diverso fa vi.stubEnv("NODE_ENV", "production").
+  vi.stubEnv("NODE_ENV", "test");
 });
 
 afterEach(() => {
@@ -42,18 +45,19 @@ afterEach(() => {
       process.env[k] = originalEnv[k];
     }
   }
+  vi.unstubAllEnvs();
 });
 
 describe("assertIdentityEnv — happy path", () => {
   it("returns without throwing when all identity envs are absent (defaults apply)", async () => {
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     const { assertIdentityEnv } = await import("./identity-env");
     expect(() => assertIdentityEnv()).not.toThrow();
     expect(mockLoggerError).not.toHaveBeenCalled();
   });
 
   it("returns without throwing when all identity envs are valid", async () => {
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     process.env.NEXT_PUBLIC_APP_URL = "https://app.scontrinozero.it";
     process.env.NEXT_PUBLIC_APP_HOSTNAME = "app.scontrinozero.it";
     process.env.NEXT_PUBLIC_MARKETING_HOSTNAME = "scontrinozero.it";
@@ -65,7 +69,7 @@ describe("assertIdentityEnv — happy path", () => {
 
 describe("assertIdentityEnv — failure modes in production", () => {
   beforeEach(() => {
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
   });
 
   it("throws when NEXT_PUBLIC_APP_URL is malformed (not a URL)", () => {
@@ -156,7 +160,7 @@ describe("assertIdentityEnv — failure modes in production", () => {
 
 describe("assertIdentityEnv — non-production behaviour", () => {
   it("logs warn but does NOT throw when envs are malformed in dev", async () => {
-    process.env.NODE_ENV = "development";
+    vi.stubEnv("NODE_ENV", "development");
     process.env.NEXT_PUBLIC_APP_URL = "not a url";
     process.env.APP_HOSTNAME = "https://oops";
     const { assertIdentityEnv } = await import("./identity-env");
@@ -178,7 +182,7 @@ describe("assertIdentityEnv — non-production behaviour", () => {
   });
 
   it("logs warn but does NOT throw in test", async () => {
-    process.env.NODE_ENV = "test";
+    vi.stubEnv("NODE_ENV", "test");
     process.env.NEXT_PUBLIC_APP_URL = "not a url";
     const { assertIdentityEnv } = await import("./identity-env");
     expect(() => assertIdentityEnv()).not.toThrow();
@@ -186,7 +190,7 @@ describe("assertIdentityEnv — non-production behaviour", () => {
   });
 
   it("treats unset NODE_ENV as non-production (warn, no throw)", async () => {
-    delete process.env.NODE_ENV;
+    vi.stubEnv("NODE_ENV", "");
     process.env.NEXT_PUBLIC_APP_URL = "not a url";
     const { assertIdentityEnv } = await import("./identity-env");
     expect(() => assertIdentityEnv()).not.toThrow();
@@ -194,7 +198,7 @@ describe("assertIdentityEnv — non-production behaviour", () => {
   });
 
   it("does not log anything when envs are valid", async () => {
-    process.env.NODE_ENV = "development";
+    vi.stubEnv("NODE_ENV", "development");
     process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
     process.env.APP_HOSTNAME = "localhost";
     const { assertIdentityEnv } = await import("./identity-env");

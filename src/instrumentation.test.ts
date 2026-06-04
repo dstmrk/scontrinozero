@@ -24,6 +24,11 @@ vi.mock("node:dns/promises", () => ({
   resolve4: vi.fn((hostname: string) => Promise.resolve([hostname])),
 }));
 
+const mockAssertIdentityEnv = vi.fn();
+vi.mock("@/lib/identity-env", () => ({
+  assertIdentityEnv: mockAssertIdentityEnv,
+}));
+
 describe("instrumentation register()", () => {
   let originalNextRuntime: string | undefined;
   let originalDbUrl: string | undefined;
@@ -122,5 +127,45 @@ describe("instrumentation register()", () => {
     await register();
 
     expect(mockClientEnd).toHaveBeenCalled();
+  });
+
+  it("R24: chiama assertIdentityEnv come prima istruzione nel runtime nodejs", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    process.env.DATABASE_URL = "postgres://test";
+    const { register } = await import("./instrumentation");
+
+    await register();
+
+    expect(mockAssertIdentityEnv).toHaveBeenCalledOnce();
+    // Deve essere chiamato PRIMA del migrate (altrimenti un container con
+    // env malformate fa lavorare il pool DB inutilmente prima di crashare).
+    const assertOrder = mockAssertIdentityEnv.mock.invocationCallOrder[0]!;
+    const postgresOrder = mockPostgresDefault.mock.invocationCallOrder[0]!;
+    expect(assertOrder).toBeLessThan(postgresOrder);
+  });
+
+  it("R24: register propaga il throw di assertIdentityEnv (container non parte in prod)", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    process.env.DATABASE_URL = "postgres://test";
+    mockAssertIdentityEnv.mockImplementationOnce(() => {
+      throw new Error("identity env validation failed at boot");
+    });
+    const { register } = await import("./instrumentation");
+
+    await expect(register()).rejects.toThrow(
+      /identity env validation failed at boot/,
+    );
+    // Migrate non deve essere eseguito quando l'identita' e' rotta.
+    expect(mockMigrate).not.toHaveBeenCalled();
+    expect(mockPostgresDefault).not.toHaveBeenCalled();
+  });
+
+  it("R24: NON chiama assertIdentityEnv quando NEXT_RUNTIME non e' nodejs", async () => {
+    delete process.env.NEXT_RUNTIME;
+    const { register } = await import("./instrumentation");
+
+    await register();
+
+    expect(mockAssertIdentityEnv).not.toHaveBeenCalled();
   });
 });

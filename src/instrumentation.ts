@@ -1,5 +1,14 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    // Fail-fast sulle env d'identita' (NEXT_PUBLIC_APP_URL, *_HOSTNAME, …).
+    // In produzione un valore malformato fa throware QUI invece di
+    // produrre 503 al primo route che costruisce URL — vedi
+    // SCONTRINOZERO-F (NEXT_PUBLIC_APP_URL malformed, 5 eventi su utente
+    // FR/Stripe checkout). In dev/test logga warn ma non blocca il loop.
+    // Regola 24 di CLAUDE.md, estende la regola 18.
+    const { assertIdentityEnv } = await import("@/lib/identity-env");
+    assertIdentityEnv();
+
     await import("../sentry.server.config");
 
     const { migrate } = await import("drizzle-orm/postgres-js/migrator");

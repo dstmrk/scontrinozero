@@ -191,6 +191,21 @@ https://<host>/api/_debug/sentry-sentinel?id=<release>`; la response
     `emit-receipt` (receipt-service), `void-receipt` (void-service).
     Per nuovi flow scegli uno slug stabile (no spazi, no version):
     cambia il fingerprint = perdi la continuità storica del group.
+24. **Env d'identità: validazione fail-fast al boot.** Le env che producono
+    URL/redirect (`NEXT_PUBLIC_APP_URL` + le 6 varianti `*_HOSTNAME`)
+    sono validate da `assertIdentityEnv()` in `src/lib/identity-env.ts`,
+    chiamato come **prima istruzione** di `register()` in
+    `src/instrumentation.ts` (runtime nodejs). In produzione un valore
+    malformato fa **throware al boot** e il container non parte —
+    invece di produrre 503 al primo route che costruisce URL, come
+    succedeva con SCONTRINOZERO-F (5 eventi su utente FR/Stripe
+    checkout) e SCONTRINOZERO-D (action_link hostname mismatch). In
+    dev/test la stessa validation logga `warn` ma non blocca il loop.
+    Il check copre tre classi di failure: malformed URL/hostname,
+    present-but-empty (regola 18, `?? default` non scatta su `""`), e
+    `http` invece di `https` in prod. Le guardie lazy esistenti
+    (`getTrustedAppUrl()`, `parseTrustedHostnameEnv()`) restano in piedi
+    come secondo strato — defense in depth, non vengono toccate.
 
 ## SonarCloud quality gate
 
