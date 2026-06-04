@@ -151,4 +151,46 @@ describe("AddItemDialog", () => {
 
     expect(onSuccess).not.toHaveBeenCalled();
   });
+
+  it("a trial scaduto mostra il link 'Attiva un piano' verso la card billing", async () => {
+    mockAddCatalogItem.mockResolvedValue({
+      error:
+        "Il tuo periodo di prova è scaduto. Attiva un piano per continuare.",
+    });
+    render(<AddItemDialog {...DEFAULT_PROPS} />);
+
+    await act(async () => {
+      fireEvent.submit(
+        screen.getByRole("button", { name: "Aggiungi" }).closest("form")!,
+      );
+    });
+
+    await waitFor(() => {
+      const link = screen.getByRole("link", { name: /attiva un piano/i });
+      expect(link).toHaveAttribute("href", "/dashboard/settings#billing");
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /il tuo periodo di prova è scaduto/i,
+    );
+  });
+
+  it("un errore generico resta testo semplice, senza link", async () => {
+    mockAddCatalogItem.mockResolvedValue({
+      error: "La descrizione è obbligatoria.",
+    });
+    render(<AddItemDialog {...DEFAULT_PROPS} />);
+
+    await act(async () => {
+      fireEvent.submit(
+        screen.getByRole("button", { name: "Aggiungi" }).closest("form")!,
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("link", { name: /attiva un piano/i }),
+    ).not.toBeInTheDocument();
+  });
 });

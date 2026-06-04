@@ -2,7 +2,7 @@
 
 import { z } from "zod/v4";
 import { logger } from "@/lib/logger";
-import { getPlan, canEmit } from "@/lib/plans";
+import { getPlan, canEmit, TRIAL_EXPIRED_MESSAGE } from "@/lib/plans";
 import { RateLimiter } from "@/lib/rate-limit";
 import { refineLotteryCode } from "@/lib/receipts/lottery-code-schema";
 import {
@@ -62,10 +62,7 @@ export async function emitReceipt(
   // Enforce plan/trial gate server-side before any business logic
   const planInfo = await getPlan(user.id);
   if (!canEmit(planInfo.plan, planInfo.trialStartedAt)) {
-    return {
-      error:
-        "Il tuo periodo di prova è scaduto. Attiva un piano per continuare.",
-    };
+    return { error: TRIAL_EXPIRED_MESSAGE };
   }
 
   // Runtime validation — same fiscal rules as API v1, applied to every
