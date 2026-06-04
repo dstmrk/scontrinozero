@@ -69,48 +69,50 @@ export function assertIdentityEnv(): void {
 function collectIdentityEnvErrors(): string[] {
   const errors: string[] = [];
 
-  // `NEXT_PUBLIC_APP_URL`: distinguiamo "non settato" (OK, default
-  // applica) da "settato ma vuoto/whitespace" (errore — regola 18) e da
-  // "settato e malformato" (errore via TrustedAppUrlError).
-  const appUrlRaw = process.env[APP_URL_ENV];
-  if (appUrlRaw !== undefined) {
-    if (appUrlRaw.trim() === "") {
-      errors.push(
-        `${APP_URL_ENV} is present but empty — Dockerfile likely bakes ARG without a value (regola 18)`,
-      );
-    } else {
-      try {
-        getTrustedAppUrl();
-      } catch (err) {
-        if (err instanceof TrustedAppUrlError) {
-          errors.push(`${APP_URL_ENV}: ${err.message}`);
-        } else {
-          // Non rilanciamo subito: continuiamo a raccogliere errori
-          // sugli altri env per dare un report completo al deploy.
-          errors.push(
-            `${APP_URL_ENV}: ${err instanceof Error ? err.message : "unknown error"}`,
-          );
-        }
-      }
-    }
-  }
+  const appUrlError = validateAppUrlEnv();
+  if (appUrlError) errors.push(appUrlError);
 
   for (const name of HOSTNAME_ENV_VARS) {
-    const raw = process.env[name];
-    if (raw === undefined) continue; // not set → fallback default applies
-    if (raw.trim() === "") {
-      errors.push(
-        `${name} is present but empty — Dockerfile likely bakes ARG without a value (regola 18)`,
-      );
-      continue;
-    }
-    const normalised = raw.trim().toLowerCase();
-    if (!isValidHostnameSyntax(normalised)) {
-      errors.push(
-        `${name}="${raw}" is not a valid hostname (no scheme, no slash, no port)`,
-      );
-    }
+    const hostnameError = validateHostnameEnvVar(name);
+    if (hostnameError) errors.push(hostnameError);
   }
 
   return errors;
+}
+
+/**
+ * Valida `NEXT_PUBLIC_APP_URL`. Distinguiamo "non settato" (OK, default
+ * applica), "settato ma vuoto/whitespace" (errore — regola 18), e
+ * "settato e malformato" (errore via `TrustedAppUrlError`).
+ */
+function validateAppUrlEnv(): string | null {
+  const raw = process.env[APP_URL_ENV];
+  if (raw === undefined) return null;
+  if (raw.trim() === "") {
+    return `${APP_URL_ENV} is present but empty — Dockerfile likely bakes ARG without a value (regola 18)`;
+  }
+  try {
+    getTrustedAppUrl();
+    return null;
+  } catch (err) {
+    // Non rilanciamo subito: il chiamante accumula errori sugli altri
+    // env per dare un report completo al deploy.
+    if (err instanceof TrustedAppUrlError) {
+      return `${APP_URL_ENV}: ${err.message}`;
+    }
+    return `${APP_URL_ENV}: ${err instanceof Error ? err.message : "unknown error"}`;
+  }
+}
+
+function validateHostnameEnvVar(name: string): string | null {
+  const raw = process.env[name];
+  if (raw === undefined) return null; // fallback default applies
+  if (raw.trim() === "") {
+    return `${name} is present but empty — Dockerfile likely bakes ARG without a value (regola 18)`;
+  }
+  const normalised = raw.trim().toLowerCase();
+  if (!isValidHostnameSyntax(normalised)) {
+    return `${name}="${raw}" is not a valid hostname (no scheme, no slash, no port)`;
+  }
+  return null;
 }
