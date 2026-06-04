@@ -162,6 +162,19 @@ https://<host>/api/_debug/sentry-sentinel?id=<release>`; la response
     (rollout `Sentry.pinoIntegration`) è stato il caso che ha forzato la
     regola — il dataset `logs` era vuoto al momento dell'analisi e non si
     poteva distinguere "drain rotto" da "rilasciato 40 minuti fa".
+22. **`Sentry.setUser({ id })` su ogni richiesta autenticata.** Tutte le
+    server action e i route handler che chiamano `getAuthenticatedUser()`
+    bindano automaticamente l'auth user UUID allo scope Sentry della
+    richiesta (visto che il bind è già dentro `getAuthenticatedUser` in
+    `src/lib/server-auth.ts:51`). Senza questo `Users Impacted` resta a 0
+    su ogni issue: tutte e 10 le issue Sentry analizzate (SCONTRINOZERO-7
+    a -H) avevano `Users: 0` anche quando il bug toccava più utenti in 2
+    minuti — il triage non poteva prioritizzare per impatto. Passare **solo
+    `id`** (UUID opaco di Supabase Auth): niente `email`/`username`/`ip`,
+    coerente con il denylist `SAFE_KEYS` di `src/lib/logger.ts` e con la
+    policy GDPR. Per le route che usano auth diversa (es. Bearer API key
+    in `/api/v1/*`) il fix è analogo ma puntuale a ciascun handler — non
+    propagato qui per non leakare l'`apiKeyId` come `user.id`.
 
 ## SonarCloud quality gate
 
