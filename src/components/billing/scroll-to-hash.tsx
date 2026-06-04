@@ -21,7 +21,15 @@ export function ScrollToHash() {
   useEffect(() => {
     const { hash } = window.location;
     if (!hash) return;
-    const id = decodeURIComponent(hash.slice(1));
+    const raw = hash.slice(1);
+    // Fragment malformato (es. `#%E0%A4%A`) → decodeURIComponent lancia URIError:
+    // degradare al raw invece di propagare (regola 19, no error boundary).
+    let id: string;
+    try {
+      id = decodeURIComponent(raw);
+    } catch {
+      id = raw;
+    }
     document.getElementById(id)?.scrollIntoView({ block: "start" });
   }, []);
 

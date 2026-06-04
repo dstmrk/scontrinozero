@@ -45,4 +45,24 @@ describe("ScrollToHash", () => {
     // Non deve lanciare: getElementById torna null, optional chaining no-op.
     expect(() => render(<ScrollToHash />)).not.toThrow();
   });
+
+  it("does not throw on a malformed percent-encoded hash", () => {
+    // decodeURIComponent("%E0%A4%A") lancia URIError: l'effect deve degradare
+    // al raw senza propagare (niente error boundary).
+    window.location.hash = "#%E0%A4%A";
+    expect(() => render(<ScrollToHash />)).not.toThrow();
+  });
+
+  it("falls back to the raw hash when decoding fails", () => {
+    const target = document.createElement("div");
+    target.id = "%E0%A4%A";
+    const scrollIntoView = vi.fn();
+    target.scrollIntoView = scrollIntoView;
+    document.body.appendChild(target);
+    window.location.hash = "#%E0%A4%A";
+
+    render(<ScrollToHash />);
+
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+  });
 });
