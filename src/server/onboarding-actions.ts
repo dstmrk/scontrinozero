@@ -360,7 +360,7 @@ export async function verifyAdeCredentials(
     }
     logAdeFailure(
       err,
-      { businessId },
+      { businessId, flow: "onboarding-verify" },
       {
         transient: "AdE credential verification: transient failure",
         failure: "AdE credential verification failed",

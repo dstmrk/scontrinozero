@@ -680,7 +680,7 @@ describe("emitReceiptForBusiness", () => {
     );
   });
 
-  it("M3: errore non transient e non user (generic Error) resta a logger.error", async () => {
+  it("M3: errore non transient e non user (generic Error) resta a logger.error con sentryFingerprint per flow emit-receipt (R23)", async () => {
     mockSubmitSale.mockRejectedValue(new Error("unexpected boom"));
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
@@ -688,7 +688,11 @@ describe("emitReceiptForBusiness", () => {
 
     const { logger } = await import("@/lib/logger");
     expect(logger.error).toHaveBeenCalledWith(
-      expect.objectContaining({ errorClass: "ade_failure" }),
+      expect.objectContaining({
+        errorClass: "ade_failure",
+        flow: "emit-receipt",
+        sentryFingerprint: ["emit-receipt", "ade_failure"],
+      }),
       expect.stringContaining("emitReceiptForBusiness failed"),
     );
   });

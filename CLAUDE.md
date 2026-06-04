@@ -175,6 +175,22 @@ https://<host>/api/_debug/sentry-sentinel?id=<release>`; la response
     policy GDPR. Per le route che usano auth diversa (es. Bearer API key
     in `/api/v1/*`) il fix è analogo ma puntuale a ciascun handler — non
     propagato qui per non leakare l'`apiKeyId` come `user.id`.
+23. **Fingerprint Sentry per flow multi-step.** I flow AdE (login → wizard
+    → submit) generano errori in step diversi: oggi Sentry li raggruppa per
+    `message + stack`, quindi `wizardTemplate failed 500` e
+    `setUserChoice failed 500` finiscono in 2 issue distinte anche se
+    parte della stessa onboarding fallita (SCONTRINOZERO-9 + -A,
+    trace_id 5efe8519…). Per evitarlo, **passa `flow: "<nome-flow>"`
+    nel context di `logAdeFailure()`** (`src/lib/ade/log-failure.ts`):
+    sul ramo `ade_failure` viene iniettato
+    `sentryFingerprint: [flow, "ade_failure"]` nel payload pino, e
+    `captureToSentry` in `src/lib/logger.ts` lo applica via
+    `Sentry.withScope(s => s.setFingerprint(...))`. I rami warn
+    (transient/user_error) ignorano `flow`: non salgono a Sentry. Flow
+    già instrumentati: `onboarding-verify` (verifyAdeCredentials),
+    `emit-receipt` (receipt-service), `void-receipt` (void-service).
+    Per nuovi flow scegli uno slug stabile (no spazi, no version):
+    cambia il fingerprint = perdi la continuità storica del group.
 
 ## SonarCloud quality gate
 

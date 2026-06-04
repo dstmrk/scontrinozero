@@ -850,6 +850,39 @@ describe("onboarding-actions", () => {
       );
     });
 
+    it("R23: generic Error in verifyAdeCredentials logga error con sentryFingerprint per flow onboarding-verify", async () => {
+      // SCONTRINOZERO-9/-A condividevano trace_id ma generavano 2 issue
+      // Sentry distinte perche' i message divergevano. Con il flow propagato,
+      // due errori "ade_failure" nello stesso flow finiscono in un unico
+      // group Sentry (regola 23 di CLAUDE.md).
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+        },
+      ]);
+      mockLogin.mockRejectedValue(new Error("unexpected wizard failure"));
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials("biz-789");
+
+      const { logger } = await import("@/lib/logger");
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          businessId: "biz-789",
+          errorClass: "ade_failure",
+          flow: "onboarding-verify",
+          sentryFingerprint: ["onboarding-verify", "ade_failure"],
+        }),
+        expect.stringContaining("AdE credential verification failed"),
+      );
+    });
+
     it("sends welcome email on first successful verification", async () => {
       // Ownership check: JOIN profile+business
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
