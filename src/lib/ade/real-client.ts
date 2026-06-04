@@ -1382,9 +1382,15 @@ export class RealAdeClient implements AdeClient {
       // diagnostica invece di lanciare un errore opaco. Mai loggare il payload
       // inviato: contiene dati fiscali (importi, CF cliente). Per correlare
       // basta voidDocumentId dal chiamante.
-      // Livello: warn per 4xx (visibilità senza alerting — i rifiuti logici
-      // AdE arrivano come 200 esito:false, quindi 4xx è sempre anomalo ma non
-      // necessariamente un'outage); error per 5xx (genuine portal failure).
+      //
+      // Livello: sempre warn. La decisione "apre o no un'issue Sentry" è
+      // centralizzata nei caller (receipt-service/void-service via
+      // logAdeFailure): un 5xx AdE è classificato transient → warn → fuori da
+      // Sentry, per evitare ~100 issue identiche durante un downtime AdE
+      // (Sentry SCONTRINOZERO-G). Qui logghiamo solo la diagnostica HTTP a
+      // warn, senza duplicare la classificazione né rialzare a error ciò che
+      // il caller considera transient. I rifiuti logici AdE arrivano come 200
+      // esito:false e non passano da questo ramo.
       let bodyExcerpt = "";
       try {
         const text = await response.text();
@@ -1398,11 +1404,7 @@ export class RealAdeClient implements AdeClient {
         bodyExcerpt,
         endpoint: "/ser/api/documenti/v1/doc/documenti/",
       };
-      if (response.status >= 500) {
-        logger.error(logCtx, "ade:submit_failed");
-      } else {
-        logger.warn(logCtx, "ade:submit_failed");
-      }
+      logger.warn(logCtx, "ade:submit_failed");
       throw new AdePortalError(
         response.status,
         `Document submission failed with status ${response.status}`,
