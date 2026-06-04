@@ -21,6 +21,7 @@ import { ApiKeySection } from "@/components/settings/api-key-section";
 import { PlanBadge } from "@/components/billing/plan-badge";
 import { PlanSelection } from "@/components/billing/plan-selection";
 import { RefreshOnSuccess } from "@/components/billing/refresh-on-success";
+import { ScrollToHash } from "@/components/billing/scroll-to-hash";
 import { CONTACT_EMAIL } from "@/lib/contact";
 import { APP_VERSION, getBuildLabel } from "@/lib/version";
 
@@ -124,6 +125,7 @@ export default async function SettingsPage({
   return (
     <div className="space-y-6">
       <RefreshOnSuccess active={success === "1"} />
+      <ScrollToHash />
       <h1 className="text-2xl font-bold">Impostazioni</h1>
 
       <Card>
