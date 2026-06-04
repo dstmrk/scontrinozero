@@ -70,6 +70,21 @@ assert_block "npx drizzle-kit   generate"
 assert_block "drizzle-kit generate:pg"
 assert_block "cd packages/db && npx drizzle-kit generate"
 
+# --- BLOCK cases: the first-party `db:generate` script wrapper, which
+# expands to `drizzle-kit generate` (package.json). Without these the suite
+# gives a false green: the most likely real invocation slips through. ---
+assert_block "npm run db:generate"
+assert_block "npm run db:generate -- --name foo"
+assert_block "pnpm db:generate"
+assert_block "pnpm run db:generate"
+assert_block "yarn db:generate"
+assert_block "yarn run db:generate"
+assert_block "bun run db:generate"
+
+# The sibling db:* scripts must stay allowed (they are not `generate`).
+assert_pass "npm run db:migrate"
+assert_pass "npm run db:push"
+
 if [ "$failures" -gt 0 ]; then
   echo "$failures test(s) failed." >&2
   exit 1
