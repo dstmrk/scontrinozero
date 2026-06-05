@@ -567,20 +567,62 @@ describe("proxy", () => {
       }
     });
 
-    it("ignores a spoofed Host header when nextUrl.hostname differs", async () => {
+    it("uses the Host header as source of truth: marketing apex in header, internal nextUrl.hostname → marketing redirect", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
       const { proxy } = await import("./proxy");
 
-      // The actual URL is on the marketing domain; an attacker-controlled Host
-      // header claiming to be the app domain must not change routing decisions.
-      const req = new NextRequest("https://scontrinozero.it/dashboard", {
-        headers: { host: "app.scontrinozero.it" },
+      // Riproduce il caso produzione dietro Cloudflare Tunnel: nextUrl.hostname
+      // riflette l'origin interno, ma l'header Host porta l'apex marketing reale.
+      // Il routing deve seguire l'header → /login su marketing redirige ad app.
+      const req = new NextRequest("https://internal.local/login", {
+        headers: { host: "scontrinozero.it" },
       });
       const response = await proxy(req);
       expect(response.status).toBe(307);
       const location = new URL(response.headers.get("location")!);
-      // Decision is based on nextUrl.hostname (marketing) → redirect to app.
       expect(location.hostname).toBe("app.scontrinozero.it");
-      expect(location.pathname).toBe("/dashboard");
+      expect(location.pathname).toBe("/login");
+    });
+
+    it("classifies by the Host header (app) even when nextUrl.hostname is marketing", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { proxy } = await import("./proxy");
+
+      // Header dice app → / su dominio app redirige a /dashboard, a prescindere
+      // dall'host dell'URL parsato.
+      const req = new NextRequest("https://scontrinozero.it/", {
+        headers: { host: "app.scontrinozero.it" },
+      });
+      const response = await proxy(req);
+      expect(response.status).toBe(307);
+      expect(new URL(response.headers.get("location")!).pathname).toBe(
+        "/dashboard",
+      );
+    });
+
+    it("logs a proxyHostSource breadcrumb only when Host header and nextUrl.hostname differ", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { proxy } = await import("./proxy");
+
+      // Match: nessun breadcrumb proxyHostSource.
+      await proxy(createRequestForHost("/", "scontrinozero.it"));
+      expect(
+        warnSpy.mock.calls.filter((c) =>
+          String(c[0]).includes("proxyHostSource"),
+        ),
+      ).toHaveLength(0);
+
+      // Mismatch: un solo breadcrumb proxyHostSource.
+      await proxy(
+        new NextRequest("https://internal.local/", {
+          headers: { host: "scontrinozero.it" },
+        }),
+      );
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("proxyHostSource"),
+      );
+      warnSpy.mockRestore();
     });
   });
 
@@ -591,6 +633,21 @@ describe("proxy", () => {
 
       const response = await proxy(
         new NextRequest("https://scontrinozero.it/"),
+      );
+      expect(response.headers.get("X-Robots-Tag")).toBeNull();
+    });
+
+    it("does NOT add noindex when the Host header is the marketing apex even if nextUrl.hostname is the internal origin", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { proxy } = await import("./proxy");
+
+      // Caso produzione dietro Cloudflare Tunnel: l'header Host è l'apex
+      // marketing indicizzabile → la landing pubblica NON deve essere noindex,
+      // anche se nextUrl.hostname riflette l'origin interno.
+      const response = await proxy(
+        new NextRequest("https://internal.local/", {
+          headers: { host: "scontrinozero.it" },
+        }),
       );
       expect(response.headers.get("X-Robots-Tag")).toBeNull();
     });
