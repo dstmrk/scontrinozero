@@ -25,6 +25,11 @@ export const ERROR_MESSAGES = {
   NEW_PASSWORD_NOT_STRONG: `La nuova password non è sicura. ${PASSWORD_REQUIREMENTS_MESSAGE}`,
   PASSWORDS_MISMATCH: "Le password non coincidono.",
   UNAUTHORIZED: "Non autorizzato.",
+  /** Eccezione inattesa lato server (DB/SDK): transiente, retry sicuro. */
+  GENERIC_TRANSIENT:
+    "Si è verificato un errore temporaneo. Riprova tra qualche istante.",
+  /** Client offline: retry-able non appena torna la connessione. */
+  NETWORK_OFFLINE: "Sembri offline. Controlla la connessione e riprova.",
 } as const;
 
 export type ErrorMessageKey = keyof typeof ERROR_MESSAGES;

@@ -18,6 +18,15 @@ describe("ERROR_MESSAGES", () => {
     expect(ERROR_MESSAGES.UNAUTHORIZED).toBe("Non autorizzato.");
   });
 
+  it("distingue errore transiente server e offline (entrambi retry-able)", () => {
+    expect(ERROR_MESSAGES.GENERIC_TRANSIENT).toContain("temporaneo");
+    expect(ERROR_MESSAGES.GENERIC_TRANSIENT).toContain("Riprova");
+    expect(ERROR_MESSAGES.NETWORK_OFFLINE).toContain("offline");
+    expect(ERROR_MESSAGES.NETWORK_OFFLINE).not.toBe(
+      ERROR_MESSAGES.GENERIC_TRANSIENT,
+    );
+  });
+
   it("incorpora i requisiti password nei due preamboli", () => {
     expect(ERROR_MESSAGES.PASSWORD_NOT_STRONG).toContain(
       PASSWORD_REQUIREMENTS_MESSAGE,
