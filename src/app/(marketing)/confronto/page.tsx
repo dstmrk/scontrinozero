@@ -137,13 +137,13 @@ export default function ConfrontoPage() {
             <table className="w-full text-sm">
               <thead className="bg-muted/50">
                 <tr>
-                  <th className="px-4 py-3 text-left font-semibold">
+                  <th scope="col" className="px-4 py-3 text-left font-semibold">
                     {"Servizio"}
                   </th>
-                  <th className="px-4 py-3 text-left font-semibold">
+                  <th scope="col" className="px-4 py-3 text-left font-semibold">
                     {"Prezzo dichiarato"}
                   </th>
-                  <th className="px-4 py-3 text-left font-semibold">
+                  <th scope="col" className="px-4 py-3 text-left font-semibold">
                     {"Trial"}
                   </th>
                 </tr>
@@ -151,7 +151,7 @@ export default function ConfrontoPage() {
               <tbody className="divide-y">
                 {c.saasCompetitors.map((s) => (
                   <tr key={s.url} className="align-top">
-                    <td className="px-4 py-3">
+                    <th scope="row" className="px-4 py-3 text-left font-normal">
                       <a
                         href={s.url}
                         target="_blank"
@@ -166,7 +166,7 @@ export default function ConfrontoPage() {
                       <span className="text-muted-foreground mt-1 block text-xs leading-relaxed">
                         {s.notes}
                       </span>
-                    </td>
+                    </th>
                     <td className="text-muted-foreground px-4 py-3 text-sm">
                       {s.pricing}
                     </td>
@@ -176,7 +176,7 @@ export default function ConfrontoPage() {
                   </tr>
                 ))}
                 <tr className="bg-primary/5 align-top">
-                  <td className="px-4 py-3">
+                  <th scope="row" className="px-4 py-3 text-left font-normal">
                     <span className="text-primary font-semibold">
                       {"ScontrinoZero"}
                     </span>
@@ -188,7 +188,7 @@ export default function ConfrontoPage() {
                         "Open source: lo installi gratis sul tuo computer o server. Pensato per lo smartphone, con la possibilità di installare l'app dal browser. Codice ispezionabile su GitHub."
                       }
                     </span>
-                  </td>
+                  </th>
                   <td className="text-primary px-4 py-3 text-sm font-semibold">
                     {"Starter 29,99 €/anno · Pro 49,99 €/anno"}
                     <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
