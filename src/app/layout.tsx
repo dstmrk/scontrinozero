@@ -60,6 +60,9 @@ export const metadata: Metadata = {
     follow: true,
   },
   other: {
+    // Standard cross-browser (sostituisce l'`apple-mobile-web-app-capable`
+    // deprecato; quest'ultimo resta per compat con iOS Safari datati).
+    "mobile-web-app-capable": "yes",
     "apple-mobile-web-app-capable": "yes",
     "apple-mobile-web-app-status-bar-style": "default",
     "apple-mobile-web-app-title": "ScontrinoZero",
