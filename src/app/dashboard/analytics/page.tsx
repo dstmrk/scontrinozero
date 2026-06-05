@@ -5,6 +5,7 @@ import {
   getAnalyticsBundle,
   getStarterKpis,
 } from "@/server/analytics-actions";
+import { parseAnalyticsRange } from "@/server/analytics-helpers";
 import { AnalyticsClient } from "@/components/analytics/analytics-client";
 import { KpiCards } from "@/components/analytics/kpi-cards";
 import { ProFeatureGate } from "@/components/billing/pro-feature-gate";
@@ -19,7 +20,11 @@ const ZERO_KPIS: AnalyticsKpis = {
   voidCount: 0,
 };
 
-export default async function AnalyticsPage() {
+export default async function AnalyticsPage({
+  searchParams,
+}: {
+  readonly searchParams: Promise<{ range?: string }>;
+}) {
   const status = await getOnboardingStatus();
   if (!status.businessId) redirect("/onboarding");
 
@@ -77,7 +82,11 @@ export default async function AnalyticsPage() {
     );
   }
 
-  const bundle = await getAnalyticsBundle(businessId, "30d");
+  // Deep link: `?range=` permette di condividere/bookmark un periodo specifico
+  // (es. /dashboard/analytics?range=90d), coerente con i filtri URL dello
+  // storico. Valore invalido o assente → default 30d (no throw, regola 19).
+  const range = parseAnalyticsRange((await searchParams).range);
+  const bundle = await getAnalyticsBundle(businessId, range);
 
   // Non collassare silenziosamente {error} in zero: un utente con DB
   // timeout o ownership glitch vedrebbe "0 €, 0 scontrini" indistinguibile
@@ -100,7 +109,7 @@ export default async function AnalyticsPage() {
   return (
     <AnalyticsClient
       businessId={businessId}
-      initialRange="30d"
+      initialRange={range}
       initialKpis={loadFailed ? ZERO_KPIS : bundle.kpis}
       initialTimeseries={loadFailed ? [] : bundle.timeseries}
       initialBreakdown={loadFailed ? [] : bundle.breakdown}

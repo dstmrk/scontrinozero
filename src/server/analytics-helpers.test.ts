@@ -5,9 +5,11 @@ import {
   computeKpis,
   computeProductBreakdown,
   computeTimeseries,
+  DEFAULT_ANALYTICS_RANGE,
   fillMissingDays,
   formatRomeDay,
   normalizePaymentMethod,
+  parseAnalyticsRange,
   rangeToBounds,
   romeMidnightUtc,
   toCents,
@@ -28,6 +30,32 @@ function makeDoc(
 ): DocRow {
   return { id, status, createdAt, publicRequest };
 }
+
+describe("parseAnalyticsRange", () => {
+  it.each(["7d", "30d", "90d", "ytd"] as const)(
+    "accetta il range valido %s",
+    (range) => {
+      expect(parseAnalyticsRange(range)).toBe(range);
+    },
+  );
+
+  it("ricade sul default per un valore non in allowlist", () => {
+    expect(parseAnalyticsRange("bogus")).toBe(DEFAULT_ANALYTICS_RANGE);
+  });
+
+  it("ricade sul default per undefined (param assente)", () => {
+    expect(parseAnalyticsRange(undefined)).toBe(DEFAULT_ANALYTICS_RANGE);
+  });
+
+  it("ricade sul default per stringa vuota", () => {
+    expect(parseAnalyticsRange("")).toBe(DEFAULT_ANALYTICS_RANGE);
+  });
+
+  it("non fa match su prefissi parziali (no prototype/coercion surprise)", () => {
+    expect(parseAnalyticsRange("7")).toBe(DEFAULT_ANALYTICS_RANGE);
+    expect(parseAnalyticsRange("toString")).toBe(DEFAULT_ANALYTICS_RANGE);
+  });
+});
 
 describe("toCents", () => {
   it("rounds floating amounts to integer cents", () => {

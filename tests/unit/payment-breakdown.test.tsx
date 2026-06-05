@@ -106,10 +106,10 @@ describe("PaymentBreakdown", () => {
     expect(fill).toBe("var(--primary)");
   });
 
-  it("falls back to the raw method code when not in the known label map", () => {
+  it("falls back to the 'Altro' label when a method is not in the known map", () => {
     // Se un nuovo codice di pagamento dovesse mai filtrare attraverso il
-    // server senza normalizzazione (drift), la UI lo mostra grezzo invece
-    // di un undefined/crash.
+    // server senza normalizzazione (drift), la UI mostra l'etichetta
+    // leggibile "Altro" invece del codice grezzo (es. "XX") o un crash.
     render(
       <PaymentBreakdown
         data={[{ method: "XX", count: 1, revenueCents: 100 }]}
@@ -117,6 +117,6 @@ describe("PaymentBreakdown", () => {
     );
 
     const chartData = readChartData();
-    expect(chartData[0].method).toBe("XX");
+    expect(chartData[0].method).toBe("Altro");
   });
 });

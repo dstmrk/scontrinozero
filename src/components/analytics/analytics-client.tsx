@@ -2,6 +2,7 @@
 
 import { Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import {
   type AnalyticsKpis,
@@ -91,6 +92,7 @@ export function AnalyticsClient({
   >(initialProductBreakdown);
   const [loadFailed, setLoadFailed] = useState<boolean>(initialLoadFailed);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
   // `latestRangeRef` traccia l'ultimo range richiesto. Se l'utente cambia
   // range due volte velocemente e la prima Promise risolve dopo la
   // seconda, la prima viene scartata: senza questo guard la UI mostrerebbe
@@ -103,6 +105,10 @@ export function AnalyticsClient({
     const nextRange = next;
     latestRangeRef.current = nextRange;
     setRange(nextRange);
+    // Sincronizza il range nell'URL (coerente con lo storico) così il periodo
+    // selezionato è condivisibile/bookmarkabile. replace, non push: il cambio
+    // range non deve impilare voci nella history del browser.
+    router.replace(`/dashboard/analytics?range=${nextRange}`);
     startTransition(async () => {
       const result = await getAnalyticsBundle(businessId, nextRange);
       if (latestRangeRef.current !== nextRange) return;
