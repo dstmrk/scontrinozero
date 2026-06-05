@@ -42,11 +42,14 @@ export function ComparisonTable({
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-muted/50">
-            <th className="px-4 py-3 text-left font-semibold"></th>
-            <th className="px-4 py-3 text-center font-semibold">
+            <th scope="col" className="px-4 py-3 text-left font-semibold"></th>
+            <th scope="col" className="px-4 py-3 text-center font-semibold">
               {competitorLabel}
             </th>
-            <th className="text-primary px-4 py-3 text-center font-semibold">
+            <th
+              scope="col"
+              className="text-primary px-4 py-3 text-center font-semibold"
+            >
               {oursLabel}
             </th>
           </tr>
@@ -54,14 +57,14 @@ export function ComparisonTable({
         <tbody className="divide-y">
           {rows.map((row) => (
             <tr key={row.label}>
-              <td className="px-4 py-3">
+              <th scope="row" className="px-4 py-3 text-left font-normal">
                 {row.label}
                 {row.note && (
                   <span className="text-muted-foreground mt-0.5 block text-xs">
                     {row.note}
                   </span>
                 )}
-              </td>
+              </th>
               <td className="text-muted-foreground px-4 py-3 text-center">
                 {renderCell(row.competitor, "competitor")}
               </td>
@@ -74,7 +77,9 @@ export function ComparisonTable({
         {footer && (
           <tfoot>
             <tr className="bg-muted/50 font-semibold">
-              <td className="px-4 py-3">{footer.label}</td>
+              <th scope="row" className="px-4 py-3 text-left">
+                {footer.label}
+              </th>
               <td className="px-4 py-3 text-center"></td>
               <td className="text-primary px-4 py-3 text-center">
                 {footer.value}

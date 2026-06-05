@@ -19,26 +19,48 @@ const MARKETING_ONLY_ROUTES = [
 ];
 
 /**
+ * Risolve l'hostname pubblico della richiesta dall'header `Host`.
+ *
+ * Dietro Cloudflare l'header `Host` è la source-of-truth attendibile: l'edge lo
+ * riscrive in base all'hostname effettivamente servito (SNI), quindi un client
+ * non può falsificarlo per ingannare il routing. È la stessa sorgente usata da
+ * `robots.ts` (`headers().get("host")`) e, a differenza di
+ * `request.nextUrl.hostname`, resta corretta in produzione standalone dietro il
+ * Cloudflare Tunnel: lì `nextUrl.hostname` può riflettere l'origin interno e
+ * NON l'apex marketing, causando `X-Robots-Tag: noindex` sulle pagine pubbliche
+ * e il mancato redirect del dominio marketing.
+ *
+ * Fallback a `nextUrl.hostname` solo se l'header è assente (richieste sintetiche
+ * senza Host). Sempre normalizzato: lowercase + porta rimossa.
+ */
+function resolvePublicHostname(request: NextRequest): string {
+  const fromHeader = request.headers.get("host");
+  const raw =
+    fromHeader && fromHeader.length > 0
+      ? fromHeader
+      : request.nextUrl.hostname || "";
+  return raw.toLowerCase().replace(/:\d+$/, "");
+}
+
+/**
  * Redirects based on hostname to enforce domain separation.
  *
  * Trust model:
- * - Primary source is `request.nextUrl.hostname` (Next.js parses this from the
- *   incoming URL — same byte source as the Host header but normalised).
+ * - Primary source is the `Host` header via `resolvePublicHostname()` — dietro
+ *   Cloudflare è attendibile e coerente con `robots.ts`. `nextUrl.hostname` è
+ *   solo fallback quando l'header manca.
  * - Hostname matching is done against an explicit allowlist (app, marketing,
  *   www-marketing, api). Anything outside the allowlist is left untouched
- *   (safe-deny: no implicit cross-domain redirect on unknown hosts), so a
- *   spoofed Host header never triggers a redirect to an arbitrary destination.
+ *   (safe-deny: no implicit cross-domain redirect on unknown hosts).
+ * - I target dei redirect sono costruiti SOLO da env trusted
+ *   (`https://${appHostname}`), mai dall'host della richiesta → anche
+ *   accettando l'header `Host` non si introduce alcun open-redirect.
  * - Skipped in local development where both domains share localhost:3000.
  */
 function hostnameRedirect(request: NextRequest): NextResponse | null {
   if (process.env.NODE_ENV === "development") return null;
 
-  // request.nextUrl.hostname is Next.js's parsed view of the request URL —
-  // already lowercased and without port. We strip a stray port defensively
-  // (some platforms surface "host:port" in nextUrl.hostname).
-  const hostname = (request.nextUrl.hostname || "")
-    .toLowerCase()
-    .replace(/:\d+$/, "");
+  const hostname = resolvePublicHostname(request);
   const { pathname, search } = request.nextUrl;
   // Trusted hostnames must be parsed/validated: a malformed env var
   // (scheme leak, trailing slash, spaces, …) would otherwise alter routing
@@ -107,21 +129,50 @@ function hostnameRedirect(request: NextRequest): NextResponse | null {
  * autorevole di de-indicizzazione: a differenza del solo `Disallow` in
  * robots.txt, garantisce che le pagine già note non restino nell'indice.
  * Applicato solo alle risposte HTML pass-through (non ai redirect 3xx).
+ *
+ * L'host è risolto dall'header `Host` (`resolvePublicHostname`), coerente con
+ * `robots.ts`: in produzione `nextUrl.hostname` può non essere l'apex marketing
+ * e marcherebbe per errore la landing pubblica come `noindex`.
  */
 function applyNoindexHeader(
   response: NextResponse,
   request: NextRequest,
 ): NextResponse {
-  const hostname = (request.nextUrl.hostname || "")
-    .toLowerCase()
-    .replace(/:\d+$/, "");
-  if (!isIndexableHost(hostname)) {
+  if (!isIndexableHost(resolvePublicHostname(request))) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
   }
   return response;
 }
 
+/**
+ * Breadcrumb diagnostico edge-safe: emette un `console.warn` strutturato (pino
+ * NON è edge-compatibile) SOLO quando l'header `Host` e `nextUrl.hostname`
+ * divergono. Serve a confermare in produzione la discrepanza dietro Cloudflare
+ * Tunnel (root cause del noindex sull'apex) e resta come osservabilità. Gate
+ * on-mismatch per non generare rumore sulle richieste normali.
+ */
+function logHostSourceMismatch(request: NextRequest): void {
+  const hostHeader = (request.headers.get("host") || "")
+    .toLowerCase()
+    .replace(/:\d+$/, "");
+  const nextUrlHostname = (request.nextUrl.hostname || "")
+    .toLowerCase()
+    .replace(/:\d+$/, "");
+  if (hostHeader && nextUrlHostname && hostHeader !== nextUrlHostname) {
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        action: "proxyHostSource",
+        hostHeader,
+        nextUrlHostname,
+        msg: "host header differs from nextUrl.hostname; using host header",
+      }),
+    );
+  }
+}
+
 export async function proxy(request: NextRequest) {
+  logHostSourceMismatch(request);
   const redirect = hostnameRedirect(request);
   if (redirect) return redirect;
 
