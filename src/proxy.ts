@@ -144,35 +144,7 @@ function applyNoindexHeader(
   return response;
 }
 
-/**
- * Breadcrumb diagnostico edge-safe: emette un `console.warn` strutturato (pino
- * NON è edge-compatibile) SOLO quando l'header `Host` e `nextUrl.hostname`
- * divergono. Serve a confermare in produzione la discrepanza dietro Cloudflare
- * Tunnel (root cause del noindex sull'apex) e resta come osservabilità. Gate
- * on-mismatch per non generare rumore sulle richieste normali.
- */
-function logHostSourceMismatch(request: NextRequest): void {
-  const hostHeader = (request.headers.get("host") || "")
-    .toLowerCase()
-    .replace(/:\d+$/, "");
-  const nextUrlHostname = (request.nextUrl.hostname || "")
-    .toLowerCase()
-    .replace(/:\d+$/, "");
-  if (hostHeader && nextUrlHostname && hostHeader !== nextUrlHostname) {
-    console.warn(
-      JSON.stringify({
-        level: "warn",
-        action: "proxyHostSource",
-        hostHeader,
-        nextUrlHostname,
-        msg: "host header differs from nextUrl.hostname; using host header",
-      }),
-    );
-  }
-}
-
 export async function proxy(request: NextRequest) {
-  logHostSourceMismatch(request);
   const redirect = hostnameRedirect(request);
   if (redirect) return redirect;
 

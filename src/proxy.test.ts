@@ -600,28 +600,27 @@ describe("proxy", () => {
       );
     });
 
-    it("logs a proxyHostSource breadcrumb only when Host header and nextUrl.hostname differ", async () => {
+    it("never emits a proxyHostSource breadcrumb, even when Host header and nextUrl.hostname differ", async () => {
+      // Regression: in standalone dietro Cloudflare Tunnel nextUrl.hostname è
+      // sempre il bind address (0.0.0.0), quindi il vecchio breadcrumb
+      // diagnostico floodava i log con un warn per ogni richiesta. La sua root
+      // cause (noindex sull'apex) è già fixata: nessun segnale residuo.
       mockGetUser.mockResolvedValue({ data: { user: null } });
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       const { proxy } = await import("./proxy");
 
-      // Match: nessun breadcrumb proxyHostSource.
       await proxy(createRequestForHost("/", "scontrinozero.it"));
-      expect(
-        warnSpy.mock.calls.filter((c) =>
-          String(c[0]).includes("proxyHostSource"),
-        ),
-      ).toHaveLength(0);
-
-      // Mismatch: un solo breadcrumb proxyHostSource.
       await proxy(
         new NextRequest("https://internal.local/", {
           headers: { host: "scontrinozero.it" },
         }),
       );
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("proxyHostSource"),
-      );
+
+      expect(
+        warnSpy.mock.calls.filter((c) =>
+          String(c[0]).includes("proxyHostSource"),
+        ),
+      ).toHaveLength(0);
       warnSpy.mockRestore();
     });
   });
