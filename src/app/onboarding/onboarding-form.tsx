@@ -107,6 +107,7 @@ export function OnboardingForm({
     initialBusinessId,
   );
   const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [verifyPivaConflict, setVerifyPivaConflict] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const step1Form = useForm<Step1Data>({
@@ -159,12 +160,14 @@ export function OnboardingForm({
 
   function handleVerify() {
     setVerifyError(null);
+    setVerifyPivaConflict(false);
     if (!businessId) return;
     const id = businessId;
     startTransition(async () => {
       const result = await verifyAdeCredentials(id);
       if (result.error) {
         setVerifyError(result.error);
+        setVerifyPivaConflict(!!result.pivaConflict);
         return;
       }
       router.push("/dashboard");
@@ -371,9 +374,24 @@ export function OnboardingForm({
               </p>
 
               {verifyError && (
-                <p className="text-destructive text-sm" role="alert">
-                  {verifyError}
-                </p>
+                <div className="space-y-1">
+                  <p className="text-destructive text-sm" role="alert">
+                    {verifyError}
+                  </p>
+                  {verifyPivaConflict && (
+                    <p className="text-muted-foreground text-xs">
+                      Se questa P.IVA è tua (es. un vecchio account o un trial
+                      abbandonato),{" "}
+                      <a
+                        href="/help/contatto-assistenza"
+                        className="underline underline-offset-2"
+                      >
+                        contatta l&apos;assistenza
+                      </a>{" "}
+                      per sbloccarla.
+                    </p>
+                  )}
+                </div>
               )}
 
               <div className="flex flex-col gap-2">

@@ -544,6 +544,60 @@ describe("AdeCredentialsSection", () => {
       });
     });
 
+    it("mostra il link all'assistenza quando l'errore è un conflitto P.IVA", async () => {
+      mockVerifyAdeCredentials.mockResolvedValue({
+        error: "Questa P.IVA è già associata a un altro account.",
+        pivaConflict: true,
+      });
+
+      render(
+        <AdeCredentialsSection
+          businessId="biz-1"
+          hasCredentials={true}
+          verifiedAt={null}
+        />,
+      );
+
+      fireEvent.click(
+        screen.getByRole("button", { name: "Verifica connessione" }),
+      );
+
+      await waitFor(() => {
+        const link = screen.getByRole("link", { name: /assistenza/i });
+        expect(link).toHaveAttribute("href", "/help/contatto-assistenza");
+      });
+    });
+
+    it("NON mostra il link all'assistenza per un errore generico", async () => {
+      mockVerifyAdeCredentials.mockResolvedValue({
+        error: "Verifica fallita. Controlla le credenziali Fisconline.",
+      });
+
+      render(
+        <AdeCredentialsSection
+          businessId="biz-1"
+          hasCredentials={true}
+          verifiedAt={null}
+        />,
+      );
+
+      fireEvent.click(
+        screen.getByRole("button", { name: "Verifica connessione" }),
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(
+            "Verifica fallita. Controlla le credenziali Fisconline.",
+          ),
+        ).toBeInTheDocument();
+      });
+
+      expect(
+        screen.queryByRole("link", { name: /assistenza/i }),
+      ).not.toBeInTheDocument();
+    });
+
     it("l'errore si cancella quando il secondo tentativo ha successo", async () => {
       mockVerifyAdeCredentials.mockResolvedValueOnce({
         error: "Verifica fallita.",

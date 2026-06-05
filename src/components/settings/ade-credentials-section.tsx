@@ -12,7 +12,7 @@ type VerifyState =
   | { status: "idle" }
   | { status: "pending" }
   | { status: "success" }
-  | { status: "error"; message: string };
+  | { status: "error"; message: string; pivaConflict?: boolean };
 
 interface AdeCredentialsSectionProps {
   businessId: string | null;
@@ -70,7 +70,11 @@ export function AdeCredentialsSection({
           setChangePasswordOpen(true);
           return;
         }
-        setVerifyState({ status: "error", message: result.error });
+        setVerifyState({
+          status: "error",
+          message: result.error,
+          pivaConflict: result.pivaConflict,
+        });
         return;
       }
 
@@ -150,10 +154,25 @@ export function AdeCredentialsSection({
         )}
 
         {verifyState.status === "error" && (
-          <p className="text-destructive flex items-center gap-1.5 text-sm">
-            <AlertCircle className="h-4 w-4" />
-            {verifyState.message}
-          </p>
+          <div className="space-y-1">
+            <p className="text-destructive flex items-center gap-1.5 text-sm">
+              <AlertCircle className="h-4 w-4" />
+              {verifyState.message}
+            </p>
+            {verifyState.pivaConflict && (
+              <p className="text-muted-foreground text-xs">
+                Se questa P.IVA è tua (es. un vecchio account o un trial
+                abbandonato),{" "}
+                <a
+                  href="/help/contatto-assistenza"
+                  className="underline underline-offset-2"
+                >
+                  contatta l&apos;assistenza
+                </a>{" "}
+                per sbloccarla.
+              </p>
+            )}
+          </div>
         )}
       </div>
     </>
