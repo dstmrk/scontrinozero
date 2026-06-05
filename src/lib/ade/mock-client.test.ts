@@ -253,26 +253,6 @@ describe("MockAdeClient", () => {
     });
   });
 
-  describe("getStampa", () => {
-    it("returns an empty string when logged in", async () => {
-      await client.login(mockCredentials);
-      const stampa = await client.getStampa("151000000");
-
-      expect(stampa).toBe("");
-    });
-
-    it("accepts the isGift parameter without error", async () => {
-      await client.login(mockCredentials);
-      const stampa = await client.getStampa("151000000", true);
-
-      expect(stampa).toBe("");
-    });
-
-    it("throws if not logged in", async () => {
-      await expect(client.getStampa("151000000")).rejects.toThrow();
-    });
-  });
-
   describe("getDocument", () => {
     it("returns a minimal document with the requested idtrx", async () => {
       await client.login(mockCredentials);

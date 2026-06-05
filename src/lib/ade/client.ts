@@ -61,14 +61,6 @@ export interface AdeClient {
   getProducts(): Promise<AdeProduct[]>;
 
   /**
-   * Recupera l'HTML dello scontrino emesso (per stampa/anteprima).
-   *
-   * HAR finding (vendita.har): GET /ser/api/documenti/v1/doc/documenti/{idtrx}/stampa/
-   * Chiamato dal portale subito dopo l'emissione (request [11]).
-   */
-  getStampa(idtrx: string, isGift?: boolean): Promise<string>;
-
-  /**
    * Recupera il dettaglio di un documento tramite id transazione.
    *
    * HAR finding (annullo.har [05]): GET /ser/api/documenti/v1/doc/documenti/{idtrx}/

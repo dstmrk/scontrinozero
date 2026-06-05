@@ -1075,6 +1075,9 @@ describe("onboarding-actions", () => {
       const result = await verifyAdeCredentials("biz-789");
 
       expect(result.error).toContain("P.IVA");
+      // Flag che permette alla UI di offrire il pointer all'assistenza per
+      // l'utente legittimo (vecchio account / trial abbandonato).
+      expect(result.pivaConflict).toBe(true);
       expect(result.businessId).toBeUndefined();
       // Logout must still be called (getFiscalData finally block)
       expect(mockLogout).toHaveBeenCalled();

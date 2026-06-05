@@ -624,6 +624,16 @@ export class RealAdeClient implements AdeClient {
 
   // -----------------------------------------------------------------------
   // SPID authentication helpers (HAR: login_spid.har)
+  //
+  // ⚠️ ROADMAP — NON CABLATO. Tutto il flusso SPID (loginSpid /
+  // authenticateSpid + gli helper S1-S15 qui sotto, più i tipi
+  // SpidCredentials / AdeSpidTimeoutError e le opzioni spidPollIntervalMs /
+  // spidMaxPolls) è implementato e testato ma NON ha chiamanti in produzione:
+  // oggi è cablato solo il login Fisconline. È codice voluto per il futuro
+  // (PLAN.md → v1.8.0 "AdE auth multi-metodo: SPID e CIE"), NON dead code da
+  // rimuovere. Prima del lancio servono anche l'allowlist host IdP e il
+  // wiring di loginSpid (vedi backlog sicurezza in PLAN.md). Mantenere coperto
+  // dai test finché non viene cablato.
   // -----------------------------------------------------------------------
 
   /**
@@ -1161,32 +1171,6 @@ export class RealAdeClient implements AdeClient {
     }
 
     return response.json() as Promise<AdeProduct[]>;
-  }
-
-  /**
-   * Recupera l'HTML dello scontrino emesso.
-   *
-   * HAR finding (vendita.har, request [11]):
-   * GET /ser/api/documenti/v1/doc/documenti/{idtrx}/stampa/?v=...&regalo=false
-   * Chiamato dal portale subito dopo l'emissione per anteprima/stampa.
-   */
-  async getStampa(idtrx: string, isGift = false): Promise<string> {
-    this.assertLoggedIn();
-
-    const regalo = isGift ? "true" : "false";
-    const url =
-      `${ADE_BASE_URL}/ser/api/documenti/v1/doc/documenti/${idtrx}/stampa/` +
-      `?v=${Date.now()}&regalo=${regalo}`;
-    const response = await this.request(url);
-
-    if (!response.ok) {
-      throw new AdePortalError(
-        response.status,
-        `Failed to fetch stampa for idtrx ${idtrx}: status ${response.status}`,
-      );
-    }
-
-    return response.text();
   }
 
   /**

@@ -48,6 +48,13 @@ export type OnboardingActionResult = {
   error?: string;
   businessId?: string;
   passwordExpired?: boolean;
+  /**
+   * La P.IVA è già associata a un altro account (vincolo UNIQUE anti-abuso
+   * trial). La UI usa questo flag per offrire un percorso self-service verso
+   * l'assistenza, dato che l'utente legittimo (vecchio account, trial
+   * abbandonato) non ha modo di sbloccarsi da solo.
+   */
+  pivaConflict?: boolean;
 };
 
 const changePasswordLimiter = new RateLimiter({
@@ -450,7 +457,10 @@ export async function verifyAdeCredentials(
   } catch (err) {
     if (isUniqueConstraintViolation(err)) {
       logger.warn({ businessId }, "P.IVA già in uso — possibile abuso trial");
-      return { error: "Questa P.IVA è già associata a un altro account." };
+      return {
+        error: "Questa P.IVA è già associata a un altro account.",
+        pivaConflict: true,
+      };
     }
     logger.error(
       { err, businessId, critical: true },

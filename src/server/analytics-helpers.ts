@@ -12,6 +12,28 @@
 
 export type AnalyticsRange = "7d" | "30d" | "90d" | "ytd";
 
+/** Range di default quando l'URL non specifica `?range=` o il valore è invalido. */
+export const DEFAULT_ANALYTICS_RANGE: AnalyticsRange = "30d";
+
+const ANALYTICS_RANGES: ReadonlySet<AnalyticsRange> = new Set([
+  "7d",
+  "30d",
+  "90d",
+  "ytd",
+]);
+
+/**
+ * Valida un valore grezzo (es. da `?range=` nell'URL) contro l'allowlist dei
+ * range supportati. Un valore mancante o non valido ricade sul default invece
+ * di lanciare: il deep link è una comodità, non deve mai rompere il render
+ * (coerente con regola 19 — degradare, non lanciare).
+ */
+export function parseAnalyticsRange(raw: string | undefined): AnalyticsRange {
+  return raw && ANALYTICS_RANGES.has(raw as AnalyticsRange)
+    ? (raw as AnalyticsRange)
+    : DEFAULT_ANALYTICS_RANGE;
+}
+
 export type AnalyticsKpis = {
   /** Totale ricavi (solo SALE ACCEPTED) espresso in centesimi. */
   revenueCents: number;

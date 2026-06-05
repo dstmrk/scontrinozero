@@ -29,7 +29,10 @@ export function PaymentBreakdown({ data }: PaymentBreakdownProps) {
   // useId DEVE essere chiamato prima di qualsiasi early return.
   const summaryId = useId();
   const chartData = data.map((e) => ({
-    method: METHOD_LABELS[e.method] ?? e.method,
+    // normalizePaymentMethod ritorna sempre PC/PE/other, ma un metodo non
+    // mappato deve comunque rendere un'etichetta leggibile ("Altro") invece
+    // del codice grezzo.
+    method: METHOD_LABELS[e.method] ?? "Altro",
     revenue: e.revenueCents / 100,
     count: e.count,
   }));

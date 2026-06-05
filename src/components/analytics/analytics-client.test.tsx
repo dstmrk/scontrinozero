@@ -15,6 +15,11 @@ vi.mock("@/server/analytics-actions", () => ({
   getAnalyticsBundle: (...args: unknown[]) => mockGetAnalyticsBundle(...args),
 }));
 
+const mockRouterReplace = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: mockRouterReplace }),
+}));
+
 // Stub Radix UI Select per evitare di gestire portals/scrollIntoView nei test.
 vi.mock("@/components/ui/select", () => ({
   Select: ({
@@ -195,6 +200,10 @@ describe("AnalyticsClient handleRangeChange", () => {
     });
     // H1: una sola call al server, non quattro.
     expect(mockGetAnalyticsBundle).toHaveBeenCalledTimes(1);
+    // Il range selezionato viene riflesso nell'URL (deep link condivisibile).
+    expect(mockRouterReplace).toHaveBeenCalledWith(
+      "/dashboard/analytics?range=ytd",
+    );
 
     await waitFor(() => {
       expect(screen.getByTestId("kpis").textContent).toContain(
@@ -218,6 +227,8 @@ describe("AnalyticsClient handleRangeChange", () => {
     fireEvent.click(screen.getByTestId("range-invalid"));
 
     expect(mockGetAnalyticsBundle).not.toHaveBeenCalled();
+    // Un valore non valido non deve nemmeno toccare l'URL.
+    expect(mockRouterReplace).not.toHaveBeenCalled();
   });
 
   it("mostra il banner di errore quando il bundle ritorna { error }", async () => {

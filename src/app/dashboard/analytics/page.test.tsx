@@ -58,6 +58,12 @@ import AnalyticsPage from "./page";
 
 const KPIS = { revenueCents: 12345, count: 7, aovCents: 1763, voidCount: 1 };
 
+// La page ora riceve `searchParams` (Next 16 → Promise). Helper per costruire
+// la prop con un range opzionale.
+function pageProps(range?: string) {
+  return { searchParams: Promise.resolve(range ? { range } : {}) };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetOnboardingStatus.mockResolvedValue({ businessId: "biz-1" });
@@ -69,7 +75,7 @@ describe("AnalyticsPage — base view (Starter/Trial)", () => {
     mockGetPlan.mockResolvedValue({ plan: "starter" });
     mockGetStarterKpis.mockResolvedValue({ kpis: KPIS });
 
-    render(await AnalyticsPage());
+    render(await AnalyticsPage(pageProps()));
 
     // KPI labels (4 card) presenti
     expect(screen.getByText("Ricavi")).toBeInTheDocument();
@@ -90,7 +96,7 @@ describe("AnalyticsPage — base view (Starter/Trial)", () => {
     mockGetPlan.mockResolvedValue({ plan: "trial" });
     mockGetStarterKpis.mockResolvedValue({ kpis: KPIS });
 
-    render(await AnalyticsPage());
+    render(await AnalyticsPage(pageProps()));
 
     expect(screen.getByText("Grafici avanzati · Pro")).toBeInTheDocument();
     expect(screen.queryByTestId("analytics-client")).not.toBeInTheDocument();
@@ -100,7 +106,7 @@ describe("AnalyticsPage — base view (Starter/Trial)", () => {
     mockGetPlan.mockResolvedValue({ plan: "starter" });
     mockGetStarterKpis.mockResolvedValue({ error: "boom" });
 
-    render(await AnalyticsPage());
+    render(await AnalyticsPage(pageProps()));
 
     expect(screen.getByRole("alert")).toBeInTheDocument();
     // KPI azzerati → placeholder "—" per ricavi/conteggio
@@ -118,10 +124,39 @@ describe("AnalyticsPage — Pro view", () => {
       productBreakdown: [],
     });
 
-    render(await AnalyticsPage());
+    render(await AnalyticsPage(pageProps()));
 
     expect(screen.getByTestId("analytics-client")).toBeInTheDocument();
     expect(mockGetStarterKpis).not.toHaveBeenCalled();
     expect(mockGetAnalyticsBundle).toHaveBeenCalledWith("biz-1", "30d");
+  });
+
+  it("onora il deep link ?range=90d (Pro) fetchando il bundle sul range richiesto", async () => {
+    mockGetPlan.mockResolvedValue({ plan: "pro" });
+    mockGetAnalyticsBundle.mockResolvedValue({
+      kpis: KPIS,
+      timeseries: [],
+      breakdown: [],
+      productBreakdown: [],
+    });
+
+    render(await AnalyticsPage(pageProps("90d")));
+
+    expect(mockGetAnalyticsBundle).toHaveBeenCalledWith("biz-1", "90d");
+  });
+
+  it("ricade su 30d quando ?range= è invalido (no throw, no error boundary)", async () => {
+    mockGetPlan.mockResolvedValue({ plan: "unlimited" });
+    mockGetAnalyticsBundle.mockResolvedValue({
+      kpis: KPIS,
+      timeseries: [],
+      breakdown: [],
+      productBreakdown: [],
+    });
+
+    render(await AnalyticsPage(pageProps("bogus")));
+
+    expect(mockGetAnalyticsBundle).toHaveBeenCalledWith("biz-1", "30d");
+    expect(screen.getByTestId("analytics-client")).toBeInTheDocument();
   });
 });

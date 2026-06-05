@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { updateBusiness } from "@/server/profile-actions";
+import { ERROR_MESSAGES } from "@/lib/error-messages";
 import { BUSINESS_PROFILE_LIMITS } from "@/lib/validation";
 import {
   isValidPreferredVatCode,
@@ -136,6 +137,8 @@ export function EditBusinessSection({
     },
     onSuccess: (result) => {
       if (result.error) {
+        // Errori previsti/permanenti (validazione, ownership, rate limit): la
+        // server action ritorna un messaggio già tarato — mostrarlo verbatim.
         form.setError("root", { message: result.error });
       } else {
         setIsOpen(false);
@@ -143,8 +146,17 @@ export function EditBusinessSection({
       }
     },
     onError: () => {
+      // onError scatta solo su eccezione lanciata (DB/network): per costruzione
+      // gli errori d'input permanenti tornano via onSuccess come { error }.
+      // Questo ramo è quindi sempre transiente/retry-able: distinguiamo il caso
+      // offline (azionabile dall'utente) dall'errore server temporaneo, invece
+      // del generico "Riprova più tardi" che non chiariva la retry-abilità.
+      const offline =
+        typeof navigator !== "undefined" && navigator.onLine === false;
       form.setError("root", {
-        message: "Si è verificato un errore. Riprova più tardi.",
+        message: offline
+          ? ERROR_MESSAGES.NETWORK_OFFLINE
+          : ERROR_MESSAGES.GENERIC_TRANSIENT,
       });
     },
   });
