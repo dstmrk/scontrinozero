@@ -89,11 +89,6 @@ export class MockAdeClient implements AdeClient {
     return [];
   }
 
-  async getStampa(_idtrx: string, _isGift = false): Promise<string> {
-    this.assertLoggedIn();
-    return "";
-  }
-
   async getDocument(_idtrx: string): Promise<AdeDocumentDetail> {
     this.assertLoggedIn();
 

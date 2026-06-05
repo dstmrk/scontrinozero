@@ -1164,32 +1164,6 @@ export class RealAdeClient implements AdeClient {
   }
 
   /**
-   * Recupera l'HTML dello scontrino emesso.
-   *
-   * HAR finding (vendita.har, request [11]):
-   * GET /ser/api/documenti/v1/doc/documenti/{idtrx}/stampa/?v=...&regalo=false
-   * Chiamato dal portale subito dopo l'emissione per anteprima/stampa.
-   */
-  async getStampa(idtrx: string, isGift = false): Promise<string> {
-    this.assertLoggedIn();
-
-    const regalo = isGift ? "true" : "false";
-    const url =
-      `${ADE_BASE_URL}/ser/api/documenti/v1/doc/documenti/${idtrx}/stampa/` +
-      `?v=${Date.now()}&regalo=${regalo}`;
-    const response = await this.request(url);
-
-    if (!response.ok) {
-      throw new AdePortalError(
-        response.status,
-        `Failed to fetch stampa for idtrx ${idtrx}: status ${response.status}`,
-      );
-    }
-
-    return response.text();
-  }
-
-  /**
    * Recupera il dettaglio di un documento tramite id transazione.
    *
    * HAR finding (annullo.har [05]): chiamato prima dell'annullo per ottenere
