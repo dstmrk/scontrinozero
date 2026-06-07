@@ -10,7 +10,10 @@ import type { ErrorEvent, EventHint } from "@sentry/nextjs";
  */
 const FORMDATA_PARSE_MESSAGE = "Failed to parse body as FormData";
 
-function extractErrorMessage(event: ErrorEvent, hint?: EventHint): string {
+export function extractErrorMessage(
+  event: ErrorEvent,
+  hint?: EventHint,
+): string {
   const original = hint?.originalException;
   if (original instanceof Error) {
     return original.message;
@@ -19,6 +22,26 @@ function extractErrorMessage(event: ErrorEvent, hint?: EventHint): string {
     return original;
   }
   return event.exception?.values?.[0]?.value ?? "";
+}
+
+/**
+ * Messaggi nativi del browser per fallimenti di rete a livello di trasporto
+ * (TCP/TLS drop, nessuna connessione, app iOS in background).
+ * Non vengono mai generati da codice applicativo — sono sempre non azionabili.
+ */
+const NETWORK_FAILURE_MESSAGES = new Set(["Load failed", "Failed to fetch"]);
+
+/**
+ * True se l'evento è un fallimento di rete client-side — il browser non è
+ * riuscito a completare la chiamata fetch() prima di ricevere una risposta.
+ * Tipico su mobile con connessione instabile (issue SCONTRINOZERO-J).
+ */
+export function isClientNetworkFailure(
+  event: ErrorEvent,
+  hint?: EventHint,
+): boolean {
+  const message = extractErrorMessage(event, hint);
+  return NETWORK_FAILURE_MESSAGES.has(message);
 }
 
 /**

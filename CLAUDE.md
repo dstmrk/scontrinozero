@@ -138,7 +138,12 @@ src/app/\(marketing\)` prima di chiudere il task. - Contenuti generati via LLM c
     SCONTRINOZERO-7 ha collezionato 23 eventi in 5 settimane prima di essere
     archiviata come noise, perché ogni utente che digitava credenziali AdE
     sbagliate da `/dashboard/settings` finiva in Sentry. Estende la regola 19
-    alle server action di scrittura.
+    alle server action di scrittura. **Lato client** lo stesso principio si
+    applica tramite `beforeSend` in `sentry.client.config.ts`: i fallimenti di
+    rete browser (`TypeError: Load failed` su iOS, `Failed to fetch` su Chrome)
+    generati da `fetchServerAction` sono sempre transitori (connessione mobile
+    caduta) — filtrati da `isClientNetworkFailure()` in
+    `src/lib/sentry-filters.ts` (SCONTRINOZERO-J).
 21. **Osservabilità: validare il drain end-to-end al rollout.** Quando si
     abilita o si modifica una feature di telemetria (`enableLogs`,
     `Sentry.pinoIntegration`, `Sentry.metrics`, Sentry Profiling, Replays,
