@@ -29,7 +29,7 @@ export function extractErrorMessage(
  * (TCP/TLS drop, nessuna connessione, app iOS in background).
  * Non vengono mai generati da codice applicativo — sono sempre non azionabili.
  */
-const NETWORK_FAILURE_MESSAGES = ["Load failed", "Failed to fetch"];
+const NETWORK_FAILURE_MESSAGES = new Set(["Load failed", "Failed to fetch"]);
 
 /**
  * True se l'evento è un fallimento di rete client-side — il browser non è
@@ -41,7 +41,7 @@ export function isClientNetworkFailure(
   hint?: EventHint,
 ): boolean {
   const message = extractErrorMessage(event, hint);
-  return NETWORK_FAILURE_MESSAGES.includes(message);
+  return NETWORK_FAILURE_MESSAGES.has(message);
 }
 
 /**
