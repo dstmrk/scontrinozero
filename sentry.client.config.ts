@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { isClientNetworkFailure } from "@/lib/sentry-filters";
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -8,4 +9,11 @@ Sentry.init({
   replaysSessionSampleRate: 0,
   integrations: [Sentry.replayIntegration()],
   enabled: !!process.env.NEXT_PUBLIC_SENTRY_DSN,
+  beforeSend(event, hint) {
+    // Rumore di rete transiente su mobile (issue SCONTRINOZERO-J)
+    if (isClientNetworkFailure(event, hint)) {
+      return null;
+    }
+    return event;
+  },
 });
