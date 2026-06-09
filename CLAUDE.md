@@ -20,8 +20,10 @@ Cloudflare Tunnel.
   Stripe test · Raspberry Pi 5 (arm64). Auto-deploy a ogni push su `main`.
   Setup completo in `deploy/dev/README.md`.
 
-Versione corrente in `package.json`. Roadmap in `PLAN.md`. Storico release dai
-tag git (`git tag -l "v1.*"`).
+Versione corrente in `package.json`. Roadmap in `PLAN.md`. Bug noti e tech
+debt in `REVIEW.md` (registro prioritizzato P1/P2/P3: rimuovere la voce nel PR
+del fix, aggiungere lì i nuovi finding). Storico release dai tag git
+(`git tag -l "v1.*"`).
 
 ## Principi guida
 
@@ -394,7 +396,8 @@ auto-attivano quando il task matcha il `description`:
 
 Altri riferimenti già nel repo:
 
-- **`PLAN.md`** — roadmap e backlog
+- **`PLAN.md`** — roadmap funzionalità
+- **`REVIEW.md`** — registro bug noti / tech debt prioritizzato (file:riga, fix)
 - **`DEVELOPER.md`** — Developer API (Tier 1/2)
 - **`docs/api-spec.md`** — surface REST
 - **`README.md`** — overview pubblico
