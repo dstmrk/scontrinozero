@@ -15,6 +15,7 @@ jobs:
   # Smart skip: only run if relevant files changed
   changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       code: ${{ steps.agg.outputs.code }}
       marketing: ${{ steps.f.outputs.marketing }}
@@ -87,6 +88,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.migrations == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Check migration journal consistency
@@ -100,6 +102,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.hooks == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Run hook test suites
@@ -115,6 +118,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.ci_scripts == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Run sonar-scan wrapper tests
@@ -123,6 +127,7 @@ jobs:
   # Scansione segreti — gira su tutti i push/PR (indipendente dal diff)
   secret-scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
@@ -141,6 +146,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.workflows == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Download actionlint
@@ -154,6 +160,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true' || needs.changes.outputs.lockfile == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
@@ -178,6 +185,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true' || needs.changes.outputs.marketing == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
@@ -200,6 +208,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true' || needs.changes.outputs.marketing == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
@@ -225,6 +234,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
@@ -262,6 +272,11 @@ jobs:
     needs: [changes, test]
     if: needs.changes.outputs.code == 'true' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Single source of truth per la cache key; sonar-scan.sh la legge e
+      # scarica questa stessa versione su cache miss.
+      SCANNER_VERSION: "8.0.1.6346"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
@@ -275,15 +290,27 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: test-execution-report
+      # Cache della scanner CLI (~50MB dal CDN flaky di Sonar) e della plugin
+      # cache dello scanner: su hit lo script salta il download — meno tempo
+      # sul percorso critico e zero esposizione ai 403 intermittenti del CDN.
+      - name: Cache SonarScanner CLI + plugin cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4.2.4
+        with:
+          path: |
+            ~/.sonar-scanner
+            ~/.sonar/cache
+          key: sonar-scanner-${{ runner.os }}-${{ env.SCANNER_VERSION }}
       # Wrapper around the scanner CLI instead of SonarSource/sonarqube-scan-action:
       # that action has no retry and re-downloads the CLI from binaries.sonarsource.com
       # every run, so an intermittent HTTP 403 from Sonar's CDN sinks the job (and
       # spams notifications on main). The wrapper retries the download and, if the
       # CDN stays unreachable, skips with a warning instead of failing — real scan
       # errors still turn the job red. Logic covered by scripts/ci/test-sonar-scan.sh.
-      - name: SonarQube Cloud scan (retry + tolerate CDN 403)
+      - name: SonarQube Cloud scan (cached CLI, retry + tolerate CDN 403)
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          # Dir fissa (ripristinata dalla cache) al posto del mktemp di default.
+          WORK_DIR: /home/runner/.sonar-scanner
         run: bash scripts/ci/sonar-scan.sh
 
   # Build parte quando lint, type-check e test sono verdi (test puo' essere skippato
@@ -292,6 +319,7 @@ jobs:
     needs: [changes, lint, type-check, test]
     if: needs.changes.outputs.code == 'true' || needs.changes.outputs.marketing == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     # NEXT_PUBLIC_* vars are baked into the client bundle at build time.
     # Use test values so the build succeeds in CI without production secrets.
     env:
@@ -314,5 +342,15 @@ jobs:
       - name: Install dependencies
         if: steps.nm-cache.outputs.cache-hit != 'true'
         run: npm ci --prefer-offline --no-audit --no-fund
+      # Cache incrementale di Next.js (pattern ufficiale): key esatta su
+      # lockfile+sorgenti, restore-key di fallback sul solo lockfile così
+      # ogni build riparte dalla cache più recente compatibile.
+      - name: Cache Next.js build cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4.2.4
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**/*.ts', 'src/**/*.tsx', 'next.config.ts') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
       - name: Build
         run: npm run build
