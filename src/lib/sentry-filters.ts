@@ -45,6 +45,54 @@ export function isClientNetworkFailure(
 }
 
 /**
+ * Funzioni del runtime di streaming SSR iniettato da React (Fizz): `$RS`
+ * (completeSegment), `$RC` (completeBoundary) e simili spostano i nodi DOM dei
+ * boundary Suspense man mano che lo stream arriva dal server. Sono codice
+ * generato da React, non frame applicativi.
+ */
+const REACT_STREAM_RUNTIME_FUNCTIONS = new Set([
+  "$RS",
+  "$RC",
+  "$RM",
+  "$RR",
+  "$RB",
+  "$RT",
+  "$RX",
+]);
+
+/**
+ * True se l'evento è la benigna race del runtime di streaming SSR di React:
+ * `TypeError: null is not an object (evaluating 'b.parentNode')` (frase Safari;
+ * su Chrome `Cannot read properties of null (reading 'parentNode')`) lanciato da
+ * `$RS`/`$RC`. Accade su Mobile Safari quando il nodo placeholder di un boundary
+ * Suspense è già stato rimosso dal DOM (navigazione rapida, bfcache, estensione)
+ * prima che lo stream lo risolva: `b.parentNode` è `null`. È codice generato da
+ * React — non nostro e non azionabile (issue SCONTRINOZERO-K). Lo scope è stretto
+ * (messaggio su `parentNode` null + frame del runtime Fizz nello stack) per non
+ * filtrare un eventuale bug applicativo reale che tocchi `parentNode`.
+ */
+export function isReactStreamingDomError(
+  event: ErrorEvent,
+  hint?: EventHint,
+): boolean {
+  const message = extractErrorMessage(event, hint);
+  if (!message.includes("parentNode") || !message.includes("null")) {
+    return false;
+  }
+
+  const frames = event.exception?.values?.flatMap(
+    (value) => value.stacktrace?.frames ?? [],
+  );
+  return Boolean(
+    frames?.some(
+      (frame) =>
+        frame.function != null &&
+        REACT_STREAM_RUNTIME_FUNCTIONS.has(frame.function),
+    ),
+  );
+}
+
+/**
  * True se l'evento è il benigno `TypeError: Failed to parse body as FormData`
  * generato da una richiesta verso la route not-found (sonda bot). Lo scope è
  * volutamente limitato alla transaction `/_not-found`: su una Server Action

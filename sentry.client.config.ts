@@ -1,5 +1,8 @@
 import * as Sentry from "@sentry/nextjs";
-import { isClientNetworkFailure } from "@/lib/sentry-filters";
+import {
+  isClientNetworkFailure,
+  isReactStreamingDomError,
+} from "@/lib/sentry-filters";
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -12,6 +15,11 @@ Sentry.init({
   beforeSend(event, hint) {
     // Rumore di rete transiente su mobile (issue SCONTRINOZERO-J)
     if (isClientNetworkFailure(event, hint)) {
+      return null;
+    }
+    // Race benigna del runtime di streaming SSR di React su Mobile Safari
+    // (issue SCONTRINOZERO-K)
+    if (isReactStreamingDomError(event, hint)) {
       return null;
     }
     return event;
