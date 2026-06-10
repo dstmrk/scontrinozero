@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Send } from "lucide-react";
+import { Send, QrCode } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { ReceiptQrCode } from "@/components/receipts/receipt-qr-code";
 import { TrialExpiredMessage } from "@/components/billing/trial-expired-message";
 import { TRIAL_EXPIRED_MESSAGE } from "@/lib/plans-shared";
 import { voidReceipt } from "@/server/void-actions";
@@ -31,12 +32,13 @@ function formatVat(vatCode: string): string {
   return VAT_LABELS[vatCode as VatCode] ?? vatCode;
 }
 
-/** Tre stati del dialog:
+/** Stati del dialog:
  *  detail        — mostra le righe e i bottoni principali
  *  confirmingVoid — chiede conferma dell'annullo con il warning
  *  voidSuccess   — annullo completato con successo
+ *  qr            — mostra la ricevuta come QR code (no Dialog annidata)
  */
-type DialogView = "detail" | "confirmingVoid" | "voidSuccess";
+type DialogView = "detail" | "confirmingVoid" | "voidSuccess" | "qr";
 
 export function VoidReceiptDialog({
   receipt,
@@ -99,6 +101,26 @@ export function VoidReceiptDialog({
             </div>
             <DialogFooter>
               <Button onClick={onClose}>Chiudi</Button>
+            </DialogFooter>
+          </>
+        )}
+        {view === "qr" && (
+          // ── Stato 4: ricevuta come QR code ─────────────────────────────────
+          <>
+            <DialogHeader>
+              <DialogTitle>Ricevuta</DialogTitle>
+              <DialogDescription>
+                Mostra questo QR code all&apos;acquirente per fargli aprire la
+                ricevuta.
+              </DialogDescription>
+            </DialogHeader>
+            <ReceiptQrCode
+              url={`${globalThis.location.origin}/r/${receipt.id}`}
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setView("detail")}>
+                Indietro
+              </Button>
             </DialogFooter>
           </>
         )}
@@ -209,6 +231,10 @@ export function VoidReceiptDialog({
                       <Send className="mr-2 h-4 w-4" aria-hidden="true" />
                       Invia ricevuta
                     </a>
+                  </Button>
+                  <Button variant="outline" onClick={() => setView("qr")}>
+                    <QrCode className="mr-2 h-4 w-4" aria-hidden="true" />
+                    Mostra QR code
                   </Button>
                 </>
               )}

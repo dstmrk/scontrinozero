@@ -112,6 +112,32 @@ describe("ReceiptSuccess", () => {
     expect(screen.getByText("Invia ricevuta")).toBeInTheDocument();
   });
 
+  it("shows 'Mostra QR code' button when documentId is provided", () => {
+    render(<ReceiptSuccess {...defaultProps} documentId="doc-uuid-123" />);
+
+    expect(screen.getByText("Mostra QR code")).toBeInTheDocument();
+  });
+
+  it("hides 'Mostra QR code' button when documentId is not provided", () => {
+    render(<ReceiptSuccess {...defaultProps} />);
+
+    expect(screen.queryByText("Mostra QR code")).not.toBeInTheDocument();
+  });
+
+  it("opens a dialog with the receipt QR code and URL on click", async () => {
+    render(<ReceiptSuccess {...defaultProps} documentId="doc-uuid-123" />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Mostra QR code"));
+    });
+
+    // The dialog renders the public receipt URL in plain text
+    expect(
+      screen.getByText((content) => content.includes("/r/doc-uuid-123")),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/inquadra il qr code/i)).toBeInTheDocument();
+  });
+
   it("uses navigator.share when available", async () => {
     Object.defineProperty(navigator, "share", {
       value: mockShare,
