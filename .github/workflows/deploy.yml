@@ -231,4 +231,28 @@ jobs:
           severity: CRITICAL,HIGH
 
       - name: Push image
-        run: docker push --all-tags ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        run: |
+          set -euo pipefail
+          image="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          version="${GITHUB_REF_NAME#v}"
+          # Push each tag with exponential backoff (2s,4s,8s,16s) to ride out
+          # transient GHCR "unknown blob" / EOF errors on manifest finalize.
+          push_with_retry() {
+            local ref="$1" attempt=1 delay=2
+            while true; do
+              if docker push "$ref"; then
+                return 0
+              fi
+              if [ "$attempt" -ge 5 ]; then
+                echo "::error::docker push failed for $ref after $attempt attempts"
+                return 1
+              fi
+              echo "push attempt $attempt for $ref failed; retrying in ${delay}s"
+              sleep "$delay"
+              attempt=$((attempt + 1))
+              delay=$((delay * 2))
+            done
+          }
+          for tag in "$version" latest; do
+            push_with_retry "${image}:${tag}"
+          done
