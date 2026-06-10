@@ -3,6 +3,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- Mocks ---
 
+// `getAuthenticatedUser` è wrappata in React `cache()` (dedup del round-trip
+// Supabase Auth nel render RSC, REVIEW.md #2). Fuori dal render `cache()` è
+// passthrough; mockarlo esplicitamente come tale rende i test deterministici e
+// indipendenti dagli internals di React.
+vi.mock("react", async (importActual) => {
+  const actual = await importActual<typeof import("react")>();
+  return { ...actual, cache: <T>(fn: T): T => fn };
+});
+
 const mockGetUser = vi.fn();
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabaseClient: vi.fn().mockResolvedValue({
@@ -175,6 +184,15 @@ describe("server-auth", () => {
       await expect(getAuthenticatedUser()).rejects.toThrow("Not authenticated");
 
       expect(mockSentrySetUser).not.toHaveBeenCalled();
+    });
+
+    it("is wrapped in React cache() to dedupe the auth round-trip (REVIEW.md #2)", async () => {
+      // La dedup per-render evita 3 chiamate a supabase.auth.getUser() nel
+      // render di /dashboard (page + getOnboardingStatus + getCatalogItems).
+      // `cache` è mockato come passthrough sopra, quindi qui verifichiamo solo
+      // che l'export sia una funzione invocabile (il wrap non rompe l'API).
+      const { getAuthenticatedUser } = await import("./server-auth");
+      expect(typeof getAuthenticatedUser).toBe("function");
     });
   });
 

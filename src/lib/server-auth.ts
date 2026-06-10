@@ -1,3 +1,4 @@
+import { cache } from "react";
 import * as Sentry from "@sentry/nextjs";
 import { and, eq } from "drizzle-orm";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -21,8 +22,17 @@ export type AdePrerequisites = {
 
 /**
  * Returns the authenticated Supabase user or throws if not authenticated.
+ *
+ * Wrapped in React `cache()` per deduplicare le chiamate nello stesso render
+ * tree RSC: `supabase.auth.getUser()` è una chiamata di rete verso Supabase Auth
+ * e nel render di `/dashboard` veniva eseguita 3 volte (page + getOnboardingStatus
+ * + getCatalogItems). `cache()` è no-op fuori dal render RSC, quindi resta sicuro
+ * per i route handler che la chiamano (stesso pattern di `getOnboardingStatus`,
+ * skill `testing-patterns` voce "react/cache deduplication across RSC and Route
+ * Handlers"). Il bind `Sentry.setUser({ id })` interno (regola 22) viene così
+ * eseguito una sola volta per richiesta — comportamento desiderato.
  */
-export async function getAuthenticatedUser(): Promise<User> {
+export const getAuthenticatedUser = cache(async (): Promise<User> => {
   const supabase = await createServerSupabaseClient();
   let user: User | null = null;
   try {
@@ -58,7 +68,7 @@ export async function getAuthenticatedUser(): Promise<User> {
   // CLAUDE.md.
   Sentry.setUser({ id: user.id });
   return user;
-}
+});
 
 /**
  * Checks that businessId belongs to the authenticated user's profile.
