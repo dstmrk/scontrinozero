@@ -29,59 +29,6 @@ miglioramenti mirati, non vulnerabilità critiche.
 
 ## P1 — Alta priorità
 
-### 2. `getAuthenticatedUser` senza `react cache()` + waterfall di await sequenziali nella dashboard
-
-- **Categoria:** performance (priorità #1 del progetto: performance percepita) · **Severità:** High
-- **File:**
-  - `src/lib/server-auth.ts` (definizione `getAuthenticatedUser`, non wrappata in `cache()`)
-  - `src/app/dashboard/page.tsx:12-31` (waterfall)
-  - `src/server/catalog-actions.ts:81-82` (auth+ownership ripetuti dentro `getCatalogItems`)
-
-**Problema.** Nel render RSC di `/dashboard`:
-
-```ts
-const status = await getOnboardingStatus(); // auth.getUser() #1 + query
-const user = await getAuthenticatedUser(); // auth.getUser() #2
-const planInfo = await getPlan(user.id); // query piano
-const initialData = await getCatalogItems(status.businessId); // auth.getUser() #3 + ownership + query
-```
-
-`supabase.auth.getUser()` è una chiamata di rete verso Supabase Auth: viene eseguita
-**3 volte nello stesso render**, più `checkBusinessOwnership` duplicato. Solo
-`getOnboardingStatus` (`src/server/onboarding-actions.ts:519`) e le funzioni di
-`plans.ts` usano già `cache()` di React; `getAuthenticatedUser` no. In più i 4
-`await` sono sequenziali quando `getPlan` e `getCatalogItems` sono indipendenti
-tra loro. Costo stimato: 200–400ms extra per render su rete reale.
-
-**Fix (non ambiguo).**
-
-1. In `src/lib/server-auth.ts`, wrappare `getAuthenticatedUser` con `cache()` di
-   React (`import { cache } from "react"`), come già fatto per
-   `getOnboardingStatus`. `cache()` è no-op fuori dal render RSC, quindi è sicuro
-   per i route handler che la chiamano (pattern già documentato nella skill
-   `testing-patterns`, voce "react/cache deduplication across RSC and Route
-   Handlers"). Attenzione: il bind `Sentry.setUser({ id })` interno (regola 22,
-   `server-auth.ts:51`) deve restare valido — con la dedup viene eseguito una sola
-   volta per richiesta, che è il comportamento desiderato.
-2. In `src/app/dashboard/page.tsx`, dopo i redirect guard, parallelizzare:
-   ```ts
-   const [planInfo, initialData] = await Promise.all([
-     getPlan(user.id),
-     getCatalogItems(status.businessId),
-   ]);
-   ```
-   Mantenere l'ordine dei guard: `getOnboardingStatus` → redirect `/onboarding`,
-   poi `getAuthenticatedUser` (gratis se cached), poi il `Promise.all`, poi il
-   redirect `canUseDashboardCashier`.
-3. Audit veloce delle altre page RSC del dashboard (`grep -rn "await get" src/app/dashboard`)
-   per applicare lo stesso pattern dove ci sono ≥2 await indipendenti.
-4. **Test:** aggiornare i test esistenti di `server-auth` (il mock di `cache` può
-   essere un passthrough `vi.fn((fn) => fn)`); test della page che verifica il
-   `Promise.all` (ordine dei call non più strettamente sequenziale). Ogni `it()`
-   con almeno un `expect()` (S6661).
-
----
-
 ### 3. Enforcement limiti mensili Developer API assente
 
 - **Categoria:** sicurezza/billing · **Severità:** High — **gate: blocca il lancio dei developer plan (v2.0.0)**

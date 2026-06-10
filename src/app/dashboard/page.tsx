@@ -17,13 +17,18 @@ export default async function DashboardPage() {
   }
 
   // I piani developer_* gestiscono il catalogo via API, non dalla UI.
+  // `getAuthenticatedUser` è ora deduplicata via React cache() (chiamata anche
+  // dentro getOnboardingStatus sopra), quindi non ripaga il round-trip verso
+  // Supabase Auth. `getPlan` e `getCatalogItems` sono indipendenti tra loro →
+  // parallelizzati con Promise.all per evitare il waterfall di await sequenziali.
   const user = await getAuthenticatedUser();
-  const planInfo = await getPlan(user.id);
+  const [planInfo, initialData] = await Promise.all([
+    getPlan(user.id),
+    getCatalogItems(status.businessId),
+  ]);
   if (!canUseDashboardCashier(planInfo.plan)) {
     redirect("/dashboard/settings#api-keys");
   }
-
-  const initialData = await getCatalogItems(status.businessId);
 
   return (
     <CatalogoClient businessId={status.businessId} initialData={initialData} />
