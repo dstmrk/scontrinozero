@@ -1,11 +1,11 @@
 ---
 name: stripe-webhooks
-description: Use when working with Stripe billing — handling API version `2026-04-22.dahlia` breaking changes (Invoice.subscription moved to invoice.parent?.subscription_details?.subscription, Subscription.current_period_end moved to items[0]), registering the 8 required webhook events (checkout.session.completed/expired, customer.subscription.updated/deleted, invoice.paid/payment_failed/payment_action_required, charge.dispute.created), debugging "pending" subscription rows after checkout, or implementing stale-pending recovery thresholds for idempotent AdE mutations (getStalePendingThresholdMs in receipt-service/void-service). Files: src/server/stripe/, src/app/api/stripe/, webhook handler.
+description: Use when working with Stripe billing — handling API version `2026-05-27.dahlia` breaking changes (Invoice.subscription moved to invoice.parent?.subscription_details?.subscription, Subscription.current_period_end moved to items[0]), registering the 8 required webhook events (checkout.session.completed/expired, customer.subscription.updated/deleted, invoice.paid/payment_failed/payment_action_required, charge.dispute.created), debugging "pending" subscription rows after checkout, or implementing stale-pending recovery thresholds for idempotent AdE mutations (getStalePendingThresholdMs in receipt-service/void-service). Files: src/server/stripe/, src/app/api/stripe/, webhook handler.
 ---
 
 # stripe-webhooks — Stripe API version, webhook events, recovery patterns
 
-## API version `2026-04-22.dahlia` — breaking changes
+## API version `2026-05-27.dahlia` — breaking changes
 
 SDK: `stripe` npm v22.x.
 
@@ -83,4 +83,5 @@ pre-retry per scoprire se un documento collegato esiste già — richiede
 l'endpoint AdE di ricerca (vedi `ricerca_documento.har`).
 
 ## Stripe official Skill
+
 https://raw.githubusercontent.com/stripe/ai/refs/heads/main/skills/stripe-best-practices/SKILL.md
