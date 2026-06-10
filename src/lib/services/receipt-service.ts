@@ -22,6 +22,7 @@ import {
   withStatementTimeout,
 } from "@/lib/db-timeout";
 import { logger } from "@/lib/logger";
+import { calcInputLinesTotalCents } from "@/lib/receipts/document-lines";
 import { fetchAdePrerequisites } from "@/lib/server-auth";
 import { getFiscalDate } from "@/lib/date-utils";
 import { isValidLotteryCode } from "@/lib/validation";
@@ -56,12 +57,10 @@ function resolveLotteryCode(input: SubmitReceiptInput): {
   }
 
   if (code) {
-    // Use Math.round(...* 100) to avoid IEEE-754 false negatives at €1.00.
-    // e.g. 0.1 * 10 = 0.9999...98 in float; Math.round(0.9999...98 * 100) = 100 ✓
-    const totalCents = Math.round(
-      input.lines.reduce((sum, l) => sum + l.grossUnitPrice * l.quantity, 0) *
-        100,
-    );
+    // Per-line cents (canonical, REVIEW.md #1): same total as PDF/public page
+    // and as the amount transmitted to AdE. round(...*100) per line also avoids
+    // IEEE-754 false negatives at €1.00 (e.g. 10 × 0.10 → round(100.0…) = 100 ✓).
+    const totalCents = calcInputLinesTotalCents(input.lines);
     if (totalCents < 100) {
       return {
         lotteryCode: null,
@@ -519,13 +518,10 @@ async function submitSaleToAde(
   const db = getDb();
   const { codiceFiscale, password, pin, cedentePrestatore } = prerequisites;
 
-  const totalAmount =
-    Math.round(
-      input.lines.reduce(
-        (sum, line) => sum + line.grossUnitPrice * line.quantity,
-        0,
-      ) * 100,
-    ) / 100;
+  // Per-line cents (canonical, REVIEW.md #1): the amount sent to AdE must match
+  // the total on the PDF / public page (computeReceiptTotals) and the storico
+  // (calcDocTotal), all derived from round(price * qty * 100) per line.
+  const totalAmount = calcInputLinesTotalCents(input.lines) / 100;
   const saleDocRequest: SaleDocumentRequest = {
     date: getFiscalDate(),
     lotteryCode,

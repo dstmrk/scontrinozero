@@ -48,18 +48,47 @@ export function groupLinesByDocId(
 
 /**
  * Calculates the total amount for a document's lines, rounded to 2 decimal places.
- * Uses string-based parseFloat to avoid IEEE-754 accumulation errors.
+ *
+ * Uses the CANONICAL per-line rounding strategy: each line is rounded to
+ * integer cents (`round(qty * price * 100)`) and the cents are summed, exactly
+ * like `computeReceiptTotals` and `calcInputLinesTotalCents`. This guarantees
+ * that the total shown in the storico/analytics matches the total on the PDF,
+ * the public receipt page and the amount transmitted to AdE — they all derive
+ * from the same per-line cents. (Historically this rounded the float sum once
+ * per document, which drifted by 1 cent from the per-line surfaces on
+ * fractional quantities — REVIEW.md #1.)
  */
 export function calcDocTotal(lines: SelectCommercialDocumentLine[]): number {
   return (
-    Math.round(
-      lines.reduce(
-        (sum, l) =>
-          sum +
-          Number.parseFloat(l.grossUnitPrice) * Number.parseFloat(l.quantity),
-        0,
-      ) * 100,
+    lines.reduce(
+      (sum, l) =>
+        sum +
+        Math.round(
+          Number.parseFloat(l.grossUnitPrice) *
+            Number.parseFloat(l.quantity) *
+            100,
+        ),
+      0,
     ) / 100
+  );
+}
+
+/**
+ * Sums input lines (numeric `grossUnitPrice`/`quantity`, as produced by the
+ * cassa/API before persistence) into integer cents using the CANONICAL
+ * per-line rounding: `round(grossUnitPrice * quantity * 100)` per line, summed
+ * as integers.
+ *
+ * Same formula as `computeReceiptTotals`/`calcDocTotal`, so the amount sent to
+ * AdE (`payments[0].amount`) and the lottery €1,00 threshold reconcile to the
+ * cent with the PDF, the public receipt page and the storico/analytics.
+ */
+export function calcInputLinesTotalCents(
+  lines: ReadonlyArray<{ grossUnitPrice: number; quantity: number }>,
+): number {
+  return lines.reduce(
+    (sum, l) => sum + Math.round(l.grossUnitPrice * l.quantity * 100),
+    0,
   );
 }
 

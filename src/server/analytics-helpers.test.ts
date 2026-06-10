@@ -487,11 +487,11 @@ describe("computeProductBreakdown", () => {
     expect(out[0].description).toBe("PIZZA");
   });
 
-  it("matches doc-level rounding (calcDocTotal) so KPI and product totals reconcile", () => {
+  it("matches per-line rounding (calcDocTotal) so KPI and product totals reconcile", () => {
     // 3 righe stesso prodotto, qty=0.333, price=1.00.
-    // Round per-riga: round(33.3) * 3 = 99 cents (WRONG, drift).
-    // Doc-level round: round((0.333+0.333+0.333) * 100) = round(99.9) = 100.
-    // Il breakdown DEVE usare il doc-level per essere coerente con i KPI.
+    // Strategia canonica per-riga (REVIEW.md #1): round(33.3) * 3 = 99 cents,
+    // identica a `calcDocTotal` per-riga sullo stesso documento. KPI e breakdown
+    // sommano lo stesso round(qty*price*100) su tutte le righe → riconciliano.
     const docs = [makeDoc("a", "ACCEPTED", new Date())];
     const linesByDoc = makeLines([
       {
@@ -514,7 +514,7 @@ describe("computeProductBreakdown", () => {
       },
     ]);
     const out = computeProductBreakdown(docs, linesByDoc);
-    expect(out[0].revenueCents).toBe(100);
+    expect(out[0].revenueCents).toBe(99);
     expect(out[0].count).toBe(3);
   });
 
