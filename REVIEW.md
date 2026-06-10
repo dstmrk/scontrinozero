@@ -736,6 +736,54 @@ pratica).
 
 ---
 
+### 29. Keep-alive Supabase: `setInterval` non idempotente + due file `instrumentation.ts`
+
+- **Categoria:** robustezza/observability · **Severità:** Low (il doppio ping è innocuo; il punto 2 sul fail-fast env è da confermare e potenzialmente più serio)
+- **File:** `instrumentation.ts:9-24` (root, `startSupabaseKeepAlive`); `src/instrumentation.ts` (regola 24: `assertIdentityEnv()` + migrazioni al boot); test: `tests/unit/instrumentation-keep-alive.test.ts`, `src/instrumentation.test.ts`
+
+**Problema.** In produzione il keep-alive Supabase è stato osservato emettere **due
+ping reali a ~13s di distanza** (Sentry Logs, `environment: production`, stessa
+`release 1.3.8`, una coppia per finestra da 5 giorni): non è il log sdoppiato — la
+`logger.info` è dentro il callback del `setInterval`, dopo la query, quindi due
+righe = due `SELECT` reali. Il pattern (due timer paralleli con offset fisso di
+13s, ognuno con periodo 5 giorni) indica che `register()` viene invocato più di una
+volta per lo stesso deploy e `startSupabaseKeepAlive()` **non ha guardia di
+idempotenza**: ogni invocazione impila un nuovo `setInterval`. Impatto pratico
+trascurabile (2 query leggere ogni 5 giorni), ma è uno smell.
+
+Investigando è emerso un secondo punto, più importante: esistono **due file
+instrumentation** — `/instrumentation.ts` (keep-alive) e `/src/instrumentation.ts`
+(`assertIdentityEnv` regola 24 + migrazioni al boot). Next.js 16 usa **un solo**
+hook instrumentation (resolver in `next/dist/build/index.js`: un unico
+`instrumentationHookFilePath`, "last wins" tra i candidati a livello convenzione
+`/` e `/src`), non entrambi. Poiché i log del keep-alive **appaiono** in prod,
+l'hook attivo è (almeno) quello root: va confermato se `src/instrumentation.ts` —
+quindi il fail-fast sulle env d'identità (regola 24) e le migrazioni al boot — sta
+effettivamente girando in produzione, o se è codice morto.
+
+**Fix (non ambiguo).**
+
+1. **Idempotenza keep-alive:** guardia module-level in `startSupabaseKeepAlive()`
+   (`let keepAliveStarted = false; if (keepAliveStarted) return; keepAliveStarted = true;`)
+   così invocazioni multiple di `register()` non accumulano timer. Test: due chiamate
+   consecutive → un solo `setInterval`.
+2. **Consolidare i due file in uno solo:** unire keep-alive + `assertIdentityEnv` +
+   migrazioni in un unico `register()` (preferibile `src/instrumentation.ts`, già
+   citato dalla regola 24/skill `db-migrations`), eliminando l'altro file. Ordine
+   richiesto dentro `register()`: `assertIdentityEnv()` come **prima** istruzione
+   (regola 24), poi import sentry config, poi migrazioni, poi keep-alive.
+3. **Confermare prima di rimuovere** quale dei due gira oggi in prod (smoke
+   `/api/_health/env` → 503 se l'identity env fosse rotta significa che il fail-fast
+   gira; in alternativa verificare che le migrazioni passino da un percorso di deploy
+   separato). Non eliminare il file con le migrazioni senza aver accertato che il
+   merge le preservi (rischio: migrazioni non più applicate al boot).
+4. **Test:** guardia idempotenza (1 timer su N chiamate); `register()` consolidata
+   chiama `assertIdentityEnv` per primo, poi migra, poi avvia il keep-alive una sola
+   volta; `NEXT_RUNTIME=edge` → nessun keep-alive (invariato). Aggiornare/unificare
+   `tests/unit/instrumentation-keep-alive.test.ts` e `src/instrumentation.test.ts`.
+
+---
+
 ## Rischi accettati (allowlist)
 
 ### audit-ci: `GHSA-67mh-4wv8-2f99` (esbuild dev server)
