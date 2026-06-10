@@ -108,9 +108,20 @@ src/app/\(marketing\)` prima di chiudere il task. - Contenuti generati via LLM c
     `slice`/topN deve avere una **chiave secondaria stabile** (es. descrizione
     normalizzata) oltre alla metrica primaria: ordinare sui soli `revenueCents`
     rende l'output non deterministico sui pareggi. E **coerenza arrotondamenti**:
-    aggregare con lo stesso helper del resto (`calcDocTotal`, arrotondamento
-    per-documento), mai per-riga, altrimenti i totali del breakdown non
-    combaciano con KPI/pagamenti sullo stesso range (PR #519, #534).
+    la strategia canonica monetaria è **per-riga in cents** —
+    `round(grossUnitPrice * quantity * 100)` per riga, sommato come interi —
+    usata ovunque: importo trasmesso ad AdE (`payments[0].amount`), soglia
+    lotteria €1,00, PDF/pagina pubblica (`computeReceiptTotals`),
+    storico/analytics (`calcDocTotal`) e breakdown prodotti. Helper condivisi in
+    `src/lib/receipts/document-lines.ts`: `calcInputLinesTotalCents` (righe input
+    numeriche, cassa/API) e `calcDocTotal` (righe DB). **Mai** arrotondare per
+    documento (somma float poi un solo `round`): divergeva di 1 cent dalle righe
+    su quantità frazionarie, facendo differire il documento fiscale trasmesso da
+    quello consegnato al cliente (REVIEW.md #1). Poiché sia il KPI ricavo (somma
+    `calcDocTotal` sui documenti) sia il breakdown prodotti sommano lo stesso
+    `round(qty*price*100)` su tutte le righe, riconciliano alla cifra
+    indipendentemente dal raggruppamento documento↔prodotto. La precedente scelta
+    per-documento (PR #519, #534) è stata superata da REVIEW.md #1.
 18. **Env d'identità: build-vs-runtime e present-but-empty.** Un `?? default`
     **non** scatta se la variabile è presente ma **vuota** (`""`): nel
     `Dockerfile` bakare un default reale nell'`ARG`/`ENV` o **non** esportarla

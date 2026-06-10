@@ -38,6 +38,7 @@ import {
   fetchLinesByDocIds,
   groupLinesByDocId,
   calcDocTotal,
+  calcInputLinesTotalCents,
   computeReceiptTotals,
 } from "./document-lines";
 
@@ -170,6 +171,88 @@ describe("calcDocTotal", () => {
   it("calcola il totale per una singola riga", () => {
     // 3 * 8.00 = 24.00
     expect(calcDocTotal([LINE_B1])).toBe(24.0);
+  });
+
+  it("usa l'arrotondamento per-riga sui bordi x.xx5 (canonico)", () => {
+    // Caso canonico REVIEW #1: 3 righe qty=1.5 × price=0.33.
+    // Per-riga: round(0.495 * 100) = 50 cents × 3 = 150 → €1,50.
+    // (Il vecchio per-documento dava round(1.485 * 100) = 149 → €1,49.)
+    const lines = [
+      { ...LINE_A1, quantity: "1.5", grossUnitPrice: "0.33" },
+      { ...LINE_A1, quantity: "1.5", grossUnitPrice: "0.33" },
+      { ...LINE_A1, quantity: "1.5", grossUnitPrice: "0.33" },
+    ];
+    expect(calcDocTotal(lines)).toBe(1.5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// calcInputLinesTotalCents
+// ---------------------------------------------------------------------------
+
+describe("calcInputLinesTotalCents", () => {
+  it("somma i centesimi arrotondati per riga", () => {
+    // 3 × (1.5 × 0.33) = round(49.5) × 3 = 150 cents.
+    const total = calcInputLinesTotalCents([
+      { grossUnitPrice: 0.33, quantity: 1.5 },
+      { grossUnitPrice: 0.33, quantity: 1.5 },
+      { grossUnitPrice: 0.33, quantity: 1.5 },
+    ]);
+    expect(total).toBe(150);
+  });
+
+  it("restituisce 0 per lista vuota", () => {
+    expect(calcInputLinesTotalCents([])).toBe(0);
+  });
+
+  it("gestisce quantità intere senza drift", () => {
+    // 2 × 10.00 + 1 × 5.50 = 2000 + 550 = 2550 cents.
+    const total = calcInputLinesTotalCents([
+      { grossUnitPrice: 10.0, quantity: 2 },
+      { grossUnitPrice: 5.5, quantity: 1 },
+    ]);
+    expect(total).toBe(2550);
+  });
+
+  it("evita il falso negativo IEEE-754 a €1,00 (10 × 0.10)", () => {
+    // 10 × 0.10 = 1.00 nominale; round(0.1 * 10 * 100) = round(100.0...) = 100.
+    const total = calcInputLinesTotalCents([
+      { grossUnitPrice: 0.1, quantity: 10 },
+    ]);
+    expect(total).toBe(100);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Coerenza per-riga end-to-end: AdE (input) === PDF/pagina pubblica === storico
+// ---------------------------------------------------------------------------
+
+describe("coerenza arrotondamento per-riga", () => {
+  it("calcInputLinesTotalCents === computeReceiptTotals.grandTotal === calcDocTotal", () => {
+    // Stesse righe espresse come input numerico (AdE/lotteria) e come righe DB
+    // (PDF/pagina pubblica/storico). Devono combaciare alla cifra.
+    const inputLines = [
+      { grossUnitPrice: 0.33, quantity: 1.5 },
+      { grossUnitPrice: 0.33, quantity: 1.5 },
+      { grossUnitPrice: 0.33, quantity: 1.5 },
+    ];
+    const dbLines = inputLines.map((l, i) => ({
+      ...LINE_A1,
+      id: `line-${i}`,
+      lineIndex: i,
+      quantity: String(l.quantity),
+      grossUnitPrice: String(l.grossUnitPrice),
+    }));
+
+    const adeCents = calcInputLinesTotalCents(inputLines);
+    const grandTotal = computeReceiptTotals(dbLines).grandTotal;
+    const docTotal = calcDocTotal(dbLines);
+
+    expect(adeCents).toBe(150);
+    expect(grandTotal).toBe(1.5);
+    expect(docTotal).toBe(1.5);
+    expect(adeCents / 100).toBe(grandTotal);
+    expect(grandTotal).toBe(docTotal);
   });
 });
 

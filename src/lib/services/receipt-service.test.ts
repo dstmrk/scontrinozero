@@ -737,6 +737,30 @@ describe("emitReceiptForBusiness", () => {
     );
   });
 
+  it("trasmette ad AdE il totale per-riga (REVIEW.md #1: AdE === PDF/pagina pubblica)", async () => {
+    // 3 × (1.5 × 0.33): per-riga round(49.5)*3 = 150 cents → €1,50.
+    // Il vecchio per-documento dava round(148.5) = 149 → €1,49, divergente dal
+    // totale stampato su PDF/pagina pubblica (computeReceiptTotals, per-riga).
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness({
+      ...VALID_INPUT,
+      lines: [
+        { ...VALID_INPUT.lines[0], quantity: 1.5, grossUnitPrice: 0.33 },
+        { ...VALID_INPUT.lines[0], quantity: 1.5, grossUnitPrice: 0.33 },
+        { ...VALID_INPUT.lines[0], quantity: 1.5, grossUnitPrice: 0.33 },
+      ],
+    });
+
+    expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payments: expect.arrayContaining([
+          expect.objectContaining({ amount: 1.5 }),
+        ]),
+      }),
+      expect.anything(),
+    );
+  });
+
   it("chiama logout anche se submitSale lancia un errore", async () => {
     mockSubmitSale.mockRejectedValue(new Error("network error"));
 

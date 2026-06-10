@@ -81,11 +81,17 @@ vi.mock("@/lib/receipts/document-lines", () => ({
   calcDocTotal: (
     lines: { grossUnitPrice: string; quantity: string }[],
   ): number =>
+    // Per-line cents (canonical, mirrors the real implementation).
     lines.reduce(
       (s, l) =>
-        s + Number.parseFloat(l.grossUnitPrice) * Number.parseFloat(l.quantity),
+        s +
+        Math.round(
+          Number.parseFloat(l.grossUnitPrice) *
+            Number.parseFloat(l.quantity) *
+            100,
+        ),
       0,
-    ),
+    ) / 100,
 }));
 
 vi.mock("drizzle-orm", () => ({

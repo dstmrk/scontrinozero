@@ -306,14 +306,15 @@ export function computeBreakdown(
  */
 type ProductAgg = {
   /**
-   * Somma `qty * price` in float, NON ancora arrotondata: per coerenza con
-   * `calcDocTotal` (`src/lib/receipts/document-lines.ts`) la conversione a
-   * centesimi avviene una sola volta in fondo. Arrotondare per riga produce
-   * drift osservabile (es. 3 × 0.333 × 1.00 = 99 cents per-line vs 100 cents
-   * doc-level), facendo non quadrare la somma del breakdown prodotti col
-   * ricavo KPI sullo stesso range.
+   * Somma in centesimi interi, arrotondati PER RIGA (`round(qty * price * 100)`),
+   * strategia canonica del progetto (REVIEW.md #1) coerente con `calcDocTotal`
+   * e `computeReceiptTotals` (`src/lib/receipts/document-lines.ts`). Poiché sia
+   * il ricavo KPI (somma di `calcDocTotal` sui documenti) sia questo breakdown
+   * (somma per prodotto) sommano lo stesso `round(qty * price * 100)` su tutte
+   * le righe, riconciliano alla cifra indipendentemente dal raggruppamento
+   * documento↔prodotto.
    */
-  revenueFloat: number;
+  revenueCents: number;
   count: number;
   variants: Map<string, number>;
 };
@@ -345,11 +346,11 @@ function addLineToAggregate(
   if (!Number.isFinite(qty) || !Number.isFinite(price)) return;
 
   const agg = byKey.get(key) ?? {
-    revenueFloat: 0,
+    revenueCents: 0,
     count: 0,
     variants: new Map<string, number>(),
   };
-  agg.revenueFloat += qty * price;
+  agg.revenueCents += Math.round(qty * price * 100);
   agg.count++;
   if (trimmed !== "") {
     agg.variants.set(trimmed, (agg.variants.get(trimmed) ?? 0) + 1);
@@ -405,7 +406,7 @@ export function computeProductBreakdown(
   // diversi tra chiamate.
   const entries = Array.from(byKey.entries()).map(([key, agg]) => ({
     description: pickDisplayLabel(key, agg.variants),
-    revenueCents: toCents(agg.revenueFloat),
+    revenueCents: agg.revenueCents,
     count: agg.count,
     sortKey: key,
   }));
