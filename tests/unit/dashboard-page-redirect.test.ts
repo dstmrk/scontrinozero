@@ -77,7 +77,12 @@ describe("DashboardPage — smart redirect", () => {
     });
     await DashboardPage().catch(() => undefined);
     expect(mockRedirect).toHaveBeenCalledWith("/dashboard/settings#api-keys");
-    expect(mockGetCatalogItems).not.toHaveBeenCalled();
+    // getPlan e getCatalogItems girano in Promise.all PRIMA del redirect
+    // canUseDashboardCashier (REVIEW.md #2): per i piani developer (rari, oggi
+    // non in vendita) il catalogo viene quindi recuperato e scartato — tradeoff
+    // accettato per parallelizzare i due fetch nel caso comune (merchant
+    // Starter/Pro). La correttezza del redirect resta invariata.
+    expect(mockGetCatalogItems).toHaveBeenCalledWith(BUSINESS_ID);
   });
 
   it("redirects to /onboarding when businessId is missing", async () => {
@@ -110,6 +115,17 @@ describe("DashboardPage — smart redirect", () => {
   it("passes businessId to getCatalogItems", async () => {
     mockGetCatalogItems.mockResolvedValue([{ id: "item-1" }]);
     await DashboardPage();
+    expect(mockGetCatalogItems).toHaveBeenCalledWith(BUSINESS_ID);
+  });
+
+  it("fetches plan and catalog in parallel (REVIEW.md #2)", async () => {
+    // I due fetch indipendenti partono entrambi nello stesso Promise.all:
+    // piano via user.id, catalogo via businessId. La dedup di
+    // getAuthenticatedUser (React cache()) evita il triplo round-trip verso
+    // Supabase Auth nel render.
+    mockGetCatalogItems.mockResolvedValue([{ id: "item-1" }]);
+    await DashboardPage();
+    expect(mockGetPlan).toHaveBeenCalledWith("user-1");
     expect(mockGetCatalogItems).toHaveBeenCalledWith(BUSINESS_ID);
   });
 });
