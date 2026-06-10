@@ -344,6 +344,78 @@ describe("proxy", () => {
       expect(location.pathname).toBe("/help");
     });
 
+    // Le pagine di contenuto marketing (oltre a privacy/termini/cookie/help)
+    // devono restare sul dominio marketing: regressione del bug per cui
+    // /prezzi, /funzionalita, /guide, /per, /confronto, /strumenti finivano su
+    // app.scontrinozero.it perché assenti da MARKETING_ONLY_ROUTES.
+    const MARKETING_CONTENT_ROUTES = [
+      "/confronto",
+      "/funzionalita",
+      "/guide",
+      "/per",
+      "/prezzi",
+    ] as const;
+
+    it.each(MARKETING_CONTENT_ROUTES)(
+      "allows %s on marketing domain (marketing content route)",
+      async (path) => {
+        mockGetUser.mockResolvedValue({ data: { user: null } });
+        const { proxy } = await import("./proxy");
+
+        const response = await proxy(
+          createRequestForHost(path, "scontrinozero.it"),
+        );
+        expect(response.status).toBe(200);
+      },
+    );
+
+    it.each(MARKETING_CONTENT_ROUTES)(
+      "redirects %s on app domain to marketing domain",
+      async (path) => {
+        const { proxy } = await import("./proxy");
+
+        const response = await proxy(
+          createRequestForHost(path, "app.scontrinozero.it"),
+        );
+        expect(response.status).toBe(307);
+        const location = new URL(response.headers.get("location")!);
+        expect(location.hostname).toBe("scontrinozero.it");
+        expect(location.pathname).toBe(path);
+      },
+    );
+
+    it("allows a dynamic marketing subroute on marketing domain (/guide/[slug])", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(
+        createRequestForHost("/guide/regime-forfettario", "scontrinozero.it"),
+      );
+      expect(response.status).toBe(200);
+    });
+
+    it("allows /strumenti/scorporo-iva on marketing domain (tool subroute)", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(
+        createRequestForHost("/strumenti/scorporo-iva", "scontrinozero.it"),
+      );
+      expect(response.status).toBe(200);
+    });
+
+    it("redirects /strumenti/scorporo-iva on app domain to marketing domain", async () => {
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(
+        createRequestForHost("/strumenti/scorporo-iva", "app.scontrinozero.it"),
+      );
+      expect(response.status).toBe(307);
+      const location = new URL(response.headers.get("location")!);
+      expect(location.hostname).toBe("scontrinozero.it");
+      expect(location.pathname).toBe("/strumenti/scorporo-iva");
+    });
+
     it("redirects /dashboard on marketing domain to app domain", async () => {
       const { proxy } = await import("./proxy");
 
