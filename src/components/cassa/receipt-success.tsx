@@ -1,8 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CheckCircle2, Share2, Check, Copy } from "lucide-react";
+import { CheckCircle2, Share2, Check, Copy, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ReceiptQrCode } from "@/components/receipts/receipt-qr-code";
 
 interface ReceiptSuccessProps {
   readonly documentId?: string;
@@ -18,6 +26,7 @@ export function ReceiptSuccess({
   onNewReceipt,
 }: ReceiptSuccessProps) {
   const [copied, setCopied] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
 
   useEffect(() => {
     if (!copied) return;
@@ -86,26 +95,54 @@ export function ReceiptSuccess({
       )}
 
       {documentId && (
-        <Button
-          type="button"
-          variant="outline"
-          size="lg"
-          className="w-full"
-          onClick={handleShare}
-        >
-          {copied ? (
-            <>
-              <Check className="mr-2 h-4 w-4 text-green-600" />
-              <span className="text-green-600">Link copiato!</span>
-            </>
-          ) : (
-            <>
-              <Share2 className="mr-2 h-4 w-4" />
-              Invia ricevuta
-              <Copy className="text-muted-foreground ml-auto h-3.5 w-3.5" />
-            </>
-          )}
-        </Button>
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="w-full"
+            onClick={handleShare}
+          >
+            {copied ? (
+              <>
+                <Check className="mr-2 h-4 w-4 text-green-600" />
+                <span className="text-green-600">Link copiato!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="mr-2 h-4 w-4" />
+                Invia ricevuta
+                <Copy className="text-muted-foreground ml-auto h-3.5 w-3.5" />
+              </>
+            )}
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="w-full"
+            onClick={() => setQrOpen(true)}
+          >
+            <QrCode className="mr-2 h-4 w-4" />
+            Mostra QR code
+          </Button>
+
+          <Dialog open={qrOpen} onOpenChange={setQrOpen}>
+            <DialogContent className="sm:max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Ricevuta</DialogTitle>
+                <DialogDescription>
+                  Mostra questo QR code all&apos;acquirente per fargli aprire la
+                  ricevuta.
+                </DialogDescription>
+              </DialogHeader>
+              <ReceiptQrCode
+                url={`${globalThis.location.origin}/r/${documentId}`}
+              />
+            </DialogContent>
+          </Dialog>
+        </>
       )}
 
       <Button type="button" size="lg" className="w-full" onClick={onNewReceipt}>

@@ -135,6 +135,12 @@ export default function StoricoEdEsportazionePage() {
             email o messaggio, e dalla pagina il cliente può salvare il PDF.
           </li>
           <li>
+            Premere <strong>Mostra QR code</strong> per visualizzare un QR code
+            con il link alla ricevuta: utile quando non hai il numero o
+            l&apos;email del cliente — basta mostrargli lo schermo e lui lo
+            inquadra per aprire la ricevuta.
+          </li>
+          <li>
             Premere <strong>Annulla scontrino</strong> per avviare la procedura
             di annullo, disponibile solo se lo scontrino è in stato{" "}
             <strong>Emesso</strong>. Verrà chiesta una conferma esplicita perché

@@ -165,7 +165,7 @@ export default function PrimoScontrinoPage() {
           Passaggio 5 — Condividi lo scontrino col cliente
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Dalla schermata di successo hai due pulsanti:
+          Dalla schermata di successo hai tre pulsanti:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
@@ -173,6 +173,12 @@ export default function PrimoScontrinoPage() {
             condivisione del sistema (WhatsApp, email, SMS…); da desktop copia
             negli appunti il link pubblico della ricevuta, nella forma{" "}
             <code>/r/&lt;id&gt;</code>.
+          </li>
+          <li>
+            <strong>Mostra QR code</strong> — apre un QR code con il link alla
+            ricevuta: se non hai il numero o l&apos;email del cliente, mostragli
+            lo schermo e lui lo inquadra per aprire la ricevuta sul proprio
+            telefono.
           </li>
           <li>
             <strong>Nuovo scontrino</strong> — azzera il carrello e torna alla
