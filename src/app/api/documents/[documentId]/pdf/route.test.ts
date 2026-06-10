@@ -254,4 +254,77 @@ describe("GET /api/documents/[documentId]/pdf", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("application/pdf");
   });
+
+  // ── UUID validation a route boundary (CLAUDE.md regola 9) ─────────────────
+  describe("validazione UUID", () => {
+    it("ritorna 400 per un documentId non-UUID", async () => {
+      const res = await GET(makeRequest("not-a-uuid"), {
+        params: Promise.resolve({ documentId: "not-a-uuid" }),
+      });
+
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toBeDefined();
+    });
+
+    it("ritorna 400 per un tentativo di SQL injection", async () => {
+      const id = "'; DROP TABLE documents; --";
+      const res = await GET(makeRequest(id), {
+        params: Promise.resolve({ documentId: id }),
+      });
+
+      expect(res.status).toBe(400);
+    });
+
+    it("non interroga il DB se l'UUID non è valido", async () => {
+      await GET(makeRequest("invalid"), {
+        params: Promise.resolve({ documentId: "invalid" }),
+      });
+
+      expect(mockTransaction).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── DB statement timeout (Postgres 57014 → 503 retryable) ─────────────────
+  describe("statement timeout DB", () => {
+    it("ritorna 503 con Retry-After su Postgres 57014", async () => {
+      const timeoutErr = Object.assign(
+        new Error("canceling statement due to statement timeout"),
+        { code: "57014" },
+      );
+      mockTransaction.mockReset();
+      mockTransaction.mockRejectedValue(timeoutErr);
+
+      const res = await GET(
+        makeRequest("a1b2c3d4-e5f6-7890-abcd-ef1234567890"),
+        {
+          params: Promise.resolve({
+            documentId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+          }),
+        },
+      );
+
+      expect(res.status).toBe(503);
+      expect(res.headers.get("retry-after")).toBe("5");
+      const body = await res.json();
+      expect(body.code).toBe("DB_TIMEOUT");
+      expect(mockGeneratePdfResponse).not.toHaveBeenCalled();
+    });
+
+    it("ri-lancia gli errori DB non-timeout (deadlock, ecc.)", async () => {
+      const otherErr = Object.assign(new Error("deadlock detected"), {
+        code: "40P01",
+      });
+      mockTransaction.mockReset();
+      mockTransaction.mockRejectedValue(otherErr);
+
+      await expect(
+        GET(makeRequest("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), {
+          params: Promise.resolve({
+            documentId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+          }),
+        }),
+      ).rejects.toMatchObject({ code: "40P01" });
+    });
+  });
 });
