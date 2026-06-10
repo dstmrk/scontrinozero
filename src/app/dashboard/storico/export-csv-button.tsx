@@ -1,6 +1,19 @@
+"use client";
+
 import Link from "next/link";
-import { Download } from "lucide-react";
+import { Download, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   BILLING_SETTINGS_HREF,
   canUsePro,
@@ -34,15 +47,38 @@ export function ExportCsvButton(props: ExportCsvButtonProps) {
     );
   }
 
+  // Non-Pro (starter/trial): segnale visivo "Pro" + dialog esplicativo invece
+  // del redirect silenzioso alle impostazioni.
   return (
-    <Button asChild variant="outline">
-      <Link
-        href={BILLING_SETTINGS_HREF}
-        title="Esportazione CSV disponibile sul piano Pro"
-      >
-        <Download className="size-4" aria-hidden />
-        Esporta CSV
-      </Link>
-    </Button>
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" aria-label="Esporta CSV — funzionalità Pro">
+          <Download className="size-4" aria-hidden />
+          Esporta CSV
+          <Badge variant="secondary">Pro</Badge>
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="size-4" aria-hidden />
+            Esportazione CSV è una funzionalità Pro
+          </DialogTitle>
+          <DialogDescription>
+            L&apos;export dello storico in formato CSV è incluso nel piano Pro.
+            Passa a Pro per scaricare i tuoi corrispettivi e usarli in
+            contabilità o nei tuoi report.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline">Annulla</Button>
+          </DialogClose>
+          <Button asChild>
+            <Link href={BILLING_SETTINGS_HREF}>Passa a Pro</Link>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
