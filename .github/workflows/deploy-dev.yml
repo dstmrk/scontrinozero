@@ -8,6 +8,24 @@ on:
   push:
     branches:
       - main
+    # Salta il rebuild per push che NON possono cambiare l'immagine Docker:
+    # *.md, .github/, tests/ e *.test.* sono già esclusi da .dockerignore;
+    # docs/ e .claude/ entrano nel builder via COPY . . ma `next build` non
+    # li legge e il runner stage non li copia. Se in futuro qualcosa al build
+    # leggesse contenuti da docs/, togliere la riga corrispondente. NON
+    # aggiungere scripts/** (migrate.ts è bundlato nell'immagine) né
+    # supabase/** (migrations copiate nel runner stage).
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".claude/**"
+      - ".github/**"
+      - "tests/**"
+      - "**/*.test.ts"
+      - "**/*.test.tsx"
+  # Scappatoia manuale: un push ignorato (o una modifica a questo stesso
+  # workflow, che paths-ignore esclude via .github/**) si può deployare a mano.
+  workflow_dispatch:
 
 # L'ultimo push su main vince: annulla eventuali build dev in corso.
 concurrency:
@@ -22,6 +40,7 @@ jobs:
   build-and-deploy:
     # Runner ARM nativo (gratis sui repo pubblici): build arm64 senza QEMU.
     runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
