@@ -25,6 +25,8 @@ test-report.xml
 LICENSE.md
 CLAUDE.md
 ROADMAP.md
+docs
+.claude
 
 # Git
 .git

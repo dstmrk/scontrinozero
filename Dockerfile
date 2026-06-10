@@ -5,7 +5,10 @@ FROM node:22-alpine AS deps
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci --ignore-scripts
+# Cache mount: riusa la cache npm tra build sullo STESSO builder (locale /
+# self-hosted). N.B. i cache mount NON sono persistiti da cache-to type=gha:
+# sui runner CI effimeri il mount parte vuoto — lì copre la layer cache.
+RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts --prefer-offline
 
 # =============================================================================
 # Stage 2: Build
@@ -51,7 +54,12 @@ ENV SENTRY_PROJECT=$SENTRY_PROJECT
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NO_UPDATE_NOTIFIER=1
 # SENTRY_AUTH_TOKEN passato come BuildKit secret (non scritto in nessun layer)
-RUN --mount=type=secret,id=sentry_auth_token,env=SENTRY_AUTH_TOKEN npm run build
+# Cache mount su .next/cache: build incrementale Next tra build sullo stesso
+# builder (locale / self-hosted). Come sopra: non persistito da type=gha — se
+# in futuro servisse in CI, vedi reproducible-containers/buildkit-cache-dance.
+RUN --mount=type=secret,id=sentry_auth_token,env=SENTRY_AUTH_TOKEN \
+    --mount=type=cache,target=/app/.next/cache \
+    npm run build
 
 RUN npx esbuild scripts/migrate.ts \
     --bundle \
