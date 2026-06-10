@@ -19,6 +19,7 @@ vi.mock("@/db/schema", () => ({
     kind: "cd.kind",
     status: "cd.status",
     businessId: "cd.businessId",
+    adeTransactionId: "cd.adeTransactionId",
   },
   commercialDocumentLines: {
     documentId: "cdl.documentId",
@@ -33,6 +34,7 @@ vi.mock("@/db/schema", () => ({
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn((col, val) => ({ __op: "eq", col, val })),
   and: vi.fn((...conds) => ({ __op: "and", conds })),
+  isNotNull: vi.fn((col) => ({ __op: "isNotNull", col })),
 }));
 
 // ---------------------------------------------------------------------------
@@ -57,7 +59,7 @@ function makeSelectBuilder(result: unknown[]) {
 // Fixtures
 // ---------------------------------------------------------------------------
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { fetchPublicReceipt } from "./fetch-public-receipt";
 
 const VALID_UUID = "550e8400-e29b-41d4-a716-446655440000";
@@ -143,7 +145,7 @@ describe("fetchPublicReceipt", () => {
     expect(result).toBeNull();
   });
 
-  it("applica il filtro kind='SALE' AND status='ACCEPTED' nel WHERE", async () => {
+  it("applica il filtro kind='SALE' AND status='ACCEPTED' AND adeTransactionId IS NOT NULL nel WHERE", async () => {
     mockSelect.mockReset();
     const docBuilder = makeSelectBuilder([{ doc: MOCK_DOC, biz: MOCK_BIZ }]);
     mockSelect
@@ -152,18 +154,33 @@ describe("fetchPublicReceipt", () => {
 
     await fetchPublicReceipt(VALID_UUID);
 
-    // Il WHERE della query documento è un AND di id + kind + status.
+    // Il WHERE della query documento è un AND di id + kind + status +
+    // adeTransactionId IS NOT NULL (REVIEW.md #7: nessun documento ACCEPTED
+    // senza identificativo fiscale deve essere servito pubblicamente).
     expect(docBuilder.where).toHaveBeenCalledWith({
       __op: "and",
       conds: [
         { __op: "eq", col: "cd.id", val: VALID_UUID },
         { __op: "eq", col: "cd.kind", val: "SALE" },
         { __op: "eq", col: "cd.status", val: "ACCEPTED" },
+        { __op: "isNotNull", col: "cd.adeTransactionId" },
       ],
     });
     expect(eq).toHaveBeenCalledWith("cd.kind", "SALE");
     expect(eq).toHaveBeenCalledWith("cd.status", "ACCEPTED");
+    expect(isNotNull).toHaveBeenCalledWith("cd.adeTransactionId");
     expect(and).toHaveBeenCalled();
+  });
+
+  it("ritorna null per un SALE ACCEPTED senza adeTransactionId (filtro IS NOT NULL nel WHERE)", async () => {
+    // Un documento ACCEPTED ma con adeTransactionId = null è escluso dal WHERE
+    // (isNotNull), quindi il DB restituisce zero righe: la pagina pubblica non
+    // mostra mai uno scontrino privo di identificativo fiscale AdE.
+    mockSelect.mockReset();
+    mockSelect.mockReturnValueOnce(makeSelectBuilder([]));
+
+    const result = await fetchPublicReceipt(VALID_UUID);
+    expect(result).toBeNull();
   });
 
   it("happy path: ritorna doc, biz e lines per un SALE ACCEPTED", async () => {

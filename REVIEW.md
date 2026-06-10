@@ -166,38 +166,6 @@ con cookie di sessione presenti, `getUser()` può innescare un token refresh
 
 ---
 
-### 7. `fetchPublicReceipt` non richiede `adeTransactionId IS NOT NULL` (defense-in-depth sul documento "valido")
-
-- **Categoria:** sicurezza/correttezza · **Severità:** Medium
-- **File:** `src/lib/receipts/fetch-public-receipt.ts:39-45`; correlato:
-  `src/lib/services/receipt-service.ts:601-611`; accessorio:
-  `src/app/api/documents/[documentId]/pdf/route.ts:54-59`
-
-**Problema.** La pagina pubblica `/r/[documentId]` serve qualsiasi documento
-`kind='SALE' AND status='ACCEPTED'`. La finalize (`receipt-service.ts:606`) salva
-però `adeTransactionId: adeResponse.idtrx ?? null`: se AdE rispondesse
-`esito: true` senza `idtrx` (o per qualunque drift futuro nel flusso di
-finalize/recovery), esisterebbe un documento ACCEPTED **senza identificativo
-fiscale** che la pagina pubblica mostrerebbe comunque come scontrino valido.
-
-**Fix (non ambiguo).**
-
-1. Aggiungere `isNotNull(commercialDocuments.adeTransactionId)` (import da
-   `drizzle-orm`) all'`and(...)` del WHERE in `fetchPublicReceipt`.
-2. Aggiornare il doc-comment della funzione (l'elenco "Returns null when").
-3. **Test:** caso ACCEPTED con `adeTransactionId = null` → ritorna `null`
-   (oggi ritornerebbe il documento); i casi esistenti restano verdi.
-4. Accessorio (decisione consapevole, non automatica): la route PDF autenticata
-   (`pdf/route.ts`) non filtra su `status` — l'owner può generare il PDF di un
-   documento PENDING/REJECTED. Verificare dove la UI espone il link PDF
-   (`grep -rn "documents/.*pdf" src/components src/app/dashboard`): se è
-   raggiungibile per documenti non-ACCEPTED, aggiungere lo stesso filtro
-   (`status='ACCEPTED'`, 404 altrimenti) per evitare PDF dall'aspetto fiscale per
-   documenti mai accettati; se la UI già lo impedisce, documentarlo con un commento
-   nella route.
-
----
-
 ### 8. TTL/revoca per i link pubblici degli scontrini
 
 - **Categoria:** sicurezza · **Severità:** Medium · **Target indicativo:** v1.4.0+
