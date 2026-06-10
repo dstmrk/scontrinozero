@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNotNull } from "drizzle-orm";
 import {
   commercialDocuments,
   commercialDocumentLines,
@@ -55,6 +55,12 @@ export async function GET(
             and(
               eq(commercialDocuments.id, documentId),
               eq(profiles.authUserId, user.id),
+              // Solo documenti effettivamente accettati da AdE: un PDF dall'aspetto
+              // fiscale non deve essere generato per documenti PENDING/REJECTED né
+              // per documenti ACCEPTED privi di identificativo fiscale
+              // (adeTransactionId). Coerente con fetchPublicReceipt (REVIEW.md #7).
+              eq(commercialDocuments.status, "ACCEPTED"),
+              isNotNull(commercialDocuments.adeTransactionId),
             ),
           )
           .limit(1);

@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   commercialDocuments,
@@ -24,6 +24,13 @@ export interface PublicReceiptData {
  * - documentId is not a valid UUID format (avoids Postgres cast errors)
  * - the document does not exist
  * - the document is not an ACCEPTED SALE
+ * - the document has no `adeTransactionId` (no AdE fiscal identifier)
+ *
+ * The `adeTransactionId IS NOT NULL` clause is defense-in-depth (REVIEW.md #7):
+ * finalize persists `adeTransactionId: adeResponse.idtrx ?? null`, so a drift in
+ * the finalize/recovery flow could leave an ACCEPTED SALE without a fiscal
+ * identifier. Serving such a document publicly would present it as a valid
+ * receipt despite lacking the AdE transaction id — this guard prevents that.
  */
 export async function fetchPublicReceipt(
   documentId: string,
@@ -41,6 +48,7 @@ export async function fetchPublicReceipt(
         eq(commercialDocuments.id, documentId),
         eq(commercialDocuments.kind, "SALE"),
         eq(commercialDocuments.status, "ACCEPTED"),
+        isNotNull(commercialDocuments.adeTransactionId),
       ),
     )
     .limit(1);

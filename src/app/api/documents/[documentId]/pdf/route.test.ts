@@ -177,6 +177,36 @@ describe("GET /api/documents/[documentId]/pdf", () => {
     expect(res.status).toBe(404);
   });
 
+  it("ritorna 404 se il documento non è ACCEPTED (filtro status nel WHERE → 0 righe)", async () => {
+    // Un documento PENDING/REJECTED è escluso dal WHERE (status='ACCEPTED'):
+    // il DB restituisce zero righe, niente PDF dall'aspetto fiscale.
+    mockSelect.mockReset();
+    mockSelect.mockReturnValueOnce(makeSelectBuilder([]));
+
+    const res = await GET(makeRequest("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), {
+      params: Promise.resolve({
+        documentId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      }),
+    });
+
+    expect(res.status).toBe(404);
+  });
+
+  it("ritorna 404 se il documento ACCEPTED è privo di adeTransactionId (filtro IS NOT NULL → 0 righe)", async () => {
+    // Defense-in-depth REVIEW.md #7: un ACCEPTED senza identificativo fiscale
+    // è escluso dal WHERE (isNotNull), quindi 0 righe → 404.
+    mockSelect.mockReset();
+    mockSelect.mockReturnValueOnce(makeSelectBuilder([]));
+
+    const res = await GET(makeRequest("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), {
+      params: Promise.resolve({
+        documentId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      }),
+    });
+
+    expect(res.status).toBe(404);
+  });
+
   it("ritorna 400 se kind ≠ SALE", async () => {
     mockSelect.mockReset();
     mockSelect.mockReturnValueOnce(
