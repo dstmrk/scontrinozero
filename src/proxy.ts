@@ -10,12 +10,29 @@ const PROTECTED_PREFIXES = ["/dashboard", "/onboarding"];
 /** Routes only for unauthenticated users (redirect to dashboard if logged in) */
 const AUTH_ONLY_PATHS = ["/login", "/register", "/reset-password"];
 
-/** Routes served exclusively on the marketing domain */
+/**
+ * Routes served exclusively on the marketing domain.
+ *
+ * Source-of-truth per la separazione dei domini: tutto ciò che sul dominio
+ * marketing non è `/` e non è qui dentro viene rimbalzato sul dominio app
+ * (vedi `hostnameRedirect`). Ogni nuova route top-level in
+ * `src/app/(marketing)/` DEVE essere aggiunta qui, altrimenti finisce per
+ * errore su app.scontrinozero.it. Il match in `hostnameRedirect` usa
+ * `pathname === r || pathname.startsWith(`${r}/`)`, quindi il prefisso
+ * top-level copre anche le route dinamiche (`/guide/[slug]`, `/per/[slug]`,
+ * `/strumenti/[slug]`).
+ */
 const MARKETING_ONLY_ROUTES = [
-  "/privacy",
-  "/termini",
+  "/confronto",
   "/cookie-policy",
+  "/funzionalita",
+  "/guide",
   "/help",
+  "/per",
+  "/prezzi",
+  "/privacy",
+  "/strumenti",
+  "/termini",
 ];
 
 /**
