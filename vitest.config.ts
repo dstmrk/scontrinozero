@@ -1,14 +1,21 @@
-import { defineConfig } from "vitest/config";
+import { defineConfig, configDefaults } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import path from "path";
+
+// I .test.ts che richiedono un DOM (window/sessionStorage/renderHook): girano
+// nel progetto jsdom insieme a tutti i .test.tsx. Ogni altro .test.ts è
+// server-side e gira nel più economico environment node — il pragma per-file
+// `@vitest-environment` resta supportato e vince comunque sul progetto.
+const JSDOM_TS_TESTS = [
+  "src/hooks/use-cassa.test.ts",
+  "src/lib/safe-storage.test.ts",
+  "src/lib/pwa/install-prompt-store.test.ts",
+];
 
 export default defineConfig({
   plugins: [react()],
   test: {
-    environment: "jsdom",
     testTimeout: 15000,
-    setupFiles: ["./tests/setup.ts"],
-    include: ["src/**/*.test.{ts,tsx}", "tests/**/*.test.{ts,tsx}"],
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],
@@ -60,6 +67,32 @@ export default defineConfig({
     outputFile: {
       "vitest-sonar-reporter": "test-report.xml",
     },
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "node",
+          environment: "node",
+          include: ["src/**/*.test.ts", "tests/**/*.test.ts"],
+          // L'override di `exclude` scarta i default di Vitest (node_modules,
+          // dist, ...): vanno re-inclusi esplicitamente.
+          exclude: [...configDefaults.exclude, ...JSDOM_TS_TESTS],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "jsdom",
+          environment: "jsdom",
+          setupFiles: ["./tests/setup.ts"],
+          include: [
+            "src/**/*.test.tsx",
+            "tests/**/*.test.tsx",
+            ...JSDOM_TS_TESTS,
+          ],
+        },
+      },
+    ],
   },
   resolve: {
     alias: {

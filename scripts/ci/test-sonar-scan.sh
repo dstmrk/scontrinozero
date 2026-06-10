@@ -111,6 +111,60 @@ run_scan() { echo "SCAN RAN"; return 0; }
 assert_rc "happy path" 0
 assert_contains "happy path" "SCAN RAN"
 
+# 5. Warm cache (actions/cache hit): CLI already extracted -> scan runs,
+#    NO download attempted.
+run_main '
+scanner_cached() { return 0; }
+fetch_scanner() { echo "FETCH RAN"; return 0; }
+run_scan() { echo "SCAN RAN"; return 0; }
+'
+assert_rc "cache hit skips download" 0
+assert_contains "cache hit skips download" "SCAN RAN"
+assert_not_contains "cache hit skips download" "FETCH RAN"
+
+# 6. Warm cache but the scan fails -> real failure still propagates,
+#    no tolerate warning.
+run_main '
+scanner_cached() { return 0; }
+fetch_scanner() { echo "FETCH RAN"; return 0; }
+run_scan() { echo "SCAN RAN"; return 7; }
+'
+assert_rc "cache hit scan failure propagates" 7
+assert_not_contains "cache hit scan failure propagates" "::warning::"
+
+# 7. Cold cache (explicit miss) -> download path runs, then scan.
+run_main '
+scanner_cached() { return 1; }
+fetch_scanner() { echo "FETCH RAN"; return 0; }
+run_scan() { echo "SCAN RAN"; return 0; }
+'
+assert_rc "cache miss downloads then scans" 0
+assert_contains "cache miss downloads then scans" "FETCH RAN"
+assert_contains "cache miss downloads then scans" "SCAN RAN"
+
+# 8. Real-FS scanner_cached: a stale/partial extraction (binary present but
+#    not executable) must read as a miss; an executable binary as a hit.
+tmp=$(mktemp -d)
+out=$( {
+  WORK_DIR="$tmp"
+  export WORK_DIR
+  # shellcheck disable=SC1090
+  source "$SCAN"
+  mkdir -p "${SCANNER_HOME}/bin"
+  : > "${SCANNER_HOME}/bin/sonar-scanner"
+  scanner_cached && echo "RESULT=HIT" || echo "RESULT=MISS"
+  chmod +x "${SCANNER_HOME}/bin/sonar-scanner"
+  scanner_cached && echo "RESULT=HIT" || echo "RESULT=MISS"
+} 2>&1 )
+case "$out" in
+  *"RESULT=MISS"*"RESULT=HIT"*) ;;
+  *)
+    echo "FAIL [stale cache detection]: expected MISS then HIT, got: $out" >&2
+    failures=$((failures + 1))
+    ;;
+esac
+rm -rf "$tmp"
+
 if [ "$failures" -gt 0 ]; then
   echo "$failures test(s) failed." >&2
   exit 1

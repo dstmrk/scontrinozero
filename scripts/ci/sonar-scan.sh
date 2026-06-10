@@ -12,12 +12,17 @@
 #
 # Behaviour
 # ---------
-#   1. Download the scanner CLI, retrying up to MAX_ATTEMPTS with exponential
-#      backoff. A second attempt clears almost every intermittent 403.
-#   2. If *every* attempt fails to fetch the CLI (transient CDN/network error,
+#   1. If a previously extracted CLI is already usable in WORK_DIR (warm
+#      actions/cache in CI: the job restores WORK_DIR keyed on
+#      SCANNER_VERSION), skip the download entirely and run the scan. A cache
+#      hit also removes the CDN from the critical path altogether.
+#   2. Otherwise download the scanner CLI, retrying up to MAX_ATTEMPTS with
+#      exponential backoff. A second attempt clears almost every intermittent
+#      403.
+#   3. If *every* attempt fails to fetch the CLI (transient CDN/network error,
 #      e.g. the 403), print a warning annotation and exit 0 — the job stays
 #      green. We tolerate ONLY the download phase.
-#   3. Once the CLI is in place, run the scan. A failure *here* is a real
+#   4. Once the CLI is in place, run the scan. A failure *here* is a real
 #      problem (bad config, auth, analysis error) and propagates a non-zero
 #      exit, so genuine issues still turn the job red.
 #
@@ -47,12 +52,18 @@ SCANNER_HOME="${WORK_DIR}/sonar-scanner-${SCANNER_VERSION}-linux-x64"
 
 log() { printf '%s\n' "$*" >&2; }
 
+# True when a previously extracted CLI is usable (warm actions/cache). The
+# executable bit distinguishes a complete extraction from a stale/partial one.
+scanner_cached() { [ -x "${SCANNER_HOME}/bin/sonar-scanner" ]; }
+
 # Download + extract the CLI. Returns 0 on success, non-zero on any
 # download/extract failure so the caller can retry and ultimately tolerate.
 fetch_scanner() {
   local url="${SONAR_BINARIES_URL}/${ZIP_NAME}"
   local zip="${WORK_DIR}/${ZIP_NAME}"
   local code
+  # WORK_DIR may be a fixed, not-yet-existing cache dir (CI) instead of mktemp.
+  mkdir -p "$WORK_DIR" || return 1
   # Without --fail curl returns 0 even on 403 (it writes the error body), so we
   # inspect the HTTP status code explicitly. A non-zero curl exit means a
   # network/TLS error, which is equally a transient download failure.
@@ -62,6 +73,9 @@ fetch_scanner() {
   }
   log "Scanner download HTTP status: ${code} (${url})"
   [ "$code" = "200" ] || return 1
+  # Drop any stale/partial extraction so a failed unzip can't masquerade as a
+  # cache hit on the next run.
+  rm -rf "$SCANNER_HOME"
   unzip -q -o "$zip" -d "$WORK_DIR" || return 1
 }
 
@@ -72,6 +86,11 @@ run_scan() {
 
 main() {
   local attempt=1 delay
+  if scanner_cached; then
+    log "Scanner CLI ${SCANNER_VERSION} already in ${WORK_DIR} (cache hit); skipping download."
+    run_scan
+    return $?
+  fi
   while [ "$attempt" -le "$MAX_ATTEMPTS" ]; do
     if fetch_scanner; then
       log "Scanner CLI ready (attempt ${attempt}/${MAX_ATTEMPTS}); running scan."

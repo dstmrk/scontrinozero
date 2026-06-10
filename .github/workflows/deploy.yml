@@ -19,6 +19,7 @@ env:
 jobs:
   check-ci:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       checks: read
     steps:
@@ -62,6 +63,7 @@ jobs:
   build-image:
     needs: [check-ci]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -117,6 +119,7 @@ jobs:
   smoke-test:
     needs: [build-image]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     env:
@@ -185,6 +188,7 @@ jobs:
   push-image:
     needs: [build-image, smoke-test]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: write
