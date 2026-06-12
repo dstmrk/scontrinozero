@@ -134,38 +134,6 @@ sempre preceduto da ~10 chiamate di auth.
 
 ---
 
-### 6. Middleware: session refresh Supabase eseguito anche sulle route marketing pure
-
-- **Categoria:** performance · **Severità:** Medium
-- **File:** `src/proxy.ts:171-199` (blocco auth), `src/proxy.ts:236-253` (matcher)
-
-**Problema.** Il matcher esclude static asset, `api/health`, `api/v1`, PWA asset —
-ma tutte le pagine marketing (`/`, `/guide/*`, `/prezzi`, `/per/*`, `/strumenti/*`,
-`/confronto`, `/help/*`…) passano per `createMiddlewareSupabaseClient` +
-`supabase.auth.getUser()`. L'esito viene usato solo per `PROTECTED_PREFIXES`
-(`/dashboard`, `/onboarding`) e `AUTH_ONLY_PATHS` (`/login`, `/register`,
-`/reset-password`): per ogni altra route il risultato è ignorato. Per i visitatori
-con cookie di sessione presenti, `getUser()` può innescare un token refresh
-(round-trip verso Supabase) su pagine SSG che non ne hanno bisogno.
-
-**Fix (non ambiguo).**
-
-1. In `proxy()`, calcolare prima `const needsAuth = PROTECTED_PREFIXES.some(p => pathname.startsWith(p)) || AUTH_ONLY_PATHS.some(p => pathname.startsWith(p));`
-2. Se `!needsAuth`, ritornare subito `applyNoindexHeader(NextResponse.next(), request)`
-   senza creare il client Supabase (il ramo "Supabase non configurato" resta com'è).
-3. **Non** restringere il matcher (il branch `hostnameRedirect` e il noindex header
-   devono continuare a girare su tutte le route): la condizione va nel corpo.
-4. **Edge case da coprire con test** (`src/proxy.test.ts` o equivalente esistente):
-   route marketing senza cookie → nessuna chiamata `getUser` (assert su mock);
-   `/dashboard` senza sessione → redirect `/login?redirect=...` invariato;
-   `/login` con sessione → redirect `/dashboard` invariato; il refresh cookie
-   continua a propagarsi sui redirect (righe 213-218, 225-230). Nota: le pagine
-   app _non_ protette non esistono oggi (tutto il dashboard è sotto
-   `/dashboard`), quindi non si perde il refresh-on-navigation; se in futuro si
-   aggiungono route app fuori da `/dashboard`, andranno incluse in `needsAuth`.
-
----
-
 ### 8. TTL/revoca per i link pubblici degli scontrini
 
 - **Categoria:** sicurezza · **Severità:** Medium · **Target indicativo:** v1.4.0+

@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
+import { createMiddlewareSupabaseClient } from "@/lib/supabase/middleware";
 
 // Mock the middleware Supabase client
 const mockGetUser = vi.fn();
@@ -16,6 +17,8 @@ vi.mock("@/lib/supabase/middleware", () => ({
       };
     }),
 }));
+
+const mockCreateClient = vi.mocked(createMiddlewareSupabaseClient);
 
 function createRequest(pathname: string): NextRequest {
   return new NextRequest(new URL(pathname, "http://localhost:3000"));
@@ -91,6 +94,62 @@ describe("proxy", () => {
 
       const response = await proxy(createRequest("/"));
       expect(response.status).toBe(200);
+    });
+  });
+
+  // REVIEW.md #6: il refresh sessione Supabase (getUser → token refresh) deve
+  // girare SOLO sulle route che ne consumano l'esito (PROTECTED_PREFIXES +
+  // AUTH_ONLY_PATHS). Sulle pagine marketing/SSG il client non va nemmeno creato.
+  describe("skips Supabase session on public/marketing routes (REVIEW.md #6)", () => {
+    const PUBLIC_ROUTES = [
+      "/",
+      "/privacy",
+      "/help",
+      "/guide/regime-forfettario",
+      "/per/parrucchieri",
+      "/strumenti/scorporo-iva",
+      "/prezzi",
+    ] as const;
+
+    it.each(PUBLIC_ROUTES)(
+      "does not create the Supabase client nor call getUser for %s",
+      async (path) => {
+        const { proxy } = await import("./proxy");
+
+        const response = await proxy(createRequest(path));
+        expect(response.status).toBe(200);
+        expect(mockGetUser).not.toHaveBeenCalled();
+        expect(mockCreateClient).not.toHaveBeenCalled();
+      },
+    );
+
+    it("still calls getUser on a protected route (/dashboard)", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: { id: "user-123" } } });
+      const { proxy } = await import("./proxy");
+
+      await proxy(createRequest("/dashboard"));
+      expect(mockGetUser).toHaveBeenCalledTimes(1);
+      expect(mockCreateClient).toHaveBeenCalledTimes(1);
+    });
+
+    it("still calls getUser on an auth-only route (/login)", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { proxy } = await import("./proxy");
+
+      await proxy(createRequest("/login"));
+      expect(mockGetUser).toHaveBeenCalledTimes(1);
+      expect(mockCreateClient).toHaveBeenCalledTimes(1);
+    });
+
+    it("still applies the noindex header on a non-prod host without touching the session", async () => {
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(
+        new NextRequest("https://sandbox.scontrinozero.it/guide"),
+      );
+      expect(response.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
+      expect(mockGetUser).not.toHaveBeenCalled();
+      expect(mockCreateClient).not.toHaveBeenCalled();
     });
   });
 

@@ -185,6 +185,25 @@ export async function proxy(request: NextRequest) {
     return applyNoindexHeader(NextResponse.next(), request);
   }
 
+  // Performance (REVIEW.md #6): le route marketing/pubbliche (/, /guide/*,
+  // /prezzi, /per/*, /strumenti/*, /help/*, …) non consumano mai la sessione
+  // Supabase — solo i PROTECTED_PREFIXES (gate auth) e gli AUTH_ONLY_PATHS
+  // (redirect-se-loggato) leggono `user`. Per ogni altra route il risultato di
+  // getUser() verrebbe ignorato, ma per un visitatore con cookie di sessione può
+  // innescare un token refresh (round-trip verso Supabase) su pagine SSG che non
+  // ne hanno bisogno. Salta del tutto la creazione del client e applica solo il
+  // noindex header (hostnameRedirect sopra è già girato su ogni route).
+  // NB: oggi non esistono route app fuori da /dashboard, quindi non si perde
+  // alcun refresh-on-navigation; una futura route app fuori dai prefissi sopra
+  // andrebbe aggiunta a `needsAuth`.
+  const { pathname } = request.nextUrl;
+  const needsAuth =
+    PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
+    AUTH_ONLY_PATHS.some((path) => pathname.startsWith(path));
+  if (!needsAuth) {
+    return applyNoindexHeader(NextResponse.next(), request);
+  }
+
   const { supabase, response } = createMiddlewareSupabaseClient(request);
 
   // Refresh the session — MUST be called before getUser() to keep tokens valid.
@@ -215,7 +234,7 @@ export async function proxy(request: NextRequest) {
     );
   }
 
-  const { pathname, search } = request.nextUrl;
+  const { search } = request.nextUrl;
 
   // Protected routes: redirect to /login if not authenticated
   if (
