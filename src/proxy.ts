@@ -11,6 +11,19 @@ const PROTECTED_PREFIXES = ["/dashboard", "/onboarding"];
 const AUTH_ONLY_PATHS = ["/login", "/register", "/reset-password"];
 
 /**
+ * True per le sole route il cui esito dipende dalla sessione auth: i
+ * PROTECTED_PREFIXES (gate auth) e gli AUTH_ONLY_PATHS (redirect-se-loggato).
+ * Per ogni altra route (marketing/SSG) il middleware non deve nemmeno creare
+ * il client Supabase né chiamare getUser() — vedi `proxy()` (REVIEW.md #6).
+ */
+function pathNeedsAuthSession(pathname: string): boolean {
+  return (
+    PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
+    AUTH_ONLY_PATHS.some((path) => pathname.startsWith(path))
+  );
+}
+
+/**
  * Routes served exclusively on the marketing domain.
  *
  * Source-of-truth per la separazione dei domini: tutto ciò che sul dominio
@@ -195,12 +208,9 @@ export async function proxy(request: NextRequest) {
   // noindex header (hostnameRedirect sopra è già girato su ogni route).
   // NB: oggi non esistono route app fuori da /dashboard, quindi non si perde
   // alcun refresh-on-navigation; una futura route app fuori dai prefissi sopra
-  // andrebbe aggiunta a `needsAuth`.
+  // andrebbe aggiunta a `pathNeedsAuthSession`.
   const { pathname } = request.nextUrl;
-  const needsAuth =
-    PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
-    AUTH_ONLY_PATHS.some((path) => pathname.startsWith(path));
-  if (!needsAuth) {
+  if (!pathNeedsAuthSession(pathname)) {
     return applyNoindexHeader(NextResponse.next(), request);
   }
 
