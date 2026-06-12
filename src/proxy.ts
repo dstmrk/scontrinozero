@@ -174,6 +174,18 @@ function applyNoindexHeader(
   return response;
 }
 
+/**
+ * Estrae un `errorClass` stabile dall'errore lanciato da `getUser()` per il
+ * breadcrumb edge-safe del middleware. Un `AuthApiError` di @supabase/ssr porta
+ * un `code` (es. `refresh_token_not_found`); qualsiasi altro valore degrada a
+ * `auth_error`. Estratto da `proxy()` per tenerne bassa la Cognitive Complexity.
+ */
+function getMiddlewareAuthErrorClass(err: unknown): string {
+  return err && typeof err === "object" && "code" in err
+    ? String((err as { code?: unknown }).code)
+    : "auth_error";
+}
+
 export async function proxy(request: NextRequest) {
   const redirect = hostnameRedirect(request);
   if (redirect) return redirect;
@@ -230,15 +242,11 @@ export async function proxy(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser());
   } catch (err) {
-    const errorClass =
-      err && typeof err === "object" && "code" in err
-        ? String((err as { code?: unknown }).code)
-        : "auth_error";
     console.warn(
       JSON.stringify({
         level: "warn",
         action: "middlewareGetUser",
-        errorClass,
+        errorClass: getMiddlewareAuthErrorClass(err),
         msg: "session refresh failed; treating request as unauthenticated",
       }),
     );
