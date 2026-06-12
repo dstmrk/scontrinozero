@@ -11,6 +11,19 @@ const PROTECTED_PREFIXES = ["/dashboard", "/onboarding"];
 const AUTH_ONLY_PATHS = ["/login", "/register", "/reset-password"];
 
 /**
+ * True per le sole route il cui esito dipende dalla sessione auth: i
+ * PROTECTED_PREFIXES (gate auth) e gli AUTH_ONLY_PATHS (redirect-se-loggato).
+ * Per ogni altra route (marketing/SSG) il middleware non deve nemmeno creare
+ * il client Supabase né chiamare getUser() — vedi `proxy()` (REVIEW.md #6).
+ */
+function pathNeedsAuthSession(pathname: string): boolean {
+  return (
+    PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
+    AUTH_ONLY_PATHS.some((path) => pathname.startsWith(path))
+  );
+}
+
+/**
  * Routes served exclusively on the marketing domain.
  *
  * Source-of-truth per la separazione dei domini: tutto ciò che sul dominio
@@ -161,6 +174,18 @@ function applyNoindexHeader(
   return response;
 }
 
+/**
+ * Estrae un `errorClass` stabile dall'errore lanciato da `getUser()` per il
+ * breadcrumb edge-safe del middleware. Un `AuthApiError` di @supabase/ssr porta
+ * un `code` (es. `refresh_token_not_found`); qualsiasi altro valore degrada a
+ * `auth_error`. Estratto da `proxy()` per tenerne bassa la Cognitive Complexity.
+ */
+function getMiddlewareAuthErrorClass(err: unknown): string {
+  return err && typeof err === "object" && "code" in err
+    ? String((err as { code?: unknown }).code)
+    : "auth_error";
+}
+
 export async function proxy(request: NextRequest) {
   const redirect = hostnameRedirect(request);
   if (redirect) return redirect;
@@ -185,6 +210,22 @@ export async function proxy(request: NextRequest) {
     return applyNoindexHeader(NextResponse.next(), request);
   }
 
+  // Performance (REVIEW.md #6): le route marketing/pubbliche (/, /guide/*,
+  // /prezzi, /per/*, /strumenti/*, /help/*, …) non consumano mai la sessione
+  // Supabase — solo i PROTECTED_PREFIXES (gate auth) e gli AUTH_ONLY_PATHS
+  // (redirect-se-loggato) leggono `user`. Per ogni altra route il risultato di
+  // getUser() verrebbe ignorato, ma per un visitatore con cookie di sessione può
+  // innescare un token refresh (round-trip verso Supabase) su pagine SSG che non
+  // ne hanno bisogno. Salta del tutto la creazione del client e applica solo il
+  // noindex header (hostnameRedirect sopra è già girato su ogni route).
+  // NB: oggi non esistono route app fuori da /dashboard, quindi non si perde
+  // alcun refresh-on-navigation; una futura route app fuori dai prefissi sopra
+  // andrebbe aggiunta a `pathNeedsAuthSession`.
+  const { pathname } = request.nextUrl;
+  if (!pathNeedsAuthSession(pathname)) {
+    return applyNoindexHeader(NextResponse.next(), request);
+  }
+
   const { supabase, response } = createMiddlewareSupabaseClient(request);
 
   // Refresh the session — MUST be called before getUser() to keep tokens valid.
@@ -201,21 +242,17 @@ export async function proxy(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser());
   } catch (err) {
-    const errorClass =
-      err && typeof err === "object" && "code" in err
-        ? String((err as { code?: unknown }).code)
-        : "auth_error";
     console.warn(
       JSON.stringify({
         level: "warn",
         action: "middlewareGetUser",
-        errorClass,
+        errorClass: getMiddlewareAuthErrorClass(err),
         msg: "session refresh failed; treating request as unauthenticated",
       }),
     );
   }
 
-  const { pathname, search } = request.nextUrl;
+  const { search } = request.nextUrl;
 
   // Protected routes: redirect to /login if not authenticated
   if (
