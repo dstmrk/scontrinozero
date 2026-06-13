@@ -750,21 +750,27 @@ documento ri-renderizzato.
 
 ## Rischi accettati (allowlist)
 
-### audit-ci: `GHSA-67mh-4wv8-2f99` (esbuild dev server)
+### audit-ci: advisory `esbuild` dev-only (3 GHSA)
 
-`audit-ci.json` allowlista `GHSA-67mh-4wv8-2f99` (JSON puro → non può portare un
-commento inline, quindi la motivazione vive qui).
+`audit-ci.json` allowlista tre advisory su **esbuild** (JSON puro → non può
+portare un commento inline, quindi la motivazione vive qui):
 
-- **Cos'è:** advisory **moderate** (CVSS 5.3) su **esbuild** — il suo dev server
-  permette a qualsiasi sito di inviare richieste e leggerne la risposta
-  (`range <= 0.24.2`).
-- **Perché è accettabile:** entra **solo transitivamente** via
-  `drizzle-kit → @esbuild-kit/esm-loader → @esbuild-kit/core-utils → esbuild`,
-  ed è un toolchain di **sviluppo/migrazioni**. Il dev server di esbuild **non
-  gira mai** in produzione né in CI build (Next usa la sua toolchain; le
-  migration sono handwritten, `drizzle-kit generate` è bloccato — regola 11).
-  Superficie d'attacco reale ≈ 0.
-- **Revisione:** rimuovere l'allowlist quando `drizzle-kit` aggiorna la
-  dipendenza `@esbuild-kit/*`/`esbuild` a una versione patchata (oggi nessun fix
-  upstream senza bump major di drizzle-kit). Ricontrollare a ogni bump di
-  `drizzle-kit`.
+- `GHSA-67mh-4wv8-2f99` — dev server permette a qualsiasi sito di inviare
+  richieste e leggerne la risposta (moderate, CVSS 5.3).
+- `GHSA-gv7w-rqvm-qjhr` — mancata verifica di integrità del binario nel modulo
+  Deno → RCE via `NPM_CONFIG_REGISTRY` (high).
+- `GHSA-g7r4-m6w7-qqqr` — lettura file arbitraria col dev server su Windows
+  (high).
+
+- **Perché sono accettabili:** `esbuild` **non** è in `dependencies` di
+  produzione (è assente da `package.json` deps); entra **solo transitivamente**
+  via la toolchain di **sviluppo/migrazioni** — `drizzle-kit`, `tsx`,
+  `@esbuild-kit/* → esbuild` (tutti `devDependencies`). Nessuno di questi vettori
+  gira in produzione né nella CI build di Next (Next usa la sua toolchain SWC; le
+  migration sono handwritten, `drizzle-kit generate` è bloccato — regola 11; il
+  dev server esbuild non viene mai avviato, e il modulo Deno non è in uso).
+  Superficie d'attacco reale ≈ 0. Le tre advisory condividono lo stesso identico
+  profilo: stessa dipendenza, stesso confine dev-only.
+- **Revisione:** rimuovere l'allowlist quando la toolchain (`drizzle-kit`/`tsx`/
+  `@esbuild-kit/*`) aggiorna `esbuild` a una versione patchata (>0.28.0) senza
+  bump major rischioso. Ricontrollare a ogni bump di `drizzle-kit`/`tsx`.

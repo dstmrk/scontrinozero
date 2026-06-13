@@ -188,7 +188,7 @@ export function AdeCredentialsSection({
                 >
                   contatta l&apos;assistenza
                 </a>
-                .
+                {"."}
               </p>
             )}
           </div>

@@ -315,6 +315,70 @@ export async function saveAdeCredentials(
   return { businessId };
 }
 
+/**
+ * Identity guard per `verifyAdeCredentials`. Su un business GIÀ onboardato la
+ * P.IVA/CF è l'identità fiscale: cambiare le credenziali verso un soggetto
+ * fiscale DIVERSO non è una rotazione password/PIN, ma sovrascriverebbe
+ * `businesses.vatNumber`/`fiscalCode`. Poiché storico/PDF/pagina pubblica/CSV
+ * leggono LIVE quel valore (gli scontrini non salvano uno snapshot fiscale),
+ * ri-renderizzerebbe con la nuova P.IVA scontrini già trasmessi all'AdE sotto
+ * la vecchia → divergenza documento fiscale vs documento consegnato.
+ *
+ * Ritorna l'errore da propagare (chiamante NON entra nella transazione, così
+ * verifiedAt resta null e l'identità non viene toccata) oppure `null` se la
+ * verifica può procedere. Il primo onboarding (`wasAlreadyOnboarded` false)
+ * passa sempre.
+ */
+function checkAdeIdentityGuard(
+  wasAlreadyOnboarded: boolean,
+  businessId: string,
+  snapshot: { fiscalCode: string | null; vatNumber: string | null } | undefined,
+  fiscalData: {
+    identificativiFiscali: { partitaIva: string; codiceFiscale: string };
+  } | null,
+): OnboardingActionResult | null {
+  if (!wasAlreadyOnboarded) return null;
+
+  if (!fiscalData) {
+    // Non possiamo confermare che la nuova P.IVA combaci con quella registrata:
+    // non marcare "verificate" credenziali mai confrontate (chiude il bypass
+    // del controllo quando getFiscalData fallisce).
+    logger.warn(
+      { businessId, errorClass: "ade_identity_unconfirmed" },
+      "verifyAdeCredentials: identità fiscale non confermabile (getFiscalData fallito) su business già onboardato",
+    );
+    return {
+      error:
+        "Non è stato possibile confermare la connessione con l'Agenzia delle Entrate. Riprova tra qualche istante.",
+    };
+  }
+
+  const registeredVat = snapshot?.vatNumber?.trim() ?? "";
+  const registeredFiscalCode = snapshot?.fiscalCode?.trim() ?? "";
+  const newVat = fiscalData.identificativiFiscali.partitaIva.trim();
+  const newFiscalCode = fiscalData.identificativiFiscali.codiceFiscale.trim();
+
+  // P.IVA come chiave primaria; fallback sul CF se la P.IVA registrata è assente
+  // (onboarding parziale: fiscalCode presente ma vatNumber null).
+  const identityMismatch = registeredVat
+    ? newVat !== registeredVat
+    : newFiscalCode !== registeredFiscalCode;
+
+  if (!identityMismatch) return null;
+
+  // Input utente prevedibile (credenziali di un'altra P.IVA): warn, non error →
+  // niente issue Sentry (regola 20).
+  logger.warn(
+    { businessId, errorClass: "ade_piva_mismatch" },
+    "verifyAdeCredentials: credenziali associate a una P.IVA diversa da quella registrata",
+  );
+  return {
+    error:
+      "Queste credenziali Fisconline appartengono a una partita IVA diversa da quella registrata sul tuo account. Per gestire un'altra partita IVA è necessario un account separato.",
+    pivaMismatch: true,
+  };
+}
+
 export async function verifyAdeCredentials(
   businessId: string,
 ): Promise<OnboardingActionResult> {
@@ -409,57 +473,17 @@ export async function verifyAdeCredentials(
       .catch((err) => logger.warn({ err }, "AdE logout failed"));
   }
 
-  // Identity guard (solo business GIÀ onboardato). Una volta completato
-  // l'onboarding, la P.IVA/CF è l'identità fiscale del business. Cambiare le
-  // credenziali verso un soggetto fiscale DIVERSO non è una rotazione
-  // password/PIN: la transazione sotto sovrascriverebbe vatNumber/fiscalCode e,
-  // poiché storico/PDF/pagina pubblica leggono LIVE `businesses.vatNumber`, gli
-  // scontrini già trasmessi all'AdE sotto la vecchia P.IVA verrebbero
-  // ri-renderizzati con la nuova → divergenza documento fiscale vs documento
-  // consegnato. Blocchiamo qui, l'unico punto in cui la P.IVA è nota
-  // (post-login AdE), senza entrare nella transazione: verifiedAt resta null e
-  // l'identità non viene toccata. Il primo onboarding (wasAlreadyOnboarded
-  // false) resta best-effort e non passa di qui.
-  if (wasAlreadyOnboarded) {
-    if (!fiscalData) {
-      // Non possiamo confermare che la nuova P.IVA combaci con quella
-      // registrata: non marcare "verificate" credenziali mai confrontate
-      // (chiuderebbe il controllo a un bypass quando getFiscalData fallisce).
-      logger.warn(
-        { businessId, errorClass: "ade_identity_unconfirmed" },
-        "verifyAdeCredentials: identità fiscale non confermabile (getFiscalData fallito) su business già onboardato",
-      );
-      return {
-        error:
-          "Non è stato possibile confermare la connessione con l'Agenzia delle Entrate. Riprova tra qualche istante.",
-      };
-    }
-
-    const registeredVat = businessSnapshot?.vatNumber?.trim() ?? "";
-    const registeredFiscalCode = businessSnapshot?.fiscalCode?.trim() ?? "";
-    const newVat = fiscalData.identificativiFiscali.partitaIva.trim();
-    const newFiscalCode = fiscalData.identificativiFiscali.codiceFiscale.trim();
-
-    // P.IVA come chiave primaria; fallback sul CF se la P.IVA registrata è
-    // assente (onboarding parziale: fiscalCode presente ma vatNumber null).
-    const identityMismatch = registeredVat
-      ? newVat !== registeredVat
-      : newFiscalCode !== registeredFiscalCode;
-
-    if (identityMismatch) {
-      // Input utente prevedibile (ha inserito credenziali di un'altra P.IVA):
-      // warn, non error → niente issue Sentry (regola 20).
-      logger.warn(
-        { businessId, errorClass: "ade_piva_mismatch" },
-        "verifyAdeCredentials: credenziali associate a una P.IVA diversa da quella registrata",
-      );
-      return {
-        error:
-          "Queste credenziali Fisconline appartengono a una partita IVA diversa da quella registrata sul tuo account. Per gestire un'altra partita IVA è necessario un account separato.",
-        pivaMismatch: true,
-      };
-    }
-  }
+  // Identity guard: blocca il cambio credenziali verso una P.IVA diversa su un
+  // business già onboardato (logica in checkAdeIdentityGuard). Eseguito PRIMA
+  // della transazione, così verifiedAt resta null e l'identità non viene
+  // toccata. Il primo onboarding (wasAlreadyOnboarded false) passa sempre.
+  const identityError = checkAdeIdentityGuard(
+    wasAlreadyOnboarded,
+    businessId,
+    businessSnapshot,
+    fiscalData,
+  );
+  if (identityError) return identityError;
 
   // Finalize atomically AND optimistically in a single transaction guarded by
   // the credential version snapshotted BEFORE talking to AdE. The guarded
