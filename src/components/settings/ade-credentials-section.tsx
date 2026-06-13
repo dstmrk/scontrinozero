@@ -12,7 +12,12 @@ type VerifyState =
   | { status: "idle" }
   | { status: "pending" }
   | { status: "success" }
-  | { status: "error"; message: string; pivaConflict?: boolean };
+  | {
+      status: "error";
+      message: string;
+      pivaConflict?: boolean;
+      pivaMismatch?: boolean;
+    };
 
 interface AdeCredentialsSectionProps {
   businessId: string | null;
@@ -74,6 +79,7 @@ export function AdeCredentialsSection({
           status: "error",
           message: result.error,
           pivaConflict: result.pivaConflict,
+          pivaMismatch: result.pivaMismatch,
         });
         return;
       }
@@ -170,6 +176,19 @@ export function AdeCredentialsSection({
                   contatta l&apos;assistenza
                 </a>{" "}
                 per sbloccarla.
+              </p>
+            )}
+            {verifyState.pivaMismatch && (
+              <p className="text-muted-foreground text-xs">
+                Per emettere scontrini con un&apos;altra partita IVA registra un
+                account separato. Se pensi sia un errore,{" "}
+                <a
+                  href="/help/contatto-assistenza"
+                  className="underline underline-offset-2"
+                >
+                  contatta l&apos;assistenza
+                </a>
+                {"."}
               </p>
             )}
           </div>

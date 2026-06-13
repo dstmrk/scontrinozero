@@ -720,23 +720,57 @@ effettivamente girando in produzione, o se è codice morto.
 
 ---
 
+### 30. Bonifica `businesses.vatNumber`/`fiscalCode` sovrascritti prima dell'identity guard
+
+- **Categoria:** correttezza/dati fiscali · **Severità:** Low (prevenzione già fatta) — **da indagare solo se ci sono account impattati**
+- **File:** `src/server/onboarding-actions.ts` (`verifyAdeCredentials`); dati in `businesses`/`commercial_documents`
+
+**Contesto.** Fino al fix dell'identity guard (cambio credenziali Fisconline verso
+una P.IVA diversa ora bloccato), `verifyAdeCredentials` sovrascriveva
+**incondizionatamente** `businesses.vatNumber`/`fiscalCode` con la P.IVA delle nuove
+credenziali. Poiché gli scontrini non salvano uno snapshot fiscale e leggono **live**
+`businesses.vatNumber` (storico, PDF, pagina pubblica, CSV), un eventuale account che
+in passato avesse cambiato credenziali verso un soggetto diverso ora mostrerebbe la
+**P.IVA errata** sugli scontrini emessi sotto la P.IVA originale — divergenza tra
+documento trasmesso all'AdE (immutabile in `commercial_documents.adeResponse`) e
+documento ri-renderizzato.
+
+**Fix (indagine).**
+
+1. Individuare gli account potenzialmente impattati: confrontare la `partitaIva` dentro
+   `commercial_documents.adeResponse` (cedente/prestatore trasmesso) con
+   `businesses.vatNumber` corrente per la stessa `business_id`; un mismatch indica una
+   sovrascrittura storica.
+2. Se l'insieme è vuoto → chiudere la voce (la prevenzione basta).
+3. Se non vuoto → decidere la strategia (es. snapshot fiscale per-riga sullo scontrino
+   a partire dall'`adeResponse`, oppure separazione del business storico). Valutare con
+   l'utente: tocca dati fiscali, non automatizzabile alla cieca (regola 13).
+
+---
+
 ## Rischi accettati (allowlist)
 
-### audit-ci: `GHSA-67mh-4wv8-2f99` (esbuild dev server)
+### audit-ci: advisory `esbuild` dev-only (3 GHSA)
 
-`audit-ci.json` allowlista `GHSA-67mh-4wv8-2f99` (JSON puro → non può portare un
-commento inline, quindi la motivazione vive qui).
+`audit-ci.json` allowlista tre advisory su **esbuild** (JSON puro → non può
+portare un commento inline, quindi la motivazione vive qui):
 
-- **Cos'è:** advisory **moderate** (CVSS 5.3) su **esbuild** — il suo dev server
-  permette a qualsiasi sito di inviare richieste e leggerne la risposta
-  (`range <= 0.24.2`).
-- **Perché è accettabile:** entra **solo transitivamente** via
-  `drizzle-kit → @esbuild-kit/esm-loader → @esbuild-kit/core-utils → esbuild`,
-  ed è un toolchain di **sviluppo/migrazioni**. Il dev server di esbuild **non
-  gira mai** in produzione né in CI build (Next usa la sua toolchain; le
-  migration sono handwritten, `drizzle-kit generate` è bloccato — regola 11).
-  Superficie d'attacco reale ≈ 0.
-- **Revisione:** rimuovere l'allowlist quando `drizzle-kit` aggiorna la
-  dipendenza `@esbuild-kit/*`/`esbuild` a una versione patchata (oggi nessun fix
-  upstream senza bump major di drizzle-kit). Ricontrollare a ogni bump di
-  `drizzle-kit`.
+- `GHSA-67mh-4wv8-2f99` — dev server permette a qualsiasi sito di inviare
+  richieste e leggerne la risposta (moderate, CVSS 5.3).
+- `GHSA-gv7w-rqvm-qjhr` — mancata verifica di integrità del binario nel modulo
+  Deno → RCE via `NPM_CONFIG_REGISTRY` (high).
+- `GHSA-g7r4-m6w7-qqqr` — lettura file arbitraria col dev server su Windows
+  (high).
+
+- **Perché sono accettabili:** `esbuild` **non** è in `dependencies` di
+  produzione (è assente da `package.json` deps); entra **solo transitivamente**
+  via la toolchain di **sviluppo/migrazioni** — `drizzle-kit`, `tsx`,
+  `@esbuild-kit/* → esbuild` (tutti `devDependencies`). Nessuno di questi vettori
+  gira in produzione né nella CI build di Next (Next usa la sua toolchain SWC; le
+  migration sono handwritten, `drizzle-kit generate` è bloccato — regola 11; il
+  dev server esbuild non viene mai avviato, e il modulo Deno non è in uso).
+  Superficie d'attacco reale ≈ 0. Le tre advisory condividono lo stesso identico
+  profilo: stessa dipendenza, stesso confine dev-only.
+- **Revisione:** rimuovere l'allowlist quando la toolchain (`drizzle-kit`/`tsx`/
+  `@esbuild-kit/*`) aggiorna `esbuild` a una versione patchata (>0.28.0) senza
+  bump major rischioso. Ricontrollare a ogni bump di `drizzle-kit`/`tsx`.

@@ -1028,6 +1028,168 @@ describe("onboarding-actions", () => {
       expect(mockNotifyOperator).not.toHaveBeenCalled();
     });
 
+    // Identity guard: cambiare credenziali verso una P.IVA DIVERSA su un
+    // business già onboardato sovrascriverebbe businesses.vatNumber, facendo
+    // mostrare la nuova P.IVA su scontrini già emessi sotto la vecchia (storico
+    // e PDF leggono live businesses.vatNumber). Va bloccato prima di scrivere.
+    it("blocca il cambio credenziali verso una P.IVA diversa su business già onboardato (pivaMismatch)", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]); // ownership
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+          verifiedAt: new Date("2026-01-01"),
+        },
+      ]); // credentials
+      // Business snapshot: già onboardato con P.IVA1.
+      mockLimit.mockResolvedValueOnce([
+        { fiscalCode: "RSSMRA80A01H501U", vatNumber: "12345678901" },
+      ]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "99999999999", // P.IVA2 diversa
+          codiceFiscale: "VRDLGI85M01H501Z",
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials("biz-789");
+
+      expect(result.pivaMismatch).toBe(true);
+      expect(result.error).toContain("partita IVA diversa");
+      expect(result.businessId).toBeUndefined();
+      // Nessuna transazione: verifiedAt non impostato, identità non sovrascritta.
+      expect(mockTransaction).not.toHaveBeenCalled();
+      expect(mockUpdate).not.toHaveBeenCalled();
+      // Logout comunque chiamato (finally del blocco getFiscalData).
+      expect(mockLogout).toHaveBeenCalled();
+      const { logger } = await import("@/lib/logger");
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ errorClass: "ade_piva_mismatch" }),
+        expect.stringContaining("P.IVA diversa"),
+      );
+      expect(mockSendEmail).not.toHaveBeenCalled();
+    });
+
+    it("consente la riverifica con la stessa P.IVA su business già onboardato (rotazione password)", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+          verifiedAt: new Date("2026-01-01"),
+        },
+      ]);
+      mockLimit.mockResolvedValueOnce([
+        { fiscalCode: "RSSMRA80A01H501U", vatNumber: "12345678901" },
+      ]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "12345678901", // stessa P.IVA → consentito
+          codiceFiscale: "RSSMRA80A01H501U",
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials("biz-789");
+
+      expect(result.error).toBeUndefined();
+      expect(result.pivaMismatch).toBeUndefined();
+      expect(result.businessId).toBe("biz-789");
+      // Scrive identità (idempotente) + verifiedAt nella transazione.
+      expect(mockUpdate).toHaveBeenCalledTimes(3);
+    });
+
+    // Edge: se getFiscalData fallisce su un business già onboardato non possiamo
+    // confermare che la P.IVA combaci → non marcare "verificate" credenziali mai
+    // confrontate (chiuderebbe il guard a un bypass). Errore transitorio.
+    it("blocca la verifica se getFiscalData fallisce su business già onboardato (identità non confermabile)", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+          verifiedAt: new Date("2026-01-01"),
+        },
+      ]);
+      mockLimit.mockResolvedValueOnce([
+        { fiscalCode: "RSSMRA80A01H501U", vatNumber: "12345678901" },
+      ]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockRejectedValue(
+        new Error("AdE fiscal data unavailable"),
+      );
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials("biz-789");
+
+      expect(result.error).toContain("Riprova");
+      expect(result.pivaMismatch).toBeUndefined();
+      expect(result.businessId).toBeUndefined();
+      // verifiedAt NON impostato: nessuna transazione.
+      expect(mockTransaction).not.toHaveBeenCalled();
+      expect(mockUpdate).not.toHaveBeenCalled();
+      expect(mockLogout).toHaveBeenCalled();
+      const { logger } = await import("@/lib/logger");
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ errorClass: "ade_identity_unconfirmed" }),
+        expect.stringContaining("non confermabile"),
+      );
+    });
+
+    it("usa il codice fiscale come fallback quando la P.IVA registrata è assente (mismatch via CF)", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+          verifiedAt: new Date("2026-01-01"),
+        },
+      ]);
+      // Onboarding parziale: fiscalCode presente ma vatNumber null.
+      mockLimit.mockResolvedValueOnce([
+        { fiscalCode: "RSSMRA80A01H501U", vatNumber: null },
+      ]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "12345678901",
+          codiceFiscale: "VRDLGI85M01H501Z", // CF diverso → mismatch via fallback
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials("biz-789");
+
+      expect(result.pivaMismatch).toBe(true);
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
     it("blocca la verifica se la P.IVA è già in uso su un altro account (anti-abuso trial)", async () => {
       // Ownership check
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
