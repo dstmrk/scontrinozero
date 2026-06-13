@@ -5,9 +5,11 @@ import { LogOut, Settings } from "lucide-react";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getOnboardingStatus } from "@/server/onboarding-actions";
 import { signOut } from "@/server/auth-actions";
+import { getAnnouncement } from "@/lib/announcement";
 import { Button } from "@/components/ui/button";
 import { BottomNav } from "@/components/dashboard/bottom-nav";
 import { HeaderNav } from "@/components/dashboard/header-nav";
+import { AnnouncementBanner } from "@/components/announcement/announcement-banner";
 import { PwaInstallPrompt } from "@/components/pwa/install-prompt";
 
 export default async function DashboardLayout({
@@ -30,8 +32,11 @@ export default async function DashboardLayout({
     redirect("/onboarding");
   }
 
+  const announcement = getAnnouncement();
+
   return (
     <div className="flex min-h-screen flex-col">
+      {announcement && <AnnouncementBanner {...announcement} />}
       <header className="bg-background border-b">
         <div className="container mx-auto flex items-center justify-between px-4 py-3">
           <Link
