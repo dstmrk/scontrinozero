@@ -568,6 +568,38 @@ describe("AdeCredentialsSection", () => {
       });
     });
 
+    it("mostra il messaggio dedicato e il pointer all'account separato per un mismatch P.IVA", async () => {
+      mockVerifyAdeCredentials.mockResolvedValue({
+        error:
+          "Queste credenziali Fisconline appartengono a una partita IVA diversa da quella registrata sul tuo account. Per gestire un'altra partita IVA è necessario un account separato.",
+        pivaMismatch: true,
+      });
+
+      render(
+        <AdeCredentialsSection
+          businessId="biz-1"
+          hasCredentials={true}
+          verifiedAt={null}
+        />,
+      );
+
+      fireEvent.click(
+        screen.getByRole("button", { name: "Verifica connessione" }),
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/partita IVA diversa/i)).toBeInTheDocument();
+      });
+      // Pointer azionabile: registra un account separato + link assistenza.
+      expect(
+        screen.getByText(/registra un account separato/i),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /assistenza/i })).toHaveAttribute(
+        "href",
+        "/help/contatto-assistenza",
+      );
+    });
+
     it("NON mostra il link all'assistenza per un errore generico", async () => {
       mockVerifyAdeCredentials.mockResolvedValue({
         error: "Verifica fallita. Controlla le credenziali Fisconline.",

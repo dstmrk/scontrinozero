@@ -123,6 +123,44 @@ export default function ErroriAdePage() {
           password viene bloccata sul portale AdE. Vedi la sezione successiva.
         </p>
 
+        {/* ─── Credenziali di un'altra partita IVA ─── */}
+        <h2 className="mt-10 text-xl font-semibold">
+          Credenziali associate a un&apos;altra partita IVA
+        </h2>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          <strong>Sintomo:</strong> dopo aver modificato le credenziali in{" "}
+          <strong>Impostazioni → Credenziali AdE</strong>, il pulsante{" "}
+          <strong>Verifica connessione</strong> mostra il messaggio{" "}
+          <em>
+            &quot;Queste credenziali Fisconline appartengono a una partita IVA
+            diversa da quella registrata sul tuo account&quot;.
+          </em>
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          <strong>Causa:</strong> ogni account ScontrinoZero è legato a{" "}
+          <strong>una sola partita IVA</strong>, quella verificata al primo
+          collegamento. Le credenziali inserite appartengono a un soggetto
+          fiscale diverso. A tutela degli scontrini già emessi — che restano
+          associati alla partita IVA originale — non è possibile sostituire la
+          partita IVA di un account esistente.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm font-medium">
+          Cosa fare:
+        </p>
+        <ul className="text-muted-foreground mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed">
+          <li>
+            Se volevi solo aggiornare <strong>password o PIN</strong> della
+            stessa partita IVA, controlla di aver inserito il{" "}
+            <strong>codice fiscale corretto</strong>: deve essere quello
+            dell&apos;account Fisconline già collegato.
+          </li>
+          <li>
+            Se gestisci una <strong>nuova partita IVA</strong>, registra un
+            account separato su ScontrinoZero con un&apos;altra email.
+          </li>
+          <li>Se pensi si tratti di un errore, contatta l&apos;assistenza.</li>
+        </ul>
+
         {/* ─── Errore 3 ─── */}
         <h2 className="mt-10 text-xl font-semibold">
           Password Fisconline bloccata per troppi tentativi

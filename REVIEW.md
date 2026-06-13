@@ -720,6 +720,34 @@ effettivamente girando in produzione, o se è codice morto.
 
 ---
 
+### 30. Bonifica `businesses.vatNumber`/`fiscalCode` sovrascritti prima dell'identity guard
+
+- **Categoria:** correttezza/dati fiscali · **Severità:** Low (prevenzione già fatta) — **da indagare solo se ci sono account impattati**
+- **File:** `src/server/onboarding-actions.ts` (`verifyAdeCredentials`); dati in `businesses`/`commercial_documents`
+
+**Contesto.** Fino al fix dell'identity guard (cambio credenziali Fisconline verso
+una P.IVA diversa ora bloccato), `verifyAdeCredentials` sovrascriveva
+**incondizionatamente** `businesses.vatNumber`/`fiscalCode` con la P.IVA delle nuove
+credenziali. Poiché gli scontrini non salvano uno snapshot fiscale e leggono **live**
+`businesses.vatNumber` (storico, PDF, pagina pubblica, CSV), un eventuale account che
+in passato avesse cambiato credenziali verso un soggetto diverso ora mostrerebbe la
+**P.IVA errata** sugli scontrini emessi sotto la P.IVA originale — divergenza tra
+documento trasmesso all'AdE (immutabile in `commercial_documents.adeResponse`) e
+documento ri-renderizzato.
+
+**Fix (indagine).**
+
+1. Individuare gli account potenzialmente impattati: confrontare la `partitaIva` dentro
+   `commercial_documents.adeResponse` (cedente/prestatore trasmesso) con
+   `businesses.vatNumber` corrente per la stessa `business_id`; un mismatch indica una
+   sovrascrittura storica.
+2. Se l'insieme è vuoto → chiudere la voce (la prevenzione basta).
+3. Se non vuoto → decidere la strategia (es. snapshot fiscale per-riga sullo scontrino
+   a partire dall'`adeResponse`, oppure separazione del business storico). Valutare con
+   l'utente: tocca dati fiscali, non automatizzabile alla cieca (regola 13).
+
+---
+
 ## Rischi accettati (allowlist)
 
 ### audit-ci: `GHSA-67mh-4wv8-2f99` (esbuild dev server)
