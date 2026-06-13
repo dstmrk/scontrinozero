@@ -47,8 +47,8 @@ function normalizeLevel(raw: string | undefined): AnnouncementLevel {
  */
 function hashMessage(message: string): string {
   let hash = 5381;
-  for (let i = 0; i < message.length; i++) {
-    hash = (hash * 33) ^ message.charCodeAt(i);
+  for (const char of message) {
+    hash = (hash * 33) ^ (char.codePointAt(0) ?? 0);
   }
   return (hash >>> 0).toString(36);
 }
