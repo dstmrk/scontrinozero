@@ -67,7 +67,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       {
         question: "Va bene anche per chi è in regime forfettario?",
         answer:
-          "Sì. Il regime forfettario non esonera dall'emissione del documento commerciale verso privati. ScontrinoZero gestisce correttamente la natura N2.2 e l'assenza di IVA tipica del forfettario.",
+          "Sì. Il regime forfettario non esonera dall'emissione del documento commerciale verso privati. Con ScontrinoZero imposti la natura N2 (operazioni non soggette) come aliquota prevalente e gli scontrini escono senza IVA, come previsto per il forfettario.",
       },
       {
         question: "Quanto costa al mese?",
@@ -222,15 +222,15 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     audience:
       "partite IVA in regime forfettario (L. 190/2014) con vendite o servizi B2C",
     useCase:
-      "Il regime forfettario non ti esonera dall'emissione del documento commerciale quando vendi a privati. Ma non ha senso pagare centinaia di euro per un registratore di cassa telematico se il tuo volume di scontrini è modesto. ScontrinoZero applica automaticamente il codice natura N2.2 (il codice IVA che identifica chi è in regime forfettario, da indicare al posto dell'aliquota) e ti fa risparmiare sull'hardware.",
+      "Il regime forfettario non ti esonera dall'emissione del documento commerciale quando vendi a privati. Ma non ha senso pagare centinaia di euro per un registratore di cassa telematico se il tuo volume di scontrini è modesto. Con ScontrinoZero imposti come aliquota prevalente la natura N2 (il codice IVA delle operazioni non soggette del forfettario, da indicare al posto dell'aliquota) e risparmi sull'hardware.",
     obligations: [
       "Emissione del Documento Commerciale Online verso privati anche in regime forfettario.",
-      "Indicazione della natura N2.2 sullo scontrino (operazione non soggetta IVA, art. 1 c. 54-89 L. 190/2014).",
+      "Indicazione della natura N2 sullo scontrino (operazione non soggetta IVA, art. 1 c. 54-89 L. 190/2014).",
       "Trasmissione corrispettivi all'Agenzia delle Entrate entro 12 giorni.",
       "Limite di ricavi €85.000/anno per restare nel regime forfettario.",
     ],
     benefits: [
-      "Selezione guidata della natura N2.2 in fase di onboarding, pre-configurata sugli scontrini.",
+      "Natura N2 impostabile come aliquota prevalente in onboarding, così è già pre-compilata sugli scontrini.",
       "Costo mensile più basso del mercato: a partire da €2,50/mese (annuale).",
       "Zero hardware da acquistare: solo lo smartphone che già hai.",
       "Storico ordinato e ricercabile; export CSV sul piano Pro.",
@@ -239,7 +239,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       {
         question: "In forfettario devo davvero emettere scontrino?",
         answer:
-          "Sì, se vendi beni o servizi a privati e non emetti fattura. Il regime forfettario riguarda la fiscalità (IVA, IRPEF), non l'obbligo di documentare la transazione. Lo scontrino senza IVA, con natura N2.2, è la forma corretta.",
+          "Sì, se vendi beni o servizi a privati e non emetti fattura. Il regime forfettario riguarda la fiscalità (IVA, IRPEF), non l'obbligo di documentare la transazione. Lo scontrino senza IVA, con natura N2, è la forma corretta.",
       },
       {
         question: "Cosa cambia se supero gli €85.000 di ricavi?",

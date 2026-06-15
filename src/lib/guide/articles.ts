@@ -92,7 +92,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         question: "Posso emettere DCO anche in regime forfettario?",
         answer:
-          "Sì. Il regime forfettario non esonera dall'obbligo di emettere il documento commerciale per le vendite B2C. Sul documento va indicata la natura N2.2 (operazione non soggetta IVA, art. 1 c. 54-89 L. 190/2014) al posto dell'aliquota, ma lo scontrino va comunque emesso e trasmesso.",
+          "Sì. Il regime forfettario non esonera dall'obbligo di emettere il documento commerciale per le vendite B2C. Sul documento va indicata la natura N2 (operazione non soggetta IVA, art. 1 c. 54-89 L. 190/2014) al posto dell'aliquota — il codice granulare N2.2 vale solo per la fattura elettronica — ma lo scontrino va comunque emesso e trasmesso.",
       },
     ],
     relatedHelp: [
@@ -315,7 +315,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Come configurare l'IVA",
-        body: "Sui documenti emessi da un forfettario l'operazione è non soggetta a IVA ai sensi dell'art. 1 c. 54-89 L. 190/2014. Sul DCO va indicato il codice natura N2.2 (operazione non soggetta IVA) al posto dell'aliquota, con la dicitura normativa di esenzione. In ScontrinoZero, in fase di onboarding indichi che sei in regime forfettario e l'app applica automaticamente la configurazione corretta.",
+        body: "Sui documenti emessi da un forfettario l'operazione è non soggetta a IVA ai sensi dell'art. 1 c. 54-89 L. 190/2014. Sullo scontrino (documento commerciale) si indica la natura N2 al posto dell'aliquota; il codice granulare N2.2 riguarda invece la fattura elettronica. In ScontrinoZero non esiste un selettore «regime forfettario» dedicato: durante l'onboarding imposti l'aliquota IVA prevalente su «0% – Non soggette» (natura N2) e, se usi il catalogo rapido, fai lo stesso sui singoli prodotti. La dicitura di esenzione non è richiesta sullo scontrino (basta la natura N2): resta obbligatoria solo sulle fatture.",
       },
       {
         heading: "Lotteria degli Scontrini e altri aspetti",
@@ -334,7 +334,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         question: "Posso usare ScontrinoZero se sono in regime forfettario?",
         answer:
-          "Sì, ScontrinoZero è progettato anche per i forfettari. In fase di configurazione iniziale indichi il regime e l'app imposta automaticamente le aliquote IVA a 0% e la dicitura normativa di esenzione su tutti gli scontrini emessi.",
+          "Sì, ScontrinoZero è progettato anche per i forfettari. Non c'è un selettore di regime dedicato: durante la configurazione iniziale imposti l'aliquota IVA prevalente su «0% – Non soggette» (natura N2) e, se usi il catalogo, sui singoli prodotti; da lì gli scontrini escono senza IVA, con la natura N2.",
       },
       {
         question:
@@ -591,7 +591,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
         question:
           "Sono in regime forfettario: devo gestire la lotteria degli scontrini?",
         answer:
-          "Sì, anche in regime forfettario puoi (e in pratica conviene) accettare il codice lotteria del cliente: la lotteria si applica al consumatore finale, non al regime fiscale dell'esercente. Il DCO emesso da un forfettario include normalmente il campo lotteria, con la natura N2.2 (operazione non soggetta IVA art. 1 c. 54-89 L. 190/2014) al posto dell'aliquota.",
+          "Sì, anche in regime forfettario puoi (e in pratica conviene) accettare il codice lotteria del cliente: la lotteria si applica al consumatore finale, non al regime fiscale dell'esercente. Il DCO emesso da un forfettario include normalmente il campo lotteria, con la natura N2 (operazione non soggetta IVA art. 1 c. 54-89 L. 190/2014) al posto dell'aliquota.",
       },
       {
         question:
