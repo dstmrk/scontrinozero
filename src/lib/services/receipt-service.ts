@@ -11,7 +11,8 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
-import { createAdeClient, getAdeMode } from "@/lib/ade";
+import { withAdeSession } from "@/lib/ade";
+import type { AdeClient } from "@/lib/ade/client";
 import { AdePasswordExpiredError } from "@/lib/ade/errors";
 import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
 import { logAdeFailure } from "@/lib/ade/log-failure";
@@ -544,84 +545,22 @@ async function submitSaleToAde(
     deductibleAmount: 0,
   };
 
-  const adeClient = createAdeClient(getAdeMode());
-  let loggedIn = false;
-
   try {
-    await adeClient.login({ codiceFiscale, password, pin });
-    loggedIn = true;
-    const payload = mapSaleToAdePayload(saleDocRequest, cedentePrestatore);
-    const adeResponse = await adeClient.submitSale(payload);
-
-    if (!adeResponse.esito) {
-      const errorCodes = adeResponse.errori?.map((e) => e.codice) ?? [];
-      const errorDescriptions =
-        adeResponse.errori?.map((e) => e.descrizione) ?? [];
-      // warn (level 40) — sotto la soglia Sentry: un rifiuto business AdE
-      // (esito:false) non è un errore applicativo, quindi non apre issue
-      // Sentry. Resta nei log Docker per indagine.
-      logger.warn(
-        {
-          documentId,
-          adeIdtrx: adeResponse.idtrx,
-          adeProgressivo: adeResponse.progressivo,
-          adeErrorCodes: errorCodes,
-          adeErrorDescriptions: errorDescriptions,
-          recovery: options.recovery,
-        },
-        "AdE rejected sale",
-      );
-      // Retry on timeout. La submitSale è già successa (esito:false è una
-      // risposta valida AdE, non un errore di rete) — il DB deve riflettere
-      // REJECTED altrimenti la stale recovery ritenterà invano una sale già
-      // rifiutata.
-      await retryOnStatementTimeout("emit-update-rejected", () =>
-        db
-          .update(commercialDocuments)
-          .set({
-            status: "REJECTED",
-            adeResponse: adeResponse as unknown as Record<string, unknown>,
-          })
-          .where(eq(commercialDocuments.id, documentId)),
-      );
-      return {
-        error:
-          "Il portale Agenzia delle Entrate Fatture e Corrispettivi ha rifiutato l'emissione dello scontrino. Non dipende da te né da ScontrinoZero. Riprova tra qualche minuto.",
-      };
-    }
-
-    // Retry su timeout. La submitSale ha avuto esito true: AdE ha accettato
-    // lo scontrino. Se la UPDATE finale fallisce, la riga resta PENDING e la
-    // stale recovery la recupera; ma il retry qui evita la maggior parte dei
-    // casi di disallineamento DB↔AdE.
-    await retryOnStatementTimeout("emit-update-accepted", () =>
-      db
-        .update(commercialDocuments)
-        .set({
-          status: "ACCEPTED",
-          adeTransactionId: adeResponse.idtrx ?? null,
-          adeProgressive: adeResponse.progressivo ?? null,
-          adeResponse: adeResponse as unknown as Record<string, unknown>,
-        })
-        .where(eq(commercialDocuments.id, documentId)),
-    );
-
-    logger.info(
+    return await withAdeSession(
       {
-        documentId,
         businessId: input.businessId,
-        adeTransactionId: adeResponse.idtrx,
-        apiKeyId: apiKeyId ?? undefined,
-        recovery: options.recovery,
+        credentials: { codiceFiscale, password, pin },
       },
-      "Receipt emitted successfully",
+      (adeClient) =>
+        runSubmitSale(adeClient, {
+          documentId,
+          input,
+          saleDocRequest,
+          cedentePrestatore,
+          apiKeyId,
+          recovery: options.recovery,
+        }),
     );
-
-    return {
-      documentId,
-      adeTransactionId: adeResponse.idtrx ?? undefined,
-      adeProgressive: adeResponse.progressivo ?? undefined,
-    };
   } catch (err) {
     logAdeFailure(
       err,
@@ -657,11 +596,105 @@ async function submitSaleToAde(
     }
 
     return formatEmitError(err);
-  } finally {
-    if (loggedIn) {
-      await adeClient
-        .logout()
-        .catch((err) => logger.warn({ err }, "AdE logout failed"));
-    }
   }
+}
+
+/**
+ * Esegue la submitSale su un client AdE già autenticato e persiste il risultato.
+ * Separata da `submitSaleToAde` perché gira dentro `withAdeSession` (REVIEW #5):
+ * la gestione errori/logout vive nel chiamante, qui solo la logica di emissione.
+ */
+async function runSubmitSale(
+  adeClient: AdeClient,
+  ctx: {
+    documentId: string;
+    input: SubmitReceiptInput;
+    saleDocRequest: SaleDocumentRequest;
+    cedentePrestatore: AdeCedentePrestatore;
+    apiKeyId: string | null | undefined;
+    recovery: boolean;
+  },
+): Promise<SubmitReceiptResult> {
+  const db = getDb();
+  const {
+    documentId,
+    input,
+    saleDocRequest,
+    cedentePrestatore,
+    apiKeyId,
+    recovery,
+  } = ctx;
+
+  const payload = mapSaleToAdePayload(saleDocRequest, cedentePrestatore);
+  const adeResponse = await adeClient.submitSale(payload);
+
+  if (!adeResponse.esito) {
+    const errorCodes = adeResponse.errori?.map((e) => e.codice) ?? [];
+    const errorDescriptions =
+      adeResponse.errori?.map((e) => e.descrizione) ?? [];
+    // warn (level 40) — sotto la soglia Sentry: un rifiuto business AdE
+    // (esito:false) non è un errore applicativo, quindi non apre issue
+    // Sentry. Resta nei log Docker per indagine.
+    logger.warn(
+      {
+        documentId,
+        adeIdtrx: adeResponse.idtrx,
+        adeProgressivo: adeResponse.progressivo,
+        adeErrorCodes: errorCodes,
+        adeErrorDescriptions: errorDescriptions,
+        recovery,
+      },
+      "AdE rejected sale",
+    );
+    // Retry on timeout. La submitSale è già successa (esito:false è una
+    // risposta valida AdE, non un errore di rete) — il DB deve riflettere
+    // REJECTED altrimenti la stale recovery ritenterà invano una sale già
+    // rifiutata.
+    await retryOnStatementTimeout("emit-update-rejected", () =>
+      db
+        .update(commercialDocuments)
+        .set({
+          status: "REJECTED",
+          adeResponse: adeResponse as unknown as Record<string, unknown>,
+        })
+        .where(eq(commercialDocuments.id, documentId)),
+    );
+    return {
+      error:
+        "Il portale Agenzia delle Entrate Fatture e Corrispettivi ha rifiutato l'emissione dello scontrino. Non dipende da te né da ScontrinoZero. Riprova tra qualche minuto.",
+    };
+  }
+
+  // Retry su timeout. La submitSale ha avuto esito true: AdE ha accettato
+  // lo scontrino. Se la UPDATE finale fallisce, la riga resta PENDING e la
+  // stale recovery la recupera; ma il retry qui evita la maggior parte dei
+  // casi di disallineamento DB↔AdE.
+  await retryOnStatementTimeout("emit-update-accepted", () =>
+    db
+      .update(commercialDocuments)
+      .set({
+        status: "ACCEPTED",
+        adeTransactionId: adeResponse.idtrx ?? null,
+        adeProgressive: adeResponse.progressivo ?? null,
+        adeResponse: adeResponse as unknown as Record<string, unknown>,
+      })
+      .where(eq(commercialDocuments.id, documentId)),
+  );
+
+  logger.info(
+    {
+      documentId,
+      businessId: input.businessId,
+      adeTransactionId: adeResponse.idtrx,
+      apiKeyId: apiKeyId ?? undefined,
+      recovery,
+    },
+    "Receipt emitted successfully",
+  );
+
+  return {
+    documentId,
+    adeTransactionId: adeResponse.idtrx ?? undefined,
+    adeProgressive: adeResponse.progressivo ?? undefined,
+  };
 }

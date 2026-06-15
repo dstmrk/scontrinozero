@@ -5,8 +5,11 @@
  */
 
 import type { AdeClient } from "./client";
+import type { FisconlineCredentials } from "./types";
 import { MockAdeClient } from "./mock-client";
 import { RealAdeClient } from "./real-client";
+import { adeSessionCache } from "./session-cache";
+import { logger } from "@/lib/logger";
 
 export type AdeMode = "mock" | "real";
 
@@ -58,4 +61,38 @@ export function createAdeClient(mode: AdeMode): AdeClient {
     default:
       throw new Error(`Unknown ADE_MODE: ${mode}`);
   }
+}
+
+/**
+ * Esegue `fn` con un client AdE autenticato per `businessId` (REVIEW #5).
+ *
+ * - `ADE_MODE=real`: riusa la sessione via `adeSessionCache` (un solo login
+ *   Fisconline per più operazioni ravvicinate dello stesso business, serializzate
+ *   da un lock per-business). Il logout NON avviene a fine operazione: la
+ *   sessione resta in cache fino a TTL/eviction/invalidazione.
+ * - `ADE_MODE=mock`: nessuna cache. login + logout per-operazione come prima,
+ *   così il comportamento dei test mock resta invariato (login/logout no-op).
+ *
+ * Sostituisce il pattern `createAdeClient(getAdeMode())` + `login()` + `logout()`
+ * nel `finally` nei call-site di emissione/annullo.
+ */
+export async function withAdeSession<T>(
+  params: { businessId: string; credentials: FisconlineCredentials },
+  fn: (client: AdeClient) => Promise<T>,
+): Promise<T> {
+  const mode = getAdeMode();
+
+  if (mode === "mock") {
+    const client = createAdeClient("mock");
+    await client.login(params.credentials);
+    try {
+      return await fn(client);
+    } finally {
+      await client
+        .logout()
+        .catch((err) => logger.warn({ err }, "AdE logout failed"));
+    }
+  }
+
+  return adeSessionCache.run(params.businessId, params.credentials, fn);
 }

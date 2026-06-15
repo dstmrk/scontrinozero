@@ -55,6 +55,21 @@ vi.mock("@/lib/server-auth", () => ({
 vi.mock("@/lib/ade", () => ({
   getAdeMode: () => "mock",
   createAdeClient: mockCreateAdeClient,
+  // withAdeSession (REVIEW #5): replica il ciclo mock-mode usando il client di
+  // mockCreateAdeClient → login/fn/logout (login fuori dal try, come nel codice:
+  // un login fallito non chiama logout).
+  withAdeSession: async (
+    params: { credentials: unknown },
+    fn: (client: ReturnType<typeof mockCreateAdeClient>) => unknown,
+  ) => {
+    const client = mockCreateAdeClient();
+    await client.login(params.credentials);
+    try {
+      return await fn(client);
+    } finally {
+      await client.logout();
+    }
+  },
 }));
 vi.mock("@/lib/ade/mapper", () => ({
   mapSaleToAdePayload: mockMapSaleToAdePayload,

@@ -62,13 +62,27 @@ vi.mock("@/db/schema", () => ({
 const mockLogin = vi.fn();
 const mockLogout = vi.fn();
 const mockSubmitSale = vi.fn();
+const mockAdeClient = {
+  login: mockLogin,
+  logout: mockLogout,
+  submitSale: mockSubmitSale,
+};
+// withAdeSession (REVIEW #5) sostituisce createAdeClient + login/logout manuali.
+// Il mock riproduce il ciclo mock-mode: login → fn(client) → logout nel finally,
+// così le asserzioni su mockLogin/mockLogout/mockSubmitSale restano valide.
 vi.mock("@/lib/ade", () => ({
   getAdeMode: () => "mock",
-  createAdeClient: vi.fn().mockReturnValue({
-    login: mockLogin,
-    logout: mockLogout,
-    submitSale: mockSubmitSale,
-  }),
+  withAdeSession: async (
+    params: { credentials: unknown },
+    fn: (client: typeof mockAdeClient) => unknown,
+  ) => {
+    await mockAdeClient.login(params.credentials);
+    try {
+      return await fn(mockAdeClient);
+    } finally {
+      await mockAdeClient.logout();
+    }
+  },
 }));
 
 const mockMapSaleToAdePayload = vi.fn().mockReturnValue({ mapped: true });

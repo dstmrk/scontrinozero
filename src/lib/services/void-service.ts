@@ -11,7 +11,7 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
-import { createAdeClient, getAdeMode } from "@/lib/ade";
+import { withAdeSession } from "@/lib/ade";
 import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
 import { logAdeFailure } from "@/lib/ade/log-failure";
 import { mapVoidToAdePayload } from "@/lib/ade/mapper";
@@ -609,38 +609,41 @@ export async function voidReceiptForBusiness(
   const { codiceFiscale, password, pin, cedentePrestatore } =
     prep.prerequisites;
 
-  const adeClient = createAdeClient(getAdeMode());
-  let loggedIn = false;
-
   try {
-    await adeClient.login({ codiceFiscale, password, pin });
-    loggedIn = true;
-
-    // Fetch original document from AdE to get real idElementoContabile values
-    const originalAdeDoc = await adeClient.getDocument(saleAdeTransactionId);
-
-    const voidReq: VoidRequest = {
-      idempotencyKey: input.idempotencyKey,
-      originalDocument: {
-        transactionId: saleAdeTransactionId,
-        documentProgressive: saleAdeProgressive,
-        date: getFiscalDate(saleCreatedAt),
+    return await withAdeSession(
+      {
+        businessId: input.businessId,
+        credentials: { codiceFiscale, password, pin },
       },
-    };
+      async (adeClient) => {
+        // Fetch original document from AdE to get real idElementoContabile values
+        const originalAdeDoc =
+          await adeClient.getDocument(saleAdeTransactionId);
 
-    const payload = mapVoidToAdePayload(
-      voidReq,
-      cedentePrestatore,
-      originalAdeDoc,
+        const voidReq: VoidRequest = {
+          idempotencyKey: input.idempotencyKey,
+          originalDocument: {
+            transactionId: saleAdeTransactionId,
+            documentProgressive: saleAdeProgressive,
+            date: getFiscalDate(saleCreatedAt),
+          },
+        };
+
+        const payload = mapVoidToAdePayload(
+          voidReq,
+          cedentePrestatore,
+          originalAdeDoc,
+        );
+        const adeResponse = await adeClient.submitVoid(payload);
+        return await processVoidAdeResponse({
+          adeResponse,
+          voidDocumentId,
+          saleDocumentId: input.documentId,
+          businessId: input.businessId,
+          apiKeyId,
+        });
+      },
     );
-    const adeResponse = await adeClient.submitVoid(payload);
-    return await processVoidAdeResponse({
-      adeResponse,
-      voidDocumentId,
-      saleDocumentId: input.documentId,
-      businessId: input.businessId,
-      apiKeyId,
-    });
   } catch (err) {
     logAdeFailure(
       err,
@@ -686,11 +689,5 @@ export async function voidReceiptForBusiness(
       "Errore durante l'annullo dello scontrino. Riprova più tardi.",
     );
     return { error: userFacing.message };
-  } finally {
-    if (loggedIn) {
-      await adeClient
-        .logout()
-        .catch((err) => logger.warn({ err }, "AdE logout failed"));
-    }
   }
 }

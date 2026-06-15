@@ -1117,6 +1117,27 @@ export class RealAdeClient implements AdeClient {
     return this.session;
   }
 
+  /**
+   * Re-inietta le credenziali su un client la cui sessione è già stabilita
+   * (riuso dalla cache, REVIEW #5). Necessario perché il re-auth su 401 in
+   * `submitDocument` ha bisogno delle credenziali, ma la cache long-lived non
+   * deve trattenerle tra un'operazione e l'altra (vedi `clearCredentials`).
+   * Non tocca sessione né cookie: nessun login viene rieseguito.
+   */
+  setCredentials(credentials: FisconlineCredentials): void {
+    this.credentials = credentials;
+  }
+
+  /**
+   * Azzera le credenziali decifrate dalla memoria del client mantenendo
+   * sessione e cookie. Chiamato dopo ogni operazione su un client cached così
+   * che la entry in cache conservi solo i cookie di sessione, mai le
+   * credenziali (REVIEW #5.4).
+   */
+  clearCredentials(): void {
+    this.credentials = null;
+  }
+
   async loginSpid(credentials: SpidCredentials): Promise<AdeSession> {
     // SPID sessions don't store credentials: no automatic re-auth on 401
     // (user would need to approve the push notification again)
