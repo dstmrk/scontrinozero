@@ -41,7 +41,9 @@ export async function voidReceipt(
   // Enforce plan/trial gate server-side — voiding is an emit operation
   // so it follows the same canEmit policy as receipt creation
   const planInfo = await getPlan(user.id);
-  if (!canEmit(planInfo.plan, planInfo.trialStartedAt)) {
+  if (
+    !canEmit(planInfo.plan, planInfo.trialStartedAt, planInfo.planExpiresAt)
+  ) {
     return { error: TRIAL_EXPIRED_MESSAGE };
   }
 

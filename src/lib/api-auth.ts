@@ -35,6 +35,7 @@ export type ApiKeyContext = {
   businessId: string | null;
   plan: Plan;
   trialStartedAt: Date | null;
+  planExpiresAt: Date | null;
 };
 
 export type ApiKeyAuthError = {
@@ -83,6 +84,7 @@ export async function authenticateApiKey(
         apiKey: SelectApiKey;
         plan: string;
         trialStartedAt: Date | null;
+        planExpiresAt: Date | null;
       }
     | undefined;
   try {
@@ -92,6 +94,7 @@ export async function authenticateApiKey(
           apiKey: apiKeys,
           plan: profiles.plan,
           trialStartedAt: profiles.trialStartedAt,
+          planExpiresAt: profiles.planExpiresAt,
         })
         .from(apiKeys)
         .innerJoin(profiles, eq(apiKeys.profileId, profiles.id))
@@ -160,6 +163,7 @@ export async function authenticateApiKey(
     businessId: row.apiKey.businessId ?? null,
     plan: row.plan as Plan,
     trialStartedAt: row.trialStartedAt ?? null,
+    planExpiresAt: row.planExpiresAt ?? null,
   };
 }
 

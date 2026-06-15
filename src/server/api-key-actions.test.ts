@@ -7,6 +7,7 @@ const {
   mockGetAuthenticatedUser,
   mockCheckBusinessOwnership,
   mockGetEffectivePlan,
+  mockGetPlan,
   mockCanUseApi,
   mockGetApiKeyLimit,
   mockGenerateApiKey,
@@ -14,6 +15,7 @@ const {
   mockGetAuthenticatedUser: vi.fn(),
   mockCheckBusinessOwnership: vi.fn(),
   mockGetEffectivePlan: vi.fn(),
+  mockGetPlan: vi.fn(),
   mockCanUseApi: vi.fn(),
   mockGetApiKeyLimit: vi.fn(),
   mockGenerateApiKey: vi.fn(),
@@ -27,6 +29,7 @@ vi.mock("@/lib/server-auth", () => ({
 vi.mock("@/lib/plans", () => ({
   canUseApi: mockCanUseApi,
   getApiKeyLimit: mockGetApiKeyLimit,
+  getPlan: mockGetPlan,
 }));
 
 vi.mock("@/server/billing-actions", () => ({
@@ -132,6 +135,11 @@ describe("listApiKeys", () => {
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockCheckBusinessOwnership.mockResolvedValue(null);
     mockGetEffectivePlan.mockResolvedValue("pro");
+    mockGetPlan.mockResolvedValue({
+      plan: "pro",
+      trialStartedAt: null,
+      planExpiresAt: null,
+    });
     mockCanUseApi.mockReturnValue(true);
     mockSelect.mockReturnValue(makeSelectBuilderNoLimit(FAKE_KEY_LIST));
   });
@@ -186,6 +194,11 @@ describe("createApiKey", () => {
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockCheckBusinessOwnership.mockResolvedValue(null);
     mockGetEffectivePlan.mockResolvedValue("pro");
+    mockGetPlan.mockResolvedValue({
+      plan: "pro",
+      trialStartedAt: null,
+      planExpiresAt: null,
+    });
     mockCanUseApi.mockReturnValue(true);
     mockGetApiKeyLimit.mockReturnValue(null); // no limit by default
     mockGenerateApiKey.mockReturnValue({

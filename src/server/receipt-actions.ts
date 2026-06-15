@@ -61,7 +61,9 @@ export async function emitReceipt(
 
   // Enforce plan/trial gate server-side before any business logic
   const planInfo = await getPlan(user.id);
-  if (!canEmit(planInfo.plan, planInfo.trialStartedAt)) {
+  if (
+    !canEmit(planInfo.plan, planInfo.trialStartedAt, planInfo.planExpiresAt)
+  ) {
     return { error: TRIAL_EXPIRED_MESSAGE };
   }
 

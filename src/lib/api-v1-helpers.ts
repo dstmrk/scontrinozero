@@ -74,7 +74,7 @@ export async function requireBusinessApiAuth(
     };
   }
 
-  if (!canUseApi(auth.plan)) {
+  if (!canUseApi(auth.plan, auth.planExpiresAt)) {
     return {
       error: Response.json(
         {

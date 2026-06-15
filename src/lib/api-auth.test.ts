@@ -72,6 +72,7 @@ const FAKE_ROW = {
   apiKey: FAKE_API_KEY,
   plan: "pro",
   trialStartedAt: null,
+  planExpiresAt: null,
 };
 
 /**
@@ -271,6 +272,7 @@ describe("authenticateApiKey", () => {
       businessId: "biz-uuid-789",
       plan: "pro",
       trialStartedAt: null,
+      planExpiresAt: null,
     });
   });
 
@@ -475,6 +477,7 @@ describe("isApiKeyAuthError", () => {
       businessId: "b",
       plan: "pro" as const,
       trialStartedAt: null,
+      planExpiresAt: null,
     };
     expect(isApiKeyAuthError(context)).toBe(false);
   });
