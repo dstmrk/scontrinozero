@@ -11,6 +11,8 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
+import type { AdeResponse } from "@/lib/ade/types";
+
 import { businesses } from "./businesses";
 import { apiKeys } from "./api-keys";
 
@@ -50,7 +52,7 @@ export const commercialDocuments = pgTable(
      */
     requestHash: text("request_hash"),
     /** Risposta raw dell'AdE */
-    adeResponse: jsonb("ade_response"),
+    adeResponse: jsonb("ade_response").$type<AdeResponse>(),
     /** idtrx AdE — identificativo transazione */
     adeTransactionId: text("ade_transaction_id"),
     /** progressivo AdE — numero documento */
