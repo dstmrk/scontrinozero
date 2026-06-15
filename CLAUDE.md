@@ -37,6 +37,18 @@ del fix, aggiungere lì i nuovi finding). Storico release dai tag git
   richiede `serverExternalPackages: ["pdfkit"]` in `next.config.ts`. Dipendenze
   minime, Next standalone, Docker slim, un solo container (next-app + cloudflared).
 
+## Mappa codebase — leggi prima di esplorare
+
+Prima di un'esplorazione a tappeto (grep/glob diffusi per capire _dove_ stanno
+le cose o _come_ scorrono i dati), **leggi `docs/architecture/INDEX.md`**: è la
+mappa navigazionale (albero `src/`, tabella "Dove vivo X?", indice server
+actions, moduli cross-cutting). Scendi ai deep-dive solo quando servono:
+`docs/architecture/data-flows.md` (flussi end-to-end) e
+`docs/architecture/config-manifest.md` (soglie/limiti/gate → puntatori ai file).
+Le skill in `.claude/skills/` restano _prescrittive_ (come fare X); la mappa è
+_descrittiva_ (dove sta X). Serve a ridurre il costo-token dell'esplorazione
+iniziale.
+
 ## Regole sempre-attive (applicano a ogni task)
 
 1.  **Branch separato sempre.** Mai commit/push diretti su `main`. PR sempre,
@@ -247,6 +259,16 @@ https://<host>/api/_debug/sentry-sentinel?id=<release>`; la response
     primo utente. Integrazione in CI rimandata: oggi è uno script da
     eseguire manualmente dopo `docker compose up -d`.
 
+26. **Mappa codebase: tienila viva.** Quando sposti/rinomini/aggiungi un modulo
+    cross-cutting, cambi un data flow o una soglia/limite/gate, aggiorna
+    `docs/architecture/*` **nello stesso PR** ed esegui `npm run arch:check`
+    prima di chiudere il task. Stesso spirito della regola 7 (aggiornamento
+    autonomo della doc): una mappa obsoleta è peggio di nessuna mappa — fuorvia
+    chi la legge al posto di esplorare. Il validatore
+    `scripts/check-architecture-docs.mjs` fallisce se un path citato nella mappa
+    (in `code span`) non esiste più su disco; cita ogni path come span isolato
+    (i token con `*`/`{}` sono ignorati come illustrativi).
+
 ## SonarCloud quality gate
 
 - Coverage on new code ≥ **80%**
@@ -293,6 +315,7 @@ popolate senza default. Dettaglio + bootstrap su DB pre-esistente nella skill
 npm run lint                # ESLint / TypeScript
 npx prettier --check src/   # ⚠️ dopo modifiche a classi Tailwind: prettier --write
 npm run test:coverage       # tutti i test verdi, coverage non in calo
+npm run arch:check          # path citati in docs/architecture/ esistono ancora
 ```
 
 Controlli manuali:
@@ -407,6 +430,8 @@ auto-attivano quando il task matcha il `description`:
 
 Altri riferimenti già nel repo:
 
+- **`docs/architecture/INDEX.md`** — mappa codebase (leggi prima di esplorare);
+  deep-dive `docs/architecture/data-flows.md` e `docs/architecture/config-manifest.md`
 - **`PLAN.md`** — roadmap funzionalità
 - **`REVIEW.md`** — registro bug noti / tech debt prioritizzato (file:riga, fix)
 - **`DEVELOPER.md`** — Developer API (Tier 1/2)

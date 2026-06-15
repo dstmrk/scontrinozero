@@ -21,6 +21,7 @@ jobs:
       marketing: ${{ steps.f.outputs.marketing }}
       lockfile: ${{ steps.f.outputs.lockfile }}
       migrations: ${{ steps.f.outputs.migrations }}
+      arch_docs: ${{ steps.f.outputs.arch_docs }}
       hooks: ${{ steps.f.outputs.hooks }}
       workflows: ${{ steps.f.outputs.workflows }}
       ci_scripts: ${{ steps.f.outputs.ci_scripts }}
@@ -50,6 +51,10 @@ jobs:
             migrations:
               - 'supabase/migrations/**'
               - 'scripts/check-migrations.mjs'
+            arch_docs:
+              - 'docs/architecture/**'
+              - 'scripts/check-architecture-docs.mjs'
+              - 'src/**'
             hooks:
               - '.claude/hooks/**'
             workflows:
@@ -93,6 +98,19 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Check migration journal consistency
         run: node scripts/check-migrations.mjs
+
+  # Verifica che ogni path citato in docs/architecture/ esista ancora su disco
+  # (anti-drift della mappa codebase, CLAUDE.md regola 26). Gira quando cambiano
+  # i doc, lo script, o src/** (un rename in src/ può orfanare un riferimento).
+  arch-docs-check:
+    needs: changes
+    if: needs.changes.outputs.arch_docs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Check architecture docs references
+        run: node scripts/check-architecture-docs.mjs
 
   # Esegue le suite di test degli hook PreToolUse (.claude/hooks/).
   # Gira solo quando cambia .claude/hooks/**. Difesa-in-profondità per le
