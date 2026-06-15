@@ -300,7 +300,7 @@ export default function RegimeForfettarioPage() {
                 &quot;Operazione in franchigia da IVA ai sensi dell&apos;art. 1
                 co. 54-89 L. 190/2014&quot;
               </em>
-              .
+              {"."}
             </p>
           </div>
           <div>
