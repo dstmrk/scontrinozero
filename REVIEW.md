@@ -124,34 +124,6 @@ nessuna traccia di accesso.
 
 ---
 
-### 9. Doppio cast `as unknown as Record<string, unknown>` su `adeResponse` (type safety bypassata su dominio fiscale)
-
-- **Categoria:** bad practice/type safety · **Severità:** Medium
-- **File:** `src/lib/services/receipt-service.ts:587,608` · `src/lib/services/void-service.ts:297,320` · `src/db/schema/commercial-documents.ts:53`
-
-**Problema.** La risposta AdE viene persistita nel JSONB con un doppio cast che
-azzera il type-checking: se la shape della response AdE cambia (o un refactor passa
-l'oggetto sbagliato), il compilatore non se ne accorge e il dato salvato diverge
-silenziosamente da ciò che i consumer futuri si aspettano.
-
-**Fix (non ambiguo).**
-
-1. In `src/db/schema/commercial-documents.ts`, tipizzare la colonna:
-   `adeResponse: jsonb("ade_response").$type<AdeSubmitResponse>()` — dove
-   `AdeSubmitResponse` è il tipo (o union dei tipi) già usato come return di
-   `submitSale`/`submitVoid` nei client AdE (`src/lib/ade/*-client.ts`; individuarlo
-   con `grep -n "esito" src/lib/ade/types.ts` o file equivalente). Se sale e void
-   hanno tipi diversi, usare la union.
-2. Rimuovere i 4 cast: l'assegnazione diventa `adeResponse: adeResponse` e il
-   compilatore la verifica.
-3. Verificare i punti di **lettura** della colonna (`grep -rn "adeResponse" src --include="*.ts" -l`):
-   con `$type` il select è tipato — eventuali consumer che la trattavano come
-   `Record<string, unknown>` vanno adeguati.
-4. Nessun cambiamento runtime: basta `npm run type-check` + test esistenti verdi.
-   Niente migration (il tipo Drizzle `$type` è solo compile-time).
-
----
-
 ### 10. Catalogo: refetch completo dopo ogni mutazione, senza optimistic update
 
 - **Categoria:** UX/performance percepita · **Severità:** Medium

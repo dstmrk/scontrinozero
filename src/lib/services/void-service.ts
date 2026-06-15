@@ -294,7 +294,7 @@ async function processVoidAdeResponse(args: {
         .update(commercialDocuments)
         .set({
           status: "REJECTED",
-          adeResponse: adeResponse as unknown as Record<string, unknown>,
+          adeResponse,
         })
         .where(eq(commercialDocuments.id, voidDocumentId)),
     );
@@ -317,7 +317,7 @@ async function processVoidAdeResponse(args: {
             status: "VOID_ACCEPTED",
             adeTransactionId: adeResponse.idtrx ?? null,
             adeProgressive: adeResponse.progressivo ?? null,
-            adeResponse: adeResponse as unknown as Record<string, unknown>,
+            adeResponse,
           })
           .where(eq(commercialDocuments.id, voidDocumentId));
 

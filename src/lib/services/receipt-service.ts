@@ -655,7 +655,7 @@ async function runSubmitSale(
         .update(commercialDocuments)
         .set({
           status: "REJECTED",
-          adeResponse: adeResponse as unknown as Record<string, unknown>,
+          adeResponse,
         })
         .where(eq(commercialDocuments.id, documentId)),
     );
@@ -676,7 +676,7 @@ async function runSubmitSale(
         status: "ACCEPTED",
         adeTransactionId: adeResponse.idtrx ?? null,
         adeProgressive: adeResponse.progressivo ?? null,
-        adeResponse: adeResponse as unknown as Record<string, unknown>,
+        adeResponse,
       })
       .where(eq(commercialDocuments.id, documentId)),
   );

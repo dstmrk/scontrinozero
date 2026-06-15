@@ -1,10 +1,13 @@
 import { getTableName } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
+import type { AdeResponse } from "@/lib/ade/types";
+
 import {
   commercialDocuments,
   documentKindEnum,
   documentStatusEnum,
+  type SelectCommercialDocument,
 } from "./commercial-documents";
 
 describe("commercial_documents schema", () => {
@@ -25,6 +28,14 @@ describe("commercial_documents schema", () => {
     expect(cols).toContain("status");
     expect(cols).toContain("createdAt");
     expect(cols).toContain("updatedAt");
+  });
+
+  it("expone adeResponse tipato come AdeResponse, non unknown", () => {
+    const value = {} as SelectCommercialDocument["adeResponse"];
+    // Se la colonna regredisse a jsonb non tipizzato (unknown), questa
+    // assegnazione fallirebbe `npm run type-check`.
+    const typed: AdeResponse | null = value;
+    expect(typed).toBeDefined();
   });
 
   it("document kind enum has correct values", () => {
