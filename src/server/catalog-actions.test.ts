@@ -19,13 +19,21 @@ const mockSelectWhere = vi
 const mockFrom = vi.fn().mockReturnValue({ where: mockSelectWhere });
 const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
 
-const mockInsertValues = vi.fn().mockResolvedValue(undefined);
+// insert(...).values(...).returning() → [row]
+const mockInsertReturning = vi.fn();
+const mockInsertValues = vi
+  .fn()
+  .mockReturnValue({ returning: mockInsertReturning });
 const mockInsert = vi.fn().mockReturnValue({ values: mockInsertValues });
 
 const mockDeleteWhere = vi.fn().mockResolvedValue(undefined);
 const mockDelete = vi.fn().mockReturnValue({ where: mockDeleteWhere });
 
-const mockUpdateWhere = vi.fn().mockResolvedValue(undefined);
+// update(...).set(...).where(...).returning() → [row]
+const mockUpdateReturning = vi.fn();
+const mockUpdateWhere = vi
+  .fn()
+  .mockReturnValue({ returning: mockUpdateReturning });
 const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
 const mockUpdate = vi.fn().mockReturnValue({ set: mockUpdateSet });
 
@@ -95,9 +103,9 @@ describe("catalog-actions", () => {
 
     mockOrderBy.mockResolvedValue([]);
     mockLimit.mockResolvedValue([]);
-    mockInsertValues.mockResolvedValue(undefined);
+    mockInsertReturning.mockResolvedValue([FAKE_ITEM]);
     mockDeleteWhere.mockResolvedValue(undefined);
-    mockUpdateWhere.mockResolvedValue(undefined);
+    mockUpdateReturning.mockResolvedValue([FAKE_ITEM]);
 
     mockGetPlan.mockResolvedValue({
       plan: "pro",
@@ -280,6 +288,32 @@ describe("catalog-actions", () => {
       expect(insertArg.description).toBe("Caffè espresso");
       expect(insertArg.defaultPrice).toBe("1.20");
       expect(insertArg.defaultVatCode).toBe("22");
+    });
+
+    it("ritorna l'item persistito (RETURNING) mappato a CatalogItem", async () => {
+      const persisted = {
+        id: "new-item-1",
+        businessId: FAKE_BUSINESS_ID,
+        description: "Caffè espresso",
+        defaultPrice: "1.20",
+        defaultVatCode: "22",
+        createdAt: new Date("2026-06-15"),
+        updatedAt: new Date("2026-06-15"),
+      };
+      mockInsertReturning.mockResolvedValue([persisted]);
+
+      const { addCatalogItem } = await import("./catalog-actions");
+      const result = await addCatalogItem(VALID_ADD_INPUT);
+
+      expect(result.error).toBeUndefined();
+      expect(result.item).toEqual({
+        id: "new-item-1",
+        businessId: FAKE_BUSINESS_ID,
+        description: "Caffè espresso",
+        defaultPrice: "1.20",
+        defaultVatCode: "22",
+        createdAt: new Date("2026-06-15"),
+      });
     });
 
     it("accetta prezzo null (prezzo da definire in cassa)", async () => {
@@ -567,6 +601,43 @@ describe("catalog-actions", () => {
       expect(updateArg.description).toBe("Pizza margherita aggiornata");
       expect(updateArg.defaultPrice).toBe("10.00");
       expect(updateArg.defaultVatCode).toBe("10");
+    });
+
+    it("ritorna l'item aggiornato (RETURNING) mappato a CatalogItem", async () => {
+      mockLimit.mockResolvedValue([{ id: FAKE_ITEM_ID }]);
+      const persisted = {
+        id: FAKE_ITEM_ID,
+        businessId: FAKE_BUSINESS_ID,
+        description: "Pizza margherita aggiornata",
+        defaultPrice: "10.00",
+        defaultVatCode: "10",
+        createdAt: new Date("2026-01-01"),
+        updatedAt: new Date("2026-06-15"),
+      };
+      mockUpdateReturning.mockResolvedValue([persisted]);
+
+      const { updateCatalogItem } = await import("./catalog-actions");
+      const result = await updateCatalogItem(VALID_UPDATE_INPUT);
+
+      expect(result.item).toEqual({
+        id: FAKE_ITEM_ID,
+        businessId: FAKE_BUSINESS_ID,
+        description: "Pizza margherita aggiornata",
+        defaultPrice: "10.00",
+        defaultVatCode: "10",
+        createdAt: new Date("2026-01-01"),
+      });
+    });
+
+    it("RETURNING vuoto (riga eliminata in concorrenza) → nessun item, nessun errore", async () => {
+      mockLimit.mockResolvedValue([{ id: FAKE_ITEM_ID }]);
+      mockUpdateReturning.mockResolvedValue([]);
+
+      const { updateCatalogItem } = await import("./catalog-actions");
+      const result = await updateCatalogItem(VALID_UPDATE_INPUT);
+
+      expect(result.error).toBeUndefined();
+      expect(result.item).toBeUndefined();
     });
 
     it("accetta prezzo null (normalizzato a null nel DB)", async () => {

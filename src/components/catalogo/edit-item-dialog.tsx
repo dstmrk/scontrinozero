@@ -7,7 +7,7 @@ import type { CatalogItem } from "@/types/catalogo";
 interface EditItemDialogProps {
   readonly businessId: string;
   readonly item: CatalogItem;
-  readonly onSuccess: () => void;
+  readonly onSuccess: (item: CatalogItem) => void;
   readonly onClose: () => void;
 }
 

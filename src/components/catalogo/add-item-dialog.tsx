@@ -3,12 +3,13 @@
 import { CatalogItemDialog } from "./catalog-item-dialog";
 import { addCatalogItem } from "@/server/catalog-actions";
 import type { VatCode } from "@/types/cassa";
+import type { CatalogItem } from "@/types/catalogo";
 
 const DEFAULT_VAT: VatCode = "22";
 
 interface AddItemDialogProps {
   readonly businessId: string;
-  readonly onSuccess: () => void;
+  readonly onSuccess: (item: CatalogItem) => void;
   readonly onClose: () => void;
 }
 

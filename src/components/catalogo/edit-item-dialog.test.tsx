@@ -10,13 +10,6 @@ vi.mock("@/server/catalog-actions", () => ({
   updateCatalogItem: (...args: unknown[]) => mockUpdateCatalogItem(...args),
 }));
 
-// scrollIntoView richiesto da Radix UI Select e Dialog
-beforeEach(() => {
-  window.HTMLElement.prototype.scrollIntoView = vi.fn();
-  vi.clearAllMocks();
-  mockUpdateCatalogItem.mockResolvedValue({});
-});
-
 // --- Fixtures ---
 
 const FAKE_ITEM: CatalogItem = {
@@ -27,6 +20,18 @@ const FAKE_ITEM: CatalogItem = {
   defaultVatCode: "10",
   createdAt: new Date("2026-01-01"),
 };
+
+const UPDATED_ITEM: CatalogItem = {
+  ...FAKE_ITEM,
+  description: "Pizza marinara",
+};
+
+// scrollIntoView richiesto da Radix UI Select e Dialog
+beforeEach(() => {
+  window.HTMLElement.prototype.scrollIntoView = vi.fn();
+  vi.clearAllMocks();
+  mockUpdateCatalogItem.mockResolvedValue({ item: UPDATED_ITEM });
+});
 
 const DEFAULT_PROPS = {
   businessId: "biz-456",
@@ -96,7 +101,7 @@ describe("EditItemDialog", () => {
     );
   });
 
-  it("chiama onSuccess dopo aggiornamento riuscito", async () => {
+  it("chiama onSuccess con l'item aggiornato dopo aggiornamento riuscito", async () => {
     const onSuccess = vi.fn();
     render(<EditItemDialog {...DEFAULT_PROPS} onSuccess={onSuccess} />);
 
@@ -106,7 +111,7 @@ describe("EditItemDialog", () => {
       );
     });
 
-    expect(onSuccess).toHaveBeenCalled();
+    expect(onSuccess).toHaveBeenCalledWith(UPDATED_ITEM);
   });
 
   it("pre-popola il campo prezzo come stringa vuota se defaultPrice è null", () => {

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Package, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getCatalogItems, deleteCatalogItem } from "@/server/catalog-actions";
+import { deleteCatalogItem } from "@/server/catalog-actions";
 import { VAT_LABELS } from "@/types/cassa";
 import { formatCurrency } from "@/lib/utils";
 import { AddItemDialog } from "./add-item-dialog";
@@ -14,6 +14,20 @@ import type { CatalogItem } from "@/types/catalogo";
 interface CatalogoClientProps {
   readonly businessId: string;
   readonly initialData: CatalogItem[];
+}
+
+/**
+ * Riordina per descrizione replicando l'ordinamento server `asc(description)`,
+ * con tie-break stabile su `id` (regola 17). Eventuali divergenze minime di
+ * collation si auto-correggono al prossimo load (i dati arrivano già ordinati
+ * dal server in `initialData`).
+ */
+function sortByDescription(items: CatalogItem[]): CatalogItem[] {
+  return [...items].sort(
+    (a, b) =>
+      a.description.localeCompare(b.description, "it") ||
+      a.id.localeCompare(b.id),
+  );
 }
 
 export function CatalogoClient({
@@ -27,14 +41,6 @@ export function CatalogoClient({
   const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
-
-  const refreshItems = () => {
-    startTransition(async () => {
-      const updated = await getCatalogItems(businessId);
-      setItems(updated);
-    });
-  };
 
   const exitEditMode = () => {
     setEditMode(false);
@@ -61,12 +67,16 @@ export function CatalogoClient({
 
   const handleDeleteConfirm = async (itemId: string) => {
     setDeleteError(null);
+    // Rimozione ottimistica prima della action (priorità #1), con rollback
+    // allo snapshot corrente se la server action ritorna un errore.
+    const snapshot = items;
+    setDeletingId(null);
+    setItems((prev) => prev.filter((i) => i.id !== itemId));
+
     const result = await deleteCatalogItem(itemId, businessId);
     if (result.error) {
+      setItems(snapshot);
       setDeleteError(result.error);
-    } else {
-      setDeletingId(null);
-      setItems((prev) => prev.filter((i) => i.id !== itemId));
     }
   };
 
@@ -202,9 +212,9 @@ export function CatalogoClient({
       {showAddDialog && (
         <AddItemDialog
           businessId={businessId}
-          onSuccess={() => {
+          onSuccess={(item) => {
             setShowAddDialog(false);
-            refreshItems();
+            setItems((prev) => sortByDescription([...prev, item]));
           }}
           onClose={() => setShowAddDialog(false)}
         />
@@ -215,9 +225,11 @@ export function CatalogoClient({
         <EditItemDialog
           businessId={businessId}
           item={editingItem}
-          onSuccess={() => {
+          onSuccess={(item) => {
             setEditingItem(null);
-            refreshItems();
+            setItems((prev) =>
+              sortByDescription(prev.map((i) => (i.id === item.id ? item : i))),
+            );
           }}
           onClose={() => setEditingItem(null)}
         />

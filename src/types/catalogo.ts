@@ -37,5 +37,10 @@ export interface UpdateCatalogItemInput {
   defaultVatCode: VatCode;
 }
 
-/** Risultato generico delle server actions del catalogo */
-export type CatalogActionResult = { error?: string };
+/**
+ * Risultato generico delle server actions del catalogo.
+ * `item` è valorizzato dalle action di scrittura (add/update) con la riga
+ * persistita, così il client può aggiornare lo state in modo ottimistico
+ * senza un refetch completo del catalogo.
+ */
+export type CatalogActionResult = { error?: string; item?: CatalogItem };
