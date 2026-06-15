@@ -25,6 +25,7 @@ vi.mock("@/db/schema", () => ({
 import {
   API_KEY_LIMITS,
   DEVELOPER_MONTHLY_LIMITS,
+  PLAN_EXPIRY_GRACE_MS,
   PLAN_VALUES,
   STARTER_CATALOG_LIMIT,
   TRIAL_DAYS,
@@ -37,6 +38,7 @@ import {
   getApiKeyLimit,
   getPlan,
   isDeveloperPlan,
+  isPaidPlanExpired,
   isPlan,
   isTrialExpired,
 } from "./plans";
@@ -121,6 +123,94 @@ describe("canUsePro", () => {
 
   it("returns false for trial plan", () => {
     expect(canUsePro("trial")).toBe(false);
+  });
+});
+
+describe("isPaidPlanExpired (safety-net webhook persi)", () => {
+  it("PLAN_EXPIRY_GRACE_MS is 30 days", () => {
+    expect(PLAN_EXPIRY_GRACE_MS).toBe(30 * 24 * 60 * 60 * 1000);
+  });
+
+  it("returns true when a paid plan expired beyond the grace window", () => {
+    expect(isPaidPlanExpired("starter", daysAgo(31))).toBe(true);
+    expect(isPaidPlanExpired("pro", daysAgo(31))).toBe(true);
+    expect(isPaidPlanExpired("developer_indie", daysAgo(31))).toBe(true);
+  });
+
+  it("returns false within the grace window (dunning Stripe legittimo)", () => {
+    expect(isPaidPlanExpired("starter", daysAgo(29))).toBe(false);
+    expect(isPaidPlanExpired("pro", daysAgo(10))).toBe(false);
+  });
+
+  it("returns true exactly at the grace boundary (30 days past)", () => {
+    expect(isPaidPlanExpired("pro", daysAgo(30))).toBe(true);
+  });
+
+  it("returns false for a future planExpiresAt", () => {
+    expect(isPaidPlanExpired("pro", daysAgo(-10))).toBe(false);
+  });
+
+  it("returns false when planExpiresAt is null (nessuna scadenza registrata)", () => {
+    expect(isPaidPlanExpired("pro", null)).toBe(false);
+    expect(isPaidPlanExpired("starter", null)).toBe(false);
+  });
+
+  it("exempts unlimited even when expired long ago (anchor informativo)", () => {
+    expect(isPaidPlanExpired("unlimited", daysAgo(999))).toBe(false);
+  });
+
+  it("exempts trial (scadenza gestita da trialStartedAt)", () => {
+    expect(isPaidPlanExpired("trial", daysAgo(999))).toBe(false);
+  });
+});
+
+describe("canEmit con planExpiresAt (fallback sola-lettura)", () => {
+  it("blocks a paid plan expired beyond grace", () => {
+    expect(canEmit("pro", null, daysAgo(31))).toBe(false);
+    expect(canEmit("starter", daysAgo(100), daysAgo(31))).toBe(false);
+  });
+
+  it("allows a paid plan still within grace", () => {
+    expect(canEmit("starter", null, daysAgo(10))).toBe(true);
+  });
+
+  it("keeps unlimited emitting regardless of expiry", () => {
+    expect(canEmit("unlimited", null, daysAgo(999))).toBe(true);
+  });
+});
+
+describe("canUsePro con planExpiresAt (fallback)", () => {
+  it("blocks pro expired beyond grace", () => {
+    expect(canUsePro("pro", daysAgo(31))).toBe(false);
+  });
+
+  it("allows pro within grace", () => {
+    expect(canUsePro("pro", daysAgo(10))).toBe(true);
+  });
+
+  it("keeps unlimited regardless of expiry", () => {
+    expect(canUsePro("unlimited", daysAgo(999))).toBe(true);
+  });
+});
+
+describe("canUseApi con planExpiresAt (fallback)", () => {
+  it("blocks pro and developer plans expired beyond grace", () => {
+    expect(canUseApi("pro", daysAgo(31))).toBe(false);
+    expect(canUseApi("developer_indie", daysAgo(31))).toBe(false);
+  });
+
+  it("allows developer plan within grace", () => {
+    expect(canUseApi("developer_indie", daysAgo(10))).toBe(true);
+  });
+});
+
+describe("canAddCatalogItem con planExpiresAt (fallback)", () => {
+  it("blocks a paid plan expired beyond grace", () => {
+    expect(canAddCatalogItem("pro", null, 0, daysAgo(31))).toBe(false);
+  });
+
+  it("allows a paid plan within grace", () => {
+    expect(canAddCatalogItem("pro", null, 0, daysAgo(10))).toBe(true);
   });
 });
 

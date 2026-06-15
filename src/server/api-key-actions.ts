@@ -4,7 +4,7 @@ import { and, count, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import { apiKeys, businesses, profiles } from "@/db/schema";
 import { generateApiKey } from "@/lib/api-keys";
-import { canUseApi, getApiKeyLimit } from "@/lib/plans";
+import { canUseApi, getApiKeyLimit, getPlan } from "@/lib/plans";
 import { getEffectivePlan } from "@/server/billing-actions";
 import {
   checkBusinessOwnership,
@@ -28,8 +28,11 @@ export async function listApiKeys(
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) return ownershipError;
 
-  const effectivePlan = await getEffectivePlan(user.id);
-  if (!canUseApi(effectivePlan)) {
+  const [effectivePlan, planInfo] = await Promise.all([
+    getEffectivePlan(user.id),
+    getPlan(user.id),
+  ]);
+  if (!canUseApi(effectivePlan, planInfo.planExpiresAt)) {
     return {
       error: "Per accedere alle API key serve il piano Pro o superiore.",
     };
@@ -60,8 +63,11 @@ export async function createApiKey(
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) return ownershipError;
 
-  const effectivePlan = await getEffectivePlan(user.id);
-  if (!canUseApi(effectivePlan)) {
+  const [effectivePlan, planInfo] = await Promise.all([
+    getEffectivePlan(user.id),
+    getPlan(user.id),
+  ]);
+  if (!canUseApi(effectivePlan, planInfo.planExpiresAt)) {
     return {
       error: "Per generare API key serve il piano Pro o superiore.",
     };

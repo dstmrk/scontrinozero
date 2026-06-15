@@ -12,6 +12,7 @@ import { logger } from "@/lib/logger";
 export {
   API_KEY_LIMITS,
   DEVELOPER_MONTHLY_LIMITS,
+  PLAN_EXPIRY_GRACE_MS,
   PLAN_VALUES,
   STARTER_CATALOG_LIMIT,
   TRIAL_DAYS,
@@ -23,6 +24,7 @@ export {
   canUsePro,
   getApiKeyLimit,
   isDeveloperPlan,
+  isPaidPlanExpired,
   isPlan,
   isTrialExpired,
 } from "@/lib/plans-shared";
@@ -150,7 +152,7 @@ export async function assertProPlan(
     throw err;
   }
 
-  if (!canUsePro(info.plan)) {
+  if (!canUsePro(info.plan, info.planExpiresAt)) {
     return {
       ok: false,
       status: 403,

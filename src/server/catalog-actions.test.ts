@@ -49,12 +49,14 @@ vi.mock("@/lib/logger", () => ({
 const mockGetPlan = vi.fn();
 const mockCanAddCatalogItem = vi.fn();
 const mockIsTrialExpired = vi.fn();
+const mockIsPaidPlanExpired = vi.fn();
 const TRIAL_EXPIRED_MESSAGE =
   "Il tuo periodo di prova è scaduto. Attiva un piano per continuare.";
 vi.mock("@/lib/plans", () => ({
   getPlan: (...args: unknown[]) => mockGetPlan(...args),
   canAddCatalogItem: (...args: unknown[]) => mockCanAddCatalogItem(...args),
   isTrialExpired: (...args: unknown[]) => mockIsTrialExpired(...args),
+  isPaidPlanExpired: (...args: unknown[]) => mockIsPaidPlanExpired(...args),
   STARTER_CATALOG_LIMIT: 5,
   TRIAL_EXPIRED_MESSAGE,
 }));
@@ -104,6 +106,7 @@ describe("catalog-actions", () => {
     });
     mockCanAddCatalogItem.mockReturnValue(true);
     mockIsTrialExpired.mockReturnValue(false);
+    mockIsPaidPlanExpired.mockReturnValue(false);
   });
 
   // ---------------------------------------------------------------------------
@@ -393,6 +396,25 @@ describe("catalog-actions", () => {
 
       expect(result.error).toMatch(/Starter/i);
       expect(result.error).not.toBe(TRIAL_EXPIRED_MESSAGE);
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("piano pagato scaduto oltre la grazia → messaggio sola-lettura, non 'massimo 5'", async () => {
+      // Fallback webhook perso: plan ancora "pro" su DB ma planExpiresAt
+      // scaduto oltre la grazia → isPaidPlanExpired true.
+      mockGetPlan.mockResolvedValue({
+        plan: "pro",
+        trialStartedAt: null,
+        planExpiresAt: new Date("2026-01-01"),
+      });
+      mockCanAddCatalogItem.mockReturnValue(false);
+      mockIsTrialExpired.mockReturnValue(false);
+      mockIsPaidPlanExpired.mockReturnValue(true);
+
+      const { addCatalogItem } = await import("./catalog-actions");
+      const result = await addCatalogItem(VALID_ADD_INPUT);
+
+      expect(result.error).toBe(TRIAL_EXPIRED_MESSAGE);
       expect(mockInsert).not.toHaveBeenCalled();
     });
   });

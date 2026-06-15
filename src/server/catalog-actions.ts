@@ -10,6 +10,7 @@ import {
 import {
   canAddCatalogItem,
   getPlan,
+  isPaidPlanExpired,
   isTrialExpired,
   STARTER_CATALOG_LIMIT,
   TRIAL_EXPIRED_MESSAGE,
@@ -151,12 +152,17 @@ export async function addCatalogItem(
       planInfo.plan,
       planInfo.trialStartedAt,
       existingItems.length,
+      planInfo.planExpiresAt,
     )
   ) {
-    // Trial scaduto: stesso messaggio della cassa (coerenza UX). Il limite di
-    // 5 prodotti su Starter / trial attivo resta invece il suo messaggio
-    // specifico — è un limite di piano corretto, non una scadenza.
-    if (planInfo.plan === "trial" && isTrialExpired(planInfo.trialStartedAt)) {
+    // Trial scaduto o piano a pagamento scaduto oltre la grazia (webhook
+    // perso): stesso messaggio sola-lettura della cassa (coerenza UX). Il
+    // limite di 5 prodotti su Starter / trial attivo resta invece il suo
+    // messaggio specifico — è un limite di piano corretto, non una scadenza.
+    if (
+      (planInfo.plan === "trial" && isTrialExpired(planInfo.trialStartedAt)) ||
+      isPaidPlanExpired(planInfo.plan, planInfo.planExpiresAt)
+    ) {
       return { error: TRIAL_EXPIRED_MESSAGE };
     }
     return {

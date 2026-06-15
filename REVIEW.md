@@ -766,6 +766,34 @@ business_id, created_at`) poi disegnare l'euristica del salto.
 
 ---
 
+### 31. Card "Abbonamento" mostra "attivo" se il fallback `planExpiresAt` ha già degradato l'utente
+
+- **Categoria:** UX coerenza · **Severità:** Low
+- **File:** `src/app/dashboard/settings/page.tsx:105-114` (`cardState`); `src/server/billing-actions.ts` (`getProfilePlan`)
+
+**Problema.** I gate feature ora degradano a sola-lettura quando un piano a
+pagamento è scaduto oltre la grazia (`isPaidPlanExpired`, safety-net per webhook
+`customer.subscription.deleted` persi — vedi `plans-shared.ts`). Ma `cardState`
+in settings deriva ancora lo stato da `subscriptionStatus` (stantio nello stesso
+scenario di webhook perso): se la subscription row è rimasta `active` mostra
+"Pro attivo" mentre cassa/catalogo/API rispondono sola-lettura. Incoerenza solo
+visiva, nello scenario raro (renewal mancato **e** webhook perso); nessun impatto
+funzionale (l'enforcement è server-side).
+
+**Fix (non ambiguo).**
+
+1. `getProfilePlan` espone già/aggiunge `planExpiresAt` nel `ProfilePlanResult`.
+2. In `cardState`, prima del ramo `subscribed`, aggiungere:
+   `if (isPaidPlanExpired(planData.plan, planData.planExpiresAt)) return "trial-expired";`
+   (riusa lo stato read-only esistente; eventualmente introdurre un nuovo stato
+   `"expired"` con copy dedicato "Abbonamento scaduto — riattiva" se si vuole
+   distinguere dal trial).
+3. **Test:** `settings-page-card-state.test.ts` — piano `pro` con `planExpiresAt`
+   oltre la grazia + `subscriptionStatus: "active"` → stato read-only, non
+   `subscribed`.
+
+---
+
 ## Rischi accettati (allowlist)
 
 ### audit-ci: advisory `esbuild` dev-only (3 GHSA)

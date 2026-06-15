@@ -58,7 +58,12 @@ const analyticsLimiter = new RateLimiter({
   windowMs: RATE_LIMIT_WINDOWS.HOURLY,
 });
 
-type AuthOk = { ok: true; userId: string; plan: Plan };
+type AuthOk = {
+  ok: true;
+  userId: string;
+  plan: Plan;
+  planExpiresAt: Date | null;
+};
 type AuthFail = { ok: false; error: string };
 
 // Owner-level gate: auth + rate-limit + ownership + plan fetch, SENZA il check
@@ -114,7 +119,12 @@ async function authorizeOwner(businessId: string): Promise<AuthOk | AuthFail> {
     }
     throw err;
   }
-  return { ok: true, userId: user.id, plan: planInfo.plan };
+  return {
+    ok: true,
+    userId: user.id,
+    plan: planInfo.plan,
+    planExpiresAt: planInfo.planExpiresAt,
+  };
 }
 
 // Pro-only gate per i grafici (bundle completo): owner + check Pro. Tenere il
@@ -123,7 +133,7 @@ async function authorizeOwner(businessId: string): Promise<AuthOk | AuthFail> {
 async function authorizePro(businessId: string): Promise<AuthOk | AuthFail> {
   const auth = await authorizeOwner(businessId);
   if (!auth.ok) return auth;
-  if (!canUsePro(auth.plan)) {
+  if (!canUsePro(auth.plan, auth.planExpiresAt)) {
     return { ok: false, error: "Funzionalità riservata al piano Pro." };
   }
   return auth;
