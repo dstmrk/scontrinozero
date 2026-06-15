@@ -266,14 +266,15 @@ export default function AliquoteIvaPage() {
               Sono in regime forfettario ma vedo le opzioni IVA
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Verifica che la P.IVA inserita in onboarding sia stata
-              riconosciuta come forfettaria: in <em>Impostazioni → Attività</em>{" "}
-              il campo IVA prevalente deve essere impostato di conseguenza.
-              Quando il regime è forfettario, le righe dello scontrino vanno
-              emesse con il codice natura <strong>N2</strong> (operazioni non
-              soggette). Per il dettaglio del flusso e delle differenze fra N2
-              sul documento commerciale e N2.2 sulla fattura elettronica vedi la
-              guida{" "}
+              ScontrinoZero non rileva il regime dalla P.IVA: sei tu a impostare
+              il campo <em>IVA prevalente</em> su «0% – Non soggette» (natura
+              N2), in onboarding oppure in <em>Impostazioni → Attività</em>.
+              Finché l&apos;aliquota prevalente non è N2 continui a vedere le
+              opzioni IVA ordinarie. Quando il regime è forfettario, le righe
+              dello scontrino vanno emesse con il codice natura{" "}
+              <strong>N2</strong> (operazioni non soggette). Per il dettaglio
+              del flusso e delle differenze fra N2 sul documento commerciale e
+              N2.2 sulla fattura elettronica vedi la guida{" "}
               <Link
                 href="/help/regime-forfettario"
                 className="text-primary hover:underline"
