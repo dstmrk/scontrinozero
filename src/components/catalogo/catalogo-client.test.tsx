@@ -19,11 +19,13 @@ vi.mock("next/navigation", () => ({
 
 const mockGetCatalogItems = vi.fn();
 const mockDeleteCatalogItem = vi.fn();
+const mockAddCatalogItem = vi.fn();
+const mockUpdateCatalogItem = vi.fn();
 vi.mock("@/server/catalog-actions", () => ({
   getCatalogItems: (...args: unknown[]) => mockGetCatalogItems(...args),
   deleteCatalogItem: (...args: unknown[]) => mockDeleteCatalogItem(...args),
-  addCatalogItem: vi.fn(),
-  updateCatalogItem: vi.fn(),
+  addCatalogItem: (...args: unknown[]) => mockAddCatalogItem(...args),
+  updateCatalogItem: (...args: unknown[]) => mockUpdateCatalogItem(...args),
 }));
 
 // scrollIntoView richiesto da Radix UI Dialog
@@ -33,6 +35,17 @@ beforeEach(() => {
   mockDeleteCatalogItem.mockResolvedValue({});
   mockGetCatalogItems.mockResolvedValue([]);
 });
+
+/** Asserisce che `texts` compaiano nel DOM nell'ordine dato. */
+function assertOrder(texts: string[]) {
+  const els = texts.map((t) => screen.getByText(t));
+  for (let i = 1; i < els.length; i++) {
+    expect(
+      els[i - 1].compareDocumentPosition(els[i]) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  }
+}
 
 // --- Fixtures ---
 
@@ -230,7 +243,99 @@ describe("CatalogoClient", () => {
         "Errore durante l'eliminazione.",
       );
     });
-    // Il prodotto rimane nella lista
+    // Rimozione ottimistica annullata: il prodotto ricompare in lista (rollback)
     expect(screen.getByText("Caffè espresso")).toBeInTheDocument();
+  });
+
+  it("add inserisce l'item in posizione ordinata, senza refetch completo", async () => {
+    mockAddCatalogItem.mockResolvedValue({
+      item: {
+        id: "item-new",
+        businessId: "biz-1",
+        description: "Cornetto",
+        defaultPrice: "1.00",
+        defaultVatCode: "22",
+        createdAt: new Date("2026-02-01"),
+      },
+    });
+
+    renderWithQuery(
+      <CatalogoClient businessId="biz-1" initialData={FAKE_ITEMS} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /aggiungi/i }));
+    fireEvent.change(screen.getByLabelText("Descrizione"), {
+      target: { value: "Cornetto" },
+    });
+
+    await act(async () => {
+      fireEvent.submit(screen.getByLabelText("Descrizione").closest("form")!);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Cornetto")).toBeInTheDocument();
+    });
+    // Ordinamento alfabetico: Caffè < Cornetto < Pizza
+    assertOrder(["Caffè espresso", "Cornetto", "Pizza margherita"]);
+    // Nessun refetch dell'intero catalogo (update ottimistico locale)
+    expect(mockGetCatalogItems).not.toHaveBeenCalled();
+  });
+
+  it("edit ri-ordina l'item quando cambia la descrizione", async () => {
+    mockUpdateCatalogItem.mockResolvedValue({
+      item: {
+        id: "item-1",
+        businessId: "biz-1",
+        description: "Zucchero",
+        defaultPrice: "1.20",
+        defaultVatCode: "22",
+        createdAt: new Date("2026-01-01"),
+      },
+    });
+
+    renderWithQuery(
+      <CatalogoClient businessId="biz-1" initialData={FAKE_ITEMS} />,
+    );
+
+    enterEditMode();
+    fireEvent.click(
+      screen.getByRole("button", { name: /modifica caffè espresso/i }),
+    );
+    fireEvent.change(screen.getByLabelText("Descrizione"), {
+      target: { value: "Zucchero" },
+    });
+
+    await act(async () => {
+      fireEvent.submit(screen.getByLabelText("Descrizione").closest("form")!);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Zucchero")).toBeInTheDocument();
+    });
+    // "Caffè espresso" rinominato in "Zucchero" → si sposta in fondo
+    assertOrder(["Pizza margherita", "Zucchero"]);
+    expect(mockGetCatalogItems).not.toHaveBeenCalled();
+  });
+
+  it("doppio click rapido su Elimina è idempotente (nessun crash)", async () => {
+    renderWithQuery(
+      <CatalogoClient businessId="biz-1" initialData={FAKE_ITEMS} />,
+    );
+
+    enterEditMode();
+    fireEvent.click(
+      screen.getByRole("button", { name: /elimina caffè espresso/i }),
+    );
+    const confirmBtn = screen.getByRole("button", { name: "Elimina" });
+
+    await act(async () => {
+      fireEvent.click(confirmBtn);
+      fireEvent.click(confirmBtn); // secondo click mentre la riga sparisce
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText("Caffè espresso")).not.toBeInTheDocument();
+    });
+    expect(screen.getByText("Pizza margherita")).toBeInTheDocument();
   });
 });

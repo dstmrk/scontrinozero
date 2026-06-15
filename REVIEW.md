@@ -124,35 +124,6 @@ nessuna traccia di accesso.
 
 ---
 
-### 10. Catalogo: refetch completo dopo ogni mutazione, senza optimistic update
-
-- **Categoria:** UX/performance percepita · **Severità:** Medium
-- **File:** `src/components/catalogo/catalogo-client.tsx:32-37` (`refreshItems`), call-site alle righe ~207 e ~220; delete handler nello stesso file
-
-**Problema.** Dopo ogni add/edit/delete, `refreshItems()` ricarica **l'intero
-catalogo** dal server (`getCatalogItems`) e nel frattempo la lista mostra lo stato
-vecchio: l'item appena aggiunto/modificato appare solo al termine del round-trip.
-In contrasto con la priorità #1 (optimistic UI) e destinato a peggiorare con
-cataloghi Pro grandi (item 11). I due fix sono indipendenti.
-
-**Fix (non ambiguo).**
-
-1. Le server action `addCatalogItem`/`updateCatalogItem` ritornano (o vanno fatte
-   ritornare) l'item persistito in `CatalogActionResult`; usare quel valore per
-   aggiornare lo state locale immediatamente: insert in posizione ordinata per
-   `description` (l'ordinamento server è `asc(description)`), patch per l'edit,
-   remove per il delete (per il delete, rimozione ottimistica **prima** della
-   action con rollback su `{ error }`, pattern `useOptimistic`/`useTransition`
-   della skill `react-patterns`).
-2. Mantenere `refreshItems()` come riconciliazione in background (non bloccante)
-   oppure rimuoverlo se i ritorni delle action coprono tutti i campi.
-3. **Edge case + test:** delete che fallisce (item ricompare + `deleteError`
-   mostrato); add con descrizione che si ordina in mezzo alla lista; doppio click
-   rapido su delete (idempotenza UI); limite Starter raggiunto (l'errore del gate
-   server non deve lasciare l'item fantasma in lista).
-
----
-
 ### 11. `getCatalogItems` senza LIMIT + autocomplete server-side
 
 - **Categoria:** performance/scalabilità · **Severità:** Medium · **Target: v1.7.0** (insieme a "Catalogo: modifica prodotto + sync AdE", già in roadmap PLAN.md)

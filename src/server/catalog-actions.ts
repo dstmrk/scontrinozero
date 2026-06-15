@@ -29,6 +29,25 @@ import type {
 // Private helpers
 // ---------------------------------------------------------------------------
 
+/** Riga DB del catalogo → CatalogItem del dominio (forma condivisa). */
+function toCatalogItem(row: {
+  id: string;
+  businessId: string;
+  description: string;
+  defaultPrice: string | null;
+  defaultVatCode: string;
+  createdAt: Date;
+}): CatalogItem {
+  return {
+    id: row.id,
+    businessId: row.businessId,
+    description: row.description,
+    defaultPrice: row.defaultPrice,
+    defaultVatCode: row.defaultVatCode as CatalogItem["defaultVatCode"],
+    createdAt: row.createdAt,
+  };
+}
+
 /** Autentica l'utente e verifica l'ownership del business. Ritorna null se OK. */
 async function authenticateAndAuthorize(
   businessId: string,
@@ -90,14 +109,7 @@ export async function getCatalogItems(
       .where(eq(catalogItems.businessId, businessId))
       .orderBy(asc(catalogItems.description));
 
-    return items.map((item) => ({
-      id: item.id,
-      businessId: item.businessId,
-      description: item.description,
-      defaultPrice: item.defaultPrice,
-      defaultVatCode: item.defaultVatCode as CatalogItem["defaultVatCode"],
-      createdAt: item.createdAt,
-    }));
+    return items.map(toCatalogItem);
   } catch (err) {
     logger.error({ err, businessId }, "getCatalogItems failed unexpectedly");
     return [];
@@ -170,14 +182,17 @@ export async function addCatalogItem(
     };
   }
 
-  await db.insert(catalogItems).values({
-    businessId: input.businessId,
-    description: input.description.trim(),
-    defaultPrice: validated.priceStr,
-    defaultVatCode: input.defaultVatCode,
-  });
+  const [row] = await db
+    .insert(catalogItems)
+    .values({
+      businessId: input.businessId,
+      description: input.description.trim(),
+      defaultPrice: validated.priceStr,
+      defaultVatCode: input.defaultVatCode,
+    })
+    .returning();
 
-  return {};
+  return { item: toCatalogItem(row) };
 }
 
 // ---------------------------------------------------------------------------
@@ -255,14 +270,20 @@ export async function updateCatalogItem(
     return { error: "Prodotto non trovato." };
   }
 
-  await db
+  const [row] = await db
     .update(catalogItems)
     .set({
       description: input.description.trim(),
       defaultPrice: validated.priceStr,
       defaultVatCode: input.defaultVatCode,
     })
-    .where(eq(catalogItems.id, input.itemId));
+    .where(eq(catalogItems.id, input.itemId))
+    .returning();
 
-  return {};
+  // Race: la riga potrebbe essere stata eliminata tra la verifica e l'UPDATE
+  // (0 righe → returning vuoto). Degradare a successo senza item invece di
+  // crashare (regola 19).
+  if (!row) return {};
+
+  return { item: toCatalogItem(row) };
 }

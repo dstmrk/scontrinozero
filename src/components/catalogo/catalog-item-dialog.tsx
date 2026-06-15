@@ -15,6 +15,7 @@ import { VatSelector } from "@/components/cassa/vat-selector";
 import { TrialExpiredMessage } from "@/components/billing/trial-expired-message";
 import { TRIAL_EXPIRED_MESSAGE } from "@/lib/plans-shared";
 import type { VatCode } from "@/types/cassa";
+import type { CatalogActionResult, CatalogItem } from "@/types/catalogo";
 
 interface CatalogItemDialogProps {
   readonly title: string;
@@ -27,8 +28,8 @@ interface CatalogItemDialogProps {
     description: string;
     price: string;
     vatCode: VatCode;
-  }) => Promise<{ error?: string }>;
-  readonly onSuccess: () => void;
+  }) => Promise<CatalogActionResult>;
+  readonly onSuccess: (item: CatalogItem) => void;
   readonly onClose: () => void;
 }
 
@@ -60,8 +61,12 @@ export function CatalogItemDialog({
 
     if (result.error) {
       setError(result.error);
+    } else if (result.item) {
+      onSuccess(result.item);
     } else {
-      onSuccess();
+      // Successo senza item persistito: stato inatteso, non chiamare onSuccess
+      // (eviterebbe un update ottimistico con item undefined).
+      setError("Si è verificato un errore. Riprova.");
     }
   };
 

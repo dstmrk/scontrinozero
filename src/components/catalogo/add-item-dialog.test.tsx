@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AddItemDialog } from "./add-item-dialog";
+import type { CatalogItem } from "@/types/catalogo";
 
 // --- Mocks ---
 
@@ -15,14 +16,23 @@ vi.mock("@/server/catalog-actions", () => ({
   addCatalogItem: (...args: unknown[]) => mockAddCatalogItem(...args),
 }));
 
+// --- Fixtures ---
+
+const PERSISTED_ITEM: CatalogItem = {
+  id: "new-item-1",
+  businessId: "biz-123",
+  description: "Caffè espresso",
+  defaultPrice: "1.20",
+  defaultVatCode: "22",
+  createdAt: new Date("2026-06-15"),
+};
+
 // scrollIntoView richiesto da Radix UI Select e Dialog
 beforeEach(() => {
   window.HTMLElement.prototype.scrollIntoView = vi.fn();
   vi.clearAllMocks();
-  mockAddCatalogItem.mockResolvedValue({});
+  mockAddCatalogItem.mockResolvedValue({ item: PERSISTED_ITEM });
 });
-
-// --- Fixtures ---
 
 const DEFAULT_PROPS = {
   businessId: "biz-123",
@@ -99,7 +109,7 @@ describe("AddItemDialog", () => {
     });
   });
 
-  it("chiama onSuccess dopo aggiunta riuscita", async () => {
+  it("chiama onSuccess con l'item persistito dopo aggiunta riuscita", async () => {
     const onSuccess = vi.fn();
     render(<AddItemDialog {...DEFAULT_PROPS} onSuccess={onSuccess} />);
 
@@ -116,7 +126,7 @@ describe("AddItemDialog", () => {
       );
     });
 
-    expect(onSuccess).toHaveBeenCalled();
+    expect(onSuccess).toHaveBeenCalledWith(PERSISTED_ITEM);
   });
 
   it("mostra l'errore restituito da addCatalogItem", async () => {
