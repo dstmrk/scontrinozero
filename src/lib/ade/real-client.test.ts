@@ -1035,6 +1035,38 @@ describe("RealAdeClient", () => {
       );
     });
 
+    it("clearCredentials disables 401 re-auth → AdeSessionExpiredError (REVIEW #5)", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      // La cache azzera le credenziali a fine operazione: senza credenziali un
+      // 401 non può re-autenticare e deve fallire pulito (no garbage retry).
+      client.clearCredentials();
+
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 401 }));
+
+      await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
+        AdeSessionExpiredError,
+      );
+    });
+
+    it("setCredentials restores 401 re-auth without re-login (REVIEW #5)", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      // Simula il ciclo cache: scrub a fine op, re-inject prima della successiva.
+      client.clearCredentials();
+      client.setCredentials(mockCredentials);
+
+      // First attempt: 401 → re-auth (6 chiamate) → retry success
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 401 }));
+      mockReAuthSequence(fetchMock);
+      fetchMock.mockResolvedValueOnce(mockResponse({ body: successResponse }));
+
+      const result = await client.submitSale(makeSalePayload());
+      expect(result.esito).toBe(true);
+    });
+
     it("throws AdePortalError on non-401 error status", async () => {
       mockLoginSequence(fetchMock);
       await client.login(mockCredentials);

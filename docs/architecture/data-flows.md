@@ -25,7 +25,11 @@
 3. Orchestrazione in `src/lib/services/receipt-service.ts`: idempotency
    (`src/lib/services/request-hash.ts`), chiamata AdE, transazione DB.
 4. Client AdE risolto da `src/lib/ade/index.ts` (reale `src/lib/ade/real-client.ts`
-   vs mock `src/lib/ade/mock-client.ts` secondo `ADE_MODE`).
+   vs mock `src/lib/ade/mock-client.ts` secondo `ADE_MODE`). La sessione Fisconline
+   è riusata fra operazioni ravvicinate dello stesso business via
+   `withAdeSession` + `src/lib/ade/session-cache.ts` (cache in-process con TTL/LRU
+   e lock per-business), invalidata su cambio credenziali. Evita di ripetere il
+   login (~10 round-trip, latenza dominante) a ogni emissione.
 5. UI optimistic: lo scontrino "sembra istantaneo" anche se AdE risponde in 2-5s
    (priorità #1). La server action degrada, non lancia (regola 19).
 6. Fallimenti AdE classificati da `src/lib/ade/log-failure.ts` con

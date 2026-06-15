@@ -12,6 +12,7 @@ import {
   getKeyVersion,
 } from "@/lib/crypto";
 import { createAdeClient, getAdeMode } from "@/lib/ade";
+import { adeSessionCache } from "@/lib/ade/session-cache";
 import {
   AdeAuthError,
   AdeError,
@@ -306,6 +307,10 @@ export async function saveAdeCredentials(
     });
 
   logger.info({ businessId }, "ADE credentials updated");
+
+  // Invalida la sessione AdE cached (REVIEW #5): le credenziali sono cambiate,
+  // la prossima emissione/annullo deve rieffettuare il login con le nuove.
+  await adeSessionCache.invalidate(businessId);
 
   // Invalida la Router Cache client-side del dashboard: dopo aver salvato le
   // credenziali l'utente è eleggibile ad accedere al dashboard, ma il redirect

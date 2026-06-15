@@ -97,43 +97,6 @@ creando un **documento fiscale duplicato e irreversibile** su AdE.
 
 ---
 
-### 5. Riuso sessione AdE — eliminare il re-login completo (~10 round-trip) a ogni operazione
-
-- **Categoria:** performance (latenza dominante dell'emissione) · **Severità:** High
-- **File:** `src/lib/services/receipt-service.ts:551` + logout nel `finally`; `src/lib/services/void-service.ts:612` + logout; `src/server/onboarding-actions.ts:356,614`; client: `src/lib/ade/real-client.ts`
-
-**Problema.** Ogni emissione/annullo/verifica crea un nuovo client
-(`createAdeClient`) e ripete l'intero login Fisconline (fasi A–G, ~10 round-trip
-HTTP **sequenziali** verso AdE) + `logout()`. Il login è la latenza dominante
-(principio #1, performance percepita): il `submitSale` vero è un singolo POST,
-sempre preceduto da ~10 chiamate di auth.
-
-**Fix (design già deciso, non ambiguo).**
-
-1. Cache in-process per-business: `Map<businessId, { client, expiresAt }>`
-   (assunzione single-container coerente con CLAUDE.md) che conserva
-   `RealAdeClient` (AdeSession + CookieJar) con TTL **sotto** la scadenza
-   sessione AdE (10–12 min) e cap LRU.
-2. **Lock async per businessId** (catena di Promise) che serializza le emissioni
-   concorrenti: due richieste riusano un solo login invece di gareggiare (evita
-   anche il doppio login).
-3. Il re-auth su 401 già presente in `submitDocument` resta il fallback di
-   correttezza se la sessione è scaduta lato AdE.
-4. **Sicurezza:** la cache tiene solo i cookie di sessione in memoria (mai
-   persistiti); le credenziali decifrate restano transienti per-operazione,
-   **fuori** dalla cache long-lived; invalidare la entry su cambio credenziali e
-   su `logout`.
-5. **Prerequisito:** il CookieJar deve onorare delete/expiry (item 27) — un jar
-   long-lived non può accumulare cookie cancellati.
-6. Non deve rompere l'idempotenza stale-recovery (item 4). Escludere il path
-   verify/onboarding (raro). Aggiungere metrica `loginCount` vs `emitCount` per
-   misurare l'hit-rate.
-7. **Test:** hit di cache → un solo login per due emit ravvicinate; expiry TTL →
-   nuovo login; 401 dentro submit → re-auth e retry; invalidazione su
-   `saveAdeCredentials`; LRU cap.
-
----
-
 ### 8. TTL/revoca per i link pubblici degli scontrini
 
 - **Categoria:** sicurezza · **Severità:** Medium · **Target indicativo:** v1.4.0+
@@ -615,31 +578,6 @@ non deve rivelare se l'email esiste).
    (`email_send_failed`) per l'osservabilità.
 3. **Test:** Resend KO su reset → banner di retry, nessuna differenza di
    messaggio tra email esistente e no; Resend OK → redirect invariato.
-
----
-
-### 27. `CookieJar` non onora cancellazione/scadenza dei cookie
-
-- **Categoria:** robustezza · **Severità:** Low oggi — **prerequisito dell'item 5** (riuso sessione AdE)
-- **File:** `src/lib/ade/cookie-jar.ts:14-33` (`applyResponse`)
-
-**Problema.** Il jar salva solo `name=value` dal primo segmento di `Set-Cookie`,
-ignorando `Max-Age`/`Expires` e la semantica di **cancellazione**
-(`Set-Cookie: NAME=; Max-Age=0`): memorizza `NAME=""` e continua a inviarlo.
-Impatto ~0 con i client effimeri per-operazione attuali, ma un jar long-lived
-(riuso sessione) DEVE onorare delete/expiry.
-
-**Fix (non ambiguo).**
-
-1. In `applyResponse`, parsare gli attributi `Max-Age` ed `Expires` di ogni
-   `Set-Cookie`; su delete (`Max-Age <= 0`, `Expires` nel passato, o valore
-   vuoto) eseguire `cookies.delete(name)` invece di memorizzare.
-2. _Da confermare con una cattura HAR che mostri un Set-Cookie di delete nel
-   flusso di login/SSO AdE_ (regola 14: cross-reference one-by-one).
-3. **Test:** `Max-Age=0` → cookie rimosso; `Expires` passato → rimosso; valore
-   vuoto senza attributi → rimosso; cookie normale → memorizzato come oggi;
-   attributi `Path`/`Domain` ignorati senza crash.
-4. Implementare **insieme o prima** dell'item 5.
 
 ---
 

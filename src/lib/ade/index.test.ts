@@ -1,8 +1,21 @@
 // @vitest-environment node
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { getAdeMode, createAdeClient } from "./index";
+import { getAdeMode, createAdeClient, withAdeSession } from "./index";
 import { MockAdeClient } from "./mock-client";
 import { RealAdeClient } from "./real-client";
+import { adeSessionCache } from "./session-cache";
+import type { AdeSession } from "./client";
+
+const FAKE_CREDENTIALS = {
+  codiceFiscale: "RSSMRA80A01H501U",
+  password: "secret",
+  pin: "1234567890",
+};
+const FAKE_SESSION: AdeSession = {
+  pAuth: "p",
+  partitaIva: "01234567890",
+  createdAt: 0,
+};
 
 describe("getAdeMode", () => {
   afterEach(() => {
@@ -60,5 +73,81 @@ describe("createAdeClient", () => {
 
   it("returns a RealAdeClient for mode=real", () => {
     expect(createAdeClient("real")).toBeInstanceOf(RealAdeClient);
+  });
+});
+
+describe("withAdeSession (mock mode)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it("logs in, runs fn with a client, then logs out", async () => {
+    vi.stubEnv("ADE_MODE", "mock");
+    const loginSpy = vi
+      .spyOn(MockAdeClient.prototype, "login")
+      .mockResolvedValue(FAKE_SESSION);
+    const logoutSpy = vi
+      .spyOn(MockAdeClient.prototype, "logout")
+      .mockResolvedValue();
+    const fn = vi.fn().mockResolvedValue("done");
+
+    const result = await withAdeSession(
+      { businessId: "biz-1", credentials: FAKE_CREDENTIALS },
+      fn,
+    );
+
+    expect(result).toBe("done");
+    expect(loginSpy).toHaveBeenCalledWith(FAKE_CREDENTIALS);
+    expect(fn).toHaveBeenCalledOnce();
+    expect(logoutSpy).toHaveBeenCalled();
+  });
+
+  it("swallows a logout failure and still returns the fn result", async () => {
+    vi.stubEnv("ADE_MODE", "mock");
+    vi.spyOn(MockAdeClient.prototype, "login").mockResolvedValue(FAKE_SESSION);
+    vi.spyOn(MockAdeClient.prototype, "logout").mockRejectedValue(
+      new Error("logout boom"),
+    );
+
+    const result = await withAdeSession(
+      { businessId: "biz-1", credentials: FAKE_CREDENTIALS },
+      () => Promise.resolve("ok"),
+    );
+
+    expect(result).toBe("ok");
+  });
+
+  it("logs out even when fn throws (no session reuse in mock)", async () => {
+    vi.stubEnv("ADE_MODE", "mock");
+    vi.spyOn(MockAdeClient.prototype, "login").mockResolvedValue(FAKE_SESSION);
+    const logoutSpy = vi
+      .spyOn(MockAdeClient.prototype, "logout")
+      .mockResolvedValue();
+
+    await expect(
+      withAdeSession(
+        { businessId: "biz-1", credentials: FAKE_CREDENTIALS },
+        () => Promise.reject(new Error("boom")),
+      ),
+    ).rejects.toThrow("boom");
+
+    expect(logoutSpy).toHaveBeenCalled();
+  });
+
+  it("real mode: delegates to the session cache (no per-op logout)", async () => {
+    vi.stubEnv("ADE_MODE", "real");
+    const runSpy = vi
+      .spyOn(adeSessionCache, "run")
+      .mockResolvedValue("from-cache" as never);
+    const fn = vi.fn();
+
+    const result = await withAdeSession(
+      { businessId: "biz-1", credentials: FAKE_CREDENTIALS },
+      fn,
+    );
+
+    expect(result).toBe("from-cache");
+    expect(runSpy).toHaveBeenCalledWith("biz-1", FAKE_CREDENTIALS, fn);
   });
 });
