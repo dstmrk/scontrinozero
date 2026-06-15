@@ -15,8 +15,10 @@ export class CookieJar {
     const setCookieHeaders = response.headers.getSetCookie();
 
     for (const header of setCookieHeaders) {
-      // Take only the first segment before ";" (ignore attributes)
-      const cookiePart = header.split(";")[0].trim();
+      const segments = header.split(";");
+
+      // First segment is name=value; the rest are attributes.
+      const cookiePart = segments[0].trim();
       if (!cookiePart) continue;
 
       // Split on first "=" only to handle values containing "="
@@ -25,11 +27,53 @@ export class CookieJar {
 
       const name = cookiePart.slice(0, eqIndex).trim();
       const value = cookiePart.slice(eqIndex + 1);
+      if (!name) continue;
 
-      if (name) {
-        this.cookies.set(name, value);
+      // Honor deletion/expiry semantics: a long-lived jar (session reuse) must
+      // not keep cookies the server has expired or cleared. Without this it
+      // would store NAME="" and keep sending the deleted cookie.
+      if (CookieJar.isDeletionSignal(value, segments.slice(1))) {
+        this.cookies.delete(name);
+        continue;
+      }
+
+      this.cookies.set(name, value);
+    }
+  }
+
+  /**
+   * Decide whether a Set-Cookie clears the cookie rather than storing it.
+   *
+   * Precedence per RFC 6265: Max-Age wins over Expires. A cookie is deleted on
+   * a non-positive Max-Age, an Expires in the past, or an empty value with no
+   * attribute that keeps it alive. Malformed attributes are ignored (no false
+   * delete). Path/Domain/HttpOnly/Secure/SameSite are not relevant (single
+   * origin) and are skipped without crashing.
+   */
+  private static isDeletionSignal(
+    value: string,
+    attributes: string[],
+  ): boolean {
+    let maxAge: number | undefined;
+    let expiresAt: number | undefined;
+
+    for (const attr of attributes) {
+      const eq = attr.indexOf("=");
+      if (eq === -1) continue;
+      const key = attr.slice(0, eq).trim().toLowerCase();
+      const raw = attr.slice(eq + 1).trim();
+
+      if (key === "max-age" && /^-?\d+$/.test(raw)) {
+        maxAge = Number(raw);
+      } else if (key === "expires") {
+        const t = Date.parse(raw);
+        if (!Number.isNaN(t)) expiresAt = t;
       }
     }
+
+    if (maxAge !== undefined) return maxAge <= 0;
+    if (expiresAt !== undefined) return expiresAt <= Date.now();
+    return value === "";
   }
 
   /** Return the Cookie header value for the next request. */
