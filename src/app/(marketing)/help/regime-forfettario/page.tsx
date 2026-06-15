@@ -1,12 +1,56 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import {
+  JsonLd,
+  faqPageJsonLd,
+  helpArticleBreadcrumb,
+  type FaqItem,
+} from "@/components/json-ld";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata = helpArticleMetadata("regime-forfettario");
+
+/**
+ * Mirror in testo piano della FAQ visibile a video: alimenta lo structured data
+ * FAQPage (rich result Google). Tenere allineato al contenuto renderizzato sotto.
+ */
+const faqItems: readonly FaqItem[] = [
+  {
+    question: "Qual è il codice IVA del regime forfettario?",
+    answer:
+      "Sullo scontrino (documento commerciale) si usa la natura N2 — operazioni non soggette. In fattura elettronica il codice granulare è N2.2 e il regime fiscale del cedente si valorizza con RF19. ScontrinoZero gestisce il documento commerciale, quindi la natura corretta da impostare è N2.",
+  },
+  {
+    question: "Qual è la dicitura di esenzione IVA per il forfettario?",
+    answer:
+      "Sullo scontrino non è obbligatoria alcuna dicitura: è sufficiente la natura N2. Sulle fatture emesse, invece, va riportata «Operazione in franchigia da IVA ai sensi dell'art. 1 co. 54-89 L. 190/2014».",
+  },
+  {
+    question:
+      "Ho selezionato «0% – Non soggette» ma uno scontrino mostra ancora IVA al 22% — perché?",
+    answer:
+      "Probabilmente hai aggiunto prodotti al catalogo prima di configurare l'aliquota prevalente, e quei prodotti hanno ancora l'aliquota ordinaria. Vai in Catalogo e aggiorna l'aliquota di ciascun prodotto su N2. Le righe manuali (importo libero) usano sempre l'aliquota predefinita dell'attività.",
+  },
+  {
+    question: "Posso vendere ad aliquote diverse (es. alcune voci a IVA 10%)?",
+    answer:
+      "In regime forfettario no: sei completamente esonerato dall'IVA su tutte le operazioni e devi certificarle come non soggette. Se devi applicare IVA su una vendita, devi prima uscire dal regime forfettario (contatta il tuo commercialista).",
+  },
+  {
+    question:
+      "Ho emesso per errore uno scontrino con IVA al 22% quando ero forfettario. Cosa faccio?",
+    answer:
+      "Il documento commerciale emesso va annullato e ri-emesso con la natura IVA corretta. ScontrinoZero non può modificare retroattivamente i documenti già trasmessi all'AdE: l'unica strada è il void seguito da una nuova emissione. Per errori estesi nel tempo, rivolgiti al tuo commercialista.",
+  },
+  {
+    question: "Devo emettere scontrini anche come forfettario?",
+    answer:
+      "Sì, se svolgi attività al dettaglio o servizi a privati. I forfettari sono obbligati alla trasmissione telematica dei corrispettivi esattamente come i soggetti IVA ordinari. Il regime forfettario riguarda il trattamento dell'IVA, non l'obbligo di certificazione fiscale.",
+  },
+];
 
 export default function RegimeForfettarioPage() {
   return (
@@ -15,6 +59,7 @@ export default function RegimeForfettarioPage() {
         data={helpArticleBreadcrumb("regime-forfettario", "Regime forfettario")}
       />
       <HelpArticleJsonLd slug="regime-forfettario" />
+      <JsonLd data={faqPageJsonLd(faqItems)} />
       <article className="mx-auto max-w-3xl">
         <Link
           href="/help"
@@ -38,7 +83,7 @@ export default function RegimeForfettarioPage() {
           all&apos;Agenzia delle Entrate.
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> aprile 2026
+          <strong>Ultimo aggiornamento:</strong> giugno 2026
         </p>
 
         {/* ─── Cos'è il regime forfettario ─── */}
@@ -68,13 +113,37 @@ export default function RegimeForfettarioPage() {
           risulterebbe fiscalmente scorretto e l&apos;esoneratore si troverebbe
           ad aver certificato operazioni come imponibili.
         </p>
+        {/* ─── Codice e natura IVA: N2 vs N2.2 ─── */}
+        <h2 className="mt-10 text-xl font-semibold">
+          Quale codice IVA usa il forfettario: N2 o N2.2?
+        </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          <strong>Nota per la fatturazione elettronica B2B:</strong> nel
-          tracciato della fattura elettronica il codice granulare richiesto per
-          i forfettari è <strong>N2.2</strong> (in vigore dal 1° luglio 2022);
-          separatamente, il blocco RegimeFiscale del cedente si valorizza con{" "}
-          <strong>RF19</strong>. Questi due codici riguardano però la fattura
-          elettronica, non il documento commerciale gestito da ScontrinoZero.
+          La risposta dipende dal tipo di documento che emetti. I due codici
+          appartengono alla stessa famiglia (operazioni non soggette a IVA) ma
+          si usano in contesti diversi:
+        </p>
+        <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
+          <li>
+            <strong>Scontrino (documento commerciale):</strong> natura{" "}
+            <strong>N2</strong> — operazioni non soggette. È il codice che
+            imposti in ScontrinoZero.
+          </li>
+          <li>
+            <strong>Fattura elettronica B2B:</strong> codice granulare{" "}
+            <strong>N2.2</strong> (in vigore dal 1° luglio 2022), riferito
+            all&apos;art. 1 commi 54-89 della L. 190/2014.
+          </li>
+          <li>
+            <strong>Regime fiscale del cedente</strong> (solo in fattura): si
+            valorizza con <strong>RF19</strong>.
+          </li>
+        </ul>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          In pratica: ScontrinoZero gestisce il{" "}
+          <strong>documento commerciale</strong>, quindi la natura corretta da
+          impostare è sempre <strong>N2</strong>. I codici N2.2 e RF19 entrano
+          in gioco solo quando emetti una <strong>fattura elettronica</strong>{" "}
+          via Sistema di Interscambio, non sullo scontrino.
         </p>
 
         {/* ─── Configurazione in ScontrinoZero ─── */}
@@ -149,17 +218,27 @@ export default function RegimeForfettarioPage() {
             l&apos;IVA non è esposta.
           </li>
         </ul>
+        {/* ─── Dicitura di esenzione ─── */}
+        <h2 className="mt-10 text-xl font-semibold">
+          Dicitura di esenzione IVA del forfettario
+        </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          ScontrinoZero <strong>non inserisce automaticamente</strong> una
-          dicitura di esonero (&quot;Operazione effettuata da contribuente in
-          regime forfettario…&quot;) sul documento commerciale: la normativa sul
-          DCO non la richiede, ma se ti è utile per la tua comunicazione al
-          cliente puoi stamparla/scriverla a parte. La dicitura{" "}
+          Sullo <strong>scontrino</strong> (documento commerciale){" "}
+          <strong>non è obbligatoria alcuna dicitura</strong> di esenzione: è
+          sufficiente la natura <strong>N2</strong>. ScontrinoZero non inserisce
+          automaticamente una formula di esonero (&quot;Operazione effettuata da
+          contribuente in regime forfettario…&quot;) sul DCO, perché la
+          normativa non la richiede; se ti è utile per la comunicazione al
+          cliente puoi aggiungerla a parte.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Sulle <strong>fatture</strong> emesse, invece, resta obbligatoria la
+          dicitura{" "}
           <em>
             &quot;Operazione in franchigia da IVA ai sensi dell&apos;art. 1 co.
             54-89 L. 190/2014&quot;
           </em>{" "}
-          resta invece obbligatoria sulle fatture emesse (non sugli scontrini).
+          — ma riguarda la fattura elettronica, non lo scontrino.
         </p>
 
         {/* ─── Soglie di ricavo ─── */}
@@ -197,6 +276,33 @@ export default function RegimeForfettarioPage() {
         {/* ─── Domande frequenti ─── */}
         <h2 className="mt-10 text-xl font-semibold">Domande frequenti</h2>
         <div className="mt-3 space-y-4">
+          <div>
+            <p className="text-sm font-medium">
+              Qual è il codice IVA del regime forfettario?
+            </p>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+              Sullo scontrino (documento commerciale) si usa la natura{" "}
+              <strong>N2</strong> — operazioni non soggette. In fattura
+              elettronica il codice granulare è <strong>N2.2</strong> e il
+              regime fiscale del cedente si valorizza con <strong>RF19</strong>.
+              ScontrinoZero gestisce il documento commerciale, quindi la natura
+              corretta da impostare è <strong>N2</strong>.
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium">
+              Qual è la dicitura di esenzione IVA per il forfettario?
+            </p>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+              Sullo scontrino non è obbligatoria alcuna dicitura: è sufficiente
+              la natura N2. Sulle fatture emesse, invece, va riportata{" "}
+              <em>
+                &quot;Operazione in franchigia da IVA ai sensi dell&apos;art. 1
+                co. 54-89 L. 190/2014&quot;
+              </em>
+              {"."}
+            </p>
+          </div>
           <div>
             <p className="text-sm font-medium">
               Ho selezionato &quot;0% – Non soggette&quot; ma uno scontrino

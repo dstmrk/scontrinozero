@@ -58,6 +58,16 @@ const nextConfig: NextConfig = {
         destination: "/dashboard",
         permanent: false,
       },
+      {
+        // `/confronto` è una pagina singola, senza sotto-rotte: qualunque
+        // `/confronto/<qualcosa>` è un 404 (es. backlink esterni o URL indovinati,
+        // come `/confronto/fatture-in-cloud` segnalato da Search Console). Lo
+        // consolidiamo con un 308 sulla pagina canonica per non disperdere link
+        // equity. `:path+` richiede almeno un segmento → non tocca `/confronto`.
+        source: "/confronto/:path+",
+        destination: "/confronto",
+        permanent: true,
+      },
     ];
   },
   async headers() {

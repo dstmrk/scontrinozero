@@ -16,7 +16,7 @@ export interface HelpArticle {
  * di revisione come `datePublished`/`dateModified` dello structured data Article.
  * Aggiornarla quando si fa una revisione complessiva dei contenuti help.
  */
-export const HELP_REVIEWED_DATE = "2026-06-01";
+export const HELP_REVIEWED_DATE = "2026-06-15";
 
 export const helpArticles: Record<string, HelpArticle> = {
   "aliquote-iva": {
@@ -139,9 +139,9 @@ export const helpArticles: Record<string, HelpArticle> = {
     slug: "normativa-pos-2026",
     title: "Collegamento POS-cassa 2026: cosa cambia",
     metaTitle:
-      "Collegamento POS-cassa 2026: cosa cambia per chi usa ScontrinoZero",
+      "Normativa POS 2026: obbligo, scadenze e sanzioni del collegamento POS-cassa",
     description:
-      "Obbligo di abbinamento POS al sistema di cassa dal 2026 (Legge 207/2024): scadenze, sanzioni e cosa devi fare se usi ScontrinoZero (procedura Documento Commerciale Online).",
+      "Normativa POS 2026 (Legge 207/2024): chi è obbligato a collegare il POS al sistema di cassa, scadenze, sanzioni e come metterti in regola con il Documento Commerciale Online.",
     related: ["pos-rt-obbligo", "chiusura-giornaliera", "regime-forfettario"],
   },
   "piani-e-prezzi": {
@@ -183,9 +183,10 @@ export const helpArticles: Record<string, HelpArticle> = {
   "regime-forfettario": {
     slug: "regime-forfettario",
     title: "Regime forfettario: configurazione IVA corretta",
-    metaTitle: "Regime forfettario: configurazione IVA corretta",
+    metaTitle:
+      "Codice e natura IVA del regime forfettario (N2/N2.2) sullo scontrino",
     description:
-      "Come configurare ScontrinoZero per il regime forfettario: natura IVA N2 per operazioni non soggette, impostazioni in onboarding e nel catalogo prodotti.",
+      "Qual è il codice IVA del regime forfettario sullo scontrino: natura N2 sul documento commerciale (N2.2 in fattura), dicitura di esenzione e come configurarlo in ScontrinoZero senza errori.",
     related: ["aliquote-iva", "primo-scontrino", "annullare-scontrino"],
   },
   "registrare-pos-portale-ade": {
