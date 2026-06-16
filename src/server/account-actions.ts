@@ -9,6 +9,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import { getAuthenticatedUser } from "@/lib/server-auth";
+import { authErrorResult } from "@/lib/auth-errors";
 import { sendEmail } from "@/lib/email";
 import { AccountDeletionEmail } from "@/emails/account-deletion";
 
@@ -33,8 +34,8 @@ export async function deleteAccount(): Promise<AccountActionResult> {
   let user;
   try {
     user = await getAuthenticatedUser();
-  } catch {
-    return { error: "Non autenticato." };
+  } catch (err) {
+    return authErrorResult(err, "deleteAccount");
   }
 
   // 1. Delete auth user via admin API first (service role key).

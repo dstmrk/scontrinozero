@@ -1,5 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { UnauthenticatedError } from "@/lib/auth-errors";
+import { logger } from "@/lib/logger";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -116,17 +118,30 @@ describe("account-actions", () => {
       );
     });
 
-    it("returns error when user is not authenticated", async () => {
-      mockGetAuthenticatedUser.mockRejectedValue(
-        new Error("Not authenticated"),
-      );
+    it("returns 'Non autenticato.' without logging when session is missing", async () => {
+      mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
 
       const { deleteAccount } = await import("./account-actions");
       const result = await deleteAccount();
 
-      expect(result.error).toBeDefined();
+      expect(result.error).toBe("Non autenticato.");
       expect(mockDeleteReturning).not.toHaveBeenCalled();
       expect(mockAdminDeleteUser).not.toHaveBeenCalled();
+      expect(logger.error).not.toHaveBeenCalled();
+    });
+
+    it("degrades with a 503-like message and logs when auth fails unexpectedly", async () => {
+      mockGetAuthenticatedUser.mockRejectedValue(new Error("db timeout"));
+
+      const { deleteAccount } = await import("./account-actions");
+      const result = await deleteAccount();
+
+      expect(result.error).toBe(
+        "Servizio temporaneamente non disponibile. Riprova.",
+      );
+      expect(mockDeleteReturning).not.toHaveBeenCalled();
+      expect(mockAdminDeleteUser).not.toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledTimes(1);
     });
 
     it("logs an error but still redirects when profile is not found after auth deletion", async () => {

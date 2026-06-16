@@ -207,31 +207,6 @@ fatto che i payload sono statici, ma è un single point of failure.
 
 ## P3 — Bassa priorità
 
-### 14. Catch generico maschera gli errori interni come "Non autenticato" (residuo: replicare alle action rimanenti)
-
-- **Categoria:** error handling/observability · **Severità:** Low
-- **File residui:** `src/server/analytics-actions.ts:77`, `src/server/billing-actions.ts:64`, `src/server/account-actions.ts:36`
-
-**Stato.** Il core è risolto: `getAuthenticatedUser` lancia ora
-`UnauthenticatedError` (`src/lib/auth-errors.ts`) e l'helper condiviso
-`authErrorResult(err, action)` classifica sessione-assente (→ "Non autenticato.",
-nessun log) vs errore inatteso (→ messaggio 503-like + `logger.error`, regola
-19/20). Migrati `catalog-actions.ts` (2 catch) ed `export-actions.ts`.
-
-**Problema residuo.** Tre server action mantengono ancora il bare-catch
-`} catch { return { error: "Non autenticato." } }`: un DB/Supabase timeout viene
-presentato all'utente autenticato come "Non autenticato", senza log.
-
-**Fix (non ambiguo).** Sostituire i tre catch con
-`} catch (err) { return authErrorResult(err, "<azione>"); }` importando l'helper da
-`@/lib/auth-errors`. **Nota:** `analytics-actions.ts` usa l'envelope
-`{ ok: false, error }`, non `{ error }` — adattare (es. `{ ok: false, ...authErrorResult(err, "...") }`)
-o estrarre una variante. **Test:** sessione assente → "Non autenticato." senza
-`logger.error`; errore generico → messaggio 503-like + `logger.error` chiamato una
-volta (vedi i test di `catalog-actions`/`export-actions` come modello).
-
----
-
 ### 15. Nessun log dei tentativi di accesso cross-tenant sull'API v1
 
 - **Categoria:** osservabilità/sicurezza · **Severità:** Low

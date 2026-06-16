@@ -1,5 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { UnauthenticatedError } from "@/lib/auth-errors";
+import { logger } from "@/lib/logger";
 
 // --- Mocks ---
 
@@ -76,15 +78,26 @@ describe("billing-actions", () => {
   });
 
   describe("getProfilePlan", () => {
-    it("ritorna errore se utente non autenticato", async () => {
-      mockGetAuthenticatedUser.mockRejectedValue(
-        new Error("Not authenticated"),
-      );
+    it("ritorna 'Non autenticato.' senza loggare se la sessione manca", async () => {
+      mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
 
       const { getProfilePlan } = await import("./billing-actions");
       const result = await getProfilePlan();
 
-      expect("error" in result).toBe(true);
+      expect(result).toEqual({ error: "Non autenticato." });
+      expect(logger.error).not.toHaveBeenCalled();
+    });
+
+    it("degrada con messaggio 503-like se l'auth fallisce in modo inatteso", async () => {
+      mockGetAuthenticatedUser.mockRejectedValue(new Error("db timeout"));
+
+      const { getProfilePlan } = await import("./billing-actions");
+      const result = await getProfilePlan();
+
+      expect(result).toEqual({
+        error: "Servizio temporaneamente non disponibile. Riprova.",
+      });
+      expect(logger.error).toHaveBeenCalledTimes(1);
     });
 
     it("ritorna il piano corrente dell'utente", async () => {

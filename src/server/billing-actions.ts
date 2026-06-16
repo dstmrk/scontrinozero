@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { subscriptions } from "@/db/schema";
 import { getAuthenticatedUser } from "@/lib/server-auth";
+import { authErrorResult } from "@/lib/auth-errors";
 import { getPlan } from "@/lib/plans";
 import type { Plan } from "@/lib/plans";
 import { planFromPriceId } from "@/lib/stripe";
@@ -61,8 +62,8 @@ export async function getProfilePlan(): Promise<ProfilePlanResult> {
   let user;
   try {
     user = await getAuthenticatedUser();
-  } catch {
-    return { error: "Non autenticato." };
+  } catch (err) {
+    return authErrorResult(err, "getProfilePlan");
   }
 
   const planInfo = await getPlan(user.id);
