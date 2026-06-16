@@ -207,30 +207,28 @@ fatto che i payload sono statici, ma è un single point of failure.
 
 ## P3 — Bassa priorità
 
-### 14. Catch generico in `authenticateAndAuthorize` maschera gli errori interni come "Non autenticato"
+### 14. Catch generico maschera gli errori interni come "Non autenticato" (residuo: replicare alle action rimanenti)
 
 - **Categoria:** error handling/observability · **Severità:** Low
-- **File:** `src/server/catalog-actions.ts:32-42`; stesso pattern in `src/server/export-actions.ts:80-84`
+- **File residui:** `src/server/analytics-actions.ts:77`, `src/server/billing-actions.ts:64`, `src/server/account-actions.ts:36`
 
-**Problema.** `try { user = await getAuthenticatedUser(); } catch { return { error: "Non autenticato." }; }` —
-un DB timeout o un errore Supabase inatteso dentro `getAuthenticatedUser` viene
-presentato all'utente (autenticato!) come "Non autenticato", senza alcun log.
-Diagnosi impossibile e messaggio fuorviante.
+**Stato.** Il core è risolto: `getAuthenticatedUser` lancia ora
+`UnauthenticatedError` (`src/lib/auth-errors.ts`) e l'helper condiviso
+`authErrorResult(err, action)` classifica sessione-assente (→ "Non autenticato.",
+nessun log) vs errore inatteso (→ messaggio 503-like + `logger.error`, regola
+19/20). Migrati `catalog-actions.ts` (2 catch) ed `export-actions.ts`.
 
-**Fix (non ambiguo).**
+**Problema residuo.** Tre server action mantengono ancora il bare-catch
+`} catch { return { error: "Non autenticato." } }`: un DB/Supabase timeout viene
+presentato all'utente autenticato come "Non autenticato", senza log.
 
-1. Identificare l'errore "atteso" lanciato da `getAuthenticatedUser` quando la
-   sessione manca (leggere `src/lib/server-auth.ts`: se non esiste una classe
-   dedicata, introdurla, es. `UnauthenticatedError`, e lanciarla lì al posto
-   dell'errore generico).
-2. Nel catch: `if (err instanceof UnauthenticatedError) return { error: "Non autenticato." };`
-   altrimenti `logger.error({ err, businessId }, "authenticateAndAuthorize failed")`
-   e `return { error: "Servizio temporaneamente non disponibile. Riprova." }`.
-   Sempre `{ error }` (regola 19: degradare, non lanciare), mai throw.
-3. **Test:** sessione assente → "Non autenticato."; `getAuthenticatedUser` che
-   lancia un errore generico → messaggio 503-like + `logger.error` chiamato.
-4. Stesso pattern da replicare dove `grep -rn "catch {" src/server` rivela catch
-   equivalenti in altre action (incluso `exportUserData`).
+**Fix (non ambiguo).** Sostituire i tre catch con
+`} catch (err) { return authErrorResult(err, "<azione>"); }` importando l'helper da
+`@/lib/auth-errors`. **Nota:** `analytics-actions.ts` usa l'envelope
+`{ ok: false, error }`, non `{ error }` — adattare (es. `{ ok: false, ...authErrorResult(err, "...") }`)
+o estrarre una variante. **Test:** sessione assente → "Non autenticato." senza
+`logger.error`; errore generico → messaggio 503-like + `logger.error` chiamato una
+volta (vedi i test di `catalog-actions`/`export-actions` come modello).
 
 ---
 
