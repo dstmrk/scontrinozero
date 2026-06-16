@@ -115,6 +115,8 @@ import {
   romeMidnightUtc,
 } from "./analytics-helpers";
 import { getAnalyticsBundle, getStarterKpis } from "./analytics-actions";
+import { UnauthenticatedError } from "@/lib/auth-errors";
+import { logger } from "@/lib/logger";
 
 // Test helpers: unwrap the aggregated bundle for the specific dataset each
 // test cares about. Mirrors the old per-dataset Server Action surface so
@@ -915,6 +917,24 @@ describe("getStarterKpis", () => {
     const res = await getStarterKpis("biz-1");
     expect(res).toEqual({ error: "Non autorizzato." });
     expect(mockSelect).not.toHaveBeenCalled();
+  });
+
+  it("returns 'Non autenticato.' without logging when session is missing", async () => {
+    mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
+    const res = await getStarterKpis("biz-1");
+    expect(res).toEqual({ error: "Non autenticato." });
+    expect(mockSelect).not.toHaveBeenCalled();
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it("degrades with a 503-like message and logs when auth fails unexpectedly", async () => {
+    mockGetAuthenticatedUser.mockRejectedValue(new Error("db timeout"));
+    const res = await getStarterKpis("biz-1");
+    expect(res).toEqual({
+      error: "Servizio temporaneamente non disponibile. Riprova.",
+    });
+    expect(mockSelect).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledTimes(1);
   });
 
   it("returns rate-limit error and skips DB query when limiter rejects", async () => {

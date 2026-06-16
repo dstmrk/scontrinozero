@@ -7,6 +7,7 @@ import {
   checkBusinessOwnership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
+import { authErrorResult } from "@/lib/auth-errors";
 import {
   canAddCatalogItem,
   getPlan,
@@ -55,8 +56,8 @@ async function authenticateAndAuthorize(
   let user;
   try {
     user = await getAuthenticatedUser();
-  } catch {
-    return { error: "Non autenticato." };
+  } catch (err) {
+    return authErrorResult(err, "authenticateAndAuthorize");
   }
   return checkBusinessOwnership(user.id, businessId);
 }
@@ -131,8 +132,8 @@ export async function addCatalogItem(
   let user;
   try {
     user = await getAuthenticatedUser();
-  } catch {
-    return { error: "Non autenticato." };
+  } catch (err) {
+    return authErrorResult(err, "addCatalogItem");
   }
 
   const ownershipError = await checkBusinessOwnership(

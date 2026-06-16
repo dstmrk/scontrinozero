@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { UnauthenticatedError } from "./auth-errors";
 
 // --- Mocks ---
 
@@ -93,12 +94,15 @@ describe("server-auth", () => {
       expect(user).toEqual(FAKE_USER);
     });
 
-    it("throws when user is not authenticated", async () => {
+    it("throws UnauthenticatedError when user is not authenticated", async () => {
       mockGetUser.mockResolvedValue({ data: { user: null } });
 
       const { getAuthenticatedUser } = await import("./server-auth");
 
       await expect(getAuthenticatedUser()).rejects.toThrow("Not authenticated");
+      await expect(getAuthenticatedUser()).rejects.toBeInstanceOf(
+        UnauthenticatedError,
+      );
     });
 
     it("logs structured warn and throws when getUser rejects (stale refresh token)", async () => {

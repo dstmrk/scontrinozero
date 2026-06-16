@@ -1,5 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { UnauthenticatedError } from "@/lib/auth-errors";
+import { logger } from "@/lib/logger";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -168,13 +170,27 @@ describe("export-actions", () => {
     });
 
     it("returns error when not authenticated", async () => {
-      mockGetAuthenticatedUser.mockRejectedValue(new Error("Non autenticato"));
+      mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
 
       const { exportUserData } = await import("./export-actions");
       const result = await exportUserData();
 
-      expect(result.error).toBeDefined();
+      expect(result.error).toBe("Non autenticato.");
       expect(result.data).toBeUndefined();
+      expect(logger.error).not.toHaveBeenCalled();
+    });
+
+    it("degrades with a 503-like message when auth fails unexpectedly", async () => {
+      mockGetAuthenticatedUser.mockRejectedValue(new Error("db timeout"));
+
+      const { exportUserData } = await import("./export-actions");
+      const result = await exportUserData();
+
+      expect(result.error).toBe(
+        "Servizio temporaneamente non disponibile. Riprova.",
+      );
+      expect(result.data).toBeUndefined();
+      expect(logger.error).toHaveBeenCalledTimes(1);
     });
 
     it("returns error when profile not found", async () => {

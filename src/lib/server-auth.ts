@@ -6,6 +6,7 @@ import { getDb } from "@/db";
 import { adeCredentials, businesses, profiles } from "@/db/schema";
 import { decrypt, getEncryptionKey } from "@/lib/crypto";
 import { buildCedenteFromBusiness } from "@/lib/ade/mapper";
+import { UnauthenticatedError } from "@/lib/auth-errors";
 import { logger } from "@/lib/logger";
 import type { User } from "@supabase/supabase-js";
 import type { AdeCedentePrestatore } from "@/lib/ade/types";
@@ -57,7 +58,7 @@ export const getAuthenticatedUser = cache(async (): Promise<User> => {
     );
   }
   if (!user) {
-    throw new Error("Not authenticated");
+    throw new UnauthenticatedError();
   }
   // Bind l'auth user id allo scope Sentry per la richiesta corrente. Senza
   // questo `Users Impacted` resta a 0 su ogni issue (ogni issue analizzata

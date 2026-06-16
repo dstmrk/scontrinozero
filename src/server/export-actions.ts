@@ -10,6 +10,7 @@ import {
   profiles,
 } from "@/db/schema";
 import { getAuthenticatedUser } from "@/lib/server-auth";
+import { authErrorResult } from "@/lib/auth-errors";
 import { logger } from "@/lib/logger";
 
 // ---------------------------------------------------------------------------
@@ -79,8 +80,8 @@ export async function exportUserData(): Promise<ExportUserDataResult> {
   let user: { id: string };
   try {
     user = await getAuthenticatedUser();
-  } catch {
-    return { error: "Non autenticato." };
+  } catch (err) {
+    return authErrorResult(err, "exportUserData");
   }
 
   const db = getDb();

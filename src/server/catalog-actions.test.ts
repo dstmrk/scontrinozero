@@ -1,5 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { UnauthenticatedError } from "@/lib/auth-errors";
+import { logger } from "@/lib/logger";
 
 // --- Mocks ---
 
@@ -175,15 +177,27 @@ describe("catalog-actions", () => {
 
   describe("addCatalogItem", () => {
     it("ritorna errore se utente non autenticato", async () => {
-      mockGetAuthenticatedUser.mockRejectedValue(
-        new Error("Not authenticated"),
-      );
+      mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
 
       const { addCatalogItem } = await import("./catalog-actions");
       const result = await addCatalogItem(VALID_ADD_INPUT);
 
-      expect(result.error).toBeDefined();
+      expect(result.error).toBe("Non autenticato.");
       expect(mockInsert).not.toHaveBeenCalled();
+      expect(logger.error).not.toHaveBeenCalled();
+    });
+
+    it("degrada con messaggio 503-like se l'auth fallisce in modo inatteso", async () => {
+      mockGetAuthenticatedUser.mockRejectedValue(new Error("db timeout"));
+
+      const { addCatalogItem } = await import("./catalog-actions");
+      const result = await addCatalogItem(VALID_ADD_INPUT);
+
+      expect(result.error).toBe(
+        "Servizio temporaneamente non disponibile. Riprova.",
+      );
+      expect(mockInsert).not.toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledTimes(1);
     });
 
     it("ritorna errore se business non appartiene all'utente", async () => {
@@ -459,14 +473,12 @@ describe("catalog-actions", () => {
 
   describe("deleteCatalogItem", () => {
     it("ritorna errore se utente non autenticato", async () => {
-      mockGetAuthenticatedUser.mockRejectedValue(
-        new Error("Not authenticated"),
-      );
+      mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
 
       const { deleteCatalogItem } = await import("./catalog-actions");
       const result = await deleteCatalogItem(FAKE_ITEM_ID, FAKE_BUSINESS_ID);
 
-      expect(result.error).toBeDefined();
+      expect(result.error).toBe("Non autenticato.");
       expect(mockDelete).not.toHaveBeenCalled();
     });
 
@@ -519,14 +531,12 @@ describe("catalog-actions", () => {
 
   describe("updateCatalogItem", () => {
     it("ritorna errore se utente non autenticato", async () => {
-      mockGetAuthenticatedUser.mockRejectedValue(
-        new Error("Not authenticated"),
-      );
+      mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
 
       const { updateCatalogItem } = await import("./catalog-actions");
       const result = await updateCatalogItem(VALID_UPDATE_INPUT);
 
-      expect(result.error).toBeDefined();
+      expect(result.error).toBe("Non autenticato.");
       expect(mockUpdate).not.toHaveBeenCalled();
     });
 

@@ -106,6 +106,7 @@ Tutte sono `"use server"`; sulle azioni di lettura vale "degradare, non lanciare
 ## Moduli cross-cutting (toccati da quasi ogni feature)
 
 - `src/lib/server-auth.ts` — gate auth + `Sentry.setUser` per richiesta (regola 22)
+- `src/lib/auth-errors.ts` — `UnauthenticatedError` + `authErrorResult` (sessione assente vs errore inatteso, regola 19/20)
 - `src/lib/logger.ts` — unico logger; `error` (≥50) → `Sentry.captureException`
 - `src/lib/plans.ts` / `src/lib/plans-shared.ts` — gate piani, fonte di verità
 - `src/lib/receipts/document-lines.ts` — aritmetica monetaria canonica (regola 17)

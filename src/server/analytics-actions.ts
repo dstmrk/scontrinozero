@@ -7,6 +7,7 @@ import {
   checkBusinessOwnership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
+import { authErrorResult } from "@/lib/auth-errors";
 import {
   canUsePro,
   getPlan,
@@ -74,8 +75,8 @@ async function authorizeOwner(businessId: string): Promise<AuthOk | AuthFail> {
   let user;
   try {
     user = await getAuthenticatedUser();
-  } catch {
-    return { ok: false, error: "Non autenticato." };
+  } catch (err) {
+    return { ok: false, ...authErrorResult(err, "authorizeOwner") };
   }
   const rateLimitResult = analyticsLimiter.check(`analytics:${user.id}`);
   if (!rateLimitResult.success) {

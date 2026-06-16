@@ -207,33 +207,6 @@ fatto che i payload sono statici, ma è un single point of failure.
 
 ## P3 — Bassa priorità
 
-### 14. Catch generico in `authenticateAndAuthorize` maschera gli errori interni come "Non autenticato"
-
-- **Categoria:** error handling/observability · **Severità:** Low
-- **File:** `src/server/catalog-actions.ts:32-42`; stesso pattern in `src/server/export-actions.ts:80-84`
-
-**Problema.** `try { user = await getAuthenticatedUser(); } catch { return { error: "Non autenticato." }; }` —
-un DB timeout o un errore Supabase inatteso dentro `getAuthenticatedUser` viene
-presentato all'utente (autenticato!) come "Non autenticato", senza alcun log.
-Diagnosi impossibile e messaggio fuorviante.
-
-**Fix (non ambiguo).**
-
-1. Identificare l'errore "atteso" lanciato da `getAuthenticatedUser` quando la
-   sessione manca (leggere `src/lib/server-auth.ts`: se non esiste una classe
-   dedicata, introdurla, es. `UnauthenticatedError`, e lanciarla lì al posto
-   dell'errore generico).
-2. Nel catch: `if (err instanceof UnauthenticatedError) return { error: "Non autenticato." };`
-   altrimenti `logger.error({ err, businessId }, "authenticateAndAuthorize failed")`
-   e `return { error: "Servizio temporaneamente non disponibile. Riprova." }`.
-   Sempre `{ error }` (regola 19: degradare, non lanciare), mai throw.
-3. **Test:** sessione assente → "Non autenticato."; `getAuthenticatedUser` che
-   lancia un errore generico → messaggio 503-like + `logger.error` chiamato.
-4. Stesso pattern da replicare dove `grep -rn "catch {" src/server` rivela catch
-   equivalenti in altre action (incluso `exportUserData`).
-
----
-
 ### 15. Nessun log dei tentativi di accesso cross-tenant sull'API v1
 
 - **Categoria:** osservabilità/sicurezza · **Severità:** Low
