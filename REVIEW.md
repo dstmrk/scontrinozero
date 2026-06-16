@@ -97,33 +97,6 @@ creando un **documento fiscale duplicato e irreversibile** su AdE.
 
 ---
 
-### 8. TTL/revoca per i link pubblici degli scontrini
-
-- **Categoria:** sicurezza · **Severità:** Medium · **Target indicativo:** v1.4.0+
-- **File:** `src/lib/receipts/fetch-public-receipt.ts` (lookup per document UUID); pagina `src/app/r/[documentId]/page.tsx`
-
-**Problema.** L'accesso pubblico allo scontrino usa direttamente il document UUID
-come token. 122 bit di entropia rendono l'enumerazione infattibile, ma **un link
-condiviso per errore resta valido per sempre**: nessuna scadenza, nessuna revoca,
-nessuna traccia di accesso.
-
-**Fix (non ambiguo).**
-
-1. Introdurre uno **share token separato** dal document id: nuova tabella (migration
-   handwritten, workflow skill `db-migrations`) con `token` (random ≥128 bit,
-   base64url), `document_id` FK, `expires_at`, `revoked_at`, `last_accessed_at`.
-2. La route pubblica diventa `/r/[token]`: lookup sul token, verifica
-   `expires_at`/`revoked_at`, touch di `last_accessed_at` (fire-and-forget).
-3. UI: rigenerazione/revoca del link dal dettaglio scontrino nello storico.
-4. **Retrocompatibilità:** i link UUID già condivisi vanno gestiti con un
-   redirect/grace period documentato, oppure backfill di token per i documenti
-   esistenti — decidere esplicitamente nel PR (non rompere silenziosamente i QR
-   già stampati).
-5. **Test:** token scaduto → 404; revocato → 404; valido → render; touch
-   `last_accessed_at` non blocca la response.
-
----
-
 ### 11. `getCatalogItems` senza LIMIT + autocomplete server-side
 
 - **Categoria:** performance/scalabilità · **Severità:** Medium · **Target: v1.7.0** (insieme a "Catalogo: modifica prodotto + sync AdE", già in roadmap PLAN.md)
@@ -674,3 +647,26 @@ portare un commento inline, quindi la motivazione vive qui):
 - **Revisione:** rimuovere l'allowlist quando la toolchain (`drizzle-kit`/`tsx`/
   `@esbuild-kit/*`) aggiorna `esbuild` a una versione patchata (>0.28.0) senza
   bump major rischioso. Ricontrollare a ogni bump di `drizzle-kit`/`tsx`.
+
+### #8 link pubblici scontrini senza TTL/revoca (UUID come token)
+
+L'accesso pubblico allo scontrino (`src/app/r/[documentId]/page.tsx`,
+`src/lib/receipts/fetch-public-receipt.ts`) usa direttamente il document UUID come
+token, senza scadenza, revoca o traccia di accesso. Era tracciato come finding P2;
+rivalutato e **declassato a rischio accettato**.
+
+- **Perché è accettabile:** l'UUID ha **122 bit** di entropia → enumerazione
+  infattibile. La pagina pubblica espone **solo dati del commerciante** (ragione
+  sociale, indirizzo, P.IVA, righe, totali, identificativo AdE) — già pubblici su
+  qualsiasi scontrino — e **nessuna PII del cliente**: il documento commerciale è
+  anonimo (l'unico dato quasi-personale è il codice lotteria, opzionale e del
+  cliente stesso). Il link è **by-design** un artefatto da consegnare al cliente,
+  non un segreto, ed è `robots: noindex`. Lo scenario "link condiviso per errore"
+  è quindi poco probabile e a basso impatto. Il costo del fix (tabella dedicata +
+  migration handwritten + nuova route + UI di gestione + una riga DB per ogni
+  scontrino condiviso) è sproporzionato per un hobby project a costi fissi ~€0
+  con il vincolo "dipendenze minime".
+- **Revisione:** riaprire il finding **se** lo scontrino includerà in futuro il
+  codice fiscale / dati anagrafici del cliente (cambia la classe di dati esposti),
+  **oppure se** emergerà la necessità di un audit degli accessi o di una revoca
+  attiva dei link condivisi.
