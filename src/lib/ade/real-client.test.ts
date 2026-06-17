@@ -92,6 +92,21 @@ function mockLoginSequence(fetchMock: ReturnType<typeof vi.fn>): void {
 }
 
 /**
+ * Queue Phases A–E + D (everything before Phase F wizardTemplate), so a test
+ * can supply its own Phase F response to exercise fetchWizardPiva edge cases.
+ */
+function mockPhasesBeforeWizard(fetchMock: ReturnType<typeof vi.fn>): void {
+  fetchMock.mockResolvedValueOnce(mockResponse({ status: 200 })); // A
+  fetchMock.mockResolvedValueOnce(mockResponse({})); // B
+  fetchMock.mockResolvedValueOnce(mockResponse({ status: 501 })); // B2
+  fetchMock.mockResolvedValueOnce(mockResponse({})); // C
+  fetchMock.mockResolvedValueOnce(
+    mockResponse({ headers: [["x-appl", "tok"]] }),
+  ); // E
+  fetchMock.mockResolvedValueOnce(mockResponse({})); // D
+}
+
+/**
  * Queue 7 mock responses for re-auth on 401 (Phases A-E + G, skip F).
  *
  * Phase F (wizardTemplate) è skippata perché la P.IVA è già nota.
@@ -148,7 +163,16 @@ const mockSpidCredentials: SpidCredentials = {
 //   - IdP uses SAML2 HTTP POST Binding (SimpleSAMLphp, tested with Sielte)
 //   - 2FA via push notification: poll NotifyPage until body changes
 // ---------------------------------------------------------------------------
-function mockSpidLoginSequence(fetchMock: ReturnType<typeof vi.fn>): void {
+function mockSpidLoginSequence(
+  fetchMock: ReturnType<typeof vi.fn>,
+  fiscaliBody: object = {
+    identificativiFiscali: {
+      partitaIva: "12345678901",
+      codiceFiscale: "RSSMRA80A01H501A",
+      codicePaese: "IT",
+    },
+  },
+): void {
   // S1: GET ADE_BASE_URL/dp/SPID/sielte/s4 — AdE SP returns SAML request form
   fetchMock.mockResolvedValueOnce(
     mockResponse({
@@ -259,17 +283,7 @@ function mockSpidLoginSequence(fetchMock: ReturnType<typeof vi.fn>): void {
   fetchMock.mockResolvedValueOnce(mockResponse({ status: 404 }));
 
   // S15b: GET dati/fiscali — P.IVA fallback for SPID
-  fetchMock.mockResolvedValueOnce(
-    mockResponse({
-      body: {
-        identificativiFiscali: {
-          partitaIva: "12345678901",
-          codiceFiscale: "RSSMRA80A01H501A",
-          codicePaese: "IT",
-        },
-      },
-    }),
-  );
+  fetchMock.mockResolvedValueOnce(mockResponse({ body: fiscaliBody }));
 }
 
 function makeSalePayload(): AdePayload {
@@ -587,6 +601,82 @@ describe("RealAdeClient", () => {
       );
     });
 
+    it("Phase F: logga ade:wizard_piva_missing con la struttura (no PII) su PIva vuota", async () => {
+      // SCONTRINOZERO-M: il throw arrivava su un 200 senza alcun contesto sulla
+      // response. Logghiamo la struttura (chiavi), mai i valori PII.
+      vi.mocked(logger.warn).mockClear();
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: { PIva: [], altroCampo: "x" },
+          headers: [["content-type", "application/json"]],
+        }),
+      ); // F
+
+      await expect(client.login(mockCredentials)).rejects.toThrow(
+        AdePortalError,
+      );
+
+      const call = vi
+        .mocked(logger.warn)
+        .mock.calls.find((c) => c[1] === "ade:wizard_piva_missing");
+      expect(call).toBeDefined();
+      const ctx = call![0] as Record<string, unknown>;
+      expect(ctx).toMatchObject({
+        contentType: "application/json",
+        pIvaIsArray: true,
+        pIvaLength: 0,
+        firstEntryKeys: null,
+      });
+      expect(ctx.topLevelKeys).toEqual(
+        expect.arrayContaining(["PIva", "altroCampo"]),
+      );
+    });
+
+    it("Phase F: logga firstEntryKeys senza valore PII quando l'entry non ha piva", async () => {
+      vi.mocked(logger.warn).mockClear();
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: { PIva: [{ denominazione: "ACME SRL" }] } }),
+      ); // F: entry presente ma senza piva
+
+      await expect(client.login(mockCredentials)).rejects.toThrow(
+        AdePortalError,
+      );
+
+      const call = vi
+        .mocked(logger.warn)
+        .mock.calls.find((c) => c[1] === "ade:wizard_piva_missing");
+      expect(call).toBeDefined();
+      const ctx = call![0] as Record<string, unknown>;
+      expect(ctx.pIvaLength).toBe(1);
+      expect(ctx.firstEntryKeys).toEqual(["denominazione"]);
+      // Nessun valore PII (denominazione) deve finire nel log.
+      expect(JSON.stringify(ctx)).not.toContain("ACME SRL");
+    });
+
+    it("Phase F: logga pIvaIsArray=false quando PIva manca del tutto", async () => {
+      vi.mocked(logger.warn).mockClear();
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: { messaggio: "shape inattesa" } }),
+      ); // F: nessun PIva
+
+      await expect(client.login(mockCredentials)).rejects.toThrow(
+        AdePortalError,
+      );
+
+      const call = vi
+        .mocked(logger.warn)
+        .mock.calls.find((c) => c[1] === "ade:wizard_piva_missing");
+      expect(call).toBeDefined();
+      const ctx = call![0] as Record<string, unknown>;
+      expect(ctx.pIvaIsArray).toBe(false);
+      expect(ctx.pIvaLength).toBeNull();
+      expect(ctx.firstEntryKeys).toBeNull();
+      expect(ctx.topLevelKeys).toEqual(["messaggio"]);
+    });
+
     it("Phase G: POST setUserChoice con x-appl header e body corretto", async () => {
       mockLoginSequence(fetchMock);
 
@@ -874,6 +964,26 @@ describe("RealAdeClient", () => {
       expect(fiscaliCall[0]).toContain("dati/fiscali");
 
       expect(session.partitaIva).toBe("12345678901");
+    });
+
+    it("S15b: logga ade:fiscali_piva_missing (no PII) quando dati/fiscali è senza partitaIva", async () => {
+      vi.mocked(logger.warn).mockClear();
+      mockSpidLoginSequence(fetchMock, {
+        identificativiFiscali: { codiceFiscale: "RSSMRA80A01H501A" },
+      });
+
+      await expect(client.loginSpid(mockSpidCredentials)).rejects.toThrow(
+        AdePortalError,
+      );
+
+      const call = vi
+        .mocked(logger.warn)
+        .mock.calls.find((c) => c[1] === "ade:fiscali_piva_missing");
+      expect(call).toBeDefined();
+      const ctx = call![0] as Record<string, unknown>;
+      expect(ctx.topLevelKeys).toEqual(["identificativiFiscali"]);
+      expect(ctx.identificativiFiscaliKeys).toEqual(["codiceFiscale"]);
+      expect(JSON.stringify(ctx)).not.toContain("RSSMRA80A01H501A");
     });
 
     it("throws AdeSpidTimeoutError when push notification not approved within maxPolls", async () => {

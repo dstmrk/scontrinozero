@@ -124,6 +124,20 @@ function safeHost(url: string): string {
 }
 
 /**
+ * Ritorna le chiavi di un oggetto, o `null` se il valore non è un oggetto
+ * (null, primitivo, undefined). Usato per loggare la **struttura** (non i
+ * valori) delle response AdE quando l'estrazione P.IVA fallisce: i payload
+ * wizardTemplate/gestori/fiscali contengono `piva` + `denominazione` (PII),
+ * quindi logghiamo solo i nomi dei campi, mai i valori (regola 22, denylist
+ * SAFE_KEYS del logger).
+ */
+function objectKeysOrNull(value: unknown): string[] | null {
+  return typeof value === "object" && value !== null
+    ? Object.keys(value as Record<string, unknown>)
+    : null;
+}
+
+/**
  * Headers required for POST document submission (api-spec.md sez. 2.4).
  *
  * Solo header effettivamente usati dal browser nelle catture HAR (vendita.har):
@@ -397,6 +411,19 @@ export class RealAdeClient implements AdeClient {
     const piva = data?.PIva?.[0]?.piva;
 
     if (!piva) {
+      // Diagnostica struttura-only (no PII): distingue "lista PIva vuota" da
+      // "entry presente senza piva" da "shape cambiata". SCONTRINOZERO-M ha
+      // visto questo throw su un 200 senza alcun contesto sulla response.
+      logger.warn(
+        {
+          contentType: response.headers.get("content-type") ?? null,
+          topLevelKeys: objectKeysOrNull(data),
+          pIvaIsArray: Array.isArray(data?.PIva),
+          pIvaLength: Array.isArray(data?.PIva) ? data.PIva.length : null,
+          firstEntryKeys: objectKeysOrNull(data?.PIva?.[0]),
+        },
+        "ade:wizard_piva_missing",
+      );
       throw new AdePortalError(
         200,
         "Failed to extract P.IVA from wizardTemplate response",
@@ -578,6 +605,16 @@ export class RealAdeClient implements AdeClient {
     const piva = data?.identificativiFiscali?.partitaIva;
 
     if (!piva) {
+      logger.warn(
+        {
+          contentType: response.headers.get("content-type") ?? null,
+          topLevelKeys: objectKeysOrNull(data),
+          identificativiFiscaliKeys: objectKeysOrNull(
+            data?.identificativiFiscali,
+          ),
+        },
+        "ade:fiscali_piva_missing",
+      );
       throw new AdePortalError(
         200,
         "Failed to extract Partita IVA from dati/fiscali response",
