@@ -619,9 +619,35 @@ funzionale (l'enforcement è server-side).
    oltre la grazia + `subscriptionStatus: "active"` → stato read-only, non
    `subscribed`.
 
----
+### 32. SCONTRINOZERO-M — `wizardTemplate` ritorna `200` con lista `PIva` vuota su login Fisconline
 
-## Rischi accettati (allowlist)
+- **Categoria:** correttezza/osservabilità · **Severità:** Low — 1 evento in produzione, root cause non confermata
+- **File:** `src/lib/ade/real-client.ts` (`fetchWizardPiva`, Phase F del login Fisconline)
+
+**Problema.** `fetchWizardPiva` lancia `AdePortalError(200, "Failed to extract
+P.IVA from wizardTemplate response")` quando `data?.PIva?.[0]?.piva` è falsy su
+una response `200` valida. Status `200` ⇒ né `isTransientAdeError` né
+`isExpectedUserAdeError` ⇒ classificato `ade_failure` ⇒ Sentry (corretto: errore
+inatteso). Osservato **~5 minuti dopo** che l'utente aveva cambiato una password
+Fisconline scaduta (timeline pino: `ade:auth_failed` → `ade:password_expired`
+×2 → "Password Fisconline aggiornata con successo" → fallimento emit-receipt).
+**Ipotesi principale:** stato transient lato AdE post-cambio-password (sessione/
+entitlement non ancora propagati), **non** un cambio di shape globale (colpirebbe
+tutti i login) né un account permanentemente senza P.IVA (l'utente aveva
+onboardato correttamente via lo stesso Phase F). SPID non è attivo: il path è
+sicuramente Fisconline.
+
+**Stato.** Aggiunta diagnostica struttura-only (no PII) prima del throw —
+`logger.warn(..., "ade:wizard_piva_missing")` con `contentType` / `topLevelKeys`
+/ `pIvaIsArray` / `pIvaLength` / `firstEntryKeys` (solo nomi dei campi, mai i
+valori `piva`/`denominazione`). Stessa diagnostica sul gemello SPID
+`fetchPartitaIvaFromFiscali` (`ade:fiscali_piva_missing`).
+
+**Fix (rimandato, serve evidenza — regole 13/14).** Alla prossima occorrenza,
+leggere `ade:wizard_piva_missing` nel dataset Sentry `logs` per confermare la
+shape. Se conferma lista vuota su `200` (transient post-password-change): trattare
+`PIva` vuota come transient (retry singolo di Phase F e/o downgrade a
+`ade_transient` warn, fuori da Sentry). Non implementare prima della conferma.
 
 ### audit-ci: advisory `esbuild` dev-only (3 GHSA)
 
