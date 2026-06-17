@@ -133,7 +133,7 @@ function safeHost(url: string): string {
  */
 function objectKeysOrNull(value: unknown): string[] | null {
   return typeof value === "object" && value !== null
-    ? Object.keys(value as Record<string, unknown>)
+    ? Object.keys(value)
     : null;
 }
 
