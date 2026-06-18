@@ -33,6 +33,7 @@ import {
   verifyAdeCredentials,
 } from "@/server/onboarding-actions";
 import { VAT_CODES, VAT_DESCRIPTIONS } from "@/types/cassa";
+import { BILLING_SETTINGS_HREF } from "@/lib/plans-shared";
 
 const STEPS = ["Dati attivita", "Credenziali AdE", "Verifica"];
 
@@ -108,6 +109,7 @@ export function OnboardingForm({
   );
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [verifyPivaConflict, setVerifyPivaConflict] = useState(false);
+  const [trialAlreadyUsed, setTrialAlreadyUsed] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const step1Form = useForm<Step1Data>({
@@ -161,6 +163,7 @@ export function OnboardingForm({
   function handleVerify() {
     setVerifyError(null);
     setVerifyPivaConflict(false);
+    setTrialAlreadyUsed(false);
     if (!businessId) return;
     const id = businessId;
     startTransition(async () => {
@@ -168,6 +171,13 @@ export function OnboardingForm({
       if (result.error) {
         setVerifyError(result.error);
         setVerifyPivaConflict(!!result.pivaConflict);
+        return;
+      }
+      if (result.trialAlreadyUsed) {
+        // Onboarding completato ma trial già consumato per questa P.IVA:
+        // niente redirect automatico, mostriamo il motivo e l'invito ad
+        // attivare un piano prima di entrare (già in sola lettura).
+        setTrialAlreadyUsed(true);
         return;
       }
       router.push("/dashboard");
@@ -394,27 +404,52 @@ export function OnboardingForm({
                 </div>
               )}
 
-              <div className="flex flex-col gap-2">
-                <Button onClick={handleVerify} disabled={isPending}>
-                  {isPending ? "Verifica in corso…" : "Verifica connessione"}
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={handleSkipVerify}
-                  disabled={isPending}
-                >
-                  Salta per ora
-                </Button>
-              </div>
+              {trialAlreadyUsed ? (
+                <div className="space-y-3">
+                  <p className="text-sm" role="alert">
+                    Hai già utilizzato il periodo di prova con questa P.IVA.
+                    L&apos;account è attivo in sola lettura: attiva un piano per
+                    tornare a emettere scontrini.
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    <Button onClick={() => router.push(BILLING_SETTINGS_HREF)}>
+                      Attiva un piano
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => router.push("/dashboard")}
+                    >
+                      Vai al pannello
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-col gap-2">
+                    <Button onClick={handleVerify} disabled={isPending}>
+                      {isPending
+                        ? "Verifica in corso…"
+                        : "Verifica connessione"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={handleSkipVerify}
+                      disabled={isPending}
+                    >
+                      Salta per ora
+                    </Button>
+                  </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setStep(1)}
-                className="mt-2"
-              >
-                Modifica credenziali
-              </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setStep(1)}
+                    className="mt-2"
+                  >
+                    Modifica credenziali
+                  </Button>
+                </>
+              )}
             </div>
           )}
         </CardContent>
