@@ -37,6 +37,24 @@ export async function register() {
     const db = drizzle({ client });
 
     await migrate(db, { migrationsFolder: "./supabase/migrations" });
+
+    // Backfill una-tantum del registro anti-frode `trial_vat_ledger` dalle
+    // P.IVA già su `profiles` (account creati prima del ledger). Self-gated:
+    // no-op se il ledger non è vuoto, quindi gira a ogni boot senza effetti.
+    // Degradare, non crashare (regola 19): un errore qui non deve impedire
+    // l'avvio — gli onboarding futuri popolano comunque il ledger.
+    try {
+      const { backfillTrialVatLedgerIfEmpty } =
+        await import("@/lib/backfill-trial-vat-ledger");
+      await backfillTrialVatLedgerIfEmpty(db);
+    } catch (err) {
+      const { logger } = await import("@/lib/logger");
+      logger.error(
+        { err, critical: true },
+        "backfill trial_vat_ledger fallito al boot (ignorato, riprova al prossimo avvio)",
+      );
+    }
+
     await client.end();
   }
 

@@ -29,6 +29,16 @@ vi.mock("@/lib/identity-env", () => ({
   assertIdentityEnv: mockAssertIdentityEnv,
 }));
 
+const mockBackfill = vi.fn();
+vi.mock("@/lib/backfill-trial-vat-ledger", () => ({
+  backfillTrialVatLedgerIfEmpty: mockBackfill,
+}));
+
+const mockLoggerError = vi.fn();
+vi.mock("@/lib/logger", () => ({
+  logger: { error: mockLoggerError, warn: vi.fn(), info: vi.fn() },
+}));
+
 describe("instrumentation register()", () => {
   let originalNextRuntime: string | undefined;
   let originalDbUrl: string | undefined;
@@ -127,6 +137,36 @@ describe("instrumentation register()", () => {
     await register();
 
     expect(mockClientEnd).toHaveBeenCalled();
+  });
+
+  it("esegue il backfill del ledger anti-frode dopo migrate e prima di chiudere la connessione", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    process.env.DATABASE_URL = "postgres://test";
+    const { register } = await import("./instrumentation");
+
+    await register();
+
+    expect(mockBackfill).toHaveBeenCalledWith(mockDb);
+    const migrateOrder = mockMigrate.mock.invocationCallOrder[0]!;
+    const backfillOrder = mockBackfill.mock.invocationCallOrder[0]!;
+    const endOrder = mockClientEnd.mock.invocationCallOrder[0]!;
+    expect(migrateOrder).toBeLessThan(backfillOrder);
+    expect(backfillOrder).toBeLessThan(endOrder);
+  });
+
+  it("non blocca l'avvio se il backfill fallisce (degrada, regola 19)", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    process.env.DATABASE_URL = "postgres://test";
+    mockBackfill.mockRejectedValueOnce(new Error("backfill boom"));
+    const { register } = await import("./instrumentation");
+
+    await expect(register()).resolves.toBeUndefined();
+    // La connessione viene comunque chiusa e l'errore è loggato.
+    expect(mockClientEnd).toHaveBeenCalled();
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      expect.objectContaining({ critical: true }),
+      expect.stringContaining("backfill trial_vat_ledger fallito"),
+    );
   });
 
   it("R24: chiama assertIdentityEnv come prima istruzione nel runtime nodejs", async () => {
