@@ -127,13 +127,6 @@
       "when": 1780099201000,
       "tag": "0017_add_request_hash_to_commercial_documents",
       "breakpoints": true
-    },
-    {
-      "idx": 18,
-      "version": "7",
-      "when": 1780099202000,
-      "tag": "0018_trial_vat_ledger",
-      "breakpoints": true
     }
   ]
 }

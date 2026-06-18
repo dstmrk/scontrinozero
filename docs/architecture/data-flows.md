@@ -47,11 +47,6 @@ Analogo all'emissione: `src/server/void-actions.ts` →
 2. Verifica credenziali Fisconline contro AdE; le credenziali sono cifrate
    AES-256-GCM con `src/lib/crypto.ts` e salvate in `src/db/schema/ade-credentials.ts`.
 3. Logging con `flow: "onboarding-verify"` in `src/lib/ade/log-failure.ts`.
-4. Anti-frode trial: al primo claim della P.IVA si registra il suo HMAC
-   (`src/lib/piva-hash.ts`) in `src/db/schema/trial-vat-ledger.ts` (registro che
-   sopravvive alla cancellazione dell'account). Se la P.IVA è già presente →
-   `trialStartedAt = null` → sola lettura immediata via i gate esistenti in
-   `src/lib/plans-shared.ts`.
 
 ## Recovery stale-pending AdE
 

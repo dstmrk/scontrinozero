@@ -64,7 +64,6 @@ vi.mock("@/db/schema", () => ({
   adeCredentials: "ade-credentials-table",
   businesses: "businesses-table",
   profiles: "profiles-table",
-  trialVatLedger: "trial-vat-ledger-table",
 }));
 
 vi.mock("@/lib/crypto", () => ({
@@ -205,31 +204,15 @@ describe("verifyAdeCredentials", () => {
     mockUpdateSet.mockReturnValue({ where: mockUpdateWhere });
     mockUpdate.mockReturnValue({ set: mockUpdateSet });
 
-    // Anti-frode trial: insert nel ledger (onConflictDoNothing().returning()).
-    // Default [{ id }] = riga inserita (prima volta → trial concesso, nessun
-    // azzeramento di trialStartedAt).
-    const mockLedgerInsert = vi.fn().mockReturnValue({
-      values: vi.fn().mockReturnValue({
-        onConflictDoNothing: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([{ id: "ledger-row-id" }]),
-        }),
-      }),
-    });
-
     // Transaction passthrough
     mockTransaction.mockImplementation(
       async (fn: (tx: unknown) => Promise<void>) =>
-        fn({
-          update: mockUpdate,
-          select: mockSelect,
-          insert: mockLedgerInsert,
-        }),
+        fn({ update: mockUpdate, select: mockSelect }),
     );
 
     mockGetDb.mockReturnValue({
       select: mockSelect,
       update: mockUpdate,
-      insert: mockLedgerInsert,
       transaction: mockTransaction,
     });
 

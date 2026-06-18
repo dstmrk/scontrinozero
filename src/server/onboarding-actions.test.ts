@@ -38,20 +38,9 @@ const mockFrom = vi.fn().mockReturnValue({
 const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
 const mockReturning = vi.fn();
 const mockOnConflictDoUpdate = vi.fn().mockResolvedValue(undefined);
-// trial_vat_ledger anti-frode: insert ... onConflictDoNothing().returning().
-// Default [{ id }] = riga inserita (prima volta → trial concesso). Override con
-// mockLedgerReturning.mockResolvedValueOnce([]) per simulare conflict (P.IVA già
-// nel ledger → trial negato).
-const mockLedgerReturning = vi
-  .fn()
-  .mockResolvedValue([{ id: "ledger-row-id" }]);
-const mockOnConflictDoNothing = vi
-  .fn()
-  .mockReturnValue({ returning: mockLedgerReturning });
 const mockInsertValues = vi.fn().mockReturnValue({
   returning: mockReturning,
   onConflictDoUpdate: mockOnConflictDoUpdate,
-  onConflictDoNothing: mockOnConflictDoNothing,
 });
 const mockInsert = vi.fn().mockReturnValue({ values: mockInsertValues });
 // The returning mock defaults to 1 row (success). Override per-test with
@@ -77,7 +66,6 @@ vi.mock("@/db/schema", () => ({
   profiles: "profiles-table",
   businesses: "businesses-table",
   adeCredentials: "ade-credentials-table",
-  trialVatLedger: "trial-vat-ledger-table",
 }));
 
 const mockEncrypt = vi.fn().mockReturnValue("encrypted-data");
@@ -147,9 +135,6 @@ describe("onboarding-actions", () => {
     mockLimit.mockReset();
     mockReturning.mockReset();
     mockOnConflictDoUpdate.mockReset().mockResolvedValue(undefined);
-    mockLedgerReturning
-      .mockReset()
-      .mockResolvedValue([{ id: "ledger-row-id" }]);
     mockGetUser.mockResolvedValue({ data: { user: FAKE_USER } });
     mockRevalidatePath.mockReset();
     process.env.ENCRYPTION_KEY = "a".repeat(64);
@@ -1263,131 +1248,6 @@ describe("onboarding-actions", () => {
       // dell'intera transazione, verifiedAt incluso.
       expect(mockUpdate).toHaveBeenCalledTimes(3);
       expect(mockSendEmail).not.toHaveBeenCalled();
-    });
-
-    it("concede il trial e registra la P.IVA nel ledger alla prima verifica", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]); // ownership
-      mockLimit.mockResolvedValueOnce([
-        {
-          businessId: "biz-789",
-          encryptedCodiceFiscale: "enc-cf",
-          encryptedPassword: "enc-pw",
-          encryptedPin: "enc-pin",
-          keyVersion: 1,
-          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
-          verifiedAt: null,
-        },
-      ]);
-      // businessSnapshot default [{ fiscalCode: null }] → vatNumber undefined →
-      // primo claim della P.IVA.
-      mockLogin.mockResolvedValue({});
-      mockLogout.mockResolvedValue(undefined);
-      mockGetFiscalData.mockResolvedValue({
-        identificativiFiscali: {
-          codicePaese: "IT",
-          partitaIva: "12345678901",
-          codiceFiscale: "RSSMRA80A01H501U",
-        },
-      });
-      // Default mockLedgerReturning [{ id }] = riga inserita (P.IVA mai vista).
-
-      const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
-
-      expect(result.error).toBeUndefined();
-      expect(result.businessId).toBe("biz-789");
-      expect(result.trialAlreadyUsed).toBeUndefined();
-      // Inserisce nel ledger con ON CONFLICT DO NOTHING e un HMAC esadecimale.
-      expect(mockOnConflictDoNothing).toHaveBeenCalled();
-      expect(mockInsertValues).toHaveBeenCalledWith(
-        expect.objectContaining({
-          pivaHash: expect.stringMatching(/^[0-9a-f]{64}$/),
-        }),
-      );
-      // Solo 3 update: verifiedAt + businesses + profiles.partitaIva. Nessun
-      // azzeramento di trialStartedAt (trial concesso).
-      expect(mockUpdate).toHaveBeenCalledTimes(3);
-      expect(mockUpdateSet).not.toHaveBeenCalledWith({ trialStartedAt: null });
-    });
-
-    it("nega il trial e mette in sola lettura se la P.IVA ha già consumato un trial (ledger conflict)", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]); // ownership
-      mockLimit.mockResolvedValueOnce([
-        {
-          businessId: "biz-789",
-          encryptedCodiceFiscale: "enc-cf",
-          encryptedPassword: "enc-pw",
-          encryptedPin: "enc-pin",
-          keyVersion: 1,
-          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
-          verifiedAt: null,
-        },
-      ]);
-      mockLogin.mockResolvedValue({});
-      mockLogout.mockResolvedValue(undefined);
-      mockGetFiscalData.mockResolvedValue({
-        identificativiFiscali: {
-          codicePaese: "IT",
-          partitaIva: "12345678901",
-          codiceFiscale: "RSSMRA80A01H501U",
-        },
-      });
-      // Conflict: la P.IVA è già nel ledger da un account precedente (cancellato).
-      mockLedgerReturning.mockResolvedValueOnce([]);
-
-      const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
-
-      expect(result.error).toBeUndefined();
-      expect(result.businessId).toBe("biz-789");
-      expect(result.trialAlreadyUsed).toBe(true);
-      // 4 update: verifiedAt + businesses + profiles.partitaIva +
-      // profiles.trialStartedAt=null (sola lettura immediata).
-      expect(mockUpdate).toHaveBeenCalledTimes(4);
-      expect(mockUpdateSet).toHaveBeenCalledWith({ trialStartedAt: null });
-      const { logger } = await import("@/lib/logger");
-      expect(logger.warn).toHaveBeenCalledWith(
-        { businessId: "biz-789" },
-        expect.stringContaining("Trial già usato"),
-      );
-    });
-
-    it("non azzera il trial e non tocca il ledger se lo stesso account ri-verifica la propria P.IVA", async () => {
-      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]); // ownership
-      mockLimit.mockResolvedValueOnce([
-        {
-          businessId: "biz-789",
-          encryptedCodiceFiscale: "enc-cf",
-          encryptedPassword: "enc-pw",
-          encryptedPin: "enc-pin",
-          keyVersion: 1,
-          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
-          verifiedAt: new Date("2026-01-01"),
-        },
-      ]);
-      // businessSnapshot: già onboardato con la STESSA P.IVA → wasFirstClaim false.
-      mockLimit.mockResolvedValueOnce([
-        { fiscalCode: "RSSMRA80A01H501U", vatNumber: "12345678901" },
-      ]);
-      mockLogin.mockResolvedValue({});
-      mockLogout.mockResolvedValue(undefined);
-      mockGetFiscalData.mockResolvedValue({
-        identificativiFiscali: {
-          codicePaese: "IT",
-          partitaIva: "12345678901",
-          codiceFiscale: "RSSMRA80A01H501U",
-        },
-      });
-
-      const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
-
-      expect(result.error).toBeUndefined();
-      expect(result.trialAlreadyUsed).toBeUndefined();
-      // Nessun insert nel ledger e nessun azzeramento di trialStartedAt.
-      expect(mockOnConflictDoNothing).not.toHaveBeenCalled();
-      expect(mockUpdate).toHaveBeenCalledTimes(3);
-      expect(mockUpdateSet).not.toHaveBeenCalledWith({ trialStartedAt: null });
     });
 
     // P1.1 (code review): se le credenziali vengono sostituite mentre AdE

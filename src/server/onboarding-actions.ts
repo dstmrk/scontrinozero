@@ -4,13 +4,7 @@ import { cache, createElement } from "react";
 import { revalidatePath } from "next/cache";
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import {
-  businesses,
-  adeCredentials,
-  profiles,
-  trialVatLedger,
-} from "@/db/schema";
-import { hashPiva } from "@/lib/piva-hash";
+import { businesses, adeCredentials, profiles } from "@/db/schema";
 import {
   encrypt,
   decrypt,
@@ -70,15 +64,6 @@ export type OnboardingActionResult = {
    * P.IVA, distinguendolo dal generico "credenziali errate".
    */
   pivaMismatch?: boolean;
-  /**
-   * La P.IVA ha già consumato un trial in passato (registrata in
-   * `trial_vat_ledger`, sopravvissuta alla cancellazione del vecchio account):
-   * l'onboarding viene completato ma il trial è negato (`trialStartedAt` =
-   * null → sola lettura immediata). La UI usa questo flag per spiegare il
-   * motivo e spingere all'attivazione di un piano, distinguendolo dal generico
-   * "trial scaduto".
-   */
-  trialAlreadyUsed?: boolean;
 };
 
 const changePasswordLimiter = new RateLimiter({
@@ -522,7 +507,6 @@ export async function verifyAdeCredentials(
   // raw `sql` template Drizzle has no column-type context to bind a JS Date and
   // would crash `Buffer.byteLength(<Date>)` in postgres-js.
   let credentialsChanged = false;
-  let trialAlreadyUsed = false;
   try {
     await db.transaction(async (tx) => {
       const updated = await tx
@@ -552,48 +536,14 @@ export async function verifyAdeCredentials(
           .set({ vatNumber, fiscalCode })
           .where(eq(businesses.id, businessId));
 
-        // Primo claim di questa P.IVA da parte del business, vs re-verifica
-        // dello stesso account (stessa P.IVA già registrata). `businessSnapshot`
-        // (letto prima della transazione) è in sync con `profiles.partitaIva`,
-        // scritti insieme atomicamente; l'identity guard ha già bloccato un
-        // business onboardato che arriva con una P.IVA diversa. Distinguere è
-        // essenziale: senza, ri-verificare le proprie credenziali troverebbe la
-        // P.IVA nel ledger e azzererebbe il trial attivo.
-        const wasFirstClaim = businessSnapshot?.vatNumber !== vatNumber;
-
         // Anti-abuso trial: la P.IVA è UNIQUE su profiles per impedire trial
-        // multipli con email diverse ma stessa P.IVA (account ancora vivo). Il
-        // vincolo DB fa fallire l'UPDATE e l'intera transazione esegue rollback
-        // (verifiedAt incluso), così nessun dato resta in stato parziale.
+        // multipli con email diverse ma stessa P.IVA. Il vincolo DB fa fallire
+        // l'INSERT/UPDATE e l'intera transazione esegue rollback (verifiedAt
+        // incluso), così nessun dato resta in stato parziale.
         await tx
           .update(profiles)
           .set({ partitaIva: vatNumber })
           .where(eq(profiles.authUserId, user.id));
-
-        if (wasFirstClaim) {
-          // Anti-abuso trial cross-cancellazione: il vincolo UNIQUE su
-          // profiles.partita_iva sparisce quando l'account viene cancellato,
-          // liberando la P.IVA per un secondo trial. `trial_vat_ledger`
-          // sopravvive alla cancellazione e registra ogni P.IVA che ha già
-          // consumato un trial. ON CONFLICT DO NOTHING RETURNING è race-safe:
-          // se non torna righe la P.IVA era già nel ledger da un account
-          // PRECEDENTE → trial già consumato → niente nuovo trial.
-          const inserted = await tx
-            .insert(trialVatLedger)
-            .values({ pivaHash: hashPiva(vatNumber) })
-            .onConflictDoNothing()
-            .returning({ id: trialVatLedger.id });
-
-          if (inserted.length === 0) {
-            // trialStartedAt = null → isTrialExpired() true → sola lettura
-            // immediata, riusando i gate esistenti (canEmit/canAddCatalogItem).
-            await tx
-              .update(profiles)
-              .set({ trialStartedAt: null })
-              .where(eq(profiles.authUserId, user.id));
-            trialAlreadyUsed = true;
-          }
-        }
       }
     });
   } catch (err) {
@@ -641,21 +591,9 @@ export async function verifyAdeCredentials(
     );
   }
 
-  if (trialAlreadyUsed) {
-    // Input prevedibile (utente che ha già usato il trial con questa P.IVA),
-    // non un bug nostro: warn → osservabilità senza issue Sentry (regola 20).
-    logger.warn(
-      { businessId },
-      "Trial già usato per questa P.IVA — onboarding completato in sola lettura",
-    );
-  }
-
   revalidatePath("/dashboard", "layout");
 
-  return {
-    businessId,
-    ...(trialAlreadyUsed ? { trialAlreadyUsed: true } : {}),
-  };
+  return { businessId };
 }
 
 /**
