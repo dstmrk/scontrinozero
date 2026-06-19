@@ -251,6 +251,41 @@ describe("voidReceiptForBusiness", () => {
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
+  it("REVIEW #15: logga warn v1_document_not_found sul not-found via API key", async () => {
+    mockSelectLimit.mockResolvedValue([]);
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const { logger } = await import("@/lib/logger");
+    const result = await voidReceiptForBusiness(
+      VALID_INPUT,
+      "api-key-uuid-123",
+    );
+
+    expect(result.error).toMatch(/non trovato/i);
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId: VALID_INPUT.documentId,
+        businessId: VALID_INPUT.businessId,
+        apiKeyId: "api-key-uuid-123",
+        errorClass: "v1_document_not_found",
+      }),
+      expect.any(String),
+    );
+  });
+
+  it("REVIEW #15: NON logga il warn v1 sul not-found da UI session (apiKeyId assente)", async () => {
+    mockSelectLimit.mockResolvedValue([]);
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const { logger } = await import("@/lib/logger");
+    await voidReceiptForBusiness(VALID_INPUT);
+
+    expect(logger.warn).not.toHaveBeenCalledWith(
+      expect.objectContaining({ errorClass: "v1_document_not_found" }),
+      expect.any(String),
+    );
+  });
+
   it("ritorna errore se il documento non è di tipo SALE", async () => {
     mockSelectLimit.mockResolvedValue([{ ...FAKE_SALE_DOC, kind: "VOID" }]);
 

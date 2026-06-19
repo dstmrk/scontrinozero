@@ -15,7 +15,12 @@ import { EditProfileSection } from "@/components/settings/edit-profile-section";
 import { EditBusinessSection } from "@/components/settings/edit-business-section";
 import { ChangePasswordSection } from "@/components/settings/change-password-section";
 import { getProfilePlan } from "@/server/billing-actions";
-import { canUseApi, isTrialExpired, TRIAL_DAYS } from "@/lib/plans";
+import {
+  canUseApi,
+  isPaidPlanExpired,
+  isTrialExpired,
+  TRIAL_DAYS,
+} from "@/lib/plans";
 import { PRICE_IDS } from "@/lib/stripe";
 import { ApiKeySection } from "@/components/settings/api-key-section";
 import { PlanBadge } from "@/components/billing/plan-badge";
@@ -107,6 +112,14 @@ export default async function SettingsPage({
     if (planData.plan === "unlimited") return "unlimited";
     if (planData.hasSubscription && planData.subscriptionStatus === "past_due")
       return "past-due";
+    // Safety-net per webhook `customer.subscription.deleted` persi (REVIEW #31):
+    // se il piano pagato e' scaduto oltre la grazia i gate sono gia' read-only
+    // (isPaidPlanExpired). La subscription row puo' essere rimasta `active`:
+    // senza questo check la card mostrerebbe "Pro attivo" mentre cassa/catalogo/
+    // API rispondono sola-lettura. Riusa lo stato read-only "trial-expired".
+    // Va DOPO il ramo past_due per non oscurare il dunning legittimo.
+    if (isPaidPlanExpired(planData.plan, planData.planExpiresAt))
+      return "trial-expired";
     if (planData.hasSubscription && planData.subscriptionStatus === "active")
       return "subscribed";
     if (isTrialExpired(planData.trialStartedAt)) return "trial-expired";

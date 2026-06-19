@@ -444,6 +444,23 @@ async function prepareVoidDocument(
   }
 
   if (!saleDoc) {
+    // Solo per il path API v1 (apiKeyId presente): loggare un warn unico sul
+    // not-found cross-tenant (REVIEW #15) per dare visibilità sull'enumerazione
+    // di UUID altrui — il rate per apiKeyId è il segnale. Gate su apiKeyId: la
+    // stessa funzione serve le UI session (apiKeyId null), dove l'errorClass v1
+    // sarebbe fuorviante e l'enumerazione non è applicabile. warn, non error
+    // (input prevedibile, regola 20): niente issue Sentry.
+    if (apiKeyId) {
+      logger.warn(
+        {
+          documentId: input.documentId,
+          businessId: input.businessId,
+          apiKeyId,
+          errorClass: "v1_document_not_found",
+        },
+        "v1 document not found",
+      );
+    }
     return { kind: "done", result: { error: "Scontrino non trovato." } };
   }
   if (saleDoc.kind !== "SALE") {

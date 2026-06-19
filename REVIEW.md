@@ -180,58 +180,6 @@ fatto che i payload sono statici, ma è un single point of failure.
 
 ## P3 — Bassa priorità
 
-### 15. Nessun log dei tentativi di accesso cross-tenant sull'API v1
-
-- **Categoria:** osservabilità/sicurezza · **Severità:** Low
-- **File:** `src/app/api/v1/receipts/[id]/void/route.ts` e gli altri endpoint v1 che accettano un UUID nel path (`grep -rn "params" src/app/api/v1 --include="route.ts" -l`); servizi: `src/lib/services/void-service.ts` (branch "documento non trovato")
-
-**Problema.** L'enforcement dell'ownership è corretto (il service filtra per
-`businessId` della API key e risponde 404 generico — niente IDOR, niente oracle).
-Ma un attaccante che enumera UUID altrui con la propria key produce solo 404
-silenziosi: nessun segnale nei log per rilevare l'enumerazione in corso.
-
-**Fix (non ambiguo).**
-
-1. Nel branch not-found dei servizi chiamati dagli endpoint v1 con UUID nel path,
-   distinguere "documento inesistente" da "documento esistente ma di altro
-   business" richiederebbe una query in più — **non** farla. Loggare invece un
-   `logger.warn` unico sul not-found: `{ documentId, businessId, apiKeyId, errorClass: "v1_document_not_found" }`.
-   Il rate di questi warn per `apiKeyId` è il segnale di enumerazione (query
-   canonica `errorClass:v1_document_not_found` in Sentry Logs, coerente con la
-   skill `sentry-hygiene`).
-2. `warn`, non `error`: condizione prevedibile dall'input (regola 20), non deve
-   aprire issue Sentry.
-3. La risposta HTTP resta invariata (404 generico).
-4. **Test:** void di UUID inesistente → 404 + warn con i 3 campi; void del proprio
-   documento → nessun warn.
-
----
-
-### 16. `formatIsoInRome`: offset calcolato con trick "fake UTC", fragile sui bordi DST
-
-- **Categoria:** robustezza · **Severità:** Low
-- **File:** `src/lib/date-utils.ts:64-75`
-
-**Problema.** L'offset Europe/Rome è derivato ri-parsando il wall-clock come UTC
-(`new Date(isoWall + "Z") - date`). Funziona nei casi normali, ma è un antipattern:
-nell'ora di transizione DST (ultima domenica di marzo 02:00→03:00, ultima domenica
-di ottobre 03:00→02:00) il wall-clock è ambiguo o inesistente e il diff può
-produrre un offset sbagliato di un'ora sul timestamp fiscale esportato.
-
-**Fix (non ambiguo).**
-
-1. **Prima i test** (TDD): casi al bordo — `2026-03-29T00:59:59Z` (ancora +01:00),
-   `2026-03-29T01:00:00Z` (diventa +02:00), `2026-10-25T00:59:59Z` (+02:00),
-   `2026-10-25T01:00:00Z` (+01:00) — assert sull'offset nell'output.
-2. Se i test passano già, chiudere il finding aggiungendo solo i test come
-   regression guard (il trick resta documentato dal commento esistente).
-3. Se falliscono: ricavare l'offset con un secondo formatter
-   `new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Rome", timeZoneName: "longOffset" })`
-   e parsing della parte `GMT+02:00` da `formatToParts()`, eliminando il re-parse
-   fake-UTC. Nessun nuovo package (vincolo "dipendenze minime").
-
----
-
 ### 17. Key rotation zero-downtime: i caller passano sempre una sola chiave
 
 - **Categoria:** sicurezza/operatività · **Severità:** Low (finché non serve ruotare)
@@ -592,32 +540,6 @@ business_id, created_at`) poi disegnare l'euristica del salto.
    da rendere futuri cambi tracciabili e i PDF storici fedeli.
 
 ---
-
-### 31. Card "Abbonamento" mostra "attivo" se il fallback `planExpiresAt` ha già degradato l'utente
-
-- **Categoria:** UX coerenza · **Severità:** Low
-- **File:** `src/app/dashboard/settings/page.tsx:105-114` (`cardState`); `src/server/billing-actions.ts` (`getProfilePlan`)
-
-**Problema.** I gate feature ora degradano a sola-lettura quando un piano a
-pagamento è scaduto oltre la grazia (`isPaidPlanExpired`, safety-net per webhook
-`customer.subscription.deleted` persi — vedi `plans-shared.ts`). Ma `cardState`
-in settings deriva ancora lo stato da `subscriptionStatus` (stantio nello stesso
-scenario di webhook perso): se la subscription row è rimasta `active` mostra
-"Pro attivo" mentre cassa/catalogo/API rispondono sola-lettura. Incoerenza solo
-visiva, nello scenario raro (renewal mancato **e** webhook perso); nessun impatto
-funzionale (l'enforcement è server-side).
-
-**Fix (non ambiguo).**
-
-1. `getProfilePlan` espone già/aggiunge `planExpiresAt` nel `ProfilePlanResult`.
-2. In `cardState`, prima del ramo `subscribed`, aggiungere:
-   `if (isPaidPlanExpired(planData.plan, planData.planExpiresAt)) return "trial-expired";`
-   (riusa lo stato read-only esistente; eventualmente introdurre un nuovo stato
-   `"expired"` con copy dedicato "Abbonamento scaduto — riattiva" se si vuole
-   distinguere dal trial).
-3. **Test:** `settings-page-card-state.test.ts` — piano `pro` con `planExpiresAt`
-   oltre la grazia + `subscriptionStatus: "active"` → stato read-only, non
-   `subscribed`.
 
 ### 32. SCONTRINOZERO-M — `wizardTemplate` ritorna `200` con lista `PIva` vuota su login Fisconline
 

@@ -84,6 +84,20 @@ export async function GET(
   }
 
   if (!result) {
+    // Not-found cross-tenant: la query filtra per businessId della API key e
+    // risponde 404 generico (no IDOR/oracle). Loggare un warn unico (REVIEW
+    // #15) dà visibilità sull'enumerazione di UUID altrui — il rate per
+    // apiKeyId è il segnale. warn, non error (input prevedibile, regola 20):
+    // niente issue Sentry, query canonica `errorClass:v1_document_not_found`.
+    logger.warn(
+      {
+        documentId: id,
+        businessId: auth.businessId,
+        apiKeyId: auth.apiKey.id,
+        errorClass: "v1_document_not_found",
+      },
+      "v1 document not found",
+    );
     return withCors(
       Response.json({ error: "Documento non trovato." }, { status: 404 }),
     );

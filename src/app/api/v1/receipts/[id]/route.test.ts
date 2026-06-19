@@ -255,11 +255,20 @@ describe("GET /api/v1/receipts/[id]", () => {
     mockTxExecute.mockResolvedValue(undefined);
     setupDocMock(null);
 
-    const res = await GET(
-      makeRequest(),
-      makeParams("00000000-0000-0000-0000-000000000000"),
-    );
+    const missingId = "00000000-0000-0000-0000-000000000000";
+    const res = await GET(makeRequest(), makeParams(missingId));
     expect(res.status).toBe(404);
+
+    // REVIEW #15: un warn unico sul not-found dà visibilità sull'enumerazione
+    // cross-tenant. Risposta HTTP invariata (404 generico, niente oracle).
+    expect(mockLoggerWarn).toHaveBeenCalledOnce();
+    const [ctx] = mockLoggerWarn.mock.calls[0];
+    expect(ctx).toMatchObject({
+      documentId: missingId,
+      businessId: FAKE_AUTH.businessId,
+      apiKeyId: FAKE_AUTH.apiKey.id,
+      errorClass: "v1_document_not_found",
+    });
   });
 
   it("ritorna 503 con Retry-After su statement timeout DB (Postgres 57014)", async () => {

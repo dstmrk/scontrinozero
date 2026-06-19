@@ -9,6 +9,7 @@ const {
   mockGetProfilePlan,
   mockCanUseApi,
   mockIsTrialExpired,
+  mockIsPaidPlanExpired,
   mockGetDb,
   mockSelect,
   mockFrom,
@@ -20,6 +21,7 @@ const {
   mockGetProfilePlan: vi.fn(),
   mockCanUseApi: vi.fn(),
   mockIsTrialExpired: vi.fn(),
+  mockIsPaidPlanExpired: vi.fn(),
   mockGetDb: vi.fn(),
   mockSelect: vi.fn(),
   mockFrom: vi.fn(),
@@ -42,6 +44,7 @@ vi.mock("@/server/billing-actions", () => ({
 vi.mock("@/lib/plans", () => ({
   canUseApi: mockCanUseApi,
   isTrialExpired: mockIsTrialExpired,
+  isPaidPlanExpired: mockIsPaidPlanExpired,
   TRIAL_DAYS: 30,
 }));
 
@@ -204,6 +207,7 @@ describe("SettingsPage — cardState state machine", () => {
     // Default: authenticated user with profile, business, no credentials
     mockGetUser.mockResolvedValue({ data: { user: FAKE_USER } });
     mockIsTrialExpired.mockReturnValue(false);
+    mockIsPaidPlanExpired.mockReturnValue(false);
     mockCanUseApi.mockReturnValue(false);
 
     // DB mock: 3 sequential limit() calls (profiles, businesses, adeCredentials)
@@ -307,6 +311,45 @@ describe("SettingsPage — cardState state machine", () => {
       const jsx = await SettingsPage({ searchParams: Promise.resolve({}) });
 
       // Portal link is present in past-due state (to update payment method)
+      expect(hasLink(jsx, "/api/stripe/portal")).toBe(true);
+      expect(hasComponent(jsx, PlanSelection)).toBe(false);
+    });
+  });
+
+  describe("expired paid plan fallback (REVIEW #31)", () => {
+    it("shows PlanSelection (not portal link) when paid plan is expired despite active subscription row", async () => {
+      // Webhook customer.subscription.deleted perso: la row e' rimasta active
+      // ma il piano e' scaduto oltre la grazia → gate read-only.
+      mockGetProfilePlan.mockResolvedValue(makeActivePlanData("pro", "year"));
+      mockIsPaidPlanExpired.mockReturnValue(true);
+
+      const jsx = await SettingsPage({ searchParams: Promise.resolve({}) });
+
+      expect(hasComponent(jsx, PlanSelection)).toBe(true);
+      expect(hasLink(jsx, "/api/stripe/portal")).toBe(false);
+    });
+
+    it("keeps subscribed state (portal link) when paid plan is NOT expired", async () => {
+      mockGetProfilePlan.mockResolvedValue(makeActivePlanData("pro", "year"));
+      mockIsPaidPlanExpired.mockReturnValue(false);
+
+      const jsx = await SettingsPage({ searchParams: Promise.resolve({}) });
+
+      expect(hasLink(jsx, "/api/stripe/portal")).toBe(true);
+      expect(hasComponent(jsx, PlanSelection)).toBe(false);
+    });
+
+    it("keeps past-due state even if paid plan is expired (dunning precedes the fallback)", async () => {
+      mockGetProfilePlan.mockResolvedValue({
+        ...makeActivePlanData("pro"),
+        subscriptionStatus: "past_due",
+      });
+      mockIsPaidPlanExpired.mockReturnValue(true);
+
+      const jsx = await SettingsPage({ searchParams: Promise.resolve({}) });
+
+      // Il ramo past_due precede il check isPaidPlanExpired: l'utente in
+      // dunning vede ancora il portale per aggiornare il pagamento.
       expect(hasLink(jsx, "/api/stripe/portal")).toBe(true);
       expect(hasComponent(jsx, PlanSelection)).toBe(false);
     });
