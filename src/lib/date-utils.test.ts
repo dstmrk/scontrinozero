@@ -136,6 +136,39 @@ describe("formatIsoInRome", () => {
       /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/,
     );
   });
+
+  // Regression guard sui bordi DST (REVIEW #16): la transizione CET↔CEST in
+  // Europe/Rome avviene alle 01:00 UTC (ultima domenica di marzo/ottobre).
+  // Asseriamo l'offset esatto agli istanti immediatamente prima/dopo lo switch.
+  describe("DST transition boundaries", () => {
+    it("keeps +01:00 one second before spring-forward (2026-03-29 01:00 UTC)", () => {
+      // 2026-03-29T00:59:59Z = 01:59:59 CET, ancora UTC+1
+      expect(formatIsoInRome(new Date("2026-03-29T00:59:59Z"))).toBe(
+        "2026-03-29T01:59:59+01:00",
+      );
+    });
+
+    it("switches to +02:00 at spring-forward (2026-03-29 01:00 UTC)", () => {
+      // 2026-03-29T01:00:00Z: l'orologio salta 02:00→03:00 CEST, ora UTC+2
+      expect(formatIsoInRome(new Date("2026-03-29T01:00:00Z"))).toBe(
+        "2026-03-29T03:00:00+02:00",
+      );
+    });
+
+    it("keeps +02:00 one second before fall-back (2026-10-25 00:59:59 UTC)", () => {
+      // 2026-10-25T00:59:59Z = 02:59:59 CEST, ancora UTC+2
+      expect(formatIsoInRome(new Date("2026-10-25T00:59:59Z"))).toBe(
+        "2026-10-25T02:59:59+02:00",
+      );
+    });
+
+    it("switches to +01:00 at fall-back (2026-10-25 01:00 UTC)", () => {
+      // 2026-10-25T01:00:00Z: l'orologio torna 03:00→02:00 CET, ora UTC+1
+      expect(formatIsoInRome(new Date("2026-10-25T01:00:00Z"))).toBe(
+        "2026-10-25T02:00:00+01:00",
+      );
+    });
+  });
 });
 
 describe("parseStrictIsoDateUtc", () => {

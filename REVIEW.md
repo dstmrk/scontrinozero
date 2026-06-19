@@ -207,31 +207,6 @@ silenziosi: nessun segnale nei log per rilevare l'enumerazione in corso.
 
 ---
 
-### 16. `formatIsoInRome`: offset calcolato con trick "fake UTC", fragile sui bordi DST
-
-- **Categoria:** robustezza · **Severità:** Low
-- **File:** `src/lib/date-utils.ts:64-75`
-
-**Problema.** L'offset Europe/Rome è derivato ri-parsando il wall-clock come UTC
-(`new Date(isoWall + "Z") - date`). Funziona nei casi normali, ma è un antipattern:
-nell'ora di transizione DST (ultima domenica di marzo 02:00→03:00, ultima domenica
-di ottobre 03:00→02:00) il wall-clock è ambiguo o inesistente e il diff può
-produrre un offset sbagliato di un'ora sul timestamp fiscale esportato.
-
-**Fix (non ambiguo).**
-
-1. **Prima i test** (TDD): casi al bordo — `2026-03-29T00:59:59Z` (ancora +01:00),
-   `2026-03-29T01:00:00Z` (diventa +02:00), `2026-10-25T00:59:59Z` (+02:00),
-   `2026-10-25T01:00:00Z` (+01:00) — assert sull'offset nell'output.
-2. Se i test passano già, chiudere il finding aggiungendo solo i test come
-   regression guard (il trick resta documentato dal commento esistente).
-3. Se falliscono: ricavare l'offset con un secondo formatter
-   `new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Rome", timeZoneName: "longOffset" })`
-   e parsing della parte `GMT+02:00` da `formatToParts()`, eliminando il re-parse
-   fake-UTC. Nessun nuovo package (vincolo "dipendenze minime").
-
----
-
 ### 17. Key rotation zero-downtime: i caller passano sempre una sola chiave
 
 - **Categoria:** sicurezza/operatività · **Severità:** Low (finché non serve ruotare)
