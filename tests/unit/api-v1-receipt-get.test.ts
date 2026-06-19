@@ -81,6 +81,7 @@ describe("GET /api/v1/receipts/[id]", () => {
     mockAuthenticateApiKey.mockResolvedValue({
       plan: "pro",
       businessId: "biz-123",
+      apiKey: { id: "key-uuid-123" },
     });
     mockCanUseApi.mockReturnValue(true);
 

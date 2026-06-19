@@ -180,33 +180,6 @@ fatto che i payload sono statici, ma è un single point of failure.
 
 ## P3 — Bassa priorità
 
-### 15. Nessun log dei tentativi di accesso cross-tenant sull'API v1
-
-- **Categoria:** osservabilità/sicurezza · **Severità:** Low
-- **File:** `src/app/api/v1/receipts/[id]/void/route.ts` e gli altri endpoint v1 che accettano un UUID nel path (`grep -rn "params" src/app/api/v1 --include="route.ts" -l`); servizi: `src/lib/services/void-service.ts` (branch "documento non trovato")
-
-**Problema.** L'enforcement dell'ownership è corretto (il service filtra per
-`businessId` della API key e risponde 404 generico — niente IDOR, niente oracle).
-Ma un attaccante che enumera UUID altrui con la propria key produce solo 404
-silenziosi: nessun segnale nei log per rilevare l'enumerazione in corso.
-
-**Fix (non ambiguo).**
-
-1. Nel branch not-found dei servizi chiamati dagli endpoint v1 con UUID nel path,
-   distinguere "documento inesistente" da "documento esistente ma di altro
-   business" richiederebbe una query in più — **non** farla. Loggare invece un
-   `logger.warn` unico sul not-found: `{ documentId, businessId, apiKeyId, errorClass: "v1_document_not_found" }`.
-   Il rate di questi warn per `apiKeyId` è il segnale di enumerazione (query
-   canonica `errorClass:v1_document_not_found` in Sentry Logs, coerente con la
-   skill `sentry-hygiene`).
-2. `warn`, non `error`: condizione prevedibile dall'input (regola 20), non deve
-   aprire issue Sentry.
-3. La risposta HTTP resta invariata (404 generico).
-4. **Test:** void di UUID inesistente → 404 + warn con i 3 campi; void del proprio
-   documento → nessun warn.
-
----
-
 ### 17. Key rotation zero-downtime: i caller passano sempre una sola chiave
 
 - **Categoria:** sicurezza/operatività · **Severità:** Low (finché non serve ruotare)
