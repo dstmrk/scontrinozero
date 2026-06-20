@@ -474,10 +474,11 @@ effettivamente girando in produzione, o se è codice morto.
 
 **Fix (non ambiguo).**
 
-1. **Idempotenza keep-alive:** guardia module-level in `startSupabaseKeepAlive()`
+1. ✅ **RISOLTO** (branch `claude/review-md-bug-m60ys2`). **Idempotenza keep-alive:**
+   guardia module-level in `startSupabaseKeepAlive()`
    (`let keepAliveStarted = false; if (keepAliveStarted) return; keepAliveStarted = true;`)
    così invocazioni multiple di `register()` non accumulano timer. Test: due chiamate
-   consecutive → un solo `setInterval`.
+   consecutive → un solo `setInterval` (in `tests/unit/instrumentation-keep-alive.test.ts`).
 2. **Consolidare i due file in uno solo:** unire keep-alive + `assertIdentityEnv` +
    migrazioni in un unico `register()` (preferibile `src/instrumentation.ts`, già
    citato dalla regola 24/skill `db-migrations`), eliminando l'altro file. Ordine

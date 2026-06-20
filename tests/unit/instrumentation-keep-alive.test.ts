@@ -1,10 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  KEEP_ALIVE_INTERVAL_MS,
-  startSupabaseKeepAlive,
-  register,
-} from "../../instrumentation";
+import { KEEP_ALIVE_INTERVAL_MS } from "../../instrumentation";
 
 const { mockCreateAdminSupabaseClient, mockLoggerInfo, mockLoggerWarn } =
   vi.hoisted(() => ({
@@ -40,8 +36,14 @@ describe("startSupabaseKeepAlive()", () => {
   let mockLimit: ReturnType<typeof vi.fn>;
   let mockSelect: ReturnType<typeof vi.fn>;
   let mockFrom: ReturnType<typeof vi.fn>;
+  let startSupabaseKeepAlive: () => void;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Reset dello stato module-level (guardia di idempotenza) tra i test:
+    // senza questo, dal secondo test in poi la guardia farebbe early-return.
+    vi.resetModules();
+    ({ startSupabaseKeepAlive } = await import("../../instrumentation"));
+
     mockUnref = vi.fn();
     const mockTimer = { unref: mockUnref } as unknown as ReturnType<
       typeof setInterval
@@ -122,13 +124,25 @@ describe("startSupabaseKeepAlive()", () => {
 
     expect(mockCreateAdminSupabaseClient).toHaveBeenCalledTimes(2);
   });
+
+  it("due chiamate consecutive avviano un solo setInterval (idempotenza)", () => {
+    startSupabaseKeepAlive();
+    startSupabaseKeepAlive();
+
+    expect(global.setInterval).toHaveBeenCalledOnce();
+  });
 });
 
 describe("register()", () => {
   let originalNextRuntime: string | undefined;
   let mockUnref: ReturnType<typeof vi.fn>;
+  let register: () => Promise<void>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Reset dello stato module-level (guardia di idempotenza) tra i test.
+    vi.resetModules();
+    ({ register } = await import("../../instrumentation"));
+
     originalNextRuntime = process.env.NEXT_RUNTIME;
     mockUnref = vi.fn();
     const mockTimer = { unref: mockUnref } as unknown as ReturnType<
@@ -164,5 +178,14 @@ describe("register()", () => {
     await register();
 
     expect(global.setInterval).not.toHaveBeenCalled();
+  });
+
+  it("due register() consecutive (nodejs) avviano un solo setInterval (idempotenza)", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+
+    await register();
+    await register();
+
+    expect(global.setInterval).toHaveBeenCalledOnce();
   });
 });
