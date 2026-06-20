@@ -6,7 +6,15 @@ import { logger } from "@/lib/logger";
 // TODO: rimuovere quando si passa a Supabase Pro.
 export const KEEP_ALIVE_INTERVAL_MS = 5 * 24 * 60 * 60 * 1000; // 5 giorni
 
+// Guardia di idempotenza: register() può essere invocata più volte per lo stesso
+// deploy (osservati due ping reali a ~13s di distanza in prod, REVIEW.md #29).
+// Senza questa guardia ogni invocazione impilerebbe un nuovo setInterval.
+let keepAliveStarted = false;
+
 export function startSupabaseKeepAlive() {
+  if (keepAliveStarted) return;
+  keepAliveStarted = true;
+
   const interval: ReturnType<typeof setInterval> = setInterval(async () => {
     try {
       const { createAdminSupabaseClient } =
