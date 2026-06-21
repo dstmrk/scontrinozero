@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { appHref } from "@/lib/marketing-to-app-href";
-import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   JsonLd,
@@ -10,6 +10,7 @@ import {
   faqPageJsonLd,
   serviceJsonLd,
 } from "@/components/json-ld";
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import {
   categories,
   categorySlugs,
@@ -60,16 +61,15 @@ export default async function CategoryLandingPage({ params }: PageParams) {
   const relatedArticles = category.relatedHelp
     .map((helpSlug) => helpArticles[helpSlug])
     .filter((a) => a !== undefined);
+  const crumbs = [
+    { name: "Home", url: SITE_URL },
+    { name: "Soluzioni per categoria", url: `${SITE_URL}/per` },
+    { name: category.title, url: pageUrl },
+  ];
 
   return (
     <>
-      <JsonLd
-        data={breadcrumbListJsonLd([
-          { name: "Home", url: SITE_URL },
-          { name: "Soluzioni per categoria", url: `${SITE_URL}/per` },
-          { name: category.title, url: pageUrl },
-        ])}
-      />
+      <JsonLd data={breadcrumbListJsonLd(crumbs)} />
       <JsonLd
         data={serviceJsonLd({
           name: category.title,
@@ -82,13 +82,7 @@ export default async function CategoryLandingPage({ params }: PageParams) {
 
       <section className="px-4 py-16">
         <article className="mx-auto max-w-3xl">
-          <Link
-            href="/per"
-            className="text-muted-foreground hover:text-foreground mb-8 inline-flex items-center gap-1 text-sm transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {"Tutte le categorie"}
-          </Link>
+          <Breadcrumbs items={crumbs} />
 
           <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
             {category.title}

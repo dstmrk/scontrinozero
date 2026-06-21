@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { appHref } from "@/lib/marketing-to-app-href";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +9,7 @@ import {
   breadcrumbListJsonLd,
   webApplicationJsonLd,
 } from "@/components/json-ld";
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { ScorporoIvaTool } from "@/components/marketing/tools/scorporo-iva-tool";
 import { VerificaLotteriaTool } from "@/components/marketing/tools/verifica-lotteria-tool";
 import { CalcolatoreRisparmioTool } from "@/components/marketing/tools/calcolatore-risparmio-tool";
@@ -74,6 +75,11 @@ export default async function ToolPage({ params }: PageParams) {
     .map((helpSlug) => helpArticles[helpSlug])
     .filter((a) => a !== undefined);
   const otherTools = toolSlugs.filter((s) => s !== t.slug);
+  const crumbs = [
+    { name: "Home", url: SITE_URL },
+    { name: "Strumenti", url: `${SITE_URL}/strumenti` },
+    { name: t.title, url: pageUrl },
+  ];
 
   return (
     <>
@@ -84,23 +90,11 @@ export default async function ToolPage({ params }: PageParams) {
           url: pageUrl,
         })}
       />
-      <JsonLd
-        data={breadcrumbListJsonLd([
-          { name: "Home", url: SITE_URL },
-          { name: "Strumenti", url: `${SITE_URL}/strumenti` },
-          { name: t.title, url: pageUrl },
-        ])}
-      />
+      <JsonLd data={breadcrumbListJsonLd(crumbs)} />
 
       <section className="px-4 py-16">
         <article className="mx-auto max-w-3xl">
-          <Link
-            href="/strumenti"
-            className="text-muted-foreground hover:text-foreground mb-8 inline-flex items-center gap-1 text-sm transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {"Tutti gli strumenti"}
-          </Link>
+          <Breadcrumbs items={crumbs} />
 
           <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
             {t.title}

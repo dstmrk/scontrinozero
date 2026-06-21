@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Clock } from "lucide-react";
+import { ArrowRight, Clock } from "lucide-react";
 import { appHref } from "@/lib/marketing-to-app-href";
 import { Button } from "@/components/ui/button";
 import { JsonLd, breadcrumbListJsonLd } from "@/components/json-ld";
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { guideArticles, guideSlugs } from "@/lib/guide/articles";
 
 const SITE_URL = "https://scontrinozero.it";
@@ -24,24 +25,17 @@ export const metadata: Metadata = {
 };
 
 export default function GuideIndexPage() {
+  const crumbs = [
+    { name: "Home", url: SITE_URL },
+    { name: "Guide", url: `${SITE_URL}/guide` },
+  ];
   return (
     <>
-      <JsonLd
-        data={breadcrumbListJsonLd([
-          { name: "Home", url: SITE_URL },
-          { name: "Guide", url: `${SITE_URL}/guide` },
-        ])}
-      />
+      <JsonLd data={breadcrumbListJsonLd(crumbs)} />
 
       <section className="px-4 py-16">
         <article className="mx-auto max-w-3xl">
-          <Link
-            href="/"
-            className="text-muted-foreground hover:text-foreground mb-8 inline-flex items-center gap-1 text-sm transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {"Torna alla home"}
-          </Link>
+          <Breadcrumbs items={crumbs} />
 
           <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
             {"Guide e approfondimenti"}

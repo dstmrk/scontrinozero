@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChevronRight } from "lucide-react";
 import { JsonLd, breadcrumbListJsonLd } from "@/components/json-ld";
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 
 const SITE_URL = "https://scontrinozero.it";
 const PAGE_URL = `${SITE_URL}/help`;
@@ -215,15 +216,16 @@ const helpCategories: HelpCategory[] = [
 ];
 
 export default function HelpHomePage() {
+  const crumbs = [
+    { name: "Home", url: SITE_URL },
+    { name: "Help Center", url: PAGE_URL },
+  ];
   return (
     <section className="px-4 py-16 md:py-24">
-      <JsonLd
-        data={breadcrumbListJsonLd([
-          { name: "Home", url: "https://scontrinozero.it" },
-          { name: "Help Center", url: "https://scontrinozero.it/help" },
-        ])}
-      />
+      <JsonLd data={breadcrumbListJsonLd(crumbs)} />
       <div className="mx-auto max-w-6xl space-y-12">
+        <Breadcrumbs items={crumbs} />
+
         {/* ─── Intestazione ─── */}
         <div className="space-y-3">
           <p className="text-primary text-sm font-semibold tracking-wide uppercase">

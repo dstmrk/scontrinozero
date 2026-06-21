@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowRight, Clock } from "lucide-react";
+import { ArrowRight, Clock } from "lucide-react";
 import { appHref } from "@/lib/marketing-to-app-href";
 import { Button } from "@/components/ui/button";
 import {
   JsonLd,
   articleJsonLd,
+  breadcrumbListJsonLd,
   faqPageJsonLd,
-  guideArticleBreadcrumb,
+  guideArticleBreadcrumbItems,
 } from "@/components/json-ld";
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import {
   getGuide,
   guideArticles,
@@ -71,10 +73,11 @@ export default async function GuidePage({ params }: PageParams) {
     .map((helpSlug) => helpArticles[helpSlug])
     .filter((a) => a !== undefined);
   const relatedGuides = g.relatedGuides.map((s) => guideArticles[s]);
+  const crumbs = guideArticleBreadcrumbItems(g.slug, g.title);
 
   return (
     <>
-      <JsonLd data={guideArticleBreadcrumb(g.slug, g.title)} />
+      <JsonLd data={breadcrumbListJsonLd(crumbs)} />
       <JsonLd
         data={articleJsonLd({
           headline: g.title,
@@ -88,13 +91,7 @@ export default async function GuidePage({ params }: PageParams) {
 
       <section className="px-4 py-16">
         <article className="mx-auto max-w-3xl">
-          <Link
-            href="/guide"
-            className="text-muted-foreground hover:text-foreground mb-8 inline-flex items-center gap-1 text-sm transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {"Tutte le guide"}
-          </Link>
+          <Breadcrumbs items={crumbs} />
 
           <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
             {g.title}
