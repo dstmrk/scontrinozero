@@ -104,7 +104,7 @@ export const helpArticles: Record<string, HelpArticle> = {
     title: "Errori comuni di accesso AdE e come risolverli",
     metaTitle: "Errori comuni di accesso AdE e come risolverli",
     description:
-      "Guida alla risoluzione degli errori più frequenti nel collegamento con l'Agenzia delle Entrate: password scaduta, credenziali errate, password bloccata, portale non disponibile e scontrino rifiutato in fase di emissione.",
+      "Risolvi gli errori più comuni di accesso all'Agenzia delle Entrate: password scaduta o bloccata, credenziali errate, portale non disponibile e scontrino rifiutato.",
     related: [
       "come-collegare-ade",
       "credenziali-fisconline",
@@ -138,8 +138,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "normativa-pos-2026": {
     slug: "normativa-pos-2026",
     title: "Collegamento POS-cassa 2026: cosa cambia",
-    metaTitle:
-      "Normativa POS 2026: obbligo, scadenze e sanzioni del collegamento POS-cassa",
+    metaTitle: "Normativa POS 2026: obbligo, scadenze e sanzioni POS-cassa",
     description:
       "Normativa POS 2026 (Legge 207/2024): chi è obbligato a collegare il POS al sistema di cassa, scadenze, sanzioni e come metterti in regola con il Documento Commerciale Online.",
     related: ["pos-rt-obbligo", "chiusura-giornaliera", "regime-forfettario"],
@@ -157,7 +156,7 @@ export const helpArticles: Record<string, HelpArticle> = {
     title: "Collegamento POS-RT: obbligo e scadenze 2026",
     metaTitle: "Collegamento POS-RT: chi è obbligato e scadenze 2026",
     description:
-      "Tutto sull'obbligo di collegare il POS al registratore telematico dal 2026: fonte normativa, scadenze, sanzioni e come si effettua l'associazione POS-DCO sul portale Fatture e Corrispettivi dell'Agenzia delle Entrate.",
+      "Obbligo di collegare il POS al registratore telematico dal 2026: fonte normativa, scadenze, sanzioni e come fare l'associazione POS-DCO sul portale AdE.",
     related: ["normativa-pos-2026", "come-collegare-ade", "primo-scontrino"],
   },
   "prima-configurazione": {
@@ -183,8 +182,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "regime-forfettario": {
     slug: "regime-forfettario",
     title: "Regime forfettario: configurazione IVA corretta",
-    metaTitle:
-      "Codice e natura IVA del regime forfettario (N2/N2.2) sullo scontrino",
+    metaTitle: "Codice e natura IVA del forfettario (N2/N2.2) sullo scontrino",
     description:
       "Qual è il codice IVA del regime forfettario sullo scontrino: natura N2 sul documento commerciale (N2.2 in fattura), dicitura di esenzione e come configurarlo in ScontrinoZero senza errori.",
     related: ["aliquote-iva", "primo-scontrino", "annullare-scontrino"],
