@@ -38,7 +38,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
   ambulanti: {
     slug: "ambulanti",
     title: "Registratore di cassa per ambulanti e mercati",
-    metaTitle: "Registratore di cassa per ambulanti | ScontrinoZero",
+    metaTitle: "Registratore di cassa per ambulanti e mercati",
     metaDescription:
       "Emetti scontrini elettronici al mercato direttamente dallo smartphone. Nessun registratore fisico, nessun canone. Da €2,50/mese, 30 giorni di prova gratuita.",
     heroSubtitle:
@@ -80,8 +80,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
   "parrucchieri-estetisti": {
     slug: "parrucchieri-estetisti",
     title: "Scontrino elettronico per parrucchieri, estetisti e tatuatori",
-    metaTitle:
-      "Scontrino elettronico per parrucchieri ed estetisti | ScontrinoZero",
+    metaTitle: "Scontrino elettronico per parrucchieri ed estetisti",
     metaDescription:
       "Gestisci scontrini e incassi del salone da tablet o smartphone. Senza registratore sul banco, senza canoni. Da €2,50/mese, prova 30 giorni gratis.",
     heroSubtitle:
@@ -125,7 +124,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
   artigiani: {
     slug: "artigiani",
     title: "Scontrino elettronico per artigiani e installatori",
-    metaTitle: "Scontrino elettronico per artigiani | ScontrinoZero",
+    metaTitle: "Scontrino elettronico per artigiani e installatori",
     metaDescription:
       "Idraulici, elettricisti, meccanici: emetti lo scontrino direttamente dal cantiere o dal furgone, con lo smartphone. Da €2,50/mese, 30 giorni gratis.",
     heroSubtitle:
@@ -170,7 +169,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
   "b-and-b": {
     slug: "b-and-b",
     title: "Scontrino elettronico per B&B e strutture ricettive",
-    metaTitle: "Scontrino elettronico per B&B e affittacamere | ScontrinoZero",
+    metaTitle: "Scontrino elettronico per B&B e affittacamere",
     metaDescription:
       "Gestisci scontrini per B&B, affittacamere e strutture stagionali senza registratore fisico. Ideale per attività che aprono pochi mesi all'anno. Da €2,50/mese.",
     heroSubtitle:
@@ -214,7 +213,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
   "regime-forfettario": {
     slug: "regime-forfettario",
     title: "Scontrino elettronico in regime forfettario",
-    metaTitle: "Scontrino elettronico in regime forfettario | ScontrinoZero",
+    metaTitle: "Scontrino elettronico in regime forfettario",
     metaDescription:
       "Sei in regime forfettario? Emetti scontrini verso privati senza IVA e senza registratore fisico. Soluzione più economica del mercato, da €2,50/mese.",
     heroSubtitle:
@@ -257,8 +256,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
   professionisti: {
     slug: "professionisti",
     title: "Scontrino elettronico per liberi professionisti",
-    metaTitle:
-      "Scontrino elettronico per liberi professionisti | ScontrinoZero",
+    metaTitle: "Scontrino elettronico per liberi professionisti",
     metaDescription:
       "Quando un professionista deve emettere scontrino e quando fattura? Guida pratica e soluzione mobile per chi incassa al momento. Da €2,50/mese.",
     heroSubtitle:

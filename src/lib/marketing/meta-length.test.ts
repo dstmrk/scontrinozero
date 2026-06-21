@@ -98,4 +98,15 @@ describe("marketing metadata length", () => {
       .map((r) => `${r.registry}/${r.slug}`);
     expect(empty).toEqual([]);
   });
+
+  it("does not bake the brand suffix into metaTitle (the root template adds it once)", () => {
+    // Le metaTitle sono passate come `title:` e il template root
+    // "%s | ScontrinoZero" aggiunge il brand: se il valore lo contiene già si
+    // ottiene il doppio suffisso "… | ScontrinoZero | ScontrinoZero" (era il
+    // caso delle pagine /per).
+    const doubled = rows
+      .filter((r) => / \| ScontrinoZero$/.test(r.title))
+      .map((r) => `${r.registry}/${r.slug}`);
+    expect(doubled).toEqual([]);
+  });
 });
