@@ -1,12 +1,13 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   JsonLd,
   faqPageJsonLd,
   helpArticleBreadcrumb,
+  helpArticleBreadcrumbItems,
   type FaqItem,
 } from "@/components/json-ld";
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
@@ -61,13 +62,12 @@ export default function RegimeForfettarioPage() {
       <HelpArticleJsonLd slug="regime-forfettario" />
       <JsonLd data={faqPageJsonLd(faqItems)} />
       <article className="mx-auto max-w-3xl">
-        <Link
-          href="/help"
-          className="text-muted-foreground hover:text-foreground mb-8 inline-flex items-center gap-1 text-sm transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Help Center
-        </Link>
+        <Breadcrumbs
+          items={helpArticleBreadcrumbItems(
+            "regime-forfettario",
+            "Regime forfettario",
+          )}
+        />
 
         {/* ─── Intestazione ─── */}
         <div className="flex flex-wrap items-center gap-3">

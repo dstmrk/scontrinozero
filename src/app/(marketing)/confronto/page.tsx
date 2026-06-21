@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
+import { ArrowRight, Check, X } from "lucide-react";
 import { appHref } from "@/lib/marketing-to-app-href";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,6 +8,7 @@ import {
   breadcrumbListJsonLd,
   faqPageJsonLd,
 } from "@/components/json-ld";
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { confrontoContent } from "@/lib/confronto/comparisons";
 import { helpArticles } from "@/lib/help/articles";
 
@@ -32,26 +33,19 @@ export default function ConfrontoPage() {
   const relatedArticles = c.relatedHelp
     .map((helpSlug) => helpArticles[helpSlug])
     .filter((a) => a !== undefined);
+  const crumbs = [
+    { name: "Home", url: SITE_URL },
+    { name: "Confronto", url: PAGE_URL },
+  ];
 
   return (
     <>
-      <JsonLd
-        data={breadcrumbListJsonLd([
-          { name: "Home", url: SITE_URL },
-          { name: "Confronto", url: PAGE_URL },
-        ])}
-      />
+      <JsonLd data={breadcrumbListJsonLd(crumbs)} />
       {c.faq.length > 0 && <JsonLd data={faqPageJsonLd(c.faq)} />}
 
       <section className="px-4 py-16">
         <article className="mx-auto max-w-3xl">
-          <Link
-            href="/"
-            className="text-muted-foreground hover:text-foreground mb-8 inline-flex items-center gap-1 text-sm transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {"Torna alla home"}
-          </Link>
+          <Breadcrumbs items={crumbs} />
 
           <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
             {c.title}

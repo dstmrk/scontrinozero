@@ -49,7 +49,7 @@ export const confrontoContent: ConfrontoContent = {
   title: "ScontrinoZero a confronto con le alternative",
   metaTitle: "Alternative a ScontrinoZero: confronto onesto",
   metaDescription:
-    "Panoramica onesta delle alternative a ScontrinoZero: registratore telematico, gestionali di fatturazione, altri software per scontrini elettronici (Scontrinare, Scontrina, ScontrinoSenzaCassa, CassaDigitale). Quando ha senso scegliere noi, quando no.",
+    "Le alternative a ScontrinoZero a confronto: registratore telematico, gestionali di fatturazione e software scontrini come Scontrinare e Scontrina. Quando conviene e quando no.",
   heroIntro:
     "Esistono diverse strade per emettere documenti fiscali in Italia: registratore telematico fisico, gestionali di fatturazione B2B, oppure software online che usano la procedura Documento Commerciale Online dell'Agenzia delle Entrate. Questa pagina riassume le opzioni e indica in modo trasparente quando ScontrinoZero è la scelta giusta e quando non lo è. I dati sui competitor sono presi dai loro siti pubblici alla data riportata in fondo: per informazioni aggiornate ti consigliamo di controllare direttamente i loro listini.",
   categories: [

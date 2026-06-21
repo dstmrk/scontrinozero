@@ -1,33 +1,34 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Clock } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { appHref } from "@/lib/marketing-to-app-href";
 import { Button } from "@/components/ui/button";
 import { JsonLd, breadcrumbListJsonLd } from "@/components/json-ld";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
-import { guideArticles, guideSlugs } from "@/lib/guide/articles";
+import { tools, toolSlugs } from "@/lib/strumenti/tools";
 
 const SITE_URL = "https://scontrinozero.it";
+const PAGE_URL = `${SITE_URL}/strumenti`;
 
 export const metadata: Metadata = {
-  title: "Guide e approfondimenti",
+  title: "Strumenti gratuiti",
   description:
-    "Guide pratiche sullo scontrino elettronico, documento commerciale online, POS-RT, regime forfettario e novità normative per partite IVA italiane.",
+    "Calcolatori e verifiche gratuite per partite IVA: scorporo IVA, codice Lotteria degli Scontrini e risparmio rispetto al registratore telematico. Senza registrazione.",
   openGraph: {
-    title: "Guide e approfondimenti | ScontrinoZero",
+    title: "Strumenti gratuiti | ScontrinoZero",
     description:
-      "Guide pratiche sullo scontrino elettronico, documento commerciale online, POS-RT e regime forfettario.",
-    url: `${SITE_URL}/guide`,
+      "Scorporo IVA, verifica codice Lotteria degli Scontrini e calcolatore di risparmio: strumenti gratuiti, nessuna registrazione.",
+    url: PAGE_URL,
   },
   alternates: {
-    canonical: `${SITE_URL}/guide`,
+    canonical: PAGE_URL,
   },
 };
 
-export default function GuideIndexPage() {
+export default function StrumentiIndexPage() {
   const crumbs = [
     { name: "Home", url: SITE_URL },
-    { name: "Guide", url: `${SITE_URL}/guide` },
+    { name: "Strumenti", url: PAGE_URL },
   ];
   return (
     <>
@@ -38,32 +39,26 @@ export default function GuideIndexPage() {
           <Breadcrumbs items={crumbs} />
 
           <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
-            {"Guide e approfondimenti"}
+            {"Strumenti gratuiti"}
           </h1>
           <p className="text-muted-foreground mt-4 text-lg leading-relaxed">
             {
-              "Articoli pratici sullo scontrino elettronico, le novità normative e le scelte fiscali tipiche di chi lavora al pubblico in Italia. Informazione divulgativa, non sostituisce il commercialista."
+              "Calcolatori e verifiche pensati per chi emette scontrini elettronici. Sono gratuiti, non richiedono registrazione e funzionano direttamente nel browser."
             }
           </p>
 
           <div className="mt-10 space-y-4">
-            {guideSlugs.map((slug) => {
-              const g = guideArticles[slug];
+            {toolSlugs.map((slug) => {
+              const t = tools[slug];
               return (
                 <Link
                   key={slug}
-                  href={`/guide/${slug}`}
+                  href={`/strumenti/${slug}`}
                   className="bg-card hover:border-primary/40 block rounded-lg border p-5 transition-colors"
                 >
-                  <h2 className="text-lg font-semibold">{g.title}</h2>
+                  <h2 className="text-lg font-semibold">{t.title}</h2>
                   <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-                    {g.heroIntro}
-                  </p>
-                  <p className="text-muted-foreground mt-3 flex items-center gap-1 text-xs">
-                    <Clock className="h-3 w-3" />
-                    {g.readingMinutes}
-                    {" min di lettura · aggiornato "}
-                    {g.updatedAt}
+                    {t.heroIntro}
                   </p>
                 </Link>
               );
@@ -72,7 +67,7 @@ export default function GuideIndexPage() {
 
           <div className="bg-muted/40 border-border mt-12 rounded-lg border p-5 text-center">
             <p className="text-sm font-semibold">
-              {"Vuoi provare ScontrinoZero?"}
+              {"Vuoi emettere scontrini con ScontrinoZero?"}
             </p>
             <p className="text-muted-foreground mt-1 text-sm">
               {"30 giorni di prova gratuita, senza carta di credito."}

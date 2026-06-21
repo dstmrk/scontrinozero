@@ -132,14 +132,21 @@ export function breadcrumbListJsonLd(items: readonly BreadcrumbItem[]) {
   } as const;
 }
 
-export function helpArticleBreadcrumb(slug: string, name: string) {
-  if (!slug) throw new Error("helpArticleBreadcrumb: slug is required");
-  if (!name) throw new Error("helpArticleBreadcrumb: name is required");
-  return breadcrumbListJsonLd([
+export function helpArticleBreadcrumbItems(
+  slug: string,
+  name: string,
+): readonly BreadcrumbItem[] {
+  if (!slug) throw new Error("helpArticleBreadcrumbItems: slug is required");
+  if (!name) throw new Error("helpArticleBreadcrumbItems: name is required");
+  return [
     { name: "Home", url: SITE_URL },
     { name: "Help Center", url: `${SITE_URL}/help` },
     { name, url: `${SITE_URL}/help/${slug}` },
-  ]);
+  ];
+}
+
+export function helpArticleBreadcrumb(slug: string, name: string) {
+  return breadcrumbListJsonLd(helpArticleBreadcrumbItems(slug, name));
 }
 
 export interface ServiceJsonLdInput {
@@ -204,14 +211,21 @@ export function webApplicationJsonLd(input: WebApplicationJsonLdInput) {
   } as const;
 }
 
-export function guideArticleBreadcrumb(slug: string, name: string) {
-  if (!slug) throw new Error("guideArticleBreadcrumb: slug is required");
-  if (!name) throw new Error("guideArticleBreadcrumb: name is required");
-  return breadcrumbListJsonLd([
+export function guideArticleBreadcrumbItems(
+  slug: string,
+  name: string,
+): readonly BreadcrumbItem[] {
+  if (!slug) throw new Error("guideArticleBreadcrumbItems: slug is required");
+  if (!name) throw new Error("guideArticleBreadcrumbItems: name is required");
+  return [
     { name: "Home", url: SITE_URL },
     { name: "Guide", url: `${SITE_URL}/guide` },
     { name, url: `${SITE_URL}/guide/${slug}` },
-  ]);
+  ];
+}
+
+export function guideArticleBreadcrumb(slug: string, name: string) {
+  return breadcrumbListJsonLd(guideArticleBreadcrumbItems(slug, name));
 }
 
 export interface ArticleJsonLdInput {
