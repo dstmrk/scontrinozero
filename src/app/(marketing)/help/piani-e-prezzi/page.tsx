@@ -1,7 +1,10 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { JsonLd, helpArticleBreadcrumb } from "@/components/json-ld";
+import {
+  JsonLd,
+  helpArticleBreadcrumb,
+  helpArticleBreadcrumbItems,
+} from "@/components/json-ld";
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
@@ -16,13 +19,9 @@ export default function PianiEPrezziPage() {
       />
       <HelpArticleJsonLd slug="piani-e-prezzi" />
       <article className="mx-auto max-w-3xl">
-        <Link
-          href="/help"
-          className="text-muted-foreground hover:text-foreground mb-8 inline-flex items-center gap-1 text-sm transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Help Center
-        </Link>
+        <Breadcrumbs
+          items={helpArticleBreadcrumbItems("piani-e-prezzi", "Piani e prezzi")}
+        />
 
         {/* ─── Intestazione ─── */}
         <div className="flex flex-wrap items-center gap-3">
