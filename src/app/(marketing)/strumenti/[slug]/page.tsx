@@ -87,7 +87,7 @@ export default async function ToolPage({ params }: PageParams) {
       <JsonLd
         data={breadcrumbListJsonLd([
           { name: "Home", url: SITE_URL },
-          { name: "Strumenti", url: `${SITE_URL}/strumenti/scorporo-iva` },
+          { name: "Strumenti", url: `${SITE_URL}/strumenti` },
           { name: t.title, url: pageUrl },
         ])}
       />
@@ -95,7 +95,7 @@ export default async function ToolPage({ params }: PageParams) {
       <section className="px-4 py-16">
         <article className="mx-auto max-w-3xl">
           <Link
-            href="/"
+            href="/strumenti"
             className="text-muted-foreground hover:text-foreground mb-8 inline-flex items-center gap-1 text-sm transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />

@@ -90,7 +90,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/strumenti/scorporo-iva"
+                  href="/strumenti"
                   className="hover:text-foreground transition-colors"
                 >
                   Strumenti gratis
