@@ -210,31 +210,29 @@ zero-downtime è impossibile nello stato attuale dei caller.
 
 ---
 
-### 18. Error envelope uniforme API + schema Zod SALE condiviso
+### 18. Error envelope uniforme API
 
 - **Categoria:** architettura/manutenibilità · **Severità:** Low
-- **File:** schema duplicati: `src/server/receipt-actions.ts:14-43` (`lineSchema`/`submitReceiptSchema`) vs `src/app/api/v1/receipts/route.ts:26-73` (`receiptBodySchema`) — già condividono `refineLotteryCode`; envelope: tutti gli endpoint `src/app/api/**`
+- **File:** envelope: tutti gli endpoint `src/app/api/**`
 
-**Problema.** Due copie quasi identiche dello schema SALE (la server action
-aggiunge solo `id` UI-only e `businessId`): un bump di `max()` in una copia e non
-nell'altra fa divergere API e UI silenziosamente. Inoltre le risposte d'errore API
-non hanno una shape uniforme (`{error}` vs `{error, code}` vs status diversi per
-lo stesso caso).
+> **Schema Zod SALE condiviso: RISOLTO.** Lo schema linea + base SALE è stato
+> estratto in `src/lib/receipts/receipt-schema.ts` (`saleLineSchema`,
+> `saleBodySchema` + field schema riusabili): la route API lo usa diretto, la
+> server action ricompone aggiungendo solo `id` (UI) e `businessId`. Resta
+> aperta la sola standardizzazione dell'envelope d'errore.
+
+**Problema.** Le risposte d'errore API non hanno una shape uniforme (`{error}`
+vs `{error, code}` vs status diversi per lo stesso caso).
 
 **Fix (non ambiguo).**
 
-1. Estrarre lo schema linea + base SALE in `src/lib/receipts/receipt-schema.ts`:
-   `export const saleLineSchema = ...; export const saleBodySchema = ...`; la
-   server action lo estende con `.extend({ id: z.string() })` sulla linea e
-   `businessId`; la route API lo usa diretto.
-2. Standardizzare l'envelope: `{ code, message, requestId }` su tutti gli endpoint
+1. Standardizzare l'envelope: `{ code, message, requestId }` su tutti gli endpoint
    `/api/v1/*` (e progressivamente gli altri), con classificazione
    transient/permanent per gli errori delle integrazioni esterne (coerente con
    regola 10). `requestId` = correlazione log (già presente nel logger o da
    generare per-request).
-3. Aggiornare `docs/api-spec.md` con l'envelope.
-4. **Test:** uno schema, due consumer — un cambiamento al limite si riflette in
-   entrambi; snapshot dell'envelope per gli error path principali (400, 401, 404,
+2. Aggiornare `docs/api-spec.md` con l'envelope.
+3. **Test:** snapshot dell'envelope per gli error path principali (400, 401, 404,
    409, 429, 503).
 
 ---

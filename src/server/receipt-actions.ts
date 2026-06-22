@@ -6,39 +6,33 @@ import { getPlan, canEmit, TRIAL_EXPIRED_MESSAGE } from "@/lib/plans";
 import { RateLimiter } from "@/lib/rate-limit";
 import { refineLotteryCode } from "@/lib/receipts/lottery-code-schema";
 import {
+  SALE_LINES_MAX,
+  SALE_LINES_MIN,
+  idempotencyKeySchema,
+  lotteryCodeSchema,
+  paymentMethodSchema,
+  saleLineSchema,
+} from "@/lib/receipts/receipt-schema";
+import {
   getAuthenticatedUser,
   checkBusinessOwnership,
 } from "@/lib/server-auth";
 import { emitReceiptForBusiness } from "@/lib/services/receipt-service";
 import type { SubmitReceiptInput, SubmitReceiptResult } from "@/types/cassa";
 
-// Runtime validation schema — mirrors the API v1 receiptBodySchema but includes
-// the UI-only `id` field present in CartLine. Enforces the same fiscal precision
-// rules server-side so a tampered client cannot bypass API-level validation.
-const lineSchema = z.object({
-  id: z.string(),
-  description: z.string().min(1).max(200),
-  quantity: z
-    .number()
-    .positive()
-    .max(9999)
-    .refine((v) => Number.parseFloat(v.toFixed(3)) === v, "max 3 decimali"),
-  grossUnitPrice: z
-    .number()
-    .nonnegative()
-    .max(999_999.99)
-    .refine((v) => Number.parseFloat(v.toFixed(2)) === v, "max 2 decimali"),
-  vatCode: z.enum(["4", "5", "10", "22", "N1", "N2", "N3", "N4", "N5", "N6"]),
-});
+// Runtime validation schema — riusa lo schema SALE condiviso (receipt-schema.ts)
+// e aggiunge solo i bit consumer-specifici: `id` (chiave React UI-only sulla
+// riga) e `businessId`. Enforce le stesse regole fiscali della API v1 anche sul
+// canale server action, così un client manomesso non può bypassarle.
+const submitLineSchema = saleLineSchema.extend({ id: z.string() });
 
 const submitReceiptSchema = z
   .object({
     businessId: z.string().uuid("Business ID non valido."),
-    lines: z.array(lineSchema).min(1).max(100),
-    paymentMethod: z.enum(["PC", "PE"]),
-    idempotencyKey: z.string().uuid(),
-    // Format-validated only when paymentMethod === "PE" — see refineLotteryCode.
-    lotteryCode: z.string().nullable().optional(),
+    lines: z.array(submitLineSchema).min(SALE_LINES_MIN).max(SALE_LINES_MAX),
+    paymentMethod: paymentMethodSchema,
+    idempotencyKey: idempotencyKeySchema,
+    lotteryCode: lotteryCodeSchema,
   })
   .superRefine(refineLotteryCode);
 
