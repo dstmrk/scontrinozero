@@ -41,7 +41,20 @@ finché non diventa pain).
 
 **Runtime runner:** `scripts/migrate.ts` legge i `.sql` ordinati per nome, traccia
 i file applicati in `__applied_migrations`, wrappa ogni migrazione in transazione.
-Non legge il journal — quello è solo per il check CI di completezza.
+Non legge il journal — quello è solo per il check CI di completezza. In container
+gira come processo separato (`migrate.js`, compilato via esbuild) dal `CMD` del
+`Dockerfile` PRIMA di `server.js`: `node migrate.js && node server.js`.
+
+🚫 **MAI chiamare il migrator NATIVO di drizzle** (`migrate` da
+`drizzle-orm/postgres-js/migrator`) in `src/instrumentation.ts` o altrove. Traccia
+in una tabella DIVERSA (`drizzle.__drizzle_migrations`), si aspetta migrazioni
+generate da drizzle-kit, e **non ha la logica di bootstrap** su DB pre-esistente.
+Affiancato al runner handwritten su un DB già inizializzato ritenta da
+`0000_initial.sql` e crasha al boot con `type "document_kind" already exists`
+(crash loop dell'instrumentation hook). È esattamente la regressione di PR #582:
+il consolidamento dei due `register()` aveva portato dietro una chiamata
+`migrate()` nativa che prima era codice morto (l'hook attivo era il root
+`/instrumentation.ts`). Le migrazioni hanno UN solo owner: `migrate.js`.
 
 ### Pattern `ALTER TABLE ADD COLUMN`
 
@@ -91,7 +104,7 @@ Esempi nel codice: `void-service.ts`, `receipt-service.ts`.
 
 ---
 
-## Drizzle raw `sql\`\`` templates: `Date` va pre-serializzato
+## Drizzle raw `sql\`\``templates:`Date` va pre-serializzato
 
 Dentro `db.update().set({...})` e `eq(col, value)` Drizzle conosce il tipo della
 colonna e converte JS value nel formato Postgres corretto. Dentro `` sql`...${value}...` ``
@@ -107,7 +120,7 @@ Buffer or ArrayBuffer. Received an instance of Date
 (Regressione `SCONTRINOZERO-TEST-7`, 14 giorni nascosta nel flow "Verifica
 connessione" AdE.)
 
-**Pattern obbligato per `Date` in `` sql`` ``:**
+**Pattern obbligato per `Date` in ` sql` ``:**
 
 ```typescript
 sql`date_trunc('milliseconds', ${col}) = ${date.toISOString()}::timestamptz`;
@@ -149,5 +162,6 @@ diversi che usano accidentalmente la stessa UUID ed espone metadati cross-tenant
 I fallback di lookup devono filtrare per `businessId` in aggiunta alla key.
 
 ## Supabase official Skills
+
 https://raw.githubusercontent.com/supabase/agent-skills/refs/heads/main/skills/supabase/SKILL.md
 https://raw.githubusercontent.com/supabase/agent-skills/refs/heads/main/skills/supabase-postgres-best-practices/SKILL.md

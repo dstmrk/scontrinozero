@@ -45,14 +45,24 @@ export async function register() {
 
     await import("../sentry.server.config");
 
-    const { migrate } = await import("drizzle-orm/postgres-js/migrator");
+    // ⚠️ Le migrazioni NON girano qui. Il sistema canonico è il runner
+    // handwritten `scripts/migrate.ts` (compilato in `migrate.js`), eseguito
+    // come processo separato dal CMD del Dockerfile PRIMA di `server.js`:
+    // traccia in `__applied_migrations` con checksum e ha la logica di
+    // bootstrap su DB pre-esistente (regola 11 + skill db-migrations).
+    // Chiamare qui il migrator NATIVO di drizzle (`drizzle-orm/.../migrator`)
+    // era un residuo del consolidamento dei due register() (PR #582): traccia
+    // in una tabella DIVERSA (`drizzle.__drizzle_migrations`), senza bootstrap,
+    // quindi su un DB già inizializzato dal runner handwritten ritentava da
+    // `0000_initial.sql` e crashava al boot con `type "document_kind" already
+    // exists`. Qui apriamo una connessione solo per il backfill una-tantum.
     const postgres = (await import("postgres")).default;
     const { drizzle } = await import("drizzle-orm/postgres-js");
 
     const rawUrl = process.env.DATABASE_URL_DIRECT ?? process.env.DATABASE_URL;
     if (!rawUrl) {
       throw new Error(
-        "DATABASE_URL_DIRECT or DATABASE_URL is required to run migrations",
+        "DATABASE_URL_DIRECT or DATABASE_URL is required for the boot-time backfill",
       );
     }
 
@@ -65,12 +75,10 @@ export async function register() {
     parsed.hostname = ipv4;
     const url = parsed.toString();
 
-    // max: 1 — dedicated connection just for migrations
+    // max: 1 — dedicated connection just for the boot-time backfill
     // prepare: false — required for Supabase transaction pooler (harmless for direct)
     const client = postgres(url, { max: 1, prepare: false });
     const db = drizzle({ client });
-
-    await migrate(db, { migrationsFolder: "./supabase/migrations" });
 
     // Backfill una-tantum del registro anti-frode `trial_vat_ledger` dalle
     // P.IVA già su `profiles` (account creati prima del ledger). Self-gated:
