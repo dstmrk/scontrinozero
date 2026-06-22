@@ -39,6 +39,13 @@ vi.mock("@/lib/logger", () => ({
   logger: { error: mockLoggerError, warn: vi.fn(), info: vi.fn() },
 }));
 
+// Il keep-alive Supabase è fuso nello stesso register() (REVIEW.md #29):
+// va mockato @/lib/supabase/admin e va intercettato setInterval, altrimenti
+// register() in nodejs lascerebbe un timer reale al termine dei test.
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminSupabaseClient: vi.fn(),
+}));
+
 describe("instrumentation register()", () => {
   let originalNextRuntime: string | undefined;
   let originalDbUrl: string | undefined;
@@ -48,10 +55,19 @@ describe("instrumentation register()", () => {
     originalNextRuntime = process.env.NEXT_RUNTIME;
     originalDbUrl = process.env.DATABASE_URL;
     originalDbUrlDirect = process.env.DATABASE_URL_DIRECT;
+    // resetModules: il keep-alive ha una guardia di idempotenza module-level
+    // (keepAliveStarted) — senza reset, dopo il primo register() nodejs gli
+    // altri test non vedrebbero più setInterval chiamato.
+    vi.resetModules();
     vi.clearAllMocks();
+    // Intercetta setInterval per non lasciare timer reali e per asserire il keep-alive.
+    vi.spyOn(global, "setInterval").mockReturnValue({
+      unref: vi.fn(),
+    } as unknown as ReturnType<typeof setInterval>);
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     if (originalNextRuntime === undefined) {
       delete process.env.NEXT_RUNTIME;
     } else {
@@ -207,5 +223,29 @@ describe("instrumentation register()", () => {
     await register();
 
     expect(mockAssertIdentityEnv).not.toHaveBeenCalled();
+  });
+
+  it("avvia il keep-alive Supabase dopo il backfill nel ramo nodejs (REVIEW.md #29)", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    process.env.DATABASE_URL = "postgres://test";
+    const { register } = await import("./instrumentation");
+
+    await register();
+
+    expect(global.setInterval).toHaveBeenCalledOnce();
+    // Keep-alive in coda: dopo il backfill (che a sua volta è dopo migrate).
+    const backfillOrder = mockBackfill.mock.invocationCallOrder[0]!;
+    const setIntervalOrder = vi.mocked(global.setInterval).mock
+      .invocationCallOrder[0]!;
+    expect(backfillOrder).toBeLessThan(setIntervalOrder);
+  });
+
+  it("NON avvia il keep-alive quando NEXT_RUNTIME=edge", async () => {
+    process.env.NEXT_RUNTIME = "edge";
+    const { register } = await import("./instrumentation");
+
+    await register();
+
+    expect(global.setInterval).not.toHaveBeenCalled();
   });
 });
