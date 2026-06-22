@@ -126,12 +126,6 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
       SUPABASE_SECRET_KEY: ${{ secrets.TEST_SUPABASE_SECRET_KEY }}
-      # Override del DSN bakato nell'immagine: lo smoke gira senza DB raggiungibile,
-      # quindi gli errori di boot (es. backfill che non connette) NON devono finire
-      # sul progetto Sentry di prod taggati environment=production (SCONTRINOZERO-N
-      # era esattamente questo: rumore CI, non un incidente prod). enabled: !!dsn in
-      # sentry.server.config.ts → stringa vuota disabilita Sentry nel container CI.
-      NEXT_PUBLIC_SENTRY_DSN: ""
       DATABASE_URL: "postgresql://smoke:smoke@localhost:5432/smoke"
       ENCRYPTION_KEY: ${{ secrets.TEST_ENCRYPTION_KEY }}
       ENCRYPTION_KEY_VERSION: "1"
@@ -157,7 +151,6 @@ jobs:
             -e NEXT_PUBLIC_SUPABASE_URL \
             -e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY \
             -e SUPABASE_SECRET_KEY \
-            -e NEXT_PUBLIC_SENTRY_DSN \
             -e DATABASE_URL \
             -e ENCRYPTION_KEY \
             -e ENCRYPTION_KEY_VERSION \

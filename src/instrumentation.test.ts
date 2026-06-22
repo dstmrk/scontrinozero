@@ -49,11 +49,16 @@ describe("instrumentation register()", () => {
   let originalNextRuntime: string | undefined;
   let originalDbUrl: string | undefined;
   let originalDbUrlDirect: string | undefined;
+  let originalSkipMigrations: string | undefined;
 
   beforeEach(() => {
     originalNextRuntime = process.env.NEXT_RUNTIME;
     originalDbUrl = process.env.DATABASE_URL;
     originalDbUrlDirect = process.env.DATABASE_URL_DIRECT;
+    originalSkipMigrations = process.env.SKIP_MIGRATIONS;
+    // Default deterministico: il blocco DB di boot gira a meno che un test non
+    // setti esplicitamente SKIP_MIGRATIONS=true (evita leakage dall'env del runner).
+    delete process.env.SKIP_MIGRATIONS;
     // resetModules: il keep-alive ha una guardia di idempotenza module-level
     // (keepAliveStarted) — senza reset, dopo il primo register() nodejs gli
     // altri test non vedrebbero più setInterval chiamato.
@@ -81,6 +86,11 @@ describe("instrumentation register()", () => {
       delete process.env.DATABASE_URL_DIRECT;
     } else {
       process.env.DATABASE_URL_DIRECT = originalDbUrlDirect;
+    }
+    if (originalSkipMigrations === undefined) {
+      delete process.env.SKIP_MIGRATIONS;
+    } else {
+      process.env.SKIP_MIGRATIONS = originalSkipMigrations;
     }
   });
 
@@ -182,6 +192,25 @@ describe("instrumentation register()", () => {
       expect.objectContaining({ critical: true }),
       expect.stringContaining("backfill trial_vat_ledger fallito"),
     );
+  });
+
+  it("salta il blocco DB di boot quando SKIP_MIGRATIONS=true (no connessione, no backfill)", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    process.env.DATABASE_URL = "postgres://test";
+    process.env.SKIP_MIGRATIONS = "true";
+    const { register } = await import("./instrumentation");
+
+    await register();
+
+    // Nessun lavoro DB al boot: nello smoke-test CI (immagine prod senza DB
+    // raggiungibile) il backfill faceva ECONNREFUSED → Sentry "production"
+    // (SCONTRINOZERO-P). Coerente con migrate.js che onora lo stesso flag.
+    expect(mockPostgresDefault).not.toHaveBeenCalled();
+    expect(mockBackfill).not.toHaveBeenCalled();
+    expect(mockClientEnd).not.toHaveBeenCalled();
+    expect(mockLoggerError).not.toHaveBeenCalled();
+    // Il keep-alive Supabase parte comunque (fuori dal gate).
+    expect(global.setInterval).toHaveBeenCalledOnce();
   });
 
   it("R24: chiama assertIdentityEnv come prima istruzione nel runtime nodejs", async () => {
