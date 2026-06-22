@@ -399,6 +399,115 @@ function checkAdeIdentityGuard(
   };
 }
 
+/**
+ * Finalizza la verifica AdE in un'unica transazione guardata dalla versione
+ * delle credenziali (optimistic locking). Estratta da `verifyAdeCredentials`
+ * per tenere il flusso principale sotto la soglia di Cognitive Complexity:
+ * tutta la logica annidata (lock miss → identità fiscale → claim P.IVA →
+ * anti-abuso trial) vive qui. Ritorna i due flag che il chiamante traduce in
+ * messaggi/email. Le violazioni del vincolo UNIQUE sulla P.IVA propagano:
+ * il chiamante le distingue con `isUniqueConstraintViolation`.
+ */
+async function finalizeAdeVerification(params: {
+  db: ReturnType<typeof getDb>;
+  businessId: string;
+  userId: string;
+  credentialVersion: Date;
+  businessSnapshot:
+    | { fiscalCode: string | null; vatNumber: string | null }
+    | undefined;
+  fiscalData: {
+    identificativiFiscali: { partitaIva: string; codiceFiscale: string };
+  } | null;
+}): Promise<{ credentialsChanged: boolean; trialAlreadyUsed: boolean }> {
+  const {
+    db,
+    businessId,
+    userId,
+    credentialVersion,
+    businessSnapshot,
+    fiscalData,
+  } = params;
+
+  let credentialsChanged = false;
+  let trialAlreadyUsed = false;
+
+  await db.transaction(async (tx) => {
+    const updated = await tx
+      .update(adeCredentials)
+      .set({ verifiedAt: new Date() })
+      .where(
+        and(
+          eq(adeCredentials.businessId, businessId),
+          sql`date_trunc('milliseconds', ${adeCredentials.updatedAt}) = ${credentialVersion.toISOString()}::timestamptz`,
+        ),
+      )
+      .returning({ id: adeCredentials.id });
+
+    if (updated.length === 0) {
+      // Optimistic-lock miss: credentials replaced during verification.
+      // Abort without writing any fiscal data from the stale session.
+      credentialsChanged = true;
+      return;
+    }
+
+    if (!fiscalData) return;
+
+    const vatNumber = fiscalData.identificativiFiscali.partitaIva;
+    const fiscalCode = fiscalData.identificativiFiscali.codiceFiscale;
+
+    await tx
+      .update(businesses)
+      .set({ vatNumber, fiscalCode })
+      .where(eq(businesses.id, businessId));
+
+    // Primo claim di questa P.IVA da parte del business, vs re-verifica
+    // dello stesso account (stessa P.IVA già registrata). `businessSnapshot`
+    // (letto prima della transazione) è in sync con `profiles.partitaIva`,
+    // scritti insieme atomicamente; l'identity guard ha già bloccato un
+    // business onboardato che arriva con una P.IVA diversa. Distinguere è
+    // essenziale: senza, ri-verificare le proprie credenziali troverebbe la
+    // P.IVA nel ledger e azzererebbe il trial attivo.
+    const wasFirstClaim = businessSnapshot?.vatNumber !== vatNumber;
+
+    // Anti-abuso trial: la P.IVA è UNIQUE su profiles per impedire trial
+    // multipli con email diverse ma stessa P.IVA (account ancora vivo). Il
+    // vincolo DB fa fallire l'UPDATE e l'intera transazione esegue rollback
+    // (verifiedAt incluso), così nessun dato resta in stato parziale.
+    await tx
+      .update(profiles)
+      .set({ partitaIva: vatNumber })
+      .where(eq(profiles.authUserId, userId));
+
+    if (!wasFirstClaim) return;
+
+    // Anti-abuso trial cross-cancellazione: il vincolo UNIQUE su
+    // profiles.partita_iva sparisce quando l'account viene cancellato,
+    // liberando la P.IVA per un secondo trial. `trial_vat_ledger`
+    // sopravvive alla cancellazione e registra ogni P.IVA che ha già
+    // consumato un trial. ON CONFLICT DO NOTHING RETURNING è race-safe:
+    // se non torna righe la P.IVA era già nel ledger da un account
+    // PRECEDENTE → trial già consumato → niente nuovo trial.
+    const inserted = await tx
+      .insert(trialVatLedger)
+      .values({ pivaHash: hashPiva(vatNumber) })
+      .onConflictDoNothing()
+      .returning({ id: trialVatLedger.id });
+
+    if (inserted.length === 0) {
+      // trialStartedAt = null → isTrialExpired() true → sola lettura
+      // immediata, riusando i gate esistenti (canEmit/canAddCatalogItem).
+      await tx
+        .update(profiles)
+        .set({ trialStartedAt: null })
+        .where(eq(profiles.authUserId, userId));
+      trialAlreadyUsed = true;
+    }
+  });
+
+  return { credentialsChanged, trialAlreadyUsed };
+}
+
 export async function verifyAdeCredentials(
   businessId: string,
 ): Promise<OnboardingActionResult> {
@@ -524,78 +633,14 @@ export async function verifyAdeCredentials(
   let credentialsChanged = false;
   let trialAlreadyUsed = false;
   try {
-    await db.transaction(async (tx) => {
-      const updated = await tx
-        .update(adeCredentials)
-        .set({ verifiedAt: new Date() })
-        .where(
-          and(
-            eq(adeCredentials.businessId, businessId),
-            sql`date_trunc('milliseconds', ${adeCredentials.updatedAt}) = ${credentialVersion.toISOString()}::timestamptz`,
-          ),
-        )
-        .returning({ id: adeCredentials.id });
-
-      if (updated.length === 0) {
-        // Optimistic-lock miss: credentials replaced during verification.
-        // Abort without writing any fiscal data from the stale session.
-        credentialsChanged = true;
-        return;
-      }
-
-      if (fiscalData) {
-        const vatNumber = fiscalData.identificativiFiscali.partitaIva;
-        const fiscalCode = fiscalData.identificativiFiscali.codiceFiscale;
-
-        await tx
-          .update(businesses)
-          .set({ vatNumber, fiscalCode })
-          .where(eq(businesses.id, businessId));
-
-        // Primo claim di questa P.IVA da parte del business, vs re-verifica
-        // dello stesso account (stessa P.IVA già registrata). `businessSnapshot`
-        // (letto prima della transazione) è in sync con `profiles.partitaIva`,
-        // scritti insieme atomicamente; l'identity guard ha già bloccato un
-        // business onboardato che arriva con una P.IVA diversa. Distinguere è
-        // essenziale: senza, ri-verificare le proprie credenziali troverebbe la
-        // P.IVA nel ledger e azzererebbe il trial attivo.
-        const wasFirstClaim = businessSnapshot?.vatNumber !== vatNumber;
-
-        // Anti-abuso trial: la P.IVA è UNIQUE su profiles per impedire trial
-        // multipli con email diverse ma stessa P.IVA (account ancora vivo). Il
-        // vincolo DB fa fallire l'UPDATE e l'intera transazione esegue rollback
-        // (verifiedAt incluso), così nessun dato resta in stato parziale.
-        await tx
-          .update(profiles)
-          .set({ partitaIva: vatNumber })
-          .where(eq(profiles.authUserId, user.id));
-
-        if (wasFirstClaim) {
-          // Anti-abuso trial cross-cancellazione: il vincolo UNIQUE su
-          // profiles.partita_iva sparisce quando l'account viene cancellato,
-          // liberando la P.IVA per un secondo trial. `trial_vat_ledger`
-          // sopravvive alla cancellazione e registra ogni P.IVA che ha già
-          // consumato un trial. ON CONFLICT DO NOTHING RETURNING è race-safe:
-          // se non torna righe la P.IVA era già nel ledger da un account
-          // PRECEDENTE → trial già consumato → niente nuovo trial.
-          const inserted = await tx
-            .insert(trialVatLedger)
-            .values({ pivaHash: hashPiva(vatNumber) })
-            .onConflictDoNothing()
-            .returning({ id: trialVatLedger.id });
-
-          if (inserted.length === 0) {
-            // trialStartedAt = null → isTrialExpired() true → sola lettura
-            // immediata, riusando i gate esistenti (canEmit/canAddCatalogItem).
-            await tx
-              .update(profiles)
-              .set({ trialStartedAt: null })
-              .where(eq(profiles.authUserId, user.id));
-            trialAlreadyUsed = true;
-          }
-        }
-      }
-    });
+    ({ credentialsChanged, trialAlreadyUsed } = await finalizeAdeVerification({
+      db,
+      businessId,
+      userId: user.id,
+      credentialVersion,
+      businessSnapshot,
+      fiscalData,
+    }));
   } catch (err) {
     if (isUniqueConstraintViolation(err)) {
       logger.warn({ businessId }, "P.IVA già in uso — possibile abuso trial");
