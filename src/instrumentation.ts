@@ -2,7 +2,7 @@ import * as Sentry from "@sentry/nextjs";
 
 // Supabase free tier pausa i progetti dopo 7 giorni senza query al DB.
 // Questo interval esegue una query lightweight ogni 5 giorni per prevenire la pausa.
-// TODO: rimuovere quando si passa a Supabase Pro.
+// Da rimuovere quando si passa a Supabase Pro.
 export const KEEP_ALIVE_INTERVAL_MS = 5 * 24 * 60 * 60 * 1000; // 5 giorni
 
 // Guardia di idempotenza: register() può essere invocata più volte per lo stesso
