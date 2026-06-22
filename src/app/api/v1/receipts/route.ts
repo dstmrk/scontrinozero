@@ -1,4 +1,3 @@
-import { z } from "zod/v4";
 import { and, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { commercialDocuments } from "@/db/schema";
 import {
@@ -6,7 +5,7 @@ import {
   groupLinesByDocId,
   calcDocTotal,
 } from "@/lib/receipts/document-lines";
-import { refineLotteryCode } from "@/lib/receipts/lottery-code-schema";
+import { saleBodySchema } from "@/lib/receipts/receipt-schema";
 import { parseStrictIsoDateUtc } from "@/lib/date-utils";
 import { dbTimeoutResponse, isStatementTimeoutError } from "@/lib/api-errors";
 import { withStatementTimeout } from "@/lib/db-timeout";
@@ -23,54 +22,9 @@ import {
 } from "@/lib/api-v1-helpers";
 import type { SubmitReceiptInput } from "@/types/cassa";
 
-const receiptBodySchema = z
-  .object({
-    lines: z
-      .array(
-        z.object({
-          description: z.string().min(1).max(200),
-          // max 3 decimal places — matches DB column numeric(10,3).
-          // parseFloat(toFixed(3)) === v: roundtrips cleanly through string
-          // representation and handles IEEE-754 FP edge cases correctly.
-          quantity: z
-            .number()
-            .positive()
-            .max(9999)
-            .refine(
-              (v) => Number.parseFloat(v.toFixed(3)) === v,
-              "max 3 decimali",
-            ),
-          // max 2 decimal places — matches DB column numeric(10,2).
-          grossUnitPrice: z
-            .number()
-            .nonnegative()
-            .max(999_999.99)
-            .refine(
-              (v) => Number.parseFloat(v.toFixed(2)) === v,
-              "max 2 decimali",
-            ),
-          vatCode: z.enum([
-            "4",
-            "5",
-            "10",
-            "22",
-            "N1",
-            "N2",
-            "N3",
-            "N4",
-            "N5",
-            "N6",
-          ]),
-        }),
-      )
-      .min(1)
-      .max(100),
-    paymentMethod: z.enum(["PC", "PE"]),
-    idempotencyKey: z.string().uuid(),
-    // Format-validated only when paymentMethod === "PE" — see refineLotteryCode.
-    lotteryCode: z.string().nullable().optional(),
-  })
-  .superRefine(refineLotteryCode);
+// Schema corpo SALE: condiviso con la server action `emitReceipt` via
+// `saleBodySchema` (src/lib/receipts/receipt-schema.ts). Unica fonte di verità
+// dei limiti di precisione fiscale e dei vincoli del corpo scontrino.
 
 // Rate limit: 120 receipts per hour per API key
 const receiptApiLimiter = new RateLimiter({
@@ -118,7 +72,7 @@ export async function POST(request: Request): Promise<Response> {
   // payloads before JSON.parse to prevent memory/CPU pressure (DoS guard).
   const bodyResult = await parseAndValidateBody(
     request,
-    receiptBodySchema,
+    saleBodySchema,
     32 * 1024,
   );
   if ("error" in bodyResult) return bodyResult.error;
