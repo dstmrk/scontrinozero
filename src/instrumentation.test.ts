@@ -1,15 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockMigrate = vi.fn();
 const mockClientEnd = vi.fn();
 const mockClient = { end: mockClientEnd };
 const mockPostgresDefault = vi.fn(() => mockClient);
 const mockDb = {};
 const mockDrizzleFn = vi.fn(() => mockDb);
 
-vi.mock("drizzle-orm/postgres-js/migrator", () => ({
-  migrate: mockMigrate,
-}));
+// NB: le migrazioni NON girano in register() (le applica `migrate.js`, processo
+// separato del Dockerfile). Niente mock del migrator nativo di drizzle: era il
+// residuo di PR #582 che crashava al boot su DB pre-esistente (document_kind).
 
 vi.mock("postgres", () => ({
   default: mockPostgresDefault,
@@ -91,7 +90,7 @@ describe("instrumentation register()", () => {
 
     await register();
 
-    expect(mockMigrate).not.toHaveBeenCalled();
+    expect(mockPostgresDefault).not.toHaveBeenCalled();
   });
 
   it("throws when neither DATABASE_URL_DIRECT nor DATABASE_URL is set", async () => {
@@ -101,7 +100,7 @@ describe("instrumentation register()", () => {
     const { register } = await import("./instrumentation");
 
     await expect(register()).rejects.toThrow(
-      "DATABASE_URL_DIRECT or DATABASE_URL is required to run migrations",
+      "DATABASE_URL_DIRECT or DATABASE_URL is required for the boot-time backfill",
     );
   });
 
@@ -133,19 +132,19 @@ describe("instrumentation register()", () => {
     );
   });
 
-  it("calls migrate with the correct migrations folder", async () => {
+  it("non chiama il migrator nativo di drizzle (le migrazioni girano in migrate.js)", async () => {
     process.env.NEXT_RUNTIME = "nodejs";
     process.env.DATABASE_URL = "postgres://test";
     const { register } = await import("./instrumentation");
 
     await register();
 
-    expect(mockMigrate).toHaveBeenCalledWith(mockDb, {
-      migrationsFolder: "./supabase/migrations",
-    });
+    // Il modulo del migrator nativo non deve nemmeno essere importato: il
+    // backfill apre la connessione, ma nessun migrate() gira qui (PR #582).
+    expect(mockBackfill).toHaveBeenCalledOnce();
   });
 
-  it("closes the DB connection after migration completes", async () => {
+  it("closes the DB connection after the backfill completes", async () => {
     process.env.NEXT_RUNTIME = "nodejs";
     process.env.DATABASE_URL = "postgres://test";
     const { register } = await import("./instrumentation");
@@ -155,7 +154,7 @@ describe("instrumentation register()", () => {
     expect(mockClientEnd).toHaveBeenCalled();
   });
 
-  it("esegue il backfill del ledger anti-frode dopo migrate e prima di chiudere la connessione", async () => {
+  it("esegue il backfill del ledger anti-frode dopo aver aperto la connessione e prima di chiuderla", async () => {
     process.env.NEXT_RUNTIME = "nodejs";
     process.env.DATABASE_URL = "postgres://test";
     const { register } = await import("./instrumentation");
@@ -163,10 +162,10 @@ describe("instrumentation register()", () => {
     await register();
 
     expect(mockBackfill).toHaveBeenCalledWith(mockDb);
-    const migrateOrder = mockMigrate.mock.invocationCallOrder[0]!;
+    const connOrder = mockPostgresDefault.mock.invocationCallOrder[0]!;
     const backfillOrder = mockBackfill.mock.invocationCallOrder[0]!;
     const endOrder = mockClientEnd.mock.invocationCallOrder[0]!;
-    expect(migrateOrder).toBeLessThan(backfillOrder);
+    expect(connOrder).toBeLessThan(backfillOrder);
     expect(backfillOrder).toBeLessThan(endOrder);
   });
 
@@ -211,8 +210,7 @@ describe("instrumentation register()", () => {
     await expect(register()).rejects.toThrow(
       /identity env validation failed at boot/,
     );
-    // Migrate non deve essere eseguito quando l'identita' e' rotta.
-    expect(mockMigrate).not.toHaveBeenCalled();
+    // Il pool DB non deve essere aperto quando l'identita' e' rotta.
     expect(mockPostgresDefault).not.toHaveBeenCalled();
   });
 
@@ -233,7 +231,7 @@ describe("instrumentation register()", () => {
     await register();
 
     expect(global.setInterval).toHaveBeenCalledOnce();
-    // Keep-alive in coda: dopo il backfill (che a sua volta è dopo migrate).
+    // Keep-alive in coda: dopo il backfill.
     const backfillOrder = mockBackfill.mock.invocationCallOrder[0]!;
     const setIntervalOrder = vi.mocked(global.setInterval).mock
       .invocationCallOrder[0]!;
