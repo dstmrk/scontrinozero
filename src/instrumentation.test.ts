@@ -100,7 +100,9 @@ describe("instrumentation register()", () => {
 
     await register();
 
-    expect(global.setInterval).toHaveBeenCalledOnce();
+    // Both the Supabase keep-alive and the Stripe webhook claim sweep
+    // (REVIEW.md #20) start an unref'd setInterval in the nodejs branch.
+    expect(global.setInterval).toHaveBeenCalledTimes(2);
   });
 
   it("NON avvia il keep-alive quando NEXT_RUNTIME=edge", async () => {

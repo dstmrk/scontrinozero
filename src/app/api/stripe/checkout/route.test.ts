@@ -108,6 +108,18 @@ function makeInsertBuilder(returningResult: unknown[] = []) {
   return builder;
 }
 
+/**
+ * Builds an update mock that supports .set().where().
+ */
+function makeUpdateBuilder() {
+  const builder = {
+    set: vi.fn(),
+    where: vi.fn().mockResolvedValue(undefined),
+  };
+  builder.set.mockReturnValue(builder);
+  return builder;
+}
+
 function makeRequest(body: object) {
   return new Request("http://localhost/api/stripe/checkout", {
     method: "POST",
@@ -178,7 +190,9 @@ describe("POST /api/stripe/checkout", () => {
       email: "a@b.it",
     });
     mockSelect.mockReturnValue(
-      makeSelectBuilder([{ stripeCustomerId: "cus_existing" }]),
+      makeSelectBuilder([
+        { stripeCustomerId: "cus_existing", status: "pending" },
+      ]),
     );
 
     const res = await POST(makeRequest({ priceId: "price_pro" }));
@@ -186,6 +200,7 @@ describe("POST /api/stripe/checkout", () => {
     expect(mockCustomerCreate).not.toHaveBeenCalled();
     expect(mockSessionCreate).toHaveBeenCalledWith(
       expect.objectContaining({ customer: "cus_existing" }),
+      expect.anything(),
     );
   });
 
@@ -196,44 +211,38 @@ describe("POST /api/stripe/checkout", () => {
     });
     mockSelect.mockReturnValue(makeSelectBuilder([]));
     mockCustomerCreate.mockResolvedValue({ id: "cus_new" });
-    mockInsert.mockReturnValue(
-      makeInsertBuilder([{ stripeCustomerId: "cus_new" }]),
-    );
+    mockInsert.mockReturnValue(makeInsertBuilder([{ id: "sub-row-1" }]));
+    mockUpdate.mockReturnValue(makeUpdateBuilder());
 
     const res = await POST(makeRequest({ priceId: "price_pro" }));
     expect(res.status).toBe(200);
-    expect(mockCustomerCreate).toHaveBeenCalledWith({ email: "a@b.it" });
+    expect(mockCustomerCreate).toHaveBeenCalledWith(
+      { email: "a@b.it" },
+      expect.anything(),
+    );
     expect(mockSessionCreate).toHaveBeenCalledWith(
       expect.objectContaining({ customer: "cus_new" }),
+      expect.anything(),
     );
   });
 
   it("non restituisce 500 su conflict INSERT concorrente (race condition)", async () => {
-    // Simulate: initial SELECT finds nothing, INSERT conflicts (another request
-    // won the race), then re-SELECT finds the winner's customerId.
+    // Simulate: initial SELECT finds nothing, INSERT conflicts (another
+    // request already claimed the row and is creating the Stripe customer).
+    // The loser must back off with 503, never create its own Stripe customer.
     mockGetAuthenticatedUser.mockResolvedValue({
       id: "user-1",
       email: "a@b.it",
     });
-    mockCustomerCreate.mockResolvedValue({ id: "cus_race_loser" });
 
-    // First SELECT: no existing subscription
-    // Second SELECT (after conflict): returns the winner's row
-    mockSelect
-      .mockReturnValueOnce(makeSelectBuilder([]))
-      .mockReturnValueOnce(
-        makeSelectBuilder([{ stripeCustomerId: "cus_race_winner" }]),
-      );
-
-    // INSERT returns [] → conflict
+    mockSelect.mockReturnValue(makeSelectBuilder([]));
+    // INSERT returns [] → conflict (another request already claimed it)
     mockInsert.mockReturnValue(makeInsertBuilder([]));
 
     const res = await POST(makeRequest({ priceId: "price_pro" }));
-    expect(res.status).toBe(200);
-    // Uses the winner's customerId, not the loser's
-    expect(mockSessionCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ customer: "cus_race_winner" }),
-    );
+    expect(res.status).toBe(503);
+    expect(mockCustomerCreate).not.toHaveBeenCalled();
+    expect(mockSessionCreate).not.toHaveBeenCalled();
   });
 
   it("restituisce l'URL della checkout session", async () => {
@@ -242,7 +251,9 @@ describe("POST /api/stripe/checkout", () => {
       email: "a@b.it",
     });
     mockSelect.mockReturnValue(
-      makeSelectBuilder([{ stripeCustomerId: "cus_existing" }]),
+      makeSelectBuilder([
+        { stripeCustomerId: "cus_existing", status: "pending" },
+      ]),
     );
 
     const res = await POST(makeRequest({ priceId: "price_starter" }));
@@ -257,12 +268,15 @@ describe("POST /api/stripe/checkout", () => {
       email: "a@b.it",
     });
     mockSelect.mockReturnValue(
-      makeSelectBuilder([{ stripeCustomerId: "cus_existing" }]),
+      makeSelectBuilder([
+        { stripeCustomerId: "cus_existing", status: "pending" },
+      ]),
     );
 
     await POST(makeRequest({ priceId: "price_pro" }));
     expect(mockSessionCreate).toHaveBeenCalledWith(
       expect.objectContaining({ allow_promotion_codes: true }),
+      expect.anything(),
     );
   });
 
@@ -273,7 +287,9 @@ describe("POST /api/stripe/checkout", () => {
       email: "a@b.it",
     });
     mockSelect.mockReturnValue(
-      makeSelectBuilder([{ stripeCustomerId: "cus_existing" }]),
+      makeSelectBuilder([
+        { stripeCustomerId: "cus_existing", status: "pending" },
+      ]),
     );
     mockGetTrustedAppUrl.mockImplementationOnce(() => {
       throw new TrustedAppUrlError("hostname not in allowlist");
@@ -290,7 +306,9 @@ describe("POST /api/stripe/checkout", () => {
       email: "a@b.it",
     });
     mockSelect.mockReturnValue(
-      makeSelectBuilder([{ stripeCustomerId: "cus_existing" }]),
+      makeSelectBuilder([
+        { stripeCustomerId: "cus_existing", status: "pending" },
+      ]),
     );
 
     await POST(makeRequest({ priceId: "price_pro" }));
@@ -300,6 +318,7 @@ describe("POST /api/stripe/checkout", () => {
           metadata: { userId: "user-42" },
         },
       }),
+      expect.anything(),
     );
   });
 });

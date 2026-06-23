@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import type Stripe from "stripe";
 import { getDb } from "@/db";
@@ -26,12 +27,35 @@ function serviceUnavailableResponse(): Response {
 
 type Db = ReturnType<typeof getDb>;
 
+function operationInProgressResponse(): Response {
+  return Response.json(
+    { error: "Operazione in corso, riprova tra qualche secondo." },
+    { status: 503 },
+  );
+}
+
 /**
- * Risolve lo `stripeCustomerId` per l'utente: usa quello esistente in DB,
- * altrimenti crea un nuovo customer Stripe e inserisce la riga subscriptions
- * con `ON CONFLICT DO NOTHING` per gestire double-click concorrenti.
+ * Idempotency key Stripe derivata da userId + finestra orario (1h): seconda
+ * difesa contro doppie create in caso di retry client, oltre al claim DB.
+ */
+function buildIdempotencyKey(userId: string, suffix: string): string {
+  const hourWindow = Math.floor(Date.now() / (60 * 60 * 1000));
+  return createHash("sha256")
+    .update(`${userId}:${hourWindow}:${suffix}`)
+    .digest("hex");
+}
+
+/**
+ * Risolve lo `stripeCustomerId` per l'utente.
  *
- * Ritorna una `Response` (503) se la creazione del customer Stripe fallisce.
+ * Claim preventivo in DB (riga `subscriptions` con `stripeCustomerId` ancora
+ * `NULL`) **prima** di chiamare `stripe.customers.create`: solo chi vince
+ * l'INSERT crea il customer Stripe, evitando l'orfano che si generava prima
+ * quando due richieste concorrenti creavano entrambe un customer.
+ *
+ * Ritorna una `Response` (409 se l'utente ha già un abbonamento attivo, 503
+ * se la creazione Stripe fallisce o se un'altra richiesta sta già creando il
+ * customer per lo stesso utente).
  */
 async function getOrCreateStripeCustomerId(args: {
   user: { id: string; email?: string };
@@ -41,53 +65,66 @@ async function getOrCreateStripeCustomerId(args: {
 }): Promise<string | Response> {
   const { user, priceId, stripe, db } = args;
   const [existingSub] = await db
-    .select({ stripeCustomerId: subscriptions.stripeCustomerId })
+    .select({
+      stripeCustomerId: subscriptions.stripeCustomerId,
+      status: subscriptions.status,
+    })
     .from(subscriptions)
     .where(eq(subscriptions.userId, user.id))
     .limit(1);
+
+  if (existingSub?.status === "active") {
+    return Response.json(
+      { error: "Hai già un abbonamento attivo." },
+      { status: 409 },
+    );
+  }
 
   if (existingSub?.stripeCustomerId) {
     return existingSub.stripeCustomerId;
   }
 
+  if (existingSub) {
+    // Row exists but stripeCustomerId is still NULL: another concurrent
+    // request already claimed it and is creating the Stripe customer.
+    return operationInProgressResponse();
+  }
+
+  // No row yet: claim it before creating the Stripe customer. ON CONFLICT DO
+  // NOTHING handles concurrent requests from the same user (e.g. double-click)
+  // — only the winner proceeds to create the customer.
+  const [claimed] = await db
+    .insert(subscriptions)
+    .values({ userId: user.id, status: "pending" })
+    .onConflictDoNothing()
+    .returning({ id: subscriptions.id });
+
+  if (!claimed) {
+    return operationInProgressResponse();
+  }
+
   let customer: Awaited<ReturnType<typeof stripe.customers.create>>;
   try {
-    customer = await stripe.customers.create({
-      email: user.email ?? undefined,
-    });
+    customer = await stripe.customers.create(
+      { email: user.email ?? undefined },
+      { idempotencyKey: buildIdempotencyKey(user.id, "customer") },
+    );
   } catch (err) {
     logger.error({ err, userId: user.id }, "Stripe customer creation failed");
     return serviceUnavailableResponse();
   }
 
   const interval = intervalFromPriceId(priceId) ?? "month";
-
-  // ON CONFLICT DO NOTHING: handle concurrent requests from the same user
-  // (e.g. double-click). If another request already inserted the row, fall
-  // back to a SELECT for the winner's stripeCustomerId. The extra Stripe
-  // customer created in the race case is acceptable (orphan, never used).
-  const [inserted] = await db
-    .insert(subscriptions)
-    .values({
-      userId: user.id,
+  await db
+    .update(subscriptions)
+    .set({
       stripeCustomerId: customer.id,
       stripePriceId: priceId,
       interval,
-      status: "pending",
     })
-    .onConflictDoNothing()
-    .returning({ stripeCustomerId: subscriptions.stripeCustomerId });
+    .where(eq(subscriptions.userId, user.id));
 
-  // inserted.stripeCustomerId is `string | null` per schema (nullable column),
-  // but we just inserted `customer.id` (non-null) so the fallback is defensive.
-  if (inserted) return inserted.stripeCustomerId ?? customer.id;
-
-  const [winner] = await db
-    .select({ stripeCustomerId: subscriptions.stripeCustomerId })
-    .from(subscriptions)
-    .where(eq(subscriptions.userId, user.id))
-    .limit(1);
-  return winner?.stripeCustomerId ?? customer.id;
+  return customer.id;
 }
 
 /**
@@ -160,17 +197,20 @@ export async function POST(req: Request): Promise<Response> {
   // ── Create Stripe Checkout Session ────────────────────────────────────────
   // No Stripe trial: il trial è gestito internamente da ScontrinoZero.
   try {
-    const session = await stripe.checkout.sessions.create({
-      customer: stripeCustomerId,
-      line_items: [{ price: priceId, quantity: 1 }],
-      mode: "subscription",
-      allow_promotion_codes: true,
-      subscription_data: {
-        metadata: { userId: user.id },
+    const session = await stripe.checkout.sessions.create(
+      {
+        customer: stripeCustomerId,
+        line_items: [{ price: priceId, quantity: 1 }],
+        mode: "subscription",
+        allow_promotion_codes: true,
+        subscription_data: {
+          metadata: { userId: user.id },
+        },
+        success_url: `${appUrl}/dashboard/settings?success=1`,
+        cancel_url: `${appUrl}/dashboard/settings?canceled=1`,
       },
-      success_url: `${appUrl}/dashboard/settings?success=1`,
-      cancel_url: `${appUrl}/dashboard/settings?canceled=1`,
-    });
+      { idempotencyKey: buildIdempotencyKey(user.id, `session:${priceId}`) },
+    );
     return Response.json({ url: session.url });
   } catch (err) {
     logger.error(

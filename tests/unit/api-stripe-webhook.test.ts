@@ -316,7 +316,10 @@ describe("POST /api/stripe/webhook", () => {
     const response = await POST(makeWebhookRequest("{}"));
 
     expect(response.status).toBe(200);
-    expect(mockUpdate).not.toHaveBeenCalled();
+    // Only the claim's completedAt is updated (success path); no subscription update
+    expect(mockUpdateSet).not.toHaveBeenCalledWith(
+      expect.objectContaining({ currentPeriodEnd: expect.anything() }),
+    );
   });
 
   it("syncSubscriptionData: returns 500 and logs error when no subscription row found", async () => {
@@ -386,7 +389,10 @@ describe("POST /api/stripe/webhook", () => {
     const response = await POST(makeWebhookRequest("{}"));
 
     expect(response.status).toBe(200);
-    expect(mockUpdate).not.toHaveBeenCalled();
+    // Only the claim's completedAt is updated (success path); no subscription update
+    expect(mockUpdateSet).not.toHaveBeenCalledWith(
+      expect.objectContaining({ status: "past_due" }),
+    );
   });
 
   it("passes raw body string to constructEvent (not parsed JSON)", async () => {
@@ -583,6 +589,12 @@ describe("POST /api/stripe/webhook", () => {
     );
     // DELETE must NOT have been called (success path keeps the claim as permanent dedup)
     expect(mockDelete).not.toHaveBeenCalled();
+    // completedAt must be set on success (REVIEW.md #20: distinguishes a
+    // completed claim from one stuck mid-processing, used by the sweep job)
+    expect(mockUpdate).toHaveBeenCalled();
+    expect(mockUpdateSet).toHaveBeenCalledWith(
+      expect.objectContaining({ completedAt: expect.any(Date) }),
+    );
   });
 
   // ── rows_affected check on write handlers ────────────────────────────────

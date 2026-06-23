@@ -143,6 +143,10 @@ describe("POST /api/stripe/webhook — request validation", () => {
     mockSelect.mockReturnValue(makeSelectBuilder([]));
     // DELETE: called when handleEvent fails to release the claim
     mockDelete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
+    // UPDATE default: used to set completedAt on the claim after a
+    // successful handleEvent (REVIEW.md #20); individual tests override this
+    // when they need to assert against a specific subscriptions/profiles update.
+    mockUpdate.mockReturnValue(makeUpdateBuilder());
   });
 
   it("restituisce 400 se manca l'header stripe-signature", async () => {
@@ -257,6 +261,9 @@ describe("POST /api/stripe/webhook — invoice.payment_action_required", () => {
   });
 
   it("ignora l'evento se subscriptionId è assente", async () => {
+    const updateBuilder = makeUpdateBuilder();
+    mockUpdate.mockReturnValue(updateBuilder);
+
     mockConstructEvent.mockReturnValue({
       id: "evt_inc_002",
       type: "invoice.payment_action_required",
@@ -265,7 +272,10 @@ describe("POST /api/stripe/webhook — invoice.payment_action_required", () => {
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
-    expect(mockUpdate).not.toHaveBeenCalled();
+    // Only the claim's completedAt is updated (success path); no subscriptions update
+    expect(updateBuilder.set).not.toHaveBeenCalledWith(
+      expect.objectContaining({ status: "incomplete" }),
+    );
   });
 });
 
@@ -354,7 +364,10 @@ describe("POST /api/stripe/webhook — customer.subscription.deleted", () => {
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
     expect(mockTransaction).toHaveBeenCalled();
-    expect(updateBuilder.set).toHaveBeenCalledTimes(1);
+    // Two .set() calls: the subscription cancellation inside the tx, plus the
+    // claim's completedAt update in processWithClaimRelease (REVIEW.md #20).
+    // No profile update happens since no userId was found.
+    expect(updateBuilder.set).toHaveBeenCalledTimes(2);
     expect(updateBuilder.set).toHaveBeenCalledWith({
       status: "canceled",
       stripeSubscriptionId: null,
@@ -516,6 +529,9 @@ describe("POST /api/stripe/webhook — checkout.session.expired", () => {
   });
 
   it("ignora l'evento se customer è assente nella sessione scaduta", async () => {
+    const updateBuilder = makeUpdateBuilder();
+    mockUpdate.mockReturnValue(updateBuilder);
+
     mockConstructEvent.mockReturnValue({
       id: "evt_exp_002",
       type: "checkout.session.expired",
@@ -524,7 +540,10 @@ describe("POST /api/stripe/webhook — checkout.session.expired", () => {
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
-    expect(mockUpdate).not.toHaveBeenCalled();
+    // Only the claim's completedAt is updated (success path); no subscriptions update
+    expect(updateBuilder.set).not.toHaveBeenCalledWith(
+      expect.objectContaining({ status: "canceled" }),
+    );
   });
 });
 
@@ -581,7 +600,8 @@ describe("POST /api/stripe/webhook — charge.dispute.created", () => {
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
-    expect(mockUpdate).not.toHaveBeenCalled();
+    // Only the claim's completedAt is updated (success path); no other DB write
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 });

@@ -237,56 +237,6 @@ vs `{error, code}` vs status diversi per lo stesso caso).
 
 ---
 
-### 20. Stripe: recovery dei claim webhook rimasti "stuck"
-
-- **Categoria:** resilienza billing · **Severità:** Low (caso doppio-fallimento)
-- **File:** `src/app/api/stripe/webhook/route.ts:130-148` (`processWithClaimRelease`: su DELETE fallita il claim resta permanente)
-
-**Problema.** Se `handleEvent` fallisce **e** anche la DELETE del claim fallisce,
-l'evento resta in `stripe_webhook_events` con claim permanente: Stripe ritenta ma
-ogni retry vede il claim e risponde 200 (skip). Oggi il rimedio è manuale
-(`DELETE FROM stripe_webhook_events WHERE event_id = ...`, documentato nel
-commento a route.ts:127-128).
-
-**Fix (non ambiguo).**
-
-1. Job periodico (cron in-container, es. `setInterval` unref'd in
-   `instrumentation.ts` o script schedulato) che elimina i claim più vecchi di N
-   minuti **senza esito di processing completato**. Richiede distinguere "claim
-   in corso" da "processed": aggiungere colonna `processed_at` (migration
-   handwritten) valorizzata a fine `handleEvent`; il job elimina righe con
-   `processed_at IS NULL AND created_at < now() - interval '30 minutes'`.
-2. Lo sweep deve loggare `warn` con gli `event_id` sbloccati (visibilità su
-   quanti eventi finiscono stuck).
-3. **Test:** claim stuck oltre soglia → eliminato; claim fresco → intatto;
-   processed → mai eliminato (dedup permanente preservata).
-
----
-
-### 21. Stripe checkout: customer orfani su richieste concorrenti + idempotency
-
-- **Categoria:** resilienza billing · **Severità:** Low · **Target indicativo:** v1.4.0+
-- **File:** `src/app/api/stripe/checkout/route.ts:53-55` (`stripe.customers.create` prima del claim DB)
-
-**Problema.** Due checkout concorrenti dello stesso utente senza
-`stripeCustomerId` creano entrambi un customer Stripe prima che il vincitore salvi
-l'id nel DB: il perdente lascia un customer orfano su Stripe. Manca inoltre un
-guard su subscription già attiva/pending e un'idempotency key Stripe.
-
-**Fix (non ambiguo).**
-
-1. Claim preventivo in DB prima della create (es. `UPDATE profiles SET stripe_customer_id = 'creating' WHERE ... AND stripe_customer_id IS NULL RETURNING`,
-   o colonna di stato dedicata): solo il vincitore crea il customer; il perdente
-   rilegge e riusa.
-2. Guard: se esiste già una subscription attiva o un checkout pending → 409 con
-   messaggio esplicito (niente doppio abbonamento).
-3. `idempotencyKey` Stripe su `customers.create` e `checkout.sessions.create`
-   (derivata da `userId` + finestra temporale) come seconda difesa.
-4. **Test:** due richieste concorrenti → un solo customer creato (mock Stripe con
-   contatore); retry dopo crash a metà → riusa il customer; subscription attiva → 409.
-
----
-
 ### 23. Indice composito `api_keys (business_id, revoked_at)`
 
 - **Categoria:** performance DB · **Severità:** Low · **Target: v2.0.0+** (Developer API Fase B)
@@ -323,32 +273,6 @@ copia una delle varianti e il drift cresce.
    toccano per altri motivi.
 4. **Test:** le utility (attempts, jitter bounds, classify), non i call-site
    migrati uno a uno.
-
----
-
-### 26. Segnale di fallimento per le email auth inviate fire-and-forget
-
-- **Categoria:** UX flusso critico · **Severità:** Low
-- **File:** `src/server/auth-actions.ts:639` (reset password), `src/server/onboarding-actions.ts:490` (welcome/operator), `src/server/account-actions.ts:119` (deletion) — tutti `void sendEmail(...).catch(log)`
-
-**Problema.** L'invio è fire-and-forget e l'utente viene comunque reindirizzato a
-"controlla la tua email": se Resend fallisce, attende un'email che non arriverà e
-finisce al supporto. Il vincolo è non rompere l'**anti-enumeration** (la risposta
-non deve rivelare se l'email esiste).
-
-**Fix (non ambiguo).**
-
-1. Per il **reset password** (l'unico flusso dove l'utente aspetta attivamente):
-   attendere l'esito di `sendEmail` con timeout breve (es. 3s via
-   `withExternalTimeout`, item 24); su fallimento mostrare un banner neutro
-   "Se l'indirizzo è registrato riceverai un'email. Non arriva? Riprova tra
-   qualche minuto." — identico per email esistente/inesistente quando l'invio
-   riesce, quindi nessun oracle.
-2. Welcome/operator/deletion possono restare fire-and-forget (non bloccano
-   l'utente); assicurarsi che il `.catch` logghi `warn` con `errorClass`
-   (`email_send_failed`) per l'osservabilità.
-3. **Test:** Resend KO su reset → banner di retry, nessuna differenza di
-   messaggio tra email esistente e no; Resend OK → redirect invariato.
 
 ---
 

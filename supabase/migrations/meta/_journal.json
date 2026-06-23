@@ -141,6 +141,13 @@
       "when": 1780099203000,
       "tag": "0019_db_check_constraints",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1780099204000,
+      "tag": "0020_stripe_webhook_events_completed_at",
+      "breakpoints": true
     }
   ]
 }
