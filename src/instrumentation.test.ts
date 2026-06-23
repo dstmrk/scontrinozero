@@ -1,64 +1,31 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockClientEnd = vi.fn();
-const mockClient = { end: mockClientEnd };
-const mockPostgresDefault = vi.fn(() => mockClient);
-const mockDb = {};
-const mockDrizzleFn = vi.fn(() => mockDb);
-
-// NB: le migrazioni NON girano in register() (le applica `migrate.js`, processo
-// separato del Dockerfile). Niente mock del migrator nativo di drizzle: era il
-// residuo di PR #582 che crashava al boot su DB pre-esistente (document_kind).
-
-vi.mock("postgres", () => ({
-  default: mockPostgresDefault,
-}));
-
-vi.mock("drizzle-orm/postgres-js", () => ({
-  drizzle: mockDrizzleFn,
-}));
-
-// resolve4 returns the hostname as-is so the URL host is predictable in tests
-vi.mock("node:dns/promises", () => ({
-  resolve4: vi.fn((hostname: string) => Promise.resolve([hostname])),
-}));
+// NB: register() non fa più lavoro DB al boot. Le migrazioni le applica
+// `migrate.js` (processo separato del Dockerfile) e il backfill una-tantum di
+// `trial_vat_ledger` è stato rimosso una volta seedato il ledger. Niente mock di
+// postgres / drizzle / dns qui.
 
 const mockAssertIdentityEnv = vi.fn();
 vi.mock("@/lib/identity-env", () => ({
   assertIdentityEnv: mockAssertIdentityEnv,
 }));
 
-const mockBackfill = vi.fn();
-vi.mock("@/lib/backfill-trial-vat-ledger", () => ({
-  backfillTrialVatLedgerIfEmpty: mockBackfill,
-}));
-
-const mockLoggerError = vi.fn();
 vi.mock("@/lib/logger", () => ({
-  logger: { error: mockLoggerError, warn: vi.fn(), info: vi.fn() },
+  logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
 }));
 
-// Il keep-alive Supabase è fuso nello stesso register() (REVIEW.md #29):
-// va mockato @/lib/supabase/admin e va intercettato setInterval, altrimenti
-// register() in nodejs lascerebbe un timer reale al termine dei test.
+// Il keep-alive Supabase è dentro lo stesso register() (REVIEW.md #29): va
+// mockato @/lib/supabase/admin e intercettato setInterval, altrimenti register()
+// in nodejs lascerebbe un timer reale al termine dei test.
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminSupabaseClient: vi.fn(),
 }));
 
 describe("instrumentation register()", () => {
   let originalNextRuntime: string | undefined;
-  let originalDbUrl: string | undefined;
-  let originalDbUrlDirect: string | undefined;
-  let originalSkipMigrations: string | undefined;
 
   beforeEach(() => {
     originalNextRuntime = process.env.NEXT_RUNTIME;
-    originalDbUrl = process.env.DATABASE_URL;
-    originalDbUrlDirect = process.env.DATABASE_URL_DIRECT;
-    originalSkipMigrations = process.env.SKIP_MIGRATIONS;
-    // Default deterministico: il blocco DB di boot gira a meno che un test non
-    // setti esplicitamente SKIP_MIGRATIONS=true (evita leakage dall'env del runner).
-    delete process.env.SKIP_MIGRATIONS;
     // resetModules: il keep-alive ha una guardia di idempotenza module-level
     // (keepAliveStarted) — senza reset, dopo il primo register() nodejs gli
     // altri test non vedrebbero più setInterval chiamato.
@@ -77,21 +44,6 @@ describe("instrumentation register()", () => {
     } else {
       process.env.NEXT_RUNTIME = originalNextRuntime;
     }
-    if (originalDbUrl === undefined) {
-      delete process.env.DATABASE_URL;
-    } else {
-      process.env.DATABASE_URL = originalDbUrl;
-    }
-    if (originalDbUrlDirect === undefined) {
-      delete process.env.DATABASE_URL_DIRECT;
-    } else {
-      process.env.DATABASE_URL_DIRECT = originalDbUrlDirect;
-    }
-    if (originalSkipMigrations === undefined) {
-      delete process.env.SKIP_MIGRATIONS;
-    } else {
-      process.env.SKIP_MIGRATIONS = originalSkipMigrations;
-    }
   });
 
   it("does nothing when NEXT_RUNTIME is not 'nodejs'", async () => {
@@ -100,137 +52,27 @@ describe("instrumentation register()", () => {
 
     await register();
 
-    expect(mockPostgresDefault).not.toHaveBeenCalled();
-  });
-
-  it("throws when neither DATABASE_URL_DIRECT nor DATABASE_URL is set", async () => {
-    process.env.NEXT_RUNTIME = "nodejs";
-    delete process.env.DATABASE_URL;
-    delete process.env.DATABASE_URL_DIRECT;
-    const { register } = await import("./instrumentation");
-
-    await expect(register()).rejects.toThrow(
-      "DATABASE_URL_DIRECT or DATABASE_URL is required for the boot-time backfill",
-    );
-  });
-
-  it("prefers DATABASE_URL_DIRECT over DATABASE_URL", async () => {
-    process.env.NEXT_RUNTIME = "nodejs";
-    process.env.DATABASE_URL_DIRECT = "postgres://direct";
-    process.env.DATABASE_URL = "postgres://pooler";
-    const { register } = await import("./instrumentation");
-
-    await register();
-
-    expect(mockPostgresDefault).toHaveBeenCalledWith(
-      "postgres://direct",
-      expect.any(Object),
-    );
-  });
-
-  it("falls back to DATABASE_URL when DATABASE_URL_DIRECT is not set", async () => {
-    process.env.NEXT_RUNTIME = "nodejs";
-    delete process.env.DATABASE_URL_DIRECT;
-    process.env.DATABASE_URL = "postgres://pooler";
-    const { register } = await import("./instrumentation");
-
-    await register();
-
-    expect(mockPostgresDefault).toHaveBeenCalledWith(
-      "postgres://pooler",
-      expect.any(Object),
-    );
-  });
-
-  it("non chiama il migrator nativo di drizzle (le migrazioni girano in migrate.js)", async () => {
-    process.env.NEXT_RUNTIME = "nodejs";
-    process.env.DATABASE_URL = "postgres://test";
-    const { register } = await import("./instrumentation");
-
-    await register();
-
-    // Il modulo del migrator nativo non deve nemmeno essere importato: il
-    // backfill apre la connessione, ma nessun migrate() gira qui (PR #582).
-    expect(mockBackfill).toHaveBeenCalledOnce();
-  });
-
-  it("closes the DB connection after the backfill completes", async () => {
-    process.env.NEXT_RUNTIME = "nodejs";
-    process.env.DATABASE_URL = "postgres://test";
-    const { register } = await import("./instrumentation");
-
-    await register();
-
-    expect(mockClientEnd).toHaveBeenCalled();
-  });
-
-  it("esegue il backfill del ledger anti-frode dopo aver aperto la connessione e prima di chiuderla", async () => {
-    process.env.NEXT_RUNTIME = "nodejs";
-    process.env.DATABASE_URL = "postgres://test";
-    const { register } = await import("./instrumentation");
-
-    await register();
-
-    expect(mockBackfill).toHaveBeenCalledWith(mockDb);
-    const connOrder = mockPostgresDefault.mock.invocationCallOrder[0]!;
-    const backfillOrder = mockBackfill.mock.invocationCallOrder[0]!;
-    const endOrder = mockClientEnd.mock.invocationCallOrder[0]!;
-    expect(connOrder).toBeLessThan(backfillOrder);
-    expect(backfillOrder).toBeLessThan(endOrder);
-  });
-
-  it("non blocca l'avvio se il backfill fallisce (degrada, regola 19)", async () => {
-    process.env.NEXT_RUNTIME = "nodejs";
-    process.env.DATABASE_URL = "postgres://test";
-    mockBackfill.mockRejectedValueOnce(new Error("backfill boom"));
-    const { register } = await import("./instrumentation");
-
-    await expect(register()).resolves.toBeUndefined();
-    // La connessione viene comunque chiusa e l'errore è loggato.
-    expect(mockClientEnd).toHaveBeenCalled();
-    expect(mockLoggerError).toHaveBeenCalledWith(
-      expect.objectContaining({ critical: true }),
-      expect.stringContaining("backfill trial_vat_ledger fallito"),
-    );
-  });
-
-  it("salta il blocco DB di boot quando SKIP_MIGRATIONS=true (no connessione, no backfill)", async () => {
-    process.env.NEXT_RUNTIME = "nodejs";
-    process.env.DATABASE_URL = "postgres://test";
-    process.env.SKIP_MIGRATIONS = "true";
-    const { register } = await import("./instrumentation");
-
-    await register();
-
-    // Nessun lavoro DB al boot: nello smoke-test CI (immagine prod senza DB
-    // raggiungibile) il backfill faceva ECONNREFUSED → Sentry "production"
-    // (SCONTRINOZERO-P). Coerente con migrate.js che onora lo stesso flag.
-    expect(mockPostgresDefault).not.toHaveBeenCalled();
-    expect(mockBackfill).not.toHaveBeenCalled();
-    expect(mockClientEnd).not.toHaveBeenCalled();
-    expect(mockLoggerError).not.toHaveBeenCalled();
-    // Il keep-alive Supabase parte comunque (fuori dal gate).
-    expect(global.setInterval).toHaveBeenCalledOnce();
+    expect(mockAssertIdentityEnv).not.toHaveBeenCalled();
+    expect(global.setInterval).not.toHaveBeenCalled();
   });
 
   it("R24: chiama assertIdentityEnv come prima istruzione nel runtime nodejs", async () => {
     process.env.NEXT_RUNTIME = "nodejs";
-    process.env.DATABASE_URL = "postgres://test";
     const { register } = await import("./instrumentation");
 
     await register();
 
     expect(mockAssertIdentityEnv).toHaveBeenCalledOnce();
-    // Deve essere chiamato PRIMA del migrate (altrimenti un container con
-    // env malformate fa lavorare il pool DB inutilmente prima di crashare).
+    // Deve essere chiamato PRIMA del keep-alive (un container con env malformate
+    // deve crashare al boot, non lasciare un timer attivo).
     const assertOrder = mockAssertIdentityEnv.mock.invocationCallOrder[0]!;
-    const postgresOrder = mockPostgresDefault.mock.invocationCallOrder[0]!;
-    expect(assertOrder).toBeLessThan(postgresOrder);
+    const setIntervalOrder = vi.mocked(global.setInterval).mock
+      .invocationCallOrder[0]!;
+    expect(assertOrder).toBeLessThan(setIntervalOrder);
   });
 
   it("R24: register propaga il throw di assertIdentityEnv (container non parte in prod)", async () => {
     process.env.NEXT_RUNTIME = "nodejs";
-    process.env.DATABASE_URL = "postgres://test";
     mockAssertIdentityEnv.mockImplementationOnce(() => {
       throw new Error("identity env validation failed at boot");
     });
@@ -239,8 +81,8 @@ describe("instrumentation register()", () => {
     await expect(register()).rejects.toThrow(
       /identity env validation failed at boot/,
     );
-    // Il pool DB non deve essere aperto quando l'identita' e' rotta.
-    expect(mockPostgresDefault).not.toHaveBeenCalled();
+    // Il keep-alive non deve partire quando l'identità è rotta.
+    expect(global.setInterval).not.toHaveBeenCalled();
   });
 
   it("R24: NON chiama assertIdentityEnv quando NEXT_RUNTIME non e' nodejs", async () => {
@@ -252,19 +94,13 @@ describe("instrumentation register()", () => {
     expect(mockAssertIdentityEnv).not.toHaveBeenCalled();
   });
 
-  it("avvia il keep-alive Supabase dopo il backfill nel ramo nodejs (REVIEW.md #29)", async () => {
+  it("avvia il keep-alive Supabase nel ramo nodejs (REVIEW.md #29)", async () => {
     process.env.NEXT_RUNTIME = "nodejs";
-    process.env.DATABASE_URL = "postgres://test";
     const { register } = await import("./instrumentation");
 
     await register();
 
     expect(global.setInterval).toHaveBeenCalledOnce();
-    // Keep-alive in coda: dopo il backfill.
-    const backfillOrder = mockBackfill.mock.invocationCallOrder[0]!;
-    const setIntervalOrder = vi.mocked(global.setInterval).mock
-      .invocationCallOrder[0]!;
-    expect(backfillOrder).toBeLessThan(setIntervalOrder);
   });
 
   it("NON avvia il keep-alive quando NEXT_RUNTIME=edge", async () => {
