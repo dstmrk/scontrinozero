@@ -130,7 +130,7 @@ describe("getEncryptionKey", () => {
     process.env.ENCRYPTION_KEY = "ab".repeat(32);
     const key = getEncryptionKey();
     expect(key).toBeInstanceOf(Buffer);
-    expect(key.length).toBe(32);
+    expect(key).toHaveLength(32);
   });
 
   it("throws when ENCRYPTION_KEY is missing", () => {

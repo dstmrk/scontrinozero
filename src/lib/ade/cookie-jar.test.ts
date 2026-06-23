@@ -280,7 +280,7 @@ describe("CookieJar", () => {
       expect(value).toContain("A=1");
       expect(value).toContain("B=2");
       expect(value).toContain("C=3");
-      expect(value.split("; ").length).toBe(3);
+      expect(value.split("; ")).toHaveLength(3);
     });
 
     it("returns empty string when jar is empty", () => {

@@ -36,7 +36,7 @@ describe("JsonLd component", () => {
     };
     const html = renderToStaticMarkup(createElement(JsonLd, { data }));
     const closings = html.match(/<\/script>/g) ?? [];
-    expect(closings.length).toBe(1);
+    expect(closings).toHaveLength(1);
     expect(html).toContain("\\u003c/script\\u003e");
   });
 
@@ -193,11 +193,11 @@ describe("faqPageJsonLd", () => {
       { question: "Q2?", answer: "A2" },
     ];
     const result = faqPageJsonLd(items);
-    expect(result.mainEntity.length).toBe(items.length);
+    expect(result.mainEntity).toHaveLength(items.length);
   });
 
   it("includes all FAQ entries from faqItems", () => {
-    expect(faqPageJsonLd(faqItems).mainEntity.length).toBe(faqItems.length);
+    expect(faqPageJsonLd(faqItems).mainEntity).toHaveLength(faqItems.length);
   });
 
   it("each entry has @type Question", () => {
