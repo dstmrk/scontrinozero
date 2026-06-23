@@ -37,6 +37,7 @@ import type { AdeCedentePrestatore } from "@/lib/ade/types";
 import {
   buildAdeSearchWindow,
   claimStaleDocument,
+  findClaimedTransactionIds,
   getStalePendingThresholdMs,
   reconcileSaleDocument,
 } from "./ade-recovery";
@@ -525,6 +526,7 @@ async function reconcileSaleBeforeResubmit(
   const { documentId, businessId, createdAt, expectedTotalCents, lotteryCode } =
     ctx;
   let documents;
+  let claimedIdtrx: ReadonlySet<string>;
   try {
     const window = buildAdeSearchWindow(createdAt);
     const list = await adeClient.searchDocuments({
@@ -532,6 +534,14 @@ async function reconcileSaleBeforeResubmit(
       tipoOperazione: "V",
     });
     documents = list.elencoRisultati;
+    // Escludi i documenti AdE già collegati ad altre righe del business: un
+    // idtrx già rivendicato è una vendita diversa e già contabilizzata, non il
+    // nostro orfano (riduce ambiguous + previene falsi match).
+    claimedIdtrx = await findClaimedTransactionIds(getDb(), {
+      businessId,
+      excludeDocumentId: documentId,
+      idtrxs: documents.map((doc) => doc.idtrx),
+    });
   } catch (err) {
     // Fail-safe: non sappiamo se AdE aveva accettato → NON ri-sottomettiamo.
     logAdeFailure(
@@ -554,6 +564,7 @@ async function reconcileSaleBeforeResubmit(
     expectedTotalCents,
     createdAt,
     lotteryCode,
+    claimedIdtrx,
   });
 
   if (result.kind === "match") {

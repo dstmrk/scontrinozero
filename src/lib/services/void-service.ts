@@ -30,6 +30,7 @@ import type { AdeResponse } from "@/lib/ade/types";
 import {
   buildAdeSearchWindow,
   claimStaleDocument,
+  findClaimedTransactionIds,
   getStalePendingThresholdMs,
   reconcileVoidDocument,
 } from "./ade-recovery";
@@ -648,6 +649,7 @@ async function reconcileVoidBeforeResubmit(
 ): Promise<VoidReceiptResult | null> {
   const { voidDocumentId, saleDocumentId, businessId, saleProgressivo } = ctx;
   let documents;
+  let claimedIdtrx: ReadonlySet<string>;
   try {
     const window = buildAdeSearchWindow(ctx.voidCreatedAt);
     const list = await adeClient.searchDocuments({
@@ -655,6 +657,13 @@ async function reconcileVoidBeforeResubmit(
       tipoOperazione: "A",
     });
     documents = list.elencoRisultati;
+    // Escludi gli annulli AdE già collegati ad altre righe del business
+    // (simmetrico alla vendita): un idtrx già rivendicato non è il nostro orfano.
+    claimedIdtrx = await findClaimedTransactionIds(getDb(), {
+      businessId,
+      excludeDocumentId: voidDocumentId,
+      idtrxs: documents.map((doc) => doc.idtrx),
+    });
   } catch (err) {
     // Fail-safe: non sappiamo se AdE aveva registrato l'annullo → NON ri-sottomettiamo.
     logAdeFailure(
@@ -672,7 +681,11 @@ async function reconcileVoidBeforeResubmit(
     };
   }
 
-  const result = reconcileVoidDocument({ documents, saleProgressivo });
+  const result = reconcileVoidDocument({
+    documents,
+    saleProgressivo,
+    claimedIdtrx,
+  });
 
   if (result.kind === "match") {
     logger.warn(
