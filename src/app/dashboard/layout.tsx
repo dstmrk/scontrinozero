@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
+import { ThemeProvider } from "next-themes";
 import { LogOut, Settings } from "lucide-react";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getOnboardingStatus } from "@/server/onboarding-actions";
@@ -35,59 +36,71 @@ export default async function DashboardLayout({
   const announcement = getAnnouncement();
 
   return (
-    <div className="flex min-h-screen flex-col">
-      {announcement && <AnnouncementBanner {...announcement} />}
-      <header className="bg-background border-b">
-        <div className="container mx-auto flex items-center justify-between px-4 py-3">
-          <Link
-            href="/dashboard"
-            className="text-primary flex items-center gap-2 text-lg font-bold"
-          >
-            <Image src="/logo.png" alt="ScontrinoZero" width={20} height={20} />
-            ScontrinoZero
-          </Link>
-
-          <div className="flex items-center md:hidden">
-            <Button
-              variant="ghost"
-              size="icon"
-              asChild
-              aria-label="Impostazioni"
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+    >
+      <div className="flex min-h-screen flex-col">
+        {announcement && <AnnouncementBanner {...announcement} />}
+        <header className="bg-background border-b">
+          <div className="container mx-auto flex items-center justify-between px-4 py-3">
+            <Link
+              href="/dashboard"
+              className="text-primary flex items-center gap-2 text-lg font-bold"
             >
-              <Link href="/dashboard/settings">
-                <Settings className="h-5 w-5" />
-              </Link>
-            </Button>
-            <form action={signOut}>
+              <Image
+                src="/logo.png"
+                alt="ScontrinoZero"
+                width={20}
+                height={20}
+              />
+              ScontrinoZero
+            </Link>
+
+            <div className="flex items-center md:hidden">
               <Button
                 variant="ghost"
                 size="icon"
-                type="submit"
-                aria-label="Esci"
+                asChild
+                aria-label="Impostazioni"
               >
-                <LogOut className="h-5 w-5" />
+                <Link href="/dashboard/settings">
+                  <Settings className="h-5 w-5" />
+                </Link>
               </Button>
-            </form>
+              <form action={signOut}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  type="submit"
+                  aria-label="Esci"
+                >
+                  <LogOut className="h-5 w-5" />
+                </Button>
+              </form>
+            </div>
+
+            <nav className="hidden items-center gap-4 md:flex">
+              <HeaderNav />
+
+              <form action={signOut}>
+                <Button variant="ghost" size="sm" type="submit">
+                  Esci
+                </Button>
+              </form>
+            </nav>
           </div>
+        </header>
 
-          <nav className="hidden items-center gap-4 md:flex">
-            <HeaderNav />
+        <main className="container mx-auto flex-1 px-4 py-6 pb-20 md:pb-6">
+          {children}
+        </main>
 
-            <form action={signOut}>
-              <Button variant="ghost" size="sm" type="submit">
-                Esci
-              </Button>
-            </form>
-          </nav>
-        </div>
-      </header>
-
-      <main className="container mx-auto flex-1 px-4 py-6 pb-20 md:pb-6">
-        {children}
-      </main>
-
-      <BottomNav />
-      <PwaInstallPrompt />
-    </div>
+        <BottomNav />
+        <PwaInstallPrompt />
+      </div>
+    </ThemeProvider>
   );
 }

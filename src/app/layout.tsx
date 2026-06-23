@@ -75,7 +75,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="it">
+    <html lang="it" suppressHydrationWarning>
       <body
         className={`${nunitoSans.variable} ${geistMono.variable} antialiased`}
       >
