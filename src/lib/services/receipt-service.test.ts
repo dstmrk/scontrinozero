@@ -62,10 +62,16 @@ vi.mock("@/db/schema", () => ({
 const mockLogin = vi.fn();
 const mockLogout = vi.fn();
 const mockSubmitSale = vi.fn();
+// Lookup AdE pre-retry (REVIEW.md #4): default "nessun match" → il recovery
+// procede col re-submit come prima. Override per-test per match/ambiguous/throw.
+const mockSearchDocuments = vi
+  .fn()
+  .mockResolvedValue({ totalCount: 0, elencoRisultati: [] });
 const mockAdeClient = {
   login: mockLogin,
   logout: mockLogout,
   submitSale: mockSubmitSale,
+  searchDocuments: mockSearchDocuments,
 };
 // withAdeSession (REVIEW #5) sostituisce createAdeClient + login/logout manuali.
 // Il mock riproduce il ciclo mock-mode: login → fn(client) → logout nel finally,
@@ -160,6 +166,10 @@ describe("emitReceiptForBusiness", () => {
     mockLogin.mockResolvedValue({});
     mockSubmitSale.mockResolvedValue(FAKE_ADE_RESPONSE);
     mockLogout.mockResolvedValue(undefined);
+    mockSearchDocuments.mockResolvedValue({
+      totalCount: 0,
+      elencoRisultati: [],
+    });
   });
 
   it("happy path: emette scontrino e ritorna documentId e adeTransactionId", async () => {
@@ -486,6 +496,115 @@ describe("emitReceiptForBusiness", () => {
     expect(result.error).toBeUndefined();
     expect(result.documentId).toBe("doc-456");
     expect(mockSubmitSale).toHaveBeenCalled();
+    // Lookup eseguito (default vuoto → none → re-submit).
+    expect(mockSearchDocuments).toHaveBeenCalledWith(
+      expect.objectContaining({ tipoOperazione: "V" }),
+    );
+  });
+
+  it("recovery vendita: searchDocuments trova un match → finalize-only, niente submitSale (REVIEW.md #4)", async () => {
+    mockDocumentReturning.mockResolvedValue([]);
+    // createdAt fisso: il suo wall-clock italiano (CET) è 23/02/2026 10:06:14.
+    const createdAt = new Date("2026-02-23T09:06:14Z");
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-match",
+        status: "PENDING",
+        adeTransactionId: null,
+        adeProgressive: null,
+        createdAt,
+        updatedAt: createdAt,
+      },
+    ]);
+    // AdE aveva già accettato: stesso importo (€20.00 = 2000 cents) e stesso istante.
+    mockSearchDocuments.mockResolvedValueOnce({
+      totalCount: 1,
+      elencoRisultati: [
+        {
+          idtrx: "154294949",
+          numeroProgressivo: "DCW2026/5432-1548",
+          cfCliente: "",
+          data: "23/02/2026 10:06:14",
+          tipoOperazione: "V",
+          ammontareComplessivo: 20.0,
+        },
+      ],
+    });
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.documentId).toBe("doc-match");
+    expect(result.adeTransactionId).toBe("154294949");
+    expect(result.adeProgressive).toBe("DCW2026/5432-1548");
+    // CRITICO: AdE aveva già accettato → nessun re-submit (niente duplicato fiscale).
+    expect(mockSubmitSale).not.toHaveBeenCalled();
+  });
+
+  it("recovery vendita: match AdE ambiguo → PENDING_IN_PROGRESS, niente submitSale", async () => {
+    mockDocumentReturning.mockResolvedValue([]);
+    const createdAt = new Date("2026-02-23T09:06:14Z");
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-amb",
+        status: "PENDING",
+        adeTransactionId: null,
+        adeProgressive: null,
+        createdAt,
+        updatedAt: createdAt,
+      },
+    ]);
+    // Due documenti stesso importo nella stessa finestra → conservativo.
+    mockSearchDocuments.mockResolvedValueOnce({
+      totalCount: 2,
+      elencoRisultati: [
+        {
+          idtrx: "1",
+          numeroProgressivo: "DCW2026/5432-1",
+          cfCliente: "",
+          data: "23/02/2026 10:06:14",
+          tipoOperazione: "V",
+          ammontareComplessivo: 20.0,
+        },
+        {
+          idtrx: "2",
+          numeroProgressivo: "DCW2026/5432-2",
+          cfCliente: "",
+          data: "23/02/2026 10:06:20",
+          tipoOperazione: "V",
+          ammontareComplessivo: 20.0,
+        },
+      ],
+    });
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("PENDING_IN_PROGRESS");
+    expect(mockSubmitSale).not.toHaveBeenCalled();
+  });
+
+  it("recovery vendita: searchDocuments fallisce → fail-safe PENDING_IN_PROGRESS, niente submitSale", async () => {
+    mockDocumentReturning.mockResolvedValue([]);
+    const createdAt = new Date("2026-02-23T09:06:14Z");
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-lookup-fail",
+        status: "PENDING",
+        adeTransactionId: null,
+        adeProgressive: null,
+        createdAt,
+        updatedAt: createdAt,
+      },
+    ]);
+    mockSearchDocuments.mockRejectedValueOnce(new Error("network down"));
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    // Non sappiamo se AdE aveva accettato → mai re-submit (rischio duplicato).
+    expect(result.code).toBe("PENDING_IN_PROGRESS");
+    expect(mockSubmitSale).not.toHaveBeenCalled();
   });
 
   it("PENDING di 10 min NON è stale (soglia a 30 min) — ritorna PENDING_IN_PROGRESS", async () => {

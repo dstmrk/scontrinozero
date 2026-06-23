@@ -22,6 +22,7 @@ const {
   mockAdeLogin,
   mockAdeGetDocument,
   mockAdeSubmitVoid,
+  mockAdeSearchDocuments,
   mockAdeLogout,
   mockMapVoidToAdePayload,
 } = vi.hoisted(() => ({
@@ -43,6 +44,7 @@ const {
   mockAdeLogin: vi.fn(),
   mockAdeGetDocument: vi.fn(),
   mockAdeSubmitVoid: vi.fn(),
+  mockAdeSearchDocuments: vi.fn(),
   mockAdeLogout: vi.fn(),
   mockMapVoidToAdePayload: vi.fn(),
 }));
@@ -162,6 +164,7 @@ function setupAdeClient() {
     login: mockAdeLogin,
     getDocument: mockAdeGetDocument,
     submitVoid: mockAdeSubmitVoid,
+    searchDocuments: mockAdeSearchDocuments,
     logout: mockAdeLogout,
   });
   mockAdeLogin.mockResolvedValue(undefined);
@@ -170,6 +173,12 @@ function setupAdeClient() {
     esito: true,
     idtrx: "void-tx-1",
     progressivo: "2",
+  });
+  // Default: nessun documento trovato su AdE → il recovery procede al re-submit.
+  // I test che vogliono il ramo "match" (finalize-only) sovrascrivono questo mock.
+  mockAdeSearchDocuments.mockResolvedValue({
+    totalCount: 0,
+    elencoRisultati: [],
   });
   mockAdeLogout.mockResolvedValue(undefined);
   mockMapVoidToAdePayload.mockReturnValue({ payload: "void-payload" });

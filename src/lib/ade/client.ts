@@ -72,9 +72,13 @@ export interface AdeClient {
   /**
    * Ricerca documenti commerciali con filtri opzionali.
    *
-   * HAR finding (annullo.har [03], [04]):
-   *   GET /ser/api/documenti/v1/doc/documenti/?dataDal=...&dataInvioAl=...&page=1&perPage=10
+   * HAR finding (ricerca.har, annullo.har [03], [04]):
+   *   GET /ser/api/documenti/v1/doc/documenti/?dataDal=...&dataInvioAl=...
+   *       &page=1&pages=0&perPage=10&start=1&v=<timestamp>
    *   GET /ser/api/documenti/v1/doc/documenti/?numeroProgressivo=...&tipoOperazione=V
+   *
+   * Usato dal recovery pre-retry per riconciliare un documento PENDING con AdE
+   * prima di ri-sottometterlo (evita duplicati fiscali — REVIEW.md #4).
    */
   searchDocuments(params: AdeSearchParams): Promise<AdeDocumentList>;
 

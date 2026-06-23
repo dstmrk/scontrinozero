@@ -21,8 +21,32 @@ vi.mock("@/db/schema", () => ({
   commercialDocuments: "commercial-documents-table",
 }));
 
-import { claimStaleDocument, getStalePendingThresholdMs } from "./ade-recovery";
+import {
+  buildAdeSearchWindow,
+  claimStaleDocument,
+  formatAdeQueryDate,
+  getStalePendingThresholdMs,
+  parseAdeResultDate,
+  reconcileSaleDocument,
+  reconcileVoidDocument,
+} from "./ade-recovery";
+import type { AdeDocumentSummary } from "@/lib/ade/types";
 import { getDb } from "@/db";
+
+function summary(over: Partial<AdeDocumentSummary> = {}): AdeDocumentSummary {
+  return {
+    idtrx: "154294949",
+    numeroProgressivo: "DCW2026/5432-1548",
+    cfCliente: "",
+    data: "23/02/2026 10:06:14",
+    tipoOperazione: "V",
+    ammontareComplessivo: 1.7,
+    ...over,
+  };
+}
+
+// createdAt il cui wall-clock italiano (CET, +1 a febbraio) è 23/02/2026 10:06:14.
+const SALE_CREATED_AT = new Date("2026-02-23T09:06:14Z");
 
 describe("getStalePendingThresholdMs", () => {
   beforeEach(() => {
@@ -97,5 +121,196 @@ describe("claimStaleDocument", () => {
     const won = await claimStaleDocument(getDb(), "doc-1", new Date());
 
     expect(won).toBe(false);
+  });
+});
+
+describe("date helpers AdE (fuso Europe/Rome)", () => {
+  it("formatAdeQueryDate emette MM/DD/YYYY in ora italiana (CET, inverno)", () => {
+    expect(formatAdeQueryDate(new Date("2026-02-23T09:06:14Z"))).toBe(
+      "02/23/2026",
+    );
+  });
+
+  it("formatAdeQueryDate gestisce il boundary di mezzanotte UTC", () => {
+    // 23:30Z del 23/02 = 00:30 del 24/02 ora italiana.
+    expect(formatAdeQueryDate(new Date("2026-02-23T23:30:00Z"))).toBe(
+      "02/24/2026",
+    );
+  });
+
+  it("parseAdeResultDate interpreta DD/MM/YYYY HH:MM:SS come ora italiana (CET)", () => {
+    expect(parseAdeResultDate("23/02/2026 10:06:14")?.toISOString()).toBe(
+      "2026-02-23T09:06:14.000Z",
+    );
+  });
+
+  it("parseAdeResultDate interpreta l'ora legale (CEST, +2 in estate)", () => {
+    expect(parseAdeResultDate("15/07/2026 10:00:00")?.toISOString()).toBe(
+      "2026-07-15T08:00:00.000Z",
+    );
+  });
+
+  it("parseAdeResultDate ritorna null su formato non valido", () => {
+    expect(parseAdeResultDate("02/23/2026")).toBeNull();
+    expect(parseAdeResultDate("not-a-date")).toBeNull();
+  });
+
+  it("buildAdeSearchWindow copre ±1 giorno attorno al createdAt (boundary-safe)", () => {
+    const win = buildAdeSearchWindow(new Date("2026-02-23T23:30:00Z"));
+    expect(win.dataDal).toBe("02/23/2026");
+    expect(win.dataInvioAl).toBe("02/25/2026");
+  });
+});
+
+describe("reconcileSaleDocument", () => {
+  it("ritorna match (idtrx+numeroProgressivo) su importo esatto e tempo vicino", () => {
+    const result = reconcileSaleDocument({
+      documents: [summary()],
+      expectedTotalCents: 170,
+      createdAt: SALE_CREATED_AT,
+    });
+    expect(result).toEqual({
+      kind: "match",
+      idtrx: "154294949",
+      numeroProgressivo: "DCW2026/5432-1548",
+    });
+  });
+
+  it("ritorna none su lista vuota", () => {
+    const result = reconcileSaleDocument({
+      documents: [],
+      expectedTotalCents: 170,
+      createdAt: SALE_CREATED_AT,
+    });
+    expect(result).toEqual({ kind: "none" });
+  });
+
+  it("ritorna none quando l'importo non combacia", () => {
+    const result = reconcileSaleDocument({
+      documents: [summary({ ammontareComplessivo: 2.5 })],
+      expectedTotalCents: 170,
+      createdAt: SALE_CREATED_AT,
+    });
+    expect(result).toEqual({ kind: "none" });
+  });
+
+  it("ritorna none quando il documento è fuori dalla finestra temporale", () => {
+    const result = reconcileSaleDocument({
+      documents: [summary({ data: "23/02/2026 12:30:00" })],
+      expectedTotalCents: 170,
+      createdAt: SALE_CREATED_AT,
+    });
+    expect(result).toEqual({ kind: "none" });
+  });
+
+  it("ignora i documenti di annullo (tipoOperazione A)", () => {
+    const result = reconcileSaleDocument({
+      documents: [summary({ tipoOperazione: "A" })],
+      expectedTotalCents: 170,
+      createdAt: SALE_CREATED_AT,
+    });
+    expect(result).toEqual({ kind: "none" });
+  });
+
+  it("ritorna ambiguous quando due documenti combaciano (conservativo)", () => {
+    const result = reconcileSaleDocument({
+      documents: [
+        summary({ idtrx: "1" }),
+        summary({ idtrx: "2", numeroProgressivo: "DCW2026/5432-1549" }),
+      ],
+      expectedTotalCents: 170,
+      createdAt: SALE_CREATED_AT,
+    });
+    expect(result).toEqual({ kind: "ambiguous" });
+  });
+
+  it("usa il codice lotteria come chiave secondaria quando presente", () => {
+    const docs = [
+      summary({ idtrx: "1", cfCliente: "OTHER123" }),
+      summary({ idtrx: "2", cfCliente: "YYWLR30G" }),
+    ];
+    const result = reconcileSaleDocument({
+      documents: docs,
+      expectedTotalCents: 170,
+      createdAt: SALE_CREATED_AT,
+      lotteryCode: "YYWLR30G",
+    });
+    expect(result).toEqual({
+      kind: "match",
+      idtrx: "2",
+      numeroProgressivo: "DCW2026/5432-1548",
+    });
+  });
+
+  it("riconcilia importi frazionari in cents senza drift float (regola 17)", () => {
+    // 0.1 * 17 = 1.7000000000000002 in float → ammontareComplessivo arriva 1.7.
+    const result = reconcileSaleDocument({
+      documents: [summary({ ammontareComplessivo: 1.7 })],
+      expectedTotalCents: 170,
+      createdAt: SALE_CREATED_AT,
+    });
+    expect(result.kind).toBe("match");
+  });
+});
+
+describe("reconcileVoidDocument", () => {
+  it("ritorna match sull'annullo legato al progressivo della vendita", () => {
+    const docs = [
+      summary({
+        idtrx: "154295136",
+        numeroProgressivo: "DCW2026/5432-1735",
+        tipoOperazione: "A",
+        annulli: "DCW2026/5432-1548",
+      }),
+    ];
+    const result = reconcileVoidDocument({
+      documents: docs,
+      saleProgressivo: "DCW2026/5432-1548",
+    });
+    expect(result).toEqual({
+      kind: "match",
+      idtrx: "154295136",
+      numeroProgressivo: "DCW2026/5432-1735",
+    });
+  });
+
+  it("ritorna none quando nessun annullo punta alla vendita", () => {
+    const result = reconcileVoidDocument({
+      documents: [
+        summary({ tipoOperazione: "A", annulli: "DCW2026/5432-9999" }),
+      ],
+      saleProgressivo: "DCW2026/5432-1548",
+    });
+    expect(result).toEqual({ kind: "none" });
+  });
+
+  it("ignora le vendite (tipoOperazione V) anche se annulli combacia", () => {
+    const result = reconcileVoidDocument({
+      documents: [
+        summary({ tipoOperazione: "V", annulli: "DCW2026/5432-1548" }),
+      ],
+      saleProgressivo: "DCW2026/5432-1548",
+    });
+    expect(result).toEqual({ kind: "none" });
+  });
+
+  it("ritorna ambiguous su due annulli per lo stesso progressivo (conservativo)", () => {
+    const docs = [
+      summary({
+        idtrx: "1",
+        tipoOperazione: "A",
+        annulli: "DCW2026/5432-1548",
+      }),
+      summary({
+        idtrx: "2",
+        tipoOperazione: "A",
+        annulli: "DCW2026/5432-1548",
+      }),
+    ];
+    const result = reconcileVoidDocument({
+      documents: docs,
+      saleProgressivo: "DCW2026/5432-1548",
+    });
+    expect(result).toEqual({ kind: "ambiguous" });
   });
 });

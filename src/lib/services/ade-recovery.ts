@@ -1,6 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
+import type { AdeDocumentSummary } from "@/lib/ade/types";
 
 /**
  * Soglia oltre la quale un documento commerciale PENDING/ERROR è
@@ -14,10 +15,12 @@ import { commercialDocuments } from "@/db/schema";
  * entrambi i flussi. Un drift potrebbe lasciare la sale recovery più
  * aggressiva del void recovery (o viceversa) per errore di copia.
  *
- * NB: la soluzione corretta al collision-window problem è il lookup AdE
- * pre-retry via `searchDocuments` (vedi `ricerca_documento.har`); la
- * soglia temporale è una mitigation finché quel lookup non viene
- * implementato — tracciato nel backlog.
+ * NB: il lookup AdE pre-retry via `searchDocuments` (vedi `ricerca.har` e
+ * `reconcileSaleDocument`/`reconcileVoidDocument` sotto) riconcilia il
+ * documento con AdE prima di ri-sottometterlo, chiudendo la collision window
+ * sull'irreversibile (duplicato fiscale). Questa soglia resta come gate di
+ * freschezza: gira solo quando un PENDING/ERROR è abbastanza vecchio da non
+ * essere plausibilmente ancora in volo.
  */
 export function getStalePendingThresholdMs(): number {
   const raw = process.env.STALE_PENDING_THRESHOLD_MINUTES;
@@ -64,4 +67,181 @@ export async function claimStaleDocument(
     )
     .returning({ id: commercialDocuments.id });
   return claimed.length === 1;
+}
+
+// ---------------------------------------------------------------------------
+// Lookup AdE pre-retry: riconciliazione del documento PENDING con la fonte di
+// verità (AdE) prima di ri-sottometterlo, per evitare un duplicato fiscale
+// irreversibile quando AdE aveva già accettato ma la response si era persa
+// (REVIEW.md #4, HAR: ricerca.har).
+// ---------------------------------------------------------------------------
+
+/** Fuso orario del portale AdE: i `data` di risposta sono wall-clock italiani. */
+const ADE_TZ = "Europe/Rome";
+
+/**
+ * Finestra di prossimità temporale (ms) entro cui un documento AdE è
+ * considerato lo stesso del nostro PENDING. Il match primario è sull'importo
+ * esatto in cents; la finestra è un tiebreaker per ridurre i falsi positivi
+ * quando lo stesso importo ricorre più volte nello stesso giorno.
+ */
+const RECONCILE_PROXIMITY_MS = 10 * 60 * 1000;
+
+export type AdeReconcileResult =
+  | { kind: "match"; idtrx: string; numeroProgressivo: string }
+  | { kind: "none" }
+  | { kind: "ambiguous" };
+
+/**
+ * Offset (wall-clock − UTC, in ms) del fuso `timeZone` per un dato istante.
+ * Usato per convertire fra istante UTC e ora locale italiana senza dipendenze.
+ */
+function tzOffsetMs(date: Date, timeZone: string): number {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  const parts = dtf.formatToParts(date);
+  const get = (type: string) =>
+    Number(parts.find((p) => p.type === type)?.value);
+  let hour = get("hour");
+  if (hour === 24) hour = 0; // Intl può emettere "24" a mezzanotte
+  const asUtc = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    hour,
+    get("minute"),
+    get("second"),
+  );
+  return asUtc - date.getTime();
+}
+
+/** Pad a 2 cifre. */
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/**
+ * Formatta un istante UTC come data query AdE (MM/DD/YYYY) in ora italiana.
+ * ⚠️ I query param `dataDal`/`dataInvioAl` usano MM/DD/YYYY, mentre il `data`
+ * di risposta è DD/MM/YYYY HH:MM:SS (asimmetria reale — vedi AdeDocumentSummary).
+ */
+export function formatAdeQueryDate(date: Date): string {
+  // Sposta l'istante nel "wall-clock" italiano, poi leggi i componenti in UTC.
+  const local = new Date(date.getTime() + tzOffsetMs(date, ADE_TZ));
+  return `${pad2(local.getUTCMonth() + 1)}/${pad2(local.getUTCDate())}/${local.getUTCFullYear()}`;
+}
+
+/**
+ * Parsea il `data` di un risultato AdE ("DD/MM/YYYY HH:MM:SS", ora italiana)
+ * nell'istante UTC corrispondente. Ritorna `null` se il formato non combacia.
+ */
+export function parseAdeResultDate(value: string): Date | null {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})$/.exec(
+    value.trim(),
+  );
+  if (!m) return null;
+  const [, dd, mm, yyyy, hh, mi, ss] = m.map(Number);
+  // Interpreta i componenti come UTC, poi sottrai l'offset italiano per
+  // ottenere l'istante reale (trucco standard wall-clock → instant).
+  const guess = Date.UTC(yyyy, mm - 1, dd, hh, mi, ss);
+  const offset = tzOffsetMs(new Date(guess), ADE_TZ);
+  return new Date(guess - offset);
+}
+
+/**
+ * Finestra date [createdAt−1g, createdAt+1g] in MM/DD/YYYY (ora italiana) per
+ * la query `searchDocuments`. ±1 giorno copre il boundary UTC↔Rome (un PENDING
+ * creato a cavallo di mezzanotte UTC cade in due date italiane diverse).
+ */
+export function buildAdeSearchWindow(createdAt: Date): {
+  dataDal: string;
+  dataInvioAl: string;
+} {
+  const day = 24 * 60 * 60 * 1000;
+  return {
+    dataDal: formatAdeQueryDate(new Date(createdAt.getTime() - day)),
+    dataInvioAl: formatAdeQueryDate(new Date(createdAt.getTime() + day)),
+  };
+}
+
+/** Importo del summary AdE (euro number) confrontato in cents. */
+function matchesAmount(
+  doc: AdeDocumentSummary,
+  expectedCents: number,
+): boolean {
+  return Math.round(doc.ammontareComplessivo * 100) === expectedCents;
+}
+
+/** Prossimità temporale fra il `data` del summary e il nostro createdAt. */
+function withinProximity(doc: AdeDocumentSummary, createdAt: Date): boolean {
+  const parsed = parseAdeResultDate(doc.data);
+  if (!parsed) return false;
+  return (
+    Math.abs(parsed.getTime() - createdAt.getTime()) <= RECONCILE_PROXIMITY_MS
+  );
+}
+
+/** Riduce una lista di candidati a un esito match/none/ambiguous. */
+function decide(candidates: AdeDocumentSummary[]): AdeReconcileResult {
+  if (candidates.length === 0) return { kind: "none" };
+  if (candidates.length > 1) return { kind: "ambiguous" };
+  const [doc] = candidates;
+  return {
+    kind: "match",
+    idtrx: doc.idtrx,
+    numeroProgressivo: doc.numeroProgressivo,
+  };
+}
+
+/**
+ * Riconcilia una VENDITA PENDING con i risultati di `searchDocuments`.
+ *
+ * Match: `tipoOperazione === "V"` + importo esatto (cents) + prossimità
+ * temporale (±10 min) dal createdAt. Quando il codice lotteria è presente,
+ * `cfCliente === lotteryCode` è una chiave secondaria che restringe ulteriormente.
+ *
+ * 0 candidati → none (procedi col re-submit); 1 → match (finalize-only);
+ * >1 → ambiguous (conservativo: non finalizzare, resta PENDING).
+ */
+export function reconcileSaleDocument(params: {
+  documents: AdeDocumentSummary[];
+  expectedTotalCents: number;
+  createdAt: Date;
+  lotteryCode?: string | null;
+}): AdeReconcileResult {
+  const { documents, expectedTotalCents, createdAt, lotteryCode } = params;
+  const candidates = documents.filter(
+    (doc) =>
+      doc.tipoOperazione === "V" &&
+      matchesAmount(doc, expectedTotalCents) &&
+      withinProximity(doc, createdAt) &&
+      (!lotteryCode || doc.cfCliente === lotteryCode),
+  );
+  return decide(candidates);
+}
+
+/**
+ * Riconcilia un ANNULLO PENDING con i risultati di `searchDocuments`.
+ *
+ * Chiave forte: `tipoOperazione === "A"` + `annulli === saleProgressivo` (il
+ * progressivo della vendita annullata, univoco per cedente). Non serve la
+ * finestra temporale: l'annullo è legato in modo univoco alla vendita.
+ */
+export function reconcileVoidDocument(params: {
+  documents: AdeDocumentSummary[];
+  saleProgressivo: string;
+}): AdeReconcileResult {
+  const { documents, saleProgressivo } = params;
+  const candidates = documents.filter(
+    (doc) => doc.tipoOperazione === "A" && doc.annulli === saleProgressivo,
+  );
+  return decide(candidates);
 }

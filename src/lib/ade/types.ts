@@ -233,14 +233,28 @@ export interface AdeProduct {
  */
 export interface AdeDocumentSummary {
   idtrx: string;
+  /** Progressivo completo, es. "DCW2026/5432-1548" */
   numeroProgressivo: string;
-  /** Codice fiscale cliente (stringa vuota se assente) */
+  /**
+   * Codice fiscale cliente OPPURE codice lotteria (stringa vuota se assente).
+   * HAR (ricerca.har): valore tipo "YYWLR30G" (8 char = formato codice lotteria).
+   */
   cfCliente: string;
-  /** Data documento in formato MM/DD/YYYY */
+  /**
+   * Data/ora documento in formato DD/MM/YYYY HH:MM:SS (es. "23/02/2026 10:06:14").
+   * ⚠️ Asimmetria reale: i query param dataDal/dataInvioAl sono invece MM/DD/YYYY.
+   * HAR finding: ricerca.har / annullo.har.
+   */
   data: string;
   tipoOperazione: AdeOperationType;
-  ammontareComplessivo: string;
-  annulli?: unknown[] | null;
+  /** Ammontare complessivo in euro come number JSON (es. 1.7). HAR: ricerca.har. */
+  ammontareComplessivo: number;
+  /**
+   * Per una vendita (V): "A" se il documento risulta annullato.
+   * Per un annullo (A): il numeroProgressivo del documento annullato
+   * (es. "DCW2026/5432-1548"). Assente se non pertinente. HAR: ricerca.har.
+   */
+  annulli?: string;
 }
 
 /** Risposta lista documenti (GET /documenti/) */
@@ -316,9 +330,12 @@ export interface AdeDocumentDetail {
 /**
  * Parametri di ricerca documenti (GET /documenti/).
  *
- * HAR finding (annullo.har [03], [04]):
- * - date in formato MM/DD/YYYY (es. "02/23/2026")
+ * HAR finding (ricerca.har, annullo.har [03], [04]):
+ * - query date in formato MM/DD/YYYY (es. "01/31/2026")
  * - tipoOperazione: "V" per vendite, "A" per annulli
+ * - la request reale include sempre anche start=1, pages=0, perPage e un
+ *   cache-buster v=<timestamp>: gestiti da RealAdeClient.searchDocuments, non
+ *   esposti qui (il chiamante controlla solo i filtri + page/perPage).
  */
 export interface AdeSearchParams {
   /** Data dal formato MM/DD/YYYY */

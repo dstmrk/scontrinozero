@@ -58,6 +58,11 @@ Analogo all'emissione: `src/server/void-actions.ts` →
 Un documento rimasto "pending" (es. crash dopo la chiamata AdE) viene
 riconciliato da `src/lib/services/ade-recovery.ts`, con la soglia temporale
 descritta nella skill `stripe-webhooks` e in `docs/architecture/config-manifest.md`.
+Prima di ri-sottomettere ad AdE, il recovery interroga `searchDocuments`
+(HAR: `har/ricerca.har`) e riconcilia il documento con la fonte di verità via
+`reconcileSaleDocument`/`reconcileVoidDocument`: se AdE l'aveva già accettato →
+finalize-only (nessun duplicato fiscale), altrimenti re-submit; lookup
+ambiguo o fallito → resta pending (fail-safe).
 
 ## Ciclo abbonamento Stripe
 

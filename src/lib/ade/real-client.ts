@@ -1256,9 +1256,14 @@ export class RealAdeClient implements AdeClient {
   /**
    * Ricerca documenti commerciali con filtri opzionali.
    *
-   * HAR finding (annullo.har [03], [04]):
+   * HAR finding (ricerca.har [01]-[05], annullo.har [03], [04]):
    *   GET /ser/api/documenti/v1/doc/documenti/?dataDal=MM%2FDD%2FYYYY&dataInvioAl=...
-   *   GET /ser/api/documenti/v1/doc/documenti/?numeroProgressivo=...&tipoOperazione=V
+   *       &page=1&pages=0&perPage=10&start=1&v=<timestamp>
+   *   GET /ser/api/documenti/v1/doc/documenti/?numeroProgressivo=...&tipoOperazione=V&...
+   *
+   * I param page/pages/perPage/start/v sono sempre presenti nella request reale
+   * (regola 14): start=1 e pages=0 sono costanti per una query a freddo, v è il
+   * cache-buster. Senza di essi il portale può rispondere in modo inatteso.
    */
   async searchDocuments(params: AdeSearchParams): Promise<AdeDocumentList> {
     this.assertLoggedIn();
@@ -1269,8 +1274,11 @@ export class RealAdeClient implements AdeClient {
     if (params.numeroProgressivo)
       qs.set("numeroProgressivo", params.numeroProgressivo);
     if (params.tipoOperazione) qs.set("tipoOperazione", params.tipoOperazione);
-    if (params.page !== undefined) qs.set("page", String(params.page));
-    if (params.perPage !== undefined) qs.set("perPage", String(params.perPage));
+    qs.set("page", String(params.page ?? 1));
+    qs.set("pages", "0");
+    qs.set("perPage", String(params.perPage ?? 10));
+    qs.set("start", "1");
+    qs.set("v", String(Date.now()));
 
     const url = `${ADE_BASE_URL}/ser/api/documenti/v1/doc/documenti/?${qs.toString()}`;
     const response = await this.request(url);

@@ -1457,21 +1457,23 @@ describe("RealAdeClient", () => {
   // -----------------------------------------------------------------------
 
   describe("searchDocuments", () => {
-    it("sends GET with dataDal/dataInvioAl params and returns list", async () => {
+    it("sends GET with dataDal/dataInvioAl + page/pages/perPage/start/v params and returns list", async () => {
       mockLoginSequence(fetchMock);
       await client.login(mockCredentials);
 
+      // Shape reale (ricerca.har): ammontareComplessivo number, data
+      // DD/MM/YYYY HH:MM:SS, annulli string.
       const mockList = {
         totalCount: 1,
         elencoRisultati: [
           {
             idtrx: "151085589",
             numeroProgressivo: "DCW2026/5111-2188",
-            cfCliente: "",
-            data: "02/15/2026",
+            cfCliente: "YYWLR30G",
+            data: "15/02/2026 10:06:14",
             tipoOperazione: "V",
-            ammontareComplessivo: "12.20",
-            annulli: null,
+            ammontareComplessivo: 12.2,
+            annulli: "A",
           },
         ],
       };
@@ -1485,18 +1487,25 @@ describe("RealAdeClient", () => {
         perPage: 10,
       });
 
-      // HAR fix (annullo.har [03]): URL con query string corretta
+      // HAR fix (ricerca.har): URL con query string completa (regola 14)
       const call = fetchMock.mock.calls[8];
       expect(call[0]).toContain("/ser/api/documenti/v1/doc/documenti/");
       expect(call[0]).toContain("dataDal=");
       expect(call[0]).toContain("02%2F15%2F2026");
+      expect(call[0]).toContain("page=1");
+      expect(call[0]).toContain("pages=0");
+      expect(call[0]).toContain("perPage=10");
+      expect(call[0]).toContain("start=1");
+      expect(call[0]).toMatch(/[?&]v=\d+/);
 
       expect(result.totalCount).toBe(1);
       expect(result.elencoRisultati).toHaveLength(1);
       expect(result.elencoRisultati[0].idtrx).toBe("151085589");
+      expect(result.elencoRisultati[0].ammontareComplessivo).toBe(12.2);
+      expect(result.elencoRisultati[0].annulli).toBe("A");
     });
 
-    it("sends GET with numeroProgressivo param", async () => {
+    it("sends GET with numeroProgressivo param + default page/pages/perPage/start/v", async () => {
       mockLoginSequence(fetchMock);
       await client.login(mockCredentials);
 
@@ -1509,10 +1518,15 @@ describe("RealAdeClient", () => {
         tipoOperazione: "V",
       });
 
-      // HAR fix (annullo.har [04]): ricerca per progressivo
+      // HAR fix (ricerca.har [01]): ricerca per progressivo
       const call = fetchMock.mock.calls[8];
       expect(call[0]).toContain("numeroProgressivo=");
       expect(call[0]).toContain("tipoOperazione=V");
+      expect(call[0]).toContain("page=1");
+      expect(call[0]).toContain("pages=0");
+      expect(call[0]).toContain("perPage=10");
+      expect(call[0]).toContain("start=1");
+      expect(call[0]).toMatch(/[?&]v=\d+/);
     });
 
     it("throws AdePortalError on non-200", async () => {

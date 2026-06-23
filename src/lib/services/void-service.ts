@@ -12,6 +12,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
 import { withAdeSession } from "@/lib/ade";
+import type { AdeClient } from "@/lib/ade/client";
 import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
 import { logAdeFailure } from "@/lib/ade/log-failure";
 import { mapVoidToAdePayload } from "@/lib/ade/mapper";
@@ -26,7 +27,12 @@ import { fetchAdePrerequisites } from "@/lib/server-auth";
 import type { VoidReceiptInput, VoidReceiptResult } from "@/types/storico";
 import type { VoidRequest } from "@/lib/ade/public-types";
 import type { AdeResponse } from "@/lib/ade/types";
-import { claimStaleDocument, getStalePendingThresholdMs } from "./ade-recovery";
+import {
+  buildAdeSearchWindow,
+  claimStaleDocument,
+  getStalePendingThresholdMs,
+  reconcileVoidDocument,
+} from "./ade-recovery";
 
 type ConflictOutcome =
   | { kind: "done"; result: VoidReceiptResult }
@@ -37,6 +43,7 @@ type ConflictOutcome =
       existingAdeTransactionId: string | null;
       existingAdeProgressive: string | null;
       existingUpdatedAt: Date;
+      existingCreatedAt: Date | null;
     };
 
 /**
@@ -153,6 +160,7 @@ async function resolveVoidConflict(
         existingAdeTransactionId: existingByKey.adeTransactionId,
         existingAdeProgressive: existingByKey.adeProgressive,
         existingUpdatedAt: existingByKey.updatedAt,
+        existingCreatedAt: existingByKey.createdAt,
       };
     }
 
@@ -384,6 +392,8 @@ type PrepareVoidOutcome =
       saleAdeProgressive: string;
       saleCreatedAt: Date;
       voidDocumentId: string;
+      recovery: boolean;
+      voidCreatedAt?: Date | null;
       prerequisites: {
         codiceFiscale: string;
         password: string;
@@ -504,6 +514,8 @@ async function prepareVoidDocument(
     saleAdeProgressive: adeProgressive,
     saleCreatedAt: createdAt,
     voidDocumentId: insertOutcome.voidDocumentId,
+    recovery: insertOutcome.recovery,
+    voidCreatedAt: insertOutcome.voidCreatedAt,
     prerequisites,
   };
 }
@@ -517,7 +529,12 @@ async function insertOrResolveVoid(
   apiKeyId: string | null | undefined,
 ): Promise<
   | { kind: "done"; result: VoidReceiptResult }
-  | { kind: "inserted"; voidDocumentId: string }
+  | {
+      kind: "inserted";
+      voidDocumentId: string;
+      recovery: boolean;
+      voidCreatedAt?: Date | null;
+    }
 > {
   const db = getDb();
   try {
@@ -535,7 +552,8 @@ async function insertOrResolveVoid(
       .returning({ id: commercialDocuments.id });
 
     if (voidDoc) {
-      return { kind: "inserted", voidDocumentId: voidDoc.id };
+      // Fresh insert: AdE non ha ancora nulla → nessun lookup pre-retry.
+      return { kind: "inserted", voidDocumentId: voidDoc.id, recovery: false };
     }
 
     // INSERT skipped due to a constraint conflict — delegate.
@@ -583,20 +601,16 @@ async function insertOrResolveVoid(
       };
     }
 
-    // Recovery path SENZA adeTransactionId noto: il retry rieseguirà submitVoid.
-    // Rischio residuo: se il primo attempt era arrivato ad AdE ma la response
-    // si è persa, qui creiamo un VOID duplicato. Il claim sopra serializza i
-    // retry concorrenti; la finestra residua resta mitigata dalla soglia stale,
-    // in attesa del lookup AdE pre-retry via searchDocuments.
-    logger.warn(
-      {
-        voidDocumentId: conflict.voidDocumentId,
-        saleDocumentId: input.documentId,
-        businessId: input.businessId,
-      },
-      "Void recovery: re-submitting submitVoid without AdE idempotency check (residual risk)",
-    );
-    return { kind: "inserted", voidDocumentId: conflict.voidDocumentId };
+    // Recovery path SENZA adeTransactionId noto: il caller (voidReceiptForBusiness)
+    // esegue il lookup AdE pre-retry via searchDocuments nella stessa sessione,
+    // prima di ri-sottomettere submitVoid (REVIEW.md #4): se AdE aveva già
+    // registrato l'annullo → finalize-only, altrimenti re-submit.
+    return {
+      kind: "inserted",
+      voidDocumentId: conflict.voidDocumentId,
+      recovery: true,
+      voidCreatedAt: conflict.existingCreatedAt,
+    };
   } catch (err) {
     if (isStatementTimeoutError(err)) {
       logger.warn(
@@ -607,6 +621,85 @@ async function insertOrResolveVoid(
     }
     throw err;
   }
+}
+
+/**
+ * Lookup AdE pre-retry per il recovery di un ANNULLO stale (REVIEW.md #4).
+ *
+ * Gira dentro `withAdeSession`, prima di getDocument/submitVoid, nella stessa
+ * sessione. Interroga `searchDocuments` (tipoOperazione "A") nella finestra del
+ * VOID e riconcilia con la chiave forte `annulli === saleProgressivo`:
+ *  - match → finalize-only con gli ID AdE recuperati (nessun submit, nessun
+ *    doppio annullo): ritorna il risultato finale.
+ *  - ambiguous → non finalizza: ritorna VOID_PENDING_IN_PROGRESS (conservativo).
+ *  - lookup fallito (rete/AdE down) → fail-safe: VOID_PENDING_IN_PROGRESS,
+ *    niente submit.
+ *  - none → ritorna `null`: il chiamante procede col re-submit come prima.
+ */
+async function reconcileVoidBeforeResubmit(
+  adeClient: AdeClient,
+  ctx: {
+    voidDocumentId: string;
+    saleDocumentId: string;
+    businessId: string;
+    saleProgressivo: string;
+    voidCreatedAt: Date;
+  },
+): Promise<VoidReceiptResult | null> {
+  const { voidDocumentId, saleDocumentId, businessId, saleProgressivo } = ctx;
+  let documents;
+  try {
+    const window = buildAdeSearchWindow(ctx.voidCreatedAt);
+    const list = await adeClient.searchDocuments({
+      ...window,
+      tipoOperazione: "A",
+    });
+    documents = list.elencoRisultati;
+  } catch (err) {
+    // Fail-safe: non sappiamo se AdE aveva registrato l'annullo → NON ri-sottomettiamo.
+    logAdeFailure(
+      err,
+      { voidDocumentId, saleDocumentId, businessId, flow: "void-receipt" },
+      {
+        transient: "Void recovery: searchDocuments lookup failed (transient)",
+        failure: "Void recovery: searchDocuments lookup failed",
+      },
+    );
+    return {
+      error:
+        "Annullo precedente ancora in elaborazione. Riprova tra qualche secondo.",
+      code: "VOID_PENDING_IN_PROGRESS",
+    };
+  }
+
+  const result = reconcileVoidDocument({ documents, saleProgressivo });
+
+  if (result.kind === "match") {
+    logger.warn(
+      { voidDocumentId, saleDocumentId, idtrx: result.idtrx },
+      "Void recovery: AdE già registrato (match) → finalize-only, niente re-submit",
+    );
+    return finalizeVoidOnly(
+      voidDocumentId,
+      saleDocumentId,
+      result.idtrx,
+      result.numeroProgressivo,
+    );
+  }
+
+  if (result.kind === "ambiguous") {
+    logger.warn(
+      { voidDocumentId, saleDocumentId },
+      "Void recovery: match AdE ambiguo → niente finalize, resta PENDING (conservativo)",
+    );
+    return {
+      error:
+        "Annullo precedente ancora in elaborazione. Riprova tra qualche secondo.",
+      code: "VOID_PENDING_IN_PROGRESS",
+    };
+  }
+
+  return null;
 }
 
 export async function voidReceiptForBusiness(
@@ -622,6 +715,8 @@ export async function voidReceiptForBusiness(
     saleAdeProgressive,
     saleCreatedAt,
     voidDocumentId,
+    recovery,
+    voidCreatedAt,
   } = prep;
   const { codiceFiscale, password, pin, cedentePrestatore } =
     prep.prerequisites;
@@ -633,6 +728,19 @@ export async function voidReceiptForBusiness(
         credentials: { codiceFiscale, password, pin },
       },
       async (adeClient) => {
+        // Lookup AdE pre-retry (REVIEW.md #4): solo in recovery, prima di
+        // ri-sottomettere, riconcilia l'annullo con AdE nella stessa sessione.
+        if (recovery && voidCreatedAt) {
+          const reconciled = await reconcileVoidBeforeResubmit(adeClient, {
+            voidDocumentId,
+            saleDocumentId: input.documentId,
+            businessId: input.businessId,
+            saleProgressivo: saleAdeProgressive,
+            voidCreatedAt,
+          });
+          if (reconciled) return reconciled;
+        }
+
         // Fetch original document from AdE to get real idElementoContabile values
         const originalAdeDoc =
           await adeClient.getDocument(saleAdeTransactionId);

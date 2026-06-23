@@ -34,7 +34,12 @@ import type {
 } from "@/types/cassa";
 import type { PaymentType, SaleDocumentRequest } from "@/lib/ade/public-types";
 import type { AdeCedentePrestatore } from "@/lib/ade/types";
-import { claimStaleDocument, getStalePendingThresholdMs } from "./ade-recovery";
+import {
+  buildAdeSearchWindow,
+  claimStaleDocument,
+  getStalePendingThresholdMs,
+  reconcileSaleDocument,
+} from "./ade-recovery";
 import { hashSaleRequest } from "./request-hash";
 
 const PAYMENT_METHOD_TO_ADE: Record<PaymentMethod, PaymentType> = {
@@ -387,20 +392,10 @@ async function recoverStaleReceipt(args: {
     };
   }
 
-  // Residual risk: re-eseguiamo submitSale senza poter verificare lato AdE
-  // se il primo attempt era già arrivato (no idempotency-key supportato).
-  // Se la response del primo era andata persa in volo, qui creiamo uno
-  // scontrino fiscale duplicato. Il claim sopra serializza i retry concorrenti;
-  // la finestra residua (response persa in volo) resta mitigata dalla soglia
-  // stale a 30 min, in attesa del lookup AdE pre-retry via searchDocuments.
-  logger.warn(
-    {
-      documentId: existing.id,
-      businessId: input.businessId,
-    },
-    "Sale recovery: re-submitting submitSale without AdE idempotency check (residual risk)",
-  );
-
+  // Lookup AdE pre-retry (REVIEW.md #4): submitSaleToAde, prima di ri-sottomettere,
+  // interroga searchDocuments nella stessa sessione e riconcilia il documento con
+  // AdE. Se AdE l'aveva già accettato → finalize-only (nessun duplicato fiscale);
+  // se la ricerca è ambigua o fallisce → resta PENDING (fail-safe), niente submit.
   return submitSaleToAde(
     existing.id,
     input,
@@ -409,6 +404,11 @@ async function recoverStaleReceipt(args: {
     apiKeyId,
     {
       recovery: true,
+      // Senza un createdAt valido non possiamo costruire la finestra di ricerca:
+      // saltiamo il lookup (caso patologico) e ricadiamo sul comportamento legacy.
+      reconcile: Number.isFinite(createdAtMs)
+        ? { createdAt: new Date(createdAtMs) }
+        : undefined,
     },
   );
 }
@@ -500,6 +500,86 @@ function formatEmitError(err: unknown): SubmitReceiptResult {
 }
 
 /**
+ * Lookup AdE pre-retry per il recovery di una VENDITA stale (REVIEW.md #4).
+ *
+ * Gira dentro `withAdeSession`, prima di `runSubmitSale`, nella stessa sessione.
+ * Interroga `searchDocuments` nella finestra del documento e riconcilia per
+ * importo (cents) + prossimità temporale (+ codice lotteria se presente):
+ *  - match → finalize-only con gli ID AdE recuperati (nessun submit, nessun
+ *    duplicato fiscale): ritorna il risultato finale.
+ *  - ambiguous → non finalizza: ritorna PENDING_IN_PROGRESS (conservativo).
+ *  - lookup fallito (rete/AdE down) → fail-safe: PENDING_IN_PROGRESS, niente
+ *    submit (meglio un retry dopo che un duplicato irreversibile).
+ *  - none → ritorna `null`: il chiamante procede col re-submit come prima.
+ */
+async function reconcileSaleBeforeResubmit(
+  adeClient: AdeClient,
+  ctx: {
+    documentId: string;
+    businessId: string;
+    createdAt: Date;
+    expectedTotalCents: number;
+    lotteryCode: string | null;
+  },
+): Promise<SubmitReceiptResult | null> {
+  const { documentId, businessId, createdAt, expectedTotalCents, lotteryCode } =
+    ctx;
+  let documents;
+  try {
+    const window = buildAdeSearchWindow(createdAt);
+    const list = await adeClient.searchDocuments({
+      ...window,
+      tipoOperazione: "V",
+    });
+    documents = list.elencoRisultati;
+  } catch (err) {
+    // Fail-safe: non sappiamo se AdE aveva accettato → NON ri-sottomettiamo.
+    logAdeFailure(
+      err,
+      { documentId, businessId, recovery: true, flow: "emit-receipt" },
+      {
+        transient: "Sale recovery: searchDocuments lookup failed (transient)",
+        failure: "Sale recovery: searchDocuments lookup failed",
+      },
+    );
+    return {
+      error:
+        "Scontrino precedente ancora in elaborazione. Riprova tra qualche secondo.",
+      code: "PENDING_IN_PROGRESS",
+    };
+  }
+
+  const result = reconcileSaleDocument({
+    documents,
+    expectedTotalCents,
+    createdAt,
+    lotteryCode,
+  });
+
+  if (result.kind === "match") {
+    logger.warn(
+      { documentId, businessId, idtrx: result.idtrx },
+      "Sale recovery: AdE già accettato (match) → finalize-only, niente re-submit",
+    );
+    return finalizeSaleOnly(documentId, result.idtrx, result.numeroProgressivo);
+  }
+
+  if (result.kind === "ambiguous") {
+    logger.warn(
+      { documentId, businessId },
+      "Sale recovery: match AdE ambiguo → niente finalize, resta PENDING (conservativo)",
+    );
+    return {
+      error:
+        "Scontrino precedente ancora in elaborazione. Riprova tra qualche secondo.",
+      code: "PENDING_IN_PROGRESS",
+    };
+  }
+
+  return null;
+}
+
+/**
  * Esegue la submitSale AdE e aggiorna il documento esistente con il risultato.
  * Usato sia per la prima emissione sia per la recovery di un PENDING/ERROR stale.
  */
@@ -514,7 +594,7 @@ async function submitSaleToAde(
     cedentePrestatore: AdeCedentePrestatore;
   },
   apiKeyId: string | null | undefined,
-  options: { recovery: boolean },
+  options: { recovery: boolean; reconcile?: { createdAt: Date } },
 ): Promise<SubmitReceiptResult> {
   const db = getDb();
   const { codiceFiscale, password, pin, cedentePrestatore } = prerequisites;
@@ -522,7 +602,8 @@ async function submitSaleToAde(
   // Per-line cents (canonical, REVIEW.md #1): the amount sent to AdE must match
   // the total on the PDF / public page (computeReceiptTotals) and the storico
   // (calcDocTotal), all derived from round(price * qty * 100) per line.
-  const totalAmount = calcInputLinesTotalCents(input.lines) / 100;
+  const totalCents = calcInputLinesTotalCents(input.lines);
+  const totalAmount = totalCents / 100;
   const saleDocRequest: SaleDocumentRequest = {
     date: getFiscalDate(),
     lotteryCode,
@@ -551,15 +632,28 @@ async function submitSaleToAde(
         businessId: input.businessId,
         credentials: { codiceFiscale, password, pin },
       },
-      (adeClient) =>
-        runSubmitSale(adeClient, {
+      async (adeClient) => {
+        // Lookup AdE pre-retry (REVIEW.md #4): solo in recovery, prima di
+        // ri-sottomettere, riconcilia il documento con AdE nella stessa sessione.
+        if (options.reconcile) {
+          const reconciled = await reconcileSaleBeforeResubmit(adeClient, {
+            documentId,
+            businessId: input.businessId,
+            createdAt: options.reconcile.createdAt,
+            expectedTotalCents: totalCents,
+            lotteryCode,
+          });
+          if (reconciled) return reconciled;
+        }
+        return runSubmitSale(adeClient, {
           documentId,
           input,
           saleDocRequest,
           cedentePrestatore,
           apiKeyId,
           recovery: options.recovery,
-        }),
+        });
+      },
     );
   } catch (err) {
     logAdeFailure(
