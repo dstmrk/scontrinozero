@@ -17,6 +17,9 @@ const {
   mockInsertOnConflictDoNothing,
   mockInsertReturning,
   mockInsert,
+  mockUpdateSet,
+  mockUpdateWhere,
+  mockUpdate,
   mockCustomerCreate,
   mockSessionCreate,
   mockRateLimiterCheck,
@@ -34,6 +37,9 @@ const {
   mockInsertOnConflictDoNothing: vi.fn(),
   mockInsertReturning: vi.fn(),
   mockInsert: vi.fn(),
+  mockUpdateSet: vi.fn(),
+  mockUpdateWhere: vi.fn(),
+  mockUpdate: vi.fn(),
   mockCustomerCreate: vi.fn(),
   mockSessionCreate: vi.fn(),
   mockRateLimiterCheck: vi.fn(),
@@ -103,12 +109,17 @@ describe("POST /api/stripe/checkout", () => {
       url: "https://checkout.stripe.com/test",
     });
 
-    // Default: no existing subscription
-    mockGetDb.mockReturnValue({ select: mockSelect, insert: mockInsert });
+    // Default: no existing subscription row
+    mockGetDb.mockReturnValue({
+      select: mockSelect,
+      insert: mockInsert,
+      update: mockUpdate,
+    });
     mockSelect.mockReturnValue({ from: mockFrom });
     mockFrom.mockReturnValue({ where: mockWhere });
     mockWhere.mockReturnValue({ limit: mockLimit });
     mockLimit.mockResolvedValue([]);
+
     mockInsert.mockReturnValue({ values: mockInsertValues });
     mockInsertValues.mockReturnValue({
       onConflictDoNothing: mockInsertOnConflictDoNothing,
@@ -116,9 +127,12 @@ describe("POST /api/stripe/checkout", () => {
     mockInsertOnConflictDoNothing.mockReturnValue({
       returning: mockInsertReturning,
     });
-    mockInsertReturning.mockResolvedValue([
-      { stripeCustomerId: "cus_new_123" },
-    ]);
+    // Default: claim wins (row inserted)
+    mockInsertReturning.mockResolvedValue([{ id: "sub-row-1" }]);
+
+    mockUpdate.mockReturnValue({ set: mockUpdateSet });
+    mockUpdateSet.mockReturnValue({ where: mockUpdateWhere });
+    mockUpdateWhere.mockResolvedValue(undefined);
   });
 
   it("returns 401 when not authenticated", async () => {
@@ -144,19 +158,22 @@ describe("POST /api/stripe/checkout", () => {
     expect(body.error).toBeDefined();
   });
 
-  it("creates a new Stripe customer when no existing subscription", async () => {
+  it("claims a subscription row before creating a new Stripe customer", async () => {
     mockIntervalFromPriceId.mockReturnValue("year");
     await POST(makeRequest({ priceId: "price_starter_yearly" }));
-    expect(mockCustomerCreate).toHaveBeenCalledWith({
-      email: "user@example.com",
-    });
+
     expect(mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "user-123", status: "pending" }),
+    );
+    expect(mockCustomerCreate).toHaveBeenCalledWith(
+      { email: "user@example.com" },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    );
+    expect(mockUpdateSet).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "user-123",
         stripeCustomerId: "cus_new_123",
         stripePriceId: "price_starter_yearly",
         interval: "year",
-        status: "pending",
       }),
     );
   });
@@ -164,20 +181,54 @@ describe("POST /api/stripe/checkout", () => {
   it("falls back to interval 'month' when intervalFromPriceId returns null", async () => {
     mockIntervalFromPriceId.mockReturnValue(null);
     await POST(makeRequest({ priceId: "price_unknown" }));
-    expect(mockInsertValues).toHaveBeenCalledWith(
-      expect.objectContaining({
-        interval: "month",
-      }),
+    expect(mockUpdateSet).toHaveBeenCalledWith(
+      expect.objectContaining({ interval: "month" }),
     );
   });
 
   it("reuses existing Stripe customer from subscriptions table", async () => {
-    mockLimit.mockResolvedValue([{ stripeCustomerId: "cus_existing_456" }]);
+    mockLimit.mockResolvedValue([
+      { stripeCustomerId: "cus_existing_456", status: "pending" },
+    ]);
     await POST(makeRequest({ priceId: "price_starter_monthly" }));
     expect(mockCustomerCreate).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
     expect(mockSessionCreate).toHaveBeenCalledWith(
       expect.objectContaining({ customer: "cus_existing_456" }),
+      expect.any(Object),
     );
+  });
+
+  it("returns 409 when the user already has an active subscription", async () => {
+    mockLimit.mockResolvedValue([
+      { stripeCustomerId: "cus_existing_456", status: "active" },
+    ]);
+    const response = await POST(
+      makeRequest({ priceId: "price_starter_monthly" }),
+    );
+    expect(response.status).toBe(409);
+    expect(mockCustomerCreate).not.toHaveBeenCalled();
+    expect(mockSessionCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 when a concurrent request already claimed the row (stripeCustomerId still null)", async () => {
+    mockLimit.mockResolvedValue([
+      { stripeCustomerId: null, status: "pending" },
+    ]);
+    const response = await POST(
+      makeRequest({ priceId: "price_starter_monthly" }),
+    );
+    expect(response.status).toBe(503);
+    expect(mockCustomerCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 when the INSERT claim loses the race (ON CONFLICT DO NOTHING returns empty)", async () => {
+    mockInsertReturning.mockResolvedValue([]);
+    const response = await POST(
+      makeRequest({ priceId: "price_starter_monthly" }),
+    );
+    expect(response.status).toBe(503);
+    expect(mockCustomerCreate).not.toHaveBeenCalled();
   });
 
   it("returns 200 with checkout URL on success", async () => {
@@ -187,13 +238,14 @@ describe("POST /api/stripe/checkout", () => {
     expect(body.url).toBe("https://checkout.stripe.com/test");
   });
 
-  it("creates session with subscription mode and correct price", async () => {
+  it("creates session with subscription mode, correct price and idempotency key", async () => {
     await POST(makeRequest({ priceId: "price_pro_yearly" }));
     expect(mockSessionCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         mode: "subscription",
         line_items: [{ price: "price_pro_yearly", quantity: 1 }],
       }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
     );
   });
 
@@ -253,7 +305,9 @@ describe("POST /api/stripe/checkout", () => {
 
     it("returns 503 when stripe.checkout.sessions.create throws", async () => {
       // Existing customer scenario so customer.create is skipped
-      mockLimit.mockResolvedValue([{ stripeCustomerId: "cus_existing_456" }]);
+      mockLimit.mockResolvedValue([
+        { stripeCustomerId: "cus_existing_456", status: "pending" },
+      ]);
       mockSessionCreate.mockRejectedValue(new Error("Stripe timeout"));
       const response = await POST(
         makeRequest({ priceId: "price_starter_monthly" }),

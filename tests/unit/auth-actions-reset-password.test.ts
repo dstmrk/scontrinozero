@@ -286,4 +286,34 @@ describe("resetPassword — hostname validation", () => {
 
     expect(mockSendEmail).not.toHaveBeenCalled();
   });
+
+  it("returns a neutral error and does not redirect when sendEmail fails", async () => {
+    mockSuccessfulGenerateLink(VALID_ACTION_LINK);
+    mockSendEmail.mockRejectedValue(new Error("Resend timeout"));
+
+    const { resetPassword } = await import("@/server/auth-actions");
+    const result = await resetPassword(makeFormData(VALID_EMAIL));
+
+    expect(result).toEqual({
+      error:
+        "Non siamo riusciti a inviare l'email. Riprova tra qualche minuto.",
+    });
+    expect(mockRedirect).not.toHaveBeenCalled();
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({ err: expect.any(Error) }),
+      "Password reset email failed",
+    );
+  });
+
+  it("redirects to /verify-email when sendEmail succeeds", async () => {
+    mockSuccessfulGenerateLink(VALID_ACTION_LINK);
+    mockSendEmail.mockResolvedValue(undefined);
+
+    const { resetPassword } = await import("@/server/auth-actions");
+    await expect(resetPassword(makeFormData(VALID_EMAIL))).rejects.toThrow(
+      "NEXT_REDIRECT",
+    );
+
+    expect(mockSendEmail).toHaveBeenCalledOnce();
+  });
 });

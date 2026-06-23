@@ -1432,22 +1432,19 @@ describe("auth-actions", () => {
       expect(mockSendEmail).not.toHaveBeenCalled();
     });
 
-    it("does not block redirect when sendEmail fails", async () => {
+    it("returns a neutral error and does not redirect when sendEmail fails", async () => {
       mockSendEmail.mockRejectedValueOnce(new Error("Resend down"));
 
       const { resetPassword } = await import("./auth-actions");
 
-      let redirectUrl: string | undefined;
-      try {
-        await resetPassword(
-          formData({ email: "test@example.com", captchaToken: "valid-token" }),
-        );
-        expect.fail("Expected redirect");
-      } catch (err) {
-        if (isRedirectError(err)) redirectUrl = err.url;
-      }
+      const result = await resetPassword(
+        formData({ email: "test@example.com", captchaToken: "valid-token" }),
+      );
 
-      expect(redirectUrl).toBe("/verify-email");
+      expect(result).toEqual({
+        error:
+          "Non siamo riusciti a inviare l'email. Riprova tra qualche minuto.",
+      });
     });
 
     it("does not send email when action_link host is not the Supabase host", async () => {

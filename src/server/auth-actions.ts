@@ -636,13 +636,23 @@ export async function resetPassword(
     redirect("/verify-email");
   }
 
-  void sendEmail({
-    to: email,
-    subject: "Reimposta la tua password — ScontrinoZero",
-    react: createElement(PasswordResetEmail, {
-      resetLink: actionLink,
-    }),
-  }).catch((err) => logger.warn({ err }, "Password reset email failed"));
+  try {
+    await sendEmail({
+      to: email,
+      subject: "Reimposta la tua password — ScontrinoZero",
+      react: createElement(PasswordResetEmail, {
+        resetLink: actionLink,
+      }),
+    });
+  } catch (err) {
+    logger.warn({ err }, "Password reset email failed");
+    // Messaggio neutro: identico sia che l'email esista sia che non esista,
+    // l'unica differenza è l'esito dell'invio (mai un oracle di enumerazione).
+    return {
+      error:
+        "Non siamo riusciti a inviare l'email. Riprova tra qualche minuto.",
+    };
+  }
 
   redirect("/verify-email");
 }

@@ -135,6 +135,10 @@ async function processWithClaimRelease(
 ): Promise<void> {
   try {
     await handleEvent(event, stripe);
+    await db
+      .update(stripeWebhookEvents)
+      .set({ completedAt: new Date() })
+      .where(eq(stripeWebhookEvents.eventId, eventId));
   } catch (processErr) {
     // Release claim so Stripe can retry this event.
     try {

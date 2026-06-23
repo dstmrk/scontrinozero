@@ -32,6 +32,51 @@ export function startSupabaseKeepAlive() {
   interval.unref();
 }
 
+// Soglia oltre la quale un claim non completato è considerato "stuck"
+// (REVIEW.md #20: handleEvent fallito + DELETE del claim anch'essa fallita).
+export const STUCK_WEBHOOK_CLAIM_THRESHOLD_MS = 30 * 60 * 1000; // 30 minuti
+const WEBHOOK_CLAIM_SWEEP_INTERVAL_MS = 10 * 60 * 1000; // 10 minuti
+
+let webhookClaimSweepStarted = false;
+
+export function startStripeWebhookClaimSweep() {
+  if (webhookClaimSweepStarted) return;
+  webhookClaimSweepStarted = true;
+
+  const interval: ReturnType<typeof setInterval> = setInterval(async () => {
+    try {
+      const { lt, and, isNull } = await import("drizzle-orm");
+      const { getDb } = await import("@/db");
+      const { stripeWebhookEvents } = await import("@/db/schema");
+      const { logger } = await import("@/lib/logger");
+
+      const db = getDb();
+      const threshold = new Date(Date.now() - STUCK_WEBHOOK_CLAIM_THRESHOLD_MS);
+      const unblocked = await db
+        .delete(stripeWebhookEvents)
+        .where(
+          and(
+            isNull(stripeWebhookEvents.completedAt),
+            lt(stripeWebhookEvents.processedAt, threshold),
+          ),
+        )
+        .returning({ eventId: stripeWebhookEvents.eventId });
+
+      if (unblocked.length > 0) {
+        logger.warn(
+          { eventIds: unblocked.map((row) => row.eventId) },
+          "Stripe webhook claim sbloccato da sweep automatico",
+        );
+      }
+    } catch (err) {
+      const { logger } = await import("@/lib/logger");
+      logger.warn({ err }, "Stripe webhook claim sweep fallito");
+    }
+  }, WEBHOOK_CLAIM_SWEEP_INTERVAL_MS);
+
+  interval.unref();
+}
+
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     // Fail-fast sulle env d'identita' (NEXT_PUBLIC_APP_URL, *_HOSTNAME, …).
@@ -62,6 +107,10 @@ export async function register() {
     // startSupabaseKeepAlive() evita timer duplicati su invocazioni multiple
     // di register() (REVIEW.md #29).
     startSupabaseKeepAlive();
+
+    // Sweep dei claim webhook Stripe "stuck" (REVIEW.md #20): stessa guardia
+    // di idempotenza e pattern setInterval unref'd di startSupabaseKeepAlive.
+    startStripeWebhookClaimSweep();
   }
 
   if (process.env.NEXT_RUNTIME === "edge") {
