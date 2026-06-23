@@ -63,40 +63,6 @@ diventa un buco di billing al lancio della Fase B Developer API.
 
 ## P2 — Media priorità
 
-### 4. Recovery stale può ri-emettere un documento già accettato da AdE (manca lookup pre-retry via `searchDocuments`)
-
-- **Categoria:** correttezza fiscale/idempotenza · **Severità:** High (probabilità bassa, impatto irreversibile)
-- **File:** `src/lib/services/receipt-service.ts:395` e `src/lib/services/void-service.ts:573` (commenti che documentano il gap); `src/lib/services/ade-recovery.ts:18`; client già pronti: `src/lib/ade/client.ts:79` (`searchDocuments` nell'interfaccia), `src/lib/ade/real-client.ts:1205`, `src/lib/ade/mock-client.ts:119`
-
-**Problema.** La soglia stale (30 min) + il claim CAS su `updatedAt` serializzano i
-retry concorrenti, ma resta la finestra: **AdE ha accettato e la response (o il
-processo) si è persa prima della UPDATE finale** → il documento resta `PENDING`
-senza `adeTransactionId`, e la recovery successiva ri-esegue `submitSale`/`submitVoid`
-creando un **documento fiscale duplicato e irreversibile** su AdE.
-
-**Fix (non ambiguo).**
-
-1. In `recoverStaleReceipt` (receipt-service) e nell'equivalente void, **prima** di
-   ri-sottomettere: chiamare `adeClient.searchDocuments(...)` (già implementato in
-   entrambi i client, HAR di riferimento `ricerca_documento.har`) filtrando per la
-   finestra temporale del documento e riconciliare per campi chiave (data, importo
-   totale, eventuale `idtrx` parziale).
-2. Match trovato → **finalize-only**: UPDATE a `ACCEPTED` con
-   `adeTransactionId`/`adeProgressive` recuperati, senza ri-emettere.
-   Nessun match → procedere con la ri-sottomissione come oggi.
-3. Lookup fallito (rete/AdE down) → NON ri-sottomettere: lasciare PENDING e
-   ritornare `PENDING_IN_PROGRESS` (fail-safe: meglio un retry dopo che un
-   duplicato fiscale).
-4. **Test:** match esatto → finalize-only e `submitSale` NON chiamata; nessun
-   match → submit come oggi; `searchDocuments` che lancia → niente submit, errore
-   transiente; match ambiguo (due documenti stesso importo stessa finestra) →
-   comportamento conservativo documentato (non finalizzare, log `warn` +
-   `PENDING_IN_PROGRESS`).
-5. Mantenere coerenza con il design del riuso sessione AdE (item 5): il lookup
-   avviene dentro la stessa sessione/login dell'eventuale submit.
-
----
-
 ### 11. `getCatalogItems` senza LIMIT + autocomplete server-side
 
 - **Categoria:** performance/scalabilità · **Severità:** Medium · **Target: v1.7.0** (insieme a "Catalogo: modifica prodotto + sync AdE", già in roadmap PLAN.md)

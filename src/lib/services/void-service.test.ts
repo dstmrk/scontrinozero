@@ -62,11 +62,17 @@ const mockLogin = vi.fn();
 const mockLogout = vi.fn();
 const mockGetDocument = vi.fn();
 const mockSubmitVoid = vi.fn();
+// Lookup AdE pre-retry (REVIEW.md #4): default "nessun match" → il recovery
+// procede col re-submit come prima. Override per-test per match/ambiguous/throw.
+const mockSearchDocuments = vi
+  .fn()
+  .mockResolvedValue({ totalCount: 0, elencoRisultati: [] });
 const mockAdeClient = {
   login: mockLogin,
   logout: mockLogout,
   getDocument: mockGetDocument,
   submitVoid: mockSubmitVoid,
+  searchDocuments: mockSearchDocuments,
 };
 // withAdeSession (REVIEW #5) sostituisce createAdeClient + login/logout manuali.
 // Il mock riproduce il ciclo mock-mode: login → fn(client) → logout nel finally,
@@ -192,6 +198,10 @@ describe("voidReceiptForBusiness", () => {
     mockGetDocument.mockResolvedValue(FAKE_ADE_DETAIL);
     mockSubmitVoid.mockResolvedValue(FAKE_ADE_RESPONSE);
     mockLogout.mockResolvedValue(undefined);
+    mockSearchDocuments.mockResolvedValue({
+      totalCount: 0,
+      elencoRisultati: [],
+    });
 
     mockTransaction.mockImplementation(
       async (
@@ -449,9 +459,124 @@ describe("voidReceiptForBusiness", () => {
     const { voidReceiptForBusiness } = await import("./void-service");
     const result = await voidReceiptForBusiness(VALID_INPUT);
 
-    // Claim vinto → riesegue submitVoid e finalizza.
+    // Claim vinto → lookup AdE (default vuoto → none) → riesegue submitVoid.
+    expect(mockSearchDocuments).toHaveBeenCalledWith(
+      expect.objectContaining({ tipoOperazione: "A" }),
+    );
     expect(mockSubmitVoid).toHaveBeenCalled();
     expect(result.voidDocumentId).toBe("void-doc-uuid");
+  });
+
+  it("recovery annullo: searchDocuments trova un match → finalize-only, niente submitVoid (REVIEW.md #4)", async () => {
+    mockReturning.mockResolvedValue([]); // INSERT conflict
+    mockSelectLimit
+      .mockResolvedValueOnce([FAKE_SALE_DOC]) // sale fetch (adeProgressive = DCW2026/5111-2188)
+      .mockResolvedValueOnce([
+        {
+          id: "void-doc-uuid",
+          status: "PENDING",
+          adeTransactionId: null,
+          adeProgressive: null,
+          createdAt: new Date(Date.now() - 35 * 60 * 1000),
+          updatedAt: new Date(Date.now() - 35 * 60 * 1000),
+        },
+      ]);
+    // AdE aveva già registrato l'annullo: annulli punta al progressivo della vendita.
+    mockSearchDocuments.mockResolvedValueOnce({
+      totalCount: 1,
+      elencoRisultati: [
+        {
+          idtrx: "trx-void-found",
+          numeroProgressivo: "DCW2026/5111-3000",
+          cfCliente: "",
+          data: "15/02/2026 10:05:00",
+          tipoOperazione: "A",
+          annulli: "DCW2026/5111-2188",
+          ammontareComplessivo: 20.0,
+        },
+      ],
+    });
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    // finalize-only con gli ID dell'annullo recuperato da AdE.
+    expect(result.voidDocumentId).toBe("void-doc-uuid");
+    expect(result.adeTransactionId).toBe("trx-void-found");
+    expect(result.adeProgressive).toBe("DCW2026/5111-3000");
+    // CRITICO: AdE aveva già registrato l'annullo → nessun re-submit (no doppio annullo).
+    expect(mockSubmitVoid).not.toHaveBeenCalled();
+    expect(mockGetDocument).not.toHaveBeenCalled();
+  });
+
+  it("recovery annullo: match AdE ambiguo → VOID_PENDING_IN_PROGRESS, niente submitVoid", async () => {
+    mockReturning.mockResolvedValue([]); // INSERT conflict
+    mockSelectLimit
+      .mockResolvedValueOnce([FAKE_SALE_DOC])
+      .mockResolvedValueOnce([
+        {
+          id: "void-doc-uuid",
+          status: "PENDING",
+          adeTransactionId: null,
+          adeProgressive: null,
+          createdAt: new Date(Date.now() - 35 * 60 * 1000),
+          updatedAt: new Date(Date.now() - 35 * 60 * 1000),
+        },
+      ]);
+    mockSearchDocuments.mockResolvedValueOnce({
+      totalCount: 2,
+      elencoRisultati: [
+        {
+          idtrx: "1",
+          numeroProgressivo: "DCW2026/5111-3000",
+          cfCliente: "",
+          data: "15/02/2026 10:05:00",
+          tipoOperazione: "A",
+          annulli: "DCW2026/5111-2188",
+          ammontareComplessivo: 20.0,
+        },
+        {
+          idtrx: "2",
+          numeroProgressivo: "DCW2026/5111-3001",
+          cfCliente: "",
+          data: "15/02/2026 10:06:00",
+          tipoOperazione: "A",
+          annulli: "DCW2026/5111-2188",
+          ammontareComplessivo: 20.0,
+        },
+      ],
+    });
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect((result as { code?: string }).code).toBe("VOID_PENDING_IN_PROGRESS");
+    expect(mockSubmitVoid).not.toHaveBeenCalled();
+  });
+
+  it("recovery annullo: searchDocuments fallisce → fail-safe VOID_PENDING_IN_PROGRESS, niente submitVoid", async () => {
+    mockReturning.mockResolvedValue([]); // INSERT conflict
+    mockSelectLimit
+      .mockResolvedValueOnce([FAKE_SALE_DOC])
+      .mockResolvedValueOnce([
+        {
+          id: "void-doc-uuid",
+          status: "PENDING",
+          adeTransactionId: null,
+          adeProgressive: null,
+          createdAt: new Date(Date.now() - 35 * 60 * 1000),
+          updatedAt: new Date(Date.now() - 35 * 60 * 1000),
+        },
+      ]);
+    mockSearchDocuments.mockRejectedValueOnce(new Error("network down"));
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    // Non sappiamo se AdE aveva registrato l'annullo → mai re-submit.
+    expect((result as { code?: string }).code).toBe("VOID_PENDING_IN_PROGRESS");
+    expect(mockSubmitVoid).not.toHaveBeenCalled();
+    expect(mockGetDocument).not.toHaveBeenCalled();
   });
 
   it("P1.3: void recovery stale che perde il claim ritorna VOID_PENDING_IN_PROGRESS senza ri-sottomettere", async () => {
