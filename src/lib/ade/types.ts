@@ -227,9 +227,10 @@ export interface AdeProduct {
 /**
  * Riepilogo documento nell'elenco risultati (GET /documenti/).
  *
- * HAR finding (annullo.har [03], [04]): campo "cfCliente" (non
- * "cfCessionarioCommittente" come nel dettaglio).
- * Date format: MM/DD/YYYY (es. "02/23/2026").
+ * HAR finding (ricerca.har, annullo.har [03], [04]): campo "cfCliente" (non
+ * "cfCessionarioCommittente" come nel dettaglio). ⚠️ Il `data` di risposta è
+ * DD/MM/YYYY HH:MM:SS (vedi campo sotto), mentre i query param dataDal/dataInvioAl
+ * usano MM/DD/YYYY — asimmetria reale, non un refuso.
  */
 export interface AdeDocumentSummary {
   idtrx: string;

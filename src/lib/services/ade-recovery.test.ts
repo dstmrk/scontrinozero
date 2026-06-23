@@ -4,16 +4,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // vi.hoisted: i mock devono essere inizializzati PRIMA del factory vi.mock
 // (hoisted in cima) perché l'import statico di ade-recovery — che importa @/db —
 // fa girare il factory durante l'hoisting degli import.
-const { mockReturning, mockSet } = vi.hoisted(() => {
+const { mockReturning, mockSet, mockSelectWhere } = vi.hoisted(() => {
   const mockReturning = vi.fn();
   const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
   const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
-  return { mockReturning, mockSet };
+  // SELECT ... FROM ... WHERE → risolve direttamente nelle righe (no .returning).
+  const mockSelectWhere = vi.fn();
+  return { mockReturning, mockSet, mockSelectWhere };
 });
 
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({
     update: vi.fn().mockReturnValue({ set: mockSet }),
+    select: vi.fn().mockReturnValue({
+      from: vi.fn().mockReturnValue({ where: mockSelectWhere }),
+    }),
   }),
 }));
 
@@ -24,6 +29,7 @@ vi.mock("@/db/schema", () => ({
 import {
   buildAdeSearchWindow,
   claimStaleDocument,
+  findClaimedTransactionIds,
   formatAdeQueryDate,
   getStalePendingThresholdMs,
   parseAdeResultDate,
@@ -121,6 +127,108 @@ describe("claimStaleDocument", () => {
     const won = await claimStaleDocument(getDb(), "doc-1", new Date());
 
     expect(won).toBe(false);
+  });
+});
+
+describe("findClaimedTransactionIds", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSelectWhere.mockReset();
+  });
+
+  it("ritorna un set vuoto senza query quando idtrxs è vuoto", async () => {
+    const claimed = await findClaimedTransactionIds(getDb(), {
+      businessId: "biz-1",
+      excludeDocumentId: "doc-1",
+      idtrxs: [],
+    });
+    expect(claimed.size).toBe(0);
+    expect(mockSelectWhere).not.toHaveBeenCalled();
+  });
+
+  it("ritorna gli idtrx già collegati ad altre righe del business", async () => {
+    mockSelectWhere.mockResolvedValue([{ adeTransactionId: "154295136" }]);
+
+    const claimed = await findClaimedTransactionIds(getDb(), {
+      businessId: "biz-1",
+      excludeDocumentId: "doc-1",
+      idtrxs: ["154294949", "154295136"],
+    });
+
+    expect(claimed.has("154295136")).toBe(true);
+    expect(claimed.has("154294949")).toBe(false);
+  });
+
+  it("scarta gli adeTransactionId null difensivamente", async () => {
+    mockSelectWhere.mockResolvedValue([
+      { adeTransactionId: null },
+      { adeTransactionId: "154295136" },
+    ]);
+
+    const claimed = await findClaimedTransactionIds(getDb(), {
+      businessId: "biz-1",
+      excludeDocumentId: "doc-1",
+      idtrxs: ["154295136"],
+    });
+
+    expect([...claimed]).toEqual(["154295136"]);
+  });
+});
+
+describe("reconcile con esclusione claimedIdtrx", () => {
+  it("vendita: l'unico candidato è già collegato ad altra riga → none (no falso match)", () => {
+    const result = reconcileSaleDocument({
+      documents: [summary({ idtrx: "154294949" })],
+      expectedTotalCents: 170,
+      createdAt: SALE_CREATED_AT,
+      claimedIdtrx: new Set(["154294949"]),
+    });
+    expect(result).toEqual({ kind: "none" });
+  });
+
+  it("vendita: due gemelle ma una già collegata → match sull'orfana residua", () => {
+    const result = reconcileSaleDocument({
+      documents: [
+        summary({ idtrx: "1", numeroProgressivo: "DCW2026/5432-1548" }),
+        summary({ idtrx: "2", numeroProgressivo: "DCW2026/5432-1549" }),
+      ],
+      expectedTotalCents: 170,
+      createdAt: SALE_CREATED_AT,
+      claimedIdtrx: new Set(["2"]),
+    });
+    expect(result).toEqual({
+      kind: "match",
+      idtrx: "1",
+      numeroProgressivo: "DCW2026/5432-1548",
+    });
+  });
+
+  it("vendita: due orfane identiche, nessuna collegata → resta ambiguous", () => {
+    const result = reconcileSaleDocument({
+      documents: [
+        summary({ idtrx: "1" }),
+        summary({ idtrx: "2", numeroProgressivo: "DCW2026/5432-1549" }),
+      ],
+      expectedTotalCents: 170,
+      createdAt: SALE_CREATED_AT,
+      claimedIdtrx: new Set(),
+    });
+    expect(result).toEqual({ kind: "ambiguous" });
+  });
+
+  it("annullo: l'unico candidato è già collegato → none", () => {
+    const result = reconcileVoidDocument({
+      documents: [
+        summary({
+          idtrx: "154295136",
+          tipoOperazione: "A",
+          annulli: "DCW2026/5432-1548",
+        }),
+      ],
+      saleProgressivo: "DCW2026/5432-1548",
+      claimedIdtrx: new Set(["154295136"]),
+    });
+    expect(result).toEqual({ kind: "none" });
   });
 });
 

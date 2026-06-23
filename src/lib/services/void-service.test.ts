@@ -11,7 +11,14 @@ vi.mock("@/lib/server-auth", () => ({
 
 // DB mock
 const mockSelectLimit = vi.fn();
-const mockSelectWhere = vi.fn().mockReturnValue({ limit: mockSelectLimit });
+// `.where()` serve due chiamanti: i lookup doc usano `.limit()`, mentre
+// findClaimedTransactionIds (REVIEW.md #4) awaita direttamente `.where()`.
+// Il thenable risolve [] (nessun idtrx già rivendicato → il match regge).
+const selectWhereResult = {
+  limit: mockSelectLimit,
+  then: (onFulfilled: (rows: unknown[]) => unknown) => onFulfilled([]),
+};
+const mockSelectWhere = vi.fn().mockReturnValue(selectWhereResult);
 const mockSelectFrom = vi.fn().mockReturnValue({ where: mockSelectWhere });
 const mockSelect = vi.fn().mockReturnValue({ from: mockSelectFrom });
 
@@ -186,7 +193,7 @@ describe("voidReceiptForBusiness", () => {
     // select: first call returns saleDoc, subsequent calls return idempotency results
     mockSelect.mockReturnValue({ from: mockSelectFrom });
     mockSelectFrom.mockReturnValue({ where: mockSelectWhere });
-    mockSelectWhere.mockReturnValue({ limit: mockSelectLimit });
+    mockSelectWhere.mockReturnValue(selectWhereResult);
     mockSelectLimit.mockResolvedValue([FAKE_SALE_DOC]);
 
     mockInsert.mockReturnValue({ values: mockInsertValues });

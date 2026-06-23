@@ -10,7 +10,13 @@ vi.mock("@/lib/server-auth", () => ({
 }));
 
 const mockLimit = vi.fn();
-const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
+// `.where()` serve due chiamanti: i lookup doc usano `.limit()`, mentre
+// findClaimedTransactionIds (REVIEW.md #4) awaita direttamente `.where()`.
+// Il thenable risolve [] (nessun idtrx già rivendicato → il match regge).
+const mockWhere = vi.fn().mockReturnValue({
+  limit: mockLimit,
+  then: (onFulfilled: (rows: unknown[]) => unknown) => onFulfilled([]),
+});
 const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
 const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
 

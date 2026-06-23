@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
 import type { AdeDocumentSummary } from "@/lib/ade/types";
@@ -189,6 +189,44 @@ function withinProximity(doc: AdeDocumentSummary, createdAt: Date): boolean {
   );
 }
 
+/**
+ * Fra gli `idtrx` passati, ritorna quelli già collegati come `adeTransactionId`
+ * a un ALTRO documento dello stesso business (id ≠ `excludeDocumentId`).
+ *
+ * Disambigua il lookup pre-retry: un documento AdE il cui idtrx è già
+ * rivendicato da un'altra riga è una vendita/annullo diverso e già
+ * contabilizzato → NON è il nostro orfano e va escluso dai candidati. Chiude
+ * due buchi: (1) l'`ambiguous` su vendite identiche quando la "gemella" è già
+ * andata a buon fine; (2) il falso `match` quando l'unico candidato appartiene
+ * in realtà a una vendita diversa già registrata (il nostro submit era stato
+ * rifiutato e non aveva creato nulla).
+ *
+ * `excludeDocumentId` evita di auto-escludersi in un raro TOCTOU (un retry
+ * concorrente che avesse già finalizzato la nostra stessa riga).
+ */
+export async function findClaimedTransactionIds(
+  db: ReturnType<typeof getDb>,
+  params: { businessId: string; excludeDocumentId: string; idtrxs: string[] },
+): Promise<Set<string>> {
+  const { businessId, excludeDocumentId, idtrxs } = params;
+  if (idtrxs.length === 0) return new Set();
+  const rows = await db
+    .select({ adeTransactionId: commercialDocuments.adeTransactionId })
+    .from(commercialDocuments)
+    .where(
+      and(
+        eq(commercialDocuments.businessId, businessId),
+        ne(commercialDocuments.id, excludeDocumentId),
+        inArray(commercialDocuments.adeTransactionId, idtrxs),
+      ),
+    );
+  const claimed = new Set<string>();
+  for (const row of rows) {
+    if (row.adeTransactionId) claimed.add(row.adeTransactionId);
+  }
+  return claimed;
+}
+
 /** Riduce una lista di candidati a un esito match/none/ambiguous. */
 function decide(candidates: AdeDocumentSummary[]): AdeReconcileResult {
   if (candidates.length === 0) return { kind: "none" };
@@ -208,6 +246,9 @@ function decide(candidates: AdeDocumentSummary[]): AdeReconcileResult {
  * temporale (±10 min) dal createdAt. Quando il codice lotteria è presente,
  * `cfCliente === lotteryCode` è una chiave secondaria che restringe ulteriormente.
  *
+ * `claimedIdtrx` esclude i documenti AdE già collegati ad altre righe del DB
+ * (vedi `findClaimedTransactionIds`): riduce l'ambiguous e previene i falsi match.
+ *
  * 0 candidati → none (procedi col re-submit); 1 → match (finalize-only);
  * >1 → ambiguous (conservativo: non finalizzare, resta PENDING).
  */
@@ -216,11 +257,19 @@ export function reconcileSaleDocument(params: {
   expectedTotalCents: number;
   createdAt: Date;
   lotteryCode?: string | null;
+  claimedIdtrx?: ReadonlySet<string>;
 }): AdeReconcileResult {
-  const { documents, expectedTotalCents, createdAt, lotteryCode } = params;
+  const {
+    documents,
+    expectedTotalCents,
+    createdAt,
+    lotteryCode,
+    claimedIdtrx,
+  } = params;
   const candidates = documents.filter(
     (doc) =>
       doc.tipoOperazione === "V" &&
+      !claimedIdtrx?.has(doc.idtrx) &&
       matchesAmount(doc, expectedTotalCents) &&
       withinProximity(doc, createdAt) &&
       (!lotteryCode || doc.cfCliente === lotteryCode),
@@ -234,14 +283,21 @@ export function reconcileSaleDocument(params: {
  * Chiave forte: `tipoOperazione === "A"` + `annulli === saleProgressivo` (il
  * progressivo della vendita annullata, univoco per cedente). Non serve la
  * finestra temporale: l'annullo è legato in modo univoco alla vendita.
+ *
+ * `claimedIdtrx` esclude gli annulli già collegati ad altre righe del DB (vedi
+ * `findClaimedTransactionIds`), per simmetria con la vendita.
  */
 export function reconcileVoidDocument(params: {
   documents: AdeDocumentSummary[];
   saleProgressivo: string;
+  claimedIdtrx?: ReadonlySet<string>;
 }): AdeReconcileResult {
-  const { documents, saleProgressivo } = params;
+  const { documents, saleProgressivo, claimedIdtrx } = params;
   const candidates = documents.filter(
-    (doc) => doc.tipoOperazione === "A" && doc.annulli === saleProgressivo,
+    (doc) =>
+      doc.tipoOperazione === "A" &&
+      !claimedIdtrx?.has(doc.idtrx) &&
+      doc.annulli === saleProgressivo,
   );
   return decide(candidates);
 }
