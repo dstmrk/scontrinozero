@@ -1,4 +1,11 @@
-import { pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import {
+  check,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { profiles } from "./profiles";
 
@@ -30,7 +37,31 @@ export const businesses = pgTable(
   },
   // UNIQUE(profile_id): l'app assume 1 business per profilo (migration 0016,
   // P1.2). Il vincolo crea già il proprio indice — niente index separato.
-  (table) => [unique("businesses_profile_id_unique").on(table.profileId)],
+  (table) => [
+    unique("businesses_profile_id_unique").on(table.profileId),
+    // Defense-in-depth (migration 0019): length limit allineati a
+    // BUSINESS_PROFILE_LIMITS in src/lib/validation.ts.
+    check(
+      "businesses_business_name_length_check",
+      sql`char_length(${table.businessName}) <= 120`,
+    ),
+    check(
+      "businesses_address_length_check",
+      sql`char_length(${table.address}) <= 150`,
+    ),
+    check(
+      "businesses_street_number_length_check",
+      sql`char_length(${table.streetNumber}) <= 20`,
+    ),
+    check(
+      "businesses_city_length_check",
+      sql`char_length(${table.city}) <= 80`,
+    ),
+    check(
+      "businesses_province_length_check",
+      sql`char_length(${table.province}) <= 3`,
+    ),
+  ],
 );
 
 export type InsertBusiness = typeof businesses.$inferInsert;

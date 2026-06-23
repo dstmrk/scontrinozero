@@ -1,4 +1,5 @@
 import {
+  check,
   index,
   numeric,
   pgTable,
@@ -40,7 +41,15 @@ export const catalogItems = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [index("idx_catalog_items_business_id").on(table.businessId)],
+  (table) => [
+    index("idx_catalog_items_business_id").on(table.businessId),
+    // Defense-in-depth (migration 0019): CHECK constraints allineati allo Zod.
+    check("catalog_items_default_price_check", sql`${table.defaultPrice} >= 0`),
+    check(
+      "catalog_items_description_length_check",
+      sql`char_length(${table.description}) <= 200`,
+    ),
+  ],
 );
 
 export type InsertCatalogItem = typeof catalogItems.$inferInsert;

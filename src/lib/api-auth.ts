@@ -146,6 +146,10 @@ export async function authenticateApiKey(
   // Fire-and-forget: aggiorna last_used_at solo se null o aggiornato più di
   // LAST_USED_THROTTLE_MS fa, per evitare write amplification su burst di
   // richieste consecutive dalla stessa key.
+  // NB: corretto sul container Node long-running attuale. Se un giorno si
+  // introducesse un target Edge/serverless, il contesto potrebbe terminare
+  // prima del flush e l'update andrebbe perso: in quel refactor wrappare con
+  // `import { waitUntil } from "next/server"`.
   const threshold = new Date(Date.now() - LAST_USED_THROTTLE_MS);
   db.update(apiKeys)
     .set({ lastUsedAt: new Date() })

@@ -237,27 +237,6 @@ vs `{error, code}` vs status diversi per lo stesso caso).
 
 ---
 
-### 19. CAPTCHA: hostname Turnstile extra configurabili via env
-
-- **Categoria:** operatività · **Severità:** Low — solo se si aggiunge un terzo ambiente (staging/preview)
-- **File:** `src/server/auth-actions.ts:125-133` (`getAcceptedTurnstileHostnames`)
-
-**Problema.** L'allowlist degli hostname Turnstile è già un Set (app + marketing +
-www, derivati dalle env d'identità), ma non è estensibile senza modificare il
-codice: un eventuale staging/preview con hostname proprio richiederebbe un deploy.
-
-**Fix (non ambiguo).**
-
-1. Supportare una env opzionale `TURNSTILE_ALLOWED_HOSTNAMES` (comma-separated)
-   i cui valori — validati con `parseTrustedHostnameEnv`-like (no schema, no
-   porta, lowercase) — vengono **aggiunti** al Set derivato; env assente = zero
-   cambiamenti.
-2. **Test:** env assente → Set invariato; env con 2 hostname → inclusi; valore
-   malformato → ignorato con `warn` (mai fail-open con stringa vuota, regola 18:
-   present-but-empty).
-
----
-
 ### 20. Stripe: recovery dei claim webhook rimasti "stuck"
 
 - **Categoria:** resilienza billing · **Severità:** Low (caso doppio-fallimento)
@@ -308,34 +287,6 @@ guard su subscription già attiva/pending e un'idempotency key Stripe.
 
 ---
 
-### 22. DB defense-in-depth: CHECK constraints e length limits
-
-- **Categoria:** integrità dati · **Severità:** Low
-- **File:** migration handwritten nuova (workflow skill `db-migrations`); schema: `src/db/schema/commercial-document-lines.ts`, `catalog-items.ts`, `profiles.ts`, `businesses.ts`
-
-**Problema.** La validazione vive solo nello Zod applicativo: un import legacy, uno
-script admin o un refactor che bypassa i refine può scrivere quantità negative o
-stringhe chilometriche.
-
-**Fix (non ambiguo).**
-
-1. Migration unica (raggruppata) con:
-   - `CHECK (quantity >= 0)` e `CHECK (gross_unit_price >= 0)` su `commercial_document_lines`;
-   - `CHECK (default_price >= 0)` su `catalog_items`;
-   - `CHECK (char_length(col) <= N)` su `profiles.email`,
-     `commercial_document_lines.description` (200), `catalog_items.description`
-     (200), `businesses.business_name`, `businesses.address`,
-     `businesses.street_number` — allineare N ai limiti Zod correnti.
-2. Pattern: `ALTER TABLE ... ADD CONSTRAINT ... CHECK ... NOT VALID` +
-   `VALIDATE CONSTRAINT` separato se le tabelle sono grandi (evita lock lunghi);
-   verificare prima con un SELECT che nessuna riga esistente violi i vincoli.
-3. Aggiornare journal + `node scripts/check-migrations.mjs` + idempotenza al
-   re-run (regole migrazioni).
-4. **Test:** insert violante rifiutato dal DB anche bypassando Zod (test con
-   query raw).
-
----
-
 ### 23. Indice composito `api_keys (business_id, revoked_at)`
 
 - **Categoria:** performance DB · **Severità:** Low · **Target: v2.0.0+** (Developer API Fase B)
@@ -372,21 +323,6 @@ copia una delle varianti e il drift cresce.
    toccano per altri motivi.
 4. **Test:** le utility (attempts, jitter bounds, classify), non i call-site
    migrati uno a uno.
-
----
-
-### 25. `waitUntil` per il fire-and-forget di `last_used_at`
-
-- **Categoria:** robustezza futura · **Severità:** Low — solo al secondo target di deploy
-- **File:** `src/lib/api-auth.ts:144-155` (`db.update(...).catch(...)` fire-and-forget)
-
-**Problema.** L'update di `last_used_at` è fire-and-forget: corretto sul container
-Node long-running attuale, ma su un futuro deploy Edge/serverless il contesto può
-essere terminato prima del flush e l'update perso sistematicamente.
-
-**Fix.** Quando (se) si introduce un secondo target di deploy:
-`import { waitUntil } from "next/server"` e wrappare la promise. Nessuna azione
-oggi — il finding esiste per non perderlo nel refactor.
 
 ---
 

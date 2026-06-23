@@ -134,6 +134,13 @@
       "when": 1780099202000,
       "tag": "0018_trial_vat_ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1780099203000,
+      "tag": "0019_db_check_constraints",
+      "breakpoints": true
     }
   ]
 }
