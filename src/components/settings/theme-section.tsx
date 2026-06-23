@@ -29,11 +29,8 @@ export function ThemeSection() {
         Scegli l&apos;aspetto dell&apos;app. &laquo;Sistema&raquo; segue le
         impostazioni del tuo dispositivo.
       </p>
-      <div
-        className="grid grid-cols-3 gap-2"
-        role="group"
-        aria-label="Tema dell'interfaccia"
-      >
+      <fieldset className="m-0 grid grid-cols-3 gap-2 border-0 p-0">
+        <legend className="sr-only">Tema dell&apos;interfaccia</legend>
         {THEME_OPTIONS.map(({ value, label, Icon }) => {
           const isActive = mounted && theme === value;
           return (
@@ -51,7 +48,7 @@ export function ThemeSection() {
             </Button>
           );
         })}
-      </div>
+      </fieldset>
     </div>
   );
 }

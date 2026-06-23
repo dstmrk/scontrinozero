@@ -27,6 +27,14 @@ describe("ThemeSection", () => {
     expect(screen.getByRole("button", { name: "Sistema" })).toBeInTheDocument();
   });
 
+  it("espone il gruppo con un nome accessibile", () => {
+    render(<ThemeSection />);
+
+    expect(
+      screen.getByRole("group", { name: "Tema dell'interfaccia" }),
+    ).toBeInTheDocument();
+  });
+
   it("evidenzia l'opzione attiva in base al tema corrente", () => {
     mockTheme = "dark";
     render(<ThemeSection />);
