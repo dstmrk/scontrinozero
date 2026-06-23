@@ -508,6 +508,47 @@ async function finalizeAdeVerification(params: {
   return { credentialsChanged, trialAlreadyUsed };
 }
 
+/**
+ * Esegue il login AdE per la verifica credenziali e traduce gli errori in un
+ * OnboardingActionResult pronto da restituire al client. Ritorna `null` quando
+ * il login ha successo. Estratto da verifyAdeCredentials per tenerne sotto
+ * controllo la Cognitive Complexity (SonarCloud).
+ */
+async function attemptAdeLoginForVerification(
+  adeClient: ReturnType<typeof createAdeClient>,
+  credentials: { codiceFiscale: string; password: string; pin: string },
+  businessId: string,
+): Promise<OnboardingActionResult | null> {
+  try {
+    await adeClient.login(credentials);
+    return null;
+  } catch (err) {
+    if (err instanceof AdePasswordExpiredError) {
+      logger.warn({ businessId }, "AdE password scaduta durante verifica");
+      return {
+        error: "La password Fisconline è scaduta.",
+        passwordExpired: true,
+      };
+    }
+    logAdeFailure(
+      err,
+      { businessId, flow: "onboarding-verify" },
+      {
+        transient: "AdE credential verification: transient failure",
+        failure: "AdE credential verification failed",
+      },
+    );
+    const userFacing = getUserFacingAdeErrorMessage(
+      err,
+      "Verifica fallita. Controlla le credenziali Fisconline.",
+    );
+    return {
+      error: userFacing.message,
+      ...(userFacing.passwordExpired ? { passwordExpired: true } : {}),
+    };
+  }
+}
+
 export async function verifyAdeCredentials(
   businessId: string,
 ): Promise<OnboardingActionResult> {
@@ -559,33 +600,12 @@ export async function verifyAdeCredentials(
 
   const adeClient = createAdeClient(getAdeMode());
 
-  try {
-    await adeClient.login({ codiceFiscale, password, pin });
-  } catch (err) {
-    if (err instanceof AdePasswordExpiredError) {
-      logger.warn({ businessId }, "AdE password scaduta durante verifica");
-      return {
-        error: "La password Fisconline è scaduta.",
-        passwordExpired: true,
-      };
-    }
-    logAdeFailure(
-      err,
-      { businessId, flow: "onboarding-verify" },
-      {
-        transient: "AdE credential verification: transient failure",
-        failure: "AdE credential verification failed",
-      },
-    );
-    const userFacing = getUserFacingAdeErrorMessage(
-      err,
-      "Verifica fallita. Controlla le credenziali Fisconline.",
-    );
-    return {
-      error: userFacing.message,
-      ...(userFacing.passwordExpired ? { passwordExpired: true } : {}),
-    };
-  }
+  const loginError = await attemptAdeLoginForVerification(
+    adeClient,
+    { codiceFiscale, password, pin },
+    businessId,
+  );
+  if (loginError) return loginError;
 
   // Fetch fiscal data from AdE while the session is still active. Best-effort:
   // verification still succeeds (verifiedAt set) even if AdE doesn't return it;

@@ -228,7 +228,7 @@ describe("MockAdeClient", () => {
       const session = await client.loginSpid(spidCreds);
 
       expect(session.pAuth).toMatch(/^mock_p_auth_spid_/);
-      expect(session.partitaIva.length).toBe(11);
+      expect(session.partitaIva).toHaveLength(11);
       expect(session.createdAt).toBeGreaterThan(0);
     });
 

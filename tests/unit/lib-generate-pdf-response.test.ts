@@ -28,7 +28,7 @@ describe("sanitizePdfFilename", () => {
 
   it("truncates to 100 characters max", () => {
     const long = "a".repeat(200);
-    expect(sanitizePdfFilename(long).length).toBe(100);
+    expect(sanitizePdfFilename(long)).toHaveLength(100);
   });
 
   it("resists path traversal attempts (removes slashes)", () => {
