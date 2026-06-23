@@ -1,4 +1,5 @@
 import {
+  check,
   foreignKey,
   index,
   integer,
@@ -38,6 +39,13 @@ export const commercialDocumentLines = pgTable(
       foreignColumns: [commercialDocuments.id],
     }).onDelete("cascade"),
     index("idx_commercial_document_lines_document_id").on(table.documentId),
+    // Defense-in-depth (migration 0019): CHECK constraints allineati allo Zod.
+    check("cd_lines_quantity_check", sql`${table.quantity} >= 0`),
+    check("cd_lines_gross_unit_price_check", sql`${table.grossUnitPrice} >= 0`),
+    check(
+      "cd_lines_description_length_check",
+      sql`char_length(${table.description}) <= 200`,
+    ),
   ],
 );
 

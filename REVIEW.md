@@ -308,34 +308,6 @@ guard su subscription già attiva/pending e un'idempotency key Stripe.
 
 ---
 
-### 22. DB defense-in-depth: CHECK constraints e length limits
-
-- **Categoria:** integrità dati · **Severità:** Low
-- **File:** migration handwritten nuova (workflow skill `db-migrations`); schema: `src/db/schema/commercial-document-lines.ts`, `catalog-items.ts`, `profiles.ts`, `businesses.ts`
-
-**Problema.** La validazione vive solo nello Zod applicativo: un import legacy, uno
-script admin o un refactor che bypassa i refine può scrivere quantità negative o
-stringhe chilometriche.
-
-**Fix (non ambiguo).**
-
-1. Migration unica (raggruppata) con:
-   - `CHECK (quantity >= 0)` e `CHECK (gross_unit_price >= 0)` su `commercial_document_lines`;
-   - `CHECK (default_price >= 0)` su `catalog_items`;
-   - `CHECK (char_length(col) <= N)` su `profiles.email`,
-     `commercial_document_lines.description` (200), `catalog_items.description`
-     (200), `businesses.business_name`, `businesses.address`,
-     `businesses.street_number` — allineare N ai limiti Zod correnti.
-2. Pattern: `ALTER TABLE ... ADD CONSTRAINT ... CHECK ... NOT VALID` +
-   `VALIDATE CONSTRAINT` separato se le tabelle sono grandi (evita lock lunghi);
-   verificare prima con un SELECT che nessuna riga esistente violi i vincoli.
-3. Aggiornare journal + `node scripts/check-migrations.mjs` + idempotenza al
-   re-run (regole migrazioni).
-4. **Test:** insert violante rifiutato dal DB anche bypassando Zod (test con
-   query raw).
-
----
-
 ### 23. Indice composito `api_keys (business_id, revoked_at)`
 
 - **Categoria:** performance DB · **Severità:** Low · **Target: v2.0.0+** (Developer API Fase B)
