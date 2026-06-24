@@ -579,8 +579,14 @@ export async function resetPassword(
   });
 
   if (error || !data.properties?.action_link) {
-    logger.error(
-      { error: error?.message },
+    // Causa di gran lunga più comune: email non registrata → GoTrue risponde
+    // "User not found". È input utente prevedibile, non un bug nostro: warn
+    // (osservabilità in pino → Sentry Logs) ma NON un'issue Sentry. Allinea
+    // questo branch al flow gemello resendConfirmationEmail (CLAUDE.md regola
+    // 20, SCONTRINOZERO-Q). Il logger.error resta riservato al mismatch di
+    // hostname sotto, che segnala una vera misconfigurazione/anomalia.
+    logger.warn(
+      { errorClass: classifySupabaseAuthError(error ?? {}) },
       "Reset password generateLink failed",
     );
     // Always redirect to avoid email enumeration
