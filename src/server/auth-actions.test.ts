@@ -1387,10 +1387,11 @@ describe("auth-actions", () => {
     it("still redirects when generateLink returns an error (no email sent)", async () => {
       mockGenerateLink.mockResolvedValue({
         data: { properties: {} },
-        error: { message: "User not found" },
+        error: { message: "User not found", status: 422 },
       });
 
       const { resetPassword } = await import("./auth-actions");
+      const { logger } = await import("@/lib/logger");
 
       try {
         await resetPassword(
@@ -1406,6 +1407,14 @@ describe("auth-actions", () => {
 
       await Promise.resolve();
       expect(mockSendEmail).not.toHaveBeenCalled();
+      // Regola 20 / SCONTRINOZERO-Q: "User not found" è input utente
+      // prevedibile → warn (con errorClass) e MAI error (che risalirebbe a
+      // Sentry come issue). Allineato a resendConfirmationEmail.
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ errorClass: expect.any(String) }),
+        "Reset password generateLink failed",
+      );
+      expect(logger.error).not.toHaveBeenCalled();
     });
 
     it("still redirects when action_link is missing (no email sent)", async () => {
@@ -1459,6 +1468,7 @@ describe("auth-actions", () => {
       });
 
       const { resetPassword } = await import("./auth-actions");
+      const { logger } = await import("@/lib/logger");
 
       try {
         await resetPassword(
@@ -1474,6 +1484,14 @@ describe("auth-actions", () => {
 
       await Promise.resolve();
       expect(mockSendEmail).not.toHaveBeenCalled();
+      // A differenza del fallimento generateLink (input utente → warn), il
+      // mismatch di hostname segnala una vera misconfigurazione/anomalia di
+      // sicurezza (cfr. SCONTRINOZERO-D) e DEVE restare a livello error →
+      // Sentry. Protegge la distinzione voluta tra i due branch.
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ actionLinkHostname: "evil.example.com" }),
+        "Reset password: action_link hostname mismatch or invalid URL — email not sent",
+      );
     });
 
     it("does not send email when redirect_to host is not the app host", async () => {
