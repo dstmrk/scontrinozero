@@ -6,9 +6,16 @@ import { Share2, Check, Copy } from "lucide-react";
 interface ShareButtonProps {
   readonly url: string;
   readonly title: string;
+  readonly label?: string;
+  readonly copiedLabel?: string;
 }
 
-export function ShareButton({ url, title }: ShareButtonProps) {
+export function ShareButton({
+  url,
+  title,
+  label = "Condividi ricevuta",
+  copiedLabel = "Link copiato!",
+}: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
 
   const handleShare = async () => {
@@ -44,12 +51,12 @@ export function ShareButton({ url, title }: ShareButtonProps) {
       {copied ? (
         <>
           <Check className="h-4 w-4 text-green-600" />
-          <span className="text-green-600">Link copiato!</span>
+          <span className="text-green-600">{copiedLabel}</span>
         </>
       ) : (
         <>
           <Share2 className="h-4 w-4" />
-          Condividi ricevuta
+          {label}
         </>
       )}
       {!copied && <Copy className="ml-auto h-3.5 w-3.5 text-gray-400" />}

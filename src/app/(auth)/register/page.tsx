@@ -10,6 +10,7 @@ import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { signUp } from "@/server/auth-actions";
 import { passwordFieldSchema } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -40,6 +41,7 @@ const registerSchema = z
     specificClausesAccepted: z
       .boolean()
       .refine((v) => v, "Devi accettare specificamente le clausole indicate."),
+    referralCode: z.string().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Le password non coincidono.",
@@ -57,6 +59,10 @@ function RegisterForm() {
   // Suspense boundary in RegisterPage required by Next.js for useSearchParams
   // during SSG prerender (CSR bailout).
   const refParam = useSearchParams().get("ref");
+  // Codice referral: visibile e modificabile (a differenza di `ref`) perché
+  // un codice invalido blocca la registrazione — l'utente deve poterlo
+  // correggere o cancellare dal form per procedere senza referral.
+  const rcodeParam = useSearchParams().get("rcode");
 
   const form = useForm<RegisterData>({
     resolver: zodResolver(registerSchema),
@@ -66,6 +72,7 @@ function RegisterForm() {
       confirmPassword: "",
       termsAccepted: false,
       specificClausesAccepted: false,
+      referralCode: rcodeParam ?? "",
     },
   });
 
@@ -78,6 +85,7 @@ function RegisterForm() {
     formData.set("specificClausesAccepted", "true");
     if (captchaToken) formData.set("captchaToken", captchaToken);
     if (refParam) formData.set("ref", refParam);
+    if (data.referralCode) formData.set("rcode", data.referralCode);
 
     startTransition(async () => {
       const result = await signUp(formData);
@@ -209,6 +217,29 @@ function RegisterForm() {
                       di Torino per controversie B2B).
                     </label>
                   </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="referralCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Codice referral (opzionale)</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder="es. AB2CDEFG"
+                      autoComplete="off"
+                      spellCheck={false}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Hai un codice da un amico? Inseriscilo per ottenere 1 mese
+                    di trial extra. Lascia vuoto per registrarti senza.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

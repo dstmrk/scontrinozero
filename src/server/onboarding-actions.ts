@@ -9,6 +9,7 @@ import {
   adeCredentials,
   profiles,
   trialVatLedger,
+  referralRedemptions,
 } from "@/db/schema";
 import { hashPiva } from "@/lib/piva-hash";
 import {
@@ -480,6 +481,38 @@ async function finalizeAdeVerification(params: {
       .where(eq(profiles.authUserId, userId));
 
     if (!wasFirstClaim) return;
+
+    // Reward referral: trigger = verifica P.IVA completata (stesso
+    // checkpoint anti-abuso del trial_vat_ledger sotto). Claim atomico via
+    // UPDATE ... WHERE rewarded_at IS NULL: idempotente sotto retry della
+    // stessa finalizeAdeVerification, niente doppio reward.
+    const [refereeProfile] = await tx
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.authUserId, userId))
+      .limit(1);
+
+    if (refereeProfile) {
+      const claimed = await tx
+        .update(referralRedemptions)
+        .set({ rewardedAt: new Date() })
+        .where(
+          and(
+            eq(referralRedemptions.refereeId, refereeProfile.id),
+            sql`${referralRedemptions.rewardedAt} IS NULL`,
+          ),
+        )
+        .returning({ referrerId: referralRedemptions.referrerId });
+
+      if (claimed.length > 0) {
+        await tx
+          .update(profiles)
+          .set({
+            referralBonusDays: sql`${profiles.referralBonusDays} + 30`,
+          })
+          .where(eq(profiles.id, claimed[0].referrerId));
+      }
+    }
 
     // Anti-abuso trial cross-cancellazione: il vincolo UNIQUE su
     // profiles.partita_iva sparisce quando l'account viene cancellato,

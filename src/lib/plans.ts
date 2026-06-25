@@ -71,6 +71,7 @@ async function fetchPlan(authUserId: string): Promise<PlanInfo> {
       plan: profiles.plan,
       trialStartedAt: profiles.trialStartedAt,
       planExpiresAt: profiles.planExpiresAt,
+      referralBonusDays: profiles.referralBonusDays,
     })
     .from(profiles)
     .where(eq(profiles.authUserId, authUserId))
@@ -92,10 +93,23 @@ async function fetchPlan(authUserId: string): Promise<PlanInfo> {
     throw new ProfileNotFoundError(authUserId);
   }
 
+  // Bonus referral (member-get-member): trasla le date PRIMA di ritornarle,
+  // così isTrialExpired/isPaidPlanExpired e i 14 call site esistenti non
+  // cambiano firma. `referral_bonus_days` è additivo e indipendente dal sync
+  // Stripe (che sovrascrive solo planExpiresAt in toto) — vive qui, nell'unico
+  // punto che produce PlanInfo.
+  const bonusMs = (profile.referralBonusDays ?? 0) * 24 * 60 * 60 * 1000;
+  const trialStartedAt = profile.trialStartedAt
+    ? new Date(profile.trialStartedAt.getTime() - bonusMs)
+    : null;
+  const planExpiresAt = profile.planExpiresAt
+    ? new Date(profile.planExpiresAt.getTime() + bonusMs)
+    : null;
+
   return {
     plan: profile.plan,
-    trialStartedAt: profile.trialStartedAt ?? null,
-    planExpiresAt: profile.planExpiresAt ?? null,
+    trialStartedAt,
+    planExpiresAt,
   };
 }
 

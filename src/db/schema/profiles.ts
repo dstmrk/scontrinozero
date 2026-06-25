@@ -1,4 +1,11 @@
-import { check, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  check,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 export const profiles = pgTable(
@@ -33,6 +40,23 @@ export const profiles = pgTable(
     // Attribution: provenance from ?ref= query string at signup time.
     // Validated against allowlist in src/lib/signup-source.ts before insert.
     signupSource: text("signup_source"),
+    // Referral program (member-get-member). Codice personale riusabile,
+    // derivato deterministicamente dall'authUserId all'INSERT
+    // (src/lib/referral-code.ts). Distinto dal futuro `referred_by` del
+    // programma Partner (NDS, monouso, B2B). NOT NULL: i profili
+    // pre-esistenti alla migration 0021 sono stati backfillati in SQL nella
+    // migration stessa (replica esatta dell'algoritmo JS), nessun intervento
+    // manuale richiesto.
+    referralCode: text("referral_code").notNull().unique(),
+    // Codice referral usato da QUESTO utente in fase di signup (audit, NULL
+    // se nessun referral). Nome distinto da `referred_by` per non confondersi
+    // con l'attribution partner futura.
+    referredByReferralCode: text("referred_by_referral_code"),
+    // Giorni bonus accumulati via referral (proprio +1 mese da nuovo utente +
+    // reward come referrer). Additivo, mai scritto dal webhook Stripe — vedi
+    // src/lib/plans.ts fetchPlan(). Per `unlimited` è ininfluente: i gate non
+    // leggono planExpiresAt/trialStartedAt per quel piano.
+    referralBonusDays: integer("referral_bonus_days").notNull().default(0),
   },
   (table) => [
     // Defense-in-depth (migration 0019): 254 = RFC 5321 max address length.

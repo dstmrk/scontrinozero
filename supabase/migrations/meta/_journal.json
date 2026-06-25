@@ -148,6 +148,13 @@
       "when": 1780099204000,
       "tag": "0020_stripe_webhook_events_completed_at",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1780099205000,
+      "tag": "0021_referral_program",
+      "breakpoints": true
     }
   ]
 }

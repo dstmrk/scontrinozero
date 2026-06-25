@@ -58,30 +58,31 @@ middleware), `src/lib/pdf`, `src/lib/pwa`, e i data file marketing
 
 ## Dove vivo X? (i punti che oggi costringono a grep)
 
-| Cerchi…                                           | Vai a                                                                                                                     |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Auth della richiesta (user UUID, bind Sentry)     | `src/lib/server-auth.ts` (`getAuthenticatedUser`)                                                                         |
-| Client Supabase (browser/server/admin/middleware) | `src/lib/supabase/server.ts`, `src/lib/supabase/client.ts`, `src/lib/supabase/admin.ts`, `src/lib/supabase/middleware.ts` |
-| Azioni auth (login/register/reset, T&C version)   | `src/server/auth-actions.ts`                                                                                              |
-| Plan gate / feature flag per piano                | `src/lib/plans.ts` + `src/lib/plans-shared.ts`                                                                            |
-| Totali scontrino (cents per-riga, canonico)       | `src/lib/receipts/document-lines.ts` (`calcInputLinesTotalCents`, `calcDocTotal`)                                         |
-| Orchestrazione emissione / annullo                | `src/lib/services/receipt-service.ts`, `src/lib/services/void-service.ts`                                                 |
-| Recovery stale-pending AdE                        | `src/lib/services/ade-recovery.ts`, `src/lib/services/request-hash.ts`                                                    |
-| Integrazione AdE (client reale/mock, adapter)     | `src/lib/ade/index.ts`, `src/lib/ade/real-client.ts`, `src/lib/ade/mock-client.ts`                                        |
-| Classi errore AdE + logging tipato                | `src/lib/ade/errors.ts`, `src/lib/ade/log-failure.ts`                                                                     |
-| Logger pino → Sentry (hook level≥50)              | `src/lib/logger.ts`                                                                                                       |
-| Filtri Sentry client (network noise)              | `src/lib/sentry-filters.ts`, `sentry.client.config.ts`                                                                    |
-| Env d'identità (URL/hostname, fail-fast)          | `src/lib/identity-env.ts`, `src/lib/hostname-env.ts`, `src/lib/trusted-app-url.ts`                                        |
-| Link marketing → app (cross-origin)               | `src/lib/marketing-to-app-href.ts` (`appHref`)                                                                            |
-| Rate limit                                        | `src/lib/rate-limit.ts`; client IP → `src/lib/get-client-ip.ts`                                                           |
-| Validazione boundary (UUID/email/body)            | `src/lib/validation.ts`, `src/lib/uuid.ts`, `src/lib/request-utils.ts`, `src/lib/api-errors.ts`                           |
-| Crittografia credenziali AdE (AES-256-GCM)        | `src/lib/crypto.ts`                                                                                                       |
-| CSP / security headers                            | `src/lib/csp.ts`, `src/lib/security-headers.ts`                                                                           |
-| Developer API (auth Bearer + handler)             | `src/app/api/v1/receipts`, `src/lib/api-auth.ts`, `src/lib/api-keys.ts`                                                   |
-| Stripe (SDK wrapper + webhook)                    | `src/lib/stripe.ts`, `src/app/api/stripe`                                                                                 |
-| Schema DB (una tabella per file)                  | `src/db/schema` (es. `src/db/schema/profiles.ts`, `src/db/schema/commercial-documents.ts`)                                |
-| Contenuti marketing/SEO (data file)               | `src/lib/guide`, `src/lib/help`, `src/lib/per`, `src/lib/confronto`, `src/lib/strumenti`                                  |
-| Health/diagnostica post-deploy                    | `src/app/api/health`, `src/app/api/_health`, `src/app/api/_debug`                                                         |
+| Cerchi…                                           | Vai a                                                                                                                                                                                             |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth della richiesta (user UUID, bind Sentry)     | `src/lib/server-auth.ts` (`getAuthenticatedUser`)                                                                                                                                                 |
+| Client Supabase (browser/server/admin/middleware) | `src/lib/supabase/server.ts`, `src/lib/supabase/client.ts`, `src/lib/supabase/admin.ts`, `src/lib/supabase/middleware.ts`                                                                         |
+| Azioni auth (login/register/reset, T&C version)   | `src/server/auth-actions.ts`                                                                                                                                                                      |
+| Plan gate / feature flag per piano                | `src/lib/plans.ts` + `src/lib/plans-shared.ts`                                                                                                                                                    |
+| Referral program (codice, redemption, reward)     | `src/lib/referral-code.ts`, `src/db/schema/referral-redemptions.ts`, cattura in `src/server/auth-actions.ts` (`signUp`), reward in `src/server/onboarding-actions.ts` (`finalizeAdeVerification`) |
+| Totali scontrino (cents per-riga, canonico)       | `src/lib/receipts/document-lines.ts` (`calcInputLinesTotalCents`, `calcDocTotal`)                                                                                                                 |
+| Orchestrazione emissione / annullo                | `src/lib/services/receipt-service.ts`, `src/lib/services/void-service.ts`                                                                                                                         |
+| Recovery stale-pending AdE                        | `src/lib/services/ade-recovery.ts`, `src/lib/services/request-hash.ts`                                                                                                                            |
+| Integrazione AdE (client reale/mock, adapter)     | `src/lib/ade/index.ts`, `src/lib/ade/real-client.ts`, `src/lib/ade/mock-client.ts`                                                                                                                |
+| Classi errore AdE + logging tipato                | `src/lib/ade/errors.ts`, `src/lib/ade/log-failure.ts`                                                                                                                                             |
+| Logger pino → Sentry (hook level≥50)              | `src/lib/logger.ts`                                                                                                                                                                               |
+| Filtri Sentry client (network noise)              | `src/lib/sentry-filters.ts`, `sentry.client.config.ts`                                                                                                                                            |
+| Env d'identità (URL/hostname, fail-fast)          | `src/lib/identity-env.ts`, `src/lib/hostname-env.ts`, `src/lib/trusted-app-url.ts`                                                                                                                |
+| Link marketing → app (cross-origin)               | `src/lib/marketing-to-app-href.ts` (`appHref`)                                                                                                                                                    |
+| Rate limit                                        | `src/lib/rate-limit.ts`; client IP → `src/lib/get-client-ip.ts`                                                                                                                                   |
+| Validazione boundary (UUID/email/body)            | `src/lib/validation.ts`, `src/lib/uuid.ts`, `src/lib/request-utils.ts`, `src/lib/api-errors.ts`                                                                                                   |
+| Crittografia credenziali AdE (AES-256-GCM)        | `src/lib/crypto.ts`                                                                                                                                                                               |
+| CSP / security headers                            | `src/lib/csp.ts`, `src/lib/security-headers.ts`                                                                                                                                                   |
+| Developer API (auth Bearer + handler)             | `src/app/api/v1/receipts`, `src/lib/api-auth.ts`, `src/lib/api-keys.ts`                                                                                                                           |
+| Stripe (SDK wrapper + webhook)                    | `src/lib/stripe.ts`, `src/app/api/stripe`                                                                                                                                                         |
+| Schema DB (una tabella per file)                  | `src/db/schema` (es. `src/db/schema/profiles.ts`, `src/db/schema/commercial-documents.ts`)                                                                                                        |
+| Contenuti marketing/SEO (data file)               | `src/lib/guide`, `src/lib/help`, `src/lib/per`, `src/lib/confronto`, `src/lib/strumenti`                                                                                                          |
+| Health/diagnostica post-deploy                    | `src/app/api/health`, `src/app/api/_health`, `src/app/api/_debug`                                                                                                                                 |
 
 ## Indice Server Actions (`src/server/*-actions.ts`)
 
