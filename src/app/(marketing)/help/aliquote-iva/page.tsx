@@ -236,11 +236,11 @@ export default function AliquoteIvaPage() {
           elettronico).
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Sono <em>in arrivo</em> ulteriori metodi previsti dal tracciato AdE
-          (ticket / buono pasto, importi non riscossi su fattura o servizio
-          futuro) e il <strong>pagamento misto</strong> con ripartizione tra
-          contanti e carta sullo stesso scontrino. Verranno aggiunti al
-          selettore non appena disponibili.
+          Il tracciato AdE prevede ulteriori metodi (ticket / buono pasto,
+          importi non riscossi su fattura o servizio futuro) e il{" "}
+          <strong>pagamento misto</strong> con ripartizione tra contanti e carta
+          sullo stesso scontrino: potremmo valutarne l&apos;aggiunta in futuro
+          in base alle richieste degli utenti.
         </p>
 
         {/* ─── Errori frequenti ─── */}

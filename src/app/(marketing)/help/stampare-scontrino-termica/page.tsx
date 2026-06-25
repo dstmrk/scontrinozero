@@ -43,8 +43,8 @@ export default function StampareScontrinoTermicaPage() {
           versione elettronica dello scontrino) trasmesso all&apos;Agenzia delle
           Entrate. La stampa su carta termica è un&apos;opzione comoda per
           consegnare una copia fisica al cliente, ma{" "}
-          <strong>non è obbligatoria</strong>: in alternativa puoi inviare lo
-          scontrino via email o mostrarlo a schermo.
+          <strong>non è obbligatoria</strong>: in alternativa puoi mostrare lo
+          scontrino a schermo al cliente.
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
           <strong>Ultimo aggiornamento:</strong> aprile 2026
