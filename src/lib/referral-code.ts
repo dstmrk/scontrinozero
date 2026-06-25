@@ -14,13 +14,18 @@
  * non-ambiguo, rischio di collisione trascurabile per le dimensioni di
  * questo prodotto).
  *
- * Alfabeto base32 senza caratteri ambigui (niente 0/O, 1/I/L), 32 simboli =
- * esattamente 5 bit/carattere: i primi 5 byte del digest (40 bit) si
- * suddividono in 8 simboli senza bias né bit di scarto.
+ * Alfabeto Crockford base32 (`0123456789ABCDEFGHJKMNPQRSTVWXYZ`): 32 simboli
+ * = esattamente 5 bit/carattere, così i primi 5 byte del digest (40 bit) si
+ * suddividono in 8 simboli senza bias né bit di scarto, e ogni indice a 5 bit
+ * (0–31) ha un simbolo corrispondente. Esclude I/L/O/U (ambigui con 1/0 e tra
+ * loro): tenere 0 e 1 è sicuro proprio perché O e I non esistono nell'alfabeto.
+ * ⚠️ Deve restare identico, carattere per carattere, alla replica SQL in
+ * `supabase/migrations/0021_referral_program.sql` (backfill via pgcrypto):
+ * qualunque divergenza genera codici diversi tra app e backfill.
  */
 import { createHash } from "node:crypto";
 
-const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const CODE_LENGTH = 8;
 const CODE_RE = new RegExp(`^[${ALPHABET}]{${CODE_LENGTH}}$`);
 

@@ -1350,12 +1350,12 @@ describe("onboarding-actions", () => {
       expect(result.error).toBeUndefined();
       expect(result.businessId).toBe("biz-789");
       expect(result.trialAlreadyUsed).toBe(true);
-      // 4 update "core" (verifiedAt + businesses + profiles.partitaIva +
-      // profiles.trialStartedAt=null, sola lettura immediata) + 2 update del
-      // claim referral (referral_redemptions.rewardedAt +
-      // profiles.referralBonusDays) che scattano sempre sotto i mock generici
-      // condivisi (returning() risolve sempre a una riga non-vuota).
-      expect(mockUpdate).toHaveBeenCalledTimes(6);
+      // Solo 4 update "core": verifiedAt + businesses + profiles.partitaIva +
+      // profiles.trialStartedAt=null (sola lettura immediata). Il claim
+      // referral NON scatta: la P.IVA era già nel ledger → trial negato →
+      // niente reward al referrer (il blocco reward è gatato sul trial
+      // effettivamente concesso, esce prima via early-return).
+      expect(mockUpdate).toHaveBeenCalledTimes(4);
       expect(mockUpdateSet).toHaveBeenCalledWith({ trialStartedAt: null });
       const { logger } = await import("@/lib/logger");
       expect(logger.warn).toHaveBeenCalledWith(

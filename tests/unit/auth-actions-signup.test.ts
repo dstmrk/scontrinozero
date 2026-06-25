@@ -100,6 +100,11 @@ function setupDbNoExistingEmail() {
   mockGetDb.mockReturnValue({
     select: mockSelectProfiles,
     insert: mockInsertProfiles,
+    // insertProfileOrRollback ora avvolge profilo + redemption in una
+    // transazione: il tx espone lo stesso mock insert così la catena
+    // values().returning() resta invariata.
+    transaction: async (cb: (tx: unknown) => unknown) =>
+      cb({ insert: mockInsertProfiles }),
   });
   mockSelectProfiles.mockReturnValue({ from: mockSelectFrom });
   mockSelectFrom.mockReturnValue({ where: mockSelectWhere });

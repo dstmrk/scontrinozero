@@ -46,7 +46,14 @@ const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
 const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
 const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
 vi.mock("@/db", () => ({
-  getDb: vi.fn().mockReturnValue({ insert: mockInsert, select: mockSelect }),
+  getDb: vi.fn().mockReturnValue({
+    insert: mockInsert,
+    select: mockSelect,
+    // insertProfileOrRollback avvolge profilo + redemption in una transazione;
+    // il tx riusa lo stesso mock insert (catena values().returning() invariata).
+    transaction: async (cb: (tx: unknown) => unknown) =>
+      cb({ insert: mockInsert }),
+  }),
 }));
 
 vi.mock("@/db/schema", () => ({

@@ -482,8 +482,37 @@ async function finalizeAdeVerification(params: {
 
     if (!wasFirstClaim) return;
 
-    // Reward referral: trigger = verifica P.IVA completata (stesso
-    // checkpoint anti-abuso del trial_vat_ledger sotto). Claim atomico via
+    // Anti-abuso trial cross-cancellazione: il vincolo UNIQUE su
+    // profiles.partita_iva sparisce quando l'account viene cancellato,
+    // liberando la P.IVA per un secondo trial. `trial_vat_ledger`
+    // sopravvive alla cancellazione e registra ogni P.IVA che ha già
+    // consumato un trial. ON CONFLICT DO NOTHING RETURNING è race-safe:
+    // se non torna righe la P.IVA era già nel ledger da un account
+    // PRECEDENTE → trial già consumato → niente nuovo trial.
+    const inserted = await tx
+      .insert(trialVatLedger)
+      .values({ pivaHash: hashPiva(vatNumber) })
+      .onConflictDoNothing()
+      .returning({ id: trialVatLedger.id });
+
+    if (inserted.length === 0) {
+      // trialStartedAt = null → isTrialExpired() true → sola lettura
+      // immediata, riusando i gate esistenti (canEmit/canAddCatalogItem).
+      // La P.IVA era già nel ledger → NON è un nuovo cliente vero: niente
+      // reward al referrer (sotto). Esce dalla transazione qui.
+      await tx
+        .update(profiles)
+        .set({ trialStartedAt: null })
+        .where(eq(profiles.authUserId, userId));
+      trialAlreadyUsed = true;
+      return;
+    }
+
+    // Reward referral: trigger = trial EFFETTIVAMENTE concesso (raggiunto
+    // solo se il ledger sopra ha accettato la P.IVA — nuovo cliente vero).
+    // Gatare qui, e non sulla sola verifica P.IVA, chiude il farming di
+    // reward con una P.IVA riciclata: un referee in sola-lettura (P.IVA già
+    // consumata) non frutta nulla al referrer. Claim atomico via
     // UPDATE ... WHERE rewarded_at IS NULL: idempotente sotto retry della
     // stessa finalizeAdeVerification, niente doppio reward.
     const [refereeProfile] = await tx
@@ -512,29 +541,6 @@ async function finalizeAdeVerification(params: {
           })
           .where(eq(profiles.id, claimed[0].referrerId));
       }
-    }
-
-    // Anti-abuso trial cross-cancellazione: il vincolo UNIQUE su
-    // profiles.partita_iva sparisce quando l'account viene cancellato,
-    // liberando la P.IVA per un secondo trial. `trial_vat_ledger`
-    // sopravvive alla cancellazione e registra ogni P.IVA che ha già
-    // consumato un trial. ON CONFLICT DO NOTHING RETURNING è race-safe:
-    // se non torna righe la P.IVA era già nel ledger da un account
-    // PRECEDENTE → trial già consumato → niente nuovo trial.
-    const inserted = await tx
-      .insert(trialVatLedger)
-      .values({ pivaHash: hashPiva(vatNumber) })
-      .onConflictDoNothing()
-      .returning({ id: trialVatLedger.id });
-
-    if (inserted.length === 0) {
-      // trialStartedAt = null → isTrialExpired() true → sola lettura
-      // immediata, riusando i gate esistenti (canEmit/canAddCatalogItem).
-      await tx
-        .update(profiles)
-        .set({ trialStartedAt: null })
-        .where(eq(profiles.authUserId, userId));
-      trialAlreadyUsed = true;
     }
   });
 

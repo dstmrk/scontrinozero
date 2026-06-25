@@ -44,7 +44,7 @@ RETURNS text
 LANGUAGE plpgsql
 AS $fn$
 DECLARE
-  alphabet text := 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  alphabet text := '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
   digest_bytes bytea;
   bits bigint := 0;
   code text := '';

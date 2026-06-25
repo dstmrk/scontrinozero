@@ -285,27 +285,34 @@ async function insertProfileOrRollback(
   try {
     const db = getDb();
     const referralCode = generateReferralCode(authUserId);
-    const [profile] = await db
-      .insert(profiles)
-      .values({
-        authUserId,
-        email,
-        termsAcceptedAt: new Date(),
-        termsVersion: CURRENT_TERMS_VERSION,
-        signupSource,
-        referralCode,
-        referredByReferralCode: referrer?.referralCode ?? null,
-        referralBonusDays: referrer ? REFERRAL_SIGNUP_BONUS_DAYS : 0,
-      })
-      .returning({ id: profiles.id });
+    // Profilo + eventuale redemption in UNA transazione: se l'insert della
+    // redemption fallisce (referrer sparito tra lookup e insert, hiccup DB)
+    // il rollback rimuove anche il profilo, così il catch sotto cancella
+    // l'auth user senza lasciare un profilo orfano che punta a un auth user
+    // inesistente.
+    await db.transaction(async (tx) => {
+      const [profile] = await tx
+        .insert(profiles)
+        .values({
+          authUserId,
+          email,
+          termsAcceptedAt: new Date(),
+          termsVersion: CURRENT_TERMS_VERSION,
+          signupSource,
+          referralCode,
+          referredByReferralCode: referrer?.referralCode ?? null,
+          referralBonusDays: referrer ? REFERRAL_SIGNUP_BONUS_DAYS : 0,
+        })
+        .returning({ id: profiles.id });
 
-    if (referrer) {
-      await db.insert(referralRedemptions).values({
-        referrerId: referrer.id,
-        refereeId: profile.id,
-        referralCode: referrer.referralCode,
-      });
-    }
+      if (referrer) {
+        await tx.insert(referralRedemptions).values({
+          referrerId: referrer.id,
+          refereeId: profile.id,
+          referralCode: referrer.referralCode,
+        });
+      }
+    });
     return null;
   } catch (err) {
     // Any insert failure means the auth user just created has no matching
