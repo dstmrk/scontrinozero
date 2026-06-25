@@ -31,7 +31,7 @@ miglioramenti mirati, non vulnerabilità critiche.
 
 ### 3. Enforcement limiti mensili Developer API assente
 
-- **Categoria:** sicurezza/billing · **Severità:** High — **gate: blocca il lancio dei developer plan (v2.0.0)**
+- **Categoria:** sicurezza/billing · **Severità:** High — **gate: blocca il lancio dei developer plan (Developer API, ora nice-to-have in PLAN.md)**
 - **File:** `src/lib/plans-shared.ts:159` (`DEVELOPER_MONTHLY_LIMITS`, definito ma mai applicato); handler `src/app/api/v1/receipts/route.ts` e `src/app/api/v1/receipts/[id]/void/route.ts`; auth `src/lib/api-auth.ts`
 
 **Problema.** `DEVELOPER_MONTHLY_LIMITS` (300/1500/5000 emissioni/mese per
@@ -56,8 +56,9 @@ diventa un buco di billing al lancio della Fase B Developer API.
    piani non-developer → mai limitati; concorrenza alla soglia (due emit
    simultanee al limite-1 → al massimo una passa, accettabile off-by-one
    documentato oppure contatore atomico con `UPDATE ... RETURNING`).
-5. Da implementare **contestualmente al lancio dei developer plan in v2.0.0**
-   (non prima: nessun utente ha questi piani oggi).
+5. Da implementare **contestualmente al lancio dei developer plan** (Developer
+   API, ora nice-to-have in PLAN.md — non prima: nessun utente ha questi piani
+   oggi).
 
 ---
 
@@ -65,7 +66,7 @@ diventa un buco di billing al lancio della Fase B Developer API.
 
 ### 11. `getCatalogItems` senza LIMIT + autocomplete server-side
 
-- **Categoria:** performance/scalabilità · **Severità:** Medium · **Target: v1.7.0** (insieme a "Catalogo: modifica prodotto + sync AdE", già in roadmap PLAN.md)
+- **Categoria:** performance/scalabilità · **Severità:** Medium · **Target: v1.6.0** (insieme a "Catalogo: modifica prodotto", già in roadmap PLAN.md)
 - **File:** `src/server/catalog-actions.ts:86-90` (SELECT senza LIMIT); consumer: `src/app/dashboard/page.tsx:26`, `src/components/catalogo/catalogo-client.tsx`, Combobox prodotti della cassa
 
 **Problema.** La query carica l'intero catalogo a ogni apertura del POS. Per un
@@ -205,7 +206,7 @@ vs `{error, code}` vs status diversi per lo stesso caso).
 
 ### 23. Indice composito `api_keys (business_id, revoked_at)`
 
-- **Categoria:** performance DB · **Severità:** Low · **Target: v2.0.0+** (Developer API Fase B)
+- **Categoria:** performance DB · **Severità:** Low · **Target: Developer API Fase B** (ora nice-to-have in PLAN.md)
 - **File:** `src/server/api-key-actions.ts:23` (`listApiKeys`); migration nuova
 
 **Problema.** `listApiKeys()` filtra per business e chiavi non revocate senza
@@ -244,7 +245,7 @@ copia una delle varianti e il drift cresce.
 
 ### 28. SPID: allowlist host IdP prima del wiring di `loginSpid`
 
-- **Categoria:** sicurezza · **Severità:** Low oggi (SPID non cablato) — **bloccante al lancio v1.8.0**
+- **Categoria:** sicurezza · **Severità:** Low oggi (SPID non cablato) — **bloccante al lancio v1.7.0**
 - **File:** `src/lib/ade/real-client.ts:55` (`ADE_ALLOWED_HOSTS`, modello da replicare), `:657` (`parseFormAction`), `:769` (`spidPostCredentials`), `:988`, `:1060`
 
 **Problema.** Il flusso documenti valida i redirect con `resolveAdeRedirect` +
@@ -257,7 +258,7 @@ pratica).
 
 **Fix (non ambiguo).**
 
-1. **Insieme** al wiring di `loginSpid` (v1.8.0): allowlist `SPID_ALLOWED_IDP_HOSTS`
+1. **Insieme** al wiring di `loginSpid` (v1.7.0): allowlist `SPID_ALLOWED_IDP_HOSTS`
    con gli hostname degli IdP SPID noti (es. `identity.sieltecloud.it` + gli
    altri provider), analoga a `ADE_ALLOWED_HOSTS`.
 2. Validare **ogni** URL di `parseFormAction` e ogni `Location` del flusso SPID

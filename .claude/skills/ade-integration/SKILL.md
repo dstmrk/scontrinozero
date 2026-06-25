@@ -61,12 +61,12 @@ Cross-reference request-by-request.
 | File                             | Feature                                            | Target                               |
 | -------------------------------- | -------------------------------------------------- | ------------------------------------ |
 | `dati_doc_commerciale.har`       | Aggiornamento dati business su AdE post-onboarding | rinviato (possibile feature premium) |
-| `aggiungi_prodotto_catalogo.har` | Aggiunta prodotto su rubrica AdE                   | v1.7.0                               |
-| `modifica_prodotto_catalogo.har` | Modifica prodotto su rubrica AdE                   | v1.7.0                               |
-| `elimina_prodotto_catalogo.har`  | Eliminazione prodotto su rubrica AdE               | v1.7.0                               |
-| `ricerca_prodotto_catalogo.har`  | Ricerca prodotto su rubrica AdE                    | v1.7.0                               |
-| `ricerca_documento.har`          | Ricerca documento su AdE                           | v2.0.0+                              |
-| `login_cie.har`                  | CIE login flow                                     | v1.8.0+                              |
+| `aggiungi_prodotto_catalogo.har` | Aggiunta prodotto su rubrica AdE                   | nice-to-have (sync catalogo AdE)     |
+| `modifica_prodotto_catalogo.har` | Modifica prodotto su rubrica AdE                   | nice-to-have (sync catalogo AdE)     |
+| `elimina_prodotto_catalogo.har`  | Eliminazione prodotto su rubrica AdE               | nice-to-have (sync catalogo AdE)     |
+| `ricerca_prodotto_catalogo.har`  | Ricerca prodotto su rubrica AdE                    | nice-to-have (sync catalogo AdE)     |
+| `ricerca_documento.har`          | Ricerca documento su AdE                           | rinviato (recupero corrispettivi)    |
+| `login_cie.har`                  | CIE login flow                                     | v1.7.0                               |
 
 ---
 
