@@ -167,6 +167,15 @@ export const helpArticles: Record<string, HelpArticle> = {
       "Guida all'onboarding di ScontrinoZero: crea l'account, inserisci i dati dell'attività e collega le credenziali Fisconline per iniziare a emettere scontrini elettronici.",
     related: ["come-collegare-ade", "primo-scontrino", "installare-app"],
   },
+  "presenta-un-amico": {
+    slug: "presenta-un-amico",
+    title: "Presenta un amico: come funziona il bonus referral",
+    metaTitle:
+      "Presenta un amico: bonus referral e quando arriva il mese gratis",
+    description:
+      "Come funziona il programma Presenta un amico di ScontrinoZero: il presentato ottiene subito 1 mese di prova in più, il presentatore 1 mese sul proprio piano quando l'invitato collega la P.IVA. Dove trovare e condividere il codice.",
+    related: ["piani-e-prezzi", "cambio-piano", "contatto-assistenza"],
+  },
   "primo-scontrino": {
     slug: "primo-scontrino",
     title: "Come emettere il primo scontrino elettronico",
