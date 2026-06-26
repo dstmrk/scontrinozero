@@ -178,8 +178,8 @@ export default function PianiEPrezziPage() {
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Tutti i nuovi account hanno <strong>30 giorni di prova</strong>{" "}
-          gratuita con accesso completo alle funzioni Pro. Nessuna carta di
-          credito richiesta per iniziare.
+          gratuita con accesso alle funzioni Pro come l&apos;analytics avanzata
+          e l&apos;export CSV. Nessuna carta di credito richiesta per iniziare.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           <strong>Cosa succede alla scadenza del trial:</strong>

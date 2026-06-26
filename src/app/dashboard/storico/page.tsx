@@ -65,6 +65,7 @@ export default async function StoricoPage({
       initialDateTo={dateTo}
       initialStatus={statusParam}
       plan={planInfo.plan}
+      trialStartedAt={planInfo.trialStartedAt}
     />
   );
 }

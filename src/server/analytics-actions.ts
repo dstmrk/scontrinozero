@@ -64,6 +64,7 @@ type AuthOk = {
   userId: string;
   plan: Plan;
   planExpiresAt: Date | null;
+  trialStartedAt: Date | null;
 };
 type AuthFail = { ok: false; error: string };
 
@@ -125,6 +126,7 @@ async function authorizeOwner(businessId: string): Promise<AuthOk | AuthFail> {
     userId: user.id,
     plan: planInfo.plan,
     planExpiresAt: planInfo.planExpiresAt,
+    trialStartedAt: planInfo.trialStartedAt,
   };
 }
 
@@ -134,7 +136,7 @@ async function authorizeOwner(businessId: string): Promise<AuthOk | AuthFail> {
 async function authorizePro(businessId: string): Promise<AuthOk | AuthFail> {
   const auth = await authorizeOwner(businessId);
   if (!auth.ok) return auth;
-  if (!canUsePro(auth.plan, auth.planExpiresAt)) {
+  if (!canUsePro(auth.plan, auth.planExpiresAt, auth.trialStartedAt)) {
     return { ok: false, error: "Funzionalità riservata al piano Pro." };
   }
   return auth;

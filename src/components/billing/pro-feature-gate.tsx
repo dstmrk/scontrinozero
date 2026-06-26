@@ -24,6 +24,12 @@ interface ProFeatureGateProps {
    * per il pattern di invalidation cross-tab della cache RSC client.
    */
   readonly plan: Plan;
+  /**
+   * Server prop da `getPlan()`: se il piano è `trial` e non scaduto, l'utente
+   * è trattato come Pro (assaggio feature Pro durante la prova). Omesso/null →
+   * il trial resta gated (mostra l'upsell).
+   */
+  readonly trialStartedAt?: Date | null;
   readonly children: React.ReactNode;
   readonly title?: string;
   readonly description?: string;
@@ -35,11 +41,12 @@ const DEFAULT_DESCRIPTION =
 
 export function ProFeatureGate({
   plan,
+  trialStartedAt = null,
   children,
   title = DEFAULT_TITLE,
   description = DEFAULT_DESCRIPTION,
 }: ProFeatureGateProps) {
-  if (canUsePro(plan)) {
+  if (canUsePro(plan, null, trialStartedAt)) {
     return <>{children}</>;
   }
 
