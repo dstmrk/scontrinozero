@@ -494,7 +494,11 @@ describe("getPlan", () => {
     });
   });
 
-  it("trasla trialStartedAt indietro di referralBonusDays (trial più lungo)", async () => {
+  it("trasla trialStartedAt in avanti di referralBonusDays (trial più lungo)", async () => {
+    // La scadenza trial è trialStartedAt + TRIAL_DAYS: spostare lo start in
+    // AVANTI di 30 giorni allunga il trial a 60 giorni. Regression guard del
+    // bug che lo spostava indietro, facendo scadere il trial del referee il
+    // giorno stesso della registrazione.
     const trialStartedAt = new Date("2026-01-15T00:00:00Z");
     mockLimit.mockResolvedValue([
       {
@@ -507,7 +511,31 @@ describe("getPlan", () => {
 
     const result = await getPlan("user-bonus-trial");
 
-    expect(result.trialStartedAt).toEqual(new Date("2025-12-16T00:00:00Z"));
+    expect(result.trialStartedAt).toEqual(new Date("2026-02-14T00:00:00Z"));
+  });
+
+  it("un referee nuovo (trial oggi + 30 bonus) NON risulta scaduto", async () => {
+    // Scenario del bug: signup con referral oggi → trialStartedAt = now,
+    // referralBonusDays = 30. La scadenza derivata deve cadere a ~60 giorni,
+    // quindi isTrialExpired(trialStartedAt) === false.
+    const now = new Date();
+    mockLimit.mockResolvedValue([
+      {
+        plan: "trial",
+        trialStartedAt: now,
+        planExpiresAt: null,
+        referralBonusDays: 30,
+      },
+    ]);
+
+    const result = await getPlan("user-fresh-referee");
+
+    expect(isTrialExpired(result.trialStartedAt)).toBe(false);
+    const expiryMs =
+      (result.trialStartedAt as Date).getTime() +
+      TRIAL_DAYS * 24 * 60 * 60 * 1000;
+    // ~60 giorni da adesso (30 trial + 30 bonus), con tolleranza.
+    expect(expiryMs - now.getTime()).toBeGreaterThan(59 * 24 * 60 * 60 * 1000);
   });
 
   it("trasla planExpiresAt avanti di referralBonusDays (scadenza più lontana)", async () => {

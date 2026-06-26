@@ -94,13 +94,15 @@ async function fetchPlan(authUserId: string): Promise<PlanInfo> {
   }
 
   // Bonus referral (member-get-member): trasla le date PRIMA di ritornarle,
-  // così isTrialExpired/isPaidPlanExpired e i 14 call site esistenti non
-  // cambiano firma. `referral_bonus_days` è additivo e indipendente dal sync
-  // Stripe (che sovrascrive solo planExpiresAt in toto) — vive qui, nell'unico
-  // punto che produce PlanInfo.
+  // così isTrialExpired/isPaidPlanExpired e i call site esistenti non cambiano
+  // firma. La scadenza trial è derivata come `trialStartedAt + TRIAL_DAYS`,
+  // quindi per ALLUNGARE il trial lo start va spostato in AVANTI di `bonusMs`:
+  // 30 giorni bonus + 30 di trial = 60 giorni totali. (Spostarlo indietro
+  // anticiperebbe la scadenza — era il bug che faceva risultare il trial del
+  // nuovo referee "già scaduto" il giorno stesso della registrazione.)
   const bonusMs = (profile.referralBonusDays ?? 0) * 24 * 60 * 60 * 1000;
   const trialStartedAt = profile.trialStartedAt
-    ? new Date(profile.trialStartedAt.getTime() - bonusMs)
+    ? new Date(profile.trialStartedAt.getTime() + bonusMs)
     : null;
   const planExpiresAt = profile.planExpiresAt
     ? new Date(profile.planExpiresAt.getTime() + bonusMs)
