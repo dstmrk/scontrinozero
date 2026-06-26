@@ -330,6 +330,44 @@ async function insertProfileOrRollback(
   }
 }
 
+type ReferrerRow = { id: string; referralCode: string };
+
+/**
+ * Risolve il codice referral grezzo dal form in un referrer DB row, oppure
+ * in un errore utente. Estratto da `signUp` per tenerne sotto controllo la
+ * complessità cognitiva (SonarCloud S3776).
+ */
+async function resolveReferrer(
+  rawReferralCode: string,
+): Promise<{ referrer: ReferrerRow | null } | { error: string }> {
+  if (rawReferralCode.trim().length === 0) return { referrer: null };
+
+  // Codice referral: a differenza di `ref` (signup source, soft) un codice
+  // presente ma invalido blocca la registrazione — l'utente deve correggerlo
+  // o rimuoverlo dal form per procedere. Non è un problema di enumeration
+  // (il codice non è un segreto, identifica solo il referrer) quindi l'errore
+  // può essere esplicito.
+  const normalizedReferralCode = normalizeReferralCode(rawReferralCode);
+  const invalidCodeError = {
+    error: "Codice referral non valido. Correggilo o rimuovilo per continuare.",
+  };
+  if (!normalizedReferralCode) return invalidCodeError;
+
+  try {
+    const db = getDb();
+    const [referrerRow] = await db
+      .select({ id: profiles.id, referralCode: profiles.referralCode })
+      .from(profiles)
+      .where(sql`${profiles.referralCode} = ${normalizedReferralCode}`)
+      .limit(1);
+    if (!referrerRow) return invalidCodeError;
+    return { referrer: referrerRow };
+  } catch (err) {
+    logger.error({ err }, "Referral code lookup failed");
+    return { error: "Registrazione fallita. Riprova." };
+  }
+}
+
 export async function signUp(formData: FormData): Promise<AuthActionResult> {
   // Centralised email normalisation — consistent across signUp / signIn /
   // magicLink / resetPassword (CLAUDE.md regola 22).
@@ -394,39 +432,9 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
     redirect("/verify-email");
   }
 
-  // Codice referral: a differenza di `ref` (signup source, soft) un codice
-  // presente ma invalido blocca la registrazione — l'utente deve correggerlo
-  // o rimuoverlo dal form per procedere. Non è un problema di enumeration
-  // (il codice non è un segreto, identifica solo il referrer) quindi l'errore
-  // può essere esplicito.
-  let referrer: { id: string; referralCode: string } | null = null;
-  if (rawReferralCode.trim().length > 0) {
-    const normalizedReferralCode = normalizeReferralCode(rawReferralCode);
-    if (!normalizedReferralCode) {
-      return {
-        error:
-          "Codice referral non valido. Correggilo o rimuovilo per continuare.",
-      };
-    }
-    try {
-      const db = getDb();
-      const [referrerRow] = await db
-        .select({ id: profiles.id, referralCode: profiles.referralCode })
-        .from(profiles)
-        .where(sql`${profiles.referralCode} = ${normalizedReferralCode}`)
-        .limit(1);
-      if (!referrerRow) {
-        return {
-          error:
-            "Codice referral non valido. Correggilo o rimuovilo per continuare.",
-        };
-      }
-      referrer = referrerRow;
-    } catch (err) {
-      logger.error({ err }, "Referral code lookup failed");
-      return { error: "Registrazione fallita. Riprova." };
-    }
-  }
+  const referralResult = await resolveReferrer(rawReferralCode);
+  if ("error" in referralResult) return { error: referralResult.error };
+  const { referrer } = referralResult;
 
   const supabase = await createServerSupabaseClient();
   const hostname =
