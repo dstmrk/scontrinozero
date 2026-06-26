@@ -138,6 +138,23 @@ describe("auth callback route", () => {
     expect(location.pathname).toBe("/dashboard");
   });
 
+  it("flags an expired/invalid reset link with reset_link_invalid", async () => {
+    // Caso reale otp_expired: Supabase rimanda a /callback?redirect=/reset-password/update
+    // con l'errore nel fragment (invisibile al server) e senza code. Dal redirect
+    // param capiamo che era un link di reset e diamo a /login il codice mirato.
+    const { GET } = await import("./route");
+
+    const request = new Request(
+      "http://localhost:3000/callback?redirect=/reset-password/update",
+    );
+    const response = await GET(request);
+
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("error")).toBe("reset_link_invalid");
+  });
+
   it("builds the redirect host from NEXT_PUBLIC_APP_URL, not the request host", async () => {
     // Regressione 0.0.0.0:3000: dietro Cloudflare Tunnel request.url si risolve
     // all'host interno di bind. Il redirect deve usare l'app URL configurato.

@@ -1,12 +1,14 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { Suspense, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod/v4";
 import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { signIn, resendConfirmationEmail } from "@/server/auth-actions";
+import { mapAuthCallbackError } from "@/lib/auth-callback-error";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormInputField, FormPasswordField } from "@/components/ui/form";
@@ -28,9 +30,12 @@ function resolveButtonLabel(mode: LoginMode, isPending: boolean): string {
   return isPending ? "Accesso in corso…" : "Accedi";
 }
 
-export default function LoginPage() {
+function LoginForm() {
   const [isPending, startTransition] = useTransition();
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  // Messaggio impostato dal redirect del /callback (es. link di reset scaduto).
+  // Suspense boundary richiesto da Next per useSearchParams nel prerender.
+  const callbackError = mapAuthCallbackError(useSearchParams().get("error"));
   // "resend" si attiva quando il login fallisce perché l'email non è confermata:
   // mostra il messaggio dedicato e offre il re-invio della conferma. Il captcha
   // viene resettato sull'action corretta ("resend-confirmation").
@@ -105,6 +110,15 @@ export default function LoginPage() {
         <CardTitle className="text-center text-xl">Accedi</CardTitle>
       </CardHeader>
       <CardContent>
+        {callbackError && mode === "login" && (
+          <p
+            className="border-destructive/40 bg-destructive/10 text-destructive mb-4 rounded-md border p-3 text-sm"
+            role="alert"
+          >
+            {callbackError}
+          </p>
+        )}
+
         <Form {...form}>
           <form
             onSubmit={(e) => form.handleSubmit(handleSubmit)(e)}
@@ -185,5 +199,13 @@ export default function LoginPage() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }

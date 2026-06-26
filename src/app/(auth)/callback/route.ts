@@ -48,8 +48,13 @@ export async function GET(request: Request) {
     }
   }
 
-  // If code exchange failed or no code, redirect to login with error
-  return NextResponse.redirect(
-    new URL("/login?error=auth_callback_failed", base),
-  );
+  // If code exchange failed or no code, redirect to login with error.
+  // L'errore reale di Supabase (es. otp_expired) è nel fragment, invisibile qui;
+  // ma se il link puntava al flusso di reset (redirect=/reset-password*) sappiamo
+  // che è un link di reset scaduto/non valido e diamo a /login un codice mirato
+  // per mostrare il messaggio giusto (e indirizzare a "Password dimenticata?").
+  const failureError = redirect.startsWith("/reset-password")
+    ? "reset_link_invalid"
+    : "auth_callback_failed";
+  return NextResponse.redirect(new URL(`/login?error=${failureError}`, base));
 }
