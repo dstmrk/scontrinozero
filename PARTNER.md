@@ -142,3 +142,27 @@ WHERE pr.email = '<partner-email>';
 - **Offboarding**: `UPDATE partners SET active = false …` disattiva il subdomain
   branding e l'enforcement; per togliere le feature, riporta il piano del
   partner da `unlimited` al piano dovuto.
+
+---
+
+## Perché non codici monouso per-partner
+
+La spec originale (v1.4.0) prevedeva un modello più sofisticato: **codici
+monouso** con prefisso per-partner (`<partner>_<univoco>`), tabella
+`partner_codes`, claim atomico race-safe al signup, più script di
+generazione/billing/sospensione. È stata **deliberatamente scartata** a favore
+dell'approccio leggero qui documentato.
+
+Motivi:
+
+- **Zero nuovo gating, zero nuovi script**: riusa il sistema referral esistente
+  e il piano `unlimited` già pronto, invece di una tabella + 3 script admin da
+  scrivere e testare.
+- **Fatturazione wholesale fuori dal codice**: il prezzo all'ingrosso, il
+  prepagato e la sospensione per insoluto restano un **accordo contrattuale** col
+  partner, non logica applicativa da mantenere.
+- **Superficie minima** (principio guida del progetto): meno codice = meno bug.
+
+Da riconsiderare **solo** se emerge una necessità reale di attribuzione monouso
+anti-leak (codici che non possono circolare) o di automazione
+billing/sospensione lato piattaforma.
