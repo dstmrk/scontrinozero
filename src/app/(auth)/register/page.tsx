@@ -63,6 +63,12 @@ function RegisterForm() {
   // un codice invalido blocca la registrazione — l'utente deve poterlo
   // correggere o cancellare dal form per procedere senza referral.
   const rcodeParam = useSearchParams().get("rcode");
+  // Nascosto dietro un toggle per non appesantire il form per chi non ha un
+  // codice (la maggioranza); già aperto se l'utente arriva da un link
+  // ?rcode= così non perde un click per vedere il valore precompilato.
+  const [showReferralField, setShowReferralField] = useState(
+    Boolean(rcodeParam),
+  );
 
   const form = useForm<RegisterData>({
     resolver: zodResolver(registerSchema),
@@ -222,28 +228,39 @@ function RegisterForm() {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="referralCode"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Codice referral (opzionale)</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="es. AB2CDEFG"
-                      autoComplete="off"
-                      spellCheck={false}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Hai un codice da un amico? Inseriscilo per ottenere 1 mese
-                    di trial extra. Lascia vuoto per registrarti senza.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {showReferralField ? (
+              <FormField
+                control={form.control}
+                name="referralCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Codice referral (opzionale)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="es. AB2CDEFG"
+                        autoComplete="off"
+                        spellCheck={false}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Hai un codice da un amico? Inseriscilo per ottenere 1 mese
+                      di trial extra. Lascia vuoto per registrarti senza.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) : (
+              <button
+                type="button"
+                aria-expanded={false}
+                onClick={() => setShowReferralField(true)}
+                className="text-muted-foreground hover:text-foreground text-sm underline"
+              >
+                Hai un codice invito?
+              </button>
+            )}
 
             <TurnstileWidget
               ref={turnstileRef}
