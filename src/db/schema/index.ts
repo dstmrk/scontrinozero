@@ -9,4 +9,5 @@ export * from "./api-keys";
 export * from "./stripe-webhook-events";
 export * from "./trial-vat-ledger";
 export * from "./referral-redemptions";
+export * from "./partners";
 export * from "./relations";
