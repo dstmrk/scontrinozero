@@ -77,6 +77,33 @@ function computeBillingCardState(
   return "trial-active";
 }
 
+/**
+ * Compone la riga "Sede" dell'attività. Estratta a livello di modulo per
+ * tenere bassa la Cognitive Complexity di SettingsPage (S3776): concentra qui
+ * la logica città/provincia/CAP. Ritorna null se non c'è né indirizzo né città.
+ */
+function formatBusinessLocation(business: {
+  address: string | null | undefined;
+  streetNumber: string | null | undefined;
+  city: string | null | undefined;
+  province: string | null | undefined;
+  zipCode: string | null | undefined;
+}): string | null {
+  if (!business.address && !business.city) return null;
+  const cityProvince =
+    business.city && business.province
+      ? `${business.city} (${business.province})`
+      : (business.city ?? business.province);
+  return [
+    business.address,
+    business.streetNumber,
+    cityProvince,
+    business.zipCode,
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
+
 export default async function SettingsPage({
   searchParams,
 }: {
@@ -133,6 +160,8 @@ export default async function SettingsPage({
     VAT_CODES.includes(business.preferredVatCode as VatCode)
       ? VAT_DESCRIPTIONS[business.preferredVatCode as VatCode]
       : null;
+
+  const businessLocation = business ? formatBusinessLocation(business) : null;
 
   const completedReferrals = profile
     ? ((
@@ -273,19 +302,10 @@ export default async function SettingsPage({
                     {business.fiscalCode}
                   </p>
                 )}
-                {(business.address || business.city) && (
+                {businessLocation && (
                   <p>
                     <span className="text-muted-foreground">Sede:</span>{" "}
-                    {[
-                      business.address,
-                      business.streetNumber,
-                      business.city && business.province
-                        ? `${business.city} (${business.province})`
-                        : (business.city ?? business.province),
-                      business.zipCode,
-                    ]
-                      .filter(Boolean)
-                      .join(", ")}
+                    {businessLocation}
                   </p>
                 )}
                 {preferredVatLabel && (
