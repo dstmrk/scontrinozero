@@ -30,6 +30,7 @@ import {
 } from "@/lib/plans";
 import { PRICE_IDS } from "@/lib/stripe";
 import { ApiKeySection } from "@/components/settings/api-key-section";
+import { ExtraSettingsSection } from "@/components/settings/extra-settings-section";
 import { PlanBadge } from "@/components/billing/plan-badge";
 import { PlanSelection } from "@/components/billing/plan-selection";
 import { RefreshOnSuccess } from "@/components/billing/refresh-on-success";
@@ -156,297 +157,341 @@ export default async function SettingsPage({
   const intervalLabel =
     planData?.subscriptionInterval === "year" ? "annuale" : "mensile";
 
+  // Heading di sezione: raggruppa visivamente le card per area tematica.
+  const sectionHeadingClass =
+    "text-muted-foreground text-sm font-semibold tracking-wide uppercase";
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <RefreshOnSuccess active={success === "1"} />
       <ScrollToHash />
       <h1 className="text-2xl font-bold">Impostazioni</h1>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Profilo</CardTitle>
-          <EditProfileSection
-            firstName={profile?.firstName ?? null}
-            lastName={profile?.lastName ?? null}
-          />
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <p>
-            <span className="text-muted-foreground">Nome:</span>{" "}
-            {displayName || "Non impostato"}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Email:</span> {user.email}
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Sicurezza</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ChangePasswordSection />
-        </CardContent>
-      </Card>
-
-      {business && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Attività</CardTitle>
-            <EditBusinessSection
-              businessId={business.id}
-              businessName={business.businessName ?? null}
-              address={business.address ?? null}
-              streetNumber={business.streetNumber ?? null}
-              city={business.city ?? null}
-              province={business.province ?? null}
-              zipCode={business.zipCode ?? null}
-              preferredVatCode={business.preferredVatCode ?? null}
-            />
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {business.businessName && (
-              <p>
-                <span className="text-muted-foreground">Nome attività:</span>{" "}
-                {business.businessName}
-              </p>
-            )}
-            {business.vatNumber && (
-              <p>
-                <span className="text-muted-foreground">P.IVA:</span>{" "}
-                {business.vatNumber}
-              </p>
-            )}
-            {business.fiscalCode && (
-              <p>
-                <span className="text-muted-foreground">C.F.:</span>{" "}
-                {business.fiscalCode}
-              </p>
-            )}
-            {(business.address || business.city) && (
-              <p>
-                <span className="text-muted-foreground">Sede:</span>{" "}
-                {[
-                  business.address,
-                  business.streetNumber,
-                  business.city && business.province
-                    ? `${business.city} (${business.province})`
-                    : (business.city ?? business.province),
-                  business.zipCode,
-                ]
-                  .filter(Boolean)
-                  .join(", ")}
-              </p>
-            )}
-            {preferredVatLabel && (
-              <p>
-                <span className="text-muted-foreground">IVA prevalente:</span>{" "}
-                {preferredVatLabel}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Credenziali AdE</CardTitle>
-          {business && <EditAdeCredentialsSection businessId={business.id} />}
-        </CardHeader>
-        <CardContent>
-          <AdeCredentialsSection
-            businessId={business?.id ?? null}
-            hasCredentials={!!cred}
-            verifiedAt={cred?.verifiedAt ?? null}
-          />
-        </CardContent>
-      </Card>
-
-      {profile && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Referral</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ReferralSection
-              referralCode={profile.referralCode}
-              completedReferrals={completedReferrals}
-            />
-          </CardContent>
-        </Card>
-      )}
-
-      {planData && (
-        // id="billing" → ancora del deep-link BILLING_SETTINGS_HREF
-        // (/dashboard/settings#billing). scroll-mt evita che la sticky header
-        // copra il titolo quando si atterra sull'ancora.
-        <Card id="billing" className="scroll-mt-20">
-          <CardHeader>
-            <CardTitle>Piano e Abbonamento</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Trial scaduto — banner warning */}
-            {cardState === "trial-expired" && (
-              <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
-                Il periodo di prova è scaduto. Scegli un piano per continuare ad
-                emettere scontrini.
-              </div>
-            )}
-
-            {/* Pagamento fallito — banner errore */}
-            {cardState === "past-due" && (
-              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-                Pagamento fallito — aggiorna il metodo di pagamento per evitare
-                l&apos;interruzione del servizio.
-              </div>
-            )}
-
-            {/* Piano corrente */}
-            <div>
-              <p className="text-muted-foreground mb-2 text-sm font-medium">
-                Piano corrente
-              </p>
-              <div className="flex items-center gap-3">
-                <PlanBadge plan={planData.plan} />
-
-                {cardState === "trial-active" && trialExpiryDate && (
-                  <span className="text-muted-foreground text-sm">
-                    Prova attiva — scade il{" "}
-                    {trialExpiryDate.toLocaleDateString("it-IT")}
-                  </span>
-                )}
-
-                {cardState === "trial-expired" && trialExpiryDate && (
-                  <span className="text-sm text-red-600">
-                    Scaduto il {trialExpiryDate.toLocaleDateString("it-IT")}
-                  </span>
-                )}
-
-                {cardState === "subscribed" && (
-                  <span className="text-muted-foreground text-sm">
-                    Abbonamento {intervalLabel}
-                    {planData.planExpiresAt &&
-                      ` — rinnovo il ${planData.planExpiresAt.toLocaleDateString("it-IT")}`}
-                  </span>
-                )}
-
-                {cardState === "past-due" && (
-                  <span className="text-sm text-red-600">
-                    Abbonamento {intervalLabel} — pagamento scaduto
-                  </span>
-                )}
-
-                {cardState === "unlimited" && (
-                  <span className="text-muted-foreground text-sm">
-                    Piano illimitato — gestito direttamente.
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Scegli piano — solo senza abbonamento attivo */}
-            {(cardState === "trial-active" ||
-              cardState === "trial-expired") && (
-              <PlanSelection
-                starterMonthly={PRICE_IDS.starterMonthly}
-                starterYearly={PRICE_IDS.starterYearly}
-                proMonthly={PRICE_IDS.proMonthly}
-                proYearly={PRICE_IDS.proYearly}
+      {/* Account — profilo, sicurezza, sessione */}
+      <section className="space-y-4">
+        <h2 className={sectionHeadingClass}>Account</h2>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Profilo</CardTitle>
+              <EditProfileSection
+                firstName={profile?.firstName ?? null}
+                lastName={profile?.lastName ?? null}
               />
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <p>
+                <span className="text-muted-foreground">Nome:</span>{" "}
+                {displayName || "Non impostato"}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Email:</span>{" "}
+                {user.email}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Sicurezza</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ChangePasswordSection />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Sessione</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground mb-4 text-sm">
+                Esci dall&apos;account su questo dispositivo.
+              </p>
+              <form action={signOut}>
+                <Button variant="outline" type="submit">
+                  Esci
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {/* Attività e fisco — dati attività, credenziali AdE */}
+      <section className="space-y-4">
+        <h2 className={sectionHeadingClass}>Attività e fisco</h2>
+        <div className="space-y-6">
+          {business && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Attività</CardTitle>
+                <EditBusinessSection
+                  businessId={business.id}
+                  businessName={business.businessName ?? null}
+                  address={business.address ?? null}
+                  streetNumber={business.streetNumber ?? null}
+                  city={business.city ?? null}
+                  province={business.province ?? null}
+                  zipCode={business.zipCode ?? null}
+                  preferredVatCode={business.preferredVatCode ?? null}
+                />
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {business.businessName && (
+                  <p>
+                    <span className="text-muted-foreground">
+                      Nome attività:
+                    </span>{" "}
+                    {business.businessName}
+                  </p>
+                )}
+                {business.vatNumber && (
+                  <p>
+                    <span className="text-muted-foreground">P.IVA:</span>{" "}
+                    {business.vatNumber}
+                  </p>
+                )}
+                {business.fiscalCode && (
+                  <p>
+                    <span className="text-muted-foreground">C.F.:</span>{" "}
+                    {business.fiscalCode}
+                  </p>
+                )}
+                {(business.address || business.city) && (
+                  <p>
+                    <span className="text-muted-foreground">Sede:</span>{" "}
+                    {[
+                      business.address,
+                      business.streetNumber,
+                      business.city && business.province
+                        ? `${business.city} (${business.province})`
+                        : (business.city ?? business.province),
+                      business.zipCode,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
+                  </p>
+                )}
+                {preferredVatLabel && (
+                  <p>
+                    <span className="text-muted-foreground">
+                      IVA prevalente:
+                    </span>{" "}
+                    {preferredVatLabel}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Credenziali AdE</CardTitle>
+              {business && (
+                <EditAdeCredentialsSection businessId={business.id} />
+              )}
+            </CardHeader>
+            <CardContent>
+              <AdeCredentialsSection
+                businessId={business?.id ?? null}
+                hasCredentials={!!cred}
+                verifiedAt={cred?.verifiedAt ?? null}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {/* Abbonamento — piano corrente, referral.
+          Reso solo se almeno una card è presente, per non lasciare un
+          heading orfano (utente autenticato senza profilo/piano). */}
+      {(planData || profile) && (
+        <section className="space-y-4">
+          <h2 className={sectionHeadingClass}>Abbonamento</h2>
+          <div className="space-y-6">
+            {planData && (
+              // id="billing" → ancora del deep-link BILLING_SETTINGS_HREF
+              // (/dashboard/settings#billing). scroll-mt evita che la sticky header
+              // copra il titolo quando si atterra sull'ancora.
+              <Card id="billing" className="scroll-mt-20">
+                <CardHeader>
+                  <CardTitle>Piano e Abbonamento</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Trial scaduto — banner warning */}
+                  {cardState === "trial-expired" && (
+                    <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+                      Il periodo di prova è scaduto. Scegli un piano per
+                      continuare ad emettere scontrini.
+                    </div>
+                  )}
+
+                  {/* Pagamento fallito — banner errore */}
+                  {cardState === "past-due" && (
+                    <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                      Pagamento fallito — aggiorna il metodo di pagamento per
+                      evitare l&apos;interruzione del servizio.
+                    </div>
+                  )}
+
+                  {/* Piano corrente */}
+                  <div>
+                    <p className="text-muted-foreground mb-2 text-sm font-medium">
+                      Piano corrente
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <PlanBadge plan={planData.plan} />
+
+                      {cardState === "trial-active" && trialExpiryDate && (
+                        <span className="text-muted-foreground text-sm">
+                          Prova attiva — scade il{" "}
+                          {trialExpiryDate.toLocaleDateString("it-IT")}
+                        </span>
+                      )}
+
+                      {cardState === "trial-expired" && trialExpiryDate && (
+                        <span className="text-sm text-red-600">
+                          Scaduto il{" "}
+                          {trialExpiryDate.toLocaleDateString("it-IT")}
+                        </span>
+                      )}
+
+                      {cardState === "subscribed" && (
+                        <span className="text-muted-foreground text-sm">
+                          Abbonamento {intervalLabel}
+                          {planData.planExpiresAt &&
+                            ` — rinnovo il ${planData.planExpiresAt.toLocaleDateString("it-IT")}`}
+                        </span>
+                      )}
+
+                      {cardState === "past-due" && (
+                        <span className="text-sm text-red-600">
+                          Abbonamento {intervalLabel} — pagamento scaduto
+                        </span>
+                      )}
+
+                      {cardState === "unlimited" && (
+                        <span className="text-muted-foreground text-sm">
+                          Piano illimitato — gestito direttamente.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Scegli piano — solo senza abbonamento attivo */}
+                  {(cardState === "trial-active" ||
+                    cardState === "trial-expired") && (
+                    <PlanSelection
+                      starterMonthly={PRICE_IDS.starterMonthly}
+                      starterYearly={PRICE_IDS.starterYearly}
+                      proMonthly={PRICE_IDS.proMonthly}
+                      proYearly={PRICE_IDS.proYearly}
+                    />
+                  )}
+
+                  {/* Gestisci abbonamento — solo con abbonamento attivo */}
+                  {cardState === "subscribed" && (
+                    <div>
+                      <p className="text-muted-foreground mb-2 text-sm font-medium">
+                        Gestisci abbonamento
+                      </p>
+                      <p className="text-muted-foreground mb-3 text-sm">
+                        Modifica il piano, aggiorna il metodo di pagamento o
+                        annulla l&apos;abbonamento tramite il portale sicuro di
+                        Stripe.
+                      </p>
+                      <a
+                        href="/api/stripe/portal"
+                        className="text-primary text-sm underline underline-offset-4"
+                      >
+                        Vai al portale Stripe →
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Pagamento scaduto — link urgente al portal */}
+                  {cardState === "past-due" && (
+                    <a
+                      href="/api/stripe/portal"
+                      className="text-sm font-medium text-red-600 underline underline-offset-4"
+                    >
+                      Aggiorna metodo di pagamento →
+                    </a>
+                  )}
+                </CardContent>
+              </Card>
             )}
 
-            {/* Gestisci abbonamento — solo con abbonamento attivo */}
-            {cardState === "subscribed" && (
-              <div>
-                <p className="text-muted-foreground mb-2 text-sm font-medium">
-                  Gestisci abbonamento
-                </p>
-                <p className="text-muted-foreground mb-3 text-sm">
-                  Modifica il piano, aggiorna il metodo di pagamento o annulla
-                  l&apos;abbonamento tramite il portale sicuro di Stripe.
-                </p>
-                <a
-                  href="/api/stripe/portal"
-                  className="text-primary text-sm underline underline-offset-4"
-                >
-                  Vai al portale Stripe →
-                </a>
-              </div>
+            {profile && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Referral</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ReferralSection
+                    referralCode={profile.referralCode}
+                    completedReferrals={completedReferrals}
+                  />
+                </CardContent>
+              </Card>
             )}
-
-            {/* Pagamento scaduto — link urgente al portal */}
-            {cardState === "past-due" && (
-              <a
-                href="/api/stripe/portal"
-                className="text-sm font-medium text-red-600 underline underline-offset-4"
-              >
-                Aggiorna metodo di pagamento →
-              </a>
-            )}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       )}
 
-      {business && planData && canUseApi(planData.plan) && (
+      {/* Preferenze — aspetto */}
+      <section className="space-y-4">
+        <h2 className={sectionHeadingClass}>Preferenze</h2>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Aspetto</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ThemeSection />
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {/* Altre impostazioni — sezioni a basso uso, nascoste di default */}
+      <ExtraSettingsSection>
+        {business && planData && canUseApi(planData.plan) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>API key</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ApiKeySection businessId={business.id} />
+            </CardContent>
+          </Card>
+        )}
+
+        <ExportDataSection />
+
+        <AccountDeleteSection />
+
         <Card>
           <CardHeader>
-            <CardTitle>API key</CardTitle>
+            <CardTitle>Informazioni</CardTitle>
           </CardHeader>
-          <CardContent>
-            <ApiKeySection businessId={business.id} />
+          <CardContent className="text-muted-foreground space-y-2 text-sm">
+            <p>
+              ScontrinoZero {APP_VERSION} &mdash; build {getBuildLabel()}
+            </p>
+            <p>
+              Per dubbi, domande o feedback contattaci:{" "}
+              <a
+                className="text-primary underline"
+                href={`mailto:${CONTACT_EMAIL}`}
+              >
+                {CONTACT_EMAIL}
+              </a>
+            </p>
           </CardContent>
         </Card>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Aspetto</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ThemeSection />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Sessione</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground mb-4 text-sm">
-            Esci dall&apos;account su questo dispositivo.
-          </p>
-          <form action={signOut}>
-            <Button variant="outline" type="submit">
-              Esci
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <ExportDataSection />
-
-      <AccountDeleteSection />
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Informazioni</CardTitle>
-        </CardHeader>
-        <CardContent className="text-muted-foreground space-y-2 text-sm">
-          <p>
-            ScontrinoZero {APP_VERSION} &mdash; build {getBuildLabel()}
-          </p>
-          <p>
-            Per dubbi, domande o feedback contattaci:{" "}
-            <a
-              className="text-primary underline"
-              href={`mailto:${CONTACT_EMAIL}`}
-            >
-              {CONTACT_EMAIL}
-            </a>
-          </p>
-        </CardContent>
-      </Card>
+      </ExtraSettingsSection>
     </div>
   );
 }

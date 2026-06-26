@@ -50,7 +50,7 @@ export default function ApiDocsPage() {
             {"Una chiave API di tipo "}
             <strong>business</strong>
             {" generata dalla dashboard: vai su "}
-            <strong>Impostazioni → API key</strong>
+            <strong>Impostazioni → Altre impostazioni → API key</strong>
             {", clicca "}
             <em>+ Nuova API key</em>
             {', assegnale un nome descrittivo (es. "POS principale"), clicca '}

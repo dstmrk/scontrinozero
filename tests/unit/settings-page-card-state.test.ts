@@ -84,6 +84,11 @@ vi.mock("@/components/billing/plan-selection", () => ({
 vi.mock("@/components/settings/api-key-section", () => ({
   ApiKeySection: vi.fn(() => null),
 }));
+// Passthrough: rende i children così findInJsx continua a trovare le card
+// annidate (es. ApiKeySection) nell'albero JSX.
+vi.mock("@/components/settings/extra-settings-section", () => ({
+  ExtraSettingsSection: ({ children }: { children: unknown }) => children,
+}));
 vi.mock("@/components/settings/ade-credentials-section", () => ({
   AdeCredentialsSection: () => null,
 }));
