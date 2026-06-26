@@ -60,9 +60,21 @@ vi.mock("@/db/schema", () => ({
   profiles: "profiles-table",
 }));
 
+// getPartnerBySlug è mockata: i test partner controllano direttamente il
+// codice del partner senza passare dal DB (extractPartnerSlug resta reale).
+const mockGetPartnerBySlug = vi.fn().mockResolvedValue(null);
+vi.mock("@/lib/partners/partner-context", () => ({
+  getPartnerBySlug: mockGetPartnerBySlug,
+}));
+
+// Host della richiesta, controllabile per test (default: dominio app standard).
+// Le altre chiavi (CF-Connecting-IP, ecc.) restano l'IP client.
+let mockHostHeader = "app.scontrinozero.it";
 vi.mock("next/headers", () => ({
   headers: vi.fn().mockResolvedValue({
-    get: vi.fn().mockReturnValue("127.0.0.1"),
+    get: vi.fn((key: string) =>
+      String(key).toLowerCase() === "host" ? mockHostHeader : "127.0.0.1",
+    ),
   }),
 }));
 
@@ -137,6 +149,8 @@ describe("auth-actions", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHostHeader = "app.scontrinozero.it";
+    mockGetPartnerBySlug.mockResolvedValue(null);
     process.env.TURNSTILE_SECRET_KEY = "test-secret";
     process.env.NEXT_PUBLIC_APP_HOSTNAME = "app.scontrinozero.it";
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
@@ -670,6 +684,136 @@ describe("auth-actions", () => {
         }),
       );
       expect(mockInsert).toHaveBeenCalledTimes(1);
+    });
+
+    it("blocca la registrazione su un subdomain partner senza codice (force+lock server-side)", async () => {
+      mockHostHeader = "nds-app.scontrinozero.it";
+      mockGetPartnerBySlug.mockResolvedValue({
+        slug: "nds",
+        label: "x NDS",
+        referralCode: "NDS12345",
+      });
+      mockFetch.mockResolvedValue(
+        captchaResponse("signup", "nds-app.scontrinozero.it"),
+      );
+
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "valid-token",
+        }),
+      );
+
+      expect(result?.error).toMatch(/riservata agli utenti del partner/);
+      // L'enforcement scatta prima di Supabase: nessun utente auth creato.
+      expect(mockSignUp).not.toHaveBeenCalled();
+    });
+
+    it("blocca la registrazione su un subdomain partner con un codice diverso da quello del partner", async () => {
+      mockHostHeader = "nds-app.scontrinozero.it";
+      mockGetPartnerBySlug.mockResolvedValue({
+        slug: "nds",
+        label: "x NDS",
+        referralCode: "NDS12345",
+      });
+      mockFetch.mockResolvedValue(
+        captchaResponse("signup", "nds-app.scontrinozero.it"),
+      );
+
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "valid-token",
+          rcode: "WRONGXX1",
+        }),
+      );
+
+      expect(result?.error).toMatch(/riservata agli utenti del partner/);
+      expect(mockSignUp).not.toHaveBeenCalled();
+    });
+
+    it("consente la registrazione su un subdomain partner col codice del partner e registra l'attribuzione", async () => {
+      mockHostHeader = "nds-app.scontrinozero.it";
+      mockGetPartnerBySlug.mockResolvedValue({
+        slug: "nds",
+        label: "x NDS",
+        referralCode: "NDS12345",
+      });
+      mockFetch.mockResolvedValue(
+        captchaResponse("signup", "nds-app.scontrinozero.it"),
+      );
+      mockLimit
+        .mockResolvedValueOnce([]) // email pre-check
+        .mockResolvedValueOnce([
+          { id: "nds-profile-id", referralCode: "NDS12345" },
+        ]); // referral lookup (resolveReferrer)
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-nds" } },
+        error: null,
+      });
+
+      const { signUp } = await import("./auth-actions");
+      try {
+        await signUp(
+          formData({
+            email: "user@nds.it",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+            rcode: "NDS12345",
+          }),
+        );
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+      }
+
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          referredByReferralCode: "NDS12345",
+          referralBonusDays: 30,
+        }),
+      );
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          referrerId: "nds-profile-id",
+          refereeId: "profile-id",
+          referralCode: "NDS12345",
+        }),
+      );
+    });
+
+    it("rifiuta il captcha da un host -app senza partner attivo (allowlist Turnstile)", async () => {
+      mockGetPartnerBySlug.mockResolvedValue(null);
+      mockFetch.mockResolvedValue(
+        captchaResponse("signup", "ghost-app.scontrinozero.it"),
+      );
+
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "valid-token",
+        }),
+      );
+
+      expect(result?.error).toBe("Verifica CAPTCHA fallita. Riprova.");
     });
 
     it("returns error when profile insert fails (terms acceptance is mandatory)", async () => {

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { ClearCassaCart } from "@/components/clear-cassa-cart";
+import { PartnerBrandSuffix } from "@/components/partner-brand-suffix";
 
 export default function AuthLayout({
   children,
@@ -16,6 +17,7 @@ export default function AuthLayout({
       >
         <Image src="/logo.png" alt="ScontrinoZero" width={20} height={20} />
         ScontrinoZero
+        <PartnerBrandSuffix />
       </Link>
       <div className="w-full max-w-md">{children}</div>
     </div>

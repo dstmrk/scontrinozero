@@ -33,6 +33,10 @@ export default defineConfig({
         "src/app/**/opengraph-image.tsx", // OG route files — thin next/og wrappers, render covered via og-image-template
         // UI orchestration components — pure UI shells, no testable logic
         "src/app/onboarding/onboarding-form.tsx",
+        // Auth form shell (Turnstile + react-hook-form), già escluso quando era
+        // register/page.tsx; la logica force+lock è verificata server-side in
+        // auth-actions.test.ts (enforcePartnerReferral).
+        "src/app/(auth)/register/register-form.tsx",
         "src/components/cassa/cassa-client.tsx",
         "src/components/catalogo/catalogo-client.tsx", // UI orchestrator — pure render + setState, same pattern as cassa-client
         "src/lib/ade/types.ts", // pure type declarations + 1 regex constant (covered indirectly via validation)

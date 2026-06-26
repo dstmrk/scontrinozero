@@ -12,6 +12,7 @@ import { BottomNav } from "@/components/dashboard/bottom-nav";
 import { HeaderNav } from "@/components/dashboard/header-nav";
 import { AnnouncementBanner } from "@/components/announcement/announcement-banner";
 import { PwaInstallPrompt } from "@/components/pwa/install-prompt";
+import { PartnerBrandSuffix } from "@/components/partner-brand-suffix";
 
 export default async function DashboardLayout({
   children,
@@ -57,6 +58,7 @@ export default async function DashboardLayout({
                 height={20}
               />
               ScontrinoZero
+              <PartnerBrandSuffix />
             </Link>
 
             <div className="flex items-center md:hidden">

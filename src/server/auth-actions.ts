@@ -28,6 +28,8 @@ import {
   REFERRAL_BONUS_DAYS,
 } from "@/lib/referral-code";
 import { referralRedemptions } from "@/db/schema/referral-redemptions";
+import { extractPartnerSlug } from "@/lib/partners/partner-host";
+import { getPartnerBySlug } from "@/lib/partners/partner-context";
 
 const CURRENT_TERMS_VERSION = "v01";
 
@@ -150,6 +152,24 @@ function getAcceptedTurnstileHostnames(): ReadonlySet<string> {
   return new Set([appHostname, marketingHostname, `www.${marketingHostname}`]);
 }
 
+/**
+ * Estende l'allowlist statica ai subdomain partner attivi
+ * (`<slug>-app.scontrinozero.it`). Senza questo, ogni auth sul subdomain
+ * fallirebbe con `captcha_hostname_mismatch` (login/register/reset usano tutti
+ * Turnstile). Il lookup DB scatta solo quando l'host non è nell'allowlist
+ * statica, ed è cacheato per-richiesta (`getPartnerBySlug`).
+ *
+ * ⚠️ Lato Cloudflare il widget Turnstile deve a sua volta ammettere i
+ * subdomain partner (vedi PARTNER.md), altrimenti `siteverify` rifiuta il
+ * token prima ancora di arrivare qui.
+ */
+async function isAcceptedTurnstileHostname(host: string): Promise<boolean> {
+  if (getAcceptedTurnstileHostnames().has(host)) return true;
+  const slug = extractPartnerSlug(host);
+  if (!slug) return false;
+  return (await getPartnerBySlug(slug)) !== null;
+}
+
 async function verifyCaptcha(
   token: string | null,
   remoteIp: string | undefined,
@@ -199,12 +219,11 @@ async function verifyCaptcha(
       );
       return false;
     }
-    const acceptedHostnames = getAcceptedTurnstileHostnames();
-    if (!acceptedHostnames.has(data.hostname)) {
+    if (!(await isAcceptedTurnstileHostname(data.hostname))) {
       logger.warn(
         {
           captchaHostname: data.hostname,
-          acceptedHostnames: [...acceptedHostnames],
+          acceptedHostnames: [...getAcceptedTurnstileHostnames()],
           errorClass: "captcha_hostname_mismatch",
         },
         "Turnstile hostname mismatch",
@@ -343,6 +362,51 @@ async function insertProfileOrRollback(
 type ReferrerRow = { id: string; referralCode: string };
 
 /**
+ * Codice referral del partner se la richiesta arriva da un subdomain partner
+ * attivo (`<slug>-app.scontrinozero.it`), altrimenti `null` (dominio standard
+ * o slug non mappato a un partner attivo).
+ */
+async function resolvePartnerReferralCode(): Promise<string | null> {
+  let host: string | null;
+  try {
+    host = (await headers()).get("host");
+  } catch {
+    return null;
+  }
+  const slug = extractPartnerSlug(host);
+  if (!slug) return null;
+  const partner = await getPartnerBySlug(slug);
+  return partner?.referralCode ?? null;
+}
+
+/**
+ * Force + lock dell'attribuzione sui subdomain partner: la registrazione è
+ * valida solo col codice referral del partner. Il campo è bloccato lato client
+ * (vedi register-form.tsx); questo guard server-side copre tampering /
+ * direct-POST. Ritorna un errore utente se il codice inviato non coincide,
+ * `null` se non siamo su un subdomain partner o se il codice combacia.
+ *
+ * `warn`, non `error`: è una condizione prevedibile dall'input utente, non un
+ * bug nostro (regola 20).
+ */
+async function enforcePartnerReferral(
+  rawReferralCode: string,
+  ip: string,
+): Promise<AuthActionResult | null> {
+  const partnerCode = await resolvePartnerReferralCode();
+  if (!partnerCode) return null;
+  if (normalizeReferralCode(rawReferralCode) === partnerCode) return null;
+  logger.warn(
+    { ipHash: hashIp(ip), errorClass: "partner_referral_mismatch" },
+    "Registration on partner subdomain with missing/mismatched referral code",
+  );
+  return {
+    error:
+      "Su questo indirizzo la registrazione è riservata agli utenti del partner. Usa il link che ti ha fornito.",
+  };
+}
+
+/**
  * Risolve il codice referral grezzo dal form in un referrer DB row, oppure
  * in un errore utente. Estratto da `signUp` per tenerne sotto controllo la
  * complessità cognitiva (SonarCloud S3776).
@@ -441,6 +505,13 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
     // the resetPassword flow (CLAUDE.md regola #19 spirit).
     redirect("/verify-email");
   }
+
+  // Subdomain partner: la registrazione è vincolata al codice del partner.
+  const partnerReferralError = await enforcePartnerReferral(
+    rawReferralCode,
+    ip,
+  );
+  if (partnerReferralError) return partnerReferralError;
 
   const referralResult = await resolveReferrer(rawReferralCode);
   if ("error" in referralResult) return { error: referralResult.error };
