@@ -82,7 +82,7 @@ export default function PresentaUnAmicoPage() {
             <code className="bg-muted rounded px-1 py-0.5 text-xs">
               /register?rcode=ILTUOCODICE
             </code>
-            ) pronto da inviare via messaggio, email o social.
+            {") pronto da inviare via messaggio, email o social."}
           </li>
         </ol>
 
