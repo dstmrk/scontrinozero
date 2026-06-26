@@ -538,7 +538,11 @@ describe("getPlan", () => {
     expect(expiryMs - now.getTime()).toBeGreaterThan(59 * 24 * 60 * 60 * 1000);
   });
 
-  it("trasla planExpiresAt avanti di referralBonusDays (scadenza più lontana)", async () => {
+  it("NON trasla planExpiresAt per i piani a pagamento (Stripe = fonte di verità)", async () => {
+    // Il mese gratis del referrer a pagamento è erogato su Stripe
+    // (extendSubscriptionForReferral) e il webhook risincronizza plan_expires_at
+    // col valore reale. Sommare di nuovo il bonus qui farebbe divergere l'app
+    // dal portale Stripe a ogni render (era il bug del presentatore).
     const planExpiresAt = new Date("2026-06-01T00:00:00Z");
     mockLimit.mockResolvedValue([
       {
@@ -551,7 +555,7 @@ describe("getPlan", () => {
 
     const result = await getPlan("user-bonus-pro");
 
-    expect(result.planExpiresAt).toEqual(new Date("2026-07-01T00:00:00Z"));
+    expect(result.planExpiresAt).toEqual(planExpiresAt);
   });
 
   it("referralBonusDays = 0 lascia le date inalterate (regression guard)", async () => {

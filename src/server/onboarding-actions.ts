@@ -10,7 +10,10 @@ import {
   profiles,
   trialVatLedger,
   referralRedemptions,
+  subscriptions,
 } from "@/db/schema";
+import { REFERRAL_BONUS_DAYS } from "@/lib/referral-code";
+import { extendSubscriptionForReferral } from "@/server/referral-reward";
 import { hashPiva } from "@/lib/piva-hash";
 import {
   encrypt,
@@ -432,6 +435,14 @@ async function finalizeAdeVerification(params: {
 
   let credentialsChanged = false;
   let trialAlreadyUsed = false;
+  // Estensione Stripe del referrer differita a DOPO il commit: è una chiamata
+  // esterna, non può vivere dentro la transazione DB (regola 10). Valorizzata
+  // dentro la tx solo se il referrer ha un abbonamento Stripe attivo.
+  let pendingStripeExtension: {
+    stripeSubscriptionId: string;
+    referrerId: string;
+    refereeId: string;
+  } | null = null;
 
   await db.transaction(async (tx) => {
     const updated = await tx
@@ -534,15 +545,53 @@ async function finalizeAdeVerification(params: {
         .returning({ referrerId: referralRedemptions.referrerId });
 
       if (claimed.length > 0) {
-        await tx
-          .update(profiles)
-          .set({
-            referralBonusDays: sql`${profiles.referralBonusDays} + 30`,
+        const referrerId = claimed[0].referrerId;
+
+        // Come erogare il mese gratis dipende dallo stato del referrer:
+        // - abbonamento Stripe ATTIVO → estensione su Stripe (post-commit),
+        //   così la prossima data di addebito si sposta davvero e l'app resta
+        //   coerente col portale (regola: Stripe = fonte di verità sui piani a
+        //   pagamento). NON si tocca referralBonusDays.
+        // - trial / unlimited / abbonamento non attivo → si incrementa
+        //   referralBonusDays, che ormai estende esclusivamente il trial
+        //   (no-op per unlimited e per i pagati non attivi: documentato).
+        const [referrerSub] = await tx
+          .select({
+            status: subscriptions.status,
+            stripeSubscriptionId: subscriptions.stripeSubscriptionId,
           })
-          .where(eq(profiles.id, claimed[0].referrerId));
+          .from(subscriptions)
+          .innerJoin(profiles, eq(subscriptions.userId, profiles.authUserId))
+          .where(eq(profiles.id, referrerId))
+          .limit(1);
+
+        if (
+          referrerSub?.status === "active" &&
+          referrerSub.stripeSubscriptionId
+        ) {
+          pendingStripeExtension = {
+            stripeSubscriptionId: referrerSub.stripeSubscriptionId,
+            referrerId,
+            refereeId: refereeProfile.id,
+          };
+        } else {
+          await tx
+            .update(profiles)
+            .set({
+              referralBonusDays: sql`${profiles.referralBonusDays} + ${REFERRAL_BONUS_DAYS}`,
+            })
+            .where(eq(profiles.id, referrerId));
+        }
       }
     }
   });
+
+  // Fuori transazione: estensione Stripe best-effort (non deve rompere
+  // l'onboarding del referee se Stripe è giù — la funzione logga critical e
+  // non rilancia).
+  if (pendingStripeExtension) {
+    await extendSubscriptionForReferral(pendingStripeExtension);
+  }
 
   return { credentialsChanged, trialAlreadyUsed };
 }

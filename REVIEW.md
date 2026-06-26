@@ -348,6 +348,37 @@ shape. Se conferma lista vuota su `200` (transient post-password-change): tratta
 `PIva` vuota come transient (retry singolo di Phase F e/o downgrade a
 `ade_transient` warn, fuori da Sentry). Non implementare prima della conferma.
 
+### 33. Referral bonus — limiti noti dopo lo split trial-vs-Stripe
+
+- **Categoria:** correttezza/billing · **Severità:** Low — scelte di design accettate, non bug
+- **File:** `src/lib/plans.ts` (`fetchPlan`), `src/server/onboarding-actions.ts`
+  (`finalizeAdeVerification`, ramo reward), `src/server/referral-reward.ts`
+  (`extendSubscriptionForReferral`)
+
+**Contesto.** Il bonus referral (+1 mese, member-get-member) ha ora due binari:
+`referralBonusDays` estende **solo** il trial (traslando `trialStartedAt` in
+avanti in `fetchPlan`); per un referrer con abbonamento Stripe **attivo** il mese
+gratis è erogato estendendo `trial_end` su Stripe, e il webhook risincronizza
+`plan_expires_at`. `planExpiresAt` non è più traslato a read-time (Stripe = fonte
+di verità sui piani a pagamento), così l'app non diverge più dal portale Stripe.
+
+**Limiti noti accettati:**
+
+1. **Carry-over trial→pagato.** Un utente che accumula `referralBonusDays` mentre
+   è in trial e poi si abbona **perde** i giorni residui: il bonus non viene
+   trasferito sul nuovo abbonamento Stripe (il checkout non imposta `trial_end`).
+   Fuori scope per ora — eventuale fix: leggere `referralBonusDays` residui al
+   checkout e impostare `trial_end` sulla subscription.
+2. **Referrer `unlimited`.** Nessuna subscription Stripe e piano che non scade →
+   il reward incrementa `referralBonusDays` ma è un no-op visibile (il bonus
+   tocca solo il trial). Accettato: `unlimited` è invite-only/gratis.
+3. **Estensione Stripe fallita = riconciliazione manuale.** `rewardedAt` è già
+   committato quando si tenta l'estensione Stripe (chiamata esterna, post-commit
+   best-effort): se Stripe è giù, il referrer resta senza mese finché non si
+   riconcilia a mano. Cercabile via il log `critical: true` "owed free month
+   needs manual reconciliation" in `extendSubscriptionForReferral`. Preferito a
+   una data app che torni a divergere da Stripe.
+
 ### audit-ci: advisory `esbuild` dev-only (3 GHSA)
 
 `audit-ci.json` allowlista tre advisory su **esbuild** (JSON puro → non può
