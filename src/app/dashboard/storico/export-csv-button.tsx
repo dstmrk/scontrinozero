@@ -22,6 +22,11 @@ import {
 
 interface ExportCsvButtonProps {
   readonly plan: Plan;
+  /**
+   * Server prop da `getPlan()`: un trial attivo è trattato come Pro (assaggio
+   * export CSV durante la prova). Omesso/null → il trial resta gated.
+   */
+  readonly trialStartedAt?: Date | null;
   readonly dateFrom: string;
   readonly dateTo: string;
   readonly status: "ACCEPTED" | "VOID_ACCEPTED" | null;
@@ -36,7 +41,7 @@ function buildExportUrl(props: ExportCsvButtonProps): string {
 }
 
 export function ExportCsvButton(props: ExportCsvButtonProps) {
-  if (canUsePro(props.plan)) {
+  if (canUsePro(props.plan, null, props.trialStartedAt)) {
     return (
       <Button asChild variant="outline">
         <a href={buildExportUrl(props)} download>

@@ -87,6 +87,7 @@ interface StoricoClientProps {
   readonly initialDateTo?: string;
   readonly initialStatus?: StatusFilter;
   readonly plan: Plan;
+  readonly trialStartedAt?: Date | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -101,6 +102,7 @@ export function StoricoClient({
   initialDateTo,
   initialStatus,
   plan,
+  trialStartedAt = null,
 }: StoricoClientProps) {
   const router = useRouter();
   const today = new Date();
@@ -254,6 +256,7 @@ export function StoricoClient({
         </Button>
         <ExportCsvButton
           plan={plan}
+          trialStartedAt={trialStartedAt}
           dateFrom={
             dateRange?.from
               ? format(dateRange.from, "yyyy-MM-dd")

@@ -35,9 +35,19 @@ vi.mock("@/lib/server-auth", () => ({
     mockGetAuthenticatedUser(...args),
 }));
 
-vi.mock("@/lib/plans", () => ({
-  getPlan: (...args: unknown[]) => mockGetPlan(...args),
-}));
+// `canUsePro` è una funzione pura (plans-shared, no DB): forniamo
+// l'implementazione reale così il gate trial/Pro è esercitato davvero, mockando
+// solo `getPlan` (che tocca il DB).
+vi.mock("@/lib/plans", async () => {
+  const shared =
+    await vi.importActual<typeof import("@/lib/plans-shared")>(
+      "@/lib/plans-shared",
+    );
+  return {
+    getPlan: (...args: unknown[]) => mockGetPlan(...args),
+    canUsePro: shared.canUsePro,
+  };
+});
 
 vi.mock("@/server/analytics-actions", () => ({
   getStarterKpis: (...args: unknown[]) => mockGetStarterKpis(...args),
@@ -92,8 +102,12 @@ describe("AnalyticsPage — base view (Starter/Trial)", () => {
     expect(mockGetStarterKpis).toHaveBeenCalledWith("biz-1");
   });
 
-  it("applies to Trial users (same base view)", async () => {
-    mockGetPlan.mockResolvedValue({ plan: "trial" });
+  it("applies to expired Trial users (same base view)", async () => {
+    mockGetPlan.mockResolvedValue({
+      plan: "trial",
+      trialStartedAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000),
+      planExpiresAt: null,
+    });
     mockGetStarterKpis.mockResolvedValue({ kpis: KPIS });
 
     render(await AnalyticsPage(pageProps()));
@@ -115,6 +129,26 @@ describe("AnalyticsPage — base view (Starter/Trial)", () => {
 });
 
 describe("AnalyticsPage — Pro view", () => {
+  it("renders the full AnalyticsClient for an active Trial (trial = Pro)", async () => {
+    mockGetPlan.mockResolvedValue({
+      plan: "trial",
+      trialStartedAt: new Date(),
+      planExpiresAt: null,
+    });
+    mockGetAnalyticsBundle.mockResolvedValue({
+      kpis: KPIS,
+      timeseries: [],
+      breakdown: [],
+      productBreakdown: [],
+    });
+
+    render(await AnalyticsPage(pageProps()));
+
+    expect(screen.getByTestId("analytics-client")).toBeInTheDocument();
+    expect(mockGetStarterKpis).not.toHaveBeenCalled();
+    expect(mockGetAnalyticsBundle).toHaveBeenCalledWith("biz-1", "30d");
+  });
+
   it("renders the full AnalyticsClient for Pro and fetches the bundle", async () => {
     mockGetPlan.mockResolvedValue({ plan: "pro" });
     mockGetAnalyticsBundle.mockResolvedValue({

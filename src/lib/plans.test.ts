@@ -121,8 +121,34 @@ describe("canUsePro", () => {
     expect(canUsePro("starter")).toBe(false);
   });
 
-  it("returns false for trial plan", () => {
+  it("returns false for trial plan when trialStartedAt is not passed (default)", () => {
     expect(canUsePro("trial")).toBe(false);
+  });
+
+  it("returns true for an active trial (trialStartedAt within 30 days)", () => {
+    expect(canUsePro("trial", null, daysAgo(10))).toBe(true);
+  });
+
+  it("returns false for an expired trial (trialStartedAt beyond 30 days)", () => {
+    expect(canUsePro("trial", null, daysAgo(31))).toBe(false);
+  });
+
+  it("returns false for a trial with null trialStartedAt", () => {
+    expect(canUsePro("trial", null, null)).toBe(false);
+  });
+});
+
+describe("canUsePro — coupling con canUseApi/canAddCatalogItem (regression)", () => {
+  // Un trial attivo sblocca SOLO le feature Pro visibili via canUsePro. Le
+  // funzioni che NON passano trialStartedAt devono restare gated per il trial,
+  // anche se canUseApi chiama canUsePro internamente.
+  it("active trial stays gated on Developer API (canUseApi ignores trial)", () => {
+    expect(canUseApi("trial", null)).toBe(false);
+  });
+
+  it("active trial stays capped at STARTER_CATALOG_LIMIT on catalog", () => {
+    expect(canAddCatalogItem("trial", daysAgo(5), 5)).toBe(false);
+    expect(canAddCatalogItem("trial", daysAgo(5), 4)).toBe(true);
   });
 });
 
@@ -654,11 +680,23 @@ describe("assertProPlan", () => {
     }
   });
 
-  it("returns 403 for the trial plan", async () => {
+  it("returns ok=true for an active trial (trial = Pro durante la prova)", async () => {
     mockLimit.mockResolvedValue([
       { plan: "trial", trialStartedAt: new Date(), planExpiresAt: null },
     ]);
-    const result = await assertProPlan("user-trial");
+    const result = await assertProPlan("user-trial-active");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.plan).toBe("trial");
+    }
+  });
+
+  it("returns 403 for an expired trial", async () => {
+    const longAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
+    mockLimit.mockResolvedValue([
+      { plan: "trial", trialStartedAt: longAgo, planExpiresAt: null },
+    ]);
+    const result = await assertProPlan("user-trial-expired");
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.status).toBe(403);

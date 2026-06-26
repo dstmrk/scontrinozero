@@ -166,7 +166,7 @@ export async function assertProPlan(
     throw err;
   }
 
-  if (!canUsePro(info.plan, info.planExpiresAt)) {
+  if (!canUsePro(info.plan, info.planExpiresAt, info.trialStartedAt)) {
     return {
       ok: false,
       status: 403,

@@ -10,7 +10,7 @@ import { AnalyticsClient } from "@/components/analytics/analytics-client";
 import { KpiCards } from "@/components/analytics/kpi-cards";
 import { ProFeatureGate } from "@/components/billing/pro-feature-gate";
 import { getAuthenticatedUser } from "@/lib/server-auth";
-import { getPlan } from "@/lib/plans";
+import { canUsePro, getPlan } from "@/lib/plans";
 import { logger } from "@/lib/logger";
 
 const ZERO_KPIS: AnalyticsKpis = {
@@ -32,10 +32,14 @@ export default async function AnalyticsPage({
   const planInfo = await getPlan(user.id);
   const businessId = status.businessId;
 
-  // Piano base (Starter/Trial e altri non-Pro): solo i 4 KPI su finestra fissa
-  // 30 giorni rolling — niente selettore range, niente grafici (quindi niente
-  // recharts caricato). I grafici diventano una singola card upsell "Pro".
-  if (planInfo.plan !== "pro" && planInfo.plan !== "unlimited") {
+  // Piano base (Starter, trial scaduto e altri non-Pro): solo i 4 KPI su
+  // finestra fissa 30 giorni rolling — niente selettore range, niente grafici
+  // (quindi niente recharts caricato). I grafici diventano una singola card
+  // upsell "Pro". Un trial ATTIVO è trattato come Pro (canUsePro con
+  // trialStartedAt) e vede il bundle completo: assaggio della feature Pro.
+  if (
+    !canUsePro(planInfo.plan, planInfo.planExpiresAt, planInfo.trialStartedAt)
+  ) {
     const starterRes = await getStarterKpis(businessId);
     const starterFailed = "error" in starterRes;
     if (starterFailed) {
@@ -73,6 +77,7 @@ export default async function AnalyticsPage({
 
         <ProFeatureGate
           plan={planInfo.plan}
+          trialStartedAt={planInfo.trialStartedAt}
           title="Grafici avanzati · Pro"
           description="Andamento ricavi giornaliero, ripartizione per metodo di pagamento e prodotti più venduti, con periodi fino a inizio anno. Passa a Pro per sbloccarli."
         >

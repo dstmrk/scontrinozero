@@ -92,10 +92,44 @@ describe("ExportCsvButton", () => {
     expect(upsell).not.toHaveAttribute("download");
   });
 
-  it("treats trial like a non-Pro plan (same upsell dialog)", () => {
+  it("treats trial without trialStartedAt as non-Pro (upsell dialog)", () => {
     render(
       <ExportCsvButton
         plan="trial"
+        dateFrom="2026-01-01"
+        dateTo="2026-05-19"
+        status={null}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /esporta csv/i }));
+
+    const upsell = screen.getByRole("link", { name: /passa a pro/i });
+    expect(upsell).toHaveAttribute("href", "/dashboard/settings#billing");
+  });
+
+  it("renders the download link for an active trial (trial = Pro)", () => {
+    render(
+      <ExportCsvButton
+        plan="trial"
+        trialStartedAt={new Date()}
+        dateFrom="2026-01-01"
+        dateTo="2026-05-19"
+        status={null}
+      />,
+    );
+    const link = screen.getByRole("link", { name: /esporta csv/i });
+    expect(link).toHaveAttribute(
+      "href",
+      "/api/export/receipts?from=2026-01-01&to=2026-05-19",
+    );
+    expect(link).toHaveAttribute("download");
+  });
+
+  it("treats an expired trial as non-Pro (upsell dialog)", () => {
+    render(
+      <ExportCsvButton
+        plan="trial"
+        trialStartedAt={new Date(Date.now() - 40 * 24 * 60 * 60 * 1000)}
         dateFrom="2026-01-01"
         dateTo="2026-05-19"
         status={null}

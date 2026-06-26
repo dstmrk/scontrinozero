@@ -143,17 +143,29 @@ export function canEmit(
 }
 
 /**
- * Ritorna true se l'utente ha accesso alle feature Pro (analytics avanzata,
- * export CSV, AdE sync, supporto prioritario).
+ * Ritorna true se l'utente ha accesso alle feature Pro **visibili** (analytics
+ * avanzata, export CSV, AdE sync, supporto prioritario).
  *
  * `planExpiresAt` opzionale (vedi `canEmit`): se passato e il piano è scaduto
  * oltre la grazia, degrada a false.
+ *
+ * `trialStartedAt` opzionale: un trial **attivo** (non scaduto) è trattato come
+ * Pro — sblocca le feature Pro visibili durante la prova, così l'utente le
+ * assaggia e ha motivo di convertire (leva di conversione Trial→Pro). Un trial
+ * **scaduto** o un caller che non passa `trialStartedAt` (default `null` →
+ * `isTrialExpired(null) === true`) NON sblocca nulla. Questo default è
+ * intenzionale: solo i call site che passano esplicitamente `trialStartedAt`
+ * abilitano il trial. `canUseApi` e `canAddCatalogItem` NON lo passano, quindi
+ * il trial resta gated su Developer API e limite catalogo — anche se `canUseApi`
+ * chiama internamente `canUsePro`.
  */
 export function canUsePro(
   plan: Plan,
   planExpiresAt: Date | null = null,
+  trialStartedAt: Date | null = null,
 ): boolean {
   if (isPaidPlanExpired(plan, planExpiresAt)) return false;
+  if (plan === "trial") return !isTrialExpired(trialStartedAt);
   return plan === "pro" || plan === "unlimited";
 }
 

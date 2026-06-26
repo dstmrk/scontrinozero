@@ -324,6 +324,29 @@ describe("getAnalyticsKpis", () => {
     expect(res).toMatchObject({ error: expect.stringMatching(/Pro/i) });
   });
 
+  it("allows an active trial (trial = Pro): returns kpis, no Pro-gate error", async () => {
+    mockGetPlan.mockResolvedValue({
+      plan: "trial",
+      trialStartedAt: new Date(),
+      planExpiresAt: null,
+    });
+    mockSelect.mockReturnValue(makeSelectBuilder([]));
+    mockFetchLinesByDocIds.mockResolvedValue([]);
+    const res = await getAnalyticsKpis("biz-1", "30d");
+    expect(res).not.toHaveProperty("error");
+    expect(res).toMatchObject({ revenueCents: 0, count: 0 });
+  });
+
+  it("blocks an expired trial with the Pro-gate error", async () => {
+    mockGetPlan.mockResolvedValue({
+      plan: "trial",
+      trialStartedAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000),
+      planExpiresAt: null,
+    });
+    const res = await getAnalyticsKpis("biz-1", "30d");
+    expect(res).toMatchObject({ error: expect.stringMatching(/Pro/i) });
+  });
+
   it("returns 'Profilo non disponibile' on ProfileNotFoundError (orphan auth user)", async () => {
     const { ProfileNotFoundError } = await import("@/lib/plans");
     mockGetPlan.mockRejectedValue(new ProfileNotFoundError("user-1"));
