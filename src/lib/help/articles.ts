@@ -173,7 +173,7 @@ export const helpArticles: Record<string, HelpArticle> = {
     metaTitle:
       "Presenta un amico: bonus referral e quando arriva il mese gratis",
     description:
-      "Come funziona il programma Presenta un amico di ScontrinoZero: il presentato ottiene subito 1 mese di prova in più, il presentatore 1 mese sul proprio piano quando l'invitato collega la P.IVA. Dove trovare e condividere il codice.",
+      "Come funziona Presenta un amico: il presentato ottiene subito 1 mese di prova in più, il presentatore 1 mese sul piano quando l'invitato collega la P.IVA. Dove trovare e condividere il codice.",
     related: ["piani-e-prezzi", "cambio-piano", "contatto-assistenza"],
   },
   "primo-scontrino": {
