@@ -269,6 +269,33 @@ https://<host>/api/_debug/sentry-sentinel?id=<release>`; la response
     (in `code span`) non esiste più su disco; cita ogni path come span isolato
     (i token con `*`/`{}` sono ignorati come illustrativi).
 
+27. **Date derivate e fonti di verità esterne (bonus/crediti/aggiustamenti).**
+    Due trappole emerse insieme nel programma referral (presentato/presentatore).
+    **(a) Su una data DERIVATA, asserisci l'esito osservabile, non lo shift
+    intermedio.** La scadenza trial è `trialStartedAt + TRIAL_DAYS`: per
+    ALLUNGARE il trial lo start va spostato in **avanti**, non indietro
+    (spostarlo indietro anticipa la scadenza → il referee risultava "già
+    scaduto" il giorno della registrazione). Il bug era coperto da un test
+    verde che asseriva proprio lo shift all'indietro chiamandolo "trial più
+    lungo": **codificava il modello mentale sbagliato**. TDD (regola 2/4) ti
+    protegge solo se l'`expect` controlla la grandezza user-facing
+    (`isTrialExpired`, la data mostrata in `settings/page.tsx`), non il
+    trasformatore intermedio. Helper: `getPlan`/`fetchPlan` in
+    `src/lib/plans.ts`. **(b) Un numero posseduto da un sistema esterno di
+    verità (Stripe billing date) non si "aggiusta" a read-time in locale.** Il
+    mese bonus del referrer veniva sommato a `planExpiresAt` solo dentro
+    `getPlan`: l'app mostrava +1 mese ma il portale Stripe (e l'addebito reale)
+    non si spostavano, la divergenza non si riconciliava mai, e il sync
+    unidirezionale Stripe→DB del webhook la sovrascriveva. Un
+    bonus/credito/estensione su una grandezza Stripe va **spinto a Stripe**
+    (`extendSubscriptionForReferral` in `src/server/referral-reward.ts`:
+    estensione `trial_end`, poi il webhook risincronizza); il `referral_bonus_days`
+    resta un meccanismo **solo-trial**. Generalizza le regole 17 (una sola
+    strategia canonica per le grandezze monetarie) e 19/20 (degradare, non
+    divergere). NB: la copy referral vive anche fuori da `(marketing)/` —
+    `src/components/settings/referral-section.tsx` — quindi va inclusa nel grep
+    della regola 8 quando cambiano i termini del bonus.
+
 ## SonarCloud quality gate
 
 - Coverage on new code ≥ **80%**

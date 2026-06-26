@@ -79,6 +79,16 @@ vi.mock("@/db/schema", () => ({
   adeCredentials: "ade-credentials-table",
   trialVatLedger: "trial-vat-ledger-table",
   referralRedemptions: "referral-redemptions-table",
+  subscriptions: "subscriptions-table",
+}));
+
+// Estensione Stripe del referrer a pagamento: mockata per non tirare dentro
+// il client Stripe reale e per poter asserire QUANDO viene chiamata.
+const mockExtendSubscriptionForReferral = vi
+  .fn()
+  .mockResolvedValue({ extended: true });
+vi.mock("@/server/referral-reward", () => ({
+  extendSubscriptionForReferral: mockExtendSubscriptionForReferral,
 }));
 
 const mockEncrypt = vi.fn().mockReturnValue("encrypted-data");
@@ -671,6 +681,79 @@ describe("onboarding-actions", () => {
       // sempre a una riga non-vuota di default).
       expect(mockUpdate).toHaveBeenCalledTimes(5);
       expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard", "layout");
+    });
+
+    it("referrer in trial: incrementa referralBonusDays, niente estensione Stripe", async () => {
+      // Default delle SELECT trailing (referrerSub) = nessun abbonamento attivo
+      // → ramo referralBonusDays. Ownership + credenziali in coda.
+      mockLimit.mockResolvedValue([
+        { status: null, stripeSubscriptionId: null },
+      ]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+        },
+      ]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "12345678901",
+          codiceFiscale: "RSSMRA80A01H501U",
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials("biz-789");
+
+      // 3 core update + rewardedAt + referralBonusDays = 5; nessuna Stripe.
+      expect(mockUpdate).toHaveBeenCalledTimes(5);
+      expect(mockExtendSubscriptionForReferral).not.toHaveBeenCalled();
+    });
+
+    it("referrer con abbonamento Stripe attivo: estende su Stripe, NON tocca referralBonusDays", async () => {
+      // Default delle SELECT trailing (referrerSub) = abbonamento attivo →
+      // ramo estensione Stripe (post-commit), niente incremento bonus.
+      mockLimit.mockResolvedValue([
+        { status: "active", stripeSubscriptionId: "sub_active" },
+      ]);
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+        },
+      ]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "12345678901",
+          codiceFiscale: "RSSMRA80A01H501U",
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials("biz-789");
+
+      // 3 core update + rewardedAt = 4 (NESSUN update referralBonusDays).
+      expect(mockUpdate).toHaveBeenCalledTimes(4);
+      expect(mockExtendSubscriptionForReferral).toHaveBeenCalledTimes(1);
+      expect(mockExtendSubscriptionForReferral).toHaveBeenCalledWith(
+        expect.objectContaining({ stripeSubscriptionId: "sub_active" }),
+      );
     });
 
     it("marks credentials as verified even when getFiscalData fails", async () => {

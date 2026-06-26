@@ -25,6 +25,15 @@
  */
 import { createHash } from "node:crypto";
 
+/**
+ * Giorni di bonus referral (member-get-member, +1 mese), unica sorgente di
+ * verità per: il bonus al nuovo utente (referee) al signup, l'incremento al
+ * referrer in trial al reward, e l'estensione `trial_end` su Stripe per i
+ * referrer a pagamento. Tenere un solo valore evita divergenze tra i tre
+ * punti che lo applicano.
+ */
+export const REFERRAL_BONUS_DAYS = 30;
+
 const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const CODE_LENGTH = 8;
 const CODE_RE = new RegExp(`^[${ALPHABET}]{${CODE_LENGTH}}$`);

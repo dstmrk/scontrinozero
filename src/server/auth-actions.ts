@@ -25,11 +25,9 @@ import { normalizeSignupSource } from "@/lib/signup-source";
 import {
   generateReferralCode,
   normalizeReferralCode,
+  REFERRAL_BONUS_DAYS,
 } from "@/lib/referral-code";
 import { referralRedemptions } from "@/db/schema/referral-redemptions";
-
-/** Giorni di trial bonus concessi al nuovo utente che si registra con un referral valido (+1 mese). */
-const REFERRAL_SIGNUP_BONUS_DAYS = 30;
 
 const CURRENT_TERMS_VERSION = "v01";
 
@@ -313,7 +311,7 @@ async function insertProfileOrRollback(
           signupSource,
           referralCode,
           referredByReferralCode: referrer?.referralCode ?? null,
-          referralBonusDays: referrer ? REFERRAL_SIGNUP_BONUS_DAYS : 0,
+          referralBonusDays: referrer ? REFERRAL_BONUS_DAYS : 0,
         })
         .returning({ id: profiles.id });
 

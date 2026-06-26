@@ -162,6 +162,10 @@ const helpCategories: HelpCategory[] = [
         href: "/help/piani-e-prezzi",
       },
       {
+        title: "Presenta un amico: come funziona il bonus referral",
+        href: "/help/presenta-un-amico",
+      },
+      {
         title: "Come passare da mensile ad annuale",
         href: "/help/cambio-piano",
       },
