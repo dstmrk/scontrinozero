@@ -1493,7 +1493,10 @@ describe("auth-actions", () => {
       expect(mockGenerateLink).toHaveBeenCalledWith({
         type: "recovery",
         email: "test@example.com",
-        options: { redirectTo: "https://app.scontrinozero.it/callback" },
+        options: {
+          redirectTo:
+            "https://app.scontrinozero.it/callback?redirect=%2Freset-password%2Fupdate",
+        },
       });
     });
 
@@ -1751,7 +1754,10 @@ describe("auth-actions", () => {
       expect(mockGenerateLink).toHaveBeenCalledWith({
         type: "recovery",
         email: "test@example.com",
-        options: { redirectTo: "https://sandbox.scontrinozero.it/callback" },
+        options: {
+          redirectTo:
+            "https://sandbox.scontrinozero.it/callback?redirect=%2Freset-password%2Fupdate",
+        },
       });
       await Promise.resolve();
       expect(mockSendEmail).toHaveBeenCalledWith(
