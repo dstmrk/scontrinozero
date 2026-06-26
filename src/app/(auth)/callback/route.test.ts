@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const mockExchangeCodeForSession = vi.fn();
 vi.mock("@/lib/supabase/server", () => ({
@@ -8,9 +8,20 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
+const mockLoggerError = vi.fn();
+vi.mock("@/lib/logger", () => ({
+  logger: { error: mockLoggerError, warn: vi.fn(), info: vi.fn() },
+}));
+
 describe("auth callback route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    // I test che stubbano NEXT_PUBLIC_APP_URL non devono sporcare gli altri,
+    // che si appoggiano al default localhost di getTrustedAppUrl().
+    vi.unstubAllEnvs();
   });
 
   it("exchanges code for session and redirects to /dashboard", async () => {
@@ -125,5 +136,75 @@ describe("auth callback route", () => {
     const location = new URL(response.headers.get("location")!);
     expect(location.hostname).toBe("localhost");
     expect(location.pathname).toBe("/dashboard");
+  });
+
+  it("flags an expired/invalid reset link with reset_link_invalid", async () => {
+    // Caso reale otp_expired: Supabase rimanda a /callback?redirect=/reset-password/update
+    // con l'errore nel fragment (invisibile al server) e senza code. Dal redirect
+    // param capiamo che era un link di reset e diamo a /login il codice mirato.
+    const { GET } = await import("./route");
+
+    const request = new Request(
+      "http://localhost:3000/callback?redirect=/reset-password/update",
+    );
+    const response = await GET(request);
+
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("error")).toBe("reset_link_invalid");
+  });
+
+  it("builds the redirect host from NEXT_PUBLIC_APP_URL, not the request host", async () => {
+    // Regressione 0.0.0.0:3000: dietro Cloudflare Tunnel request.url si risolve
+    // all'host interno di bind. Il redirect deve usare l'app URL configurato.
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.scontrinozero.it");
+    mockExchangeCodeForSession.mockResolvedValue({ error: null });
+    const { GET } = await import("./route");
+
+    const request = new Request("http://0.0.0.0:3000/callback?code=test-code");
+    const response = await GET(request);
+
+    const location = new URL(response.headers.get("location")!);
+    expect(location.host).toBe("app.scontrinozero.it");
+    expect(location.pathname).toBe("/dashboard");
+  });
+
+  it("lands the password-reset success on the configured host", async () => {
+    // Caso success del nuovo flusso: token valido → /reset-password/update sul
+    // dominio pubblico, non sull'host interno del container.
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.scontrinozero.it");
+    mockExchangeCodeForSession.mockResolvedValue({ error: null });
+    const { GET } = await import("./route");
+
+    const request = new Request(
+      "http://0.0.0.0:3000/callback?code=test-code&redirect=/reset-password/update",
+    );
+    const response = await GET(request);
+
+    const location = new URL(response.headers.get("location")!);
+    expect(location.host).toBe("app.scontrinozero.it");
+    expect(location.pathname).toBe("/reset-password/update");
+  });
+
+  it("falls back to the request origin (no 500) if NEXT_PUBLIC_APP_URL is malformed", async () => {
+    // Difesa in profondità: la regola 24 valida l'env fail-fast al boot, ma se
+    // getTrustedAppUrl() lanciasse a runtime NON dobbiamo bloccare il flusso di
+    // conferma email / OAuth / reset con un 500 — degradiamo all'origin.
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "not a url");
+    mockExchangeCodeForSession.mockResolvedValue({ error: null });
+    const { GET } = await import("./route");
+
+    const request = new Request("http://0.0.0.0:3000/callback?code=test-code");
+    const response = await GET(request);
+
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location")!);
+    expect(location.host).toBe("0.0.0.0:3000");
+    expect(location.pathname).toBe("/dashboard");
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      expect.objectContaining({ critical: true }),
+      expect.stringContaining("getTrustedAppUrl failed"),
+    );
   });
 });

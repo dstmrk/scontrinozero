@@ -47,6 +47,12 @@ const changePasswordLimiter = new RateLimiter({
   windowMs: RATE_LIMIT_WINDOWS.AUTH_15_MIN,
 });
 
+const completePasswordResetLimiter = new RateLimiter({
+  maxRequests: 5,
+  // same threshold as other auth actions
+  windowMs: RATE_LIMIT_WINDOWS.AUTH_15_MIN,
+});
+
 type DrizzleDb = ReturnType<typeof getDb>;
 type DrizzleTx = Parameters<Parameters<DrizzleDb["transaction"]>[0]>[0];
 
@@ -303,6 +309,81 @@ export async function changePassword(
   // cambiato password resta connesso) e butta fuori tutti gli altri.
   // Security-critical: retry+backoff per non lasciare sessioni orfane su
   // network glitch (CLAUDE.md regola 17).
+  await revokeOtherSessionsWithRetry(supabase, user.id);
+
+  return {};
+}
+
+/**
+ * Completa il flusso di reset password.
+ *
+ * L'utente è arrivato qui cliccando il link di recovery nella mail
+ * (`/auth/v1/verify` di Supabase → `/callback` → `exchangeCodeForSession`):
+ * ha quindi una sessione di recovery valida ma NON conosce la vecchia
+ * password (l'ha dimenticata, è il motivo del reset). A differenza di
+ * `changePassword` NON facciamo `signInWithPassword`: è la sessione di
+ * recovery stessa ad autorizzare il cambio. Per il resto la sequenza è
+ * identica — `updateUser({ password })` poi `signOut({ scope: "others" })`
+ * per buttare fuori eventuali sessioni di un attaccante che aveva preso
+ * l'account, mantenendo viva quella corrente (il refresh token viene ruotato
+ * da `updateUser`, vedi "Invariante 1" in `changePassword`).
+ *
+ * Se non c'è una sessione valida (link scaduto/già usato, oppure accesso
+ * diretto alla pagina) degradiamo con un messaggio chiaro invece di lasciar
+ * propagare `UnauthenticatedError` all'error boundary (CLAUDE.md regola 19).
+ */
+export async function completePasswordReset(
+  formData: FormData,
+): Promise<ProfileActionResult> {
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch {
+    return { error: ERROR_MESSAGES.UNAUTHORIZED };
+  }
+
+  // Raw read: il trim() cambierebbe la semantica della credenziale (vedi
+  // `getFormStringRaw` e l'identico vincolo in `changePassword`).
+  const newPassword = getFormStringRaw(formData, "newPassword");
+  const confirmPassword = getFormStringRaw(formData, "confirmPassword");
+
+  if (!newPassword || !isStrongPassword(newPassword)) {
+    return { error: ERROR_MESSAGES.NEW_PASSWORD_NOT_STRONG };
+  }
+  if (newPassword !== confirmPassword) {
+    return { error: ERROR_MESSAGES.PASSWORDS_MISMATCH };
+  }
+
+  // Rate limit per user.id (come changePassword): evita il lockout di più
+  // utenti dietro lo stesso NAT/proxy. IP loggato solo per audit.
+  const hdrs = await headers();
+  const ip = getClientIp(hdrs);
+  const rateLimitResult = completePasswordResetLimiter.check(
+    `completePasswordReset:${user.id}`,
+  );
+  if (!rateLimitResult.success) {
+    logger.warn(
+      { userId: user.id, ip },
+      "completePasswordReset rate limit exceeded",
+    );
+    return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const { error: updateError } = await supabase.auth.updateUser({
+    password: newPassword,
+  });
+  if (updateError) {
+    logger.error(
+      { err: updateError, userId: user.id },
+      "completePasswordReset: updateUser failed",
+    );
+    return { error: "Aggiornamento password fallito. Riprova." };
+  }
+
+  // Revoca le altre sessioni: chi resetta perché un attaccante gli ha preso
+  // l'account deve poterlo disconnettere. `scope: "others"` preserva la
+  // sessione di recovery corrente.
   await revokeOtherSessionsWithRetry(supabase, user.id);
 
   return {};

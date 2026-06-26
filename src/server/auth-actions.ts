@@ -33,6 +33,18 @@ const REFERRAL_SIGNUP_BONUS_DAYS = 30;
 
 const CURRENT_TERMS_VERSION = "v01";
 
+/**
+ * Dove atterra l'utente dopo che Supabase ha verificato il token di recovery.
+ * Flusso: link mail → `/auth/v1/verify` (Supabase) → `/callback`
+ * (`exchangeCodeForSession` crea la sessione di recovery) → questa pagina, dove
+ * `completePasswordReset` chiama `updateUser` SENZA richiedere la vecchia
+ * password (è la sessione di recovery ad autorizzare il cambio). Senza questo
+ * step finale il flusso si fermava sulla dashboard e la password non veniva
+ * mai cambiata. Il `/callback` accetta solo redirect relativi (no open
+ * redirect), quindi passiamo un path, non un URL assoluto.
+ */
+const PASSWORD_RESET_LANDING_PATH = "/reset-password/update";
+
 const authLimiter = new RateLimiter({
   maxRequests: 5,
   windowMs: RATE_LIMIT_WINDOWS.AUTH_15_MIN,
@@ -650,7 +662,11 @@ export async function resetPassword(
     // Supabase Redirect URLs allow-list (the /callback route already is — used by
     // signup/OAuth), otherwise GoTrue falls back to the Site URL. Makes the
     // redirect_to validated below deterministic, not dependent on dashboard config.
-    options: { redirectTo: `https://${appHostname}/callback` },
+    options: {
+      redirectTo: `https://${appHostname}/callback?redirect=${encodeURIComponent(
+        PASSWORD_RESET_LANDING_PATH,
+      )}`,
+    },
   });
 
   if (error || !data.properties?.action_link) {
