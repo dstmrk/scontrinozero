@@ -134,6 +134,29 @@ describe("resetPassword — hostname validation", () => {
     expect(mockLoggerError).not.toHaveBeenCalled();
   });
 
+  it("pins the recovery landing on /callback?redirect=/reset-password/update", async () => {
+    // Senza il param `redirect`, dopo il click l'utente atterrava sulla
+    // dashboard e non impostava mai la nuova password. Il /callback accetta
+    // solo redirect relativi (no open redirect).
+    mockSuccessfulGenerateLink(VALID_ACTION_LINK);
+
+    const { resetPassword } = await import("@/server/auth-actions");
+    await expect(resetPassword(makeFormData(VALID_EMAIL))).rejects.toThrow(
+      "NEXT_REDIRECT",
+    );
+
+    expect(mockGenerateLink).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "recovery",
+        options: expect.objectContaining({
+          redirectTo: `https://${APP_HOSTNAME}/callback?redirect=${encodeURIComponent(
+            "/reset-password/update",
+          )}`,
+        }),
+      }),
+    );
+  });
+
   it("blocks subdomain-spoofing of the Supabase host (e.g., test.supabase.co.evil.tld)", async () => {
     mockSuccessfulGenerateLink(
       `https://${SUPABASE_HOSTNAME}.evil.tld/auth/v1/verify?token=abc&redirect_to=https://${APP_HOSTNAME}/callback`,

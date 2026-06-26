@@ -445,4 +445,101 @@ describe("profile-actions", () => {
       await expect(changePassword(formData(VALID))).rejects.toThrow();
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // completePasswordReset
+  // ---------------------------------------------------------------------------
+
+  describe("completePasswordReset", () => {
+    const VALID = {
+      newPassword: "NewPass1!",
+      confirmPassword: "NewPass1!",
+    };
+
+    beforeEach(() => {
+      mockUpdateUser.mockResolvedValue({ error: null });
+      mockSignOut.mockResolvedValue({ error: null });
+    });
+
+    it("returns empty object on success and updates the password", async () => {
+      const { completePasswordReset } = await import("./profile-actions");
+      const result = await completePasswordReset(formData(VALID));
+      expect(result).toEqual({});
+      expect(mockUpdateUser).toHaveBeenCalledWith({
+        password: VALID.newPassword,
+      });
+    });
+
+    it("does NOT call signInWithPassword (recovery session authorises the change)", async () => {
+      // È la differenza chiave con changePassword: chi fa il reset non
+      // conosce la vecchia password, quindi nessuna re-autenticazione.
+      const { completePasswordReset } = await import("./profile-actions");
+      await completePasswordReset(formData(VALID));
+      expect(mockSignInWithPassword).not.toHaveBeenCalled();
+    });
+
+    it("revokes other sessions with scope 'others' after updateUser", async () => {
+      const { completePasswordReset } = await import("./profile-actions");
+      await completePasswordReset(formData(VALID));
+
+      const updateOrder = mockUpdateUser.mock.invocationCallOrder[0];
+      const signOutOrder = mockSignOut.mock.invocationCallOrder[0];
+      expect(updateOrder).toBeLessThan(signOutOrder);
+      expect(mockSignOut).toHaveBeenCalledWith({ scope: "others" });
+    });
+
+    it("returns UNAUTHORIZED (no throw) when there is no recovery session", async () => {
+      // Link scaduto/già usato o accesso diretto alla pagina: degradare con
+      // messaggio, non far scattare l'error boundary (CLAUDE.md regola 19).
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { completePasswordReset } = await import("./profile-actions");
+      const result = await completePasswordReset(formData(VALID));
+      expect(result.error).toMatch(/non autorizzato/i);
+      expect(mockUpdateUser).not.toHaveBeenCalled();
+    });
+
+    it("returns error for a weak new password (no uppercase)", async () => {
+      const { completePasswordReset } = await import("./profile-actions");
+      const result = await completePasswordReset(
+        formData({ newPassword: "weakpass1!", confirmPassword: "weakpass1!" }),
+      );
+      expect(result.error).toMatch(/sicura/i);
+      expect(mockUpdateUser).not.toHaveBeenCalled();
+    });
+
+    it("returns error when confirmPassword does not match", async () => {
+      const { completePasswordReset } = await import("./profile-actions");
+      const result = await completePasswordReset(
+        formData({ ...VALID, confirmPassword: "Different1!" }),
+      );
+      expect(result.error).toMatch(/coincidono/i);
+      expect(mockUpdateUser).not.toHaveBeenCalled();
+    });
+
+    it("returns rate limit error when limiter rejects", async () => {
+      mockCheck.mockReturnValue({ success: false });
+      const { completePasswordReset } = await import("./profile-actions");
+      const result = await completePasswordReset(formData(VALID));
+      expect(result.error).toMatch(/troppi/i);
+      expect(mockUpdateUser).not.toHaveBeenCalled();
+    });
+
+    it("returns error when updateUser fails", async () => {
+      mockUpdateUser.mockResolvedValue({ error: { message: "update failed" } });
+      const { completePasswordReset } = await import("./profile-actions");
+      const result = await completePasswordReset(formData(VALID));
+      expect(result.error).toMatch(/aggiornamento/i);
+    });
+
+    it("signOut others is fire-and-forget — success even if revoke fails", async () => {
+      vi.useFakeTimers();
+      mockSignOut.mockResolvedValue({ error: { message: "transient" } });
+      const { completePasswordReset } = await import("./profile-actions");
+      const promise = completePasswordReset(formData(VALID));
+      await vi.runAllTimersAsync();
+      const result = await promise;
+      expect(result).toEqual({});
+      vi.useRealTimers();
+    });
+  });
 });
