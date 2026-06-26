@@ -38,14 +38,22 @@ vi.mock("@/lib/supabase/admin", () => ({
   }),
 }));
 
-const mockValues = vi.fn().mockResolvedValue(undefined);
+const mockReturning = vi.fn().mockResolvedValue([{ id: "profile-id" }]);
+const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
 const mockInsert = vi.fn().mockReturnValue({ values: mockValues });
 const mockLimit = vi.fn().mockResolvedValue([]);
 const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
 const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
 const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
 vi.mock("@/db", () => ({
-  getDb: vi.fn().mockReturnValue({ insert: mockInsert, select: mockSelect }),
+  getDb: vi.fn().mockReturnValue({
+    insert: mockInsert,
+    select: mockSelect,
+    // insertProfileOrRollback avvolge profilo + redemption in una transazione;
+    // il tx riusa lo stesso mock insert (catena values().returning() invariata).
+    transaction: async (cb: (tx: unknown) => unknown) =>
+      cb({ insert: mockInsert }),
+  }),
 }));
 
 vi.mock("@/db/schema", () => ({
@@ -537,6 +545,131 @@ describe("auth-actions", () => {
       expect(result).toEqual({ error: "Registrazione fallita. Riprova." });
       expect(logger.error).toHaveBeenCalled();
       expect(mockSignUp).not.toHaveBeenCalled();
+    });
+
+    it("blocca la registrazione con un codice referral malformato (hard-block, non enumeration)", async () => {
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "valid-token",
+          rcode: "not-valid!!",
+        }),
+      );
+
+      expect(result).toEqual({
+        error:
+          "Codice referral non valido. Correggilo o rimuovilo per continuare.",
+      });
+      expect(mockSignUp).not.toHaveBeenCalled();
+    });
+
+    it("blocca la registrazione con un codice referral ben formato ma inesistente", async () => {
+      // 1a mockLimit: email pre-check (non esiste) → []. 2a: lookup referral → [].
+      mockLimit.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          captchaToken: "valid-token",
+          rcode: "AB2CDEFG",
+        }),
+      );
+
+      expect(result).toEqual({
+        error:
+          "Codice referral non valido. Correggilo o rimuovilo per continuare.",
+      });
+      expect(mockSignUp).not.toHaveBeenCalled();
+    });
+
+    it("registra referredByReferralCode e crea la redemption row con un codice referral valido", async () => {
+      mockLimit
+        .mockResolvedValueOnce([]) // email pre-check
+        .mockResolvedValueOnce([
+          { id: "referrer-profile-id", referralCode: "AB2CDEFG" },
+        ]); // referral lookup
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-123" } },
+        error: null,
+      });
+
+      const { signUp } = await import("./auth-actions");
+
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+            rcode: "AB2CDEFG",
+          }),
+        );
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+      }
+
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          referredByReferralCode: "AB2CDEFG",
+          referralBonusDays: 30,
+        }),
+      );
+      // Seconda insert: la redemption row su referral_redemptions.
+      expect(mockInsert).toHaveBeenCalledTimes(2);
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          referrerId: "referrer-profile-id",
+          refereeId: "profile-id",
+          referralCode: "AB2CDEFG",
+        }),
+      );
+    });
+
+    it("registra signup senza bonus quando rcode è assente (comportamento di default)", async () => {
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-123" } },
+        error: null,
+      });
+
+      const { signUp } = await import("./auth-actions");
+
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+          }),
+        );
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+      }
+
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          referredByReferralCode: null,
+          referralBonusDays: 0,
+        }),
+      );
+      expect(mockInsert).toHaveBeenCalledTimes(1);
     });
 
     it("returns error when profile insert fails (terms acceptance is mandatory)", async () => {

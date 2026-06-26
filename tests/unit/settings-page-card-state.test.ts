@@ -31,6 +31,8 @@ const {
 
 vi.mock("next/navigation", () => ({ redirect: mockRedirect }));
 
+vi.mock("@/server/auth-actions", () => ({ signOut: vi.fn() }));
+
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabaseClient: vi.fn().mockResolvedValue({
     auth: { getUser: mockGetUser },
@@ -63,6 +65,7 @@ vi.mock("@/db/schema", () => ({
   profiles: "profiles-table",
   businesses: "businesses-table",
   adeCredentials: "adeCredentials-table",
+  referralRedemptions: "referral-redemptions-table",
 }));
 
 // Mock all UI components to return null (no-op in node environment)
@@ -102,11 +105,19 @@ vi.mock("@/components/settings/change-password-section", () => ({
 vi.mock("@/components/settings/edit-ade-credentials-section", () => ({
   EditAdeCredentialsSection: () => null,
 }));
+vi.mock("@/components/settings/referral-section", () => ({
+  ReferralSection: () => null,
+}));
 vi.mock("@/types/cassa", () => ({
   VAT_DESCRIPTIONS: {},
   VAT_CODES: [],
 }));
-vi.mock("drizzle-orm", () => ({ eq: vi.fn() }));
+vi.mock("drizzle-orm", () => ({
+  eq: vi.fn(),
+  and: vi.fn(),
+  count: vi.fn(),
+  isNotNull: vi.fn(),
+}));
 
 import SettingsPage from "@/app/dashboard/settings/page";
 import { PlanSelection } from "@/components/billing/plan-selection";

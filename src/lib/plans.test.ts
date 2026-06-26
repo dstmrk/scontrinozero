@@ -494,6 +494,65 @@ describe("getPlan", () => {
     });
   });
 
+  it("trasla trialStartedAt indietro di referralBonusDays (trial più lungo)", async () => {
+    const trialStartedAt = new Date("2026-01-15T00:00:00Z");
+    mockLimit.mockResolvedValue([
+      {
+        plan: "trial",
+        trialStartedAt,
+        planExpiresAt: null,
+        referralBonusDays: 30,
+      },
+    ]);
+
+    const result = await getPlan("user-bonus-trial");
+
+    expect(result.trialStartedAt).toEqual(new Date("2025-12-16T00:00:00Z"));
+  });
+
+  it("trasla planExpiresAt avanti di referralBonusDays (scadenza più lontana)", async () => {
+    const planExpiresAt = new Date("2026-06-01T00:00:00Z");
+    mockLimit.mockResolvedValue([
+      {
+        plan: "pro",
+        trialStartedAt: null,
+        planExpiresAt,
+        referralBonusDays: 30,
+      },
+    ]);
+
+    const result = await getPlan("user-bonus-pro");
+
+    expect(result.planExpiresAt).toEqual(new Date("2026-07-01T00:00:00Z"));
+  });
+
+  it("referralBonusDays = 0 lascia le date inalterate (regression guard)", async () => {
+    const trialStartedAt = new Date("2026-01-01T00:00:00Z");
+    mockLimit.mockResolvedValue([
+      {
+        plan: "trial",
+        trialStartedAt,
+        planExpiresAt: null,
+        referralBonusDays: 0,
+      },
+    ]);
+
+    const result = await getPlan("user-no-bonus");
+
+    expect(result.trialStartedAt).toEqual(trialStartedAt);
+  });
+
+  it("referralBonusDays mancante nella riga DB non rompe il calcolo (default 0)", async () => {
+    const trialStartedAt = new Date("2026-01-01T00:00:00Z");
+    mockLimit.mockResolvedValue([
+      { plan: "trial", trialStartedAt, planExpiresAt: null },
+    ]);
+
+    const result = await getPlan("user-undefined-bonus");
+
+    expect(result.trialStartedAt).toEqual(trialStartedAt);
+  });
+
   it("throws ProfileNotFoundError when profile is not found", async () => {
     mockLimit.mockResolvedValue([]);
 

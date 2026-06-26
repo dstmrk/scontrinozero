@@ -100,6 +100,11 @@ function setupDbNoExistingEmail() {
   mockGetDb.mockReturnValue({
     select: mockSelectProfiles,
     insert: mockInsertProfiles,
+    // insertProfileOrRollback ora avvolge profilo + redemption in una
+    // transazione: il tx espone lo stesso mock insert così la catena
+    // values().returning() resta invariata.
+    transaction: async (cb: (tx: unknown) => unknown) =>
+      cb({ insert: mockInsertProfiles }),
   });
   mockSelectProfiles.mockReturnValue({ from: mockSelectFrom });
   mockSelectFrom.mockReturnValue({ where: mockSelectWhere });
@@ -107,7 +112,9 @@ function setupDbNoExistingEmail() {
   mockSelectLimit.mockResolvedValue([]); // no existing profile
 
   mockInsertProfiles.mockReturnValue({ values: mockInsertValues });
-  mockInsertValues.mockResolvedValue(undefined);
+  mockInsertValues.mockReturnValue({
+    returning: vi.fn().mockResolvedValue([{ id: "profile-id" }]),
+  });
 }
 
 // --- Tests ---
@@ -175,9 +182,13 @@ describe("signUp — email normalisation and uniqueness", () => {
   it("compensating delete + redirect when profile insert violates unique email constraint (race)", async () => {
     setupCaptchaOk();
     setupDbNoExistingEmail();
-    mockInsertValues.mockRejectedValue(
-      Object.assign(new Error("duplicate key value"), { code: "23505" }),
-    );
+    mockInsertValues.mockReturnValue({
+      returning: vi
+        .fn()
+        .mockRejectedValue(
+          Object.assign(new Error("duplicate key value"), { code: "23505" }),
+        ),
+    });
 
     const { signUp } = await import("@/server/auth-actions");
     await expect(signUp(makeFormData())).rejects.toMatchObject({

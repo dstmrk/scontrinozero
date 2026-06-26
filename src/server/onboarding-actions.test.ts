@@ -78,6 +78,7 @@ vi.mock("@/db/schema", () => ({
   businesses: "businesses-table",
   adeCredentials: "ade-credentials-table",
   trialVatLedger: "trial-vat-ledger-table",
+  referralRedemptions: "referral-redemptions-table",
 }));
 
 const mockEncrypt = vi.fn().mockReturnValue("encrypted-data");
@@ -663,7 +664,12 @@ describe("onboarding-actions", () => {
       expect(mockLogin).toHaveBeenCalled();
       expect(mockLogout).toHaveBeenCalled();
       expect(mockGetFiscalData).toHaveBeenCalled();
-      expect(mockUpdate).toHaveBeenCalledTimes(3); // businesses vatNumber/fiscalCode + profiles partitaIva + adeCredentials verifiedAt
+      // 3 update "core" (adeCredentials verifiedAt + businesses vatNumber/
+      // fiscalCode + profiles partitaIva) + 2 update del claim referral
+      // (referral_redemptions.rewardedAt + profiles.referralBonusDays) che
+      // scattano sempre sotto i mock generici condivisi (returning() risolve
+      // sempre a una riga non-vuota di default).
+      expect(mockUpdate).toHaveBeenCalledTimes(5);
       expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard", "layout");
     });
 
@@ -1304,9 +1310,12 @@ describe("onboarding-actions", () => {
           pivaHash: expect.stringMatching(/^[0-9a-f]{64}$/),
         }),
       );
-      // Solo 3 update: verifiedAt + businesses + profiles.partitaIva. Nessun
-      // azzeramento di trialStartedAt (trial concesso).
-      expect(mockUpdate).toHaveBeenCalledTimes(3);
+      // 3 update "core" (verifiedAt + businesses + profiles.partitaIva,
+      // nessun azzeramento di trialStartedAt: trial concesso) + 2 update del
+      // claim referral (referral_redemptions.rewardedAt +
+      // profiles.referralBonusDays) che scattano sempre sotto i mock generici
+      // condivisi (returning() risolve sempre a una riga non-vuota).
+      expect(mockUpdate).toHaveBeenCalledTimes(5);
       expect(mockUpdateSet).not.toHaveBeenCalledWith({ trialStartedAt: null });
     });
 
@@ -1341,8 +1350,11 @@ describe("onboarding-actions", () => {
       expect(result.error).toBeUndefined();
       expect(result.businessId).toBe("biz-789");
       expect(result.trialAlreadyUsed).toBe(true);
-      // 4 update: verifiedAt + businesses + profiles.partitaIva +
-      // profiles.trialStartedAt=null (sola lettura immediata).
+      // Solo 4 update "core": verifiedAt + businesses + profiles.partitaIva +
+      // profiles.trialStartedAt=null (sola lettura immediata). Il claim
+      // referral NON scatta: la P.IVA era già nel ledger → trial negato →
+      // niente reward al referrer (il blocco reward è gatato sul trial
+      // effettivamente concesso, esce prima via early-return).
       expect(mockUpdate).toHaveBeenCalledTimes(4);
       expect(mockUpdateSet).toHaveBeenCalledWith({ trialStartedAt: null });
       const { logger } = await import("@/lib/logger");

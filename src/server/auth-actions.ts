@@ -22,6 +22,14 @@ import { ERROR_MESSAGES } from "@/lib/error-messages";
 import { getFormString, getFormStringRaw } from "@/lib/form-utils";
 import { isUniqueConstraintViolation } from "@/lib/db-errors";
 import { normalizeSignupSource } from "@/lib/signup-source";
+import {
+  generateReferralCode,
+  normalizeReferralCode,
+} from "@/lib/referral-code";
+import { referralRedemptions } from "@/db/schema/referral-redemptions";
+
+/** Giorni di trial bonus concessi al nuovo utente che si registra con un referral valido (+1 mese). */
+const REFERRAL_SIGNUP_BONUS_DAYS = 30;
 
 const CURRENT_TERMS_VERSION = "v01";
 
@@ -272,15 +280,38 @@ async function insertProfileOrRollback(
   authUserId: string,
   email: string,
   signupSource: string | null,
+  referrer: { id: string; referralCode: string } | null,
 ): Promise<AuthActionResult | null> {
   try {
     const db = getDb();
-    await db.insert(profiles).values({
-      authUserId,
-      email,
-      termsAcceptedAt: new Date(),
-      termsVersion: CURRENT_TERMS_VERSION,
-      signupSource,
+    const referralCode = generateReferralCode(authUserId);
+    // Profilo + eventuale redemption in UNA transazione: se l'insert della
+    // redemption fallisce (referrer sparito tra lookup e insert, hiccup DB)
+    // il rollback rimuove anche il profilo, così il catch sotto cancella
+    // l'auth user senza lasciare un profilo orfano che punta a un auth user
+    // inesistente.
+    await db.transaction(async (tx) => {
+      const [profile] = await tx
+        .insert(profiles)
+        .values({
+          authUserId,
+          email,
+          termsAcceptedAt: new Date(),
+          termsVersion: CURRENT_TERMS_VERSION,
+          signupSource,
+          referralCode,
+          referredByReferralCode: referrer?.referralCode ?? null,
+          referralBonusDays: referrer ? REFERRAL_SIGNUP_BONUS_DAYS : 0,
+        })
+        .returning({ id: profiles.id });
+
+      if (referrer) {
+        await tx.insert(referralRedemptions).values({
+          referrerId: referrer.id,
+          refereeId: profile.id,
+          referralCode: referrer.referralCode,
+        });
+      }
     });
     return null;
   } catch (err) {
@@ -299,6 +330,44 @@ async function insertProfileOrRollback(
   }
 }
 
+type ReferrerRow = { id: string; referralCode: string };
+
+/**
+ * Risolve il codice referral grezzo dal form in un referrer DB row, oppure
+ * in un errore utente. Estratto da `signUp` per tenerne sotto controllo la
+ * complessità cognitiva (SonarCloud S3776).
+ */
+async function resolveReferrer(
+  rawReferralCode: string,
+): Promise<{ referrer: ReferrerRow | null } | { error: string }> {
+  if (rawReferralCode.trim().length === 0) return { referrer: null };
+
+  // Codice referral: a differenza di `ref` (signup source, soft) un codice
+  // presente ma invalido blocca la registrazione — l'utente deve correggerlo
+  // o rimuoverlo dal form per procedere. Non è un problema di enumeration
+  // (il codice non è un segreto, identifica solo il referrer) quindi l'errore
+  // può essere esplicito.
+  const normalizedReferralCode = normalizeReferralCode(rawReferralCode);
+  const invalidCodeError = {
+    error: "Codice referral non valido. Correggilo o rimuovilo per continuare.",
+  };
+  if (!normalizedReferralCode) return invalidCodeError;
+
+  try {
+    const db = getDb();
+    const [referrerRow] = await db
+      .select({ id: profiles.id, referralCode: profiles.referralCode })
+      .from(profiles)
+      .where(sql`${profiles.referralCode} = ${normalizedReferralCode}`)
+      .limit(1);
+    if (!referrerRow) return invalidCodeError;
+    return { referrer: referrerRow };
+  } catch (err) {
+    logger.error({ err }, "Referral code lookup failed");
+    return { error: "Registrazione fallita. Riprova." };
+  }
+}
+
 export async function signUp(formData: FormData): Promise<AuthActionResult> {
   // Centralised email normalisation — consistent across signUp / signIn /
   // magicLink / resetPassword (CLAUDE.md regola 22).
@@ -312,6 +381,7 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   const specificClausesAccepted = formData.get("specificClausesAccepted");
   const captchaToken = getFormString(formData, "captchaToken");
   const signupSource = normalizeSignupSource(getFormString(formData, "ref"));
+  const rawReferralCode = getFormString(formData, "rcode");
 
   const validationError = validateSignUpInput(
     email,
@@ -362,6 +432,10 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
     redirect("/verify-email");
   }
 
+  const referralResult = await resolveReferrer(rawReferralCode);
+  if ("error" in referralResult) return { error: referralResult.error };
+  const { referrer } = referralResult;
+
   const supabase = await createServerSupabaseClient();
   const hostname =
     process.env.APP_HOSTNAME ??
@@ -384,6 +458,7 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
       data.user.id,
       email,
       signupSource,
+      referrer,
     );
     if (profileError) return profileError;
   }

@@ -1,8 +1,14 @@
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { and, count, eq, isNotNull } from "drizzle-orm";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getDb } from "@/db";
-import { profiles, businesses, adeCredentials } from "@/db/schema";
+import {
+  profiles,
+  businesses,
+  adeCredentials,
+  referralRedemptions,
+} from "@/db/schema";
+import { ReferralSection } from "@/components/settings/referral-section";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { VAT_DESCRIPTIONS, type VatCode, VAT_CODES } from "@/types/cassa";
@@ -87,6 +93,20 @@ export default async function SettingsPage({
     VAT_CODES.includes(business.preferredVatCode as VatCode)
       ? VAT_DESCRIPTIONS[business.preferredVatCode as VatCode]
       : null;
+
+  const completedReferrals = profile
+    ? ((
+        await db
+          .select({ value: count() })
+          .from(referralRedemptions)
+          .where(
+            and(
+              eq(referralRedemptions.referrerId, profile.id),
+              isNotNull(referralRedemptions.rewardedAt),
+            ),
+          )
+      )[0]?.value ?? 0)
+    : 0;
 
   const planResult = await getProfilePlan();
   const planData =
@@ -242,6 +262,20 @@ export default async function SettingsPage({
           />
         </CardContent>
       </Card>
+
+      {profile && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Referral</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ReferralSection
+              referralCode={profile.referralCode}
+              completedReferrals={completedReferrals}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {planData && (
         // id="billing" → ancora del deep-link BILLING_SETTINGS_HREF

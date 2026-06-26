@@ -23,6 +23,30 @@ describe("ShareButton", () => {
     expect(screen.getByText("Condividi ricevuta")).toBeInTheDocument();
   });
 
+  it("usa label e copiedLabel custom quando forniti", async () => {
+    const mockWriteText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", {
+      share: undefined,
+      clipboard: { writeText: mockWriteText },
+    });
+
+    render(
+      <ShareButton
+        url="/register?rcode=AB2CDEFG"
+        title="Test"
+        label="Condividi codice referral"
+        copiedLabel="Codice copiato!"
+      />,
+    );
+    expect(screen.getByText("Condividi codice referral")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Codice copiato!")).toBeInTheDocument();
+    });
+  });
+
   it("chiama navigator.share con l'URL completo quando disponibile", async () => {
     const mockShare = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal("navigator", { share: mockShare });

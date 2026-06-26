@@ -9,6 +9,7 @@ import {
   adeCredentials,
   profiles,
   trialVatLedger,
+  referralRedemptions,
 } from "@/db/schema";
 import { hashPiva } from "@/lib/piva-hash";
 import {
@@ -497,11 +498,49 @@ async function finalizeAdeVerification(params: {
     if (inserted.length === 0) {
       // trialStartedAt = null → isTrialExpired() true → sola lettura
       // immediata, riusando i gate esistenti (canEmit/canAddCatalogItem).
+      // La P.IVA era già nel ledger → NON è un nuovo cliente vero: niente
+      // reward al referrer (sotto). Esce dalla transazione qui.
       await tx
         .update(profiles)
         .set({ trialStartedAt: null })
         .where(eq(profiles.authUserId, userId));
       trialAlreadyUsed = true;
+      return;
+    }
+
+    // Reward referral: trigger = trial EFFETTIVAMENTE concesso (raggiunto
+    // solo se il ledger sopra ha accettato la P.IVA — nuovo cliente vero).
+    // Gatare qui, e non sulla sola verifica P.IVA, chiude il farming di
+    // reward con una P.IVA riciclata: un referee in sola-lettura (P.IVA già
+    // consumata) non frutta nulla al referrer. Claim atomico via
+    // UPDATE ... WHERE rewarded_at IS NULL: idempotente sotto retry della
+    // stessa finalizeAdeVerification, niente doppio reward.
+    const [refereeProfile] = await tx
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.authUserId, userId))
+      .limit(1);
+
+    if (refereeProfile) {
+      const claimed = await tx
+        .update(referralRedemptions)
+        .set({ rewardedAt: new Date() })
+        .where(
+          and(
+            eq(referralRedemptions.refereeId, refereeProfile.id),
+            sql`${referralRedemptions.rewardedAt} IS NULL`,
+          ),
+        )
+        .returning({ referrerId: referralRedemptions.referrerId });
+
+      if (claimed.length > 0) {
+        await tx
+          .update(profiles)
+          .set({
+            referralBonusDays: sql`${profiles.referralBonusDays} + 30`,
+          })
+          .where(eq(profiles.id, claimed[0].referrerId));
+      }
     }
   });
 
