@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, type Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod/v4";
 import type { TurnstileInstance } from "@marsidev/react-turnstile";
@@ -49,6 +49,94 @@ const registerSchema = z
   });
 
 type RegisterData = z.infer<typeof registerSchema>;
+
+/**
+ * Campo referral del form di registrazione. Tre rami mutuamente esclusivi
+ * (partner-locked / opzionale aperto / toggle chiuso), estratti in un componente
+ * con early-return per evitare un ternario annidato (SonarCloud S3358).
+ */
+function ReferralField({
+  control,
+  isPartner,
+  partnerLabel,
+  showReferralField,
+  onShowReferralField,
+}: Readonly<{
+  control: Control<RegisterData>;
+  isPartner: boolean;
+  partnerLabel: string | null;
+  showReferralField: boolean;
+  onShowReferralField: () => void;
+}>) {
+  if (isPartner) {
+    return (
+      <FormField
+        control={control}
+        name="referralCode"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Codice partner</FormLabel>
+            <FormControl>
+              <Input
+                {...field}
+                readOnly
+                aria-readonly
+                tabIndex={-1}
+                className="bg-muted/50 cursor-not-allowed"
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </FormControl>
+            <FormDescription>
+              Stai completando la registrazione tramite{" "}
+              <span className="font-medium">{partnerLabel}</span>. Il codice è
+              già applicato.
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    );
+  }
+
+  if (showReferralField) {
+    return (
+      <FormField
+        control={control}
+        name="referralCode"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Codice referral (opzionale)</FormLabel>
+            <FormControl>
+              <Input
+                {...field}
+                placeholder="es. AB2CDEFG"
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </FormControl>
+            <FormDescription>
+              Hai un codice da un amico? Inseriscilo per ottenere 1 mese di
+              trial extra. Lascia vuoto per registrarti senza.
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      aria-expanded={false}
+      onClick={onShowReferralField}
+      className="text-muted-foreground hover:text-foreground text-sm underline"
+    >
+      Hai un codice invito?
+    </button>
+  );
+}
 
 /**
  * Form di registrazione.
@@ -248,66 +336,13 @@ export function RegisterForm({
               )}
             />
 
-            {isPartner ? (
-              <FormField
-                control={form.control}
-                name="referralCode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Codice partner</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        readOnly
-                        aria-readonly
-                        tabIndex={-1}
-                        className="bg-muted/50 cursor-not-allowed"
-                        autoComplete="off"
-                        spellCheck={false}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Stai completando la registrazione tramite{" "}
-                      <span className="font-medium">{partnerLabel}</span>. Il
-                      codice è già applicato.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            ) : showReferralField ? (
-              <FormField
-                control={form.control}
-                name="referralCode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Codice referral (opzionale)</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="es. AB2CDEFG"
-                        autoComplete="off"
-                        spellCheck={false}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Hai un codice da un amico? Inseriscilo per ottenere 1 mese
-                      di trial extra. Lascia vuoto per registrarti senza.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            ) : (
-              <button
-                type="button"
-                aria-expanded={false}
-                onClick={() => setShowReferralField(true)}
-                className="text-muted-foreground hover:text-foreground text-sm underline"
-              >
-                Hai un codice invito?
-              </button>
-            )}
+            <ReferralField
+              control={form.control}
+              isPartner={isPartner}
+              partnerLabel={partnerLabel}
+              showReferralField={showReferralField}
+              onShowReferralField={() => setShowReferralField(true)}
+            />
 
             <TurnstileWidget
               ref={turnstileRef}
