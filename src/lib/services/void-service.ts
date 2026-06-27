@@ -13,7 +13,10 @@ import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
 import { withAdeSession } from "@/lib/ade";
 import type { AdeClient } from "@/lib/ade/client";
-import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
+import {
+  getUserFacingAdeErrorMessage,
+  isTransientAdeError,
+} from "@/lib/ade/error-messages";
 import { logAdeFailure } from "@/lib/ade/log-failure";
 import { mapVoidToAdePayload } from "@/lib/ade/mapper";
 import { isStatementTimeoutError } from "@/lib/api-errors";
@@ -796,11 +799,12 @@ export async function voidReceiptForBusiness(
       },
     );
 
-    // Don't mark ERROR on timeout. Leave the row PENDING so:
+    // Don't mark ERROR on a statement timeout OR an AdE transient failure
+    // (network / 5xx / SPID timeout — REVIEW.md #35). Leave the row PENDING so:
     // - Stale recovery can re-attempt (submitVoid not yet called → safe)
     // - OR if submitVoid already succeeded, the partial unique index still
     //   blocks duplicate VOIDs (which would NOT be the case if status=ERROR).
-    if (!isStatementTimeoutError(err)) {
+    if (!isStatementTimeoutError(err) && !isTransientAdeError(err)) {
       try {
         await db
           .update(commercialDocuments)

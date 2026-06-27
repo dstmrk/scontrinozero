@@ -808,4 +808,45 @@ describe("voidReceiptForBusiness", () => {
     const statusUpdates = mockUpdateSet.mock.calls.map((c) => c[0].status);
     expect(statusUpdates).not.toContain("ERROR");
   });
+
+  it("REVIEW #35: AdE transient (AdePortalError 5xx) dopo submitVoid NON marca ERROR (resta PENDING)", async () => {
+    // Stesso intento dell'outer-catch emit: se submitVoid è forse arrivato ad
+    // AdE ma la risposta è 5xx/timeout, marcare ERROR escluderebbe la riga dal
+    // partial unique index e dalla riconciliazione, permettendo un secondo VOID
+    // per la stessa SALE. La riga resta PENDING (REVIEW.md #35).
+    const { AdePortalError } = await import("@/lib/ade/errors");
+    mockSubmitVoid.mockRejectedValue(
+      new AdePortalError(503, "service unavailable"),
+    );
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    await voidReceiptForBusiness(VALID_INPUT);
+
+    const statusUpdates = mockUpdateSet.mock.calls.map((c) => c[0].status);
+    expect(statusUpdates).not.toContain("ERROR");
+  });
+
+  it("REVIEW #35: AdeNetworkError dopo submitVoid NON marca ERROR (resta PENDING)", async () => {
+    const { AdeNetworkError } = await import("@/lib/ade/errors");
+    mockSubmitVoid.mockRejectedValue(new AdeNetworkError(new Error("ECONN")));
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    await voidReceiptForBusiness(VALID_INPUT);
+
+    const statusUpdates = mockUpdateSet.mock.calls.map((c) => c[0].status);
+    expect(statusUpdates).not.toContain("ERROR");
+  });
+
+  it("REVIEW #35: errore pre-submit permanente (non transient) marca ancora ERROR", async () => {
+    // Un errore generico non-transient e non-timeout (es. fallimento permanente
+    // pre-submit) deve continuare a marcare ERROR: AdE non ha ricevuto nulla e
+    // il retry è sicuro. Guardia di non-regressione sul ramo permanente.
+    mockSubmitVoid.mockRejectedValue(new Error("permanent failure"));
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    await voidReceiptForBusiness(VALID_INPUT);
+
+    const statusUpdates = mockUpdateSet.mock.calls.map((c) => c[0].status);
+    expect(statusUpdates).toContain("ERROR");
+  });
 });
