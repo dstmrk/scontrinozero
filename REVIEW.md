@@ -1,6 +1,18 @@
 # REVIEW.md — Registro bug noti e tech debt
 
-> **Data ultimo audit:** 2026-06-09 · **Versione analizzata:** v1.3.8 (commit `dc03ed5`)
+> **Data ultimo audit:** 2026-06-27 (incrementale) · **Versione analizzata:** v1.3.8 (commit `dc03ed5`)
+>
+> **Audit incrementale 2026-06-27:** code review mirata sui percorsi critici
+> (registrazione/accesso/onboarding · emissione/annullo scontrini · billing/
+> Stripe-webhook), con verifica manuale di ogni finding sul codice corrente.
+> Nuovi finding: #35 e #38 (P2), #36/#37 (P3). Falsi positivi/duplicati scartati
+> (identity guard, vatNumber overwrite, wizardTemplate PIva, referral, key
+> rotation, cursor pagination, CSP, SPID; lato billing: race
+> subscription.updated↔stripeCustomerId, normalizzazione email su
+> `customers.create`, `invoice.paid` che non tocca `planExpiresAt` — by design,
+> skill `stripe-webhooks`).
+>
+> **Data audit precedente:** 2026-06-09 · v1.3.8 (commit `dc03ed5`)
 >
 > **Scopo.** Questo file è il **registro canonico** dei bug noti, del tech debt e dei
 > miglioramenti di sicurezza/performance, ordinati per priorità (P1/P2/P3).
@@ -142,6 +154,96 @@ fatto che i payload sono statici, ma è un single point of failure.
 4. Da affrontare quando la frequenza di edit dei JSON-LD è bassa; verificare su
    sandbox prima di prod (uno script bloccato dalla CSP rompe il widget Turnstile
    o i dati strutturati silenziosamente — controllare la console e i report CSP).
+
+---
+
+### 35. Mark `ERROR` sugli errori AdE _transient_ aggira la stale-recovery (emit + void)
+
+- **Categoria:** correttezza/concorrenza su mutazione fiscale irreversibile · **Severità:** Medium
+- **File:** `src/lib/services/receipt-service.ts:687` (emit), `src/lib/services/void-service.ts:803` (void); selezione recovery `src/lib/services/ade-recovery.ts:64`; riconciliazione pre-resubmit `src/lib/services/void-service.ts:640` (`reconcileVoidBeforeResubmit`)
+
+**Problema.** In entrambi gli orchestratori l'outer-catch fa
+`if (!isStatementTimeoutError(err)) { …set status "ERROR"… }`: salta il mark
+`ERROR` **solo** sul DB statement-timeout, ma lo applica a **ogni altro** errore,
+inclusi gli AdE _transient_ (timeout di rete / 5xx / SPID) — proprio il caso in
+cui, come dice il commento del codice stesso (`receipt-service.ts:684-686`: «we
+don't know whether submitSale succeeded on AdE»), lo stato su AdE è **ignoto**.
+Quando AdE ha _forse_ già registrato il documento ma la risposta è andata in
+timeout, marcare `ERROR` (invece di lasciare `PENDING`) ha due conseguenze:
+
+1. Il partial unique index (`status IN ('PENDING','VOID_ACCEPTED')`, migration
+   `0012`) **non copre `ERROR`** → un retry guidato dall'utente (nuova
+   idempotency key) prende il path _fresh-insert_ di `insertOrResolveVoid`
+   (`recovery:false`) → **salta** `reconcileVoidBeforeResubmit` e ri-sottomette a
+   AdE alla cieca. Sul **void** AdE respinge il secondo annullo di un documento
+   già annullato (mitigazione lato AdE → si finisce in `REJECTED`); sull'**emit**
+   non esiste un guard equivalente lato AdE → rischio doppia emissione dello
+   stesso scontrino.
+2. `ade-recovery.ts:64` seleziona `status IN ('PENDING','ERROR')`, quindi la
+   stale-recovery _automatica_ riprende anche le righe `ERROR` riusando la stessa
+   riga/sessione e riconcilia — ma la riconciliazione pre-resubmit vive **solo**
+   nel path PENDING/recovery, non nel fresh-insert dell'utente sopra.
+
+Lo stato `ERROR` diverge così dalla verità AdE invece di lasciare la riga
+`PENDING` e delegare la riconciliazione. **Non coperto da test:** il caso
+`void-service.test.ts:806` («NON deve marcare ERROR») copre il path
+`VOID_SYNC_FAILED` (finalize-_dopo_-submit, già corretto a parte), **non**
+l'outer-catch oggetto di questo finding.
+
+**Fix (non ambiguo).**
+
+1. Estendere la guardia in entrambi gli orchestratori a
+   `if (!isStatementTimeoutError(err) && !isTransientAdeError(err))`
+   (`isTransientAdeError` è già in `src/lib/ade/error-messages.ts`):
+   lasciare `PENDING` anche sugli AdE transient, così la stale-recovery
+   riconcilia contro AdE prima di qualsiasi re-submit.
+2. Marcare `ERROR` **solo** per errori definitivamente _pre-submit_ (decrypt,
+   mapping payload, auth AdE permanente): in quei casi AdE non ha ricevuto nulla
+   e il retry è sicuro.
+3. **Test:** AdE transient sollevato dopo `submitSale`/`submitVoid` → la riga
+   resta `PENDING` (mai `ERROR`) in emit **e** in void; statement-timeout →
+   invariato (già `PENDING`); errore pre-submit permanente → `ERROR` come oggi.
+4. Tenere allineati i due path (stessa guardia in emit e void) e i rispettivi
+   commenti, che già descrivono l'intento corretto ma sono sotto-applicati.
+
+---
+
+### 38. Checkout: il gate server-side blocca solo `active` → subscription Stripe duplicate
+
+- **Categoria:** correttezza/billing · **Severità:** Medium (mitigata lato UI, ma il server non deve dipenderne)
+- **File:** `src/app/api/stripe/checkout/route.ts:76` (`getOrCreateStripeCustomerId`); sync che sovrascrive la riga `src/app/api/stripe/webhook/route.ts:373` (`syncSubscriptionData`) e ramo "no row found" `:304` (`applySubscriptionUpdate`); card UI `src/app/dashboard/settings/page.tsx:64` (`computeBillingCardState`)
+
+**Problema.** Il gate pre-checkout in `getOrCreateStripeCustomerId` ritorna 409
+**solo** se `existingSub?.status === "active"`. Un utente con subscription
+`past_due` / `unpaid` (subscription **viva** su Stripe) supera il check: alla riga
+83 `existingSub.stripeCustomerId` esiste → riuso del customer → al completamento
+dell'hosted checkout Stripe crea una **seconda** subscription sullo stesso
+customer. Poi `syncSubscriptionData` sovrascrive l'**unica** riga DB (una per
+`userId`, lookup per `stripeCustomerId`) con la nuova sub: la vecchia resta
+**viva e non tracciata** su Stripe (i suoi futuri eventi cadono nel ramo
+`"no subscription row found — event acknowledged"` di `applySubscriptionUpdate`),
+con rischio **doppio addebito** sul path di dunning `past_due`.
+
+**Mitigazione esistente (solo UI).** `computeBillingCardState` instrada i
+`past_due` al **portale** Stripe, non al checkout — ma è difesa lato UI:
+l'endpoint `/api/stripe/checkout` resta chiamabile direttamente, e gli stati
+`unpaid` non sono special-cased nella card (cadono su `trial-expired` → CTA
+checkout). Il server non deve dipendere dalla UI per l'integrità del billing.
+
+**Fix (non ambiguo).**
+
+1. Estendere il gate in `getOrCreateStripeCustomerId` a tutti gli stati Stripe
+   "vivi/billabili": bloccare (409 + invito al portale) per `active`, `past_due`,
+   `unpaid` (valutare `trialing` — oggi non usato, il trial è interno).
+2. **Non** bloccare `incomplete`/`incomplete_expired`: sono il pre-attivazione del
+   primo pagamento, bloccarli impedirebbe il retry SCA legittimo
+   (l'`idempotencyKey` orario su `session:${priceId}` già de-duplica il retry a
+   breve termine).
+3. Coerenza UI: la card deve mostrare il ramo "gestisci dal portale" anche per
+   `unpaid` (oggi solo `past_due`), così CTA UI e gate server combaciano.
+4. **Test:** checkout con sub `past_due`/`unpaid` → 409 senza creare sessione
+   Stripe; `canceled`/`pending`/nessuna sub → checkout consentito; `incomplete`
+   → consentito (retry primo pagamento).
 
 ---
 
@@ -402,6 +504,60 @@ mostra già la data nel proprio portale.
 `syncSubscriptionData` dal `customer.subscription.updated` + nuovo ramo in
 `computeBillingCardState` ("in cancellazione") che mostra `currentPeriodEnd`.
 Accettato come rifinitura, fuori dal diff partner (v1.4.0).
+
+### 36. `verifyAdeCredentials` senza rate limit (asimmetria con `changeAdePassword`)
+
+- **Categoria:** sicurezza/abuso risorse · **Severità:** Low (mitigata dall'ownership gate)
+- **File:** `src/server/onboarding-actions.ts:640` (`verifyAdeCredentials`); modello da replicare: `changePasswordLimiter` + gate in `changeAdePassword` nello stesso file; `RateLimiter`/`RATE_LIMIT_WINDOWS` in `src/lib/rate-limit.ts`
+
+**Problema.** `verifyAdeCredentials` esegue `checkBusinessOwnership` (quindi
+**non** è un brute-force cross-utente: serve possedere il business) ma poi avvia
+un login AdE completo + `getFiscalData` **senza alcun rate limit**.
+`changeAdePassword`, nello stesso file e con lo stesso profilo di costo (login
+AdE), è invece protetto da un `RateLimiter` (5 richieste / 15 min,
+`AUTH_15_MIN`). Un utente autenticato può quindi martellare il login AdE
+ripetendo `verifyAdeCredentials`: oltre all'esaurimento di pool DB/risorse, il
+rischio concreto è un **lockout o IP-block lato AdE** sull'egress condiviso, che
+impatterebbe **tutti** gli utenti (login/emit/void). La severità è contenuta
+dall'ownership gate, ma l'asimmetria con `changeAdePassword` è la motivazione
+forte: stessa classe di operazione, protezione incoerente.
+
+**Fix (non ambiguo).**
+
+1. Aggiungere un `RateLimiter` per-utente (chiave `verify-ade:${user.id}`, es.
+   5/15 min `AUTH_15_MIN`) sul modello di `changePasswordLimiter`, controllato
+   **subito dopo** `checkBusinessOwnership` e prima del decrypt/login AdE.
+2. Sul superamento: `logger.warn` (input prevedibile, regola 20 — niente Sentry)
+   + ritorno `{ error }` con il messaggio rate-limit standard (degradare, non
+   lanciare — regola 19).
+3. **Test:** sotto soglia → OK; alla soglia → warn + errore senza chiamare AdE;
+   reset alla nuova finestra; chiave per-utente (un business non blocca l'altro).
+
+### 37. Allowlist hostname Turnstile non normalizzata (trim/lowercase)
+
+- **Categoria:** correttezza/robustezza config · **Severità:** Low (contingente a misconfig env)
+- **File:** `src/server/auth-actions.ts:145` (`getAcceptedTurnstileHostnames`); pattern di riferimento già normalizzato: `src/lib/partners/partner-host.ts:16` (`getAppHostname`)
+
+**Problema.** Cloudflare Turnstile `siteverify` ritorna `data.hostname` sempre in
+**lowercase**. `getAcceptedTurnstileHostnames` costruisce il `Set` di confronto
+direttamente dagli env (`APP_HOSTNAME` / `NEXT_PUBLIC_APP_HOSTNAME` /
+`NEXT_PUBLIC_MARKETING_HOSTNAME`) **senza** `.trim().toLowerCase()`, mentre
+`getAppHostname()` in `partner-host.ts:16` normalizza già. Se uno di questi env
+fosse configurato con maiuscole o spazi (es. `"App.ScontrinoZero.IT"` o
+`"scontrinozero.it "`), il confronto `Set.has(data.hostname)` (match esatto)
+fallirebbe → **ogni** login/register/reset (tutti dietro Turnstile) verrebbe
+bloccato con `captcha_hostname_mismatch`. È contingente a una misconfig dell'env
+d'identità, ma coerente con la postura fail-fast/normalizzazione delle regole
+18/24 (present-but-empty, validazione env): un valore "quasi giusto" non deve
+rompere l'auth.
+
+**Fix (non ambiguo).**
+
+1. Normalizzare (`.trim().toLowerCase()`) i due hostname dentro
+   `getAcceptedTurnstileHostnames` prima di costruire il `Set` (incluso il
+   `www.${marketingHostname}`), riusando il pattern di `getAppHostname`.
+2. **Test:** env con maiuscole/spazi → l'hostname lowercase di Turnstile è
+   accettato; env già lowercase → comportamento invariato.
 
 ### audit-ci: advisory `esbuild` dev-only (3 GHSA)
 
