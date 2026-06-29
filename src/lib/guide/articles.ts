@@ -9,6 +9,7 @@ export const guideSlugs = [
   "annullare-scontrino-elettronico",
   "lotteria-scontrini-commerciante",
   "scegliere-software-scontrini-elettronici",
+  "codici-natura-iva",
 ] as const;
 
 export type GuideSlug = (typeof guideSlugs)[number];
@@ -115,8 +116,8 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       'Da gennaio 2020 in Italia è possibile emettere lo scontrino senza registratore di cassa fisico: basta usare il "documento commerciale online" tramite il portale Fatture e Corrispettivi dell\'Agenzia delle Entrate, da web o smartphone. Vediamo cosa serve e come si fa nella pratica.',
     publishedAt: "2026-05-14",
-    updatedAt: "2026-05",
-    readingMinutes: 5,
+    updatedAt: "2026-06",
+    readingMinutes: 7,
     sections: [
       {
         heading: "La premessa normativa",
@@ -133,6 +134,15 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         heading: "Procedura con un'app dedicata",
         body: 'App come ScontrinoZero automatizzano la procedura: salvi il catalogo prodotti una volta, e in fase di emissione basta toccare gli articoli, scegliere il pagamento e premere "Emetti". L\'app si occupa di autenticarsi su AdE con le tue credenziali, di trasmettere il documento e di archiviarlo. Tempo medio: 5-10 secondi per scontrino.',
+      },
+      {
+        heading: "Quali attività possono emettere scontrino senza cassa",
+        body: "Può farlo qualunque titolare di partita IVA tenuto a certificare i corrispettivi al pubblico: negozi al dettaglio, ambulanti e mercati, artigiani e installatori, parrucchieri ed estetisti, professionisti che incassano al momento, B&B e attività stagionali, contribuenti in regime forfettario. Anche un negozio fisso può rinunciare al registratore telematico e usare solo il documento commerciale online: la legge non impone l'hardware, impone la memorizzazione e trasmissione dei corrispettivi, che il software garantisce allo stesso modo.",
+      },
+      {
+        heading:
+          "Scontrino senza cassa vs registratore telematico: quale conviene",
+        body: "L'alternativa al registratore di cassa fisico ha un vantaggio economico netto per volumi bassi e medi: zero costo hardware (un RT costa 400-800 €), zero canone di manutenzione (100-200 € l'anno), nessun collaudo biennale e nessun tecnico. Il registratore fisico resta più rapido al banco per chi ha code e alti volumi. La regola pratica: sotto le poche centinaia di scontrini al giorno, o se lavori in mobilità, lo scontrino senza cassa da smartphone conviene quasi sempre.",
       },
       {
         heading: "Limiti da conoscere",
@@ -296,9 +306,9 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
   "scontrino-regime-forfettario": {
     slug: "scontrino-regime-forfettario",
     title: "Scontrino in regime forfettario: cosa devi sapere",
-    metaTitle: "Scontrino in regime forfettario: come emetterlo nel 2026",
+    metaTitle: "Scontrino forfettari: dicitura, IVA N2 e come emetterlo",
     metaDescription:
-      "Anche in regime forfettario devi emettere scontrino al consumatore finale. Come configurare correttamente l'IVA, gestire la lotteria e quali esoneri esistono.",
+      'Anche in regime forfettario devi emettere lo scontrino al consumatore finale: come gestire l\'IVA "a zero" (natura N2), la dicitura di esenzione e la lotteria.',
     heroIntro:
       "Il regime forfettario semplifica molti adempimenti (IVA, ritenute, gestione contabile), ma NON esonera dall'obbligo di emettere scontrino al consumatore finale per le vendite B2C. Vediamo come gestire correttamente l'emissione, l'IVA \"a zero\" e gli aspetti operativi tipici del forfettario.",
     publishedAt: "2026-05-14",
@@ -682,6 +692,78 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       "documento-commerciale-online",
       "scontrino-senza-registratore-di-cassa",
       "pos-rt-obbligo-2026",
+    ],
+  },
+  "codici-natura-iva": {
+    slug: "codici-natura-iva",
+    title: "Codici natura IVA: cosa sono e quando si usano",
+    metaTitle: "Natura IVA N2.2: cosa significa e dicitura forfettari",
+    metaDescription:
+      "Cosa sono i codici natura IVA N1-N7, cosa significa N2.2 per il regime forfettario in fattura elettronica, perché sullo scontrino si usa N2 e quale dicitura indicare.",
+    heroIntro:
+      "I codici natura IVA (N1, N2, N2.2, N3, N4, N5, N6, N7) servono a spiegare al fisco perché su un'operazione non viene addebitata l'IVA con un'aliquota ordinaria. Sono obbligatori nel tracciato della fattura elettronica e dei corrispettivi telematici. Qui vediamo cosa significano uno per uno, perché il regime forfettario usa N2.2 in fattura ma N2 sullo scontrino, e quale dicitura di esenzione indicare.",
+    publishedAt: "2026-06-29",
+    updatedAt: "2026-06",
+    readingMinutes: 7,
+    sections: [
+      {
+        heading: "Cosa sono i codici natura IVA",
+        body: "Il codice natura è un'etichetta che, nel tracciato XML della fattura elettronica e nel tracciato dei corrispettivi telematici, indica il motivo per cui un'operazione non è assoggettata all'IVA ordinaria (4%, 5%, 10%, 22%). Senza un'aliquota da esporre, il sistema dell'Agenzia delle Entrate ha comunque bisogno di sapere se l'operazione è esclusa, non soggetta, non imponibile, esente, in regime del margine o in inversione contabile: il codice natura risponde proprio a questa domanda. È un dato obbligatorio: una riga a 0% senza codice natura viene scartata.",
+      },
+      {
+        heading: "I codici natura N1-N7 in breve",
+        body: "N1 – Operazioni escluse ex art. 15 DPR 633/72 (rimborsi e anticipazioni in nome e per conto). N2 – Operazioni non soggette, suddivise in N2.1 (mancanza del requisito di territorialità, artt. 7-7septies) e N2.2 (altri casi, tra cui il regime forfettario). N3 – Operazioni non imponibili (esportazioni, cessioni intracomunitarie, ecc.), con sottocodici N3.1-N3.6. N4 – Operazioni esenti ex art. 10 DPR 633/72 (servizi sanitari, finanziari, formativi). N5 – Regime del margine (beni usati, oggetti d'arte) e IVA non esposta. N6 – Inversione contabile (reverse charge), con sottocodici N6.1-N6.9. N7 – IVA assolta in altro Stato UE (vendite a distanza, servizi di telecomunicazione/elettronici sopra soglia).",
+      },
+      {
+        heading: "N2.2 e regime forfettario: il codice in fattura elettronica",
+        body: "Chi è in regime forfettario non addebita l'IVA in fattura (art. 1, comma 58, Legge 190/2014). Nel tracciato della fattura elettronica questa è un'operazione \"non soggetta - altri casi\", quindi si usa il codice natura N2.2. È l'errore più comune: molti cercano un'aliquota \"esente\" (che sarebbe N4) o lasciano la riga senza codice. Per il forfettario la natura corretta in fattura è sempre N2.2, con aliquota 0%.",
+      },
+      {
+        heading: "Sullo scontrino è diverso: il forfettario usa N2",
+        body: "Il tracciato del documento commerciale online (lo scontrino elettronico) non prevede la suddivisione fine N2.1/N2.2 della fattura: usa il codice natura aggregato N2 per le operazioni non soggette. Quindi lo stesso forfettario che in fattura elettronica indica N2.2, sullo scontrino emette le righe con natura N2. Non è una contraddizione: sono due tracciati diversi dell'Agenzia delle Entrate, con livelli di dettaglio diversi sullo stesso concetto (operazione non soggetta a IVA).",
+      },
+      {
+        heading:
+          "La dicitura di esenzione: cosa scrivere e quale articolo citare",
+        body: "Sulla fattura del forfettario, oltre al codice natura, va riportata la dicitura che richiama la norma. La formula tipica è: \"Operazione effettuata ai sensi dell'articolo 1, commi da 54 a 89, della Legge n. 190/2014 - Regime forfettario. Non soggetta a ritenuta d'acconto ai sensi del comma 67\". Se l'importo della fattura supera 77,47 €, va aggiunta la marca da bollo di 2 € (assolta in modo virtuale per l'elettronica). Sullo scontrino al consumatore finale non serve invece alcuna dicitura particolare: basta che le righe siano emesse con natura N2.",
+      },
+      {
+        heading: "Come ScontrinoZero gestisce la natura N2",
+        body: "In ScontrinoZero imposti l'IVA prevalente della tua attività su \"0% - Non soggette\" (natura N2) in onboarding o in Impostazioni → Attività: da quel momento le righe dello scontrino vengono emesse e trasmesse all'AdE con il codice natura N2 corretto per il documento commerciale, senza che tu debba ricordartelo a ogni vendita. Per la fattura elettronica B2B (N2.2) serve invece un software di fatturazione: ScontrinoZero si occupa degli scontrini al consumatore finale.",
+      },
+    ],
+    faq: [
+      {
+        question: "Cosa significa il codice natura IVA N2.2?",
+        answer:
+          "N2.2 indica un'operazione \"non soggetta - altri casi\" nel tracciato della fattura elettronica. È il codice usato dal regime forfettario, che per legge non addebita l'IVA. Si abbina sempre ad aliquota 0%.",
+      },
+      {
+        question: "Qual è la dicitura da scrivere per il regime forfettario?",
+        answer:
+          'Sulla fattura si indica: "Operazione effettuata ai sensi dell\'articolo 1, commi da 54 a 89, della Legge n. 190/2014 - Regime forfettario". Sullo scontrino al consumatore finale non serve alcuna dicitura: basta la natura N2.',
+      },
+      {
+        question:
+          "Che articolo di legge devo citare per l'esenzione del forfettario?",
+        answer:
+          "Il riferimento è l'articolo 1, commi da 54 a 89, della Legge 190/2014 (legge di stabilità 2015), che ha istituito il regime forfettario. Il comma 58 stabilisce che il forfettario non addebita l'IVA in fattura.",
+      },
+      {
+        question: "Sullo scontrino devo usare N2 o N2.2?",
+        answer:
+          "Sullo scontrino (documento commerciale online) si usa N2: il tracciato dei corrispettivi non prevede il sottocodice N2.2, che esiste solo nella fattura elettronica. Stesso concetto, due tracciati diversi.",
+      },
+      {
+        question: "Il codice natura è obbligatorio anche sullo scontrino?",
+        answer:
+          "Sì. Ogni riga a 0% deve avere un codice natura, altrimenti la trasmissione all'Agenzia delle Entrate viene scartata. Per le operazioni non soggette del forfettario il codice corretto sullo scontrino è N2.",
+      },
+    ],
+    relatedHelp: ["regime-forfettario", "aliquote-iva", "fatture-e-ricevute"],
+    relatedGuides: [
+      "scontrino-regime-forfettario",
+      "differenza-scontrino-ricevuta-fattura",
     ],
   },
 };

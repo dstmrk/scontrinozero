@@ -202,6 +202,13 @@ export default function Home() {
           <p className="text-muted-foreground mt-3 text-center text-sm">
             {"Guide pratiche: "}
             <Link
+              href="/guide/scontrino-senza-registratore-di-cassa"
+              className="text-primary hover:underline"
+            >
+              {"Scontrino senza registratore di cassa"}
+            </Link>
+            {" · "}
+            <Link
               href="/guide/documento-commerciale-online"
               className="text-primary hover:underline"
             >

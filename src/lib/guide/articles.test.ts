@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { getGuide, guideArticles, guideSlugs, isGuideSlug } from "./articles";
 
 describe("guideSlugs", () => {
-  it("contains exactly 10 slugs", () => {
-    expect(guideSlugs).toHaveLength(10);
+  it("contains exactly 11 slugs", () => {
+    expect(guideSlugs).toHaveLength(11);
   });
 
   it("contains the expected slugs", () => {
@@ -19,6 +19,7 @@ describe("guideSlugs", () => {
         "annullare-scontrino-elettronico",
         "lotteria-scontrini-commerciante",
         "scegliere-software-scontrini-elettronici",
+        "codici-natura-iva",
       ]),
     );
   });

@@ -144,6 +144,17 @@ export default function AliquoteIvaPage() {
             natura conformi al tracciato del documento commerciale).
           </li>
         </ul>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Per una verifica veloce a mano puoi usare il nostro{" "}
+          <Link
+            href="/strumenti/scorporo-iva"
+            className="text-primary hover:underline"
+          >
+            calcolatore scorporo IVA
+          </Link>
+          {" gratuito: dato un importo lordo, ti mostra imponibile e IVA per "}
+          {"ciascuna aliquota."}
+        </p>
         <h3 className="mt-5 text-base font-semibold">
           Codici natura per operazioni speciali
         </h3>
@@ -177,6 +188,18 @@ export default function AliquoteIvaPage() {
             compra, non chi vende — riguarda solo casi specifici)
           </li>
         </ul>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Per il significato dettagliato di ciascun codice natura (incluso cosa
+          significa <strong>N2.2</strong> e quale dicitura usare nel regime
+          forfettario) vedi la guida{" "}
+          <Link
+            href="/guide/codici-natura-iva"
+            className="text-primary hover:underline"
+          >
+            Codici natura IVA: cosa sono e quando si usano
+          </Link>
+          {"."}
+        </p>
 
         {/* ─── Catalogo prodotti ─── */}
         <h2 className="mt-10 text-xl font-semibold">Catalogo prodotti</h2>
