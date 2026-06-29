@@ -126,7 +126,25 @@ export async function myAction(input: MyInput): Promise<MyResult> {
 - `pdf:<ip>` — PDF pubblico → 60/ora
 - `checkout:<userId>` — `POST /api/stripe/checkout` → 10/ora
 - `portal:<userId>` — `GET|POST /api/stripe/portal` → 10/ora
+- `verify-ade:<userId>` — `verifyAdeCredentials` → 5/15min (REVIEW.md #36)
+- `change-ade-pw:<userId>` — `changeAdePassword` → 5/15min
 - Auth actions — 5/15min per-IP
+
+> ⚠️ **Aggiungere un rate limit a un'action già testata = mockare `@/lib/rate-limit`
+> in OGNI suite che la esercita.** Un nuovo gate introduce un ramo di
+> **early-return** prima delle query DB. Una suite che chiama l'action N volte
+> con lo **stesso `userId`** lo fa scattare (es. 6° invio su 5/15min), e l'action
+> ritorna **prima** di consumare i `mockResolvedValueOnce` accodati nel
+> `beforeEach`. `vi.clearAllMocks()` **non** svuota la coda di
+> `mockResolvedValueOnce` → l'item non consumato **leakka nel test successivo**,
+> sfasando l'ordine delle SELECT (sintomo tipico: un id sbagliato — il `profileId`
+> al posto del `businessId`). Stesso modulo, **più file di test** (`src/server/
+X.test.ts` **e** `tests/unit/server-X.test.ts`): mockare il limiter in tutti.
+> E con `vi.resetAllMocks()` per-`describe`, **re-impostare** il default
+> `mockRateLimiterCheck.mockReturnValue({ success: true })` nel `beforeEach`,
+> altrimenti `check()` ritorna `undefined` → crash su `.success`. Eseguire
+> sempre la **suite intera** (`npm run test:coverage`), non il singolo file:
+> un modulo può avere suite parallele in `tests/unit/`.
 
 ---
 

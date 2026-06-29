@@ -308,6 +308,9 @@ describe("verifyAdeCredentials — AdePasswordExpiredError", () => {
     vi.resetAllMocks();
     mockGetAuthenticatedUser.mockResolvedValue({ id: USER_ID });
     mockCheckBusinessOwnership.mockResolvedValue(null);
+    // verifyAdeCredentials ora ha un rate limit (REVIEW.md #36): senza questo
+    // default check() ritorna undefined dopo resetAllMocks → crash su .success.
+    mockRateLimiterCheck.mockReturnValue({ success: true });
     mockGetEncryptionKey.mockReturnValue(FAKE_KEY);
     mockDecrypt.mockReturnValue("decoded");
     mockAdeLogin.mockResolvedValue({});

@@ -79,6 +79,21 @@ vi.mock("@/lib/ade", () => ({
   createAdeClient: mockCreateAdeClient,
 }));
 
+// Il rate limiter di verifyAdeCredentials (verify-ade:${user.id}, 5/15 min) è
+// reale di default: senza questo mock il 6° invio con lo stesso USER_ID nei
+// test verifyAdeCredentials scatterebbe il limite, facendo ritornare l'action
+// PRIMA della SELECT credenziali e lasciando un mockResolvedValueOnce non
+// consumato nella coda condivisa di mockSelectLimit (vi.clearAllMocks NON
+// resetta le implementazioni in coda), che inquinerebbe i test saveBusiness
+// successivi. check() ritorna sempre success: i superamenti del limite sono
+// coperti in src/server/onboarding-actions.test.ts.
+vi.mock("@/lib/rate-limit", () => ({
+  RateLimiter: vi.fn().mockImplementation(function () {
+    return { check: () => ({ success: true, remaining: 4 }) };
+  }),
+  RATE_LIMIT_WINDOWS: { AUTH_15_MIN: 15 * 60 * 1000, HOURLY: 60 * 60 * 1000 },
+}));
+
 // Use the real error classes so that `instanceof` checks inside
 // `getUserFacingAdeErrorMessage` work as expected.
 vi.mock(import("@/lib/ade/errors"), async (importOriginal) => {

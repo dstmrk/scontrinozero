@@ -5,8 +5,8 @@
 > **Audit incrementale 2026-06-27:** code review mirata sui percorsi critici
 > (registrazione/accesso/onboarding · emissione/annullo scontrini · billing/
 > Stripe-webhook), con verifica manuale di ogni finding sul codice corrente.
-> Nuovi finding: #38 (P2), #36/#37 (P3) — #35 (mark `ERROR` su AdE transient)
-> risolto. Falsi positivi/duplicati scartati
+> Nuovi finding: #38 (P2), #37 (P3) — #35 (mark `ERROR` su AdE transient) e #36
+> (rate limit `verifyAdeCredentials`) risolti. Falsi positivi/duplicati scartati
 > (identity guard, vatNumber overwrite, wizardTemplate PIva, referral, key
 > rotation, cursor pagination, CSP, SPID; lato billing: race
 > subscription.updated↔stripeCustomerId, normalizzazione email su
@@ -338,34 +338,6 @@ mostra già la data nel proprio portale.
 `syncSubscriptionData` dal `customer.subscription.updated` + nuovo ramo in
 `computeBillingCardState` ("in cancellazione") che mostra `currentPeriodEnd`.
 Accettato come rifinitura, fuori dal diff partner (v1.4.0).
-
-### 36. `verifyAdeCredentials` senza rate limit (asimmetria con `changeAdePassword`)
-
-- **Categoria:** sicurezza/abuso risorse · **Severità:** Low (mitigata dall'ownership gate)
-- **File:** `src/server/onboarding-actions.ts:640` (`verifyAdeCredentials`); modello da replicare: `changePasswordLimiter` + gate in `changeAdePassword` nello stesso file; `RateLimiter`/`RATE_LIMIT_WINDOWS` in `src/lib/rate-limit.ts`
-
-**Problema.** `verifyAdeCredentials` esegue `checkBusinessOwnership` (quindi
-**non** è un brute-force cross-utente: serve possedere il business) ma poi avvia
-un login AdE completo + `getFiscalData` **senza alcun rate limit**.
-`changeAdePassword`, nello stesso file e con lo stesso profilo di costo (login
-AdE), è invece protetto da un `RateLimiter` (5 richieste / 15 min,
-`AUTH_15_MIN`). Un utente autenticato può quindi martellare il login AdE
-ripetendo `verifyAdeCredentials`: oltre all'esaurimento di pool DB/risorse, il
-rischio concreto è un **lockout o IP-block lato AdE** sull'egress condiviso, che
-impatterebbe **tutti** gli utenti (login/emit/void). La severità è contenuta
-dall'ownership gate, ma l'asimmetria con `changeAdePassword` è la motivazione
-forte: stessa classe di operazione, protezione incoerente.
-
-**Fix (non ambiguo).**
-
-1. Aggiungere un `RateLimiter` per-utente (chiave `verify-ade:${user.id}`, es.
-   5/15 min `AUTH_15_MIN`) sul modello di `changePasswordLimiter`, controllato
-   **subito dopo** `checkBusinessOwnership` e prima del decrypt/login AdE.
-2. Sul superamento: `logger.warn` (input prevedibile, regola 20 — niente Sentry)
-   - ritorno `{ error }` con il messaggio rate-limit standard (degradare, non
-     lanciare — regola 19).
-3. **Test:** sotto soglia → OK; alla soglia → warn + errore senza chiamare AdE;
-   reset alla nuova finestra; chiave per-utente (un business non blocca l'altro).
 
 ### 37. Allowlist hostname Turnstile non normalizzata (trim/lowercase)
 
