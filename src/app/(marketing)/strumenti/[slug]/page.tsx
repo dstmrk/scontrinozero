@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   JsonLd,
   breadcrumbListJsonLd,
+  faqPageJsonLd,
   webApplicationJsonLd,
 } from "@/components/json-ld";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
@@ -91,6 +92,7 @@ export default async function ToolPage({ params }: PageParams) {
         })}
       />
       <JsonLd data={breadcrumbListJsonLd(crumbs)} />
+      {t.faq.length > 0 && <JsonLd data={faqPageJsonLd(t.faq)} />}
 
       <section className="px-4 py-16">
         <article className="mx-auto max-w-3xl">
