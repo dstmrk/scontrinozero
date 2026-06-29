@@ -27,11 +27,11 @@ import { computeBillingCardState } from "./billing-card-state";
 import { PRICE_IDS } from "@/lib/stripe";
 import { ApiKeySection } from "@/components/settings/api-key-section";
 import { ExtraSettingsSection } from "@/components/settings/extra-settings-section";
+import { SupportSection } from "@/components/settings/support-section";
 import { PlanBadge } from "@/components/billing/plan-badge";
 import { PlanSelection } from "@/components/billing/plan-selection";
 import { RefreshOnSuccess } from "@/components/billing/refresh-on-success";
 import { ScrollToHash } from "@/components/billing/scroll-to-hash";
-import { CONTACT_EMAIL } from "@/lib/contact";
 import { APP_VERSION, getBuildLabel } from "@/lib/version";
 
 /**
@@ -447,6 +447,25 @@ export default async function SettingsPage({
         </div>
       </section>
 
+      {/* Supporto — Help Center + contatto email pre-compilato */}
+      <section className="space-y-4">
+        <h2 className={sectionHeadingClass}>Supporto</h2>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Assistenza</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SupportSection
+                accountEmail={user.email}
+                plan={planData?.plan ?? null}
+                appVersion={APP_VERSION}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
       {/* Altre impostazioni — sezioni a basso uso, nascoste di default */}
       <ExtraSettingsSection>
         {business && planData && canUseApi(planData.plan) && (
@@ -471,15 +490,6 @@ export default async function SettingsPage({
           <CardContent className="text-muted-foreground space-y-2 text-sm">
             <p>
               ScontrinoZero {APP_VERSION} &mdash; build {getBuildLabel()}
-            </p>
-            <p>
-              Per dubbi, domande o feedback contattaci:{" "}
-              <a
-                className="text-primary underline"
-                href={`mailto:${CONTACT_EMAIL}`}
-              >
-                {CONTACT_EMAIL}
-              </a>
             </p>
           </CardContent>
         </Card>
