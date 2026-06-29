@@ -52,6 +52,27 @@ export const tools: Record<ToolSlug, ToolContent> = {
         answer:
           "Sì, è utile come verifica veloce. Per documenti fiscali ufficiali (fatture, scontrini, ricevute) usa sempre il software che li emette: il valore fiscale lo dà il documento, non il calcolatore.",
       },
+      {
+        question: "Come si calcola l'IVA partendo dal prezzo lordo?",
+        answer:
+          "Si divide il lordo per (1 + aliquota/100) per ottenere l'imponibile, poi si sottrae l'imponibile dal lordo per ottenere l'IVA. Con lordo 122 € e aliquota 22%: imponibile = 122 / 1,22 = 100 €, IVA = 122 − 100 = 22 €. Il calcolatore qui sopra lo fa per te in tempo reale.",
+      },
+      {
+        question: "Qual è la differenza tra importo lordo, netto e IVA?",
+        answer:
+          "Il lordo (o \"IVA inclusa\") è il prezzo che paga il cliente. Il netto (o imponibile) è il prezzo al netto dell'imposta. L'IVA è la differenza tra i due. Scorporare significa proprio separare il netto e l'IVA partendo dal lordo: l'operazione inversa rispetto ad applicare l'IVA a un imponibile.",
+      },
+      {
+        question: "Come trovo il prezzo senza IVA da un prezzo IVA inclusa?",
+        answer:
+          "Il prezzo senza IVA è l'imponibile: lo ottieni dividendo il prezzo IVA inclusa per (1 + aliquota/100). Esempio con 110 € al 10%: 110 / 1,10 = 100 € senza IVA. È esattamente ciò che calcola questo strumento.",
+      },
+      {
+        question:
+          "Il calcolatore di scorporo IVA è gratuito e funziona online?",
+        answer:
+          "Sì: è gratuito, funziona direttamente nel browser da smartphone o PC, senza registrazione e senza inviare dati a server esterni. Il calcolo avviene in locale sul tuo dispositivo.",
+      },
     ],
     relatedHelp: ["aliquote-iva", "fatture-e-ricevute", "regime-forfettario"],
   },

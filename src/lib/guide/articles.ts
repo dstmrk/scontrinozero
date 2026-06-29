@@ -116,8 +116,8 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       'Da gennaio 2020 in Italia è possibile emettere lo scontrino senza registratore di cassa fisico: basta usare il "documento commerciale online" tramite il portale Fatture e Corrispettivi dell\'Agenzia delle Entrate, da web o smartphone. Vediamo cosa serve e come si fa nella pratica.',
     publishedAt: "2026-05-14",
-    updatedAt: "2026-05",
-    readingMinutes: 5,
+    updatedAt: "2026-06",
+    readingMinutes: 7,
     sections: [
       {
         heading: "La premessa normativa",
@@ -134,6 +134,15 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         heading: "Procedura con un'app dedicata",
         body: 'App come ScontrinoZero automatizzano la procedura: salvi il catalogo prodotti una volta, e in fase di emissione basta toccare gli articoli, scegliere il pagamento e premere "Emetti". L\'app si occupa di autenticarsi su AdE con le tue credenziali, di trasmettere il documento e di archiviarlo. Tempo medio: 5-10 secondi per scontrino.',
+      },
+      {
+        heading: "Quali attività possono emettere scontrino senza cassa",
+        body: "Può farlo qualunque titolare di partita IVA tenuto a certificare i corrispettivi al pubblico: negozi al dettaglio, ambulanti e mercati, artigiani e installatori, parrucchieri ed estetisti, professionisti che incassano al momento, B&B e attività stagionali, contribuenti in regime forfettario. Anche un negozio fisso può rinunciare al registratore telematico e usare solo il documento commerciale online: la legge non impone l'hardware, impone la memorizzazione e trasmissione dei corrispettivi, che il software garantisce allo stesso modo.",
+      },
+      {
+        heading:
+          "Scontrino senza cassa vs registratore telematico: quale conviene",
+        body: "L'alternativa al registratore di cassa fisico ha un vantaggio economico netto per volumi bassi e medi: zero costo hardware (un RT costa 400-800 €), zero canone di manutenzione (100-200 € l'anno), nessun collaudo biennale e nessun tecnico. Il registratore fisico resta più rapido al banco per chi ha code e alti volumi. La regola pratica: sotto le poche centinaia di scontrini al giorno, o se lavori in mobilità, lo scontrino senza cassa da smartphone conviene quasi sempre.",
       },
       {
         heading: "Limiti da conoscere",
