@@ -5,8 +5,9 @@
 > **Audit incrementale 2026-06-27:** code review mirata sui percorsi critici
 > (registrazione/accesso/onboarding · emissione/annullo scontrini · billing/
 > Stripe-webhook), con verifica manuale di ogni finding sul codice corrente.
-> Nuovi finding: #38 (P2), #37 (P3) — #35 (mark `ERROR` su AdE transient) e #36
-> (rate limit `verifyAdeCredentials`) risolti. Falsi positivi/duplicati scartati
+> Nuovi finding: #38 (P2) — #35 (mark `ERROR` su AdE transient), #36
+> (rate limit `verifyAdeCredentials`) e #37 (normalizzazione allowlist hostname
+> Turnstile) risolti. Falsi positivi/duplicati scartati
 > (identity guard, vatNumber overwrite, wizardTemplate PIva, referral, key
 > rotation, cursor pagination, CSP, SPID; lato billing: race
 > subscription.updated↔stripeCustomerId, normalizzazione email su
@@ -338,32 +339,6 @@ mostra già la data nel proprio portale.
 `syncSubscriptionData` dal `customer.subscription.updated` + nuovo ramo in
 `computeBillingCardState` ("in cancellazione") che mostra `currentPeriodEnd`.
 Accettato come rifinitura, fuori dal diff partner (v1.4.0).
-
-### 37. Allowlist hostname Turnstile non normalizzata (trim/lowercase)
-
-- **Categoria:** correttezza/robustezza config · **Severità:** Low (contingente a misconfig env)
-- **File:** `src/server/auth-actions.ts:145` (`getAcceptedTurnstileHostnames`); pattern di riferimento già normalizzato: `src/lib/partners/partner-host.ts:16` (`getAppHostname`)
-
-**Problema.** Cloudflare Turnstile `siteverify` ritorna `data.hostname` sempre in
-**lowercase**. `getAcceptedTurnstileHostnames` costruisce il `Set` di confronto
-direttamente dagli env (`APP_HOSTNAME` / `NEXT_PUBLIC_APP_HOSTNAME` /
-`NEXT_PUBLIC_MARKETING_HOSTNAME`) **senza** `.trim().toLowerCase()`, mentre
-`getAppHostname()` in `partner-host.ts:16` normalizza già. Se uno di questi env
-fosse configurato con maiuscole o spazi (es. `"App.ScontrinoZero.IT"` o
-`"scontrinozero.it "`), il confronto `Set.has(data.hostname)` (match esatto)
-fallirebbe → **ogni** login/register/reset (tutti dietro Turnstile) verrebbe
-bloccato con `captcha_hostname_mismatch`. È contingente a una misconfig dell'env
-d'identità, ma coerente con la postura fail-fast/normalizzazione delle regole
-18/24 (present-but-empty, validazione env): un valore "quasi giusto" non deve
-rompere l'auth.
-
-**Fix (non ambiguo).**
-
-1. Normalizzare (`.trim().toLowerCase()`) i due hostname dentro
-   `getAcceptedTurnstileHostnames` prima di costruire il `Set` (incluso il
-   `www.${marketingHostname}`), riusando il pattern di `getAppHostname`.
-2. **Test:** env con maiuscole/spazi → l'hostname lowercase di Turnstile è
-   accettato; env già lowercase → comportamento invariato.
 
 ---
 
