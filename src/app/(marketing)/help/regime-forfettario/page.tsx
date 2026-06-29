@@ -145,6 +145,17 @@ export default function RegimeForfettarioPage() {
           in gioco solo quando emetti una <strong>fattura elettronica</strong>{" "}
           via Sistema di Interscambio, non sullo scontrino.
         </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Per capire tutti i codici natura IVA (N1-N7) e perché il forfettario
+          usa N2.2 in fattura ma N2 sullo scontrino, leggi la guida{" "}
+          <Link
+            href="/guide/codici-natura-iva"
+            className="text-primary hover:underline"
+          >
+            Codici natura IVA: cosa sono e quando si usano
+          </Link>
+          {"."}
+        </p>
 
         {/* ─── Configurazione in ScontrinoZero ─── */}
         <h2 className="mt-10 text-xl font-semibold">

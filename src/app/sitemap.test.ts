@@ -6,7 +6,7 @@ describe("sitemap", () => {
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
-    expect(result).toHaveLength(59);
+    expect(result).toHaveLength(60);
 
     // Root
     expect(result[0]).toMatchObject({
@@ -105,6 +105,7 @@ describe("sitemap", () => {
       "https://scontrinozero.it/guide/annullare-scontrino-elettronico",
       "https://scontrinozero.it/guide/lotteria-scontrini-commerciante",
       "https://scontrinozero.it/guide/scegliere-software-scontrini-elettronici",
+      "https://scontrinozero.it/guide/codici-natura-iva",
     ];
     for (const url of expectedGuideUrls) {
       expect(allUrls).toContain(url);
@@ -116,39 +117,39 @@ describe("sitemap", () => {
     }
 
     // Legal
-    expect(result[26]).toMatchObject({
+    expect(result[27]).toMatchObject({
       url: "https://scontrinozero.it/privacy",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[27]).toMatchObject({
+    expect(result[28]).toMatchObject({
       url: "https://scontrinozero.it/privacy/v01",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[28]).toMatchObject({
+    expect(result[29]).toMatchObject({
       url: "https://scontrinozero.it/termini",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[29]).toMatchObject({
+    expect(result[30]).toMatchObject({
       url: "https://scontrinozero.it/termini/v01",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[30]).toMatchObject({
+    expect(result[31]).toMatchObject({
       url: "https://scontrinozero.it/cookie-policy",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[31]).toMatchObject({
+    expect(result[32]).toMatchObject({
       url: "https://scontrinozero.it/cookie-policy/v01",
       changeFrequency: "yearly",
       priority: 0.3,
     });
 
     // Help center hub
-    expect(result[32]).toMatchObject({
+    expect(result[33]).toMatchObject({
       url: "https://scontrinozero.it/help",
       changeFrequency: "monthly",
       priority: 0.6,
@@ -175,12 +176,12 @@ describe("sitemap", () => {
     });
 
     // Auth pages (last two)
-    expect(result[57]).toMatchObject({
+    expect(result[58]).toMatchObject({
       url: "https://scontrinozero.it/login",
       changeFrequency: "yearly",
       priority: 0.5,
     });
-    expect(result[58]).toMatchObject({
+    expect(result[59]).toMatchObject({
       url: "https://scontrinozero.it/register",
       changeFrequency: "yearly",
       priority: 0.5,
@@ -208,8 +209,8 @@ describe("sitemap", () => {
     expect(result[16].url).toBe(
       "https://test.scontrinozero.it/guide/documento-commerciale-online",
     );
-    expect(result[26].url).toBe("https://test.scontrinozero.it/privacy");
-    expect(result[32].url).toBe("https://test.scontrinozero.it/help");
+    expect(result[27].url).toBe("https://test.scontrinozero.it/privacy");
+    expect(result[33].url).toBe("https://test.scontrinozero.it/help");
 
     vi.unstubAllEnvs();
   });

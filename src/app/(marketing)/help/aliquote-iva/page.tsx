@@ -188,6 +188,18 @@ export default function AliquoteIvaPage() {
             compra, non chi vende — riguarda solo casi specifici)
           </li>
         </ul>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Per il significato dettagliato di ciascun codice natura (incluso cosa
+          significa <strong>N2.2</strong> e quale dicitura usare nel regime
+          forfettario) vedi la guida{" "}
+          <Link
+            href="/guide/codici-natura-iva"
+            className="text-primary hover:underline"
+          >
+            Codici natura IVA: cosa sono e quando si usano
+          </Link>
+          {"."}
+        </p>
 
         {/* ─── Catalogo prodotti ─── */}
         <h2 className="mt-10 text-xl font-semibold">Catalogo prodotti</h2>
