@@ -23,7 +23,11 @@ import { ChangePasswordSection } from "@/components/settings/change-password-sec
 import { ThemeSection } from "@/components/settings/theme-section";
 import { getProfilePlan } from "@/server/billing-actions";
 import { canUseApi, TRIAL_DAYS } from "@/lib/plans";
-import { computeBillingCardState } from "./billing-card-state";
+import {
+  computeBillingCardState,
+  getCancelingStatusText,
+  getManageSubscriptionCopy,
+} from "./billing-card-state";
 import { PRICE_IDS } from "@/lib/stripe";
 import { ApiKeySection } from "@/components/settings/api-key-section";
 import { ExtraSettingsSection } from "@/components/settings/extra-settings-section";
@@ -360,10 +364,10 @@ export default async function SettingsPage({
 
                       {cardState === "canceling" && (
                         <span className="text-sm text-yellow-700">
-                          Abbonamento {intervalLabel} — in cancellazione
-                          {planData.planExpiresAt
-                            ? `, attivo fino al ${planData.planExpiresAt.toLocaleDateString("it-IT")}`
-                            : ""}
+                          {getCancelingStatusText(
+                            intervalLabel,
+                            planData.planExpiresAt,
+                          )}
                         </span>
                       )}
 
@@ -400,9 +404,7 @@ export default async function SettingsPage({
                         Gestisci abbonamento
                       </p>
                       <p className="text-muted-foreground mb-3 text-sm">
-                        {cardState === "canceling"
-                          ? "Riattiva l'abbonamento, modifica il piano o aggiorna il metodo di pagamento tramite il portale sicuro di Stripe."
-                          : "Modifica il piano, aggiorna il metodo di pagamento o annulla l'abbonamento tramite il portale sicuro di Stripe."}
+                        {getManageSubscriptionCopy(cardState)}
                       </p>
                       <a
                         href="/api/stripe/portal"

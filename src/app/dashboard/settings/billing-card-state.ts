@@ -62,3 +62,29 @@ export function computeBillingCardState(
   if (isTrialExpired(planData.trialStartedAt)) return "trial-expired";
   return "trial-active";
 }
+
+/**
+ * Testo della riga di stato per l'abbonamento in cancellazione a fine periodo
+ * (#34). Estratto qui (vs ternario inline nel JSX) per tenere bassa la
+ * Cognitive Complexity di SettingsPage (S3776).
+ */
+export function getCancelingStatusText(
+  intervalLabel: string,
+  planExpiresAt: Date | null,
+): string {
+  const base = `Abbonamento ${intervalLabel} — in cancellazione`;
+  return planExpiresAt
+    ? `${base}, attivo fino al ${planExpiresAt.toLocaleDateString("it-IT")}`
+    : base;
+}
+
+/**
+ * Copy del blocco "Gestisci abbonamento": invita a riattivare quando
+ * l'abbonamento è in cancellazione, altrimenti ad annullare (#34). Estratto
+ * dal JSX per la stessa ragione di `getCancelingStatusText` (S3776).
+ */
+export function getManageSubscriptionCopy(cardState: BillingCardState): string {
+  return cardState === "canceling"
+    ? "Riattiva l'abbonamento, modifica il piano o aggiorna il metodo di pagamento tramite il portale sicuro di Stripe."
+    : "Modifica il piano, aggiorna il metodo di pagamento o annulla l'abbonamento tramite il portale sicuro di Stripe.";
+}
