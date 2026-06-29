@@ -27,6 +27,14 @@ export const businesses = pgTable(
     province: text("province"),
     zipCode: text("zip_code"),
     preferredVatCode: text("preferred_vat_code"),
+    // Idempotency durabile delle email di onboarding (migration 0023): timestamp
+    // del claim atomico in verifyAdeCredentials, non più derivato da fiscalCode.
+    welcomeEmailSentAt: timestamp("welcome_email_sent_at", {
+      withTimezone: true,
+    }),
+    operatorNotifiedAt: timestamp("operator_notified_at", {
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
