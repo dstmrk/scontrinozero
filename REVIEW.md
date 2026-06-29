@@ -315,40 +315,6 @@ shape. Se conferma lista vuota su `200` (transient post-password-change): tratta
 `PIva` vuota come transient (retry singolo di Phase F e/o downgrade a
 `ade_transient` warn, fuori da Sentry). Non implementare prima della conferma.
 
-### 33. Referral bonus — limiti noti dopo lo split trial-vs-Stripe (rischio accettato)
-
-- **Categoria:** correttezza/billing · **Severità:** Low — **rischio accettato**:
-  scelte di design documentate, non un finding da pianificare. Tenuto a registro
-  per memoria (rationale in CLAUDE.md regola 27) + runbook di riconciliazione
-  (item 3). Riaprire solo se si decide di erogare il carry-over trial→pagato (item 1).
-- **File:** `src/lib/plans.ts` (`fetchPlan`), `src/server/onboarding-actions.ts`
-  (`finalizeAdeVerification`, ramo reward), `src/server/referral-reward.ts`
-  (`extendSubscriptionForReferral`)
-
-**Contesto.** Il bonus referral (+1 mese, member-get-member) ha ora due binari:
-`referralBonusDays` estende **solo** il trial (traslando `trialStartedAt` in
-avanti in `fetchPlan`); per un referrer con abbonamento Stripe **attivo** il mese
-gratis è erogato estendendo `trial_end` su Stripe, e il webhook risincronizza
-`plan_expires_at`. `planExpiresAt` non è più traslato a read-time (Stripe = fonte
-di verità sui piani a pagamento), così l'app non diverge più dal portale Stripe.
-
-**Limiti noti accettati:**
-
-1. **Carry-over trial→pagato.** Un utente che accumula `referralBonusDays` mentre
-   è in trial e poi si abbona **perde** i giorni residui: il bonus non viene
-   trasferito sul nuovo abbonamento Stripe (il checkout non imposta `trial_end`).
-   Fuori scope per ora — eventuale fix: leggere `referralBonusDays` residui al
-   checkout e impostare `trial_end` sulla subscription.
-2. **Referrer `unlimited`.** Nessuna subscription Stripe e piano che non scade →
-   il reward incrementa `referralBonusDays` ma è un no-op visibile (il bonus
-   tocca solo il trial). Accettato: `unlimited` è invite-only/gratis.
-3. **Estensione Stripe fallita = riconciliazione manuale.** `rewardedAt` è già
-   committato quando si tenta l'estensione Stripe (chiamata esterna, post-commit
-   best-effort): se Stripe è giù, il referrer resta senza mese finché non si
-   riconcilia a mano. Cercabile via il log `critical: true` "owed free month
-   needs manual reconciliation" in `extendSubscriptionForReferral`. Preferito a
-   una data app che torni a divergere da Stripe.
-
 ### 34. Annullamento dal portale Stripe non mostrato in-app (cancel_at_period_end)
 
 - **Categoria:** correttezza/UX-billing · **Severità:** Low — gap cosmetico, non
@@ -427,50 +393,45 @@ rompere l'auth.
 2. **Test:** env con maiuscole/spazi → l'hostname lowercase di Turnstile è
    accettato; env già lowercase → comportamento invariato.
 
-### audit-ci: advisory `esbuild` dev-only (3 GHSA)
+---
 
-`audit-ci.json` allowlista tre advisory su **esbuild** (JSON puro → non può
-portare un commento inline, quindi la motivazione vive qui):
+## Rischi accettati (documentati, non da fixare)
 
-- `GHSA-67mh-4wv8-2f99` — dev server permette a qualsiasi sito di inviare
-  richieste e leggerne la risposta (moderate, CVSS 5.3).
-- `GHSA-gv7w-rqvm-qjhr` — mancata verifica di integrità del binario nel modulo
-  Deno → RCE via `NPM_CONFIG_REGISTRY` (high).
-- `GHSA-g7r4-m6w7-qqqr` — lettura file arbitraria col dev server su Windows
-  (high).
+Scelte consapevoli con un trigger di riapertura. Non sono finding da pianificare.
 
-- **Perché sono accettabili:** `esbuild` **non** è in `dependencies` di
-  produzione (è assente da `package.json` deps); entra **solo transitivamente**
-  via la toolchain di **sviluppo/migrazioni** — `drizzle-kit`, `tsx`,
-  `@esbuild-kit/* → esbuild` (tutti `devDependencies`). Nessuno di questi vettori
-  gira in produzione né nella CI build di Next (Next usa la sua toolchain SWC; le
-  migration sono handwritten, `drizzle-kit generate` è bloccato — regola 11; il
-  dev server esbuild non viene mai avviato, e il modulo Deno non è in uso).
-  Superficie d'attacco reale ≈ 0. Le tre advisory condividono lo stesso identico
-  profilo: stessa dipendenza, stesso confine dev-only.
-- **Revisione:** rimuovere l'allowlist quando la toolchain (`drizzle-kit`/`tsx`/
-  `@esbuild-kit/*`) aggiorna `esbuild` a una versione patchata (>0.28.0) senza
-  bump major rischioso. Ricontrollare a ogni bump di `drizzle-kit`/`tsx`.
+### audit-ci: 3 advisory `esbuild` dev-only
+
+`audit-ci.json` allowlista `GHSA-67mh-4wv8-2f99` (dev-server SSRF),
+`GHSA-gv7w-rqvm-qjhr` (Deno RCE), `GHSA-g7r4-m6w7-qqqr` (file-read Windows).
+`esbuild` non è in `dependencies` prod: entra solo transitivamente via toolchain
+dev (`drizzle-kit`/`tsx`/`@esbuild-kit/*`, tutte `devDependencies`), mai a runtime
+né nella build Next (SWC). Superficie ≈ 0. **Riaprire:** quando la toolchain
+aggiorna `esbuild` > 0.28.0 senza major rischioso → togliere l'allowlist.
 
 ### #8 link pubblici scontrini senza TTL/revoca (UUID come token)
 
-L'accesso pubblico allo scontrino (`src/app/r/[documentId]/page.tsx`,
-`src/lib/receipts/fetch-public-receipt.ts`) usa direttamente il document UUID come
-token, senza scadenza, revoca o traccia di accesso. Era tracciato come finding P2;
-rivalutato e **declassato a rischio accettato**.
+`src/app/r/[documentId]/page.tsx` + `src/lib/receipts/fetch-public-receipt.ts`
+usano il document UUID come token, senza scadenza/revoca. UUID = 122 bit
+(enumerazione infattibile); la pagina espone solo dati del commerciante (già
+pubblici sullo scontrino), nessuna PII del cliente; è by-design un artefatto da
+consegnare, `robots: noindex`. Fix (tabella + migration + route + UI) sproporzionato
+per un hobby project. **Riaprire:** se lo scontrino includerà dati anagrafici del
+cliente, o se servirà audit/revoca degli accessi.
 
-- **Perché è accettabile:** l'UUID ha **122 bit** di entropia → enumerazione
-  infattibile. La pagina pubblica espone **solo dati del commerciante** (ragione
-  sociale, indirizzo, P.IVA, righe, totali, identificativo AdE) — già pubblici su
-  qualsiasi scontrino — e **nessuna PII del cliente**: il documento commerciale è
-  anonimo (l'unico dato quasi-personale è il codice lotteria, opzionale e del
-  cliente stesso). Il link è **by-design** un artefatto da consegnare al cliente,
-  non un segreto, ed è `robots: noindex`. Lo scenario "link condiviso per errore"
-  è quindi poco probabile e a basso impatto. Il costo del fix (tabella dedicata +
-  migration handwritten + nuova route + UI di gestione + una riga DB per ogni
-  scontrino condiviso) è sproporzionato per un hobby project a costi fissi ~€0
-  con il vincolo "dipendenze minime".
-- **Revisione:** riaprire il finding **se** lo scontrino includerà in futuro il
-  codice fiscale / dati anagrafici del cliente (cambia la classe di dati esposti),
-  **oppure se** emergerà la necessità di un audit degli accessi o di una revoca
-  attiva dei link condivisi.
+### #33 referral bonus — limiti dopo lo split trial-vs-Stripe
+
+`src/lib/plans.ts` (`fetchPlan`), `src/server/onboarding-actions.ts`
+(`finalizeAdeVerification`), `src/server/referral-reward.ts`
+(`extendSubscriptionForReferral`). Tre limiti del bonus (+1 mese), rationale in
+CLAUDE.md regola 27:
+
+1. **Carry-over trial→pagato:** chi accumula `referralBonusDays` in trial e poi si
+   abbona perde i giorni residui (il checkout non imposta `trial_end`).
+2. **Referrer `unlimited`:** il reward incrementa `referralBonusDays` ma è un no-op
+   (tocca solo il trial). Accettato (`unlimited` è invite-only/gratis).
+3. **Estensione Stripe fallita → riconciliazione manuale:** `rewardedAt` è già
+   committato; se Stripe è giù il mese va riconciliato a mano (log `critical: true`
+   "owed free month needs manual reconciliation"). Preferito a una data app
+   divergente da Stripe.
+
+**Riaprire:** se si decide di erogare il carry-over trial→pagato (item 1).
