@@ -22,13 +22,8 @@ import { EditBusinessSection } from "@/components/settings/edit-business-section
 import { ChangePasswordSection } from "@/components/settings/change-password-section";
 import { ThemeSection } from "@/components/settings/theme-section";
 import { getProfilePlan } from "@/server/billing-actions";
-import {
-  canUseApi,
-  isPaidPlanExpired,
-  isTrialExpired,
-  type Plan,
-  TRIAL_DAYS,
-} from "@/lib/plans";
+import { canUseApi, TRIAL_DAYS } from "@/lib/plans";
+import { computeBillingCardState } from "./billing-card-state";
 import { PRICE_IDS } from "@/lib/stripe";
 import { ApiKeySection } from "@/components/settings/api-key-section";
 import { ExtraSettingsSection } from "@/components/settings/extra-settings-section";
@@ -38,44 +33,6 @@ import { RefreshOnSuccess } from "@/components/billing/refresh-on-success";
 import { ScrollToHash } from "@/components/billing/scroll-to-hash";
 import { CONTACT_EMAIL } from "@/lib/contact";
 import { APP_VERSION, getBuildLabel } from "@/lib/version";
-
-type BillingCardState =
-  | "trial-active"
-  | "trial-expired"
-  | "subscribed"
-  | "past-due"
-  | "unlimited";
-
-/**
- * Determina lo stato della card "Piano e Abbonamento". Estratta a livello di
- * modulo per tenere bassa la Cognitive Complexity di SettingsPage (S3776).
- */
-function computeBillingCardState(
-  planData: {
-    plan: Plan;
-    trialStartedAt: Date | null;
-    planExpiresAt: Date | null;
-    hasSubscription: boolean;
-    subscriptionStatus: string | null;
-  } | null,
-): BillingCardState {
-  if (!planData) return "trial-active";
-  if (planData.plan === "unlimited") return "unlimited";
-  if (planData.hasSubscription && planData.subscriptionStatus === "past_due")
-    return "past-due";
-  // Safety-net per webhook `customer.subscription.deleted` persi (REVIEW #31):
-  // se il piano pagato e' scaduto oltre la grazia i gate sono gia' read-only
-  // (isPaidPlanExpired). La subscription row puo' essere rimasta `active`:
-  // senza questo check la card mostrerebbe "Pro attivo" mentre cassa/catalogo/
-  // API rispondono sola-lettura. Riusa lo stato read-only "trial-expired".
-  // Va DOPO il ramo past_due per non oscurare il dunning legittimo.
-  if (isPaidPlanExpired(planData.plan, planData.planExpiresAt))
-    return "trial-expired";
-  if (planData.hasSubscription && planData.subscriptionStatus === "active")
-    return "subscribed";
-  if (isTrialExpired(planData.trialStartedAt)) return "trial-expired";
-  return "trial-active";
-}
 
 /**
  * Compone la riga "Sede" dell'attività. Estratta a livello di modulo per

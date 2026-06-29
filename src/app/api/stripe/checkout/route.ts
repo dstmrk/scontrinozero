@@ -27,6 +27,20 @@ function serviceUnavailableResponse(): Response {
 
 type Db = ReturnType<typeof getDb>;
 
+/**
+ * Stati Stripe "vivi/billabili": una subscription esistente in uno di questi
+ * non deve mai generare un secondo checkout, altrimenti Stripe crea una sub
+ * duplicata sullo stesso customer e `syncSubscriptionData` sovrascrive l'unica
+ * riga DB lasciando la vecchia sub viva e non tracciata (rischio doppio
+ * addebito sul dunning `past_due` — REVIEW #38).
+ *
+ * `incomplete`/`incomplete_expired` NON inclusi: sono il pre-attivazione del
+ * primo pagamento, bloccarli impedirebbe il retry SCA legittimo. `trialing`
+ * non è usato (il trial è interno a ScontrinoZero). `canceled`/`pending` →
+ * checkout consentito (riattivazione).
+ */
+const BILLABLE_STATUSES = new Set(["active", "past_due", "unpaid"]);
+
 function operationInProgressResponse(): Response {
   return Response.json(
     { error: "Operazione in corso, riprova tra qualche secondo." },
@@ -53,9 +67,10 @@ function buildIdempotencyKey(userId: string, suffix: string): string {
  * l'INSERT crea il customer Stripe, evitando l'orfano che si generava prima
  * quando due richieste concorrenti creavano entrambe un customer.
  *
- * Ritorna una `Response` (409 se l'utente ha già un abbonamento attivo, 503
- * se la creazione Stripe fallisce o se un'altra richiesta sta già creando il
- * customer per lo stesso utente).
+ * Ritorna una `Response` (409 se l'utente ha già una subscription in uno stato
+ * "vivo/billabile" — vedi `BILLABLE_STATUSES`, 503 se la creazione Stripe
+ * fallisce o se un'altra richiesta sta già creando il customer per lo stesso
+ * utente).
  */
 async function getOrCreateStripeCustomerId(args: {
   user: { id: string; email?: string };
@@ -73,9 +88,9 @@ async function getOrCreateStripeCustomerId(args: {
     .where(eq(subscriptions.userId, user.id))
     .limit(1);
 
-  if (existingSub?.status === "active") {
+  if (existingSub?.status && BILLABLE_STATUSES.has(existingSub.status)) {
     return Response.json(
-      { error: "Hai già un abbonamento attivo." },
+      { error: "Hai già un abbonamento. Gestiscilo dal portale Stripe." },
       { status: 409 },
     );
   }
