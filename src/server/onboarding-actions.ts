@@ -648,6 +648,62 @@ async function attemptAdeLoginForVerification(
   }
 }
 
+/**
+ * Reclama in modo atomico e idempotente i flag welcome_email_sent_at /
+ * operator_notified_at (migration 0023) e invia le rispettive notifiche
+ * fire-and-forget. Estratto da verifyAdeCredentials per tenerne sotto controllo
+ * la Cognitive Complexity (SonarCloud). I due flag sono INDIPENDENTI: chi vince
+ * il claim (UPDATE ... WHERE ... IS NULL RETURNING) invia — race-safe (due
+ * verify simultanei → un solo invio per flag) e a prova di reset manuale di
+ * fiscalCode / re-run. Il claim si imposta PRIMA dell'invio (semantica "tentato
+ * una volta"): un fallimento transitorio non ritenta, coerente col precedente
+ * comportamento fire-and-forget.
+ */
+async function claimAndSendOnboardingNotifications(
+  db: ReturnType<typeof getDb>,
+  businessId: string,
+  user: Awaited<ReturnType<typeof getAuthenticatedUser>>,
+): Promise<void> {
+  const email = user.email;
+  if (email) {
+    const claimedWelcome = await db
+      .update(businesses)
+      .set({ welcomeEmailSentAt: new Date() })
+      .where(
+        and(
+          eq(businesses.id, businessId),
+          isNull(businesses.welcomeEmailSentAt),
+        ),
+      )
+      .returning({ id: businesses.id });
+
+    if (claimedWelcome.length > 0) {
+      void sendEmail({
+        to: email,
+        subject: "Sei pronto! Inizia a emettere scontrini con ScontrinoZero",
+        react: createElement(WelcomeEmail, { email }),
+      }).catch((err) => logger.error({ err }, "Welcome email failed"));
+    }
+  }
+
+  // Notifica operatore interna: claim separato (può partire anche senza
+  // user.email). Fire-and-forget, non-critical, env-gated in
+  // notifyOperatorOfNewSignup.
+  const claimedOperator = await db
+    .update(businesses)
+    .set({ operatorNotifiedAt: new Date() })
+    .where(
+      and(eq(businesses.id, businessId), isNull(businesses.operatorNotifiedAt)),
+    )
+    .returning({ id: businesses.id });
+
+  if (claimedOperator.length > 0) {
+    void notifyOperatorOfNewSignup(user.id).catch((err) =>
+      logger.warn({ err }, "Operator signup notification failed"),
+    );
+  }
+}
+
 export async function verifyAdeCredentials(
   businessId: string,
 ): Promise<OnboardingActionResult> {
@@ -802,51 +858,11 @@ export async function verifyAdeCredentials(
     return { businessId };
   }
 
-  // Email di onboarding: idempotency DURABILE via claim atomico
-  // (UPDATE ... WHERE ... IS NULL RETURNING) sui flag welcome_email_sent_at /
-  // operator_notified_at (migration 0023), non più derivata da fiscalCode. Chi
-  // vince il claim invia: race-safe (due verify simultanei → un solo invio per
-  // flag) e a prova di reset manuale di fiscalCode / re-run. I due flag sono
-  // INDIPENDENTI — welcome e operator possono divergere (es. uno già inviato e
-  // l'altro no) e vengono reclamati separatamente. wasAlreadyOnboarded resta in
-  // uso solo per l'identity guard sopra.
-  if (user.email) {
-    const claimedWelcome = await db
-      .update(businesses)
-      .set({ welcomeEmailSentAt: new Date() })
-      .where(
-        and(
-          eq(businesses.id, businessId),
-          isNull(businesses.welcomeEmailSentAt),
-        ),
-      )
-      .returning({ id: businesses.id });
-
-    if (claimedWelcome.length > 0) {
-      void sendEmail({
-        to: user.email,
-        subject: "Sei pronto! Inizia a emettere scontrini con ScontrinoZero",
-        react: createElement(WelcomeEmail, { email: user.email }),
-      }).catch((err) => logger.error({ err }, "Welcome email failed"));
-    }
-  }
-
-  // Notifica operatore interna: claim separato (può partire anche senza
-  // user.email). Fire-and-forget, non-critical, env-gated in
-  // notifyOperatorOfNewSignup.
-  const claimedOperator = await db
-    .update(businesses)
-    .set({ operatorNotifiedAt: new Date() })
-    .where(
-      and(eq(businesses.id, businessId), isNull(businesses.operatorNotifiedAt)),
-    )
-    .returning({ id: businesses.id });
-
-  if (claimedOperator.length > 0) {
-    void notifyOperatorOfNewSignup(user.id).catch((err) =>
-      logger.warn({ err }, "Operator signup notification failed"),
-    );
-  }
+  // Email di onboarding: idempotency DURABILE sui flag welcome_email_sent_at /
+  // operator_notified_at (migration 0023), non più derivata da fiscalCode.
+  // wasAlreadyOnboarded resta in uso solo per l'identity guard sopra. Logica
+  // estratta per Cognitive Complexity (vedi helper).
+  await claimAndSendOnboardingNotifications(db, businessId, user);
 
   if (trialAlreadyUsed) {
     // Input prevedibile (utente che ha già usato il trial con questa P.IVA),
