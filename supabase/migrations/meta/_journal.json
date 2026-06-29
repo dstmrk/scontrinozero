@@ -169,6 +169,13 @@
       "when": 1780099207000,
       "tag": "0023_businesses_email_idempotency_flags",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1780099208000,
+      "tag": "0024_subscriptions_cancel_at_period_end",
+      "breakpoints": true
     }
   ]
 }

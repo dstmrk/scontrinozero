@@ -145,6 +145,7 @@ export default async function SettingsPage({
           hasSubscription: planResult.hasSubscription,
           subscriptionStatus: planResult.subscriptionStatus,
           subscriptionInterval: planResult.subscriptionInterval,
+          cancelAtPeriodEnd: planResult.cancelAtPeriodEnd,
         };
 
   const cardState = computeBillingCardState(planData);
@@ -357,6 +358,15 @@ export default async function SettingsPage({
                         </span>
                       )}
 
+                      {cardState === "canceling" && (
+                        <span className="text-sm text-yellow-700">
+                          Abbonamento {intervalLabel} — in cancellazione
+                          {planData.planExpiresAt
+                            ? `, attivo fino al ${planData.planExpiresAt.toLocaleDateString("it-IT")}`
+                            : ""}
+                        </span>
+                      )}
+
                       {cardState === "past-due" && (
                         <span className="text-sm text-red-600">
                           Abbonamento {intervalLabel} — pagamento scaduto
@@ -382,16 +392,17 @@ export default async function SettingsPage({
                     />
                   )}
 
-                  {/* Gestisci abbonamento — solo con abbonamento attivo */}
-                  {cardState === "subscribed" && (
+                  {/* Gestisci abbonamento — abbonamento attivo o in cancellazione */}
+                  {(cardState === "subscribed" ||
+                    cardState === "canceling") && (
                     <div>
                       <p className="text-muted-foreground mb-2 text-sm font-medium">
                         Gestisci abbonamento
                       </p>
                       <p className="text-muted-foreground mb-3 text-sm">
-                        Modifica il piano, aggiorna il metodo di pagamento o
-                        annulla l&apos;abbonamento tramite il portale sicuro di
-                        Stripe.
+                        {cardState === "canceling"
+                          ? "Riattiva l'abbonamento, modifica il piano o aggiorna il metodo di pagamento tramite il portale sicuro di Stripe."
+                          : "Modifica il piano, aggiorna il metodo di pagamento o annulla l'abbonamento tramite il portale sicuro di Stripe."}
                       </p>
                       <a
                         href="/api/stripe/portal"

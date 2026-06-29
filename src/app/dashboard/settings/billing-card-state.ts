@@ -4,6 +4,7 @@ export type BillingCardState =
   | "trial-active"
   | "trial-expired"
   | "subscribed"
+  | "canceling"
   | "past-due"
   | "unlimited";
 
@@ -13,6 +14,7 @@ export type BillingPlanData = {
   planExpiresAt: Date | null;
   hasSubscription: boolean;
   subscriptionStatus: string | null;
+  cancelAtPeriodEnd: boolean;
 };
 
 /**
@@ -45,6 +47,16 @@ export function computeBillingCardState(
   // Va DOPO il ramo past_due per non oscurare il dunning legittimo.
   if (isPaidPlanExpired(planData.plan, planData.planExpiresAt))
     return "trial-expired";
+  // Annullamento a fine periodo dal portale Stripe (#34): status resta 'active'
+  // ma cancel_at_period_end=true → la card mostra "in cancellazione, attivo fino
+  // al <data>" invece di "rinnovo il <data>". Va DOPO past_due/expiry (priorità
+  // dunning/read-only) e PRIMA di "subscribed".
+  if (
+    planData.hasSubscription &&
+    planData.subscriptionStatus === "active" &&
+    planData.cancelAtPeriodEnd
+  )
+    return "canceling";
   if (planData.hasSubscription && planData.subscriptionStatus === "active")
     return "subscribed";
   if (isTrialExpired(planData.trialStartedAt)) return "trial-expired";

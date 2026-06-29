@@ -316,32 +316,6 @@ shape. Se conferma lista vuota su `200` (transient post-password-change): tratta
 `PIva` vuota come transient (retry singolo di Phase F e/o downgrade a
 `ade_transient` warn, fuori da Sentry). Non implementare prima della conferma.
 
-### 34. Annullamento dal portale Stripe non mostrato in-app (cancel_at_period_end)
-
-- **Categoria:** correttezza/UX-billing · **Severità:** Low — gap cosmetico, non
-  un bug (l'accesso resta corretto fino a scadenza)
-- **File:** `src/db/schema/subscriptions.ts`,
-  `src/app/api/stripe/webhook/route.ts` (`syncSubscriptionData`),
-  `src/app/dashboard/settings/page.tsx` (`computeBillingCardState`)
-
-**Contesto.** Dal portale Stripe l'utente può annullare l'abbonamento a fine
-periodo: Stripe imposta `cancel_at_period_end=true` ma lascia `status='active'`
-fino alla scadenza, poi emette `customer.subscription.deleted`. Lo schema
-`subscriptions` **non** memorizza `cancel_at_period_end` e `syncSubscriptionData`
-non lo cattura, quindi durante la finestra di grazia la card billing mostra il
-normale "Pro attivo", senza un "in cancellazione, attivo fino al <data>".
-Funzionalmente corretto (l'utente mantiene l'accesso fino a fine periodo, poi
-viene fatto il downgrade a trial da `handleSubscriptionDeleted`); Stripe gli
-mostra già la data nel proprio portale.
-
-**Fix proposto (nice-to-have).** `ADD COLUMN cancel_at_period_end boolean`
-(migration handwritten, `ADD COLUMN IF NOT EXISTS`, default `false`) + cattura in
-`syncSubscriptionData` dal `customer.subscription.updated` + nuovo ramo in
-`computeBillingCardState` ("in cancellazione") che mostra `currentPeriodEnd`.
-Accettato come rifinitura, fuori dal diff partner (v1.4.0).
-
----
-
 ## Rischi accettati (documentati, non da fixare)
 
 Scelte consapevoli con un trigger di riapertura. Non sono finding da pianificare.

@@ -502,6 +502,65 @@ describe("POST /api/stripe/webhook — checkout.session.completed type guard", (
   });
 });
 
+describe("POST /api/stripe/webhook — customer.subscription.updated", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+    mockInsert.mockReturnValue(makeInsertBuilder([{ eventId: "evt_default" }]));
+    mockDelete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
+    mockPlanFromPriceId.mockReturnValue("pro");
+    mockIntervalFromPriceId.mockReturnValue("month");
+  });
+
+  function makeUpdatedEvent(cancelAtPeriodEnd: boolean) {
+    return {
+      id: `evt_sub_upd_${cancelAtPeriodEnd}`,
+      type: "customer.subscription.updated",
+      data: {
+        object: {
+          id: "sub_123",
+          customer: "cus_123",
+          status: "active",
+          cancel_at_period_end: cancelAtPeriodEnd,
+          items: {
+            data: [{ price: { id: "price_pro" }, current_period_end: 9999 }],
+          },
+        },
+      },
+    };
+  }
+
+  it("persiste cancelAtPeriodEnd=true quando l'utente annulla a fine periodo", async () => {
+    const updateBuilder = makeUpdateBuilder();
+    mockUpdate.mockReturnValue(updateBuilder);
+    mockSelect.mockReturnValue(makeSelectBuilder([{ userId: "user-123" }]));
+    setupTransactionPassthrough();
+
+    mockConstructEvent.mockReturnValue(makeUpdatedEvent(true));
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(updateBuilder.set).toHaveBeenCalledWith(
+      expect.objectContaining({ cancelAtPeriodEnd: true }),
+    );
+  });
+
+  it("persiste cancelAtPeriodEnd=false quando l'abbonamento viene riattivato", async () => {
+    const updateBuilder = makeUpdateBuilder();
+    mockUpdate.mockReturnValue(updateBuilder);
+    mockSelect.mockReturnValue(makeSelectBuilder([{ userId: "user-123" }]));
+    setupTransactionPassthrough();
+
+    mockConstructEvent.mockReturnValue(makeUpdatedEvent(false));
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(updateBuilder.set).toHaveBeenCalledWith(
+      expect.objectContaining({ cancelAtPeriodEnd: false }),
+    );
+  });
+});
+
 describe("POST /api/stripe/webhook — checkout.session.expired", () => {
   beforeEach(() => {
     vi.clearAllMocks();
