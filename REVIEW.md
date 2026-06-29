@@ -285,52 +285,6 @@ pratica).
 
 ---
 
-### 30. Bonifica `businesses.vatNumber`/`fiscalCode` sovrascritti prima dell'identity guard
-
-- **Categoria:** correttezza/dati fiscali · **Severità:** Low (prevenzione già fatta) — **da indagare solo se ci sono account impattati**
-- **File:** `src/server/onboarding-actions.ts` (`verifyAdeCredentials`); dati in `businesses`/`commercial_documents`
-
-**Contesto.** Fino al fix dell'identity guard (cambio credenziali Fisconline verso
-una P.IVA diversa ora bloccato), `verifyAdeCredentials` sovrascriveva
-**incondizionatamente** `businesses.vatNumber`/`fiscalCode` con la P.IVA delle nuove
-credenziali. Poiché gli scontrini non salvano uno snapshot fiscale e leggono **live**
-`businesses.vatNumber` (storico, PDF, pagina pubblica, CSV), un eventuale account che
-in passato avesse cambiato credenziali verso un soggetto diverso ora mostrerebbe la
-**P.IVA errata** sugli scontrini emessi sotto la P.IVA originale.
-
-**⚠️ La P.IVA trasmessa NON è tracciata per-scontrino.**
-`commercial_documents.adeResponse` contiene solo `AdeResponse` =
-`{ esito, idtrx, progressivo, errori }` (`src/lib/ade/types.ts:162`), **non** il
-`cedentePrestatore`. Tutte le copie della P.IVA nel DB sono live e già sovrascritte
-insieme (`businesses.vat_number`/`fiscal_code`, `profiles.partita_iva`);
-`ade_credentials` tiene solo le credenziali correnti. Di conseguenza **non è
-possibile identificare con certezza dal nostro DB quali scontrini furono emessi
-sotto una P.IVA precedente**: l'unica fonte di verità sulla P.IVA trasmessa è
-l'AdE (i documenti sono archiviati lì sotto la vecchia P.IVA).
-
-**Fix (indagine).** Solo un **set di candidati sospetti** da verificare poi
-manualmente contro l'AdE — nessun rilevamento definitivo via SQL:
-
-1. **Segnale forte (da calibrare sul dato reale):** salto all'indietro del
-   `progressivo` AdE (`ade_progressive`) nella storia di uno stesso `business_id`,
-   non al confine d'anno. L'AdE assegna i progressivi per cedente: un reset a metà
-   storia suggerisce un cambio di soggetto fiscale. Prima campionare il formato del
-   campo (`SELECT business_id, ade_progressive, created_at FROM commercial_documents
-WHERE kind='SALE' AND status='ACCEPTED' AND ade_progressive IS NOT NULL ORDER BY
-business_id, created_at`) poi disegnare l'euristica del salto.
-2. **Segnale debole:** `ade_credentials.updated_at` successivo al primo scontrino —
-   cattura anche le legittime rotazioni password (molti falsi positivi), usabile
-   solo come filtro grossolano.
-3. Per ogni candidato, **cross-check manuale contro l'AdE** (P.IVA effettiva sotto
-   cui risultano i documenti) prima di qualsiasi azione.
-4. Se nessun candidato → chiudere la voce (la prevenzione basta).
-5. Se confermati → decidere la strategia con l'utente: tocca dati fiscali, non
-   automatizzabile alla cieca (regola 13). Opzione strutturale a monte: aggiungere
-   uno **snapshot fiscale per-scontrino** (P.IVA/CF del cedente all'emissione) così
-   da rendere futuri cambi tracciabili e i PDF storici fedeli.
-
----
-
 ### 32. SCONTRINOZERO-M — `wizardTemplate` ritorna `200` con lista `PIva` vuota su login Fisconline
 
 - **Categoria:** correttezza/osservabilità · **Severità:** Low — 1 evento in produzione, root cause non confermata
@@ -361,9 +315,12 @@ shape. Se conferma lista vuota su `200` (transient post-password-change): tratta
 `PIva` vuota come transient (retry singolo di Phase F e/o downgrade a
 `ade_transient` warn, fuori da Sentry). Non implementare prima della conferma.
 
-### 33. Referral bonus — limiti noti dopo lo split trial-vs-Stripe
+### 33. Referral bonus — limiti noti dopo lo split trial-vs-Stripe (rischio accettato)
 
-- **Categoria:** correttezza/billing · **Severità:** Low — scelte di design accettate, non bug
+- **Categoria:** correttezza/billing · **Severità:** Low — **rischio accettato**:
+  scelte di design documentate, non un finding da pianificare. Tenuto a registro
+  per memoria (rationale in CLAUDE.md regola 27) + runbook di riconciliazione
+  (item 3). Riaprire solo se si decide di erogare il carry-over trial→pagato (item 1).
 - **File:** `src/lib/plans.ts` (`fetchPlan`), `src/server/onboarding-actions.ts`
   (`finalizeAdeVerification`, ramo reward), `src/server/referral-reward.ts`
   (`extendSubscriptionForReferral`)
