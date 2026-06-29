@@ -184,6 +184,96 @@ describe("POST /api/stripe/checkout", () => {
     expect(res.status).toBe(400);
   });
 
+  it("restituisce 409 se esiste una subscription active", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: "user-1",
+      email: "a@b.it",
+    });
+    mockSelect.mockReturnValue(
+      makeSelectBuilder([
+        { stripeCustomerId: "cus_existing", status: "active" },
+      ]),
+    );
+
+    const res = await POST(makeRequest({ priceId: "price_pro" }));
+    expect(res.status).toBe(409);
+    expect(mockCustomerCreate).not.toHaveBeenCalled();
+    expect(mockSessionCreate).not.toHaveBeenCalled();
+  });
+
+  it("restituisce 409 se esiste una subscription past_due (evita sub duplicata)", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: "user-1",
+      email: "a@b.it",
+    });
+    mockSelect.mockReturnValue(
+      makeSelectBuilder([
+        { stripeCustomerId: "cus_existing", status: "past_due" },
+      ]),
+    );
+
+    const res = await POST(makeRequest({ priceId: "price_pro" }));
+    expect(res.status).toBe(409);
+    expect(mockCustomerCreate).not.toHaveBeenCalled();
+    expect(mockSessionCreate).not.toHaveBeenCalled();
+  });
+
+  it("restituisce 409 se esiste una subscription unpaid (evita sub duplicata)", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: "user-1",
+      email: "a@b.it",
+    });
+    mockSelect.mockReturnValue(
+      makeSelectBuilder([
+        { stripeCustomerId: "cus_existing", status: "unpaid" },
+      ]),
+    );
+
+    const res = await POST(makeRequest({ priceId: "price_pro" }));
+    expect(res.status).toBe(409);
+    expect(mockCustomerCreate).not.toHaveBeenCalled();
+    expect(mockSessionCreate).not.toHaveBeenCalled();
+  });
+
+  it("consente il checkout se la subscription è incomplete (retry primo pagamento)", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: "user-1",
+      email: "a@b.it",
+    });
+    mockSelect.mockReturnValue(
+      makeSelectBuilder([
+        { stripeCustomerId: "cus_existing", status: "incomplete" },
+      ]),
+    );
+
+    const res = await POST(makeRequest({ priceId: "price_pro" }));
+    expect(res.status).toBe(200);
+    expect(mockCustomerCreate).not.toHaveBeenCalled();
+    expect(mockSessionCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ customer: "cus_existing" }),
+      expect.anything(),
+    );
+  });
+
+  it("consente il checkout se la subscription è canceled (riattivazione)", async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: "user-1",
+      email: "a@b.it",
+    });
+    mockSelect.mockReturnValue(
+      makeSelectBuilder([
+        { stripeCustomerId: "cus_existing", status: "canceled" },
+      ]),
+    );
+
+    const res = await POST(makeRequest({ priceId: "price_pro" }));
+    expect(res.status).toBe(200);
+    expect(mockSessionCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ customer: "cus_existing" }),
+      expect.anything(),
+    );
+  });
+
   it("usa il customer esistente se già in DB", async () => {
     mockGetAuthenticatedUser.mockResolvedValue({
       id: "user-1",

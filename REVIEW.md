@@ -158,45 +158,6 @@ fatto che i payload sono statici, ma è un single point of failure.
 
 ---
 
-### 38. Checkout: il gate server-side blocca solo `active` → subscription Stripe duplicate
-
-- **Categoria:** correttezza/billing · **Severità:** Medium (mitigata lato UI, ma il server non deve dipenderne)
-- **File:** `src/app/api/stripe/checkout/route.ts:76` (`getOrCreateStripeCustomerId`); sync che sovrascrive la riga `src/app/api/stripe/webhook/route.ts:373` (`syncSubscriptionData`) e ramo "no row found" `:304` (`applySubscriptionUpdate`); card UI `src/app/dashboard/settings/page.tsx:64` (`computeBillingCardState`)
-
-**Problema.** Il gate pre-checkout in `getOrCreateStripeCustomerId` ritorna 409
-**solo** se `existingSub?.status === "active"`. Un utente con subscription
-`past_due` / `unpaid` (subscription **viva** su Stripe) supera il check: alla riga
-83 `existingSub.stripeCustomerId` esiste → riuso del customer → al completamento
-dell'hosted checkout Stripe crea una **seconda** subscription sullo stesso
-customer. Poi `syncSubscriptionData` sovrascrive l'**unica** riga DB (una per
-`userId`, lookup per `stripeCustomerId`) con la nuova sub: la vecchia resta
-**viva e non tracciata** su Stripe (i suoi futuri eventi cadono nel ramo
-`"no subscription row found — event acknowledged"` di `applySubscriptionUpdate`),
-con rischio **doppio addebito** sul path di dunning `past_due`.
-
-**Mitigazione esistente (solo UI).** `computeBillingCardState` instrada i
-`past_due` al **portale** Stripe, non al checkout — ma è difesa lato UI:
-l'endpoint `/api/stripe/checkout` resta chiamabile direttamente, e gli stati
-`unpaid` non sono special-cased nella card (cadono su `trial-expired` → CTA
-checkout). Il server non deve dipendere dalla UI per l'integrità del billing.
-
-**Fix (non ambiguo).**
-
-1. Estendere il gate in `getOrCreateStripeCustomerId` a tutti gli stati Stripe
-   "vivi/billabili": bloccare (409 + invito al portale) per `active`, `past_due`,
-   `unpaid` (valutare `trialing` — oggi non usato, il trial è interno).
-2. **Non** bloccare `incomplete`/`incomplete_expired`: sono il pre-attivazione del
-   primo pagamento, bloccarli impedirebbe il retry SCA legittimo
-   (l'`idempotencyKey` orario su `session:${priceId}` già de-duplica il retry a
-   breve termine).
-3. Coerenza UI: la card deve mostrare il ramo "gestisci dal portale" anche per
-   `unpaid` (oggi solo `past_due`), così CTA UI e gate server combaciano.
-4. **Test:** checkout con sub `past_due`/`unpaid` → 409 senza creare sessione
-   Stripe; `canceled`/`pending`/nessuna sub → checkout consentito; `incomplete`
-   → consentito (retry primo pagamento).
-
----
-
 ## P3 — Bassa priorità
 
 ### 17. Key rotation zero-downtime: i caller passano sempre una sola chiave
