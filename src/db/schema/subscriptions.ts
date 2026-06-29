@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 /**
@@ -19,6 +19,13 @@ export const subscriptions = pgTable("subscriptions", {
   status: text("status"),
   /** Stripe currentPeriodEnd → data prossimo rinnovo/scadenza */
   currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+  /**
+   * Stripe `cancel_at_period_end`: true quando l'utente ha annullato dal
+   * portale ma lo `status` resta 'active' fino a `currentPeriodEnd`. Catturato
+   * dal webhook `customer.subscription.updated` per mostrare in-app lo stato
+   * "in cancellazione, attivo fino al …" (REVIEW.md #34).
+   */
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
   /** 'month' | 'year' */
   interval: text("interval"),
   createdAt: timestamp("created_at", { withTimezone: true })

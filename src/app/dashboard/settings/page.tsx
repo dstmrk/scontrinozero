@@ -23,7 +23,11 @@ import { ChangePasswordSection } from "@/components/settings/change-password-sec
 import { ThemeSection } from "@/components/settings/theme-section";
 import { getProfilePlan } from "@/server/billing-actions";
 import { canUseApi, TRIAL_DAYS } from "@/lib/plans";
-import { computeBillingCardState } from "./billing-card-state";
+import {
+  computeBillingCardState,
+  getCancelingStatusText,
+  getManageSubscriptionCopy,
+} from "./billing-card-state";
 import { PRICE_IDS } from "@/lib/stripe";
 import { ApiKeySection } from "@/components/settings/api-key-section";
 import { ExtraSettingsSection } from "@/components/settings/extra-settings-section";
@@ -145,6 +149,7 @@ export default async function SettingsPage({
           hasSubscription: planResult.hasSubscription,
           subscriptionStatus: planResult.subscriptionStatus,
           subscriptionInterval: planResult.subscriptionInterval,
+          cancelAtPeriodEnd: planResult.cancelAtPeriodEnd,
         };
 
   const cardState = computeBillingCardState(planData);
@@ -357,6 +362,15 @@ export default async function SettingsPage({
                         </span>
                       )}
 
+                      {cardState === "canceling" && (
+                        <span className="text-sm text-yellow-700">
+                          {getCancelingStatusText(
+                            intervalLabel,
+                            planData.planExpiresAt,
+                          )}
+                        </span>
+                      )}
+
                       {cardState === "past-due" && (
                         <span className="text-sm text-red-600">
                           Abbonamento {intervalLabel} — pagamento scaduto
@@ -382,16 +396,15 @@ export default async function SettingsPage({
                     />
                   )}
 
-                  {/* Gestisci abbonamento — solo con abbonamento attivo */}
-                  {cardState === "subscribed" && (
+                  {/* Gestisci abbonamento — abbonamento attivo o in cancellazione */}
+                  {(cardState === "subscribed" ||
+                    cardState === "canceling") && (
                     <div>
                       <p className="text-muted-foreground mb-2 text-sm font-medium">
                         Gestisci abbonamento
                       </p>
                       <p className="text-muted-foreground mb-3 text-sm">
-                        Modifica il piano, aggiorna il metodo di pagamento o
-                        annulla l&apos;abbonamento tramite il portale sicuro di
-                        Stripe.
+                        {getManageSubscriptionCopy(cardState)}
                       </p>
                       <a
                         href="/api/stripe/portal"
