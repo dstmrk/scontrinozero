@@ -175,6 +175,35 @@ describe("billing-actions", () => {
       expect(result.subscriptionInterval).toBe("month");
     });
 
+    it("cancelAtPeriodEnd è false senza subscription", async () => {
+      mockSelectLimit.mockResolvedValue([]);
+
+      const { getProfilePlan } = await import("./billing-actions");
+      const result = await getProfilePlan();
+
+      expect("error" in result).toBe(false);
+      if ("error" in result) return;
+      expect(result.cancelAtPeriodEnd).toBe(false);
+    });
+
+    it("restituisce cancelAtPeriodEnd=true quando l'abbonamento è in cancellazione", async () => {
+      mockSelectLimit.mockResolvedValue([
+        {
+          id: "sub-789",
+          status: "active",
+          interval: "month",
+          cancelAtPeriodEnd: true,
+        },
+      ]);
+
+      const { getProfilePlan } = await import("./billing-actions");
+      const result = await getProfilePlan();
+
+      expect("error" in result).toBe(false);
+      if ("error" in result) return;
+      expect(result.cancelAtPeriodEnd).toBe(true);
+    });
+
     it("richiama getPlan con lo userId corretto", async () => {
       const { getProfilePlan } = await import("./billing-actions");
       await getProfilePlan();

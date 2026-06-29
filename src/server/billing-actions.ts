@@ -19,6 +19,8 @@ export type ProfilePlanResult =
       subscriptionStatus: string | null;
       /** "month" | "year" | null */
       subscriptionInterval: string | null;
+      /** true se annullato dal portale Stripe ma attivo fino a scadenza (#34) */
+      cancelAtPeriodEnd: boolean;
     }
   | { error: string };
 
@@ -75,6 +77,7 @@ export async function getProfilePlan(): Promise<ProfilePlanResult> {
       status: subscriptions.status,
       interval: subscriptions.interval,
       stripePriceId: subscriptions.stripePriceId,
+      cancelAtPeriodEnd: subscriptions.cancelAtPeriodEnd,
     })
     .from(subscriptions)
     .where(eq(subscriptions.userId, user.id))
@@ -92,5 +95,6 @@ export async function getProfilePlan(): Promise<ProfilePlanResult> {
     hasSubscription: !!sub,
     subscriptionStatus: sub?.status ?? null,
     subscriptionInterval: sub?.interval ?? null,
+    cancelAtPeriodEnd: sub?.cancelAtPeriodEnd ?? false,
   };
 }

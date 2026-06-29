@@ -396,6 +396,10 @@ async function syncSubscriptionData(
   const currentPeriodEnd = new Date(
     (stripeSub.items.data[0]?.current_period_end ?? 0) * 1000,
   );
+  // Annullamento a fine periodo dal portale Stripe (REVIEW.md #34): lo status
+  // resta 'active' fino a currentPeriodEnd. Scriviamo sempre il valore corrente
+  // così la riattivazione (toggle a false) si riallinea senza update parziali.
+  const cancelAtPeriodEnd = stripeSub.cancel_at_period_end;
 
   await db.transaction(async (tx) => {
     await tx
@@ -406,6 +410,7 @@ async function syncSubscriptionData(
         status,
         interval,
         currentPeriodEnd,
+        cancelAtPeriodEnd,
       })
       .where(eq(subscriptions.stripeCustomerId, stripeCustomerId));
 

@@ -4,6 +4,7 @@ export type BillingCardState =
   | "trial-active"
   | "trial-expired"
   | "subscribed"
+  | "canceling"
   | "past-due"
   | "unlimited";
 
@@ -13,6 +14,7 @@ export type BillingPlanData = {
   planExpiresAt: Date | null;
   hasSubscription: boolean;
   subscriptionStatus: string | null;
+  cancelAtPeriodEnd: boolean;
 };
 
 /**
@@ -45,8 +47,44 @@ export function computeBillingCardState(
   // Va DOPO il ramo past_due per non oscurare il dunning legittimo.
   if (isPaidPlanExpired(planData.plan, planData.planExpiresAt))
     return "trial-expired";
+  // Annullamento a fine periodo dal portale Stripe (#34): status resta 'active'
+  // ma cancel_at_period_end=true → la card mostra "in cancellazione, attivo fino
+  // al <data>" invece di "rinnovo il <data>". Va DOPO past_due/expiry (priorità
+  // dunning/read-only) e PRIMA di "subscribed".
+  if (
+    planData.hasSubscription &&
+    planData.subscriptionStatus === "active" &&
+    planData.cancelAtPeriodEnd
+  )
+    return "canceling";
   if (planData.hasSubscription && planData.subscriptionStatus === "active")
     return "subscribed";
   if (isTrialExpired(planData.trialStartedAt)) return "trial-expired";
   return "trial-active";
+}
+
+/**
+ * Testo della riga di stato per l'abbonamento in cancellazione a fine periodo
+ * (#34). Estratto qui (vs ternario inline nel JSX) per tenere bassa la
+ * Cognitive Complexity di SettingsPage (S3776).
+ */
+export function getCancelingStatusText(
+  intervalLabel: string,
+  planExpiresAt: Date | null,
+): string {
+  const base = `Abbonamento ${intervalLabel} — in cancellazione`;
+  return planExpiresAt
+    ? `${base}, attivo fino al ${planExpiresAt.toLocaleDateString("it-IT")}`
+    : base;
+}
+
+/**
+ * Copy del blocco "Gestisci abbonamento": invita a riattivare quando
+ * l'abbonamento è in cancellazione, altrimenti ad annullare (#34). Estratto
+ * dal JSX per la stessa ragione di `getCancelingStatusText` (S3776).
+ */
+export function getManageSubscriptionCopy(cardState: BillingCardState): string {
+  return cardState === "canceling"
+    ? "Riattiva l'abbonamento, modifica il piano o aggiorna il metodo di pagamento tramite il portale sicuro di Stripe."
+    : "Modifica il piano, aggiorna il metodo di pagamento o annulla l'abbonamento tramite il portale sicuro di Stripe.";
 }

@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   computeBillingCardState,
+  getCancelingStatusText,
+  getManageSubscriptionCopy,
   type BillingPlanData,
 } from "./billing-card-state";
 
@@ -18,6 +20,7 @@ function planData(overrides: Partial<BillingPlanData>): BillingPlanData {
     planExpiresAt: FUTURE,
     hasSubscription: true,
     subscriptionStatus: "active",
+    cancelAtPeriodEnd: false,
     ...overrides,
   };
 }
@@ -38,6 +41,42 @@ describe("computeBillingCardState", () => {
   it("ritorna subscribed per una subscription active", () => {
     expect(
       computeBillingCardState(planData({ subscriptionStatus: "active" })),
+    ).toBe("subscribed");
+  });
+
+  it("ritorna canceling per una subscription active con cancel_at_period_end", () => {
+    expect(
+      computeBillingCardState(
+        planData({ subscriptionStatus: "active", cancelAtPeriodEnd: true }),
+      ),
+    ).toBe("canceling");
+  });
+
+  it("il ramo past_due precede canceling (dunning ha priorità)", () => {
+    expect(
+      computeBillingCardState(
+        planData({ subscriptionStatus: "past_due", cancelAtPeriodEnd: true }),
+      ),
+    ).toBe("past-due");
+  });
+
+  it("il safety-net trial-expired precede canceling (piano scaduto oltre grazia)", () => {
+    expect(
+      computeBillingCardState(
+        planData({
+          subscriptionStatus: "active",
+          cancelAtPeriodEnd: true,
+          planExpiresAt: LONG_PAST,
+        }),
+      ),
+    ).toBe("trial-expired");
+  });
+
+  it("ritorna subscribed quando cancel_at_period_end è false (non-regressione)", () => {
+    expect(
+      computeBillingCardState(
+        planData({ subscriptionStatus: "active", cancelAtPeriodEnd: false }),
+      ),
     ).toBe("subscribed");
   });
 
@@ -94,5 +133,34 @@ describe("computeBillingCardState", () => {
         }),
       ),
     ).toBe("trial-active");
+  });
+});
+
+describe("getCancelingStatusText", () => {
+  it("include la data di fine accesso quando planExpiresAt è presente", () => {
+    const text = getCancelingStatusText(
+      "mensile",
+      new Date("2026-07-15T00:00:00Z"),
+    );
+    expect(text).toContain("in cancellazione");
+    expect(text).toContain("attivo fino al");
+    expect(text).toContain(
+      new Date("2026-07-15T00:00:00Z").toLocaleDateString("it-IT"),
+    );
+  });
+
+  it("omette la data quando planExpiresAt è null", () => {
+    const text = getCancelingStatusText("annuale", null);
+    expect(text).toBe("Abbonamento annuale — in cancellazione");
+  });
+});
+
+describe("getManageSubscriptionCopy", () => {
+  it("invita a riattivare quando in cancellazione", () => {
+    expect(getManageSubscriptionCopy("canceling")).toContain("Riattiva");
+  });
+
+  it("invita ad annullare quando l'abbonamento è attivo", () => {
+    expect(getManageSubscriptionCopy("subscribed")).toContain("annulla");
   });
 });
