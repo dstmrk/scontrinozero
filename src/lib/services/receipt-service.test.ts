@@ -798,6 +798,34 @@ describe("emitReceiptForBusiness", () => {
     );
   });
 
+  it("REVIEW #35: AdE transient (AdePortalError 5xx) dopo submitSale NON marca ERROR (resta PENDING)", async () => {
+    // AdE potrebbe aver già registrato il documento ma la risposta è andata in
+    // timeout/5xx: marcare ERROR escluderebbe la riga dal partial unique index
+    // e dalla riconciliazione pre-resubmit, rischiando una doppia emissione
+    // fiscale. La riga resta PENDING e la stale-recovery riconcilia con AdE.
+    const { AdePortalError } = await import("@/lib/ade/errors");
+    mockSubmitSale.mockRejectedValue(
+      new AdePortalError(503, "service unavailable"),
+    );
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness(VALID_INPUT);
+
+    const updateSets = mockUpdateSet.mock.calls.map((c) => c[0].status);
+    expect(updateSets).not.toContain("ERROR");
+  });
+
+  it("REVIEW #35: AdeNetworkError dopo submitSale NON marca ERROR (resta PENDING)", async () => {
+    const { AdeNetworkError } = await import("@/lib/ade/errors");
+    mockSubmitSale.mockRejectedValue(new AdeNetworkError(new Error("ECONN")));
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness(VALID_INPUT);
+
+    const updateSets = mockUpdateSet.mock.calls.map((c) => c[0].status);
+    expect(updateSets).not.toContain("ERROR");
+  });
+
   it("R21: AdeAuthError (credenziali sbagliate) logga warn con errorClass ade_user_error (no Sentry noise)", async () => {
     // Credenziali Fisconline sbagliate sono input utente, non bug nostro:
     // logger.warn + errorClass ade_user_error -> niente issue Sentry.

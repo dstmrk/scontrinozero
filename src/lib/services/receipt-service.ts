@@ -14,7 +14,10 @@ import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
 import { withAdeSession } from "@/lib/ade";
 import type { AdeClient } from "@/lib/ade/client";
 import { AdePasswordExpiredError } from "@/lib/ade/errors";
-import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
+import {
+  getUserFacingAdeErrorMessage,
+  isTransientAdeError,
+} from "@/lib/ade/error-messages";
 import { logAdeFailure } from "@/lib/ade/log-failure";
 import { mapSaleToAdePayload } from "@/lib/ade/mapper";
 import { isStatementTimeoutError } from "@/lib/api-errors";
@@ -681,10 +684,13 @@ async function submitSaleToAde(
       },
     );
 
-    // Don't mark ERROR if the failure is a statement timeout — the row
-    // stays PENDING and stale recovery will retry. Marking ERROR here would
-    // be wrong because we don't know whether submitSale succeeded on AdE.
-    if (!isStatementTimeoutError(err)) {
+    // Don't mark ERROR on a statement timeout OR an AdE transient failure
+    // (network / 5xx / SPID timeout) — in both cases we don't know whether
+    // submitSale succeeded on AdE, so the row must stay PENDING and let stale
+    // recovery reconcile against AdE before any re-submit (REVIEW.md #35).
+    // Marking ERROR would drop the row out of the partial unique index and the
+    // pre-resubmit reconciliation, risking a duplicate fiscal emission.
+    if (!isStatementTimeoutError(err) && !isTransientAdeError(err)) {
       // Best-effort UPDATE to ERROR; if it also times out we swallow it
       // (the row stays PENDING — stale recovery applies on next retry).
       try {

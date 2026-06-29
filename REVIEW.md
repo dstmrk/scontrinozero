@@ -5,7 +5,8 @@
 > **Audit incrementale 2026-06-27:** code review mirata sui percorsi critici
 > (registrazione/accesso/onboarding · emissione/annullo scontrini · billing/
 > Stripe-webhook), con verifica manuale di ogni finding sul codice corrente.
-> Nuovi finding: #35 e #38 (P2), #36/#37 (P3). Falsi positivi/duplicati scartati
+> Nuovi finding: #38 (P2), #36/#37 (P3) — #35 (mark `ERROR` su AdE transient)
+> risolto. Falsi positivi/duplicati scartati
 > (identity guard, vatNumber overwrite, wizardTemplate PIva, referral, key
 > rotation, cursor pagination, CSP, SPID; lato billing: race
 > subscription.updated↔stripeCustomerId, normalizzazione email su
@@ -154,57 +155,6 @@ fatto che i payload sono statici, ma è un single point of failure.
 4. Da affrontare quando la frequenza di edit dei JSON-LD è bassa; verificare su
    sandbox prima di prod (uno script bloccato dalla CSP rompe il widget Turnstile
    o i dati strutturati silenziosamente — controllare la console e i report CSP).
-
----
-
-### 35. Mark `ERROR` sugli errori AdE _transient_ aggira la stale-recovery (emit + void)
-
-- **Categoria:** correttezza/concorrenza su mutazione fiscale irreversibile · **Severità:** Medium
-- **File:** `src/lib/services/receipt-service.ts:687` (emit), `src/lib/services/void-service.ts:803` (void); selezione recovery `src/lib/services/ade-recovery.ts:64`; riconciliazione pre-resubmit `src/lib/services/void-service.ts:640` (`reconcileVoidBeforeResubmit`)
-
-**Problema.** In entrambi gli orchestratori l'outer-catch fa
-`if (!isStatementTimeoutError(err)) { …set status "ERROR"… }`: salta il mark
-`ERROR` **solo** sul DB statement-timeout, ma lo applica a **ogni altro** errore,
-inclusi gli AdE _transient_ (timeout di rete / 5xx / SPID) — proprio il caso in
-cui, come dice il commento del codice stesso (`receipt-service.ts:684-686`: «we
-don't know whether submitSale succeeded on AdE»), lo stato su AdE è **ignoto**.
-Quando AdE ha _forse_ già registrato il documento ma la risposta è andata in
-timeout, marcare `ERROR` (invece di lasciare `PENDING`) ha due conseguenze:
-
-1. Il partial unique index (`status IN ('PENDING','VOID_ACCEPTED')`, migration
-   `0012`) **non copre `ERROR`** → un retry guidato dall'utente (nuova
-   idempotency key) prende il path _fresh-insert_ di `insertOrResolveVoid`
-   (`recovery:false`) → **salta** `reconcileVoidBeforeResubmit` e ri-sottomette a
-   AdE alla cieca. Sul **void** AdE respinge il secondo annullo di un documento
-   già annullato (mitigazione lato AdE → si finisce in `REJECTED`); sull'**emit**
-   non esiste un guard equivalente lato AdE → rischio doppia emissione dello
-   stesso scontrino.
-2. `ade-recovery.ts:64` seleziona `status IN ('PENDING','ERROR')`, quindi la
-   stale-recovery _automatica_ riprende anche le righe `ERROR` riusando la stessa
-   riga/sessione e riconcilia — ma la riconciliazione pre-resubmit vive **solo**
-   nel path PENDING/recovery, non nel fresh-insert dell'utente sopra.
-
-Lo stato `ERROR` diverge così dalla verità AdE invece di lasciare la riga
-`PENDING` e delegare la riconciliazione. **Non coperto da test:** il caso
-`void-service.test.ts:806` («NON deve marcare ERROR») copre il path
-`VOID_SYNC_FAILED` (finalize-_dopo_-submit, già corretto a parte), **non**
-l'outer-catch oggetto di questo finding.
-
-**Fix (non ambiguo).**
-
-1. Estendere la guardia in entrambi gli orchestratori a
-   `if (!isStatementTimeoutError(err) && !isTransientAdeError(err))`
-   (`isTransientAdeError` è già in `src/lib/ade/error-messages.ts`):
-   lasciare `PENDING` anche sugli AdE transient, così la stale-recovery
-   riconcilia contro AdE prima di qualsiasi re-submit.
-2. Marcare `ERROR` **solo** per errori definitivamente _pre-submit_ (decrypt,
-   mapping payload, auth AdE permanente): in quei casi AdE non ha ricevuto nulla
-   e il retry è sicuro.
-3. **Test:** AdE transient sollevato dopo `submitSale`/`submitVoid` → la riga
-   resta `PENDING` (mai `ERROR`) in emit **e** in void; statement-timeout →
-   invariato (già `PENDING`); errore pre-submit permanente → `ERROR` come oggi.
-4. Tenere allineati i due path (stessa guardia in emit e void) e i rispettivi
-   commenti, che già descrivono l'intento corretto ma sono sotto-applicati.
 
 ---
 
@@ -528,8 +478,8 @@ forte: stessa classe di operazione, protezione incoerente.
    5/15 min `AUTH_15_MIN`) sul modello di `changePasswordLimiter`, controllato
    **subito dopo** `checkBusinessOwnership` e prima del decrypt/login AdE.
 2. Sul superamento: `logger.warn` (input prevedibile, regola 20 — niente Sentry)
-   + ritorno `{ error }` con il messaggio rate-limit standard (degradare, non
-   lanciare — regola 19).
+   - ritorno `{ error }` con il messaggio rate-limit standard (degradare, non
+     lanciare — regola 19).
 3. **Test:** sotto soglia → OK; alla soglia → warn + errore senza chiamare AdE;
    reset alla nuova finestra; chiave per-utente (un business non blocca l'altro).
 
