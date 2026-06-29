@@ -2,7 +2,7 @@
 
 import { cache, createElement } from "react";
 import { revalidatePath } from "next/cache";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   businesses,
@@ -683,10 +683,11 @@ export async function verifyAdeCredentials(
   // Snapshot fiscalCode BEFORE the transaction that sets it. fiscalCode is
   // assigned once on the first successful AdE verification and never reset
   // (saveBusiness/saveAdeCredentials preserve it), so its absence is the
-  // canonical "user has never completed onboarding" signal. Using
-  // cred.verifiedAt would re-fire welcome/operator emails when the user
-  // replaces credentials (saveAdeCredentials resets verifiedAt to null) and
-  // re-verifies — fiscalCode survives that path.
+  // canonical "user has never completed onboarding" signal — usato qui solo per
+  // l'identity guard (cambio P.IVA su business già onboardato). L'idempotency
+  // delle email di onboarding NON dipende più da fiscalCode: vive sui flag
+  // durabili welcome_email_sent_at / operator_notified_at reclamati a valle
+  // (migration 0023).
   const [businessSnapshot] = await db
     .select({
       fiscalCode: businesses.fiscalCode,
@@ -801,17 +802,47 @@ export async function verifyAdeCredentials(
     return { businessId };
   }
 
-  // Send welcome email on first successful verification (fire-and-forget).
-  // Gated on fiscalCode (not verifiedAt) to avoid duplicate emails when the
-  // user replaces AdE credentials and re-verifies — see snapshot above.
-  if (!wasAlreadyOnboarded && user.email) {
-    void sendEmail({
-      to: user.email,
-      subject: "Sei pronto! Inizia a emettere scontrini con ScontrinoZero",
-      react: createElement(WelcomeEmail, { email: user.email }),
-    }).catch((err) => logger.error({ err }, "Welcome email failed"));
+  // Email di onboarding: idempotency DURABILE via claim atomico
+  // (UPDATE ... WHERE ... IS NULL RETURNING) sui flag welcome_email_sent_at /
+  // operator_notified_at (migration 0023), non più derivata da fiscalCode. Chi
+  // vince il claim invia: race-safe (due verify simultanei → un solo invio per
+  // flag) e a prova di reset manuale di fiscalCode / re-run. I due flag sono
+  // INDIPENDENTI — welcome e operator possono divergere (es. uno già inviato e
+  // l'altro no) e vengono reclamati separatamente. wasAlreadyOnboarded resta in
+  // uso solo per l'identity guard sopra.
+  if (user.email) {
+    const claimedWelcome = await db
+      .update(businesses)
+      .set({ welcomeEmailSentAt: new Date() })
+      .where(
+        and(
+          eq(businesses.id, businessId),
+          isNull(businesses.welcomeEmailSentAt),
+        ),
+      )
+      .returning({ id: businesses.id });
 
-    // Internal notification (fire-and-forget, non-critical, env-gated).
+    if (claimedWelcome.length > 0) {
+      void sendEmail({
+        to: user.email,
+        subject: "Sei pronto! Inizia a emettere scontrini con ScontrinoZero",
+        react: createElement(WelcomeEmail, { email: user.email }),
+      }).catch((err) => logger.error({ err }, "Welcome email failed"));
+    }
+  }
+
+  // Notifica operatore interna: claim separato (può partire anche senza
+  // user.email). Fire-and-forget, non-critical, env-gated in
+  // notifyOperatorOfNewSignup.
+  const claimedOperator = await db
+    .update(businesses)
+    .set({ operatorNotifiedAt: new Date() })
+    .where(
+      and(eq(businesses.id, businessId), isNull(businesses.operatorNotifiedAt)),
+    )
+    .returning({ id: businesses.id });
+
+  if (claimedOperator.length > 0) {
     void notifyOperatorOfNewSignup(user.id).catch((err) =>
       logger.warn({ err }, "Operator signup notification failed"),
     );

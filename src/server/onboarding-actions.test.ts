@@ -165,6 +165,10 @@ describe("onboarding-actions", () => {
     // precedenti).
     mockLimit.mockReset();
     mockReturning.mockReset();
+    // I claim atomici welcome/operator (verifyAdeCredentials) usano
+    // mockResolvedValueOnce ordinati su mockUpdateReturning: reset esplicito per
+    // evitare leak della coda Once tra test (clearAllMocks non la svuota).
+    mockUpdateReturning.mockReset().mockResolvedValue([{ id: "mock-cred-id" }]);
     mockOnConflictDoUpdate.mockReset().mockResolvedValue(undefined);
     mockLedgerReturning
       .mockReset()
@@ -752,10 +756,11 @@ describe("onboarding-actions", () => {
       expect(mockGetFiscalData).toHaveBeenCalled();
       // 3 update "core" (adeCredentials verifiedAt + businesses vatNumber/
       // fiscalCode + profiles partitaIva) + 2 update del claim referral
-      // (referral_redemptions.rewardedAt + profiles.referralBonusDays) che
+      // (referral_redemptions.rewardedAt + profiles.referralBonusDays) + 2 claim
+      // email (welcome_email_sent_at + operator_notified_at, migration 0023) che
       // scattano sempre sotto i mock generici condivisi (returning() risolve
       // sempre a una riga non-vuota di default).
-      expect(mockUpdate).toHaveBeenCalledTimes(5);
+      expect(mockUpdate).toHaveBeenCalledTimes(7);
       expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard", "layout");
     });
 
@@ -789,8 +794,9 @@ describe("onboarding-actions", () => {
       const { verifyAdeCredentials } = await import("./onboarding-actions");
       await verifyAdeCredentials("biz-789");
 
-      // 3 core update + rewardedAt + referralBonusDays = 5; nessuna Stripe.
-      expect(mockUpdate).toHaveBeenCalledTimes(5);
+      // 3 core update + rewardedAt + referralBonusDays + 2 claim email = 7;
+      // nessuna Stripe.
+      expect(mockUpdate).toHaveBeenCalledTimes(7);
       expect(mockExtendSubscriptionForReferral).not.toHaveBeenCalled();
     });
 
@@ -824,8 +830,9 @@ describe("onboarding-actions", () => {
       const { verifyAdeCredentials } = await import("./onboarding-actions");
       await verifyAdeCredentials("biz-789");
 
-      // 3 core update + rewardedAt = 4 (NESSUN update referralBonusDays).
-      expect(mockUpdate).toHaveBeenCalledTimes(4);
+      // 3 core update + rewardedAt + 2 claim email = 6 (NESSUN update
+      // referralBonusDays: ramo estensione Stripe).
+      expect(mockUpdate).toHaveBeenCalledTimes(6);
       expect(mockExtendSubscriptionForReferral).toHaveBeenCalledTimes(1);
       expect(mockExtendSubscriptionForReferral).toHaveBeenCalledWith(
         expect.objectContaining({ stripeSubscriptionId: "sub_active" }),
@@ -858,8 +865,11 @@ describe("onboarding-actions", () => {
       expect(result.error).toBeUndefined();
       expect(result.businessId).toBe("biz-789");
       expect(mockGetFiscalData).toHaveBeenCalled();
-      // Only 1 update (adeCredentials verifiedAt); businesses update was skipped
-      expect(mockUpdate).toHaveBeenCalledTimes(1);
+      // 1 update core (adeCredentials verifiedAt; businesses/profiles update
+      // skipped perché fiscalData è null) + 2 claim email (welcome/operator):
+      // la verifica è riuscita (verifiedAt impostato), quindi le email di
+      // onboarding partono comunque, come nel comportamento precedente.
+      expect(mockUpdate).toHaveBeenCalledTimes(3);
       expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard", "layout");
     });
 
@@ -1134,7 +1144,7 @@ describe("onboarding-actions", () => {
       expect(result.error).toBeUndefined();
     });
 
-    it("does not send welcome email when business is already onboarded", async () => {
+    it("does not send welcome/operator email when both flags are already set (claim returns 0 rows)", async () => {
       // Ownership check: JOIN profile+business
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       // Credentials found — verifiedAt already set (re-verification)
@@ -1149,8 +1159,6 @@ describe("onboarding-actions", () => {
           verifiedAt: new Date("2026-01-01"),
         },
       ]);
-      // Business snapshot: fiscalCode already set → already onboarded.
-      mockLimit.mockResolvedValueOnce([{ fiscalCode: "RSSMRA80A01H501U" }]);
       mockLogin.mockResolvedValue({});
       mockLogout.mockResolvedValue(undefined);
       mockGetFiscalData.mockResolvedValue({
@@ -1160,6 +1168,15 @@ describe("onboarding-actions", () => {
           codiceFiscale: "RSSMRA80A01H501U",
         },
       });
+      // Idempotency durabile (migration 0023): i flag welcome/operator sono già
+      // valorizzati, quindi i due UPDATE ... WHERE ... IS NULL non matchano
+      // alcuna riga (returning() vuoto) → nessuna email. Ordine returning():
+      // verifiedAt, referral redemption, welcome claim, operator claim.
+      mockUpdateReturning
+        .mockResolvedValueOnce([{ id: "mock-cred-id" }]) // verifiedAt: procede
+        .mockResolvedValueOnce([]) // referral: nessuna redemption pendente
+        .mockResolvedValueOnce([]) // welcome claim: flag già set
+        .mockResolvedValueOnce([]); // operator claim: flag già set
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
       await verifyAdeCredentials("biz-789");
@@ -1169,15 +1186,15 @@ describe("onboarding-actions", () => {
       expect(mockNotifyOperator).not.toHaveBeenCalled();
     });
 
-    // Regression: gating on cred.verifiedAt would re-send welcome + operator
-    // emails when the user replaces AdE credentials (saveAdeCredentials
-    // resets verifiedAt to null) and re-verifies. Gating on
-    // businesses.fiscalCode — set once on first successful verification and
-    // never reset — closes this hole.
-    it("does not re-send welcome email after credential reset", async () => {
+    // Regression: il vecchio gating su cred.verifiedAt re-inviava welcome +
+    // operator quando l'utente sostituiva le credenziali (saveAdeCredentials
+    // azzera verifiedAt) e ri-verificava. Ora il flag durabile
+    // welcome_email_sent_at sopravvive al reset delle credenziali: il claim
+    // atomico torna 0 righe e nessuna email parte, anche con verifiedAt = null.
+    it("does not re-send welcome email after credential reset (durable flag survives)", async () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
-      // verifiedAt is null (credentials were just replaced) BUT fiscalCode
-      // was already set on a previous successful verification.
+      // verifiedAt is null (credentials were just replaced) — ma i flag email
+      // erano già stati valorizzati nella prima verifica andata a buon fine.
       mockLimit.mockResolvedValueOnce([
         {
           businessId: "biz-789",
@@ -1189,7 +1206,6 @@ describe("onboarding-actions", () => {
           verifiedAt: null,
         },
       ]);
-      mockLimit.mockResolvedValueOnce([{ fiscalCode: "RSSMRA80A01H501U" }]);
       mockLogin.mockResolvedValue({});
       mockLogout.mockResolvedValue(undefined);
       mockGetFiscalData.mockResolvedValue({
@@ -1199,6 +1215,11 @@ describe("onboarding-actions", () => {
           codiceFiscale: "RSSMRA80A01H501U",
         },
       });
+      mockUpdateReturning
+        .mockResolvedValueOnce([{ id: "mock-cred-id" }]) // verifiedAt: procede
+        .mockResolvedValueOnce([]) // referral: nessuna redemption pendente
+        .mockResolvedValueOnce([]) // welcome claim: flag già set
+        .mockResolvedValueOnce([]); // operator claim: flag già set
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
       await verifyAdeCredentials("biz-789");
@@ -1206,6 +1227,44 @@ describe("onboarding-actions", () => {
       await Promise.resolve();
       expect(mockSendEmail).not.toHaveBeenCalled();
       expect(mockNotifyOperator).not.toHaveBeenCalled();
+    });
+
+    it("invia solo la notifica operatore quando il flag welcome è già set ma operator no (flag indipendenti)", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+          verifiedAt: null,
+        },
+      ]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "12345678901",
+          codiceFiscale: "RSSMRA80A01H501U",
+        },
+      });
+      // welcome già inviato (claim vuoto), operator ancora da fare (claim 1 riga):
+      // i due flag si reclamano in modo indipendente.
+      mockUpdateReturning
+        .mockResolvedValueOnce([{ id: "mock-cred-id" }]) // verifiedAt
+        .mockResolvedValueOnce([]) // referral: nessuna redemption
+        .mockResolvedValueOnce([]) // welcome claim: già inviato
+        .mockResolvedValueOnce([{ id: "biz-789" }]); // operator claim: vinto
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials("biz-789");
+
+      await Promise.resolve();
+      expect(mockSendEmail).not.toHaveBeenCalled();
+      expect(mockNotifyOperator).toHaveBeenCalledWith("user-123");
     });
 
     // Identity guard: cambiare credenziali verso una P.IVA DIVERSA su un
@@ -1290,8 +1349,10 @@ describe("onboarding-actions", () => {
       expect(result.error).toBeUndefined();
       expect(result.pivaMismatch).toBeUndefined();
       expect(result.businessId).toBe("biz-789");
-      // Scrive identità (idempotente) + verifiedAt nella transazione.
-      expect(mockUpdate).toHaveBeenCalledTimes(3);
+      // 3 update core (verifiedAt + businesses + profiles, idempotente) + 2 claim
+      // email (welcome/operator): sotto i mock condivisi i claim risolvono a una
+      // riga; la soppressione su re-verifica reale è coperta dai test dedicati.
+      expect(mockUpdate).toHaveBeenCalledTimes(5);
     });
 
     // Edge: se getFiscalData fallisce su un business già onboardato non possiamo
@@ -1472,9 +1533,10 @@ describe("onboarding-actions", () => {
       // 3 update "core" (verifiedAt + businesses + profiles.partitaIva,
       // nessun azzeramento di trialStartedAt: trial concesso) + 2 update del
       // claim referral (referral_redemptions.rewardedAt +
-      // profiles.referralBonusDays) che scattano sempre sotto i mock generici
-      // condivisi (returning() risolve sempre a una riga non-vuota).
-      expect(mockUpdate).toHaveBeenCalledTimes(5);
+      // profiles.referralBonusDays) + 2 claim email (welcome/operator) che
+      // scattano sempre sotto i mock generici condivisi (returning() risolve
+      // sempre a una riga non-vuota).
+      expect(mockUpdate).toHaveBeenCalledTimes(7);
       expect(mockUpdateSet).not.toHaveBeenCalledWith({ trialStartedAt: null });
     });
 
@@ -1509,12 +1571,12 @@ describe("onboarding-actions", () => {
       expect(result.error).toBeUndefined();
       expect(result.businessId).toBe("biz-789");
       expect(result.trialAlreadyUsed).toBe(true);
-      // Solo 4 update "core": verifiedAt + businesses + profiles.partitaIva +
-      // profiles.trialStartedAt=null (sola lettura immediata). Il claim
-      // referral NON scatta: la P.IVA era già nel ledger → trial negato →
-      // niente reward al referrer (il blocco reward è gatato sul trial
-      // effettivamente concesso, esce prima via early-return).
-      expect(mockUpdate).toHaveBeenCalledTimes(4);
+      // 4 update "core": verifiedAt + businesses + profiles.partitaIva +
+      // profiles.trialStartedAt=null (sola lettura immediata) + 2 claim email
+      // (welcome/operator). Il claim referral NON scatta: la P.IVA era già nel
+      // ledger → trial negato → niente reward al referrer (il blocco reward è
+      // gatato sul trial effettivamente concesso, esce prima via early-return).
+      expect(mockUpdate).toHaveBeenCalledTimes(6);
       expect(mockUpdateSet).toHaveBeenCalledWith({ trialStartedAt: null });
       const { logger } = await import("@/lib/logger");
       expect(logger.warn).toHaveBeenCalledWith(
@@ -1557,7 +1619,11 @@ describe("onboarding-actions", () => {
       expect(result.trialAlreadyUsed).toBeUndefined();
       // Nessun insert nel ledger e nessun azzeramento di trialStartedAt.
       expect(mockOnConflictDoNothing).not.toHaveBeenCalled();
-      expect(mockUpdate).toHaveBeenCalledTimes(3);
+      // 3 update "core" (verifiedAt + businesses + profiles.partitaIva) + 2
+      // claim email (welcome/operator): i claim risolvono a una riga sotto i
+      // mock condivisi; la soppressione su re-verifica reale (flag già set) è
+      // coperta dai test dedicati di idempotency 0023.
+      expect(mockUpdate).toHaveBeenCalledTimes(5);
       expect(mockUpdateSet).not.toHaveBeenCalledWith({ trialStartedAt: null });
     });
 
@@ -1617,7 +1683,10 @@ describe("onboarding-actions", () => {
           "vatNumber" in p || "fiscalCode" in p || "partitaIva" in p,
       );
       expect(wroteFiscalIdentity).toBe(false);
+      // Lock miss → return anticipato PRIMA dei claim email: nessuna welcome né
+      // notifica operatore (idempotency 0023 non viene nemmeno tentata).
       expect(mockSendEmail).not.toHaveBeenCalled();
+      expect(mockNotifyOperator).not.toHaveBeenCalled();
     });
 
     it("chiama logout anche se getFiscalData lancia un errore", async () => {
