@@ -143,13 +143,37 @@ type CaptchaAction =
  * bloccare ogni login.
  */
 function getAcceptedTurnstileHostnames(): ReadonlySet<string> {
+  // Cloudflare Turnstile `siteverify` ritorna `data.hostname` sempre in
+  // lowercase, e il confronto è `Set.has` (match esatto). Normalizziamo
+  // (`.trim().toLowerCase()`) come in `getAppHostname` (partner-host.ts):
+  // un env d'identità "quasi giusto" (`"App.ScontrinoZero.IT"`,
+  // `"scontrinozero.it "`) non deve rompere l'auth con
+  // `captcha_hostname_mismatch`. Empty-safe (regola 18): un `??` non scatta
+  // su una env presente ma vuota (`""`), quindi scartiamo le stringhe vuote.
   const appHostname =
-    process.env.APP_HOSTNAME ?? // runtime override (sandbox, self-hosted)
-    process.env.NEXT_PUBLIC_APP_HOSTNAME ?? // baked at build time
-    "app.scontrinozero.it";
+    pickHostnameEnv(
+      process.env.APP_HOSTNAME, // runtime override (sandbox, self-hosted)
+      process.env.NEXT_PUBLIC_APP_HOSTNAME, // baked at build time
+    ) ?? "app.scontrinozero.it";
   const marketingHostname =
-    process.env.NEXT_PUBLIC_MARKETING_HOSTNAME ?? "scontrinozero.it";
+    pickHostnameEnv(process.env.NEXT_PUBLIC_MARKETING_HOSTNAME) ??
+    "scontrinozero.it";
   return new Set([appHostname, marketingHostname, `www.${marketingHostname}`]);
+}
+
+/**
+ * Prima env non-vuota dopo `.trim().toLowerCase()`, o `undefined` se nessuna
+ * è valorizzata. Centralizza la normalizzazione (regola 18 present-but-empty +
+ * lowercase per il match esatto con `data.hostname` di Turnstile).
+ */
+function pickHostnameEnv(
+  ...candidates: ReadonlyArray<string | undefined>
+): string | undefined {
+  for (const candidate of candidates) {
+    const normalised = candidate?.trim().toLowerCase();
+    if (normalised) return normalised;
+  }
+  return undefined;
 }
 
 /**

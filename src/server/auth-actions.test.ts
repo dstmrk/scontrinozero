@@ -1304,6 +1304,105 @@ describe("auth-actions", () => {
       expect(mockSignUp).not.toHaveBeenCalled();
     });
 
+    it("accepts the lowercase Turnstile hostname even when the app env has mixed case", async () => {
+      // Turnstile siteverify ritorna data.hostname sempre in lowercase; se l'env
+      // d'identità è misconfigurato con maiuscole (es. "App.ScontrinoZero.IT")
+      // il match esatto fallirebbe senza normalizzazione → ogni login bloccato
+      // con captcha_hostname_mismatch (REVIEW.md #37).
+      process.env.NEXT_PUBLIC_APP_HOSTNAME = "App.ScontrinoZero.IT";
+      process.env.NEXT_PUBLIC_MARKETING_HOSTNAME = "scontrinozero.it";
+      mockFetch.mockResolvedValueOnce(
+        captchaResponse("signup", "app.scontrinozero.it"),
+      );
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-1" } },
+        error: null,
+      });
+
+      const { signUp } = await import("./auth-actions");
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+          }),
+        );
+      } catch (err) {
+        if (!isRedirectError(err)) throw err;
+      }
+
+      expect(mockSignUp).toHaveBeenCalled();
+    });
+
+    it("accepts the marketing hostname even when its env has surrounding whitespace", async () => {
+      process.env.NEXT_PUBLIC_APP_HOSTNAME = "app.scontrinozero.it";
+      process.env.NEXT_PUBLIC_MARKETING_HOSTNAME = "  scontrinozero.it  ";
+      mockFetch.mockResolvedValueOnce(
+        captchaResponse("signup", "scontrinozero.it"),
+      );
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-1" } },
+        error: null,
+      });
+
+      const { signUp } = await import("./auth-actions");
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+          }),
+        );
+      } catch (err) {
+        if (!isRedirectError(err)) throw err;
+      }
+
+      expect(mockSignUp).toHaveBeenCalled();
+    });
+
+    it("falls back to the next hostname env when APP_HOSTNAME is present but empty", async () => {
+      // Regola 18: un `??` non scatta su `""` (present-but-empty). Senza lo
+      // scarto esplicito delle stringhe vuote, un build-arg dimenticato
+      // produrrebbe un appHostname vuoto e ogni captcha verrebbe rifiutato.
+      process.env.APP_HOSTNAME = "";
+      process.env.NEXT_PUBLIC_APP_HOSTNAME = "app.scontrinozero.it";
+      process.env.NEXT_PUBLIC_MARKETING_HOSTNAME = "scontrinozero.it";
+      mockFetch.mockResolvedValueOnce(
+        captchaResponse("signup", "app.scontrinozero.it"),
+      );
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-1" } },
+        error: null,
+      });
+
+      const { signUp } = await import("./auth-actions");
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+          }),
+        );
+      } catch (err) {
+        if (!isRedirectError(err)) throw err;
+      }
+
+      expect(mockSignUp).toHaveBeenCalled();
+      delete process.env.APP_HOSTNAME;
+    });
+
     it("logs captcha_verification_failed with error-codes when Turnstile returns success:false", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
