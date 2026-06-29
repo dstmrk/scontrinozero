@@ -112,6 +112,14 @@ vi.mock("@/lib/ade", () => ({
   }),
 }));
 
+const mockRateLimiterCheck = vi.fn();
+vi.mock("@/lib/rate-limit", () => ({
+  RateLimiter: vi.fn().mockImplementation(function () {
+    return { check: mockRateLimiterCheck };
+  }),
+  RATE_LIMIT_WINDOWS: { AUTH_15_MIN: 15 * 60 * 1000, HOURLY: 60 * 60 * 1000 },
+}));
+
 vi.mock("@/lib/logger", () => ({
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
 }));
@@ -162,6 +170,11 @@ describe("onboarding-actions", () => {
       .mockReset()
       .mockResolvedValue([{ id: "ledger-row-id" }]);
     mockGetUser.mockResolvedValue({ data: { user: FAKE_USER } });
+    mockRateLimiterCheck.mockReset().mockReturnValue({
+      success: true,
+      remaining: 4,
+      resetAt: Date.now() + 15 * 60 * 1000,
+    });
     mockRevalidatePath.mockReset();
     process.env.ENCRYPTION_KEY = "a".repeat(64);
     process.env.ENCRYPTION_KEY_VERSION = "1";
@@ -640,6 +653,69 @@ describe("onboarding-actions", () => {
       // with mockResolvedValueOnce({ fiscalCode: "..." }) AFTER queuing the
       // ownership + credentials mocks.
       mockLimit.mockResolvedValue([{ fiscalCode: null }]);
+    });
+
+    it("R36: alla soglia rate limit → warn + errore standard, senza toccare AdE", async () => {
+      // Simmetria con changeAdePassword: stesso profilo di costo (login AdE),
+      // stessa protezione. Senza il gate un utente autenticato puo' martellare
+      // il login AdE rischiando un IP-block sull'egress condiviso (REVIEW.md #36).
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockRateLimiterCheck.mockReturnValueOnce({
+        success: false,
+        remaining: 0,
+        resetAt: Date.now() + 15 * 60 * 1000,
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials("biz-789");
+
+      expect(result.error).toBe(
+        "Troppi tentativi. Riprova tra qualche minuto.",
+      );
+      // Degrada, non lancia (regola 19); nessuna chiamata AdE (decrypt/login).
+      expect(mockDecrypt).not.toHaveBeenCalled();
+      expect(mockLogin).not.toHaveBeenCalled();
+      expect(mockGetFiscalData).not.toHaveBeenCalled();
+
+      // warn (input prevedibile, regola 20 — niente Sentry), mai error.
+      const { logger } = await import("@/lib/logger");
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: FAKE_USER.id }),
+        expect.stringContaining("rate limit exceeded"),
+      );
+    });
+
+    it("R36: chiave per-utente, controllata DOPO l'ownership gate", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          encryptedCodiceFiscale: "enc-cf",
+          encryptedPassword: "enc-pw",
+          encryptedPin: "enc-pin",
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+        },
+      ]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "12345678901",
+          codiceFiscale: "RSSMRA80A01H501U",
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials("biz-789");
+
+      // Chiave isolata per utente: un business non blocca l'altro.
+      expect(mockRateLimiterCheck).toHaveBeenCalledWith(
+        `verify-ade:${FAKE_USER.id}`,
+      );
+      // Sotto soglia → il flusso AdE procede normalmente.
+      expect(mockLogin).toHaveBeenCalled();
     });
 
     it("verifies credentials successfully and fetches fiscal data", async () => {

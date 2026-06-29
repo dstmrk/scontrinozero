@@ -90,6 +90,17 @@ const changePasswordLimiter = new RateLimiter({
   windowMs: RATE_LIMIT_WINDOWS.AUTH_15_MIN,
 });
 
+// Stesso profilo di costo di changeAdePassword (login AdE completo +
+// getFiscalData). Senza questo gate un utente autenticato — già filtrato
+// dall'ownership check — può martellare il login AdE ripetendo
+// verifyAdeCredentials, rischiando un lockout/IP-block lato AdE sull'egress
+// condiviso che impatterebbe TUTTI gli utenti (REVIEW.md #36). 5/15 min in
+// simmetria con changePasswordLimiter.
+const verifyAdeLimiter = new RateLimiter({
+  maxRequests: 5,
+  windowMs: RATE_LIMIT_WINDOWS.AUTH_15_MIN,
+});
+
 export type OnboardingStatus = {
   hasProfile: boolean;
   hasBusiness: boolean;
@@ -644,6 +655,18 @@ export async function verifyAdeCredentials(
 
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) return ownershipError;
+
+  // Rate limit DOPO l'ownership gate, PRIMA del decrypt/login AdE: degradare
+  // con un messaggio standard (regola 19), warn senza Sentry (input prevedibile,
+  // regola 20). Simmetria con changeAdePassword (REVIEW.md #36).
+  const rateLimitResult = verifyAdeLimiter.check(`verify-ade:${user.id}`);
+  if (!rateLimitResult.success) {
+    logger.warn(
+      { userId: user.id },
+      "verifyAdeCredentials rate limit exceeded",
+    );
+    return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
+  }
 
   const db = getDb();
 
