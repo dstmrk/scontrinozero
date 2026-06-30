@@ -169,7 +169,7 @@ export function OnboardingTour() {
   const isDesktop = useMemo(
     () =>
       globalThis.window !== undefined &&
-      window.matchMedia(DESKTOP_MEDIA_QUERY).matches,
+      globalThis.matchMedia(DESKTOP_MEDIA_QUERY).matches,
     [],
   );
 
