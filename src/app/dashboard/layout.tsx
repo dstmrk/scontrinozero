@@ -4,12 +4,16 @@ import { redirect } from "next/navigation";
 import { ThemeProvider } from "next-themes";
 import { LogOut, Settings } from "lucide-react";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { getOnboardingStatus } from "@/server/onboarding-actions";
+import {
+  getOnboardingStatus,
+  getOnboardingTourSeen,
+} from "@/server/onboarding-actions";
 import { signOut } from "@/server/auth-actions";
 import { getAnnouncement } from "@/lib/announcement";
 import { Button } from "@/components/ui/button";
 import { BottomNav } from "@/components/dashboard/bottom-nav";
 import { HeaderNav } from "@/components/dashboard/header-nav";
+import { OnboardingTour } from "@/components/dashboard/onboarding-tour";
 import { AnnouncementBanner } from "@/components/announcement/announcement-banner";
 import { PwaInstallPrompt } from "@/components/pwa/install-prompt";
 import { PartnerBrandSuffix } from "@/components/partner-brand-suffix";
@@ -33,6 +37,11 @@ export default async function DashboardLayout({
   if (!status.hasBusiness || !status.hasCredentials) {
     redirect("/onboarding");
   }
+
+  // Onboarding tour: mostrato una sola volta al primo accesso (PLAN.md v1.4.1).
+  // Letto server-side → niente flash dell'overlay. Degrada a "visto" su errore
+  // DB (la funzione gestisce il fallback), quindi non blocca mai il dashboard.
+  const tourSeen = await getOnboardingTourSeen();
 
   const announcement = getAnnouncement();
 
@@ -68,7 +77,10 @@ export default async function DashboardLayout({
                 asChild
                 aria-label="Impostazioni"
               >
-                <Link href="/dashboard/settings">
+                <Link
+                  href="/dashboard/settings"
+                  data-tour-step="settings-mobile"
+                >
                   <Settings className="h-5 w-5" />
                 </Link>
               </Button>
@@ -84,7 +96,10 @@ export default async function DashboardLayout({
               </form>
             </div>
 
-            <nav className="hidden items-center gap-4 md:flex">
+            <nav
+              data-tour-nav="desktop"
+              className="hidden items-center gap-4 md:flex"
+            >
               <HeaderNav />
 
               <form action={signOut}>
@@ -102,6 +117,7 @@ export default async function DashboardLayout({
 
         <BottomNav />
         <PwaInstallPrompt />
+        {!tourSeen && <OnboardingTour />}
       </div>
     </ThemeProvider>
   );
