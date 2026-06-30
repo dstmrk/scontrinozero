@@ -57,6 +57,14 @@ export const profiles = pgTable(
     // src/lib/plans.ts fetchPlan(). Per `unlimited` è ininfluente: i gate non
     // leggono planExpiresAt/trialStartedAt per quel piano.
     referralBonusDays: integer("referral_bonus_days").notNull().default(0),
+    // Onboarding tour dashboard (PLAN.md v1.4.1): timestamp del primo
+    // completamento/skip del walkthrough guidato. NULL = mai visto → il tour
+    // viene mostrato al primo accesso al dashboard. Per-utente (non per-device):
+    // sopravvive a cambio dispositivo e reinstallazione PWA. Migration 0025 ha
+    // backfillato i profili pre-esistenti a now() (solo i nuovi vedono il tour).
+    onboardingTourSeenAt: timestamp("onboarding_tour_seen_at", {
+      withTimezone: true,
+    }),
   },
   (table) => [
     // Defense-in-depth (migration 0019): 254 = RFC 5321 max address length.

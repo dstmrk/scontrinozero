@@ -1853,4 +1853,69 @@ describe("onboarding-actions", () => {
       expect(mockSelect).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe("getOnboardingTourSeen", () => {
+    it("returns false when the tour was never seen (NULL)", async () => {
+      mockLimit.mockResolvedValueOnce([{ seenAt: null }]);
+
+      const { getOnboardingTourSeen } = await import("./onboarding-actions");
+      const seen = await getOnboardingTourSeen();
+
+      expect(seen).toBe(false);
+      expect(mockSelect).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns true when the tour has a timestamp", async () => {
+      mockLimit.mockResolvedValueOnce([{ seenAt: new Date() }]);
+
+      const { getOnboardingTourSeen } = await import("./onboarding-actions");
+      const seen = await getOnboardingTourSeen();
+
+      expect(seen).toBe(true);
+    });
+
+    it("returns false when no profile row is found", async () => {
+      mockLimit.mockResolvedValueOnce([]);
+
+      const { getOnboardingTourSeen } = await import("./onboarding-actions");
+      const seen = await getOnboardingTourSeen();
+
+      expect(seen).toBe(false);
+    });
+
+    it("degrades to true (don't show tour) on a DB failure", async () => {
+      mockLimit.mockRejectedValueOnce(new Error("db down"));
+
+      const { getOnboardingTourSeen } = await import("./onboarding-actions");
+      const seen = await getOnboardingTourSeen();
+
+      // Fail-safe: non far esplodere l'error boundary del dashboard per una
+      // feature cosmetica (regola 19).
+      expect(seen).toBe(true);
+    });
+  });
+
+  describe("markOnboardingTourSeen", () => {
+    it("updates the profile and returns no error on success", async () => {
+      const { markOnboardingTourSeen } = await import("./onboarding-actions");
+      const result = await markOnboardingTourSeen();
+
+      expect(result).toEqual({});
+      expect(mockUpdate).toHaveBeenCalledTimes(1);
+      expect(mockUpdateSet).toHaveBeenCalledWith(
+        expect.objectContaining({ onboardingTourSeenAt: expect.any(Date) }),
+      );
+    });
+
+    it("degrades to { error } without throwing on a DB failure", async () => {
+      mockUpdateWhere.mockImplementationOnce(() => {
+        throw new Error("db down");
+      });
+
+      const { markOnboardingTourSeen } = await import("./onboarding-actions");
+      const result = await markOnboardingTourSeen();
+
+      expect(result.error).toBeTruthy();
+    });
+  });
 });

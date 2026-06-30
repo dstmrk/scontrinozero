@@ -939,6 +939,66 @@ export const getOnboardingStatus = cache(
   },
 );
 
+/**
+ * Legge il flag "tour onboarding visto" per l'utente corrente (PLAN.md v1.4.1).
+ * Usato dal dashboard layout per decidere se montare il walkthrough guidato:
+ * letto server-side → niente flash di overlay (performance percepita, priorità #1).
+ *
+ * `cache()` deduplicaza la chiamata nello stesso render tree RSC (come
+ * `getOnboardingStatus`). Query mirata sulla sola colonna — non gonfia il JOIN
+ * hot-path di `getOnboardingStatus`.
+ *
+ * Fail-safe (regola 19): un fallimento DB degrada a "già visto" → non mostra il
+ * tour, ma NON fa esplodere l'error boundary del dashboard per una feature
+ * puramente cosmetica.
+ */
+export const getOnboardingTourSeen = cache(async (): Promise<boolean> => {
+  const user = await getAuthenticatedUser();
+  const db = getDb();
+  try {
+    const [row] = await db
+      .select({ seenAt: profiles.onboardingTourSeenAt })
+      .from(profiles)
+      .where(eq(profiles.authUserId, user.id))
+      .limit(1);
+    return row?.seenAt != null;
+  } catch (err) {
+    logger.warn({ err, userId: user.id }, "getOnboardingTourSeen failed");
+    return true;
+  }
+});
+
+/**
+ * Marca il tour onboarding come visto/skippato per l'utente corrente (PLAN.md
+ * v1.4.1). Chiamata dal componente client quando il walkthrough termina
+ * (FINISHED) o viene skippato (SKIPPED).
+ *
+ * `WHERE onboarding_tour_seen_at IS NULL`: idempotente e race-safe — il primo
+ * write vince e i successivi sono no-op (nessun overwrite del timestamp
+ * originale). Degrada con `{ error }` su fallimento DB (regola 19), `logger.warn`
+ * — non un bug nostro né da Sentry (regola 20): la persistenza del tour è
+ * cosmetica, il client l'ha già nascosto in modo optimistic.
+ */
+export async function markOnboardingTourSeen(): Promise<{ error?: string }> {
+  const user = await getAuthenticatedUser();
+  const db = getDb();
+  try {
+    await db
+      .update(profiles)
+      .set({ onboardingTourSeenAt: new Date() })
+      .where(
+        and(
+          eq(profiles.authUserId, user.id),
+          isNull(profiles.onboardingTourSeenAt),
+        ),
+      );
+    return {};
+  } catch (err) {
+    logger.warn({ err, userId: user.id }, "markOnboardingTourSeen failed");
+    return { error: "Impossibile salvare lo stato del tour." };
+  }
+}
+
 const ADE_PASSWORD_REGEX = /^[a-zA-Z0-9*+§°ç@^?=)(/&%$£!|\\<>]{8,15}$/;
 
 export async function changeAdePassword(
