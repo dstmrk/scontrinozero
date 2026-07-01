@@ -2,16 +2,13 @@
 
 import { createElement } from "react";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
-import { getDb } from "@/db";
-import { profiles } from "@/db/schema";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 import { getAuthenticatedUser } from "@/lib/server-auth";
 import { authErrorResult } from "@/lib/auth-errors";
 import { sendEmail } from "@/lib/email";
 import { AccountDeletionEmail } from "@/emails/account-deletion";
+import { purgeUserById } from "@/lib/services/purge-user";
 
 export type AccountActionResult = {
   error?: string;
@@ -20,15 +17,10 @@ export type AccountActionResult = {
 /**
  * Permanently deletes the authenticated user's account and all associated data.
  *
- * Deletion cascade (via FK constraints in 0000_initial.sql):
- *   profiles → businesses → ade_credentials
- *                         → commercial_documents → commercial_document_lines
- *                         → catalog_items
- *
- * Order: auth user is deleted FIRST so that if it fails we can return an error
- * without having touched any application data. If the profile delete fails after
- * auth deletion, we log a critical error (auth entry is gone so the user cannot
- * log in again, but a profile orphan requires manual cleanup via Supabase dashboard).
+ * The actual purge (auth-first delete + profile FK cascade, with retries) lives
+ * in the shared `purgeUserById` helper, reused by the GDPR inactive-user prune
+ * sweep. This action wraps it with the session-specific concerns: auth gate,
+ * sign-out, confirmation email and redirect.
  */
 export async function deleteAccount(): Promise<AccountActionResult> {
   let user;
@@ -38,67 +30,17 @@ export async function deleteAccount(): Promise<AccountActionResult> {
     return authErrorResult(err, "deleteAccount");
   }
 
-  // 1. Delete auth user via admin API first (service role key).
-  //    Retry up to 3 times with exponential backoff. If all retries fail, return
-  //    an error — the profile is still intact so the user can log in and retry.
-  //    Supabase automatically invalidates all sessions when the auth user is
-  //    removed, so an explicit signOut before deletion is not needed here.
-  const adminClient = createAdminSupabaseClient();
-  let deleteAuthError: Error | null = null;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    const { error } = await adminClient.auth.admin.deleteUser(user.id);
-    if (!error) {
-      deleteAuthError = null;
-      break;
-    }
-    deleteAuthError = error;
-    if (attempt < 3) {
-      await new Promise((resolve) => setTimeout(resolve, attempt * 500));
-    }
-  }
-  if (deleteAuthError) {
-    // All retries exhausted. Profile is still intact — the user can log in
-    // and retry the deletion later.
-    logger.error(
-      { userId: user.id, err: deleteAuthError, critical: true },
-      "deleteAccount: auth user deletion failed after retries — account not deleted",
-    );
+  // 1-2. Delete auth user (retry) then the profile cascade. If the auth delete
+  //      fails after retries the profile is untouched → surface an error so the
+  //      user can log in and retry. If auth succeeded but the profile delete
+  //      failed, purgeUserById has already logged a critical error; we still
+  //      proceed to sign out/redirect because the user can no longer log in.
+  const { authDeleted } = await purgeUserById(user.id);
+  if (!authDeleted) {
     return {
       error:
         "Eliminazione account fallita. Riprova oppure contatta il supporto.",
     };
-  }
-
-  // 2. Delete profile — FK cascade removes everything linked to this user.
-  //    Auth entry is already gone at this point. If this fails (transient DB error
-  //    or row not found), we log a critical error and continue to redirect:
-  //    the user can no longer log in (auth is gone) so returning { error } would
-  //    leave them stranded. Manual cleanup: DELETE FROM profiles WHERE
-  //    auth_user_id = '<userId>' in Supabase dashboard.
-  const db = getDb();
-  try {
-    const deleted = await db
-      .delete(profiles)
-      .where(eq(profiles.authUserId, user.id))
-      .returning({ id: profiles.id });
-
-    if (deleted.length === 0) {
-      // Auth deleted but no profile found — already partially cleaned up or
-      // profile was never created. Log for awareness.
-      logger.error(
-        { userId: user.id },
-        "deleteAccount: auth user deleted but profile not found",
-      );
-    }
-  } catch (err) {
-    // Auth is already deleted — the user cannot log in. The profile is now
-    // orphaned and requires manual cleanup. Log critical so ops are alerted.
-    logger.error(
-      { userId: user.id, err, critical: true },
-      "deleteAccount: profile deletion failed after auth user removed — manual cleanup required",
-    );
-    // Do not return { error } here: the user's auth entry is gone, so they
-    // cannot retry via the UI. Redirect so they are cleanly signed out.
   }
 
   // 3. Sign out current session (best-effort: auth user is already deleted;

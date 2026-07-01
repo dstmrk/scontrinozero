@@ -85,6 +85,8 @@ partner per il branding subdomain), e i data file marketing
 | Schema DB (una tabella per file)                  | `src/db/schema` (es. `src/db/schema/profiles.ts`, `src/db/schema/commercial-documents.ts`)                                                                                                                                    |
 | Contenuti marketing/SEO (data file)               | `src/lib/guide`, `src/lib/help`, `src/lib/per`, `src/lib/confronto`, `src/lib/strumenti`                                                                                                                                      |
 | Health/diagnostica post-deploy                    | `src/app/api/health`, `src/app/api/_health`, `src/app/api/_debug`                                                                                                                                                             |
+| Cancellazione account (self-service + purge)      | `src/server/account-actions.ts` (`deleteAccount`), helper condiviso `src/lib/services/purge-user.ts`                                                                                                                          |
+| GDPR pruning utenti inattivi >12 mesi             | `src/lib/services/inactive-user-prune.ts` + config `src/lib/services/inactive-user-prune-config.ts`, sweep in `src/instrumentation.ts`                                                                                        |
 
 ## Indice Server Actions (`src/server/*-actions.ts`)
 

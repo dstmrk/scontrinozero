@@ -183,6 +183,13 @@
       "when": 1780099209000,
       "tag": "0025_profiles_onboarding_tour_seen",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1780099210000,
+      "tag": "0026_profiles_inactivity_warning",
+      "breakpoints": true
     }
   ]
 }
