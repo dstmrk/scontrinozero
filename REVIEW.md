@@ -80,7 +80,7 @@ diventa un buco di billing al lancio della Fase B Developer API.
 
 ### 11. `getCatalogItems` senza LIMIT + autocomplete server-side
 
-- **Categoria:** performance/scalabilità · **Severità:** Medium · **Target: v1.6.0** (insieme a "Catalogo: modifica prodotto", già in roadmap PLAN.md)
+- **Categoria:** performance/scalabilità · **Severità:** Medium · **Target: nice-to-have** ("Paginazione lista catalogo (Pro)" in PLAN.md; la "modifica prodotto" è già spedita — bloccante solo se/quando la paginazione viene promossa a release)
 - **File:** `src/server/catalog-actions.ts:86-90` (SELECT senza LIMIT); consumer: `src/app/dashboard/page.tsx:26`, `src/components/catalogo/catalogo-client.tsx`, Combobox prodotti della cassa
 
 **Problema.** La query carica l'intero catalogo a ogni apertura del POS. Per un
@@ -259,7 +259,7 @@ copia una delle varianti e il drift cresce.
 
 ### 28. SPID: allowlist host IdP prima del wiring di `loginSpid`
 
-- **Categoria:** sicurezza · **Severità:** Low oggi (SPID non cablato) — **bloccante al lancio v1.7.0**
+- **Categoria:** sicurezza · **Severità:** Low oggi (SPID non cablato) — **bloccante al lancio v1.5.0** (AdE auth multi-metodo)
 - **File:** `src/lib/ade/real-client.ts:55` (`ADE_ALLOWED_HOSTS`, modello da replicare), `:657` (`parseFormAction`), `:769` (`spidPostCredentials`), `:988`, `:1060`
 
 **Problema.** Il flusso documenti valida i redirect con `resolveAdeRedirect` +
@@ -272,7 +272,7 @@ pratica).
 
 **Fix (non ambiguo).**
 
-1. **Insieme** al wiring di `loginSpid` (v1.7.0): allowlist `SPID_ALLOWED_IDP_HOSTS`
+1. **Insieme** al wiring di `loginSpid` (v1.5.0): allowlist `SPID_ALLOWED_IDP_HOSTS`
    con gli hostname degli IdP SPID noti (es. `identity.sieltecloud.it` + gli
    altri provider), analoga a `ADE_ALLOWED_HOSTS`.
 2. Validare **ogni** URL di `parseFormAction` e ogni `Location` del flusso SPID

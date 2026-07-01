@@ -72,9 +72,10 @@ iniziale.
     `/strumenti/[slug]` (tool gratuiti backlink-magnet, `src/lib/strumenti/tools.ts`).
     Regole sempre valide: - **Niente promesse di feature non live** in _nessun_ copy marketing: feature
     non implementate → condizionale/roadmap, mai al presente. Oggi sul Pro
-    restano "in arrivo" solo recupero corrispettivi AdE e sync catalogo AdE;
-    Analytics avanzata ed Export CSV sono **spedite e Pro-gated** (commit
-    ae1c481). - **Slug separati `/help` vs `/guide`** sulle keyword condivise per evitare
+    resta "in arrivo" solo il recupero dei **documenti commerciali/corrispettivi
+    da AdE** (roadmap v1.9.0); il sync del **catalogo prodotti** da AdE **non** è
+    più promesso (nice-to-have gated su domanda). Analytics avanzata ed Export
+    CSV sono **spedite e Pro-gated** (commit ae1c481). - **Slug separati `/help` vs `/guide`** sulle keyword condivise per evitare
     canonical clash (es. `/help/regime-forfettario` ≠
     `/guide/regime-forfettario-scontrini`); si linkano a vicenda. - Se modifichi una funzionalità (label, menu, stati, filtri, error flow,
     gating piani, nomi bottoni) aggiorna i contenuti: `grep -rn "<termine>"
@@ -413,12 +414,12 @@ prima dell'entrata in vigore.
 
 ## Pricing (per plan-gate nel codice)
 
-| Piano       | Mensile | Annuale | Note                                                                                                   |
-| ----------- | ------- | ------- | ------------------------------------------------------------------------------------------------------ |
-| Starter     | €4.99   | €29.99  | Catalogo rapido max 5 prodotti, analytics base                                                         |
-| Pro         | €8.99   | €49.99  | Attivo: catalogo ∞, supporto prioritario, analytics avanzata, export CSV. In arrivo: recupero/sync AdE |
-| Self-hosted | €0      | €0      | Tutte le feature, gestione autonoma                                                                    |
-| Unlimited   | —       | —       | Invite-only, `plan='unlimited'` su `profiles`                                                          |
+| Piano       | Mensile | Annuale | Note                                                                                                                    |
+| ----------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Starter     | €4.99   | €29.99  | Catalogo rapido max 5 prodotti, analytics base                                                                          |
+| Pro         | €8.99   | €49.99  | Attivo: catalogo ∞, supporto prioritario, analytics avanzata, export CSV. In arrivo: recupero documenti commerciali AdE |
+| Self-hosted | €0      | €0      | Tutte le feature, gestione autonoma                                                                                     |
+| Unlimited   | —       | —       | Invite-only, `plan='unlimited'` su `profiles`                                                                           |
 
 Feature gate canonico in `src/lib/plans.ts`. Trial 30 giorni Starter/Pro, no
 carta all'iscrizione. P.IVA UNIQUE nel DB (anti-abuso trial).

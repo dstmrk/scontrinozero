@@ -33,7 +33,7 @@ const proFeatures: Feature[] = [
   { label: "Analytics avanzata (grafici e periodi estesi)" },
   { label: "Export CSV degli scontrini" },
   { label: "Supporto prioritario" },
-  { label: "Sincronizzazione catalogo AdE", upcoming: true },
+  { label: "Recupero documenti commerciali da AdE", upcoming: true },
 ];
 
 interface PricingSectionProps {
