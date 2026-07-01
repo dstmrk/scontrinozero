@@ -144,72 +144,26 @@ export async function pruneInactiveUsers(
     return { warned: 0, deleted: 0, reset: 0 };
   }
 
-  let warned = 0;
-  let deleted = 0;
-  let reset = 0;
-  const loginUrl = safeLoginUrl();
+  const ctx: PruneContext = {
+    now,
+    nowMs,
+    warnCutoff,
+    deleteCutoff,
+    warnGraceCutoff,
+    warnBeforeDays: config.warnBeforeDays,
+    loginUrl: safeLoginUrl(),
+  };
+
+  const counts: Record<PruneAction, number> = {
+    warned: 0,
+    deleted: 0,
+    reset: 0,
+    none: 0,
+  };
 
   for (const row of rows) {
     try {
-      const lastActivity = toDate(row.last_activity_at);
-      if (!lastActivity) continue;
-      const planExpiresAt = toDate(row.plan_expires_at);
-      const warningSentAt = toDate(row.inactivity_warning_sent_at);
-      const protectedNow = isProtectedFromPrune(row.plan, planExpiresAt, nowMs);
-      const inactivePastWarn = lastActivity < warnCutoff;
-
-      // RESET: preavvisato ma non più eleggibile (tornato attivo o protetto).
-      if (warningSentAt && (!inactivePastWarn || protectedNow)) {
-        await setWarningSentAt(row.auth_user_id, null);
-        reset++;
-        continue;
-      }
-
-      if (protectedNow) continue;
-
-      // DELETE: 12 mesi di inattività + preavviso inviato ≥ warnBeforeDays fa.
-      if (
-        lastActivity < deleteCutoff &&
-        warningSentAt &&
-        warningSentAt <= warnGraceCutoff
-      ) {
-        const { authDeleted } = await purgeUserById(row.auth_user_id);
-        if (authDeleted) {
-          deleted++;
-          void sendEmail({
-            to: row.email,
-            subject: "Il tuo account ScontrinoZero è stato eliminato",
-            react: createElement(AccountInactivityDeletionEmail, {
-              email: row.email,
-            }),
-          }).catch((err) =>
-            logger.warn(
-              { err },
-              "pruneInactiveUsers: email conferma cancellazione fallita",
-            ),
-          );
-        }
-        continue;
-      }
-
-      // WARN: inattivo oltre la soglia di preavviso, nessun avviso pendente.
-      if (inactivePastWarn && !warningSentAt) {
-        const deletionDate = new Date(
-          nowMs + config.warnBeforeDays * MS_PER_DAY,
-        );
-        await sendEmail({
-          to: row.email,
-          subject:
-            "Il tuo account ScontrinoZero sta per essere eliminato per inattività",
-          react: createElement(AccountInactivityWarningEmail, {
-            firstName: row.first_name ?? "",
-            deletionDate,
-            loginUrl,
-          }),
-        });
-        await setWarningSentAt(row.auth_user_id, now);
-        warned++;
-      }
+      counts[await processCandidate(row, ctx)]++;
     } catch (err) {
       logger.warn(
         { err },
@@ -218,6 +172,7 @@ export async function pruneInactiveUsers(
     }
   }
 
+  const { warned, deleted, reset } = counts;
   if (warned > 0 || deleted > 0 || reset > 0) {
     logger.info(
       { warned, deleted, reset },
@@ -226,6 +181,101 @@ export async function pruneInactiveUsers(
   }
 
   return { warned, deleted, reset };
+}
+
+type PruneAction = "warned" | "deleted" | "reset" | "none";
+
+type PruneContext = {
+  now: Date;
+  nowMs: number;
+  warnCutoff: Date;
+  deleteCutoff: Date;
+  warnGraceCutoff: Date;
+  warnBeforeDays: number;
+  loginUrl: string;
+};
+
+/**
+ * Classifica ed esegue l'azione (warn/delete/reset/none) per un singolo
+ * candidato. Estratta da `pruneInactiveUsers` per contenere la complessità
+ * cognitiva: qui vive tutta la logica decisionale, là resta solo il loop.
+ */
+async function processCandidate(
+  row: CandidateRow,
+  ctx: PruneContext,
+): Promise<PruneAction> {
+  const lastActivity = toDate(row.last_activity_at);
+  if (!lastActivity) return "none";
+  const planExpiresAt = toDate(row.plan_expires_at);
+  const warningSentAt = toDate(row.inactivity_warning_sent_at);
+  const protectedNow = isProtectedFromPrune(row.plan, planExpiresAt, ctx.nowMs);
+  const inactivePastWarn = lastActivity < ctx.warnCutoff;
+
+  // RESET: preavvisato ma non più eleggibile (tornato attivo o protetto).
+  if (warningSentAt && (!inactivePastWarn || protectedNow)) {
+    await setWarningSentAt(row.auth_user_id, null);
+    return "reset";
+  }
+
+  if (protectedNow) return "none";
+
+  // DELETE: 12 mesi di inattività + preavviso inviato ≥ warnBeforeDays fa.
+  if (
+    lastActivity < ctx.deleteCutoff &&
+    warningSentAt &&
+    warningSentAt <= ctx.warnGraceCutoff
+  ) {
+    return (await deleteCandidate(row)) ? "deleted" : "none";
+  }
+
+  // WARN: inattivo oltre la soglia di preavviso, nessun avviso pendente.
+  if (inactivePastWarn && !warningSentAt) {
+    await warnCandidate(row, ctx);
+    return "warned";
+  }
+
+  return "none";
+}
+
+/**
+ * Cancella l'account (cascata) e invia l'email di conferma (fire-and-forget).
+ * Ritorna true se l'auth user è stato effettivamente rimosso.
+ */
+async function deleteCandidate(row: CandidateRow): Promise<boolean> {
+  const { authDeleted } = await purgeUserById(row.auth_user_id);
+  if (!authDeleted) return false;
+  void sendEmail({
+    to: row.email,
+    subject: "Il tuo account ScontrinoZero è stato eliminato",
+    react: createElement(AccountInactivityDeletionEmail, {
+      email: row.email,
+    }),
+  }).catch((err) =>
+    logger.warn(
+      { err },
+      "pruneInactiveUsers: email conferma cancellazione fallita",
+    ),
+  );
+  return true;
+}
+
+/** Invia l'email di preavviso e registra il timestamp di invio. */
+async function warnCandidate(
+  row: CandidateRow,
+  ctx: PruneContext,
+): Promise<void> {
+  const deletionDate = new Date(ctx.nowMs + ctx.warnBeforeDays * MS_PER_DAY);
+  await sendEmail({
+    to: row.email,
+    subject:
+      "Il tuo account ScontrinoZero sta per essere eliminato per inattività",
+    react: createElement(AccountInactivityWarningEmail, {
+      firstName: row.first_name ?? "",
+      deletionDate,
+      loginUrl: ctx.loginUrl,
+    }),
+  });
+  await setWarningSentAt(row.auth_user_id, ctx.now);
 }
 
 /** URL di login per la CTA dell'email di preavviso; degrada al dominio prod. */
