@@ -136,9 +136,6 @@ export default function PianiEPrezziPage() {
             <em>In arrivo:</em> recupero corrispettivi da AdE (sincronizzazione
             dati storici)
           </li>
-          <li>
-            <em>In arrivo:</em> sync catalogo prodotti da rubrica AdE
-          </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           A <strong>€49,99/anno</strong> Pro è più conveniente di Starter su
@@ -304,7 +301,7 @@ export default function PianiEPrezziPage() {
               </li>
               <li>
                 Vuoi accedere alle feature in arrivo riservate al piano Pro
-                (recupero corrispettivi e sync catalogo da rubrica AdE).
+                (recupero dei documenti commerciali da AdE).
               </li>
             </ul>
           </div>
