@@ -44,6 +44,7 @@ describe("instrumentation register()", () => {
     } else {
       process.env.NEXT_RUNTIME = originalNextRuntime;
     }
+    delete process.env.INACTIVE_USER_PRUNE_ENABLED;
   });
 
   it("does nothing when NEXT_RUNTIME is not 'nodejs'", async () => {
@@ -102,6 +103,28 @@ describe("instrumentation register()", () => {
 
     // Both the Supabase keep-alive and the Stripe webhook claim sweep
     // (REVIEW.md #20) start an unref'd setInterval in the nodejs branch.
+    expect(global.setInterval).toHaveBeenCalledTimes(2);
+  });
+
+  it("avvia anche il prune sweep GDPR quando INACTIVE_USER_PRUNE_ENABLED=true", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    process.env.INACTIVE_USER_PRUNE_ENABLED = "true";
+    const { register } = await import("./instrumentation");
+
+    await register();
+
+    // keep-alive + webhook claim sweep + prune sweep GDPR = 3 timer.
+    expect(global.setInterval).toHaveBeenCalledTimes(3);
+  });
+
+  it("NON avvia il prune sweep GDPR quando la feature è disabilitata (default)", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    delete process.env.INACTIVE_USER_PRUNE_ENABLED;
+    const { register } = await import("./instrumentation");
+
+    await register();
+
+    // Solo keep-alive + webhook claim sweep: il prune non parte.
     expect(global.setInterval).toHaveBeenCalledTimes(2);
   });
 

@@ -20,12 +20,14 @@ vi.mock("@/lib/services/purge-user", () => ({
 const mockSendEmail = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/lib/email", () => ({ sendEmail: (o: unknown) => mockSendEmail(o) }));
 
+const mockGetTrustedAppUrl = vi.fn(() => "https://app.test");
 vi.mock("@/lib/trusted-app-url", () => ({
-  getTrustedAppUrl: () => "https://app.test",
+  getTrustedAppUrl: () => mockGetTrustedAppUrl(),
 }));
 
+const mockLoggerWarn = vi.fn();
 vi.mock("@/lib/logger", () => ({
-  logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+  logger: { error: vi.fn(), warn: mockLoggerWarn, info: vi.fn() },
 }));
 
 vi.mock("@/emails/account-inactivity-warning", () => ({
@@ -87,6 +89,29 @@ describe("pruneInactiveUsers", () => {
     });
     mockSendEmail.mockResolvedValue(undefined);
     mockWhere.mockResolvedValue(undefined);
+    mockGetTrustedAppUrl.mockReturnValue("https://app.test");
+  });
+
+  const warnRow = (overrides: Record<string, unknown> = {}) => ({
+    auth_user_id: "w1",
+    email: "w@t.it",
+    first_name: "Wanda",
+    plan: "trial",
+    plan_expires_at: null,
+    inactivity_warning_sent_at: null,
+    last_activity_at: daysAgo(340),
+    ...overrides,
+  });
+
+  const deleteRow = (overrides: Record<string, unknown> = {}) => ({
+    auth_user_id: "d1",
+    email: "d@t.it",
+    first_name: null,
+    plan: "trial",
+    plan_expires_at: null,
+    inactivity_warning_sent_at: daysAgo(31),
+    last_activity_at: daysAgo(400),
+    ...overrides,
   });
 
   it("preavvisa, cancella e resetta secondo lo stato di ogni utente", async () => {
@@ -253,5 +278,71 @@ describe("pruneInactiveUsers", () => {
     expect(result.deleted).toBe(0);
     // Nessuna email di conferma se la cancellazione auth non è avvenuta
     expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it("cancella comunque anche se l'email di conferma fallisce (fire-and-forget)", async () => {
+    mockExecute.mockResolvedValue([deleteRow()]);
+    mockSendEmail.mockRejectedValue(new Error("Resend down"));
+
+    const { pruneInactiveUsers } = await import("./inactive-user-prune");
+    const result = await pruneInactiveUsers(NOW, CONFIG);
+
+    // La cancellazione conta comunque: l'email è best-effort.
+    expect(result.deleted).toBe(1);
+    expect(mockPurgeUserById).toHaveBeenCalledWith("d1");
+    // Flush del microtask del .catch dell'invio fire-and-forget.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      { err: expect.any(Error) },
+      "pruneInactiveUsers: email conferma cancellazione fallita",
+    );
+  });
+
+  it("gestisce date come stringa e first_name null; salta le righe senza attività", async () => {
+    mockExecute.mockResolvedValue([
+      // Date come stringa ISO (ramo string di toDate) + first_name null (?? "")
+      warnRow({
+        auth_user_id: "s1",
+        first_name: null,
+        last_activity_at: daysAgo(340).toISOString(),
+      }),
+      // last_activity_at null → nessuna azione (guardia !lastActivity)
+      warnRow({ auth_user_id: "n1", last_activity_at: null }),
+    ]);
+
+    const { pruneInactiveUsers } = await import("./inactive-user-prune");
+    const result = await pruneInactiveUsers(NOW, CONFIG);
+
+    // Solo s1 preavvisato; la riga senza attività è ignorata.
+    expect(result.warned).toBe(1);
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        react: expect.objectContaining({
+          props: expect.objectContaining({ firstName: "" }),
+        }),
+      }),
+    );
+  });
+
+  it("usa l'URL di login di fallback se getTrustedAppUrl lancia", async () => {
+    mockGetTrustedAppUrl.mockImplementation(() => {
+      throw new Error("identity env non pronta");
+    });
+    mockExecute.mockResolvedValue([warnRow()]);
+
+    const { pruneInactiveUsers } = await import("./inactive-user-prune");
+    const result = await pruneInactiveUsers(NOW, CONFIG);
+
+    expect(result.warned).toBe(1);
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        react: expect.objectContaining({
+          props: expect.objectContaining({
+            loginUrl: "https://app.scontrinozero.it/login",
+          }),
+        }),
+      }),
+    );
   });
 });
