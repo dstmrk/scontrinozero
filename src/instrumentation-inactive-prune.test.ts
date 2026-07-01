@@ -19,11 +19,13 @@ vi.mock("@sentry/nextjs", () => ({ captureRequestError: vi.fn() }));
 describe("startInactiveUserPruneSweep()", () => {
   let capturedCallback: (() => Promise<void>) | undefined;
   let mockUnref: ReturnType<typeof vi.fn>;
-  let startInactiveUserPruneSweep: (intervalMs: number) => void;
+  let startInactiveUserPruneSweep: () => void;
+  let INACTIVE_USER_PRUNE_INTERVAL_MS: number;
 
   beforeEach(async () => {
     vi.resetModules();
-    ({ startInactiveUserPruneSweep } = await import("./instrumentation"));
+    ({ startInactiveUserPruneSweep, INACTIVE_USER_PRUNE_INTERVAL_MS } =
+      await import("./instrumentation"));
 
     mockUnref = vi.fn();
     const mockTimer = { unref: mockUnref } as unknown as ReturnType<
@@ -47,26 +49,27 @@ describe("startInactiveUserPruneSweep()", () => {
     capturedCallback = undefined;
   });
 
-  it("chiama setInterval con l'intervallo passato", () => {
-    startInactiveUserPruneSweep(3_600_000);
+  it("chiama setInterval con la cadenza fissa giornaliera (24h)", () => {
+    startInactiveUserPruneSweep();
+    expect(INACTIVE_USER_PRUNE_INTERVAL_MS).toBe(24 * 60 * 60 * 1000);
     expect(global.setInterval).toHaveBeenCalledWith(
       expect.any(Function),
-      3_600_000,
+      INACTIVE_USER_PRUNE_INTERVAL_MS,
     );
   });
 
   it("chiama .unref() per non bloccare lo shutdown", () => {
-    startInactiveUserPruneSweep(1000);
+    startInactiveUserPruneSweep();
     expect(mockUnref).toHaveBeenCalled();
   });
 
   it("non tocca il DB prima che scatti il timer", () => {
-    startInactiveUserPruneSweep(1000);
+    startInactiveUserPruneSweep();
     expect(mockPruneInactiveUsers).not.toHaveBeenCalled();
   });
 
   it("esegue pruneInactiveUsers quando il callback scatta", async () => {
-    startInactiveUserPruneSweep(1000);
+    startInactiveUserPruneSweep();
     await capturedCallback!();
     expect(mockPruneInactiveUsers).toHaveBeenCalledOnce();
   });
@@ -74,7 +77,7 @@ describe("startInactiveUserPruneSweep()", () => {
   it("logga warn senza lanciare se lo sweep fallisce", async () => {
     const error = new Error("sweep boom");
     mockPruneInactiveUsers.mockRejectedValue(error);
-    startInactiveUserPruneSweep(1000);
+    startInactiveUserPruneSweep();
     await capturedCallback!();
     expect(mockLoggerWarn).toHaveBeenCalledWith(
       { err: error },
@@ -83,8 +86,8 @@ describe("startInactiveUserPruneSweep()", () => {
   });
 
   it("due chiamate avviano un solo setInterval (idempotenza)", () => {
-    startInactiveUserPruneSweep(1000);
-    startInactiveUserPruneSweep(1000);
+    startInactiveUserPruneSweep();
+    startInactiveUserPruneSweep();
     expect(global.setInterval).toHaveBeenCalledOnce();
   });
 });

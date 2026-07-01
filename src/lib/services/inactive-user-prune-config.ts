@@ -15,13 +15,10 @@ export type PruneConfig = {
   deleteAfterDays: number;
   /** Giorni di preavviso prima della cancellazione (default 30). */
   warnBeforeDays: number;
-  /** Periodo dello sweep in ms (default 24h). */
-  intervalMs: number;
 };
 
 export const DEFAULT_DELETE_AFTER_DAYS = 365;
 export const DEFAULT_WARN_BEFORE_DAYS = 30;
-export const DEFAULT_PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
 
 /**
  * Legge un intero positivo da una env; ritorna `fallback` se assente, non
@@ -63,10 +60,6 @@ export function readPruneConfig(
   if (warnBeforeDays >= deleteAfterDays) {
     warnBeforeDays = Math.max(1, deleteAfterDays - 1);
   }
-  const intervalMs = readPositiveInt(
-    env.INACTIVE_USER_PRUNE_INTERVAL_MS,
-    DEFAULT_PRUNE_INTERVAL_MS,
-  );
 
-  return { enabled, deleteAfterDays, warnBeforeDays, intervalMs };
+  return { enabled, deleteAfterDays, warnBeforeDays };
 }

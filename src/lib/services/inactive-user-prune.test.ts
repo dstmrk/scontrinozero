@@ -42,7 +42,6 @@ const CONFIG: PruneConfig = {
   enabled: true,
   deleteAfterDays: 365,
   warnBeforeDays: 30,
-  intervalMs: 86_400_000,
 };
 
 describe("isProtectedFromPrune", () => {

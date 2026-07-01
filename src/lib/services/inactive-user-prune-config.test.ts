@@ -4,7 +4,6 @@ import {
   readPruneConfig,
   DEFAULT_DELETE_AFTER_DAYS,
   DEFAULT_WARN_BEFORE_DAYS,
-  DEFAULT_PRUNE_INTERVAL_MS,
 } from "./inactive-user-prune-config";
 
 describe("readPruneConfig", () => {
@@ -32,29 +31,24 @@ describe("readPruneConfig", () => {
     const config = readPruneConfig({});
     expect(config.deleteAfterDays).toBe(DEFAULT_DELETE_AFTER_DAYS);
     expect(config.warnBeforeDays).toBe(DEFAULT_WARN_BEFORE_DAYS);
-    expect(config.intervalMs).toBe(DEFAULT_PRUNE_INTERVAL_MS);
   });
 
   it("legge soglie custom valide (es. dev più aggressivo)", () => {
     const config = readPruneConfig({
       INACTIVE_USER_DELETE_AFTER_DAYS: "90",
       INACTIVE_USER_WARN_BEFORE_DAYS: "7",
-      INACTIVE_USER_PRUNE_INTERVAL_MS: "3600000",
     });
     expect(config.deleteAfterDays).toBe(90);
     expect(config.warnBeforeDays).toBe(7);
-    expect(config.intervalMs).toBe(3_600_000);
   });
 
   it("ricade sul default su valori non numerici o ≤ 0", () => {
     const config = readPruneConfig({
       INACTIVE_USER_DELETE_AFTER_DAYS: "abc",
       INACTIVE_USER_WARN_BEFORE_DAYS: "-5",
-      INACTIVE_USER_PRUNE_INTERVAL_MS: "0",
     });
     expect(config.deleteAfterDays).toBe(DEFAULT_DELETE_AFTER_DAYS);
     expect(config.warnBeforeDays).toBe(DEFAULT_WARN_BEFORE_DAYS);
-    expect(config.intervalMs).toBe(DEFAULT_PRUNE_INTERVAL_MS);
   });
 
   it("clampa warnBeforeDays sotto deleteAfterDays (invariante preavviso)", () => {
