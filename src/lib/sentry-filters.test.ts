@@ -119,6 +119,30 @@ describe("isClientNetworkFailure", () => {
     expect(isClientNetworkFailure(event, hint)).toBe(true);
   });
 
+  it('filtra la forma arricchita col suffisso host "Failed to fetch (<host>)" (issue SCONTRINOZERO-R, estensione browser)', () => {
+    const event = makeEvent("/help/credenziali-fisconline");
+    const hint: EventHint = {
+      originalException: new TypeError("Failed to fetch (safesearchinc.com)"),
+    };
+
+    expect(isClientNetworkFailure(event, hint)).toBe(true);
+  });
+
+  it('filtra "Load failed (<host>)" arricchito dalla fetch-instrumentation', () => {
+    const event = makeEvent("/dashboard", "Load failed (example.com)");
+
+    expect(isClientNetworkFailure(event)).toBe(true);
+  });
+
+  it('non filtra un messaggio che estende la base senza il suffisso " (" (es. "Failed to fetchX")', () => {
+    const event = makeEvent("/login");
+    const hint: EventHint = {
+      originalException: new TypeError("Failed to fetchX"),
+    };
+
+    expect(isClientNetworkFailure(event, hint)).toBe(false);
+  });
+
   it("filtra quando il messaggio è in originalException stringa", () => {
     const event = makeEvent("/login");
     const hint: EventHint = { originalException: "Load failed" };
