@@ -29,19 +29,29 @@ export function extractErrorMessage(
  * (TCP/TLS drop, nessuna connessione, app iOS in background).
  * Non vengono mai generati da codice applicativo — sono sempre non azionabili.
  */
-const NETWORK_FAILURE_MESSAGES = new Set(["Load failed", "Failed to fetch"]);
+const NETWORK_FAILURE_MESSAGES = ["Load failed", "Failed to fetch"];
 
 /**
  * True se l'evento è un fallimento di rete client-side — il browser non è
  * riuscito a completare la chiamata fetch() prima di ricevere una risposta.
  * Tipico su mobile con connessione instabile (issue SCONTRINOZERO-J).
+ *
+ * La fetch-instrumentation di Sentry (`@sentry/core/instrument/fetch.ts`)
+ * arricchisce il messaggio col suffisso `(<host>)` — es.
+ * `"Failed to fetch (safesearchinc.com)"` da uno script iniettato da
+ * un'estensione browser (issue SCONTRINOZERO-R), o `(app.scontrinozero.it)`
+ * su un `fetchServerAction` caduto. Matchiamo quindi sia la forma nuda sia
+ * quella col suffisso, restando stretti (`base` seguita da ` (`) per non
+ * catturare messaggi applicativi che iniziano per caso con la stessa base.
  */
 export function isClientNetworkFailure(
   event: ErrorEvent,
   hint?: EventHint,
 ): boolean {
   const message = extractErrorMessage(event, hint);
-  return NETWORK_FAILURE_MESSAGES.has(message);
+  return NETWORK_FAILURE_MESSAGES.some(
+    (base) => message === base || message.startsWith(`${base} (`),
+  );
 }
 
 /**
