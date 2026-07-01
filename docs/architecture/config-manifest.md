@@ -20,6 +20,7 @@
 | CSP / security headers                                                   | `src/lib/csp.ts`, `src/lib/security-headers.ts`                                           | —                                                                                 |
 | Limiti lunghezza/valore campi (business, righe, catalogo, email)         | `src/lib/validation.ts` (`BUSINESS_PROFILE_LIMITS`), `src/lib/receipts/receipt-schema.ts` | Zod = SoT; mirror DB CHECK in `supabase/migrations/0019_db_check_constraints.sql` |
 | Chiave/secret Turnstile per ambiente                                     | `src/components/turnstile-widget.tsx`                                                     | `NEXT_PUBLIC_*` baked al build (CLAUDE.md, sezione Deploy)                        |
+| Soglie GDPR pruning utenti inattivi (enabled/giorni/intervallo)          | `src/lib/services/inactive-user-prune-config.ts`                                          | Env `INACTIVE_USER_PRUNE_*` opt-in, runtime; sweep in `src/instrumentation.ts`    |
 
 **Trial:** 30 giorni Starter/Pro, senza carta — gate in `src/lib/plans.ts`,
 copy/dettagli in `CLAUDE.md` (sezione Pricing).

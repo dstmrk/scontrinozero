@@ -77,6 +77,35 @@ export function startStripeWebhookClaimSweep() {
   interval.unref();
 }
 
+let inactiveUserPruneStarted = false;
+
+/**
+ * Sweep GDPR di cancellazione utenti inattivi >12 mesi (PLAN.md v1.4.2).
+ * Stesso pattern di `startSupabaseKeepAlive`/`startStripeWebhookClaimSweep`:
+ * `setInterval` unref'd con guardia d'idempotenza. L'intervallo arriva dalla
+ * config env (`INACTIVE_USER_PRUNE_INTERVAL_MS`, default 24h): `register()`
+ * avvia lo sweep SOLO se la feature è abilitata (`INACTIVE_USER_PRUNE_ENABLED`),
+ * quindi qui l'`intervalMs` è già risolto. Il carico DB/email è tutto lazy
+ * dentro il callback: al boot non si tocca il DB.
+ */
+export function startInactiveUserPruneSweep(intervalMs: number) {
+  if (inactiveUserPruneStarted) return;
+  inactiveUserPruneStarted = true;
+
+  const interval: ReturnType<typeof setInterval> = setInterval(async () => {
+    try {
+      const { pruneInactiveUsers } =
+        await import("@/lib/services/inactive-user-prune");
+      await pruneInactiveUsers();
+    } catch (err) {
+      const { logger } = await import("@/lib/logger");
+      logger.warn({ err }, "Inactive user prune sweep fallito");
+    }
+  }, intervalMs);
+
+  interval.unref();
+}
+
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     // Fail-fast sulle env d'identita' (NEXT_PUBLIC_APP_URL, *_HOSTNAME, …).
@@ -111,6 +140,17 @@ export async function register() {
     // Sweep dei claim webhook Stripe "stuck" (REVIEW.md #20): stessa guardia
     // di idempotenza e pattern setInterval unref'd di startSupabaseKeepAlive.
     startStripeWebhookClaimSweep();
+
+    // Sweep GDPR cancellazione utenti inattivi >12 mesi (PLAN.md v1.4.2).
+    // Feature OPT-IN e distruttiva: parte SOLO se INACTIVE_USER_PRUNE_ENABLED=true.
+    // La config (pure, no deps DB) è letta a parte per non tirare dentro la
+    // pipeline di cancellazione quando la feature è spenta (default).
+    const { readPruneConfig } =
+      await import("@/lib/services/inactive-user-prune-config");
+    const pruneConfig = readPruneConfig();
+    if (pruneConfig.enabled) {
+      startInactiveUserPruneSweep(pruneConfig.intervalMs);
+    }
   }
 
   if (process.env.NEXT_RUNTIME === "edge") {
