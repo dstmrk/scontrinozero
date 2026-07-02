@@ -38,7 +38,7 @@ export const UMAMI_EVENTS = {
  * la telemetria non deve rompere il flusso utente (coerente con regola 19/20).
  */
 export function track(event: string, data?: UmamiEventData): void {
-  if (typeof globalThis.window === "undefined") return;
+  if (globalThis.window === undefined) return;
   const umami = globalThis.window.umami;
   if (!umami) return;
   try {
