@@ -15,6 +15,7 @@ import { ReceiptSuccess } from "@/components/cassa/receipt-success";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
+import { track, UMAMI_EVENTS } from "@/lib/umami";
 import { emitReceipt } from "@/server/receipt-actions";
 import { ChangeAdePasswordDialog } from "@/components/ade/change-ade-password-dialog";
 import { TrialExpiredMessage } from "@/components/billing/trial-expired-message";
@@ -128,6 +129,7 @@ export function CassaClient({
         return; // Handled below via mutation.data
       }
       clearCart();
+      track(UMAMI_EVENTS.receiptEmitted);
       setSuccessData({
         documentId: result.documentId,
         adeProgressive: result.adeProgressive,

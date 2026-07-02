@@ -7,6 +7,7 @@ import {
   organizationJsonLd,
 } from "@/components/json-ld";
 import { marketingBaseUrl } from "@/lib/seo-indexable";
+import { UmamiScript } from "@/components/umami-script";
 import "./globals.css";
 
 const nunitoSans = localFont({
@@ -81,6 +82,7 @@ export default function RootLayout({
       >
         <JsonLd data={softwareApplicationJsonLd} />
         <JsonLd data={organizationJsonLd} />
+        <UmamiScript />
         <Providers>{children}</Providers>
       </body>
     </html>

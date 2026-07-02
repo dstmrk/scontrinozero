@@ -22,7 +22,7 @@ vi.mock("next/dynamic", async () => {
   const { createElement: h, Fragment } = await import("react");
 
   function MockJoyride(props: {
-    onEvent: (data: { status: string; type: string }) => void;
+    onEvent: (data: { status: string; type: string; index?: number }) => void;
     tooltipComponent: ComponentType<Record<string, unknown>>;
   }) {
     const Tooltip = props.tooltipComponent;
@@ -54,6 +54,15 @@ vi.mock("next/dynamic", async () => {
           onClick: () => props.onEvent({ status: "skipped", type: "tour:end" }),
         },
         "skip",
+      ),
+      h(
+        "button",
+        {
+          "data-testid": "step-after",
+          onClick: () =>
+            props.onEvent({ status: "running", type: "step:after", index: 2 }),
+        },
+        "step-after",
       ),
       h(
         "button",
@@ -129,6 +138,20 @@ describe("OnboardingTour", () => {
     fireEvent.click(await screen.findByTestId("notfound"));
 
     await waitFor(() => expect(mockMarkSeen).toHaveBeenCalledTimes(1));
+  });
+
+  it("traccia l'evento Umami quando uno step viene completato", async () => {
+    const trackSpy = vi.fn();
+    window.umami = { track: trackSpy };
+    render(<OnboardingTour />);
+    fireEvent.click(await screen.findByTestId("step-after"));
+
+    expect(trackSpy).toHaveBeenCalledWith("onboarding_step_completed", {
+      step: 2,
+    });
+    // Uno step:after NON è terminale: il tour resta montato.
+    expect(screen.getByTestId("joyride")).toBeInTheDocument();
+    delete window.umami;
   });
 
   it("il tooltip mostra titolo, contenuto e label italiane", async () => {

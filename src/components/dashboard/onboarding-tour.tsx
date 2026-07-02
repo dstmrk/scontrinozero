@@ -18,6 +18,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { markOnboardingTourSeen } from "@/server/onboarding-actions";
+import { track, UMAMI_EVENTS } from "@/lib/umami";
 
 // react-joyride caricata in dynamic import (client-only): i ~34 KB stanno in un
 // chunk separato e non toccano il bundle principale del dashboard né la
@@ -36,6 +37,7 @@ const Joyride = dynamic<JoyrideProps>(
 const STATUS_FINISHED = "finished";
 const STATUS_SKIPPED = "skipped";
 const EVENT_TARGET_NOT_FOUND = "error:target_not_found";
+const EVENT_STEP_AFTER = "step:after";
 
 const DESKTOP_MEDIA_QUERY = "(min-width: 768px)";
 
@@ -186,6 +188,11 @@ export function OnboardingTour() {
   }
 
   function handleEvent(data: EventData) {
+    // Web-analytics: quale step viene completato (funnel di attivazione). No-op
+    // se Umami non è caricato (regola 18) — la telemetria non tocca il flusso.
+    if (data.type === EVENT_STEP_AFTER) {
+      track(UMAMI_EVENTS.onboardingStepCompleted, { step: data.index });
+    }
     // Marca "visto" su completamento, skip o target mancante: in ogni caso il
     // tour non deve riproporsi in loop al prossimo accesso.
     if (

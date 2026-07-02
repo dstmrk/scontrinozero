@@ -19,14 +19,16 @@ banco e le feature Pro committed.
 | **v1.7.0** | **Stampa termica Bluetooth** 58/80mm (Web Bluetooth). _Alta utilità operativa (scontrino fisico al banco): prioritaria rispetto al sync AdE._                                                                                                                                                                                                                                              |
 | **v1.8.0** | **Storno avanzato**: memorizzare progressivo documento AdE di annullamento e stampare ricevuta di annullamento                                                                                                                                                                                                                                                                             |
 | **v1.9.0** | **Sync documenti commerciali da AdE** (feature **Pro**, ex #107): recupero/importazione dei documenti commerciali/corrispettivi storici emessi, per riconciliazione e continuità dati. _Committed («in arrivo» sul Pro), pianificata dopo stampa BT e storno. Groundwork già presente: `searchDocuments`/`getDocument` in `src/lib/ade/client.ts` (oggi usati solo per recovery interno)._ |
-| **v1.x**   | Umami analytics (event tracking lato app) — voce minore, accorpabile a una release vicina                                                                                                                                                                                                                                                                                                  |
 
 > **Già spedite** (storico nei tag git, non più in roadmap): onboarding tour
 > dashboard (v1.4.1), catalogo con CRUD completo inclusa la **modifica prodotto**
 > (`updateCatalogItem` in `src/server/catalog-actions.ts`), **GDPR —
 > cancellazione utenti inattivi >12 mesi** (v1.4.2, ex #97): sweep in-process
 > opt-in con preavviso email ≥30 giorni; inattività = ultimo scontrino o login;
-> `src/lib/services/inactive-user-prune.ts`.
+> `src/lib/services/inactive-user-prune.ts`. **Umami web-analytics** (v1.4.2):
+> script cookieless self-hosted + eventi custom (`receipt_emitted`,
+> `plan_upgrade_click`, `onboarding_step_completed`) via `src/lib/umami.ts`;
+> env baked `NEXT_PUBLIC_UMAMI_*`, runbook in `deploy/umami/`.
 
 ---
 

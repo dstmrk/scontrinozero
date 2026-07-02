@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { buildCsp, buildReportingEndpoints, sanitizeCspViolation } from "./csp";
 
 describe("buildCsp", () => {
@@ -66,6 +66,47 @@ describe("buildCsp", () => {
 
   it("è deterministico tra invocazioni successive (snapshot regression)", () => {
     expect(buildCsp()).toBe(policy);
+  });
+});
+
+describe("buildCsp — allowance Umami condizionale", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("non include alcun host analytics quando NEXT_PUBLIC_UMAMI_SRC è assente", () => {
+    vi.stubEnv("NEXT_PUBLIC_UMAMI_SRC", undefined as unknown as string);
+    const policy = buildCsp();
+    expect(policy).not.toMatch(/analytics\.scontrinozero\.it/);
+  });
+
+  it("non include l'host quando l'env è presente ma vuota (regola 18)", () => {
+    vi.stubEnv("NEXT_PUBLIC_UMAMI_SRC", "");
+    const policy = buildCsp();
+    expect(policy).not.toMatch(/analytics\.scontrinozero\.it/);
+  });
+
+  it("aggiunge l'origin Umami a script-src e connect-src quando configurato", () => {
+    vi.stubEnv(
+      "NEXT_PUBLIC_UMAMI_SRC",
+      "https://analytics.scontrinozero.it/script.js",
+    );
+    const policy = buildCsp();
+    // Solo l'origin, non il path completo dello script
+    expect(policy).toMatch(
+      /script-src[^;]*\bhttps:\/\/analytics\.scontrinozero\.it\b[^;]*;/,
+    );
+    expect(policy).toMatch(
+      /connect-src[^;]*\bhttps:\/\/analytics\.scontrinozero\.it\b[^;]*;/,
+    );
+    expect(policy).not.toMatch(/script\.js/);
+  });
+
+  it("ignora un valore malformato senza rompere la policy", () => {
+    vi.stubEnv("NEXT_PUBLIC_UMAMI_SRC", "non-un-url");
+    const policy = buildCsp();
+    expect(policy).toMatch(/default-src 'self'/);
+    expect(policy).not.toMatch(/non-un-url/);
   });
 });
 

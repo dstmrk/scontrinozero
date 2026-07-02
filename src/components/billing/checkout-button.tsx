@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { track, UMAMI_EVENTS } from "@/lib/umami";
 
 type CheckoutButtonProps = Readonly<{
   priceId: string;
@@ -18,6 +19,7 @@ export function CheckoutButton({
 
   async function handleClick() {
     setLoading(true);
+    track(UMAMI_EVENTS.planUpgradeClick, { priceId });
     try {
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",

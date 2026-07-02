@@ -25,6 +25,14 @@ ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
 ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
+# Umami (web analytics self-hosted, cookieless). Baked al build: senza default
+# (assenti = Umami off, loader e CSP no-op). Prod li passa come --build-arg;
+# dev/sandbox no → Umami resta spento lì (come Sentry su dev). Regola 18.
+ARG NEXT_PUBLIC_UMAMI_SRC
+ARG NEXT_PUBLIC_UMAMI_WEBSITE_ID
+ENV NEXT_PUBLIC_UMAMI_SRC=$NEXT_PUBLIC_UMAMI_SRC
+ENV NEXT_PUBLIC_UMAMI_WEBSITE_ID=$NEXT_PUBLIC_UMAMI_WEBSITE_ID
+
 # Identity hostnames/URL — valutati sia al BUILD (marketing SSG, next.config
 # redirects/headers, metadataBase) sia nel bundle client (appHref in
 # header.tsx). Prod/sandbox NON li passano → l'ARG cade sul default prod.
