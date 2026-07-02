@@ -63,6 +63,9 @@ assert_pass "git push origin domain"
 assert_pass "git push origin feature/main-fix"
 assert_pass "git status"
 assert_pass "git fetch origin main"
+assert_pass "git -C /repo push origin feature"
+assert_pass "git -C /repo fetch origin main"
+assert_pass "git -c protocol.version=2 push origin feature"
 
 # --- BLOCK cases: any refspec whose destination is main ---
 assert_block "git push origin main"
@@ -75,6 +78,14 @@ assert_block "git push --force-with-lease origin main"
 assert_block "git push origin +main"
 assert_block "git push origin refs/heads/main"
 assert_block "git push origin main:main"
+
+# --- BLOCK cases: global git options between `git` and `push` (`-C <dir>`,
+# `-c k=v`, `--git-dir=…`). A regex anchored on `git push` adjacency lets
+# `git -C /repo push origin main` through (bypass found 2026-07-02). ---
+assert_block "git -C /repo push origin main"
+assert_block "git -C /repo push origin develop:main"
+assert_block "git -c protocol.version=2 push origin main"
+assert_block "git --git-dir=/repo/.git push origin HEAD:main"
 
 if [ "$failures" -gt 0 ]; then
   echo "$failures test(s) failed." >&2

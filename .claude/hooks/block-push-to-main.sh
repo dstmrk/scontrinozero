@@ -20,7 +20,11 @@ normalized=$(printf '%s' "$cmd" | tr -s ' ')
 # Boundary `([[:space:]:+]|^)` admits space, `:`, `+`, or line start before
 # the destination. `refs/heads/main` is included explicitly because `/`
 # is not in the boundary class.
-if printf '%s' "$normalized" | grep -qE 'git[[:space:]]+push.*([[:space:]:+]|^)(main|HEAD:main|refs/heads/main)([[:space:]]|$)'; then
+# Global git options between `git` and `push` (`-C <dir>`, `-c k=v`,
+# `--git-dir=…`) are admitted by the optional `(-opt [arg])*` group:
+# requiring `git push` adjacency let `git -C /repo push origin main`
+# through (bypass found 2026-07-02).
+if printf '%s' "$normalized" | grep -qE 'git([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+push.*([[:space:]:+]|^)(main|HEAD:main|refs/heads/main)([[:space:]]|$)'; then
   echo "Blocked by .claude/hooks/block-push-to-main.sh:" >&2
   echo "  Direct push to main is forbidden (CLAUDE.md regola 1). Always go through a PR." >&2
   echo "  If this is intentional (release tag, hotfix authorized by the user), bypass via" >&2

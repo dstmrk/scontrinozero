@@ -1,6 +1,6 @@
 ---
 name: ade-integration
-description: Use when working with the Agenzia delle Entrate (AdE) "Documento Commerciale Online" integration — editing files under src/server/ade/, handling Fisconline credential encryption/decryption, rotating ENCRYPTION_KEY via scripts/rotate-encryption-key.ts, reverse-engineering AdE HTTP flows from HAR captures (login_cie.har, ricerca_documento.har, etc.), wiring the RealAdeClient/MockAdeClient adapter for ADE_MODE=real|mock, or debugging production AdE 4xx/5xx errors. Covers why no headless browser is allowed and the diagnostic-logging-first debug pattern.
+description: Use when working with the Agenzia delle Entrate (AdE) "Documento Commerciale Online" integration — editing files under src/lib/ade/ or the emit/void/recovery orchestration in src/lib/services/, handling Fisconline credential encryption/decryption, rotating ENCRYPTION_KEY via scripts/rotate-encryption-key.ts, reverse-engineering AdE HTTP flows from HAR captures (login_cie.har, ricerca.har, etc. — local-only, gitignored), wiring the RealAdeClient/MockAdeClient adapter for ADE_MODE=real|mock, tuning the stale-pending recovery (getStalePendingThresholdMs, reconcileSaleDocument/reconcileVoidDocument in src/lib/services/ade-recovery.ts), or debugging production AdE 4xx/5xx errors. Covers why no headless browser is allowed and the diagnostic-logging-first debug pattern.
 ---
 
 # ade-integration — Integrazione Agenzia delle Entrate, mock, debug
@@ -56,17 +56,54 @@ Confrontando il codice contro una HAR capture, controllare esplicitamente che
 l'ordine matcha. Una call mancante è più difficile da spottare di una sbagliata.
 Cross-reference request-by-request.
 
-### File HAR nel repo
+### File HAR (capture locali, NON versionate)
 
-| File                             | Feature                                            | Target                               |
-| -------------------------------- | -------------------------------------------------- | ------------------------------------ |
-| `dati_doc_commerciale.har`       | Aggiornamento dati business su AdE post-onboarding | rinviato (possibile feature premium) |
-| `aggiungi_prodotto_catalogo.har` | Aggiunta prodotto su rubrica AdE                   | nice-to-have (sync catalogo AdE)     |
-| `modifica_prodotto_catalogo.har` | Modifica prodotto su rubrica AdE                   | nice-to-have (sync catalogo AdE)     |
-| `elimina_prodotto_catalogo.har`  | Eliminazione prodotto su rubrica AdE               | nice-to-have (sync catalogo AdE)     |
-| `ricerca_prodotto_catalogo.har`  | Ricerca prodotto su rubrica AdE                    | nice-to-have (sync catalogo AdE)     |
-| `ricerca_documento.har`          | Ricerca documento su AdE                           | rinviato (recupero corrispettivi)    |
-| `login_cie.har`                  | CIE login flow                                     | v1.7.0                               |
+⚠️ I `.har` sono **gitignorati** (`*.har` in `.gitignore`: contengono cookie e
+dati di sessione reali): vivono in `har/` solo sulla macchina dell'owner e
+**non esistono in un clone fresco** (CI, sessioni cloud). Se un task richiede
+una HAR assente, chiederla all'utente — non cercarla nel repo.
+
+| File                             | Feature                                            | Target                                                                                                       |
+| -------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `dati_doc_commerciale.har`       | Aggiornamento dati business su AdE post-onboarding | rinviato (possibile feature premium)                                                                         |
+| `aggiungi_prodotto_catalogo.har` | Aggiunta prodotto su rubrica AdE                   | nice-to-have (sync catalogo AdE)                                                                             |
+| `modifica_prodotto_catalogo.har` | Modifica prodotto su rubrica AdE                   | nice-to-have (sync catalogo AdE)                                                                             |
+| `elimina_prodotto_catalogo.har`  | Eliminazione prodotto su rubrica AdE               | nice-to-have (sync catalogo AdE)                                                                             |
+| `ricerca_prodotto_catalogo.har`  | Ricerca prodotto su rubrica AdE                    | nice-to-have (sync catalogo AdE)                                                                             |
+| `ricerca.har`                    | Ricerca documento su AdE                           | ✅ usata dal recovery (riconciliazione, sotto); recupero corrispettivi user-facing rinviato (roadmap v1.9.0) |
+| `login_cie.har`                  | CIE login flow                                     | v1.7.0                                                                                                       |
+
+---
+
+## Recovery stale-pending: riconciliazione pre-retry (implementata)
+
+AdE non accetta idempotency-key nel payload: se una `submitSale`/`submitVoid`
+era arrivata ad AdE ma la response si è persa (timeout, container kill), un
+retry cieco creerebbe un documento fiscale duplicato — **irreversibile**.
+Il recovery in `src/lib/services/ade-recovery.ts` chiude questa finestra con
+**due strati**, entrambi già in produzione:
+
+1. **Gate di freschezza** — `getStalePendingThresholdMs()`: una row
+   PENDING/ERROR entra nel recovery path solo se più vecchia di **30 min**
+   (sopra la durata tipica di una sessione AdE; un retry sotto soglia ritorna
+   `PENDING_IN_PROGRESS`). Override per test/E2E:
+   `STALE_PENDING_THRESHOLD_MINUTES=5`. Soglia condivisa da
+   `src/lib/services/receipt-service.ts` e `src/lib/services/void-service.ts`
+   per evitare drift. Il claim del documento è un CAS ottimistico su
+   `updated_at` (`claimStaleDocument`): serializza retry concorrenti senza
+   tenere lock DB durante la HTTP AdE (2-5s).
+2. **Riconciliazione pre-retry** — prima di ri-sottomettere, il recovery
+   interroga AdE via `searchDocuments` (HAR: `ricerca.har`) e riconcilia con
+   `reconcileSaleDocument`/`reconcileVoidDocument`: se AdE aveva già accettato
+   → finalize-only (nessun duplicato fiscale); se non trovato → re-submit;
+   lookup ambiguo o fallito → resta PENDING (fail-safe). Logging esplicito al
+   rientro in recovery senza `adeTransactionId` per audit (REVIEW.md #4,
+   ormai risolto — vedi `docs/architecture/data-flows.md`).
+
+Storia: prima della riconciliazione la soglia dei 30 min era l'**unica**
+mitigazione e il duplicato restava possibile oltre soglia. Se tocchi questo
+flusso, l'invariante da testare è: nessun percorso chiama `submitSale`/
+`submitVoid` su un documento che AdE ha già accettato.
 
 ---
 

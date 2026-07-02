@@ -1,9 +1,12 @@
 /**
- * Validates the codebase map under docs/architecture/: every repo path cited in
- * those docs (as an inline code span) must still exist on disk. Catches the most
- * damaging form of drift — a path renamed or deleted while the map kept the old
- * reference — turning a stale map into a hard CI failure instead of silently
- * misleading the next reader. Exits with code 1 on any dead reference.
+ * Validates the codebase map under docs/architecture/ AND the skills under
+ * .claude/skills/: every repo path cited in those docs (as an inline code span;
+ * for skills also as a bare token in the frontmatter `description`) must still
+ * exist on disk. Catches the most damaging form of drift — a path renamed or
+ * deleted while the doc kept the old reference — turning a stale map into a
+ * hard CI failure instead of silently misleading the next reader (or steering
+ * a skill's auto-activation with a dead path). Exits with code 1 on any dead
+ * reference.
  *
  * Run: node scripts/check-architecture-docs.mjs  (npm run arch:check)
  *
@@ -18,14 +21,20 @@
  *    they are intentionally illustrative, not literal paths.
  *  - Route-group parens `(marketing)` and dynamic `[id]` segments are literal
  *    directory names on disk, so they validate as-is.
+ *  - In .claude/skills/<name>/SKILL.md the YAML frontmatter is additionally
+ *    scanned for BARE tokens with a known prefix (descriptions are plain text,
+ *    no code spans) — that is where the dead `src/server/ade/` reference lived.
  */
 
 import { readdir, readFile, stat } from "fs/promises";
 import { join } from "path";
 
 const ARCH_DOCS_SUBDIR = ["docs", "architecture"];
+const SKILLS_SUBDIR = [".claude", "skills"];
 const PATH_PREFIX_RE = /^(?:src|supabase|scripts|deploy|docs|tests|public)\//;
 const PATH_BODY_RE = /^[A-Za-z0-9_./()[\]-]+$/;
+const BARE_PATH_RE =
+  /(?:src|supabase|scripts|deploy|docs|tests|public)\/[A-Za-z0-9_./()[\]-]*/g;
 
 /**
  * Extracts the repo paths referenced as inline code spans in a markdown string.
@@ -50,6 +59,49 @@ export function extractPathTokens(markdown) {
     tokens.add(token);
   }
   return [...tokens].sort();
+}
+
+/**
+ * Extracts the repo paths cited as BARE tokens in the YAML frontmatter of a
+ * skill markdown (the `description` is plain text, so code-span scanning
+ * misses it). Trailing `/` and `.` are stripped: "under src/lib/ade/," and
+ * "in scripts/migrate.ts." both cite the path, not the punctuation.
+ * @param {string} markdown
+ * @returns {string[]} sorted, de-duplicated path tokens
+ */
+export function extractFrontmatterPathTokens(markdown) {
+  const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(markdown);
+  if (!frontmatter) return [];
+  const tokens = new Set();
+  let match;
+  while ((match = BARE_PATH_RE.exec(frontmatter[1])) !== null) {
+    const token = normalizeBareToken(match[0]);
+    if (!PATH_PREFIX_RE.test(`${token}/`) || !PATH_BODY_RE.test(token)) {
+      continue; // bare prefix with nothing after it, or stray characters
+    }
+    tokens.add(token);
+  }
+  return [...tokens].sort();
+}
+
+/**
+ * Strips trailing punctuation off a bare token: `/` and `.` (sentence
+ * boundary), plus UNBALANCED closing `)`/`]` — "(e.g. from src/lib/x.ts)"
+ * captures the closing paren, while route-group `(marketing)` and dynamic
+ * `[id]` segments are balanced and must survive.
+ * @param {string} raw
+ * @returns {string}
+ */
+function normalizeBareToken(raw) {
+  let token = raw.replace(/[./]+$/, "");
+  const count = (s, ch) => s.split(ch).length - 1;
+  while (
+    (token.endsWith(")") && count(token, "(") < count(token, ")")) ||
+    (token.endsWith("]") && count(token, "[") < count(token, "]"))
+  ) {
+    token = token.slice(0, -1).replace(/[./]+$/, "");
+  }
+  return token;
 }
 
 /**
@@ -90,7 +142,41 @@ export async function checkArchitectureDocs(rootDir) {
       continue;
     }
     for (const token of extractPathTokens(content)) {
-      if (!referencedBy.has(token)) referencedBy.set(token, file);
+      if (!referencedBy.has(token)) {
+        referencedBy.set(token, `docs/architecture/${file}`);
+      }
+    }
+  }
+
+  // .claude/skills/<name>/SKILL.md — same code-span contract, plus bare
+  // frontmatter tokens. A missing skills dir is fine (nothing to validate);
+  // a skill dir without a readable SKILL.md is a broken skill → error.
+  const skillsDir = join(rootDir, ...SKILLS_SUBDIR);
+  let skillEntries = [];
+  try {
+    skillEntries = await readdir(skillsDir, { withFileTypes: true });
+  } catch {
+    skillEntries = [];
+  }
+  const skillNames = skillEntries
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name)
+    .sort();
+  for (const name of skillNames) {
+    const displayPath = `.claude/skills/${name}/SKILL.md`;
+    let content;
+    try {
+      content = await readFile(join(skillsDir, name, "SKILL.md"), "utf-8");
+    } catch {
+      errors.push(`Cannot read skill doc: ${displayPath}`);
+      continue;
+    }
+    const tokens = [
+      ...extractPathTokens(content),
+      ...extractFrontmatterPathTokens(content),
+    ];
+    for (const token of tokens) {
+      if (!referencedBy.has(token)) referencedBy.set(token, displayPath);
     }
   }
 
@@ -100,7 +186,7 @@ export async function checkArchitectureDocs(rootDir) {
       await stat(join(rootDir, token));
     } catch {
       errors.push(
-        `Referenced path "${token}" (in docs/architecture/${referencedBy.get(token)}) does not exist`,
+        `Referenced path "${token}" (in ${referencedBy.get(token)}) does not exist`,
       );
     }
   }
@@ -119,7 +205,7 @@ if (isMain) {
         console.error(`   - ${err}`);
       }
       console.error(
-        "\nFix: update the stale path in docs/architecture/ (the map must point at real files).",
+        "\nFix: update the stale path in docs/architecture/ or .claude/skills/ (docs must point at real files).",
       );
       process.exit(1);
     }
