@@ -117,6 +117,7 @@ Tutte sono `"use server"`; sulle azioni di lettura vale "degradare, non lanciare
 - `src/lib/receipts/document-lines.ts` — aritmetica monetaria canonica (regola 17)
 - `src/lib/ade/log-failure.ts` — classificazione errori AdE (regole 20/23)
 - `src/lib/identity-env.ts` — validazione env d'identità al boot (regola 24)
+- `src/lib/umami.ts` + `src/components/umami-script.tsx` — web-analytics Umami (script cookieless nel root layout + helper `track()`); ≠ dal dominio "analytics" business (KPI dashboard in `src/server/analytics-actions.ts`)
 - `src/db/schema/index.ts` — barrel dello schema Drizzle
 
 ## Altri riferimenti

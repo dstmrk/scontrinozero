@@ -22,28 +22,62 @@ const TURNSTILE_HOSTS = ["https://challenges.cloudflare.com"] as const;
 
 const CSP_REPORT_PATH = "/api/csp-report";
 
-const DIRECTIVES: ReadonlyArray<readonly [string, ReadonlyArray<string>]> = [
-  ["default-src", ["'self'"]],
-  ["script-src", ["'self'", "'unsafe-inline'", "challenges.cloudflare.com"]],
-  ["style-src", ["'self'", "'unsafe-inline'"]],
-  ["img-src", ["'self'", "data:"]],
-  ["font-src", ["'self'", "data:"]],
-  [
-    "connect-src",
-    ["'self'", ...SUPABASE_HOSTS, ...SENTRY_HOSTS, ...TURNSTILE_HOSTS],
-  ],
-  ["frame-src", ["'self'", ...TURNSTILE_HOSTS]],
-  ["frame-ancestors", ["'none'"]],
-  ["base-uri", ["'self'"]],
-  ["form-action", ["'self'"]],
-  ["object-src", ["'none'"]],
-  // CSP3: report-uri ammette URL relativi, risolti rispetto al documento.
-  ["report-uri", [CSP_REPORT_PATH]],
-  // Reporting API: il token deve combaciare con una entry dell'header
-  // `Reporting-Endpoints` (vedi buildReportingEndpoints), che richiede URL
-  // assoluto.
-  ["report-to", ["csp-endpoint"]],
-];
+/**
+ * Origin dell'istanza Umami self-hosted, derivato da `NEXT_PUBLIC_UMAMI_SRC`
+ * (URL completo dello script, es. `https://analytics.scontrinozero.it/script.js`).
+ *
+ * Ritorna solo l'`origin` (mai il path) così la CSP resta stretta. Se l'env è
+ * assente, vuota (regola 18 CLAUDE.md — un `?? default` non scatterebbe su `""`)
+ * o malformata, ritorna `[]`: nessun host aggiunto e Umami resta disattivo.
+ * L'env è `NEXT_PUBLIC_*` → baked al build; letta qui a build time in
+ * `next.config` (marketing SSG / headers).
+ */
+function umamiHosts(): readonly string[] {
+  const src = process.env.NEXT_PUBLIC_UMAMI_SRC;
+  if (!src) return [];
+  try {
+    return [new URL(src).origin];
+  } catch {
+    return [];
+  }
+}
+
+function buildDirectives(): ReadonlyArray<
+  readonly [string, ReadonlyArray<string>]
+> {
+  const umami = umamiHosts();
+  return [
+    ["default-src", ["'self'"]],
+    [
+      "script-src",
+      ["'self'", "'unsafe-inline'", "challenges.cloudflare.com", ...umami],
+    ],
+    ["style-src", ["'self'", "'unsafe-inline'"]],
+    ["img-src", ["'self'", "data:"]],
+    ["font-src", ["'self'", "data:"]],
+    [
+      "connect-src",
+      [
+        "'self'",
+        ...SUPABASE_HOSTS,
+        ...SENTRY_HOSTS,
+        ...TURNSTILE_HOSTS,
+        ...umami,
+      ],
+    ],
+    ["frame-src", ["'self'", ...TURNSTILE_HOSTS]],
+    ["frame-ancestors", ["'none'"]],
+    ["base-uri", ["'self'"]],
+    ["form-action", ["'self'"]],
+    ["object-src", ["'none'"]],
+    // CSP3: report-uri ammette URL relativi, risolti rispetto al documento.
+    ["report-uri", [CSP_REPORT_PATH]],
+    // Reporting API: il token deve combaciare con una entry dell'header
+    // `Reporting-Endpoints` (vedi buildReportingEndpoints), che richiede URL
+    // assoluto.
+    ["report-to", ["csp-endpoint"]],
+  ];
+}
 
 /**
  * Costruisce la stringa CSP deterministica.
@@ -52,9 +86,9 @@ const DIRECTIVES: ReadonlyArray<readonly [string, ReadonlyArray<string>]> = [
  *   default-src 'self'; script-src 'self' 'unsafe-inline' challenges.cloudflare.com; ...
  */
 export function buildCsp(): string {
-  return DIRECTIVES.map(
-    ([directive, sources]) => `${directive} ${sources.join(" ")}`,
-  ).join("; ");
+  return buildDirectives()
+    .map(([directive, sources]) => `${directive} ${sources.join(" ")}`)
+    .join("; ");
 }
 
 /**
