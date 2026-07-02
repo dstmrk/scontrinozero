@@ -77,18 +77,23 @@ export function startStripeWebhookClaimSweep() {
   interval.unref();
 }
 
+// Cadenza fissa dello sweep GDPR: una volta al giorno è più che sufficiente per
+// una soglia di inattività nell'ordine dei mesi (non serve renderla
+// configurabile). Le soglie che contano — enabled/giorni di inattività/preavviso
+// — restano in INACTIVE_USER_PRUNE_* (src/lib/services/inactive-user-prune-config.ts).
+export const INACTIVE_USER_PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
+
 let inactiveUserPruneStarted = false;
 
 /**
  * Sweep GDPR di cancellazione utenti inattivi >12 mesi (PLAN.md v1.4.2).
  * Stesso pattern di `startSupabaseKeepAlive`/`startStripeWebhookClaimSweep`:
- * `setInterval` unref'd con guardia d'idempotenza. L'intervallo arriva dalla
- * config env (`INACTIVE_USER_PRUNE_INTERVAL_MS`, default 24h): `register()`
- * avvia lo sweep SOLO se la feature è abilitata (`INACTIVE_USER_PRUNE_ENABLED`),
- * quindi qui l'`intervalMs` è già risolto. Il carico DB/email è tutto lazy
- * dentro il callback: al boot non si tocca il DB.
+ * `setInterval` unref'd con guardia d'idempotenza, cadenza fissa giornaliera.
+ * `register()` avvia lo sweep SOLO se la feature è abilitata
+ * (`INACTIVE_USER_PRUNE_ENABLED`). Il carico DB/email è tutto lazy dentro il
+ * callback: al boot non si tocca il DB.
  */
-export function startInactiveUserPruneSweep(intervalMs: number) {
+export function startInactiveUserPruneSweep() {
   if (inactiveUserPruneStarted) return;
   inactiveUserPruneStarted = true;
 
@@ -101,7 +106,7 @@ export function startInactiveUserPruneSweep(intervalMs: number) {
       const { logger } = await import("@/lib/logger");
       logger.warn({ err }, "Inactive user prune sweep fallito");
     }
-  }, intervalMs);
+  }, INACTIVE_USER_PRUNE_INTERVAL_MS);
 
   interval.unref();
 }
@@ -149,7 +154,7 @@ export async function register() {
       await import("@/lib/services/inactive-user-prune-config");
     const pruneConfig = readPruneConfig();
     if (pruneConfig.enabled) {
-      startInactiveUserPruneSweep(pruneConfig.intervalMs);
+      startInactiveUserPruneSweep();
     }
   }
 
