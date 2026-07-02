@@ -126,4 +126,4 @@ Tutte sono `"use server"`; sulle azioni di lettura vale "degradare, non lanciare
   stripe-webhooks, testing-patterns)
 - **Comportamento sempre-attivo** → `CLAUDE.md`
 - **Roadmap** → `PLAN.md` · **Bug/tech debt** → `REVIEW.md` · **Developer API** →
-  `DEVELOPER.md` · **Flussi HTTP AdE** → `docs/api-spec.md`
+  `DEVELOPER.md` · **Surface REST + flussi HTTP AdE** → `docs/api-spec.md`

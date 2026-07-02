@@ -70,6 +70,15 @@ assert_block "npx drizzle-kit   generate"
 assert_block "drizzle-kit generate:pg"
 assert_block "cd packages/db && npx drizzle-kit generate"
 
+# --- BLOCK cases: options between `drizzle-kit` and `generate`. A regex
+# requiring adjacency lets `drizzle-kit --config=x generate` through
+# (same bypass class as `git -C … push`, found 2026-07-02). ---
+assert_block "npx drizzle-kit --config=drizzle.config.ts generate"
+assert_block "drizzle-kit --config drizzle.config.ts generate"
+
+# Options before a non-generate subcommand must stay allowed.
+assert_pass "npx drizzle-kit --config=drizzle.config.ts push"
+
 # --- BLOCK cases: the first-party `db:generate` script wrapper, which
 # expands to `drizzle-kit generate` (package.json). Without these the suite
 # gives a false green: the most likely real invocation slips through. ---

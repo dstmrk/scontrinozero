@@ -66,7 +66,7 @@ iniziale.
     riusabile (debugging pattern, setup gotcha, wrong assumption). Non
     aspettare che lo chiedano.
 8.  **Contenuti marketing & SEO.** I contenuti vivono in route dedicate con un
-    data file ciascuna: `/help` (operativo, `src/app/(marketing)/help`), `/guide`
+    data file ciascuna: `/help` (operativo, `src/lib/help/articles.ts`), `/guide`
     (educativo, `src/lib/guide/articles.ts`), `/per/[slug]` (categorie,
     `src/lib/per/categories.ts`), `/confronto` (`src/lib/confronto/comparisons.ts`),
     `/strumenti/[slug]` (tool gratuiti backlink-magnet, `src/lib/strumenti/tools.ts`).
@@ -267,8 +267,9 @@ https://<host>/api/_debug/sentry-sentinel?id=<release>`; la response
     autonomo della doc): una mappa obsoleta è peggio di nessuna mappa — fuorvia
     chi la legge al posto di esplorare. Il validatore
     `scripts/check-architecture-docs.mjs` fallisce se un path citato nella mappa
-    (in `code span`) non esiste più su disco; cita ogni path come span isolato
-    (i token con `*`/`{}` sono ignorati come illustrativi).
+    **o in una skill** (`.claude/skills/*/SKILL.md`, inclusi i token path-like
+    nella `description` frontmatter) non esiste più su disco; cita ogni path
+    come span isolato (i token con `*`/`{}` sono ignorati come illustrativi).
 
 27. **Date derivate e fonti di verità esterne (bonus/crediti/aggiustamenti).**
     Due trappole emerse insieme nel programma referral (presentato/presentatore).
@@ -343,7 +344,7 @@ popolate senza default. Dettaglio + bootstrap su DB pre-esistente nella skill
 npm run lint                # ESLint / TypeScript
 npx prettier --check src/   # ⚠️ dopo modifiche a classi Tailwind: prettier --write
 npm run test:coverage       # tutti i test verdi, coverage non in calo
-npm run arch:check          # path citati in docs/architecture/ esistono ancora
+npm run arch:check          # path citati in docs/architecture/ e .claude/skills/ esistono ancora
 ```
 
 Controlli manuali:
@@ -463,7 +464,7 @@ Altri riferimenti già nel repo:
 - **`PLAN.md`** — roadmap funzionalità
 - **`REVIEW.md`** — registro bug noti / tech debt prioritizzato (file:riga, fix)
 - **`DEVELOPER.md`** — Developer API (Tier 1/2)
-- **`docs/api-spec.md`** — surface REST
+- **`docs/api-spec.md`** — surface REST + flussi HTTP AdE
 - **`README.md`** — overview pubblico
 
 ## Scelte architetturali rapide
