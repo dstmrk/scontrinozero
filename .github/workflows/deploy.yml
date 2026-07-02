@@ -13,8 +13,6 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  IMAGE_ARTIFACT_NAME: docker-image
-  IMAGE_ARCHIVE_PATH: /tmp/scontrinozero-image.tar
 
 jobs:
   check-ci:
@@ -60,12 +58,24 @@ jobs:
               core.info(`All ${ciChecks.length} CI checks passed on ${sha.substring(0, 7)}`);
             }
 
-  build-image:
+  # Build → smoke test → Trivy → push in un unico job: l'immagine buildata
+  # resta nel daemon Docker locale, senza il round-trip docker save →
+  # upload-artifact → download → load (×2) e senza due runner spin-up
+  # intermedi della precedente catena build-image → smoke-test → push-image.
+  # I gate restano gli stessi, in sequenza: il push su GHCR avviene solo se
+  # l'health probe del container e lo scan Trivy passano.
+  build-smoke-push:
     needs: [check-ci]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     permissions:
       contents: read
+      packages: write
+    env:
+      # Opt into Node.js 24 runtime now; trivy-action@v0.35.0 pins
+      # actions/cache@v4.2.4 (node20) internally — force node24 until
+      # trivy-action ships a release that depends on actions/cache@v5.
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
@@ -101,49 +111,18 @@ jobs:
           secrets: |
             sentry_auth_token=${{ secrets.SENTRY_AUTH_TOKEN }}
 
-      - name: Export built image archive
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          docker save \
-            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}" \
-            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" \
-            --output "${IMAGE_ARCHIVE_PATH}"
-
-      - name: Upload built image archive
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: ${{ env.IMAGE_ARTIFACT_NAME }}
-          path: ${{ env.IMAGE_ARCHIVE_PATH }}
-          retention-days: 1
-
-  smoke-test:
-    needs: [build-image]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
-      SUPABASE_SECRET_KEY: ${{ secrets.TEST_SUPABASE_SECRET_KEY }}
-      DATABASE_URL: "postgresql://smoke:smoke@localhost:5432/smoke"
-      ENCRYPTION_KEY: ${{ secrets.TEST_ENCRYPTION_KEY }}
-      ENCRYPTION_KEY_VERSION: "1"
-      SKIP_MIGRATIONS: "true"
-      ADE_MODE: "mock"
-      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
-      TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA"
-    steps:
-      - name: Download built image archive
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: ${{ env.IMAGE_ARTIFACT_NAME }}
-          path: /tmp
-
-      - name: Load built image
-        run: docker load --input "${IMAGE_ARCHIVE_PATH}"
-
-      - name: Start container
+      - name: Smoke test — start container
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.TEST_NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.TEST_SUPABASE_SECRET_KEY }}
+          DATABASE_URL: "postgresql://smoke:smoke@localhost:5432/smoke"
+          ENCRYPTION_KEY: ${{ secrets.TEST_ENCRYPTION_KEY }}
+          ENCRYPTION_KEY_VERSION: "1"
+          SKIP_MIGRATIONS: "true"
+          ADE_MODE: "mock"
+          NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+          TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA"
         run: |
           docker run -d \
             --name scontrinozero-smoke \
@@ -160,7 +139,7 @@ jobs:
             -e TURNSTILE_SECRET_KEY \
             "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
 
-      - name: Wait for container health
+      - name: Smoke test — wait for container health
         run: |
           for i in $(seq 1 60); do
             status="$(docker inspect --format='{{.State.Status}}' scontrinozero-smoke 2>/dev/null || true)"
@@ -181,31 +160,9 @@ jobs:
         if: failure()
         run: docker logs scontrinozero-smoke || true
 
-      - name: Stop container
+      - name: Stop smoke container
         if: always()
         run: docker rm -f scontrinozero-smoke || true
-
-  push-image:
-    needs: [build-image, smoke-test]
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-      packages: write
-    env:
-      # Opt into Node.js 24 runtime now; trivy-action@v0.35.0 pins
-      # actions/cache@v4.2.4 (node20) internally — force node24 until
-      # trivy-action ships a release that depends on actions/cache@v5.
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-    steps:
-      - name: Download built image archive
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: ${{ env.IMAGE_ARTIFACT_NAME }}
-          path: /tmp
-
-      - name: Load built image archive
-        run: docker load --input "${IMAGE_ARCHIVE_PATH}"
 
       - name: Set image ref
         id: image-ref
