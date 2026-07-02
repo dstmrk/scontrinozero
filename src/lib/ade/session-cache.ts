@@ -34,10 +34,10 @@ export interface CachedAdeClient extends AdeClient {
 }
 
 /** TTL di default: sotto la scadenza sessione AdE (~20 min osservati). */
-export const DEFAULT_ADE_SESSION_TTL_MS = 10 * 60 * 1000;
+const DEFAULT_ADE_SESSION_TTL_MS = 10 * 60 * 1000;
 
 /** Cap LRU di default sul numero di sessioni cached in memoria. */
-export const DEFAULT_ADE_SESSION_MAX_ENTRIES = 100;
+const DEFAULT_ADE_SESSION_MAX_ENTRIES = 100;
 
 interface CacheEntry {
   client: CachedAdeClient;

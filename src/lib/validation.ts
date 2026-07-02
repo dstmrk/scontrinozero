@@ -63,7 +63,7 @@ export const adePinSchema = z
 /**
  * CAP italiano: esattamente 5 cifre numeriche.
  */
-export const ITALIAN_ZIP_REGEX = /^\d{5}$/;
+const ITALIAN_ZIP_REGEX = /^\d{5}$/;
 export const ITALIAN_ZIP_MESSAGE = "CAP non valido (5 cifre numeriche).";
 
 export function isValidItalianZipCode(zipCode: string): boolean {

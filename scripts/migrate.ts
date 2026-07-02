@@ -4,7 +4,7 @@ import path from "path";
 import { resolve4, resolve6 } from "dns/promises";
 import postgres from "postgres";
 
-export function computeChecksum(content: string): string {
+function computeChecksum(content: string): string {
   return createHash("sha256").update(content, "utf-8").digest("hex");
 }
 
@@ -68,7 +68,7 @@ export interface SchemaInvariantResult {
   partiallyPresent: boolean;
 }
 
-export async function checkSchemaInvariants(
+async function checkSchemaInvariants(
   sql: postgres.Sql,
 ): Promise<SchemaInvariantResult> {
   const present: string[] = [];

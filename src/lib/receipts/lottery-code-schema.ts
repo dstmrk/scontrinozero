@@ -2,8 +2,7 @@ import type { z } from "zod/v4";
 
 /**
  * Codice Lotteria degli Scontrini: 8 caratteri alfanumerici maiuscoli
- * (specifica AdE). Lo stesso regex è usato da `isValidLotteryCode` e da
- * `src/lib/ade/validation.ts` (lato payload AdE).
+ * (specifica AdE). Lo stesso regex è usato da `isValidLotteryCode`.
  */
 export const LOTTERY_CODE_REGEX = /^[A-Z0-9]{8}$/;
 

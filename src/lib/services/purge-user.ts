@@ -5,7 +5,7 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 
 /** Numero massimo di tentativi per la delete dell'auth user (admin API). */
-export const MAX_AUTH_DELETE_ATTEMPTS = 3;
+const MAX_AUTH_DELETE_ATTEMPTS = 3;
 
 export type PurgeUserResult = {
   /** true se l'auth user è stato rimosso (dopo eventuali retry). */

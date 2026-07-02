@@ -51,7 +51,7 @@ Bearer key), `src/app/api/stripe` (webhook), `src/app/api/health` (liveness),
 
 Sottocartelle di `src/lib/`: `src/lib/ade` (integrazione AdE HTTP),
 `src/lib/services` (orchestrazione emit/void/recovery), `src/lib/receipts`
-(totali, PDF, CSV, lotteria), `src/lib/supabase` (client browser/server/admin +
+(totali, PDF, CSV, lotteria), `src/lib/supabase` (client server/admin +
 middleware), `src/lib/pdf`, `src/lib/pwa`, `src/lib/partners` (hostname →
 partner per il branding subdomain), e i data file marketing
 `src/lib/guide` `src/lib/help` `src/lib/per` `src/lib/confronto`
@@ -62,7 +62,7 @@ partner per il branding subdomain), e i data file marketing
 | Cerchi…                                           | Vai a                                                                                                                                                                                                                         |
 | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Auth della richiesta (user UUID, bind Sentry)     | `src/lib/server-auth.ts` (`getAuthenticatedUser`)                                                                                                                                                                             |
-| Client Supabase (browser/server/admin/middleware) | `src/lib/supabase/server.ts`, `src/lib/supabase/client.ts`, `src/lib/supabase/admin.ts`, `src/lib/supabase/middleware.ts`                                                                                                     |
+| Client Supabase (server/admin/middleware)         | `src/lib/supabase/server.ts`, `src/lib/supabase/admin.ts`, `src/lib/supabase/middleware.ts`                                                                                                                                   |
 | Azioni auth (login/register/reset, T&C version)   | `src/server/auth-actions.ts`                                                                                                                                                                                                  |
 | Plan gate / feature flag per piano                | `src/lib/plans.ts` + `src/lib/plans-shared.ts`                                                                                                                                                                                |
 | Referral program (codice, redemption, reward)     | `src/lib/referral-code.ts`, `src/db/schema/referral-redemptions.ts`, cattura in `src/server/auth-actions.ts` (`signUp`), reward in `src/server/onboarding-actions.ts` (`finalizeAdeVerification`)                             |

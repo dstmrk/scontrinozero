@@ -10,10 +10,7 @@ import type { ErrorEvent, EventHint } from "@sentry/nextjs";
  */
 const FORMDATA_PARSE_MESSAGE = "Failed to parse body as FormData";
 
-export function extractErrorMessage(
-  event: ErrorEvent,
-  hint?: EventHint,
-): string {
+function extractErrorMessage(event: ErrorEvent, hint?: EventHint): string {
   const original = hint?.originalException;
   if (original instanceof Error) {
     return original.message;

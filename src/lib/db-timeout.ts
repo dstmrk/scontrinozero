@@ -10,7 +10,6 @@ type DrizzleTx = Parameters<Parameters<DrizzleDb["transaction"]>[0]>[0];
  * Esegue `fn` dentro una transazione preceduta da
  * `SET LOCAL statement_timeout = <ms>`.
  *
- * Pattern già provato nella readiness probe (`/api/health/ready`):
  * Postgres aborta lo statement con error code `57014` se eccede il budget e
  * recupera la connessione dal pool. `SET LOCAL` resta scoped alla transazione
  * — sicuro anche con il transaction pooler di Supabase, dove le sessioni non
