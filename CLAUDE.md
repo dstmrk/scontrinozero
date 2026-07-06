@@ -8,7 +8,7 @@ via "Documento Commerciale Online", senza registratore telematico fisico.
 
 **Stack:** Next.js 16 (App Router) · React 19 · TypeScript strict · Tailwind 4 ·
 shadcn/ui · TanStack Query/Table · PWA (Serwist) · Supabase Cloud (Postgres) ·
-Drizzle ORM · Supabase Auth · Stripe (`2026-05-27.dahlia`) · Resend · Sentry ·
+Drizzle ORM · Supabase Auth · Stripe (`2026-06-24.dahlia`) · Resend · Sentry ·
 pino · Umami · SonarCloud · Vitest. Deploy Docker self-hosted su VPS dietro
 Cloudflare Tunnel.
 
@@ -307,7 +307,7 @@ https://<host>/api/_debug/sentry-sentinel?id=<release>`; la response
 Regole specifiche ricorrenti (S6861 readonly props, S6772 JSX spacing, S7780
 template literals, S5852/S5122 hotspots, Gitleaks placeholder) → skill `sonar-quality-gate`.
 
-## Stripe API version `2026-05-27.dahlia` — breaking changes
+## Stripe API version `2026-06-24.dahlia` — breaking changes
 
 - `Invoice.subscription` rimosso → `invoice.parent?.subscription_details?.subscription`
 - `Subscription.current_period_end` → `subscription.items.data[0]?.current_period_end`
@@ -436,7 +436,7 @@ auto-attivano quando il task matcha il `description`:
   Drizzle raw `sql\`\``con`Date`, race / idempotency per-tenant
 - **`security-patterns`** — `CF-Connecting-IP`, UUID/body/email guards,
   hostname validation, double-gate rate limit, CSP, prototype-safe lookup
-- **`stripe-webhooks`** — API `2026-05-27.dahlia`, 8 webhook events,
+- **`stripe-webhooks`** — API `2026-06-24.dahlia`, 8 webhook events,
   stale-pending recovery AdE
 - **`ade-integration`** — integrazione HTTP diretta, mock strategy, HAR
   analysis, rotazione `ENCRYPTION_KEY`

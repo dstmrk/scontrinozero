@@ -12,13 +12,7 @@ const FORMULA_LEADERS = new Set(["=", "+", "-", "@", "\t", "\r"]);
  * sempre un bug del caller.
  */
 export type CsvFieldValue =
-  | string
-  | number
-  | boolean
-  | bigint
-  | Date
-  | null
-  | undefined;
+  string | number | boolean | bigint | Date | null | undefined;
 
 /**
  * Restituisce true se il campo deve essere wrappato in virgolette doppie

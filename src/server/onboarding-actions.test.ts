@@ -408,8 +408,7 @@ describe("onboarding-actions", () => {
       expect(result.businessId).toBe("biz-789");
       // Due update: [0] profiles (firstName/lastName), [1] businesses
       const businessSetPayload = mockUpdateSet.mock.calls[1]?.[0] as
-        | Record<string, unknown>
-        | undefined;
+        Record<string, unknown> | undefined;
       expect(businessSetPayload).toBeDefined();
       expect(businessSetPayload).not.toHaveProperty("preferredVatCode");
     });
@@ -425,8 +424,7 @@ describe("onboarding-actions", () => {
 
       expect(result.businessId).toBe("biz-789");
       const businessSetPayload = mockUpdateSet.mock.calls[1]?.[0] as
-        | Record<string, unknown>
-        | undefined;
+        Record<string, unknown> | undefined;
       expect(businessSetPayload?.preferredVatCode).toBeNull();
     });
 

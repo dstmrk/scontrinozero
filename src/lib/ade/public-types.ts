@@ -72,11 +72,7 @@ export interface VoidRequest {
 // ---------------------------------------------------------------------------
 
 export type DocumentStatus =
-  | "PENDING"
-  | "ACCEPTED"
-  | "VOID_ACCEPTED"
-  | "REJECTED"
-  | "ERROR";
+  "PENDING" | "ACCEPTED" | "VOID_ACCEPTED" | "REJECTED" | "ERROR";
 
 export interface ApiError {
   code: string;

@@ -163,8 +163,7 @@ describe("server-auth", () => {
       await getAuthenticatedUser();
 
       const callArg = mockSentrySetUser.mock.calls[0]?.[0] as
-        | Record<string, unknown>
-        | undefined;
+        Record<string, unknown> | undefined;
       expect(callArg).toBeDefined();
       expect(callArg).not.toHaveProperty("email");
       expect(callArg).not.toHaveProperty("username");

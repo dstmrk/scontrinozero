@@ -125,10 +125,7 @@ function checkCaptchaPreLimit(
 }
 
 type CaptchaAction =
-  | "signup"
-  | "signin"
-  | "reset-password"
-  | "resend-confirmation";
+  "signup" | "signin" | "reset-password" | "resend-confirmation";
 
 /**
  * Hostname accettati nella response Turnstile siteverify.

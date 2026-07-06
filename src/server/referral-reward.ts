@@ -44,7 +44,7 @@ export async function extendSubscriptionForReferral(args: {
     const stripe = getStripe();
     const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
 
-    // API 2026-05-27.dahlia: current_period_end vive su items.data[0]
+    // API 2026-06-24.dahlia: current_period_end vive su items.data[0]
     // (rimosso dal top-level Subscription), stesso accesso del webhook.
     const currentPeriodEnd = sub.items.data[0]?.current_period_end;
     if (!currentPeriodEnd) {

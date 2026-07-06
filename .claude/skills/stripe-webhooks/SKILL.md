@@ -1,11 +1,11 @@
 ---
 name: stripe-webhooks
-description: Use when working with Stripe billing — handling API version `2026-05-27.dahlia` breaking changes (Invoice.subscription moved to invoice.parent?.subscription_details?.subscription, Subscription.current_period_end moved to items[0]), registering the 8 required webhook events (checkout.session.completed/expired, customer.subscription.updated/deleted, invoice.paid/payment_failed/payment_action_required, charge.dispute.created), or debugging "pending" subscription rows after checkout. Files: src/lib/stripe.ts (SDK wrapper), src/app/api/stripe/ (webhook + checkout/portal), src/server/billing-actions.ts. For the AdE stale-pending recovery see the ade-integration skill.
+description: Use when working with Stripe billing — handling API version `2026-06-24.dahlia` breaking changes (Invoice.subscription moved to invoice.parent?.subscription_details?.subscription, Subscription.current_period_end moved to items[0]), registering the 8 required webhook events (checkout.session.completed/expired, customer.subscription.updated/deleted, invoice.paid/payment_failed/payment_action_required, charge.dispute.created), or debugging "pending" subscription rows after checkout. Files: src/lib/stripe.ts (SDK wrapper), src/app/api/stripe/ (webhook + checkout/portal), src/server/billing-actions.ts. For the AdE stale-pending recovery see the ade-integration skill.
 ---
 
 # stripe-webhooks — Stripe API version, webhook events, recovery patterns
 
-## API version `2026-05-27.dahlia` — breaking changes
+## API version `2026-06-24.dahlia` — breaking changes
 
 SDK: `stripe` npm v22.x.
 
