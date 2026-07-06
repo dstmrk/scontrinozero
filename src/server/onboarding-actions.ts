@@ -429,8 +429,7 @@ async function finalizeAdeVerification(params: {
   userId: string;
   credentialVersion: Date;
   businessSnapshot:
-    | { fiscalCode: string | null; vatNumber: string | null }
-    | undefined;
+    { fiscalCode: string | null; vatNumber: string | null } | undefined;
   fiscalData: {
     identificativiFiscali: { partitaIva: string; codiceFiscale: string };
   } | null;

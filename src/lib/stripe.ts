@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 
-const STRIPE_API_VERSION = "2026-05-27.dahlia" as const;
+const STRIPE_API_VERSION = "2026-06-24.dahlia" as const;
 
 /**
  * Per-request options da applicare alle chiamate Stripe nel webhook handler.

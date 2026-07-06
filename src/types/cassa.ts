@@ -4,16 +4,7 @@
 
 /** Aliquote IVA supportate nell'UI cassa */
 export type VatCode =
-  | "4"
-  | "5"
-  | "10"
-  | "22"
-  | "N1"
-  | "N2"
-  | "N3"
-  | "N4"
-  | "N5"
-  | "N6";
+  "4" | "5" | "10" | "22" | "N1" | "N2" | "N3" | "N4" | "N5" | "N6";
 
 /** Metodi di pagamento supportati nell'UI cassa */
 export type PaymentMethod = "PC" | "PE";

@@ -257,8 +257,7 @@ describe("POST /api/stripe/checkout", () => {
     >;
     // No trial_period_days or trial_end in the session create call
     const subscriptionData = sessionCall.subscription_data as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     expect(subscriptionData?.trial_period_days).toBeUndefined();
   });
 

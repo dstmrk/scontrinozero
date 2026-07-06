@@ -320,8 +320,7 @@ describe("logger Sentry bridge", () => {
     // sentryFingerprint is routing metadata, NOT payload — keep it out of extra
     // so Sentry doesn't echo the fingerprint string back into the issue context.
     const extra = mockCaptureException.mock.calls[0]?.[1]?.extra as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     expect(extra).not.toHaveProperty("sentryFingerprint");
   });
 

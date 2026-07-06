@@ -1,8 +1,7 @@
 import { LOTTERY_CODE_REGEX } from "@/lib/receipts/lottery-code-schema";
 
 export type LotteryValidationResult =
-  | { ok: true; code: string }
-  | { ok: false; error: string };
+  { ok: true; code: string } | { ok: false; error: string };
 
 export function validateLotteryCode(input: unknown): LotteryValidationResult {
   if (typeof input !== "string") {

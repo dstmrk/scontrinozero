@@ -71,7 +71,7 @@ ambiguo o fallito → resta pending (fail-safe).
 2. Webhook firmato → `src/app/api/stripe`; gli eventi processati aggiornano il
    piano su `src/db/schema/profiles.ts` (idempotenza via
    `src/db/schema/stripe-webhook-events.ts`).
-3. API version `2026-05-27.dahlia` e gli 8 eventi obbligatori → skill
+3. API version `2026-06-24.dahlia` e gli 8 eventi obbligatori → skill
    `stripe-webhooks` + `CLAUDE.md`.
 
 ## Osservabilità ed errori
