@@ -525,40 +525,18 @@ describe("onboarding-actions", () => {
       expect(result.error).toContain("Codice fiscale");
     });
 
-    it("returns error for PIN with fewer than 10 digits", async () => {
+    it.each([
+      { scenario: "fewer than 10 digits", pin: "123456789" },
+      { scenario: "more than 10 digits", pin: "12345678901" },
+      { scenario: "non-numeric characters", pin: "abcdefghij" },
+    ])("returns error for PIN with $scenario", async ({ pin }) => {
       const { saveAdeCredentials } = await import("./onboarding-actions");
       const result = await saveAdeCredentials(
         formData({
           businessId: "biz-789",
           codiceFiscale: "RSSMRA80A01H501U",
           password: "pass",
-          pin: "123456789",
-        }),
-      );
-      expect(result.error).toContain("PIN");
-    });
-
-    it("returns error for PIN with more than 10 digits", async () => {
-      const { saveAdeCredentials } = await import("./onboarding-actions");
-      const result = await saveAdeCredentials(
-        formData({
-          businessId: "biz-789",
-          codiceFiscale: "RSSMRA80A01H501U",
-          password: "pass",
-          pin: "12345678901",
-        }),
-      );
-      expect(result.error).toContain("PIN");
-    });
-
-    it("returns error for PIN containing non-numeric characters", async () => {
-      const { saveAdeCredentials } = await import("./onboarding-actions");
-      const result = await saveAdeCredentials(
-        formData({
-          businessId: "biz-789",
-          codiceFiscale: "RSSMRA80A01H501U",
-          password: "pass",
-          pin: "abcdefghij",
+          pin,
         }),
       );
       expect(result.error).toContain("PIN");
