@@ -26,14 +26,20 @@ const mockInnerJoin = vi.fn().mockReturnValue({ where: mockWhere });
 const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin });
 const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
 
+// Catena update per il touch di `last_seen_at` (GDPR pruning, REVIEW audit
+// 2026-07-07): db.update(profiles).set({...}).where(condizione throttle).
+const mockUpdateWhere = vi.fn().mockResolvedValue(undefined);
+const mockUpdateSet = vi.fn(() => ({ where: mockUpdateWhere }));
+const mockUpdate = vi.fn(() => ({ set: mockUpdateSet }));
+
 vi.mock("@/db", () => ({
-  getDb: vi.fn().mockReturnValue({ select: mockSelect }),
+  getDb: vi.fn().mockReturnValue({ select: mockSelect, update: mockUpdate }),
 }));
 
 vi.mock("@/db/schema", () => ({
   adeCredentials: "ade-credentials-table",
   businesses: "businesses-table",
-  profiles: "profiles-table",
+  profiles: { authUserId: "auth_user_id", lastSeenAt: "last_seen_at" },
 }));
 
 const mockDecrypt = vi.fn().mockReturnValue("decrypted-value");
@@ -187,6 +193,50 @@ describe("server-auth", () => {
       await expect(getAuthenticatedUser()).rejects.toThrow("Not authenticated");
 
       expect(mockSentrySetUser).not.toHaveBeenCalled();
+    });
+
+    it("tocca last_seen_at (fire-and-forget) dopo autenticazione riuscita", async () => {
+      // Segnale di attività per il GDPR pruning: last_sign_in_at di Supabase
+      // NON si aggiorna sul refresh token, quindi un utente PWA con sessione
+      // persistente che usa l'app in sola lettura risulterebbe inattivo.
+      // Il touch (throttled, scrittura condizionale) registra la visita.
+      mockGetUser.mockResolvedValue({ data: { user: FAKE_USER } });
+
+      const { getAuthenticatedUser } = await import("./server-auth");
+      await getAuthenticatedUser();
+      // Flush del microtask del touch fire-and-forget.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(mockUpdate).toHaveBeenCalledTimes(1);
+      expect(mockUpdateSet).toHaveBeenCalledWith({
+        lastSeenAt: expect.any(Date),
+      });
+      expect(mockUpdateWhere).toHaveBeenCalledTimes(1);
+    });
+
+    it("un fallimento del touch non fa fallire getAuthenticatedUser (warn, no throw)", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: FAKE_USER } });
+      mockUpdateWhere.mockRejectedValueOnce(new Error("DB down"));
+
+      const { getAuthenticatedUser } = await import("./server-auth");
+      const user = await getAuthenticatedUser();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(user).toEqual(FAKE_USER);
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        expect.objectContaining({ action: "touchLastSeen" }),
+        expect.any(String),
+      );
+    });
+
+    it("NON tocca last_seen_at quando l'utente non è autenticato", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+
+      const { getAuthenticatedUser } = await import("./server-auth");
+      await expect(getAuthenticatedUser()).rejects.toThrow("Not authenticated");
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(mockUpdate).not.toHaveBeenCalled();
     });
 
     it("is wrapped in React cache() to dedupe the auth round-trip (REVIEW.md #2)", async () => {

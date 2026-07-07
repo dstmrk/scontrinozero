@@ -1,6 +1,6 @@
 import { cache } from "react";
 import * as Sentry from "@sentry/nextjs";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, lt, or } from "drizzle-orm";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getDb } from "@/db";
 import { adeCredentials, businesses, profiles } from "@/db/schema";
@@ -68,8 +68,51 @@ export const getAuthenticatedUser = cache(async (): Promise<User> => {
   // `src/lib/logger.ts` e con la policy GDPR del progetto. Regola 22 di
   // CLAUDE.md.
   Sentry.setUser({ id: user.id });
+  // Touch fire-and-forget di profiles.last_seen_at: segnale "visita
+  // autenticata" per il GDPR pruning (inactive-user-prune.ts).
+  // auth.users.last_sign_in_at NON si aggiorna sul refresh token, quindi un
+  // utente PWA con sessione persistente che usa l'app in sola lettura
+  // risulterebbe inattivo e rischierebbe la cancellazione. Non awaited: non
+  // deve costare latenza sul hot path (priorità #1 performance percepita) né
+  // far fallire l'auth se il DB è degradato.
+  void touchLastSeen(user.id).catch((err) =>
+    logger.warn(
+      { action: "touchLastSeen", err },
+      "last_seen_at touch failed (non-blocking)",
+    ),
+  );
   return user;
 });
+
+/**
+ * Throttle del touch di `last_seen_at`: al massimo una scrittura ogni 24h per
+ * utente. Su scala di soglie GDPR in mesi la granularità giornaliera è più che
+ * sufficiente.
+ */
+const LAST_SEEN_TOUCH_THROTTLE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Registra la visita autenticata aggiornando `profiles.last_seen_at`.
+ * Scrittura CONDIZIONALE per evitare write-amplification (stesso pattern del
+ * conditional `last_used_at` delle API key, skill `testing-patterns`): la
+ * UPDATE tocca la riga solo se il valore è NULL o più vecchio del throttle —
+ * per ogni altra richiesta è un no-op senza write. `getAuthenticatedUser` è
+ * già dedupata per-request via React cache(), quindi al più un tentativo per
+ * richiesta.
+ */
+export async function touchLastSeen(authUserId: string): Promise<void> {
+  const db = getDb();
+  const threshold = new Date(Date.now() - LAST_SEEN_TOUCH_THROTTLE_MS);
+  await db
+    .update(profiles)
+    .set({ lastSeenAt: new Date() })
+    .where(
+      and(
+        eq(profiles.authUserId, authUserId),
+        or(isNull(profiles.lastSeenAt), lt(profiles.lastSeenAt, threshold)),
+      ),
+    );
+}
 
 /**
  * Checks that businessId belongs to the authenticated user's profile.
