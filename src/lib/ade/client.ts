@@ -16,6 +16,7 @@ import type {
   AdeProduct,
   AdeResponse,
   AdeSearchParams,
+  CieCredentials,
   FisconlineCredentials,
   SpidCredentials,
 } from "./types";
@@ -37,11 +38,21 @@ export interface AdeClient {
   /**
    * Autentica sul portale AdE tramite SPID e restituisce una sessione.
    *
-   * HAR finding (login_spid.har): flusso SAML2 HTTP POST Binding via broker Sogei
-   * (spid.sogei.it). 2FA tramite push notification sul dispositivo mobile.
-   * NOTA: le sessioni SPID non supportano re-auth automatico (no PIN).
+   * HAR finding (login_spid_ok_*.har): flusso SAML2 HTTP POST Binding, entry
+   * AdE /rp/{provider}/sel. 2FA via OTP o push notification.
+   * NOTA: le sessioni SPID non supportano re-auth automatico (secondo fattore
+   * umano) — alla scadenza serve un nuovo login interattivo.
    */
   loginSpid(credentials: SpidCredentials): Promise<AdeSession>;
+
+  /**
+   * Autentica sul portale AdE tramite CIE e restituisce una sessione.
+   *
+   * HAR finding (login_cie_ok_notifica_app.har): IdP Shibboleth Ministero
+   * dell'Interno, login livello 2 (email CIE ID + password) confermato via push
+   * sull'app CIE ID. Come SPID, nessun re-auth automatico su 401.
+   */
+  loginCie(credentials: CieCredentials): Promise<AdeSession>;
 
   /** Invia un documento commerciale di vendita */
   submitSale(payload: AdePayload): Promise<AdeResponse>;

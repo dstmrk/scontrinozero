@@ -17,6 +17,7 @@ import type {
   AdeProduct,
   AdeResponse,
   AdeSearchParams,
+  CieCredentials,
   FisconlineCredentials,
   SpidCredentials,
 } from "./types";
@@ -59,6 +60,24 @@ const ADE_ALLOWED_HOSTS: ReadonlySet<string> = new Set([
   "telematici.agenziaentrate.gov.it",
 ]);
 
+/** Entry point AdE (Service Provider) per il login federato SPID/CIE. */
+const ADE_SP_BASE_URL = "https://sp.agenziaentrate.gov.it";
+
+/** IdP CIE (Ministero dell'Interno / IPZS). */
+const CIE_IDP_BASE_URL = "https://idserver.servizicie.interno.gov.it";
+
+/**
+ * Allowlist estesa per il flusso federato: oltre agli host AdE, l'entry SP
+ * (sp.agenziaentrate.gov.it) e gli IdP di CIE/SPID di cui abbiamo evidenza HAR.
+ * Usata solo durante il login SPID/CIE, quando i redirect attraversano gli IdP.
+ */
+const FEDERATED_ALLOWED_HOSTS: ReadonlySet<string> = new Set([
+  ...ADE_ALLOWED_HOSTS,
+  "sp.agenziaentrate.gov.it",
+  "idserver.servizicie.interno.gov.it",
+  "identity.sieltecloud.it",
+]);
+
 /**
  * Risolve un Location header rispetto alla URL corrente e ne valida
  * scheme + host contro la allowlist AdE (anti-SSRF).
@@ -74,6 +93,7 @@ const ADE_ALLOWED_HOSTS: ReadonlySet<string> = new Set([
 export function resolveAdeRedirect(
   currentUrl: string,
   location: string,
+  allowedHosts: ReadonlySet<string> = ADE_ALLOWED_HOSTS,
 ): string {
   let resolved: URL;
   try {
@@ -101,7 +121,7 @@ export function resolveAdeRedirect(
     );
   }
 
-  if (!ADE_ALLOWED_HOSTS.has(resolved.hostname)) {
+  if (!allowedHosts.has(resolved.hostname)) {
     logger.warn(
       { fromHost: safeHost(currentUrl), toHost: resolved.hostname },
       "ade:redirect_blocked_host",
@@ -225,7 +245,8 @@ export class RealAdeClient implements AdeClient {
     startUrl: string,
     maxHops = 20,
     jar?: CookieJar,
-  ): Promise<Response> {
+    allowedHosts: ReadonlySet<string> = ADE_ALLOWED_HOSTS,
+  ): Promise<{ response: Response; url: string }> {
     let url = startUrl;
     let hops = 0;
 
@@ -234,15 +255,15 @@ export class RealAdeClient implements AdeClient {
 
       // Success (2xx) or server error: stop following
       if (response.status < 300 || response.status >= 400) {
-        return response;
+        return { response, url };
       }
 
       // Redirect: resolve Location relative to the current URL's origin and
-      // validate against the AdE host allowlist (anti-SSRF).
+      // validate against the host allowlist (anti-SSRF).
       const location = response.headers.get("Location");
-      if (!location) return response;
+      if (!location) return { response, url };
 
-      url = resolveAdeRedirect(url, location);
+      url = resolveAdeRedirect(url, location, allowedHosts);
       hops++;
     }
 
@@ -384,15 +405,24 @@ export class RealAdeClient implements AdeClient {
   }
 
   /**
-   * Phase F: Recupera la prima P.IVA disponibile per l'utente.
+   * Phase F: Recupera identità (P.IVA + codice fiscale) dal wizardTemplate.
    *
-   * HAR finding (login_credenziali_fisconline.har entry 59):
+   * HAR finding (login_credenziali_fisconline.har entry 59,
+   * login_cie_ok_notifica_app.har entry 31):
    *   GET /instr/instradamento-fatture-rest/rs/wizardTemplate
-   *   Response: {"PIva":[{"piva":"...","denominazione":"..."}],...}
-   * Richiede il token x-appl nell'header.
-   * Skippato durante la re-auth su 401 quando la P.IVA è già nota.
+   *   Response: {"PIva":[{"piva":"...","denominazione":"..."}],
+   *              "cfUidUltimo":"<CF>", ...}
+   * Richiede il token x-appl nell'header. Skippato durante la re-auth su 401
+   * quando la P.IVA è già nota.
+   *
+   * Il `cf` è essenziale per CIE, dove lo username del login è un'email e il
+   * codice fiscale non è un input: si legge qui da `cfUidUltimo`. Per Fisconline
+   * il CF è già noto (credenziali), quindi `cf` può risultare undefined senza
+   * errore — solo la P.IVA mancante è fatale.
    */
-  private async fetchWizardPiva(xAppl: string): Promise<string> {
+  private async fetchWizardIdentity(
+    xAppl: string,
+  ): Promise<{ cf: string | undefined; piva: string }> {
     const url = `${ADE_BASE_URL}${ADE_INSTR_PATH}/wizardTemplate`;
     const response = await this.request(url, {
       headers: { "x-appl": xAppl },
@@ -407,6 +437,7 @@ export class RealAdeClient implements AdeClient {
 
     const data = (await response.json()) as {
       PIva?: { piva?: string }[];
+      cfUidUltimo?: string;
     };
     const piva = data?.PIva?.[0]?.piva;
 
@@ -430,7 +461,7 @@ export class RealAdeClient implements AdeClient {
       );
     }
 
-    return piva;
+    return { cf: data?.cfUidUltimo, piva };
   }
 
   /**
@@ -625,6 +656,53 @@ export class RealAdeClient implements AdeClient {
   }
 
   /**
+   * Coda del portale condivisa tra Fisconline, CIE e SPID (Phases B2-G).
+   *
+   * Parte dalla home portale già raggiunta (post-login IAM per Fisconline,
+   * post-SAML per CIE/SPID) e arriva all'attivazione della sessione
+   * instradamento-fatture. Verificata identica in
+   * login_credenziali_fisconline.har e login_cie_ok_notifica_app.har (entry
+   * 22-35): initPortale → InstradamentofcWeb/home → initLight → dp/PI2FC →
+   * wizardTemplate → setUserChoice.
+   *
+   * @param knownCf   - CF già noto (Fisconline: username). Per CIE è undefined
+   *                    e viene letto da wizardTemplate (`cfUidUltimo`).
+   * @param knownPiva - P.IVA già nota (re-auth su 401): salta wizardTemplate.
+   */
+  private async completePortalHandshake(opts: {
+    knownCf?: string;
+    knownPiva?: string;
+  }): Promise<AdeSession> {
+    await this.initPortale(); // B2: JS-initiated initPortale (setta cookie portale)
+    await this.initInstradamento(); // C: instradamento home
+    logger.debug({ phase: "C", cookies: this.cookieJar.size }, "ade:auth");
+    const xAppl = await this.fetchXAppl(); // E: token x-appl
+    logger.debug({ phase: "E", cookies: this.cookieJar.size }, "ade:auth");
+    await this.initDataPowerBridge(); // D: DataPower session
+    logger.debug({ phase: "D", cookies: this.cookieJar.size }, "ade:auth");
+
+    // F: scopri CF/P.IVA se non già noti (skip durante re-auth su 401)
+    let cf = opts.knownCf;
+    let partitaIva = opts.knownPiva;
+    if (!cf || !partitaIva) {
+      const identity = await this.fetchWizardIdentity(xAppl);
+      cf ??= identity.cf;
+      partitaIva ??= identity.piva;
+    }
+
+    if (!cf) {
+      throw new AdePortalError(
+        200,
+        "Failed to determine codice fiscale for setUserChoice",
+      );
+    }
+
+    await this.setUserChoiceStep(cf, partitaIva, xAppl); // G: attiva sessione
+
+    return { pAuth: "", partitaIva, createdAt: Date.now() };
+  }
+
+  /**
    * Full Fisconline authentication flow (Phases A-G).
    *
    * @param credentials - Credenziali Fisconline
@@ -638,25 +716,11 @@ export class RealAdeClient implements AdeClient {
     logger.debug({ phase: "A", cookies: this.cookieJar.size }, "ade:auth");
     await this.initPortalHome(); // B: SSO bridge portale
     logger.debug({ phase: "B", cookies: this.cookieJar.size }, "ade:auth");
-    await this.initPortale(); // B2: JS-initiated initPortale (setta cookie portale)
-    await this.initInstradamento(); // C: instradamento home
-    logger.debug({ phase: "C", cookies: this.cookieJar.size }, "ade:auth");
-    const xAppl = await this.fetchXAppl(); // E: token x-appl
-    logger.debug({ phase: "E", cookies: this.cookieJar.size }, "ade:auth");
-    await this.initDataPowerBridge(); // D: DataPower session
-    logger.debug({ phase: "D", cookies: this.cookieJar.size }, "ade:auth");
 
-    // F: scopri P.IVA se non già nota (skip durante re-auth su 401)
-    const partitaIva = knownPartitaIva ?? (await this.fetchWizardPiva(xAppl));
-
-    await this.setUserChoiceStep(
-      // G: attiva sessione
-      credentials.codiceFiscale,
-      partitaIva,
-      xAppl,
-    );
-
-    return { pAuth: "", partitaIva, createdAt: Date.now() };
+    return this.completePortalHandshake({
+      knownCf: credentials.codiceFiscale,
+      knownPiva: knownPartitaIva,
+    });
   }
 
   // -----------------------------------------------------------------------
@@ -1144,6 +1208,383 @@ export class RealAdeClient implements AdeClient {
   }
 
   // -----------------------------------------------------------------------
+  // CIE authentication (HAR: login_cie_ok_notifica_app.har)
+  //
+  // IdP Shibboleth Ministero dell'Interno (idserver.servizicie.interno.gov.it).
+  // Entry AdE: /rp/cie/sel. Login "livello 2" = email CIE ID + password,
+  // confermato via push sull'app CIE ID. Dopo il SAML si rientra nella coda
+  // portale condivisa (completePortalHandshake).
+  //
+  // Due punti di rilevamento sono derivati dall'HAR:
+  //  - credenziali errate su livello2 → messaggio "Credenziali non valide." +
+  //    classe CSS `error` sui campi (login_cie_ko_credenziali_non_valide.har);
+  //  - approvazione push su checkpush → il body JSON cambia dal baseline
+  //    (dimensioni 20→20→18 byte nell'HAR OK confermano la transizione).
+  // Diagnostic logging attivo su entrambi per il primo rollout reale.
+  // -----------------------------------------------------------------------
+
+  /** Body del probe localStorage Shibboleth (prima occorrenza, e1s1). */
+  private static readonly CIE_LS_PROBE_FULL =
+    "shib_idp_ls_exception.shib_idp_session_ss=&shib_idp_ls_success.shib_idp_session_ss=true" +
+    "&shib_idp_ls_value.shib_idp_session_ss=&shib_idp_ls_exception.shib_idp_persistent_ss=" +
+    "&shib_idp_ls_success.shib_idp_persistent_ss=true&shib_idp_ls_value.shib_idp_persistent_ss=" +
+    "&shib_idp_ls_supported=true&_eventId_proceed=";
+
+  /** Body del probe localStorage Shibboleth (seconda occorrenza, e1s5). */
+  private static readonly CIE_LS_PROBE_SHORT =
+    "shib_idp_ls_exception.shib_idp_session_ss=&shib_idp_ls_success.shib_idp_session_ss=true&_eventId_proceed=";
+
+  /** Body del consenso attributi (e1s4). */
+  private static readonly CIE_CONSENT_BODY =
+    "_shib_idp_consentIds=Nome&_shib_idp_consentIds=Cognome&_shib_idp_consentIds=DataDiNascita" +
+    "&_shib_idp_consentIds=CodiceFiscale&_shib_idp_consentOptions=_shib_idp_doNotRememberConsent" +
+    "&_eventId_proceed=Prosegui";
+
+  private cieForm(body: string): RequestInit & { followRedirects?: boolean } {
+    return {
+      method: "POST",
+      body,
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      followRedirects: false,
+    };
+  }
+
+  /**
+   * CIE-1: GET AdE SP entry → HTML auto-submit form con SAMLRequest verso l'IdP.
+   * HAR (entry 0): GET sp.agenziaentrate.gov.it/rp/cie/sel?RelayState=FATBTB.
+   */
+  private async cieFetchSamlRequest(): Promise<{
+    ssoUrl: string;
+    samlRequest: string;
+    relayState: string;
+  }> {
+    const url = `${ADE_SP_BASE_URL}/rp/cie/sel?RelayState=FATBTB`;
+    const response = await this.request(url);
+    const html = await response.text();
+
+    const ssoUrl = this.parseFormAction(html);
+    const samlRequest = this.parseHiddenInput(html, "SAMLRequest");
+    const relayState = this.parseHiddenInput(html, "RelayState");
+
+    if (!ssoUrl || !samlRequest || !relayState) {
+      throw new AdePortalError(
+        200,
+        "CIE: failed to parse SAMLRequest form from /rp/cie/sel",
+      );
+    }
+    return { ssoUrl, samlRequest, relayState };
+  }
+
+  /**
+   * CIE-2: POST SAMLRequest all'IdP → 302 → pagina probe localStorage (e1s1).
+   * HAR (entry 1-2). Segue il redirect fino alla pagina 200.
+   */
+  private async ciePostSamlRequest(
+    ssoUrl: string,
+    samlRequest: string,
+    relayState: string,
+    idpJar: CookieJar,
+  ): Promise<string> {
+    const body = new URLSearchParams({
+      SAMLRequest: samlRequest,
+      RelayState: relayState,
+    }).toString();
+
+    const response = await this.request(ssoUrl, this.cieForm(body), idpJar);
+    const location = response.headers.get("Location") ?? "";
+    if (!location) {
+      throw new AdePortalError(
+        response.status,
+        "CIE: no redirect from IdP after SAMLRequest POST",
+      );
+    }
+    const { url } = await this.followRedirectChain(
+      resolveAdeRedirect(ssoUrl, location, FEDERATED_ALLOWED_HOSTS),
+      20,
+      idpJar,
+      FEDERATED_ALLOWED_HOSTS,
+    );
+    return url;
+  }
+
+  /**
+   * CIE-3: POST del probe localStorage Shibboleth → segue i redirect fino alla
+   * pagina target (livello2 credenziali, oppure consenso e1s4).
+   * HAR (entry 3-5, 17): il probe risponde 302 verso lo step successivo.
+   */
+  private async ciePostLocalStorageProbe(
+    probeUrl: string,
+    body: string,
+    idpJar: CookieJar,
+  ): Promise<{ response: Response; url: string }> {
+    const response = await this.request(probeUrl, this.cieForm(body), idpJar);
+    const location = response.headers.get("Location");
+    if (!location) {
+      // Nessun redirect: la pagina stessa è il target (200).
+      return { response, url: probeUrl };
+    }
+    return this.followRedirectChain(
+      resolveAdeRedirect(probeUrl, location, FEDERATED_ALLOWED_HOSTS),
+      20,
+      idpJar,
+      FEDERATED_ALLOWED_HOSTS,
+    );
+  }
+
+  /**
+   * CIE-4: POST credenziali livello 2 (email + password) → pagina attesa push.
+   * HAR (entry 6): POST /idp/login/livello2. Body username+password.
+   *
+   * Rilevamento credenziali errate: il KO ri-renderizza la pagina livello2 con
+   * il messaggio "Credenziali non valide." e la classe CSS `error` sui campi
+   * del form (verificato in login_cie_ko_credenziali_non_valide.har). Il caso OK
+   * è la pagina di attesa push, priva di questi marker → nessun errore.
+   */
+  private async ciePostCredentials(
+    credentials: CieCredentials,
+    idpJar: CookieJar,
+  ): Promise<void> {
+    const url = `${CIE_IDP_BASE_URL}/idp/login/livello2`;
+    const body = new URLSearchParams({
+      username: credentials.username,
+      password: credentials.password,
+    }).toString();
+
+    const response = await this.request(
+      url,
+      {
+        method: "POST",
+        body,
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      },
+      idpJar,
+    );
+
+    const html = await response.text();
+    if (
+      html.includes("Credenziali non valide") ||
+      /class="[^"]*form-control[^"]*\berror\b/i.test(html)
+    ) {
+      logger.warn(
+        { phase: "cie_livello2", bodyLen: html.length },
+        "ade:cie_credentials_rejected",
+      );
+      throw new AdeAuthError("CIE: invalid credentials");
+    }
+  }
+
+  /**
+   * CIE-5: Poll checkpush finché l'app CIE ID approva, poi GET postpush → segue
+   * il redirect fino alla pagina consenso (e1s4).
+   * HAR (entry 7-14): approvazione = il body JSON di checkpush cambia dal
+   * baseline (dimensioni 20→20→18 byte). Stesso pattern di spidPollNotify.
+   */
+  private async ciePollAndProceed(
+    idpJar: CookieJar,
+  ): Promise<{ response: Response; url: string }> {
+    const maxPolls = this.options.spidMaxPolls ?? 30;
+    const intervalMs = this.options.spidPollIntervalMs ?? 7000;
+    let baseline: string | null = null;
+
+    for (let i = 0; i < maxPolls; i++) {
+      const response = await this.request(
+        `${CIE_IDP_BASE_URL}/idp/login/livello1e2checkpush?_=${Date.now()}`,
+        { headers: { "X-Requested-With": "XMLHttpRequest" } },
+        idpJar,
+      );
+      const bodyText = await response.text();
+
+      if (baseline === null) {
+        baseline = bodyText;
+      } else if (bodyText !== baseline) {
+        break;
+      }
+
+      if (i === maxPolls - 1) {
+        logger.warn({ phase: "cie_checkpush" }, "ade:cie_push_timeout");
+        throw new AdeSpidTimeoutError(maxPolls);
+      }
+      if (intervalMs > 0) {
+        await new Promise<void>((resolve) => setTimeout(resolve, intervalMs));
+      }
+    }
+
+    const post = await this.request(
+      `${CIE_IDP_BASE_URL}/idp/login/livello1e2postpush`,
+      { followRedirects: false },
+      idpJar,
+    );
+    const location = post.headers.get("Location");
+    if (!location) {
+      throw new AdePortalError(
+        post.status,
+        "CIE: no redirect from postpush after approval",
+      );
+    }
+    return this.followRedirectChain(
+      resolveAdeRedirect(
+        `${CIE_IDP_BASE_URL}/idp/login/livello1e2postpush`,
+        location,
+        FEDERATED_ALLOWED_HOSTS,
+      ),
+      20,
+      idpJar,
+      FEDERATED_ALLOWED_HOSTS,
+    );
+  }
+
+  /**
+   * CIE-6: POST consenso attributi (e1s4) → 302 → probe localStorage finale (e1s5).
+   * HAR (entry 15).
+   */
+  private async ciePostConsent(
+    consentUrl: string,
+    idpJar: CookieJar,
+  ): Promise<{ response: Response; url: string }> {
+    const response = await this.request(
+      consentUrl,
+      this.cieForm(RealAdeClient.CIE_CONSENT_BODY),
+      idpJar,
+    );
+    const location = response.headers.get("Location");
+    if (!location) return { response, url: consentUrl };
+    return this.followRedirectChain(
+      resolveAdeRedirect(consentUrl, location, FEDERATED_ALLOWED_HOSTS),
+      20,
+      idpJar,
+      FEDERATED_ALLOWED_HOSTS,
+    );
+  }
+
+  /**
+   * CIE-7: POST probe finale (e1s5) → 200 HTML auto-submit con SAMLResponse
+   * verso l'AdE SP (AssertionConsumerService7). HAR (entry 17).
+   */
+  private async ciePostFinalProbe(
+    probeUrl: string,
+    idpJar: CookieJar,
+  ): Promise<{ samlResponse: string; relayState: string; formAction: string }> {
+    const response = await this.request(
+      probeUrl,
+      {
+        method: "POST",
+        body: RealAdeClient.CIE_LS_PROBE_SHORT,
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      },
+      idpJar,
+    );
+    const html = await response.text();
+    const samlResponse = this.parseHiddenInput(html, "SAMLResponse");
+    const relayState = this.parseHiddenInput(html, "RelayState");
+    const formAction =
+      this.parseFormAction(html) ??
+      `${ADE_SP_BASE_URL}/sp/AssertionConsumerService7`;
+
+    if (!samlResponse || !relayState) {
+      throw new AdePortalError(
+        200,
+        "CIE: failed to parse SAMLResponse from IdP final page",
+      );
+    }
+    return { samlResponse, relayState, formAction };
+  }
+
+  /**
+   * CIE-8: POST SAMLResponse all'AdE SP → make4SAM → iampe Consumer → portale
+   * home. HAR (entry 18-21). Il make4SAM ritorna un secondo form auto-submit
+   * (SAMLResponse verso iampe). Usa il cookie jar principale AdE.
+   */
+  private async cieSubmitSamlResponse(
+    samlResponse: string,
+    relayState: string,
+    formAction: string,
+  ): Promise<void> {
+    // POST all'ACS → 302 make4SAM (main jar: dominio AdE).
+    const acsBody = new URLSearchParams({
+      SAMLResponse: samlResponse,
+      RelayState: relayState,
+    }).toString();
+    const acs = await this.request(formAction, this.cieForm(acsBody));
+    const acsLoc = acs.headers.get("Location");
+    if (!acsLoc) {
+      throw new AdePortalError(acs.status, "CIE: no redirect from AdE SP ACS");
+    }
+
+    // GET make4SAM → HTML auto-submit form (SAMLResponse verso iampe).
+    const make4samUrl = resolveAdeRedirect(
+      formAction,
+      acsLoc,
+      FEDERATED_ALLOWED_HOSTS,
+    );
+    const make4samResp = await this.request(make4samUrl);
+    const make4samHtml = await make4samResp.text();
+    const iampeAction =
+      this.parseFormAction(make4samHtml) ??
+      `${ADE_IAM_BASE_URL}/sam/Consumer/metaAlias/agenziaentrate/age-sp`;
+    const iampeSaml = this.parseHiddenInput(make4samHtml, "SAMLResponse");
+    const iampeRelay = this.parseHiddenInput(make4samHtml, "RelayState") ?? "";
+    if (!iampeSaml) {
+      throw new AdePortalError(
+        200,
+        "CIE: failed to parse SAMLResponse from make4SAM",
+      );
+    }
+
+    // POST a iampe Consumer → 302 → portale home. Segue la catena.
+    const iampeBody = new URLSearchParams({
+      SAMLResponse: iampeSaml,
+      RelayState: iampeRelay,
+    }).toString();
+    const iampeResp = await this.request(
+      resolveAdeRedirect(make4samUrl, iampeAction, FEDERATED_ALLOWED_HOSTS),
+      this.cieForm(iampeBody),
+    );
+    const iampeLoc = iampeResp.headers.get("Location");
+    if (!iampeLoc) {
+      throw new AdePortalError(
+        iampeResp.status,
+        "CIE: no redirect from iampe Consumer",
+      );
+    }
+    await this.followRedirectChain(
+      resolveAdeRedirect(iampeAction, iampeLoc, FEDERATED_ALLOWED_HOSTS),
+    );
+  }
+
+  /** Full CIE authentication flow. */
+  private async authenticateCie(
+    credentials: CieCredentials,
+  ): Promise<AdeSession> {
+    const idpJar = new CookieJar();
+
+    const { ssoUrl, samlRequest, relayState } =
+      await this.cieFetchSamlRequest();
+    const probe1Url = await this.ciePostSamlRequest(
+      ssoUrl,
+      samlRequest,
+      relayState,
+      idpJar,
+    );
+    await this.ciePostLocalStorageProbe(
+      probe1Url,
+      RealAdeClient.CIE_LS_PROBE_FULL,
+      idpJar,
+    );
+    await this.ciePostCredentials(credentials, idpJar);
+    const consent = await this.ciePollAndProceed(idpJar);
+    const finalProbe = await this.ciePostConsent(consent.url, idpJar);
+    const {
+      samlResponse,
+      relayState: rs2,
+      formAction,
+    } = await this.ciePostFinalProbe(finalProbe.url, idpJar);
+    await this.cieSubmitSamlResponse(samlResponse, rs2, formAction);
+
+    // Coda portale condivisa: CF letto da wizardTemplate (cfUidUltimo).
+    return this.completePortalHandshake({});
+  }
+
+  // -----------------------------------------------------------------------
   // Public methods (AdeClient interface)
   // -----------------------------------------------------------------------
 
@@ -1181,6 +1622,14 @@ export class RealAdeClient implements AdeClient {
     this.credentials = null;
     this.cookieJar.clear();
     this.session = await this.authenticateSpid(credentials);
+    return this.session;
+  }
+
+  async loginCie(credentials: CieCredentials): Promise<AdeSession> {
+    // Come SPID: nessun re-auth automatico su 401 (secondo fattore umano).
+    this.credentials = null;
+    this.cookieJar.clear();
+    this.session = await this.authenticateCie(credentials);
     return this.session;
   }
 

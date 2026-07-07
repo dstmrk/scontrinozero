@@ -70,6 +70,27 @@ export class AdeNetworkError extends AdeError {
 }
 
 /**
+ * La sessione AdE per un metodo interattivo (CIE/SPID) è assente o scaduta e
+ * non può essere ri-creata in autonomia dal server (il secondo fattore è
+ * un'azione umana: push/OTP). L'emissione/annullo la traduce in
+ * `{ reauthRequired: true }` così la UI chiede all'utente di ri-collegarsi.
+ * Distinta da `AdeSessionExpiredError` (Fisconline, dove il re-login silenzioso
+ * è possibile e il suo fallimento è un errore vero).
+ */
+export class AdeReauthRequiredError extends AdeError {
+  readonly method: string;
+
+  constructor(method: string) {
+    super(
+      "ADE_REAUTH_REQUIRED",
+      `Interactive re-authentication required (${method})`,
+    );
+    this.name = "AdeReauthRequiredError";
+    this.method = method;
+  }
+}
+
+/**
  * SPID push notification not confirmed within the polling window.
  *
  * HAR finding (login_spid.har): the mobile app must approve the login

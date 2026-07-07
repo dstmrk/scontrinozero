@@ -101,12 +101,14 @@ vi.mock("@/lib/crypto", () => ({
 }));
 
 const mockLogin = vi.fn();
+const mockLoginCie = vi.fn();
 const mockLogout = vi.fn();
 const mockGetFiscalData = vi.fn();
 vi.mock("@/lib/ade", () => ({
   getAdeMode: () => "mock",
   createAdeClient: vi.fn().mockReturnValue({
     login: mockLogin,
+    loginCie: mockLoginCie,
     logout: mockLogout,
     getFiscalData: mockGetFiscalData,
   }),
@@ -647,6 +649,64 @@ describe("onboarding-actions", () => {
       expect(mockUpdate).not.toHaveBeenCalled();
       expect(mockRevalidatePath).not.toHaveBeenCalled();
     });
+
+    it("CIE: salva username(email)+password con login_method 'cie'", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const result = await saveAdeCredentials(
+        formData({
+          businessId: "biz-789",
+          loginMethod: "cie",
+          username: "mario.rossi@example.com",
+          password: "cie-pass",
+        }),
+      );
+
+      expect(result.businessId).toBe("biz-789");
+      expect(mockInsert).toHaveBeenCalled();
+      // login_method 'cie' + reset dei campi Fisconline (CF/PIN null).
+      expect(mockOnConflictDoUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          set: expect.objectContaining({
+            loginMethod: "cie",
+            encryptedCodiceFiscale: null,
+            encryptedPin: null,
+            verifiedAt: null,
+          }),
+        }),
+      );
+    });
+
+    it("CIE: rifiuta uno username non-email prima dell'ownership check", async () => {
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const result = await saveAdeCredentials(
+        formData({
+          businessId: "biz-789",
+          loginMethod: "cie",
+          username: "non-una-email",
+          password: "cie-pass",
+        }),
+      );
+
+      expect(result.error).toContain("email");
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("SPID: rifiutato (non supportato da PWA), nessun insert", async () => {
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const result = await saveAdeCredentials(
+        formData({
+          businessId: "biz-789",
+          loginMethod: "spid",
+          username: "mario.rossi@example.com",
+          password: "pw",
+        }),
+      );
+
+      expect(result.error).toContain("SPID");
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
   });
 
   describe("verifyAdeCredentials", () => {
@@ -762,6 +822,62 @@ describe("onboarding-actions", () => {
       // sempre a una riga non-vuota di default).
       expect(mockUpdate).toHaveBeenCalledTimes(7);
       expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard", "layout");
+    });
+
+    it("CIE: verifica via loginCie (non login Fisconline)", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      // Riga credenziali con metodo CIE: username(email) + password, niente CF/PIN.
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          loginMethod: "cie",
+          encryptedCodiceFiscale: null,
+          encryptedUsername: "enc-email",
+          encryptedPassword: "enc-pw",
+          encryptedPin: null,
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+        },
+      ]);
+      mockLoginCie.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "12345678901",
+          codiceFiscale: "RSSMRA80A01H501U",
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials("biz-789");
+
+      expect(result.error).toBeUndefined();
+      expect(mockLoginCie).toHaveBeenCalled();
+      expect(mockLogin).not.toHaveBeenCalled();
+    });
+
+    it("SPID: riga con metodo spid degrada senza tentare login", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([
+        {
+          businessId: "biz-789",
+          loginMethod: "spid",
+          encryptedCodiceFiscale: null,
+          encryptedUsername: null,
+          encryptedPassword: null,
+          encryptedPin: null,
+          keyVersion: 1,
+          updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+        },
+      ]);
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials("biz-789");
+
+      expect(result.error).toContain("SPID");
+      expect(mockLogin).not.toHaveBeenCalled();
+      expect(mockLoginCie).not.toHaveBeenCalled();
     });
 
     it("referrer in trial: incrementa referralBonusDays, niente estensione Stripe", async () => {

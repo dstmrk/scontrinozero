@@ -233,6 +233,8 @@ describe("server-auth", () => {
 
       expect("error" in result).toBe(false);
       if ("error" in result) return;
+      expect(result.method).toBe("fisconline");
+      if (result.method !== "fisconline") return;
       expect(result.codiceFiscale).toBe("decrypted-value");
       expect(result.password).toBe("decrypted-value");
       expect(result.pin).toBe("decrypted-value");

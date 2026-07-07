@@ -91,6 +91,20 @@ export async function POST(request: Request): Promise<Response> {
   // ── Emit ──────────────────────────────────────────────────────────────────
   const result = await emitReceiptForBusiness(input, auth.apiKey.id);
 
+  if (result.reauthRequired) {
+    // Sessione AdE interattiva (CIE) scaduta: richiede un ri-collegamento
+    // dall'app web (secondo fattore umano), non automatizzabile via API.
+    return withCors(
+      Response.json(
+        {
+          error:
+            "Sessione AdE (CIE) scaduta: ricollegati dall'app web ScontrinoZero prima di riprovare.",
+        },
+        { status: 409 },
+      ),
+    );
+  }
+
   if (result.error) {
     return serviceErrorResponse({ error: result.error, code: result.code });
   }

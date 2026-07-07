@@ -17,6 +17,7 @@ import { AccountDeleteSection } from "@/components/settings/account-delete-secti
 import { ExportDataSection } from "@/components/settings/export-data-section";
 import { AdeCredentialsSection } from "@/components/settings/ade-credentials-section";
 import { EditAdeCredentialsSection } from "@/components/settings/edit-ade-credentials-section";
+import type { AdeLoginMethod } from "@/lib/ade/types";
 import { EditProfileSection } from "@/components/settings/edit-profile-section";
 import { EditBusinessSection } from "@/components/settings/edit-business-section";
 import { ChangePasswordSection } from "@/components/settings/change-password-section";
@@ -104,7 +105,10 @@ export default async function SettingsPage({
   const cred = business
     ? ((
         await db
-          .select({ verifiedAt: adeCredentials.verifiedAt })
+          .select({
+            verifiedAt: adeCredentials.verifiedAt,
+            loginMethod: adeCredentials.loginMethod,
+          })
           .from(adeCredentials)
           .where(eq(adeCredentials.businessId, business.id))
           .limit(1)
@@ -286,7 +290,13 @@ export default async function SettingsPage({
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Credenziali AdE</CardTitle>
               {business && (
-                <EditAdeCredentialsSection businessId={business.id} />
+                <EditAdeCredentialsSection
+                  businessId={business.id}
+                  currentMethod={
+                    (cred?.loginMethod as AdeLoginMethod | undefined) ??
+                    "fisconline"
+                  }
+                />
               )}
             </CardHeader>
             <CardContent>

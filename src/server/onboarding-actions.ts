@@ -23,6 +23,7 @@ import {
 } from "@/lib/crypto";
 import { createAdeClient, getAdeMode } from "@/lib/ade";
 import { adeSessionCache } from "@/lib/ade/session-cache";
+import { adeInteractiveSessionStore } from "@/lib/ade/interactive-session-store";
 import {
   AdeAuthError,
   AdeError,
@@ -269,24 +270,36 @@ export async function saveBusiness(
   });
 }
 
-export async function saveAdeCredentials(
-  formData: FormData,
-): Promise<OnboardingActionResult> {
-  const user = await getAuthenticatedUser();
+/**
+ * Campi cifrati/metodo che compongono una riga `ade_credentials`. Per metodo
+ * solo un sottoinsieme è valorizzato (gli altri restano NULL — migrazione 0027).
+ */
+type AdeCredentialValues = {
+  loginMethod: string;
+  encryptedCodiceFiscale: string | null;
+  encryptedUsername: string | null;
+  encryptedPassword: string | null;
+  encryptedPin: string | null;
+  spidProvider: string | null;
+  keyVersion: number;
+};
 
-  const businessId = getFormString(formData, "businessId");
+/**
+ * Costruisce i valori cifrati per Fisconline (CF + password + PIN). Ritorna
+ * `{ error }` su input non valido.
+ */
+function buildFisconlineValues(
+  formData: FormData,
+  key: Buffer,
+  keyVersion: number,
+): AdeCredentialValues | { error: string } {
   const codiceFiscale = getFormString(formData, "codiceFiscale");
   // La password Fisconline è una credenziale opaca (regole AdE: 8–15 char,
-  // charset misto). Non trimmare: ogni byte ha significato semantico —
-  // lo stesso principio della password app.
+  // charset misto). Non trimmare: ogni byte ha significato semantico.
   const password = getFormStringRaw(formData, "password");
-  // PIN già validato a regex `^\d{10}$`: trimming è sicuro perché
-  // qualsiasi whitespace verrebbe comunque rifiutato dallo schema.
+  // PIN già validato a regex `^\d{10}$`: trimming è sicuro.
   const pin = getFormString(formData, "pin");
 
-  if (!businessId) {
-    return { error: "Business ID mancante." };
-  }
   if (codiceFiscale.length !== 16) {
     return { error: "Codice fiscale non valido (16 caratteri)." };
   }
@@ -300,47 +313,105 @@ export async function saveAdeCredentials(
     };
   }
 
-  const ownershipError = await checkBusinessOwnership(user.id, businessId);
-  if (ownershipError) return ownershipError;
+  return {
+    loginMethod: "fisconline",
+    encryptedCodiceFiscale: encrypt(codiceFiscale, key, keyVersion),
+    encryptedUsername: null,
+    encryptedPassword: encrypt(password, key, keyVersion),
+    encryptedPin: encrypt(pin, key, keyVersion),
+    spidProvider: null,
+    keyVersion,
+  };
+}
+
+/**
+ * Costruisce i valori cifrati per CIE (email dell'app CIE ID + password). Il CF
+ * non è un input: viene estratto dal portale post-login (wizardTemplate).
+ */
+function buildCieValues(
+  formData: FormData,
+  key: Buffer,
+  keyVersion: number,
+): AdeCredentialValues | { error: string } {
+  const username = getFormString(formData, "username");
+  const password = getFormStringRaw(formData, "password");
+
+  if (!username.includes("@")) {
+    return { error: "Inserisci l'email dell'app CIE ID." };
+  }
+  if (!password) {
+    return { error: "Password CIE obbligatoria." };
+  }
+
+  return {
+    loginMethod: "cie",
+    encryptedCodiceFiscale: null,
+    encryptedUsername: encrypt(username, key, keyVersion),
+    encryptedPassword: encrypt(password, key, keyVersion),
+    encryptedPin: null,
+    spidProvider: null,
+    keyVersion,
+  };
+}
+
+export async function saveAdeCredentials(
+  formData: FormData,
+): Promise<OnboardingActionResult> {
+  const user = await getAuthenticatedUser();
+
+  const businessId = getFormString(formData, "businessId");
+  if (!businessId) {
+    return { error: "Business ID mancante." };
+  }
+
+  // Metodo di accesso (default 'fisconline' per retrocompatibilità dei form).
+  const loginMethod = getFormString(formData, "loginMethod") || "fisconline";
 
   const key = getEncryptionKey();
   const keyVersion = getKeyVersion();
 
-  const encryptedCodiceFiscale = encrypt(codiceFiscale, key, keyVersion);
-  const encryptedPassword = encrypt(password, key, keyVersion);
-  const encryptedPin = encrypt(pin, key, keyVersion);
+  // Validazione + cifratura PRIMA dell'ownership check: gli errori d'input non
+  // devono dipendere dall'accesso al business (coerente col comportamento
+  // storico Fisconline).
+  // SPID non è supportato dalla PWA (nessuna via provider-agnostica: la webview
+  // nativa dei competitor non è replicabile cross-origin nel browser). Rifiutato
+  // esplicitamente: solo Fisconline e CIE sono metodi validi.
+  let values: AdeCredentialValues | { error: string };
+  if (loginMethod === "cie") {
+    values = buildCieValues(formData, key, keyVersion);
+  } else if (loginMethod === "spid") {
+    return { error: "L'accesso con SPID non è disponibile." };
+  } else {
+    values = buildFisconlineValues(formData, key, keyVersion);
+  }
+
+  if ("error" in values) return values;
+
+  const ownershipError = await checkBusinessOwnership(user.id, businessId);
+  if (ownershipError) return ownershipError;
 
   const db = getDb();
 
   // Atomic upsert per evitare race condition (doppio submit del form, retry
   // di rete) — il vincolo UNIQUE su business_id garantisce 1:1.
   // verifiedAt: null al re-insert E al conflict update — credenziali nuove
-  // non sono ancora state verificate contro AdE.
+  // non sono ancora state verificate contro AdE. Lo spread di `values` azzera
+  // esplicitamente i campi non pertinenti al metodo (es. switch Fisconline→CIE
+  // pulisce CF/PIN).
   await db
     .insert(adeCredentials)
-    .values({
-      businessId,
-      encryptedCodiceFiscale,
-      encryptedPassword,
-      encryptedPin,
-      keyVersion,
-    })
+    .values({ businessId, ...values })
     .onConflictDoUpdate({
       target: adeCredentials.businessId,
-      set: {
-        encryptedCodiceFiscale,
-        encryptedPassword,
-        encryptedPin,
-        keyVersion,
-        verifiedAt: null,
-      },
+      set: { ...values, verifiedAt: null },
     });
 
-  logger.info({ businessId }, "ADE credentials updated");
+  logger.info({ businessId, loginMethod }, "ADE credentials updated");
 
   // Invalida la sessione AdE cached (REVIEW #5): le credenziali sono cambiate,
   // la prossima emissione/annullo deve rieffettuare il login con le nuove.
   await adeSessionCache.invalidate(businessId);
+  await adeInteractiveSessionStore.invalidate(businessId);
 
   // Invalida la Router Cache client-side del dashboard: dopo aver salvato le
   // credenziali l'utente è eleggibile ad accedere al dashboard, ma il redirect
@@ -614,12 +685,12 @@ async function finalizeAdeVerification(params: {
  * controllo la Cognitive Complexity (SonarCloud).
  */
 async function attemptAdeLoginForVerification(
-  adeClient: ReturnType<typeof createAdeClient>,
-  credentials: { codiceFiscale: string; password: string; pin: string },
+  doLogin: () => Promise<unknown>,
   businessId: string,
+  opts: { flow: string; defaultMessage: string },
 ): Promise<OnboardingActionResult | null> {
   try {
-    await adeClient.login(credentials);
+    await doLogin();
     return null;
   } catch (err) {
     if (err instanceof AdePasswordExpiredError) {
@@ -631,21 +702,72 @@ async function attemptAdeLoginForVerification(
     }
     logAdeFailure(
       err,
-      { businessId, flow: "onboarding-verify" },
+      { businessId, flow: opts.flow },
       {
         transient: "AdE credential verification: transient failure",
         failure: "AdE credential verification failed",
       },
     );
-    const userFacing = getUserFacingAdeErrorMessage(
-      err,
-      "Verifica fallita. Controlla le credenziali Fisconline.",
-    );
+    const userFacing = getUserFacingAdeErrorMessage(err, opts.defaultMessage);
     return {
       error: userFacing.message,
       ...(userFacing.passwordExpired ? { passwordExpired: true } : {}),
     };
   }
+}
+
+/**
+ * Costruisce la closure di login per la verifica in base al metodo salvato
+ * (`cred.loginMethod`). Ritorna la closure + i metadati per il logging, oppure
+ * `{ error }` se la riga credenziali è incompleta per il metodo.
+ *
+ * Fisconline: CF+password+PIN cifrati. CIE: username(email)+password cifrati.
+ * SPID: non verificabile qui — non memorizza segreti, il login è sempre
+ * interattivo (Fase 4, dietro flag).
+ */
+function buildVerificationLogin(
+  adeClient: ReturnType<typeof createAdeClient>,
+  cred: typeof adeCredentials.$inferSelect,
+  keys: Map<number, Buffer>,
+):
+  | { doLogin: () => Promise<unknown>; flow: string; defaultMessage: string }
+  | { error: string } {
+  if (cred.loginMethod === "cie") {
+    if (cred.encryptedUsername === null || cred.encryptedPassword === null) {
+      return { error: "Credenziali CIE incomplete." };
+    }
+    const username = decrypt(cred.encryptedUsername, keys);
+    const password = decrypt(cred.encryptedPassword, keys);
+    return {
+      doLogin: () => adeClient.loginCie({ username, password }),
+      flow: "onboarding-verify-cie",
+      defaultMessage: "Verifica fallita. Controlla le credenziali CIE.",
+    };
+  }
+
+  if (cred.loginMethod === "spid") {
+    // Guardia difensiva: la migrazione 0027 ammette 'spid' nel CHECK, ma la PWA
+    // non lo crea (saveAdeCredentials lo rifiuta). Se una riga esistesse
+    // comunque, degrada con un messaggio chiaro invece di tentare un login.
+    return { error: "L'accesso con SPID non è disponibile." };
+  }
+
+  // fisconline (default)
+  if (
+    cred.encryptedCodiceFiscale === null ||
+    cred.encryptedPassword === null ||
+    cred.encryptedPin === null
+  ) {
+    return { error: "Credenziali Fisconline incomplete." };
+  }
+  const codiceFiscale = decrypt(cred.encryptedCodiceFiscale, keys);
+  const password = decrypt(cred.encryptedPassword, keys);
+  const pin = decrypt(cred.encryptedPin, keys);
+  return {
+    doLogin: () => adeClient.login({ codiceFiscale, password, pin }),
+    flow: "onboarding-verify",
+    defaultMessage: "Verifica fallita. Controlla le credenziali Fisconline.",
+  };
 }
 
 /**
@@ -762,16 +884,17 @@ export async function verifyAdeCredentials(
   const key = getEncryptionKey();
   const keys = new Map<number, Buffer>([[cred.keyVersion, key]]);
 
-  const codiceFiscale = decrypt(cred.encryptedCodiceFiscale, keys);
-  const password = decrypt(cred.encryptedPassword, keys);
-  const pin = decrypt(cred.encryptedPin, keys);
-
   const adeClient = createAdeClient(getAdeMode());
 
+  // Login method-aware (Fisconline / CIE). La coda post-login (getFiscalData,
+  // identity guard, finalize, notifiche) è identica per tutti i metodi.
+  const loginPlan = buildVerificationLogin(adeClient, cred, keys);
+  if ("error" in loginPlan) return loginPlan;
+
   const loginError = await attemptAdeLoginForVerification(
-    adeClient,
-    { codiceFiscale, password, pin },
+    loginPlan.doLogin,
     businessId,
+    { flow: loginPlan.flow, defaultMessage: loginPlan.defaultMessage },
   );
   if (loginError) return loginError;
 
@@ -785,9 +908,16 @@ export async function verifyAdeCredentials(
   } catch (err) {
     logger.error({ err, businessId }, "Failed to fetch fiscal data from AdE");
   } finally {
-    await adeClient
-      .logout()
-      .catch((err) => logger.warn({ err }, "AdE logout failed"));
+    if (cred.loginMethod === "cie" && getAdeMode() === "real") {
+      // La sessione CIE non è ri-creabile in silenzio (secondo fattore umano):
+      // depositala nello store interattivo per riusarla in emissione/annullo,
+      // invece di fare logout. "Verifica connessione" È il collega/rinnova CIE.
+      adeInteractiveSessionStore.set(businessId, adeClient);
+    } else {
+      await adeClient
+        .logout()
+        .catch((err) => logger.warn({ err }, "AdE logout failed"));
+    }
   }
 
   // Identity guard: blocca il cambio credenziali verso una P.IVA diversa su un
@@ -1043,6 +1173,9 @@ export async function changeAdePassword(
     .limit(1);
 
   if (!cred) return { error: "Credenziali non trovate." };
+  if (cred.encryptedCodiceFiscale === null) {
+    return { error: "Codice fiscale non disponibile per il cambio password." };
+  }
 
   const key = getEncryptionKey();
   const keys = new Map<number, Buffer>([[cred.keyVersion, key]]);

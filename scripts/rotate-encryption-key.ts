@@ -111,27 +111,22 @@ export async function rotateEncryptionKey(opts: {
           continue;
         }
 
-        // Decrypt with old key
+        // Decrypt+re-encrypt ogni campo presente. I campi encrypted* sono
+        // nullable (migrazione 0027): CIE valorizza username+password, SPID
+        // nessuno. Un campo NULL resta NULL.
         const oldKeys = new Map<number, Buffer>([[oldVersion, oldKeyBuf]]);
-        const codiceFiscale = decrypt(row.encryptedCodiceFiscale, oldKeys);
-        const password = decrypt(row.encryptedPassword, oldKeys);
-        const pin = decrypt(row.encryptedPin, oldKeys);
-
-        // Re-encrypt with new key
-        const encryptedCodiceFiscale = encrypt(
-          codiceFiscale,
-          newKeyBuf,
-          newVersion,
-        );
-        const encryptedPassword = encrypt(password, newKeyBuf, newVersion);
-        const encryptedPin = encrypt(pin, newKeyBuf, newVersion);
+        const reEncrypt = (value: string | null): string | null =>
+          value === null
+            ? null
+            : encrypt(decrypt(value, oldKeys), newKeyBuf, newVersion);
 
         await tx
           .update(schema.adeCredentials)
           .set({
-            encryptedCodiceFiscale,
-            encryptedPassword,
-            encryptedPin,
+            encryptedCodiceFiscale: reEncrypt(row.encryptedCodiceFiscale),
+            encryptedUsername: reEncrypt(row.encryptedUsername),
+            encryptedPassword: reEncrypt(row.encryptedPassword),
+            encryptedPin: reEncrypt(row.encryptedPin),
             keyVersion: newVersion,
           })
           .where(eq(schema.adeCredentials.id, row.id));
