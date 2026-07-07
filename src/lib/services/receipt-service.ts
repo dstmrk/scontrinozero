@@ -11,9 +11,12 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
-import { withAdeSession } from "@/lib/ade";
+import { withAdeSession, isCieSessionMissing } from "@/lib/ade";
+import {
+  AdePasswordExpiredError,
+  AdeReauthRequiredError,
+} from "@/lib/ade/errors";
 import type { AdeClient } from "@/lib/ade/client";
-import { AdePasswordExpiredError } from "@/lib/ade/errors";
 import {
   getUserFacingAdeErrorMessage,
   isTransientAdeError,
@@ -27,7 +30,10 @@ import {
 } from "@/lib/db-timeout";
 import { logger } from "@/lib/logger";
 import { calcInputLinesTotalCents } from "@/lib/receipts/document-lines";
-import { fetchAdePrerequisites } from "@/lib/server-auth";
+import {
+  fetchAdePrerequisites,
+  type AdePrerequisites,
+} from "@/lib/server-auth";
 import { getFiscalDate } from "@/lib/date-utils";
 import { isValidLotteryCode } from "@/lib/validation";
 import type {
@@ -111,7 +117,13 @@ export async function emitReceiptForBusiness(
 
   const prerequisites = await fetchAdePrerequisites(input.businessId);
   if ("error" in prerequisites) return prerequisites;
-  const { codiceFiscale, password, pin, cedentePrestatore } = prerequisites;
+
+  // CIE: se la sessione interattiva manca/è scaduta, chiedi il rinnovo PRIMA di
+  // inserire il documento — così un retry post-rinnovo non trova un PENDING
+  // bloccato dallo stale-gate. Nessun documento fiscale viene trasmesso.
+  if (prerequisites.method === "cie" && isCieSessionMissing(input.businessId)) {
+    return { reauthRequired: true };
+  }
 
   // Insert document + lines atomically, with statement_timeout: if the
   // DB is overloaded we surface 503 invece di un 500 senza contesto.
@@ -175,7 +187,7 @@ export async function emitReceiptForBusiness(
     return handleExistingReceipt({
       input,
       lotteryCode,
-      prerequisites: { codiceFiscale, password, pin, cedentePrestatore },
+      prerequisites,
       apiKeyId,
     });
   }
@@ -201,7 +213,7 @@ export async function emitReceiptForBusiness(
     documentId,
     input,
     lotteryCode,
-    { codiceFiscale, password, pin, cedentePrestatore },
+    prerequisites,
     apiKeyId,
     { recovery: false },
   );
@@ -221,12 +233,7 @@ export async function emitReceiptForBusiness(
 async function handleExistingReceipt(args: {
   input: SubmitReceiptInput;
   lotteryCode: string | null;
-  prerequisites: {
-    codiceFiscale: string;
-    password: string;
-    pin: string;
-    cedentePrestatore: AdeCedentePrestatore;
-  };
+  prerequisites: AdePrerequisites;
   apiKeyId: string | null | undefined;
 }): Promise<SubmitReceiptResult> {
   const { input, lotteryCode, prerequisites, apiKeyId } = args;
@@ -345,12 +352,7 @@ async function recoverStaleReceipt(args: {
   };
   input: SubmitReceiptInput;
   lotteryCode: string | null;
-  prerequisites: {
-    codiceFiscale: string;
-    password: string;
-    pin: string;
-    cedentePrestatore: AdeCedentePrestatore;
-  };
+  prerequisites: AdePrerequisites;
   apiKeyId: string | null | undefined;
   createdAtMs: number;
 }): Promise<SubmitReceiptResult> {
@@ -601,17 +603,12 @@ async function submitSaleToAde(
   documentId: string,
   input: SubmitReceiptInput,
   lotteryCode: string | null,
-  prerequisites: {
-    codiceFiscale: string;
-    password: string;
-    pin: string;
-    cedentePrestatore: AdeCedentePrestatore;
-  },
+  prerequisites: AdePrerequisites,
   apiKeyId: string | null | undefined,
   options: { recovery: boolean; reconcile?: { createdAt: Date } },
 ): Promise<SubmitReceiptResult> {
   const db = getDb();
-  const { codiceFiscale, password, pin, cedentePrestatore } = prerequisites;
+  const { cedentePrestatore } = prerequisites;
 
   // Per-line cents (canonical, REVIEW.md #1): the amount sent to AdE must match
   // the total on the PDF / public page (computeReceiptTotals) and the storico
@@ -642,10 +639,17 @@ async function submitSaleToAde(
 
   try {
     return await withAdeSession(
-      {
-        businessId: input.businessId,
-        credentials: { codiceFiscale, password, pin },
-      },
+      prerequisites.method === "cie"
+        ? { businessId: input.businessId, method: "cie" }
+        : {
+            businessId: input.businessId,
+            method: "fisconline",
+            credentials: {
+              codiceFiscale: prerequisites.codiceFiscale,
+              password: prerequisites.password,
+              pin: prerequisites.pin,
+            },
+          },
       async (adeClient) => {
         // Lookup AdE pre-retry (REVIEW.md #4): solo in recovery, prima di
         // ri-sottomettere, riconcilia il documento con AdE nella stessa sessione.
@@ -670,6 +674,14 @@ async function submitSaleToAde(
       },
     );
   } catch (err) {
+    // Sessione CIE scaduta in-flight (rara: viva al pre-check, rifiutata da AdE
+    // durante il submit). Un 401 AdE = documento NON registrato → nessun rischio
+    // di duplicato. Lasciamo la riga PENDING (niente ERROR) e chiediamo il
+    // rinnovo. Non è un failure nostro: niente logAdeFailure/Sentry (regola 20).
+    if (err instanceof AdeReauthRequiredError) {
+      return { reauthRequired: true };
+    }
+
     logAdeFailure(
       err,
       {

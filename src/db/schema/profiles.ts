@@ -74,7 +74,7 @@ export const profiles = pgTable(
     inactivityWarningSentAt: timestamp("inactivity_warning_sent_at", {
       withTimezone: true,
     }),
-    // GDPR — segnale "visita autenticata" (migration 0027): ultima richiesta
+    // GDPR — segnale "visita autenticata" (migration 0028): ultima richiesta
     // autenticata, touch throttled 1/24h in getAuthenticatedUser
     // (src/lib/server-auth.ts). Serve allo sweep di inattività perché
     // auth.users.last_sign_in_at NON si aggiorna sul refresh token: senza

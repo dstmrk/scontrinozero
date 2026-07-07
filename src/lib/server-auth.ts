@@ -14,12 +14,20 @@ export type { User } from "@supabase/supabase-js";
 
 export type BusinessOwnershipError = { error: string };
 
-export type AdePrerequisites = {
-  codiceFiscale: string;
-  password: string;
-  pin: string;
-  cedentePrestatore: AdeCedentePrestatore;
-};
+export type AdePrerequisites =
+  | {
+      method: "fisconline";
+      codiceFiscale: string;
+      password: string;
+      pin: string;
+      cedentePrestatore: AdeCedentePrestatore;
+    }
+  | {
+      // CIE: nessuna credenziale ri-loggabile; la sessione è quella interattiva
+      // depositata nello store. Emit/void non passano credenziali.
+      method: "cie";
+      cedentePrestatore: AdeCedentePrestatore;
+    };
 
 /**
  * Returns the authenticated Supabase user or throws if not authenticated.
@@ -168,12 +176,38 @@ export async function fetchAdePrerequisites(
     };
   }
 
+  const cedentePrestatore = buildCedenteFromBusiness(row.business);
+
+  // CIE: nessuna credenziale da decifrare — la sessione è quella interattiva
+  // depositata dallo store. emit/void la riusano (o chiedono il rinnovo).
+  if (row.cred.loginMethod === "cie") {
+    return { method: "cie", cedentePrestatore };
+  }
+
+  // Fisconline: CF+password+PIN. I campi encrypted* sono nullable (migrazione
+  // 0027): se mancano su una riga Fisconline, non è utilizzabile qui.
+  if (
+    row.cred.encryptedCodiceFiscale === null ||
+    row.cred.encryptedPassword === null ||
+    row.cred.encryptedPin === null
+  ) {
+    return {
+      error:
+        "Credenziali AdE incomplete. Riverifica le credenziali nelle impostazioni.",
+    };
+  }
+
   const key = getEncryptionKey();
   const keys = new Map<number, Buffer>([[row.cred.keyVersion, key]]);
   const codiceFiscale = decrypt(row.cred.encryptedCodiceFiscale, keys);
   const password = decrypt(row.cred.encryptedPassword, keys);
   const pin = decrypt(row.cred.encryptedPin, keys);
 
-  const cedentePrestatore = buildCedenteFromBusiness(row.business);
-  return { codiceFiscale, password, pin, cedentePrestatore };
+  return {
+    method: "fisconline",
+    codiceFiscale,
+    password,
+    pin,
+    cedentePrestatore,
+  };
 }

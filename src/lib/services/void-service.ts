@@ -11,7 +11,8 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
-import { withAdeSession } from "@/lib/ade";
+import { withAdeSession, isCieSessionMissing } from "@/lib/ade";
+import { AdeReauthRequiredError } from "@/lib/ade/errors";
 import type { AdeClient } from "@/lib/ade/client";
 import {
   getUserFacingAdeErrorMessage,
@@ -26,7 +27,10 @@ import {
 } from "@/lib/db-timeout";
 import { logger } from "@/lib/logger";
 import { getFiscalDate } from "@/lib/date-utils";
-import { fetchAdePrerequisites } from "@/lib/server-auth";
+import {
+  fetchAdePrerequisites,
+  type AdePrerequisites,
+} from "@/lib/server-auth";
 import type { VoidReceiptInput, VoidReceiptResult } from "@/types/storico";
 import type { VoidRequest } from "@/lib/ade/public-types";
 import type { AdeResponse } from "@/lib/ade/types";
@@ -398,18 +402,7 @@ type PrepareVoidOutcome =
       voidDocumentId: string;
       recovery: boolean;
       voidCreatedAt?: Date | null;
-      prerequisites: {
-        codiceFiscale: string;
-        password: string;
-        pin: string;
-        cedentePrestatore: NonNullable<
-          Awaited<ReturnType<typeof fetchAdePrerequisites>> extends infer T
-            ? T extends { cedentePrestatore: infer C }
-              ? C
-              : never
-            : never
-        >;
-      };
+      prerequisites: AdePrerequisites;
     };
 
 const dbTimeoutResult: VoidReceiptResult = {
@@ -507,6 +500,12 @@ async function prepareVoidDocument(
   const prerequisites = await fetchAdePrerequisites(input.businessId);
   if ("error" in prerequisites) {
     return { kind: "done", result: prerequisites };
+  }
+
+  // CIE: sessione interattiva assente/scaduta → chiedi il rinnovo PRIMA di
+  // inserire la riga VOID PENDING (evita un annullo bloccato dallo stale-gate).
+  if (prerequisites.method === "cie" && isCieSessionMissing(input.businessId)) {
+    return { kind: "done", result: { reauthRequired: true } };
   }
 
   const insertOutcome = await insertOrResolveVoid(input, apiKeyId);
@@ -734,15 +733,22 @@ export async function voidReceiptForBusiness(
     recovery,
     voidCreatedAt,
   } = prep;
-  const { codiceFiscale, password, pin, cedentePrestatore } =
-    prep.prerequisites;
+  const { prerequisites } = prep;
+  const { cedentePrestatore } = prerequisites;
 
   try {
     return await withAdeSession(
-      {
-        businessId: input.businessId,
-        credentials: { codiceFiscale, password, pin },
-      },
+      prerequisites.method === "cie"
+        ? { businessId: input.businessId, method: "cie" }
+        : {
+            businessId: input.businessId,
+            method: "fisconline",
+            credentials: {
+              codiceFiscale: prerequisites.codiceFiscale,
+              password: prerequisites.password,
+              pin: prerequisites.pin,
+            },
+          },
       async (adeClient) => {
         // Lookup AdE pre-retry (REVIEW.md #4): solo in recovery, prima di
         // ri-sottomettere, riconcilia l'annullo con AdE nella stessa sessione.
@@ -786,6 +792,13 @@ export async function voidReceiptForBusiness(
       },
     );
   } catch (err) {
+    // Sessione CIE scaduta in-flight: 401 AdE = annullo NON registrato → nessun
+    // duplicato. Riga PENDING lasciata intatta (niente ERROR), rinnovo richiesto.
+    // Non è un failure nostro: niente logAdeFailure/Sentry (regola 20).
+    if (err instanceof AdeReauthRequiredError) {
+      return { reauthRequired: true };
+    }
+
     logAdeFailure(
       err,
       {

@@ -67,6 +67,18 @@ export async function POST(
     auth.apiKey.id,
   );
 
+  if (result.reauthRequired) {
+    return withCors(
+      Response.json(
+        {
+          error:
+            "Sessione AdE (CIE) scaduta: ricollegati dall'app web ScontrinoZero prima di riprovare.",
+        },
+        { status: 409 },
+      ),
+    );
+  }
+
   if (result.error) {
     return serviceErrorResponse({ error: result.error, code: result.code });
   }

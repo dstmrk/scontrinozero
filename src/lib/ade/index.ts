@@ -9,6 +9,7 @@ import type { FisconlineCredentials } from "./types";
 import { MockAdeClient } from "./mock-client";
 import { RealAdeClient } from "./real-client";
 import { adeSessionCache } from "./session-cache";
+import { adeInteractiveSessionStore } from "./interactive-session-store";
 import { logger } from "@/lib/logger";
 
 export type AdeMode = "mock" | "real";
@@ -64,27 +65,45 @@ export function createAdeClient(mode: AdeMode): AdeClient {
 }
 
 /**
+ * Parametri di `withAdeSession`, discriminati sul metodo di accesso AdE.
+ *  - `fisconline`: il server ha le credenziali e può ri-loggarsi in silenzio →
+ *    sessione riusata/creata da `adeSessionCache`.
+ *  - `cie`: sessione stabilita interattivamente (push), non ri-creabile in
+ *    silenzio → riusata dallo store interattivo; se assente/scaduta →
+ *    `AdeReauthRequiredError`.
+ */
+export type WithAdeSessionParams =
+  | {
+      businessId: string;
+      method: "fisconline";
+      credentials: FisconlineCredentials;
+    }
+  | { businessId: string; method: "cie" };
+
+/**
  * Esegue `fn` con un client AdE autenticato per `businessId` (REVIEW #5).
  *
- * - `ADE_MODE=real`: riusa la sessione via `adeSessionCache` (un solo login
- *   Fisconline per più operazioni ravvicinate dello stesso business, serializzate
- *   da un lock per-business). Il logout NON avviene a fine operazione: la
- *   sessione resta in cache fino a TTL/eviction/invalidazione.
- * - `ADE_MODE=mock`: nessuna cache. login + logout per-operazione come prima,
- *   così il comportamento dei test mock resta invariato (login/logout no-op).
- *
- * Sostituisce il pattern `createAdeClient(getAdeMode())` + `login()` + `logout()`
- * nel `finally` nei call-site di emissione/annullo.
+ * - `ADE_MODE=real`, Fisconline: riusa la sessione via `adeSessionCache` (un solo
+ *   login per più operazioni ravvicinate, serializzate per-business). Invariato.
+ * - `ADE_MODE=real`, CIE: riusa la sessione depositata nello store interattivo;
+ *   se assente/scaduta solleva `AdeReauthRequiredError`. Nessun login qui (il
+ *   secondo fattore è umano).
+ * - `ADE_MODE=mock`: nessuna cache. login/loginCie + logout per-operazione, così
+ *   in dev/sandbox anche CIE dà un OK immediato senza sessione depositata.
  */
 export async function withAdeSession<T>(
-  params: { businessId: string; credentials: FisconlineCredentials },
+  params: WithAdeSessionParams,
   fn: (client: AdeClient) => Promise<T>,
 ): Promise<T> {
   const mode = getAdeMode();
 
   if (mode === "mock") {
     const client = createAdeClient("mock");
-    await client.login(params.credentials);
+    if (params.method === "cie") {
+      await client.loginCie({ username: "mock", password: "mock" });
+    } else {
+      await client.login(params.credentials);
+    }
     try {
       return await fn(client);
     } finally {
@@ -94,5 +113,19 @@ export async function withAdeSession<T>(
     }
   }
 
+  if (params.method === "cie") {
+    return adeInteractiveSessionStore.run(params.businessId, fn);
+  }
+
   return adeSessionCache.run(params.businessId, params.credentials, fn);
+}
+
+/**
+ * True se un business CIE non ha (più) una sessione interattiva viva e va
+ * chiesto il rinnovo. Usato da emit/void per ritornare `reauthRequired` PRIMA
+ * di inserire il documento PENDING (evita un documento bloccato dallo stale-gate
+ * dopo un rinnovo). Solo in `ADE_MODE=real`: in mock CIE dà sempre OK.
+ */
+export function isCieSessionMissing(businessId: string): boolean {
+  return getAdeMode() === "real" && !adeInteractiveSessionStore.has(businessId);
 }

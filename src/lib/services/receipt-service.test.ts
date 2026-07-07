@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { AdeReauthRequiredError } from "@/lib/ade/errors";
 
 // --- Mocks ---
 
@@ -82,8 +83,10 @@ const mockAdeClient = {
 // withAdeSession (REVIEW #5) sostituisce createAdeClient + login/logout manuali.
 // Il mock riproduce il ciclo mock-mode: login → fn(client) → logout nel finally,
 // così le asserzioni su mockLogin/mockLogout/mockSubmitSale restano valide.
+const mockIsCieSessionMissing = vi.fn().mockReturnValue(false);
 vi.mock("@/lib/ade", () => ({
   getAdeMode: () => "mock",
+  isCieSessionMissing: (...args: unknown[]) => mockIsCieSessionMissing(...args),
   withAdeSession: async (
     params: { credentials: unknown },
     fn: (client: typeof mockAdeClient) => unknown,
@@ -148,6 +151,7 @@ describe("emitReceiptForBusiness", () => {
     process.env.ADE_MODE = "mock";
 
     mockFetchAdePrerequisites.mockResolvedValue(FAKE_PREREQUISITES);
+    mockIsCieSessionMissing.mockReturnValue(false);
 
     mockTransaction.mockImplementation(
       async (callback: (tx: unknown) => Promise<unknown>) => {
@@ -193,6 +197,41 @@ describe("emitReceiptForBusiness", () => {
     });
     expect(mockSubmitSale).toHaveBeenCalled();
     expect(mockLogout).toHaveBeenCalled();
+  });
+
+  it("CIE senza sessione interattiva → reauthRequired, nessun documento inserito", async () => {
+    mockFetchAdePrerequisites.mockResolvedValue({
+      method: "cie",
+      cedentePrestatore: { built: true },
+    });
+    mockIsCieSessionMissing.mockReturnValue(true);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.reauthRequired).toBe(true);
+    expect(result.documentId).toBeUndefined();
+    // Nessun documento fiscale inserito né trasmesso.
+    expect(mockDocumentInsertValues).not.toHaveBeenCalled();
+    expect(mockSubmitSale).not.toHaveBeenCalled();
+  });
+
+  it("CIE: sessione scaduta in-flight (AdeReauthRequiredError) → reauthRequired, riga non marcata ERROR", async () => {
+    mockFetchAdePrerequisites.mockResolvedValue({
+      method: "cie",
+      cedentePrestatore: { built: true },
+    });
+    mockIsCieSessionMissing.mockReturnValue(false);
+    mockSubmitSale.mockRejectedValue(new AdeReauthRequiredError("cie"));
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.reauthRequired).toBe(true);
+    // submitSale tentato ma AdE ha rifiutato la sessione; la riga resta PENDING
+    // (nessun UPDATE a ERROR — 401 = documento non registrato, niente duplicato).
+    expect(mockSubmitSale).toHaveBeenCalled();
+    expect(mockUpdateSet).not.toHaveBeenCalledWith({ status: "ERROR" });
   });
 
   it("L2: defensive branch — transaction returns row without id → internal error + critical log", async () => {

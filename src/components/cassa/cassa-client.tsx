@@ -125,8 +125,11 @@ export function CassaClient({
   const mutation = useMutation({
     mutationFn: emitReceipt,
     onSuccess: (result) => {
-      if (result.error) {
-        return; // Handled below via mutation.data
+      if (result.error || result.reauthRequired) {
+        // reauthRequired: sessione CIE scaduta, nessuno scontrino emesso. Non
+        // svuotare il carrello: l'utente si ricollega e riprova. Gestito nel
+        // render via mutation.data.
+        return;
       }
       clearCart();
       track(UMAMI_EVENTS.receiptEmitted);
@@ -307,6 +310,24 @@ export function CassaClient({
   if (step === "summary") {
     return (
       <div className="mx-auto max-w-sm space-y-2">
+        {mutation.data?.reauthRequired && (
+          <div
+            role="alert"
+            className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm"
+          >
+            <p>
+              {
+                "Sessione CIE scaduta. Ricollegati approvando la notifica sull'app CIE ID, poi riprova."
+              }{" "}
+              <Link
+                href="/dashboard/settings"
+                className="font-medium underline"
+              >
+                {"Ricollega ora"}
+              </Link>
+            </p>
+          </div>
+        )}
         {mutationError && (
           <div
             role="alert"

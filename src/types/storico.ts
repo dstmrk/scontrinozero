@@ -100,4 +100,9 @@ export interface VoidReceiptResult {
   voidDocumentId?: string;
   adeTransactionId?: string;
   adeProgressive?: string;
+  /**
+   * Sessione AdE interattiva (CIE) assente/scaduta: l'utente deve ri-collegarsi
+   * prima di riprovare. Nessun annullo è stato trasmesso.
+   */
+  reauthRequired?: boolean;
 }

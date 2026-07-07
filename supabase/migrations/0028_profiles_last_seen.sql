@@ -1,4 +1,4 @@
--- Migration: 0027_profiles_last_seen
+-- Migration: 0028_profiles_last_seen
 -- Segnale "visita autenticata" per il GDPR pruning utenti inattivi (audit 2026-07-07).
 --
 -- Lo sweep di cancellazione (src/lib/services/inactive-user-prune.ts) misurava

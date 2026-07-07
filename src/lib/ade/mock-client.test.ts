@@ -240,6 +240,28 @@ describe("MockAdeClient", () => {
     });
   });
 
+  describe("loginCie", () => {
+    const cieCreds = {
+      username: "mario.rossi@example.com",
+      password: "ciepassword",
+    };
+
+    it("returns a mock session marked as cie", async () => {
+      const session = await client.loginCie(cieCreds);
+
+      expect(session.pAuth).toMatch(/^mock_p_auth_cie_/);
+      expect(session.partitaIva).toHaveLength(11);
+      expect(session.createdAt).toBeGreaterThan(0);
+    });
+
+    it("enables subsequent operations like a regular login", async () => {
+      await client.loginCie(cieCreds);
+      const response = await client.submitSale(makeSalePayload());
+
+      expect(response.esito).toBe(true);
+    });
+  });
+
   describe("getProducts", () => {
     it("returns an empty array when logged in", async () => {
       await client.login(mockCredentials);
