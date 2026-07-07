@@ -1,6 +1,6 @@
 import { cache } from "react";
 import * as Sentry from "@sentry/nextjs";
-import { and, eq, isNull, lt, or } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getDb } from "@/db";
 import { adeCredentials, businesses, profiles } from "@/db/schema";
@@ -85,33 +85,27 @@ export const getAuthenticatedUser = cache(async (): Promise<User> => {
 });
 
 /**
- * Throttle del touch di `last_seen_at`: al massimo una scrittura ogni 24h per
- * utente. Su scala di soglie GDPR in mesi la granularità giornaliera è più che
- * sufficiente.
- */
-const LAST_SEEN_TOUCH_THROTTLE_MS = 24 * 60 * 60 * 1000;
-
-/**
  * Registra la visita autenticata aggiornando `profiles.last_seen_at`.
  * Scrittura CONDIZIONALE per evitare write-amplification (stesso pattern del
  * conditional `last_used_at` delle API key, skill `testing-patterns`): la
- * UPDATE tocca la riga solo se il valore è NULL o più vecchio del throttle —
- * per ogni altra richiesta è un no-op senza write. `getAuthenticatedUser` è
- * già dedupata per-request via React cache(), quindi al più un tentativo per
+ * UPDATE tocca la riga solo se il valore è NULL o più vecchio di 24h
+ * (throttle — su soglie GDPR in mesi la granularità giornaliera basta) — per
+ * ogni altra richiesta è un no-op senza write. `getAuthenticatedUser` è già
+ * dedupata per-request via React cache(), quindi al più un tentativo per
  * richiesta.
+ *
+ * Raw SQL via `db.execute` (non il builder `db.update`) per due motivi:
+ * clock server-side (`now()`, niente skew dell'app) e nessun bump collaterale
+ * di `updated_at` (`$onUpdate` del builder) su una visita passiva.
  */
 export async function touchLastSeen(authUserId: string): Promise<void> {
   const db = getDb();
-  const threshold = new Date(Date.now() - LAST_SEEN_TOUCH_THROTTLE_MS);
-  await db
-    .update(profiles)
-    .set({ lastSeenAt: new Date() })
-    .where(
-      and(
-        eq(profiles.authUserId, authUserId),
-        or(isNull(profiles.lastSeenAt), lt(profiles.lastSeenAt, threshold)),
-      ),
-    );
+  await db.execute(sql`
+    UPDATE profiles
+    SET last_seen_at = now()
+    WHERE auth_user_id = ${authUserId}
+      AND (last_seen_at IS NULL OR last_seen_at < now() - interval '24 hours')
+  `);
 }
 
 /**

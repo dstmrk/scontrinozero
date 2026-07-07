@@ -26,14 +26,12 @@ const mockInnerJoin = vi.fn().mockReturnValue({ where: mockWhere });
 const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin });
 const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
 
-// Catena update per il touch di `last_seen_at` (GDPR pruning, REVIEW audit
-// 2026-07-07): db.update(profiles).set({...}).where(condizione throttle).
-const mockUpdateWhere = vi.fn().mockResolvedValue(undefined);
-const mockUpdateSet = vi.fn(() => ({ where: mockUpdateWhere }));
-const mockUpdate = vi.fn(() => ({ set: mockUpdateSet }));
+// Touch di `last_seen_at` (GDPR pruning, REVIEW audit 2026-07-07): raw SQL
+// via db.execute (no builder → niente bump di updated_at, now() server-side).
+const mockExecute = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@/db", () => ({
-  getDb: vi.fn().mockReturnValue({ select: mockSelect, update: mockUpdate }),
+  getDb: vi.fn().mockReturnValue({ select: mockSelect, execute: mockExecute }),
 }));
 
 vi.mock("@/db/schema", () => ({
@@ -207,16 +205,16 @@ describe("server-auth", () => {
       // Flush del microtask del touch fire-and-forget.
       await new Promise((resolve) => setTimeout(resolve, 0));
 
-      expect(mockUpdate).toHaveBeenCalledTimes(1);
-      expect(mockUpdateSet).toHaveBeenCalledWith({
-        lastSeenAt: expect.any(Date),
-      });
-      expect(mockUpdateWhere).toHaveBeenCalledTimes(1);
+      expect(mockExecute).toHaveBeenCalledTimes(1);
+      const sqlText = JSON.stringify(mockExecute.mock.calls[0]?.[0]);
+      // Scrittura condizionale: colonna touched + throttle 24h nel WHERE.
+      expect(sqlText).toContain("last_seen_at");
+      expect(sqlText).toContain("interval '24 hours'");
     });
 
     it("un fallimento del touch non fa fallire getAuthenticatedUser (warn, no throw)", async () => {
       mockGetUser.mockResolvedValue({ data: { user: FAKE_USER } });
-      mockUpdateWhere.mockRejectedValueOnce(new Error("DB down"));
+      mockExecute.mockRejectedValueOnce(new Error("DB down"));
 
       const { getAuthenticatedUser } = await import("./server-auth");
       const user = await getAuthenticatedUser();
@@ -236,7 +234,7 @@ describe("server-auth", () => {
       await expect(getAuthenticatedUser()).rejects.toThrow("Not authenticated");
       await new Promise((resolve) => setTimeout(resolve, 0));
 
-      expect(mockUpdate).not.toHaveBeenCalled();
+      expect(mockExecute).not.toHaveBeenCalled();
     });
 
     it("is wrapped in React cache() to dedupe the auth round-trip (REVIEW.md #2)", async () => {
