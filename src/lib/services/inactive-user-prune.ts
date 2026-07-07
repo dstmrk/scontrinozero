@@ -76,9 +76,13 @@ async function setWarningSentAt(
  *   2. CANCELLAZIONE — inattività ≥ deleteAfterDays E preavviso inviato ≥
  *      warnBeforeDays fa → `purgeUserById` (cascata) + email di conferma.
  *
- * Inattività = `MAX(ultimo scontrino, last_sign_in_at, profiles.created_at)`:
- * l'utente è "attivo" se ha emesso uno scontrino OPPURE ha effettuato login. Il
- * floor a `created_at` evita di cancellare un iscritto recente senza attività.
+ * Inattività = `MAX(ultimo scontrino, last_sign_in_at, last_seen_at,
+ * profiles.created_at)`: l'utente è "attivo" se ha emesso uno scontrino OPPURE
+ * ha effettuato login OPPURE ha visitato l'app autenticato (`last_seen_at`,
+ * touch throttled in `getAuthenticatedUser` — necessario perché
+ * `last_sign_in_at` NON si aggiorna sul refresh token e un utente PWA con
+ * sessione persistente in sola lettura risulterebbe inattivo). Il floor a
+ * `created_at` evita di cancellare un iscritto recente senza attività.
  *
  * RESET — se un utente preavvisato torna attivo (attività rientrata nella
  * finestra di warn) o diventa protetto (es. si abbona), il flag viene azzerato,
@@ -120,6 +124,7 @@ export async function pruneInactiveUsers(
         GREATEST(
           p.created_at,
           COALESCE(u.last_sign_in_at, p.created_at),
+          COALESCE(p.last_seen_at, p.created_at),
           COALESCE(d.last_doc_at, p.created_at)
         ) AS last_activity_at
       FROM profiles p
@@ -134,6 +139,7 @@ export async function pruneInactiveUsers(
         GREATEST(
           p.created_at,
           COALESCE(u.last_sign_in_at, p.created_at),
+          COALESCE(p.last_seen_at, p.created_at),
           COALESCE(d.last_doc_at, p.created_at)
         ) < ${warnCutoff.toISOString()}::timestamptz
         OR p.inactivity_warning_sent_at IS NOT NULL

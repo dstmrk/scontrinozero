@@ -86,6 +86,37 @@ describe("purgeUserById", () => {
     vi.useRealTimers();
   });
 
+  it.each([
+    { name: "status 404", error: { message: "User not found", status: 404 } },
+    {
+      name: "code user_not_found",
+      error: { message: "User not found", code: "user_not_found" },
+    },
+  ])(
+    "tratta 'user not found' ($name) come successo idempotente: nessun retry, profilo cancellato",
+    async ({ error }) => {
+      // Profilo orfano (auth user già cancellato in un run precedente in cui
+      // la delete di profiles era fallita): senza il ramo idempotente, lo
+      // sweep GDPR ritenterebbe per sempre — 3 retry falliti al giorno,
+      // logger.error critical in Sentry e dati personali MAI cancellati.
+      mockAdminDeleteUser.mockResolvedValue({ error });
+
+      const { purgeUserById } = await import("./purge-user");
+      const { logger } = await import("@/lib/logger");
+      const result = await purgeUserById(USER_ID);
+
+      expect(mockAdminDeleteUser).toHaveBeenCalledTimes(1);
+      expect(mockDeleteReturning).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({ authDeleted: true, profileDeleted: true });
+      // Condizione attesa (regola 20): warn, non error → niente Sentry issue.
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: USER_ID }),
+        expect.any(String),
+      );
+      expect(logger.error).not.toHaveBeenCalled();
+    },
+  );
+
   it("ritorna profileDeleted:false e logga se il profilo non esiste", async () => {
     mockDeleteReturning.mockResolvedValue([]);
 

@@ -211,6 +211,23 @@ describe("pruneInactiveUsers", () => {
     expect(setValues.filter((v) => v instanceof Date)).toHaveLength(1);
   });
 
+  it("include last_seen_at nel calcolo dell'attività (SELECT e WHERE)", async () => {
+    // Segnale visita autenticata (touch in server-auth.ts): senza questo, un
+    // utente PWA con sessione persistente che usa l'app in sola lettura
+    // risulterebbe inattivo (last_sign_in_at non si aggiorna sul refresh
+    // token) e verrebbe cancellato pur essendo attivo.
+    mockExecute.mockResolvedValue([]);
+
+    const { pruneInactiveUsers } = await import("./inactive-user-prune");
+    await pruneInactiveUsers(NOW, CONFIG);
+
+    const sqlText = JSON.stringify(mockExecute.mock.calls[0]?.[0]);
+    const occurrences = sqlText.match(/last_seen_at/g) ?? [];
+    // Due GREATEST (colonna SELECT + clausola WHERE): entrambi devono
+    // includere COALESCE(p.last_seen_at, p.created_at).
+    expect(occurrences.length).toBeGreaterThanOrEqual(2);
+  });
+
   it("degrada a zero senza lanciare se la query candidati fallisce", async () => {
     mockExecute.mockRejectedValue(new Error("DB down"));
 

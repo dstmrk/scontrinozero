@@ -197,6 +197,13 @@
       "when": 1780099211000,
       "tag": "0027_ade_credentials_login_method",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1783764000000,
+      "tag": "0028_profiles_last_seen",
+      "breakpoints": true
     }
   ]
 }

@@ -69,10 +69,19 @@ export const profiles = pgTable(
     // 0026): timestamp dell'invio dell'email di PREAVVISO cancellazione. Lo
     // sweep periodico (src/lib/services/inactive-user-prune.ts) cancella solo se
     // questo valore è ≥30 giorni fa (grace period), e lo azzera se l'utente
-    // torna attivo (nuovo scontrino o login). NULL = nessun preavviso pendente.
+    // torna attivo (nuovo scontrino, login o visita autenticata). NULL =
+    // nessun preavviso pendente.
     inactivityWarningSentAt: timestamp("inactivity_warning_sent_at", {
       withTimezone: true,
     }),
+    // GDPR — segnale "visita autenticata" (migration 0028): ultima richiesta
+    // autenticata, touch throttled 1/24h in getAuthenticatedUser
+    // (src/lib/server-auth.ts). Serve allo sweep di inattività perché
+    // auth.users.last_sign_in_at NON si aggiorna sul refresh token: senza
+    // questo, un utente PWA con sessione persistente in sola lettura
+    // risulterebbe inattivo. NULL = nessuna visita registrata dal deploy
+    // della colonna (il GREATEST dello sweep ha il floor a created_at).
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   },
   (table) => [
     // Defense-in-depth (migration 0019): 254 = RFC 5321 max address length.

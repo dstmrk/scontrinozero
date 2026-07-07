@@ -7,6 +7,17 @@ import { logger } from "@/lib/logger";
 /** Numero massimo di tentativi per la delete dell'auth user (admin API). */
 const MAX_AUTH_DELETE_ATTEMPTS = 3;
 
+/**
+ * True se l'errore della admin API indica che l'auth user NON esiste
+ * (già cancellato). Check difensivo su entrambi i campi che Supabase può
+ * esporre: HTTP `status` 404 e `code` "user_not_found".
+ */
+function isUserNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const { status, code } = error as { status?: unknown; code?: unknown };
+  return status === 404 || code === "user_not_found";
+}
+
 export type PurgeUserResult = {
   /** true se l'auth user è stato rimosso (dopo eventuali retry). */
   authDeleted: boolean;
@@ -46,6 +57,20 @@ export async function purgeUserById(
   for (let attempt = 1; attempt <= MAX_AUTH_DELETE_ATTEMPTS; attempt++) {
     const { error } = await adminClient.auth.admin.deleteUser(authUserId);
     if (!error) {
+      deleteAuthError = null;
+      break;
+    }
+    if (isUserNotFoundError(error)) {
+      // Auth user già assente (es. profilo orfano di un run precedente in cui
+      // la delete di `profiles` era fallita): l'obiettivo — nessun auth user —
+      // è già raggiunto, quindi delete idempotente. Senza questo ramo lo sweep
+      // GDPR ritenterebbe per sempre (3 retry/giorno, error critical in Sentry)
+      // e la riga `profiles` (dati personali) non verrebbe MAI rimossa.
+      // Condizione attesa, non bug nostro → warn (regola 20), non error.
+      logger.warn(
+        { userId: authUserId },
+        "purgeUserById: auth user già assente — delete idempotente, procedo col profilo",
+      );
       deleteAuthError = null;
       break;
     }
