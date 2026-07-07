@@ -113,10 +113,10 @@ export async function rotateEncryptionKey(opts: {
 
         // Decrypt+re-encrypt ogni campo presente. I campi encrypted* sono
         // nullable (migrazione 0027): CIE valorizza username+password, SPID
-        // nessuno. Un campo NULL resta NULL.
+        // nessuno. Un campo assente (NULL/undefined) resta NULL.
         const oldKeys = new Map<number, Buffer>([[oldVersion, oldKeyBuf]]);
-        const reEncrypt = (value: string | null): string | null =>
-          value === null
+        const reEncrypt = (value: string | null | undefined): string | null =>
+          value == null
             ? null
             : encrypt(decrypt(value, oldKeys), newKeyBuf, newVersion);
 
