@@ -265,6 +265,7 @@ TLS verso AdE/IdP mitiga in pratica — stessa classe di rischio del finding
 
 - **Categoria:** funzionalità/UX · **Severità:** Medium — colpisce il caso d'errore più comune (credenziali sbagliate) del nuovo onboarding CIE
 - **File:** `src/lib/ade/error-messages.ts:34-39` (`AdeAuthError` → "Credenziali Fisconline non valide. Verifica codice fiscale, password e PIN.") e `:52-56` (`AdeSpidTimeoutError` → "Non hai approvato la richiesta SPID in tempo."); caller: `attemptAdeLoginForVerification` in `src/server/onboarding-actions.ts`
+- **Da affrontare INSIEME a #45 e #46** (stesso intervento: "il rinnovo/verifica sessione CIE funziona per un utente reale" — stessi file, stesso copy, da chiudere prima della validazione su AdE reale)
 
 **Problema.** `ciePostCredentials` lancia `AdeAuthError` su credenziali CIE
 errate e `ciePollAndProceed` lancia `AdeSpidTimeoutError` su push non
@@ -296,6 +297,7 @@ attivamente fuorvianti nel flusso di lancio della feature.
 
 - **Categoria:** funzionalità/architettura · **Severità:** Medium — la verifica può riuscire server-side mentre il client vede un errore
 - **File:** `src/lib/ade/real-client.ts:1385-1386` (`ciePollAndProceed`: `spidMaxPolls ?? 30` × `spidPollIntervalMs ?? 7000` = 210s); `src/lib/ade/index.ts` (`createAdeClient` istanzia `new RealAdeClient()` senza opzioni); deploy dietro Cloudflare Tunnel (CLAUDE.md)
+- **Da affrontare INSIEME a #44 e #46** (il copy d'attesa del punto 2 vive nei componenti toccati da #46; il messaggio di timeout è quello reso method-aware da #44)
 
 **Problema.** `verifyAdeCredentials` per CIE è una server action sincrona che
 attende l'approvazione push fino a 30 poll × 7s = **210 secondi** (+ le fasi
@@ -327,6 +329,7 @@ settato) → l'utente vede "verifica fallita", riprova, consuma il rate limit
 
 - **Categoria:** funzionalità/UX · **Severità:** Medium — è il target del link "Ricollega ora" mostrato da cassa/annullo su `reauthRequired`
 - **File:** `src/components/settings/ade-credentials-section.tsx` (componente intero, non method-aware); il server component `src/app/dashboard/settings/page.tsx:105-118` legge già `cred.loginMethod` ma lo passa solo a `EditAdeCredentialsSection`
+- **Da affrontare INSIEME a #44 e #45** (il copy "approva entro un minuto" del punto 2 dipende dalla finestra push scelta in #45; i messaggi d'errore mostrati qui sono quelli di #44)
 
 **Problema.** Il rinnovo della sessione CIE (dopo `reauthRequired` in
 cassa/annullo, o dopo un restart del container) passa dal bottone "Verifica
