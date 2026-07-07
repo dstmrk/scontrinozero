@@ -1,6 +1,18 @@
 # REVIEW.md — Registro bug noti e tech debt
 
-> **Data ultimo audit:** 2026-06-27 (incrementale) · **Versione analizzata:** v1.3.8 (commit `dc03ed5`)
+> **Data ultimo audit:** 2026-07-07 (incrementale) · **Versione analizzata:** main (commit `449772d`)
+>
+> **Audit incrementale 2026-07-07:** code review mirata sul flusso GDPR di
+> cancellazione automatica utenti inattivi (`inactive-user-prune` + config +
+> sweep + `purge-user`), con verifica manuale fino a middleware/proxy e
+> semantica `last_sign_in_at` di Supabase. Due bug fixati contestualmente
+> (stesso PR): segnale di attività cieco alle visite autenticate con sessione
+> persistente (colonna `last_seen_at` + touch in `getAuthenticatedUser`) e
+> `purgeUserById` non idempotente su profilo orfano (retry infinito + dati mai
+> cancellati). Nuovi finding: #39, #40, #41 (P3). Falsi positivi scartati
+> (ordine email→flag del preavviso, RESET prima del DELETE, fail-safe su plan
+> sconosciuto/pagato-null, cast `db.execute` con postgres-js, data promessa
+> nell'email mai successiva alla cancellazione reale).
 >
 > **Audit incrementale 2026-06-27:** code review mirata sui percorsi critici
 > (registrazione/accesso/onboarding · emissione/annullo scontrini · billing/
@@ -315,6 +327,85 @@ leggere `ade:wizard_piva_missing` nel dataset Sentry `logs` per confermare la
 shape. Se conferma lista vuota su `200` (transient post-password-change): trattare
 `PIva` vuota come transient (retry singolo di Phase F e/o downgrade a
 `ade_transient` warn, fuori da Sentry). Non implementare prima della conferma.
+
+### 39. Nessun floor di sicurezza su `INACTIVE_USER_DELETE_AFTER_DAYS`
+
+- **Categoria:** correttezza/GDPR · **Severità:** Low (richiede un typo di config, feature opt-in)
+- **File:** `src/lib/services/inactive-user-prune-config.ts` (`readPruneConfig`, `readPositiveInt`); avvio sweep in `src/instrumentation.ts` (`register`)
+
+**Problema.** Un typo nella env (es. `3` al posto di `365`) è accettato senza
+obiezioni: con `deleteAfterDays=1` il clamp dell'invariante porta
+`warnBeforeDays` a 1 e `warnCutoff` a "adesso" → **tutti** gli utenti non
+protetti vengono preavvisati al primo sweep e cancellati dal giorno dopo. Su
+una feature distruttiva e irreversibile il costo di un errore di battitura è
+sproporzionato. Inoltre il docstring di `readPruneConfig` promette "la
+violazione [warn ≥ delete] è segnalata dal chiamante", ma nessun chiamante la
+logga: correggere anche questo (segnalarla davvero, o aggiornare il docstring).
+
+**Fix (non ambiguo).**
+
+1. Costante `MIN_DELETE_AFTER_DAYS = 90` in `inactive-user-prune-config.ts`:
+   se il valore letto è inferiore, lo sweep **non parte** (`enabled` forzato a
+   `false`) — fail-safe: nel dubbio non si cancella nessuno.
+2. La config ritorna anche l'elenco delle violazioni (campo `warnings:
+string[]`, vuoto se ok) e `register()` in `instrumentation.ts` le logga a
+   `logger.warn` al boot — chiude anche il gap del docstring.
+3. I test E2E/sandbox che vogliono soglie corte passano la config esplicita a
+   `pruneInactiveUsers(now, config)` (già supportato), non via env.
+4. **Test:** valore sotto il floor → `enabled=false` + warning; valore valido →
+   invariato; `warnBeforeDays ≥ deleteAfterDays` → clamp + warning presente.
+
+---
+
+### 40. Sweep prune: snapshot stantio tra SELECT candidati e delete
+
+- **Categoria:** correttezza · **Severità:** Low (finestra di minuti su soglie di 365 giorni)
+- **File:** `src/lib/services/inactive-user-prune.ts` (`pruneInactiveUsers`, `deleteCandidate`)
+
+**Problema.** La SELECT dei candidati è unica a inizio sweep e il loop
+processa gli utenti in sequenza con side-effect lenti (email fino a 8s l'una,
+retry del purge): con N utenti il batch può durare minuti. Un utente che si
+abbona o torna attivo **tra la query e l'elaborazione della sua riga** viene
+valutato sullo snapshot vecchio e cancellato comunque. Oggi mitigato dal fatto
+che serviva comunque 365gg di inattività + preavviso di 30gg.
+
+**Fix (non ambiguo).**
+
+1. In `deleteCandidate`, subito prima di `purgeUserById`: ri-leggere la
+   singola riga (stessa shape della SELECT candidati, filtrata per
+   `auth_user_id`) e ri-validare l'eleggibilità (protezione piano, attività <
+   `deleteCutoff`, preavviso ≥ `warnGraceCutoff`); se non più eleggibile →
+   ritornare `"none"` (o `"reset"` se tornato attivo/protetto).
+2. Costo: una query in più **solo** sul ramo delete (raro), zero sul warn.
+3. **Test:** riga delete-eligible nello snapshot ma tornata attiva alla
+   ri-lettura → nessun purge; ancora eleggibile → purge invariato.
+
+---
+
+### 41. Sweep prune parte solo 24h dopo il boot (starvation su restart frequenti)
+
+- **Categoria:** operatività · **Severità:** Low (prod fa deploy rari; riguarda soprattutto dev)
+- **File:** `src/instrumentation.ts` (`startInactiveUserPruneSweep`, `INACTIVE_USER_PRUNE_INTERVAL_MS`)
+
+**Problema.** `setInterval` non esegue mai il callback subito: il primo sweep
+avviene 24h dopo il boot. Su un ambiente che riavvia il container più spesso
+di una volta al giorno (dev sul Pi ridéploya a ogni push su `main`) lo sweep
+**non gira mai**. In prod (deploy tag-based, rari) l'effetto è solo un ritardo
+fino a 24h, irrilevante su soglie di mesi.
+
+**Fix (non ambiguo).**
+
+1. Oltre all'interval, un run iniziale ritardato con `setTimeout` unref'd
+   (es. 15 minuti dopo il boot, per stare fuori dalla finestra di overlap dei
+   container durante `docker compose up -d`).
+2. Valutare (non obbligatorio) un jitter di qualche minuto per ridurre la
+   probabilità di double-run se due istanze partissero insieme; il double-run
+   è comunque innocuo (warn idempotente sul flag, delete già guardata da
+   `authDeleted`).
+3. **Test:** con fake timers, il callback iniziale scatta dopo il delay e non
+   impila un secondo interval; la guardia d'idempotenza resta valida.
+
+---
 
 ## Rischi accettati (documentati, non da fixare)
 
