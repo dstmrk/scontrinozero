@@ -152,7 +152,10 @@ export function EditAdeCredentialsSection({
         onSubmit={form.handleSubmit((data) => mutation.mutate(data))}
       >
         {/* Selettore metodo: Fisconline (default) / CIE. */}
-        <div className="flex gap-2" role="group" aria-label="Metodo di accesso">
+        <fieldset
+          className="m-0 flex gap-2 border-0 p-0"
+          aria-label="Metodo di accesso"
+        >
           <Button
             type="button"
             variant={method === "fisconline" ? "default" : "outline"}
@@ -173,7 +176,7 @@ export function EditAdeCredentialsSection({
           >
             CIE
           </Button>
-        </div>
+        </fieldset>
 
         {method === "cie" ? (
           <>

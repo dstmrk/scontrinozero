@@ -826,6 +826,34 @@ async function claimAndSendOnboardingNotifications(
   }
 }
 
+/**
+ * Recupera i dati fiscali dopo il login di verifica (best-effort) e chiude la
+ * sessione secondo il metodo: per CIE (real) deposita il client nello store
+ * interattivo — la sessione non è ri-creabile in silenzio (secondo fattore
+ * umano) — così emit/void la riusano; altrimenti logout. Estratto da
+ * verifyAdeCredentials per contenerne la Cognitive Complexity (SonarCloud).
+ */
+async function fetchFiscalDataAndCloseSession(
+  adeClient: ReturnType<typeof createAdeClient>,
+  businessId: string,
+  loginMethod: string,
+): Promise<Awaited<ReturnType<typeof adeClient.getFiscalData>> | null> {
+  try {
+    return await adeClient.getFiscalData();
+  } catch (err) {
+    logger.error({ err, businessId }, "Failed to fetch fiscal data from AdE");
+    return null;
+  } finally {
+    if (loginMethod === "cie" && getAdeMode() === "real") {
+      adeInteractiveSessionStore.set(businessId, adeClient);
+    } else {
+      await adeClient
+        .logout()
+        .catch((err) => logger.warn({ err }, "AdE logout failed"));
+    }
+  }
+}
+
 export async function verifyAdeCredentials(
   businessId: string,
 ): Promise<OnboardingActionResult> {
@@ -900,25 +928,13 @@ export async function verifyAdeCredentials(
 
   // Fetch fiscal data from AdE while the session is still active. Best-effort:
   // verification still succeeds (verifiedAt set) even if AdE doesn't return it;
-  // P.IVA/CF are then filled on a later run.
-  let fiscalData: Awaited<ReturnType<typeof adeClient.getFiscalData>> | null =
-    null;
-  try {
-    fiscalData = await adeClient.getFiscalData();
-  } catch (err) {
-    logger.error({ err, businessId }, "Failed to fetch fiscal data from AdE");
-  } finally {
-    if (cred.loginMethod === "cie" && getAdeMode() === "real") {
-      // La sessione CIE non è ri-creabile in silenzio (secondo fattore umano):
-      // depositala nello store interattivo per riusarla in emissione/annullo,
-      // invece di fare logout. "Verifica connessione" È il collega/rinnova CIE.
-      adeInteractiveSessionStore.set(businessId, adeClient);
-    } else {
-      await adeClient
-        .logout()
-        .catch((err) => logger.warn({ err }, "AdE logout failed"));
-    }
-  }
+  // P.IVA/CF are then filled on a later run. Per CIE la sessione resta viva
+  // (depositata nello store) invece del logout — vedi helper.
+  const fiscalData = await fetchFiscalDataAndCloseSession(
+    adeClient,
+    businessId,
+    cred.loginMethod,
+  );
 
   // Identity guard: blocca il cambio credenziali verso una P.IVA diversa su un
   // business già onboardato (logica in checkAdeIdentityGuard). Eseguito PRIMA
