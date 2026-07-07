@@ -15,6 +15,7 @@ import type {
   AdeProduct,
   AdeResponse,
   AdeSearchParams,
+  CieCredentials,
   SpidCredentials,
 } from "./types";
 import { buildCedenteFromBusiness } from "./mapper";
@@ -41,6 +42,17 @@ export class MockAdeClient implements AdeClient {
     this.session = {
       pAuth: `mock_p_auth_spid_${Date.now()}`,
       partitaIva: credentials.codiceFiscale.slice(0, 11).padEnd(11, "0"),
+      createdAt: Date.now(),
+    };
+    return this.session;
+  }
+
+  async loginCie(_credentials: CieCredentials): Promise<AdeSession> {
+    // CIE: lo username è un'email, non il CF. In mock la P.IVA è fittizia
+    // (in real viene estratta dal portale post-login via wizardTemplate).
+    this.session = {
+      pAuth: `mock_p_auth_cie_${Date.now()}`,
+      partitaIva: "00000000000",
       createdAt: Date.now(),
     };
     return this.session;

@@ -62,8 +62,9 @@ export function VoidReceiptDialog({
       });
     },
     onSuccess: (result) => {
-      if (result.error) {
-        // Error is shown inline — mutation still "succeeds" from React Query's POV
+      if (result.error || result.reauthRequired) {
+        // Error / reauthRequired mostrati inline. reauthRequired: sessione CIE
+        // scaduta, nessun annullo trasmesso — l'utente si ricollega e riprova.
         return;
       }
       setView("voidSuccess");
@@ -149,6 +150,15 @@ export function VoidReceiptDialog({
                 ) : (
                   (mutation.data?.error ?? "Errore imprevisto. Riprova.")
                 )}
+              </div>
+            )}
+
+            {/* CIE: sessione scaduta → ricollegarsi prima di ritentare l'annullo. */}
+            {mutation.data?.reauthRequired && (
+              <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+                {
+                  "Sessione CIE scaduta. Ricollegati dalle impostazioni approvando la notifica sull'app CIE ID, poi riprova l'annullo."
+                }
               </div>
             )}
 

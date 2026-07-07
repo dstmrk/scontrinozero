@@ -58,8 +58,15 @@ const step2Schema = z.object({
   pin: adePinSchema,
 });
 
+const cieSchema = z.object({
+  username: z.email("Inserisci l'email dell'app CIE ID."),
+  password: z.string().min(1, "La password CIE è obbligatoria."),
+});
+
+type AdeMethod = "fisconline" | "cie";
 type Step1Data = z.infer<typeof step1Schema>;
 type Step2Data = z.infer<typeof step2Schema>;
+type CieData = z.infer<typeof cieSchema>;
 
 function StepIndicator({ current }: Readonly<{ current: number }>) {
   return (
@@ -132,6 +139,13 @@ export function OnboardingForm({
     defaultValues: { codiceFiscale: "", password: "", pin: "" },
   });
 
+  // Metodo di accesso AdE: Fisconline è il default; "Altre opzioni" rivela CIE.
+  const [method, setMethod] = useState<AdeMethod>("fisconline");
+  const cieForm = useForm<CieData>({
+    resolver: zodResolver(cieSchema),
+    defaultValues: { username: "", password: "" },
+  });
+
   function handleBusinessSubmit(data: Step1Data) {
     const formData = objectToFormData({ ...data, nation: "IT" });
 
@@ -148,12 +162,34 @@ export function OnboardingForm({
 
   function handleCredentialsSubmit(data: Step2Data) {
     if (!businessId) return;
-    const formData = objectToFormData({ businessId, ...data });
+    const formData = objectToFormData({
+      businessId,
+      loginMethod: "fisconline",
+      ...data,
+    });
 
     startTransition(async () => {
       const result = await saveAdeCredentials(formData);
       if (result.error) {
         step2Form.setError("root", { message: result.error });
+        return;
+      }
+      setStep(2);
+    });
+  }
+
+  function handleCieSubmit(data: CieData) {
+    if (!businessId) return;
+    const formData = objectToFormData({
+      businessId,
+      loginMethod: "cie",
+      ...data,
+    });
+
+    startTransition(async () => {
+      const result = await saveAdeCredentials(formData);
+      if (result.error) {
+        cieForm.setError("root", { message: result.error });
         return;
       }
       setStep(2);
@@ -306,7 +342,7 @@ export function OnboardingForm({
             </Form>
           )}
 
-          {step === 1 && (
+          {step === 1 && method === "fisconline" && (
             <Form {...step2Form}>
               <form
                 onSubmit={step2Form.handleSubmit(handleCredentialsSubmit)}
@@ -372,6 +408,72 @@ export function OnboardingForm({
                     {isPending ? "Salvataggio…" : "Continua"}
                   </Button>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => setMethod("cie")}
+                  className="text-muted-foreground hover:text-foreground w-full text-center text-sm underline underline-offset-2"
+                >
+                  Altre opzioni di accesso
+                </button>
+              </form>
+            </Form>
+          )}
+
+          {step === 1 && method === "cie" && (
+            <Form {...cieForm}>
+              <form
+                onSubmit={cieForm.handleSubmit(handleCieSubmit)}
+                className="space-y-4"
+                noValidate
+              >
+                <p className="text-muted-foreground text-sm">
+                  Accedi con <strong>CIE</strong> usando le credenziali
+                  dell&apos;app <strong>CIE ID</strong> (email e password). Dopo
+                  il salvataggio ti chiederemo di approvare la notifica
+                  sull&apos;app per completare il collegamento all&apos;Agenzia
+                  delle Entrate.
+                </p>
+
+                <FormInputField
+                  control={cieForm.control}
+                  name="username"
+                  label="Email dell'app CIE ID *"
+                  placeholder="La tua email registrata su CIE ID"
+                />
+
+                <FormPasswordField
+                  control={cieForm.control}
+                  name="password"
+                  label="Password CIE ID *"
+                />
+
+                {cieForm.formState.errors.root && (
+                  <p className="text-destructive text-sm" role="alert">
+                    {cieForm.formState.errors.root.message}
+                  </p>
+                )}
+
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setStep(0)}
+                  >
+                    Indietro
+                  </Button>
+                  <Button type="submit" className="flex-1" disabled={isPending}>
+                    {isPending ? "Salvataggio…" : "Continua"}
+                  </Button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setMethod("fisconline")}
+                  className="text-muted-foreground hover:text-foreground w-full text-center text-sm underline underline-offset-2"
+                >
+                  Usa invece le credenziali Fisconline
+                </button>
               </form>
             </Form>
           )}
@@ -379,8 +481,9 @@ export function OnboardingForm({
           {step === 2 && (
             <div className="space-y-4 text-center">
               <p className="text-muted-foreground text-sm">
-                Verifica che le credenziali funzionino effettuando un test di
-                connessione all&apos;Agenzia delle Entrate.
+                {method === "cie"
+                  ? "Avvia il test di connessione, poi approva la notifica sull'app CIE ID sul tuo telefono per completare il collegamento all'Agenzia delle Entrate."
+                  : "Verifica che le credenziali funzionino effettuando un test di connessione all'Agenzia delle Entrate."}
               </p>
 
               {verifyError && (

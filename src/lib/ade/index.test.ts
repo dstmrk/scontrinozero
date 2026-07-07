@@ -93,7 +93,11 @@ describe("withAdeSession (mock mode)", () => {
     const fn = vi.fn().mockResolvedValue("done");
 
     const result = await withAdeSession(
-      { businessId: "biz-1", credentials: FAKE_CREDENTIALS },
+      {
+        businessId: "biz-1",
+        method: "fisconline",
+        credentials: FAKE_CREDENTIALS,
+      },
       fn,
     );
 
@@ -111,7 +115,11 @@ describe("withAdeSession (mock mode)", () => {
     );
 
     const result = await withAdeSession(
-      { businessId: "biz-1", credentials: FAKE_CREDENTIALS },
+      {
+        businessId: "biz-1",
+        method: "fisconline",
+        credentials: FAKE_CREDENTIALS,
+      },
       () => Promise.resolve("ok"),
     );
 
@@ -127,7 +135,11 @@ describe("withAdeSession (mock mode)", () => {
 
     await expect(
       withAdeSession(
-        { businessId: "biz-1", credentials: FAKE_CREDENTIALS },
+        {
+          businessId: "biz-1",
+          method: "fisconline",
+          credentials: FAKE_CREDENTIALS,
+        },
         () => Promise.reject(new Error("boom")),
       ),
     ).rejects.toThrow("boom");
@@ -143,7 +155,11 @@ describe("withAdeSession (mock mode)", () => {
     const fn = vi.fn();
 
     const result = await withAdeSession(
-      { businessId: "biz-1", credentials: FAKE_CREDENTIALS },
+      {
+        businessId: "biz-1",
+        method: "fisconline",
+        credentials: FAKE_CREDENTIALS,
+      },
       fn,
     );
 

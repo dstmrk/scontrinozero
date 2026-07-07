@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { AdeReauthRequiredError } from "@/lib/ade/errors";
 
 // --- Mocks ---
 
@@ -84,8 +85,10 @@ const mockAdeClient = {
 // withAdeSession (REVIEW #5) sostituisce createAdeClient + login/logout manuali.
 // Il mock riproduce il ciclo mock-mode: login → fn(client) → logout nel finally,
 // così le asserzioni su mockLogin/mockLogout/mockSubmitVoid restano valide.
+const mockIsCieSessionMissing = vi.fn().mockReturnValue(false);
 vi.mock("@/lib/ade", () => ({
   getAdeMode: () => "mock",
+  isCieSessionMissing: (...args: unknown[]) => mockIsCieSessionMissing(...args),
   withAdeSession: async (
     params: { credentials: unknown },
     fn: (client: typeof mockAdeClient) => unknown,
@@ -189,6 +192,7 @@ describe("voidReceiptForBusiness", () => {
     process.env.ADE_MODE = "mock";
 
     mockFetchAdePrerequisites.mockResolvedValue(FAKE_PREREQUISITES);
+    mockIsCieSessionMissing.mockReturnValue(false);
 
     // select: first call returns saleDoc, subsequent calls return idempotency results
     mockSelect.mockReturnValue({ from: mockSelectFrom });
@@ -240,6 +244,38 @@ describe("voidReceiptForBusiness", () => {
     expect(mockGetDocument).toHaveBeenCalledWith("trx-001");
     expect(mockSubmitVoid).toHaveBeenCalled();
     expect(mockLogout).toHaveBeenCalled();
+  });
+
+  it("CIE senza sessione interattiva → reauthRequired, nessuna riga VOID inserita", async () => {
+    mockFetchAdePrerequisites.mockResolvedValue({
+      method: "cie",
+      cedentePrestatore: { built: true },
+    });
+    mockIsCieSessionMissing.mockReturnValue(true);
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect(result.reauthRequired).toBe(true);
+    // Early-check: nessun insert VOID né submitVoid.
+    expect(mockInsertValues).not.toHaveBeenCalled();
+    expect(mockSubmitVoid).not.toHaveBeenCalled();
+  });
+
+  it("CIE: sessione scaduta in-flight (AdeReauthRequiredError) → reauthRequired", async () => {
+    mockFetchAdePrerequisites.mockResolvedValue({
+      method: "cie",
+      cedentePrestatore: { built: true },
+    });
+    mockIsCieSessionMissing.mockReturnValue(false);
+    mockSubmitVoid.mockRejectedValue(new AdeReauthRequiredError("cie"));
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect(result.reauthRequired).toBe(true);
+    // submitVoid è stato tentato ma AdE ha rifiutato la sessione.
+    expect(mockSubmitVoid).toHaveBeenCalled();
   });
 
   it("salva apiKeyId nel documento VOID quando fornito", async () => {

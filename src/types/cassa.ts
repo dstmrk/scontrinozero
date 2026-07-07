@@ -128,4 +128,10 @@ export type SubmitReceiptResult = {
   adeTransactionId?: string;
   adeProgressive?: string;
   passwordExpired?: boolean;
+  /**
+   * La sessione AdE interattiva (CIE) è assente/scaduta: l'utente deve
+   * ri-collegarsi (approvare la notifica sull'app) prima di riprovare. Nessun
+   * documento fiscale è stato trasmesso.
+   */
+  reauthRequired?: boolean;
 };
