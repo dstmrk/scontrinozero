@@ -130,6 +130,7 @@ const mockTransaction = vi
 // ---------------------------------------------------------------------------
 
 import type { VoidReceiptInput } from "@/types/storico";
+import { UnauthenticatedError } from "@/lib/auth-errors";
 
 const FAKE_USER = { id: "user-123" };
 
@@ -303,6 +304,21 @@ describe("void-actions", () => {
       // Second update: original SALE → VOID_ACCEPTED
       const secondUpdateSet = mockUpdateSet.mock.calls[1][0];
       expect(secondUpdateSet.status).toBe("VOID_ACCEPTED");
+    });
+
+    it("degrada a 'Non autenticato.' quando la sessione è scaduta (no throw, no Sentry)", async () => {
+      // SCONTRINOZERO-S (stesso latente di emitReceipt): sessione scaduta con lo
+      // storico aperto. getAuthenticatedUser lancia UnauthenticatedError; l'action
+      // deve degradare a { error } inline invece di propagare (regola 19) e finire
+      // in Sentry come issue (regola 20).
+      mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
+
+      const { voidReceipt } = await import("./void-actions");
+      const result = await voidReceipt(VALID_VOID_INPUT);
+
+      expect(result.error).toBe("Non autenticato.");
+      expect(mockRateLimiterCheck).not.toHaveBeenCalled();
+      expect(mockLogin).not.toHaveBeenCalled();
     });
 
     it("returns error when void rate limit is exceeded", async () => {
