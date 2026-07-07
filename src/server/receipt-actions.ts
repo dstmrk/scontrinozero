@@ -17,6 +17,7 @@ import {
   getAuthenticatedUser,
   checkBusinessOwnership,
 } from "@/lib/server-auth";
+import { authErrorResult } from "@/lib/auth-errors";
 import { emitReceiptForBusiness } from "@/lib/services/receipt-service";
 import type { SubmitReceiptInput, SubmitReceiptResult } from "@/types/cassa";
 
@@ -45,7 +46,16 @@ const receiptLimiter = new RateLimiter({
 export async function emitReceipt(
   input: SubmitReceiptInput,
 ): Promise<SubmitReceiptResult> {
-  const user = await getAuthenticatedUser();
+  // Sessione assente (scaduta col carrello aperto) → degrada a { error }
+  // inline invece di propagare all'error boundary di Next (regola 19) e di
+  // finire in Sentry come issue (regola 20). Stesso pattern delle altre server
+  // action UI-facing (catalog/export/account/billing/analytics).
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return authErrorResult(err, "emitReceipt");
+  }
 
   const rateLimitResult = receiptLimiter.check(`emit:${user.id}`);
   if (!rateLimitResult.success) {

@@ -106,6 +106,7 @@ vi.mock("@/lib/logger", () => ({
 // --- Fixtures ---
 
 import type { SubmitReceiptInput } from "@/types/cassa";
+import { UnauthenticatedError } from "@/lib/auth-errors";
 
 const FAKE_USER = { id: "user-123" };
 const FAKE_PREREQUISITES = {
@@ -215,6 +216,20 @@ describe("receipt-actions", () => {
       expect(setArg.status).toBe("ACCEPTED");
       expect(setArg.adeTransactionId).toBe("trx-001");
       expect(setArg.adeProgressive).toBe("001");
+    });
+
+    it("degrada a 'Non autenticato.' quando la sessione è scaduta (no throw, no Sentry)", async () => {
+      // SCONTRINOZERO-S: sessione scaduta col carrello aperto. getAuthenticatedUser
+      // lancia UnauthenticatedError; l'action deve degradare a { error } inline
+      // invece di propagare (regola 19) e finire in Sentry come issue (regola 20).
+      mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
+
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt(VALID_INPUT);
+
+      expect(result.error).toBe("Non autenticato.");
+      expect(mockRateLimiterCheck).not.toHaveBeenCalled();
+      expect(mockInsert).not.toHaveBeenCalled();
     });
 
     it("returns error when emit rate limit is exceeded", async () => {

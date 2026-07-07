@@ -8,6 +8,7 @@ import {
   checkBusinessOwnership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
+import { authErrorResult } from "@/lib/auth-errors";
 import { voidReceiptForBusiness } from "@/lib/services/void-service";
 import type { VoidReceiptInput, VoidReceiptResult } from "@/types/storico";
 
@@ -30,7 +31,15 @@ const voidReceiptSchema = z.object({
 export async function voidReceipt(
   input: VoidReceiptInput,
 ): Promise<VoidReceiptResult> {
-  const user = await getAuthenticatedUser();
+  // Sessione assente (scaduta con lo storico aperto) → degrada a { error }
+  // inline invece di propagare all'error boundary di Next (regola 19) e di
+  // finire in Sentry come issue (regola 20). Stesso pattern di emitReceipt.
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return authErrorResult(err, "voidReceipt");
+  }
 
   const rateLimitResult = voidLimiter.check(`void:${user.id}`);
   if (!rateLimitResult.success) {
