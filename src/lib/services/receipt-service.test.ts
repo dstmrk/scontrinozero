@@ -100,7 +100,17 @@ vi.mock("@/lib/ade", () => ({
   },
 }));
 
-const mockMapSaleToAdePayload = vi.fn().mockReturnValue({ mapped: true });
+// Payload coerente di default (VALID_INPUT = 2 × 10,00 = 20,00): la sentinella
+// invariante #57 in runSubmitSale legge documentoCommerciale.ammontareComplessivo
+// e vendita[].importo, che devono riconciliare al cent. Override per-test con
+// mockReturnValueOnce per simulare un payload incoerente.
+const mockMapSaleToAdePayload = vi.fn().mockReturnValue({
+  mapped: true,
+  documentoCommerciale: {
+    ammontareComplessivo: "20.00000000",
+    vendita: [{ tipo: "PC", importo: "20.00" }],
+  },
+});
 vi.mock("@/lib/ade/mapper", () => ({
   mapSaleToAdePayload: (...args: unknown[]) => mockMapSaleToAdePayload(...args),
 }));
@@ -770,6 +780,97 @@ describe("emitReceiptForBusiness", () => {
         adeErrorDescriptions: [],
       }),
       "AdE rejected sale",
+    );
+  });
+
+  it("sentinella #57: rifiuto AdE su quantità frazionaria → Sentry issue dedicata", async () => {
+    const { logger } = await import("@/lib/logger");
+    mockSubmitSale.mockResolvedValue({
+      esito: false,
+      idtrx: null,
+      progressivo: null,
+      errori: [{ codice: "EF0", descrizione: "Totale non coerente" }],
+    });
+
+    const fractionalInput: SubmitReceiptInput = {
+      ...VALID_INPUT,
+      lines: [
+        {
+          id: "line-1",
+          description: "Prosciutto (0,5 kg)",
+          quantity: 0.5,
+          grossUnitPrice: 0.99,
+          vatCode: "N2",
+        },
+      ],
+    };
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness(fractionalInput);
+
+    // Il rifiuto resta anche a warn (invariato), ma la quantità frazionaria
+    // apre in più una Sentry issue con fingerprint stabile.
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sentryFingerprint: ["emit-receipt", "fractional-qty-rejected"],
+        adeErrorCodes: ["EF0"],
+      }),
+      "ade:fractional_qty_rejected",
+    );
+  });
+
+  it("sentinella #57: rifiuto AdE su quantità intera NON apre issue frazionaria", async () => {
+    const { logger } = await import("@/lib/logger");
+    mockSubmitSale.mockResolvedValue({
+      esito: false,
+      idtrx: null,
+      progressivo: null,
+      errori: [{ codice: "EF0", descrizione: "Dati non validi" }],
+    });
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness(VALID_INPUT); // quantity: 2 (intera)
+
+    expect(logger.error).not.toHaveBeenCalledWith(
+      expect.anything(),
+      "ade:fractional_qty_rejected",
+    );
+  });
+
+  it("sentinella #57: payload con totali incoerenti (vendita ≠ ammontare) → Sentry issue", async () => {
+    const { logger } = await import("@/lib/logger");
+    // Payload incoerente: ammontareComplessivo 0,99 ma vendita 1,00 (il bug #57).
+    mockMapSaleToAdePayload.mockReturnValueOnce({
+      mapped: true,
+      documentoCommerciale: {
+        ammontareComplessivo: "0.99000000",
+        vendita: [{ tipo: "PC", importo: "1.00" }],
+      },
+    });
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sentryFingerprint: ["emit-receipt", "payload-total-mismatch"],
+        critical: true,
+      }),
+      "ade:payload_total_mismatch",
+    );
+    // Non blocca: la submitSale è comunque avvenuta.
+    expect(mockSubmitSale).toHaveBeenCalled();
+  });
+
+  it("sentinella #57: payload coerente (default) NON apre l'issue di mismatch", async () => {
+    const { logger } = await import("@/lib/logger");
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(logger.error).not.toHaveBeenCalledWith(
+      expect.anything(),
+      "ade:payload_total_mismatch",
     );
   });
 

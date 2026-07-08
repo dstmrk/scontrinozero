@@ -768,6 +768,33 @@ async function runSubmitSale(
   } = ctx;
 
   const payload = mapSaleToAdePayload(saleDocRequest, cedentePrestatore);
+
+  // Sentinella #57 (invariante): i pagamenti devono riconciliare col totale
+  // documento (stessa strategia per-riga in cents). Dopo il fix è garantita per
+  // costruzione; se mai divergesse è un bug di arrotondamento nostro → apri una
+  // Sentry issue con fingerprint stabile (deterministica, zero-noise). Non
+  // blocca l'emissione: il valore fiscale autoritativo è `payments[]` e AdE
+  // rifiuterebbe comunque un payload incoerente.
+  const dc = payload.documentoCommerciale;
+  const ammontareCents = Math.round(
+    Number.parseFloat(dc.ammontareComplessivo) * 100,
+  );
+  const venditaCents = (dc.vendita ?? []).reduce(
+    (sum, v) => sum + Math.round(Number.parseFloat(v.importo) * 100),
+    0,
+  );
+  if (ammontareCents !== venditaCents) {
+    logger.error(
+      {
+        documentId,
+        businessId: input.businessId,
+        critical: true,
+        sentryFingerprint: ["emit-receipt", "payload-total-mismatch"],
+      },
+      "ade:payload_total_mismatch",
+    );
+  }
+
   const adeResponse = await adeClient.submitSale(payload);
 
   if (!adeResponse.esito) {
@@ -788,6 +815,28 @@ async function runSubmitSale(
       },
       "AdE rejected sale",
     );
+    // Sentinella #57 (regola 20, escalation mirata): un rifiuto AdE è di norma
+    // solo warn (business rejection, non un bug nostro). MA le quantità
+    // frazionarie sono l'unico caso in cui la strategia di arrotondamento del
+    // payload (#57) non è stata validata su AdE reale: se AdE le rifiuta apri
+    // una Sentry issue dedicata (fingerprint stabile) così ce ne accorgiamo.
+    // I rifiuti su quantità intere restano warn (nessun rumore su rifiuti generici).
+    const hasFractionalQuantity = input.lines.some(
+      (line) => !Number.isInteger(line.quantity),
+    );
+    if (hasFractionalQuantity) {
+      logger.error(
+        {
+          documentId,
+          businessId: input.businessId,
+          adeErrorCodes: errorCodes,
+          adeErrorDescriptions: errorDescriptions,
+          recovery,
+          sentryFingerprint: ["emit-receipt", "fractional-qty-rejected"],
+        },
+        "ade:fractional_qty_rejected",
+      );
+    }
     // Retry on timeout. La submitSale è già successa (esito:false è una
     // risposta valida AdE, non un errore di rete) — il DB deve riflettere
     // REJECTED altrimenti la stale recovery ritenterà invano una sale già

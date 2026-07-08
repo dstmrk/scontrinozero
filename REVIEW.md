@@ -267,48 +267,6 @@ trovata sia del proprio kind e in uno degli stati che si aspettano; tre buchi:
 
 ---
 
-### 57. Totali del payload AdE: allineati alla strategia per-riga in cents — resta il gate di verifica su AdE reale
-
-- **Categoria:** correttezza/fiscale (regola 17) · **Severità:** Medium-High (era) → **residuo: verifica su AdE reale** (regole 13/14: il codice è allineato, manca solo l'evidenza runtime prima del tag prod)
-- **File:** `src/lib/ade/mapper.ts` (`computeLineAmounts`: lordo/sconto di riga cent-rounded; `mapSaleToAdePayload`: totali documento = somma dei cents per-riga), `src/lib/services/ade-recovery.ts` (`matchesAmount`/`reconcileSaleDocument`: comparatore legacy float), `src/lib/services/receipt-service.ts` (`submitSaleToAde`: calcolo e passaggio di `expectedLegacyTotalCents`)
-
-**Stato — code-only fatto.** Il payload aveva due strategie di
-arrotondamento: i totali del `documentoCommerciale` erano somme float (8
-decimali), il `vendita[].importo` (payment) era il totale per-riga in cents.
-Su quantità frazionarie (vendita a peso, `numeric(10,3)`) `ammontareComplessivo`
-divergeva di 1 cent dal payment/PDF, e la recovery (`round(0.99*100)=99 ≠ 100`)
-non riconosceva un documento già accettato da AdE → rischio **re-submit →
-duplicato fiscale irreversibile**. Risolto:
-
-1. `computeLineAmounts` arrotonda `grossTotal`/`discountTotal` al centesimo
-   per riga (`round(unitPriceGross*quantity*100)`) — no-op per quantità
-   intere; `mapSaleToAdePayload` deriva i totali documento come somma dei
-   cents per-riga. Ora `ammontareComplessivo === sum(vendita[].importo)` e
-   riconcilia al cent con `computeReceiptTotals`/`calcInputLinesTotalCents`.
-2. `matchesAmount` accetta un secondo comparatore `expectedLegacyTotalCents`
-   (totale legacy float) per riconoscere i documenti emessi **prima** di
-   questo fix e ancora recuperabili — chiude il rischio duplicato in transizione.
-   Passato da `submitSaleToAde` solo quando differisce dal canonico.
-3. Test: `mapper.test.ts` (lordo di riga cent-rounded, `ammontare === payment`
-   sul caso `0.5×0.99 ×2`, tabella di quantità frazionarie); `ade-recovery.test.ts`
-   (match sul legacy float, nessun allargamento senza il param).
-
-**Residuo — gate prima del tag prod (regole 13/14, owner).** L'allineamento
-tiene `prezzoUnitario` con la semantica attuale (derivato dal grossTotal
-cent-rounded), **non** la variante con identità moltiplicativa `prezzoLordo =
-prezzoUnitario × quantità`. Prima del rollout in prod:
-
-1. Emettere su `ADE_MODE=real` (o da HAR) uno scontrino con quantità
-   frazionaria che diverge al cent e verificare che AdE **accetti** il payload
-   allineato (`esito:true`) e come il portale stesso arrotonda
-   `prezzoLordo`/`prezzoUnitario`/`ammontareComplessivo` (regola 14: campo per
-   campo).
-2. Se AdE pretende l'identità moltiplicativa, applicare la variante
-   `prezzoUnitario = lineGrossCents/100/quantity` (8 decimali) in
-   `computeLineAmounts`. Altrimenti il finding è chiuso.
-
----
-
 ## P3 — Bassa priorità
 
 ### 17. Key rotation zero-downtime: i caller passano sempre una sola chiave
@@ -928,6 +886,29 @@ Scelte consapevoli con un trigger di riapertura. Non sono finding da pianificare
 dev (`drizzle-kit`/`tsx`/`@esbuild-kit/*`, tutte `devDependencies`), mai a runtime
 né nella build Next (SWC). Superficie ≈ 0. **Riaprire:** quando la toolchain
 aggiorna `esbuild` > 0.28.0 senza major rischioso → togliere l'allowlist.
+
+### #57 verifica su AdE reale sostituita da sentinella Sentry
+
+Il fix #57 (totali payload per-riga in cents) è spedito, ma l'allineamento
+tiene `prezzoUnitario` con la semantica attuale — **non** la variante con
+identità moltiplicativa `prezzoLordo = prezzoUnitario × quantità`, che sarebbe
+da confermare emettendo su `ADE_MODE=real` uno scontrino a quantità frazionaria
+(regole 13/14). Invece di bloccare il rollout su quella verifica manuale, si
+accetta la strategia adottata e si delega il rilevamento a due sentinelle in
+`runSubmitSale` (`src/lib/services/receipt-service.ts`):
+
+1. **Invariante** — `sum(vendita[].importo) !== ammontareComplessivo` →
+   `logger.error` "ade:payload_total_mismatch" (fingerprint
+   `["emit-receipt","payload-total-mismatch"]`). Deterministica: non scatta mai
+   se l'arrotondamento è corretto → zero rumore, guardia anti-regressione.
+2. **Rifiuto AdE su quantità frazionaria** — `esito:false` con almeno una riga a
+   `quantity` non intera → `logger.error` "ade:fractional_qty_rejected"
+   (fingerprint `["emit-receipt","fractional-qty-rejected"]`, con `adeErrorCodes`
+   nei log). I rifiuti su quantità intere restano `warn` (regola 20).
+
+**Riaprire:** se una delle due sentinelle apre una issue Sentry — allora
+l'assunzione sui totali va rivista (probabilmente serve la variante
+`prezzoUnitario = lineGrossCents/100/quantity`, 8 decimali).
 
 ### #8 link pubblici scontrini senza TTL/revoca (UUID come token)
 
