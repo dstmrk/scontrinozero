@@ -104,10 +104,17 @@ export default function PrivacyV01Page() {
               2.3 Credenziali di accesso ai servizi AdE
             </p>
             <p className="text-muted-foreground mt-1">
-              Credenziali Fisconline fornite volontariamente dall&apos;utente
-              per abilitare la trasmissione automatizzata al portale Fatture e
-              Corrispettivi. Queste credenziali sono soggette a misure di
-              protezione rafforzate descritte al <strong>§5</strong>
+              Credenziali di accesso ai servizi dell&apos;Agenzia delle Entrate
+              fornite volontariamente dall&apos;utente per abilitare la
+              trasmissione automatizzata al portale Fatture e Corrispettivi, a
+              seconda del metodo di autenticazione scelto:{" "}
+              <strong>Fisconline</strong> (codice fiscale, password e PIN)
+              oppure <strong>CIE ID</strong> (email e password dell&apos;app CIE
+              ID). Il secondo fattore di autenticazione CIE (notifica push
+              approvata sull&apos;app CIE ID) è confermato direttamente
+              dall&apos;utente sul proprio dispositivo e non viene mai gestito
+              né memorizzato da ScontrinoZero. Queste credenziali sono soggette
+              a misure di protezione rafforzate descritte al <strong>§5</strong>
               {"."}
             </p>
 
@@ -226,28 +233,36 @@ export default function PrivacyV01Page() {
               servizio.
             </p>
             <p className="text-muted-foreground mt-2">
-              Il conferimento delle credenziali Fisconline (punto 2.3) è
-              facoltativo: l&apos;utente può scegliere di non fornirle e operare
-              in modalità assistita, accedendo manualmente al portale AdE per
-              completare la trasmissione.
+              Il conferimento delle credenziali di accesso ai servizi AdE
+              (Fisconline o CIE ID, punto 2.3) è facoltativo: l&apos;utente può
+              scegliere di non fornirle e operare in modalità assistita,
+              accedendo manualmente al portale AdE per completare la
+              trasmissione.
             </p>
           </section>
 
           {/* ─── 5. CREDENZIALI FISCONLINE ─── */}
           <section>
             <h2 className="text-lg font-semibold">
-              5. Trattamento speciale delle credenziali Fisconline
+              5. Trattamento speciale delle credenziali di accesso AdE
             </h2>
             <p className="text-muted-foreground mt-2">
               In considerazione della sensibilità delle credenziali di accesso
-              ai servizi fiscali, ScontrinoZero adotta misure di protezione
-              rafforzate:
+              ai servizi fiscali (sia Fisconline sia CIE ID), ScontrinoZero
+              adotta misure di protezione rafforzate:
             </p>
             <ul className="text-muted-foreground mt-2 list-inside list-disc space-y-1">
               <li>
                 Le credenziali sono cifrate a riposo con{" "}
                 <strong>AES-256-GCM</strong> prima di essere archiviate nel
                 database. La chiave di cifratura è separata dai dati cifrati.
+              </li>
+              <li>
+                Per l&apos;autenticazione tramite CIE ID, la sessione di accesso
+                è mantenuta esclusivamente nella memoria del server per la
+                durata delle operazioni ed è approvata di volta in volta
+                dall&apos;utente tramite la notifica sull&apos;app CIE ID; il
+                secondo fattore non viene mai memorizzato.
               </li>
               <li>
                 Sono utilizzate esclusivamente per le operazioni telematiche
@@ -406,9 +421,12 @@ export default function PrivacyV01Page() {
                 Corrispettivi dell&apos;AdE.
               </li>
               <li>
-                <strong>Credenziali Fisconline:</strong> cancellate entro{" "}
-                <strong>30 giorni</strong> dalla chiusura dell&apos;account o
-                immediatamente su richiesta dell&apos;utente.
+                <strong>
+                  Credenziali di accesso AdE (Fisconline o CIE ID):
+                </strong>{" "}
+                cancellate entro <strong>30 giorni</strong> dalla chiusura
+                dell&apos;account o immediatamente su richiesta
+                dell&apos;utente.
               </li>
               <li>
                 <strong>Documenti commerciali emessi:</strong> eliminati alla

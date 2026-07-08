@@ -482,7 +482,7 @@ export function OnboardingForm({
             <div className="space-y-4 text-center">
               <p className="text-muted-foreground text-sm">
                 {method === "cie"
-                  ? "Avvia il test di connessione, poi approva la notifica sull'app CIE ID sul tuo telefono per completare il collegamento all'Agenzia delle Entrate."
+                  ? "Avvia il test di connessione, poi approva entro circa un minuto la notifica sull'app CIE ID sul tuo telefono per completare il collegamento all'Agenzia delle Entrate."
                   : "Verifica che le credenziali funzionino effettuando un test di connessione all'Agenzia delle Entrate."}
               </p>
 

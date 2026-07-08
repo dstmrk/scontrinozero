@@ -30,6 +30,7 @@ import {
   AdePasswordExpiredError,
 } from "@/lib/ade/errors";
 import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
+import type { AdeLoginMethod } from "@/lib/ade/types";
 import { logAdeFailure } from "@/lib/ade/log-failure";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
@@ -699,7 +700,7 @@ async function finalizeAdeVerification(params: {
 async function attemptAdeLoginForVerification(
   doLogin: () => Promise<unknown>,
   businessId: string,
-  opts: { flow: string; defaultMessage: string },
+  opts: { flow: string; defaultMessage: string; method: AdeLoginMethod },
 ): Promise<OnboardingActionResult | null> {
   try {
     await doLogin();
@@ -720,7 +721,11 @@ async function attemptAdeLoginForVerification(
         failure: "AdE credential verification failed",
       },
     );
-    const userFacing = getUserFacingAdeErrorMessage(err, opts.defaultMessage);
+    const userFacing = getUserFacingAdeErrorMessage(
+      err,
+      opts.defaultMessage,
+      opts.method,
+    );
     return {
       error: userFacing.message,
       ...(userFacing.passwordExpired ? { passwordExpired: true } : {}),
@@ -742,7 +747,12 @@ function buildVerificationLogin(
   cred: typeof adeCredentials.$inferSelect,
   keys: Map<number, Buffer>,
 ):
-  | { doLogin: () => Promise<unknown>; flow: string; defaultMessage: string }
+  | {
+      doLogin: () => Promise<unknown>;
+      flow: string;
+      defaultMessage: string;
+      method: AdeLoginMethod;
+    }
   | { error: string } {
   if (cred.loginMethod === "cie") {
     if (cred.encryptedUsername === null || cred.encryptedPassword === null) {
@@ -754,6 +764,7 @@ function buildVerificationLogin(
       doLogin: () => adeClient.loginCie({ username, password }),
       flow: "onboarding-verify-cie",
       defaultMessage: "Verifica fallita. Controlla le credenziali CIE.",
+      method: "cie",
     };
   }
 
@@ -779,6 +790,7 @@ function buildVerificationLogin(
     doLogin: () => adeClient.login({ codiceFiscale, password, pin }),
     flow: "onboarding-verify",
     defaultMessage: "Verifica fallita. Controlla le credenziali Fisconline.",
+    method: "fisconline",
   };
 }
 
@@ -940,7 +952,11 @@ export async function verifyAdeCredentials(
   const loginError = await attemptAdeLoginForVerification(
     loginPlan.doLogin,
     businessId,
-    { flow: loginPlan.flow, defaultMessage: loginPlan.defaultMessage },
+    {
+      flow: loginPlan.flow,
+      defaultMessage: loginPlan.defaultMessage,
+      method: loginPlan.method,
+    },
   );
   if (loginError) return loginError;
 

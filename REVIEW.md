@@ -1,91 +1,17 @@
 # REVIEW.md — Registro bug noti e tech debt
 
-> **Data ultimo audit:** 2026-07-08 (full-codebase) · **Versione analizzata:** main (commit `2dcc2a4`)
->
-> **Audit 2026-07-08 (full-codebase):** analisi approfondita su cinque assi
-> (sicurezza · performance · funzionalità · architettura · bad practices) di:
-> perimetro auth (server-auth, api-auth, rate-limit, get-client-ip, proxy,
-> middleware Supabase, callback), tutte le server actions, route API
-> (v1 receipts/void/[id], documents/pdf, export, stripe webhook/checkout/portal,
-> csp-report, health/debug), servizi emit/void/recovery, store sessioni AdE
-> (session-cache + interactive-session-store), mapper/aritmetica AdE, crypto,
-> CSP/security-headers, instrumentation, next.config, analytics, plans e i
-> commit post-audit #697–#699. Nuovi finding: **#56–#57 (P2), #58–#62 (P3)**.
-> Falsi positivi scartati con verifica manuale: `ip` e `codiceFiscale` raw nei
-> log (redatti da `REDACT_PATHS` in `src/lib/logger.ts` prima di stdout e del
-> drain Sentry), CORS wildcard su `/api/v1` (Bearer-only, intenzionale e
-> documentato NOSONAR), `onConflictDoNothing` senza target esplicito
-> (i vincoli unique coinvolti sono gestiti dai resolver di conflitto — ma vedi
-> #56 per i buchi dei resolver), doppio branch `/`→`/dashboard`
-> (redirects() + proxy: ridondanza documentata per la Full Route Cache),
-> `invoice.paid` che non tocca `planExpiresAt` (by design, skill
-> `stripe-webhooks`), fallback `getCatalogItems`→`[]` su errore (fail-safe
-> voluto, regola 19).
->
-> **Audit incrementale 2026-07-07 (PR #695 — onboarding multi-metodo CIE):**
-> code review approfondita del diff `449772d..d9262b0` su cinque assi (sicurezza ·
-> performance · funzionalità · architettura · bad practices): flusso CIE in
-> `real-client.ts`, store sessioni interattive, ramificazioni emit/void
-> `reauthRequired`, migrazione 0027, rotazione chiavi, server action
-> method-aware, UI onboarding/settings/cassa/annullo, API v1. Nuovi finding:
-> #42 (P1) · #43–#47 (P2) · #48–#55 (P3). Falsi positivi scartati con verifica
-> manuale: TOCTOU pre-check/in-flight della sessione CIE (gestito: catch di
-> `AdeReauthRequiredError` dentro emit/void), deposito nello store di una
-> sessione con identity guard fallita (innocuo: `fetchAdePrerequisites` richiede
-> `verifiedAt`), 401 con `credentials=null` (corretto: `AdeSessionExpiredError`
-> → reauth), rotazione chiavi su campi nullable (corretta), migrazione 0027
-> non idempotente (falso: `DROP NOT NULL` e guard su `pg_constraint` sono
-> re-run safe), credenziali CIE nei log (assenti: solo `bodyLen`),
-> serializzazione per-business dello store (corretta, chain con guard).
->
-> **Audit incrementale 2026-07-07:** code review mirata sul flusso GDPR di
-> cancellazione automatica utenti inattivi (`inactive-user-prune` + config +
-> sweep + `purge-user`), con verifica manuale fino a middleware/proxy e
-> semantica `last_sign_in_at` di Supabase. Due bug fixati contestualmente
-> (stesso PR): segnale di attività cieco alle visite autenticate con sessione
-> persistente (colonna `last_seen_at` + touch in `getAuthenticatedUser`) e
-> `purgeUserById` non idempotente su profilo orfano (retry infinito + dati mai
-> cancellati). Nuovi finding: #39, #40, #41 (P3). Falsi positivi scartati
-> (ordine email→flag del preavviso, RESET prima del DELETE, fail-safe su plan
-> sconosciuto/pagato-null, cast `db.execute` con postgres-js, data promessa
-> nell'email mai successiva alla cancellazione reale).
->
-> **Audit incrementale 2026-06-27:** code review mirata sui percorsi critici
-> (registrazione/accesso/onboarding · emissione/annullo scontrini · billing/
-> Stripe-webhook), con verifica manuale di ogni finding sul codice corrente.
-> Nuovi finding: #38 (P2) — #35 (mark `ERROR` su AdE transient), #36
-> (rate limit `verifyAdeCredentials`) e #37 (normalizzazione allowlist hostname
-> Turnstile) risolti. Falsi positivi/duplicati scartati
-> (identity guard, vatNumber overwrite, wizardTemplate PIva, referral, key
-> rotation, cursor pagination, CSP, SPID; lato billing: race
-> subscription.updated↔stripeCustomerId, normalizzazione email su
-> `customers.create`, `invoice.paid` che non tocca `planExpiresAt` — by design,
-> skill `stripe-webhooks`).
->
-> **Data audit precedente:** 2026-06-09 · v1.3.8 (commit `dc03ed5`)
->
-> **Scopo.** Questo file è il **registro canonico** dei bug noti, del tech debt e dei
-> miglioramenti di sicurezza/performance, ordinati per priorità (P1/P2/P3).
-> `PLAN.md` resta la roadmap delle **funzionalità**. Quando un finding viene risolto,
-> rimuoverlo da qui nel PR del fix; quando un audit ne trova di nuovi, aggiungerli
-> nella sezione di priorità corretta.
->
-> **Metodologia dell'audit 2026-06-09:** analisi in parallelo su tre assi (sicurezza ·
-> performance/architettura · correttezza funzionale/bad practices), seguita da verifica
-> manuale di ogni finding sul codice corrente. Falsi positivi scartati (es. riuso
-> idempotency key con payload diverso — già gestito via `requestHash`,
-> `IDEMPOTENCY_PAYLOAD_MISMATCH`; indice UNIQUE sui VOID — già corretto in migration
-> `0012`; `RateLimiter` senza bound — ha già cap 50k chiavi + eviction FIFO).
->
-> Ogni finding è autoconsistente: un agente AI deve poter implementare il fix leggendo
-> solo la sezione, nel rispetto delle regole sempre-attive di `CLAUDE.md` (branch
-> separato, TDD, edge case prima del commit, task > 3 file → sub-task).
+> **Ultimo audit:** 2026-07-08 (full-codebase, `main`)
 
-**Postura complessiva: buona.** RLS Supabase, ownership check (`checkBusinessOwnership`),
-sanitizzazione log/Sentry, validazione redirect AdE (`resolveAdeRedirect` +
-`ADE_ALLOWED_HOSTS`), firma webhook Stripe con claim atomico, body-size guard e
-crittografia AES-256-GCM sono risultati solidi alla verifica. I finding sotto sono
-miglioramenti mirati, non vulnerabilità critiche.
+**Scopo.** Registro canonico dei bug noti, del tech debt e dei miglioramenti di
+sicurezza/performance, ordinati per priorità (P1/P2/P3). `PLAN.md` resta la
+roadmap delle **funzionalità**. Quando un finding viene risolto, rimuoverlo nel
+PR del fix; quando un audit ne trova di nuovi, aggiungerli nella sezione di
+priorità corretta.
+
+Ogni finding è autoconsistente: deve poter essere implementato leggendo solo la
+sua sezione, nel rispetto delle regole sempre-attive di `CLAUDE.md` (branch
+separato, TDD, edge case prima del commit, task > 3 file → sub-task). I trade-off
+consapevoli accettati vivono in fondo, in "Rischi accettati".
 
 ---
 
@@ -121,43 +47,6 @@ diventa un buco di billing al lancio della Fase B Developer API.
 5. Da implementare **contestualmente al lancio dei developer plan** (Developer
    API, ora nice-to-have in PLAN.md — non prima: nessun utente ha questi piani
    oggi).
-
----
-
-### 42. Privacy Policy e Termini non coprono le credenziali CIE ID (feature live)
-
-- **Categoria:** compliance/GDPR · **Severità:** High — la feature è live in produzione e raccoglie una categoria di credenziali non dichiarata
-- **File:** `src/app/(marketing)/privacy/v01/page.tsx:104-109` (§2.3 nomina solo "Credenziali Fisconline"), `:236-296` (§5 "Trattamento speciale delle credenziali **Fisconline**"), `:409-419` (retention "Credenziali Fisconline"); `src/app/(marketing)/termini/v01/page.tsx:87` e `:117-121` (§5 "Credenziali Fisconline"); procedura di aggiornamento documentata in `CLAUDE.md` → "Procedura aggiornamento T&C"
-
-**Problema.** La PR #695 introduce la memorizzazione cifrata di **email +
-password dell'app CIE ID** (`buildCieValues` in
-`src/server/onboarding-actions.ts:331`, colonna `encrypted_username` della
-migrazione 0027). È una nuova categoria di credenziali di un servizio terzo
-(IdP del Ministero dell'Interno), ma Privacy Policy e Termini enumerano
-esclusivamente le credenziali Fisconline: l'informativa (art. 13 GDPR) non
-copre il nuovo trattamento e il §5 dei Termini ("Credenziali Fisconline")
-non disciplina le credenziali CIE ID. Il TODO copy era dichiarato nella PR
-("aggiornare il copy marketing, rinviato") ma i documenti legali sono più
-urgenti del marketing.
-
-**Fix (non ambiguo).**
-
-1. **Privacy v02** seguendo la procedura documentata (nuova route
-   `privacy/v02/page.tsx`, redirect, `sitemap.ts` + `sitemap.test.ts`,
-   `sonar.coverage.exclusions`): generalizzare §2.3, §5 e la sezione retention
-   da "credenziali Fisconline" a "credenziali di accesso ai servizi AdE
-   (Fisconline oppure CIE ID)", esplicitando per CIE: email e password
-   dell'app CIE ID cifrate AES-256-GCM, sessione mantenuta in memoria del
-   server, secondo fattore (notifica push) mai gestito/memorizzato.
-2. **Termini v02** seguendo la procedura (route, redirect in
-   `termini/page.tsx`, `CURRENT_TERMS_VERSION` in `auth-actions.ts`, secondo
-   flag art. 1341 c.c. in `register/page.tsx` con i nuovi numeri di
-   paragrafo): §3 requisiti e §5 estesi al metodo CIE.
-3. Notifica agli utenti ≥15 giorni prima dell'entrata in vigore (procedura
-   documentata).
-4. **Test:** quelli previsti dalla procedura (sitemap, redirect); grep
-   `Fisconline` sulle nuove versioni per verificare che ogni occorrenza
-   residua sia intenzionale.
 
 ---
 
@@ -278,101 +167,6 @@ TLS verso AdE/IdP mitiga in pratica — stessa classe di rischio del finding
    accettata; flusso HAR-conforme → invariato.
 4. Il finding #28 resta aperto per SPID: applicargli lo stesso helper quando
    `loginSpid` verrà cablato.
-
----
-
-### 44. Messaggi d'errore AdE non method-aware: utenti CIE vedono copy Fisconline/SPID
-
-- **Categoria:** funzionalità/UX · **Severità:** Medium — colpisce il caso d'errore più comune (credenziali sbagliate) del nuovo onboarding CIE
-- **File:** `src/lib/ade/error-messages.ts:34-39` (`AdeAuthError` → "Credenziali Fisconline non valide. Verifica codice fiscale, password e PIN.") e `:52-56` (`AdeSpidTimeoutError` → "Non hai approvato la richiesta SPID in tempo."); caller: `attemptAdeLoginForVerification` in `src/server/onboarding-actions.ts`
-- **Da affrontare INSIEME a #45 e #46** (stesso intervento: "il rinnovo/verifica sessione CIE funziona per un utente reale" — stessi file, stesso copy, da chiudere prima della validazione su AdE reale)
-
-**Problema.** `ciePostCredentials` lancia `AdeAuthError` su credenziali CIE
-errate e `ciePollAndProceed` lancia `AdeSpidTimeoutError` su push non
-approvata, ma `getUserFacingAdeErrorMessage` intercetta queste classi PRIMA
-del fallback method-aware (`defaultMessage` di `buildVerificationLogin`):
-un utente CIE che sbaglia la password vede "Credenziali **Fisconline** non
-valide. Verifica **codice fiscale, password e PIN**" (campi che non ha mai
-inserito), e chi non approva la notifica vede "richiesta **SPID**". Messaggi
-attivamente fuorvianti nel flusso di lancio della feature.
-
-**Fix (non ambiguo).**
-
-1. Aggiungere un parametro `method?: AdeLoginMethod` a
-   `getUserFacingAdeErrorMessage`; per `method === "cie"`:
-   `AdeAuthError` → "Credenziali CIE ID non valide. Verifica email e
-   password."; `AdeSpidTimeoutError` → "Non hai approvato la notifica
-   sull'app CIE ID in tempo. Riprova.". Default (undefined/fisconline):
-   messaggi attuali, così i call-site emit/void Fisconline restano invariati.
-2. Passare il method dai call-site della verifica
-   (`attemptAdeLoginForVerification` riceve già `opts` — aggiungere il
-   method accanto a `flow`/`defaultMessage`).
-3. **Test:** `AdeAuthError` + method cie → messaggio CIE;
-   `AdeSpidTimeoutError` + method cie → messaggio notifica CIE ID; senza
-   method → messaggi storici invariati (snapshot).
-
----
-
-### 45. Verifica CIE: finestra push (fino a 210s) oltre il timeout proxy Cloudflare (~100s)
-
-- **Categoria:** funzionalità/architettura · **Severità:** Medium — la verifica può riuscire server-side mentre il client vede un errore
-- **File:** `src/lib/ade/real-client.ts:1385-1386` (`ciePollAndProceed`: `spidMaxPolls ?? 30` × `spidPollIntervalMs ?? 7000` = 210s); `src/lib/ade/index.ts` (`createAdeClient` istanzia `new RealAdeClient()` senza opzioni); deploy dietro Cloudflare Tunnel (CLAUDE.md)
-- **Da affrontare INSIEME a #44 e #46** (il copy d'attesa del punto 2 vive nei componenti toccati da #46; il messaggio di timeout è quello reso method-aware da #44)
-
-**Problema.** `verifyAdeCredentials` per CIE è una server action sincrona che
-attende l'approvazione push fino a 30 poll × 7s = **210 secondi** (+ le fasi
-SAML). Prod/sandbox/dev stanno dietro Cloudflare (Tunnel/proxy), che chiude
-le response HTTP dopo ~100s (error 524): se l'utente approva la notifica dopo
-il taglio, il client riceve un errore di rete ma il server **completa
-comunque** la verifica (sessione depositata nello store, `verifiedAt`
-settato) → l'utente vede "verifica fallita", riprova, consuma il rate limit
-(5/15min) e riceve una seconda push, con stato UI incoerente rispetto al DB.
-
-**Fix (non ambiguo).**
-
-1. Opzioni dedicate `cieMaxPolls`/`ciePollIntervalMs` in
-   `RealAdeClientOptions` con default **12 × 7000ms = 84s** (sotto il taglio
-   Cloudflare con margine per le fasi SAML), usate da `ciePollAndProceed` al
-   posto delle opzioni SPID; SPID (non cablato) resta a 30×7s.
-2. Aggiornare il copy d'attesa dell'onboarding/settings: "Approva la notifica
-   entro un minuto" e, su `AdeSpidTimeoutError`, invito esplicito a riprovare.
-3. Registrare le soglie in `docs/architecture/config-manifest.md` (vedi #51).
-4. **Test:** con fake timers, 12 poll senza cambio body → `AdeSpidTimeoutError`
-   dopo ~84s; approvazione al poll N<12 → flusso completa.
-5. (Opzionale, non richiesto ora) valutare un flusso asincrono client-driven
-   (start login + poll di stato via action separata) se il taglio a 84s
-   genererà troppi timeout reali — decidere con i dati del primo rollout.
-
----
-
-### 46. "Verifica connessione" in settings non guida l'utente CIE (rinnovo sessione cieco)
-
-- **Categoria:** funzionalità/UX · **Severità:** Medium — è il target del link "Ricollega ora" mostrato da cassa/annullo su `reauthRequired`
-- **File:** `src/components/settings/ade-credentials-section.tsx` (componente intero, non method-aware); il server component `src/app/dashboard/settings/page.tsx:105-118` legge già `cred.loginMethod` ma lo passa solo a `EditAdeCredentialsSection`
-- **Da affrontare INSIEME a #44 e #45** (il copy "approva entro un minuto" del punto 2 dipende dalla finestra push scelta in #45; i messaggi d'errore mostrati qui sono quelli di #44)
-
-**Problema.** Il rinnovo della sessione CIE (dopo `reauthRequired` in
-cassa/annullo, o dopo un restart del container) passa dal bottone "Verifica
-connessione" nelle impostazioni. Ma il componente è rimasto Fisconline-only:
-nessuna indicazione che per CIE va **approvata la notifica sull'app CIE ID**
-(l'onboarding ha il copy dedicato, le impostazioni no), e durante l'attesa
-(fino a minuti, vedi #45) mostra solo "Verifica in corso…". Un utente che
-arriva da "Ricollega ora" non sa cosa deve fare e la verifica va
-sistematicamente in timeout se non guarda il telefono.
-
-**Fix (non ambiguo).**
-
-1. Aggiungere prop `loginMethod: AdeLoginMethod` a `AdeCredentialsSection`,
-   valorizzata da `settings/page.tsx` (il dato è già nella SELECT).
-2. Per `loginMethod === "cie"`: (a) sotto il bottone, testo permanente
-   "Il collegamento richiede l'approvazione di una notifica sull'app CIE ID";
-   (b) in stato `pending`, messaggio attivo "Approva ora la notifica
-   sull'app CIE ID sul tuo telefono…"; (c) label bottone "Collega" /
-   "Ricollega" al posto di "Verifica connessione".
-3. Nessun cambiamento per Fisconline (snapshot copy invariata).
-4. **Test** (component test come `edit-ade-credentials-section.test.tsx`):
-   method cie → copy push presente in idle e pending; method fisconline →
-   copy attuale.
 
 ---
 
@@ -516,7 +310,7 @@ recovery deve impedire.
    scorporo IVA, e derivare `ammontareComplessivo` come somma dei cents —
    coerente con il comportamento osservato al punto 2. Se AdE richiedesse
    invece la coerenza moltiplicativa `prezzoLordo = prezzoUnitario ×
-   quantita`, ricalcolare `prezzoUnitario = lineGrossCents/100/quantity`
+quantita`, ricalcolare `prezzoUnitario = lineGrossCents/100/quantity`
    (8 decimali) così l'identità regge sui valori trasmessi.
 4. Verifica su sandbox/`ADE_MODE=real` con un'emissione frazionaria reale
    prima del merge (regola 13: mai mergiare un'ipotesi senza evidenza).
@@ -566,14 +360,10 @@ zero-downtime è impossibile nello stato attuale dei caller.
 - **Categoria:** architettura/manutenibilità · **Severità:** Low
 - **File:** envelope: tutti gli endpoint `src/app/api/**`
 
-> **Schema Zod SALE condiviso: RISOLTO.** Lo schema linea + base SALE è stato
-> estratto in `src/lib/receipts/receipt-schema.ts` (`saleLineSchema`,
-> `saleBodySchema` + field schema riusabili): la route API lo usa diretto, la
-> server action ricompone aggiungendo solo `id` (UI) e `businessId`. Resta
-> aperta la sola standardizzazione dell'envelope d'errore.
-
 **Problema.** Le risposte d'errore API non hanno una shape uniforme (`{error}`
-vs `{error, code}` vs status diversi per lo stesso caso).
+vs `{error, code}` vs status diversi per lo stesso caso). Lo schema Zod SALE
+condiviso è già stato estratto in `src/lib/receipts/receipt-schema.ts`: resta
+aperta la sola standardizzazione dell'envelope d'errore.
 
 **Fix (non ambiguo).**
 
@@ -654,11 +444,10 @@ pratica).
 4. **Test:** form action verso host fuori allowlist → throw senza POST; host
    valido → flusso invariato.
 
-> **Aggiornamento 2026-07-07 (PR #695):** l'allowlist `FEDERATED_ALLOWED_HOSTS`
-> ora esiste e copre i redirect (`Location`) del flusso federato, ma le **form
-> action** restano non validate anche nel flusso **CIE, che è live**: vedi
-> finding **#43** (P2). Il fix di #43 introduce l'helper da riusare qui quando
-> `loginSpid` verrà cablato.
+> **Nota.** `FEDERATED_ALLOWED_HOSTS` copre già i redirect (`Location`) del
+> flusso federato, ma le **form action** restano non validate (anche nel flusso
+> CIE): vedi finding **#43** (P2). Il fix di #43 introduce l'helper da riusare
+> qui quando `loginSpid` verrà cablato.
 
 ---
 
@@ -805,7 +594,7 @@ esistente al retry sullo stesso documento.
    `StatusBadge` (oggi mostra il raw inglese).
 4. **Test:** reauth in-flight → riga `ERROR` + `reauthRequired: true`;
    retry con stessa key dopo mark → nuova emissione OK; transient → resta
-   PENDING (invariato, REVIEW #35).
+   PENDING (invariato).
 
 ---
 
@@ -888,10 +677,9 @@ solo l'esistenza dei path citati, non la copertura.
 2. `data-flows.md`: nel flusso emissione/annullo, il ramo CIE (pre-check →
    `reauthRequired` → UI "Ricollegati" / API 409); nel flusso onboarding, la
    verifica CIE (SAML IdP + push + deposito nello store).
-3. `config-manifest.md`: `DEFAULT_TTL_MS` (6h), `DEFAULT_MAX_ENTRIES` (100),
-   `spidMaxPolls`/`spidPollIntervalMs` (30/7000 — o i nuovi valori se il
-   finding #45 è stato fatto prima), `FEDERATED_ALLOWED_HOSTS` → puntatori a
-   `interactive-session-store.ts` e `real-client.ts`.
+3. `config-manifest.md`: `DEFAULT_TTL_MS` (6h), `DEFAULT_MAX_ENTRIES` (100) e
+   `FEDERATED_ALLOWED_HOSTS` → puntatori a `interactive-session-store.ts` e
+   `real-client.ts` (la finestra polling CIE/SPID è già indicizzata).
 4. `npm run arch:check` verde prima di chiudere.
 
 ---
@@ -1041,7 +829,7 @@ un secondo device) la perdita di contesto è sistematica.
 **Fix (non ambiguo).**
 
 1. Limiter per-user sul PDF autenticato: `new RateLimiter({ maxRequests: 60,
-   windowMs: RATE_LIMIT_WINDOWS.HOURLY })`, chiave `pdf-auth:<userId>`, 429
+windowMs: RATE_LIMIT_WINDOWS.HOURLY })`, chiave `pdf-auth:<userId>`, 429
    con lo stesso messaggio della gemella pubblica.
 2. Sostituire in entrambe le route il `getUser()` diretto con
    `getAuthenticatedUser()` in try/catch → 401 su `UnauthenticatedError`
@@ -1071,10 +859,10 @@ l'optimistic lock proprio per questa classe di race (P1.1); qui manca.
 1. Snapshot `cred.updatedAt` prima del flusso AdE; UPDATE finale con lo
    stesso guard di `finalizeAdeVerification`
    (`date_trunc('milliseconds', updatedAt) = <snapshot ISO>::timestamptz`)
-   + `loginMethod = 'fisconline'`.
+   - `loginMethod = 'fisconline'`.
 2. 0 righe aggiornate → `logger.warn` e ritorno `{ error: "Le credenziali
-   sono state modificate nel frattempo. Verifica la connessione dalle
-   impostazioni." }` — la password AdE è già cambiata lato portale, quindi il
+sono state modificate nel frattempo. Verifica la connessione dalle
+impostazioni." }` — la password AdE è già cambiata lato portale, quindi il
    messaggio deve spingere alla ri-verifica, non al retry del cambio.
 3. **Test:** update concorrente tra login e UPDATE → nessuna scrittura +
    errore dedicato; flusso normale → invariato.
