@@ -1,91 +1,17 @@
 # REVIEW.md — Registro bug noti e tech debt
 
-> **Data ultimo audit:** 2026-07-08 (full-codebase) · **Versione analizzata:** main (commit `2dcc2a4`)
->
-> **Audit 2026-07-08 (full-codebase):** analisi approfondita su cinque assi
-> (sicurezza · performance · funzionalità · architettura · bad practices) di:
-> perimetro auth (server-auth, api-auth, rate-limit, get-client-ip, proxy,
-> middleware Supabase, callback), tutte le server actions, route API
-> (v1 receipts/void/[id], documents/pdf, export, stripe webhook/checkout/portal,
-> csp-report, health/debug), servizi emit/void/recovery, store sessioni AdE
-> (session-cache + interactive-session-store), mapper/aritmetica AdE, crypto,
-> CSP/security-headers, instrumentation, next.config, analytics, plans e i
-> commit post-audit #697–#699. Nuovi finding: **#56–#57 (P2), #58–#62 (P3)**.
-> Falsi positivi scartati con verifica manuale: `ip` e `codiceFiscale` raw nei
-> log (redatti da `REDACT_PATHS` in `src/lib/logger.ts` prima di stdout e del
-> drain Sentry), CORS wildcard su `/api/v1` (Bearer-only, intenzionale e
-> documentato NOSONAR), `onConflictDoNothing` senza target esplicito
-> (i vincoli unique coinvolti sono gestiti dai resolver di conflitto — ma vedi
-> #56 per i buchi dei resolver), doppio branch `/`→`/dashboard`
-> (redirects() + proxy: ridondanza documentata per la Full Route Cache),
-> `invoice.paid` che non tocca `planExpiresAt` (by design, skill
-> `stripe-webhooks`), fallback `getCatalogItems`→`[]` su errore (fail-safe
-> voluto, regola 19).
->
-> **Audit incrementale 2026-07-07 (PR #695 — onboarding multi-metodo CIE):**
-> code review approfondita del diff `449772d..d9262b0` su cinque assi (sicurezza ·
-> performance · funzionalità · architettura · bad practices): flusso CIE in
-> `real-client.ts`, store sessioni interattive, ramificazioni emit/void
-> `reauthRequired`, migrazione 0027, rotazione chiavi, server action
-> method-aware, UI onboarding/settings/cassa/annullo, API v1. Nuovi finding:
-> #42 (P1) · #43–#47 (P2) · #48–#55 (P3). Falsi positivi scartati con verifica
-> manuale: TOCTOU pre-check/in-flight della sessione CIE (gestito: catch di
-> `AdeReauthRequiredError` dentro emit/void), deposito nello store di una
-> sessione con identity guard fallita (innocuo: `fetchAdePrerequisites` richiede
-> `verifiedAt`), 401 con `credentials=null` (corretto: `AdeSessionExpiredError`
-> → reauth), rotazione chiavi su campi nullable (corretta), migrazione 0027
-> non idempotente (falso: `DROP NOT NULL` e guard su `pg_constraint` sono
-> re-run safe), credenziali CIE nei log (assenti: solo `bodyLen`),
-> serializzazione per-business dello store (corretta, chain con guard).
->
-> **Audit incrementale 2026-07-07:** code review mirata sul flusso GDPR di
-> cancellazione automatica utenti inattivi (`inactive-user-prune` + config +
-> sweep + `purge-user`), con verifica manuale fino a middleware/proxy e
-> semantica `last_sign_in_at` di Supabase. Due bug fixati contestualmente
-> (stesso PR): segnale di attività cieco alle visite autenticate con sessione
-> persistente (colonna `last_seen_at` + touch in `getAuthenticatedUser`) e
-> `purgeUserById` non idempotente su profilo orfano (retry infinito + dati mai
-> cancellati). Nuovi finding: #39, #40, #41 (P3). Falsi positivi scartati
-> (ordine email→flag del preavviso, RESET prima del DELETE, fail-safe su plan
-> sconosciuto/pagato-null, cast `db.execute` con postgres-js, data promessa
-> nell'email mai successiva alla cancellazione reale).
->
-> **Audit incrementale 2026-06-27:** code review mirata sui percorsi critici
-> (registrazione/accesso/onboarding · emissione/annullo scontrini · billing/
-> Stripe-webhook), con verifica manuale di ogni finding sul codice corrente.
-> Nuovi finding: #38 (P2) — #35 (mark `ERROR` su AdE transient), #36
-> (rate limit `verifyAdeCredentials`) e #37 (normalizzazione allowlist hostname
-> Turnstile) risolti. Falsi positivi/duplicati scartati
-> (identity guard, vatNumber overwrite, wizardTemplate PIva, referral, key
-> rotation, cursor pagination, CSP, SPID; lato billing: race
-> subscription.updated↔stripeCustomerId, normalizzazione email su
-> `customers.create`, `invoice.paid` che non tocca `planExpiresAt` — by design,
-> skill `stripe-webhooks`).
->
-> **Data audit precedente:** 2026-06-09 · v1.3.8 (commit `dc03ed5`)
->
-> **Scopo.** Questo file è il **registro canonico** dei bug noti, del tech debt e dei
-> miglioramenti di sicurezza/performance, ordinati per priorità (P1/P2/P3).
-> `PLAN.md` resta la roadmap delle **funzionalità**. Quando un finding viene risolto,
-> rimuoverlo da qui nel PR del fix; quando un audit ne trova di nuovi, aggiungerli
-> nella sezione di priorità corretta.
->
-> **Metodologia dell'audit 2026-06-09:** analisi in parallelo su tre assi (sicurezza ·
-> performance/architettura · correttezza funzionale/bad practices), seguita da verifica
-> manuale di ogni finding sul codice corrente. Falsi positivi scartati (es. riuso
-> idempotency key con payload diverso — già gestito via `requestHash`,
-> `IDEMPOTENCY_PAYLOAD_MISMATCH`; indice UNIQUE sui VOID — già corretto in migration
-> `0012`; `RateLimiter` senza bound — ha già cap 50k chiavi + eviction FIFO).
->
-> Ogni finding è autoconsistente: un agente AI deve poter implementare il fix leggendo
-> solo la sezione, nel rispetto delle regole sempre-attive di `CLAUDE.md` (branch
-> separato, TDD, edge case prima del commit, task > 3 file → sub-task).
+> **Ultimo audit:** 2026-07-08 (full-codebase, `main`)
 
-**Postura complessiva: buona.** RLS Supabase, ownership check (`checkBusinessOwnership`),
-sanitizzazione log/Sentry, validazione redirect AdE (`resolveAdeRedirect` +
-`ADE_ALLOWED_HOSTS`), firma webhook Stripe con claim atomico, body-size guard e
-crittografia AES-256-GCM sono risultati solidi alla verifica. I finding sotto sono
-miglioramenti mirati, non vulnerabilità critiche.
+**Scopo.** Registro canonico dei bug noti, del tech debt e dei miglioramenti di
+sicurezza/performance, ordinati per priorità (P1/P2/P3). `PLAN.md` resta la
+roadmap delle **funzionalità**. Quando un finding viene risolto, rimuoverlo nel
+PR del fix; quando un audit ne trova di nuovi, aggiungerli nella sezione di
+priorità corretta.
+
+Ogni finding è autoconsistente: deve poter essere implementato leggendo solo la
+sua sezione, nel rispetto delle regole sempre-attive di `CLAUDE.md` (branch
+separato, TDD, edge case prima del commit, task > 3 file → sub-task). I trade-off
+consapevoli accettati vivono in fondo, in "Rischi accettati".
 
 ---
 
@@ -434,14 +360,10 @@ zero-downtime è impossibile nello stato attuale dei caller.
 - **Categoria:** architettura/manutenibilità · **Severità:** Low
 - **File:** envelope: tutti gli endpoint `src/app/api/**`
 
-> **Schema Zod SALE condiviso: RISOLTO.** Lo schema linea + base SALE è stato
-> estratto in `src/lib/receipts/receipt-schema.ts` (`saleLineSchema`,
-> `saleBodySchema` + field schema riusabili): la route API lo usa diretto, la
-> server action ricompone aggiungendo solo `id` (UI) e `businessId`. Resta
-> aperta la sola standardizzazione dell'envelope d'errore.
-
 **Problema.** Le risposte d'errore API non hanno una shape uniforme (`{error}`
-vs `{error, code}` vs status diversi per lo stesso caso).
+vs `{error, code}` vs status diversi per lo stesso caso). Lo schema Zod SALE
+condiviso è già stato estratto in `src/lib/receipts/receipt-schema.ts`: resta
+aperta la sola standardizzazione dell'envelope d'errore.
 
 **Fix (non ambiguo).**
 
@@ -522,11 +444,10 @@ pratica).
 4. **Test:** form action verso host fuori allowlist → throw senza POST; host
    valido → flusso invariato.
 
-> **Aggiornamento 2026-07-07 (PR #695):** l'allowlist `FEDERATED_ALLOWED_HOSTS`
-> ora esiste e copre i redirect (`Location`) del flusso federato, ma le **form
-> action** restano non validate anche nel flusso **CIE, che è live**: vedi
-> finding **#43** (P2). Il fix di #43 introduce l'helper da riusare qui quando
-> `loginSpid` verrà cablato.
+> **Nota.** `FEDERATED_ALLOWED_HOSTS` copre già i redirect (`Location`) del
+> flusso federato, ma le **form action** restano non validate (anche nel flusso
+> CIE): vedi finding **#43** (P2). Il fix di #43 introduce l'helper da riusare
+> qui quando `loginSpid` verrà cablato.
 
 ---
 
@@ -673,7 +594,7 @@ esistente al retry sullo stesso documento.
    `StatusBadge` (oggi mostra il raw inglese).
 4. **Test:** reauth in-flight → riga `ERROR` + `reauthRequired: true`;
    retry con stessa key dopo mark → nuova emissione OK; transient → resta
-   PENDING (invariato, REVIEW #35).
+   PENDING (invariato).
 
 ---
 
@@ -756,10 +677,9 @@ solo l'esistenza dei path citati, non la copertura.
 2. `data-flows.md`: nel flusso emissione/annullo, il ramo CIE (pre-check →
    `reauthRequired` → UI "Ricollegati" / API 409); nel flusso onboarding, la
    verifica CIE (SAML IdP + push + deposito nello store).
-3. `config-manifest.md`: `DEFAULT_TTL_MS` (6h), `DEFAULT_MAX_ENTRIES` (100),
-   `spidMaxPolls`/`spidPollIntervalMs` (30/7000 — o i nuovi valori se il
-   finding #45 è stato fatto prima), `FEDERATED_ALLOWED_HOSTS` → puntatori a
-   `interactive-session-store.ts` e `real-client.ts`.
+3. `config-manifest.md`: `DEFAULT_TTL_MS` (6h), `DEFAULT_MAX_ENTRIES` (100) e
+   `FEDERATED_ALLOWED_HOSTS` → puntatori a `interactive-session-store.ts` e
+   `real-client.ts` (la finestra polling CIE/SPID è già indicizzata).
 4. `npm run arch:check` verde prima di chiudere.
 
 ---
