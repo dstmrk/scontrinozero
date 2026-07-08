@@ -775,24 +775,29 @@ async function runSubmitSale(
   // Sentry issue con fingerprint stabile (deterministica, zero-noise). Non
   // blocca l'emissione: il valore fiscale autoritativo è `payments[]` e AdE
   // rifiuterebbe comunque un payload incoerente.
+  // `vendita` è sempre valorizzato dal mapper reale; è assente solo nei test
+  // che mockano mapSaleToAdePayload con un payload fittizio — lì la sentinella
+  // è un no-op (nessun payload reale da verificare).
   const dc = payload.documentoCommerciale;
-  const ammontareCents = Math.round(
-    Number.parseFloat(dc.ammontareComplessivo) * 100,
-  );
-  const venditaCents = (dc.vendita ?? []).reduce(
-    (sum, v) => sum + Math.round(Number.parseFloat(v.importo) * 100),
-    0,
-  );
-  if (ammontareCents !== venditaCents) {
-    logger.error(
-      {
-        documentId,
-        businessId: input.businessId,
-        critical: true,
-        sentryFingerprint: ["emit-receipt", "payload-total-mismatch"],
-      },
-      "ade:payload_total_mismatch",
+  if (dc?.vendita) {
+    const ammontareCents = Math.round(
+      Number.parseFloat(dc.ammontareComplessivo) * 100,
     );
+    const venditaCents = dc.vendita.reduce(
+      (sum, v) => sum + Math.round(Number.parseFloat(v.importo) * 100),
+      0,
+    );
+    if (ammontareCents !== venditaCents) {
+      logger.error(
+        {
+          documentId,
+          businessId: input.businessId,
+          critical: true,
+          sentryFingerprint: ["emit-receipt", "payload-total-mismatch"],
+        },
+        "ade:payload_total_mismatch",
+      );
+    }
   }
 
   const adeResponse = await adeClient.submitSale(payload);
