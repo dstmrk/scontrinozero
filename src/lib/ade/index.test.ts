@@ -22,47 +22,67 @@ describe("getAdeMode", () => {
     vi.unstubAllEnvs();
   });
 
-  it('returns "real" when ADE_MODE=real (production)', () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("ADE_MODE", "real");
-    expect(getAdeMode()).toBe("real");
-  });
-
-  it('returns "mock" when ADE_MODE=mock (production sandbox)', () => {
-    // Sandbox runs a production build with ADE_MODE=mock — must NOT throw.
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("ADE_MODE", "mock");
-    expect(getAdeMode()).toBe("mock");
-  });
-
-  it("throws in production when ADE_MODE is absent (fail-closed)", () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("ADE_MODE", "");
-    expect(() => getAdeMode()).toThrow(/ADE_MODE non valido o assente/);
-  });
-
-  it("throws in production when ADE_MODE has an unrecognized value", () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("ADE_MODE", "REAL"); // wrong case → not recognized
-    expect(() => getAdeMode()).toThrow(/ADE_MODE non valido o assente/);
-  });
-
-  it('falls back to "mock" in test env when ADE_MODE is absent', () => {
-    vi.stubEnv("NODE_ENV", "test");
-    vi.stubEnv("ADE_MODE", "");
-    expect(getAdeMode()).toBe("mock");
-  });
-
-  it('falls back to "mock" in development when ADE_MODE has a garbage value', () => {
-    vi.stubEnv("NODE_ENV", "development");
-    vi.stubEnv("ADE_MODE", "nonsense");
-    expect(getAdeMode()).toBe("mock");
-  });
-
-  it('honours an explicit "real" even outside production', () => {
-    vi.stubEnv("NODE_ENV", "development");
-    vi.stubEnv("ADE_MODE", "real");
-    expect(getAdeMode()).toBe("real");
+  // Note sui casi non ovvii:
+  // - "production sandbox": sandbox gira un build di produzione con
+  //   ADE_MODE=mock — NON deve lanciare.
+  // - "unrecognized value": "REAL" (case sbagliato) non è riconosciuto.
+  it.each([
+    {
+      name: 'returns "real" when ADE_MODE=real (production)',
+      nodeEnv: "production",
+      adeMode: "real",
+      expected: "real",
+    },
+    {
+      name: 'returns "mock" when ADE_MODE=mock (production sandbox)',
+      nodeEnv: "production",
+      adeMode: "mock",
+      expected: "mock",
+    },
+    {
+      name: "throws in production when ADE_MODE is absent (fail-closed)",
+      nodeEnv: "production",
+      adeMode: "",
+      throws: /ADE_MODE non valido o assente/,
+    },
+    {
+      name: "throws in production when ADE_MODE has an unrecognized value",
+      nodeEnv: "production",
+      adeMode: "REAL",
+      throws: /ADE_MODE non valido o assente/,
+    },
+    {
+      name: 'falls back to "mock" in test env when ADE_MODE is absent',
+      nodeEnv: "test",
+      adeMode: "",
+      expected: "mock",
+    },
+    {
+      name: 'falls back to "mock" in development when ADE_MODE has a garbage value',
+      nodeEnv: "development",
+      adeMode: "nonsense",
+      expected: "mock",
+    },
+    {
+      name: 'honours an explicit "real" even outside production',
+      nodeEnv: "development",
+      adeMode: "real",
+      expected: "real",
+    },
+  ] as {
+    name: string;
+    nodeEnv: string;
+    adeMode: string;
+    expected?: string;
+    throws?: RegExp;
+  }[])("$name", ({ nodeEnv, adeMode, expected, throws }) => {
+    vi.stubEnv("NODE_ENV", nodeEnv);
+    vi.stubEnv("ADE_MODE", adeMode);
+    if (throws) {
+      expect(() => getAdeMode()).toThrow(throws);
+    } else {
+      expect(getAdeMode()).toBe(expected);
+    }
   });
 });
 

@@ -102,40 +102,21 @@ describe("authenticateApiKey — format pre-check (no DB call)", () => {
     vi.useRealTimers();
   });
 
-  it("ritorna 401 senza query DB se la chiave ha prefisso errato", async () => {
+  it.each([
+    {
+      desc: "la chiave ha prefisso errato",
+      token: "sk_live_" + "A".repeat(48),
+    },
+    { desc: "la chiave è troppo corta", token: "szk_live_XXXXXXXX" },
+    { desc: "la chiave è troppo lunga", token: "szk_live_" + "A".repeat(100) },
+    {
+      desc: "il body contiene caratteri non base64url",
+      token: "szk_live_" + "+".repeat(48),
+    },
+  ])("ritorna 401 senza query DB se $desc", async ({ token }) => {
     const { authenticateApiKey } = await import("./api-auth");
     const request = new Request("https://api.scontrinozero.it/v1/receipts", {
-      headers: { authorization: "Bearer sk_live_" + "A".repeat(48) },
-    });
-    const result = await authenticateApiKey(request);
-    expect(result).toEqual({ error: "API key non valida.", status: 401 });
-    expect(mockSelectFields).not.toHaveBeenCalled();
-  });
-
-  it("ritorna 401 senza query DB se la chiave è troppo corta", async () => {
-    const { authenticateApiKey } = await import("./api-auth");
-    const request = new Request("https://api.scontrinozero.it/v1/receipts", {
-      headers: { authorization: "Bearer szk_live_XXXXXXXX" },
-    });
-    const result = await authenticateApiKey(request);
-    expect(result).toEqual({ error: "API key non valida.", status: 401 });
-    expect(mockSelectFields).not.toHaveBeenCalled();
-  });
-
-  it("ritorna 401 senza query DB se la chiave è troppo lunga", async () => {
-    const { authenticateApiKey } = await import("./api-auth");
-    const request = new Request("https://api.scontrinozero.it/v1/receipts", {
-      headers: { authorization: "Bearer szk_live_" + "A".repeat(100) },
-    });
-    const result = await authenticateApiKey(request);
-    expect(result).toEqual({ error: "API key non valida.", status: 401 });
-    expect(mockSelectFields).not.toHaveBeenCalled();
-  });
-
-  it("ritorna 401 senza query DB se il body contiene caratteri non base64url", async () => {
-    const { authenticateApiKey } = await import("./api-auth");
-    const request = new Request("https://api.scontrinozero.it/v1/receipts", {
-      headers: { authorization: "Bearer szk_live_" + "+".repeat(48) },
+      headers: { authorization: "Bearer " + token },
     });
     const result = await authenticateApiKey(request);
     expect(result).toEqual({ error: "API key non valida.", status: 401 });

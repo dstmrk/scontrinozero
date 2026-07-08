@@ -72,55 +72,56 @@ describe("assertIdentityEnv — failure modes in production", () => {
     vi.stubEnv("NODE_ENV", "production");
   });
 
-  it("throws when NEXT_PUBLIC_APP_URL is malformed (not a URL)", () => {
-    process.env.NEXT_PUBLIC_APP_URL = "not a url";
-    return import("./identity-env").then(({ assertIdentityEnv }) => {
-      expect(() => assertIdentityEnv()).toThrow(/NEXT_PUBLIC_APP_URL/);
-    });
-  });
-
-  it("throws when NEXT_PUBLIC_APP_URL is present-but-empty (regola 18)", () => {
-    // Dockerfile bakes ARG even when not passed -> "" -> ?? default not firing.
-    // Boot must catch this BEFORE any lazy call site (SCONTRINOZERO-F) sees it.
-    process.env.NEXT_PUBLIC_APP_URL = "";
-    return import("./identity-env").then(({ assertIdentityEnv }) => {
-      expect(() => assertIdentityEnv()).toThrow(/NEXT_PUBLIC_APP_URL/);
-    });
-  });
-
-  it("throws when NEXT_PUBLIC_APP_URL uses http (not https) in production", () => {
-    process.env.NEXT_PUBLIC_APP_URL = "http://app.scontrinozero.it";
-    return import("./identity-env").then(({ assertIdentityEnv }) => {
-      expect(() => assertIdentityEnv()).toThrow(/NEXT_PUBLIC_APP_URL/);
-    });
-  });
-
-  it("throws when APP_HOSTNAME has a scheme prefix", () => {
-    process.env.APP_HOSTNAME = "https://app.scontrinozero.it";
-    return import("./identity-env").then(({ assertIdentityEnv }) => {
-      expect(() => assertIdentityEnv()).toThrow(/APP_HOSTNAME/);
-    });
-  });
-
-  it("throws when MARKETING_HOSTNAME contains a slash", () => {
-    process.env.MARKETING_HOSTNAME = "scontrinozero.it/";
-    return import("./identity-env").then(({ assertIdentityEnv }) => {
-      expect(() => assertIdentityEnv()).toThrow(/MARKETING_HOSTNAME/);
-    });
-  });
-
-  it("throws when API_HOSTNAME is present-but-empty (regola 18)", () => {
-    process.env.API_HOSTNAME = "";
-    return import("./identity-env").then(({ assertIdentityEnv }) => {
-      expect(() => assertIdentityEnv()).toThrow(/API_HOSTNAME/);
-    });
-  });
-
-  it("throws when a NEXT_PUBLIC_*_HOSTNAME variant is malformed", () => {
-    process.env.NEXT_PUBLIC_API_HOSTNAME = "api scontrinozero.it";
-    return import("./identity-env").then(({ assertIdentityEnv }) => {
-      expect(() => assertIdentityEnv()).toThrow(/NEXT_PUBLIC_API_HOSTNAME/);
-    });
+  // present-but-empty (regola 18): il Dockerfile baka l'ARG anche quando non
+  // passato -> "" -> `?? default` non scatta. Il boot deve intercettarlo PRIMA
+  // di qualsiasi call site lazy (SCONTRINOZERO-F).
+  it.each([
+    {
+      name: "NEXT_PUBLIC_APP_URL is malformed (not a URL)",
+      key: "NEXT_PUBLIC_APP_URL",
+      value: "not a url",
+      match: /NEXT_PUBLIC_APP_URL/,
+    },
+    {
+      name: "NEXT_PUBLIC_APP_URL is present-but-empty (regola 18)",
+      key: "NEXT_PUBLIC_APP_URL",
+      value: "",
+      match: /NEXT_PUBLIC_APP_URL/,
+    },
+    {
+      name: "NEXT_PUBLIC_APP_URL uses http (not https) in production",
+      key: "NEXT_PUBLIC_APP_URL",
+      value: "http://app.scontrinozero.it",
+      match: /NEXT_PUBLIC_APP_URL/,
+    },
+    {
+      name: "APP_HOSTNAME has a scheme prefix",
+      key: "APP_HOSTNAME",
+      value: "https://app.scontrinozero.it",
+      match: /APP_HOSTNAME/,
+    },
+    {
+      name: "MARKETING_HOSTNAME contains a slash",
+      key: "MARKETING_HOSTNAME",
+      value: "scontrinozero.it/",
+      match: /MARKETING_HOSTNAME/,
+    },
+    {
+      name: "API_HOSTNAME is present-but-empty (regola 18)",
+      key: "API_HOSTNAME",
+      value: "",
+      match: /API_HOSTNAME/,
+    },
+    {
+      name: "a NEXT_PUBLIC_*_HOSTNAME variant is malformed",
+      key: "NEXT_PUBLIC_API_HOSTNAME",
+      value: "api scontrinozero.it",
+      match: /NEXT_PUBLIC_API_HOSTNAME/,
+    },
+  ])("throws when $name", async ({ key, value, match }) => {
+    process.env[key] = value;
+    const { assertIdentityEnv } = await import("./identity-env");
+    expect(() => assertIdentityEnv()).toThrow(match);
   });
 
   it("aggregates multiple failures into a single thrown message", async () => {

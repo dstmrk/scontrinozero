@@ -17,121 +17,135 @@ describe("getTrustedAppUrl", () => {
     vi.unstubAllEnvs();
   });
 
-  it("returns the URL when valid (production + https + allowlisted host)", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.scontrinozero.it");
-    vi.stubEnv("NEXT_PUBLIC_APP_HOSTNAME", "app.scontrinozero.it");
-    const { getTrustedAppUrl } = await import("./trusted-app-url");
-    expect(getTrustedAppUrl()).toBe("https://app.scontrinozero.it");
-  });
-
-  it("strips trailing slash", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.scontrinozero.it/");
-    vi.stubEnv("NEXT_PUBLIC_APP_HOSTNAME", "app.scontrinozero.it");
-    const { getTrustedAppUrl } = await import("./trusted-app-url");
-    expect(getTrustedAppUrl()).toBe("https://app.scontrinozero.it");
-  });
-
-  it("allows APP_HOSTNAME as runtime override (sandbox/self-hosted)", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://sandbox.scontrinozero.it");
-    vi.stubEnv("APP_HOSTNAME", "sandbox.scontrinozero.it");
-    vi.stubEnv("NEXT_PUBLIC_APP_HOSTNAME", "app.scontrinozero.it");
-    const { getTrustedAppUrl } = await import("./trusted-app-url");
-    expect(getTrustedAppUrl()).toBe("https://sandbox.scontrinozero.it");
-  });
-
-  it("throws on malformed URL", async () => {
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "not-a-url");
-    const { getTrustedAppUrl, TrustedAppUrlError } =
-      await import("./trusted-app-url");
-    expect(() => getTrustedAppUrl()).toThrow(TrustedAppUrlError);
-  });
-
-  it("throws in production when protocol is not https", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "http://app.scontrinozero.it");
-    vi.stubEnv("NEXT_PUBLIC_APP_HOSTNAME", "app.scontrinozero.it");
-    const { getTrustedAppUrl, TrustedAppUrlError } =
-      await import("./trusted-app-url");
-    expect(() => getTrustedAppUrl()).toThrow(TrustedAppUrlError);
-    expect(() => getTrustedAppUrl()).toThrow(/https/);
-  });
-
-  it("throws in production when hostname is not allowlisted", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://evil.example.com");
-    vi.stubEnv("NEXT_PUBLIC_APP_HOSTNAME", "app.scontrinozero.it");
-    const { getTrustedAppUrl, TrustedAppUrlError } =
-      await import("./trusted-app-url");
-    expect(() => getTrustedAppUrl()).toThrow(TrustedAppUrlError);
-    expect(() => getTrustedAppUrl()).toThrow(/allowlist/);
-  });
-
-  it("does NOT allow look-alike subdomain (subdomain spoofing)", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.scontrinozero.it.evil.tld");
-    vi.stubEnv("NEXT_PUBLIC_APP_HOSTNAME", "app.scontrinozero.it");
-    const { getTrustedAppUrl, TrustedAppUrlError } =
-      await import("./trusted-app-url");
-    expect(() => getTrustedAppUrl()).toThrow(TrustedAppUrlError);
-  });
-
-  it("allows http://localhost in non-production", async () => {
-    vi.stubEnv("NODE_ENV", "development");
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "http://localhost:3000");
-    const { getTrustedAppUrl } = await import("./trusted-app-url");
-    expect(getTrustedAppUrl()).toBe("http://localhost:3000");
-  });
-
-  it("does NOT allow localhost in production (forces deploy-time config)", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://localhost:3000");
-    vi.stubEnv("NEXT_PUBLIC_APP_HOSTNAME", "app.scontrinozero.it");
-    const { getTrustedAppUrl, TrustedAppUrlError } =
-      await import("./trusted-app-url");
-    expect(() => getTrustedAppUrl()).toThrow(TrustedAppUrlError);
-  });
-
-  it("defaults to http://localhost:3000 when NEXT_PUBLIC_APP_URL is unset (dev only)", async () => {
-    vi.stubEnv("NODE_ENV", "development");
-    const { getTrustedAppUrl } = await import("./trusted-app-url");
-    expect(getTrustedAppUrl()).toBe("http://localhost:3000");
-  });
-
   // SCONTRINOZERO-F: il Dockerfile bakava `ENV NEXT_PUBLIC_APP_URL=` (stringa
   // vuota) quando l'ARG non veniva passato (prod/sandbox). Il `?? default`
   // NON scatta su present-but-empty → `new URL("")` lanciava → 503 su ogni
   // checkout/portal Stripe. Empty/whitespace va trattato come assente, e in
   // produzione il default deve essere l'host app (https + allowlist), non
   // localhost. (CLAUDE.md regola 18.)
-  it("defaults to the prod app URL when NEXT_PUBLIC_APP_URL is present-but-empty in production", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "");
+  it.each([
+    {
+      name: "returns the URL when valid (production + https + allowlisted host)",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "https://app.scontrinozero.it",
+        NEXT_PUBLIC_APP_HOSTNAME: "app.scontrinozero.it",
+      },
+      expected: "https://app.scontrinozero.it",
+    },
+    {
+      name: "strips trailing slash",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "https://app.scontrinozero.it/",
+        NEXT_PUBLIC_APP_HOSTNAME: "app.scontrinozero.it",
+      },
+      expected: "https://app.scontrinozero.it",
+    },
+    {
+      name: "allows APP_HOSTNAME as runtime override (sandbox/self-hosted)",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "https://sandbox.scontrinozero.it",
+        APP_HOSTNAME: "sandbox.scontrinozero.it",
+        NEXT_PUBLIC_APP_HOSTNAME: "app.scontrinozero.it",
+      },
+      expected: "https://sandbox.scontrinozero.it",
+    },
+    {
+      name: "allows http://localhost in non-production",
+      env: {
+        NODE_ENV: "development",
+        NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+      },
+      expected: "http://localhost:3000",
+    },
+    {
+      name: "defaults to http://localhost:3000 when NEXT_PUBLIC_APP_URL is unset (dev only)",
+      env: { NODE_ENV: "development" },
+      expected: "http://localhost:3000",
+    },
+    {
+      name: "defaults to the prod app URL when NEXT_PUBLIC_APP_URL is present-but-empty in production",
+      env: { NODE_ENV: "production", NEXT_PUBLIC_APP_URL: "" },
+      expected: "https://app.scontrinozero.it",
+    },
+    {
+      name: "treats a whitespace-only NEXT_PUBLIC_APP_URL as unset in production",
+      env: { NODE_ENV: "production", NEXT_PUBLIC_APP_URL: "   " },
+      expected: "https://app.scontrinozero.it",
+    },
+    {
+      name: "defaults to the prod app URL when NEXT_PUBLIC_APP_URL is unset in production",
+      env: { NODE_ENV: "production" },
+      expected: "https://app.scontrinozero.it",
+    },
+    {
+      name: "falls back to localhost when NEXT_PUBLIC_APP_URL is present-but-empty in dev",
+      env: { NODE_ENV: "development", NEXT_PUBLIC_APP_URL: "" },
+      expected: "http://localhost:3000",
+    },
+  ])("$name", async ({ env, expected }) => {
+    for (const [key, value] of Object.entries(env)) {
+      vi.stubEnv(key, value);
+    }
     const { getTrustedAppUrl } = await import("./trusted-app-url");
-    expect(getTrustedAppUrl()).toBe("https://app.scontrinozero.it");
+    expect(getTrustedAppUrl()).toBe(expected);
   });
 
-  it("treats a whitespace-only NEXT_PUBLIC_APP_URL as unset in production", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "   ");
-    const { getTrustedAppUrl } = await import("./trusted-app-url");
-    expect(getTrustedAppUrl()).toBe("https://app.scontrinozero.it");
-  });
-
-  it("defaults to the prod app URL when NEXT_PUBLIC_APP_URL is unset in production", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    const { getTrustedAppUrl } = await import("./trusted-app-url");
-    expect(getTrustedAppUrl()).toBe("https://app.scontrinozero.it");
-  });
-
-  it("falls back to localhost when NEXT_PUBLIC_APP_URL is present-but-empty in dev", async () => {
-    vi.stubEnv("NODE_ENV", "development");
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "");
-    const { getTrustedAppUrl } = await import("./trusted-app-url");
-    expect(getTrustedAppUrl()).toBe("http://localhost:3000");
-  });
+  it.each([
+    {
+      name: "throws on malformed URL",
+      env: { NEXT_PUBLIC_APP_URL: "not-a-url" },
+    },
+    {
+      name: "throws in production when protocol is not https",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "http://app.scontrinozero.it",
+        NEXT_PUBLIC_APP_HOSTNAME: "app.scontrinozero.it",
+      },
+      messageMatch: /https/,
+    },
+    {
+      name: "throws in production when hostname is not allowlisted",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "https://evil.example.com",
+        NEXT_PUBLIC_APP_HOSTNAME: "app.scontrinozero.it",
+      },
+      messageMatch: /allowlist/,
+    },
+    {
+      name: "does NOT allow look-alike subdomain (subdomain spoofing)",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "https://app.scontrinozero.it.evil.tld",
+        NEXT_PUBLIC_APP_HOSTNAME: "app.scontrinozero.it",
+      },
+    },
+    {
+      name: "does NOT allow localhost in production (forces deploy-time config)",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "https://localhost:3000",
+        NEXT_PUBLIC_APP_HOSTNAME: "app.scontrinozero.it",
+      },
+    },
+  ] as { name: string; env: Record<string, string>; messageMatch?: RegExp }[])(
+    "$name",
+    async ({ env, messageMatch }) => {
+      for (const [key, value] of Object.entries(env)) {
+        vi.stubEnv(key, value);
+      }
+      const { getTrustedAppUrl, TrustedAppUrlError } =
+        await import("./trusted-app-url");
+      expect(() => getTrustedAppUrl()).toThrow(TrustedAppUrlError);
+      if (messageMatch) {
+        expect(() => getTrustedAppUrl()).toThrow(messageMatch);
+      }
+    },
+  );
 
   it("does NOT log a critical error when env is empty in production (no false alarm)", async () => {
     vi.stubEnv("NODE_ENV", "production");

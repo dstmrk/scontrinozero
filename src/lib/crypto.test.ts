@@ -50,37 +50,20 @@ describe("crypto (AES-256-GCM)", () => {
     expect(encrypted1).not.toBe(encrypted2);
   });
 
-  it("throws on tampered ciphertext", () => {
+  // Byte offset del campo manomesso nel payload base64:
+  // - ciphertext: dopo version + IV + authTag = 29 bytes
+  // - auth tag: inizia a byte 13 (dopo version=1 + IV=12)
+  // - IV: inizia a byte 1 (dopo version=1)
+  it.each([
+    ["ciphertext", 29],
+    ["auth tag", 13],
+    ["IV", 1],
+  ])("throws on tampered %s", (_field, byteIndex) => {
     const key = makeKey();
     const encrypted = encrypt("secret data", key);
 
     const buf = Buffer.from(encrypted, "base64");
-    // Flip a byte in the ciphertext section (after version + IV + authTag = 29 bytes)
-    buf[29] ^= 0xff;
-    const tampered = buf.toString("base64");
-
-    expect(() => decrypt(tampered, makeKeyMap(key))).toThrow();
-  });
-
-  it("throws on tampered auth tag", () => {
-    const key = makeKey();
-    const encrypted = encrypt("secret data", key);
-
-    const buf = Buffer.from(encrypted, "base64");
-    // Auth tag starts at byte 13 (after version=1 + IV=12)
-    buf[13] ^= 0xff;
-    const tampered = buf.toString("base64");
-
-    expect(() => decrypt(tampered, makeKeyMap(key))).toThrow();
-  });
-
-  it("throws on tampered IV", () => {
-    const key = makeKey();
-    const encrypted = encrypt("secret data", key);
-
-    const buf = Buffer.from(encrypted, "base64");
-    // IV starts at byte 1 (after version=1)
-    buf[1] ^= 0xff;
+    buf[byteIndex] ^= 0xff;
     const tampered = buf.toString("base64");
 
     expect(() => decrypt(tampered, makeKeyMap(key))).toThrow();

@@ -45,52 +45,23 @@ describe("adePinSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects empty string", () => {
-    const result = adePinSchema.safeParse("");
-    expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.message).toBe(PIN_ERROR);
-  });
-
-  it("rejects 9 digits (too short by 1)", () => {
-    const result = adePinSchema.safeParse("123456789");
-    expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.message).toBe(PIN_ERROR);
-  });
-
-  it("rejects 11 digits (too long by 1)", () => {
-    const result = adePinSchema.safeParse("12345678901");
-    expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.message).toBe(PIN_ERROR);
-  });
-
-  it("rejects 10 characters containing a letter", () => {
-    const result = adePinSchema.safeParse("123456789a");
-    expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.message).toBe(PIN_ERROR);
-  });
-
-  it("rejects 10 characters that are all letters", () => {
-    const result = adePinSchema.safeParse("abcdefghij");
-    expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.message).toBe(PIN_ERROR);
-  });
-
-  it("rejects PIN with internal space (9 digits + 1 space)", () => {
-    const result = adePinSchema.safeParse("12345 6789");
-    expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.message).toBe(PIN_ERROR);
-  });
-
-  it("rejects PIN with surrounding whitespace (schema does not trim)", () => {
-    // Trimming is the caller's responsibility before safeParse
-    const result = adePinSchema.safeParse(" 1234567890 ");
-    expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.message).toBe(PIN_ERROR);
-  });
-
-  it("rejects Arabic-Indic digits (\\d without /u flag matches only [0-9])", () => {
-    // U+0660–U+0669 are Arabic-Indic numerals; \d without the u flag ignores them
-    const result = adePinSchema.safeParse("٠١٢٣٤٥٦٧٨٩");
+  // Trimming is the caller's responsibility before safeParse (whitespace case).
+  // Arabic-Indic case: U+0660–U+0669 are Arabic-Indic numerals; \d without the
+  // u flag ignores them, quindi vengono respinti.
+  it.each([
+    ["empty string", ""],
+    ["9 digits (too short by 1)", "123456789"],
+    ["11 digits (too long by 1)", "12345678901"],
+    ["10 characters containing a letter", "123456789a"],
+    ["10 characters that are all letters", "abcdefghij"],
+    ["PIN with internal space (9 digits + 1 space)", "12345 6789"],
+    ["PIN with surrounding whitespace (schema does not trim)", " 1234567890 "],
+    [
+      "Arabic-Indic digits (\\d without /u flag matches only [0-9])",
+      "٠١٢٣٤٥٦٧٨٩",
+    ],
+  ])("rejects %s", (_label, input) => {
+    const result = adePinSchema.safeParse(input);
     expect(result.success).toBe(false);
     expect(result.error?.issues[0]?.message).toBe(PIN_ERROR);
   });
