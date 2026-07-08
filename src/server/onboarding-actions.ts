@@ -40,6 +40,7 @@ import {
   getAuthenticatedUser,
   checkBusinessOwnership,
 } from "@/lib/server-auth";
+import { authErrorResult } from "@/lib/auth-errors";
 import {
   adePinSchema,
   BUSINESS_PROFILE_LIMITS,
@@ -151,7 +152,13 @@ function validateSaveBusinessInput(input: SaveBusinessInput): string | null {
 export async function saveBusiness(
   formData: FormData,
 ): Promise<OnboardingActionResult> {
-  const user = await getAuthenticatedUser();
+  // Sessione assente → degrada a { error } inline (regola 19/20).
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return authErrorResult(err, "saveBusiness");
+  }
 
   const firstName = getFormString(formData, "firstName");
   const lastName = getFormString(formData, "lastName");
@@ -357,7 +364,13 @@ function buildCieValues(
 export async function saveAdeCredentials(
   formData: FormData,
 ): Promise<OnboardingActionResult> {
-  const user = await getAuthenticatedUser();
+  // Sessione assente → degrada a { error } inline (regola 19/20).
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return authErrorResult(err, "saveAdeCredentials");
+  }
 
   const businessId = getFormString(formData, "businessId");
   if (!businessId) {
@@ -856,7 +869,13 @@ async function fetchFiscalDataAndCloseSession(
 export async function verifyAdeCredentials(
   businessId: string,
 ): Promise<OnboardingActionResult> {
-  const user = await getAuthenticatedUser();
+  // Sessione assente → degrada a { error } inline (regola 19/20).
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return authErrorResult(err, "verifyAdeCredentials");
+  }
 
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) return ownershipError;
@@ -1125,7 +1144,13 @@ export const getOnboardingTourSeen = cache(async (): Promise<boolean> => {
  * cosmetica, il client l'ha già nascosto in modo optimistic.
  */
 export async function markOnboardingTourSeen(): Promise<{ error?: string }> {
-  const user = await getAuthenticatedUser();
+  // Sessione assente → degrada a { error } inline (regola 19/20).
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return authErrorResult(err, "markOnboardingTourSeen");
+  }
   const db = getDb();
   try {
     await db
@@ -1152,7 +1177,13 @@ export async function changeAdePassword(
   newPassword: string,
   confirmNewPassword: string,
 ): Promise<OnboardingActionResult> {
-  const user = await getAuthenticatedUser();
+  // Sessione assente → degrada a { error } inline (regola 19/20).
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return authErrorResult(err, "changeAdePassword");
+  }
 
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) return ownershipError;

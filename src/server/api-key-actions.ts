@@ -10,6 +10,7 @@ import {
   checkBusinessOwnership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
+import { authErrorResult } from "@/lib/auth-errors";
 
 export type ApiKeyListItem = {
   id: string;
@@ -20,10 +21,31 @@ export type ApiKeyListItem = {
   revokedAt: Date | null;
 };
 
-export async function listApiKeys(
+/**
+ * Guard condiviso da listApiKeys/createApiKey: autentica degradando invece di
+ * lanciare (sessione assente → { error }, regola 19/20), verifica l'ownership
+ * del business e applica il gate di piano (Pro+). Fattorizzato per non
+ * duplicare il prefisso identico tra le due azioni — la duplicazione
+ * ownership+plan era pre-esistente e l'auth-guard l'aveva spinta oltre la
+ * soglia CPD di SonarCloud (new_duplicated_lines, PR #699).
+ */
+async function authorizeApiKeyBusiness(
+  action: string,
   businessId: string,
-): Promise<{ error?: string; keys?: ApiKeyListItem[] }> {
-  const user = await getAuthenticatedUser();
+  planDeniedMessage: string,
+): Promise<
+  | {
+      user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+      effectivePlan: Awaited<ReturnType<typeof getEffectivePlan>>;
+    }
+  | { error: string }
+> {
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return authErrorResult(err, action);
+  }
 
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) return ownershipError;
@@ -33,10 +55,21 @@ export async function listApiKeys(
     getPlan(user.id),
   ]);
   if (!canUseApi(effectivePlan, planInfo.planExpiresAt)) {
-    return {
-      error: "Per accedere alle API key serve il piano Pro o superiore.",
-    };
+    return { error: planDeniedMessage };
   }
+
+  return { user, effectivePlan };
+}
+
+export async function listApiKeys(
+  businessId: string,
+): Promise<{ error?: string; keys?: ApiKeyListItem[] }> {
+  const auth = await authorizeApiKeyBusiness(
+    "listApiKeys",
+    businessId,
+    "Per accedere alle API key serve il piano Pro o superiore.",
+  );
+  if ("error" in auth) return auth;
 
   const db = getDb();
   const keys = await db
@@ -58,20 +91,13 @@ export async function createApiKey(
   businessId: string,
   name: string,
 ): Promise<{ error?: string; apiKeyRaw?: string; keyId?: string }> {
-  const user = await getAuthenticatedUser();
-
-  const ownershipError = await checkBusinessOwnership(user.id, businessId);
-  if (ownershipError) return ownershipError;
-
-  const [effectivePlan, planInfo] = await Promise.all([
-    getEffectivePlan(user.id),
-    getPlan(user.id),
-  ]);
-  if (!canUseApi(effectivePlan, planInfo.planExpiresAt)) {
-    return {
-      error: "Per generare API key serve il piano Pro o superiore.",
-    };
-  }
+  const auth = await authorizeApiKeyBusiness(
+    "createApiKey",
+    businessId,
+    "Per generare API key serve il piano Pro o superiore.",
+  );
+  if ("error" in auth) return auth;
+  const { user, effectivePlan } = auth;
 
   const trimmedName = name.trim();
   if (!trimmedName) {
@@ -139,7 +165,13 @@ export async function createApiKey(
 }
 
 export async function revokeApiKey(keyId: string): Promise<{ error?: string }> {
-  const user = await getAuthenticatedUser();
+  // Sessione assente → degrada a { error } inline (regola 19/20).
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return authErrorResult(err, "revokeApiKey");
+  }
 
   const db = getDb();
 

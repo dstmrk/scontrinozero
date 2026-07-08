@@ -1,7 +1,19 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { UnauthenticatedError } from "@/lib/auth-errors";
 
 // --- Hoisted mocks ---
+
+// Override una-tantum di getAuthenticatedUser per simulare sessione assente.
+// `@/lib/server-auth` è mockato con un factory che referenzia const non-hoisted,
+// quindi NON si può importare staticamente qui (romperebbe l'hoisting di vi.mock):
+// import dinamico dentro il test, quando i const sono già inizializzati.
+async function rejectAuthOnce(): Promise<void> {
+  const { getAuthenticatedUser } = await import("@/lib/server-auth");
+  vi.mocked(getAuthenticatedUser).mockRejectedValueOnce(
+    new UnauthenticatedError(),
+  );
+}
 
 const {
   mockGetUser,
@@ -182,10 +194,12 @@ describe("profile-actions", () => {
       expect(result.error).toMatch(/troppi/i);
     });
 
-    it("throws when user is unauthenticated", async () => {
-      mockGetUser.mockResolvedValue({ data: { user: null } });
+    it("degrada a 'Non autenticato.' quando la sessione è scaduta (no throw)", async () => {
+      await rejectAuthOnce();
       const { updateProfile } = await import("./profile-actions");
-      await expect(updateProfile(formData(VALID))).rejects.toThrow();
+      const result = await updateProfile(formData(VALID));
+      expect(result.error).toBe("Non autenticato.");
+      expect(mockRevalidatePath).not.toHaveBeenCalled();
     });
   });
 
@@ -267,6 +281,14 @@ describe("profile-actions", () => {
       const { updateBusiness } = await import("./profile-actions");
       const result = await updateBusiness(formData(VALID));
       expect(result.error).toMatch(/troppi/i);
+    });
+
+    it("degrada a 'Non autenticato.' quando la sessione è scaduta (no throw)", async () => {
+      await rejectAuthOnce();
+      const { updateBusiness } = await import("./profile-actions");
+      const result = await updateBusiness(formData(VALID));
+      expect(result.error).toBe("Non autenticato.");
+      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
     });
   });
 
@@ -439,10 +461,12 @@ describe("profile-actions", () => {
       expect(result.error).toMatch(/troppi/i);
     });
 
-    it("throws when user is unauthenticated", async () => {
-      mockGetUser.mockResolvedValue({ data: { user: null } });
+    it("degrada a 'Non autenticato.' quando la sessione è scaduta (no throw)", async () => {
+      await rejectAuthOnce();
       const { changePassword } = await import("./profile-actions");
-      await expect(changePassword(formData(VALID))).rejects.toThrow();
+      const result = await changePassword(formData(VALID));
+      expect(result.error).toBe("Non autenticato.");
+      expect(mockSignInWithPassword).not.toHaveBeenCalled();
     });
   });
 

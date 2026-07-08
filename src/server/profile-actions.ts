@@ -11,6 +11,7 @@ import {
   getAuthenticatedUser,
   checkBusinessOwnership,
 } from "@/lib/server-auth";
+import { authErrorResult } from "@/lib/auth-errors";
 import {
   BUSINESS_PROFILE_LIMITS,
   isStrongPassword,
@@ -103,7 +104,13 @@ async function preparePreferredVatCodeUpdate(opts: {
 export async function updateProfile(
   formData: FormData,
 ): Promise<ProfileActionResult> {
-  const user = await getAuthenticatedUser();
+  // Sessione assente → degrada a { error } inline (regola 19/20).
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return authErrorResult(err, "updateProfile");
+  }
 
   const firstName = getFormString(formData, "firstName");
   const lastName = getFormString(formData, "lastName");
@@ -140,7 +147,13 @@ export async function updateProfile(
 export async function updateBusiness(
   formData: FormData,
 ): Promise<ProfileActionResult> {
-  const user = await getAuthenticatedUser();
+  // Sessione assente → degrada a { error } inline (regola 19/20).
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return authErrorResult(err, "updateBusiness");
+  }
 
   // CLAUDE.md regola 29: ordine difensivo rate-limit → ownership →
   // validation → UPDATE. La ownership query (DB read) NON deve essere
@@ -226,7 +239,13 @@ export async function updateBusiness(
 export async function changePassword(
   formData: FormData,
 ): Promise<ProfileActionResult> {
-  const user = await getAuthenticatedUser();
+  // Sessione assente → degrada a { error } inline (regola 19/20).
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return authErrorResult(err, "changePassword");
+  }
 
   // Raw read sui campi password: il trim() cambierebbe la semantica delle
   // credenziali e bloccherebbe login a utenti registrati con whitespace

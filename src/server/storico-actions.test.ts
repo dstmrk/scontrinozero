@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { UnauthenticatedError } from "@/lib/auth-errors";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -145,11 +146,19 @@ describe("storico-actions", () => {
       expect(mockSelect).toHaveBeenCalledTimes(2);
     });
 
-    it("throws when user is not authenticated", async () => {
-      mockGetAuthenticatedUser.mockRejectedValue(new Error("Unauthorized"));
+    it("degrada a 'Non autenticato.' quando la sessione è scaduta (no throw, no Sentry)", async () => {
+      // Sessione scaduta con lo storico aperto: getAuthenticatedUser lancia
+      // UnauthenticatedError; searchReceipts deve degradare a { error } inline
+      // (regola 19/20), non propagare all'error boundary di Next.
+      mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
 
       const { searchReceipts } = await import("./storico-actions");
-      await expect(searchReceipts("biz-789")).rejects.toThrow();
+      const result = await searchReceipts("biz-789");
+
+      expect(result.error).toBe("Non autenticato.");
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
+      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
     });
 
     it("returns error envelope when business ownership check fails", async () => {
