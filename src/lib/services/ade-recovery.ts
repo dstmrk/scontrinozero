@@ -172,12 +172,28 @@ export function buildAdeSearchWindow(createdAt: Date): {
   };
 }
 
-/** Importo del summary AdE (euro number) confrontato in cents. */
+/**
+ * Importo del summary AdE (euro number) confrontato in cents.
+ *
+ * Match primario: `expectedCents` = totale canonico per-riga
+ * (round(price*qty*100) sommato). `legacyFloatCents` è un secondo comparatore
+ * per i documenti emessi PRIMA di REVIEW.md #57: il vecchio mapper trasmetteva
+ * `ammontareComplessivo` come somma float dei lordi (8 decimali), che su
+ * quantità frazionarie diverge di 1 cent dal canonico. Accettarlo evita che la
+ * recovery ri-sottometta un documento che AdE aveva già registrato col totale
+ * legacy → duplicato fiscale irreversibile. Si passa solo quando differisce dal
+ * canonico (nessun allargamento del match nel caso normale, quantità intere).
+ */
 function matchesAmount(
   doc: AdeDocumentSummary,
   expectedCents: number,
+  legacyFloatCents?: number,
 ): boolean {
-  return Math.round(doc.ammontareComplessivo * 100) === expectedCents;
+  const docCents = Math.round(doc.ammontareComplessivo * 100);
+  return (
+    docCents === expectedCents ||
+    (legacyFloatCents !== undefined && docCents === legacyFloatCents)
+  );
 }
 
 /** Prossimità temporale fra il `data` del summary e il nostro createdAt. */
@@ -258,6 +274,12 @@ export function reconcileSaleDocument(params: {
   createdAt: Date;
   lotteryCode?: string | null;
   claimedIdtrx?: ReadonlySet<string>;
+  /**
+   * Totale legacy (somma float dei lordi) di un documento emesso prima di
+   * REVIEW.md #57. Comparatore di fallback in `matchesAmount`: passarlo solo
+   * quando differisce da `expectedTotalCents`.
+   */
+  expectedLegacyTotalCents?: number;
 }): AdeReconcileResult {
   const {
     documents,
@@ -265,12 +287,13 @@ export function reconcileSaleDocument(params: {
     createdAt,
     lotteryCode,
     claimedIdtrx,
+    expectedLegacyTotalCents,
   } = params;
   const candidates = documents.filter(
     (doc) =>
       doc.tipoOperazione === "V" &&
       !claimedIdtrx?.has(doc.idtrx) &&
-      matchesAmount(doc, expectedTotalCents) &&
+      matchesAmount(doc, expectedTotalCents, expectedLegacyTotalCents) &&
       withinProximity(doc, createdAt) &&
       (!lotteryCode || doc.cfCliente === lotteryCode),
   );

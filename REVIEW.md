@@ -267,59 +267,45 @@ trovata sia del proprio kind e in uno degli stati che si aspettano; tre buchi:
 
 ---
 
-### 57. Totali del payload AdE calcolati in float (8 decimali) invece che con la strategia canonica per-riga in cents: su quantità frazionarie il documento trasmesso diverge da payment/PDF e la recovery non riconcilia
+### 57. Totali del payload AdE: allineati alla strategia per-riga in cents — resta il gate di verifica su AdE reale
 
-- **Categoria:** correttezza/fiscale (regola 17) · **Severità:** Medium-High — trigger legittimo e quotidiano (vendita a peso: `quantity` ammette 3 decimali, `numeric(10,3)`); residuo della stessa classe di REVIEW.md #1 (risolto solo per `payments[0].amount`)
-- **File:** `src/lib/ade/mapper.ts:158-203` (`computeLineAmounts`: `grossTotal = unitPriceGross * quantity` float raw; `totale`/`prezzoLordo` a 8 decimali del float), `:250-266` e `:286` (`mapSaleToAdePayload`: `ammontareComplessivo` = somma float dei `totale` di riga); confronto: `src/lib/services/receipt-service.ts:616-637` (`payments[0].amount` = `calcInputLinesTotalCents/100`, per-riga in cents) e `src/lib/receipts/document-lines.ts` (`computeReceiptTotals`/`calcDocTotal`, stessi cents per PDF/pagina pubblica/storico/analytics); impatto recovery: `src/lib/services/ade-recovery.ts:176-181` (`matchesAmount`: confronta l'`ammontareComplessivo` registrato da AdE con gli expected cents per-riga)
+- **Categoria:** correttezza/fiscale (regola 17) · **Severità:** Medium-High (era) → **residuo: verifica su AdE reale** (regole 13/14: il codice è allineato, manca solo l'evidenza runtime prima del tag prod)
+- **File:** `src/lib/ade/mapper.ts` (`computeLineAmounts`: lordo/sconto di riga cent-rounded; `mapSaleToAdePayload`: totali documento = somma dei cents per-riga), `src/lib/services/ade-recovery.ts` (`matchesAmount`/`reconcileSaleDocument`: comparatore legacy float), `src/lib/services/receipt-service.ts` (`submitSaleToAde`: calcolo e passaggio di `expectedLegacyTotalCents`)
 
-**Problema.** La regola 17 dichiara i cents per-riga "strategia canonica usata
-ovunque", ma dentro lo **stesso payload AdE** convivono due strategie: i
-totali del `documentoCommerciale` sono somme float (8 decimali), il
-`vendita[].importo` (payment) è il totale per-riga in cents. Esempio
-verificato numericamente — 2 righe da `0.5 × €0.99`:
+**Stato — code-only fatto.** Il payload aveva due strategie di
+arrotondamento: i totali del `documentoCommerciale` erano somme float (8
+decimali), il `vendita[].importo` (payment) era il totale per-riga in cents.
+Su quantità frazionarie (vendita a peso, `numeric(10,3)`) `ammontareComplessivo`
+divergeva di 1 cent dal payment/PDF, e la recovery (`round(0.99*100)=99 ≠ 100`)
+non riconosceva un documento già accettato da AdE → rischio **re-submit →
+duplicato fiscale irreversibile**. Risolto:
 
-- `totale` di riga trasmesso: `0.49500000` × 2 → `ammontareComplessivo`
-  `0.99000000`;
-- `payments[0].amount` trasmesso: `1.00`; PDF/pagina pubblica/storico
-  mostrano al cliente `0.50 + 0.50 = 1.00`.
+1. `computeLineAmounts` arrotonda `grossTotal`/`discountTotal` al centesimo
+   per riga (`round(unitPriceGross*quantity*100)`) — no-op per quantità
+   intere; `mapSaleToAdePayload` deriva i totali documento come somma dei
+   cents per-riga. Ora `ammontareComplessivo === sum(vendita[].importo)` e
+   riconcilia al cent con `computeReceiptTotals`/`calcInputLinesTotalCents`.
+2. `matchesAmount` accetta un secondo comparatore `expectedLegacyTotalCents`
+   (totale legacy float) per riconoscere i documenti emessi **prima** di
+   questo fix e ancora recuperabili — chiude il rischio duplicato in transizione.
+   Passato da `submitSaleToAde` solo quando differisce dal canonico.
+3. Test: `mapper.test.ts` (lordo di riga cent-rounded, `ammontare === payment`
+   sul caso `0.5×0.99 ×2`, tabella di quantità frazionarie); `ade-recovery.test.ts`
+   (match sul legacy float, nessun allargamento senza il param).
 
-Tre conseguenze: (a) payload internamente incoerente — se AdE valida
-`vendita ≟ ammontareComplessivo` l'emissione fallisce (`esito:false`) proprio
-sui casi frazionari; (b) se AdE accetta, il documento fiscale registrato
-(`0.99`) diverge di 1 cent da quello consegnato al cliente (`1.00`) — la
-stessa divergenza che REVIEW.md #1 ha eliminato dalle altre superfici;
-(c) la riconciliazione pre-retry (`matchesAmount`: `round(0.99*100)=99 ≠
-100`) non trova il documento che AdE ha già accettato → `kind:"none"` →
-**re-submit → duplicato fiscale irreversibile**, esattamente ciò che la
-recovery deve impedire.
+**Residuo — gate prima del tag prod (regole 13/14, owner).** L'allineamento
+tiene `prezzoUnitario` con la semantica attuale (derivato dal grossTotal
+cent-rounded), **non** la variante con identità moltiplicativa `prezzoLordo =
+prezzoUnitario × quantità`. Prima del rollout in prod:
 
-**Fix (in due passi — regole 13/14: serve evidenza sul comportamento AdE).**
-
-1. **Mitigazione immediata, code-only:** in `reconcileSaleDocument`
-   accettare il match anche quando `round(doc.ammontareComplessivo*100)`
-   coincide con il totale ricalcolato **in float** dalle righe input
-   (secondo comparatore accanto agli expected cents) — chiude subito il
-   rischio duplicato (c) per i documenti già emessi con totali float.
-2. **Evidenza:** emettere dal portale web AdE (o da HAR esistente) uno
-   scontrino con quantità frazionaria che diverge al cent e osservare come
-   il portale stesso arrotonda `prezzoLordo`/`totale`/`ammontareComplessivo`
-   rispetto ai payment (regola 14: cross-reference campo per campo).
-3. **Allineamento:** adottare in `computeLineAmounts` il lordo di riga
-   cent-rounded (`lineGrossCents = round(unitPriceGross*quantity*100)`,
-   `grossTotal = lineGrossCents/100`) come base di `prezzoLordo`/`totale`/
-   scorporo IVA, e derivare `ammontareComplessivo` come somma dei cents —
-   coerente con il comportamento osservato al punto 2. Se AdE richiedesse
-   invece la coerenza moltiplicativa `prezzoLordo = prezzoUnitario ×
-quantita`, ricalcolare `prezzoUnitario = lineGrossCents/100/quantity`
-   (8 decimali) così l'identità regge sui valori trasmessi.
-4. Verifica su sandbox/`ADE_MODE=real` con un'emissione frazionaria reale
-   prima del merge (regola 13: mai mergiare un'ipotesi senza evidenza).
-5. **Test:** `mapSaleToAdePayload` con `0.5 × 0.99` ×2 → `vendita[0].importo`
-   e `ammontareComplessivo` riconciliano al cent con `computeReceiptTotals`;
-   proprietà generale: per ogni input valido dello schema,
-   `sum(vendita[].importo) === ammontareComplessivo` (property-based o
-   tabella di edge: 3 decimali di qty, 100 righe, nature N1-N6);
-   `reconcileSaleDocument` matcha un documento AdE con totale float legacy.
+1. Emettere su `ADE_MODE=real` (o da HAR) uno scontrino con quantità
+   frazionaria che diverge al cent e verificare che AdE **accetti** il payload
+   allineato (`esito:true`) e come il portale stesso arrotonda
+   `prezzoLordo`/`prezzoUnitario`/`ammontareComplessivo` (regola 14: campo per
+   campo).
+2. Se AdE pretende l'identità moltiplicativa, applicare la variante
+   `prezzoUnitario = lineGrossCents/100/quantity` (8 decimali) in
+   `computeLineAmounts`. Altrimenti il finding è chiuso.
 
 ---
 

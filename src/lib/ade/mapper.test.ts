@@ -211,6 +211,24 @@ describe("computeLineAmounts", () => {
     expect(result.resiPregressi).toBe("0.00");
     expect(result.reso).toBe("0.00");
   });
+
+  it("arrotonda il lordo di riga al centesimo su quantità frazionaria (REVIEW.md #57)", () => {
+    // 0,5 × €0,99 = 0,495 → arrotondato a 0,50 (per-riga in cents), NON
+    // trasmesso come "0.49500000". Il vecchio mapper teneva il mezzo cent,
+    // divergendo dal payment (round(price*qty*100) = 50 cents).
+    const line: SaleLineRequest = {
+      description: "Prosciutto (0,5 kg)",
+      quantity: 0.5,
+      unitPriceGross: 0.99,
+      unitDiscount: 0,
+      vatCode: "N2",
+      isGift: false,
+    };
+
+    const result = computeLineAmounts(line);
+    expect(result.prezzoLordo).toBe("0.50000000");
+    expect(result.totale).toBe("0.50000000");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -522,6 +540,95 @@ describe("mapSaleToAdePayload", () => {
     expect(dc.importoTotaleIva).toBe("0.00000000");
     expect(dc.scontoTotale).toBe("0.00000000");
     expect(dc.totaleNonRiscosso).toBe("0.00000000");
+  });
+
+  it("riconcilia ammontareComplessivo col payment su quantità frazionarie (REVIEW.md #57)", () => {
+    // Caso canonico del finding: 2 righe da 0,5 × €0,99. Il vecchio mapper
+    // sommava i lordi float (0,495 × 2 = 0,99) divergendo di 1 cent dal payment
+    // (1,00). La somma per-riga in cents dà 0,50 × 2 = 1,00.
+    const doc: SaleDocumentRequest = {
+      date: "2026-02-15",
+      lotteryCode: null,
+      isGiftDocument: false,
+      lines: [
+        {
+          description: "A",
+          quantity: 0.5,
+          unitPriceGross: 0.99,
+          unitDiscount: 0,
+          vatCode: "N2",
+          isGift: false,
+        },
+        {
+          description: "B",
+          quantity: 0.5,
+          unitPriceGross: 0.99,
+          unitDiscount: 0,
+          vatCode: "N2",
+          isGift: false,
+        },
+      ],
+      payments: [{ type: "CASH", amount: 1 }],
+      globalDiscount: 0,
+      deductibleAmount: 0,
+    };
+
+    const dc = mapSaleToAdePayload(
+      doc,
+      mockCedentePrestatore,
+    ).documentoCommerciale;
+    expect(dc.ammontareComplessivo).toBe("1.00000000");
+
+    // Proprietà: sum(vendita[].importo) === ammontareComplessivo (al cent).
+    const venditaCents = dc.vendita!.reduce(
+      (s, v) => s + Math.round(Number.parseFloat(v.importo) * 100),
+      0,
+    );
+    expect(venditaCents).toBe(
+      Math.round(Number.parseFloat(dc.ammontareComplessivo) * 100),
+    );
+    expect(venditaCents).toBe(100);
+  });
+
+  it("ammontareComplessivo cent-esatto su una tabella di quantità frazionarie (REVIEW.md #57)", () => {
+    const cases = [
+      { quantity: 0.5, unitPriceGross: 0.99 }, // 0.495 → 50
+      { quantity: 0.333, unitPriceGross: 3.0 }, // 0.999 → 100
+      { quantity: 1.25, unitPriceGross: 2.49 }, // 3.1125 → 311
+      { quantity: 0.125, unitPriceGross: 8.0 }, // 1.0 → 100
+      { quantity: 2.75, unitPriceGross: 1.19 }, // 3.2725 → 327
+    ];
+
+    for (const c of cases) {
+      const totalCents = Math.round(c.quantity * c.unitPriceGross * 100);
+      const doc: SaleDocumentRequest = {
+        date: "2026-02-15",
+        lotteryCode: null,
+        isGiftDocument: false,
+        lines: [
+          {
+            description: "X",
+            quantity: c.quantity,
+            unitPriceGross: c.unitPriceGross,
+            unitDiscount: 0,
+            vatCode: "N2",
+            isGift: false,
+          },
+        ],
+        payments: [{ type: "CASH", amount: totalCents / 100 }],
+        globalDiscount: 0,
+        deductibleAmount: 0,
+      };
+
+      const dc = mapSaleToAdePayload(
+        doc,
+        mockCedentePrestatore,
+      ).documentoCommerciale;
+      const ammCents = Math.round(
+        Number.parseFloat(dc.ammontareComplessivo) * 100,
+      );
+      expect(ammCents).toBe(totalCents);
+    }
   });
 });
 

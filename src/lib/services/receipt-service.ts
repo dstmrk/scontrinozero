@@ -525,11 +525,18 @@ async function reconcileSaleBeforeResubmit(
     businessId: string;
     createdAt: Date;
     expectedTotalCents: number;
+    expectedLegacyTotalCents?: number;
     lotteryCode: string | null;
   },
 ): Promise<SubmitReceiptResult | null> {
-  const { documentId, businessId, createdAt, expectedTotalCents, lotteryCode } =
-    ctx;
+  const {
+    documentId,
+    businessId,
+    createdAt,
+    expectedTotalCents,
+    expectedLegacyTotalCents,
+    lotteryCode,
+  } = ctx;
   let documents;
   let claimedIdtrx: ReadonlySet<string>;
   try {
@@ -567,6 +574,7 @@ async function reconcileSaleBeforeResubmit(
   const result = reconcileSaleDocument({
     documents,
     expectedTotalCents,
+    expectedLegacyTotalCents,
     createdAt,
     lotteryCode,
     claimedIdtrx,
@@ -615,6 +623,16 @@ async function submitSaleToAde(
   // (calcDocTotal), all derived from round(price * qty * 100) per line.
   const totalCents = calcInputLinesTotalCents(input.lines);
   const totalAmount = totalCents / 100;
+  // Totale legacy (somma float dei lordi) trasmesso dal mapper pre-REVIEW.md #57:
+  // su quantità frazionarie diverge di 1 cent dal canonico per-riga. Serve alla
+  // recovery per riconoscere un documento già registrato su AdE con quel totale
+  // ed evitare un re-submit duplicato. Passato solo se differisce dal canonico.
+  const legacyFloatCents = Math.round(
+    input.lines.reduce((sum, l) => sum + l.grossUnitPrice * l.quantity, 0) *
+      100,
+  );
+  const expectedLegacyTotalCents =
+    legacyFloatCents === totalCents ? undefined : legacyFloatCents;
   const saleDocRequest: SaleDocumentRequest = {
     date: getFiscalDate(),
     lotteryCode,
@@ -659,6 +677,7 @@ async function submitSaleToAde(
             businessId: input.businessId,
             createdAt: options.reconcile.createdAt,
             expectedTotalCents: totalCents,
+            expectedLegacyTotalCents,
             lotteryCode,
           });
           if (reconciled) return reconciled;
