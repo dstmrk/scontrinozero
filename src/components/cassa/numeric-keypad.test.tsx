@@ -25,22 +25,62 @@ describe("NumericKeypad", () => {
     ).toBeInTheDocument();
   });
 
-  it("chiama onChange con centesimi corretti premendo una cifra (0 → 7 = 7)", () => {
+  it.each([
+    {
+      name: "chiama onChange con centesimi corretti premendo una cifra (0 → 7 = 7)",
+      value: 0,
+      button: "7",
+      expected: 7,
+    },
+    {
+      name: "aggiunge cifra al valore esistente cashier-style (13 → '5' = 135)",
+      value: 13,
+      button: "5",
+      expected: 135,
+    },
+    {
+      name: "chiama onChange con backspace cashier-style (1358 → 135)",
+      value: 1358,
+      button: /backspace|⌫|cancella/i,
+      expected: 135,
+    },
+    {
+      name: "backspace su 0 rimane 0",
+      value: 0,
+      button: /backspace|⌫|cancella/i,
+      expected: 0,
+    },
+    {
+      name: "tasto 00 aggiunge due zeri (5 → 500)",
+      value: 5,
+      button: "00",
+      expected: 500,
+    },
+    { name: "tasto 00 su 0 rimane 0", value: 0, button: "00", expected: 0 },
+    {
+      name: "non supera il massimo di 999999 centesimi",
+      value: 999999,
+      button: "1",
+      expected: 999999,
+    },
+    {
+      name: "aggiunge zero premendo il tasto 0 (10 → 100)",
+      value: 10,
+      button: "0",
+      expected: 100,
+    },
+  ] as {
+    name: string;
+    value: number;
+    button: string | RegExp;
+    expected: number;
+  }[])("$name", ({ value, button, expected }) => {
     const onChange = vi.fn();
-    render(<NumericKeypad value={0} onChange={onChange} />);
+    render(<NumericKeypad value={value} onChange={onChange} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "7" }));
+    fireEvent.click(screen.getByRole("button", { name: button }));
 
-    expect(onChange).toHaveBeenCalledWith(7);
-  });
-
-  it("aggiunge cifra al valore esistente cashier-style (13 → '5' = 135)", () => {
-    const onChange = vi.fn();
-    render(<NumericKeypad value={13} onChange={onChange} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "5" }));
-
-    expect(onChange).toHaveBeenCalledWith(135);
+    expect(onChange).toHaveBeenCalledWith(expected);
   });
 
   it("sequenza 1→3→5→8 produce 1358 centesimi (€13,58)", () => {
@@ -62,63 +102,5 @@ describe("NumericKeypad", () => {
     fireEvent.click(screen.getByRole("button", { name: "8" }));
 
     expect(results).toEqual([1, 13, 135, 1358]);
-  });
-
-  it("chiama onChange con backspace cashier-style (1358 → 135)", () => {
-    const onChange = vi.fn();
-    render(<NumericKeypad value={1358} onChange={onChange} />);
-
-    fireEvent.click(
-      screen.getByRole("button", { name: /backspace|⌫|cancella/i }),
-    );
-
-    expect(onChange).toHaveBeenCalledWith(135);
-  });
-
-  it("backspace su 0 rimane 0", () => {
-    const onChange = vi.fn();
-    render(<NumericKeypad value={0} onChange={onChange} />);
-
-    fireEvent.click(
-      screen.getByRole("button", { name: /backspace|⌫|cancella/i }),
-    );
-
-    expect(onChange).toHaveBeenCalledWith(0);
-  });
-
-  it("tasto 00 aggiunge due zeri (5 → 500)", () => {
-    const onChange = vi.fn();
-    render(<NumericKeypad value={5} onChange={onChange} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "00" }));
-
-    expect(onChange).toHaveBeenCalledWith(500);
-  });
-
-  it("tasto 00 su 0 rimane 0", () => {
-    const onChange = vi.fn();
-    render(<NumericKeypad value={0} onChange={onChange} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "00" }));
-
-    expect(onChange).toHaveBeenCalledWith(0);
-  });
-
-  it("non supera il massimo di 999999 centesimi", () => {
-    const onChange = vi.fn();
-    render(<NumericKeypad value={999999} onChange={onChange} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "1" }));
-
-    expect(onChange).toHaveBeenCalledWith(999999);
-  });
-
-  it("aggiunge zero premendo il tasto 0 (10 → 100)", () => {
-    const onChange = vi.fn();
-    render(<NumericKeypad value={10} onChange={onChange} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "0" }));
-
-    expect(onChange).toHaveBeenCalledWith(100);
   });
 });

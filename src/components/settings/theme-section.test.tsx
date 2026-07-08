@@ -53,28 +53,28 @@ describe("ThemeSection", () => {
     );
   });
 
-  it("imposta il tema chiaro al click su 'Chiaro'", () => {
+  it.each([
+    {
+      name: "imposta il tema chiaro al click su 'Chiaro'",
+      button: "Chiaro",
+      theme: "light",
+    },
+    {
+      name: "imposta il tema scuro al click su 'Scuro'",
+      button: "Scuro",
+      theme: "dark",
+    },
+    {
+      name: "imposta il tema di sistema al click su 'Sistema'",
+      button: "Sistema",
+      theme: "system",
+    },
+  ])("$name", ({ button, theme }) => {
     render(<ThemeSection />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Chiaro" }));
+    fireEvent.click(screen.getByRole("button", { name: button }));
 
-    expect(mockSetTheme).toHaveBeenCalledWith("light");
-  });
-
-  it("imposta il tema scuro al click su 'Scuro'", () => {
-    render(<ThemeSection />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Scuro" }));
-
-    expect(mockSetTheme).toHaveBeenCalledWith("dark");
-  });
-
-  it("imposta il tema di sistema al click su 'Sistema'", () => {
-    render(<ThemeSection />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Sistema" }));
-
-    expect(mockSetTheme).toHaveBeenCalledWith("system");
+    expect(mockSetTheme).toHaveBeenCalledWith(theme);
   });
 
   it("non evidenzia alcuna opzione quando il tema non è ancora risolto", () => {
