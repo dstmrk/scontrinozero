@@ -7,6 +7,7 @@ import {
   checkBusinessOwnership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
+import { authErrorResult } from "@/lib/auth-errors";
 import {
   fetchLinesByDocIds,
   groupLinesByDocId,
@@ -40,7 +41,14 @@ export async function searchReceipts(
   businessId: string,
   params: SearchReceiptsParams = {},
 ): Promise<SearchReceiptsResult> {
-  const user = await getAuthenticatedUser();
+  // Sessione assente (scaduta con lo storico aperto) → degrada a { error }
+  // inline invece di propagare all'error boundary di Next (regola 19/20).
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return { ...authErrorResult(err, "searchReceipts"), items: [], total: 0 };
+  }
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) {
     // Allinea il contratto a tutte le altre server actions: error envelope

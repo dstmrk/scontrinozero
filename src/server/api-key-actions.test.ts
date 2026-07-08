@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { UnauthenticatedError } from "@/lib/auth-errors";
 
 // --- Mocks ---
 
@@ -165,6 +166,16 @@ describe("listApiKeys", () => {
     expect(result.keys).toBeUndefined();
   });
 
+  it("degrada a 'Non autenticato.' quando la sessione è scaduta (no throw)", async () => {
+    mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
+
+    const { listApiKeys } = await import("./api-key-actions");
+    const result = await listApiKeys("biz-uuid");
+
+    expect(result.error).toBe("Non autenticato.");
+    expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+  });
+
   it("ritorna errore se piano non supporta API", async () => {
     mockCanUseApi.mockReturnValue(false);
 
@@ -262,6 +273,17 @@ describe("createApiKey", () => {
     const result = await createApiKey("biz-uuid", "Test Key");
 
     expect(result.error).toBeDefined();
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it("degrada a 'Non autenticato.' quando la sessione è scaduta (no throw)", async () => {
+    mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
+
+    const { createApiKey } = await import("./api-key-actions");
+    const result = await createApiKey("biz-uuid", "Test Key");
+
+    expect(result.error).toBe("Non autenticato.");
+    expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
     expect(mockInsert).not.toHaveBeenCalled();
   });
 
@@ -424,6 +446,16 @@ describe("revokeApiKey", () => {
 
     expect(result.error).toBeUndefined();
     expect(mockUpdate).toHaveBeenCalled();
+  });
+
+  it("degrada a 'Non autenticato.' quando la sessione è scaduta (no throw)", async () => {
+    mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
+
+    const { revokeApiKey } = await import("./api-key-actions");
+    const result = await revokeApiKey("key-uuid");
+
+    expect(result.error).toBe("Non autenticato.");
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it("ritorna errore se la chiave non esiste o non appartiene all'utente", async () => {

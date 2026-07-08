@@ -200,6 +200,15 @@ describe("onboarding-actions", () => {
       zipCode: "00100",
     };
 
+    it("degrada a 'Non autenticato.' quando la sessione è scaduta (no throw)", async () => {
+      // Sessione assente → getAuthenticatedUser lancia UnauthenticatedError;
+      // l'action degrada a { error } inline (regola 19/20), non propaga.
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { saveBusiness } = await import("./onboarding-actions");
+      const result = await saveBusiness(formData(VALID_DATA));
+      expect(result.error).toBe("Non autenticato.");
+    });
+
     it("returns error for missing first name", async () => {
       const { saveBusiness } = await import("./onboarding-actions");
       const result = await saveBusiness(
@@ -465,6 +474,15 @@ describe("onboarding-actions", () => {
   });
 
   describe("saveAdeCredentials", () => {
+    it("degrada a 'Non autenticato.' quando la sessione è scaduta (no throw)", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const result = await saveAdeCredentials(
+        formData({ businessId: "biz-789" }),
+      );
+      expect(result.error).toBe("Non autenticato.");
+    });
+
     it("encrypts and saves credentials", async () => {
       // Ownership check: JOIN profile+business
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
@@ -693,6 +711,13 @@ describe("onboarding-actions", () => {
       // with mockResolvedValueOnce({ fiscalCode: "..." }) AFTER queuing the
       // ownership + credentials mocks.
       mockLimit.mockResolvedValue([{ fiscalCode: null }]);
+    });
+
+    it("degrada a 'Non autenticato.' quando la sessione è scaduta (no throw)", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials("biz-789");
+      expect(result.error).toBe("Non autenticato.");
     });
 
     it("R36: alla soglia rate limit → warn + errore standard, senza toccare AdE", async () => {
@@ -1988,6 +2013,14 @@ describe("onboarding-actions", () => {
   });
 
   describe("markOnboardingTourSeen", () => {
+    it("degrada a 'Non autenticato.' quando la sessione è scaduta (no throw)", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { markOnboardingTourSeen } = await import("./onboarding-actions");
+      const result = await markOnboardingTourSeen();
+      expect(result.error).toBe("Non autenticato.");
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
     it("updates the profile and returns no error on success", async () => {
       const { markOnboardingTourSeen } = await import("./onboarding-actions");
       const result = await markOnboardingTourSeen();
@@ -2008,6 +2041,21 @@ describe("onboarding-actions", () => {
       const result = await markOnboardingTourSeen();
 
       expect(result.error).toBeTruthy();
+    });
+  });
+
+  describe("changeAdePassword", () => {
+    it("degrada a 'Non autenticato.' quando la sessione è scaduta (no throw)", async () => {
+      // Sessione assente → degrada prima di ownership/rate-limit/AdE (regola 19/20).
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { changeAdePassword } = await import("./onboarding-actions");
+      const result = await changeAdePassword(
+        "biz-789",
+        "OldPass1!",
+        "NewPass1!",
+        "NewPass1!",
+      );
+      expect(result.error).toBe("Non autenticato.");
     });
   });
 });

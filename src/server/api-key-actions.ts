@@ -10,6 +10,7 @@ import {
   checkBusinessOwnership,
   getAuthenticatedUser,
 } from "@/lib/server-auth";
+import { authErrorResult } from "@/lib/auth-errors";
 
 export type ApiKeyListItem = {
   id: string;
@@ -23,7 +24,13 @@ export type ApiKeyListItem = {
 export async function listApiKeys(
   businessId: string,
 ): Promise<{ error?: string; keys?: ApiKeyListItem[] }> {
-  const user = await getAuthenticatedUser();
+  // Sessione assente → degrada a { error } inline (regola 19/20).
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return authErrorResult(err, "listApiKeys");
+  }
 
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) return ownershipError;
@@ -58,7 +65,13 @@ export async function createApiKey(
   businessId: string,
   name: string,
 ): Promise<{ error?: string; apiKeyRaw?: string; keyId?: string }> {
-  const user = await getAuthenticatedUser();
+  // Sessione assente → degrada a { error } inline (regola 19/20).
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return authErrorResult(err, "createApiKey");
+  }
 
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) return ownershipError;
@@ -139,7 +152,13 @@ export async function createApiKey(
 }
 
 export async function revokeApiKey(keyId: string): Promise<{ error?: string }> {
-  const user = await getAuthenticatedUser();
+  // Sessione assente → degrada a { error } inline (regola 19/20).
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return authErrorResult(err, "revokeApiKey");
+  }
 
   const db = getDb();
 
