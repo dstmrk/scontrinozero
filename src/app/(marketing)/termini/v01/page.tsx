@@ -84,9 +84,9 @@ export default function TerminiV01Page() {
               <li>
                 Disponibilità di credenziali valide per l&apos;accesso al
                 portale Fatture e Corrispettivi dell&apos;Agenzia delle Entrate
-                Fisconline, oppure disponibilità ad accedere manualmente al
-                portale AdE per completare la trasmissione in modalità
-                assistita.
+                (Fisconline oppure CIE tramite l&apos;app CIE ID), oppure
+                disponibilità ad accedere manualmente al portale AdE per
+                completare la trasmissione in modalità assistita.
               </li>
               <li>Connessione internet idonea e dispositivi compatibili.</li>
             </ul>
@@ -114,11 +114,15 @@ export default function TerminiV01Page() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold">5. Credenziali Fisconline</h2>
+            <h2 className="text-lg font-semibold">
+              5. Credenziali di accesso ai servizi AdE
+            </h2>
             <p className="text-muted-foreground mt-2">
               Per abilitare la trasmissione automatizzata, l&apos;utente
               fornisce volontariamente le proprie credenziali di accesso al
-              portale AdE (Fisconline). Tali credenziali sono:
+              portale AdE, secondo il metodo di autenticazione scelto
+              (Fisconline oppure CIE tramite l&apos;app CIE ID). Tali
+              credenziali sono:
             </p>
             <ul className="text-muted-foreground mt-2 list-inside list-disc space-y-1">
               <li>
@@ -129,6 +133,12 @@ export default function TerminiV01Page() {
                 richieste dall&apos;utente (emissione scontrino, annullo);
               </li>
               <li>mai cedute, vendute o condivise con terzi.</li>
+              <li>
+                per l&apos;accesso tramite CIE, subordinate
+                all&apos;approvazione di volta in volta della notifica
+                sull&apos;app CIE ID da parte dell&apos;utente; il secondo
+                fattore non è mai memorizzato.
+              </li>
             </ul>
             <p className="text-muted-foreground mt-2">
               L&apos;utente è e rimane il{" "}

@@ -124,43 +124,6 @@ diventa un buco di billing al lancio della Fase B Developer API.
 
 ---
 
-### 42. Privacy Policy e Termini non coprono le credenziali CIE ID (feature live)
-
-- **Categoria:** compliance/GDPR · **Severità:** High — la feature è live in produzione e raccoglie una categoria di credenziali non dichiarata
-- **File:** `src/app/(marketing)/privacy/v01/page.tsx:104-109` (§2.3 nomina solo "Credenziali Fisconline"), `:236-296` (§5 "Trattamento speciale delle credenziali **Fisconline**"), `:409-419` (retention "Credenziali Fisconline"); `src/app/(marketing)/termini/v01/page.tsx:87` e `:117-121` (§5 "Credenziali Fisconline"); procedura di aggiornamento documentata in `CLAUDE.md` → "Procedura aggiornamento T&C"
-
-**Problema.** La PR #695 introduce la memorizzazione cifrata di **email +
-password dell'app CIE ID** (`buildCieValues` in
-`src/server/onboarding-actions.ts:331`, colonna `encrypted_username` della
-migrazione 0027). È una nuova categoria di credenziali di un servizio terzo
-(IdP del Ministero dell'Interno), ma Privacy Policy e Termini enumerano
-esclusivamente le credenziali Fisconline: l'informativa (art. 13 GDPR) non
-copre il nuovo trattamento e il §5 dei Termini ("Credenziali Fisconline")
-non disciplina le credenziali CIE ID. Il TODO copy era dichiarato nella PR
-("aggiornare il copy marketing, rinviato") ma i documenti legali sono più
-urgenti del marketing.
-
-**Fix (non ambiguo).**
-
-1. **Privacy v02** seguendo la procedura documentata (nuova route
-   `privacy/v02/page.tsx`, redirect, `sitemap.ts` + `sitemap.test.ts`,
-   `sonar.coverage.exclusions`): generalizzare §2.3, §5 e la sezione retention
-   da "credenziali Fisconline" a "credenziali di accesso ai servizi AdE
-   (Fisconline oppure CIE ID)", esplicitando per CIE: email e password
-   dell'app CIE ID cifrate AES-256-GCM, sessione mantenuta in memoria del
-   server, secondo fattore (notifica push) mai gestito/memorizzato.
-2. **Termini v02** seguendo la procedura (route, redirect in
-   `termini/page.tsx`, `CURRENT_TERMS_VERSION` in `auth-actions.ts`, secondo
-   flag art. 1341 c.c. in `register/page.tsx` con i nuovi numeri di
-   paragrafo): §3 requisiti e §5 estesi al metodo CIE.
-3. Notifica agli utenti ≥15 giorni prima dell'entrata in vigore (procedura
-   documentata).
-4. **Test:** quelli previsti dalla procedura (sitemap, redirect); grep
-   `Fisconline` sulle nuove versioni per verificare che ogni occorrenza
-   residua sia intenzionale.
-
----
-
 ## P2 — Media priorità
 
 ### 11. `getCatalogItems` senza LIMIT + autocomplete server-side
@@ -516,7 +479,7 @@ recovery deve impedire.
    scorporo IVA, e derivare `ammontareComplessivo` come somma dei cents —
    coerente con il comportamento osservato al punto 2. Se AdE richiedesse
    invece la coerenza moltiplicativa `prezzoLordo = prezzoUnitario ×
-   quantita`, ricalcolare `prezzoUnitario = lineGrossCents/100/quantity`
+quantita`, ricalcolare `prezzoUnitario = lineGrossCents/100/quantity`
    (8 decimali) così l'identità regge sui valori trasmessi.
 4. Verifica su sandbox/`ADE_MODE=real` con un'emissione frazionaria reale
    prima del merge (regola 13: mai mergiare un'ipotesi senza evidenza).
@@ -1041,7 +1004,7 @@ un secondo device) la perdita di contesto è sistematica.
 **Fix (non ambiguo).**
 
 1. Limiter per-user sul PDF autenticato: `new RateLimiter({ maxRequests: 60,
-   windowMs: RATE_LIMIT_WINDOWS.HOURLY })`, chiave `pdf-auth:<userId>`, 429
+windowMs: RATE_LIMIT_WINDOWS.HOURLY })`, chiave `pdf-auth:<userId>`, 429
    con lo stesso messaggio della gemella pubblica.
 2. Sostituire in entrambe le route il `getUser()` diretto con
    `getAuthenticatedUser()` in try/catch → 401 su `UnauthenticatedError`
@@ -1071,10 +1034,10 @@ l'optimistic lock proprio per questa classe di race (P1.1); qui manca.
 1. Snapshot `cred.updatedAt` prima del flusso AdE; UPDATE finale con lo
    stesso guard di `finalizeAdeVerification`
    (`date_trunc('milliseconds', updatedAt) = <snapshot ISO>::timestamptz`)
-   + `loginMethod = 'fisconline'`.
+   - `loginMethod = 'fisconline'`.
 2. 0 righe aggiornate → `logger.warn` e ritorno `{ error: "Le credenziali
-   sono state modificate nel frattempo. Verifica la connessione dalle
-   impostazioni." }` — la password AdE è già cambiata lato portale, quindi il
+sono state modificate nel frattempo. Verifica la connessione dalle
+impostazioni." }` — la password AdE è già cambiata lato portale, quindi il
    messaggio deve spingere alla ri-verifica, non al retry del cambio.
 3. **Test:** update concorrente tra login e UPDATE → nessuna scrittura +
    errore dedicato; flusso normale → invariato.
