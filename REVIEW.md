@@ -1,6 +1,26 @@
 # REVIEW.md — Registro bug noti e tech debt
 
-> **Data ultimo audit:** 2026-07-07 (incrementale, PR #695) · **Versione analizzata:** main (commit `8d72f9c`)
+> **Data ultimo audit:** 2026-07-08 (full-codebase) · **Versione analizzata:** main (commit `2dcc2a4`)
+>
+> **Audit 2026-07-08 (full-codebase):** analisi approfondita su cinque assi
+> (sicurezza · performance · funzionalità · architettura · bad practices) di:
+> perimetro auth (server-auth, api-auth, rate-limit, get-client-ip, proxy,
+> middleware Supabase, callback), tutte le server actions, route API
+> (v1 receipts/void/[id], documents/pdf, export, stripe webhook/checkout/portal,
+> csp-report, health/debug), servizi emit/void/recovery, store sessioni AdE
+> (session-cache + interactive-session-store), mapper/aritmetica AdE, crypto,
+> CSP/security-headers, instrumentation, next.config, analytics, plans e i
+> commit post-audit #697–#699. Nuovi finding: **#56–#57 (P2), #58–#62 (P3)**.
+> Falsi positivi scartati con verifica manuale: `ip` e `codiceFiscale` raw nei
+> log (redatti da `REDACT_PATHS` in `src/lib/logger.ts` prima di stdout e del
+> drain Sentry), CORS wildcard su `/api/v1` (Bearer-only, intenzionale e
+> documentato NOSONAR), `onConflictDoNothing` senza target esplicito
+> (i vincoli unique coinvolti sono gestiti dai resolver di conflitto — ma vedi
+> #56 per i buchi dei resolver), doppio branch `/`→`/dashboard`
+> (redirects() + proxy: ridondanza documentata per la Full Route Cache),
+> `invoice.paid` che non tocca `planExpiresAt` (by design, skill
+> `stripe-webhooks`), fallback `getCatalogItems`→`[]` su errore (fail-safe
+> voluto, regola 19).
 >
 > **Audit incrementale 2026-07-07 (PR #695 — onboarding multi-metodo CIE):**
 > code review approfondita del diff `449772d..d9262b0` su cinque assi (sicurezza ·
@@ -386,6 +406,126 @@ esplicitamente, non lasciata decadere.
    CSP se nel frattempo è stato fatto il finding #13).
 5. **Test:** quelli esistenti su sitemap/articoli; review umana del contenuto
    (regola 8: contenuti LLM con review umana).
+
+---
+
+### 56. Risoluzione conflitti idempotency cieca a `kind` e a `VOID_ACCEPTED`: falso annullo senza chiamata AdE e SALE annullato che torna ACCEPTED
+
+- **Categoria:** correttezza/fiscale · **Severità:** Medium-High — corrompe lo stato fiscale locale in silenzio; raggiungibile solo via Developer API (la cassa UI genera una key random per submit), ma l'API accetta il riuso senza errore e risponde "successo"
+- **File:** `src/lib/services/receipt-service.ts:242-259` (`handleExistingReceipt`: SELECT per `idempotencyKey+businessId` **senza filtro `kind`** e senza branch per `VOID_ACCEPTED`), `:376-382` (`recoverStaleReceipt`: finalize-only prima di ogni check di stato), `:443-453` (`finalizeSaleOnly`: UPDATE a `ACCEPTED` senza guard su `kind`/`status`); `src/lib/services/void-service.ts:72-89` (`resolveVoidConflict`: SELECT per key **senza filtro `kind`**; il guard `:94-97` salta quando `voidedDocumentId` è NULL — cioè proprio quando la riga trovata è un SALE), `:572-585` (`insertOrResolveVoid`: finalize-only con gli ID AdE della riga trovata)
+
+**Problema.** Il vincolo UNIQUE è `(business_id, idempotency_key)` senza
+distinzione di `kind`. I due resolver di conflitto assumono che la riga
+trovata sia del proprio kind e in uno degli stati che si aspettano; tre buchi:
+
+1. **Falso annullo senza AdE (il più grave).** Un client API che riusa per il
+   VOID la **stessa key dell'emissione** (errore naturale: "una key per
+   transazione") fa collidere l'INSERT del VOID con la riga SALE.
+   `resolveVoidConflict` la trova per key; il guard sul mismatch salta perché
+   sul SALE `voidedDocumentId` è NULL; lo status `ACCEPTED` non matcha né
+   `VOID_ACCEPTED` né `REJECTED` e cade nel ramo "PENDING or ERROR": se la
+   riga è stale (>30 min dall'emissione — il caso tipico di un annullo),
+   `hasAdeTransaction` è true (è l'idtrx della **vendita**) →
+   `finalizeVoidOnly` marca il SALE `VOID_ACCEPTED` **senza mai chiamare
+   AdE** e risponde successo. Localmente lo scontrino risulta annullato, su
+   AdE resta valido: corrispettivi trasmessi ≠ contabilità locale.
+2. **SALE annullato che torna ACCEPTED.** Replay dell'emit con la stessa key
+   di un SALE nel frattempo annullato (`VOID_ACCEPTED`, es. retry queue
+   at-least-once): `handleExistingReceipt` non ha un branch per
+   `VOID_ACCEPTED` → cade nel ramo stale → `recoverStaleReceipt` vede
+   `adeTransactionId` presente → `finalizeSaleOnly` riporta la riga ad
+   `ACCEPTED`. Storico e analytics ri-contano come ricavo una vendita
+   annullata (il KPI `voidCount` cala, `revenueCents` sale), mentre AdE la
+   registra annullata.
+3. **Emit che colide con una riga VOID.** Speculare: emit con la key di un
+   VOID esistente → `requestHash` è NULL sui VOID → il check di mismatch
+   salta → se `VOID_ACCEPTED` stale, `finalizeSaleOnly` flippa la riga VOID
+   ad `ACCEPTED` e la ritorna come "scontrino emesso".
+
+**Fix (non ambiguo).**
+
+1. `handleExistingReceipt`: aggiungere `eq(commercialDocuments.kind, "SALE")`
+   alla SELECT; se il conflitto c'è stato ma la riga SALE non esiste → la key
+   appartiene a un VOID → ritornare `IDEMPOTENCY_PAYLOAD_MISMATCH` (409) con
+   messaggio "chiave già usata per un annullo". Aggiungere un branch esplicito
+   `status === "VOID_ACCEPTED"` PRIMA del ramo stale: ritornare errore
+   dedicato (code suggerito `ALREADY_VOIDED`, 409) — né successo idempotente
+   (fuorviante: il documento non è più valido) né recovery.
+2. `resolveVoidConflict`: aggiungere `eq(commercialDocuments.kind, "VOID")`
+   alla SELECT (Case A); se il conflitto c'è stato ma la riga VOID non esiste
+   → la key appartiene a un SALE → `IDEMPOTENCY_PAYLOAD_MISMATCH` (409) con
+   messaggio "chiave già usata per un'emissione".
+3. Defense in depth: `finalizeSaleOnly` limita l'UPDATE con
+   `kind = 'SALE' AND status IN ('PENDING','ERROR','ACCEPTED')`
+   (`ACCEPTED` incluso per mantenere idempotente il retry della
+   finalizzazione; `VOID_ACCEPTED` escluso); 0 righe aggiornate → log
+   `warn` + errore, mai successo. `finalizeVoidOnly`: guard `kind = 'VOID'`
+   sull'UPDATE della riga void e `kind = 'SALE'` su quella della vendita
+   (`kind` è immutabile → non rompe i retry).
+4. Documentare in `docs/api-spec.md`/`DEVELOPER.md` che la idempotency key
+   deve essere unica **per operazione** (emit e void non condividono key) e
+   il nuovo 409.
+5. **Test** (receipt-service.test.ts / void-service.test.ts): void con key di
+   un SALE ACCEPTED stale → 409 mismatch, riga SALE intatta, `submitVoid` mai
+   chiamato; emit con key di un VOID → 409 mismatch; emit replay su SALE
+   `VOID_ACCEPTED` → `ALREADY_VOIDED`, status invariato; retry legittimo di
+   `finalizeSaleOnly` su riga già ACCEPTED → ancora idempotente.
+
+---
+
+### 57. Totali del payload AdE calcolati in float (8 decimali) invece che con la strategia canonica per-riga in cents: su quantità frazionarie il documento trasmesso diverge da payment/PDF e la recovery non riconcilia
+
+- **Categoria:** correttezza/fiscale (regola 17) · **Severità:** Medium-High — trigger legittimo e quotidiano (vendita a peso: `quantity` ammette 3 decimali, `numeric(10,3)`); residuo della stessa classe di REVIEW.md #1 (risolto solo per `payments[0].amount`)
+- **File:** `src/lib/ade/mapper.ts:158-203` (`computeLineAmounts`: `grossTotal = unitPriceGross * quantity` float raw; `totale`/`prezzoLordo` a 8 decimali del float), `:250-266` e `:286` (`mapSaleToAdePayload`: `ammontareComplessivo` = somma float dei `totale` di riga); confronto: `src/lib/services/receipt-service.ts:616-637` (`payments[0].amount` = `calcInputLinesTotalCents/100`, per-riga in cents) e `src/lib/receipts/document-lines.ts` (`computeReceiptTotals`/`calcDocTotal`, stessi cents per PDF/pagina pubblica/storico/analytics); impatto recovery: `src/lib/services/ade-recovery.ts:176-181` (`matchesAmount`: confronta l'`ammontareComplessivo` registrato da AdE con gli expected cents per-riga)
+
+**Problema.** La regola 17 dichiara i cents per-riga "strategia canonica usata
+ovunque", ma dentro lo **stesso payload AdE** convivono due strategie: i
+totali del `documentoCommerciale` sono somme float (8 decimali), il
+`vendita[].importo` (payment) è il totale per-riga in cents. Esempio
+verificato numericamente — 2 righe da `0.5 × €0.99`:
+
+- `totale` di riga trasmesso: `0.49500000` × 2 → `ammontareComplessivo`
+  `0.99000000`;
+- `payments[0].amount` trasmesso: `1.00`; PDF/pagina pubblica/storico
+  mostrano al cliente `0.50 + 0.50 = 1.00`.
+
+Tre conseguenze: (a) payload internamente incoerente — se AdE valida
+`vendita ≟ ammontareComplessivo` l'emissione fallisce (`esito:false`) proprio
+sui casi frazionari; (b) se AdE accetta, il documento fiscale registrato
+(`0.99`) diverge di 1 cent da quello consegnato al cliente (`1.00`) — la
+stessa divergenza che REVIEW.md #1 ha eliminato dalle altre superfici;
+(c) la riconciliazione pre-retry (`matchesAmount`: `round(0.99*100)=99 ≠
+100`) non trova il documento che AdE ha già accettato → `kind:"none"` →
+**re-submit → duplicato fiscale irreversibile**, esattamente ciò che la
+recovery deve impedire.
+
+**Fix (in due passi — regole 13/14: serve evidenza sul comportamento AdE).**
+
+1. **Mitigazione immediata, code-only:** in `reconcileSaleDocument`
+   accettare il match anche quando `round(doc.ammontareComplessivo*100)`
+   coincide con il totale ricalcolato **in float** dalle righe input
+   (secondo comparatore accanto agli expected cents) — chiude subito il
+   rischio duplicato (c) per i documenti già emessi con totali float.
+2. **Evidenza:** emettere dal portale web AdE (o da HAR esistente) uno
+   scontrino con quantità frazionaria che diverge al cent e osservare come
+   il portale stesso arrotonda `prezzoLordo`/`totale`/`ammontareComplessivo`
+   rispetto ai payment (regola 14: cross-reference campo per campo).
+3. **Allineamento:** adottare in `computeLineAmounts` il lordo di riga
+   cent-rounded (`lineGrossCents = round(unitPriceGross*quantity*100)`,
+   `grossTotal = lineGrossCents/100`) come base di `prezzoLordo`/`totale`/
+   scorporo IVA, e derivare `ammontareComplessivo` come somma dei cents —
+   coerente con il comportamento osservato al punto 2. Se AdE richiedesse
+   invece la coerenza moltiplicativa `prezzoLordo = prezzoUnitario ×
+   quantita`, ricalcolare `prezzoUnitario = lineGrossCents/100/quantity`
+   (8 decimali) così l'identità regge sui valori trasmessi.
+4. Verifica su sandbox/`ADE_MODE=real` con un'emissione frazionaria reale
+   prima del merge (regola 13: mai mergiare un'ipotesi senza evidenza).
+5. **Test:** `mapSaleToAdePayload` con `0.5 × 0.99` ×2 → `vendita[0].importo`
+   e `ammontareComplessivo` riconciliano al cent con `computeReceiptTotals`;
+   proprietà generale: per ogni input valido dello schema,
+   `sum(vendita[].importo) === ammontareComplessivo` (property-based o
+   tabella di edge: 3 decimali di qty, 100 righe, nature N1-N6);
+   `reconcileSaleDocument` matcha un documento AdE con totale float legacy.
 
 ---
 
@@ -846,6 +986,159 @@ debt del finding #24).
 per non far dipendere `lib/ade` dai tipi di server-auth), usarlo in entrambi
 i servizi. **Test:** mapping fisconline (con credenziali) e cie (senza),
 exhaustiveness sul discriminante `method`.
+
+---
+
+### 58. Deep-link post-login rotto: il parametro `redirect` impostato dal middleware non viene mai consumato
+
+- **Categoria:** funzionalità/UX · **Severità:** Low — l'utente atterra sempre su `/dashboard`, il deep link si perde
+- **File:** `src/proxy.ts:203-207` e `:262-266` (il middleware costruisce `/login?redirect=<pathname+search>` con commento "so a deep link … can fully restore state post-login"); `src/app/(auth)/login/page.tsx` (legge solo `error` dai searchParams, mai `redirect`); `src/server/auth-actions.ts:629` (`signIn` termina con `redirect("/dashboard")` fisso)
+
+**Problema.** La promessa codificata nel commento del middleware è morta: un
+utente con sessione scaduta che apre
+`/dashboard/storico?dateFrom=…&dateTo=…` viene mandato a `/login?redirect=…`,
+ma dopo il login `signIn` reindirizza sempre a `/dashboard` — il parametro non
+viene letto da nessuno. Con la PWA e i link condivisi (es. da un'email o da
+un secondo device) la perdita di contesto è sistematica.
+
+**Fix (non ambiguo).**
+
+1. La login page inoltra il param: campo hidden `redirect` nel form (valore da
+   `useSearchParams().get("redirect")`).
+2. `signIn` lo legge dal FormData e lo usa SOLO se supera la stessa
+   validazione anti-open-redirect del `/callback`
+   (`src/app/(auth)/callback/route.ts:36-40`): `startsWith("/")` e
+   `!startsWith("//")`; altrimenti fallback `/dashboard`. Estrarre il
+   predicato in un helper condiviso (es. `isSafeRelativeRedirect` in
+   `src/lib/validation.ts`) per non duplicarlo.
+3. Coprire anche il ramo "Supabase non configurato" del middleware (stessa
+   query, già presente).
+4. **Test:** `signIn` con `redirect=/dashboard/storico?x=1` → redirect a quel
+   path; con `//evil.com`, `https://evil.com`, stringa vuota → `/dashboard`;
+   login senza param → invariato.
+
+---
+
+### 59. PDF autenticato senza rate limit e route file-serving fuori da `getAuthenticatedUser` (regola 22 + segnale `last_seen_at`)
+
+- **Categoria:** sicurezza/hardening + osservabilità · **Severità:** Low
+- **File:** `src/app/api/documents/[documentId]/pdf/route.ts:21-39` (nessun limiter; auth via `supabase.auth.getUser()` diretto); `src/app/api/export/receipts/route.ts:58-61` (auth via `getUser()` diretto — il limiter 10/h c'è); gemella pubblica già protetta: `src/app/r/[documentId]/pdf/route.ts:15-31` (60/h per IP); bind Sentry + touch attività: `src/lib/server-auth.ts:44-93`
+
+**Problema.** Due gap sulle route file-serving autenticate:
+
+1. Il PDF autenticato non ha alcun rate limit: la generazione pdfkit è
+   CPU-bound sul singolo container e un utente autenticato (o un client PWA
+   difettoso in retry loop) può saturarla; la variante pubblica ha 60/h/IP,
+   quella autenticata nulla — asimmetria senza razionale.
+2. Entrambe le route usano `supabase.auth.getUser()` diretto invece di
+   `getAuthenticatedUser()`: niente `Sentry.setUser({ id })` (regola 22 —
+   `Users Impacted` resta 0 sugli errori di queste route) e niente
+   `touchLastSeen` — un utente che usa l'app solo per scaricare
+   PDF/export risulterebbe inattivo per il GDPR pruning
+   (`inactive-user-prune`), lo stesso gap chiuso per le altre superfici con
+   `last_seen_at`.
+
+**Fix (non ambiguo).**
+
+1. Limiter per-user sul PDF autenticato: `new RateLimiter({ maxRequests: 60,
+   windowMs: RATE_LIMIT_WINDOWS.HOURLY })`, chiave `pdf-auth:<userId>`, 429
+   con lo stesso messaggio della gemella pubblica.
+2. Sostituire in entrambe le route il `getUser()` diretto con
+   `getAuthenticatedUser()` in try/catch → 401 su `UnauthenticatedError`
+   (stesso pattern delle server actions, ma con Response HTTP). Il bind
+   Sentry e il touch `last_seen_at` arrivano gratis.
+3. **Test:** 61ª richiesta PDF nell'ora → 429; sessione assente → 401;
+   `Sentry.setUser` invocato (mock, pattern skill `testing-patterns`).
+
+---
+
+### 60. `changeAdePassword` senza optimistic lock né guard sul metodo: una race con `saveAdeCredentials` può corrompere credenziali CIE
+
+- **Categoria:** correttezza/robustezza · **Severità:** Low — finestra di secondi (durata del flusso HTTP AdE di cambio password), richiede azioni concorrenti dello stesso utente
+- **File:** `src/server/onboarding-actions.ts:1265-1268` (UPDATE finale di `encryptedPassword` + `verifiedAt` senza guard su `updatedAt` né su `loginMethod`); pattern corretto già esistente: `finalizeAdeVerification` (`:541-551`, guard `date_trunc('milliseconds', updatedAt) = <snapshot>`)
+
+**Problema.** `changeAdePassword` legge la riga credenziali, esegue il cambio
+password su AdE (secondi di HTTP) e poi scrive `encryptedPassword` +
+`verifiedAt` con `WHERE businessId` secco. Se nel frattempo l'utente ha
+salvato credenziali nuove (`saveAdeCredentials`, es. switch a CIE in un altro
+tab: azzera `verifiedAt` e riscrive i campi), l'UPDATE finale sovrascrive la
+**password CIE** con la password Fisconline appena cambiata e marca
+`verifiedAt` su credenziali mai verificate. `verifyAdeCredentials` ha
+l'optimistic lock proprio per questa classe di race (P1.1); qui manca.
+
+**Fix (non ambiguo).**
+
+1. Snapshot `cred.updatedAt` prima del flusso AdE; UPDATE finale con lo
+   stesso guard di `finalizeAdeVerification`
+   (`date_trunc('milliseconds', updatedAt) = <snapshot ISO>::timestamptz`)
+   + `loginMethod = 'fisconline'`.
+2. 0 righe aggiornate → `logger.warn` e ritorno `{ error: "Le credenziali
+   sono state modificate nel frattempo. Verifica la connessione dalle
+   impostazioni." }` — la password AdE è già cambiata lato portale, quindi il
+   messaggio deve spingere alla ri-verifica, non al retry del cambio.
+3. **Test:** update concorrente tra login e UPDATE → nessuna scrittura +
+   errore dedicato; flusso normale → invariato.
+
+---
+
+### 61. Webhook Stripe senza guardia sull'ordine degli eventi (`event.created`)
+
+- **Categoria:** robustezza/billing · **Severità:** Low — Stripe di norma consegna in ordine, ma non lo garantisce (retry, concorrenza)
+- **File:** `src/app/api/stripe/webhook/route.ts:255-259` (`customer.subscription.updated` → `syncSubscriptionData` applica sempre) e `:373-443` (`syncSubscriptionData` sovrascrive status/priceId/cancelAtPeriodEnd/currentPeriodEnd senza confronto temporale); schema: `src/db/schema/subscriptions.ts`
+
+**Problema.** Due `customer.subscription.updated` ravvicinati (es. annulla a
+fine periodo → riattiva dal portale) consegnati fuori ordine lasciano nel DB
+lo stato **vecchio** (`cancelAtPeriodEnd: true`) finché un evento successivo
+non lo corregge — con effetto su copy UI e gate. La dedup per `event.id` non
+protegge dall'ordering; i retry di Stripe (fino a 3 giorni) amplificano la
+finestra.
+
+**Fix (non ambiguo).**
+
+1. Colonna `last_stripe_event_created` (timestamptz, nullable) su
+   `subscriptions` (migration handwritten, skill `db-migrations`).
+2. In `syncSubscriptionData` e `handleSubscriptionDeleted`: passare
+   `event.created`; l'UPDATE aggiunge
+   `WHERE last_stripe_event_created IS NULL OR last_stripe_event_created <= to_timestamp($created)`
+   e imposta la colonna. Evento più vecchio → 0 righe → log `warn`
+   `stripe_event_out_of_order` e **200** (ack, niente retry).
+3. Gli handler `invoice.*` (campi mirati, non full-sync) restano invariati.
+4. **Test:** updated con `created` più vecchio del registrato → stato DB
+   invariato + warn; sequenza in ordine → invariato; primo evento (colonna
+   NULL) → applica.
+
+---
+
+### 62. `deleteAccount`: la conferma "ELIMINA" è solo client-side, nessuna re-autenticazione server-side
+
+- **Categoria:** sicurezza/hardening · **Severità:** Low — richiede una sessione già compromessa (XSS/device rubato), ma l'azione è la più distruttiva dell'app
+- **File:** `src/server/account-actions.ts:25-44` (unico requisito: sessione valida); `src/components/settings/account-delete-section.tsx:20-32` (la parola di conferma non lascia mai il client); pattern di re-auth già esistente: `changePassword` in `src/server/profile-actions.ts:304-311` (`signInWithPassword` con la password corrente)
+
+**Problema.** La server action di cancellazione definitiva (dati fiscali
+inclusi) è invocabile con la sola sessione: la conferma digitata esiste solo
+nel dialog React, quindi una chiamata diretta all'action (sessione rubata,
+XSS, estensione malevola) cancella l'account senza attrito. `changePassword`
+— azione meno distruttiva — richiede già la password corrente server-side.
+Nota copy contestuale: il dialog enumera solo "credenziali Fisconline" — con
+CIE live va generalizzato (stessa classe del finding #47, ma file app, non
+marketing).
+
+**Fix (non ambiguo).**
+
+1. `deleteAccount(formData)` riceve `currentPassword` (raw,
+   `getFormStringRaw`) e la verifica con
+   `supabase.auth.signInWithPassword({ email, password })` prima del purge —
+   stesso pattern e stessa sequenza di `changePassword`. Password errata →
+   `{ error: "Password non corretta." }`, `logger.warn` (regola 20, no
+   Sentry).
+2. Rate limit 5/15min per `user.id` (chiave `deleteAccount:<userId>`,
+   `RATE_LIMIT_WINDOWS.AUTH_15_MIN`) per non rendere l'action un oracle di
+   brute-force sulla password.
+3. Dialog: campo password al posto della parola "ELIMINA" (o in aggiunta);
+   aggiornare il copy "credenziali Fisconline" → "credenziali di accesso AdE
+   (Fisconline o CIE ID)".
+4. **Test:** password errata → nessun purge + errore; corretta → purge
+   invocato; 6° tentativo in 15min → rate limited.
 
 ---
 
