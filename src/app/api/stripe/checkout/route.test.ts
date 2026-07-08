@@ -184,49 +184,26 @@ describe("POST /api/stripe/checkout", () => {
     expect(res.status).toBe(400);
   });
 
-  it("restituisce 409 se esiste una subscription active", async () => {
+  it.each([
+    {
+      name: "restituisce 409 se esiste una subscription active",
+      status: "active",
+    },
+    {
+      name: "restituisce 409 se esiste una subscription past_due (evita sub duplicata)",
+      status: "past_due",
+    },
+    {
+      name: "restituisce 409 se esiste una subscription unpaid (evita sub duplicata)",
+      status: "unpaid",
+    },
+  ])("$name", async ({ status }) => {
     mockGetAuthenticatedUser.mockResolvedValue({
       id: "user-1",
       email: "a@b.it",
     });
     mockSelect.mockReturnValue(
-      makeSelectBuilder([
-        { stripeCustomerId: "cus_existing", status: "active" },
-      ]),
-    );
-
-    const res = await POST(makeRequest({ priceId: "price_pro" }));
-    expect(res.status).toBe(409);
-    expect(mockCustomerCreate).not.toHaveBeenCalled();
-    expect(mockSessionCreate).not.toHaveBeenCalled();
-  });
-
-  it("restituisce 409 se esiste una subscription past_due (evita sub duplicata)", async () => {
-    mockGetAuthenticatedUser.mockResolvedValue({
-      id: "user-1",
-      email: "a@b.it",
-    });
-    mockSelect.mockReturnValue(
-      makeSelectBuilder([
-        { stripeCustomerId: "cus_existing", status: "past_due" },
-      ]),
-    );
-
-    const res = await POST(makeRequest({ priceId: "price_pro" }));
-    expect(res.status).toBe(409);
-    expect(mockCustomerCreate).not.toHaveBeenCalled();
-    expect(mockSessionCreate).not.toHaveBeenCalled();
-  });
-
-  it("restituisce 409 se esiste una subscription unpaid (evita sub duplicata)", async () => {
-    mockGetAuthenticatedUser.mockResolvedValue({
-      id: "user-1",
-      email: "a@b.it",
-    });
-    mockSelect.mockReturnValue(
-      makeSelectBuilder([
-        { stripeCustomerId: "cus_existing", status: "unpaid" },
-      ]),
+      makeSelectBuilder([{ stripeCustomerId: "cus_existing", status }]),
     );
 
     const res = await POST(makeRequest({ priceId: "price_pro" }));

@@ -119,7 +119,7 @@ describe("appHref", () => {
     }
     const { appHref } = await import("./marketing-to-app-href");
     for (const [path, expected] of cases) {
-      expect(appHref(path)).toBe(expected);
+      expect(appHref(path as `/${string}`)).toBe(expected);
     }
   });
 });

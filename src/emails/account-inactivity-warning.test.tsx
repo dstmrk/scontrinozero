@@ -18,31 +18,31 @@ describe("AccountInactivityWarningEmail", () => {
     expect(html).toBeTruthy();
   });
 
-  it("saluta l'utente col nome quando presente", () => {
+  it.each([
+    {
+      name: "saluta l'utente col nome quando presente",
+      props: PROPS,
+      contains: "Mario",
+    },
+    {
+      name: "non stampa un saluto rotto quando firstName è vuoto",
+      props: { ...PROPS, firstName: "" },
+      contains: "Ciao,",
+    },
+    {
+      name: "mostra la data di cancellazione in italiano",
+      props: PROPS,
+      contains: "15 agosto 2026",
+    },
+    {
+      name: "include il link di login per mantenere l'account",
+      props: PROPS,
+      contains: "https://app.test/login",
+    },
+  ])("$name", ({ props, contains }) => {
     const html = renderToStaticMarkup(
-      createElement(AccountInactivityWarningEmail, PROPS),
+      createElement(AccountInactivityWarningEmail, props),
     );
-    expect(html).toContain("Mario");
-  });
-
-  it("non stampa un saluto rotto quando firstName è vuoto", () => {
-    const html = renderToStaticMarkup(
-      createElement(AccountInactivityWarningEmail, { ...PROPS, firstName: "" }),
-    );
-    expect(html).toContain("Ciao,");
-  });
-
-  it("mostra la data di cancellazione in italiano", () => {
-    const html = renderToStaticMarkup(
-      createElement(AccountInactivityWarningEmail, PROPS),
-    );
-    expect(html).toContain("15 agosto 2026");
-  });
-
-  it("include il link di login per mantenere l'account", () => {
-    const html = renderToStaticMarkup(
-      createElement(AccountInactivityWarningEmail, PROPS),
-    );
-    expect(html).toContain("https://app.test/login");
+    expect(html).toContain(contains);
   });
 });

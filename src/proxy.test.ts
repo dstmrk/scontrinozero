@@ -351,56 +351,61 @@ describe("proxy", () => {
       delete process.env.NEXT_PUBLIC_MARKETING_HOSTNAME;
     });
 
-    it("allows / on marketing domain (public route)", async () => {
+    it.each([
+      { name: "allows / on marketing domain (public route)", path: "/" },
+      {
+        name: "allows /privacy on marketing domain (marketing-only route)",
+        path: "/privacy",
+      },
+      {
+        name: "allows /help on marketing domain (marketing-only route)",
+        path: "/help",
+      },
+      {
+        name: "allows /help/api on marketing domain (help subroute)",
+        path: "/help/api",
+      },
+      {
+        name: "allows a dynamic marketing subroute on marketing domain (/guide/[slug])",
+        path: "/guide/regime-forfettario",
+      },
+      {
+        name: "allows /strumenti/scorporo-iva on marketing domain (tool subroute)",
+        path: "/strumenti/scorporo-iva",
+      },
+    ])("$name", async ({ path }) => {
       mockGetUser.mockResolvedValue({ data: { user: null } });
       const { proxy } = await import("./proxy");
 
       const response = await proxy(
-        createRequestForHost("/", "scontrinozero.it"),
+        createRequestForHost(path, "scontrinozero.it"),
       );
       expect(response.status).toBe(200);
     });
 
-    it("allows /privacy on marketing domain (marketing-only route)", async () => {
-      mockGetUser.mockResolvedValue({ data: { user: null } });
+    it.each([
+      {
+        name: "redirects /help on app domain to marketing domain",
+        path: "/help",
+      },
+      {
+        name: "redirects /strumenti/scorporo-iva on app domain to marketing domain",
+        path: "/strumenti/scorporo-iva",
+      },
+      {
+        name: "redirects /termini on app domain to marketing domain",
+        path: "/termini",
+      },
+    ])("$name", async ({ path }) => {
       const { proxy } = await import("./proxy");
 
       const response = await proxy(
-        createRequestForHost("/privacy", "scontrinozero.it"),
-      );
-      expect(response.status).toBe(200);
-    });
-
-    it("allows /help on marketing domain (marketing-only route)", async () => {
-      mockGetUser.mockResolvedValue({ data: { user: null } });
-      const { proxy } = await import("./proxy");
-
-      const response = await proxy(
-        createRequestForHost("/help", "scontrinozero.it"),
-      );
-      expect(response.status).toBe(200);
-    });
-
-    it("allows /help/api on marketing domain (help subroute)", async () => {
-      mockGetUser.mockResolvedValue({ data: { user: null } });
-      const { proxy } = await import("./proxy");
-
-      const response = await proxy(
-        createRequestForHost("/help/api", "scontrinozero.it"),
-      );
-      expect(response.status).toBe(200);
-    });
-
-    it("redirects /help on app domain to marketing domain", async () => {
-      const { proxy } = await import("./proxy");
-
-      const response = await proxy(
-        createRequestForHost("/help", "app.scontrinozero.it"),
+        createRequestForHost(path, "app.scontrinozero.it"),
       );
       expect(response.status).toBe(307);
       const location = new URL(response.headers.get("location")!);
       expect(location.hostname).toBe("scontrinozero.it");
-      expect(location.pathname).toBe("/help");
+      expect(location.pathname).toBe(path);
     });
 
     // Le pagine di contenuto marketing (oltre a privacy/termini/cookie/help)
@@ -443,48 +448,35 @@ describe("proxy", () => {
       },
     );
 
-    it("allows a dynamic marketing subroute on marketing domain (/guide/[slug])", async () => {
-      mockGetUser.mockResolvedValue({ data: { user: null } });
+    it.each([
+      {
+        name: "redirects /dashboard on marketing domain to app domain",
+        path: "/dashboard",
+        fromHost: "scontrinozero.it",
+      },
+      {
+        name: "redirects /login on www subdomain to app domain (non-marketing route)",
+        path: "/login",
+        fromHost: "www.scontrinozero.it",
+      },
+      {
+        name: "redirects /login on bare marketing domain to app domain",
+        path: "/login",
+        fromHost: "scontrinozero.it",
+      },
+      {
+        name: "redirects /register on bare marketing domain to app domain",
+        path: "/register",
+        fromHost: "scontrinozero.it",
+      },
+    ])("$name", async ({ path, fromHost }) => {
       const { proxy } = await import("./proxy");
 
-      const response = await proxy(
-        createRequestForHost("/guide/regime-forfettario", "scontrinozero.it"),
-      );
-      expect(response.status).toBe(200);
-    });
-
-    it("allows /strumenti/scorporo-iva on marketing domain (tool subroute)", async () => {
-      mockGetUser.mockResolvedValue({ data: { user: null } });
-      const { proxy } = await import("./proxy");
-
-      const response = await proxy(
-        createRequestForHost("/strumenti/scorporo-iva", "scontrinozero.it"),
-      );
-      expect(response.status).toBe(200);
-    });
-
-    it("redirects /strumenti/scorporo-iva on app domain to marketing domain", async () => {
-      const { proxy } = await import("./proxy");
-
-      const response = await proxy(
-        createRequestForHost("/strumenti/scorporo-iva", "app.scontrinozero.it"),
-      );
-      expect(response.status).toBe(307);
-      const location = new URL(response.headers.get("location")!);
-      expect(location.hostname).toBe("scontrinozero.it");
-      expect(location.pathname).toBe("/strumenti/scorporo-iva");
-    });
-
-    it("redirects /dashboard on marketing domain to app domain", async () => {
-      const { proxy } = await import("./proxy");
-
-      const response = await proxy(
-        createRequestForHost("/dashboard", "scontrinozero.it"),
-      );
+      const response = await proxy(createRequestForHost(path, fromHost));
       expect(response.status).toBe(307);
       const location = new URL(response.headers.get("location")!);
       expect(location.hostname).toBe("app.scontrinozero.it");
-      expect(location.pathname).toBe("/dashboard");
+      expect(location.pathname).toBe(path);
     });
 
     it("redirects / on app domain to /dashboard", async () => {
@@ -496,18 +488,6 @@ describe("proxy", () => {
       expect(response.status).toBe(307);
       const location = new URL(response.headers.get("location")!);
       expect(location.pathname).toBe("/dashboard");
-    });
-
-    it("redirects /termini on app domain to marketing domain", async () => {
-      const { proxy } = await import("./proxy");
-
-      const response = await proxy(
-        createRequestForHost("/termini", "app.scontrinozero.it"),
-      );
-      expect(response.status).toBe(307);
-      const location = new URL(response.headers.get("location")!);
-      expect(location.hostname).toBe("scontrinozero.it");
-      expect(location.pathname).toBe("/termini");
     });
 
     it("preserves query string on app→marketing redirect", async () => {
@@ -533,42 +513,6 @@ describe("proxy", () => {
         createRequestForHost("/dashboard", "app.scontrinozero.it"),
       );
       expect(response.status).toBe(200);
-    });
-
-    it("redirects /login on www subdomain to app domain (non-marketing route)", async () => {
-      const { proxy } = await import("./proxy");
-
-      const response = await proxy(
-        createRequestForHost("/login", "www.scontrinozero.it"),
-      );
-      expect(response.status).toBe(307);
-      const location = new URL(response.headers.get("location")!);
-      expect(location.hostname).toBe("app.scontrinozero.it");
-      expect(location.pathname).toBe("/login");
-    });
-
-    it("redirects /login on bare marketing domain to app domain", async () => {
-      const { proxy } = await import("./proxy");
-
-      const response = await proxy(
-        createRequestForHost("/login", "scontrinozero.it"),
-      );
-      expect(response.status).toBe(307);
-      const location = new URL(response.headers.get("location")!);
-      expect(location.hostname).toBe("app.scontrinozero.it");
-      expect(location.pathname).toBe("/login");
-    });
-
-    it("redirects /register on bare marketing domain to app domain", async () => {
-      const { proxy } = await import("./proxy");
-
-      const response = await proxy(
-        createRequestForHost("/register", "scontrinozero.it"),
-      );
-      expect(response.status).toBe(307);
-      const location = new URL(response.headers.get("location")!);
-      expect(location.hostname).toBe("app.scontrinozero.it");
-      expect(location.pathname).toBe("/register");
     });
 
     it("passes through /api/v1/receipts on api subdomain without redirect", async () => {
