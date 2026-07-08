@@ -267,62 +267,6 @@ trovata sia del proprio kind e in uno degli stati che si aspettano; tre buchi:
 
 ---
 
-### 57. Totali del payload AdE calcolati in float (8 decimali) invece che con la strategia canonica per-riga in cents: su quantità frazionarie il documento trasmesso diverge da payment/PDF e la recovery non riconcilia
-
-- **Categoria:** correttezza/fiscale (regola 17) · **Severità:** Medium-High — trigger legittimo e quotidiano (vendita a peso: `quantity` ammette 3 decimali, `numeric(10,3)`); residuo della stessa classe di REVIEW.md #1 (risolto solo per `payments[0].amount`)
-- **File:** `src/lib/ade/mapper.ts:158-203` (`computeLineAmounts`: `grossTotal = unitPriceGross * quantity` float raw; `totale`/`prezzoLordo` a 8 decimali del float), `:250-266` e `:286` (`mapSaleToAdePayload`: `ammontareComplessivo` = somma float dei `totale` di riga); confronto: `src/lib/services/receipt-service.ts:616-637` (`payments[0].amount` = `calcInputLinesTotalCents/100`, per-riga in cents) e `src/lib/receipts/document-lines.ts` (`computeReceiptTotals`/`calcDocTotal`, stessi cents per PDF/pagina pubblica/storico/analytics); impatto recovery: `src/lib/services/ade-recovery.ts:176-181` (`matchesAmount`: confronta l'`ammontareComplessivo` registrato da AdE con gli expected cents per-riga)
-
-**Problema.** La regola 17 dichiara i cents per-riga "strategia canonica usata
-ovunque", ma dentro lo **stesso payload AdE** convivono due strategie: i
-totali del `documentoCommerciale` sono somme float (8 decimali), il
-`vendita[].importo` (payment) è il totale per-riga in cents. Esempio
-verificato numericamente — 2 righe da `0.5 × €0.99`:
-
-- `totale` di riga trasmesso: `0.49500000` × 2 → `ammontareComplessivo`
-  `0.99000000`;
-- `payments[0].amount` trasmesso: `1.00`; PDF/pagina pubblica/storico
-  mostrano al cliente `0.50 + 0.50 = 1.00`.
-
-Tre conseguenze: (a) payload internamente incoerente — se AdE valida
-`vendita ≟ ammontareComplessivo` l'emissione fallisce (`esito:false`) proprio
-sui casi frazionari; (b) se AdE accetta, il documento fiscale registrato
-(`0.99`) diverge di 1 cent da quello consegnato al cliente (`1.00`) — la
-stessa divergenza che REVIEW.md #1 ha eliminato dalle altre superfici;
-(c) la riconciliazione pre-retry (`matchesAmount`: `round(0.99*100)=99 ≠
-100`) non trova il documento che AdE ha già accettato → `kind:"none"` →
-**re-submit → duplicato fiscale irreversibile**, esattamente ciò che la
-recovery deve impedire.
-
-**Fix (in due passi — regole 13/14: serve evidenza sul comportamento AdE).**
-
-1. **Mitigazione immediata, code-only:** in `reconcileSaleDocument`
-   accettare il match anche quando `round(doc.ammontareComplessivo*100)`
-   coincide con il totale ricalcolato **in float** dalle righe input
-   (secondo comparatore accanto agli expected cents) — chiude subito il
-   rischio duplicato (c) per i documenti già emessi con totali float.
-2. **Evidenza:** emettere dal portale web AdE (o da HAR esistente) uno
-   scontrino con quantità frazionaria che diverge al cent e osservare come
-   il portale stesso arrotonda `prezzoLordo`/`totale`/`ammontareComplessivo`
-   rispetto ai payment (regola 14: cross-reference campo per campo).
-3. **Allineamento:** adottare in `computeLineAmounts` il lordo di riga
-   cent-rounded (`lineGrossCents = round(unitPriceGross*quantity*100)`,
-   `grossTotal = lineGrossCents/100`) come base di `prezzoLordo`/`totale`/
-   scorporo IVA, e derivare `ammontareComplessivo` come somma dei cents —
-   coerente con il comportamento osservato al punto 2. Se AdE richiedesse
-   invece la coerenza moltiplicativa `prezzoLordo = prezzoUnitario ×
-quantita`, ricalcolare `prezzoUnitario = lineGrossCents/100/quantity`
-   (8 decimali) così l'identità regge sui valori trasmessi.
-4. Verifica su sandbox/`ADE_MODE=real` con un'emissione frazionaria reale
-   prima del merge (regola 13: mai mergiare un'ipotesi senza evidenza).
-5. **Test:** `mapSaleToAdePayload` con `0.5 × 0.99` ×2 → `vendita[0].importo`
-   e `ammontareComplessivo` riconciliano al cent con `computeReceiptTotals`;
-   proprietà generale: per ogni input valido dello schema,
-   `sum(vendita[].importo) === ammontareComplessivo` (property-based o
-   tabella di edge: 3 decimali di qty, 100 righe, nature N1-N6);
-   `reconcileSaleDocument` matcha un documento AdE con totale float legacy.
-
----
-
 ## P3 — Bassa priorità
 
 ### 17. Key rotation zero-downtime: i caller passano sempre una sola chiave
@@ -942,6 +886,29 @@ Scelte consapevoli con un trigger di riapertura. Non sono finding da pianificare
 dev (`drizzle-kit`/`tsx`/`@esbuild-kit/*`, tutte `devDependencies`), mai a runtime
 né nella build Next (SWC). Superficie ≈ 0. **Riaprire:** quando la toolchain
 aggiorna `esbuild` > 0.28.0 senza major rischioso → togliere l'allowlist.
+
+### #57 verifica su AdE reale sostituita da sentinella Sentry
+
+Il fix #57 (totali payload per-riga in cents) è spedito, ma l'allineamento
+tiene `prezzoUnitario` con la semantica attuale — **non** la variante con
+identità moltiplicativa `prezzoLordo = prezzoUnitario × quantità`, che sarebbe
+da confermare emettendo su `ADE_MODE=real` uno scontrino a quantità frazionaria
+(regole 13/14). Invece di bloccare il rollout su quella verifica manuale, si
+accetta la strategia adottata e si delega il rilevamento a due sentinelle in
+`runSubmitSale` (`src/lib/services/receipt-service.ts`):
+
+1. **Invariante** — `sum(vendita[].importo) !== ammontareComplessivo` →
+   `logger.error` "ade:payload_total_mismatch" (fingerprint
+   `["emit-receipt","payload-total-mismatch"]`). Deterministica: non scatta mai
+   se l'arrotondamento è corretto → zero rumore, guardia anti-regressione.
+2. **Rifiuto AdE su quantità frazionaria** — `esito:false` con almeno una riga a
+   `quantity` non intera → `logger.error` "ade:fractional_qty_rejected"
+   (fingerprint `["emit-receipt","fractional-qty-rejected"]`, con `adeErrorCodes`
+   nei log). I rifiuti su quantità intere restano `warn` (regola 20).
+
+**Riaprire:** se una delle due sentinelle apre una issue Sentry — allora
+l'assunzione sui totali va rivista (probabilmente serve la variante
+`prezzoUnitario = lineGrossCents/100/quantity`, 8 decimali).
 
 ### #8 link pubblici scontrini senza TTL/revoca (UUID come token)
 

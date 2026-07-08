@@ -361,6 +361,40 @@ describe("reconcileSaleDocument", () => {
   });
 });
 
+describe("reconcileSaleDocument — totale legacy float (REVIEW.md #57)", () => {
+  it("matcha un documento AdE registrato col totale legacy quando differisce dal canonico", () => {
+    // 2 righe da 0,5 × €0,99: canonico per-riga = 100 cents (1,00), ma il
+    // documento fu emesso col vecchio mapper → AdE registrò 0,99. Senza il
+    // comparatore legacy la recovery non lo troverebbe → re-submit duplicato.
+    const result = reconcileSaleDocument({
+      documents: [summary({ ammontareComplessivo: 0.99 })],
+      expectedTotalCents: 100,
+      expectedLegacyTotalCents: 99,
+      createdAt: SALE_CREATED_AT,
+    });
+    expect(result.kind).toBe("match");
+  });
+
+  it("non allarga il match quando expectedLegacyTotalCents non è passato", () => {
+    const result = reconcileSaleDocument({
+      documents: [summary({ ammontareComplessivo: 0.99 })],
+      expectedTotalCents: 100,
+      createdAt: SALE_CREATED_AT,
+    });
+    expect(result).toEqual({ kind: "none" });
+  });
+
+  it("matcha sul canonico un documento emesso dopo il fix (legacy ignorato)", () => {
+    const result = reconcileSaleDocument({
+      documents: [summary({ ammontareComplessivo: 1.0 })],
+      expectedTotalCents: 100,
+      expectedLegacyTotalCents: 99,
+      createdAt: SALE_CREATED_AT,
+    });
+    expect(result.kind).toBe("match");
+  });
+});
+
 describe("reconcileVoidDocument", () => {
   it("ritorna match sull'annullo legato al progressivo della vendita", () => {
     const docs = [

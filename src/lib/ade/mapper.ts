@@ -159,9 +159,19 @@ export function computeLineAmounts(
   line: SaleLineRequest,
 ): AdeElementoContabile {
   const vatPct = getVatPercentage(line.vatCode);
-  const grossTotal = line.unitPriceGross * line.quantity;
-  const discountTotal = line.unitDiscount * line.quantity;
-  const netGross = grossTotal - discountTotal;
+  // Canonical per-line cents (regola 17 / REVIEW.md #57): round the line gross
+  // (and discount) to integer cents BEFORE any further math, so prezzoLordo /
+  // totale — e a cascata l'ammontareComplessivo del documento — riconciliano al
+  // centesimo con `payments[0].amount` (calcInputLinesTotalCents) e con il
+  // PDF/pagina pubblica (computeReceiptTotals), tutti derivati da
+  // round(price * qty * 100) per riga. Sommare i lordi float a 8 decimali
+  // divergeva di 1 cent sulle quantità frazionarie (vendita a peso).
+  // No-op per quantità intere con prezzo a 2 decimali (round(x*100)/100 === x).
+  const lineGrossCents = Math.round(line.unitPriceGross * line.quantity * 100);
+  const discountCents = Math.round(line.unitDiscount * line.quantity * 100);
+  const grossTotal = lineGrossCents / 100;
+  const discountTotal = discountCents / 100;
+  const netGross = (lineGrossCents - discountCents) / 100;
 
   let imponibile: number;
   let imponibileNetto: number;
@@ -247,23 +257,21 @@ export function mapSaleToAdePayload(
 ): AdePayload {
   const elementiContabili = doc.lines.map(computeLineAmounts);
 
-  // Document totals (sez. 3.3)
-  const totaleImponibile = elementiContabili.reduce(
-    (sum, el) => sum + Number.parseFloat(el.imponibile),
-    0,
-  );
-  const scontoTotale = elementiContabili.reduce(
-    (sum, el) => sum + Number.parseFloat(el.scontoLordo),
-    0,
-  );
-  const importoTotaleIva = elementiContabili.reduce(
-    (sum, el) => sum + Number.parseFloat(el.importoIVA),
-    0,
-  );
-  const ammontareComplessivo = elementiContabili.reduce(
-    (sum, el) => sum + Number.parseFloat(el.totale),
-    0,
-  );
+  // Document totals (sez. 3.3): somma dei valori di riga come interi in cents,
+  // poi /100 (strategia canonica per-riga, regola 17 / REVIEW.md #57). Ogni
+  // campo di riga è già cent-esatto da `computeLineAmounts`; sommarli come cents
+  // evita il drift float e garantisce `ammontareComplessivo === sum(vendita[].importo)`
+  // (il payment è la somma degli stessi cents in receipt-service).
+  const sumLineCents = (pick: (el: AdeElementoContabile) => string): number =>
+    elementiContabili.reduce(
+      (sum, el) => sum + Math.round(Number.parseFloat(pick(el)) * 100),
+      0,
+    ) / 100;
+
+  const totaleImponibile = sumLineCents((el) => el.imponibile);
+  const scontoTotale = sumLineCents((el) => el.scontoLordo);
+  const importoTotaleIva = sumLineCents((el) => el.importoIVA);
+  const ammontareComplessivo = sumLineCents((el) => el.totale);
 
   const vendita = mapPayments(doc.payments);
 
