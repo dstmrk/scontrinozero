@@ -39,6 +39,19 @@ export interface RealAdeClientOptions {
   spidPollIntervalMs?: number;
   /** Numero massimo di poll SPID prima del timeout (default: 30). */
   spidMaxPolls?: number;
+  /** Intervallo di polling push notification CIE in ms (default: 7000). 0 in test. */
+  ciePollIntervalMs?: number;
+  /**
+   * Numero massimo di poll CIE prima del timeout (default: 12).
+   *
+   * 12 × 7000ms = 84s: sotto il taglio ~100s del proxy Cloudflare (error 524),
+   * con margine per le fasi SAML che seguono. Se la finestra push superasse il
+   * timeout del tunnel, la verifica riuscirebbe server-side (sessione
+   * depositata, verifiedAt settato) mentre il client vede un errore di rete e
+   * riprova — bruciando rate limit e generando una seconda push (REVIEW.md
+   * #45). SPID (non cablato) resta a 30 poll via spidMaxPolls.
+   */
+  cieMaxPolls?: number;
   /** Timeout per ogni singola chiamata HTTP all'AdE in ms (default: 30000). */
   fetchTimeoutMs?: number;
 }
@@ -1382,8 +1395,8 @@ export class RealAdeClient implements AdeClient {
   private async ciePollAndProceed(
     idpJar: CookieJar,
   ): Promise<{ response: Response; url: string }> {
-    const maxPolls = this.options.spidMaxPolls ?? 30;
-    const intervalMs = this.options.spidPollIntervalMs ?? 7000;
+    const maxPolls = this.options.cieMaxPolls ?? 12;
+    const intervalMs = this.options.ciePollIntervalMs ?? 7000;
     let baseline: string | null = null;
 
     for (let i = 0; i < maxPolls; i++) {

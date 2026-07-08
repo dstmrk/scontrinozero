@@ -179,7 +179,7 @@ describe("RealAdeClient.loginCie", () => {
 
   it("completes the CIE flow and extracts P.IVA + CF from wizardTemplate", async () => {
     mockCieHappyPath(fetchMock);
-    const client = new RealAdeClient({ spidPollIntervalMs: 0 });
+    const client = new RealAdeClient({ ciePollIntervalMs: 0 });
 
     const session = await client.loginCie(CREDENTIALS);
 
@@ -198,7 +198,7 @@ describe("RealAdeClient.loginCie", () => {
 
   it("posts CIE credentials to the livello2 endpoint", async () => {
     mockCieHappyPath(fetchMock);
-    const client = new RealAdeClient({ spidPollIntervalMs: 0 });
+    const client = new RealAdeClient({ ciePollIntervalMs: 0 });
 
     await client.loginCie(CREDENTIALS);
 
@@ -241,7 +241,7 @@ describe("RealAdeClient.loginCie", () => {
     fetchMock.mockResolvedValueOnce(mockResponse({}));
     fetchMock.mockResolvedValueOnce(mockResponse({ body: CIE_LOGIN_PAGE }));
 
-    const client = new RealAdeClient({ spidPollIntervalMs: 0 });
+    const client = new RealAdeClient({ ciePollIntervalMs: 0 });
     await expect(client.loginCie(CREDENTIALS)).rejects.toThrow(AdeAuthError);
   });
 
@@ -276,11 +276,51 @@ describe("RealAdeClient.loginCie", () => {
     }
 
     const client = new RealAdeClient({
-      spidPollIntervalMs: 0,
-      spidMaxPolls: 3,
+      ciePollIntervalMs: 0,
+      cieMaxPolls: 3,
     });
     await expect(client.loginCie(CREDENTIALS)).rejects.toThrow(
       AdeSpidTimeoutError,
     );
+  });
+
+  it("defaults to 12 CIE polls (~84s window, under the Cloudflare ~100s cut)", async () => {
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        body: samlForm(
+          `${IDP}/idp/profile/SAML2/POST/SSO`,
+          "SAMLRequest",
+          "selcie",
+        ),
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        status: 302,
+        location: `${IDP}/idp/profile/SAML2/POST/SSO?execution=e1s1`,
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(mockResponse({}));
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        status: 302,
+        location: `${IDP}/idp/login/livello2?opId=X`,
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(mockResponse({}));
+    fetchMock.mockResolvedValueOnce(mockResponse({})); // credentials OK
+    // checkpush: body sempre uguale → mai approvato. Con 12 poll di default,
+    // il 12° poll (index 11) deve lanciare il timeout: ne bastano 12 in coda.
+    for (let i = 0; i < 12; i++) {
+      fetchMock.mockResolvedValueOnce(mockResponse({ body: "PENDING" }));
+    }
+
+    // Nessun cieMaxPolls → default 12. ciePollIntervalMs: 0 per non dormire.
+    const client = new RealAdeClient({ ciePollIntervalMs: 0 });
+    await expect(client.loginCie(CREDENTIALS)).rejects.toThrow(
+      AdeSpidTimeoutError,
+    );
+    // 6 richieste di preambolo + esattamente 12 checkpush, non 13.
+    expect(fetchMock).toHaveBeenCalledTimes(6 + 12);
   });
 });

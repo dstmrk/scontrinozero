@@ -5,6 +5,7 @@ import {
   AdePortalError,
   AdeSpidTimeoutError,
 } from "./errors";
+import type { AdeLoginMethod } from "./types";
 
 export type UserFacingAdeError = {
   message: string;
@@ -20,10 +21,17 @@ export type UserFacingAdeError = {
  * password / PIN are wrong and either retry the same data or abandon the
  * onboarding. This helper distinguishes the cases that map to actionable,
  * non-blaming messages and leaves everything else to the caller's fallback.
+ *
+ * `method` rende i due casi d'errore più comuni (credenziali errate, secondo
+ * fattore non approvato) method-aware: un utente CIE che sbaglia la password
+ * non deve vedere "Credenziali Fisconline non valide. Verifica codice fiscale,
+ * password e PIN" (campi che non ha mai inserito). Omesso o `"fisconline"` →
+ * i messaggi Fisconline storici, così i call-site emit/void restano invariati.
  */
 export function getUserFacingAdeErrorMessage(
   err: unknown,
   fallback: string,
+  method?: AdeLoginMethod,
 ): UserFacingAdeError {
   if (err instanceof AdePasswordExpiredError) {
     return {
@@ -34,7 +42,9 @@ export function getUserFacingAdeErrorMessage(
   if (err instanceof AdeAuthError) {
     return {
       message:
-        "Credenziali Fisconline non valide. Verifica codice fiscale, password e PIN.",
+        method === "cie"
+          ? "Credenziali CIE ID non valide. Verifica email e password."
+          : "Credenziali Fisconline non valide. Verifica codice fiscale, password e PIN.",
     };
   }
   if (err instanceof AdeNetworkError) {
@@ -51,7 +61,10 @@ export function getUserFacingAdeErrorMessage(
   }
   if (err instanceof AdeSpidTimeoutError) {
     return {
-      message: "Non hai approvato la richiesta SPID in tempo. Riprova.",
+      message:
+        method === "cie"
+          ? "Non hai approvato la notifica sull'app CIE ID in tempo. Riprova."
+          : "Non hai approvato la richiesta SPID in tempo. Riprova.",
     };
   }
   return { message: fallback };

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { verifyAdeCredentials } from "@/server/onboarding-actions";
 import { ChangeAdePasswordDialog } from "@/components/ade/change-ade-password-dialog";
+import type { AdeLoginMethod } from "@/lib/ade/types";
 
 type VerifyState =
   | { status: "idle" }
@@ -23,6 +24,7 @@ interface AdeCredentialsSectionProps {
   businessId: string | null;
   hasCredentials: boolean;
   verifiedAt: Date | null;
+  loginMethod?: AdeLoginMethod;
 }
 
 const SUCCESS_DISMISS_MS = 3000;
@@ -31,6 +33,7 @@ export function AdeCredentialsSection({
   businessId,
   hasCredentials,
   verifiedAt,
+  loginMethod = "fisconline",
 }: Readonly<AdeCredentialsSectionProps>) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -95,11 +98,23 @@ export function AdeCredentialsSection({
     });
   }
 
-  let buttonLabel = "Verifica connessione";
-  if (verifyState.status === "pending") {
-    buttonLabel = "Verifica in corso…";
-  } else if (verifyState.status === "error") {
-    buttonLabel = "Riprova";
+  const isCie = loginMethod === "cie";
+
+  let buttonLabel: string;
+  if (isCie) {
+    buttonLabel = hasEverVerified ? "Ricollega" : "Collega";
+    if (verifyState.status === "pending") {
+      buttonLabel = "Collegamento in corso…";
+    } else if (verifyState.status === "error") {
+      buttonLabel = "Riprova";
+    }
+  } else {
+    buttonLabel = "Verifica connessione";
+    if (verifyState.status === "pending") {
+      buttonLabel = "Verifica in corso…";
+    } else if (verifyState.status === "error") {
+      buttonLabel = "Riprova";
+    }
   }
 
   return (
@@ -140,6 +155,20 @@ export function AdeCredentialsSection({
             {buttonLabel}
           </Button>
         </div>
+
+        {isCie && (
+          <p className="text-muted-foreground text-xs">
+            Il collegamento richiede l&apos;approvazione di una notifica
+            sull&apos;app CIE ID sul tuo telefono.
+          </p>
+        )}
+
+        {isCie && verifyState.status === "pending" && (
+          <p className="flex items-center gap-1.5 text-sm text-amber-600">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Approva ora la notifica sull&apos;app CIE ID sul tuo telefono…
+          </p>
+        )}
 
         {verifiedAt && verifyState.status !== "success" && (
           <p className="text-muted-foreground text-xs">

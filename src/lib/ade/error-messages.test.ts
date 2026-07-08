@@ -110,6 +110,52 @@ describe("getUserFacingAdeErrorMessage", () => {
     const result = getUserFacingAdeErrorMessage("oops", FALLBACK);
     expect(result.message).toBe(FALLBACK);
   });
+
+  describe("method-aware messages (CIE)", () => {
+    it("returns the CIE credentials message for AdeAuthError with method cie", () => {
+      const result = getUserFacingAdeErrorMessage(
+        new AdeAuthError(),
+        FALLBACK,
+        "cie",
+      );
+      expect(result.message).toBe(
+        "Credenziali CIE ID non valide. Verifica email e password.",
+      );
+    });
+
+    it("returns the CIE push message for AdeSpidTimeoutError with method cie", () => {
+      const result = getUserFacingAdeErrorMessage(
+        new AdeSpidTimeoutError(12),
+        FALLBACK,
+        "cie",
+      );
+      expect(result.message).toBe(
+        "Non hai approvato la notifica sull'app CIE ID in tempo. Riprova.",
+      );
+    });
+
+    it("keeps the Fisconline credentials message with method fisconline", () => {
+      const result = getUserFacingAdeErrorMessage(
+        new AdeAuthError(),
+        FALLBACK,
+        "fisconline",
+      );
+      expect(result.message).toBe(
+        "Credenziali Fisconline non valide. Verifica codice fiscale, password e PIN.",
+      );
+    });
+
+    it("keeps the SPID message with method fisconline", () => {
+      const result = getUserFacingAdeErrorMessage(
+        new AdeSpidTimeoutError(30),
+        FALLBACK,
+        "fisconline",
+      );
+      expect(result.message).toBe(
+        "Non hai approvato la richiesta SPID in tempo. Riprova.",
+      );
+    });
+  });
 });
 
 describe("isTransientAdeError", () => {

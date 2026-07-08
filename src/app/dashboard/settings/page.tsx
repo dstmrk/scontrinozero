@@ -304,6 +304,10 @@ export default async function SettingsPage({
                 businessId={business?.id ?? null}
                 hasCredentials={!!cred}
                 verifiedAt={cred?.verifiedAt ?? null}
+                loginMethod={
+                  (cred?.loginMethod as AdeLoginMethod | undefined) ??
+                  "fisconline"
+                }
               />
             </CardContent>
           </Card>

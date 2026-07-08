@@ -732,6 +732,97 @@ describe("AdeCredentialsSection", () => {
     });
   });
 
+  describe("metodo CIE", () => {
+    it("mostra il copy permanente sulla notifica CIE ID in idle", () => {
+      render(
+        <AdeCredentialsSection
+          businessId="biz-1"
+          hasCredentials={true}
+          verifiedAt={null}
+          loginMethod="cie"
+        />,
+      );
+
+      expect(screen.getByText(/Il collegamento richiede/i)).toBeInTheDocument();
+    });
+
+    it("mostra il pulsante 'Collega' quando mai verificate", () => {
+      render(
+        <AdeCredentialsSection
+          businessId="biz-1"
+          hasCredentials={true}
+          verifiedAt={null}
+          loginMethod="cie"
+        />,
+      );
+
+      expect(
+        screen.getByRole("button", { name: "Collega" }),
+      ).toBeInTheDocument();
+    });
+
+    it("mostra il pulsante 'Ricollega' quando già verificate", () => {
+      render(
+        <AdeCredentialsSection
+          businessId="biz-1"
+          hasCredentials={true}
+          verifiedAt={new Date("2025-01-01")}
+          loginMethod="cie"
+        />,
+      );
+
+      expect(
+        screen.getByRole("button", { name: "Ricollega" }),
+      ).toBeInTheDocument();
+    });
+
+    it("mostra il messaggio attivo 'Approva ora la notifica' durante il pending", async () => {
+      let resolveAction!: (v: unknown) => void;
+      mockVerifyAdeCredentials.mockReturnValue(
+        new Promise((r) => {
+          resolveAction = r;
+        }),
+      );
+
+      render(
+        <AdeCredentialsSection
+          businessId="biz-1"
+          hasCredentials={true}
+          verifiedAt={null}
+          loginMethod="cie"
+        />,
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Collega" }));
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/Approva ora la notifica/i),
+        ).toBeInTheDocument();
+      });
+
+      resolveAction({});
+    });
+
+    it("Fisconline non mostra alcun copy CIE", () => {
+      render(
+        <AdeCredentialsSection
+          businessId="biz-1"
+          hasCredentials={true}
+          verifiedAt={null}
+          loginMethod="fisconline"
+        />,
+      );
+
+      expect(
+        screen.queryByText(/Il collegamento richiede/i),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Verifica connessione" }),
+      ).toBeInTheDocument();
+    });
+  });
+
   describe("Ultima verifica", () => {
     it("mostra la data di ultima verifica quando verifiedAt è non null", () => {
       render(
