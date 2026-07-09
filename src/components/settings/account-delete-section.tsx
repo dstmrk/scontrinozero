@@ -17,19 +17,9 @@ import {
 import { Form, FormInputField } from "@/components/ui/form";
 import { deleteAccount } from "@/server/account-actions";
 
-const CONFIRM_WORD = "ELIMINA";
-
-const deleteSchema = z
-  .object({ confirmText: z.string() })
-  .superRefine((data, ctx) => {
-    if (data.confirmText !== CONFIRM_WORD) {
-      ctx.addIssue({
-        code: "custom",
-        message: `Scrivi ${CONFIRM_WORD} per confermare.`,
-        path: ["confirmText"],
-      });
-    }
-  });
+const deleteSchema = z.object({
+  password: z.string().min(1, "Inserisci la tua password."),
+});
 
 type DeleteData = z.infer<typeof deleteSchema>;
 
@@ -38,16 +28,20 @@ export function AccountDeleteSection() {
 
   const form = useForm<DeleteData>({
     resolver: zodResolver(deleteSchema),
-    defaultValues: { confirmText: "" },
+    defaultValues: { password: "" },
   });
 
-  const confirmTextValue = useWatch({
+  const passwordValue = useWatch({
     control: form.control,
-    name: "confirmText",
+    name: "password",
   });
 
   const mutation = useMutation({
-    mutationFn: deleteAccount,
+    mutationFn: (data: DeleteData) => {
+      const formData = new FormData();
+      formData.set("currentPassword", data.password);
+      return deleteAccount(formData);
+    },
     onSuccess: (result) => {
       if (result.error) {
         form.setError("root", { message: result.error });
@@ -69,8 +63,8 @@ export function AccountDeleteSection() {
     setIsOpen(true);
   }
 
-  function handleSubmit() {
-    mutation.mutate();
+  function handleSubmit(data: DeleteData) {
+    mutation.mutate(data);
   }
 
   return (
@@ -98,7 +92,7 @@ export function AccountDeleteSection() {
 
           <ul className="text-muted-foreground ml-4 list-disc space-y-1 text-sm">
             <li>Il tuo profilo e i dati dell&apos;attività</li>
-            <li>Le credenziali Fisconline salvate</li>
+            <li>Le credenziali di accesso AdE salvate (Fisconline o CIE ID)</li>
             <li>Tutti gli scontrini emessi e il catalogo prodotti</li>
           </ul>
 
@@ -107,11 +101,11 @@ export function AccountDeleteSection() {
             restano disponibili sul portale{" "}
             <strong>Fatture e Corrispettivi</strong> anche dopo la cancellazione
             dell&apos;account. Puoi consultarli in qualsiasi momento accedendo
-            con le tue credenziali Fisconline.
+            con le tue credenziali AdE (Fisconline o CIE ID).
           </p>
 
           <p className="mt-2 text-sm">
-            Scrivi <strong>{CONFIRM_WORD}</strong> per confermare:
+            Inserisci la tua <strong>password</strong> per confermare:
           </p>
 
           <Form {...form}>
@@ -122,9 +116,10 @@ export function AccountDeleteSection() {
             >
               <FormInputField
                 control={form.control}
-                name="confirmText"
-                placeholder={CONFIRM_WORD}
-                autoComplete="off"
+                name="password"
+                type="password"
+                placeholder="La tua password"
+                autoComplete="current-password"
                 disabled={mutation.isPending}
               />
 
@@ -146,9 +141,7 @@ export function AccountDeleteSection() {
                 <Button
                   type="submit"
                   variant="destructive"
-                  disabled={
-                    confirmTextValue !== CONFIRM_WORD || mutation.isPending
-                  }
+                  disabled={!passwordValue || mutation.isPending}
                 >
                   {mutation.isPending
                     ? "Eliminazione…"

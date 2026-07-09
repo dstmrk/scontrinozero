@@ -674,39 +674,6 @@ finestra.
 
 ---
 
-### 62. `deleteAccount`: la conferma "ELIMINA" è solo client-side, nessuna re-autenticazione server-side
-
-- **Categoria:** sicurezza/hardening · **Severità:** Low — richiede una sessione già compromessa (XSS/device rubato), ma l'azione è la più distruttiva dell'app
-- **File:** `src/server/account-actions.ts:25-44` (unico requisito: sessione valida); `src/components/settings/account-delete-section.tsx:20-32` (la parola di conferma non lascia mai il client); pattern di re-auth già esistente: `changePassword` in `src/server/profile-actions.ts:304-311` (`signInWithPassword` con la password corrente)
-
-**Problema.** La server action di cancellazione definitiva (dati fiscali
-inclusi) è invocabile con la sola sessione: la conferma digitata esiste solo
-nel dialog React, quindi una chiamata diretta all'action (sessione rubata,
-XSS, estensione malevola) cancella l'account senza attrito. `changePassword`
-— azione meno distruttiva — richiede già la password corrente server-side.
-Nota copy contestuale: il dialog enumera solo "credenziali Fisconline" — con
-CIE live va generalizzato (stessa classe del finding #47, ma file app, non
-marketing).
-
-**Fix (non ambiguo).**
-
-1. `deleteAccount(formData)` riceve `currentPassword` (raw,
-   `getFormStringRaw`) e la verifica con
-   `supabase.auth.signInWithPassword({ email, password })` prima del purge —
-   stesso pattern e stessa sequenza di `changePassword`. Password errata →
-   `{ error: "Password non corretta." }`, `logger.warn` (regola 20, no
-   Sentry).
-2. Rate limit 5/15min per `user.id` (chiave `deleteAccount:<userId>`,
-   `RATE_LIMIT_WINDOWS.AUTH_15_MIN`) per non rendere l'action un oracle di
-   brute-force sulla password.
-3. Dialog: campo password al posto della parola "ELIMINA" (o in aggiunta);
-   aggiornare il copy "credenziali Fisconline" → "credenziali di accesso AdE
-   (Fisconline o CIE ID)".
-4. **Test:** password errata → nessun purge + errore; corretta → purge
-   invocato; 6° tentativo in 15min → rate limited.
-
----
-
 ## Rischi accettati (documentati, non da fixare)
 
 Scelte consapevoli con un trigger di riapertura. Non sono finding da pianificare.
