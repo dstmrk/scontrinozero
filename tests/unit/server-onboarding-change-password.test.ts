@@ -143,35 +143,26 @@ describe("changeAdePassword", () => {
     setupDb();
   });
 
-  it("rifiuta quando la nuova password non rispetta il charset/lunghezza", async () => {
+  it.each([
+    {
+      name: "rifiuta quando la nuova password non rispetta il charset/lunghezza",
+      password: "àccented",
+    },
+    {
+      name: "rifiuta quando la nuova password è troppo corta (< 8 caratteri)",
+      password: "Short1",
+    },
+    {
+      name: "rifiuta quando la nuova password è troppo lunga (> 15 caratteri)",
+      password: "ThisIsWayTooLong1",
+    },
+  ])("$name", async ({ password }) => {
     const { changeAdePassword } = await import("@/server/onboarding-actions");
     const result = await changeAdePassword(
       BIZ_ID,
       "OldPass1",
-      "àccented",
-      "àccented",
-    );
-    expect(result.error).toMatch(/Password non valida/);
-  });
-
-  it("rifiuta quando la nuova password è troppo corta (< 8 caratteri)", async () => {
-    const { changeAdePassword } = await import("@/server/onboarding-actions");
-    const result = await changeAdePassword(
-      BIZ_ID,
-      "OldPass1",
-      "Short1",
-      "Short1",
-    );
-    expect(result.error).toMatch(/Password non valida/);
-  });
-
-  it("rifiuta quando la nuova password è troppo lunga (> 15 caratteri)", async () => {
-    const { changeAdePassword } = await import("@/server/onboarding-actions");
-    const result = await changeAdePassword(
-      BIZ_ID,
-      "OldPass1",
-      "ThisIsWayTooLong1",
-      "ThisIsWayTooLong1",
+      password,
+      password,
     );
     expect(result.error).toMatch(/Password non valida/);
   });

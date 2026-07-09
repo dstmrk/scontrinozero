@@ -47,36 +47,51 @@ const CONFIG: PruneConfig = {
 };
 
 describe("isProtectedFromPrune", () => {
-  it("protegge unlimited sempre", async () => {
+  it.each([
+    {
+      name: "protegge unlimited sempre",
+      plan: "unlimited",
+      expiresAt: null,
+      expected: true,
+    },
+    {
+      name: "NON protegge il trial",
+      plan: "trial",
+      expiresAt: null,
+      expected: false,
+    },
+    {
+      name: "protegge un piano a pagamento ancora attivo",
+      plan: "pro",
+      expiresAt: new Date(NOW.getTime() + 30 * 86_400_000),
+      expected: true,
+    },
+    {
+      name: "protegge un piano a pagamento con scadenza sconosciuta (null) — fail-safe",
+      plan: "pro",
+      expiresAt: null,
+      expected: true,
+    },
+    {
+      name: "NON protegge un piano a pagamento scaduto oltre la grazia",
+      plan: "pro",
+      expiresAt: new Date(NOW.getTime() - 400 * 86_400_000),
+      expected: false,
+    },
+    {
+      name: "protegge un plan sconosciuto (drift schema)",
+      plan: "mystery",
+      expiresAt: null,
+      expected: true,
+    },
+  ] as {
+    name: string;
+    plan: string;
+    expiresAt: Date | null;
+    expected: boolean;
+  }[])("$name", async ({ plan, expiresAt, expected }) => {
     const { isProtectedFromPrune } = await import("./inactive-user-prune");
-    expect(isProtectedFromPrune("unlimited", null, NOW.getTime())).toBe(true);
-  });
-
-  it("NON protegge il trial", async () => {
-    const { isProtectedFromPrune } = await import("./inactive-user-prune");
-    expect(isProtectedFromPrune("trial", null, NOW.getTime())).toBe(false);
-  });
-
-  it("protegge un piano a pagamento ancora attivo", async () => {
-    const { isProtectedFromPrune } = await import("./inactive-user-prune");
-    const future = new Date(NOW.getTime() + 30 * 86_400_000);
-    expect(isProtectedFromPrune("pro", future, NOW.getTime())).toBe(true);
-  });
-
-  it("protegge un piano a pagamento con scadenza sconosciuta (null) — fail-safe", async () => {
-    const { isProtectedFromPrune } = await import("./inactive-user-prune");
-    expect(isProtectedFromPrune("pro", null, NOW.getTime())).toBe(true);
-  });
-
-  it("NON protegge un piano a pagamento scaduto oltre la grazia", async () => {
-    const { isProtectedFromPrune } = await import("./inactive-user-prune");
-    const longExpired = new Date(NOW.getTime() - 400 * 86_400_000);
-    expect(isProtectedFromPrune("pro", longExpired, NOW.getTime())).toBe(false);
-  });
-
-  it("protegge un plan sconosciuto (drift schema)", async () => {
-    const { isProtectedFromPrune } = await import("./inactive-user-prune");
-    expect(isProtectedFromPrune("mystery", null, NOW.getTime())).toBe(true);
+    expect(isProtectedFromPrune(plan, expiresAt, NOW.getTime())).toBe(expected);
   });
 });
 

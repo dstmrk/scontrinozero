@@ -83,33 +83,29 @@ describe("VatSelector", () => {
     ).toBeInTheDocument();
   });
 
-  it("chiama onChange con il codice IVA corretto quando si seleziona un'opzione", () => {
+  it.each([
+    {
+      name: "chiama onChange con il codice IVA corretto quando si seleziona un'opzione",
+      option: "10% – Ridotta",
+      expected: "10",
+    },
+    {
+      name: "chiama onChange con 'N2' quando si seleziona 0% – Non soggette",
+      option: "0% – Non soggette",
+      expected: "N2",
+    },
+    {
+      name: "chiama onChange con '4' quando si seleziona 4%",
+      option: "4% – Ridotta",
+      expected: "4",
+    },
+  ])("$name", ({ option, expected }) => {
     const onChange = vi.fn();
     render(<VatSelector value="22" onChange={onChange} />);
 
     fireEvent.click(screen.getByRole("combobox"));
-    fireEvent.click(screen.getByRole("option", { name: "10% – Ridotta" }));
+    fireEvent.click(screen.getByRole("option", { name: option }));
 
-    expect(onChange).toHaveBeenCalledWith("10");
-  });
-
-  it("chiama onChange con 'N2' quando si seleziona 0% – Non soggette", () => {
-    const onChange = vi.fn();
-    render(<VatSelector value="22" onChange={onChange} />);
-
-    fireEvent.click(screen.getByRole("combobox"));
-    fireEvent.click(screen.getByRole("option", { name: "0% – Non soggette" }));
-
-    expect(onChange).toHaveBeenCalledWith("N2");
-  });
-
-  it("chiama onChange con '4' quando si seleziona 4%", () => {
-    const onChange = vi.fn();
-    render(<VatSelector value="22" onChange={onChange} />);
-
-    fireEvent.click(screen.getByRole("combobox"));
-    fireEvent.click(screen.getByRole("option", { name: "4% – Ridotta" }));
-
-    expect(onChange).toHaveBeenCalledWith("4");
+    expect(onChange).toHaveBeenCalledWith(expected);
   });
 });

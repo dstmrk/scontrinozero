@@ -101,84 +101,84 @@ describe("isBenignFormDataParseError", () => {
 });
 
 describe("isClientNetworkFailure", () => {
-  it('filtra "Load failed" da originalException Error (iOS/Safari)', () => {
-    const event = makeEvent("/login");
-    const hint: EventHint = {
+  it.each([
+    {
+      name: 'filtra "Load failed" da originalException Error (iOS/Safari)',
+      transaction: "/login",
       originalException: new TypeError("Load failed"),
-    };
-
-    expect(isClientNetworkFailure(event, hint)).toBe(true);
-  });
-
-  it('filtra "Failed to fetch" da originalException Error (Chrome/Firefox)', () => {
-    const event = makeEvent("/login");
-    const hint: EventHint = {
+      expected: true,
+    },
+    {
+      name: 'filtra "Failed to fetch" da originalException Error (Chrome/Firefox)',
+      transaction: "/login",
       originalException: new TypeError("Failed to fetch"),
-    };
-
-    expect(isClientNetworkFailure(event, hint)).toBe(true);
-  });
-
-  it('filtra la forma arricchita col suffisso host "Failed to fetch (<host>)" (issue SCONTRINOZERO-R, estensione browser)', () => {
-    const event = makeEvent("/help/credenziali-fisconline");
-    const hint: EventHint = {
+      expected: true,
+    },
+    {
+      name: 'filtra la forma arricchita col suffisso host "Failed to fetch (<host>)" (issue SCONTRINOZERO-R, estensione browser)',
+      transaction: "/help/credenziali-fisconline",
       originalException: new TypeError("Failed to fetch (safesearchinc.com)"),
-    };
-
-    expect(isClientNetworkFailure(event, hint)).toBe(true);
-  });
-
-  it('filtra "Load failed (<host>)" arricchito dalla fetch-instrumentation', () => {
-    const event = makeEvent("/dashboard", "Load failed (example.com)");
-
-    expect(isClientNetworkFailure(event)).toBe(true);
-  });
-
-  it('non filtra un messaggio che estende la base senza il suffisso " (" (es. "Failed to fetchX")', () => {
-    const event = makeEvent("/login");
-    const hint: EventHint = {
+      expected: true,
+    },
+    {
+      name: 'filtra "Load failed (<host>)" arricchito dalla fetch-instrumentation',
+      transaction: "/dashboard",
+      exceptionValue: "Load failed (example.com)",
+      expected: true,
+    },
+    {
+      name: 'non filtra un messaggio che estende la base senza il suffisso " (" (es. "Failed to fetchX")',
+      transaction: "/login",
       originalException: new TypeError("Failed to fetchX"),
-    };
-
-    expect(isClientNetworkFailure(event, hint)).toBe(false);
-  });
-
-  it("filtra quando il messaggio è in originalException stringa", () => {
-    const event = makeEvent("/login");
-    const hint: EventHint = { originalException: "Load failed" };
-
-    expect(isClientNetworkFailure(event, hint)).toBe(true);
-  });
-
-  it("filtra quando il messaggio è nell'exception dell'evento (senza hint)", () => {
-    const event = makeEvent("/login", "Load failed");
-
-    expect(isClientNetworkFailure(event)).toBe(true);
-  });
-
-  it('non filtra "Network request failed" (messaggio non standard)', () => {
-    const event = makeEvent("/login");
-    const hint: EventHint = {
+      expected: false,
+    },
+    {
+      name: "filtra quando il messaggio è in originalException stringa",
+      transaction: "/login",
+      originalException: "Load failed",
+      expected: true,
+    },
+    {
+      name: "filtra quando il messaggio è nell'exception dell'evento (senza hint)",
+      transaction: "/login",
+      exceptionValue: "Load failed",
+      expected: true,
+    },
+    {
+      name: 'non filtra "Network request failed" (messaggio non standard)',
+      transaction: "/login",
       originalException: new TypeError("Network request failed"),
-    };
-
-    expect(isClientNetworkFailure(event, hint)).toBe(false);
-  });
-
-  it("non filtra errori applicativi diversi dai fallimenti di rete", () => {
-    const event = makeEvent("/login");
-    const hint: EventHint = {
+      expected: false,
+    },
+    {
+      name: "non filtra errori applicativi diversi dai fallimenti di rete",
+      transaction: "/login",
       originalException: new TypeError("Failed to parse body as FormData"),
-    };
+      expected: false,
+    },
+    {
+      name: "non filtra eventi senza messaggio di errore",
+      transaction: "/login",
+      expected: false,
+    },
+  ] as {
+    name: string;
+    transaction: string;
+    exceptionValue?: string;
+    originalException?: unknown;
+    expected: boolean;
+  }[])(
+    "$name",
+    ({ transaction, exceptionValue, originalException, expected }) => {
+      const event = makeEvent(transaction, exceptionValue);
+      const hint =
+        originalException !== undefined
+          ? ({ originalException } as EventHint)
+          : undefined;
 
-    expect(isClientNetworkFailure(event, hint)).toBe(false);
-  });
-
-  it("non filtra eventi senza messaggio di errore", () => {
-    const event = makeEvent("/login");
-
-    expect(isClientNetworkFailure(event)).toBe(false);
-  });
+      expect(isClientNetworkFailure(event, hint)).toBe(expected);
+    },
+  );
 });
 
 describe("isReactStreamingDomError", () => {

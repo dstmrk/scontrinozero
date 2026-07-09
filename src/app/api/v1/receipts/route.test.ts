@@ -215,49 +215,23 @@ describe("POST /api/v1/receipts", () => {
     );
   });
 
-  it("ritorna 400 se lotteryCode contiene caratteri non alfanumerici", async () => {
+  it.each([
+    {
+      name: "ritorna 400 se lotteryCode contiene caratteri non alfanumerici",
+      lotteryCode: "ABC-2345",
+    },
+    {
+      name: "ritorna 400 se lotteryCode è in minuscolo",
+      lotteryCode: "abc12345",
+    },
+    { name: "ritorna 400 se lotteryCode è una stringa vuota", lotteryCode: "" },
+    {
+      name: "ritorna 400 se lotteryCode è più corto di 8 caratteri",
+      lotteryCode: "ABC123",
+    },
+  ])("$name", async ({ lotteryCode }) => {
     const res = await POST(
-      makeRequest({
-        ...VALID_BODY,
-        paymentMethod: "PE",
-        lotteryCode: "ABC-2345",
-      }),
-    );
-    expect(res.status).toBe(400);
-    expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
-  });
-
-  it("ritorna 400 se lotteryCode è in minuscolo", async () => {
-    const res = await POST(
-      makeRequest({
-        ...VALID_BODY,
-        paymentMethod: "PE",
-        lotteryCode: "abc12345",
-      }),
-    );
-    expect(res.status).toBe(400);
-    expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
-  });
-
-  it("ritorna 400 se lotteryCode è una stringa vuota", async () => {
-    const res = await POST(
-      makeRequest({
-        ...VALID_BODY,
-        paymentMethod: "PE",
-        lotteryCode: "",
-      }),
-    );
-    expect(res.status).toBe(400);
-    expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
-  });
-
-  it("ritorna 400 se lotteryCode è più corto di 8 caratteri", async () => {
-    const res = await POST(
-      makeRequest({
-        ...VALID_BODY,
-        paymentMethod: "PE",
-        lotteryCode: "ABC123",
-      }),
+      makeRequest({ ...VALID_BODY, paymentMethod: "PE", lotteryCode }),
     );
     expect(res.status).toBe(400);
     expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();

@@ -77,28 +77,20 @@ describe("getStalePendingThresholdMs", () => {
     expect(getStalePendingThresholdMs()).toBe(0.5 * 60 * 1000);
   });
 
-  it("falls back to default on zero (avoids immediate recovery)", () => {
-    vi.stubEnv("STALE_PENDING_THRESHOLD_MINUTES", "0");
-    expect(getStalePendingThresholdMs()).toBe(30 * 60 * 1000);
-  });
-
-  it("falls back to default on negative values", () => {
-    vi.stubEnv("STALE_PENDING_THRESHOLD_MINUTES", "-5");
-    expect(getStalePendingThresholdMs()).toBe(30 * 60 * 1000);
-  });
-
-  it("falls back to default on non-numeric strings", () => {
-    vi.stubEnv("STALE_PENDING_THRESHOLD_MINUTES", "abc");
-    expect(getStalePendingThresholdMs()).toBe(30 * 60 * 1000);
-  });
-
-  it("falls back to default on NaN string", () => {
-    vi.stubEnv("STALE_PENDING_THRESHOLD_MINUTES", "NaN");
-    expect(getStalePendingThresholdMs()).toBe(30 * 60 * 1000);
-  });
-
-  it("falls back to default when the env var is an empty string", () => {
-    vi.stubEnv("STALE_PENDING_THRESHOLD_MINUTES", "");
+  it.each([
+    {
+      name: "falls back to default on zero (avoids immediate recovery)",
+      value: "0",
+    },
+    { name: "falls back to default on negative values", value: "-5" },
+    { name: "falls back to default on non-numeric strings", value: "abc" },
+    { name: "falls back to default on NaN string", value: "NaN" },
+    {
+      name: "falls back to default when the env var is an empty string",
+      value: "",
+    },
+  ])("$name", ({ value }) => {
+    vi.stubEnv("STALE_PENDING_THRESHOLD_MINUTES", value);
     expect(getStalePendingThresholdMs()).toBe(30 * 60 * 1000);
   });
 });

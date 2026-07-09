@@ -40,10 +40,22 @@ describe("PlanSelection", () => {
     vi.clearAllMocks();
   });
 
-  it("mostra il toggle Mensile/Annuale", () => {
+  it.each([
+    {
+      name: "mostra il toggle Mensile/Annuale",
+      first: "Mensile",
+      second: "Annuale",
+    },
+    {
+      name: "mostra i prezzi annuali nel default",
+      first: "€29.99/anno",
+      second: "€49.99/anno",
+    },
+    { name: "mostra le card Starter e Pro", first: "Starter", second: "Pro" },
+  ])("$name", ({ first, second }) => {
     renderComponent();
-    expect(screen.getByText("Mensile")).toBeInTheDocument();
-    expect(screen.getByText("Annuale")).toBeInTheDocument();
+    expect(screen.getByText(first)).toBeInTheDocument();
+    expect(screen.getByText(second)).toBeInTheDocument();
   });
 
   it("parte in modalità annuale di default", () => {
@@ -52,12 +64,6 @@ describe("PlanSelection", () => {
       screen.getByTestId("checkout-price_starter_yearly"),
     ).toBeInTheDocument();
     expect(screen.getByTestId("checkout-price_pro_yearly")).toBeInTheDocument();
-  });
-
-  it("mostra i prezzi annuali nel default", () => {
-    renderComponent();
-    expect(screen.getByText("€29.99/anno")).toBeInTheDocument();
-    expect(screen.getByText("€49.99/anno")).toBeInTheDocument();
   });
 
   it("mostra il badge -50% di default (annuale)", () => {
@@ -108,12 +114,6 @@ describe("PlanSelection", () => {
     renderComponent();
     const proBtn = screen.getByTestId("checkout-price_pro_yearly");
     expect(proBtn).not.toHaveAttribute("data-variant", "outline");
-  });
-
-  it("mostra le card Starter e Pro", () => {
-    renderComponent();
-    expect(screen.getByText("Starter")).toBeInTheDocument();
-    expect(screen.getByText("Pro")).toBeInTheDocument();
   });
 
   it("non mostra i price ID mensili in modalità annuale", () => {

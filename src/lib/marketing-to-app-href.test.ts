@@ -17,92 +17,109 @@ describe("appHref", () => {
     vi.unstubAllEnvs();
   });
 
-  it("returns absolute URL on app subdomain in production", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.scontrinozero.it");
-    vi.stubEnv("NEXT_PUBLIC_APP_HOSTNAME", "app.scontrinozero.it");
+  // Scenari coperti (commenti che motivano i casi non ovvii):
+  // - "baked to production" override: single Docker image buildato con prod
+  //   NEXT_PUBLIC_APP_URL e deployato in sandbox via APP_HOSTNAME; senza la
+  //   priorità APP_HOSTNAME i link /login /register punterebbero a produzione.
+  // - "unset (client bundle case)": lato server di un deploy dove solo
+  //   APP_HOSTNAME è settata (client bundle avrebbe entrambe undefined).
+  // - "scheme (typo guard)": `.env` con APP_HOSTNAME=https://... produrrebbe
+  //   `https://https://.../login` senza guard.
+  it.each([
+    {
+      name: "returns absolute URL on app subdomain in production",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "https://app.scontrinozero.it",
+        NEXT_PUBLIC_APP_HOSTNAME: "app.scontrinozero.it",
+      },
+      cases: [
+        ["/login", "https://app.scontrinozero.it/login"],
+        ["/register", "https://app.scontrinozero.it/register"],
+      ],
+    },
+    {
+      name: "honours APP_HOSTNAME runtime override (sandbox)",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "https://sandbox.scontrinozero.it",
+        APP_HOSTNAME: "sandbox.scontrinozero.it",
+        NEXT_PUBLIC_APP_HOSTNAME: "app.scontrinozero.it",
+      },
+      cases: [["/login", "https://sandbox.scontrinozero.it/login"]],
+    },
+    {
+      name: "derives base URL from APP_HOSTNAME override even if NEXT_PUBLIC_APP_URL is baked to production",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "https://app.scontrinozero.it",
+        APP_HOSTNAME: "sandbox.scontrinozero.it",
+      },
+      cases: [
+        ["/login", "https://sandbox.scontrinozero.it/login"],
+        ["/register", "https://sandbox.scontrinozero.it/register"],
+      ],
+    },
+    {
+      name: "derives base URL from APP_HOSTNAME override when NEXT_PUBLIC_APP_URL is unset (client bundle case)",
+      env: { NODE_ENV: "production", APP_HOSTNAME: "custom.example.com" },
+      cases: [["/login", "https://custom.example.com/login"]],
+    },
+    {
+      name: "falls back to hardcoded default if NEXT_PUBLIC_APP_URL is malformed (never throws)",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "not-a-url",
+        NEXT_PUBLIC_APP_HOSTNAME: "app.scontrinozero.it",
+      },
+      cases: [["/login", "https://app.scontrinozero.it/login"]],
+    },
+    {
+      name: "falls back to hardcoded default if hostname is outside allowlist (never throws)",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "https://evil.example.com",
+        NEXT_PUBLIC_APP_HOSTNAME: "app.scontrinozero.it",
+      },
+      cases: [["/login", "https://app.scontrinozero.it/login"]],
+    },
+    {
+      name: "returns localhost URL in development when env is unset",
+      env: { NODE_ENV: "development" },
+      cases: [["/login", "http://localhost:3000/login"]],
+    },
+    {
+      name: "concatenates path with leading slash without producing double slash",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "https://app.scontrinozero.it/",
+        NEXT_PUBLIC_APP_HOSTNAME: "app.scontrinozero.it",
+      },
+      cases: [["/login", "https://app.scontrinozero.it/login"]],
+    },
+    {
+      name: "falls back to hardcoded default if APP_HOSTNAME contains a scheme (typo guard)",
+      env: {
+        NODE_ENV: "production",
+        APP_HOSTNAME: "https://app.scontrinozero.it",
+      },
+      cases: [["/login", "https://app.scontrinozero.it/login"]],
+    },
+    {
+      name: "falls back to hardcoded default if APP_HOSTNAME contains a path/slash",
+      env: {
+        NODE_ENV: "production",
+        APP_HOSTNAME: "app.scontrinozero.it/redirect",
+      },
+      cases: [["/login", "https://app.scontrinozero.it/login"]],
+    },
+  ])("$name", async ({ env, cases }) => {
+    for (const [key, value] of Object.entries(env)) {
+      vi.stubEnv(key, value);
+    }
     const { appHref } = await import("./marketing-to-app-href");
-    expect(appHref("/login")).toBe("https://app.scontrinozero.it/login");
-    expect(appHref("/register")).toBe("https://app.scontrinozero.it/register");
-  });
-
-  it("honours APP_HOSTNAME runtime override (sandbox)", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://sandbox.scontrinozero.it");
-    vi.stubEnv("APP_HOSTNAME", "sandbox.scontrinozero.it");
-    vi.stubEnv("NEXT_PUBLIC_APP_HOSTNAME", "app.scontrinozero.it");
-    const { appHref } = await import("./marketing-to-app-href");
-    expect(appHref("/login")).toBe("https://sandbox.scontrinozero.it/login");
-  });
-
-  it("derives base URL from APP_HOSTNAME runtime override even if NEXT_PUBLIC_APP_URL is baked to production", async () => {
-    // Scenario: single Docker image built with prod NEXT_PUBLIC_APP_URL and
-    // deployed in sandbox with APP_HOSTNAME override. Without this priority,
-    // /login and /register links would point to production.
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.scontrinozero.it");
-    vi.stubEnv("APP_HOSTNAME", "sandbox.scontrinozero.it");
-    const { appHref } = await import("./marketing-to-app-href");
-    expect(appHref("/login")).toBe("https://sandbox.scontrinozero.it/login");
-    expect(appHref("/register")).toBe(
-      "https://sandbox.scontrinozero.it/register",
-    );
-  });
-
-  it("derives base URL from APP_HOSTNAME runtime override when NEXT_PUBLIC_APP_URL is unset (client bundle case)", async () => {
-    // In client bundles process.env.NEXT_PUBLIC_APP_URL is whatever was baked
-    // at build time. If not baked, it's undefined; APP_HOSTNAME (server-only)
-    // is also undefined client-side, so this test simulates the server side
-    // of a deployment where only APP_HOSTNAME is set.
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("APP_HOSTNAME", "custom.example.com");
-    const { appHref } = await import("./marketing-to-app-href");
-    expect(appHref("/login")).toBe("https://custom.example.com/login");
-  });
-
-  it("falls back to hardcoded default if NEXT_PUBLIC_APP_URL is malformed (never throws)", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "not-a-url");
-    vi.stubEnv("NEXT_PUBLIC_APP_HOSTNAME", "app.scontrinozero.it");
-    const { appHref } = await import("./marketing-to-app-href");
-    expect(appHref("/login")).toBe("https://app.scontrinozero.it/login");
-  });
-
-  it("falls back to hardcoded default if hostname is outside allowlist (never throws)", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://evil.example.com");
-    vi.stubEnv("NEXT_PUBLIC_APP_HOSTNAME", "app.scontrinozero.it");
-    const { appHref } = await import("./marketing-to-app-href");
-    expect(appHref("/login")).toBe("https://app.scontrinozero.it/login");
-  });
-
-  it("returns localhost URL in development when env is unset", async () => {
-    vi.stubEnv("NODE_ENV", "development");
-    const { appHref } = await import("./marketing-to-app-href");
-    expect(appHref("/login")).toBe("http://localhost:3000/login");
-  });
-
-  it("concatenates path with leading slash without producing double slash", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.scontrinozero.it/");
-    vi.stubEnv("NEXT_PUBLIC_APP_HOSTNAME", "app.scontrinozero.it");
-    const { appHref } = await import("./marketing-to-app-href");
-    expect(appHref("/login")).toBe("https://app.scontrinozero.it/login");
-  });
-
-  it("falls back to hardcoded default if APP_HOSTNAME contains a scheme (typo guard)", async () => {
-    // `.env` typo: APP_HOSTNAME=https://app.scontrinozero.it
-    // → senza guard produrrebbe `https://https://app.scontrinozero.it/login`.
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("APP_HOSTNAME", "https://app.scontrinozero.it");
-    const { appHref } = await import("./marketing-to-app-href");
-    expect(appHref("/login")).toBe("https://app.scontrinozero.it/login");
-  });
-
-  it("falls back to hardcoded default if APP_HOSTNAME contains a path/slash", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("APP_HOSTNAME", "app.scontrinozero.it/redirect");
-    const { appHref } = await import("./marketing-to-app-href");
-    expect(appHref("/login")).toBe("https://app.scontrinozero.it/login");
+    for (const [path, expected] of cases) {
+      expect(appHref(path as `/${string}`)).toBe(expected);
+    }
   });
 });

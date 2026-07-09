@@ -100,64 +100,74 @@ describe("CookieJar", () => {
       expect(jar.size).toBe(0);
     });
 
-    it("keeps a cookie with a positive Max-Age", () => {
-      const jar = new CookieJar();
-      jar.applyResponse(
-        new Response("", {
-          headers: [["Set-Cookie", "SID=val; Path=/; Max-Age=3600"]],
-        }),
-      );
+    it.each([
+      {
+        name: "keeps a cookie with a positive Max-Age",
+        responses: ["SID=val; Path=/; Max-Age=3600"],
+        expectedHas: { name: "SID", present: true },
+        expectedHeaderValue: "SID=val",
+      },
+      {
+        name: "removes a cookie deleted with Max-Age=0",
+        responses: ["SID=val; Path=/", "SID=val; Path=/; Max-Age=0"],
+        expectedHas: { name: "SID", present: false },
+        expectedSize: 0,
+      },
+      {
+        name: "removes a cookie deleted with a negative Max-Age",
+        responses: ["SID=val; Path=/", "SID=val; Max-Age=-1"],
+        expectedHas: { name: "SID", present: false },
+      },
+      {
+        name: "ignores Max-Age=0 for a cookie that does not exist (no crash)",
+        responses: ["GONE=x; Max-Age=0"],
+        expectedSize: 0,
+      },
+      {
+        name: "ignores a malformed Expires and keeps the cookie (no false delete)",
+        responses: ["SID=val; Expires=not-a-date"],
+        expectedHas: { name: "SID", present: true },
+        expectedHeaderValue: "SID=val",
+      },
+      {
+        name: "keeps an empty-valued cookie kept alive by a positive Max-Age",
+        responses: ["SID=; Max-Age=3600"],
+        expectedHas: { name: "SID", present: true },
+        expectedHeaderValue: "SID=",
+      },
+      {
+        name: "ignores a non-numeric Max-Age and falls back to value/expires",
+        responses: ["SID=val; Max-Age=abc"],
+        expectedHas: { name: "SID", present: true },
+        expectedHeaderValue: "SID=val",
+      },
+    ] as {
+      name: string;
+      responses: string[];
+      expectedHas?: { name: string; present: boolean };
+      expectedSize?: number;
+      expectedHeaderValue?: string;
+    }[])(
+      "$name",
+      ({ responses, expectedHas, expectedSize, expectedHeaderValue }) => {
+        const jar = new CookieJar();
+        for (const setCookie of responses) {
+          jar.applyResponse(
+            new Response("", { headers: [["Set-Cookie", setCookie]] }),
+          );
+        }
 
-      expect(jar.has("SID")).toBe(true);
-      expect(jar.toHeaderValue()).toBe("SID=val");
-    });
-
-    it("removes a cookie deleted with Max-Age=0", () => {
-      const jar = new CookieJar();
-      jar.applyResponse(
-        new Response("", {
-          headers: [["Set-Cookie", "SID=val; Path=/"]],
-        }),
-      );
-      expect(jar.has("SID")).toBe(true);
-
-      jar.applyResponse(
-        new Response("", {
-          headers: [["Set-Cookie", "SID=val; Path=/; Max-Age=0"]],
-        }),
-      );
-
-      expect(jar.has("SID")).toBe(false);
-      expect(jar.size).toBe(0);
-    });
-
-    it("removes a cookie deleted with a negative Max-Age", () => {
-      const jar = new CookieJar();
-      jar.applyResponse(
-        new Response("", {
-          headers: [["Set-Cookie", "SID=val; Path=/"]],
-        }),
-      );
-
-      jar.applyResponse(
-        new Response("", {
-          headers: [["Set-Cookie", "SID=val; Max-Age=-1"]],
-        }),
-      );
-
-      expect(jar.has("SID")).toBe(false);
-    });
-
-    it("ignores Max-Age=0 for a cookie that does not exist (no crash)", () => {
-      const jar = new CookieJar();
-      jar.applyResponse(
-        new Response("", {
-          headers: [["Set-Cookie", "GONE=x; Max-Age=0"]],
-        }),
-      );
-
-      expect(jar.size).toBe(0);
-    });
+        if (expectedHas) {
+          expect(jar.has(expectedHas.name)).toBe(expectedHas.present);
+        }
+        if (expectedSize !== undefined) {
+          expect(jar.size).toBe(expectedSize);
+        }
+        if (expectedHeaderValue !== undefined) {
+          expect(jar.toHeaderValue()).toBe(expectedHeaderValue);
+        }
+      },
+    );
 
     it("removes a cookie with Expires in the past", () => {
       const jar = new CookieJar();
@@ -190,18 +200,6 @@ describe("CookieJar", () => {
       expect(jar.has("SID")).toBe(true);
     });
 
-    it("ignores a malformed Expires and keeps the cookie (no false delete)", () => {
-      const jar = new CookieJar();
-      jar.applyResponse(
-        new Response("", {
-          headers: [["Set-Cookie", "SID=val; Expires=not-a-date"]],
-        }),
-      );
-
-      expect(jar.has("SID")).toBe(true);
-      expect(jar.toHeaderValue()).toBe("SID=val");
-    });
-
     it("removes a cookie set with an empty value", () => {
       const jar = new CookieJar();
       jar.applyResponse(
@@ -217,18 +215,6 @@ describe("CookieJar", () => {
       );
 
       expect(jar.has("SID")).toBe(false);
-    });
-
-    it("keeps an empty-valued cookie kept alive by a positive Max-Age", () => {
-      const jar = new CookieJar();
-      jar.applyResponse(
-        new Response("", {
-          headers: [["Set-Cookie", "SID=; Max-Age=3600"]],
-        }),
-      );
-
-      expect(jar.has("SID")).toBe(true);
-      expect(jar.toHeaderValue()).toBe("SID=");
     });
 
     it("gives Max-Age precedence over a contradictory Expires (RFC 6265)", () => {
@@ -248,18 +234,6 @@ describe("CookieJar", () => {
       );
 
       expect(jar.has("SID")).toBe(false);
-    });
-
-    it("ignores a non-numeric Max-Age and falls back to value/expires", () => {
-      const jar = new CookieJar();
-      jar.applyResponse(
-        new Response("", {
-          headers: [["Set-Cookie", "SID=val; Max-Age=abc"]],
-        }),
-      );
-
-      expect(jar.has("SID")).toBe(true);
-      expect(jar.toHeaderValue()).toBe("SID=val");
     });
   });
 

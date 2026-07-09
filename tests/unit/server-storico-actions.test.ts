@@ -173,33 +173,24 @@ describe("searchReceipts server action", () => {
   // ── Input validation: date format + pagination clamping ──────────────────
 
   describe("input validation", () => {
-    it("returns error for dateFrom with invalid format (not yyyy-MM-dd)", async () => {
+    it.each([
+      {
+        name: "returns error for dateFrom with invalid format (not yyyy-MM-dd)",
+        dateFrom: "abc",
+      },
+      {
+        name: "returns error for dateFrom with impossible date value (e.g. 2026-99-99)",
+        dateFrom: "2026-99-99",
+      },
+      {
+        name: "returns error for dateFrom with impossible date (Feb 31 — JS normalises to March)",
+        dateFrom: "2026-02-31",
+      },
+    ])("$name", async ({ dateFrom }) => {
       const { searchReceipts } = await import("@/server/storico-actions");
       const { gte } = await import("drizzle-orm");
 
-      const result = await searchReceipts(BIZ_ID, { dateFrom: "abc" });
-
-      expect(result.error).toBeDefined();
-      expect(result.error).toMatch(/dateFrom/);
-      expect(gte).not.toHaveBeenCalled();
-    });
-
-    it("returns error for dateFrom with impossible date value (e.g. 2026-99-99)", async () => {
-      const { searchReceipts } = await import("@/server/storico-actions");
-      const { gte } = await import("drizzle-orm");
-
-      const result = await searchReceipts(BIZ_ID, { dateFrom: "2026-99-99" });
-
-      expect(result.error).toBeDefined();
-      expect(result.error).toMatch(/dateFrom/);
-      expect(gte).not.toHaveBeenCalled();
-    });
-
-    it("returns error for dateFrom with impossible date (Feb 31 — JS normalises to March)", async () => {
-      const { searchReceipts } = await import("@/server/storico-actions");
-      const { gte } = await import("drizzle-orm");
-
-      const result = await searchReceipts(BIZ_ID, { dateFrom: "2026-02-31" });
+      const result = await searchReceipts(BIZ_ID, { dateFrom });
 
       expect(result.error).toBeDefined();
       expect(result.error).toMatch(/dateFrom/);

@@ -164,41 +164,50 @@ describe("emitReceipt server action", () => {
       expect(result.error).toBeUndefined();
     });
 
-    it("rejects grossUnitPrice with more than 2 decimal places", async () => {
+    it.each([
+      {
+        name: "rejects grossUnitPrice with more than 2 decimal places",
+        line: {
+          id: "l",
+          description: "A",
+          quantity: 1,
+          grossUnitPrice: 1.123,
+          vatCode: "22",
+        },
+      },
+      {
+        name: "rejects quantity with more than 3 decimal places",
+        line: {
+          id: "l",
+          description: "A",
+          quantity: 1.1234,
+          grossUnitPrice: 1.0,
+          vatCode: "22",
+        },
+      },
+      {
+        name: "rejects invalid vatCode",
+        line: {
+          id: "l",
+          description: "A",
+          quantity: 1,
+          grossUnitPrice: 1.0,
+          vatCode: "99",
+        },
+      },
+      {
+        name: "rejects empty description",
+        line: {
+          id: "l",
+          description: "",
+          quantity: 1,
+          grossUnitPrice: 1.0,
+          vatCode: "22",
+        },
+      },
+    ])("$name", async ({ line }) => {
       const { emitReceipt } = await import("@/server/receipt-actions");
-      const result = await emitReceipt(
-        makeValidInput({
-          lines: [
-            {
-              id: "l",
-              description: "A",
-              quantity: 1,
-              grossUnitPrice: 1.123,
-              vatCode: "22",
-            },
-          ],
-        }),
-      );
-
-      expect(result.error).toBeDefined();
-      expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
-    });
-
-    it("rejects quantity with more than 3 decimal places", async () => {
-      const { emitReceipt } = await import("@/server/receipt-actions");
-      const result = await emitReceipt(
-        makeValidInput({
-          lines: [
-            {
-              id: "l",
-              description: "A",
-              quantity: 1.1234,
-              grossUnitPrice: 1.0,
-              vatCode: "22",
-            },
-          ],
-        }),
-      );
+      const result = await emitReceipt(makeValidInput({ lines: [line] }));
 
       expect(result.error).toBeDefined();
       expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
@@ -225,46 +234,6 @@ describe("emitReceipt server action", () => {
 
       const { emitReceipt } = await import("@/server/receipt-actions");
       const result = await emitReceipt(makeValidInput({ lines: tooManyLines }));
-
-      expect(result.error).toBeDefined();
-      expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
-    });
-
-    it("rejects invalid vatCode", async () => {
-      const { emitReceipt } = await import("@/server/receipt-actions");
-      const result = await emitReceipt(
-        makeValidInput({
-          lines: [
-            {
-              id: "l",
-              description: "A",
-              quantity: 1,
-              grossUnitPrice: 1.0,
-              vatCode: "99",
-            },
-          ],
-        }),
-      );
-
-      expect(result.error).toBeDefined();
-      expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
-    });
-
-    it("rejects empty description", async () => {
-      const { emitReceipt } = await import("@/server/receipt-actions");
-      const result = await emitReceipt(
-        makeValidInput({
-          lines: [
-            {
-              id: "l",
-              description: "",
-              quantity: 1,
-              grossUnitPrice: 1.0,
-              vatCode: "22",
-            },
-          ],
-        }),
-      );
 
       expect(result.error).toBeDefined();
       expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();

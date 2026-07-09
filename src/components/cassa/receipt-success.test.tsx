@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { ReceiptSuccess } from "./receipt-success";
@@ -54,22 +55,38 @@ describe("ReceiptSuccess", () => {
     expect(screen.getByText("trx-001")).toBeInTheDocument();
   });
 
-  it("hides AdE section when neither adeProgressive nor adeTransactionId is provided", () => {
-    render(<ReceiptSuccess {...defaultProps} />);
+  it.each([
+    {
+      name: "hides AdE section when neither adeProgressive nor adeTransactionId is provided",
+      props: {},
+      text: "Progressivo AdE",
+      present: false,
+    },
+    {
+      name: "shows share button when documentId is provided",
+      props: { documentId: "doc-uuid-123" },
+      text: "Invia ricevuta",
+      present: true,
+    },
+    {
+      name: "hides share button when documentId is not provided",
+      props: {},
+      text: "Invia ricevuta",
+      present: false,
+    },
+  ] as {
+    name: string;
+    props: Partial<ComponentProps<typeof ReceiptSuccess>>;
+    text: string;
+    present: boolean;
+  }[])("$name", ({ props, text, present }) => {
+    render(<ReceiptSuccess {...defaultProps} {...props} />);
 
-    expect(screen.queryByText("Progressivo AdE")).not.toBeInTheDocument();
-  });
-
-  it("shows share button when documentId is provided", () => {
-    render(<ReceiptSuccess {...defaultProps} documentId="doc-uuid-123" />);
-
-    expect(screen.getByText("Invia ricevuta")).toBeInTheDocument();
-  });
-
-  it("hides share button when documentId is not provided", () => {
-    render(<ReceiptSuccess {...defaultProps} />);
-
-    expect(screen.queryByText("Invia ricevuta")).not.toBeInTheDocument();
+    if (present) {
+      expect(screen.getByText(text)).toBeInTheDocument();
+    } else {
+      expect(screen.queryByText(text)).not.toBeInTheDocument();
+    }
   });
 
   it("calls onNewReceipt when 'Nuovo scontrino' is clicked", () => {

@@ -135,18 +135,21 @@ describe("GET /api/export/receipts", () => {
     expect(res.status).toBe(404);
   });
 
-  it("restituisce 400 se la data 'from' non e' yyyy-MM-dd", async () => {
-    const res = await GET(makeRequest("?from=2026/01/01"));
-    expect(res.status).toBe(400);
-  });
-
-  it("restituisce 400 se status non e' tra i valori ammessi", async () => {
-    const res = await GET(makeRequest("?status=PENDING"));
-    expect(res.status).toBe(400);
-  });
-
-  it("restituisce 400 se dateFrom > dateTo", async () => {
-    const res = await GET(makeRequest("?from=2026-05-19&to=2026-01-01"));
+  it.each([
+    {
+      name: "restituisce 400 se la data 'from' non e' yyyy-MM-dd",
+      query: "?from=2026/01/01",
+    },
+    {
+      name: "restituisce 400 se status non e' tra i valori ammessi",
+      query: "?status=PENDING",
+    },
+    {
+      name: "restituisce 400 se dateFrom > dateTo",
+      query: "?from=2026-05-19&to=2026-01-01",
+    },
+  ])("$name", async ({ query }) => {
+    const res = await GET(makeRequest(query));
     expect(res.status).toBe(400);
   });
 

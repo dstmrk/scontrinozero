@@ -1217,45 +1217,44 @@ describe("auth-actions", () => {
       expect(mockSignUp).toHaveBeenCalled();
     });
 
-    it("accepts a captcha token whose hostname is the marketing domain (single-domain / client-side nav)", async () => {
-      // Reproduces the production bug: the widget is loaded from the marketing
-      // domain (e.g. via Next.js <Link> client-side navigation to /login) and
-      // Cloudflare therefore returns hostname=<marketing>, not <app>. Pre-fix
-      // verifyCaptcha rejected this as `captcha_hostname_mismatch`.
-      process.env.NEXT_PUBLIC_APP_HOSTNAME = "app.scontrinozero.it";
-      process.env.NEXT_PUBLIC_MARKETING_HOSTNAME = "scontrinozero.it";
+    // Note sui casi non ovvii:
+    // - "marketing domain": riproduce il bug di produzione — il widget è
+    //   caricato dal dominio marketing (es. via <Link> client-side verso
+    //   /login) e Cloudflare ritorna hostname=<marketing>, non <app>. Pre-fix
+    //   verifyCaptcha lo rifiutava come `captcha_hostname_mismatch`.
+    // - "lowercase / mixed case": Turnstile ritorna data.hostname sempre
+    //   lowercase; se l'env d'identità ha maiuscole ("App.ScontrinoZero.IT")
+    //   il match esatto fallirebbe senza normalizzazione (REVIEW.md #37).
+    it.each([
+      {
+        name: "accepts a captcha token whose hostname is the marketing domain (single-domain / client-side nav)",
+        appHostname: "app.scontrinozero.it",
+        marketingHostname: "scontrinozero.it",
+        captchaHostname: "scontrinozero.it",
+      },
+      {
+        name: "accepts a captcha token whose hostname is the www variant of the marketing domain",
+        appHostname: "app.scontrinozero.it",
+        marketingHostname: "scontrinozero.it",
+        captchaHostname: "www.scontrinozero.it",
+      },
+      {
+        name: "accepts the lowercase Turnstile hostname even when the app env has mixed case",
+        appHostname: "App.ScontrinoZero.IT",
+        marketingHostname: "scontrinozero.it",
+        captchaHostname: "app.scontrinozero.it",
+      },
+      {
+        name: "accepts the marketing hostname even when its env has surrounding whitespace",
+        appHostname: "app.scontrinozero.it",
+        marketingHostname: "  scontrinozero.it  ",
+        captchaHostname: "scontrinozero.it",
+      },
+    ])("$name", async ({ appHostname, marketingHostname, captchaHostname }) => {
+      process.env.NEXT_PUBLIC_APP_HOSTNAME = appHostname;
+      process.env.NEXT_PUBLIC_MARKETING_HOSTNAME = marketingHostname;
       mockFetch.mockResolvedValueOnce(
-        captchaResponse("signup", "scontrinozero.it"),
-      );
-      mockSignUp.mockResolvedValue({
-        data: { user: { id: "user-1" } },
-        error: null,
-      });
-
-      const { signUp } = await import("./auth-actions");
-      try {
-        await signUp(
-          formData({
-            email: "test@example.com",
-            password: "Secure#99x",
-            confirmPassword: "Secure#99x",
-            termsAccepted: "true",
-            specificClausesAccepted: "true",
-            captchaToken: "valid-token",
-          }),
-        );
-      } catch (err) {
-        if (!isRedirectError(err)) throw err;
-      }
-
-      expect(mockSignUp).toHaveBeenCalled();
-    });
-
-    it("accepts a captcha token whose hostname is the www variant of the marketing domain", async () => {
-      process.env.NEXT_PUBLIC_APP_HOSTNAME = "app.scontrinozero.it";
-      process.env.NEXT_PUBLIC_MARKETING_HOSTNAME = "scontrinozero.it";
-      mockFetch.mockResolvedValueOnce(
-        captchaResponse("signup", "www.scontrinozero.it"),
+        captchaResponse("signup", captchaHostname),
       );
       mockSignUp.mockResolvedValue({
         data: { user: { id: "user-1" } },
@@ -1302,70 +1301,6 @@ describe("auth-actions", () => {
 
       expect(result).toEqual({ error: "Verifica CAPTCHA fallita. Riprova." });
       expect(mockSignUp).not.toHaveBeenCalled();
-    });
-
-    it("accepts the lowercase Turnstile hostname even when the app env has mixed case", async () => {
-      // Turnstile siteverify ritorna data.hostname sempre in lowercase; se l'env
-      // d'identità è misconfigurato con maiuscole (es. "App.ScontrinoZero.IT")
-      // il match esatto fallirebbe senza normalizzazione → ogni login bloccato
-      // con captcha_hostname_mismatch (REVIEW.md #37).
-      process.env.NEXT_PUBLIC_APP_HOSTNAME = "App.ScontrinoZero.IT";
-      process.env.NEXT_PUBLIC_MARKETING_HOSTNAME = "scontrinozero.it";
-      mockFetch.mockResolvedValueOnce(
-        captchaResponse("signup", "app.scontrinozero.it"),
-      );
-      mockSignUp.mockResolvedValue({
-        data: { user: { id: "user-1" } },
-        error: null,
-      });
-
-      const { signUp } = await import("./auth-actions");
-      try {
-        await signUp(
-          formData({
-            email: "test@example.com",
-            password: "Secure#99x",
-            confirmPassword: "Secure#99x",
-            termsAccepted: "true",
-            specificClausesAccepted: "true",
-            captchaToken: "valid-token",
-          }),
-        );
-      } catch (err) {
-        if (!isRedirectError(err)) throw err;
-      }
-
-      expect(mockSignUp).toHaveBeenCalled();
-    });
-
-    it("accepts the marketing hostname even when its env has surrounding whitespace", async () => {
-      process.env.NEXT_PUBLIC_APP_HOSTNAME = "app.scontrinozero.it";
-      process.env.NEXT_PUBLIC_MARKETING_HOSTNAME = "  scontrinozero.it  ";
-      mockFetch.mockResolvedValueOnce(
-        captchaResponse("signup", "scontrinozero.it"),
-      );
-      mockSignUp.mockResolvedValue({
-        data: { user: { id: "user-1" } },
-        error: null,
-      });
-
-      const { signUp } = await import("./auth-actions");
-      try {
-        await signUp(
-          formData({
-            email: "test@example.com",
-            password: "Secure#99x",
-            confirmPassword: "Secure#99x",
-            termsAccepted: "true",
-            specificClausesAccepted: "true",
-            captchaToken: "valid-token",
-          }),
-        );
-      } catch (err) {
-        if (!isRedirectError(err)) throw err;
-      }
-
-      expect(mockSignUp).toHaveBeenCalled();
     });
 
     it("falls back to the next hostname env when APP_HOSTNAME is present but empty", async () => {
