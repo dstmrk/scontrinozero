@@ -858,9 +858,24 @@ export async function voidReceiptForBusiness(
     );
   } catch (err) {
     // Sessione CIE scaduta in-flight: 401 AdE = annullo NON registrato → nessun
-    // duplicato. Riga PENDING lasciata intatta (niente ERROR), rinnovo richiesto.
-    // Non è un failure nostro: niente logAdeFailure/Sentry (regola 20).
+    // duplicato. A differenza dei transient (esito ignoto → PENDING obbligatorio,
+    // sotto), qui il 401 garantisce che submitVoid non è passato: marchiamo ERROR
+    // best-effort (REVIEW.md #48). L'index unique parziale su voided_document_id
+    // esclude ERROR (migration 0012) e il SALE resta ACCEPTED, quindi un retry
+    // re-inserisce una nuova riga VOID e ri-sottomette da zero — senza il ghost
+    // PENDING perpetuo. Non è un failure nostro: niente logAdeFailure/Sentry (r.20).
     if (err instanceof AdeReauthRequiredError) {
+      try {
+        await db
+          .update(commercialDocuments)
+          .set({ status: "ERROR" })
+          .where(eq(commercialDocuments.id, voidDocumentId));
+      } catch (updateErr) {
+        logger.warn(
+          { err: updateErr, voidDocumentId },
+          "Failed to mark VOID as ERROR after CIE reauth-required",
+        );
+      }
       return { reauthRequired: true };
     }
 

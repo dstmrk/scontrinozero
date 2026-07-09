@@ -226,7 +226,7 @@ describe("emitReceiptForBusiness", () => {
     expect(mockSubmitSale).not.toHaveBeenCalled();
   });
 
-  it("CIE: sessione scaduta in-flight (AdeReauthRequiredError) → reauthRequired, riga non marcata ERROR", async () => {
+  it("REVIEW #48 — CIE: sessione scaduta in-flight (AdeReauthRequiredError) → reauthRequired + riga marcata ERROR", async () => {
     mockFetchAdePrerequisites.mockResolvedValue({
       method: "cie",
       cedentePrestatore: { built: true },
@@ -238,10 +238,35 @@ describe("emitReceiptForBusiness", () => {
     const result = await emitReceiptForBusiness(VALID_INPUT);
 
     expect(result.reauthRequired).toBe(true);
-    // submitSale tentato ma AdE ha rifiutato la sessione; la riga resta PENDING
-    // (nessun UPDATE a ERROR — 401 = documento non registrato, niente duplicato).
+    // submitSale tentato ma AdE ha rifiutato la sessione (401). A differenza dei
+    // transient (esito ignoto → PENDING obbligatorio, REVIEW #35), qui il 401
+    // garantisce che il documento NON è registrato: marchiamo ERROR così la riga
+    // esce dallo stato PENDING ghost perpetuo nello storico (REVIEW.md #48).
     expect(mockSubmitSale).toHaveBeenCalled();
-    expect(mockUpdateSet).not.toHaveBeenCalledWith({ status: "ERROR" });
+    const updateSets = mockUpdateSet.mock.calls.map((c) => c[0].status);
+    expect(updateSets).toContain("ERROR");
+  });
+
+  it("REVIEW #48 — reauth in-flight: UPDATE a ERROR fallito è swallowed, reauthRequired invariato", async () => {
+    mockFetchAdePrerequisites.mockResolvedValue({
+      method: "cie",
+      cedentePrestatore: { built: true },
+    });
+    mockIsCieSessionMissing.mockReturnValue(false);
+    mockSubmitSale.mockRejectedValue(new AdeReauthRequiredError("cie"));
+    // Best-effort: se l'UPDATE a ERROR fallisce, il servizio non deve propagare
+    // l'errore — l'utente vede comunque il prompt di ricollegamento.
+    mockUpdateWhere.mockRejectedValueOnce(new Error("db down"));
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.reauthRequired).toBe(true);
+    const { logger } = await import("@/lib/logger");
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ documentId: expect.any(String) }),
+      expect.stringContaining("Failed to mark document as ERROR"),
+    );
   });
 
   it("L2: defensive branch — transaction returns row without id → internal error + critical log", async () => {
