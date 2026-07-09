@@ -133,43 +133,6 @@ fatto che i payload sono statici, ma è un single point of failure.
 
 ---
 
-### 43. Flusso CIE: form action POSTate senza validazione allowlist (SAMLResponse esfiltrabile)
-
-- **Categoria:** sicurezza · **Severità:** Medium — stesso pattern del finding #28 (SPID), ma qui il flusso è **live**
-- **File:** `src/lib/ade/real-client.ts:1265` (`cieFetchSamlRequest`: `ssoUrl` da `parseFormAction` dell'HTML del SP AdE), `:1293` (`ciePostSamlRequest` POSTa a `ssoUrl` senza check), `:1463-1495` (`ciePostFinalProbe`: `formAction` da `parseFormAction` dell'HTML IdP), `:1507` (`cieSubmitSamlResponse` POSTa la `SAMLResponse` a `formAction` senza check)
-
-**Problema.** La PR #695 ha introdotto `FEDERATED_ALLOWED_HOSTS` e la valida
-correttamente su **tutti** gli header `Location` (via `resolveAdeRedirect`),
-ma le **form action estratte dall'HTML** con `parseFormAction` vengono usate
-come target di POST senza alcuna validazione: (a) `ssoUrl` dalla pagina del SP
-AdE riceve la `SAMLRequest`; (b) `formAction` dalla pagina finale dell'IdP
-riceve la **`SAMLResponse`**, che contiene l'asserzione d'identità dell'utente
-(nome, cognome, data di nascita, codice fiscale — gli attributi del consenso
-e1s4). Se l'HTML del SP/IdP fosse manomesso o servito in modo anomalo, quei
-dati verrebbero POSTati verso un host arbitrario. Le credenziali CIE non sono
-a rischio (`ciePostCredentials` usa l'URL hardcoded `CIE_IDP_BASE_URL`), e il
-TLS verso AdE/IdP mitiga in pratica — stessa classe di rischio del finding
-#28, che però copre solo il flusso SPID (non cablato).
-
-**Fix (non ambiguo).**
-
-1. Validare **ogni** output di `parseFormAction` nel flusso CIE contro
-   `FEDERATED_ALLOWED_HOSTS` prima del POST: riusare
-   `resolveAdeRedirect(currentPageUrl, action, FEDERATED_ALLOWED_HOSTS)`
-   (risolve anche i path relativi) sui tre punti: `ssoUrl` (`:1265`),
-   `formAction` (`:1480`, incluso il caso in cui vince il fallback ACS) e
-   verifica che l'unico punto già validato (`iampeAction`, `:1522`) resti
-   invariato.
-2. Errore esplicito (`AdePortalError`), mai degradare al fallback se l'action
-   parsata è fuori allowlist.
-3. **Test** (in `real-client-cie.test.ts`): form action verso host fuori
-   allowlist → throw senza che il POST parta; action relativa → risolta e
-   accettata; flusso HAR-conforme → invariato.
-4. Il finding #28 resta aperto per SPID: applicargli lo stesso helper quando
-   `loginSpid` verrà cablato.
-
----
-
 ### 47. Copy marketing/help ancora Fisconline-only: CIE è live ma il sito dice il contrario
 
 - **Categoria:** funzionalità/contenuti (regola 8) · **Severità:** Medium — TODO dichiarato nella PR #695 e rimandato, va tracciato
@@ -325,8 +288,10 @@ pratica).
    valido → flusso invariato.
 
 > **Nota.** `FEDERATED_ALLOWED_HOSTS` copre già i redirect (`Location`) del
-> flusso federato, ma le **form action** restano non validate (anche nel flusso
-> CIE): vedi finding **#43** (P2). Il fix di #43 introduce l'helper da riusare
+> flusso federato; dal fix del finding #43 anche le **form action** del flusso
+> CIE (`ssoUrl` in `cieFetchSamlRequest`, `formAction` in `ciePostFinalProbe`)
+> sono validate via `resolveAdeRedirect(currentPageUrl, action,
+FEDERATED_ALLOWED_HOSTS)`. Riusare lo stesso pattern su `parseFormAction`
 > qui quando `loginSpid` verrà cablato.
 
 ---

@@ -1285,7 +1285,15 @@ export class RealAdeClient implements AdeClient {
         "CIE: failed to parse SAMLRequest form from /rp/cie/sel",
       );
     }
-    return { ssoUrl, samlRequest, relayState };
+    // La form action è estratta dall'HTML del SP AdE: va validata contro la
+    // allowlist federata prima di usarla come target del POST SAMLRequest,
+    // esattamente come i redirect Location (REVIEW #43). Risolve anche i path
+    // relativi contro l'origin della pagina corrente.
+    return {
+      ssoUrl: resolveAdeRedirect(url, ssoUrl, FEDERATED_ALLOWED_HOSTS),
+      samlRequest,
+      relayState,
+    };
   }
 
   /**
@@ -1489,9 +1497,6 @@ export class RealAdeClient implements AdeClient {
     const html = await response.text();
     const samlResponse = this.parseHiddenInput(html, "SAMLResponse");
     const relayState = this.parseHiddenInput(html, "RelayState");
-    const formAction =
-      this.parseFormAction(html) ??
-      `${ADE_SP_BASE_URL}/sp/AssertionConsumerService7`;
 
     if (!samlResponse || !relayState) {
       throw new AdePortalError(
@@ -1499,6 +1504,17 @@ export class RealAdeClient implements AdeClient {
         "CIE: failed to parse SAMLResponse from IdP final page",
       );
     }
+
+    // La SAMLResponse porta l'asserzione d'identità (CF, nome, cognome, data di
+    // nascita): la form action estratta dall'HTML dell'IdP va validata contro la
+    // allowlist federata prima di POSTarla (REVIEW #43), mai degradare al
+    // fallback su action fuori allowlist. Il fallback ACS è un URL AdE hardcoded
+    // e fidato, usato solo quando la form non è parsabile.
+    const parsedAction = this.parseFormAction(html);
+    const formAction = parsedAction
+      ? resolveAdeRedirect(probeUrl, parsedAction, FEDERATED_ALLOWED_HOSTS)
+      : `${ADE_SP_BASE_URL}/sp/AssertionConsumerService7`;
+
     return { samlResponse, relayState, formAction };
   }
 

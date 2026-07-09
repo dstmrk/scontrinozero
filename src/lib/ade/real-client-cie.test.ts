@@ -7,7 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { RealAdeClient } from "./real-client";
-import { AdeAuthError, AdeSpidTimeoutError } from "./errors";
+import { AdeAuthError, AdePortalError, AdeSpidTimeoutError } from "./errors";
 import type { CieCredentials } from "./types";
 
 vi.mock("@/lib/logger", () => ({
@@ -55,18 +55,21 @@ const CREDENTIALS: CieCredentials = {
 };
 
 /**
- * Queue the full CIE happy-path fetch sequence (23 request() calls).
- * push approvato: il body di checkpush cambia dal baseline al secondo poll.
+ * Queue the CIE preamble (12 request() calls): dalla GET /rp/cie/sel fino alla
+ * pagina finale e1s5, ESCLUSA la response del POST final-probe che porta la
+ * SAMLResponse. Usata dai test che iniettano una response #13 su misura.
+ *
+ * `firstFormAction` è l'action della form SAMLRequest iniziale (default: IdP
+ * assoluto). I test anti-SSRF la sovrascrivono per verificarne la validazione.
  */
-function mockCieHappyPath(fetchMock: ReturnType<typeof vi.fn>): void {
+function queueCiePreamble(
+  fetchMock: ReturnType<typeof vi.fn>,
+  firstFormAction: string = `${IDP}/idp/profile/SAML2/POST/SSO`,
+): void {
   // 1. GET /rp/cie/sel → form verso l'IdP
   fetchMock.mockResolvedValueOnce(
     mockResponse({
-      body: samlForm(
-        `${IDP}/idp/profile/SAML2/POST/SSO`,
-        "SAMLRequest",
-        "selcie",
-      ),
+      body: samlForm(firstFormAction, "SAMLRequest", "selcie"),
     }),
   );
   // 2a. POST IdP SSO → 302 probe e1s1
@@ -108,11 +111,25 @@ function mockCieHappyPath(fetchMock: ReturnType<typeof vi.fn>): void {
   );
   // 6b. GET e1s5 → 200 final probe page
   fetchMock.mockResolvedValueOnce(mockResponse({}));
+}
+
+/**
+ * Queue the full CIE happy-path fetch sequence (23 request() calls).
+ * push approvato: il body di checkpush cambia dal baseline al secondo poll.
+ *
+ * `firstFormAction`/`finalProbeAction` restano parametrizzabili per i test che
+ * ne verificano la risoluzione (es. action relativa risolta contro l'origin).
+ */
+function mockCieHappyPath(
+  fetchMock: ReturnType<typeof vi.fn>,
+  opts: { firstFormAction?: string; finalProbeAction?: string } = {},
+): void {
+  queueCiePreamble(fetchMock, opts.firstFormAction);
   // 7. POST final probe → 200 SAMLResponse form verso AdE SP
   fetchMock.mockResolvedValueOnce(
     mockResponse({
       body: samlForm(
-        `${SP}/sp/AssertionConsumerService7`,
+        opts.finalProbeAction ?? `${SP}/sp/AssertionConsumerService7`,
         "SAMLResponse",
         "selcie",
       ),
@@ -322,5 +339,166 @@ describe("RealAdeClient.loginCie", () => {
     );
     // 6 richieste di preambolo + esattamente 12 checkpush, non 13.
     expect(fetchMock).toHaveBeenCalledTimes(6 + 12);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #43 — form action del flusso CIE validate contro FEDERATED_ALLOWED_HOSTS
+// prima del POST (la SAMLResponse porta l'asserzione d'identità: CF, nome,
+// cognome, data di nascita). Un HTML SP/IdP manomesso non deve poter esfiltrare
+// la SAMLRequest o la SAMLResponse verso un host arbitrario.
+// ---------------------------------------------------------------------------
+describe("RealAdeClient.loginCie — form action allowlist (anti-SSRF)", () => {
+  const ATTACKER = "https://attacker.example.com";
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it("blocks a SAMLRequest form action pointing outside the allowlist", async () => {
+    // Response #1: la pagina SP AdE con una form action verso un host arbitrario.
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        body: samlForm(`${ATTACKER}/sso`, "SAMLRequest", "selcie"),
+      }),
+    );
+
+    const client = new RealAdeClient({ ciePollIntervalMs: 0 });
+    await expect(client.loginCie(CREDENTIALS)).rejects.toThrow(AdePortalError);
+
+    // La SAMLRequest non deve essere POSTata: solo la GET iniziale è partita.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const postedToAttacker = fetchMock.mock.calls.some(([url]) =>
+      String(url).startsWith(ATTACKER),
+    );
+    expect(postedToAttacker).toBe(false);
+  });
+
+  it("blocks a SAMLResponse form action pointing outside the allowlist", async () => {
+    // Preambolo fino alla pagina e1s5, poi la response #13 (POST final probe)
+    // porta una form SAMLResponse verso un host arbitrario.
+    queueCiePreamble(fetchMock);
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        body: samlForm(`${ATTACKER}/acs`, "SAMLResponse", "selcie"),
+      }),
+    );
+
+    const client = new RealAdeClient({ ciePollIntervalMs: 0 });
+    await expect(client.loginCie(CREDENTIALS)).rejects.toThrow(AdePortalError);
+
+    // Il POST della SAMLResponse (#14) non deve partire: la validazione scatta
+    // nel parsing della form (#13). Nessuna chiamata verso l'attacker.
+    expect(fetchMock).toHaveBeenCalledTimes(13);
+    const postedToAttacker = fetchMock.mock.calls.some(([url]) =>
+      String(url).startsWith(ATTACKER),
+    );
+    expect(postedToAttacker).toBe(false);
+  });
+
+  it("resolves a relative SAMLRequest form action against the SP origin and accepts it", async () => {
+    // Action relativa sulla pagina /rp/cie/sel → risolta contro sp.agenziaentrate.gov.it
+    // (in allowlist): il flusso completa e il POST parte verso l'URL assoluto risolto.
+    mockCieHappyPath(fetchMock, {
+      firstFormAction: "/idp/profile/SAML2/POST/SSO",
+    });
+
+    const client = new RealAdeClient({ ciePollIntervalMs: 0 });
+    const session = await client.loginCie(CREDENTIALS);
+
+    expect(session.partitaIva).toBe("10872631006");
+    // La 2ª chiamata (POST SAMLRequest) usa l'URL assoluto risolto contro l'origin SP.
+    expect(String(fetchMock.mock.calls[1][0])).toBe(
+      `${SP}/idp/profile/SAML2/POST/SSO`,
+    );
+  });
+
+  it("resolves a relative SAMLResponse form action against the IdP origin and accepts it", async () => {
+    // Action relativa sulla pagina finale (host IdP, in allowlist): risolta e accettata.
+    mockCieHappyPath(fetchMock, {
+      finalProbeAction: "/sp/AssertionConsumerService7",
+    });
+
+    const client = new RealAdeClient({ ciePollIntervalMs: 0 });
+    const session = await client.loginCie(CREDENTIALS);
+
+    expect(session.partitaIva).toBe("10872631006");
+    // La SAMLResponse è POSTata verso l'URL assoluto risolto contro l'origin IdP.
+    const acsPost = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        String(url).endsWith("/sp/AssertionConsumerService7") &&
+        (init as RequestInit)?.method === "POST",
+    );
+    expect(acsPost).toBeDefined();
+    expect(String(acsPost![0])).toBe(`${IDP}/sp/AssertionConsumerService7`);
+  });
+
+  it("falls back to the hardcoded ACS URL when the final page has no parsable form action", async () => {
+    // Pagina finale con SAMLResponse+RelayState ma senza attributo action:
+    // parseFormAction → null → fallback all'URL ACS AdE hardcoded (fidato),
+    // non un host arbitrario.
+    queueCiePreamble(fetchMock);
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        body: `<form method="post">
+          <input type="hidden" name="SAMLResponse" value="ABC123" />
+          <input type="hidden" name="RelayState" value="selcie" />
+        </form>`,
+      }),
+    );
+    // 8a-9f: coda happy-path invariata dopo il POST ACS.
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({ status: 302, location: `${SP}/make4SAM` }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        body: samlForm(
+          `${IAMPE}/sam/Consumer/metaAlias/agenziaentrate/age-sp`,
+          "SAMLResponse",
+          `${PORTALE}/PortaleWeb/home`,
+        ),
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        status: 302,
+        location: `${PORTALE}/PortaleWeb/home?to=FATBTB`,
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(mockResponse({}));
+    fetchMock.mockResolvedValueOnce(mockResponse({ status: 501 }));
+    fetchMock.mockResolvedValueOnce(mockResponse({}));
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({ headers: [["x-appl", "tok"]] }),
+    );
+    fetchMock.mockResolvedValueOnce(mockResponse({}));
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        body: {
+          PIva: [{ piva: "10872631006", denominazione: "DE STEFANO MARCO" }],
+          cfUidUltimo: "DSTMRC86T02H501V",
+        },
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(mockResponse({}));
+
+    const client = new RealAdeClient({ ciePollIntervalMs: 0 });
+    const session = await client.loginCie(CREDENTIALS);
+
+    expect(session.partitaIva).toBe("10872631006");
+    // Il POST della SAMLResponse è andato all'ACS AdE hardcoded.
+    const acsPost = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        String(url) === `${SP}/sp/AssertionConsumerService7` &&
+        (init as RequestInit)?.method === "POST",
+    );
+    expect(acsPost).toBeDefined();
   });
 });
