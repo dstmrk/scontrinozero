@@ -688,7 +688,15 @@ Codici HTTP:
 - 409: conflitto idempotency — un'altra richiesta con la stessa `idempotencyKey`
   è in corso (`PENDING_IN_PROGRESS` / `VOID_PENDING_IN_PROGRESS`), è già stata
   rifiutata (`ALREADY_REJECTED`), oppure la key è stata riusata con un payload
-  diverso (`IDEMPOTENCY_PAYLOAD_MISMATCH`: in tal caso usa una nuova key)
+  diverso (`IDEMPOTENCY_PAYLOAD_MISMATCH`: in tal caso usa una nuova key). Due
+  casi specifici dello stesso stato:
+  - `IDEMPOTENCY_PAYLOAD_MISMATCH` copre anche il **riuso cross-operazione**
+    della key: una key già usata per un'emissione non può essere usata per un
+    annullo e viceversa. **La idempotency key deve essere unica per operazione:
+    emit e void non condividono mai la stessa key.**
+  - `ALREADY_VOIDED`: la key identifica uno scontrino già annullato. Un replay
+    dell'emissione con quella key viene rifiutato (il documento non è più
+    valido): emetti un nuovo scontrino con una key diversa.
 - 422: rifiuto funzionale / errore AdE
 - 503: errore tecnico temporaneo AdE
 

@@ -432,6 +432,39 @@ describe("voidReceiptForBusiness", () => {
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
+  it("REVIEW.md #56: void con la key di un'emissione (SALE) → IDEMPOTENCY_PAYLOAD_MISMATCH, nessun falso annullo", async () => {
+    mockReturning.mockResolvedValue([]); // INSERT VOID conflict sulla key
+    // La riga trovata per questa key è un SALE ACCEPTED (stale): senza il guard
+    // kind, resolveVoidConflict cadeva nel ramo "PENDING or ERROR" e
+    // finalizeVoidOnly marcava il SALE VOID_ACCEPTED senza mai chiamare AdE.
+    mockSelectLimit
+      .mockResolvedValueOnce([FAKE_SALE_DOC]) // fetch del SALE da annullare
+      .mockResolvedValueOnce([
+        {
+          id: "sale-collision",
+          kind: "SALE",
+          status: "ACCEPTED",
+          adeTransactionId: "trx-sale",
+          adeProgressive: "prog-sale",
+          voidedDocumentId: null,
+          createdAt: new Date(Date.now() - 35 * 60 * 1000),
+          updatedAt: new Date(Date.now() - 35 * 60 * 1000),
+        },
+      ]);
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect((result as { code?: string }).code).toBe(
+      "IDEMPOTENCY_PAYLOAD_MISMATCH",
+    );
+    // CRITICO: nessuna chiamata AdE e la riga SALE non viene toccata.
+    expect(mockLogin).not.toHaveBeenCalled();
+    expect(mockSubmitVoid).not.toHaveBeenCalled();
+    const updateStatuses = mockUpdateSet.mock.calls.map((c) => c[0].status);
+    expect(updateStatuses).not.toContain("VOID_ACCEPTED");
+  });
+
   it("idempotency: ritorna errore se il documento VOID esistente è PENDING", async () => {
     mockReturning.mockResolvedValue([]); // conflict
 

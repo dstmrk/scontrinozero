@@ -72,6 +72,7 @@ async function resolveVoidConflict(
   const [existingByKey] = await db
     .select({
       id: commercialDocuments.id,
+      kind: commercialDocuments.kind,
       status: commercialDocuments.status,
       adeTransactionId: commercialDocuments.adeTransactionId,
       adeProgressive: commercialDocuments.adeProgressive,
@@ -89,6 +90,27 @@ async function resolveVoidConflict(
     .limit(1);
 
   if (existingByKey) {
+    // REVIEW.md #56: NON filtriamo la SELECT per kind (romperebbe il Case B
+    // sotto: un conflitto su `voided_document_id` non ha riga con QUESTA key).
+    // La SELECT per key trova al più una riga (UNIQUE incondizionato su
+    // business_id+idempotency_key). Se è un SALE, il client ha riusato per un
+    // annullo la key di un'emissione: senza questo guard il ramo stale
+    // marcherebbe il SALE VOID_ACCEPTED senza mai chiamare AdE (falso annullo).
+    if (existingByKey.kind === "SALE") {
+      logger.warn(
+        { businessId, saleDocumentId: existingByKey.id },
+        "Void idempotency key already used for a SALE",
+      );
+      return {
+        kind: "done",
+        result: {
+          error:
+            "La chiave di idempotenza è già stata usata per un'emissione. Usa una nuova chiave per annullare.",
+          code: "IDEMPOTENCY_PAYLOAD_MISMATCH",
+        },
+      };
+    }
+
     // P1.4: stessa idempotencyKey ma SALE annullato diverso → 409. Evita di
     // ritornare il risultato di un annullo che non corrisponde alla richiesta.
     if (
@@ -215,6 +237,10 @@ async function finalizeVoidOnly(
     // prima di rinunciare (3 tentativi: 200ms → 500ms → 1s).
     await retryOnStatementTimeout("void-finalize-only", () =>
       withStatementTimeout(3000, async (tx) => {
+        // REVIEW.md #56 (defense in depth): guard `kind` su entrambe le UPDATE.
+        // Se una key riusata avesse fatto puntare gli ID a una riga del kind
+        // sbagliato, il guard impedisce di flippare un SALE a VOID_ACCEPTED (o
+        // viceversa). `kind` è immutabile → non rompe i retry legittimi.
         await tx
           .update(commercialDocuments)
           .set({
@@ -222,12 +248,22 @@ async function finalizeVoidOnly(
             adeTransactionId,
             adeProgressive,
           })
-          .where(eq(commercialDocuments.id, voidDocumentId));
+          .where(
+            and(
+              eq(commercialDocuments.id, voidDocumentId),
+              eq(commercialDocuments.kind, "VOID"),
+            ),
+          );
 
         await tx
           .update(commercialDocuments)
           .set({ status: "VOID_ACCEPTED" })
-          .where(eq(commercialDocuments.id, saleDocumentId));
+          .where(
+            and(
+              eq(commercialDocuments.id, saleDocumentId),
+              eq(commercialDocuments.kind, "SALE"),
+            ),
+          );
       }),
     );
 

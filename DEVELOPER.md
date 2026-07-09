@@ -205,9 +205,19 @@ curl https://api.scontrinozero.it/v1/receipts/550e8400-e29b-41d4-a716-4466554400
 - `400` — validazione input
 - `401` — API key mancante, non valida, o revocata
 - `402` — piano non supporta API access (upgrade a Pro/Developer)
+- `409` — conflitto idempotency (body include `code`): `PENDING_IN_PROGRESS` /
+  `VOID_PENDING_IN_PROGRESS` (richiesta in corso, ritenta), `ALREADY_REJECTED`,
+  `IDEMPOTENCY_PAYLOAD_MISMATCH` (key riusata con payload diverso **o**
+  cross-operazione), `ALREADY_VOIDED` (la key identifica uno scontrino già
+  annullato)
 - `422` — scontrino rifiutato dall'AdE (body include `adeErrors`)
 - `429` — rate limit superato (header `Retry-After`)
 - `500` — errore interno
+
+> ⚠️ **La idempotency key deve essere unica per operazione.** Emissione e
+> annullo non condividono mai la stessa `idempotencyKey`: riusarla tra le due
+> operazioni ritorna `409 IDEMPOTENCY_PAYLOAD_MISMATCH`. Genera una key nuova
+> per ogni transazione (emit e void inclusi).
 
 ### Partner Management API (Tier 2 — Fase B)
 
