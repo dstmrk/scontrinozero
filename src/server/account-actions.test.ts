@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { UnauthenticatedError } from "@/lib/auth-errors";
 import { logger } from "@/lib/logger";
+import { ERROR_MESSAGES } from "@/lib/error-messages";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -37,10 +38,30 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 const mockSignOut = vi.fn();
+const mockSignInWithPassword = vi.fn();
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabaseClient: vi.fn().mockResolvedValue({
-    auth: { signOut: mockSignOut },
+    auth: {
+      signOut: mockSignOut,
+      signInWithPassword: mockSignInWithPassword,
+    },
   }),
+}));
+
+const mockCheck = vi.fn();
+vi.mock("@/lib/rate-limit", () => ({
+  RateLimiter: vi.fn().mockImplementation(function () {
+    return { check: mockCheck };
+  }),
+  RATE_LIMIT_WINDOWS: { AUTH_15_MIN: 15 * 60 * 1000 },
+}));
+
+vi.mock("next/headers", () => ({
+  headers: vi.fn().mockResolvedValue(new Headers()),
+}));
+
+vi.mock("@/lib/get-client-ip", () => ({
+  getClientIp: vi.fn().mockReturnValue("1.2.3.4"),
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -66,6 +87,14 @@ vi.mock("next/navigation", () => ({
 // ---------------------------------------------------------------------------
 
 const FAKE_USER = { id: "user-123", email: "utente@test.it" };
+const CORRECT_PASSWORD = "SuperSecret123!";
+
+/** FormData con la password corrente, come la invia il dialog di conferma. */
+function formWithPassword(password: string = CORRECT_PASSWORD): FormData {
+  const fd = new FormData();
+  fd.set("currentPassword", password);
+  return fd;
+}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -78,13 +107,19 @@ describe("account-actions", () => {
     mockDeleteReturning.mockResolvedValue([{ id: "profile-456" }]);
     mockAdminDeleteUser.mockResolvedValue({ error: null });
     mockSignOut.mockResolvedValue({});
+    mockSignInWithPassword.mockResolvedValue({ error: null });
+    mockCheck.mockReturnValue({ success: true });
   });
 
   describe("deleteAccount", () => {
-    it("happy path: deletes profile, removes auth user, signs out, and redirects to /", async () => {
+    it("happy path: verifies password, deletes profile, removes auth user, signs out, and redirects to /", async () => {
       const { deleteAccount } = await import("./account-actions");
-      await deleteAccount();
+      await deleteAccount(formWithPassword());
 
+      expect(mockSignInWithPassword).toHaveBeenCalledWith({
+        email: FAKE_USER.email,
+        password: CORRECT_PASSWORD,
+      });
       expect(mockDeleteReturning).toHaveBeenCalled();
       expect(mockAdminDeleteUser).toHaveBeenCalledWith(FAKE_USER.id);
       expect(mockSignOut).toHaveBeenCalled();
@@ -106,7 +141,7 @@ describe("account-actions", () => {
       });
 
       const { deleteAccount } = await import("./account-actions");
-      await deleteAccount();
+      await deleteAccount(formWithPassword());
 
       // Auth must be deleted first so that if it fails the profile is still intact
       expect(callOrder.indexOf("deleteUser")).toBeLessThan(
@@ -122,7 +157,7 @@ describe("account-actions", () => {
       mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
 
       const { deleteAccount } = await import("./account-actions");
-      const result = await deleteAccount();
+      const result = await deleteAccount(formWithPassword());
 
       expect(result.error).toBe("Non autenticato.");
       expect(mockDeleteReturning).not.toHaveBeenCalled();
@@ -134,7 +169,7 @@ describe("account-actions", () => {
       mockGetAuthenticatedUser.mockRejectedValue(new Error("db timeout"));
 
       const { deleteAccount } = await import("./account-actions");
-      const result = await deleteAccount();
+      const result = await deleteAccount(formWithPassword());
 
       expect(result.error).toBe(
         "Servizio temporaneamente non disponibile. Riprova.",
@@ -144,13 +179,79 @@ describe("account-actions", () => {
       expect(logger.error).toHaveBeenCalledTimes(1);
     });
 
+    // ---- Re-authentication gate (REVIEW.md #62) -------------------------
+
+    it("returns an error and never purges when the password field is missing", async () => {
+      const { deleteAccount } = await import("./account-actions");
+      const result = await deleteAccount(new FormData());
+
+      expect(result.error).toBe("Inserisci la tua password.");
+      expect(mockSignInWithPassword).not.toHaveBeenCalled();
+      expect(mockAdminDeleteUser).not.toHaveBeenCalled();
+      expect(mockDeleteReturning).not.toHaveBeenCalled();
+      expect(mockRedirect).not.toHaveBeenCalled();
+    });
+
+    it("rejects a wrong password (warn, no purge) before touching any data", async () => {
+      mockSignInWithPassword.mockResolvedValue({
+        error: { message: "Invalid login credentials" },
+      });
+
+      const { deleteAccount } = await import("./account-actions");
+      const result = await deleteAccount(formWithPassword("wrong-password"));
+
+      expect(result.error).toBe("Password non corretta.");
+      expect(mockAdminDeleteUser).not.toHaveBeenCalled();
+      expect(mockDeleteReturning).not.toHaveBeenCalled();
+      expect(mockRedirect).not.toHaveBeenCalled();
+      // Predictable user-input error → warn, not Sentry-bound error (regola 20)
+      expect(logger.warn).toHaveBeenCalled();
+      expect(logger.error).not.toHaveBeenCalled();
+    });
+
+    it("passes the raw password (no trim) to signInWithPassword", async () => {
+      const { deleteAccount } = await import("./account-actions");
+      await deleteAccount(formWithPassword("  spaced pw  "));
+
+      expect(mockSignInWithPassword).toHaveBeenCalledWith({
+        email: FAKE_USER.email,
+        password: "  spaced pw  ",
+      });
+    });
+
+    it("rate-limits repeated attempts (no signIn, no purge) and warns", async () => {
+      mockCheck.mockReturnValue({ success: false });
+
+      const { deleteAccount } = await import("./account-actions");
+      const result = await deleteAccount(formWithPassword());
+
+      expect(result.error).toBe(ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES);
+      expect(mockSignInWithPassword).not.toHaveBeenCalled();
+      expect(mockAdminDeleteUser).not.toHaveBeenCalled();
+      expect(mockRedirect).not.toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalled();
+    });
+
+    it("returns an error when the user has no email (cannot re-authenticate)", async () => {
+      mockGetAuthenticatedUser.mockResolvedValue({ id: "user-123" });
+
+      const { deleteAccount } = await import("./account-actions");
+      const result = await deleteAccount(formWithPassword());
+
+      expect(result.error).toBe("Email utente non disponibile.");
+      expect(mockSignInWithPassword).not.toHaveBeenCalled();
+      expect(mockAdminDeleteUser).not.toHaveBeenCalled();
+    });
+
+    // ---- Purge behaviour (unchanged) ------------------------------------
+
     it("logs an error but still redirects when profile is not found after auth deletion", async () => {
       // Auth user was deleted but profile row was not found (already cleaned up or never created).
       // The function should log the anomaly and still redirect — not surface an error to the UI.
       mockDeleteReturning.mockResolvedValue([]);
 
       const { deleteAccount } = await import("./account-actions");
-      await deleteAccount();
+      await deleteAccount(formWithPassword());
 
       expect(mockAdminDeleteUser).toHaveBeenCalledWith(FAKE_USER.id);
       expect(mockRedirect).toHaveBeenCalledWith("/");
@@ -163,7 +264,7 @@ describe("account-actions", () => {
       });
 
       const { deleteAccount } = await import("./account-actions");
-      const promise = deleteAccount();
+      const promise = deleteAccount(formWithPassword());
       await vi.runAllTimersAsync();
       const result = await promise;
 
@@ -182,7 +283,7 @@ describe("account-actions", () => {
         .mockResolvedValueOnce({ error: null });
 
       const { deleteAccount } = await import("./account-actions");
-      const promise = deleteAccount();
+      const promise = deleteAccount(formWithPassword());
       await vi.runAllTimersAsync();
       await promise;
 
@@ -198,7 +299,7 @@ describe("account-actions", () => {
       });
 
       const { deleteAccount } = await import("./account-actions");
-      const promise = deleteAccount();
+      const promise = deleteAccount(formWithPassword());
       await vi.runAllTimersAsync();
       const result = await promise;
 
@@ -211,7 +312,7 @@ describe("account-actions", () => {
 
     it("sends AccountDeletionEmail after successful deletion", async () => {
       const { deleteAccount } = await import("./account-actions");
-      await deleteAccount();
+      await deleteAccount(formWithPassword());
 
       await Promise.resolve();
       expect(mockSendEmail).toHaveBeenCalledWith(
@@ -223,7 +324,7 @@ describe("account-actions", () => {
       mockSendEmail.mockRejectedValueOnce(new Error("Resend down"));
 
       const { deleteAccount } = await import("./account-actions");
-      await deleteAccount();
+      await deleteAccount(formWithPassword());
 
       expect(mockRedirect).toHaveBeenCalledWith("/");
     });
@@ -234,7 +335,7 @@ describe("account-actions", () => {
       mockDeleteReturning.mockResolvedValue([]);
 
       const { deleteAccount } = await import("./account-actions");
-      await deleteAccount();
+      await deleteAccount(formWithPassword());
 
       await Promise.resolve();
       expect(mockSendEmail).toHaveBeenCalledWith(
@@ -252,7 +353,7 @@ describe("account-actions", () => {
 
       const { deleteAccount } = await import("./account-actions");
       // Must not throw
-      await deleteAccount();
+      await deleteAccount(formWithPassword());
 
       // Auth was already deleted, so redirect still happens
       expect(mockRedirect).toHaveBeenCalledWith("/");

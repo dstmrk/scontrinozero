@@ -13,7 +13,7 @@ import { AccountDeleteSection } from "./account-delete-section";
 
 const mockDeleteAccount = vi.fn();
 vi.mock("@/server/account-actions", () => ({
-  deleteAccount: () => mockDeleteAccount(),
+  deleteAccount: (fd: FormData) => mockDeleteAccount(fd),
 }));
 
 // scrollIntoView richiesto da Radix UI Dialog
@@ -34,6 +34,13 @@ function renderWithQuery() {
       <AccountDeleteSection />
     </QueryClientProvider>,
   );
+}
+
+const PASSWORD_PLACEHOLDER = "La tua password";
+
+async function openDialog() {
+  fireEvent.click(screen.getByRole("button", { name: "Elimina account" }));
+  await screen.findByText("Eliminare l'account?");
 }
 
 // --- Tests ---
@@ -58,8 +65,7 @@ describe("AccountDeleteSection", () => {
 
   it("mostra il messaggio di recupero dati dal portale AdE nel dialog", async () => {
     renderWithQuery();
-    fireEvent.click(screen.getByRole("button", { name: "Elimina account" }));
-    await screen.findByText("Eliminare l'account?");
+    await openDialog();
 
     expect(screen.getByText(/Fatture e Corrispettivi/)).toBeInTheDocument();
     expect(
@@ -67,10 +73,18 @@ describe("AccountDeleteSection", () => {
     ).toBeInTheDocument();
   });
 
-  it("il bottone di conferma è disabilitato se il testo non è 'ELIMINA'", async () => {
+  it("il copy generalizza le credenziali AdE a Fisconline o CIE ID", async () => {
     renderWithQuery();
-    fireEvent.click(screen.getByRole("button", { name: "Elimina account" }));
-    await screen.findByText("Eliminare l'account?");
+    await openDialog();
+
+    expect(screen.getAllByText(/Fisconline o CIE ID/).length).toBeGreaterThan(
+      0,
+    );
+  });
+
+  it("il bottone di conferma è disabilitato finché non si inserisce la password", async () => {
+    renderWithQuery();
+    await openDialog();
 
     const confirmBtn = screen.getByRole("button", {
       name: "Elimina definitivamente",
@@ -78,30 +92,27 @@ describe("AccountDeleteSection", () => {
     expect(confirmBtn).toBeDisabled();
   });
 
-  it("il bottone di conferma si abilita solo con la parola esatta 'ELIMINA'", async () => {
+  it("il bottone di conferma si abilita quando la password non è vuota", async () => {
     renderWithQuery();
-    fireEvent.click(screen.getByRole("button", { name: "Elimina account" }));
-    await screen.findByText("Eliminare l'account?");
+    await openDialog();
 
-    const input = screen.getByPlaceholderText("ELIMINA");
+    const input = screen.getByPlaceholderText(PASSWORD_PLACEHOLDER);
     const confirmBtn = screen.getByRole("button", {
       name: "Elimina definitivamente",
     });
 
-    fireEvent.change(input, { target: { value: "elimina" } });
     expect(confirmBtn).toBeDisabled();
 
-    fireEvent.change(input, { target: { value: "ELIMINA" } });
+    fireEvent.change(input, { target: { value: "SuperSecret123!" } });
     expect(confirmBtn).not.toBeDisabled();
   });
 
-  it("chiama deleteAccount al click sul bottone di conferma", async () => {
+  it("passa la password (raw, senza trim) a deleteAccount come currentPassword", async () => {
     renderWithQuery();
-    fireEvent.click(screen.getByRole("button", { name: "Elimina account" }));
-    await screen.findByText("Eliminare l'account?");
+    await openDialog();
 
-    fireEvent.change(screen.getByPlaceholderText("ELIMINA"), {
-      target: { value: "ELIMINA" },
+    fireEvent.change(screen.getByPlaceholderText(PASSWORD_PLACEHOLDER), {
+      target: { value: "  SuperSecret123!  " },
     });
 
     await act(async () => {
@@ -111,16 +122,17 @@ describe("AccountDeleteSection", () => {
     });
 
     expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+    const fd = mockDeleteAccount.mock.calls[0][0] as FormData;
+    expect(fd.get("currentPassword")).toBe("  SuperSecret123!  ");
   });
 
   it("mostra un errore se deleteAccount restituisce un errore", async () => {
-    mockDeleteAccount.mockResolvedValue({ error: "Profilo non trovato." });
+    mockDeleteAccount.mockResolvedValue({ error: "Password non corretta." });
     renderWithQuery();
-    fireEvent.click(screen.getByRole("button", { name: "Elimina account" }));
-    await screen.findByText("Eliminare l'account?");
+    await openDialog();
 
-    fireEvent.change(screen.getByPlaceholderText("ELIMINA"), {
-      target: { value: "ELIMINA" },
+    fireEvent.change(screen.getByPlaceholderText(PASSWORD_PLACEHOLDER), {
+      target: { value: "wrong-password" },
     });
 
     await act(async () => {
@@ -130,18 +142,17 @@ describe("AccountDeleteSection", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Profilo non trovato.")).toBeInTheDocument();
+      expect(screen.getByText("Password non corretta.")).toBeInTheDocument();
     });
   });
 
   it("mostra errore generico se deleteAccount lancia un'eccezione", async () => {
     mockDeleteAccount.mockRejectedValue(new Error("Network error"));
     renderWithQuery();
-    fireEvent.click(screen.getByRole("button", { name: "Elimina account" }));
-    await screen.findByText("Eliminare l'account?");
+    await openDialog();
 
-    fireEvent.change(screen.getByPlaceholderText("ELIMINA"), {
-      target: { value: "ELIMINA" },
+    fireEvent.change(screen.getByPlaceholderText(PASSWORD_PLACEHOLDER), {
+      target: { value: "SuperSecret123!" },
     });
 
     await act(async () => {
@@ -163,11 +174,10 @@ describe("AccountDeleteSection", () => {
     });
     mockDeleteAccount.mockRejectedValue(redirectErr);
     renderWithQuery();
-    fireEvent.click(screen.getByRole("button", { name: "Elimina account" }));
-    await screen.findByText("Eliminare l'account?");
+    await openDialog();
 
-    fireEvent.change(screen.getByPlaceholderText("ELIMINA"), {
-      target: { value: "ELIMINA" },
+    fireEvent.change(screen.getByPlaceholderText(PASSWORD_PLACEHOLDER), {
+      target: { value: "SuperSecret123!" },
     });
 
     await act(async () => {
@@ -185,8 +195,7 @@ describe("AccountDeleteSection", () => {
 
   it("chiude il dialog al click su Annulla", async () => {
     renderWithQuery();
-    fireEvent.click(screen.getByRole("button", { name: "Elimina account" }));
-    await screen.findByText("Eliminare l'account?");
+    await openDialog();
 
     fireEvent.click(screen.getByRole("button", { name: "Annulla" }));
 
