@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getTrustedAppUrl } from "@/lib/trusted-app-url";
+import { isSafeRelativeRedirect } from "@/lib/validation";
 import { logger } from "@/lib/logger";
 
 /**
@@ -31,13 +32,12 @@ export async function GET(request: Request) {
   }
 
   const code = searchParams.get("code");
-  // Only allow relative redirects to prevent open redirect attacks.
-  // Reject protocol-relative URLs like //evil.com (they inherit the protocol from origin).
+  // Only allow relative redirects to prevent open redirect attacks
+  // (predicato condiviso con `signIn` — vedi `isSafeRelativeRedirect`).
   const rawRedirect = searchParams.get("redirect") ?? "";
-  const redirect =
-    rawRedirect.startsWith("/") && !rawRedirect.startsWith("//")
-      ? rawRedirect
-      : "/dashboard";
+  const redirect = isSafeRelativeRedirect(rawRedirect)
+    ? rawRedirect
+    : "/dashboard";
 
   if (code) {
     const supabase = await createServerSupabaseClient();

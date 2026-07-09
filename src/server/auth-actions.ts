@@ -10,6 +10,7 @@ import { profiles } from "@/db/schema";
 import {
   isValidEmail,
   isStrongPassword,
+  isSafeRelativeRedirect,
   normalizeEmail,
 } from "@/lib/validation";
 import { getClientIp, hashIp } from "@/lib/get-client-ip";
@@ -626,7 +627,12 @@ export async function signIn(formData: FormData): Promise<AuthActionResult> {
     return { error: "Email o password non corretti.", email };
   }
 
-  redirect("/dashboard");
+  // Deep-link post-login: il middleware imposta `?redirect=<pathname+search>`
+  // quando una route protetta viene aperta senza sessione (`proxy.ts`). Lo
+  // consumiamo qui, ma SOLO se supera la stessa guardia anti-open-redirect del
+  // callback OAuth/reset — altrimenti fallback a /dashboard.
+  const redirectTo = getFormString(formData, "redirect");
+  redirect(isSafeRelativeRedirect(redirectTo) ? redirectTo : "/dashboard");
 }
 
 /**

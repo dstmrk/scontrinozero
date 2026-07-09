@@ -35,7 +35,12 @@ function LoginForm() {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   // Messaggio impostato dal redirect del /callback (es. link di reset scaduto).
   // Suspense boundary richiesto da Next per useSearchParams nel prerender.
-  const callbackError = mapAuthCallbackError(useSearchParams().get("error"));
+  const searchParams = useSearchParams();
+  const callbackError = mapAuthCallbackError(searchParams.get("error"));
+  // Deep-link: il middleware imposta `?redirect=<path>` su una route protetta
+  // aperta senza sessione. Lo inoltriamo a `signIn`, che lo valida server-side
+  // (anti-open-redirect) prima di usarlo — vedi `isSafeRelativeRedirect`.
+  const redirectParam = searchParams.get("redirect");
   // "resend" si attiva quando il login fallisce perché l'email non è confermata:
   // mostra il messaggio dedicato e offre il re-invio della conferma. Il captcha
   // viene resettato sull'action corretta ("resend-confirmation").
@@ -70,6 +75,7 @@ function LoginForm() {
     formData.set("email", data.email);
     formData.set("password", data.password);
     if (captchaToken) formData.set("captchaToken", captchaToken);
+    if (redirectParam) formData.set("redirect", redirectParam);
 
     startTransition(async () => {
       const result = await signIn(formData);

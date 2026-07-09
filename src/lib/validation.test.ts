@@ -6,6 +6,7 @@ import {
   isStrongPassword,
   isValidLotteryCode,
   isValidItalianZipCode,
+  isSafeRelativeRedirect,
   italianZipCodeSchema,
   normalizeEmail,
   ITALIAN_ZIP_MESSAGE,
@@ -233,6 +234,36 @@ describe("isValidItalianZipCode", () => {
 
   it("rejects empty string", () => {
     expect(isValidItalianZipCode("")).toBe(false);
+  });
+});
+
+describe("isSafeRelativeRedirect", () => {
+  it("accepts a plain relative path", () => {
+    expect(isSafeRelativeRedirect("/dashboard")).toBe(true);
+  });
+
+  it("accepts a relative path with query string (deep-link state)", () => {
+    expect(isSafeRelativeRedirect("/dashboard/storico?from=1&to=2")).toBe(true);
+  });
+
+  it("rejects protocol-relative URLs (//evil.com)", () => {
+    expect(isSafeRelativeRedirect("//evil.com")).toBe(false);
+  });
+
+  it("rejects the backslash protocol-relative bypass (/\\evil.com)", () => {
+    expect(isSafeRelativeRedirect("/\\evil.com")).toBe(false);
+  });
+
+  it("rejects absolute http(s) URLs", () => {
+    expect(isSafeRelativeRedirect("https://evil.com")).toBe(false);
+  });
+
+  it("rejects a path without a leading slash", () => {
+    expect(isSafeRelativeRedirect("evil.com/phishing")).toBe(false);
+  });
+
+  it("rejects the empty string", () => {
+    expect(isSafeRelativeRedirect("")).toBe(false);
   });
 });
 

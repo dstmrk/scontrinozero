@@ -622,36 +622,6 @@ exhaustiveness sul discriminante `method`.
 
 ---
 
-### 58. Deep-link post-login rotto: il parametro `redirect` impostato dal middleware non viene mai consumato
-
-- **Categoria:** funzionalità/UX · **Severità:** Low — l'utente atterra sempre su `/dashboard`, il deep link si perde
-- **File:** `src/proxy.ts:203-207` e `:262-266` (il middleware costruisce `/login?redirect=<pathname+search>` con commento "so a deep link … can fully restore state post-login"); `src/app/(auth)/login/page.tsx` (legge solo `error` dai searchParams, mai `redirect`); `src/server/auth-actions.ts:629` (`signIn` termina con `redirect("/dashboard")` fisso)
-
-**Problema.** La promessa codificata nel commento del middleware è morta: un
-utente con sessione scaduta che apre
-`/dashboard/storico?dateFrom=…&dateTo=…` viene mandato a `/login?redirect=…`,
-ma dopo il login `signIn` reindirizza sempre a `/dashboard` — il parametro non
-viene letto da nessuno. Con la PWA e i link condivisi (es. da un'email o da
-un secondo device) la perdita di contesto è sistematica.
-
-**Fix (non ambiguo).**
-
-1. La login page inoltra il param: campo hidden `redirect` nel form (valore da
-   `useSearchParams().get("redirect")`).
-2. `signIn` lo legge dal FormData e lo usa SOLO se supera la stessa
-   validazione anti-open-redirect del `/callback`
-   (`src/app/(auth)/callback/route.ts:36-40`): `startsWith("/")` e
-   `!startsWith("//")`; altrimenti fallback `/dashboard`. Estrarre il
-   predicato in un helper condiviso (es. `isSafeRelativeRedirect` in
-   `src/lib/validation.ts`) per non duplicarlo.
-3. Coprire anche il ramo "Supabase non configurato" del middleware (stessa
-   query, già presente).
-4. **Test:** `signIn` con `redirect=/dashboard/storico?x=1` → redirect a quel
-   path; con `//evil.com`, `https://evil.com`, stringa vuota → `/dashboard`;
-   login senza param → invariato.
-
----
-
 ### 59. PDF autenticato senza rate limit e route file-serving fuori da `getAuthenticatedUser` (regola 22 + segnale `last_seen_at`)
 
 - **Categoria:** sicurezza/hardening + osservabilità · **Severità:** Low

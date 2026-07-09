@@ -1468,6 +1468,62 @@ describe("auth-actions", () => {
       }
     });
 
+    it("honours a safe relative redirect param (deep-link restore)", async () => {
+      mockSignInWithPassword.mockResolvedValue({ error: null });
+
+      const { signIn } = await import("./auth-actions");
+
+      try {
+        await signIn(
+          formData({
+            email: "test@example.com",
+            password: "securepass123",
+            captchaToken: "valid-token",
+            redirect: "/dashboard/storico?from=2024-01-01&to=2024-01-31",
+          }),
+        );
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+        if (isRedirectError(err)) {
+          expect(err.url).toBe(
+            "/dashboard/storico?from=2024-01-01&to=2024-01-31",
+          );
+        }
+      }
+    });
+
+    it.each([
+      ["protocol-relative", "//evil.com"],
+      ["absolute URL", "https://evil.com"],
+      ["no leading slash", "evil.com/phishing"],
+      ["empty string", ""],
+    ])(
+      "falls back to /dashboard for an unsafe redirect param (%s)",
+      async (_label, redirectValue) => {
+        mockSignInWithPassword.mockResolvedValue({ error: null });
+
+        const { signIn } = await import("./auth-actions");
+
+        try {
+          await signIn(
+            formData({
+              email: "test@example.com",
+              password: "securepass123",
+              captchaToken: "valid-token",
+              redirect: redirectValue,
+            }),
+          );
+          expect.fail("Expected redirect");
+        } catch (err) {
+          expect(isRedirectError(err)).toBe(true);
+          if (isRedirectError(err)) {
+            expect(err.url).toBe("/dashboard");
+          }
+        }
+      },
+    );
+
     it("returns error on wrong credentials", async () => {
       mockSignInWithPassword.mockResolvedValue({
         error: { message: "Invalid credentials" },

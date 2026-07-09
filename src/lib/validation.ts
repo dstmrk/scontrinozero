@@ -130,6 +130,23 @@ export function validateBusinessOptionalFieldLengths(fields: {
 }
 
 /**
+ * True se `path` è un redirect **relativo** sicuro da seguire post-login.
+ *
+ * Difesa anti-open-redirect condivisa da `signIn` (`auth-actions.ts`) e dal
+ * callback OAuth/reset (`(auth)/callback/route.ts`): accetta solo path che
+ * iniziano con un singolo `/` e rifiuta i protocol-relative `//evil.com` e
+ * `/\evil.com` (alcuni browser normalizzano `\` in `/`, rendendoli equivalenti
+ * a `//`) — entrambi erediterebbero il protocollo dell'origin puntando a un
+ * host esterno. URL assoluti (`https://evil.com`), stringhe vuote e path senza
+ * leading slash cadono nel `false` → il caller fa fallback a `/dashboard`.
+ */
+export function isSafeRelativeRedirect(path: string): boolean {
+  if (!path.startsWith("/")) return false;
+  const second = path[1];
+  return second !== "/" && second !== "\\";
+}
+
+/**
  * Validates email format using linear-time string checks (no regex backtracking).
  * This is a structural check, not RFC 5322 compliance — real validation
  * happens when the confirmation email is delivered.
