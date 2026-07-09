@@ -111,13 +111,18 @@ export type SubmitReceiptInput = {
  * - ALREADY_REJECTED: il documento esistente è stato rifiutato dall'AdE.
  *   Va emesso uno scontrino nuovo con una key diversa.
  * - IDEMPOTENCY_PAYLOAD_MISMATCH: la idempotencyKey è già stata usata per una
- *   richiesta con un payload diverso (righe/importi/pagamento/lotteria). Il
- *   client deve usare una nuova key per la nuova richiesta.
+ *   richiesta con un payload diverso (righe/importi/pagamento/lotteria), oppure
+ *   per un'operazione di annullo (VOID). Il client deve usare una nuova key per
+ *   la nuova richiesta: emit e void non condividono mai la stessa key.
+ * - ALREADY_VOIDED: la idempotencyKey identifica uno scontrino già annullato
+ *   (VOID_ACCEPTED). Non è più valido: un replay dell'emissione non deve
+ *   riportarlo ad ACCEPTED. Va emesso uno scontrino nuovo con una key diversa.
  */
 export type SubmitReceiptErrorCode =
   | "PENDING_IN_PROGRESS"
   | "DB_TIMEOUT"
   | "ALREADY_REJECTED"
+  | "ALREADY_VOIDED"
   | "IDEMPOTENCY_PAYLOAD_MISMATCH";
 
 /** Risultato della server action emitReceipt */

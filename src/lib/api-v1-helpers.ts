@@ -164,6 +164,7 @@ const SERVICE_ERROR_STATUS_MAP: Record<
   DB_TIMEOUT: { status: 503, retryAfter: 5 },
   PENDING_IN_PROGRESS: { status: 409, retryAfter: 2 },
   ALREADY_REJECTED: { status: 409 },
+  ALREADY_VOIDED: { status: 409 },
   VOID_PENDING_IN_PROGRESS: { status: 409, retryAfter: 2 },
   VOID_ALREADY_TARGETED: { status: 409 },
   VOID_SYNC_FAILED: { status: 500 },

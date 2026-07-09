@@ -353,6 +353,17 @@ describe("serviceErrorResponse", () => {
     expect(body.code).toBe("ALREADY_REJECTED");
   });
 
+  it("returns 409 (no Retry-After) for ALREADY_VOIDED", async () => {
+    const res = serviceErrorResponse({
+      error: "already voided",
+      code: "ALREADY_VOIDED",
+    });
+    expect(res.status).toBe(409);
+    expect(res.headers.get("Retry-After")).toBeNull();
+    const body = await res.json();
+    expect(body.code).toBe("ALREADY_VOIDED");
+  });
+
   it("returns 409 + Retry-After 2 for VOID_PENDING_IN_PROGRESS", async () => {
     const res = serviceErrorResponse({
       error: "void pending",

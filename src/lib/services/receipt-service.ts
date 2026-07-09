@@ -8,7 +8,7 @@
  * Accetta un `apiKeyId` opzionale: se fornito, viene salvato su
  * commercial_documents per tracciare le emissioni via Developer API.
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
 import { withAdeSession, isCieSessionMissing } from "@/lib/ade";
@@ -242,6 +242,7 @@ async function handleExistingReceipt(args: {
   const [existing] = await db
     .select({
       id: commercialDocuments.id,
+      kind: commercialDocuments.kind,
       status: commercialDocuments.status,
       adeTransactionId: commercialDocuments.adeTransactionId,
       adeProgressive: commercialDocuments.adeProgressive,
@@ -267,6 +268,24 @@ async function handleExistingReceipt(args: {
     return {
       error: "Errore interno: ritenta l'emissione.",
       code: "PENDING_IN_PROGRESS",
+    };
+  }
+
+  // REVIEW.md #56: il vincolo UNIQUE è (business_id, idempotency_key) senza
+  // distinzione di kind, quindi per una key esiste al più una riga di qualsiasi
+  // kind. Se la riga trovata è un VOID, il client ha riusato per un'emissione la
+  // key di un annullo: la key NON appartiene a questo SALE. Ritornare successo
+  // idempotente o entrare nel recovery finalizzerebbe/leggerebbe la riga
+  // sbagliata; rispondere mismatch e chiedere una key nuova.
+  if (existing.kind === "VOID") {
+    logger.warn(
+      { businessId: input.businessId, documentId: existing.id },
+      "Emit idempotency key already used for a VOID",
+    );
+    return {
+      error:
+        "La chiave di idempotenza è già stata usata per un annullo. Usa una nuova chiave per emettere uno scontrino.",
+      code: "IDEMPOTENCY_PAYLOAD_MISMATCH",
     };
   }
 
@@ -302,6 +321,21 @@ async function handleExistingReceipt(args: {
       error:
         "Scontrino precedente già rifiutato dall'AdE. Usa una nuova chiave di idempotenza.",
       code: "ALREADY_REJECTED",
+    };
+  }
+
+  // REVIEW.md #56: SALE già annullato. Un replay dell'emit con la stessa key
+  // (es. retry queue at-least-once dopo che lo scontrino è stato annullato) NON
+  // deve cadere nel ramo stale: recoverStaleReceipt vedrebbe adeTransactionId
+  // valorizzato e finalizeSaleOnly riporterebbe la riga da VOID_ACCEPTED ad
+  // ACCEPTED — ricontando come ricavo una vendita annullata mentre AdE la
+  // registra annullata. Ritornare un errore dedicato, mai successo idempotente
+  // (il documento non è più valido) né recovery.
+  if (existing.status === "VOID_ACCEPTED") {
+    return {
+      error:
+        "Scontrino già annullato. Emetti un nuovo scontrino con una chiave di idempotenza diversa.",
+      code: "ALREADY_VOIDED",
     };
   }
 
@@ -440,7 +474,13 @@ async function finalizeSaleOnly(
     // submitSale è già andato a buon fine, dobbiamo riuscire a finalizzare
     // prima di rinunciare (3 tentativi: 200ms → 500ms → 1s). Simmetrico a
     // finalizeVoidOnly in void-service.ts.
-    await retryOnStatementTimeout("emit-finalize-only", () =>
+    // REVIEW.md #56 (defense in depth): l'UPDATE è ristretto a kind='SALE' e ai
+    // soli stati finalizzabili. ACCEPTED è incluso per mantenere idempotente il
+    // retry legittimo della finalizzazione; VOID_ACCEPTED/REJECTED sono esclusi
+    // così una riga già annullata non può essere flippata ad ACCEPTED da un
+    // recovery che ha colliso su una key riusata. kind è immutabile → il guard
+    // non rompe i retry legittimi.
+    const updated = await retryOnStatementTimeout("emit-finalize-only", () =>
       withStatementTimeout(3000, async (tx) =>
         tx
           .update(commercialDocuments)
@@ -449,9 +489,33 @@ async function finalizeSaleOnly(
             adeTransactionId,
             adeProgressive,
           })
-          .where(eq(commercialDocuments.id, documentId)),
+          .where(
+            and(
+              eq(commercialDocuments.id, documentId),
+              eq(commercialDocuments.kind, "SALE"),
+              inArray(commercialDocuments.status, [
+                "PENDING",
+                "ERROR",
+                "ACCEPTED",
+              ]),
+            ),
+          )
+          .returning({ id: commercialDocuments.id }),
       ),
     );
+    if (updated.length === 0) {
+      // La riga non è un SALE finalizzabile (es. VOID_ACCEPTED): non è stata
+      // toccata. Non ritornare successo — sarebbe un falso "scontrino emesso".
+      logger.warn(
+        { documentId, adeTransactionId, critical: true },
+        "Sale finalize matched no finalizable SALE row — refusing to report success",
+      );
+      return {
+        error:
+          "Impossibile finalizzare lo scontrino: stato non coerente. Usa una nuova chiave di idempotenza.",
+        code: "IDEMPOTENCY_PAYLOAD_MISMATCH",
+      };
+    }
     logger.info(
       { documentId, adeTransactionId, recovery: true },
       "Sale finalized from stale PENDING (recovery)",
