@@ -262,7 +262,7 @@ describe("voidReceiptForBusiness", () => {
     expect(mockSubmitVoid).not.toHaveBeenCalled();
   });
 
-  it("CIE: sessione scaduta in-flight (AdeReauthRequiredError) → reauthRequired", async () => {
+  it("REVIEW #48 — CIE: sessione scaduta in-flight (AdeReauthRequiredError) → reauthRequired + riga VOID marcata ERROR", async () => {
     mockFetchAdePrerequisites.mockResolvedValue({
       method: "cie",
       cedentePrestatore: { built: true },
@@ -274,8 +274,34 @@ describe("voidReceiptForBusiness", () => {
     const result = await voidReceiptForBusiness(VALID_INPUT);
 
     expect(result.reauthRequired).toBe(true);
-    // submitVoid è stato tentato ma AdE ha rifiutato la sessione.
+    // submitVoid tentato ma AdE ha rifiutato la sessione (401 = annullo NON
+    // registrato). L'index unique parziale su voided_document_id esclude ERROR
+    // (migration 0012) e il SALE resta ACCEPTED → un retry re-inserisce una nuova
+    // riga VOID senza duplicato. Marchiamo ERROR per evitare il ghost PENDING
+    // perpetuo (REVIEW.md #48).
     expect(mockSubmitVoid).toHaveBeenCalled();
+    const updateSets = mockUpdateSet.mock.calls.map((c) => c[0].status);
+    expect(updateSets).toContain("ERROR");
+  });
+
+  it("REVIEW #48 — reauth in-flight VOID: UPDATE a ERROR fallito è swallowed, reauthRequired invariato", async () => {
+    mockFetchAdePrerequisites.mockResolvedValue({
+      method: "cie",
+      cedentePrestatore: { built: true },
+    });
+    mockIsCieSessionMissing.mockReturnValue(false);
+    mockSubmitVoid.mockRejectedValue(new AdeReauthRequiredError("cie"));
+    mockUpdateWhere.mockRejectedValueOnce(new Error("db down"));
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect(result.reauthRequired).toBe(true);
+    const { logger } = await import("@/lib/logger");
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ voidDocumentId: expect.any(String) }),
+      expect.stringContaining("Failed to mark VOID as ERROR"),
+    );
   });
 
   it("salva apiKeyId nel documento VOID quando fornito", async () => {

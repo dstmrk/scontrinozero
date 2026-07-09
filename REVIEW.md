@@ -405,44 +405,6 @@ fino a 24h, irrilevante su soglie di mesi.
 
 ---
 
-### 48. Reauth CIE in-flight: la riga SALE resta PENDING per sempre (ghost in storico)
-
-- **Categoria:** correttezza/UX · **Severità:** Low — richiede la finestra rara "sessione viva al pre-check, rifiutata da AdE durante il submit"
-- **File:** `src/lib/services/receipt-service.ts:676-683` (catch `AdeReauthRequiredError`: ritorna `reauthRequired` lasciando la riga PENDING); `src/components/storico/storico-client.tsx:41-69` (`StatusBadge`: PENDING cade nel fallback che mostra il raw `{status}` inglese); `src/lib/services/void-service.ts:794-800` (gemello VOID)
-
-**Problema.** Quando la sessione CIE viene rifiutata da AdE **durante** il
-submit (dopo l'INSERT del documento), il servizio ritorna `reauthRequired`
-lasciando la riga `PENDING`. La cassa però genera una `idempotencyKey` nuova
-a ogni submit (`cassa-client.tsx:191`): il retry post-ricollegamento crea un
-documento nuovo e la riga orfana non viene mai più toccata — resta un ghost
-"PENDING" perpetuo nello storico (mostrato oltretutto col literal inglese
-`PENDING` su badge giallo). Il 401 AdE garantisce che il documento NON è
-stato registrato (stessa assunzione già codificata nel commento del catch),
-quindi non c'è rischio fiscale — solo sporcizia dati e confusione utente.
-Il gemello VOID è meno grave: `insertOrResolveVoid` riaggancia la riga VOID
-esistente al retry sullo stesso documento.
-
-**Fix (non ambiguo).**
-
-1. Nel catch `AdeReauthRequiredError` di `submitSaleToAde`, prima del
-   `return { reauthRequired: true }`, marcare il documento `ERROR` con lo
-   stesso UPDATE best-effort del ramo non-transient (righe ~705-717): è
-   sicuro perché 401 ⇒ non registrato (in contrasto con i transient, dove
-   l'esito è ignoto e PENDING è obbligatorio). La riga esce dal partial
-   unique index → un retry API v1 con la stessa key re-inserisce e
-   ri-sottomette da zero, senza duplicato.
-2. Per `void-service`: verificare che con la riga VOID marcata `ERROR` il
-   retry via `insertOrResolveVoid` re-inserisca correttamente; se sì,
-   applicare lo stesso mark, altrimenti lasciare PENDING e documentare il
-   perché nel commento.
-3. Cosmetico contestuale: aggiungere il caso `PENDING` → "In corso" a
-   `StatusBadge` (oggi mostra il raw inglese).
-4. **Test:** reauth in-flight → riga `ERROR` + `reauthRequired: true`;
-   retry con stessa key dopo mark → nuova emissione OK; transient → resta
-   PENDING (invariato).
-
----
-
 ### 49. API v1: 409 `reauthRequired` senza `code` machine-readable e non documentato
 
 - **Categoria:** architettura/API · **Severità:** Low — Developer API a bassa adozione, ma il contratto è ambiguo

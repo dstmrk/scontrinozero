@@ -48,6 +48,7 @@ import {
   claimStaleDocument,
   findClaimedTransactionIds,
   getStalePendingThresholdMs,
+  markDocumentErrorBestEffort,
   reconcileSaleDocument,
 } from "./ade-recovery";
 import { hashSaleRequest } from "./request-hash";
@@ -759,9 +760,18 @@ async function submitSaleToAde(
   } catch (err) {
     // Sessione CIE scaduta in-flight (rara: viva al pre-check, rifiutata da AdE
     // durante il submit). Un 401 AdE = documento NON registrato → nessun rischio
-    // di duplicato. Lasciamo la riga PENDING (niente ERROR) e chiediamo il
-    // rinnovo. Non è un failure nostro: niente logAdeFailure/Sentry (regola 20).
+    // di duplicato. A differenza dei transient (esito ignoto → PENDING
+    // obbligatorio, sotto), qui sappiamo che submitSale non è passato: marchiamo
+    // ERROR best-effort (REVIEW.md #48). Lasciarla PENDING la renderebbe un ghost
+    // perpetuo nello storico — la cassa genera una idempotencyKey nuova a ogni
+    // retry, quindi la riga orfana non verrebbe mai più toccata. Non è un failure
+    // nostro: niente logAdeFailure/Sentry (regola 20).
     if (err instanceof AdeReauthRequiredError) {
+      await markDocumentErrorBestEffort(
+        documentId,
+        { documentId },
+        "Failed to mark document as ERROR after CIE reauth-required",
+      );
       return { reauthRequired: true };
     }
 
