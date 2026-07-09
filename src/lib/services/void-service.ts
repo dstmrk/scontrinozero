@@ -54,6 +54,142 @@ type ConflictOutcome =
       existingCreatedAt: Date | null;
     };
 
+type ExistingVoidRow = {
+  id: string;
+  kind: string;
+  status: string;
+  adeTransactionId: string | null;
+  adeProgressive: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  voidedDocumentId: string | null;
+};
+
+/**
+ * Classifica la riga trovata per `(business_id, idempotency_key)` (Case A del
+ * conflitto). Estratta da `resolveVoidConflict` per tenerne la Cognitive
+ * Complexity sotto 15 (SonarCloud S3776): i branch qui sono top-level, non
+ * annidati sotto `if (existingByKey)`.
+ */
+function resolveExistingVoidByKey(
+  existing: ExistingVoidRow,
+  voidedDocumentId: string,
+  businessId: string,
+): ConflictOutcome {
+  // REVIEW.md #56: NON filtriamo la SELECT per kind (romperebbe il Case B in
+  // resolveVoidConflict: un conflitto su `voided_document_id` non ha riga con
+  // QUESTA key). La SELECT per key trova al più una riga (UNIQUE incondizionato
+  // su business_id+idempotency_key). Se è un SALE, il client ha riusato per un
+  // annullo la key di un'emissione: senza questo guard il ramo stale
+  // marcherebbe il SALE VOID_ACCEPTED senza mai chiamare AdE (falso annullo).
+  if (existing.kind === "SALE") {
+    logger.warn(
+      { businessId, saleDocumentId: existing.id },
+      "Void idempotency key already used for a SALE",
+    );
+    return {
+      kind: "done",
+      result: {
+        error:
+          "La chiave di idempotenza è già stata usata per un'emissione. Usa una nuova chiave per annullare.",
+        code: "IDEMPOTENCY_PAYLOAD_MISMATCH",
+      },
+    };
+  }
+
+  // P1.4: stessa idempotencyKey ma SALE annullato diverso → 409. Evita di
+  // ritornare il risultato di un annullo che non corrisponde alla richiesta.
+  if (
+    existing.voidedDocumentId != null &&
+    existing.voidedDocumentId !== voidedDocumentId
+  ) {
+    logger.warn(
+      { businessId, voidDocumentId: existing.id },
+      "Idempotency key reused to void a different document",
+    );
+    return {
+      kind: "done",
+      result: {
+        error:
+          "La chiave di idempotenza è già stata usata per annullare un altro documento. Usa una nuova chiave.",
+        code: "IDEMPOTENCY_PAYLOAD_MISMATCH",
+      },
+    };
+  }
+
+  if (existing.status === "VOID_ACCEPTED") {
+    // Already voided successfully — true idempotency return
+    return {
+      kind: "done",
+      result: {
+        voidDocumentId: existing.id,
+        adeTransactionId: existing.adeTransactionId ?? undefined,
+        adeProgressive: existing.adeProgressive ?? undefined,
+      },
+    };
+  }
+
+  if (existing.status === "REJECTED") {
+    return {
+      kind: "done",
+      result: {
+        error:
+          "Annullo precedente rifiutato dall'AdE. Riapri il dialogo con una nuova chiave.",
+      },
+    };
+  }
+
+  // PENDING or ERROR: void was started but never completed.
+  // If the row is "stale", enter recovery instead of blocking the client.
+  //
+  // Staleness is gated on updatedAt, NOT the immutable createdAt: claimStaleDocument
+  // bumps updated_at when a retry wins the claim, so a void whose recovery is
+  // already in flight (submitVoid in progress, status still PENDING) looks
+  // "recent" and an overlapping retry gets VOID_PENDING_IN_PROGRESS instead of
+  // winning a second claim against the bumped snapshot — which would re-submit
+  // and create a duplicate VOID on AdE (irreversible). createdAt is kept only
+  // for age logging.
+  const createdAtMs = existing.createdAt
+    ? new Date(existing.createdAt).getTime()
+    : Number.NaN;
+  const updatedAtMs = existing.updatedAt
+    ? new Date(existing.updatedAt).getTime()
+    : Number.NaN;
+  const isStale =
+    Number.isFinite(updatedAtMs) &&
+    Date.now() - updatedAtMs > getStalePendingThresholdMs();
+
+  if (isStale) {
+    logger.warn(
+      {
+        voidDocumentId: existing.id,
+        businessId,
+        status: existing.status,
+        ageMs: Date.now() - createdAtMs,
+      },
+      "Recovering stale PENDING/ERROR void",
+    );
+    return {
+      kind: "recover",
+      voidDocumentId: existing.id,
+      hasAdeTransaction: existing.adeTransactionId != null,
+      existingAdeTransactionId: existing.adeTransactionId,
+      existingAdeProgressive: existing.adeProgressive,
+      existingUpdatedAt: existing.updatedAt,
+      existingCreatedAt: existing.createdAt,
+    };
+  }
+
+  return {
+    kind: "done",
+    result: {
+      error:
+        "Annullo precedente ancora in elaborazione. Riprova tra qualche secondo.",
+      code: "VOID_PENDING_IN_PROGRESS",
+    },
+  };
+}
+
 /**
  * Called when the VOID document INSERT was skipped by ON CONFLICT DO NOTHING.
  * Determines whether the conflict is due to the same idempotency key (retry-safe)
@@ -90,118 +226,11 @@ async function resolveVoidConflict(
     .limit(1);
 
   if (existingByKey) {
-    // REVIEW.md #56: NON filtriamo la SELECT per kind (romperebbe il Case B
-    // sotto: un conflitto su `voided_document_id` non ha riga con QUESTA key).
-    // La SELECT per key trova al più una riga (UNIQUE incondizionato su
-    // business_id+idempotency_key). Se è un SALE, il client ha riusato per un
-    // annullo la key di un'emissione: senza questo guard il ramo stale
-    // marcherebbe il SALE VOID_ACCEPTED senza mai chiamare AdE (falso annullo).
-    if (existingByKey.kind === "SALE") {
-      logger.warn(
-        { businessId, saleDocumentId: existingByKey.id },
-        "Void idempotency key already used for a SALE",
-      );
-      return {
-        kind: "done",
-        result: {
-          error:
-            "La chiave di idempotenza è già stata usata per un'emissione. Usa una nuova chiave per annullare.",
-          code: "IDEMPOTENCY_PAYLOAD_MISMATCH",
-        },
-      };
-    }
-
-    // P1.4: stessa idempotencyKey ma SALE annullato diverso → 409. Evita di
-    // ritornare il risultato di un annullo che non corrisponde alla richiesta.
-    if (
-      existingByKey.voidedDocumentId != null &&
-      existingByKey.voidedDocumentId !== voidedDocumentId
-    ) {
-      logger.warn(
-        { businessId, voidDocumentId: existingByKey.id },
-        "Idempotency key reused to void a different document",
-      );
-      return {
-        kind: "done",
-        result: {
-          error:
-            "La chiave di idempotenza è già stata usata per annullare un altro documento. Usa una nuova chiave.",
-          code: "IDEMPOTENCY_PAYLOAD_MISMATCH",
-        },
-      };
-    }
-
-    if (existingByKey.status === "VOID_ACCEPTED") {
-      // Already voided successfully — true idempotency return
-      return {
-        kind: "done",
-        result: {
-          voidDocumentId: existingByKey.id,
-          adeTransactionId: existingByKey.adeTransactionId ?? undefined,
-          adeProgressive: existingByKey.adeProgressive ?? undefined,
-        },
-      };
-    }
-
-    if (existingByKey.status === "REJECTED") {
-      return {
-        kind: "done",
-        result: {
-          error:
-            "Annullo precedente rifiutato dall'AdE. Riapri il dialogo con una nuova chiave.",
-        },
-      };
-    }
-
-    // PENDING or ERROR: void was started but never completed.
-    // If the row is "stale", enter recovery instead of blocking the client.
-    //
-    // Staleness is gated on updatedAt, NOT the immutable createdAt: claimStaleDocument
-    // bumps updated_at when a retry wins the claim, so a void whose recovery is
-    // already in flight (submitVoid in progress, status still PENDING) looks
-    // "recent" and an overlapping retry gets VOID_PENDING_IN_PROGRESS instead of
-    // winning a second claim against the bumped snapshot — which would re-submit
-    // and create a duplicate VOID on AdE (irreversible). createdAt is kept only
-    // for age logging.
-    const createdAtMs = existingByKey.createdAt
-      ? new Date(existingByKey.createdAt).getTime()
-      : Number.NaN;
-    const updatedAtMs = existingByKey.updatedAt
-      ? new Date(existingByKey.updatedAt).getTime()
-      : Number.NaN;
-    const isStale =
-      Number.isFinite(updatedAtMs) &&
-      Date.now() - updatedAtMs > getStalePendingThresholdMs();
-
-    if (isStale) {
-      logger.warn(
-        {
-          voidDocumentId: existingByKey.id,
-          businessId,
-          status: existingByKey.status,
-          ageMs: Date.now() - createdAtMs,
-        },
-        "Recovering stale PENDING/ERROR void",
-      );
-      return {
-        kind: "recover",
-        voidDocumentId: existingByKey.id,
-        hasAdeTransaction: existingByKey.adeTransactionId != null,
-        existingAdeTransactionId: existingByKey.adeTransactionId,
-        existingAdeProgressive: existingByKey.adeProgressive,
-        existingUpdatedAt: existingByKey.updatedAt,
-        existingCreatedAt: existingByKey.createdAt,
-      };
-    }
-
-    return {
-      kind: "done",
-      result: {
-        error:
-          "Annullo precedente ancora in elaborazione. Riprova tra qualche secondo.",
-        code: "VOID_PENDING_IN_PROGRESS",
-      },
-    };
+    return resolveExistingVoidByKey(
+      existingByKey,
+      voidedDocumentId,
+      businessId,
+    );
   }
 
   // Case B: different idempotencyKey, same voidedDocumentId → race condition blocked.
