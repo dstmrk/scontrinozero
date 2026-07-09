@@ -584,39 +584,6 @@ exhaustiveness sul discriminante `method`.
 
 ---
 
-### 59. PDF autenticato senza rate limit e route file-serving fuori da `getAuthenticatedUser` (regola 22 + segnale `last_seen_at`)
-
-- **Categoria:** sicurezza/hardening + osservabilità · **Severità:** Low
-- **File:** `src/app/api/documents/[documentId]/pdf/route.ts:21-39` (nessun limiter; auth via `supabase.auth.getUser()` diretto); `src/app/api/export/receipts/route.ts:58-61` (auth via `getUser()` diretto — il limiter 10/h c'è); gemella pubblica già protetta: `src/app/r/[documentId]/pdf/route.ts:15-31` (60/h per IP); bind Sentry + touch attività: `src/lib/server-auth.ts:44-93`
-
-**Problema.** Due gap sulle route file-serving autenticate:
-
-1. Il PDF autenticato non ha alcun rate limit: la generazione pdfkit è
-   CPU-bound sul singolo container e un utente autenticato (o un client PWA
-   difettoso in retry loop) può saturarla; la variante pubblica ha 60/h/IP,
-   quella autenticata nulla — asimmetria senza razionale.
-2. Entrambe le route usano `supabase.auth.getUser()` diretto invece di
-   `getAuthenticatedUser()`: niente `Sentry.setUser({ id })` (regola 22 —
-   `Users Impacted` resta 0 sugli errori di queste route) e niente
-   `touchLastSeen` — un utente che usa l'app solo per scaricare
-   PDF/export risulterebbe inattivo per il GDPR pruning
-   (`inactive-user-prune`), lo stesso gap chiuso per le altre superfici con
-   `last_seen_at`.
-
-**Fix (non ambiguo).**
-
-1. Limiter per-user sul PDF autenticato: `new RateLimiter({ maxRequests: 60,
-windowMs: RATE_LIMIT_WINDOWS.HOURLY })`, chiave `pdf-auth:<userId>`, 429
-   con lo stesso messaggio della gemella pubblica.
-2. Sostituire in entrambe le route il `getUser()` diretto con
-   `getAuthenticatedUser()` in try/catch → 401 su `UnauthenticatedError`
-   (stesso pattern delle server actions, ma con Response HTTP). Il bind
-   Sentry e il touch `last_seen_at` arrivano gratis.
-3. **Test:** 61ª richiesta PDF nell'ora → 429; sessione assente → 401;
-   `Sentry.setUser` invocato (mock, pattern skill `testing-patterns`).
-
----
-
 ### 60. `changeAdePassword` senza optimistic lock né guard sul metodo: una race con `saveAdeCredentials` può corrompere credenziali CIE
 
 - **Categoria:** correttezza/robustezza · **Severità:** Low — finestra di secondi (durata del flusso HTTP AdE di cambio password), richiede azioni concorrenti dello stesso utente
