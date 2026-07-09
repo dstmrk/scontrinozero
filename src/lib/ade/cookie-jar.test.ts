@@ -123,6 +123,24 @@ describe("CookieJar", () => {
         responses: ["GONE=x; Max-Age=0"],
         expectedSize: 0,
       },
+      {
+        name: "ignores a malformed Expires and keeps the cookie (no false delete)",
+        responses: ["SID=val; Expires=not-a-date"],
+        expectedHas: { name: "SID", present: true },
+        expectedHeaderValue: "SID=val",
+      },
+      {
+        name: "keeps an empty-valued cookie kept alive by a positive Max-Age",
+        responses: ["SID=; Max-Age=3600"],
+        expectedHas: { name: "SID", present: true },
+        expectedHeaderValue: "SID=",
+      },
+      {
+        name: "ignores a non-numeric Max-Age and falls back to value/expires",
+        responses: ["SID=val; Max-Age=abc"],
+        expectedHas: { name: "SID", present: true },
+        expectedHeaderValue: "SID=val",
+      },
     ] as {
       name: string;
       responses: string[];
@@ -182,18 +200,6 @@ describe("CookieJar", () => {
       expect(jar.has("SID")).toBe(true);
     });
 
-    it("ignores a malformed Expires and keeps the cookie (no false delete)", () => {
-      const jar = new CookieJar();
-      jar.applyResponse(
-        new Response("", {
-          headers: [["Set-Cookie", "SID=val; Expires=not-a-date"]],
-        }),
-      );
-
-      expect(jar.has("SID")).toBe(true);
-      expect(jar.toHeaderValue()).toBe("SID=val");
-    });
-
     it("removes a cookie set with an empty value", () => {
       const jar = new CookieJar();
       jar.applyResponse(
@@ -209,18 +215,6 @@ describe("CookieJar", () => {
       );
 
       expect(jar.has("SID")).toBe(false);
-    });
-
-    it("keeps an empty-valued cookie kept alive by a positive Max-Age", () => {
-      const jar = new CookieJar();
-      jar.applyResponse(
-        new Response("", {
-          headers: [["Set-Cookie", "SID=; Max-Age=3600"]],
-        }),
-      );
-
-      expect(jar.has("SID")).toBe(true);
-      expect(jar.toHeaderValue()).toBe("SID=");
     });
 
     it("gives Max-Age precedence over a contradictory Expires (RFC 6265)", () => {
@@ -240,18 +234,6 @@ describe("CookieJar", () => {
       );
 
       expect(jar.has("SID")).toBe(false);
-    });
-
-    it("ignores a non-numeric Max-Age and falls back to value/expires", () => {
-      const jar = new CookieJar();
-      jar.applyResponse(
-        new Response("", {
-          headers: [["Set-Cookie", "SID=val; Max-Age=abc"]],
-        }),
-      );
-
-      expect(jar.has("SID")).toBe(true);
-      expect(jar.toHeaderValue()).toBe("SID=val");
     });
   });
 
