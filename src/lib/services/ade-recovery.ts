@@ -1,7 +1,34 @@
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
+import { logger } from "@/lib/logger";
 import type { AdeDocumentSummary } from "@/lib/ade/types";
+
+/**
+ * Marca un documento `ERROR` best-effort dopo un fallimento in cui sappiamo che
+ * AdE **non** ha registrato il documento (es. 401 reauth CIE in-flight): la riga
+ * esce dallo stato PENDING così non resta un ghost perpetuo nello storico
+ * (REVIEW.md #48). Da NON usare sui transient (esito ignoto → la riga deve
+ * restare PENDING per la stale-recovery).
+ *
+ * L'errore dell'UPDATE è swallowed (solo `logger.warn`): è già un percorso di
+ * degrado e non deve propagare. Condiviso fra receipt-service e void-service
+ * per evitare drift e non gonfiare la cognitive complexity dei due catch (S3776).
+ */
+export async function markDocumentErrorBestEffort(
+  documentId: string,
+  warnContext: Record<string, unknown>,
+  warnMessage: string,
+): Promise<void> {
+  try {
+    await getDb()
+      .update(commercialDocuments)
+      .set({ status: "ERROR" })
+      .where(eq(commercialDocuments.id, documentId));
+  } catch (updateErr) {
+    logger.warn({ ...warnContext, err: updateErr }, warnMessage);
+  }
+}
 
 /**
  * Soglia oltre la quale un documento commerciale PENDING/ERROR è

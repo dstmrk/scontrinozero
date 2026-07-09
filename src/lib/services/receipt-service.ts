@@ -48,6 +48,7 @@ import {
   claimStaleDocument,
   findClaimedTransactionIds,
   getStalePendingThresholdMs,
+  markDocumentErrorBestEffort,
   reconcileSaleDocument,
 } from "./ade-recovery";
 import { hashSaleRequest } from "./request-hash";
@@ -766,17 +767,11 @@ async function submitSaleToAde(
     // retry, quindi la riga orfana non verrebbe mai più toccata. Non è un failure
     // nostro: niente logAdeFailure/Sentry (regola 20).
     if (err instanceof AdeReauthRequiredError) {
-      try {
-        await db
-          .update(commercialDocuments)
-          .set({ status: "ERROR" })
-          .where(eq(commercialDocuments.id, documentId));
-      } catch (updateErr) {
-        logger.warn(
-          { err: updateErr, documentId },
-          "Failed to mark document as ERROR after CIE reauth-required",
-        );
-      }
+      await markDocumentErrorBestEffort(
+        documentId,
+        { documentId },
+        "Failed to mark document as ERROR after CIE reauth-required",
+      );
       return { reauthRequired: true };
     }
 

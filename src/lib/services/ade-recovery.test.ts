@@ -32,12 +32,14 @@ import {
   findClaimedTransactionIds,
   formatAdeQueryDate,
   getStalePendingThresholdMs,
+  markDocumentErrorBestEffort,
   parseAdeResultDate,
   reconcileSaleDocument,
   reconcileVoidDocument,
 } from "./ade-recovery";
 import type { AdeDocumentSummary } from "@/lib/ade/types";
 import { getDb } from "@/db";
+import { logger } from "@/lib/logger";
 
 function summary(over: Partial<AdeDocumentSummary> = {}): AdeDocumentSummary {
   return {
@@ -446,5 +448,47 @@ describe("reconcileVoidDocument", () => {
       saleProgressivo: "DCW2026/5432-1548",
     });
     expect(result).toEqual({ kind: "ambiguous" });
+  });
+});
+
+describe("markDocumentErrorBestEffort", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("marca il documento ERROR (REVIEW.md #48)", async () => {
+    await markDocumentErrorBestEffort(
+      "doc-123",
+      { documentId: "doc-123" },
+      "should not warn",
+    );
+
+    expect(getDb().update).toHaveBeenCalledWith("commercial-documents-table");
+    expect(mockSet).toHaveBeenCalledWith({ status: "ERROR" });
+  });
+
+  it("swallows l'errore dell'UPDATE loggando warn (best-effort, non propaga)", async () => {
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    mockSet.mockReturnValueOnce({
+      where: () => Promise.reject(new Error("db down")),
+    });
+
+    // Non deve throware: è un percorso di degrado.
+    await expect(
+      markDocumentErrorBestEffort(
+        "doc-err",
+        { voidDocumentId: "doc-err" },
+        "Failed to mark VOID as ERROR after CIE reauth-required",
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ voidDocumentId: "doc-err" }),
+      "Failed to mark VOID as ERROR after CIE reauth-required",
+    );
   });
 });

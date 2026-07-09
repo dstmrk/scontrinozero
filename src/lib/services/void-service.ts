@@ -39,6 +39,7 @@ import {
   claimStaleDocument,
   findClaimedTransactionIds,
   getStalePendingThresholdMs,
+  markDocumentErrorBestEffort,
   reconcileVoidDocument,
 } from "./ade-recovery";
 
@@ -865,17 +866,11 @@ export async function voidReceiptForBusiness(
     // re-inserisce una nuova riga VOID e ri-sottomette da zero — senza il ghost
     // PENDING perpetuo. Non è un failure nostro: niente logAdeFailure/Sentry (r.20).
     if (err instanceof AdeReauthRequiredError) {
-      try {
-        await db
-          .update(commercialDocuments)
-          .set({ status: "ERROR" })
-          .where(eq(commercialDocuments.id, voidDocumentId));
-      } catch (updateErr) {
-        logger.warn(
-          { err: updateErr, voidDocumentId },
-          "Failed to mark VOID as ERROR after CIE reauth-required",
-        );
-      }
+      await markDocumentErrorBestEffort(
+        voidDocumentId,
+        { voidDocumentId },
+        "Failed to mark VOID as ERROR after CIE reauth-required",
+      );
       return { reauthRequired: true };
     }
 
