@@ -703,6 +703,95 @@ describe("emitReceiptForBusiness", () => {
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
+  it("REVIEW.md #56: emit con la key di un VOID → IDEMPOTENCY_PAYLOAD_MISMATCH, niente submit", async () => {
+    mockDocumentReturning.mockResolvedValue([]); // conflict
+    // La riga trovata per questa key è un annullo (VOID), non un'emissione:
+    // la key NON appartiene a questo SALE.
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "void-row",
+        kind: "VOID",
+        status: "VOID_ACCEPTED",
+        adeTransactionId: "trx-void",
+        adeProgressive: "prog-void",
+        createdAt: new Date(Date.now() - 35 * 60 * 1000),
+        updatedAt: new Date(Date.now() - 35 * 60 * 1000),
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("IDEMPOTENCY_PAYLOAD_MISMATCH");
+    // CRITICO: la riga VOID non viene finalizzata come SALE.
+    expect(result.documentId).toBeUndefined();
+    expect(mockLogin).not.toHaveBeenCalled();
+    expect(mockSubmitSale).not.toHaveBeenCalled();
+    // La riga non deve essere flippata ad ACCEPTED.
+    const updateSets = mockUpdateSet.mock.calls.map((c) => c[0].status);
+    expect(updateSets).not.toContain("ACCEPTED");
+  });
+
+  it("REVIEW.md #56: emit replay su SALE già VOID_ACCEPTED → ALREADY_VOIDED, status invariato", async () => {
+    mockDocumentReturning.mockResolvedValue([]); // conflict
+    // Retry at-least-once dell'emit su uno scontrino annullato nel frattempo:
+    // adeTransactionId è valorizzato ma NON deve entrare in recovery/finalize.
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-voided",
+        kind: "SALE",
+        status: "VOID_ACCEPTED",
+        adeTransactionId: "trx-old",
+        adeProgressive: "prog-old",
+        createdAt: new Date(Date.now() - 35 * 60 * 1000),
+        updatedAt: new Date(Date.now() - 35 * 60 * 1000),
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("ALREADY_VOIDED");
+    expect(result.documentId).toBeUndefined();
+    // CRITICO: nessun finalize che riporterebbe la riga ad ACCEPTED.
+    expect(mockSubmitSale).not.toHaveBeenCalled();
+    const updateSets = mockUpdateSet.mock.calls.map((c) => c[0].status);
+    expect(updateSets).not.toContain("ACCEPTED");
+  });
+
+  it("REVIEW.md #56: finalizeSaleOnly su riga non finalizzabile (0 righe) → errore, mai falso successo", async () => {
+    mockDocumentReturning.mockResolvedValue([]); // conflict
+    // Stale PENDING con adeTransactionId → recoverStaleReceipt chiama
+    // finalizeSaleOnly. Il guard kind/status non matcha nessuna riga (es. la
+    // riga è stata annullata nel frattempo) → 0 righe aggiornate.
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-guarded",
+        kind: "SALE",
+        status: "PENDING",
+        adeTransactionId: "tx-prev",
+        adeProgressive: "prog-prev",
+        createdAt: new Date(Date.now() - 35 * 60 * 1000),
+        updatedAt: new Date(Date.now() - 35 * 60 * 1000),
+      },
+    ]);
+    mockClaimReturning.mockResolvedValueOnce([]); // UPDATE finalize matcha 0 righe
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.error).toBeDefined();
+    expect(result.documentId).toBeUndefined();
+    expect(result.code).toBe("IDEMPOTENCY_PAYLOAD_MISMATCH");
+    // submitSale non ri-chiamato (adeTransactionId presente → finalize-only).
+    expect(mockSubmitSale).not.toHaveBeenCalled();
+    const { logger } = await import("@/lib/logger");
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ documentId: "doc-guarded", critical: true }),
+      expect.stringContaining("no finalizable SALE row"),
+    );
+  });
+
   it("idempotency: PENDING senza updatedAt è trattato come fresh (fail-safe)", async () => {
     mockDocumentReturning.mockResolvedValue([]);
     // updatedAt mancante/null → staleness non determinabile → fail-safe a
@@ -1153,6 +1242,7 @@ describe("emitReceiptForBusiness", () => {
     mockLimit.mockResolvedValueOnce([
       {
         id: "doc-stuck",
+        kind: "SALE",
         status: "PENDING",
         adeTransactionId: "tx-prev",
         adeProgressive: "prog-prev",
@@ -1160,9 +1250,17 @@ describe("emitReceiptForBusiness", () => {
         updatedAt: new Date(Date.now() - 35 * 60 * 1000),
       },
     ]);
-    // Tutte le UPDATE post-conflict falliscono in timeout (4 tentativi)
+    // Un test precedente lascia mockUpdateWhere in stato "reject" (clearAllMocks
+    // non ripristina le implementazioni): finalizeSaleOnly ora concatena
+    // `.returning()`, quindi ripristiniamo il default e facciamo fallire il
+    // ramo `.returning()` (mockClaimReturning) in timeout.
+    mockUpdateWhere.mockReturnValue({
+      returning: mockClaimReturning,
+      then: (onFulfilled: (value: undefined) => unknown) =>
+        onFulfilled(undefined),
+    });
     const timeoutErr = Object.assign(new Error("timeout"), { code: "57014" });
-    mockUpdateWhere.mockRejectedValue(timeoutErr);
+    mockClaimReturning.mockRejectedValue(timeoutErr);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
     const result = await emitReceiptForBusiness(VALID_INPUT);
