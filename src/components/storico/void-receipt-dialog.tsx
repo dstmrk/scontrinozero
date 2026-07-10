@@ -136,7 +136,7 @@ export function VoidReceiptDialog({
               </DialogDescription>
             </DialogHeader>
 
-            <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+            <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
               <strong>⚠️ Attenzione:</strong> L&apos;annullo è irreversibile. Lo
               scontrino verrà trasmesso all&apos;Agenzia delle Entrate come
               documento di annullo.
@@ -155,7 +155,7 @@ export function VoidReceiptDialog({
 
             {/* CIE: sessione scaduta → ricollegarsi prima di ritentare l'annullo. */}
             {mutation.data?.reauthRequired && (
-              <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+              <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
                 {
                   "Sessione CIE scaduta. Ricollegati dalle impostazioni approvando la notifica sull'app CIE ID, poi riprova l'annullo."
                 }

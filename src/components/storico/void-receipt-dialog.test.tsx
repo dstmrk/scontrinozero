@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { VoidReceiptDialog } from "./void-receipt-dialog";
+import { voidReceipt } from "@/server/void-actions";
 import type { ReceiptListItem } from "@/types/storico";
 
 vi.mock("@/server/void-actions", () => ({
@@ -100,5 +101,40 @@ describe("VoidReceiptDialog — QR code", () => {
     // Back in detail view: the void button is visible again
     expect(screen.getByText("Annulla scontrino")).toBeInTheDocument();
     expect(screen.queryByText("Indietro")).not.toBeInTheDocument();
+  });
+});
+
+describe("VoidReceiptDialog — banner reauth CIE (REVIEW #54)", () => {
+  async function openReauthBanner() {
+    renderWithQuery(
+      <VoidReceiptDialog {...defaultProps} receipt={ACCEPTED_RECEIPT} />,
+    );
+    // detail → confirmingVoid
+    await act(async () => {
+      fireEvent.click(screen.getByText("Annulla scontrino"));
+    });
+    // confirmingVoid → conferma → mutation risolve reauthRequired
+    await act(async () => {
+      fireEvent.click(screen.getByText("Annulla scontrino"));
+    });
+    return screen.findByText(/Sessione CIE scaduta/);
+  }
+
+  it("mostra il banner reauth quando la server action ritorna reauthRequired", async () => {
+    vi.mocked(voidReceipt).mockResolvedValue({ reauthRequired: true });
+
+    const banner = await openReauthBanner();
+
+    expect(banner).toBeInTheDocument();
+  });
+
+  it("il banner reauth resta leggibile in dark mode (varianti dark:)", async () => {
+    vi.mocked(voidReceipt).mockResolvedValue({ reauthRequired: true });
+
+    const banner = await openReauthBanner();
+
+    // Senza le varianti dark: il testo eredita il foreground chiaro del tema
+    // su fondo amber-50 chiaro → contrasto quasi nullo (REVIEW #54).
+    expect(banner).toHaveClass("dark:bg-amber-950", "dark:text-amber-200");
   });
 });

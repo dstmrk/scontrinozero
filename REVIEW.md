@@ -541,30 +541,6 @@ password, e va documentato con un commento).
 
 ---
 
-### 54. Banner reauth CIE in cassa illeggibile in dark mode
-
-- **Categoria:** UI/accessibilità · **Severità:** Low
-- **File:** `src/components/cassa/cassa-client.tsx:313-330` (banner `reauthRequired`: `border-amber-200 bg-amber-50` **senza colore testo** né varianti `dark:`); `src/components/storico/void-receipt-dialog.tsx:157-162` (ha `text-amber-800` ma nessuna variante `dark:`)
-
-**Problema.** Il dashboard usa `next-themes` con `defaultTheme="system"`
-(`src/app/dashboard/layout.tsx:49`): in dark mode il testo del banner cassa
-eredita il foreground chiaro del tema su fondo `amber-50` chiaro → contrasto
-quasi nullo proprio sul messaggio che spiega come sbloccare l'emissione. Il
-banner del dialog annullo resta leggibile (amber-800 su amber-50) ma è un
-blocco chiaro incoerente col tema scuro.
-
-**Fix (non ambiguo).**
-
-1. Cassa: `rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200`.
-2. Dialog annullo: aggiungere le stesse varianti `dark:` (`dark:bg-amber-950 dark:text-amber-200`).
-3. Ordinamento classi Tailwind via `npx prettier --write` (skill
-   `react-patterns`).
-4. Verifica visiva in entrambi i temi (nota: il banner rosso `mutationError`
-   adiacente usa `bg-red-50` + `text-destructive`, anch'esso senza `dark:` —
-   pre-esistente; allinearlo nello stesso PR è benvenuto ma opzionale).
-
----
-
 ### 55. Costruzione `WithAdeSessionParams` duplicata in receipt-service e void-service
 
 - **Categoria:** manutenibilità/duplicazione · **Severità:** Low
