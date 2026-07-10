@@ -2,23 +2,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  mockGetUser,
+  mockGetAuthenticatedUser,
   mockAssertProPlan,
   mockRateLimiterCheck,
   mockSelect,
   mockBuildReceiptsCsvStream,
 } = vi.hoisted(() => ({
-  mockGetUser: vi.fn(),
+  mockGetAuthenticatedUser: vi.fn(),
   mockAssertProPlan: vi.fn(),
   mockRateLimiterCheck: vi.fn(),
   mockSelect: vi.fn(),
   mockBuildReceiptsCsvStream: vi.fn(),
 }));
 
-vi.mock("@/lib/supabase/server", () => ({
-  createServerSupabaseClient: async () => ({
-    auth: { getUser: mockGetUser },
-  }),
+vi.mock("@/lib/server-auth", () => ({
+  getAuthenticatedUser: mockGetAuthenticatedUser,
 }));
 
 vi.mock("@/lib/plans", () => ({
@@ -85,7 +83,7 @@ function makeFakeStream(): ReadableStream<Uint8Array> {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+  mockGetAuthenticatedUser.mockResolvedValue({ id: "user-1" });
   mockAssertProPlan.mockResolvedValue({ ok: true, plan: "pro" });
   mockRateLimiterCheck.mockReturnValue({
     success: true,
@@ -98,14 +96,12 @@ beforeEach(() => {
 
 describe("GET /api/export/receipts", () => {
   it("restituisce 401 se non autenticato", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null } });
-    mockAssertProPlan.mockResolvedValue({
-      ok: false,
-      status: 401,
-      error: "Non autenticato.",
-    });
+    mockGetAuthenticatedUser.mockRejectedValue(
+      new Error("UnauthenticatedError"),
+    );
     const res = await GET(makeRequest());
     expect(res.status).toBe(401);
+    expect(mockAssertProPlan).not.toHaveBeenCalled();
   });
 
   it("restituisce 403 se il piano non e' Pro", async () => {

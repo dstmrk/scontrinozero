@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
 import { businesses, profiles } from "@/db/schema";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getAuthenticatedUser } from "@/lib/server-auth";
 import { assertProPlan } from "@/lib/plans";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
@@ -55,17 +55,21 @@ export async function GET(req: Request): Promise<Response> {
   }
   const { from, to, status } = parsed.data;
 
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getAuthenticatedUser (non getUser() diretto): bind Sentry.setUser({ id })
+  // (regola 22) e touch last_seen_at gratis anche per chi usa l'app solo per
+  // esportare CSV (altrimenti risulterebbe inattivo per il GDPR pruning).
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch {
+    return errorJson(401, "Non autenticato.");
+  }
+  const userId = user.id;
 
-  const proCheck = await assertProPlan(user?.id ?? null);
+  const proCheck = await assertProPlan(userId);
   if (!proCheck.ok) {
     return errorJson(proCheck.status, proCheck.error);
   }
-  // user is guaranteed non-null here (assertProPlan returns 401 otherwise)
-  const userId = user!.id;
 
   const rate = csvExportLimiter.check(`csv:${userId}`);
   if (!rate.success) {

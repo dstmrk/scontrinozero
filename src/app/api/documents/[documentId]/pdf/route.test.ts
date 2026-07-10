@@ -6,23 +6,34 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // ---------------------------------------------------------------------------
 
 const {
-  mockGetUser,
+  mockGetAuthenticatedUser,
+  mockRateLimiterCheck,
   mockSelect,
   mockGeneratePdfResponse,
   mockTransaction,
   mockTxExecute,
 } = vi.hoisted(() => ({
-  mockGetUser: vi.fn(),
+  mockGetAuthenticatedUser: vi.fn(),
+  mockRateLimiterCheck: vi.fn(),
   mockSelect: vi.fn(),
   mockGeneratePdfResponse: vi.fn(),
   mockTransaction: vi.fn(),
   mockTxExecute: vi.fn(),
 }));
 
-vi.mock("@/lib/supabase/server", () => ({
-  createServerSupabaseClient: vi.fn().mockResolvedValue({
-    auth: { getUser: mockGetUser },
+vi.mock("@/lib/server-auth", () => ({
+  getAuthenticatedUser: mockGetAuthenticatedUser,
+}));
+
+vi.mock("@/lib/rate-limit", () => ({
+  RateLimiter: vi.fn().mockImplementation(function () {
+    return { check: mockRateLimiterCheck };
   }),
+  RATE_LIMIT_WINDOWS: { HOURLY: 3_600_000 },
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logger: { warn: vi.fn(), error: vi.fn() },
 }));
 
 vi.mock("@/db", () => ({
@@ -123,7 +134,8 @@ function makeRequest(documentId: string): Request {
 describe("GET /api/documents/[documentId]/pdf", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetUser.mockResolvedValue({ data: { user: MOCK_USER } });
+    mockGetAuthenticatedUser.mockResolvedValue(MOCK_USER);
+    mockRateLimiterCheck.mockReturnValue({ success: true });
     mockGeneratePdfResponse.mockResolvedValue(MOCK_PDF_RESPONSE);
     mockSelect
       .mockReturnValueOnce(
@@ -140,7 +152,9 @@ describe("GET /api/documents/[documentId]/pdf", () => {
   });
 
   it("ritorna 401 se non autenticato", async () => {
-    mockGetUser.mockResolvedValueOnce({ data: { user: null } });
+    mockGetAuthenticatedUser.mockRejectedValueOnce(
+      new Error("UnauthenticatedError"),
+    );
 
     const res = await GET(makeRequest("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), {
       params: Promise.resolve({
@@ -149,6 +163,22 @@ describe("GET /api/documents/[documentId]/pdf", () => {
     });
 
     expect(res.status).toBe(401);
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it("ritorna 429 (per-utente) quando il rate limit è superato", async () => {
+    mockRateLimiterCheck.mockReturnValueOnce({ success: false });
+
+    const res = await GET(makeRequest("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), {
+      params: Promise.resolve({
+        documentId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      }),
+    });
+
+    expect(res.status).toBe(429);
+    expect(mockRateLimiterCheck).toHaveBeenCalledWith("pdf-auth:user-123");
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockGeneratePdfResponse).not.toHaveBeenCalled();
   });
 
   it("ritorna 404 se il documento non esiste", async () => {
