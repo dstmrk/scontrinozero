@@ -383,7 +383,7 @@ copia una delle varianti e il drift cresce.
 
 ### 28. SPID: allowlist host IdP prima del wiring di `loginSpid`
 
-- **Categoria:** sicurezza · **Severità:** Low oggi (SPID non cablato) — **bloccante al lancio v1.5.0** (AdE auth multi-metodo)
+- **Categoria:** sicurezza · **Severità:** Low oggi (SPID non cablato) — **bloccante quando SPID viene cablato (v2.0, app nativa)**. SPID è fuori da v1.5.0: il flusso IdP in webview richiede persistere il cookie di sessione, non fattibile in PWA (vedi PLAN.md, nota v2.0).
 - **File:** `src/lib/ade/real-client.ts:55` (`ADE_ALLOWED_HOSTS`, modello da replicare), `:657` (`parseFormAction`), `:769` (`spidPostCredentials`), `:988`, `:1060`
 
 **Problema.** Il flusso documenti valida i redirect con `resolveAdeRedirect` +
@@ -396,7 +396,7 @@ pratica).
 
 **Fix (non ambiguo).**
 
-1. **Insieme** al wiring di `loginSpid` (v1.5.0): allowlist `SPID_ALLOWED_IDP_HOSTS`
+1. **Insieme** al wiring di `loginSpid` (v2.0, app nativa): allowlist `SPID_ALLOWED_IDP_HOSTS`
    con gli hostname degli IdP SPID noti (es. `identity.sieltecloud.it` + gli
    altri provider), analoga a `ADE_ALLOWED_HOSTS`.
 2. Validare **ogni** URL di `parseFormAction` e ogni `Location` del flusso SPID

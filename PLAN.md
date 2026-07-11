@@ -14,11 +14,21 @@ banco e le feature Pro committed.
 
 | Versione   | Descrizione                                                                                                                                                                                                                                                                                                                                                                                |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **v1.5.0** | **AdE auth multi-metodo**: SPID e CIE selezionabili in onboarding + settings; cookie jar cifrato, re-auth on 401. _Anticipata: rimuove l'attrito d'iscrizione #1 — oggi serve una credenziale Fisconline._                                                                                                                                                                                 |
-| **v1.6.0** | **Espansione auth**: Passkey e login/registrazione social Google/Apple via Supabase Auth (valutare fattibilità/integrazione prima dell'implementazione). _Anticipata: leva d'adozione, iscrizione a un tap._                                                                                                                                                                               |
-| **v1.7.0** | **Stampa termica Bluetooth** 58/80mm (Web Bluetooth). _Alta utilità operativa (scontrino fisico al banco): prioritaria rispetto al sync AdE._                                                                                                                                                                                                                                              |
+| **v1.5.0** | **AdE auth con CIE**: login CIE ID (email + password app CIE ID, conferma via notifica push) selezionabile in onboarding + settings come alternativa a Fisconline; sessione interattiva cifrata, rinnovo alla scadenza. _Rimuove l'attrito d'iscrizione #1 — oggi serve una credenziale Fisconline. **SPID escluso**: il flusso IdP vive in una webview e richiede persistere quel cookie di sessione, non fattibile in PWA → rimandato all'app nativa (v2.0)._                                                          |
+| **v1.6.0** | **Stampa scontrino via foglio di stampa OS** (AirPrint su iOS, Mopria su Android, dialog di stampa su desktop): bottone "Stampa" che apre il PDF scontrino — **già generato a 58mm** in `src/lib/pdf/generate-sale-receipt.ts`, esposto da `src/app/api/documents/[documentId]/pdf/route.ts`. _Alta utilità operativa (scontrino fisico al banco): prioritaria rispetto al social login e al sync AdE. Corsia unica cross-platform, superficie minima, **nessun Web Bluetooth**. ⚠️ Il foglio di stampa OS parla solo **rete/WiFi** (AirPrint/Mopria): copre le stampanti scontrini WiFi/AirPrint e qualsiasi stampante di rete, **non** le stampantine BT economiche ESC/POS → quel caso è coperto dalla stampa Bluetooth diretta dell'app nativa (v2.0)._                                                          |
+| **v1.7.0** | **Espansione auth**: Passkey e login/registrazione social Google/Apple via Supabase Auth (valutare fattibilità/integrazione prima dell'implementazione). _Leva d'adozione, iscrizione a un tap._                                                                                                                                                                                            |
 | **v1.8.0** | **Storno avanzato**: memorizzare progressivo documento AdE di annullamento e stampare ricevuta di annullamento                                                                                                                                                                                                                                                                             |
-| **v1.9.0** | **Sync documenti commerciali da AdE** (feature **Pro**, ex #107): recupero/importazione dei documenti commerciali/corrispettivi storici emessi, per riconciliazione e continuità dati. _Committed («in arrivo» sul Pro), pianificata dopo stampa BT e storno. Groundwork già presente: `searchDocuments`/`getDocument` in `src/lib/ade/client.ts` (oggi usati solo per recovery interno)._ |
+| **v1.9.0** | **Sync documenti commerciali da AdE** (feature **Pro**, ex #107): recupero/importazione dei documenti commerciali/corrispettivi storici emessi, per riconciliazione e continuità dati. _Committed («in arrivo» sul Pro), pianificata dopo stampa scontrino e storno. Groundwork già presente: `searchDocuments`/`getDocument` in `src/lib/ade/client.ts` (oggi usati solo per recovery interno)._ |
+
+> **Oltre v1.9 — app nativa iOS/Android (v2.0, in valutazione).** Due capability
+> restano precluse alla PWA e convergono sullo stesso sblocco: **SPID** (il flusso
+> IdP vive in una webview e richiede persistere il cookie di sessione) e la **stampa
+> Bluetooth diretta** verso le stampantine termiche ESC/POS economiche (SDK vendor /
+> BLE raw — su iOS il Web Bluetooth è del tutto assente, e comunque il foglio di
+> stampa OS non raggiunge le stampanti BT su nessuna piattaforma; cfr. v1.6). Un
+> wrapper nativo le abiliterebbe entrambe. _Non pianificata: trigger su un volume
+> utenti che giustifichi il costo di manutenzione di un secondo runtime — il caso
+> "esercente con stampantina BT economica" è il driver documentabile._
 
 > **Già spedite** (storico nei tag git, non più in roadmap): onboarding tour
 > dashboard (v1.4.1), catalogo con CRUD completo inclusa la **modifica prodotto**
@@ -99,7 +109,7 @@ sicurezza/performance vive in [REVIEW.md](./REVIEW.md), ordinato per priorità
 (P1/P2/P3) con file:riga, scenario e fix proposto per ogni voce. Anche la
 motivazione dell'allowlist audit-ci (`GHSA-67mh-4wv8-2f99`) è lì, nella sezione
 "Rischi accettati". `PLAN.md` resta la roadmap delle funzionalità: gli item di
-REVIEW.md legati a una release (es. allowlist SPID → v1.5.0) riportano il target
+REVIEW.md legati a una release (es. allowlist SPID → v2.0, app nativa) riportano il target
 nella voce stessa. Gli item legati a feature ora **nice-to-have** (es. limiti
 mensili Developer API) restano in REVIEW.md ma diventano bloccanti solo se/quando
 la feature viene promossa a release.
