@@ -100,14 +100,11 @@ Nuove categorie in `src/lib/per/categories.ts` (solo data file), in ordine:
 - [ ] palestre e personal trainer
 - [ ] food truck e street food
 - [ ] NCC e taxi
-- [ ] tatuatori e piercing (oggi solo accennati in parrucchieri-estetisti)
+- [ ] tatuatori e piercer (oggi solo accennati in parrucchieri-estetisti)
 
 ### Batch D — P2: gap operativi (visti nei competitor e in GSC)
 
-- [ ] **Guida "Credenziali Fisconline con SPID"** (Billy/Scontrinare ci
-      puntano; query "ripristino password entratel" già in GSC) — funnel
-      diretto all'onboarding.
-- [ ] **Guida "Stampanti termiche Bluetooth per scontrino: guida alla
+- [ ] **Guida "Stampanti termiche WiFi per scontrino: guida alla
       scelta"** (tutti i competitor hanno la pagina stampanti; intent
       commerciale). Solo hardware generico compatibile, nessuna promessa di
       feature.
@@ -118,7 +115,6 @@ Nuove categorie in `src/lib/per/categories.ts` (solo data file), in ordine:
 
 - [ ] `/strumenti/scorporo-iva`: aggiungere calcolo inverso (aggiungi IVA) e
       più contenuto — SERP difficile, aspettative basse.
-- [ ] Aggiornamento trimestrale `/confronto` (pricing competitor).
 - [ ] Manifest PWA: `lang`, `id`, `screenshots`, `shortcuts` (install prompt
       ricco su Android/desktop).
 
@@ -135,19 +131,3 @@ Nuove categorie in `src/lib/per/categories.ts` (solo data file), in ordine:
 5. Slug separati `/help` vs `/guide` sulle keyword condivise (regola 8):
    help = operativo in-app, guide = educativo/reference. I metaTitle devono
    riflettere intent distinti per non cannibalizzarsi.
-6. Backlink a costo zero: directory SaaS italiane, comparatori P.IVA,
-   community (forum commercialisti, Reddit italiano), gli `/strumenti` come
-   magnet.
-
-## Fase 4 — Misurazione (review GSC mensile)
-
-KPI da aggiornare qui a ogni review:
-
-| Data review        | Clic/mese | Pos. cluster N2.2/forfettario | Pos. cluster "senza cassa" | CTR complessivo |
-| ------------------ | --------- | ----------------------------- | -------------------------- | --------------- |
-| 2026-07 (baseline) | ~25       | ~29                           | ~47                        | 2,9%            |
-
-**Target a 90 giorni:** cluster forfettario/N2.2 in top 10; cluster "senza
-cassa" in top 20; CTR complessivo > 4%; primi citation check su
-ChatGPT/Perplexity ("app per scontrino elettronico senza registratore di
-cassa") dopo lo sblocco dei crawler AI.
