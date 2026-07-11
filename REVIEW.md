@@ -1,6 +1,6 @@
 # REVIEW.md — Registro bug noti e tech debt
 
-> **Ultimo audit:** 2026-07-08 (full-codebase, `main`)
+> **Ultimo audit:** 2026-07-11 (full-codebase, `main` @ 8bb9b26)
 
 **Scopo.** Registro canonico dei bug noti, del tech debt e dei miglioramenti di
 sicurezza/performance, ordinati per priorità (P1/P2/P3). `PLAN.md` resta la
@@ -47,6 +47,48 @@ diventa un buco di billing al lancio della Fase B Developer API.
 5. Da implementare **contestualmente al lancio dei developer plan** (Developer
    API, ora nice-to-have in PLAN.md — non prima: nessun utente ha questi piani
    oggi).
+
+---
+
+### 63. `deleteAccount` non cancella l'abbonamento Stripe: l'utente cancellato continua a essere addebitato
+
+- **Categoria:** billing/GDPR · **Severità:** High — colpisce **oggi** qualunque abbonato pagante che usa la cancellazione account self-service
+- **File:** `src/server/account-actions.ts:97` (`deleteAccount` → `purgeUserById` senza alcun passo Stripe); `src/lib/services/purge-user.ts` (nessuna gestione di `subscriptions` né chiamate Stripe); `src/db/schema/subscriptions.ts:14` + `supabase/migrations/0000_initial.sql:90-104` (`subscriptions.user_id` senza FK verso `auth.users` e fuori dalla cascata `profiles` → la riga sopravvive orfana); effetto collaterale silenzioso: `src/app/api/stripe/webhook/route.ts:438-441` (`syncSubscriptionData` aggiorna `profiles` del user cancellato → 0 righe, nessun log)
+
+**Problema.** `purgeUserById` cancella auth user + profilo (con cascata su
+businesses/documenti/catalogo), ma: (a) la **subscription Stripe resta attiva**
+— Stripe continua ad addebitare la carta a ogni rinnovo di un utente che non
+può più accedere né all'app né al Billing Portal (il portal richiede login);
+(b) la riga `subscriptions` resta **orfana** nel DB (nessuna FK, nessuna
+cascata), con i webhook che continuano a sincronizzarla; l'UPDATE su
+`profiles` dentro `syncSubscriptionData` matcha 0 righe in silenzio, quindi
+nessun alert segnala l'anomalia; (c) lato GDPR i dati del customer (email)
+restano su Stripe a tempo indeterminato. Lo sweep GDPR
+(`inactive-user-prune.ts`) non è esposto perché protegge i paganti, ma il
+percorso self-service non ha alcuna guardia — né server-side né nella UI
+(`account-delete-section.tsx` non menziona l'abbonamento).
+
+**Fix (non ambiguo).**
+
+1. In `deleteAccount`, dopo la verifica password e **prima** di
+   `purgeUserById`: leggere la riga `subscriptions` per `user.id`; se
+   `stripeCustomerId` è presente → `stripe.customers.del(stripeCustomerId)`
+   in try/catch (regola 10). La delete del customer **cancella immediatamente
+   le subscription attive** e rimuove i dati anagrafici da Stripe (chiude
+   anche il punto GDPR). Su fallimento Stripe → `return { error: "Non è stato
+possibile annullare l'abbonamento. Riprova o gestiscilo dal portale prima
+di eliminare l'account." }` **senza** eseguire il purge — fail-safe: meglio
+   un account non cancellato che addebiti fantasma non più fermabili.
+2. In `purgeUserById` (condiviso col prune): `DELETE FROM subscriptions WHERE
+user_id = $authUserId` accanto alla delete del profilo — niente righe orfane
+   (per lo sweep prune gli account eleggibili non sono paganti, quindi lì la
+   riga è al più `canceled`/`pending`).
+3. UI (`account-delete-section.tsx`): menzionare nel dialog che un eventuale
+   abbonamento attivo viene annullato immediatamente (regola 8: grep copy).
+4. **Test:** account con sub attiva → `customers.del` chiamato prima del purge
+   e riga `subscriptions` rimossa; Stripe irraggiungibile → nessun purge +
+   errore dedicato; account senza riga subscriptions → flusso invariato;
+   sweep prune → riga subscriptions rimossa insieme al profilo.
 
 ---
 
@@ -163,6 +205,85 @@ esplicitamente, non lasciata decadere.
    CSP se nel frattempo è stato fatto il finding #13).
 5. **Test:** quelli esistenti su sitemap/articoli; review umana del contenuto
    (regola 8: contenuti LLM con review umana).
+
+---
+
+### 64. Esito ignoto dopo `submitDocument` (HTTP 200 con body non-JSON) classificato come failure definitiva → mark ERROR → rischio doppio documento fiscale
+
+- **Categoria:** correttezza fiscale/robustezza · **Severità:** Medium — bassa probabilità, danno irreversibile (documento fiscale duplicato su AdE)
+- **File:** `src/lib/ade/real-client.ts:1942` (`return response.json()` finale di `submitDocument`, senza guard); gate mark-ERROR: `src/lib/services/receipt-service.ts:798-812` e `src/lib/services/void-service.ts:895-907` (`!isStatementTimeoutError && !isTransientAdeError` ⇒ status ERROR); classificazione: `isTransientAdeError` in `src/lib/ade/error-messages.ts`
+
+**Problema.** Se AdE risponde **200 con body non-JSON** (pagina di manutenzione
+HTML servita con 200, risposta troncata, proxy interposto), `response.json()`
+lancia un `SyntaxError` nudo: non è `AdeError`, non è transient, non è
+statement timeout → emit/void lo trattano come "submit sicuramente non
+arrivato" e marcano la riga **ERROR**. Ma la POST è stata consegnata e con un
+200 l'esito è **ignoto**: il documento può essere stato registrato. Con la
+riga in ERROR: (a) per il **VOID** l'indice unique parziale su
+`voided_document_id` esclude ERROR → un retry con key nuova inserisce un
+secondo VOID e ri-sottomette → **doppio annullo** su AdE; (b) per il **SALE**
+la cassa genera una idempotencyKey nuova a ogni retry → nuovo documento →
+**doppia emissione**, senza mai passare dalla riconciliazione
+`searchDocuments` che esiste proprio per gli esiti ignoti (REVIEW.md #4, che
+copre solo le righe rimaste PENDING). Lo stesso `response.json()` non guardato
+esiste su `getFiscalData`/`getDocument`/`getProducts`/`searchDocuments` — lì
+l'impatto è solo un errore opaco, non un duplicato.
+
+**Fix (non ambiguo).**
+
+1. In `submitDocument`: try/catch attorno al `response.json()` finale → throw
+   di una nuova classe `AdeUnknownOutcomeError` (in `src/lib/ade/errors.ts`),
+   messaggio con `statusCode`/`contentType` (mai il body: dati fiscali).
+2. Trattarla come **esito ignoto** = lasciare PENDING: farla riconoscere da
+   `isTransientAdeError` (documentando che il predicato significa "esito non
+   determinabile → non marcare ERROR, warn non Sentry") — così entrambi i
+   servizi restano invariati e la stale recovery riconcilia contro AdE via
+   `searchDocuments` prima di qualunque re-submit.
+3. Mappare la classe in `getUserFacingAdeErrorMessage` sullo stesso messaggio
+   "il portale non risponde… riprova" usato per i 5xx.
+4. Guard analogo (try/catch → `AdePortalError(status, …)`) sui `response.json()`
+   di `getFiscalData`/`getDocument`/`getProducts`/`searchDocuments`: nessuna
+   semantica unknown-outcome, basta un errore tipizzato invece del SyntaxError.
+5. **Test:** submit 200 + body HTML → riga resta PENDING, log warn (no Sentry);
+   retry oltre soglia stale → entra nel path `reconcileSaleBeforeResubmit` /
+   `reconcileVoidBeforeResubmit`; 200 + JSON valido → invariato.
+
+---
+
+### 65. Race sul doppio `signUp`: il compensating delete può cancellare l'auth user legittimo → email bloccata per sempre
+
+- **Categoria:** correttezza/auth · **Severità:** Medium — trigger realistico (doppio click/retry di rete sul form), esito permanente senza cleanup manuale
+- **File:** `src/server/auth-actions.ts:330-382` (`insertProfileOrRollback`: compensating delete su **ogni** failure dell'insert), `:304-328` (`compensatingDeleteAuthUser`), `:505-529` (pre-check email); schema: `profiles.auth_user_id` **senza FK** verso `auth.users` (`supabase/migrations/0000_initial.sql:5,18`) → nessuna cascata ripulisce il profilo orfano
+
+**Problema.** Due submit ravvicinati della stessa registrazione passano
+entrambi il pre-check email (il profilo non esiste ancora). R1:
+`auth.signUp` crea l'utente A e committa il profilo. R2: `auth.signUp` sulla
+stessa email — per un utente esistente **non confermato** Supabase non crea
+un nuovo utente: reinvia la conferma e ritorna **lo stesso id A**. L'insert
+profilo di R2 fallisce con unique violation e il catch esegue
+`compensatingDeleteAuthUser(A)`: cancella l'auth user della registrazione
+legittima di R1. Risultato: profilo orfano (nessuna FK → nessuna cascata),
+link di conferma morto, login impossibile, ri-registrazione bloccata dal
+pre-check (il profilo esiste) — l'email è inutilizzabile finché non si
+interviene a mano. Il commento nel codice assume che il duplicato crei
+"un nuovo auth user con UUID diverso", ma per gli unconfirmed non è così.
+
+**Fix (non ambiguo).**
+
+1. In `insertProfileOrRollback`, nel catch e **prima** del compensating
+   delete: `SELECT id FROM profiles WHERE auth_user_id = $authUserId`. Se la
+   riga esiste, l'auth user appartiene a una registrazione già completata
+   dall'altra richiesta → **non** cancellare, procedere col solo
+   `redirect("/verify-email")`. (Determinismo: la unique violation viene
+   sollevata solo dopo il commit della transazione vincente, quindi la SELECT
+   vede sempre la riga.)
+2. Difesa aggiuntiva a monte: dopo `auth.signUp`, se `data.user.identities`
+   è assente/vuoto (utente obfuscato anti-enumeration di Supabase) trattare
+   come email già registrata → redirect `/verify-email` senza insert.
+3. **Test:** unique violation con profilo già presente per lo stesso
+   authUserId → `deleteUser` mai chiamato; unique violation senza profilo
+   (fallimento genuino) → compensating delete invariato; `identities: []` →
+   redirect senza insert.
 
 ---
 
@@ -614,6 +735,175 @@ finestra.
 4. **Test:** updated con `created` più vecchio del registrato → stato DB
    invariato + warn; sequenza in ordine → invariato; primo evento (colonna
    NULL) → applica.
+
+---
+
+### 66. `getEffectivePlan(userId)` è una server action pubblica senza autenticazione
+
+- **Categoria:** sicurezza/hardening · **Severità:** Low — richiede l'auth UUID della vittima (non enumerabile), leak limitato al nome del piano
+- **File:** `src/server/billing-actions.ts:34` (export da modulo `"use server"`); consumer legittimo: `src/server/api-key-actions.ts:54`
+
+**Problema.** Ogni export async di un file `"use server"` diventa un endpoint
+POST invocabile da qualunque client con l'action ID (estraibile dal bundle).
+`getEffectivePlan` accetta un `userId` arbitrario e risponde senza chiamare
+`getAuthenticatedUser`: (a) info-leak del piano di un altro utente dato il suo
+auth UUID; (b) due query DB gratuite per invocazione non autenticata (surface
+DoS); (c) un `userId` non-UUID produce Postgres 22P02 non gestito → error
+boundary + rumore. È un helper server-side, non una action.
+
+**Fix (non ambiguo).** Spostare `getEffectivePlan` fuori dal modulo
+`"use server"` — collocazione: `src/lib/plans.ts`, accanto a `getPlan` (già
+server-only) — e aggiornare gli import in `api-key-actions.ts` e nei test;
+in `billing-actions.ts` restano solo le action autenticate. Verificare con
+grep che nessun client component la importi. **Test:** esistenti, spostati;
+aggiungere un test che `billing-actions.ts` non esporti più il symbol.
+
+---
+
+### 67. Catalogo: `defaultPrice` validato con `parseFloat` ma inserito come stringa raw → 500 Postgres e valori degeneri
+
+- **Categoria:** correttezza/boundary (regola 9) · **Severità:** Low
+- **File:** `src/server/catalog-actions.ts:77-83` (`validateItemInput`), `:191` e `:278` (INSERT/UPDATE con `validated.priceStr` = input originale); colonna `numeric(10,2)` in `supabase/migrations/0000_initial.sql:84`
+
+**Problema.** La validazione fa `Number.parseFloat(priceStr)` e controlla solo
+NaN/negativo, poi inserisce la **stringa originale** nella colonna
+`numeric(10,2)`. `parseFloat` accetta prefissi numerici e valori speciali:
+`"12abc"` passa (parseFloat=12) ma l'INSERT fallisce con 22P02 → eccezione non
+gestita → error boundary; `"Infinity"` passa la validazione; `"1e7"` passa
+senza alcun tetto. Manca anche il vincolo 2 decimali/max che lo scontrino ha
+(`grossUnitPrice` ≤ 999999.99, 2 decimali, `receipt-schema.ts`): il boundary
+del catalogo è più lasco di quello della cassa che poi consuma quei prezzi.
+
+**Fix (non ambiguo).**
+
+1. Validare col criterio fiscale di `saleLineSchema`: accettare solo
+   `^\d{1,6}([.,]\d{1,2})?$` (virgola normalizzata a punto), range
+   0–999999.99; tutto il resto → `{ error: "Prezzo non valido." }`.
+2. Inserire la forma **normalizzata** (stringa canonica col punto), mai
+   l'input raw.
+3. **Test:** `"12abc"`, `"Infinity"`, `"1e7"`, `"-1"`, `"1.999"` → errore;
+   `"12,50"` → salvato `"12.50"`; `""`/null → `null` invariato.
+
+---
+
+### 68. Server actions senza guard UUID (regola 9): id malformato → 22P02 Postgres → error boundary
+
+- **Categoria:** robustezza/boundary · **Severità:** Low — solo utenti autenticati, ma rompe la regola 19 e genera rumore
+- **File:** `src/server/onboarding-actions.ts:376` (`saveAdeCredentials`), `:881` (`verifyAdeCredentials`), `:1190` (`changeAdePassword`) — businessId; `src/server/profile-actions.ts:171` (`updateBusiness`); `src/server/catalog-actions.ts:98,207,244` (businessId + itemId); `src/server/storico-actions.ts:40` (`searchReceipts`); `src/server/analytics-actions.ts:75` (`authorizeOwner`). Pattern corretto già in repo: `src/server/receipt-actions.ts:32` e `src/server/void-actions.ts:25-29` (Zod `.uuid()`)
+
+**Problema.** `businessId`/`itemId` arrivano dal client e finiscono in `eq()`
+su colonne uuid senza `isValidUuid`: un valore non-UUID fa lanciare Postgres
+22P02 dentro `checkBusinessOwnership`/le query, che nessuna delle action
+elencate gestisce → throw → error boundary di Next (contro la regola 19) al
+posto di un errore applicativo inline. `getCatalogItems` lo maschera con un
+catch-all che ritorna `[]` ma logga `logger.error` → issue Sentry per input
+utente (contro la regola 20).
+
+**Fix (non ambiguo).** `isValidUuid()` (da `@/lib/uuid`) come prima riga dopo
+l'auth in ciascuna action elencata → `return { error: "Identificativo non
+valido." }` (stessa shape degli altri errori); in `getCatalogItems` degradare
+questa classe a `warn`. **Test:** per ogni action, id `"abc"` → `{ error }`
+senza che il mock DB venga interrogato.
+
+---
+
+### 69. `getAnalyticsBundle` non degrada su statement timeout (regola 19; incoerente con `getStarterKpis`)
+
+- **Categoria:** robustezza/UX · **Severità:** Low
+- **File:** `src/server/analytics-actions.ts:275-294` (`buildAnalyticsDataset`, nessun try/catch attorno a `fetchSaleDocsInRange`/`computeTotalsByDoc`), `:346-364` (`getAnalyticsBundle`); contrasto: `:389-401` (`getStarterKpis` gestisce `isStatementTimeoutError`, PR #572)
+
+**Problema.** Il path Pro passa per `withStatementTimeout(5s)`: sotto
+contention il 57014 propaga da `getAnalyticsBundle` fino all'error boundary
+della pagina analytics invece del fallback inline — esattamente il
+comportamento che la regola 19 vieta e che `getStarterKpis` già corregge.
+Inoltre `computeTotalsByDoc` (`fetchLinesByDocIds`) gira **fuori** dal
+timeout scoped: la query più pesante del bundle non ha budget.
+
+**Fix (non ambiguo).** try/catch in `buildAnalyticsDataset` attorno a
+fetch+compute: su `isStatementTimeoutError` → `{ ok: false, error: "Servizio
+temporaneamente sovraccarico, riprova tra qualche istante." }` (stesso
+messaggio di `getStarterKpis`); altri errori → rethrow (Sentry). Portare
+anche `fetchLinesByDocIds` del path analytics dentro `withStatementTimeout`.
+**Test:** timeout su `fetchSaleDocsInRange` → `{ error }` senza throw;
+timeout su `fetchLinesByDocIds` → idem; errore generico → throw.
+
+---
+
+### 70. Webhook `invoice.paid`: `currentPeriodEnd` scritto con `invoice.period_end` (semantica Stripe sbagliata)
+
+- **Categoria:** correttezza/billing · **Severità:** Low — oggi il campo non ha consumer runtime, il danno è latente
+- **File:** `src/app/api/stripe/webhook/route.ts:242-253`; colonna: `src/db/schema/subscriptions.ts:21` (commento: "data prossimo rinnovo/scadenza")
+
+**Problema.** Per le invoice di rinnovo, `invoice.period_end` è la fine del
+periodo di fatturazione appena **chiuso** (≈ l'istante del rinnovo), non la
+fine del nuovo periodo pagato — quella vive in
+`invoice.lines.data[0].period.end` (o in `items[0].current_period_end` della
+subscription, già usato da `syncSubscriptionData`). Poiché `invoice.paid` e
+`customer.subscription.updated` arrivano insieme senza ordering garantito
+(vedi #61), circa metà delle volte il valore sbagliato sovrascrive quello
+corretto e ci resta per un intero ciclo. Il campo oggi non è letto da nessun
+consumer runtime (grep: solo webhook/schema; la UI usa
+`profiles.plan_expires_at`, il referral legge da Stripe), ma contraddice il
+commento dello schema e qualunque feature futura che lo legga nasce rotta.
+
+**Fix (non ambiguo).** Preferito: **rimuovere** l'update di
+`currentPeriodEnd` dal case `invoice.paid` (l'evento resta registrato e
+gestito, il campo ha `syncSubscriptionData` come unico writer corretto —
+una sola fonte, coerente con regola 27b). In alternativa: usare
+`invoice.lines.data[0]?.period?.end`, senza update se assente. **Test:**
+`invoice.paid` non modifica più `currentPeriodEnd`; `customer.subscription.updated`
+resta l'unico writer (assert sul valore da `items[0].current_period_end`).
+
+---
+
+### 71. `changeAdePassword` cifra con la chiave corrente ma etichetta il payload con la `keyVersion` vecchia della riga
+
+- **Categoria:** sicurezza/operatività (rotazione chiavi) · **Severità:** Low — innocuo finché non si ruota `ENCRYPTION_KEY`; complementare al finding #17
+- **File:** `src/server/onboarding-actions.ts:1280` (`encrypt(newPassword, key, cred.keyVersion)` con `key = getEncryptionKey()` da `:1242`)
+
+**Problema.** Il byte di versione embeddato nel payload è `cred.keyVersion`
+(versione memorizzata sulla riga) mentre la chiave usata è quella corrente. A
+cavallo di una rotazione (`ENCRYPTION_KEY_VERSION=2`, righe ancora v1) produce
+un payload **etichettato v1 ma cifrato con la chiave v2**: la key-map
+multi-versione corretta (fix del finding #17) lo decifrerebbe con la chiave
+v1 → authTag mismatch → credenziali illeggibili. Nota strutturale: la colonna
+`key_version` è per-riga e copre tutti i campi cifrati, quindi ri-cifrare la
+sola password non basta.
+
+**Fix (non ambiguo).** In `changeAdePassword`, nell'UPDATE finale: ri-cifrare
+**tutti** i campi cifrati presenti sulla riga (CF — già decifrato nel flusso —,
+password nuova, PIN da decifrare allo stesso modo) con `getEncryptionKey()` +
+`getKeyVersion()` e aggiornare `key_version` nella stessa UPDATE. **Test:**
+con `ENCRYPTION_KEY_VERSION=2` tutti i campi della riga decifrano con la sola
+chiave v2 e `key_version=2`; con versione invariata → comportamento identico
+a oggi (round-trip decrypt di CF/PIN invariati).
+
+---
+
+### 72. Rate limit cassa 30 scontrini/ora per utente: sotto il volume reale di un esercente e incoerente con l'API (120/h)
+
+- **Categoria:** funzionalità/UX · **Severità:** Low-Medium — blocca il core flow di un utente legittimo nel picco
+- **File:** `src/server/receipt-actions.ts:41-44` (`receiptLimiter` 30/h per user); confronto: `src/app/api/v1/receipts/route.ts:30-33` (120/h per API key); da aggiornare insieme: tabella soglie nella skill `testing-patterns` e `docs/architecture/config-manifest.md` (regola 26)
+
+**Problema.** Il prodotto è un registratore di cassa: un bar/food nel picco
+pranzo supera facilmente 30 scontrini/ora (uno ogni 2 minuti). Al 31° la cassa
+risponde "Troppi scontrini emessi. Riprova tra qualche minuto." per il resto
+della finestra — blocco operativo/fiscale per un utente legittimo, mentre lo
+stesso account via Developer API può emetterne 120/h. Il limite serve come
+anti-loop/anti-abuso (ogni submit costa un round-trip AdE), non come
+throttling di business: 30/h è sotto il caso d'uso dichiarato del prodotto.
+
+**Fix (non ambiguo).**
+
+1. Alzare la soglia UI a **120/h** (allineata all'API v1) — ampiamente sopra
+   qualunque uso umano della cassa mobile, ancora efficace contro i loop.
+   Prima di fissare il valore, verificare nei log di prod il massimo
+   scontrini/ora osservato (query pino `Receipt emitted successfully` per
+   userId/ora) e documentare la scelta.
+2. Aggiornare skill `testing-patterns` (tabella soglie) e
+   `docs/architecture/config-manifest.md` nello stesso PR; `npm run arch:check`.
+3. **Test:** aggiornare il test del limite emit alla nuova soglia; il
+   messaggio d'errore resta invariato.
 
 ---
 
