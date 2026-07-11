@@ -192,11 +192,29 @@ async function isAcceptedTurnstileHostname(host: string): Promise<boolean> {
   return (await getPartnerBySlug(slug)) !== null;
 }
 
+/**
+ * Bypass dev del captcha: obscura / motori headless leggeri non risolvono la
+ * managed challenge Turnstile, che quindi non emette token e blocca ogni login
+ * su dev. Doppio gate: il flag esplicito `TURNSTILE_DISABLED` NON basta da solo.
+ * `ADE_MODE === "mock"` è esclusivo di dev/sandbox (la produzione gira con
+ * `ADE_MODE=real`), quindi in produzione il captcha non si può disattivare
+ * nemmeno se il flag trapelasse nell'ambiente. Lettura raw (non `getAdeMode()`)
+ * di proposito: un gate di sicurezza non deve mai throware e deve fallire chiuso
+ * — `ADE_MODE` assente/inatteso ⇒ captcha attivo. Speculare al bypass client in
+ * `turnstile-widget.tsx`.
+ */
+function isCaptchaDisabled(): boolean {
+  return (
+    process.env.TURNSTILE_DISABLED === "true" && process.env.ADE_MODE === "mock"
+  );
+}
+
 async function verifyCaptcha(
   token: string | null,
   remoteIp: string | undefined,
   expectedAction: CaptchaAction,
 ): Promise<boolean> {
+  if (isCaptchaDisabled()) return true;
   if (!token) return false;
   const secret = process.env.TURNSTILE_SECRET_KEY;
   if (!secret) {

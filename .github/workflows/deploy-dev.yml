@@ -75,6 +75,7 @@ jobs:
             NEXT_PUBLIC_APP_HOSTNAME=app-dev.scontrinozero.it
             NEXT_PUBLIC_MARKETING_HOSTNAME=dev.scontrinozero.it
             NEXT_PUBLIC_API_HOSTNAME=api-dev.scontrinozero.it
+            NEXT_PUBLIC_TURNSTILE_DISABLED=true
           # BUILD_SHA=github.sha: dev traccia main e ribuilda a ogni push, quindi
           # è esattamente il commit di main deployato. BUILD_CHANNEL=dev fa
           # mostrare "build dev <sha>" nella card Informazioni (vs bare SHA prod).
@@ -93,6 +94,10 @@ jobs:
           # bundle client (appHref in header.tsx). Bakati coi valori dev così i
           # link Accedi/Registrati, il redirect /→/dashboard e il CORS puntano a
           # app-dev (non al default prod). Non sono segreti → letterali qui.
+          # NEXT_PUBLIC_TURNSTILE_DISABLED=true: disabilita Turnstile SOLO su
+          # :dev (i browser headless non risolvono la managed challenge). Prod
+          # (deploy.yml) non passa l'arg → captcha attivo. Speculare al gate
+          # server (TURNSTILE_DISABLED + ADE_MODE=mock nel .env del Pi).
           # Supabase/Stripe/ecc. restano runtime (solo nel .env del Pi).
           # Sentry OFF su dev: niente NEXT_PUBLIC_SENTRY_DSN (no DSN nel bundle)
           # né SENTRY_AUTH_TOKEN/ORG/PROJECT (no upload source-map).

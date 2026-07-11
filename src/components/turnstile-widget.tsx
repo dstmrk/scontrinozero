@@ -1,7 +1,17 @@
 "use client";
 
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
-import type { Ref } from "react";
+import { useEffect, type Ref } from "react";
+
+/**
+ * Token sentinella emesso quando Turnstile è disabilitato in dev
+ * (`NEXT_PUBLIC_TURNSTILE_DISABLED`). Valore arbitrario: il server lo ignora
+ * del tutto — `verifyCaptcha` esce prima via `isCaptchaDisabled` in
+ * `auth-actions.ts`. Serve solo a rendere `captchaToken` non-null lato client,
+ * così il submit (gated su `captchaToken === null`) si abilita senza dover
+ * toccare le pagine auth.
+ */
+const DISABLED_CAPTCHA_TOKEN = "dev-captcha-disabled";
 
 /**
  * Widget Turnstile riusabile per i form auth (signUp, signIn, resetPassword).
@@ -23,6 +33,13 @@ import type { Ref } from "react";
  * (altrimenti `captchaToken` resterebbe `null` fino alla scadenza ~5 min). Se
  * la siteKey manca il widget non si monta: il ref resta `null` e il reset è un
  * no-op sicuro (self-hosted/test).
+ *
+ * **Bypass dev** (`NEXT_PUBLIC_TURNSTILE_DISABLED === "true"`): il widget non si
+ * monta ed emette subito un token sentinella per sbloccare il submit, speculare
+ * al gate server `isCaptchaDisabled`. Riservato a dev/sandbox — in produzione il
+ * captcha resta sempre attivo. Nota: dopo un login *fallito* il parent azzera
+ * `captchaToken` e, non essendoci widget da resettare, il submit resta
+ * disabilitato fino a un reload (limite cosmetico, solo in modalità disabled).
  */
 export function TurnstileWidget({
   onToken,
@@ -34,7 +51,14 @@ export function TurnstileWidget({
   readonly ref?: Ref<TurnstileInstance | null>;
 }) {
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-  if (!siteKey) return null;
+  const disabled = process.env.NEXT_PUBLIC_TURNSTILE_DISABLED === "true";
+
+  // Bypass dev: emette il sentinella all'avvio → sblocca il submit.
+  useEffect(() => {
+    if (disabled) onToken(DISABLED_CAPTCHA_TOKEN);
+  }, [disabled, onToken]);
+
+  if (disabled || !siteKey) return null;
   return (
     <Turnstile
       ref={ref}

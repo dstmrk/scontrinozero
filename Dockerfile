@@ -25,6 +25,15 @@ ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
 ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
+# Turnstile disable — bypass captcha SOLO in dev (i browser headless leggeri non
+# risolvono la managed challenge). Senza default: prod/sandbox non passano l'arg
+# → ENV vuoto → il widget legge `!== "true"` = captcha attivo (empty = fail-safe,
+# regola 18). La sola immagine :dev lo passa =true. Doppio gate col server
+# (`TURNSTILE_DISABLED` + `ADE_MODE=mock`) in auth-actions.ts: prod (ADE_MODE=real)
+# non può comunque disattivare il captcha.
+ARG NEXT_PUBLIC_TURNSTILE_DISABLED
+ENV NEXT_PUBLIC_TURNSTILE_DISABLED=$NEXT_PUBLIC_TURNSTILE_DISABLED
+
 # Umami (web analytics self-hosted, cookieless). Baked al build: senza default
 # (assenti = Umami off, loader e CSP no-op). Prod li passa come --build-arg;
 # dev/sandbox no → Umami resta spento lì (come Sentry su dev). Regola 18.
