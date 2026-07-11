@@ -32,35 +32,6 @@ luglio). Tutto il traffico utile è dall'Italia.
 | Errori di accesso AdE                                                    | 111     | 6,6    | `/help/errori-ade` **CTR 0%** nonostante pos 6,6 → title non matcha l'intent (password scaduta/bloccata)        |
 | Numero azzeramento scontrino                                             | ~10     | 71–81  | Nessuna pagina dedicata                                                                                         |
 
-## Infrastruttura: azioni manuali Cloudflare (bloccanti per il GEO)
-
-Verifiche `curl` dell'11/07/2026 — questi tre punti **non si risolvono nel
-codice**, vanno sistemati nella dashboard Cloudflare:
-
-1. **🚨 I crawler AI sono bloccati.** `https://scontrinozero.it/robots.txt`
-   contiene un blocco "Cloudflare Managed content" che serve `Disallow: /` a
-   GPTBot, ClaudeBot, CCBot, Google-Extended, Amazonbot, Applebot-Extended,
-   Bytespider e meta-externalagent, più `Content-Signal: ai-train=no`. Finché
-   resta attivo, ChatGPT/Claude/Perplexity **non possono leggere il sito** e
-   l'obiettivo "comparire nelle risposte AI" è irraggiungibile, qualunque
-   contenuto si scriva. Fix: Cloudflare dashboard → AI Crawl Control /
-   Settings → disattivare "block AI bots" e il robots.txt gestito (o
-   impostare i Content Signals su allow). Verificare anche che non ci sia un
-   blocco WAF attivo oltre al robots.txt (testare con
-   `curl -A "GPTBot" https://scontrinozero.it/` dopo il cambio).
-2. **`http://` non redirige a `https://`** (`curl -I http://scontrinozero.it`
-   → 200, non 301). Spiega le 52 impressioni GSC su URL `http://`. Fix:
-   Cloudflare → SSL/TLS → Edge Certificates → "Always Use HTTPS".
-3. **`www.scontrinozero.it` risponde 502.** Il codice lo tratta come
-   indicizzabile (`isIndexableHost`) ma l'edge non lo serve. Fix: redirect
-   rule Cloudflare `www.scontrinozero.it/*` → `https://scontrinozero.it/$1`
-   (301).
-
-Verificato OK: `app.scontrinozero.it` serve `X-Robots-Tag: noindex, nofollow`
-sulle pagine finali (le 76 impressioni GSC su quel host decadranno da sole).
-Nota minore: la 307 `app.../` → `/dashboard` non porta l'header, ma la pagina
-di destinazione sì.
-
 ## Competitor (snapshot luglio 2026)
 
 | Competitor                       | Pricing                                         | Punti di forza contenuti                                                                                                    |
