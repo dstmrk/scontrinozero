@@ -1056,6 +1056,52 @@ describe("auth-actions", () => {
       // beforeEach ripristinerà TURNSTILE_SECRET_KEY per il test successivo
     });
 
+    it("bypass dev: salta il captcha con TURNSTILE_DISABLED=true e ADE_MODE=mock", async () => {
+      vi.stubEnv("TURNSTILE_DISABLED", "true");
+      vi.stubEnv("ADE_MODE", "mock");
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "user-123" } },
+        error: null,
+      });
+
+      const { signUp } = await import("./auth-actions");
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            // captchaToken omesso di proposito: in bypass non serve
+          }),
+        );
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+      }
+      // verifyCaptcha esce prima: siteverify NON deve essere invocato.
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("prod safety: NON salta il captcha con TURNSTILE_DISABLED=true ma ADE_MODE=real", async () => {
+      vi.stubEnv("TURNSTILE_DISABLED", "true");
+      vi.stubEnv("ADE_MODE", "real");
+
+      const { signUp } = await import("./auth-actions");
+      const result = await signUp(
+        formData({
+          email: "test@example.com",
+          password: "Secure#99x",
+          confirmPassword: "Secure#99x",
+          termsAccepted: "true",
+          specificClausesAccepted: "true",
+          // captchaToken omesso: in produzione il captcha resta obbligatorio
+        }),
+      );
+      expect(result).toEqual({ error: "Verifica CAPTCHA fallita. Riprova." });
+    });
+
     it("returns captcha error when Turnstile hostname doesn't match expected app hostname", async () => {
       mockFetch.mockResolvedValueOnce(
         captchaResponse("signup", "evil.example.com"),

@@ -88,4 +88,19 @@ describe("TurnstileWidget", () => {
     expect(ref.current).toBeNull();
     expect(() => ref.current?.reset()).not.toThrow();
   });
+
+  it("bypass dev: con NEXT_PUBLIC_TURNSTILE_DISABLED non monta il widget ed emette un token sentinella non-null", async () => {
+    vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "test-site-key");
+    vi.stubEnv("NEXT_PUBLIC_TURNSTILE_DISABLED", "true");
+    const { TurnstileWidget } = await import("./turnstile-widget");
+    const onToken = vi.fn();
+    const { queryByTestId } = render(<TurnstileWidget onToken={onToken} />);
+    // Nessun iframe/challenge: il widget non si monta.
+    expect(queryByTestId("turnstile")).toBeNull();
+    expect(mockTurnstile).not.toHaveBeenCalled();
+    // Emette un sentinella non-null → sblocca il submit (gated su token null).
+    expect(onToken).toHaveBeenCalledTimes(1);
+    expect(onToken).toHaveBeenCalledWith(expect.any(String));
+    expect(onToken).not.toHaveBeenCalledWith(null);
+  });
 });
