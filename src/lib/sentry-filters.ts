@@ -117,3 +117,35 @@ export function isBenignFormDataParseError(
   const transaction = event.transaction ?? "";
   return transaction.includes("/_not-found");
 }
+
+/**
+ * Messaggio lanciato dall'App Router di Next.js quando un POST con body
+ * colpisce la route not-found: non trovando una Server Action registrata,
+ * l'handler lancia questo errore. Come per il FormData sopra, è generato solo
+ * da bot/scanner che sondano path inesistenti con POST (es. Python Requests su
+ * `/index.php?option=com_sppagebuilder&task=asset.uploadCustomIcon`, uno
+ * scanner di vulnerabilità Joomla). Non è mai un flusso legittimo dell'app: la
+ * richiesta finisce comunque in 404 e l'errore non è azionabile. Lo filtriamo
+ * per non inquinare Sentry (issue SCONTRINOZERO-T).
+ */
+const SERVER_ACTION_NOT_FOUND_MESSAGE = "Failed to find Server Action";
+
+/**
+ * True se l'evento è il benigno `Failed to find Server Action` generato da un
+ * POST verso la route not-found (sonda bot). Lo scope è volutamente limitato
+ * alla transaction `/_not-found`: sulle Server Action reali lo stesso messaggio
+ * può segnalare un deploy skew genuino (client vecchio verso build nuova) e va
+ * lasciato passare per essere investigato.
+ */
+export function isBenignServerActionNotFound(
+  event: ErrorEvent,
+  hint?: EventHint,
+): boolean {
+  const message = extractErrorMessage(event, hint);
+  if (!message.includes(SERVER_ACTION_NOT_FOUND_MESSAGE)) {
+    return false;
+  }
+
+  const transaction = event.transaction ?? "";
+  return transaction.includes("/_not-found");
+}

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ErrorEvent, EventHint } from "@sentry/nextjs";
 import {
   isBenignFormDataParseError,
+  isBenignServerActionNotFound,
   isClientNetworkFailure,
   isReactStreamingDomError,
 } from "./sentry-filters";
@@ -97,6 +98,68 @@ describe("isBenignFormDataParseError", () => {
     const event = makeEvent("POST /_not-found/page");
 
     expect(isBenignFormDataParseError(event)).toBe(false);
+  });
+});
+
+describe("isBenignServerActionNotFound", () => {
+  const message =
+    "Failed to find Server Action. This request might be from an older or newer deployment.";
+
+  it("scarta l'errore Server Action sulla route not-found (sonda bot)", () => {
+    const event = makeEvent("POST /_not-found/page");
+    const hint: EventHint = {
+      originalException: new Error(message),
+    };
+
+    expect(isBenignServerActionNotFound(event, hint)).toBe(true);
+  });
+
+  it("legge il messaggio dall'exception dell'evento se manca originalException", () => {
+    const event = makeEvent("POST /_not-found/page", message);
+
+    expect(isBenignServerActionNotFound(event)).toBe(true);
+  });
+
+  it("non scarta lo stesso errore su una Server Action reale (possibile deploy skew)", () => {
+    const event = makeEvent("POST /dashboard/receipts");
+    const hint: EventHint = {
+      originalException: new Error(message),
+    };
+
+    expect(isBenignServerActionNotFound(event, hint)).toBe(false);
+  });
+
+  it("non scarta altri errori sulla route not-found", () => {
+    const event = makeEvent("POST /_not-found/page");
+    const hint: EventHint = {
+      originalException: new Error("Database connection refused"),
+    };
+
+    expect(isBenignServerActionNotFound(event, hint)).toBe(false);
+  });
+
+  it("gestisce transaction mancante senza lanciare", () => {
+    const event = makeEvent(undefined);
+    const hint: EventHint = {
+      originalException: new Error(message),
+    };
+
+    expect(isBenignServerActionNotFound(event, hint)).toBe(false);
+  });
+
+  it("gestisce originalException stringa", () => {
+    const event = makeEvent("POST /_not-found/page");
+    const hint: EventHint = {
+      originalException: message,
+    };
+
+    expect(isBenignServerActionNotFound(event, hint)).toBe(true);
+  });
+
+  it("non scarta eventi senza messaggio di errore", () => {
+    const event = makeEvent("POST /_not-found/page");
+
+    expect(isBenignServerActionNotFound(event)).toBe(false);
   });
 });
 

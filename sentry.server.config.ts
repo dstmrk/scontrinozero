@@ -1,5 +1,8 @@
 import * as Sentry from "@sentry/nextjs";
-import { isBenignFormDataParseError } from "@/lib/sentry-filters";
+import {
+  isBenignFormDataParseError,
+  isBenignServerActionNotFound,
+} from "@/lib/sentry-filters";
 import { getAppRelease } from "@/lib/version";
 
 Sentry.init({
@@ -24,6 +27,10 @@ Sentry.init({
   beforeSend(event, hint) {
     // Rumore da bot che fanno POST a path inesistenti (issue SCONTRINOZERO-E)
     if (isBenignFormDataParseError(event, hint)) {
+      return null;
+    }
+    // Scanner che fanno POST alla route not-found (issue SCONTRINOZERO-T)
+    if (isBenignServerActionNotFound(event, hint)) {
       return null;
     }
     return event;
