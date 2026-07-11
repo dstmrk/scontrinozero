@@ -27,9 +27,16 @@ di rete, console, form) quando un test unitario non basta e vuoi la conferma sul
 - `OBSCURA_URL` — endpoint MCP HTTP di obscura (`https://…/mcp`).
 - `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` — service token Cloudflare
   Access che protegge quell'endpoint (obscura non ha auth propria).
+- `SZ_DEV_BASE` — URL base dell'ambiente dev fornito dall'utente (marketing
+  `dev.scontrinozero.it` o app `app-dev.scontrinozero.it`); usalo come punto di
+  partenza invece di hardcodare l'host. L'app autenticata vive comunque su
+  `app-dev.*`, il marketing su `dev.*`.
+- `SZ_DEV_EMAIL` / `SZ_DEV_PASSWORD` — credenziali dell'utente di test (utente
+  dedicato, P.IVA di test) per il **login-form** reale. Richiede il bypass
+  captcha dev attivo (vedi sotto): obscura non risolve la challenge Turnstile.
 
-Se una di queste manca, obscura **non è agganciato**: chiedi all'utente di
-configurarle, non tirare a indovinare host o token.
+Se una manca, obscura o l'auth **non sono agganciati**: chiedi all'utente di
+configurarle, non tirare a indovinare host, token o credenziali.
 
 ## Come pilotarlo: MCP-over-HTTP via curl
 
@@ -119,7 +126,8 @@ Access. Vanno risolti al bordo Cloudflare come `api-dev`.
 1. `initialize` + `tools/list` → conferma i tool.
 2. Harvest + `browser_set_cookie` del `CF_Authorization`.
 3. `browser_navigate` su `app-dev.scontrinozero.it/login`.
-4. `browser_fill` email/password (`DEV_TEST_EMAIL`/`DEV_TEST_PASSWORD` da env,
-   utente di test con P.IVA di test) → click "Accedi".
+4. `browser_fill` email/password (`SZ_DEV_EMAIL`/`SZ_DEV_PASSWORD` da env) →
+   click "Accedi". Richiede il bypass captcha dev attivo (obscura non risolve
+   Turnstile).
 5. `browser_snapshot`/`browser_markdown` sulla dashboard; emetti uno scontrino
    mock; verifica i totali nel DOM (coerenti con `calcDocTotal`, regola 17).
