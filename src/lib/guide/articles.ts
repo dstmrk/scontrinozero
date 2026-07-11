@@ -112,7 +112,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     title: "Emettere scontrino senza registratore di cassa: si può?",
     metaTitle: "Scontrino elettronico senza registratore di cassa: guida 2026",
     metaDescription:
-      "Sì, dal 2020 è possibile emettere scontrini elettronici senza registratore telematico, usando il documento commerciale online via portale AdE o app dedicata.",
+      "Sì, si può: dal 2020 emetti scontrini elettronici senza registratore telematico, dal portale AdE o con un'app dal telefono. Cosa serve, costi e come iniziare.",
     heroIntro:
       'Da gennaio 2020 in Italia è possibile emettere lo scontrino senza registratore di cassa fisico: basta usare il "documento commerciale online" tramite il portale Fatture e Corrispettivi dell\'Agenzia delle Entrate, da web o smartphone. Vediamo cosa serve e come si fa nella pratica.',
     publishedAt: "2026-05-14",
@@ -306,9 +306,9 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
   "scontrino-regime-forfettario": {
     slug: "scontrino-regime-forfettario",
     title: "Scontrino in regime forfettario: cosa devi sapere",
-    metaTitle: "Scontrino forfettari: dicitura, IVA N2 e come emetterlo",
+    metaTitle: "Scontrino elettronico regime forfettario 2026: come emetterlo",
     metaDescription:
-      'Anche in regime forfettario devi emettere lo scontrino al consumatore finale: come gestire l\'IVA "a zero" (natura N2), la dicitura di esenzione e la lotteria.',
+      "Anche i forfettari devono emettere scontrino ai privati: come farlo senza registratore di cassa, natura IVA N2, dicitura di esenzione e lotteria. Guida 2026.",
     heroIntro:
       "Il regime forfettario semplifica molti adempimenti (IVA, ritenute, gestione contabile), ma NON esonera dall'obbligo di emettere scontrino al consumatore finale per le vendite B2C. Vediamo come gestire correttamente l'emissione, l'IVA \"a zero\" e gli aspetti operativi tipici del forfettario.",
     publishedAt: "2026-05-14",
