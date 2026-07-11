@@ -30,9 +30,9 @@ export const helpArticles: Record<string, HelpArticle> = {
   "annullare-scontrino": {
     slug: "annullare-scontrino",
     title: "Annullare uno scontrino: quando si può e come fare",
-    metaTitle: "Annullare uno scontrino: quando si può e come fare",
+    metaTitle: "Annullare scontrino elettronico: come fare ed entro quando",
     description:
-      "Scopri quando è possibile annullare uno scontrino elettronico, come farlo da ScontrinoZero e cosa succede sul portale dell'Agenzia delle Entrate.",
+      "Entro quanto tempo si può annullare uno scontrino elettronico e come farlo da ScontrinoZero: la procedura, cosa succede sul portale AdE e quando emettere un reso invece dell'annullo.",
     related: [
       "primo-scontrino",
       "storico-ed-esportazione",
@@ -102,9 +102,9 @@ export const helpArticles: Record<string, HelpArticle> = {
   "errori-ade": {
     slug: "errori-ade",
     title: "Errori comuni di accesso AdE e come risolverli",
-    metaTitle: "Errori comuni di accesso AdE e come risolverli",
+    metaTitle: "Password AdE scaduta o accesso bloccato: come risolvere",
     description:
-      "Risolvi gli errori più comuni di accesso all'Agenzia delle Entrate: password scaduta o bloccata, credenziali errate, portale non disponibile e scontrino rifiutato.",
+      "Password Fisconline scaduta o bloccata, credenziali errate, portale AdE non disponibile: cosa significa ogni errore di accesso all'Agenzia delle Entrate e come ripristinare l'accesso.",
     related: [
       "come-collegare-ade",
       "credenziali-fisconline",
@@ -140,7 +140,7 @@ export const helpArticles: Record<string, HelpArticle> = {
     title: "Collegamento POS-cassa 2026: cosa cambia",
     metaTitle: "Normativa POS 2026: obbligo, scadenze e sanzioni POS-cassa",
     description:
-      "Normativa POS 2026 (Legge 207/2024): chi è obbligato a collegare il POS al sistema di cassa, scadenze, sanzioni e come metterti in regola con il Documento Commerciale Online.",
+      "Normativa POS 2026 (Legge 207/2024): chi deve collegare POS e cassa, la scadenza del 20 aprile 2026 per la prima comunicazione, le sanzioni e come metterti in regola col Documento Commerciale Online.",
     related: ["pos-rt-obbligo", "chiusura-giornaliera", "regime-forfettario"],
   },
   "piani-e-prezzi": {
@@ -191,9 +191,9 @@ export const helpArticles: Record<string, HelpArticle> = {
   "regime-forfettario": {
     slug: "regime-forfettario",
     title: "Regime forfettario: configurazione IVA corretta",
-    metaTitle: "Codice e natura IVA del forfettario (N2/N2.2) sullo scontrino",
+    metaTitle: "Codice IVA regime forfettario: N2 scontrino, N2.2 fattura",
     description:
-      "Qual è il codice IVA del regime forfettario sullo scontrino: natura N2 sul documento commerciale (N2.2 in fattura), dicitura di esenzione e come configurarlo in ScontrinoZero senza errori.",
+      "Il codice IVA del regime forfettario è natura N2 sullo scontrino elettronico e N2.2 in fattura, con dicitura art. 1 commi 54-89 L. 190/2014: ecco come configurarlo in ScontrinoZero senza errori.",
     related: ["aliquote-iva", "primo-scontrino", "annullare-scontrino"],
   },
   "registrare-pos-portale-ade": {

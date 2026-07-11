@@ -32,6 +32,7 @@ src/
     api/            route handler (vedi sotto)
     r/              pagina pubblica scontrino (QR / link)
     sitemap.ts robots.ts manifest.ts layout.tsx global-error.tsx
+    llms.txt/       route handler /llms.txt (indice markdown per crawler AI)
   components/     React. Sottocartelle per dominio (cassa, storico, analytics,
                   catalogo, billing, settings, ade, receipts, marketing, help,
                   pwa, dashboard, announcement) + ui/ (shadcn) + providers.tsx

@@ -416,6 +416,7 @@ describe("proxy", () => {
       "/confronto",
       "/funzionalita",
       "/guide",
+      "/llms.txt",
       "/per",
       "/prezzi",
     ] as const;

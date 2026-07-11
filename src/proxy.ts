@@ -41,6 +41,7 @@ const MARKETING_ONLY_ROUTES = [
   "/funzionalita",
   "/guide",
   "/help",
+  "/llms.txt",
   "/per",
   "/prezzi",
   "/privacy",
