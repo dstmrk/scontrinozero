@@ -68,21 +68,11 @@ iniziale.
     autonomamente** dopo aver risolto un problema non triviale con lezione
     riusabile (debugging pattern, setup gotcha, wrong assumption). Non
     aspettare che lo chiedano.
-8.  **Contenuti marketing & SEO.** I contenuti vivono in route dedicate con un
-    data file ciascuna: `/help` (operativo, `src/lib/help/articles.ts`), `/guide`
-    (educativo, `src/lib/guide/articles.ts`), `/per/[slug]` (categorie,
-    `src/lib/per/categories.ts`), `/confronto` (`src/lib/confronto/comparisons.ts`),
-    `/strumenti/[slug]` (tool gratuiti backlink-magnet, `src/lib/strumenti/tools.ts`).
-    Regole sempre valide: - **Niente promesse di feature non live** in _nessun_ copy marketing: feature
-    non implementate → condizionale/roadmap, mai al presente. Oggi sul Pro
-    resta "in arrivo" solo il recupero dei **documenti commerciali/corrispettivi
-    da AdE** (roadmap v1.9.0); il sync del **catalogo prodotti** da AdE **non** è
-    più promesso (nice-to-have gated su domanda). Analytics avanzata ed Export
-    CSV sono **spedite e Pro-gated** (commit ae1c481). - **Slug separati `/help` vs `/guide`** sulle keyword condivise per evitare
-    canonical clash (es. `/help/regime-forfettario` ≠
-    `/guide/regime-forfettario-scontrini`); si linkano a vicenda. - Se modifichi una funzionalità (label, menu, stati, filtri, error flow,
-    gating piani, nomi bottoni) aggiorna i contenuti: `grep -rn "<termine>"
-src/app/\(marketing\)` prima di chiudere il task. - Contenuti generati via LLM con **review umana**, in italiano, target Italia.
+8.  **Contenuti marketing & SEO → skill `marketing-content`.** MAI promettere
+    feature non live (condizionale/roadmap, mai al presente). Se cambi
+    label/menu/stati/gating, aggiorna i contenuti marketing nello stesso task
+    (grep checklist nella skill). Slug separati `/help` vs `/guide`;
+    contenuti LLM con review umana, in italiano.
 9.  **Boundary delle API:** UUID validation con `isValidUuid()` + 400 prima del
     service; body size guard con `readJsonWithLimit(req, maxBytes)` + 413 prima
     di `JSON.parse`; email normalizzata con `normalizeEmail()` in `validation.ts`
@@ -221,32 +211,11 @@ https://<host>/api/_debug/sentry-sentinel?id=<release>`; la response
     nella `description` frontmatter) non esiste più su disco; cita ogni path
     come span isolato (i token con `*`/`{}` sono ignorati come illustrativi).
 
-27. **Date derivate e fonti di verità esterne (bonus/crediti/aggiustamenti).**
-    Due trappole emerse insieme nel programma referral (presentato/presentatore).
-    **(a) Su una data DERIVATA, asserisci l'esito osservabile, non lo shift
-    intermedio.** La scadenza trial è `trialStartedAt + TRIAL_DAYS`: per
-    ALLUNGARE il trial lo start va spostato in **avanti**, non indietro
-    (spostarlo indietro anticipa la scadenza → il referee risultava "già
-    scaduto" il giorno della registrazione). Il bug era coperto da un test
-    verde che asseriva proprio lo shift all'indietro chiamandolo "trial più
-    lungo": **codificava il modello mentale sbagliato**. TDD (regola 2/4) ti
-    protegge solo se l'`expect` controlla la grandezza user-facing
-    (`isTrialExpired`, la data mostrata in `settings/page.tsx`), non il
-    trasformatore intermedio. Helper: `getPlan`/`fetchPlan` in
-    `src/lib/plans.ts`. **(b) Un numero posseduto da un sistema esterno di
-    verità (Stripe billing date) non si "aggiusta" a read-time in locale.** Il
-    mese bonus del referrer veniva sommato a `planExpiresAt` solo dentro
-    `getPlan`: l'app mostrava +1 mese ma il portale Stripe (e l'addebito reale)
-    non si spostavano, la divergenza non si riconciliava mai, e il sync
-    unidirezionale Stripe→DB del webhook la sovrascriveva. Un
-    bonus/credito/estensione su una grandezza Stripe va **spinto a Stripe**
-    (`extendSubscriptionForReferral` in `src/server/referral-reward.ts`:
-    estensione `trial_end`, poi il webhook risincronizza); il `referral_bonus_days`
-    resta un meccanismo **solo-trial**. Generalizza le regole 17 (una sola
-    strategia canonica per le grandezze monetarie) e 19/20 (degradare, non
-    divergere). NB: la copy referral vive anche fuori da `(marketing)/` —
-    `src/components/settings/referral-section.tsx` — quindi va inclusa nel grep
-    della regola 8 quando cambiano i termini del bonus.
+27. **Date derivate e fonti di verità esterne (bonus/crediti).** Su una data
+    DERIVATA asserisci l'esito osservabile user-facing, non lo shift
+    intermedio; una grandezza posseduta da Stripe si aggiusta SU Stripe (poi
+    il webhook risincronizza), MAI a read-time in locale. Trappole referral →
+    skill `stripe-webhooks`, sezione referral/trial.
 
 ## SonarCloud quality gate
 
