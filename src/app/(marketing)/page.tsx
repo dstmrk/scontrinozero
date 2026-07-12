@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { FaqSection } from "@/components/marketing/faq-section";
 import { PricingSection } from "@/components/marketing/pricing-section";
+import { AppScreenshot } from "@/components/marketing/app-screenshot";
 import {
   ComparisonTable,
   type ComparisonRow,
@@ -92,42 +93,76 @@ export default function Home() {
     <>
       <JsonLd data={faqPageJsonLd(faqItems)} />
       {/* Hero */}
-      <section className="px-4 py-20 md:py-32">
-        <div className="mx-auto max-w-3xl text-center">
-          <h1 className="text-4xl font-extrabold tracking-tight md:text-5xl lg:text-6xl">
-            Scontrino elettronico
-            <br />
-            <span className="text-primary">senza registratore di cassa</span>
-          </h1>
-          <p className="text-muted-foreground mx-auto mt-6 max-w-xl text-lg">
-            L&apos;app per emettere scontrini elettronici online dal tuo
-            smartphone e trasmettere i corrispettivi all&apos;Agenzia delle
-            Entrate. Senza hardware, senza canoni nascosti.
-          </p>
-          <div className="mt-8 flex flex-col items-center gap-4">
-            <Button asChild size="lg">
-              <a href={appHref("/register")}>
-                Inizia gratis
-                <ArrowRight className="h-4 w-4" />
-              </a>
-            </Button>
-            <div className="text-muted-foreground flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm">
-              <span>30 giorni gratis</span>
-              <span aria-hidden="true">·</span>
-              <span>Da €2,50/mese</span>
-              <span aria-hidden="true">·</span>
-              <span>Nessuna carta richiesta</span>
-            </div>
-            <p className="text-sm">
-              <Link
-                href="/guide/scontrino-senza-registratore-di-cassa"
-                className="text-primary hover:underline"
-              >
-                Si può davvero fare a meno del registratore? Leggi la guida
-                completa
-                <ArrowRight className="ml-1 inline h-3.5 w-3.5" />
-              </Link>
+      <section className="px-4 py-20 md:py-28">
+        <div className="mx-auto grid max-w-5xl items-center gap-12 md:grid-cols-2">
+          {/* Testo */}
+          <div className="text-center md:text-left">
+            <h1 className="text-4xl font-extrabold tracking-tight md:text-5xl lg:text-6xl">
+              Scontrino elettronico
+              <br />
+              <span className="text-primary">senza registratore di cassa</span>
+            </h1>
+            <p className="text-muted-foreground mx-auto mt-6 max-w-xl text-lg md:mx-0">
+              L&apos;app per emettere scontrini elettronici online dal tuo
+              smartphone e trasmettere i corrispettivi all&apos;Agenzia delle
+              Entrate. Senza hardware, senza canoni nascosti.
             </p>
+            <div className="mt-8 flex flex-col items-center gap-4 md:items-start">
+              <Button asChild size="lg">
+                <a href={appHref("/register")}>
+                  Inizia gratis
+                  <ArrowRight className="h-4 w-4" />
+                </a>
+              </Button>
+              <div className="text-muted-foreground flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm md:justify-start">
+                <span>30 giorni gratis</span>
+                <span aria-hidden="true">·</span>
+                <span>Da €2,50/mese</span>
+                <span aria-hidden="true">·</span>
+                <span>Nessuna carta richiesta</span>
+              </div>
+              <p className="text-sm">
+                <Link
+                  href="/guide/scontrino-senza-registratore-di-cassa"
+                  className="text-primary hover:underline"
+                >
+                  Si può davvero fare a meno del registratore? Leggi la guida
+                  completa
+                  <ArrowRight className="ml-1 inline h-3.5 w-3.5" />
+                </Link>
+              </p>
+            </div>
+          </div>
+
+          {/* Mockup: showcase a 3 device (scontrino emesso in primo piano,
+              tastierino cassa e analytics angolati sullo sfondo). Sul mobile
+              mostra solo il device principale per non appesantire. */}
+          <div className="relative mx-auto w-full max-w-[420px]">
+            <AppScreenshot
+              src="/screenshots/cassa-tastierino.png"
+              alt="Schermata Cassa di ScontrinoZero: tastierino per inserire l'importo di un articolo"
+              width={900}
+              height={1944}
+              sizes="(min-width: 768px) 230px, 45vw"
+              className="absolute top-[7%] left-0 z-0 hidden w-[52%] -rotate-6 md:block"
+            />
+            <AppScreenshot
+              src="/screenshots/analytics-grafici.png"
+              alt="Schermata Analytics di ScontrinoZero: grafici di metodi di pagamento e prodotti più venduti"
+              width={900}
+              height={2051}
+              sizes="(min-width: 768px) 230px, 45vw"
+              className="absolute top-[7%] right-0 z-0 hidden w-[52%] rotate-6 md:block"
+            />
+            <AppScreenshot
+              src="/screenshots/scontrino-emesso.png"
+              alt="Schermata di conferma: scontrino elettronico emesso con identificativo dell'Agenzia delle Entrate"
+              width={900}
+              height={1860}
+              priority
+              sizes="(min-width: 768px) 260px, 62vw"
+              className="relative z-10 mx-auto w-[62%] max-w-[260px]"
+            />
           </div>
         </div>
       </section>
@@ -257,22 +292,47 @@ export default function Home() {
                 title: "Registrati",
                 description:
                   "Crea un account e collega le credenziali Fisconline che usi sul sito dell'Agenzia delle Entrate.",
+                img: "/screenshots/impostazioni-attivita.png",
+                imgAlt:
+                  "Schermata impostazioni: dati dell'attività e stato delle credenziali AdE verificate",
+                imgWidth: 900,
+                imgHeight: 1860,
               },
               {
                 step: "2",
                 title: "Emetti lo scontrino",
                 description:
                   "Inserisci l'importo, scegli l'aliquota IVA e il metodo di pagamento. Un tap e confermi.",
+                img: "/screenshots/cassa-tastierino.png",
+                imgAlt:
+                  "Schermata Cassa: tastierino numerico con importo, quantità e aliquota IVA",
+                imgWidth: 900,
+                imgHeight: 1944,
               },
               {
                 step: "3",
                 title: "Tutto il resto è automatico",
                 description:
                   "La trasmissione all'Agenzia delle Entrate è automatica ad ogni scontrino.",
+                img: "/screenshots/scontrino-emesso.png",
+                imgAlt:
+                  "Schermata di conferma: scontrino emesso con identificativo dell'Agenzia delle Entrate",
+                imgWidth: 900,
+                imgHeight: 1860,
               },
             ].map((item) => (
               <div key={item.step} className="text-center">
-                <div className="bg-primary/10 text-primary mx-auto flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold">
+                <div className="flex h-64 items-end justify-center">
+                  <AppScreenshot
+                    src={item.img}
+                    alt={item.imgAlt}
+                    width={item.imgWidth}
+                    height={item.imgHeight}
+                    sizes="(min-width: 768px) 220px, 55vw"
+                    className="h-full w-auto"
+                  />
+                </div>
+                <div className="bg-primary/10 text-primary mx-auto mt-6 flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold">
                   {item.step}
                 </div>
                 <h3 className="mt-4 font-semibold">{item.title}</h3>
