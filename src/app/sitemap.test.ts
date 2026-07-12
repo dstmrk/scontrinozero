@@ -6,7 +6,7 @@ describe("sitemap", () => {
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
-    expect(result).toHaveLength(61);
+    expect(result).toHaveLength(67);
 
     // Root
     expect(result[0]).toMatchObject({
@@ -36,6 +36,12 @@ describe("sitemap", () => {
       "https://scontrinozero.it/per/b-and-b",
       "https://scontrinozero.it/per/regime-forfettario",
       "https://scontrinozero.it/per/professionisti",
+      "https://scontrinozero.it/per/officine-meccanici",
+      "https://scontrinozero.it/per/eventi-mercatini-hobbisti",
+      "https://scontrinozero.it/per/palestre-personal-trainer",
+      "https://scontrinozero.it/per/food-truck",
+      "https://scontrinozero.it/per/ncc-taxi",
+      "https://scontrinozero.it/per/tatuatori-piercer",
     ];
     for (const url of expectedCategoryUrls) {
       expect(allUrls).toContain(url);
@@ -118,39 +124,39 @@ describe("sitemap", () => {
     }
 
     // Legal
-    expect(result[28]).toMatchObject({
+    expect(result[34]).toMatchObject({
       url: "https://scontrinozero.it/privacy",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[29]).toMatchObject({
+    expect(result[35]).toMatchObject({
       url: "https://scontrinozero.it/privacy/v01",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[30]).toMatchObject({
+    expect(result[36]).toMatchObject({
       url: "https://scontrinozero.it/termini",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[31]).toMatchObject({
+    expect(result[37]).toMatchObject({
       url: "https://scontrinozero.it/termini/v01",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[32]).toMatchObject({
+    expect(result[38]).toMatchObject({
       url: "https://scontrinozero.it/cookie-policy",
       changeFrequency: "yearly",
       priority: 0.3,
     });
-    expect(result[33]).toMatchObject({
+    expect(result[39]).toMatchObject({
       url: "https://scontrinozero.it/cookie-policy/v01",
       changeFrequency: "yearly",
       priority: 0.3,
     });
 
     // Help center hub
-    expect(result[34]).toMatchObject({
+    expect(result[40]).toMatchObject({
       url: "https://scontrinozero.it/help",
       changeFrequency: "monthly",
       priority: 0.6,
@@ -177,12 +183,12 @@ describe("sitemap", () => {
     });
 
     // Auth pages (last two)
-    expect(result[59]).toMatchObject({
+    expect(result[65]).toMatchObject({
       url: "https://scontrinozero.it/login",
       changeFrequency: "yearly",
       priority: 0.5,
     });
-    expect(result[60]).toMatchObject({
+    expect(result[66]).toMatchObject({
       url: "https://scontrinozero.it/register",
       changeFrequency: "yearly",
       priority: 0.5,
@@ -201,17 +207,17 @@ describe("sitemap", () => {
     expect(result[2].url).toBe("https://test.scontrinozero.it/funzionalita");
     expect(result[3].url).toBe("https://test.scontrinozero.it/per");
     expect(result[4].url).toBe("https://test.scontrinozero.it/per/ambulanti");
-    expect(result[10].url).toBe("https://test.scontrinozero.it/confronto");
-    expect(result[11].url).toBe("https://test.scontrinozero.it/strumenti");
-    expect(result[12].url).toBe(
+    expect(result[16].url).toBe("https://test.scontrinozero.it/confronto");
+    expect(result[17].url).toBe("https://test.scontrinozero.it/strumenti");
+    expect(result[18].url).toBe(
       "https://test.scontrinozero.it/strumenti/scorporo-iva",
     );
-    expect(result[16].url).toBe("https://test.scontrinozero.it/guide");
-    expect(result[17].url).toBe(
+    expect(result[22].url).toBe("https://test.scontrinozero.it/guide");
+    expect(result[23].url).toBe(
       "https://test.scontrinozero.it/guide/documento-commerciale-online",
     );
-    expect(result[28].url).toBe("https://test.scontrinozero.it/privacy");
-    expect(result[34].url).toBe("https://test.scontrinozero.it/help");
+    expect(result[34].url).toBe("https://test.scontrinozero.it/privacy");
+    expect(result[40].url).toBe("https://test.scontrinozero.it/help");
 
     vi.unstubAllEnvs();
   });

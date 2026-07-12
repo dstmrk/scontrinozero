@@ -7,8 +7,8 @@ import {
 } from "./categories";
 
 describe("categorySlugs", () => {
-  it("contains exactly 6 slugs", () => {
-    expect(categorySlugs).toHaveLength(6);
+  it("contains exactly 12 slugs", () => {
+    expect(categorySlugs).toHaveLength(12);
   });
 
   it("contains the expected slugs", () => {
@@ -20,6 +20,12 @@ describe("categorySlugs", () => {
         "b-and-b",
         "regime-forfettario",
         "professionisti",
+        "officine-meccanici",
+        "eventi-mercatini-hobbisti",
+        "palestre-personal-trainer",
+        "food-truck",
+        "ncc-taxi",
+        "tatuatori-piercer",
       ]),
     );
   });
@@ -37,6 +43,12 @@ describe("categories dictionary", () => {
     "b-and-b",
     "regime-forfettario",
     "professionisti",
+    "officine-meccanici",
+    "eventi-mercatini-hobbisti",
+    "palestre-personal-trainer",
+    "food-truck",
+    "ncc-taxi",
+    "tatuatori-piercer",
   ] as const) {
     describe(slug, () => {
       const c = categories[slug];

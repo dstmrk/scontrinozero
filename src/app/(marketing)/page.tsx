@@ -306,7 +306,7 @@ export default function Home() {
               {
                 icon: Scissors,
                 slug: "parrucchieri-estetisti",
-                title: "Parrucchieri, estetisti e tatuatori",
+                title: "Parrucchieri ed estetisti",
                 description:
                   "Gestisci incassi e scontrini dal tablet o smartphone, senza hardware sul banco.",
               },
@@ -315,14 +315,14 @@ export default function Home() {
                 slug: "artigiani",
                 title: "Artigiani e installatori",
                 description:
-                  "Idraulici, elettricisti, meccanici: emetti lo scontrino direttamente dal cantiere.",
+                  "Idraulici, elettricisti, falegnami: emetti lo scontrino direttamente dal cantiere.",
               },
               {
                 icon: Briefcase,
                 slug: "professionisti",
                 title: "Liberi professionisti",
                 description:
-                  "Consulenti, tutor, personal trainer: scontrino al cliente che paga al momento.",
+                  "Consulenti, tutor, fotografi: scontrino al cliente che paga al momento.",
               },
               {
                 icon: BedDouble,
@@ -354,6 +354,12 @@ export default function Home() {
               </Link>
             ))}
           </div>
+          <p className="mt-8 text-center text-sm">
+            <Link href="/per" className="text-primary hover:underline">
+              Officine, palestre, food truck, NCC, tatuatori e tutte le altre
+              categorie →
+            </Link>
+          </p>
         </div>
       </section>
 

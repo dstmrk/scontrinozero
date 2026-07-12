@@ -51,18 +51,6 @@ trimestralmente: i pricing cambiano, Scontrina ha promo in corso).
 
 ## Backlog contenuti (1 batch = 1 PR, max 3 contenuti)
 
-### Batch C — P2: verticali `/per/` (dove i competitor investono)
-
-Nuove categorie in `src/lib/per/categories.ts` (solo data file), in ordine:
-
-- [ ] officine e meccanici (query "scontrino elettronico officina meccanica"
-      già in GSC)
-- [ ] eventi, mercatini e hobbisti
-- [ ] palestre e personal trainer
-- [ ] food truck e street food
-- [ ] NCC e taxi
-- [ ] tatuatori e piercer (oggi solo accennati in parrucchieri-estetisti)
-
 ### Batch D — P2: gap operativi (visti nei competitor e in GSC)
 
 - [ ] **Guida "Stampanti termiche WiFi per scontrino: guida alla
