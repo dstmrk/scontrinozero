@@ -30,7 +30,7 @@ luglio). Tutto il traffico utile è dall'Italia.
 | POS 2026 (normativa, scadenza aprile, obbligo)                           | ~60     | 3–31   | Forte (pos 8,4); "scadenza collegamento pos aprile 2026" (17 impr) non intercettata esplicitamente              |
 | Scorporo IVA / calcolo da lordo                                          | ~40     | 72–100 | `/strumenti/scorporo-iva` non competitivo (SERP di calcolatori affermati)                                       |
 | Errori di accesso AdE                                                    | 111     | 6,6    | `/help/errori-ade` **CTR 0%** nonostante pos 6,6 → title non matcha l'intent (password scaduta/bloccata)        |
-| Numero azzeramento scontrino                                             | ~10     | 71–81  | Nessuna pagina dedicata                                                                                         |
+| Numero azzeramento scontrino                                             | ~10     | 71–81  | `/help/numero-documento-azzeramento` pubblicata (batch D, 12/07)                                                |
 
 ## Competitor (snapshot luglio 2026)
 
@@ -50,15 +50,6 @@ per-competitor**, resta la landing unica `/confronto` (da aggiornare
 trimestralmente: i pricing cambiano, Scontrina ha promo in corso).
 
 ## Backlog contenuti (1 batch = 1 PR, max 3 contenuti)
-
-### Batch D — P2: gap operativi (visti nei competitor e in GSC)
-
-- [ ] **Guida "Stampanti termiche WiFi per scontrino: guida alla
-      scelta"** (tutti i competitor hanno la pagina stampanti; intent
-      commerciale). Solo hardware generico compatibile, nessuna promessa di
-      feature.
-- [ ] **Help "Numero documento e azzeramento sullo scontrino"** (query a pos
-      71-81 senza pagina; richiede `page.tsx` JSX oltre al registry).
 
 ### Batch E — P3
 

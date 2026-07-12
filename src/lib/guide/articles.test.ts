@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { getGuide, guideArticles, guideSlugs, isGuideSlug } from "./articles";
 
 describe("guideSlugs", () => {
-  it("contains exactly 11 slugs", () => {
-    expect(guideSlugs).toHaveLength(11);
+  it("contains exactly 12 slugs", () => {
+    expect(guideSlugs).toHaveLength(12);
   });
 
   it("contains the expected slugs", () => {
@@ -20,6 +20,7 @@ describe("guideSlugs", () => {
         "lotteria-scontrini-commerciante",
         "scegliere-software-scontrini-elettronici",
         "codici-natura-iva",
+        "stampante-termica-wifi-scontrini",
       ]),
     );
   });
@@ -183,6 +184,60 @@ describe("scontrino-senza-registratore-di-cassa (cluster transazionale)", () => 
     expect(
       questions.some((q) => q.includes("costa") || q.includes("costo")),
     ).toBe(true);
+  });
+});
+
+describe("stampante-termica-wifi-scontrini (batch D — gap stampanti)", () => {
+  const article = guideArticles["stampante-termica-wifi-scontrini"];
+
+  it("opens with a direct answer (risposta secca GEO): no hardware fiscale", () => {
+    expect(article.heroIntro.toLowerCase()).toContain("non serve");
+  });
+
+  it("has a connection comparison table covering WiFi, Bluetooth and USB", () => {
+    const tableSection = article.sections.find((s) => s.table !== undefined);
+    expect(tableSection).toBeDefined();
+    const firstColumn = tableSection!.table!.rows.map((row) =>
+      row[0].toLowerCase(),
+    );
+    expect(firstColumn.some((c) => c.includes("wifi"))).toBe(true);
+    expect(firstColumn.some((c) => c.includes("bluetooth"))).toBe(true);
+    expect(firstColumn.some((c) => c.includes("usb"))).toBe(true);
+  });
+
+  it("has dedicated sections for paper width (58/80 mm) and ESC/POS", () => {
+    const headings = article.sections.map((s) => s.heading.toLowerCase());
+    expect(headings.some((h) => h.includes("58") && h.includes("80"))).toBe(
+      true,
+    );
+    expect(headings.some((h) => h.includes("esc/pos"))).toBe(true);
+  });
+
+  it("never promises native WiFi printing from the app (regola 8)", () => {
+    const allText = [
+      article.heroIntro,
+      ...article.sections.map((s) => s.body),
+      ...article.faq.map((f) => f.answer),
+    ]
+      .join(" ")
+      .toLowerCase();
+    // Il percorso WiFi passa dal dialogo di stampa del sistema/browser, mai
+    // da un collegamento diretto app→stampante WiFi.
+    expect(allText).not.toMatch(/app si (collega|connette) (alla|in) wifi/);
+  });
+
+  it("has FAQ covering the smartphone and fiscal-printer intents", () => {
+    const questions = article.faq.map((f) => f.question.toLowerCase());
+    expect(questions.some((q) => q.includes("smartphone"))).toBe(true);
+    expect(
+      questions.some(
+        (q) => q.includes("fiscale") || q.includes("agenzia delle entrate"),
+      ),
+    ).toBe(true);
+  });
+
+  it("links the operational help article on thermal printing", () => {
+    expect(article.relatedHelp).toContain("stampare-scontrino-termica");
   });
 });
 

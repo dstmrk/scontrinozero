@@ -8,8 +8,8 @@ import {
 } from "./articles";
 
 describe("helpArticles registry", () => {
-  it("contains at least 21 entries", () => {
-    expect(Object.keys(helpArticles).length).toBeGreaterThanOrEqual(21);
+  it("contains at least 22 entries", () => {
+    expect(Object.keys(helpArticles).length).toBeGreaterThanOrEqual(22);
   });
 
   it("each entry's key matches its slug", () => {
@@ -74,6 +74,29 @@ describe("helpArticles registry", () => {
       const unique = new Set(article.related);
       expect(unique.size).toBe(article.related.length);
     }
+  });
+});
+
+describe("numero-documento-azzeramento (batch D — query GSC senza pagina)", () => {
+  const article = helpArticles["numero-documento-azzeramento"];
+
+  it("exists in the registry", () => {
+    expect(article).toBeDefined();
+  });
+
+  it("targets the 'numero azzeramento' query in the metaTitle", () => {
+    expect(article.metaTitle.toLowerCase()).toContain("azzeramento");
+  });
+
+  it("mentions the documento commerciale online angle in the description", () => {
+    expect(article.description.toLowerCase()).toContain(
+      "documento commerciale online",
+    );
+  });
+
+  it("links the daily-closure and void cluster", () => {
+    expect(article.related).toContain("chiusura-giornaliera");
+    expect(article.related).toContain("annullare-scontrino");
   });
 });
 

@@ -16,7 +16,7 @@ export interface HelpArticle {
  * di revisione come `datePublished`/`dateModified` dello structured data Article.
  * Aggiornarla quando si fa una revisione complessiva dei contenuti help.
  */
-export const HELP_REVIEWED_DATE = "2026-06-15";
+export const HELP_REVIEWED_DATE = "2026-07-12";
 
 export const helpArticles: Record<string, HelpArticle> = {
   "aliquote-iva": {
@@ -35,8 +35,8 @@ export const helpArticles: Record<string, HelpArticle> = {
       "Entro quanto tempo si può annullare uno scontrino elettronico e come farlo da ScontrinoZero: la procedura, cosa succede sul portale AdE e quando emettere un reso invece dell'annullo.",
     related: [
       "primo-scontrino",
+      "numero-documento-azzeramento",
       "storico-ed-esportazione",
-      "come-collegare-ade",
     ],
   },
   api: {
@@ -142,6 +142,18 @@ export const helpArticles: Record<string, HelpArticle> = {
     description:
       "Normativa POS 2026 (Legge 207/2024): chi deve collegare POS e cassa, la scadenza del 20 aprile 2026 per la prima comunicazione, le sanzioni e come metterti in regola col Documento Commerciale Online.",
     related: ["pos-rt-obbligo", "chiusura-giornaliera", "regime-forfettario"],
+  },
+  "numero-documento-azzeramento": {
+    slug: "numero-documento-azzeramento",
+    title: "Numero documento e azzeramento sullo scontrino",
+    metaTitle: "Numero azzeramento e numero documento scontrino: cosa sono",
+    description:
+      "Cosa significano il numero documento e il numero di azzeramento stampati sullo scontrino (formato 0051-0023), dove trovarli e come cambia la numerazione con il documento commerciale online.",
+    related: [
+      "chiusura-giornaliera",
+      "annullare-scontrino",
+      "storico-ed-esportazione",
+    ],
   },
   "piani-e-prezzi": {
     slug: "piani-e-prezzi",

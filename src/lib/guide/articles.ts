@@ -10,6 +10,7 @@ export const guideSlugs = [
   "lotteria-scontrini-commerciante",
   "scegliere-software-scontrini-elettronici",
   "codici-natura-iva",
+  "stampante-termica-wifi-scontrini",
 ] as const;
 
 export type GuideSlug = (typeof guideSlugs)[number];
@@ -538,6 +539,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     ],
     relatedHelp: [
       "chiusura-giornaliera",
+      "numero-documento-azzeramento",
       "storico-ed-esportazione",
       "cassetto-fiscale",
     ],
@@ -602,7 +604,12 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
           "Non esiste un limite numerico esplicito, ma l'AdE può monitorare pattern anomali (es. tasso annullamento molto sopra la media di settore) come possibile indicatore di evasione. Annulla solo quando necessario e per cause documentabili; per resi a distanza usa sempre la modalità reso (DCO negativo).",
       },
     ],
-    relatedHelp: ["annullare-scontrino", "errori-ade", "primo-scontrino"],
+    relatedHelp: [
+      "annullare-scontrino",
+      "numero-documento-azzeramento",
+      "errori-ade",
+      "primo-scontrino",
+    ],
     relatedGuides: [
       "documento-commerciale-online",
       "differenza-scontrino-ricevuta-fattura",
@@ -879,6 +886,104 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       "differenza-scontrino-ricevuta-fattura",
     ],
     relatedTools: ["dicitura-regime-forfettario"],
+  },
+
+  "stampante-termica-wifi-scontrini": {
+    slug: "stampante-termica-wifi-scontrini",
+    title: "Stampanti termiche WiFi per scontrini: guida alla scelta",
+    metaTitle: "Stampante termica WiFi per scontrini: guida alla scelta 2026",
+    metaDescription:
+      "Stampante termica WiFi, Bluetooth o USB per gli scontrini? Differenze, fasce di prezzo, larghezza carta 58 o 80 mm e compatibilità ESC/POS: la guida alla scelta.",
+    heroIntro:
+      "Per stampare gli scontrini non serve una stampante fiscale: basta una stampante termica generica, da 30-120 € a seconda del modello. La WiFi conviene per la postazione fissa condivisa tra più dispositivi, il Bluetooth per la cassa mobile, l'USB per chi lavora da computer. Prima di comprare verifica tre cose: linguaggio ESC/POS, larghezza carta (58 o 80 mm) e il tipo di connessione adatto a come lavori.",
+    publishedAt: "2026-07-12",
+    updatedAt: "2026-07",
+    readingMinutes: 7,
+    sections: [
+      {
+        heading: "Serve una stampante fiscale? No",
+        body: "Con il documento commerciale online lo scontrino ha già valore fiscale nel momento in cui viene trasmesso all'Agenzia delle Entrate: la stampa su carta è solo una copia di cortesia per il cliente, nemmeno obbligatoria (puoi mostrare lo scontrino a schermo o inviarlo via email). Per questo non serve un registratore telematico omologato (400-800 € di hardware più 100-200 € l'anno di manutenzione), né va dichiarato nulla all'AdE: una qualsiasi stampante termica generica, la stessa usata per le ricevute dei POS bancari, fa il lavoro. È la differenza di costo più grande rispetto alla cassa tradizionale.",
+      },
+      {
+        heading: "WiFi, Bluetooth o USB: il confronto",
+        body: "Le stampanti termiche per scontrini si collegano in tre modi, e la connessione è il primo criterio di scelta perché dipende da come lavori: banco fisso con più dispositivi, cassa mobile dal telefono o postazione singola con computer. Molti modelli combinano due o tre connessioni (es. WiFi + USB, Bluetooth + USB): a parità di prezzo, un modello multi-connessione ti lascia libero di cambiare organizzazione in futuro.",
+        table: {
+          headers: ["Connessione", "Ideale per", "Vantaggi", "Limiti"],
+          rows: [
+            [
+              "WiFi / Ethernet",
+              "Banco fisso con più dispositivi o casse",
+              "Copre tutto il locale, condivisibile tra più computer senza abbinamenti, niente cavi al banco",
+              "Richiede una rete stabile e una configurazione iniziale; prezzo un po' più alto; se cade la rete non stampa",
+            ],
+            [
+              "Bluetooth",
+              "Cassa mobile: mercati, food truck, servizio al tavolo",
+              "Si abbina direttamente a telefono o tablet, funziona senza router, modelli portatili a batteria",
+              "Portata ~10 metri, abbinata a un dispositivo per volta",
+            ],
+            [
+              "USB",
+              "Postazione fissa con computer",
+              "Collegamento plug-and-play, stabilità massima, prezzi più bassi",
+              "Vincolata dal cavo a un solo computer",
+            ],
+          ],
+        },
+      },
+      {
+        heading: "Quando conviene davvero la WiFi",
+        body: 'La stampante WiFi (o Ethernet, il cavo di rete: stessa logica) dà il meglio quando è una risorsa condivisa: un punto vendita fisso dove più operatori o più postazioni stampano sulla stessa macchina, oppure quando la stampante sta lontana dal banco e il cavo USB non arriva. Essendo collegata alla rete del locale, qualsiasi computer che la vede installata può stamparci, senza abbinamenti dispositivo per dispositivo. Non conviene invece per l\'attività ambulante o stagionale senza un router a disposizione: lì il Bluetooth, che collega telefono e stampante direttamente senza alcuna rete di mezzo, è la scelta giusta. Attenzione infine alle schede prodotto: alcune stampanti economiche vendute come "wireless" sono in realtà solo Bluetooth — se ti serve la rete, cerca esplicitamente "WiFi" o "LAN/Ethernet" tra le specifiche.',
+      },
+      {
+        heading: "58 o 80 mm: quale larghezza carta",
+        body: "Le due larghezze standard dei rotoli termici sono 58 mm e 80 mm. Il 58 mm è il formato delle mini-stampanti portatili e delle postazioni compatte: ingombro minimo, rotoli economici, perfetto in mobilità. L'80 mm è il classico formato da banco dei negozi: scontrino più largo e più leggibile, meglio se stampi molte righe. Entrambi i formati si trovano facilmente online e in cartoleria; la larghezza scelta va poi impostata uguale nel software di cassa, altrimenti il testo va a capo male o viene tagliato. Se sei indeciso e lavori da banco, l'80 mm è la scelta più comoda; in mobilità vince il 58 mm.",
+      },
+      {
+        heading: "ESC/POS: il requisito che non può mancare",
+        body: 'ESC/POS è il linguaggio standard di fatto delle stampanti termiche, sviluppato in origine da Epson e supportato dalla quasi totalità dei modelli in commercio. È quello che permette a un software di cassa qualsiasi di pilotare la stampante senza driver proprietari. Nella scheda prodotto cerca la dicitura "ESC/POS compatible": i marchi più diffusi che lo supportano sono Epson, Xprinter, Munbyn, Sunmi e Gprinter. Se la compatibilità ESC/POS non è dichiarata da nessuna parte, lascia perdere il modello — il risparmio di pochi euro non vale il rischio di una stampante che il tuo software non riconosce.',
+      },
+      {
+        heading: "Quanto costa: fasce di prezzo",
+        body: "Le portatili Bluetooth da 58 mm partono da 30-60 €. Le stampanti da banco da 80 mm con WiFi o Ethernet stanno tra 60 e 120 €. I marchi premium (Epson TM, Star Micronics) arrivano a 150-250 €, con affidabilità da uso intensivo ma nessuna funzione indispensabile in più per una micro-attività. A questi prezzi va aggiunto solo il consumabile: un rotolo termico costa 0,50-1 € e non esistono cartucce o toner, perché la stampa termica scalda la carta senza inchiostro. In totale, l'intero \"reparto stampa\" di un'attività che emette scontrini da software costa meno di un solo anno di manutenzione di un registratore telematico.",
+      },
+      {
+        heading: "Come si usa con ScontrinoZero",
+        body: "ScontrinoZero emette lo scontrino in digitale e la stampa è un passaggio opzionale. Da telefono o tablet il percorso supportato è il Bluetooth: abbini la stampante nelle impostazioni e stampi al volo, ovunque tu sia. Da computer la stampa passa dal normale dialogo di stampa del browser: funziona qualsiasi stampante installata nel sistema operativo, comprese le termiche WiFi ed Ethernet condivise in rete e i modelli USB collegati direttamente. La procedura passo-passo di abbinamento e la risoluzione dei problemi più comuni (rotolo al contrario, larghezza carta sbagliata, standby) sono nell'articolo operativo del centro assistenza, linkato in fondo.",
+      },
+    ],
+    faq: [
+      {
+        question: "Le stampanti termiche WiFi funzionano con lo smartphone?",
+        answer:
+          "In genere no, e questo è il limite principale da conoscere: le termiche WiFi economiche non supportano AirPrint (iPhone) né Mopria (Android), i sistemi di stampa nativi dei telefoni. Da smartphone la strada affidabile è il Bluetooth; la WiFi dà il meglio da computer o su postazioni fisse condivise.",
+      },
+      {
+        question:
+          "Devo comprare una stampante omologata o dichiararla all'Agenzia delle Entrate?",
+        answer:
+          "No. La stampante termica è una normale periferica, non un registratore telematico né un misuratore fiscale: il valore fiscale sta nel documento commerciale trasmesso all'AdE, non nella carta. Nessuna omologazione, nessun censimento, nessuna verifica periodica.",
+      },
+      {
+        question: "Posso usare una sola stampante WiFi con più casse?",
+        answer:
+          "Sì, è proprio il suo vantaggio: essendo collegata alla rete del locale e non a un singolo dispositivo, ogni computer che la installa può stamparci. Con il Bluetooth invece la stampante resta abbinata a un dispositivo per volta.",
+      },
+      {
+        question: "Che carta serve e come si conserva?",
+        answer:
+          "Rotoli termici da 58 o 80 mm, a seconda della stampante. Non c'è inchiostro: la carta annerisce col calore, quindi i rotoli (e gli scontrini stampati) vanno tenuti lontani da sole e fonti di calore, altrimenti sbiadiscono. Un rotolo costa 0,50-1 €.",
+      },
+    ],
+    relatedHelp: [
+      "stampare-scontrino-termica",
+      "installare-app",
+      "primo-scontrino",
+    ],
+    relatedGuides: [
+      "scontrino-senza-registratore-di-cassa",
+      "scegliere-software-scontrini-elettronici",
+    ],
   },
 };
 
