@@ -1,9 +1,9 @@
 # Piano contenuti SEO + visibilità AI (GEO)
 
 > Documento vivo. Creato a luglio 2026 dall'analisi GSC (3 mesi) + competitor.
-> Spuntare il backlog man
-> mano che i batch vengono spediti. Regola 8 di `CLAUDE.md` sempre valida:
-> contenuti in italiano, niente promesse di feature non live, review umana.
+> Il lavoro spedito viene **rimosso** dal backlog (niente storico: fa fede il
+> git log). Regola 8 di `CLAUDE.md` sempre valida: contenuti in italiano,
+> niente promesse di feature non live, review umana.
 
 ## Obiettivo
 
@@ -49,46 +49,7 @@ secche citabili dalle AI**. Da copiare: verticali di settore
 per-competitor**, resta la landing unica `/confronto` (da aggiornare
 trimestralmente: i pricing cambiano, Scontrina ha promo in corso).
 
-## Fase 1 — Quick win (spediti con questo documento)
-
-- [x] Riscrittura meta title/description CTR-driven per le pagine ad alto
-      volume di impressioni: `help/regime-forfettario`, `help/errori-ade`,
-      `help/annullare-scontrino`, `help/normativa-pos-2026`,
-      `guide/scontrino-regime-forfettario`,
-      `guide/scontrino-senza-registratore-di-cassa` (data file
-      `src/lib/help/articles.ts` e `src/lib/guide/articles.ts`).
-- [x] Route `/llms.txt` (`src/app/llms.txt/route.ts`): indice del sito per i
-      crawler AI generato dagli stessi registry della sitemap (niente drift),
-      servito solo sull'apex marketing.
-- [ ] Azioni Cloudflare della sezione sopra (manuali, dashboard).
-
-## Fase 2 — Backlog contenuti (1 batch = 1 PR, max 3 contenuti)
-
-### Batch A — P1: cluster forfettario/N2.2 (il più grande asset non sfruttato)
-
-- [x] **Nuovo strumento `/strumenti/dicitura-regime-forfettario`**:
-      generatore copia-incolla della dicitura di esenzione (scontrino vs
-      fattura) con FAQ. Intercetta "dicitura scontrino regime forfettario",
-      "regime forfettario esente iva dicitura", "operazione senza
-      applicazione dell'IVA art. 1 co. 54-89" (long-tail a bassissima
-      competizione). Solo data file + widget semplice.
-- [x] **Potenziare `/guide/codici-natura-iva`**: tabella N1→N7 completa, una
-      sezione per forma di query ("n2.2 cosa significa", "n2 vs n2.2",
-      "codice iva n2.2 a cosa corrisponde"), risposta secca nel primo
-      paragrafo di ogni sezione.
-- [x] **Cross-link sistematico del cluster**: `help/regime-forfettario` ↔
-      `guide/codici-natura-iva` ↔ `guide/scontrino-regime-forfettario` ↔
-      nuovo strumento dicitura.
-
-### Batch B — P1: cluster transazionale "senza cassa / app / online"
-
-- [ ] **Potenziare `/guide/scontrino-senza-registratore-di-cassa`**: sezione
-      "quale app scegliere" (query "app scontrino elettronico senza
-      registratore di cassa", "scontrino online"), sezione costi, risposta
-      secca in apertura.
-- [ ] **Homepage**: rafforzare H1/primo paragrafo sull'intent "senza
-      registratore di cassa" + link in evidenza alla guida (oggi la homepage
-      rankea da sola a pos 40-50 su queste query).
+## Backlog contenuti (1 batch = 1 PR, max 3 contenuti)
 
 ### Batch C — P2: verticali `/per/` (dove i competitor investono)
 
@@ -118,7 +79,7 @@ Nuove categorie in `src/lib/per/categories.ts` (solo data file), in ordine:
 - [ ] Manifest PWA: `lang`, `id`, `screenshots`, `shortcuts` (install prompt
       ricco su Android/desktop).
 
-## Fase 3 — Checklist GEO permanente (per ogni contenuto nuovo o aggiornato)
+## Checklist GEO permanente (per ogni contenuto nuovo o aggiornato)
 
 1. **Risposta secca nelle prime 2 righe** di ogni guida e di ogni sezione:
    le AI citano il paragrafo che risponde, non quello che introduce.

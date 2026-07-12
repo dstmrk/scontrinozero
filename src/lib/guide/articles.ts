@@ -124,10 +124,10 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     metaDescription:
       "Sì, si può: dal 2020 emetti scontrini elettronici senza registratore telematico, dal portale AdE o con un'app dal telefono. Cosa serve, costi e come iniziare.",
     heroIntro:
-      'Da gennaio 2020 in Italia è possibile emettere lo scontrino senza registratore di cassa fisico: basta usare il "documento commerciale online" tramite il portale Fatture e Corrispettivi dell\'Agenzia delle Entrate, da web o smartphone. Vediamo cosa serve e come si fa nella pratica.',
+      "Sì, si può: da gennaio 2020 qualunque partita IVA può emettere lo scontrino elettronico senza registratore di cassa fisico, gratis dal portale \"Fatture e Corrispettivi\" dell'Agenzia delle Entrate oppure in pochi secondi con un'app dal telefono. Vediamo cosa serve, quanto costa e come scegliere l'app giusta.",
     publishedAt: "2026-05-14",
-    updatedAt: "2026-06",
-    readingMinutes: 7,
+    updatedAt: "2026-07",
+    readingMinutes: 8,
     sections: [
       {
         heading: "La premessa normativa",
@@ -146,13 +146,39 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
         body: 'App come ScontrinoZero automatizzano la procedura: salvi il catalogo prodotti una volta, e in fase di emissione basta toccare gli articoli, scegliere il pagamento e premere "Emetti". L\'app si occupa di autenticarsi su AdE con le tue credenziali, di trasmettere il documento e di archiviarlo. Tempo medio: 5-10 secondi per scontrino.',
       },
       {
-        heading: "Quali attività possono emettere scontrino senza cassa",
-        body: "Può farlo qualunque titolare di partita IVA tenuto a certificare i corrispettivi al pubblico: negozi al dettaglio, ambulanti e mercati, artigiani e installatori, parrucchieri ed estetisti, professionisti che incassano al momento, B&B e attività stagionali, contribuenti in regime forfettario. Anche un negozio fisso può rinunciare al registratore telematico e usare solo il documento commerciale online: la legge non impone l'hardware, impone la memorizzazione e trasmissione dei corrispettivi, che il software garantisce allo stesso modo.",
+        heading: "Quale app scegliere per lo scontrino elettronico",
+        body: "La risposta secca: un'app che trasmetta il documento commerciale direttamente all'Agenzia delle Entrate con le tue credenziali, senza hardware aggiuntivo, con prezzo trasparente e prova gratuita. I criteri che contano nella scelta sono cinque: velocità di emissione (al banco contano i secondi, non i minuti), costo chiaro senza vincoli di durata né hardware da comprare, storico consultabile con i totali giornalieri, annullo dello scontrino direttamente dall'app, e assistenza raggiungibile quando qualcosa non va. ScontrinoZero è costruita esattamente su questi criteri: catalogo prodotti, emissione in pochi secondi, annullo e storico inclusi, da €29,99 l'anno con 30 giorni di prova senza carta. Per una checklist completa dei criteri vedi la guida alla scelta del software, linkata in fondo.",
       },
       {
-        heading:
-          "Scontrino senza cassa vs registratore telematico: quale conviene",
-        body: "L'alternativa al registratore di cassa fisico ha un vantaggio economico netto per volumi bassi e medi: zero costo hardware (un RT costa 400-800 €), zero canone di manutenzione (100-200 € l'anno), nessun collaudo biennale e nessun tecnico. Il registratore fisico resta più rapido al banco per chi ha code e alti volumi. La regola pratica: sotto le poche centinaia di scontrini al giorno, o se lavori in mobilità, lo scontrino senza cassa da smartphone conviene quasi sempre.",
+        heading: "Quanto costa emettere scontrini senza registratore di cassa",
+        body: "Da zero a poche decine di euro l'anno. Il portale Fatture e Corrispettivi dell'Agenzia delle Entrate è gratuito ma lento (30-60 secondi a scontrino); le app dedicate costano in genere 30-100 € l'anno e riducono l'emissione a pochi secondi. Il confronto con il registratore telematico fisico è netto: un RT costa 400-800 € di acquisto più 100-200 € l'anno di manutenzione e il collaudo biennale. La regola pratica: sotto le poche centinaia di scontrini al giorno, o se lavori in mobilità, lo scontrino senza cassa conviene quasi sempre; il registratore fisico resta più rapido solo al banco con code e alti volumi.",
+        table: {
+          headers: [
+            "Soluzione",
+            "Costo iniziale",
+            "Costo annuo",
+            "Tempo per scontrino",
+          ],
+          rows: [
+            ["Portale AdE (gratuito)", "€0", "€0", "30-60 secondi"],
+            [
+              "App dedicata (es. ScontrinoZero)",
+              "€0",
+              "30-100 € (ScontrinoZero da €29,99)",
+              "pochi secondi",
+            ],
+            [
+              "Registratore telematico",
+              "€400-800 + installazione",
+              "100-200 € + collaudo biennale",
+              "istantaneo al banco",
+            ],
+          ],
+        },
+      },
+      {
+        heading: "Quali attività possono emettere scontrino senza cassa",
+        body: "Può farlo qualunque titolare di partita IVA tenuto a certificare i corrispettivi al pubblico: negozi al dettaglio, ambulanti e mercati, artigiani e installatori, parrucchieri ed estetisti, professionisti che incassano al momento, B&B e attività stagionali, contribuenti in regime forfettario. Anche un negozio fisso può rinunciare al registratore telematico e usare solo il documento commerciale online: la legge non impone l'hardware, impone la memorizzazione e trasmissione dei corrispettivi, che il software garantisce allo stesso modo.",
       },
       {
         heading: "Limiti da conoscere",
@@ -176,10 +202,22 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
         answer:
           'No. Non serve nessuna comunicazione preventiva: il DCO è una procedura disponibile a tutti i titolari di partita IVA. Se hai un registratore telematico attivo e decidi di non usarlo più, puoi metterlo in stato "fuori servizio" dal portale.',
       },
+      {
+        question:
+          "Qual è la migliore app per fare scontrini senza registratore di cassa?",
+        answer:
+          "Quella che trasmette direttamente all'AdE con le tue credenziali, ha un prezzo trasparente e ti fa emettere in pochi secondi. Valuta velocità, costo annuo, storico e annullo inclusi, e la possibilità di provare gratis. ScontrinoZero copre tutti questi punti e si prova 30 giorni senza carta di credito.",
+      },
+      {
+        question: "Quanto costa fare scontrini senza registratore di cassa?",
+        answer:
+          "Da zero: il portale Fatture e Corrispettivi dell'AdE è gratuito, ma richiede 30-60 secondi a scontrino. Un'app dedicata costa in genere 30-100 € l'anno (ScontrinoZero parte da €29,99) ed emette in pochi secondi. Un registratore telematico fisico costa invece 400-800 € di acquisto più 100-200 € l'anno.",
+      },
     ],
     relatedHelp: ["primo-scontrino", "credenziali-fisconline", "errori-ade"],
     relatedGuides: [
       "documento-commerciale-online",
+      "scegliere-software-scontrini-elettronici",
       "scontrino-regime-forfettario",
     ],
   },

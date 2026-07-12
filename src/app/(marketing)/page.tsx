@@ -95,14 +95,14 @@ export default function Home() {
       <section className="px-4 py-20 md:py-32">
         <div className="mx-auto max-w-3xl text-center">
           <h1 className="text-4xl font-extrabold tracking-tight md:text-5xl lg:text-6xl">
-            Scontrini fiscali
+            Scontrino elettronico
             <br />
             <span className="text-primary">senza registratore di cassa</span>
           </h1>
           <p className="text-muted-foreground mx-auto mt-6 max-w-xl text-lg">
-            Emetti documenti commerciali dal tuo smartphone e trasmetti
-            automaticamente all&apos;Agenzia delle Entrate. Senza hardware,
-            senza canoni nascosti.
+            L&apos;app per emettere scontrini elettronici online dal tuo
+            smartphone e trasmettere i corrispettivi all&apos;Agenzia delle
+            Entrate. Senza hardware, senza canoni nascosti.
           </p>
           <div className="mt-8 flex flex-col items-center gap-4">
             <Button asChild size="lg">
@@ -118,6 +118,16 @@ export default function Home() {
               <span aria-hidden="true">·</span>
               <span>Nessuna carta richiesta</span>
             </div>
+            <p className="text-sm">
+              <Link
+                href="/guide/scontrino-senza-registratore-di-cassa"
+                className="text-primary hover:underline"
+              >
+                Si può davvero fare a meno del registratore? Leggi la guida
+                completa
+                <ArrowRight className="ml-1 inline h-3.5 w-3.5" />
+              </Link>
+            </p>
           </div>
         </div>
       </section>
