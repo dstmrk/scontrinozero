@@ -20,10 +20,10 @@ Cloudflare Tunnel.
   Stripe test · Raspberry Pi 5 (arm64). Auto-deploy a ogni push su `main`.
   Setup completo in `deploy/dev/README.md`.
 
-Versione corrente in `package.json`. Roadmap in `PLAN.md`. Bug noti e tech
-debt in `REVIEW.md` (registro prioritizzato P1/P2/P3: rimuovere la voce nel PR
-del fix, aggiungere lì i nuovi finding). Storico release dai tag git
-(`git tag -l "v1.*"`).
+Versione in `package.json` · roadmap `PLAN.md` · bug noti/tech debt
+`REVIEW.md` (P1/P2/P3: rimuovi la voce nel PR del fix, aggiungi lì i nuovi
+finding) · Developer API `DEVELOPER.md` · surface REST + flussi HTTP AdE
+`docs/api-spec.md` · overview pubblico `README.md` · release dai tag git.
 
 ## Principi guida
 
@@ -32,25 +32,20 @@ del fix, aggiungere lì i nuovi finding). Storico release dai tag git
   anche se AdE risponde in 2-5 secondi.
 - **Hobby project, costi fissi ~€0.** Pricing aggressivo possibile perché il
   costo marginale per utente è ~zero.
-- **Leggeri sulle risorse.** No headless browser (Playwright/Puppeteer/Chromium):
-  integrazione AdE solo via HTTP diretto. PDF via `pdfkit` (Node puro, ~500KB) —
-  richiede `serverExternalPackages: ["pdfkit"]` in `next.config.ts`. Dipendenze
-  minime, Next standalone, Docker slim, un solo container (next-app + cloudflared).
-  Il divieto vale per il **runtime dell'app spedita**: per _verificare_ l'app dev
-  che gira Claude può guidare un **Playwright MCP server** (Chromium reale, tool
-  esterno di verifica mai nel bundle/immagine) — vedi skill `playwright-verify`.
+- **Leggeri sulle risorse.** No headless browser nel **runtime dell'app
+  spedita** (AdE solo via HTTP diretto; PDF via `pdfkit` +
+  `serverExternalPackages` in `next.config.ts`); dipendenze minime, Next
+  standalone, un solo container. Per _verificare_ l'app dev Claude può guidare
+  un Playwright MCP server (mai nel bundle) — skill `playwright-verify`.
 
 ## Mappa codebase — leggi prima di esplorare
 
-Prima di un'esplorazione a tappeto (grep/glob diffusi per capire _dove_ stanno
-le cose o _come_ scorrono i dati), **leggi `docs/architecture/INDEX.md`**: è la
-mappa navigazionale (albero `src/`, tabella "Dove vivo X?", indice server
-actions, moduli cross-cutting). Scendi ai deep-dive solo quando servono:
+Prima di grep/glob a tappeto **leggi `docs/architecture/INDEX.md`** (albero
+`src/`, tabella "Dove vivo X?", indice server actions, moduli cross-cutting,
+scelte architetturali). Deep-dive solo quando servono:
 `docs/architecture/data-flows.md` (flussi end-to-end) e
-`docs/architecture/config-manifest.md` (soglie/limiti/gate → puntatori ai file).
-Le skill in `.claude/skills/` restano _prescrittive_ (come fare X); la mappa è
-_descrittiva_ (dove sta X). Serve a ridurre il costo-token dell'esplorazione
-iniziale.
+`docs/architecture/config-manifest.md` (soglie/limiti/gate). Le skill sono
+_prescrittive_ (come fare X); la mappa è _descrittiva_ (dove sta X).
 
 ## Regole sempre-attive (applicano a ogni task)
 
@@ -64,38 +59,31 @@ iniziale.
 5.  **Task > 3 file → break in sub-task.** Stop e suddividere.
 6.  **Riflessione dopo correzione:** quando l'utente corregge, capire perché ho
     sbagliato e come non rifarlo.
-7.  **Aggiornare `CLAUDE.md` (o la skill pertinente in `.claude/skills/`)
-    autonomamente** dopo aver risolto un problema non triviale con lezione
-    riusabile (debugging pattern, setup gotcha, wrong assumption). Non
-    aspettare che lo chiedano.
+7.  **Aggiorna autonomamente `CLAUDE.md` o la skill pertinente** dopo aver
+    risolto un problema non triviale con lezione riusabile (debugging pattern,
+    setup gotcha, wrong assumption) — senza aspettare che lo chiedano.
 8.  **Contenuti marketing & SEO → skill `marketing-content`.** MAI promettere
-    feature non live (condizionale/roadmap, mai al presente). Se cambi
-    label/menu/stati/gating, aggiorna i contenuti marketing nello stesso task
-    (grep checklist nella skill). Slug separati `/help` vs `/guide`;
-    contenuti LLM con review umana, in italiano.
-9.  **Boundary delle API:** UUID validation con `isValidUuid()` + 400 prima del
-    service; body size guard con `readJsonWithLimit(req, maxBytes)` + 413 prima
-    di `JSON.parse`; email normalizzata con `normalizeEmail()` in `validation.ts`
-    come prima riga di ogni auth action.
+    feature non live (condizionale/roadmap, mai al presente); se cambi
+    label/menu/stati/gating aggiorna i contenuti nello stesso task (grep
+    checklist nella skill); slug separati `/help` vs `/guide`; review umana.
+9.  **Boundary delle API:** `isValidUuid()` + 400 prima del service;
+    `readJsonWithLimit(req, maxBytes)` + 413 prima di `JSON.parse`;
+    `normalizeEmail()` (`validation.ts`) come prima riga di ogni auth action.
 10. **Wrap SDK esterni (Stripe, AdE, Resend) in try-catch** con log strutturato
     e response 503 — mai lasciare propagare 500 senza context.
-11. **DB migrations: TUTTE handwritten dopo `0000`.** 🚫 **MAI eseguire
-    `npx drizzle-kit generate`** nello stato attuale del repo (conflitto con
-    handwritten migrations). Workflow nella skill `db-migrations`. Un hook
-    PreToolUse blocca automaticamente questo comando.
+11. **DB migrations: TUTTE handwritten dopo `0000`.** 🚫 MAI eseguire
+    `npx drizzle-kit generate` (un hook PreToolUse lo blocca). Workflow →
+    skill `db-migrations`.
 12. **Debug CI failure opachi:** se SonarCloud/Gitleaks flagga qualcosa non
-    visibile nel diff/log, **chiedere all'utente** quale file/riga invece di
-    tentare blind fix.
-13. **Debug produzione HTTP (AdE 4xx, ecc.):** aggiungere diagnostic logging
-    prima del fix, riprodurre locale, confermare la root cause. Mai mergiare
-    un'ipotesi senza evidenza.
+    visibile nel diff/log, chiedere all'utente file/riga — no blind fix.
+13. **Debug produzione HTTP (AdE 4xx, ecc.):** diagnostic logging prima del
+    fix, riprodurre locale, confermare la root cause. Mai mergiare ipotesi.
 14. **HAR analysis:** verificare che **ogni request** in HAR sia presente
     nell'implementazione, non solo l'ordine. Cross-reference one-by-one.
 15. **Link auth da marketing → app:** da `(marketing)/*` i link a
     `/login`/`/register`/`/reset-password` usano `appHref()` + plain `<a>`,
-    MAI `<Link>` di Next. `appHref()` è server-only in pratica: calcola
-    l'href nel parent server component e passalo come prop al client.
-    Dettagli → skill `react-patterns`.
+    MAI `<Link>` di Next; `appHref()` è server-only: calcola l'href nel parent
+    server component e passalo come prop → skill `react-patterns`.
 16. **Mock tipati (TS2556).** Mai spread di `...args` in un `vi.fn()` a zero
     argomenti: tipare il mock con la firma reale del modulo mockato — TS2556
     rompe `npm run type-check` prima dei test. → skill `testing-patterns`.
@@ -106,10 +94,9 @@ iniziale.
 18. **Env d'identità: build-vs-runtime e present-but-empty.** Un `?? default`
     NON scatta su variabile presente ma vuota (`""`); `next.config.ts` NON può
     importare con alias `@/`. Casi e fix → skill `deploy-release`.
-19. **Server action di lettura: degradare, non lanciare.** Una server action
-    che alimenta la UI ritorna `{ error }` su fallimento DB/SDK, MAI propaga
-    l'eccezione: il throw fa scattare l'error boundary di Next al posto del
-    fallback inline, rompendo la performance percepita (priorità #1).
+19. **Server action di lettura: degradare, non lanciare.** Ritorna `{ error }`
+    su fallimento DB/SDK, MAI propagare: il throw sostituisce il fallback
+    inline con l'error boundary di Next, rompendo la performance percepita.
 20. **Errori d'input utente: warn, non error (no Sentry noise).** Condizioni
     prevedibili dall'input (credenziali AdE sbagliate, P.IVA già registrata,
     Turnstile scaduto) → `logger.warn`, MAI issue Sentry. Pattern
@@ -132,17 +119,12 @@ iniziale.
     deploy è "concluso" senza i tre curl verdi su `/api/health/live`,
     `/api/_health/env` e `/api/_debug/sentry-sentinel`. Procedura canonica →
     skill `deploy-release`.
-26. **Mappa codebase: tienila viva.** Quando sposti/rinomini/aggiungi un modulo
-    cross-cutting, cambi un data flow o una soglia/limite/gate, aggiorna
-    `docs/architecture/*` **nello stesso PR** ed esegui `npm run arch:check`
-    prima di chiudere il task. Stesso spirito della regola 7 (aggiornamento
-    autonomo della doc): una mappa obsoleta è peggio di nessuna mappa — fuorvia
-    chi la legge al posto di esplorare. Il validatore
-    `scripts/check-architecture-docs.mjs` fallisce se un path citato nella mappa
-    **o in una skill** (`.claude/skills/*/SKILL.md`, inclusi i token path-like
-    nella `description` frontmatter) non esiste più su disco; cita ogni path
-    come span isolato (i token con `*`/`{}` sono ignorati come illustrativi).
-
+26. **Mappa codebase: tienila viva.** Se sposti/rinomini un modulo, cambi un
+    data flow o una soglia, aggiorna `docs/architecture/*` nello stesso PR
+    (una mappa obsoleta è peggio di nessuna mappa). Il validatore
+    `scripts/check-architecture-docs.mjs` (arch:check — gira anche come hook
+    dopo ogni edit ai doc meta) fallisce sui path morti; il contratto di
+    citazione è nell'header dello script.
 27. **Date derivate e fonti di verità esterne (bonus/crediti).** Su una data
     DERIVATA asserisci l'esito osservabile user-facing, non lo shift
     intermedio; una grandezza posseduta da Stripe si aggiusta SU Stripe (poi
@@ -151,36 +133,20 @@ iniziale.
 
 ## SonarCloud quality gate
 
-- Coverage on new code ≥ **80%**
-- Duplicated lines on new code < **3%**
-- **0 new issues** (fix sempre, anche con Quality Gate verde — accumulano debt)
+Coverage on new code ≥ **80%** · duplicated lines < **3%** · **0 new issues**
+(fix sempre, anche con gate verde). Regole ricorrenti (S6861, S6772, S7780,
+S5852/S5122, Gitleaks placeholder) → skill `sonar-quality-gate`.
 
-Regole specifiche ricorrenti (S6861 readonly props, S6772 JSX spacing, S7780
-template literals, S5852/S5122 hotspots, Gitleaks placeholder) → skill `sonar-quality-gate`.
-
-## Stripe API version `2026-06-24.dahlia` — breaking changes
-
-- `Invoice.subscription` rimosso → `invoice.parent?.subscription_details?.subscription`
-- `Subscription.current_period_end` → `subscription.items.data[0]?.current_period_end`
-- Mai `!` su `process.env.STRIPE_WEBHOOK_SECRET` — guard esplicito
-
-Webhook events list (8 da registrare, niente di meno) e recovery patterns
-nella skill `stripe-webhooks`.
+Stripe API `2026-06-24.dahlia` (breaking changes, 8 webhook events,
+referral/trial) → skill `stripe-webhooks`.
 
 ## Workflow operativi
 
-### Nuova migrazione DB
+### Nuova migrazione DB → skill `db-migrations`
 
-1. File `.sql` in `supabase/migrations/NNNN_*.sql` (nome descrittivo) con header comment
-2. Entry in `supabase/migrations/meta/_journal.json`
-   (`idx` incrementale, `when` = `Date.now()`, `tag` = nome file senza `.sql`)
-3. Aggiorna schema Drizzle in `src/db/schema/<table>.ts`
-4. `node scripts/check-migrations.mjs` (anche in CI)
-5. `npx tsx scripts/migrate.ts` su DB locale, verificare idempotenza al re-run
-
-Pattern ADD COLUMN: `ADD COLUMN IF NOT EXISTS`, mai `NOT NULL` su tabelle già
-popolate senza default. Dettaglio + bootstrap su DB pre-esistente nella skill
-`db-migrations`.
+Workflow in 5 step (`.sql` handwritten + `_journal.json` + schema Drizzle +
+check + `npx tsx scripts/migrate.ts` idempotente), `ADD COLUMN IF NOT EXISTS`
+e bootstrap su DB pre-esistente: skill `db-migrations` (regola 11 sempre).
 
 ### Worktree setup (`.claude/worktrees/<name>/`)
 
@@ -195,7 +161,7 @@ popolate senza default. Dettaglio + bootstrap su DB pre-esistente nella skill
 npm run lint                # ESLint / TypeScript
 npx prettier --check src/   # ⚠️ dopo modifiche a classi Tailwind: prettier --write
 npm run test:coverage       # tutti i test verdi, coverage non in calo
-npm run arch:check          # path citati in docs/architecture/ e .claude/skills/ esistono ancora
+npm run arch:check          # path citati in docs/architecture/, .claude/skills/ e CLAUDE.md esistono ancora
 ```
 
 Controlli manuali:
@@ -207,11 +173,9 @@ Controlli manuali:
 
 ### Deploy e T&C → skill `deploy-release`
 
-Deploy prod/sandbox tag-based (`git tag vX.Y.Z` → GHCR → compose su VPS),
-deploy dev push-based (Raspberry Pi, traccia `main`), build-arg
+Tag-based prod/sandbox, push-based dev (Raspberry Pi), build-arg
 `NEXT_PUBLIC_*` baked vs runtime, pairing widget Turnstile `:dev`, smoke
-post-deploy e procedura aggiornamento T&C/Privacy: tutto nella skill
-`deploy-release`.
+post-deploy, procedura T&C/Privacy: skill `deploy-release`.
 
 ## Pricing (per plan-gate nel codice)
 
@@ -225,66 +189,18 @@ post-deploy e procedura aggiornamento T&C/Privacy: tutto nella skill
 Feature gate canonico in `src/lib/plans.ts`. Trial 30 giorni Starter/Pro, no
 carta all'iscrizione. P.IVA UNIQUE nel DB (anti-abuso trial).
 
-## Skill dominio-specifiche
+## Skill dominio-specifiche (`.claude/skills/`)
 
-Le lezioni dettagliate vivono in `.claude/skills/<name>/SKILL.md` e si
-auto-attivano quando il task matcha il `description`:
-
-- **`testing-patterns`** — Vitest, `expect()` obbligatori, mock di classi,
-  rate limit, JOIN refactor, NODE_ENV, mock Drizzle transaction, Sentry+pino
-- **`db-migrations`** — handwritten migrations, bootstrap DB pre-esistente,
-  Drizzle raw `sql\`\``con`Date`, race / idempotency per-tenant
-- **`security-patterns`** — `CF-Connecting-IP`, UUID/body/email guards,
-  hostname validation, double-gate rate limit, CSP, prototype-safe lookup
-- **`stripe-webhooks`** — API `2026-06-24.dahlia`, 8 webhook events,
-  stale-pending recovery AdE
-- **`ade-integration`** — integrazione HTTP diretta, mock strategy, HAR
-  analysis, rotazione `ENCRYPTION_KEY`
-- **`sonar-quality-gate`** — regole S6861/S6772/S7780/S5852/S5122, Gitleaks,
-  coverage exclusions
-- **`react-patterns`** — Server vs Client Components, Next.js 16 async
-  params/cookies/headers, React 19 Actions/`useOptimistic`/ref-as-prop,
-  shadcn/ui + Radix `asChild`, TanStack Query provider unico, hydration
-  mismatch, Tailwind 4 class ordering
-- **`sentry-hygiene`** — review periodico issue archived (UX nascosto vs
-  noise vero vs transient), filtri `beforeSend` documentati per ID issue,
-  smoke post-deploy `live + env + drain`, query canoniche
-  `errorClass:*` via Sentry MCP. Regole 20-25.
-- **`playwright-verify`** — verifica funzionale dell'app dev con un browser reale
-  (Playwright MCP / Chromium via curl su MCP Streamable-HTTP + service token
-  Access, header service-token via `setExtraHTTPHeaders` per gli host dietro
-  Access), screenshot supportati; limiti chiave: ceiling ~5s per request (una
-  call breve per step, sfrutta lo stato persistito lato server), login
-  Turnstile-gated → bypass captcha dev.
+Si auto-attivano quando il task matcha la `description` (non serve elencarle
+qui: il harness le inietta già). Le 13 skill: `ade-integration`,
+`db-migrations`, `deploy-release`, `marketing-content`, `money-rounding`,
+`playwright-verify`, `pwa-serwist`, `react-patterns`, `security-patterns`,
+`sentry-hygiene`, `sonar-quality-gate`, `stripe-webhooks`, `testing-patterns`.
 
 ## Hook automatici (`.claude/hooks/`)
 
 - `block-drizzle-generate.sh` — blocca `drizzle-kit generate` (regola 11)
-- `block-push-to-main.sh` — blocca `git push` verso `main` / `HEAD:main`
-  (regola 1)
-
-Altri riferimenti già nel repo:
-
-- **`docs/architecture/INDEX.md`** — mappa codebase (leggi prima di esplorare);
-  deep-dive `docs/architecture/data-flows.md` e `docs/architecture/config-manifest.md`
-- **`PLAN.md`** — roadmap funzionalità
-- **`REVIEW.md`** — registro bug noti / tech debt prioritizzato (file:riga, fix)
-- **`DEVELOPER.md`** — Developer API (Tier 1/2)
-- **`docs/api-spec.md`** — surface REST + flussi HTTP AdE
-- **`README.md`** — overview pubblico
-
-## Scelte architetturali rapide
-
-Tutte motivate dalle priorità sopra (performance, hobby project, leggero):
-
-- **Next.js** monolite (SSR + Server Actions, no backend separato)
-- **Supabase** vs Firebase (Postgres standard, RLS nativo, no lock-in)
-- **PWA** vs nativa (un codebase, no store, update istantanei)
-- **shadcn/ui** (copy-paste in repo, Radix sotto)
-- **Integrazione diretta AdE** (zero costo per scontrino, no terzi)
-- **Cloudflare Tunnel** (HTTPS/CDN/DDoS gratis, IP nascosto)
-- **Stripe** (fee EU 1.5% + €0.25, API ottima; MoR rimandato)
-- **Resend** (free 3k/mese, React Email type-safe)
-- **TDD** (integrazione AdE fragile, refactoring sicuro)
-- **Due ambienti** (AdE irreversibile: uno scontrino emesso non si cancella)
-- **Umami self-hosted** (GDPR, no cookie, gratis sulla stessa VPS)
+- `block-push-to-main.sh` — blocca `git push` verso `main` (regola 1)
+- `block-commit-on-main.sh` — blocca `git commit` sul branch `main` (regola 1)
+- `check-arch-docs-on-edit.sh` — esegue arch:check dopo ogni edit ai doc meta
+  (regola 26)

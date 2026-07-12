@@ -121,11 +121,29 @@ Tutte sono `"use server"`; sulle azioni di lettura vale "degradare, non lanciare
 - `src/lib/umami.ts` + `src/components/umami-script.tsx` — web-analytics Umami (script cookieless nel root layout + helper `track()`); ≠ dal dominio "analytics" business (KPI dashboard in `src/server/analytics-actions.ts`)
 - `src/db/schema/index.ts` — barrel dello schema Drizzle
 
+## Scelte architetturali rapide
+
+Tutte motivate dalle priorità di `CLAUDE.md` (performance percepita, hobby
+project, leggero sulle risorse):
+
+- **Next.js** monolite (SSR + Server Actions, no backend separato)
+- **Supabase** vs Firebase (Postgres standard, RLS nativo, no lock-in)
+- **PWA** vs nativa (un codebase, no store, update istantanei)
+- **shadcn/ui** (copy-paste in repo, Radix sotto)
+- **Integrazione diretta AdE** (zero costo per scontrino, no terzi)
+- **Cloudflare Tunnel** (HTTPS/CDN/DDoS gratis, IP nascosto)
+- **Stripe** (fee EU 1.5% + €0.25, API ottima; MoR rimandato)
+- **Resend** (free 3k/mese, React Email type-safe)
+- **TDD** (integrazione AdE fragile, refactoring sicuro)
+- **Due ambienti** (AdE irreversibile: uno scontrino emesso non si cancella)
+- **Umami self-hosted** (GDPR, no cookie, gratis sulla stessa VPS)
+
 ## Altri riferimenti
 
-- **Prescrittivo per dominio** → `.claude/skills/` (ade-integration, db-migrations,
-  react-patterns, security-patterns, sentry-hygiene, sonar-quality-gate,
-  stripe-webhooks, testing-patterns)
+- **Prescrittivo per dominio** → `.claude/skills/` (ade-integration,
+  db-migrations, deploy-release, marketing-content, money-rounding,
+  playwright-verify, pwa-serwist, react-patterns, security-patterns,
+  sentry-hygiene, sonar-quality-gate, stripe-webhooks, testing-patterns)
 - **Comportamento sempre-attivo** → `CLAUDE.md`
 - **Roadmap** → `PLAN.md` · **Bug/tech debt** → `REVIEW.md` · **Developer API** →
   `DEVELOPER.md` · **Surface REST + flussi HTTP AdE** → `docs/api-spec.md`
