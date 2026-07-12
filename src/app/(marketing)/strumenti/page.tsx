@@ -13,11 +13,11 @@ const PAGE_URL = `${SITE_URL}/strumenti`;
 export const metadata: Metadata = {
   title: "Strumenti gratuiti",
   description:
-    "Calcolatori e verifiche gratuite per partite IVA: scorporo IVA, codice Lotteria degli Scontrini e risparmio rispetto al registratore telematico. Senza registrazione.",
+    "Calcolatori e verifiche gratuite per partite IVA: scorporo IVA, dicitura regime forfettario, codice Lotteria degli Scontrini e risparmio vs registratore telematico.",
   openGraph: {
     title: "Strumenti gratuiti | ScontrinoZero",
     description:
-      "Scorporo IVA, verifica codice Lotteria degli Scontrini e calcolatore di risparmio: strumenti gratuiti, nessuna registrazione.",
+      "Scorporo IVA, dicitura regime forfettario, verifica codice Lotteria e calcolatore di risparmio: strumenti gratuiti, nessuna registrazione.",
     url: PAGE_URL,
   },
   alternates: {

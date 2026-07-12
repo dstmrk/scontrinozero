@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { getTool, isToolSlug, tools, toolSlugs } from "./tools";
 
 describe("toolSlugs", () => {
-  it("contains exactly 3 slugs", () => {
-    expect(toolSlugs).toHaveLength(3);
+  it("contains exactly 4 slugs", () => {
+    expect(toolSlugs).toHaveLength(4);
   });
 
   it("contains the expected slugs", () => {
@@ -12,6 +12,7 @@ describe("toolSlugs", () => {
         "scorporo-iva",
         "verifica-codice-lotteria",
         "calcolatore-risparmio-rt",
+        "dicitura-regime-forfettario",
       ]),
     );
   });
@@ -26,6 +27,7 @@ describe("tools dictionary", () => {
     "scorporo-iva",
     "verifica-codice-lotteria",
     "calcolatore-risparmio-rt",
+    "dicitura-regime-forfettario",
   ] as const) {
     describe(slug, () => {
       const t = tools[slug];
@@ -107,6 +109,29 @@ describe("isToolSlug", () => {
     expect(isToolSlug("constructor")).toBe(false);
     expect(isToolSlug("toString")).toBe(false);
     expect(isToolSlug("hasOwnProperty")).toBe(false);
+  });
+});
+
+describe("relatedGuides slugs point to real guides", () => {
+  it("each related guide slug exists in the guide articles dictionary", async () => {
+    const { guideSlugs } = await import("@/lib/guide/articles");
+    for (const slug of toolSlugs) {
+      const t = tools[slug];
+      for (const guideSlug of t.relatedGuides ?? []) {
+        expect(guideSlugs, `tool ${slug}: guideSlug ${guideSlug}`).toContain(
+          guideSlug,
+        );
+      }
+    }
+  });
+
+  it("the dicitura tool links back to the forfettario/N2.2 cluster", () => {
+    expect(tools["dicitura-regime-forfettario"].relatedGuides).toEqual(
+      expect.arrayContaining([
+        "codici-natura-iva",
+        "scontrino-regime-forfettario",
+      ]),
+    );
   });
 });
 

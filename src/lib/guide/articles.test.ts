@@ -79,6 +79,20 @@ describe("guideArticles dictionary", () => {
         }
       });
 
+      it("has well-formed tables when present (headers + rows of equal width)", () => {
+        for (const section of a.sections) {
+          if (!section.table) continue;
+          expect(section.table.headers.length).toBeGreaterThanOrEqual(2);
+          expect(section.table.rows.length).toBeGreaterThanOrEqual(2);
+          for (const row of section.table.rows) {
+            expect(row).toHaveLength(section.table.headers.length);
+            for (const cell of row) {
+              expect(cell.length).toBeGreaterThan(0);
+            }
+          }
+        }
+      });
+
       it("has at least 3 FAQ entries with substantive question/answer", () => {
         expect(a.faq.length).toBeGreaterThanOrEqual(3);
         for (const item of a.faq) {
@@ -106,6 +120,29 @@ describe("guideArticles dictionary", () => {
       });
     });
   }
+});
+
+describe("codici-natura-iva", () => {
+  const article = guideArticles["codici-natura-iva"];
+
+  it("has a complete N1-N7 table (one row per code, sub-codes included)", () => {
+    const tableSection = article.sections.find((s) => s.table !== undefined);
+    expect(tableSection).toBeDefined();
+    const firstColumn = tableSection!.table!.rows.map((row) => row[0]);
+    for (const code of ["N1", "N2", "N2.1", "N2.2", "N4", "N5", "N7"]) {
+      expect(firstColumn).toContain(code);
+    }
+    // N3 e N6 hanno sottocodici: la riga li riporta come intervallo
+    expect(firstColumn.some((c) => c.startsWith("N3"))).toBe(true);
+    expect(firstColumn.some((c) => c.startsWith("N6"))).toBe(true);
+  });
+
+  it("has dedicated sections for the main query forms (cosa significa, N2 vs N2.2, aliquota)", () => {
+    const headings = article.sections.map((s) => s.heading.toLowerCase());
+    expect(headings.some((h) => h.includes("cosa significa"))).toBe(true);
+    expect(headings.some((h) => h.includes("n2 vs n2.2"))).toBe(true);
+    expect(headings.some((h) => h.includes("aliquota"))).toBe(true);
+  });
 });
 
 describe("getGuide", () => {
@@ -162,5 +199,28 @@ describe("relatedHelp slugs point to real help articles", () => {
         ).toContain(helpSlug);
       }
     }
+  });
+});
+
+describe("relatedTools slugs point to real tools", () => {
+  it("each related tool slug exists in the tools dictionary", async () => {
+    const { toolSlugs } = await import("@/lib/strumenti/tools");
+    for (const slug of guideSlugs) {
+      const a = guideArticles[slug];
+      for (const toolSlug of a.relatedTools ?? []) {
+        expect(toolSlugs, `guide ${slug}: toolSlug ${toolSlug}`).toContain(
+          toolSlug,
+        );
+      }
+    }
+  });
+
+  it("the forfettario/N2.2 cluster links the dicitura tool", () => {
+    expect(guideArticles["codici-natura-iva"].relatedTools).toContain(
+      "dicitura-regime-forfettario",
+    );
+    expect(
+      guideArticles["scontrino-regime-forfettario"].relatedTools,
+    ).toContain("dicitura-regime-forfettario");
   });
 });

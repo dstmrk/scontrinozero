@@ -14,6 +14,7 @@ import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { ScorporoIvaTool } from "@/components/marketing/tools/scorporo-iva-tool";
 import { VerificaLotteriaTool } from "@/components/marketing/tools/verifica-lotteria-tool";
 import { CalcolatoreRisparmioTool } from "@/components/marketing/tools/calcolatore-risparmio-tool";
+import { DicituraForfettarioTool } from "@/components/marketing/tools/dicitura-forfettario-tool";
 import {
   tools,
   toolSlugs,
@@ -21,6 +22,7 @@ import {
   type ToolSlug,
 } from "@/lib/strumenti/tools";
 import { helpArticles } from "@/lib/help/articles";
+import { guideArticles, isGuideSlug } from "@/lib/guide/articles";
 
 const SITE_URL = "https://scontrinozero.it";
 
@@ -62,6 +64,8 @@ function ToolWidget({ slug }: { readonly slug: ToolSlug }) {
       return <VerificaLotteriaTool />;
     case "calcolatore-risparmio-rt":
       return <CalcolatoreRisparmioTool />;
+    case "dicitura-regime-forfettario":
+      return <DicituraForfettarioTool />;
   }
 }
 
@@ -75,6 +79,9 @@ export default async function ToolPage({ params }: PageParams) {
   const relatedArticles = t.relatedHelp
     .map((helpSlug) => helpArticles[helpSlug])
     .filter((a) => a !== undefined);
+  const relatedGuides = (t.relatedGuides ?? [])
+    .filter(isGuideSlug)
+    .map((s) => guideArticles[s]);
   const otherTools = toolSlugs.filter((s) => s !== t.slug);
   const crumbs = [
     { name: "Home", url: SITE_URL },
@@ -125,6 +132,26 @@ export default async function ToolPage({ params }: PageParams) {
               </div>
             ))}
           </div>
+
+          {relatedGuides.length > 0 && (
+            <>
+              <h2 className="mt-12 text-xl font-semibold">
+                {"Guide correlate"}
+              </h2>
+              <ul className="mt-3 space-y-1 text-sm">
+                {relatedGuides.map((guide) => (
+                  <li key={guide.slug}>
+                    <Link
+                      href={`/guide/${guide.slug}`}
+                      className="text-primary hover:underline"
+                    >
+                      {guide.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
 
           {relatedArticles.length > 0 && (
             <>
