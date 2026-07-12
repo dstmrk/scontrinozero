@@ -120,24 +120,10 @@ src/app/\(marketing\)` prima di chiudere il task. - Contenuti generati via LLM c
     `unknown[]` rompe `npm run type-check` con **TS2556** _prima_ ancora che i
     test partano — non lo cattura il run dei test (PR #553, #572). Correzione
     ricorrente: vedi skill `testing-patterns`.
-17. **Ordini deterministici prima di slice/topN.** Ogni `sort` che precede uno
-    `slice`/topN deve avere una **chiave secondaria stabile** (es. descrizione
-    normalizzata) oltre alla metrica primaria: ordinare sui soli `revenueCents`
-    rende l'output non deterministico sui pareggi. E **coerenza arrotondamenti**:
-    la strategia canonica monetaria è **per-riga in cents** —
+17. **Grandezze monetarie: canone per-riga in cents.**
     `round(grossUnitPrice * quantity * 100)` per riga, sommato come interi —
-    usata ovunque: importo trasmesso ad AdE (`payments[0].amount`), soglia
-    lotteria €1,00, PDF/pagina pubblica (`computeReceiptTotals`),
-    storico/analytics (`calcDocTotal`) e breakdown prodotti. Helper condivisi in
-    `src/lib/receipts/document-lines.ts`: `calcInputLinesTotalCents` (righe input
-    numeriche, cassa/API) e `calcDocTotal` (righe DB). **Mai** arrotondare per
-    documento (somma float poi un solo `round`): divergeva di 1 cent dalle righe
-    su quantità frazionarie, facendo differire il documento fiscale trasmesso da
-    quello consegnato al cliente (REVIEW.md #1). Poiché sia il KPI ricavo (somma
-    `calcDocTotal` sui documenti) sia il breakdown prodotti sommano lo stesso
-    `round(qty*price*100)` su tutte le righe, riconciliano alla cifra
-    indipendentemente dal raggruppamento documento↔prodotto. La precedente scelta
-    per-documento (PR #519, #534) è stata superata da REVIEW.md #1.
+    MAI arrotondare per documento. Ogni `sort` prima di `slice`/topN ha una
+    chiave secondaria stabile. Helper e motivazione → skill `money-rounding`.
 18. **Env d'identità: build-vs-runtime e present-but-empty.** Un `?? default`
     **non** scatta se la variabile è presente ma **vuota** (`""`): nel
     `Dockerfile` bakare un default reale nell'`ARG`/`ENV` o **non** esportarla
