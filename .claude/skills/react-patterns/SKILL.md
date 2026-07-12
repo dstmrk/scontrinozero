@@ -5,6 +5,20 @@ description: Use when writing or modifying React 19 / Next.js 16 App Router code
 
 # react-patterns — React 19, Next.js 16 App Router, shadcn/ui, TanStack
 
+Indice (salta alla sezione che serve, non leggere tutto):
+
+- Server vs Client Components (+ `appHref()` server-only, link auth marketing→app)
+- Next.js 16: API async (`params`/`searchParams`/`cookies()`/`headers()`)
+- Composizione shadcn/ui + Radix (`asChild`, S6861 readonly props, S6772)
+- TanStack Query (provider unico, optimistic update)
+- React 19: Actions, `useTransition`, `useOptimistic`, ref as prop
+- Form: react-hook-form + Zod
+- Hydration mismatch — cause comuni
+- Web Storage via `safe-storage`
+- Tailwind 4 — class ordering
+- TDD per componenti
+- PWA / Serwist → skill `pwa-serwist` (skill separata)
+
 ## Stack di riferimento
 
 - **React 19.2** (`react`, `react-dom`) — Actions, `useTransition`,
@@ -44,14 +58,17 @@ Da Client Component `NEXT_PUBLIC_APP_URL` non è nel bundle (non baked dal
 Dockerfile) e `APP_HOSTNAME` non è `NEXT_PUBLIC_*` — cadrebbe sul default
 hardcoded di produzione rompendo sandbox/self-hosted. Calcola l'href nel
 **parent Server Component** e passalo come prop al Client Component
-(vedi `pricing-section.tsx` e regola 15 in `CLAUDE.md`).
+(vedi `pricing-section.tsx` e regola 15 in `CLAUDE.md`). Helper:
+`appHref()` in `src/lib/marketing-to-app-href.ts`.
 
 ### Link auth da marketing → app: plain `<a>`
 
 Dal gruppo `(marketing)/*` (e da `src/components/marketing/`, `help/`) i link
 a `/login`, `/register`, `/reset-password` devono usare `appHref()` + **plain
-`<a>`**, mai `<Link>` di Next. Il soft routing terrebbe l'utente su origin
-marketing e Turnstile rompe con `captcha_hostname_mismatch`.
+`<a>`**, mai `<Link>` di Next. Serve a forzare la cross-origin navigation
+verso `app.scontrinozero.it`: il soft routing di Next terrebbe l'utente
+sull'origin marketing, riportando il bug `captcha_hostname_mismatch` su
+Turnstile (commit ac59efc).
 
 ---
 
@@ -306,64 +323,11 @@ l'ultima classe. Utile per override:
 
 ---
 
-## PWA / Serwist — attenzione al `defaultCache`
+## PWA / Serwist → skill `pwa-serwist`
 
-Il service worker (`src/sw.ts`) usa `runtimeCaching: defaultCache` di
-`@serwist/next/worker`. **Non è asset-only:** `defaultCache` include strategie
-di runtime caching anche per same-origin GET, tra cui una `NetworkFirst` per
-le richieste `/api/*`. Conseguenze:
-
-- **Server Action (POST)** → non cachate, sempre rete.
-- **Route Handler GET sotto `/api/*`** → potenzialmente serviti dalla cache
-  su timeout/offline. ⚠️ `Cache-Control: no-store` sulla response **non
-  basta**: in Serwist 9.x la `NetworkFirst` scrive in cache via
-  `fetchAndCachePut`, e il `cacheOkAndOpaquePlugin` aggiunto di default
-  decide solo in base allo status (200/opaque) ignorando l'header
-  `Cache-Control`. Per dati tenant-specifici / sensibili / che cambiano
-  spesso bisogna **override esplicito** in `src/sw.ts`: una regola
-  `NetworkOnly` (o un matcher che esclude il pattern) registrata **prima**
-  di `defaultCache`, oppure una `NetworkFirst` con plugin custom che rifiuta
-  via `cacheWillUpdate` le response non cacheable. `Vary: Cookie/Authorization`
-  da solo non previene la scrittura in cache, al massimo isola la voce per
-  variante.
-- **Pagine / RSC payload** → cachate con strategia network-first analoga;
-  per route autenticate fare affidamento su `cookies()`/redirect server-side,
-  non su "il SW non interferisce".
-
-`src/components/pwa/` contiene gli hook lato client per install prompt e
-update detection — sono Client Components che usano `window.matchMedia` e
-listener `beforeinstallprompt`. Da non importare in Server Component.
-
-### `beforeinstallprompt` — race del listener tardivo (Android)
-
-Chrome su Android emette `beforeinstallprompt` **molto presto** dopo il load
-(appena manifest + SW sono pronti) e **non lo ri-emette**. Se il listener è
-agganciato in una `useEffect` di un componente annidato — es. il banner
-montato in fondo al `dashboard/layout.tsx`, che è un Server Component `async`
-con `await` bloccanti prima del render — l'evento può scattare prima che React
-idrati e l'evento è perso → su Android il pulsante "Installa" non compare mai,
-mentre iOS (istruzioni statiche, niente evento) sembra funzionare. Asimmetria
-sintomatica.
-
-**Fix (commit PWA Android):** cattura l'evento in uno store singleton client
-(`src/lib/pwa/install-prompt-store.ts`) il cui `initInstallPromptCapture()` è
-chiamato a module-load da `Providers` (entry client condiviso del root layout,
-ben prima del mount del banner). Idempotente + SSR-safe. La UI legge via
-`useSyncExternalStore(subscribe, getDeferredPrompt, () => null)`, così vede
-anche un evento già bufferizzato. `getSnapshot` deve restituire un riferimento
-stabile (il module var), altrimenti loop di render. Reset del singleton tra
-test con `resetInstallPromptStoreForTests()`.
-
-### Asset PWA esclusi dal `proxy.ts` matcher
-
-`/sw.js` e `/manifest.webmanifest` **devono** stare nel negative-lookahead del
-`config.matcher` (come `_next/static`, favicon, ecc.): un service worker che
-riceve un 3xx fallisce la registrazione, e far girare `supabase.auth.getUser()`
-su ogni fetch di questi file è spreco puro. Estensioni `.js`/`.webmanifest`
-non sono coperte dalla lista asset statici (`svg|png|...`), quindi vanno
-aggiunte esplicitamente (`sw\.js|manifest\.webmanifest`). Test: costruire
-`new RegExp(\`^${config.matcher[0]}$\`)` e asserire che NON matcha gli asset PWA
-ma sì le route app.
+Service worker (`src/sw.ts`, gotcha `defaultCache`), race di
+`beforeinstallprompt` su Android e matcher `src/proxy.ts`: skill dedicata
+`pwa-serwist`.
 
 ---
 

@@ -65,6 +65,7 @@ jobs:
             arch_docs:
               - 'docs/architecture/**'
               - '.claude/skills/**'
+              - 'CLAUDE.md'
               - 'scripts/check-architecture-docs.mjs'
               - 'src/**'
             hooks:
@@ -111,10 +112,10 @@ jobs:
       - name: Check migration journal consistency
         run: node scripts/check-migrations.mjs
 
-  # Verifica che ogni path citato in docs/architecture/ e .claude/skills/
-  # esista ancora su disco (anti-drift della mappa codebase, CLAUDE.md regola
-  # 26). Gira quando cambiano i doc, le skill, lo script, o src/** (un rename
-  # in src/ può orfanare un riferimento).
+  # Verifica che ogni path citato in docs/architecture/, .claude/skills/ e
+  # CLAUDE.md esista ancora su disco (anti-drift della mappa codebase,
+  # CLAUDE.md regola 26). Gira quando cambiano i doc, le skill, CLAUDE.md,
+  # lo script, o src/** (un rename in src/ può orfanare un riferimento).
   arch-docs-check:
     needs: changes
     if: needs.changes.outputs.arch_docs == 'true'
@@ -125,10 +126,11 @@ jobs:
       - name: Check architecture docs references
         run: node scripts/check-architecture-docs.mjs
 
-  # Esegue le suite di test degli hook PreToolUse (.claude/hooks/).
+  # Esegue le suite di test degli hook PreToolUse/PostToolUse (.claude/hooks/).
   # Gira solo quando cambia .claude/hooks/**. Difesa-in-profondità per le
-  # regole 1 e 11 di CLAUDE.md: un regex che smette di bloccare push su main
-  # o `drizzle-kit generate` deve fallire la CI, non passare silenzioso.
+  # regole 1, 11 e 26 di CLAUDE.md: un regex che smette di bloccare push/commit
+  # su main o `drizzle-kit generate`, o un hook arch-check che smette di
+  # flaggare i path morti, deve fallire la CI, non passare silenzioso.
   hook-tests:
     needs: changes
     if: needs.changes.outputs.hooks == 'true'
@@ -140,6 +142,8 @@ jobs:
         run: |
           bash .claude/hooks/test-block-push-to-main.sh
           bash .claude/hooks/test-block-drizzle-generate.sh
+          bash .claude/hooks/test-block-commit-on-main.sh
+          bash .claude/hooks/test-check-arch-docs-on-edit.sh
 
   # Testa il wrapper dello scan Sonar (retry + tolleranza 403 del CDN).
   # Gira solo quando cambia scripts/ci/** o ci.yml. Rete-di-sicurezza: una

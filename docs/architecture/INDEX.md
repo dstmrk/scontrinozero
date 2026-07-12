@@ -72,6 +72,7 @@ partner per il branding subdomain), e i data file marketing
 | Orchestrazione emissione / annullo                | `src/lib/services/receipt-service.ts`, `src/lib/services/void-service.ts`                                                                                                                                                                  |
 | Recovery stale-pending AdE                        | `src/lib/services/ade-recovery.ts`, `src/lib/services/request-hash.ts`                                                                                                                                                                     |
 | Integrazione AdE (client reale/mock, adapter)     | `src/lib/ade/index.ts`, `src/lib/ade/real-client.ts`, `src/lib/ade/mock-client.ts`                                                                                                                                                         |
+| Sessione AdE riusata (Fisconline vs CIE)          | Fisconline (rinnovo silenzioso): `src/lib/ade/session-cache.ts` · CIE (interattiva, conferma push utente): `src/lib/ade/interactive-session-store.ts` + pre-check `isCieSessionMissing` in `src/lib/ade/index.ts`                          |
 | Classi errore AdE + logging tipato                | `src/lib/ade/errors.ts`, `src/lib/ade/log-failure.ts`                                                                                                                                                                                      |
 | Logger pino → Sentry (hook level≥50)              | `src/lib/logger.ts`                                                                                                                                                                                                                        |
 | Filtri Sentry client (network noise)              | `src/lib/sentry-filters.ts`, `sentry.client.config.ts`                                                                                                                                                                                     |
@@ -94,20 +95,20 @@ partner per il branding subdomain), e i data file marketing
 Tutte sono `"use server"`; sulle azioni di lettura vale "degradare, non lanciare"
 (CLAUDE.md regola 19).
 
-| File                               | Responsabilità                                                |
-| ---------------------------------- | ------------------------------------------------------------- |
-| `src/server/auth-actions.ts`       | login, registrazione, reset password, accettazione T&C        |
-| `src/server/onboarding-actions.ts` | wizard collegamento credenziali AdE                           |
-| `src/server/receipt-actions.ts`    | emissione scontrino (cassa)                                   |
-| `src/server/void-actions.ts`       | annullo documento                                             |
-| `src/server/storico-actions.ts`    | elenco/ricerca documenti emessi                               |
-| `src/server/analytics-actions.ts`  | KPI e analytics (helper in `src/server/analytics-helpers.ts`) |
-| `src/server/catalog-actions.ts`    | catalogo prodotti rapidi                                      |
-| `src/server/export-actions.ts`     | export CSV (Pro-gated)                                        |
-| `src/server/billing-actions.ts`    | checkout / customer portal Stripe                             |
-| `src/server/profile-actions.ts`    | impostazioni profilo/attività                                 |
-| `src/server/account-actions.ts`    | gestione account (es. cancellazione)                          |
-| `src/server/api-key-actions.ts`    | gestione API key Developer                                    |
+| File                               | Responsabilità                                                                                                  |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `src/server/auth-actions.ts`       | login, registrazione, reset password, accettazione T&C                                                          |
+| `src/server/onboarding-actions.ts` | wizard collegamento credenziali AdE — method-aware Fisconline/CIE (`saveAdeCredentials`/`verifyAdeCredentials`) |
+| `src/server/receipt-actions.ts`    | emissione scontrino (cassa)                                                                                     |
+| `src/server/void-actions.ts`       | annullo documento                                                                                               |
+| `src/server/storico-actions.ts`    | elenco/ricerca documenti emessi                                                                                 |
+| `src/server/analytics-actions.ts`  | KPI e analytics (helper in `src/server/analytics-helpers.ts`)                                                   |
+| `src/server/catalog-actions.ts`    | catalogo prodotti rapidi                                                                                        |
+| `src/server/export-actions.ts`     | export CSV (Pro-gated)                                                                                          |
+| `src/server/billing-actions.ts`    | checkout / customer portal Stripe                                                                               |
+| `src/server/profile-actions.ts`    | impostazioni profilo/attività                                                                                   |
+| `src/server/account-actions.ts`    | gestione account (es. cancellazione)                                                                            |
+| `src/server/api-key-actions.ts`    | gestione API key Developer                                                                                      |
 
 ## Moduli cross-cutting (toccati da quasi ogni feature)
 
@@ -117,15 +118,36 @@ Tutte sono `"use server"`; sulle azioni di lettura vale "degradare, non lanciare
 - `src/lib/plans.ts` / `src/lib/plans-shared.ts` — gate piani, fonte di verità
 - `src/lib/receipts/document-lines.ts` — aritmetica monetaria canonica (regola 17)
 - `src/lib/ade/log-failure.ts` — classificazione errori AdE (regole 20/23)
+- `src/lib/ade/interactive-session-store.ts` — sessioni CIE interattive
+  (TTL/LRU per-business; a differenza di `src/lib/ade/session-cache.ts`
+  Fisconline non si rinnova in silenzio: serve la conferma push dell'utente)
 - `src/lib/identity-env.ts` — validazione env d'identità al boot (regola 24)
 - `src/lib/umami.ts` + `src/components/umami-script.tsx` — web-analytics Umami (script cookieless nel root layout + helper `track()`); ≠ dal dominio "analytics" business (KPI dashboard in `src/server/analytics-actions.ts`)
 - `src/db/schema/index.ts` — barrel dello schema Drizzle
 
+## Scelte architetturali rapide
+
+Tutte motivate dalle priorità di `CLAUDE.md` (performance percepita, hobby
+project, leggero sulle risorse):
+
+- **Next.js** monolite (SSR + Server Actions, no backend separato)
+- **Supabase** vs Firebase (Postgres standard, RLS nativo, no lock-in)
+- **PWA** vs nativa (un codebase, no store, update istantanei)
+- **shadcn/ui** (copy-paste in repo, Radix sotto)
+- **Integrazione diretta AdE** (zero costo per scontrino, no terzi)
+- **Cloudflare Tunnel** (HTTPS/CDN/DDoS gratis, IP nascosto)
+- **Stripe** (fee EU 1.5% + €0.25, API ottima; MoR rimandato)
+- **Resend** (free 3k/mese, React Email type-safe)
+- **TDD** (integrazione AdE fragile, refactoring sicuro)
+- **Due ambienti** (AdE irreversibile: uno scontrino emesso non si cancella)
+- **Umami self-hosted** (GDPR, no cookie, gratis sulla stessa VPS)
+
 ## Altri riferimenti
 
-- **Prescrittivo per dominio** → `.claude/skills/` (ade-integration, db-migrations,
-  react-patterns, security-patterns, sentry-hygiene, sonar-quality-gate,
-  stripe-webhooks, testing-patterns)
+- **Prescrittivo per dominio** → `.claude/skills/` (ade-integration,
+  db-migrations, deploy-release, marketing-content, money-rounding,
+  playwright-verify, pwa-serwist, react-patterns, security-patterns,
+  sentry-hygiene, sonar-quality-gate, stripe-webhooks, testing-patterns)
 - **Comportamento sempre-attivo** → `CLAUDE.md`
 - **Roadmap** → `PLAN.md` · **Bug/tech debt** → `REVIEW.md` · **Developer API** →
   `DEVELOPER.md` · **Surface REST + flussi HTTP AdE** → `docs/api-spec.md`

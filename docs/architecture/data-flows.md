@@ -30,22 +30,39 @@
    `withAdeSession` + `src/lib/ade/session-cache.ts` (cache in-process con TTL/LRU
    e lock per-business), invalidata su cambio credenziali. Evita di ripetere il
    login (~10 round-trip, latenza dominante) a ogni emissione.
-5. UI optimistic: lo scontrino "sembra istantaneo" anche se AdE risponde in 2-5s
+5. **Ramo CIE** (login method `cie`): la sessione interattiva vive in
+   `src/lib/ade/interactive-session-store.ts` e **non è rinnovabile in
+   silenzio** (serve la conferma push dell'utente). Il service fa il pre-check
+   `isCieSessionMissing` **prima** di inserire il documento: se manca/scaduta
+   ritorna `{ reauthRequired: true }` senza trasmettere nulla — la UI mostra
+   "Ricollegati" (`src/components/cassa/cassa-client.tsx`), la Developer API
+   risponde 409. Lo stesso esito arriva da `AdeReauthRequiredError` a metà
+   flusso (documento marcato ERROR, mai duplicato).
+6. UI optimistic: lo scontrino "sembra istantaneo" anche se AdE risponde in 2-5s
    (priorità #1). La server action degrada, non lancia (regola 19).
-6. Fallimenti AdE classificati da `src/lib/ade/log-failure.ts` con
+7. Fallimenti AdE classificati da `src/lib/ade/log-failure.ts` con
    `flow: "emit-receipt"` (regole 20/23).
 
 ## Annullo documento (void)
 
 Analogo all'emissione: `src/server/void-actions.ts` →
 `src/lib/services/void-service.ts` → client AdE; logging con
-`flow: "void-receipt"` via `src/lib/ade/log-failure.ts`.
+`flow: "void-receipt"` via `src/lib/ade/log-failure.ts`. Vale lo stesso ramo
+CIE dell'emissione (pre-check `isCieSessionMissing` → `reauthRequired`,
+dialog "Ricollegati" in `src/components/storico/void-receipt-dialog.tsx`).
 
 ## Onboarding AdE (collegamento credenziali)
 
-1. Wizard `src/app/onboarding` → `src/server/onboarding-actions.ts`.
-2. Verifica credenziali Fisconline contro AdE; le credenziali sono cifrate
-   AES-256-GCM con `src/lib/crypto.ts` e salvate in `src/db/schema/ade-credentials.ts`.
+1. Wizard `src/app/onboarding` → `src/server/onboarding-actions.ts` —
+   **method-aware** (`loginMethod: "fisconline" | "cie"`) in
+   `saveAdeCredentials`/`verifyAdeCredentials`.
+2. Verifica credenziali contro AdE; le credenziali sono cifrate AES-256-GCM
+   con `src/lib/crypto.ts` e salvate in `src/db/schema/ade-credentials.ts`.
+   **Ramo CIE**: login federato via SAML IdP (`loginCie` in
+   `src/lib/ade/real-client.ts`, credenziali "livello 2" dell'app CIE ID),
+   conferma via **notifica push** con finestra di polling (vedi
+   `docs/architecture/config-manifest.md`), poi la sessione è depositata
+   nello store interattivo per il riuso in emissione/annullo.
 3. Logging con `flow: "onboarding-verify"` in `src/lib/ade/log-failure.ts`.
 4. Anti-frode trial: al primo claim della P.IVA si registra il suo HMAC
    (`src/lib/piva-hash.ts`) in `src/db/schema/trial-vat-ledger.ts` (registro che
@@ -59,7 +76,8 @@ Un documento rimasto "pending" (es. crash dopo la chiamata AdE) viene
 riconciliato da `src/lib/services/ade-recovery.ts`, con la soglia temporale
 descritta nella skill `stripe-webhooks` e in `docs/architecture/config-manifest.md`.
 Prima di ri-sottomettere ad AdE, il recovery interroga `searchDocuments`
-(HAR: `har/ricerca.har`) e riconcilia il documento con la fonte di verità via
+(HAR di riferimento: `ricerca.har`, locale e gitignorata) e riconcilia il
+documento con la fonte di verità via
 `reconcileSaleDocument`/`reconcileVoidDocument`: se AdE l'aveva già accettato →
 finalize-only (nessun duplicato fiscale), altrimenti re-submit; lookup
 ambiguo o fallito → resta pending (fail-safe).
