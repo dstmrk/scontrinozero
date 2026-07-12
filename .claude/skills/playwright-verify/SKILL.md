@@ -150,10 +150,89 @@ sessioni MCP.
    passa `async (page) => {...}` **senza `;` finale** dopo la graffa (il `;`
    rompe la sintassi → `SyntaxError`).
 
-5. **Click che navigano.** `page.locator(...).click()` attende la navigazione →
-   può sforare i 5s con i Server Action. Se vuoi ritornare subito, clicca con
-   `page.evaluate(() => document.querySelector(sel).click())` e verifica lo
-   stato in una call separata (lo stato persiste lato server).
+5. **Click/fill "actionable" di Playwright sforano il ceiling — usa DOM
+   `evaluate`.** Non è solo un problema dei click che _navigano_: anche un
+   `locator(...).click()` che apre un dialog o un `locator.fill()` su un input
+   può restare appeso oltre i 5s (Playwright aspetta actionability/stabilità
+   sotto una pagina con fetch di prefetch/analytics in volo). Rimedio
+   affidabile: **clicca via DOM** (`page.evaluate(() =>
+   document.querySelector(sel).click())`, ~100ms) e per gli **input React
+   controlled** setta il valore col native setter + evento `input` (React ignora
+   un `el.value=` diretto):
+
+   ```js
+   await page.evaluate(({ d, p }) => {
+     const set = (el, v) => {
+       const s = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+       s.call(el, v);
+       el.dispatchEvent(new Event('input', { bubbles: true }));
+     };
+     set(document.querySelector('#catalog-description'), d);
+     set(document.querySelector('#catalog-price'), p);
+   }, { d: desc, p: price });
+   ```
+
+   Combinato con `waitForSelector` (polling veloce, non attende stabilità) il
+   riempimento di un form intero sta in **~100ms** invece di sforare. Se il
+   click deve colpire un solo bottone tra molti omonimi (es. l'"Aggiungi" header
+   vs il submit del dialog), filtra nel selector:
+   `[...document.querySelectorAll('button')].find(x =>
+   x.textContent.trim().startsWith('Aggiungi') && !x.closest('[role="dialog"]'))`.
+
+6. **Server action = il tool aspetta il network idle → la call "muore" ma
+   l'azione persiste.** `browser_run_code_unsafe` emette l'SSE solo quando la
+   pagina si quieta: qualsiasi call che _fa scattare_ una Server Action (submit,
+   "Continua", "Verifica") tiene aperto lo stream finché la `fetch` non si
+   completa → spesso > 5s → la call torna vuota e la sessione muore. **Ma il
+   click è già stato dispatchato in-page: Chromium porta a termine la `fetch`
+   indipendentemente dallo stream MCP, e la scrittura si persiste lato server.**
+   Pattern **fire-and-return**: (a) call "riempi form" (solo client, veloce),
+   (b) call "spara il submit" via `evaluate(...click())` — se ritorna `fired`
+   bene, se muore ignora, (c) **re-init** sessione + rileggi lo stato per
+   confermare. Provato aggiungendo 5 prodotti a catalogo: la lista risultava
+   completa anche quando metà delle call di submit erano "morte". **Non**
+   incatenare `submit + waitForSelector(detached)` nella stessa call: raddoppi
+   il tempo sotto il ceiling e perdi comunque la conferma.
+
+7. **`setTimeout`/`setInterval` NON esistono** nel contesto di
+   `browser_run_code_unsafe` (gira come `async (page) => {...}` fuori da un event
+   loop con i timer globali): un `await new Promise(r => setTimeout(r, 400))`
+   lancia `ReferenceError`. Usa **`await page.waitForTimeout(400)`** — ma
+   preferisci sempre `waitForSelector`/`waitForFunction` a un delay fisso.
+
+8. **Radix/shadcn `Select` si pilota con click sintetici.** Il combobox non è un
+   `<select>` nativo: è un trigger `button[role="combobox"]` che monta le opzioni
+   in un **portal**. Ricetta in una call: `evaluate` click sul trigger →
+   `waitForSelector('[role="option"]', {timeout:3000})` → `evaluate` click
+   sull'opzione (`[...document.querySelectorAll('[role="option"]')].find(o =>
+   o.textContent.trim().startsWith('10%'))`). La selezione si registra (il
+   trigger mostra il nuovo valore) **anche se `aria-expanded` legge `false`**:
+   non fidarti di quell'attributo per verificare, leggi il `textContent` del
+   trigger. Tutto client-side → sotto i 5s tranquillamente.
+
+## Recipe: scrittura via form-dialog + Server Action (es. add catalogo)
+
+Pattern per ogni CRUD-write guidata da un dialog (add/edit prodotto catalogo,
+ma generalizza). Una call ≠ un prodotto: **spezza in due**, poi conferma
+rileggendo. Vedi Gotcha 5/6/8.
+
+1. **Riempi** (una call, ~100ms, tutto client): `evaluate` click sul bottone che
+   apre il dialog → `waitForSelector` del primo input → native-setter su
+   descrizione e prezzo → pilota il `Select` IVA (Gotcha 8). Ritorna i valori
+   letti dal DOM per auto-verifica (`desc=... vat=10% – Ridotta`).
+2. **Spara il submit** (call separata, fire-and-return, Gotcha 6): `evaluate`
+   click su `[role="dialog"] button[type="submit"]`. Aspettati che possa morire.
+3. **Conferma** (re-init + rileggi la lista): naviga `/dashboard` commit,
+   `waitForSelector('h1')`, leggi le righe
+   (`div.rounded-xl.border` → descrizione + prezzo + `VAT_LABELS`).
+
+Business/IVA coerenti: leggi prima l'attività onboardata da
+`/dashboard/settings` (nome attività) e scegli l'aliquota giusta — per un bar
+(_somministrazione_) è **10%**, non il default 22%. Componenti:
+`src/components/catalogo/catalog-item-dialog.tsx` (form),
+`src/components/catalogo/catalogo-client.tsx` (lista + bottone Aggiungi),
+`src/components/cassa/vat-selector.tsx` (Select IVA),
+`src/server/catalog-actions.ts` (`addCatalogItem`).
 
 ## Recipe: login + wizard onboarding (una call breve per step)
 
