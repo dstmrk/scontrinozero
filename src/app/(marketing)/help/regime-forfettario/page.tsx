@@ -249,7 +249,16 @@ export default function RegimeForfettarioPage() {
             &quot;Operazione in franchigia da IVA ai sensi dell&apos;art. 1 co.
             54-89 L. 190/2014&quot;
           </em>{" "}
-          — ma riguarda la fattura elettronica, non lo scontrino.
+          — ma riguarda la fattura elettronica, non lo scontrino. Se ti serve il
+          testo completo pronto da incollare (con clausola ritenuta
+          d&apos;acconto e controllo bollo), usa il{" "}
+          <Link
+            href="/strumenti/dicitura-regime-forfettario"
+            className="text-primary hover:underline"
+          >
+            generatore di dicitura per il regime forfettario
+          </Link>
+          {"."}
         </p>
 
         {/* ─── Soglie di ricavo ─── */}

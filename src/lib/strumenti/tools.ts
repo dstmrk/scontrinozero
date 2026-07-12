@@ -2,6 +2,7 @@ export const toolSlugs = [
   "scorporo-iva",
   "verifica-codice-lotteria",
   "calcolatore-risparmio-rt",
+  "dicitura-regime-forfettario",
 ] as const;
 
 export type ToolSlug = (typeof toolSlugs)[number];
@@ -20,6 +21,8 @@ export interface ToolContent {
   readonly howItWorks: readonly string[];
   readonly faq: readonly ToolFaq[];
   readonly relatedHelp: readonly string[];
+  /** Slug di /guide collegati (cross-link del cluster, es. forfettario). */
+  readonly relatedGuides?: readonly string[];
 }
 
 export const tools: Record<ToolSlug, ToolContent> = {
@@ -140,6 +143,57 @@ export const tools: Record<ToolSlug, ToolContent> = {
       },
     ],
     relatedHelp: ["pos-rt-obbligo", "normativa-pos-2026", "piani-e-prezzi"],
+  },
+  "dicitura-regime-forfettario": {
+    slug: "dicitura-regime-forfettario",
+    title: "Generatore dicitura regime forfettario",
+    metaTitle: "Dicitura regime forfettario: testo esenzione IVA da copiare",
+    metaDescription:
+      "Genera la dicitura di esenzione IVA del regime forfettario (art. 1 commi 54-89 L. 190/2014) pronta da copiare: fattura vs scontrino, ritenuta d'acconto e bollo.",
+    heroIntro:
+      "La dicitura del regime forfettario è: «Operazione effettuata ai sensi dell'articolo 1, commi da 54 a 89, della Legge n. 190/2014 - Regime forfettario». Va riportata solo sulle fatture: sullo scontrino elettronico non serve, basta la natura IVA N2. Qui sotto generi il testo completo da copiare, con la clausola sulla ritenuta d'acconto e l'avviso marca da bollo.",
+    howItWorks: [
+      "Scegli il documento che devi emettere: fattura oppure scontrino.",
+      "Per la fattura, aggiungi se serve la clausola sulla ritenuta d'acconto (comma 67) e indica l'importo per il controllo della marca da bollo.",
+      "Copia la dicitura con un tocco e incollala nel tuo software di fatturazione.",
+    ],
+    faq: [
+      {
+        question: "Qual è la dicitura per il regime forfettario?",
+        answer:
+          "La formula standard è: \"Operazione effettuata ai sensi dell'articolo 1, commi da 54 a 89, della Legge n. 190/2014 - Regime forfettario\". Se il cliente è un sostituto d'imposta si aggiunge la clausola sulla non applicazione della ritenuta d'acconto ai sensi del comma 67 della stessa legge.",
+      },
+      {
+        question:
+          "Serve la dicitura di esenzione sullo scontrino del forfettario?",
+        answer:
+          "No. Sullo scontrino elettronico (documento commerciale online) non è richiesta alcuna dicitura: è sufficiente che le righe siano emesse con natura IVA N2 (operazioni non soggette). La dicitura è obbligatoria solo sulle fatture.",
+      },
+      {
+        question:
+          "Va bene anche la formula «operazione senza applicazione dell'IVA»?",
+        answer:
+          'Sì. Varianti come "Operazione senza applicazione dell\'IVA ai sensi dell\'art. 1, commi 54-89, della Legge 190/2014" o "Operazione in franchigia da IVA" sono equivalenti: ciò che conta è il richiamo esplicito all\'articolo 1, commi da 54 a 89, della Legge 190/2014, che identifica il regime forfettario.',
+      },
+      {
+        question: "Quando serve la marca da bollo da 2 euro?",
+        answer:
+          "Sulle fatture del forfettario di importo superiore a 77,47 €: essendo operazioni senza IVA, scatta l'imposta di bollo di 2,00 € (DPR 642/1972). Per la fattura elettronica il bollo si assolve in modo virtuale, con versamento trimestrale tramite il servizio dell'Agenzia delle Entrate. Sullo scontrino il bollo non si applica.",
+      },
+      {
+        question:
+          "Cosa significa la clausola sulla ritenuta d'acconto (comma 67)?",
+        answer:
+          "I compensi del forfettario non sono soggetti a ritenuta alla fonte: l'articolo 1, comma 67, della Legge 190/2014 lo stabilisce espressamente. La clausola in fattura serve a informare il committente sostituto d'imposta (es. un'azienda) di non trattenere la ritenuta d'acconto sul pagamento.",
+      },
+      {
+        question: "Il codice natura IVA da usare è N2 o N2.2?",
+        answer:
+          "Dipende dal documento: sulla fattura elettronica il forfettario usa il codice granulare N2.2 (non soggette - altri casi), mentre sullo scontrino elettronico il tracciato prevede solo il codice aggregato N2. Stesso concetto, due tracciati diversi dell'Agenzia delle Entrate.",
+      },
+    ],
+    relatedHelp: ["regime-forfettario", "aliquote-iva", "fatture-e-ricevute"],
+    relatedGuides: ["codici-natura-iva", "scontrino-regime-forfettario"],
   },
 };
 

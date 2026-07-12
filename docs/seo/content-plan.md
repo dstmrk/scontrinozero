@@ -66,17 +66,17 @@ trimestralmente: i pricing cambiano, Scontrina ha promo in corso).
 
 ### Batch A — P1: cluster forfettario/N2.2 (il più grande asset non sfruttato)
 
-- [ ] **Nuovo strumento `/strumenti/dicitura-regime-forfettario`**:
+- [x] **Nuovo strumento `/strumenti/dicitura-regime-forfettario`**:
       generatore copia-incolla della dicitura di esenzione (scontrino vs
       fattura) con FAQ. Intercetta "dicitura scontrino regime forfettario",
       "regime forfettario esente iva dicitura", "operazione senza
       applicazione dell'IVA art. 1 co. 54-89" (long-tail a bassissima
       competizione). Solo data file + widget semplice.
-- [ ] **Potenziare `/guide/codici-natura-iva`**: tabella N1→N7 completa, una
+- [x] **Potenziare `/guide/codici-natura-iva`**: tabella N1→N7 completa, una
       sezione per forma di query ("n2.2 cosa significa", "n2 vs n2.2",
       "codice iva n2.2 a cosa corrisponde"), risposta secca nel primo
       paragrafo di ogni sezione.
-- [ ] **Cross-link sistematico del cluster**: `help/regime-forfettario` ↔
+- [x] **Cross-link sistematico del cluster**: `help/regime-forfettario` ↔
       `guide/codici-natura-iva` ↔ `guide/scontrino-regime-forfettario` ↔
       nuovo strumento dicitura.
 

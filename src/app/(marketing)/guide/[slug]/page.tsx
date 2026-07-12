@@ -19,6 +19,7 @@ import {
   isGuideSlug,
 } from "@/lib/guide/articles";
 import { helpArticles } from "@/lib/help/articles";
+import { isToolSlug, tools } from "@/lib/strumenti/tools";
 
 const SITE_URL = "https://scontrinozero.it";
 
@@ -73,6 +74,9 @@ export default async function GuidePage({ params }: PageParams) {
     .map((helpSlug) => helpArticles[helpSlug])
     .filter((a) => a !== undefined);
   const relatedGuides = g.relatedGuides.map((s) => guideArticles[s]);
+  const relatedTools = (g.relatedTools ?? [])
+    .filter(isToolSlug)
+    .map((s) => tools[s]);
   const crumbs = guideArticleBreadcrumbItems(g.slug, g.title);
 
   return (
@@ -113,6 +117,45 @@ export default async function GuidePage({ params }: PageParams) {
                 <p className="text-muted-foreground mt-3 leading-relaxed">
                   {section.body}
                 </p>
+                {section.table && (
+                  <div className="mt-4 overflow-x-auto rounded-xl border">
+                    <table className="w-full min-w-[36rem] text-sm">
+                      <thead>
+                        <tr className="bg-muted/50">
+                          {section.table.headers.map((header) => (
+                            <th
+                              key={header}
+                              scope="col"
+                              className="px-4 py-3 text-left font-semibold"
+                            >
+                              {header}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {section.table.rows.map((row) => (
+                          <tr key={row[0]}>
+                            <th
+                              scope="row"
+                              className="px-4 py-3 text-left align-top font-semibold whitespace-nowrap"
+                            >
+                              {row[0]}
+                            </th>
+                            {row.slice(1).map((cell, cellIndex) => (
+                              <td
+                                key={`${row[0]}-${section.table!.headers[cellIndex + 1]}`}
+                                className="text-muted-foreground px-4 py-3 align-top"
+                              >
+                                {cell}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -142,6 +185,26 @@ export default async function GuidePage({ params }: PageParams) {
                       className="text-primary hover:underline"
                     >
                       {article.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {relatedTools.length > 0 && (
+            <>
+              <h2 className="mt-12 text-xl font-semibold">
+                {"Strumenti gratuiti"}
+              </h2>
+              <ul className="mt-3 space-y-1 text-sm">
+                {relatedTools.map((tool) => (
+                  <li key={tool.slug}>
+                    <Link
+                      href={`/strumenti/${tool.slug}`}
+                      className="text-primary hover:underline"
+                    >
+                      {tool.title}
                     </Link>
                   </li>
                 ))}

@@ -14,9 +14,17 @@ export const guideSlugs = [
 
 export type GuideSlug = (typeof guideSlugs)[number];
 
+export interface GuideTable {
+  readonly headers: readonly string[];
+  /** Ogni riga deve avere lo stesso numero di celle di headers. */
+  readonly rows: readonly (readonly string[])[];
+}
+
 export interface GuideSection {
   readonly heading: string;
   readonly body: string;
+  /** Tabella opzionale renderizzata dopo il body (es. codici natura N1-N7). */
+  readonly table?: GuideTable;
 }
 
 export interface GuideFaq {
@@ -37,6 +45,8 @@ export interface GuideArticle {
   readonly faq: readonly GuideFaq[];
   readonly relatedHelp: readonly string[];
   readonly relatedGuides: readonly GuideSlug[];
+  /** Slug di /strumenti collegati (cross-link del cluster, es. forfettario). */
+  readonly relatedTools?: readonly string[];
 }
 
 export const guideArticles: Record<GuideSlug, GuideArticle> = {
@@ -363,7 +373,9 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     relatedGuides: [
       "documento-commerciale-online",
       "differenza-scontrino-ricevuta-fattura",
+      "codici-natura-iva",
     ],
+    relatedTools: ["dicitura-regime-forfettario"],
   },
 
   "migrare-da-registratore-telematico-a-software": {
@@ -703,24 +715,82 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "I codici natura IVA (N1, N2, N2.2, N3, N4, N5, N6, N7) servono a spiegare al fisco perché su un'operazione non viene addebitata l'IVA con un'aliquota ordinaria. Sono obbligatori nel tracciato della fattura elettronica e dei corrispettivi telematici. Qui vediamo cosa significano uno per uno, perché il regime forfettario usa N2.2 in fattura ma N2 sullo scontrino, e quale dicitura di esenzione indicare.",
     publishedAt: "2026-06-29",
-    updatedAt: "2026-06",
-    readingMinutes: 7,
+    updatedAt: "2026-07",
+    readingMinutes: 8,
     sections: [
       {
         heading: "Cosa sono i codici natura IVA",
         body: "Il codice natura è un'etichetta che, nel tracciato XML della fattura elettronica e nel tracciato dei corrispettivi telematici, indica il motivo per cui un'operazione non è assoggettata all'IVA ordinaria (4%, 5%, 10%, 22%). Senza un'aliquota da esporre, il sistema dell'Agenzia delle Entrate ha comunque bisogno di sapere se l'operazione è esclusa, non soggetta, non imponibile, esente, in regime del margine o in inversione contabile: il codice natura risponde proprio a questa domanda. È un dato obbligatorio: una riga a 0% senza codice natura viene scartata.",
       },
       {
-        heading: "I codici natura N1-N7 in breve",
-        body: "N1 – Operazioni escluse ex art. 15 DPR 633/72 (rimborsi e anticipazioni in nome e per conto). N2 – Operazioni non soggette, suddivise in N2.1 (mancanza del requisito di territorialità, artt. 7-7septies) e N2.2 (altri casi, tra cui il regime forfettario). N3 – Operazioni non imponibili (esportazioni, cessioni intracomunitarie, ecc.), con sottocodici N3.1-N3.6. N4 – Operazioni esenti ex art. 10 DPR 633/72 (servizi sanitari, finanziari, formativi). N5 – Regime del margine (beni usati, oggetti d'arte) e IVA non esposta. N6 – Inversione contabile (reverse charge), con sottocodici N6.1-N6.9. N7 – IVA assolta in altro Stato UE (vendite a distanza, servizi di telecomunicazione/elettronici sopra soglia).",
+        heading: "La tabella completa dei codici natura IVA (N1-N7)",
+        body: "Questi sono tutti i codici natura previsti dalle specifiche tecniche dell'Agenzia delle Entrate. Dal 1° gennaio 2021, in fattura elettronica i codici aggregati N2, N3 e N6 non sono più accettati: vanno usati i sottocodici granulari (N2.1, N2.2, N3.1-N3.6, N6.1-N6.9). Il tracciato dello scontrino elettronico, invece, usa ancora i codici aggregati.",
+        table: {
+          headers: ["Codice", "Significato", "Quando si usa"],
+          rows: [
+            [
+              "N1",
+              "Operazioni escluse ex art. 15 DPR 633/72",
+              "Rimborsi di spese anticipate in nome e per conto del cliente, interessi di mora, imballaggi a rendere",
+            ],
+            [
+              "N2",
+              "Operazioni non soggette (codice aggregato)",
+              "Solo sullo scontrino elettronico: è il codice unico per le non soggette, regime forfettario incluso",
+            ],
+            [
+              "N2.1",
+              "Non soggette per carenza di territorialità (artt. 7 - 7-septies DPR 633/72)",
+              "Prestazioni rese a soggetti esteri fuori dal campo IVA italiano",
+            ],
+            [
+              "N2.2",
+              "Non soggette - altri casi",
+              "Regime forfettario, regime di vantaggio (ex minimi), operazioni fuori campo IVA",
+            ],
+            [
+              "N3.1-N3.6",
+              "Operazioni non imponibili",
+              "Esportazioni, cessioni intracomunitarie, cessioni verso San Marino, operazioni con lettera d'intento",
+            ],
+            [
+              "N4",
+              "Operazioni esenti ex art. 10 DPR 633/72",
+              "Prestazioni sanitarie, finanziarie, assicurative, formative",
+            ],
+            [
+              "N5",
+              "Regime del margine / IVA non esposta",
+              "Beni usati, oggetti d'arte e antiquariato, agenzie di viaggio",
+            ],
+            [
+              "N6.1-N6.9",
+              "Inversione contabile (reverse charge)",
+              "Edilizia e settori connessi, rottami, elettronica, subappalti",
+            ],
+            [
+              "N7",
+              "IVA assolta in altro Stato UE",
+              "Vendite a distanza intra-UE sopra soglia, servizi elettronici a consumatori UE (regime OSS)",
+            ],
+          ],
+        },
+      },
+      {
+        heading: "N2.2: cosa significa",
+        body: 'N2.2 significa "operazione non soggetta a IVA - altri casi": è il codice natura che nel tracciato della fattura elettronica identifica le operazioni fuori dal campo di applicazione dell\'IVA per motivi diversi dalla carenza di territorialità (coperta da N2.1). Il caso di gran lunga più frequente è la fattura emessa da un contribuente in regime forfettario; rientrano in N2.2 anche il regime di vantaggio (ex minimi) e le altre operazioni fuori campo IVA. È obbligatorio dal 1° gennaio 2021, quando le specifiche tecniche della fatturazione elettronica hanno reso inutilizzabile il codice generico N2.',
+      },
+      {
+        heading: "N2 vs N2.2: qual è la differenza",
+        body: 'N2 è il codice aggregato ("operazioni non soggette"), N2.2 è uno dei suoi due sottocodici. In fattura elettronica, dal 1° gennaio 2021, il codice N2 generico non è più accettato: si usa N2.1 (carenza di territorialità) oppure N2.2 (altri casi). Il tracciato del documento commerciale online (lo scontrino elettronico), invece, non prevede la suddivisione fine: usa ancora il codice aggregato N2. Quindi lo stesso forfettario indica N2.2 in fattura e N2 sullo scontrino. Non è una contraddizione: sono due tracciati diversi dell\'Agenzia delle Entrate, con livelli di dettaglio diversi sullo stesso concetto.',
+      },
+      {
+        heading: "Codice IVA N2.2: a quale aliquota corrisponde",
+        body: "A nessuna aliquota: N2.2 si abbina sempre ad aliquota 0%, perché segnala un'operazione fuori dal campo di applicazione dell'IVA. Non corrisponde a un'aliquota ridotta né a un'esenzione: l'operazione esente (per esempio una prestazione sanitaria) usa il codice N4, mentre N2.2 dice che l'IVA non si applica proprio, come nel regime forfettario. In pratica, nel software di fatturazione si seleziona aliquota 0% e natura N2.2 sulla stessa riga.",
       },
       {
         heading: "N2.2 e regime forfettario: il codice in fattura elettronica",
         body: "Chi è in regime forfettario non addebita l'IVA in fattura (art. 1, comma 58, Legge 190/2014). Nel tracciato della fattura elettronica questa è un'operazione \"non soggetta - altri casi\", quindi si usa il codice natura N2.2. È l'errore più comune: molti cercano un'aliquota \"esente\" (che sarebbe N4) o lasciano la riga senza codice. Per il forfettario la natura corretta in fattura è sempre N2.2, con aliquota 0%.",
-      },
-      {
-        heading: "Sullo scontrino è diverso: il forfettario usa N2",
-        body: "Il tracciato del documento commerciale online (lo scontrino elettronico) non prevede la suddivisione fine N2.1/N2.2 della fattura: usa il codice natura aggregato N2 per le operazioni non soggette. Quindi lo stesso forfettario che in fattura elettronica indica N2.2, sullo scontrino emette le righe con natura N2. Non è una contraddizione: sono due tracciati diversi dell'Agenzia delle Entrate, con livelli di dettaglio diversi sullo stesso concetto (operazione non soggetta a IVA).",
       },
       {
         heading:
@@ -759,12 +829,18 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
         answer:
           "Sì. Ogni riga a 0% deve avere un codice natura, altrimenti la trasmissione all'Agenzia delle Entrate viene scartata. Per le operazioni non soggette del forfettario il codice corretto sullo scontrino è N2.",
       },
+      {
+        question: "Che differenza c'è tra N2.1 e N2.2?",
+        answer:
+          "Sono i due sottocodici delle operazioni non soggette. N2.1 copre la carenza del requisito di territorialità (artt. 7 - 7-septies DPR 633/72, tipicamente prestazioni verso l'estero); N2.2 copre tutti gli altri casi, incluso il regime forfettario e il regime di vantaggio.",
+      },
     ],
     relatedHelp: ["regime-forfettario", "aliquote-iva", "fatture-e-ricevute"],
     relatedGuides: [
       "scontrino-regime-forfettario",
       "differenza-scontrino-ricevuta-fattura",
     ],
+    relatedTools: ["dicitura-regime-forfettario"],
   },
 };
 
