@@ -1,7 +1,7 @@
 # Piano contenuti SEO + visibilità AI (GEO)
 
 > Documento vivo. Creato a luglio 2026 dall'analisi GSC (3 mesi) + competitor.
-> Aggiornare la tabella KPI a ogni review mensile e spuntare il backlog man
+> Spuntare il backlog man
 > mano che i batch vengono spediti. Regola 8 di `CLAUDE.md` sempre valida:
 > contenuti in italiano, niente promesse di feature non live, review umana.
 
