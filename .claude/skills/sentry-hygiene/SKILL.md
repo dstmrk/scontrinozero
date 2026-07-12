@@ -147,27 +147,13 @@ sub-step finiscono nello stesso group.
 
 ---
 
-## Smoke post-deploy: live + env + drain
+## Smoke post-deploy → skill `deploy-release`
 
-Ogni deploy (prod, sandbox, dev Pi) **non è "concluso"** finché:
-
-```bash
-curl -fsS https://<host>/api/health/live
-curl -fsS https://<host>/api/_health/env | jq .
-curl -fsS -H "x-sentinel-token: $TOKEN" \
-  "https://<host>/api/_debug/sentry-sentinel?id=v$VERSION"
-```
-
-I tre probe in fila catturano:
-
-- container up (`/live`)
-- env d'identità coerente — confronta `appUrl` e `release` con il
-  rilasciato (`/_health/env` → regola 25)
-- pino → Sentry Logs + `captureException` funzionanti (sentinella →
-  regola 21). Cerca `errorClass:sentinel sentinelId:v$VERSION` in
-  Sentry entro 5 min.
-
-Se uno dei tre fallisce → integrazione rotta, rollback o riapri la PR.
+La procedura canonica dei tre probe (live + env + drain, regole 21+25) vive
+nella skill `deploy-release`. Lato Sentry, la validazione del drain è:
+cerca `errorClass:sentinel sentinelId:v$VERSION` (dataset `logs` **e**
+pannello issues) entro ~5 min dal deploy; se la sentinella non appare →
+integrazione rotta, rollback o riapri la PR.
 
 ---
 

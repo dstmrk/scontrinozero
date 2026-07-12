@@ -125,13 +125,8 @@ src/app/\(marketing\)` prima di chiudere il task. - Contenuti generati via LLM c
     MAI arrotondare per documento. Ogni `sort` prima di `slice`/topN ha una
     chiave secondaria stabile. Helper e motivazione → skill `money-rounding`.
 18. **Env d'identità: build-vs-runtime e present-but-empty.** Un `?? default`
-    **non** scatta se la variabile è presente ma **vuota** (`""`): nel
-    `Dockerfile` bakare un default reale nell'`ARG`/`ENV` o **non** esportarla
-    affatto quando assente, altrimenti prod/sandbox bakano una stringa vuota
-    (CORS origin / reporting endpoint vuoti — PR #560). E `next.config.ts`
-    **non** può importare moduli con alias `@/`: la transpilation del config
-    non li risolve e `next build` fallisce _prima_ di generare le route — usare
-    import relativi (PR #536). Estende regola 15 e le note Deploy.
+    NON scatta su variabile presente ma vuota (`""`); `next.config.ts` NON può
+    importare con alias `@/`. Casi e fix → skill `deploy-release`.
 19. **Server action di lettura: degradare, non lanciare.** Una server action che
     alimenta la UI (KPI/analytics, ecc.) deve ritornare `{ error }` su fallimento
     DB/SDK, **mai** propagare l'eccezione: il throw fa scattare l'error boundary
@@ -207,48 +202,14 @@ https://<host>/api/_debug/sentry-sentinel?id=<release>`; la response
     `emit-receipt` (receipt-service), `void-receipt` (void-service).
     Per nuovi flow scegli uno slug stabile (no spazi, no version):
     cambia il fingerprint = perdi la continuità storica del group.
-24. **Env d'identità: validazione fail-fast al boot.** Le env che producono
-    URL/redirect (`NEXT_PUBLIC_APP_URL` + le 6 varianti `*_HOSTNAME`)
-    sono validate da `assertIdentityEnv()` in `src/lib/identity-env.ts`,
-    chiamato come **prima istruzione** di `register()` in
-    `src/instrumentation.ts` (runtime nodejs). In produzione un valore
-    malformato fa **throware al boot** e il container non parte —
-    invece di produrre 503 al primo route che costruisce URL, come
-    succedeva con SCONTRINOZERO-F (5 eventi su utente FR/Stripe
-    checkout) e SCONTRINOZERO-D (action_link hostname mismatch). In
-    dev/test la stessa validation logga `warn` ma non blocca il loop.
-    Il check copre tre classi di failure: malformed URL/hostname,
-    present-but-empty (regola 18, `?? default` non scatta su `""`), e
-    `http` invece di `https` in prod. Le guardie lazy esistenti
-    (`getTrustedAppUrl()`, `parseTrustedHostnameEnv()`) restano in piedi
-    come secondo strato — defense in depth, non vengono toccate.
-25. **Smoke test post-deploy: tre health probe.** Dopo ogni rollout
-    (prod o sandbox o `:dev` Pi), prima di considerare il deploy
-    "concluso" hit i tre health probe e verifica la response:
-
-        curl -fsS https://<host>/api/health/live
-        curl -fsS https://<host>/api/_health/env | jq .
-        curl -fsS -H "x-sentinel-token: $TOKEN" \
-          "https://<host>/api/_debug/sentry-sentinel?id=v$VERSION"
-
-    - `/api/health/live` (`src/app/api/health/live/route.ts`) → 200 =
-      process up, event loop responsive.
-    - `/api/_health/env` (`src/app/api/_health/env/route.ts`) → 200 con
-      `{ appUrl, release, hostnames }`. **Confronta `release` e `appUrl`
-      con quanto rilasciato**: una `:dev` con `appUrl: app.scontrinozero.it`
-      è un Dockerfile build-arg dimenticato. 503 = identity env rotta
-      anche dopo la R24 (es. rotazione secret tra boot e prima request).
-    - `/api/_debug/sentry-sentinel` → 200 + `sentryQuery` da incollare
-      in Sentry per validare il drain (regola 21). Fallisce 404 senza
-      token corretto.
-
-    Il pattern è "live + env + drain": catturava `@react-email/render`
-    mancante (SCONTRINOZERO-B, gap dev container vs standalone),
-    `NEXT_PUBLIC_APP_URL` malformato (SCONTRINOZERO-F) e l'`action_link`
-    hostname mismatch (SCONTRINOZERO-D) **al primo rollout**, non al
-    primo utente. Integrazione in CI rimandata: oggi è uno script da
-    eseguire manualmente dopo `docker compose up -d`.
-
+24. **Env d'identità: validazione fail-fast al boot.** `assertIdentityEnv()`
+    (`src/lib/identity-env.ts`) gira come prima istruzione di `register()` in
+    `src/instrumentation.ts`: in prod un valore malformato blocca il boot, in
+    dev/test logga `warn`. Dettagli → skill `deploy-release`.
+25. **Smoke test post-deploy: tre health probe (live + env + drain).** Nessun
+    deploy è "concluso" senza i tre curl verdi su `/api/health/live`,
+    `/api/_health/env` e `/api/_debug/sentry-sentinel`. Procedura canonica →
+    skill `deploy-release`.
 26. **Mappa codebase: tienila viva.** Quando sposti/rinomini/aggiungi un modulo
     cross-cutting, cambi un data flow o una soglia/limite/gate, aggiorna
     `docs/architecture/*` **nello stesso PR** ed esegui `npm run arch:check`
@@ -343,64 +304,13 @@ Controlli manuali:
 - [ ] Variabili in `vi.mock` factory iniziano con `mock` (hoisting Vitest)
 - [ ] Nessuna nuova issue SonarCloud Blocker/Critical
 
-### Deploy (tag-based)
+### Deploy e T&C → skill `deploy-release`
 
-```
-sviluppo → PR → merge main → CI
-git tag vX.Y.Z → GitHub Actions: build Docker + push GHCR
-VPS (Cloudflare Access SSH):
-  cd /opt/scontrinozero && docker compose pull && docker compose up -d
-```
-
-⚠️ Variabili `NEXT_PUBLIC_*` sono **baked al build** (non runtime): vanno
-passate come `--build-arg` al `docker build`. `APP_HOSTNAME` (senza
-`NEXT_PUBLIC_`) è runtime e sovrascrive l'hostname baked — usato per sandbox
-e self-hosting su dominio custom.
-
-> Nota: un'unica immagine Docker serve prod/sandbox/dev/self-hosted. Molte
-> `NEXT_PUBLIC_*` (Supabase, Stripe) sono lette **server-side a runtime** in
-> standalone e bastano nel `.env`. MA quelle d'**identità** (`NEXT_PUBLIC_APP_URL`,
-> `_APP_HOSTNAME`, `_MARKETING_HOSTNAME`, `_API_HOSTNAME`) sono valutate anche al
-> **build** (marketing SSG, `next.config` redirects/headers, `metadataBase`) e
-> finiscono nel bundle client (`appHref` in `header.tsx`, client component):
-> vanno passate come `--build-arg` se servono valori non-prod. Il `Dockerfile`
-> le accetta; prod **non** le passa (→ default `app.scontrinozero.it`),
-> l'immagine `:dev` sì (→ `app-dev`). Sandbox condivide l'immagine prod → su
-> questi link resta sul default prod (limite noto). Idem
-> `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (`turnstile-widget.tsx`) e
-> `NEXT_PUBLIC_SENTRY_DSN` (`sentry.client.config.ts`). Coerente con regola 15.
->
-> **Turnstile per dev:** `:dev` baka un **widget Turnstile dedicato** (secret
-> `NEXT_PUBLIC_TURNSTILE_SITE_KEY_DEV` in `deploy-dev.yml`, fallback alla key
-> prod se assente). ⚠️ Site key bakata e `TURNSTILE_SECRET_KEY` runtime nel
-> `.env` del Pi **devono essere dello stesso widget**: la `NEXT_PUBLIC_*` è
-> baked → la riga `NEXT_PUBLIC_TURNSTILE_SITE_KEY` nel `.env` del Pi è ignorata.
-> Mismatch → siteverify risponde `invalid-input-secret` (secret non
-> riconosciuta) o `invalid-input-response` (token di un altro widget), e ogni
-> login fallisce con "Verifica CAPTCHA fallita". Diagnosi dall'`errorClass` in
-> `auth-actions.ts` (`captcha_verification_failed`).
-
-### Deploy dev (push-based, Raspberry Pi)
-
-A differenza di prod/sandbox (tag-based), **dev traccia `main`**: a ogni push
-(commit o merge di PR) `.github/workflows/deploy-dev.yml` builda l'immagine
-**arm64** su runner `ubuntu-24.04-arm`, la pubblica come `ghcr.io/dstmrk/
-scontrinozero:dev` e notifica il Pi via webhook firmato (HMAC + Cloudflare
-Access). Sul Pi `adnanh/webhook` (systemd) esegue `docker compose pull && up -d`.
-Stessa immagine di prod, solo arch diversa; tutte le differenze d'ambiente
-vivono nel `.env` runtime. File e istruzioni in `deploy/dev/`.
-
-### Procedura aggiornamento T&C
-
-1. Crea `src/app/(marketing)/termini/v*/page.tsx` (nuova versione vXX)
-2. Aggiorna redirect in `src/app/(marketing)/termini/page.tsx` → `/termini/vXX`
-3. Aggiorna `CURRENT_TERMS_VERSION = "vXX"` in `src/server/auth-actions.ts`
-4. Aggiorna il **secondo flag** (clausole vessatorie art. 1341 c.c.) in
-   `src/app/(auth)/register/page.tsx` con i nuovi numeri di paragrafo
-
-Privacy Policy: stessa procedura, aggiungere anche a `sitemap.ts`,
-`sitemap.test.ts` e `sonar.coverage.exclusions`. Notifica utenti ≥15 giorni
-prima dell'entrata in vigore.
+Deploy prod/sandbox tag-based (`git tag vX.Y.Z` → GHCR → compose su VPS),
+deploy dev push-based (Raspberry Pi, traccia `main`), build-arg
+`NEXT_PUBLIC_*` baked vs runtime, pairing widget Turnstile `:dev`, smoke
+post-deploy e procedura aggiornamento T&C/Privacy: tutto nella skill
+`deploy-release`.
 
 ## Pricing (per plan-gate nel codice)
 
