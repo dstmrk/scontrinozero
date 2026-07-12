@@ -112,6 +112,18 @@ export default function StampareScontrinoTermicaPage() {
           stampante che &quot;funziona e basta&quot;. Qualsiasi alternativa con
           caratteristiche simili (ESC/POS, Bluetooth, 58 o 80 mm) andrà bene.
         </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Per un confronto approfondito tra i tipi di connessione (WiFi,
+          Bluetooth, USB), le fasce di prezzo e i criteri di acquisto vedi la
+          guida{" "}
+          <Link
+            href="/guide/stampante-termica-wifi-scontrini"
+            className="text-primary hover:underline"
+          >
+            Stampanti termiche WiFi per scontrini: guida alla scelta
+          </Link>
+          .
+        </p>
 
         {/* ─── Pairing Android ─── */}
         <h2 className="mt-10 text-xl font-semibold">

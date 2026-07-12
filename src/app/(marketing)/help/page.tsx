@@ -151,6 +151,10 @@ const helpCategories: HelpCategory[] = [
         title: "Come stampare lo scontrino su carta termica",
         href: "/help/stampare-scontrino-termica",
       },
+      {
+        title: "Numero documento e azzeramento sullo scontrino",
+        href: "/help/numero-documento-azzeramento",
+      },
     ],
   },
   {
