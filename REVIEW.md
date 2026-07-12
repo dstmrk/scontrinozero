@@ -582,36 +582,6 @@ shape esatta non è verificata a runtime.
 
 ---
 
-### 51. Mappa architettura non aggiornata per il flusso CIE (regola 26 violata nel PR #695)
-
-- **Categoria:** documentazione/architettura · **Severità:** Low
-- **File:** `docs/architecture/INDEX.md`, `docs/architecture/data-flows.md`, `docs/architecture/config-manifest.md` — zero occorrenze di `interactive-session-store`, `loginCie`, `CIE` (verificato con grep)
-
-**Problema.** La PR #695 introduce un modulo cross-cutting nuovo
-(`src/lib/ade/interactive-session-store.ts`), un ramo nuovo nei data flow
-emit/void (`reauthRequired`, pre-check `isCieSessionMissing`) e nuove
-soglie/limiti (TTL 6h, cap LRU 100 sessioni, finestra push 30×7s,
-`FEDERATED_ALLOWED_HOSTS`), ma `docs/architecture/*` non ne parla: la regola
-26 richiede l'aggiornamento **nello stesso PR** ("una mappa obsoleta è
-peggio di nessuna mappa"). `npm run arch:check` non lo rileva perché valida
-solo l'esistenza dei path citati, non la copertura.
-
-**Fix (non ambiguo).**
-
-1. `INDEX.md`: aggiungere `interactive-session-store.ts` ai moduli
-   cross-cutting AdE (accanto a `session-cache.ts`, spiegando la differenza
-   Fisconline-silenzioso vs CIE-interattivo) e la riga "Dove vive la sessione
-   CIE?"; aggiornare l'indice server actions per `saveAdeCredentials`/`verifyAdeCredentials` method-aware.
-2. `data-flows.md`: nel flusso emissione/annullo, il ramo CIE (pre-check →
-   `reauthRequired` → UI "Ricollegati" / API 409); nel flusso onboarding, la
-   verifica CIE (SAML IdP + push + deposito nello store).
-3. `config-manifest.md`: `DEFAULT_TTL_MS` (6h), `DEFAULT_MAX_ENTRIES` (100) e
-   `FEDERATED_ALLOWED_HOSTS` → puntatori a `interactive-session-store.ts` e
-   `real-client.ts` (la finestra polling CIE/SPID è già indicizzata).
-4. `npm run arch:check` verde prima di chiudere.
-
----
-
 ### 52. `docs/api-spec.md` sez. 1A: flusso CIE descritto come "impossibile da automatizzare" (obsoleto)
 
 - **Categoria:** documentazione · **Severità:** Low — contraddice l'implementazione live e fuorvia chi la legge
