@@ -126,10 +126,11 @@ jobs:
       - name: Check architecture docs references
         run: node scripts/check-architecture-docs.mjs
 
-  # Esegue le suite di test degli hook PreToolUse (.claude/hooks/).
+  # Esegue le suite di test degli hook PreToolUse/PostToolUse (.claude/hooks/).
   # Gira solo quando cambia .claude/hooks/**. Difesa-in-profondità per le
-  # regole 1 e 11 di CLAUDE.md: un regex che smette di bloccare push su main
-  # o `drizzle-kit generate` deve fallire la CI, non passare silenzioso.
+  # regole 1, 11 e 26 di CLAUDE.md: un regex che smette di bloccare push/commit
+  # su main o `drizzle-kit generate`, o un hook arch-check che smette di
+  # flaggare i path morti, deve fallire la CI, non passare silenzioso.
   hook-tests:
     needs: changes
     if: needs.changes.outputs.hooks == 'true'
@@ -141,6 +142,8 @@ jobs:
         run: |
           bash .claude/hooks/test-block-push-to-main.sh
           bash .claude/hooks/test-block-drizzle-generate.sh
+          bash .claude/hooks/test-block-commit-on-main.sh
+          bash .claude/hooks/test-check-arch-docs-on-edit.sh
 
   # Testa il wrapper dello scan Sonar (retry + tolleranza 403 del CDN).
   # Gira solo quando cambia scripts/ci/** o ci.yml. Rete-di-sicurezza: una
