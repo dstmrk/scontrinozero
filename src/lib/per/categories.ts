@@ -23,7 +23,13 @@ export type CategorySlug =
   | "artigiani"
   | "b-and-b"
   | "regime-forfettario"
-  | "professionisti";
+  | "professionisti"
+  | "officine-meccanici"
+  | "eventi-mercatini-hobbisti"
+  | "palestre-personal-trainer"
+  | "food-truck"
+  | "ncc-taxi"
+  | "tatuatori-piercer";
 
 export const categorySlugs: readonly CategorySlug[] = [
   "ambulanti",
@@ -32,6 +38,12 @@ export const categorySlugs: readonly CategorySlug[] = [
   "b-and-b",
   "regime-forfettario",
   "professionisti",
+  "officine-meccanici",
+  "eventi-mercatini-hobbisti",
+  "palestre-personal-trainer",
+  "food-truck",
+  "ncc-taxi",
+  "tatuatori-piercer",
 ];
 
 export const categories: Record<CategorySlug, CategoryContent> = {
@@ -79,14 +91,13 @@ export const categories: Record<CategorySlug, CategoryContent> = {
   },
   "parrucchieri-estetisti": {
     slug: "parrucchieri-estetisti",
-    title: "Scontrino elettronico per parrucchieri, estetisti e tatuatori",
+    title: "Scontrino elettronico per parrucchieri ed estetisti",
     metaTitle: "Scontrino elettronico per parrucchieri ed estetisti",
     metaDescription:
       "Gestisci scontrini e incassi del salone da tablet o smartphone. Senza registratore sul banco, senza canoni. Da €2,50/mese, prova 30 giorni gratis.",
     heroSubtitle:
       "Emetti scontrini dal tablet alla reception o dallo smartphone in cabina, senza ingombrare il banco con un registratore fisico.",
-    audience:
-      "parrucchieri, estetisti, tatuatori e operatori dei servizi alla persona",
+    audience: "parrucchieri, estetisti e operatori dei servizi alla persona",
     useCase:
       "Nel salone o studio estetico ogni minuto conta: lo scontrino al cliente che paga deve essere veloce e ordinato. ScontrinoZero sostituisce il registratore telematico con un'app sul tablet alla reception (o sullo smartphone se lavori in cabina). Il cliente riceve uno scontrino conforme via stampa Bluetooth oppure in formato digitale via link.",
     obligations: [
@@ -126,11 +137,10 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     title: "Scontrino elettronico per artigiani e installatori",
     metaTitle: "Scontrino elettronico per artigiani e installatori",
     metaDescription:
-      "Idraulici, elettricisti, meccanici: emetti lo scontrino direttamente dal cantiere o dal furgone, con lo smartphone. Da €2,50/mese, 30 giorni gratis.",
+      "Idraulici, elettricisti, falegnami: emetti lo scontrino direttamente dal cantiere o dal furgone, con lo smartphone. Da €2,50/mese, 30 giorni gratis.",
     heroSubtitle:
       "Emetti lo scontrino dal cantiere, dal furgone o dal laboratorio. Niente registratore in officina, niente carta che si perde.",
-    audience:
-      "artigiani: idraulici, elettricisti, meccanici, falegnami, muratori",
+    audience: "artigiani: idraulici, elettricisti, falegnami, muratori",
     useCase:
       "Quando lavori a domicilio del cliente o in cantiere, portare un registratore di cassa è impensabile. Con ScontrinoZero emetti lo scontrino elettronico direttamente al termine dell'intervento, dal tuo smartphone, e il cliente lo riceve via link o stampa. Per i pagamenti in officina basta un tablet alla cassa.",
     obligations: [
@@ -260,11 +270,11 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     metaDescription:
       "Quando un professionista deve emettere scontrino e quando fattura? Guida pratica e soluzione mobile per chi incassa al momento. Da €2,50/mese.",
     heroSubtitle:
-      "Consulenti, tutor, personal trainer, fotografi: quando incassi al momento da un privato, ti serve uno strumento veloce per documentare la prestazione.",
+      "Consulenti, tutor, fotografi, formatori: quando incassi al momento da un privato, ti serve uno strumento veloce per documentare la prestazione.",
     audience:
-      "liberi professionisti con prestazioni B2C: consulenti, tutor, personal trainer, fotografi",
+      "liberi professionisti con prestazioni B2C: consulenti, tutor, fotografi, formatori",
     useCase:
-      "Molti professionisti emettono fattura, ma per le prestazioni B2C incassate al momento (lezione privata, sessione di personal training, consulenza spot, set fotografico) lo scontrino elettronico è più rapido e adatto. ScontrinoZero ti permette di scegliere caso per caso: emetti scontrino quando il cliente paga subito, fattura tradizionale quando serve a un'azienda.",
+      "Molti professionisti emettono fattura, ma per le prestazioni B2C incassate al momento (lezione privata, consulenza spot, set fotografico) lo scontrino elettronico è più rapido e adatto. ScontrinoZero ti permette di scegliere caso per caso: emetti scontrino quando il cliente paga subito, fattura tradizionale quando serve a un'azienda.",
     obligations: [
       "Obbligo di documentare ogni prestazione verso privato: fattura o documento commerciale (DPR 633/72 art. 22).",
       "Applicazione dell'aliquota IVA propria della prestazione (22% per la maggior parte delle consulenze; verifica casi specifici).",
@@ -300,6 +310,278 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "primo-scontrino",
       "regime-forfettario",
       "fatture-e-ricevute",
+    ],
+  },
+  "officine-meccanici": {
+    slug: "officine-meccanici",
+    title: "Scontrino elettronico per officine e meccanici",
+    metaTitle: "Scontrino elettronico per officine e meccanici",
+    metaDescription:
+      "Emetti lo scontrino elettronico in officina da smartphone o tablet: ricambi e manodopera nello stesso documento, senza registratore di cassa. Da €2,50/mese.",
+    heroSubtitle:
+      "Fine intervento, scontrino subito: dall'accettazione o dal ponte, con il tablet o lo smartphone che hai già in officina.",
+    audience: "officine meccaniche, gommisti, elettrauto e carrozzerie",
+    useCase:
+      "Tagliando finito, cliente alla cassa: lo scontrino deve uscire subito, tra una telefonata e un'auto sul ponte. ScontrinoZero trasforma il tablet dell'accettazione (o lo smartphone in tasca) nel registratore di cassa dell'officina: righe separate per ricambi e manodopera, scontrino consegnato via link, QR o PDF, corrispettivi trasmessi all'Agenzia delle Entrate in automatico.",
+    obligations: [
+      "Emissione del Documento Commerciale Online per ogni riparazione o vendita pagata da un privato in officina (DPR 633/72 art. 22).",
+      "IVA al 22% sulla prestazione di riparazione; i ricambi impiegati nell'intervento seguono l'aliquota della prestazione.",
+      "Trasmissione telematica dei corrispettivi all'Agenzia delle Entrate entro 12 giorni dall'operazione.",
+      "Fattura elettronica al posto dello scontrino quando il cliente la richiede (es. veicolo aziendale, deducibilità dei costi).",
+    ],
+    benefits: [
+      'Catalogo di interventi ricorrenti ("tagliando", "cambio gomme", "ricarica clima") per emettere in 2 tap.',
+      "Righe multiple nello stesso scontrino: manodopera, ricambi e materiali di consumo, ognuna con la sua descrizione.",
+      "Annullamento conforme dello scontrino sbagliato, direttamente dall'app.",
+      "Storico centralizzato: ritrovi lo scontrino di un intervento anche a distanza di mesi, utile per contestazioni e garanzie.",
+    ],
+    faq: [
+      {
+        question: "Ricambi e manodopera vanno nello stesso scontrino?",
+        answer:
+          "Sì. Puoi aggiungere più righe nello stesso documento: manodopera, ricambi e materiali, ognuna con descrizione e importo propri. Quando i ricambi sono parte integrante della riparazione, l'aliquota è quella della prestazione (22%).",
+      },
+      {
+        question:
+          "Il cliente ha un'auto aziendale e chiede fattura: come funziona?",
+        answer:
+          "Se per l'intervento emetti fattura elettronica, lo scontrino non è dovuto. ScontrinoZero copre gli incassi da privati che pagano al momento senza chiedere fattura; per le fatture continui a usare il tuo gestionale.",
+      },
+      {
+        question: "Ho sbagliato importo sullo scontrino: posso annullarlo?",
+        answer:
+          "Sì. Puoi annullare lo scontrino direttamente dall'app: l'annullamento viene trasmesso all'Agenzia delle Entrate in modo conforme e puoi riemettere subito il documento corretto.",
+      },
+    ],
+    relatedHelp: [
+      "primo-scontrino",
+      "annullare-scontrino",
+      "fatture-e-ricevute",
+    ],
+  },
+  "eventi-mercatini-hobbisti": {
+    slug: "eventi-mercatini-hobbisti",
+    title: "Scontrino elettronico per eventi, mercatini e hobbisti",
+    metaTitle: "Scontrino elettronico per eventi, mercatini e hobbisti",
+    metaDescription:
+      "Vendi a eventi, fiere e mercatini? Emetti scontrini elettronici dallo smartphone, senza registratore da trasportare. Ideale per attività stagionali. Da €2,50/mese.",
+    heroSubtitle:
+      "Stand alla fiera, banchetto al mercatino o all'evento del weekend: lo scontrino esce dallo smartphone, senza hardware da trasportare.",
+    audience:
+      "espositori a eventi e fiere, venditori ai mercatini, hobbisti passati a partita IVA",
+    useCase:
+      "Chi vende a eventi, fiere e mercatini lavora a weekend e stagioni: pagare un registratore telematico tutto l'anno non ha senso. Con ScontrinoZero emetti il documento commerciale dallo smartphone con la normale connessione 4G/5G, e se l'attività si ferma nei mesi invernali puoi disdire e riattivare quando riparte, senza perdere lo storico.",
+    obligations: [
+      "Emissione del Documento Commerciale Online per ogni vendita B2C se operi con partita IVA, anche a eventi e mercatini occasionali (DPR 633/72 art. 22).",
+      "Trasmissione telematica dei corrispettivi all'Agenzia delle Entrate entro 12 giorni dall'operazione.",
+      "Partita IVA obbligatoria quando la vendita diventa abituale: i limiti per gli hobbisti senza P.IVA sono fissati dai regolamenti regionali dei mercatini.",
+      "Autorizzazione comunale o concessione di posteggio per la vendita su area pubblica (adempimento separato da quello fiscale).",
+    ],
+    benefits: [
+      "Zero hardware da montare allo stand: basta lo smartphone, anche con connessione mobile.",
+      "Piano mensile disdicibile: paghi nei mesi in cui vendi, lo storico resta sempre accessibile.",
+      "Catalogo con i tuoi articoli ricorrenti per emettere in pochi tap anche con la fila al banchetto.",
+      "Pagamenti misti contanti + carta gestiti nello stesso scontrino.",
+    ],
+    faq: [
+      {
+        question:
+          "Sono un hobbista senza partita IVA: devo emettere scontrino?",
+        answer:
+          "No. La vendita occasionale da hobbista, nei limiti dei regolamenti regionali dei mercatini, non richiede il documento commerciale. Se però l'attività diventa abituale scatta l'obbligo di partita IVA: da quel momento ScontrinoZero è il modo più economico per metterti in regola.",
+      },
+      {
+        question:
+          "Partecipo solo a qualche evento all'anno: conviene un abbonamento?",
+        answer:
+          "Sì, perché non c'è vincolo annuale: attivi il piano mensile nei mesi degli eventi e lo disdici quando l'attività si ferma. I dati e lo storico restano nel tuo account e li ritrovi alla riattivazione.",
+      },
+      {
+        question: "Alla fiera la connessione è debole: riesco a emettere?",
+        answer:
+          "Per l'emissione serve una connessione attiva al momento della vendita, perché il numero progressivo arriva dall'Agenzia delle Entrate: una normale copertura 4G o un hotspot dal telefono sono sufficienti.",
+      },
+    ],
+    relatedHelp: ["primo-scontrino", "installare-app", "regime-forfettario"],
+  },
+  "palestre-personal-trainer": {
+    slug: "palestre-personal-trainer",
+    title: "Scontrino elettronico per palestre e personal trainer",
+    metaTitle: "Scontrino elettronico per palestre e personal trainer",
+    metaDescription:
+      "Abbonamenti, ingressi e sedute di personal training: emetti lo scontrino elettronico dal front desk o a bordo sala, senza registratore. Da €2,50/mese.",
+    heroSubtitle:
+      "Incassa abbonamenti, ingressi e pacchetti lezioni dal front desk o a bordo sala: il registratore di cassa è lo smartphone che hai già.",
+    audience:
+      "palestre, studi fitness, personal trainer e istruttori con partita IVA",
+    useCase:
+      "In palestra il pagamento avviene al front desk tra un ingresso e l'altro; il personal trainer incassa a fine sessione, magari al parco o a domicilio del cliente. In entrambi i casi ScontrinoZero emette il documento commerciale in pochi tap da smartphone o tablet, con abbonamenti e pacchetti già configurati a catalogo, e trasmette i corrispettivi all'Agenzia delle Entrate in automatico.",
+    obligations: [
+      "Emissione del Documento Commerciale Online per abbonamenti, ingressi e lezioni pagati da privati (DPR 633/72 art. 22).",
+      "IVA al 22% sui servizi fitness resi in forma commerciale (ditta individuale, società, libero professionista).",
+      "Regole proprie per ASD/SSD in regime L. 398/91: i corrispettivi istituzionali verso i tesserati seguono una disciplina diversa — verifica con il commercialista.",
+      "Trasmissione telematica dei corrispettivi entro 12 giorni dall'incasso.",
+    ],
+    benefits: [
+      "Abbonamenti, ingressi singoli e pacchetti lezioni configurati una volta a catalogo, scontrino in 2 tap.",
+      "Il personal trainer emette ovunque si alleni il cliente: parco, domicilio, studio.",
+      "Storico incassi ordinato per giorno e per prodotto, utile per capire cosa vende di più.",
+      "Zero hardware al front desk: niente registratore, solo il tablet o lo smartphone.",
+    ],
+    faq: [
+      {
+        question:
+          "Sono un personal trainer in regime forfettario: come esce lo scontrino?",
+        answer:
+          "Imposti la natura N2 (operazioni non soggette) come aliquota prevalente e gli scontrini escono senza IVA, come previsto per il forfettario. È la configurazione più comune tra trainer e istruttori a partita IVA individuale.",
+      },
+      {
+        question: "Gestisco una ASD/SSD: devo emettere scontrino?",
+        answer:
+          "Dipende. I corrispettivi istituzionali incassati dai tesserati in regime L. 398/91 possono essere decommercializzati e non richiedere il documento commerciale; le attività commerciali (es. servizi a non tesserati, vendita di prodotti) vanno invece certificate. Verifica il tuo caso con il commercialista.",
+      },
+      {
+        question: "Posso vendere pacchetti da 10 lezioni?",
+        answer:
+          "Sì. Il pacchetto è una voce di catalogo come le altre: lo configuri una volta con prezzo e descrizione e lo scontrino esce al momento dell'incasso. Il piano Starter include fino a 5 prodotti a catalogo, il Pro è illimitato.",
+      },
+    ],
+    relatedHelp: ["primo-scontrino", "aliquote-iva", "storico-ed-esportazione"],
+  },
+  "food-truck": {
+    slug: "food-truck",
+    title: "Scontrino elettronico per food truck e street food",
+    metaTitle: "Scontrino elettronico per food truck e street food",
+    metaDescription:
+      "Street food dal furgone o dal chiosco: scontrino elettronico dallo smartphone, aliquote IVA per riga e corrispettivi automatici. Da €2,50/mese, 30 giorni gratis.",
+    heroSubtitle:
+      "Dal festival al mercato serale: scontrini a raffica dallo smartphone o dal tablet in cucina, senza registratore nel furgone.",
+    audience:
+      "food truck, street food, chioschi e banchi gastronomici itineranti",
+    useCase:
+      "Nel food truck lo spazio è poco e la fila non aspetta: il registratore telematico è un ingombro in più che va alimentato e mantenuto. Con ScontrinoZero il telefono (o il tablet fissato in cucina) emette il documento commerciale in due tap, con il menu a catalogo e le aliquote IVA giuste per ogni riga, e i corrispettivi partono verso l'Agenzia delle Entrate in automatico.",
+    obligations: [
+      "Emissione del Documento Commerciale Online per ogni vendita, anche di piccolo importo (DPR 633/72 art. 22).",
+      "IVA al 10% per la somministrazione di alimenti e bevande (Tab. A, parte III, DPR 633/72); per la vendita da asporto vale l'aliquota propria di ciascun prodotto.",
+      "Trasmissione telematica dei corrispettivi entro 12 giorni dall'operazione.",
+      "SCIA, requisiti HACCP e concessioni di posteggio: adempimenti separati da quello fiscale.",
+    ],
+    benefits: [
+      "Menu a catalogo: panino, fritto e bibita già configurati, scontrino in 2 tap anche con la fila.",
+      "Aliquote diverse nella stessa vendita: somministrazione al 10% e prodotti al 22% convivono nello stesso scontrino.",
+      "Funziona con la connessione 4G/5G del telefono: nessuna linea fissa, nessun hardware dedicato.",
+      "Storico per giornata: sai subito quanto ha incassato ogni piazza o evento.",
+    ],
+    faq: [
+      {
+        question: "Che aliquota IVA applico: 10% o 22%?",
+        answer:
+          "La somministrazione di alimenti e bevande (consumo sul posto) è al 10%. Per la vendita da asporto si applica l'aliquota propria di ciascun prodotto: molti alimenti preparati restano al 10%, alcune bevande sono al 22%. ScontrinoZero permette aliquote diverse riga per riga; per i casi limite chiedi al commercialista.",
+      },
+      {
+        question: "A fine serata devo fare la chiusura di cassa?",
+        answer:
+          "No. Con il Documento Commerciale Online i corrispettivi vengono trasmessi all'Agenzia delle Entrate a ogni emissione: non c'è la chiusura giornaliera obbligatoria del registratore telematico. Nello storico vedi comunque il totale incassato per giornata.",
+      },
+      {
+        question: "Serve una stampante o basta il QR?",
+        answer:
+          "Nessuna stampante obbligatoria: lo scontrino si consegna via link o QR e il cliente lo apre sul telefono. Se preferisci la carta, puoi salvare il PDF e stamparlo con una stampante collegata al dispositivo.",
+      },
+    ],
+    relatedHelp: ["primo-scontrino", "aliquote-iva", "chiusura-giornaliera"],
+  },
+  "ncc-taxi": {
+    slug: "ncc-taxi",
+    title: "Scontrino elettronico per NCC e taxi",
+    metaTitle: "Scontrino elettronico per NCC e taxi",
+    metaDescription:
+      "Ricevuta immediata a fine corsa: emetti il documento commerciale dallo smartphone e consegnalo via link o QR, senza hardware a bordo. Da €2,50/mese.",
+    heroSubtitle:
+      "Il cliente scende e vuole la ricevuta per la nota spese: emettila dallo smartphone e consegnala via link o QR prima che chiuda la portiera.",
+    audience:
+      "conducenti NCC, tassisti e piccole imprese di noleggio con conducente",
+    useCase:
+      "Per chi guida, la burocrazia dev'essere veloce: niente blocchetti, niente hardware a bordo. Con ScontrinoZero emetti il documento commerciale dallo smartphone a fine corsa e lo consegni via link o QR. Il cliente business che vuole la fattura resta servito dal tuo gestionale di fatturazione; per tutte le altre corse pagate al momento, lo scontrino digitale è la via più rapida.",
+    obligations: [
+      "Corse urbane in taxi: prestazioni esenti IVA (art. 10, n. 14, DPR 633/72 — trasporto urbano di persone con veicoli da piazza).",
+      "Servizio NCC: IVA al 10% come trasporto di persone (Tab. A, parte III, DPR 633/72).",
+      "Il trasporto di persone rientra in specifici esoneri dalla certificazione dei corrispettivi (DPR 696/1996): verifica con il commercialista se e come il tuo servizio vi ricade.",
+      "Fattura elettronica quando il cliente la richiede (trasferte aziendali, deducibilità dei costi).",
+    ],
+    benefits: [
+      "Emissione a fine corsa in pochi secondi, direttamente dal telefono già montato sul cruscotto.",
+      "Consegna digitale via link o QR: perfetta per i clienti in trasferta che vogliono la ricevuta subito.",
+      "Tariffe ricorrenti a catalogo (aeroporto, stazione, tratta fissa) per non digitare gli importi ogni volta.",
+      "Storico delle corse incassate consultabile dal commercialista, senza fogli in giro per l'auto.",
+    ],
+    faq: [
+      {
+        question: "Taxi e NCC non sono esonerati dallo scontrino?",
+        answer:
+          "In molti casi sì: il trasporto di persone rientra negli esoneri dalla certificazione dei corrispettivi previsti dal DPR 696/1996. L'esonero però è una facoltà, non un divieto: puoi comunque emettere il documento commerciale per dare al cliente una ricevuta immediata e tenere uno storico incassi ordinato. Verifica il tuo inquadramento con il commercialista.",
+      },
+      {
+        question: "Come consegno la ricevuta al cliente in auto?",
+        answer:
+          "Via link o QR code: il cliente lo inquadra dal sedile e ha subito il documento sul telefono, pronto da allegare alla nota spese. Niente stampante a bordo; se serve la carta, il PDF si stampa da qualsiasi stampante.",
+      },
+      {
+        question:
+          "Le corse in taxi sono esenti IVA: lo scontrino esce corretto?",
+        answer:
+          "Sì. Sulle righe puoi impostare la natura IVA corretta (es. N4 per le operazioni esenti): l'importo esce senza IVA e il documento trasmesso all'Agenzia delle Entrate riporta la natura giusta.",
+      },
+    ],
+    relatedHelp: ["primo-scontrino", "aliquote-iva", "fatture-e-ricevute"],
+  },
+  "tatuatori-piercer": {
+    slug: "tatuatori-piercer",
+    title: "Scontrino elettronico per tatuatori e piercer",
+    metaTitle: "Scontrino elettronico per tatuatori e piercer",
+    metaDescription:
+      "Studio tattoo o piercing: emetti scontrini per sedute e acconti direttamente dallo smartphone, senza registratore sul bancone. Da €2,50/mese, 30 giorni gratis.",
+    heroSubtitle:
+      "Chiudi la seduta e incassa: lo scontrino esce dal telefono, anche per l'acconto alla prenotazione. Niente registratore sul bancone dello studio.",
+    audience: "tatuatori, piercer e studi di tattoo e body piercing",
+    useCase:
+      "In studio si lavora su appuntamento, spesso con acconto alla prenotazione e saldo a fine seduta. ScontrinoZero segue proprio questo flusso: emetti lo scontrino dell'acconto quando il cliente prenota e quello del saldo a lavoro finito, tutto dallo smartphone o dal tablet, con i corrispettivi trasmessi all'Agenzia delle Entrate in automatico.",
+    obligations: [
+      "Emissione del Documento Commerciale Online per ogni seduta o vendita pagata da un privato (DPR 633/72 art. 22).",
+      "IVA al 22% sulle prestazioni di tatuaggio e piercing; natura N2 senza IVA per chi è in regime forfettario.",
+      "Certificazione dell'acconto al momento dell'incasso, non alla data della seduta.",
+      "Trasmissione telematica dei corrispettivi entro 12 giorni dall'operazione.",
+      "Requisiti igienico-sanitari e comunicazioni ASL secondo le norme regionali (adempimenti separati da quello fiscale).",
+    ],
+    benefits: [
+      "Acconti e saldi gestiti come scontrini separati, ognuno emesso al momento dell'incasso.",
+      'Catalogo con le tue prestazioni ricorrenti ("seduta piccola", "flash", "piercing lobo") per emettere in 2 tap.',
+      "Annullamento conforme se la seduta salta e restituisci l'acconto.",
+      "Storico ordinato per il commercialista, senza scatole di ricevute in studio.",
+    ],
+    faq: [
+      {
+        question: "Devo emettere scontrino anche sull'acconto?",
+        answer:
+          "Sì. Il corrispettivo si certifica al momento dell'incasso: quando il cliente versa l'acconto alla prenotazione emetti lo scontrino per quell'importo, e a fine seduta emetti quello del saldo. Fa eccezione la caparra confirmatoria pura, che ha natura risarcitoria: per distinguere i casi chiedi al commercialista.",
+      },
+      {
+        question:
+          "Sono in regime forfettario come molti tatuatori: cambia qualcosa?",
+        answer:
+          "Solo l'aliquota: imposti la natura N2 (operazioni non soggette) come prevalente e gli scontrini escono senza IVA. L'obbligo di emettere il documento commerciale verso i privati resta anche in forfettario.",
+      },
+      {
+        question:
+          "Il cliente disdice e restituisco l'acconto: come sistemo lo scontrino?",
+        answer:
+          "Annulli lo scontrino dell'acconto direttamente dall'app: l'annullamento viene trasmesso all'Agenzia delle Entrate in modo conforme e lo storico resta coerente con quanto hai effettivamente incassato.",
+      },
+    ],
+    relatedHelp: [
+      "primo-scontrino",
+      "annullare-scontrino",
+      "regime-forfettario",
     ],
   },
 };

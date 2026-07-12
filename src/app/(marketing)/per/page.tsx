@@ -12,11 +12,11 @@ const PAGE_URL = `${SITE_URL}/per`;
 export const metadata: Metadata = {
   title: "Soluzioni per categoria",
   description:
-    "ScontrinoZero adattato per ambulanti, parrucchieri ed estetisti, artigiani, B&B, regime forfettario e liberi professionisti. Trova la pagina della tua categoria.",
+    "ScontrinoZero adattato per ambulanti, parrucchieri, artigiani, officine, palestre, food truck, NCC, tatuatori, B&B, forfettari e professionisti. Trova la tua categoria.",
   openGraph: {
     title: "Soluzioni per categoria | ScontrinoZero",
     description:
-      "Pagine dedicate a ogni tipo di attività: ambulanti, parrucchieri, artigiani, B&B, forfettari e professionisti.",
+      "Pagine dedicate a ogni tipo di attività: dal mercato all'officina, dalla palestra al food truck.",
     url: PAGE_URL,
   },
   alternates: {

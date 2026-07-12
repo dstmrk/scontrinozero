@@ -10,7 +10,7 @@ export default async function Image() {
   return new ImageResponse(
     <OgImageTemplate
       title="Soluzioni per categoria"
-      subtitle="Ambulanti, parrucchieri, artigiani, B&B, forfettari e professionisti."
+      subtitle="Ambulanti, artigiani, officine, palestre, food truck, NCC e altre attività."
     />,
     OG_SIZE,
   );
