@@ -3,19 +3,19 @@ import { cn } from "@/lib/utils";
 
 interface AppScreenshotProps {
   /** Percorso root-absolute dell'immagine (es. "/screenshots/scontrino-emesso.png"). */
-  src: string;
+  readonly src: string;
   /** Testo alternativo descrittivo (italiano, SEO/accessibilità). */
-  alt: string;
+  readonly alt: string;
   /** Larghezza intrinseca del file, per il ratio di next/image. */
-  width: number;
+  readonly width: number;
   /** Altezza intrinseca del file, per il ratio di next/image. */
-  height: number;
+  readonly height: number;
   /** true solo per il mockup above-the-fold (LCP della hero). */
-  priority?: boolean;
+  readonly priority?: boolean;
   /** Hint per il responsive sizing di next/image. */
-  sizes?: string;
+  readonly sizes?: string;
   /** Classi extra (dimensione, posizionamento nel cluster hero). */
-  className?: string;
+  readonly className?: string;
 }
 
 /**
