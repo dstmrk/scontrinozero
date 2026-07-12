@@ -3,6 +3,7 @@ import Link from "next/link";
 import { JsonLd, faqPageJsonLd } from "@/components/json-ld";
 import { faqItems } from "@/components/marketing/faq-items";
 import { appHref } from "@/lib/marketing-to-app-href";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +24,6 @@ import {
   Smartphone,
   ReceiptEuro,
   Undo2,
-  BarChart3,
   Shield,
   CalendarRange,
   ArrowRight,
@@ -430,7 +430,70 @@ export default function Home() {
             Quello che ti serve, niente di più
           </h2>
 
-          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Showcase: le funzionalità principali con screenshot, layout
+              alternato (immagine e testo si scambiano lato a ogni riga). */}
+          <div className="mt-14 space-y-16">
+            {[
+              {
+                img: "/screenshots/catalogo.png",
+                imgAlt:
+                  "Schermata Catalogo di ScontrinoZero con l'elenco dei prodotti e le relative aliquote IVA",
+                imgWidth: 900,
+                imgHeight: 1860,
+                title: "Il tuo catalogo, sempre pronto",
+                description:
+                  "Salva i prodotti che vendi più spesso e aggiungili allo scontrino con un tap, senza riscrivere ogni volta prezzo e aliquota IVA.",
+              },
+              {
+                img: "/screenshots/storico-lista.png",
+                imgAlt:
+                  "Schermata Storico di ScontrinoZero con la lista degli scontrini, i filtri per periodo e il pulsante Esporta CSV",
+                imgWidth: 900,
+                imgHeight: 1860,
+                title: "Ritrova ogni scontrino",
+                description:
+                  "Filtra per periodo e stato, riapri qualsiasi documento commerciale e, con il piano Pro, esporta tutto in CSV per il commercialista.",
+              },
+              {
+                img: "/screenshots/analytics-panoramica.png",
+                imgAlt:
+                  "Schermata Analytics di ScontrinoZero con incassi, scontrino medio e grafico dei ricavi giornalieri",
+                imgWidth: 900,
+                imgHeight: 1860,
+                title: "Sai sempre come sta andando",
+                description:
+                  "Incassi, scontrino medio e andamento giornaliero a colpo d'occhio, con grafici chiari. Consultabili anche dal computer.",
+              },
+            ].map((item, index) => (
+              <div
+                key={item.title}
+                className="grid items-center gap-8 md:grid-cols-2"
+              >
+                <div
+                  className={cn(
+                    "mx-auto w-full max-w-[240px]",
+                    index % 2 === 1 && "md:order-2",
+                  )}
+                >
+                  <AppScreenshot
+                    src={item.img}
+                    alt={item.imgAlt}
+                    width={item.imgWidth}
+                    height={item.imgHeight}
+                    sizes="(min-width: 768px) 240px, 60vw"
+                  />
+                </div>
+                <div className="text-center md:text-left">
+                  <h3 className="text-xl font-bold">{item.title}</h3>
+                  <p className="text-muted-foreground mt-3 leading-relaxed">
+                    {item.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {
                 icon: ReceiptEuro,
@@ -443,12 +506,6 @@ export default function Home() {
                 title: "Scontrino sbagliato? Annullalo.",
                 description:
                   "Hai inserito un importo errato? Annulla lo scontrino direttamente dall'app.",
-              },
-              {
-                icon: BarChart3,
-                title: "Sai sempre quanto hai incassato",
-                description:
-                  "Totale giornaliero, storico scontrini, tutto a portata di mano. Anche dal computer.",
               },
               {
                 icon: Shield,
