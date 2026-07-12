@@ -1,6 +1,6 @@
 ---
 name: sentry-hygiene
-description: Use when triaging or reviewing Sentry issues for the dstmrk/scontrinozero project — periodic review of archived/ignored issues (e.g. SCONTRINOZERO-7 sat at 23 events for 5 weeks before anyone noticed it was UX, not noise), classifying a noisy issue (true bot/scanner noise → beforeSend filter with documented motivation; predictable user input → fix UX via regola 20 logAdeFailure ade_user_error; transient upstream → already covered by isTransientAdeError), writing or extending the beforeSend filter in sentry.server.config.ts + src/lib/sentry-filters.ts, validating the pino → Sentry Logs drain after a telemetry rollout via /api/_debug/sentry-sentinel (regola 21), running post-deploy smoke (live + env + drain via regole 21+25), or looking up Sentry events via the Sentry MCP (mcp__Sentry__search_issues, search_events, get_sentry_resource) using the canonical query patterns (errorClass:ade_user_error / ade_transient / ade_failure / sentinel; sentinelId:<id>; flow-derived fingerprint).
+description: Use when triaging or reviewing Sentry issues for the dstmrk/scontrinozero project — periodic review of archived/ignored issues (e.g. SCONTRINOZERO-7 sat at 23 events for 5 weeks before anyone noticed it was UX, not noise), classifying a noisy issue (true bot/scanner noise → beforeSend filter with documented motivation; predictable user input → fix UX via regola 20 logAdeFailure ade_user_error; transient upstream → already covered by isTransientAdeError; client network failures → isClientNetworkFailure in src/lib/sentry-filters.ts), writing or extending the beforeSend filter in sentry.server.config.ts + src/lib/sentry-filters.ts, binding the user to the request scope with Sentry.setUser({ id }) via getAuthenticatedUser (regola 22, Users Impacted), grouping multi-step AdE flows with a flow fingerprint (regola 23, sentryFingerprint via logAdeFailure + Sentry.withScope in src/lib/logger.ts), validating the pino → Sentry Logs drain after a telemetry rollout via /api/_debug/sentry-sentinel (regola 21), running post-deploy smoke (live + env + drain via regole 21+25, procedure in the deploy-release skill), or looking up Sentry events via the Sentry MCP (mcp__Sentry__search_issues, search_events, get_sentry_resource) using the canonical query patterns (errorClass:ade_user_error / ade_transient / ade_failure / sentinel; sentinelId:<id>; flow-derived fingerprint).
 ---
 
 # sentry-hygiene — Review e classificazione delle issue Sentry
@@ -99,6 +99,17 @@ if (isExpectedUserAdeError(err)) {
 Estensione naturale: copia il pattern per Stripe (card declined),
 Resend (bounced email) appena emerge il caso.
 
+Il `logger.error` (level ≥ 50) → `Sentry.captureException` va riservato a
+condizioni inattese (DB down, SDK che fallisce in modo non documentato):
+un errore d'input utente in Sentry è noise esattamente come "password
+sbagliata su `/login`".
+
+**Lato client** lo stesso principio si applica tramite `beforeSend` in
+`sentry.client.config.ts`: i fallimenti di rete browser (`TypeError: Load
+failed` su iOS, `Failed to fetch` su Chrome) generati da `fetchServerAction`
+sono sempre transitori (connessione mobile caduta) — filtrati da
+`isClientNetworkFailure()` in `src/lib/sentry-filters.ts` (SCONTRINOZERO-J).
+
 ### 3. Transient upstream (rete, 5xx esterno, SPID timeout)
 
 Esempio: AdE in downtime, Stripe webhook intermittente.
@@ -107,6 +118,47 @@ Esempio: AdE in downtime, Stripe webhook intermittente.
 `ade_transient` di `logAdeFailure`). Per altri SDK estendere lo stesso
 pattern: predicato → `logger.warn` con `errorClass: "<sdk>_transient"`,
 mai `logger.error`.
+
+---
+
+## `Sentry.setUser({ id })` su ogni richiesta autenticata (regola 22)
+
+Tutte le server action e i route handler che chiamano
+`getAuthenticatedUser()` bindano automaticamente l'auth user UUID allo scope
+Sentry della richiesta: il bind è già **dentro** `getAuthenticatedUser` in
+`src/lib/server-auth.ts` — non va rifatto a mano, va solo non aggirato.
+
+Senza questo `Users Impacted` resta a 0 su ogni issue: tutte e 10 le issue
+Sentry analizzate (SCONTRINOZERO-7 a -H) avevano `Users: 0` anche quando il
+bug toccava più utenti in 2 minuti — il triage non poteva prioritizzare per
+impatto.
+
+Passare **solo `id`** (UUID opaco di Supabase Auth): niente
+`email`/`username`/`ip`, coerente con il denylist `SAFE_KEYS` di
+`src/lib/logger.ts` e con la policy GDPR. Per le route che usano auth diversa
+(es. Bearer API key in `/api/v1/*`) il fix è analogo ma puntuale a ciascun
+handler — **non** propagare l'`apiKeyId` come `user.id`.
+
+---
+
+## Fingerprint per flow multi-step (regola 23)
+
+I flow AdE (login → wizard → submit) generano errori in step diversi: Sentry
+li raggruppa per `message + stack`, quindi `wizardTemplate failed 500` e
+`setUserChoice failed 500` finiscono in 2 issue distinte anche se parte della
+stessa onboarding fallita (SCONTRINOZERO-9 + -A, trace_id 5efe8519…).
+
+Per evitarlo, **passa `flow: "<nome-flow>"` nel context di `logAdeFailure()`**
+(`src/lib/ade/log-failure.ts`): sul ramo `ade_failure` viene iniettato
+`sentryFingerprint: [flow, "ade_failure"]` nel payload pino, e
+`captureToSentry` in `src/lib/logger.ts` lo applica via
+`Sentry.withScope(s => s.setFingerprint(...))`. I rami warn
+(transient/user_error) ignorano `flow`: non salgono a Sentry.
+
+Flow già instrumentati: `onboarding-verify` (verifyAdeCredentials),
+`emit-receipt` (receipt-service), `void-receipt` (void-service). Per nuovi
+flow scegli uno **slug stabile** (no spazi, no version): cambia il
+fingerprint = perdi la continuità storica del group.
 
 ---
 

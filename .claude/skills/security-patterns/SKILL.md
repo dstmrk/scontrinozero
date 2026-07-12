@@ -7,6 +7,24 @@ description: Use when implementing or reviewing security-sensitive boundaries �
 
 Pattern di sicurezza per route handler, server actions e middleware.
 
+Indice (salta alla sezione che serve, non leggere tutto):
+
+- Client IP: `CF-Connecting-IP` unica sorgente fidata
+- Retry + backoff per operazioni con orphan state
+- UUID validation ai boundary
+- Hostname validation link Supabase (URL parsing vs `startsWith`)
+- Body size guard prima di `JSON.parse`
+- Decimal precision all'API layer
+- Email normalisation su tutti gli auth flow
+- Wrap SDK esterni in try-catch → 503
+- Lookup `Record` con key user-controlled (prototype pollution)
+- CSP: lezioni dal rollout
+- Double-gate rate limit prima di call esterne costose
+- `setInterval` + `.unref?.()`
+- Redirect param con querystring
+- Turnstile hostname check a lista
+- Sentry Logs: denylist + `release`
+
 ---
 
 ## Client IP: `CF-Connecting-IP` è l'UNICA sorgente fidata
@@ -206,7 +224,9 @@ n×timeout secondi di socket pendenti e n×call HTTP outbound.
 Pattern obbligato:
 
 1. **Pre-limit** con bucket dedicato (`captchaPre:<action>:<ip>`, più permissivo
-   del limite funzionale — es. 30/15min vs 5/15min) PRIMA della call esterna
+   del limite funzionale — i numeri qui sono **esempi**: le soglie consolidate
+   vivono in `src/lib/rate-limit.ts` e nella skill `testing-patterns`) PRIMA
+   della call esterna
 2. **Limite funzionale post-call** invariato per brute-force applicativo
 3. **Log strutturati separati** (`errorClass: "captcha_prelimit"` vs
    `"auth_rate_limit"`)
@@ -301,6 +321,10 @@ il payload raw — per questo il path-eccezioni usa la allowlist).
 già catturati come Issue dall'hook `captureToSentry`; abilitarlo creerebbe una
 doppia cattura. La regola "ogni nuova PII → `REDACT_PATHS`" è la difesa
 centralizzata che protegge anche futuri call site.
+
+Per la **validazione end-to-end del drain** dopo un rollout di telemetria
+(sentinella, query Sentry) → skill `sentry-hygiene` e `deploy-release`
+(smoke post-deploy).
 
 ### `release` per legare un evento al commit in esecuzione
 

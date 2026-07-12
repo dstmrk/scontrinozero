@@ -91,25 +91,14 @@ iniziale.
     un'ipotesi senza evidenza.
 14. **HAR analysis:** verificare che **ogni request** in HAR sia presente
     nell'implementazione, non solo l'ordine. Cross-reference one-by-one.
-15. **Link auth da marketing → app:** i link verso `/login`, `/register`,
-    `/reset-password` dalle pagine/componenti del gruppo `(marketing)/*` (e
-    da `src/components/marketing/`, `src/components/help/`) devono usare
-    `appHref()` (da `@/lib/marketing-to-app-href`) + plain `<a>`, **mai**
-    `<Link>` di Next.js. Serve a forzare la cross-origin navigation verso
-    `app.scontrinozero.it`: il soft routing di Next farebbe restare l'utente
-    sull'origin marketing, riportando il bug `captcha_hostname_mismatch` su
-    Turnstile (commit ac59efc). **`appHref()` è server-only in pratica**:
-    da un client component (es. `pricing-section.tsx`) `NEXT_PUBLIC_APP_URL`
-    non è nel bundle (non baked dal Dockerfile) e `APP_HOSTNAME` non è
-    `NEXT_PUBLIC_*`, quindi cadrebbe sul default hardcoded di produzione
-    rompendo sandbox/self-hosted. Calcolare l'href nel parent server
-    component e passarlo come prop al client.
-16. **Mock tipati (TS2556).** Mai fare spread di `...args` in un `vi.fn()` a
-    zero argomenti: tipare il mock con la **firma reale** del modulo mockato
-    (`notFound()` non prende argomenti, `redirect(path)` uno). Lo spread di
-    `unknown[]` rompe `npm run type-check` con **TS2556** _prima_ ancora che i
-    test partano — non lo cattura il run dei test (PR #553, #572). Correzione
-    ricorrente: vedi skill `testing-patterns`.
+15. **Link auth da marketing → app:** da `(marketing)/*` i link a
+    `/login`/`/register`/`/reset-password` usano `appHref()` + plain `<a>`,
+    MAI `<Link>` di Next. `appHref()` è server-only in pratica: calcola
+    l'href nel parent server component e passalo come prop al client.
+    Dettagli → skill `react-patterns`.
+16. **Mock tipati (TS2556).** Mai spread di `...args` in un `vi.fn()` a zero
+    argomenti: tipare il mock con la firma reale del modulo mockato — TS2556
+    rompe `npm run type-check` prima dei test. → skill `testing-patterns`.
 17. **Grandezze monetarie: canone per-riga in cents.**
     `round(grossUnitPrice * quantity * 100)` per riga, sommato come interi —
     MAI arrotondare per documento. Ogni `sort` prima di `slice`/topN ha una
@@ -117,81 +106,24 @@ iniziale.
 18. **Env d'identità: build-vs-runtime e present-but-empty.** Un `?? default`
     NON scatta su variabile presente ma vuota (`""`); `next.config.ts` NON può
     importare con alias `@/`. Casi e fix → skill `deploy-release`.
-19. **Server action di lettura: degradare, non lanciare.** Una server action che
-    alimenta la UI (KPI/analytics, ecc.) deve ritornare `{ error }` su fallimento
-    DB/SDK, **mai** propagare l'eccezione: il throw fa scattare l'error boundary
-    di Next al posto del fallback inline, rompendo la performance percepita
-    (priorità #1). Coerente con regola 10 e con il pattern `deleteAccount` della
-    skill `testing-patterns` (PR #572, `getStarterKpis`).
-20. **Errori d'input utente: warn, non error (no Sentry noise).** Le condizioni
-    prevedibili dall'input utente — credenziali Fisconline sbagliate, password
-    AdE scaduta, P.IVA già registrata, token Turnstile scaduto — vanno loggate
-    a `logger.warn` (osservabilità in pino → Sentry Logs) ma **non** devono
-    salire a Sentry come issue: non sono bug nostri, esattamente come "password
-    sbagliata su `/login`". Il `logger.error` (level ≥ 50) →
-    `Sentry.captureException` va riservato a condizioni inattese (DB down, SDK
-    fallisce in modo non documentato). Pattern canonico per AdE:
-    `logAdeFailure()` in `src/lib/ade/log-failure.ts` con
-    `errorClass: "ade_user_error"` per `AdeAuthError` / `AdePasswordExpiredError`
-    (`isExpectedUserAdeError`), `ade_transient` per network/5xx/SPID timeout
-    (`isTransientAdeError`), `ade_failure` solo per il resto. Storico:
-    SCONTRINOZERO-7 ha collezionato 23 eventi in 5 settimane prima di essere
-    archiviata come noise, perché ogni utente che digitava credenziali AdE
-    sbagliate da `/dashboard/settings` finiva in Sentry. Estende la regola 19
-    alle server action di scrittura. **Lato client** lo stesso principio si
-    applica tramite `beforeSend` in `sentry.client.config.ts`: i fallimenti di
-    rete browser (`TypeError: Load failed` su iOS, `Failed to fetch` su Chrome)
-    generati da `fetchServerAction` sono sempre transitori (connessione mobile
-    caduta) — filtrati da `isClientNetworkFailure()` in
-    `src/lib/sentry-filters.ts` (SCONTRINOZERO-J).
-21. **Osservabilità: validare il drain end-to-end al rollout.** Quando si
-    abilita o si modifica una feature di telemetria (`enableLogs`,
-    `Sentry.pinoIntegration`, `Sentry.metrics`, Sentry Profiling, Replays,
-    nuovo `transport` pino, ecc.), il deploy **non è "concluso" finché una
-    sentinella intenzionale non appare in dashboard entro ~5 minuti**. Se
-    non appare → integrazione rotta = bug bloccante, si rollback o si
-    riapre la PR. Procedura: imposta `SENTRY_SENTINEL_TOKEN` sull'env
-    target e fai `curl -H "x-sentinel-token: $TOKEN"
-https://<host>/api/_debug/sentry-sentinel?id=<release>`; la response
-    contiene `sentryQuery`, una stringa già pronta da incollare nei filtri
-    Sentry — sia il dataset `logs` (info/warn/error) sia il pannello issues
-    (l'`error` emette anche `Sentry.captureException` via il hook a
-    `level≥50` in `src/lib/logger.ts`). Endpoint:
-    `src/app/api/_debug/sentry-sentinel/route.ts` — protetto da
-    timing-safe compare, risponde 404 se il token è assente o non combacia
-    (esistenza nascosta a chi non ha il secret). Riferimento: v1.3.6
-    (rollout `Sentry.pinoIntegration`) è stato il caso che ha forzato la
-    regola — il dataset `logs` era vuoto al momento dell'analisi e non si
-    poteva distinguere "drain rotto" da "rilasciato 40 minuti fa".
-22. **`Sentry.setUser({ id })` su ogni richiesta autenticata.** Tutte le
-    server action e i route handler che chiamano `getAuthenticatedUser()`
-    bindano automaticamente l'auth user UUID allo scope Sentry della
-    richiesta (visto che il bind è già dentro `getAuthenticatedUser` in
-    `src/lib/server-auth.ts:51`). Senza questo `Users Impacted` resta a 0
-    su ogni issue: tutte e 10 le issue Sentry analizzate (SCONTRINOZERO-7
-    a -H) avevano `Users: 0` anche quando il bug toccava più utenti in 2
-    minuti — il triage non poteva prioritizzare per impatto. Passare **solo
-    `id`** (UUID opaco di Supabase Auth): niente `email`/`username`/`ip`,
-    coerente con il denylist `SAFE_KEYS` di `src/lib/logger.ts` e con la
-    policy GDPR. Per le route che usano auth diversa (es. Bearer API key
-    in `/api/v1/*`) il fix è analogo ma puntuale a ciascun handler — non
-    propagato qui per non leakare l'`apiKeyId` come `user.id`.
-23. **Fingerprint Sentry per flow multi-step.** I flow AdE (login → wizard
-    → submit) generano errori in step diversi: oggi Sentry li raggruppa per
-    `message + stack`, quindi `wizardTemplate failed 500` e
-    `setUserChoice failed 500` finiscono in 2 issue distinte anche se
-    parte della stessa onboarding fallita (SCONTRINOZERO-9 + -A,
-    trace_id 5efe8519…). Per evitarlo, **passa `flow: "<nome-flow>"`
-    nel context di `logAdeFailure()`** (`src/lib/ade/log-failure.ts`):
-    sul ramo `ade_failure` viene iniettato
-    `sentryFingerprint: [flow, "ade_failure"]` nel payload pino, e
-    `captureToSentry` in `src/lib/logger.ts` lo applica via
-    `Sentry.withScope(s => s.setFingerprint(...))`. I rami warn
-    (transient/user_error) ignorano `flow`: non salgono a Sentry. Flow
-    già instrumentati: `onboarding-verify` (verifyAdeCredentials),
-    `emit-receipt` (receipt-service), `void-receipt` (void-service).
-    Per nuovi flow scegli uno slug stabile (no spazi, no version):
-    cambia il fingerprint = perdi la continuità storica del group.
+19. **Server action di lettura: degradare, non lanciare.** Una server action
+    che alimenta la UI ritorna `{ error }` su fallimento DB/SDK, MAI propaga
+    l'eccezione: il throw fa scattare l'error boundary di Next al posto del
+    fallback inline, rompendo la performance percepita (priorità #1).
+20. **Errori d'input utente: warn, non error (no Sentry noise).** Condizioni
+    prevedibili dall'input (credenziali AdE sbagliate, P.IVA già registrata,
+    Turnstile scaduto) → `logger.warn`, MAI issue Sentry. Pattern
+    `logAdeFailure()` + filtri client → skill `sentry-hygiene`.
+21. **Osservabilità: validare il drain end-to-end al rollout.** Una feature di
+    telemetria non è rilasciata finché la sentinella non appare in Sentry
+    entro ~5 min (`/api/_debug/sentry-sentinel`). Procedura → skill
+    `deploy-release` (smoke) e `sentry-hygiene` (query).
+22. **`Sentry.setUser({ id })` su ogni richiesta autenticata** — bind già
+    dentro `getAuthenticatedUser` (`src/lib/server-auth.ts`), non aggirarlo.
+    Solo `id` UUID, mai email/ip (GDPR). Caveat API key → skill `sentry-hygiene`.
+23. **Fingerprint Sentry per flow multi-step AdE.** Passa `flow: "<slug>"` nel
+    context di `logAdeFailure()`; slug stabile o perdi lo storico del group.
+    Meccanica e flow instrumentati → skill `sentry-hygiene`.
 24. **Env d'identità: validazione fail-fast al boot.** `assertIdentityEnv()`
     (`src/lib/identity-env.ts`) gira come prima istruzione di `register()` in
     `src/instrumentation.ts`: in prod un valore malformato blocca il boot, in

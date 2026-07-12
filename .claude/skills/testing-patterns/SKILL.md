@@ -8,6 +8,23 @@ description: Use when writing or fixing Vitest tests — avoiding SonarCloud S66
 Lezioni operative per evitare i failure più comuni di SonarCloud e i bug silenziosi
 nei mock.
 
+Indice (salta alla sezione che serve, non leggere tutto):
+
+- Ogni test ha almeno un `expect()` (S6661)
+- Mock di classi: `function`/`class`, mai arrow
+- Mock tipati: niente spread in `vi.fn()` a zero argomenti (TS2556)
+- Rate limiting su server actions (**soglie consolidate — fonte canonica**)
+- Aggiornare i mock dopo un refactor in JOIN
+- `NODE_ENV` con `vi.stubEnv`
+- Mock Drizzle `transaction` (callback riceve `tx`)
+- `react/cache` non deduplica tra Route Handler e RSC
+- `INSERT ... ON CONFLICT DO NOTHING` per race
+- Sentry + pino: sanitize prima di `captureException`
+- `deleteAccount`: auth user first
+- `last_used_at` condizionale (anti write-amplification)
+- Browser ostile (storage bloccato, webview, cookies off)
+- Mock di `Sentry.withScope` + `setFingerprint` (R23)
+
 ---
 
 ## Ogni test deve avere almeno un `expect()`
