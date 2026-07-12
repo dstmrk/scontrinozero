@@ -145,6 +145,47 @@ describe("codici-natura-iva", () => {
   });
 });
 
+describe("scontrino-senza-registratore-di-cassa (cluster transazionale)", () => {
+  const article = guideArticles["scontrino-senza-registratore-di-cassa"];
+
+  it("opens with a direct answer (risposta secca GEO)", () => {
+    expect(article.heroIntro.startsWith("Sì")).toBe(true);
+  });
+
+  it("has a section answering 'quale app scegliere'", () => {
+    const headings = article.sections.map((s) => s.heading.toLowerCase());
+    expect(headings.some((h) => h.includes("quale app"))).toBe(true);
+  });
+
+  it("has a cost section with a comparison table (portale, app, RT)", () => {
+    const costSection = article.sections.find((s) =>
+      s.heading.toLowerCase().includes("quanto costa"),
+    );
+    expect(costSection).toBeDefined();
+    expect(costSection!.table).toBeDefined();
+    const firstColumn = costSection!.table!.rows.map((row) =>
+      row[0].toLowerCase(),
+    );
+    expect(firstColumn.some((c) => c.includes("portale"))).toBe(true);
+    expect(firstColumn.some((c) => c.includes("app"))).toBe(true);
+    expect(firstColumn.some((c) => c.includes("registratore"))).toBe(true);
+  });
+
+  it("links the deeper software-selection guide", () => {
+    expect(article.relatedGuides).toContain(
+      "scegliere-software-scontrini-elettronici",
+    );
+  });
+
+  it("has FAQ covering the app-choice and cost intents", () => {
+    const questions = article.faq.map((f) => f.question.toLowerCase());
+    expect(questions.some((q) => q.includes("app"))).toBe(true);
+    expect(
+      questions.some((q) => q.includes("costa") || q.includes("costo")),
+    ).toBe(true);
+  });
+});
+
 describe("getGuide", () => {
   it("returns the guide for a known slug", () => {
     const a = getGuide("documento-commerciale-online");
