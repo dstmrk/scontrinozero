@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   checkArchitectureDocs,
   extractFrontmatterPathTokens,
+  extractHarViolations,
 } from "../../../scripts/check-architecture-docs.mjs";
 
 const { mockReaddir, mockReadFile, mockStat } = vi.hoisted(() => ({
@@ -37,11 +38,13 @@ function makeDirDirents(names: string[]) {
  * Wires mockReadFile to serve per-file markdown content and mockStat to resolve
  * only for the paths listed in `existing` (relative to the fake root /repo).
  * `skills` maps a skill dir name to its SKILL.md content (null = unreadable).
+ * `claudeMd` is the root CLAUDE.md content (scanned too; null = unreadable).
  */
 function setup(
   files: Record<string, string>,
   existing: string[],
   skills: Record<string, string | null> = {},
+  claudeMd: string | null = "",
 ) {
   const existingSet = new Set(existing.map((p) => `/repo/${p}`));
   mockReaddir.mockImplementation((p: string) => {
@@ -58,6 +61,10 @@ function setup(
     return Promise.reject(new Error(`ENOENT: ${p}`));
   });
   mockReadFile.mockImplementation((p: string) => {
+    if (p === "/repo/CLAUDE.md") {
+      if (typeof claudeMd === "string") return Promise.resolve(claudeMd);
+      return Promise.reject(new Error(`ENOENT: ${p}`));
+    }
     const skillMatch = /^\/repo\/\.claude\/skills\/([^/]+)\/SKILL\.md$/.exec(p);
     if (skillMatch) {
       const content = skills[skillMatch[1]];
@@ -272,6 +279,84 @@ describe("checkArchitectureDocs", () => {
     expect(result.ok).toBe(false);
     expect(result.errors[0]).toContain("Cannot read skill doc");
     expect(result.errors[0]).toContain(".claude/skills/broken/SKILL.md");
+  });
+
+  it("scans CLAUDE.md and reports a dead path cited there", async () => {
+    setup(
+      { "INDEX.md": "no paths here" },
+      [],
+      {},
+      "Regola: usa `src/lib/ghost.ts` come helper.",
+    );
+
+    const result = await checkArchitectureDocs("/repo");
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("src/lib/ghost.ts");
+    expect(result.errors[0]).toContain("CLAUDE.md");
+  });
+
+  it("returns an error when CLAUDE.md is unreadable", async () => {
+    setup({ "INDEX.md": "no paths here" }, [], {}, null);
+
+    const result = await checkArchitectureDocs("/repo");
+
+    expect(result.ok).toBe(false);
+    expect(result.errors[0]).toContain("Cannot read CLAUDE.md");
+  });
+
+  it("strips a trailing :from-to line range before checking existence", async () => {
+    setup({ "INDEX.md": "Vedi `src/lib/plans.ts:94-106`." }, [
+      "src/lib/plans.ts",
+    ]);
+
+    const result = await checkArchitectureDocs("/repo");
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("rejects har/ code spans in any scanned doc even though the prefix is not validated", async () => {
+    setup(
+      {
+        "data-flows.md": "Interroga searchDocuments (HAR: `har/ricerca.har`).",
+      },
+      [],
+      {
+        "my-skill":
+          "---\nname: my-skill\ndescription: x\n---\n\nCattura `har/login_cie.har`.",
+      },
+    );
+
+    const result = await checkArchitectureDocs("/repo");
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toHaveLength(2);
+    expect(result.errors[0]).toContain("har/ricerca.har");
+    expect(result.errors[0]).toContain("docs/architecture/data-flows.md");
+    expect(result.errors[0]).toContain("cite the bare filename");
+    expect(result.errors[1]).toContain("har/login_cie.har");
+    expect(result.errors[1]).toContain(".claude/skills/my-skill/SKILL.md");
+  });
+});
+
+describe("extractHarViolations", () => {
+  it("finds har/ spans and ignores bare HAR filenames", () => {
+    const md =
+      "Usa `har/ricerca.har` ma cita `ricerca.har` e `login_cie.har` così.";
+
+    expect(extractHarViolations(md)).toEqual(["har/ricerca.har"]);
+  });
+
+  it("allows the bare har/ directory span", () => {
+    expect(extractHarViolations("Le HAR vivono in `har/` in locale.")).toEqual(
+      [],
+    );
+  });
+
+  it("returns an empty list when no har/ span is present", () => {
+    expect(extractHarViolations("Solo `src/lib/a.ts` qui.")).toEqual([]);
   });
 });
 

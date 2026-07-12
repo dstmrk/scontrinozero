@@ -323,7 +323,7 @@ nella skill `stripe-webhooks`.
 
 ### Nuova migrazione DB
 
-1. File `.sql` in `supabase/migrations/NNNN_description.sql` con header comment
+1. File `.sql` in `supabase/migrations/NNNN_*.sql` (nome descrittivo) con header comment
 2. Entry in `supabase/migrations/meta/_journal.json`
    (`idx` incrementale, `when` = `Date.now()`, `tag` = nome file senza `.sql`)
 3. Aggiorna schema Drizzle in `src/db/schema/<table>.ts`
@@ -406,7 +406,7 @@ vivono nel `.env` runtime. File e istruzioni in `deploy/dev/`.
 
 ### Procedura aggiornamento T&C
 
-1. Crea `src/app/(marketing)/termini/vXX/page.tsx`
+1. Crea `src/app/(marketing)/termini/v*/page.tsx` (nuova versione vXX)
 2. Aggiorna redirect in `src/app/(marketing)/termini/page.tsx` → `/termini/vXX`
 3. Aggiorna `CURRENT_TERMS_VERSION = "vXX"` in `src/server/auth-actions.ts`
 4. Aggiorna il **secondo flag** (clausole vessatorie art. 1341 c.c.) in

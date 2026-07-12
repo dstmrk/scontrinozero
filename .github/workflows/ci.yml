@@ -65,6 +65,7 @@ jobs:
             arch_docs:
               - 'docs/architecture/**'
               - '.claude/skills/**'
+              - 'CLAUDE.md'
               - 'scripts/check-architecture-docs.mjs'
               - 'src/**'
             hooks:
@@ -111,10 +112,10 @@ jobs:
       - name: Check migration journal consistency
         run: node scripts/check-migrations.mjs
 
-  # Verifica che ogni path citato in docs/architecture/ e .claude/skills/
-  # esista ancora su disco (anti-drift della mappa codebase, CLAUDE.md regola
-  # 26). Gira quando cambiano i doc, le skill, lo script, o src/** (un rename
-  # in src/ può orfanare un riferimento).
+  # Verifica che ogni path citato in docs/architecture/, .claude/skills/ e
+  # CLAUDE.md esista ancora su disco (anti-drift della mappa codebase,
+  # CLAUDE.md regola 26). Gira quando cambiano i doc, le skill, CLAUDE.md,
+  # lo script, o src/** (un rename in src/ può orfanare un riferimento).
   arch-docs-check:
     needs: changes
     if: needs.changes.outputs.arch_docs == 'true'

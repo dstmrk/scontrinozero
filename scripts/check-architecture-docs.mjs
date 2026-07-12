@@ -1,12 +1,12 @@
 /**
- * Validates the codebase map under docs/architecture/ AND the skills under
- * .claude/skills/: every repo path cited in those docs (as an inline code span;
- * for skills also as a bare token in the frontmatter `description`) must still
- * exist on disk. Catches the most damaging form of drift — a path renamed or
- * deleted while the doc kept the old reference — turning a stale map into a
- * hard CI failure instead of silently misleading the next reader (or steering
- * a skill's auto-activation with a dead path). Exits with code 1 on any dead
- * reference.
+ * Validates the codebase map under docs/architecture/, the skills under
+ * .claude/skills/ AND the root CLAUDE.md: every repo path cited in those docs
+ * (as an inline code span; for skills also as a bare token in the frontmatter
+ * `description`) must still exist on disk. Catches the most damaging form of
+ * drift — a path renamed or deleted while the doc kept the old reference —
+ * turning a stale map into a hard CI failure instead of silently misleading
+ * the next reader (or steering a skill's auto-activation with a dead path).
+ * Exits with code 1 on any dead reference.
  *
  * Run: node scripts/check-architecture-docs.mjs  (npm run arch:check)
  *
@@ -16,14 +16,23 @@
  *  - A span is treated as a repo path iff it starts with one of the known top
  *    dirs (src/, supabase/, scripts/, deploy/, docs/, tests/, public/) and
  *    contains only path characters. Write each validated path as its OWN span.
- *  - A trailing `:NN` line-number suffix is stripped before the check.
+ *  - A trailing `:NN` or `:NN-MM` line-number/range suffix is stripped before
+ *    the check.
  *  - Tokens containing `*`, `{` or `}` (globs / brace expansion) are skipped —
- *    they are intentionally illustrative, not literal paths.
+ *    they are intentionally illustrative, not literal paths. Illustrative
+ *    placeholder paths (e.g. a migration naming pattern) must use a glob or
+ *    plain text, not a literal-looking code span.
  *  - Route-group parens `(marketing)` and dynamic `[id]` segments are literal
  *    directory names on disk, so they validate as-is.
  *  - In .claude/skills/<name>/SKILL.md the YAML frontmatter is additionally
  *    scanned for BARE tokens with a known prefix (descriptions are plain text,
  *    no code spans) — that is where the dead `src/server/ade/` reference lived.
+ *  - A code span starting with `har/` is ALWAYS an error: HAR captures are
+ *    local-only and gitignored, so the path would never exist in CI. Cite the
+ *    bare filename instead (see the ade-integration skill).
+ *  - REVIEW.md and PLAN.md are intentionally NOT scanned: they legitimately
+ *    cite historical/removed paths in prose, so the false-positive noise
+ *    would outweigh the value.
  */
 
 import { readdir, readFile, stat } from "fs/promises";
@@ -48,7 +57,7 @@ export function extractPathTokens(markdown) {
   while ((match = spanRe.exec(markdown)) !== null) {
     let token = match[1]
       .trim()
-      .replace(/:\d+$/, "") // drop :lineNumber suffix
+      .replace(/:\d+(?:-\d+)?$/, "") // drop :lineNumber / :from-to suffix
       .replace(/\/+$/, ""); // drop trailing slash (dir spans normalize to bare path)
     if (token.includes("*") || token.includes("{") || token.includes("}")) {
       continue; // glob / brace expansion → illustrative, skip
@@ -105,6 +114,34 @@ function normalizeBareToken(raw) {
 }
 
 /**
+ * Finds inline code spans that cite HAR captures with a `har/` path prefix.
+ * HAR files are local-only and gitignored, so such a span can never validate
+ * in CI — the docs must cite the bare filename instead. The bare directory
+ * span `har/` is allowed (describing where captures live locally is fine).
+ * @param {string} markdown
+ * @returns {string[]} sorted, de-duplicated offending spans
+ */
+export function extractHarViolations(markdown) {
+  const violations = new Set();
+  const spanRe = /`([^`\n]+)`/g;
+  let match;
+  while ((match = spanRe.exec(markdown)) !== null) {
+    const token = match[1].trim();
+    if (/^har\/./.test(token)) violations.add(token);
+  }
+  return [...violations].sort();
+}
+
+/**
+ * @param {string} token  Offending `har/...` span
+ * @param {string} doc    Display path of the doc citing it
+ * @returns {string}
+ */
+function harError(token, doc) {
+  return `HAR reference "${token}" (in ${doc}): HAR files are local-only and gitignored; cite the bare filename (see the ade-integration skill)`;
+}
+
+/**
  * @param {string} rootDir  Absolute path to the repository root
  * @returns {Promise<{ ok: boolean; errors: string[] }>}
  */
@@ -146,6 +183,23 @@ export async function checkArchitectureDocs(rootDir) {
         referencedBy.set(token, `docs/architecture/${file}`);
       }
     }
+    for (const span of extractHarViolations(content)) {
+      errors.push(harError(span, `docs/architecture/${file}`));
+    }
+  }
+
+  // CLAUDE.md (repo root) — same code-span contract. Its rules are terse
+  // pointers into skills/docs, so a dead path here misleads every session.
+  try {
+    const content = await readFile(join(rootDir, "CLAUDE.md"), "utf-8");
+    for (const token of extractPathTokens(content)) {
+      if (!referencedBy.has(token)) referencedBy.set(token, "CLAUDE.md");
+    }
+    for (const span of extractHarViolations(content)) {
+      errors.push(harError(span, "CLAUDE.md"));
+    }
+  } catch {
+    errors.push("Cannot read CLAUDE.md at repo root");
   }
 
   // .claude/skills/<name>/SKILL.md — same code-span contract, plus bare
@@ -178,6 +232,9 @@ export async function checkArchitectureDocs(rootDir) {
     for (const token of tokens) {
       if (!referencedBy.has(token)) referencedBy.set(token, displayPath);
     }
+    for (const span of extractHarViolations(content)) {
+      errors.push(harError(span, displayPath));
+    }
   }
 
   const sortedTokens = [...referencedBy.keys()].sort();
@@ -205,7 +262,7 @@ if (isMain) {
         console.error(`   - ${err}`);
       }
       console.error(
-        "\nFix: update the stale path in docs/architecture/ or .claude/skills/ (docs must point at real files).",
+        "\nFix: update the stale path in docs/architecture/, .claude/skills/ or CLAUDE.md (docs must point at real files).",
       );
       process.exit(1);
     }
