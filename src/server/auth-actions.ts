@@ -193,9 +193,9 @@ async function isAcceptedTurnstileHostname(host: string): Promise<boolean> {
 }
 
 /**
- * Bypass dev del captcha: obscura / motori headless leggeri non risolvono la
- * managed challenge Turnstile, che quindi non emette token e blocca ogni login
- * su dev. Doppio gate: il flag esplicito `TURNSTILE_DISABLED` NON basta da solo.
+ * Bypass dev del captcha: i browser di verifica automatizzati (Playwright /
+ * motori headless) non risolvono la managed challenge Turnstile, che quindi non
+ * emette token e blocca ogni login su dev. Doppio gate: il flag esplicito `TURNSTILE_DISABLED` NON basta da solo.
  * `ADE_MODE === "mock"` è esclusivo di dev/sandbox (la produzione gira con
  * `ADE_MODE=real`), quindi in produzione il captcha non si può disattivare
  * nemmeno se il flag trapelasse nell'ambiente. Lettura raw (non `getAdeMode()`)

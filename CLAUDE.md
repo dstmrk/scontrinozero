@@ -37,8 +37,8 @@ del fix, aggiungere lì i nuovi finding). Storico release dai tag git
   richiede `serverExternalPackages: ["pdfkit"]` in `next.config.ts`. Dipendenze
   minime, Next standalone, Docker slim, un solo container (next-app + cloudflared).
   Il divieto vale per il **runtime dell'app spedita**: per _verificare_ l'app dev
-  che gira Claude può guidare **obscura** (browser headless leggero, tool esterno
-  mai nel bundle/immagine) — vedi skill `obscura-verify`.
+  che gira Claude può guidare un **Playwright MCP server** (Chromium reale, tool
+  esterno di verifica mai nel bundle/immagine) — vedi skill `playwright-verify`.
 
 ## Mappa codebase — leggi prima di esplorare
 
@@ -453,10 +453,12 @@ auto-attivano quando il task matcha il `description`:
   noise vero vs transient), filtri `beforeSend` documentati per ID issue,
   smoke post-deploy `live + env + drain`, query canoniche
   `errorClass:*` via Sentry MCP. Regole 20-25.
-- **`obscura-verify`** — verifica funzionale dell'app dev con un browser reale
-  (obscura via MCP/curl + service token Access), cookie `CF_Authorization`
-  inject per gli host dietro Access, limiti (no screenshot → solo DOM/funzionale;
-  login Turnstile-gated → bypass captcha dev).
+- **`playwright-verify`** — verifica funzionale dell'app dev con un browser reale
+  (Playwright MCP / Chromium via curl su MCP Streamable-HTTP + service token
+  Access, header service-token via `setExtraHTTPHeaders` per gli host dietro
+  Access), screenshot supportati; limiti chiave: ceiling ~5s per request (una
+  call breve per step, sfrutta lo stato persistito lato server), login
+  Turnstile-gated → bypass captcha dev.
 
 ## Hook automatici (`.claude/hooks/`)
 
