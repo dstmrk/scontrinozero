@@ -286,7 +286,9 @@ export default function AnalyticsEReportPage() {
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               Sul piano Pro apri il grafico <strong>Metodi di pagamento</strong>
-              : confronta le due barre per vedere la quota di ciascun metodo.
+              {
+                ": confronta le due barre per vedere la quota di ciascun metodo."
+              }
             </p>
           </div>
           <div>
