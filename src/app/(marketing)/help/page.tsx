@@ -148,6 +148,10 @@ const helpCategories: HelpCategory[] = [
         href: "/help/storico-ed-esportazione",
       },
       {
+        title: "Analytics e report: ricavi, scontrini e prodotti",
+        href: "/help/analytics-e-report",
+      },
+      {
         title: "Come stampare lo scontrino su carta termica",
         href: "/help/stampare-scontrino-termica",
       },
