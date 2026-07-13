@@ -166,48 +166,6 @@ esplicitamente, non lasciata decadere.
 
 ---
 
-### 64. Esito ignoto dopo `submitDocument` (HTTP 200 con body non-JSON) classificato come failure definitiva → mark ERROR → rischio doppio documento fiscale
-
-- **Categoria:** correttezza fiscale/robustezza · **Severità:** Medium — bassa probabilità, danno irreversibile (documento fiscale duplicato su AdE)
-- **File:** `src/lib/ade/real-client.ts:1942` (`return response.json()` finale di `submitDocument`, senza guard); gate mark-ERROR: `src/lib/services/receipt-service.ts:798-812` e `src/lib/services/void-service.ts:895-907` (`!isStatementTimeoutError && !isTransientAdeError` ⇒ status ERROR); classificazione: `isTransientAdeError` in `src/lib/ade/error-messages.ts`
-
-**Problema.** Se AdE risponde **200 con body non-JSON** (pagina di manutenzione
-HTML servita con 200, risposta troncata, proxy interposto), `response.json()`
-lancia un `SyntaxError` nudo: non è `AdeError`, non è transient, non è
-statement timeout → emit/void lo trattano come "submit sicuramente non
-arrivato" e marcano la riga **ERROR**. Ma la POST è stata consegnata e con un
-200 l'esito è **ignoto**: il documento può essere stato registrato. Con la
-riga in ERROR: (a) per il **VOID** l'indice unique parziale su
-`voided_document_id` esclude ERROR → un retry con key nuova inserisce un
-secondo VOID e ri-sottomette → **doppio annullo** su AdE; (b) per il **SALE**
-la cassa genera una idempotencyKey nuova a ogni retry → nuovo documento →
-**doppia emissione**, senza mai passare dalla riconciliazione
-`searchDocuments` che esiste proprio per gli esiti ignoti (REVIEW.md #4, che
-copre solo le righe rimaste PENDING). Lo stesso `response.json()` non guardato
-esiste su `getFiscalData`/`getDocument`/`getProducts`/`searchDocuments` — lì
-l'impatto è solo un errore opaco, non un duplicato.
-
-**Fix (non ambiguo).**
-
-1. In `submitDocument`: try/catch attorno al `response.json()` finale → throw
-   di una nuova classe `AdeUnknownOutcomeError` (in `src/lib/ade/errors.ts`),
-   messaggio con `statusCode`/`contentType` (mai il body: dati fiscali).
-2. Trattarla come **esito ignoto** = lasciare PENDING: farla riconoscere da
-   `isTransientAdeError` (documentando che il predicato significa "esito non
-   determinabile → non marcare ERROR, warn non Sentry") — così entrambi i
-   servizi restano invariati e la stale recovery riconcilia contro AdE via
-   `searchDocuments` prima di qualunque re-submit.
-3. Mappare la classe in `getUserFacingAdeErrorMessage` sullo stesso messaggio
-   "il portale non risponde… riprova" usato per i 5xx.
-4. Guard analogo (try/catch → `AdePortalError(status, …)`) sui `response.json()`
-   di `getFiscalData`/`getDocument`/`getProducts`/`searchDocuments`: nessuna
-   semantica unknown-outcome, basta un errore tipizzato invece del SyntaxError.
-5. **Test:** submit 200 + body HTML → riga resta PENDING, log warn (no Sentry);
-   retry oltre soglia stale → entra nel path `reconcileSaleBeforeResubmit` /
-   `reconcileVoidBeforeResubmit`; 200 + JSON valido → invariato.
-
----
-
 ## P3 — Bassa priorità
 
 ### 17. Key rotation zero-downtime: i caller passano sempre una sola chiave

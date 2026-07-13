@@ -7,6 +7,7 @@ import {
   AdePortalError,
   AdeSessionExpiredError,
   AdeSpidTimeoutError,
+  AdeUnknownOutcomeError,
 } from "./errors";
 
 describe("AdeError (base)", () => {
@@ -67,6 +68,29 @@ describe("AdePortalError", () => {
     expect(err.message).toBe("bad gateway");
     expect(err.code).toBe("ADE_PORTAL_ERROR");
     expect(err.name).toBe("AdePortalError");
+  });
+});
+
+describe("AdeUnknownOutcomeError", () => {
+  it("stores the status code and content type", () => {
+    const err = new AdeUnknownOutcomeError(200, "text/html; charset=UTF-8");
+    expect(err.statusCode).toBe(200);
+    expect(err.contentType).toBe("text/html; charset=UTF-8");
+    expect(err.code).toBe("ADE_UNKNOWN_OUTCOME");
+    expect(err.name).toBe("AdeUnknownOutcomeError");
+    expect(err).toBeInstanceOf(AdeError);
+  });
+
+  it("mentions the status and content type in the message but never the body", () => {
+    const err = new AdeUnknownOutcomeError(200, "text/html");
+    expect(err.message).toContain("200");
+    expect(err.message).toContain("text/html");
+  });
+
+  it("tolerates a null content type", () => {
+    const err = new AdeUnknownOutcomeError(200, null);
+    expect(err.contentType).toBeNull();
+    expect(err.message).toContain("unknown");
   });
 });
 

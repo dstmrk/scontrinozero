@@ -12,6 +12,7 @@ import {
   AdePortalError,
   AdeSessionExpiredError,
   AdeSpidTimeoutError,
+  AdeUnknownOutcomeError,
 } from "./errors";
 import { logger } from "@/lib/logger";
 import type { AdePayload, AdeResponse, SpidCredentials } from "./types";
@@ -1295,6 +1296,69 @@ describe("RealAdeClient", () => {
       );
     });
 
+    it("throws AdeUnknownOutcomeError on 200 with a non-JSON body (unknown outcome, REVIEW #64)", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      // AdE serve una pagina di manutenzione HTML con status 200: la POST è
+      // stata consegnata, l'esito è ignoto. Non è una failure definitiva.
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 200,
+          body: "<html><body>Manutenzione in corso</body></html>",
+          headers: [["Content-Type", "text/html; charset=UTF-8"]],
+        }),
+      );
+
+      await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
+        AdeUnknownOutcomeError,
+      );
+    });
+
+    it("logs the unknown-outcome at warn with status/content-type but never the body", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 200,
+          body: "<html>fiscal data must not leak</html>",
+          headers: [["Content-Type", "text/html; charset=UTF-8"]],
+        }),
+      );
+
+      await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
+        AdeUnknownOutcomeError,
+      );
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        {
+          statusCode: 200,
+          contentType: "text/html; charset=UTF-8",
+          endpoint: "/ser/api/documenti/v1/doc/documenti/",
+        },
+        "ade:submit_non_json_success",
+      );
+      // Il body non deve mai finire in nessun log (dati fiscali).
+      const loggedNonJson = (logger.warn as ReturnType<typeof vi.fn>).mock.calls
+        .map(([ctx]) => JSON.stringify(ctx))
+        .join("");
+      expect(loggedNonJson).not.toContain("fiscal data must not leak");
+    });
+
+    it("exposes the status code on the error for an empty (non-JSON) 200 body", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      // Body vuoto con status 200: json() fallisce comunque → esito ignoto.
+      fetchMock.mockResolvedValueOnce(new Response("", { status: 200 }));
+
+      await expect(client.submitSale(makeSalePayload())).rejects.toMatchObject({
+        code: "ADE_UNKNOWN_OUTCOME",
+        statusCode: 200,
+      });
+    });
+
     it("throws if not logged in", async () => {
       await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
         "Not logged in",
@@ -1368,8 +1432,78 @@ describe("RealAdeClient", () => {
       await expect(client.getFiscalData()).rejects.toThrow(AdePortalError);
     });
 
+    it("throws AdePortalError (not a nude SyntaxError) on 200 with non-JSON body", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      // 200 con pagina HTML: nessuna semantica unknown-outcome su una lettura,
+      // solo un errore tipizzato invece del SyntaxError opaco (REVIEW #64.4).
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 200,
+          body: "<html>maintenance</html>",
+          headers: [["Content-Type", "text/html"]],
+        }),
+      );
+
+      const err = await client.getFiscalData().catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(AdePortalError);
+      expect(err).not.toBeInstanceOf(SyntaxError);
+    });
+
     it("throws if not logged in", async () => {
       await expect(client.getFiscalData()).rejects.toThrow("Not logged in");
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // getProducts
+  // -----------------------------------------------------------------------
+
+  describe("getProducts", () => {
+    it("sends GET and returns the parsed product catalog", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      const catalog = [
+        {
+          id: 438167,
+          descrizioneProdotto: "Caffè",
+          prezzoUnitario: "100",
+          prezzoLordo: "100",
+          aliquotaIVA: "N2",
+        },
+      ];
+      fetchMock.mockResolvedValueOnce(mockResponse({ body: catalog }));
+
+      const result = await client.getProducts();
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe(438167);
+      expect(result[0].descrizioneProdotto).toBe("Caffè");
+    });
+
+    it("throws AdePortalError on non-200", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 500 }));
+
+      await expect(client.getProducts()).rejects.toThrow(AdePortalError);
+    });
+
+    it("throws AdePortalError on 200 with non-JSON body", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ status: 200, body: "<html>maintenance</html>" }),
+      );
+
+      await expect(client.getProducts()).rejects.toThrow(AdePortalError);
+    });
+
+    it("throws if not logged in", async () => {
+      await expect(client.getProducts()).rejects.toThrow("Not logged in");
     });
   });
 
@@ -1443,6 +1577,17 @@ describe("RealAdeClient", () => {
       await client.login(mockCredentials);
 
       fetchMock.mockResolvedValueOnce(mockResponse({ status: 404 }));
+
+      await expect(client.getDocument("999")).rejects.toThrow(AdePortalError);
+    });
+
+    it("throws AdePortalError on 200 with non-JSON body", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ status: 200, body: "<html>not json</html>" }),
+      );
 
       await expect(client.getDocument("999")).rejects.toThrow(AdePortalError);
     });
@@ -1534,6 +1679,17 @@ describe("RealAdeClient", () => {
       await client.login(mockCredentials);
 
       fetchMock.mockResolvedValueOnce(mockResponse({ status: 500 }));
+
+      await expect(client.searchDocuments({})).rejects.toThrow(AdePortalError);
+    });
+
+    it("throws AdePortalError on 200 with non-JSON body", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ status: 200, body: "<html>maintenance</html>" }),
+      );
 
       await expect(client.searchDocuments({})).rejects.toThrow(AdePortalError);
     });

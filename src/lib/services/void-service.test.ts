@@ -932,6 +932,22 @@ describe("voidReceiptForBusiness", () => {
     expect(statusUpdates).not.toContain("ERROR");
   });
 
+  it("REVIEW #64: submitVoid 200 non-JSON (AdeUnknownOutcomeError) NON marca ERROR (resta PENDING)", async () => {
+    // Esito ignoto dopo il POST di annullo: marcare ERROR permetterebbe un
+    // secondo VOID (doppio annullo su AdE). La riga resta PENDING e la
+    // stale-recovery riconcilia via searchDocuments prima di ogni re-submit.
+    const { AdeUnknownOutcomeError } = await import("@/lib/ade/errors");
+    mockSubmitVoid.mockRejectedValue(
+      new AdeUnknownOutcomeError(200, "text/html; charset=UTF-8"),
+    );
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    await voidReceiptForBusiness(VALID_INPUT);
+
+    const statusUpdates = mockUpdateSet.mock.calls.map((c) => c[0].status);
+    expect(statusUpdates).not.toContain("ERROR");
+  });
+
   it("REVIEW #35: errore pre-submit permanente (non transient) marca ancora ERROR", async () => {
     // Un errore generico non-transient e non-timeout (es. fallimento permanente
     // pre-submit) deve continuare a marcare ERROR: AdE non ha ricevuto nulla e

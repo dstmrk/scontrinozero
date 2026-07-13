@@ -30,6 +30,7 @@ import {
   AdePortalError,
   AdeSessionExpiredError,
   AdeSpidTimeoutError,
+  AdeUnknownOutcomeError,
 } from "./errors";
 import { logger } from "@/lib/logger";
 
@@ -1670,6 +1671,36 @@ export class RealAdeClient implements AdeClient {
     return this.submitDocument(payload);
   }
 
+  /**
+   * Parsa il body JSON di una response GET già verificata `ok`. Se il portale
+   * risponde 200 con body non-JSON (manutenzione HTML, troncamento, proxy) un
+   * `response.json()` nudo lancerebbe un SyntaxError opaco: qui lo mappiamo a un
+   * `AdePortalError` tipizzato. A differenza di `submitDocument` NON serve la
+   * semantica unknown-outcome — queste sono letture, nessuna scrittura fiscale
+   * in gioco. Mai loggare il body: dati fiscali.
+   */
+  private async parseJsonBody<T>(
+    response: Response,
+    endpoint: string,
+  ): Promise<T> {
+    try {
+      return (await response.json()) as T;
+    } catch {
+      logger.warn(
+        {
+          statusCode: response.status,
+          contentType: response.headers.get("content-type") ?? null,
+          endpoint,
+        },
+        "ade:non_json_body",
+      );
+      throw new AdePortalError(
+        response.status,
+        `Expected JSON body from ${endpoint} but got a non-JSON response`,
+      );
+    }
+  }
+
   async getFiscalData(): Promise<AdeCedentePrestatore> {
     this.assertLoggedIn();
 
@@ -1683,7 +1714,10 @@ export class RealAdeClient implements AdeClient {
       );
     }
 
-    return response.json();
+    return this.parseJsonBody<AdeCedentePrestatore>(
+      response,
+      "/ser/api/documenti/v1/doc/documenti/dati/fiscali",
+    );
   }
 
   /**
@@ -1706,7 +1740,10 @@ export class RealAdeClient implements AdeClient {
       );
     }
 
-    return response.json() as Promise<AdeProduct[]>;
+    return this.parseJsonBody<AdeProduct[]>(
+      response,
+      "/ser/api/documenti/v1/doc/rubrica/prodotti",
+    );
   }
 
   /**
@@ -1728,7 +1765,10 @@ export class RealAdeClient implements AdeClient {
       );
     }
 
-    return response.json() as Promise<AdeDocumentDetail>;
+    return this.parseJsonBody<AdeDocumentDetail>(
+      response,
+      "/ser/api/documenti/v1/doc/documenti/{idtrx}",
+    );
   }
 
   /**
@@ -1768,7 +1808,10 @@ export class RealAdeClient implements AdeClient {
       );
     }
 
-    return response.json() as Promise<AdeDocumentList>;
+    return this.parseJsonBody<AdeDocumentList>(
+      response,
+      "/ser/api/documenti/v1/doc/documenti/",
+    );
   }
 
   /**
@@ -1939,7 +1982,28 @@ export class RealAdeClient implements AdeClient {
       );
     }
 
-    return response.json();
+    // HTTP di successo ma body non-JSON (manutenzione HTML servita con 200,
+    // risposta troncata, proxy interposto): la POST è stata consegnata, quindi
+    // l'esito è IGNOTO, non una failure. Un SyntaxError nudo qui verrebbe
+    // classificato come "submit sicuramente non arrivato" → mark ERROR →
+    // rischio doppio documento fiscale (REVIEW.md #64). Lanciamo invece
+    // AdeUnknownOutcomeError, che isTransientAdeError riconosce per lasciare la
+    // riga PENDING e far riconciliare la stale recovery contro AdE prima di un
+    // eventuale re-submit. Mai loggare il body: dati fiscali.
+    try {
+      return await response.json();
+    } catch {
+      const contentType = response.headers.get("content-type");
+      logger.warn(
+        {
+          statusCode: response.status,
+          contentType: contentType ?? null,
+          endpoint: "/ser/api/documenti/v1/doc/documenti/",
+        },
+        "ade:submit_non_json_success",
+      );
+      throw new AdeUnknownOutcomeError(response.status, contentType);
+    }
   }
 
   private assertLoggedIn(): void {
