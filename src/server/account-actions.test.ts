@@ -14,18 +14,39 @@ vi.mock("@/lib/server-auth", () => ({
 }));
 
 const mockDeleteReturning = vi.fn();
+const mockSelectLimit = vi.fn();
+// `.where()` della delete serve due pattern (profiles con `.returning()`,
+// subscriptions con `await`): un Promise con `.returning` attaccato li copre.
+const mockDbDelete = vi.fn(() => ({
+  where: () => {
+    const chain = Promise.resolve(undefined) as Promise<unknown> & {
+      returning: typeof mockDeleteReturning;
+    };
+    chain.returning = mockDeleteReturning;
+    return chain;
+  },
+}));
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({
-    delete: vi.fn().mockReturnValue({
-      where: vi.fn().mockReturnValue({
-        returning: mockDeleteReturning,
+    select: vi.fn().mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ limit: mockSelectLimit }),
       }),
     }),
+    delete: mockDbDelete,
   }),
 }));
 
 vi.mock("@/db/schema", () => ({
   profiles: "profiles-table",
+  subscriptions: { userId: "user_id", stripeCustomerId: "stripe_customer_id" },
+}));
+
+const mockCustomersDel = vi.fn();
+vi.mock("@/lib/stripe", () => ({
+  getStripe: vi.fn().mockReturnValue({
+    customers: { del: mockCustomersDel },
+  }),
 }));
 
 const mockAdminDeleteUser = vi.fn();
@@ -109,6 +130,10 @@ describe("account-actions", () => {
     mockSignOut.mockResolvedValue({});
     mockSignInWithPassword.mockResolvedValue({ error: null });
     mockCheck.mockReturnValue({ success: true });
+    // Default: nessuna subscription → il ramo Stripe è skippato (flusso invariato
+    // per i test preesistenti).
+    mockSelectLimit.mockResolvedValue([]);
+    mockCustomersDel.mockResolvedValue({ id: "cus_x", deleted: true });
   });
 
   describe("deleteAccount", () => {
@@ -241,6 +266,90 @@ describe("account-actions", () => {
       expect(result.error).toBe("Email utente non disponibile.");
       expect(mockSignInWithPassword).not.toHaveBeenCalled();
       expect(mockAdminDeleteUser).not.toHaveBeenCalled();
+    });
+
+    // ---- Stripe subscription cancellation (REVIEW.md #63) ---------------
+
+    it("cancels the Stripe customer BEFORE purging when an active subscription exists", async () => {
+      mockSelectLimit.mockResolvedValue([{ stripeCustomerId: "cus_123" }]);
+      const callOrder: string[] = [];
+      mockCustomersDel.mockImplementation(async () => {
+        callOrder.push("stripeDel");
+        return { id: "cus_123", deleted: true };
+      });
+      mockAdminDeleteUser.mockImplementation(async () => {
+        callOrder.push("purge");
+        return { error: null };
+      });
+
+      const { deleteAccount } = await import("./account-actions");
+      await deleteAccount(formWithPassword());
+
+      expect(mockCustomersDel).toHaveBeenCalledWith("cus_123");
+      // La delete Stripe precede il purge: fail-safe contro addebiti fantasma.
+      expect(callOrder.indexOf("stripeDel")).toBeLessThan(
+        callOrder.indexOf("purge"),
+      );
+      expect(mockRedirect).toHaveBeenCalledWith("/");
+    });
+
+    it("aborts the purge and returns a dedicated error when Stripe is unreachable", async () => {
+      mockSelectLimit.mockResolvedValue([{ stripeCustomerId: "cus_123" }]);
+      mockCustomersDel.mockRejectedValue(new Error("Stripe timeout"));
+
+      const { deleteAccount } = await import("./account-actions");
+      const result = await deleteAccount(formWithPassword());
+
+      expect(result.error).toBe(
+        "Non è stato possibile annullare l'abbonamento. Riprova o gestiscilo dal portale prima di eliminare l'account.",
+      );
+      // Nessun purge: né auth né profilo toccati.
+      expect(mockAdminDeleteUser).not.toHaveBeenCalled();
+      expect(mockDeleteReturning).not.toHaveBeenCalled();
+      expect(mockRedirect).not.toHaveBeenCalled();
+      // Fallimento SDK esterno inatteso → error (regola 10).
+      expect(logger.error).toHaveBeenCalled();
+    });
+
+    it("treats an already-deleted Stripe customer (404) as idempotent and proceeds with the purge", async () => {
+      mockSelectLimit.mockResolvedValue([{ stripeCustomerId: "cus_123" }]);
+      mockCustomersDel.mockRejectedValue({
+        statusCode: 404,
+        code: "resource_missing",
+      });
+
+      const { deleteAccount } = await import("./account-actions");
+      await deleteAccount(formWithPassword());
+
+      // Obiettivo raggiunto (customer già assente) → purge prosegue fino al
+      // redirect finale, nessun errore dedicato all'utente.
+      expect(mockAdminDeleteUser).toHaveBeenCalledWith(FAKE_USER.id);
+      expect(mockRedirect).toHaveBeenCalledWith("/");
+      // Condizione attesa → warn, non Sentry-bound error (regola 20).
+      expect(logger.warn).toHaveBeenCalled();
+      expect(logger.error).not.toHaveBeenCalled();
+    });
+
+    it("skips Stripe entirely when there is no subscription row", async () => {
+      mockSelectLimit.mockResolvedValue([]);
+
+      const { deleteAccount } = await import("./account-actions");
+      await deleteAccount(formWithPassword());
+
+      expect(mockCustomersDel).not.toHaveBeenCalled();
+      expect(mockAdminDeleteUser).toHaveBeenCalledWith(FAKE_USER.id);
+      expect(mockRedirect).toHaveBeenCalledWith("/");
+    });
+
+    it("skips Stripe when the subscription row has no stripeCustomerId", async () => {
+      mockSelectLimit.mockResolvedValue([{ stripeCustomerId: null }]);
+
+      const { deleteAccount } = await import("./account-actions");
+      await deleteAccount(formWithPassword());
+
+      expect(mockCustomersDel).not.toHaveBeenCalled();
+      expect(mockAdminDeleteUser).toHaveBeenCalledWith(FAKE_USER.id);
+      expect(mockRedirect).toHaveBeenCalledWith("/");
     });
 
     // ---- Purge behaviour (unchanged) ------------------------------------

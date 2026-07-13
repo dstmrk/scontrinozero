@@ -73,6 +73,16 @@ describe("AccountDeleteSection", () => {
     ).toBeInTheDocument();
   });
 
+  it("avvisa che un abbonamento attivo viene annullato immediatamente (REVIEW.md #63)", async () => {
+    renderWithQuery();
+    await openDialog();
+
+    expect(screen.getByText(/abbonamento attivo/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/non ti verrà addebitato alcun rinnovo/),
+    ).toBeInTheDocument();
+  });
+
   it("il copy generalizza le credenziali AdE a Fisconline o CIE ID", async () => {
     renderWithQuery();
     await openDialog();

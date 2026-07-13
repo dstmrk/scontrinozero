@@ -2,18 +2,27 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockDeleteReturning = vi.fn();
+// `.where()` deve servire due pattern: `.where().returning()` (profiles) e
+// `await .where()` (subscriptions, senza returning). Un Promise con `.returning`
+// attaccato soddisfa entrambi.
+const mockDbDelete = vi.fn(() => ({
+  where: () => {
+    const chain = Promise.resolve(undefined) as Promise<unknown> & {
+      returning: typeof mockDeleteReturning;
+    };
+    chain.returning = mockDeleteReturning;
+    return chain;
+  },
+}));
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({
-    delete: vi.fn().mockReturnValue({
-      where: vi.fn().mockReturnValue({
-        returning: mockDeleteReturning,
-      }),
-    }),
+    delete: mockDbDelete,
   }),
 }));
 
 vi.mock("@/db/schema", () => ({
   profiles: { authUserId: "auth_user_id" },
+  subscriptions: { userId: "user_id" },
 }));
 
 const mockAdminDeleteUser = vi.fn();
@@ -53,6 +62,18 @@ describe("purgeUserById", () => {
     expect(mockAdminDeleteUser).toHaveBeenCalledWith(USER_ID);
     expect(order).toEqual(["auth", "profile"]);
     expect(result).toEqual({ authDeleted: true, profileDeleted: true });
+  });
+
+  it("cancella anche la riga subscriptions insieme al profilo (no righe orfane, REVIEW.md #63)", async () => {
+    const { purgeUserById } = await import("./purge-user");
+    const { profiles, subscriptions } = await import("@/db/schema");
+
+    await purgeUserById(USER_ID);
+
+    // Entrambe le tabelle vengono targhettate dalla DELETE: la subscription non
+    // ha FK/cascata, quindi senza questa delete resterebbe orfana.
+    expect(mockDbDelete).toHaveBeenCalledWith(subscriptions);
+    expect(mockDbDelete).toHaveBeenCalledWith(profiles);
   });
 
   it("ritenta la delete auth fino a 3 volte poi si arrende (profilo intatto)", async () => {
