@@ -965,6 +965,161 @@ describe("auth-actions", () => {
       );
     });
 
+    // --- REVIEW #65: race sul doppio signUp ---
+
+    it("NON cancella l'auth user quando un profilo esiste già per lo stesso authUserId (race doppio signUp)", async () => {
+      // R2 del doppio signUp: Supabase riusa lo stesso auth user id, l'insert
+      // fallisce con unique violation, ma l'auth user appartiene alla
+      // registrazione R1 già committata → NON deve essere cancellato.
+      mockSignUp.mockResolvedValue({
+        // identities non vuoto: bypassa il guard obfuscated (isoliamo il guard
+        // in insertProfileOrRollback).
+        data: { user: { id: "shared-auth-id", identities: [{ id: "i1" }] } },
+        error: null,
+      });
+      const uniqueErr = Object.assign(new Error("duplicate key"), {
+        code: "23505",
+      });
+      mockInsert.mockReturnValueOnce({
+        values: vi.fn().mockRejectedValueOnce(uniqueErr),
+      });
+      // 1ª SELECT = pre-check email (nessun profilo → signup procede);
+      // 2ª SELECT = guard esistenza profilo per authUserId (riga presente).
+      mockLimit.mockResolvedValueOnce([]);
+      mockLimit.mockResolvedValueOnce([{ id: "r1-profile-id" }]);
+
+      const { signUp } = await import("./auth-actions");
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+          }),
+        );
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+        if (isRedirectError(err)) {
+          expect(err.url).toBe("/verify-email");
+        }
+      }
+
+      // L'auth user legittimo di R1 NON deve essere toccato.
+      expect(mockDeleteUser).not.toHaveBeenCalled();
+    });
+
+    it("redirect a /verify-email senza insert quando signUp ritorna un utente obfuscato (identities vuoto)", async () => {
+      // Email già registrata e non confermata: Supabase ritorna un utente
+      // obfuscato con identities: [] riusando l'id esistente.
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "existing-auth-id", identities: [] } },
+        error: null,
+      });
+
+      const { signUp } = await import("./auth-actions");
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+          }),
+        );
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+        if (isRedirectError(err)) {
+          expect(err.url).toBe("/verify-email");
+        }
+      }
+
+      // Nessun tentativo di insert e nessuna cancellazione dell'auth user.
+      expect(mockInsert).not.toHaveBeenCalled();
+      expect(mockDeleteUser).not.toHaveBeenCalled();
+    });
+
+    it("cancella l'auth user orfano quando l'insert fallisce e NESSUN profilo esiste per l'authUserId (fallimento genuino)", async () => {
+      // Nessun profilo per l'authUserId (guard → []): l'auth user è davvero
+      // orfano e il compensating delete deve procedere (comportamento storico).
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "genuine-orphan", identities: [{ id: "i1" }] } },
+        error: null,
+      });
+      const uniqueErr = Object.assign(new Error("duplicate key"), {
+        code: "23505",
+      });
+      mockInsert.mockReturnValueOnce({
+        values: vi.fn().mockRejectedValueOnce(uniqueErr),
+      });
+      // Pre-check email [] e guard esistenza profilo [] → orfano genuino.
+      mockLimit.mockResolvedValueOnce([]);
+      mockLimit.mockResolvedValueOnce([]);
+      mockDeleteUser.mockResolvedValue({ error: null });
+
+      const { signUp } = await import("./auth-actions");
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+          }),
+        );
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+      }
+
+      expect(mockDeleteUser).toHaveBeenCalledWith("genuine-orphan");
+    });
+
+    it("degrada al compensating delete quando il guard di esistenza profilo fallisce (regola 19)", async () => {
+      // Se anche la query di guard fallisce non possiamo confermare l'esistenza
+      // del profilo: torniamo al comportamento storico (compensating delete)
+      // invece di propagare l'errore.
+      mockSignUp.mockResolvedValue({
+        data: { user: { id: "orphan-guard-fail", identities: [{ id: "i1" }] } },
+        error: null,
+      });
+      const uniqueErr = Object.assign(new Error("duplicate key"), {
+        code: "23505",
+      });
+      mockInsert.mockReturnValueOnce({
+        values: vi.fn().mockRejectedValueOnce(uniqueErr),
+      });
+      // Pre-check email [] poi guard che rigetta → profileExistsForAuthUser=false.
+      mockLimit.mockResolvedValueOnce([]);
+      mockLimit.mockRejectedValueOnce(new Error("guard DB error"));
+      mockDeleteUser.mockResolvedValue({ error: null });
+
+      const { signUp } = await import("./auth-actions");
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+          }),
+        );
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+      }
+
+      expect(mockDeleteUser).toHaveBeenCalledWith("orphan-guard-fail");
+    });
+
     it("returns captcha error when token is missing", async () => {
       const { signUp } = await import("./auth-actions");
       const result = await signUp(
