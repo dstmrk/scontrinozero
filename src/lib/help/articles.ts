@@ -39,6 +39,14 @@ export const helpArticles: Record<string, HelpArticle> = {
       "storico-ed-esportazione",
     ],
   },
+  "analytics-e-report": {
+    slug: "analytics-e-report",
+    title: "Analytics e report: ricavi, scontrini e prodotti",
+    metaTitle: "Analytics e report: ricavi, scontrini e prodotti più venduti",
+    description:
+      "Come leggere il pannello Analytics: i KPI (ricavi, scontrini emessi, scontrino medio e annullati), i grafici e il selettore di periodo. I grafici avanzati e l'export CSV sono sul piano Pro.",
+    related: ["storico-ed-esportazione", "piani-e-prezzi", "cassetto-fiscale"],
+  },
   api: {
     slug: "api",
     title: "API per sviluppatori",
@@ -161,7 +169,7 @@ export const helpArticles: Record<string, HelpArticle> = {
     metaTitle: "Piani disponibili: Starter, Pro e self-hosted gratuito",
     description:
       "Scopri le differenze tra i piani Starter, Pro e la versione self-hosted gratuita di ScontrinoZero. Prezzi, feature e come scegliere il piano giusto.",
-    related: ["prima-configurazione", "fatture-e-ricevute", "cambio-piano"],
+    related: ["analytics-e-report", "fatture-e-ricevute", "cambio-piano"],
   },
   "pos-rt-obbligo": {
     slug: "pos-rt-obbligo",
@@ -242,7 +250,7 @@ export const helpArticles: Record<string, HelpArticle> = {
     metaTitle: "Storico scontrini: filtri, ricerca ed esportazione",
     description:
       "Come navigare lo storico degli scontrini in ScontrinoZero, usare i filtri di ricerca e ricondividere il PDF dei singoli scontrini. L'export CSV è disponibile sul piano Pro.",
-    related: ["annullare-scontrino", "cassetto-fiscale", "piani-e-prezzi"],
+    related: ["annullare-scontrino", "cassetto-fiscale", "analytics-e-report"],
   },
 };
 

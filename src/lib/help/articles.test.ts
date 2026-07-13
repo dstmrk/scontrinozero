@@ -100,6 +100,27 @@ describe("numero-documento-azzeramento (batch D — query GSC senza pagina)", ()
   });
 });
 
+describe("analytics-e-report (KPI, grafici e gating Pro)", () => {
+  const article = helpArticles["analytics-e-report"];
+
+  it("exists in the registry", () => {
+    expect(article).toBeDefined();
+  });
+
+  it("targets the analytics query in the metaTitle", () => {
+    expect(article.metaTitle.toLowerCase()).toContain("analytics");
+  });
+
+  it("segnala il gating Pro nella description (niente promesse fuori piano)", () => {
+    expect(article.description).toContain("Pro");
+  });
+
+  it("links the storico and pricing cluster", () => {
+    expect(article.related).toContain("storico-ed-esportazione");
+    expect(article.related).toContain("piani-e-prezzi");
+  });
+});
+
 describe("HELP_REVIEWED_DATE", () => {
   it("is an ISO date in YYYY-MM-DD form (accettata da articleJsonLd)", () => {
     expect(HELP_REVIEWED_DATE).toMatch(/^\d{4}-\d{2}-\d{2}$/);
