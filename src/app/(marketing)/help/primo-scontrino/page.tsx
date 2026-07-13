@@ -9,6 +9,7 @@ import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
+import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
 export const metadata = helpArticleMetadata("primo-scontrino");
 
@@ -111,6 +112,19 @@ export default function PrimoScontrinoPage() {
           disponibili sono 4%, 5%, 10%, 22% e sei codici natura a 0% (N1–N6) per
           le operazioni non imponibili, esenti o escluse.
         </p>
+        <figure className="mt-6">
+          <AppScreenshot
+            src="/screenshots/cassa-tastierino.png"
+            alt="Schermata Cassa di ScontrinoZero: tastierino numerico per inserire l'importo, con quantità e aliquota IVA"
+            width={900}
+            height={1944}
+            sizes="(min-width: 768px) 240px, 65vw"
+            className="mx-auto max-w-[240px]"
+          />
+          <figcaption className="text-muted-foreground mt-2 text-center text-xs">
+            Aggiungi una riga: importo dal tastierino, quantità e aliquota IVA.
+          </figcaption>
+        </figure>
 
         <h2 className="mt-10 text-xl font-semibold">
           Passaggio 3 — Conferma il carrello e scegli il pagamento
@@ -136,6 +150,19 @@ export default function PrimoScontrinoPage() {
           <strong>Codice lotteria</strong> (8 caratteri, scontrini da almeno €1)
           per far partecipare il cliente alla Lotteria degli Scontrini.
         </p>
+        <figure className="mt-6">
+          <AppScreenshot
+            src="/screenshots/riepilogo-pagamento.png"
+            alt="Schermata di riepilogo scontrino con le righe, il totale, la scelta del metodo di pagamento e il campo codice lotteria"
+            width={900}
+            height={1860}
+            sizes="(min-width: 768px) 240px, 65vw"
+            className="mx-auto max-w-[240px]"
+          />
+          <figcaption className="text-muted-foreground mt-2 text-center text-xs">
+            Il riepilogo con totale, metodo di pagamento e codice lotteria.
+          </figcaption>
+        </figure>
 
         <h2 className="mt-10 text-xl font-semibold">
           Passaggio 4 — Emetti lo scontrino
@@ -163,6 +190,19 @@ export default function PrimoScontrinoPage() {
             scontrino.
           </li>
         </ol>
+        <figure className="mt-6">
+          <AppScreenshot
+            src="/screenshots/scontrino-emesso.png"
+            alt="Schermata di conferma con lo scontrino emesso e l'identificativo dell'Agenzia delle Entrate"
+            width={900}
+            height={1860}
+            sizes="(min-width: 768px) 240px, 65vw"
+            className="mx-auto max-w-[240px]"
+          />
+          <figcaption className="text-muted-foreground mt-2 text-center text-xs">
+            Emesso: identificativo AdE, invio ricevuta e QR code.
+          </figcaption>
+        </figure>
 
         <h2 className="mt-10 text-xl font-semibold">
           Passaggio 5 — Condividi lo scontrino col cliente

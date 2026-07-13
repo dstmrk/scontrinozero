@@ -9,6 +9,7 @@ import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
+import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
 export const metadata = helpArticleMetadata("cambio-piano");
 
@@ -46,6 +47,19 @@ export default function CambioPianoPage() {
         <p className="text-muted-foreground mt-1 text-sm">
           <strong>Ultimo aggiornamento:</strong> aprile 2026
         </p>
+        <figure className="mt-6">
+          <AppScreenshot
+            src="/screenshots/impostazioni-piano.png"
+            alt="Schermata Piano e Abbonamento con il selettore mensile/annuale e i piani"
+            width={900}
+            height={1860}
+            sizes="(min-width: 768px) 240px, 65vw"
+            className="mx-auto max-w-[240px]"
+          />
+          <figcaption className="text-muted-foreground mt-2 text-center text-xs">
+            Da «Piano e Abbonamento» scegli mensile o annuale e cambia piano.
+          </figcaption>
+        </figure>
 
         {/* ─── Istruzioni ─── */}
         <h2 className="mt-10 text-xl font-semibold">Istruzioni passo-passo</h2>

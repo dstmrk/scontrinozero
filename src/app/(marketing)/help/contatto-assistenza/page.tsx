@@ -9,6 +9,7 @@ import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
+import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
 export const metadata = helpArticleMetadata("contatto-assistenza");
 
@@ -46,6 +47,19 @@ export default function ContattoAssistenzaPage() {
         <p className="text-muted-foreground mt-1 text-sm">
           <strong>Ultimo aggiornamento:</strong> maggio 2026
         </p>
+        <figure className="mt-6">
+          <AppScreenshot
+            src="/screenshots/impostazioni-preferenze.png"
+            alt="Schermata Impostazioni con la sezione Assistenza: Centro assistenza e Scrivici via email"
+            width={900}
+            height={1860}
+            sizes="(min-width: 768px) 240px, 65vw"
+            className="mx-auto max-w-[240px]"
+          />
+          <figcaption className="text-muted-foreground mt-2 text-center text-xs">
+            Impostazioni → Assistenza: Centro assistenza e contatto via email.
+          </figcaption>
+        </figure>
 
         {/* ─── Email ─── */}
         <h2 className="mt-10 text-xl font-semibold">Contatto via email</h2>
