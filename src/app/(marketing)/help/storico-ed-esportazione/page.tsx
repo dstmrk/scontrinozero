@@ -9,6 +9,7 @@ import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
+import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
 export const metadata = helpArticleMetadata("storico-ed-esportazione");
 
@@ -82,6 +83,20 @@ export default function StoricoEdEsportazionePage() {
           </Link>
           {"."}
         </p>
+        <figure className="mt-6">
+          <AppScreenshot
+            src="/screenshots/storico-lista.png"
+            alt="Schermata Storico di ScontrinoZero con la lista degli scontrini, i filtri per periodo e stato e il pulsante Esporta CSV"
+            width={900}
+            height={1860}
+            sizes="(min-width: 768px) 240px, 65vw"
+            className="mx-auto max-w-[240px]"
+          />
+          <figcaption className="text-muted-foreground mt-2 text-center text-xs">
+            Lo Storico con i filtri per periodo e stato e l&apos;export CSV
+            (piano Pro).
+          </figcaption>
+        </figure>
 
         {/* ─── Filtri disponibili ─── */}
         <h2 className="mt-10 text-xl font-semibold">Filtri disponibili</h2>
@@ -151,6 +166,19 @@ export default function StoricoEdEsportazionePage() {
             documento di annullo.
           </li>
         </ul>
+        <figure className="mt-6">
+          <AppScreenshot
+            src="/screenshots/storico-dettaglio.png"
+            alt="Finestra di dettaglio di uno scontrino con le righe, il totale e i pulsanti Mostra QR code, Invia ricevuta e Annulla scontrino"
+            width={900}
+            height={1860}
+            sizes="(min-width: 768px) 240px, 65vw"
+            className="mx-auto max-w-[240px]"
+          />
+          <figcaption className="text-muted-foreground mt-2 text-center text-xs">
+            Il dettaglio scontrino: QR code, invio ricevuta e annullo.
+          </figcaption>
+        </figure>
 
         {/* ─── Export CSV (Piano Pro) ─── */}
         <h2 className="mt-10 text-xl font-semibold">

@@ -8,6 +8,7 @@ import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
+import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
 export const metadata = helpArticleMetadata("annullare-scontrino");
 
@@ -143,6 +144,19 @@ export default function AnnullareScontrinoPage() {
             scontrino originale passa a stato <strong>Annullato</strong>.
           </li>
         </ol>
+        <figure className="mt-6">
+          <AppScreenshot
+            src="/screenshots/storico-dettaglio.png"
+            alt="Finestra di dettaglio di uno scontrino Emesso con il pulsante Annulla scontrino in rosso"
+            width={900}
+            height={1860}
+            sizes="(min-width: 768px) 240px, 65vw"
+            className="mx-auto max-w-[240px]"
+          />
+          <figcaption className="text-muted-foreground mt-2 text-center text-xs">
+            Dal dettaglio dello scontrino tocca «Annulla scontrino».
+          </figcaption>
+        </figure>
 
         {/* ─── Cosa succede dopo ─── */}
         <h2 className="mt-10 text-xl font-semibold">
