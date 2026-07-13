@@ -21,11 +21,29 @@ export interface GuideTable {
   readonly rows: readonly (readonly string[])[];
 }
 
+/**
+ * Screenshot inline opzionale di una sezione guida: stesso componente
+ * presentazionale del /help (AppScreenshot in un `<figure>`). `width`/`height`
+ * sono le dimensioni intrinseche del PNG in `public/screenshots/`.
+ */
+export interface GuideImage {
+  /** Percorso root-absolute (es. "/screenshots/cassa-tastierino.png"). */
+  readonly src: string;
+  /** Testo alternativo descrittivo (italiano, SEO/accessibilità). */
+  readonly alt: string;
+  readonly width: number;
+  readonly height: number;
+  /** Didascalia opzionale sotto lo screenshot. */
+  readonly caption?: string;
+}
+
 export interface GuideSection {
   readonly heading: string;
   readonly body: string;
   /** Tabella opzionale renderizzata dopo il body (es. codici natura N1-N7). */
   readonly table?: GuideTable;
+  /** Screenshot inline opzionale renderizzato dopo body/tabella. */
+  readonly image?: GuideImage;
 }
 
 export interface GuideFaq {
@@ -78,6 +96,14 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         heading: "Cosa contiene",
         body: "Un DCO riporta obbligatoriamente: ragione sociale e partita IVA dell'esercente, data e ora di emissione, numero progressivo annuale, descrizione dei beni o servizi venduti, prezzo unitario, quantità, aliquota IVA per riga, totale corrispettivo, eventuale codice lotteria del cliente. La trasmissione all'AdE avviene istantaneamente al momento della conferma di emissione.",
+        image: {
+          src: "/screenshots/documento-commerciale.png",
+          alt: "Documento commerciale online con identificativo AdE, dettaglio articoli, aliquote IVA e totale",
+          width: 661,
+          height: 1188,
+          caption:
+            "Sul documento compaiono l'identificativo AdE, gli articoli con le aliquote IVA e il totale.",
+        },
       },
       {
         heading: "Come si emette con ScontrinoZero",
@@ -145,6 +171,14 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         heading: "Procedura con un'app dedicata",
         body: 'App come ScontrinoZero automatizzano la procedura: salvi il catalogo prodotti una volta, e in fase di emissione basta toccare gli articoli, scegliere il pagamento e premere "Emetti". L\'app si occupa di autenticarsi su AdE con le tue credenziali, di trasmettere il documento e di archiviarlo. Tempo medio: 5-10 secondi per scontrino.',
+        image: {
+          src: "/screenshots/cassa-tastierino.png",
+          alt: "Schermata Cassa di ScontrinoZero: tastierino per l'importo, quantità e aliquota IVA della riga",
+          width: 900,
+          height: 1944,
+          caption:
+            "In cassa aggiungi le righe dal tastierino o dal catalogo, poi scegli pagamento ed emetti.",
+        },
       },
       {
         heading: "Quale app scegliere per lo scontrino elettronico",
@@ -576,6 +610,14 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         heading: "Procedura con software dedicato",
         body: "Un software come ScontrinoZero ti permette di annullare uno scontrino direttamente dallo storico: apri la riga del documento e selezioni \"Annulla\". L'app emette per te il DCO di annullamento con i riferimenti corretti, lo trasmette ad AdE e aggiorna lo stato. È un'operazione irreversibile: una volta annullato, lo scontrino non si recupera. Per sicurezza il sistema chiede conferma esplicita.",
+        image: {
+          src: "/screenshots/storico-dettaglio.png",
+          alt: "Dettaglio di uno scontrino nello Storico di ScontrinoZero, con l'azione per annullare il documento",
+          width: 900,
+          height: 1860,
+          caption:
+            "Dal dettaglio dello scontrino nello Storico avvii l'annullamento, con conferma esplicita.",
+        },
       },
       {
         heading: "Conservazione e tracciabilità",
@@ -998,4 +1040,30 @@ export function getGuide(slug: string): GuideArticle {
     throw new Error(`Unknown guide slug: ${slug}`);
   }
   return guideArticles[slug];
+}
+
+/** Screenshot del documento commerciale: è un foglio, non un mockup telefono. */
+const DOCUMENT_SCREENSHOT = "/screenshots/documento-commerciale.png";
+
+/**
+ * Sizing/frame di uno screenshot inline nelle guide. I mockup telefono usano
+ * una cornice stretta (`max-w-[240px]`); il documento commerciale — che è un
+ * foglio con angoli arrotondati — una più larga (`max-w-[320px] rounded-xl`).
+ * Funzione pura → coperta dai test, così la logica non vive solo nella pagina
+ * esclusa dalla coverage.
+ */
+export function guideImageFrame(src: string): {
+  readonly className: string;
+  readonly sizes: string;
+} {
+  if (src === DOCUMENT_SCREENSHOT) {
+    return {
+      className: "mx-auto max-w-[320px] rounded-xl",
+      sizes: "(min-width: 768px) 320px, 80vw",
+    };
+  }
+  return {
+    className: "mx-auto max-w-[240px]",
+    sizes: "(min-width: 768px) 240px, 65vw",
+  };
 }

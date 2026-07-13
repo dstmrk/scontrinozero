@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { getGuide, guideArticles, guideSlugs, isGuideSlug } from "./articles";
+import {
+  getGuide,
+  guideArticles,
+  guideImageFrame,
+  guideSlugs,
+  isGuideSlug,
+} from "./articles";
 
 describe("guideSlugs", () => {
   it("contains exactly 12 slugs", () => {
@@ -119,6 +125,68 @@ describe("guideArticles dictionary", () => {
           expect(guideSlugs).toContain(guideSlug);
         }
       });
+
+      it("has well-formed inline images when present", () => {
+        for (const section of a.sections) {
+          if (!section.image) continue;
+          const { src, alt, width, height, caption } = section.image;
+          expect(src).toMatch(/^\/screenshots\/[a-z0-9-]+\.png$/);
+          expect(alt.length).toBeGreaterThan(10);
+          expect(Number.isInteger(width)).toBe(true);
+          expect(Number.isInteger(height)).toBe(true);
+          expect(width).toBeGreaterThan(0);
+          expect(height).toBeGreaterThan(0);
+          if (caption !== undefined) {
+            expect(caption.length).toBeGreaterThan(0);
+          }
+        }
+      });
+    });
+  }
+});
+
+describe("guideImageFrame", () => {
+  it("uses the wide document frame for the documento commerciale screenshot", () => {
+    const frame = guideImageFrame("/screenshots/documento-commerciale.png");
+    expect(frame.className).toContain("max-w-[320px]");
+    expect(frame.className).toContain("rounded-xl");
+    expect(frame.sizes).toContain("320px");
+  });
+
+  it("uses the narrow phone-mockup frame for any other screenshot", () => {
+    const frame = guideImageFrame("/screenshots/cassa-tastierino.png");
+    expect(frame.className).toContain("max-w-[240px]");
+    expect(frame.className).not.toContain("rounded-xl");
+    expect(frame.sizes).toContain("240px");
+  });
+});
+
+describe("guide inline screenshots", () => {
+  const cases: ReadonlyArray<{
+    readonly slug: (typeof guideSlugs)[number];
+    readonly src: string;
+  }> = [
+    {
+      slug: "documento-commerciale-online",
+      src: "/screenshots/documento-commerciale.png",
+    },
+    {
+      slug: "scontrino-senza-registratore-di-cassa",
+      src: "/screenshots/cassa-tastierino.png",
+    },
+    {
+      slug: "annullare-scontrino-elettronico",
+      src: "/screenshots/storico-dettaglio.png",
+    },
+  ];
+
+  for (const { slug, src } of cases) {
+    it(`${slug} shows the ${src} screenshot in a section`, () => {
+      const section = guideArticles[slug].sections.find(
+        (s) => s.image?.src === src,
+      );
+      expect(section).toBeDefined();
+      expect(section!.image!.alt.length).toBeGreaterThan(10);
     });
   }
 });

@@ -15,9 +15,11 @@ import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import {
   getGuide,
   guideArticles,
+  guideImageFrame,
   guideSlugs,
   isGuideSlug,
 } from "@/lib/guide/articles";
+import { AppScreenshot } from "@/components/marketing/app-screenshot";
 import { helpArticles } from "@/lib/help/articles";
 import { isToolSlug, tools } from "@/lib/strumenti/tools";
 
@@ -155,6 +157,23 @@ export default async function GuidePage({ params }: PageParams) {
                       </tbody>
                     </table>
                   </div>
+                )}
+                {section.image && (
+                  <figure className="mt-6">
+                    <AppScreenshot
+                      src={section.image.src}
+                      alt={section.image.alt}
+                      width={section.image.width}
+                      height={section.image.height}
+                      sizes={guideImageFrame(section.image.src).sizes}
+                      className={guideImageFrame(section.image.src).className}
+                    />
+                    {section.image.caption && (
+                      <figcaption className="text-muted-foreground mt-2 text-center text-xs">
+                        {section.image.caption}
+                      </figcaption>
+                    )}
+                  </figure>
                 )}
               </div>
             ))}
