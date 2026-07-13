@@ -50,48 +50,6 @@ diventa un buco di billing al lancio della Fase B Developer API.
 
 ---
 
-### 63. `deleteAccount` non cancella l'abbonamento Stripe: l'utente cancellato continua a essere addebitato
-
-- **Categoria:** billing/GDPR · **Severità:** High — colpisce **oggi** qualunque abbonato pagante che usa la cancellazione account self-service
-- **File:** `src/server/account-actions.ts:97` (`deleteAccount` → `purgeUserById` senza alcun passo Stripe); `src/lib/services/purge-user.ts` (nessuna gestione di `subscriptions` né chiamate Stripe); `src/db/schema/subscriptions.ts:14` + `supabase/migrations/0000_initial.sql:90-104` (`subscriptions.user_id` senza FK verso `auth.users` e fuori dalla cascata `profiles` → la riga sopravvive orfana); effetto collaterale silenzioso: `src/app/api/stripe/webhook/route.ts:438-441` (`syncSubscriptionData` aggiorna `profiles` del user cancellato → 0 righe, nessun log)
-
-**Problema.** `purgeUserById` cancella auth user + profilo (con cascata su
-businesses/documenti/catalogo), ma: (a) la **subscription Stripe resta attiva**
-— Stripe continua ad addebitare la carta a ogni rinnovo di un utente che non
-può più accedere né all'app né al Billing Portal (il portal richiede login);
-(b) la riga `subscriptions` resta **orfana** nel DB (nessuna FK, nessuna
-cascata), con i webhook che continuano a sincronizzarla; l'UPDATE su
-`profiles` dentro `syncSubscriptionData` matcha 0 righe in silenzio, quindi
-nessun alert segnala l'anomalia; (c) lato GDPR i dati del customer (email)
-restano su Stripe a tempo indeterminato. Lo sweep GDPR
-(`inactive-user-prune.ts`) non è esposto perché protegge i paganti, ma il
-percorso self-service non ha alcuna guardia — né server-side né nella UI
-(`account-delete-section.tsx` non menziona l'abbonamento).
-
-**Fix (non ambiguo).**
-
-1. In `deleteAccount`, dopo la verifica password e **prima** di
-   `purgeUserById`: leggere la riga `subscriptions` per `user.id`; se
-   `stripeCustomerId` è presente → `stripe.customers.del(stripeCustomerId)`
-   in try/catch (regola 10). La delete del customer **cancella immediatamente
-   le subscription attive** e rimuove i dati anagrafici da Stripe (chiude
-   anche il punto GDPR). Su fallimento Stripe → `return { error: "Non è stato
-possibile annullare l'abbonamento. Riprova o gestiscilo dal portale prima
-di eliminare l'account." }` **senza** eseguire il purge — fail-safe: meglio
-   un account non cancellato che addebiti fantasma non più fermabili.
-2. In `purgeUserById` (condiviso col prune): `DELETE FROM subscriptions WHERE
-user_id = $authUserId` accanto alla delete del profilo — niente righe orfane
-   (per lo sweep prune gli account eleggibili non sono paganti, quindi lì la
-   riga è al più `canceled`/`pending`).
-3. UI (`account-delete-section.tsx`): menzionare nel dialog che un eventuale
-   abbonamento attivo viene annullato immediatamente (regola 8: grep copy).
-4. **Test:** account con sub attiva → `customers.del` chiamato prima del purge
-   e riga `subscriptions` rimossa; Stripe irraggiungibile → nessun purge +
-   errore dedicato; account senza riga subscriptions → flusso invariato;
-   sweep prune → riga subscriptions rimossa insieme al profilo.
-
----
-
 ## P2 — Media priorità
 
 ### 11. `getCatalogItems` senza LIMIT + autocomplete server-side

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { profiles } from "@/db/schema";
+import { profiles, subscriptions } from "@/db/schema";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 
@@ -33,6 +33,13 @@ export type PurgeUserResult = {
  *   profiles → businesses → ade_credentials
  *                         → commercial_documents → commercial_document_lines
  *                         → catalog_items
+ *
+ * La riga `subscriptions` NON è nella cascata (nessuna FK verso auth.users né
+ * verso profiles), quindi va cancellata esplicitamente qui: senza questa DELETE
+ * resterebbe orfana e i webhook Stripe continuerebbero a sincronizzarla con un
+ * UPDATE su 0 righe, in silenzio (REVIEW.md #63). L'annullamento della
+ * subscription su Stripe è invece responsabilità del chiamante self-service
+ * (deleteAccount): lo sweep GDPR agisce solo su account non paganti.
  *
  * Ordine auth-first: l'auth user è cancellato PRIMA della riga applicativa, con
  * retry + backoff. Se la delete auth fallisce dopo i retry, `profiles` resta
@@ -87,10 +94,14 @@ export async function purgeUserById(
     return { authDeleted: false, profileDeleted: false };
   }
 
-  // 2. Delete profile — FK cascade rimuove tutto il collegato. L'auth entry è
-  //    già andata: un fallimento qui lascia un profilo orfano da pulire a mano.
+  // 2. Delete subscription (leaf, nessuna cascata) + profile (FK cascade rimuove
+  //    tutto il collegato). L'auth entry è già andata: un fallimento qui lascia
+  //    dati orfani da pulire a mano. La subscription è cancellata PRIMA così che
+  //    `profileDeleted` rifletta esattamente l'esito della delete del profilo.
   const db = getDb();
   try {
+    await db.delete(subscriptions).where(eq(subscriptions.userId, authUserId));
+
     const deleted = await db
       .delete(profiles)
       .where(eq(profiles.authUserId, authUserId))

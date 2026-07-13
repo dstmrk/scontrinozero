@@ -3,8 +3,12 @@
 import { createElement } from "react";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { eq } from "drizzle-orm";
+import { getDb } from "@/db";
+import { subscriptions } from "@/db/schema";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
+import { getStripe } from "@/lib/stripe";
 import { getAuthenticatedUser } from "@/lib/server-auth";
 import { authErrorResult } from "@/lib/auth-errors";
 import { getClientIp } from "@/lib/get-client-ip";
@@ -14,6 +18,21 @@ import { getFormStringRaw } from "@/lib/form-utils";
 import { sendEmail } from "@/lib/email";
 import { AccountDeletionEmail } from "@/emails/account-deletion";
 import { purgeUserById } from "@/lib/services/purge-user";
+
+/**
+ * True se l'errore della Stripe SDK indica che il customer non esiste già più
+ * (già cancellato). Rende `customers.del` idempotente: se un tentativo
+ * precedente aveva cancellato il customer ma il purge era poi fallito, il retry
+ * di `deleteAccount` non deve bloccarsi su un customer inesistente.
+ */
+function isStripeCustomerAlreadyGone(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const { statusCode, code } = error as {
+    statusCode?: unknown;
+    code?: unknown;
+  };
+  return statusCode === 404 || code === "resource_missing";
+}
 
 export type AccountActionResult = {
   error?: string;
@@ -89,11 +108,52 @@ export async function deleteAccount(
     return { error: "Password non corretta." };
   }
 
-  // 1-2. Delete auth user (retry) then the profile cascade. If the auth delete
-  //      fails after retries the profile is untouched → surface an error so the
-  //      user can log in and retry. If auth succeeded but the profile delete
-  //      failed, purgeUserById has already logged a critical error; we still
-  //      proceed to sign out/redirect because the user can no longer log in.
+  // 0. Annulla l'abbonamento Stripe PRIMA del purge (REVIEW.md #63). Un utente
+  //    cancellato non può più accedere né al Billing Portal (richiede login),
+  //    quindi se lasciassimo la subscription attiva Stripe continuerebbe ad
+  //    addebitare la carta senza modo di fermarlo. `customers.del` cancella
+  //    immediatamente le subscription attive e rimuove i dati anagrafici da
+  //    Stripe (chiude anche il punto GDPR). Fail-safe: se Stripe non risponde
+  //    NON procediamo col purge — meglio un account non cancellato che un
+  //    addebito fantasma non più fermabile.
+  const db = getDb();
+  const [sub] = await db
+    .select({ stripeCustomerId: subscriptions.stripeCustomerId })
+    .from(subscriptions)
+    .where(eq(subscriptions.userId, user.id))
+    .limit(1);
+
+  if (sub?.stripeCustomerId) {
+    try {
+      await getStripe().customers.del(sub.stripeCustomerId);
+    } catch (err) {
+      if (isStripeCustomerAlreadyGone(err)) {
+        // Customer già rimosso da un tentativo precedente: obiettivo raggiunto,
+        // delete idempotente → warn (regola 20) e prosegui col purge.
+        logger.warn(
+          { userId: user.id },
+          "deleteAccount: Stripe customer già cancellato — delete idempotente, procedo col purge",
+        );
+      } else {
+        // Regola 10: SDK esterno wrappato, log strutturato, degradazione.
+        logger.error(
+          { userId: user.id, err },
+          "deleteAccount: Stripe customer deletion failed — aborting purge",
+        );
+        return {
+          error:
+            "Non è stato possibile annullare l'abbonamento. Riprova o gestiscilo dal portale prima di eliminare l'account.",
+        };
+      }
+    }
+  }
+
+  // 1-2. Delete auth user (retry) then the profile cascade (+ subscription row).
+  //      If the auth delete fails after retries the profile is untouched →
+  //      surface an error so the user can log in and retry. If auth succeeded but
+  //      the profile delete failed, purgeUserById has already logged a critical
+  //      error; we still proceed to sign out/redirect because the user can no
+  //      longer log in.
   const { authDeleted } = await purgeUserById(user.id);
   if (!authDeleted) {
     return {

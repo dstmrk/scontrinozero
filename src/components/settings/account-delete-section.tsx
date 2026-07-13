@@ -97,6 +97,11 @@ export function AccountDeleteSection() {
           </ul>
 
           <p className="text-muted-foreground mt-2 text-sm">
+            Se hai un <strong>abbonamento attivo</strong>, verrà annullato
+            immediatamente: non ti verrà addebitato alcun rinnovo.
+          </p>
+
+          <p className="text-muted-foreground mt-2 text-sm">
             I documenti commerciali già trasmessi all&apos;Agenzia delle Entrate
             restano disponibili sul portale{" "}
             <strong>Fatture e Corrispettivi</strong> anche dopo la cancellazione
