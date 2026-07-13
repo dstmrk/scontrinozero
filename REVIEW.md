@@ -208,43 +208,6 @@ l'impatto è solo un errore opaco, non un duplicato.
 
 ---
 
-### 65. Race sul doppio `signUp`: il compensating delete può cancellare l'auth user legittimo → email bloccata per sempre
-
-- **Categoria:** correttezza/auth · **Severità:** Medium — trigger realistico (doppio click/retry di rete sul form), esito permanente senza cleanup manuale
-- **File:** `src/server/auth-actions.ts:330-382` (`insertProfileOrRollback`: compensating delete su **ogni** failure dell'insert), `:304-328` (`compensatingDeleteAuthUser`), `:505-529` (pre-check email); schema: `profiles.auth_user_id` **senza FK** verso `auth.users` (`supabase/migrations/0000_initial.sql:5,18`) → nessuna cascata ripulisce il profilo orfano
-
-**Problema.** Due submit ravvicinati della stessa registrazione passano
-entrambi il pre-check email (il profilo non esiste ancora). R1:
-`auth.signUp` crea l'utente A e committa il profilo. R2: `auth.signUp` sulla
-stessa email — per un utente esistente **non confermato** Supabase non crea
-un nuovo utente: reinvia la conferma e ritorna **lo stesso id A**. L'insert
-profilo di R2 fallisce con unique violation e il catch esegue
-`compensatingDeleteAuthUser(A)`: cancella l'auth user della registrazione
-legittima di R1. Risultato: profilo orfano (nessuna FK → nessuna cascata),
-link di conferma morto, login impossibile, ri-registrazione bloccata dal
-pre-check (il profilo esiste) — l'email è inutilizzabile finché non si
-interviene a mano. Il commento nel codice assume che il duplicato crei
-"un nuovo auth user con UUID diverso", ma per gli unconfirmed non è così.
-
-**Fix (non ambiguo).**
-
-1. In `insertProfileOrRollback`, nel catch e **prima** del compensating
-   delete: `SELECT id FROM profiles WHERE auth_user_id = $authUserId`. Se la
-   riga esiste, l'auth user appartiene a una registrazione già completata
-   dall'altra richiesta → **non** cancellare, procedere col solo
-   `redirect("/verify-email")`. (Determinismo: la unique violation viene
-   sollevata solo dopo il commit della transazione vincente, quindi la SELECT
-   vede sempre la riga.)
-2. Difesa aggiuntiva a monte: dopo `auth.signUp`, se `data.user.identities`
-   è assente/vuoto (utente obfuscato anti-enumeration di Supabase) trattare
-   come email già registrata → redirect `/verify-email` senza insert.
-3. **Test:** unique violation con profilo già presente per lo stesso
-   authUserId → `deleteUser` mai chiamato; unique violation senza profilo
-   (fallimento genuino) → compensating delete invariato; `identities: []` →
-   redirect senza insert.
-
----
-
 ## P3 — Bassa priorità
 
 ### 17. Key rotation zero-downtime: i caller passano sempre una sola chiave

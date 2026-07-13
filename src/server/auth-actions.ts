@@ -345,6 +345,57 @@ async function compensatingDeleteAuthUser(authUserId: string): Promise<void> {
   }
 }
 
+/**
+ * True quando `supabase.auth.signUp` ha ritornato l'oggetto utente "obfuscato"
+ * che Supabase produce per un'email GIÀ registrata ma non confermata (feature
+ * anti-enumeration di GoTrue): l'utente esiste, quindi `identities` è un array
+ * **presente ma vuoto** (`[]`). In quel caso l'`id` ritornato è quello
+ * dell'utente esistente, non di uno nuovo — inserire un profilo qui rischia la
+ * unique violation il cui compensating delete cancellerebbe l'auth user
+ * legittimo dell'altra registrazione (REVIEW #65).
+ *
+ * Controlliamo SOLO l'array vuoto esplicito, mai `undefined`/`null`: un
+ * `identities` assente non è una response reale di Supabase per un signup
+ * andato a buon fine, e trattarlo come "già registrato" bloccherebbe
+ * registrazioni genuine (fail-open sul dubbio, il guard vero è in
+ * `insertProfileOrRollback`).
+ */
+function isObfuscatedExistingUser(
+  user: { identities?: unknown[] | null } | null | undefined,
+): boolean {
+  return Array.isArray(user?.identities) && user.identities.length === 0;
+}
+
+/**
+ * Guard della race del doppio signUp (REVIEW #65): esiste già un profilo per
+ * questo `authUserId`? In caso affermativo l'auth user appartiene a una
+ * registrazione concorrente GIÀ committata e NON va cancellato (nessuna FK
+ * `profiles → auth.users` ripulisce un eventuale orfano: cancellarlo
+ * renderebbe l'email inutilizzabile per sempre).
+ *
+ * Su errore della query di guard degradiamo a `false` (regola 19: non
+ * propagare) tornando al comportamento storico del compensating delete: la
+ * SELECT vede sempre la riga committata quando il DB è sano, quindi il caso
+ * race resta coperto.
+ */
+async function profileExistsForAuthUser(authUserId: string): Promise<boolean> {
+  try {
+    const db = getDb();
+    const [row] = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(sql`${profiles.authUserId} = ${authUserId}`)
+      .limit(1);
+    return Boolean(row);
+  } catch (err) {
+    logger.warn(
+      { err },
+      "insertProfileOrRollback: profile existence guard query failed",
+    );
+    return false;
+  }
+}
+
 async function insertProfileOrRollback(
   authUserId: string,
   email: string,
@@ -384,10 +435,19 @@ async function insertProfileOrRollback(
     });
     return null;
   } catch (err) {
-    // Any insert failure means the auth user just created has no matching
-    // profile and must be removed to avoid orphans (CLAUDE.md regola #17).
-    // This covers both the UNIQUE-constraint race (two concurrent signups for
-    // the same email) and transient DB errors.
+    // Doppio signUp race (REVIEW #65): per un'email esistente NON confermata
+    // Supabase ritorna lo STESSO auth user id, quindi questo insert può fallire
+    // con unique violation mentre l'auth user appartiene già a una
+    // registrazione committata dall'altra richiesta. Prima di cancellare
+    // verifichiamo se esiste già un profilo per questo authUserId: se sì, NON
+    // cancellare (romperebbe l'email per sempre) → solo redirect anti-enum.
+    if (await profileExistsForAuthUser(authUserId)) {
+      redirect("/verify-email");
+    }
+
+    // Nessun profilo per questo authUserId: l'auth user appena creato è orfano
+    // (unique violation su email di un altro utente o errore DB transitorio) e
+    // va rimosso per non lasciare zombie auth users (CLAUDE.md regola #17).
     await compensatingDeleteAuthUser(authUserId);
 
     if (isUniqueConstraintViolation(err)) {
@@ -571,6 +631,15 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   if (error) {
     logger.error({ error: error.message }, "signUp failed");
     return { error: "Registrazione fallita. Riprova." };
+  }
+
+  // Anti-enumeration Supabase (REVIEW #65): se l'email esiste già ed è non
+  // confermata, signUp non crea un nuovo utente e ritorna un oggetto obfuscato
+  // con `identities: []` riusando l'id dell'utente esistente. Trattiamo come
+  // "già registrato" → redirect senza insert, così non tentiamo un profilo il
+  // cui rollback cancellerebbe l'auth user legittimo.
+  if (isObfuscatedExistingUser(data.user)) {
+    redirect("/verify-email");
   }
 
   // Create profile in our DB (mandatory: records terms acceptance for compliance)
