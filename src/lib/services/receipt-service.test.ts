@@ -1080,6 +1080,22 @@ describe("emitReceiptForBusiness", () => {
     expect(updateSets).not.toContain("ERROR");
   });
 
+  it("REVIEW #64: submitSale 200 non-JSON (AdeUnknownOutcomeError) NON marca ERROR (resta PENDING)", async () => {
+    // Esito ignoto: la POST è stata consegnata con un 200, il documento può
+    // essere già su AdE. Marcare ERROR aprirebbe alla doppia emissione fiscale;
+    // la riga resta PENDING e la stale-recovery riconcilia via searchDocuments.
+    const { AdeUnknownOutcomeError } = await import("@/lib/ade/errors");
+    mockSubmitSale.mockRejectedValue(
+      new AdeUnknownOutcomeError(200, "text/html; charset=UTF-8"),
+    );
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness(VALID_INPUT);
+
+    const updateSets = mockUpdateSet.mock.calls.map((c) => c[0].status);
+    expect(updateSets).not.toContain("ERROR");
+  });
+
   it("R21: AdeAuthError (credenziali sbagliate) logga warn con errorClass ade_user_error (no Sentry noise)", async () => {
     // Credenziali Fisconline sbagliate sono input utente, non bug nostro:
     // logger.warn + errorClass ade_user_error -> niente issue Sentry.

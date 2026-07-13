@@ -8,6 +8,7 @@ import {
   AdePortalError,
   AdeSessionExpiredError,
   AdeSpidTimeoutError,
+  AdeUnknownOutcomeError,
 } from "./errors";
 import {
   getUserFacingAdeErrorMessage,
@@ -70,6 +71,17 @@ describe("getUserFacingAdeErrorMessage", () => {
       FALLBACK,
     );
     expect(result.message).toBe(FALLBACK);
+  });
+
+  it("returns the portal-down message for AdeUnknownOutcomeError (200 non-JSON, unknown outcome)", () => {
+    const result = getUserFacingAdeErrorMessage(
+      new AdeUnknownOutcomeError(200, "text/html; charset=UTF-8"),
+      FALLBACK,
+    );
+    expect(result.message).toBe(
+      "Il portale Agenzia delle Entrate Fatture e Corrispettivi non risponde al momento. Non dipende da te né da ScontrinoZero. Riprova tra qualche minuto.",
+    );
+    expect(result.passwordExpired).toBeUndefined();
   });
 
   it("returns the SPID timeout message for AdeSpidTimeoutError", () => {
@@ -175,6 +187,12 @@ describe("isTransientAdeError", () => {
     expect(isTransientAdeError(new AdePortalError(599, "boom"))).toBe(true);
   });
 
+  it("returns true for AdeUnknownOutcomeError (unknown outcome → keep PENDING, not ERROR)", () => {
+    expect(
+      isTransientAdeError(new AdeUnknownOutcomeError(200, "text/html")),
+    ).toBe(true);
+  });
+
   it("returns false for AdePortalError with 4xx status (permanent: bad input)", () => {
     expect(isTransientAdeError(new AdePortalError(400, "bad request"))).toBe(
       false,
@@ -241,6 +259,12 @@ describe("isExpectedUserAdeError", () => {
 
   it("returns false for AdeSpidTimeoutError (transient, retry path)", () => {
     expect(isExpectedUserAdeError(new AdeSpidTimeoutError(30))).toBe(false);
+  });
+
+  it("returns false for AdeUnknownOutcomeError (unknown outcome, not user input)", () => {
+    expect(
+      isExpectedUserAdeError(new AdeUnknownOutcomeError(200, "text/html")),
+    ).toBe(false);
   });
 
   it("returns false for AdeSessionExpiredError (internal state, not user input)", () => {

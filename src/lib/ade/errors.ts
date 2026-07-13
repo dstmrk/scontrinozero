@@ -57,6 +57,38 @@ export class AdePortalError extends AdeError {
   }
 }
 
+/**
+ * L'invio del documento ha ricevuto un HTTP di successo (200) ma il body non è
+ * JSON valido — pagina di manutenzione HTML servita con 200, risposta troncata,
+ * proxy interposto. La POST è stata **consegnata**: il documento fiscale può
+ * essere stato registrato su AdE o no → l'esito è **ignoto**, non una failure
+ * definitiva.
+ *
+ * Perché una classe dedicata e non un `AdePortalError`: marcare la riga ERROR
+ * la farebbe uscire dall'indice unique parziale su `voided_document_id` e dalla
+ * riconciliazione pre-resubmit, aprendo la porta a un doppio annullo / doppia
+ * emissione (documento fiscale duplicato, irreversibile). Per questo
+ * `isTransientAdeError` la riconosce: significato del predicato = "esito non
+ * determinabile → non marcare ERROR, lascia PENDING". La stale recovery
+ * riconcilia contro AdE via `searchDocuments` prima di qualunque re-submit.
+ *
+ * Mai includere il body nel messaggio: contiene dati fiscali (importi, CF).
+ */
+export class AdeUnknownOutcomeError extends AdeError {
+  readonly statusCode: number;
+  readonly contentType: string | null;
+
+  constructor(statusCode: number, contentType: string | null) {
+    super(
+      "ADE_UNKNOWN_OUTCOME",
+      `Document submission returned status ${statusCode} with a non-JSON body (content-type: ${contentType ?? "unknown"})`,
+    );
+    this.name = "AdeUnknownOutcomeError";
+    this.statusCode = statusCode;
+    this.contentType = contentType;
+  }
+}
+
 /** Network-level error (DNS, timeout, connection refused). */
 export class AdeNetworkError extends AdeError {
   override readonly cause: unknown;
