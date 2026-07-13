@@ -8,6 +8,7 @@ import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
+import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
 export const metadata = helpArticleMetadata("intestazione-scontrino");
 
@@ -47,6 +48,20 @@ export default function IntestazioneScontrinoPage() {
         <p className="text-muted-foreground mt-1 text-sm">
           <strong>Ultimo aggiornamento:</strong> aprile 2026
         </p>
+        <figure className="mt-6">
+          <AppScreenshot
+            src="/screenshots/documento-commerciale.png"
+            alt="Documento commerciale con l'intestazione: nome dell'attività, indirizzo e partita IVA"
+            width={661}
+            height={1188}
+            sizes="(min-width: 768px) 320px, 80vw"
+            className="mx-auto max-w-[320px] rounded-xl"
+          />
+          <figcaption className="text-muted-foreground mt-2 text-center text-xs">
+            L&apos;intestazione del documento commerciale: nome attività,
+            indirizzo e P.IVA.
+          </figcaption>
+        </figure>
 
         {/* ─── Cosa è modificabile ─── */}
         <h2 className="mt-10 text-xl font-semibold">

@@ -9,6 +9,7 @@ import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
+import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
 export const metadata = helpArticleMetadata("aliquote-iva");
 
@@ -47,6 +48,19 @@ export default function AliquoteIvaPage() {
         <p className="text-muted-foreground mt-1 text-sm">
           <strong>Ultimo aggiornamento:</strong> aprile 2026
         </p>
+        <figure className="mt-6">
+          <AppScreenshot
+            src="/screenshots/cassa-tastierino.png"
+            alt="Schermata Cassa di ScontrinoZero con il menu a tendina per scegliere l'aliquota IVA della riga"
+            width={900}
+            height={1944}
+            sizes="(min-width: 768px) 240px, 65vw"
+            className="mx-auto max-w-[240px]"
+          />
+          <figcaption className="text-muted-foreground mt-2 text-center text-xs">
+            In Cassa scegli l&apos;aliquota IVA della riga dal menu a tendina.
+          </figcaption>
+        </figure>
 
         {/* ─── Aliquote IVA in Italia ─── */}
         <h2 className="mt-10 text-xl font-semibold">

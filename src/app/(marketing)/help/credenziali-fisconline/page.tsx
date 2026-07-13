@@ -8,6 +8,7 @@ import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
+import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
 export const metadata = helpArticleMetadata("credenziali-fisconline");
 
@@ -45,6 +46,20 @@ export default function CredenzialiPage() {
         <p className="text-muted-foreground mt-1 text-sm">
           <strong>Ultimo aggiornamento:</strong> aprile 2026
         </p>
+        <figure className="mt-6">
+          <AppScreenshot
+            src="/screenshots/impostazioni-attivita.png"
+            alt="Schermata Impostazioni con lo stato delle credenziali AdE"
+            width={900}
+            height={1860}
+            sizes="(min-width: 768px) 240px, 65vw"
+            className="mx-auto max-w-[240px]"
+          />
+          <figcaption className="text-muted-foreground mt-2 text-center text-xs">
+            In Impostazioni inserisci le credenziali Fisconline e ne controlli
+            lo stato.
+          </figcaption>
+        </figure>
 
         {/* ─── Cos'è Fisconline ─── */}
         <h2 className="mt-10 text-xl font-semibold">Cos&apos;è Fisconline?</h2>
