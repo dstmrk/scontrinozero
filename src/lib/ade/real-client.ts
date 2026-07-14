@@ -166,6 +166,35 @@ function safePath(url: string): string {
 }
 
 /**
+ * Decodifica le entity HTML di un valore estratto da un attributo (hidden
+ * input value, form action) — ciò che un browser fa da spec prima di usare
+ * l'attributo. Necessario per le pagine Shibboleth dell'IdP CIE: l'encoder
+ * lato server può rappresentare i non-alfanumerici come entity numeriche,
+ * corrompendo il base64 della SAMLResponse (`+ / =` → `&#x2b; &#x2f; &#x3d;`)
+ * e le action assolute (`https&#x3a;…`) se ri-POSTati senza decodifica.
+ *
+ * Un solo passaggio (numeriche prima, `&amp;` per ultima: mai doppia
+ * decodifica); entity fuori range Unicode lasciate intatte. Esportata per
+ * testabilità.
+ */
+export function decodeHtmlEntities(value: string): string {
+  const fromCodePoint = (match: string, cp: number): string =>
+    cp <= 0x10ffff ? String.fromCodePoint(cp) : match;
+  return value
+    .replaceAll(/&#x([0-9a-f]+);/gi, (m, hex: string) =>
+      fromCodePoint(m, Number.parseInt(hex, 16)),
+    )
+    .replaceAll(/&#(\d+);/g, (m, dec: string) =>
+      fromCodePoint(m, Number.parseInt(dec, 10)),
+    )
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&apos;", "'")
+    .replaceAll("&amp;", "&");
+}
+
+/**
  * Riconosce il fallimento fetch da riuso di un socket keep-alive che il peer
  * ha già chiuso: undici lo riporta come `TypeError: fetch failed` con causa
  * `SocketError: other side closed` (`code: UND_ERR_SOCKET`).
@@ -816,12 +845,14 @@ export class RealAdeClient implements AdeClient {
       `value=["']([^"']*)["'][^>]*?name=["']${safePattern}["']`,
       "is",
     );
-    return (nameFirst.exec(html) ?? valueFirst.exec(html))?.[1] ?? null;
+    const raw = (nameFirst.exec(html) ?? valueFirst.exec(html))?.[1] ?? null;
+    return raw === null ? null : decodeHtmlEntities(raw);
   }
 
   /** Parse form action URL from HTML. */
   private parseFormAction(html: string): string | null {
-    return /<form[^>]+action=["']([^"']+)["']/i.exec(html)?.[1] ?? null;
+    const raw = /<form[^>]+action=["']([^"']+)["']/i.exec(html)?.[1] ?? null;
+    return raw === null ? null : decodeHtmlEntities(raw);
   }
 
   /**
@@ -1588,6 +1619,25 @@ export class RealAdeClient implements AdeClient {
     const acs = await this.request(formAction, this.cieForm(acsBody));
     const acsLoc = acs.headers.get("Location");
     if (!acsLoc) {
+      // Diagnostica prima del throw (regola 13): distingue un payload
+      // corrotto lato nostro (samlLooksBase64 false) da un errore lato SP.
+      // Mai il body né la SAMLResponse (asserzione d'identità): solo marker.
+      const bodyText = await acs.text().catch(() => "");
+      logger.warn(
+        {
+          phase: "cie_acs",
+          statusCode: acs.status,
+          contentType: acs.headers.get("content-type"),
+          bodyLen: bodyText.length,
+          bodyTitle: /<title>([^<]{0,120})/i.exec(bodyText)?.[1] ?? null,
+          acsHost: safeHost(formAction),
+          acsPath: safePath(formAction),
+          samlResponseLen: samlResponse.length,
+          samlLooksBase64: /^[A-Za-z0-9+/=]+$/.test(samlResponse),
+          relayStateLen: relayState.length,
+        },
+        "ade:cie_acs_no_redirect",
+      );
       throw new AdePortalError(acs.status, "CIE: no redirect from AdE SP ACS");
     }
 

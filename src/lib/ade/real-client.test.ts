@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   RealAdeClient,
+  decodeHtmlEntities,
   isStaleSocketError,
   resolveAdeRedirect,
 } from "./real-client";
@@ -1998,6 +1999,46 @@ describe("isStaleSocketError", () => {
     const err = new Error("boom");
     (err as Error & { cause: unknown }).cause = err;
     expect(isStaleSocketError(err)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// decodeHtmlEntities — i valori estratti dagli attributi HTML (SAMLResponse,
+// form action) vanno decodificati come farebbe un browser: Shibboleth può
+// codificare i non-alfanumerici come entity numeriche.
+// ---------------------------------------------------------------------------
+
+describe("decodeHtmlEntities", () => {
+  it("decodifica le entity esadecimali (base64 Shibboleth: + / =)", () => {
+    expect(decodeHtmlEntities("QUJD&#x2b;ZGVm&#x2f;Z2hp&#x3d;&#x3d;")).toBe(
+      "QUJD+ZGVm/Z2hp==",
+    );
+  });
+
+  it("decodifica le entity decimali", () => {
+    expect(decodeHtmlEntities("a&#43;b&#61;c")).toBe("a+b=c");
+  });
+
+  it("decodifica le entity con nome (amp, lt, gt, quot, apos)", () => {
+    expect(decodeHtmlEntities("a&lt;b&gt;c&quot;d&#39;e&apos;f&amp;g")).toBe(
+      "a<b>c\"d'e'f&g",
+    );
+  });
+
+  it("decodifica &amp; per ultimo (niente doppia decodifica)", () => {
+    // "&amp;#x2b;" è la rappresentazione HTML del testo letterale "&#x2b;":
+    // un solo passaggio di decodifica, come un browser.
+    expect(decodeHtmlEntities("&amp;#x2b;")).toBe("&#x2b;");
+  });
+
+  it("lascia intatte le stringhe senza entity (base64 tipico)", () => {
+    const base64 = "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4K+/==";
+    expect(decodeHtmlEntities(base64)).toBe(base64);
+  });
+
+  it("lascia intatta un'entity numerica fuori range Unicode", () => {
+    expect(decodeHtmlEntities("x&#x110000;y")).toBe("x&#x110000;y");
+    expect(decodeHtmlEntities("x&#1114112;y")).toBe("x&#1114112;y");
   });
 });
 
