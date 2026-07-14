@@ -3,7 +3,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { RealAdeClient, resolveAdeRedirect } from "./real-client";
+import {
+  RealAdeClient,
+  isStaleSocketError,
+  resolveAdeRedirect,
+} from "./real-client";
 import {
   AdeAuthError,
   AdeError,
@@ -1849,6 +1853,151 @@ describe("RealAdeClient", () => {
         "Not logged in",
       );
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stale keep-alive socket retry (UND_ERR_SOCKET "other side closed")
+//
+// Incidente dev 2026-07-14 (flow onboarding-verify-cie): l'IdP chiude i socket
+// keep-alive idle durante le attese intrinseche del flusso (poll push a 7s);
+// undici riusa il socket morto e la fetch fallisce con
+// TypeError: fetch failed → SocketError: other side closed. Un browser ritenta
+// in automatico su una connessione fresca; il client deve fare lo stesso, ma
+// SOLO su richieste idempotenti senza side-effect (GET/HEAD) — mai POST
+// (submitSale/submitVoid: rischio doppio documento fiscale).
+// ---------------------------------------------------------------------------
+
+/** Replica la catena d'errore reale di Node fetch su socket riusato morto. */
+function staleSocketFetchError(): TypeError {
+  const socketError = new Error("other side closed") as Error & {
+    code?: string;
+  };
+  socketError.name = "SocketError";
+  socketError.code = "UND_ERR_SOCKET";
+  return new TypeError("fetch failed", { cause: socketError });
+}
+
+describe("stale keep-alive socket retry", () => {
+  let fetchMock: ReturnType<typeof vi.fn> & typeof global.fetch;
+  let client: RealAdeClient;
+
+  const fiscalDataBody = {
+    identificativiFiscali: {
+      codicePaese: "IT",
+      partitaIva: "12345678901",
+      codiceFiscale: "RSSMRA80A01H501A",
+    },
+  };
+
+  beforeEach(() => {
+    fetchMock = vi.fn() as ReturnType<typeof vi.fn> & typeof global.fetch;
+    global.fetch = fetchMock;
+    client = new RealAdeClient({ spidPollIntervalMs: 0 });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("ritenta una GET una volta sul socket chiuso dal peer e ritorna la seconda response", async () => {
+    mockLoginSequence(fetchMock);
+    await client.login(mockCredentials);
+    const callsAfterLogin = fetchMock.mock.calls.length;
+
+    fetchMock.mockRejectedValueOnce(staleSocketFetchError());
+    fetchMock.mockResolvedValueOnce(mockResponse({ body: fiscalDataBody }));
+
+    const result = await client.getFiscalData();
+
+    expect(result.identificativiFiscali.partitaIva).toBe("12345678901");
+    expect(fetchMock.mock.calls.length).toBe(callsAfterLogin + 2);
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        host: "ivaservizi.agenziaentrate.gov.it",
+      }),
+      "ade:stale_socket_retry",
+    );
+  });
+
+  it("dopo un solo retry si arrende: due failure consecutive → AdeNetworkError", async () => {
+    mockLoginSequence(fetchMock);
+    await client.login(mockCredentials);
+    const callsAfterLogin = fetchMock.mock.calls.length;
+
+    fetchMock.mockRejectedValueOnce(staleSocketFetchError());
+    fetchMock.mockRejectedValueOnce(staleSocketFetchError());
+
+    await expect(client.getFiscalData()).rejects.toThrow(AdeNetworkError);
+    expect(fetchMock.mock.calls.length).toBe(callsAfterLogin + 2);
+  });
+
+  it("non ritenta le POST sul socket chiuso (nessun retry su richieste con side-effect)", async () => {
+    // Phase A del login Fisconline è una POST: deve fallire al primo colpo.
+    fetchMock.mockRejectedValueOnce(staleSocketFetchError());
+
+    await expect(client.login(mockCredentials)).rejects.toThrow(
+      AdeNetworkError,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("non ritenta una GET su errori di rete diversi dal socket chiuso", async () => {
+    mockLoginSequence(fetchMock);
+    await client.login(mockCredentials);
+    const callsAfterLogin = fetchMock.mock.calls.length;
+
+    fetchMock.mockRejectedValueOnce(new Error("ECONNREFUSED"));
+
+    await expect(client.getFiscalData()).rejects.toThrow(AdeNetworkError);
+    expect(fetchMock.mock.calls.length).toBe(callsAfterLogin + 1);
+  });
+
+  it("non ritenta sul timeout della fetch (TimeoutError)", async () => {
+    mockLoginSequence(fetchMock);
+    await client.login(mockCredentials);
+    const callsAfterLogin = fetchMock.mock.calls.length;
+
+    fetchMock.mockRejectedValueOnce(
+      new DOMException("The operation timed out.", "TimeoutError"),
+    );
+
+    await expect(client.getFiscalData()).rejects.toThrow(AdeNetworkError);
+    expect(fetchMock.mock.calls.length).toBe(callsAfterLogin + 1);
+  });
+});
+
+describe("isStaleSocketError", () => {
+  it("riconosce il code UND_ERR_SOCKET diretto", () => {
+    const err = new Error("boom") as Error & { code?: string };
+    err.code = "UND_ERR_SOCKET";
+    expect(isStaleSocketError(err)).toBe(true);
+  });
+
+  it("riconosce la catena reale TypeError → SocketError (cause annidata)", () => {
+    expect(isStaleSocketError(staleSocketFetchError())).toBe(true);
+  });
+
+  it("riconosce il messaggio 'other side closed' anche senza code", () => {
+    expect(isStaleSocketError(new Error("other side closed"))).toBe(true);
+  });
+
+  it("ritorna false per errori di rete generici", () => {
+    expect(isStaleSocketError(new Error("ECONNREFUSED"))).toBe(false);
+    expect(
+      isStaleSocketError(new TypeError("fetch failed", { cause: undefined })),
+    ).toBe(false);
+  });
+
+  it("ritorna false per input non-Error", () => {
+    expect(isStaleSocketError(undefined)).toBe(false);
+    expect(isStaleSocketError("other side closed")).toBe(false);
+  });
+
+  it("non entra in loop su una catena di cause circolare", () => {
+    const err = new Error("boom");
+    (err as Error & { cause: unknown }).cause = err;
+    expect(isStaleSocketError(err)).toBe(false);
   });
 });
 

@@ -157,6 +157,40 @@ function safeHost(url: string): string {
   }
 }
 
+function safePath(url: string): string {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return "(unparseable)";
+  }
+}
+
+/**
+ * Riconosce il fallimento fetch da riuso di un socket keep-alive che il peer
+ * ha già chiuso: undici lo riporta come `TypeError: fetch failed` con causa
+ * `SocketError: other side closed` (`code: UND_ERR_SOCKET`).
+ *
+ * Il flusso CIE/SPID ha attese intrinseche (poll push a 7s, approvazione
+ * umana) più lunghe del keep-alive timeout dei server AdE/IdP: alla richiesta
+ * successiva il pool riusa un socket morto e la fetch esplode prima di
+ * trasmettere (incidente dev 2026-07-14, flow onboarding-verify-cie). Un
+ * browser in questo caso ritenta in automatico su una connessione fresca;
+ * `request()` fa lo stesso — solo per GET/HEAD, vedi lì.
+ *
+ * Cammina la catena `cause` con un limite di profondità (catene circolari).
+ * Esportata per testabilità.
+ */
+export function isStaleSocketError(err: unknown): boolean {
+  let current: unknown = err;
+  for (let depth = 0; current instanceof Error && depth < 5; depth++) {
+    const code = (current as Error & { code?: unknown }).code;
+    if (code === "UND_ERR_SOCKET") return true;
+    if (current.message.includes("other side closed")) return true;
+    current = current.cause;
+  }
+  return false;
+}
+
 /**
  * Ritorna le chiavi di un oggetto, o `null` se il valore non è un oggetto
  * (null, primitivo, undefined). Usato per loggare la **struttura** (non i
@@ -224,17 +258,34 @@ export class RealAdeClient implements AdeClient {
       headers.set("Cookie", cookieValue);
     }
 
-    try {
-      const response = await fetch(url, {
-        ...fetchOptions,
-        headers,
-        redirect: followRedirects === false ? "manual" : "follow",
-        signal: AbortSignal.timeout(this.options.fetchTimeoutMs ?? 30_000),
-      });
-      cookieJar.applyResponse(response);
-      return response;
-    } catch (err) {
-      throw new AdeNetworkError(err);
+    // Retry singolo sul socket keep-alive chiuso dal peer (isStaleSocketError):
+    // solo richieste idempotenti senza side-effect (GET/HEAD). Mai POST — per
+    // submitSale/submitVoid un re-invio cieco rischia il doppio documento
+    // fiscale (stessa ragione della riconciliazione in ade-recovery).
+    const method = (fetchOptions.method ?? "GET").toUpperCase();
+    const idempotent = method === "GET" || method === "HEAD";
+
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const response = await fetch(url, {
+          ...fetchOptions,
+          headers,
+          redirect: followRedirects === false ? "manual" : "follow",
+          signal: AbortSignal.timeout(this.options.fetchTimeoutMs ?? 30_000),
+        });
+        cookieJar.applyResponse(response);
+        return response;
+      } catch (err) {
+        if (attempt === 0 && idempotent && isStaleSocketError(err)) {
+          // Solo host+path: la query dei flussi federati contiene token SAML.
+          logger.warn(
+            { host: safeHost(url), path: safePath(url) },
+            "ade:stale_socket_retry",
+          );
+          continue;
+        }
+        throw new AdeNetworkError(err);
+      }
     }
   }
 
