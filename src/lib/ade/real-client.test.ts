@@ -1911,7 +1911,7 @@ describe("stale keep-alive socket retry", () => {
     const result = await client.getFiscalData();
 
     expect(result.identificativiFiscali.partitaIva).toBe("12345678901");
-    expect(fetchMock.mock.calls.length).toBe(callsAfterLogin + 2);
+    expect(fetchMock.mock.calls).toHaveLength(callsAfterLogin + 2);
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({
         host: "ivaservizi.agenziaentrate.gov.it",
@@ -1929,7 +1929,7 @@ describe("stale keep-alive socket retry", () => {
     fetchMock.mockRejectedValueOnce(staleSocketFetchError());
 
     await expect(client.getFiscalData()).rejects.toThrow(AdeNetworkError);
-    expect(fetchMock.mock.calls.length).toBe(callsAfterLogin + 2);
+    expect(fetchMock.mock.calls).toHaveLength(callsAfterLogin + 2);
   });
 
   it("non ritenta le POST sul socket chiuso (nessun retry su richieste con side-effect)", async () => {
@@ -1950,7 +1950,7 @@ describe("stale keep-alive socket retry", () => {
     fetchMock.mockRejectedValueOnce(new Error("ECONNREFUSED"));
 
     await expect(client.getFiscalData()).rejects.toThrow(AdeNetworkError);
-    expect(fetchMock.mock.calls.length).toBe(callsAfterLogin + 1);
+    expect(fetchMock.mock.calls).toHaveLength(callsAfterLogin + 1);
   });
 
   it("non ritenta sul timeout della fetch (TimeoutError)", async () => {
@@ -1963,7 +1963,7 @@ describe("stale keep-alive socket retry", () => {
     );
 
     await expect(client.getFiscalData()).rejects.toThrow(AdeNetworkError);
-    expect(fetchMock.mock.calls.length).toBe(callsAfterLogin + 1);
+    expect(fetchMock.mock.calls).toHaveLength(callsAfterLogin + 1);
   });
 });
 
