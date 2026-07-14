@@ -47,6 +47,25 @@ Quando un errore produzione suggerisce sequenza HTTP sbagliata:
 
 Mai mergiare un fix hypothesis-based senza prima vedere l'evidenza diagnostica.
 
+### Failure mode noto: socket keep-alive morto (`other side closed`)
+
+`AdeNetworkError` con causa `SocketError: other side closed`
+(`UND_ERR_SOCKET`) = undici ha riusato un socket keep-alive che il server
+aveva già chiuso. Succede sistematicamente nei flussi con attese intrinseche
+(CIE/SPID: poll push a 7s, approvazione umana) perché il keep-alive timeout
+dei server AdE/IdP è più corto dei gap. Un browser ritenta in automatico su
+una connessione fresca; il nostro client lo fa via retry singolo in
+`request()` (`isStaleSocketError`, solo GET/HEAD — mai POST: doppio documento
+fiscale). Se ricompare su una POST, NON estendere il retry: ragionare con la
+semantica unknown-outcome di `submitDocument`/recovery.
+
+Come leggerlo nei log: l'utente vede "portale AdE non raggiungibile" (mapping
+`AdeNetworkError`), ma la vera firma è nella catena `caused by` del log
+`warn`. Diagnosi rapida di una server action fallita da HAR del **nostro**
+frontend: la response `text/x-component` contiene il JSON `{ error }` — da lì
+si risale al messaggio in `error-messages.ts` e quindi alla classe d'errore
+esatta, prima ancora di aprire i log server.
+
 ---
 
 ## HAR analysis: completezza, non solo ordine
