@@ -123,17 +123,23 @@ function queueCiePreamble(
  */
 function mockCieHappyPath(
   fetchMock: ReturnType<typeof vi.fn>,
-  opts: { firstFormAction?: string; finalProbeAction?: string } = {},
+  opts: {
+    firstFormAction?: string;
+    finalProbeAction?: string;
+    finalProbeBody?: string;
+  } = {},
 ): void {
   queueCiePreamble(fetchMock, opts.firstFormAction);
   // 7. POST final probe → 200 SAMLResponse form verso AdE SP
   fetchMock.mockResolvedValueOnce(
     mockResponse({
-      body: samlForm(
-        opts.finalProbeAction ?? `${SP}/sp/AssertionConsumerService7`,
-        "SAMLResponse",
-        "selcie",
-      ),
+      body:
+        opts.finalProbeBody ??
+        samlForm(
+          opts.finalProbeAction ?? `${SP}/sp/AssertionConsumerService7`,
+          "SAMLResponse",
+          "selcie",
+        ),
     }),
   );
   // 8a. POST ACS → 302 make4SAM
@@ -379,6 +385,80 @@ describe("RealAdeClient.loginCie", () => {
       "ade:stale_socket_retry",
     );
   });
+
+  it("decodifica le entity HTML della pagina e1s5 (Shibboleth) prima del POST all'ACS", async () => {
+    // L'encoder di Shibboleth può codificare i non-alfanumerici degli attributi
+    // come entity numeriche: il base64 della SAMLResponse (+ / =) e l'action
+    // assoluta della form arrivano corrotti se non decodificati — il POST
+    // andrebbe all'ACS con base64 invalido (o a un URL sbagliato) → 500.
+    const encodedAction =
+      "https&#x3a;&#x2f;&#x2f;sp.agenziaentrate.gov.it&#x2f;sp&#x2f;AssertionConsumerService7";
+    const encodedSaml = "PD94bWwg&#x2b;dmVyc2lvbj&#x2f;MS4w&#x3d;&#x3d;";
+    const decodedSaml = "PD94bWwg+dmVyc2lvbj/MS4w==";
+
+    mockCieHappyPath(fetchMock, {
+      finalProbeBody: `<form action="${encodedAction}" method="post">
+        <input type="hidden" name="SAMLResponse" value="${encodedSaml}" />
+        <input type="hidden" name="RelayState" value="selcie" />
+      </form>`,
+    });
+
+    const client = new RealAdeClient({ ciePollIntervalMs: 0 });
+    const session = await client.loginCie(CREDENTIALS);
+
+    expect(session.partitaIva).toBe("10872631006");
+
+    const acsCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes("/sp/AssertionConsumerService7"),
+    );
+    expect(acsCall).toBeDefined();
+    // L'action entity-encoded è stata decodificata in URL assoluto (host SP,
+    // non risolta per errore come path relativo sull'origin IdP).
+    expect(String(acsCall![0])).toBe(`${SP}/sp/AssertionConsumerService7`);
+    const body = new URLSearchParams(String((acsCall![1] as RequestInit).body));
+    expect(body.get("SAMLResponse")).toBe(decodedSaml);
+    expect(body.get("RelayState")).toBe("selcie");
+  });
+
+  it("logga la diagnostica dell'ACS (status, host, marker base64) quando il SP non redirige", async () => {
+    // Incidente dev 2026-07-14 (seconda occorrenza): ACS risponde 500 senza
+    // Location. Serve l'evidenza nel log per distinguere payload corrotto
+    // (samlLooksBase64 false) da errore lato SP (regola 13).
+    queueCiePreamble(fetchMock);
+    // 7. final probe → form SAMLResponse OK
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        body: samlForm(
+          `${SP}/sp/AssertionConsumerService7`,
+          "SAMLResponse",
+          "selcie",
+        ),
+      }),
+    );
+    // 8a. POST ACS → 500 senza Location
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        status: 500,
+        body: "<html><head><title>Errore interno</title></head></html>",
+        headers: [["Content-Type", "text/html"]],
+      }),
+    );
+
+    const client = new RealAdeClient({ ciePollIntervalMs: 0 });
+    await expect(client.loginCie(CREDENTIALS)).rejects.toThrow(AdePortalError);
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: "cie_acs",
+        statusCode: 500,
+        acsHost: "sp.agenziaentrate.gov.it",
+        acsPath: "/sp/AssertionConsumerService7",
+        samlLooksBase64: true,
+        bodyTitle: "Errore interno",
+      }),
+      "ade:cie_acs_no_redirect",
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -438,6 +518,30 @@ describe("RealAdeClient.loginCie — form action allowlist (anti-SSRF)", () => {
     expect(fetchMock).toHaveBeenCalledTimes(13);
     const postedToAttacker = fetchMock.mock.calls.some(([url]) =>
       String(url).startsWith(ATTACKER),
+    );
+    expect(postedToAttacker).toBe(false);
+  });
+
+  it("blocks an attacker form action hidden behind HTML entities", async () => {
+    // Prima della decodifica entity, "https&#x3a;&#x2f;&#x2f;attacker…" veniva
+    // trattata come path RELATIVO sull'origin IdP (host in allowlist) — la
+    // decodifica la rivela come URL assoluto fuori allowlist: va bloccata.
+    queueCiePreamble(fetchMock);
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        body: samlForm(
+          "https&#x3a;&#x2f;&#x2f;attacker.example.com&#x2f;acs",
+          "SAMLResponse",
+          "selcie",
+        ),
+      }),
+    );
+
+    const client = new RealAdeClient({ ciePollIntervalMs: 0 });
+    await expect(client.loginCie(CREDENTIALS)).rejects.toThrow(AdePortalError);
+
+    const postedToAttacker = fetchMock.mock.calls.some(([url]) =>
+      String(url).includes("attacker"),
     );
     expect(postedToAttacker).toBe(false);
   });
