@@ -366,6 +366,23 @@ continuare") invece di throware. Test pattern speculare allo storage.
 
 Esempio canonico di copertura: `src/lib/safe-storage.test.ts`.
 
+**Gotcha Node ≥ 25 (webstorage nativo vs jsdom):** da Node 25
+`localStorage`/`sessionStorage` esistono già su `globalThis`, e
+`populateGlobal` di vitest **salta le chiavi già presenti sul global**:
+lo Storage di jsdom non viene installato e i test vedono lo stub di Node
+— che senza `--localstorage-file` è un oggetto SENZA metodi
+(`localStorage.clear is not a function` nei teardown, spy su
+`getItem`/`setItem` che falliscono con "property not defined").
+`sessionStorage` di Node invece funziona (in-memory), quindi il sintomo
+è asimmetrico: falliscono solo i test `localStorage`. Fix canonico:
+`execArgv: ["--no-experimental-webstorage"]` in `test` (top-level, i
+`poolOptions` non esistono più in vitest 4) dentro `vitest.config.ts`.
+Guard fail-fast con messaggio esplicativo:
+`tests/_helpers/assert-functional-web-storage.ts`, invocato da
+`tests/setup.ts` **solo se `typeof window !== "undefined"`** — i file
+con pragma `@vitest-environment node` caricano comunque il setup del
+progetto jsdom ma non hanno (né devono avere) Web Storage.
+
 ---
 
 ## Mock di `Sentry.withScope` + `scope.setFingerprint` (R23)
