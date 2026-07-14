@@ -16,6 +16,14 @@ export default defineConfig({
   plugins: [react()],
   test: {
     testTimeout: 15000,
+    // Node ≥ 25 espone localStorage/sessionStorage su globalThis di default,
+    // e populateGlobal di vitest salta le chiavi già presenti sul global: lo
+    // Storage di jsdom non verrebbe mai installato e i test vedrebbero lo
+    // stub di Node (senza --localstorage-file è un oggetto senza metodi →
+    // "localStorage.clear is not a function"). Il flag — accettato anche da
+    // Node 22 — riporta i worker al comportamento pre-25. Guard fail-fast:
+    // tests/setup.ts → tests/_helpers/assert-functional-web-storage.ts.
+    execArgv: ["--no-experimental-webstorage"],
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],
