@@ -8,6 +8,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { RealAdeClient } from "./real-client";
 import { AdeAuthError, AdePortalError, AdeSpidTimeoutError } from "./errors";
+import { logger } from "@/lib/logger";
 import type { CieCredentials } from "./types";
 
 vi.mock("@/lib/logger", () => ({
@@ -339,6 +340,44 @@ describe("RealAdeClient.loginCie", () => {
     );
     // 6 richieste di preambolo + esattamente 12 checkpush, non 13.
     expect(fetchMock).toHaveBeenCalledTimes(6 + 12);
+  });
+
+  it("recupera un socket keep-alive chiuso dal peer su un hop di redirect (incidente dev 2026-07-14)", async () => {
+    // Le attese del flusso CIE (poll push a 7s, approvazione umana) superano
+    // il keep-alive timeout dei server: il primo hop GET dopo l'attesa riusa
+    // un socket morto e la fetch fallisce con SocketError "other side closed".
+    // Il retry singolo in request() deve assorbirlo e completare il login.
+    const socketError = new Error("other side closed") as Error & {
+      code?: string;
+    };
+    socketError.name = "SocketError";
+    socketError.code = "UND_ERR_SOCKET";
+    const fetchFailed = new TypeError("fetch failed", { cause: socketError });
+
+    mockCieHappyPath(fetchMock);
+    const queuedFetch = fetchMock as unknown as typeof fetch;
+    let injected = false;
+    vi.stubGlobal("fetch", (url: RequestInfo | URL, init?: RequestInit) => {
+      // Prima GET dell'hop e1s1 (dentro followRedirectChain): muore una volta.
+      if (!injected && String(url).includes("execution=e1s1")) {
+        injected = true;
+        return Promise.reject(fetchFailed);
+      }
+      return queuedFetch(url, init);
+    });
+
+    const client = new RealAdeClient({ ciePollIntervalMs: 0 });
+    const session = await client.loginCie(CREDENTIALS);
+
+    expect(injected).toBe(true);
+    expect(session.partitaIva).toBe("10872631006");
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        host: "idserver.servizicie.interno.gov.it",
+        path: "/idp/profile/SAML2/POST/SSO",
+      }),
+      "ade:stale_socket_retry",
+    );
   });
 });
 
