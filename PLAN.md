@@ -29,21 +29,6 @@ banco e le feature Pro committed.
 > utenti che giustifichi il costo di manutenzione di un secondo runtime — il caso
 > "esercente con stampantina BT economica" è il driver documentabile._
 
-> **Già spedite** (storico nei tag git, non più in roadmap): **AdE auth con CIE**
-> (v1.5.0, ex #1 attrito d'iscrizione): login CIE ID (email + password app CIE ID,
-> conferma via notifica push) selezionabile in onboarding e settings come alternativa
-> a Fisconline; sessione interattiva cifrata con rinnovo alla scadenza. **SPID escluso**
-> (flusso IdP in webview, cookie di sessione non persistibile in PWA) → rimandato
-> all'app nativa (v2.0). Onboarding tour
-> dashboard (v1.4.1), catalogo con CRUD completo inclusa la **modifica prodotto**
-> (`updateCatalogItem` in `src/server/catalog-actions.ts`), **GDPR —
-> cancellazione utenti inattivi >12 mesi** (v1.4.2, ex #97): sweep in-process
-> opt-in con preavviso email ≥30 giorni; inattività = ultimo scontrino o login;
-> `src/lib/services/inactive-user-prune.ts`. **Umami web-analytics** (v1.4.2):
-> script cookieless self-hosted + eventi custom (`receipt_emitted`,
-> `plan_upgrade_click`, `onboarding_step_completed`) via `src/lib/umami.ts`;
-> env baked `NEXT_PUBLIC_UMAMI_*`, runbook in `deploy/umami/`.
-
 ---
 
 ## Nice to have (no release)
