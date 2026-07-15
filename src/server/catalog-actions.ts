@@ -62,6 +62,38 @@ async function authenticateAndAuthorize(
   return checkBusinessOwnership(user.id, businessId);
 }
 
+// Criterio fiscale allineato a `saleLineSchema` (receipt-schema.ts) e alla
+// colonna numeric(10,2): max 6 cifre intere + separatore decimale opzionale
+// (punto o virgola) con max 2 decimali. `parseFloat` accettava invece prefissi
+// numerici ("12abc" → 12), valori speciali ("Infinity", "NaN") e notazione
+// esponenziale ("1e7"), lasciando poi esplodere l'INSERT su numeric(10,2) con
+// Postgres 22P02 (error boundary invece di errore inline — regola 9/19).
+const PRICE_REGEX = /^\d{1,6}([.,]\d{1,2})?$/;
+const PRICE_MAX_CENTS = 99_999_999; // 999999.99 in centesimi
+
+/**
+ * Valida e normalizza il prezzo di catalogo al boundary (regola 9).
+ * Ritorna `{ priceStr }` con la forma canonica col punto (mai l'input raw),
+ * `null` se il prezzo è assente, o `{ error }` se degenere/fuori range.
+ */
+function normalizePrice(
+  defaultPrice: string | null,
+): { priceStr: string | null } | { error: string } {
+  const raw = defaultPrice === "" ? null : (defaultPrice ?? null);
+  if (raw === null) return { priceStr: null };
+
+  const normalized = raw.trim().replace(",", ".");
+  if (!PRICE_REGEX.test(normalized)) {
+    return { error: "Il prezzo deve essere un numero non negativo." };
+  }
+  // Range check sui centesimi interi per evitare imprecisioni IEEE-754 sul tetto.
+  const cents = Math.round(Number.parseFloat(normalized) * 100);
+  if (cents < 0 || cents > PRICE_MAX_CENTS) {
+    return { error: "Il prezzo deve essere un numero non negativo." };
+  }
+  return { priceStr: normalized };
+}
+
 /** Valida descrizione, prezzo e aliquota IVA. Ritorna { priceStr } se OK. */
 function validateItemInput(
   description: string,
@@ -74,17 +106,12 @@ function validateItemInput(
   if (description.trim().length > 200) {
     return { error: "La descrizione non può superare 200 caratteri." };
   }
-  const priceStr = defaultPrice === "" ? null : (defaultPrice ?? null);
-  if (priceStr !== null) {
-    const price = Number.parseFloat(priceStr);
-    if (Number.isNaN(price) || price < 0) {
-      return { error: "Il prezzo deve essere un numero non negativo." };
-    }
-  }
+  const priceResult = normalizePrice(defaultPrice);
+  if ("error" in priceResult) return priceResult;
   if (!VAT_CODES.includes(defaultVatCode)) {
     return { error: "Codice IVA non valido." };
   }
-  return { priceStr };
+  return { priceStr: priceResult.priceStr };
 }
 
 // ---------------------------------------------------------------------------

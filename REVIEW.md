@@ -609,32 +609,6 @@ aggiungere un test che `billing-actions.ts` non esporti più il symbol.
 
 ---
 
-### 67. Catalogo: `defaultPrice` validato con `parseFloat` ma inserito come stringa raw → 500 Postgres e valori degeneri
-
-- **Categoria:** correttezza/boundary (regola 9) · **Severità:** Low
-- **File:** `src/server/catalog-actions.ts:77-83` (`validateItemInput`), `:191` e `:278` (INSERT/UPDATE con `validated.priceStr` = input originale); colonna `numeric(10,2)` in `supabase/migrations/0000_initial.sql:84`
-
-**Problema.** La validazione fa `Number.parseFloat(priceStr)` e controlla solo
-NaN/negativo, poi inserisce la **stringa originale** nella colonna
-`numeric(10,2)`. `parseFloat` accetta prefissi numerici e valori speciali:
-`"12abc"` passa (parseFloat=12) ma l'INSERT fallisce con 22P02 → eccezione non
-gestita → error boundary; `"Infinity"` passa la validazione; `"1e7"` passa
-senza alcun tetto. Manca anche il vincolo 2 decimali/max che lo scontrino ha
-(`grossUnitPrice` ≤ 999999.99, 2 decimali, `receipt-schema.ts`): il boundary
-del catalogo è più lasco di quello della cassa che poi consuma quei prezzi.
-
-**Fix (non ambiguo).**
-
-1. Validare col criterio fiscale di `saleLineSchema`: accettare solo
-   `^\d{1,6}([.,]\d{1,2})?$` (virgola normalizzata a punto), range
-   0–999999.99; tutto il resto → `{ error: "Prezzo non valido." }`.
-2. Inserire la forma **normalizzata** (stringa canonica col punto), mai
-   l'input raw.
-3. **Test:** `"12abc"`, `"Infinity"`, `"1e7"`, `"-1"`, `"1.999"` → errore;
-   `"12,50"` → salvato `"12.50"`; `""`/null → `null` invariato.
-
----
-
 ### 68. Server actions senza guard UUID (regola 9): id malformato → 22P02 Postgres → error boundary
 
 - **Categoria:** robustezza/boundary · **Severità:** Low — solo utenti autenticati, ma rompe la regola 19 e genera rumore

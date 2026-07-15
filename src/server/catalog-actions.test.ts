@@ -279,6 +279,68 @@ describe("catalog-actions", () => {
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
+    // Regola 9 / finding #67: parseFloat accettava prefissi e valori speciali
+    // lasciando poi esplodere l'INSERT su numeric(10,2) con 22P02.
+    it.each([
+      "12abc",
+      "Infinity",
+      "-Infinity",
+      "NaN",
+      "1e7",
+      "1.999",
+      "-1",
+      "0x10",
+      "1,2,3",
+      "1_000",
+    ])(
+      "rifiuta il prezzo degenere %j senza toccare il DB",
+      async (defaultPrice) => {
+        const { addCatalogItem } = await import("./catalog-actions");
+        const result = await addCatalogItem({
+          ...VALID_ADD_INPUT,
+          defaultPrice,
+        });
+
+        expect(result.error).toMatch(/prezzo/i);
+        expect(mockInsert).not.toHaveBeenCalled();
+      },
+    );
+
+    it("rifiuta il prezzo oltre il tetto fiscale (999999.99)", async () => {
+      const { addCatalogItem } = await import("./catalog-actions");
+      const result = await addCatalogItem({
+        ...VALID_ADD_INPUT,
+        defaultPrice: "1000000",
+      });
+
+      expect(result.error).toMatch(/prezzo/i);
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("normalizza la virgola decimale a punto prima dell'INSERT", async () => {
+      const { addCatalogItem } = await import("./catalog-actions");
+      const result = await addCatalogItem({
+        ...VALID_ADD_INPUT,
+        defaultPrice: "12,50",
+      });
+
+      expect(result.error).toBeUndefined();
+      const insertArg = mockInsertValues.mock.calls[0][0];
+      expect(insertArg.defaultPrice).toBe("12.50");
+    });
+
+    it("accetta il prezzo al limite fiscale (999999.99)", async () => {
+      const { addCatalogItem } = await import("./catalog-actions");
+      const result = await addCatalogItem({
+        ...VALID_ADD_INPUT,
+        defaultPrice: "999999.99",
+      });
+
+      expect(result.error).toBeUndefined();
+      const insertArg = mockInsertValues.mock.calls[0][0];
+      expect(insertArg.defaultPrice).toBe("999999.99");
+    });
+
     it("ritorna errore se il codice IVA non è valido", async () => {
       const { addCatalogItem } = await import("./catalog-actions");
       const result = await addCatalogItem({
@@ -574,6 +636,35 @@ describe("catalog-actions", () => {
       expect(result.error).toBeDefined();
       expect(result.error).toMatch(/prezzo/i);
       expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    // Regola 9 / finding #67: stesso boundary dell'INSERT anche in UPDATE.
+    it.each(["12abc", "Infinity", "1e7", "1.999", "1000000"])(
+      "rifiuta il prezzo degenere %j senza toccare il DB",
+      async (defaultPrice) => {
+        const { updateCatalogItem } = await import("./catalog-actions");
+        const result = await updateCatalogItem({
+          ...VALID_UPDATE_INPUT,
+          defaultPrice,
+        });
+
+        expect(result.error).toMatch(/prezzo/i);
+        expect(mockUpdate).not.toHaveBeenCalled();
+      },
+    );
+
+    it("normalizza la virgola decimale a punto prima dell'UPDATE", async () => {
+      mockLimit.mockResolvedValue([{ id: FAKE_ITEM_ID }]);
+
+      const { updateCatalogItem } = await import("./catalog-actions");
+      const result = await updateCatalogItem({
+        ...VALID_UPDATE_INPUT,
+        defaultPrice: "7,05",
+      });
+
+      expect(result.error).toBeUndefined();
+      const updateArg = mockUpdateSet.mock.calls[0][0];
+      expect(updateArg.defaultPrice).toBe("7.05");
     });
 
     it("ritorna errore se il codice IVA non è valido", async () => {
