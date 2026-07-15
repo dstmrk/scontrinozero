@@ -20,6 +20,22 @@ vi.mock("@/lib/server-auth", () => ({
     mockCheckBusinessOwnership(...args),
   fetchAdePrerequisites: (...args: unknown[]) =>
     mockFetchAdePrerequisites(...args),
+  // REVIEW.md #55: mappa AdePrerequisites → WithAdeSessionParams (helper puro).
+  toAdeSessionParams: (
+    businessId: string,
+    prerequisites: { method: string; [k: string]: unknown },
+  ) =>
+    prerequisites.method === "cie"
+      ? { businessId, method: "cie" }
+      : {
+          businessId,
+          method: "fisconline",
+          credentials: {
+            codiceFiscale: prerequisites.codiceFiscale,
+            password: prerequisites.password,
+            pin: prerequisites.pin,
+          },
+        },
 }));
 
 const mockGetPlan = vi.fn();

@@ -135,34 +135,36 @@ fatto che i payload sono statici, ma è un single point of failure.
 
 ### 47. Copy marketing/help ancora Fisconline-only: CIE è live ma il sito dice il contrario
 
-- **Categoria:** funzionalità/contenuti (regola 8) · **Severità:** Medium — TODO dichiarato nella PR #695 e rimandato, va tracciato
-- **File:** `src/app/(marketing)/help/come-collegare-ade/page.tsx:43-59` ("ScontrinoZero richiede **specificamente Fisconline** per la trasmissione automatica degli scontrini" — ora falso, e "I cittadini senza P.IVA usano SPID/CIE/CNS" presentato come alternativa NON supportata), `:104-113` (procedura solo Fisconline); `src/app/(marketing)/help/sicurezza-credenziali/page.tsx:40,76` (descrive solo CF+password+PIN, non email/password CIE ID); più le altre occorrenze di `grep -rn "Fisconline" src/app/\(marketing\) src/lib/help src/lib/guide src/lib/per src/lib/confronto src/lib/strumenti` (homepage, `funzionalita`, `credenziali-fisconline`, `prima-configurazione`, `primo-scontrino`, `piani-e-prezzi`, `errori-ade`, data file articles/categories/comparisons)
+- **Categoria:** funzionalità/contenuti (regola 8) · **Severità:** Low (era Medium) — **increment 1 spedito** (claim falsi rimossi + CIE riconosciuta + articolo dedicato); resta lo sweep delle menzioni incidentali del percorso default
+- **File residui:** `src/app/(marketing)/page.tsx` (homepage: `:295`, `:515`), `src/app/(marketing)/funzionalita/page.tsx` (`:83-89`, `:126` card "Credenziali Fisconline"), `src/app/(marketing)/help/prima-configurazione/page.tsx`, `.../primo-scontrino/page.tsx`, `.../piani-e-prezzi/page.tsx`, e i data file `src/lib/per/categories.ts` / `src/lib/guide/articles.ts` / `src/lib/confronto/comparisons.ts` dove Fisconline è citato come contesto (non come "unico metodo")
 
-**Problema.** Con CIE live, il copy che presenta Fisconline come **unico**
-metodo di collegamento è diventato scorretto: scoraggia proprio il segmento
-target della feature (esercenti senza credenziali Fisconline) e contraddice
-il prodotto. Nota: la regola 8 vieta promesse di feature non live — qui è
-l'inverso, una feature live non raccontata; l'onere di verifica reale su AdE
-dichiarato nella PR ("da validare su AdE reale") suggerisce di aggiornare il
-copy **dopo** la conferma del primo login CIE reale, ma la decisione va presa
-esplicitamente, non lasciata decadere.
+**Problema.** Con CIE live, il copy che presentava Fisconline come **unico**
+metodo di collegamento era scorretto e scoraggiava il segmento target. La
+precondizione (login CIE confermato su AdE reale) è **soddisfatta** (owner,
+2026-07-15).
 
-**Fix (non ambiguo).**
+**Fatto (increment 1, precondizione soddisfatta).** Rimossi i claim falsi in
+`come-collegare-ade` ("richiede **specificamente** Fisconline") ed
+`errori-ade` ("flusso Fisconline diretto"); `sicurezza-credenziali` e la FAQ
+homepage ora citano anche le credenziali CIE ID; nuovo articolo
+`/help/collegare-ade-con-cie` (email+password app CIE ID + notifica push),
+linkato da `come-collegare-ade` ed `errori-ade` e aggiunto all'hub help.
 
-1. Precondizione: conferma del flusso CIE su AdE reale (`ADE_MODE=real`,
-   owner). Fino ad allora questo finding resta il tracker del TODO.
-2. Passare in rassegna **ogni** occorrenza del grep sopra e distinguere:
-   copy dove Fisconline è "l'unico metodo"/"requisito" → riscrivere come
-   "Fisconline **oppure** CIE (app CIE ID)"; copy dove Fisconline è citato
-   come uno dei metodi (articolo dedicato `credenziali-fisconline`) → resta,
-   aggiungendo il rimando a CIE.
-3. Nuovo articolo `/help` dedicato al collegamento con CIE (slug es.
-   `collegare-ade-con-cie`), linkato da `come-collegare-ade`; rispettare la
-   separazione slug `/help` vs `/guide` (regola 8).
-4. Aggiornare FAQ/JSON-LD dove enumerano i requisiti (attenzione agli hash
-   CSP se nel frattempo è stato fatto il finding #13).
-5. **Test:** quelli esistenti su sitemap/articoli; review umana del contenuto
-   (regola 8: contenuti LLM con review umana).
+**Fix residuo (increment 2 — non ambiguo).**
+
+1. Passare in rassegna le **menzioni incidentali** nei file residui sopra:
+   dove Fisconline è citato come "le credenziali che usi" (percorso default,
+   non falso) → aggiungere il rimando a CIE come alternativa, senza
+   riscritture strutturali. **Nessun** claim di esclusività è rimasto attivo:
+   questo è rifinitura, non correzione di un bug.
+2. Valutare se aggiungere una card/menzione CIE nell'hero/onboarding-adjacent
+   della homepage (decisione di prominenza dell'owner: oggi in-app Fisconline
+   è il default e CIE è sotto "Altre opzioni").
+3. FAQ/JSON-LD: coperto per l'hub help e la FAQ homepage; verificare le FAQ
+   delle pagine residue quando le si tocca (attenzione hash CSP solo se nel
+   frattempo è stato fatto il finding #13 — oggi no).
+4. **Test:** quelli esistenti su sitemap/articoli/meta-length; review umana
+   del contenuto (regola 8: contenuti LLM con review umana).
 
 ---
 
@@ -461,28 +463,6 @@ shape esatta non è verificata a runtime.
 
 ---
 
-### 52. `docs/api-spec.md` sez. 1A: flusso CIE descritto come "impossibile da automatizzare" (obsoleto)
-
-- **Categoria:** documentazione · **Severità:** Low — contraddice l'implementazione live e fuorvia chi la legge
-- **File:** `docs/api-spec.md:86-118` (sez. 1A: entry `/dp/SPID/cie/s4`, "pagina con QR code per app CIE ID", "impossibile da automatizzare headlessly") e `:167` (tabella entry point "CIE (via SPID)")
-
-**Problema.** La sezione 1A documenta l'assessment iniziale (HAR
-`login_cie.har`, flusso QR) e conclude che CIE non è integrabile; la PR #695
-ha invece implementato il flusso reale (HAR `login_cie_ok_notifica_app.har`):
-entry `sp.agenziaentrate.gov.it/rp/cie/sel`, login Shibboleth "livello 2"
-email+password dell'app CIE ID, conferma via **notifica push** (nessun QR).
-Il documento contraddice il codice — chi lo consulta per capire
-l'integrazione parte da premesse false.
-
-**Fix (non ambiguo).** Riscrivere la sez. 1A allineandola al flusso
-implementato in `real-client.ts` (fasi CIE-1…CIE-8, con i riferimenti alle
-entry dell'HAR `login_cie_ok_notifica_app.har` già citate nei docstring) e
-aggiornare la riga CIE della tabella `:167` a `/rp/cie/sel`; conservare una
-nota storica breve sul flusso QR (esiste come variante "carta fisica" del
-livello 1/3, non usata da noi).
-
----
-
 ### 53. `saveAdeCredentials` CIE: validazione server-side più debole del client
 
 - **Categoria:** correttezza/robustezza · **Severità:** Low
@@ -508,25 +488,6 @@ password, e va documentato con un commento).
 3. **Test** (in `onboarding-actions.test.ts`): username senza `@`/malformato/
    oltre 254 char → errore; email valida con maiuscole → salvata NON
    normalizzata (round-trip decrypt identico all'input).
-
----
-
-### 55. Costruzione `WithAdeSessionParams` duplicata in receipt-service e void-service
-
-- **Categoria:** manutenibilità/duplicazione · **Severità:** Low
-- **File:** `src/lib/services/receipt-service.ts:641-652` e `src/lib/services/void-service.ts:740-751` (stesso ternario `prerequisites.method === "cie" ? {...} : {...credentials}` copiato verbatim)
-
-**Problema.** La mappatura `AdePrerequisites` → `WithAdeSessionParams` è
-duplicata nei due servizi: al prossimo metodo di login (SPID, Fase 4) o campo
-nuovo andrebbe aggiornata in due punti con rischio di drift (stessa classe di
-debt del finding #24).
-
-**Fix (non ambiguo).** Estrarre un helper puro
-`toAdeSessionParams(businessId: string, prerequisites: AdePrerequisites): WithAdeSessionParams`
-(collocazione: `src/lib/server-auth.ts`, accanto al tipo `AdePrerequisites`,
-per non far dipendere `lib/ade` dai tipi di server-auth), usarlo in entrambi
-i servizi. **Test:** mapping fisconline (con credenziali) e cie (senza),
-exhaustiveness sul discriminante `method`.
 
 ---
 

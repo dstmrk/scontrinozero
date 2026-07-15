@@ -51,6 +51,22 @@ vi.mock("@/db/schema", () => ({
 }));
 vi.mock("@/lib/server-auth", () => ({
   fetchAdePrerequisites: mockFetchAdePrerequisites,
+  // REVIEW.md #55: mappa AdePrerequisites → WithAdeSessionParams (helper puro).
+  toAdeSessionParams: (
+    businessId: string,
+    prerequisites: { method: string; [k: string]: unknown },
+  ) =>
+    prerequisites.method === "cie"
+      ? { businessId, method: "cie" }
+      : {
+          businessId,
+          method: "fisconline",
+          credentials: {
+            codiceFiscale: prerequisites.codiceFiscale,
+            password: prerequisites.password,
+            pin: prerequisites.pin,
+          },
+        },
 }));
 vi.mock("@/lib/ade", () => ({
   getAdeMode: () => "mock",

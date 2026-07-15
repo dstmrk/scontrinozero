@@ -8,6 +8,23 @@ const mockFetchAdePrerequisites = vi.fn();
 vi.mock("@/lib/server-auth", () => ({
   fetchAdePrerequisites: (...args: unknown[]) =>
     mockFetchAdePrerequisites(...args),
+  // Helper puro (REVIEW.md #55): mappa AdePrerequisites → WithAdeSessionParams.
+  // Mockato con la mappatura reale così `withAdeSession` riceve params validi.
+  toAdeSessionParams: (
+    businessId: string,
+    prerequisites: { method: string; [k: string]: unknown },
+  ) =>
+    prerequisites.method === "cie"
+      ? { businessId, method: "cie" }
+      : {
+          businessId,
+          method: "fisconline",
+          credentials: {
+            codiceFiscale: prerequisites.codiceFiscale,
+            password: prerequisites.password,
+            pin: prerequisites.pin,
+          },
+        },
 }));
 
 // DB mock

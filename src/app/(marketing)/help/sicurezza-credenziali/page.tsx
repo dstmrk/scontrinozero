@@ -38,8 +38,8 @@ export default function SicurezzaCredenzialiPage() {
           <Badge variant="secondary">Fiscalizzazione</Badge>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Sappiamo che chiederti le credenziali Fisconline è una richiesta
-          importante. Questa pagina spiega nel dettaglio come vengono
+          Sappiamo che chiederti le credenziali AdE — Fisconline o CIE — è una
+          richiesta importante. Questa pagina spiega nel dettaglio come vengono
           archiviate, chi può accedervi e come puoi revocare il consenso in
           qualsiasi momento.
         </p>
@@ -87,10 +87,11 @@ export default function SicurezzaCredenzialiPage() {
           Cifratura AES-256-GCM: cosa significa in pratica
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Le tue credenziali Fisconline (codice fiscale, password e PIN) vengono
-          cifrate con <strong>AES-256-GCM</strong> prima di essere salvate nel
-          database. Questo è lo stesso standard usato dalle banche e dai servizi
-          di pagamento più sicuri al mondo.
+          Le tue credenziali AdE — Fisconline (codice fiscale, password e PIN)
+          oppure l&apos;email e la password dell&apos;app CIE ID se ti colleghi
+          con la CIE — vengono cifrate con <strong>AES-256-GCM</strong> prima di
+          essere salvate nel database. Questo è lo stesso standard usato dalle
+          banche e dai servizi di pagamento più sicuri al mondo.
         </p>
         <ul className="text-muted-foreground mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>

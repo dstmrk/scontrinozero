@@ -316,4 +316,42 @@ describe("server-auth", () => {
       expect(mockBuildCedenteFromBusiness).not.toHaveBeenCalled();
     });
   });
+
+  describe("toAdeSessionParams", () => {
+    const CEDENTE = { built: "cedente" } as never;
+
+    it("maps fisconline prerequisites to session params with credentials", async () => {
+      const { toAdeSessionParams } = await import("./server-auth");
+
+      const params = toAdeSessionParams("biz-789", {
+        method: "fisconline",
+        codiceFiscale: "RSSMRA80A01H501U",
+        password: "secret-pw",
+        pin: "12345678",
+        cedentePrestatore: CEDENTE,
+      });
+
+      expect(params).toEqual({
+        businessId: "biz-789",
+        method: "fisconline",
+        credentials: {
+          codiceFiscale: "RSSMRA80A01H501U",
+          password: "secret-pw",
+          pin: "12345678",
+        },
+      });
+    });
+
+    it("maps cie prerequisites to session params without credentials", async () => {
+      const { toAdeSessionParams } = await import("./server-auth");
+
+      const params = toAdeSessionParams("biz-789", {
+        method: "cie",
+        cedentePrestatore: CEDENTE,
+      });
+
+      expect(params).toEqual({ businessId: "biz-789", method: "cie" });
+      expect(params).not.toHaveProperty("credentials");
+    });
+  });
 });

@@ -10,6 +10,7 @@ import { UnauthenticatedError } from "@/lib/auth-errors";
 import { logger } from "@/lib/logger";
 import type { User } from "@supabase/supabase-js";
 import type { AdeCedentePrestatore } from "@/lib/ade/types";
+import type { WithAdeSessionParams } from "@/lib/ade";
 export type { User } from "@supabase/supabase-js";
 
 export type BusinessOwnershipError = { error: string };
@@ -28,6 +29,33 @@ export type AdePrerequisites =
       method: "cie";
       cedentePrestatore: AdeCedentePrestatore;
     };
+
+/**
+ * Mappa `AdePrerequisites` → `WithAdeSessionParams` (REVIEW.md #55).
+ *
+ * Fisconline porta le credenziali ri-loggabili; CIE no (la sessione è quella
+ * interattiva depositata nello store). Estratta qui — accanto al tipo
+ * `AdePrerequisites` — per non far dipendere `lib/ade` dai tipi di server-auth
+ * e per avere un solo punto da aggiornare al prossimo login method (es. SPID).
+ * Prima era duplicata verbatim in receipt-service e void-service.
+ */
+export function toAdeSessionParams(
+  businessId: string,
+  prerequisites: AdePrerequisites,
+): WithAdeSessionParams {
+  if (prerequisites.method === "cie") {
+    return { businessId, method: "cie" };
+  }
+  return {
+    businessId,
+    method: "fisconline",
+    credentials: {
+      codiceFiscale: prerequisites.codiceFiscale,
+      password: prerequisites.password,
+      pin: prerequisites.pin,
+    },
+  };
+}
 
 /**
  * Returns the authenticated Supabase user or throws if not authenticated.

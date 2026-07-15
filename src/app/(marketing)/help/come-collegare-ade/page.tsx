@@ -41,8 +41,16 @@ export default function ComeCollegareAde() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Prima di emettere scontrini elettronici devi collegare ScontrinoZero
           al portale <strong>Fatture e Corrispettivi</strong> dell&apos;Agenzia
-          delle Entrate. Il processo richiede le credenziali Fisconline del
-          titolare dell&apos;attività e si completa in circa 5 minuti.
+          delle Entrate. Puoi usare le <strong>credenziali Fisconline</strong>{" "}
+          del titolare dell&apos;attività (questa guida) oppure la{" "}
+          <strong>CIE</strong> tramite l&apos;app CIE ID (
+          <Link
+            href="/help/collegare-ade-con-cie"
+            className="text-primary hover:underline"
+          >
+            guida dedicata
+          </Link>
+          ). In entrambi i casi si completa in circa 5 minuti.
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
           <strong>Ultimo aggiornamento:</strong> aprile 2026
@@ -62,17 +70,28 @@ export default function ComeCollegareAde() {
           </figcaption>
         </figure>
 
-        {/* ─── Chi può usare Fisconline ─── */}
+        {/* ─── Fisconline o CIE ─── */}
         <div className="bg-muted/50 mt-6 rounded-md p-4 text-sm">
-          <p className="font-medium">Un promemoria importante</p>
+          <p className="font-medium">Fisconline o CIE?</p>
           <p className="text-muted-foreground mt-1 leading-relaxed">
             {
               "Dal 1° marzo 2021 (DL 76/2020) le credenziali Fisconline vengono rilasciate solo a "
             }
             <strong>titolari di partita IVA attiva</strong>
             {
-              " o a soggetti già autorizzati a operare per conto di società, enti o professionisti. I cittadini senza P.IVA usano SPID/CIE/CNS per accedere al portale AdE, ma ScontrinoZero richiede specificamente Fisconline per la trasmissione automatica degli scontrini."
+              " o a soggetti già autorizzati a operare per conto di società, enti o professionisti. Se non hai Fisconline ma accedi all'AdE con la "
             }
+            <strong>CIE</strong>
+            {
+              ", puoi collegare ScontrinoZero anche con la Carta d'Identità Elettronica tramite l'app CIE ID: vedi la "
+            }
+            <Link
+              href="/help/collegare-ade-con-cie"
+              className="text-primary hover:underline"
+            >
+              guida al collegamento con CIE
+            </Link>
+            {". Il metodo SPID non è ancora disponibile nell'app."}
           </p>
         </div>
 
@@ -89,6 +108,13 @@ export default function ComeCollegareAde() {
               className="text-primary hover:underline"
             >
               Leggi prima questa guida
+            </Link>
+            . In alternativa puoi collegarti con la{" "}
+            <Link
+              href="/help/collegare-ade-con-cie"
+              className="text-primary hover:underline"
+            >
+              CIE tramite l&apos;app CIE ID
             </Link>
             .
           </li>

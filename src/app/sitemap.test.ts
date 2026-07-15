@@ -6,7 +6,7 @@ describe("sitemap", () => {
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
-    expect(result).toHaveLength(70);
+    expect(result).toHaveLength(71);
 
     // Root
     expect(result[0]).toMatchObject({
@@ -184,12 +184,12 @@ describe("sitemap", () => {
     });
 
     // Auth pages (last two)
-    expect(result[68]).toMatchObject({
+    expect(result[result.length - 2]).toMatchObject({
       url: "https://scontrinozero.it/login",
       changeFrequency: "yearly",
       priority: 0.5,
     });
-    expect(result[69]).toMatchObject({
+    expect(result[result.length - 1]).toMatchObject({
       url: "https://scontrinozero.it/register",
       changeFrequency: "yearly",
       priority: 0.5,

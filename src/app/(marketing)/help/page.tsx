@@ -97,11 +97,15 @@ const helpCategories: HelpCategory[] = [
   },
   {
     name: "Collegamento Agenzia Entrate",
-    description: "Credenziali Fisconline e troubleshooting accesso.",
+    description: "Credenziali Fisconline o CIE e troubleshooting accesso.",
     articles: [
       {
         title: "Come collegare ScontrinoZero all'Agenzia delle Entrate",
         href: "/help/come-collegare-ade",
+      },
+      {
+        title: "Collegare l'AdE con CIE (app CIE ID)",
+        href: "/help/collegare-ade-con-cie",
       },
       {
         title: "Credenziali Fisconline: dove trovarle e come verificarle",
