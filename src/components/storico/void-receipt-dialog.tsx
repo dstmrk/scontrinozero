@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ReceiptQrCode } from "@/components/receipts/receipt-qr-code";
+import { CieReauthBanner } from "@/components/ade/cie-reauth-banner";
 import { TrialExpiredMessage } from "@/components/billing/trial-expired-message";
 import { TRIAL_EXPIRED_MESSAGE } from "@/lib/plans-shared";
 import { voidReceipt } from "@/server/void-actions";
@@ -153,13 +154,13 @@ export function VoidReceiptDialog({
               </div>
             )}
 
-            {/* CIE: sessione scaduta → ricollegarsi prima di ritentare l'annullo. */}
+            {/* CIE: sessione scaduta → ricollegarsi inline prima di ritentare l'annullo. */}
             {mutation.data?.reauthRequired && (
-              <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
-                {
-                  "Sessione CIE scaduta. Ricollegati dalle impostazioni approvando la notifica sull'app CIE ID, poi riprova l'annullo."
-                }
-              </div>
+              <CieReauthBanner
+                businessId={businessId}
+                actionLabel="Annulla scontrino"
+                onDismiss={() => mutation.reset()}
+              />
             )}
 
             <DialogFooter className="gap-2">

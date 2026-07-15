@@ -18,6 +18,7 @@ import { formatCurrency } from "@/lib/utils";
 import { track, UMAMI_EVENTS } from "@/lib/umami";
 import { emitReceipt } from "@/server/receipt-actions";
 import { ChangeAdePasswordDialog } from "@/components/ade/change-ade-password-dialog";
+import { CieReauthBanner } from "@/components/ade/cie-reauth-banner";
 import { TrialExpiredMessage } from "@/components/billing/trial-expired-message";
 import { TRIAL_EXPIRED_MESSAGE } from "@/lib/plans-shared";
 
@@ -311,22 +312,11 @@ export function CassaClient({
     return (
       <div className="mx-auto max-w-sm space-y-2">
         {mutation.data?.reauthRequired && (
-          <div
-            role="alert"
-            className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
-          >
-            <p>
-              {
-                "Sessione CIE scaduta. Ricollegati approvando la notifica sull'app CIE ID, poi riprova."
-              }{" "}
-              <Link
-                href="/dashboard/settings"
-                className="font-medium underline"
-              >
-                {"Ricollega ora"}
-              </Link>
-            </p>
-          </div>
+          <CieReauthBanner
+            businessId={businessId}
+            actionLabel="Emetti scontrino"
+            onDismiss={() => mutation.reset()}
+          />
         )}
         {mutationError && (
           <div
