@@ -77,7 +77,7 @@ const FAKE_USER = { id: "user-123" };
 
 const FAKE_SALE_DOC = {
   id: "sale-doc-uuid",
-  businessId: "biz-789",
+  businessId: "11111111-1111-4111-8111-111111111111",
   kind: "SALE",
   status: "ACCEPTED",
   adeTransactionId: "trx-001",
@@ -118,7 +118,9 @@ describe("storico-actions", () => {
         .mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
 
       const { searchReceipts } = await import("./storico-actions");
-      const result = await searchReceipts("biz-789");
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       expect(result.total).toBe(1);
       expect(result.items).toHaveLength(1);
@@ -138,7 +140,9 @@ describe("storico-actions", () => {
         .mockReturnValueOnce(makeDocsBuilder([]));
 
       const { searchReceipts } = await import("./storico-actions");
-      const result = await searchReceipts("biz-789");
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       expect(result.items).toEqual([]);
       expect(result.total).toBe(0);
@@ -153,7 +157,9 @@ describe("storico-actions", () => {
       mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
 
       const { searchReceipts } = await import("./storico-actions");
-      const result = await searchReceipts("biz-789");
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       expect(result.error).toBe("Non autenticato.");
       expect(result.items).toEqual([]);
@@ -167,10 +173,22 @@ describe("storico-actions", () => {
       });
 
       const { searchReceipts } = await import("./storico-actions");
-      const result = await searchReceipts("biz-789");
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+      );
       expect(result.error).toBe("Business non trovato o non autorizzato.");
       expect(result.items).toEqual([]);
       expect(result.total).toBe(0);
+    });
+
+    it("guard UUID (regola 9): businessId malformato → error envelope senza ownership check", async () => {
+      const { searchReceipts } = await import("./storico-actions");
+      const result = await searchReceipts("abc");
+
+      expect(result.error).toBe("Identificativo non valido.");
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
+      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
     });
 
     it("filters by status when provided", async () => {
@@ -180,7 +198,10 @@ describe("storico-actions", () => {
         .mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
 
       const { searchReceipts } = await import("./storico-actions");
-      const result = await searchReceipts("biz-789", { status: "ACCEPTED" });
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+        { status: "ACCEPTED" },
+      );
 
       expect(result.total).toBe(1);
       expect(result.items).toHaveLength(1);
@@ -194,7 +215,10 @@ describe("storico-actions", () => {
         .mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
 
       const { searchReceipts } = await import("./storico-actions");
-      const result = await searchReceipts("biz-789", {});
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+        {},
+      );
 
       expect(result.total).toBe(1);
       expect(result.items).toHaveLength(1);
@@ -211,9 +235,12 @@ describe("storico-actions", () => {
         .mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
 
       const { searchReceipts } = await import("./storico-actions");
-      const result = await searchReceipts("biz-789", {
-        dateFrom: "2026-01-01",
-      });
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+        {
+          dateFrom: "2026-01-01",
+        },
+      );
 
       expect(result.total).toBe(1);
       expect(result.items).toHaveLength(1);
@@ -226,7 +253,10 @@ describe("storico-actions", () => {
         .mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
 
       const { searchReceipts } = await import("./storico-actions");
-      const result = await searchReceipts("biz-789", { dateTo: "2026-03-01" });
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+        { dateTo: "2026-03-01" },
+      );
 
       expect(result.total).toBe(1);
       expect(result.items).toHaveLength(1);
@@ -251,7 +281,9 @@ describe("storico-actions", () => {
         .mockReturnValueOnce(makeLinesBuilder(lines));
 
       const { searchReceipts } = await import("./storico-actions");
-      const result = await searchReceipts("biz-789");
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       // 3 * 0.10 = 0.30 (without rounding: 0.30000000000000004)
       expect(result.items[0].total).toBe("0.30");
@@ -265,7 +297,10 @@ describe("storico-actions", () => {
         .mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
 
       const { searchReceipts } = await import("./storico-actions");
-      const result = await searchReceipts("biz-789", { page: 2, pageSize: 10 });
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+        { page: 2, pageSize: 10 },
+      );
 
       expect(result.total).toBe(25);
       expect(docsBuilder.limit).toHaveBeenCalledWith(10);
@@ -280,7 +315,7 @@ describe("storico-actions", () => {
         .mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
 
       const { searchReceipts } = await import("./storico-actions");
-      await searchReceipts("biz-789");
+      await searchReceipts("11111111-1111-4111-8111-111111111111");
 
       expect(docsBuilder.offset).toHaveBeenCalledWith(0); // page 1 → offset 0
     });
@@ -291,7 +326,10 @@ describe("storico-actions", () => {
         .mockReturnValueOnce(makeDocsBuilder([]));
 
       const { searchReceipts } = await import("./storico-actions");
-      const result = await searchReceipts("biz-789", { page: 3, pageSize: 10 });
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+        { page: 3, pageSize: 10 },
+      );
 
       // total is 5 even though page 3 has no items
       expect(result.total).toBe(5);

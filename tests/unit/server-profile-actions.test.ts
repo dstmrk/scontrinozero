@@ -292,7 +292,7 @@ describe("changePassword server action", () => {
 
 // ─── updateBusiness ───────────────────────────────────────────────────────────
 
-const BIZ_ID = "biz-xyz";
+const BIZ_ID = "11111111-1111-4111-8111-111111111111";
 
 function makeBusinessFormData(
   overrides: Record<string, string> = {},

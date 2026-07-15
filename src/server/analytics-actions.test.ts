@@ -310,8 +310,18 @@ describe("fillMissingDays", () => {
 describe("getAnalyticsKpis", () => {
   it("returns an error when ownership check fails", async () => {
     mockCheckBusinessOwnership.mockResolvedValue({ error: "Non autorizzato." });
-    const res = await getAnalyticsKpis("biz-1", "30d");
+    const res = await getAnalyticsKpis(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     expect(res).toEqual({ error: "Non autorizzato." });
+  });
+
+  it("guard UUID (regola 9): businessId malformato → { error } senza ownership check", async () => {
+    const res = await getAnalyticsKpis("abc", "30d");
+    expect(res).toEqual({ error: "Identificativo non valido." });
+    expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+    expect(mockSelect).not.toHaveBeenCalled();
   });
 
   it("returns an error when the plan is not Pro", async () => {
@@ -320,7 +330,10 @@ describe("getAnalyticsKpis", () => {
       trialStartedAt: null,
       planExpiresAt: null,
     });
-    const res = await getAnalyticsKpis("biz-1", "30d");
+    const res = await getAnalyticsKpis(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     expect(res).toMatchObject({ error: expect.stringMatching(/Pro/i) });
   });
 
@@ -332,7 +345,10 @@ describe("getAnalyticsKpis", () => {
     });
     mockSelect.mockReturnValue(makeSelectBuilder([]));
     mockFetchLinesByDocIds.mockResolvedValue([]);
-    const res = await getAnalyticsKpis("biz-1", "30d");
+    const res = await getAnalyticsKpis(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     expect(res).not.toHaveProperty("error");
     expect(res).toMatchObject({ revenueCents: 0, count: 0 });
   });
@@ -343,14 +359,20 @@ describe("getAnalyticsKpis", () => {
       trialStartedAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000),
       planExpiresAt: null,
     });
-    const res = await getAnalyticsKpis("biz-1", "30d");
+    const res = await getAnalyticsKpis(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     expect(res).toMatchObject({ error: expect.stringMatching(/Pro/i) });
   });
 
   it("returns 'Profilo non disponibile' on ProfileNotFoundError (orphan auth user)", async () => {
     const { ProfileNotFoundError } = await import("@/lib/plans");
     mockGetPlan.mockRejectedValue(new ProfileNotFoundError("user-1"));
-    const res = await getAnalyticsKpis("biz-1", "30d");
+    const res = await getAnalyticsKpis(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     expect(res).toMatchObject({
       error: expect.stringContaining("Profilo non disponibile"),
     });
@@ -361,7 +383,10 @@ describe("getAnalyticsKpis", () => {
       code: "57014",
     });
     mockGetPlan.mockRejectedValue(timeoutErr);
-    const res = await getAnalyticsKpis("biz-1", "30d");
+    const res = await getAnalyticsKpis(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     expect(res).toMatchObject({
       error: expect.stringContaining("sovraccarico"),
     });
@@ -369,20 +394,26 @@ describe("getAnalyticsKpis", () => {
 
   it("rilancia errori imprevisti di getPlan invece di mascherarli", async () => {
     mockGetPlan.mockRejectedValue(new Error("network glitch"));
-    await expect(getAnalyticsKpis("biz-1", "30d")).rejects.toThrow(
-      "network glitch",
-    );
+    await expect(
+      getAnalyticsKpis("11111111-1111-4111-8111-111111111111", "30d"),
+    ).rejects.toThrow("network glitch");
   });
 
   it("returns an error for an invalid range", async () => {
-    const res = await getAnalyticsKpis("biz-1", "1y" as unknown as "30d");
+    const res = await getAnalyticsKpis(
+      "11111111-1111-4111-8111-111111111111",
+      "1y" as unknown as "30d",
+    );
     expect(res).toMatchObject({ error: expect.any(String) });
   });
 
   it("returns 0/0/0/0 when there are no documents in the range", async () => {
     mockSelect.mockReturnValue(makeSelectBuilder([]));
     mockFetchLinesByDocIds.mockResolvedValue([]);
-    const res = await getAnalyticsKpis("biz-1", "30d");
+    const res = await getAnalyticsKpis(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     expect(res).toEqual({
       revenueCents: 0,
       count: 0,
@@ -419,7 +450,10 @@ describe("getAnalyticsKpis", () => {
         quantity: "1",
       },
     ]);
-    const res = await getAnalyticsKpis("biz-1", "30d");
+    const res = await getAnalyticsKpis(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     expect(res).toEqual({
       // 10 + 10 = 20.00 → 2000 cents (void excluded from revenue)
       revenueCents: 2000,
@@ -435,7 +469,10 @@ describe("getAnalyticsKpis", () => {
       remaining: 0,
       resetAt: Date.now() + 3_600_000,
     });
-    const res = await getAnalyticsKpis("biz-1", "30d");
+    const res = await getAnalyticsKpis(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     expect(res).toMatchObject({ error: expect.stringMatching(/Troppe/i) });
     expect(mockSelect).not.toHaveBeenCalled();
     expect(mockRateLimitCheck).toHaveBeenCalledWith("analytics:user-1");
@@ -458,7 +495,10 @@ describe("getAnalyticsKpis", () => {
         quantity: "1",
       },
     ]);
-    const res = await getAnalyticsKpis("biz-1", "30d");
+    const res = await getAnalyticsKpis(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     expect(res).toEqual({
       revenueCents: 1000,
       count: 1,
@@ -481,7 +521,10 @@ describe("getAnalyticsKpis", () => {
         quantity: "1",
       },
     ]);
-    const res = await getAnalyticsKpis("biz-1", "30d");
+    const res = await getAnalyticsKpis(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     expect(res).toEqual({
       revenueCents: 0,
       count: 0,
@@ -514,7 +557,7 @@ describe("getRevenueTimeseries", () => {
     ]);
 
     const res = await getRevenueTimeseries(
-      "biz-1",
+      "11111111-1111-4111-8111-111111111111",
       "7d",
       new Date("2026-05-19T12:00:00Z"),
     );
@@ -567,7 +610,7 @@ describe("getRevenueTimeseries", () => {
     ]);
 
     const res = await getRevenueTimeseries(
-      "biz-1",
+      "11111111-1111-4111-8111-111111111111",
       "7d",
       new Date("2026-05-19T12:00:00Z"),
     );
@@ -587,7 +630,10 @@ describe("getRevenueTimeseries", () => {
       remaining: 0,
       resetAt: Date.now() + 3_600_000,
     });
-    const res = await getRevenueTimeseries("biz-1", "7d");
+    const res = await getRevenueTimeseries(
+      "11111111-1111-4111-8111-111111111111",
+      "7d",
+    );
     expect(res).toMatchObject({ error: expect.stringMatching(/Troppe/i) });
     expect(mockSelect).not.toHaveBeenCalled();
   });
@@ -611,7 +657,7 @@ describe("getRevenueTimeseries", () => {
       },
     ]);
     const res = await getRevenueTimeseries(
-      "biz-1",
+      "11111111-1111-4111-8111-111111111111",
       "7d",
       new Date("2026-05-19T12:00:00Z"),
     );
@@ -672,7 +718,10 @@ describe("getPaymentBreakdown", () => {
         quantity: "1",
       },
     ]);
-    const res = await getPaymentBreakdown("biz-1", "30d");
+    const res = await getPaymentBreakdown(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     if (!Array.isArray(res)) throw new Error("Expected array");
     const byMethod = Object.fromEntries(res.map((e) => [e.method, e]));
     expect(byMethod.PC).toEqual({ method: "PC", count: 2, revenueCents: 2000 });
@@ -690,7 +739,10 @@ describe("getPaymentBreakdown", () => {
       remaining: 0,
       resetAt: Date.now() + 3_600_000,
     });
-    const res = await getPaymentBreakdown("biz-1", "30d");
+    const res = await getPaymentBreakdown(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     expect(res).toMatchObject({ error: expect.stringMatching(/Troppe/i) });
     expect(mockSelect).not.toHaveBeenCalled();
   });
@@ -707,7 +759,10 @@ describe("getPaymentBreakdown", () => {
       ]),
     );
     mockFetchLinesByDocIds.mockResolvedValue([]);
-    const res = await getPaymentBreakdown("biz-1", "30d");
+    const res = await getPaymentBreakdown(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     expect(res).toEqual([]);
   });
 });
@@ -715,7 +770,10 @@ describe("getPaymentBreakdown", () => {
 describe("getProductBreakdown", () => {
   it("returns an error when ownership check fails", async () => {
     mockCheckBusinessOwnership.mockResolvedValue({ error: "Non autorizzato." });
-    const res = await getProductBreakdown("biz-1", "30d");
+    const res = await getProductBreakdown(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     expect(res).toEqual({ error: "Non autorizzato." });
   });
 
@@ -725,7 +783,10 @@ describe("getProductBreakdown", () => {
       trialStartedAt: null,
       planExpiresAt: null,
     });
-    const res = await getProductBreakdown("biz-1", "30d");
+    const res = await getProductBreakdown(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     expect(res).toMatchObject({ error: expect.stringMatching(/Pro/i) });
   });
 
@@ -735,13 +796,19 @@ describe("getProductBreakdown", () => {
       remaining: 0,
       resetAt: Date.now() + 3_600_000,
     });
-    const res = await getProductBreakdown("biz-1", "30d");
+    const res = await getProductBreakdown(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     expect(res).toMatchObject({ error: expect.stringMatching(/Troppe/i) });
     expect(mockSelect).not.toHaveBeenCalled();
   });
 
   it("returns an error for an invalid range", async () => {
-    const res = await getProductBreakdown("biz-1", "1y" as unknown as "30d");
+    const res = await getProductBreakdown(
+      "11111111-1111-4111-8111-111111111111",
+      "1y" as unknown as "30d",
+    );
     expect(res).toMatchObject({ error: expect.any(String) });
   });
 
@@ -780,7 +847,10 @@ describe("getProductBreakdown", () => {
         grossUnitPrice: "1.50",
       },
     ]);
-    const res = await getProductBreakdown("biz-1", "30d");
+    const res = await getProductBreakdown(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     if (!Array.isArray(res)) throw new Error("Expected array");
     expect(res).toHaveLength(2);
     expect(res[0]).toEqual({
@@ -798,7 +868,10 @@ describe("getProductBreakdown", () => {
   it("returns empty array when no documents are present", async () => {
     mockSelect.mockReturnValue(makeSelectBuilder([]));
     mockFetchLinesByDocIds.mockResolvedValue([]);
-    const res = await getProductBreakdown("biz-1", "30d");
+    const res = await getProductBreakdown(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     expect(res).toEqual([]);
   });
 });
@@ -826,7 +899,7 @@ describe("getAnalyticsBundle", () => {
     ]);
 
     const res = await getAnalyticsBundle(
-      "biz-1",
+      "11111111-1111-4111-8111-111111111111",
       "7d",
       new Date("2026-05-19T12:00:00Z"),
     );
@@ -854,7 +927,7 @@ describe("getAnalyticsBundle", () => {
     mockSelect.mockReturnValue(makeSelectBuilder([]));
     mockFetchLinesByDocIds.mockResolvedValue([]);
 
-    await getAnalyticsBundle("biz-1", "30d");
+    await getAnalyticsBundle("11111111-1111-4111-8111-111111111111", "30d");
 
     // mockSelect è chiamato 1× per fetchSaleDocsInRange.
     // Senza l'aggregazione (4 server action separate) verrebbe chiamato 4×.
@@ -866,7 +939,10 @@ describe("getAnalyticsBundle", () => {
 
   it("returns { error } when auth fails (single error path for the whole bundle)", async () => {
     mockCheckBusinessOwnership.mockResolvedValue({ error: "Non autorizzato." });
-    const res = await getAnalyticsBundle("biz-1", "30d");
+    const res = await getAnalyticsBundle(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     expect(res).toEqual({ error: "Non autorizzato." });
   });
 
@@ -886,7 +962,10 @@ describe("getAnalyticsBundle", () => {
     rejectingBuilder.limit.mockReturnValue(Promise.reject(timeoutErr));
     mockSelect.mockReturnValue(rejectingBuilder);
 
-    const res = await getAnalyticsBundle("biz-1", "30d");
+    const res = await getAnalyticsBundle(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     expect(res).toMatchObject({
       error: expect.stringContaining("sovraccarico"),
     });
@@ -905,7 +984,10 @@ describe("getAnalyticsBundle", () => {
     });
     mockFetchLinesByDocIds.mockRejectedValue(timeoutErr);
 
-    const res = await getAnalyticsBundle("biz-1", "30d");
+    const res = await getAnalyticsBundle(
+      "11111111-1111-4111-8111-111111111111",
+      "30d",
+    );
     expect(res).toMatchObject({
       error: expect.stringContaining("sovraccarico"),
     });
@@ -924,9 +1006,9 @@ describe("getAnalyticsBundle", () => {
     );
     mockSelect.mockReturnValue(rejectingBuilder);
 
-    await expect(getAnalyticsBundle("biz-1", "30d")).rejects.toThrow(
-      "network glitch",
-    );
+    await expect(
+      getAnalyticsBundle("11111111-1111-4111-8111-111111111111", "30d"),
+    ).rejects.toThrow("network glitch");
   });
 });
 
@@ -964,7 +1046,7 @@ describe("getStarterKpis", () => {
         quantity: "1",
       },
     ]);
-    const res = await getStarterKpis("biz-1");
+    const res = await getStarterKpis("11111111-1111-4111-8111-111111111111");
     expect(res).toEqual({
       kpis: { revenueCents: 2000, count: 2, aovCents: 1000, voidCount: 1 },
     });
@@ -978,7 +1060,7 @@ describe("getStarterKpis", () => {
     });
     mockSelect.mockReturnValue(makeSelectBuilder([]));
     mockFetchLinesByDocIds.mockResolvedValue([]);
-    const res = await getStarterKpis("biz-1");
+    const res = await getStarterKpis("11111111-1111-4111-8111-111111111111");
     expect(res).toEqual({
       kpis: { revenueCents: 0, count: 0, aovCents: 0, voidCount: 0 },
     });
@@ -988,7 +1070,7 @@ describe("getStarterKpis", () => {
     // mockGetPlan default è "pro" → la vista base non deve rifiutare i Pro.
     mockSelect.mockReturnValue(makeSelectBuilder([]));
     mockFetchLinesByDocIds.mockResolvedValue([]);
-    const res = await getStarterKpis("biz-1");
+    const res = await getStarterKpis("11111111-1111-4111-8111-111111111111");
     expect(res).toEqual({
       kpis: { revenueCents: 0, count: 0, aovCents: 0, voidCount: 0 },
     });
@@ -996,14 +1078,14 @@ describe("getStarterKpis", () => {
 
   it("returns an error when ownership check fails", async () => {
     mockCheckBusinessOwnership.mockResolvedValue({ error: "Non autorizzato." });
-    const res = await getStarterKpis("biz-1");
+    const res = await getStarterKpis("11111111-1111-4111-8111-111111111111");
     expect(res).toEqual({ error: "Non autorizzato." });
     expect(mockSelect).not.toHaveBeenCalled();
   });
 
   it("returns 'Non autenticato.' without logging when session is missing", async () => {
     mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
-    const res = await getStarterKpis("biz-1");
+    const res = await getStarterKpis("11111111-1111-4111-8111-111111111111");
     expect(res).toEqual({ error: "Non autenticato." });
     expect(mockSelect).not.toHaveBeenCalled();
     expect(logger.error).not.toHaveBeenCalled();
@@ -1011,7 +1093,7 @@ describe("getStarterKpis", () => {
 
   it("degrades with a 503-like message and logs when auth fails unexpectedly", async () => {
     mockGetAuthenticatedUser.mockRejectedValue(new Error("db timeout"));
-    const res = await getStarterKpis("biz-1");
+    const res = await getStarterKpis("11111111-1111-4111-8111-111111111111");
     expect(res).toEqual({
       error: "Servizio temporaneamente non disponibile. Riprova.",
     });
@@ -1025,7 +1107,7 @@ describe("getStarterKpis", () => {
       remaining: 0,
       resetAt: Date.now() + 3_600_000,
     });
-    const res = await getStarterKpis("biz-1");
+    const res = await getStarterKpis("11111111-1111-4111-8111-111111111111");
     expect(res).toMatchObject({ error: expect.stringMatching(/Troppe/i) });
     expect(mockSelect).not.toHaveBeenCalled();
     expect(mockRateLimitCheck).toHaveBeenCalledWith("analytics:user-1");
@@ -1034,7 +1116,7 @@ describe("getStarterKpis", () => {
   it("returns 'Profilo non disponibile' on ProfileNotFoundError (orphan auth user)", async () => {
     const { ProfileNotFoundError } = await import("@/lib/plans");
     mockGetPlan.mockRejectedValue(new ProfileNotFoundError("user-1"));
-    const res = await getStarterKpis("biz-1");
+    const res = await getStarterKpis("11111111-1111-4111-8111-111111111111");
     expect(res).toMatchObject({
       error: expect.stringContaining("Profilo non disponibile"),
     });
@@ -1056,7 +1138,7 @@ describe("getStarterKpis", () => {
     rejectingBuilder.limit.mockReturnValue(Promise.reject(timeoutErr));
     mockSelect.mockReturnValue(rejectingBuilder);
 
-    const res = await getStarterKpis("biz-1");
+    const res = await getStarterKpis("11111111-1111-4111-8111-111111111111");
     expect(res).toMatchObject({
       error: expect.stringContaining("sovraccarico"),
     });
@@ -1075,7 +1157,7 @@ describe("getStarterKpis", () => {
     });
     mockFetchLinesByDocIds.mockRejectedValue(timeoutErr);
 
-    const res = await getStarterKpis("biz-1");
+    const res = await getStarterKpis("11111111-1111-4111-8111-111111111111");
     expect(res).toMatchObject({
       error: expect.stringContaining("sovraccarico"),
     });
@@ -1094,6 +1176,8 @@ describe("getStarterKpis", () => {
     );
     mockSelect.mockReturnValue(rejectingBuilder);
 
-    await expect(getStarterKpis("biz-1")).rejects.toThrow("network glitch");
+    await expect(
+      getStarterKpis("11111111-1111-4111-8111-111111111111"),
+    ).rejects.toThrow("network glitch");
   });
 });

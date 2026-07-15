@@ -209,7 +209,7 @@ describe("profile-actions", () => {
 
   describe("updateBusiness", () => {
     const VALID = {
-      businessId: "biz-uuid",
+      businessId: "11111111-1111-4111-8111-111111111111",
       address: "Via Roma 1",
       zipCode: "00100",
     };
@@ -227,6 +227,16 @@ describe("profile-actions", () => {
         formData({ ...VALID, businessId: "" }),
       );
       expect(result.error).toMatch(/business id/i);
+    });
+
+    it("guard UUID (regola 9): businessId malformato → { error } senza ownership check", async () => {
+      const { updateBusiness } = await import("./profile-actions");
+      const result = await updateBusiness(
+        formData({ ...VALID, businessId: "abc" }),
+      );
+
+      expect(result.error).toBe("Identificativo non valido.");
+      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
     });
 
     it("returns error for missing address", async () => {

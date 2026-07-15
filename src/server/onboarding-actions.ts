@@ -34,6 +34,7 @@ import type { AdeLoginMethod } from "@/lib/ade/types";
 import { logAdeFailure } from "@/lib/ade/log-failure";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
+import { isValidUuid } from "@/lib/uuid";
 import { sendEmail } from "@/lib/email";
 import { WelcomeEmail } from "@/emails/welcome";
 import { notifyOperatorOfNewSignup } from "@/lib/operator-notification";
@@ -376,6 +377,10 @@ export async function saveAdeCredentials(
   const businessId = getFormString(formData, "businessId");
   if (!businessId) {
     return { error: "Business ID mancante." };
+  }
+  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessOwnership.
+  if (!isValidUuid(businessId)) {
+    return { error: "Identificativo non valido." };
   }
 
   // Metodo di accesso (default 'fisconline' per retrocompatibilità dei form).
@@ -889,6 +894,11 @@ export async function verifyAdeCredentials(
     return authErrorResult(err, "verifyAdeCredentials");
   }
 
+  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessOwnership.
+  if (!isValidUuid(businessId)) {
+    return { error: "Identificativo non valido." };
+  }
+
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) return ownershipError;
 
@@ -1199,6 +1209,11 @@ export async function changeAdePassword(
     user = await getAuthenticatedUser();
   } catch (err) {
     return authErrorResult(err, "changeAdePassword");
+  }
+
+  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessOwnership.
+  if (!isValidUuid(businessId)) {
+    return { error: "Identificativo non valido." };
   }
 
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
