@@ -4,8 +4,12 @@ import { and, count, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import { apiKeys, businesses, profiles } from "@/db/schema";
 import { generateApiKey } from "@/lib/api-keys";
-import { canUseApi, getApiKeyLimit, getPlan } from "@/lib/plans";
-import { getEffectivePlan } from "@/server/billing-actions";
+import {
+  canUseApi,
+  getApiKeyLimit,
+  getEffectivePlan,
+  getPlan,
+} from "@/lib/plans";
 import {
   checkBusinessOwnership,
   getAuthenticatedUser,

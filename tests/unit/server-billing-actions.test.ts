@@ -43,7 +43,9 @@ vi.mock("@/db/schema", () => ({
   subscriptions: "subscriptions-table",
 }));
 
-import { getProfilePlan, getEffectivePlan } from "@/server/billing-actions";
+// getEffectivePlan spostata in "@/lib/plans" (REVIEW #66) — i suoi test vivono
+// ora in src/lib/plans.test.ts.
+import { getProfilePlan } from "@/server/billing-actions";
 
 // --- Helpers ---
 
@@ -246,69 +248,9 @@ describe("getProfilePlan", () => {
   });
 });
 
-describe("getEffectivePlan", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-
-    mockGetPlan.mockResolvedValue({
-      plan: "trial",
-      trialStartedAt: new Date("2026-01-01"),
-      planExpiresAt: null,
-    });
-    mockPlanFromPriceId.mockReturnValue(null);
-
-    mockGetDb.mockReturnValue({ select: mockSelect });
-    mockSelect.mockReturnValue({ from: mockFrom });
-    mockFrom.mockReturnValue({ where: mockWhere });
-    mockWhere.mockReturnValue({ limit: mockLimit });
-    mockLimit.mockResolvedValue([]);
-  });
-
-  it("returns trial when no subscription exists", async () => {
-    mockLimit.mockResolvedValue([]);
-    const plan = await getEffectivePlan("user-123");
-    expect(plan).toBe("trial");
-  });
-
-  it("derives plan from priceId when subscription is active", async () => {
-    mockPlanFromPriceId.mockReturnValue("pro");
-    mockLimit.mockResolvedValue([
-      { stripePriceId: "price_pro_monthly", status: "active" },
-    ]);
-    const plan = await getEffectivePlan("user-123");
-    expect(plan).toBe("pro");
-  });
-
-  it("keeps trial when subscription is incomplete", async () => {
-    mockPlanFromPriceId.mockReturnValue("pro");
-    mockLimit.mockResolvedValue([
-      { stripePriceId: "price_pro_monthly", status: "incomplete" },
-    ]);
-    const plan = await getEffectivePlan("user-123");
-    expect(plan).toBe("trial");
-    expect(mockPlanFromPriceId).not.toHaveBeenCalled();
-  });
-
-  it("keeps trial when subscription is past_due", async () => {
-    mockPlanFromPriceId.mockReturnValue("pro");
-    mockLimit.mockResolvedValue([
-      { stripePriceId: "price_pro_monthly", status: "past_due" },
-    ]);
-    const plan = await getEffectivePlan("user-123");
-    expect(plan).toBe("trial");
-  });
-
-  it("keeps profile plan when profiles.plan is not trial", async () => {
-    mockGetPlan.mockResolvedValue({
-      plan: "starter",
-      trialStartedAt: new Date("2026-01-01"),
-      planExpiresAt: null,
-    });
-    mockLimit.mockResolvedValue([
-      { stripePriceId: "price_pro_monthly", status: "active" },
-    ]);
-    const plan = await getEffectivePlan("user-123");
-    expect(plan).toBe("starter");
-    expect(mockPlanFromPriceId).not.toHaveBeenCalled();
+describe("getEffectivePlan (hardening REVIEW #66)", () => {
+  it("non è più esportata dal modulo 'use server' billing-actions", async () => {
+    const mod = await import("@/server/billing-actions");
+    expect("getEffectivePlan" in mod).toBe(false);
   });
 });

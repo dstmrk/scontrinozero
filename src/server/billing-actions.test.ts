@@ -229,68 +229,15 @@ describe("billing-actions", () => {
     });
   });
 
-  describe("getEffectivePlan", () => {
-    it("ritorna il piano DB quando non è 'trial'", async () => {
-      mockGetPlan.mockResolvedValue({
-        plan: "pro",
-        trialStartedAt: null,
-        planExpiresAt: null,
-      });
-      mockSelectLimit.mockResolvedValue([]);
-
-      const { getEffectivePlan } = await import("./billing-actions");
-      const result = await getEffectivePlan("user-123");
-
-      expect(result).toBe("pro");
-      expect(mockPlanFromPriceId).not.toHaveBeenCalled();
-    });
-
-    it("ritorna il piano DB quando è 'trial' ma non esiste subscription row", async () => {
-      mockGetPlan.mockResolvedValue({
-        plan: "trial",
-        trialStartedAt: new Date(),
-        planExpiresAt: null,
-      });
-      mockSelectLimit.mockResolvedValue([]);
-
-      const { getEffectivePlan } = await import("./billing-actions");
-      const result = await getEffectivePlan("user-123");
-
-      expect(result).toBe("trial");
-    });
-
-    it("deriva il piano da stripePriceId quando DB è 'trial' ma subscription row esiste (race condition)", async () => {
-      mockGetPlan.mockResolvedValue({
-        plan: "trial",
-        trialStartedAt: new Date(),
-        planExpiresAt: null,
-      });
-      mockPlanFromPriceId.mockReturnValue("pro");
-      // status must be 'active': checkout completed + payment confirmed
-      mockSelectLimit.mockResolvedValue([
-        { stripePriceId: "price_pro_monthly", status: "active" },
-      ]);
-
-      const { getEffectivePlan } = await import("./billing-actions");
-      const result = await getEffectivePlan("user-123");
-
-      expect(result).toBe("pro");
-      expect(mockPlanFromPriceId).toHaveBeenCalledWith("price_pro_monthly");
-    });
-
-    it("mantiene 'trial' se planFromPriceId non riconosce il priceId", async () => {
-      mockGetPlan.mockResolvedValue({
-        plan: "trial",
-        trialStartedAt: new Date(),
-        planExpiresAt: null,
-      });
-      mockPlanFromPriceId.mockReturnValue(null);
-      mockSelectLimit.mockResolvedValue([{ stripePriceId: "price_unknown" }]);
-
-      const { getEffectivePlan } = await import("./billing-actions");
-      const result = await getEffectivePlan("user-123");
-
-      expect(result).toBe("trial");
+  // getEffectivePlan NON deve più essere esportata da questo modulo "use
+  // server" (REVIEW #66): ogni export async diventa un endpoint POST pubblico,
+  // e getEffectivePlan accetta uno userId arbitrario senza autenticazione. È
+  // stata spostata in "@/lib/plans" come helper server-only. I test funzionali
+  // vivono ora in src/lib/plans.test.ts.
+  describe("getEffectivePlan (hardening REVIEW #66)", () => {
+    it("non è più esportata dal modulo 'use server' billing-actions", async () => {
+      const mod = await import("./billing-actions");
+      expect("getEffectivePlan" in mod).toBe(false);
     });
   });
 });
