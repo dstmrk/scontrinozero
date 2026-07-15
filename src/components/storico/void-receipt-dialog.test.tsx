@@ -9,6 +9,12 @@ vi.mock("@/server/void-actions", () => ({
   voidReceipt: vi.fn(),
 }));
 
+// Il banner CIE inline chiama verifyAdeCredentials solo al click su "Ricollega";
+// qui basta impedire l'esecuzione della server action reale al mount.
+vi.mock("@/server/onboarding-actions", () => ({
+  verifyAdeCredentials: vi.fn().mockResolvedValue({ businessId: "biz-1" }),
+}));
+
 // scrollIntoView richiesto da Radix UI Dialog
 beforeEach(() => {
   window.HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -134,7 +140,23 @@ describe("VoidReceiptDialog — banner reauth CIE (REVIEW #54)", () => {
     const banner = await openReauthBanner();
 
     // Senza le varianti dark: il testo eredita il foreground chiaro del tema
-    // su fondo amber-50 chiaro → contrasto quasi nullo (REVIEW #54).
-    expect(banner).toHaveClass("dark:bg-amber-950", "dark:text-amber-200");
+    // su fondo amber-50 chiaro → contrasto quasi nullo (REVIEW #54). Le classi
+    // dark: vivono sul contenitore del banner, non sul <p> del messaggio.
+    expect(banner.closest("div")).toHaveClass(
+      "dark:bg-amber-950",
+      "dark:text-amber-200",
+    );
+  });
+
+  it("il bottone 'Ricollega' avvia il ricollegamento inline dalla stessa view", async () => {
+    vi.mocked(voidReceipt).mockResolvedValue({ reauthRequired: true });
+
+    await openReauthBanner();
+
+    // Il ricollegamento è inline: niente più rimando alle impostazioni come
+    // unico percorso — c'è un bottone azionabile nella stessa schermata.
+    expect(
+      screen.getByRole("button", { name: "Ricollega" }),
+    ).toBeInTheDocument();
   });
 });
