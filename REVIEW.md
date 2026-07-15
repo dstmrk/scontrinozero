@@ -133,41 +133,6 @@ fatto che i payload sono statici, ma è un single point of failure.
 
 ---
 
-### 47. Copy marketing/help ancora Fisconline-only: CIE è live ma il sito dice il contrario
-
-- **Categoria:** funzionalità/contenuti (regola 8) · **Severità:** Low (era Medium) — **increment 1 spedito** (claim falsi rimossi + CIE riconosciuta + articolo dedicato); resta lo sweep delle menzioni incidentali del percorso default
-- **File residui:** `src/app/(marketing)/page.tsx` (homepage: `:295`, `:515`), `src/app/(marketing)/funzionalita/page.tsx` (`:83-89`, `:126` card "Credenziali Fisconline"), `src/app/(marketing)/help/prima-configurazione/page.tsx`, `.../primo-scontrino/page.tsx`, `.../piani-e-prezzi/page.tsx`, e i data file `src/lib/per/categories.ts` / `src/lib/guide/articles.ts` / `src/lib/confronto/comparisons.ts` dove Fisconline è citato come contesto (non come "unico metodo")
-
-**Problema.** Con CIE live, il copy che presentava Fisconline come **unico**
-metodo di collegamento era scorretto e scoraggiava il segmento target. La
-precondizione (login CIE confermato su AdE reale) è **soddisfatta** (owner,
-2026-07-15).
-
-**Fatto (increment 1, precondizione soddisfatta).** Rimossi i claim falsi in
-`come-collegare-ade` ("richiede **specificamente** Fisconline") ed
-`errori-ade` ("flusso Fisconline diretto"); `sicurezza-credenziali` e la FAQ
-homepage ora citano anche le credenziali CIE ID; nuovo articolo
-`/help/collegare-ade-con-cie` (email+password app CIE ID + notifica push),
-linkato da `come-collegare-ade` ed `errori-ade` e aggiunto all'hub help.
-
-**Fix residuo (increment 2 — non ambiguo).**
-
-1. Passare in rassegna le **menzioni incidentali** nei file residui sopra:
-   dove Fisconline è citato come "le credenziali che usi" (percorso default,
-   non falso) → aggiungere il rimando a CIE come alternativa, senza
-   riscritture strutturali. **Nessun** claim di esclusività è rimasto attivo:
-   questo è rifinitura, non correzione di un bug.
-2. Valutare se aggiungere una card/menzione CIE nell'hero/onboarding-adjacent
-   della homepage (decisione di prominenza dell'owner: oggi in-app Fisconline
-   è il default e CIE è sotto "Altre opzioni").
-3. FAQ/JSON-LD: coperto per l'hub help e la FAQ homepage; verificare le FAQ
-   delle pagine residue quando le si tocca (attenzione hash CSP solo se nel
-   frattempo è stato fatto il finding #13 — oggi no).
-4. **Test:** quelli esistenti su sitemap/articoli/meta-length; review umana
-   del contenuto (regola 8: contenuti LLM con review umana).
-
----
-
 ## P3 — Bassa priorità
 
 ### 17. Key rotation zero-downtime: i caller passano sempre una sola chiave

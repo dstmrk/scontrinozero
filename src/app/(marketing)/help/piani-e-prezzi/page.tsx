@@ -173,8 +173,7 @@ export default function PianiEPrezziPage() {
             Hai competenze tecniche (Linux, Docker, Node.js) o un team IT.
           </li>
           <li>
-            Vuoi che le tue credenziali Fisconline non transitino da server di
-            terzi.
+            Vuoi che le tue credenziali AdE non transitino da server di terzi.
           </li>
           <li>Preferisci un controllo totale sull&apos;infrastruttura.</li>
         </ul>

@@ -175,7 +175,7 @@ export default function PrimoScontrinoPage() {
           <li>
             Il pulsante si trasforma in <strong>Invio in corso…</strong> mentre
             ScontrinoZero accede al portale Fatture e Corrispettivi
-            dell&apos;Agenzia delle Entrate con le tue credenziali Fisconline e
+            dell&apos;Agenzia delle Entrate con le tue credenziali AdE e
             trasmette il documento commerciale.
           </li>
           <li>

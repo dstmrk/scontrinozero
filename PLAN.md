@@ -39,6 +39,14 @@ di un beneficio incerto sul bacino target (micro-esercenti). Si promuovono a
 una release **solo** quando emerge domanda utente documentata — non per
 completezza. Coerente con il principio "Minimalismo" del piano.
 
+- **CIE in evidenza nel funnel marketing** (ex REVIEW #47, punto 2) — il
+  collegamento all'AdE con CIE (app CIE ID) è live, documentato in
+  `/help/collegare-ade-con-cie` e citato come alternativa nel copy; nel funnel
+  principale (hero homepage, card `funzionalita`) Fisconline resta però il
+  default, coerente con l'app dove CIE è sotto "Altre opzioni". Promuovere CIE a
+  metodo co-primario (card/hero dedicati) è una scelta di prominenza, non una
+  correzione. _Trigger:_ un volume di utenti che confermano il flusso CIE reale
+  senza problemi.
 - **Personalizzazione scontrino (Pro)** (ex #588) — intestazione/logo/messaggio
   personalizzato sul documento commerciale. Bassa superficie ma è un upsell, non
   una leva d'adozione: rimandata finché non è la priorità. _Trigger:_ domanda

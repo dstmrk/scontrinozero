@@ -107,7 +107,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Come si emette con ScontrinoZero",
-        body: 'ScontrinoZero replica in automatico la procedura ufficiale del portale dell\'Agenzia delle Entrate: inserisci gli articoli nel carrello, scegli il metodo di pagamento, opzionalmente aggiungi il codice lotteria del cliente, e tocca "Emetti". Il documento viene generato, firmato dalle tue credenziali Fisconline, trasmesso al portale AdE e archiviato nel tuo storico digitale. Tutto in 3-5 secondi.',
+        body: "ScontrinoZero replica in automatico la procedura ufficiale del portale dell'Agenzia delle Entrate: inserisci gli articoli nel carrello, scegli il metodo di pagamento, opzionalmente aggiungi il codice lotteria del cliente, e tocca \"Emetti\". Il documento viene generato, firmato con le tue credenziali dell'Agenzia delle Entrate, trasmesso al portale AdE e archiviato nel tuo storico digitale. Tutto in 3-5 secondi.",
       },
       {
         heading: "Vantaggi rispetto al registratore telematico",
@@ -481,7 +481,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Attivazione del software e periodo di transizione",
-        body: 'Installa il software scelto (es. ScontrinoZero), inserisci P.IVA e dati attività, collega le credenziali Fisconline. Fai 1-2 scontrini di test in giornate a basso volume per familiarizzare con il flusso. Puoi tenere il RT in stato "in servizio" per 7-14 giorni in parallelo come fallback. Quando ti senti pronto, dichiara il RT fuori servizio e passa al 100% software. Nessun adempimento aggiuntivo è richiesto durante la sovrapposizione.',
+        body: 'Installa il software scelto (es. ScontrinoZero), inserisci P.IVA e dati attività, collega le credenziali AdE (Fisconline o CIE). Fai 1-2 scontrini di test in giornate a basso volume per familiarizzare con il flusso. Puoi tenere il RT in stato "in servizio" per 7-14 giorni in parallelo come fallback. Quando ti senti pronto, dichiara il RT fuori servizio e passa al 100% software. Nessun adempimento aggiuntivo è richiesto durante la sovrapposizione.',
       },
       {
         heading: "Errori comuni da evitare",
@@ -744,7 +744,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Criterio 2: dove vengono custodite le tue credenziali AdE",
-        body: 'Per emettere DCO il software accede al tuo portale Fatture e Corrispettivi con le tue credenziali Fisconline. Verifica come sono custodite: cifrate at-rest con algoritmi standard (AES-256-GCM), accessibili solo dal tuo server, mai loggate in chiaro. Sospetta dei software che ti chiedono "username e password" via email o moduli web non protetti. Le opzioni self-hosted offrono il massimo controllo: le credenziali restano sul tuo server.',
+        body: 'Per emettere DCO il software accede al tuo portale Fatture e Corrispettivi con le tue credenziali AdE. Verifica come sono custodite: cifrate at-rest con algoritmi standard (AES-256-GCM), accessibili solo dal tuo server, mai loggate in chiaro. Sospetta dei software che ti chiedono "username e password" via email o moduli web non protetti. Le opzioni self-hosted offrono il massimo controllo: le credenziali restano sul tuo server.',
       },
       {
         heading: "Criterio 3: costi reali (non solo il canone)",

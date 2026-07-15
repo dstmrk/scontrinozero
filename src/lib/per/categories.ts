@@ -171,7 +171,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
         question:
           "Posso usarlo anche senza partita IVA artigiana, da occasionale?",
         answer:
-          "ScontrinoZero richiede partita IVA attiva con credenziali Fisconline. La prestazione occasionale non è il caso d'uso target, perché non rientra negli obblighi di emissione del documento commerciale.",
+          "ScontrinoZero richiede partita IVA attiva e le credenziali per l'Agenzia delle Entrate (Fisconline o CIE). La prestazione occasionale non è il caso d'uso target, perché non rientra negli obblighi di emissione del documento commerciale.",
       },
     ],
     relatedHelp: ["primo-scontrino", "aliquote-iva", "annullare-scontrino"],
@@ -215,7 +215,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
         question:
           "Va bene per affittacamere non imprenditoriale (codice ATECO 55.20.51, il codice di attività delle case e camere per vacanze)?",
         answer:
-          "Sì, purché tu sia titolare di partita IVA e abbia credenziali Fisconline attive. L'obbligo di emissione del documento commerciale dipende dalla forma di esercizio: verifica con il commercialista se rientri nei casi obbligati.",
+          "Sì, purché tu sia titolare di partita IVA e abbia le credenziali AdE attive (Fisconline o CIE). L'obbligo di emissione del documento commerciale dipende dalla forma di esercizio: verifica con il commercialista se rientri nei casi obbligati.",
       },
     ],
     relatedHelp: ["primo-scontrino", "aliquote-iva", "intestazione-scontrino"],
@@ -297,7 +297,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
         question:
           "Sono iscritto a un ordine professionale: ScontrinoZero va bene?",
         answer:
-          "Sì, se sei titolare di partita IVA con credenziali Fisconline. Verifica con il tuo ordine se ci sono obblighi specifici di emissione fattura per tutte le prestazioni: in quel caso lo scontrino non è applicabile e ti serve un gestionale di fatturazione.",
+          "Sì, se sei titolare di partita IVA con credenziali AdE (Fisconline o CIE). Verifica con il tuo ordine se ci sono obblighi specifici di emissione fattura per tutte le prestazioni: in quel caso lo scontrino non è applicabile e ti serve un gestionale di fatturazione.",
       },
       {
         question:

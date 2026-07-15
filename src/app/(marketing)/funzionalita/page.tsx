@@ -84,9 +84,9 @@ const sections = [
     features: [
       {
         icon: Shield,
-        title: "Credenziali Fisconline cifrate",
+        title: "Credenziali AdE cifrate",
         description:
-          "Le tue credenziali Fisconline vengono cifrate con tecnologia a livello bancario (AES-256-GCM) e non vengono mai condivise con terze parti. Vengono usate esclusivamente per le operazioni che tu richiedi.",
+          "Le tue credenziali dell'Agenzia delle Entrate (Fisconline o CIE) vengono cifrate con tecnologia a livello bancario (AES-256-GCM) e non vengono mai condivise con terze parti. Vengono usate esclusivamente per le operazioni che tu richiedi.",
       },
       {
         icon: ArrowRight,
@@ -123,7 +123,7 @@ const sections = [
         icon: Shield,
         title: "Versione gratuita: la installi tu",
         description:
-          "ScontrinoZero è open source. Puoi scaricarlo e installarlo sul tuo computer o sul server della tua attività: tutte le funzionalità, gratuitamente per sempre. In questo modo le credenziali Fisconline e i tuoi dati restano da te.",
+          "ScontrinoZero è open source. Puoi scaricarlo e installarlo sul tuo computer o sul server della tua attività: tutte le funzionalità, gratuitamente per sempre. In questo modo le credenziali AdE e i tuoi dati restano da te.",
       },
     ],
   },
