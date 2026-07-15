@@ -249,7 +249,17 @@ async function computeTotalsByDoc(
   if (docs.length === 0) {
     return { totalsByDoc: new Map(), linesByDoc: new Map() };
   }
-  const lines = await fetchLinesByDocIds(docs.map((d) => d.id));
+  // `fetchLinesByDocIds` e' la query piu' pesante del bundle (una riga per
+  // articolo su tutti i documenti del range). Eseguirla dentro
+  // `withStatementTimeout` le da' lo stesso budget di `fetchSaleDocsInRange`:
+  // senza, la query piu' costosa girava fuori budget e un 57014 sotto
+  // contention pinnava la connessione invece di degradare (finding #69).
+  const lines = await withStatementTimeout(ANALYTICS_QUERY_TIMEOUT_MS, (tx) =>
+    fetchLinesByDocIds(
+      docs.map((d) => d.id),
+      tx,
+    ),
+  );
   const linesByDoc = groupLinesByDocId(lines);
   const totalsByDoc = new Map<string, number>();
   for (const doc of docs) {
@@ -286,11 +296,26 @@ async function buildAnalyticsDataset(
   // Includiamo sempre publicRequest: il dataset condiviso serve KPI +
   // timeseries (che non lo usano) e breakdown (che lo usa). Pagare un campo
   // jsonb in piu' una volta sola e' molto piu' economico di 3 fetch separate.
-  const docs = await fetchSaleDocsInRange(businessId, from, to, {
-    includePublicRequest: true,
-  });
-  const { totalsByDoc, linesByDoc } = await computeTotalsByDoc(docs);
-  return { ok: true, docs, totalsByDoc, linesByDoc, from, to };
+  try {
+    const docs = await fetchSaleDocsInRange(businessId, from, to, {
+      includePublicRequest: true,
+    });
+    const { totalsByDoc, linesByDoc } = await computeTotalsByDoc(docs);
+    return { ok: true, docs, totalsByDoc, linesByDoc, from, to };
+  } catch (err) {
+    // Un timeout DB (57014) sotto contention deve degradare inline (il
+    // fallback della pagina analytics), non propagare fino all'error boundary
+    // di Next (regola 19, stesso comportamento di getStarterKpis). Gli errori
+    // imprevisti restano visibili (rethrow → Sentry).
+    if (isStatementTimeoutError(err)) {
+      return {
+        ok: false,
+        error:
+          "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
+      };
+    }
+    throw err;
+  }
 }
 
 // Cached path: deduplicato per (businessId, range) nello stesso render RSC.

@@ -869,6 +869,65 @@ describe("getAnalyticsBundle", () => {
     const res = await getAnalyticsBundle("biz-1", "30d");
     expect(res).toEqual({ error: "Non autorizzato." });
   });
+
+  it("degrades to { error } on a DB statement timeout during the docs fetch (57014)", async () => {
+    // Il 57014 su fetchSaleDocsInRange deve degradare inline (regola 19), non
+    // propagare fino all'error boundary come faceva prima del finding #69.
+    const timeoutErr = Object.assign(new Error("statement timeout"), {
+      code: "57014",
+    });
+    const rejectingBuilder = {
+      from: vi.fn(),
+      where: vi.fn(),
+      limit: vi.fn(),
+    };
+    rejectingBuilder.from.mockReturnValue(rejectingBuilder);
+    rejectingBuilder.where.mockReturnValue(rejectingBuilder);
+    rejectingBuilder.limit.mockReturnValue(Promise.reject(timeoutErr));
+    mockSelect.mockReturnValue(rejectingBuilder);
+
+    const res = await getAnalyticsBundle("biz-1", "30d");
+    expect(res).toMatchObject({
+      error: expect.stringContaining("sovraccarico"),
+    });
+  });
+
+  it("degrades to { error } on a DB statement timeout during the lines fetch (57014)", async () => {
+    // fetchLinesByDocIds ora gira dentro withStatementTimeout (finding #69):
+    // un 57014 sulla query piu' pesante del bundle degrada come quello sui docs.
+    mockSelect.mockReturnValue(
+      makeSelectBuilder([
+        { id: "d1", status: "ACCEPTED", createdAt: new Date() },
+      ]),
+    );
+    const timeoutErr = Object.assign(new Error("statement timeout"), {
+      code: "57014",
+    });
+    mockFetchLinesByDocIds.mockRejectedValue(timeoutErr);
+
+    const res = await getAnalyticsBundle("biz-1", "30d");
+    expect(res).toMatchObject({
+      error: expect.stringContaining("sovraccarico"),
+    });
+  });
+
+  it("rethrows unexpected fetch errors instead of masking them", async () => {
+    const rejectingBuilder = {
+      from: vi.fn(),
+      where: vi.fn(),
+      limit: vi.fn(),
+    };
+    rejectingBuilder.from.mockReturnValue(rejectingBuilder);
+    rejectingBuilder.where.mockReturnValue(rejectingBuilder);
+    rejectingBuilder.limit.mockReturnValue(
+      Promise.reject(new Error("network glitch")),
+    );
+    mockSelect.mockReturnValue(rejectingBuilder);
+
+    await expect(getAnalyticsBundle("biz-1", "30d")).rejects.toThrow(
+      "network glitch",
+    );
+  });
 });
 
 describe("getStarterKpis", () => {
@@ -996,6 +1055,25 @@ describe("getStarterKpis", () => {
     rejectingBuilder.where.mockReturnValue(rejectingBuilder);
     rejectingBuilder.limit.mockReturnValue(Promise.reject(timeoutErr));
     mockSelect.mockReturnValue(rejectingBuilder);
+
+    const res = await getStarterKpis("biz-1");
+    expect(res).toMatchObject({
+      error: expect.stringContaining("sovraccarico"),
+    });
+  });
+
+  it("degrades to { error } on a DB statement timeout during the lines fetch (57014)", async () => {
+    // computeTotalsByDoc esegue fetchLinesByDocIds dentro withStatementTimeout
+    // (finding #69): un 57014 qui deve degradare come quello sui docs.
+    mockSelect.mockReturnValue(
+      makeSelectBuilder([
+        { id: "d1", status: "ACCEPTED", createdAt: new Date() },
+      ]),
+    );
+    const timeoutErr = Object.assign(new Error("statement timeout"), {
+      code: "57014",
+    });
+    mockFetchLinesByDocIds.mockRejectedValue(timeoutErr);
 
     const res = await getStarterKpis("biz-1");
     expect(res).toMatchObject({
