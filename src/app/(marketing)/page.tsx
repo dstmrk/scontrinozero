@@ -26,6 +26,7 @@ import {
   Undo2,
   Shield,
   CalendarRange,
+  Ban,
   ArrowRight,
   ShoppingBag,
   Scissors,
@@ -524,6 +525,12 @@ export default function Home() {
                 title: "Funziona ovunque sei",
                 description:
                   "Dal banco al furgone: basta uno smartphone con internet per gestire i tuoi corrispettivi.",
+              },
+              {
+                icon: Ban,
+                title: "Niente registratore di cassa",
+                description:
+                  "Nessun dispositivo da comprare o far installare da un tecnico. Ti bastano l'app e la tua Partita IVA.",
               },
             ].map((feature) => (
               <Card key={feature.title} className="border-border/50">
