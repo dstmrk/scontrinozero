@@ -708,6 +708,88 @@ describe("onboarding-actions", () => {
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
+    it.each([
+      { scenario: "senza @", username: "non-una-email" },
+      { scenario: "malformata", username: "mario@@example" },
+      {
+        scenario: "oltre 254 caratteri",
+        username: `${"a".repeat(250)}@x.com`,
+      },
+    ])(
+      "CIE: rifiuta email $scenario prima di cifrare/ownership",
+      async ({ username }) => {
+        const { saveAdeCredentials } = await import("./onboarding-actions");
+        const result = await saveAdeCredentials(
+          formData({
+            businessId: "11111111-1111-4111-8111-111111111111",
+            loginMethod: "cie",
+            username,
+            password: "cie-pass",
+          }),
+        );
+
+        expect(result.error).toBeDefined();
+        expect(mockEncrypt).not.toHaveBeenCalled();
+        expect(mockSelect).not.toHaveBeenCalled();
+        expect(mockInsert).not.toHaveBeenCalled();
+      },
+    );
+
+    it("CIE: rifiuta una password oltre il bound (128 char)", async () => {
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const result = await saveAdeCredentials(
+        formData({
+          businessId: "11111111-1111-4111-8111-111111111111",
+          loginMethod: "cie",
+          username: "mario.rossi@example.com",
+          password: "x".repeat(129),
+        }),
+      );
+
+      expect(result.error).toContain("troppo lunga");
+      expect(mockEncrypt).not.toHaveBeenCalled();
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("CIE: email con maiuscole salvata NON normalizzata (cifrata byte-per-byte)", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const mixedCaseEmail = "Mario.Rossi@Example.COM";
+      const result = await saveAdeCredentials(
+        formData({
+          businessId: "11111111-1111-4111-8111-111111111111",
+          loginMethod: "cie",
+          username: mixedCaseEmail,
+          password: "cie-pass",
+        }),
+      );
+
+      expect(result.error).toBeUndefined();
+      // La username viene cifrata così com'è: nessun trim/lowercase, il
+      // round-trip decrypt torna identico all'input (case preservato).
+      expect(mockEncrypt).toHaveBeenCalledWith(
+        mixedCaseEmail,
+        expect.anything(),
+        expect.anything(),
+      );
+    });
+
+    it("Fisconline: rifiuta una password oltre il bound (128 char)", async () => {
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const result = await saveAdeCredentials(
+        formData({
+          businessId: "11111111-1111-4111-8111-111111111111",
+          codiceFiscale: "RSSMRA80A01H501U",
+          password: "x".repeat(129),
+          pin: "1234567890",
+        }),
+      );
+
+      expect(result.error).toContain("troppo lunga");
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
     it("SPID: rifiutato (non supportato da PWA), nessun insert", async () => {
       const { saveAdeCredentials } = await import("./onboarding-actions");
       const result = await saveAdeCredentials(

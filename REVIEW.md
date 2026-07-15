@@ -463,34 +463,6 @@ shape esatta non è verificata a runtime.
 
 ---
 
-### 53. `saveAdeCredentials` CIE: validazione server-side più debole del client
-
-- **Categoria:** correttezza/robustezza · **Severità:** Low
-- **File:** `src/server/onboarding-actions.ts:331-355` (`buildCieValues`: unico check `username.includes("@")`, nessun bound di lunghezza su username/password); client: `onboarding-form.tsx` (`z.email()`) e `edit-ade-credentials-section.tsx` (`z.email()`)
-
-**Problema.** Il client valida l'email CIE ID con `z.email()`, il server con
-un semplice `includes("@")` e nessun limite di lunghezza prima di `encrypt`:
-una chiamata diretta alla server action può memorizzare stringhe arbitrarie
-(fino al limite di body di Next) come "email" cifrata, e l'errore emergerà
-solo al login AdE. Non è un problema di sicurezza (dato cifrato, mai
-interpretato), ma il boundary server deve valere da solo (regola 9 come
-principio; NB: **non** applicare `normalizeEmail()` — è una credenziale di
-un sistema esterno, il case/spazi vanno preservati byte-per-byte come per la
-password, e va documentato con un commento).
-
-**Fix (non ambiguo).**
-
-1. In `buildCieValues`: validare l'email con lo stesso criterio del client
-   (riusare lo schema Zod `z.email()` server-side) + bound `username.length <= 254`
-   e `password.length <= 128` → `{ error }` dedicati.
-2. Simmetria: `buildFisconlineValues` ha già bound impliciti (CF 16, PIN
-   regex); aggiungere il solo cap password se assente.
-3. **Test** (in `onboarding-actions.test.ts`): username senza `@`/malformato/
-   oltre 254 char → errore; email valida con maiuscole → salvata NON
-   normalizzata (round-trip decrypt identico all'input).
-
----
-
 ### 60. `changeAdePassword` senza optimistic lock né guard sul metodo: una race con `saveAdeCredentials` può corrompere credenziali CIE
 
 - **Categoria:** correttezza/robustezza · **Severità:** Low — finestra di secondi (durata del flusso HTTP AdE di cambio password), richiede azioni concorrenti dello stesso utente

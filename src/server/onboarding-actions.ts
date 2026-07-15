@@ -44,7 +44,9 @@ import {
 } from "@/lib/server-auth";
 import { authErrorResult } from "@/lib/auth-errors";
 import {
+  adeCieEmailSchema,
   adePinSchema,
+  ADE_PASSWORD_MAX_LENGTH,
   BUSINESS_PROFILE_LIMITS,
   isValidItalianZipCode,
   ITALIAN_ZIP_MESSAGE,
@@ -315,6 +317,9 @@ function buildFisconlineValues(
   if (!password) {
     return { error: "Password Fisconline obbligatoria." };
   }
+  if (password.length > ADE_PASSWORD_MAX_LENGTH) {
+    return { error: "Password Fisconline troppo lunga." };
+  }
   const pinResult = adePinSchema.safeParse(pin);
   if (!pinResult.success) {
     return {
@@ -342,14 +347,27 @@ function buildCieValues(
   key: Buffer,
   keyVersion: number,
 ): AdeCredentialValues | { error: string } {
-  const username = getFormString(formData, "username");
+  // L'email dell'app CIE ID è una credenziale di un sistema esterno: NON
+  // normalizzare (niente trim/lowercase). Case e spazi vanno preservati
+  // byte-per-byte come la password, così il valore cifrato fa round-trip
+  // identico all'input. Uso `getFormStringRaw` + Zod `z.email()` — stesso
+  // criterio del client, il boundary server non è più debole (regola 9).
+  const username = getFormStringRaw(formData, "username");
   const password = getFormStringRaw(formData, "password");
 
-  if (!username.includes("@")) {
-    return { error: "Inserisci l'email dell'app CIE ID." };
+  const usernameResult = adeCieEmailSchema.safeParse(username);
+  if (!usernameResult.success) {
+    return {
+      error:
+        usernameResult.error.issues[0]?.message ??
+        "Inserisci l'email dell'app CIE ID.",
+    };
   }
   if (!password) {
     return { error: "Password CIE obbligatoria." };
+  }
+  if (password.length > ADE_PASSWORD_MAX_LENGTH) {
+    return { error: "Password CIE troppo lunga." };
   }
 
   return {
