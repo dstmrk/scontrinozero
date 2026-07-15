@@ -656,28 +656,6 @@ senza che il mock DB venga interrogato.
 
 ---
 
-### 69. `getAnalyticsBundle` non degrada su statement timeout (regola 19; incoerente con `getStarterKpis`)
-
-- **Categoria:** robustezza/UX · **Severità:** Low
-- **File:** `src/server/analytics-actions.ts:275-294` (`buildAnalyticsDataset`, nessun try/catch attorno a `fetchSaleDocsInRange`/`computeTotalsByDoc`), `:346-364` (`getAnalyticsBundle`); contrasto: `:389-401` (`getStarterKpis` gestisce `isStatementTimeoutError`, PR #572)
-
-**Problema.** Il path Pro passa per `withStatementTimeout(5s)`: sotto
-contention il 57014 propaga da `getAnalyticsBundle` fino all'error boundary
-della pagina analytics invece del fallback inline — esattamente il
-comportamento che la regola 19 vieta e che `getStarterKpis` già corregge.
-Inoltre `computeTotalsByDoc` (`fetchLinesByDocIds`) gira **fuori** dal
-timeout scoped: la query più pesante del bundle non ha budget.
-
-**Fix (non ambiguo).** try/catch in `buildAnalyticsDataset` attorno a
-fetch+compute: su `isStatementTimeoutError` → `{ ok: false, error: "Servizio
-temporaneamente sovraccarico, riprova tra qualche istante." }` (stesso
-messaggio di `getStarterKpis`); altri errori → rethrow (Sentry). Portare
-anche `fetchLinesByDocIds` del path analytics dentro `withStatementTimeout`.
-**Test:** timeout su `fetchSaleDocsInRange` → `{ error }` senza throw;
-timeout su `fetchLinesByDocIds` → idem; errore generico → throw.
-
----
-
 ### 70. Webhook `invoice.paid`: `currentPeriodEnd` scritto con `invoice.period_end` (semantica Stripe sbagliata)
 
 - **Categoria:** correttezza/billing · **Severità:** Low — oggi il campo non ha consumer runtime, il danno è latente
