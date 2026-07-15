@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -68,10 +68,7 @@ export function CieReauthBanner({
 
   if (state.status === "success") {
     return (
-      <div
-        role="status"
-        className="flex flex-col gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900 dark:border-green-900 dark:bg-green-950 dark:text-green-200"
-      >
+      <output className="flex flex-col gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900 dark:border-green-900 dark:bg-green-950 dark:text-green-200">
         <p>{`Ricollegato! Premi di nuovo «${actionLabel}».`}</p>
         <div>
           <Button
@@ -85,7 +82,7 @@ export function CieReauthBanner({
             OK
           </Button>
         </div>
-      </div>
+      </output>
     );
   }
 
@@ -95,6 +92,21 @@ export function CieReauthBanner({
   let buttonLabel = "Ricollega";
   if (isPending) buttonLabel = "Ricollegamento in corso…";
   else if (isError) buttonLabel = "Riprova";
+
+  // Estratto dal JSX per evitare un ternario annidato (SonarCloud S3358).
+  let messageNode: ReactNode;
+  if (isPending) {
+    messageNode = (
+      <p className="flex items-center gap-1.5">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        Approva ora la notifica sull&apos;app CIE ID sul tuo telefono…
+      </p>
+    );
+  } else if (isError) {
+    messageNode = <p>{state.message}</p>;
+  } else {
+    messageNode = <p>Sessione CIE scaduta. Ricollegati per continuare.</p>;
+  }
 
   return (
     <div
@@ -106,16 +118,7 @@ export function CieReauthBanner({
           : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200",
       )}
     >
-      {isPending ? (
-        <p className="flex items-center gap-1.5">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Approva ora la notifica sull&apos;app CIE ID sul tuo telefono…
-        </p>
-      ) : isError ? (
-        <p>{state.message}</p>
-      ) : (
-        <p>Sessione CIE scaduta. Ricollegati per continuare.</p>
-      )}
+      {messageNode}
 
       <div className="flex flex-wrap items-center gap-3">
         <Button

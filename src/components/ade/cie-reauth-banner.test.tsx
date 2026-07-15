@@ -287,7 +287,7 @@ describe("CieReauthBanner", () => {
       fireEvent.click(screen.getByRole("button", { name: "Ricollega" }));
 
       const banner = await screen.findByText(/Ricollegato/i);
-      expect(banner.closest("div")?.className).toMatch(/dark:/);
+      expect(banner.closest("output")?.className).toMatch(/dark:/);
     });
   });
 });
