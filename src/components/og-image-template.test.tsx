@@ -68,4 +68,25 @@ describe("OgImageTemplate", () => {
     );
     expect(html).toContain("font-size:64px");
   });
+
+  it("embeds the brand logo as a data URI by default", () => {
+    const html = renderToStaticMarkup(<OgImageTemplate title="Home" />);
+    expect(html).toContain("<img");
+    expect(html).toContain("data:image/png;base64,");
+  });
+
+  it("omits the logo when logoSrc is empty but still renders the brand", () => {
+    const html = renderToStaticMarkup(
+      <OgImageTemplate title="Home" logoSrc="" />,
+    );
+    expect(html).not.toContain("<img");
+    expect(html).toContain("ScontrinoZero");
+    expect(html).toContain("Home");
+  });
+
+  it("uses the teal brand gradient background", () => {
+    const html = renderToStaticMarkup(<OgImageTemplate title="Home" />);
+    expect(html).toContain("#009689");
+    expect(html).toContain("#005f5a");
+  });
 });
