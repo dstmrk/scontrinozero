@@ -292,7 +292,7 @@ export default function Home() {
                 step: "1",
                 title: "Registrati",
                 description:
-                  "Crea un account e collega le credenziali Fisconline che usi sul sito dell'Agenzia delle Entrate.",
+                  "Crea un account e collega le credenziali che usi sul sito dell'Agenzia delle Entrate (Fisconline o CIE).",
                 img: "/screenshots/impostazioni-attivita.png",
                 imgAlt:
                   "Schermata impostazioni: dati dell'attività e stato delle credenziali AdE verificate",
@@ -512,7 +512,7 @@ export default function Home() {
                 icon: Shield,
                 title: "Le tue credenziali restano tue",
                 description:
-                  "Le credenziali Fisconline sono protette e non vengono condivise con nessuno.",
+                  "Le tue credenziali dell'Agenzia delle Entrate sono protette e non vengono condivise con nessuno.",
               },
               {
                 icon: CalendarRange,

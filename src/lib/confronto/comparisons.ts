@@ -99,7 +99,7 @@ export const confrontoContent: ConfrontoContent = {
         "Cerchi i prezzi più bassi del mercato fra i software comparabili.",
         "Vuoi la possibilità di auto-ospitare il software gratis sul tuo computer o server.",
         "Vuoi un trial di 30 giorni senza inserire la carta di credito.",
-        "Ti interessa poter ispezionare pubblicamente il codice che gestisce le tue credenziali Fisconline.",
+        "Ti interessa poter ispezionare pubblicamente il codice che gestisce le tue credenziali AdE.",
       ],
     },
   ],
@@ -113,7 +113,7 @@ export const confrontoContent: ConfrontoContent = {
       pricing: "30 €/anno",
       trial: "1° mese gratuito",
       notes:
-        "App web e mobile (Android/iOS). Integrazione con POS SumUp e Nexi. Accesso con credenziali Fisconline.",
+        "App web e mobile (Android/iOS). Integrazione con POS SumUp e Nexi. Accesso con credenziali Fisconline o CIE (app CIE ID).",
     },
     {
       name: "Scontrina",
@@ -145,11 +145,11 @@ export const confrontoContent: ConfrontoContent = {
     },
   ],
   differentiators: [
-    "Open source: puoi installarlo gratis sul tuo computer o server, le credenziali Fisconline non transitano da noi.",
+    "Open source: puoi installarlo gratis sul tuo computer o server, le credenziali AdE non transitano da noi.",
     "Trial di 30 giorni senza carta di credito: alla scadenza l'account passa in sola lettura, nessun addebito a sorpresa.",
     "Piani Starter da 29,99 €/anno e Pro da 49,99 €/anno: fra i listini più bassi del mercato.",
     "Pensato per lo smartphone: emetti uno scontrino in pochi secondi, e puoi anche installare l'app direttamente dal browser senza passare dagli store.",
-    "Codice sorgente ispezionabile su GitHub, incluso il modulo che cifra le credenziali Fisconline.",
+    "Codice sorgente ispezionabile su GitHub, incluso il modulo che cifra le credenziali AdE.",
   ],
   ourPositioning: {
     bestFor: [
@@ -185,7 +185,7 @@ export const confrontoContent: ConfrontoContent = {
     {
       question: "Posso migrare da un altro software a ScontrinoZero?",
       answer:
-        "Sì. Le credenziali Fisconline restano le tue: basta crearle in ScontrinoZero, completare l'onboarding e iniziare a emettere. Lo storico precedente resta consultabile nel cassetto fiscale dell'Agenzia delle Entrate, indipendentemente dal software che hai usato prima.",
+        "Sì. Le credenziali AdE restano le tue: basta crearle in ScontrinoZero, completare l'onboarding e iniziare a emettere. Lo storico precedente resta consultabile nel cassetto fiscale dell'Agenzia delle Entrate, indipendentemente dal software che hai usato prima.",
     },
   ],
   relatedHelp: [

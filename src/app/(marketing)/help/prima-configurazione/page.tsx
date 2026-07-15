@@ -154,7 +154,15 @@ export default function PrimaConfigurazioneePage() {
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Questo è il passaggio più importante: senza le credenziali AdE non è
-          possibile trasmettere scontrini. Inserisci:
+          possibile trasmettere scontrini. Questa guida mostra il collegamento
+          con Fisconline; in alternativa puoi collegarti con la{" "}
+          <Link
+            href="/help/collegare-ade-con-cie"
+            className="text-primary hover:underline"
+          >
+            CIE tramite l&apos;app CIE ID
+          </Link>
+          . Con Fisconline inserisci:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
