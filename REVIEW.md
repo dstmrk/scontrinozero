@@ -461,28 +461,6 @@ shape esatta non è verificata a runtime.
 
 ---
 
-### 52. `docs/api-spec.md` sez. 1A: flusso CIE descritto come "impossibile da automatizzare" (obsoleto)
-
-- **Categoria:** documentazione · **Severità:** Low — contraddice l'implementazione live e fuorvia chi la legge
-- **File:** `docs/api-spec.md:86-118` (sez. 1A: entry `/dp/SPID/cie/s4`, "pagina con QR code per app CIE ID", "impossibile da automatizzare headlessly") e `:167` (tabella entry point "CIE (via SPID)")
-
-**Problema.** La sezione 1A documenta l'assessment iniziale (HAR
-`login_cie.har`, flusso QR) e conclude che CIE non è integrabile; la PR #695
-ha invece implementato il flusso reale (HAR `login_cie_ok_notifica_app.har`):
-entry `sp.agenziaentrate.gov.it/rp/cie/sel`, login Shibboleth "livello 2"
-email+password dell'app CIE ID, conferma via **notifica push** (nessun QR).
-Il documento contraddice il codice — chi lo consulta per capire
-l'integrazione parte da premesse false.
-
-**Fix (non ambiguo).** Riscrivere la sez. 1A allineandola al flusso
-implementato in `real-client.ts` (fasi CIE-1…CIE-8, con i riferimenti alle
-entry dell'HAR `login_cie_ok_notifica_app.har` già citate nei docstring) e
-aggiornare la riga CIE della tabella `:167` a `/rp/cie/sel`; conservare una
-nota storica breve sul flusso QR (esiste come variante "carta fisica" del
-livello 1/3, non usata da noi).
-
----
-
 ### 53. `saveAdeCredentials` CIE: validazione server-side più debole del client
 
 - **Categoria:** correttezza/robustezza · **Severità:** Low
@@ -508,25 +486,6 @@ password, e va documentato con un commento).
 3. **Test** (in `onboarding-actions.test.ts`): username senza `@`/malformato/
    oltre 254 char → errore; email valida con maiuscole → salvata NON
    normalizzata (round-trip decrypt identico all'input).
-
----
-
-### 55. Costruzione `WithAdeSessionParams` duplicata in receipt-service e void-service
-
-- **Categoria:** manutenibilità/duplicazione · **Severità:** Low
-- **File:** `src/lib/services/receipt-service.ts:641-652` e `src/lib/services/void-service.ts:740-751` (stesso ternario `prerequisites.method === "cie" ? {...} : {...credentials}` copiato verbatim)
-
-**Problema.** La mappatura `AdePrerequisites` → `WithAdeSessionParams` è
-duplicata nei due servizi: al prossimo metodo di login (SPID, Fase 4) o campo
-nuovo andrebbe aggiornata in due punti con rischio di drift (stessa classe di
-debt del finding #24).
-
-**Fix (non ambiguo).** Estrarre un helper puro
-`toAdeSessionParams(businessId: string, prerequisites: AdePrerequisites): WithAdeSessionParams`
-(collocazione: `src/lib/server-auth.ts`, accanto al tipo `AdePrerequisites`,
-per non far dipendere `lib/ade` dai tipi di server-auth), usarlo in entrambi
-i servizi. **Test:** mapping fisconline (con credenziali) e cie (senza),
-exhaustiveness sul discriminante `method`.
 
 ---
 

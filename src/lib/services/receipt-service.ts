@@ -32,6 +32,7 @@ import { logger } from "@/lib/logger";
 import { calcInputLinesTotalCents } from "@/lib/receipts/document-lines";
 import {
   fetchAdePrerequisites,
+  toAdeSessionParams,
   type AdePrerequisites,
 } from "@/lib/server-auth";
 import { getFiscalDate } from "@/lib/date-utils";
@@ -722,17 +723,7 @@ async function submitSaleToAde(
 
   try {
     return await withAdeSession(
-      prerequisites.method === "cie"
-        ? { businessId: input.businessId, method: "cie" }
-        : {
-            businessId: input.businessId,
-            method: "fisconline",
-            credentials: {
-              codiceFiscale: prerequisites.codiceFiscale,
-              password: prerequisites.password,
-              pin: prerequisites.pin,
-            },
-          },
+      toAdeSessionParams(input.businessId, prerequisites),
       async (adeClient) => {
         // Lookup AdE pre-retry (REVIEW.md #4): solo in recovery, prima di
         // ri-sottomettere, riconcilia il documento con AdE nella stessa sessione.

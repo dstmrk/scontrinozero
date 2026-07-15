@@ -29,6 +29,7 @@ import { logger } from "@/lib/logger";
 import { getFiscalDate } from "@/lib/date-utils";
 import {
   fetchAdePrerequisites,
+  toAdeSessionParams,
   type AdePrerequisites,
 } from "@/lib/server-auth";
 import type { VoidReceiptInput, VoidReceiptResult } from "@/types/storico";
@@ -804,17 +805,7 @@ export async function voidReceiptForBusiness(
 
   try {
     return await withAdeSession(
-      prerequisites.method === "cie"
-        ? { businessId: input.businessId, method: "cie" }
-        : {
-            businessId: input.businessId,
-            method: "fisconline",
-            credentials: {
-              codiceFiscale: prerequisites.codiceFiscale,
-              password: prerequisites.password,
-              pin: prerequisites.pin,
-            },
-          },
+      toAdeSessionParams(input.businessId, prerequisites),
       async (adeClient) => {
         // Lookup AdE pre-retry (REVIEW.md #4): solo in recovery, prima di
         // ri-sottomettere, riconcilia l'annullo con AdE nella stessa sessione.

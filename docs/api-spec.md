@@ -85,39 +85,44 @@ Chiamate GET in sequenza (best-effort):
 
 ## 1A. Autenticazione AdE (CIE — Carta d'Identità Elettronica)
 
-> **Nota**: il flusso CIE richiede la presenza fisica della carta CIE e l'app
-> **CIE ID** sul telefono dell'utente (scansione QR). Non è automatizzabile con
-> sole chiamate HTTP. Documentato a fini di ricerca per eventuale implementazione
-> futura (richiede una sessione browser).
+> **Stato**: implementato e **live** (PR #695, HAR
+> `login_cie_ok_notifica_app.har`). Il login CIE usato dall'app **non** richiede
+> la carta fisica né la scansione di un QR code: è il **"livello 2"** dell'app
+> **CIE ID** — email + password dell'app CIE ID sull'IdP Shibboleth del Ministero
+> dell'Interno, con conferma via **notifica push** sul telefono. È automatizzabile
+> con sole chiamate HTTP (nessuna sessione browser). Implementazione: `cieLogin`
+> in `src/lib/ade/real-client.ts`, fasi `CIE-1…CIE-8`.
 
-Base URL: `https://ivaservizi.agenziaentrate.gov.it`
-IDP URL: `https://idserver.servizicie.interno.gov.it`
+Base URL AdE SP: `https://sp.agenziaentrate.gov.it`
+IdP CIE (Shibboleth Min. Interno): `https://idserver.servizicie.interno.gov.it`
 
-### 1A.1 Flusso CIE (da `login_cie.har`, 129 richieste)
+### 1A.1 Flusso CIE livello 2 (da `login_cie_ok_notifica_app.har`)
 
-| Fase | Metodo | URL / Dominio                                                   | Scopo                                                        |
-| ---- | ------ | --------------------------------------------------------------- | ------------------------------------------------------------ |
-| 1    | GET    | `ivaservizi…/dp/SPID/cie/s4`                                    | Entry point CIE su AdE → redirect a IDP                      |
-| 2    | POST   | `idserver.servizicie.interno.gov.it/idp/profile/SAML2/POST/SSO` | SAMLRequest a IDP CIE                                        |
-| 3    | GET    | `idserver…/idp/login/livello2`                                  | Pagina con QR code per app CIE ID                            |
-| 4    | GET    | `idserver…/idp/login/livello1e2checkqrcode`                     | **Long-polling** (ripetuto finché non scansionato)           |
-| 5    | GET    | `idserver…/idp/login/livello1e2postqrcode`                      | QR scansionato → avanza il flusso                            |
-| 6    | POST   | `idserver…/idp/Authn/X509/…` (catena e1s2→e1s5)                 | Esecuzione SAML (più step intermedi)                         |
-| 7    | POST   | `idserver…/idp/profile/SAML2/POST/SSO` (consent)                | Invio attributi: Nome, Cognome, DataDiNascita, CodiceFiscale |
-| 8    | POST   | `ivaservizi…/dp/SPID`                                           | SAMLResponse → AdE riceve identità → 302                     |
-| 9    | GET    | `ivaservizi…/dp/api?v={unix_ms}`                                | Bootstrap sessione AdE (identico a Fisconline)               |
-| 10   | GET    | `…/ser/api/fatture/v1/ul/me/adesione/stato/`                    | 401 → trigger DatiOpzioni                                    |
-| 11   | POST   | DatiOpzioni portlet                                             | Setup sessione                                               |
-| 12   | GET    | `…/adesione/stato/`                                             | 200 → sessione pronta                                        |
+| Fase  | Metodo | URL / Dominio                                                             | Scopo                                                                                       |
+| ----- | ------ | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| CIE-1 | GET    | `sp.agenziaentrate.gov.it/rp/cie/sel?RelayState=FATBTB`                   | Entry AdE SP → HTML con form auto-submit contenente la SAMLRequest verso l'IdP              |
+| CIE-2 | POST   | `idserver…/idp/profile/SAML2/POST/SSO`                                    | SAMLRequest all'IdP → 302 → pagina probe `localStorage` Shibboleth (e1s1)                   |
+| CIE-3 | POST   | `idserver…` (probe `localStorage`, e1s1)                                  | Segue i redirect fino alla pagina credenziali livello 2                                     |
+| CIE-4 | POST   | `idserver…/idp/login/livello2`                                            | Credenziali: email CIE ID + password → pagina d'attesa push. KO → "Credenziali non valide." |
+| CIE-5 | GET    | `idserver…/idp/login/livello1e2checkpush` (poll) → `…/livello1e2postpush` | Poll finché l'app CIE ID approva la push, poi `postpush` → segue i redirect                 |
+| CIE-6 | POST   | `idserver…` consenso attributi (e1s4)                                     | 302 → pagina probe `localStorage` finale (e1s5)                                             |
+| CIE-7 | POST   | `idserver…` (probe finale, e1s5)                                          | 200 → HTML con form auto-submit contenente la SAMLResponse verso l'AdE SP                   |
+| CIE-8 | POST   | `sp.agenziaentrate.gov.it` (ACS) → make4SAM → `iampe` Consumer            | SAMLResponse → make4SAM → bootstrap `iampe` → portale home AdE                              |
 
 ### 1A.2 Caratteristiche chiave
 
-- **SAML2**: Il flusso usa il protocollo SAML 2.0 (POST binding)
-- **Entry point AdE**: `GET /dp/SPID/cie/s4` (percorso fisso per CIE)
-- **IDP**: `idserver.servizicie.interno.gov.it` (unico provider per CIE)
-- **Interazione richiesta**: scansione QR con app CIE ID → impossibile da automatizzare headlessly
-- **Bootstrap post-auth**: identico al flusso Fisconline (Fasi 3-5 della sezione 1.1)
-- **Logout**: identico alla sezione 1.6
+- **SAML2**: protocollo SAML 2.0 (POST binding), IdP Shibboleth del Ministero dell'Interno
+- **Entry point AdE SP**: `GET /rp/cie/sel?RelayState=FATBTB`
+- **Autenticazione**: email + password dell'app **CIE ID** (livello 2) — **non** la carta fisica
+- **Conferma**: **notifica push** sull'app CIE ID (poll `checkpush` → `postpush`), **nessun QR**
+- **Bootstrap post-auth**: `make4SAM` → Consumer `iampe.agenziaentrate.gov.it` → portale home
+- **Sessione**: nessuna credenziale ri-loggabile in silenzio (il 2° fattore è umano). Emit/void riusano la sessione interattiva dallo store; se assente/scaduta → `AdeReauthRequiredError`
+
+> **Nota storica.** Il primo assessment (HAR `login_cie.har`, entry
+> `/dp/SPID/cie/s4`) documentava la variante **"carta fisica"** livello 1/3 con
+> scansione QR dell'app CIE ID, ritenuta non automatizzabile headlessly. Quella
+> variante **non è usata** da ScontrinoZero: l'integrazione live usa il livello 2
+> (email + password + push) descritto sopra.
 
 ---
 
@@ -152,20 +157,20 @@ Chooser SPID: `https://spid.sogei.it/SPIDManagerWeb/loginFattureCorrispettivi.ht
 
 Dalla pagina chooser (`loginFattureCorrispettivi.html`) risultano 12 IDP:
 
-| IDP            | Entry point AdE                     |
-| -------------- | ----------------------------------- |
-| Aruba          | `/dp/SPID/aruba/s4`                 |
-| InfoCert       | `/dp/SPID/infocert/s4`              |
-| Intesa (TIM)   | `/dp/SPID/intesa/s4`                |
-| Namirial       | `/dp/SPID/namirial/s4`              |
-| Poste Italiane | `/dp/SPID/poste/s4`                 |
-| Sielte         | `/dp/SPID/sielte/s4`                |
-| SpidItalia     | `/dp/SPID/spiditalia/s4`            |
-| Teamsystem     | `/dp/SPID/teamsystem/s4`            |
-| Lepida         | `/dp/SPID/lepida/s4`                |
-| Etna.com       | `/dp/SPID/etna/s4`                  |
-| CIE (via SPID) | `/dp/SPID/cie/s4` (vedi sezione 1A) |
-| Altri          | pattern `/dp/SPID/{provider}/s4`    |
+| IDP            | Entry point AdE                                                                                                             |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Aruba          | `/dp/SPID/aruba/s4`                                                                                                         |
+| InfoCert       | `/dp/SPID/infocert/s4`                                                                                                      |
+| Intesa (TIM)   | `/dp/SPID/intesa/s4`                                                                                                        |
+| Namirial       | `/dp/SPID/namirial/s4`                                                                                                      |
+| Poste Italiane | `/dp/SPID/poste/s4`                                                                                                         |
+| Sielte         | `/dp/SPID/sielte/s4`                                                                                                        |
+| SpidItalia     | `/dp/SPID/spiditalia/s4`                                                                                                    |
+| Teamsystem     | `/dp/SPID/teamsystem/s4`                                                                                                    |
+| Lepida         | `/dp/SPID/lepida/s4`                                                                                                        |
+| Etna.com       | `/dp/SPID/etna/s4`                                                                                                          |
+| CIE (via SPID) | `/dp/SPID/cie/s4` — variante storica "carta fisica" livello 1/3, non usata; l'integrazione live usa `/rp/cie/sel` (sez. 1A) |
+| Altri          | pattern `/dp/SPID/{provider}/s4`                                                                                            |
 
 ### 1B.3 Caratteristiche chiave
 
