@@ -587,25 +587,29 @@ finestra.
 
 ---
 
-### 66. `getEffectivePlan(userId)` è una server action pubblica senza autenticazione
+### 67. Catalogo: `defaultPrice` validato con `parseFloat` ma inserito come stringa raw → 500 Postgres e valori degeneri
 
-- **Categoria:** sicurezza/hardening · **Severità:** Low — richiede l'auth UUID della vittima (non enumerabile), leak limitato al nome del piano
-- **File:** `src/server/billing-actions.ts:34` (export da modulo `"use server"`); consumer legittimo: `src/server/api-key-actions.ts:54`
+- **Categoria:** correttezza/boundary (regola 9) · **Severità:** Low
+- **File:** `src/server/catalog-actions.ts:77-83` (`validateItemInput`), `:191` e `:278` (INSERT/UPDATE con `validated.priceStr` = input originale); colonna `numeric(10,2)` in `supabase/migrations/0000_initial.sql:84`
 
-**Problema.** Ogni export async di un file `"use server"` diventa un endpoint
-POST invocabile da qualunque client con l'action ID (estraibile dal bundle).
-`getEffectivePlan` accetta un `userId` arbitrario e risponde senza chiamare
-`getAuthenticatedUser`: (a) info-leak del piano di un altro utente dato il suo
-auth UUID; (b) due query DB gratuite per invocazione non autenticata (surface
-DoS); (c) un `userId` non-UUID produce Postgres 22P02 non gestito → error
-boundary + rumore. È un helper server-side, non una action.
+**Problema.** La validazione fa `Number.parseFloat(priceStr)` e controlla solo
+NaN/negativo, poi inserisce la **stringa originale** nella colonna
+`numeric(10,2)`. `parseFloat` accetta prefissi numerici e valori speciali:
+`"12abc"` passa (parseFloat=12) ma l'INSERT fallisce con 22P02 → eccezione non
+gestita → error boundary; `"Infinity"` passa la validazione; `"1e7"` passa
+senza alcun tetto. Manca anche il vincolo 2 decimali/max che lo scontrino ha
+(`grossUnitPrice` ≤ 999999.99, 2 decimali, `receipt-schema.ts`): il boundary
+del catalogo è più lasco di quello della cassa che poi consuma quei prezzi.
 
-**Fix (non ambiguo).** Spostare `getEffectivePlan` fuori dal modulo
-`"use server"` — collocazione: `src/lib/plans.ts`, accanto a `getPlan` (già
-server-only) — e aggiornare gli import in `api-key-actions.ts` e nei test;
-in `billing-actions.ts` restano solo le action autenticate. Verificare con
-grep che nessun client component la importi. **Test:** esistenti, spostati;
-aggiungere un test che `billing-actions.ts` non esporti più il symbol.
+**Fix (non ambiguo).**
+
+1. Validare col criterio fiscale di `saleLineSchema`: accettare solo
+   `^\d{1,6}([.,]\d{1,2})?$` (virgola normalizzata a punto), range
+   0–999999.99; tutto il resto → `{ error: "Prezzo non valido." }`.
+2. Inserire la forma **normalizzata** (stringa canonica col punto), mai
+   l'input raw.
+3. **Test:** `"12abc"`, `"Infinity"`, `"1e7"`, `"-1"`, `"1.999"` → errore;
+   `"12,50"` → salvato `"12.50"`; `""`/null → `null` invariato.
 
 ---
 

@@ -9,6 +9,9 @@ import { getPlan } from "@/lib/plans";
 import type { Plan } from "@/lib/plans";
 import { planFromPriceId } from "@/lib/stripe";
 
+// getEffectivePlan è stato spostato in "@/lib/plans" (helper server-only, non
+// una action pubblica invocabile via POST) — vedi REVIEW #66.
+
 export type ProfilePlanResult =
   | {
       plan: Plan;
@@ -23,38 +26,6 @@ export type ProfilePlanResult =
       cancelAtPeriodEnd: boolean;
     }
   | { error: string };
-
-/**
- * Restituisce il piano effettivo dell'utente, applicando il fallback
- * subscription-aware: se profiles.plan è ancora "trial" ma esiste già una
- * subscription row con stripePriceId (set al checkout prima che arrivi il
- * webhook), deriva il piano dal prezzo. Usato come base per tutti i feature
- * gate che devono essere consistenti con la UI.
- */
-export async function getEffectivePlan(userId: string): Promise<Plan> {
-  const planInfo = await getPlan(userId);
-
-  const db = getDb();
-  const [sub] = await db
-    .select({
-      stripePriceId: subscriptions.stripePriceId,
-      status: subscriptions.status,
-    })
-    .from(subscriptions)
-    .where(eq(subscriptions.userId, userId))
-    .limit(1);
-
-  // Only derive plan from subscription when payment is confirmed (active).
-  // Excluding incomplete/past_due prevents premature access on failed payments.
-  if (
-    planInfo.plan === "trial" &&
-    sub?.stripePriceId &&
-    sub.status === "active"
-  ) {
-    return planFromPriceId(sub.stripePriceId) ?? planInfo.plan;
-  }
-  return planInfo.plan;
-}
 
 /**
  * Restituisce il piano corrente dell'utente autenticato e indica

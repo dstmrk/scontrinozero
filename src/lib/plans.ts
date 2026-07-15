@@ -1,10 +1,11 @@
 import { cache } from "react";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { profiles } from "@/db/schema";
+import { profiles, subscriptions } from "@/db/schema";
 import { canUsePro, isPlan, type Plan } from "@/lib/plans-shared";
 import { isStatementTimeoutError } from "@/lib/api-errors";
 import { logger } from "@/lib/logger";
+import { planFromPriceId } from "@/lib/stripe";
 
 // Re-export pure helpers so existing server callers can keep importing from
 // "@/lib/plans". I client component MUST import from "@/lib/plans-shared"
@@ -120,6 +121,42 @@ async function fetchPlan(authUserId: string): Promise<PlanInfo> {
 
 export const getPlan: (authUserId: string) => Promise<PlanInfo> =
   cache(fetchPlan);
+
+/**
+ * Restituisce il piano effettivo dell'utente, applicando il fallback
+ * subscription-aware: se profiles.plan è ancora "trial" ma esiste già una
+ * subscription row con stripePriceId (set al checkout prima che arrivi il
+ * webhook), deriva il piano dal prezzo. Usato come base per tutti i feature
+ * gate che devono essere consistenti con la UI.
+ *
+ * Helper server-only (query DB): NON è una server action. Va chiamato dopo
+ * aver autenticato l'utente e passando `userId` dalla sessione, mai un valore
+ * arbitrario dal client (vedi REVIEW #66).
+ */
+export async function getEffectivePlan(userId: string): Promise<Plan> {
+  const planInfo = await getPlan(userId);
+
+  const db = getDb();
+  const [sub] = await db
+    .select({
+      stripePriceId: subscriptions.stripePriceId,
+      status: subscriptions.status,
+    })
+    .from(subscriptions)
+    .where(eq(subscriptions.userId, userId))
+    .limit(1);
+
+  // Only derive plan from subscription when payment is confirmed (active).
+  // Excluding incomplete/past_due prevents premature access on failed payments.
+  if (
+    planInfo.plan === "trial" &&
+    sub?.stripePriceId &&
+    sub.status === "active"
+  ) {
+    return planFromPriceId(sub.stripePriceId) ?? planInfo.plan;
+  }
+  return planInfo.plan;
+}
 
 export type AssertProPlanResult =
   | { ok: true; plan: Plan }

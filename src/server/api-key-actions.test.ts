@@ -30,11 +30,8 @@ vi.mock("@/lib/server-auth", () => ({
 vi.mock("@/lib/plans", () => ({
   canUseApi: mockCanUseApi,
   getApiKeyLimit: mockGetApiKeyLimit,
-  getPlan: mockGetPlan,
-}));
-
-vi.mock("@/server/billing-actions", () => ({
   getEffectivePlan: mockGetEffectivePlan,
+  getPlan: mockGetPlan,
 }));
 
 vi.mock("@/lib/api-keys", () => ({
