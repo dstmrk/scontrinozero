@@ -31,13 +31,13 @@ export const tools: Record<ToolSlug, ToolContent> = {
     title: "Scorporo IVA",
     metaTitle: "Scorporo IVA online: calcolo imponibile e IVA dal lordo",
     metaDescription:
-      "Calcolatore gratuito per scorporare l'IVA da un importo lordo. Aliquote 4%, 5%, 10%, 22%. Risultato istantaneo con netto e IVA scomposti.",
+      "Calcolatore IVA gratuito: scorpora l'IVA dal lordo o aggiungila al netto. Aliquote 4%, 5%, 10%, 22%. Risultato istantaneo con imponibile, IVA e totale.",
     heroIntro:
-      "Inserisci un importo lordo e un'aliquota IVA: ti mostriamo l'imponibile netto e l'IVA scorporata. Funziona per le aliquote italiane standard (4%, 5%, 10%, 22%) e per qualunque aliquota personalizzata fra 0 e 99%.",
+      "Due calcoli in uno: scorpora l'IVA da un importo lordo per ottenere imponibile e imposta, oppure parti dal netto e aggiungi l'IVA per ottenere il totale. Funziona con le aliquote italiane standard (4%, 5%, 10%, 22%) e con qualunque aliquota fra 0 e 99%.",
     howItWorks: [
-      "Inserisci l'importo lordo (es. 122 €).",
-      "Scegli l'aliquota IVA (es. 22%).",
-      "Ottieni l'imponibile (100 €) e l'IVA (22 €).",
+      "Scegli la modalità: «Scorpora IVA» (parti dal lordo) o «Aggiungi IVA» (parti dal netto).",
+      "Inserisci l'importo e scegli l'aliquota IVA (es. 22%).",
+      "Ottieni imponibile, IVA e lordo scomposti all'istante.",
     ],
     faq: [
       {
@@ -64,6 +64,16 @@ export const tools: Record<ToolSlug, ToolContent> = {
         question: "Qual è la differenza tra importo lordo, netto e IVA?",
         answer:
           "Il lordo (o \"IVA inclusa\") è il prezzo che paga il cliente. Il netto (o imponibile) è il prezzo al netto dell'imposta. L'IVA è la differenza tra i due. Scorporare significa proprio separare il netto e l'IVA partendo dal lordo: l'operazione inversa rispetto ad applicare l'IVA a un imponibile.",
+      },
+      {
+        question: "Come aggiungo l'IVA a un imponibile netto?",
+        answer:
+          "Moltiplica l'imponibile per l'aliquota per ottenere l'IVA, poi sommala al netto. Esempio con netto 100 € al 22%: IVA = 100 × 22% = 22 €, lordo = 100 + 22 = 122 €. Con la modalità «Aggiungi IVA» dello strumento qui sopra lo calcoli in tempo reale, partendo dall'imponibile invece che dal lordo.",
+      },
+      {
+        question: "Qual è la differenza tra scorporare e aggiungere l'IVA?",
+        answer:
+          "Sono operazioni inverse. Scorporare parte dal lordo (IVA inclusa) e ricava imponibile e imposta dividendo per (1 + aliquota/100). Aggiungere parte dal netto (imponibile) e calcola l'imposta da sommare per ottenere il lordo. Questo strumento fa entrambe: scegli la modalità con il selettore in alto.",
       },
       {
         question: "Come trovo il prezzo senza IVA da un prezzo IVA inclusa?",

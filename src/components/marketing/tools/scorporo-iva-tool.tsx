@@ -5,40 +5,93 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { parseItalianNumber } from "@/lib/strumenti/parse-number";
-import { splitVat, type VatSplitResult } from "@/lib/strumenti/scorporo-iva";
-import { formatCurrency } from "@/lib/utils";
+import {
+  addVat,
+  splitVat,
+  type VatSplitResult,
+} from "@/lib/strumenti/scorporo-iva";
+import { cn, formatCurrency } from "@/lib/utils";
 
 const STANDARD_RATES = [4, 5, 10, 22] as const;
 
+type Mode = "split" | "add";
+
+const MODES: readonly { value: Mode; label: string }[] = [
+  { value: "split", label: "Scorpora IVA" },
+  { value: "add", label: "Aggiungi IVA" },
+];
+
 export function ScorporoIvaTool() {
-  const grossId = useId();
+  const amountId = useId();
   const rateId = useId();
-  const [gross, setGross] = useState("");
+  const [mode, setMode] = useState<Mode>("split");
+  const [amount, setAmount] = useState("");
   const [rate, setRate] = useState<string>("22");
   const [result, setResult] = useState<VatSplitResult | null>(null);
 
+  const isSplit = mode === "split";
+  const amountLabel = isSplit
+    ? "Importo lordo (€)"
+    : "Importo netto / imponibile (€)";
+  const amountPlaceholder = isSplit ? "122,00" : "100,00";
+  const submitLabel = isSplit ? "Scorpora" : "Aggiungi IVA";
+
+  const changeMode = (next: Mode) => {
+    setMode(next);
+    // Il risultato precedente userebbe le label sbagliate: azzeralo.
+    setResult(null);
+  };
+
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const grossNum = parseItalianNumber(gross);
+    const amountNum = parseItalianNumber(amount);
     const rateNum = parseItalianNumber(rate);
-    setResult(splitVat({ grossAmount: grossNum, vatRate: rateNum }));
+    setResult(
+      isSplit
+        ? splitVat({ grossAmount: amountNum, vatRate: rateNum })
+        : addVat({ netAmount: amountNum, vatRate: rateNum }),
+    );
   };
 
   return (
     <div className="bg-card mt-6 rounded-lg border p-5">
+      <div
+        role="tablist"
+        aria-label="Modalità di calcolo"
+        className="bg-muted mb-4 inline-flex rounded-md p-0.5"
+      >
+        {MODES.map((m) => (
+          <button
+            key={m.value}
+            type="button"
+            role="tab"
+            aria-selected={mode === m.value}
+            onClick={() => changeMode(m.value)}
+            className={cn(
+              "rounded px-3 py-1 text-sm font-medium transition-colors",
+              mode === m.value
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+
       <form
         onSubmit={handleSubmit}
         className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
       >
         <div>
-          <Label htmlFor={grossId}>{"Importo lordo (€)"}</Label>
+          <Label htmlFor={amountId}>{amountLabel}</Label>
           <Input
-            id={grossId}
+            id={amountId}
             type="text"
             inputMode="decimal"
-            placeholder="122,00"
-            value={gross}
-            onChange={(e) => setGross(e.target.value)}
+            placeholder={amountPlaceholder}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
             required
             className="mt-1"
           />
@@ -70,7 +123,7 @@ export function ScorporoIvaTool() {
             ))}
           </div>
         </div>
-        <Button type="submit">{"Scorpora"}</Button>
+        <Button type="submit">{submitLabel}</Button>
       </form>
 
       {result && (

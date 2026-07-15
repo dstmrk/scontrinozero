@@ -33,4 +33,32 @@ describe("manifest", () => {
     );
     expect(any.length).toBeGreaterThanOrEqual(1);
   });
+
+  it("dichiara lingua e id stabile per un install prompt corretto", () => {
+    expect(result.lang).toBe("it");
+    expect(result.id).toBe("/");
+  });
+
+  it("espone shortcuts verso rotte reali dell'app", () => {
+    const shortcuts = result.shortcuts ?? [];
+    expect(shortcuts.length).toBeGreaterThanOrEqual(2);
+    const urls = shortcuts.map((s) => s.url);
+    expect(urls).toContain("/dashboard/cassa");
+    expect(urls).toContain("/dashboard/storico");
+    for (const shortcut of shortcuts) {
+      expect(shortcut.name.length).toBeGreaterThan(0);
+      expect(shortcut.url.startsWith("/")).toBe(true);
+    }
+  });
+
+  it("espone screenshot narrow con src, sizes e type validi", () => {
+    const screenshots = result.screenshots ?? [];
+    expect(screenshots.length).toBeGreaterThanOrEqual(1);
+    for (const shot of screenshots) {
+      expect(shot.form_factor).toBe("narrow");
+      expect(shot.src.startsWith("/screenshots/")).toBe(true);
+      expect(shot.type).toBe("image/png");
+      expect(shot.sizes).toMatch(/^\d+x\d+$/);
+    }
+  });
 });

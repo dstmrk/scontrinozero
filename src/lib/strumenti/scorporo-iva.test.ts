@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitVat, type VatSplitResult } from "./scorporo-iva";
+import { addVat, splitVat, type VatSplitResult } from "./scorporo-iva";
 
 describe("splitVat", () => {
   describe("aliquote IVA standard italiane", () => {
@@ -86,5 +86,89 @@ describe("splitVat", () => {
         expect(result.net + result.vat).toBeCloseTo(gross, 2);
       }
     }
+  });
+});
+
+describe("addVat", () => {
+  describe("aliquote IVA standard italiane", () => {
+    it.each([
+      { net: 100, rate: 22, vat: 22, gross: 122 },
+      { net: 100, rate: 10, vat: 10, gross: 110 },
+      { net: 100, rate: 5, vat: 5, gross: 105 },
+      { net: 100, rate: 4, vat: 4, gross: 104 },
+    ])(
+      "applica al netto $net @ $rate% → IVA $vat, lordo $gross",
+      ({ net, rate, vat, gross }) => {
+        const result = addVat({ netAmount: net, vatRate: rate });
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.net).toBeCloseTo(net, 2);
+        expect(result.vat).toBeCloseTo(vat, 2);
+        expect(result.gross).toBeCloseTo(gross, 2);
+      },
+    );
+  });
+
+  it("arrotonda a 2 decimali (cents-based, niente float noise)", () => {
+    const result = addVat({ netAmount: 16.39, vatRate: 22 });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.net + result.vat).toBeCloseTo(result.gross, 2);
+    expect(Number(result.vat.toFixed(2))).toBe(result.vat);
+    expect(Number(result.gross.toFixed(2))).toBe(result.gross);
+  });
+
+  it("ritorna ok=false con messaggio per importo zero o negativo", () => {
+    const zero = addVat({ netAmount: 0, vatRate: 22 });
+    expect(zero.ok).toBe(false);
+    if (zero.ok) return;
+    expect(zero.error).toMatch(/maggiore di zero/i);
+
+    const neg = addVat({ netAmount: -10, vatRate: 22 });
+    expect(neg.ok).toBe(false);
+  });
+
+  it("ritorna ok=false per aliquote non valide (negative o ≥ 100)", () => {
+    expect(addVat({ netAmount: 100, vatRate: -1 }).ok).toBe(false);
+    expect(addVat({ netAmount: 100, vatRate: 100 }).ok).toBe(false);
+  });
+
+  it("ammette aliquota 0 (nessuna IVA da aggiungere)", () => {
+    const result = addVat({ netAmount: 100, vatRate: 0 });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.vat).toBeCloseTo(0, 2);
+    expect(result.gross).toBeCloseTo(100, 2);
+  });
+
+  it("rifiuta NaN e Infinity", () => {
+    expect(addVat({ netAmount: Number.NaN, vatRate: 22 }).ok).toBe(false);
+    expect(
+      addVat({ netAmount: Number.POSITIVE_INFINITY, vatRate: 22 }).ok,
+    ).toBe(false);
+    expect(addVat({ netAmount: 100, vatRate: Number.NaN }).ok).toBe(false);
+  });
+
+  it("la somma netto + IVA è sempre uguale al lordo (invariante)", () => {
+    for (const net of [1.23, 10, 99.99, 1234.56, 0.01]) {
+      for (const rate of [4, 5, 10, 22]) {
+        const result = addVat({ netAmount: net, vatRate: rate });
+        expect(result.ok).toBe(true);
+        if (!result.ok) continue;
+        expect(result.net + result.vat).toBeCloseTo(result.gross, 2);
+      }
+    }
+  });
+
+  it("è l'inverso di splitVat sui casi tondi (round-trip)", () => {
+    // netto 100 @22% → lordo 122 ; scorporando 122 @22% → netto 100
+    const added = addVat({ netAmount: 100, vatRate: 22 });
+    expect(added.ok).toBe(true);
+    if (!added.ok) return;
+    const split = splitVat({ grossAmount: added.gross, vatRate: 22 });
+    expect(split.ok).toBe(true);
+    if (!split.ok) return;
+    expect(split.net).toBeCloseTo(100, 2);
+    expect(split.vat).toBeCloseTo(added.vat, 2);
   });
 });

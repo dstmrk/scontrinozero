@@ -1,6 +1,6 @@
 ---
 name: marketing-content
-description: Use when writing or editing marketing/SEO content or any user-facing copy that mentions plans or features — the data files src/lib/help/articles.ts, src/lib/guide/articles.ts, src/lib/per/categories.ts, src/lib/confronto/comparisons.ts, src/lib/strumenti/tools.ts, pages under src/app/(marketing)/, components in src/components/marketing/ and src/components/help/, and plan/referral copy outside the marketing group (src/components/settings/referral-section.tsx). Covers never promising unshipped features (conditional/roadmap wording, what is currently "in arrivo" on Pro), /help vs /guide slug separation to avoid canonical clashes, the grep checklist to sync copy after feature/label/gating changes, and LLM-generated content requiring human review (Italian, Italy-only target).
+description: Use when writing or editing marketing/SEO/GEO content or any user-facing copy that mentions plans or features — the data files src/lib/help/articles.ts, src/lib/guide/articles.ts, src/lib/per/categories.ts, src/lib/confronto/comparisons.ts, src/lib/strumenti/tools.ts, pages under src/app/(marketing)/, components in src/components/marketing/ and src/components/help/, and plan/referral copy outside the marketing group (src/components/settings/referral-section.tsx). Covers never promising unshipped features (conditional/roadmap wording, what is currently "in arrivo" on Pro), /help vs /guide slug separation to avoid canonical clashes, the grep checklist to sync copy after feature/label/gating changes, the permanent GEO checklist for AI-citable content (risposta secca in the first two lines, dated legal references, FAQPage, citable numbered facts), the SEO competitive positioning (depth + freshness + AI-citable answers, single /confronto landing), and LLM-generated content requiring human review (Italian, Italy-only target).
 ---
 
 # marketing-content — contenuti marketing & SEO
@@ -55,6 +55,34 @@ grep -rn "<termine>" 'src/app/(marketing)' src/components/marketing src/componen
 ```
 
 e aggiorna ogni occorrenza stale nei data file / componenti sopra.
+
+## Checklist GEO (per ogni contenuto nuovo o aggiornato)
+
+I due canali a budget zero sono **ricerca organica Google** e **risposte AI**
+(ChatGPT, Perplexity, Google AI Overviews). Per farsi citare dalle AI, ogni
+guida/help/tool nuovo o revisionato rispetta:
+
+1. **Risposta secca nelle prime 2 righe** di ogni pagina e di ogni sezione: le
+   AI citano il paragrafo che _risponde_, non quello che introduce. Vale anche
+   per ogni FAQ (la risposta apre col fatto, non col contesto).
+2. **Riferimenti normativi espliciti e datati** (es. "art. 1, commi 54-89, L.
+   190/2014", "dal 1° gennaio 2021") e `updatedAt` reale a ogni revisione.
+3. **FAQ a video su ogni pagina** → FAQPage schema automatico (già cablato via
+   `faqPageJsonLd` in `src/components/json-ld.tsx`). Minimo 2 FAQ.
+4. **Fatti citabili con numeri** ("sanzione del 90%", "bollo 2,00 € oltre
+   77,47 €"): le AI preferiscono claim verificabili.
+5. **Slug separati `/help` vs `/guide`** sulle keyword condivise (vedi sopra):
+   help = operativo in-app, guide = educativo/reference. I `metaTitle` devono
+   riflettere intent distinti per non cannibalizzarsi.
+
+## Vantaggio competitivo SEO
+
+Il differenziatore vs competitor è **profondità + freschezza + risposte secche
+citabili dalle AI** (guide editoriali con schema Article/FAQPage). Da giocare:
+verticali di settore, pagina stampanti, credenziali via SPID. Decisione presa:
+**niente pagine confronto per-competitor** — resta la landing unica
+`/confronto` (`src/lib/confronto/comparisons.ts`), da aggiornare
+trimestralmente perché i pricing dei competitor cambiano.
 
 ## Produzione contenuti
 
