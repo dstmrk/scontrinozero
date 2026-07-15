@@ -542,6 +542,35 @@ describe("proxy", () => {
       expect(response.status).toBe(200);
     });
 
+    // API routes must NEVER be redirected cross-domain by hostnameRedirect.
+    // A server-to-server caller (Stripe webhooks, any backend POST) does NOT
+    // follow the 307, so a redirect silently drops the request/body. The
+    // Stripe dev webhook was registered on the marketing host
+    // (dev.scontrinozero.it/api/stripe/webhook) and every delivery was bounced
+    // 307 → app-dev and lost. API routes are host-agnostic (single container
+    // serves every host) and must respond on whatever host receives them.
+    it("does NOT redirect /api/stripe/webhook on marketing domain (server-to-server, no cross-domain 307)", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(
+        createRequestForHost("/api/stripe/webhook", "scontrinozero.it"),
+      );
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+    });
+
+    it("does NOT redirect /api/stripe/webhook on app domain either", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(
+        createRequestForHost("/api/stripe/webhook", "app.scontrinozero.it"),
+      );
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+    });
+
     it("strips port from Host header before comparing hostnames (e.g. scontrinozero.it:443)", async () => {
       const { proxy } = await import("./proxy");
 

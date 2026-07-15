@@ -93,6 +93,18 @@ function hostnameRedirect(request: NextRequest): NextResponse | null {
 
   const hostname = resolvePublicHostname(request);
   const { pathname, search } = request.nextUrl;
+
+  // API routes are host-agnostic: the single standalone container serves every
+  // host, so an API route must respond on whatever host receives it and must
+  // NEVER be redirected cross-domain. A server-to-server caller (Stripe
+  // webhooks, any backend POST) does NOT follow a 307 — a redirect silently
+  // drops the request and its body. Concretely: the Stripe webhook registered
+  // on the marketing host (`<marketing>/api/stripe/webhook`) was bounced
+  // 307 → app domain and every delivery was lost. Excluding `/api/` here keeps
+  // the domain-separation redirects for pages while leaving API endpoints
+  // reachable on any host.
+  if (pathname.startsWith("/api/")) return null;
+
   // Trusted hostnames must be parsed/validated: a malformed env var
   // (scheme leak, trailing slash, spaces, …) would otherwise alter routing
   // decisions silently. `parseTrustedHostnameEnv` fails closed to the fallback
