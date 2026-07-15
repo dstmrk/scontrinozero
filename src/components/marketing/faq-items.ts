@@ -41,9 +41,9 @@ export const faqItems = [
       "Sì. Puoi stampare il documento commerciale da qualsiasi dispositivo collegato a una stampante. Per le stampanti termiche Bluetooth, la compatibilità dipende dal browser e dal sistema operativo; in alternativa, puoi condividere lo scontrino digitalmente via SMS, email o WhatsApp.",
   },
   {
-    question: "Come vengono protette le mie credenziali Fisconline?",
+    question: "Come vengono protette le mie credenziali AdE?",
     answer:
-      "Le tue credenziali Fisconline vengono cifrate con tecnologia a livello bancario (AES-256-GCM) prima di essere salvate e non vengono mai condivise con terze parti. Vengono usate esclusivamente per eseguire le operazioni che tu richiedi sul portale dell'Agenzia delle Entrate. Se installi la versione gratuita sul tuo server, restano lì e non transitano mai dai nostri sistemi.",
+      "Le tue credenziali per l'Agenzia delle Entrate — Fisconline (codice fiscale, password e PIN) oppure l'email e la password dell'app CIE ID se ti colleghi con la CIE — vengono cifrate con tecnologia a livello bancario (AES-256-GCM) prima di essere salvate e non vengono mai condivise con terze parti. Vengono usate esclusivamente per eseguire le operazioni che tu richiedi sul portale dell'Agenzia delle Entrate. Se installi la versione gratuita sul tuo server, restano lì e non transitano mai dai nostri sistemi.",
   },
   {
     question: "Cosa succede alla scadenza dei 30 giorni di prova?",

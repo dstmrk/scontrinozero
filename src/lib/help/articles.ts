@@ -88,8 +88,16 @@ export const helpArticles: Record<string, HelpArticle> = {
     title: "Collegare ScontrinoZero all'Agenzia delle Entrate",
     metaTitle: "Come collegare ScontrinoZero all'Agenzia delle Entrate",
     description:
-      "Guida passo-passo per collegare ScontrinoZero al portale Fatture e Corrispettivi dell'Agenzia delle Entrate tramite credenziali Fisconline.",
+      "Guida passo-passo per collegare ScontrinoZero al portale Fatture e Corrispettivi dell'Agenzia delle Entrate con le credenziali Fisconline o, in alternativa, con la CIE tramite l'app CIE ID.",
     related: ["credenziali-fisconline", "errori-ade", "primo-scontrino"],
+  },
+  "collegare-ade-con-cie": {
+    slug: "collegare-ade-con-cie",
+    title: "Collegare l'AdE con CIE (app CIE ID)",
+    metaTitle: "Collegare ScontrinoZero all'AdE con CIE (app CIE ID)",
+    description:
+      "Collegare ScontrinoZero all'Agenzia delle Entrate con la CIE tramite l'app CIE ID: email e password dell'app e approvazione della notifica push, senza credenziali Fisconline.",
+    related: ["come-collegare-ade", "credenziali-fisconline", "errori-ade"],
   },
   "contatto-assistenza": {
     slug: "contatto-assistenza",

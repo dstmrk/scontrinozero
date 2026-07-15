@@ -375,14 +375,17 @@ export default function ErroriAdePage() {
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           <strong>Causa:</strong> ScontrinoZero accede al portale Fatture e
-          Corrispettivi tramite il flusso Fisconline diretto. Servono quindi le{" "}
+          Corrispettivi con l&apos;identità del titolare, non con quella di un
+          intermediario delegato. Servono quindi le{" "}
           <strong>
-            credenziali Fisconline associate al codice fiscale del titolare o
-            legale rappresentante dell&apos;attività
+            credenziali del titolare o legale rappresentante dell&apos;attività
           </strong>
-          {", non quelle di un intermediario delegato. "}
-          Se hai sempre operato sul portale AdE tramite SPID, CIE o CNS, non hai
-          ancora un PIN Fisconline e devi richiederlo.
+          {": le tue credenziali Fisconline (codice fiscale, password e PIN) "}
+          oppure, in alternativa, l&apos;accesso con la <strong>
+            CIE
+          </strong>{" "}
+          tramite l&apos;app CIE ID. Se accedi all&apos;AdE con la CIE puoi
+          collegarti senza richiedere un PIN Fisconline.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           <Link
@@ -390,6 +393,13 @@ export default function ErroriAdePage() {
             className="text-primary hover:underline"
           >
             Come ottenere le credenziali Fisconline →
+          </Link>
+          <br />
+          <Link
+            href="/help/collegare-ade-con-cie"
+            className="text-primary hover:underline"
+          >
+            Collegare l&apos;AdE con la CIE (app CIE ID) →
           </Link>
         </p>
 
