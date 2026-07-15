@@ -24,6 +24,7 @@ import {
 } from "@/lib/receipts/document-lines";
 import type { SelectCommercialDocumentLine } from "@/db/schema/commercial-document-lines";
 import { logger } from "@/lib/logger";
+import { isValidUuid } from "@/lib/uuid";
 import {
   type AnalyticsKpis,
   type AnalyticsRange,
@@ -89,6 +90,10 @@ async function authorizeOwner(businessId: string): Promise<AuthOk | AuthFail> {
       ok: false,
       error: "Troppe richieste. Riprova tra qualche minuto.",
     };
+  }
+  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessOwnership.
+  if (!isValidUuid(businessId)) {
+    return { ok: false, error: "Identificativo non valido." };
   }
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) {

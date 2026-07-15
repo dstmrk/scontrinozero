@@ -96,7 +96,7 @@ vi.mock("@/lib/validation", () => ({ adePinSchema: { parse: vi.fn() } }));
 // --- Helpers ---
 
 const USER_ID = "user-test";
-const BIZ_ID = "biz-test";
+const BIZ_ID = "11111111-1111-4111-8111-111111111111";
 
 const FAKE_CRED = {
   businessId: BIZ_ID,

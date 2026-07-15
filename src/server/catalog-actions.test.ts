@@ -74,8 +74,8 @@ vi.mock("@/lib/plans", () => ({
 // --- Fixtures ---
 
 const FAKE_USER = { id: "user-123" };
-const FAKE_BUSINESS_ID = "biz-456";
-const FAKE_ITEM_ID = "item-789";
+const FAKE_BUSINESS_ID = "11111111-1111-4111-8111-111111111111";
+const FAKE_ITEM_ID = "33333333-3333-4333-8333-333333333333";
 
 const FAKE_ITEM = {
   id: FAKE_ITEM_ID,
@@ -148,6 +148,18 @@ describe("catalog-actions", () => {
       expect(mockSelect).not.toHaveBeenCalled();
     });
 
+    it("guard UUID (regola 9): businessId malformato → [] senza toccare il DB né Sentry", async () => {
+      const { getCatalogItems } = await import("./catalog-actions");
+      const result = await getCatalogItems("abc");
+
+      expect(result).toEqual([]);
+      expect(mockGetAuthenticatedUser).not.toHaveBeenCalled();
+      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockSelect).not.toHaveBeenCalled();
+      // Input prevedibile (regola 20): niente logger.error → niente issue Sentry.
+      expect(logger.error).not.toHaveBeenCalled();
+    });
+
     it("restituisce la lista dei prodotti ordinati per descrizione", async () => {
       mockOrderBy.mockResolvedValue([FAKE_ITEM]);
 
@@ -198,6 +210,18 @@ describe("catalog-actions", () => {
       );
       expect(mockInsert).not.toHaveBeenCalled();
       expect(logger.error).toHaveBeenCalledTimes(1);
+    });
+
+    it("guard UUID (regola 9): businessId malformato → { error } senza query DB", async () => {
+      const { addCatalogItem } = await import("./catalog-actions");
+      const result = await addCatalogItem({
+        ...VALID_ADD_INPUT,
+        businessId: "abc",
+      });
+
+      expect(result.error).toBe("Identificativo non valido.");
+      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockInsert).not.toHaveBeenCalled();
     });
 
     it("ritorna errore se business non appartiene all'utente", async () => {
@@ -577,6 +601,24 @@ describe("catalog-actions", () => {
       expect(mockDelete).toHaveBeenCalledWith("catalog-items-table");
       expect(mockDeleteWhere).toHaveBeenCalled();
     });
+
+    it("guard UUID (regola 9): itemId malformato → { error } senza query DB", async () => {
+      const { deleteCatalogItem } = await import("./catalog-actions");
+      const result = await deleteCatalogItem("abc", FAKE_BUSINESS_ID);
+
+      expect(result.error).toBe("Identificativo non valido.");
+      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockDelete).not.toHaveBeenCalled();
+    });
+
+    it("guard UUID (regola 9): businessId malformato → { error } senza query DB", async () => {
+      const { deleteCatalogItem } = await import("./catalog-actions");
+      const result = await deleteCatalogItem(FAKE_ITEM_ID, "abc");
+
+      expect(result.error).toBe("Identificativo non valido.");
+      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockDelete).not.toHaveBeenCalled();
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -611,6 +653,30 @@ describe("catalog-actions", () => {
       const result = await updateCatalogItem(VALID_UPDATE_INPUT);
 
       expect(result.error).toBeDefined();
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it("guard UUID (regola 9): itemId malformato → { error } senza query DB", async () => {
+      const { updateCatalogItem } = await import("./catalog-actions");
+      const result = await updateCatalogItem({
+        ...VALID_UPDATE_INPUT,
+        itemId: "abc",
+      });
+
+      expect(result.error).toBe("Identificativo non valido.");
+      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it("guard UUID (regola 9): businessId malformato → { error } senza query DB", async () => {
+      const { updateCatalogItem } = await import("./catalog-actions");
+      const result = await updateCatalogItem({
+        ...VALID_UPDATE_INPUT,
+        businessId: "abc",
+      });
+
+      expect(result.error).toBe("Identificativo non valido.");
+      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
       expect(mockUpdate).not.toHaveBeenCalled();
     });
 

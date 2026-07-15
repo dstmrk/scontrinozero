@@ -160,7 +160,7 @@ vi.mock("@/types/cassa", () => {
 
 // --- Helpers ---
 
-const BIZ_ID = "biz-123";
+const BIZ_ID = "11111111-1111-4111-8111-111111111111";
 const USER_ID = "user-abc";
 const CRED_ID = "cred-uuid";
 const CRED_UPDATED_AT = new Date("2026-04-01T10:00:00Z");

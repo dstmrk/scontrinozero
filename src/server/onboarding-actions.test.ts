@@ -152,7 +152,10 @@ function formData(entries: Record<string, string>): FormData {
 
 const FAKE_USER = { id: "user-123", email: "test@example.com" };
 const FAKE_PROFILE = { id: "profile-456", authUserId: "user-123" };
-const FAKE_BUSINESS = { id: "biz-789", profileId: "profile-456" };
+const FAKE_BUSINESS = {
+  id: "11111111-1111-4111-8111-111111111111",
+  profileId: "profile-456",
+};
 
 // --- Tests ---
 
@@ -277,7 +280,7 @@ describe("onboarding-actions", () => {
         formData({ ...VALID_DATA, businessName: "Pizzeria Roma" }),
       );
 
-      expect(result.businessId).toBe("biz-789");
+      expect(result.businessId).toBe("11111111-1111-4111-8111-111111111111");
       expect(mockUpdate).toHaveBeenCalled();
     });
 
@@ -416,7 +419,7 @@ describe("onboarding-actions", () => {
       // FormData senza la key preferredVatCode
       const result = await saveBusiness(formData(VALID_DATA));
 
-      expect(result.businessId).toBe("biz-789");
+      expect(result.businessId).toBe("11111111-1111-4111-8111-111111111111");
       // Due update: [0] profiles (firstName/lastName), [1] businesses
       const businessSetPayload = mockUpdateSet.mock.calls[1]?.[0] as
         Record<string, unknown> | undefined;
@@ -433,7 +436,7 @@ describe("onboarding-actions", () => {
         formData({ ...VALID_DATA, preferredVatCode: "" }),
       );
 
-      expect(result.businessId).toBe("biz-789");
+      expect(result.businessId).toBe("11111111-1111-4111-8111-111111111111");
       const businessSetPayload = mockUpdateSet.mock.calls[1]?.[0] as
         Record<string, unknown> | undefined;
       expect(businessSetPayload?.preferredVatCode).toBeNull();
@@ -478,7 +481,7 @@ describe("onboarding-actions", () => {
       mockGetUser.mockResolvedValue({ data: { user: null } });
       const { saveAdeCredentials } = await import("./onboarding-actions");
       const result = await saveAdeCredentials(
-        formData({ businessId: "biz-789" }),
+        formData({ businessId: "11111111-1111-4111-8111-111111111111" }),
       );
       expect(result.error).toBe("Non autenticato.");
     });
@@ -492,14 +495,14 @@ describe("onboarding-actions", () => {
       const { saveAdeCredentials } = await import("./onboarding-actions");
       const result = await saveAdeCredentials(
         formData({
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           codiceFiscale: "RSSMRA80A01H501U",
           password: "securepass",
           pin: "1234567890",
         }),
       );
 
-      expect(result.businessId).toBe("biz-789");
+      expect(result.businessId).toBe("11111111-1111-4111-8111-111111111111");
       expect(result.error).toBeUndefined();
       expect(mockEncrypt).toHaveBeenCalledTimes(3);
       expect(mockInsert).toHaveBeenCalled();
@@ -519,11 +522,29 @@ describe("onboarding-actions", () => {
       expect(result.error).toContain("Business ID");
     });
 
+    it("guard UUID (regola 9): businessId malformato → { error } senza toccare il DB", async () => {
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const result = await saveAdeCredentials(
+        formData({
+          businessId: "abc",
+          codiceFiscale: "RSSMRA80A01H501U",
+          password: "securepass",
+          pin: "1234567890",
+        }),
+      );
+
+      expect(result.error).toBe("Identificativo non valido.");
+      // Il guard precede sia la cifratura sia l'ownership (SELECT).
+      expect(mockEncrypt).not.toHaveBeenCalled();
+      expect(mockSelect).not.toHaveBeenCalled();
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
     it("returns error for empty password", async () => {
       const { saveAdeCredentials } = await import("./onboarding-actions");
       const result = await saveAdeCredentials(
         formData({
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           codiceFiscale: "RSSMRA80A01H501U",
           password: "",
           pin: "1234567890",
@@ -536,7 +557,7 @@ describe("onboarding-actions", () => {
       const { saveAdeCredentials } = await import("./onboarding-actions");
       const result = await saveAdeCredentials(
         formData({
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           codiceFiscale: "SHORT",
           password: "pass",
           pin: "1234567890",
@@ -553,7 +574,7 @@ describe("onboarding-actions", () => {
       const { saveAdeCredentials } = await import("./onboarding-actions");
       const result = await saveAdeCredentials(
         formData({
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           codiceFiscale: "RSSMRA80A01H501U",
           password: "pass",
           pin,
@@ -571,7 +592,7 @@ describe("onboarding-actions", () => {
       const { saveAdeCredentials } = await import("./onboarding-actions");
       const result = await saveAdeCredentials(
         formData({
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           codiceFiscale: "RSSMRA80A01H501U",
           password: "pass",
           pin: "1234567890",
@@ -589,7 +610,7 @@ describe("onboarding-actions", () => {
       const { saveAdeCredentials } = await import("./onboarding-actions");
       const result = await saveAdeCredentials(
         formData({
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           codiceFiscale: "RSSMRA80A01H501U",
           password: "pass",
           pin: " 1234567890 ",
@@ -605,14 +626,14 @@ describe("onboarding-actions", () => {
       const { saveAdeCredentials } = await import("./onboarding-actions");
       const result = await saveAdeCredentials(
         formData({
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           codiceFiscale: "RSSMRA80A01H501U",
           password: "newpass",
           pin: "1234567890",
         }),
       );
 
-      expect(result.businessId).toBe("biz-789");
+      expect(result.businessId).toBe("11111111-1111-4111-8111-111111111111");
       // Atomic upsert: insert + onConflictDoUpdate (target businessId).
       // Niente più SELECT-then-UPDATE, niente race condition possibile.
       expect(mockInsert).toHaveBeenCalled();
@@ -631,7 +652,7 @@ describe("onboarding-actions", () => {
       const { saveAdeCredentials } = await import("./onboarding-actions");
       const result = await saveAdeCredentials(
         formData({
-          businessId: "other-user-biz",
+          businessId: "22222222-2222-4222-8222-222222222222",
           codiceFiscale: "RSSMRA80A01H501U",
           password: "pass",
           pin: "1234567890",
@@ -650,14 +671,14 @@ describe("onboarding-actions", () => {
       const { saveAdeCredentials } = await import("./onboarding-actions");
       const result = await saveAdeCredentials(
         formData({
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           loginMethod: "cie",
           username: "mario.rossi@example.com",
           password: "cie-pass",
         }),
       );
 
-      expect(result.businessId).toBe("biz-789");
+      expect(result.businessId).toBe("11111111-1111-4111-8111-111111111111");
       expect(mockInsert).toHaveBeenCalled();
       // login_method 'cie' + reset dei campi Fisconline (CF/PIN null).
       expect(mockOnConflictDoUpdate).toHaveBeenCalledWith(
@@ -676,7 +697,7 @@ describe("onboarding-actions", () => {
       const { saveAdeCredentials } = await import("./onboarding-actions");
       const result = await saveAdeCredentials(
         formData({
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           loginMethod: "cie",
           username: "non-una-email",
           password: "cie-pass",
@@ -691,7 +712,7 @@ describe("onboarding-actions", () => {
       const { saveAdeCredentials } = await import("./onboarding-actions");
       const result = await saveAdeCredentials(
         formData({
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           loginMethod: "spid",
           username: "mario.rossi@example.com",
           password: "pw",
@@ -716,8 +737,20 @@ describe("onboarding-actions", () => {
     it("degrada a 'Non autenticato.' quando la sessione è scaduta (no throw)", async () => {
       mockGetUser.mockResolvedValue({ data: { user: null } });
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
       expect(result.error).toBe("Non autenticato.");
+    });
+
+    it("guard UUID (regola 9): businessId malformato → { error } senza toccare il DB", async () => {
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials("abc");
+
+      expect(result.error).toBe("Identificativo non valido.");
+      // Il guard precede l'ownership (SELECT) e il login AdE.
+      expect(mockSelect).not.toHaveBeenCalled();
+      expect(mockLogin).not.toHaveBeenCalled();
     });
 
     it("R36: alla soglia rate limit → warn + errore standard, senza toccare AdE", async () => {
@@ -732,7 +765,9 @@ describe("onboarding-actions", () => {
       });
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       expect(result.error).toBe(
         "Troppi tentativi. Riprova tra qualche minuto.",
@@ -754,7 +789,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -773,7 +808,7 @@ describe("onboarding-actions", () => {
       });
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      await verifyAdeCredentials("biz-789");
+      await verifyAdeCredentials("11111111-1111-4111-8111-111111111111");
 
       // Chiave isolata per utente: un business non blocca l'altro.
       expect(mockRateLimiterCheck).toHaveBeenCalledWith(
@@ -789,7 +824,7 @@ describe("onboarding-actions", () => {
       // Credentials found
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -808,9 +843,11 @@ describe("onboarding-actions", () => {
       });
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
-      expect(result.businessId).toBe("biz-789");
+      expect(result.businessId).toBe("11111111-1111-4111-8111-111111111111");
       expect(result.error).toBeUndefined();
       expect(mockLogin).toHaveBeenCalled();
       expect(mockLogout).toHaveBeenCalled();
@@ -830,7 +867,7 @@ describe("onboarding-actions", () => {
       // Riga credenziali con metodo CIE: username(email) + password, niente CF/PIN.
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           loginMethod: "cie",
           encryptedCodiceFiscale: null,
           encryptedUsername: "enc-email",
@@ -851,7 +888,9 @@ describe("onboarding-actions", () => {
       });
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       expect(result.error).toBeUndefined();
       expect(mockLoginCie).toHaveBeenCalled();
@@ -862,7 +901,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           loginMethod: "spid",
           encryptedCodiceFiscale: null,
           encryptedUsername: null,
@@ -874,7 +913,9 @@ describe("onboarding-actions", () => {
       ]);
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       expect(result.error).toContain("SPID");
       expect(mockLogin).not.toHaveBeenCalled();
@@ -890,7 +931,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -909,7 +950,7 @@ describe("onboarding-actions", () => {
       });
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      await verifyAdeCredentials("biz-789");
+      await verifyAdeCredentials("11111111-1111-4111-8111-111111111111");
 
       // 3 core update + rewardedAt + referralBonusDays + 2 claim email = 7;
       // nessuna Stripe.
@@ -926,7 +967,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -945,7 +986,7 @@ describe("onboarding-actions", () => {
       });
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      await verifyAdeCredentials("biz-789");
+      await verifyAdeCredentials("11111111-1111-4111-8111-111111111111");
 
       // 3 core update + rewardedAt + 2 claim email = 6 (NESSUN update
       // referralBonusDays: ramo estensione Stripe).
@@ -962,7 +1003,7 @@ describe("onboarding-actions", () => {
       // Credentials found
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -977,10 +1018,12 @@ describe("onboarding-actions", () => {
       );
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       expect(result.error).toBeUndefined();
-      expect(result.businessId).toBe("biz-789");
+      expect(result.businessId).toBe("11111111-1111-4111-8111-111111111111");
       expect(mockGetFiscalData).toHaveBeenCalled();
       // 1 update core (adeCredentials verifiedAt; businesses/profiles update
       // skipped perché fiscalData è null) + 2 claim email (welcome/operator):
@@ -997,7 +1040,9 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([]);
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       expect(result.error).toContain("Credenziali non trovate");
     });
@@ -1008,7 +1053,7 @@ describe("onboarding-actions", () => {
       // Credentials found
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1019,7 +1064,9 @@ describe("onboarding-actions", () => {
       mockLogin.mockRejectedValue(new Error("Invalid credentials"));
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       expect(result.error).toContain("Verifica fallita");
     });
@@ -1028,7 +1075,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1042,7 +1089,9 @@ describe("onboarding-actions", () => {
       );
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       expect(result.error).toContain(
         "portale Agenzia delle Entrate Fatture e Corrispettivi",
@@ -1056,7 +1105,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1068,7 +1117,9 @@ describe("onboarding-actions", () => {
       mockLogin.mockRejectedValue(new AdeNetworkError(new Error("ECONNRESET")));
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       expect(result.error).toContain(
         "portale Agenzia delle Entrate Fatture e Corrispettivi",
@@ -1082,7 +1133,9 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([]);
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("other-user-biz");
+      const result = await verifyAdeCredentials(
+        "22222222-2222-4222-8222-222222222222",
+      );
 
       expect(result.error).toContain("non autorizzato");
       expect(mockLogin).not.toHaveBeenCalled();
@@ -1092,7 +1145,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1104,12 +1157,12 @@ describe("onboarding-actions", () => {
       mockLogin.mockRejectedValue(new AdePortalError(503, "down"));
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      await verifyAdeCredentials("biz-789");
+      await verifyAdeCredentials("11111111-1111-4111-8111-111111111111");
 
       const { logger } = await import("@/lib/logger");
       expect(logger.warn).toHaveBeenCalledWith(
         expect.objectContaining({
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           errorClass: "ade_transient",
         }),
         expect.stringContaining("transient failure"),
@@ -1129,7 +1182,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1141,12 +1194,12 @@ describe("onboarding-actions", () => {
       mockLogin.mockRejectedValue(new AdeAuthError());
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      await verifyAdeCredentials("biz-789");
+      await verifyAdeCredentials("11111111-1111-4111-8111-111111111111");
 
       const { logger } = await import("@/lib/logger");
       expect(logger.warn).toHaveBeenCalledWith(
         expect.objectContaining({
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           errorClass: "ade_user_error",
         }),
         expect.stringContaining("AdE credential verification"),
@@ -1165,7 +1218,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1176,12 +1229,12 @@ describe("onboarding-actions", () => {
       mockLogin.mockRejectedValue(new Error("unexpected wizard failure"));
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      await verifyAdeCredentials("biz-789");
+      await verifyAdeCredentials("11111111-1111-4111-8111-111111111111");
 
       const { logger } = await import("@/lib/logger");
       expect(logger.error).toHaveBeenCalledWith(
         expect.objectContaining({
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           errorClass: "ade_failure",
           flow: "onboarding-verify",
           sentryFingerprint: ["onboarding-verify", "ade_failure"],
@@ -1196,7 +1249,7 @@ describe("onboarding-actions", () => {
       // Credentials found — verifiedAt is null (first verification)
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1216,7 +1269,7 @@ describe("onboarding-actions", () => {
       });
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      await verifyAdeCredentials("biz-789");
+      await verifyAdeCredentials("11111111-1111-4111-8111-111111111111");
 
       // fire-and-forget: advance microtasks so the void promise settles
       await Promise.resolve();
@@ -1230,7 +1283,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1251,13 +1304,15 @@ describe("onboarding-actions", () => {
       mockNotifyOperator.mockRejectedValueOnce(new Error("resend down"));
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       // Caller swallows the rejection via .catch — flush microtasks so the
       // unhandled-rejection guard doesn't trip in the test runner.
       await Promise.resolve();
       await Promise.resolve();
-      expect(result.businessId).toBe("biz-789");
+      expect(result.businessId).toBe("11111111-1111-4111-8111-111111111111");
       expect(result.error).toBeUndefined();
     });
 
@@ -1267,7 +1322,7 @@ describe("onboarding-actions", () => {
       // Credentials found — verifiedAt already set (re-verification)
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1296,7 +1351,7 @@ describe("onboarding-actions", () => {
         .mockResolvedValueOnce([]); // operator claim: flag già set
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      await verifyAdeCredentials("biz-789");
+      await verifyAdeCredentials("11111111-1111-4111-8111-111111111111");
 
       await Promise.resolve();
       expect(mockSendEmail).not.toHaveBeenCalled();
@@ -1314,7 +1369,7 @@ describe("onboarding-actions", () => {
       // erano già stati valorizzati nella prima verifica andata a buon fine.
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1339,7 +1394,7 @@ describe("onboarding-actions", () => {
         .mockResolvedValueOnce([]); // operator claim: flag già set
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      await verifyAdeCredentials("biz-789");
+      await verifyAdeCredentials("11111111-1111-4111-8111-111111111111");
 
       await Promise.resolve();
       expect(mockSendEmail).not.toHaveBeenCalled();
@@ -1350,7 +1405,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1374,10 +1429,12 @@ describe("onboarding-actions", () => {
         .mockResolvedValueOnce([{ id: "mock-cred-id" }]) // verifiedAt
         .mockResolvedValueOnce([]) // referral: nessuna redemption
         .mockResolvedValueOnce([]) // welcome claim: già inviato
-        .mockResolvedValueOnce([{ id: "biz-789" }]); // operator claim: vinto
+        .mockResolvedValueOnce([
+          { id: "11111111-1111-4111-8111-111111111111" },
+        ]); // operator claim: vinto
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      await verifyAdeCredentials("biz-789");
+      await verifyAdeCredentials("11111111-1111-4111-8111-111111111111");
 
       await Promise.resolve();
       expect(mockSendEmail).not.toHaveBeenCalled();
@@ -1392,7 +1449,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]); // ownership
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1416,7 +1473,9 @@ describe("onboarding-actions", () => {
       });
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       expect(result.pivaMismatch).toBe(true);
       expect(result.error).toContain("partita IVA diversa");
@@ -1438,7 +1497,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1461,11 +1520,13 @@ describe("onboarding-actions", () => {
       });
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       expect(result.error).toBeUndefined();
       expect(result.pivaMismatch).toBeUndefined();
-      expect(result.businessId).toBe("biz-789");
+      expect(result.businessId).toBe("11111111-1111-4111-8111-111111111111");
       // 3 update core (verifiedAt + businesses + profiles, idempotente) + 2 claim
       // email (welcome/operator): sotto i mock condivisi i claim risolvono a una
       // riga; la soppressione su re-verifica reale è coperta dai test dedicati.
@@ -1479,7 +1540,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1498,7 +1559,9 @@ describe("onboarding-actions", () => {
       );
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       expect(result.error).toContain("Riprova");
       expect(result.pivaMismatch).toBeUndefined();
@@ -1518,7 +1581,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1542,7 +1605,9 @@ describe("onboarding-actions", () => {
       });
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       expect(result.pivaMismatch).toBe(true);
       expect(mockUpdate).not.toHaveBeenCalled();
@@ -1554,7 +1619,7 @@ describe("onboarding-actions", () => {
       // Credentials found — first verification
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1592,7 +1657,9 @@ describe("onboarding-actions", () => {
         }); // profiles
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       expect(result.error).toContain("P.IVA");
       // Flag che permette alla UI di offrire il pointer all'assistenza per
@@ -1612,7 +1679,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]); // ownership
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1635,10 +1702,12 @@ describe("onboarding-actions", () => {
       // Default mockLedgerReturning [{ id }] = riga inserita (P.IVA mai vista).
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       expect(result.error).toBeUndefined();
-      expect(result.businessId).toBe("biz-789");
+      expect(result.businessId).toBe("11111111-1111-4111-8111-111111111111");
       expect(result.trialAlreadyUsed).toBeUndefined();
       // Inserisce nel ledger con ON CONFLICT DO NOTHING e un HMAC esadecimale.
       expect(mockOnConflictDoNothing).toHaveBeenCalled();
@@ -1661,7 +1730,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]); // ownership
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1683,10 +1752,12 @@ describe("onboarding-actions", () => {
       mockLedgerReturning.mockResolvedValueOnce([]);
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       expect(result.error).toBeUndefined();
-      expect(result.businessId).toBe("biz-789");
+      expect(result.businessId).toBe("11111111-1111-4111-8111-111111111111");
       expect(result.trialAlreadyUsed).toBe(true);
       // 4 update "core": verifiedAt + businesses + profiles.partitaIva +
       // profiles.trialStartedAt=null (sola lettura immediata) + 2 claim email
@@ -1697,7 +1768,7 @@ describe("onboarding-actions", () => {
       expect(mockUpdateSet).toHaveBeenCalledWith({ trialStartedAt: null });
       const { logger } = await import("@/lib/logger");
       expect(logger.warn).toHaveBeenCalledWith(
-        { businessId: "biz-789" },
+        { businessId: "11111111-1111-4111-8111-111111111111" },
         expect.stringContaining("Trial già usato"),
       );
     });
@@ -1706,7 +1777,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]); // ownership
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1730,7 +1801,9 @@ describe("onboarding-actions", () => {
       });
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       expect(result.error).toBeUndefined();
       expect(result.trialAlreadyUsed).toBeUndefined();
@@ -1756,7 +1829,7 @@ describe("onboarding-actions", () => {
       // Credentials found
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1779,15 +1852,19 @@ describe("onboarding-actions", () => {
       mockUpdateReturning.mockResolvedValue([]);
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      const result = await verifyAdeCredentials("biz-789");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
 
       // Ritorno non fatale con businessId (le nuove credenziali verranno
       // verificate al prossimo tentativo) + warning sulla race.
-      expect(result.businessId).toBe("biz-789");
+      expect(result.businessId).toBe("11111111-1111-4111-8111-111111111111");
       expect(result.error).toBeUndefined();
       const { logger } = await import("@/lib/logger");
       expect(logger.warn).toHaveBeenCalledWith(
-        expect.objectContaining({ businessId: "biz-789" }),
+        expect.objectContaining({
+          businessId: "11111111-1111-4111-8111-111111111111",
+        }),
         expect.stringContaining("credenziali modificate"),
       );
 
@@ -1812,7 +1889,7 @@ describe("onboarding-actions", () => {
       // Credentials found
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1826,7 +1903,7 @@ describe("onboarding-actions", () => {
       mockGetFiscalData.mockRejectedValue(new Error("fiscal data unavailable"));
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      await verifyAdeCredentials("biz-789");
+      await verifyAdeCredentials("11111111-1111-4111-8111-111111111111");
 
       expect(mockLogout).toHaveBeenCalled();
     });
@@ -1837,7 +1914,7 @@ describe("onboarding-actions", () => {
       // Credentials found
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1857,7 +1934,7 @@ describe("onboarding-actions", () => {
       });
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      await verifyAdeCredentials("biz-789");
+      await verifyAdeCredentials("11111111-1111-4111-8111-111111111111");
 
       expect(mockLogout).toHaveBeenCalled();
     });
@@ -1874,7 +1951,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockLimit.mockResolvedValueOnce([
         {
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           encryptedCodiceFiscale: "enc-cf",
           encryptedPassword: "enc-pw",
           encryptedPin: "enc-pin",
@@ -1894,7 +1971,7 @@ describe("onboarding-actions", () => {
       });
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
-      await verifyAdeCredentials("biz-789");
+      await verifyAdeCredentials("11111111-1111-4111-8111-111111111111");
 
       // P1.1: l'UPDATE guardato di adeCredentials.verifiedAt è ora il PRIMO
       // statement della transazione di finalizzazione, quindi la prima
@@ -1951,7 +2028,7 @@ describe("onboarding-actions", () => {
       mockLimit.mockResolvedValueOnce([
         {
           profileId: "profile-456",
-          businessId: "biz-789",
+          businessId: "11111111-1111-4111-8111-111111111111",
           hasCredentials: true,
           credentialsVerified: true,
         },
@@ -1963,7 +2040,7 @@ describe("onboarding-actions", () => {
       expect(status).toEqual({
         hasProfile: true,
         hasBusiness: true,
-        businessId: "biz-789",
+        businessId: "11111111-1111-4111-8111-111111111111",
         hasCredentials: true,
         credentialsVerified: true,
       });
@@ -2050,12 +2127,27 @@ describe("onboarding-actions", () => {
       mockGetUser.mockResolvedValue({ data: { user: null } });
       const { changeAdePassword } = await import("./onboarding-actions");
       const result = await changeAdePassword(
-        "biz-789",
+        "11111111-1111-4111-8111-111111111111",
         "OldPass1!",
         "NewPass1!",
         "NewPass1!",
       );
       expect(result.error).toBe("Non autenticato.");
+    });
+
+    it("guard UUID (regola 9): businessId malformato → { error } senza toccare il DB", async () => {
+      const { changeAdePassword } = await import("./onboarding-actions");
+      const result = await changeAdePassword(
+        "abc",
+        "OldPass1!",
+        "NewPass1!",
+        "NewPass1!",
+      );
+
+      expect(result.error).toBe("Identificativo non valido.");
+      // Il guard precede l'ownership (SELECT) e il login AdE.
+      expect(mockSelect).not.toHaveBeenCalled();
+      expect(mockLogin).not.toHaveBeenCalled();
     });
   });
 });

@@ -15,6 +15,7 @@ import {
 } from "@/lib/receipts/document-lines";
 import { parseStrictIsoDateUtc } from "@/lib/date-utils";
 import { logger } from "@/lib/logger";
+import { isValidUuid } from "@/lib/uuid";
 import {
   STORICO_PAGE_SIZE,
   type SearchReceiptsResult,
@@ -48,6 +49,10 @@ export async function searchReceipts(
     user = await getAuthenticatedUser();
   } catch (err) {
     return { ...authErrorResult(err, "searchReceipts"), items: [], total: 0 };
+  }
+  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessOwnership.
+  if (!isValidUuid(businessId)) {
+    return { error: "Identificativo non valido.", items: [], total: 0 };
   }
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) {

@@ -613,24 +613,25 @@ del catalogo è più lasco di quello della cassa che poi consuma quei prezzi.
 
 ---
 
-### 68. Server actions senza guard UUID (regola 9): id malformato → 22P02 Postgres → error boundary
+### 69. `getAnalyticsBundle` non degrada su statement timeout (regola 19; incoerente con `getStarterKpis`)
 
-- **Categoria:** robustezza/boundary · **Severità:** Low — solo utenti autenticati, ma rompe la regola 19 e genera rumore
-- **File:** `src/server/onboarding-actions.ts:376` (`saveAdeCredentials`), `:881` (`verifyAdeCredentials`), `:1190` (`changeAdePassword`) — businessId; `src/server/profile-actions.ts:171` (`updateBusiness`); `src/server/catalog-actions.ts:98,207,244` (businessId + itemId); `src/server/storico-actions.ts:40` (`searchReceipts`); `src/server/analytics-actions.ts:75` (`authorizeOwner`). Pattern corretto già in repo: `src/server/receipt-actions.ts:32` e `src/server/void-actions.ts:25-29` (Zod `.uuid()`)
+- **Categoria:** robustezza/UX · **Severità:** Low
+- **File:** `src/server/analytics-actions.ts:275-294` (`buildAnalyticsDataset`, nessun try/catch attorno a `fetchSaleDocsInRange`/`computeTotalsByDoc`), `:346-364` (`getAnalyticsBundle`); contrasto: `:389-401` (`getStarterKpis` gestisce `isStatementTimeoutError`, PR #572)
 
-**Problema.** `businessId`/`itemId` arrivano dal client e finiscono in `eq()`
-su colonne uuid senza `isValidUuid`: un valore non-UUID fa lanciare Postgres
-22P02 dentro `checkBusinessOwnership`/le query, che nessuna delle action
-elencate gestisce → throw → error boundary di Next (contro la regola 19) al
-posto di un errore applicativo inline. `getCatalogItems` lo maschera con un
-catch-all che ritorna `[]` ma logga `logger.error` → issue Sentry per input
-utente (contro la regola 20).
+**Problema.** Il path Pro passa per `withStatementTimeout(5s)`: sotto
+contention il 57014 propaga da `getAnalyticsBundle` fino all'error boundary
+della pagina analytics invece del fallback inline — esattamente il
+comportamento che la regola 19 vieta e che `getStarterKpis` già corregge.
+Inoltre `computeTotalsByDoc` (`fetchLinesByDocIds`) gira **fuori** dal
+timeout scoped: la query più pesante del bundle non ha budget.
 
-**Fix (non ambiguo).** `isValidUuid()` (da `@/lib/uuid`) come prima riga dopo
-l'auth in ciascuna action elencata → `return { error: "Identificativo non
-valido." }` (stessa shape degli altri errori); in `getCatalogItems` degradare
-questa classe a `warn`. **Test:** per ogni action, id `"abc"` → `{ error }`
-senza che il mock DB venga interrogato.
+**Fix (non ambiguo).** try/catch in `buildAnalyticsDataset` attorno a
+fetch+compute: su `isStatementTimeoutError` → `{ ok: false, error: "Servizio
+temporaneamente sovraccarico, riprova tra qualche istante." }` (stesso
+messaggio di `getStarterKpis`); altri errori → rethrow (Sentry). Portare
+anche `fetchLinesByDocIds` del path analytics dentro `withStatementTimeout`.
+**Test:** timeout su `fetchSaleDocsInRange` → `{ error }` senza throw;
+timeout su `fetchLinesByDocIds` → idem; errore generico → throw.
 
 ---
 

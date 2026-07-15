@@ -17,6 +17,7 @@ import {
   TRIAL_EXPIRED_MESSAGE,
 } from "@/lib/plans";
 import { logger } from "@/lib/logger";
+import { isValidUuid } from "@/lib/uuid";
 import { VAT_CODES } from "@/types/cassa";
 import type { VatCode } from "@/types/cassa";
 import type {
@@ -125,6 +126,11 @@ function validateItemInput(
 export async function getCatalogItems(
   businessId: string,
 ): Promise<CatalogItem[]> {
+  // Guard UUID (regola 9): un businessId malformato farebbe lanciare 22P02 a
+  // Postgres in checkBusinessOwnership → degradiamo a lista vuota senza toccare
+  // il DB (input prevedibile, nessun rumore Sentry — regola 20).
+  if (!isValidUuid(businessId)) return [];
+
   try {
     const user = await getAuthenticatedUser();
     const ownershipError = await checkBusinessOwnership(user.id, businessId);
@@ -139,7 +145,9 @@ export async function getCatalogItems(
 
     return items.map(toCatalogItem);
   } catch (err) {
-    logger.error({ err, businessId }, "getCatalogItems failed unexpectedly");
+    // warn, non error: questa classe di fallimento è dominata da input utente
+    // prevedibile (regola 20), non deve generare issue Sentry.
+    logger.warn({ err, businessId }, "getCatalogItems failed unexpectedly");
     return [];
   }
 }
@@ -161,6 +169,11 @@ export async function addCatalogItem(
     user = await getAuthenticatedUser();
   } catch (err) {
     return authErrorResult(err, "addCatalogItem");
+  }
+
+  // Guard UUID (regola 9) prima di qualunque accesso al DB.
+  if (!isValidUuid(input.businessId)) {
+    return { error: "Identificativo non valido." };
   }
 
   const ownershipError = await checkBusinessOwnership(
@@ -235,6 +248,13 @@ export async function deleteCatalogItem(
   itemId: string,
   businessId: string,
 ): Promise<CatalogActionResult> {
+  // Guard UUID (regola 9): sia itemId sia businessId finiscono in eq() su
+  // colonne uuid → un valore malformato lancerebbe 22P02. Blocca prima di
+  // qualunque query DB.
+  if (!isValidUuid(itemId) || !isValidUuid(businessId)) {
+    return { error: "Identificativo non valido." };
+  }
+
   const authError = await authenticateAndAuthorize(businessId);
   if (authError) return authError;
 
@@ -271,6 +291,11 @@ export async function deleteCatalogItem(
 export async function updateCatalogItem(
   input: UpdateCatalogItemInput,
 ): Promise<CatalogActionResult> {
+  // Guard UUID (regola 9): itemId + businessId in eq() su colonne uuid.
+  if (!isValidUuid(input.itemId) || !isValidUuid(input.businessId)) {
+    return { error: "Identificativo non valido." };
+  }
+
   const authError = await authenticateAndAuthorize(input.businessId);
   if (authError) return authError;
 

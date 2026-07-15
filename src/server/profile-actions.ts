@@ -23,6 +23,7 @@ import { isInvalidPreferredVatCode } from "@/types/cassa";
 import { getClientIp } from "@/lib/get-client-ip";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
+import { isValidUuid } from "@/lib/uuid";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
 import {
   getFormString,
@@ -170,6 +171,10 @@ export async function updateBusiness(
 
   const businessId = getFormString(formData, "businessId");
   if (!businessId) return { error: "Business ID mancante." };
+  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessOwnership.
+  if (!isValidUuid(businessId)) {
+    return { error: "Identificativo non valido." };
+  }
 
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) return ownershipError;
