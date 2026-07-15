@@ -61,6 +61,29 @@ export const adePinSchema = z
   );
 
 /**
+ * Bound massimo per una password di credenziale AdE (Fisconline/CIE).
+ * Non è una regola AdE (Fisconline è 8–15 char), ma un cap difensivo al
+ * boundary server: la password è una credenziale opaca cifrata as-is, quindi
+ * evitiamo di cifrare/memorizzare stringhe arbitrariamente lunghe (fino al
+ * limite di body di Next) inviate bypassando il client.
+ */
+export const ADE_PASSWORD_MAX_LENGTH = 128;
+
+/**
+ * Schema Zod per l'email dell'app CIE ID (username del metodo CIE).
+ * Stesso criterio del client (`z.email()`), così il boundary server vale da
+ * solo (regola 9) e non è più debole della validazione client.
+ *
+ * NB: NON è un'email applicativa da normalizzare — è una credenziale di un
+ * sistema esterno (AdE/CIE). Case e spazi vanno preservati byte-per-byte come
+ * la password: NON applicare `normalizeEmail()`. Il bound 254 è il massimo di
+ * un indirizzo email (RFC 5321).
+ */
+export const adeCieEmailSchema = z
+  .email("Inserisci l'email dell'app CIE ID.")
+  .max(254, "Email troppo lunga.");
+
+/**
  * CAP italiano: esattamente 5 cifre numeriche.
  */
 const ITALIAN_ZIP_REGEX = /^\d{5}$/;
