@@ -225,4 +225,47 @@ describe("sitemap", () => {
       expect(entry.lastModified).toBeInstanceOf(Date);
     }
   });
+
+  it("uses the real registry dates as lastModified (not the build time)", async () => {
+    vi.resetModules();
+    const { default: sitemap } = await import("./sitemap");
+    const { guideArticles, guideSlugs } = await import("@/lib/guide/articles");
+    const { helpArticles } = await import("@/lib/help/articles");
+    const { confrontoContent } = await import("@/lib/confronto/comparisons");
+    const result = sitemap();
+    const byUrl = new Map(result.map((e) => [e.url, e]));
+    const isoOf = (d: unknown) =>
+      (d as Date).toISOString().slice(0, "YYYY-MM-DD".length);
+
+    // Guide: updatedAt del registry
+    for (const slug of guideSlugs) {
+      const entry = byUrl.get(`https://scontrinozero.it/guide/${slug}`);
+      expect(isoOf(entry?.lastModified)).toBe(guideArticles[slug].updatedAt);
+    }
+
+    // Help: dateModified del registry
+    for (const [slug, article] of Object.entries(helpArticles)) {
+      const entry = byUrl.get(`https://scontrinozero.it/help/${slug}`);
+      expect(isoOf(entry?.lastModified)).toBe(article.dateModified);
+    }
+
+    // Confronto: lastUpdated del registry
+    const confronto = byUrl.get("https://scontrinozero.it/confronto");
+    expect(isoOf(confronto?.lastModified)).toBe(confrontoContent.lastUpdated);
+
+    // Hub: max delle date figlie
+    const guideHub = byUrl.get("https://scontrinozero.it/guide");
+    const maxGuideDate = guideSlugs
+      .map((s) => guideArticles[s].updatedAt)
+      .toSorted((a, b) => a.localeCompare(b))
+      .at(-1);
+    expect(isoOf(guideHub?.lastModified)).toBe(maxGuideDate);
+
+    const helpHub = byUrl.get("https://scontrinozero.it/help");
+    const maxHelpDate = Object.values(helpArticles)
+      .map((a) => a.dateModified)
+      .toSorted((a, b) => a.localeCompare(b))
+      .at(-1);
+    expect(isoOf(helpHub?.lastModified)).toBe(maxHelpDate);
+  });
 });
