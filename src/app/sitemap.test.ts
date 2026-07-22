@@ -6,7 +6,7 @@ describe("sitemap", () => {
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
-    expect(result).toHaveLength(77);
+    expect(result).toHaveLength(80);
 
     // Root
     expect(result[0]).toMatchObject({

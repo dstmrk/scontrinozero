@@ -14,6 +14,9 @@ export const guideSlugs = [
   "recupero-credenziali-ade-password-scaduta",
   "cassetto-fiscale-dove-trovare-scontrini",
   "obbligo-scontrino-elettronico-2026",
+  "registratore-di-cassa-prezzi",
+  "sanzioni-mancato-scontrino",
+  "registratore-telematico-vs-documento-commerciale-online",
 ] as const;
 
 export type GuideSlug = (typeof guideSlugs)[number];
@@ -337,7 +340,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Dal 1° gennaio 2026 è entrato in vigore l'obbligo di collegamento fra POS (terminale di pagamento) e registratore telematico, per trasmettere all'Agenzia delle Entrate gli incassi elettronici insieme ai corrispettivi. La norma ha generato molta confusione: cosa cambia davvero e cosa fare se non usi un RT fisico?",
     publishedAt: "2026-05-14",
-    updatedAt: "2026-05-14",
+    updatedAt: "2026-07-22",
     readingMinutes: 7,
     sections: [
       {
@@ -350,7 +353,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Sanzioni previste",
-        body: "Per la mancata trasmissione del singolo pagamento elettronico, la sanzione amministrativa è pari al 90% dell'IVA non documentata correttamente, con un minimo previsto. Esistono inoltre sanzioni accessorie in caso di violazioni reiterate (sospensione della licenza). I controlli sono incrociati: AdE confronta dati POS dalle banche con corrispettivi trasmessi.",
+        body: "Per la mancata trasmissione del singolo pagamento elettronico, la sanzione amministrativa è pari al 70% dell'IVA non documentata correttamente (art. 6 c. 2-bis D.Lgs. 471/1997, dopo la riforma del D.Lgs. 87/2024), con un minimo di 300 €. Esistono inoltre sanzioni accessorie in caso di violazioni reiterate (sospensione della licenza). I controlli sono incrociati: AdE confronta dati POS dalle banche con corrispettivi trasmessi.",
       },
       {
         heading: "Deroghe e casistiche particolari",
@@ -1229,7 +1232,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     title: "Obbligo di scontrino elettronico nel 2026: chi, come, sanzioni",
     metaTitle: "Obbligo scontrino elettronico 2026: chi deve emetterlo",
     metaDescription:
-      "Dal 2020 lo scontrino elettronico è obbligatorio per chi vende a privati (D.Lgs. 127/2015): esoneri, novità POS 2026, sanzioni del 90% e come adeguarsi.",
+      "Dal 2020 lo scontrino elettronico è obbligatorio per chi vende a privati (D.Lgs. 127/2015): esoneri, novità POS 2026, sanzioni del 70% e come adeguarsi.",
     heroIntro:
       "Sì, lo scontrino elettronico è obbligatorio: dal 1° gennaio 2020 ogni commerciante al minuto che vende a consumatori finali deve memorizzare e trasmettere i corrispettivi all'Agenzia delle Entrate (art. 2 D.Lgs. 127/2015). Nel 2026 si aggiunge l'obbligo di collegamento tra POS e strumento di emissione. Vediamo chi è obbligato, chi è esonerato, le sanzioni e le opzioni per adeguarsi senza comprare hardware.",
     publishedAt: "2026-07-22",
@@ -1258,7 +1261,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Le sanzioni",
-        body: "Per l'omessa, tardiva o infedele memorizzazione/trasmissione dei corrispettivi la sanzione è il 90% dell'imposta relativa (art. 6, comma 2-bis, D.Lgs. 471/1997), con minimo di 500 €. Se la violazione non incide sull'imposta, si applica la sanzione fissa di 100 € per trasmissione. Dopo 4 violazioni distinte in 5 anni può scattare la sospensione della licenza da 3 giorni a 1 mese (art. 12 D.Lgs. 471/1997). Il mancato collegamento POS-corrispettivi ha sanzioni dedicate introdotte dalla L. 207/2024.",
+        body: "Per l'omessa, tardiva o infedele memorizzazione/trasmissione dei corrispettivi la sanzione è il 70% dell'imposta relativa (art. 6, comma 2-bis, D.Lgs. 471/1997, come modificato dal D.Lgs. 87/2024 per le violazioni dal 1° settembre 2024), con minimo di 300 €. Se la violazione non incide sulla liquidazione dell'imposta, si applica la sanzione fissa di 100 € per trasmissione. Dopo 4 violazioni distinte in 5 anni può scattare la sospensione della licenza da 3 giorni a 1 mese (art. 12 D.Lgs. 471/1997). Il mancato collegamento POS-corrispettivi ha sanzioni dedicate introdotte dalla L. 207/2024.",
       },
       {
         heading: "Mettersi in regola senza comprare hardware",
@@ -1284,7 +1287,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         question: "Qual è la sanzione se non emetto lo scontrino?",
         answer:
-          "Il 90% dell'imposta relativa all'importo non memorizzato o trasmesso, con un minimo di 500 € (art. 6 c. 2-bis D.Lgs. 471/1997). Con 4 violazioni distinte in 5 anni può aggiungersi la sospensione della licenza da 3 giorni a 1 mese.",
+          "Il 70% dell'imposta relativa all'importo non memorizzato o trasmesso, con un minimo di 300 € (art. 6 c. 2-bis D.Lgs. 471/1997, dopo la riforma del D.Lgs. 87/2024). Con 4 violazioni distinte in 5 anni può aggiungersi la sospensione della licenza da 3 giorni a 1 mese.",
       },
       {
         question: "Il forfettario è esonerato dallo scontrino elettronico?",
@@ -1298,6 +1301,267 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       "pos-rt-obbligo-2026",
       "scontrino-regime-forfettario",
     ],
+  },
+
+  "registratore-di-cassa-prezzi": {
+    slug: "registratore-di-cassa-prezzi",
+    title: "Quanto costa un registratore di cassa nel 2026",
+    metaTitle: "Registratore di cassa: prezzi 2026 e alternative senza costi",
+    metaDescription:
+      "Un registratore telematico costa 400-800 € più 50-100 €/anno di gestione. Le alternative software partono da 0 €: tutti i prezzi a confronto e quando conviene cosa.",
+    heroIntro:
+      "Un registratore di cassa telematico costa 400-800 € di acquisto, più l'installazione del tecnico abilitato e la verificazione periodica biennale: sui 3 anni la spesa reale supera facilmente i 1.000 €. L'alternativa software (documento commerciale online) parte da 0 € col portale AdE o da pochi euro al mese con un'app. Vediamo tutte le voci di costo e quando conviene l'una o l'altra strada.",
+    publishedAt: "2026-07-22",
+    updatedAt: "2026-07-22",
+    readingMinutes: 6,
+    sections: [
+      {
+        heading: "Le voci di costo di un registratore telematico",
+        body: "Il prezzo del registratore telematico (RT) non è solo l'hardware. Le voci tipiche: acquisto del dispositivo (400-800 € per i modelli da banco più comuni, oltre 1.000 € per i sistemi touch evoluti), installazione e attivazione da parte di un tecnico abilitato (100-200 €), verificazione periodica obbligatoria ogni 2 anni (50-100 € a intervento), eventuali aggiornamenti firmware per adeguamenti normativi e i rotoli di carta termica. In caso di guasto, il fermo cassa richiede l'intervento del tecnico.",
+      },
+      {
+        heading: "Il costo reale su 3 anni",
+        body: "Mettendo insieme le voci, un RT da 600 € con installazione a 150 € e una verificazione biennale a 80 € porta la spesa del primo triennio a circa 900-1.000 €, senza contare carta, eventuali riparazioni fuori garanzia e il tempo per gli adempimenti tecnici. È il numero da confrontare con le alternative software, che su 3 anni costano da 0 € (portale AdE) a circa 90-150 € (app in abbonamento).",
+        table: {
+          headers: ["Soluzione", "Costo iniziale", "Costo 3 anni (indicativo)"],
+          rows: [
+            [
+              "Registratore telematico",
+              "500-1.000 € (acquisto + installazione)",
+              "900-1.200 € con verificazioni",
+            ],
+            [
+              "Portale AdE (DCO manuale)",
+              "0 €",
+              "0 € (ma 30-60 secondi a scontrino)",
+            ],
+            [
+              "App DCO (es. ScontrinoZero)",
+              "0 €",
+              "da ~90 € (piano annuale Starter)",
+            ],
+          ],
+        },
+      },
+      {
+        heading: "L'obbligo non è comprare la cassa",
+        body: "L'obbligo di legge (art. 2 D.Lgs. 127/2015) riguarda la memorizzazione e trasmissione telematica dei corrispettivi, non l'acquisto di un dispositivo: il registratore telematico è uno dei modi per adempiere, insieme alla procedura web Documento Commerciale Online dell'Agenzia delle Entrate. Se apri una nuova attività a basso volume di scontrini, puoi partire senza comprare nulla e decidere dopo, sui numeri reali, se l'RT ti serve davvero.",
+      },
+      {
+        heading: "Quando conviene comunque il registratore",
+        body: "Con flussi alti alla cassa — il bar con la fila del mattino, il supermercato, il negozio con decine di battute l'ora — l'ergonomia dell'RT resta imbattibile: tasti fisici, stampa immediata, funzionamento anche offline con trasmissione differita. Il costo si ammortizza sul volume. Sotto le poche decine di scontrini al giorno, invece, il rapporto si inverte e l'hardware diventa un costo fisso difficile da giustificare.",
+      },
+      {
+        heading: "L'alternativa software nel dettaglio",
+        body: "Con la procedura DCO emetti lo scontrino elettronico dal portale AdE (gratis, ma lento: ogni documento va compilato a mano) o da un'app che automatizza la compilazione e la trasmissione. ScontrinoZero parte da 29,99 €/anno (Starter) con scontrini illimitati, prova di 30 giorni senza carta e versione self-hosted gratuita: il calcolatore di risparmio linkato sotto confronta il tuo caso specifico con i costi di un RT.",
+      },
+    ],
+    faq: [
+      {
+        question: "Quanto costa un registratore di cassa telematico?",
+        answer:
+          "I modelli da banco più comuni costano 400-800 € di acquisto, a cui aggiungere 100-200 € di installazione da tecnico abilitato e 50-100 € di verificazione ogni 2 anni. Sui 3 anni la spesa complessiva è tipicamente di 900-1.200 €.",
+      },
+      {
+        question: "È obbligatorio comprare il registratore di cassa?",
+        answer:
+          "No. L'obbligo è trasmettere i corrispettivi (art. 2 D.Lgs. 127/2015), non possedere l'hardware: la procedura Documento Commerciale Online dell'AdE — dal portale o tramite app — è un'alternativa legale con lo stesso valore fiscale.",
+      },
+      {
+        question: "Esistono bonus o crediti d'imposta per l'acquisto?",
+        answer:
+          "I crediti d'imposta per l'acquisto e l'adeguamento dei registratori telematici previsti negli anni scorsi sono a oggi esauriti; eventuali nuove agevolazioni dipendono da provvedimenti futuri. Verifica sempre con il commercialista lo stato delle agevolazioni al momento dell'acquisto.",
+      },
+      {
+        question: "Quanto costa emettere scontrini con un'app?",
+        answer:
+          "Con ScontrinoZero il piano Starter costa 29,99 €/anno (o 4,99 €/mese) con scontrini illimitati; la prova è di 30 giorni senza carta. Il portale AdE resta gratuito ma richiede la compilazione manuale di ogni documento.",
+      },
+    ],
+    relatedHelp: ["piani-e-prezzi", "primo-scontrino", "pos-rt-obbligo"],
+    relatedGuides: [
+      "scontrino-senza-registratore-di-cassa",
+      "migrare-da-registratore-telematico-a-software",
+      "registratore-telematico-vs-documento-commerciale-online",
+    ],
+    relatedTools: ["calcolatore-risparmio-rt"],
+  },
+
+  "sanzioni-mancato-scontrino": {
+    slug: "sanzioni-mancato-scontrino",
+    title: "Sanzioni per mancato scontrino: importi e regole attuali",
+    metaTitle: "Sanzioni mancato scontrino 2026: 70% dell'IVA, minimo 300 €",
+    metaDescription:
+      "La sanzione per il mancato scontrino è il 70% dell'IVA con minimo 300 € (D.Lgs. 87/2024); con 4 violazioni in 5 anni scatta la chiusura. Tutti gli importi.",
+    heroIntro:
+      "La sanzione per la mancata emissione dello scontrino è il 70% dell'imposta relativa all'importo non documentato, con un minimo di 300 € per violazione (art. 6, comma 2-bis, D.Lgs. 471/1997, come riformato dal D.Lgs. 87/2024 per le violazioni dal 1° settembre 2024). Con 4 violazioni distinte in 5 anni scatta anche la sospensione della licenza. Vediamo tutti i casi: omessa emissione, tardiva trasmissione, errori formali.",
+    publishedAt: "2026-07-22",
+    updatedAt: "2026-07-22",
+    readingMinutes: 6,
+    sections: [
+      {
+        heading: "La sanzione base: 70% dell'imposta, minimo 300 €",
+        body: "Per l'omessa o infedele memorizzazione/trasmissione dei corrispettivi (cioè lo scontrino non emesso, emesso per un importo inferiore o non trasmesso) la sanzione è il 70% dell'imposta corrispondente all'importo non documentato, con un minimo di 300 € per violazione. È l'effetto della riforma delle sanzioni tributarie (D.Lgs. 87/2024), che dal 1° settembre 2024 ha ridotto la misura precedente (90% con minimo 500 €). Per le violazioni commesse prima di quella data resta applicabile il regime anteriore.",
+      },
+      {
+        heading: "Violazioni che non incidono sull'imposta: 100 €",
+        body: "Se la violazione è solo formale — la trasmissione è avvenuta in ritardo ma l'imposta è stata liquidata correttamente — si applica la sanzione fissa di 100 € per trasmissione (art. 6, comma 2-bis, ultimo periodo, D.Lgs. 471/1997), senza il minimo di 300 €. È il caso tipico del corrispettivo trasmesso oltre i 12 giorni ma contabilizzato correttamente nella liquidazione IVA del periodo.",
+      },
+      {
+        heading: "La recidiva: sospensione della licenza",
+        body: "L'art. 12, comma 2, del D.Lgs. 471/1997 prevede una sanzione accessoria pesante: se in 5 anni vengono contestate 4 violazioni distinte dell'obbligo di emettere lo scontrino (compiute in giorni diversi), scatta la sospensione della licenza o dell'autorizzazione all'esercizio, da 3 giorni a 1 mese. Sopra i 50.000 € di corrispettivi non documentati la sospensione sale da 1 a 6 mesi. È la ragione per cui la reiterazione è molto più pericolosa della singola dimenticanza.",
+      },
+      {
+        heading: "Chi rischia i controlli",
+        body: "I controlli sono sia fisici (verifiche della Guardia di Finanza sul punto vendita, spesso a ridosso della chiusura) sia incrociati: l'Agenzia delle Entrate confronta i corrispettivi trasmessi con i dati dei pagamenti elettronici comunicati dagli operatori finanziari. Dal 2026, con l'obbligo di collegamento POS-corrispettivi (L. 207/2024), l'incrocio diventa strutturale: un incasso POS senza corrispettivo corrispondente è un'anomalia immediatamente visibile.",
+      },
+      {
+        heading: "Il ravvedimento operoso",
+        body: "Se ti accorgi dell'errore prima della contestazione, puoi regolarizzare con il ravvedimento operoso (art. 13 D.Lgs. 472/1997): la sanzione si riduce in misura crescente con il tempo trascorso (da 1/10 a 1/5 del minimo a seconda di quando ravvedi). Serve trasmettere il corrispettivo omesso e versare sanzione ridotta e interessi. Per i casi concreti conviene passare dal commercialista: il calcolo dipende dai tempi e dal tipo di violazione.",
+      },
+      {
+        heading: "Come azzerare il rischio operativo",
+        body: "La quasi totalità delle violazioni nasce da dimenticanze operative: lo scontrino non battuto nella fretta, il registratore guasto, la trasmissione saltata. Con un flusso digitale (documento commerciale online via app) l'emissione e la trasmissione avvengono nello stesso gesto e ogni documento resta tracciato nello storico: niente chiusure dimenticate, niente scontrini nel cassetto. Non elimina l'obbligo, ma elimina i modi più comuni di violarlo per sbaglio.",
+      },
+    ],
+    faq: [
+      {
+        question: "Qual è la sanzione se non emetto lo scontrino?",
+        answer:
+          "Il 70% dell'IVA relativa all'importo non documentato, con un minimo di 300 € per violazione (art. 6 c. 2-bis D.Lgs. 471/1997, come modificato dal D.Lgs. 87/2024, in vigore per le violazioni dal 1° settembre 2024).",
+      },
+      {
+        question: "Cosa succede se dimentico più volte lo scontrino?",
+        answer:
+          "Con 4 violazioni distinte contestate in 5 anni, oltre alle sanzioni pecuniarie scatta la sospensione della licenza da 3 giorni a 1 mese (art. 12 c. 2 D.Lgs. 471/1997); sopra 50.000 € di corrispettivi non documentati la sospensione va da 1 a 6 mesi.",
+      },
+      {
+        question:
+          "Ho trasmesso i corrispettivi in ritardo ma l'IVA era giusta: che sanzione rischio?",
+        answer:
+          "La sanzione fissa di 100 € per trasmissione, perché la violazione non ha inciso sulla liquidazione dell'imposta. Puoi ridurla ulteriormente con il ravvedimento operoso se regolarizzi prima della contestazione.",
+      },
+      {
+        question: "Il cliente che esce senza scontrino rischia una multa?",
+        answer:
+          "No: dal 2003 non esiste più la sanzione a carico del cliente sprovvisto di scontrino. La responsabilità dell'emissione è tutta dell'esercente.",
+      },
+    ],
+    relatedHelp: ["primo-scontrino", "annullare-scontrino", "errori-ade"],
+    relatedGuides: [
+      "obbligo-scontrino-elettronico-2026",
+      "chiusura-giornaliera-corrispettivi",
+      "annullare-scontrino-elettronico",
+    ],
+  },
+
+  "registratore-telematico-vs-documento-commerciale-online": {
+    slug: "registratore-telematico-vs-documento-commerciale-online",
+    title: "Registratore telematico o documento commerciale online?",
+    metaTitle: "Registratore telematico vs documento commerciale online",
+    metaDescription:
+      "RT e DCO sono fiscalmente equivalenti: cambiano costi (500-1.000 € vs 0-90 €/anno), velocità al banco e vincoli. La differenza spiegata e quando scegliere cosa.",
+    heroIntro:
+      "Registratore telematico (RT) e documento commerciale online (DCO) sono i due modi legali di certificare i corrispettivi, fiscalmente equivalenti: lo scontrino che producono ha lo stesso valore. La differenza sta nel mezzo — hardware certificato contro procedura web dell'Agenzia delle Entrate — e quindi in costi, velocità al banco e vincoli operativi. Ecco il confronto punto per punto.",
+    publishedAt: "2026-07-22",
+    updatedAt: "2026-07-22",
+    readingMinutes: 6,
+    sections: [
+      {
+        heading: "Cosa sono, in una riga ciascuno",
+        body: "L'RT è una stampante fiscale certificata che memorizza i corrispettivi e li trasmette all'AdE con la chiusura giornaliera. Il DCO è la procedura web dell'Agenzia delle Entrate (Provvedimento 28 ottobre 2016 n. 182017, ex art. 2 D.Lgs. 127/2015) che genera e trasmette lo scontrino elettronico documento per documento, dal portale o tramite un software collegato.",
+      },
+      {
+        heading: "Il confronto punto per punto",
+        body: 'La tabella riassume le differenze concrete tra le due strade. Nessuna delle due è "migliore" in assoluto: dipende dal volume di scontrini, dalla mobilità dell\'attività e dal budget.',
+        table: {
+          headers: [
+            "Aspetto",
+            "Registratore telematico",
+            "Documento commerciale online",
+          ],
+          rows: [
+            ["Costo iniziale", "500-1.000 € (acquisto + installazione)", "0 €"],
+            [
+              "Costi ricorrenti",
+              "Verificazione biennale 50-100 €, carta",
+              "0 € (portale) o abbonamento app (da ~30 €/anno)",
+            ],
+            [
+              "Velocità al banco",
+              "Immediata, tasti fisici",
+              "Qualche secondo a scontrino via app; 30-60 s dal portale",
+            ],
+            [
+              "Connettività",
+              "Funziona offline, trasmette in differita",
+              "Serve connessione al momento dell'emissione",
+            ],
+            [
+              "Chiusura giornaliera",
+              "Obbligatoria (automatica sui modelli recenti)",
+              "Non esiste: ogni documento è trasmesso subito",
+            ],
+            [
+              "Mobilità",
+              "Legato al punto cassa",
+              "Ovunque: smartphone con rete 4G/5G",
+            ],
+            [
+              "Guasti",
+              "Fermo cassa, serve il tecnico abilitato",
+              "Nessun hardware: cambio dispositivo e si riparte",
+            ],
+          ],
+        },
+      },
+      {
+        heading: "Stesso valore fiscale, stessi obblighi",
+        body: "Entrambe le strade adempiono all'obbligo di memorizzazione e trasmissione dei corrispettivi (art. 2 D.Lgs. 127/2015). Il documento consegnato al cliente ha identico valore per garanzia, resi, detrazioni e Lotteria degli Scontrini. Anche il nuovo obbligo 2026 di collegamento con il POS (L. 207/2024) vale per entrambi: cambia solo la modalità tecnica dell'associazione.",
+      },
+      {
+        heading: "Quando scegliere il registratore telematico",
+        body: "Sceglie bene l'RT chi ha un punto vendita fisso con flusso continuo alla cassa: bar con la fila del mattino, minimarket, panetteria con coda. La battuta fisica è più rapida di qualunque app, l'apparecchio lavora anche senza connessione e il costo si ammortizza sul volume. Anche chi vuole lo scontrino di carta consegnato d'istinto a ogni cliente resta più comodo con l'RT.",
+      },
+      {
+        heading: "Quando scegliere il documento commerciale online",
+        body: "Il DCO vince per attività mobili, stagionali o a basso volume: ambulanti, B&B, artigiani a domicilio, professionisti, chioschi. Zero investimento iniziale, zero manutenzioni, emissione da smartphone ovunque, storico digitale sempre accessibile. Con un'app come ScontrinoZero l'emissione richiede pochi secondi e la trasmissione è automatica; il portale AdE gratuito resta l'opzione per chi emette pochissimi documenti.",
+      },
+      {
+        heading: "Si possono usare entrambi?",
+        body: "Sì: nessuna norma impone di scegliere per sempre. Puoi tenere l'RT al punto vendita e usare il DCO per il banco al mercato o la stagione estiva, o migrare gradualmente dall'uno all'altro (la guida alla migrazione linkata sotto spiega la dismissione dell'RT). L'importante è che ogni corrispettivo sia certificato con uno dei due strumenti, senza duplicazioni.",
+      },
+    ],
+    faq: [
+      {
+        question:
+          "Che differenza c'è tra registratore telematico e documento commerciale online?",
+        answer:
+          "Il valore fiscale è identico; cambia il mezzo: l'RT è hardware certificato che trasmette con la chiusura giornaliera, il DCO è la procedura web AdE che trasmette ogni scontrino al momento dell'emissione. Ne derivano differenze di costo (500-1.000 € vs 0-90 €/anno), velocità e vincoli di connessione.",
+      },
+      {
+        question: "Il DCO è legale quanto il registratore telematico?",
+        answer:
+          "Sì: è una modalità prevista dall'Agenzia delle Entrate (Provvedimento 28 ottobre 2016 n. 182017, ex art. 2 D.Lgs. 127/2015) e lo scontrino emesso ha lo stesso valore fiscale di quello dell'RT.",
+      },
+      {
+        question: "Posso passare dall'RT al DCO senza problemi?",
+        answer:
+          "Sì. Si dismette l'RT con la procedura di cessazione sul portale Fatture e Corrispettivi e si prosegue con il DCO: nessuna autorizzazione preventiva. La transizione va fatta senza lasciare corrispettivi scoperti tra i due strumenti.",
+      },
+      {
+        question: "Con il DCO devo fare la chiusura giornaliera?",
+        answer:
+          "No: la chiusura giornaliera è un adempimento del registratore telematico. Con il DCO ogni documento viene trasmesso singolarmente al momento dell'emissione e non esiste una chiusura da inviare a fine giornata.",
+      },
+    ],
+    relatedHelp: ["pos-rt-obbligo", "chiusura-giornaliera", "primo-scontrino"],
+    relatedGuides: [
+      "documento-commerciale-online",
+      "migrare-da-registratore-telematico-a-software",
+      "registratore-di-cassa-prezzi",
+    ],
+    relatedTools: ["calcolatore-risparmio-rt"],
   },
 };
 
