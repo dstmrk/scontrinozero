@@ -33,6 +33,8 @@ src/
     r/              pagina pubblica scontrino (QR / link)
     sitemap.ts robots.ts manifest.ts layout.tsx global-error.tsx
     llms.txt/       route handler /llms.txt (indice markdown per crawler AI)
+    llms-full.txt/  route handler /llms-full.txt (testo completo dei registry per crawler AI)
+    feed.xml/       route handler /feed.xml (RSS 2.0 delle guide)
   components/     React. Sottocartelle per dominio (cassa, storico, analytics,
                   catalogo, billing, settings, ade, receipts, marketing, help,
                   pwa, dashboard, announcement) + ui/ (shadcn) + providers.tsx
