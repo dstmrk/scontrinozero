@@ -7,8 +7,8 @@ import {
 } from "./categories";
 
 describe("categorySlugs", () => {
-  it("contains exactly 12 slugs", () => {
-    expect(categorySlugs).toHaveLength(12);
+  it("contains exactly 17 slugs", () => {
+    expect(categorySlugs).toHaveLength(17);
   });
 
   it("contains the expected slugs", () => {
@@ -26,6 +26,11 @@ describe("categorySlugs", () => {
         "food-truck",
         "ncc-taxi",
         "tatuatori-piercer",
+        "ristoranti-bar-asporto",
+        "negozi",
+        "pasticcerie-gelaterie-panifici",
+        "fioristi",
+        "lavanderie",
       ]),
     );
   });
@@ -36,20 +41,7 @@ describe("categorySlugs", () => {
 });
 
 describe("categories dictionary", () => {
-  for (const slug of [
-    "ambulanti",
-    "parrucchieri-estetisti",
-    "artigiani",
-    "b-and-b",
-    "regime-forfettario",
-    "professionisti",
-    "officine-meccanici",
-    "eventi-mercatini-hobbisti",
-    "palestre-personal-trainer",
-    "food-truck",
-    "ncc-taxi",
-    "tatuatori-piercer",
-  ] as const) {
+  for (const slug of categorySlugs) {
     describe(slug, () => {
       const c = categories[slug];
 
@@ -115,6 +107,21 @@ describe("categories dictionary", () => {
       });
     });
   }
+});
+
+describe("ristoranti-bar-asporto (framing onesto sui limiti)", () => {
+  const c = categories["ristoranti-bar-asporto"];
+
+  it("states the high-throughput limit honestly instead of overpromising", () => {
+    const allText = [c.useCase, ...c.faq.map((f) => f.answer)].join(" ");
+    // La pagina deve dichiarare che il DCO non è adatto ai banconi ad alto
+    // flusso e targettizzare chioschi/stagionali/asporto (decisione utente).
+    expect(allText.toLowerCase()).toMatch(/non è (adatt|pensat)/);
+  });
+
+  it("targets the low-volume segment in the audience", () => {
+    expect(c.audience.toLowerCase()).toMatch(/chiosch|stagional|asporto/);
+  });
 });
 
 describe("getCategory", () => {

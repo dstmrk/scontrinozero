@@ -29,7 +29,12 @@ export type CategorySlug =
   | "palestre-personal-trainer"
   | "food-truck"
   | "ncc-taxi"
-  | "tatuatori-piercer";
+  | "tatuatori-piercer"
+  | "ristoranti-bar-asporto"
+  | "negozi"
+  | "pasticcerie-gelaterie-panifici"
+  | "fioristi"
+  | "lavanderie";
 
 export const categorySlugs: readonly CategorySlug[] = [
   "ambulanti",
@@ -44,6 +49,11 @@ export const categorySlugs: readonly CategorySlug[] = [
   "food-truck",
   "ncc-taxi",
   "tatuatori-piercer",
+  "ristoranti-bar-asporto",
+  "negozi",
+  "pasticcerie-gelaterie-panifici",
+  "fioristi",
+  "lavanderie",
 ];
 
 export const categories: Record<CategorySlug, CategoryContent> = {
@@ -582,6 +592,228 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "primo-scontrino",
       "annullare-scontrino",
       "regime-forfettario",
+    ],
+  },
+  "ristoranti-bar-asporto": {
+    slug: "ristoranti-bar-asporto",
+    title: "Scontrino elettronico per chioschi, asporto e bar stagionali",
+    metaTitle: "Scontrino elettronico per chioschi, asporto e bar stagionali",
+    metaDescription:
+      "Chiosco, asporto, bar stagionale: emetti scontrini elettronici dallo smartphone senza registratore telematico. Da €2,50/mese, prova 30 giorni gratis.",
+    heroSubtitle:
+      "Per chioschi, asporto, delivery e attività stagionali della ristorazione: scontrini dallo smartphone, senza registratore sul bancone.",
+    audience:
+      "chioschi, bar e attività di ristorazione stagionali, asporto e delivery, piccole somministrazioni a basso volume",
+    useCase:
+      "Siamo onesti: se hai un bar o un ristorante con fila alla cassa e decine di battute l'ora, il registratore telematico fisico resta più ergonomico — l'emissione del Documento Commerciale Online richiede qualche secondo per scontrino e non è pensata per il bancone ad alto flusso. ScontrinoZero è invece la scelta giusta per il segmento a basso volume della ristorazione: il chiosco estivo, il bar stagionale, l'asporto e il delivery, il food service a eventi. Lì elimini l'hardware (400-800 € più canoni) e fai tutto dallo smartphone.",
+    obligations: [
+      "Emissione del Documento Commerciale Online per ogni vendita o somministrazione B2C (art. 22 DPR 633/72).",
+      "Aliquota IVA corretta: 10% per la somministrazione di alimenti e bevande, 22% per alcune vendite accessorie.",
+      "Trasmissione telematica dei corrispettivi all'Agenzia delle Entrate entro 12 giorni dall'operazione.",
+      "Dal 2026, registrazione del POS collegato ai corrispettivi (L. 207/2024).",
+    ],
+    benefits: [
+      "Perfetto per l'attività stagionale: paghi il periodo in cui lavori, senza ammortizzare un registratore.",
+      "Asporto e delivery: emetti lo scontrino al momento dell'ordine e lo invii via link o WhatsApp col sacchetto.",
+      "Zero hardware sul chiosco: basta lo smartphone, anche con sola connessione 4G.",
+      "Storico digitale di tutte le vendite, consultabile dal commercialista.",
+    ],
+    faq: [
+      {
+        question: "È adatto a un bar con molti scontrini l'ora?",
+        answer:
+          "No, non è pensato per quello: con un flusso continuo alla cassa il registratore telematico fisico resta la soluzione più ergonomica, perché il DCO richiede qualche secondo per emissione. ScontrinoZero dà il meglio su chioschi, stagionali, asporto e volumi bassi o medi.",
+      },
+      {
+        question: "Che aliquota IVA uso per l'asporto?",
+        answer:
+          "La cessione di alimenti e bevande da asporto sconta in generale l'IVA del 10% (somministrazione); alcuni prodotti confezionati seguono l'aliquota propria del bene. In ScontrinoZero configuri le aliquote per prodotto nel catalogo e le richiami in due tap.",
+      },
+      {
+        question: "Posso usarlo solo per la stagione estiva?",
+        answer:
+          "Sì: il piano mensile (da €4,99/mese) si attiva e disattiva quando vuoi, senza penali. Alla disattivazione l'account passa in sola lettura e lo storico resta consultabile — utile per la dichiarazione dei redditi.",
+      },
+    ],
+    relatedHelp: ["primo-scontrino", "aliquote-iva", "installare-app"],
+  },
+  negozi: {
+    slug: "negozi",
+    title: "Scontrino elettronico per piccoli negozi al dettaglio",
+    metaTitle:
+      "Scontrino elettronico per negozi al dettaglio senza registratore",
+    metaDescription:
+      "Piccolo negozio, atelier o showroom: emetti scontrini elettronici senza registratore telematico, da smartphone o tablet. Da €2,50/mese, prova gratis.",
+    heroSubtitle:
+      "Per il piccolo dettaglio — abbigliamento, artigianato, showroom — dove ogni vendita conta ma le battute al giorno sono poche.",
+    audience:
+      "piccoli negozi di abbigliamento e accessori, atelier, boutique, showroom, negozi con vendite poco frequenti ma di valore",
+    useCase:
+      "In un piccolo negozio di abbigliamento, un atelier o uno showroom si fanno poche vendite al giorno, spesso di importo alto: tenere un registratore telematico per 5-10 scontrini quotidiani significa hardware sul banco, canoni di verifica e un costo fisso sproporzionato. Con ScontrinoZero emetti il Documento Commerciale Online dal tablet o dallo smartphone, con il catalogo dei tuoi articoli configurato, e trasmetti automaticamente i corrispettivi. Se il cliente vuole la carta, stampi su una termica Bluetooth; altrimenti invii lo scontrino via email o QR.",
+    obligations: [
+      "Emissione del Documento Commerciale Online per ogni vendita B2C (art. 22 DPR 633/72).",
+      "Applicazione dell'aliquota IVA propria dei beni venduti (22% per abbigliamento e accessori).",
+      "Trasmissione telematica dei corrispettivi entro 12 giorni dall'operazione.",
+      "Gestione di resi e cambi merce con annullo o documento di reso.",
+    ],
+    benefits: [
+      "Niente registratore sul banco: il negozio resta pulito, la vendita si chiude dal tablet.",
+      "Catalogo articoli con prezzi e aliquote: scontrino in due tap anche con più capi.",
+      "Resi e annulli gestiti dallo storico, con tracciabilità completa verso AdE.",
+      "Scontrino digitale via email o QR: comodo per chi spedisce o consegna a domicilio.",
+    ],
+    faq: [
+      {
+        question: "Come gestisco un reso o un cambio merce?",
+        answer:
+          "Per un errore o un ripensamento immediato annulli lo scontrino dallo storico e, se serve, ne emetti uno corretto. Per il cambio con differenza di prezzo emetti un nuovo scontrino per la differenza. La catena resta tracciata verso l'Agenzia delle Entrate.",
+      },
+      {
+        question: "Posso emettere fattura se il cliente la chiede?",
+        answer:
+          "La fattura B2B/B2C su richiesta si emette con un software di fatturazione elettronica via SDI, non con il documento commerciale: sono adempimenti diversi. ScontrinoZero copre gli scontrini; molti negozi lo affiancano a un gestionale di fatturazione per le (rare) fatture.",
+      },
+      {
+        question: "Il cliente può avere lo scontrino per la garanzia?",
+        answer:
+          "Sì: il documento commerciale vale come prova d'acquisto ai fini della garanzia legale di 26 mesi. Puoi stamparlo su termica o inviarlo via email/QR: la copia digitale ha lo stesso valore di quella cartacea.",
+      },
+    ],
+    relatedHelp: ["primo-scontrino", "annullare-scontrino", "aliquote-iva"],
+  },
+  "pasticcerie-gelaterie-panifici": {
+    slug: "pasticcerie-gelaterie-panifici",
+    title: "Scontrino elettronico per pasticcerie, gelaterie e panifici",
+    metaTitle: "Scontrino elettronico per pasticcerie, gelaterie e panifici",
+    metaDescription:
+      "Pasticceria, gelateria o panificio a conduzione familiare: scontrini elettronici senza registratore telematico, dallo smartphone. Da €2,50/mese, prova gratis.",
+    heroSubtitle:
+      "Per il laboratorio con vendita diretta: banco ordinato, scontrini dallo smartphone e aliquote alimentari già configurate nel catalogo.",
+    audience:
+      "pasticcerie, gelaterie, panifici e laboratori artigianali con vendita al banco a volumi bassi o medi, banchi a mercati ed eventi",
+    useCase:
+      "Nel laboratorio artigianale con vendita diretta — la pasticceria su ordinazione, il panificio di paese, la gelateria stagionale — il flusso alla cassa è gestibile e il registratore telematico è spesso un costo sproporzionato. Con ScontrinoZero configuri il catalogo con le aliquote alimentari corrette (4% sul pane comune, 10% su pasticceria e gelato) ed emetti il Documento Commerciale Online in pochi secondi, anche al banco del mercato o alla fiera con il solo smartphone. Se il tuo banco ha coda continua tutto il giorno, valuta onestamente un registratore fisico.",
+    obligations: [
+      "Emissione del Documento Commerciale Online per ogni vendita B2C (art. 22 DPR 633/72).",
+      "Aliquote IVA alimentari corrette per riga: 4% per pane e prodotti da forno di base, 10% per pasticceria, gelato e altri alimenti.",
+      "Trasmissione telematica dei corrispettivi entro 12 giorni dall'operazione.",
+      "Tracciabilità e conservazione dei documenti per 10 anni.",
+    ],
+    benefits: [
+      "Catalogo con aliquote per prodotto: il 4% e il 10% escono giusti senza pensarci a ogni battuta.",
+      "Righe multiple con aliquote diverse nello stesso scontrino (pane + torta + bibita).",
+      "Al mercato o alla fiera emetti dallo smartphone come al banco.",
+      "Per le torte su ordinazione: scontrino al ritiro, inviato anche via WhatsApp.",
+    ],
+    faq: [
+      {
+        question: "Che aliquota IVA metto su pane, dolci e gelato?",
+        answer:
+          "Il pane comune e i prodotti da forno di base scontano il 4%; pasticceria fresca, gelato e la maggior parte degli alimenti trasformati il 10%; alcune bevande e prodotti accessori il 22%. Nel catalogo di ScontrinoZero assegni l'aliquota a ogni prodotto una volta sola.",
+      },
+      {
+        question:
+          "Posso emettere un solo scontrino con prodotti ad aliquote diverse?",
+        answer:
+          "Sì: ogni riga dello scontrino porta la sua aliquota (es. pane al 4% e torta al 10% nello stesso documento) e la trasmissione all'AdE riporta il dettaglio corretto per aliquota.",
+      },
+      {
+        question: "Va bene per il banco della gelateria in alta stagione?",
+        answer:
+          "Dipende dal flusso: per una gelateria con coda continua il registratore fisico resta più rapido, perché il DCO richiede qualche secondo per emissione. Per la stagionale con volumi moderati, il piano mensile senza hardware è spesso la scelta più economica.",
+      },
+    ],
+    relatedHelp: ["aliquote-iva", "primo-scontrino", "installare-app"],
+  },
+  fioristi: {
+    slug: "fioristi",
+    title: "Scontrino elettronico per fioristi e garden",
+    metaTitle: "Scontrino elettronico per fioristi senza registratore di cassa",
+    metaDescription:
+      "Fioreria o banco fiori: emetti scontrini elettronici dallo smartphone, anche a domicilio o al mercato, senza registratore telematico. Da €2,50/mese.",
+    heroSubtitle:
+      "Dal negozio al banco del mercato alle consegne a domicilio: lo scontrino ti segue, non il registratore.",
+    audience:
+      "fioristi, fiorerie, banchi fiori ai mercati, piccoli garden e vivai con vendita al dettaglio",
+    useCase:
+      "Il lavoro del fiorista non sta solo dietro al banco: c'è il mercato del sabato, la consegna a domicilio, l'allestimento per la cerimonia. Con ScontrinoZero emetti il Documento Commerciale Online dove ti trovi, dallo smartphone: al negozio, al banco o alla consegna. Le aliquote dei fiori (10% sui fiori recisi e piante ornamentali, 22% su vasi e accessori) stanno nel catalogo, e per gli ordini telefonici lo scontrino parte via email o WhatsApp insieme alla conferma.",
+    obligations: [
+      "Emissione del Documento Commerciale Online per ogni vendita B2C (art. 22 DPR 633/72).",
+      "Aliquote IVA corrette per riga: 10% per fiori recisi e piante, 22% per vasi, accessori e articoli regalo.",
+      "Trasmissione telematica dei corrispettivi entro 12 giorni dall'operazione.",
+      "Per gli allestimenti fatturati a imprese (B2B): fattura elettronica via SDI, non scontrino.",
+    ],
+    benefits: [
+      "Scontrino a domicilio: lo emetti alla consegna del mazzo, senza tornare in negozio.",
+      "Righe con aliquote miste (fiori al 10% + vaso al 22%) nello stesso documento.",
+      "Al mercato basta lo smartphone: niente registratore da alimentare sul banco.",
+      "Per ordini telefonici o via social, scontrino digitale via link insieme alla conferma.",
+    ],
+    faq: [
+      {
+        question: "Che aliquota IVA applico ai fiori?",
+        answer:
+          "I fiori recisi e le piante ornamentali scontano in generale l'IVA al 10%; vasi, accessori e articoli regalo il 22%. In ScontrinoZero assegni l'aliquota a ogni voce del catalogo e il documento esce con il dettaglio corretto per riga.",
+      },
+      {
+        question:
+          "Per un matrimonio o un allestimento aziendale serve lo scontrino?",
+        answer:
+          "Se il cliente è un privato puoi emettere il documento commerciale; se è un'azienda o chiede fattura, si emette fattura elettronica via SDI con un software di fatturazione — lo scontrino non la sostituisce. Molti fioristi usano entrambi gli strumenti.",
+      },
+      {
+        question: "Posso emettere lo scontrino alla consegna a domicilio?",
+        answer:
+          "Sì, è il caso d'uso ideale: emetti dallo smartphone al momento dell'incasso e invii la copia digitale via email o WhatsApp. Serve solo la connessione dati del telefono.",
+      },
+    ],
+    relatedHelp: ["primo-scontrino", "aliquote-iva", "installare-app"],
+  },
+  lavanderie: {
+    slug: "lavanderie",
+    title: "Scontrino elettronico per lavanderie e sartorie",
+    metaTitle: "Scontrino elettronico per lavanderie e sartorie senza cassa",
+    metaDescription:
+      "Lavanderia artigiana o sartoria: scontrini elettronici senza registratore telematico, con catalogo dei servizi e ritiro/consegna. Da €2,50/mese, prova gratis.",
+    heroSubtitle:
+      "Per lavanderie artigiane e sartorie: catalogo servizi, scontrino al ritiro e banco libero dal registratore.",
+    audience:
+      "lavanderie artigiane, stirerie, sartorie e servizi di riparazione capi con clientela privata",
+    useCase:
+      "Nella lavanderia artigiana o nella sartoria il flusso di cassa è fatto di tanti piccoli incassi al ritiro dei capi. Con ScontrinoZero configuri il listino dei servizi (lavaggio, stiratura, riparazioni) nel catalogo ed emetti il Documento Commerciale Online in due tap quando il cliente ritira. Niente registratore telematico da comprare e revisionare: bastano lo smartphone o un tablet al banco, e la stampante termica Bluetooth se il cliente vuole la copia cartacea.",
+    obligations: [
+      "Emissione del Documento Commerciale Online per ogni servizio B2C incassato (art. 22 DPR 633/72).",
+      "Applicazione dell'aliquota IVA al 22% sui servizi di lavanderia e sartoria.",
+      "Trasmissione telematica dei corrispettivi entro 12 giorni dall'operazione.",
+      "Conservazione dei documenti emessi per 10 anni.",
+    ],
+    benefits: [
+      "Listino servizi nel catalogo: lavaggio camicia, piumone, orlo — scontrino in due tap.",
+      "Incassi misti (contanti + carta) gestiti nello stesso documento.",
+      "Scontrino al momento del ritiro, anche con acconto alla consegna dei capi.",
+      "Storico digitale per il commercialista, senza rotoli da archiviare.",
+    ],
+    faq: [
+      {
+        question: "Quando emetto lo scontrino: alla consegna o al ritiro?",
+        answer:
+          "Al momento del pagamento. Se il cliente paga al ritiro dei capi, emetti allora; se lascia un acconto alla consegna, certifichi l'acconto quando lo incassi e il saldo al ritiro. Il documento commerciale segue sempre l'incasso.",
+      },
+      {
+        question: "Che aliquota IVA hanno i servizi di lavanderia?",
+        answer:
+          "I servizi di lavanderia, stireria e sartoria scontano l'IVA ordinaria al 22%. Configuri l'aliquota una volta sola nel catalogo servizi e ogni scontrino esce corretto.",
+      },
+      {
+        question: "Serve la stampante o basta lo scontrino digitale?",
+        answer:
+          "Il documento commerciale digitale (email, SMS o QR) ha pieno valore fiscale: la stampa non è obbligatoria. Molte lavanderie tengono comunque una termica Bluetooth per i clienti che preferiscono la carta.",
+      },
+    ],
+    relatedHelp: [
+      "primo-scontrino",
+      "stampare-scontrino-termica",
+      "aliquote-iva",
     ],
   },
 };
