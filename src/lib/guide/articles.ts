@@ -11,6 +11,9 @@ export const guideSlugs = [
   "scegliere-software-scontrini-elettronici",
   "codici-natura-iva",
   "stampante-termica-wifi-scontrini",
+  "recupero-credenziali-ade-password-scaduta",
+  "cassetto-fiscale-dove-trovare-scontrini",
+  "obbligo-scontrino-elettronico-2026",
 ] as const;
 
 export type GuideSlug = (typeof guideSlugs)[number];
@@ -1067,6 +1070,233 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     relatedGuides: [
       "scontrino-senza-registratore-di-cassa",
       "scegliere-software-scontrini-elettronici",
+    ],
+  },
+
+  "recupero-credenziali-ade-password-scaduta": {
+    slug: "recupero-credenziali-ade-password-scaduta",
+    title: "Password AdE scaduta o persa: come recuperare le credenziali",
+    metaTitle: "Password AdE scaduta: recuperare le credenziali Fisconline",
+    metaDescription:
+      "La password Fisconline scade ogni 90 giorni: come recuperarla, cosa fare se l'utenza non risulta registrata (DL 76/2020) e le alternative SPID e CIE per accedere all'AdE.",
+    heroIntro:
+      "La password Fisconline scade ogni 90 giorni: se non riesci più ad accedere, puoi reimpostarla dal portale dell'Agenzia delle Entrate con la domanda segreta scelta in fase di registrazione, oppure entrare con SPID o CIE e rigenerare le credenziali. Qui trovi la procedura per ogni caso: password scaduta, PIN smarrito, utenza non registrata, credenziali di una società.",
+    publishedAt: "2026-07-22",
+    updatedAt: "2026-07-22",
+    readingMinutes: 7,
+    sections: [
+      {
+        heading: "Le credenziali Fisconline: da cosa sono composte",
+        body: "Le credenziali Fisconline sono tre elementi: nome utente (per le persone fisiche coincide con il codice fiscale), password e PIN a 10 cifre. Servono tutti e tre: la password per l'accesso al portale, il PIN per autorizzare le operazioni dispositive come l'emissione del documento commerciale online. La password ha una scadenza di 90 giorni: al primo accesso dopo la scadenza il portale chiede di impostarne una nuova.",
+      },
+      {
+        heading: "Password scaduta: come reimpostarla",
+        body: "Se la password è scaduta ma la ricordi, il portale dell'Agenzia delle Entrate ti guida al cambio direttamente al login: inserisci la vecchia password e ne imposti una nuova. Se invece non la ricordi, usa la funzione \"Problemi con la password?\" nell'area di accesso: rispondi alla domanda segreta impostata in fase di registrazione e ricevi una nuova password provvisoria. Al primo accesso dovrai cambiarla.",
+      },
+      {
+        heading: "PIN smarrito: come recuperarlo",
+        body: "Il PIN si recupera dall'area riservata del portale AdE (sezione profilo utente → ripristina PIN) se accedi con SPID, CIE o CNS. In alternativa puoi recuperare le prime 4 cifre con la funzione dedicata del portale e ricevere le restanti 6 per posta al domicilio fiscale. Se hai smarrito tutto (password e PIN), la strada più rapida è accedere con SPID o CIE e rigenerare le credenziali da lì.",
+      },
+      {
+        heading:
+          '"L\'utenza indicata non ha una password associata": cosa significa',
+        body: "È l'errore tipico di chi si era registrato a Fisconline anni fa e non ha mai completato l'attivazione, oppure di chi prova a registrarsi oggi come persona fisica: dal 1° marzo 2021, per effetto del Decreto Semplificazione (DL 76/2020), l'Agenzia delle Entrate non rilascia più nuove credenziali Fisconline alle persone fisiche. Le persone fisiche — anche titolari di partita IVA — accedono con SPID, CIE o CNS. Le credenziali Fisconline restano attive per chi le aveva già e continuano a essere rilasciate a società, enti e professionisti abilitati (Entratel).",
+      },
+      {
+        heading: "Le alternative: SPID e CIE",
+        body: "SPID si richiede gratuitamente (o con costi minimi per il riconoscimento) a uno degli identity provider accreditati — Poste ID è il più diffuso — e vale per tutta la pubblica amministrazione. La CIE (Carta d'Identità Elettronica) si usa con l'app CIE ID sullo smartphone: si accede approvando una notifica push, senza ricordare password che scadono. Entrambe permettono l'accesso completo al portale Fatture e Corrispettivi e alla procedura Documento Commerciale Online.",
+      },
+      {
+        heading: "Credenziali di una società o di più attività",
+        body: "Per le società le credenziali Fisconline/Entratel vengono richieste dal rappresentante legale, che poi incarica i gestori/operatori. Se gestisci più partite IVA (es. due ditte), ogni soggetto ha le proprie credenziali: non esiste un'utenza unica multi-azienda. Il ritiro delle credenziali di una società può avvenire in ufficio AdE da parte del rappresentante legale o di un delegato con delega e documenti.",
+      },
+      {
+        heading: "Cosa serve per ScontrinoZero",
+        body: "ScontrinoZero si collega all'AdE in due modi: con le credenziali Fisconline (utente, password e PIN) oppure con la CIE tramite l'app CIE ID. Se la tua password Fisconline è scaduta, l'app te lo segnala al momento della verifica della connessione: reimpostala sul portale AdE e aggiornala nelle impostazioni. Le credenziali vengono cifrate (AES-256) e usate solo per dialogare con il portale dell'Agenzia delle Entrate.",
+      },
+    ],
+    faq: [
+      {
+        question: "Ogni quanto scade la password Fisconline?",
+        answer:
+          "Ogni 90 giorni. Alla scadenza il portale chiede di impostare una nuova password al primo accesso. Se usi un software collegato (come ScontrinoZero), ricordati di aggiornare la password anche lì dopo il cambio.",
+      },
+      {
+        question: "Non riesco più a registrarmi a Fisconline: perché?",
+        answer:
+          "Dal 1° marzo 2021 (Decreto Semplificazione, DL 76/2020) l'AdE non rilascia più nuove credenziali Fisconline alle persone fisiche: si accede con SPID, CIE o CNS. Chi aveva già le credenziali può continuare a usarle; società e professionisti abilitati continuano a riceverle.",
+      },
+      {
+        question: "Ho dimenticato sia la password che il PIN: cosa faccio?",
+        answer:
+          "La via più rapida è accedere al portale AdE con SPID o CIE e rigenerare le credenziali dall'area riservata. In alternativa puoi usare le funzioni di recupero separate (domanda segreta per la password, ripristino PIN con invio postale), ma i tempi sono più lunghi.",
+      },
+      {
+        question: "Posso usare SPID al posto delle credenziali Fisconline?",
+        answer:
+          "Per accedere al portale sì, sempre. Per i software collegati dipende dall'integrazione: ScontrinoZero supporta le credenziali Fisconline e la CIE (via app CIE ID); con la CIE approvi una notifica push e non hai password che scadono.",
+      },
+      {
+        question: "Quanti tentativi ho prima che l'utenza venga bloccata?",
+        answer:
+          "Il portale AdE blocca temporaneamente l'utenza dopo ripetuti tentativi falliti (tipicamente 5). In caso di blocco, attendi lo sblocco automatico o usa la procedura di recupero password: evita di insistere con credenziali che non ricordi.",
+      },
+    ],
+    relatedHelp: [
+      "credenziali-fisconline",
+      "collegare-ade-con-cie",
+      "errori-ade",
+      "come-collegare-ade",
+    ],
+    relatedGuides: [
+      "documento-commerciale-online",
+      "scontrino-senza-registratore-di-cassa",
+    ],
+  },
+
+  "cassetto-fiscale-dove-trovare-scontrini": {
+    slug: "cassetto-fiscale-dove-trovare-scontrini",
+    title: "Dove trovare gli scontrini emessi nel portale AdE",
+    metaTitle: "Dove trovare gli scontrini nel cassetto fiscale (portale AdE)",
+    metaDescription:
+      "Gli scontrini emessi non stanno nel cassetto fiscale ma in Fatture e Corrispettivi: il percorso per trovarli, verificarli e cosa vede il privato.",
+    heroIntro:
+      "Gli scontrini elettronici che hai emesso non si trovano nel \"cassetto fiscale\" ma nell'area Fatture e Corrispettivi del portale dell'Agenzia delle Entrate: sezione Corrispettivi → Documento commerciale online → Ricerca. Qui vediamo il percorso esatto per l'esercente, cosa può vedere il cliente privato e come verificare che una trasmissione sia andata a buon fine.",
+    publishedAt: "2026-07-22",
+    updatedAt: "2026-07-22",
+    readingMinutes: 6,
+    sections: [
+      {
+        heading: "Cassetto fiscale e Fatture e Corrispettivi: due aree diverse",
+        body: "Il cassetto fiscale è l'archivio personale con dichiarazioni, versamenti, rimborsi e dati anagrafici. I documenti commerciali online (gli scontrini elettronici) vivono invece nell'area Fatture e Corrispettivi, un servizio separato dello stesso portale. È la confusione più comune: chi cerca gli scontrini nel cassetto fiscale non li trova perché sta guardando nel posto sbagliato.",
+      },
+      {
+        heading: "Il percorso esatto per l'esercente",
+        body: 'Accedi al portale dell\'Agenzia delle Entrate (SPID, CIE, CNS o credenziali Fisconline) ed entra in Fatture e Corrispettivi. Seleziona la sezione "Corrispettivi", poi "Documento commerciale online" e infine "Ricerca". Da lì filtri per data o per identificativo e vedi ogni documento emesso, con stato, dettaglio delle righe ed eventuale annullamento collegato. Ogni documento è scaricabile in PDF.',
+      },
+      {
+        heading: "Come verificare che uno scontrino sia stato trasmesso",
+        body: 'Nella Ricerca del Documento commerciale online ogni documento trasmesso compare con il suo identificativo e la data/ora di emissione. Se un documento non compare, la trasmissione non è mai arrivata all\'AdE: in ScontrinoZero lo vedi dallo stato (un documento in errore non risulta trasmesso e va riemesso). Il totale dei corrispettivi giornalieri si consulta invece nella sezione "Consultazione" dei corrispettivi.',
+      },
+      {
+        heading: "Cosa vede il cliente privato",
+        body: 'Il cliente consumatore non trova i singoli scontrini in un\'area consultabile del proprio cassetto fiscale: il documento commerciale "parlante" (con codice fiscale) confluisce nei dati della dichiarazione precompilata quando dà diritto a detrazioni (es. spese sanitarie), e i biglietti della Lotteria degli Scontrini si consultano sul portale lotteria dedicato. Per il resto, il documento del cliente è la copia che gli consegni tu: stampata, via email o QR code.',
+      },
+      {
+        heading: "Quanto restano consultabili i documenti",
+        body: "I documenti commerciali online restano consultabili nell'area Fatture e Corrispettivi per i periodi previsti dal portale; l'obbligo di conservazione dei documenti fiscali per l'esercente è di 10 anni (art. 2220 c.c.). Per non dipendere dal portale, con ScontrinoZero hai lo storico digitale sempre accessibile e l'export dei dati; l'originale fiscale resta comunque quello trasmesso all'AdE.",
+      },
+      {
+        heading: "Se usi ScontrinoZero: lo storico integrato",
+        body: "Tutto quello che emetti con ScontrinoZero è nello Storico dell'app: ogni scontrino con stato (Emesso, Annullato, Errore), identificativo AdE, dettaglio righe e ricevuta condivisibile. La verifica sul portale resta utile come controllo indipendente — è la fonte ufficiale — ma per l'operatività quotidiana non serve entrare nel portale AdE.",
+      },
+    ],
+    faq: [
+      {
+        question: "Dove trovo gli scontrini nel cassetto fiscale?",
+        answer:
+          "Non nel cassetto fiscale: gli scontrini elettronici emessi si trovano nell'area Fatture e Corrispettivi del portale AdE, sezione Corrispettivi → Documento commerciale online → Ricerca. Il cassetto fiscale contiene dichiarazioni e versamenti, non i documenti commerciali.",
+      },
+      {
+        question:
+          "Il portale ha il progressivo dei documenti commerciali emessi?",
+        answer:
+          "Sì. Ogni documento commerciale online ha un identificativo univoco e un progressivo attribuiti dal sistema AdE al momento della trasmissione: li vedi nella Ricerca del portale e sulla copia del documento consegnata al cliente.",
+      },
+      {
+        question:
+          "Sono un privato: posso vedere gli scontrini fatti a mio nome?",
+        answer:
+          'Non esiste un elenco consultabile dei singoli scontrini: i documenti "parlanti" con il tuo codice fiscale confluiscono nei dati della dichiarazione precompilata quando rilevano per le detrazioni, e i biglietti della lotteria si vedono sul portale della Lotteria degli Scontrini.',
+      },
+      {
+        question:
+          "Il commercialista può vedere i miei corrispettivi trasmessi?",
+        answer:
+          "Sì, se è tuo intermediario delegato: con la delega ai servizi di Fatture e Corrispettivi accede alla consultazione dei corrispettivi trasmessi. È il modo tipico con cui il commercialista riconcilia i corrispettivi in contabilità.",
+      },
+    ],
+    relatedHelp: ["cassetto-fiscale", "storico-ed-esportazione", "errori-ade"],
+    relatedGuides: [
+      "documento-commerciale-online",
+      "chiusura-giornaliera-corrispettivi",
+      "annullare-scontrino-elettronico",
+    ],
+  },
+
+  "obbligo-scontrino-elettronico-2026": {
+    slug: "obbligo-scontrino-elettronico-2026",
+    title: "Obbligo di scontrino elettronico nel 2026: chi, come, sanzioni",
+    metaTitle: "Obbligo scontrino elettronico 2026: chi deve emetterlo",
+    metaDescription:
+      "Dal 2020 lo scontrino elettronico è obbligatorio per chi vende a privati (D.Lgs. 127/2015): esoneri, novità POS 2026, sanzioni del 90% e come adeguarsi.",
+    heroIntro:
+      "Sì, lo scontrino elettronico è obbligatorio: dal 1° gennaio 2020 ogni commerciante al minuto che vende a consumatori finali deve memorizzare e trasmettere i corrispettivi all'Agenzia delle Entrate (art. 2 D.Lgs. 127/2015). Nel 2026 si aggiunge l'obbligo di collegamento tra POS e strumento di emissione. Vediamo chi è obbligato, chi è esonerato, le sanzioni e le opzioni per adeguarsi senza comprare hardware.",
+    publishedAt: "2026-07-22",
+    updatedAt: "2026-07-22",
+    readingMinutes: 7,
+    sections: [
+      {
+        heading: "La norma base: D.Lgs. 127/2015",
+        body: "L'articolo 2 del D.Lgs. 127/2015 impone a chi effettua operazioni di commercio al minuto (art. 22 DPR 633/72) la memorizzazione elettronica e la trasmissione telematica dei corrispettivi giornalieri. L'obbligo è scattato il 1° luglio 2019 per chi superava 400.000 € di volume d'affari e il 1° gennaio 2020 per tutti gli altri. Lo scontrino di carta \"semplice\" del vecchio registratore di cassa non è più valido da allora.",
+      },
+      {
+        heading: "Chi è obbligato",
+        body: "Tutte le partite IVA che vendono beni o servizi a consumatori finali (B2C) senza emettere fattura: negozi, bar e ristoranti, artigiani con clientela privata, ambulanti, professionisti che incassano da privati, strutture ricettive per i servizi extra. Il regime fiscale non conta: anche i forfettari sono obbligati. Conta la natura dell'operazione: vendita al minuto → corrispettivo telematico.",
+      },
+      {
+        heading: "Chi è esonerato",
+        body: "Gli esoneri sono elencati dal DM 10 maggio 2019: tra i principali, le operazioni già esonerate dall'obbligo di certificazione ex art. 2 DPR 696/1996 (es. vendita di giornali, alcune cessioni di tabacchi e generi di monopolio), le prestazioni di trasporto pubblico con biglietti, e le operazioni per cui si emette comunque fattura. Chi rientra negli esoneri può comunque scegliere di emettere il documento commerciale volontariamente.",
+      },
+      {
+        heading: "Come adempiere: le tre strade",
+        body: '1) Registratore telematico (RT): hardware certificato, 400-800 € di acquisto più il canone di verifica biennale — ha senso per volumi alti al banco. 2) Procedura web "Documento Commerciale Online" dell\'AdE: gratuita, dal portale Fatture e Corrispettivi, ma richiede 30-60 secondi a scontrino. 3) Software collegato alla procedura DCO (come ScontrinoZero): stessa validità fiscale, emissione in pochi secondi dallo smartphone, senza hardware.',
+      },
+      {
+        heading: "La novità 2026: collegamento POS-corrispettivi",
+        body: "La Legge di Bilancio 2025 (L. 207/2024, art. 1 commi 74-77) ha introdotto l'obbligo di collegamento tecnico tra gli strumenti di pagamento elettronico (POS) e lo strumento di memorizzazione dei corrispettivi. Da gennaio 2026 il POS deve risultare associato allo strumento di emissione, così l'AdE può incrociare incassi elettronici e corrispettivi trasmessi. Chi usa il DCO registra il POS nel portale Fatture e Corrispettivi: la procedura è guidata e non richiede hardware.",
+      },
+      {
+        heading: "Le sanzioni",
+        body: "Per l'omessa, tardiva o infedele memorizzazione/trasmissione dei corrispettivi la sanzione è il 90% dell'imposta relativa (art. 6, comma 2-bis, D.Lgs. 471/1997), con minimo di 500 €. Se la violazione non incide sull'imposta, si applica la sanzione fissa di 100 € per trasmissione. Dopo 4 violazioni distinte in 5 anni può scattare la sospensione della licenza da 3 giorni a 1 mese (art. 12 D.Lgs. 471/1997). Il mancato collegamento POS-corrispettivi ha sanzioni dedicate introdotte dalla L. 207/2024.",
+      },
+      {
+        heading: "Mettersi in regola senza comprare hardware",
+        body: "Se apri ora o vuoi dismettere il registratore, la strada più economica è la procedura DCO: zero hardware, zero collaudi. Con ScontrinoZero emetti dallo smartphone in pochi secondi, trasmetti in automatico a ogni scontrino e hai lo storico digitale; la prova è di 30 giorni senza carta di credito. Se il tuo flusso al banco è molto alto, valuta onestamente un RT: la nostra guida al confronto spiega quando conviene l'uno o l'altro.",
+      },
+    ],
+    faq: [
+      {
+        question: "Lo scontrino elettronico è obbligatorio per tutti?",
+        answer:
+          "Per tutti quelli che vendono a consumatori finali senza fattura, sì: l'obbligo vale dal 1° gennaio 2020 (art. 2 D.Lgs. 127/2015), indipendentemente dal regime fiscale. Restano fuori solo le operazioni esonerate dal DM 10 maggio 2019 e chi emette sempre fattura.",
+      },
+      {
+        question: "Serve per forza comprare un registratore telematico?",
+        answer:
+          "No. Il registratore telematico è una delle opzioni, non l'unica: la procedura Documento Commerciale Online dell'AdE (usata direttamente dal portale o tramite un software come ScontrinoZero) ha la stessa validità fiscale e non richiede alcun hardware.",
+      },
+      {
+        question: "Cosa cambia nel 2026 con il POS?",
+        answer:
+          "Dal 2026 gli strumenti di pagamento elettronico devono risultare collegati allo strumento che memorizza i corrispettivi (L. 207/2024, art. 1 commi 74-77). Chi usa il DCO registra il POS nel portale Fatture e Corrispettivi; chi ha un RT deve associarlo tecnicamente al dispositivo.",
+      },
+      {
+        question: "Qual è la sanzione se non emetto lo scontrino?",
+        answer:
+          "Il 90% dell'imposta relativa all'importo non memorizzato o trasmesso, con un minimo di 500 € (art. 6 c. 2-bis D.Lgs. 471/1997). Con 4 violazioni distinte in 5 anni può aggiungersi la sospensione della licenza da 3 giorni a 1 mese.",
+      },
+      {
+        question: "Il forfettario è esonerato dallo scontrino elettronico?",
+        answer:
+          "No. Il regime forfettario esonera dall'IVA, non dalla certificazione dei corrispettivi: per le vendite a privati anche il forfettario emette il documento commerciale, con natura N2 al posto dell'aliquota.",
+      },
+    ],
+    relatedHelp: ["pos-rt-obbligo", "normativa-pos-2026", "primo-scontrino"],
+    relatedGuides: [
+      "scontrino-senza-registratore-di-cassa",
+      "pos-rt-obbligo-2026",
+      "scontrino-regime-forfettario",
     ],
   },
 };
