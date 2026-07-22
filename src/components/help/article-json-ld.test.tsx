@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { HelpArticleJsonLd } from "./article-json-ld";
-import { getHelpArticle, HELP_REVIEWED_DATE } from "@/lib/help/articles";
+import { getHelpArticle } from "@/lib/help/articles";
 
 function parseLdJson(html: string): Record<string, unknown> {
   const match = html.match(
@@ -32,14 +32,15 @@ describe("HelpArticleJsonLd", () => {
     expect(data.description).toBe(article.description);
   });
 
-  it("builds an absolute HTTPS url under /help and uses the shared review date", () => {
+  it("builds an absolute HTTPS url under /help and uses the article's own dates", () => {
+    const article = getHelpArticle("aliquote-iva");
     const html = renderToStaticMarkup(
       <HelpArticleJsonLd slug="aliquote-iva" />,
     );
     const data = parseLdJson(html);
     expect(data.url).toBe("https://scontrinozero.it/help/aliquote-iva");
-    expect(data.datePublished).toBe(HELP_REVIEWED_DATE);
-    expect(data.dateModified).toBe(HELP_REVIEWED_DATE);
+    expect(data.datePublished).toBe(article.datePublished);
+    expect(data.dateModified).toBe(article.dateModified);
   });
 
   it("throws on an unknown slug (fail-fast, mai schema vuoto)", () => {

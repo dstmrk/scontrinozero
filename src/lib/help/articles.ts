@@ -6,21 +6,19 @@ export interface HelpArticle {
   readonly metaTitle: string;
   /** Descrizione SEO, riusata sia nei metadata di pagina sia nello structured data Article. */
   readonly description: string;
+  /** Data ISO YYYY-MM-DD di prima pubblicazione (finisce in Article JSON-LD e sitemap). */
+  readonly datePublished: string;
+  /** Data ISO YYYY-MM-DD dell'ultima revisione sostanziale del page.tsx (>= datePublished).
+   * Bump manuale a ogni modifica di contenuto — è il segnale di freshness per Google/AI. */
+  readonly dateModified: string;
   readonly related: readonly [string, string, string];
 }
-
-/**
- * Data condivisa di "ultima revisione" del centro assistenza. Gli articoli help
- * sono documentazione viva, allineata alla versione corrente del prodotto: non
- * tracciamo una data di pubblicazione per-articolo, quindi usiamo un'unica data
- * di revisione come `datePublished`/`dateModified` dello structured data Article.
- * Aggiornarla quando si fa una revisione complessiva dei contenuti help.
- */
-export const HELP_REVIEWED_DATE = "2026-07-12";
 
 export const helpArticles: Record<string, HelpArticle> = {
   "aliquote-iva": {
     slug: "aliquote-iva",
+    datePublished: "2026-04-17",
+    dateModified: "2026-07-13",
     title: "Aliquote IVA, catalogo e metodi di pagamento",
     metaTitle: "Come gestire aliquote IVA, catalogo e metodi di pagamento",
     description:
@@ -29,6 +27,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "annullare-scontrino": {
     slug: "annullare-scontrino",
+    datePublished: "2026-04-11",
+    dateModified: "2026-07-22",
     title: "Annullare uno scontrino: quando si può e come fare",
     metaTitle: "Annullare scontrino elettronico: come fare ed entro quando",
     description:
@@ -41,6 +41,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "analytics-e-report": {
     slug: "analytics-e-report",
+    datePublished: "2026-07-13",
+    dateModified: "2026-07-13",
     title: "Analytics e report: ricavi, scontrini e prodotti",
     metaTitle: "Analytics e report: ricavi, scontrini e prodotti più venduti",
     description:
@@ -49,6 +51,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   api: {
     slug: "api",
+    datePublished: "2026-04-02",
+    dateModified: "2026-06-26",
     title: "API per sviluppatori",
     metaTitle: "API per sviluppatori",
     description:
@@ -61,6 +65,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "cambio-piano": {
     slug: "cambio-piano",
+    datePublished: "2026-04-20",
+    dateModified: "2026-07-13",
     title: "Come passare da mensile ad annuale",
     metaTitle: "Come passare da mensile ad annuale",
     description:
@@ -69,6 +75,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "cassetto-fiscale": {
     slug: "cassetto-fiscale",
+    datePublished: "2026-04-17",
+    dateModified: "2026-06-21",
     title: "Verificare i corrispettivi nel cassetto fiscale",
     metaTitle: "Dove verificare i corrispettivi nel cassetto fiscale",
     description:
@@ -77,6 +85,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "chiusura-giornaliera": {
     slug: "chiusura-giornaliera",
+    datePublished: "2026-04-17",
+    dateModified: "2026-06-21",
     title: "Chiusura giornaliera: è obbligatoria?",
     metaTitle: "Chiusura giornaliera: è obbligatoria?",
     description:
@@ -85,6 +95,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "come-collegare-ade": {
     slug: "come-collegare-ade",
+    datePublished: "2026-04-11",
+    dateModified: "2026-07-15",
     title: "Collegare ScontrinoZero all'Agenzia delle Entrate",
     metaTitle: "Come collegare ScontrinoZero all'Agenzia delle Entrate",
     description:
@@ -93,6 +105,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "collegare-ade-con-cie": {
     slug: "collegare-ade-con-cie",
+    datePublished: "2026-07-15",
+    dateModified: "2026-07-15",
     title: "Collegare l'AdE con CIE (app CIE ID)",
     metaTitle: "Collegare ScontrinoZero all'AdE con CIE (app CIE ID)",
     description:
@@ -101,6 +115,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "contatto-assistenza": {
     slug: "contatto-assistenza",
+    datePublished: "2026-04-20",
+    dateModified: "2026-07-13",
     title: "Come contattare l'assistenza",
     metaTitle: "Come contattare l'assistenza",
     description:
@@ -109,6 +125,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "credenziali-fisconline": {
     slug: "credenziali-fisconline",
+    datePublished: "2026-04-11",
+    dateModified: "2026-07-13",
     title: "Credenziali Fisconline: dove trovarle e verificarle",
     metaTitle: "Credenziali Fisconline: dove trovarle e come verificarle",
     description:
@@ -117,6 +135,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "errori-ade": {
     slug: "errori-ade",
+    datePublished: "2026-04-16",
+    dateModified: "2026-07-15",
     title: "Errori comuni di accesso AdE e come risolverli",
     metaTitle: "Password AdE scaduta o accesso bloccato: come risolvere",
     description:
@@ -129,6 +149,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "fatture-e-ricevute": {
     slug: "fatture-e-ricevute",
+    datePublished: "2026-04-20",
+    dateModified: "2026-06-21",
     title: "Dove trovare fatture e ricevute di pagamento",
     metaTitle: "Dove trovare fatture e ricevute di pagamento",
     description:
@@ -137,6 +159,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "installare-app": {
     slug: "installare-app",
+    datePublished: "2026-04-16",
+    dateModified: "2026-06-21",
     title: "Installare ScontrinoZero come app sul dispositivo",
     metaTitle: "Come installare ScontrinoZero come app sul tuo dispositivo",
     description:
@@ -145,6 +169,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "intestazione-scontrino": {
     slug: "intestazione-scontrino",
+    datePublished: "2026-04-20",
+    dateModified: "2026-07-13",
     title: "Personalizzare intestazione e dati dello scontrino",
     metaTitle: "Personalizzare intestazione e dati dello scontrino",
     description:
@@ -153,6 +179,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "normativa-pos-2026": {
     slug: "normativa-pos-2026",
+    datePublished: "2026-04-17",
+    dateModified: "2026-06-21",
     title: "Collegamento POS-cassa 2026: cosa cambia",
     metaTitle: "Normativa POS 2026: obbligo, scadenze e sanzioni POS-cassa",
     description:
@@ -161,6 +189,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "numero-documento-azzeramento": {
     slug: "numero-documento-azzeramento",
+    datePublished: "2026-07-12",
+    dateModified: "2026-07-13",
     title: "Numero documento e azzeramento sullo scontrino",
     metaTitle: "Numero azzeramento e numero documento scontrino: cosa sono",
     description:
@@ -173,6 +203,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "piani-e-prezzi": {
     slug: "piani-e-prezzi",
+    datePublished: "2026-04-17",
+    dateModified: "2026-07-15",
     title: "Piani disponibili: Starter, Pro e self-hosted",
     metaTitle: "Piani disponibili: Starter, Pro e self-hosted gratuito",
     description:
@@ -181,6 +213,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "pos-rt-obbligo": {
     slug: "pos-rt-obbligo",
+    datePublished: "2026-04-20",
+    dateModified: "2026-06-21",
     title: "Collegamento POS-RT: obbligo e scadenze 2026",
     metaTitle: "Collegamento POS-RT: chi è obbligato e scadenze 2026",
     description:
@@ -189,6 +223,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "prima-configurazione": {
     slug: "prima-configurazione",
+    datePublished: "2026-04-16",
+    dateModified: "2026-07-15",
     title: "Prima configurazione passo-passo",
     metaTitle: "Prima configurazione passo-passo",
     description:
@@ -197,6 +233,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "presenta-un-amico": {
     slug: "presenta-un-amico",
+    datePublished: "2026-06-26",
+    dateModified: "2026-07-13",
     title: "Presenta un amico: come funziona il bonus referral",
     metaTitle:
       "Presenta un amico: bonus referral e quando arriva il mese gratis",
@@ -206,6 +244,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "primo-scontrino": {
     slug: "primo-scontrino",
+    datePublished: "2026-04-11",
+    dateModified: "2026-07-15",
     title: "Come emettere il primo scontrino elettronico",
     metaTitle: "Come emettere il primo scontrino elettronico",
     description:
@@ -218,14 +258,20 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "regime-forfettario": {
     slug: "regime-forfettario",
+    datePublished: "2026-04-11",
+    dateModified: "2026-07-22",
     title: "Regime forfettario: configurazione IVA corretta",
-    metaTitle: "Codice IVA regime forfettario: N2 scontrino, N2.2 fattura",
+    // Intent operativo in-app: le query informative su N2/N2.2 sono territorio
+    // della guida codici-natura-iva (regola slug separati /help vs /guide).
+    metaTitle: "Configurare l'IVA del regime forfettario in ScontrinoZero",
     description:
-      "Il codice IVA del regime forfettario è natura N2 sullo scontrino elettronico e N2.2 in fattura, con dicitura art. 1 commi 54-89 L. 190/2014: ecco come configurarlo in ScontrinoZero senza errori.",
+      "Come impostare la natura N2 negli scontrini del forfettario in ScontrinoZero: aliquota prevalente «0% – Non soggette», catalogo prodotti e correzione degli errori più comuni.",
     related: ["aliquote-iva", "primo-scontrino", "annullare-scontrino"],
   },
   "registrare-pos-portale-ade": {
     slug: "registrare-pos-portale-ade",
+    datePublished: "2026-05-21",
+    dateModified: "2026-06-21",
     title: "Registrare un POS nel portale Fatture e Corrispettivi",
     metaTitle: "Come registrare un POS nel portale Fatture e Corrispettivi",
     description:
@@ -234,6 +280,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "sicurezza-credenziali": {
     slug: "sicurezza-credenziali",
+    datePublished: "2026-04-16",
+    dateModified: "2026-07-15",
     title: "Sicurezza e privacy delle credenziali",
     metaTitle: "Sicurezza e privacy: come proteggiamo le tue credenziali",
     description:
@@ -242,6 +290,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "stampare-scontrino-termica": {
     slug: "stampare-scontrino-termica",
+    datePublished: "2026-05-21",
+    dateModified: "2026-07-13",
     title: "Stampare lo scontrino su carta termica",
     metaTitle: "Come stampare lo scontrino su carta termica",
     description:
@@ -254,6 +304,8 @@ export const helpArticles: Record<string, HelpArticle> = {
   },
   "storico-ed-esportazione": {
     slug: "storico-ed-esportazione",
+    datePublished: "2026-04-17",
+    dateModified: "2026-07-13",
     title: "Storico scontrini: filtri, ricerca ed esportazione",
     metaTitle: "Storico scontrini: filtri, ricerca ed esportazione",
     description:

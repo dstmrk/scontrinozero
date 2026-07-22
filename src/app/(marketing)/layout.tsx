@@ -1,5 +1,15 @@
+import type { Metadata } from "next";
 import { Header } from "@/components/marketing/header";
 import { Footer } from "@/components/marketing/footer";
+
+// Autodiscovery del feed RSS delle guide (crawler, aggregatori, AI).
+export const metadata: Metadata = {
+  alternates: {
+    types: {
+      "application/rss+xml": "https://scontrinozero.it/feed.xml",
+    },
+  },
+};
 
 export default function MarketingLayout({
   children,

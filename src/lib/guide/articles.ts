@@ -11,6 +11,12 @@ export const guideSlugs = [
   "scegliere-software-scontrini-elettronici",
   "codici-natura-iva",
   "stampante-termica-wifi-scontrini",
+  "recupero-credenziali-ade-password-scaduta",
+  "cassetto-fiscale-dove-trovare-scontrini",
+  "obbligo-scontrino-elettronico-2026",
+  "registratore-di-cassa-prezzi",
+  "sanzioni-mancato-scontrino",
+  "registratore-telematico-vs-documento-commerciale-online",
 ] as const;
 
 export type GuideSlug = (typeof guideSlugs)[number];
@@ -57,7 +63,9 @@ export interface GuideArticle {
   readonly metaTitle: string;
   readonly metaDescription: string;
   readonly heroIntro: string;
+  /** Data ISO YYYY-MM-DD: finisce in Article JSON-LD e sitemap, mai troncarla al mese. */
   readonly publishedAt: string;
+  /** Data ISO YYYY-MM-DD dell'ultima revisione sostanziale (>= publishedAt). */
   readonly updatedAt: string;
   readonly readingMinutes: number;
   readonly sections: readonly GuideSection[];
@@ -78,7 +86,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       'Il documento commerciale online (DCO) è la versione digitale dello scontrino: lo si emette dal portale Agenzia delle Entrate "Fatture e Corrispettivi" senza bisogno di un registratore telematico fisico. È fiscalmente equivalente allo scontrino stampato e trasmette i corrispettivi all\'AdE in tempo reale.',
     publishedAt: "2026-05-14",
-    updatedAt: "2026-05",
+    updatedAt: "2026-05-14",
     readingMinutes: 6,
     sections: [
       {
@@ -147,13 +155,14 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
   "scontrino-senza-registratore-di-cassa": {
     slug: "scontrino-senza-registratore-di-cassa",
     title: "Emettere scontrino senza registratore di cassa: si può?",
-    metaTitle: "Scontrino elettronico senza registratore di cassa: guida 2026",
+    metaTitle:
+      "Scontrino senza cassa: come emetterlo senza registratore (2026)",
     metaDescription:
-      "Sì, si può: dal 2020 emetti scontrini elettronici senza registratore telematico, dal portale AdE o con un'app dal telefono. Cosa serve, costi e come iniziare.",
+      "Sì, si può: dal 2020 emetti lo scontrino senza cassa né registratore telematico, dal portale AdE o con un'app dal telefono. Cosa serve, costi e come iniziare.",
     heroIntro:
       "Sì, si può: da gennaio 2020 qualunque partita IVA può emettere lo scontrino elettronico senza registratore di cassa fisico, gratis dal portale \"Fatture e Corrispettivi\" dell'Agenzia delle Entrate oppure in pochi secondi con un'app dal telefono. Vediamo cosa serve, quanto costa e come scegliere l'app giusta.",
     publishedAt: "2026-05-14",
-    updatedAt: "2026-07",
+    updatedAt: "2026-07-22",
     readingMinutes: 8,
     sections: [
       {
@@ -266,7 +275,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Scontrino, ricevuta fiscale e fattura sono tre documenti diversi con regole diverse. Saper distinguere quando emettere l'uno o l'altro è la base per non sbagliare adempimenti. Vediamo le differenze pratiche con esempi concreti per chi lavora al pubblico.",
     publishedAt: "2026-05-14",
-    updatedAt: "2026-05",
+    updatedAt: "2026-05-14",
     readingMinutes: 5,
     sections: [
       {
@@ -331,7 +340,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Dal 1° gennaio 2026 è entrato in vigore l'obbligo di collegamento fra POS (terminale di pagamento) e registratore telematico, per trasmettere all'Agenzia delle Entrate gli incassi elettronici insieme ai corrispettivi. La norma ha generato molta confusione: cosa cambia davvero e cosa fare se non usi un RT fisico?",
     publishedAt: "2026-05-14",
-    updatedAt: "2026-05",
+    updatedAt: "2026-07-22",
     readingMinutes: 7,
     sections: [
       {
@@ -344,7 +353,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Sanzioni previste",
-        body: "Per la mancata trasmissione del singolo pagamento elettronico, la sanzione amministrativa è pari al 90% dell'IVA non documentata correttamente, con un minimo previsto. Esistono inoltre sanzioni accessorie in caso di violazioni reiterate (sospensione della licenza). I controlli sono incrociati: AdE confronta dati POS dalle banche con corrispettivi trasmessi.",
+        body: "Per la mancata trasmissione del singolo pagamento elettronico, la sanzione amministrativa è pari al 70% dell'IVA non documentata correttamente (art. 6 c. 2-bis D.Lgs. 471/1997, dopo la riforma del D.Lgs. 87/2024), con un minimo di 300 €. Esistono inoltre sanzioni accessorie in caso di violazioni reiterate (sospensione della licenza). I controlli sono incrociati: AdE confronta dati POS dalle banche con corrispettivi trasmessi.",
       },
       {
         heading: "Deroghe e casistiche particolari",
@@ -389,13 +398,14 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
   "scontrino-regime-forfettario": {
     slug: "scontrino-regime-forfettario",
     title: "Scontrino in regime forfettario: cosa devi sapere",
-    metaTitle: "Scontrino elettronico regime forfettario 2026: come emetterlo",
+    metaTitle:
+      "Scontrino regime forfettario 2026: quando è obbligatorio e come",
     metaDescription:
-      "Anche i forfettari devono emettere scontrino ai privati: come farlo senza registratore di cassa, natura IVA N2, dicitura di esenzione e lotteria. Guida 2026.",
+      "Sì, anche in regime forfettario lo scontrino ai privati è obbligatorio: si emette senza IVA con natura N2, anche senza registratore di cassa. Errori tipici e lotteria.",
     heroIntro:
-      "Il regime forfettario semplifica molti adempimenti (IVA, ritenute, gestione contabile), ma NON esonera dall'obbligo di emettere scontrino al consumatore finale per le vendite B2C. Vediamo come gestire correttamente l'emissione, l'IVA \"a zero\" e gli aspetti operativi tipici del forfettario.",
+      "Sì: anche in regime forfettario devi emettere lo scontrino (documento commerciale) per ogni vendita al consumatore finale. Il forfettario semplifica IVA, ritenute e contabilità, ma NON esonera dalla certificazione dei corrispettivi B2C. Vediamo come gestire l'emissione, l'IVA \"a zero\" (natura N2) e gli aspetti operativi tipici del forfettario.",
     publishedAt: "2026-05-14",
-    updatedAt: "2026-05",
+    updatedAt: "2026-07-22",
     readingMinutes: 6,
     sections: [
       {
@@ -441,6 +451,17 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
         answer:
           "Allo stesso modo di qualunque altro esercente: in fase di emissione indichi il metodo di pagamento (contanti, carta, misto). L'informazione finisce nel DCO trasmesso all'AdE. Non c'è una gestione speciale per il forfettario su questo punto.",
       },
+      {
+        question: "Nello scontrino del forfettario c'è l'IVA?",
+        answer:
+          "No. L'operazione del forfettario è in franchigia da IVA (art. 1 c. 54-89 L. 190/2014): sullo scontrino le righe escono ad aliquota 0% con natura N2 al posto dell'imposta. Il totale che paga il cliente è quindi il prezzo pieno, senza IVA esposta.",
+      },
+      {
+        question:
+          "Ho emesso scontrini con IVA al 22% per errore: come rimedio?",
+        answer:
+          "Annulla ogni scontrino errato ed emettilo di nuovo con la natura N2 corretta: i documenti già trasmessi all'AdE non si possono modificare retroattivamente. Se l'errore si è protratto per settimane o mesi, coinvolgi il commercialista per sistemare anche i corrispettivi già liquidati.",
+      },
     ],
     relatedHelp: ["regime-forfettario", "aliquote-iva", "primo-scontrino"],
     relatedGuides: [
@@ -460,7 +481,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Hai un registratore telematico ma vorresti dismetterlo per passare al documento commerciale online via software? Il passaggio è legittimo e in molti casi conviene, ma richiede alcune verifiche preliminari e attenzione agli adempimenti formali. Vediamo cosa serve, passo per passo.",
     publishedAt: "2026-05-15",
-    updatedAt: "2026-05",
+    updatedAt: "2026-05-15",
     readingMinutes: 7,
     sections: [
       {
@@ -528,7 +549,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       'La "chiusura giornaliera" era l\'operazione classica di fine giornata con il registratore di cassa: si stampava lo scontrino di chiusura (la storica "Z") e si trasmettevano i corrispettivi. Con il documento commerciale online la logica è diversa, e in molti casi più semplice. Vediamo cosa devi davvero fare a fine giornata.',
     publishedAt: "2026-05-15",
-    updatedAt: "2026-05",
+    updatedAt: "2026-05-15",
     readingMinutes: 5,
     sections: [
       {
@@ -590,9 +611,9 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     metaDescription:
       "Come annullare un documento commerciale elettronico già trasmesso all'AdE: termini, procedura tecnica, differenza fra annullamento e reso, casi pratici.",
     heroIntro:
-      'Dopo aver emesso uno scontrino elettronico ti accorgi di un errore, oppure il cliente cambia idea e chiede il rimborso: si può annullare? Sì, ma con regole precise. Lo "scontrino di annullamento" è un documento dedicato che cancella fiscalmente il precedente. Vediamo procedura, termini e casi pratici tipici.',
+      'Sì, uno scontrino elettronico si può annullare, anche nei giorni successivi all\'emissione: lo "scontrino di annullamento" è un documento dedicato che cancella fiscalmente il precedente. Vediamo procedura, termini e casi pratici tipici, e quando invece è più corretto gestire un reso.',
     publishedAt: "2026-05-15",
-    updatedAt: "2026-05",
+    updatedAt: "2026-07-22",
     readingMinutes: 6,
     sections: [
       {
@@ -645,6 +666,22 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
         answer:
           "Non esiste un limite numerico esplicito, ma l'AdE può monitorare pattern anomali (es. tasso annullamento molto sopra la media di settore) come possibile indicatore di evasione. Annulla solo quando necessario e per cause documentabili; per resi a distanza usa sempre la modalità reso (DCO negativo).",
       },
+      {
+        question: "Entro quanti giorni si può annullare uno scontrino?",
+        answer:
+          "La normativa non fissa un termine perentorio per il documento commerciale online: l'annullamento è possibile anche nei giorni successivi all'emissione. La best practice è annullare il prima possibile — idealmente entro la giornata — e comunque entro il periodo d'imposta: più passa il tempo, più complessa è la riconciliazione dei corrispettivi.",
+      },
+      {
+        question: "Posso annullare uno scontrino dopo la chiusura giornaliera?",
+        answer:
+          'Con il documento commerciale online sì: non esiste la "chiusura di cassa" del registratore telematico che blocca la giornata, quindi puoi annullare anche il giorno dopo. I corrispettivi del giorno interessato vengono rettificati dall\'AdE con il documento di annullo.',
+      },
+      {
+        question:
+          "Ho battuto uno scontrino errato mesi fa (es. a gennaio): posso stornarlo ora?",
+        answer:
+          "Meglio di no: a mesi di distanza l'annullamento complica la riconciliazione dei corrispettivi già liquidati. Il caso va gestito con il commercialista, tipicamente con una rettifica in sede di liquidazione, non con un annullo tardivo del documento.",
+      },
     ],
     relatedHelp: [
       "annullare-scontrino",
@@ -667,7 +704,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "La Lotteria degli Scontrini è un sistema premio per i consumatori che presentano un codice al momento dell'acquisto. Per il commerciante è un'attività operativa semplice: contrariamente a quanto si legge in giro, oggi non esiste una sanzione amministrativa per il rifiuto del codice — la previsione iniziale del decreto fiscale 2020 fu eliminata in sede di conversione. Resta però un meccanismo di segnalazione del cliente sul Portale Lotteria, che alimenta l'analisi del rischio dell'Agenzia delle Entrate.",
     publishedAt: "2026-05-15",
-    updatedAt: "2026-05",
+    updatedAt: "2026-05-15",
     readingMinutes: 6,
     sections: [
       {
@@ -735,7 +772,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Il mercato dei software per scontrini elettronici è cresciuto rapidamente: web app, app mobile, gestionali integrati, soluzioni self-hosted. Scegliere quello giusto significa risparmiare ore di lavoro mensili ed evitare incidenti fiscali. Vediamo 6 criteri pratici per orientarti senza farti convincere dal marketing.",
     publishedAt: "2026-05-15",
-    updatedAt: "2026-05",
+    updatedAt: "2026-05-15",
     readingMinutes: 7,
     sections: [
       {
@@ -796,13 +833,14 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
   "codici-natura-iva": {
     slug: "codici-natura-iva",
     title: "Codici natura IVA: cosa sono e quando si usano",
-    metaTitle: "Natura IVA N2.2: cosa significa e dicitura forfettari",
+    metaTitle:
+      "Codice natura IVA N2.2: significato, forfettario e tabella N1-N7",
     metaDescription:
-      "Cosa sono i codici natura IVA N1-N7, cosa significa N2.2 per il regime forfettario in fattura elettronica, perché sullo scontrino si usa N2 e quale dicitura indicare.",
+      'N2.2 significa "operazione non soggetta a IVA - altri casi": il codice del forfettario in fattura elettronica. Tabella N1-N7, differenza con N2 e dicitura.',
     heroIntro:
       "I codici natura IVA (N1, N2, N2.2, N3, N4, N5, N6, N7) servono a spiegare al fisco perché su un'operazione non viene addebitata l'IVA con un'aliquota ordinaria. Sono obbligatori nel tracciato della fattura elettronica e dei corrispettivi telematici. Qui vediamo cosa significano uno per uno, perché il regime forfettario usa N2.2 in fattura ma N2 sullo scontrino, e quale dicitura di esenzione indicare.",
     publishedAt: "2026-06-29",
-    updatedAt: "2026-07",
+    updatedAt: "2026-07-22",
     readingMinutes: 8,
     sections: [
       {
@@ -921,6 +959,16 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
         answer:
           "Sono i due sottocodici delle operazioni non soggette. N2.1 copre la carenza del requisito di territorialità (artt. 7 - 7-septies DPR 633/72, tipicamente prestazioni verso l'estero); N2.2 copre tutti gli altri casi, incluso il regime forfettario e il regime di vantaggio.",
       },
+      {
+        question: "Il codice IVA N2.2 a cosa corrisponde?",
+        answer:
+          'Corrisponde alle operazioni "non soggette a IVA - altri casi" del tracciato della fattura elettronica: soprattutto il regime forfettario, il regime di vantaggio (ex minimi) e le operazioni fuori campo IVA diverse dalla carenza di territorialità. Si abbina sempre ad aliquota 0%, mai a un\'aliquota ridotta.',
+      },
+      {
+        question: "N2.2 vuol dire fuori campo IVA?",
+        answer:
+          "Sì, in senso lato: N2.2 identifica operazioni fuori dal campo di applicazione dell'IVA per motivi diversi dalla territorialità (quella è N2.1). Non va confuso con l'esenzione: le operazioni esenti ex art. 10 DPR 633/72 usano il codice N4, non N2.2.",
+      },
     ],
     relatedHelp: ["regime-forfettario", "aliquote-iva", "fatture-e-ricevute"],
     relatedGuides: [
@@ -939,7 +987,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Per stampare gli scontrini non serve una stampante fiscale: basta una stampante termica generica, da 30-120 € a seconda del modello. La WiFi conviene per la postazione fissa condivisa tra più dispositivi, il Bluetooth per la cassa mobile, l'USB per chi lavora da computer. Prima di comprare verifica tre cose: linguaggio ESC/POS, larghezza carta (58 o 80 mm) e il tipo di connessione adatto a come lavori.",
     publishedAt: "2026-07-12",
-    updatedAt: "2026-07",
+    updatedAt: "2026-07-12",
     readingMinutes: 7,
     sections: [
       {
@@ -1026,6 +1074,494 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       "scontrino-senza-registratore-di-cassa",
       "scegliere-software-scontrini-elettronici",
     ],
+  },
+
+  "recupero-credenziali-ade-password-scaduta": {
+    slug: "recupero-credenziali-ade-password-scaduta",
+    title: "Password AdE scaduta o persa: come recuperare le credenziali",
+    metaTitle: "Password AdE scaduta: recuperare le credenziali Fisconline",
+    metaDescription:
+      "La password Fisconline scade ogni 90 giorni: come recuperarla, cosa fare se l'utenza non risulta registrata (DL 76/2020) e le alternative SPID e CIE per accedere all'AdE.",
+    heroIntro:
+      "La password Fisconline scade ogni 90 giorni: se non riesci più ad accedere, puoi reimpostarla dal portale dell'Agenzia delle Entrate con la domanda segreta scelta in fase di registrazione, oppure entrare con SPID o CIE e rigenerare le credenziali. Qui trovi la procedura per ogni caso: password scaduta, PIN smarrito, utenza non registrata, credenziali di una società.",
+    publishedAt: "2026-07-22",
+    updatedAt: "2026-07-22",
+    readingMinutes: 7,
+    sections: [
+      {
+        heading: "Le credenziali Fisconline: da cosa sono composte",
+        body: "Le credenziali Fisconline sono tre elementi: nome utente (per le persone fisiche coincide con il codice fiscale), password e PIN a 10 cifre. Servono tutti e tre: la password per l'accesso al portale, il PIN per autorizzare le operazioni dispositive come l'emissione del documento commerciale online. La password ha una scadenza di 90 giorni: al primo accesso dopo la scadenza il portale chiede di impostarne una nuova.",
+      },
+      {
+        heading: "Password scaduta: come reimpostarla",
+        body: "Se la password è scaduta ma la ricordi, il portale dell'Agenzia delle Entrate ti guida al cambio direttamente al login: inserisci la vecchia password e ne imposti una nuova. Se invece non la ricordi, usa la funzione \"Problemi con la password?\" nell'area di accesso: rispondi alla domanda segreta impostata in fase di registrazione e ricevi una nuova password provvisoria. Al primo accesso dovrai cambiarla.",
+      },
+      {
+        heading: "PIN smarrito: come recuperarlo",
+        body: "Il PIN si recupera dall'area riservata del portale AdE (sezione profilo utente → ripristina PIN) se accedi con SPID, CIE o CNS. In alternativa puoi recuperare le prime 4 cifre con la funzione dedicata del portale e ricevere le restanti 6 per posta al domicilio fiscale. Se hai smarrito tutto (password e PIN), la strada più rapida è accedere con SPID o CIE e rigenerare le credenziali da lì.",
+      },
+      {
+        heading:
+          '"L\'utenza indicata non ha una password associata": cosa significa',
+        body: "È l'errore tipico di chi si era registrato a Fisconline anni fa e non ha mai completato l'attivazione, oppure di chi prova a registrarsi oggi come persona fisica: dal 1° marzo 2021, per effetto del Decreto Semplificazione (DL 76/2020), l'Agenzia delle Entrate non rilascia più nuove credenziali Fisconline alle persone fisiche. Le persone fisiche — anche titolari di partita IVA — accedono con SPID, CIE o CNS. Le credenziali Fisconline restano attive per chi le aveva già e continuano a essere rilasciate a società, enti e professionisti abilitati (Entratel).",
+      },
+      {
+        heading: "Le alternative: SPID e CIE",
+        body: "SPID si richiede gratuitamente (o con costi minimi per il riconoscimento) a uno degli identity provider accreditati — Poste ID è il più diffuso — e vale per tutta la pubblica amministrazione. La CIE (Carta d'Identità Elettronica) si usa con l'app CIE ID sullo smartphone: si accede approvando una notifica push, senza ricordare password che scadono. Entrambe permettono l'accesso completo al portale Fatture e Corrispettivi e alla procedura Documento Commerciale Online.",
+      },
+      {
+        heading: "Credenziali di una società o di più attività",
+        body: "Per le società le credenziali Fisconline/Entratel vengono richieste dal rappresentante legale, che poi incarica i gestori/operatori. Se gestisci più partite IVA (es. due ditte), ogni soggetto ha le proprie credenziali: non esiste un'utenza unica multi-azienda. Il ritiro delle credenziali di una società può avvenire in ufficio AdE da parte del rappresentante legale o di un delegato con delega e documenti.",
+      },
+      {
+        heading: "Cosa serve per ScontrinoZero",
+        body: "ScontrinoZero si collega all'AdE in due modi: con le credenziali Fisconline (utente, password e PIN) oppure con la CIE tramite l'app CIE ID. Se la tua password Fisconline è scaduta, l'app te lo segnala al momento della verifica della connessione: reimpostala sul portale AdE e aggiornala nelle impostazioni. Le credenziali vengono cifrate (AES-256) e usate solo per dialogare con il portale dell'Agenzia delle Entrate.",
+      },
+    ],
+    faq: [
+      {
+        question: "Ogni quanto scade la password Fisconline?",
+        answer:
+          "Ogni 90 giorni. Alla scadenza il portale chiede di impostare una nuova password al primo accesso. Se usi un software collegato (come ScontrinoZero), ricordati di aggiornare la password anche lì dopo il cambio.",
+      },
+      {
+        question: "Non riesco più a registrarmi a Fisconline: perché?",
+        answer:
+          "Dal 1° marzo 2021 (Decreto Semplificazione, DL 76/2020) l'AdE non rilascia più nuove credenziali Fisconline alle persone fisiche: si accede con SPID, CIE o CNS. Chi aveva già le credenziali può continuare a usarle; società e professionisti abilitati continuano a riceverle.",
+      },
+      {
+        question: "Ho dimenticato sia la password che il PIN: cosa faccio?",
+        answer:
+          "La via più rapida è accedere al portale AdE con SPID o CIE e rigenerare le credenziali dall'area riservata. In alternativa puoi usare le funzioni di recupero separate (domanda segreta per la password, ripristino PIN con invio postale), ma i tempi sono più lunghi.",
+      },
+      {
+        question: "Posso usare SPID al posto delle credenziali Fisconline?",
+        answer:
+          "Per accedere al portale sì, sempre. Per i software collegati dipende dall'integrazione: ScontrinoZero supporta le credenziali Fisconline e la CIE (via app CIE ID); con la CIE approvi una notifica push e non hai password che scadono.",
+      },
+      {
+        question: "Quanti tentativi ho prima che l'utenza venga bloccata?",
+        answer:
+          "Il portale AdE blocca temporaneamente l'utenza dopo ripetuti tentativi falliti (tipicamente 5). In caso di blocco, attendi lo sblocco automatico o usa la procedura di recupero password: evita di insistere con credenziali che non ricordi.",
+      },
+    ],
+    relatedHelp: [
+      "credenziali-fisconline",
+      "collegare-ade-con-cie",
+      "errori-ade",
+      "come-collegare-ade",
+    ],
+    relatedGuides: [
+      "documento-commerciale-online",
+      "scontrino-senza-registratore-di-cassa",
+    ],
+  },
+
+  "cassetto-fiscale-dove-trovare-scontrini": {
+    slug: "cassetto-fiscale-dove-trovare-scontrini",
+    title: "Dove trovare gli scontrini emessi nel portale AdE",
+    metaTitle: "Dove trovare gli scontrini nel cassetto fiscale (portale AdE)",
+    metaDescription:
+      "Gli scontrini emessi non stanno nel cassetto fiscale ma in Fatture e Corrispettivi: il percorso per trovarli, verificarli e cosa vede il privato.",
+    heroIntro:
+      "Gli scontrini elettronici che hai emesso non si trovano nel \"cassetto fiscale\" ma nell'area Fatture e Corrispettivi del portale dell'Agenzia delle Entrate: sezione Corrispettivi → Documento commerciale online → Ricerca. Qui vediamo il percorso esatto per l'esercente, cosa può vedere il cliente privato e come verificare che una trasmissione sia andata a buon fine.",
+    publishedAt: "2026-07-22",
+    updatedAt: "2026-07-22",
+    readingMinutes: 6,
+    sections: [
+      {
+        heading: "Cassetto fiscale e Fatture e Corrispettivi: due aree diverse",
+        body: "Il cassetto fiscale è l'archivio personale con dichiarazioni, versamenti, rimborsi e dati anagrafici. I documenti commerciali online (gli scontrini elettronici) vivono invece nell'area Fatture e Corrispettivi, un servizio separato dello stesso portale. È la confusione più comune: chi cerca gli scontrini nel cassetto fiscale non li trova perché sta guardando nel posto sbagliato.",
+      },
+      {
+        heading: "Il percorso esatto per l'esercente",
+        body: 'Accedi al portale dell\'Agenzia delle Entrate (SPID, CIE, CNS o credenziali Fisconline) ed entra in Fatture e Corrispettivi. Seleziona la sezione "Corrispettivi", poi "Documento commerciale online" e infine "Ricerca". Da lì filtri per data o per identificativo e vedi ogni documento emesso, con stato, dettaglio delle righe ed eventuale annullamento collegato. Ogni documento è scaricabile in PDF.',
+      },
+      {
+        heading: "Come verificare che uno scontrino sia stato trasmesso",
+        body: 'Nella Ricerca del Documento commerciale online ogni documento trasmesso compare con il suo identificativo e la data/ora di emissione. Se un documento non compare, la trasmissione non è mai arrivata all\'AdE: in ScontrinoZero lo vedi dallo stato (un documento in errore non risulta trasmesso e va riemesso). Il totale dei corrispettivi giornalieri si consulta invece nella sezione "Consultazione" dei corrispettivi.',
+      },
+      {
+        heading: "Cosa vede il cliente privato",
+        body: 'Il cliente consumatore non trova i singoli scontrini in un\'area consultabile del proprio cassetto fiscale: il documento commerciale "parlante" (con codice fiscale) confluisce nei dati della dichiarazione precompilata quando dà diritto a detrazioni (es. spese sanitarie), e i biglietti della Lotteria degli Scontrini si consultano sul portale lotteria dedicato. Per il resto, il documento del cliente è la copia che gli consegni tu: stampata, via email o QR code.',
+      },
+      {
+        heading: "Quanto restano consultabili i documenti",
+        body: "I documenti commerciali online restano consultabili nell'area Fatture e Corrispettivi per i periodi previsti dal portale; l'obbligo di conservazione dei documenti fiscali per l'esercente è di 10 anni (art. 2220 c.c.). Per non dipendere dal portale, con ScontrinoZero hai lo storico digitale sempre accessibile e l'export dei dati; l'originale fiscale resta comunque quello trasmesso all'AdE.",
+      },
+      {
+        heading: "Se usi ScontrinoZero: lo storico integrato",
+        body: "Tutto quello che emetti con ScontrinoZero è nello Storico dell'app: ogni scontrino con stato (Emesso, Annullato, Errore), identificativo AdE, dettaglio righe e ricevuta condivisibile. La verifica sul portale resta utile come controllo indipendente — è la fonte ufficiale — ma per l'operatività quotidiana non serve entrare nel portale AdE.",
+      },
+    ],
+    faq: [
+      {
+        question: "Dove trovo gli scontrini nel cassetto fiscale?",
+        answer:
+          "Non nel cassetto fiscale: gli scontrini elettronici emessi si trovano nell'area Fatture e Corrispettivi del portale AdE, sezione Corrispettivi → Documento commerciale online → Ricerca. Il cassetto fiscale contiene dichiarazioni e versamenti, non i documenti commerciali.",
+      },
+      {
+        question:
+          "Il portale ha il progressivo dei documenti commerciali emessi?",
+        answer:
+          "Sì. Ogni documento commerciale online ha un identificativo univoco e un progressivo attribuiti dal sistema AdE al momento della trasmissione: li vedi nella Ricerca del portale e sulla copia del documento consegnata al cliente.",
+      },
+      {
+        question:
+          "Sono un privato: posso vedere gli scontrini fatti a mio nome?",
+        answer:
+          'Non esiste un elenco consultabile dei singoli scontrini: i documenti "parlanti" con il tuo codice fiscale confluiscono nei dati della dichiarazione precompilata quando rilevano per le detrazioni, e i biglietti della lotteria si vedono sul portale della Lotteria degli Scontrini.',
+      },
+      {
+        question:
+          "Il commercialista può vedere i miei corrispettivi trasmessi?",
+        answer:
+          "Sì, se è tuo intermediario delegato: con la delega ai servizi di Fatture e Corrispettivi accede alla consultazione dei corrispettivi trasmessi. È il modo tipico con cui il commercialista riconcilia i corrispettivi in contabilità.",
+      },
+    ],
+    relatedHelp: ["cassetto-fiscale", "storico-ed-esportazione", "errori-ade"],
+    relatedGuides: [
+      "documento-commerciale-online",
+      "chiusura-giornaliera-corrispettivi",
+      "annullare-scontrino-elettronico",
+    ],
+  },
+
+  "obbligo-scontrino-elettronico-2026": {
+    slug: "obbligo-scontrino-elettronico-2026",
+    title: "Obbligo di scontrino elettronico nel 2026: chi, come, sanzioni",
+    metaTitle: "Obbligo scontrino elettronico 2026: chi deve emetterlo",
+    metaDescription:
+      "Dal 2020 lo scontrino elettronico è obbligatorio per chi vende a privati (D.Lgs. 127/2015): esoneri, novità POS 2026, sanzioni del 70% e come adeguarsi.",
+    heroIntro:
+      "Sì, lo scontrino elettronico è obbligatorio: dal 1° gennaio 2020 ogni commerciante al minuto che vende a consumatori finali deve memorizzare e trasmettere i corrispettivi all'Agenzia delle Entrate (art. 2 D.Lgs. 127/2015). Nel 2026 si aggiunge l'obbligo di collegamento tra POS e strumento di emissione. Vediamo chi è obbligato, chi è esonerato, le sanzioni e le opzioni per adeguarsi senza comprare hardware.",
+    publishedAt: "2026-07-22",
+    updatedAt: "2026-07-22",
+    readingMinutes: 7,
+    sections: [
+      {
+        heading: "La norma base: D.Lgs. 127/2015",
+        body: "L'articolo 2 del D.Lgs. 127/2015 impone a chi effettua operazioni di commercio al minuto (art. 22 DPR 633/72) la memorizzazione elettronica e la trasmissione telematica dei corrispettivi giornalieri. L'obbligo è scattato il 1° luglio 2019 per chi superava 400.000 € di volume d'affari e il 1° gennaio 2020 per tutti gli altri. Lo scontrino di carta \"semplice\" del vecchio registratore di cassa non è più valido da allora.",
+      },
+      {
+        heading: "Chi è obbligato",
+        body: "Tutte le partite IVA che vendono beni o servizi a consumatori finali (B2C) senza emettere fattura: negozi, bar e ristoranti, artigiani con clientela privata, ambulanti, professionisti che incassano da privati, strutture ricettive per i servizi extra. Il regime fiscale non conta: anche i forfettari sono obbligati. Conta la natura dell'operazione: vendita al minuto → corrispettivo telematico.",
+      },
+      {
+        heading: "Chi è esonerato",
+        body: "Gli esoneri sono elencati dal DM 10 maggio 2019: tra i principali, le operazioni già esonerate dall'obbligo di certificazione ex art. 2 DPR 696/1996 (es. vendita di giornali, alcune cessioni di tabacchi e generi di monopolio), le prestazioni di trasporto pubblico con biglietti, e le operazioni per cui si emette comunque fattura. Chi rientra negli esoneri può comunque scegliere di emettere il documento commerciale volontariamente.",
+      },
+      {
+        heading: "Come adempiere: le tre strade",
+        body: '1) Registratore telematico (RT): hardware certificato, 400-800 € di acquisto più il canone di verifica biennale — ha senso per volumi alti al banco. 2) Procedura web "Documento Commerciale Online" dell\'AdE: gratuita, dal portale Fatture e Corrispettivi, ma richiede 30-60 secondi a scontrino. 3) Software collegato alla procedura DCO (come ScontrinoZero): stessa validità fiscale, emissione in pochi secondi dallo smartphone, senza hardware.',
+      },
+      {
+        heading: "La novità 2026: collegamento POS-corrispettivi",
+        body: "La Legge di Bilancio 2025 (L. 207/2024, art. 1 commi 74-77) ha introdotto l'obbligo di collegamento tecnico tra gli strumenti di pagamento elettronico (POS) e lo strumento di memorizzazione dei corrispettivi. Da gennaio 2026 il POS deve risultare associato allo strumento di emissione, così l'AdE può incrociare incassi elettronici e corrispettivi trasmessi. Chi usa il DCO registra il POS nel portale Fatture e Corrispettivi: la procedura è guidata e non richiede hardware.",
+      },
+      {
+        heading: "Le sanzioni",
+        body: "Per l'omessa, tardiva o infedele memorizzazione/trasmissione dei corrispettivi la sanzione è il 70% dell'imposta relativa (art. 6, comma 2-bis, D.Lgs. 471/1997, come modificato dal D.Lgs. 87/2024 per le violazioni dal 1° settembre 2024), con minimo di 300 €. Se la violazione non incide sulla liquidazione dell'imposta, si applica la sanzione fissa di 100 € per trasmissione. Dopo 4 violazioni distinte in 5 anni può scattare la sospensione della licenza da 3 giorni a 1 mese (art. 12 D.Lgs. 471/1997). Il mancato collegamento POS-corrispettivi ha sanzioni dedicate introdotte dalla L. 207/2024.",
+      },
+      {
+        heading: "Mettersi in regola senza comprare hardware",
+        body: "Se apri ora o vuoi dismettere il registratore, la strada più economica è la procedura DCO: zero hardware, zero collaudi. Con ScontrinoZero emetti dallo smartphone in pochi secondi, trasmetti in automatico a ogni scontrino e hai lo storico digitale; la prova è di 30 giorni senza carta di credito. Se il tuo flusso al banco è molto alto, valuta onestamente un RT: la nostra guida al confronto spiega quando conviene l'uno o l'altro.",
+      },
+    ],
+    faq: [
+      {
+        question: "Lo scontrino elettronico è obbligatorio per tutti?",
+        answer:
+          "Per tutti quelli che vendono a consumatori finali senza fattura, sì: l'obbligo vale dal 1° gennaio 2020 (art. 2 D.Lgs. 127/2015), indipendentemente dal regime fiscale. Restano fuori solo le operazioni esonerate dal DM 10 maggio 2019 e chi emette sempre fattura.",
+      },
+      {
+        question: "Serve per forza comprare un registratore telematico?",
+        answer:
+          "No. Il registratore telematico è una delle opzioni, non l'unica: la procedura Documento Commerciale Online dell'AdE (usata direttamente dal portale o tramite un software come ScontrinoZero) ha la stessa validità fiscale e non richiede alcun hardware.",
+      },
+      {
+        question: "Cosa cambia nel 2026 con il POS?",
+        answer:
+          "Dal 2026 gli strumenti di pagamento elettronico devono risultare collegati allo strumento che memorizza i corrispettivi (L. 207/2024, art. 1 commi 74-77). Chi usa il DCO registra il POS nel portale Fatture e Corrispettivi; chi ha un RT deve associarlo tecnicamente al dispositivo.",
+      },
+      {
+        question: "Qual è la sanzione se non emetto lo scontrino?",
+        answer:
+          "Il 70% dell'imposta relativa all'importo non memorizzato o trasmesso, con un minimo di 300 € (art. 6 c. 2-bis D.Lgs. 471/1997, dopo la riforma del D.Lgs. 87/2024). Con 4 violazioni distinte in 5 anni può aggiungersi la sospensione della licenza da 3 giorni a 1 mese.",
+      },
+      {
+        question: "Il forfettario è esonerato dallo scontrino elettronico?",
+        answer:
+          "No. Il regime forfettario esonera dall'IVA, non dalla certificazione dei corrispettivi: per le vendite a privati anche il forfettario emette il documento commerciale, con natura N2 al posto dell'aliquota.",
+      },
+    ],
+    relatedHelp: ["pos-rt-obbligo", "normativa-pos-2026", "primo-scontrino"],
+    relatedGuides: [
+      "scontrino-senza-registratore-di-cassa",
+      "pos-rt-obbligo-2026",
+      "scontrino-regime-forfettario",
+    ],
+  },
+
+  "registratore-di-cassa-prezzi": {
+    slug: "registratore-di-cassa-prezzi",
+    title: "Quanto costa un registratore di cassa nel 2026",
+    metaTitle: "Registratore di cassa: prezzi 2026 e alternative senza costi",
+    metaDescription:
+      "Un registratore telematico costa 400-800 € più 50-100 €/anno di gestione. Le alternative software partono da 0 €: tutti i prezzi a confronto e quando conviene cosa.",
+    heroIntro:
+      "Un registratore di cassa telematico costa 400-800 € di acquisto, più l'installazione del tecnico abilitato e la verificazione periodica biennale: sui 3 anni la spesa reale supera facilmente i 1.000 €. L'alternativa software (documento commerciale online) parte da 0 € col portale AdE o da pochi euro al mese con un'app. Vediamo tutte le voci di costo e quando conviene l'una o l'altra strada.",
+    publishedAt: "2026-07-22",
+    updatedAt: "2026-07-22",
+    readingMinutes: 6,
+    sections: [
+      {
+        heading: "Le voci di costo di un registratore telematico",
+        body: "Il prezzo del registratore telematico (RT) non è solo l'hardware. Le voci tipiche: acquisto del dispositivo (400-800 € per i modelli da banco più comuni, oltre 1.000 € per i sistemi touch evoluti), installazione e attivazione da parte di un tecnico abilitato (100-200 €), verificazione periodica obbligatoria ogni 2 anni (50-100 € a intervento), eventuali aggiornamenti firmware per adeguamenti normativi e i rotoli di carta termica. In caso di guasto, il fermo cassa richiede l'intervento del tecnico.",
+      },
+      {
+        heading: "Il costo reale su 3 anni",
+        body: "Mettendo insieme le voci, un RT da 600 € con installazione a 150 € e una verificazione biennale a 80 € porta la spesa del primo triennio a circa 900-1.000 €, senza contare carta, eventuali riparazioni fuori garanzia e il tempo per gli adempimenti tecnici. È il numero da confrontare con le alternative software, che su 3 anni costano da 0 € (portale AdE) a circa 90-150 € (app in abbonamento).",
+        table: {
+          headers: ["Soluzione", "Costo iniziale", "Costo 3 anni (indicativo)"],
+          rows: [
+            [
+              "Registratore telematico",
+              "500-1.000 € (acquisto + installazione)",
+              "900-1.200 € con verificazioni",
+            ],
+            [
+              "Portale AdE (DCO manuale)",
+              "0 €",
+              "0 € (ma 30-60 secondi a scontrino)",
+            ],
+            [
+              "App DCO (es. ScontrinoZero)",
+              "0 €",
+              "da ~90 € (piano annuale Starter)",
+            ],
+          ],
+        },
+      },
+      {
+        heading: "L'obbligo non è comprare la cassa",
+        body: "L'obbligo di legge (art. 2 D.Lgs. 127/2015) riguarda la memorizzazione e trasmissione telematica dei corrispettivi, non l'acquisto di un dispositivo: il registratore telematico è uno dei modi per adempiere, insieme alla procedura web Documento Commerciale Online dell'Agenzia delle Entrate. Se apri una nuova attività a basso volume di scontrini, puoi partire senza comprare nulla e decidere dopo, sui numeri reali, se l'RT ti serve davvero.",
+      },
+      {
+        heading: "Quando conviene comunque il registratore",
+        body: "Con flussi alti alla cassa — il bar con la fila del mattino, il supermercato, il negozio con decine di battute l'ora — l'ergonomia dell'RT resta imbattibile: tasti fisici, stampa immediata, funzionamento anche offline con trasmissione differita. Il costo si ammortizza sul volume. Sotto le poche decine di scontrini al giorno, invece, il rapporto si inverte e l'hardware diventa un costo fisso difficile da giustificare.",
+      },
+      {
+        heading: "L'alternativa software nel dettaglio",
+        body: "Con la procedura DCO emetti lo scontrino elettronico dal portale AdE (gratis, ma lento: ogni documento va compilato a mano) o da un'app che automatizza la compilazione e la trasmissione. ScontrinoZero parte da 29,99 €/anno (Starter) con scontrini illimitati, prova di 30 giorni senza carta e versione self-hosted gratuita: il calcolatore di risparmio linkato sotto confronta il tuo caso specifico con i costi di un RT.",
+      },
+    ],
+    faq: [
+      {
+        question: "Quanto costa un registratore di cassa telematico?",
+        answer:
+          "I modelli da banco più comuni costano 400-800 € di acquisto, a cui aggiungere 100-200 € di installazione da tecnico abilitato e 50-100 € di verificazione ogni 2 anni. Sui 3 anni la spesa complessiva è tipicamente di 900-1.200 €.",
+      },
+      {
+        question: "È obbligatorio comprare il registratore di cassa?",
+        answer:
+          "No. L'obbligo è trasmettere i corrispettivi (art. 2 D.Lgs. 127/2015), non possedere l'hardware: la procedura Documento Commerciale Online dell'AdE — dal portale o tramite app — è un'alternativa legale con lo stesso valore fiscale.",
+      },
+      {
+        question: "Esistono bonus o crediti d'imposta per l'acquisto?",
+        answer:
+          "I crediti d'imposta per l'acquisto e l'adeguamento dei registratori telematici previsti negli anni scorsi sono a oggi esauriti; eventuali nuove agevolazioni dipendono da provvedimenti futuri. Verifica sempre con il commercialista lo stato delle agevolazioni al momento dell'acquisto.",
+      },
+      {
+        question: "Quanto costa emettere scontrini con un'app?",
+        answer:
+          "Con ScontrinoZero il piano Starter costa 29,99 €/anno (o 4,99 €/mese) con scontrini illimitati; la prova è di 30 giorni senza carta. Il portale AdE resta gratuito ma richiede la compilazione manuale di ogni documento.",
+      },
+    ],
+    relatedHelp: ["piani-e-prezzi", "primo-scontrino", "pos-rt-obbligo"],
+    relatedGuides: [
+      "scontrino-senza-registratore-di-cassa",
+      "migrare-da-registratore-telematico-a-software",
+      "registratore-telematico-vs-documento-commerciale-online",
+    ],
+    relatedTools: ["calcolatore-risparmio-rt"],
+  },
+
+  "sanzioni-mancato-scontrino": {
+    slug: "sanzioni-mancato-scontrino",
+    title: "Sanzioni per mancato scontrino: importi e regole attuali",
+    metaTitle: "Sanzioni mancato scontrino 2026: 70% dell'IVA, minimo 300 €",
+    metaDescription:
+      "La sanzione per il mancato scontrino è il 70% dell'IVA con minimo 300 € (D.Lgs. 87/2024); con 4 violazioni in 5 anni scatta la chiusura. Tutti gli importi.",
+    heroIntro:
+      "La sanzione per la mancata emissione dello scontrino è il 70% dell'imposta relativa all'importo non documentato, con un minimo di 300 € per violazione (art. 6, comma 2-bis, D.Lgs. 471/1997, come riformato dal D.Lgs. 87/2024 per le violazioni dal 1° settembre 2024). Con 4 violazioni distinte in 5 anni scatta anche la sospensione della licenza. Vediamo tutti i casi: omessa emissione, tardiva trasmissione, errori formali.",
+    publishedAt: "2026-07-22",
+    updatedAt: "2026-07-22",
+    readingMinutes: 6,
+    sections: [
+      {
+        heading: "La sanzione base: 70% dell'imposta, minimo 300 €",
+        body: "Per l'omessa o infedele memorizzazione/trasmissione dei corrispettivi (cioè lo scontrino non emesso, emesso per un importo inferiore o non trasmesso) la sanzione è il 70% dell'imposta corrispondente all'importo non documentato, con un minimo di 300 € per violazione. È l'effetto della riforma delle sanzioni tributarie (D.Lgs. 87/2024), che dal 1° settembre 2024 ha ridotto la misura precedente (90% con minimo 500 €). Per le violazioni commesse prima di quella data resta applicabile il regime anteriore.",
+      },
+      {
+        heading: "Violazioni che non incidono sull'imposta: 100 €",
+        body: "Se la violazione è solo formale — la trasmissione è avvenuta in ritardo ma l'imposta è stata liquidata correttamente — si applica la sanzione fissa di 100 € per trasmissione (art. 6, comma 2-bis, ultimo periodo, D.Lgs. 471/1997), senza il minimo di 300 €. È il caso tipico del corrispettivo trasmesso oltre i 12 giorni ma contabilizzato correttamente nella liquidazione IVA del periodo.",
+      },
+      {
+        heading: "La recidiva: sospensione della licenza",
+        body: "L'art. 12, comma 2, del D.Lgs. 471/1997 prevede una sanzione accessoria pesante: se in 5 anni vengono contestate 4 violazioni distinte dell'obbligo di emettere lo scontrino (compiute in giorni diversi), scatta la sospensione della licenza o dell'autorizzazione all'esercizio, da 3 giorni a 1 mese. Sopra i 50.000 € di corrispettivi non documentati la sospensione sale da 1 a 6 mesi. È la ragione per cui la reiterazione è molto più pericolosa della singola dimenticanza.",
+      },
+      {
+        heading: "Chi rischia i controlli",
+        body: "I controlli sono sia fisici (verifiche della Guardia di Finanza sul punto vendita, spesso a ridosso della chiusura) sia incrociati: l'Agenzia delle Entrate confronta i corrispettivi trasmessi con i dati dei pagamenti elettronici comunicati dagli operatori finanziari. Dal 2026, con l'obbligo di collegamento POS-corrispettivi (L. 207/2024), l'incrocio diventa strutturale: un incasso POS senza corrispettivo corrispondente è un'anomalia immediatamente visibile.",
+      },
+      {
+        heading: "Il ravvedimento operoso",
+        body: "Se ti accorgi dell'errore prima della contestazione, puoi regolarizzare con il ravvedimento operoso (art. 13 D.Lgs. 472/1997): la sanzione si riduce in misura crescente con il tempo trascorso (da 1/10 a 1/5 del minimo a seconda di quando ravvedi). Serve trasmettere il corrispettivo omesso e versare sanzione ridotta e interessi. Per i casi concreti conviene passare dal commercialista: il calcolo dipende dai tempi e dal tipo di violazione.",
+      },
+      {
+        heading: "Come azzerare il rischio operativo",
+        body: "La quasi totalità delle violazioni nasce da dimenticanze operative: lo scontrino non battuto nella fretta, il registratore guasto, la trasmissione saltata. Con un flusso digitale (documento commerciale online via app) l'emissione e la trasmissione avvengono nello stesso gesto e ogni documento resta tracciato nello storico: niente chiusure dimenticate, niente scontrini nel cassetto. Non elimina l'obbligo, ma elimina i modi più comuni di violarlo per sbaglio.",
+      },
+    ],
+    faq: [
+      {
+        question: "Qual è la sanzione se non emetto lo scontrino?",
+        answer:
+          "Il 70% dell'IVA relativa all'importo non documentato, con un minimo di 300 € per violazione (art. 6 c. 2-bis D.Lgs. 471/1997, come modificato dal D.Lgs. 87/2024, in vigore per le violazioni dal 1° settembre 2024).",
+      },
+      {
+        question: "Cosa succede se dimentico più volte lo scontrino?",
+        answer:
+          "Con 4 violazioni distinte contestate in 5 anni, oltre alle sanzioni pecuniarie scatta la sospensione della licenza da 3 giorni a 1 mese (art. 12 c. 2 D.Lgs. 471/1997); sopra 50.000 € di corrispettivi non documentati la sospensione va da 1 a 6 mesi.",
+      },
+      {
+        question:
+          "Ho trasmesso i corrispettivi in ritardo ma l'IVA era giusta: che sanzione rischio?",
+        answer:
+          "La sanzione fissa di 100 € per trasmissione, perché la violazione non ha inciso sulla liquidazione dell'imposta. Puoi ridurla ulteriormente con il ravvedimento operoso se regolarizzi prima della contestazione.",
+      },
+      {
+        question: "Il cliente che esce senza scontrino rischia una multa?",
+        answer:
+          "No: dal 2003 non esiste più la sanzione a carico del cliente sprovvisto di scontrino. La responsabilità dell'emissione è tutta dell'esercente.",
+      },
+    ],
+    relatedHelp: ["primo-scontrino", "annullare-scontrino", "errori-ade"],
+    relatedGuides: [
+      "obbligo-scontrino-elettronico-2026",
+      "chiusura-giornaliera-corrispettivi",
+      "annullare-scontrino-elettronico",
+    ],
+  },
+
+  "registratore-telematico-vs-documento-commerciale-online": {
+    slug: "registratore-telematico-vs-documento-commerciale-online",
+    title: "Registratore telematico o documento commerciale online?",
+    metaTitle: "Registratore telematico vs documento commerciale online",
+    metaDescription:
+      "RT e DCO sono fiscalmente equivalenti: cambiano costi (500-1.000 € vs 0-90 €/anno), velocità al banco e vincoli. La differenza spiegata e quando scegliere cosa.",
+    heroIntro:
+      "Registratore telematico (RT) e documento commerciale online (DCO) sono i due modi legali di certificare i corrispettivi, fiscalmente equivalenti: lo scontrino che producono ha lo stesso valore. La differenza sta nel mezzo — hardware certificato contro procedura web dell'Agenzia delle Entrate — e quindi in costi, velocità al banco e vincoli operativi. Ecco il confronto punto per punto.",
+    publishedAt: "2026-07-22",
+    updatedAt: "2026-07-22",
+    readingMinutes: 6,
+    sections: [
+      {
+        heading: "Cosa sono, in una riga ciascuno",
+        body: "L'RT è una stampante fiscale certificata che memorizza i corrispettivi e li trasmette all'AdE con la chiusura giornaliera. Il DCO è la procedura web dell'Agenzia delle Entrate (Provvedimento 28 ottobre 2016 n. 182017, ex art. 2 D.Lgs. 127/2015) che genera e trasmette lo scontrino elettronico documento per documento, dal portale o tramite un software collegato.",
+      },
+      {
+        heading: "Il confronto punto per punto",
+        body: 'La tabella riassume le differenze concrete tra le due strade. Nessuna delle due è "migliore" in assoluto: dipende dal volume di scontrini, dalla mobilità dell\'attività e dal budget.',
+        table: {
+          headers: [
+            "Aspetto",
+            "Registratore telematico",
+            "Documento commerciale online",
+          ],
+          rows: [
+            ["Costo iniziale", "500-1.000 € (acquisto + installazione)", "0 €"],
+            [
+              "Costi ricorrenti",
+              "Verificazione biennale 50-100 €, carta",
+              "0 € (portale) o abbonamento app (da ~30 €/anno)",
+            ],
+            [
+              "Velocità al banco",
+              "Immediata, tasti fisici",
+              "Qualche secondo a scontrino via app; 30-60 s dal portale",
+            ],
+            [
+              "Connettività",
+              "Funziona offline, trasmette in differita",
+              "Serve connessione al momento dell'emissione",
+            ],
+            [
+              "Chiusura giornaliera",
+              "Obbligatoria (automatica sui modelli recenti)",
+              "Non esiste: ogni documento è trasmesso subito",
+            ],
+            [
+              "Mobilità",
+              "Legato al punto cassa",
+              "Ovunque: smartphone con rete 4G/5G",
+            ],
+            [
+              "Guasti",
+              "Fermo cassa, serve il tecnico abilitato",
+              "Nessun hardware: cambio dispositivo e si riparte",
+            ],
+          ],
+        },
+      },
+      {
+        heading: "Stesso valore fiscale, stessi obblighi",
+        body: "Entrambe le strade adempiono all'obbligo di memorizzazione e trasmissione dei corrispettivi (art. 2 D.Lgs. 127/2015). Il documento consegnato al cliente ha identico valore per garanzia, resi, detrazioni e Lotteria degli Scontrini. Anche il nuovo obbligo 2026 di collegamento con il POS (L. 207/2024) vale per entrambi: cambia solo la modalità tecnica dell'associazione.",
+      },
+      {
+        heading: "Quando scegliere il registratore telematico",
+        body: "Sceglie bene l'RT chi ha un punto vendita fisso con flusso continuo alla cassa: bar con la fila del mattino, minimarket, panetteria con coda. La battuta fisica è più rapida di qualunque app, l'apparecchio lavora anche senza connessione e il costo si ammortizza sul volume. Anche chi vuole lo scontrino di carta consegnato d'istinto a ogni cliente resta più comodo con l'RT.",
+      },
+      {
+        heading: "Quando scegliere il documento commerciale online",
+        body: "Il DCO vince per attività mobili, stagionali o a basso volume: ambulanti, B&B, artigiani a domicilio, professionisti, chioschi. Zero investimento iniziale, zero manutenzioni, emissione da smartphone ovunque, storico digitale sempre accessibile. Con un'app come ScontrinoZero l'emissione richiede pochi secondi e la trasmissione è automatica; il portale AdE gratuito resta l'opzione per chi emette pochissimi documenti.",
+      },
+      {
+        heading: "Si possono usare entrambi?",
+        body: "Sì: nessuna norma impone di scegliere per sempre. Puoi tenere l'RT al punto vendita e usare il DCO per il banco al mercato o la stagione estiva, o migrare gradualmente dall'uno all'altro (la guida alla migrazione linkata sotto spiega la dismissione dell'RT). L'importante è che ogni corrispettivo sia certificato con uno dei due strumenti, senza duplicazioni.",
+      },
+    ],
+    faq: [
+      {
+        question:
+          "Che differenza c'è tra registratore telematico e documento commerciale online?",
+        answer:
+          "Il valore fiscale è identico; cambia il mezzo: l'RT è hardware certificato che trasmette con la chiusura giornaliera, il DCO è la procedura web AdE che trasmette ogni scontrino al momento dell'emissione. Ne derivano differenze di costo (500-1.000 € vs 0-90 €/anno), velocità e vincoli di connessione.",
+      },
+      {
+        question: "Il DCO è legale quanto il registratore telematico?",
+        answer:
+          "Sì: è una modalità prevista dall'Agenzia delle Entrate (Provvedimento 28 ottobre 2016 n. 182017, ex art. 2 D.Lgs. 127/2015) e lo scontrino emesso ha lo stesso valore fiscale di quello dell'RT.",
+      },
+      {
+        question: "Posso passare dall'RT al DCO senza problemi?",
+        answer:
+          "Sì. Si dismette l'RT con la procedura di cessazione sul portale Fatture e Corrispettivi e si prosegue con il DCO: nessuna autorizzazione preventiva. La transizione va fatta senza lasciare corrispettivi scoperti tra i due strumenti.",
+      },
+      {
+        question: "Con il DCO devo fare la chiusura giornaliera?",
+        answer:
+          "No: la chiusura giornaliera è un adempimento del registratore telematico. Con il DCO ogni documento viene trasmesso singolarmente al momento dell'emissione e non esiste una chiusura da inviare a fine giornata.",
+      },
+    ],
+    relatedHelp: ["pos-rt-obbligo", "chiusura-giornaliera", "primo-scontrino"],
+    relatedGuides: [
+      "documento-commerciale-online",
+      "migrare-da-registratore-telematico-a-software",
+      "registratore-di-cassa-prezzi",
+    ],
+    relatedTools: ["calcolatore-risparmio-rt"],
   },
 };
 

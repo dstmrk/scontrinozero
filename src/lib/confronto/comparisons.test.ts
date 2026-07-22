@@ -21,8 +21,8 @@ describe("confrontoContent — metadata", () => {
     expect(confrontoContent.heroIntro.length).toBeGreaterThanOrEqual(200);
   });
 
-  it("has lastUpdated in YYYY-MM format", () => {
-    expect(confrontoContent.lastUpdated).toMatch(/^\d{4}-\d{2}$/);
+  it("has lastUpdated in full ISO YYYY-MM-DD format", () => {
+    expect(confrontoContent.lastUpdated).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
 
@@ -64,8 +64,8 @@ describe("confrontoContent — categories", () => {
 });
 
 describe("confrontoContent — saasCompetitors", () => {
-  it("lists exactly the 4 verified competitors", () => {
-    expect(confrontoContent.saasCompetitors).toHaveLength(4);
+  it("lists exactly the 5 verified competitors", () => {
+    expect(confrontoContent.saasCompetitors).toHaveLength(5);
     const names = confrontoContent.saasCompetitors.map((s) => s.name);
     expect(names).toEqual(
       expect.arrayContaining([
@@ -73,6 +73,7 @@ describe("confrontoContent — saasCompetitors", () => {
         "Scontrina",
         "ScontrinoSenzaCassa (Billy)",
         "CassaDigitale",
+        "WinScontrino",
       ]),
     );
   });

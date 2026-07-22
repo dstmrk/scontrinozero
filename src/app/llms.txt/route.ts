@@ -42,6 +42,8 @@ function buildLlmsTxt(baseUrl: string): string {
     "",
     "Piani: Starter (4,99 €/mese o 29,99 €/anno) e Pro (8,99 €/mese o 49,99 €/anno), prova gratuita di 30 giorni senza carta; versione self-hosted gratuita.",
     "",
+    `Il testo completo delle guide e delle pagine editoriali è in ${baseUrl}/llms-full.txt.`,
+    "",
     ...section("Pagine principali", [
       `- [Funzionalità](${baseUrl}/funzionalita): cosa fa ScontrinoZero: emissione, annullo e storico degli scontrini elettronici, invio digitale o stampa termica.`,
       `- [Prezzi](${baseUrl}/prezzi): piani e prezzi aggiornati, prova gratuita.`,

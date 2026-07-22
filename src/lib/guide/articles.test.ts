@@ -8,8 +8,8 @@ import {
 } from "./articles";
 
 describe("guideSlugs", () => {
-  it("contains exactly 12 slugs", () => {
-    expect(guideSlugs).toHaveLength(12);
+  it("contains exactly 18 slugs", () => {
+    expect(guideSlugs).toHaveLength(18);
   });
 
   it("contains the expected slugs", () => {
@@ -27,8 +27,23 @@ describe("guideSlugs", () => {
         "scegliere-software-scontrini-elettronici",
         "codici-natura-iva",
         "stampante-termica-wifi-scontrini",
+        "recupero-credenziali-ade-password-scaduta",
+        "cassetto-fiscale-dove-trovare-scontrini",
+        "obbligo-scontrino-elettronico-2026",
+        "registratore-di-cassa-prezzi",
+        "sanzioni-mancato-scontrino",
+        "registratore-telematico-vs-documento-commerciale-online",
       ]),
     );
+  });
+
+  it("no guide slug collides with a help slug (canonical clash /help vs /guide)", async () => {
+    const { helpSlugs } = await import("@/lib/help/articles");
+    for (const slug of guideSlugs) {
+      expect(helpSlugs, `guide slug ${slug} duplicato in /help`).not.toContain(
+        slug,
+      );
+    }
   });
 
   it("has unique entries", () => {
@@ -68,8 +83,10 @@ describe("guideArticles dictionary", () => {
         expect(a.publishedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       });
 
-      it("has updatedAt in YYYY-MM format", () => {
-        expect(a.updatedAt).toMatch(/^\d{4}-\d{2}$/);
+      it("has updatedAt in full ISO YYYY-MM-DD format, not before publishedAt", () => {
+        expect(a.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        // Confronto lessicografico: valido per date ISO
+        expect(a.updatedAt >= a.publishedAt).toBe(true);
       });
 
       it("has positive readingMinutes", () => {
@@ -306,6 +323,183 @@ describe("stampante-termica-wifi-scontrini (batch D — gap stampanti)", () => {
 
   it("links the operational help article on thermal printing", () => {
     expect(article.relatedHelp).toContain("stampare-scontrino-termica");
+  });
+});
+
+describe("recupero-credenziali-ade-password-scaduta (cluster credenziali AdE)", () => {
+  const article = guideArticles["recupero-credenziali-ade-password-scaduta"];
+
+  it("opens with the citable 90-day expiry fact (risposta secca GEO)", () => {
+    expect(article.heroIntro).toContain("90 giorni");
+  });
+
+  it("cites the dated legal reference for the Fisconline stop (DL 76/2020)", () => {
+    const allText = [
+      article.heroIntro,
+      ...article.sections.map((s) => s.body),
+      ...article.faq.map((f) => f.answer),
+    ].join(" ");
+    expect(allText).toContain("DL 76/2020");
+    expect(allText).toContain("1° marzo 2021");
+  });
+
+  it("covers SPID and CIE as alternatives", () => {
+    const headings = article.sections.map((s) => s.heading.toLowerCase());
+    expect(headings.some((h) => h.includes("spid") && h.includes("cie"))).toBe(
+      true,
+    );
+  });
+
+  it("links the operational credential help cluster", () => {
+    expect(article.relatedHelp).toContain("credenziali-fisconline");
+    expect(article.relatedHelp).toContain("collegare-ade-con-cie");
+  });
+});
+
+describe("cassetto-fiscale-dove-trovare-scontrini (cluster cassetto fiscale)", () => {
+  const article = guideArticles["cassetto-fiscale-dove-trovare-scontrini"];
+
+  it("opens by correcting the misconception (risposta secca GEO)", () => {
+    expect(article.heroIntro).toContain("Fatture e Corrispettivi");
+  });
+
+  it("gives the exact portal path in a section", () => {
+    const bodies = article.sections.map((s) => s.body).join(" ");
+    expect(bodies).toContain("Documento commerciale online");
+    expect(bodies).toContain("Ricerca");
+  });
+
+  it("answers the private-citizen intent in the FAQ", () => {
+    const questions = article.faq.map((f) => f.question.toLowerCase());
+    expect(questions.some((q) => q.includes("privato"))).toBe(true);
+  });
+
+  it("keeps a distinct slug from the operational help article", () => {
+    expect(article.slug).not.toBe("cassetto-fiscale");
+    expect(article.relatedHelp).toContain("cassetto-fiscale");
+  });
+});
+
+describe("obbligo-scontrino-elettronico-2026 (head term informativo)", () => {
+  const article = guideArticles["obbligo-scontrino-elettronico-2026"];
+
+  it("opens with the direct answer and the dated legal basis", () => {
+    expect(article.heroIntro).toContain("obbligatorio");
+    expect(article.heroIntro).toContain("D.Lgs. 127/2015");
+  });
+
+  it("cites the citable sanction facts post-riforma (70%, 300 €, D.Lgs. 87/2024)", () => {
+    const allText = [
+      ...article.sections.map((s) => s.body),
+      ...article.faq.map((f) => f.answer),
+    ].join(" ");
+    expect(allText).toContain("70%");
+    expect(allText).toContain("300 €");
+    expect(allText).toContain("D.Lgs. 471/1997");
+    expect(allText).toContain("D.Lgs. 87/2024");
+  });
+
+  it("covers the 2026 POS linkage with its legal reference (L. 207/2024)", () => {
+    const bodies = article.sections.map((s) => s.body).join(" ");
+    expect(bodies).toContain("L. 207/2024");
+  });
+
+  it("links the POS-RT cluster without duplicating its slug", () => {
+    expect(article.relatedGuides).toContain("pos-rt-obbligo-2026");
+    expect(article.slug).not.toBe("pos-rt-obbligo-2026");
+  });
+});
+
+describe("registratore-di-cassa-prezzi (commerciale-investigazionale)", () => {
+  const article = guideArticles["registratore-di-cassa-prezzi"];
+
+  it("opens with citable price facts (risposta secca GEO)", () => {
+    expect(article.heroIntro).toContain("400-800 €");
+  });
+
+  it("has a 3-year cost comparison table including the AdE portal", () => {
+    const tableSection = article.sections.find((s) => s.table !== undefined);
+    expect(tableSection).toBeDefined();
+    const firstColumn = tableSection!.table!.rows.map((r) =>
+      r[0].toLowerCase(),
+    );
+    expect(firstColumn.some((c) => c.includes("registratore"))).toBe(true);
+    expect(firstColumn.some((c) => c.includes("portale"))).toBe(true);
+  });
+
+  it("does not promise tax credits that are currently exhausted", () => {
+    const bonusFaq = article.faq.find((f) =>
+      f.question.toLowerCase().includes("bonus"),
+    );
+    expect(bonusFaq).toBeDefined();
+    expect(bonusFaq!.answer.toLowerCase()).toContain("esauriti");
+  });
+
+  it("links the savings calculator tool", () => {
+    expect(article.relatedTools).toContain("calcolatore-risparmio-rt");
+  });
+});
+
+describe("sanzioni-mancato-scontrino (post riforma D.Lgs. 87/2024)", () => {
+  const article = guideArticles["sanzioni-mancato-scontrino"];
+
+  it("opens with the current sanction figures (70%, 300 €)", () => {
+    expect(article.heroIntro).toContain("70%");
+    expect(article.heroIntro).toContain("300 €");
+    expect(article.heroIntro).toContain("D.Lgs. 87/2024");
+  });
+
+  it("dates the reform and mentions the previous regime", () => {
+    const bodies = article.sections.map((s) => s.body).join(" ");
+    expect(bodies).toContain("1° settembre 2024");
+    expect(bodies).toContain("90%");
+  });
+
+  it("covers the licence-suspension recidiva with its legal basis", () => {
+    const bodies = article.sections.map((s) => s.body).join(" ");
+    expect(bodies).toContain("art. 12");
+    expect(bodies).toMatch(/4 violazioni/);
+  });
+
+  it("answers the customer-fine myth in the FAQ", () => {
+    const clientFaq = article.faq.find((f) =>
+      f.question.toLowerCase().includes("cliente"),
+    );
+    expect(clientFaq).toBeDefined();
+    expect(clientFaq!.answer.startsWith("No")).toBe(true);
+  });
+});
+
+describe("registratore-telematico-vs-documento-commerciale-online", () => {
+  const article =
+    guideArticles["registratore-telematico-vs-documento-commerciale-online"];
+
+  it("opens by stating fiscal equivalence (risposta secca GEO)", () => {
+    expect(article.heroIntro).toContain("fiscalmente equivalenti");
+  });
+
+  it("has a point-by-point comparison table (costi, offline, chiusura)", () => {
+    const tableSection = article.sections.find((s) => s.table !== undefined);
+    expect(tableSection).toBeDefined();
+    const aspects = tableSection!.table!.rows.map((r) => r[0].toLowerCase());
+    expect(aspects.some((a) => a.includes("costo"))).toBe(true);
+    expect(aspects.some((a) => a.includes("connettiv"))).toBe(true);
+    expect(aspects.some((a) => a.includes("chiusura"))).toBe(true);
+  });
+
+  it("recommends the RT honestly for high-throughput counters", () => {
+    const rtSection = article.sections.find((s) =>
+      s.heading.toLowerCase().includes("registratore telematico"),
+    );
+    expect(rtSection).toBeDefined();
+    expect(rtSection!.body.toLowerCase()).toMatch(/flusso|fila|coda/);
+  });
+
+  it("links the migration guide and the pricing guide", () => {
+    expect(article.relatedGuides).toContain(
+      "migrare-da-registratore-telematico-a-software",
+    );
+    expect(article.relatedGuides).toContain("registratore-di-cassa-prezzi");
   });
 });
 

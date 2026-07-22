@@ -111,6 +111,23 @@ export const organizationJsonLd = {
   },
 } as const;
 
+// Niente potentialAction/SearchAction: il rich result "sitelinks searchbox" è
+// stato ritirato da Google e il sito non ha una ricerca interna — dichiararla
+// sarebbe un false claim.
+export const webSiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "ScontrinoZero",
+  alternateName: "Scontrino Zero — registratore di cassa virtuale",
+  url: SITE_URL,
+  inLanguage: "it-IT",
+  publisher: {
+    "@type": "Organization",
+    name: "ScontrinoZero",
+    url: SITE_URL,
+  },
+} as const;
+
 export interface BreadcrumbItem {
   readonly name: string;
   readonly url: string;

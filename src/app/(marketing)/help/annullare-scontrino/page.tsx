@@ -1,8 +1,10 @@
 import { Badge } from "@/components/ui/badge";
 import {
   JsonLd,
+  faqPageJsonLd,
   helpArticleBreadcrumb,
   helpArticleBreadcrumbItems,
+  type FaqItem,
 } from "@/components/json-ld";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
@@ -11,6 +13,35 @@ import { RelatedHelpArticles } from "@/components/help/related-articles";
 import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
 export const metadata = helpArticleMetadata("annullare-scontrino");
+
+/**
+ * Mirror in testo piano della FAQ visibile a video: alimenta lo structured data
+ * FAQPage (rich result Google). Tenere allineato al contenuto renderizzato sotto.
+ */
+const faqItems: readonly FaqItem[] = [
+  {
+    question: "Entro quanto tempo si può annullare uno scontrino?",
+    answer:
+      "Per il Documento Commerciale Online non esiste una finestra rigida: puoi annullare anche nei giorni successivi all'emissione. La best practice è farlo il prima possibile e comunque entro il periodo d'imposta, per non complicare la riconciliazione dei corrispettivi.",
+  },
+  {
+    question:
+      "L'annullamento deve per forza essere fatto in giornata, prima della chiusura?",
+    answer:
+      "No. Con il DCO non c'è la chiusura di cassa che blocca la giornata come sui registratori telematici fisici: l'annullo si può trasmettere anche il giorno dopo, e l'AdE rettifica i corrispettivi del giorno interessato.",
+  },
+  {
+    question:
+      "Non riesco ad annullare uno scontrino: posso comunque continuare a lavorare?",
+    answer:
+      "Sì. Con ScontrinoZero non esiste una chiusura giornaliera da completare, quindi un annullo non riuscito non blocca le vendite successive. Risolvi l'errore (di solito basta riprovare dal dettaglio dello scontrino) e ritenta l'annullo quando l'AdE è raggiungibile.",
+  },
+  {
+    question: "Come verifico che uno scontrino sia stato annullato davvero?",
+    answer:
+      "Nello Storico di ScontrinoZero lo scontrino passa allo stato «Annullato» con il progressivo del documento di annullo. In più puoi verificarlo nel portale Fatture e Corrispettivi dell'AdE: il documento originale risulta annullato con il riferimento all'annullo.",
+  },
+];
 
 export default function AnnullareScontrinoPage() {
   return (
@@ -22,6 +53,7 @@ export default function AnnullareScontrinoPage() {
         )}
       />
       <HelpArticleJsonLd slug="annullare-scontrino" />
+      <JsonLd data={faqPageJsonLd(faqItems)} />
       <article className="mx-auto max-w-3xl">
         <Breadcrumbs
           items={helpArticleBreadcrumbItems(
@@ -44,7 +76,7 @@ export default function AnnullareScontrinoPage() {
           guida spiega come farlo da ScontrinoZero e in quali casi è possibile.
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> aprile 2026
+          <strong>Ultimo aggiornamento:</strong> luglio 2026
         </p>
 
         {/* ─── Quando si può annullare ─── */}
@@ -241,6 +273,19 @@ export default function AnnullareScontrinoPage() {
               l&apos;importo corretto.
             </p>
           </div>
+        </div>
+
+        {/* ─── FAQ (mirror di faqItems: tenere allineati) ─── */}
+        <h2 className="mt-10 text-xl font-semibold">Domande frequenti</h2>
+        <div className="mt-3 space-y-4">
+          {faqItems.map((faq) => (
+            <div key={faq.question}>
+              <p className="text-sm font-medium">{faq.question}</p>
+              <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+                {faq.answer}
+              </p>
+            </div>
+          ))}
         </div>
         <RelatedHelpArticles slug="annullare-scontrino" />
 

@@ -15,6 +15,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { MarketingHero } from "@/components/marketing/marketing-hero";
 
+const PAGE_URL = "https://scontrinozero.it/funzionalita";
+
 export const metadata: Metadata = {
   title: "Funzionalità",
   description:
@@ -23,6 +25,10 @@ export const metadata: Metadata = {
     title: "Funzionalità ScontrinoZero | Emissione, Gestione, Compliance AdE",
     description:
       "Emissione scontrini in 5 secondi, trasmissione automatica all'AdE, annullamento, storico e condivisione digitale. Scopri tutto.",
+    url: PAGE_URL,
+  },
+  alternates: {
+    canonical: PAGE_URL,
   },
 };
 

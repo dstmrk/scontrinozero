@@ -11,6 +11,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { confrontoContent } from "@/lib/confronto/comparisons";
 import { helpArticles } from "@/lib/help/articles";
+import { formatDate } from "@/lib/utils";
 
 const SITE_URL = "https://scontrinozero.it";
 const PAGE_URL = `${SITE_URL}/confronto`;
@@ -197,8 +198,8 @@ export default function ConfrontoPage() {
             </table>
           </div>
           <p className="text-muted-foreground mt-3 text-xs">
-            {"Dati rilevati dai siti pubblici a "}
-            {c.lastUpdated}
+            {"Dati rilevati dai siti pubblici il "}
+            {formatDate(c.lastUpdated, "numeric", "Europe/Rome")}
             {
               ". Listini e funzionalità possono cambiare in qualsiasi momento: verifica direttamente sui siti ufficiali prima di scegliere."
             }

@@ -6,7 +6,7 @@ describe("sitemap", () => {
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
-    expect(result).toHaveLength(71);
+    expect(result).toHaveLength(84);
 
     // Root
     expect(result[0]).toMatchObject({
@@ -42,6 +42,15 @@ describe("sitemap", () => {
       "https://scontrinozero.it/per/food-truck",
       "https://scontrinozero.it/per/ncc-taxi",
       "https://scontrinozero.it/per/tatuatori-piercer",
+      "https://scontrinozero.it/per/ristoranti-bar-asporto",
+      "https://scontrinozero.it/per/negozi",
+      "https://scontrinozero.it/per/pasticcerie-gelaterie-panifici",
+      "https://scontrinozero.it/per/fioristi",
+      "https://scontrinozero.it/per/lavanderie",
+      "https://scontrinozero.it/per/agriturismi-cantine",
+      "https://scontrinozero.it/per/fotografi",
+      "https://scontrinozero.it/per/toelettatura",
+      "https://scontrinozero.it/per/noleggio",
     ];
     for (const url of expectedCategoryUrls) {
       expect(allUrls).toContain(url);
@@ -124,41 +133,28 @@ describe("sitemap", () => {
       });
     }
 
-    // Legal
-    expect(result[35]).toMatchObject({
-      url: "https://scontrinozero.it/privacy",
-      changeFrequency: "yearly",
-      priority: 0.3,
-    });
-    expect(result[36]).toMatchObject({
-      url: "https://scontrinozero.it/privacy/v01",
-      changeFrequency: "yearly",
-      priority: 0.3,
-    });
-    expect(result[37]).toMatchObject({
-      url: "https://scontrinozero.it/termini",
-      changeFrequency: "yearly",
-      priority: 0.3,
-    });
-    expect(result[38]).toMatchObject({
-      url: "https://scontrinozero.it/termini/v01",
-      changeFrequency: "yearly",
-      priority: 0.3,
-    });
-    expect(result[39]).toMatchObject({
-      url: "https://scontrinozero.it/cookie-policy",
-      changeFrequency: "yearly",
-      priority: 0.3,
-    });
-    expect(result[40]).toMatchObject({
-      url: "https://scontrinozero.it/cookie-policy/v01",
-      changeFrequency: "yearly",
-      priority: 0.3,
-    });
+    // Legal (lookup per URL: gli indici scorrono a ogni nuovo contenuto)
+    const legalUrls = [
+      "https://scontrinozero.it/privacy",
+      "https://scontrinozero.it/privacy/v01",
+      "https://scontrinozero.it/termini",
+      "https://scontrinozero.it/termini/v01",
+      "https://scontrinozero.it/cookie-policy",
+      "https://scontrinozero.it/cookie-policy/v01",
+    ];
+    for (const url of legalUrls) {
+      const entry = result.find((e) => e.url === url);
+      expect(entry).toMatchObject({
+        changeFrequency: "yearly",
+        priority: 0.3,
+      });
+    }
 
     // Help center hub
-    expect(result[41]).toMatchObject({
-      url: "https://scontrinozero.it/help",
+    const helpHubEntry = result.find(
+      (e) => e.url === "https://scontrinozero.it/help",
+    );
+    expect(helpHubEntry).toMatchObject({
       changeFrequency: "monthly",
       priority: 0.6,
     });
@@ -183,17 +179,10 @@ describe("sitemap", () => {
       priority: 0.7,
     });
 
-    // Auth pages (last two)
-    expect(result[result.length - 2]).toMatchObject({
-      url: "https://scontrinozero.it/login",
-      changeFrequency: "yearly",
-      priority: 0.5,
-    });
-    expect(result[result.length - 1]).toMatchObject({
-      url: "https://scontrinozero.it/register",
-      changeFrequency: "yearly",
-      priority: 0.5,
-    });
+    // Pagine auth: thin content, escluse dalla sitemap (restano raggiungibili
+    // e indicizzabili, ma non le pubblicizziamo ai crawler).
+    expect(allUrls).not.toContain("https://scontrinozero.it/login");
+    expect(allUrls).not.toContain("https://scontrinozero.it/register");
   });
 
   it("derives the base from NEXT_PUBLIC_MARKETING_HOSTNAME (marketing apex, not the app domain)", async () => {
@@ -207,18 +196,20 @@ describe("sitemap", () => {
     expect(result[1].url).toBe("https://test.scontrinozero.it/prezzi");
     expect(result[2].url).toBe("https://test.scontrinozero.it/funzionalita");
     expect(result[3].url).toBe("https://test.scontrinozero.it/per");
-    expect(result[4].url).toBe("https://test.scontrinozero.it/per/ambulanti");
-    expect(result[16].url).toBe("https://test.scontrinozero.it/confronto");
-    expect(result[17].url).toBe("https://test.scontrinozero.it/strumenti");
-    expect(result[18].url).toBe(
-      "https://test.scontrinozero.it/strumenti/scorporo-iva",
-    );
-    expect(result[22].url).toBe("https://test.scontrinozero.it/guide");
-    expect(result[23].url).toBe(
-      "https://test.scontrinozero.it/guide/documento-commerciale-online",
-    );
-    expect(result[35].url).toBe("https://test.scontrinozero.it/privacy");
-    expect(result[41].url).toBe("https://test.scontrinozero.it/help");
+    // Il resto per presenza (gli indici scorrono a ogni nuovo contenuto)
+    const urls = result.map((e) => e.url);
+    for (const path of [
+      "/per/ambulanti",
+      "/confronto",
+      "/strumenti",
+      "/strumenti/scorporo-iva",
+      "/guide",
+      "/guide/documento-commerciale-online",
+      "/privacy",
+      "/help",
+    ]) {
+      expect(urls).toContain(`https://test.scontrinozero.it${path}`);
+    }
 
     vi.unstubAllEnvs();
   });
@@ -231,5 +222,48 @@ describe("sitemap", () => {
     for (const entry of result) {
       expect(entry.lastModified).toBeInstanceOf(Date);
     }
+  });
+
+  it("uses the real registry dates as lastModified (not the build time)", async () => {
+    vi.resetModules();
+    const { default: sitemap } = await import("./sitemap");
+    const { guideArticles, guideSlugs } = await import("@/lib/guide/articles");
+    const { helpArticles } = await import("@/lib/help/articles");
+    const { confrontoContent } = await import("@/lib/confronto/comparisons");
+    const result = sitemap();
+    const byUrl = new Map(result.map((e) => [e.url, e]));
+    const isoOf = (d: unknown) =>
+      (d as Date).toISOString().slice(0, "YYYY-MM-DD".length);
+
+    // Guide: updatedAt del registry
+    for (const slug of guideSlugs) {
+      const entry = byUrl.get(`https://scontrinozero.it/guide/${slug}`);
+      expect(isoOf(entry?.lastModified)).toBe(guideArticles[slug].updatedAt);
+    }
+
+    // Help: dateModified del registry
+    for (const [slug, article] of Object.entries(helpArticles)) {
+      const entry = byUrl.get(`https://scontrinozero.it/help/${slug}`);
+      expect(isoOf(entry?.lastModified)).toBe(article.dateModified);
+    }
+
+    // Confronto: lastUpdated del registry
+    const confronto = byUrl.get("https://scontrinozero.it/confronto");
+    expect(isoOf(confronto?.lastModified)).toBe(confrontoContent.lastUpdated);
+
+    // Hub: max delle date figlie
+    const guideHub = byUrl.get("https://scontrinozero.it/guide");
+    const maxGuideDate = guideSlugs
+      .map((s) => guideArticles[s].updatedAt)
+      .toSorted((a, b) => a.localeCompare(b))
+      .at(-1);
+    expect(isoOf(guideHub?.lastModified)).toBe(maxGuideDate);
+
+    const helpHub = byUrl.get("https://scontrinozero.it/help");
+    const maxHelpDate = Object.values(helpArticles)
+      .map((a) => a.dateModified)
+      .toSorted((a, b) => a.localeCompare(b))
+      .at(-1);
+    expect(isoOf(helpHub?.lastModified)).toBe(maxHelpDate);
   });
 });

@@ -13,6 +13,7 @@ import {
   webApplicationJsonLd,
   guideArticleBreadcrumb,
   articleJsonLd,
+  webSiteJsonLd,
 } from "./json-ld";
 import { faqItems } from "@/components/marketing/faq-items";
 
@@ -140,6 +141,25 @@ describe("softwareApplicationJsonLd", () => {
       expect(typeof feature).toBe("string");
       expect(feature.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("webSiteJsonLd", () => {
+  it("has @type WebSite with name, url and it-IT language", () => {
+    expect(webSiteJsonLd["@type"]).toBe("WebSite");
+    expect(webSiteJsonLd.name).toBe("ScontrinoZero");
+    expect(webSiteJsonLd.url).toMatch(/^https:\/\//);
+    expect(webSiteJsonLd.inLanguage).toBe("it-IT");
+  });
+
+  it("declares an Organization publisher coherent with organizationJsonLd", () => {
+    expect(webSiteJsonLd.publisher["@type"]).toBe("Organization");
+    expect(webSiteJsonLd.publisher.name).toBe(organizationJsonLd.name);
+    expect(webSiteJsonLd.publisher.url).toBe(organizationJsonLd.url);
+  });
+
+  it("has no potentialAction (SearchAction ritirata da Google, nessuna ricerca interna)", () => {
+    expect("potentialAction" in webSiteJsonLd).toBe(false);
   });
 });
 

@@ -83,7 +83,7 @@ export default function RegimeForfettarioPage() {
           all&apos;Agenzia delle Entrate.
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> giugno 2026
+          <strong>Ultimo aggiornamento:</strong> luglio 2026
         </p>
 
         {/* ─── Cos'è il regime forfettario ─── */}
@@ -153,6 +153,14 @@ export default function RegimeForfettarioPage() {
             className="text-primary hover:underline"
           >
             Codici natura IVA: cosa sono e quando si usano
+          </Link>
+          {". Per gli obblighi normativi del forfettario (quando lo scontrino "}
+          {"è dovuto, esoneri, lotteria) c'è la guida "}
+          <Link
+            href="/guide/scontrino-regime-forfettario"
+            className="text-primary hover:underline"
+          >
+            Scontrino in regime forfettario
           </Link>
           {"."}
         </p>
