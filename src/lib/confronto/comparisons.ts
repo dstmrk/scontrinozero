@@ -144,6 +144,15 @@ export const confrontoContent: ConfrontoContent = {
       notes:
         "App mobile (iOS/Android) e web. Accesso via Fisconline/SPID. Emette scontrini e fatture, gestisce chiusure di cassa.",
     },
+    {
+      name: "WinScontrino",
+      url: "https://www.wincoge.com/Scontrino%20Elettronico",
+      displayUrl: "wincoge.com",
+      pricing: "14,90 €/mese, oppure 8 €/mese con fatturazione annuale",
+      trial: "5 scontrini reali gratuiti",
+      notes:
+        "Software per PC (trasforma il computer in cassa virtuale). Emissione in tempo reale verso AdE senza hardware aggiuntivo.",
+    },
   ],
   differentiators: [
     "Open source: puoi installarlo gratis sul tuo computer o server, le credenziali AdE non transitano da noi.",
@@ -196,5 +205,5 @@ export const confrontoContent: ConfrontoContent = {
     "come-collegare-ade",
     "credenziali-fisconline",
   ],
-  lastUpdated: "2026-05-15",
+  lastUpdated: "2026-07-22",
 };

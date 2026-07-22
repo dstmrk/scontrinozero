@@ -64,8 +64,8 @@ describe("confrontoContent — categories", () => {
 });
 
 describe("confrontoContent — saasCompetitors", () => {
-  it("lists exactly the 4 verified competitors", () => {
-    expect(confrontoContent.saasCompetitors).toHaveLength(4);
+  it("lists exactly the 5 verified competitors", () => {
+    expect(confrontoContent.saasCompetitors).toHaveLength(5);
     const names = confrontoContent.saasCompetitors.map((s) => s.name);
     expect(names).toEqual(
       expect.arrayContaining([
@@ -73,6 +73,7 @@ describe("confrontoContent — saasCompetitors", () => {
         "Scontrina",
         "ScontrinoSenzaCassa (Billy)",
         "CassaDigitale",
+        "WinScontrino",
       ]),
     );
   });
