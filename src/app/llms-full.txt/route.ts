@@ -107,9 +107,6 @@ function buildLlmsFullTxt(baseUrl: string): string {
     }),
     "",
     ...faqBlock(confrontoContent.faq),
-  );
-
-  lines.push(
     "## Strumenti gratuiti",
     "",
     ...Object.values(tools).flatMap((t) => [
