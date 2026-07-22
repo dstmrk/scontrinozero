@@ -7,8 +7,8 @@ import {
 } from "./categories";
 
 describe("categorySlugs", () => {
-  it("contains exactly 17 slugs", () => {
-    expect(categorySlugs).toHaveLength(17);
+  it("contains exactly 21 slugs", () => {
+    expect(categorySlugs).toHaveLength(21);
   });
 
   it("contains the expected slugs", () => {
@@ -31,6 +31,10 @@ describe("categorySlugs", () => {
         "pasticcerie-gelaterie-panifici",
         "fioristi",
         "lavanderie",
+        "agriturismi-cantine",
+        "fotografi",
+        "toelettatura",
+        "noleggio",
       ]),
     );
   });

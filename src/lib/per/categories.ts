@@ -34,7 +34,11 @@ export type CategorySlug =
   | "negozi"
   | "pasticcerie-gelaterie-panifici"
   | "fioristi"
-  | "lavanderie";
+  | "lavanderie"
+  | "agriturismi-cantine"
+  | "fotografi"
+  | "toelettatura"
+  | "noleggio";
 
 export const categorySlugs: readonly CategorySlug[] = [
   "ambulanti",
@@ -54,6 +58,10 @@ export const categorySlugs: readonly CategorySlug[] = [
   "pasticcerie-gelaterie-panifici",
   "fioristi",
   "lavanderie",
+  "agriturismi-cantine",
+  "fotografi",
+  "toelettatura",
+  "noleggio",
 ];
 
 export const categories: Record<CategorySlug, CategoryContent> = {
@@ -815,6 +823,180 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "stampare-scontrino-termica",
       "aliquote-iva",
     ],
+  },
+  "agriturismi-cantine": {
+    slug: "agriturismi-cantine",
+    title: "Scontrino elettronico per agriturismi e cantine",
+    metaTitle: "Scontrino elettronico per agriturismi e cantine senza cassa",
+    metaDescription:
+      "Degustazioni, vendita diretta e ospitalità in agriturismo o cantina: scontrini elettronici dallo smartphone, senza registratore. Da €2,50/mese, prova gratis.",
+    heroSubtitle:
+      "Dalla sala degustazione al punto vendita in vigna: lo scontrino esce dallo smartphone, anche dove il registratore non arriverebbe.",
+    audience:
+      "agriturismi, cantine con vendita diretta e degustazioni, aziende agricole con spaccio, frantoi e apicoltori con vendita al pubblico",
+    useCase:
+      "In un agriturismo o in una cantina la vendita non avviene a un banco fisso: la degustazione si chiude in sala, la cassetta di prodotti si vende in cortile, il pernottamento si salda alla partenza. Con ScontrinoZero emetti il Documento Commerciale Online dove sei, dallo smartphone, e trasmetti automaticamente i corrispettivi. Il catalogo tiene le aliquote giuste per ogni prodotto (vino al 22%, olio e miele al 4-10%) e per i servizi di ospitalità e ristorazione al 10%.",
+    obligations: [
+      "Emissione del Documento Commerciale Online per ogni vendita o servizio B2C incassato (art. 22 DPR 633/72).",
+      "Aliquote IVA corrette per riga: 22% sul vino, 4-10% su olio, miele e conserve, 10% su alloggio e somministrazione.",
+      "Trasmissione telematica dei corrispettivi entro 12 giorni dall'operazione.",
+      "Per i produttori agricoli in regime speciale (art. 34 DPR 633/72), verifica col commercialista il corretto inquadramento delle vendite.",
+    ],
+    benefits: [
+      "Funziona in vigna e in campagna: basta la connessione 4G dello smartphone.",
+      "Aliquote miste nello stesso scontrino (vino 22% + olio 4% + degustazione 10%).",
+      "Scontrino digitale via email al turista straniero, senza stampante.",
+      "Storico digitale a disposizione del commercialista per la contabilità.",
+    ],
+    faq: [
+      {
+        question: "Che aliquote IVA uso per vino, olio e degustazioni?",
+        answer:
+          "Il vino sconta il 22%, l'olio d'oliva il 4%, il miele il 10%, le conserve in genere il 10%; la degustazione con somministrazione segue il 10% della ristorazione. Nel catalogo assegni l'aliquota a ogni voce una volta sola e lo scontrino esce con il dettaglio corretto per riga.",
+      },
+      {
+        question: "Per il pernottamento serve scontrino o ricevuta?",
+        answer:
+          "Al cliente privato puoi emettere il documento commerciale al saldo; se l'ospite chiede fattura (es. trasferta di lavoro), quella si emette via SDI con un software di fatturazione. Con ScontrinoZero gestisci gli scontrini; la fattura resta un flusso separato.",
+      },
+      {
+        question: "Il regime speciale agricolo cambia qualcosa?",
+        answer:
+          "Il regime speciale IVA agricolo (art. 34 DPR 633/72) riguarda la detrazione, non l'obbligo di certificare i corrispettivi: le vendite al dettaglio a privati vanno comunque documentate. L'inquadramento corretto delle singole attività (agricola, connessa, commerciale) va verificato col commercialista.",
+      },
+    ],
+    relatedHelp: ["primo-scontrino", "aliquote-iva", "installare-app"],
+  },
+  fotografi: {
+    slug: "fotografi",
+    title: "Scontrino elettronico per fotografi",
+    metaTitle:
+      "Scontrino elettronico per fotografi senza registratore di cassa",
+    metaDescription:
+      "Servizi fotografici, stampe ed eventi: emetti lo scontrino elettronico dallo smartphone al momento dell'incasso, senza registratore. Da €2,50/mese.",
+    heroSubtitle:
+      "Dallo studio al matrimonio al mini-shooting in piazza: lo scontrino segue te e la macchina fotografica, non un registratore.",
+    audience:
+      "fotografi con clientela privata: ritratti, cerimonie, eventi, stampe e album, mini-shooting stagionali",
+    useCase:
+      "Il fotografo incassa quasi sempre fuori da un negozio: l'acconto alla prenotazione del servizio, il saldo alla consegna dell'album, il mini-shooting a tema pagato sul posto. Con ScontrinoZero emetti il Documento Commerciale Online dallo smartphone al momento dell'incasso, ovunque sia, e lo invii al cliente via email o WhatsApp insieme alle foto. Per i lavori fatturati ad aziende (eventi corporate, shooting commerciali) resta la fattura elettronica: i due flussi convivono.",
+    obligations: [
+      "Emissione del Documento Commerciale Online per ogni incasso da cliente privato (art. 22 DPR 633/72).",
+      "Certificazione di acconti e saldi al momento dell'incasso, non alla consegna.",
+      "Aliquota IVA al 22% su servizi fotografici, stampe e album.",
+      "Trasmissione telematica dei corrispettivi entro 12 giorni dall'operazione.",
+    ],
+    benefits: [
+      "Acconto e saldo certificati sul momento, anche a domicilio o in location.",
+      "Scontrino digitale via email o WhatsApp insieme alla consegna delle foto.",
+      "Catalogo con i tuoi pacchetti (servizio, stampa, album) per emettere in due tap.",
+      "Per il forfettario: natura N2 preimpostata, scontrini senza IVA.",
+    ],
+    faq: [
+      {
+        question: "Devo emettere scontrino per l'acconto del matrimonio?",
+        answer:
+          "Sì: ogni incasso da cliente privato va certificato al momento in cui lo ricevi, acconto compreso. Emetti un documento commerciale per l'acconto e uno per il saldo; se il cliente preferisce la fattura, va emessa via SDI con un software di fatturazione.",
+      },
+      {
+        question: "Sono fotografo in regime forfettario: cambia qualcosa?",
+        answer:
+          "Solo l'IVA: gli scontrini escono con natura N2 (operazioni non soggette) e senza imposta. L'obbligo di certificare gli incassi da privati resta identico. In ScontrinoZero imposti l'aliquota prevalente su «0% – Non soggette» una volta sola.",
+      },
+      {
+        question: "Come consegno lo scontrino al cliente?",
+        answer:
+          "Via email, SMS, WhatsApp o QR code: il documento digitale ha pieno valore fiscale. È il canale naturale per chi già consegna le foto online; la stampa termica resta possibile ma raramente serve.",
+      },
+    ],
+    relatedHelp: ["primo-scontrino", "regime-forfettario", "installare-app"],
+  },
+  toelettatura: {
+    slug: "toelettatura",
+    title: "Scontrino elettronico per toelettature e pet service",
+    metaTitle:
+      "Scontrino elettronico per toelettatura cani e gatti senza cassa",
+    metaDescription:
+      "Toelettatura, pet sitting e servizi per animali: scontrini elettronici senza registratore, con listino servizi nel catalogo. Da €2,50/mese, prova gratis.",
+    heroSubtitle:
+      "Per toelettature e pet service: listino nel catalogo, scontrino in due tap a fine seduta, banco libero dal registratore.",
+    audience:
+      "toelettature per cani e gatti, pet sitter e dog sitter con incassi da privati, servizi di pet care a domicilio",
+    useCase:
+      "Nella toelettatura la giornata è fatta di appuntamenti: bagno e tosatura, ritiro a fine seduta, incasso singolo per cliente. Con ScontrinoZero configuri il listino dei servizi (bagno taglia piccola, tosatura completa, unghie) nel catalogo ed emetti il Documento Commerciale Online in due tap al ritiro dell'animale, dallo smartphone o dal tablet. Chi lavora a domicilio emette direttamente dal telefono a fine servizio. Il registratore telematico, per pochi incassi al giorno, è un costo che puoi evitare.",
+    obligations: [
+      "Emissione del Documento Commerciale Online per ogni servizio B2C incassato (art. 22 DPR 633/72).",
+      "Aliquota IVA al 22% sui servizi di toelettatura e sulla vendita di prodotti per animali.",
+      "Trasmissione telematica dei corrispettivi entro 12 giorni dall'operazione.",
+      "Conservazione dei documenti emessi per 10 anni.",
+    ],
+    benefits: [
+      "Listino servizi per taglia e trattamento: scontrino pronto in due tap.",
+      "Servizio + prodotto (shampoo, antiparassitario) nello stesso documento.",
+      "A domicilio emetti dallo smartphone a fine servizio, senza attrezzatura.",
+      "Storico incassi per appuntamento, comodo per la contabilità di fine mese.",
+    ],
+    faq: [
+      {
+        question: "Serve il registratore di cassa per aprire una toelettatura?",
+        answer:
+          "No: serve certificare i corrispettivi, e puoi farlo con il Documento Commerciale Online senza hardware. Per un'attività su appuntamento con qualche decina di incassi a settimana è in genere la soluzione più economica: zero acquisto, zero verificazioni.",
+      },
+      {
+        question: "Posso vendere prodotti insieme al servizio?",
+        answer:
+          "Sì, nello stesso scontrino: righe separate per il servizio di toelettatura e per i prodotti venduti, ciascuna con la propria aliquota (in genere 22% per entrambi). Il documento trasmesso all'AdE riporta il dettaglio per riga.",
+      },
+      {
+        question: "Faccio anche pet sitting a domicilio: come mi regolo?",
+        answer:
+          "Uguale: ogni incasso da cliente privato va certificato al momento. Emetti il documento commerciale dallo smartphone a fine servizio e lo invii via WhatsApp o email al proprietario. Se sei in regime forfettario, gli scontrini escono con natura N2 senza IVA.",
+      },
+    ],
+    relatedHelp: ["primo-scontrino", "aliquote-iva", "regime-forfettario"],
+  },
+  noleggio: {
+    slug: "noleggio",
+    title: "Scontrino elettronico per noleggio bici, attrezzature e sport",
+    metaTitle: "Scontrino elettronico per attività di noleggio senza cassa",
+    metaDescription:
+      "Noleggio bici, sup, sci o attrezzature: scontrini elettronici dallo smartphone, perfetti per attività stagionali. Da €2,50/mese, prova 30 giorni gratis.",
+    heroSubtitle:
+      "Per il noleggio stagionale — bici, sup, sci, attrezzature — dove la cassa deve stare in un marsupio, non su un banco.",
+    audience:
+      "noleggi di bici ed e-bike, sup e attrezzature da spiaggia, sci e ciaspole, attrezzature per eventi e giardinaggio, attività stagionali",
+    useCase:
+      "Il noleggio è spesso un'attività stagionale e all'aperto: il banco è un gazebo in spiaggia, un container alla pista o un furgone all'evento. Con ScontrinoZero emetti il Documento Commerciale Online dallo smartphone al momento dell'incasso — tariffa oraria, mezza giornata, giornata intera nel catalogo — e trasmetti automaticamente i corrispettivi. Il piano mensile si attiva per la stagione e si sospende quando chiudi, e la cauzione non incassata non va certificata: solo il corrispettivo del noleggio.",
+    obligations: [
+      "Emissione del Documento Commerciale Online per ogni noleggio B2C incassato (art. 22 DPR 633/72).",
+      "Aliquota IVA al 22% sui corrispettivi di noleggio di beni mobili.",
+      "La cauzione restituibile non è un corrispettivo: si certifica solo l'importo del noleggio effettivamente incassato.",
+      "Trasmissione telematica dei corrispettivi entro 12 giorni dall'operazione.",
+    ],
+    benefits: [
+      "Tariffe orarie e giornaliere nel catalogo: scontrino in due tap al ritiro.",
+      "Attività stagionale: piano mensile attivabile solo nei mesi di apertura.",
+      "Scontrino via QR o WhatsApp al turista, anche straniero, senza stampante.",
+      "Storico incassi per giornata, utile per capire le punte di stagione.",
+    ],
+    faq: [
+      {
+        question: "La cauzione va nello scontrino?",
+        answer:
+          "No, se è una cauzione restituibile: non è un corrispettivo ma una garanzia, e va gestita a parte (contante trattenuto o pre-autorizzazione carta). Nello scontrino certifichi solo l'importo del noleggio. Se tratterrai la cauzione per un danno, quella somma andrà documentata al momento dell'incasso definitivo.",
+      },
+      {
+        question: "Apro solo 4 mesi l'anno: conviene comunque?",
+        answer:
+          "È il caso ideale: attivi il piano mensile (da €4,99/mese) per i mesi di apertura e lo sospendi a fine stagione, senza ammortizzare un registratore che resta fermo 8 mesi. Alla riapertura ritrovi catalogo e storico.",
+      },
+      {
+        question: "Il turista straniero può ricevere lo scontrino?",
+        answer:
+          "Sì: gli invii il documento via QR code, email o WhatsApp al momento del noleggio. Il documento commerciale è valido a prescindere dalla nazionalità del cliente; per il noleggio B2C a consumatori UE si applica l'IVA italiana del 22%.",
+      },
+    ],
+    relatedHelp: ["primo-scontrino", "cambio-piano", "installare-app"],
   },
 };
 

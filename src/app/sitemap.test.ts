@@ -6,7 +6,7 @@ describe("sitemap", () => {
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
-    expect(result).toHaveLength(80);
+    expect(result).toHaveLength(84);
 
     // Root
     expect(result[0]).toMatchObject({
@@ -47,6 +47,10 @@ describe("sitemap", () => {
       "https://scontrinozero.it/per/pasticcerie-gelaterie-panifici",
       "https://scontrinozero.it/per/fioristi",
       "https://scontrinozero.it/per/lavanderie",
+      "https://scontrinozero.it/per/agriturismi-cantine",
+      "https://scontrinozero.it/per/fotografi",
+      "https://scontrinozero.it/per/toelettatura",
+      "https://scontrinozero.it/per/noleggio",
     ];
     for (const url of expectedCategoryUrls) {
       expect(allUrls).toContain(url);
