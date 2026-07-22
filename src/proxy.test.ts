@@ -414,8 +414,10 @@ describe("proxy", () => {
     // app.scontrinozero.it perché assenti da MARKETING_ONLY_ROUTES.
     const MARKETING_CONTENT_ROUTES = [
       "/confronto",
+      "/feed.xml",
       "/funzionalita",
       "/guide",
+      "/llms-full.txt",
       "/llms.txt",
       "/per",
       "/prezzi",

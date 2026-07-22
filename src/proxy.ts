@@ -38,9 +38,11 @@ function pathNeedsAuthSession(pathname: string): boolean {
 const MARKETING_ONLY_ROUTES = [
   "/confronto",
   "/cookie-policy",
+  "/feed.xml",
   "/funzionalita",
   "/guide",
   "/help",
+  "/llms-full.txt",
   "/llms.txt",
   "/per",
   "/prezzi",
