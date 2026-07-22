@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   helpArticles,
   helpSlugs,
-  HELP_REVIEWED_DATE,
   getRelatedArticles,
   getHelpArticle,
 } from "./articles";
@@ -121,13 +120,29 @@ describe("analytics-e-report (KPI, grafici e gating Pro)", () => {
   });
 });
 
-describe("HELP_REVIEWED_DATE", () => {
-  it("is an ISO date in YYYY-MM-DD form (accettata da articleJsonLd)", () => {
-    expect(HELP_REVIEWED_DATE).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+describe("per-article dates", () => {
+  it("every article has datePublished and dateModified in ISO YYYY-MM-DD form", () => {
+    for (const article of Object.values(helpArticles)) {
+      expect(article.datePublished).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(article.dateModified).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
   });
 
-  it("is a real, parseable calendar date", () => {
-    expect(Number.isNaN(Date.parse(HELP_REVIEWED_DATE))).toBe(false);
+  it("every date is a real, parseable calendar date", () => {
+    for (const article of Object.values(helpArticles)) {
+      expect(Number.isNaN(Date.parse(article.datePublished))).toBe(false);
+      expect(Number.isNaN(Date.parse(article.dateModified))).toBe(false);
+    }
+  });
+
+  it("dateModified is never before datePublished", () => {
+    for (const article of Object.values(helpArticles)) {
+      // Confronto lessicografico: valido per date ISO
+      expect(
+        article.dateModified >= article.datePublished,
+        `${article.slug}: ${article.dateModified} < ${article.datePublished}`,
+      ).toBe(true);
+    }
   });
 });
 
