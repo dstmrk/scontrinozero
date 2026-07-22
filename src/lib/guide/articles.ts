@@ -149,13 +149,14 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
   "scontrino-senza-registratore-di-cassa": {
     slug: "scontrino-senza-registratore-di-cassa",
     title: "Emettere scontrino senza registratore di cassa: si può?",
-    metaTitle: "Scontrino elettronico senza registratore di cassa: guida 2026",
+    metaTitle:
+      "Scontrino senza cassa: come emetterlo senza registratore (2026)",
     metaDescription:
-      "Sì, si può: dal 2020 emetti scontrini elettronici senza registratore telematico, dal portale AdE o con un'app dal telefono. Cosa serve, costi e come iniziare.",
+      "Sì, si può: dal 2020 emetti lo scontrino senza cassa né registratore telematico, dal portale AdE o con un'app dal telefono. Cosa serve, costi e come iniziare.",
     heroIntro:
       "Sì, si può: da gennaio 2020 qualunque partita IVA può emettere lo scontrino elettronico senza registratore di cassa fisico, gratis dal portale \"Fatture e Corrispettivi\" dell'Agenzia delle Entrate oppure in pochi secondi con un'app dal telefono. Vediamo cosa serve, quanto costa e come scegliere l'app giusta.",
     publishedAt: "2026-05-14",
-    updatedAt: "2026-07-13",
+    updatedAt: "2026-07-22",
     readingMinutes: 8,
     sections: [
       {
@@ -391,13 +392,14 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
   "scontrino-regime-forfettario": {
     slug: "scontrino-regime-forfettario",
     title: "Scontrino in regime forfettario: cosa devi sapere",
-    metaTitle: "Scontrino elettronico regime forfettario 2026: come emetterlo",
+    metaTitle:
+      "Scontrino regime forfettario 2026: quando è obbligatorio e come",
     metaDescription:
-      "Anche i forfettari devono emettere scontrino ai privati: come farlo senza registratore di cassa, natura IVA N2, dicitura di esenzione e lotteria. Guida 2026.",
+      "Sì, anche in regime forfettario lo scontrino ai privati è obbligatorio: si emette senza IVA con natura N2, anche senza registratore di cassa. Errori tipici e lotteria.",
     heroIntro:
-      "Il regime forfettario semplifica molti adempimenti (IVA, ritenute, gestione contabile), ma NON esonera dall'obbligo di emettere scontrino al consumatore finale per le vendite B2C. Vediamo come gestire correttamente l'emissione, l'IVA \"a zero\" e gli aspetti operativi tipici del forfettario.",
+      "Sì: anche in regime forfettario devi emettere lo scontrino (documento commerciale) per ogni vendita al consumatore finale. Il forfettario semplifica IVA, ritenute e contabilità, ma NON esonera dalla certificazione dei corrispettivi B2C. Vediamo come gestire l'emissione, l'IVA \"a zero\" (natura N2) e gli aspetti operativi tipici del forfettario.",
     publishedAt: "2026-05-14",
-    updatedAt: "2026-05-14",
+    updatedAt: "2026-07-22",
     readingMinutes: 6,
     sections: [
       {
@@ -442,6 +444,17 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
           "Come gestisco i contanti vs i pagamenti elettronici da forfettario?",
         answer:
           "Allo stesso modo di qualunque altro esercente: in fase di emissione indichi il metodo di pagamento (contanti, carta, misto). L'informazione finisce nel DCO trasmesso all'AdE. Non c'è una gestione speciale per il forfettario su questo punto.",
+      },
+      {
+        question: "Nello scontrino del forfettario c'è l'IVA?",
+        answer:
+          "No. L'operazione del forfettario è in franchigia da IVA (art. 1 c. 54-89 L. 190/2014): sullo scontrino le righe escono ad aliquota 0% con natura N2 al posto dell'imposta. Il totale che paga il cliente è quindi il prezzo pieno, senza IVA esposta.",
+      },
+      {
+        question:
+          "Ho emesso scontrini con IVA al 22% per errore: come rimedio?",
+        answer:
+          "Annulla ogni scontrino errato ed emettilo di nuovo con la natura N2 corretta: i documenti già trasmessi all'AdE non si possono modificare retroattivamente. Se l'errore si è protratto per settimane o mesi, coinvolgi il commercialista per sistemare anche i corrispettivi già liquidati.",
       },
     ],
     relatedHelp: ["regime-forfettario", "aliquote-iva", "primo-scontrino"],
@@ -592,9 +605,9 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     metaDescription:
       "Come annullare un documento commerciale elettronico già trasmesso all'AdE: termini, procedura tecnica, differenza fra annullamento e reso, casi pratici.",
     heroIntro:
-      'Dopo aver emesso uno scontrino elettronico ti accorgi di un errore, oppure il cliente cambia idea e chiede il rimborso: si può annullare? Sì, ma con regole precise. Lo "scontrino di annullamento" è un documento dedicato che cancella fiscalmente il precedente. Vediamo procedura, termini e casi pratici tipici.',
+      'Sì, uno scontrino elettronico si può annullare, anche nei giorni successivi all\'emissione: lo "scontrino di annullamento" è un documento dedicato che cancella fiscalmente il precedente. Vediamo procedura, termini e casi pratici tipici, e quando invece è più corretto gestire un reso.',
     publishedAt: "2026-05-15",
-    updatedAt: "2026-05-15",
+    updatedAt: "2026-07-22",
     readingMinutes: 6,
     sections: [
       {
@@ -646,6 +659,22 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
           "Quanti annullamenti posso fare? Esiste un limite o vengo monitorato?",
         answer:
           "Non esiste un limite numerico esplicito, ma l'AdE può monitorare pattern anomali (es. tasso annullamento molto sopra la media di settore) come possibile indicatore di evasione. Annulla solo quando necessario e per cause documentabili; per resi a distanza usa sempre la modalità reso (DCO negativo).",
+      },
+      {
+        question: "Entro quanti giorni si può annullare uno scontrino?",
+        answer:
+          "La normativa non fissa un termine perentorio per il documento commerciale online: l'annullamento è possibile anche nei giorni successivi all'emissione. La best practice è annullare il prima possibile — idealmente entro la giornata — e comunque entro il periodo d'imposta: più passa il tempo, più complessa è la riconciliazione dei corrispettivi.",
+      },
+      {
+        question: "Posso annullare uno scontrino dopo la chiusura giornaliera?",
+        answer:
+          'Con il documento commerciale online sì: non esiste la "chiusura di cassa" del registratore telematico che blocca la giornata, quindi puoi annullare anche il giorno dopo. I corrispettivi del giorno interessato vengono rettificati dall\'AdE con il documento di annullo.',
+      },
+      {
+        question:
+          "Ho battuto uno scontrino errato mesi fa (es. a gennaio): posso stornarlo ora?",
+        answer:
+          "Meglio di no: a mesi di distanza l'annullamento complica la riconciliazione dei corrispettivi già liquidati. Il caso va gestito con il commercialista, tipicamente con una rettifica in sede di liquidazione, non con un annullo tardivo del documento.",
       },
     ],
     relatedHelp: [
@@ -798,13 +827,14 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
   "codici-natura-iva": {
     slug: "codici-natura-iva",
     title: "Codici natura IVA: cosa sono e quando si usano",
-    metaTitle: "Natura IVA N2.2: cosa significa e dicitura forfettari",
+    metaTitle:
+      "Codice natura IVA N2.2: significato, forfettario e tabella N1-N7",
     metaDescription:
-      "Cosa sono i codici natura IVA N1-N7, cosa significa N2.2 per il regime forfettario in fattura elettronica, perché sullo scontrino si usa N2 e quale dicitura indicare.",
+      'N2.2 significa "operazione non soggetta a IVA - altri casi": il codice del forfettario in fattura elettronica. Tabella N1-N7, differenza con N2 e dicitura.',
     heroIntro:
       "I codici natura IVA (N1, N2, N2.2, N3, N4, N5, N6, N7) servono a spiegare al fisco perché su un'operazione non viene addebitata l'IVA con un'aliquota ordinaria. Sono obbligatori nel tracciato della fattura elettronica e dei corrispettivi telematici. Qui vediamo cosa significano uno per uno, perché il regime forfettario usa N2.2 in fattura ma N2 sullo scontrino, e quale dicitura di esenzione indicare.",
     publishedAt: "2026-06-29",
-    updatedAt: "2026-07-12",
+    updatedAt: "2026-07-22",
     readingMinutes: 8,
     sections: [
       {
@@ -922,6 +952,16 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
         question: "Che differenza c'è tra N2.1 e N2.2?",
         answer:
           "Sono i due sottocodici delle operazioni non soggette. N2.1 copre la carenza del requisito di territorialità (artt. 7 - 7-septies DPR 633/72, tipicamente prestazioni verso l'estero); N2.2 copre tutti gli altri casi, incluso il regime forfettario e il regime di vantaggio.",
+      },
+      {
+        question: "Il codice IVA N2.2 a cosa corrisponde?",
+        answer:
+          'Corrisponde alle operazioni "non soggette a IVA - altri casi" del tracciato della fattura elettronica: soprattutto il regime forfettario, il regime di vantaggio (ex minimi) e le operazioni fuori campo IVA diverse dalla carenza di territorialità. Si abbina sempre ad aliquota 0%, mai a un\'aliquota ridotta.',
+      },
+      {
+        question: "N2.2 vuol dire fuori campo IVA?",
+        answer:
+          "Sì, in senso lato: N2.2 identifica operazioni fuori dal campo di applicazione dell'IVA per motivi diversi dalla territorialità (quella è N2.1). Non va confuso con l'esenzione: le operazioni esenti ex art. 10 DPR 633/72 usano il codice N4, non N2.2.",
       },
     ],
     relatedHelp: ["regime-forfettario", "aliquote-iva", "fatture-e-ricevute"],

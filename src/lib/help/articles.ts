@@ -28,7 +28,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "annullare-scontrino": {
     slug: "annullare-scontrino",
     datePublished: "2026-04-11",
-    dateModified: "2026-07-13",
+    dateModified: "2026-07-22",
     title: "Annullare uno scontrino: quando si può e come fare",
     metaTitle: "Annullare scontrino elettronico: come fare ed entro quando",
     description:
@@ -259,11 +259,13 @@ export const helpArticles: Record<string, HelpArticle> = {
   "regime-forfettario": {
     slug: "regime-forfettario",
     datePublished: "2026-04-11",
-    dateModified: "2026-07-12",
+    dateModified: "2026-07-22",
     title: "Regime forfettario: configurazione IVA corretta",
-    metaTitle: "Codice IVA regime forfettario: N2 scontrino, N2.2 fattura",
+    // Intent operativo in-app: le query informative su N2/N2.2 sono territorio
+    // della guida codici-natura-iva (regola slug separati /help vs /guide).
+    metaTitle: "Configurare l'IVA del regime forfettario in ScontrinoZero",
     description:
-      "Il codice IVA del regime forfettario è natura N2 sullo scontrino elettronico e N2.2 in fattura, con dicitura art. 1 commi 54-89 L. 190/2014: ecco come configurarlo in ScontrinoZero senza errori.",
+      "Come impostare la natura N2 negli scontrini del forfettario in ScontrinoZero: aliquota prevalente «0% – Non soggette», catalogo prodotti e correzione degli errori più comuni.",
     related: ["aliquote-iva", "primo-scontrino", "annullare-scontrino"],
   },
   "registrare-pos-portale-ade": {

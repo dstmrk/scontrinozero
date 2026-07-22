@@ -251,7 +251,7 @@ export default function Home() {
               href="/guide/scontrino-senza-registratore-di-cassa"
               className="text-primary hover:underline"
             >
-              {"Scontrino senza registratore di cassa"}
+              {"Scontrino senza cassa e senza registratore"}
             </Link>
             {" · "}
             <Link
