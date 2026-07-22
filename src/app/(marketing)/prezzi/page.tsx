@@ -2,8 +2,12 @@ import type { Metadata } from "next";
 import { ArrowRight, Check } from "lucide-react";
 import { appHref } from "@/lib/marketing-to-app-href";
 import { Button } from "@/components/ui/button";
+import { JsonLd, faqPageJsonLd } from "@/components/json-ld";
 import { MarketingHero } from "@/components/marketing/marketing-hero";
 import { PricingSection } from "@/components/marketing/pricing-section";
+
+const SITE_URL = "https://scontrinozero.it";
+const PAGE_URL = `${SITE_URL}/prezzi`;
 
 export const metadata: Metadata = {
   title: "Prezzi",
@@ -13,6 +17,10 @@ export const metadata: Metadata = {
     title: "Prezzi ScontrinoZero | Starter da €2,50/mese · Pro da €4,17/mese",
     description:
       "Starter da €2,50/mese (€29,99/anno), Pro da €4,17/mese (€49,99/anno). 30 giorni di prova gratuita, nessuna carta di credito richiesta. Disponibile anche la versione gratuita per installazione autonoma.",
+    url: PAGE_URL,
+  },
+  alternates: {
+    canonical: PAGE_URL,
   },
 };
 
@@ -85,6 +93,16 @@ const comparisonRows: ComparisonRow[] = [
 
 const pricingFaqs: { question: string; answer: string }[] = [
   {
+    question: "Serve la carta di credito per la prova gratuita?",
+    answer:
+      "No. I 30 giorni di prova non richiedono alcuna carta di credito: ti registri e inizi subito a usare il servizio. Al termine della prova scegli se attivare un piano.",
+  },
+  {
+    question: "Che differenza c'è tra Starter e Pro?",
+    answer:
+      "Starter (€29,99/anno) include scontrini illimitati, trasmissione automatica all'AdE, catalogo rapido fino a 5 prodotti e analytics base. Pro (€49,99/anno) aggiunge catalogo illimitato, analytics avanzata, export CSV e supporto prioritario.",
+  },
+  {
     question: "Posso cambiare piano in qualsiasi momento?",
     answer:
       "Sì. Puoi passare da Starter a Pro o viceversa in qualsiasi momento dal pannello di controllo. Le modifiche entrano in vigore immediatamente.",
@@ -119,6 +137,8 @@ function CellValue({ value }: Readonly<{ value: string | boolean }>) {
 export default function PrezziPage() {
   return (
     <>
+      <JsonLd data={faqPageJsonLd(pricingFaqs)} />
+
       {/* Hero */}
       <MarketingHero
         title={

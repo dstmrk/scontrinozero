@@ -6,7 +6,7 @@ describe("sitemap", () => {
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
-    expect(result).toHaveLength(71);
+    expect(result).toHaveLength(69);
 
     // Root
     expect(result[0]).toMatchObject({
@@ -183,17 +183,10 @@ describe("sitemap", () => {
       priority: 0.7,
     });
 
-    // Auth pages (last two)
-    expect(result[result.length - 2]).toMatchObject({
-      url: "https://scontrinozero.it/login",
-      changeFrequency: "yearly",
-      priority: 0.5,
-    });
-    expect(result[result.length - 1]).toMatchObject({
-      url: "https://scontrinozero.it/register",
-      changeFrequency: "yearly",
-      priority: 0.5,
-    });
+    // Pagine auth: thin content, escluse dalla sitemap (restano raggiungibili
+    // e indicizzabili, ma non le pubblicizziamo ai crawler).
+    expect(allUrls).not.toContain("https://scontrinozero.it/login");
+    expect(allUrls).not.toContain("https://scontrinozero.it/register");
   });
 
   it("derives the base from NEXT_PUBLIC_MARKETING_HOSTNAME (marketing apex, not the app domain)", async () => {
