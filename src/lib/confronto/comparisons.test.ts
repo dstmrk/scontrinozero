@@ -21,8 +21,8 @@ describe("confrontoContent — metadata", () => {
     expect(confrontoContent.heroIntro.length).toBeGreaterThanOrEqual(200);
   });
 
-  it("has lastUpdated in YYYY-MM format", () => {
-    expect(confrontoContent.lastUpdated).toMatch(/^\d{4}-\d{2}$/);
+  it("has lastUpdated in full ISO YYYY-MM-DD format", () => {
+    expect(confrontoContent.lastUpdated).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
 

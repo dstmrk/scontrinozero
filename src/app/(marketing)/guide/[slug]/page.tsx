@@ -22,6 +22,7 @@ import {
 import { AppScreenshot } from "@/components/marketing/app-screenshot";
 import { helpArticles } from "@/lib/help/articles";
 import { isToolSlug, tools } from "@/lib/strumenti/tools";
+import { formatDate } from "@/lib/utils";
 
 const SITE_URL = "https://scontrinozero.it";
 
@@ -56,14 +57,6 @@ export async function generateMetadata({
   };
 }
 
-function lastDayOfMonth(yyyyMm: string): string {
-  const [yStr, mStr] = yyyyMm.split("-");
-  const y = Number.parseInt(yStr, 10);
-  const m = Number.parseInt(mStr, 10);
-  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  return `${yyyyMm}-${String(lastDay).padStart(2, "0")}`;
-}
-
 export default async function GuidePage({ params }: PageParams) {
   const { slug } = await params;
   if (!isGuideSlug(slug)) {
@@ -90,7 +83,7 @@ export default async function GuidePage({ params }: PageParams) {
           description: g.metaDescription,
           url: pageUrl,
           datePublished: g.publishedAt,
-          dateModified: lastDayOfMonth(g.updatedAt),
+          dateModified: g.updatedAt,
         })}
       />
       {g.faq.length > 0 && <JsonLd data={faqPageJsonLd(g.faq)} />}
@@ -105,8 +98,8 @@ export default async function GuidePage({ params }: PageParams) {
           <p className="text-muted-foreground mt-3 flex items-center gap-1 text-xs">
             <Clock className="h-3 w-3" />
             {g.readingMinutes}
-            {" min di lettura · aggiornato "}
-            {g.updatedAt}
+            {" min di lettura · aggiornato il "}
+            {formatDate(g.updatedAt, "numeric", "Europe/Rome")}
           </p>
           <p className="text-muted-foreground mt-4 text-lg leading-relaxed">
             {g.heroIntro}

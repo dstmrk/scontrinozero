@@ -68,8 +68,10 @@ describe("guideArticles dictionary", () => {
         expect(a.publishedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       });
 
-      it("has updatedAt in YYYY-MM format", () => {
-        expect(a.updatedAt).toMatch(/^\d{4}-\d{2}$/);
+      it("has updatedAt in full ISO YYYY-MM-DD format, not before publishedAt", () => {
+        expect(a.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        // Confronto lessicografico: valido per date ISO
+        expect(a.updatedAt >= a.publishedAt).toBe(true);
       });
 
       it("has positive readingMinutes", () => {

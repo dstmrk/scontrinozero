@@ -57,7 +57,9 @@ export interface GuideArticle {
   readonly metaTitle: string;
   readonly metaDescription: string;
   readonly heroIntro: string;
+  /** Data ISO YYYY-MM-DD: finisce in Article JSON-LD e sitemap, mai troncarla al mese. */
   readonly publishedAt: string;
+  /** Data ISO YYYY-MM-DD dell'ultima revisione sostanziale (>= publishedAt). */
   readonly updatedAt: string;
   readonly readingMinutes: number;
   readonly sections: readonly GuideSection[];
@@ -78,7 +80,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       'Il documento commerciale online (DCO) è la versione digitale dello scontrino: lo si emette dal portale Agenzia delle Entrate "Fatture e Corrispettivi" senza bisogno di un registratore telematico fisico. È fiscalmente equivalente allo scontrino stampato e trasmette i corrispettivi all\'AdE in tempo reale.',
     publishedAt: "2026-05-14",
-    updatedAt: "2026-05",
+    updatedAt: "2026-05-14",
     readingMinutes: 6,
     sections: [
       {
@@ -153,7 +155,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Sì, si può: da gennaio 2020 qualunque partita IVA può emettere lo scontrino elettronico senza registratore di cassa fisico, gratis dal portale \"Fatture e Corrispettivi\" dell'Agenzia delle Entrate oppure in pochi secondi con un'app dal telefono. Vediamo cosa serve, quanto costa e come scegliere l'app giusta.",
     publishedAt: "2026-05-14",
-    updatedAt: "2026-07",
+    updatedAt: "2026-07-13",
     readingMinutes: 8,
     sections: [
       {
@@ -266,7 +268,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Scontrino, ricevuta fiscale e fattura sono tre documenti diversi con regole diverse. Saper distinguere quando emettere l'uno o l'altro è la base per non sbagliare adempimenti. Vediamo le differenze pratiche con esempi concreti per chi lavora al pubblico.",
     publishedAt: "2026-05-14",
-    updatedAt: "2026-05",
+    updatedAt: "2026-05-14",
     readingMinutes: 5,
     sections: [
       {
@@ -331,7 +333,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Dal 1° gennaio 2026 è entrato in vigore l'obbligo di collegamento fra POS (terminale di pagamento) e registratore telematico, per trasmettere all'Agenzia delle Entrate gli incassi elettronici insieme ai corrispettivi. La norma ha generato molta confusione: cosa cambia davvero e cosa fare se non usi un RT fisico?",
     publishedAt: "2026-05-14",
-    updatedAt: "2026-05",
+    updatedAt: "2026-05-14",
     readingMinutes: 7,
     sections: [
       {
@@ -395,7 +397,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Il regime forfettario semplifica molti adempimenti (IVA, ritenute, gestione contabile), ma NON esonera dall'obbligo di emettere scontrino al consumatore finale per le vendite B2C. Vediamo come gestire correttamente l'emissione, l'IVA \"a zero\" e gli aspetti operativi tipici del forfettario.",
     publishedAt: "2026-05-14",
-    updatedAt: "2026-05",
+    updatedAt: "2026-05-14",
     readingMinutes: 6,
     sections: [
       {
@@ -460,7 +462,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Hai un registratore telematico ma vorresti dismetterlo per passare al documento commerciale online via software? Il passaggio è legittimo e in molti casi conviene, ma richiede alcune verifiche preliminari e attenzione agli adempimenti formali. Vediamo cosa serve, passo per passo.",
     publishedAt: "2026-05-15",
-    updatedAt: "2026-05",
+    updatedAt: "2026-05-15",
     readingMinutes: 7,
     sections: [
       {
@@ -528,7 +530,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       'La "chiusura giornaliera" era l\'operazione classica di fine giornata con il registratore di cassa: si stampava lo scontrino di chiusura (la storica "Z") e si trasmettevano i corrispettivi. Con il documento commerciale online la logica è diversa, e in molti casi più semplice. Vediamo cosa devi davvero fare a fine giornata.',
     publishedAt: "2026-05-15",
-    updatedAt: "2026-05",
+    updatedAt: "2026-05-15",
     readingMinutes: 5,
     sections: [
       {
@@ -592,7 +594,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       'Dopo aver emesso uno scontrino elettronico ti accorgi di un errore, oppure il cliente cambia idea e chiede il rimborso: si può annullare? Sì, ma con regole precise. Lo "scontrino di annullamento" è un documento dedicato che cancella fiscalmente il precedente. Vediamo procedura, termini e casi pratici tipici.',
     publishedAt: "2026-05-15",
-    updatedAt: "2026-05",
+    updatedAt: "2026-05-15",
     readingMinutes: 6,
     sections: [
       {
@@ -667,7 +669,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "La Lotteria degli Scontrini è un sistema premio per i consumatori che presentano un codice al momento dell'acquisto. Per il commerciante è un'attività operativa semplice: contrariamente a quanto si legge in giro, oggi non esiste una sanzione amministrativa per il rifiuto del codice — la previsione iniziale del decreto fiscale 2020 fu eliminata in sede di conversione. Resta però un meccanismo di segnalazione del cliente sul Portale Lotteria, che alimenta l'analisi del rischio dell'Agenzia delle Entrate.",
     publishedAt: "2026-05-15",
-    updatedAt: "2026-05",
+    updatedAt: "2026-05-15",
     readingMinutes: 6,
     sections: [
       {
@@ -735,7 +737,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Il mercato dei software per scontrini elettronici è cresciuto rapidamente: web app, app mobile, gestionali integrati, soluzioni self-hosted. Scegliere quello giusto significa risparmiare ore di lavoro mensili ed evitare incidenti fiscali. Vediamo 6 criteri pratici per orientarti senza farti convincere dal marketing.",
     publishedAt: "2026-05-15",
-    updatedAt: "2026-05",
+    updatedAt: "2026-05-15",
     readingMinutes: 7,
     sections: [
       {
@@ -802,7 +804,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "I codici natura IVA (N1, N2, N2.2, N3, N4, N5, N6, N7) servono a spiegare al fisco perché su un'operazione non viene addebitata l'IVA con un'aliquota ordinaria. Sono obbligatori nel tracciato della fattura elettronica e dei corrispettivi telematici. Qui vediamo cosa significano uno per uno, perché il regime forfettario usa N2.2 in fattura ma N2 sullo scontrino, e quale dicitura di esenzione indicare.",
     publishedAt: "2026-06-29",
-    updatedAt: "2026-07",
+    updatedAt: "2026-07-12",
     readingMinutes: 8,
     sections: [
       {
@@ -939,7 +941,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Per stampare gli scontrini non serve una stampante fiscale: basta una stampante termica generica, da 30-120 € a seconda del modello. La WiFi conviene per la postazione fissa condivisa tra più dispositivi, il Bluetooth per la cassa mobile, l'USB per chi lavora da computer. Prima di comprare verifica tre cose: linguaggio ESC/POS, larghezza carta (58 o 80 mm) e il tipo di connessione adatto a come lavori.",
     publishedAt: "2026-07-12",
-    updatedAt: "2026-07",
+    updatedAt: "2026-07-12",
     readingMinutes: 7,
     sections: [
       {

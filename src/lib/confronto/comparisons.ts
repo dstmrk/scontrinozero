@@ -42,6 +42,7 @@ export interface ConfrontoContent {
   readonly ourPositioning: OurPositioning;
   readonly faq: readonly ConfrontoFaq[];
   readonly relatedHelp: readonly string[];
+  /** Data ISO YYYY-MM-DD dell'ultima verifica dei dati competitor (refresh trimestrale). */
   readonly lastUpdated: string;
 }
 
@@ -195,5 +196,5 @@ export const confrontoContent: ConfrontoContent = {
     "come-collegare-ade",
     "credenziali-fisconline",
   ],
-  lastUpdated: "2026-05",
+  lastUpdated: "2026-05-15",
 };
