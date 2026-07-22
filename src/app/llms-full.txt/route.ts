@@ -81,19 +81,22 @@ function buildLlmsFullTxt(baseUrl: string): string {
     );
   }
 
-  lines.push(`## ${confrontoContent.title}`, "");
   lines.push(
+    `## ${confrontoContent.title}`,
+    "",
     `URL: ${baseUrl}/confronto`,
     `Dati verificati il: ${confrontoContent.lastUpdated}`,
     "",
     confrontoContent.heroIntro,
     "",
-  );
-  for (const cat of confrontoContent.categories) {
-    lines.push(`### ${cat.title}`, "", cat.intro, "");
-  }
-  lines.push("### Software comparabili (snapshot pubblico)", "");
-  lines.push(
+    ...confrontoContent.categories.flatMap((cat) => [
+      `### ${cat.title}`,
+      "",
+      cat.intro,
+      "",
+    ]),
+    "### Software comparabili (snapshot pubblico)",
+    "",
     ...markdownTable({
       headers: ["Servizio", "Prezzo", "Prova"],
       rows: confrontoContent.saasCompetitors.map((s) => [
@@ -106,9 +109,10 @@ function buildLlmsFullTxt(baseUrl: string): string {
     ...faqBlock(confrontoContent.faq),
   );
 
-  lines.push("## Strumenti gratuiti", "");
-  for (const t of Object.values(tools)) {
-    lines.push(
+  lines.push(
+    "## Strumenti gratuiti",
+    "",
+    ...Object.values(tools).flatMap((t) => [
       `### ${t.title}`,
       "",
       `URL: ${baseUrl}/strumenti/${t.slug}`,
@@ -116,14 +120,14 @@ function buildLlmsFullTxt(baseUrl: string): string {
       t.heroIntro,
       "",
       ...faqBlock(t.faq),
-    );
-  }
-
-  lines.push("## Centro assistenza (solo indice)", "");
-  for (const a of Object.values(helpArticles)) {
-    lines.push(`- [${a.title}](${baseUrl}/help/${a.slug}): ${a.description}`);
-  }
-  lines.push("");
+    ]),
+    "## Centro assistenza (solo indice)",
+    "",
+    ...Object.values(helpArticles).map(
+      (a) => `- [${a.title}](${baseUrl}/help/${a.slug}): ${a.description}`,
+    ),
+    "",
+  );
 
   return lines.join("\n");
 }
