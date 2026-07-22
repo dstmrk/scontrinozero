@@ -12,6 +12,7 @@ vi.mock("@/components/json-ld", () => ({
   JsonLd: () => null,
   softwareApplicationJsonLd: {},
   organizationJsonLd: {},
+  webSiteJsonLd: {},
 }));
 vi.mock("./globals.css", () => ({}));
 

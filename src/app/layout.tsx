@@ -5,6 +5,7 @@ import {
   JsonLd,
   softwareApplicationJsonLd,
   organizationJsonLd,
+  webSiteJsonLd,
 } from "@/components/json-ld";
 import { marketingBaseUrl } from "@/lib/seo-indexable";
 import { UmamiScript } from "@/components/umami-script";
@@ -82,6 +83,7 @@ export default function RootLayout({
       >
         <JsonLd data={softwareApplicationJsonLd} />
         <JsonLd data={organizationJsonLd} />
+        <JsonLd data={webSiteJsonLd} />
         <UmamiScript />
         <Providers>{children}</Providers>
       </body>
