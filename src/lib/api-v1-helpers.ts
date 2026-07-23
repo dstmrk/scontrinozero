@@ -15,7 +15,16 @@ import { logger } from "@/lib/logger";
 import { readJsonWithLimit } from "@/lib/request-utils";
 import type { RateLimiter } from "@/lib/rate-limit";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
-import type { ZodType } from "zod/v4";
+import { z, type ZodType } from "zod/v4";
+
+/**
+ * Messaggio del 409 quando la sessione AdE interattiva (CIE) è scaduta: va
+ * rinnovata dall'app web (secondo fattore umano), il retry automatico via API
+ * è inutile finché l'utente non si ricollega. Condiviso da POST /v1/receipts e
+ * POST /v1/receipts/{id}/void per evitare la duplicazione del body inline.
+ */
+export const ADE_REAUTH_REQUIRED_MESSAGE =
+  "Sessione AdE (CIE) scaduta: ricollegati dall'app web ScontrinoZero prima di riprovare.";
 
 /** ApiKeyContext with businessId narrowed to string (management keys excluded). */
 export type BusinessApiContext = Omit<ApiKeyContext, "businessId"> & {
@@ -169,6 +178,9 @@ const SERVICE_ERROR_STATUS_MAP: Record<
   VOID_ALREADY_TARGETED: { status: 409 },
   VOID_SYNC_FAILED: { status: 500 },
   IDEMPOTENCY_PAYLOAD_MISMATCH: { status: 409 },
+  // Sessione AdE interattiva (CIE) scaduta: 409 senza Retry-After — il retry
+  // automatico è inutile finché l'utente non si ricollega dall'app web.
+  ADE_REAUTH_REQUIRED: { status: 409 },
   // Documento inesistente / cross-tenant: 404, coerente con GET /v1/receipts/{id}
   // (che risponde 404 direttamente nella route). Prima cadeva nel fallback 422.
   NOT_FOUND: { status: 404 },
@@ -240,4 +252,68 @@ export async function parseAndValidateBody<T>(
   }
 
   return { data: parsed.data };
+}
+
+/** Page size di default per GET /api/v1/receipts (nessun `limit` in query). */
+export const LIST_DEFAULT_LIMIT = 20;
+/** Page size massimo per GET /api/v1/receipts. */
+export const LIST_MAX_LIMIT = 100;
+
+// `z.coerce.number().int()` rifiuta NaN/Infinity (Number.isInteger è false) e i
+// non-interi: "abc"/"12abc"/"1.5"/"Infinity" → 400. `.min(1)` copre 0 e i
+// negativi ("-100", "0", "" → Number("")=0). Assenti → default nel chiamante.
+// Nota: nessun `.max()` su `limit` — un `limit` oltre il massimo NON è un errore
+// ma viene *ridotto* a LIST_MAX_LIMIT nel return (soft cap convenzionale). Solo
+// i valori malformati (non interi, < 1) sono rifiutati con 400.
+const listQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  limit: z.coerce.number().int().min(1).optional(),
+  kind: z.enum(["SALE", "VOID"]).optional(),
+});
+
+const LIST_QUERY_ERROR: Record<string, string> = {
+  page: "Il parametro 'page' deve essere un intero maggiore o uguale a 1.",
+  limit: "Il parametro 'limit' deve essere un intero maggiore o uguale a 1.",
+  kind: "Il parametro 'kind' deve essere 'SALE' o 'VOID'.",
+};
+
+/**
+ * Valida i parametri opzionali di lista (`page`/`limit`/`kind`) di
+ * GET /api/v1/receipts. Valori *malformati* → `400` (regola 9: validazione al
+ * boundary) invece del clamp/ignore silenzioso precedente (`page=-100`→1,
+ * `kind=FOO`→tutti). Un `limit` oltre il massimo viene ridotto a
+ * `LIST_MAX_LIMIT` (soft cap convenzionale, non un errore). Parametri assenti →
+ * default documentati (`page=1`, `limit=20`, `kind=null` = entrambi i tipi).
+ *
+ * Ritorna `{ error: Response }` sul primo parametro invalido, così il caller fa:
+ *   if ("error" in result) return result.error;
+ */
+export function parseListPagination(
+  searchParams: URLSearchParams,
+):
+  | { error: Response }
+  | { data: { page: number; limit: number; kind: "SALE" | "VOID" | null } } {
+  const raw: Record<string, string> = {};
+  for (const key of ["page", "limit", "kind"] as const) {
+    const value = searchParams.get(key);
+    if (value !== null) raw[key] = value;
+  }
+
+  const parsed = listQuerySchema.safeParse(raw);
+  if (!parsed.success) {
+    const field = parsed.error.issues[0]?.path?.[0];
+    const msg =
+      (typeof field === "string" && LIST_QUERY_ERROR[field]) ||
+      "Parametri di query non validi.";
+    return { error: withCors(Response.json({ error: msg }, { status: 400 })) };
+  }
+
+  return {
+    data: {
+      page: parsed.data.page ?? 1,
+      // Soft cap: un limit valido oltre il massimo viene ridotto, non rifiutato.
+      limit: Math.min(LIST_MAX_LIMIT, parsed.data.limit ?? LIST_DEFAULT_LIMIT),
+      kind: parsed.data.kind ?? null,
+    },
+  };
 }

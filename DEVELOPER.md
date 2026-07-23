@@ -217,7 +217,12 @@ Tutte le risposte d'errore hanno l'envelope `{ "error": "<messaggio>" }`; gli
 errori con un `code` machine-readable lo includono anche nel body (`{ "code":
 "…", "error": "…" }`). **Non esiste un campo `adeErrors`.**
 
-- `400` — validazione input (corpo malformato, UUID non valido)
+- `400` — validazione input (corpo malformato, UUID non valido). Su
+  `GET /v1/receipts` anche i parametri di query malformati sono rifiutati (niente
+  ignore silenzioso): `page`/`limit` non interi o `< 1`, e `kind` diverso da
+  `SALE`/`VOID` → `400`. Un `limit > 100` **non** è un errore: viene ridotto a
+  `100` (soft cap). Parametri assenti usano i default (`page=1`, `limit=20`,
+  tutti i `kind`)
 - `401` — API key mancante, non valida, revocata o scaduta
 - `402` — piano non supporta API access (upgrade a Pro/Developer)
 - `403` — chiave di tipo sbagliato (es. management key su un endpoint business)
@@ -228,6 +233,11 @@ errori con un `code` machine-readable lo includono anche nel body (`{ "code":
   `IDEMPOTENCY_PAYLOAD_MISMATCH` (key riusata con payload diverso **o**
   cross-operazione), `ALREADY_VOIDED` (la key identifica uno scontrino già
   annullato), `VOID_ALREADY_TARGETED` (annullo concorrente sullo stesso SALE)
+- `409` — `ADE_REAUTH_REQUIRED` (body include `code`): la sessione AdE
+  interattiva (CIE) è scaduta e va rinnovata **dall'app web ScontrinoZero**
+  (secondo fattore umano). A differenza degli altri `409`, il retry automatico
+  è inutile finché l'esercente non si ricollega — nessun `Retry-After`. Vale su
+  `POST /v1/receipts` e `POST /v1/receipts/{id}/void`
 - `422` — rifiuto funzionale AdE o altro errore di logica senza `code` (es.
   documento non annullabile, dati AdE mancanti). Body: solo `{ "error": "…" }`
 - `429` — rate limit superato (header `Retry-After`)

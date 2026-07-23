@@ -795,7 +795,7 @@ const idempotencyKey = crypto.randomUUID();`}</code>
               {[
                 [
                   "400",
-                  "Corpo della richiesta non valido (campo mancante, tipo errato, UUID non valido).",
+                  "Richiesta non valida: corpo malformato (campo mancante, tipo errato, UUID non valido) oppure, sulla lista, un parametro di query malformato — page o limit non interi o minori di 1, oppure kind diverso da SALE/VOID. I valori malformati vengono rifiutati, non corretti in silenzio (un limit oltre 100 fa eccezione: viene ridotto a 100).",
                 ],
                 ["401", "Chiave API assente, non valida, revocata o scaduta."],
                 [
@@ -808,7 +808,7 @@ const idempotencyKey = crypto.randomUUID();`}</code>
                 ],
                 [
                   "409",
-                  "Conflitto di idempotenza: una richiesta con la stessa idempotencyKey è ancora in corso, è già stata rifiutata, oppure la chiave è stata riusata con un contenuto diverso. In quest'ultimo caso usa una nuova chiave.",
+                  "Due casi, distinti dal campo code nel body. Conflitto di idempotenza: una richiesta con la stessa idempotencyKey è ancora in corso, è già stata rifiutata, oppure la chiave è stata riusata con un contenuto diverso (in quest'ultimo caso usa una nuova chiave). Oppure code ADE_REAUTH_REQUIRED: la sessione con l'Agenzia delle Entrate (CIE) è scaduta e va rinnovata dall'app web ScontrinoZero — il retry automatico è inutile finché l'esercente non si ricollega.",
                 ],
                 [
                   "422",

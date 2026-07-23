@@ -192,4 +192,15 @@ describe("POST /api/v1/receipts/[id]/void", () => {
     const body = await res.json();
     expect(body.error).toBe("Il documento non è in uno stato annullabile.");
   });
+
+  it("ritorna 409 con code ADE_REAUTH_REQUIRED se la sessione CIE è scaduta", async () => {
+    mockVoidReceiptForBusiness.mockResolvedValue({ reauthRequired: true });
+
+    const res = await POST(makeRequest(), makeParams());
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe("ADE_REAUTH_REQUIRED");
+    expect(typeof body.error).toBe("string");
+    expect(body.error.length).toBeGreaterThan(0);
+  });
 });
