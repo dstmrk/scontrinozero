@@ -217,7 +217,10 @@ describe("voidReceiptForBusiness", () => {
       const { voidReceiptForBusiness } =
         await import("@/lib/services/void-service");
       const result = await voidReceiptForBusiness(makeInput());
-      expect(result).toEqual({ error: "Scontrino non trovato." });
+      expect(result).toEqual({
+        error: "Scontrino non trovato.",
+        code: "NOT_FOUND",
+      });
     });
 
     it("returns error when document kind is not SALE", async () => {

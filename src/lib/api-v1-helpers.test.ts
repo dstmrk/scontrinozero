@@ -238,6 +238,19 @@ describe("serviceErrorResponse", () => {
     expect(res.headers.get("Retry-After")).toBe("2");
   });
 
+  it("maps NOT_FOUND to 404 with the code in the body", async () => {
+    const res = serviceErrorResponse({
+      error: "Scontrino non trovato.",
+      code: "NOT_FOUND",
+    });
+    expect(res.status).toBe(404);
+    expect(res.headers.get("Retry-After")).toBeNull();
+    expect(await res.json()).toEqual({
+      code: "NOT_FOUND",
+      error: "Scontrino non trovato.",
+    });
+  });
+
   it("falls back to 422 for an unknown code", async () => {
     const res = serviceErrorResponse({ error: "boom", code: "WHAT_IS_THIS" });
     expect(res.status).toBe(422);

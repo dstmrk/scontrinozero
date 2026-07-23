@@ -535,7 +535,10 @@ async function prepareVoidDocument(
         "v1 document not found",
       );
     }
-    return { kind: "done", result: { error: "Scontrino non trovato." } };
+    return {
+      kind: "done",
+      result: { error: "Scontrino non trovato.", code: "NOT_FOUND" },
+    };
   }
   if (saleDoc.kind !== "SALE") {
     return {
