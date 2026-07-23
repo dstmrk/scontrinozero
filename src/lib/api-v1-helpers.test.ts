@@ -32,9 +32,13 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 import {
+  ADE_REAUTH_REQUIRED_MESSAGE,
   checkRateLimitApi,
   corsOptionsResponse,
+  LIST_DEFAULT_LIMIT,
+  LIST_MAX_LIMIT,
   parseAndValidateBody,
+  parseListPagination,
   requireBusinessApiAuth,
   serviceErrorResponse,
   withCors,
@@ -251,6 +255,19 @@ describe("serviceErrorResponse", () => {
     });
   });
 
+  it("maps ADE_REAUTH_REQUIRED to 409 with the code and no Retry-After", async () => {
+    const res = serviceErrorResponse({
+      error: ADE_REAUTH_REQUIRED_MESSAGE,
+      code: "ADE_REAUTH_REQUIRED",
+    });
+    expect(res.status).toBe(409);
+    expect(res.headers.get("Retry-After")).toBeNull();
+    expect(await res.json()).toEqual({
+      code: "ADE_REAUTH_REQUIRED",
+      error: ADE_REAUTH_REQUIRED_MESSAGE,
+    });
+  });
+
   it("falls back to 422 for an unknown code", async () => {
     const res = serviceErrorResponse({ error: "boom", code: "WHAT_IS_THIS" });
     expect(res.status).toBe(422);
@@ -330,6 +347,77 @@ describe("parseAndValidateBody", () => {
       1000,
     );
     expect(result).toEqual({ data: { foo: "bar" } });
+  });
+});
+
+describe("parseListPagination", () => {
+  function params(query: string): URLSearchParams {
+    return new URLSearchParams(query);
+  }
+
+  it("returns the documented defaults when no params are present", () => {
+    const result = parseListPagination(params(""));
+    expect(result).toEqual({
+      data: { page: 1, limit: LIST_DEFAULT_LIMIT, kind: null },
+    });
+  });
+
+  it("parses valid page/limit/kind", () => {
+    const result = parseListPagination(params("page=2&limit=50&kind=SALE"));
+    expect(result).toEqual({ data: { page: 2, limit: 50, kind: "SALE" } });
+  });
+
+  it("accepts kind=VOID", () => {
+    const result = parseListPagination(params("kind=VOID"));
+    expect(result).toEqual({
+      data: { page: 1, limit: LIST_DEFAULT_LIMIT, kind: "VOID" },
+    });
+  });
+
+  it("accepts limit at the maximum", () => {
+    const result = parseListPagination(params(`limit=${LIST_MAX_LIMIT}`));
+    expect(result).toEqual({
+      data: { page: 1, limit: LIST_MAX_LIMIT, kind: null },
+    });
+  });
+
+  it("caps a valid limit above the maximum down to LIST_MAX_LIMIT (soft cap, not 400)", () => {
+    const result = parseListPagination(params(`limit=${LIST_MAX_LIMIT + 400}`));
+    expect(result).toEqual({
+      data: { page: 1, limit: LIST_MAX_LIMIT, kind: null },
+    });
+  });
+
+  it.each([
+    { name: "page=abc (non numeric)", query: "page=abc", field: "page" },
+    { name: "page=12abc (numeric prefix)", query: "page=12abc", field: "page" },
+    { name: "page=-100 (negative)", query: "page=-100", field: "page" },
+    { name: "page=0 (below min)", query: "page=0", field: "page" },
+    { name: "page=1.5 (non integer)", query: "page=1.5", field: "page" },
+    { name: "page= (empty)", query: "page=", field: "page" },
+    { name: "limit=-1 (negative)", query: "limit=-1", field: "limit" },
+    { name: "limit=0 (below min)", query: "limit=0", field: "limit" },
+    { name: "limit=abc (non numeric)", query: "limit=abc", field: "limit" },
+    { name: "kind=FOO (invalid enum)", query: "kind=FOO", field: "kind" },
+  ])(
+    "rejects $name with a 400 mentioning the field",
+    async ({ query, field }) => {
+      const result = parseListPagination(params(query));
+      expect("error" in result).toBe(true);
+      const res = (result as { error: Response }).error;
+      expect(res.status).toBe(400);
+      expect(res.headers.get(ORIGIN_HEADER)).toBe("*");
+      const body = (await res.json()) as { error: string };
+      expect(body.error).toContain(`'${field}'`);
+    },
+  );
+
+  it("reports only the first invalid param when several are wrong", async () => {
+    const result = parseListPagination(params("page=abc&kind=FOO"));
+    const res = (result as { error: Response }).error;
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toContain("'page'");
   });
 });
 

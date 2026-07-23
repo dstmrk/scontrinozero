@@ -9,6 +9,7 @@ import {
   parseAndValidateBody,
   serviceErrorResponse,
   withCors,
+  ADE_REAUTH_REQUIRED_MESSAGE,
 } from "@/lib/api-v1-helpers";
 
 const voidBodySchema = z.object({
@@ -68,15 +69,11 @@ export async function POST(
   );
 
   if (result.reauthRequired) {
-    return withCors(
-      Response.json(
-        {
-          error:
-            "Sessione AdE (CIE) scaduta: ricollegati dall'app web ScontrinoZero prima di riprovare.",
-        },
-        { status: 409 },
-      ),
-    );
+    // Vedi POST /v1/receipts: 409 + code machine-readable, retry umano.
+    return serviceErrorResponse({
+      error: ADE_REAUTH_REQUIRED_MESSAGE,
+      code: "ADE_REAUTH_REQUIRED",
+    });
   }
 
   if (result.error) {

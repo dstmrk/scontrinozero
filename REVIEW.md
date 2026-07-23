@@ -76,17 +76,17 @@ costo del DOM per la lista completa lato client.
 ### 12. Paginazione cursor-based su storico, export e Developer API
 
 - **Categoria:** performance/scalabilità · **Severità:** Medium (cresce col volume per-tenant)
-- **File:** `src/server/storico-actions.ts:39-113` (`searchReceipts`: offset-based + `COUNT(*)` per request); `src/server/export-actions.ts:78+` (`exportUserData`: export senza limiti); `src/app/api/v1/receipts/route.ts:246-260` (clamp silenzioso di `page`/`limit`/`kind`) e `:292-296` (`COUNT(*)` full-match a ogni richiesta paginata)
+- **File:** `src/server/storico-actions.ts:39-113` (`searchReceipts`: offset-based + `COUNT(*)` per request); `src/server/export-actions.ts:78+` (`exportUserData`: export senza limiti); `src/app/api/v1/receipts/route.ts` (`COUNT(*)` full-match a ogni richiesta paginata)
 
-**Problema.** Tre facce dello stesso debt:
+**Problema.** Due facce dello stesso debt (la validazione dei parametri di query
+`page`/`limit`/`kind` dell'API con **400** — il terzo aspetto originario — è già
+stata risolta separatamente):
 
 1. `searchReceipts` e `GET /api/v1/receipts` usano LIMIT/OFFSET + un `COUNT(*)`
    che scansiona l'intero match a **ogni** pagina richiesta: con 100k+ documenti
    per business la latenza è dominata dal count.
 2. `exportUserData` carica tutti i documenti senza bound (rischio OOM su tenant
    grandi).
-3. I parametri `page`/`limit`/`kind` dell'API sono clampati silenziosamente
-   (`page=-100` → 200 con `page=1`) invece di essere rifiutati.
 
 **Fix (non ambiguo).**
 
@@ -96,14 +96,11 @@ costo del DOM per la lista completa lato client.
 2. **Breaking change Developer API** da gestire esplicitamente: rendere `total`
    opt-in (`includeTotal=true`) o sostituirlo con `nextCursor`/`limit+1`;
    aggiornare `docs/api-spec.md` e `DEVELOPER.md`.
-3. Validare `page`/`limit`/`kind` con schema Zod che rifiuta valori invalidi con
-   **400** (niente clamp silenzioso); stesso schema condiviso con la server
-   action (vedi item 18).
-4. Export: stream/chunking con bound esplicito (es. batch da 1000 con cursore) e
+3. Export: stream/chunking con bound esplicito (es. batch da 1000 con cursore) e
    limite documentato.
-5. **Test:** cursore stabile sotto insert concorrenti; pagina vuota; `400` su
-   `page=abc`/`limit=-1`/`kind=FOO`; export con N > batch size.
-6. Da affrontare **quando il volume per-tenant lo richiede** — monitorare p95
+4. **Test:** cursore stabile sotto insert concorrenti; pagina vuota; export con
+   N > batch size.
+5. Da affrontare **quando il volume per-tenant lo richiede** — monitorare p95
    della lista storico.
 
 ---
@@ -369,34 +366,6 @@ fino a 24h, irrilevante su soglie di mesi.
    `authDeleted`).
 3. **Test:** con fake timers, il callback iniziale scatta dopo il delay e non
    impila un secondo interval; la guardia d'idempotenza resta valida.
-
----
-
-### 49. API v1: 409 `reauthRequired` senza `code` machine-readable e non documentato
-
-- **Categoria:** architettura/API · **Severità:** Low — Developer API a bassa adozione, ma il contratto è ambiguo
-- **File:** `src/app/api/v1/receipts/route.ts:94-106` e `src/app/api/v1/receipts/[id]/void/route.ts:70-82` (response 409 inline, duplicata, senza `code`); `src/lib/api-v1-helpers.ts:160-174` (`SERVICE_ERROR_STATUS_MAP`); `DEVELOPER.md` (sezione "Errori standard") e `/help/api` (409 documentato solo come conflitto idempotency)
-
-**Problema.** Il nuovo 409 per sessione CIE scaduta ritorna solo
-`{ error: "<messaggio in italiano>" }`, mentre gli altri quattro 409
-dell'API (`PENDING_IN_PROGRESS`, `ALREADY_REJECTED`, `VOID_ALREADY_TARGETED`,
-`IDEMPOTENCY_PAYLOAD_MISMATCH`) hanno tutti un `code`: un client non può
-distinguere "ritenta tra 2s" da "serve un'azione umana sull'app web" senza
-parsare il testo italiano. Il body è inoltre duplicato verbatim nelle due
-route, e `docs/api-spec.md`/`DEVELOPER.md` non menzionano il nuovo caso.
-
-**Fix (non ambiguo).**
-
-1. Aggiungere `ADE_REAUTH_REQUIRED: { status: 409 }` a
-   `SERVICE_ERROR_STATUS_MAP` e sostituire i due blocchi inline con
-   `serviceErrorResponse({ error: <messaggio attuale>, code: "ADE_REAUTH_REQUIRED" })`
-   (elimina anche la duplicazione).
-2. Documentare in `docs/api-spec.md` (sezione errori, accanto al 409
-   idempotency) e `DEVELOPER.md`: 409 + `code: ADE_REAUTH_REQUIRED` = la
-   sessione AdE interattiva (CIE) va rinnovata dall'app web, il retry
-   automatico è inutile finché l'utente non si ricollega.
-3. **Test:** envelope `{ code, error }` su entrambe le route quando il
-   servizio ritorna `reauthRequired`.
 
 ---
 

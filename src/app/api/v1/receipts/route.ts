@@ -17,8 +17,10 @@ import {
   corsOptionsResponse,
   checkRateLimitApi,
   parseAndValidateBody,
+  parseListPagination,
   serviceErrorResponse,
   withCors,
+  ADE_REAUTH_REQUIRED_MESSAGE,
 } from "@/lib/api-v1-helpers";
 import type { SubmitReceiptInput } from "@/types/cassa";
 
@@ -39,8 +41,6 @@ const listApiLimiter = new RateLimiter({
 });
 
 const MAX_RANGE_DAYS = 31;
-const DEFAULT_LIMIT = 20;
-const MAX_LIMIT = 100;
 
 // list query: count + select fino a 100 doc + lines fetch su quel batch.
 // 5s di budget tiene il p95 anche su un page=100 con catalogo grande, e
@@ -94,15 +94,12 @@ export async function POST(request: Request): Promise<Response> {
   if (result.reauthRequired) {
     // Sessione AdE interattiva (CIE) scaduta: richiede un ri-collegamento
     // dall'app web (secondo fattore umano), non automatizzabile via API.
-    return withCors(
-      Response.json(
-        {
-          error:
-            "Sessione AdE (CIE) scaduta: ricollegati dall'app web ScontrinoZero prima di riprovare.",
-        },
-        { status: 409 },
-      ),
-    );
+    // 409 + code machine-readable così il client distingue "azione umana"
+    // dagli altri 409 retryable (PENDING_IN_PROGRESS, ecc.).
+    return serviceErrorResponse({
+      error: ADE_REAUTH_REQUIRED_MESSAGE,
+      code: "ADE_REAUTH_REQUIRED",
+    });
   }
 
   if (result.error) {
@@ -210,22 +207,12 @@ export async function GET(request: Request): Promise<Response> {
   const toDateExclusive = new Date(toDate);
   toDateExclusive.setUTCDate(toDateExclusive.getUTCDate() + 1);
 
-  // Optional params
-  const pageStr = searchParams.get("page");
-  const limitStr = searchParams.get("limit");
-  const kindStr = searchParams.get("kind");
-
-  const page = Math.max(1, Number.parseInt(pageStr ?? "1", 10) || 1);
-  const limit = Math.min(
-    MAX_LIMIT,
-    Math.max(
-      1,
-      Number.parseInt(limitStr ?? String(DEFAULT_LIMIT), 10) || DEFAULT_LIMIT,
-    ),
-  );
+  // Optional params: page/limit/kind validati al boundary (regola 9). Valori
+  // invalidi → 400 esplicito, niente clamp/ignore silenzioso.
+  const paginationResult = parseListPagination(searchParams);
+  if ("error" in paginationResult) return paginationResult.error;
+  const { page, limit, kind } = paginationResult.data;
   const offset = (page - 1) * limit;
-  const kind: "SALE" | "VOID" | null =
-    kindStr === "SALE" || kindStr === "VOID" ? kindStr : null;
 
   // ── DB queries ────────────────────────────────────────────────────────────
   const conditions = [

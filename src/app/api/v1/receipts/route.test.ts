@@ -9,12 +9,14 @@ const {
   mockCanUseApi,
   mockEmitReceiptForBusiness,
   mockRateLimiterCheck,
+  mockWithStatementTimeout,
 } = vi.hoisted(() => ({
   mockAuthenticateApiKey: vi.fn(),
   mockIsApiKeyAuthError: vi.fn(),
   mockCanUseApi: vi.fn(),
   mockEmitReceiptForBusiness: vi.fn(),
   mockRateLimiterCheck: vi.fn(),
+  mockWithStatementTimeout: vi.fn(),
 }));
 
 vi.mock("@/lib/api-auth", () => ({
@@ -28,6 +30,10 @@ vi.mock("@/lib/plans", () => ({
 
 vi.mock("@/lib/services/receipt-service", () => ({
   emitReceiptForBusiness: mockEmitReceiptForBusiness,
+}));
+
+vi.mock("@/lib/db-timeout", () => ({
+  withStatementTimeout: mockWithStatementTimeout,
 }));
 
 vi.mock("@/lib/rate-limit", () => ({
@@ -73,9 +79,15 @@ function makeRequest(body: unknown = VALID_BODY) {
   });
 }
 
+function makeGetRequest(query: string) {
+  return new Request(`http://localhost/api/v1/receipts?${query}`, {
+    method: "GET",
+  });
+}
+
 // --- Tests ---
 
-import { POST } from "./route";
+import { GET, POST } from "./route";
 
 describe("POST /api/v1/receipts", () => {
   beforeEach(() => {
@@ -184,6 +196,17 @@ describe("POST /api/v1/receipts", () => {
     expect(body.error).toBe("Credenziali AdE non trovate.");
   });
 
+  it("ritorna 409 con code ADE_REAUTH_REQUIRED se la sessione CIE è scaduta", async () => {
+    mockEmitReceiptForBusiness.mockResolvedValue({ reauthRequired: true });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe("ADE_REAUTH_REQUIRED");
+    expect(typeof body.error).toBe("string");
+    expect(body.error.length).toBeGreaterThan(0);
+  });
+
   it("ritorna 400 se idempotencyKey non è un UUID valido", async () => {
     const res = await POST(
       makeRequest({ ...VALID_BODY, idempotencyKey: "not-a-uuid" }),
@@ -249,5 +272,58 @@ describe("POST /api/v1/receipts", () => {
     );
     expect(res.status).toBe(201);
     expect(mockEmitReceiptForBusiness).toHaveBeenCalled();
+  });
+});
+
+describe("GET /api/v1/receipts (validazione param lista)", () => {
+  const VALID_RANGE = "from=2026-01-01&to=2026-01-31";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockIsApiKeyAuthError.mockReturnValue(false);
+    mockAuthenticateApiKey.mockResolvedValue(FAKE_AUTH);
+    mockCanUseApi.mockReturnValue(true);
+    mockRateLimiterCheck.mockReturnValue({ success: true });
+    // Callback ignorata: nessun accesso DB, ritorna una pagina vuota.
+    mockWithStatementTimeout.mockResolvedValue({
+      total: 0,
+      docs: [],
+      lines: [],
+    });
+  });
+
+  it.each([
+    { name: "page=abc", query: "page=abc" },
+    { name: "page=-100", query: "page=-100" },
+    { name: "page=0", query: "page=0" },
+    { name: "limit=-1", query: "limit=-1" },
+    { name: "limit=abc", query: "limit=abc" },
+    { name: "kind=FOO", query: "kind=FOO" },
+  ])(
+    "ritorna 400 (malformato, niente clamp silenzioso) su $name",
+    async ({ query }) => {
+      const res = await GET(makeGetRequest(`${VALID_RANGE}&${query}`));
+      expect(res.status).toBe(400);
+      // La validazione esce prima di qualunque query DB.
+      expect(mockWithStatementTimeout).not.toHaveBeenCalled();
+    },
+  );
+
+  it("param assenti: usa i default (page=1, limit=20) e ritorna 200", async () => {
+    const res = await GET(makeGetRequest(VALID_RANGE));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.pagination).toMatchObject({ page: 1, limit: 20 });
+    expect(body.data).toEqual([]);
+  });
+
+  it("param validi: page/limit/kind riflessi nella pagination, 200", async () => {
+    const res = await GET(
+      makeGetRequest(`${VALID_RANGE}&page=2&limit=50&kind=SALE`),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.pagination).toMatchObject({ page: 2, limit: 50 });
+    expect(mockWithStatementTimeout).toHaveBeenCalledTimes(1);
   });
 });
