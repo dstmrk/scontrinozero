@@ -169,14 +169,27 @@ describe("POST /api/v1/receipts/[id]/void", () => {
     expect(res.status).toBe(400);
   });
 
-  it("ritorna 422 se il service ritorna un errore", async () => {
+  it("ritorna 404 se lo scontrino non è trovato (code NOT_FOUND)", async () => {
     mockVoidReceiptForBusiness.mockResolvedValue({
       error: "Scontrino non trovato.",
+      code: "NOT_FOUND",
+    });
+
+    const res = await POST(makeRequest(), makeParams());
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toBe("Scontrino non trovato.");
+    expect(body.code).toBe("NOT_FOUND");
+  });
+
+  it("ritorna 422 se il service ritorna un errore generico senza code", async () => {
+    mockVoidReceiptForBusiness.mockResolvedValue({
+      error: "Il documento non è in uno stato annullabile.",
     });
 
     const res = await POST(makeRequest(), makeParams());
     expect(res.status).toBe(422);
     const body = await res.json();
-    expect(body.error).toBe("Scontrino non trovato.");
+    expect(body.error).toBe("Il documento non è in uno stato annullabile.");
   });
 });

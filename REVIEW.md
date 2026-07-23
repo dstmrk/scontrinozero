@@ -375,7 +375,7 @@ fino a 24h, irrilevante su soglie di mesi.
 ### 49. API v1: 409 `reauthRequired` senza `code` machine-readable e non documentato
 
 - **Categoria:** architettura/API · **Severità:** Low — Developer API a bassa adozione, ma il contratto è ambiguo
-- **File:** `src/app/api/v1/receipts/route.ts:94-106` e `src/app/api/v1/receipts/[id]/void/route.ts:70-82` (response 409 inline, duplicata, senza `code`); `src/lib/api-v1-helpers.ts:160-171` (`SERVICE_ERROR_STATUS_MAP`); `docs/api-spec.md:688` e `DEVELOPER.md` (409 documentato solo come conflitto idempotency)
+- **File:** `src/app/api/v1/receipts/route.ts:94-106` e `src/app/api/v1/receipts/[id]/void/route.ts:70-82` (response 409 inline, duplicata, senza `code`); `src/lib/api-v1-helpers.ts:160-174` (`SERVICE_ERROR_STATUS_MAP`); `DEVELOPER.md` (sezione "Errori standard") e `/help/api` (409 documentato solo come conflitto idempotency)
 
 **Problema.** Il nuovo 409 per sessione CIE scaduta ritorna solo
 `{ error: "<messaggio in italiano>" }`, mentre gli altri quattro 409

@@ -1,7 +1,17 @@
-# ScontrinoZero — Specifica API
+# ScontrinoZero — Specifica integrazione AdE
 
-Questo documento descrive le API pubbliche di ScontrinoZero e il mapping verso
-gli endpoint dell'Agenzia delle Entrate (AdE) per il Documento Commerciale Online.
+Questo documento descrive l'**integrazione HTTP con l'Agenzia delle Entrate
+(AdE)** per il Documento Commerciale Online (flussi di login, endpoint documenti,
+payload, codifiche) e il **contratto adapter interno** (`src/lib/ade/`) che mappa
+i DTO applicativi sul payload AdE.
+
+> **Non è la documentazione dell'API REST pubblica per sviluppatori.** L'API HTTP
+> esposta agli integratori (`POST /api/v1/receipts`, `GET /api/v1/receipts`,
+> `GET /api/v1/receipts/{id}`, `POST /api/v1/receipts/{id}/void`) è documentata
+> nella pagina pubblica **`/help/api`** (`src/app/(marketing)/help/api/page.tsx`)
+> e nel prodotto/architettura in **`DEVELOPER.md`**. I nomi campo del corpo HTTP
+> pubblico (`grossUnitPrice`, `paymentMethod`) **differiscono** da quelli del DTO
+> adapter interno descritto qui (`unitPriceGross`, `payments[]`).
 
 ---
 
@@ -587,55 +597,46 @@ sono accettati dal server, ma usiamo 2 per coerenza.
 
 ---
 
-## 8. API pubbliche ScontrinoZero
+## 8. Contratto adapter interno (DTO)
 
-### 8.1 Emissione vendita
+> ⚠️ **Questa NON è l'API HTTP pubblica** (vedi la nota in testa al documento e
+> `/help/api`). Descrive i **DTO interni** definiti in
+> `src/lib/ade/public-types.ts` che il service layer costruisce e passa al mapper
+> AdE (sez. 9). I nomi campo qui (`unitPriceGross`, `payments[]`) sono quelli del
+> DTO, **non** quelli del corpo HTTP pubblico (`grossUnitPrice`, `paymentMethod`).
+> L'`idempotencyKey` e il `businessId` sono passati a parte al service, non dentro
+> il DTO di vendita.
 
-`POST /api/v1/commercial-documents/sales`
+### 8.1 DTO vendita (`SaleDocumentRequest`)
 
-Request:
-
-```json
-{
-  "idempotencyKey": "uuid-v4",
-  "document": {
-    "date": "2026-02-15",
-    "customerTaxCode": null,
-    "isGiftDocument": false,
-    "lines": [
-      {
-        "description": "Cappuccino",
-        "quantity": 2,
-        "unitPriceGross": 1.5,
-        "unitDiscount": 0.0,
-        "vatCode": "10",
-        "isGift": false
-      }
-    ],
-    "payments": [{ "type": "CASH", "amount": 3.0 }],
-    "globalDiscount": 0.0,
-    "deductibleAmount": 0.0
-  }
-}
-```
-
-Response (200):
+Costruito da `emitReceiptForBusiness` (`src/lib/services/receipt-service.ts`) e
+passato a `mapSaleToAdePayload`:
 
 ```json
 {
-  "success": true,
-  "status": "ACCEPTED",
-  "transactionId": "151085589",
-  "documentProgressive": "DCW2026/5111-2188",
-  "errors": []
+  "date": "2026-02-15",
+  "lotteryCode": null,
+  "isGiftDocument": false,
+  "lines": [
+    {
+      "description": "Cappuccino",
+      "quantity": 2,
+      "unitPriceGross": 1.5,
+      "unitDiscount": 0.0,
+      "vatCode": "10",
+      "isGift": false
+    }
+  ],
+  "payments": [{ "type": "CASH", "amount": 3.0 }],
+  "globalDiscount": 0.0,
+  "deductibleAmount": 0.0
 }
 ```
 
-### 8.2 Annullamento
+### 8.2 DTO annullo (`VoidRequest`)
 
-`POST /api/v1/commercial-documents/voids`
-
-Request:
+Costruito da `voidReceiptForBusiness` (`src/lib/services/void-service.ts`) e
+passato a `mapVoidToAdePayload`:
 
 ```json
 {
@@ -648,66 +649,21 @@ Request:
 }
 ```
 
-Response (200):
+### 8.3 Esito
 
-```json
-{
-  "success": true,
-  "status": "VOID_ACCEPTED",
-  "transactionId": "151086012",
-  "documentProgressive": "DCW2026/5111-2611",
-  "errors": []
-}
-```
-
-### 8.3 Recupero documento
-
-`GET /api/v1/commercial-documents/{transactionId}`
-
-### 8.4 Download PDF
-
-`GET /api/v1/commercial-documents/{transactionId}/pdf`
-
-### 8.5 Error model
-
-Response errore (422):
-
-```json
-{
-  "success": false,
-  "status": "REJECTED",
-  "errors": [
-    {
-      "code": "ADE_VALIDATION_ERROR",
-      "message": "Errore restituito da AdE",
-      "field": "document.lines[0].vatCode"
-    }
-  ]
-}
-```
-
-Codici HTTP:
-
-- 200: invio accettato
-- 400: validazione input
-- 409: conflitto idempotency — un'altra richiesta con la stessa `idempotencyKey`
-  è in corso (`PENDING_IN_PROGRESS` / `VOID_PENDING_IN_PROGRESS`), è già stata
-  rifiutata (`ALREADY_REJECTED`), oppure la key è stata riusata con un payload
-  diverso (`IDEMPOTENCY_PAYLOAD_MISMATCH`: in tal caso usa una nuova key). Due
-  casi specifici dello stesso stato:
-  - `IDEMPOTENCY_PAYLOAD_MISMATCH` copre anche il **riuso cross-operazione**
-    della key: una key già usata per un'emissione non può essere usata per un
-    annullo e viceversa. **La idempotency key deve essere unica per operazione:
-    emit e void non condividono mai la stessa key.**
-  - `ALREADY_VOIDED`: la key identifica uno scontrino già annullato. Un replay
-    dell'emissione con quella key viene rifiutato (il documento non è più
-    valido): emetti un nuovo scontrino con una key diversa.
-- 422: rifiuto funzionale / errore AdE
-- 503: errore tecnico temporaneo AdE
+L'adapter normalizza la risposta AdE (`AdeResponse`, sez. 2.5) e il service
+ritorna al chiamante un risultato tipizzato (`SubmitReceiptResult` /
+`VoidReceiptResult`) con `documentId`/`voidDocumentId`, `adeTransactionId`,
+`adeProgressive` — oppure `error` + `code` machine-readable. La forma HTTP finale
+(status code, envelope `{ "error": "…" }`) è responsabilità delle route
+`/api/v1/receipts/*` → vedi `/help/api` e `DEVELOPER.md`.
 
 ---
 
-## 9. Mapping API pubblica → payload AdE
+## 9. Mapping DTO adapter → payload AdE
+
+> Nella colonna "DTO adapter" i nomi si riferiscono ai tipi interni di sez. 8
+> (`public-types.ts`), non al corpo HTTP pubblico.
 
 ### 9.1 Campi root (sempre presenti)
 
@@ -769,21 +725,26 @@ L'utente non li passa nella request pubblica.
 
 ---
 
-## 10. Validazioni API pubblica
+## 10. Validazioni
 
-| Campo                                  | Regola                                      |
-| -------------------------------------- | ------------------------------------------- |
-| `idempotencyKey`                       | UUID v4 obbligatorio                        |
-| `document.date`                        | ISO 8601 (`yyyy-MM-dd`)                     |
-| `document.lines`                       | Array non vuoto (vendita)                   |
-| `document.lines[].quantity`            | > 0                                         |
-| `document.lines[].unitPriceGross`      | >= 0                                        |
-| `document.lines[].vatCode`             | Uno dei codici in sezione 6                 |
-| `document.lines[].description`         | Max 1000 caratteri                          |
-| `document.payments`                    | Obbligatorio in vendita, vietato in annullo |
-| Somma pagamenti                        | = totale documento (tolleranza 0.01)        |
-| `originalDocument.transactionId`       | Obbligatorio per annullo                    |
-| `originalDocument.documentProgressive` | Obbligatorio per annullo                    |
+La validazione **autoritativa** del corpo HTTP pubblico vive in
+`src/lib/receipts/receipt-schema.ts` (`saleBodySchema`, condiviso con la server
+action `emitReceipt`). La tabella sotto riassume gli invarianti a livello DTO /
+mapper AdE; per i nomi campo e i limiti esatti del corpo HTTP pubblico vedi
+`/help/api`.
+
+| Campo (DTO)                            | Regola                                                       |
+| -------------------------------------- | ------------------------------------------------------------ |
+| `idempotencyKey`                       | UUID v4 obbligatorio                                         |
+| `date`                                 | ISO 8601 (`yyyy-MM-dd`)                                      |
+| `lines`                                | Array non vuoto, max 100 righe (vendita)                     |
+| `lines[].quantity`                     | > 0, ≤ 9999, max 3 decimali                                  |
+| `lines[].unitPriceGross`               | ≥ 0, ≤ 999.999,99, max 2 decimali                            |
+| `lines[].vatCode`                      | Solo `4`/`5`/`10`/`22`/`N1`–`N6` (sottoinsieme della sez. 6) |
+| `lines[].description`                  | 1–200 caratteri (limite corpo HTTP)                          |
+| `payments`                             | Un pagamento con `amount` = totale documento                 |
+| `originalDocument.transactionId`       | Obbligatorio per annullo                                     |
+| `originalDocument.documentProgressive` | Obbligatorio per annullo                                     |
 
 ---
 
@@ -791,45 +752,48 @@ L'utente non li passa nella request pubblica.
 
 ### Tabella `commercial_documents`
 
-| Colonna              | Tipo        | Note                                       |
-| -------------------- | ----------- | ------------------------------------------ |
-| `id`                 | uuid        | PK                                         |
-| `user_id`            | uuid        | FK → auth.users                            |
-| `kind`               | enum        | `SALE`, `VOID`                             |
-| `idempotency_key`    | uuid        | Unique                                     |
-| `public_request`     | jsonb       | Payload API pubblica                       |
-| `ade_request`        | jsonb       | Payload inviato ad AdE                     |
-| `ade_response`       | jsonb       | Risposta AdE raw                           |
-| `ade_transaction_id` | text        | `idtrx` AdE                                |
-| `ade_progressive`    | text        | `progressivo` AdE                          |
-| `status`             | enum        | `PENDING`, `ACCEPTED`, `REJECTED`, `ERROR` |
-| `created_at`         | timestamptz |                                            |
-| `updated_at`         | timestamptz |                                            |
+| Colonna              | Tipo        | Note                                                                           |
+| -------------------- | ----------- | ------------------------------------------------------------------------------ |
+| `id`                 | uuid        | PK                                                                             |
+| `business_id`        | uuid        | NOT NULL, FK → `businesses` (cascade)                                          |
+| `kind`               | enum        | `SALE`, `VOID`                                                                 |
+| `idempotency_key`    | uuid        | Unique **per business** (`business_id` + `idempotency_key`, migr. 0009)        |
+| `public_request`     | jsonb       | Payload applicativo (`paymentMethod`, `lotteryCode`)                           |
+| `request_hash`       | text        | SHA-256 canonico del SALE (rileva riuso key con payload diverso). NULL su VOID |
+| `ade_response`       | jsonb       | Risposta AdE raw                                                               |
+| `ade_transaction_id` | text        | `idtrx` AdE                                                                    |
+| `ade_progressive`    | text        | `progressivo` AdE                                                              |
+| `lottery_code`       | text        | Codice lotteria (solo SALE con pagamento `PE`)                                 |
+| `api_key_id`         | uuid        | FK → `api_keys` (set null). NULL = emissione via UI dashboard                  |
+| `voided_document_id` | uuid        | Solo VOID: self-FK al SALE annullato. Unique parziale (anti doppio-annullo)    |
+| `status`             | enum        | `PENDING`, `ACCEPTED`, `VOID_ACCEPTED`, `REJECTED`, `ERROR`                    |
+| `created_at`         | timestamptz |                                                                                |
+| `updated_at`         | timestamptz |                                                                                |
 
 ### Tabella `commercial_document_lines`
 
-| Colonna            | Tipo    | Note                              |
-| ------------------ | ------- | --------------------------------- |
-| `id`               | uuid    | PK                                |
-| `document_id`      | uuid    | FK → commercial_documents         |
-| `line_index`       | int     | Ordine riga                       |
-| `description`      | text    |                                   |
-| `quantity`         | numeric |                                   |
-| `gross_unit_price` | numeric |                                   |
-| `vat_code`         | text    |                                   |
-| `ade_line_id`      | text    | `idElementoContabile` per annulli |
+| Colonna            | Tipo          | Note                                  |
+| ------------------ | ------------- | ------------------------------------- |
+| `id`               | uuid          | PK                                    |
+| `document_id`      | uuid          | FK → `commercial_documents` (cascade) |
+| `line_index`       | int           | Ordine riga                           |
+| `description`      | text          | ≤ 200 caratteri (CHECK, migr. 0019)   |
+| `quantity`         | numeric(10,3) | ≥ 0 (CHECK)                           |
+| `gross_unit_price` | numeric(10,2) | ≥ 0 (CHECK)                           |
+| `vat_code`         | text          |                                       |
 
 ---
 
 ## 12. Architettura adapter
 
 ```
-Client → API pubblica ScontrinoZero → Validazione (Zod)
+Route /api/v1/receipts o server action emitReceipt → Validazione (Zod, saleBodySchema)
+  → Service layer (DTO SaleDocumentRequest / VoidRequest, sez. 8)
   → Mapper (mapSaleToAdePayload / mapVoidToAdePayload)
   → AdeClient (interfaccia)
     ├── RealAdeClient (HTTP verso AdE)
     └── MockAdeClient (simula risposta, stessa logica senza HTTP)
-  → Persistenza (ade_request + ade_response)
+  → Persistenza (public_request + ade_response)
   → Risposta normalizzata al client
 ```
 

@@ -803,6 +803,10 @@ const idempotencyKey = crypto.randomUUID();`}</code>
                   "Il piano attivo non include l'accesso alle API. Passa al Piano Pro.",
                 ],
                 [
+                  "404",
+                  "Scontrino non trovato: l'ID non esiste o appartiene a un altro esercente. Vale per GET /v1/receipts/{id} e per l'annullamento.",
+                ],
+                [
                   "409",
                   "Conflitto di idempotenza: una richiesta con la stessa idempotencyKey è ancora in corso, è già stata rifiutata, oppure la chiave è stata riusata con un contenuto diverso. In quest'ultimo caso usa una nuova chiave.",
                 ],
@@ -812,6 +816,10 @@ const idempotencyKey = crypto.randomUUID();`}</code>
                 ],
                 ["429", "Rate limit superato. Riprova tra qualche minuto."],
                 ["500", "Errore interno del server."],
+                [
+                  "503",
+                  "Servizio temporaneamente sovraccarico (es. database sotto pressione). È un errore transitorio: riprova dopo i secondi indicati nell'header Retry-After.",
+                ],
               ].map(([code, desc]) => (
                 <tr key={code} className="border-b last:border-0">
                   <td className="py-2 pr-6 font-mono text-xs font-semibold">

@@ -169,6 +169,9 @@ const SERVICE_ERROR_STATUS_MAP: Record<
   VOID_ALREADY_TARGETED: { status: 409 },
   VOID_SYNC_FAILED: { status: 500 },
   IDEMPOTENCY_PAYLOAD_MISMATCH: { status: 409 },
+  // Documento inesistente / cross-tenant: 404, coerente con GET /v1/receipts/{id}
+  // (che risponde 404 direttamente nella route). Prima cadeva nel fallback 422.
+  NOT_FOUND: { status: 404 },
 };
 
 export function serviceErrorResponse(result: {

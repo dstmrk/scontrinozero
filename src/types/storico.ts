@@ -86,13 +86,16 @@ export interface VoidReceiptInput {
  *   DB finale è fallita. Richiede cleanup manuale.
  * - IDEMPOTENCY_PAYLOAD_MISMATCH: la idempotencyKey è già stata usata per
  *   annullare un documento diverso. Il client deve usare una nuova key.
+ * - NOT_FOUND: lo scontrino da annullare non esiste (o appartiene a un altro
+ *   business). Sul canale API mappa a 404, coerente con GET /v1/receipts/{id}.
  */
 export type VoidReceiptErrorCode =
   | "VOID_PENDING_IN_PROGRESS"
   | "VOID_ALREADY_TARGETED"
   | "DB_TIMEOUT"
   | "VOID_SYNC_FAILED"
-  | "IDEMPOTENCY_PAYLOAD_MISMATCH";
+  | "IDEMPOTENCY_PAYLOAD_MISMATCH"
+  | "NOT_FOUND";
 
 export interface VoidReceiptResult {
   error?: string;

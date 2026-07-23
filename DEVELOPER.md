@@ -124,13 +124,14 @@ con Stripe standard (no Metered Billing). Raggiunto il limite: `429` con invito 
 Autenticazione: `Authorization: Bearer szk_live_XXXX` (business key)
 Base URL: `https://api.scontrinozero.it/v1` (stesso container, Cloudflare Tunnel hostname separato)
 
-| Metodo | Path                     | Descrizione                         |
-| ------ | ------------------------ | ----------------------------------- |
-| `POST` | `/v1/receipts`           | Emetti scontrino (SALE)             |
-| `POST` | `/v1/receipts/{id}/void` | Annulla scontrino                   |
-| `GET`  | `/v1/receipts/{id}`      | Stato scontrino / idempotency check |
+| Metodo | Path                     | Descrizione                                                               |
+| ------ | ------------------------ | ------------------------------------------------------------------------- |
+| `POST` | `/v1/receipts`           | Emetti scontrino (SALE)                                                   |
+| `GET`  | `/v1/receipts`           | Lista paginata per intervallo di date (`from`/`to`/`page`/`limit`/`kind`) |
+| `POST` | `/v1/receipts/{id}/void` | Annulla scontrino                                                         |
+| `GET`  | `/v1/receipts/{id}`      | Stato/dettaglio scontrino / idempotency check                             |
 
-Post-MVP: `GET /v1/receipts` (lista paginata), `GET /v1/receipts/{id}/pdf`
+Post-MVP: `GET /v1/receipts/{id}/pdf`
 
 **Esempio richiesta:**
 
@@ -200,19 +201,40 @@ curl https://api.scontrinozero.it/v1/receipts/550e8400-e29b-41d4-a716-4466554400
 > `lotteryCode` è `null` se non fornito o se il metodo di pagamento è `"PC"` (contanti).
 > `quantity` e `grossUnitPrice` sono stringhe con precisione fissa (3 e 2 decimali rispettivamente).
 
+**Risposta annullo (200) — `POST /v1/receipts/{id}/void`:**
+
+```json
+{
+  "voidDocumentId": "uuid",
+  "adeTransactionId": "151086012",
+  "adeProgressive": "DCW2026/5111-2611"
+}
+```
+
 **Errori standard:**
 
-- `400` — validazione input
-- `401` — API key mancante, non valida, o revocata
+Tutte le risposte d'errore hanno l'envelope `{ "error": "<messaggio>" }`; gli
+errori con un `code` machine-readable lo includono anche nel body (`{ "code":
+"…", "error": "…" }`). **Non esiste un campo `adeErrors`.**
+
+- `400` — validazione input (corpo malformato, UUID non valido)
+- `401` — API key mancante, non valida, revocata o scaduta
 - `402` — piano non supporta API access (upgrade a Pro/Developer)
+- `403` — chiave di tipo sbagliato (es. management key su un endpoint business)
+- `404` — scontrino non trovato (ID inesistente o di un altro esercente); vale
+  sia per `GET /v1/receipts/{id}` sia per `POST /v1/receipts/{id}/void`
 - `409` — conflitto idempotency (body include `code`): `PENDING_IN_PROGRESS` /
   `VOID_PENDING_IN_PROGRESS` (richiesta in corso, ritenta), `ALREADY_REJECTED`,
   `IDEMPOTENCY_PAYLOAD_MISMATCH` (key riusata con payload diverso **o**
   cross-operazione), `ALREADY_VOIDED` (la key identifica uno scontrino già
-  annullato)
-- `422` — scontrino rifiutato dall'AdE (body include `adeErrors`)
+  annullato), `VOID_ALREADY_TARGETED` (annullo concorrente sullo stesso SALE)
+- `422` — rifiuto funzionale AdE o altro errore di logica senza `code` (es.
+  documento non annullabile, dati AdE mancanti). Body: solo `{ "error": "…" }`
 - `429` — rate limit superato (header `Retry-After`)
-- `500` — errore interno
+- `500` — errore interno (incl. `VOID_SYNC_FAILED`: annullo su AdE riuscito ma
+  sync DB fallita, richiede intervento)
+- `503` — servizio temporaneamente sovraccarico / timeout DB (`code: "DB_TIMEOUT"`,
+  header `Retry-After`); è **retryable**
 
 > ⚠️ **La idempotency key deve essere unica per operazione.** Emissione e
 > annullo non condividono mai la stessa `idempotencyKey`: riusarla tra le due
@@ -316,13 +338,15 @@ WHERE b.profile_id = $developer_profile_id
 
 ### Rate Limits API
 
-| Key pattern           | Limite  | Finestra |
-| --------------------- | ------- | -------- |
-| `api:emit:{apiKeyId}` | 120/ora | 1h       |
-| `api:void:{apiKeyId}` | 20/ora  | 1h       |
-| `api:get:{apiKeyId}`  | 300/ora | 1h       |
+| Key pattern           | Endpoint                      | Limite  | Finestra |
+| --------------------- | ----------------------------- | ------- | -------- |
+| `api:emit:{apiKeyId}` | `POST /v1/receipts`           | 120/ora | 1h       |
+| `api:list:{apiKeyId}` | `GET /v1/receipts`            | 60/ora  | 1h       |
+| `api:void:{apiKeyId}` | `POST /v1/receipts/{id}/void` | 20/ora  | 1h       |
 
-Più generosi dei limiti UI (30 emit/ora) perché le integrazioni POS sono automatizzate.
+`GET /v1/receipts/{id}` (lettura singola indicizzata) non ha rate limiter
+dedicato. Più generosi dei limiti UI (30 emit/ora) perché le integrazioni POS
+sono automatizzate.
 
 ---
 
