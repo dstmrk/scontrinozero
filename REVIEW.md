@@ -584,14 +584,43 @@ throttling di business: 30/h è sotto il caso d'uso dichiarato del prodotto.
 
 Scelte consapevoli con un trigger di riapertura. Non sono finding da pianificare.
 
-### audit-ci: 3 advisory `esbuild` dev-only
+### audit-ci: advisory `esbuild` dev-only
 
-`audit-ci.json` allowlista `GHSA-67mh-4wv8-2f99` (dev-server SSRF),
-`GHSA-gv7w-rqvm-qjhr` (Deno RCE), `GHSA-g7r4-m6w7-qqqr` (file-read Windows).
+`audit-ci.json` allowlista `GHSA-67mh-4wv8-2f99` (dev-server SSRF).
 `esbuild` non è in `dependencies` prod: entra solo transitivamente via toolchain
 dev (`drizzle-kit`/`tsx`/`@esbuild-kit/*`, tutte `devDependencies`), mai a runtime
 né nella build Next (SWC). Superficie ≈ 0. **Riaprire:** quando la toolchain
 aggiorna `esbuild` > 0.28.0 senza major rischioso → togliere l'allowlist.
+
+### audit-ci: `GHSA-mh99-v99m-4gvg` brace-expansion sotto `minimatch@3`
+
+`audit-ci.json` allowlista l'advisory **solo sulla catena lint**, con una entry
+path-scoped a wildcard:
+`GHSA-mh99-v99m-4gvg|*eslint-plugin-*>minimatch>brace-expansion*`. Il nodo root
+`brace-expansion` resta sotto audit, quindi se la stessa advisory ricompare su
+un path di produzione il job rifallisce.
+
+⚠️ **I path emessi da audit-ci non sono deterministici**: tra un run e l'altro
+il prefisso `eslint-config-next>` e un `>` finale migrano fra i tre plugin
+(`eslint-config-next>eslint-plugin-import>minimatch>brace-expansion` in un run,
+`eslint-plugin-import>minimatch>brace-expansion` in quello dopo). Copiare le
+righe stampate dal job in allowlist produce CI a intermittenza: audit-ci
+confronta `<advisoryId>|<path>` con `matchString`, che supporta `*` — usare
+sempre la forma wildcard, mai i path letterali.
+
+Nessun fix upstream esiste: l'advisory copre `<=5.0.7` ed è patchata **solo**
+in `5.0.8`, senza backport `1.x`/`2.x`. Forzare `5.0.8` sotto
+`minimatch@^3.0.0` rompe ESLint — il build CJS di brace-expansion 5.x esporta
+un namespace (`{ EXPANSION_MAX, EXPANSION_MAX_LENGTH, expand }`), non una
+funzione, mentre `minimatch@3.1.5` fa `expand(...)` sul `require` →
+`be is not a function`. I tre plugin pinnano `minimatch: ^3.1.2` e
+`eslint-config-next@16.2.12` ha le stesse dipendenze: bumparla non cambia nulla.
+
+Catena interamente `devDependencies`: mai nel bundle spedito né nel runtime del
+container. Il DoS richiede pattern glob controllati dall'attaccante, mentre qui
+i pattern arrivano dalla nostra eslint config. **Riaprire:** quando esce un
+backport `brace-expansion` 1.1.17+, o quando i plugin ESLint passano a
+`minimatch` >= 9 → togliere le tre entry dall'allowlist.
 
 ### #57 verifica su AdE reale sostituita da sentinella Sentry
 
