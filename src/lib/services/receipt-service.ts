@@ -59,6 +59,22 @@ const PAYMENT_METHOD_TO_ADE: Record<PaymentMethod, PaymentType> = {
   PE: "ELECTRONIC",
 };
 
+/**
+ * Serializza il `createdAt` della riga in ISO 8601 per `SubmitReceiptResult`.
+ *
+ * Difensiva sul tipo: a seconda del percorso Drizzle/driver la colonna può
+ * arrivare come `Date` o già come stringa. Un valore assente o non
+ * interpretabile ritorna `undefined` invece di propagare `Invalid Date`: la
+ * stampa termica ha un fallback, un'emissione non deve fallire per la data.
+ */
+function toIsoDate(
+  value: Date | string | null | undefined,
+): string | undefined {
+  if (!value) return undefined;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}
+
 /** Validates and resolves the effective lottery code from the input. */
 function resolveLotteryCode(input: SubmitReceiptInput): {
   lotteryCode: string | null;
@@ -315,6 +331,7 @@ async function handleExistingReceipt(args: {
       documentId: existing.id,
       adeTransactionId: existing.adeTransactionId ?? undefined,
       adeProgressive: existing.adeProgressive ?? undefined,
+      createdAt: toIsoDate(existing.createdAt),
     };
   }
 
@@ -502,7 +519,10 @@ async function finalizeSaleOnly(
               ]),
             ),
           )
-          .returning({ id: commercialDocuments.id }),
+          .returning({
+            id: commercialDocuments.id,
+            createdAt: commercialDocuments.createdAt,
+          }),
       ),
     );
     if (updated.length === 0) {
@@ -526,6 +546,7 @@ async function finalizeSaleOnly(
       documentId,
       adeTransactionId,
       adeProgressive,
+      createdAt: toIsoDate(updated[0]?.createdAt),
     };
   } catch (err) {
     logger.error(
@@ -930,7 +951,10 @@ async function runSubmitSale(
   // lo scontrino. Se la UPDATE finale fallisce, la riga resta PENDING e la
   // stale recovery la recupera; ma il retry qui evita la maggior parte dei
   // casi di disallineamento DB↔AdE.
-  await retryOnStatementTimeout("emit-update-accepted", () =>
+  // `returning` porta indietro il createdAt della riga: è la data che va
+  // stampata sullo scontrino di carta, la stessa del PDF (vedi createdAt in
+  // SubmitReceiptResult).
+  const accepted = await retryOnStatementTimeout("emit-update-accepted", () =>
     db
       .update(commercialDocuments)
       .set({
@@ -939,7 +963,8 @@ async function runSubmitSale(
         adeProgressive: adeResponse.progressivo ?? null,
         adeResponse,
       })
-      .where(eq(commercialDocuments.id, documentId)),
+      .where(eq(commercialDocuments.id, documentId))
+      .returning({ createdAt: commercialDocuments.createdAt }),
   );
 
   logger.info(
@@ -957,5 +982,6 @@ async function runSubmitSale(
     documentId,
     adeTransactionId: adeResponse.idtrx ?? undefined,
     adeProgressive: adeResponse.progressivo ?? undefined,
+    createdAt: toIsoDate(accepted[0]?.createdAt),
   };
 }

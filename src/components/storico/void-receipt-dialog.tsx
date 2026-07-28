@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Send, QrCode } from "lucide-react";
 import {
@@ -21,10 +21,17 @@ import type { ReceiptListItem, VoidReceiptResult } from "@/types/storico";
 import { VAT_LABELS } from "@/types/cassa";
 import type { VatCode } from "@/types/cassa";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { PrintReceiptButton } from "@/components/printing/print-receipt-button";
+import type {
+  PrintableReceipt,
+  ReceiptPrintHeader,
+} from "@/lib/printing/types";
 
 interface VoidReceiptDialogProps {
   readonly receipt: ReceiptListItem;
   readonly businessId: string;
+  /** Intestazione esercente per la ristampa su termica; `null` se incompleta. */
+  readonly printHeader?: ReceiptPrintHeader | null;
   readonly onClose: () => void;
   readonly onSuccess: (result: VoidReceiptResult, originalId: string) => void;
 }
@@ -44,6 +51,7 @@ type DialogView = "detail" | "confirmingVoid" | "voidSuccess" | "qr";
 export function VoidReceiptDialog({
   receipt,
   businessId,
+  printHeader = null,
   onClose,
   onSuccess,
 }: VoidReceiptDialogProps) {
@@ -53,6 +61,23 @@ export function VoidReceiptDialog({
 
   /** Solo i SALE non ancora annullati possono essere annullati. */
   const canVoid = receipt.status === "ACCEPTED";
+
+  /**
+   * Copia stampabile dello scontrino, per il cliente che torna al banco a
+   * chiederla. Le righe sono già in `receipt.lines`: nessuna fetch aggiuntiva.
+   */
+  const printableReceipt = useMemo<PrintableReceipt | null>(() => {
+    if (!printHeader || !receipt.adeProgressive) return null;
+    return {
+      header: printHeader,
+      lines: receipt.lines,
+      paymentMethod: receipt.paymentMethod,
+      lotteryCode: receipt.lotteryCode,
+      createdAt: new Date(receipt.createdAt),
+      adeProgressive: receipt.adeProgressive,
+      publicUrl: `${globalThis.location.origin}/r/${receipt.id}`,
+    };
+  }, [printHeader, receipt]);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -243,6 +268,10 @@ export function VoidReceiptDialog({
                       Invia ricevuta
                     </a>
                   </Button>
+                  <PrintReceiptButton
+                    receipt={printableReceipt}
+                    pdfHref={`/api/documents/${receipt.id}/pdf`}
+                  />
                   <Button variant="outline" onClick={() => setView("qr")}>
                     <QrCode className="mr-2 h-4 w-4" aria-hidden="true" />
                     Mostra QR code

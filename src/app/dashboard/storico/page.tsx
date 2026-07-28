@@ -6,6 +6,7 @@ import { STORICO_PAGE_SIZE, type StatusFilter } from "@/types/storico";
 import { getAuthenticatedUser } from "@/lib/server-auth";
 import { getPlan } from "@/lib/plans";
 import { defaultLast7DaysRomeRange } from "@/lib/storico-default-range";
+import { fetchReceiptPrintHeader } from "@/lib/receipts/print-header";
 
 const STATUS_VALUES = new Set<StatusFilter>(["ACCEPTED", "VOID_ACCEPTED", ""]);
 
@@ -54,7 +55,10 @@ export default async function StoricoPage({
     }),
     getAuthenticatedUser(),
   ]);
-  const planInfo = await getPlan(user.id);
+  const [planInfo, printHeader] = await Promise.all([
+    getPlan(user.id),
+    fetchReceiptPrintHeader(status.businessId),
+  ]);
 
   return (
     <StoricoClient
@@ -66,6 +70,7 @@ export default async function StoricoPage({
       initialStatus={statusParam}
       plan={planInfo.plan}
       trialStartedAt={planInfo.trialStartedAt}
+      printHeader={printHeader}
     />
   );
 }

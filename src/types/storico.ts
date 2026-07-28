@@ -1,4 +1,5 @@
 import type { DocumentStatus } from "@/lib/ade/public-types";
+import type { PaymentMethod } from "@/types/cassa";
 
 // ---------------------------------------------------------------------------
 // List item
@@ -18,6 +19,14 @@ export interface ReceiptListItem {
   adeProgressive: string | null;
   adeTransactionId: string | null;
   createdAt: Date;
+  /**
+   * Metodo di pagamento del documento trasmesso all'AdE. Serve alla ristampa
+   * su termica: una copia consegnata al cliente non può riportare un
+   * pagamento diverso da quello del documento originale.
+   */
+  paymentMethod: PaymentMethod;
+  /** Codice lotteria trasmesso, se presente. */
+  lotteryCode: string | null;
   /** Totale IVA inclusa, calcolato dalla somma delle righe (stringa con 2 decimali). */
   total: string;
   lines: ReceiptLineItem[];
