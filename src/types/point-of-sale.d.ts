@@ -1,4 +1,11 @@
+/// <reference types="web-bluetooth" />
+
 /**
+ * Il reference esplicito sopra tira dentro `@types/web-bluetooth`, che augmenta
+ * `Navigator` con la property `bluetooth`. Senza, `navigator.bluetooth` non
+ * compila (TS2339): l'auto-inclusione di `@types/*` non basta a garantirlo in
+ * questo progetto.
+ *
  * Dichiarazioni ambient per i due pacchetti `@point-of-sale/*`.
  *
  * Nessuno dei due spedisce tipi (né esiste un pacchetto `@types/...`), quindi

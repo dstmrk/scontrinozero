@@ -123,8 +123,21 @@ describe("buildSecurityHeaders", () => {
     expect(byKey["X-Frame-Options"]).toBe("DENY");
     expect(byKey["Referrer-Policy"]).toBe("strict-origin-when-cross-origin");
     expect(byKey["Permissions-Policy"]).toBe(
-      "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+      "camera=(), microphone=(), geolocation=(), interest-cohort=(), bluetooth=(self)",
     );
+  });
+
+  it("consente il Bluetooth alla propria origin: la stampa termica ne dipende", () => {
+    // Regressione: con `bluetooth=()` la stampa su termica smetterebbe di
+    // funzionare in silenzio — `navigator.bluetooth.getAvailability()`
+    // lancerebbe SecurityError e la UI direbbe solo "browser non supportato".
+    const headers = buildSecurityHeaders({
+      nodeEnv: "production",
+      allowedOrigin: ALLOWED_ORIGIN,
+    });
+    const policy = headers.find((h) => h.key === "Permissions-Policy");
+
+    expect(policy!.value).toContain("bluetooth=(self)");
   });
 
   it("supporta hostname sandbox e self-hosted", () => {
