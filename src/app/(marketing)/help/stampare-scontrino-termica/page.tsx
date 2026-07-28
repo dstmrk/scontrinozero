@@ -77,10 +77,11 @@ export default function StampareScontrinoTermicaPage() {
           cartucce da sostituire, solo rotoli di carta.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          ScontrinoZero parla con la stampante tramite{" "}
-          <strong>Bluetooth</strong> (la connessione senza fili a corto raggio)
-          o via cavo USB. Non è richiesto un modello fiscale o omologato: una
-          qualsiasi stampante termica generica va bene, perché lo scontrino
+          Da Android, ScontrinoZero parla direttamente con la stampante via{" "}
+          <strong>Bluetooth</strong> (la connessione senza fili a corto raggio).
+          Da iPhone, iPad e computer stampi invece il PDF dello scontrino, già
+          formattato a 58 mm. Non è richiesto un modello fiscale o omologato:
+          una qualsiasi stampante termica generica va bene, perché lo scontrino
           legale è già stato registrato all&apos;AdE e qui stiamo solo stampando
           una copia di cortesia.
         </p>
@@ -139,87 +140,96 @@ export default function StampareScontrinoTermicaPage() {
           .
         </p>
 
-        {/* ─── Pairing Android ─── */}
+        {/* ─── Collegare la stampante da Android ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Abbinare la stampante da Android
+          Collegare la stampante da Android
         </h2>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Su Android con <strong>Chrome</strong>, <strong>Edge</strong> o{" "}
+          <strong>Samsung Internet</strong>, ScontrinoZero parla direttamente
+          con la stampante: non serve abbinarla prima dalle impostazioni del
+          telefono, ci pensa il browser.
+        </p>
         <ol className="text-muted-foreground mt-3 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
           <li>
             Accendi la stampante e tienila vicina al telefono (entro 1-2 metri).
             Verifica che ci sia un rotolo di carta caricato.
           </li>
           <li>
-            Sul telefono apri <strong>Impostazioni → Bluetooth</strong> e
-            assicurati che il Bluetooth sia attivo.
+            Assicurati che il <strong>Bluetooth del telefono sia attivo</strong>
+            . Se usi Android 11 o precedenti servono attivi anche i{" "}
+            <strong>servizi di localizzazione</strong>: è un requisito di
+            sistema per la ricerca dei dispositivi Bluetooth, non serve a
+            geolocalizzarti.
           </li>
           <li>
-            Cerca tra i &quot;Dispositivi disponibili&quot;: dovresti vedere un
-            nome simile a <em>POS-58</em>, <em>BT Printer</em> o il modello
-            della tua stampante. Toccalo per avviare l&apos;abbinamento.
+            In ScontrinoZero apri{" "}
+            <strong>Impostazioni → Stampante → Collega stampante</strong>. Il
+            browser mostra la lista dei dispositivi trovati: cerca un nome
+            simile a <em>POS-58</em>, <em>BT Printer</em> o il modello della tua
+            stampante, selezionalo e conferma.
           </li>
           <li>
-            Se chiede un PIN di abbinamento (PIN, codice di sicurezza iniziale
-            del dispositivo), prova <strong>0000</strong> o{" "}
-            <strong>1234</strong> — sono i valori predefiniti della quasi
-            totalità delle stampanti termiche economiche. Il PIN esatto è
-            scritto sul manualetto cartaceo nella confezione.
-          </li>
-          <li>
-            Apri ScontrinoZero, vai su <strong>Impostazioni → Stampante</strong>{" "}
-            e seleziona la stampante dalla lista dei dispositivi abbinati. Tocca{" "}
-            <strong>Stampa di prova</strong>: deve uscire una pagina con il logo
-            ScontrinoZero e la dicitura &quot;Test stampa riuscito&quot;.
+            Tocca <strong>Stampa di prova</strong>. Deve uscire una pagina con
+            il righello dei numeri, un campione di lettere accentate e — se hai
+            lasciato attiva l&apos;opzione — un QR code.
           </li>
         </ol>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          La stampa di prova serve a verificare tre cose in un colpo solo. Il{" "}
+          <strong>righello</strong> deve arrivare esattamente da bordo a bordo:
+          se sborda o avanza spazio, cambia la larghezza carta (58 o 80 mm)
+          nella stessa schermata. Le <strong>lettere accentate</strong> devono
+          essere leggibili. Il <strong>QR code</strong> deve risultare un
+          quadrato nitido: se esce una riga di caratteri casuali, la tua
+          stampante non supporta i QR — disattiva l&apos;opzione &quot;Stampa il
+          QR della ricevuta&quot; e il resto continuerà a funzionare.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Lasciando attiva la <strong>Stampa automatica</strong>, lo scontrino
+          esce da solo appena l&apos;Agenzia delle Entrate conferma
+          l&apos;emissione: al banco non devi toccare altro.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Il collegamento resta attivo finché tieni aperta l&apos;app. Se chiudi
+          il browser o riavvii il telefono, ScontrinoZero ricorda quale
+          stampante usavi e ti basta toccare <strong>Ricollega</strong> — una
+          volta a inizio giornata, non a ogni scontrino.
+        </p>
 
-        {/* ─── Pairing iPhone ─── */}
+        {/* ─── iPhone e iPad ─── */}
         <h2 className="mt-10 text-xl font-semibold">
-          Abbinare la stampante da iPhone o iPad
+          Da iPhone, iPad o computer
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Su iOS la procedura è simile, ma con un&apos;importante avvertenza:
-          molte stampanti termiche economiche supportano solo{" "}
-          <strong>Bluetooth Low Energy</strong> (BLE, la versione moderna a
-          basso consumo) ma <strong>non</strong> il vecchio profilo SPP usato
-          dai modelli più datati. iOS funziona solo con BLE, quindi assicurati
-          che la stampante abbia la dicitura &quot;BLE&quot; o &quot;Bluetooth
-          4.0/5.0&quot; nella scheda prodotto prima di comprarla.
+          Su iPhone e iPad la stampa Bluetooth diretta{" "}
+          <strong>non è disponibile</strong>, e non è una limitazione di
+          ScontrinoZero: Safari e tutti i browser su iOS non implementano la
+          tecnologia (Web Bluetooth) che permette a una pagina web di parlare
+          con un dispositivo Bluetooth. Non esiste un&apos;impostazione da
+          attivare per abilitarla. Lo stesso vale per Firefox e per Safari su
+          Mac.
         </p>
-        <ol className="text-muted-foreground mt-3 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
-          <li>Accendi la stampante e avvicinala all&apos;iPhone.</li>
-          <li>
-            Vai su <strong>Impostazioni → Bluetooth</strong> e attendi che il
-            nome della stampante compaia tra &quot;Altri dispositivi&quot;.
-            Toccalo.
-          </li>
-          <li>
-            Se la stampante non compare entro 30-40 secondi, apri ScontrinoZero
-            (dev&apos;essere installato come app, vedi{" "}
-            <Link
-              href="/help/installare-app"
-              className="text-primary hover:underline"
-            >
-              Installare ScontrinoZero come app
-            </Link>
-            {") e vai su "}
-            <strong>Impostazioni → Stampante → Cerca dispositivo</strong>. In
-            alcuni casi iOS mostra la stampante solo se la ricerca parte
-            dall&apos;app che la userà.
-          </li>
-          <li>
-            Conferma l&apos;abbinamento, poi torna su ScontrinoZero e fai la
-            stampa di prova come per Android.
-          </li>
-        </ol>
-
-        {/* ─── Stampa da desktop ─── */}
-        <h2 className="mt-10 text-xl font-semibold">
-          Stampare da computer (Mac, Windows, Linux)
-        </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Se lavori dal computer puoi collegare la stampante via USB e stampare
-          lo scontrino come faresti con qualsiasi altro documento:
+          Su questi dispositivi il bottone <strong>Stampa</strong> apre il{" "}
+          <strong>PDF dello scontrino</strong>, già formattato a 58 mm: da lì
+          usi il foglio di stampa del sistema (AirPrint su iPhone e iPad, il
+          dialogo di stampa su computer) e lo mandi a qualsiasi stampante
+          collegata. Funziona bene con le stampanti di rete e WiFi; le
+          stampantine Bluetooth economiche, invece, il foglio di stampa del
+          sistema non le raggiunge — su nessuna piattaforma.
         </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          In pratica: se il tuo lavoro richiede la stampantina Bluetooth al
+          banco, usa ScontrinoZero da un telefono o tablet{" "}
+          <strong>Android</strong>. Se stampi da computer, collega una termica
+          via USB o rete e stampa il PDF.
+        </p>
+
+        {/* ─── Stampa da computer via USB ─── */}
+        <h2 className="mt-10 text-xl font-semibold">
+          Stampare da computer via USB
+        </h2>
         <ol className="text-muted-foreground mt-3 list-decimal space-y-2 pl-5 text-sm leading-relaxed">
           <li>
             Collega la stampante al computer con il cavo USB. Su Mac e Linux
@@ -231,8 +241,8 @@ export default function StampareScontrinoTermicaPage() {
           </li>
           <li>
             In ScontrinoZero, dopo aver emesso lo scontrino, clicca{" "}
-            <strong>Stampa</strong>: si apre il dialogo di stampa standard del
-            browser. Seleziona la stampante termica, imposta il formato carta su{" "}
+            <strong>Stampa</strong>: si apre il PDF dello scontrino. Stampalo e
+            seleziona la stampante termica, impostando il formato carta su{" "}
             <strong>58 mm</strong> o <strong>80 mm</strong> in &quot;Altre
             impostazioni → Formato carta&quot;.
           </li>
@@ -250,19 +260,18 @@ export default function StampareScontrinoTermicaPage() {
         <div className="mt-3 space-y-4">
           <div>
             <p className="text-sm font-medium">
-              La stampante non compare nella lista Bluetooth
+              La stampante non compare nella lista quando tocco &quot;Collega
+              stampante&quot;
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               Spegni e riaccendi la stampante (alcune entrano in modalità di
               abbinamento solo nei primi 60 secondi dopo l&apos;accensione).
-              Verifica che non sia già abbinata a un altro dispositivo: se sì,
-              scollegala da lì prima di cercarla dal nuovo telefono. Su Android,
-              se l&apos;hai già abbinata e poi rimossa, può aiutare cancellare
-              la cache Bluetooth {"("}
-              <strong>
-                Impostazioni → App → Bluetooth → Memoria → Cancella cache
-              </strong>
-              {") e riavviare."}
+              Verifica che non sia già collegata a un altro dispositivo: se sì,
+              scollegala da lì prima di cercarla dal nuovo telefono. Se usi{" "}
+              <strong>Android 11 o precedenti</strong>, controlla che i servizi
+              di localizzazione siano attivi: senza, la ricerca dei dispositivi
+              Bluetooth non restituisce nulla e la lista resta vuota senza
+              spiegazione. È la causa non ovvia più frequente.
             </p>
           </div>
           <div>
@@ -286,9 +295,11 @@ export default function StampareScontrinoTermicaPage() {
               Vai su <strong>Impostazioni → Stampante</strong> in ScontrinoZero
               e controlla che la larghezza carta sia impostata sul valore
               corretto (58 o 80 mm,{" "}
-              <strong>deve corrispondere al rotolo</strong>). Se stampi da
-              desktop, ricontrolla anche le impostazioni del dialogo di stampa
-              del browser: il formato carta lì deve coincidere.
+              <strong>deve corrispondere al rotolo</strong>). Il modo più rapido
+              per accorgersene è la <strong>stampa di prova</strong>: il
+              righello dei numeri deve arrivare esattamente da bordo a bordo. Se
+              stampi il PDF da computer, ricontrolla anche il formato carta nel
+              dialogo di stampa: deve coincidere.
             </p>
           </div>
           <div>
@@ -299,11 +310,11 @@ export default function StampareScontrinoTermicaPage() {
               Le stampanti termiche economiche hanno un timer di standby (di
               solito 10-30 minuti) per risparmiare la batteria. Quando vai a
               stampare il primo scontrino dopo una pausa lunga, premi il
-              pulsante di accensione per riattivarla: l&apos;abbinamento
-              Bluetooth si ripristina automaticamente in 2-3 secondi. Se
-              preferisci che resti sempre accesa, alcuni modelli permettono di
-              disattivare lo standby tenendo premuto il tasto FEED durante
-              l&apos;accensione — controlla il manuale.
+              pulsante di accensione per riattivarla, poi tocca{" "}
+              <strong>Ricollega</strong> in ScontrinoZero se il collegamento
+              risulta caduto. Se preferisci che resti sempre accesa, alcuni
+              modelli permettono di disattivare lo standby tenendo premuto il
+              tasto FEED durante l&apos;accensione — controlla il manuale.
             </p>
           </div>
           <div>
@@ -361,7 +372,7 @@ export default function StampareScontrinoTermicaPage() {
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               Se la stampante del POS è una termica standard ESC/POS esterna
-              (Bluetooth o USB), sì — basta abbinarla a ScontrinoZero come
+              (Bluetooth o USB), sì — basta collegarla a ScontrinoZero come
               spiegato sopra. Se invece è una stampante interna integrata nel
               terminale POS, no: quella è guidata dal software del POS e non è
               accessibile da app esterne. In quel caso ti servirà una seconda
@@ -374,10 +385,9 @@ export default function StampareScontrinoTermicaPage() {
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
               Sì. Vai su <strong>Storico</strong>, apri lo scontrino che ti
-              serve e tocca <strong>Ristampa</strong>. Lo scontrino esce
-              identico a quello originale, con la stessa data di emissione e lo
-              stesso numero progressivo: non è un nuovo documento, è solo una
-              copia.
+              serve e tocca <strong>Stampa</strong>. Lo scontrino esce identico
+              a quello originale, con la stessa data di emissione e lo stesso
+              numero progressivo: non è un nuovo documento, è solo una copia.
             </p>
           </div>
           <div>

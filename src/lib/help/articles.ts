@@ -291,11 +291,11 @@ export const helpArticles: Record<string, HelpArticle> = {
   "stampare-scontrino-termica": {
     slug: "stampare-scontrino-termica",
     datePublished: "2026-05-21",
-    dateModified: "2026-07-13",
+    dateModified: "2026-07-28",
     title: "Stampare lo scontrino su carta termica",
     metaTitle: "Come stampare lo scontrino su carta termica",
     description:
-      "Guida pratica alla scelta di una stampante termica per scontrini (58 o 80 mm), all'abbinamento Bluetooth da Android, iPhone e computer e alla risoluzione dei problemi più comuni.",
+      "Come scegliere una stampante termica per scontrini (58 o 80 mm), collegarla via Bluetooth da Android, stampare il PDF da iPhone e computer e risolvere i problemi più comuni.",
     related: [
       "primo-scontrino",
       "intestazione-scontrino",

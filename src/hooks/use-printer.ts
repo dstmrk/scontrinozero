@@ -17,6 +17,7 @@ import {
   type BluetoothPrintSupport,
 } from "@/lib/printing/support";
 import type { PrintableReceipt } from "@/lib/printing/types";
+import { track, UMAMI_EVENTS } from "@/lib/umami";
 
 export interface UsePrinterResult {
   readonly status: PrinterStatus;
@@ -93,20 +94,27 @@ export function usePrinter(): UsePrinterResult {
     [],
   );
 
-  const connect = useCallback(() => run(connectPrinter), [run]);
+  const connect = useCallback(async () => {
+    const failure = await run(connectPrinter);
+    if (!failure) track(UMAMI_EVENTS.printerPaired);
+    return failure;
+  }, [run]);
 
   const disconnect = useCallback(async () => {
     await disconnectPrinter();
   }, []);
 
   const print = useCallback(
-    (receipt: PrintableReceipt) =>
-      run(async () => {
+    async (receipt: PrintableReceipt) => {
+      const failure = await run(async () => {
         // Import dinamico: tiene l'encoder (~21 KB gz) fuori dal bundle
         // iniziale della cassa.
         const { printReceipt } = await import("@/lib/printing/print-receipt");
         await printReceipt(receipt);
-      }),
+      });
+      if (!failure) track(UMAMI_EVENTS.receiptPrinted);
+      return failure;
+    },
     [run],
   );
 

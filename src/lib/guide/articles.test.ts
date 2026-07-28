@@ -324,6 +324,18 @@ describe("stampante-termica-wifi-scontrini (batch D — gap stampanti)", () => {
   it("links the operational help article on thermal printing", () => {
     expect(article.relatedHelp).toContain("stampare-scontrino-termica");
   });
+
+  it("qualifica la stampa Bluetooth diretta come feature Android (regola 8)", () => {
+    // Web Bluetooth non esiste su iOS: ogni affermazione sul collegamento
+    // diretto app→stampante deve nominare Android, o promette una feature che
+    // metà degli utenti non ha.
+    const bluetoothClaims = article.faq
+      .map((f) => f.answer)
+      .filter((a) => /ScontrinoZero si collega/i.test(a));
+
+    expect(bluetoothClaims.length).toBeGreaterThan(0);
+    expect(bluetoothClaims.every((a) => /Android/i.test(a))).toBe(true);
+  });
 });
 
 describe("recupero-credenziali-ade-password-scaduta (cluster credenziali AdE)", () => {

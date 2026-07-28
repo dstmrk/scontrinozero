@@ -56,6 +56,7 @@ const comparisonRows: ComparisonRow[] = [
   allTrue("Trasmissione automatica AdE"),
   allTrue("Lotteria degli Scontrini"),
   allTrue("Condivisione digitale (SMS/email/WhatsApp)"),
+  allTrue("Stampa su termica Bluetooth (Android) e PDF"),
   {
     label: "Analytics base (KPI 30 giorni)",
     starter: true,

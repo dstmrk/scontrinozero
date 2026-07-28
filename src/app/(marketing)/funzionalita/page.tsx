@@ -9,6 +9,7 @@ import {
   Smartphone,
   Undo2,
   Share2,
+  Printer,
   Ticket,
   Clock,
 } from "lucide-react";
@@ -79,7 +80,13 @@ const sections = [
         icon: Share2,
         title: "Condivisione digitale",
         description:
-          "Condividi lo scontrino con il cliente via SMS, email o WhatsApp. Puoi anche stamparlo su qualsiasi stampante collegata al dispositivo.",
+          "Condividi lo scontrino con il cliente via link, QR code, SMS, email o WhatsApp. Nessuna app da installare per chi lo riceve.",
+      },
+      {
+        icon: Printer,
+        title: "Stampa su termica Bluetooth",
+        description:
+          "Su Android colleghi una stampantina termica Bluetooth ESC/POS (58 o 80 mm) e stampi lo scontrino al banco, anche in automatico dopo ogni emissione. Su iPhone e computer stampi il PDF già formattato a 58 mm.",
       },
     ],
   },

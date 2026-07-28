@@ -23,7 +23,7 @@ export const faqItems = [
   {
     question: "Posso emettere e condividere lo scontrino in modo digitale?",
     answer:
-      "Sì. Puoi generare il documento commerciale e condividerlo in formato digitale. Se necessario, puoi anche usare una stampante compatibile per consegna cartacea.",
+      "Sì. Puoi generare il documento commerciale e condividerlo in formato digitale via link o QR code. Se il cliente vuole la carta, su Android puoi stamparlo su una stampante termica Bluetooth; altrove puoi stampare il PDF su qualsiasi stampante collegata al dispositivo.",
   },
   {
     question: "Quanto costa?",
@@ -38,7 +38,7 @@ export const faqItems = [
   {
     question: "Posso stampare lo scontrino su carta?",
     answer:
-      "Sì. Puoi stampare il documento commerciale da qualsiasi dispositivo collegato a una stampante. Per le stampanti termiche Bluetooth, la compatibilità dipende dal browser e dal sistema operativo; in alternativa, puoi condividere lo scontrino digitalmente via SMS, email o WhatsApp.",
+      "Sì. Su Android con Chrome, Edge o Samsung Internet puoi collegare una stampante termica Bluetooth ESC/POS (58 o 80 mm) direttamente da ScontrinoZero e stampare lo scontrino al banco, anche in automatico dopo ogni emissione. Su iPhone, iPad e computer la stampa Bluetooth diretta non è disponibile perché il browser non la supporta: lì il bottone Stampa apre il PDF dello scontrino, già formattato a 58 mm, che puoi stampare su qualsiasi stampante collegata al dispositivo. In alternativa puoi sempre condividere lo scontrino digitalmente via SMS, email o WhatsApp.",
   },
   {
     question: "Come vengono protette le mie credenziali AdE?",

@@ -24,6 +24,7 @@ const starterFeatures: Feature[] = [
   { label: "Catalogo fino a 5 prodotti" },
   { label: "Analytics base (KPI a 30 giorni)" },
   { label: "Ricevuta condivisibile via SMS, email e WhatsApp" },
+  { label: "Stampa su termica Bluetooth da Android" },
   { label: "Supporto base" },
 ];
 

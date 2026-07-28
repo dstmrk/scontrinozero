@@ -117,7 +117,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Emetti scontrini dal tablet alla reception o dallo smartphone in cabina, senza ingombrare il banco con un registratore fisico.",
     audience: "parrucchieri, estetisti e operatori dei servizi alla persona",
     useCase:
-      "Nel salone o studio estetico ogni minuto conta: lo scontrino al cliente che paga deve essere veloce e ordinato. ScontrinoZero sostituisce il registratore telematico con un'app sul tablet alla reception (o sullo smartphone se lavori in cabina). Il cliente riceve uno scontrino conforme via stampa Bluetooth oppure in formato digitale via link.",
+      "Nel salone o studio estetico ogni minuto conta: lo scontrino al cliente che paga deve essere veloce e ordinato. ScontrinoZero sostituisce il registratore telematico con un'app sul tablet alla reception (o sullo smartphone se lavori in cabina). Il cliente riceve uno scontrino conforme in formato digitale via link o QR, oppure su carta se colleghi una stampante termica Bluetooth da un dispositivo Android.",
     obligations: [
       "Emissione del Documento Commerciale Online per ogni prestazione di servizio o vendita di prodotto B2C.",
       "Applicazione dell'aliquota IVA corretta (22% per la maggior parte dei servizi di acconciatura/estetica).",
@@ -145,7 +145,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       {
         question: "Posso stampare lo scontrino su carta?",
         answer:
-          "Lo scontrino è digitale per natura. Puoi consegnarlo via link/QR oppure stamparlo su carta termica con una stampante Bluetooth 58/80mm (supporto nativo in arrivo). Già oggi puoi salvare il PDF e stamparlo da qualsiasi stampante collegata al dispositivo.",
+          "Lo scontrino è digitale per natura, quindi la stampa non è obbligatoria: puoi consegnarlo via link o QR. Se il cliente vuole la carta, su Android (Chrome, Edge o Samsung Internet) colleghi una stampante termica Bluetooth 58/80mm direttamente da ScontrinoZero e stampi al momento. Su iPhone, iPad e computer la stampa Bluetooth diretta non è supportata dal browser: lì stampi il PDF dello scontrino da qualsiasi stampante collegata al dispositivo.",
       },
     ],
     relatedHelp: ["primo-scontrino", "aliquote-iva", "intestazione-scontrino"],
@@ -788,7 +788,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     audience:
       "lavanderie artigiane, stirerie, sartorie e servizi di riparazione capi con clientela privata",
     useCase:
-      "Nella lavanderia artigiana o nella sartoria il flusso di cassa è fatto di tanti piccoli incassi al ritiro dei capi. Con ScontrinoZero configuri il listino dei servizi (lavaggio, stiratura, riparazioni) nel catalogo ed emetti il Documento Commerciale Online in due tap quando il cliente ritira. Niente registratore telematico da comprare e revisionare: bastano lo smartphone o un tablet al banco, e la stampante termica Bluetooth se il cliente vuole la copia cartacea.",
+      "Nella lavanderia artigiana o nella sartoria il flusso di cassa è fatto di tanti piccoli incassi al ritiro dei capi. Con ScontrinoZero configuri il listino dei servizi (lavaggio, stiratura, riparazioni) nel catalogo ed emetti il Documento Commerciale Online in due tap quando il cliente ritira. Niente registratore telematico da comprare e revisionare: bastano lo smartphone o un tablet al banco, più una stampante termica Bluetooth collegata da Android se il cliente vuole la copia cartacea.",
     obligations: [
       "Emissione del Documento Commerciale Online per ogni servizio B2C incassato (art. 22 DPR 633/72).",
       "Applicazione dell'aliquota IVA al 22% sui servizi di lavanderia e sartoria.",
@@ -815,7 +815,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       {
         question: "Serve la stampante o basta lo scontrino digitale?",
         answer:
-          "Il documento commerciale digitale (email, SMS o QR) ha pieno valore fiscale: la stampa non è obbligatoria. Molte lavanderie tengono comunque una termica Bluetooth per i clienti che preferiscono la carta.",
+          "Il documento commerciale digitale (email, SMS o QR) ha pieno valore fiscale: la stampa non è obbligatoria. Molte lavanderie tengono comunque una termica Bluetooth per i clienti che preferiscono la carta: da Android la colleghi direttamente a ScontrinoZero, da iPhone o computer stampi il PDF.",
       },
     ],
     relatedHelp: [

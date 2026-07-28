@@ -987,7 +987,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Per stampare gli scontrini non serve una stampante fiscale: basta una stampante termica generica, da 30-120 € a seconda del modello. La WiFi conviene per la postazione fissa condivisa tra più dispositivi, il Bluetooth per la cassa mobile, l'USB per chi lavora da computer. Prima di comprare verifica tre cose: linguaggio ESC/POS, larghezza carta (58 o 80 mm) e il tipo di connessione adatto a come lavori.",
     publishedAt: "2026-07-12",
-    updatedAt: "2026-07-12",
+    updatedAt: "2026-07-28",
     readingMinutes: 7,
     sections: [
       {
@@ -1046,7 +1046,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         question: "Le stampanti termiche WiFi funzionano con lo smartphone?",
         answer:
-          "In genere no, e questo è il limite principale da conoscere: le termiche WiFi economiche non supportano AirPrint (iPhone) né Mopria (Android), i sistemi di stampa nativi dei telefoni. Da smartphone la strada affidabile è il Bluetooth; la WiFi dà il meglio da computer o su postazioni fisse condivise.",
+          "In genere no, e questo è il limite principale da conoscere: le termiche WiFi economiche non supportano AirPrint (iPhone) né Mopria (Android), i sistemi di stampa nativi dei telefoni. Da smartphone la strada affidabile è il Bluetooth: ScontrinoZero si collega direttamente a una termica Bluetooth ESC/POS da Android (Chrome, Edge o Samsung Internet) e stampa lo scontrino senza app intermedie. La WiFi dà il meglio da computer o su postazioni fisse condivise.",
       },
       {
         question:
