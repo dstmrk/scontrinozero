@@ -1,10 +1,4 @@
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-  act,
-} from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AddItemDialog } from "./add-item-dialog";
 import type { CatalogItem } from "@/types/catalogo";
@@ -95,17 +89,17 @@ describe("AddItemDialog", () => {
       target: { value: "1.20" },
     });
 
-    await act(async () => {
-      fireEvent.submit(
-        screen.getByRole("button", { name: "Aggiungi" }).closest("form")!,
-      );
-    });
+    fireEvent.submit(
+      screen.getByRole("button", { name: "Aggiungi" }).closest("form")!,
+    );
 
-    expect(mockAddCatalogItem).toHaveBeenCalledWith({
-      businessId: "biz-123",
-      description: "Caffè espresso",
-      defaultPrice: "1.20",
-      defaultVatCode: "22",
+    await waitFor(() => {
+      expect(mockAddCatalogItem).toHaveBeenCalledWith({
+        businessId: "biz-123",
+        description: "Caffè espresso",
+        defaultPrice: "1.20",
+        defaultVatCode: "22",
+      });
     });
   });
 
@@ -120,13 +114,13 @@ describe("AddItemDialog", () => {
       target: { value: "1.00" },
     });
 
-    await act(async () => {
-      fireEvent.submit(
-        screen.getByRole("button", { name: "Aggiungi" }).closest("form")!,
-      );
-    });
+    fireEvent.submit(
+      screen.getByRole("button", { name: "Aggiungi" }).closest("form")!,
+    );
 
-    expect(onSuccess).toHaveBeenCalledWith(PERSISTED_ITEM);
+    await waitFor(() => {
+      expect(onSuccess).toHaveBeenCalledWith(PERSISTED_ITEM);
+    });
   });
 
   it("mostra l'errore restituito da addCatalogItem", async () => {
@@ -135,11 +129,9 @@ describe("AddItemDialog", () => {
     });
     render(<AddItemDialog {...DEFAULT_PROPS} />);
 
-    await act(async () => {
-      fireEvent.submit(
-        screen.getByRole("button", { name: "Aggiungi" }).closest("form")!,
-      );
-    });
+    fireEvent.submit(
+      screen.getByRole("button", { name: "Aggiungi" }).closest("form")!,
+    );
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(
@@ -153,12 +145,13 @@ describe("AddItemDialog", () => {
     const onSuccess = vi.fn();
     render(<AddItemDialog {...DEFAULT_PROPS} onSuccess={onSuccess} />);
 
-    await act(async () => {
-      fireEvent.submit(
-        screen.getByRole("button", { name: "Aggiungi" }).closest("form")!,
-      );
-    });
+    fireEvent.submit(
+      screen.getByRole("button", { name: "Aggiungi" }).closest("form")!,
+    );
 
+    // L'alert compare solo dopo che la promise della server action è risolta:
+    // se `onSuccess` dovesse partire, a questo punto sarebbe già partita.
+    expect(await screen.findByRole("alert")).toHaveTextContent("Errore test");
     expect(onSuccess).not.toHaveBeenCalled();
   });
 
@@ -169,11 +162,9 @@ describe("AddItemDialog", () => {
     });
     render(<AddItemDialog {...DEFAULT_PROPS} />);
 
-    await act(async () => {
-      fireEvent.submit(
-        screen.getByRole("button", { name: "Aggiungi" }).closest("form")!,
-      );
-    });
+    fireEvent.submit(
+      screen.getByRole("button", { name: "Aggiungi" }).closest("form")!,
+    );
 
     await waitFor(() => {
       const link = screen.getByRole("link", { name: /attiva un piano/i });
@@ -190,11 +181,9 @@ describe("AddItemDialog", () => {
     });
     render(<AddItemDialog {...DEFAULT_PROPS} />);
 
-    await act(async () => {
-      fireEvent.submit(
-        screen.getByRole("button", { name: "Aggiungi" }).closest("form")!,
-      );
-    });
+    fireEvent.submit(
+      screen.getByRole("button", { name: "Aggiungi" }).closest("form")!,
+    );
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toBeInTheDocument();

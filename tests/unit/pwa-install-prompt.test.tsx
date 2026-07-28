@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  act,
+  waitFor,
+} from "@testing-library/react";
 import { PwaInstallPrompt } from "@/components/pwa/install-prompt";
 import { resetInstallPromptStoreForTests } from "@/lib/pwa/install-prompt-store";
 
@@ -119,10 +125,10 @@ describe("PwaInstallPrompt", () => {
       await act(async () => {
         window.dispatchEvent(event);
       });
-      await act(async () => {
-        fireEvent.click(screen.getByRole("button", { name: /installa/i }));
+      fireEvent.click(screen.getByRole("button", { name: /installa/i }));
+      await waitFor(() => {
+        expect(event.prompt).toHaveBeenCalledOnce();
       });
-      expect(event.prompt).toHaveBeenCalledOnce();
     });
 
     it("hides banner after install button is clicked", async () => {
@@ -131,12 +137,12 @@ describe("PwaInstallPrompt", () => {
       await act(async () => {
         window.dispatchEvent(event);
       });
-      await act(async () => {
-        fireEvent.click(screen.getByRole("button", { name: /installa/i }));
+      fireEvent.click(screen.getByRole("button", { name: /installa/i }));
+      await waitFor(() => {
+        expect(
+          screen.queryByRole("button", { name: /installa/i }),
+        ).not.toBeInTheDocument();
       });
-      expect(
-        screen.queryByRole("button", { name: /installa/i }),
-      ).not.toBeInTheDocument();
     });
 
     it("hides banner and sets localStorage when dismiss button is clicked", async () => {
@@ -145,9 +151,8 @@ describe("PwaInstallPrompt", () => {
       await act(async () => {
         window.dispatchEvent(event);
       });
-      await act(async () => {
-        fireEvent.click(screen.getByRole("button", { name: /non ora/i }));
-      });
+      // `handleDismiss` è sincrono: `fireEvent` flusha già l'update.
+      fireEvent.click(screen.getByRole("button", { name: /non ora/i }));
       expect(
         screen.queryByRole("button", { name: /installa/i }),
       ).not.toBeInTheDocument();

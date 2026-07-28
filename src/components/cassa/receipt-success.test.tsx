@@ -2,6 +2,7 @@ import type { ComponentProps } from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { ReceiptSuccess } from "./receipt-success";
+import { flushWithFakeTimers } from "../../../tests/_helpers/flush-fake-timers";
 
 // Mock navigator APIs
 const mockShare = vi.fn();
@@ -101,9 +102,8 @@ describe("ReceiptSuccess", () => {
   it("copies URL to clipboard and shows 'Link copiato!' feedback", async () => {
     render(<ReceiptSuccess {...defaultProps} documentId="doc-uuid-123" />);
 
-    await act(async () => {
-      fireEvent.click(screen.getByText("Invia ricevuta"));
-    });
+    fireEvent.click(screen.getByText("Invia ricevuta"));
+    await flushWithFakeTimers();
 
     expect(mockWriteText).toHaveBeenCalledWith(
       expect.stringContaining("/r/doc-uuid-123"),
@@ -114,9 +114,8 @@ describe("ReceiptSuccess", () => {
   it("resets 'Link copiato!' back to share button after 2 seconds (useEffect cleanup)", async () => {
     render(<ReceiptSuccess {...defaultProps} documentId="doc-uuid-123" />);
 
-    await act(async () => {
-      fireEvent.click(screen.getByText("Invia ricevuta"));
-    });
+    fireEvent.click(screen.getByText("Invia ricevuta"));
+    await flushWithFakeTimers();
 
     expect(screen.getByText("Link copiato!")).toBeInTheDocument();
 
@@ -141,12 +140,10 @@ describe("ReceiptSuccess", () => {
     expect(screen.queryByText("Mostra QR code")).not.toBeInTheDocument();
   });
 
-  it("opens a dialog with the receipt QR code and URL on click", async () => {
+  it("opens a dialog with the receipt QR code and URL on click", () => {
     render(<ReceiptSuccess {...defaultProps} documentId="doc-uuid-123" />);
 
-    await act(async () => {
-      fireEvent.click(screen.getByText("Mostra QR code"));
-    });
+    fireEvent.click(screen.getByText("Mostra QR code"));
 
     // The dialog renders the public receipt URL in plain text
     expect(
@@ -165,9 +162,8 @@ describe("ReceiptSuccess", () => {
 
     render(<ReceiptSuccess {...defaultProps} documentId="doc-uuid-123" />);
 
-    await act(async () => {
-      fireEvent.click(screen.getByText("Invia ricevuta"));
-    });
+    fireEvent.click(screen.getByText("Invia ricevuta"));
+    await flushWithFakeTimers();
 
     expect(mockShare).toHaveBeenCalledWith(
       expect.objectContaining({

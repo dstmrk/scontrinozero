@@ -103,10 +103,8 @@ describe("EditAdeCredentialsSection", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Salva" }));
 
-    await waitFor(() =>
-      expect(
-        screen.getByText("L'accesso con SPID non è disponibile."),
-      ).toBeInTheDocument(),
-    );
+    expect(
+      await screen.findByText("L'accesso con SPID non è disponibile."),
+    ).toBeInTheDocument();
   });
 });

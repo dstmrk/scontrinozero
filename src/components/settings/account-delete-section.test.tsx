@@ -1,10 +1,4 @@
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-  act,
-} from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AccountDeleteSection } from "./account-delete-section";
@@ -125,13 +119,13 @@ describe("AccountDeleteSection", () => {
       target: { value: "  SuperSecret123!  " },
     });
 
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Elimina definitivamente" }),
-      );
-    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Elimina definitivamente" }),
+    );
 
-    expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+    });
     const fd = mockDeleteAccount.mock.calls[0][0] as FormData;
     expect(fd.get("currentPassword")).toBe("  SuperSecret123!  ");
   });
@@ -145,11 +139,9 @@ describe("AccountDeleteSection", () => {
       target: { value: "wrong-password" },
     });
 
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Elimina definitivamente" }),
-      );
-    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Elimina definitivamente" }),
+    );
 
     await waitFor(() => {
       expect(screen.getByText("Password non corretta.")).toBeInTheDocument();
@@ -165,11 +157,9 @@ describe("AccountDeleteSection", () => {
       target: { value: "SuperSecret123!" },
     });
 
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Elimina definitivamente" }),
-      );
-    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Elimina definitivamente" }),
+    );
 
     await waitFor(() => {
       expect(
@@ -190,17 +180,20 @@ describe("AccountDeleteSection", () => {
       target: { value: "SuperSecret123!" },
     });
 
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Elimina definitivamente" }),
-      );
-    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Elimina definitivamente" }),
+    );
 
+    // La mutation è settled quando il bottone esce dallo stato "Eliminazione…":
+    // solo allora ha senso asserire che l'errore generico NON è comparso.
     await waitFor(() => {
       expect(
-        screen.queryByText("Si è verificato un errore. Riprova più tardi."),
-      ).not.toBeInTheDocument();
+        screen.getByRole("button", { name: "Elimina definitivamente" }),
+      ).toBeEnabled();
     });
+    expect(
+      screen.queryByText("Si è verificato un errore. Riprova più tardi."),
+    ).not.toBeInTheDocument();
   });
 
   it("chiude il dialog al click su Annulla", async () => {

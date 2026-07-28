@@ -1,10 +1,4 @@
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-  act,
-} from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CatalogoClient } from "./catalogo-client";
@@ -170,9 +164,7 @@ describe("CatalogoClient", () => {
     );
 
     // Click Elimina → esegue la cancellazione
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Elimina" }));
-    });
+    fireEvent.click(screen.getByRole("button", { name: "Elimina" }));
 
     await waitFor(() => {
       expect(screen.queryByText("Caffè espresso")).not.toBeInTheDocument();
@@ -234,9 +226,7 @@ describe("CatalogoClient", () => {
       screen.getByRole("button", { name: /elimina caffè espresso/i }),
     );
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Elimina" }));
-    });
+    fireEvent.click(screen.getByRole("button", { name: "Elimina" }));
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(
@@ -268,9 +258,7 @@ describe("CatalogoClient", () => {
       target: { value: "Cornetto" },
     });
 
-    await act(async () => {
-      fireEvent.submit(screen.getByLabelText("Descrizione").closest("form")!);
-    });
+    fireEvent.submit(screen.getByLabelText("Descrizione").closest("form")!);
 
     await waitFor(() => {
       expect(screen.getByText("Cornetto")).toBeInTheDocument();
@@ -305,9 +293,7 @@ describe("CatalogoClient", () => {
       target: { value: "Zucchero" },
     });
 
-    await act(async () => {
-      fireEvent.submit(screen.getByLabelText("Descrizione").closest("form")!);
-    });
+    fireEvent.submit(screen.getByLabelText("Descrizione").closest("form")!);
 
     await waitFor(() => {
       expect(screen.getByText("Zucchero")).toBeInTheDocument();
@@ -328,10 +314,8 @@ describe("CatalogoClient", () => {
     );
     const confirmBtn = screen.getByRole("button", { name: "Elimina" });
 
-    await act(async () => {
-      fireEvent.click(confirmBtn);
-      fireEvent.click(confirmBtn); // secondo click mentre la riga sparisce
-    });
+    fireEvent.click(confirmBtn);
+    fireEvent.click(confirmBtn); // secondo click mentre la riga sparisce
 
     await waitFor(() => {
       expect(screen.queryByText("Caffè espresso")).not.toBeInTheDocument();

@@ -167,4 +167,15 @@ describe("OnboardingTour", () => {
     expect(screen.getByText("Indietro")).toBeInTheDocument();
     expect(screen.getByText("Fine")).toBeInTheDocument();
   });
+
+  it("la X di chiusura è un type=button (niente submit implicito in un form)", async () => {
+    render(<OnboardingTour />);
+    await screen.findByTestId("joyride");
+
+    const closeButtons = screen.getAllByRole("button", { name: "Chiudi" });
+    expect(closeButtons.length).toBeGreaterThan(0);
+    for (const button of closeButtons) {
+      expect(button).toHaveAttribute("type", "button");
+    }
+  });
 });
