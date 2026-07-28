@@ -43,6 +43,43 @@
 7. Fallimenti AdE classificati da `src/lib/ade/log-failure.ts` con
    `flow: "emit-receipt"` (regole 20/23).
 
+## Stampa scontrino su termica Bluetooth
+
+Interamente **client-side**: nessuna server action, nessuna chiamata AdE. Parte
+da uno scontrino **già emesso**, quindi un fallimento di stampa non è mai un
+fallimento di emissione.
+
+1. Rilevazione supporto: `src/lib/printing/support.ts` distingue
+   supportato / adattatore spento / webview in-app / browser senza Web Bluetooth
+   (iOS, Firefox). Guida la copy, non solo l'abilitazione del bottone.
+2. Connessione: `src/lib/printing/bluetooth-printer.ts`, singleton di modulo con
+   `subscribe`/`getSnapshot` per `useSyncExternalStore` (stessa forma di
+   `src/lib/pwa/install-prompt-store.ts`). È un singleton perché
+   `navigator.bluetooth.getDevices()` — la riconnessione silenziosa — è dietro
+   flag su Chrome: la connessione GATT va tenuta viva per la sessione, così si
+   accoppia una volta all'apertura e non a ogni scontrino.
+3. Profilo stampante normalizzato alla connessione da
+   `src/lib/printing/printer-profile.ts`: il trasporto emette nomi di
+   `codepageMapping`/`language` che l'encoder non accetta più (`default`,
+   `zjiang`, `meow`) e che lo farebbero **lanciare**.
+4. Rendering: `src/lib/printing/receipt-escpos.ts` (puro) rispecchia sezione per
+   sezione il PDF di `src/lib/pdf/generate-sale-receipt.ts` e riusa
+   `computeReceiptTotals` da `src/lib/receipts/receipt-totals.ts` (regola 17).
+   `src/lib/printing/thermal-text.ts` traslittera le accentate maiuscole, che
+   CP437 non rappresenta.
+5. Composizione e invio: `src/lib/printing/print-receipt.ts` importa l'encoder
+   con `import()` **dinamico** — sono ~21 KB gz che restano fuori dal bundle
+   iniziale della cassa.
+6. Superfici: `src/components/printing/print-receipt-button.tsx` (cassa e
+   storico) degrada a scalare — stampa diretta → scelta collega/PDF → PDF; la
+   card `src/components/settings/printer-section.tsx` gestisce accoppiamento,
+   stampa di prova e preferenze per dispositivo
+   (`src/lib/printing/printer-preferences.ts`, su `localStorage`: una stampante
+   è attaccata a un telefono, non a un account).
+7. Errori: mai Sentry (regola 20). Bluetooth spento, chooser annullato e
+   stampante fuori portata sono condizioni prevedibili dall'input utente →
+   messaggi azionabili da `src/lib/printing/error-messages.ts`.
+
 ## Annullo documento (void)
 
 Analogo all'emissione: `src/server/void-actions.ts` →

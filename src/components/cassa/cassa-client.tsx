@@ -7,6 +7,8 @@ import Link from "next/link";
 import { Plus, ShoppingCart } from "lucide-react";
 import { useCassa } from "@/hooks/use-cassa";
 import { VAT_CODES, VatCode } from "@/types/cassa";
+import type { CartLine, PaymentMethod } from "@/types/cassa";
+import type { ReceiptPrintHeader } from "@/lib/printing/types";
 import { NumericKeypad } from "@/components/cassa/numeric-keypad";
 import { VatSelector } from "@/components/cassa/vat-selector";
 import { CartLineItem } from "@/components/cassa/cart-line-item";
@@ -29,11 +31,14 @@ const FALLBACK_VAT: VatCode = "22";
 interface CassaClientProps {
   readonly businessId: string;
   readonly preferredVatCode?: VatCode;
+  /** Intestazione esercente per la stampa termica; `null` se incompleta. */
+  readonly printHeader: ReceiptPrintHeader | null;
 }
 
 export function CassaClient({
   businessId,
   preferredVatCode,
+  printHeader,
 }: CassaClientProps) {
   const defaultVat = preferredVatCode ?? FALLBACK_VAT;
   const router = useRouter();
@@ -59,6 +64,11 @@ export function CassaClient({
     documentId?: string;
     adeProgressive?: string;
     adeTransactionId?: string;
+    createdAt?: string;
+    /** Righe emesse, congelate PRIMA di svuotare il carrello. */
+    lines: CartLine[];
+    paymentMethod: PaymentMethod;
+    lotteryCode: string | null;
   } | null>(null);
 
   // Stato form aggiungi articolo
@@ -132,12 +142,23 @@ export function CassaClient({
         // render via mutation.data.
         return;
       }
+      // ⚠️ Ordine: le righe vanno congelate PRIMA di `clearCart()`, altrimenti
+      // la schermata di successo non ha nulla da stampare (il carrello è già
+      // vuoto quando ReceiptSuccess monta).
+      const emittedLines = lines;
+      const emittedPaymentMethod = paymentMethod;
+      const emittedLotteryCode = lotteryCode || null;
+
       clearCart();
       track(UMAMI_EVENTS.receiptEmitted);
       setSuccessData({
         documentId: result.documentId,
         adeProgressive: result.adeProgressive,
         adeTransactionId: result.adeTransactionId,
+        createdAt: result.createdAt,
+        lines: emittedLines,
+        paymentMethod: emittedPaymentMethod,
+        lotteryCode: emittedLotteryCode,
       });
       setStep("success");
     },
@@ -208,6 +229,11 @@ export function CassaClient({
         documentId={successData?.documentId}
         adeProgressive={successData?.adeProgressive}
         adeTransactionId={successData?.adeTransactionId}
+        createdAt={successData?.createdAt}
+        lines={successData?.lines ?? []}
+        paymentMethod={successData?.paymentMethod ?? paymentMethod}
+        lotteryCode={successData?.lotteryCode ?? null}
+        printHeader={printHeader}
         onNewReceipt={handleNewReceipt}
       />
     );

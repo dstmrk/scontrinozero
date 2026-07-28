@@ -1,5 +1,9 @@
 import PDFDocument from "pdfkit";
-import { PAYMENT_LABELS, formatReceiptPrice } from "@/lib/receipt-format";
+import {
+  PAYMENT_LABELS,
+  formatReceiptPrice,
+  formatReceiptDateTime,
+} from "@/lib/receipt-format";
 import { VAT_LABELS as CASSA_VAT_LABELS } from "@/types/cassa";
 import type { VatCode } from "@/types/cassa";
 
@@ -38,27 +42,6 @@ function vatLabelOf(vatCode: string): string {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-// Module-scope: costruire un Intl.DateTimeFormat è costoso, le opzioni sono costanti.
-const receiptDateFormatter = new Intl.DateTimeFormat("it-IT", {
-  timeZone: "Europe/Rome",
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-function formatDate(date: Date): string {
-  // Extract date/time parts in Europe/Rome timezone, then assemble as
-  // DD-MM-YYYY HH:MM. Using formatToParts avoids locale-specific separators
-  // (it-IT uses "/" which would need a replace). In a UTC container,
-  // getHours()/getDate() etc. return UTC values and differ from Italy's local
-  // time near midnight and during DST transitions.
-  const parts = receiptDateFormatter.formatToParts(date);
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
-  return `${get("day")}-${get("month")}-${get("year")} ${get("hour")}:${get("minute")}`;
-}
 
 /** Returns the VAT amount for a gross line total given a vatCode. */
 export function computeVatAmount(
@@ -332,7 +315,7 @@ export function generateSaleReceiptPdf(
     drawSeparator();
 
     // ─── FOOTER ────────────────────────────────────────────────────────────
-    drawLine(formatDate(data.createdAt), { size: 7 });
+    drawLine(formatReceiptDateTime(data.createdAt), { size: 7 });
     drawLine(`DOCUMENTO N. ${data.adeProgressive}`, { size: 7 });
 
     doc.end();

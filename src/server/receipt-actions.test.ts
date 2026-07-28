@@ -61,7 +61,17 @@ const mockLinesInsertValues = vi.fn().mockResolvedValue(undefined);
 
 const mockInsert = vi.fn();
 
-const mockUpdateWhere = vi.fn().mockResolvedValue(undefined);
+// `.where()` è terminale per gli UPDATE che non leggono nulla indietro, ma
+// l'UPDATE ad ACCEPTED vi concatena `.returning({ createdAt })` — serve a
+// stampare sulla carta la data del documento invece di quella del client.
+// Il thenable soddisfa entrambe le forme.
+const mockUpdateReturning = vi
+  .fn()
+  .mockResolvedValue([{ createdAt: new Date("2026-07-28T12:32:00Z") }]);
+const mockUpdateWhere = vi.fn().mockReturnValue({
+  returning: mockUpdateReturning,
+  then: (onFulfilled: (value: undefined) => unknown) => onFulfilled(undefined),
+});
 const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
 const mockUpdate = vi.fn().mockReturnValue({ set: mockUpdateSet });
 

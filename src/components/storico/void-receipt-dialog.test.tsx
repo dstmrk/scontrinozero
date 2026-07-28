@@ -37,6 +37,8 @@ const ACCEPTED_RECEIPT: ReceiptListItem = {
   adeProgressive: "DCW2026/5111-2188",
   adeTransactionId: "trx-001",
   createdAt: new Date("2026-01-01T10:00:00Z"),
+  paymentMethod: "PC",
+  lotteryCode: null,
   total: "12.00",
   lines: [
     {

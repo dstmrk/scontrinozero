@@ -8,6 +8,7 @@ import { VAT_CODES, type VatCode } from "@/types/cassa";
 import { CassaClient } from "@/components/cassa/cassa-client";
 import { getAuthenticatedUser } from "@/lib/server-auth";
 import { canUseDashboardCashier, getPlan } from "@/lib/plans";
+import { fetchReceiptPrintHeader } from "@/lib/receipts/print-header";
 
 export default async function CassaPage() {
   const status = await getOnboardingStatus();
@@ -25,11 +26,17 @@ export default async function CassaPage() {
   }
 
   const db = getDb();
-  const [business] = await db
-    .select({ preferredVatCode: businesses.preferredVatCode })
-    .from(businesses)
-    .where(eq(businesses.id, status.businessId))
-    .limit(1);
+  // L'intestazione per la stampa termica si legge QUI, non dopo l'emissione:
+  // un round-trip in più sulla schermata di successo si vedrebbe, e
+  // l'auto-stampa deve partire senza attese (principio #1).
+  const [[business], printHeader] = await Promise.all([
+    db
+      .select({ preferredVatCode: businesses.preferredVatCode })
+      .from(businesses)
+      .where(eq(businesses.id, status.businessId))
+      .limit(1),
+    fetchReceiptPrintHeader(status.businessId),
+  ]);
 
   const preferredVatCode =
     business?.preferredVatCode &&
@@ -42,6 +49,7 @@ export default async function CassaPage() {
       <CassaClient
         businessId={status.businessId}
         preferredVatCode={preferredVatCode}
+        printHeader={printHeader}
       />
     </Suspense>
   );

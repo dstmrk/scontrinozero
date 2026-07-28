@@ -35,8 +35,15 @@ export function buildSecurityHeaders(
     { key: "X-Frame-Options", value: "DENY" },
     { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
     {
+      // `bluetooth=(self)` è dichiarato esplicitamente: coincide col default
+      // di spec, ma la stampa scontrino su termica dipende da
+      // `navigator.bluetooth` e un domani una policy più larga (o un
+      // `bluetooth=()` copiato per abitudine dalle altre voci) la spegnerebbe
+      // in silenzio — `getAvailability()` lancerebbe SecurityError e la
+      // feature risulterebbe "non supportata" senza spiegazione.
       key: "Permissions-Policy",
-      value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+      value:
+        "camera=(), microphone=(), geolocation=(), interest-cohort=(), bluetooth=(self)",
     },
     { key: cspKey, value: buildCsp() },
     {

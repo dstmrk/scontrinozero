@@ -21,12 +21,34 @@ import {
   type SearchReceiptsResult,
   type SearchReceiptsParams,
 } from "@/types/storico";
+import type { PaymentMethod } from "@/types/cassa";
 
 // ---------------------------------------------------------------------------
 // Constants / helpers
 // ---------------------------------------------------------------------------
 
 const MAX_PAGE_SIZE = 100;
+
+/**
+ * Estrae metodo di pagamento e codice lotteria dal jsonb `public_request`.
+ *
+ * La colonna è `unknown` (jsonb non tipizzato) e sulle righe storiche può
+ * essere NULL o avere una forma diversa: si valida campo per campo invece di
+ * castare. Il default `PC` interviene solo quando il dato manca davvero —
+ * serve alla ristampa, che deve riportare il pagamento reale del documento.
+ */
+function parsePublicRequest(raw: unknown): {
+  paymentMethod: PaymentMethod;
+  lotteryCode: string | null;
+} {
+  const value = (raw ?? {}) as Record<string, unknown>;
+  const paymentMethod = value.paymentMethod === "PE" ? "PE" : "PC";
+  const lotteryCode =
+    typeof value.lotteryCode === "string" && value.lotteryCode
+      ? value.lotteryCode
+      : null;
+  return { paymentMethod, lotteryCode };
+}
 
 // ---------------------------------------------------------------------------
 // searchReceipts
@@ -131,6 +153,10 @@ export async function searchReceipts(
         adeProgressive: commercialDocuments.adeProgressive,
         adeTransactionId: commercialDocuments.adeTransactionId,
         createdAt: commercialDocuments.createdAt,
+        // Serve alla ristampa su termica: la copia consegnata al cliente deve
+        // riportare il metodo di pagamento REALE del documento trasmesso
+        // all'AdE, non un default.
+        publicRequest: commercialDocuments.publicRequest,
       })
       .from(commercialDocuments)
       .where(and(...conditions))
@@ -149,6 +175,7 @@ export async function searchReceipts(
   const items = docs.map((doc) => {
     const docLines = linesByDocId.get(doc.id) ?? [];
     const docTotal = calcDocTotal(docLines);
+    const publicRequest = parsePublicRequest(doc.publicRequest);
 
     return {
       id: doc.id,
@@ -157,6 +184,8 @@ export async function searchReceipts(
       adeProgressive: doc.adeProgressive,
       adeTransactionId: doc.adeTransactionId,
       createdAt: doc.createdAt,
+      paymentMethod: publicRequest.paymentMethod,
+      lotteryCode: publicRequest.lotteryCode,
       total: docTotal.toFixed(2),
       lines: docLines.map((l) => ({
         description: l.description,

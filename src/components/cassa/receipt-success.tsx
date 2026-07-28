@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { CheckCircle2, Share2, Check, Copy, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,11 +11,31 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ReceiptQrCode } from "@/components/receipts/receipt-qr-code";
+import { PrintReceiptButton } from "@/components/printing/print-receipt-button";
+import { usePrinter } from "@/hooks/use-printer";
+import { readPrinterPreferences } from "@/lib/printing/printer-preferences";
+import type { CartLine, PaymentMethod } from "@/types/cassa";
+import type {
+  PrintableReceipt,
+  ReceiptPrintHeader,
+} from "@/lib/printing/types";
 
 interface ReceiptSuccessProps {
   readonly documentId?: string;
   readonly adeProgressive?: string;
   readonly adeTransactionId?: string;
+  /** Data del documento in DB (ISO). La carta non deve usare `new Date()`. */
+  readonly createdAt?: string;
+  /**
+   * Dati per la stampa su termica. Opzionali con default innocui: se mancano,
+   * `printableReceipt` resta null e il bottone "Stampa" ripiega sul PDF —
+   * esattamente il comportamento voluto quando non c'è abbastanza per
+   * comporre un documento fiscale.
+   */
+  readonly lines?: readonly CartLine[];
+  readonly paymentMethod?: PaymentMethod;
+  readonly lotteryCode?: string | null;
+  readonly printHeader?: ReceiptPrintHeader | null;
   readonly onNewReceipt: () => void;
 }
 
@@ -23,10 +43,63 @@ export function ReceiptSuccess({
   documentId,
   adeProgressive,
   adeTransactionId,
+  createdAt,
+  lines = [],
+  paymentMethod = "PC",
+  lotteryCode = null,
+  printHeader = null,
   onNewReceipt,
 }: ReceiptSuccessProps) {
   const [copied, setCopied] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const printer = usePrinter();
+  const autoPrintDone = useRef(false);
+
+  /**
+   * Scontrino stampabile. Serve l'intestazione dell'esercente e il progressivo
+   * AdE: senza, resta comunque la corsia PDF del bottone.
+   */
+  const printableReceipt = useMemo<PrintableReceipt | null>(() => {
+    if (!printHeader || !adeProgressive || lines.length === 0) return null;
+    return {
+      header: printHeader,
+      lines: lines.map((line) => ({
+        description: line.description,
+        quantity: String(line.quantity),
+        grossUnitPrice: String(line.grossUnitPrice),
+        vatCode: line.vatCode,
+      })),
+      paymentMethod,
+      // Fallback su "adesso" solo se il server non ha restituito la data:
+      // l'orario sarebbe di pochi secondi diverso, meglio di nessuna stampa.
+      createdAt: createdAt ? new Date(createdAt) : new Date(),
+      adeProgressive,
+      lotteryCode,
+      publicUrl: documentId
+        ? `${globalThis.location.origin}/r/${documentId}`
+        : null,
+    };
+  }, [
+    printHeader,
+    adeProgressive,
+    lines,
+    paymentMethod,
+    createdAt,
+    lotteryCode,
+    documentId,
+  ]);
+
+  // Auto-stampa: parte DOPO che la schermata di successo è renderizzata e non
+  // la blocca mai: se la stampante non risponde, l'utente vede comunque lo
+  // scontrino emesso e ha il bottone "Stampa" per riprovare. Un fallimento di
+  // stampa non è mai un fallimento di emissione.
+  useEffect(() => {
+    if (autoPrintDone.current) return;
+    if (!printableReceipt || printer.status !== "connected") return;
+    if (!readPrinterPreferences().autoPrint) return;
+    autoPrintDone.current = true;
+    void printer.print(printableReceipt);
+  }, [printableReceipt, printer]);
 
   useEffect(() => {
     if (!copied) return;
@@ -116,6 +189,12 @@ export function ReceiptSuccess({
               </>
             )}
           </Button>
+
+          <PrintReceiptButton
+            receipt={printableReceipt}
+            pdfHref={`/api/documents/${documentId}/pdf`}
+            className="w-full"
+          />
 
           <Button
             type="button"

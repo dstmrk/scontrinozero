@@ -1281,7 +1281,12 @@ describe("emitReceiptForBusiness", () => {
     // emit normale (no conflict): submitSale ha successo, ma l'UPDATE
     // ACCEPTED finale va in timeout esaurendo i retry
     const timeoutErr = Object.assign(new Error("timeout"), { code: "57014" });
-    mockUpdateWhere.mockRejectedValue(timeoutErr);
+    // L'UPDATE ad ACCEPTED concatena ora `.returning({ createdAt })` — serve
+    // per stampare sulla carta la data del documento e non quella del client —
+    // quindi il timeout va simulato sul ramo `.returning()`: rifiutare
+    // direttamente `where()` darebbe un TypeError su `.returning` di undefined,
+    // cioè un percorso d'errore diverso da quello sotto test.
+    mockClaimReturning.mockRejectedValue(timeoutErr);
 
     const { emitReceiptForBusiness } = await import("./receipt-service");
     const result = await emitReceiptForBusiness(VALID_INPUT);

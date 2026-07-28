@@ -22,6 +22,7 @@ import { EditProfileSection } from "@/components/settings/edit-profile-section";
 import { EditBusinessSection } from "@/components/settings/edit-business-section";
 import { ChangePasswordSection } from "@/components/settings/change-password-section";
 import { ThemeSection } from "@/components/settings/theme-section";
+import { PrinterSection } from "@/components/settings/printer-section";
 import { getProfilePlan } from "@/server/billing-actions";
 import { canUseApi, TRIAL_DAYS } from "@/lib/plans";
 import {
@@ -469,6 +470,15 @@ export default async function SettingsPage({
             </CardHeader>
             <CardContent>
               <ThemeSection />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Stampante</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PrinterSection />
             </CardContent>
           </Card>
         </div>

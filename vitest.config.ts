@@ -10,6 +10,10 @@ const JSDOM_TS_TESTS = [
   "src/hooks/use-cassa.test.ts",
   "src/lib/safe-storage.test.ts",
   "src/lib/pwa/install-prompt-store.test.ts",
+  "src/lib/printing/support.test.ts",
+  "src/lib/printing/printer-preferences.test.ts",
+  "src/lib/printing/bluetooth-printer.test.ts",
+  "src/hooks/use-printer.test.ts",
 ];
 
 export default defineConfig({
@@ -109,6 +113,15 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // `@point-of-sale/webbluetooth-receipt-printer@2` dichiara negli exports
+      // la SOLA condition "browser": Vitest risolve con ["node","import"] e
+      // fallisce con "not exported under the conditions" — prima ancora che
+      // vi.mock possa intercettare. L'alias punta al build ESM, lo stesso che
+      // riceve il browser (dove la condition "browser" si applica davvero).
+      "@point-of-sale/webbluetooth-receipt-printer": path.resolve(
+        __dirname,
+        "./node_modules/@point-of-sale/webbluetooth-receipt-printer/dist/webbluetooth-receipt-printer.esm.js",
+      ),
     },
   },
 });

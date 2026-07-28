@@ -28,6 +28,10 @@ export const UMAMI_EVENTS = {
   receiptEmitted: "receipt_emitted",
   planUpgradeClick: "plan_upgrade_click",
   onboardingStepCompleted: "onboarding_step_completed",
+  /** Stampante Bluetooth accoppiata: misura l'adozione della feature. */
+  printerPaired: "printer_paired",
+  /** Scontrino stampato su termica (auto o manuale). */
+  receiptPrinted: "receipt_printed",
 } as const;
 
 /**

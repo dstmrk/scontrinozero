@@ -132,6 +132,34 @@ fatto che i payload sono statici, ma è un single point of failure.
 
 ## P3 — Bassa priorità
 
+### 62. Stampa termica: i due pacchetti `@point-of-sale/*` hanno tabelle divergenti
+
+- **Categoria:** dipendenze/manutenzione · **Severità:** Low (mitigato, ma fragile)
+- **File:** `src/lib/printing/printer-profile.ts`, `src/types/point-of-sale.d.ts`, alias in `next.config.ts` e `vitest.config.ts`
+
+**Problema.** `@point-of-sale/webbluetooth-receipt-printer@2` (ultima release 2024) e `@point-of-sale/receipt-printer-encoder@3` (2025) sono versionati in
+modo indipendente e le loro tabelle hanno già divergiato: il trasporto emette
+`codepageMapping` `default`/`zjiang` e linguaggio `meow`, che fanno **lanciare**
+il costruttore dell'encoder. `default` è il profilo catch-all delle stampantine
+economiche, cioè l'hardware target. Oggi è coperto da `resolveCodepageMapping` /
+`resolvePrinterLanguage` con test di regressione, ma ogni nuovo profilo aggiunto
+a monte può reintrodurre il problema **silenziosamente**, e ce ne accorgeremmo
+solo su hardware reale.
+
+Il trasporto porta con sé altri due attriti già aggirati ma non risolti:
+`connect()` inghiotte gli errori in un `console.log` (l'esito si deduce
+dall'evento `connected`), e il suo `package.json` dichiara la sola condition
+`browser` negli `exports`, il che richiede un alias sia in `next.config.ts` (il
+pass Client Component SSR risolve con le condition node) sia in
+`vitest.config.ts`.
+
+**Fix (quando servirà).** Il trasporto è ~200 righe: se dovessero servire
+profili di stampanti non coperti, o se il pacchetto restasse fermo mentre
+l'encoder evolve, vendorizzarlo in `src/lib/printing/` è realistico e ci darebbe
+errori tipizzati nativamente. L'encoder invece va tenuto: il mapping codepage è
+esattamente il pezzo che non ha senso riscrivere. _Trigger:_ una segnalazione di
+stampante non riconosciuta, o un altro breaking change fra le due versioni.
+
 ### 17. Key rotation zero-downtime: i caller passano sempre una sola chiave
 
 - **Categoria:** sicurezza/operatività · **Severità:** Low (finché non serve ruotare)

@@ -134,6 +134,69 @@ describe("storico-actions", () => {
       expect(result.items[0].lines[0].description).toBe("Pizza");
     });
 
+    it("riporta il metodo di pagamento reale del documento", async () => {
+      // La ristampa su termica consegna una copia al cliente: non può
+      // riportare un pagamento diverso da quello trasmesso all'AdE.
+      mockSelect
+        .mockReturnValueOnce(makeCountBuilder(1))
+        .mockReturnValueOnce(
+          makeDocsBuilder([
+            {
+              ...FAKE_SALE_DOC,
+              publicRequest: { paymentMethod: "PE", lotteryCode: "ABCD1234" },
+            },
+          ]),
+        )
+        .mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
+
+      const { searchReceipts } = await import("./storico-actions");
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+      );
+
+      expect(result.items[0].paymentMethod).toBe("PE");
+      expect(result.items[0].lotteryCode).toBe("ABCD1234");
+    });
+
+    it("ripiega su contante quando publicRequest è assente (righe storiche)", async () => {
+      mockSelect
+        .mockReturnValueOnce(makeCountBuilder(1))
+        .mockReturnValueOnce(
+          makeDocsBuilder([{ ...FAKE_SALE_DOC, publicRequest: null }]),
+        )
+        .mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
+
+      const { searchReceipts } = await import("./storico-actions");
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+      );
+
+      expect(result.items[0].paymentMethod).toBe("PC");
+      expect(result.items[0].lotteryCode).toBeNull();
+    });
+
+    it("scarta un publicRequest di forma inattesa senza lanciare", async () => {
+      mockSelect
+        .mockReturnValueOnce(makeCountBuilder(1))
+        .mockReturnValueOnce(
+          makeDocsBuilder([
+            {
+              ...FAKE_SALE_DOC,
+              publicRequest: { paymentMethod: 42, lotteryCode: [] },
+            },
+          ]),
+        )
+        .mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
+
+      const { searchReceipts } = await import("./storico-actions");
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+      );
+
+      expect(result.items[0].paymentMethod).toBe("PC");
+      expect(result.items[0].lotteryCode).toBeNull();
+    });
+
     it("returns empty items and total 0 when no documents found", async () => {
       mockSelect
         .mockReturnValueOnce(makeCountBuilder(0))
