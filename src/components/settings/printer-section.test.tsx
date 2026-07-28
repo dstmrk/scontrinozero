@@ -129,7 +129,9 @@ describe("browser senza Web Bluetooth", () => {
       canUseBluetooth: false,
     });
     render(<PrinterSection />);
-    expect(screen.getByRole("status").textContent).toContain("PDF");
+    // Query per testo e non per ruolo: il messaggio è copy statico, non una
+    // live region (vedi printer-section.tsx).
+    expect(screen.getByText(/PDF/)).toBeDefined();
   });
 
   it("non offre l'accoppiamento dove non è possibile", () => {
@@ -147,7 +149,7 @@ describe("browser senza Web Bluetooth", () => {
       canUseBluetooth: false,
     });
     render(<PrinterSection />);
-    expect(screen.getByRole("status").textContent).toContain("Chrome");
+    expect(screen.getByText(/Chrome/)).toBeDefined();
   });
 });
 

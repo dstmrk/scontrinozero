@@ -95,38 +95,30 @@ describe("buildReceiptCommands — struttura", () => {
 });
 
 describe("buildReceiptCommands — contenuto fiscale", () => {
-  it("stampa intestazione, P.IVA e indirizzo dell'esercente", () => {
-    const text = decode(buildReceiptCommands(makeReceipt(SIMPLE_LINES), OPTS));
-    expect(text).toContain("Bar da Mario");
-    expect(text).toContain("P.IVA: 12345678901");
-    expect(text).toContain("Via Roma 1");
-  });
-
-  it("stampa la dicitura del documento commerciale come nel PDF", () => {
-    const text = decode(buildReceiptCommands(makeReceipt(SIMPLE_LINES), OPTS));
-    expect(text).toContain("DOCUMENTO COMMERCIALE");
-    expect(text).toContain("di vendita o prestazione");
-  });
-
-  it("stampa il progressivo AdE e la data del documento", () => {
-    const text = decode(buildReceiptCommands(makeReceipt(SIMPLE_LINES), OPTS));
-    expect(text).toContain("DOCUMENTO N. 0001-0042");
+  // Casi che condividono lo stesso scontrino di riferimento e differiscono
+  // solo per il frammento atteso: un frammento per riga, così un fallimento
+  // dice QUALE manca invece di rompere un test cumulativo.
+  it.each([
+    ["la ragione sociale dell'esercente", "Bar da Mario"],
+    ["la partita IVA", "P.IVA: 12345678901"],
+    ["l'indirizzo dell'esercente", "Via Roma 1"],
+    [
+      "la dicitura del documento commerciale, come nel PDF",
+      "DOCUMENTO COMMERCIALE",
+    ],
+    ["il sottotitolo della dicitura", "di vendita o prestazione"],
+    ["il progressivo AdE", "DOCUMENTO N. 0001-0042"],
     // 12:32 UTC = 14:32 a Roma (ora legale): la data va resa in Europe/Rome
     // esattamente come fa il PDF, non in UTC del container.
-    expect(text).toContain("28-07-2026 14:32");
-  });
-
-  it("stampa descrizione e totale riga", () => {
-    const text = decode(buildReceiptCommands(makeReceipt(SIMPLE_LINES), OPTS));
+    ["la data del documento in ora italiana", "28-07-2026 14:32"],
     // Descrizione senza accenti: la resa degli accenti ha il suo test dedicato,
     // qui interessa che la riga arrivi sulla carta col totale giusto (2×1,20).
-    expect(text).toContain("Cornetto");
-    expect(text).toContain("2,40");
-  });
-
-  it("aggiunge la riga quantità quando qty ≠ 1, come il PDF", () => {
+    ["la descrizione della riga", "Cornetto"],
+    ["il totale di riga", "2,40"],
+    ["la riga quantità quando qty ≠ 1, come il PDF", "n.2 x 1,20"],
+  ])("stampa %s", (_caso, atteso) => {
     const text = decode(buildReceiptCommands(makeReceipt(SIMPLE_LINES), OPTS));
-    expect(text).toContain("n.2 x 1,20");
+    expect(text).toContain(atteso);
   });
 
   it("omette la riga quantità quando qty = 1", () => {

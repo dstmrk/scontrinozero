@@ -126,9 +126,7 @@ describe("auto-stampa", () => {
     const print = vi.fn().mockResolvedValue(null);
     mockPrinter.current = printerState({ print });
     renderSuccess();
-    await waitFor(() =>
-      expect(screen.getByText("Scontrino emesso")).toBeDefined(),
-    );
+    expect(await screen.findByText("Scontrino emesso")).toBeDefined();
     expect(print).not.toHaveBeenCalled();
   });
 
@@ -136,9 +134,7 @@ describe("auto-stampa", () => {
     const print = vi.fn().mockResolvedValue(null);
     mockPrinter.current = printerState({ status: "idle", print });
     renderSuccess();
-    await waitFor(() =>
-      expect(screen.getByText("Scontrino emesso")).toBeDefined(),
-    );
+    expect(await screen.findByText("Scontrino emesso")).toBeDefined();
     expect(print).not.toHaveBeenCalled();
   });
 
@@ -146,9 +142,7 @@ describe("auto-stampa", () => {
     const print = vi.fn().mockResolvedValue(null);
     mockPrinter.current = printerState({ print });
     renderSuccess({ printHeader: null });
-    await waitFor(() =>
-      expect(screen.getByText("Scontrino emesso")).toBeDefined(),
-    );
+    expect(await screen.findByText("Scontrino emesso")).toBeDefined();
     expect(print).not.toHaveBeenCalled();
   });
 
@@ -167,8 +161,8 @@ describe("auto-stampa", () => {
 
   it("lascia il bottone Stampa per ristampare", async () => {
     renderSuccess();
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: /Stampa/ })).toBeDefined(),
-    );
+    // L'`expect` attorno alla findBy non è ornamentale: è l'unica asserzione
+    // del test, e senza scatterebbe S6661 (Blocker).
+    expect(await screen.findByRole("button", { name: /Stampa/ })).toBeDefined();
   });
 });

@@ -110,9 +110,10 @@ export function PrinterSection() {
       </div>
 
       {supportNotice ? (
-        <p className="text-muted-foreground text-sm" role="status">
-          {supportNotice}
-        </p>
+        // Niente `role="status"` né <output>: è copy esplicativo statico, non
+        // l'esito di un'azione. Come live region verrebbe annunciato fuori
+        // contesto da uno screen reader.
+        <p className="text-muted-foreground text-sm">{supportNotice}</p>
       ) : (
         <>
           <div className="flex flex-wrap gap-2">
@@ -168,19 +169,17 @@ export function PrinterSection() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              {/* Un <Label htmlFor> punterebbe a UNO dei due bottoni,
-                  ribattezzandolo "Larghezza carta" e rendendolo
-                  indistinguibile dall'altro per uno screen reader: l'etichetta
-                  appartiene al gruppo, non a un'opzione. */}
-              <p id="printer-width-label" className="text-sm font-medium">
+            {/* Un <Label htmlFor> punterebbe a UNO dei due bottoni,
+                ribattezzandolo "Larghezza carta" e rendendolo indistinguibile
+                dall'altro per uno screen reader: l'etichetta appartiene al
+                gruppo, non a un'opzione. <legend> lo nomina nativamente e —
+                a differenza di <label> — non entra nel nome accessibile dei
+                controlli figli, che restano "58 mm" / "80 mm". */}
+            <fieldset className="m-0 border-0 p-0">
+              <legend className="mb-2 text-sm font-medium">
                 Larghezza carta
-              </p>
-              <div
-                role="group"
-                aria-labelledby="printer-width-label"
-                className="flex gap-2"
-              >
+              </legend>
+              <div className="flex gap-2">
                 {PAPER_OPTIONS.map(({ value, label }) => {
                   const isActive = mounted && preferences.paperWidth === value;
                   return (
@@ -196,7 +195,7 @@ export function PrinterSection() {
                   );
                 })}
               </div>
-            </div>
+            </fieldset>
 
             <div className="flex items-start gap-3">
               <Checkbox
@@ -226,9 +225,10 @@ export function PrinterSection() {
         </p>
       )}
       {feedback && (
-        <p className="text-sm text-green-600" role="status">
-          {feedback}
-        </p>
+        // <output> ha implicitamente role="status" ed è l'elemento giusto: è
+        // l'esito di un'azione dell'utente. `block` perché <output> è inline
+        // di default, a differenza del <p> che sostituisce.
+        <output className="block text-sm text-green-600">{feedback}</output>
       )}
     </div>
   );

@@ -88,7 +88,9 @@ describe("stampante collegata", () => {
     render(<PrintReceiptButton receipt={RECEIPT} pdfHref={PDF_HREF} />);
 
     fireEvent.click(screen.getByRole("button", { name: /Stampa/ }));
-    await waitFor(() => expect(screen.getByText("Stampato")).toBeDefined());
+    // L'`expect` attorno alla findBy non è ornamentale: è l'unica asserzione
+    // del test, e senza scatterebbe S6661 (Blocker).
+    expect(await screen.findByText("Stampato")).toBeDefined();
   });
 
   it("mostra un messaggio azionabile se la stampante non risponde", async () => {
@@ -109,7 +111,7 @@ describe("stampante collegata", () => {
     render(<PrintReceiptButton receipt={RECEIPT} pdfHref={PDF_HREF} />);
 
     fireEvent.click(screen.getByRole("button", { name: /Stampa/ }));
-    await waitFor(() => expect(screen.getByText("Stampato")).toBeDefined());
+    expect(await screen.findByText("Stampato")).toBeDefined();
     expect(openSpy).not.toHaveBeenCalled();
   });
 });

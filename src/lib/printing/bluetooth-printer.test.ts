@@ -285,7 +285,7 @@ describe("tryReconnectPrinter", () => {
     const callsAfterFirst = spy.mock.calls.length;
     await tryReconnectPrinter();
 
-    expect(spy.mock.calls.length).toBe(callsAfterFirst);
+    expect(spy.mock.calls).toHaveLength(callsAfterFirst);
   });
 
   it("conserva il nome della stampante quando la riconnessione non riesce", async () => {
