@@ -13,6 +13,7 @@ const JSDOM_TS_TESTS = [
   "src/lib/printing/support.test.ts",
   "src/lib/printing/printer-preferences.test.ts",
   "src/lib/printing/bluetooth-printer.test.ts",
+  "src/hooks/use-printer.test.ts",
 ];
 
 export default defineConfig({
