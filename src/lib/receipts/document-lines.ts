@@ -92,6 +92,19 @@ export function calcInputLinesTotalCents(
   );
 }
 
+/**
+ * Minimo strutturale richiesto da `computeReceiptTotals`: i soli campi che
+ * concorrono ai totali. `SelectCommercialDocumentLine` (DB), `ReceiptLineItem`
+ * (storico) e `PrintableReceiptLine` (stampa termica) lo soddisfano tutti, così
+ * ogni superficie deriva gli importi dalla stessa funzione invece di
+ * riscriverne una copia che driftterebbe di un centesimo (regola 17).
+ */
+export interface ReceiptLineAmounts {
+  readonly quantity: string | null;
+  readonly grossUnitPrice: string | null;
+  readonly vatCode: string;
+}
+
 export interface ReceiptLineCalc {
   readonly qty: number;
   readonly price: number;
@@ -116,7 +129,7 @@ export interface ReceiptTotals {
  * Used by the public receipt page and the PDF renderer.
  */
 export function computeReceiptTotals(
-  lines: readonly SelectCommercialDocumentLine[],
+  lines: readonly ReceiptLineAmounts[],
 ): ReceiptTotals {
   const perLine: ReceiptLineCalc[] = [];
   const vatByCodeCents = new Map<string, number>();

@@ -1,0 +1,209 @@
+/**
+ * Rendering del documento commerciale in comandi ESC/POS.
+ *
+ * Funzione **pura**: prende un `PrintableReceipt` e restituisce i byte da
+ * mandare alla stampante. Nessun accesso a `navigator`, nessuno stato — così è
+ * interamente testabile in Node senza hardware né DOM.
+ *
+ * Il layout rispecchia sezione per sezione il PDF a 58mm di
+ * `src/lib/pdf/generate-sale-receipt.ts` (che resta la corsia di fallback per
+ * i browser senza Web Bluetooth): stesse label, stesso ordine, stessi totali.
+ * Le uniche differenze sono imposte dal supporto:
+ *  - l'intestazione di colonna `€` diventa `Importo` (il simbolo dell'euro non
+ *    è in CP437 e verrebbe stampato come `?`);
+ *  - l'etichetta IVA usa la forma corta (`shortVatLabel`), perché su 32 colonne
+ *    "0% – Non sogg." mangerebbe metà riga.
+ *
+ * La matematica monetaria NON è reimplementata: arriva tutta da
+ * `computeReceiptTotals`, la stessa funzione che alimenta PDF, pagina pubblica
+ * e storico (regola 17 — centesimi per riga, mai per documento).
+ */
+
+import ReceiptPrinterEncoder from "@point-of-sale/receipt-printer-encoder";
+import { computeReceiptTotals } from "@/lib/receipts/document-lines";
+import {
+  PAYMENT_LABELS,
+  formatReceiptPrice,
+  formatReceiptDateTime,
+} from "@/lib/receipt-format";
+import { sanitizeThermalText, shortVatLabel } from "./thermal-text";
+import type {
+  PrintableReceipt,
+  PrintableReceiptLine,
+  ReceiptEncodeOptions,
+} from "./types";
+
+/** Larghezza della colonna IVA: `shortVatLabel` non supera i 3 caratteri. */
+const VAT_COL = 4;
+/** Larghezza della colonna importo di riga: copre fino a `99999,99`. */
+const PRICE_COL = 8;
+/** Larghezza della colonna importo nelle righe di totale. */
+const AMOUNT_COL = 9;
+
+type Encoder = InstanceType<typeof ReceiptPrinterEncoder>;
+
+/**
+ * Riga descrittiva della quantità, stampata sotto l'articolo quando qty ≠ 1
+ * (stesso comportamento del PDF: il cliente vede il calcolo).
+ *
+ * Va emessa come **riga di tabella separata** e non come `\n` dentro la cella
+ * descrizione: l'encoder non gestisce il newline dentro una cella e la riga
+ * uscirebbe fuori dalle colonne, senza padding.
+ */
+function quantityNote(line: PrintableReceiptLine): string | null {
+  const qty = Number.parseFloat(line.quantity);
+  if (Number.isNaN(qty) || qty === 1) return null;
+  const qtyDisplay = qty % 1 === 0 ? Math.round(qty) : qty;
+  const unitPrice = Number.parseFloat(line.grossUnitPrice);
+  return `n.${qtyDisplay} x ${formatReceiptPrice(unitPrice)}`;
+}
+
+/** Riga a due colonne label/importo, usata per la sezione totali. */
+function amountRow(
+  encoder: Encoder,
+  columns: number,
+  label: string,
+  amount: number,
+): void {
+  encoder.table(
+    [
+      { width: columns - AMOUNT_COL, align: "left" },
+      { width: AMOUNT_COL, align: "right" },
+    ],
+    [[sanitizeThermalText(label), formatReceiptPrice(amount)]],
+  );
+}
+
+function printHeader(encoder: Encoder, receipt: PrintableReceipt): void {
+  const { header } = receipt;
+  encoder
+    .align("center")
+    .bold(true)
+    .line(sanitizeThermalText(header.businessName))
+    .bold(false);
+
+  const addressLine = [
+    header.address,
+    header.city,
+    header.province,
+    header.zipCode,
+  ]
+    .filter(Boolean)
+    .join(" - ");
+  if (addressLine) encoder.line(sanitizeThermalText(addressLine));
+  encoder.line(`P.IVA: ${header.vatNumber}`);
+
+  encoder.align("left").rule();
+  encoder.align("center").bold(true).line("DOCUMENTO COMMERCIALE");
+  encoder.line("di vendita o prestazione").bold(false).align("left");
+  encoder.rule();
+}
+
+function printLineItems(
+  encoder: Encoder,
+  receipt: PrintableReceipt,
+  columns: number,
+): void {
+  const descCol = columns - VAT_COL - PRICE_COL;
+  const itemColumns = [
+    { width: descCol, align: "left" as const },
+    { width: VAT_COL, align: "center" as const },
+    { width: PRICE_COL, align: "right" as const },
+  ];
+
+  encoder.table(itemColumns, [["Descrizione", "IVA", "Importo"]]);
+
+  const { perLine } = computeReceiptTotals(receipt.lines);
+
+  receipt.lines.forEach((line, index) => {
+    const rows: string[][] = [
+      [
+        sanitizeThermalText(line.description),
+        shortVatLabel(line.vatCode),
+        formatReceiptPrice(perLine[index].lineTotal),
+      ],
+    ];
+    const note = quantityNote(line);
+    if (note) rows.push([note, "", ""]);
+    encoder.table(itemColumns, rows);
+  });
+
+  encoder.rule();
+}
+
+function printTotals(
+  encoder: Encoder,
+  receipt: PrintableReceipt,
+  columns: number,
+): void {
+  const { grandTotal, vatByCode } = computeReceiptTotals(receipt.lines);
+
+  amountRow(encoder, columns, "Subtotale", grandTotal);
+  for (const [code, vatAmount] of vatByCode.entries()) {
+    // Stessa soglia del PDF: sotto mezzo centesimo la riga non ha senso.
+    if (vatAmount > 0.005) {
+      amountRow(
+        encoder,
+        columns,
+        `di cui IVA ${shortVatLabel(code)}`,
+        vatAmount,
+      );
+    }
+  }
+
+  encoder.bold(true);
+  amountRow(encoder, columns, "TOTALE COMPLESSIVO", grandTotal);
+  encoder.bold(false).rule();
+
+  const paymentLabel =
+    PAYMENT_LABELS[receipt.paymentMethod] ?? receipt.paymentMethod;
+  amountRow(encoder, columns, paymentLabel, grandTotal);
+
+  if (receipt.lotteryCode) {
+    encoder.line(`Cod. Lotteria: ${receipt.lotteryCode}`);
+  }
+  encoder.rule();
+}
+
+function printFooter(
+  encoder: Encoder,
+  receipt: PrintableReceipt,
+  options: ReceiptEncodeOptions,
+): void {
+  encoder.line(formatReceiptDateTime(receipt.createdAt));
+  encoder.line(`DOCUMENTO N. ${receipt.adeProgressive}`);
+
+  if (options.printQr && receipt.publicUrl) {
+    // QR nativo della stampante (GS ( k): nessun rendering raster, quindi
+    // nessuna dipendenza da canvas nel bundle.
+    encoder.newline().align("center").qrcode(receipt.publicUrl).align("left");
+  }
+
+  encoder.newline(3).cut();
+}
+
+/**
+ * Costruisce i comandi ESC/POS per uno scontrino già emesso.
+ *
+ * @throws se `options.columns` non è una larghezza supportata dall'encoder.
+ */
+export function buildReceiptCommands(
+  receipt: PrintableReceipt,
+  options: ReceiptEncodeOptions,
+): Uint8Array {
+  const encoder = new ReceiptPrinterEncoder({
+    language: options.language,
+    columns: options.columns,
+    ...(options.codepageMapping
+      ? { codepageMapping: options.codepageMapping }
+      : {}),
+  });
+
+  encoder.initialize();
+  printHeader(encoder, receipt);
+  printLineItems(encoder, receipt, options.columns);
+  printTotals(encoder, receipt, options.columns);
+  printFooter(encoder, receipt, options);
+
+  return encoder.encode();
+}
