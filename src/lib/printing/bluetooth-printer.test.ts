@@ -273,6 +273,21 @@ describe("tryReconnectPrinter", () => {
     await expect(tryReconnectPrinter()).resolves.toBeUndefined();
   });
 
+  it("tenta la riconnessione una volta sola per sessione", async () => {
+    // Più componenti montano l'hook: senza guard partirebbero gatt.connect()
+    // concorrenti sullo stesso device.
+    writeLastPrinter({ id: "dev-1", name: "Munbyn ITPP047" });
+    resetPrinterStoreForTests();
+    mockTransport.reconnectFindsDevice = false;
+    const spy = vi.spyOn(globalThis, "setTimeout");
+
+    await tryReconnectPrinter();
+    const callsAfterFirst = spy.mock.calls.length;
+    await tryReconnectPrinter();
+
+    expect(spy.mock.calls.length).toBe(callsAfterFirst);
+  });
+
   it("conserva il nome della stampante quando la riconnessione non riesce", async () => {
     mockTransport.reconnectFindsDevice = false;
     writeLastPrinter({ id: "dev-1", name: "Munbyn ITPP047" });

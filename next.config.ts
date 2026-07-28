@@ -18,6 +18,19 @@ const nextConfig: NextConfig = {
   // Marking pdfkit as an external package preserves the original Node.js module
   // resolution and keeps __dirname pointing to the actual node_modules location.
   serverExternalPackages: ["pdfkit"],
+  // `@point-of-sale/webbluetooth-receipt-printer@2` dichiara negli `exports`
+  // la SOLA condition "browser". Il bundle client la risolve, ma il pass
+  // "Client Component SSR" — che pre-renderizza i client component in Node —
+  // usa le condition node/import e fallisce con module-not-found, facendo
+  // saltare l'intero build. L'alias punta al dist ESM, lo stesso file che il
+  // browser riceverebbe: in SSR il modulo non viene mai eseguito (l'import è
+  // dinamico dentro un handler), serve solo che risolva.
+  turbopack: {
+    resolveAlias: {
+      "@point-of-sale/webbluetooth-receipt-printer":
+        "./node_modules/@point-of-sale/webbluetooth-receipt-printer/dist/webbluetooth-receipt-printer.esm.js",
+    },
+  },
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },

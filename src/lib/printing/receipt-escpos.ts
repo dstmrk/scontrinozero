@@ -20,7 +20,9 @@
  */
 
 import ReceiptPrinterEncoder from "@point-of-sale/receipt-printer-encoder";
-import { computeReceiptTotals } from "@/lib/receipts/document-lines";
+// Import dal modulo PURO, non da `document-lines.ts`: quello importa `getDb()`
+// e trascinerebbe il driver postgres nel bundle del browser.
+import { computeReceiptTotals } from "@/lib/receipts/receipt-totals";
 import {
   PAYMENT_LABELS,
   formatReceiptPrice,

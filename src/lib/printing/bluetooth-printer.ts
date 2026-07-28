@@ -87,6 +87,9 @@ let snapshot: PrinterSnapshot = IDLE_SNAPSHOT;
 let transport: Transport | null = null;
 let transportReady: Promise<Transport> | null = null;
 let initialized = false;
+/** La riconnessione automatica si tenta una volta per sessione: più componenti
+ * montano l'hook e senza guard partirebbero `gatt.connect()` concorrenti. */
+let reconnectAttempted = false;
 const subscribers = new Set<() => void>();
 
 /** Sostituisce lo snapshot solo quando cambia davvero: `useSyncExternalStore`
@@ -218,6 +221,9 @@ export async function connectPrinter(): Promise<void> {
  */
 export async function tryReconnectPrinter(): Promise<void> {
   hydrateLastPrinter();
+  if (reconnectAttempted || snapshot.status === "connected") return;
+  reconnectAttempted = true;
+
   const last = readLastPrinter();
   if (!last) return;
 
@@ -281,5 +287,6 @@ export function resetPrinterStoreForTests(): void {
   transport = null;
   transportReady = null;
   initialized = false;
+  reconnectAttempted = false;
   subscribers.clear();
 }

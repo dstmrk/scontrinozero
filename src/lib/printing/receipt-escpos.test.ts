@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildReceiptCommands } from "./receipt-escpos";
-import { computeReceiptTotals } from "@/lib/receipts/document-lines";
+import { computeReceiptTotals } from "@/lib/receipts/receipt-totals";
 import { PAPER_COLUMNS } from "./types";
 import type { PrintableReceipt, PrintableReceiptLine } from "./types";
 
