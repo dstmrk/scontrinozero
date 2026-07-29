@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { EditItemDialog } from "./edit-item-dialog";
 import type { CatalogItem } from "@/types/catalogo";
@@ -86,32 +86,32 @@ describe("EditItemDialog", () => {
       target: { value: "Pizza marinara" },
     });
 
-    await act(async () => {
-      fireEvent.submit(
-        screen.getByRole("button", { name: "Salva" }).closest("form")!,
+    fireEvent.submit(
+      screen.getByRole("button", { name: "Salva" }).closest("form")!,
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateCatalogItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          itemId: "item-123",
+          businessId: "biz-456",
+          description: "Pizza marinara",
+        }),
       );
     });
-
-    expect(mockUpdateCatalogItem).toHaveBeenCalledWith(
-      expect.objectContaining({
-        itemId: "item-123",
-        businessId: "biz-456",
-        description: "Pizza marinara",
-      }),
-    );
   });
 
   it("chiama onSuccess con l'item aggiornato dopo aggiornamento riuscito", async () => {
     const onSuccess = vi.fn();
     render(<EditItemDialog {...DEFAULT_PROPS} onSuccess={onSuccess} />);
 
-    await act(async () => {
-      fireEvent.submit(
-        screen.getByRole("button", { name: "Salva" }).closest("form")!,
-      );
-    });
+    fireEvent.submit(
+      screen.getByRole("button", { name: "Salva" }).closest("form")!,
+    );
 
-    expect(onSuccess).toHaveBeenCalledWith(UPDATED_ITEM);
+    await waitFor(() => {
+      expect(onSuccess).toHaveBeenCalledWith(UPDATED_ITEM);
+    });
   });
 
   it("pre-popola il campo prezzo come stringa vuota se defaultPrice è null", () => {

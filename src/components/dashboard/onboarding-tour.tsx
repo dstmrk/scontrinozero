@@ -123,6 +123,7 @@ function TourTooltip({
         <CardTitle className="text-base">{step.title}</CardTitle>
         <button
           {...closeProps}
+          type="button"
           className="text-muted-foreground hover:text-foreground absolute top-3 right-3"
         >
           <X className="size-4" />

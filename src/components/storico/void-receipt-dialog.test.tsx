@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { VoidReceiptDialog } from "./void-receipt-dialog";
 import { voidReceipt } from "@/server/void-actions";
@@ -78,14 +78,12 @@ describe("VoidReceiptDialog — QR code", () => {
     expect(screen.queryByText("Mostra QR code")).not.toBeInTheDocument();
   });
 
-  it("switches to the QR view showing the receipt URL on click", async () => {
+  it("switches to the QR view showing the receipt URL on click", () => {
     renderWithQuery(
       <VoidReceiptDialog {...defaultProps} receipt={ACCEPTED_RECEIPT} />,
     );
 
-    await act(async () => {
-      fireEvent.click(screen.getByText("Mostra QR code"));
-    });
+    fireEvent.click(screen.getByText("Mostra QR code"));
 
     expect(
       screen.getByText((content) => content.includes("/r/doc-uuid-123")),
@@ -94,17 +92,13 @@ describe("VoidReceiptDialog — QR code", () => {
     expect(screen.getByText("Indietro")).toBeInTheDocument();
   });
 
-  it("goes back to the detail view from the QR view", async () => {
+  it("goes back to the detail view from the QR view", () => {
     renderWithQuery(
       <VoidReceiptDialog {...defaultProps} receipt={ACCEPTED_RECEIPT} />,
     );
 
-    await act(async () => {
-      fireEvent.click(screen.getByText("Mostra QR code"));
-    });
-    await act(async () => {
-      fireEvent.click(screen.getByText("Indietro"));
-    });
+    fireEvent.click(screen.getByText("Mostra QR code"));
+    fireEvent.click(screen.getByText("Indietro"));
 
     // Back in detail view: the void button is visible again
     expect(screen.getByText("Annulla scontrino")).toBeInTheDocument();
@@ -113,18 +107,14 @@ describe("VoidReceiptDialog — QR code", () => {
 });
 
 describe("VoidReceiptDialog — banner reauth CIE (REVIEW #54)", () => {
-  async function openReauthBanner() {
+  function openReauthBanner() {
     renderWithQuery(
       <VoidReceiptDialog {...defaultProps} receipt={ACCEPTED_RECEIPT} />,
     );
     // detail → confirmingVoid
-    await act(async () => {
-      fireEvent.click(screen.getByText("Annulla scontrino"));
-    });
+    fireEvent.click(screen.getByText("Annulla scontrino"));
     // confirmingVoid → conferma → mutation risolve reauthRequired
-    await act(async () => {
-      fireEvent.click(screen.getByText("Annulla scontrino"));
-    });
+    fireEvent.click(screen.getByText("Annulla scontrino"));
     return screen.findByText(/Sessione CIE scaduta/);
   }
 

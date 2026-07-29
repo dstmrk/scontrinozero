@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { AdeCredentialsSection } from "./ade-credentials-section";
+import { flushWithFakeTimers } from "../../../tests/_helpers/flush-fake-timers";
 
 // --- Mocks ---
 
@@ -303,11 +304,10 @@ describe("AdeCredentialsSection", () => {
         />,
       );
 
-      await act(async () => {
-        fireEvent.click(
-          screen.getByRole("button", { name: "Verifica connessione" }),
-        );
-      });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Verifica connessione" }),
+      );
+      await flushWithFakeTimers();
 
       expect(screen.getByText("Connessione verificata.")).toBeInTheDocument();
 
@@ -329,11 +329,10 @@ describe("AdeCredentialsSection", () => {
         />,
       );
 
-      await act(async () => {
-        fireEvent.click(
-          screen.getByRole("button", { name: "Verifica connessione" }),
-        );
-      });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Verifica connessione" }),
+      );
+      await flushWithFakeTimers();
 
       act(() => {
         vi.advanceTimersByTime(2999);
@@ -352,11 +351,10 @@ describe("AdeCredentialsSection", () => {
       );
 
       // First verification
-      await act(async () => {
-        fireEvent.click(
-          screen.getByRole("button", { name: "Verifica connessione" }),
-        );
-      });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Verifica connessione" }),
+      );
+      await flushWithFakeTimers();
 
       expect(screen.getByText("Connessione verificata.")).toBeInTheDocument();
 
@@ -365,11 +363,10 @@ describe("AdeCredentialsSection", () => {
         vi.advanceTimersByTime(1500);
       });
 
-      await act(async () => {
-        fireEvent.click(
-          screen.getByRole("button", { name: "Verifica connessione" }),
-        );
-      });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Verifica connessione" }),
+      );
+      await flushWithFakeTimers();
 
       expect(screen.getByText("Connessione verificata.")).toBeInTheDocument();
 
@@ -496,11 +493,10 @@ describe("AdeCredentialsSection", () => {
         />,
       );
 
-      await act(async () => {
-        fireEvent.click(
-          screen.getByRole("button", { name: "Verifica connessione" }),
-        );
-      });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Verifica connessione" }),
+      );
+      await flushWithFakeTimers();
 
       expect(screen.getByText("Verifica fallita.")).toBeInTheDocument();
 

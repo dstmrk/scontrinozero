@@ -1,6 +1,6 @@
 ---
 name: testing-patterns
-description: Use when writing or fixing Vitest tests — avoiding SonarCloud S6661 Blocker (every it()/test() must have at least one expect()), mocking classes correctly with function/class keyword (never arrow), prefixing vi.mock factory variables with "mock" for hoisting, mocking Drizzle's db.transaction() callback with a passthrough, stubbing NODE_ENV with vi.stubEnv, updating mocks after refactoring N queries into a JOIN, INSERT ON CONFLICT DO NOTHING for race conditions, sanitizing context before Sentry.captureException via sanitizeForTelemetry(), auth-first ordering in deleteAccount, conditional last_used_at writes to prevent write-amplification, react/cache deduplication across RSC and Route Handlers, simulating a hostile browser (sessionStorage/localStorage throwing SecurityError, in-app webview, cookies disabled) for UI components that read Web Storage, or mocking Sentry.withScope + scope.setFingerprint when testing logger.ts fingerprint-aware capture. Also lists the consolidated rate-limit thresholds for server actions (emit/void/pdf/checkout/portal/auth).
+description: Use when writing or fixing Vitest tests — avoiding SonarCloud S6661 Blocker (every it()/test() must have at least one expect()), mocking classes correctly with function/class keyword (never arrow), prefixing vi.mock factory variables with "mock" for hoisting, mocking Drizzle's db.transaction() callback with a passthrough, stubbing NODE_ENV with vi.stubEnv, updating mocks after refactoring N queries into a JOIN, INSERT ON CONFLICT DO NOTHING for race conditions, sanitizing context before Sentry.captureException via sanitizeForTelemetry(), auth-first ordering in deleteAccount, conditional last_used_at writes to prevent write-amplification, react/cache deduplication across RSC and Route Handlers, simulating a hostile browser (sessionStorage/localStorage throwing SecurityError, in-app webview, cookies disabled) for UI components that read Web Storage, or mocking Sentry.withScope + scope.setFingerprint when testing logger.ts fingerprint-aware capture, removing redundant act() calls around fireEvent (SonarCloud "already flushes its own updates") and flushing async updates under vi.useFakeTimers() where waitFor/findBy hang. Also lists the consolidated rate-limit thresholds for server actions (emit/void/pdf/checkout/portal/auth).
 ---
 
 # testing-patterns — Vitest patterns e regole CI
@@ -24,6 +24,7 @@ Indice (salta alla sezione che serve, non leggere tutto):
 - `last_used_at` condizionale (anti write-amplification)
 - Browser ostile (storage bloccato, webview, cookies off)
 - Mock di `Sentry.withScope` + `setFingerprint` (R23)
+- `act()` ridondante intorno a `fireEvent` + trap dei fake timer
 
 ---
 
@@ -434,3 +435,55 @@ Casi da testare sempre insieme:
   `captureException`: è metadato di routing, non payload.
 
 Esempio canonico: `src/lib/logger.test.ts:223`.
+
+---
+
+## `act()` ridondante intorno a `fireEvent` (e il trap dei fake timer)
+
+SonarCloud segnala _"Remove this redundant `act()` call; the wrapped call
+already flushes its own updates"_ su ogni `await act(async () => { … })` il cui
+corpo contiene **solo** chiamate RTL (`render`, `fireEvent.*`, `userEvent.*`):
+si auto-avvolgono già in `act()` via l'`eventWrapper` di RTL.
+
+```tsx
+// ❌ SBAGLIATO — act ridondante (Code Smell)
+await act(async () => {
+  fireEvent.submit(form);
+});
+expect(mockAction).toHaveBeenCalled();
+
+// ✅ CORRETTO — l'attesa dell'update async passa da waitFor/findBy*
+fireEvent.submit(form);
+await waitFor(() => {
+  expect(mockAction).toHaveBeenCalled();
+});
+```
+
+`act()` resta **legittimo** quando avvolge qualcosa che RTL non avvolge:
+`vi.advanceTimersByTime()`, `window.dispatchEvent()`, `store.emit()`.
+
+### Sotto fake timer NON si possono usare `waitFor`/`findBy*`
+
+RTL riconosce solo i fake timer **di Jest**: `jestFakeTimersAreEnabled()`
+(`@testing-library/dom/dist/helpers.js`) controlla il global `jest`, che con
+Vitest non esiste. Con `vi.useFakeTimers()` attivi, l'`asyncWrapper` di
+`@testing-library/react` resta appeso a un `setTimeout(…, 0)` finto che nessuno
+avanzerà mai → il test va in **timeout**, non in fallimento chiaro.
+
+Il flush corretto è un tick asincrono dei timer finti dentro `act()` —
+helper condiviso `tests/_helpers/flush-fake-timers.ts`:
+
+```tsx
+fireEvent.click(screen.getByRole("button", { name: "Verifica connessione" }));
+await flushWithFakeTimers(); // act(async () => await vi.advanceTimersByTimeAsync(0))
+
+expect(screen.getByText("Connessione verificata.")).toBeInTheDocument();
+```
+
+Se invece il click produce solo update **sincroni** (cambio di `view`, apertura
+di un Dialog Radix), non serve nessun flush: basta `fireEvent` + assertion
+sincrona, e il test può smettere di essere `async`.
+
+Esempi canonici: `src/components/settings/ade-credentials-section.test.tsx:307`
+(fake timer), `src/components/catalogo/add-item-dialog.test.tsx:82` (waitFor),
+`src/components/storico/void-receipt-dialog.test.tsx:81` (sincrono).
