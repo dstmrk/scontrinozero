@@ -130,6 +130,104 @@ fatto che i payload sono statici, ma è un single point of failure.
 
 ---
 
+### 73. Stampa termica: con una scrittura GATT fallita `print()` del trasporto non si risolve MAI — spinner infinito e stampa bloccata fino al reload
+
+- **Categoria:** correttezza/robustezza · **Severità:** Medium-High — è il failure mode più comune al banco (stampante spenta, batteria esaurita, fuori portata) e l'esito attuale è un blocco silenzioso, non un errore
+- **File:** `src/lib/printing/bluetooth-printer.ts:266-282` (`printBytes`, try/catch inefficace), `:134-149` (`getTransport`, singleton mai invalidato); mock irrealistico: `src/lib/printing/bluetooth-printer.test.ts:66-71` (`print()` che _lancia_)
+
+**Problema.** Il try/catch di `printBytes` assume che `transport.print(bytes)`
+rigetti quando la scrittura GATT fallisce. Il sorgente reale di
+`@point-of-sale/webbluetooth-receipt-printer@2` (dist ESM + sourcemap) fa
+un'altra cosa: `print()` accoda i chunk (100 byte) in una coda interna e accoda
+la `resolve` come **ultimo** task; il runner della coda fa `await job()` senza
+catch. Se una `writeValueWithResponse` rigetta (stampante spenta →
+`NetworkError`):
+
+1. la promise di `print()` **non si risolve né rigetta mai** → il ramo
+   `unreachable` di `printBytes` è irraggiungibile, `isBusy` dell'hook resta
+   `true` per sempre → bottone "Stampa" disabilitato con spinner infinito,
+   auto-stampa appesa, nessun messaggio all'utente;
+2. la coda interna resta con `_working=true` e non riparte mai → ogni stampa
+   successiva sulla stessa istanza si accoda a vuoto: il trasporto è
+   inutilizzabile fino al **reload della pagina** (il singleton di
+   `getTransport` non viene mai invalidato);
+3. il rigetto interno diventa un `unhandledrejection` che il Sentry client
+   cattura (DOMException `NetworkError` da GATT, non coperto da
+   `isClientNetworkFailure`) → noise in violazione della regola 20.
+
+Aggravante: nemmeno la disconnessione spontanea arriva mai — il trasporto fa
+`navigator.bluetooth.addEventListener("disconnect", …)`, ma l'evento Web
+Bluetooth reale si chiama `gattserverdisconnected` (target il
+`BluetoothDevice`; il payload non ha `.device`): quel listener è codice morto,
+quindi lo snapshot `connected` non diventa mai `disconnected` da solo. Tutto
+verificato leggendo il dist della libreria e simulando la coda in Node
+(promise mai settled, `_working` bloccato, seconda print mai eseguita). Il
+mock dei test fa `throw` da `print()` — modella il contrario del comportamento
+reale e maschera l'intero scenario.
+
+**Fix (non ambiguo).**
+
+1. In `printBytes`: racchiudere `transport.print(bytes)` in un timeout
+   (`Promise.race`, ~15s: una ricevuta 58mm sono pochi KB in chunk da 100
+   byte, i casi legittimi chiudono in pochi secondi). Allo scadere → trattare
+   come `unreachable`.
+2. Sul timeout (e solo lì) **invalidare il singleton** — `transport = null;
+transportReady = null` — oltre a `setSnapshot({ status: "disconnected" })`:
+   la coda interna dell'istanza è irrecuperabile, il prossimo "Ricollega"
+   deve ricreare il trasporto da zero.
+3. L'`unhandledrejection` interno alla libreria resta anche col race: o si
+   filtra in `src/lib/sentry-filters.ts` (DOMException `NetworkError` con
+   stack nel chunk del trasporto, motivazione documentata nel filtro — skill
+   `sentry-hygiene`), o si accetta documentandolo qui.
+4. Aggiornare il mock del trasporto nei test: su `printThrows`, `print()`
+   ritorna una **promise pending per sempre** (comportamento reale), non un
+   `throw`; tenere anche un caso che lancia (difensivo, costa un `it` in più).
+5. **Test:** print mai settled → `printBytes` rigetta `unreachable` allo
+   scadere del timeout (fake timers) e lo snapshot va a `disconnected`; dopo
+   il timeout un nuovo `connectPrinter()` istanzia un trasporto NUOVO (il
+   vecchio non riceve più chiamate); print che risolve → nessun side-effect
+   del timeout.
+6. Alla prima occasione con hardware reale: stampante spenta → messaggio
+   "Stampante non raggiungibile…" entro il timeout, e ripristino con
+   "Ricollega" senza reload.
+
+---
+
+### 74. Auto-stampa + "Ricollega e stampa" dalla schermata di successo → scontrino stampato due volte
+
+- **Categoria:** correttezza/UX · **Severità:** Medium — doppia copia cartacea dello stesso documento al banco; scenario ordinario (prima stampa della sessione con auto-stampa attiva, default ON)
+- **File:** `src/components/cassa/receipt-success.tsx:96-102` (effect auto-stampa: guard `autoPrintDone` settata solo a stampa avviata); `src/components/printing/print-receipt-button.tsx:96-104` (`handleConnectAndPrint`)
+
+**Problema.** L'effect di auto-stampa NON marca `autoPrintDone` quando al
+mount la stampante non è collegata: esce e resta armato (le deps includono
+`printer`, che cambia identità a ogni render, quindi l'effect rivaluta a ogni
+cambiamento di stato). Se l'utente, dalla stessa schermata, tocca "Stampa" →
+"Ricollega e stampa": `printer.connect()` porta lo snapshot a `connected`, il
+re-render fa ripartire l'effect che stampa (guard ancora `false`), e subito
+dopo `handleConnectAndPrint` chiama comunque `printToPrinter` → **due stampe
+dello stesso documento**. Condizioni: `autoPrint` attivo (default ON),
+`printableReceipt` disponibile, stampante non collegata al momento
+dell'emissione — cioè tipicamente il primo scontrino della giornata.
+
+**Fix (non ambiguo).**
+
+1. Nell'effect: alla **prima** valutazione con `printableReceipt` non-null,
+   marcare `autoPrintDone.current = true` PRIMA di decidere se stampare;
+   stampare solo se in quel momento `printer.status === "connected"` e
+   `autoPrint` è attivo. Semantica risultante (da documentare nel commento):
+   l'auto-stampa vale per la stampante già collegata all'emissione; una
+   connessione successiva è un'azione esplicita dell'utente, che la stampa la
+   ottiene già dal bottone. (Trade-off accettato: una riconnessione silenziosa
+   via `getDevices` completata un istante dopo il mount non auto-stampa più —
+   oggi `getDevices` è dietro flag, il caso è teorico.)
+2. **Test** (nel file esistente
+   `src/components/cassa/receipt-success-autoprint.test.tsx`): mount con
+   `status: "idle"` e auto-stampa ON → rerender con `status: "connected"` → `print` MAI chiamato
+   dall'effect; mount già `connected` → una sola chiamata (già coperto);
+   auto-stampa OFF → invariato.
+
+---
+
 ## P3 — Bassa priorità
 
 ### 62. Stampa termica: i due pacchetti `@point-of-sale/*` hanno tabelle divergenti
@@ -605,6 +703,130 @@ throttling di business: 30/h è sotto il caso d'uso dichiarato del prodotto.
    `docs/architecture/config-manifest.md` nello stesso PR; `npm run arch:check`.
 3. **Test:** aggiornare il test del limite emit alla nuova soglia; il
    messaggio d'errore resta invariato.
+
+---
+
+### 75. Stampa termica: dopo "Scollega" lo stato finisce `disconnected` invece di `idle`
+
+- **Categoria:** correttezza (state machine) · **Severità:** Low — oggi cosmetico, ma inquina la semantica di `disconnected` ("offri Ricollega")
+- **File:** `src/lib/printing/bluetooth-printer.ts:243-259` (`disconnectPrinter`), `:138-142` (listener `disconnected` in `getTransport`)
+
+**Problema.** `transport.disconnect()` emette l'evento `disconnected` su un
+macrotask (`setTimeout(…, 0)` interno alla libreria). `disconnectPrinter`
+attende la promise, poi resetta lo snapshot a `idle` — ma l'evento in coda
+arriva DOPO e il listener lo sovrascrive con `{ status: "disconnected" }`.
+Stato finale: `disconnected` con `deviceName: null` e accoppiamento
+dimenticato, cioè uno stato che per contratto significa "era collegata,
+offri Ricollega" su una stampante che l'utente ha appena scollegato
+esplicitamente. Il test esistente ("riporta lo stato a idle") passa solo
+perché asserisce in modo sincrono, prima che il macrotask giri.
+
+**Fix (non ambiguo).**
+
+1. Nel listener `disconnected` del trasporto: aggiornare lo snapshot solo se
+   `snapshot.status` è `"connected"` o `"connecting"` — una disconnessione
+   notificata quando siamo già `idle`/`disconnected` non è un'informazione.
+2. **Test:** `await disconnectPrinter()` seguito da un flush dei macrotask
+   (`await new Promise((r) => setTimeout(r, 0))`) → lo status resta `"idle"`
+   (rafforza il test esistente, che oggi non vedrebbe la regressione).
+
+---
+
+### 76. Stampa termica: import dinamico del trasporto fallito → promise rigettata cache-ata per sempre
+
+- **Categoria:** robustezza · **Severità:** Low — richiede un fallimento di rete/chunk al primo uso della stampante nella sessione
+- **File:** `src/lib/printing/bluetooth-printer.ts:134-149` (`getTransport`, `transportReady ??= import(…)`)
+
+**Problema.** Se l'`import()` dinamico del trasporto fallisce (rete assente al
+primo tentativo, chunk invalidato da un deploy), la promise **rigettata**
+resta assegnata a `transportReady`: ogni `connectPrinter()` successivo
+rifallisce con `not-selected` anche quando la rete è tornata, fino al reload
+della pagina. Stesso pattern del finding #73 (singleton mai invalidato), ma
+sul path di import anziché di stampa.
+
+**Fix (non ambiguo).**
+
+1. Nel factory di `getTransport`, aggiungere un `.catch` che resetta
+   `transportReady = null` (e `transport = null`) prima di rilanciare
+   l'errore: il tentativo successivo riparte da un import pulito.
+2. **Test:** primo import che rigetta (mock del modulo che lancia una volta)
+   → `connectPrinter()` rigetta; secondo tentativo con import funzionante →
+   `connected`.
+
+---
+
+### 77. `isPaperWidth` valida con `in`: chiavi del prototype accettate come larghezza carta
+
+- **Categoria:** correttezza/boundary (pattern security-patterns) · **Severità:** Low — solo self-inflicted via localStorage manomesso
+- **File:** `src/lib/printing/printer-preferences.ts:50-52` (`isPaperWidth`); consumer: `src/lib/printing/print-receipt.ts:20` (`PAPER_COLUMNS[preferences.paperWidth]`)
+
+**Problema.** `value in PAPER_COLUMNS` è `true` anche per le chiavi ereditate
+dal prototype (`"toString"`, `"valueOf"`, …). Con
+`sz_printer_prefs = {"paperWidth":"toString"}` in localStorage,
+`readPrinterPreferences()` ritorna `paperWidth: "toString"` e
+`PAPER_COLUMNS["toString"]` è una **funzione**: `columns` invalido → il
+costruttore dell'encoder lancia a stampa avviata → mascherato dal messaggio
+fuorviante "Stampante non raggiungibile". È esattamente il pattern
+lookup-da-chiave-utente che la skill `security-patterns` vieta.
+
+**Fix (non ambiguo).**
+
+1. `isPaperWidth`: `typeof value === "string" &&
+Object.hasOwn(PAPER_COLUMNS, value)`.
+2. **Test** (in `printer-preferences.test.ts`): `{"paperWidth":"toString"}` →
+   default `"58"`; `{"paperWidth":"80"}` → `"80"` invariato.
+
+---
+
+### 78. Ristampa da storico: manca il gate sulle righe vuote
+
+- **Categoria:** correttezza · **Severità:** Low — richiede un documento senza righe (dato degenere/legacy)
+- **File:** `src/components/storico/void-receipt-dialog.tsx:69-80` (`printableReceipt`); confronto: `src/components/cassa/receipt-success.tsx:62-63` (che il gate ce l'ha)
+
+**Problema.** Il `printableReceipt` dello storico richiede `printHeader` e
+`adeProgressive` ma non `receipt.lines.length > 0` (in `ReceiptSuccess` il
+gate c'è): un documento arrivato senza righe (`linesByDocId.get(doc.id) ?? []`
+in `searchReceipts`) produrrebbe uno scontrino termico con zero articoli e
+"TOTALE COMPLESSIVO 0,00" — su carta, consegnato a un cliente.
+
+**Fix (non ambiguo).**
+
+1. Aggiungere `|| receipt.lines.length === 0` alla condizione che ritorna
+   `null` — il bottone ripiega sul PDF, coerente con la cassa.
+2. **Test** (in `void-receipt-dialog.test.tsx`): receipt con `lines: []` →
+   il bottone Stampa apre il PDF invece di stampare.
+
+---
+
+### 79. Cat printer (profilo `meow`, service `0000ae30`): accoppiabile dal chooser ma stamperebbe spazzatura
+
+- **Categoria:** correttezza/hardware · **Severità:** Low — hardware di nicchia, ma l'esito è un documento fiscale illeggibile senza alcun segnale d'errore
+- **File:** `src/lib/printing/bluetooth-printer.ts:116-127` (`onConnected`), `src/lib/printing/printer-profile.ts:74-80` (`resolvePrinterLanguage`); complementare al finding #62
+
+**Problema.** I filtri del chooser del trasporto includono il service
+`0000ae30` — le "cat printer" economiche. Per quel profilo il trasporto emette
+`language: "meow"`, un protocollo **raster proprietario** che l'encoder v3 non
+supporta affatto. `resolvePrinterLanguage` degrada a `"esc-pos"`: il pairing
+riesce, la UI dice "Collegata", ma i byte ESC/POS su quell'hardware producono
+caratteri casuali o nessuna uscita. Il degrado (giusto per i nomi legacy tipo
+`meow` mai visti su hardware ESC/POS reale) qui trasforma un'incompatibilità
+certa in un fallimento silenzioso al momento della stampa.
+
+**Fix (non ambiguo).**
+
+1. In `onConnected`: se `device.language === "meow"` (valore RAW del
+   trasporto, prima della normalizzazione), NON marcare `connected`:
+   chiamare `transport.disconnect()`, non salvare `writeLastPrinter`, e
+   riportare lo snapshot a `idle`.
+2. Il rifiuto deve arrivare in UI: nuovo `PrintErrorCode`
+   `"incompatible-printer"` con messaggio in `error-messages.ts` ("Questa
+   stampante non è compatibile: serve una stampante termica ESC/POS.").
+   `connectPrinter` lo lancia quando il flush degli eventi si conclude con
+   quel rifiuto (flag di modulo settato da `onConnected`, azzerato a ogni
+   `connectPrinter`).
+3. **Test:** evento `connected` con `language: "meow"` → snapshot non
+   `connected`, nessun `writeLastPrinter`, `connectPrinter` rigetta
+   `incompatible-printer`; `language: "esc-pos"` → invariato.
 
 ---
 
