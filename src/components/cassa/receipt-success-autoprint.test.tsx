@@ -138,12 +138,67 @@ describe("auto-stampa", () => {
     expect(print).not.toHaveBeenCalled();
   });
 
+  it("non stampa quando la stampante si collega dopo il mount", async () => {
+    // Regressione: con la stampante non collegata all'emissione, l'utente tocca
+    // "Stampa" → "Ricollega e stampa". La connessione ri-renderizza questa
+    // schermata; se l'effect fosse ancora armato stamperebbe qui, e subito dopo
+    // il bottone stamperebbe di nuovo → due copie cartacee dello stesso
+    // documento.
+    const print = vi.fn().mockResolvedValue(null);
+    mockPrinter.current = printerState({ status: "idle", print });
+    const { rerender } = renderSuccess();
+    expect(await screen.findByText("Scontrino emesso")).toBeDefined();
+
+    mockPrinter.current = printerState({ status: "connected", print });
+    rerender(
+      <ReceiptSuccess
+        documentId="doc-1"
+        adeProgressive="0001-0042"
+        createdAt="2026-07-28T12:32:00.000Z"
+        lines={LINES}
+        paymentMethod="PC"
+        lotteryCode={null}
+        printHeader={HEADER}
+        onNewReceipt={vi.fn()}
+      />,
+    );
+
+    expect(print).not.toHaveBeenCalled();
+  });
+
   it("non stampa senza intestazione esercente", async () => {
     const print = vi.fn().mockResolvedValue(null);
     mockPrinter.current = printerState({ print });
     renderSuccess({ printHeader: null });
     expect(await screen.findByText("Scontrino emesso")).toBeDefined();
     expect(print).not.toHaveBeenCalled();
+  });
+
+  it("stampa quando i dati dello scontrino arrivano dopo il mount", async () => {
+    // L'effect si "arma" sulla prima valutazione con uno scontrino
+    // stampabile, non sul mount: se l'intestazione arriva un render dopo, con
+    // la stampante già collegata l'auto-stampa deve comunque partire (una
+    // volta sola).
+    const print = vi.fn().mockResolvedValue(null);
+    mockPrinter.current = printerState({ print });
+    const { rerender } = renderSuccess({ printHeader: null });
+    expect(await screen.findByText("Scontrino emesso")).toBeDefined();
+    expect(print).not.toHaveBeenCalled();
+
+    rerender(
+      <ReceiptSuccess
+        documentId="doc-1"
+        adeProgressive="0001-0042"
+        createdAt="2026-07-28T12:32:00.000Z"
+        lines={LINES}
+        paymentMethod="PC"
+        lotteryCode={null}
+        printHeader={HEADER}
+        onNewReceipt={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
   });
 
   it("mostra comunque lo scontrino emesso se la stampa fallisce", async () => {
