@@ -26,6 +26,11 @@ export function printErrorMessage(code: PrintErrorCode): string {
       return "Nessuna stampante collegata. Collegala dalle impostazioni.";
     case "unreachable":
       return "Stampante non raggiungibile: controlla che sia accesa, con carta e a portata, poi ricollegala.";
+    case "incompatible-printer":
+      // Il chooser Bluetooth mostra anche stampantine che non parlano ESC/POS
+      // (le "cat printer" da etichette): senza dire quale standard serve,
+      // l'utente riprova all'infinito con lo stesso dispositivo.
+      return "Questa stampante non è compatibile: serve una stampante termica ESC/POS. Con questa puoi comunque stampare il PDF.";
   }
 }
 

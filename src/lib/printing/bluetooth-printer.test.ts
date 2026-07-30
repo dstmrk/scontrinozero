@@ -34,6 +34,8 @@ const mockTransport = {
   /** Caso difensivo: un `print()` che rigetta (non è ciò che fa la v2). */
   printThrows: false,
   reconnectFindsDevice: true,
+  /** GATT già caduto quando proviamo a chiudere la connessione. */
+  disconnectThrows: false,
   printed: [] as Uint8Array[],
   disconnectCalls: 0,
   instances: [] as MockPrinterInstance[],
@@ -86,6 +88,9 @@ vi.mock("@point-of-sale/webbluetooth-receipt-printer", () => {
 
     async disconnect() {
       mockTransport.disconnectCalls += 1;
+      if (mockTransport.disconnectThrows) {
+        throw new DOMException("GATT Server is disconnected", "NetworkError");
+      }
       this.emit("disconnected");
     }
 
@@ -137,9 +142,13 @@ beforeEach(() => {
   mockTransport.printHangs = false;
   mockTransport.printThrows = false;
   mockTransport.reconnectFindsDevice = true;
+  mockTransport.disconnectThrows = false;
   mockTransport.printed = [];
   mockTransport.disconnectCalls = 0;
   mockTransport.instances = [];
+  // `device` è condiviso fra i test: il profilo va riportato a una stampante
+  // ESC/POS ordinaria, altrimenti un test sul profilo `meow` sporca i seguenti.
+  mockTransport.device.language = "esc-pos";
   stubBluetoothAvailable();
 });
 
@@ -239,6 +248,79 @@ describe("connectPrinter", () => {
   it("converte un throw inatteso del trasporto in PrinterError", async () => {
     mockTransport.connectThrows = true;
     await expect(connectPrinter()).rejects.toThrow(PrinterError);
+  });
+});
+
+describe("connectPrinter — stampante non ESC/POS (profilo `meow`)", () => {
+  /**
+   * Le "cat printer" economiche: il chooser del trasporto le mostra (service
+   * `0000ae30`) ma parlano un raster proprietario. Accettarle significherebbe
+   * "Collegata" in UI e caratteri casuali sullo scontrino consegnato al
+   * cliente — un fallimento silenzioso su un documento fiscale.
+   */
+  beforeEach(() => {
+    mockTransport.device.language = "meow";
+  });
+
+  it("rifiuta l'accoppiamento con incompatible-printer invece di dire Collegata", async () => {
+    await expect(connectPrinter()).rejects.toMatchObject({
+      code: "incompatible-printer",
+    });
+  });
+
+  it("non marca la stampante come collegata", async () => {
+    await expect(connectPrinter()).rejects.toThrow(PrinterError);
+    expect(getPrinterSnapshot().status).toBe("idle");
+  });
+
+  it("non salva l'accoppiamento: non va riproposta al prossimo avvio", async () => {
+    await expect(connectPrinter()).rejects.toThrow(PrinterError);
+    expect(readLastPrinter()).toBeNull();
+  });
+
+  it("chiude il GATT invece di lasciare la connessione appesa", async () => {
+    await expect(connectPrinter()).rejects.toThrow(PrinterError);
+    expect(mockTransport.disconnectCalls).toBe(1);
+  });
+
+  it("resta idle anche dopo il `disconnected` in coda dal rifiuto", async () => {
+    // `disconnect()` emette l'evento su un macrotask successivo: senza
+    // invalidare il trasporto lo stato finirebbe su `disconnected`, cioè la UI
+    // offrirebbe "Ricollega" proprio sulla stampante appena rifiutata.
+    await expect(connectPrinter()).rejects.toThrow(PrinterError);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(getPrinterSnapshot().status).toBe("idle");
+  });
+
+  it("rifiuta comunque se il GATT è già caduto mentre lo chiudiamo", async () => {
+    // La chiusura è pulizia, non il rifiuto: se fallisce non deve trasformarsi
+    // in un unhandled rejection né mascherare il vero motivo (regola 20).
+    mockTransport.disconnectThrows = true;
+
+    await expect(connectPrinter()).rejects.toMatchObject({
+      code: "incompatible-printer",
+    });
+    expect(getPrinterSnapshot().status).toBe("idle");
+  });
+
+  it("lascia ricollegare una stampante compatibile subito dopo", async () => {
+    await expect(connectPrinter()).rejects.toThrow(PrinterError);
+
+    mockTransport.device.language = "esc-pos";
+    await connectPrinter();
+
+    expect(getPrinterSnapshot().status).toBe("connected");
+  });
+
+  it("resta silenziosa sulla riconnessione automatica", async () => {
+    // `tryReconnectPrinter` gira al mount: un accoppiamento salvato prima di
+    // questo rifiuto non deve diventare un errore in UI (regola 20).
+    writeLastPrinter({ id: "dev-1", name: "Cat Printer" });
+    resetPrinterStoreForTests();
+    mockTransport.device.language = "meow";
+
+    await expect(tryReconnectPrinter()).resolves.toBeUndefined();
+    expect(getPrinterSnapshot().status).not.toBe("connected");
   });
 });
 

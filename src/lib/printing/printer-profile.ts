@@ -68,8 +68,41 @@ export function resolveCodepageMapping(
 }
 
 /**
+ * Linguaggi del trasporto che NON sono ESC/POS travestito: degradarli sarebbe
+ * peggio che rifiutarli, perché produrrebbe byte insensati per l'hardware.
+ *
+ * `meow` è il profilo delle "cat printer" economiche (service `0000ae30`, nei
+ * filtri del chooser del trasporto): raster proprietario, nessuna parentela con
+ * ESC/POS. Un accoppiamento riuscito con quel profilo darebbe "Collegata" in UI
+ * e caratteri casuali sullo scontrino — un fallimento silenzioso su un
+ * documento fiscale già emesso.
+ */
+const INCOMPATIBLE_TRANSPORT_LANGUAGES: ReadonlySet<string> = new Set(["meow"]);
+
+/**
+ * L'hardware parla un protocollo che non possiamo produrre? Va rifiutato
+ * all'accoppiamento (cfr. `bluetooth-printer.ts`), non scoperto a stampa
+ * avviata.
+ *
+ * Solo per i profili di cui sappiamo con certezza che non sono ESC/POS: un
+ * nome sconosciuto è quasi sempre una ESC/POS non ancora in tabella e resta
+ * gestito dal degrado di `resolvePrinterLanguage`.
+ */
+export function isIncompatiblePrinterLanguage(
+  transportLanguage: string | undefined,
+): boolean {
+  return (
+    transportLanguage !== undefined &&
+    INCOMPATIBLE_TRANSPORT_LANGUAGES.has(transportLanguage)
+  );
+}
+
+/**
  * Normalizza il linguaggio del trasporto. Degrada a `esc-pos` (lo standard
  * de-facto) invece di propagare un valore che farebbe lanciare l'encoder.
+ *
+ * È la rete di sicurezza per i nomi ignoti: i profili notoriamente non
+ * ESC/POS non arrivano fin qui, li ferma `isIncompatiblePrinterLanguage`.
  */
 export function resolvePrinterLanguage(
   transportLanguage: string | undefined,

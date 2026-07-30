@@ -61,7 +61,10 @@ fallimento di emissione.
 3. Profilo stampante normalizzato alla connessione da
    `src/lib/printing/printer-profile.ts`: il trasporto emette nomi di
    `codepageMapping`/`language` che l'encoder non accetta più (`default`,
-   `zjiang`, `meow`) e che lo farebbero **lanciare**.
+   `zjiang`, `meow`) e che lo farebbero **lanciare**. I profili che non sono
+   ESC/POS travestito (`meow`, le "cat printer") non vengono normalizzati ma
+   **rifiutati** all'accoppiamento (`isIncompatiblePrinterLanguage`): degradarli
+   darebbe "Collegata" in UI e caratteri casuali sullo scontrino.
 4. Rendering: `src/lib/printing/receipt-escpos.ts` (puro) rispecchia sezione per
    sezione il PDF di `src/lib/pdf/generate-sale-receipt.ts` e riusa
    `computeReceiptTotals` da `src/lib/receipts/receipt-totals.ts` (regola 17).
@@ -76,9 +79,9 @@ fallimento di emissione.
    stampa di prova e preferenze per dispositivo
    (`src/lib/printing/printer-preferences.ts`, su `localStorage`: una stampante
    è attaccata a un telefono, non a un account).
-7. Errori: mai Sentry (regola 20). Bluetooth spento, chooser annullato e
-   stampante fuori portata sono condizioni prevedibili dall'input utente →
-   messaggi azionabili da `src/lib/printing/error-messages.ts`.
+7. Errori: mai Sentry (regola 20). Bluetooth spento, chooser annullato,
+   stampante fuori portata o non ESC/POS sono condizioni prevedibili dall'input
+   utente → messaggi azionabili da `src/lib/printing/error-messages.ts`.
 
 ## Annullo documento (void)
 

@@ -700,38 +700,6 @@ in `searchReceipts`) produrrebbe uno scontrino termico con zero articoli e
 
 ---
 
-### 79. Cat printer (profilo `meow`, service `0000ae30`): accoppiabile dal chooser ma stamperebbe spazzatura
-
-- **Categoria:** correttezza/hardware · **Severità:** Low — hardware di nicchia, ma l'esito è un documento fiscale illeggibile senza alcun segnale d'errore
-- **File:** `src/lib/printing/bluetooth-printer.ts:116-127` (`onConnected`), `src/lib/printing/printer-profile.ts:74-80` (`resolvePrinterLanguage`); complementare al finding #62
-
-**Problema.** I filtri del chooser del trasporto includono il service
-`0000ae30` — le "cat printer" economiche. Per quel profilo il trasporto emette
-`language: "meow"`, un protocollo **raster proprietario** che l'encoder v3 non
-supporta affatto. `resolvePrinterLanguage` degrada a `"esc-pos"`: il pairing
-riesce, la UI dice "Collegata", ma i byte ESC/POS su quell'hardware producono
-caratteri casuali o nessuna uscita. Il degrado (giusto per i nomi legacy tipo
-`meow` mai visti su hardware ESC/POS reale) qui trasforma un'incompatibilità
-certa in un fallimento silenzioso al momento della stampa.
-
-**Fix (non ambiguo).**
-
-1. In `onConnected`: se `device.language === "meow"` (valore RAW del
-   trasporto, prima della normalizzazione), NON marcare `connected`:
-   chiamare `transport.disconnect()`, non salvare `writeLastPrinter`, e
-   riportare lo snapshot a `idle`.
-2. Il rifiuto deve arrivare in UI: nuovo `PrintErrorCode`
-   `"incompatible-printer"` con messaggio in `error-messages.ts` ("Questa
-   stampante non è compatibile: serve una stampante termica ESC/POS.").
-   `connectPrinter` lo lancia quando il flush degli eventi si conclude con
-   quel rifiuto (flag di modulo settato da `onConnected`, azzerato a ogni
-   `connectPrinter`).
-3. **Test:** evento `connected` con `language: "meow"` → snapshot non
-   `connected`, nessun `writeLastPrinter`, `connectPrinter` rigetta
-   `incompatible-printer`; `language: "esc-pos"` → invariato.
-
----
-
 ## Rischi accettati (documentati, non da fixare)
 
 Scelte consapevoli con un trigger di riapertura. Non sono finding da pianificare.
