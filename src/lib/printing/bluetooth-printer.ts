@@ -27,6 +27,7 @@ import {
   writeLastPrinter,
 } from "./printer-preferences";
 import {
+  isIncompatiblePrinterLanguage,
   resolveCodepageMapping,
   resolvePrinterLanguage,
 } from "./printer-profile";
@@ -51,7 +52,9 @@ export type PrintErrorCode =
   /** Stampa richiesta senza una connessione attiva. */
   | "not-connected"
   /** La scrittura GATT è fallita: stampante spenta, fuori portata o occupata. */
-  | "unreachable";
+  | "unreachable"
+  /** Il dispositivo scelto non parla ESC/POS: accoppiamento rifiutato. */
+  | "incompatible-printer";
 
 export class PrinterError extends Error {
   readonly code: PrintErrorCode;
@@ -90,6 +93,9 @@ let initialized = false;
 /** La riconnessione automatica si tenta una volta per sessione: più componenti
  * montano l'hook e senza guard partirebbero `gatt.connect()` concorrenti. */
 let reconnectAttempted = false;
+/** L'ultimo `connected` osservato era hardware non ESC/POS: lo legge
+ * `connectPrinter` dopo il flush per trasformarlo in un errore in UI. */
+let incompatiblePrinter = false;
 const subscribers = new Set<() => void>();
 
 /** Sostituisce lo snapshot solo quando cambia davvero: `useSyncExternalStore`
@@ -113,7 +119,39 @@ function hydrateLastPrinter(): void {
   if (last) setSnapshot({ deviceName: last.name });
 }
 
+/**
+ * Chiude un accoppiamento con hardware che non parla ESC/POS.
+ *
+ * Il singleton viene invalidato **prima** di chiudere il GATT: `disconnect()`
+ * emette il suo evento su un macrotask successivo, e senza invalidazione quel
+ * `disconnected` in ritardo porterebbe lo snapshot su `disconnected` — che per
+ * contratto significa "era collegata, offri Ricollega", esattamente ciò che non
+ * vogliamo su una stampante appena rifiutata. Stesso pattern di
+ * `withPrintTimeout`.
+ */
+function rejectIncompatibleDevice(): void {
+  incompatiblePrinter = true;
+  const rejected = transport;
+  transport = null;
+  transportReady = null;
+  setSnapshot({ status: "idle" });
+  // L'accoppiamento non viene memorizzato (`writeLastPrinter` mai chiamata):
+  // la riconnessione automatica non riproporrà questo dispositivo.
+  void rejected?.disconnect().catch(() => {
+    // Il GATT si chiuderà comunque alla chiusura della pagina.
+  });
+}
+
 function onConnected(device: ConnectedDevice): void {
+  if (isIncompatiblePrinterLanguage(device.language)) {
+    // Il chooser del trasporto include anche stampanti non ESC/POS (le "cat
+    // printer", service 0000ae30). Normalizzare il loro profilo a `esc-pos`
+    // farebbe passare l'accoppiamento e uscire caratteri casuali da uno
+    // scontrino già emesso: qui l'incompatibilità è certa, va detta subito.
+    rejectIncompatibleDevice();
+    return;
+  }
+
   writeLastPrinter({ id: device.id, name: device.name });
   setSnapshot({
     status: "connected",
@@ -196,6 +234,7 @@ export function getPrinterServerSnapshot(): PrinterSnapshot {
  */
 export async function connectPrinter(): Promise<void> {
   await assertBluetoothUsable();
+  incompatiblePrinter = false;
   setSnapshot({ status: "connecting" });
 
   try {
@@ -207,6 +246,15 @@ export async function connectPrinter(): Promise<void> {
     throw new PrinterError(
       "not-selected",
       error instanceof Error ? error.message : undefined,
+    );
+  }
+
+  if (incompatiblePrinter) {
+    // Distinto da `not-selected`: qui l'utente ha scelto, ed è il dispositivo
+    // a non andare bene. Dirgli "riprova" lo manderebbe in loop.
+    throw new PrinterError(
+      "incompatible-printer",
+      "Stampante non compatibile ESC/POS",
     );
   }
 
@@ -331,5 +379,6 @@ export function resetPrinterStoreForTests(): void {
   transportReady = null;
   initialized = false;
   reconnectAttempted = false;
+  incompatiblePrinter = false;
   subscribers.clear();
 }

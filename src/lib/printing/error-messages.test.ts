@@ -9,6 +9,7 @@ const ALL_ERROR_CODES: PrintErrorCode[] = [
   "not-selected",
   "not-connected",
   "unreachable",
+  "incompatible-printer",
 ];
 
 describe("printErrorMessage", () => {
@@ -33,6 +34,12 @@ describe("printErrorMessage", () => {
 
   it("elenca cosa controllare quando la stampante non risponde", () => {
     expect(printErrorMessage("unreachable")).toContain("carta");
+  });
+
+  it("dice quale stampante serve quando quella scelta non è compatibile", () => {
+    // Senza il nome dello standard l'utente non sa cosa comprare né perché
+    // una stampante che il telefono vede non funziona.
+    expect(printErrorMessage("incompatible-printer")).toContain("ESC/POS");
   });
 });
 
