@@ -130,41 +130,6 @@ fatto che i payload sono statici, ma è un single point of failure.
 
 ---
 
-### 74. Auto-stampa + "Ricollega e stampa" dalla schermata di successo → scontrino stampato due volte
-
-- **Categoria:** correttezza/UX · **Severità:** Medium — doppia copia cartacea dello stesso documento al banco; scenario ordinario (prima stampa della sessione con auto-stampa attiva, default ON)
-- **File:** `src/components/cassa/receipt-success.tsx:96-102` (effect auto-stampa: guard `autoPrintDone` settata solo a stampa avviata); `src/components/printing/print-receipt-button.tsx:96-104` (`handleConnectAndPrint`)
-
-**Problema.** L'effect di auto-stampa NON marca `autoPrintDone` quando al
-mount la stampante non è collegata: esce e resta armato (le deps includono
-`printer`, che cambia identità a ogni render, quindi l'effect rivaluta a ogni
-cambiamento di stato). Se l'utente, dalla stessa schermata, tocca "Stampa" →
-"Ricollega e stampa": `printer.connect()` porta lo snapshot a `connected`, il
-re-render fa ripartire l'effect che stampa (guard ancora `false`), e subito
-dopo `handleConnectAndPrint` chiama comunque `printToPrinter` → **due stampe
-dello stesso documento**. Condizioni: `autoPrint` attivo (default ON),
-`printableReceipt` disponibile, stampante non collegata al momento
-dell'emissione — cioè tipicamente il primo scontrino della giornata.
-
-**Fix (non ambiguo).**
-
-1. Nell'effect: alla **prima** valutazione con `printableReceipt` non-null,
-   marcare `autoPrintDone.current = true` PRIMA di decidere se stampare;
-   stampare solo se in quel momento `printer.status === "connected"` e
-   `autoPrint` è attivo. Semantica risultante (da documentare nel commento):
-   l'auto-stampa vale per la stampante già collegata all'emissione; una
-   connessione successiva è un'azione esplicita dell'utente, che la stampa la
-   ottiene già dal bottone. (Trade-off accettato: una riconnessione silenziosa
-   via `getDevices` completata un istante dopo il mount non auto-stampa più —
-   oggi `getDevices` è dietro flag, il caso è teorico.)
-2. **Test** (nel file esistente
-   `src/components/cassa/receipt-success-autoprint.test.tsx`): mount con
-   `status: "idle"` e auto-stampa ON → rerender con `status: "connected"` → `print` MAI chiamato
-   dall'effect; mount già `connected` → una sola chiamata (già coperto);
-   auto-stampa OFF → invariato.
-
----
-
 ## P3 — Bassa priorità
 
 ### 62. Stampa termica: i due pacchetti `@point-of-sale/*` hanno tabelle divergenti

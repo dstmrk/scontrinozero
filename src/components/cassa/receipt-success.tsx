@@ -93,11 +93,17 @@ export function ReceiptSuccess({
   // la blocca mai: se la stampante non risponde, l'utente vede comunque lo
   // scontrino emesso e ha il bottone "Stampa" per riprovare. Un fallimento di
   // stampa non è mai un fallimento di emissione.
+  //
+  // È un colpo solo, sparato alla prima valutazione con uno scontrino
+  // stampabile: vale per la stampante GIÀ collegata al momento dell'emissione.
+  // Una connessione successiva è un'azione esplicita dell'utente ("Ricollega e
+  // stampa"), che la stampa la ottiene già dal bottone — se l'effect restasse
+  // armato, quel tap produrrebbe due copie cartacee dello stesso documento.
   useEffect(() => {
-    if (autoPrintDone.current) return;
-    if (!printableReceipt || printer.status !== "connected") return;
-    if (!readPrinterPreferences().autoPrint) return;
+    if (autoPrintDone.current || !printableReceipt) return;
     autoPrintDone.current = true;
+    if (printer.status !== "connected") return;
+    if (!readPrinterPreferences().autoPrint) return;
     void printer.print(printableReceipt);
   }, [printableReceipt, printer]);
 
