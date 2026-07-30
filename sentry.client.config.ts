@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
 import {
+  isBluetoothGattFailure,
   isClientNetworkFailure,
   isReactStreamingDomError,
 } from "@/lib/sentry-filters";
@@ -20,6 +21,11 @@ Sentry.init({
     // Race benigna del runtime di streaming SSR di React su Mobile Safari
     // (issue SCONTRINOZERO-K)
     if (isReactStreamingDomError(event, hint)) {
+      return null;
+    }
+    // Stampante termica spenta o fuori portata: condizione ordinaria al banco,
+    // già mostrata all'utente come "Stampante non raggiungibile…" (regola 20)
+    if (isBluetoothGattFailure(event, hint)) {
       return null;
     }
     return event;

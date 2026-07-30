@@ -3,6 +3,7 @@ import type { ErrorEvent, EventHint } from "@sentry/nextjs";
 import {
   isBenignFormDataParseError,
   isBenignServerActionNotFound,
+  isBluetoothGattFailure,
   isClientNetworkFailure,
   isReactStreamingDomError,
 } from "./sentry-filters";
@@ -314,5 +315,65 @@ describe("isReactStreamingDomError", () => {
     );
 
     expect(isReactStreamingDomError(event)).toBe(false);
+  });
+});
+
+describe("isBluetoothGattFailure", () => {
+  function makeGattEvent(type: string, value: string): ErrorEvent {
+    return {
+      type: undefined,
+      transaction: "/cassa",
+      exception: { values: [{ type, value }] },
+    } as ErrorEvent;
+  }
+
+  it("filtra la scrittura GATT fallita su stampante spenta", () => {
+    const event = makeGattEvent(
+      "NetworkError",
+      "GATT operation failed for unknown reason.",
+    );
+
+    expect(isBluetoothGattFailure(event)).toBe(true);
+  });
+
+  it("filtra la stampante uscita dal raggio Bluetooth", () => {
+    const event = makeGattEvent(
+      "NetworkError",
+      "Bluetooth Device is no longer in range.",
+    );
+
+    expect(isBluetoothGattFailure(event)).toBe(true);
+  });
+
+  it("legge nome e messaggio dalla DOMException originale", () => {
+    // Percorso reale: la rejection arriva dalla coda interna della libreria,
+    // dove Sentry ha la DOMException in mano.
+    const event = makeGattEvent("Error", "ignorato");
+    const hint: EventHint = {
+      originalException: new DOMException(
+        "GATT Server is disconnected. Cannot perform GATT operations.",
+        "NetworkError",
+      ),
+    };
+
+    expect(isBluetoothGattFailure(event, hint)).toBe(true);
+  });
+
+  it("non filtra un NetworkError di altra origine", () => {
+    const event = makeGattEvent("NetworkError", "A network error occurred.");
+
+    expect(isBluetoothGattFailure(event)).toBe(false);
+  });
+
+  it("non filtra un errore applicativo che nomina il GATT", () => {
+    const event = makeGattEvent("TypeError", "GATT descriptor is not a string");
+
+    expect(isBluetoothGattFailure(event)).toBe(false);
+  });
+
+  it("gestisce eventi senza exception senza lanciare", () => {
+    const event = makeEvent("/cassa");
+
+    expect(isBluetoothGattFailure(event)).toBe(false);
   });
 });

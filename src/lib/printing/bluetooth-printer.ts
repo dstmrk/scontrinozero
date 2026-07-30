@@ -135,11 +135,17 @@ async function getTransport(): Promise<Transport> {
   transportReady ??= import("@point-of-sale/webbluetooth-receipt-printer").then(
     (mod) => {
       const instance = new mod.default();
-      instance.addEventListener("connected", onConnected);
+      // `isCurrent` scarta gli eventi di un'istanza già invalidata (vedi
+      // `printBytes`): un `disconnected` in ritardo dal trasporto vecchio non
+      // deve marcare offline la connessione nuova.
+      const isCurrent = () => transport === instance;
+      instance.addEventListener("connected", (device) => {
+        if (isCurrent()) onConnected(device);
+      });
       instance.addEventListener("disconnected", () => {
         // Perdere la stampante va mostrato QUANDO accade, non scoperto al
         // primo scontrino che non esce.
-        setSnapshot({ status: "disconnected" });
+        if (isCurrent()) setSnapshot({ status: "disconnected" });
       });
       transport = instance;
       return instance;
@@ -259,6 +265,42 @@ export async function disconnectPrinter(): Promise<void> {
 }
 
 /**
+ * Tetto di attesa per una singola stampa.
+ *
+ * Una ricevuta 58mm sono pochi KB, spediti in chunk da 100 byte: i casi
+ * legittimi chiudono in pochi secondi anche su una stampante lenta. 15s è
+ * abbondante e resta sotto la soglia in cui chi è al banco pensa che l'app sia
+ * bloccata.
+ */
+export const PRINT_TIMEOUT_MS = 15_000;
+
+/**
+ * Corsa fra la stampa e il timeout — l'unico modo di uscire da una scrittura
+ * GATT fallita.
+ *
+ * `print()` di `@point-of-sale/webbluetooth-receipt-printer@2` accoda i chunk
+ * in una coda interna il cui runner fa `await job()` **senza catch**, e accoda
+ * la `resolve` come ultimo task: se una `writeValueWithResponse` rigetta
+ * (stampante spenta → `NetworkError`) la promise ritornata non si risolve né
+ * rigetta MAI, e la coda resta `_working` per sempre. Senza questo race
+ * `printBytes` non tornerebbe più: spinner infinito sul bottone Stampa e
+ * trasporto inutilizzabile fino al reload della pagina.
+ *
+ * Allo scadere il singleton viene **invalidato**: la coda dell'istanza è
+ * irrecuperabile, il prossimo "Ricollega" deve ricostruire il trasporto.
+ */
+function withPrintTimeout(pending: Promise<void>): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      transport = null;
+      transportReady = null;
+      reject(new PrinterError("unreachable", "Timeout di stampa"));
+    }, PRINT_TIMEOUT_MS);
+    pending.then(resolve, reject).finally(() => clearTimeout(timer));
+  });
+}
+
+/**
  * Invia byte già codificati alla stampante.
  *
  * @throws {PrinterError} `not-connected` | `unreachable`
@@ -269,11 +311,12 @@ export async function printBytes(bytes: Uint8Array): Promise<void> {
   }
 
   try {
-    await transport.print(bytes);
+    await withPrintTimeout(transport.print(bytes));
   } catch (error) {
     // Stampante spenta, fuori portata o carta finita: lo stato deve riflettere
     // la realtà, altrimenti l'auto-stampa continua a insistere a vuoto.
     setSnapshot({ status: "disconnected" });
+    if (error instanceof PrinterError) throw error;
     throw new PrinterError(
       "unreachable",
       error instanceof Error ? error.message : undefined,
