@@ -608,29 +608,6 @@ throttling di business: 30/h è sotto il caso d'uso dichiarato del prodotto.
 
 ---
 
-### 77. `isPaperWidth` valida con `in`: chiavi del prototype accettate come larghezza carta
-
-- **Categoria:** correttezza/boundary (pattern security-patterns) · **Severità:** Low — solo self-inflicted via localStorage manomesso
-- **File:** `src/lib/printing/printer-preferences.ts:50-52` (`isPaperWidth`); consumer: `src/lib/printing/print-receipt.ts:20` (`PAPER_COLUMNS[preferences.paperWidth]`)
-
-**Problema.** `value in PAPER_COLUMNS` è `true` anche per le chiavi ereditate
-dal prototype (`"toString"`, `"valueOf"`, …). Con
-`sz_printer_prefs = {"paperWidth":"toString"}` in localStorage,
-`readPrinterPreferences()` ritorna `paperWidth: "toString"` e
-`PAPER_COLUMNS["toString"]` è una **funzione**: `columns` invalido → il
-costruttore dell'encoder lancia a stampa avviata → mascherato dal messaggio
-fuorviante "Stampante non raggiungibile". È esattamente il pattern
-lookup-da-chiave-utente che la skill `security-patterns` vieta.
-
-**Fix (non ambiguo).**
-
-1. `isPaperWidth`: `typeof value === "string" &&
-Object.hasOwn(PAPER_COLUMNS, value)`.
-2. **Test** (in `printer-preferences.test.ts`): `{"paperWidth":"toString"}` →
-   default `"58"`; `{"paperWidth":"80"}` → `"80"` invariato.
-
----
-
 ### 78. Ristampa da storico: manca il gate sulle righe vuote
 
 - **Categoria:** correttezza · **Severità:** Low — richiede un documento senza righe (dato degenere/legacy)

@@ -67,6 +67,38 @@ describe("preferenze stampante", () => {
     expect(readPrinterPreferences().paperWidth).toBe("58");
   });
 
+  // `value in PAPER_COLUMNS` era true anche per le chiavi ereditate:
+  // PAPER_COLUMNS["toString"] è una *funzione*, quindi `columns` finiva
+  // invalido nell'encoder, che lanciava a stampa già avviata mascherandosi da
+  // "Stampante non raggiungibile" (skill security-patterns: mai lookup diretto
+  // da chiave controllata dall'utente).
+  it.each(["toString", "valueOf", "constructor", "__proto__"])(
+    "scarta la chiave del prototype %s spacciata per larghezza carta",
+    (key) => {
+      localStorage.setItem(
+        "sz_printer_prefs",
+        JSON.stringify({ paperWidth: key }),
+      );
+      expect(readPrinterPreferences().paperWidth).toBe("58");
+    },
+  );
+
+  it("scarta una larghezza carta numerica invece che stringa", () => {
+    localStorage.setItem(
+      "sz_printer_prefs",
+      JSON.stringify({ paperWidth: 80 }),
+    );
+    expect(readPrinterPreferences().paperWidth).toBe("58");
+  });
+
+  it("accetta ancora una larghezza carta supportata", () => {
+    localStorage.setItem(
+      "sz_printer_prefs",
+      JSON.stringify({ paperWidth: "80" }),
+    );
+    expect(readPrinterPreferences().paperWidth).toBe("80");
+  });
+
   it("scarta un valore non booleano su autoPrint", () => {
     localStorage.setItem(
       "sz_printer_prefs",
