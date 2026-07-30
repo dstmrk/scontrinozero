@@ -52,6 +52,47 @@ export function isClientNetworkFailure(
 }
 
 /**
+ * Frasi dei `DOMException: NetworkError` prodotti dal GATT di Web Bluetooth
+ * quando la stampante termica non risponde (spenta, batteria esaurita, fuori
+ * portata): "GATT operation failed for unknown reason.", "GATT Server is
+ * disconnected…", "Bluetooth Device is no longer in range.".
+ */
+const BLUETOOTH_GATT_PHRASES = ["GATT", "Bluetooth Device"];
+
+/**
+ * True se l'evento è una scrittura GATT fallita verso la stampante Bluetooth.
+ *
+ * Perché filtrarla: è una **condizione ordinaria d'uso** — la stampantina al
+ * banco viene spenta, si scarica o esce dal raggio — che l'utente vede già
+ * come "Stampante non raggiungibile…" e risolve con "Ricollega" (regola 20:
+ * errori prevedibili dall'input → nessuna issue Sentry).
+ *
+ * Perché arriva comunque come `unhandledrejection`: la coda interna di
+ * `@point-of-sale/webbluetooth-receipt-printer@2` fa `await job()` senza
+ * catch, quindi il rigetto della `writeValueWithResponse` non passa mai dal
+ * nostro `try/catch` — `printBytes` lo intercetta solo col timeout
+ * (`PRINT_TIMEOUT_MS` in `src/lib/printing/bluetooth-printer.ts`), mentre il
+ * rigetto originale finisce a `window.onunhandledrejection`.
+ *
+ * Lo scope è stretto — tipo `NetworkError` **e** frase GATT — così un
+ * `NetworkError` di altra origine resta visibile.
+ */
+export function isBluetoothGattFailure(
+  event: ErrorEvent,
+  hint?: EventHint,
+): boolean {
+  const original = hint?.originalException;
+  const type =
+    original instanceof DOMException
+      ? original.name
+      : event.exception?.values?.[0]?.type;
+  if (type !== "NetworkError") return false;
+
+  const message = extractErrorMessage(event, hint);
+  return BLUETOOTH_GATT_PHRASES.some((phrase) => message.includes(phrase));
+}
+
+/**
  * Funzioni del runtime di streaming SSR iniettato da React (Fizz): `$RS`
  * (completeSegment), `$RC` (completeBoundary) e simili spostano i nodi DOM dei
  * boundary Suspense man mano che lo stream arriva dal server. Sono codice

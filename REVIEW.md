@@ -130,69 +130,6 @@ fatto che i payload sono statici, ma è un single point of failure.
 
 ---
 
-### 73. Stampa termica: con una scrittura GATT fallita `print()` del trasporto non si risolve MAI — spinner infinito e stampa bloccata fino al reload
-
-- **Categoria:** correttezza/robustezza · **Severità:** Medium-High — è il failure mode più comune al banco (stampante spenta, batteria esaurita, fuori portata) e l'esito attuale è un blocco silenzioso, non un errore
-- **File:** `src/lib/printing/bluetooth-printer.ts:266-282` (`printBytes`, try/catch inefficace), `:134-149` (`getTransport`, singleton mai invalidato); mock irrealistico: `src/lib/printing/bluetooth-printer.test.ts:66-71` (`print()` che _lancia_)
-
-**Problema.** Il try/catch di `printBytes` assume che `transport.print(bytes)`
-rigetti quando la scrittura GATT fallisce. Il sorgente reale di
-`@point-of-sale/webbluetooth-receipt-printer@2` (dist ESM + sourcemap) fa
-un'altra cosa: `print()` accoda i chunk (100 byte) in una coda interna e accoda
-la `resolve` come **ultimo** task; il runner della coda fa `await job()` senza
-catch. Se una `writeValueWithResponse` rigetta (stampante spenta →
-`NetworkError`):
-
-1. la promise di `print()` **non si risolve né rigetta mai** → il ramo
-   `unreachable` di `printBytes` è irraggiungibile, `isBusy` dell'hook resta
-   `true` per sempre → bottone "Stampa" disabilitato con spinner infinito,
-   auto-stampa appesa, nessun messaggio all'utente;
-2. la coda interna resta con `_working=true` e non riparte mai → ogni stampa
-   successiva sulla stessa istanza si accoda a vuoto: il trasporto è
-   inutilizzabile fino al **reload della pagina** (il singleton di
-   `getTransport` non viene mai invalidato);
-3. il rigetto interno diventa un `unhandledrejection` che il Sentry client
-   cattura (DOMException `NetworkError` da GATT, non coperto da
-   `isClientNetworkFailure`) → noise in violazione della regola 20.
-
-Aggravante: nemmeno la disconnessione spontanea arriva mai — il trasporto fa
-`navigator.bluetooth.addEventListener("disconnect", …)`, ma l'evento Web
-Bluetooth reale si chiama `gattserverdisconnected` (target il
-`BluetoothDevice`; il payload non ha `.device`): quel listener è codice morto,
-quindi lo snapshot `connected` non diventa mai `disconnected` da solo. Tutto
-verificato leggendo il dist della libreria e simulando la coda in Node
-(promise mai settled, `_working` bloccato, seconda print mai eseguita). Il
-mock dei test fa `throw` da `print()` — modella il contrario del comportamento
-reale e maschera l'intero scenario.
-
-**Fix (non ambiguo).**
-
-1. In `printBytes`: racchiudere `transport.print(bytes)` in un timeout
-   (`Promise.race`, ~15s: una ricevuta 58mm sono pochi KB in chunk da 100
-   byte, i casi legittimi chiudono in pochi secondi). Allo scadere → trattare
-   come `unreachable`.
-2. Sul timeout (e solo lì) **invalidare il singleton** — `transport = null;
-transportReady = null` — oltre a `setSnapshot({ status: "disconnected" })`:
-   la coda interna dell'istanza è irrecuperabile, il prossimo "Ricollega"
-   deve ricreare il trasporto da zero.
-3. L'`unhandledrejection` interno alla libreria resta anche col race: o si
-   filtra in `src/lib/sentry-filters.ts` (DOMException `NetworkError` con
-   stack nel chunk del trasporto, motivazione documentata nel filtro — skill
-   `sentry-hygiene`), o si accetta documentandolo qui.
-4. Aggiornare il mock del trasporto nei test: su `printThrows`, `print()`
-   ritorna una **promise pending per sempre** (comportamento reale), non un
-   `throw`; tenere anche un caso che lancia (difensivo, costa un `it` in più).
-5. **Test:** print mai settled → `printBytes` rigetta `unreachable` allo
-   scadere del timeout (fake timers) e lo snapshot va a `disconnected`; dopo
-   il timeout un nuovo `connectPrinter()` istanzia un trasporto NUOVO (il
-   vecchio non riceve più chiamate); print che risolve → nessun side-effect
-   del timeout.
-6. Alla prima occasione con hardware reale: stampante spenta → messaggio
-   "Stampante non raggiungibile…" entro il timeout, e ripristino con
-   "Ricollega" senza reload.
-
----
-
 ### 74. Auto-stampa + "Ricollega e stampa" dalla schermata di successo → scontrino stampato due volte
 
 - **Categoria:** correttezza/UX · **Severità:** Medium — doppia copia cartacea dello stesso documento al banco; scenario ordinario (prima stampa della sessione con auto-stampa attiva, default ON)
@@ -709,7 +646,7 @@ throttling di business: 30/h è sotto il caso d'uso dichiarato del prodotto.
 ### 75. Stampa termica: dopo "Scollega" lo stato finisce `disconnected` invece di `idle`
 
 - **Categoria:** correttezza (state machine) · **Severità:** Low — oggi cosmetico, ma inquina la semantica di `disconnected` ("offri Ricollega")
-- **File:** `src/lib/printing/bluetooth-printer.ts:243-259` (`disconnectPrinter`), `:138-142` (listener `disconnected` in `getTransport`)
+- **File:** `src/lib/printing/bluetooth-printer.ts:249-265` (`disconnectPrinter`), `:145-149` (listener `disconnected` in `getTransport`)
 
 **Problema.** `transport.disconnect()` emette l'evento `disconnected` su un
 macrotask (`setTimeout(…, 0)` interno alla libreria). `disconnectPrinter`
@@ -735,14 +672,14 @@ perché asserisce in modo sincrono, prima che il macrotask giri.
 ### 76. Stampa termica: import dinamico del trasporto fallito → promise rigettata cache-ata per sempre
 
 - **Categoria:** robustezza · **Severità:** Low — richiede un fallimento di rete/chunk al primo uso della stampante nella sessione
-- **File:** `src/lib/printing/bluetooth-printer.ts:134-149` (`getTransport`, `transportReady ??= import(…)`)
+- **File:** `src/lib/printing/bluetooth-printer.ts:134-155` (`getTransport`, `transportReady ??= import(…)`)
 
 **Problema.** Se l'`import()` dinamico del trasporto fallisce (rete assente al
 primo tentativo, chunk invalidato da un deploy), la promise **rigettata**
 resta assegnata a `transportReady`: ogni `connectPrinter()` successivo
 rifallisce con `not-selected` anche quando la rete è tornata, fino al reload
-della pagina. Stesso pattern del finding #73 (singleton mai invalidato), ma
-sul path di import anziché di stampa.
+della pagina. Stesso pattern del singleton non invalidato che `printBytes`
+risolve sul timeout di stampa (`withPrintTimeout`), ma sul path di import.
 
 **Fix (non ambiguo).**
 
