@@ -2,6 +2,16 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 /**
+ * Istanza del trasporto mockato: serve a distinguere quella invalidata da
+ * quella ricreata dopo un timeout di stampa.
+ */
+interface MockPrinterInstance {
+  readonly printCalls: number;
+  connect: () => Promise<void>;
+  disconnect: () => Promise<void>;
+}
+
+/**
  * Il mock del trasporto è **obbligatorio**, non una comodità: il
  * `package.json` di `@point-of-sale/webbluetooth-receipt-printer@2` dichiara
  * negli `exports` la sola condition `browser` (niente `default`/`node`), quindi
@@ -13,10 +23,20 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 const mockTransport = {
   connectSucceeds: true,
   connectThrows: false,
+  /**
+   * Comportamento REALE della libreria su scrittura GATT fallita: `print()`
+   * accoda i chunk in una coda interna il cui runner fa `await job()` senza
+   * catch, e accoda la `resolve` come ultimo task. Se una
+   * `writeValueWithResponse` rigetta, la promise di `print()` non si risolve
+   * **né rigetta mai**. È il caso da modellare per default.
+   */
+  printHangs: false,
+  /** Caso difensivo: un `print()` che rigetta (non è ciò che fa la v2). */
   printThrows: false,
   reconnectFindsDevice: true,
   printed: [] as Uint8Array[],
   disconnectCalls: 0,
+  instances: [] as MockPrinterInstance[],
   device: {
     type: "bluetooth" as const,
     name: "Munbyn ITPP047",
@@ -31,6 +51,12 @@ vi.mock("@point-of-sale/webbluetooth-receipt-printer", () => {
   class MockWebBluetoothReceiptPrinter {
     private readonly listeners: Record<string, ((arg?: unknown) => void)[]> =
       {};
+
+    printCalls = 0;
+
+    constructor() {
+      mockTransport.instances.push(this);
+    }
 
     addEventListener(event: string, cb: (arg?: unknown) => void) {
       (this.listeners[event] ??= []).push(cb);
@@ -64,8 +90,13 @@ vi.mock("@point-of-sale/webbluetooth-receipt-printer", () => {
     }
 
     async print(data: Uint8Array) {
+      this.printCalls += 1;
       if (mockTransport.printThrows) {
         throw new DOMException("GATT operation failed", "NetworkError");
+      }
+      if (mockTransport.printHangs) {
+        // Mai settled, come la coda reale con una scrittura GATT rigettata.
+        return new Promise<void>(() => {});
       }
       mockTransport.printed.push(data);
     }
@@ -86,6 +117,8 @@ import {
   tryReconnectPrinter,
   resetPrinterStoreForTests,
   PrinterError,
+  PRINT_TIMEOUT_MS,
+  type PrintErrorCode,
 } from "./bluetooth-printer";
 import { readLastPrinter, writeLastPrinter } from "./printer-preferences";
 
@@ -101,14 +134,17 @@ beforeEach(() => {
   resetPrinterStoreForTests();
   mockTransport.connectSucceeds = true;
   mockTransport.connectThrows = false;
+  mockTransport.printHangs = false;
   mockTransport.printThrows = false;
   mockTransport.reconnectFindsDevice = true;
   mockTransport.printed = [];
   mockTransport.disconnectCalls = 0;
+  mockTransport.instances = [];
   stubBluetoothAvailable();
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   localStorage.clear();
@@ -219,7 +255,9 @@ describe("printBytes", () => {
     });
   });
 
-  it("segnala unreachable quando la scrittura GATT fallisce", async () => {
+  it("segnala unreachable quando la scrittura GATT rigetta", async () => {
+    // Caso difensivo: la v2 non rigetta mai (vedi `printHangs`), ma una
+    // versione futura potrebbe.
     await connectPrinter();
     mockTransport.printThrows = true;
     await expect(printBytes(new Uint8Array([1]))).rejects.toMatchObject({
@@ -234,6 +272,85 @@ describe("printBytes", () => {
     mockTransport.printThrows = true;
     await expect(printBytes(new Uint8Array([1]))).rejects.toThrow();
     expect(getPrinterSnapshot().status).toBe("disconnected");
+  });
+});
+
+describe("printBytes — coda GATT bloccata (print mai settled)", () => {
+  /** Porta una stampa appesa fino allo scadere del timeout. */
+  async function printUntilTimeout(): Promise<PrintErrorCode | undefined> {
+    mockTransport.printHangs = true;
+    vi.useFakeTimers();
+    let code: PrintErrorCode | undefined;
+    const pending = printBytes(new Uint8Array([1])).catch((error: unknown) => {
+      code = error instanceof PrinterError ? error.code : undefined;
+    });
+    await vi.advanceTimersByTimeAsync(PRINT_TIMEOUT_MS);
+    await pending;
+    vi.useRealTimers();
+    return code;
+  }
+
+  it("rigetta unreachable allo scadere del timeout invece di restare appesa", async () => {
+    // Senza il race l'hook resterebbe `isBusy` per sempre: spinner infinito
+    // sul bottone Stampa e nessun messaggio all'utente.
+    await connectPrinter();
+    expect(await printUntilTimeout()).toBe("unreachable");
+  });
+
+  it("porta lo snapshot a disconnected allo scadere del timeout", async () => {
+    await connectPrinter();
+    await printUntilTimeout();
+    expect(getPrinterSnapshot().status).toBe("disconnected");
+  });
+
+  it("ricrea il trasporto al Ricollega: il vecchio non riceve più stampe", async () => {
+    // La coda interna dell'istanza è irrecuperabile: senza invalidare il
+    // singleton la stampa resterebbe rotta fino al reload della pagina.
+    await connectPrinter();
+    await printUntilTimeout();
+
+    mockTransport.printHangs = false;
+    await connectPrinter();
+    await printBytes(new Uint8Array([2]));
+
+    expect(mockTransport.instances.map((instance) => instance.printCalls))
+      // vecchio: solo la stampa appesa · nuovo: solo quella riuscita
+      .toEqual([1, 1]);
+  });
+
+  it("ignora gli eventi del trasporto invalidato dopo il timeout", async () => {
+    // Il vecchio trasporto può ancora emettere `disconnected` (GATT che cade
+    // davvero): non deve sporcare lo stato della connessione nuova.
+    await connectPrinter();
+    await printUntilTimeout();
+    mockTransport.printHangs = false;
+    await connectPrinter();
+
+    await mockTransport.instances[0].disconnect();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(getPrinterSnapshot().status).toBe("connected");
+  });
+
+  it("non torna `connected` se il trasporto invalidato emette `connected`", async () => {
+    // Riconnessione tardiva dell'istanza morta: la sua coda resta comunque
+    // bloccata, dire "collegata" manderebbe l'utente a stampare nel vuoto.
+    await connectPrinter();
+    await printUntilTimeout();
+
+    await mockTransport.instances[0].connect();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(getPrinterSnapshot().status).toBe("disconnected");
+  });
+
+  it("non applica il timeout quando la stampa va a buon fine", async () => {
+    await connectPrinter();
+    vi.useFakeTimers();
+    await printBytes(new Uint8Array([1]));
+    await vi.advanceTimersByTimeAsync(PRINT_TIMEOUT_MS * 2);
+
+    expect(getPrinterSnapshot().status).toBe("connected");
   });
 });
 
