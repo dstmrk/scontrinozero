@@ -606,56 +606,28 @@ describe("POST /api/stripe/webhook", () => {
   // acknowledged (200) — throwing would cause infinite Stripe retries since
   // the missing row cannot self-heal via retry.
 
-  it("invoice.payment_action_required — logs warn and returns 200 when no subscription row found (0 rows updated)", async () => {
-    mockUpdateReturning.mockResolvedValueOnce([]);
-    mockConstructEvent.mockReturnValue(
-      makeStripeEvent("invoice.payment_action_required", {
-        parent: { subscription_details: { subscription: "sub_missing" } },
-      }),
-    );
+  // I due handler invoice che passano da `applySubscriptionUpdate`. Da REVIEW
+  // #70 `invoice.paid` non è più in lista: quel case non scrive più, quindi non
+  // ha righe da contare.
+  it.each(["invoice.payment_action_required", "invoice.payment_failed"])(
+    "%s — logs warn and returns 200 when no subscription row found (0 rows updated)",
+    async (eventType) => {
+      mockUpdateReturning.mockResolvedValueOnce([]);
+      mockConstructEvent.mockReturnValue(
+        makeStripeEvent(eventType, {
+          parent: { subscription_details: { subscription: "sub_missing" } },
+        }),
+      );
 
-    const response = await POST(makeWebhookRequest("{}"));
+      const response = await POST(makeWebhookRequest("{}"));
 
-    expect(response.status).toBe(200);
-    expect(logger.warn as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
-      expect.objectContaining({ stripeSubscriptionId: "sub_missing" }),
-      expect.stringContaining("invoice.payment_action_required"),
-    );
-  });
-
-  it("invoice.payment_failed — logs warn and returns 200 when no subscription row found (0 rows updated)", async () => {
-    mockUpdateReturning.mockResolvedValueOnce([]);
-    mockConstructEvent.mockReturnValue(
-      makeStripeEvent("invoice.payment_failed", {
-        parent: { subscription_details: { subscription: "sub_missing" } },
-      }),
-    );
-
-    const response = await POST(makeWebhookRequest("{}"));
-
-    expect(response.status).toBe(200);
-    expect(logger.warn as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
-      expect.objectContaining({ stripeSubscriptionId: "sub_missing" }),
-      expect.stringContaining("invoice.payment_failed"),
-    );
-  });
-
-  it("invoice.payment_action_required — logs warn and returns 200 when no subscription row found (0 rows updated)", async () => {
-    mockUpdateReturning.mockResolvedValueOnce([]);
-    mockConstructEvent.mockReturnValue(
-      makeStripeEvent("invoice.payment_action_required", {
-        parent: { subscription_details: { subscription: "sub_missing" } },
-      }),
-    );
-
-    const response = await POST(makeWebhookRequest("{}"));
-
-    expect(response.status).toBe(200);
-    expect(logger.warn as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
-      expect.objectContaining({ stripeSubscriptionId: "sub_missing" }),
-      expect.stringContaining("invoice.payment_action_required"),
-    );
-  });
+      expect(response.status).toBe(200);
+      expect(logger.warn as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
+        expect.objectContaining({ stripeSubscriptionId: "sub_missing" }),
+        expect.stringContaining(eventType),
+      );
+    },
+  );
 
   it("checkout.session.expired — logs warn and returns 200 when no pending subscription row found (0 rows updated)", async () => {
     mockUpdateReturning.mockResolvedValueOnce([]);
