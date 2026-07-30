@@ -170,8 +170,8 @@ function onConnected(device: ConnectedDevice): void {
  * iniziale: chi non stampa non li scarica.
  */
 async function getTransport(): Promise<Transport> {
-  transportReady ??= import("@point-of-sale/webbluetooth-receipt-printer").then(
-    (mod) => {
+  transportReady ??= import("@point-of-sale/webbluetooth-receipt-printer")
+    .then((mod) => {
       const instance = new mod.default();
       // `isCurrent` scarta gli eventi di un'istanza già invalidata (vedi
       // `printBytes`): un `disconnected` in ritardo dal trasporto vecchio non
@@ -182,13 +182,31 @@ async function getTransport(): Promise<Transport> {
       });
       instance.addEventListener("disconnected", () => {
         // Perdere la stampante va mostrato QUANDO accade, non scoperto al
-        // primo scontrino che non esce.
-        if (isCurrent()) setSnapshot({ status: "disconnected" });
+        // primo scontrino che non esce — ma solo se eravamo davvero in linea.
+        // Il trasporto emette `disconnected` su un macrotask successivo: dopo
+        // uno "Scollega" esplicito (o dopo il rifiuto di un device non
+        // ESC/POS) quell'evento arriva a snapshot già resettato, e applicarlo
+        // porterebbe su `disconnected` — che per contratto significa "era
+        // collegata, offri Ricollega". Una disconnessione notificata da
+        // `idle`/`disconnected` non è un'informazione.
+        if (!isCurrent()) return;
+        if (snapshot.status !== "connected" && snapshot.status !== "connecting")
+          return;
+        setSnapshot({ status: "disconnected" });
       });
       transport = instance;
       return instance;
-    },
-  );
+    })
+    .catch((error: unknown) => {
+      // Senza questo reset la promise RIGETTATA resterebbe assegnata a
+      // `transportReady`: rete assente al primo uso o chunk invalidato da un
+      // deploy renderebbero la stampante inutilizzabile fino al reload della
+      // pagina, anche a rete tornata. Stessa invalidazione del singleton di
+      // `withPrintTimeout`, qui sul path di caricamento.
+      transport = null;
+      transportReady = null;
+      throw error;
+    });
   return transportReady;
 }
 

@@ -36,6 +36,14 @@ const mockTransport = {
   reconnectFindsDevice: true,
   /** GATT già caduto quando proviamo a chiudere la connessione. */
   disconnectThrows: false,
+  /**
+   * Caricamento del trasporto fallito: modella l'`import()` dinamico che
+   * rigetta (rete assente al primo uso, chunk invalidato da un deploy). Il
+   * costruttore che lancia produce la stessa promise rigettata cache-ata in
+   * `transportReady` — il modulo mockato è risolto una volta sola da Vitest,
+   * quindi il fallimento va iniettato nella factory dell'istanza.
+   */
+  transportLoadFails: false,
   printed: [] as Uint8Array[],
   disconnectCalls: 0,
   instances: [] as MockPrinterInstance[],
@@ -57,6 +65,9 @@ vi.mock("@point-of-sale/webbluetooth-receipt-printer", () => {
     printCalls = 0;
 
     constructor() {
+      if (mockTransport.transportLoadFails) {
+        throw new TypeError("Failed to fetch dynamically imported module");
+      }
       mockTransport.instances.push(this);
     }
 
@@ -143,6 +154,7 @@ beforeEach(() => {
   mockTransport.printThrows = false;
   mockTransport.reconnectFindsDevice = true;
   mockTransport.disconnectThrows = false;
+  mockTransport.transportLoadFails = false;
   mockTransport.printed = [];
   mockTransport.disconnectCalls = 0;
   mockTransport.instances = [];
@@ -447,6 +459,90 @@ describe("disconnectPrinter", () => {
     await connectPrinter();
     await disconnectPrinter();
     expect(readLastPrinter()).toBeNull();
+  });
+
+  it("resta idle anche dopo il `disconnected` in coda dallo scollegamento", async () => {
+    // `disconnect()` emette l'evento su un macrotask successivo: senza il
+    // guard nel listener lo stato finirebbe su `disconnected`, cioè la UI
+    // offrirebbe "Ricollega" sulla stampante appena scollegata a mano.
+    // L'asserzione sincrona da sola non vedrebbe la regressione.
+    await connectPrinter();
+    await disconnectPrinter();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(getPrinterSnapshot().status).toBe("idle");
+  });
+
+  it("non fa riemergere il nome della stampante col `disconnected` in ritardo", async () => {
+    await connectPrinter();
+    await disconnectPrinter();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(getPrinterSnapshot().deviceName).toBeNull();
+  });
+
+  it("mostra disconnected quando il GATT cade mentre la stampante è collegata", async () => {
+    // Contro-prova del guard: la perdita reale della stampante va comunque
+    // mostrata QUANDO accade, non scoperta al primo scontrino che non esce.
+    await connectPrinter();
+
+    await mockTransport.instances[0].disconnect();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(getPrinterSnapshot().status).toBe("disconnected");
+  });
+});
+
+describe("caricamento del trasporto fallito", () => {
+  /**
+   * L'`import()` dinamico può rigettare: rete assente al primo uso della
+   * stampante nella sessione, o chunk invalidato da un deploy. La promise
+   * **rigettata** non deve restare cache-ata nel singleton, altrimenti ogni
+   * tentativo successivo rifallisce anche a rete tornata, fino al reload
+   * della pagina. Stesso pattern di invalidazione di `withPrintTimeout`.
+   */
+  it("segnala not-selected quando il trasporto non si carica", async () => {
+    mockTransport.transportLoadFails = true;
+    await expect(connectPrinter()).rejects.toMatchObject({
+      code: "not-selected",
+    });
+  });
+
+  it("riparte da un import pulito al tentativo successivo", async () => {
+    mockTransport.transportLoadFails = true;
+    await expect(connectPrinter()).rejects.toThrow(PrinterError);
+
+    mockTransport.transportLoadFails = false;
+    await connectPrinter();
+
+    expect(getPrinterSnapshot().status).toBe("connected");
+  });
+
+  it("non lascia la riconnessione automatica bloccata dal caricamento fallito", async () => {
+    // `tryReconnectPrinter` gira al mount, spesso prima di qualsiasi gesto
+    // utente: è il candidato naturale a bruciare l'unico import.
+    writeLastPrinter({ id: "dev-1", name: "Munbyn ITPP047" });
+    resetPrinterStoreForTests();
+    mockTransport.transportLoadFails = true;
+    await tryReconnectPrinter();
+
+    mockTransport.transportLoadFails = false;
+    await connectPrinter();
+
+    expect(getPrinterSnapshot().status).toBe("connected");
+  });
+
+  it("resta idle dopo un caricamento fallito, non su connecting", async () => {
+    mockTransport.transportLoadFails = true;
+    await expect(connectPrinter()).rejects.toThrow(PrinterError);
+    expect(getPrinterSnapshot().status).toBe("idle");
+  });
+
+  it("continua a rigettare finché il caricamento resta rotto", async () => {
+    // Il reset non deve trasformare un fallimento persistente in un successo
+    // silenzioso: ogni tentativo riprova davvero e riporta l'errore.
+    mockTransport.transportLoadFails = true;
+    await expect(connectPrinter()).rejects.toThrow(PrinterError);
+    await expect(connectPrinter()).rejects.toThrow(PrinterError);
+    expect(getPrinterSnapshot().status).toBe("idle");
   });
 });
 
