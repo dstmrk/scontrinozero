@@ -608,26 +608,6 @@ throttling di business: 30/h è sotto il caso d'uso dichiarato del prodotto.
 
 ---
 
-### 78. Ristampa da storico: manca il gate sulle righe vuote
-
-- **Categoria:** correttezza · **Severità:** Low — richiede un documento senza righe (dato degenere/legacy)
-- **File:** `src/components/storico/void-receipt-dialog.tsx:69-80` (`printableReceipt`); confronto: `src/components/cassa/receipt-success.tsx:62-63` (che il gate ce l'ha)
-
-**Problema.** Il `printableReceipt` dello storico richiede `printHeader` e
-`adeProgressive` ma non `receipt.lines.length > 0` (in `ReceiptSuccess` il
-gate c'è): un documento arrivato senza righe (`linesByDocId.get(doc.id) ?? []`
-in `searchReceipts`) produrrebbe uno scontrino termico con zero articoli e
-"TOTALE COMPLESSIVO 0,00" — su carta, consegnato a un cliente.
-
-**Fix (non ambiguo).**
-
-1. Aggiungere `|| receipt.lines.length === 0` alla condizione che ritorna
-   `null` — il bottone ripiega sul PDF, coerente con la cassa.
-2. **Test** (in `void-receipt-dialog.test.tsx`): receipt con `lines: []` →
-   il bottone Stampa apre il PDF invece di stampare.
-
----
-
 ## Rischi accettati (documentati, non da fixare)
 
 Scelte consapevoli con un trigger di riapertura. Non sono finding da pianificare.

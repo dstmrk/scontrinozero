@@ -1,13 +1,38 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { VoidReceiptDialog } from "./void-receipt-dialog";
 import { voidReceipt } from "@/server/void-actions";
+import type { UsePrinterResult } from "@/hooks/use-printer";
+import type { ReceiptPrintHeader } from "@/lib/printing/types";
 import type { ReceiptListItem } from "@/types/storico";
 
 vi.mock("@/server/void-actions", () => ({
   voidReceipt: vi.fn(),
 }));
+
+const mockPrinter: { current: UsePrinterResult } = {
+  current: {} as UsePrinterResult,
+};
+
+vi.mock("@/hooks/use-printer", () => ({
+  usePrinter: () => mockPrinter.current,
+}));
+
+function printerState(overrides: Partial<UsePrinterResult> = {}) {
+  return {
+    status: "connected",
+    deviceName: "Munbyn ITPP047",
+    support: { status: "supported" },
+    canUseBluetooth: true,
+    isBusy: false,
+    connect: vi.fn().mockResolvedValue(null),
+    disconnect: vi.fn().mockResolvedValue(undefined),
+    print: vi.fn().mockResolvedValue(null),
+    testPrint: vi.fn().mockResolvedValue(null),
+    ...overrides,
+  } as UsePrinterResult;
+}
 
 // Il banner CIE inline chiama verifyAdeCredentials solo al click su "Ricollega";
 // qui basta impedire l'esecuzione della server action reale al mount.
@@ -15,10 +40,19 @@ vi.mock("@/server/onboarding-actions", () => ({
   verifyAdeCredentials: vi.fn().mockResolvedValue({ businessId: "biz-1" }),
 }));
 
+let openSpy: ReturnType<typeof vi.fn>;
+
 // scrollIntoView richiesto da Radix UI Dialog
 beforeEach(() => {
   window.HTMLElement.prototype.scrollIntoView = vi.fn();
   vi.clearAllMocks();
+  mockPrinter.current = printerState();
+  openSpy = vi.fn();
+  vi.stubGlobal("open", openSpy);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 function renderWithQuery(ui: React.ReactElement) {
@@ -103,6 +137,59 @@ describe("VoidReceiptDialog — QR code", () => {
     // Back in detail view: the void button is visible again
     expect(screen.getByText("Annulla scontrino")).toBeInTheDocument();
     expect(screen.queryByText("Indietro")).not.toBeInTheDocument();
+  });
+});
+
+describe("VoidReceiptDialog — ristampa (REVIEW #78)", () => {
+  const PRINT_HEADER: ReceiptPrintHeader = {
+    businessName: "Bar da Mario",
+    vatNumber: "12345678901",
+    address: null,
+    city: null,
+    province: null,
+    zipCode: null,
+  };
+
+  it("stampa sulla termica uno scontrino con righe", async () => {
+    renderWithQuery(
+      <VoidReceiptDialog
+        {...defaultProps}
+        receipt={ACCEPTED_RECEIPT}
+        printHeader={PRINT_HEADER}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Stampa/ }));
+
+    await waitFor(() =>
+      expect(mockPrinter.current.print).toHaveBeenCalledTimes(1),
+    );
+    expect(openSpy).not.toHaveBeenCalled();
+  });
+
+  it("ripiega sul PDF quando il documento non ha righe", async () => {
+    // Un documento senza righe (dato degenere/legacy: `linesByDocId.get(id) ??
+    // []` in searchReceipts) stamperebbe uno scontrino termico con zero
+    // articoli e "TOTALE COMPLESSIVO 0,00" — su carta, in mano al cliente.
+    // ReceiptSuccess questo gate ce l'ha già.
+    renderWithQuery(
+      <VoidReceiptDialog
+        {...defaultProps}
+        receipt={{ ...ACCEPTED_RECEIPT, lines: [] }}
+        printHeader={PRINT_HEADER}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Stampa/ }));
+
+    await waitFor(() =>
+      expect(openSpy).toHaveBeenCalledWith(
+        "/api/documents/doc-uuid-123/pdf",
+        "_blank",
+        "noopener,noreferrer",
+      ),
+    );
+    expect(mockPrinter.current.print).not.toHaveBeenCalled();
   });
 });
 

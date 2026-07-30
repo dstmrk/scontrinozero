@@ -67,7 +67,14 @@ export function VoidReceiptDialog({
    * chiederla. Le righe sono già in `receipt.lines`: nessuna fetch aggiuntiva.
    */
   const printableReceipt = useMemo<PrintableReceipt | null>(() => {
-    if (!printHeader || !receipt.adeProgressive) return null;
+    // Il gate sulle righe è lo stesso di `ReceiptSuccess`: un documento senza
+    // righe (dato degenere/legacy — `linesByDocId.get(doc.id) ?? []` in
+    // `searchReceipts`) produrrebbe uno scontrino termico con zero articoli e
+    // "TOTALE COMPLESSIVO 0,00" consegnato al cliente. Senza `printableReceipt`
+    // il bottone ripiega sul PDF.
+    if (!printHeader || !receipt.adeProgressive || receipt.lines.length === 0) {
+      return null;
+    }
     return {
       header: printHeader,
       lines: receipt.lines,
