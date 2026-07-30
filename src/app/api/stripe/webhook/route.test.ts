@@ -279,6 +279,80 @@ describe("POST /api/stripe/webhook — invoice.payment_action_required", () => {
   });
 });
 
+describe("POST /api/stripe/webhook — invoice.paid (REVIEW #70)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+    mockInsert.mockReturnValue(makeInsertBuilder([{ eventId: "evt_default" }]));
+    mockSelect.mockReturnValue(makeSelectBuilder([]));
+    mockDelete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
+    mockPlanFromPriceId.mockReturnValue("pro");
+    mockIntervalFromPriceId.mockReturnValue("month");
+  });
+
+  it("non scrive currentPeriodEnd: period_end è la fine del periodo appena chiuso", async () => {
+    // `invoice.period_end` è la fine del ciclo di fatturazione *chiuso*
+    // (≈ l'istante del rinnovo), non la fine del nuovo periodo pagato. Poiché
+    // invoice.paid e customer.subscription.updated arrivano insieme senza
+    // ordering garantito, il valore sbagliato sovrascriveva quello corretto
+    // circa metà delle volte, e ci restava per un intero ciclo.
+    const updateBuilder = makeUpdateBuilder();
+    mockUpdate.mockReturnValue(updateBuilder);
+
+    mockConstructEvent.mockReturnValue({
+      id: "evt_paid_001",
+      type: "invoice.paid",
+      data: {
+        object: {
+          parent: {
+            subscription_details: { subscription: "sub_paid_123" },
+          },
+          period_end: 1_700_000_000,
+        },
+      },
+    });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(updateBuilder.set).not.toHaveBeenCalledWith(
+      expect.objectContaining({ currentPeriodEnd: expect.anything() }),
+    );
+  });
+
+  it("customer.subscription.updated resta l'unico writer di currentPeriodEnd", async () => {
+    const updateBuilder = makeUpdateBuilder();
+    mockUpdate.mockReturnValue(updateBuilder);
+    mockSelect.mockReturnValue(makeSelectBuilder([{ userId: "user-123" }]));
+    setupTransactionPassthrough();
+
+    mockConstructEvent.mockReturnValue({
+      id: "evt_sub_upd_period",
+      type: "customer.subscription.updated",
+      data: {
+        object: {
+          id: "sub_123",
+          customer: "cus_123",
+          status: "active",
+          cancel_at_period_end: false,
+          items: {
+            data: [
+              { price: { id: "price_pro" }, current_period_end: 1_800_000_000 },
+            ],
+          },
+        },
+      },
+    });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(updateBuilder.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currentPeriodEnd: new Date(1_800_000_000 * 1000),
+      }),
+    );
+  });
+});
+
 describe("POST /api/stripe/webhook — invoice.payment_failed", () => {
   beforeEach(() => {
     vi.clearAllMocks();

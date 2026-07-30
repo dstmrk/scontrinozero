@@ -239,18 +239,20 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
       break;
     }
 
-    case "invoice.paid": {
-      const invoice = event.data.object as Stripe.Invoice;
-      const subscriptionId = invoice.parent?.subscription_details?.subscription;
-      if (!subscriptionId) break;
-      await applySubscriptionUpdate(
-        db,
-        subscriptionId as string,
-        { currentPeriodEnd: new Date(invoice.period_end * 1000) },
-        "invoice.paid",
-      );
+    case "invoice.paid":
+      // Nessuna scrittura: l'evento resta registrato e deduplicato, ma
+      // `currentPeriodEnd` ha un solo writer corretto, `syncSubscriptionData`
+      // (regola 27b, una sola fonte di verità per una grandezza di Stripe).
+      //
+      // `invoice.period_end` è la fine del ciclo di fatturazione appena
+      // **chiuso** (≈ l'istante del rinnovo), non la fine del nuovo periodo
+      // pagato — quella vive in `invoice.lines.data[0].period.end`, ed è la
+      // stessa che `syncSubscriptionData` legge già da
+      // `items[0].current_period_end`. Poiché `invoice.paid` e
+      // `customer.subscription.updated` arrivano insieme senza ordering
+      // garantito, il valore sbagliato vinceva circa metà delle volte e
+      // restava in DB per un intero ciclo.
       break;
-    }
 
     case "customer.subscription.updated": {
       const sub = event.data.object as Stripe.Subscription;
@@ -299,12 +301,16 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
 /**
  * UPDATE subscriptions WHERE stripeSubscriptionId = subscriptionId, then warn
  * if no row was found. Extracted to reduce Cognitive Complexity of handleEvent:
- * three invoice handlers share this identical pattern.
+ * i due handler invoice che aggiornano lo stato condividono questo pattern.
+ *
+ * La firma accetta di proposito il solo `status`: `currentPeriodEnd` ha un
+ * unico writer, `syncSubscriptionData`, e restringere il tipo impedisce a un
+ * handler futuro di reintrodurre la scrittura da un'invoice (REVIEW #70).
  */
 async function applySubscriptionUpdate(
   db: ReturnType<typeof getDb>,
   subscriptionId: string,
-  fields: { status?: string | null; currentPeriodEnd?: Date | null },
+  fields: { status: string },
   eventLabel: string,
 ): Promise<void> {
   const updated = await db

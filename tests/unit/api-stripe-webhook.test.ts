@@ -228,7 +228,11 @@ describe("POST /api/stripe/webhook", () => {
     expect(mockUpdate).toHaveBeenCalled();
   });
 
-  it("handles invoice.paid: updates currentPeriodEnd", async () => {
+  it("handles invoice.paid: acks senza scrivere currentPeriodEnd (REVIEW #70)", async () => {
+    // `invoice.period_end` è la fine del periodo appena *chiuso*, non del
+    // nuovo periodo pagato: scriverlo qui sovrascriveva il valore corretto di
+    // `syncSubscriptionData` circa metà delle volte (i due eventi arrivano
+    // insieme senza ordering garantito).
     const invoice = {
       parent: { subscription_details: { subscription: "sub_123" } },
       period_end: 1800000000,
@@ -240,10 +244,8 @@ describe("POST /api/stripe/webhook", () => {
     const response = await POST(makeWebhookRequest("{}"));
 
     expect(response.status).toBe(200);
-    expect(mockUpdateSet).toHaveBeenCalledWith(
-      expect.objectContaining({
-        currentPeriodEnd: new Date(1800000000 * 1000),
-      }),
+    expect(mockUpdateSet).not.toHaveBeenCalledWith(
+      expect.objectContaining({ currentPeriodEnd: expect.anything() }),
     );
   });
 
@@ -307,7 +309,7 @@ describe("POST /api/stripe/webhook", () => {
     expect(mockSubscriptionsRetrieve).not.toHaveBeenCalled();
   });
 
-  it("handles invoice.paid: breaks early when invoice has no subscription", async () => {
+  it("handles invoice.paid: nessuna scrittura anche senza subscription sull'invoice", async () => {
     const invoice = { period_end: 1800000000 }; // no parent.subscription_details
     mockConstructEvent.mockReturnValue(
       makeStripeEvent("invoice.paid", invoice),
@@ -551,13 +553,14 @@ describe("POST /api/stripe/webhook", () => {
   it("releases claim (DELETE) when handleEvent fails — enables Stripe retry", async () => {
     // INSERT RETURNING = winner (default from beforeEach) → we are the sole handler.
     // Simulate handleEvent failure via DB error inside handleEvent.
-    // invoice.paid now calls .where().returning(), so we reject on mockUpdateReturning
-    // (not on mockUpdateWhere, which only returns the sync { returning: fn } object).
+    // `invoice.payment_failed` chiama .where().returning(), quindi rifiutiamo
+    // su mockUpdateReturning (non su mockUpdateWhere, che ritorna solo
+    // l'oggetto sincrono { returning: fn }). Non più `invoice.paid`: da
+    // REVIEW #70 quel case non scrive più nulla, quindi non può fallire.
     mockUpdateReturning.mockRejectedValueOnce(new Error("DB timeout"));
     mockConstructEvent.mockReturnValue(
-      makeStripeEvent("invoice.paid", {
+      makeStripeEvent("invoice.payment_failed", {
         parent: { subscription_details: { subscription: "sub_123" } },
-        period_end: 1800000000,
       }),
     );
 
@@ -603,12 +606,11 @@ describe("POST /api/stripe/webhook", () => {
   // acknowledged (200) — throwing would cause infinite Stripe retries since
   // the missing row cannot self-heal via retry.
 
-  it("invoice.paid — logs warn and returns 200 when no subscription row found (0 rows updated)", async () => {
+  it("invoice.payment_action_required — logs warn and returns 200 when no subscription row found (0 rows updated)", async () => {
     mockUpdateReturning.mockResolvedValueOnce([]);
     mockConstructEvent.mockReturnValue(
-      makeStripeEvent("invoice.paid", {
+      makeStripeEvent("invoice.payment_action_required", {
         parent: { subscription_details: { subscription: "sub_missing" } },
-        period_end: 1800000000,
       }),
     );
 
@@ -617,7 +619,7 @@ describe("POST /api/stripe/webhook", () => {
     expect(response.status).toBe(200);
     expect(logger.warn as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
       expect.objectContaining({ stripeSubscriptionId: "sub_missing" }),
-      expect.stringContaining("invoice.paid"),
+      expect.stringContaining("invoice.payment_action_required"),
     );
   });
 
