@@ -213,7 +213,7 @@ curl https://api.scontrinozero.it/v1/receipts/550e8400-e29b-41d4-a716-4466554400
 
 **Errori standard:**
 
-> ⚠️ **Breaking change (v1.7.0).** L'envelope d'errore è cambiato: il campo
+> ⚠️ **Breaking change (v1.6.0).** L'envelope d'errore è cambiato: il campo
 > `error` **non esiste più**, sostituito da `message`, e ogni errore ora porta
 > sempre un `code` (prima era presente solo su alcuni `409`/`503`). Vedi
 > [Migrazione envelope d'errore](#migrazione-envelope-derrore).
@@ -287,7 +287,7 @@ quindi leggibili anche da un client browser cross-origin.
 
 #### Migrazione envelope d'errore
 
-| Prima (≤ v1.6.x)                       | Ora (≥ v1.7.0)                                          |
+| Prima (≤ v1.5.x)                       | Ora (≥ v1.6.0)                                          |
 | -------------------------------------- | ------------------------------------------------------- |
 | `{ "error": "…" }`                     | `{ "code": "…", "message": "…", "requestId": "…" }`     |
 | `code` solo su alcuni `409`/`503`      | `code` **sempre** presente                              |

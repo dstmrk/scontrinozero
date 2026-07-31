@@ -812,7 +812,7 @@ const idempotencyKey = crypto.randomUUID();`}</code>
           </p>
           <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
             {
-              "Fino alla versione 1.6.x gli errori usavano il campo error al posto di message, e il code era presente solo su alcune risposte. Se il tuo client legge body.error, spostalo su body.message (o meglio su body.code). Controlla anche la gestione del 503 ADE_UNAVAILABLE, descritto qui sotto: prima quel caso arrivava come 422."
+              "Fino alla versione 1.5.x gli errori usavano il campo error al posto di message, e il code era presente solo su alcune risposte. Dalla 1.6.0, se il tuo client legge body.error, spostalo su body.message (o meglio su body.code). Controlla anche la gestione del 503 ADE_UNAVAILABLE, descritto qui sotto: prima quel caso arrivava come 422."
             }
           </p>
         </div>
