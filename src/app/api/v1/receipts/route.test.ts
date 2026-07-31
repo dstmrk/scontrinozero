@@ -112,6 +112,29 @@ describe("POST /api/v1/receipts", () => {
     expect(body.adeProgressive).toBe("001");
   });
 
+  it("espone X-Request-Id anche sul successo, diverso a ogni richiesta", async () => {
+    const first = await POST(makeRequest());
+    const second = await POST(makeRequest());
+
+    const firstId = first.headers.get("X-Request-Id");
+    expect(firstId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(second.headers.get("X-Request-Id")).not.toBe(firstId);
+    // Senza expose-headers un client browser non potrebbe leggerlo.
+    expect(first.headers.get("Access-Control-Expose-Headers")).toContain(
+      "X-Request-Id",
+    );
+  });
+
+  it("usa lo stesso requestId nel body d'errore e nell'header", async () => {
+    mockEmitReceiptForBusiness.mockResolvedValue({
+      error: "Credenziali AdE non trovate.",
+    });
+
+    const res = await POST(makeRequest());
+    const body = await res.json();
+    expect(body.requestId).toBe(res.headers.get("X-Request-Id"));
+  });
+
   it("passa businessId dalla API key (non dal body) al service", async () => {
     await POST(makeRequest());
     expect(mockEmitReceiptForBusiness).toHaveBeenCalledWith(
@@ -185,7 +208,7 @@ describe("POST /api/v1/receipts", () => {
     expect(res.status).toBe(400);
   });
 
-  it("ritorna 422 se il service ritorna un errore", async () => {
+  it("ritorna 422 ADE_REJECTED se il service ritorna un errore non classificato", async () => {
     mockEmitReceiptForBusiness.mockResolvedValue({
       error: "Credenziali AdE non trovate.",
     });
@@ -193,7 +216,22 @@ describe("POST /api/v1/receipts", () => {
     const res = await POST(makeRequest());
     expect(res.status).toBe(422);
     const body = await res.json();
-    expect(body.error).toBe("Credenziali AdE non trovate.");
+    expect(body.code).toBe("ADE_REJECTED");
+    expect(body.message).toBe("Credenziali AdE non trovate.");
+    expect(typeof body.requestId).toBe("string");
+  });
+
+  it("ritorna 503 ADE_UNAVAILABLE ritentabile se l'AdE non risponde", async () => {
+    mockEmitReceiptForBusiness.mockResolvedValue({
+      error: "Agenzia delle Entrate non raggiungibile.",
+      code: "ADE_UNAVAILABLE",
+    });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(503);
+    expect(res.headers.get("Retry-After")).toBe("10");
+    const body = await res.json();
+    expect(body.code).toBe("ADE_UNAVAILABLE");
   });
 
   it("ritorna 409 con code ADE_REAUTH_REQUIRED se la sessione CIE è scaduta", async () => {
@@ -203,8 +241,10 @@ describe("POST /api/v1/receipts", () => {
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.code).toBe("ADE_REAUTH_REQUIRED");
-    expect(typeof body.error).toBe("string");
-    expect(body.error.length).toBeGreaterThan(0);
+    expect(typeof body.message).toBe("string");
+    expect(body.message.length).toBeGreaterThan(0);
+    // Il campo legacy `error` non esiste più (breaking change, REVIEW #18)
+    expect(body).not.toHaveProperty("error");
   });
 
   it("ritorna 400 se idempotencyKey non è un UUID valido", async () => {

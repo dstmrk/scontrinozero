@@ -190,29 +190,6 @@ zero-downtime è impossibile nello stato attuale dei caller.
 
 ---
 
-### 18. Error envelope uniforme API
-
-- **Categoria:** architettura/manutenibilità · **Severità:** Low
-- **File:** envelope: tutti gli endpoint `src/app/api/**`
-
-**Problema.** Le risposte d'errore API non hanno una shape uniforme (`{error}`
-vs `{error, code}` vs status diversi per lo stesso caso). Lo schema Zod SALE
-condiviso è già stato estratto in `src/lib/receipts/receipt-schema.ts`: resta
-aperta la sola standardizzazione dell'envelope d'errore.
-
-**Fix (non ambiguo).**
-
-1. Standardizzare l'envelope: `{ code, message, requestId }` su tutti gli endpoint
-   `/api/v1/*` (e progressivamente gli altri), con classificazione
-   transient/permanent per gli errori delle integrazioni esterne (coerente con
-   regola 10). `requestId` = correlazione log (già presente nel logger o da
-   generare per-request).
-2. Aggiornare `docs/api-spec.md` con l'envelope.
-3. **Test:** snapshot dell'envelope per gli error path principali (400, 401, 404,
-   409, 429, 503).
-
----
-
 ### 23. Indice composito `api_keys (business_id, revoked_at)`
 
 - **Categoria:** performance DB · **Severità:** Low · **Target: Developer API Fase B** (ora nice-to-have in PLAN.md)

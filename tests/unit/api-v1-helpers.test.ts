@@ -41,14 +41,16 @@ vi.mock("@/lib/logger", () => ({
 
 import {
   requireBusinessApiAuth,
-  corsOptionsResponse,
   checkRateLimitApi,
   parseAndValidateBody,
   serviceErrorResponse,
-  withCors,
 } from "@/lib/api-v1-helpers";
+import { v1Json, v1NoContent } from "@/lib/api-v1-errors";
 
 // --- Helpers ---
+
+/** requestId fisso: nei test conta che sia propagato, non che sia casuale. */
+const REQ_ID = "00000000-1111-2222-3333-444444444444";
 
 function makeRequest(): Request {
   return new Request("https://example.com/api/v1/test");
@@ -89,7 +91,7 @@ describe("requireBusinessApiAuth", () => {
       error: "Unauthorized",
       status: 401,
     });
-    const result = await requireBusinessApiAuth(makeRequest());
+    const result = await requireBusinessApiAuth(makeRequest(), REQ_ID);
     expect("error" in result).toBe(true);
     if ("error" in result) {
       expect(result.error.status).toBe(401);
@@ -99,7 +101,7 @@ describe("requireBusinessApiAuth", () => {
 
   it("returns 402 when plan does not include API access", async () => {
     mockCanUseApi.mockReturnValue(false);
-    const result = await requireBusinessApiAuth(makeRequest());
+    const result = await requireBusinessApiAuth(makeRequest(), REQ_ID);
     expect("error" in result).toBe(true);
     if ("error" in result) {
       expect(result.error.status).toBe(402);
@@ -112,7 +114,7 @@ describe("requireBusinessApiAuth", () => {
       ...PRO_AUTH_CONTEXT,
       businessId: null,
     });
-    const result = await requireBusinessApiAuth(makeRequest());
+    const result = await requireBusinessApiAuth(makeRequest(), REQ_ID);
     expect("error" in result).toBe(true);
     if ("error" in result) {
       expect(result.error.status).toBe(403);
@@ -121,7 +123,7 @@ describe("requireBusinessApiAuth", () => {
   });
 
   it("returns context when auth succeeds", async () => {
-    const result = await requireBusinessApiAuth(makeRequest());
+    const result = await requireBusinessApiAuth(makeRequest(), REQ_ID);
     expect("context" in result).toBe(true);
     if ("context" in result) {
       expect(result.context.businessId).toBe("biz-123");
@@ -130,9 +132,9 @@ describe("requireBusinessApiAuth", () => {
   });
 });
 
-describe("corsOptionsResponse", () => {
+describe("v1NoContent (preflight)", () => {
   it("returns 204 with correct CORS headers for POST", () => {
-    const res = corsOptionsResponse("POST, OPTIONS");
+    const res = v1NoContent("POST, OPTIONS", REQ_ID);
     expect(res.status).toBe(204);
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
     expect(res.headers.get("Access-Control-Allow-Methods")).toBe(
@@ -144,7 +146,7 @@ describe("corsOptionsResponse", () => {
   });
 
   it("returns 204 with correct CORS headers for GET", () => {
-    const res = corsOptionsResponse("GET, OPTIONS");
+    const res = v1NoContent("GET, OPTIONS", REQ_ID);
     expect(res.status).toBe(204);
     expect(res.headers.get("Access-Control-Allow-Methods")).toBe(
       "GET, OPTIONS",
@@ -152,30 +154,19 @@ describe("corsOptionsResponse", () => {
   });
 });
 
-describe("withCors", () => {
-  it("adds Access-Control-Allow-Origin header to an existing response", () => {
-    const original = Response.json({ ok: true }, { status: 200 });
-    const result = withCors(original);
+describe("v1Json", () => {
+  it("adds CORS and X-Request-Id to a success response", () => {
+    const result = v1Json({ ok: true }, REQ_ID);
     expect(result.status).toBe(200);
     expect(result.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect(result.headers.get("X-Request-Id")).toBe(REQ_ID);
   });
 
-  it("preserves the original response status and body", async () => {
-    const original = Response.json({ id: "abc" }, { status: 201 });
-    const result = withCors(original);
+  it("honours an explicit status and preserves the body", async () => {
+    const result = v1Json({ id: "abc" }, REQ_ID, { status: 201 });
     expect(result.status).toBe(201);
     const body = await result.json();
     expect(body).toEqual({ id: "abc" });
-  });
-
-  it("preserves existing headers on the response", () => {
-    const original = new Response(null, {
-      status: 204,
-      headers: { "X-Custom": "value" },
-    });
-    const result = withCors(original);
-    expect(result.headers.get("X-Custom")).toBe("value");
-    expect(result.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
 });
 
@@ -188,7 +179,13 @@ describe("checkRateLimitApi", () => {
     const limiter = makeLimiter(true) as unknown as Parameters<
       typeof checkRateLimitApi
     >[0];
-    const result = checkRateLimitApi(limiter, "key", "api-key-id", "log msg");
+    const result = checkRateLimitApi(
+      limiter,
+      "key",
+      "api-key-id",
+      "log msg",
+      REQ_ID,
+    );
     expect(result).toBeNull();
     expect(mockLoggerWarn).not.toHaveBeenCalled();
   });
@@ -197,7 +194,13 @@ describe("checkRateLimitApi", () => {
     const limiter = makeLimiter(false) as unknown as Parameters<
       typeof checkRateLimitApi
     >[0];
-    const result = checkRateLimitApi(limiter, "key", "api-key-id", "log msg");
+    const result = checkRateLimitApi(
+      limiter,
+      "key",
+      "api-key-id",
+      "log msg",
+      REQ_ID,
+    );
     expect(result).not.toBeNull();
     expect(result?.status).toBe(429);
   });
@@ -206,7 +209,13 @@ describe("checkRateLimitApi", () => {
     const limiter = makeLimiter(false) as unknown as Parameters<
       typeof checkRateLimitApi
     >[0];
-    const result = checkRateLimitApi(limiter, "key", "api-key-id", "log msg");
+    const result = checkRateLimitApi(
+      limiter,
+      "key",
+      "api-key-id",
+      "log msg",
+      REQ_ID,
+    );
     expect(result?.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
 
@@ -219,7 +228,13 @@ describe("checkRateLimitApi", () => {
         resetAt,
       }),
     } as unknown as Parameters<typeof checkRateLimitApi>[0];
-    const result = checkRateLimitApi(limiter, "key", "api-key-id", "log msg");
+    const result = checkRateLimitApi(
+      limiter,
+      "key",
+      "api-key-id",
+      "log msg",
+      REQ_ID,
+    );
     const retryAfter = result?.headers.get("Retry-After");
     expect(retryAfter).not.toBeNull();
     const seconds = Number(retryAfter);
@@ -236,7 +251,13 @@ describe("checkRateLimitApi", () => {
         resetAt,
       }),
     } as unknown as Parameters<typeof checkRateLimitApi>[0];
-    const result = checkRateLimitApi(limiter, "key", "api-key-id", "log msg");
+    const result = checkRateLimitApi(
+      limiter,
+      "key",
+      "api-key-id",
+      "log msg",
+      REQ_ID,
+    );
     const seconds = Number(result?.headers.get("Retry-After"));
     expect(seconds).toBe(1);
   });
@@ -250,9 +271,10 @@ describe("checkRateLimitApi", () => {
       "api:emit:key-1",
       "key-1",
       "rate limit exceeded",
+      REQ_ID,
     );
     expect(mockLoggerWarn).toHaveBeenCalledWith(
-      { apiKeyId: "key-1" },
+      { apiKeyId: "key-1", requestId: REQ_ID },
       "rate limit exceeded",
     );
   });
@@ -267,7 +289,12 @@ describe("parseAndValidateBody", () => {
 
   it("returns 413 when body exceeds size limit", async () => {
     mockReadJsonWithLimit.mockResolvedValue({ ok: false, tooLarge: true });
-    const result = await parseAndValidateBody(makeRequest(), schema, 1024);
+    const result = await parseAndValidateBody(
+      makeRequest(),
+      schema,
+      1024,
+      REQ_ID,
+    );
     expect("error" in result).toBe(true);
     if ("error" in result) {
       expect(result.error.status).toBe(413);
@@ -277,31 +304,48 @@ describe("parseAndValidateBody", () => {
 
   it("returns 400 when body is not valid JSON", async () => {
     mockReadJsonWithLimit.mockResolvedValue({ ok: false, parseError: true });
-    const result = await parseAndValidateBody(makeRequest(), schema, 1024);
+    const result = await parseAndValidateBody(
+      makeRequest(),
+      schema,
+      1024,
+      REQ_ID,
+    );
     expect("error" in result).toBe(true);
     if ("error" in result) {
       expect(result.error.status).toBe(400);
       const body = await result.error.json();
-      expect(body.error).toContain("Body non valido");
+      expect(body.code).toBe("INVALID_BODY");
+      expect(body.message).toContain("Body non valido");
       expect(result.error.headers.get("Access-Control-Allow-Origin")).toBe("*");
     }
   });
 
   it("returns 400 with field name when Zod validation fails on a named field", async () => {
     mockReadJsonWithLimit.mockResolvedValue({ ok: true, data: { name: "" } });
-    const result = await parseAndValidateBody(makeRequest(), schema, 1024);
+    const result = await parseAndValidateBody(
+      makeRequest(),
+      schema,
+      1024,
+      REQ_ID,
+    );
     expect("error" in result).toBe(true);
     if ("error" in result) {
       expect(result.error.status).toBe(400);
       const body = await result.error.json();
-      expect(body.error).toContain("name");
+      expect(body.code).toBe("VALIDATION_ERROR");
+      expect(body.message).toContain("name");
       expect(result.error.headers.get("Access-Control-Allow-Origin")).toBe("*");
     }
   });
 
   it("returns 400 when required field is missing", async () => {
     mockReadJsonWithLimit.mockResolvedValue({ ok: true, data: {} });
-    const result = await parseAndValidateBody(makeRequest(), schema, 1024);
+    const result = await parseAndValidateBody(
+      makeRequest(),
+      schema,
+      1024,
+      REQ_ID,
+    );
     expect("error" in result).toBe(true);
     if ("error" in result) {
       expect(result.error.status).toBe(400);
@@ -313,7 +357,12 @@ describe("parseAndValidateBody", () => {
       ok: true,
       data: { name: "Caffè" },
     });
-    const result = await parseAndValidateBody(makeRequest(), schema, 1024);
+    const result = await parseAndValidateBody(
+      makeRequest(),
+      schema,
+      1024,
+      REQ_ID,
+    );
     expect("data" in result).toBe(true);
     if ("data" in result) {
       expect(result.data).toEqual({ name: "Caffè" });
@@ -323,19 +372,29 @@ describe("parseAndValidateBody", () => {
 
 describe("serviceErrorResponse", () => {
   it("returns 503 + Retry-After 5 for DB_TIMEOUT", async () => {
-    const res = serviceErrorResponse({ error: "timeout", code: "DB_TIMEOUT" });
+    const res = serviceErrorResponse(
+      { error: "timeout", code: "DB_TIMEOUT" },
+      REQ_ID,
+    );
     expect(res.status).toBe(503);
     expect(res.headers.get("Retry-After")).toBe("5");
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
     const body = await res.json();
-    expect(body).toEqual({ code: "DB_TIMEOUT", error: "timeout" });
+    expect(body).toEqual({
+      code: "DB_TIMEOUT",
+      message: "timeout",
+      requestId: REQ_ID,
+    });
   });
 
   it("returns 409 + Retry-After 2 for PENDING_IN_PROGRESS", async () => {
-    const res = serviceErrorResponse({
-      error: "pending",
-      code: "PENDING_IN_PROGRESS",
-    });
+    const res = serviceErrorResponse(
+      {
+        error: "pending",
+        code: "PENDING_IN_PROGRESS",
+      },
+      REQ_ID,
+    );
     expect(res.status).toBe(409);
     expect(res.headers.get("Retry-After")).toBe("2");
     const body = await res.json();
@@ -343,10 +402,10 @@ describe("serviceErrorResponse", () => {
   });
 
   it("returns 409 (no Retry-After) for ALREADY_REJECTED", async () => {
-    const res = serviceErrorResponse({
-      error: "rejected",
-      code: "ALREADY_REJECTED",
-    });
+    const res = serviceErrorResponse(
+      { error: "rejected", code: "ALREADY_REJECTED" },
+      REQ_ID,
+    );
     expect(res.status).toBe(409);
     expect(res.headers.get("Retry-After")).toBeNull();
     const body = await res.json();
@@ -354,10 +413,10 @@ describe("serviceErrorResponse", () => {
   });
 
   it("returns 409 (no Retry-After) for ALREADY_VOIDED", async () => {
-    const res = serviceErrorResponse({
-      error: "already voided",
-      code: "ALREADY_VOIDED",
-    });
+    const res = serviceErrorResponse(
+      { error: "already voided", code: "ALREADY_VOIDED" },
+      REQ_ID,
+    );
     expect(res.status).toBe(409);
     expect(res.headers.get("Retry-After")).toBeNull();
     const body = await res.json();
@@ -365,48 +424,56 @@ describe("serviceErrorResponse", () => {
   });
 
   it("returns 409 + Retry-After 2 for VOID_PENDING_IN_PROGRESS", async () => {
-    const res = serviceErrorResponse({
-      error: "void pending",
-      code: "VOID_PENDING_IN_PROGRESS",
-    });
+    const res = serviceErrorResponse(
+      { error: "void pending", code: "VOID_PENDING_IN_PROGRESS" },
+      REQ_ID,
+    );
     expect(res.status).toBe(409);
     expect(res.headers.get("Retry-After")).toBe("2");
   });
 
   it("returns 409 (no Retry-After) for VOID_ALREADY_TARGETED", async () => {
-    const res = serviceErrorResponse({
-      error: "race",
-      code: "VOID_ALREADY_TARGETED",
-    });
+    const res = serviceErrorResponse(
+      { error: "race", code: "VOID_ALREADY_TARGETED" },
+      REQ_ID,
+    );
     expect(res.status).toBe(409);
     expect(res.headers.get("Retry-After")).toBeNull();
   });
 
   it("returns 500 for VOID_SYNC_FAILED", async () => {
-    const res = serviceErrorResponse({
-      error: "sync failed",
-      code: "VOID_SYNC_FAILED",
-    });
+    const res = serviceErrorResponse(
+      { error: "sync failed", code: "VOID_SYNC_FAILED" },
+      REQ_ID,
+    );
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.code).toBe("VOID_SYNC_FAILED");
   });
 
-  it("falls back to 422 with bare error envelope when code is unknown", async () => {
-    const res = serviceErrorResponse({
-      error: "boom",
-      code: "SOMETHING_ELSE",
-    });
+  it("falls back to ADE_REJECTED (422) when code is unknown", async () => {
+    const res = serviceErrorResponse(
+      { error: "boom", code: "SOMETHING_ELSE" },
+      REQ_ID,
+    );
     expect(res.status).toBe(422);
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
     const body = await res.json();
-    expect(body).toEqual({ error: "boom" });
+    expect(body).toEqual({
+      code: "ADE_REJECTED",
+      message: "boom",
+      requestId: REQ_ID,
+    });
   });
 
-  it("falls back to 422 when code is undefined", async () => {
-    const res = serviceErrorResponse({ error: "boom" });
+  it("falls back to ADE_REJECTED (422) when code is undefined", async () => {
+    const res = serviceErrorResponse({ error: "boom" }, REQ_ID);
     expect(res.status).toBe(422);
     const body = await res.json();
-    expect(body).toEqual({ error: "boom" });
+    expect(body).toEqual({
+      code: "ADE_REJECTED",
+      message: "boom",
+      requestId: REQ_ID,
+    });
   });
 });

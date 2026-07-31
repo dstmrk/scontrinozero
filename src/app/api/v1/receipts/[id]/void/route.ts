@@ -3,12 +3,16 @@ import { RateLimiter } from "@/lib/rate-limit";
 import { voidReceiptForBusiness } from "@/lib/services/void-service";
 import { isValidUuid } from "@/lib/uuid";
 import {
+  newRequestId,
+  v1Error,
+  v1Json,
+  v1NoContent,
+} from "@/lib/api-v1-errors";
+import {
   requireBusinessApiAuth,
-  corsOptionsResponse,
   checkRateLimitApi,
   parseAndValidateBody,
   serviceErrorResponse,
-  withCors,
   ADE_REAUTH_REQUIRED_MESSAGE,
 } from "@/lib/api-v1-helpers";
 
@@ -23,15 +27,17 @@ const voidApiLimiter = new RateLimiter({
 });
 
 export function OPTIONS(): Response {
-  return corsOptionsResponse("POST, OPTIONS");
+  return v1NoContent("POST, OPTIONS", newRequestId());
 }
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
+  const requestId = newRequestId();
+
   // ── Auth ──────────────────────────────────────────────────────────────────
-  const authResult = await requireBusinessApiAuth(request);
+  const authResult = await requireBusinessApiAuth(request, requestId);
   if ("error" in authResult) return authResult.error;
   const { context: auth } = authResult;
 
@@ -41,6 +47,7 @@ export async function POST(
     `api:void:${auth.apiKey.id}`,
     auth.apiKey.id,
     "API receipt void rate limit exceeded",
+    requestId,
   );
   if (rateLimitError) return rateLimitError;
 
@@ -50,6 +57,7 @@ export async function POST(
     request,
     voidBodySchema,
     8 * 1024,
+    requestId,
   );
   if ("error" in bodyResult) return bodyResult.error;
 
@@ -57,9 +65,7 @@ export async function POST(
   const { id: documentId } = await params;
 
   if (!isValidUuid(documentId)) {
-    return withCors(
-      Response.json({ error: "ID non valido." }, { status: 400 }),
-    );
+    return v1Error("INVALID_ID", "ID non valido.", requestId);
   }
 
   // ── Void ──────────────────────────────────────────────────────────────────
@@ -70,24 +76,26 @@ export async function POST(
 
   if (result.reauthRequired) {
     // Vedi POST /v1/receipts: 409 + code machine-readable, retry umano.
-    return serviceErrorResponse({
-      error: ADE_REAUTH_REQUIRED_MESSAGE,
-      code: "ADE_REAUTH_REQUIRED",
-    });
+    return v1Error(
+      "ADE_REAUTH_REQUIRED",
+      ADE_REAUTH_REQUIRED_MESSAGE,
+      requestId,
+    );
   }
 
   if (result.error) {
-    return serviceErrorResponse({ error: result.error, code: result.code });
+    return serviceErrorResponse(
+      { error: result.error, code: result.code },
+      requestId,
+    );
   }
 
-  return withCors(
-    Response.json(
-      {
-        voidDocumentId: result.voidDocumentId,
-        adeTransactionId: result.adeTransactionId,
-        adeProgressive: result.adeProgressive,
-      },
-      { status: 200 },
-    ),
+  return v1Json(
+    {
+      voidDocumentId: result.voidDocumentId,
+      adeTransactionId: result.adeTransactionId,
+      adeProgressive: result.adeProgressive,
+    },
+    requestId,
   );
 }

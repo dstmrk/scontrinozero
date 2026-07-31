@@ -117,13 +117,24 @@ export type SubmitReceiptInput = {
  * - ALREADY_VOIDED: la idempotencyKey identifica uno scontrino già annullato
  *   (VOID_ACCEPTED). Non è più valido: un replay dell'emissione non deve
  *   riportarlo ad ACCEPTED. Va emesso uno scontrino nuovo con una key diversa.
+ * - ADE_UNAVAILABLE: l'AdE non ha risposto (rete/5xx/timeout SPID). Esito
+ *   **ignoto**: il documento resta PENDING e il recovery lo riconcilia. Il
+ *   retry va fatto con la STESSA idempotencyKey — una key nuova rischierebbe
+ *   un doppione fiscale irreversibile.
+ * - ADE_PASSWORD_EXPIRED: password Fisconline scaduta, va aggiornata dall'app
+ *   web. Nessun retry automatico utile.
+ *
+ * L'assenza di codice (rifiuto funzionale AdE non classificato) mappa sul
+ * canale API a `ADE_REJECTED` / 422.
  */
 export type SubmitReceiptErrorCode =
   | "PENDING_IN_PROGRESS"
   | "DB_TIMEOUT"
   | "ALREADY_REJECTED"
   | "ALREADY_VOIDED"
-  | "IDEMPOTENCY_PAYLOAD_MISMATCH";
+  | "IDEMPOTENCY_PAYLOAD_MISMATCH"
+  | "ADE_UNAVAILABLE"
+  | "ADE_PASSWORD_EXPIRED";
 
 /** Risultato della server action emitReceipt */
 export type SubmitReceiptResult = {

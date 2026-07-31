@@ -178,11 +178,11 @@ describe("POST /api/v1/receipts/[id]/void", () => {
     const res = await POST(makeRequest(), makeParams());
     expect(res.status).toBe(404);
     const body = await res.json();
-    expect(body.error).toBe("Scontrino non trovato.");
+    expect(body.message).toBe("Scontrino non trovato.");
     expect(body.code).toBe("NOT_FOUND");
   });
 
-  it("ritorna 422 se il service ritorna un errore generico senza code", async () => {
+  it("ritorna 422 ADE_REJECTED se il service ritorna un errore senza code", async () => {
     mockVoidReceiptForBusiness.mockResolvedValue({
       error: "Il documento non è in uno stato annullabile.",
     });
@@ -190,7 +190,21 @@ describe("POST /api/v1/receipts/[id]/void", () => {
     const res = await POST(makeRequest(), makeParams());
     expect(res.status).toBe(422);
     const body = await res.json();
-    expect(body.error).toBe("Il documento non è in uno stato annullabile.");
+    expect(body.code).toBe("ADE_REJECTED");
+    expect(body.message).toBe("Il documento non è in uno stato annullabile.");
+  });
+
+  it("ritorna 503 ADE_UNAVAILABLE ritentabile se l'AdE non risponde", async () => {
+    mockVoidReceiptForBusiness.mockResolvedValue({
+      error: "Agenzia delle Entrate non raggiungibile.",
+      code: "ADE_UNAVAILABLE",
+    });
+
+    const res = await POST(makeRequest(), makeParams());
+    expect(res.status).toBe(503);
+    expect(res.headers.get("Retry-After")).toBe("10");
+    const body = await res.json();
+    expect(body.code).toBe("ADE_UNAVAILABLE");
   });
 
   it("ritorna 409 con code ADE_REAUTH_REQUIRED se la sessione CIE è scaduta", async () => {
@@ -200,7 +214,21 @@ describe("POST /api/v1/receipts/[id]/void", () => {
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.code).toBe("ADE_REAUTH_REQUIRED");
-    expect(typeof body.error).toBe("string");
-    expect(body.error.length).toBeGreaterThan(0);
+    expect(typeof body.message).toBe("string");
+    expect(body.message.length).toBeGreaterThan(0);
+    expect(body).not.toHaveProperty("error");
+  });
+
+  it("espone X-Request-Id sul successo e lo ripete nel body d'errore", async () => {
+    const ok = await POST(makeRequest(), makeParams());
+    expect(ok.headers.get("X-Request-Id")).toMatch(/^[0-9a-f-]{36}$/);
+
+    mockVoidReceiptForBusiness.mockResolvedValue({
+      error: "Scontrino non trovato.",
+      code: "NOT_FOUND",
+    });
+    const err = await POST(makeRequest(), makeParams());
+    const body = await err.json();
+    expect(body.requestId).toBe(err.headers.get("X-Request-Id"));
   });
 });

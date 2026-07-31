@@ -572,6 +572,7 @@ function formatEmitError(err: unknown): SubmitReceiptResult {
     return {
       error:
         "La password Fisconline è scaduta. Aggiornala per continuare a emettere scontrini.",
+      code: "ADE_PASSWORD_EXPIRED",
       passwordExpired: true,
     };
   }
@@ -582,13 +583,29 @@ function formatEmitError(err: unknown): SubmitReceiptResult {
       code: "DB_TIMEOUT",
     };
   }
+  // Transient (rete / AdE 5xx / timeout SPID): l'esito della trasmissione è
+  // IGNOTO — la riga resta PENDING e il recovery la riconcilia contro l'AdE.
+  // Classificarlo (REVIEW #18) è ciò che permette alla route di rispondere 503
+  // ritentabile invece del 422 indistinto: sul canale API la differenza fra
+  // "riprova con la stessa key" e "correggi il documento" è tutta qui.
+  if (isTransientAdeError(err)) {
+    return {
+      error: getUserFacingAdeErrorMessage(
+        err,
+        "Agenzia delle Entrate non raggiungibile. Riprova tra qualche istante.",
+      ).message,
+      code: "ADE_UNAVAILABLE",
+    };
+  }
   const userFacing = getUserFacingAdeErrorMessage(
     err,
     "Errore durante l'emissione dello scontrino. Riprova più tardi.",
   );
   return {
     error: userFacing.message,
-    ...(userFacing.passwordExpired ? { passwordExpired: true } : {}),
+    ...(userFacing.passwordExpired
+      ? { code: "ADE_PASSWORD_EXPIRED" as const, passwordExpired: true }
+      : {}),
   };
 }
 

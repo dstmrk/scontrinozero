@@ -949,6 +949,19 @@ describe("voidReceiptForBusiness", () => {
     expect(statusUpdates).not.toContain("ERROR");
   });
 
+  it("REVIEW #18: un fallimento transient sull'annullo è classificato ADE_UNAVAILABLE", async () => {
+    // Come sull'emissione: è il codice che sul canale API diventa un 503
+    // ritentabile invece del 422 indistinto.
+    const { AdeNetworkError } = await import("@/lib/ade/errors");
+    mockSubmitVoid.mockRejectedValue(new AdeNetworkError(new Error("ECONN")));
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("ADE_UNAVAILABLE");
+    expect(result.error).toBeTruthy();
+  });
+
   it("REVIEW #64: submitVoid 200 non-JSON (AdeUnknownOutcomeError) NON marca ERROR (resta PENDING)", async () => {
     // Esito ignoto dopo il POST di annullo: marcare ERROR permetterebbe un
     // secondo VOID (doppio annullo su AdE). La riga resta PENDING e la

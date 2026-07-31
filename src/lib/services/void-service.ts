@@ -908,10 +908,28 @@ export async function voidReceiptForBusiness(
       };
     }
 
+    // Vedi `formatEmitError` (receipt-service): il transient va distinto dal
+    // rifiuto funzionale perché è l'unico caso in cui ritentare la stessa
+    // richiesta ha senso (REVIEW #18).
+    if (isTransientAdeError(err)) {
+      return {
+        error: getUserFacingAdeErrorMessage(
+          err,
+          "Agenzia delle Entrate non raggiungibile. Riprova tra qualche istante.",
+        ).message,
+        code: "ADE_UNAVAILABLE",
+      };
+    }
+
     const userFacing = getUserFacingAdeErrorMessage(
       err,
       "Errore durante l'annullo dello scontrino. Riprova più tardi.",
     );
-    return { error: userFacing.message };
+    return {
+      error: userFacing.message,
+      ...(userFacing.passwordExpired
+        ? { code: "ADE_PASSWORD_EXPIRED" as const }
+        : {}),
+    };
   }
 }
