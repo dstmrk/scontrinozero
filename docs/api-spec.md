@@ -654,9 +654,17 @@ passato a `mapVoidToAdePayload`:
 L'adapter normalizza la risposta AdE (`AdeResponse`, sez. 2.5) e il service
 ritorna al chiamante un risultato tipizzato (`SubmitReceiptResult` /
 `VoidReceiptResult`) con `documentId`/`voidDocumentId`, `adeTransactionId`,
-`adeProgressive` — oppure `error` + `code` machine-readable. La forma HTTP finale
-(status code, envelope `{ "error": "…" }`) è responsabilità delle route
-`/api/v1/receipts/*` → vedi `/help/api` e `DEVELOPER.md`.
+`adeProgressive` — oppure `error` + `code` machine-readable. Il `code` del
+service è **interno**: un fallimento transient (rete/5xx/timeout SPID) è
+`ADE_UNAVAILABLE`, una password Fisconline scaduta `ADE_PASSWORD_EXPIRED`, un
+rifiuto funzionale non porta codice.
+
+La forma HTTP finale è responsabilità delle route `/api/v1/receipts/*`:
+l'envelope pubblico è `{ code, message, requestId }` e la traduzione
+service-code → codice pubblico + status + `Retry-After` vive in un'unica
+tabella, `V1_ERROR_CATALOG` in `src/lib/api-v1-errors.ts` (mapping in
+`serviceErrorResponse`, `src/lib/api-v1-helpers.ts`). Elenco completo dei codici
+→ `/help/api` e `DEVELOPER.md`.
 
 ---
 

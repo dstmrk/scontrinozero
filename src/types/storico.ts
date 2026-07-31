@@ -97,6 +97,13 @@ export interface VoidReceiptInput {
  *   annullare un documento diverso. Il client deve usare una nuova key.
  * - NOT_FOUND: lo scontrino da annullare non esiste (o appartiene a un altro
  *   business). Sul canale API mappa a 404, coerente con GET /v1/receipts/{id}.
+ * - ADE_UNAVAILABLE: l'AdE non ha risposto (rete/5xx/timeout SPID). Esito
+ *   **ignoto**: il retry va fatto con la STESSA idempotencyKey.
+ * - ADE_PASSWORD_EXPIRED: password Fisconline scaduta, va aggiornata dall'app
+ *   web. Nessun retry automatico utile.
+ *
+ * L'assenza di codice (rifiuto funzionale AdE non classificato) mappa sul
+ * canale API a `ADE_REJECTED` / 422.
  */
 export type VoidReceiptErrorCode =
   | "VOID_PENDING_IN_PROGRESS"
@@ -104,7 +111,9 @@ export type VoidReceiptErrorCode =
   | "DB_TIMEOUT"
   | "VOID_SYNC_FAILED"
   | "IDEMPOTENCY_PAYLOAD_MISMATCH"
-  | "NOT_FOUND";
+  | "NOT_FOUND"
+  | "ADE_UNAVAILABLE"
+  | "ADE_PASSWORD_EXPIRED";
 
 export interface VoidReceiptResult {
   error?: string;

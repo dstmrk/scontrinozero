@@ -900,18 +900,47 @@ export async function voidReceiptForBusiness(
       }
     }
 
-    if (isStatementTimeoutError(err)) {
-      return {
-        error:
-          "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
-        code: "DB_TIMEOUT",
-      };
-    }
-
-    const userFacing = getUserFacingAdeErrorMessage(
-      err,
-      "Errore durante l'annullo dello scontrino. Riprova più tardi.",
-    );
-    return { error: userFacing.message };
+    return formatVoidError(err);
   }
+}
+
+/**
+ * Traduce un errore dell'annullo nel risultato tipizzato esposto al chiamante.
+ * Speculare a `formatEmitError` (`receipt-service.ts`) — vive fuori da
+ * `voidReceiptForBusiness` per non sommare le sue branch alla Cognitive
+ * Complexity di quella funzione, già al limite.
+ *
+ * La classificazione (REVIEW #18) è il punto: solo il transient è ritentabile
+ * con la stessa richiesta, e sul canale API diventa un 503 anziché un 422
+ * indistinto da un rifiuto di merito dell'AdE.
+ */
+function formatVoidError(err: unknown): VoidReceiptResult {
+  if (isStatementTimeoutError(err)) {
+    return {
+      error:
+        "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
+      code: "DB_TIMEOUT",
+    };
+  }
+
+  if (isTransientAdeError(err)) {
+    return {
+      error: getUserFacingAdeErrorMessage(
+        err,
+        "Agenzia delle Entrate non raggiungibile. Riprova tra qualche istante.",
+      ).message,
+      code: "ADE_UNAVAILABLE",
+    };
+  }
+
+  const userFacing = getUserFacingAdeErrorMessage(
+    err,
+    "Errore durante l'annullo dello scontrino. Riprova più tardi.",
+  );
+  return {
+    error: userFacing.message,
+    ...(userFacing.passwordExpired
+      ? { code: "ADE_PASSWORD_EXPIRED" as const }
+      : {}),
+  };
 }

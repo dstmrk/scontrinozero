@@ -6,16 +6,22 @@
  *   2. CORS preflight (OPTIONS)
  *   3. Rate limit check
  *   4. Request body parsing + Zod validation
+ *
+ * Ogni risposta d'errore prodotta qui passa da `v1Error`
+ * (`src/lib/api-v1-errors.ts`): envelope `{ code, message, requestId }`,
+ * status e `Retry-After` derivati dal catalogo. Il `requestId` è generato una
+ * volta per richiesta dalla route e passato lungo tutta la catena.
  */
 import { authenticateApiKey, isApiKeyAuthError } from "@/lib/api-auth";
 import type { ApiKeyContext } from "@/lib/api-auth";
-import { dbTimeoutResponse } from "@/lib/api-errors";
+import { v1Error } from "@/lib/api-v1-errors";
 import { canUseApi } from "@/lib/plans";
 import { logger } from "@/lib/logger";
 import { readJsonWithLimit } from "@/lib/request-utils";
 import type { RateLimiter } from "@/lib/rate-limit";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
 import { z, type ZodType } from "zod/v4";
+import type { V1ErrorCode } from "@/lib/api-v1-errors";
 
 /**
  * Messaggio del 409 quando la sessione AdE interattiva (CIE) è scaduta: va
@@ -26,37 +32,14 @@ import { z, type ZodType } from "zod/v4";
 export const ADE_REAUTH_REQUIRED_MESSAGE =
   "Sessione AdE (CIE) scaduta: ricollegati dall'app web ScontrinoZero prima di riprovare.";
 
+/** Messaggio del 503 quando l'AdE non risponde: retry con la STESSA key. */
+export const ADE_UNAVAILABLE_MESSAGE =
+  "Agenzia delle Entrate non raggiungibile: riprova con la stessa idempotencyKey.";
+
 /** ApiKeyContext with businessId narrowed to string (management keys excluded). */
 export type BusinessApiContext = Omit<ApiKeyContext, "businessId"> & {
   businessId: string;
 };
-
-/**
- * CORS headers included on every /api/v1/* response (not only preflight).
- * Authentication is via Bearer token, not cookies, so the wildcard origin
- * is intentional and safe for this public developer API.
- */
-// NOSONAR — developer API: auth via Bearer token (not cookies), wildcard is intentional
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-} as const;
-
-/**
- * Returns a new Response with CORS headers added.
- * Use this to add CORS headers to success responses in route handlers.
- */
-export function withCors(response: Response): Response {
-  const headers = new Headers(response.headers);
-  headers.set(
-    "Access-Control-Allow-Origin",
-    CORS_HEADERS["Access-Control-Allow-Origin"],
-  );
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
-}
 
 /**
  * Runs auth, plan gate, and business key checks common to all v1 API routes.
@@ -66,40 +49,33 @@ export function withCors(response: Response): Response {
  */
 export async function requireBusinessApiAuth(
   request: Request,
+  requestId: string,
 ): Promise<{ error: Response } | { context: BusinessApiContext }> {
   const auth = await authenticateApiKey(request);
   if (isApiKeyAuthError(auth)) {
-    // 503: DB sovraccarico durante l'auth lookup. Risposta retryable con
-    // `Retry-After` e `code: DB_TIMEOUT`, coerente con i timeout sulle read
-    // route v1 (cfr. dbTimeoutResponse).
-    if (auth.status === 503) {
-      return { error: withCors(dbTimeoutResponse()) };
-    }
-    return {
-      error: Response.json(
-        { error: auth.error },
-        { status: auth.status, headers: CORS_HEADERS },
-      ),
-    };
+    // 503: DB sovraccarico durante l'auth lookup — transient e ritentabile,
+    // da tenere distinto dal 401 (chiave permanentemente invalida).
+    const code: V1ErrorCode =
+      auth.status === 503 ? "DB_TIMEOUT" : "UNAUTHORIZED";
+    return { error: v1Error(code, auth.error, requestId) };
   }
 
   if (!canUseApi(auth.plan, auth.planExpiresAt)) {
     return {
-      error: Response.json(
-        {
-          error:
-            "Il tuo piano non include l'accesso alle API. Passa al piano Pro o Developer.",
-        },
-        { status: 402, headers: CORS_HEADERS },
+      error: v1Error(
+        "PLAN_UPGRADE_REQUIRED",
+        "Il tuo piano non include l'accesso alle API. Passa al piano Pro o Developer.",
+        requestId,
       ),
     };
   }
 
   if (!auth.businessId) {
     return {
-      error: Response.json(
-        { error: "Questa API richiede una business key (szk_live_)." },
-        { status: 403, headers: CORS_HEADERS },
+      error: v1Error(
+        "BUSINESS_KEY_REQUIRED",
+        "Questa API richiede una business key (szk_live_).",
+        requestId,
       ),
     };
   }
@@ -108,101 +84,76 @@ export async function requireBusinessApiAuth(
 }
 
 /**
- * Returns a 204 CORS preflight response.
- *
- * @param methods - Comma-separated HTTP methods, e.g. "POST, OPTIONS"
- */
-export function corsOptionsResponse(methods: string): Response {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*", // NOSONAR — developer API: auth via Bearer token (not cookies), wildcard is intentional
-      "Access-Control-Allow-Methods": methods,
-      "Access-Control-Allow-Headers": "Authorization, Content-Type",
-    },
-  });
-}
-
-/**
  * Checks rate limit and returns a 429 Response if exceeded, null otherwise.
  * The response includes a `Retry-After` header (seconds) for machine-readable backoff.
  *
- * @param limiter  - RateLimiter instance (module-level singleton in the route)
- * @param key      - Rate limit bucket key, e.g. "api:emit:<apiKeyId>"
- * @param apiKeyId - Used in the warning log only
- * @param logMsg   - Log message distinguishing the operation (emit vs void, etc.)
+ * @param limiter   - RateLimiter instance (module-level singleton in the route)
+ * @param key       - Rate limit bucket key, e.g. "api:emit:<apiKeyId>"
+ * @param apiKeyId  - Used in the warning log only
+ * @param logMsg    - Log message distinguishing the operation (emit vs void, etc.)
+ * @param requestId - UUID della richiesta corrente (envelope + log)
  */
 export function checkRateLimitApi(
   limiter: RateLimiter,
   key: string,
   apiKeyId: string,
   logMsg: string,
+  requestId: string,
 ): Response | null {
   const result = limiter.check(key);
   if (!result.success) {
-    logger.warn({ apiKeyId }, logMsg);
+    logger.warn({ apiKeyId, requestId }, logMsg);
     const retryAfterSeconds = Math.max(
       1,
       Math.ceil((result.resetAt - Date.now()) / 1000),
     );
-    return Response.json(
-      { error: ERROR_MESSAGES.RATE_LIMIT_API_HOURS },
-      {
-        status: 429,
-        headers: {
-          ...CORS_HEADERS,
-          "Retry-After": String(retryAfterSeconds),
-        },
-      },
+    return v1Error(
+      "RATE_LIMIT_EXCEEDED",
+      ERROR_MESSAGES.RATE_LIMIT_API_HOURS,
+      requestId,
+      { retryAfterSeconds },
     );
   }
   return null;
 }
 
 /**
- * Maps service error codes (`emitReceiptForBusiness`, `voidReceiptForBusiness`)
- * to HTTP responses. Centralised so route handlers don't repeat the same
- * status/Retry-After mapping (SonarCloud duplicated-lines guard).
+ * Mappa i codici d'errore dei service (`emitReceiptForBusiness`,
+ * `voidReceiptForBusiness`) sui codici dell'envelope pubblico v1.
  *
- * Fallback (unknown / undefined code): 422 with `{ error }` envelope.
+ * I due insiemi coincidono oggi, ma restano disaccoppiati di proposito: il
+ * codice del service è un dettaglio interno, quello dell'envelope è contratto
+ * pubblico. Un codice non mappato (o assente) è un fallimento AdE funzionale
+ * non classificato → `ADE_REJECTED` (422), il fallback storico.
  */
-const SERVICE_ERROR_STATUS_MAP: Record<
-  string,
-  { status: number; retryAfter?: number }
-> = {
-  DB_TIMEOUT: { status: 503, retryAfter: 5 },
-  PENDING_IN_PROGRESS: { status: 409, retryAfter: 2 },
-  ALREADY_REJECTED: { status: 409 },
-  ALREADY_VOIDED: { status: 409 },
-  VOID_PENDING_IN_PROGRESS: { status: 409, retryAfter: 2 },
-  VOID_ALREADY_TARGETED: { status: 409 },
-  VOID_SYNC_FAILED: { status: 500 },
-  IDEMPOTENCY_PAYLOAD_MISMATCH: { status: 409 },
-  // Sessione AdE interattiva (CIE) scaduta: 409 senza Retry-After — il retry
-  // automatico è inutile finché l'utente non si ricollega dall'app web.
-  ADE_REAUTH_REQUIRED: { status: 409 },
-  // Documento inesistente / cross-tenant: 404, coerente con GET /v1/receipts/{id}
-  // (che risponde 404 direttamente nella route). Prima cadeva nel fallback 422.
-  NOT_FOUND: { status: 404 },
+const SERVICE_CODE_TO_V1: Record<string, V1ErrorCode> = {
+  DB_TIMEOUT: "DB_TIMEOUT",
+  PENDING_IN_PROGRESS: "PENDING_IN_PROGRESS",
+  ALREADY_REJECTED: "ALREADY_REJECTED",
+  ALREADY_VOIDED: "ALREADY_VOIDED",
+  VOID_PENDING_IN_PROGRESS: "VOID_PENDING_IN_PROGRESS",
+  VOID_ALREADY_TARGETED: "VOID_ALREADY_TARGETED",
+  VOID_SYNC_FAILED: "VOID_SYNC_FAILED",
+  IDEMPOTENCY_PAYLOAD_MISMATCH: "IDEMPOTENCY_PAYLOAD_MISMATCH",
+  ADE_REAUTH_REQUIRED: "ADE_REAUTH_REQUIRED",
+  ADE_PASSWORD_EXPIRED: "ADE_PASSWORD_EXPIRED",
+  ADE_UNAVAILABLE: "ADE_UNAVAILABLE",
+  NOT_FOUND: "NOT_FOUND",
 };
 
-export function serviceErrorResponse(result: {
-  error: string;
-  code?: string;
-}): Response {
-  const mapping = result.code
-    ? SERVICE_ERROR_STATUS_MAP[result.code]
-    : undefined;
-  if (!mapping) {
-    return withCors(Response.json({ error: result.error }, { status: 422 }));
-  }
-  const init: ResponseInit = { status: mapping.status };
-  if (mapping.retryAfter !== undefined) {
-    init.headers = { "Retry-After": String(mapping.retryAfter) };
-  }
-  return withCors(
-    Response.json({ code: result.code, error: result.error }, init),
-  );
+export function serviceErrorResponse(
+  result: { error: string; code?: string },
+  requestId: string,
+): Response {
+  // Object.hasOwn: `code` viene da un risultato di service, ma la lookup su un
+  // record letterale con una chiave arbitraria è comunque il pattern che la
+  // skill security-patterns chiede di blindare (prototype pollution).
+  const code =
+    result.code && Object.hasOwn(SERVICE_CODE_TO_V1, result.code)
+      ? SERVICE_CODE_TO_V1[result.code]
+      : "ADE_REJECTED";
+
+  return v1Error(code, result.error, requestId);
 }
 
 /**
@@ -211,28 +162,24 @@ export function serviceErrorResponse(result: {
  * Returns `{ error: Response }` on size/parse/validation failure,
  * or `{ data: T }` on success.
  *
- * @param request  - Incoming request
- * @param schema   - Zod schema to validate against
- * @param maxBytes - Maximum allowed body size in bytes
+ * @param request   - Incoming request
+ * @param schema    - Zod schema to validate against
+ * @param maxBytes  - Maximum allowed body size in bytes
+ * @param requestId - UUID della richiesta corrente
  */
 export async function parseAndValidateBody<T>(
   request: Request,
   schema: ZodType<T>,
   maxBytes: number,
+  requestId: string,
 ): Promise<{ error: Response } | { data: T }> {
   const bodyResult = await readJsonWithLimit(request, maxBytes);
   if (!bodyResult.ok) {
     return {
       error:
         "tooLarge" in bodyResult
-          ? Response.json(
-              { error: "Payload troppo grande." },
-              { status: 413, headers: CORS_HEADERS },
-            )
-          : Response.json(
-              { error: "Body non valido." },
-              { status: 400, headers: CORS_HEADERS },
-            ),
+          ? v1Error("PAYLOAD_TOO_LARGE", "Payload troppo grande.", requestId)
+          : v1Error("INVALID_BODY", "Body non valido.", requestId),
     };
   }
 
@@ -243,12 +190,7 @@ export async function parseAndValidateBody<T>(
     const msg = field
       ? `Il campo '${field}' non è valido: ${issue.message}`
       : (issue?.message ?? "Input non valido.");
-    return {
-      error: Response.json(
-        { error: msg },
-        { status: 400, headers: CORS_HEADERS },
-      ),
-    };
+    return { error: v1Error("VALIDATION_ERROR", msg, requestId) };
   }
 
   return { data: parsed.data };
@@ -290,6 +232,7 @@ const LIST_QUERY_ERROR: Record<string, string> = {
  */
 export function parseListPagination(
   searchParams: URLSearchParams,
+  requestId: string,
 ):
   | { error: Response }
   | { data: { page: number; limit: number; kind: "SALE" | "VOID" | null } } {
@@ -305,7 +248,7 @@ export function parseListPagination(
     const msg =
       (typeof field === "string" && LIST_QUERY_ERROR[field]) ||
       "Parametri di query non validi.";
-    return { error: withCors(Response.json({ error: msg }, { status: 400 })) };
+    return { error: v1Error("INVALID_QUERY_PARAM", msg, requestId) };
   }
 
   return {

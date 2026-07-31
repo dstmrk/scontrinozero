@@ -7,19 +7,23 @@ import {
 } from "@/lib/receipts/document-lines";
 import { saleBodySchema } from "@/lib/receipts/receipt-schema";
 import { parseStrictIsoDateUtc } from "@/lib/date-utils";
-import { dbTimeoutResponse, isStatementTimeoutError } from "@/lib/api-errors";
+import { isStatementTimeoutError } from "@/lib/api-errors";
+import {
+  newRequestId,
+  v1Error,
+  v1Json,
+  v1NoContent,
+} from "@/lib/api-v1-errors";
 import { withStatementTimeout } from "@/lib/db-timeout";
 import { logger } from "@/lib/logger";
 import { RateLimiter } from "@/lib/rate-limit";
 import { emitReceiptForBusiness } from "@/lib/services/receipt-service";
 import {
   requireBusinessApiAuth,
-  corsOptionsResponse,
   checkRateLimitApi,
   parseAndValidateBody,
   parseListPagination,
   serviceErrorResponse,
-  withCors,
   ADE_REAUTH_REQUIRED_MESSAGE,
 } from "@/lib/api-v1-helpers";
 import type { SubmitReceiptInput } from "@/types/cassa";
@@ -48,13 +52,21 @@ const MAX_RANGE_DAYS = 31;
 const LIST_TIMEOUT_MS = 5000;
 const LIST_ROUTE = "GET /api/v1/receipts";
 
+const DB_TIMEOUT_MESSAGE =
+  "Servizio temporaneamente sovraccarico, riprova tra qualche istante.";
+
 export function OPTIONS(): Response {
-  return corsOptionsResponse("GET, POST, OPTIONS");
+  return v1NoContent("GET, POST, OPTIONS", newRequestId());
 }
 
 export async function POST(request: Request): Promise<Response> {
+  // `requestId` nasce qui e accompagna ogni risposta (header X-Request-Id) e
+  // ogni riga di log della richiesta: è il filo di correlazione fra una
+  // segnalazione dell'utente API e i nostri log/Sentry (REVIEW #18).
+  const requestId = newRequestId();
+
   // ── Auth ──────────────────────────────────────────────────────────────────
-  const authResult = await requireBusinessApiAuth(request);
+  const authResult = await requireBusinessApiAuth(request, requestId);
   if ("error" in authResult) return authResult.error;
   const { context: auth } = authResult;
 
@@ -64,6 +76,7 @@ export async function POST(request: Request): Promise<Response> {
     `api:emit:${auth.apiKey.id}`,
     auth.apiKey.id,
     "API receipt emit rate limit exceeded",
+    requestId,
   );
   if (rateLimitError) return rateLimitError;
 
@@ -74,6 +87,7 @@ export async function POST(request: Request): Promise<Response> {
     request,
     saleBodySchema,
     32 * 1024,
+    requestId,
   );
   if ("error" in bodyResult) return bodyResult.error;
 
@@ -96,31 +110,36 @@ export async function POST(request: Request): Promise<Response> {
     // dall'app web (secondo fattore umano), non automatizzabile via API.
     // 409 + code machine-readable così il client distingue "azione umana"
     // dagli altri 409 retryable (PENDING_IN_PROGRESS, ecc.).
-    return serviceErrorResponse({
-      error: ADE_REAUTH_REQUIRED_MESSAGE,
-      code: "ADE_REAUTH_REQUIRED",
-    });
+    return v1Error(
+      "ADE_REAUTH_REQUIRED",
+      ADE_REAUTH_REQUIRED_MESSAGE,
+      requestId,
+    );
   }
 
   if (result.error) {
-    return serviceErrorResponse({ error: result.error, code: result.code });
+    return serviceErrorResponse(
+      { error: result.error, code: result.code },
+      requestId,
+    );
   }
 
-  return withCors(
-    Response.json(
-      {
-        documentId: result.documentId,
-        adeTransactionId: result.adeTransactionId,
-        adeProgressive: result.adeProgressive,
-      },
-      { status: 201 },
-    ),
+  return v1Json(
+    {
+      documentId: result.documentId,
+      adeTransactionId: result.adeTransactionId,
+      adeProgressive: result.adeProgressive,
+    },
+    requestId,
+    { status: 201 },
   );
 }
 
 export async function GET(request: Request): Promise<Response> {
+  const requestId = newRequestId();
+
   // ── Auth ──────────────────────────────────────────────────────────────────
-  const authResult = await requireBusinessApiAuth(request);
+  const authResult = await requireBusinessApiAuth(request, requestId);
   if ("error" in authResult) return authResult.error;
   const { context: auth } = authResult;
 
@@ -130,6 +149,7 @@ export async function GET(request: Request): Promise<Response> {
     `api:list:${auth.apiKey.id}`,
     auth.apiKey.id,
     "API receipt list rate limit exceeded",
+    requestId,
   );
   if (rateLimitError) return rateLimitError;
 
@@ -139,53 +159,42 @@ export async function GET(request: Request): Promise<Response> {
   const toStr = searchParams.get("to");
 
   if (!fromStr) {
-    return withCors(
-      Response.json(
-        {
-          error:
-            "Il parametro 'from' è obbligatorio e deve essere nel formato YYYY-MM-DD.",
-        },
-        { status: 400 },
-      ),
+    return v1Error(
+      "INVALID_QUERY_PARAM",
+      "Il parametro 'from' è obbligatorio e deve essere nel formato YYYY-MM-DD.",
+      requestId,
     );
   }
   const fromDate = parseStrictIsoDateUtc(fromStr);
   if (!fromDate) {
-    return withCors(
-      Response.json(
-        { error: "Il parametro 'from' non è una data valida." },
-        { status: 400 },
-      ),
+    return v1Error(
+      "INVALID_QUERY_PARAM",
+      "Il parametro 'from' non è una data valida.",
+      requestId,
     );
   }
 
   if (!toStr) {
-    return withCors(
-      Response.json(
-        {
-          error:
-            "Il parametro 'to' è obbligatorio e deve essere nel formato YYYY-MM-DD.",
-        },
-        { status: 400 },
-      ),
+    return v1Error(
+      "INVALID_QUERY_PARAM",
+      "Il parametro 'to' è obbligatorio e deve essere nel formato YYYY-MM-DD.",
+      requestId,
     );
   }
   const toDate = parseStrictIsoDateUtc(toStr);
   if (!toDate) {
-    return withCors(
-      Response.json(
-        { error: "Il parametro 'to' non è una data valida." },
-        { status: 400 },
-      ),
+    return v1Error(
+      "INVALID_QUERY_PARAM",
+      "Il parametro 'to' non è una data valida.",
+      requestId,
     );
   }
 
   if (toDate < fromDate) {
-    return withCors(
-      Response.json(
-        { error: "Il parametro 'to' non può essere precedente a 'from'." },
-        { status: 400 },
-      ),
+    return v1Error(
+      "INVALID_QUERY_PARAM",
+      "Il parametro 'to' non può essere precedente a 'from'.",
+      requestId,
     );
   }
 
@@ -193,13 +202,10 @@ export async function GET(request: Request): Promise<Response> {
     (toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24);
   // +1: both from and to are inclusive days in the range
   if (diffDays + 1 > MAX_RANGE_DAYS) {
-    return withCors(
-      Response.json(
-        {
-          error: `L'intervallo massimo consentito è ${MAX_RANGE_DAYS} giorni.`,
-        },
-        { status: 400 },
-      ),
+    return v1Error(
+      "INVALID_QUERY_PARAM",
+      `L'intervallo massimo consentito è ${MAX_RANGE_DAYS} giorni.`,
+      requestId,
     );
   }
 
@@ -209,7 +215,7 @@ export async function GET(request: Request): Promise<Response> {
 
   // Optional params: page/limit/kind validati al boundary (regola 9). Valori
   // invalidi → 400 esplicito, niente clamp/ignore silenzioso.
-  const paginationResult = parseListPagination(searchParams);
+  const paginationResult = parseListPagination(searchParams, requestId);
   if ("error" in paginationResult) return paginationResult.error;
   const { page, limit, kind } = paginationResult.data;
   const offset = (page - 1) * limit;
@@ -282,10 +288,10 @@ export async function GET(request: Request): Promise<Response> {
   } catch (err) {
     if (isStatementTimeoutError(err)) {
       logger.warn(
-        { err, path: LIST_ROUTE, statusCode: 503 },
+        { err, path: LIST_ROUTE, statusCode: 503, requestId },
         "DB statement timeout",
       );
-      return withCors(dbTimeoutResponse());
+      return v1Error("DB_TIMEOUT", DB_TIMEOUT_MESSAGE, requestId);
     }
     throw err;
   }
@@ -293,11 +299,12 @@ export async function GET(request: Request): Promise<Response> {
   const { total, docs, lines } = queryResult;
 
   if (docs.length === 0) {
-    return withCors(
-      Response.json({
+    return v1Json(
+      {
         data: [],
         pagination: { page, limit, total, hasNextPage: page * limit < total },
-      }),
+      },
+      requestId,
     );
   }
 
@@ -323,8 +330,8 @@ export async function GET(request: Request): Promise<Response> {
     };
   });
 
-  return withCors(
-    Response.json({
+  return v1Json(
+    {
       data,
       pagination: {
         page,
@@ -332,6 +339,7 @@ export async function GET(request: Request): Promise<Response> {
         total,
         hasNextPage: page * limit < total,
       },
-    }),
+    },
+    requestId,
   );
 }

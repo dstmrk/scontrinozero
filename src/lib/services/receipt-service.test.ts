@@ -1097,6 +1097,33 @@ describe("emitReceiptForBusiness", () => {
     expect(updateSets).not.toContain("ERROR");
   });
 
+  it("REVIEW #18: un fallimento transient è classificato ADE_UNAVAILABLE", async () => {
+    // È il codice che sul canale API diventa un 503 ritentabile invece del 422
+    // indistinto: senza classificazione il client non può sapere che ritentare
+    // con la STESSA idempotencyKey è la mossa giusta.
+    const { AdeNetworkError } = await import("@/lib/ade/errors");
+    mockSubmitSale.mockRejectedValue(new AdeNetworkError(new Error("ECONN")));
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("ADE_UNAVAILABLE");
+    expect(result.error).toBeTruthy();
+  });
+
+  it("REVIEW #18: un rifiuto funzionale AdE resta senza code (→ 422 ADE_REJECTED)", async () => {
+    // Un errore permanente NON deve prendere il codice transient, altrimenti il
+    // client entrerebbe in un loop di retry su un documento che l'AdE rifiuterà
+    // sempre.
+    mockSubmitSale.mockRejectedValue(new Error("documento non valido"));
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBeUndefined();
+    expect(result.error).toBeTruthy();
+  });
+
   it("REVIEW #64: submitSale 200 non-JSON (AdeUnknownOutcomeError) NON marca ERROR (resta PENDING)", async () => {
     // Esito ignoto: la POST è stata consegnata con un 200, il documento può
     // essere già su AdE. Marcare ERROR aprirebbe alla doppia emissione fiscale;

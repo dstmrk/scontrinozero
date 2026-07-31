@@ -244,7 +244,7 @@ describe("GET /api/v1/receipts (list)", () => {
 
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error).toMatch(/from/i);
+      expect(body.message).toMatch(/from/i);
     });
 
     it("returns 400 when 'to' is missing", async () => {
@@ -253,7 +253,7 @@ describe("GET /api/v1/receipts (list)", () => {
 
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error).toMatch(/to/i);
+      expect(body.message).toMatch(/to/i);
     });
 
     it("returns 400 when 'from' has invalid format", async () => {
@@ -280,7 +280,7 @@ describe("GET /api/v1/receipts (list)", () => {
 
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error).toMatch(/to/i);
+      expect(body.message).toMatch(/to/i);
     });
 
     it("returns 400 when range exceeds 31 days", async () => {
@@ -291,7 +291,7 @@ describe("GET /api/v1/receipts (list)", () => {
 
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error).toMatch(/31/);
+      expect(body.message).toMatch(/31/);
     });
 
     it("accepts range of exactly 31 inclusive days (diffDays=30)", async () => {
@@ -314,7 +314,7 @@ describe("GET /api/v1/receipts (list)", () => {
 
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error).toMatch(/31/);
+      expect(body.message).toMatch(/31/);
     });
 
     it("returns 400 when 'from' is an impossible date (Feb 31)", async () => {
@@ -323,8 +323,8 @@ describe("GET /api/v1/receipts (list)", () => {
 
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error).toMatch(/from/i);
-      expect(body.error).toMatch(/valida/i);
+      expect(body.message).toMatch(/from/i);
+      expect(body.message).toMatch(/valida/i);
     });
 
     it("returns 400 when 'to' is an impossible date (Apr 31)", async () => {
@@ -335,8 +335,8 @@ describe("GET /api/v1/receipts (list)", () => {
 
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error).toMatch(/to/i);
-      expect(body.error).toMatch(/valida/i);
+      expect(body.message).toMatch(/to/i);
+      expect(body.message).toMatch(/valida/i);
     });
 
     it("accepts same-day range (from == to)", async () => {
@@ -355,8 +355,8 @@ describe("GET /api/v1/receipts (list)", () => {
 
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error).toMatch(/from/i);
-      expect(body.error).toMatch(/valida/i);
+      expect(body.message).toMatch(/from/i);
+      expect(body.message).toMatch(/valida/i);
     });
 
     it("returns 400 when 'to' passes regex but is an impossible date (month 13)", async () => {
@@ -367,8 +367,8 @@ describe("GET /api/v1/receipts (list)", () => {
 
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error).toMatch(/to/i);
-      expect(body.error).toMatch(/valida/i);
+      expect(body.message).toMatch(/to/i);
+      expect(body.message).toMatch(/valida/i);
     });
 
     it("does not query DB when params are invalid", async () => {

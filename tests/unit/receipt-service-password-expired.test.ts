@@ -199,6 +199,9 @@ describe("emitReceiptForBusiness — AdePasswordExpiredError", () => {
     const result = await emitReceiptForBusiness(makeValidInput());
 
     expect(result.passwordExpired).toBe(true);
+    // REVIEW #18: sul canale API il code diventa un 409 "azione umana", non un
+    // 422 indistinto da un rifiuto di merito dell'AdE.
+    expect(result.code).toBe("ADE_PASSWORD_EXPIRED");
     expect(result.error).toMatch(/scaduta/i);
     expect(result.documentId).toBeUndefined();
   });

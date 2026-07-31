@@ -90,7 +90,7 @@ describe("POST /api/v1/receipts", () => {
       );
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error).toMatch(/idempotencyKey/i);
+      expect(body.message).toMatch(/idempotencyKey/i);
     });
 
     it("returns 400 when idempotencyKey is a plain string key", async () => {

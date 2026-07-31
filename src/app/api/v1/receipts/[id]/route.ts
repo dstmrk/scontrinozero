@@ -1,14 +1,16 @@
 import { and, asc, eq } from "drizzle-orm";
 import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
-import { dbTimeoutResponse, isStatementTimeoutError } from "@/lib/api-errors";
+import { isStatementTimeoutError } from "@/lib/api-errors";
+import {
+  newRequestId,
+  v1Error,
+  v1Json,
+  v1NoContent,
+} from "@/lib/api-v1-errors";
 import { withStatementTimeout } from "@/lib/db-timeout";
 import { isValidUuid } from "@/lib/uuid";
 import { logger } from "@/lib/logger";
-import {
-  requireBusinessApiAuth,
-  corsOptionsResponse,
-  withCors,
-} from "@/lib/api-v1-helpers";
+import { requireBusinessApiAuth } from "@/lib/api-v1-helpers";
 import { calcDocTotal } from "@/lib/receipts/document-lines";
 
 // Single-doc read: 2 indexed SELECT, atteso < 50ms p99. 3s di budget cattura
@@ -17,24 +19,24 @@ const STATEMENT_TIMEOUT_MS = 3000;
 const ROUTE = "GET /api/v1/receipts/[id]";
 
 export function OPTIONS(): Response {
-  return corsOptionsResponse("GET, OPTIONS");
+  return v1NoContent("GET, OPTIONS", newRequestId());
 }
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
+  const requestId = newRequestId();
+
   // ── Auth ──────────────────────────────────────────────────────────────────
-  const authResult = await requireBusinessApiAuth(request);
+  const authResult = await requireBusinessApiAuth(request, requestId);
   if ("error" in authResult) return authResult.error;
   const { context: auth } = authResult;
 
   const { id } = await params;
 
   if (!isValidUuid(id)) {
-    return withCors(
-      Response.json({ error: "ID non valido." }, { status: 400 }),
-    );
+    return v1Error("INVALID_ID", "ID non valido.", requestId);
   }
 
   let result;
@@ -75,10 +77,14 @@ export async function GET(
   } catch (err) {
     if (isStatementTimeoutError(err)) {
       logger.warn(
-        { err, path: ROUTE, statusCode: 503 },
+        { err, path: ROUTE, statusCode: 503, requestId },
         "DB statement timeout",
       );
-      return withCors(dbTimeoutResponse());
+      return v1Error(
+        "DB_TIMEOUT",
+        "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
+        requestId,
+      );
     }
     throw err;
   }
@@ -95,12 +101,11 @@ export async function GET(
         businessId: auth.businessId,
         apiKeyId: auth.apiKey.id,
         errorClass: "v1_document_not_found",
+        requestId,
       },
       "v1 document not found",
     );
-    return withCors(
-      Response.json({ error: "Documento non trovato." }, { status: 404 }),
-    );
+    return v1Error("NOT_FOUND", "Documento non trovato.", requestId);
   }
 
   const { doc, lines } = result;
@@ -109,8 +114,8 @@ export async function GET(
 
   const pr = doc.publicRequest as { paymentMethod?: string } | null;
 
-  return withCors(
-    Response.json({
+  return v1Json(
+    {
       id: doc.id,
       kind: doc.kind,
       status: doc.status,
@@ -128,6 +133,7 @@ export async function GET(
         grossUnitPrice: l.grossUnitPrice,
         vatCode: l.vatCode,
       })),
-    }),
+    },
+    requestId,
   );
 }

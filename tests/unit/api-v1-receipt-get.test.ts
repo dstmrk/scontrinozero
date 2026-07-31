@@ -122,7 +122,7 @@ describe("GET /api/v1/receipts/[id]", () => {
       );
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error).toBeDefined();
+      expect(body.message).toBeDefined();
     });
 
     it("returns 400 for a SQL injection id", async () => {

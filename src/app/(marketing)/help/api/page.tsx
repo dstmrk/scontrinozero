@@ -770,21 +770,74 @@ const idempotencyKey = crypto.randomUUID();`}</code>
         {/* ─── Codici di errore ─── */}
         <h2 className="mt-12 text-xl font-semibold">Codici di errore</h2>
         <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-          {"Tutti gli errori restituiscono un oggetto JSON con il campo "}
-          <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">
-            error
-          </code>
-          {":"}
+          Tutti gli errori restituiscono lo stesso oggetto JSON, su qualsiasi
+          endpoint e qualsiasi status:
         </p>
         <pre className="bg-muted mt-3 overflow-x-auto rounded-md p-4 font-mono text-xs leading-relaxed">
-          <code>{`{ "error": "Descrizione dell'errore." }`}</code>
+          <code>{`{
+  "code": "PENDING_IN_PROGRESS",
+  "message": "Una richiesta con la stessa idempotencyKey è ancora in corso.",
+  "requestId": "9f1c2f5e-7b3a-4c1d-9e8f-2a6b0d4c7e11"
+}`}</code>
         </pre>
+        <ul className="text-muted-foreground mt-3 list-disc space-y-1 pl-5 text-sm leading-relaxed">
+          <li>
+            <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">
+              code
+            </code>
+            {
+              " — stringa stabile: è il campo su cui costruire la logica del tuo client."
+            }
+          </li>
+          <li>
+            <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">
+              message
+            </code>
+            {
+              " — testo pensato per una persona. Può cambiare senza preavviso: non farne parsing."
+            }
+          </li>
+          <li>
+            <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">
+              requestId
+            </code>
+            {
+              " — identificativo della richiesta, presente anche nell'header X-Request-Id di tutte le risposte (successi inclusi). Citalo quando ci scrivi: ci permette di ritrovare la richiesta nei log."
+            }
+          </li>
+        </ul>
+        <div className="border-primary/40 bg-primary/5 mt-4 rounded-md border-l-4 p-4">
+          <p className="text-sm leading-relaxed font-medium">
+            Aggiornamento dell&apos;envelope d&apos;errore
+          </p>
+          <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+            {
+              "Fino alla versione 1.5.x gli errori usavano il campo error al posto di message, e il code era presente solo su alcune risposte. Dalla 1.6.0, se il tuo client legge body.error, spostalo su body.message (o meglio su body.code). Controlla anche la gestione del 503 ADE_UNAVAILABLE, descritto qui sotto: prima quel caso arrivava come 422."
+            }
+          </p>
+        </div>
+        <p className="text-muted-foreground mt-4 text-sm leading-relaxed">
+          {
+            "Quando una risposta include l'header Retry-After, l'errore è temporaneo: attendi i secondi indicati e ripeti la richiesta "
+          }
+          <strong>identica</strong>
+          {", con la stessa "}
+          <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">
+            idempotencyKey
+          </code>
+          {
+            ". Non generare mai una chiave nuova per un tentativo ripetuto: rischieresti un secondo scontrino, che non è più annullabile automaticamente."
+          }
+        </p>
         <div className="text-muted-foreground mt-4 overflow-x-auto text-sm">
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b">
                 <th className="py-2 pr-6 text-left text-xs font-semibold tracking-wide uppercase">
-                  Codice
+                  Status
+                </th>
+                <th className="py-2 pr-6 text-left text-xs font-semibold tracking-wide uppercase">
+                  Code
                 </th>
                 <th className="py-2 text-left text-xs font-semibold tracking-wide uppercase">
                   Causa
@@ -795,37 +848,83 @@ const idempotencyKey = crypto.randomUUID();`}</code>
               {[
                 [
                   "400",
-                  "Richiesta non valida: corpo malformato (campo mancante, tipo errato, UUID non valido) oppure, sulla lista, un parametro di query malformato — page o limit non interi o minori di 1, oppure kind diverso da SALE/VOID. I valori malformati vengono rifiutati, non corretti in silenzio (un limit oltre 100 fa eccezione: viene ridotto a 100).",
+                  "INVALID_BODY · VALIDATION_ERROR · INVALID_QUERY_PARAM · INVALID_ID",
+                  "Richiesta non valida: corpo assente o non JSON, campo fuori schema (mancante, tipo errato, UUID non valido), oppure un parametro di query malformato — from/to mancanti o non in formato YYYY-MM-DD, intervallo oltre 31 giorni, page o limit non interi o minori di 1, kind diverso da SALE/VOID. I valori malformati vengono rifiutati, non corretti in silenzio (un limit oltre 100 fa eccezione: viene ridotto a 100).",
                 ],
-                ["401", "Chiave API assente, non valida, revocata o scaduta."],
+                [
+                  "401",
+                  "UNAUTHORIZED",
+                  "Chiave API assente, non valida, revocata o scaduta.",
+                ],
                 [
                   "402",
+                  "PLAN_UPGRADE_REQUIRED",
                   "Il piano attivo non include l'accesso alle API. Passa al Piano Pro.",
                 ],
                 [
+                  "403",
+                  "BUSINESS_KEY_REQUIRED",
+                  "Serve una business key szk_live_: hai usato una chiave di tipo diverso.",
+                ],
+                [
                   "404",
+                  "NOT_FOUND",
                   "Scontrino non trovato: l'ID non esiste o appartiene a un altro esercente. Vale per GET /v1/receipts/{id} e per l'annullamento.",
                 ],
                 [
                   "409",
-                  "Due casi, distinti dal campo code nel body. Conflitto di idempotenza: una richiesta con la stessa idempotencyKey è ancora in corso, è già stata rifiutata, oppure la chiave è stata riusata con un contenuto diverso (in quest'ultimo caso usa una nuova chiave). Oppure code ADE_REAUTH_REQUIRED: la sessione con l'Agenzia delle Entrate (CIE) è scaduta e va rinnovata dall'app web ScontrinoZero — il retry automatico è inutile finché l'esercente non si ricollega.",
+                  "PENDING_IN_PROGRESS · VOID_PENDING_IN_PROGRESS",
+                  "Una richiesta con la stessa idempotencyKey è ancora in corso. È temporaneo: attendi i secondi indicati in Retry-After e ripeti la richiesta identica.",
+                ],
+                [
+                  "409",
+                  "ALREADY_REJECTED · ALREADY_VOIDED · VOID_ALREADY_TARGETED · IDEMPOTENCY_PAYLOAD_MISMATCH",
+                  "Conflitto definitivo sulla chiave di idempotenza: il documento è già stato rifiutato o annullato, c'è un annullo concorrente sullo stesso scontrino, oppure la chiave è stata riusata con un contenuto diverso. Ripetere non aiuta: serve una chiave nuova per una nuova operazione.",
+                ],
+                [
+                  "409",
+                  "ADE_REAUTH_REQUIRED · ADE_PASSWORD_EXPIRED",
+                  "Serve un intervento dell'esercente nell'app web ScontrinoZero: la sessione con l'Agenzia delle Entrate (CIE) è scaduta e va rinnovata, oppure la password Fisconline è scaduta e va aggiornata. Il retry automatico è inutile finché non lo fa.",
+                ],
+                [
+                  "413",
+                  "PAYLOAD_TOO_LARGE",
+                  "Corpo della richiesta oltre il limite: 32 KB in emissione, 8 KB in annullamento.",
                 ],
                 [
                   "422",
-                  "Errore di logica: scontrino già annullato, credenziali AdE mancanti, o risposta di rifiuto dall'Agenzia delle Entrate.",
+                  "ADE_REJECTED",
+                  "L'Agenzia delle Entrate ha rifiutato il documento nel merito, o mancano dati fiscali. Lo scontrino non è stato registrato e ripetere la stessa richiesta fallirebbe di nuovo: va corretto il contenuto.",
                 ],
-                ["429", "Rate limit superato. Riprova tra qualche minuto."],
-                ["500", "Errore interno del server."],
+                [
+                  "429",
+                  "RATE_LIMIT_EXCEEDED",
+                  "Rate limit superato. Riprova dopo i secondi indicati in Retry-After.",
+                ],
+                [
+                  "500",
+                  "VOID_SYNC_FAILED · INTERNAL_ERROR",
+                  "Errore interno. VOID_SYNC_FAILED è il caso specifico in cui l'annullo è stato registrato sull'AdE ma la nostra sincronizzazione è fallita: scrivici citando il requestId.",
+                ],
                 [
                   "503",
-                  "Servizio temporaneamente sovraccarico (es. database sotto pressione). È un errore transitorio: riprova dopo i secondi indicati nell'header Retry-After.",
+                  "DB_TIMEOUT",
+                  "Servizio temporaneamente sovraccarico. È transitorio: riprova dopo i secondi indicati in Retry-After.",
                 ],
-              ].map(([code, desc]) => (
-                <tr key={code} className="border-b last:border-0">
-                  <td className="py-2 pr-6 font-mono text-xs font-semibold">
+                [
+                  "503",
+                  "ADE_UNAVAILABLE",
+                  "L'Agenzia delle Entrate non ha risposto (rete, errore 5xx, timeout). L'esito della trasmissione è ignoto: lo scontrino potrebbe essere già registrato. Riprova dopo i secondi indicati in Retry-After con la stessa idempotencyKey — una chiave nuova rischierebbe un secondo scontrino.",
+                ],
+              ].map(([code, codes, desc]) => (
+                <tr key={`${code}-${codes}`} className="border-b last:border-0">
+                  <td className="py-2 pr-6 align-top font-mono text-xs font-semibold">
                     {code}
                   </td>
-                  <td className="py-2 text-xs">{desc}</td>
+                  <td className="py-2 pr-6 align-top font-mono text-xs">
+                    {codes}
+                  </td>
+                  <td className="py-2 align-top text-xs">{desc}</td>
                 </tr>
               ))}
             </tbody>
