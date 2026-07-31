@@ -48,7 +48,12 @@ function parseJson(raw: string | null): unknown {
 }
 
 function isPaperWidth(value: unknown): value is PaperWidth {
-  return typeof value === "string" && value in PAPER_COLUMNS;
+  // `Object.hasOwn` e non `in`: l'operatore `in` risale la prototype chain, e
+  // una preferenza manomessa `{"paperWidth":"toString"}` passava la validazione
+  // con `PAPER_COLUMNS["toString"]` = funzione → `columns` invalido, encoder in
+  // errore a stampa già avviata sotto il messaggio fuorviante "Stampante non
+  // raggiungibile" (skill security-patterns, lookup da chiave utente).
+  return typeof value === "string" && Object.hasOwn(PAPER_COLUMNS, value);
 }
 
 function pickBoolean(value: unknown, fallback: boolean): boolean {
