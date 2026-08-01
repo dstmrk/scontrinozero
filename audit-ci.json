@@ -1,7 +1,4 @@
 {
   "moderate": true,
-  "allowlist": [
-    "GHSA-67mh-4wv8-2f99",
-    "GHSA-mh99-v99m-4gvg|*eslint-plugin-*>minimatch>brace-expansion*"
-  ]
+  "allowlist": ["GHSA-67mh-4wv8-2f99"]
 }
