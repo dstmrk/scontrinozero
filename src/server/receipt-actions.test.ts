@@ -273,6 +273,23 @@ describe("receipt-actions", () => {
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
+    // REVIEW.md #72: la soglia UI deve restare allineata a POST /api/v1/receipts
+    // (120/ora): con 30/ora un esercente nel picco pranzo veniva bloccato sul
+    // core flow mentre lo stesso account via Developer API poteva continuare.
+    // `resetModules` è necessario perché il limiter è costruito al top-level del
+    // modulo: senza registry pulito la chiamata al costruttore è già stata
+    // registrata (e azzerata da `clearAllMocks`) al primo import della suite.
+    it("configura il limiter emit a 120/ora, allineato all'API v1", async () => {
+      vi.resetModules();
+      const { RateLimiter } = await import("@/lib/rate-limit");
+      await import("./receipt-actions");
+
+      expect(RateLimiter).toHaveBeenCalledWith({
+        maxRequests: 120,
+        windowMs: 60 * 60 * 1000,
+      });
+    });
+
     it("returns error when businessId is missing", async () => {
       const { emitReceipt } = await import("./receipt-actions");
       const result = await emitReceipt({ ...VALID_INPUT, businessId: "" });

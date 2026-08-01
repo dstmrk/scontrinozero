@@ -483,36 +483,19 @@ a oggi (round-trip decrypt di CF/PIN invariati).
 
 ---
 
-### 72. Rate limit cassa 30 scontrini/ora per utente: sotto il volume reale di un esercente e incoerente con l'API (120/h)
-
-- **Categoria:** funzionalità/UX · **Severità:** Low-Medium — blocca il core flow di un utente legittimo nel picco
-- **File:** `src/server/receipt-actions.ts:41-44` (`receiptLimiter` 30/h per user); confronto: `src/app/api/v1/receipts/route.ts:30-33` (120/h per API key); da aggiornare insieme: tabella soglie nella skill `testing-patterns` e `docs/architecture/config-manifest.md` (regola 26)
-
-**Problema.** Il prodotto è un registratore di cassa: un bar/food nel picco
-pranzo supera facilmente 30 scontrini/ora (uno ogni 2 minuti). Al 31° la cassa
-risponde "Troppi scontrini emessi. Riprova tra qualche minuto." per il resto
-della finestra — blocco operativo/fiscale per un utente legittimo, mentre lo
-stesso account via Developer API può emetterne 120/h. Il limite serve come
-anti-loop/anti-abuso (ogni submit costa un round-trip AdE), non come
-throttling di business: 30/h è sotto il caso d'uso dichiarato del prodotto.
-
-**Fix (non ambiguo).**
-
-1. Alzare la soglia UI a **120/h** (allineata all'API v1) — ampiamente sopra
-   qualunque uso umano della cassa mobile, ancora efficace contro i loop.
-   Prima di fissare il valore, verificare nei log di prod il massimo
-   scontrini/ora osservato (query pino `Receipt emitted successfully` per
-   userId/ora) e documentare la scelta.
-2. Aggiornare skill `testing-patterns` (tabella soglie) e
-   `docs/architecture/config-manifest.md` nello stesso PR; `npm run arch:check`.
-3. **Test:** aggiornare il test del limite emit alla nuova soglia; il
-   messaggio d'errore resta invariato.
-
----
-
 ## Rischi accettati (documentati, non da fixare)
 
 Scelte consapevoli con un trigger di riapertura. Non sono finding da pianificare.
+
+> ⚠️ **Un rischio accettato su un advisory ha una data di scadenza implicita.**
+> Quando il job `audit` inizia a fallire su un advisory documentato qui come
+> "senza fix upstream", **ricontrolla range e severity nel registry prima di
+> allargare l'allowlist**: gli advisory vengono ri-classificati e ri-rangiati nel
+> tempo. È successo con `GHSA-mh99-v99m-4gvg` (brace-expansion): l'entry qui
+> affermava che non esisteva backport `1.x`, poi è uscito `1.1.17`, l'advisory è
+> passata da `<=5.0.7` a `<1.1.17` e da moderate a **high** (CVSS 7.5) — la
+> soluzione era bumpare l'override, non aggiungere path all'allowlist.
+> `npm audit --json` mostra `range` e `severity` correnti dell'advisory.
 
 ### audit-ci: advisory `esbuild` dev-only
 
@@ -521,36 +504,6 @@ Scelte consapevoli con un trigger di riapertura. Non sono finding da pianificare
 dev (`drizzle-kit`/`tsx`/`@esbuild-kit/*`, tutte `devDependencies`), mai a runtime
 né nella build Next (SWC). Superficie ≈ 0. **Riaprire:** quando la toolchain
 aggiorna `esbuild` > 0.28.0 senza major rischioso → togliere l'allowlist.
-
-### audit-ci: `GHSA-mh99-v99m-4gvg` brace-expansion sotto `minimatch@3`
-
-`audit-ci.json` allowlista l'advisory **solo sulla catena lint**, con una entry
-path-scoped a wildcard:
-`GHSA-mh99-v99m-4gvg|*eslint-plugin-*>minimatch>brace-expansion*`. Il nodo root
-`brace-expansion` resta sotto audit, quindi se la stessa advisory ricompare su
-un path di produzione il job rifallisce.
-
-⚠️ **I path emessi da audit-ci non sono deterministici**: tra un run e l'altro
-il prefisso `eslint-config-next>` e un `>` finale migrano fra i tre plugin
-(`eslint-config-next>eslint-plugin-import>minimatch>brace-expansion` in un run,
-`eslint-plugin-import>minimatch>brace-expansion` in quello dopo). Copiare le
-righe stampate dal job in allowlist produce CI a intermittenza: audit-ci
-confronta `<advisoryId>|<path>` con `matchString`, che supporta `*` — usare
-sempre la forma wildcard, mai i path letterali.
-
-Nessun fix upstream esiste: l'advisory copre `<=5.0.7` ed è patchata **solo**
-in `5.0.8`, senza backport `1.x`/`2.x`. Forzare `5.0.8` sotto
-`minimatch@^3.0.0` rompe ESLint — il build CJS di brace-expansion 5.x esporta
-un namespace (`{ EXPANSION_MAX, EXPANSION_MAX_LENGTH, expand }`), non una
-funzione, mentre `minimatch@3.1.5` fa `expand(...)` sul `require` →
-`be is not a function`. I tre plugin pinnano `minimatch: ^3.1.2` e
-`eslint-config-next@16.2.12` ha le stesse dipendenze: bumparla non cambia nulla.
-
-Catena interamente `devDependencies`: mai nel bundle spedito né nel runtime del
-container. Il DoS richiede pattern glob controllati dall'attaccante, mentre qui
-i pattern arrivano dalla nostra eslint config. **Riaprire:** quando esce un
-backport `brace-expansion` 1.1.17+, o quando i plugin ESLint passano a
-`minimatch` >= 9 → togliere le tre entry dall'allowlist.
 
 ### #57 verifica su AdE reale sostituita da sentinella Sentry
 
