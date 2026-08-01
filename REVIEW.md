@@ -483,33 +483,6 @@ a oggi (round-trip decrypt di CF/PIN invariati).
 
 ---
 
-### 72. Rate limit cassa 30 scontrini/ora per utente: sotto il volume reale di un esercente e incoerente con l'API (120/h)
-
-- **Categoria:** funzionalità/UX · **Severità:** Low-Medium — blocca il core flow di un utente legittimo nel picco
-- **File:** `src/server/receipt-actions.ts:41-44` (`receiptLimiter` 30/h per user); confronto: `src/app/api/v1/receipts/route.ts:30-33` (120/h per API key); da aggiornare insieme: tabella soglie nella skill `testing-patterns` e `docs/architecture/config-manifest.md` (regola 26)
-
-**Problema.** Il prodotto è un registratore di cassa: un bar/food nel picco
-pranzo supera facilmente 30 scontrini/ora (uno ogni 2 minuti). Al 31° la cassa
-risponde "Troppi scontrini emessi. Riprova tra qualche minuto." per il resto
-della finestra — blocco operativo/fiscale per un utente legittimo, mentre lo
-stesso account via Developer API può emetterne 120/h. Il limite serve come
-anti-loop/anti-abuso (ogni submit costa un round-trip AdE), non come
-throttling di business: 30/h è sotto il caso d'uso dichiarato del prodotto.
-
-**Fix (non ambiguo).**
-
-1. Alzare la soglia UI a **120/h** (allineata all'API v1) — ampiamente sopra
-   qualunque uso umano della cassa mobile, ancora efficace contro i loop.
-   Prima di fissare il valore, verificare nei log di prod il massimo
-   scontrini/ora osservato (query pino `Receipt emitted successfully` per
-   userId/ora) e documentare la scelta.
-2. Aggiornare skill `testing-patterns` (tabella soglie) e
-   `docs/architecture/config-manifest.md` nello stesso PR; `npm run arch:check`.
-3. **Test:** aggiornare il test del limite emit alla nuova soglia; il
-   messaggio d'errore resta invariato.
-
----
-
 ## Rischi accettati (documentati, non da fixare)
 
 Scelte consapevoli con un trigger di riapertura. Non sono finding da pianificare.

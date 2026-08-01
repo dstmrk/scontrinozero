@@ -139,7 +139,9 @@ export async function myAction(input: MyInput): Promise<MyResult> {
 
 **Soglie consolidate:**
 
-- `emit:<userId>` — `emitReceipt` → 30/ora
+- `emit:<userId>` — `emitReceipt` → 120/ora (allineato a `POST /api/v1/receipts`:
+  la cassa non può avere un tetto più basso della Developer API per lo stesso
+  account — REVIEW.md #72)
 - `void:<userId>` — `voidReceipt` → 10/ora (irreversibile)
 - `pdf:<ip>` — PDF pubblico → 60/ora
 - `checkout:<userId>` — `POST /api/stripe/checkout` → 10/ora
