@@ -15,6 +15,8 @@ const {
   mockUpdate,
   mockSet,
   mockUpdateWhere,
+  mockUpdateReturning,
+  mockGetKeyVersion,
   mockGetEncryptionKey,
   mockDecrypt,
   mockEncrypt,
@@ -34,6 +36,8 @@ const {
   mockUpdate: vi.fn(),
   mockSet: vi.fn(),
   mockUpdateWhere: vi.fn(),
+  mockUpdateReturning: vi.fn(),
+  mockGetKeyVersion: vi.fn(),
   mockGetEncryptionKey: vi.fn(),
   mockDecrypt: vi.fn(),
   mockEncrypt: vi.fn(),
@@ -66,7 +70,10 @@ vi.mock("@/lib/crypto", () => ({
   encrypt: mockEncrypt,
   decrypt: mockDecrypt,
   getEncryptionKey: mockGetEncryptionKey,
-  getKeyVersion: vi.fn().mockReturnValue(1),
+  // Hoisted (non `vi.fn()` inline): `vi.resetAllMocks()` nei beforeEach
+  // azzererebbe l'implementazione di un mock inline, facendo tornare
+  // `undefined` come key version.
+  getKeyVersion: mockGetKeyVersion,
 }));
 
 vi.mock("@/lib/ade", () => ({
@@ -98,13 +105,20 @@ vi.mock("@/lib/validation", () => ({ adePinSchema: { parse: vi.fn() } }));
 const USER_ID = "user-test";
 const BIZ_ID = "11111111-1111-4111-8111-111111111111";
 
+const CRED_UPDATED_AT = new Date("2026-07-01T10:00:00.000Z");
+
 const FAKE_CRED = {
   businessId: BIZ_ID,
+  loginMethod: "fisconline",
   encryptedCodiceFiscale: "enc-cf",
+  encryptedUsername: null,
   encryptedPassword: "enc-pw",
   encryptedPin: "enc-pin",
   keyVersion: 1,
   verifiedAt: null,
+  // Snapshot dell'optimistic lock (REVIEW #60): l'UPDATE finale lo serializza
+  // nel WHERE, quindi la riga di fixture DEVE averlo valorizzato.
+  updatedAt: CRED_UPDATED_AT,
 };
 
 const FAKE_KEY = Buffer.from("a".repeat(64), "hex");
@@ -115,7 +129,9 @@ function setupDb(credRow: object | null = FAKE_CRED) {
   mockFrom.mockReturnValue({ where: mockWhere });
   mockSelect.mockReturnValue({ from: mockFrom });
 
-  mockUpdateWhere.mockResolvedValue([]);
+  // L'UPDATE guardato termina con `.returning()`: 1 riga = lock acquisito.
+  mockUpdateReturning.mockResolvedValue([{ id: "cred-1" }]);
+  mockUpdateWhere.mockReturnValue({ returning: mockUpdateReturning });
   mockSet.mockReturnValue({ where: mockUpdateWhere });
   mockUpdate.mockReturnValue({ set: mockSet });
 
@@ -134,6 +150,7 @@ describe("changeAdePassword", () => {
     mockCheckBusinessOwnership.mockResolvedValue(null);
     mockRateLimiterCheck.mockReturnValue({ success: true });
     mockGetEncryptionKey.mockReturnValue(FAKE_KEY);
+    mockGetKeyVersion.mockReturnValue(1);
     mockDecrypt.mockReturnValue("CODICEFISCALE12");
     mockEncrypt.mockReturnValue("new-enc-pw");
     mockAdeChangePassword.mockResolvedValue(undefined);
@@ -281,13 +298,15 @@ describe("changeAdePassword", () => {
     );
     expect(result.error).toBeUndefined();
     expect(result.businessId).toBe(BIZ_ID);
-    expect(mockEncrypt).toHaveBeenCalledWith(
-      "NewPass12",
-      FAKE_KEY,
-      FAKE_CRED.keyVersion,
-    );
+    // Versione corrente della chiave, non quella memorizzata sulla riga
+    // (REVIEW #71): qui coincidono, il caso divergente è testato in
+    // src/server/onboarding-actions.test.ts.
+    expect(mockEncrypt).toHaveBeenCalledWith("NewPass12", FAKE_KEY, 1);
     expect(mockSet).toHaveBeenCalledWith(
-      expect.objectContaining({ encryptedPassword: "new-enc-pw" }),
+      expect.objectContaining({
+        encryptedPassword: "new-enc-pw",
+        keyVersion: 1,
+      }),
     );
   });
 });

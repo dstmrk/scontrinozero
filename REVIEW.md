@@ -402,35 +402,6 @@ shape esatta non è verificata a runtime.
 
 ---
 
-### 60. `changeAdePassword` senza optimistic lock né guard sul metodo: una race con `saveAdeCredentials` può corrompere credenziali CIE
-
-- **Categoria:** correttezza/robustezza · **Severità:** Low — finestra di secondi (durata del flusso HTTP AdE di cambio password), richiede azioni concorrenti dello stesso utente
-- **File:** `src/server/onboarding-actions.ts:1265-1268` (UPDATE finale di `encryptedPassword` + `verifiedAt` senza guard su `updatedAt` né su `loginMethod`); pattern corretto già esistente: `finalizeAdeVerification` (`:541-551`, guard `date_trunc('milliseconds', updatedAt) = <snapshot>`)
-
-**Problema.** `changeAdePassword` legge la riga credenziali, esegue il cambio
-password su AdE (secondi di HTTP) e poi scrive `encryptedPassword` +
-`verifiedAt` con `WHERE businessId` secco. Se nel frattempo l'utente ha
-salvato credenziali nuove (`saveAdeCredentials`, es. switch a CIE in un altro
-tab: azzera `verifiedAt` e riscrive i campi), l'UPDATE finale sovrascrive la
-**password CIE** con la password Fisconline appena cambiata e marca
-`verifiedAt` su credenziali mai verificate. `verifyAdeCredentials` ha
-l'optimistic lock proprio per questa classe di race (P1.1); qui manca.
-
-**Fix (non ambiguo).**
-
-1. Snapshot `cred.updatedAt` prima del flusso AdE; UPDATE finale con lo
-   stesso guard di `finalizeAdeVerification`
-   (`date_trunc('milliseconds', updatedAt) = <snapshot ISO>::timestamptz`)
-   - `loginMethod = 'fisconline'`.
-2. 0 righe aggiornate → `logger.warn` e ritorno `{ error: "Le credenziali
-sono state modificate nel frattempo. Verifica la connessione dalle
-impostazioni." }` — la password AdE è già cambiata lato portale, quindi il
-   messaggio deve spingere alla ri-verifica, non al retry del cambio.
-3. **Test:** update concorrente tra login e UPDATE → nessuna scrittura +
-   errore dedicato; flusso normale → invariato.
-
----
-
 ### 61. Webhook Stripe senza guardia sull'ordine degli eventi (`event.created`)
 
 - **Categoria:** robustezza/billing · **Severità:** Low — Stripe di norma consegna in ordine, ma non lo garantisce (retry, concorrenza)
@@ -456,30 +427,6 @@ finestra.
 4. **Test:** updated con `created` più vecchio del registrato → stato DB
    invariato + warn; sequenza in ordine → invariato; primo evento (colonna
    NULL) → applica.
-
----
-
-### 71. `changeAdePassword` cifra con la chiave corrente ma etichetta il payload con la `keyVersion` vecchia della riga
-
-- **Categoria:** sicurezza/operatività (rotazione chiavi) · **Severità:** Low — innocuo finché non si ruota `ENCRYPTION_KEY`; complementare al finding #17
-- **File:** `src/server/onboarding-actions.ts:1280` (`encrypt(newPassword, key, cred.keyVersion)` con `key = getEncryptionKey()` da `:1242`)
-
-**Problema.** Il byte di versione embeddato nel payload è `cred.keyVersion`
-(versione memorizzata sulla riga) mentre la chiave usata è quella corrente. A
-cavallo di una rotazione (`ENCRYPTION_KEY_VERSION=2`, righe ancora v1) produce
-un payload **etichettato v1 ma cifrato con la chiave v2**: la key-map
-multi-versione corretta (fix del finding #17) lo decifrerebbe con la chiave
-v1 → authTag mismatch → credenziali illeggibili. Nota strutturale: la colonna
-`key_version` è per-riga e copre tutti i campi cifrati, quindi ri-cifrare la
-sola password non basta.
-
-**Fix (non ambiguo).** In `changeAdePassword`, nell'UPDATE finale: ri-cifrare
-**tutti** i campi cifrati presenti sulla riga (CF — già decifrato nel flusso —,
-password nuova, PIN da decifrare allo stesso modo) con `getEncryptionKey()` +
-`getKeyVersion()` e aggiornare `key_version` nella stessa UPDATE. **Test:**
-con `ENCRYPTION_KEY_VERSION=2` tutti i campi della riga decifrano con la sola
-chiave v2 e `key_version=2`; con versione invariata → comportamento identico
-a oggi (round-trip decrypt di CF/PIN invariati).
 
 ---
 
