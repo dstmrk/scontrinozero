@@ -97,13 +97,16 @@ vi.mock("@/lib/crypto", () => ({
   encrypt: (...args: unknown[]) => mockEncrypt(...args),
   decrypt: (...args: unknown[]) => mockDecrypt(...args),
   getEncryptionKey: () => Buffer.alloc(32),
-  getKeyVersion: () => 1,
+  // Legge la env come il modulo reale: serve ai test di rotazione chiave
+  // (REVIEW #71), dove ENCRYPTION_KEY_VERSION=2 su righe ancora a v1.
+  getKeyVersion: () => Number(process.env.ENCRYPTION_KEY_VERSION ?? "1"),
 }));
 
 const mockLogin = vi.fn();
 const mockLoginCie = vi.fn();
 const mockLogout = vi.fn();
 const mockGetFiscalData = vi.fn();
+const mockChangePasswordFisconline = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/lib/ade", () => ({
   getAdeMode: () => "mock",
   createAdeClient: vi.fn().mockReturnValue({
@@ -111,6 +114,7 @@ vi.mock("@/lib/ade", () => ({
     loginCie: mockLoginCie,
     logout: mockLogout,
     getFiscalData: mockGetFiscalData,
+    changePasswordFisconline: mockChangePasswordFisconline,
   }),
 }));
 
@@ -2204,6 +2208,15 @@ describe("onboarding-actions", () => {
   });
 
   describe("changeAdePassword", () => {
+    // `vi.clearAllMocks()` (beforeEach globale) azzera le call ma NON le
+    // implementazioni: senza questo reset i payload tracciabili impostati da
+    // arrangeChangePassword resterebbero attivi per i test successivi.
+    beforeEach(() => {
+      mockEncrypt.mockReset().mockReturnValue("encrypted-data");
+      mockDecrypt.mockReset().mockReturnValue("decrypted-data");
+      mockChangePasswordFisconline.mockReset().mockResolvedValue(undefined);
+    });
+
     it("degrada a 'Non autenticato.' quando la sessione è scaduta (no throw)", async () => {
       // Sessione assente → degrada prima di ownership/rate-limit/AdE (regola 19/20).
       mockGetUser.mockResolvedValue({ data: { user: null } });
@@ -2230,6 +2243,191 @@ describe("onboarding-actions", () => {
       // Il guard precede l'ownership (SELECT) e il login AdE.
       expect(mockSelect).not.toHaveBeenCalled();
       expect(mockLogin).not.toHaveBeenCalled();
+    });
+
+    // --- REVIEW #60 (optimistic lock) + #71 (key version) ---
+
+    const CHANGE_PW_BUSINESS_ID = "11111111-1111-4111-8111-111111111111";
+    const CRED_UPDATED_AT = new Date("2026-07-01T10:00:00.000Z");
+
+    /**
+     * Arrangia il percorso completo di `changeAdePassword`: ownership OK,
+     * riga credenziali letta, cambio password su AdE riuscito. Ritorna la riga
+     * credenziali usata, così i test possono asserire sui campi ri-cifrati.
+     */
+    function arrangeChangePassword(
+      credOverrides: Record<string, unknown> = {},
+    ) {
+      const cred = {
+        id: "cred-1",
+        businessId: CHANGE_PW_BUSINESS_ID,
+        loginMethod: "fisconline",
+        encryptedCodiceFiscale: "enc-cf",
+        encryptedUsername: null,
+        encryptedPassword: "enc-old-pw",
+        encryptedPin: "enc-pin",
+        keyVersion: 1,
+        verifiedAt: new Date("2026-06-01T00:00:00.000Z"),
+        createdAt: new Date("2026-05-01T00:00:00.000Z"),
+        updatedAt: CRED_UPDATED_AT,
+        ...credOverrides,
+      };
+      mockLimit
+        .mockResolvedValueOnce([{ id: CHANGE_PW_BUSINESS_ID }]) // ownership
+        .mockResolvedValueOnce([cred]); // SELECT credenziali
+      // Payload cifrati tracciabili: `enc(<plaintext>|v<version>)`, così un
+      // test può verificare CHE COSA è stato cifrato e con QUALE versione.
+      mockDecrypt.mockImplementation((payload: string) => `plain:${payload}`);
+      mockEncrypt.mockImplementation(
+        (value: string, _key: unknown, version: number) =>
+          `enc(${value}|v${version})`,
+      );
+      mockChangePasswordFisconline.mockResolvedValue(undefined);
+      return cred;
+    }
+
+    async function runChangePassword() {
+      const { changeAdePassword } = await import("./onboarding-actions");
+      return changeAdePassword(
+        CHANGE_PW_BUSINESS_ID,
+        "OldPass1!",
+        "NewPass1!",
+        "NewPass1!",
+      );
+    }
+
+    it("guarda l'UPDATE finale con lo snapshot di updatedAt e loginMethod (REVIEW #60)", async () => {
+      arrangeChangePassword();
+
+      const result = await runChangePassword();
+
+      expect(result.businessId).toBe(CHANGE_PW_BUSINESS_ID);
+
+      // Il WHERE deve contenere il confronto date_trunc sullo snapshot letto
+      // PRIMA del flusso HTTP AdE, serializzato come ISO string + cast (mai un
+      // Date bindato: postgres-js crasherebbe su Buffer.byteLength).
+      const { PgDialect } = await import("drizzle-orm/pg-core");
+      const whereArg = mockUpdateWhere.mock.calls[0]?.[0];
+      const compiled = new PgDialect().sqlToQuery(whereArg);
+
+      expect(compiled.params).toContain(CRED_UPDATED_AT.toISOString());
+      expect(compiled.params.some((p) => p instanceof Date)).toBe(false);
+      expect(compiled.sql).toContain("::timestamptz");
+      // Guard sul metodo: una riga passata a CIE nel frattempo non deve
+      // ricevere la password Fisconline appena cambiata.
+      expect(compiled.params).toContain("fisconline");
+    });
+
+    it("lock miss (0 righe): nessun revalidate e messaggio che spinge alla ri-verifica (REVIEW #60)", async () => {
+      arrangeChangePassword();
+      mockUpdateReturning.mockReset().mockResolvedValue([]);
+
+      const result = await runChangePassword();
+
+      expect(result.error).toBe(
+        "Le credenziali sono state modificate nel frattempo. Verifica la connessione dalle impostazioni.",
+      );
+      expect(result.businessId).toBeUndefined();
+      // La password sul portale AdE è già cambiata: non è un errore da
+      // ritentare, quindi niente cache invalidation di uno stato non scritto.
+      expect(mockRevalidatePath).not.toHaveBeenCalled();
+      const { logger } = await import("@/lib/logger");
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ businessId: CHANGE_PW_BUSINESS_ID }),
+        expect.stringContaining("credenziali modificate"),
+      );
+    });
+
+    it("ri-cifra TUTTI i campi della riga con la chiave corrente e allinea key_version (REVIEW #71)", async () => {
+      // Rotazione in corso: env a v2, riga ancora a v1.
+      process.env.ENCRYPTION_KEY_VERSION = "2";
+      arrangeChangePassword({ keyVersion: 1 });
+
+      const result = await runChangePassword();
+
+      expect(result.businessId).toBe(CHANGE_PW_BUSINESS_ID);
+      const set = mockUpdateSet.mock.calls[0]?.[0];
+      // Nessun campo può restare etichettato v1: key_version è per RIGA.
+      expect(set).toMatchObject({
+        encryptedCodiceFiscale: "enc(plain:enc-cf|v2)",
+        encryptedPassword: "enc(NewPass1!|v2)",
+        encryptedPin: "enc(plain:enc-pin|v2)",
+        keyVersion: 2,
+      });
+      expect(set.verifiedAt).toBeInstanceOf(Date);
+      // Nessuna cifratura con la versione vecchia della riga.
+      expect(mockEncrypt.mock.calls.every((call) => call[2] === 2)).toBe(true);
+    });
+
+    it("versione invariata: comportamento identico a oggi (round-trip CF/PIN)", async () => {
+      process.env.ENCRYPTION_KEY_VERSION = "1";
+      arrangeChangePassword({ keyVersion: 1 });
+
+      const result = await runChangePassword();
+
+      expect(result.businessId).toBe(CHANGE_PW_BUSINESS_ID);
+      const set = mockUpdateSet.mock.calls[0]?.[0];
+      expect(set).toMatchObject({
+        encryptedCodiceFiscale: "enc(plain:enc-cf|v1)",
+        encryptedPassword: "enc(NewPass1!|v1)",
+        encryptedPin: "enc(plain:enc-pin|v1)",
+        keyVersion: 1,
+      });
+      expect(mockRevalidatePath).toHaveBeenCalled();
+    });
+
+    it("campi cifrati assenti restano null (nessun decrypt su null)", async () => {
+      arrangeChangePassword({ encryptedPin: null, encryptedUsername: null });
+
+      const result = await runChangePassword();
+
+      expect(result.businessId).toBe(CHANGE_PW_BUSINESS_ID);
+      const set = mockUpdateSet.mock.calls[0]?.[0];
+      expect(set.encryptedPin).toBeNull();
+      expect(set.encryptedUsername).toBeNull();
+      // Solo il CF viene decifrato: nessun decrypt(null) che lancerebbe.
+      expect(mockDecrypt).toHaveBeenCalledTimes(1);
+    });
+
+    it("ri-cifra anche encryptedUsername quando la riga lo valorizza", async () => {
+      arrangeChangePassword({ encryptedUsername: "enc-username" });
+
+      const result = await runChangePassword();
+
+      expect(result.businessId).toBe(CHANGE_PW_BUSINESS_ID);
+      const set = mockUpdateSet.mock.calls[0]?.[0];
+      expect(set.encryptedUsername).toBe("enc(plain:enc-username|v1)");
+    });
+
+    it("payload cifrato illeggibile: degrada a { error }, nessun throw (regola 19)", async () => {
+      arrangeChangePassword();
+      // Il decrypt del PIN avviene DOPO il cambio password su AdE: un throw
+      // qui sostituirebbe il messaggio inline con l'error boundary di Next.
+      mockDecrypt
+        .mockImplementationOnce((payload: string) => `plain:${payload}`) // CF
+        .mockImplementationOnce(() => {
+          throw new Error("authTag mismatch");
+        });
+
+      const result = await runChangePassword();
+
+      expect(result.error).toContain("Password cambiata sul portale AdE");
+      expect(mockUpdate).not.toHaveBeenCalled();
+      const { logger } = await import("@/lib/logger");
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ businessId: CHANGE_PW_BUSINESS_ID }),
+        expect.stringContaining("ri-cifratura"),
+      );
+    });
+
+    it("cambio password AdE fallito: nessuna scrittura sulle credenziali", async () => {
+      arrangeChangePassword();
+      mockChangePasswordFisconline.mockRejectedValue(new Error("AdE down"));
+
+      const result = await runChangePassword();
+
+      expect(result.error).toBeTruthy();
+      expect(mockUpdate).not.toHaveBeenCalled();
     });
   });
 });

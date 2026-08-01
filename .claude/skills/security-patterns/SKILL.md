@@ -239,6 +239,62 @@ endpoint che inneschi invio email, call AdE, generazione PDF, ecc.
 
 ---
 
+## `key_version` è per RIGA: chi riscrive un campo cifrato riscrive tutta la riga
+
+`ade_credentials.key_version` è **una colonna per riga**, non per campo: dice
+con quale versione di `ENCRYPTION_KEY` sono cifrati **tutti** gli `encrypted_*`
+di quella riga. Da qui due regole:
+
+1. **Mai cifrare con `getEncryptionKey()` etichettando con la versione letta
+   dalla riga.** `encrypt(value, getEncryptionKey(), row.keyVersion)` sembra
+   innocuo perché oggi coincidono, ma a cavallo di una rotazione
+   (`ENCRYPTION_KEY_VERSION=2`, righe ancora a v1) produce un payload
+   **marcato v1 e cifrato con la chiave v2**. Una key-map multi-versione
+   corretta lo decifra con la chiave v1 → authTag mismatch → dato perso. Usa
+   sempre `getEncryptionKey()` **insieme a** `getKeyVersion()`.
+2. **Aggiornare un solo campo cifrato non basta.** Se scrivi un campo con la
+   chiave corrente devi ri-cifrare **tutti** gli altri campi cifrati della riga
+   e aggiornare `key_version` nella stessa UPDATE — altrimenti i campi non
+   toccati restano cifrati con la chiave vecchia sotto un'etichetta nuova.
+   Include i campi opzionali (`encrypted_pin`, `encrypted_username`): decifra e
+   ri-cifra solo se non-null, mai `decrypt(null)`.
+
+Riferimento: `reencryptCredentialFields` in `src/server/onboarding-actions.ts`.
+
+**Test:** con `ENCRYPTION_KEY_VERSION` diverso dalla `keyVersion` della riga,
+asserire che OGNI chiamata a `encrypt` usa la versione corrente e che il set
+dell'UPDATE contiene `keyVersion` aggiornata.
+
+---
+
+## UPDATE dopo I/O esterno lungo: optimistic lock, non `WHERE id` secco
+
+Una server action che legge una riga, chiama un provider esterno per secondi
+(login/cambio password AdE, Stripe) e **poi** scrive, ha una finestra in cui
+un'altra sessione dello stesso utente può aver sostituito quella riga. Il
+`WHERE businessId` secco sovrascrive il lavoro dell'altra sessione con dati
+derivati da uno snapshot stantio.
+
+Pattern (da `finalizeAdeVerification` / `changeAdePassword`): snapshottare
+`row.updatedAt` **prima** della chiamata esterna e guardare l'UPDATE con
+
+```ts
+sql`date_trunc('milliseconds', ${table.updatedAt}) = ${snapshot.toISOString()}::timestamptz`;
+```
+
+`date_trunc` perché PostgreSQL scrive con precisione microsecondo mentre `Date`
+è millisecondo; ISO string + cast esplicito perché dentro un template `sql`
+Drizzle non ha il tipo colonna per bindare un `Date` (postgres-js crasha su
+`Buffer.byteLength(<Date>)`). Aggiungi al guard anche i campi discriminanti che
+non devono essere cambiati (es. `loginMethod = 'fisconline'`).
+
+Chiudere con `.returning({ id })`: 0 righe = lock miss → `logger.warn` +
+`{ error }` esplicito. **Il messaggio deve riflettere che l'effetto esterno è
+già avvenuto**: dopo un cambio password andato a buon fine su AdE, l'utente va
+spinto alla ri-verifica delle credenziali, non a ritentare il cambio.
+
+---
+
 ## `setInterval` in costruttori long-lived: chiamare `.unref?.()`
 
 Classi che istanziano `setInterval` nel costruttore (`RateLimiter`, scheduler,

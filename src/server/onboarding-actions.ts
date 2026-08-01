@@ -1215,6 +1215,77 @@ export async function markOnboardingTourSeen(): Promise<{ error?: string }> {
 
 const ADE_PASSWORD_REGEX = /^[a-zA-Z0-9*+§°ç@^?=)(/&%$£!|\\<>]{8,15}$/;
 
+/**
+ * Traduce un errore del cambio password AdE nel messaggio mostrato all'utente,
+ * loggandolo al livello corretto. Estratta da `changeAdePassword` per tenerla
+ * sotto la soglia S3776 di Cognitive Complexity (stesso motivo di
+ * `formatVoidError`): i due rami d'input utente (password attuale errata,
+ * nuova uguale alla vecchia) sono `warn` e non devono aprire issue Sentry
+ * (regola 20); tutto il resto passa da `logAdeFailure`, che distingue
+ * transient e failure.
+ */
+function formatChangePasswordError(err: unknown, businessId: string): string {
+  if (err instanceof AdeAuthError) {
+    logger.warn({ businessId }, "changeAdePassword: password attuale errata");
+    return "Password attuale non corretta.";
+  }
+  if (err instanceof AdeError && err.code === "ADE_CHANGE_PW_SAME") {
+    return "La nuova password deve essere diversa da quella attuale.";
+  }
+  logAdeFailure(
+    err,
+    { businessId },
+    {
+      transient: "changeAdePassword: AdE transient failure",
+      failure: "Cambio password AdE fallito",
+    },
+  );
+  return getUserFacingAdeErrorMessage(
+    err,
+    "Errore durante il cambio password. Riprova più tardi.",
+  ).message;
+}
+
+/**
+ * Ri-cifra TUTTI i campi cifrati della riga credenziali con la chiave corrente
+ * e ritorna il set da scrivere, `key_version` inclusa.
+ *
+ * Perché tutti e non solo la password appena cambiata: `key_version` è UNA
+ * colonna per RIGA, non per campo. Cifrare la nuova password con
+ * `getEncryptionKey()` (la chiave corrente) etichettandola con
+ * `cred.keyVersion` (la versione MEMORIZZATA) produce, a cavallo di una
+ * rotazione, un payload marcato v1 ma cifrato con la chiave v2: una key-map
+ * multi-versione corretta lo decifrerebbe con la chiave v1 → authTag mismatch
+ * → credenziali illeggibili. Allineare l'intera riga alla versione corrente
+ * chiude il buco (REVIEW #71) e non ostacola la rotazione zero-downtime
+ * (REVIEW #17).
+ *
+ * `encryptedUsername` è normalmente null su Fisconline (l'username è il CF), ma
+ * viene ri-cifrato se presente: qualunque campo lasciato alla chiave vecchia
+ * sotto una `key_version` nuova sarebbe perso.
+ */
+function reencryptCredentialFields(params: {
+  cred: { encryptedUsername: string | null; encryptedPin: string | null };
+  keys: Map<number, Buffer>;
+  key: Buffer;
+  codiceFiscale: string;
+  newPassword: string;
+}) {
+  const { cred, keys, key, codiceFiscale, newPassword } = params;
+  const version = getKeyVersion();
+  const reencrypt = (payload: string | null) =>
+    payload === null ? null : encrypt(decrypt(payload, keys), key, version);
+
+  return {
+    // Il CF è già decifrato dal flusso: nessun decrypt ridondante.
+    encryptedCodiceFiscale: encrypt(codiceFiscale, key, version),
+    encryptedUsername: reencrypt(cred.encryptedUsername),
+    encryptedPassword: encrypt(newPassword, key, version),
+    encryptedPin: reencrypt(cred.encryptedPin),
+    keyVersion: version,
+  };
+}
+
 export async function changeAdePassword(
   businessId: string,
   currentPassword: string,
@@ -1275,6 +1346,9 @@ export async function changeAdePassword(
   const key = getEncryptionKey();
   const keys = new Map<number, Buffer>([[cred.keyVersion, key]]);
   const codiceFiscale = decrypt(cred.encryptedCodiceFiscale, keys);
+  // Snapshot per l'optimistic lock, letto PRIMA del flusso HTTP AdE: è la
+  // finestra (secondi) in cui un altro tab può sostituire le credenziali.
+  const credentialVersion = cred.updatedAt;
 
   const adeClient = createAdeClient(getAdeMode());
 
@@ -1286,35 +1360,68 @@ export async function changeAdePassword(
       confirmNewPassword,
     });
   } catch (err) {
-    if (err instanceof AdeAuthError) {
-      logger.warn({ businessId }, "changeAdePassword: password attuale errata");
-      return { error: "Password attuale non corretta." };
-    }
-    if (err instanceof AdeError && err.code === "ADE_CHANGE_PW_SAME") {
-      return {
-        error: "La nuova password deve essere diversa da quella attuale.",
-      };
-    }
-    logAdeFailure(
-      err,
-      { businessId },
-      {
-        transient: "changeAdePassword: AdE transient failure",
-        failure: "Cambio password AdE fallito",
-      },
-    );
-    const userFacing = getUserFacingAdeErrorMessage(
-      err,
-      "Errore durante il cambio password. Riprova più tardi.",
-    );
-    return { error: userFacing.message };
+    return { error: formatChangePasswordError(err, businessId) };
   }
 
-  const newEncryptedPassword = encrypt(newPassword, key, cred.keyVersion);
-  await db
+  // La ri-cifratura decifra PIN/username: succede DOPO il cambio password sul
+  // portale, quindi un payload illeggibile non deve propagare (regola 19) —
+  // l'error boundary di Next lascerebbe l'utente senza spiegazione con la
+  // password AdE già cambiata.
+  let reencrypted: ReturnType<typeof reencryptCredentialFields>;
+  try {
+    reencrypted = reencryptCredentialFields({
+      cred,
+      keys,
+      key,
+      codiceFiscale,
+      newPassword,
+    });
+  } catch (err) {
+    logger.error(
+      { err, businessId },
+      "changeAdePassword: ri-cifratura credenziali fallita",
+    );
+    return {
+      error:
+        "Password cambiata sul portale AdE, ma non è stato possibile salvarla. Verifica la connessione dalle impostazioni.",
+    };
+  }
+
+  const updated = await db
     .update(adeCredentials)
-    .set({ encryptedPassword: newEncryptedPassword, verifiedAt: new Date() })
-    .where(eq(adeCredentials.businessId, businessId));
+    .set({
+      ...reencrypted,
+      verifiedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(adeCredentials.businessId, businessId),
+        // Guard sul metodo: se nel frattempo la riga è passata a CIE, la
+        // password Fisconline appena cambiata non deve sovrascriverla.
+        eq(adeCredentials.loginMethod, "fisconline"),
+        // Stesso optimistic lock di `finalizeAdeVerification`: `date_trunc`
+        // perché PostgreSQL scrive `updatedAt` con precisione microsecondo
+        // mentre `Date` è millisecondo; snapshot serializzato come ISO string
+        // + cast esplicito perché dentro un template `sql` Drizzle non ha il
+        // tipo colonna per bindare un Date (postgres-js crasherebbe su
+        // `Buffer.byteLength(<Date>)`).
+        sql`date_trunc('milliseconds', ${adeCredentials.updatedAt}) = ${credentialVersion.toISOString()}::timestamptz`,
+      ),
+    )
+    .returning({ id: adeCredentials.id });
+
+  if (updated.length === 0) {
+    // La password sul portale AdE è GIÀ cambiata: il messaggio deve spingere
+    // alla ri-verifica delle credenziali, non a ritentare il cambio.
+    logger.warn(
+      { businessId },
+      "changeAdePassword: credenziali modificate durante il cambio password",
+    );
+    return {
+      error:
+        "Le credenziali sono state modificate nel frattempo. Verifica la connessione dalle impostazioni.",
+    };
+  }
 
   revalidatePath("/dashboard", "layout");
   logger.info({ businessId }, "Password Fisconline aggiornata con successo");
