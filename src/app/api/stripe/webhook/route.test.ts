@@ -64,6 +64,9 @@ vi.mock("@/lib/logger", () => ({
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
   and: vi.fn(),
+  or: vi.fn(),
+  lte: vi.fn(),
+  isNull: vi.fn(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -81,15 +84,17 @@ function makeInsertBuilder(result: unknown[]) {
   return b;
 }
 
-function makeUpdateBuilder() {
+function makeUpdateBuilder(
+  returningResult: unknown[] = [{ id: "sub-id-default" }],
+) {
   // .where() returns the builder (for chaining .returning()).
-  // .returning() resolves to [row] by default (1 row updated).
-  // Handlers that do `await tx.update().set().where()` receive the builder
-  // object, which is discarded — that's fine since the value is never used.
+  // .returning() resolves to [row] by default (1 row updated); passare [] simula
+  // un UPDATE che non tocca righe — è così che si testa la guardia di ordering
+  // (REVIEW.md #61), che scarta gli eventi più vecchi del watermark.
   const builder = {
     set: vi.fn(),
     where: vi.fn(),
-    returning: vi.fn().mockResolvedValue([{ id: "sub-id-default" }]),
+    returning: vi.fn().mockResolvedValue(returningResult),
   };
   builder.set.mockReturnValue(builder);
   builder.where.mockReturnValue(builder);
@@ -131,6 +136,7 @@ function setupTransactionPassthrough() {
 // Tests
 // ---------------------------------------------------------------------------
 
+import { isNull, lte, or } from "drizzle-orm";
 import { POST } from "./route";
 
 describe("POST /api/stripe/webhook — request validation", () => {
@@ -328,6 +334,7 @@ describe("POST /api/stripe/webhook — invoice.paid (REVIEW #70)", () => {
     mockConstructEvent.mockReturnValue({
       id: "evt_sub_upd_period",
       type: "customer.subscription.updated",
+      created: 1_700_000_000,
       data: {
         object: {
           id: "sub_123",
@@ -403,13 +410,15 @@ describe("POST /api/stripe/webhook — customer.subscription.deleted", () => {
     mockConstructEvent.mockReturnValue({
       id: "evt_del_001",
       type: "customer.subscription.deleted",
+      created: 1_700_000_000,
       data: { object: { id: "sub_deleted_123", customer: "cus_123" } },
     });
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
     expect(mockTransaction).toHaveBeenCalled();
-    // First update: subscription → canceled + null su id/price/period.
+    // First update: subscription → canceled + null su id/price/period, più il
+    // watermark di ordering (REVIEW.md #61).
     // Necessario perché un futuro customer.subscription.updated cerca per
     // stripeSubscriptionId e non troverebbe la nuova sub se la riga ne porta uno stale.
     expect(updateBuilder.set).toHaveBeenCalledWith({
@@ -417,6 +426,7 @@ describe("POST /api/stripe/webhook — customer.subscription.deleted", () => {
       stripeSubscriptionId: null,
       stripePriceId: null,
       currentPeriodEnd: null,
+      lastStripeEventCreated: new Date(1_700_000_000 * 1000),
     });
     // Second update: profile → trial
     expect(updateBuilder.set).toHaveBeenCalledWith({ plan: "trial" });
@@ -432,6 +442,7 @@ describe("POST /api/stripe/webhook — customer.subscription.deleted", () => {
     mockConstructEvent.mockReturnValue({
       id: "evt_del_002",
       type: "customer.subscription.deleted",
+      created: 1_700_000_000,
       data: { object: { id: "sub_deleted_456", customer: "cus_456" } },
     });
 
@@ -447,6 +458,7 @@ describe("POST /api/stripe/webhook — customer.subscription.deleted", () => {
       stripeSubscriptionId: null,
       stripePriceId: null,
       currentPeriodEnd: null,
+      lastStripeEventCreated: new Date(1_700_000_000 * 1000),
     });
   });
 
@@ -516,6 +528,7 @@ describe("POST /api/stripe/webhook — checkout.session.completed type guard", (
     mockConstructEvent.mockReturnValue({
       id: "evt_co_002",
       type: "checkout.session.completed",
+      created: 1_700_000_000,
       data: {
         object: {
           subscription: "sub_123",
@@ -590,6 +603,7 @@ describe("POST /api/stripe/webhook — customer.subscription.updated", () => {
     return {
       id: `evt_sub_upd_${cancelAtPeriodEnd}`,
       type: "customer.subscription.updated",
+      created: 1_700_000_000,
       data: {
         object: {
           id: "sub_123",
@@ -736,5 +750,272 @@ describe("POST /api/stripe/webhook — charge.dispute.created", () => {
     // Only the claim's completedAt is updated (success path); no other DB write
     expect(mockUpdate).toHaveBeenCalledTimes(1);
     expect(mockTransaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/stripe/webhook — ordering guard event.created (REVIEW #61)", () => {
+  const OLD_EVENT_CREATED = 1_700_000_000;
+  const NEW_EVENT_CREATED = 1_700_009_999;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+    mockInsert.mockReturnValue(makeInsertBuilder([{ eventId: "evt_default" }]));
+    mockDelete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
+    mockSelect.mockReturnValue(makeSelectBuilder([{ userId: "user-123" }]));
+    mockPlanFromPriceId.mockReturnValue("pro");
+    mockIntervalFromPriceId.mockReturnValue("month");
+    setupTransactionPassthrough();
+  });
+
+  function makeUpdatedEvent(created: number, cancelAtPeriodEnd: boolean) {
+    return {
+      id: `evt_sub_upd_${created}`,
+      type: "customer.subscription.updated",
+      created,
+      data: {
+        object: {
+          id: "sub_123",
+          customer: "cus_123",
+          status: "active",
+          cancel_at_period_end: cancelAtPeriodEnd,
+          items: {
+            data: [{ price: { id: "price_pro" }, current_period_end: 9999 }],
+          },
+        },
+      },
+    };
+  }
+
+  it("registra event.created come watermark quando l'evento viene applicato", async () => {
+    const updateBuilder = makeUpdateBuilder();
+    mockUpdate.mockReturnValue(updateBuilder);
+
+    mockConstructEvent.mockReturnValue(
+      makeUpdatedEvent(NEW_EVENT_CREATED, false),
+    );
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(updateBuilder.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lastStripeEventCreated: new Date(NEW_EVENT_CREATED * 1000),
+      }),
+    );
+  });
+
+  it("costruisce la guardia come (watermark IS NULL OR watermark <= event.created)", async () => {
+    // `lte` (non `lt`): due eventi possono condividere lo stesso `created` e la
+    // dedup per event.id impedisce comunque di riapplicare lo stesso evento.
+    // La colonna NULL (primo evento in assoluto) deve sempre passare.
+    const updateBuilder = makeUpdateBuilder();
+    mockUpdate.mockReturnValue(updateBuilder);
+
+    mockConstructEvent.mockReturnValue(
+      makeUpdatedEvent(NEW_EVENT_CREATED, false),
+    );
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    // `@/db/schema` è mockato come stringa, quindi la colonna passata agli
+    // operatori non è ispezionabile: si asserisce il secondo argomento di
+    // `lte` (la data dell'evento) e la presenza del ramo IS NULL nell'OR.
+    expect(vi.mocked(lte).mock.calls[0]?.[1]).toEqual(
+      new Date(NEW_EVENT_CREATED * 1000),
+    );
+    expect(vi.mocked(isNull)).toHaveBeenCalled();
+    expect(vi.mocked(or)).toHaveBeenCalled();
+  });
+
+  it("scarta un customer.subscription.updated più vecchio del watermark senza toccare il profilo", async () => {
+    // 0 righe aggiornate = la guardia ha respinto l'evento: la riga esiste
+    // (il SELECT trova userId) ma porta un watermark più recente.
+    const updateBuilder = makeUpdateBuilder([]);
+    mockUpdate.mockReturnValue(updateBuilder);
+
+    mockConstructEvent.mockReturnValue(
+      makeUpdatedEvent(OLD_EVENT_CREATED, true),
+    );
+
+    const res = await POST(makeRequest());
+    // 200: ack, non è un errore da ritentare — l'evento è semplicemente stale.
+    expect(res.status).toBe(200);
+    expect(updateBuilder.set).not.toHaveBeenCalledWith(
+      expect.objectContaining({ plan: "pro" }),
+    );
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stripeCustomerId: "cus_123",
+        eventCreated: OLD_EVENT_CREATED,
+      }),
+      expect.stringContaining("stripe_event_out_of_order"),
+    );
+  });
+
+  it("applica normalmente quando la guardia lascia passare l'evento", async () => {
+    const updateBuilder = makeUpdateBuilder();
+    mockUpdate.mockReturnValue(updateBuilder);
+
+    mockConstructEvent.mockReturnValue(
+      makeUpdatedEvent(NEW_EVENT_CREATED, true),
+    );
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(updateBuilder.set).toHaveBeenCalledWith(
+      expect.objectContaining({ cancelAtPeriodEnd: true }),
+    );
+    expect(updateBuilder.set).toHaveBeenCalledWith(
+      expect.objectContaining({ plan: "pro" }),
+    );
+    expect(mockLoggerWarn).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.stringContaining("stripe_event_out_of_order"),
+    );
+  });
+
+  it("propaga event.created anche da checkout.session.completed", async () => {
+    const updateBuilder = makeUpdateBuilder();
+    mockUpdate.mockReturnValue(updateBuilder);
+    mockSubscriptionsRetrieve.mockResolvedValue({
+      id: "sub_123",
+      status: "active",
+      customer: "cus_123",
+      cancel_at_period_end: false,
+      items: {
+        data: [{ price: { id: "price_pro" }, current_period_end: 9999 }],
+      },
+    });
+
+    mockConstructEvent.mockReturnValue({
+      id: "evt_co_watermark",
+      type: "checkout.session.completed",
+      created: NEW_EVENT_CREATED,
+      data: { object: { subscription: "sub_123", customer: "cus_123" } },
+    });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(updateBuilder.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lastStripeEventCreated: new Date(NEW_EVENT_CREATED * 1000),
+      }),
+    );
+  });
+
+  it("scarta un customer.subscription.deleted più vecchio senza declassare il profilo a trial", async () => {
+    const updateBuilder = makeUpdateBuilder([]);
+    mockUpdate.mockReturnValue(updateBuilder);
+
+    mockConstructEvent.mockReturnValue({
+      id: "evt_del_stale",
+      type: "customer.subscription.deleted",
+      created: OLD_EVENT_CREATED,
+      data: { object: { id: "sub_123", customer: "cus_123" } },
+    });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(updateBuilder.set).not.toHaveBeenCalledWith({ plan: "trial" });
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stripeSubscriptionId: "sub_123",
+        eventCreated: OLD_EVENT_CREATED,
+      }),
+      expect.stringContaining("stripe_event_out_of_order"),
+    );
+  });
+
+  it("distingue riga assente da evento fuori ordine su customer.subscription.deleted", async () => {
+    // 0 righe aggiornate ma nessuna riga trovata dal SELECT: non è un problema
+    // di ordering, è una subscription che non abbiamo mai registrato.
+    const updateBuilder = makeUpdateBuilder([]);
+    mockUpdate.mockReturnValue(updateBuilder);
+    mockSelect.mockReturnValue(makeSelectBuilder([]));
+
+    mockConstructEvent.mockReturnValue({
+      id: "evt_del_missing",
+      type: "customer.subscription.deleted",
+      created: NEW_EVENT_CREATED,
+      data: { object: { id: "sub_unknown", customer: "cus_unknown" } },
+    });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(mockLoggerWarn).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.stringContaining("stripe_event_out_of_order"),
+    );
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({ stripeSubscriptionId: "sub_unknown" }),
+      expect.stringContaining("no subscription row found"),
+    );
+  });
+
+  it("non rilascia il claim su un evento scartato (niente retry di Stripe)", async () => {
+    // Un evento stale è *processato*, non fallito: il claim resta e la dedup
+    // impedisce che i retry di Stripe (fino a 3 giorni) lo ripresentino.
+    const updateBuilder = makeUpdateBuilder([]);
+    mockUpdate.mockReturnValue(updateBuilder);
+
+    mockConstructEvent.mockReturnValue(
+      makeUpdatedEvent(OLD_EVENT_CREATED, true),
+    );
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(mockDelete).not.toHaveBeenCalled();
+  });
+
+  it("continua a fallire con 500 se la riga subscription non esiste affatto", async () => {
+    // Il lookup precede l'UPDATE proprio per non confondere questo desync
+    // (riga mai creata → Stripe deve ritentare) con un evento fuori ordine.
+    const updateBuilder = makeUpdateBuilder();
+    mockUpdate.mockReturnValue(updateBuilder);
+    mockSelect.mockReturnValue(makeSelectBuilder([]));
+    mockTransaction.mockImplementation(
+      async (fn: (tx: unknown) => Promise<void>) => {
+        await fn({ update: mockUpdate, select: mockSelect });
+      },
+    );
+
+    mockConstructEvent.mockReturnValue(
+      makeUpdatedEvent(NEW_EVENT_CREATED, false),
+    );
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(500);
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      expect.objectContaining({ stripeCustomerId: "cus_123" }),
+      expect.stringContaining("no subscription row found"),
+    );
+    // Claim rilasciato: questo sì che deve essere ritentato da Stripe.
+    expect(mockDelete).toHaveBeenCalled();
+  });
+
+  it("non alza il watermark dagli handler invoice.* (full-sync appaiato non va perso)", async () => {
+    // invoice.payment_failed scrive solo `status`: se alzasse il watermark col
+    // proprio `created`, il customer.subscription.updated appaiato — che ha
+    // spesso un `created` di poco precedente — verrebbe scartato.
+    const updateBuilder = makeUpdateBuilder();
+    mockUpdate.mockReturnValue(updateBuilder);
+
+    mockConstructEvent.mockReturnValue({
+      id: "evt_pd_watermark",
+      type: "invoice.payment_failed",
+      created: NEW_EVENT_CREATED,
+      data: {
+        object: {
+          parent: { subscription_details: { subscription: "sub_123" } },
+        },
+      },
+    });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(updateBuilder.set).toHaveBeenCalledWith({ status: "past_due" });
+    expect(updateBuilder.set).not.toHaveBeenCalledWith(
+      expect.objectContaining({ lastStripeEventCreated: expect.anything() }),
+    );
   });
 });

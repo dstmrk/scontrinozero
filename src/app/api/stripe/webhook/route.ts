@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, lte, or } from "drizzle-orm";
 import { getDb } from "@/db";
 import { subscriptions, profiles, stripeWebhookEvents } from "@/db/schema";
 import {
@@ -235,7 +235,12 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
         // Stripe ritenterà l'evento.
         throw err;
       }
-      await syncSubscriptionData(db, session.customer as string, stripeSub);
+      await syncSubscriptionData(
+        db,
+        session.customer as string,
+        stripeSub,
+        event.created,
+      );
       break;
     }
 
@@ -256,7 +261,12 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
 
     case "customer.subscription.updated": {
       const sub = event.data.object as Stripe.Subscription;
-      await syncSubscriptionData(db, sub.customer as string, sub);
+      await syncSubscriptionData(
+        db,
+        sub.customer as string,
+        sub,
+        event.created,
+      );
       break;
     }
 
@@ -288,7 +298,7 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe): Promise<void> {
 
     case "customer.subscription.deleted": {
       const sub = event.data.object as Stripe.Subscription;
-      await handleSubscriptionDeleted(db, sub);
+      await handleSubscriptionDeleted(db, sub, event.created);
       break;
     }
 
@@ -328,6 +338,28 @@ async function applySubscriptionUpdate(
 }
 
 /**
+ * Guardia sull'ordine di consegna (REVIEW.md #61): un evento full-sync si
+ * applica solo se non è più vecchio dell'ultimo già applicato sulla riga.
+ *
+ * `lte` e non `lt`: due eventi Stripe possono condividere lo stesso `created`
+ * (es. `invoice.paid` + `customer.subscription.updated` allo stesso secondo) e
+ * la dedup per `event.id` impedisce comunque di riapplicare lo stesso evento.
+ * `IS NULL` copre la prima scrittura, quando il watermark non esiste ancora.
+ *
+ * Vive nella WHERE dell'UPDATE, non in un read-then-write: sotto READ COMMITTED
+ * il secondo UPDATE concorrente si mette in coda sul row lock e rivaluta la
+ * condizione sulla riga aggiornata, quindi l'evento stale trova 0 righe. Un
+ * confronto letto in anticipo avrebbe una finestra TOCTOU e, con due consegne
+ * simultanee, lascerebbe vincere l'ultimo a committare — cioè il bug stesso.
+ */
+function isNotOlderThanWatermark(eventCreatedAt: Date) {
+  return or(
+    isNull(subscriptions.lastStripeEventCreated),
+    lte(subscriptions.lastStripeEventCreated, eventCreatedAt),
+  );
+}
+
+/**
  * Cancel a deleted Stripe subscription and downgrade the user's plan to trial.
  * Extracted to reduce Cognitive Complexity of handleEvent: the transaction
  * callback adds nesting that would otherwise push handleEvent over the limit.
@@ -335,7 +367,10 @@ async function applySubscriptionUpdate(
 async function handleSubscriptionDeleted(
   db: ReturnType<typeof getDb>,
   sub: Stripe.Subscription,
+  eventCreated: number,
 ): Promise<void> {
+  const eventCreatedAt = new Date(eventCreated * 1000);
+
   // Find the userId from the subscriptions table (read-only, outside tx)
   const [subRow] = await db
     .select({ userId: subscriptions.userId })
@@ -351,15 +386,29 @@ async function handleSubscriptionDeleted(
     // Lasciarli stale fa fallire `applySubscriptionUpdate` quando arriva un
     // customer.subscription.updated per la sub successiva creata dopo un
     // re-checkout (lookup per stripeSubscriptionId non trova la nuova).
-    await tx
+    const applied = await tx
       .update(subscriptions)
       .set({
         status: "canceled",
         stripeSubscriptionId: null,
         stripePriceId: null,
         currentPeriodEnd: null,
+        lastStripeEventCreated: eventCreatedAt,
       })
-      .where(eq(subscriptions.stripeSubscriptionId, sub.id));
+      .where(
+        and(
+          eq(subscriptions.stripeSubscriptionId, sub.id),
+          isNotOlderThanWatermark(eventCreatedAt),
+        ),
+      )
+      .returning({ id: subscriptions.id });
+
+    if (applied.length === 0) {
+      // 0 righe: o la riga non esiste (nessun `subRow`), o la guardia ha
+      // respinto un evento più vecchio del watermark. `subRow` discrimina.
+      logOutOfOrderOrMissing(sub.id, eventCreated, Boolean(subRow));
+      return;
+    }
 
     if (subRow) {
       await tx
@@ -368,6 +417,30 @@ async function handleSubscriptionDeleted(
         .where(eq(profiles.authUserId, subRow.userId));
     }
   });
+}
+
+/**
+ * Log del caso "UPDATE a 0 righe" su `customer.subscription.deleted`. Estratto
+ * per non annidare un if/else dentro il callback della transazione (Cognitive
+ * Complexity) e per tenere i due messaggi vicini: distinguerli è ciò che rende
+ * `stripe_event_out_of_order` una metrica leggibile invece di un catch-all.
+ */
+function logOutOfOrderOrMissing(
+  stripeSubscriptionId: string,
+  eventCreated: number,
+  rowExists: boolean,
+): void {
+  if (rowExists) {
+    logger.warn(
+      { stripeSubscriptionId, eventCreated, outOfOrder: true },
+      "stripe_event_out_of_order: customer.subscription.deleted più vecchio dell'ultimo evento applicato — ignorato, evento acknowledged",
+    );
+    return;
+  }
+  logger.warn(
+    { stripeSubscriptionId, eventCreated },
+    "customer.subscription.deleted: no subscription row found — event acknowledged",
+  );
 }
 
 /**
@@ -380,6 +453,7 @@ async function syncSubscriptionData(
   db: ReturnType<typeof getDb>,
   stripeCustomerId: string,
   stripeSub: Stripe.Subscription,
+  eventCreated: number,
 ): Promise<void> {
   const priceId = stripeSub.items.data[0]?.price.id ?? "";
   const plan = planFromPriceId(priceId);
@@ -406,21 +480,14 @@ async function syncSubscriptionData(
   // resta 'active' fino a currentPeriodEnd. Scriviamo sempre il valore corrente
   // così la riattivazione (toggle a false) si riallinea senza update parziali.
   const cancelAtPeriodEnd = stripeSub.cancel_at_period_end;
+  const eventCreatedAt = new Date(eventCreated * 1000);
 
   await db.transaction(async (tx) => {
-    await tx
-      .update(subscriptions)
-      .set({
-        stripeSubscriptionId: stripeSub.id,
-        stripePriceId: priceId,
-        status,
-        interval,
-        currentPeriodEnd,
-        cancelAtPeriodEnd,
-      })
-      .where(eq(subscriptions.stripeCustomerId, stripeCustomerId));
-
-    // Get userId from subscriptions to update profiles
+    // Il lookup precede l'UPDATE di proposito: serve a distinguere le due
+    // cause di un UPDATE a 0 righe — riga assente (desync, si rilancia perché
+    // Stripe ritenti) contro guardia di ordering scattata (evento stale, si
+    // acknowledgia). Senza questa lettura i due casi sono indistinguibili e un
+    // desync reale finirebbe silenziosamente in un warn.
     const [subRow] = await tx
       .select({ userId: subscriptions.userId })
       .from(subscriptions)
@@ -439,6 +506,41 @@ async function syncSubscriptionData(
       throw new Error(
         `syncSubscriptionData: no subscription row for stripeCustomerId ${stripeCustomerId}`,
       );
+    }
+
+    const applied = await tx
+      .update(subscriptions)
+      .set({
+        stripeSubscriptionId: stripeSub.id,
+        stripePriceId: priceId,
+        status,
+        interval,
+        currentPeriodEnd,
+        cancelAtPeriodEnd,
+        lastStripeEventCreated: eventCreatedAt,
+      })
+      .where(
+        and(
+          eq(subscriptions.stripeCustomerId, stripeCustomerId),
+          isNotOlderThanWatermark(eventCreatedAt),
+        ),
+      )
+      .returning({ id: subscriptions.id });
+
+    if (applied.length === 0) {
+      // La riga esiste (il SELECT sopra l'ha trovata) ⇒ 0 righe significa
+      // guardia di ordering. Niente scrittura sul profilo: applicare il plan
+      // di un evento stale è esattamente il bug che questa guardia previene.
+      logger.warn(
+        {
+          stripeCustomerId,
+          stripeSubscriptionId: stripeSub.id,
+          eventCreated,
+          outOfOrder: true,
+        },
+        "stripe_event_out_of_order: evento subscription più vecchio dell'ultimo applicato — ignorato, evento acknowledged",
+      );
+      return;
     }
 
     await tx

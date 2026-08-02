@@ -204,6 +204,13 @@
       "when": 1783764000000,
       "tag": "0028_profiles_last_seen",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1785628800000,
+      "tag": "0029_subscriptions_last_stripe_event_created",
+      "breakpoints": true
     }
   ]
 }
