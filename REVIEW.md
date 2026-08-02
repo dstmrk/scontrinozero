@@ -1,6 +1,7 @@
 # REVIEW.md — Registro bug noti e tech debt
 
-> **Ultimo audit:** 2026-07-11 (full-codebase, `main` @ 8bb9b26)
+> **Ultimo audit:** 2026-08-02 (full-codebase, `main` @ b834286 — passate
+> sicurezza / performance / funzionalità / architettura / bad practice)
 
 **Scopo.** Registro canonico dei bug noti, del tech debt e dei miglioramenti di
 sicurezza/performance, ordinati per priorità (P1/P2/P3). `PLAN.md` resta la
@@ -16,6 +17,141 @@ consapevoli accettati vivono in fondo, in "Rischi accettati".
 ---
 
 ## P1 — Alta priorità
+
+### 73. Service worker: nessun override `NetworkOnly` sulle GET `/api/*` tenant-specific
+
+- **Categoria:** sicurezza/privacy · **Severità:** High — **attivo in produzione oggi**, non gated su feature future
+- **File:** `src/sw.ts:18` (`runtimeCaching: defaultCache`, nessuna regola precedente); route GET esposte: `src/app/api/documents/[documentId]/pdf/route.ts`, `src/app/api/export/receipts/route.ts`, `src/app/api/v1/receipts/route.ts`
+
+**Problema.** `src/sw.ts` registra `runtimeCaching: defaultCache` di
+`@serwist/next/worker` **senza alcun override**. Come documentato nella skill
+`pwa-serwist` (sezione "Serwist — attenzione al `defaultCache`"), `defaultCache`
+**non è asset-only**: include una strategia `NetworkFirst` per le richieste
+same-origin `/api/*`, che **scrive la response nella CacheStorage** via
+`fetchAndCachePut`. Il `cacheOkAndOpaquePlugin` aggiunto di default decide solo
+in base allo status HTTP (200/opaque) e **ignora `Cache-Control`** — quindi il
+`Cache-Control: no-store` già presente su `/api/export/receipts` **non impedisce
+la scrittura in cache**.
+
+Le GET coinvolte restituiscono dati fiscali del singolo tenant:
+
+- `GET /api/documents/[documentId]/pdf` → PDF dello scontrino (autenticato via cookie);
+- `GET /api/export/receipts` → CSV con **tutti** gli scontrini del business;
+- `GET /api/v1/receipts` → lista documenti (Bearer key).
+
+La CacheStorage è **per-origin e sopravvive al logout**: su un dispositivo
+condiviso (tablet di negozio, PWA installata, cambio di account, rivendita del
+device) una richiesta del secondo utente che va in timeout o parte offline può
+essere servita dalla cache col **documento fiscale del primo utente**. Anche
+senza cambio account resta il problema minore dei dati stale serviti come
+freschi. La skill prescrive esplicitamente l'override; il codice non lo
+implementa, e `src/sw.ts` è escluso sia da SonarCloud (`sonar.exclusions`) sia
+dalla coverage (`vitest.config.ts`), quindi nessun test lo copre.
+
+**Fix (non ambiguo).**
+
+1. In `src/sw.ts`, costruire l'array di runtime caching mettendo una regola
+   `NetworkOnly` **PRIMA** dello spread di `defaultCache` (l'ordine conta: vince
+   il primo matcher):
+
+   ```ts
+   import { NetworkOnly } from "serwist";
+   // ...
+   runtimeCaching: [
+     {
+       matcher: ({ url, sameOrigin }) =>
+         sameOrigin &&
+         (url.pathname.startsWith("/api/") || url.pathname.startsWith("/v1/")),
+       handler: new NetworkOnly(),
+     },
+     ...defaultCache,
+   ],
+   ```
+
+   Includere `/v1/` perché è il path con cui le richieste arrivano dal subdomain
+   API **prima** del rewrite (`next.config.ts` → `rewrites()`).
+
+2. **Non** limitarsi ad aggiungere `Cache-Control: no-store` sulle route: come
+   sopra, non previene la scrittura in cache. **Non** affidarsi a
+   `Vary: Cookie` — isola al più la voce per variante, non la impedisce.
+
+3. Bonus difensivo (stesso PR, stesso file): valutare l'esclusione anche di
+   `/r/` (pagina pubblica scontrino) dalla `NetworkFirst` delle navigazioni, se
+   la si vuole sempre fresca. **Opzionale** — quella pagina non è autenticata,
+   quindi non è un leak: decidere e documentare la scelta nel commento.
+
+4. Rimuovere `src/sw.ts` dalla `coverage.exclude` di `vitest.config.ts` (resta
+   escluso da `sonar.exclusions`, che è un'altra cosa) e aggiungere
+   `src/sw.test.ts`.
+
+5. **Test** (`src/sw.test.ts`, mockando `serwist` e `@serwist/next/worker` come
+   già si fa per i moduli infrastrutturali — vedi `src/instrumentation.test.ts`):
+   - il `runtimeCaching` passato al costruttore `Serwist` ha come **primo**
+     elemento la regola con handler `NetworkOnly`;
+   - il matcher ritorna `true` per `{ sameOrigin: true, url: new URL("https://app.x/api/export/receipts") }`
+     e per `/v1/receipts`, `false` per `/dashboard` e per `sameOrigin: false`;
+   - `defaultCache` è ancora presente **dopo** la regola (non sostituito).
+
+6. **Verifica manuale post-deploy** (sandbox prima di prod): DevTools →
+   Application → Cache Storage, scaricare un PDF autenticato e confermare che
+   **nessuna** voce `/api/documents/.../pdf` compaia nelle cache Serwist. Poi
+   forzare "Offline" e verificare che la stessa GET fallisca invece di
+   restituire il documento cached.
+
+---
+
+### 74. Paginazione export/storico senza chiave di ordinamento stabile → righe duplicate o **perse** nel CSV
+
+- **Categoria:** correttezza (dati fiscali) · **Severità:** High — l'export CSV è un documento contabile: una riga persa è un dato mancante silenzioso
+- **File:** `src/lib/receipts/csv-export.ts:149` (`fetchDocsBatch`, `ORDER BY created_at DESC` + `LIMIT/OFFSET` a batch di 500); `src/server/storico-actions.ts:163` (`searchReceipts`, stesso pattern con `LIMIT/OFFSET`); `src/server/export-actions.ts:134` (`exportUserData`, singola query ma ordinamento non deterministico). Riferimento corretto: `src/app/api/v1/receipts/route.ts:272-275`, che **già** usa `desc(createdAt), desc(id)`
+
+**Problema.** `buildReceiptsCsvStream` pagina con `LIMIT 500 OFFSET n` ordinando
+solo per `created_at DESC`. In Postgres l'ordine fra righe con la **stessa**
+chiave di ordinamento non è definito e può variare fra due esecuzioni della
+stessa query (piani diversi, letture parallele, sort non stabile). Con `created_at`
+duplicati — normalissimi in cassa: due scontrini emessi nello stesso millisecondo
+da POS/API, o un batch di emissioni ravvicinate — le pagine successive possono
+**ripetere** una riga già emessa o **saltarla del tutto**. Il CSV risultante non
+segnala nulla: è semplicemente incompleto.
+
+`searchReceipts` (storico UI) ha lo stesso difetto: navigando fra pagina 1 e 2
+un documento può comparire due volte o sparire. `exportUserData` (GDPR art. 20)
+usa una query sola, quindi non perde righe, ma l'ordine è comunque non
+deterministico fra due export.
+
+Questo è **distinto** dal finding #12 (paginazione cursor-based): #12 riguarda il
+**costo** del `COUNT(*)` e vale "quando il volume per-tenant lo richiede"; questo
+è un bug di **correttezza già presente a qualsiasi volume**, e il fix è una riga
+per call-site. Vanno tenuti separati: chiudere questo NON chiude #12.
+
+**Fix (non ambiguo).**
+
+1. Aggiungere `id` come chiave secondaria a **ogni** `ORDER BY` che precede un
+   `LIMIT`/`OFFSET`/batch su `commercial_documents` (regola 17 di CLAUDE.md,
+   "ogni `sort` prima di `slice`/topN ha una chiave secondaria stabile" — vale
+   identicamente per gli ORDER BY SQL):
+   - `src/lib/receipts/csv-export.ts:149` →
+     `.orderBy(desc(commercialDocuments.createdAt), desc(commercialDocuments.id))`
+   - `src/server/storico-actions.ts:163` → stessa modifica
+   - `src/server/export-actions.ts:134` → stessa modifica
+2. `id` è un UUID `PRIMARY KEY`, quindi univoco: il tiebreaker rende l'ordine
+   **totale** e la paginazione deterministica. Non serve nessuna migration:
+   l'indice `idx_commercial_documents_business_created` resta usabile (il sort
+   residuo su `id` avviene su gruppi minuscoli di pari `created_at`).
+3. **Non** cambiare la direzione né la colonna primaria: l'ordine visibile
+   all'utente (più recenti prima) deve restare identico.
+4. **Test:**
+   - unit su `formatReceiptRow`/`fetchDocsBatch` con mock DB: asserire che la
+     query costruita contiene **entrambe** le chiavi di ordinamento (verificare
+     gli argomenti passati a `.orderBy()` sul mock, come già fanno i test in
+     `src/server/storico-actions.test.ts`);
+   - test di regressione end-to-end sullo stream: 1200 documenti con **lo stesso
+     `created_at`** (3 batch da 500) → il CSV contiene esattamente 1200 righe con
+     1200 `id` distinti, nessun duplicato;
+   - stesso scenario su `searchReceipts`: unione di pagina 1 + pagina 2 = insieme
+     di `id` disgiunti e di cardinalità pari a `pageSize * 2`.
+
+---
 
 ### 3. Enforcement limiti mensili Developer API assente
 
@@ -51,6 +187,305 @@ diventa un buco di billing al lancio della Fase B Developer API.
 ---
 
 ## P2 — Media priorità
+
+### 75. Analytics: `ANALYTICS_MAX_DOCS` tronca il dataset **in silenzio** → KPI e fatturato sbagliati
+
+- **Categoria:** correttezza/osservabilità · **Severità:** Medium — nessun segnale quando succede, l'utente vede numeri sbagliati come se fossero corretti
+- **File:** `src/server/analytics-actions.ts:195` (`ANALYTICS_MAX_DOCS = 50_000`), `:226` (`.limit(ANALYTICS_MAX_DOCS)` in `fetchSaleDocsInRange`); consumer: `computeKpis`/`computeTimeseries`/`computeBreakdown`/`computeProductBreakdown` in `src/server/analytics-helpers.ts`
+
+**Problema.** `fetchSaleDocsInRange` applica `.limit(50_000)` come safety net
+contro tenant con volumi anomali, ma **non verifica mai se il limite è stato
+raggiunto**. Superata la soglia, la funzione ritorna un dataset **parziale** e
+tutti gli aggregati a valle (fatturato totale, scontrino medio, timeseries,
+breakdown per metodo di pagamento e per prodotto) vengono calcolati su un
+sottoinsieme, restituendo valori **sottostimati** presentati come definitivi.
+Non c'è log, non c'è flag nel payload, non c'è avviso in UI.
+
+Il commento nel codice giustifica la soglia ("nessun business Pro reale emette
+
+> 50k scontrini su un range YTD"), ma il fallimento è **silenzioso e nella
+> direzione sbagliata**: un business che supera la soglia è esattamente quello che
+> guarda le analytics con più attenzione. Nota che il troncamento colpisce anche
+> la vista Starter (`getStarterKpis` usa la stessa funzione su finestra 30d).
+
+**Fix (non ambiguo).**
+
+1. In `fetchSaleDocsInRange`, richiedere `ANALYTICS_MAX_DOCS + 1` righe e
+   rilevare il troncamento confrontando `rows.length > ANALYTICS_MAX_DOCS`
+   (il `+1` distingue "esattamente 50k documenti" da "più di 50k" — senza,
+   `rows.length === limit` è ambiguo). Troncare poi a `ANALYTICS_MAX_DOCS` prima
+   di ritornare.
+2. Propagare il flag: `fetchSaleDocsInRange` ritorna
+   `{ docs: DocRow[]; truncated: boolean }`; `buildAnalyticsDataset` e
+   `getStarterKpis` lo portano fino a `AnalyticsBundle` / `StarterKpisResult`
+   come campo `truncated?: boolean`.
+3. Loggare **una volta per richiesta** quando scatta:
+   `logger.error({ critical: true, businessId, range, cap: ANALYTICS_MAX_DOCS, sentryFingerprint: ["analytics", "dataset-truncated"] }, "analytics:dataset_truncated")`.
+   `error` + fingerprint stabile (regola 23) perché è una condizione che richiede
+   un intervento nostro (alzare la soglia o passare ad aggregazione SQL), non un
+   errore d'input utente.
+4. UI: in `src/components/analytics/analytics-client.tsx` mostrare un `Alert`
+   inline quando `truncated === true` — testo esplicito del tipo "Dati parziali:
+   il periodo selezionato supera il limite di documenti analizzabili. Restringi
+   l'intervallo per numeri completi." **Mai** mostrare KPI parziali senza avviso.
+5. Non alzare la soglia in questo PR: il fix è rendere il troncamento
+   **osservabile**. La soluzione strutturale (aggregazione `SUM`/`GROUP BY` lato
+   SQL invece del fetch di tutte le righe) è un intervento separato, da valutare
+   se e quando il log sopra si accende.
+6. **Test:**
+   - dataset sotto soglia → `truncated` assente/false, nessun log `error`;
+   - dataset a `ANALYTICS_MAX_DOCS` esatti → `truncated: false` (il `+1` non ha
+     trovato la riga in più);
+   - dataset a `ANALYTICS_MAX_DOCS + 1` → `truncated: true`, un solo
+     `logger.error` con il fingerprint atteso, e `docs.length === ANALYTICS_MAX_DOCS`;
+   - `getStarterKpis` propaga il flag come `getAnalyticsBundle`.
+
+---
+
+### 76. Totale carrello cassa calcolato in float (viola regola 17) e disallineato dal gate lotteria server
+
+- **Categoria:** correttezza monetaria · **Severità:** Medium
+- **File:** `src/hooks/use-cassa.ts:118-121` (`total` come somma float); consumer: `src/components/cassa/receipt-summary.tsx:69` (importo mostrato), `:98`/`:105` (gate `total < 1`), `src/components/cassa/cassa-client.tsx:197` (auto-svuota codice lotteria), `:466` (totale in barra). Helper canonico già disponibile e **client-safe**: `calcInputLinesTotalCents` in `src/lib/receipts/receipt-totals.ts:84`
+
+**Problema.** `useCassa` calcola il totale con
+`lines.reduce((sum, l) => sum + l.grossUnitPrice * l.quantity, 0)`: somma float,
+nessun arrotondamento per riga. Viola il canone della regola 17 di CLAUDE.md
+(`round(grossUnitPrice * quantity * 100)` per riga, sommato come interi), che
+tutto il resto della codebase rispetta — `calcInputLinesTotalCents` (importo
+trasmesso all'AdE e soglia lotteria server-side), `calcDocTotal` (storico,
+analytics, CSV), `computeReceiptTotals` (PDF, pagina pubblica, stampa termica).
+
+Due conseguenze concrete:
+
+1. **Totale mostrato ≠ totale emesso.** Su quantità frazionarie il valore in
+   `receipt-summary.tsx:69` e in `cassa-client.tsx:466` può divergere di 1
+   centesimo dall'importo effettivamente trasmesso all'AdE e stampato sul PDF.
+   L'utente vede un numero e ne emette un altro.
+2. **Gate lotteria incoerente fra client e server.** La UI abilita il campo
+   codice lotteria con `total < 1` (float), mentre `resolveLotteryCode` in
+   `src/lib/services/receipt-service.ts` usa
+   `calcInputLinesTotalCents(input.lines) < 100` (cents interi). Un carrello che
+   vale esattamente €1,00 secondo il canone per-riga può risultare `0.9999…` in
+   float: il client nasconde/azzera il codice lotteria (`cassa-client.tsx:197`
+   lo cancella pure) su uno scontrino che il server avrebbe accettato — e
+   viceversa, un carrello sopra €1 lato UI può essere rifiutato dal server con
+   "Il codice lotteria richiede un importo minimo di €1,00" dopo che l'utente ha
+   già inserito il codice.
+
+**Fix (non ambiguo).**
+
+1. In `src/hooks/use-cassa.ts` sostituire il `useMemo` del totale con il canone:
+
+   ```ts
+   import { calcInputLinesTotalCents } from "@/lib/receipts/receipt-totals";
+   // ...
+   const totalCents = useMemo(() => calcInputLinesTotalCents(lines), [lines]);
+   const total = totalCents / 100;
+   ```
+
+   Importare **da `@/lib/receipts/receipt-totals`** e mai da
+   `@/lib/receipts/document-lines`: il secondo importa `getDb()` e trascinerebbe
+   il driver `postgres` nel bundle browser (vedi header di `receipt-totals.ts`).
+
+2. Esporre **anche** `totalCents` da `UseCassaReturn` e usarlo per il gate
+   lotteria, sostituendo ogni `total < 1` con `totalCents < 100`:
+   `receipt-summary.tsx:98` e `:105`, `cassa-client.tsx:197`. Il confronto su
+   interi è l'unico che coincide byte-per-byte con quello del server.
+   Aggiornare la prop di `ReceiptSummary` di conseguenza (`readonly totalCents: number`
+   accanto a `total`, oppure passare solo `totalCents` e derivare l'importo
+   formattato con `formatCurrency(totalCents / 100)`).
+3. `total` resta esportato per la sola formattazione display, derivato da
+   `totalCents / 100`: nessun altro punto deve ricalcolare la somma.
+4. **Test** (`src/hooks/use-cassa.test.ts`, già in `JSDOM_TS_TESTS`):
+   - carrello con quantità frazionaria (es. 3 righe da `0.1 × 3`) → `totalCents`
+     coincide con `calcInputLinesTotalCents` sulle stesse righe;
+   - carrello che sommato in float dà `0.9999999999` ma vale 100 cents per riga
+     (es. 10 righe da `0.10 × 1`) → `totalCents === 100`, quindi il gate lotteria
+     è **abilitato** (regressione: col float era disabilitato);
+   - `total` esposto è `totalCents / 100`;
+   - test UI su `receipt-summary.tsx` (già coperto da jsdom): a `totalCents = 99`
+     il bottone lotteria è `disabled`, a `100` no.
+
+---
+
+### 77. `addCatalogItem`: conta il catalogo caricando tutte le righe, e il limite Starter è soggetto a race
+
+- **Categoria:** performance + correttezza plan-gate · **Severità:** Medium
+- **File:** `src/server/catalog-actions.ts:195-201` (`select({ id })` senza `count()` né `LIMIT`), `:203-224` (check limite fuori da qualsiasi lock). Riferimento del pattern corretto: `src/server/api-key-actions.ts:134-153` (`db.transaction` + `SELECT ... FOR UPDATE` + `count()`)
+
+**Problema.** Due difetti nello stesso blocco.
+
+1. **Performance.** Per decidere se applicare `STARTER_CATALOG_LIMIT` (5
+   prodotti) la action esegue `SELECT id FROM catalog_items WHERE business_id = $1`
+   **senza LIMIT**, e usa solo `existingItems.length`. Su un business Pro con
+   catalogo illimitato (lo scenario del finding #11: 5–10k articoli) ogni
+   inserimento di un singolo prodotto trasferisce e materializza migliaia di UUID
+   per poi contarli in JavaScript — e il piano Pro **non ha nemmeno un limite da
+   verificare**, quindi è lavoro interamente sprecato.
+2. **Correttezza.** Il check limite è un read-then-write senza lock: due
+   `addCatalogItem` concorrenti su un business Starter con 4 prodotti leggono
+   entrambe `4 < 5`, passano entrambe il gate e inseriscono → 6 prodotti su un
+   piano che ne ammette 5. `createApiKey` risolve esattamente questa race con
+   `SELECT ... FOR UPDATE` sulla riga `businesses`; `addCatalogItem` no.
+
+**Fix (non ambiguo).**
+
+1. Recuperare `planInfo` **prima** e, se il piano non ha limite di catalogo,
+   **saltare del tutto** la query di conteggio. Il predicato è già centralizzato:
+   usare `canAddCatalogItem`/`STARTER_CATALOG_LIMIT` da `src/lib/plans.ts` per
+   determinare se il limite si applica al piano corrente (piani senza limite →
+   `currentCount` irrilevante, passare `0`).
+2. Quando il limite si applica, spostare conteggio + INSERT dentro una
+   `db.transaction` con lock, replicando `createApiKey`:
+
+   ```ts
+   return db.transaction(async (tx) => {
+     await tx
+       .select({ id: businesses.id })
+       .from(businesses)
+       .where(eq(businesses.id, input.businessId))
+       .for("update");
+     const [{ count: current }] = await tx
+       .select({ count: count() })
+       .from(catalogItems)
+       .where(eq(catalogItems.businessId, input.businessId));
+     // ...check canAddCatalogItem(plan, trialStartedAt, Number(current), planExpiresAt)
+     // ...insert
+   });
+   ```
+
+   Usare `count()` di drizzle, **mai** `select({id}).length`.
+
+3. Mantenere invariati i due messaggi d'errore attuali e la loro precedenza
+   (trial/piano scaduto → `TRIAL_EXPIRED_MESSAGE`; limite Starter → messaggio
+   specifico con `STARTER_CATALOG_LIMIT`): sono già testati e distinguere i due
+   casi è comportamento voluto.
+4. `getPlan` resta fuori dalla transazione (è cache-ata per-richiesta e non deve
+   allungare la finestra del lock).
+5. **Test** (`src/server/catalog-actions.test.ts`):
+   - piano Pro/unlimited → **nessuna** query di conteggio eseguita (asserire che
+     il mock del `select` di conteggio non è stato chiamato) e insert eseguito;
+   - piano Starter a 4 item → insert OK; a 5 item → errore col messaggio del
+     limite e **nessun** insert;
+   - il conteggio usa `count()` e gira dentro `db.transaction` (mock con
+     passthrough del callback, vedi skill `testing-patterns`);
+   - trial scaduto → `TRIAL_EXPIRED_MESSAGE` ha precedenza sul messaggio limite.
+
+---
+
+### 78. `getPlan()` può lanciare e quasi nessun caller lo gestisce (viola regola 19)
+
+- **Categoria:** architettura/robustezza · **Severità:** Medium — trasforma un profilo orfano o un DB lento in un error boundary a schermo intero + issue Sentry
+- **File:** sorgente del throw `src/lib/plans.ts:81-95` (`ProfileNotFoundError`) e timeout DB propagati; caller **non protetti**: `src/server/receipt-actions.ts:72`, `src/server/void-actions.ts:52`, `src/server/catalog-actions.ts:195`, `src/server/billing-actions.ts:42`, `src/server/api-key-actions.ts:57-60`. Caller **corretti** da cui copiare il pattern: `src/server/analytics-actions.ts:106-128` e `assertProPlan` in `src/lib/plans.ts:186-209`
+
+**Problema.** `getPlan` lancia `ProfileNotFoundError` quando l'auth user non ha
+un profilo (orfano: signup a metà, compensating delete fallito) o quando
+`profiles.plan` ha un valore fuori enum, e lascia propagare un `57014` sotto
+contention DB. `analytics-actions` e `assertProPlan` catturano entrambi i casi e
+degradano a `{ error }`; **tutti gli altri caller no**.
+
+Conseguenza in produzione: su `emitReceipt` — il core flow fiscale — un profilo
+orfano o un timeout DB fa propagare l'eccezione fino all'error boundary di Next.
+È esattamente ciò che la regola 19 di CLAUDE.md vieta ("server action di lettura:
+degradare, non lanciare... il throw sostituisce il fallback inline con l'error
+boundary di Next, rompendo la performance percepita") e produce anche rumore
+Sentry su una condizione ambientale nota (regola 20). Lo stesso vale per
+`voidReceipt`, `addCatalogItem`, `getProfilePlan` (settings) e
+`authorizeApiKeyBusiness`.
+
+**Fix (non ambiguo).**
+
+1. Estrarre in `src/lib/plans.ts` un helper condiviso che incapsula la
+   classificazione già scritta due volte:
+
+   ```ts
+   export type SafePlanResult =
+     { ok: true; info: PlanInfo } | { ok: false; error: string };
+
+   export async function getPlanSafe(
+     authUserId: string,
+   ): Promise<SafePlanResult>;
+   ```
+
+   Mappature (identiche a quelle di `analytics-actions.ts:106-128`, che diventa
+   un consumer dell'helper):
+   - `ProfileNotFoundError` → `logger.warn({ userId }, "<action>: orphan auth user — profile missing")` + `{ ok: false, error: "Profilo non disponibile. Contatta il supporto." }`;
+   - `isStatementTimeoutError(err)` → `{ ok: false, error: "Servizio temporaneamente sovraccarico, riprova tra qualche istante." }`;
+   - qualunque altro errore → **rethrow** (resta visibile in Sentry: è un bug vero).
+
+2. Sostituire `await getPlan(user.id)` con `await getPlanSafe(user.id)` +
+   early-return dell'error envelope nei cinque call-site elencati sopra.
+   Ciascuno ha già un tipo di ritorno con campo `error` (`SubmitReceiptResult`,
+   `VoidReceiptResult`, `CatalogActionResult`, `ProfilePlanResult`,
+   il risultato di `authorizeApiKeyBusiness`), quindi nessun cambio di firma
+   pubblica.
+3. In `catalog-actions.ts` il `getPlan` è dentro un `Promise.all`: sostituirlo
+   con `getPlanSafe` e controllare `ok` **prima** di usare `planInfo` (attenzione
+   a non lasciare il ramo `Promise.all` che rigetta l'intera coppia).
+4. Rifattorizzare `analytics-actions.ts` e `assertProPlan` per usare l'helper,
+   così esiste **una sola** copia della classificazione (oggi sono due divergenti:
+   `assertProPlan` logga con chiave `authUserId`, analytics con `userId`).
+   Uniformare su `userId` (è la chiave nella `SAFE_KEYS` di
+   `src/lib/logger.ts`, quindi l'unica che arriva a Sentry).
+5. **Test:**
+   - `getPlanSafe`: profilo assente → `{ ok: false }` + `logger.warn` (mai
+     `logger.error`, quindi nessuna capture Sentry); `57014` → `{ ok: false }`
+     col messaggio di sovraccarico; errore generico → rilanciato;
+   - per ciascuno dei cinque caller: mock di `getPlan` che lancia
+     `ProfileNotFoundError` → la action ritorna `{ error }` e **non** lancia
+     (`await expect(action(...)).resolves.toMatchObject({ error: expect.any(String) })`).
+
+---
+
+### 79. `api-key-actions`: nessun guard `isValidUuid` al boundary (regola 9) e revoca non idempotente
+
+- **Categoria:** sicurezza/robustezza · **Severità:** Medium-Low
+- **File:** `src/server/api-key-actions.ts:54` (`checkBusinessOwnership` senza guard), `:89` (`eq(apiKeys.businessId, businessId)`), `:134-168` (`createApiKey`), `:192-196` (`revokeApiKey`, `eq(apiKeys.id, keyId)` senza guard e senza filtro su `revokedAt`)
+
+**Problema.** `listApiKeys`, `createApiKey` e `revokeApiKey` passano
+`businessId`/`keyId` direttamente a `eq()` su colonne `uuid` **senza
+`isValidUuid()`**. È l'unico gruppo di server action rimasto scoperto: storico
+(`storico-actions.ts:76`), analytics (`analytics-actions.ts:95`), catalogo
+(`catalog-actions.ts:132/175/254/295`), profilo (`profile-actions.ts:175`) e
+onboarding (`onboarding-actions.ts:401/917/1306`) hanno tutti il guard, e
+`emitReceipt`/`voidReceipt` lo ottengono via schema Zod `.uuid()`.
+
+Un client manomesso che invia una stringa non-UUID produce un `22P02` Postgres
+("invalid input syntax for type uuid") che propaga come 500 all'error boundary,
+apre una issue Sentry su input utente prevedibile (viola regola 20) e regala un
+canale di rumore/log-flood a costo zero per l'attaccante — che sono esattamente
+le motivazioni per cui la regola 9 esiste.
+
+Secondo difetto, minore, in `revokeApiKey`: la `WHERE` filtra solo su
+`(id, profileId)` senza `isNull(apiKeys.revokedAt)`, quindi revocare due volte la
+stessa chiave **sposta in avanti** `revoked_at` invece di essere un no-op. La
+chiave resta comunque revocata (nessun impatto di sicurezza), ma il timestamp di
+audit diventa inaffidabile.
+
+**Fix (non ambiguo).**
+
+1. In `authorizeApiKeyBusiness` (usato da `listApiKeys` e `createApiKey`),
+   subito **dopo** l'auth e **prima** di `checkBusinessOwnership`:
+   ```ts
+   if (!isValidUuid(businessId)) return { error: "Identificativo non valido." };
+   ```
+   Usare lo stesso messaggio già in uso in `storico-actions.ts` e
+   `analytics-actions.ts` (coerenza UX, nessuna stringa nuova).
+2. In `revokeApiKey`, stesso guard su `keyId` prima della query sul profilo.
+3. Sempre in `revokeApiKey`, aggiungere `isNull(apiKeys.revokedAt)` alla `WHERE`
+   della UPDATE. Il branch `if (!updated)` esistente già ritorna "Chiave non
+   trovata o non autorizzata.": una seconda revoca cade lì, che è il messaggio
+   corretto. **Non** introdurre un errore nuovo.
+4. Nessuna modifica ai messaggi d'errore di ownership/piano già presenti.
+5. **Test** (`src/server/api-key-actions.test.ts`):
+   - `listApiKeys("non-un-uuid")` → `{ error: "Identificativo non valido." }` e
+     `checkBusinessOwnership` **non** chiamato (asserire sul mock);
+   - idem `createApiKey` e `revokeApiKey`;
+   - UUID valido → comportamento invariato (i test esistenti devono restare verdi);
+   - revoca di una chiave già revocata → `{ error: ... }` e nessuna seconda
+     scrittura di `revokedAt`.
+
+---
 
 ### 11. `getCatalogItems` senza LIMIT + autocomplete server-side
 
@@ -131,6 +566,197 @@ fatto che i payload sono statici, ma è un single point of failure.
 ---
 
 ## P3 — Bassa priorità
+
+### 80. `saveAdeCredentials` è l'unica action credenziali AdE senza rate limit
+
+- **Categoria:** sicurezza/abuso · **Severità:** Low
+- **File:** `src/server/onboarding-actions.ts:385-465` (`saveAdeCredentials`, nessun limiter); limiter esistenti nello stesso file da riusare come modello: `:95` (`changePasswordLimiter`), `:106` (`verifyAdeLimiter`, usato a `:927`)
+
+**Problema.** `saveAdeCredentials` è autenticata e verifica l'ownership, ma non
+ha rate limit — a differenza di `verifyAdeCredentials` e `changeAdePassword`, le
+altre due action che toccano le credenziali AdE. Ogni chiamata: cifra 3 campi
+AES-256-GCM, esegue un upsert su `ade_credentials`, e soprattutto invalida
+**entrambe** le cache di sessione AdE del business
+(`adeSessionCache.invalidate` + `adeInteractiveSessionStore.invalidate`, righe
+finali della action) e fa `revalidatePath("/dashboard", "layout")`.
+
+L'invalidazione è la parte costosa: la sessione Fisconline vale ~10 round-trip
+HTTP verso AdE (è la ragione per cui `session-cache.ts` esiste), e per CIE la
+sessione **non è ri-creabile senza azione umana**. Un client in loop — o una
+sessione rubata — può quindi tenere un esercente permanentemente senza sessione
+AdE cached, degradando o bloccando l'emissione scontrini, oltre a generare write
+amplification sulla riga credenziali.
+
+**Fix (non ambiguo).**
+
+1. Aggiungere in cima a `onboarding-actions.ts`, accanto agli altri:
+   ```ts
+   const saveAdeCredentialsLimiter = new RateLimiter({
+     maxRequests: 10,
+     windowMs: RATE_LIMIT_WINDOWS.AUTH_15_MIN,
+   });
+   ```
+   10/15min è generoso per un flusso di onboarding con retry legittimi e resta
+   ben sotto la soglia di abuso. Chiave per-utente: `save-ade:${user.id}`
+   (per-utente, non per-IP: coerente con `verifyAdeLimiter` e con
+   `deleteAccountLimiter`, così utenti dietro lo stesso NAT non si bloccano).
+2. Posizionare il check **dopo** `getAuthenticatedUser` e **prima** della
+   validazione/cifratura (la cifratura è il primo costo CPU della action).
+3. Sul superamento: `logger.warn({ userId: user.id, errorClass: "save_ade_rate_limit" }, "saveAdeCredentials rate limit exceeded")`
+   e ritornare `{ error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES }` — stesso
+   messaggio delle altre action auth, nessuna stringa nuova.
+4. **Test** (`src/server/onboarding-actions.test.ts`): 10 chiamate consecutive
+   OK, l'11ª ritorna l'errore di rate limit **senza** toccare il DB né chiamare
+   `adeSessionCache.invalidate` (asserire sui mock). Ricordarsi di resettare il
+   limiter fra i test (i limiter sono singleton a livello di modulo).
+
+---
+
+### 81. Sweep GDPR: la query candidati aggrega l'intera tabella `commercial_documents` a ogni giro
+
+- **Categoria:** performance DB · **Severità:** Low (cresce col volume globale, non per-tenant)
+- **File:** `src/lib/services/inactive-user-prune.ts:116-146` (SELECT candidati con `LEFT JOIN (… GROUP BY b.profile_id)`); cadenza in `src/instrumentation.ts:84` (`INACTIVE_USER_PRUNE_INTERVAL_MS`, 24h)
+
+**Problema.** La SELECT dei candidati calcola l'ultima attività con un
+`LEFT JOIN (SELECT b.profile_id, MAX(cd.created_at) FROM businesses b JOIN
+commercial_documents cd ON cd.business_id = b.id GROUP BY b.profile_id)`: la
+subquery **scansiona e aggrega l'intera tabella scontrini di tutti i tenant**,
+anche se poi servono solo i pochi profili inattivi da 11+ mesi. Gira una volta
+al giorno (più un run iniziale a 15 min dal boot, e il container dev si
+ridéploya a ogni push su `main`).
+
+Aggravanti: la query non è dentro `withStatementTimeout` (a differenza di ogni
+altro percorso pesante della codebase), quindi sotto contention può pinnare una
+connessione del pool da 10 finché Postgres non decide da solo; e non ha `LIMIT`,
+quindi il batch può diventare arbitrariamente grande — con invii email in serie
+dentro il loop, che allungano ulteriormente la finestra fra lo snapshot e
+l'elaborazione (la ri-lettura pre-purge di `reReadCandidate`, finding #40, è già
+la mitigazione di questo, ma non del costo).
+
+Oggi l'impatto è trascurabile (volumi bassi); diventa rilevante quando
+`commercial_documents` supera qualche centinaio di migliaia di righe.
+
+**Fix (quando servirà).**
+
+1. Wrappare la SELECT candidati in `withStatementTimeout` (budget generoso, es.
+   30s: è un job di background, non un hot path) e, sul `57014`, loggare `warn` e
+   uscire ritornando `{ warned: 0, deleted: 0, reset: 0 }` — lo sweep del giorno
+   dopo riprova. Il `try/catch` che ritorna i contatori a zero **esiste già**:
+   basta aggiungere il timeout.
+2. Sostituire l'aggregato full-table con una subquery correlata `LATERAL` (o una
+   scalare) valutata **solo** sui profili che hanno già superato il filtro
+   temporale sui campi cheap (`created_at`, `last_sign_in_at`, `last_seen_at`) —
+   esattamente la forma già usata in `reReadCandidate:272-277`, il cui commento
+   spiega perché è più economica su un singolo profilo. In pratica: filtrare
+   prima sui tre timestamp locali, poi verificare `MAX(cd.created_at)` solo sui
+   sopravvissuti.
+3. Aggiungere `LIMIT` al batch (es. 500 candidati/sweep) con ordinamento
+   deterministico: lo sweep è giornaliero e la soglia è in mesi, quindi
+   processare a scaglioni non ritarda nulla di percepibile.
+4. Valutare un indice su `commercial_documents (business_id, created_at DESC)` —
+   `idx_commercial_documents_business_created` esiste già ed è sufficiente per la
+   forma correlata del punto 2; **nessuna migration nuova** se si adotta quella.
+5. **Test:** la query candidati è wrappata in `withStatementTimeout` (mock); su
+   `57014` ritorna i contatori a zero senza lanciare; con più candidati del
+   `LIMIT` ne processa esattamente `LIMIT` e i restanti al giro successivo.
+   _Trigger:_ p95 del sweep sopra qualche secondo, o `commercial_documents` oltre
+   ~500k righe.
+
+---
+
+### 82. `stripe_webhook_events` cresce senza retention e lo sweep gira senza indice
+
+- **Categoria:** manutenzione DB · **Severità:** Low
+- **File:** `src/db/schema/stripe-webhook-events.ts` (PK su `event_id`, nessun altro indice); sweep `src/instrumentation.ts:46-75` (`DELETE ... WHERE completed_at IS NULL AND processed_at < threshold`, ogni 10 min); scrittura `src/app/api/stripe/webhook/route.ts:95-99`
+
+**Problema.** La tabella di dedup accumula **una riga per ogni evento Stripe
+ricevuto, per sempre**: lo sweep cancella solo i claim _stuck_
+(`completed_at IS NULL`), mai le righe completate — che sono la quasi totalità.
+È corretto come dedup (una riga rimossa riaprirebbe la porta al riprocessamento
+di un evento vecchio), ma non ha alcuna politica di retention: Stripe non
+ritenta un evento oltre ~3 giorni, quindi righe più vecchie di qualche settimana
+non deduplicano più nulla e restano solo come peso.
+
+Secondo aspetto: lo sweep filtra su `completed_at`/`processed_at`, colonne senza
+indice — è un seq scan ogni 10 minuti su una tabella che cresce monotonicamente.
+
+**Fix (quando servirà).**
+
+1. Migration handwritten (regola 11 + skill `db-migrations`) con indice parziale
+   dedicato allo sweep:
+   ```sql
+   CREATE INDEX IF NOT EXISTS idx_stripe_webhook_events_stuck
+     ON stripe_webhook_events (processed_at)
+     WHERE completed_at IS NULL;
+   ```
+   Indice parziale, non completo: le righe `completed_at IS NULL` sono una
+   manciata, l'indice resta minuscolo e copre esattamente la `WHERE` dello sweep.
+2. Aggiungere al medesimo interval di `startStripeWebhookClaimSweep` una seconda
+   DELETE di retention, con finestra **molto** più larga della finestra di retry
+   di Stripe: `DELETE FROM stripe_webhook_events WHERE completed_at IS NOT NULL
+AND completed_at < now() - interval '30 days'`. 30 giorni è ~10× il massimo
+   ritentativo Stripe: nessun rischio di riprocessare un evento legittimo.
+   Serve un secondo indice parziale su `completed_at WHERE completed_at IS NOT NULL`,
+   oppure — più semplice — un unico indice su `(completed_at)` che serve entrambe
+   le query. Scegliere e motivare nel commento della migration.
+3. Loggare il conteggio delle righe eliminate a `info` solo se `> 0` (stesso
+   pattern del log esistente dello sweep), per non sporcare i log ogni 10 min.
+4. **Test:** riga completata più vecchia di 30 giorni → cancellata; riga
+   completata di ieri → intatta; riga con `completed_at IS NULL` → gestita dallo
+   sweep dei claim stuck, **non** da quello di retention (i due branch non devono
+   sovrapporsi). Aggiornare `src/instrumentation.test.ts` /
+   `src/instrumentation-keep-alive.test.ts` secondo la struttura esistente.
+   _Trigger:_ tabella oltre ~100k righe, o quando si tocca lo sweep per altro.
+
+---
+
+### 83. `getClientIp`: un `logger.error({critical:true})` **per richiesta** su misconfig Cloudflare
+
+- **Categoria:** osservabilità/costo · **Severità:** Low
+- **File:** `src/lib/get-client-ip.ts:34-40`; call-site pubblici che lo attraversano a ogni richiesta: `src/app/api/csp-report/route.ts:30`, `src/app/r/[documentId]/pdf/route.ts:24`, `src/server/auth-actions.ts:84-87`
+
+**Problema.** Quando `CF-Connecting-IP` manca in produzione, `getClientIp` emette
+un `logger.error({ critical: true })` — che il `logMethod` hook di
+`src/lib/logger.ts` (level ≥ 50) inoltra a `Sentry.captureMessage`. Il segnale è
+giusto e voluto (senza, la misconfig si scoprirebbe solo dopo un'ondata di abuso
+con tutti i bucket rate-limit collassati su `"unknown"`), ma non è **throttlato**:
+in una misconfigurazione reale ogni singola richiesta HTTP genera un evento
+Sentry. Sentry raggruppa gli eventi in una sola issue, ma il conteggio pesa sulla
+quota del piano free e allaga i Sentry Logs, cioè proprio lo strumento con cui si
+diagnosticherebbe l'incidente.
+
+**Fix (non ambiguo).**
+
+1. Throttlare l'allarme a livello di modulo, mantenendo il fail-closed
+   (il ritorno `"unknown"` non cambia mai):
+
+   ```ts
+   const MISSING_CF_IP_LOG_INTERVAL_MS = 5 * 60 * 1000;
+   let lastMissingCfIpLogAt = 0;
+   // dentro il branch production:
+   const now = Date.now();
+   if (now - lastMissingCfIpLogAt >= MISSING_CF_IP_LOG_INTERVAL_MS) {
+     lastMissingCfIpLogAt = now;
+     logger.error({ critical: true }, "CF-Connecting-IP header missing …");
+   }
+   ```
+
+   Al più 12 eventi/ora: abbastanza per accorgersene entro pochi minuti, non
+   abbastanza per bruciare la quota.
+
+2. Esportare un `resetMissingCfIpThrottleForTests()` (stesso pattern del reset
+   del singleton install-prompt, skill `pwa-serwist`) — senza, i test si
+   influenzano a vicenda in base all'ordine d'esecuzione.
+3. **Non** abbassare il livello a `warn`: la regola 20 riguarda gli errori
+   d'input **utente**; questa è una misconfigurazione infrastrutturale nostra e
+   deve restare un'issue Sentry.
+4. **Test** (`src/lib/get-client-ip.test.ts`): con `NODE_ENV=production`
+   (`vi.stubEnv`) e header assente, 100 chiamate consecutive → `logger.error`
+   invocato **una** sola volta e 100 valori di ritorno `"unknown"`; avanzando i
+   fake timer oltre l'intervallo, la chiamata successiva logga di nuovo; con
+   header presente, mai un log.
+
+---
 
 ### 62. Stampa termica: i due pacchetti `@point-of-sale/*` hanno tabelle divergenti
 
