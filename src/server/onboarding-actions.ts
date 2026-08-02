@@ -19,6 +19,7 @@ import {
   encrypt,
   decrypt,
   getEncryptionKey,
+  getEncryptionKeys,
   getKeyVersion,
 } from "@/lib/crypto";
 import { createAdeClient, getAdeMode } from "@/lib/ade";
@@ -967,8 +968,9 @@ export async function verifyAdeCredentials(
   // below will match 0 rows, preventing verifiedAt from being set on stale data.
   const credentialVersion = cred.updatedAt;
 
-  const key = getEncryptionKey();
-  const keys = new Map<number, Buffer>([[cred.keyVersion, key]]);
+  // Key map per VERSIONE reale (REVIEW #17): sotto rotazione la riga può
+  // essere ancora cifrata con la chiave precedente.
+  const keys = getEncryptionKeys();
 
   const adeClient = createAdeClient(getAdeMode());
 
@@ -1343,8 +1345,10 @@ export async function changeAdePassword(
     return { error: "Codice fiscale non disponibile per il cambio password." };
   }
 
+  // Si decifra da N versioni (`keys`, REVIEW #17) ma si ri-cifra sempre con la
+  // chiave corrente (`key`), coerentemente con `reencryptCredentialFields`.
   const key = getEncryptionKey();
-  const keys = new Map<number, Buffer>([[cred.keyVersion, key]]);
+  const keys = getEncryptionKeys();
   const codiceFiscale = decrypt(cred.encryptedCodiceFiscale, keys);
   // Snapshot per l'optimistic lock, letto PRIMA del flusso HTTP AdE: è la
   // finestra (secondi) in cui un altro tab può sostituire le credenziali.

@@ -90,7 +90,8 @@ Per chi preferisce gestire l'installazione in autonomia (gratis, ma anche tutta 
    ```bash
    node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
    ```
-   e impostala in `ENCRYPTION_KEY` (vedi `CLAUDE.md` per la procedura di rotazione).
+   e impostala in `ENCRYPTION_KEY` (procedura di rotazione zero-downtime
+   nell'header di `scripts/rotate-encryption-key.ts`).
 4. Build e run con Docker Compose (`next-app` + `cloudflared`):
    ```bash
    docker compose pull && docker compose up -d

@@ -160,36 +160,6 @@ errori tipizzati nativamente. L'encoder invece va tenuto: il mapping codepage è
 esattamente il pezzo che non ha senso riscrivere. _Trigger:_ una segnalazione di
 stampante non riconosciuta, o un altro breaking change fra le due versioni.
 
-### 17. Key rotation zero-downtime: i caller passano sempre una sola chiave
-
-- **Categoria:** sicurezza/operatività · **Severità:** Low (finché non serve ruotare)
-- **File:** `src/lib/crypto.ts:103` (`getEncryptionKey`), `:142` (doc del pattern); caller: `src/lib/server-auth.ts:123-127`, `src/server/onboarding-actions.ts:267,349,610`; script esistente: `scripts/rotate-encryption-key.ts`
-
-**Problema.** `decrypt()` supporta già `Map<number, Buffer>` multi-versione, ma
-tutti i caller costruiscono `new Map([[row.keyVersion, getEncryptionKey()]])`:
-mappano la versione **memorizzata** sulla chiave **corrente**. Dopo una rotazione
-di `ENCRYPTION_KEY` le credenziali cifrate con la versione precedente diventano
-illeggibili (decrypt fallisce) finché non si ri-cifra tutto: la rotazione
-zero-downtime è impossibile nello stato attuale dei caller.
-
-**Fix (non ambiguo).**
-
-1. Introdurre `getEncryptionKeys(): Map<number, Buffer>` in `crypto.ts` che legge
-   la chiave corrente (`ENCRYPTION_KEY` + `ENCRYPTION_KEY_VERSION`) e,
-   opzionalmente, la precedente (`ENCRYPTION_KEY_PREVIOUS` +
-   `ENCRYPTION_KEY_PREVIOUS_VERSION`), con validazione fail-fast coerente con
-   `getEncryptionKey`.
-2. Migrare i 4 caller a `decrypt(payload, getEncryptionKeys())`.
-3. Runbook documentato (in `scripts/rotate-encryption-key.ts` header o
-   `docs/`): (a) deploy con entrambe le chiavi in env; (b) run
-   `rotate-encryption-key.ts` che ri-cifra le righe `key_version` vecchia;
-   (c) rimozione della chiave precedente dall'env.
-4. **Test E2E:** cifra con v1 → rotazione → decrypt con Map {1: old, 2: new}
-   funziona; dopo re-encryption decrypt con sola v2 funziona; chiave mancante per
-   una versione presente nel DB → errore esplicito (non silent garbage).
-
----
-
 ### 23. Indice composito `api_keys (business_id, revoked_at)`
 
 - **Categoria:** performance DB · **Severità:** Low · **Target: Developer API Fase B** (ora nice-to-have in PLAN.md)

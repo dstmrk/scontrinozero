@@ -8,6 +8,7 @@ const {
   mockCheckBusinessOwnership,
   mockGetDb,
   mockGetEncryptionKey,
+  mockGetEncryptionKeys,
   mockGetKeyVersion,
   mockEncrypt,
   mockDecrypt,
@@ -31,6 +32,7 @@ const {
   mockCheckBusinessOwnership: vi.fn(),
   mockGetDb: vi.fn(),
   mockGetEncryptionKey: vi.fn(),
+  mockGetEncryptionKeys: vi.fn(),
   mockGetKeyVersion: vi.fn(),
   mockEncrypt: vi.fn(),
   mockDecrypt: vi.fn(),
@@ -69,6 +71,7 @@ vi.mock("@/db/schema", () => ({
 
 vi.mock("@/lib/crypto", () => ({
   getEncryptionKey: mockGetEncryptionKey,
+  getEncryptionKeys: mockGetEncryptionKeys,
   getKeyVersion: mockGetKeyVersion,
   encrypt: mockEncrypt,
   decrypt: mockDecrypt,
@@ -192,6 +195,9 @@ describe("verifyAdeCredentials", () => {
     });
     mockCheckBusinessOwnership.mockResolvedValue(null);
     mockGetEncryptionKey.mockReturnValue(Buffer.from("a".repeat(32)));
+    mockGetEncryptionKeys.mockReturnValue(
+      new Map([[1, Buffer.from("a".repeat(32))]]),
+    );
     mockGetKeyVersion.mockReturnValue(1);
     mockDecrypt.mockReturnValue("decrypted-value");
 

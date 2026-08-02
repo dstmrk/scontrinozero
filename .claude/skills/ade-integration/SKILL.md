@@ -131,32 +131,47 @@ flusso, l'invariante da testare è: nessun percorso chiama `submitSale`/
 Le credenziali Fisconline sono cifrate con AES-256-GCM; la chiave sta in
 `ENCRYPTION_KEY` (env var, 64 hex chars). Se compromessa o da ruotare:
 
-### Procedura obbligatoria prima del deploy
+### Runbook zero-downtime in tre fasi
 
-**PRIMA di cambiare l'env var sul server**, eseguire la migrazione:
+L'app costruisce la key map di `decrypt()` con **`getEncryptionKeys()`**
+(`src/lib/crypto.ts`), che tiene in memoria la chiave corrente **più** quella
+precedente opzionale: durante la rotazione righe a v1 e righe a v2 sono
+entrambe leggibili, quindi non serve alcuna finestra di fermo.
+
+**Fase 1 — deploy con entrambe le chiavi in env:**
+
+```bash
+ENCRYPTION_KEY=<NUOVA_64_HEX>            ENCRYPTION_KEY_VERSION=<NUOVA>
+ENCRYPTION_KEY_PREVIOUS=<VECCHIA_64_HEX> ENCRYPTION_KEY_PREVIOUS_VERSION=<VECCHIA>
+```
+
+Da qui le nuove scritture nascono già alla versione nuova. Smoke post-deploy
+(regola 25) **prima** di procedere: una config a metà (`ENCRYPTION_KEY_PREVIOUS`
+senza la sua `_VERSION`, o le due versioni uguali, o la stessa chiave in
+entrambe) fa fallire `getEncryptionKeys()` con messaggio esplicito.
+
+**Fase 2 — ri-cifrare le righe rimaste indietro** (ad app accesa):
 
 ```bash
 npx tsx scripts/rotate-encryption-key.ts \
-  --old-key  $ENCRYPTION_KEY \
-  --old-version $ENCRYPTION_KEY_VERSION \
-  --new-key  <NEW_64_HEX_KEY> \
-  --new-version <NEW_VERSION>
+  --old-key  $ENCRYPTION_KEY_PREVIOUS \
+  --old-version $ENCRYPTION_KEY_PREVIOUS_VERSION \
+  --new-key  <NUOVA_64_HEX> \
+  --new-version <NUOVA_VERSIONE>
 ```
 
-`scripts/rotate-encryption-key.ts`:
+Lo script legge tutti i record `ade_credentials`, decifra con la vecchia chiave,
+ri-cifra con la nuova, aggiorna `key_version`, il tutto in `db.transaction()`
+(atomico). È **idempotente**: salta le righe già alla nuova versione, quindi è
+ri-eseguibile. Ripetere finché `Rotated: 0, Skipped: <tutte>`.
 
-- Legge tutti i record `ade_credentials`
-- Decifra con la vecchia chiave
-- Ricicla con la nuova chiave
-- Aggiorna `key_version` nel DB
-- Wrappa tutto in `db.transaction()` → atomico
+**Fase 3 — rimuovere `ENCRYPTION_KEY_PREVIOUS*` dall'env e ri-deployare.** Mai
+prima della fase 2 completa: una riga ancora a v1 senza chiave v1 in env fa
+fallire `decrypt()` con `Unknown key version: 1` (errore esplicito, non dato
+corrotto — ma le credenziali di quel business restano inutilizzabili).
 
-Dopo la migrazione verificare che tutti i record abbiano `key_version = NEW_VERSION`,
-poi aggiornare le env var sul server e fare deploy.
-
-**Rollback:** se il deploy fallisce, riportare le env var alla versione precedente —
-i record con il vecchio `key_version` sono ancora decifrabili con la vecchia chiave
-(presente nell'immagine Docker precedente).
+**Rollback (fasi 1-2):** invertire le due env (vecchia come `ENCRYPTION_KEY`,
+nuova come `ENCRYPTION_KEY_PREVIOUS`) e ri-eseguire lo script a parti invertite.
 
 ### Generare una nuova chiave
 

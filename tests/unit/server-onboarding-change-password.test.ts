@@ -18,6 +18,7 @@ const {
   mockUpdateReturning,
   mockGetKeyVersion,
   mockGetEncryptionKey,
+  mockGetEncryptionKeys,
   mockDecrypt,
   mockEncrypt,
   mockCreateAdeClient,
@@ -39,6 +40,7 @@ const {
   mockUpdateReturning: vi.fn(),
   mockGetKeyVersion: vi.fn(),
   mockGetEncryptionKey: vi.fn(),
+  mockGetEncryptionKeys: vi.fn(),
   mockDecrypt: vi.fn(),
   mockEncrypt: vi.fn(),
   mockCreateAdeClient: vi.fn(),
@@ -70,6 +72,7 @@ vi.mock("@/lib/crypto", () => ({
   encrypt: mockEncrypt,
   decrypt: mockDecrypt,
   getEncryptionKey: mockGetEncryptionKey,
+  getEncryptionKeys: mockGetEncryptionKeys,
   // Hoisted (non `vi.fn()` inline): `vi.resetAllMocks()` nei beforeEach
   // azzererebbe l'implementazione di un mock inline, facendo tornare
   // `undefined` come key version.
@@ -150,6 +153,7 @@ describe("changeAdePassword", () => {
     mockCheckBusinessOwnership.mockResolvedValue(null);
     mockRateLimiterCheck.mockReturnValue({ success: true });
     mockGetEncryptionKey.mockReturnValue(FAKE_KEY);
+    mockGetEncryptionKeys.mockReturnValue(new Map([[1, FAKE_KEY]]));
     mockGetKeyVersion.mockReturnValue(1);
     mockDecrypt.mockReturnValue("CODICEFISCALE12");
     mockEncrypt.mockReturnValue("new-enc-pw");
@@ -322,6 +326,7 @@ describe("verifyAdeCredentials — AdePasswordExpiredError", () => {
     // default check() ritorna undefined dopo resetAllMocks → crash su .success.
     mockRateLimiterCheck.mockReturnValue({ success: true });
     mockGetEncryptionKey.mockReturnValue(FAKE_KEY);
+    mockGetEncryptionKeys.mockReturnValue(new Map([[1, FAKE_KEY]]));
     mockDecrypt.mockReturnValue("decoded");
     mockAdeLogin.mockResolvedValue({});
     mockCreateAdeClient.mockReturnValue({
