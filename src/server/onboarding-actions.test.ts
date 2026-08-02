@@ -100,6 +100,12 @@ vi.mock("@/lib/crypto", () => ({
   // Legge la env come il modulo reale: serve ai test di rotazione chiave
   // (REVIEW #71), dove ENCRYPTION_KEY_VERSION=2 su righe ancora a v1.
   getKeyVersion: () => Number(process.env.ENCRYPTION_KEY_VERSION ?? "1"),
+  // Map corrente + precedente, come il modulo reale sotto rotazione (#17).
+  getEncryptionKeys: () =>
+    new Map([
+      [Number(process.env.ENCRYPTION_KEY_VERSION ?? "1"), Buffer.alloc(32)],
+      [1, Buffer.alloc(32)],
+    ]),
 }));
 
 const mockLogin = vi.fn();

@@ -4,7 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getDb } from "@/db";
 import { adeCredentials, businesses, profiles } from "@/db/schema";
-import { decrypt, getEncryptionKey } from "@/lib/crypto";
+import { decrypt, getEncryptionKeys } from "@/lib/crypto";
 import { buildCedenteFromBusiness } from "@/lib/ade/mapper";
 import { UnauthenticatedError } from "@/lib/auth-errors";
 import { logger } from "@/lib/logger";
@@ -225,8 +225,9 @@ export async function fetchAdePrerequisites(
     };
   }
 
-  const key = getEncryptionKey();
-  const keys = new Map<number, Buffer>([[row.cred.keyVersion, key]]);
+  // Key map per VERSIONE reale (REVIEW #17): la riga può essere ancora alla
+  // chiave precedente durante una rotazione.
+  const keys = getEncryptionKeys();
   const codiceFiscale = decrypt(row.cred.encryptedCodiceFiscale, keys);
   const password = decrypt(row.cred.encryptedPassword, keys);
   const pin = decrypt(row.cred.encryptedPin, keys);

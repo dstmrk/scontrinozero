@@ -1,8 +1,34 @@
 /**
  * Key rotation script for ade_credentials.
  *
- * Re-encrypts all Fisconline credentials from old ENCRYPTION_KEY to a new one.
- * Run this BEFORE deploying updated env vars to the server.
+ * Ri-cifra le credenziali dalla vecchia ENCRYPTION_KEY alla nuova. È il passo 2
+ * di un runbook in tre fasi che NON richiede downtime (REVIEW #17): l'app legge
+ * la key map con `getEncryptionKeys()` (`src/lib/crypto.ts`), quindi durante la
+ * rotazione decifra sia le righe già ruotate sia quelle ancora alla versione
+ * precedente.
+ *
+ *   Fase 1 — deploy con ENTRAMBE le chiavi in env:
+ *     ENCRYPTION_KEY=<nuova>            ENCRYPTION_KEY_VERSION=<nuova versione>
+ *     ENCRYPTION_KEY_PREVIOUS=<vecchia> ENCRYPTION_KEY_PREVIOUS_VERSION=<vecchia>
+ *     Da qui le nuove scritture nascono già alla versione nuova e le righe
+ *     vecchie restano leggibili. Verificare con lo smoke post-deploy
+ *     (regola 25) prima di procedere.
+ *
+ *   Fase 2 — questo script, che ri-cifra le righe rimaste alla versione
+ *     precedente. È idempotente: le righe già alla nuova versione sono
+ *     saltate, quindi può essere ri-eseguito senza danni. Va eseguito ad app
+ *     accesa; l'unica finestra di rischio è una scrittura concorrente sulla
+ *     stessa riga (cambio password AdE), coperta dall'optimistic lock su
+ *     `updated_at` in `changeAdePassword`.
+ *
+ *   Fase 3 — rimuovere ENCRYPTION_KEY_PREVIOUS* dall'env e ri-deployare, solo
+ *     dopo che lo script riporta `Rotated: N, Skipped: <tutte le righe>`.
+ *     Rimuoverla prima rende illeggibili le righe non ancora ruotate
+ *     ("Unknown key version" esplicito, non garbage).
+ *
+ * Rollback (fasi 1-2): rimettere la vecchia chiave come ENCRYPTION_KEY e la
+ * nuova come ENCRYPTION_KEY_PREVIOUS, poi ri-eseguire lo script a parti
+ * invertite.
  *
  * Usage:
  *   npx tsx scripts/rotate-encryption-key.ts \
@@ -10,8 +36,6 @@
  *     --old-version <integer>    \
  *     --new-key  <64 hex chars>  \
  *     --new-version <integer>
- *
- * See CLAUDE.md rule 24 for the full rotation runbook.
  */
 
 import postgres from "postgres";

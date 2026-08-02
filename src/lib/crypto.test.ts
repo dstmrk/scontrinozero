@@ -8,6 +8,7 @@ import {
   decrypt,
   generateKey,
   getEncryptionKey,
+  getEncryptionKeys,
   getKeyVersion,
 } from "./crypto";
 
@@ -125,6 +126,13 @@ describe("getEncryptionKey", () => {
     process.env.ENCRYPTION_KEY = "abc123";
     expect(() => getEncryptionKey()).toThrow("ENCRYPTION_KEY");
   });
+
+  it("throws when ENCRYPTION_KEY is 64 chars but not hex", () => {
+    // Prima del fix passava la sola check di lunghezza: `Buffer.from(hex, "hex")`
+    // troncava silenziosamente al primo carattere non-hex → chiave corta.
+    process.env.ENCRYPTION_KEY = "z".repeat(64);
+    expect(() => getEncryptionKey()).toThrow("ENCRYPTION_KEY");
+  });
 });
 
 describe("getKeyVersion", () => {
@@ -173,4 +181,226 @@ describe("getKeyVersion", () => {
       expect(() => getKeyVersion()).toThrow(/ENCRYPTION_KEY_VERSION/);
     },
   );
+});
+
+describe("getEncryptionKeys", () => {
+  const KEY_ENVS = [
+    "ENCRYPTION_KEY",
+    "ENCRYPTION_KEY_VERSION",
+    "ENCRYPTION_KEY_PREVIOUS",
+    "ENCRYPTION_KEY_PREVIOUS_VERSION",
+  ] as const;
+  const original = new Map(KEY_ENVS.map((name) => [name, process.env[name]]));
+
+  const CURRENT_HEX = "ab".repeat(32);
+  const PREVIOUS_HEX = "cd".repeat(32);
+
+  afterEach(() => {
+    for (const name of KEY_ENVS) {
+      const value = original.get(name);
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  });
+
+  function setCurrent(hex = CURRENT_HEX, version = "2") {
+    process.env.ENCRYPTION_KEY = hex;
+    process.env.ENCRYPTION_KEY_VERSION = version;
+  }
+
+  function setPrevious(hex = PREVIOUS_HEX, version = "1") {
+    process.env.ENCRYPTION_KEY_PREVIOUS = hex;
+    process.env.ENCRYPTION_KEY_PREVIOUS_VERSION = version;
+  }
+
+  function clearPrevious() {
+    delete process.env.ENCRYPTION_KEY_PREVIOUS;
+    delete process.env.ENCRYPTION_KEY_PREVIOUS_VERSION;
+  }
+
+  it("returns only the current key when no previous key is configured", () => {
+    setCurrent(CURRENT_HEX, "2");
+    clearPrevious();
+
+    const keys = getEncryptionKeys();
+
+    expect([...keys.keys()]).toEqual([2]);
+    expect(keys.get(2)?.toString("hex")).toBe(CURRENT_HEX);
+  });
+
+  it("defaults the current version to 1 when ENCRYPTION_KEY_VERSION is unset", () => {
+    process.env.ENCRYPTION_KEY = CURRENT_HEX;
+    delete process.env.ENCRYPTION_KEY_VERSION;
+    clearPrevious();
+
+    expect([...getEncryptionKeys().keys()]).toEqual([1]);
+  });
+
+  it("returns both versions when the previous key is configured", () => {
+    setCurrent(CURRENT_HEX, "2");
+    setPrevious(PREVIOUS_HEX, "1");
+
+    const keys = getEncryptionKeys();
+
+    expect([...keys.keys()].sort((a, b) => a - b)).toEqual([1, 2]);
+    expect(keys.get(1)?.toString("hex")).toBe(PREVIOUS_HEX);
+    expect(keys.get(2)?.toString("hex")).toBe(CURRENT_HEX);
+  });
+
+  it("treats present-but-empty previous envs as not configured (regola 18)", () => {
+    setCurrent(CURRENT_HEX, "2");
+    process.env.ENCRYPTION_KEY_PREVIOUS = "";
+    process.env.ENCRYPTION_KEY_PREVIOUS_VERSION = "";
+
+    expect([...getEncryptionKeys().keys()]).toEqual([2]);
+  });
+
+  it("throws when the previous key is set without its version", () => {
+    setCurrent(CURRENT_HEX, "2");
+    clearPrevious();
+    process.env.ENCRYPTION_KEY_PREVIOUS = PREVIOUS_HEX;
+
+    expect(() => getEncryptionKeys()).toThrow(
+      /ENCRYPTION_KEY_PREVIOUS_VERSION/,
+    );
+  });
+
+  it("throws when the previous version is set without its key", () => {
+    setCurrent(CURRENT_HEX, "2");
+    clearPrevious();
+    process.env.ENCRYPTION_KEY_PREVIOUS_VERSION = "1";
+
+    expect(() => getEncryptionKeys()).toThrow(/ENCRYPTION_KEY_PREVIOUS/);
+  });
+
+  it.each(["abc123", "zz".repeat(32), "ab".repeat(31)])(
+    "throws on a malformed previous key %s",
+    (hex) => {
+      setCurrent(CURRENT_HEX, "2");
+      setPrevious(hex, "1");
+
+      expect(() => getEncryptionKeys()).toThrow(/ENCRYPTION_KEY_PREVIOUS/);
+    },
+  );
+
+  it.each(["0", "256", "abc", "1.5", ""])(
+    "throws on an invalid previous version %s",
+    (version) => {
+      setCurrent(CURRENT_HEX, "2");
+      process.env.ENCRYPTION_KEY_PREVIOUS = PREVIOUS_HEX;
+      process.env.ENCRYPTION_KEY_PREVIOUS_VERSION = version;
+
+      expect(() => getEncryptionKeys()).toThrow(
+        /ENCRYPTION_KEY_PREVIOUS_VERSION/,
+      );
+    },
+  );
+
+  it("throws when previous and current share the same version", () => {
+    setCurrent(CURRENT_HEX, "2");
+    setPrevious(PREVIOUS_HEX, "2");
+
+    expect(() => getEncryptionKeys()).toThrow(/same version/i);
+  });
+
+  it("throws when the previous key is a copy of the current key", () => {
+    setCurrent(CURRENT_HEX, "2");
+    setPrevious(CURRENT_HEX, "1");
+
+    expect(() => getEncryptionKeys()).toThrow(/same key/i);
+  });
+
+  it("accepts a previous version higher than the current one (rollback)", () => {
+    // Rollback di una rotazione: la chiave "precedente" è quella nuova, con
+    // versione più alta. Legale — l'ordine delle versioni non è un vincolo.
+    setCurrent(CURRENT_HEX, "2");
+    setPrevious(PREVIOUS_HEX, "3");
+
+    const keys = getEncryptionKeys();
+
+    expect([...keys.keys()].sort((a, b) => a - b)).toEqual([2, 3]);
+  });
+
+  it("propagates the ENCRYPTION_KEY failure when the current key is missing", () => {
+    delete process.env.ENCRYPTION_KEY;
+    clearPrevious();
+
+    expect(() => getEncryptionKeys()).toThrow("ENCRYPTION_KEY");
+  });
+});
+
+describe("key rotation E2E (REVIEW #17)", () => {
+  const KEY_ENVS = [
+    "ENCRYPTION_KEY",
+    "ENCRYPTION_KEY_VERSION",
+    "ENCRYPTION_KEY_PREVIOUS",
+    "ENCRYPTION_KEY_PREVIOUS_VERSION",
+  ] as const;
+  const original = new Map(KEY_ENVS.map((name) => [name, process.env[name]]));
+
+  const OLD_HEX = "11".repeat(32);
+  const NEW_HEX = "22".repeat(32);
+
+  afterEach(() => {
+    for (const name of KEY_ENVS) {
+      const value = original.get(name);
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  });
+
+  it("decrypts v1 rows after rotating to v2 with both keys in env", () => {
+    // Fase A: cifrato in produzione con la sola chiave v1.
+    process.env.ENCRYPTION_KEY = OLD_HEX;
+    process.env.ENCRYPTION_KEY_VERSION = "1";
+    const stored = encrypt("PIN-1234", getEncryptionKey(), getKeyVersion());
+
+    // Fase B: deploy con entrambe le chiavi, prima di ri-cifrare le righe.
+    process.env.ENCRYPTION_KEY = NEW_HEX;
+    process.env.ENCRYPTION_KEY_VERSION = "2";
+    process.env.ENCRYPTION_KEY_PREVIOUS = OLD_HEX;
+    process.env.ENCRYPTION_KEY_PREVIOUS_VERSION = "1";
+
+    expect(decrypt(stored, getEncryptionKeys())).toBe("PIN-1234");
+  });
+
+  it("decrypts with the current key alone once the row is re-encrypted (fase C)", () => {
+    process.env.ENCRYPTION_KEY = OLD_HEX;
+    process.env.ENCRYPTION_KEY_VERSION = "1";
+    const stored = encrypt("PIN-1234", getEncryptionKey(), getKeyVersion());
+
+    process.env.ENCRYPTION_KEY = NEW_HEX;
+    process.env.ENCRYPTION_KEY_VERSION = "2";
+    process.env.ENCRYPTION_KEY_PREVIOUS = OLD_HEX;
+    process.env.ENCRYPTION_KEY_PREVIOUS_VERSION = "1";
+
+    // Ri-cifratura (scripts/rotate-encryption-key.ts) → riga marcata v2.
+    const rotated = encrypt(
+      decrypt(stored, getEncryptionKeys()),
+      getEncryptionKey(),
+      getKeyVersion(),
+    );
+
+    // Fase C: chiave precedente rimossa dall'env.
+    delete process.env.ENCRYPTION_KEY_PREVIOUS;
+    delete process.env.ENCRYPTION_KEY_PREVIOUS_VERSION;
+
+    expect(decrypt(rotated, getEncryptionKeys())).toBe("PIN-1234");
+  });
+
+  it("fails explicitly when a stored version has no key in env", () => {
+    process.env.ENCRYPTION_KEY = OLD_HEX;
+    process.env.ENCRYPTION_KEY_VERSION = "1";
+    const stored = encrypt("PIN-1234", getEncryptionKey(), getKeyVersion());
+
+    // Rotazione senza chiave precedente in env: errore esplicito, non garbage.
+    process.env.ENCRYPTION_KEY = NEW_HEX;
+    process.env.ENCRYPTION_KEY_VERSION = "2";
+    delete process.env.ENCRYPTION_KEY_PREVIOUS;
+    delete process.env.ENCRYPTION_KEY_PREVIOUS_VERSION;
+
+    expect(() => decrypt(stored, getEncryptionKeys())).toThrow(
+      "Unknown key version: 1",
+    );
+  });
 });

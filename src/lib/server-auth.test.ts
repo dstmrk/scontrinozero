@@ -44,6 +44,7 @@ const mockDecrypt = vi.fn().mockReturnValue("decrypted-value");
 vi.mock("@/lib/crypto", () => ({
   decrypt: (...args: unknown[]) => mockDecrypt(...args),
   getEncryptionKey: () => Buffer.alloc(32),
+  getEncryptionKeys: () => new Map([[1, Buffer.alloc(32)]]),
 }));
 
 const mockBuildCedenteFromBusiness = vi

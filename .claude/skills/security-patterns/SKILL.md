@@ -259,7 +259,15 @@ di quella riga. Da qui due regole:
    Include i campi opzionali (`encrypted_pin`, `encrypted_username`): decifra e
    ri-cifra solo se non-null, mai `decrypt(null)`.
 
-Riferimento: `reencryptCredentialFields` in `src/server/onboarding-actions.ts`.
+3. **Lato lettura, la key map viene da `getEncryptionKeys()`** (`src/lib/crypto.ts`),
+   mai da `new Map([[row.keyVersion, getEncryptionKey()]])`: quest'ultima mappa
+   la versione **memorizzata** sulla chiave **corrente**, cioè mente esattamente
+   nella finestra di rotazione in cui la key map serve. Simmetria da tenere a
+   mente: si **decifra** da N versioni (`getEncryptionKeys()`), si **cifra** su
+   una sola (`getEncryptionKey()` + `getKeyVersion()`).
+
+Riferimento: `reencryptCredentialFields` in `src/server/onboarding-actions.ts`;
+runbook di rotazione nella skill `ade-integration`.
 
 **Test:** con `ENCRYPTION_KEY_VERSION` diverso dalla `keyVersion` della riga,
 asserire che OGNI chiamata a `encrypt` usa la versione corrente e che il set
