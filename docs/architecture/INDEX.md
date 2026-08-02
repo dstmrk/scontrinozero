@@ -9,9 +9,11 @@
 >
 > ⚠️ **Tieni vivo questo file.** Quando sposti/rinomini/aggiungi un modulo
 > cross-cutting, cambi un flusso o una soglia, aggiorna la mappa nello stesso PR
-> ed esegui `npm run arch:check` (CLAUDE.md regola 26). Le citazioni di path qui
-> sotto sono validate da `scripts/check-architecture-docs.mjs`: ogni path in
-> `code span` deve esistere su disco.
+> ed esegui `npm run arch:check` (CLAUDE.md regola 26). Le citazioni qui sotto
+> sono validate da `scripts/check-architecture-docs.mjs`: ogni path in
+> `code span` deve esistere su disco, ogni citazione skill `<nome>` deve
+> risolvere a una directory sotto `.claude/skills`, e ogni skill esistente deve
+> comparire in almeno un indice (qui o in `CLAUDE.md`).
 
 ## Stack in una riga
 

@@ -194,15 +194,26 @@ carta all'iscrizione. P.IVA UNIQUE nel DB (anti-abuso trial).
 ## Skill dominio-specifiche (`.claude/skills/`)
 
 Si auto-attivano quando il task matcha la `description` (non serve elencarle
-qui: il harness le inietta già). Le 13 skill: `ade-integration`,
-`db-migrations`, `deploy-release`, `marketing-content`, `money-rounding`,
-`playwright-verify`, `pwa-serwist`, `react-patterns`, `security-patterns`,
-`sentry-hygiene`, `sonar-quality-gate`, `stripe-webhooks`, `testing-patterns`.
+qui: il harness le inietta già): `ade-integration`, `db-migrations`,
+`deploy-release`, `marketing-content`, `money-rounding`, `playwright-verify`,
+`pwa-serwist`, `react-patterns`, `security-patterns`, `sentry-hygiene`,
+`sonar-quality-gate`, `stripe-webhooks`, `testing-patterns`.
+
+Questo elenco è **verificato da `npm run arch:check`**: una skill nuova non
+citata qui fa fallire il check, e ogni citazione nella forma
+skill `<nome>` — in CLAUDE.md, nelle skill e in `docs/architecture/` — deve
+risolvere a una directory esistente sotto `.claude/skills`.
 
 ## Hook automatici (`.claude/hooks/`)
 
-- `block-drizzle-generate.sh` — blocca `drizzle-kit generate` (regola 11)
-- `block-push-to-main.sh` — blocca `git push` verso `main` (regola 1)
-- `block-commit-on-main.sh` — blocca `git commit` sul branch `main` (regola 1)
-- `check-arch-docs-on-edit.sh` — esegue arch:check dopo ogni edit ai doc meta
-  (regola 26)
+- `.claude/hooks/block-drizzle-generate.sh` — blocca `drizzle-kit generate`
+  (regola 11)
+- `.claude/hooks/block-push-to-main.sh` — blocca `git push` verso `main`
+  (regola 1)
+- `.claude/hooks/block-commit-on-main.sh` — blocca `git commit` sul branch
+  `main` (regola 1)
+- `.claude/hooks/check-arch-docs-on-edit.sh` — esegue arch:check dopo ogni edit
+  ai doc meta (regola 26)
+
+Ogni hook ha la sua suite (`.claude/hooks/test-*.sh`), eseguita in CI dal job
+`hook-tests` quando cambia `.claude/hooks/`.
