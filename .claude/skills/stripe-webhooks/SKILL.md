@@ -37,7 +37,7 @@ e la recovery da `past_due` non funziona mai.
 | `checkout.session.expired`        | Cleanup righe `pending` abbandonate (24h di default)         |
 | `customer.subscription.updated`   | Rinnovi, upgrade/downgrade, recovery da `past_due`           |
 | `customer.subscription.deleted`   | Cancellazione → reset a `trial` in transaction               |
-| `invoice.paid`                    | Aggiorna `currentPeriodEnd` su ogni rinnovo (safety net)     |
+| `invoice.paid`                    | Registrato/deduplicato, **nessuna scrittura** (vedi sotto)   |
 | `invoice.payment_failed`          | Imposta status `past_due`                                    |
 | `invoice.payment_action_required` | 3D Secure / SCA obbligatorio in EU (PSD2)                    |
 | `charge.dispute.created`          | Alert chargeback con `critical: true` — nessuna scrittura DB |
@@ -47,6 +47,40 @@ e la recovery da `past_due` non funziona mai.
 - `customer.subscription.created` — coperto da `checkout.session.completed`
 - `payment_intent.*` — coperti dagli eventi `invoice.*`
 - `customer.subscription.paused/resumed` — feature non usata
+
+### Ordering: Stripe non garantisce l'ordine di consegna
+
+Un evento consegnato in ritardo (retry fino a 3 giorni, consegne concorrenti)
+può riportare in DB uno stato **già superato**: due `customer.subscription.updated`
+ravvicinati — "annulla a fine periodo" poi "riattiva" dal portale — invertiti
+lasciano `cancel_at_period_end = true` finché un evento successivo non corregge.
+La dedup per `event.id` protegge dai duplicati, **non** dall'ordine.
+
+Guardia: `subscriptions.last_stripe_event_created` è il watermark
+`event.created` dell'ultimo evento **full-sync** applicato. `syncSubscriptionData`
+e `handleSubscriptionDeleted` aggiungono alla WHERE dell'UPDATE
+`isNotOlderThanWatermark(eventCreatedAt)` → `watermark IS NULL OR watermark <= created`;
+0 righe ⇒ evento stale ⇒ `logger.warn` `stripe_event_out_of_order` + **200**
+(ack, niente retry: l'evento è processato, non fallito).
+
+Tre regole quando tocchi il webhook:
+
+1. **La guardia vive nella WHERE, non in un read-then-write.** Sotto READ
+   COMMITTED il secondo UPDATE concorrente si accoda sul row lock e rivaluta la
+   condizione sulla riga aggiornata. Un confronto letto in anticipo ha una
+   finestra TOCTOU e con due consegne simultanee fa vincere l'ultimo a
+   committare — cioè il bug che stai cercando di chiudere.
+2. **Gli handler `invoice.*` non toccano il watermark.** Scrivono campi mirati
+   (solo `status` via `applySubscriptionUpdate`), non un full-sync: alzare il
+   watermark col `created` di un'invoice scarterebbe il
+   `customer.subscription.updated` appaiato, che ha spesso un `created` di poco
+   precedente. Per lo stesso motivo `invoice.paid` **non scrive**
+   `currentPeriodEnd`: `invoice.period_end` è la fine del ciclo appena _chiuso_,
+   e il writer unico di quella grandezza è `syncSubscriptionData`.
+3. **Il lookup `subRow` precede l'UPDATE full-sync**, per distinguere le due
+   cause di "0 righe": riga assente (desync reale → throw, Stripe ritenta) vs
+   guardia scattata (evento stale → warn + ack). Invertirli rende un desync
+   indistinguibile da un evento vecchio, e finirebbe silenziosamente in un warn.
 
 ### Stato "misto" subscription card (pending + trial)
 

@@ -323,34 +323,6 @@ shape esatta non è verificata a runtime.
 
 ---
 
-### 61. Webhook Stripe senza guardia sull'ordine degli eventi (`event.created`)
-
-- **Categoria:** robustezza/billing · **Severità:** Low — Stripe di norma consegna in ordine, ma non lo garantisce (retry, concorrenza)
-- **File:** `src/app/api/stripe/webhook/route.ts:255-259` (`customer.subscription.updated` → `syncSubscriptionData` applica sempre) e `:373-443` (`syncSubscriptionData` sovrascrive status/priceId/cancelAtPeriodEnd/currentPeriodEnd senza confronto temporale); schema: `src/db/schema/subscriptions.ts`
-
-**Problema.** Due `customer.subscription.updated` ravvicinati (es. annulla a
-fine periodo → riattiva dal portale) consegnati fuori ordine lasciano nel DB
-lo stato **vecchio** (`cancelAtPeriodEnd: true`) finché un evento successivo
-non lo corregge — con effetto su copy UI e gate. La dedup per `event.id` non
-protegge dall'ordering; i retry di Stripe (fino a 3 giorni) amplificano la
-finestra.
-
-**Fix (non ambiguo).**
-
-1. Colonna `last_stripe_event_created` (timestamptz, nullable) su
-   `subscriptions` (migration handwritten, skill `db-migrations`).
-2. In `syncSubscriptionData` e `handleSubscriptionDeleted`: passare
-   `event.created`; l'UPDATE aggiunge
-   `WHERE last_stripe_event_created IS NULL OR last_stripe_event_created <= to_timestamp($created)`
-   e imposta la colonna. Evento più vecchio → 0 righe → log `warn`
-   `stripe_event_out_of_order` e **200** (ack, niente retry).
-3. Gli handler `invoice.*` (campi mirati, non full-sync) restano invariati.
-4. **Test:** updated con `created` più vecchio del registrato → stato DB
-   invariato + warn; sequenza in ordine → invariato; primo evento (colonna
-   NULL) → applica.
-
----
-
 ## Rischi accettati (documentati, non da fixare)
 
 Scelte consapevoli con un trigger di riapertura. Non sono finding da pianificare.

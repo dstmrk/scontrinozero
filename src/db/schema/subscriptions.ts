@@ -28,6 +28,17 @@ export const subscriptions = pgTable("subscriptions", {
   cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
   /** 'month' | 'year' */
   interval: text("interval"),
+  /**
+   * Watermark `event.created` dell'ultimo evento Stripe **full-sync** applicato
+   * (`syncSubscriptionData`, `handleSubscriptionDeleted`). Stripe non garantisce
+   * l'ordine di consegna: senza questa guardia due `customer.subscription.updated`
+   * ravvicinati consegnati fuori ordine lasciano in DB lo stato vecchio
+   * (REVIEW.md #61). Gli handler `invoice.*` non lo toccano: scrivono campi
+   * mirati, non un full-sync. NULL = nessun evento registrato → il primo applica.
+   */
+  lastStripeEventCreated: timestamp("last_stripe_event_created", {
+    withTimezone: true,
+  }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
