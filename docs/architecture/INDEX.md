@@ -144,7 +144,8 @@ project, leggero sulle risorse):
 - **Stripe** (fee EU 1.5% + €0.25, API ottima; MoR rimandato)
 - **Resend** (free 3k/mese, React Email type-safe)
 - **TDD** (integrazione AdE fragile, refactoring sicuro)
-- **Due ambienti** (AdE irreversibile: uno scontrino emesso non si cancella)
+- **Tre ambienti** prod/sandbox/dev (AdE irreversibile: uno scontrino emesso non
+  si cancella — solo prod ha `ADE_MODE=real`)
 - **Umami self-hosted** (GDPR, no cookie, gratis sulla stessa VPS)
 
 ## Altri riferimenti

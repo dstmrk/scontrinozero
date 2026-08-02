@@ -29,6 +29,13 @@ le richieste `/api/*`. Conseguenze:
   per route autenticate fare affidamento su `cookies()`/redirect server-side,
   non su "il SW non interferisce".
 
+> ⚠️ **Stato oggi: l'override NON è implementato.** `src/sw.ts` passa
+> `runtimeCaching: defaultCache` senza alcuna regola precedente, quindi le GET
+> `/api/*` con dati fiscali per-tenant (PDF scontrino, export CSV, lista
+> Developer API) sono cacheabili in produzione — è il finding P1 **REVIEW.md
+> #73**, con il fix già scritto lì. Se tocchi `src/sw.ts` per altro, non dare
+> per scontato che la prescrizione sopra sia già applicata: verificala.
+
 `src/components/pwa/` contiene gli hook lato client per install prompt e
 update detection — sono Client Components che usano `window.matchMedia` e
 listener `beforeinstallprompt`. Da non importare in Server Component.

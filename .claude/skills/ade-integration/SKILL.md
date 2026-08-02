@@ -1,6 +1,6 @@
 ---
 name: ade-integration
-description: Use when working with the Agenzia delle Entrate (AdE) "Documento Commerciale Online" integration — editing files under src/lib/ade/ or the emit/void/recovery orchestration in src/lib/services/, handling Fisconline credential encryption/decryption, rotating ENCRYPTION_KEY via scripts/rotate-encryption-key.ts, reverse-engineering AdE HTTP flows from HAR captures (login_cie.har, ricerca.har, etc. — local-only, gitignored), wiring the RealAdeClient/MockAdeClient adapter for ADE_MODE=real|mock, tuning the stale-pending recovery (getStalePendingThresholdMs, reconcileSaleDocument/reconcileVoidDocument in src/lib/services/ade-recovery.ts), or debugging production AdE 4xx/5xx errors. Covers why no headless browser is allowed and the diagnostic-logging-first debug pattern.
+description: Use when working with the Agenzia delle Entrate (AdE) "Documento Commerciale Online" integration — editing files under src/lib/ade/ or the emit/void/recovery orchestration in src/lib/services/, handling Fisconline credential encryption/decryption, rotating ENCRYPTION_KEY via scripts/rotate-encryption-key.ts, working on the CIE login branch (loginCie federated SAML flow, push polling, the interactive session store in src/lib/ade/interactive-session-store.ts, isCieSessionMissing pre-check and the reauthRequired outcome), reverse-engineering AdE HTTP flows from HAR captures (login_cie.har, ricerca.har, etc. — local-only, gitignored), wiring the RealAdeClient/MockAdeClient adapter for ADE_MODE=real|mock, tuning the stale-pending recovery (getStalePendingThresholdMs, reconcileSaleDocument/reconcileVoidDocument in src/lib/services/ade-recovery.ts), or debugging production AdE 4xx/5xx errors. Covers why no headless browser is allowed and the diagnostic-logging-first debug pattern.
 ---
 
 # ade-integration — Integrazione Agenzia delle Entrate, mock, debug
@@ -13,7 +13,9 @@ Online" è un'interfaccia web nel portale Fatture e Corrispettivi.
 Approccio:
 
 - Reverse-engineering delle chiamate HTTP che il portale AdE effettua internamente
-- L'utente fornisce le proprie credenziali Fisconline (cifrate, mai in chiaro)
+- L'utente collega il proprio accesso AdE con **Fisconline** (credenziali cifrate,
+  mai in chiaro) oppure con **CIE** (login federato + conferma push): due rami
+  con semantiche di sessione diverse — vedi la sezione dedicata sotto
 - Il backend replica il flusso con chiamate HTTP dirette (fetch/axios)
 - **NO Playwright/headless browser** — troppo pesante per VPS limitata
   (~400MB RAM per Chromium). Solo HTTP leggero.
@@ -33,6 +35,54 @@ L'integrazione AdE usa `AdeClient` con due implementazioni:
 
 Controllato da `ADE_MODE=real|mock` (env var). Il codice in sandbox è
 **identico** a quello in produzione, cambia solo l'ultimo step.
+
+---
+
+## Due metodi d'accesso: Fisconline vs CIE (entrambi live)
+
+`ade_credentials.login_method` (`'fisconline' | 'cie'`, migrazione `0027`)
+discrimina i due rami. **Non sono simmetrici**, e la differenza non è nel login
+ma in **chi può ri-crearlo**:
+
+|                 | **Fisconline**                          | **CIE**                                    |
+| --------------- | --------------------------------------- | ------------------------------------------ |
+| Segreto         | username + password + PIN cifrati in DB | nessun segreto riusabile lato server       |
+| Secondo fattore | nessuno                                 | conferma **push** sull'app CIE ID (umano)  |
+| Riuso sessione  | `src/lib/ade/session-cache.ts`          | `src/lib/ade/interactive-session-store.ts` |
+| Rinnovo su 401  | **silenzioso** (ri-login col segreto)   | **impossibile** → `AdeReauthRequiredError` |
+
+Entrambi passano da `withAdeSession` (`src/lib/ade/index.ts`), che sceglie lo
+store in base a `method`. In `ADE_MODE=mock` non c'è cache: `login`/`loginCie` +
+`logout` per operazione, così anche CIE dà un OK immediato in dev/sandbox.
+
+**Regole quando tocchi il ramo CIE:**
+
+1. **Pre-check prima di scrivere il documento.** `isCieSessionMissing(businessId)`
+   va chiamato **prima** dell'INSERT del PENDING in emissione/annullo: senza, un
+   business da ri-collegare si ritrova un documento PENDING bloccato dallo
+   stale-gate dei 30 min anche dopo aver rinnovato. Esito user-facing:
+   `{ reauthRequired: true }` → "Ricollegati" in UI, **409** sulla Developer API.
+2. **Il TTL dello store NON è la scadenza della sessione AdE.** `DEFAULT_TTL_MS`
+   (6h) e `DEFAULT_MAX_ENTRIES` (100, LRU per-business) sono un cap di memoria:
+   la scadenza vera la dichiara AdE con un 401 → `AdeSessionExpiredError` →
+   tradotto in `AdeReauthRequiredError`. Non inventare una scadenza logica lato
+   nostro, e non "riprovare" un login CIE dal server: il secondo fattore è umano.
+3. **Store in-process, single container** (coerente con l'architettura): un
+   deploy/restart perde le sessioni interattive e l'utente ri-collega. È
+   accettato, non un bug — ma va ricordato quando si valuta lo scaling.
+4. **Redirect federati solo dentro l'allowlist.** Il flusso SAML CIE segue
+   redirect verso host IdP: passano tutti da `resolveAdeRedirect` contro
+   `FEDERATED_ALLOWED_HOSTS` (`src/lib/ade/real-client.ts`). Un host nuovo va
+   aggiunto **esplicitamente** all'allowlist, mai seguito perché "arriva da AdE"
+   (anti open-redirect).
+5. **Finestra di polling push:** 12 × 7000 ms ≈ 84 s (`cieMaxPolls` /
+   `ciePollIntervalMs`), scelta per stare **sotto** il taglio ~100 s del proxy
+   Cloudflare (errore 524). Se allunghi l'attesa, il gate reale è quello, non AdE.
+   Il ramo SPID (`spidMaxPolls`, 30 poll) è implementato e testato ma **non ha
+   chiamanti**: SPID resta precluso alla PWA (vedi `PLAN.md`).
+
+Il socket keep-alive morto (sezione sotto) colpisce **soprattutto qui**: i gap
+di 7 s tra un poll e l'altro superano il keep-alive dei server IdP.
 
 ---
 
@@ -90,7 +140,7 @@ una HAR assente, chiederla all'utente — non cercarla nel repo.
 | `elimina_prodotto_catalogo.har`  | Eliminazione prodotto su rubrica AdE               | nice-to-have (sync catalogo AdE)                                                                             |
 | `ricerca_prodotto_catalogo.har`  | Ricerca prodotto su rubrica AdE                    | nice-to-have (sync catalogo AdE)                                                                             |
 | `ricerca.har`                    | Ricerca documento su AdE                           | ✅ usata dal recovery (riconciliazione, sotto); recupero corrispettivi user-facing rinviato (roadmap v1.9.0) |
-| `login_cie.har`                  | CIE login flow                                     | v1.7.0                                                                                                       |
+| `login_cie.har`                  | CIE login flow                                     | ✅ **spedito in v1.5.0** — `loginCie` in `src/lib/ade/real-client.ts` (sezione "Due metodi d'accesso")       |
 
 ---
 

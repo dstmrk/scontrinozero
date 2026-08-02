@@ -137,18 +137,45 @@ export async function myAction(input: MyInput): Promise<MyResult> {
 }
 ```
 
-**Soglie consolidate:**
+**Soglie consolidate** (le finestre stanno in `RATE_LIMIT_WINDOWS` di
+`src/lib/rate-limit.ts`: `AUTH_15_MIN` e `HOURLY` — usa le costanti, non i
+magic number):
 
-- `emit:<userId>` — `emitReceipt` → 120/ora (allineato a `POST /api/v1/receipts`:
-  la cassa non può avere un tetto più basso della Developer API per lo stesso
-  account — REVIEW.md #72)
-- `void:<userId>` — `voidReceipt` → 10/ora (irreversibile)
-- `pdf:<ip>` — PDF pubblico → 60/ora
-- `checkout:<userId>` — `POST /api/stripe/checkout` → 10/ora
-- `portal:<userId>` — `GET|POST /api/stripe/portal` → 10/ora
-- `verify-ade:<userId>` — `verifyAdeCredentials` → 5/15min (REVIEW.md #36)
-- `change-ade-pw:<userId>` — `changeAdePassword` → 5/15min
-- Auth actions — 5/15min per-IP
+| Bucket                           | Chiamante                          | Soglia   |
+| -------------------------------- | ---------------------------------- | -------- |
+| `emit:<userId>`                  | `emitReceipt`                      | 120/ora  |
+| `void:<userId>`                  | `voidReceipt`                      | 10/ora   |
+| `analytics:<userId>`             | analytics dashboard                | 60/ora   |
+| `csv:<userId>`                   | `GET /api/export/receipts`         | 10/ora   |
+| `pdf-auth:<userId>`              | PDF autenticato                    | 60/ora   |
+| `pdf:<ip>`                       | PDF pubblico `/r/[documentId]/pdf` | 60/ora   |
+| `receipt-page:<ip>`              | pagina pubblica `/r/[documentId]`  | 60/ora   |
+| `checkout:<userId>`              | `POST /api/stripe/checkout`        | 10/ora   |
+| `portal:<userId>`                | `GET\|POST /api/stripe/portal`     | 10/ora   |
+| `updateProfile:<userId>`         | `updateProfile`                    | 10/ora   |
+| `updateBusiness:<userId>`        | `updateBusiness`                   | 10/ora   |
+| `csp-report:<ip>`                | `POST /api/csp-report`             | 60/min   |
+| `<action>:<ip>`                  | auth actions (login/register/…)    | 5/15min  |
+| `captchaPre:<action>:<ip>`       | pre-gate Turnstile (double-gate)   | 30/15min |
+| `verify-ade:<userId>`            | `verifyAdeCredentials`             | 5/15min  |
+| `change-ade-pw:<userId>`         | `changeAdePassword`                | 5/15min  |
+| `changePassword:<userId>`        | `changePassword` (profilo)         | 5/15min  |
+| `completePasswordReset:<userId>` | `completePasswordReset`            | 5/15min  |
+| `deleteAccount:<userId>`         | `deleteAccount`                    | 5/15min  |
+| `api:emit:<apiKeyId>`            | `POST /api/v1/receipts`            | 120/ora  |
+| `api:list:<apiKeyId>`            | `GET /api/v1/receipts`             | 60/ora   |
+| `api:void:<apiKeyId>`            | `POST /api/v1/receipts/[id]/void`  | 20/ora   |
+
+Note che non si deducono dai numeri:
+
+- `emit` è a 120/ora **per allinearsi** a `api:emit`: la cassa non può avere un
+  tetto più basso della Developer API per lo stesso account (REVIEW.md #72).
+- `void` a 10/ora perché l'annullo è irreversibile; `verify-ade` a 5/15min per
+  REVIEW.md #36.
+- `pdf:<ip>` e `receipt-page:<ip>` hanno la **stessa** soglia ma bucket separati:
+  vista pagina e download PDF devono avere budget indipendenti.
+- Le action autenticate usano chiavi **per-user**, quelle pubbliche per-IP
+  (`getClientIp`, skill `security-patterns`); la Developer API per-`apiKeyId`.
 
 > ⚠️ **Aggiungere un rate limit a un'action già testata = mockare `@/lib/rate-limit`
 > in OGNI suite che la esercita.** Un nuovo gate introduce un ramo di

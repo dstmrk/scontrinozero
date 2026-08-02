@@ -110,6 +110,11 @@ per tutto ciò che i tool granulari non coprono).
 Non c'è un tool set-cookie. Usa `browser_run_code_unsafe` per impostare gli
 header service-token sul **context** all'inizio di ogni sessione MCP:
 
+> ⚠️ Blocco volutamente **non formattato da Prettier**: formattandolo
+> aggiungerebbe un `;` dopo la graffa di chiusura, cioè esattamente il
+> `SyntaxError` descritto nel Gotcha 4. Non rimuovere il `prettier-ignore`.
+
+<!-- prettier-ignore -->
 ```js
 async (page) => {
   await page.context().setExtraHTTPHeaders({
@@ -156,20 +161,26 @@ sessioni MCP.
    può restare appeso oltre i 5s (Playwright aspetta actionability/stabilità
    sotto una pagina con fetch di prefetch/analytics in volo). Rimedio
    affidabile: **clicca via DOM** (`page.evaluate(() =>
-   document.querySelector(sel).click())`, ~100ms) e per gli **input React
+document.querySelector(sel).click())`, ~100ms) e per gli **input React
    controlled** setta il valore col native setter + evento `input` (React ignora
    un `el.value=` diretto):
 
    ```js
-   await page.evaluate(({ d, p }) => {
-     const set = (el, v) => {
-       const s = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-       s.call(el, v);
-       el.dispatchEvent(new Event('input', { bubbles: true }));
-     };
-     set(document.querySelector('#catalog-description'), d);
-     set(document.querySelector('#catalog-price'), p);
-   }, { d: desc, p: price });
+   await page.evaluate(
+     ({ d, p }) => {
+       const set = (el, v) => {
+         const s = Object.getOwnPropertyDescriptor(
+           HTMLInputElement.prototype,
+           "value",
+         ).set;
+         s.call(el, v);
+         el.dispatchEvent(new Event("input", { bubbles: true }));
+       };
+       set(document.querySelector("#catalog-description"), d);
+       set(document.querySelector("#catalog-price"), p);
+     },
+     { d: desc, p: price },
+   );
    ```
 
    Combinato con `waitForSelector` (polling veloce, non attende stabilità) il
@@ -177,7 +188,7 @@ sessioni MCP.
    click deve colpire un solo bottone tra molti omonimi (es. l'"Aggiungi" header
    vs il submit del dialog), filtra nel selector:
    `[...document.querySelectorAll('button')].find(x =>
-   x.textContent.trim().startsWith('Aggiungi') && !x.closest('[role="dialog"]'))`.
+x.textContent.trim().startsWith('Aggiungi') && !x.closest('[role="dialog"]'))`.
 
 6. **Server action = il tool aspetta il network idle → la call "muore" ma
    l'azione persiste.** `browser_run_code_unsafe` emette l'SSE solo quando la
@@ -205,7 +216,7 @@ sessioni MCP.
    in un **portal**. Ricetta in una call: `evaluate` click sul trigger →
    `waitForSelector('[role="option"]', {timeout:3000})` → `evaluate` click
    sull'opzione (`[...document.querySelectorAll('[role="option"]')].find(o =>
-   o.textContent.trim().startsWith('10%'))`). La selezione si registra (il
+o.textContent.trim().startsWith('10%'))`). La selezione si registra (il
    trigger mostra il nuovo valore) **anche se `aria-expanded` legge `false`**:
    non fidarti di quell'attributo per verificare, leggi il `textContent` del
    trigger. Tutto client-side → sotto i 5s tranquillamente.

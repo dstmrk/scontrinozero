@@ -1,6 +1,6 @@
 ---
 name: security-patterns
-description: Use when implementing or reviewing security-sensitive boundaries — reading client IP (CF-Connecting-IP), rate limiting (single or double-gate with Turnstile), validating UUIDs/emails/decimals/hostnames/redirect params at API boundaries, enforcing body size limits before JSON.parse, wrapping external SDK calls (Stripe, AdE, Resend) in try-catch returning 503, configuring CSP/security headers in src/lib/security-headers.ts, normalizing emails in auth flows, building lookups from user-controlled keys (prototype pollution), or calling setInterval in long-lived constructors. Also covers the Turnstile hostname allowlist for app vs marketing domains.
+description: Use when implementing or reviewing security-sensitive boundaries — reading client IP (CF-Connecting-IP), rate limiting (single or double-gate with Turnstile), validating UUIDs/emails/decimals/hostnames/redirect params at API boundaries, enforcing body size limits before JSON.parse, wrapping external SDK calls (Stripe, AdE, Resend) in try-catch returning 503, configuring CSP/security headers in src/lib/security-headers.ts, normalizing emails in auth flows, building lookups from user-controlled keys (prototype pollution), writing encrypted credential fields during an ENCRYPTION_KEY rotation (key_version is per row, encrypt with getEncryptionKey + getKeyVersion, decrypt from the multi-version map getEncryptionKeys in src/lib/crypto.ts), guarding an UPDATE that follows a long external call with an optimistic lock on updatedAt, or calling setInterval in long-lived constructors. Also covers the Turnstile hostname allowlist for app vs marketing domains and the pino → Sentry Logs denylist (REDACT_PATHS).
 ---
 
 # security-patterns — IP trust, rate limit, hostname, CSP, input validation
@@ -20,6 +20,8 @@ Indice (salta alla sezione che serve, non leggere tutto):
 - Lookup `Record` con key user-controlled (prototype pollution)
 - CSP: lezioni dal rollout
 - Double-gate rate limit prima di call esterne costose
+- `key_version` è per RIGA (cifratura credenziali, finestra di rotazione)
+- UPDATE dopo I/O esterno lungo: optimistic lock su `updatedAt`
 - `setInterval` + `.unref?.()`
 - Redirect param con querystring
 - Turnstile hostname check a lista
@@ -243,7 +245,7 @@ endpoint che inneschi invio email, call AdE, generazione PDF, ecc.
 
 `ade_credentials.key_version` è **una colonna per riga**, non per campo: dice
 con quale versione di `ENCRYPTION_KEY` sono cifrati **tutti** gli `encrypted_*`
-di quella riga. Da qui due regole:
+di quella riga. Da qui tre regole:
 
 1. **Mai cifrare con `getEncryptionKey()` etichettando con la versione letta
    dalla riga.** `encrypt(value, getEncryptionKey(), row.keyVersion)` sembra
