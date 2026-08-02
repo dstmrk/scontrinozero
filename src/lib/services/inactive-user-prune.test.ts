@@ -44,6 +44,7 @@ const CONFIG: PruneConfig = {
   enabled: true,
   deleteAfterDays: 365,
   warnBeforeDays: 30,
+  warnings: [],
 };
 
 describe("isProtectedFromPrune", () => {
@@ -130,7 +131,7 @@ describe("pruneInactiveUsers", () => {
   });
 
   it("preavvisa, cancella e resetta secondo lo stato di ogni utente", async () => {
-    mockExecute.mockResolvedValue([
+    mockExecute.mockResolvedValueOnce([
       // WARN: inattivo oltre 335gg, mai preavvisato, trial
       {
         auth_user_id: "w1",
@@ -192,6 +193,9 @@ describe("pruneInactiveUsers", () => {
         last_activity_at: daysAgo(400),
       },
     ]);
+
+    // Ri-lettura di d1 prima del purge (REVIEW #40): conferma l'eleggibilità.
+    mockExecute.mockResolvedValue([deleteRow()]);
 
     const { pruneInactiveUsers } = await import("./inactive-user-prune");
     const result = await pruneInactiveUsers(NOW, CONFIG);
@@ -355,6 +359,143 @@ describe("pruneInactiveUsers", () => {
         }),
       }),
     );
+  });
+
+  describe("ri-lettura prima del purge (REVIEW #40)", () => {
+    // Lo snapshot dei candidati è preso a inizio sweep, ma il loop processa gli
+    // utenti in sequenza con side-effect lenti (email fino a 8s l'una): con N
+    // utenti il batch dura minuti. Un utente che torna attivo o si abbona TRA la
+    // SELECT e l'elaborazione della sua riga non deve essere cancellato sullo
+    // snapshot vecchio.
+
+    it("NON cancella se alla ri-lettura l'utente è tornato attivo", async () => {
+      mockExecute
+        .mockResolvedValueOnce([deleteRow()])
+        // Riga fresca: ha fatto login 2 giorni fa mentre il batch girava.
+        .mockResolvedValueOnce([deleteRow({ last_activity_at: daysAgo(2) })]);
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      const result = await pruneInactiveUsers(NOW, CONFIG);
+
+      expect(mockPurgeUserById).not.toHaveBeenCalled();
+      expect(result.deleted).toBe(0);
+      // Tornato attivo con un preavviso pendente → il flag va azzerato.
+      expect(result.reset).toBe(1);
+      expect(mockSet).toHaveBeenCalledWith({ inactivityWarningSentAt: null });
+    });
+
+    it("NON cancella se alla ri-lettura l'utente è diventato protetto (si è abbonato)", async () => {
+      mockExecute.mockResolvedValueOnce([deleteRow()]).mockResolvedValueOnce([
+        deleteRow({
+          plan: "pro",
+          plan_expires_at: new Date(NOW.getTime() + 30 * 86_400_000),
+        }),
+      ]);
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      const result = await pruneInactiveUsers(NOW, CONFIG);
+
+      expect(mockPurgeUserById).not.toHaveBeenCalled();
+      expect(result.deleted).toBe(0);
+      expect(result.reset).toBe(1);
+    });
+
+    it("NON cancella se alla ri-lettura il preavviso non è più nella grazia", async () => {
+      mockExecute
+        .mockResolvedValueOnce([deleteRow()])
+        // Preavviso ri-emesso 1 giorno fa: la grazia di 30gg non è scaduta.
+        .mockResolvedValueOnce([
+          deleteRow({ inactivity_warning_sent_at: daysAgo(1) }),
+        ]);
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      const result = await pruneInactiveUsers(NOW, CONFIG);
+
+      expect(mockPurgeUserById).not.toHaveBeenCalled();
+      expect(result.deleted).toBe(0);
+    });
+
+    it("cancella quando la ri-lettura conferma l'eleggibilità", async () => {
+      mockExecute
+        .mockResolvedValueOnce([deleteRow()])
+        .mockResolvedValueOnce([deleteRow()]);
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      const result = await pruneInactiveUsers(NOW, CONFIG);
+
+      expect(mockPurgeUserById).toHaveBeenCalledWith("d1");
+      expect(result.deleted).toBe(1);
+    });
+
+    it("NON cancella se la riga è sparita alla ri-lettura", async () => {
+      mockExecute
+        .mockResolvedValueOnce([deleteRow()])
+        .mockResolvedValueOnce([]);
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      const result = await pruneInactiveUsers(NOW, CONFIG);
+
+      expect(mockPurgeUserById).not.toHaveBeenCalled();
+      expect(result.deleted).toBe(0);
+    });
+
+    it("NON cancella se la ri-lettura fallisce (fail-safe: nel dubbio non si cancella)", async () => {
+      mockExecute
+        .mockResolvedValueOnce([deleteRow()])
+        .mockRejectedValueOnce(new Error("statement timeout"));
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      const result = await pruneInactiveUsers(NOW, CONFIG);
+
+      expect(mockPurgeUserById).not.toHaveBeenCalled();
+      expect(result.deleted).toBe(0);
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        expect.objectContaining({ err: expect.any(Error) }),
+        "pruneInactiveUsers: ri-lettura candidato fallita, purge saltato",
+      );
+    });
+
+    it("NON cancella se alla ri-lettura è protetto e il preavviso è già stato azzerato", async () => {
+      // Il flag può essere già stato ripulito da un reset concorrente: senza
+      // preavviso pendente non c'è nulla da azzerare, ma il purge resta vietato.
+      mockExecute.mockResolvedValueOnce([deleteRow()]).mockResolvedValueOnce([
+        deleteRow({
+          inactivity_warning_sent_at: null,
+          plan: "pro",
+          plan_expires_at: new Date(NOW.getTime() + 30 * 86_400_000),
+        }),
+      ]);
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      const result = await pruneInactiveUsers(NOW, CONFIG);
+
+      expect(mockPurgeUserById).not.toHaveBeenCalled();
+      expect(result).toEqual({ warned: 0, deleted: 0, reset: 0 });
+      // Nessuna scrittura: non c'era preavviso da azzerare.
+      expect(mockSet).not.toHaveBeenCalled();
+    });
+
+    it("NON cancella se la riga riletta non ha attività calcolabile", async () => {
+      mockExecute
+        .mockResolvedValueOnce([deleteRow()])
+        .mockResolvedValueOnce([deleteRow({ last_activity_at: null })]);
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      const result = await pruneInactiveUsers(NOW, CONFIG);
+
+      expect(mockPurgeUserById).not.toHaveBeenCalled();
+      expect(result.deleted).toBe(0);
+    });
+
+    it("NON aggiunge query sul ramo warn (costo solo sul delete)", async () => {
+      mockExecute.mockResolvedValueOnce([warnRow()]);
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      await pruneInactiveUsers(NOW, CONFIG);
+
+      // Una sola query: la SELECT dei candidati.
+      expect(mockExecute).toHaveBeenCalledOnce();
+    });
   });
 
   it("usa l'URL di login di fallback se getTrustedAppUrl lancia", async () => {
