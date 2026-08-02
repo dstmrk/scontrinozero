@@ -10,8 +10,11 @@ vi.mock("@/lib/identity-env", () => ({
   assertIdentityEnv: mockAssertIdentityEnv,
 }));
 
+// Ref stabile: il factory del mock viene ri-valutato a ogni vi.resetModules(),
+// quindi un vi.fn() inline perderebbe le chiamate fra un import e l'altro.
+const { mockLoggerWarn } = vi.hoisted(() => ({ mockLoggerWarn: vi.fn() }));
 vi.mock("@/lib/logger", () => ({
-  logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+  logger: { error: vi.fn(), warn: mockLoggerWarn, info: vi.fn() },
 }));
 
 // Il keep-alive Supabase è dentro lo stesso register() (REVIEW.md #29): va
@@ -35,6 +38,11 @@ describe("instrumentation register()", () => {
     vi.spyOn(global, "setInterval").mockReturnValue({
       unref: vi.fn(),
     } as unknown as ReturnType<typeof setInterval>);
+    // Il prune sweep schedula anche un run iniziale con setTimeout (REVIEW #41):
+    // intercettato qui per non lasciare un timer reale al termine dei test.
+    vi.spyOn(global, "setTimeout").mockReturnValue({
+      unref: vi.fn(),
+    } as unknown as ReturnType<typeof setTimeout>);
   });
 
   afterEach(() => {
@@ -45,6 +53,7 @@ describe("instrumentation register()", () => {
       process.env.NEXT_RUNTIME = originalNextRuntime;
     }
     delete process.env.INACTIVE_USER_PRUNE_ENABLED;
+    delete process.env.INACTIVE_USER_DELETE_AFTER_DAYS;
   });
 
   it("does nothing when NEXT_RUNTIME is not 'nodejs'", async () => {
@@ -126,6 +135,51 @@ describe("instrumentation register()", () => {
 
     // Solo keep-alive + webhook claim sweep: il prune non parte.
     expect(global.setInterval).toHaveBeenCalledTimes(2);
+  });
+
+  it("NON avvia il prune sweep quando la soglia è sotto il floor di sicurezza (REVIEW #39)", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    process.env.INACTIVE_USER_PRUNE_ENABLED = "true";
+    process.env.INACTIVE_USER_DELETE_AFTER_DAYS = "3";
+    const { register } = await import("./instrumentation");
+
+    await register();
+
+    // Solo keep-alive + webhook claim sweep: il floor spegne il prune.
+    expect(global.setInterval).toHaveBeenCalledTimes(2);
+  });
+
+  it("logga a warn le violazioni della config prune al boot (REVIEW #39)", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    process.env.INACTIVE_USER_PRUNE_ENABLED = "true";
+    process.env.INACTIVE_USER_DELETE_AFTER_DAYS = "3";
+    const { register } = await import("./instrumentation");
+
+    await register();
+
+    const pruneWarn = mockLoggerWarn.mock.calls.find(
+      ([, msg]) => msg === "Config prune utenti inattivi non valida",
+    );
+    expect(pruneWarn?.[0]).toMatchObject({
+      warnings: expect.arrayContaining([
+        expect.stringContaining("INACTIVE_USER_DELETE_AFTER_DAYS"),
+      ]),
+      pruneEnabled: false,
+    });
+  });
+
+  it("NON logga warning quando la config prune è valida", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    process.env.INACTIVE_USER_PRUNE_ENABLED = "true";
+    delete process.env.INACTIVE_USER_DELETE_AFTER_DAYS;
+    const { register } = await import("./instrumentation");
+
+    await register();
+
+    const pruneWarn = mockLoggerWarn.mock.calls.find(
+      ([, msg]) => msg === "Config prune utenti inattivi non valida",
+    );
+    expect(pruneWarn).toBeUndefined();
   });
 
   it("NON avvia il keep-alive quando NEXT_RUNTIME=edge", async () => {

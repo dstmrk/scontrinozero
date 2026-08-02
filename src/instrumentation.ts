@@ -83,21 +83,34 @@ export function startStripeWebhookClaimSweep() {
 // — restano in INACTIVE_USER_PRUNE_* (src/lib/services/inactive-user-prune-config.ts).
 export const INACTIVE_USER_PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
 
+// `setInterval` non esegue MAI il callback subito: col solo interval il primo
+// sweep cadrebbe 24h dopo il boot, e un ambiente che riavvia il container più
+// spesso di una volta al giorno (il Pi dev ridéploya a ogni push su `main`) non
+// lo eseguirebbe mai — starvation (REVIEW.md #41). Un run iniziale ritardato
+// chiude il buco. 15 minuti tengono lo sweep fuori dalla finestra di overlap
+// dei container durante `docker compose up -d`, dove due istanze coesistono.
+export const INACTIVE_USER_PRUNE_INITIAL_DELAY_MS = 15 * 60 * 1000; // 15 min
+
 let inactiveUserPruneStarted = false;
 
 /**
  * Sweep GDPR di cancellazione utenti inattivi >12 mesi (PLAN.md v1.4.2).
  * Stesso pattern di `startSupabaseKeepAlive`/`startStripeWebhookClaimSweep`:
- * `setInterval` unref'd con guardia d'idempotenza, cadenza fissa giornaliera.
- * `register()` avvia lo sweep SOLO se la feature è abilitata
- * (`INACTIVE_USER_PRUNE_ENABLED`). Il carico DB/email è tutto lazy dentro il
- * callback: al boot non si tocca il DB.
+ * timer unref'd con guardia d'idempotenza, cadenza fissa giornaliera, più un
+ * run iniziale ritardato (REVIEW.md #41). `register()` avvia lo sweep SOLO se
+ * la feature è abilitata (`INACTIVE_USER_PRUNE_ENABLED`) e la config passa il
+ * floor di sicurezza. Il carico DB/email è tutto lazy dentro il callback: al
+ * boot non si tocca il DB.
+ *
+ * Nessun jitter sul run iniziale: un doppio run è innocuo (il warn è idempotente
+ * sul flag `inactivity_warning_sent_at`, il delete è già guardato da
+ * `authDeleted`) e un delay deterministico resta testabile.
  */
 export function startInactiveUserPruneSweep() {
   if (inactiveUserPruneStarted) return;
   inactiveUserPruneStarted = true;
 
-  const interval: ReturnType<typeof setInterval> = setInterval(async () => {
+  const runSweep = async () => {
     try {
       const { pruneInactiveUsers } =
         await import("@/lib/services/inactive-user-prune");
@@ -106,8 +119,18 @@ export function startInactiveUserPruneSweep() {
       const { logger } = await import("@/lib/logger");
       logger.warn({ err }, "Inactive user prune sweep fallito");
     }
-  }, INACTIVE_USER_PRUNE_INTERVAL_MS);
+  };
 
+  const initialRun: ReturnType<typeof setTimeout> = setTimeout(
+    runSweep,
+    INACTIVE_USER_PRUNE_INITIAL_DELAY_MS,
+  );
+  initialRun.unref();
+
+  const interval: ReturnType<typeof setInterval> = setInterval(
+    runSweep,
+    INACTIVE_USER_PRUNE_INTERVAL_MS,
+  );
   interval.unref();
 }
 
@@ -153,6 +176,19 @@ export async function register() {
     const { readPruneConfig } =
       await import("@/lib/services/inactive-user-prune-config");
     const pruneConfig = readPruneConfig();
+    // Le violazioni della config (soglia sotto il floor di sicurezza, invariante
+    // warn ≥ delete, env malformata) sono visibili al boot: una soglia sbagliata
+    // su una feature IRREVERSIBILE non deve degradare in silenzio (REVIEW.md #39).
+    if (pruneConfig.warnings.length > 0) {
+      const { logger } = await import("@/lib/logger");
+      logger.warn(
+        {
+          warnings: pruneConfig.warnings,
+          pruneEnabled: pruneConfig.enabled,
+        },
+        "Config prune utenti inattivi non valida",
+      );
+    }
     if (pruneConfig.enabled) {
       startInactiveUserPruneSweep();
     }

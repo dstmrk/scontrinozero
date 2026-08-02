@@ -231,7 +231,7 @@ async function processCandidate(
     warningSentAt &&
     warningSentAt <= ctx.warnGraceCutoff
   ) {
-    return (await deleteCandidate(row)) ? "deleted" : "none";
+    return await deleteCandidate(row, ctx);
   }
 
   // WARN: inattivo oltre la soglia di preavviso, nessun avviso pendente.
@@ -244,12 +244,87 @@ async function processCandidate(
 }
 
 /**
- * Cancella l'account (cascata) e invia l'email di conferma (fire-and-forget).
- * Ritorna true se l'auth user è stato effettivamente rimosso.
+ * Ri-legge la riga di UN candidato con la stessa shape della SELECT dei
+ * candidati. Ritorna `null` se la riga non esiste più o se la query fallisce —
+ * in entrambi i casi il chiamante NON deve cancellare (fail-safe).
+ *
+ * L'aggregato sui documenti è una subquery correlata invece del LEFT JOIN
+ * raggruppato della SELECT dei candidati: su un singolo profilo evita di
+ * aggregare `commercial_documents` per TUTTI i business, che è esattamente il
+ * costo che questa query non deve reintrodurre.
  */
-async function deleteCandidate(row: CandidateRow): Promise<boolean> {
+async function reReadCandidate(
+  authUserId: string,
+): Promise<CandidateRow | null> {
+  try {
+    const result = await getDb().execute<CandidateRow>(sql`
+      SELECT
+        p.auth_user_id AS auth_user_id,
+        p.email AS email,
+        p.first_name AS first_name,
+        p.plan AS plan,
+        p.plan_expires_at AS plan_expires_at,
+        p.inactivity_warning_sent_at AS inactivity_warning_sent_at,
+        GREATEST(
+          p.created_at,
+          COALESCE(u.last_sign_in_at, p.created_at),
+          COALESCE(p.last_seen_at, p.created_at),
+          COALESCE((
+            SELECT MAX(cd.created_at)
+            FROM businesses b
+            JOIN commercial_documents cd ON cd.business_id = b.id
+            WHERE b.profile_id = p.id
+          ), p.created_at)
+        ) AS last_activity_at
+      FROM profiles p
+      LEFT JOIN auth.users u ON u.id = p.auth_user_id
+      WHERE p.auth_user_id = ${authUserId}
+    `);
+    const rows = result as unknown as CandidateRow[];
+    return rows[0] ?? null;
+  } catch (err) {
+    logger.warn(
+      { err },
+      "pruneInactiveUsers: ri-lettura candidato fallita, purge saltato",
+    );
+    return null;
+  }
+}
+
+/**
+ * Cancella l'account (cascata) e invia l'email di conferma (fire-and-forget).
+ *
+ * ⚠️ Prima del purge ri-legge la riga e ri-valida l'eleggibilità (REVIEW.md
+ * #40): lo snapshot dei candidati è preso a inizio sweep, ma il loop processa
+ * gli utenti in sequenza con side-effect lenti (email fino a 8s l'una, retry del
+ * purge), quindi il batch può durare minuti. Un utente che si abbona o torna
+ * attivo TRA la SELECT e l'elaborazione della sua riga verrebbe altrimenti
+ * cancellato su un dato vecchio — su un'operazione irreversibile.
+ *
+ * Costo: una query in più SOLO sul ramo delete (raro), zero sul warn.
+ */
+async function deleteCandidate(
+  row: CandidateRow,
+  ctx: PruneContext,
+): Promise<PruneAction> {
+  const fresh = await reReadCandidate(row.auth_user_id);
+  if (!fresh) return "none";
+
+  const verdict = deleteVerdict(fresh, ctx);
+  if (verdict !== "deleted") {
+    logger.warn(
+      { authUserId: row.auth_user_id, verdict },
+      "pruneInactiveUsers: candidato non più eleggibile alla ri-lettura, purge saltato",
+    );
+    // Tornato attivo o protetto con un preavviso pendente: azzera il flag, così
+    // una futura inattività riparte con un preavviso completo (stessa regola del
+    // ramo RESET di processCandidate).
+    if (verdict === "reset") await setWarningSentAt(row.auth_user_id, null);
+    return verdict;
+  }
+
   const { authDeleted } = await purgeUserById(row.auth_user_id);
-  if (!authDeleted) return false;
+  if (!authDeleted) return "none";
   void sendEmail({
     to: row.email,
     subject: "Il tuo account ScontrinoZero è stato eliminato",
@@ -262,7 +337,38 @@ async function deleteCandidate(row: CandidateRow): Promise<boolean> {
       "pruneInactiveUsers: email conferma cancellazione fallita",
     ),
   );
-  return true;
+  return "deleted";
+}
+
+/**
+ * Verdetto di eleggibilità al delete su una riga FRESCA (ri-lettura pre-purge).
+ * Stessa gerarchia di regole di `processCandidate`, applicata al dato appena
+ * riletto: `reset` se l'utente è tornato attivo o protetto con un preavviso
+ * pendente, `deleted` se le tre condizioni del delete reggono ancora, `none`
+ * altrimenti.
+ */
+function deleteVerdict(row: CandidateRow, ctx: PruneContext): PruneAction {
+  const lastActivity = toDate(row.last_activity_at);
+  if (!lastActivity) return "none";
+
+  const warningSentAt = toDate(row.inactivity_warning_sent_at);
+  const protectedNow = isProtectedFromPrune(
+    row.plan,
+    toDate(row.plan_expires_at),
+    ctx.nowMs,
+  );
+  const inactivePastWarn = lastActivity < ctx.warnCutoff;
+
+  if (warningSentAt && (!inactivePastWarn || protectedNow)) return "reset";
+  if (protectedNow) return "none";
+  if (
+    lastActivity < ctx.deleteCutoff &&
+    warningSentAt &&
+    warningSentAt <= ctx.warnGraceCutoff
+  ) {
+    return "deleted";
+  }
+  return "none";
 }
 
 /** Invia l'email di preavviso e registra il timestamp di invio. */
