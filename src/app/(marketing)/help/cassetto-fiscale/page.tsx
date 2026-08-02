@@ -8,6 +8,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
+import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata = helpArticleMetadata("cassetto-fiscale");
@@ -40,9 +41,7 @@ export default function CassettoFiscalePage() {
           <strong>cassetto fiscale</strong> del portale Fatture e Corrispettivi.
           Questa guida spiega dove cercarli e cosa fare se qualcosa non torna.
         </p>
-        <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> aprile 2026
-        </p>
+        <HelpArticleUpdatedAt slug="cassetto-fiscale" />
 
         {/* ─── Cos'è il cassetto fiscale ─── */}
         <h2 className="mt-10 text-xl font-semibold">

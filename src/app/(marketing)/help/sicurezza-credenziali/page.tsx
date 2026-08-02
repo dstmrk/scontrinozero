@@ -7,6 +7,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
+import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
@@ -43,9 +44,7 @@ export default function SicurezzaCredenzialiPage() {
           archiviate, chi può accedervi e come puoi revocare il consenso in
           qualsiasi momento.
         </p>
-        <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> aprile 2026
-        </p>
+        <HelpArticleUpdatedAt slug="sicurezza-credenziali" />
         <figure className="mt-6">
           <AppScreenshot
             src="/screenshots/impostazioni-attivita.png"
@@ -229,8 +228,10 @@ export default function SicurezzaCredenzialiPage() {
           diritto alla cancellazione è garantito dal GDPR art. 17.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Un pulsante dedicato per rimuovere solo le credenziali AdE senza
-          eliminare l&apos;account è in roadmap.
+          Oggi non esiste un pulsante dedicato per rimuovere solo le credenziali
+          AdE lasciando attivo l&apos;account: le due strade disponibili sono
+          sovrascriverle da <strong>Modifica credenziali</strong> oppure
+          eliminare l&apos;account.
         </p>
 
         {/* ─── FAQ ─── */}

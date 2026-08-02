@@ -8,6 +8,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
+import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
@@ -42,9 +43,7 @@ export default function AnalyticsEReportPage() {
           su tutti i piani; i grafici avanzati e il selettore di periodo sono
           sul piano <strong>Pro</strong>.
         </p>
-        <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> luglio 2026
-        </p>
+        <HelpArticleUpdatedAt slug="analytics-e-report" />
 
         {/* ─── Come accedere ─── */}
         <h2 className="mt-10 text-xl font-semibold">

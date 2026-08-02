@@ -10,6 +10,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
+import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata = helpArticleMetadata("collegare-ade-con-cie");
@@ -76,9 +77,7 @@ export default function CollegareAdeConCie() {
           </Link>{" "}
           per chi accede all&apos;AdE con la Carta d&apos;Identità Elettronica.
         </p>
-        <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> luglio 2026
-        </p>
+        <HelpArticleUpdatedAt slug="collegare-ade-con-cie" />
 
         {/* ─── Fisconline o CIE ─── */}
         <div className="bg-muted/50 mt-6 rounded-md p-4 text-sm">

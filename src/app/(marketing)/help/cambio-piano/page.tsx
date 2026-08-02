@@ -8,6 +8,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
+import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
@@ -44,9 +45,7 @@ export default function CambioPianoPage() {
           <strong>54% su Pro</strong> (€49,99/anno invece di €107,88). Il cambio
           avviene tramite il portale di fatturazione Stripe.
         </p>
-        <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> aprile 2026
-        </p>
+        <HelpArticleUpdatedAt slug="cambio-piano" />
         <figure className="mt-6">
           <AppScreenshot
             src="/screenshots/impostazioni-piano.png"

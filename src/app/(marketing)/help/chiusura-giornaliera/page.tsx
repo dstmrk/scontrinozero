@@ -7,6 +7,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
+import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata = helpArticleMetadata("chiusura-giornaliera");
@@ -43,9 +44,7 @@ export default function ChiusuraGiornalieraPage() {
           tempo reale, scontrino per scontrino. Nessun gesto manuale a fine
           giornata, nessun rischio di dimenticarsi.
         </p>
-        <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> aprile 2026
-        </p>
+        <HelpArticleUpdatedAt slug="chiusura-giornaliera" />
 
         {/* ─── Cos'è la chiusura giornaliera ─── */}
         <h2 className="mt-10 text-xl font-semibold">

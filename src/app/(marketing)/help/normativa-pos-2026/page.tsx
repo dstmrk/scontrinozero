@@ -7,6 +7,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
+import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata = helpArticleMetadata("normativa-pos-2026");
@@ -45,9 +46,7 @@ export default function NormativaPos2026Page() {
           applica <strong>anche a chi usa ScontrinoZero</strong>: questa guida
           ti spiega cosa devi fare e quali sono le scadenze.
         </p>
-        <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> aprile 2026
-        </p>
+        <HelpArticleUpdatedAt slug="normativa-pos-2026" />
 
         <div className="mt-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800 dark:bg-amber-950">
           <strong>In breve:</strong> se usi ScontrinoZero e accetti pagamenti
@@ -185,12 +184,13 @@ export default function NormativaPos2026Page() {
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          È in discussione un emendamento per introdurre una{" "}
-          <strong>franchigia del 5%</strong>: sotto questa soglia di operazioni
-          non collegate non scatterebbe la sanzione. Verifica gli aggiornamenti
-          sul sito dell&apos;Agenzia delle Entrate o con il tuo commercialista,
-          perché la disciplina può evolvere nei mesi successivi alla prima
-          scadenza.
+          Alla data di questo aggiornamento (2 agosto 2026) è in discussione, in
+          sede di conversione del decreto fiscale, un emendamento che
+          introdurrebbe una <strong>franchigia del 5%</strong>: sotto questa
+          soglia di operazioni non collegate non scatterebbe la sanzione. Finché
+          non è approvato resta applicabile la disciplina vigente. Verifica gli
+          aggiornamenti sul sito dell&apos;Agenzia delle Entrate o con il tuo
+          commercialista.
         </p>
 
         {/* ─── Differenze RT vs DCO ─── */}

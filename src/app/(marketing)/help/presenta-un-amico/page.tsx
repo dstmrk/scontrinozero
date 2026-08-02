@@ -8,6 +8,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
+import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
@@ -42,9 +43,7 @@ export default function PresentaUnAmicoPage() {
           ottiene <strong>un mese di prova in più</strong> e il presentatore{" "}
           <strong>un mese in più sul proprio piano</strong>.
         </p>
-        <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> giugno 2026
-        </p>
+        <HelpArticleUpdatedAt slug="presenta-un-amico" />
         <figure className="mt-6">
           <AppScreenshot
             src="/screenshots/impostazioni-piano.png"

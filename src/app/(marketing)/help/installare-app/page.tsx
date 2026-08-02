@@ -7,6 +7,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
+import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata = helpArticleMetadata("installare-app");
@@ -40,9 +41,7 @@ export default function InstallareAppPage() {
           Store o dal Google Play. L&apos;esperienza è identica a quella di
           un&apos;app nativa.
         </p>
-        <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> aprile 2026
-        </p>
+        <HelpArticleUpdatedAt slug="installare-app" />
 
         <div className="bg-muted text-muted-foreground mt-6 rounded-lg p-4 text-sm leading-relaxed">
           <strong>Nota sul dominio.</strong>

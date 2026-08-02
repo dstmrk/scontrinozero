@@ -8,6 +8,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
+import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
@@ -45,9 +46,7 @@ export default function AliquoteIvaPage() {
           tramite il catalogo prodotti, e quali metodi di pagamento sono
           disponibili oggi.
         </p>
-        <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> aprile 2026
-        </p>
+        <HelpArticleUpdatedAt slug="aliquote-iva" />
         <figure className="mt-6">
           <AppScreenshot
             src="/screenshots/cassa-tastierino.png"
@@ -269,8 +268,8 @@ export default function AliquoteIvaPage() {
           il dato viene trasmesso all&apos;AdE come parte del documento
           commerciale. Il campo opzionale{" "}
           <strong>codice lotteria scontrini</strong> compare solo quando scegli
-          pagamento con carta (la lotteria istantanea richiede il pagamento
-          elettronico).
+          pagamento con carta: alla Lotteria degli Scontrini partecipano
+          soltanto gli acquisti sopra 1 € pagati con strumenti elettronici.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Il tracciato AdE prevede ulteriori metodi (ticket / buono pasto,
