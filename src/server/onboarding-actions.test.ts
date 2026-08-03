@@ -550,6 +550,100 @@ describe("onboarding-actions", () => {
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
+    it("R80: alla soglia rate limit → warn + errore standard, senza cifrare, scrivere o invalidare la sessione AdE", async () => {
+      // L'invalidazione è la parte costosa: la sessione Fisconline vale ~10
+      // round-trip HTTP e quella CIE non è ri-creabile senza azione umana, quindi
+      // un client in loop terrebbe l'esercente permanentemente senza sessione
+      // cached (REVIEW.md #80).
+      const { adeSessionCache } = await import("@/lib/ade/session-cache");
+      const { adeInteractiveSessionStore } =
+        await import("@/lib/ade/interactive-session-store");
+      const invalidateSpy = vi
+        .spyOn(adeSessionCache, "invalidate")
+        .mockResolvedValue(undefined);
+      const invalidateInteractiveSpy = vi
+        .spyOn(adeInteractiveSessionStore, "invalidate")
+        .mockResolvedValue(undefined);
+      mockRateLimiterCheck.mockReturnValueOnce({
+        success: false,
+        remaining: 0,
+        resetAt: Date.now() + 15 * 60 * 1000,
+      });
+
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const result = await saveAdeCredentials(
+        formData({
+          businessId: "11111111-1111-4111-8111-111111111111",
+          codiceFiscale: "RSSMRA80A01H501U",
+          password: "securepass",
+          pin: "1234567890",
+        }),
+      );
+
+      expect(result.error).toBe(
+        "Troppi tentativi. Riprova tra qualche minuto.",
+      );
+      // Degrada, non lancia (regola 19). Nessun costo pagato: né CPU di
+      // cifratura, né write sul DB, né invalidazione delle due cache.
+      expect(mockEncrypt).not.toHaveBeenCalled();
+      expect(mockInsert).not.toHaveBeenCalled();
+      expect(invalidateSpy).not.toHaveBeenCalled();
+      expect(invalidateInteractiveSpy).not.toHaveBeenCalled();
+      expect(mockRevalidatePath).not.toHaveBeenCalled();
+
+      // warn (input prevedibile, regola 20 — niente Sentry), mai error.
+      const { logger } = await import("@/lib/logger");
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: FAKE_USER.id,
+          errorClass: "save_ade_rate_limit",
+        }),
+        expect.stringContaining("rate limit exceeded"),
+      );
+      expect(logger.error).not.toHaveBeenCalled();
+
+      invalidateSpy.mockRestore();
+      invalidateInteractiveSpy.mockRestore();
+    });
+
+    it("R80: chiave per-utente, controllata prima della cifratura", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([]);
+
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const result = await saveAdeCredentials(
+        formData({
+          businessId: "11111111-1111-4111-8111-111111111111",
+          codiceFiscale: "RSSMRA80A01H501U",
+          password: "securepass",
+          pin: "1234567890",
+        }),
+      );
+
+      // Per-utente e non per-IP: utenti dietro lo stesso NAT non si bloccano
+      // a vicenda (coerente con verifyAdeLimiter e deleteAccountLimiter).
+      expect(mockRateLimiterCheck).toHaveBeenCalledWith(
+        `save-ade:${FAKE_USER.id}`,
+      );
+      // Sotto soglia → comportamento invariato.
+      expect(result.businessId).toBe("11111111-1111-4111-8111-111111111111");
+    });
+
+    it("R80: businessId malformato non consuma quota (guard prima del limiter)", async () => {
+      const { saveAdeCredentials } = await import("./onboarding-actions");
+      const result = await saveAdeCredentials(
+        formData({
+          businessId: "abc",
+          codiceFiscale: "RSSMRA80A01H501U",
+          password: "securepass",
+          pin: "1234567890",
+        }),
+      );
+
+      expect(result.error).toBe("Identificativo non valido.");
+      expect(mockRateLimiterCheck).not.toHaveBeenCalled();
+    });
+
     it("returns error for empty password", async () => {
       const { saveAdeCredentials } = await import("./onboarding-actions");
       const result = await saveAdeCredentials(

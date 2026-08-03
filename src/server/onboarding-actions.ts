@@ -108,6 +108,19 @@ const verifyAdeLimiter = new RateLimiter({
   windowMs: RATE_LIMIT_WINDOWS.AUTH_15_MIN,
 });
 
+// saveAdeCredentials era l'unica action credenziali AdE senza gate (REVIEW.md
+// #80). Il costo non è la cifratura ma l'invalidazione delle DUE cache di
+// sessione AdE in coda alla action: la sessione Fisconline vale ~10 round-trip
+// HTTP (è la ragione per cui session-cache.ts esiste) e quella CIE non è
+// ri-creabile senza azione umana. Un client in loop — o una sessione rubata —
+// terrebbe l'esercente permanentemente senza sessione cached, degradando
+// l'emissione scontrini. 10/15 min è generoso per un onboarding con retry
+// legittimi e resta ben sotto la soglia di abuso.
+const saveAdeCredentialsLimiter = new RateLimiter({
+  maxRequests: 10,
+  windowMs: RATE_LIMIT_WINDOWS.AUTH_15_MIN,
+});
+
 export type OnboardingStatus = {
   hasProfile: boolean;
   hasBusiness: boolean;
@@ -400,6 +413,22 @@ export async function saveAdeCredentials(
   // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessOwnership.
   if (!isValidUuid(businessId)) {
     return { error: "Identificativo non valido." };
+  }
+
+  // Rate limit DOPO i guard cheap sull'input (che non consumano quota) e PRIMA
+  // di cifratura/upsert/invalidazione cache: degradare con un messaggio
+  // standard (regola 19), warn senza Sentry (input prevedibile, regola 20).
+  // Chiave per-utente, non per-IP: utenti dietro lo stesso NAT non si bloccano
+  // a vicenda (simmetria con verifyAdeLimiter).
+  const rateLimitResult = saveAdeCredentialsLimiter.check(
+    `save-ade:${user.id}`,
+  );
+  if (!rateLimitResult.success) {
+    logger.warn(
+      { userId: user.id, errorClass: "save_ade_rate_limit" },
+      "saveAdeCredentials rate limit exceeded",
+    );
+    return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
   }
 
   // Metodo di accesso (default 'fisconline' per retrocompatibilità dei form).

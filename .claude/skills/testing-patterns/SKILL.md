@@ -158,6 +158,7 @@ magic number):
 | `<action>:<ip>`                  | auth actions (login/register/…)    | 5/15min  |
 | `captchaPre:<action>:<ip>`       | pre-gate Turnstile (double-gate)   | 30/15min |
 | `verify-ade:<userId>`            | `verifyAdeCredentials`             | 5/15min  |
+| `save-ade:<userId>`              | `saveAdeCredentials`               | 10/15min |
 | `change-ade-pw:<userId>`         | `changeAdePassword`                | 5/15min  |
 | `changePassword:<userId>`        | `changePassword` (profilo)         | 5/15min  |
 | `completePasswordReset:<userId>` | `completePasswordReset`            | 5/15min  |
@@ -172,6 +173,11 @@ Note che non si deducono dai numeri:
   tetto più basso della Developer API per lo stesso account (REVIEW.md #72).
 - `void` a 10/ora perché l'annullo è irreversibile; `verify-ade` a 5/15min per
   REVIEW.md #36.
+- `save-ade` è più alto (10/15min) del gemello `verify-ade`: non tocca AdE, ma
+  invalida le due cache di sessione (Fisconline ~10 round-trip, CIE non
+  ri-creabile senza azione umana) — il gate protegge quelle, non un login
+  (REVIEW.md #80). Va controllato **dopo** i guard cheap sull'input, così un
+  `businessId` malformato non consuma quota.
 - `pdf:<ip>` e `receipt-page:<ip>` hanno la **stessa** soglia ma bucket separati:
   vista pagina e download PDF devono avere budget indipendenti.
 - Le action autenticate usano chiavi **per-user**, quelle pubbliche per-IP

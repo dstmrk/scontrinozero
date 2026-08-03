@@ -340,51 +340,6 @@ fatto che i payload sono statici, ma è un single point of failure.
 
 ## P3 — Bassa priorità
 
-### 80. `saveAdeCredentials` è l'unica action credenziali AdE senza rate limit
-
-- **Categoria:** sicurezza/abuso · **Severità:** Low
-- **File:** `src/server/onboarding-actions.ts:385-465` (`saveAdeCredentials`, nessun limiter); limiter esistenti nello stesso file da riusare come modello: `:95` (`changePasswordLimiter`), `:106` (`verifyAdeLimiter`, usato a `:927`)
-
-**Problema.** `saveAdeCredentials` è autenticata e verifica l'ownership, ma non
-ha rate limit — a differenza di `verifyAdeCredentials` e `changeAdePassword`, le
-altre due action che toccano le credenziali AdE. Ogni chiamata: cifra 3 campi
-AES-256-GCM, esegue un upsert su `ade_credentials`, e soprattutto invalida
-**entrambe** le cache di sessione AdE del business
-(`adeSessionCache.invalidate` + `adeInteractiveSessionStore.invalidate`, righe
-finali della action) e fa `revalidatePath("/dashboard", "layout")`.
-
-L'invalidazione è la parte costosa: la sessione Fisconline vale ~10 round-trip
-HTTP verso AdE (è la ragione per cui `session-cache.ts` esiste), e per CIE la
-sessione **non è ri-creabile senza azione umana**. Un client in loop — o una
-sessione rubata — può quindi tenere un esercente permanentemente senza sessione
-AdE cached, degradando o bloccando l'emissione scontrini, oltre a generare write
-amplification sulla riga credenziali.
-
-**Fix (non ambiguo).**
-
-1. Aggiungere in cima a `onboarding-actions.ts`, accanto agli altri:
-   ```ts
-   const saveAdeCredentialsLimiter = new RateLimiter({
-     maxRequests: 10,
-     windowMs: RATE_LIMIT_WINDOWS.AUTH_15_MIN,
-   });
-   ```
-   10/15min è generoso per un flusso di onboarding con retry legittimi e resta
-   ben sotto la soglia di abuso. Chiave per-utente: `save-ade:${user.id}`
-   (per-utente, non per-IP: coerente con `verifyAdeLimiter` e con
-   `deleteAccountLimiter`, così utenti dietro lo stesso NAT non si bloccano).
-2. Posizionare il check **dopo** `getAuthenticatedUser` e **prima** della
-   validazione/cifratura (la cifratura è il primo costo CPU della action).
-3. Sul superamento: `logger.warn({ userId: user.id, errorClass: "save_ade_rate_limit" }, "saveAdeCredentials rate limit exceeded")`
-   e ritornare `{ error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES }` — stesso
-   messaggio delle altre action auth, nessuna stringa nuova.
-4. **Test** (`src/server/onboarding-actions.test.ts`): 10 chiamate consecutive
-   OK, l'11ª ritorna l'errore di rate limit **senza** toccare il DB né chiamare
-   `adeSessionCache.invalidate` (asserire sui mock). Ricordarsi di resettare il
-   limiter fra i test (i limiter sono singleton a livello di modulo).
-
----
-
 ### 81. Sweep GDPR: la query candidati aggrega l'intera tabella `commercial_documents` a ogni giro
 
 - **Categoria:** performance DB · **Severità:** Low (cresce col volume globale, non per-tenant)
