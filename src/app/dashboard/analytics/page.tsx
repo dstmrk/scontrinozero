@@ -9,6 +9,7 @@ import { parseAnalyticsRange } from "@/server/analytics-helpers";
 import { AnalyticsClient } from "@/components/analytics/analytics-client";
 import { KpiCards } from "@/components/analytics/kpi-cards";
 import { ProFeatureGate } from "@/components/billing/pro-feature-gate";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getAuthenticatedUser } from "@/lib/server-auth";
 import { canUsePro, getPlan } from "@/lib/plans";
 import { logger } from "@/lib/logger";
@@ -54,6 +55,9 @@ export default async function AnalyticsPage({
       );
     }
     const kpis = starterFailed ? ZERO_KPIS : starterRes.kpis;
+    // Mai mostrare KPI parziali senza avviso: sopra il cap la finestra 30
+    // giorni è troncata e i numeri sono sottostimati (finding #75).
+    const starterTruncated = !starterFailed && starterRes.truncated;
 
     return (
       <div className="space-y-6">
@@ -71,6 +75,15 @@ export default async function AnalyticsPage({
           >
             Impossibile caricare i dati. Riprova tra qualche istante.
           </div>
+        )}
+
+        {starterTruncated && (
+          <Alert variant="warning">
+            <AlertDescription>
+              Dati parziali: gli ultimi 30 giorni superano il limite di
+              documenti analizzabili, i numeri qui sotto sono sottostimati.
+            </AlertDescription>
+          </Alert>
         )}
 
         <KpiCards kpis={kpis} />
@@ -120,6 +133,7 @@ export default async function AnalyticsPage({
       initialBreakdown={loadFailed ? [] : bundle.breakdown}
       initialProductBreakdown={loadFailed ? [] : bundle.productBreakdown}
       initialLoadFailed={loadFailed}
+      initialTruncated={!loadFailed && bundle.truncated}
     />
   );
 }

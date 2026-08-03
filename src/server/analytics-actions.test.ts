@@ -1049,6 +1049,7 @@ describe("getStarterKpis", () => {
     const res = await getStarterKpis("11111111-1111-4111-8111-111111111111");
     expect(res).toEqual({
       kpis: { revenueCents: 2000, count: 2, aovCents: 1000, voidCount: 1 },
+      truncated: false,
     });
   });
 
@@ -1063,6 +1064,7 @@ describe("getStarterKpis", () => {
     const res = await getStarterKpis("11111111-1111-4111-8111-111111111111");
     expect(res).toEqual({
       kpis: { revenueCents: 0, count: 0, aovCents: 0, voidCount: 0 },
+      truncated: false,
     });
   });
 
@@ -1073,6 +1075,7 @@ describe("getStarterKpis", () => {
     const res = await getStarterKpis("11111111-1111-4111-8111-111111111111");
     expect(res).toEqual({
       kpis: { revenueCents: 0, count: 0, aovCents: 0, voidCount: 0 },
+      truncated: false,
     });
   });
 
@@ -1179,5 +1182,136 @@ describe("getStarterKpis", () => {
     await expect(
       getStarterKpis("11111111-1111-4111-8111-111111111111"),
     ).rejects.toThrow("network glitch");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Troncamento del dataset (finding #75)
+// ---------------------------------------------------------------------------
+
+// Il cap vive dentro analytics-actions.ts e non e' esportabile: il file e'
+// "use server", dove ogni export deve essere una funzione async. Lo
+// duplichiamo qui — se il valore in produzione cambia, questi test falliscono
+// e vanno aggiornati consapevolmente (e' esattamente il segnale che vogliamo).
+const MAX_DOCS = 50_000;
+const TRUNC_BIZ = "11111111-1111-4111-8111-111111111111";
+const TRUNC_REF = new Date("2026-05-19T12:00:00Z");
+
+// Una sola istanza Date condivisa fra le righe: allocarne 50k rallenta il test
+// senza aggiungere copertura (qui si asserisce il conteggio, non il bucketing
+// per giorno fiscale, gia' coperto altrove).
+function makeDocRows(n: number) {
+  const createdAt = new Date("2026-05-19T10:00:00Z");
+  const rows = new Array<{ id: string; status: string; createdAt: Date }>(n);
+  for (let i = 0; i < n; i++) {
+    rows[i] = { id: `d${i}`, status: "ACCEPTED", createdAt };
+  }
+  return rows;
+}
+
+describe("troncamento del dataset analytics", () => {
+  beforeEach(() => {
+    mockFetchLinesByDocIds.mockResolvedValue([]);
+  });
+
+  it("richiede una riga oltre il cap per distinguere 'esattamente al cap' da 'oltre'", async () => {
+    const builder = makeSelectBuilder(makeDocRows(3));
+    mockSelect.mockReturnValue(builder);
+
+    await getAnalyticsBundle(TRUNC_BIZ, "30d", TRUNC_REF);
+
+    expect(builder.limit).toHaveBeenCalledWith(MAX_DOCS + 1);
+  });
+
+  it("sotto il cap: truncated false e nessun log di troncamento", async () => {
+    mockSelect.mockReturnValue(makeSelectBuilder(makeDocRows(3)));
+
+    const res = await getAnalyticsBundle(TRUNC_BIZ, "30d", TRUNC_REF);
+
+    expect(res).toMatchObject({ truncated: false });
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it("esattamente al cap: truncated false (la riga in piu' non e' stata trovata)", async () => {
+    mockSelect.mockReturnValue(makeSelectBuilder(makeDocRows(MAX_DOCS)));
+
+    const res = await getAnalyticsBundle(TRUNC_BIZ, "30d", TRUNC_REF);
+
+    expect(res).toMatchObject({ truncated: false });
+    expect("error" in res ? 0 : res.kpis.count).toBe(MAX_DOCS);
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it("oltre il cap: truncated true, dataset tagliato al cap e un solo logger.error con fingerprint", async () => {
+    mockSelect.mockReturnValue(makeSelectBuilder(makeDocRows(MAX_DOCS + 1)));
+
+    const res = await getAnalyticsBundle(TRUNC_BIZ, "30d", TRUNC_REF);
+
+    expect(res).toMatchObject({ truncated: true });
+    // La riga eccedente serve solo a rilevare il troncamento: non entra negli
+    // aggregati, altrimenti il cap sarebbe cap+1.
+    expect("error" in res ? 0 : res.kpis.count).toBe(MAX_DOCS);
+    expect(logger.error).toHaveBeenCalledTimes(1);
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        critical: true,
+        businessId: TRUNC_BIZ,
+        range: "30d",
+        cap: MAX_DOCS,
+        sentryFingerprint: ["analytics", "dataset-truncated"],
+      }),
+      "analytics:dataset_truncated",
+    );
+  });
+
+  it("getStarterKpis propaga truncated come getAnalyticsBundle", async () => {
+    mockGetPlan.mockResolvedValue({
+      plan: "starter",
+      trialStartedAt: null,
+      planExpiresAt: null,
+    });
+    mockSelect.mockReturnValue(makeSelectBuilder(makeDocRows(MAX_DOCS + 1)));
+
+    const res = await getStarterKpis(TRUNC_BIZ, TRUNC_REF);
+
+    expect(res).toMatchObject({ truncated: true });
+    expect("error" in res ? 0 : res.kpis.count).toBe(MAX_DOCS);
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ range: "30d", cap: MAX_DOCS }),
+      "analytics:dataset_truncated",
+    );
+  });
+
+  it("una riga scartata dal type guard non maschera il troncamento", async () => {
+    // Il rilevamento guarda le righe RESTITUITE dal DB, non quelle
+    // sopravvissute al type guard: altrimenti un drift di schema farebbe
+    // scendere il conteggio sotto il cap e il troncamento sparirebbe.
+    const rows: unknown[] = makeDocRows(MAX_DOCS + 1);
+    rows[0] = { id: "drift", status: 42, createdAt: new Date() };
+    mockSelect.mockReturnValue(makeSelectBuilder(rows));
+
+    const res = await getAnalyticsBundle(TRUNC_BIZ, "30d", TRUNC_REF);
+
+    expect(res).toMatchObject({ truncated: true });
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sentryFingerprint: ["analytics", "dataset-truncated"],
+      }),
+      "analytics:dataset_truncated",
+    );
+  });
+
+  it("getStarterKpis su dataset piccolo non segnala troncamento", async () => {
+    mockGetPlan.mockResolvedValue({
+      plan: "starter",
+      trialStartedAt: null,
+      planExpiresAt: null,
+    });
+    mockSelect.mockReturnValue(makeSelectBuilder(makeDocRows(2)));
+
+    const res = await getStarterKpis(TRUNC_BIZ, TRUNC_REF);
+
+    expect(res).toMatchObject({ truncated: false });
+    expect(logger.error).not.toHaveBeenCalled();
   });
 });

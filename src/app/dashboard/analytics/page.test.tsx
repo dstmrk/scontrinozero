@@ -57,7 +57,12 @@ vi.mock("@/server/analytics-actions", () => ({
 // AnalyticsClient importa recharts dinamicamente: mockarlo evita di caricarlo
 // nei test del ramo Pro e fornisce un marker semplice da asserire.
 vi.mock("@/components/analytics/analytics-client", () => ({
-  AnalyticsClient: () => <div data-testid="analytics-client" />,
+  AnalyticsClient: ({ initialTruncated }: { initialTruncated?: boolean }) => (
+    <div
+      data-testid="analytics-client"
+      data-truncated={String(initialTruncated ?? false)}
+    />
+  ),
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -192,5 +197,73 @@ describe("AnalyticsPage — Pro view", () => {
 
     expect(mockGetAnalyticsBundle).toHaveBeenCalledWith("biz-1", "30d");
     expect(screen.getByTestId("analytics-client")).toBeInTheDocument();
+  });
+});
+
+describe("AnalyticsPage — dataset parziale (cap documenti)", () => {
+  it("avvisa nella vista base quando i KPI Starter sono calcolati su un dataset troncato", async () => {
+    mockGetPlan.mockResolvedValue({ plan: "starter" });
+    mockGetStarterKpis.mockResolvedValue({ kpis: KPIS, truncated: true });
+
+    render(await AnalyticsPage(pageProps()));
+
+    expect(screen.getByText(/Dati parziali/i)).toBeInTheDocument();
+  });
+
+  it("non avvisa nella vista base quando il dataset è completo", async () => {
+    mockGetPlan.mockResolvedValue({ plan: "starter" });
+    mockGetStarterKpis.mockResolvedValue({ kpis: KPIS, truncated: false });
+
+    render(await AnalyticsPage(pageProps()));
+
+    expect(screen.queryByText(/Dati parziali/i)).not.toBeInTheDocument();
+  });
+
+  it("propaga il flag al client nella vista Pro", async () => {
+    mockGetPlan.mockResolvedValue({ plan: "pro" });
+    mockGetAnalyticsBundle.mockResolvedValue({
+      kpis: KPIS,
+      timeseries: [],
+      breakdown: [],
+      productBreakdown: [],
+      truncated: true,
+    });
+
+    render(await AnalyticsPage(pageProps("ytd")));
+
+    expect(screen.getByTestId("analytics-client")).toHaveAttribute(
+      "data-truncated",
+      "true",
+    );
+  });
+
+  it("non segnala troncamento al client quando il bundle è completo", async () => {
+    mockGetPlan.mockResolvedValue({ plan: "pro" });
+    mockGetAnalyticsBundle.mockResolvedValue({
+      kpis: KPIS,
+      timeseries: [],
+      breakdown: [],
+      productBreakdown: [],
+      truncated: false,
+    });
+
+    render(await AnalyticsPage(pageProps()));
+
+    expect(screen.getByTestId("analytics-client")).toHaveAttribute(
+      "data-truncated",
+      "false",
+    );
+  });
+
+  it("un bundle in errore non propaga il flag di dataset parziale", async () => {
+    mockGetPlan.mockResolvedValue({ plan: "pro" });
+    mockGetAnalyticsBundle.mockResolvedValue({ error: "boom" });
+
+    render(await AnalyticsPage(pageProps()));
+
+    expect(screen.getByTestId("analytics-client")).toHaveAttribute(
+      "data-truncated",
+      "false",
+    );
   });
 });

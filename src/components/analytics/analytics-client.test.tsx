@@ -93,12 +93,13 @@ const INITIAL_KPIS: AnalyticsKpis = {
   voidCount: 0,
 };
 
-function makeBundle(kpis: AnalyticsKpis): AnalyticsBundle {
+function makeBundle(kpis: AnalyticsKpis, truncated = false): AnalyticsBundle {
   return {
     kpis,
     timeseries: [],
     breakdown: [],
     productBreakdown: [],
+    truncated,
   };
 }
 
@@ -252,5 +253,110 @@ describe("AnalyticsClient handleRangeChange", () => {
     });
     // KPI azzerati sul fail (no carry-over del range precedente).
     expect(screen.getByTestId("kpis").textContent).toContain("revenueCents=0");
+  });
+});
+
+describe("AnalyticsClient — avviso dataset parziale", () => {
+  it("mostra l'avviso quando il dataset iniziale è troncato", () => {
+    render(
+      <AnalyticsClient
+        businessId="biz-1"
+        initialRange="ytd"
+        initialKpis={INITIAL_KPIS}
+        initialTimeseries={[]}
+        initialBreakdown={[]}
+        initialProductBreakdown={[]}
+        initialTruncated
+      />,
+    );
+
+    expect(screen.getByText(/Dati parziali/i)).toBeInTheDocument();
+  });
+
+  it("non mostra alcun avviso quando il dataset è completo", () => {
+    render(
+      <AnalyticsClient
+        businessId="biz-1"
+        initialRange="30d"
+        initialKpis={INITIAL_KPIS}
+        initialTimeseries={[]}
+        initialBreakdown={[]}
+        initialProductBreakdown={[]}
+      />,
+    );
+
+    expect(screen.queryByText(/Dati parziali/i)).not.toBeInTheDocument();
+  });
+
+  it("accende l'avviso quando il nuovo range supera il limite", async () => {
+    mockGetAnalyticsBundle.mockResolvedValueOnce(
+      makeBundle(INITIAL_KPIS, true),
+    );
+
+    render(
+      <AnalyticsClient
+        businessId="biz-1"
+        initialRange="30d"
+        initialKpis={INITIAL_KPIS}
+        initialTimeseries={[]}
+        initialBreakdown={[]}
+        initialProductBreakdown={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("range-ytd"));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Dati parziali/i)).toBeInTheDocument();
+    });
+  });
+
+  it("spegne l'avviso tornando su un range che sta nel limite", async () => {
+    mockGetAnalyticsBundle.mockResolvedValueOnce(
+      makeBundle(INITIAL_KPIS, false),
+    );
+
+    render(
+      <AnalyticsClient
+        businessId="biz-1"
+        initialRange="ytd"
+        initialKpis={INITIAL_KPIS}
+        initialTimeseries={[]}
+        initialBreakdown={[]}
+        initialProductBreakdown={[]}
+        initialTruncated
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("range-7d"));
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Dati parziali/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it("un bundle in errore non lascia acceso l'avviso di dataset parziale", async () => {
+    // Su { error } i dati vengono azzerati: mostrare "dati parziali" accanto a
+    // KPI a zero suggerirebbe che i numeri siano reali ma incompleti.
+    mockGetAnalyticsBundle.mockResolvedValueOnce({ error: "Boom" });
+
+    render(
+      <AnalyticsClient
+        businessId="biz-1"
+        initialRange="ytd"
+        initialKpis={INITIAL_KPIS}
+        initialTimeseries={[]}
+        initialBreakdown={[]}
+        initialProductBreakdown={[]}
+        initialTruncated
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("range-7d"));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Impossibile caricare/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/Dati parziali/i)).not.toBeInTheDocument();
   });
 });
