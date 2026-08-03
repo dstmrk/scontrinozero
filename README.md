@@ -86,7 +86,7 @@ Per chi preferisce gestire l'installazione in autonomia (gratis, ma anche tutta 
    ```bash
    npx tsx scripts/migrate.ts
    ```
-3. Genera la chiave di cifratura per le credenziali Fisconline:
+3. Genera la chiave di cifratura per le credenziali AdE (Fisconline o CIE):
    ```bash
    node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
    ```

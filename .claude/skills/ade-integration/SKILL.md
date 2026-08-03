@@ -178,8 +178,13 @@ flusso, l'invariante da testare è: nessun percorso chiama `submitSale`/
 
 ## Key rotation: `ENCRYPTION_KEY`
 
-Le credenziali Fisconline sono cifrate con AES-256-GCM; la chiave sta in
-`ENCRYPTION_KEY` (env var, 64 hex chars). Se compromessa o da ruotare:
+I segreti AdE sono cifrati con AES-256-GCM; la chiave sta in `ENCRYPTION_KEY`
+(env var, 64 hex chars). Quali campi siano valorizzati dipende da
+`login_method` (`src/db/schema/ade-credentials.ts`): Fisconline usa
+`encrypted_codice_fiscale` + `encrypted_password` + `encrypted_pin`, CIE
+`encrypted_username` + `encrypted_password` — la rotazione li tocca **tutti**
+(regola "key_version è per riga", skill `security-patterns`). Se compromessa o
+da ruotare:
 
 ### Runbook zero-downtime in tre fasi
 
