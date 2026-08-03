@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Recharts pesa ~100KB gzipped. I 3 widget (sparkline/payment/product) lo
 // importano top-level: senza dynamic, recharts entra nel bundle iniziale
@@ -63,6 +64,7 @@ interface AnalyticsClientProps {
   readonly initialBreakdown: PaymentBreakdownEntry[];
   readonly initialProductBreakdown: ProductBreakdownEntry[];
   readonly initialLoadFailed?: boolean;
+  readonly initialTruncated?: boolean;
 }
 
 const ZERO_KPIS: AnalyticsKpis = {
@@ -80,6 +82,7 @@ export function AnalyticsClient({
   initialBreakdown,
   initialProductBreakdown,
   initialLoadFailed = false,
+  initialTruncated = false,
 }: AnalyticsClientProps) {
   const [range, setRange] = useState<AnalyticsRange>(initialRange);
   const [kpis, setKpis] = useState<AnalyticsKpis>(initialKpis);
@@ -91,6 +94,7 @@ export function AnalyticsClient({
     ProductBreakdownEntry[]
   >(initialProductBreakdown);
   const [loadFailed, setLoadFailed] = useState<boolean>(initialLoadFailed);
+  const [truncated, setTruncated] = useState<boolean>(initialTruncated);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   // `latestRangeRef` traccia l'ultimo range richiesto. Se l'utente cambia
@@ -118,6 +122,9 @@ export function AnalyticsClient({
         setBreakdown([]);
         setProductBreakdown([]);
         setLoadFailed(true);
+        // I dati sono azzerati: "dati parziali" accanto a KPI a zero
+        // suggerirebbe numeri reali ma incompleti.
+        setTruncated(false);
         return;
       }
       setKpis(result.kpis);
@@ -125,6 +132,7 @@ export function AnalyticsClient({
       setBreakdown(result.breakdown);
       setProductBreakdown(result.productBreakdown);
       setLoadFailed(false);
+      setTruncated(result.truncated);
     });
   }
 
@@ -162,6 +170,15 @@ export function AnalyticsClient({
         >
           Impossibile caricare alcuni dati. Riprova tra qualche istante.
         </div>
+      )}
+
+      {truncated && (
+        <Alert variant="warning">
+          <AlertDescription>
+            Dati parziali: il periodo selezionato supera il limite di documenti
+            analizzabili. Restringi l&apos;intervallo per numeri completi.
+          </AlertDescription>
+        </Alert>
       )}
 
       <KpiCards kpis={kpis} />

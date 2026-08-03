@@ -194,12 +194,21 @@ const ANALYTICS_QUERY_TIMEOUT_MS = 5_000;
 // l'istanza.
 const ANALYTICS_MAX_DOCS = 50_000;
 
+type SaleDocsPage = {
+  docs: DocRow[];
+  // true quando il cap ha tagliato il dataset: gli aggregati a valle sono
+  // parziali e vanno segnalati all'utente invece di essere presentati come
+  // definitivi (finding #75).
+  truncated: boolean;
+};
+
 async function fetchSaleDocsInRange(
   businessId: string,
   from: Date,
   to: Date,
+  range: AnalyticsRange,
   options: { includePublicRequest?: boolean } = {},
-): Promise<DocRow[]> {
+): Promise<SaleDocsPage> {
   const baseSelection = {
     id: commercialDocuments.id,
     status: commercialDocuments.status,
@@ -223,8 +232,12 @@ async function fetchSaleDocsInRange(
             lt(commercialDocuments.createdAt, to),
           ),
         )
-        .limit(ANALYTICS_MAX_DOCS),
+        // Una riga oltre il cap: senza, `rows.length === cap` e' ambiguo fra
+        // "esattamente cap documenti nel range" e "primi cap di N". La riga in
+        // piu' rende il troncamento un fatto osservabile, non un'inferenza.
+        .limit(ANALYTICS_MAX_DOCS + 1),
   );
+  const truncated = rows.length > ANALYTICS_MAX_DOCS;
   const validRows: DocRow[] = [];
   let skipped = 0;
   for (const row of rows) {
@@ -240,7 +253,29 @@ async function fetchSaleDocsInRange(
       "analytics: DB drift — righe commercialDocuments scartate dal type guard",
     );
   }
-  return validRows;
+  if (truncated) {
+    // `error` (non `warn`): non e' un errore d'input utente (regola 20) ma una
+    // condizione che richiede un intervento nostro — alzare la soglia o passare
+    // ad aggregazione SQL. Fingerprint stabile (regola 23) per non perdere lo
+    // storico del group. Una sola emissione per richiesta: ogni entry point
+    // (bundle Pro, KPI Starter) esegue una sola fetch.
+    logger.error(
+      {
+        critical: true,
+        businessId,
+        range,
+        cap: ANALYTICS_MAX_DOCS,
+        sentryFingerprint: ["analytics", "dataset-truncated"],
+      },
+      "analytics:dataset_truncated",
+    );
+  }
+  return {
+    // La riga eccedente serve solo al rilevamento: tenerla negli aggregati
+    // renderebbe il cap effettivo cap+1.
+    docs: truncated ? validRows.slice(0, ANALYTICS_MAX_DOCS) : validRows,
+    truncated,
+  };
 }
 
 type DocLineAggregates = {
@@ -280,6 +315,7 @@ async function computeTotalsByDoc(
 type Dataset = {
   ok: true;
   docs: DocRow[];
+  truncated: boolean;
   totalsByDoc: Map<string, number>;
   linesByDoc: Map<string, SelectCommercialDocumentLine[]>;
   from: Date;
@@ -302,11 +338,15 @@ async function buildAnalyticsDataset(
   // timeseries (che non lo usano) e breakdown (che lo usa). Pagare un campo
   // jsonb in piu' una volta sola e' molto piu' economico di 3 fetch separate.
   try {
-    const docs = await fetchSaleDocsInRange(businessId, from, to, {
-      includePublicRequest: true,
-    });
+    const { docs, truncated } = await fetchSaleDocsInRange(
+      businessId,
+      from,
+      to,
+      range,
+      { includePublicRequest: true },
+    );
     const { totalsByDoc, linesByDoc } = await computeTotalsByDoc(docs);
-    return { ok: true, docs, totalsByDoc, linesByDoc, from, to };
+    return { ok: true, docs, truncated, totalsByDoc, linesByDoc, from, to };
   } catch (err) {
     // Un timeout DB (57014) sotto contention deve degradare inline (il
     // fallback della pagina analytics), non propagare fino all'error boundary
@@ -360,6 +400,11 @@ export type AnalyticsBundle = {
   timeseries: RevenuePoint[];
   breakdown: PaymentBreakdownEntry[];
   productBreakdown: ProductBreakdownEntry[];
+  // Dataset tagliato dal cap: i quattro aggregati qui sopra sono sottostimati.
+  // Campo obbligatorio, non opzionale: un consumer che dimentica di leggerlo
+  // mostrerebbe numeri parziali come definitivi, cioe' il bug che questo flag
+  // esiste per rendere impossibile.
+  truncated: boolean;
 };
 
 /**
@@ -390,10 +435,12 @@ export async function getAnalyticsBundle(
     ),
     breakdown: computeBreakdown(result.docs, result.totalsByDoc),
     productBreakdown: computeProductBreakdown(result.docs, result.linesByDoc),
+    truncated: result.truncated,
   };
 }
 
-export type StarterKpisResult = { kpis: AnalyticsKpis } | { error: string };
+export type StarterKpisResult =
+  { kpis: AnalyticsKpis; truncated: boolean } | { error: string };
 
 // Vista "analytics base" del piano Starter/Trial: solo i 4 KPI su finestra
 // fissa 30 giorni rolling (niente selettore range, niente grafici → niente
@@ -413,9 +460,14 @@ export async function getStarterKpis(
 
   try {
     const { from, to } = rangeToBounds("30d", reference);
-    const docs = await fetchSaleDocsInRange(businessId, from, to);
+    const { docs, truncated } = await fetchSaleDocsInRange(
+      businessId,
+      from,
+      to,
+      "30d",
+    );
     const { totalsByDoc } = await computeTotalsByDoc(docs);
-    return { kpis: computeKpis(docs, totalsByDoc) };
+    return { kpis: computeKpis(docs, totalsByDoc), truncated };
   } catch (err) {
     // Un timeout DB (57014) sotto carico deve degradare nella vista base
     // (alert inline + KPI a zero gestiti da AnalyticsPage), non propagare
