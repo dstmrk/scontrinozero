@@ -52,6 +52,13 @@ function buildDirectives(): ReadonlyArray<
       "script-src",
       ["'self'", "'unsafe-inline'", "challenges.cloudflare.com", ...umami],
     ],
+    // Esplicito, non lasciato al fallback: senza `worker-src` la
+    // registrazione del service worker ricade su `child-src` e poi su
+    // `script-src` — che oggi ammette `'unsafe-inline'` e host terzi che a un
+    // worker non servono, e che un domani potrebbe essere ristretto rompendo
+    // il SW in modo silenzioso (in enforce mode il browser non registra e
+    // basta). `'self'`: il SW può venire solo dalla nostra origin.
+    ["worker-src", ["'self'"]],
     ["style-src", ["'self'", "'unsafe-inline'"]],
     ["img-src", ["'self'", "data:"]],
     ["font-src", ["'self'", "data:"]],

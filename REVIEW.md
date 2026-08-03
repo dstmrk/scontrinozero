@@ -18,85 +18,41 @@ consapevoli accettati vivono in fondo, in "Rischi accettati".
 
 ## P1 — Alta priorità
 
-### 73. Service worker: nessun override `NetworkOnly` sulle GET `/api/*` tenant-specific
+### 84. PWA: verifica manuale su sandbox del service worker ripristinato
 
-- **Categoria:** sicurezza/privacy · **Severità:** High — **attivo in produzione oggi**, non gated su feature future
-- **File:** `src/sw.ts:18` (`runtimeCaching: defaultCache`, nessuna regola precedente); route GET esposte: `src/app/api/documents/[documentId]/pdf/route.ts`, `src/app/api/export/receipts/route.ts`, `src/app/api/v1/receipts/route.ts`
+- **Categoria:** verifica di rollout · **Severità:** Low — il codice è spedito, resta da confermare sul campo
+- **File:** nessuno da modificare. Riferimenti: `serwist.config.mjs`, `src/sw.ts`, `src/components/providers.tsx`, `scripts/check-service-worker.mjs`
 
-**Problema.** `src/sw.ts` registra `runtimeCaching: defaultCache` di
-`@serwist/next/worker` **senza alcun override**. Come documentato nella skill
-`pwa-serwist` (sezione "Serwist — attenzione al `defaultCache`"), `defaultCache`
-**non è asset-only**: include una strategia `NetworkFirst` per le richieste
-same-origin `/api/*`, che **scrive la response nella CacheStorage** via
-`fetchAndCachePut`. Il `cacheOkAndOpaquePlugin` aggiunto di default decide solo
-in base allo status HTTP (200/opaque) e **ignora `Cache-Control`** — quindi il
-`Cache-Control: no-store` già presente su `/api/export/receipts` **non impedisce
-la scrittura in cache**.
+**Contesto.** `withSerwistInit` era un plugin **webpack** e Next 16 builda con
+**Turbopack**: non girava, degradava a warning e il build restava verde senza
+emettere nulla. `GET /sw.js` era **404** in produzione (verificato il
+2026-08-03) — niente offline, niente precache e, poiché Chrome emette
+`beforeinstallprompt` solo con un SW registrato, **nessuna installazione su
+Android**, cioè proprio il bug che `src/lib/pwa/install-prompt-store.ts` era
+stato scritto per risolvere. iOS non era colpito, il che rendeva l'asimmetria
+fuorviante.
 
-Le GET coinvolte restituiscono dati fiscali del singolo tenant:
+Risolto passando alla configurator mode (build bundler-agnostica + guardia che
+fa fallire il build se il bundle manca) e dichiarando la registrazione con
+`SerwistProvider`. Dettagli e trappole → skill `pwa-serwist`.
 
-- `GET /api/documents/[documentId]/pdf` → PDF dello scontrino (autenticato via cookie);
-- `GET /api/export/receipts` → CSV con **tutti** gli scontrini del business;
-- `GET /api/v1/receipts` → lista documenti (Bearer key).
+**Resta da fare: verifica manuale su sandbox prima di prod.** Non è
+automatizzabile — richiede un browser reale e un dispositivo Android.
 
-La CacheStorage è **per-origin e sopravvive al logout**: su un dispositivo
-condiviso (tablet di negozio, PWA installata, cambio di account, rivendita del
-device) una richiesta del secondo utente che va in timeout o parte offline può
-essere servita dalla cache col **documento fiscale del primo utente**. Anche
-senza cambio account resta il problema minore dei dati stale serviti come
-freschi. La skill prescrive esplicitamente l'override; il codice non lo
-implementa, e `src/sw.ts` è escluso sia da SonarCloud (`sonar.exclusions`) sia
-dalla coverage (`vitest.config.ts`), quindi nessun test lo copre.
+1. DevTools → Application → Service Workers: il SW risulta **activated** e
+   `/sw.js` risponde 200 (è anche la quarta probe di smoke, skill
+   `deploy-release`).
+2. DevTools → Application → Cache Storage: dopo aver scaricato un PDF
+   autenticato **nessuna** voce `/api/documents/.../pdf` compare in cache; poi
+   forzare "Offline" e verificare che la stessa GET **fallisca** invece di
+   restituire il documento. È il punto 6 dell'ex #73, finora non eseguibile
+   perché non esisteva alcun SW.
+3. Chrome su Android: il pulsante "Installa" compare davvero (è la conferma
+   end-to-end che chiude il giro con `install-prompt-store.ts`).
+4. Navigazione offline → viene servita `/offline`, non l'errore di rete del
+   browser.
 
-**Fix (non ambiguo).**
-
-1. In `src/sw.ts`, costruire l'array di runtime caching mettendo una regola
-   `NetworkOnly` **PRIMA** dello spread di `defaultCache` (l'ordine conta: vince
-   il primo matcher):
-
-   ```ts
-   import { NetworkOnly } from "serwist";
-   // ...
-   runtimeCaching: [
-     {
-       matcher: ({ url, sameOrigin }) =>
-         sameOrigin &&
-         (url.pathname.startsWith("/api/") || url.pathname.startsWith("/v1/")),
-       handler: new NetworkOnly(),
-     },
-     ...defaultCache,
-   ],
-   ```
-
-   Includere `/v1/` perché è il path con cui le richieste arrivano dal subdomain
-   API **prima** del rewrite (`next.config.ts` → `rewrites()`).
-
-2. **Non** limitarsi ad aggiungere `Cache-Control: no-store` sulle route: come
-   sopra, non previene la scrittura in cache. **Non** affidarsi a
-   `Vary: Cookie` — isola al più la voce per variante, non la impedisce.
-
-3. Bonus difensivo (stesso PR, stesso file): valutare l'esclusione anche di
-   `/r/` (pagina pubblica scontrino) dalla `NetworkFirst` delle navigazioni, se
-   la si vuole sempre fresca. **Opzionale** — quella pagina non è autenticata,
-   quindi non è un leak: decidere e documentare la scelta nel commento.
-
-4. Rimuovere `src/sw.ts` dalla `coverage.exclude` di `vitest.config.ts` (resta
-   escluso da `sonar.exclusions`, che è un'altra cosa) e aggiungere
-   `src/sw.test.ts`.
-
-5. **Test** (`src/sw.test.ts`, mockando `serwist` e `@serwist/next/worker` come
-   già si fa per i moduli infrastrutturali — vedi `src/instrumentation.test.ts`):
-   - il `runtimeCaching` passato al costruttore `Serwist` ha come **primo**
-     elemento la regola con handler `NetworkOnly`;
-   - il matcher ritorna `true` per `{ sameOrigin: true, url: new URL("https://app.x/api/export/receipts") }`
-     e per `/v1/receipts`, `false` per `/dashboard` e per `sameOrigin: false`;
-   - `defaultCache` è ancora presente **dopo** la regola (non sostituito).
-
-6. **Verifica manuale post-deploy** (sandbox prima di prod): DevTools →
-   Application → Cache Storage, scaricare un PDF autenticato e confermare che
-   **nessuna** voce `/api/documents/.../pdf` compaia nelle cache Serwist. Poi
-   forzare "Offline" e verificare che la stessa GET fallisca invece di
-   restituire il documento cached.
+Chiudere questa voce quando i quattro punti sono verdi su sandbox.
 
 ---
 

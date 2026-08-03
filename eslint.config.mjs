@@ -30,7 +30,17 @@ const eslintConfig = defineConfig([
     },
   },
   prettierConfig,
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
+  globalIgnores([
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    // Service worker generato da `serwist build` (bundle esbuild minificato +
+    // precache manifest). Prima di REVIEW #84 non veniva mai emesso, quindi
+    // non era mai presente nel working tree e nessuno se n'era accorto.
+    "public/sw.js",
+    "public/sw.js.map",
+  ]),
 ]);
 
 export default eslintConfig;

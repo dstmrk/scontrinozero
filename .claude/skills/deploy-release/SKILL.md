@@ -96,6 +96,7 @@ curl -fsS https://<host>/api/health/live
 curl -fsS https://<host>/api/_health/env | jq .
 curl -fsS -H "x-sentinel-token: $TOKEN" \
   "https://<host>/api/_debug/sentry-sentinel?id=v$VERSION"
+curl -fsSI https://<host>/sw.js | head -1
 ```
 
 - `/api/health/live` (`src/app/api/health/live/route.ts`) → 200 = process
@@ -116,6 +117,15 @@ curl -fsS -H "x-sentinel-token: $TOKEN" \
   sentinella non appare in dashboard entro ~5 minuti**; se non appare →
   integrazione rotta = bug bloccante, rollback o riapri la PR. Query lato
   Sentry (`errorClass:sentinel sentinelId:v$VERSION`) → skill `sentry-hygiene`.
+- `/sw.js` → **200**, non 404. È la quarta probe, aggiunta dopo REVIEW #84: il
+  service worker aveva smesso di essere emesso dal build (plugin webpack sotto
+  Turbopack) e nessuno se n'era accorto per mesi, perché un 404 su `/sw.js`
+  non degrada nulla di visibile lato server — degrada offline e installazione
+  PWA lato browser. Il build ora fallisce se il bundle manca
+  (`scripts/check-service-worker.mjs`), ma questa probe copre il caso diverso
+  in cui il bundle esiste nell'immagine e non viene **servito** (volume
+  montato male, `public/` non copiata, regola proxy). Dettagli → skill
+  `pwa-serwist`.
 
 Il pattern è "live + env + drain": catturava `@react-email/render` mancante
 (SCONTRINOZERO-B, gap dev container vs standalone), `NEXT_PUBLIC_APP_URL`

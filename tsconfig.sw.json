@@ -1,0 +1,22 @@
+// Type-check dedicato al service worker.
+//
+// `src/sw.ts` è escluso da `tsconfig.json` perché richiede i globals della lib
+// "webworker" (`ServiceWorkerGlobalScope`), incompatibili con la lib "dom" usata
+// dall'app: Serwist/webpack lo compila a parte, nel contesto worker corretto.
+// Da quando esiste `src/sw.test.ts` (REVIEW #73) quel file lo importa, e senza
+// questo progetto separato l'unica alternativa sarebbe escludere anche il test
+// dal type-check — cioè spedirlo non verificato.
+//
+// Girano insieme in `npm run type-check`: la lib qui è "webworker", quindi il
+// test NON deve usare globals solo-DOM (es. `document`, `window`).
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["esnext", "webworker"],
+    "types": ["vitest/globals"],
+    "incremental": false,
+    "plugins": []
+  },
+  "include": ["src/sw.ts", "src/sw.test.ts"],
+  "exclude": ["node_modules"]
+}

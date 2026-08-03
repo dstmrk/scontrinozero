@@ -31,6 +31,11 @@
  *  - A code span starting with `har/` is ALWAYS an error: HAR captures are
  *    local-only and gitignored, so the path would never exist in CI. Cite the
  *    bare filename instead (see the ade-integration skill).
+ *  - A code span naming a GENERATED build artifact (the Serwist service worker:
+ *    public/sw.js, its .map, public/serwist-*.js) is ALWAYS an error, for the
+ *    same reason — it exists only after a build. This one has a nastier
+ *    failure mode than har/: whoever writes the doc usually has a warm build,
+ *    so the check passes locally and only breaks in CI. Cite it as a glob.
  *  - REVIEW.md and PLAN.md are intentionally NOT scanned: they legitimately
  *    cite historical/removed paths in prose, so the false-positive noise
  *    would outweigh the value.
@@ -184,6 +189,43 @@ export function extractHarViolations(markdown) {
 }
 
 /**
+ * Artefatti di build gitignored: esistono solo dopo un build, quindi in un
+ * checkout pulito (CI) un loro path letterale non risolve mai. Stessa logica
+ * dei file `har/`, ma con un tranello in più: chi scrive il doc ha di solito
+ * la build calda, quindi il check gli passa **in locale** e rompe solo in CI.
+ * Mirror di .gitignore (sezione serwist).
+ */
+const BUILD_ARTIFACT_RE =
+  /^public\/(?:sw\.js(?:\.map)?|serwist-[^/]*\.js(?:\.map)?)$/;
+
+/**
+ * Finds inline code spans citing a generated build artifact as a literal path.
+ * The prescribed form is a glob (`public/sw*.js`), which the path validator
+ * already skips.
+ * @param {string} markdown
+ * @returns {string[]} sorted, de-duplicated offending spans
+ */
+export function extractBuildArtifactViolations(markdown) {
+  const violations = new Set();
+  const spanRe = /`([^`\n]+)`/g;
+  let match;
+  while ((match = spanRe.exec(markdown)) !== null) {
+    const token = match[1].trim();
+    if (BUILD_ARTIFACT_RE.test(token)) violations.add(token);
+  }
+  return [...violations].sort();
+}
+
+/**
+ * @param {string} token  Offending build-artifact span
+ * @param {string} doc    Display path of the doc citing it
+ * @returns {string}
+ */
+function buildArtifactError(token, doc) {
+  return `Build artifact reference "${token}" (in ${doc}): generated and gitignored, so it never exists in a clean checkout — cite it as a glob (e.g. \`public/sw*.js\`). NB: passes locally when you have a warm build.`;
+}
+
+/**
  * @param {string} token  Offending `har/...` span
  * @param {string} doc    Display path of the doc citing it
  * @returns {string}
@@ -242,6 +284,9 @@ export async function checkArchitectureDocs(rootDir) {
     for (const span of extractHarViolations(content)) {
       errors.push(harError(span, `docs/architecture/${file}`));
     }
+    for (const span of extractBuildArtifactViolations(content)) {
+      errors.push(buildArtifactError(span, `docs/architecture/${file}`));
+    }
     for (const name of extractSkillReferences(content)) {
       if (!skillRefs.has(name)) {
         skillRefs.set(name, `docs/architecture/${file}`);
@@ -259,6 +304,9 @@ export async function checkArchitectureDocs(rootDir) {
     }
     for (const span of extractHarViolations(content)) {
       errors.push(harError(span, "CLAUDE.md"));
+    }
+    for (const span of extractBuildArtifactViolations(content)) {
+      errors.push(buildArtifactError(span, "CLAUDE.md"));
     }
     for (const name of extractSkillReferences(content)) {
       if (!skillRefs.has(name)) skillRefs.set(name, "CLAUDE.md");
@@ -302,6 +350,9 @@ export async function checkArchitectureDocs(rootDir) {
     }
     for (const span of extractHarViolations(content)) {
       errors.push(harError(span, displayPath));
+    }
+    for (const span of extractBuildArtifactViolations(content)) {
+      errors.push(buildArtifactError(span, displayPath));
     }
     for (const refName of extractSkillReferences(content)) {
       if (!skillRefs.has(refName)) skillRefs.set(refName, displayPath);
