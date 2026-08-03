@@ -20,15 +20,15 @@ const lines: CartLine[] = [
   },
 ];
 
-// 2×8.50 + 1×1.20 = 18.20
-const TOTAL = 18.2;
+// 2×8.50 + 1×1.20 = 18.20 → 1820 cents (canone per-riga, regola 17)
+const TOTAL_CENTS = 1820;
 
 describe("ReceiptSummary", () => {
   it("mostra tutte le righe del carrello", () => {
     render(
       <ReceiptSummary
         lines={lines}
-        total={TOTAL}
+        totalCents={TOTAL_CENTS}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
         onRemoveLine={vi.fn()}
@@ -45,7 +45,7 @@ describe("ReceiptSummary", () => {
     render(
       <ReceiptSummary
         lines={lines}
-        total={TOTAL}
+        totalCents={TOTAL_CENTS}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
         onRemoveLine={vi.fn()}
@@ -57,11 +57,41 @@ describe("ReceiptSummary", () => {
     expect(screen.getByText(/18,20/)).toBeInTheDocument();
   });
 
+  it("deriva l'importo mostrato dai centesimi, non da una somma float", () => {
+    // 3 righe da 1.15 × 0.35 → 40 cents ciascuna = 120 cents. La somma float
+    // valeva 1.2074999999999998 e sarebbe stata mostrata come €1,21, cioè un
+    // centesimo in più di quanto viene trasmesso all'AdE (REVIEW.md #76).
+    const fractional: CartLine[] = [
+      {
+        id: "1",
+        description: "Sfuso A",
+        quantity: 0.35,
+        grossUnitPrice: 1.15,
+        vatCode: "22",
+      },
+    ];
+
+    render(
+      <ReceiptSummary
+        lines={fractional}
+        totalCents={120}
+        paymentMethod="PC"
+        onPaymentMethodChange={vi.fn()}
+        onRemoveLine={vi.fn()}
+        onSubmit={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/1,20/)).toBeInTheDocument();
+    expect(screen.queryByText(/1,21/)).not.toBeInTheDocument();
+  });
+
   it("mostra il metodo di pagamento selezionato", () => {
     render(
       <ReceiptSummary
         lines={lines}
-        total={TOTAL}
+        totalCents={TOTAL_CENTS}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
         onRemoveLine={vi.fn()}
@@ -78,7 +108,7 @@ describe("ReceiptSummary", () => {
     render(
       <ReceiptSummary
         lines={lines}
-        total={TOTAL}
+        totalCents={TOTAL_CENTS}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
         onRemoveLine={vi.fn()}
@@ -97,7 +127,7 @@ describe("ReceiptSummary", () => {
     render(
       <ReceiptSummary
         lines={lines}
-        total={TOTAL}
+        totalCents={TOTAL_CENTS}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
         onRemoveLine={vi.fn()}
@@ -115,7 +145,7 @@ describe("ReceiptSummary", () => {
     render(
       <ReceiptSummary
         lines={lines}
-        total={TOTAL}
+        totalCents={TOTAL_CENTS}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
         onRemoveLine={vi.fn()}
@@ -134,7 +164,7 @@ describe("ReceiptSummary", () => {
     render(
       <ReceiptSummary
         lines={lines}
-        total={TOTAL}
+        totalCents={TOTAL_CENTS}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
         onRemoveLine={vi.fn()}
@@ -153,7 +183,7 @@ describe("ReceiptSummary", () => {
     render(
       <ReceiptSummary
         lines={lines}
-        total={TOTAL}
+        totalCents={TOTAL_CENTS}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
         onRemoveLine={vi.fn()}
@@ -172,7 +202,7 @@ describe("ReceiptSummary", () => {
     render(
       <ReceiptSummary
         lines={lines}
-        total={TOTAL}
+        totalCents={TOTAL_CENTS}
         paymentMethod="PC"
         onPaymentMethodChange={onPaymentMethodChange}
         onRemoveLine={vi.fn()}
@@ -190,7 +220,7 @@ describe("ReceiptSummary", () => {
     render(
       <ReceiptSummary
         lines={lines}
-        total={TOTAL}
+        totalCents={TOTAL_CENTS}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
         onRemoveLine={vi.fn()}
@@ -216,7 +246,7 @@ describe("ReceiptSummary", () => {
     render(
       <ReceiptSummary
         lines={singleLine}
-        total={7.5}
+        totalCents={750}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
         onRemoveLine={vi.fn()}
@@ -235,7 +265,7 @@ describe("ReceiptSummary", () => {
     render(
       <ReceiptSummary
         lines={lines}
-        total={TOTAL}
+        totalCents={TOTAL_CENTS}
         paymentMethod="PC"
         onPaymentMethodChange={vi.fn()}
         onRemoveLine={onRemoveLine}
@@ -259,7 +289,7 @@ describe("ReceiptSummary", () => {
       render(
         <ReceiptSummary
           lines={lines}
-          total={TOTAL}
+          totalCents={TOTAL_CENTS}
           paymentMethod="PC"
           onPaymentMethodChange={vi.fn()}
           onRemoveLine={vi.fn()}
@@ -279,7 +309,7 @@ describe("ReceiptSummary", () => {
       render(
         <ReceiptSummary
           lines={lines}
-          total={TOTAL}
+          totalCents={TOTAL_CENTS}
           paymentMethod="PE"
           onPaymentMethodChange={vi.fn()}
           onRemoveLine={vi.fn()}
@@ -300,7 +330,7 @@ describe("ReceiptSummary", () => {
       render(
         <ReceiptSummary
           lines={lines}
-          total={TOTAL}
+          totalCents={TOTAL_CENTS}
           paymentMethod="PE"
           onPaymentMethodChange={vi.fn()}
           onRemoveLine={vi.fn()}
@@ -321,7 +351,7 @@ describe("ReceiptSummary", () => {
       render(
         <ReceiptSummary
           lines={lines}
-          total={TOTAL}
+          totalCents={TOTAL_CENTS}
           paymentMethod="PE"
           onPaymentMethodChange={vi.fn()}
           onRemoveLine={vi.fn()}
@@ -342,7 +372,7 @@ describe("ReceiptSummary", () => {
       render(
         <ReceiptSummary
           lines={lines}
-          total={TOTAL}
+          totalCents={TOTAL_CENTS}
           paymentMethod="PE"
           onPaymentMethodChange={vi.fn()}
           onRemoveLine={vi.fn()}
@@ -359,11 +389,11 @@ describe("ReceiptSummary", () => {
       expect(input.value).toBe("YYWLR30G");
     });
 
-    it("disabilita il campo quando total < 1 con pagamento PE", () => {
+    it("disabilita il campo quando totalCents < 100 con pagamento PE", () => {
       render(
         <ReceiptSummary
           lines={lines}
-          total={0.5}
+          totalCents={50}
           paymentMethod="PE"
           onPaymentMethodChange={vi.fn()}
           onRemoveLine={vi.fn()}
@@ -380,11 +410,11 @@ describe("ReceiptSummary", () => {
       expect(input).toBeDisabled();
     });
 
-    it("abilita il campo quando total >= 1 con pagamento PE", () => {
+    it("abilita il campo quando totalCents >= 100 con pagamento PE", () => {
       render(
         <ReceiptSummary
           lines={lines}
-          total={1}
+          totalCents={100}
           paymentMethod="PE"
           onPaymentMethodChange={vi.fn()}
           onRemoveLine={vi.fn()}
@@ -401,11 +431,34 @@ describe("ReceiptSummary", () => {
       expect(input).not.toBeDisabled();
     });
 
-    it("mostra testo helper disabilitato quando total < 1", () => {
+    it("disabilita il campo al confine esatto di 99 cents", () => {
       render(
         <ReceiptSummary
           lines={lines}
-          total={0.5}
+          totalCents={99}
+          paymentMethod="PE"
+          onPaymentMethodChange={vi.fn()}
+          onRemoveLine={vi.fn()}
+          onSubmit={vi.fn()}
+          onBack={vi.fn()}
+          lotteryCode=""
+          onLotteryCodeChange={vi.fn()}
+        />,
+      );
+
+      // 99/100 è il confine: il gate deve coincidere byte-per-byte con quello
+      // di `resolveLotteryCode` lato server (`calcInputLinesTotalCents < 100`).
+      const input = screen.getByPlaceholderText(
+        /codice lotteria/i,
+      ) as HTMLInputElement;
+      expect(input).toBeDisabled();
+    });
+
+    it("mostra testo helper disabilitato quando totalCents < 100", () => {
+      render(
+        <ReceiptSummary
+          lines={lines}
+          totalCents={50}
           paymentMethod="PE"
           onPaymentMethodChange={vi.fn()}
           onRemoveLine={vi.fn()}
@@ -421,11 +474,11 @@ describe("ReceiptSummary", () => {
       ).toBeInTheDocument();
     });
 
-    it("mostra testo helper normale quando total >= 1", () => {
+    it("mostra testo helper normale quando totalCents >= 100", () => {
       render(
         <ReceiptSummary
           lines={lines}
-          total={TOTAL}
+          totalCents={TOTAL_CENTS}
           paymentMethod="PE"
           onPaymentMethodChange={vi.fn()}
           onRemoveLine={vi.fn()}
