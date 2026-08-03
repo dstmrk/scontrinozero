@@ -134,8 +134,9 @@ bug toccava più utenti in 2 minuti — il triage non poteva prioritizzare per
 impatto.
 
 Passare **solo `id`** (UUID opaco di Supabase Auth): niente
-`email`/`username`/`ip`, coerente con il denylist `SAFE_KEYS` di
-`src/lib/logger.ts` e con la policy GDPR. Per le route che usano auth diversa
+`email`/`username`/`ip`, coerente con l'**allowlist** `SAFE_KEYS` di
+`src/lib/logger.ts` (solo le chiavi elencate raggiungono Sentry; `ip` è escluso
+di proposito a favore di `ipHash`) e con la policy GDPR. Per le route che usano auth diversa
 (es. Bearer API key in `/api/v1/*`) il fix è analogo ma puntuale a ciascun
 handler — **non** propagare l'`apiKeyId` come `user.id`.
 

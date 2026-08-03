@@ -158,10 +158,12 @@ e bootstrap su DB pre-esistente: skill `db-migrations` (regola 11 sempre).
 ### Pre-PR
 
 ```bash
-npm run lint                # ESLint / TypeScript
+npm run lint                # ESLint (NON esegue tsc)
+npm run type-check          # tsc --noEmit — job CI separato, fallisce PRIMA dei test
 npx prettier --check src/   # ⚠️ dopo modifiche a classi Tailwind: prettier --write
 npm run test:coverage       # tutti i test verdi, coverage non in calo
-npm run arch:check          # path citati in docs/architecture/, .claude/skills/ e CLAUDE.md esistono ancora
+npm run arch:check          # riferimenti a path e skill in docs/architecture/, .claude/skills/ e CLAUDE.md ancora vivi
+npm run migrations:check    # solo se hai toccato supabase/migrations/
 ```
 
 Controlli manuali:
@@ -192,15 +194,26 @@ carta all'iscrizione. P.IVA UNIQUE nel DB (anti-abuso trial).
 ## Skill dominio-specifiche (`.claude/skills/`)
 
 Si auto-attivano quando il task matcha la `description` (non serve elencarle
-qui: il harness le inietta già). Le 13 skill: `ade-integration`,
-`db-migrations`, `deploy-release`, `marketing-content`, `money-rounding`,
-`playwright-verify`, `pwa-serwist`, `react-patterns`, `security-patterns`,
-`sentry-hygiene`, `sonar-quality-gate`, `stripe-webhooks`, `testing-patterns`.
+qui: il harness le inietta già): `ade-integration`, `db-migrations`,
+`deploy-release`, `marketing-content`, `money-rounding`, `playwright-verify`,
+`pwa-serwist`, `react-patterns`, `security-patterns`, `sentry-hygiene`,
+`sonar-quality-gate`, `stripe-webhooks`, `testing-patterns`.
+
+Questo elenco è **verificato da `npm run arch:check`**: una skill nuova non
+citata qui fa fallire il check, e ogni citazione nella forma
+skill `<nome>` — in CLAUDE.md, nelle skill e in `docs/architecture/` — deve
+risolvere a una directory esistente sotto `.claude/skills`.
 
 ## Hook automatici (`.claude/hooks/`)
 
-- `block-drizzle-generate.sh` — blocca `drizzle-kit generate` (regola 11)
-- `block-push-to-main.sh` — blocca `git push` verso `main` (regola 1)
-- `block-commit-on-main.sh` — blocca `git commit` sul branch `main` (regola 1)
-- `check-arch-docs-on-edit.sh` — esegue arch:check dopo ogni edit ai doc meta
-  (regola 26)
+- `.claude/hooks/block-drizzle-generate.sh` — blocca `drizzle-kit generate`
+  (regola 11)
+- `.claude/hooks/block-push-to-main.sh` — blocca `git push` verso `main`
+  (regola 1)
+- `.claude/hooks/block-commit-on-main.sh` — blocca `git commit` sul branch
+  `main` (regola 1)
+- `.claude/hooks/check-arch-docs-on-edit.sh` — esegue arch:check dopo ogni edit
+  ai doc meta (regola 26)
+
+Ogni hook ha la sua suite (`.claude/hooks/test-*.sh`), eseguita in CI dal job
+`hook-tests` quando cambia `.claude/hooks/`.

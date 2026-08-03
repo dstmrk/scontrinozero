@@ -3,6 +3,7 @@ import {
   checkArchitectureDocs,
   extractFrontmatterPathTokens,
   extractHarViolations,
+  extractSkillReferences,
 } from "../../../scripts/check-architecture-docs.mjs";
 
 const { mockReaddir, mockReadFile, mockStat } = vi.hoisted(() => ({
@@ -39,13 +40,23 @@ function makeDirDirents(names: string[]) {
  * only for the paths listed in `existing` (relative to the fake root /repo).
  * `skills` maps a skill dir name to its SKILL.md content (null = unreadable).
  * `claudeMd` is the root CLAUDE.md content (scanned too; null = unreadable).
+ *
+ * When `claudeMd` is omitted the fixture CLAUDE.md lists every skill as a code
+ * span — the shape the real CLAUDE.md has — so the orphan-skill check stays
+ * satisfied and tests can assert on the error they actually care about.
  */
 function setup(
   files: Record<string, string>,
   existing: string[],
   skills: Record<string, string | null> = {},
-  claudeMd: string | null = "",
+  claudeMd: string | null | undefined = undefined,
 ) {
+  const resolvedClaudeMd =
+    claudeMd === undefined
+      ? Object.keys(skills)
+          .map((n) => `- \`${n}\``)
+          .join("\n")
+      : claudeMd;
   const existingSet = new Set(existing.map((p) => `/repo/${p}`));
   mockReaddir.mockImplementation((p: string) => {
     if (p === "/repo/docs/architecture") {
@@ -62,7 +73,9 @@ function setup(
   });
   mockReadFile.mockImplementation((p: string) => {
     if (p === "/repo/CLAUDE.md") {
-      if (typeof claudeMd === "string") return Promise.resolve(claudeMd);
+      if (typeof resolvedClaudeMd === "string") {
+        return Promise.resolve(resolvedClaudeMd);
+      }
       return Promise.reject(new Error(`ENOENT: ${p}`));
     }
     const skillMatch = /^\/repo\/\.claude\/skills\/([^/]+)\/SKILL\.md$/.exec(p);
@@ -338,6 +351,129 @@ describe("checkArchitectureDocs", () => {
     expect(result.errors[0]).toContain("cite the bare filename");
     expect(result.errors[1]).toContain("har/login_cie.har");
     expect(result.errors[1]).toContain(".claude/skills/my-skill/SKILL.md");
+  });
+
+  it("validates .claude/ code spans and reports a dead hook path", async () => {
+    setup(
+      { "INDEX.md": "no paths here" },
+      [".claude/hooks/block-push-to-main.sh"],
+      {},
+      "Hook: `.claude/hooks/block-push-to-main.sh` e `.claude/hooks/ghost.sh`.",
+    );
+
+    const result = await checkArchitectureDocs("/repo");
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain(".claude/hooks/ghost.sh");
+    expect(result.errors[0]).toContain("CLAUDE.md");
+  });
+
+  it("reports a `skill \\`name\\`` citation that matches no skill directory", async () => {
+    setup(
+      { "INDEX.md": "Soglia descritta nella skill `stripe-webhooks`." },
+      [],
+      { "ade-integration": "---\nname: ade-integration\n---\n" },
+      "- `ade-integration`",
+    );
+
+    const result = await checkArchitectureDocs("/repo");
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("stripe-webhooks");
+    expect(result.errors[0]).toContain("docs/architecture/INDEX.md");
+  });
+
+  it("accepts a skill citation that resolves to an existing skill directory", async () => {
+    setup({ "INDEX.md": "Dettaglio nella skill `ade-integration`." }, [], {
+      "ade-integration": "---\nname: ade-integration\n---\n",
+    });
+
+    const result = await checkArchitectureDocs("/repo");
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("reports a skill that no index doc ever cites (orphan skill)", async () => {
+    setup(
+      { "INDEX.md": "no skills cited here" },
+      [],
+      { "lonely-skill": "---\nname: lonely-skill\n---\n" },
+      "CLAUDE.md senza elenco skill.",
+    );
+
+    const result = await checkArchitectureDocs("/repo");
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("lonely-skill");
+    expect(result.errors[0]).toContain("never cited");
+  });
+
+  it("counts a bare code-span mention in docs/architecture as citing the skill", async () => {
+    setup({ "INDEX.md": "Prescrittivo: `lonely-skill`." }, [], {
+      "lonely-skill": "---\nname: lonely-skill\n---\n",
+    });
+
+    const result = await checkArchitectureDocs("/repo");
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("does not flag an unreadable skill as an orphan on top of the read error", async () => {
+    setup({ "INDEX.md": "no skills cited here" }, [], { broken: null }, "");
+
+    const result = await checkArchitectureDocs("/repo");
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("Cannot read skill doc");
+  });
+});
+
+describe("extractSkillReferences", () => {
+  it("extracts names cited with the `skill <name>` form, singular and plural", () => {
+    const md = [
+      "Vedi la skill `ade-integration` e le skills `db-migrations`.",
+      "Procedura → skill `deploy-release` (smoke).",
+    ].join("\n");
+
+    expect(extractSkillReferences(md)).toEqual([
+      "ade-integration",
+      "db-migrations",
+      "deploy-release",
+    ]);
+  });
+
+  it("ignores code spans not preceded by the word skill", () => {
+    expect(
+      extractSkillReferences("Il file `src/lib/plans.ts` e `getPlan`."),
+    ).toEqual([]);
+  });
+
+  it("ignores a span that cannot be a skill directory name", () => {
+    const md = "skill `Not A Slug` e skill `src/lib/x.ts` e skill `-lead`.";
+
+    expect(extractSkillReferences(md)).toEqual([]);
+  });
+
+  it("de-duplicates a skill cited several times", () => {
+    const md = "skill `deploy-release` … skill `deploy-release` ancora.";
+
+    expect(extractSkillReferences(md)).toEqual(["deploy-release"]);
+  });
+
+  it("matches across a line wrap and regardless of case", () => {
+    const md = "Procedura → Skill\n`deploy-release` (smoke post-deploy).";
+
+    expect(extractSkillReferences(md)).toEqual(["deploy-release"]);
+  });
+
+  it("ignores a word that merely ends in skill", () => {
+    expect(extractSkillReferences("La subskill `deploy-release`.")).toEqual([]);
   });
 });
 

@@ -413,8 +413,10 @@ WHERE b.profile_id = $developer_profile_id
 | `api:void:{apiKeyId}` | `POST /v1/receipts/{id}/void` | 20/ora  | 1h       |
 
 `GET /v1/receipts/{id}` (lettura singola indicizzata) non ha rate limiter
-dedicato. Più generosi dei limiti UI (30 emit/ora) perché le integrazioni POS
-sono automatizzate.
+dedicato. L'emissione è **allineata alla cassa** (`emit:{userId}`, 120/ora): lo
+stesso account non può avere in UI un tetto più basso di quello che ottiene via
+API (REVIEW.md #72). L'elenco completo dei bucket è nella skill
+`testing-patterns`.
 
 ---
 

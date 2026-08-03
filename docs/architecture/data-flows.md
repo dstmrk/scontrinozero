@@ -114,7 +114,7 @@ dialog "Ricollegati" in `src/components/storico/void-receipt-dialog.tsx`).
 
 Un documento rimasto "pending" (es. crash dopo la chiamata AdE) viene
 riconciliato da `src/lib/services/ade-recovery.ts`, con la soglia temporale
-descritta nella skill `stripe-webhooks` e in `docs/architecture/config-manifest.md`.
+descritta nella skill `ade-integration` e in `docs/architecture/config-manifest.md`.
 Prima di ri-sottomettere ad AdE, il recovery interroga `searchDocuments`
 (HAR di riferimento: `ricerca.har`, locale e gitignorata) e riconcilia il
 documento con la fonte di verità via

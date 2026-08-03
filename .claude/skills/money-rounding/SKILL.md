@@ -1,6 +1,6 @@
 ---
 name: money-rounding
-description: Use when touching money amounts, receipt totals, rounding, revenue aggregation or rankings — receipt line totals in src/lib/receipts/document-lines.ts (calcInputLinesTotalCents, calcDocTotal), the amount transmitted to AdE (payments[0].amount), the €1.00 lottery threshold, PDF/public receipt page totals (computeReceiptTotals), analytics revenue KPIs and product breakdowns, or any sort that precedes a slice/topN. Canon: per-line cents rounding — round(grossUnitPrice*quantity*100) per line, summed as integers — NEVER per-document rounding; always add a stable secondary sort key before slice/topN.
+description: Use when touching money amounts, receipt totals, rounding, revenue aggregation or rankings — the canonical arithmetic in src/lib/receipts/receipt-totals.ts (calcInputLinesTotalCents, calcDocTotal, computeReceiptTotals — pure and client-safe, re-exported by src/lib/receipts/document-lines.ts), the amount transmitted to AdE (payments[0].amount), the €1.00 lottery threshold, PDF/public receipt page/thermal print totals, analytics revenue KPIs and product breakdowns, or any sort that precedes a slice/topN. Canon: per-line cents rounding — round(grossUnitPrice*quantity*100) per line, summed as integers — NEVER per-document rounding; always add a stable secondary sort key before slice/topN.
 ---
 
 # money-rounding — strategia canonica per gli importi monetari
@@ -14,13 +14,23 @@ canonica è una sola, ovunque.
 
 ## Helper condivisi — usali, non reimplementare
 
-In `src/lib/receipts/document-lines.ts`:
+Vivono in `src/lib/receipts/receipt-totals.ts`, modulo **puro e client-safe**:
 
 - `calcInputLinesTotalCents` — righe di input **numeriche** (cassa, API)
 - `calcDocTotal` — righe lette dal **DB** (storico, analytics)
+- `computeReceiptTotals` — totali completi per PDF, pagina pubblica e stampa
+  termica (usa i due sopra)
 
-Ogni nuovo punto che tocca un totale monetario deve passare da questi helper
-(o da `computeReceiptTotals` per PDF/pagina pubblica, che li usa sotto).
+Ogni nuovo punto che tocca un totale monetario deve passare da questi helper.
+
+⚠️ **Importa sempre da `src/lib/receipts/receipt-totals.ts`, non dal wrapper.**
+`src/lib/receipts/document-lines.ts` re-esporta gli stessi simboli (comodo lato
+server, dove aggiunge anche `fetchLinesByDocIds`/`groupLinesByDocId`) ma importa
+`getDb()`: un Client Component che ne tiri dentro anche solo `computeReceiptTotals`
+si porta il driver `postgres` nel bundle del browser. È il motivo per cui i due
+moduli sono separati — stessa logica di `plans-shared.ts` vs `plans.ts` — ed è
+emerso quando la stampa termica ha iniziato a riusare `computeReceiptTotals` da
+client.
 
 ## Dove si applica (tutte le superfici)
 
@@ -29,6 +39,7 @@ Ogni nuovo punto che tocca un totale monetario deve passare da questi helper
 | Importo trasmesso ad AdE   | `payments[0].amount`                     |
 | Soglia lotteria €1,00      | stesso totale per-riga                   |
 | PDF / pagina pubblica      | `computeReceiptTotals`                   |
+| Stampa termica ESC/POS     | `computeReceiptTotals` (stesso helper)   |
 | Storico / analytics (KPI)  | `calcDocTotal`                           |
 | Breakdown prodotti (top-N) | somma `round(qty*price*100)` sulle righe |
 
