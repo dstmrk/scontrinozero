@@ -12,6 +12,8 @@ const {
   mockCanUseApi,
   mockGetApiKeyLimit,
   mockGenerateApiKey,
+  mockIsNull,
+  mockApiKeysTable,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
   mockCheckBusinessOwnership: vi.fn(),
@@ -20,6 +22,21 @@ const {
   mockCanUseApi: vi.fn(),
   mockGetApiKeyLimit: vi.fn(),
   mockGenerateApiKey: vi.fn(),
+  mockIsNull: vi.fn(),
+  // Colonne come oggetto (non stringa) per poter asserire su quale colonna
+  // riceve isNull() nella WHERE della revoca.
+  mockApiKeysTable: {
+    id: "api_keys.id",
+    profileId: "api_keys.profile_id",
+    businessId: "api_keys.business_id",
+    type: "api_keys.type",
+    name: "api_keys.name",
+    keyHash: "api_keys.key_hash",
+    keyPrefix: "api_keys.key_prefix",
+    createdAt: "api_keys.created_at",
+    lastUsedAt: "api_keys.last_used_at",
+    revokedAt: "api_keys.revoked_at",
+  },
 }));
 
 vi.mock("@/lib/server-auth", () => ({
@@ -53,7 +70,7 @@ vi.mock("@/db", () => ({
 }));
 
 vi.mock("@/db/schema", () => ({
-  apiKeys: "api-keys-table",
+  apiKeys: mockApiKeysTable,
   businesses: "businesses-table",
   profiles: "profiles-table",
 }));
@@ -61,7 +78,7 @@ vi.mock("@/db/schema", () => ({
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
   and: vi.fn(),
-  isNull: vi.fn(),
+  isNull: mockIsNull,
   count: vi.fn().mockReturnValue("count()"),
 }));
 
@@ -114,6 +131,11 @@ function setupPassthroughTransaction() {
 
 const FAKE_USER = { id: "auth-user-uuid" };
 const FAKE_PROFILE = { id: "profile-uuid" };
+// UUID reali: businessId/keyId attraversano il guard isValidUuid (regola 9),
+// quindi i fixture non possono più essere stringhe segnaposto.
+const BIZ_ID = "11111111-2222-4333-8444-555555555555";
+const KEY_ID = "99999999-8888-4777-8666-555555555555";
+const OTHER_KEY_ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
 const FAKE_KEY_LIST = [
   {
     id: "key-uuid-1",
@@ -144,7 +166,7 @@ describe("listApiKeys", () => {
 
   it("ritorna la lista delle API key attive per il business", async () => {
     const { listApiKeys } = await import("./api-key-actions");
-    const result = await listApiKeys("biz-uuid");
+    const result = await listApiKeys(BIZ_ID);
 
     expect(result.error).toBeUndefined();
     expect(result.keys).toHaveLength(1);
@@ -157,7 +179,7 @@ describe("listApiKeys", () => {
     });
 
     const { listApiKeys } = await import("./api-key-actions");
-    const result = await listApiKeys("biz-uuid");
+    const result = await listApiKeys(BIZ_ID);
 
     expect(result.error).toBeDefined();
     expect(result.keys).toBeUndefined();
@@ -167,7 +189,7 @@ describe("listApiKeys", () => {
     mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
 
     const { listApiKeys } = await import("./api-key-actions");
-    const result = await listApiKeys("biz-uuid");
+    const result = await listApiKeys(BIZ_ID);
 
     expect(result.error).toBe("Non autenticato.");
     expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
@@ -177,7 +199,7 @@ describe("listApiKeys", () => {
     mockCanUseApi.mockReturnValue(false);
 
     const { listApiKeys } = await import("./api-key-actions");
-    const result = await listApiKeys("biz-uuid");
+    const result = await listApiKeys(BIZ_ID);
 
     expect(result.error).toMatch(/Pro/i);
   });
@@ -188,7 +210,7 @@ describe("listApiKeys", () => {
     mockCanUseApi.mockReturnValue(true);
 
     const { listApiKeys } = await import("./api-key-actions");
-    const result = await listApiKeys("biz-uuid");
+    const result = await listApiKeys(BIZ_ID);
 
     expect(result.error).toBeUndefined();
     expect(result.keys).toBeDefined();
@@ -229,7 +251,7 @@ describe("createApiKey", () => {
 
   it("genera una API key e ritorna la raw key una sola volta", async () => {
     const { createApiKey } = await import("./api-key-actions");
-    const result = await createApiKey("biz-uuid", "Test Key");
+    const result = await createApiKey(BIZ_ID, "Test Key");
 
     expect(result.error).toBeUndefined();
     expect(result.apiKeyRaw).toBe(
@@ -240,7 +262,7 @@ describe("createApiKey", () => {
 
   it("ritorna errore se il nome è vuoto", async () => {
     const { createApiKey } = await import("./api-key-actions");
-    const result = await createApiKey("biz-uuid", "  ");
+    const result = await createApiKey(BIZ_ID, "  ");
 
     expect(result.error).toMatch(/nome/i);
     expect(mockInsert).not.toHaveBeenCalled();
@@ -248,7 +270,7 @@ describe("createApiKey", () => {
 
   it("ritorna errore se il nome supera 64 caratteri", async () => {
     const { createApiKey } = await import("./api-key-actions");
-    const result = await createApiKey("biz-uuid", "A".repeat(65));
+    const result = await createApiKey(BIZ_ID, "A".repeat(65));
 
     expect(result.error).toMatch(/64/);
     expect(mockInsert).not.toHaveBeenCalled();
@@ -256,7 +278,7 @@ describe("createApiKey", () => {
 
   it("accetta un nome di esattamente 64 caratteri", async () => {
     const { createApiKey } = await import("./api-key-actions");
-    const result = await createApiKey("biz-uuid", "A".repeat(64));
+    const result = await createApiKey(BIZ_ID, "A".repeat(64));
 
     expect(result.error).toBeUndefined();
   });
@@ -267,7 +289,7 @@ describe("createApiKey", () => {
     });
 
     const { createApiKey } = await import("./api-key-actions");
-    const result = await createApiKey("biz-uuid", "Test Key");
+    const result = await createApiKey(BIZ_ID, "Test Key");
 
     expect(result.error).toBeDefined();
     expect(mockInsert).not.toHaveBeenCalled();
@@ -277,7 +299,7 @@ describe("createApiKey", () => {
     mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
 
     const { createApiKey } = await import("./api-key-actions");
-    const result = await createApiKey("biz-uuid", "Test Key");
+    const result = await createApiKey(BIZ_ID, "Test Key");
 
     expect(result.error).toBe("Non autenticato.");
     expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
@@ -288,7 +310,7 @@ describe("createApiKey", () => {
     mockCanUseApi.mockReturnValue(false);
 
     const { createApiKey } = await import("./api-key-actions");
-    const result = await createApiKey("biz-uuid", "Test Key");
+    const result = await createApiKey(BIZ_ID, "Test Key");
 
     expect(result.error).toMatch(/Pro/i);
     expect(mockInsert).not.toHaveBeenCalled();
@@ -299,7 +321,7 @@ describe("createApiKey", () => {
     mockSelect.mockReturnValue(makeSelectBuilder([]));
 
     const { createApiKey } = await import("./api-key-actions");
-    const result = await createApiKey("biz-uuid", "Test Key");
+    const result = await createApiKey(BIZ_ID, "Test Key");
 
     expect(result.error).toMatch(/Profilo/i);
     expect(mockInsert).not.toHaveBeenCalled();
@@ -312,7 +334,7 @@ describe("createApiKey", () => {
     mockSelect.mockReturnValueOnce(makeSelectBuilderNoLimit([{ count: "1" }]));
 
     const { createApiKey } = await import("./api-key-actions");
-    const result = await createApiKey("biz-uuid", "Race Key");
+    const result = await createApiKey(BIZ_ID, "Race Key");
 
     expect(result.error).toBeUndefined();
     expect(mockTransaction).toHaveBeenCalledTimes(1);
@@ -348,7 +370,7 @@ describe("createApiKey — limite per piano", () => {
       .mockReturnValueOnce(makeSelectBuilderNoLimit([{ count: "3" }]));
 
     const { createApiKey } = await import("./api-key-actions");
-    const result = await createApiKey("biz-uuid", "Fourth Key");
+    const result = await createApiKey(BIZ_ID, "Fourth Key");
 
     expect(result.error).toMatch(/limite/i);
     expect(mockInsert).not.toHaveBeenCalled();
@@ -366,7 +388,7 @@ describe("createApiKey — limite per piano", () => {
       .mockReturnValueOnce(makeSelectBuilderNoLimit([{ count: "2" }]));
 
     const { createApiKey } = await import("./api-key-actions");
-    const result = await createApiKey("biz-uuid", "Third Key");
+    const result = await createApiKey(BIZ_ID, "Third Key");
 
     expect(result.error).toBeUndefined();
     expect(result.apiKeyRaw).toBeDefined();
@@ -382,7 +404,7 @@ describe("createApiKey — limite per piano", () => {
       .mockReturnValueOnce(makeSelectBuilderForUpdate([{ id: "biz-uuid" }]));
 
     const { createApiKey } = await import("./api-key-actions");
-    const result = await createApiKey("biz-uuid", "Unlimited Key");
+    const result = await createApiKey(BIZ_ID, "Unlimited Key");
 
     expect(result.error).toBeUndefined();
     expect(result.apiKeyRaw).toBeDefined();
@@ -410,8 +432,8 @@ describe("createApiKey — limite per piano", () => {
       .mockReturnValueOnce(makeSelectBuilderNoLimit([{ count: "2" }]));
 
     const { createApiKey } = await import("./api-key-actions");
-    const first = await createApiKey("biz-uuid", "Key 1");
-    const second = await createApiKey("biz-uuid", "Key 2");
+    const first = await createApiKey(BIZ_ID, "Key 1");
+    const second = await createApiKey(BIZ_ID, "Key 2");
 
     expect(first.error).toBeUndefined();
     expect(second.error).toMatch(/limite/i);
@@ -439,7 +461,7 @@ describe("revokeApiKey", () => {
 
   it("revoca la chiave e ritorna senza errore", async () => {
     const { revokeApiKey } = await import("./api-key-actions");
-    const result = await revokeApiKey("key-uuid");
+    const result = await revokeApiKey(KEY_ID);
 
     expect(result.error).toBeUndefined();
     expect(mockUpdate).toHaveBeenCalled();
@@ -449,7 +471,7 @@ describe("revokeApiKey", () => {
     mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
 
     const { revokeApiKey } = await import("./api-key-actions");
-    const result = await revokeApiKey("key-uuid");
+    const result = await revokeApiKey(KEY_ID);
 
     expect(result.error).toBe("Non autenticato.");
     expect(mockUpdate).not.toHaveBeenCalled();
@@ -460,7 +482,7 @@ describe("revokeApiKey", () => {
     mockUpdateReturning.mockResolvedValue([]);
 
     const { revokeApiKey } = await import("./api-key-actions");
-    const result = await revokeApiKey("nonexistent-key-uuid");
+    const result = await revokeApiKey(OTHER_KEY_ID);
 
     expect(result.error).toMatch(/non trovata|non autorizzata/i);
     expect(mockUpdate).toHaveBeenCalled();
@@ -470,9 +492,109 @@ describe("revokeApiKey", () => {
     mockSelect.mockReturnValue(makeSelectBuilder([]));
 
     const { revokeApiKey } = await import("./api-key-actions");
-    const result = await revokeApiKey("key-uuid");
+    const result = await revokeApiKey(KEY_ID);
 
     expect(result.error).toMatch(/Profilo/i);
     expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("filtra la UPDATE sulle sole chiavi non ancora revocate (revoca idempotente)", async () => {
+    const { revokeApiKey } = await import("./api-key-actions");
+    await revokeApiKey(KEY_ID);
+
+    // Senza isNull(revokedAt) nella WHERE una seconda revoca sposterebbe
+    // avanti revoked_at, corrompendo il timestamp di audit.
+    expect(mockIsNull).toHaveBeenCalledWith(mockApiKeysTable.revokedAt);
+  });
+
+  it("una seconda revoca della stessa chiave è un no-op: nessuna riga aggiornata", async () => {
+    // La chiave è già revocata → isNull(revokedAt) non matcha più nulla →
+    // returning() vuoto → il branch "non trovata" esistente.
+    mockUpdateReturning.mockResolvedValue([]);
+
+    const { revokeApiKey } = await import("./api-key-actions");
+    const result = await revokeApiKey(KEY_ID);
+
+    expect(result.error).toMatch(/non trovata|non autorizzata/i);
+    expect(mockUpdateReturning).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("guard isValidUuid al boundary (regola 9)", () => {
+  const INVALID_IDS = ["non-un-uuid", "", "1; DROP TABLE api_keys", "12345"];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupPassthroughTransaction();
+    mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
+    mockCheckBusinessOwnership.mockResolvedValue(null);
+    mockGetEffectivePlan.mockResolvedValue("pro");
+    mockGetPlan.mockResolvedValue({
+      plan: "pro",
+      trialStartedAt: null,
+      planExpiresAt: null,
+    });
+    mockCanUseApi.mockReturnValue(true);
+    mockSelect.mockReturnValue(makeSelectBuilder([FAKE_PROFILE]));
+  });
+
+  it.each(INVALID_IDS)(
+    "listApiKeys(%j) → errore senza toccare ownership né DB",
+    async (badId) => {
+      const { listApiKeys } = await import("./api-key-actions");
+      const result = await listApiKeys(badId);
+
+      expect(result).toEqual({ error: "Identificativo non valido." });
+      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockSelect).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(INVALID_IDS)(
+    "createApiKey(%j) → errore senza transaction né insert",
+    async (badId) => {
+      const { createApiKey } = await import("./api-key-actions");
+      const result = await createApiKey(badId, "Test Key");
+
+      expect(result).toEqual({ error: "Identificativo non valido." });
+      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockTransaction).not.toHaveBeenCalled();
+      expect(mockInsert).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(INVALID_IDS)(
+    "revokeApiKey(%j) → errore senza lookup profilo né update",
+    async (badId) => {
+      const { revokeApiKey } = await import("./api-key-actions");
+      const result = await revokeApiKey(badId);
+
+      expect(result).toEqual({ error: "Identificativo non valido." });
+      expect(mockSelect).not.toHaveBeenCalled();
+      expect(mockUpdate).not.toHaveBeenCalled();
+    },
+  );
+
+  it("accetta un UUID maiuscolo (case-insensitive) e prosegue il flusso", async () => {
+    const { listApiKeys } = await import("./api-key-actions");
+    mockSelect.mockReturnValue(makeSelectBuilderNoLimit(FAKE_KEY_LIST));
+
+    const result = await listApiKeys(BIZ_ID.toUpperCase());
+
+    expect(result.error).toBeUndefined();
+    expect(mockCheckBusinessOwnership).toHaveBeenCalled();
+  });
+
+  it("il guard sta DOPO l'auth: sessione scaduta + id invalido → 'Non autenticato.'", async () => {
+    mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
+
+    const { listApiKeys, revokeApiKey } = await import("./api-key-actions");
+
+    expect(await listApiKeys("non-un-uuid")).toEqual({
+      error: "Non autenticato.",
+    });
+    expect(await revokeApiKey("non-un-uuid")).toEqual({
+      error: "Non autenticato.",
+    });
   });
 });
