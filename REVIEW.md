@@ -60,19 +60,40 @@ bundle venga emesso.
 
 **Fix (una decisione + due guardie).**
 
-1. Scegliere come tornare a emettere il SW:
-   - **A — `next build --webpack`** (e `next dev --webpack`): ripristina il
-     plugin così com'è, zero migrazione, ma rinuncia a Turbopack in build e ci
-     lega a un bundler in uscita.
-   - **B — `@serwist/turbopack`**: allineato alla direzione di Next, supporto
-     dichiarato **sperimentale** dagli autori.
-   - **C — configurator mode di `@serwist/next`**: supporta Turbopack restando
-     nel pacchetto già in uso.
+1. Scegliere come tornare a emettere il SW. **Decisione: C.**
+   - **A — `next build --webpack`** (e `next dev --webpack`). ⚠️ **Non è un
+     cambio di una riga:** `next.config.ts:28-33` dichiara l'alias di
+     `@point-of-sale/webbluetooth-receipt-printer` **solo** sotto la chiave
+     `turbopack`, che webpack ignora. Senza un blocco `webpack:` gemello il
+     build salta con module-not-found sul pass Client Component SSR — l'attrito
+     documentato in #62 — e proprio sul pacchetto della stampa termica v1.6.0.
+     Costo reale: un alias duplicato da tenere allineato, più l'intero build
+     riportato su un percorso non più esercitato dall'upgrade a Next 16, per
+     salvare un plugin.
+   - **B — `@serwist/turbopack`** (esiste, 9.5.12): dipendenza nuova, supporto
+     dichiarato **sperimentale** dagli autori, e soprattutto ri-accoppia il SW
+     al bundler — cioè ricompra la stessa classe di rottura al prossimo
+     cambio di bundler.
+   - **C — configurator mode**, export `./config` di `@serwist/next` **già
+     installato** (`serwist.withNextConfig(...)` + `generateGlobPatterns(distDir)`).
+     Non è un plugin del bundler: è uno step di build a sé, guidato da
+     `@serwist/cli`. È l'unica strada bundler-agnostica, e trasforma il SW in un
+     artefatto esplicito del build — quindi uno step che **può fallire**, che è
+     esattamente ciò che mancava qui (punto 2).
 
-   Raccomandazione: **A** per ripristinare subito la feature (cambio di una
-   riga, rischio nullo), poi valutare **C** come uscita definitiva da webpack.
-   Qualunque strada: confrontare i tempi di build in CI prima/dopo, perché è
-   l'unico costo reale di A.
+   Cosa comporta C, in concreto:
+   - aggiungere `@serwist/cli` alle devDependencies (unico pezzo mancante:
+     `@serwist/next`, `@serwist/build`, `@serwist/window` ci sono già);
+   - togliere `withSerwistInit` da `next.config.ts` e spostare la config del SW
+     nel file del CLI;
+   - incatenare lo step al `build` di `package.json` (così vale anche per il
+     Dockerfile, non solo per CI);
+   - **la registrazione del SW diventa esplicita**: il plugin webpack iniettava
+     lo script da sé, in configurator mode si usa `SerwistProvider` da
+     `@serwist/next/react` (`swUrl="/sw.js"`). Slot naturale:
+     `src/components/providers.tsx`, che è già l'entry client dove
+     `initInstallPromptCapture()` viene chiamato a module-load. È il pezzo con
+     più incognite: validarlo su sandbox prima di prod.
 
 2. **Guardia anti-regressione nel build** — è l'unica cosa che avrebbe
    intercettato questo: uno step dopo `next build` che fallisce se
