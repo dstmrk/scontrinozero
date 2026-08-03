@@ -293,4 +293,136 @@ describe("buildReceiptsCsvStream", () => {
     // Reference unused vars to satisfy strict mode
     expect(limit).toHaveBeenCalledTimes(0);
   });
+
+  it("ordina per created_at DESC con `id` come chiave secondaria stabile", async () => {
+    const order = vi.fn();
+    const where = vi.fn();
+    const leftJoin = vi.fn();
+    const from = vi.fn();
+    const select = vi.fn();
+
+    select.mockReturnValue({ from });
+    from.mockReturnValue({ leftJoin });
+    leftJoin.mockReturnValue({ where });
+    where.mockReturnValue({ orderBy: order });
+    order.mockReturnValue({ limit: () => ({ offset: () => [] }) });
+    mockGetDb.mockReturnValue({ select });
+
+    const stream = buildReceiptsCsvStream({
+      businessId: "biz-1",
+      status: null,
+      dateFrom: null,
+      dateTo: null,
+    });
+    await streamToString(stream);
+
+    // Senza il tiebreaker su `id` l'ordine fra righe con lo stesso
+    // `created_at` non e' definito in Postgres → LIMIT/OFFSET non deterministico.
+    expect(order).toHaveBeenCalledWith(
+      { _desc: "created_at" },
+      { _desc: "id" },
+    );
+  });
+});
+
+/**
+ * Regressione finding #74: con `created_at` duplicati la paginazione
+ * LIMIT/OFFSET puo' ripetere o saltare righe se l'ORDER BY non e' un ordine
+ * *totale*. Il fake DB qui sotto simula un Postgres che riordina liberamente
+ * le righe a parita' di chiave di ordinamento — comportamento legittimo e
+ * osservabile in produzione (piani diversi, letture parallele, sort non stabile).
+ */
+describe("buildReceiptsCsvStream — paginazione con created_at duplicati", () => {
+  const SAME_INSTANT = new Date("2026-05-19T12:34:56.789Z");
+
+  function makeDocs(n: number): ReceiptDocRow[] {
+    return Array.from({ length: n }, (_, i) =>
+      doc({ id: `d${String(i).padStart(4, "0")}`, createdAt: SAME_INSTANT }),
+    );
+  }
+
+  /**
+   * Applica l'ORDER BY richiesto. A parita' di `created_at`:
+   * - con tiebreaker su `id` → ordine totale, identico a ogni esecuzione;
+   * - senza → l'ordine fra i pari varia a ogni query (qui: rotazione).
+   */
+  function applyOrder(
+    all: ReceiptDocRow[],
+    orderKeys: { _desc: string }[],
+    queryIndex: number,
+  ): ReceiptDocRow[] {
+    const byCreatedDesc = [...all].sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    );
+    if (orderKeys.some((k) => k._desc === "id")) {
+      return byCreatedDesc.sort(
+        (a, b) =>
+          b.createdAt.getTime() - a.createdAt.getTime() ||
+          b.id.localeCompare(a.id),
+      );
+    }
+    const shift = (queryIndex * 7) % byCreatedDesc.length;
+    return [...byCreatedDesc.slice(shift), ...byCreatedDesc.slice(0, shift)];
+  }
+
+  function setupUnstableDbMock(all: ReceiptDocRow[]) {
+    let queryIndex = 0;
+    let orderKeys: { _desc: string }[] = [];
+
+    const select = vi.fn().mockReturnValue({
+      from: () => ({
+        leftJoin: () => ({
+          where: () => ({
+            orderBy: (...keys: { _desc: string }[]) => {
+              orderKeys = keys;
+              return {
+                limit: (batchSize: number) => ({
+                  offset: (offset: number) => {
+                    const ordered = applyOrder(all, orderKeys, queryIndex);
+                    queryIndex += 1;
+                    return Promise.resolve(
+                      ordered.slice(offset, offset + batchSize),
+                    );
+                  },
+                }),
+              };
+            },
+          }),
+        }),
+      }),
+    });
+
+    mockGetDb.mockReturnValue({ select });
+  }
+
+  it("emette esattamente una riga per documento su 1200 doc con lo stesso created_at", async () => {
+    const all = makeDocs(1200); // 3 batch da 500
+    setupUnstableDbMock(all);
+    mockFetchLinesByDocIds.mockResolvedValue([]);
+    mockGroupLinesByDocId.mockReturnValue(new Map());
+    mockCalcDocTotal.mockReturnValue(0);
+
+    const stream = buildReceiptsCsvStream({
+      businessId: "biz-1",
+      status: null,
+      dateFrom: null,
+      dateTo: null,
+    });
+    const reader = stream.getReader();
+    const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
+    let body = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) body += decoder.decode(value, { stream: true });
+    }
+    body += decoder.decode();
+
+    const rows = body.split("\r\n").filter(Boolean).slice(1); // scarta l'header
+    const ids = rows.map((r) => r.split(",")[0]);
+
+    expect(rows).toHaveLength(1200);
+    expect(new Set(ids).size).toBe(1200);
+    expect(new Set(ids)).toEqual(new Set(all.map((d) => d.id)));
+  });
 });

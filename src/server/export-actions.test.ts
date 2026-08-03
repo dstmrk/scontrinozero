@@ -23,10 +23,21 @@ vi.mock("@/db", () => ({
 vi.mock("@/db/schema", () => ({
   profiles: "profiles-table",
   businesses: "businesses-table",
-  commercialDocuments: "commercial-documents-table",
+  commercialDocuments: {
+    id: "cd.id",
+    businessId: "cd.business_id",
+    createdAt: "cd.created_at",
+  },
   commercialDocumentLines: "commercial-document-lines-table",
   catalogItems: "catalog-items-table",
 }));
+
+// Solo `desc` e' stubbato (marker ispezionabile negli argomenti di .orderBy);
+// il resto di drizzle-orm resta reale.
+vi.mock("drizzle-orm", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("drizzle-orm")>();
+  return { ...actual, desc: (col: unknown) => ({ _desc: col }) };
+});
 
 vi.mock("@/lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -258,6 +269,26 @@ describe("export-actions", () => {
       expect(receipt1?.lines).toHaveLength(1);
       expect(receipt1?.lines[0].description).toBe("Parmigiano");
       expect(receipt2?.lines).toHaveLength(1);
+    });
+
+    it("ordina i documenti per created_at DESC con `id` come chiave secondaria stabile", async () => {
+      const docsBuilder = makeSelectBuilder([FAKE_DOC]);
+      mockSelect
+        .mockReturnValueOnce(makeSelectBuilder([FAKE_PROFILE]))
+        .mockReturnValueOnce(makeSelectBuilder([FAKE_BUSINESS]))
+        .mockReturnValueOnce(docsBuilder)
+        .mockReturnValueOnce(makeSelectBuilder([FAKE_LINE]))
+        .mockReturnValueOnce(makeSelectBuilder([FAKE_CATALOG_ITEM]));
+
+      const { exportUserData } = await import("./export-actions");
+      await exportUserData();
+
+      // L'export GDPR usa una query sola (nessuna riga persa), ma senza
+      // tiebreaker l'ordine varia fra due export dello stesso dataset.
+      expect(docsBuilder.orderBy).toHaveBeenCalledWith(
+        { _desc: "cd.created_at" },
+        { _desc: "cd.id" },
+      );
     });
   });
 });

@@ -131,7 +131,10 @@ export async function exportUserData(): Promise<ExportUserDataResult> {
     .select()
     .from(commercialDocuments)
     .where(eq(commercialDocuments.businessId, business.id))
-    .orderBy(desc(commercialDocuments.createdAt));
+    // `id` (UUID PRIMARY KEY) come chiave secondaria: a parita' di
+    // `created_at` l'ordine delle righe non e' definito, e due export dello
+    // stesso dataset produrrebbero file diversi.
+    .orderBy(desc(commercialDocuments.createdAt), desc(commercialDocuments.id));
 
   let linesByDocId = new Map<string, typeof lines>();
   let lines: {

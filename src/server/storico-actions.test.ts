@@ -23,9 +23,25 @@ vi.mock("@/db", () => ({
 }));
 
 vi.mock("@/db/schema", () => ({
-  commercialDocuments: "commercial-documents-table",
+  commercialDocuments: {
+    id: "cd.id",
+    businessId: "cd.business_id",
+    kind: "cd.kind",
+    status: "cd.status",
+    createdAt: "cd.created_at",
+    adeProgressive: "cd.ade_progressive",
+    adeTransactionId: "cd.ade_transaction_id",
+    publicRequest: "cd.public_request",
+  },
   commercialDocumentLines: "commercial-document-lines-table",
 }));
+
+// Solo `desc` e' stubbato (marker ispezionabile negli argomenti di .orderBy);
+// il resto di drizzle-orm resta reale.
+vi.mock("drizzle-orm", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("drizzle-orm")>();
+  return { ...actual, desc: (col: unknown) => ({ _desc: col }) };
+});
 
 // ---------------------------------------------------------------------------
 // Builder helpers
@@ -399,6 +415,87 @@ describe("storico-actions", () => {
       expect(result.items).toHaveLength(0);
       // Lines query not called when docs page is empty
       expect(mockSelect).toHaveBeenCalledTimes(2);
+    });
+
+    it("ordina per created_at DESC con `id` come chiave secondaria stabile", async () => {
+      const docsBuilder = makeDocsBuilder([]);
+      mockSelect
+        .mockReturnValueOnce(makeCountBuilder(0))
+        .mockReturnValueOnce(docsBuilder);
+
+      const { searchReceipts } = await import("./storico-actions");
+      await searchReceipts("11111111-1111-4111-8111-111111111111");
+
+      // Senza tiebreaker su `id` l'ordine fra righe con lo stesso `created_at`
+      // non e' definito: pagina 1 e 2 possono ripetere o saltare documenti.
+      expect(docsBuilder.orderBy).toHaveBeenCalledWith(
+        { _desc: "cd.created_at" },
+        { _desc: "cd.id" },
+      );
+    });
+
+    it("non ripete ne' perde documenti fra pagina 1 e 2 con created_at identici", async () => {
+      // Fake DB che riordina liberamente le righe a parita' di chiave di
+      // ordinamento (comportamento legittimo di Postgres) e diventa
+      // deterministico solo quando l'ORDER BY include `id`.
+      const SAME_INSTANT = new Date("2026-02-15T10:00:00Z");
+      const all = Array.from({ length: 30 }, (_, i) => ({
+        ...FAKE_SALE_DOC,
+        id: `doc-${String(i).padStart(3, "0")}`,
+        createdAt: SAME_INSTANT,
+      }));
+
+      let queryIndex = 0;
+      function makePagedBuilder() {
+        let orderKeys: { _desc: string }[] = [];
+        let pageSize = 10;
+        const b = {
+          from: vi.fn(),
+          where: vi.fn(),
+          orderBy: vi.fn((...keys: { _desc: string }[]) => {
+            orderKeys = keys;
+            return b;
+          }),
+          limit: vi.fn((n: number) => {
+            pageSize = n;
+            return b;
+          }),
+          offset: vi.fn((off: number) => {
+            const stable = orderKeys.some((k) => k._desc === "cd.id");
+            const ordered = stable
+              ? [...all].sort((x, y) => y.id.localeCompare(x.id))
+              : (() => {
+                  // Rotazione all'indietro: la finestra della pagina 2 scivola
+                  // su righe gia' restituite nella pagina 1 → duplicati.
+                  const shift =
+                    (all.length - ((queryIndex * 7) % all.length)) % all.length;
+                  return [...all.slice(shift), ...all.slice(0, shift)];
+                })();
+            queryIndex += 1;
+            return Promise.resolve(ordered.slice(off, off + pageSize));
+          }),
+        };
+        b.from.mockReturnValue(b);
+        b.where.mockReturnValue(b);
+        return b;
+      }
+
+      mockSelect
+        .mockReturnValueOnce(makeCountBuilder(30))
+        .mockReturnValueOnce(makePagedBuilder())
+        .mockReturnValueOnce(makeLinesBuilder([]))
+        .mockReturnValueOnce(makeCountBuilder(30))
+        .mockReturnValueOnce(makePagedBuilder())
+        .mockReturnValueOnce(makeLinesBuilder([]));
+
+      const { searchReceipts } = await import("./storico-actions");
+      const biz = "11111111-1111-4111-8111-111111111111";
+      const page1 = await searchReceipts(biz, { page: 1, pageSize: 10 });
+      const page2 = await searchReceipts(biz, { page: 2, pageSize: 10 });
+
+      const ids = [...page1.items, ...page2.items].map((i) => i.id);
+      expect(ids).toHaveLength(20);
+      expect(new Set(ids).size).toBe(20);
     });
   });
 });
