@@ -12,6 +12,8 @@ const {
   mockFrom,
   mockSelect,
   mockPlanFromPriceId,
+  mockLoggerWarn,
+  mockLoggerError,
 } = vi.hoisted(() => ({
   mockGetDb: vi.fn(),
   mockLimit: vi.fn(),
@@ -19,6 +21,20 @@ const {
   mockFrom: vi.fn(),
   mockSelect: vi.fn(),
   mockPlanFromPriceId: vi.fn(),
+  mockLoggerWarn: vi.fn(),
+  mockLoggerError: vi.fn(),
+}));
+
+// Il logger è mockato per poter asserire warn-vs-error: un profilo orfano è una
+// condizione ambientale nota e deve restare a `warn` (regola 20), altrimenti il
+// logMethod hook di logger.ts lo inoltra a Sentry come issue.
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    warn: mockLoggerWarn,
+    error: mockLoggerError,
+    info: vi.fn(),
+    debug: vi.fn(),
+  },
 }));
 
 vi.mock("@/db", () => ({
@@ -50,6 +66,7 @@ import {
   getApiKeyLimit,
   getEffectivePlan,
   getPlan,
+  getPlanSafe,
   isDeveloperPlan,
   isPaidPlanExpired,
   isPlan,
@@ -650,6 +667,114 @@ describe("getPlan", () => {
       { plan: "premium", trialStartedAt: null, planExpiresAt: null },
     ]);
     await expect(getPlan("user-drift")).rejects.toThrow("Profilo non trovato");
+  });
+});
+
+describe("getPlanSafe", () => {
+  // NB: `getPlan` è wrappato in react/cache — ogni test usa un authUserId
+  // diverso, altrimenti l'esito memoizzato del test precedente lo inquina.
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetDb.mockReturnValue({ select: mockSelect });
+    mockSelect.mockReturnValue({ from: mockFrom });
+    mockFrom.mockReturnValue({ where: mockSelectWhere });
+    mockSelectWhere.mockReturnValue({ limit: mockLimit });
+  });
+
+  it("ritorna ok:true con il PlanInfo quando il profilo esiste", async () => {
+    const trialStartedAt = new Date("2026-01-01T00:00:00Z");
+    mockLimit.mockResolvedValue([
+      { plan: "pro", trialStartedAt, planExpiresAt: null },
+    ]);
+
+    const result = await getPlanSafe("safe-ok", "emitReceipt");
+
+    expect(result).toEqual({
+      ok: true,
+      info: { plan: "pro", trialStartedAt, planExpiresAt: null },
+    });
+  });
+
+  it("degrada a ok:false su profilo orfano invece di lanciare", async () => {
+    mockLimit.mockResolvedValue([]);
+
+    const result = await getPlanSafe("safe-orphan", "emitReceipt");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("Profilo non disponibile");
+    }
+  });
+
+  it("logga il profilo orfano a warn (mai error: nessuna issue Sentry)", async () => {
+    mockLimit.mockResolvedValue([]);
+
+    await getPlanSafe("safe-orphan-log", "emitReceipt");
+
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      { userId: "safe-orphan-log" },
+      "emitReceipt: orphan auth user — profile missing",
+    );
+    expect(mockLoggerError).not.toHaveBeenCalled();
+  });
+
+  it("usa la chiave di log `userId` (unica in SAFE_KEYS, quindi l'unica che arriva a Sentry)", async () => {
+    mockLimit.mockResolvedValue([]);
+
+    await getPlanSafe("safe-orphan-key", "voidReceipt");
+
+    const [bindings] = mockLoggerWarn.mock.calls[0] as [
+      Record<string, unknown>,
+    ];
+    expect(Object.keys(bindings)).toEqual(["userId"]);
+  });
+
+  it("degrada a ok:false col messaggio di sovraccarico su statement timeout (57014)", async () => {
+    mockLimit.mockRejectedValue(
+      Object.assign(new Error("statement timeout"), { code: "57014" }),
+    );
+
+    const result = await getPlanSafe("safe-timeout", "emitReceipt");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("sovraccarico");
+    }
+  });
+
+  it("non logga nulla sullo statement timeout (già coperto dall'osservabilità DB)", async () => {
+    mockLimit.mockRejectedValue(
+      Object.assign(new Error("statement timeout"), { code: "57014" }),
+    );
+
+    await getPlanSafe("safe-timeout-log", "emitReceipt");
+
+    expect(mockLoggerWarn).not.toHaveBeenCalled();
+    expect(mockLoggerError).not.toHaveBeenCalled();
+  });
+
+  it("rilancia gli errori imprevisti: sono bug veri e devono restare in Sentry", async () => {
+    mockLimit.mockRejectedValue(new Error("network glitch"));
+
+    await expect(getPlanSafe("safe-unknown", "emitReceipt")).rejects.toThrow(
+      "network glitch",
+    );
+  });
+
+  it("degrada anche sul drift di `profiles.plan`, mantenendo l'alert critical", async () => {
+    // Valore fuori enum → ProfileNotFoundError. L'utente vede un errore
+    // inline, ma il log `critical` resta (è drift di schema, va alertato).
+    mockLimit.mockResolvedValue([
+      { plan: "premium", trialStartedAt: null, planExpiresAt: null },
+    ]);
+
+    const result = await getPlanSafe("safe-drift", "addCatalogItem");
+
+    expect(result.ok).toBe(false);
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      { critical: true, userId: "safe-drift" },
+      expect.stringContaining("DB drift"),
+    );
   });
 });
 

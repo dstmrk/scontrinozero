@@ -158,6 +158,76 @@ export async function getEffectivePlan(userId: string): Promise<Plan> {
   return planInfo.plan;
 }
 
+// ---------------------------------------------------------------------------
+// Lettura del piano che degrada invece di lanciare (regola 19)
+// ---------------------------------------------------------------------------
+
+const PROFILE_UNAVAILABLE_MESSAGE =
+  "Profilo non disponibile. Contatta il supporto.";
+const DB_OVERLOADED_MESSAGE =
+  "Servizio temporaneamente sovraccarico, riprova tra qualche istante.";
+
+export type PlanReadFailure =
+  | { kind: "profile-missing"; error: string }
+  | { kind: "overloaded"; error: string };
+
+/**
+ * Classifica un errore sollevato da una lettura del piano (`getPlan`,
+ * `getEffectivePlan`) in una delle due condizioni **ambientali note**:
+ * profilo orfano (signup a metà, compensating delete fallito, drift di
+ * `profiles.plan`) e statement timeout del DB sotto contention.
+ *
+ * Ritorna `null` per tutto il resto: quello è un bug vero e il chiamante DEVE
+ * rilanciare, così resta visibile in Sentry.
+ *
+ * Il profilo orfano si logga a `warn`, mai a `error`: è una condizione nota e
+ * non azionabile a runtime, e a `error` il logMethod hook di `logger.ts`
+ * aprirebbe una issue Sentry a ogni richiesta dello stesso utente (regola 20).
+ * `userId` è l'unica chiave utente in `SAFE_KEYS` (`src/lib/logger.ts`),
+ * quindi l'unica che arriva davvero al drain.
+ */
+export function classifyPlanReadError(
+  err: unknown,
+  action: string,
+  userId: string,
+): PlanReadFailure | null {
+  if (err instanceof ProfileNotFoundError) {
+    logger.warn({ userId }, `${action}: orphan auth user — profile missing`);
+    return { kind: "profile-missing", error: PROFILE_UNAVAILABLE_MESSAGE };
+  }
+  if (isStatementTimeoutError(err)) {
+    return { kind: "overloaded", error: DB_OVERLOADED_MESSAGE };
+  }
+  return null;
+}
+
+export type SafePlanResult =
+  { ok: true; info: PlanInfo } | { ok: false; error: string };
+
+/**
+ * Variante di `getPlan` per le server action UI-facing: su profilo orfano o DB
+ * sovraccarico ritorna `{ ok: false, error }` invece di propagare l'eccezione.
+ *
+ * Regola 19: un throw dentro una server action di lettura sostituisce il
+ * fallback inline con l'error boundary di Next — schermo intero al posto di un
+ * messaggio in linea, proprio sul core flow fiscale (`emitReceipt`).
+ *
+ * `action` è il nome della action chiamante e finisce solo nel messaggio di
+ * log, per poter distinguere in triage da dove arriva il profilo orfano.
+ */
+export async function getPlanSafe(
+  authUserId: string,
+  action: string,
+): Promise<SafePlanResult> {
+  try {
+    return { ok: true, info: await getPlan(authUserId) };
+  } catch (err) {
+    const failure = classifyPlanReadError(err, action, authUserId);
+    if (!failure) throw err;
+    return { ok: false, error: failure.error };
+  }
+}
+
 export type AssertProPlanResult =
   | { ok: true; plan: Plan }
   | { ok: false; status: 401 | 403 | 503; error: string };
@@ -186,26 +256,13 @@ export async function assertProPlan(
   try {
     info = await getPlan(authUserId);
   } catch (err) {
-    if (err instanceof ProfileNotFoundError) {
-      logger.warn(
-        { authUserId },
-        "assertProPlan: orphan auth user — profile missing",
-      );
-      return {
-        ok: false,
-        status: 403,
-        error: "Profilo non disponibile. Contatta il supporto.",
-      };
-    }
-    if (isStatementTimeoutError(err)) {
-      return {
-        ok: false,
-        status: 503,
-        error:
-          "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
-      };
-    }
-    throw err;
+    const failure = classifyPlanReadError(err, "assertProPlan", authUserId);
+    if (!failure) throw err;
+    return {
+      ok: false,
+      status: failure.kind === "profile-missing" ? 403 : 503,
+      error: failure.error,
+    };
   }
 
   if (!canUsePro(info.plan, info.planExpiresAt, info.trialStartedAt)) {

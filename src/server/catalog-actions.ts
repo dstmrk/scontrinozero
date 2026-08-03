@@ -10,7 +10,7 @@ import {
 import { authErrorResult } from "@/lib/auth-errors";
 import {
   canAddCatalogItem,
-  getPlan,
+  getPlanSafe,
   isPaidPlanExpired,
   isTrialExpired,
   STARTER_CATALOG_LIMIT,
@@ -209,9 +209,14 @@ export async function addCatalogItem(
   if ("error" in validated) return validated;
 
   const db = getDb();
-  // getPlan resta FUORI dalla transazione: è cache-ato per-richiesta e non deve
-  // allungare la finestra del lock.
-  const planInfo = await getPlan(user.id);
+  // La lettura del piano resta FUORI dalla transazione: è cache-ata
+  // per-richiesta e non deve allungare la finestra del lock. Anche il suo
+  // fallimento (profilo orfano / DB sovraccarico) va gestito qui, PRIMA sia del
+  // ramo "piano senza limite" sia della transazione — aprire un lock per poi
+  // scartarlo sarebbe puro costo (REVIEW.md #78, regola 19).
+  const planResult = await getPlanSafe(user.id, "addCatalogItem");
+  if (!planResult.ok) return { error: planResult.error };
+  const planInfo = planResult.info;
 
   const insertValues = {
     businessId: input.businessId,

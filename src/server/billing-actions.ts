@@ -5,7 +5,7 @@ import { getDb } from "@/db";
 import { subscriptions } from "@/db/schema";
 import { getAuthenticatedUser } from "@/lib/server-auth";
 import { authErrorResult } from "@/lib/auth-errors";
-import { getPlan } from "@/lib/plans";
+import { getPlanSafe } from "@/lib/plans";
 import type { Plan } from "@/lib/plans";
 import { planFromPriceId } from "@/lib/stripe";
 
@@ -39,7 +39,12 @@ export async function getProfilePlan(): Promise<ProfilePlanResult> {
     return authErrorResult(err, "getProfilePlan");
   }
 
-  const planInfo = await getPlan(user.id);
+  // Profilo orfano o DB sovraccarico → { error } inline: la sezione piano di
+  // /dashboard/impostazioni ha già il suo fallback, un throw la sostituirebbe
+  // con l'error boundary di Next (REVIEW.md #78, regola 19).
+  const planResult = await getPlanSafe(user.id, "getProfilePlan");
+  if (!planResult.ok) return { error: planResult.error };
+  const planInfo = planResult.info;
 
   const db = getDb();
   const [sub] = await db

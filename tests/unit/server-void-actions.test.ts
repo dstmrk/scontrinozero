@@ -11,14 +11,14 @@ import {
 const {
   mockGetAuthenticatedUser,
   mockCheckBusinessOwnership,
-  mockGetPlan,
+  mockGetPlanSafe,
   mockCanEmit,
   mockRateLimiterCheck,
   mockVoidReceiptForBusiness,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
   mockCheckBusinessOwnership: vi.fn(),
-  mockGetPlan: vi.fn(),
+  mockGetPlanSafe: vi.fn(),
   mockCanEmit: vi.fn(),
   mockRateLimiterCheck: vi.fn(),
   mockVoidReceiptForBusiness: vi.fn(),
@@ -30,7 +30,7 @@ vi.mock("@/lib/server-auth", () => ({
 }));
 
 vi.mock("@/lib/plans", () => ({
-  getPlan: mockGetPlan,
+  getPlanSafe: mockGetPlanSafe,
   canEmit: mockCanEmit,
   TRIAL_EXPIRED_MESSAGE:
     "Il tuo periodo di prova è scaduto. Attiva un piano per continuare.",
@@ -68,13 +68,26 @@ function makeValidInput(overrides: Record<string, unknown> = {}) {
 
 // --- Tests ---
 
+/**
+ * REVIEW.md #78: la lettura del piano passa da `getPlanSafe`, che ritorna un
+ * envelope `{ ok, info }` invece di lanciare. Helper per non ripetere il
+ * wrapping in ogni test.
+ */
+function mockPlanInfo(info: {
+  plan: string;
+  trialStartedAt: Date | null;
+  planExpiresAt: Date | null;
+}) {
+  mockGetPlanSafe.mockResolvedValue({ ok: true, info });
+}
+
 describe("voidReceipt server action", () => {
   beforeEach(() => {
     vi.resetAllMocks();
 
     mockGetAuthenticatedUser.mockResolvedValue({ id: USER_ID });
     mockRateLimiterCheck.mockReturnValue({ success: true });
-    mockGetPlan.mockResolvedValue({
+    mockPlanInfo({
       plan: "trial",
       trialStartedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
       planExpiresAt: null,
@@ -111,7 +124,7 @@ describe("voidReceipt server action", () => {
     });
 
     it("allows void on pro plan", async () => {
-      mockGetPlan.mockResolvedValue({
+      mockPlanInfo({
         plan: "pro",
         trialStartedAt: null,
         planExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -129,7 +142,7 @@ describe("voidReceipt server action", () => {
       const { voidReceipt } = await import("@/server/void-actions");
       await voidReceipt(makeValidInput());
 
-      expect(mockGetPlan).toHaveBeenCalledWith(USER_ID);
+      expect(mockGetPlanSafe).toHaveBeenCalledWith(USER_ID, "voidReceipt");
     });
   });
 
