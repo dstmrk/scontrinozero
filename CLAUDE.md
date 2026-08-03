@@ -32,6 +32,13 @@ finding) · Developer API `DEVELOPER.md` · surface REST + flussi HTTP AdE
   anche se AdE risponde in 2-5 secondi.
 - **Hobby project, costi fissi ~€0.** Pricing aggressivo possibile perché il
   costo marginale per utente è ~zero.
+- **Semplice ora, ma mai provvisorio.** L'implementazione più semplice che
+  soddisfa _interamente_ i requisiti attuali: niente astrazioni, config o
+  indirezioni speculative per casi ipotetici. Ma la scelta architetturale si fa
+  per il lungo periodo: mai un tappabuchi pensato per essere rifatto dopo. Il
+  sistema cresce a strati — la versione minima che funziona end-to-end, poi
+  ogni capability sopra un prodotto già funzionante. Mai barattare un prodotto
+  funzionante per complessità incompiuta.
 - **Leggeri sulle risorse.** No headless browser nel **runtime dell'app
   spedita** (AdE solo via HTTP diretto; PDF via `pdfkit` +
   `serverExternalPackages` in `next.config.ts`); dipendenze minime, Next
@@ -130,6 +137,20 @@ _prescrittive_ (come fare X); la mappa è _descrittiva_ (dove sta X).
     intermedio; una grandezza posseduta da Stripe si aggiusta SU Stripe (poi
     il webhook risincronizza), MAI a read-time in locale. Trappole referral →
     skill `stripe-webhooks`, sezione referral/trial.
+28. **Niente retrocompatibilità interna.** Un path obsoleto si **rimuove** —
+    call site, test, feature flag, colonna morta — mai lo si avvolge in compat
+    layer, alias o rami `if (legacy)`. Tre eccezioni non negoziabili: (a) le
+    migrazioni SQL già applicate sono immutabili → regola 11; (b) la Developer
+    API pubblica `/api/v1` ha consumer esterni: breaking change solo con nuovo
+    path di versione (`DEVELOPER.md`); (c) i fallback di resilienza runtime
+    (degrado su errore, regola 19) **non** sono compat layer. Rimozione > 3
+    file → sub-task (regola 5).
+29. **Prima le dipendenze già in progetto.** Prima di scrivere un helper o
+    aggiungere un package, verifica docs e **types di ciò che è già
+    installato** — mai assumere che una libreria non sappia fare X. Se serve
+    davvero qualcosa di nuovo, una libreria mantenuta batte la
+    reimplementazione, ma pesala contro "dipendenze minime, un solo container"
+    (Principi guida).
 
 ## SonarCloud quality gate
 
