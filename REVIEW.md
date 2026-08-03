@@ -145,75 +145,10 @@ Il commento nel codice giustifica la soglia ("nessun business Pro reale emette
 
 ---
 
-### 77. `addCatalogItem`: conta il catalogo caricando tutte le righe, e il limite Starter è soggetto a race
-
-- **Categoria:** performance + correttezza plan-gate · **Severità:** Medium
-- **File:** `src/server/catalog-actions.ts:195-201` (`select({ id })` senza `count()` né `LIMIT`), `:203-224` (check limite fuori da qualsiasi lock). Riferimento del pattern corretto: `src/server/api-key-actions.ts:134-153` (`db.transaction` + `SELECT ... FOR UPDATE` + `count()`)
-
-**Problema.** Due difetti nello stesso blocco.
-
-1. **Performance.** Per decidere se applicare `STARTER_CATALOG_LIMIT` (5
-   prodotti) la action esegue `SELECT id FROM catalog_items WHERE business_id = $1`
-   **senza LIMIT**, e usa solo `existingItems.length`. Su un business Pro con
-   catalogo illimitato (lo scenario del finding #11: 5–10k articoli) ogni
-   inserimento di un singolo prodotto trasferisce e materializza migliaia di UUID
-   per poi contarli in JavaScript — e il piano Pro **non ha nemmeno un limite da
-   verificare**, quindi è lavoro interamente sprecato.
-2. **Correttezza.** Il check limite è un read-then-write senza lock: due
-   `addCatalogItem` concorrenti su un business Starter con 4 prodotti leggono
-   entrambe `4 < 5`, passano entrambe il gate e inseriscono → 6 prodotti su un
-   piano che ne ammette 5. `createApiKey` risolve esattamente questa race con
-   `SELECT ... FOR UPDATE` sulla riga `businesses`; `addCatalogItem` no.
-
-**Fix (non ambiguo).**
-
-1. Recuperare `planInfo` **prima** e, se il piano non ha limite di catalogo,
-   **saltare del tutto** la query di conteggio. Il predicato è già centralizzato:
-   usare `canAddCatalogItem`/`STARTER_CATALOG_LIMIT` da `src/lib/plans.ts` per
-   determinare se il limite si applica al piano corrente (piani senza limite →
-   `currentCount` irrilevante, passare `0`).
-2. Quando il limite si applica, spostare conteggio + INSERT dentro una
-   `db.transaction` con lock, replicando `createApiKey`:
-
-   ```ts
-   return db.transaction(async (tx) => {
-     await tx
-       .select({ id: businesses.id })
-       .from(businesses)
-       .where(eq(businesses.id, input.businessId))
-       .for("update");
-     const [{ count: current }] = await tx
-       .select({ count: count() })
-       .from(catalogItems)
-       .where(eq(catalogItems.businessId, input.businessId));
-     // ...check canAddCatalogItem(plan, trialStartedAt, Number(current), planExpiresAt)
-     // ...insert
-   });
-   ```
-
-   Usare `count()` di drizzle, **mai** `select({id}).length`.
-
-3. Mantenere invariati i due messaggi d'errore attuali e la loro precedenza
-   (trial/piano scaduto → `TRIAL_EXPIRED_MESSAGE`; limite Starter → messaggio
-   specifico con `STARTER_CATALOG_LIMIT`): sono già testati e distinguere i due
-   casi è comportamento voluto.
-4. `getPlan` resta fuori dalla transazione (è cache-ata per-richiesta e non deve
-   allungare la finestra del lock).
-5. **Test** (`src/server/catalog-actions.test.ts`):
-   - piano Pro/unlimited → **nessuna** query di conteggio eseguita (asserire che
-     il mock del `select` di conteggio non è stato chiamato) e insert eseguito;
-   - piano Starter a 4 item → insert OK; a 5 item → errore col messaggio del
-     limite e **nessun** insert;
-   - il conteggio usa `count()` e gira dentro `db.transaction` (mock con
-     passthrough del callback, vedi skill `testing-patterns`);
-   - trial scaduto → `TRIAL_EXPIRED_MESSAGE` ha precedenza sul messaggio limite.
-
----
-
 ### 78. `getPlan()` può lanciare e quasi nessun caller lo gestisce (viola regola 19)
 
 - **Categoria:** architettura/robustezza · **Severità:** Medium — trasforma un profilo orfano o un DB lento in un error boundary a schermo intero + issue Sentry
-- **File:** sorgente del throw `src/lib/plans.ts:81-95` (`ProfileNotFoundError`) e timeout DB propagati; caller **non protetti**: `src/server/receipt-actions.ts:72`, `src/server/void-actions.ts:52`, `src/server/catalog-actions.ts:195`, `src/server/billing-actions.ts:42`, `src/server/api-key-actions.ts:57-60`. Caller **corretti** da cui copiare il pattern: `src/server/analytics-actions.ts:106-128` e `assertProPlan` in `src/lib/plans.ts:186-209`
+- **File:** sorgente del throw `src/lib/plans.ts:81-95` (`ProfileNotFoundError`) e timeout DB propagati; caller **non protetti**: `src/server/receipt-actions.ts:72`, `src/server/void-actions.ts:52`, `src/server/catalog-actions.ts:214`, `src/server/billing-actions.ts:42`, `src/server/api-key-actions.ts:57-60`. Caller **corretti** da cui copiare il pattern: `src/server/analytics-actions.ts:106-128` e `assertProPlan` in `src/lib/plans.ts:186-209`
 
 **Problema.** `getPlan` lancia `ProfileNotFoundError` quando l'auth user non ha
 un profilo (orfano: signup a metà, compensating delete fallito) o quando
@@ -256,9 +191,10 @@ Sentry su una condizione ambientale nota (regola 20). Lo stesso vale per
    `VoidReceiptResult`, `CatalogActionResult`, `ProfilePlanResult`,
    il risultato di `authorizeApiKeyBusiness`), quindi nessun cambio di firma
    pubblica.
-3. In `catalog-actions.ts` il `getPlan` è dentro un `Promise.all`: sostituirlo
-   con `getPlanSafe` e controllare `ok` **prima** di usare `planInfo` (attenzione
-   a non lasciare il ramo `Promise.all` che rigetta l'intera coppia).
+3. In `catalog-actions.ts` il `getPlan` precede sia il ramo "piano senza limite"
+   sia la transazione con lock: sostituirlo con `getPlanSafe` e fare
+   early-return dell'error envelope **prima** di entrambi (mai dentro la
+   `db.transaction`, per non aprire un lock che poi si scarta).
 4. Rifattorizzare `analytics-actions.ts` e `assertProPlan` per usare l'helper,
    così esiste **una sola** copia della classificazione (oggi sono due divergenti:
    `assertProPlan` logga con chiave `authUserId`, analytics con `userId`).

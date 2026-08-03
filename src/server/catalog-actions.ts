@@ -1,8 +1,8 @@
 "use server";
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { catalogItems } from "@/db/schema";
+import { businesses, catalogItems } from "@/db/schema";
 import {
   checkBusinessOwnership,
   getAuthenticatedUser,
@@ -15,6 +15,7 @@ import {
   isTrialExpired,
   STARTER_CATALOG_LIMIT,
   TRIAL_EXPIRED_MESSAGE,
+  type PlanInfo,
 } from "@/lib/plans";
 import { logger } from "@/lib/logger";
 import { isValidUuid } from "@/lib/uuid";
@@ -157,6 +158,24 @@ export async function getCatalogItems(
 // ---------------------------------------------------------------------------
 
 /**
+ * Messaggio d'errore quando `canAddCatalogItem` nega l'aggiunta.
+ *
+ * Trial scaduto o piano a pagamento scaduto oltre la grazia (webhook perso):
+ * stesso messaggio sola-lettura della cassa (coerenza UX). Il limite di
+ * STARTER_CATALOG_LIMIT prodotti su Starter / trial attivo resta invece il suo
+ * messaggio specifico — è un limite di piano corretto, non una scadenza.
+ */
+function catalogGateError(planInfo: PlanInfo): string {
+  if (
+    (planInfo.plan === "trial" && isTrialExpired(planInfo.trialStartedAt)) ||
+    isPaidPlanExpired(planInfo.plan, planInfo.planExpiresAt)
+  ) {
+    return TRIAL_EXPIRED_MESSAGE;
+  }
+  return `Piano Starter: massimo ${STARTER_CATALOG_LIMIT} prodotti nel catalogo. Passa a Pro per catalogo illimitato.`;
+}
+
+/**
  * Aggiunge un prodotto al catalogo del business.
  * Limita a STARTER_CATALOG_LIMIT prodotti per piano Starter/trial.
  */
@@ -189,51 +208,70 @@ export async function addCatalogItem(
   );
   if ("error" in validated) return validated;
 
-  // Plan gate: Starter e trial hanno catalogo limitato.
-  // getPlan e la conta articoli sono indipendenti → in parallelo.
   const db = getDb();
-  const [planInfo, existingItems] = await Promise.all([
-    getPlan(user.id),
-    db
-      .select({ id: catalogItems.id })
-      .from(catalogItems)
-      .where(eq(catalogItems.businessId, input.businessId)),
-  ]);
+  // getPlan resta FUORI dalla transazione: è cache-ato per-richiesta e non deve
+  // allungare la finestra del lock.
+  const planInfo = await getPlan(user.id);
 
+  const insertValues = {
+    businessId: input.businessId,
+    description: input.description.trim(),
+    defaultPrice: validated.priceStr,
+    defaultVatCode: input.defaultVatCode,
+  };
+
+  // Piani a catalogo illimitato (pro/unlimited/developer): il predicato passa
+  // anche a currentCount === STARTER_CATALOG_LIMIT, quindi nessun conteggio può
+  // cambiarne l'esito. Saltare del tutto la query: prima si caricavano tutti
+  // gli UUID del catalogo (5-10k righe su un Pro) per un limite inesistente.
   if (
-    !canAddCatalogItem(
+    canAddCatalogItem(
       planInfo.plan,
       planInfo.trialStartedAt,
-      existingItems.length,
+      STARTER_CATALOG_LIMIT,
       planInfo.planExpiresAt,
     )
   ) {
-    // Trial scaduto o piano a pagamento scaduto oltre la grazia (webhook
-    // perso): stesso messaggio sola-lettura della cassa (coerenza UX). Il
-    // limite di 5 prodotti su Starter / trial attivo resta invece il suo
-    // messaggio specifico — è un limite di piano corretto, non una scadenza.
-    if (
-      (planInfo.plan === "trial" && isTrialExpired(planInfo.trialStartedAt)) ||
-      isPaidPlanExpired(planInfo.plan, planInfo.planExpiresAt)
-    ) {
-      return { error: TRIAL_EXPIRED_MESSAGE };
-    }
-    return {
-      error: `Piano Starter: massimo ${STARTER_CATALOG_LIMIT} prodotti nel catalogo. Passa a Pro per catalogo illimitato.`,
-    };
+    const [row] = await db
+      .insert(catalogItems)
+      .values(insertValues)
+      .returning();
+    return { item: toCatalogItem(row) };
   }
 
-  const [row] = await db
-    .insert(catalogItems)
-    .values({
-      businessId: input.businessId,
-      description: input.description.trim(),
-      defaultPrice: validated.priceStr,
-      defaultVatCode: input.defaultVatCode,
-    })
-    .returning();
+  // Il limite si applica: conteggio + INSERT serializzati per business con
+  // SELECT ... FOR UPDATE sulla riga businesses (stesso pattern di
+  // createApiKey). Senza lock due addCatalogItem concorrenti su un Starter a 4
+  // prodotti leggono entrambe 4 < 5, passano entrambe il gate e inseriscono.
+  return db.transaction(async (tx) => {
+    await tx
+      .select({ id: businesses.id })
+      .from(businesses)
+      .where(eq(businesses.id, input.businessId))
+      .for("update");
 
-  return { item: toCatalogItem(row) };
+    const [{ count: currentCount }] = await tx
+      .select({ count: count() })
+      .from(catalogItems)
+      .where(eq(catalogItems.businessId, input.businessId));
+
+    if (
+      !canAddCatalogItem(
+        planInfo.plan,
+        planInfo.trialStartedAt,
+        Number(currentCount),
+        planInfo.planExpiresAt,
+      )
+    ) {
+      return { error: catalogGateError(planInfo) };
+    }
+
+    const [row] = await tx
+      .insert(catalogItems)
+      .values(insertValues)
+      .returning();
+    return { item: toCatalogItem(row) };
+  });
 }
 
 // ---------------------------------------------------------------------------

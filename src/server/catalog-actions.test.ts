@@ -39,17 +39,36 @@ const mockUpdateWhere = vi
 const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
 const mockUpdate = vi.fn().mockReturnValue({ set: mockUpdateSet });
 
+// transaction(cb) → cb(tx). Il tx espone select (lock FOR UPDATE + count) e
+// riusa le stesse mock di insert del db, così le asserzioni "insert eseguito /
+// non eseguito" valgono su entrambi i path (con e senza limite di piano).
+const mockTxLockFor = vi.fn().mockResolvedValue([{ id: "business-row" }]);
+const mockTxLockWhere = vi.fn().mockReturnValue({ for: mockTxLockFor });
+const mockTxCountWhere = vi.fn().mockResolvedValue([{ count: 0 }]);
+const mockTxFrom = vi.fn((table: unknown) =>
+  table === "businesses-table"
+    ? { where: mockTxLockWhere }
+    : { where: mockTxCountWhere },
+);
+const mockTxSelect = vi.fn().mockReturnValue({ from: mockTxFrom });
+const mockTransaction = vi.fn(
+  (cb: (tx: unknown) => unknown) =>
+    cb({ select: mockTxSelect, insert: mockInsert }) as unknown,
+);
+
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({
     select: mockSelect,
     insert: mockInsert,
     delete: mockDelete,
     update: mockUpdate,
+    transaction: (cb: (tx: unknown) => unknown) => mockTransaction(cb),
   }),
 }));
 
 vi.mock("@/db/schema", () => ({
   catalogItems: "catalog-items-table",
+  businesses: "businesses-table",
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -105,6 +124,8 @@ describe("catalog-actions", () => {
 
     mockOrderBy.mockResolvedValue([]);
     mockLimit.mockResolvedValue([]);
+    mockTxLockFor.mockResolvedValue([{ id: "business-row" }]);
+    mockTxCountWhere.mockResolvedValue([{ count: 0 }]);
     mockInsertReturning.mockResolvedValue([FAKE_ITEM]);
     mockDeleteWhere.mockResolvedValue(undefined);
     mockUpdateReturning.mockResolvedValue([FAKE_ITEM]);
@@ -550,6 +571,103 @@ describe("catalog-actions", () => {
 
       expect(result.error).toBe(TRIAL_EXPIRED_MESSAGE);
       expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    // -------------------------------------------------------------------------
+    // #77: conteggio catalogo — solo quando il limite si applica, sotto lock
+    // -------------------------------------------------------------------------
+
+    describe("conteggio catalogo e limite di piano", () => {
+      /** Gate realistico: solo starter/trial hanno un limite di 5 prodotti. */
+      function usePlanGate(plan: string) {
+        mockCanAddCatalogItem.mockImplementation(
+          (p: string, _trial: unknown, currentCount: number) =>
+            p === "starter" || p === "trial" ? currentCount < 5 : true,
+        );
+        mockGetPlan.mockResolvedValue({
+          plan,
+          trialStartedAt: null,
+          planExpiresAt: null,
+        });
+      }
+
+      it.each(["pro", "unlimited"])(
+        "piano %s: nessuna query di conteggio né transazione, insert diretto",
+        async (plan) => {
+          usePlanGate(plan);
+
+          const { addCatalogItem } = await import("./catalog-actions");
+          const result = await addCatalogItem(VALID_ADD_INPUT);
+
+          expect(result.error).toBeUndefined();
+          expect(mockTransaction).not.toHaveBeenCalled();
+          expect(mockTxSelect).not.toHaveBeenCalled();
+          // Nessuna SELECT sul catalogo: il piano non ha limite da verificare.
+          expect(mockSelect).not.toHaveBeenCalled();
+          expect(mockInsert).toHaveBeenCalledWith("catalog-items-table");
+        },
+      );
+
+      it("piano Starter sotto il limite: lock FOR UPDATE + count() + insert nella stessa transazione", async () => {
+        usePlanGate("starter");
+        mockTxCountWhere.mockResolvedValue([{ count: 4 }]);
+
+        const { addCatalogItem } = await import("./catalog-actions");
+        const result = await addCatalogItem(VALID_ADD_INPUT);
+
+        expect(result.error).toBeUndefined();
+        expect(mockTransaction).toHaveBeenCalledTimes(1);
+        // Lock sulla riga business prima del conteggio (serializza le concorrenti).
+        expect(mockTxFrom).toHaveBeenNthCalledWith(1, "businesses-table");
+        expect(mockTxLockFor).toHaveBeenCalledWith("update");
+        // Conteggio con count(): mai il materializzare delle righe.
+        expect(mockTxSelect).toHaveBeenLastCalledWith({
+          count: expect.anything(),
+        });
+        expect(mockTxFrom).toHaveBeenNthCalledWith(2, "catalog-items-table");
+        expect(mockInsert).toHaveBeenCalledWith("catalog-items-table");
+      });
+
+      it("piano Starter al limite: messaggio del limite e nessun insert", async () => {
+        usePlanGate("starter");
+        mockTxCountWhere.mockResolvedValue([{ count: 5 }]);
+
+        const { addCatalogItem } = await import("./catalog-actions");
+        const result = await addCatalogItem(VALID_ADD_INPUT);
+
+        expect(result.error).toMatch(/massimo 5 prodotti/i);
+        expect(mockInsert).not.toHaveBeenCalled();
+      });
+
+      it("count() ritornato come stringa dal driver: applica comunque il limite", async () => {
+        usePlanGate("starter");
+        mockTxCountWhere.mockResolvedValue([{ count: "5" }]);
+
+        const { addCatalogItem } = await import("./catalog-actions");
+        const result = await addCatalogItem(VALID_ADD_INPUT);
+
+        expect(result.error).toMatch(/massimo 5 prodotti/i);
+        expect(mockCanAddCatalogItem).toHaveBeenLastCalledWith(
+          "starter",
+          null,
+          5,
+          null,
+        );
+        expect(mockInsert).not.toHaveBeenCalled();
+      });
+
+      it("trial scaduto al limite: TRIAL_EXPIRED_MESSAGE ha precedenza sul messaggio del limite", async () => {
+        usePlanGate("trial");
+        mockCanAddCatalogItem.mockReturnValue(false);
+        mockIsTrialExpired.mockReturnValue(true);
+        mockTxCountWhere.mockResolvedValue([{ count: 5 }]);
+
+        const { addCatalogItem } = await import("./catalog-actions");
+        const result = await addCatalogItem(VALID_ADD_INPUT);
+
+        expect(result.error).toBe(TRIAL_EXPIRED_MESSAGE);
+        expect(mockInsert).not.toHaveBeenCalled();
+      });
     });
   });
 
