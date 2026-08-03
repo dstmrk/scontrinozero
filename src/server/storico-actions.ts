@@ -160,7 +160,14 @@ export async function searchReceipts(
       })
       .from(commercialDocuments)
       .where(and(...conditions))
-      .orderBy(desc(commercialDocuments.createdAt))
+      // `id` (UUID PRIMARY KEY) come chiave secondaria rende l'ordine TOTALE:
+      // a parita' di `created_at` Postgres non garantisce un ordine stabile
+      // fra due esecuzioni, e navigando fra le pagine un documento potrebbe
+      // comparire due volte o sparire.
+      .orderBy(
+        desc(commercialDocuments.createdAt),
+        desc(commercialDocuments.id),
+      )
       .limit(pageSize)
       .offset(offset),
   ]);

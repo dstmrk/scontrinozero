@@ -146,7 +146,11 @@ async function fetchDocsBatch(
       ),
     )
     .where(and(...conditions))
-    .orderBy(desc(commercialDocuments.createdAt))
+    // `id` (UUID PRIMARY KEY) come chiave secondaria rende l'ordine TOTALE:
+    // a parita' di `created_at` — normalissima in cassa — Postgres non
+    // garantisce un ordine stabile fra due esecuzioni, e la paginazione
+    // LIMIT/OFFSET ripeterebbe o salterebbe righe silenziosamente.
+    .orderBy(desc(commercialDocuments.createdAt), desc(commercialDocuments.id))
     .limit(BATCH_SIZE)
     .offset(offset);
   return rows as ReceiptDocRow[];
