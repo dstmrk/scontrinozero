@@ -119,6 +119,41 @@ Esempio: AdE in downtime, Stripe webhook intermittente.
 pattern: predicato → `logger.warn` con `errorClass: "<sdk>_transient"`,
 mai `logger.error`.
 
+### 4. Allarme infra corretto ma per-richiesta (throttle, non downgrade)
+
+Esempio: `getClientIp` (`src/lib/get-client-ip.ts`) emette
+`logger.error({ critical: true })` quando `CF-Connecting-IP` manca in
+produzione. È una **misconfigurazione nostra**, non input utente: la regola 20
+non si applica e il livello `error` deve restare (altrimenti la scopriamo solo
+dopo un'ondata di abuso, con tutti i bucket rate-limit collassati su
+`"unknown"`). Ma il call-site è attraversato a **ogni richiesta HTTP**: senza
+freno un incidente reale genera un evento Sentry per request, brucia la quota
+free e allaga i Sentry Logs — cioè lo strumento con cui lo si diagnosticherebbe.
+
+**Azione**: throttle a livello di modulo sull'**allarme**, mai sul
+comportamento (il fail-closed vale per ogni singola richiesta):
+
+```ts
+const MISSING_CF_IP_LOG_INTERVAL_MS = 5 * 60 * 1000;
+let lastMissingCfIpLogAt = 0; // 0 → il primo miss allarma subito
+
+const now = Date.now();
+if (now - lastMissingCfIpLogAt >= MISSING_CF_IP_LOG_INTERVAL_MS) {
+  lastMissingCfIpLogAt = now;
+  logger.error({ critical: true }, "…");
+}
+```
+
+Due dettagli non negoziabili:
+
+- esportare un `reset…ForTests()` (stesso pattern del singleton install-prompt,
+  skill `pwa-serwist`): lo stato è di modulo, senza reset le suite si
+  influenzano a vicenda **in base all'ordine d'esecuzione** — e i test già
+  esistenti che asseriscono il log falliscono a caso;
+- armare il throttle **solo** nel ramo che logga davvero: se lo si arma anche
+  fuori produzione (o quando l'header c'è), il primo miss reale resta silenzioso
+  per tutta la finestra.
+
 ---
 
 ## `Sentry.setUser({ id })` su ogni richiesta autenticata (regola 22)
