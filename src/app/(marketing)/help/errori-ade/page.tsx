@@ -8,6 +8,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
+import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
@@ -44,9 +45,7 @@ export default function ErroriAdePage() {
           <strong>Impostazioni → Credenziali AdE</strong> mostra un messaggio.
           Questa guida copre i casi più frequenti con la soluzione per ciascuno.
         </p>
-        <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> aprile 2026
-        </p>
+        <HelpArticleUpdatedAt slug="errori-ade" />
         <figure className="mt-6">
           <AppScreenshot
             src="/screenshots/impostazioni-attivita.png"

@@ -38,6 +38,71 @@ Esempio del costo di questa regola violata: REVIEW.md #47 — la copy di
 `/help` è rimasta Fisconline-only dopo che il login CIE è stato spedito in
 v1.5.0, e il sito contraddiceva il prodotto.
 
+### Feature che il marketing ha già promesso per sbaglio (non reintrodurle)
+
+Sono capability **assenti dal prodotto** e classificate in `PLAN.md` sotto
+"Nice to have (**no release**)". Un copy che le dà per fatte è un bug, non
+un'esagerazione di marketing. Audit agosto 2026: erano finite in 8 punti fra
+`/funzionalita`, `/per` e `/guide`.
+
+- **Pagamento misto / ripartito** — `PaymentMethod` è `"PC" | "PE"`, uno per
+  documento (`src/types/cassa.ts`, `src/lib/receipts/receipt-schema.ts`).
+  Anche i **buoni pasto** sono nice-to-have: mai citarli fra i metodi.
+- **Codice fiscale del cliente / "scontrino parlante"** — `saleBodySchema`
+  non ha il campo. Chi lo chiede va indirizzato al portale AdE o alla fattura.
+- **Barcode scanner** — fuori roadmap per decisione esplicita.
+- **Modalità offline / coda di trasmissione differita** — l'emissione senza
+  rete fallisce e basta; non esiste retry differito lato client.
+
+Prima di attribuire una capability al prodotto, verificala sullo schema o sul
+componente, non sul copy vicino: le pagine `/help` sono risultate accurate
+mentre `/per` e `/funzionalita` promettevano di più.
+
+## Doppia scrittura vietata: date, prezzi, limiti di piano
+
+Un dato che vive **sia** in un data file **sia** a mano nel JSX diverge, e
+diverge in silenzio. Caso reale (audit agosto 2026): la riga visibile
+"Ultimo aggiornamento" era hardcoded in ogni `page.tsx` di `/help` e si era
+desincronizzata dal `dateModified` del registry su **19 articoli su 26** — il
+testo diceva "aprile 2026", l'`Article` JSON-LD letto da Google e dalle AI
+diceva luglio. Il freshness signal, cioè metà del vantaggio competitivo SEO,
+era rotto senza che nessun test fallisse.
+
+Fix strutturale: `HelpArticleUpdatedAt`
+(`src/components/help/article-updated-at.tsx`) deriva la data da
+`helpArticles[slug].dateModified`, stessa fonte del JSON-LD e della sitemap.
+**Non reintrodurre date scritte a mano nel JSX.** Stessa regola per prezzi
+(`src/components/marketing/pricing-section.tsx`) e limiti di piano
+(`STARTER_CATALOG_LIMIT`, `TRIAL_DAYS` in `src/lib/plans-shared.ts`).
+
+`formatUpdatedAt` formatta la stringa ISO **senza** `new Date()`: una
+data-only è parsata come UTC ma renderizzata in locale, quindi nei fusi
+negativi il giorno 01 slitta al mese precedente (e produce un mismatch di
+idratazione).
+
+## Riferimenti normativi: una sola versione in tutto il repo
+
+Le date e le leggi citate vanno verificate su fonte esterna e devono essere
+**identiche** in `/help`, `/guide` e `/per`. Un repo che si contraddice
+perde la citabilità AI che è lo scopo della checklist GEO.
+
+Riferimenti canonici oggi in uso (audit agosto 2026):
+
+| Tema                        | Riferimento corretto                                                                                                                                                                                  |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Collegamento POS 2026       | **L. 207/2024** (Bilancio 2025) art. 1 commi **74-77** + Provv. AdE **424470 del 31/10/2025**; servizio "Gestione Collegamenti" dal **5 marzo 2026**, prima comunicazione entro il **20 aprile 2026** |
+| Sanzioni collegamento POS   | 1.000-4.000 € + sospensione 15 gg-2 mesi (art. 11 c. 5 D.Lgs. 471/1997); 100 €/operazione (art. 11 c. 2-quinquies)                                                                                    |
+| Sanzioni corrispettivi      | **70%** dell'imposta, minimo **300 €** (art. 6 c. 2-bis D.Lgs. 471/1997 dopo il D.Lgs. 87/2024, dal 1° settembre 2024)                                                                                |
+| Soglia forfettario 85.000 € | L. 197/2022 (Bilancio 2023) — **non** confonderla con la norma POS                                                                                                                                    |
+| Lotteria scontrini          | solo pagamenti **elettronici** sopra 1 €, 1 biglietto/euro fino a 1.000; estrazioni settimanali 25.000 €, mensili 100.000 €, annuale 5 mln; **istantanea mai avviata**                                |
+| Garanzia legale             | **24 mesi** dalla consegna (art. 133 D.Lgs. 206/2005) — 26 mesi è la prescrizione dell'azione, non la durata                                                                                          |
+
+Trappola vista sul campo: la guida `/guide/pos-rt-obbligo-2026` citava
+"L. 197/2022 art. 1 c. 74" mentre `/help/normativa-pos-2026` citava
+correttamente L. 207/2024 — stesso numero di comma, legge diversa, plausibile
+a occhio. Quando due pagine dello stesso repo divergono su una norma,
+**verifica esternamente**, non scegliere la più recente.
+
 ## Slug separati /help vs /guide (canonical clash)
 
 Sulle keyword condivise usare slug **diversi** per evitare canonical clash:

@@ -7,6 +7,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
+import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata = helpArticleMetadata("pos-rt-obbligo");
@@ -46,9 +47,7 @@ export default function PosRtObbligoPage() {
           <em>Fatture e Corrispettivi</em>: è una procedura a carico
           dell&apos;esercente.
         </p>
-        <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> aprile 2026
-        </p>
+        <HelpArticleUpdatedAt slug="pos-rt-obbligo" />
 
         {/* ─── Cosa prevede la normativa ─── */}
         <h2 className="mt-10 text-xl font-semibold">
@@ -56,8 +55,8 @@ export default function PosRtObbligoPage() {
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           La <strong>Legge di Bilancio 2025</strong> (L. 30 dicembre 2024 n.
-          207, commi 74-76) ha sostituito il comma 3 dell&apos;art. 2 del D.Lgs.
-          127/2015. La nuova formulazione richiede la{" "}
+          207, art. 1, commi 74-77) ha sostituito il comma 3 dell&apos;art. 2
+          del D.Lgs. 127/2015. La nuova formulazione richiede la{" "}
           <strong>piena integrazione</strong> tra il processo di registrazione
           dei corrispettivi e quello di pagamento elettronico: lo strumento con
           cui si accettano pagamenti elettronici deve essere <em>sempre</em>{" "}
@@ -155,7 +154,7 @@ export default function PosRtObbligoPage() {
                 <td className="py-2 pr-6 font-medium">1° gen. 2026</td>
                 <td className="py-2">
                   Entrata in vigore dell&apos;obbligo di collegamento POS-RT (L.
-                  207/2024, commi 74-76).
+                  207/2024, art. 1, commi 74-77).
                 </td>
               </tr>
               <tr className="border-b">

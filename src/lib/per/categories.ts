@@ -75,7 +75,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Emetti scontrini al banco del mercato, dal furgone, ovunque sei. Basta lo smartphone che hai già in tasca.",
     audience: "ambulanti, operatori di mercato, venditori su area pubblica",
     useCase:
-      "Se vendi al mercato settimanale, alle fiere, in spiaggia o porta a porta, il registratore di cassa fisso è scomodo: pesa, va alimentato, va portato dietro. ScontrinoZero ti permette di emettere lo scontrino elettronico (Documento Commerciale Online) direttamente dallo smartphone, anche con connessione mobile, e di trasmettere automaticamente i corrispettivi all'Agenzia delle Entrate a fine giornata.",
+      "Se vendi al mercato settimanale, alle fiere, in spiaggia o porta a porta, il registratore di cassa fisso è scomodo: pesa, va alimentato, va portato dietro. ScontrinoZero ti permette di emettere lo scontrino elettronico (Documento Commerciale Online) direttamente dallo smartphone, anche con connessione mobile: il corrispettivo parte verso l'Agenzia delle Entrate a ogni singola emissione, quindi non c'è nessuna chiusura di fine giornata da ricordare.",
     obligations: [
       "Emissione del Documento Commerciale Online per ogni vendita B2C, anche di piccolo importo (DPR 633/72 art. 22).",
       "Trasmissione telematica dei corrispettivi all'Agenzia delle Entrate entro 12 giorni dalla data dell'operazione.",
@@ -85,7 +85,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     benefits: [
       "Funziona ovunque ci sia rete 4G/5G, anche senza linea fissa.",
       "Non serve hardware: zero investimento iniziale, niente registratore da trasportare.",
-      "Pagamenti misti (contanti + carte + buoni) gestiti in pochi tap.",
+      "Contanti o carta: scegli il metodo con un tap e il dato viaggia nello scontrino trasmesso all'AdE.",
       "Storico vendite consultabile su qualsiasi dispositivo, utile per il commercialista.",
     ],
     faq: [
@@ -126,7 +126,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     ],
     benefits: [
       "Tablet alla reception: zero ingombro sul banco, design pulito da salone moderno.",
-      "Gestione di pagamenti misti (es. parte in carta, parte in contanti, gift card).",
+      "Metodo di pagamento (contanti o carta) selezionabile su ogni scontrino, trasmesso all'AdE con il documento.",
       "Catalogo prodotti e servizi configurabile, per emettere lo scontrino in 2 tap.",
       "Storico consultabile dal commercialista senza dover esportare nulla manualmente.",
     ],
@@ -140,7 +140,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       {
         question: "Serve uno scanner di codici a barre per i prodotti?",
         answer:
-          "No. Per chi vende pochi prodotti il catalogo manuale è sufficiente. Il barcode scanner via fotocamera è una delle feature in roadmap per le prossime versioni.",
+          "No, e nemmeno è previsto: il catalogo prodotti si compila a mano una volta sola ed è sufficiente per chi rivende poche referenze. La lettura del codice a barre via fotocamera non è oggi disponibile e non è in roadmap; la valuteremo se arriveranno richieste da chi gestisce molti articoli.",
       },
       {
         question: "Posso stampare lo scontrino su carta?",
@@ -213,7 +213,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Trasmissione corrispettivi entro 12 giorni dall'operazione.",
     ],
     benefits: [
-      "Niente canone fisso annuale: paghi solo quando emetti scontrini.",
+      "Niente hardware da ammortizzare: con il piano mensile paghi i mesi di apertura e disdici a fine stagione.",
       "Configurazione una tantum di aliquota e voci ricorrenti (pernottamento, colazione, supplementi).",
       "Storico ordinato per stagione, utile per dichiarazione dei redditi e analisi.",
       "Funziona su qualsiasi smartphone o tablet, anche quello che già usi per ricevere gli ospiti.",
@@ -399,7 +399,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Zero hardware da montare allo stand: basta lo smartphone, anche con connessione mobile.",
       "Piano mensile disdicibile: paghi nei mesi in cui vendi, lo storico resta sempre accessibile.",
       "Catalogo con i tuoi articoli ricorrenti per emettere in pochi tap anche con la fila al banchetto.",
-      "Pagamenti misti contanti + carta gestiti nello stesso scontrino.",
+      "Metodo di pagamento (contanti o carta) scelto scontrino per scontrino, senza passaggi in più.",
     ],
     faq: [
       {
@@ -684,7 +684,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       {
         question: "Il cliente può avere lo scontrino per la garanzia?",
         answer:
-          "Sì: il documento commerciale vale come prova d'acquisto ai fini della garanzia legale di 26 mesi. Puoi stamparlo su termica o inviarlo via email/QR: la copia digitale ha lo stesso valore di quella cartacea.",
+          "Sì: il documento commerciale vale come prova d'acquisto ai fini della garanzia legale di conformità, che dura 24 mesi dalla consegna (art. 133 Codice del Consumo, D.Lgs. 206/2005). Puoi stamparlo su termica o inviarlo via email/QR: la copia digitale ha lo stesso valore di quella cartacea.",
       },
     ],
     relatedHelp: ["primo-scontrino", "annullare-scontrino", "aliquote-iva"],
@@ -797,7 +797,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     ],
     benefits: [
       "Listino servizi nel catalogo: lavaggio camicia, piumone, orlo — scontrino in due tap.",
-      "Incassi misti (contanti + carta) gestiti nello stesso documento.",
+      "Metodo di pagamento (contanti o carta) indicato su ogni ricevuta di ritiro.",
       "Scontrino al momento del ritiro, anche con acconto alla consegna dei capi.",
       "Storico digitale per il commercialista, senza rotoli da archiviare.",
     ],

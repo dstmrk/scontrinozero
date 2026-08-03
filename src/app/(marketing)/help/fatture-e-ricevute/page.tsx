@@ -7,6 +7,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
+import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata = helpArticleMetadata("fatture-e-ricevute");
@@ -39,9 +40,7 @@ export default function FattureERicevutePage() {
           ogni addebito; puoi anche scaricarle in qualsiasi momento dal portale
           di fatturazione.
         </p>
-        <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> aprile 2026
-        </p>
+        <HelpArticleUpdatedAt slug="fatture-e-ricevute" />
 
         {/* ─── Ricevuta via email ─── */}
         <h2 className="mt-10 text-xl font-semibold">Ricevute via email</h2>

@@ -8,6 +8,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
+import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata = helpArticleMetadata("registrare-pos-portale-ade");
@@ -46,9 +47,7 @@ export default function RegistrarePosPortaleAdePage() {
           fai la prima volta che metti in funzione il terminale e poi non devi
           più rifarla, salvo cambi di terminale o di banca.
         </p>
-        <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> aprile 2026
-        </p>
+        <HelpArticleUpdatedAt slug="registrare-pos-portale-ade" />
 
         {/* ─── Promemoria sulla differenza POS bancario vs POS-RT ─── */}
         <div className="bg-muted/50 mt-6 rounded-md p-4 text-sm">

@@ -162,7 +162,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Sì, si può: da gennaio 2020 qualunque partita IVA può emettere lo scontrino elettronico senza registratore di cassa fisico, gratis dal portale \"Fatture e Corrispettivi\" dell'Agenzia delle Entrate oppure in pochi secondi con un'app dal telefono. Vediamo cosa serve, quanto costa e come scegliere l'app giusta.",
     publishedAt: "2026-05-14",
-    updatedAt: "2026-07-22",
+    updatedAt: "2026-08-02",
     readingMinutes: 8,
     sections: [
       {
@@ -239,7 +239,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         question: "Cosa succede se internet non funziona?",
         answer:
-          "L'Agenzia delle Entrate prevede una procedura di emergenza: emetti uno scontrino manuale (anche su carta) annotando i corrispettivi, e i dati vanno comunque trasmessi al portale entro 12 giorni dall'effettuazione dell'operazione, una volta ripristinata la connessione. ScontrinoZero rileva l'assenza di connessione e suggerisce la procedura.",
+          "L'Agenzia delle Entrate prevede una procedura di emergenza: emetti uno scontrino manuale (anche su carta) annotando i corrispettivi, e i dati vanno comunque trasmessi al portale entro 12 giorni dall'effettuazione dell'operazione, una volta ripristinata la connessione. Senza rete l'emissione da app non va a buon fine e l'errore te lo segnala subito: non esiste una coda offline che trasmetta più tardi al posto tuo.",
       },
       {
         question: "Devo informare l'Agenzia delle Entrate della mia scelta?",
@@ -275,7 +275,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Scontrino, ricevuta fiscale e fattura sono tre documenti diversi con regole diverse. Saper distinguere quando emettere l'uno o l'altro è la base per non sbagliare adempimenti. Vediamo le differenze pratiche con esempi concreti per chi lavora al pubblico.",
     publishedAt: "2026-05-14",
-    updatedAt: "2026-05-14",
+    updatedAt: "2026-08-02",
     readingMinutes: 5,
     sections: [
       {
@@ -292,7 +292,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Casi misti tipici",
-        body: 'Ristorante che serve un cliente privato: scontrino. Ristorante che fa un catering aziendale: fattura. Idraulico che fa una riparazione a casa di un privato: scontrino, salvo che il cliente chieda fattura per detrazione. Idraulico che lavora per un\'impresa: fattura. Negozio che vende elettronica a un consumatore: scontrino, salvo richiesta esplicita di fattura "parlante" per la garanzia.',
+        body: "Ristorante che serve un cliente privato: scontrino. Ristorante che fa un catering aziendale: fattura. Idraulico che fa una riparazione a casa di un privato: scontrino, salvo che il cliente chieda fattura per detrazione. Idraulico che lavora per un'impresa: fattura. Negozio che vende elettronica a un consumatore: scontrino, che è già di per sé la prova d'acquisto valida per la garanzia legale, salvo richiesta esplicita di fattura.",
       },
       {
         heading: "E la ricevuta fiscale?",
@@ -307,12 +307,12 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         question: "Posso emettere scontrino E fattura per la stessa vendita?",
         answer:
-          'No. Se emetti fattura per una vendita, NON devi emettere anche scontrino: sarebbe una duplicazione del corrispettivo. La fattura ha già il valore fiscale completo. Su ScontrinoZero, se emetti scontrino e poi il cliente chiede fattura, lo scontrino va annullato prima di emettere la fattura "parlante".',
+          "No. Se emetti fattura per una vendita, NON devi emettere anche scontrino: sarebbe una duplicazione del corrispettivo. La fattura ha già il valore fiscale completo. Su ScontrinoZero, se emetti scontrino e poi il cliente chiede fattura, lo scontrino va annullato prima di emettere la fattura.",
       },
       {
         question: 'Il cliente mi chiede uno scontrino "parlante": che faccio?',
         answer:
-          'Lo "scontrino parlante" è uno scontrino con il codice fiscale del cliente, valido per detrazioni fiscali (es. spese mediche, farmaci). Su ScontrinoZero puoi aggiungere il codice fiscale del cliente in fase di emissione: il documento sarà valido per la detrazione.',
+          'Lo "scontrino parlante" è il documento commerciale che riporta il codice fiscale del cliente e serve a portare in detrazione la spesa (tipicamente spese sanitarie e farmaci). ScontrinoZero non ha oggi un campo per il codice fiscale del cliente: se te lo chiedono, emetti quel singolo documento dal portale Fatture e Corrispettivi dell\'Agenzia delle Entrate, che il campo lo prevede, oppure emetti fattura. Per farmacie e parafarmacie il canale delle spese detraibili resta comunque il Sistema Tessera Sanitaria.',
       },
       {
         question: "Sono in regime forfettario: emetto scontrino o fattura?",
@@ -338,22 +338,22 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     metaDescription:
       "Dal 1° gennaio 2026 il POS va collegato al registratore telematico per trasmettere i pagamenti elettronici. Scadenze, sanzioni e cosa cambia per chi usa software.",
     heroIntro:
-      "Dal 1° gennaio 2026 è entrato in vigore l'obbligo di collegamento fra POS (terminale di pagamento) e registratore telematico, per trasmettere all'Agenzia delle Entrate gli incassi elettronici insieme ai corrispettivi. La norma ha generato molta confusione: cosa cambia davvero e cosa fare se non usi un RT fisico?",
+      'Dal 1° gennaio 2026 è in vigore l\'obbligo di collegare il POS allo strumento che memorizza i corrispettivi (art. 1, commi 74-77, L. 207/2024): il collegamento si comunica online dal servizio "Gestione Collegamenti" del portale Fatture e Corrispettivi. La norma ha generato molta confusione: vediamo cosa cambia davvero, le scadenze e cosa fare se non usi un registratore telematico fisico.',
     publishedAt: "2026-05-14",
-    updatedAt: "2026-07-22",
+    updatedAt: "2026-08-02",
     readingMinutes: 7,
     sections: [
       {
         heading: "Cos'è il collegamento POS-RT",
-        body: "L'obbligo previsto dalla Legge di Bilancio 2023 (art. 1 c. 74 L. 197/2022) richiede che il POS sia tecnicamente collegato al registratore telematico, in modo che ogni pagamento elettronico transiti dal POS al RT e venga incluso nei dati trasmessi all'AdE come parte integrante del corrispettivo giornaliero. Lo scopo è la tracciabilità: lo Stato vuole vedere insieme l'incasso elettronico e lo scontrino.",
+        body: "L'obbligo previsto dalla Legge di Bilancio 2025 (art. 1, commi 74-77, L. 207/2024) richiede che lo strumento di pagamento elettronico sia collegato a quello che memorizza e trasmette i corrispettivi, in modo che l'incasso elettronico e lo scontrino risultino associati nei dati che arrivano all'AdE. Lo scopo è la tracciabilità: lo Stato vuole vedere insieme l'incasso elettronico e il corrispettivo certificato.",
       },
       {
-        heading: "Scadenze e proroghe",
-        body: "L'obbligo era inizialmente previsto per il 1° luglio 2023, poi rinviato più volte. Dal 1° gennaio 2026 è operativo per tutti gli esercenti soggetti all'obbligo di memorizzazione e trasmissione dei corrispettivi. Le sanzioni effettive sono entrate in vigore con un periodo di tolleranza iniziale (provvedimenti AdE successivi). Verifica sempre la versione più aggiornata su agenziaentrate.gov.it.",
+        heading: "Scadenze e come si comunica il collegamento",
+        body: "L'obbligo è in vigore dal 1° gennaio 2026. Le regole operative sono nel Provvedimento AdE n. 424470 del 31 ottobre 2025: il collegamento si comunica esclusivamente online, dal servizio \"Gestione Collegamenti\" nel portale Fatture e Corrispettivi, aperto il 5 marzo 2026. Per i POS già in uso al 1° gennaio 2026 (o acquisiti entro gennaio) il termine della prima comunicazione era il 20 aprile 2026; per i dispositivi nuovi o in caso di variazioni la comunicazione va fatta fra il sesto e l'ultimo giorno del secondo mese successivo all'evento.",
       },
       {
         heading: "Sanzioni previste",
-        body: "Per la mancata trasmissione del singolo pagamento elettronico, la sanzione amministrativa è pari al 70% dell'IVA non documentata correttamente (art. 6 c. 2-bis D.Lgs. 471/1997, dopo la riforma del D.Lgs. 87/2024), con un minimo di 300 €. Esistono inoltre sanzioni accessorie in caso di violazioni reiterate (sospensione della licenza). I controlli sono incrociati: AdE confronta dati POS dalle banche con corrispettivi trasmessi.",
+        body: "Le sanzioni del collegamento POS sono diverse da quelle dello scontrino non emesso. Per l'omessa installazione o il mancato collegamento del POS si va da 1.000 € a 4.000 €, con possibile sospensione della licenza da 15 giorni a 2 mesi (art. 11, comma 5, D.Lgs. 471/1997); per l'omessa o incompleta trasmissione la sanzione è di 100 € per operazione (art. 11, comma 2-quinquies). Restano a parte le sanzioni sui corrispettivi veri e propri: 70% dell'imposta con minimo 300 € per lo scontrino non emesso o non trasmesso (art. 6, comma 2-bis, D.Lgs. 471/1997, dopo il D.Lgs. 87/2024). I controlli sono incrociati: l'AdE confronta i dati POS comunicati dagli operatori finanziari con i corrispettivi trasmessi.",
       },
       {
         heading: "Deroghe e casistiche particolari",
@@ -365,7 +365,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Come ScontrinoZero gestisce i pagamenti elettronici",
-        body: "In fase di emissione dello scontrino, ScontrinoZero permette di specificare il metodo di pagamento (contanti, elettronico, misto). Questa informazione viene inclusa nel DCO trasmesso all'AdE, soddisfacendo l'obbligo di tracciabilità del pagamento elettronico. Non serve hardware aggiuntivo né integrazione fisica con il POS.",
+        body: "In fase di emissione dello scontrino, ScontrinoZero permette di specificare il metodo di pagamento (contanti o elettronico, uno per documento). Questa informazione viene inclusa nel DCO trasmesso all'AdE, soddisfacendo l'obbligo di tracciabilità del pagamento elettronico. Non serve hardware aggiuntivo né integrazione fisica con il POS.",
       },
     ],
     faq: [
@@ -382,10 +382,9 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
           "Se hai un registratore telematico fisico, sì: il POS deve essere certificato come compatibile con quel modello di RT. Se invece usi solo software (DCO via ScontrinoZero), qualunque POS bancario standard va bene: registri il metodo di pagamento nello scontrino e basta.",
       },
       {
-        question:
-          "Le sanzioni si applicano subito o c'è un periodo di tolleranza?",
+        question: "Entro quando andava comunicato il collegamento?",
         answer:
-          "I provvedimenti AdE hanno previsto un periodo di tolleranza iniziale per consentire l'adeguamento di chi aveva RT fisici. Lo stato attuale dei controlli varia: il consiglio è di verificare con il commercialista il proprio profilo di rischio e di essere sempre conformi nella sostanza (tracciabilità del pagamento).",
+          "Per i POS già in uso al 1° gennaio 2026 il termine della prima comunicazione era il 20 aprile 2026, cioè 45 giorni dall'apertura del servizio \"Gestione Collegamenti\" (5 marzo 2026). Per i dispositivi attivati dopo, o quando cambia qualcosa, si comunica fra il sesto e l'ultimo giorno del secondo mese successivo all'evento. Se sei fuori termine, verifica con il commercialista il quadro sanzionatorio e regolarizza appena possibile.",
       },
     ],
     relatedHelp: ["pos-rt-obbligo", "normativa-pos-2026", "primo-scontrino"],
@@ -405,7 +404,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Sì: anche in regime forfettario devi emettere lo scontrino (documento commerciale) per ogni vendita al consumatore finale. Il forfettario semplifica IVA, ritenute e contabilità, ma NON esonera dalla certificazione dei corrispettivi B2C. Vediamo come gestire l'emissione, l'IVA \"a zero\" (natura N2) e gli aspetti operativi tipici del forfettario.",
     publishedAt: "2026-05-14",
-    updatedAt: "2026-07-22",
+    updatedAt: "2026-08-02",
     readingMinutes: 6,
     sections: [
       {
@@ -449,7 +448,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
         question:
           "Come gestisco i contanti vs i pagamenti elettronici da forfettario?",
         answer:
-          "Allo stesso modo di qualunque altro esercente: in fase di emissione indichi il metodo di pagamento (contanti, carta, misto). L'informazione finisce nel DCO trasmesso all'AdE. Non c'è una gestione speciale per il forfettario su questo punto.",
+          "Allo stesso modo di qualunque altro esercente: in fase di emissione indichi il metodo di pagamento, contanti o elettronico, uno per documento. L'informazione finisce nel DCO trasmesso all'AdE. Non c'è una gestione speciale per il forfettario su questo punto.",
       },
       {
         question: "Nello scontrino del forfettario c'è l'IVA?",
@@ -549,7 +548,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       'La "chiusura giornaliera" era l\'operazione classica di fine giornata con il registratore di cassa: si stampava lo scontrino di chiusura (la storica "Z") e si trasmettevano i corrispettivi. Con il documento commerciale online la logica è diversa, e in molti casi più semplice. Vediamo cosa devi davvero fare a fine giornata.',
     publishedAt: "2026-05-15",
-    updatedAt: "2026-05-15",
+    updatedAt: "2026-08-02",
     readingMinutes: 5,
     sections: [
       {
@@ -583,7 +582,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         question: "Cosa devo dare al commercialista per la dichiarazione IVA?",
         answer:
-          "Il commercialista può scaricare direttamente dal portale Fatture e Corrispettivi il riepilogo dei corrispettivi trasmessi per il periodo richiesto. In alternativa, esporta dal software l'elenco scontrini in CSV/Excel con totali per aliquota IVA e metodo di pagamento. ScontrinoZero esporta i dati in formato standard.",
+          "Il commercialista può scaricare direttamente dal portale Fatture e Corrispettivi il riepilogo dei corrispettivi trasmessi per il periodo richiesto. In alternativa, esporta dal software l'elenco scontrini in CSV con totali per aliquota IVA e metodo di pagamento: in ScontrinoZero l'export CSV è incluso nel piano Pro (ed è utilizzabile anche durante i 30 giorni di prova).",
       },
       {
         question:
@@ -704,12 +703,12 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "La Lotteria degli Scontrini è un sistema premio per i consumatori che presentano un codice al momento dell'acquisto. Per il commerciante è un'attività operativa semplice: contrariamente a quanto si legge in giro, oggi non esiste una sanzione amministrativa per il rifiuto del codice — la previsione iniziale del decreto fiscale 2020 fu eliminata in sede di conversione. Resta però un meccanismo di segnalazione del cliente sul Portale Lotteria, che alimenta l'analisi del rischio dell'Agenzia delle Entrate.",
     publishedAt: "2026-05-15",
-    updatedAt: "2026-05-15",
+    updatedAt: "2026-08-02",
     readingMinutes: 6,
     sections: [
       {
         heading: "Come funziona la Lotteria degli Scontrini",
-        body: "Il consumatore richiede gratuitamente sul sito lotteriadegliscontrini.gov.it un codice personale di 8 caratteri alfanumerici. Quando fa un acquisto, lo presenta all'esercente (cartaceo, smartphone o tessera plastificata): l'esercente lo inserisce nel DCO, il codice viene trasmesso ad AdE insieme allo scontrino, e ad ogni euro di spesa corrispondono uno o più biglietti virtuali per le estrazioni periodiche.",
+        body: "Il consumatore richiede gratuitamente sul sito lotteriadegliscontrini.gov.it un codice personale di 8 caratteri alfanumerici. Quando fa un acquisto, lo presenta all'esercente (cartaceo, smartphone o tessera plastificata): l'esercente lo inserisce nel DCO e il codice viene trasmesso ad AdE insieme allo scontrino. Partecipano solo gli acquisti di importo superiore a 1 € pagati con strumenti elettronici: ogni euro speso vale 1 biglietto virtuale, fino a un massimo di 1.000 biglietti per scontrino. Gli acquisti in contanti sono esclusi.",
       },
       {
         heading: "Cosa deve fare il commerciante",
@@ -717,11 +716,11 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Come acquisire il codice in fase di emissione",
-        body: "Tutti i software che emettono DCO devono prevedere un campo dedicato per il codice lotteria. Su ScontrinoZero, prima di confermare l'emissione, compare un campo opzionale dove inserire il codice (8 caratteri maiuscoli o numeri). Una validazione lato app verifica il formato; il codice corretto viene incluso nel tracciato DCO trasmesso ad AdE. Tempo aggiuntivo per scontrino: 5-10 secondi.",
+        body: "Tutti i software che emettono DCO devono prevedere un campo dedicato per il codice lotteria. Su ScontrinoZero, prima di confermare l'emissione, compare un campo opzionale dove inserire il codice (8 caratteri fra lettere maiuscole e numeri). Il campo appare solo se hai selezionato il pagamento elettronico, e resta disattivato sotto 1 € di totale: sono le due condizioni di partecipazione alla lotteria. Con l'incasso in contanti il codice non serve e non viene trasmesso. Una validazione lato app verifica il formato; il codice corretto viene incluso nel tracciato DCO trasmesso ad AdE. Tempo aggiuntivo per scontrino: 5-10 secondi.",
       },
       {
         heading: "Lotteria periodica e lotteria istantanea: stato attuale",
-        body: "Oggi è attiva solo la lotteria periodica: il sistema effettua estrazioni regolari (mensili e annuali) fra tutti gli scontrini trasmessi con un codice lotteria valido. La lotteria istantanea — vincita comunicata pochi secondi dopo l'emissione, riservata ai pagamenti elettronici — è stata annunciata più volte ma a maggio 2026 non risulta ancora avviata (le gare d'appalto per il sistema sono andate deserte). Quando partirà, il commerciante non dovrà cambiare nulla nel flusso di emissione: l'eventuale vincita viene comunicata direttamente al cliente.",
+        body: "Oggi è attiva solo la lotteria periodica: fra tutti gli scontrini trasmessi con un codice lotteria valido si estraggono premi settimanali da 25.000 €, mensili da 100.000 € e un premio annuale da 5 milioni di euro. La lotteria istantanea — vincita comunicata pochi secondi dopo l'emissione — è stata annunciata più volte ma ad agosto 2026 non risulta ancora avviata, a oltre tre anni dall'annuncio e nonostante circa 1,6 milioni di esercenti abbiano già adeguato i registratori. Quando partirà, il commerciante non dovrà cambiare nulla nel flusso di emissione: l'eventuale vincita viene comunicata direttamente al cliente.",
       },
       {
         heading: "Conseguenze del rifiuto",
@@ -751,6 +750,12 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
         answer:
           "Il codice lotteria è anonimo per il commerciante: non corrisponde al codice fiscale né a dati anagrafici visibili. Non devi conservarlo nei tuoi sistemi oltre la trasmissione AdE: viene incluso nel DCO e poi non serve più localmente. Lo stesso codice può essere usato dal cliente in vari negozi.",
       },
+      {
+        question:
+          "Il cliente paga in contanti e mi dà il codice lotteria: cosa faccio?",
+        answer:
+          "Quell'acquisto non partecipa: alla Lotteria degli Scontrini concorrono solo gli acquisti sopra 1 € pagati con strumenti elettronici (carte di credito, debito, prepagate e app di pagamento). Spiegalo al cliente: in ScontrinoZero il campo del codice compare infatti solo quando selezioni il pagamento elettronico.",
+      },
     ],
     relatedHelp: [
       "primo-scontrino",
@@ -772,7 +777,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Il mercato dei software per scontrini elettronici è cresciuto rapidamente: web app, app mobile, gestionali integrati, soluzioni self-hosted. Scegliere quello giusto significa risparmiare ore di lavoro mensili ed evitare incidenti fiscali. Vediamo 6 criteri pratici per orientarti senza farti convincere dal marketing.",
     publishedAt: "2026-05-15",
-    updatedAt: "2026-05-15",
+    updatedAt: "2026-08-02",
     readingMinutes: 7,
     sections: [
       {
@@ -793,7 +798,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Criterio 5: conformità normativa e supporto fiscale",
-        body: 'Verifica che il software sia esplicitamente conforme al D.Lgs. 127/2015, al Provvedimento AdE del 28 ottobre 2016 n. 182017 e alle modifiche successive. Le pagine di prodotto onesti citano i riferimenti normativi; quelle vaghe parlano solo di "compliance fiscale". Verifica che il software gestisca il regime forfettario (IVA 0% e dicitura esenzione), l\'obbligo POS-RT 2026, le aliquote IVA differenziate. Il supporto deve sapere rispondere a domande fiscali, non solo tecniche.',
+        body: 'Verifica che il software sia esplicitamente conforme al D.Lgs. 127/2015, al Provvedimento AdE del 28 ottobre 2016 n. 182017 e alle modifiche successive. Le pagine di prodotto onesti citano i riferimenti normativi; quelle vaghe parlano solo di "compliance fiscale". Verifica che il software gestisca il regime forfettario (righe a 0% con natura N2 — sullo scontrino la dicitura di esenzione non serve, serve in fattura), l\'obbligo di collegamento POS 2026, le aliquote IVA differenziate. Il supporto deve sapere rispondere a domande fiscali, non solo tecniche.',
       },
       {
         heading: "Criterio 6: lock-in e portabilità dei dati",

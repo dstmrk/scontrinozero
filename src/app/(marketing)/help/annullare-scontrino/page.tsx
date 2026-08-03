@@ -9,6 +9,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
+import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
@@ -75,9 +76,7 @@ export default function AnnullareScontrinoPage() {
           originale nel cassetto fiscale dell&apos;Agenzia delle Entrate. Questa
           guida spiega come farlo da ScontrinoZero e in quali casi è possibile.
         </p>
-        <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> luglio 2026
-        </p>
+        <HelpArticleUpdatedAt slug="annullare-scontrino" />
 
         {/* ─── Quando si può annullare ─── */}
         <h2 className="mt-10 text-xl font-semibold">

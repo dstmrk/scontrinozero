@@ -8,6 +8,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
+import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
@@ -44,9 +45,7 @@ export default function ContattoAssistenzaPage() {
           Center: la maggior parte delle domande frequenti ha già una guida
           dedicata.
         </p>
-        <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> maggio 2026
-        </p>
+        <HelpArticleUpdatedAt slug="contatto-assistenza" />
         <figure className="mt-6">
           <AppScreenshot
             src="/screenshots/impostazioni-preferenze.png"

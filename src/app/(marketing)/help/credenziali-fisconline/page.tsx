@@ -7,6 +7,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
+import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
@@ -43,9 +44,7 @@ export default function CredenzialiPage() {
           dell&apos;attività. Questa guida spiega cosa sono, chi può ottenerle e
           come verificare che funzionino.
         </p>
-        <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> aprile 2026
-        </p>
+        <HelpArticleUpdatedAt slug="credenziali-fisconline" />
         <figure className="mt-6">
           <AppScreenshot
             src="/screenshots/impostazioni-attivita.png"

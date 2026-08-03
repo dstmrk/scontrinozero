@@ -86,7 +86,7 @@ const helpCategories: HelpCategory[] = [
         href: "/help/regime-forfettario",
       },
       {
-        title: "Come gestire aliquote IVA, reparti e metodi di pagamento",
+        title: "Come gestire aliquote IVA, catalogo e metodi di pagamento",
         href: "/help/aliquote-iva",
       },
       {

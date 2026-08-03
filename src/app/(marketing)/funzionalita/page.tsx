@@ -11,7 +11,8 @@ import {
   Share2,
   Printer,
   Ticket,
-  Clock,
+  CreditCard,
+  ScrollText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarketingHero } from "@/components/marketing/marketing-hero";
@@ -49,13 +50,13 @@ const sections = [
         icon: Ticket,
         title: "Lotteria degli Scontrini",
         description:
-          "Supporto nativo alla Lotteria degli Scontrini: inserisci il codice lotteria del cliente e viene trasmesso automaticamente all'AdE con il documento commerciale.",
+          "Supporto nativo alla Lotteria degli Scontrini: sui pagamenti elettronici — gli unici che partecipano alle estrazioni — inserisci il codice del cliente e viene trasmesso all'AdE insieme al documento commerciale.",
       },
       {
-        icon: Clock,
-        title: "Multi-metodo pagamento",
+        icon: CreditCard,
+        title: "Metodo di pagamento tracciato",
         description:
-          "Contanti, carte, pagamenti elettronici o misti: scegli il metodo per ogni scontrino. Puoi anche dividere il pagamento tra più modalità.",
+          "Su ogni scontrino indichi se l'incasso è in contanti o elettronico: il dato viaggia dentro il documento commerciale trasmesso all'AdE. Un metodo per documento — la ripartizione dello stesso scontrino fra contanti e carta oggi non è gestita.",
       },
     ],
   },
@@ -108,10 +109,10 @@ const sections = [
           'Ogni documento commerciale viene trasmesso automaticamente all\'Agenzia delle Entrate tramite la procedura ufficiale "Documento Commerciale Online". Nessun passaggio manuale.',
       },
       {
-        icon: Ticket,
+        icon: ScrollText,
         title: "Allineato alla normativa POS 2026",
         description:
-          "Dal 1° gennaio 2026 è in vigore l'obbligo di collegamento fra terminale POS e sistema di trasmissione dei corrispettivi. ScontrinoZero segue i flussi previsti dall'Agenzia delle Entrate e si aggiorna in automatico per restare in regola.",
+          "Dal 1° gennaio 2026 è in vigore l'obbligo di collegamento fra terminale POS e strumento di memorizzazione dei corrispettivi (L. 207/2024, art. 1 commi 74-77). ScontrinoZero segue i flussi previsti dall'Agenzia delle Entrate e si aggiorna in automatico per restare in regola.",
       },
     ],
   },

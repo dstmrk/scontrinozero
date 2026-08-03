@@ -18,7 +18,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "aliquote-iva": {
     slug: "aliquote-iva",
     datePublished: "2026-04-17",
-    dateModified: "2026-07-13",
+    dateModified: "2026-08-02",
     title: "Aliquote IVA, catalogo e metodi di pagamento",
     metaTitle: "Come gestire aliquote IVA, catalogo e metodi di pagamento",
     description:
@@ -180,7 +180,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "normativa-pos-2026": {
     slug: "normativa-pos-2026",
     datePublished: "2026-04-17",
-    dateModified: "2026-06-21",
+    dateModified: "2026-08-02",
     title: "Collegamento POS-cassa 2026: cosa cambia",
     metaTitle: "Normativa POS 2026: obbligo, scadenze e sanzioni POS-cassa",
     description:
@@ -214,7 +214,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "pos-rt-obbligo": {
     slug: "pos-rt-obbligo",
     datePublished: "2026-04-20",
-    dateModified: "2026-06-21",
+    dateModified: "2026-08-02",
     title: "Collegamento POS-RT: obbligo e scadenze 2026",
     metaTitle: "Collegamento POS-RT: chi è obbligato e scadenze 2026",
     description:
@@ -281,7 +281,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "sicurezza-credenziali": {
     slug: "sicurezza-credenziali",
     datePublished: "2026-04-16",
-    dateModified: "2026-07-15",
+    dateModified: "2026-08-02",
     title: "Sicurezza e privacy delle credenziali",
     metaTitle: "Sicurezza e privacy: come proteggiamo le tue credenziali",
     description:

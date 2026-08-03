@@ -8,6 +8,7 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
+import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
 import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
@@ -47,9 +48,7 @@ export default function StampareScontrinoTermicaPage() {
           <strong>non è obbligatoria</strong>: in alternativa puoi mostrare lo
           scontrino a schermo al cliente.
         </p>
-        <p className="text-muted-foreground mt-1 text-sm">
-          <strong>Ultimo aggiornamento:</strong> aprile 2026
-        </p>
+        <HelpArticleUpdatedAt slug="stampare-scontrino-termica" />
         <figure className="mt-6">
           <AppScreenshot
             src="/screenshots/documento-commerciale.png"
