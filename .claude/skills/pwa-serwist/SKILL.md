@@ -83,10 +83,17 @@ browser non registra e non c'è errore lato server).
 
 ### Lint sul bundle generato
 
-`public/sw.js` è un bundle esbuild minificato: va tenuto nei `globalIgnores` di
-`eslint.config.mjs` (insieme alla sua `.map`). Prima di #84 non veniva mai
-emesso, quindi non era mai presente nel working tree e il problema non si era
-mai visto.
+Il SW emesso (`public/sw*.js` e la sua `.map`) è un bundle esbuild minificato:
+va tenuto nei `globalIgnores` di `eslint.config.mjs`. Prima di #84 non veniva
+mai emesso, quindi non era mai presente nel working tree e il problema non si
+era mai visto.
+
+⚠️ **Citalo sempre come glob, mai come path letterale**, qui e in ogni doc
+validato da `scripts/check-architecture-docs.mjs`: è un artefatto di build,
+gitignored, quindi in un checkout pulito **non esiste** e il check fallisce.
+In locale l'errore non si vede se hai appena buildato — è esattamente così
+che è passato in CI la prima volta. Stessa regola dei file HAR (skill
+`ade-integration`).
 
 ## Serwist — attenzione al `defaultCache`
 

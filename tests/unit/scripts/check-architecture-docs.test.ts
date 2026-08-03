@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   checkArchitectureDocs,
   extractFrontmatterPathTokens,
+  extractBuildArtifactViolations,
   extractHarViolations,
   extractSkillReferences,
 } from "../../../scripts/check-architecture-docs.mjs";
@@ -493,6 +494,37 @@ describe("extractHarViolations", () => {
 
   it("returns an empty list when no har/ span is present", () => {
     expect(extractHarViolations("Solo `src/lib/a.ts` qui.")).toEqual([]);
+  });
+});
+
+describe("extractBuildArtifactViolations", () => {
+  it("finds the generated service worker cited as a literal path", () => {
+    const md = "Tieni `public/sw.js` nei globalIgnores di `eslint.config.mjs`.";
+
+    expect(extractBuildArtifactViolations(md)).toEqual(["public/sw.js"]);
+  });
+
+  it("finds the source map and the serwist chunks too", () => {
+    const md = "Genera `public/sw.js.map` e `public/serwist-abc123.js`.";
+
+    expect(extractBuildArtifactViolations(md)).toEqual([
+      "public/serwist-abc123.js",
+      "public/sw.js.map",
+    ]);
+  });
+
+  it("allows the glob form, which is the prescribed way to cite it", () => {
+    // `public/sw*.js` contiene `*`, quindi il validatore dei path lo salta
+    // già: è la forma da usare nei doc.
+    expect(
+      extractBuildArtifactViolations("Il SW emesso è `public/sw*.js`."),
+    ).toEqual([]);
+  });
+
+  it("leaves committed assets under public/ alone", () => {
+    const md = "L'icona sta in `public/android-chrome-512x512.png`.";
+
+    expect(extractBuildArtifactViolations(md)).toEqual([]);
   });
 });
 
