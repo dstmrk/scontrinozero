@@ -15,6 +15,7 @@ import {
   getAuthenticatedUser,
 } from "@/lib/server-auth";
 import { authErrorResult } from "@/lib/auth-errors";
+import { isValidUuid } from "@/lib/uuid";
 
 export type ApiKeyListItem = {
   id: string;
@@ -49,6 +50,11 @@ async function authorizeApiKeyBusiness(
     user = await getAuthenticatedUser();
   } catch (err) {
     return authErrorResult(err, action);
+  }
+
+  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessOwnership.
+  if (!isValidUuid(businessId)) {
+    return { error: "Identificativo non valido." };
   }
 
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
@@ -177,6 +183,11 @@ export async function revokeApiKey(keyId: string): Promise<{ error?: string }> {
     return authErrorResult(err, "revokeApiKey");
   }
 
+  // Guard UUID (regola 9): evita il 22P02 di Postgres nella UPDATE.
+  if (!isValidUuid(keyId)) {
+    return { error: "Identificativo non valido." };
+  }
+
   const db = getDb();
 
   const [profile] = await db
@@ -189,10 +200,20 @@ export async function revokeApiKey(keyId: string): Promise<{ error?: string }> {
     return { error: "Profilo non trovato." };
   }
 
+  // isNull(revokedAt) rende la revoca idempotente: senza, una seconda chiamata
+  // sposterebbe avanti revoked_at su una chiave già revocata, rendendo
+  // inaffidabile il timestamp di audit. A 0 righe aggiornate cade nel branch
+  // "non trovata" qui sotto, che è la risposta corretta.
   const [updated] = await db
     .update(apiKeys)
     .set({ revokedAt: new Date() })
-    .where(and(eq(apiKeys.id, keyId), eq(apiKeys.profileId, profile.id)))
+    .where(
+      and(
+        eq(apiKeys.id, keyId),
+        eq(apiKeys.profileId, profile.id),
+        isNull(apiKeys.revokedAt),
+      ),
+    )
     .returning({ id: apiKeys.id });
 
   if (!updated) {
