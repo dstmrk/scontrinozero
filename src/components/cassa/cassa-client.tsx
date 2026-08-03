@@ -52,6 +52,7 @@ export function CassaClient({
     removeLine,
     clearCart,
     setPaymentMethod,
+    totalCents,
     total,
   } = useCassa();
 
@@ -193,12 +194,14 @@ export function CassaClient({
   // Auto-svuota il codice lotteria se il totale scende sotto €1 (es. dopo clearCart o
   // emissione di un nuovo scontrino): senza questo reset, il codice del cliente
   // precedente sopravviverebbe nello state e verrebbe inviato al prossimo submit.
+  // Confronto in centesimi interi (regola 17): è la stessa soglia che applica
+  // `resolveLotteryCode` lato server, quindi client e server non divergono mai.
   useEffect(() => {
-    if (total < 1 && lotteryCode) {
+    if (totalCents < 100 && lotteryCode) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLotteryCode("");
     }
-  }, [total, lotteryCode]);
+  }, [totalCents, lotteryCode]);
 
   const handlePaymentMethodChange = (method: typeof paymentMethod) => {
     setPaymentMethod(method);
@@ -389,7 +392,7 @@ export function CassaClient({
         />
         <ReceiptSummary
           lines={lines}
-          total={total}
+          totalCents={totalCents}
           paymentMethod={paymentMethod}
           onPaymentMethodChange={handlePaymentMethodChange}
           onRemoveLine={removeLine}

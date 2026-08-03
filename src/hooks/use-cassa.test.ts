@@ -1,6 +1,7 @@
 import { renderHook, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useCassa } from "@/hooks/use-cassa";
+import { calcInputLinesTotalCents } from "@/lib/receipts/receipt-totals";
 
 // Mock crypto.randomUUID per avere id deterministici nei test
 let uuidCounter = 0;
@@ -395,6 +396,116 @@ describe("useCassa", () => {
 
     const stored = JSON.parse(sessionStorage.getItem("cassa_cart") ?? "{}");
     expect(stored.paymentMethod).toBe("PE");
+  });
+
+  describe("totalCents – canone per-riga in centesimi (regola 17)", () => {
+    it("inizia con totalCents zero", () => {
+      const { result } = renderHook(() => useCassa());
+      expect(result.current.totalCents).toBe(0);
+    });
+
+    it("su quantità frazionarie coincide con calcInputLinesTotalCents", () => {
+      // 1.15 × 0.35 = 0.40249… → 40 cents per riga, 120 cents in totale.
+      // La somma float delle tre righe vale 1.2074999999999998, che formattata
+      // mostrerebbe €1,21: un centesimo in più di quanto viene emesso all'AdE.
+      const input = [
+        { description: "Sfuso A", quantity: 0.35, grossUnitPrice: 1.15 },
+        { description: "Sfuso B", quantity: 0.35, grossUnitPrice: 1.15 },
+        { description: "Sfuso C", quantity: 0.35, grossUnitPrice: 1.15 },
+      ];
+      const { result } = renderHook(() => useCassa());
+
+      act(() => {
+        for (const line of input) {
+          result.current.addLine({ ...line, vatCode: "22" });
+        }
+      });
+
+      expect(result.current.totalCents).toBe(calcInputLinesTotalCents(input));
+      expect(result.current.totalCents).toBe(120);
+    });
+
+    it("dieci righe da €0,10 valgono 100 cents (la somma float darebbe 0,9999…)", () => {
+      const { result } = renderHook(() => useCassa());
+
+      act(() => {
+        for (let i = 0; i < 10; i++) {
+          result.current.addLine({
+            description: `Prodotto ${i}`,
+            quantity: 1,
+            grossUnitPrice: 0.1,
+            vatCode: "22",
+          });
+        }
+      });
+
+      // Regressione: col reduce in float il totale era 0.9999999999999999,
+      // quindi il gate lotteria client (`< 1`) disabilitava il campo su uno
+      // scontrino che il server (`< 100` cents) accetta.
+      expect(result.current.totalCents).toBe(100);
+      expect(result.current.totalCents < 100).toBe(false);
+    });
+
+    it("total è esattamente totalCents / 100", () => {
+      const { result } = renderHook(() => useCassa());
+
+      act(() => {
+        result.current.addLine({
+          description: "Sfuso",
+          quantity: 0.35,
+          grossUnitPrice: 1.15,
+          vatCode: "22",
+        });
+      });
+
+      expect(result.current.total).toBe(result.current.totalCents / 100);
+      expect(result.current.total).toBe(0.4);
+    });
+
+    it("updateLine ricalcola totalCents sulla riga modificata", () => {
+      const { result } = renderHook(() => useCassa());
+
+      act(() => {
+        result.current.addLine({
+          description: "Sfuso",
+          quantity: 1,
+          grossUnitPrice: 2,
+          vatCode: "22",
+        });
+      });
+      const id = result.current.lines[0].id;
+
+      act(() => {
+        result.current.updateLine(id, {
+          description: "Sfuso",
+          quantity: 0.35,
+          grossUnitPrice: 1.15,
+          vatCode: "22",
+        });
+      });
+
+      expect(result.current.totalCents).toBe(40);
+      expect(result.current.total).toBe(0.4);
+    });
+
+    it("totalCents torna a zero dopo clearCart", () => {
+      const { result } = renderHook(() => useCassa());
+
+      act(() => {
+        result.current.addLine({
+          description: "A",
+          quantity: 1,
+          grossUnitPrice: 10,
+          vatCode: "22",
+        });
+      });
+
+      act(() => {
+        result.current.clearCart();
+      });
+
+      expect(result.current.totalCents).toBe(0);
+    });
   });
 
   describe("addLine – merge righe identiche", () => {

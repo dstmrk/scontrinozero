@@ -3,6 +3,9 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { CartLine, PaymentMethod, VatCode } from "@/types/cassa";
 import { safeSessionStorage } from "@/lib/safe-storage";
+// Import da `receipt-totals` e MAI da `document-lines`: il secondo importa
+// `getDb()` e trascinerebbe il driver `postgres` nel bundle del browser.
+import { calcInputLinesTotalCents } from "@/lib/receipts/receipt-totals";
 
 export const CASSA_SESSION_KEY = "cassa_cart";
 
@@ -42,6 +45,14 @@ interface UseCassaReturn {
   removeLine: (id: string) => void;
   clearCart: () => void;
   setPaymentMethod: (method: PaymentMethod) => void;
+  /**
+   * Totale del carrello in centesimi interi, canone della regola 17. È l'unica
+   * grandezza da confrontare con una soglia (es. il minimo €1,00 della
+   * lotteria): coincide byte-per-byte con `calcInputLinesTotalCents` usata dal
+   * server in `resolveLotteryCode` e dall'importo trasmesso all'AdE.
+   */
+  totalCents: number;
+  /** Derivato da `totalCents / 100`, per la sola formattazione display. */
   total: number;
 }
 
@@ -115,10 +126,7 @@ export function useCassa(): UseCassaReturn {
     setCartState((prev) => ({ ...prev, paymentMethod: method }));
   }, []);
 
-  const total = useMemo(
-    () => lines.reduce((sum, l) => sum + l.grossUnitPrice * l.quantity, 0),
-    [lines],
-  );
+  const totalCents = useMemo(() => calcInputLinesTotalCents(lines), [lines]);
 
   return {
     lines,
@@ -128,6 +136,7 @@ export function useCassa(): UseCassaReturn {
     removeLine,
     clearCart,
     setPaymentMethod,
-    total,
+    totalCents,
+    total: totalCents / 100,
   };
 }

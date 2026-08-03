@@ -8,9 +8,17 @@ import { PaymentMethodSelector } from "./payment-method-selector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+/** Soglia minima della Lotteria degli Scontrini, in centesimi interi. */
+const LOTTERY_MIN_CENTS = 100;
+
 interface ReceiptSummaryProps {
   readonly lines: CartLine[];
-  readonly total: number;
+  /**
+   * Totale in centesimi interi (regola 17). Unica fonte sia per l'importo
+   * mostrato sia per il gate lotteria, così il confronto con la soglia è
+   * identico a quello di `resolveLotteryCode` lato server.
+   */
+  readonly totalCents: number;
   readonly paymentMethod: PaymentMethod;
   readonly onPaymentMethodChange: (method: PaymentMethod) => void;
   readonly onRemoveLine: (id: string) => void;
@@ -23,7 +31,7 @@ interface ReceiptSummaryProps {
 
 export function ReceiptSummary({
   lines,
-  total,
+  totalCents,
   paymentMethod,
   onPaymentMethodChange,
   onRemoveLine,
@@ -34,6 +42,7 @@ export function ReceiptSummary({
   onLotteryCodeChange,
 }: ReceiptSummaryProps) {
   const count = lines.length;
+  const isBelowLotteryMin = totalCents < LOTTERY_MIN_CENTS;
 
   return (
     <div className="flex flex-col gap-4">
@@ -66,7 +75,7 @@ export function ReceiptSummary({
       <div className="bg-muted flex items-center justify-between rounded-xl px-4 py-3">
         <span className="font-medium">Totale</span>
         <span className="text-xl font-bold tabular-nums">
-          {formatCurrency(total)}
+          {formatCurrency(totalCents / 100)}
         </span>
       </div>
 
@@ -95,14 +104,14 @@ export function ReceiptSummary({
             autoComplete="off"
             autoCapitalize="characters"
             value={lotteryCode}
-            disabled={total < 1}
+            disabled={isBelowLotteryMin}
             onChange={(e) => {
               onLotteryCodeChange?.(e.target.value.toUpperCase());
             }}
             className="rounded-xl font-mono uppercase"
           />
           <p className="text-muted-foreground mt-1 text-xs">
-            {total < 1
+            {isBelowLotteryMin
               ? "Non disponibile per importi inferiori a €1,00"
               : "Per la Lotteria degli Scontrini — solo pagamenti con carta"}
           </p>
