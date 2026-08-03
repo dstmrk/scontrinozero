@@ -87,6 +87,20 @@ assert_block "git -C /repo push origin develop:main"
 assert_block "git -c protocol.version=2 push origin main"
 assert_block "git --git-dir=/repo/.git push origin HEAD:main"
 
+# --- BLOCK cases: push che spediscono main SENZA nominarlo. `--all` e
+# `--mirror` includono ogni branch locale, main compreso: una regex che cerca
+# il token "main" nel refspec non li vede (bypass trovato 2026-08-03). ---
+assert_block "git push --all origin"
+assert_block "git push origin --all"
+assert_block "git push --mirror origin"
+assert_block "git push origin --mirror"
+assert_block "git -C /repo push --all origin"
+
+# `--all` su un comando che non e' un push non c'entra nulla.
+assert_pass "git fetch --all"
+assert_pass "git log --all --oneline"
+assert_pass "git branch --all"
+
 if [ "$failures" -gt 0 ]; then
   echo "$failures test(s) failed." >&2
   exit 1
