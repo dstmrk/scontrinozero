@@ -35,6 +35,10 @@
     // Service worker requires "webworker" lib globals (ServiceWorkerGlobalScope)
     // which conflicts with the "dom" lib used by the main app.
     // Serwist/webpack compiles it separately with the correct worker context.
-    "src/sw.ts"
+    // Both files are type-checked by tsconfig.sw.json (run by `npm run
+    // type-check`); sw.test.ts is excluded here only because importing sw.ts
+    // would drag the worker globals into this project.
+    "src/sw.ts",
+    "src/sw.test.ts"
   ]
 }

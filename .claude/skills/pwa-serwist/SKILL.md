@@ -5,6 +5,26 @@ description: Use when working on the PWA — the service worker src/sw.ts (Serwi
 
 # pwa-serwist — service worker, install prompt, matcher
 
+## ⚠️ Prima di tutto: il SW oggi NON viene emesso (Turbopack)
+
+Next 16 builda con **Turbopack di default** e `@serwist/next@9` è un plugin
+**webpack**: non gira, stampa un warning, e il build **prosegue verde** senza
+emettere il service worker in `public/sw*.js`. In produzione `/sw.js` risponde
+404 → nessun SW
+registrato, nessun offline, nessun `beforeinstallprompt` (quindi niente
+installazione su Android). È il finding P1 **REVIEW.md #84**.
+
+Conseguenza pratica per chi lavora qui: **`src/sw.ts` è codice non spedito**
+finché #84 non è chiuso. Continua a mantenerlo corretto (il file torna vivo nel
+momento in cui si ripristina la build), ma non concludere che un
+comportamento del SW sia attivo in produzione senza prima verificare che
+`public/sw*.js` esista dopo `npm run build` e che `GET /sw.js` dia 200.
+
+Lezione generalizzabile: un plugin di build che degrada a **warning** invece di
+fallire è indistinguibile dal successo in CI. Se una feature dipende da un
+artefatto generato, l'unica verifica che tiene è **asserire l'esistenza
+dell'artefatto**, non la correttezza del sorgente che lo produce.
+
 ## Serwist — attenzione al `defaultCache`
 
 Il service worker (`src/sw.ts`) usa `runtimeCaching: defaultCache` di
@@ -29,12 +49,26 @@ le richieste `/api/*`. Conseguenze:
   per route autenticate fare affidamento su `cookies()`/redirect server-side,
   non su "il SW non interferisce".
 
-> ⚠️ **Stato oggi: l'override NON è implementato.** `src/sw.ts` passa
-> `runtimeCaching: defaultCache` senza alcuna regola precedente, quindi le GET
-> `/api/*` con dati fiscali per-tenant (PDF scontrino, export CSV, lista
-> Developer API) sono cacheabili in produzione — è il finding P1 **REVIEW.md
-> #73**, con il fix già scritto lì. Se tocchi `src/sw.ts` per altro, non dare
-> per scontato che la prescrizione sopra sia già applicata: verificala.
+> ✅ **Stato oggi: l'override è implementato** (fix REVIEW.md #73). `src/sw.ts`
+> costruisce `runtimeCaching` con una regola `NetworkOnly` su
+> `sameOrigin && (pathname.startsWith("/api/") || pathname.startsWith("/v1/"))`
+> **prima** dello spread di `defaultCache`. `/v1/` c'è perché è il path
+> pre-rewrite del subdomain API (`next.config.ts` → `rewrites()`): dimenticarlo
+> lascerebbe scoperta la Developer API. La pagina pubblica `/r/<id>` è
+> **volutamente** fuori dall'override (non autenticata, nessun leak
+> cross-account, offline è un vantaggio).
+>
+> **L'ordine è la sostanza:** vince il primo matcher, quindi una regola messa
+> dopo `...defaultCache` non intercetterebbe nulla. Il test `src/sw.test.ts`
+> pinna posizione, matcher e la presenza di `defaultCache` dopo l'override.
+>
+> `src/sw.ts` resta escluso da `sonar.exclusions` ma **non** dalla coverage
+> (`vitest.config.ts`). Per testarlo: `vi.stubGlobal("self", { __SW_MANIFEST })`
+> prima dell'import (in environment node `self` non esiste), e le classi mockate
+> (`Serwist`, `NetworkOnly`) vanno definite dentro `vi.hoisted`, non nel factory
+> di `vi.mock` — il factory viene ri-valutato e una classe definita lì dentro
+> avrebbe identità diversa da quella vista dal test, facendo fallire ogni
+> `instanceof`.
 
 `src/components/pwa/` contiene gli hook lato client per install prompt e
 update detection — sono Client Components che usano `window.matchMedia` e

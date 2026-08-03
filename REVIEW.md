@@ -18,85 +18,76 @@ consapevoli accettati vivono in fondo, in "Rischi accettati".
 
 ## P1 — Alta priorità
 
-### 73. Service worker: nessun override `NetworkOnly` sulle GET `/api/*` tenant-specific
+### 84. Il service worker non viene più generato: `@serwist/next` non gira sotto Turbopack → PWA inerte in produzione
 
-- **Categoria:** sicurezza/privacy · **Severità:** High — **attivo in produzione oggi**, non gated su feature future
-- **File:** `src/sw.ts:18` (`runtimeCaching: defaultCache`, nessuna regola precedente); route GET esposte: `src/app/api/documents/[documentId]/pdf/route.ts`, `src/app/api/export/receipts/route.ts`, `src/app/api/v1/receipts/route.ts`
+- **Categoria:** funzionalità/regressione · **Severità:** High — una feature annunciata (installazione PWA, offline) **non esiste in produzione oggi**
+- **File:** `next.config.ts:7-12` (`withSerwistInit`, `swSrc: "src/sw.ts"` → `swDest: "public/sw.js"`), `package.json` (`"build": "next build"`), `Dockerfile:78`, `.github/workflows/ci.yml:342`. Consumer che danno per scontato un SW attivo: `src/lib/pwa/install-prompt-store.ts`, `src/components/pwa/`, `src/app/offline/page.tsx`, l'esclusione `sw\.js` dal matcher di `src/proxy.ts`, e l'articolo `src/app/(marketing)/help/installare-app/page.tsx`
 
-**Problema.** `src/sw.ts` registra `runtimeCaching: defaultCache` di
-`@serwist/next/worker` **senza alcun override**. Come documentato nella skill
-`pwa-serwist` (sezione "Serwist — attenzione al `defaultCache`"), `defaultCache`
-**non è asset-only**: include una strategia `NetworkFirst` per le richieste
-same-origin `/api/*`, che **scrive la response nella CacheStorage** via
-`fetchAndCachePut`. Il `cacheOkAndOpaquePlugin` aggiunto di default decide solo
-in base allo status HTTP (200/opaque) e **ignora `Cache-Control`** — quindi il
-`Cache-Control: no-store` già presente su `/api/export/receipts` **non impedisce
-la scrittura in cache**.
+**Problema.** Next 16 builda con **Turbopack di default**; `@serwist/next@9` è un
+plugin **webpack** e sotto Turbopack non gira. Il build lo dice esplicitamente
+(`[@serwist/next] WARNING: ... it doesn't support Turbopack`) ma **non fallisce**:
+prosegue e `public/sw.js` non viene mai emesso, insieme allo script di
+registrazione che il plugin inietta.
 
-Le GET coinvolte restituiscono dati fiscali del singolo tenant:
+Evidenza (verificata il 2026-08-03): dopo `npm run build` non esiste alcun
+`public/sw.js`, e in produzione `GET https://app.scontrinozero.it/sw.js` →
+**404** (idem sul dominio marketing), mentre `/manifest.webmanifest` → 200.
 
-- `GET /api/documents/[documentId]/pdf` → PDF dello scontrino (autenticato via cookie);
-- `GET /api/export/receipts` → CSV con **tutti** gli scontrini del business;
-- `GET /api/v1/receipts` → lista documenti (Bearer key).
+Conseguenze, tutte silenziose:
 
-La CacheStorage è **per-origin e sopravvive al logout**: su un dispositivo
-condiviso (tablet di negozio, PWA installata, cambio di account, rivendita del
-device) una richiesta del secondo utente che va in timeout o parte offline può
-essere servita dalla cache col **documento fiscale del primo utente**. Anche
-senza cambio account resta il problema minore dei dati stale serviti come
-freschi. La skill prescrive esplicitamente l'override; il codice non lo
-implementa, e `src/sw.ts` è escluso sia da SonarCloud (`sonar.exclusions`) sia
-dalla coverage (`vitest.config.ts`), quindi nessun test lo copre.
+- **Nessuna installazione su Android.** Chrome emette `beforeinstallprompt` solo
+  se è registrato un SW con fetch handler: senza, il pulsante "Installa" non
+  compare mai — cioè esattamente il bug che lo store singleton
+  `install-prompt-store.ts` era stato scritto per risolvere, che oggi è
+  irraggiungibile per un motivo diverso e a monte. iOS non è colpito ("Aggiungi
+  a schermata Home" non richiede SW), il che rende l'asimmetria fuorviante:
+  sembra un problema Android, è l'assenza totale del SW.
+- **Nessun offline e nessun precache:** `/offline` non viene mai servita, e ogni
+  navigazione senza rete è un errore di rete del browser.
+- `/help/installare-app` descrive un flusso che su Android non funziona
+  (regola 8: mai promettere feature non live).
 
-**Fix (non ambiguo).**
+Nessun test se n'è accorto perché nessuno guarda **l'output del build**:
+`src/sw.test.ts` verifica il contenuto del modulo `src/sw.ts`, non che il
+bundle venga emesso.
 
-1. In `src/sw.ts`, costruire l'array di runtime caching mettendo una regola
-   `NetworkOnly` **PRIMA** dello spread di `defaultCache` (l'ordine conta: vince
-   il primo matcher):
+> **Relazione con #73 (chiuso).** L'override `NetworkOnly` sulle GET
+> `/api/*` + `/v1/` è **già** in `src/sw.ts`: ripristinare la build del SW
+> **non** reintroduce il leak di CacheStorage. Resta però da eseguire la
+> verifica manuale che era il punto 6 di #73 (DevTools → Application → Cache
+> Storage: nessuna voce `/api/documents/.../pdf`) **appena il SW torna a essere
+> servito** — finora non era eseguibile, perché non c'era alcun SW.
 
-   ```ts
-   import { NetworkOnly } from "serwist";
-   // ...
-   runtimeCaching: [
-     {
-       matcher: ({ url, sameOrigin }) =>
-         sameOrigin &&
-         (url.pathname.startsWith("/api/") || url.pathname.startsWith("/v1/")),
-       handler: new NetworkOnly(),
-     },
-     ...defaultCache,
-   ],
-   ```
+**Fix (una decisione + due guardie).**
 
-   Includere `/v1/` perché è il path con cui le richieste arrivano dal subdomain
-   API **prima** del rewrite (`next.config.ts` → `rewrites()`).
+1. Scegliere come tornare a emettere il SW:
+   - **A — `next build --webpack`** (e `next dev --webpack`): ripristina il
+     plugin così com'è, zero migrazione, ma rinuncia a Turbopack in build e ci
+     lega a un bundler in uscita.
+   - **B — `@serwist/turbopack`**: allineato alla direzione di Next, supporto
+     dichiarato **sperimentale** dagli autori.
+   - **C — configurator mode di `@serwist/next`**: supporta Turbopack restando
+     nel pacchetto già in uso.
 
-2. **Non** limitarsi ad aggiungere `Cache-Control: no-store` sulle route: come
-   sopra, non previene la scrittura in cache. **Non** affidarsi a
-   `Vary: Cookie` — isola al più la voce per variante, non la impedisce.
+   Raccomandazione: **A** per ripristinare subito la feature (cambio di una
+   riga, rischio nullo), poi valutare **C** come uscita definitiva da webpack.
+   Qualunque strada: confrontare i tempi di build in CI prima/dopo, perché è
+   l'unico costo reale di A.
 
-3. Bonus difensivo (stesso PR, stesso file): valutare l'esclusione anche di
-   `/r/` (pagina pubblica scontrino) dalla `NetworkFirst` delle navigazioni, se
-   la si vuole sempre fresca. **Opzionale** — quella pagina non è autenticata,
-   quindi non è un leak: decidere e documentare la scelta nel commento.
-
-4. Rimuovere `src/sw.ts` dalla `coverage.exclude` di `vitest.config.ts` (resta
-   escluso da `sonar.exclusions`, che è un'altra cosa) e aggiungere
-   `src/sw.test.ts`.
-
-5. **Test** (`src/sw.test.ts`, mockando `serwist` e `@serwist/next/worker` come
-   già si fa per i moduli infrastrutturali — vedi `src/instrumentation.test.ts`):
-   - il `runtimeCaching` passato al costruttore `Serwist` ha come **primo**
-     elemento la regola con handler `NetworkOnly`;
-   - il matcher ritorna `true` per `{ sameOrigin: true, url: new URL("https://app.x/api/export/receipts") }`
-     e per `/v1/receipts`, `false` per `/dashboard` e per `sameOrigin: false`;
-   - `defaultCache` è ancora presente **dopo** la regola (non sostituito).
-
-6. **Verifica manuale post-deploy** (sandbox prima di prod): DevTools →
-   Application → Cache Storage, scaricare un PDF autenticato e confermare che
-   **nessuna** voce `/api/documents/.../pdf` compaia nelle cache Serwist. Poi
-   forzare "Offline" e verificare che la stessa GET fallisca invece di
-   restituire il documento cached.
+2. **Guardia anti-regressione nel build** — è l'unica cosa che avrebbe
+   intercettato questo: uno step dopo `next build` che fallisce se
+   `public/sw.js` non esiste o è vuoto (script in `scripts/`, invocato dal
+   `build` di `package.json` così vale anche per il Dockerfile, non solo per
+   CI). Un warning del plugin che non rompe il build non basta: è già lì e non
+   ha fermato nulla.
+3. **Smoke post-deploy (regola 25):** aggiungere alle probe un
+   `curl -sfI https://<host>/sw.js` che deve dare 200 con
+   `content-type: application/javascript`.
+4. **Test:** oltre alla guardia di build, un test sul `config.matcher` di
+   `src/proxy.ts` che continua a escludere `/sw.js` (già presente, skill
+   `pwa-serwist`), e verifica manuale post-deploy su sandbox: DevTools →
+   Application → Service Workers mostra il SW `activated`, e il pulsante
+   "Installa" compare su Chrome Android.
 
 ---
 
