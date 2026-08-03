@@ -5,25 +5,60 @@ description: Use when working on the PWA — the service worker src/sw.ts (Serwi
 
 # pwa-serwist — service worker, install prompt, matcher
 
-## ⚠️ Prima di tutto: il SW oggi NON viene emesso (Turbopack)
+## Come viene costruito il SW: configurator mode, NON un plugin
 
-Next 16 builda con **Turbopack di default** e `@serwist/next@9` è un plugin
-**webpack**: non gira, stampa un warning, e il build **prosegue verde** senza
-emettere il service worker in `public/sw*.js`. In produzione `/sw.js` risponde
-404 → nessun SW
-registrato, nessun offline, nessun `beforeinstallprompt` (quindi niente
-installazione su Android). È il finding P1 **REVIEW.md #84**.
+Il service worker **non** è costruito da un plugin dentro `next.config.ts`. Lo
+era (`withSerwistInit`), ma quello è un plugin **webpack** e Next 16 builda con
+**Turbopack**: non girava, degradava a un **warning**, e il build restava verde
+senza emettere nulla. Risultato: `/sw.js` 404 in produzione per mesi — niente
+offline, niente `beforeinstallprompt`, quindi niente installazione su Android
+(iOS non è colpito, il che rendeva l'asimmetria fuorviante). Era REVIEW #84.
 
-Conseguenza pratica per chi lavora qui: **`src/sw.ts` è codice non spedito**
-finché #84 non è chiuso. Continua a mantenerlo corretto (il file torna vivo nel
-momento in cui si ripristina la build), ma non concludere che un
-comportamento del SW sia attivo in produzione senza prima verificare che
-`public/sw*.js` esista dopo `npm run build` e che `GET /sw.js` dia 200.
+Oggi la catena è esplicita e bundler-agnostica:
 
-Lezione generalizzabile: un plugin di build che degrada a **warning** invece di
-fallire è indistinguibile dal successo in CI. Se una feature dipende da un
-artefatto generato, l'unica verifica che tiene è **asserire l'esistenza
-dell'artefatto**, non la correttezza del sorgente che lo produce.
+```
+npm run build → next build && npm run build:sw
+                              └─ serwist build serwist.config.mjs
+                                 └─ node scripts/check-service-worker.mjs
+```
+
+- `serwist.config.mjs` usa `serwist.withNextConfig(...)` dall'export `./config`
+  di `@serwist/next` + il CLI `@serwist/cli` (devDependency). Non si aggancia al
+  bundler: gira **dopo** `next build` e legge gli asset già emessi.
+- È incatenato allo script `build` di `package.json`, non a un workflow CI —
+  così vale anche per il Dockerfile.
+- `scripts/check-service-worker.mjs` fallisce se il bundle manca o è sotto 1 KB.
+
+> **Lezione, generalizzabile oltre il SW:** un tool di build che degrada a
+> warning invece di fallire è **indistinguibile dal successo** in CI. Quando una
+> feature dipende da un artefatto generato, l'unica verifica che tiene è
+> asserire l'esistenza dell'**artefatto**; verificare il sorgente che lo produce
+> non basta, perché il produttore può smettere di girare del tutto.
+
+### Cosa finisce nel precache (e cosa no)
+
+I default del configurator precacherebbero **~12 MB**: 5.3 MB di HTML SSG (89
+pagine fra landing, `/help` e `/guide`), 3 MB di screenshot prodotto, 3.2 MB di
+app shell. Su un target mobile-first di micro-esercenti sono 8.3 MB di roba
+marketing scaricata in 4G e mai usata offline — chi installa la PWA vive in
+`/dashboard`, che è dinamica e nemmeno precacheabile.
+
+Perciò `serwist.config.mjs` imposta `precachePrerendered: false` e ignora
+`public/screenshots/**`: **3.55 MB, 67 URL**. Le pagine marketing non restano
+scoperte, le cacha comunque a runtime la `NetworkFirst` delle navigazioni di
+`defaultCache` — ma solo quelle davvero visitate.
+
+⚠️ L'unica pagina prerenderizzata che **deve** restare nel precache è
+`/offline`: è il fallback di navigazione dichiarato in `src/sw.ts` e serve per
+definizione quando la rete non c'è. È aggiunta esplicitamente ai `globPatterns`.
+Se tocchi i glob, verifica che `"/offline"` sia ancora nel manifest generato.
+
+### Lint sul bundle generato
+
+`public/sw.js` è un bundle esbuild minificato: va tenuto nei `globalIgnores` di
+`eslint.config.mjs` (insieme alla sua `.map`). Prima di #84 non veniva mai
+emesso, quindi non era mai presente nel working tree e il problema non si era
+mai visto.
 
 ## Serwist — attenzione al `defaultCache`
 

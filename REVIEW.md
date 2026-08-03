@@ -18,97 +18,48 @@ consapevoli accettati vivono in fondo, in "Rischi accettati".
 
 ## P1 — Alta priorità
 
-### 84. Il service worker non viene più generato: `@serwist/next` non gira sotto Turbopack → PWA inerte in produzione
+### 84. PWA: il service worker era costruito da un plugin webpack sotto Turbopack — **build ripristinata, resta la registrazione**
 
-- **Categoria:** funzionalità/regressione · **Severità:** High — una feature annunciata (installazione PWA, offline) **non esiste in produzione oggi**
-- **File:** `next.config.ts:7-12` (`withSerwistInit`, `swSrc: "src/sw.ts"` → `swDest: "public/sw.js"`), `package.json` (`"build": "next build"`), `Dockerfile:78`, `.github/workflows/ci.yml:342`. Consumer che danno per scontato un SW attivo: `src/lib/pwa/install-prompt-store.ts`, `src/components/pwa/`, `src/app/offline/page.tsx`, l'esclusione `sw\.js` dal matcher di `src/proxy.ts`, e l'articolo `src/app/(marketing)/help/installare-app/page.tsx`
+- **Categoria:** funzionalità/regressione · **Severità:** High
+- **File residui:** `src/components/providers.tsx` (registrazione), `deploy/` + skill `deploy-release` (probe di smoke)
 
-**Problema.** Next 16 builda con **Turbopack di default**; `@serwist/next@9` è un
-plugin **webpack** e sotto Turbopack non gira. Il build lo dice esplicitamente
-(`[@serwist/next] WARNING: ... it doesn't support Turbopack`) ma **non fallisce**:
-prosegue e `public/sw.js` non viene mai emesso, insieme allo script di
-registrazione che il plugin inietta.
+**Problema (storico).** `withSerwistInit` in `next.config.ts` era un plugin
+**webpack**; Next 16 builda con **Turbopack**, quindi non girava. Degradava a un
+warning senza far fallire il build: `public/sw.js` non veniva mai emesso, né lo
+script di registrazione che il plugin iniettava. Verificato il 2026-08-03:
+`GET https://app.scontrinozero.it/sw.js` → **404** (idem sul dominio marketing),
+mentre `/manifest.webmanifest` → 200. Conseguenze silenziose: nessun offline,
+nessun precache e — perché Chrome emette `beforeinstallprompt` solo con un SW
+registrato — **nessuna installazione su Android**, cioè proprio il bug che
+`src/lib/pwa/install-prompt-store.ts` era stato scritto per risolvere. iOS non
+era colpito, il che rendeva l'asimmetria fuorviante.
 
-Evidenza (verificata il 2026-08-03): dopo `npm run build` non esiste alcun
-`public/sw.js`, e in produzione `GET https://app.scontrinozero.it/sw.js` →
-**404** (idem sul dominio marketing), mentre `/manifest.webmanifest` → 200.
+**Fatto (configurator mode).** Il SW ora è uno step di build a sé, bundler-agnostico:
+`serwist.config.mjs` (`serwist.withNextConfig` dall'export `./config` di
+`@serwist/next`) + `@serwist/cli`, incatenato allo script `build` di
+`package.json` così vale anche per il Dockerfile. `scripts/check-service-worker.mjs`
+fallisce se il bundle manca o è sotto 1 KB — la guardia che sarebbe servita, dato
+che un tool degradato a warning è indistinguibile dal successo in CI. Precache
+ristretto all'app shell (`precachePrerendered: false` + `public/screenshots/**`
+ignorati): **3.55 MB / 67 URL** invece dei 12 MB di default, di cui 8.3 MB erano
+marketing mai usato offline. `/offline` resta precacheato esplicitamente perché
+è il fallback di navigazione di `src/sw.ts`.
 
-Conseguenze, tutte silenziose:
+**Resta da fare.**
 
-- **Nessuna installazione su Android.** Chrome emette `beforeinstallprompt` solo
-  se è registrato un SW con fetch handler: senza, il pulsante "Installa" non
-  compare mai — cioè esattamente il bug che lo store singleton
-  `install-prompt-store.ts` era stato scritto per risolvere, che oggi è
-  irraggiungibile per un motivo diverso e a monte. iOS non è colpito ("Aggiungi
-  a schermata Home" non richiede SW), il che rende l'asimmetria fuorviante:
-  sembra un problema Android, è l'assenza totale del SW.
-- **Nessun offline e nessun precache:** `/offline` non viene mai servita, e ogni
-  navigazione senza rete è un errore di rete del browser.
-- `/help/installare-app` descrive un flusso che su Android non funziona
-  (regola 8: mai promettere feature non live).
-
-Nessun test se n'è accorto perché nessuno guarda **l'output del build**:
-`src/sw.test.ts` verifica il contenuto del modulo `src/sw.ts`, non che il
-bundle venga emesso.
-
-> **Relazione con #73 (chiuso).** L'override `NetworkOnly` sulle GET
-> `/api/*` + `/v1/` è **già** in `src/sw.ts`: ripristinare la build del SW
-> **non** reintroduce il leak di CacheStorage. Resta però da eseguire la
-> verifica manuale che era il punto 6 di #73 (DevTools → Application → Cache
-> Storage: nessuna voce `/api/documents/.../pdf`) **appena il SW torna a essere
-> servito** — finora non era eseguibile, perché non c'era alcun SW.
-
-**Fix (una decisione + due guardie).**
-
-1. Scegliere come tornare a emettere il SW. **Decisione: C.**
-   - **A — `next build --webpack`** (e `next dev --webpack`). ⚠️ **Non è un
-     cambio di una riga:** `next.config.ts:28-33` dichiara l'alias di
-     `@point-of-sale/webbluetooth-receipt-printer` **solo** sotto la chiave
-     `turbopack`, che webpack ignora. Senza un blocco `webpack:` gemello il
-     build salta con module-not-found sul pass Client Component SSR — l'attrito
-     documentato in #62 — e proprio sul pacchetto della stampa termica v1.6.0.
-     Costo reale: un alias duplicato da tenere allineato, più l'intero build
-     riportato su un percorso non più esercitato dall'upgrade a Next 16, per
-     salvare un plugin.
-   - **B — `@serwist/turbopack`** (esiste, 9.5.12): dipendenza nuova, supporto
-     dichiarato **sperimentale** dagli autori, e soprattutto ri-accoppia il SW
-     al bundler — cioè ricompra la stessa classe di rottura al prossimo
-     cambio di bundler.
-   - **C — configurator mode**, export `./config` di `@serwist/next` **già
-     installato** (`serwist.withNextConfig(...)` + `generateGlobPatterns(distDir)`).
-     Non è un plugin del bundler: è uno step di build a sé, guidato da
-     `@serwist/cli`. È l'unica strada bundler-agnostica, e trasforma il SW in un
-     artefatto esplicito del build — quindi uno step che **può fallire**, che è
-     esattamente ciò che mancava qui (punto 2).
-
-   Cosa comporta C, in concreto:
-   - aggiungere `@serwist/cli` alle devDependencies (unico pezzo mancante:
-     `@serwist/next`, `@serwist/build`, `@serwist/window` ci sono già);
-   - togliere `withSerwistInit` da `next.config.ts` e spostare la config del SW
-     nel file del CLI;
-   - incatenare lo step al `build` di `package.json` (così vale anche per il
-     Dockerfile, non solo per CI);
-   - **la registrazione del SW diventa esplicita**: il plugin webpack iniettava
-     lo script da sé, in configurator mode si usa `SerwistProvider` da
-     `@serwist/next/react` (`swUrl="/sw.js"`). Slot naturale:
-     `src/components/providers.tsx`, che è già l'entry client dove
-     `initInstallPromptCapture()` viene chiamato a module-load. È il pezzo con
-     più incognite: validarlo su sandbox prima di prod.
-
-2. **Guardia anti-regressione nel build** — è l'unica cosa che avrebbe
-   intercettato questo: uno step dopo `next build` che fallisce se
-   `public/sw.js` non esiste o è vuoto (script in `scripts/`, invocato dal
-   `build` di `package.json` così vale anche per il Dockerfile, non solo per
-   CI). Un warning del plugin che non rompe il build non basta: è già lì e non
-   ha fermato nulla.
-3. **Smoke post-deploy (regola 25):** aggiungere alle probe un
-   `curl -sfI https://<host>/sw.js` che deve dare 200 con
-   `content-type: application/javascript`.
-4. **Test:** oltre alla guardia di build, un test sul `config.matcher` di
-   `src/proxy.ts` che continua a escludere `/sw.js` (già presente, skill
-   `pwa-serwist`), e verifica manuale post-deploy su sandbox: DevTools →
-   Application → Service Workers mostra il SW `activated`, e il pulsante
-   "Installa" compare su Chrome Android.
+1. **Registrazione lato client.** Il plugin webpack iniettava lo script da sé; in
+   configurator mode va esplicitata con `SerwistProvider` da
+   `@serwist/next/react` (`swUrl="/sw.js"`, `disable` in development — in dev il
+   CLI non gira e il file non esiste). Slot naturale:
+   `src/components/providers.tsx`, già entry client dove
+   `initInstallPromptCapture()` è chiamato a module-load.
+2. **Smoke post-deploy (regola 25):** aggiungere alle probe
+   `curl -sfI https://<host>/sw.js` → 200 con content-type JavaScript.
+3. **Verifica manuale su sandbox prima di prod:** DevTools → Application →
+   Service Workers mostra il SW `activated`; il pulsante "Installa" compare su
+   Chrome Android; e — punto 6 dell'ex #73, finora non eseguibile perché non
+   c'era alcun SW — Cache Storage non contiene **nessuna** voce
+   `/api/documents/.../pdf` dopo aver scaricato un PDF autenticato.
 
 ---
 

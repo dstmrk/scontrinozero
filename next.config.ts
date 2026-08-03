@@ -1,15 +1,13 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
-import withSerwistInit from "@serwist/next";
 import { parseTrustedHostnameEnv } from "./src/lib/hostname-env";
 import { buildSecurityHeaders } from "./src/lib/security-headers";
 
-const withSerwist = withSerwistInit({
-  swSrc: "src/sw.ts",
-  swDest: "public/sw.js",
-  // Disable SW in development to avoid caching issues during development.
-  disable: process.env.NODE_ENV === "development",
-});
+// Il service worker NON è più costruito da un plugin qui: `withSerwistInit` è
+// un plugin webpack e Next 16 builda con Turbopack, quindi non girava e il SW
+// non veniva emesso senza rompere il build (REVIEW #84). Ora è uno step di
+// build a sé — `serwist.config.mjs` + `serwist build`, incatenato allo script
+// `build` di package.json e verificato da scripts/check-service-worker.mjs.
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -152,7 +150,7 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSentryConfig(withSerwist(nextConfig), {
+export default withSentryConfig(nextConfig, {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   silent: !process.env.CI,
