@@ -18,48 +18,41 @@ consapevoli accettati vivono in fondo, in "Rischi accettati".
 
 ## P1 — Alta priorità
 
-### 84. PWA: il service worker era costruito da un plugin webpack sotto Turbopack — **build ripristinata, resta la registrazione**
+### 84. PWA: verifica manuale su sandbox del service worker ripristinato
 
-- **Categoria:** funzionalità/regressione · **Severità:** High
-- **File residui:** `src/components/providers.tsx` (registrazione), `deploy/` + skill `deploy-release` (probe di smoke)
+- **Categoria:** verifica di rollout · **Severità:** Low — il codice è spedito, resta da confermare sul campo
+- **File:** nessuno da modificare. Riferimenti: `serwist.config.mjs`, `src/sw.ts`, `src/components/providers.tsx`, `scripts/check-service-worker.mjs`
 
-**Problema (storico).** `withSerwistInit` in `next.config.ts` era un plugin
-**webpack**; Next 16 builda con **Turbopack**, quindi non girava. Degradava a un
-warning senza far fallire il build: `public/sw.js` non veniva mai emesso, né lo
-script di registrazione che il plugin iniettava. Verificato il 2026-08-03:
-`GET https://app.scontrinozero.it/sw.js` → **404** (idem sul dominio marketing),
-mentre `/manifest.webmanifest` → 200. Conseguenze silenziose: nessun offline,
-nessun precache e — perché Chrome emette `beforeinstallprompt` solo con un SW
-registrato — **nessuna installazione su Android**, cioè proprio il bug che
-`src/lib/pwa/install-prompt-store.ts` era stato scritto per risolvere. iOS non
-era colpito, il che rendeva l'asimmetria fuorviante.
+**Contesto.** `withSerwistInit` era un plugin **webpack** e Next 16 builda con
+**Turbopack**: non girava, degradava a warning e il build restava verde senza
+emettere nulla. `GET /sw.js` era **404** in produzione (verificato il
+2026-08-03) — niente offline, niente precache e, poiché Chrome emette
+`beforeinstallprompt` solo con un SW registrato, **nessuna installazione su
+Android**, cioè proprio il bug che `src/lib/pwa/install-prompt-store.ts` era
+stato scritto per risolvere. iOS non era colpito, il che rendeva l'asimmetria
+fuorviante.
 
-**Fatto (configurator mode).** Il SW ora è uno step di build a sé, bundler-agnostico:
-`serwist.config.mjs` (`serwist.withNextConfig` dall'export `./config` di
-`@serwist/next`) + `@serwist/cli`, incatenato allo script `build` di
-`package.json` così vale anche per il Dockerfile. `scripts/check-service-worker.mjs`
-fallisce se il bundle manca o è sotto 1 KB — la guardia che sarebbe servita, dato
-che un tool degradato a warning è indistinguibile dal successo in CI. Precache
-ristretto all'app shell (`precachePrerendered: false` + `public/screenshots/**`
-ignorati): **3.55 MB / 67 URL** invece dei 12 MB di default, di cui 8.3 MB erano
-marketing mai usato offline. `/offline` resta precacheato esplicitamente perché
-è il fallback di navigazione di `src/sw.ts`.
+Risolto passando alla configurator mode (build bundler-agnostica + guardia che
+fa fallire il build se il bundle manca) e dichiarando la registrazione con
+`SerwistProvider`. Dettagli e trappole → skill `pwa-serwist`.
 
-**Resta da fare.**
+**Resta da fare: verifica manuale su sandbox prima di prod.** Non è
+automatizzabile — richiede un browser reale e un dispositivo Android.
 
-1. **Registrazione lato client.** Il plugin webpack iniettava lo script da sé; in
-   configurator mode va esplicitata con `SerwistProvider` da
-   `@serwist/next/react` (`swUrl="/sw.js"`, `disable` in development — in dev il
-   CLI non gira e il file non esiste). Slot naturale:
-   `src/components/providers.tsx`, già entry client dove
-   `initInstallPromptCapture()` è chiamato a module-load.
-2. **Smoke post-deploy (regola 25):** aggiungere alle probe
-   `curl -sfI https://<host>/sw.js` → 200 con content-type JavaScript.
-3. **Verifica manuale su sandbox prima di prod:** DevTools → Application →
-   Service Workers mostra il SW `activated`; il pulsante "Installa" compare su
-   Chrome Android; e — punto 6 dell'ex #73, finora non eseguibile perché non
-   c'era alcun SW — Cache Storage non contiene **nessuna** voce
-   `/api/documents/.../pdf` dopo aver scaricato un PDF autenticato.
+1. DevTools → Application → Service Workers: il SW risulta **activated** e
+   `/sw.js` risponde 200 (è anche la quarta probe di smoke, skill
+   `deploy-release`).
+2. DevTools → Application → Cache Storage: dopo aver scaricato un PDF
+   autenticato **nessuna** voce `/api/documents/.../pdf` compare in cache; poi
+   forzare "Offline" e verificare che la stessa GET **fallisca** invece di
+   restituire il documento. È il punto 6 dell'ex #73, finora non eseguibile
+   perché non esisteva alcun SW.
+3. Chrome su Android: il pulsante "Installa" compare davvero (è la conferma
+   end-to-end che chiude il giro con `install-prompt-store.ts`).
+4. Navigazione offline → viene servita `/offline`, non l'errore di rete del
+   browser.
+
+Chiudere questa voce quando i quattro punti sono verdi su sandbox.
 
 ---
 

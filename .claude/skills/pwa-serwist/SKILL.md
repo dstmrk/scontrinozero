@@ -53,6 +53,34 @@ scoperte, le cacha comunque a runtime la `NetworkFirst` delle navigazioni di
 definizione quando la rete non c'è. È aggiunta esplicitamente ai `globPatterns`.
 Se tocchi i glob, verifica che `"/offline"` sia ancora nel manifest generato.
 
+### Registrazione: esplicita, con due default da spegnere
+
+Il vecchio plugin webpack iniettava lui lo script di registrazione. In
+configurator mode **no**: la registrazione va dichiarata, con `SerwistProvider`
+da `@serwist/next/react` in `src/components/providers.tsx` (stesso entry client
+dove `initInstallPromptCapture()` gira a module-load).
+
+Due default di `SerwistProvider` sono attivi e vanno spenti in un POS:
+
+- **`reloadOnOnline` (default `true`)** → `location.reload()` sull'evento
+  `online`. Al banco, con rete ballerina, ricarica la pagina **proprio quando
+  la connessione torna**: carrello in corso perso (righe, codice lotteria).
+  È lo scenario tipico, non un caso limite.
+- **`cacheOnNavigation` (default `true`)** → sovrascrive `history.pushState` e
+  `replaceState` per cachare le URL navigate. Interop rischiosa col router
+  dell'App Router e nessun beneficio: le pagine visitate le cacha già la
+  `NetworkFirst` delle navigazioni di `defaultCache`.
+
+`disable={process.env.NODE_ENV === "development"}`: `serwist build` è
+incatenato allo script `build`, non a `dev`, quindi in sviluppo il file non
+esiste e registrarlo darebbe 404 a ogni avvio.
+
+⚠️ **CSP:** `src/lib/csp.ts` dichiara `worker-src 'self'` esplicito. Senza,
+la registrazione ricadrebbe sul fallback `child-src` → `script-src`: funziona
+oggi solo perché `script-src` contiene `'self'`, ma in enforce mode una
+restrizione futura di `script-src` spegnerebbe il SW **in silenzio** (il
+browser non registra e non c'è errore lato server).
+
 ### Lint sul bundle generato
 
 `public/sw.js` è un bundle esbuild minificato: va tenuto nei `globalIgnores` di
