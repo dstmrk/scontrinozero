@@ -91,71 +91,6 @@ diventa un buco di billing al lancio della Fase B Developer API.
 
 ## P2 — Media priorità
 
-### 78. `getPlan()` può lanciare e quasi nessun caller lo gestisce (viola regola 19)
-
-- **Categoria:** architettura/robustezza · **Severità:** Medium — trasforma un profilo orfano o un DB lento in un error boundary a schermo intero + issue Sentry
-- **File:** sorgente del throw `src/lib/plans.ts:81-95` (`ProfileNotFoundError`) e timeout DB propagati; caller **non protetti**: `src/server/receipt-actions.ts:72`, `src/server/void-actions.ts:52`, `src/server/catalog-actions.ts:214`, `src/server/billing-actions.ts:42`, `src/server/api-key-actions.ts:57-60`. Caller **corretti** da cui copiare il pattern: `src/server/analytics-actions.ts:106-128` e `assertProPlan` in `src/lib/plans.ts:186-209`
-
-**Problema.** `getPlan` lancia `ProfileNotFoundError` quando l'auth user non ha
-un profilo (orfano: signup a metà, compensating delete fallito) o quando
-`profiles.plan` ha un valore fuori enum, e lascia propagare un `57014` sotto
-contention DB. `analytics-actions` e `assertProPlan` catturano entrambi i casi e
-degradano a `{ error }`; **tutti gli altri caller no**.
-
-Conseguenza in produzione: su `emitReceipt` — il core flow fiscale — un profilo
-orfano o un timeout DB fa propagare l'eccezione fino all'error boundary di Next.
-È esattamente ciò che la regola 19 di CLAUDE.md vieta ("server action di lettura:
-degradare, non lanciare... il throw sostituisce il fallback inline con l'error
-boundary di Next, rompendo la performance percepita") e produce anche rumore
-Sentry su una condizione ambientale nota (regola 20). Lo stesso vale per
-`voidReceipt`, `addCatalogItem`, `getProfilePlan` (settings) e
-`authorizeApiKeyBusiness`.
-
-**Fix (non ambiguo).**
-
-1. Estrarre in `src/lib/plans.ts` un helper condiviso che incapsula la
-   classificazione già scritta due volte:
-
-   ```ts
-   export type SafePlanResult =
-     { ok: true; info: PlanInfo } | { ok: false; error: string };
-
-   export async function getPlanSafe(
-     authUserId: string,
-   ): Promise<SafePlanResult>;
-   ```
-
-   Mappature (identiche a quelle di `analytics-actions.ts:106-128`, che diventa
-   un consumer dell'helper):
-   - `ProfileNotFoundError` → `logger.warn({ userId }, "<action>: orphan auth user — profile missing")` + `{ ok: false, error: "Profilo non disponibile. Contatta il supporto." }`;
-   - `isStatementTimeoutError(err)` → `{ ok: false, error: "Servizio temporaneamente sovraccarico, riprova tra qualche istante." }`;
-   - qualunque altro errore → **rethrow** (resta visibile in Sentry: è un bug vero).
-
-2. Sostituire `await getPlan(user.id)` con `await getPlanSafe(user.id)` +
-   early-return dell'error envelope nei cinque call-site elencati sopra.
-   Ciascuno ha già un tipo di ritorno con campo `error` (`SubmitReceiptResult`,
-   `VoidReceiptResult`, `CatalogActionResult`, `ProfilePlanResult`,
-   il risultato di `authorizeApiKeyBusiness`), quindi nessun cambio di firma
-   pubblica.
-3. In `catalog-actions.ts` il `getPlan` precede sia il ramo "piano senza limite"
-   sia la transazione con lock: sostituirlo con `getPlanSafe` e fare
-   early-return dell'error envelope **prima** di entrambi (mai dentro la
-   `db.transaction`, per non aprire un lock che poi si scarta).
-4. Rifattorizzare `analytics-actions.ts` e `assertProPlan` per usare l'helper,
-   così esiste **una sola** copia della classificazione (oggi sono due divergenti:
-   `assertProPlan` logga con chiave `authUserId`, analytics con `userId`).
-   Uniformare su `userId` (è la chiave nella `SAFE_KEYS` di
-   `src/lib/logger.ts`, quindi l'unica che arriva a Sentry).
-5. **Test:**
-   - `getPlanSafe`: profilo assente → `{ ok: false }` + `logger.warn` (mai
-     `logger.error`, quindi nessuna capture Sentry); `57014` → `{ ok: false }`
-     col messaggio di sovraccarico; errore generico → rilanciato;
-   - per ciascuno dei cinque caller: mock di `getPlan` che lancia
-     `ProfileNotFoundError` → la action ritorna `{ error }` e **non** lancia
-     (`await expect(action(...)).resolves.toMatchObject({ error: expect.any(String) })`).
-
----
-
 ### 11. `getCatalogItems` senza LIMIT + autocomplete server-side
 
 - **Categoria:** performance/scalabilità · **Severità:** Medium · **Target: nice-to-have** ("Paginazione lista catalogo (Pro)" in PLAN.md; la "modifica prodotto" è già spedita — bloccante solo se/quando la paginazione viene promossa a release)
@@ -235,6 +170,80 @@ fatto che i payload sono statici, ma è un single point of failure.
 ---
 
 ## P3 — Bassa priorità
+
+### 85. Pagine RSC del dashboard: `getPlan` nudo + nessun `error.tsx` di segmento
+
+- **Categoria:** UX degrado/osservabilità · **Severità:** Low — condizione rara, ma quando capita l'esercente vede una pagina d'errore non stilizzata al posto dell'app
+- **File:** `src/app/dashboard/page.tsx:26`, `src/app/dashboard/cassa/page.tsx:23`, `src/app/dashboard/storico/page.tsx:59`, `src/app/dashboard/analytics/page.tsx:33` (tutte con `getPlan` non protetto); boundary mancante: `src/app/dashboard/error.tsx` (non esiste, l'unico del progetto è `src/app/global-error.tsx`); helper già pronto: `getPlanSafe` in `src/lib/plans.ts`
+
+**Problema.** Il fix #78 ha coperto le server action, non le pagine: le quattro
+pagine del dashboard chiamano ancora `getPlan` nudo e propagano
+`ProfileNotFoundError` (profilo orfano) e il `57014` sotto contention DB.
+
+Sotto `src/app/dashboard/` **non esiste alcun `error.tsx`**, quindi il throw non
+trova un boundary di segmento e risale fino a `src/app/global-error.tsx`, che per
+definizione rimpiazza l'intero documento HTML — root layout compreso. L'esercente
+vede un `<h2>Si è verificato un errore</h2>` con un bottone "Riprova", senza shell
+del dashboard e senza il CSS dell'app. La condizione viene inoltre catturata due
+volte da Sentry: `onRequestError = Sentry.captureRequestError`
+(`src/instrumentation.ts:202`) lato SSR e `Sentry.captureException`
+(`src/app/global-error.tsx:14`) lato client.
+
+L'incoerenza si vede a occhio nudo in `src/app/dashboard/page.tsx:25-28`:
+
+```ts
+const [planInfo, initialData] = await Promise.all([
+  getPlan(user.id), // lancia
+  getCatalogItems(status.businessId), // degrada a [] + logger.warn (catalog-actions.ts:148-152)
+]);
+```
+
+Stesso DB, stessa richiesta, stesso identico `57014`: `getCatalogItems` lo ingoia
+con un `warn` per scelta esplicita e documentata, `getPlan` lo fa esplodere — e
+stando nella stessa `Promise.all` il throw vince comunque, rendendo inutile la
+degradazione scritta apposta per il catalogo. Idem su storico, dove
+`searchReceipts` (`src/server/storico-actions.ts:63-74`) degrada a
+`{ error, items: [], total: 0 }` e il `getPlan` accanto no.
+
+**Nota sul valore reale.** Su profilo orfano il fix **non recupera
+funzionalità** (senza piano l'utente è bloccato comunque): migliora presentazione
+e telemetria. Su `57014` invece sì: è transitorio, e un "riprova" dentro la shell
+dell'app è azionabile. Da tarare sul rumore Sentry effettivo di questi path:
+se in sei mesi non è mai scattato, la voce va spostata in "Rischi accettati"
+invece che implementata.
+
+**Fix (non ambiguo, in due passi indipendenti — il 1 vale anche da solo).**
+
+1. **Boundary di segmento** `src/app/dashboard/error.tsx` (Client Component,
+   props `{ error: Error & { digest?: string }, reset: () => void }`): tiene la
+   shell e lo stile dell'app e copre **ogni** throw delle pagine dashboard, non
+   solo `getPlan` — oggi anche `getOnboardingStatus` o `fetchReceiptPrintHeader`
+   producono la stessa schermata nuda. Due limiti da conoscere prima di
+   scriverlo:
+   - in produzione Next **cancella** il messaggio d'errore prima di passarlo al
+     boundary (sopravvive solo `digest`), quindi il testo è per forza generico:
+     è il motivo per cui serve anche il passo 2 dove il messaggio deve essere
+     preciso;
+   - un `error.tsx` **non** cattura gli errori del layout del proprio segmento
+     (`src/app/dashboard/layout.tsx`): quelli continuano a risalire al global.
+2. **`getPlanSafe` nelle quattro pagine** (helper già esistente, firma
+   `getPlanSafe(authUserId, action)`), con render inline del messaggio preciso
+   — "Profilo non disponibile. Contatta il supporto." vs il messaggio di
+   sovraccarico — dentro la shell, al posto del contenuto della pagina.
+   ⚠️ **Non** avvolgere la regione in un `try/catch`: `dashboard/page.tsx:30` e
+   `cassa/page.tsx:25` chiamano `redirect()` subito dopo il plan gate, e
+   `redirect()` in Next funziona **lanciando** `NEXT_REDIRECT` — un catch largo
+   se lo mangerebbe, trasformando un redirect legittimo in una pagina d'errore.
+   L'envelope `{ ok, error }` di `getPlanSafe` evita il problema in partenza.
+3. **Test:**
+   - il boundary rende il messaggio di fallback e il bottone che invoca `reset`;
+   - per ciascuna pagina: `getPlanSafe` che ritorna `{ ok: false, error }` →
+     la pagina rende il fallback inline e **non** lancia;
+   - regressione anti-`NEXT_REDIRECT`: piano `developer_*` → la pagina esegue
+     ancora il `redirect("/dashboard/settings#api-keys")` (il fallback non deve
+     intercettarlo).
+
+---
 
 ### 81. Sweep GDPR: la query candidati aggrega l'intera tabella `commercial_documents` a ogni giro
 

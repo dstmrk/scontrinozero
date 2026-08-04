@@ -11,14 +11,14 @@ vi.mock("@/lib/server-auth", () => ({
 }));
 
 const {
-  mockGetPlan,
+  mockGetPlanSafe,
   mockGetDb,
   mockSelectLimit,
   mockSelectWhere,
   mockFrom,
   mockSelect,
 } = vi.hoisted(() => ({
-  mockGetPlan: vi.fn(),
+  mockGetPlanSafe: vi.fn(),
   mockGetDb: vi.fn(),
   mockSelectLimit: vi.fn(),
   mockSelectWhere: vi.fn(),
@@ -27,7 +27,7 @@ const {
 }));
 
 vi.mock("@/lib/plans", () => ({
-  getPlan: (...args: unknown[]) => mockGetPlan(...args),
+  getPlanSafe: (...args: unknown[]) => mockGetPlanSafe(...args),
 }));
 
 vi.mock("@/db", () => ({
@@ -67,7 +67,7 @@ describe("billing-actions", () => {
     vi.clearAllMocks();
 
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
-    mockGetPlan.mockResolvedValue(FAKE_PLAN_INFO);
+    mockGetPlanSafe.mockResolvedValue({ ok: true, info: FAKE_PLAN_INFO });
     mockPlanFromPriceId.mockReturnValue(null);
 
     mockGetDb.mockReturnValue({ select: mockSelect });
@@ -204,18 +204,38 @@ describe("billing-actions", () => {
       expect(result.cancelAtPeriodEnd).toBe(true);
     });
 
-    it("richiama getPlan con lo userId corretto", async () => {
+    // REVIEW.md #78: getPlan poteva lanciare (profilo orfano / statement
+    // timeout) e getProfilePlan non lo catturava — la sezione piano delle
+    // impostazioni finiva nell'error boundary di Next invece del suo fallback
+    // inline (regola 19).
+    it("degrada a { error } quando la lettura del piano fallisce", async () => {
+      mockGetPlanSafe.mockResolvedValue({
+        ok: false,
+        error: "Profilo non disponibile. Contatta il supporto.",
+      });
+
+      const { getProfilePlan } = await import("./billing-actions");
+
+      await expect(getProfilePlan()).resolves.toMatchObject({
+        error: expect.any(String),
+      });
+      expect(mockSelect).not.toHaveBeenCalled();
+    });
+
+    it("richiama la lettura del piano con lo userId corretto", async () => {
       const { getProfilePlan } = await import("./billing-actions");
       await getProfilePlan();
 
-      expect(mockGetPlan).toHaveBeenCalledWith("user-123");
+      expect(mockGetPlanSafe).toHaveBeenCalledWith(
+        "user-123",
+        "getProfilePlan",
+      );
     });
 
     it("ritorna piano trial con trialStartedAt null se non impostato", async () => {
-      mockGetPlan.mockResolvedValue({
-        plan: "trial",
-        trialStartedAt: null,
-        planExpiresAt: null,
+      mockGetPlanSafe.mockResolvedValue({
+        ok: true,
+        info: { plan: "trial", trialStartedAt: null, planExpiresAt: null },
       });
 
       const { getProfilePlan } = await import("./billing-actions");

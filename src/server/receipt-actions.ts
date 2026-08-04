@@ -2,7 +2,7 @@
 
 import { z } from "zod/v4";
 import { logger } from "@/lib/logger";
-import { getPlan, canEmit, TRIAL_EXPIRED_MESSAGE } from "@/lib/plans";
+import { getPlanSafe, canEmit, TRIAL_EXPIRED_MESSAGE } from "@/lib/plans";
 import { RateLimiter } from "@/lib/rate-limit";
 import { refineLotteryCode } from "@/lib/receipts/lottery-code-schema";
 import {
@@ -68,8 +68,13 @@ export async function emitReceipt(
     return { error: "Troppi scontrini emessi. Riprova tra qualche minuto." };
   }
 
-  // Enforce plan/trial gate server-side before any business logic
-  const planInfo = await getPlan(user.id);
+  // Enforce plan/trial gate server-side before any business logic.
+  // getPlanSafe e non getPlan: su profilo orfano o DB sovraccarico l'errore
+  // degrada a { error } inline invece di sostituire la cassa con l'error
+  // boundary di Next (regola 19) — è il core flow fiscale.
+  const planResult = await getPlanSafe(user.id, "emitReceipt");
+  if (!planResult.ok) return { error: planResult.error };
+  const planInfo = planResult.info;
   if (
     !canEmit(planInfo.plan, planInfo.trialStartedAt, planInfo.planExpiresAt)
   ) {

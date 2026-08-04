@@ -8,12 +8,7 @@ import {
   getAuthenticatedUser,
 } from "@/lib/server-auth";
 import { authErrorResult } from "@/lib/auth-errors";
-import {
-  canUsePro,
-  getPlan,
-  type Plan,
-  ProfileNotFoundError,
-} from "@/lib/plans";
+import { canUsePro, getPlanSafe, type Plan } from "@/lib/plans";
 import { isStatementTimeoutError } from "@/lib/api-errors";
 import { withStatementTimeout } from "@/lib/db-timeout";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
@@ -103,35 +98,16 @@ async function authorizeOwner(businessId: string): Promise<AuthOk | AuthFail> {
     );
     return { ok: false, error: ownershipError.error };
   }
-  let planInfo;
-  try {
-    planInfo = await getPlan(user.id);
-  } catch (err) {
-    if (err instanceof ProfileNotFoundError) {
-      logger.warn(
-        { userId: user.id },
-        "analytics: orphan auth user — profile missing",
-      );
-      return {
-        ok: false,
-        error: "Profilo non disponibile. Contatta il supporto.",
-      };
-    }
-    if (isStatementTimeoutError(err)) {
-      return {
-        ok: false,
-        error:
-          "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
-      };
-    }
-    throw err;
-  }
+  // La classificazione degli errori di lettura del piano vive in @/lib/plans:
+  // qui era duplicata (REVIEW.md #78).
+  const planResult = await getPlanSafe(user.id, "analytics");
+  if (!planResult.ok) return planResult;
   return {
     ok: true,
     userId: user.id,
-    plan: planInfo.plan,
-    planExpiresAt: planInfo.planExpiresAt,
-    trialStartedAt: planInfo.trialStartedAt,
+    plan: planResult.info.plan,
+    planExpiresAt: planResult.info.planExpiresAt,
+    trialStartedAt: planResult.info.trialStartedAt,
   };
 }
 

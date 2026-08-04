@@ -7,14 +7,14 @@ import { TEST_BUSINESS_ID, TEST_BUSINESS_ID_2 } from "../_helpers/fixtures";
 const {
   mockGetAuthenticatedUser,
   mockCheckBusinessOwnership,
-  mockGetPlan,
+  mockGetPlanSafe,
   mockCanEmit,
   mockRateLimiterCheck,
   mockEmitReceiptForBusiness,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
   mockCheckBusinessOwnership: vi.fn(),
-  mockGetPlan: vi.fn(),
+  mockGetPlanSafe: vi.fn(),
   mockCanEmit: vi.fn(),
   mockRateLimiterCheck: vi.fn(),
   mockEmitReceiptForBusiness: vi.fn(),
@@ -26,7 +26,7 @@ vi.mock("@/lib/server-auth", () => ({
 }));
 
 vi.mock("@/lib/plans", () => ({
-  getPlan: mockGetPlan,
+  getPlanSafe: mockGetPlanSafe,
   canEmit: mockCanEmit,
   TRIAL_EXPIRED_MESSAGE:
     "Il tuo periodo di prova è scaduto. Attiva un piano per continuare.",
@@ -74,13 +74,26 @@ function makeValidInput(overrides: Record<string, unknown> = {}) {
 
 // --- Tests ---
 
+/**
+ * REVIEW.md #78: la lettura del piano passa da `getPlanSafe`, che ritorna un
+ * envelope `{ ok, info }` invece di lanciare. Helper per non ripetere il
+ * wrapping in ogni test.
+ */
+function mockPlanInfo(info: {
+  plan: string;
+  trialStartedAt: Date | null;
+  planExpiresAt: Date | null;
+}) {
+  mockGetPlanSafe.mockResolvedValue({ ok: true, info });
+}
+
 describe("emitReceipt server action", () => {
   beforeEach(() => {
     vi.resetAllMocks();
 
     mockGetAuthenticatedUser.mockResolvedValue({ id: USER_ID });
     mockRateLimiterCheck.mockReturnValue({ success: true });
-    mockGetPlan.mockResolvedValue({
+    mockPlanInfo({
       plan: "trial",
       trialStartedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
       planExpiresAt: null,
@@ -117,7 +130,7 @@ describe("emitReceipt server action", () => {
     });
 
     it("allows emission on starter plan", async () => {
-      mockGetPlan.mockResolvedValue({
+      mockPlanInfo({
         plan: "starter",
         trialStartedAt: null,
         planExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -132,7 +145,7 @@ describe("emitReceipt server action", () => {
     });
 
     it("allows emission on pro plan", async () => {
-      mockGetPlan.mockResolvedValue({
+      mockPlanInfo({
         plan: "pro",
         trialStartedAt: null,
         planExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -150,7 +163,7 @@ describe("emitReceipt server action", () => {
       const { emitReceipt } = await import("@/server/receipt-actions");
       await emitReceipt(makeValidInput());
 
-      expect(mockGetPlan).toHaveBeenCalledWith(USER_ID);
+      expect(mockGetPlanSafe).toHaveBeenCalledWith(USER_ID, "emitReceipt");
     });
   });
 

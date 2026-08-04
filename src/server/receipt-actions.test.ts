@@ -38,10 +38,10 @@ vi.mock("@/lib/server-auth", () => ({
         },
 }));
 
-const mockGetPlan = vi.fn();
+const mockGetPlanSafe = vi.fn();
 const mockCanEmit = vi.fn();
 vi.mock("@/lib/plans", () => ({
-  getPlan: (...args: unknown[]) => mockGetPlan(...args),
+  getPlanSafe: (...args: unknown[]) => mockGetPlanSafe(...args),
   canEmit: (...args: unknown[]) => mockCanEmit(...args),
 }));
 
@@ -182,10 +182,13 @@ describe("receipt-actions", () => {
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockCheckBusinessOwnership.mockResolvedValue(null);
     mockFetchAdePrerequisites.mockResolvedValue(FAKE_PREREQUISITES);
-    mockGetPlan.mockResolvedValue({
-      plan: "trial",
-      trialStartedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-      planExpiresAt: null,
+    mockGetPlanSafe.mockResolvedValue({
+      ok: true,
+      info: {
+        plan: "trial",
+        trialStartedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        planExpiresAt: null,
+      },
     });
     mockCanEmit.mockReturnValue(true);
 
@@ -256,6 +259,38 @@ describe("receipt-actions", () => {
       expect(result.error).toBe("Non autenticato.");
       expect(mockRateLimiterCheck).not.toHaveBeenCalled();
       expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    // REVIEW.md #78: getPlan lanciava (profilo orfano / statement timeout) e
+    // nessuno lo catturava — sul core flow fiscale l'eccezione arrivava
+    // all'error boundary di Next a schermo intero. Ora la lettura del piano
+    // degrada a { error } inline (regola 19).
+    it("degrada a { error } quando la lettura del piano fallisce (profilo orfano)", async () => {
+      mockGetPlanSafe.mockResolvedValue({
+        ok: false,
+        error: "Profilo non disponibile. Contatta il supporto.",
+      });
+
+      const { emitReceipt } = await import("./receipt-actions");
+
+      await expect(emitReceipt(VALID_INPUT)).resolves.toMatchObject({
+        error: expect.any(String),
+      });
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("degrada a { error } quando il DB è sovraccarico (statement timeout)", async () => {
+      mockGetPlanSafe.mockResolvedValue({
+        ok: false,
+        error:
+          "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
+      });
+
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt(VALID_INPUT);
+
+      expect(result.error).toMatch(/sovraccarico/i);
+      expect(mockCanEmit).not.toHaveBeenCalled();
     });
 
     it("returns error when emit rate limit is exceeded", async () => {

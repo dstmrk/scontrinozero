@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockGetAuthenticatedUser,
-  mockGetPlan,
+  mockGetPlanSafe,
   mockPlanFromPriceId,
   mockGetDb,
   mockSelect,
@@ -14,7 +14,7 @@ const {
   mockLimit,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
-  mockGetPlan: vi.fn(),
+  mockGetPlanSafe: vi.fn(),
   mockPlanFromPriceId: vi.fn(),
   mockGetDb: vi.fn(),
   mockSelect: vi.fn(),
@@ -28,7 +28,7 @@ vi.mock("@/lib/server-auth", () => ({
 }));
 
 vi.mock("@/lib/plans", () => ({
-  getPlan: mockGetPlan,
+  getPlanSafe: mockGetPlanSafe,
 }));
 
 vi.mock("@/lib/stripe", () => ({
@@ -67,12 +67,25 @@ function makeSubRow(
 
 // --- Tests ---
 
+/**
+ * REVIEW.md #78: la lettura del piano passa da `getPlanSafe`, che ritorna un
+ * envelope `{ ok, info }` invece di lanciare. Helper per non ripetere il
+ * wrapping in ogni test.
+ */
+function mockPlanInfo(info: {
+  plan: string;
+  trialStartedAt: Date | null;
+  planExpiresAt: Date | null;
+}) {
+  mockGetPlanSafe.mockResolvedValue({ ok: true, info });
+}
+
 describe("getProfilePlan", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
     mockGetAuthenticatedUser.mockResolvedValue({ id: "user-123" });
-    mockGetPlan.mockResolvedValue({
+    mockPlanInfo({
       plan: "trial",
       trialStartedAt: new Date("2026-01-01"),
       planExpiresAt: null,
@@ -108,7 +121,7 @@ describe("getProfilePlan", () => {
   });
 
   it("returns plan from profiles when profile plan is not trial", async () => {
-    mockGetPlan.mockResolvedValue({
+    mockPlanInfo({
       plan: "starter",
       trialStartedAt: new Date("2026-01-01"),
       planExpiresAt: new Date("2027-01-01"),
@@ -234,7 +247,7 @@ describe("getProfilePlan", () => {
 
   it("returns planExpiresAt from profiles", async () => {
     const expiry = new Date("2027-02-15");
-    mockGetPlan.mockResolvedValue({
+    mockPlanInfo({
       plan: "starter",
       trialStartedAt: new Date("2026-01-01"),
       planExpiresAt: expiry,

@@ -40,10 +40,10 @@ vi.mock("@/lib/server-auth", () => ({
         },
 }));
 
-const mockGetPlan = vi.fn();
+const mockGetPlanSafe = vi.fn();
 const mockCanEmit = vi.fn();
 vi.mock("@/lib/plans", () => ({
-  getPlan: (...args: unknown[]) => mockGetPlan(...args),
+  getPlanSafe: (...args: unknown[]) => mockGetPlanSafe(...args),
   canEmit: (...args: unknown[]) => mockCanEmit(...args),
 }));
 
@@ -242,10 +242,13 @@ describe("void-actions", () => {
     mockGetAuthenticatedUser.mockResolvedValue(FAKE_USER);
     mockCheckBusinessOwnership.mockResolvedValue(null);
     mockFetchAdePrerequisites.mockResolvedValue(FAKE_PREREQUISITES);
-    mockGetPlan.mockResolvedValue({
-      plan: "trial",
-      trialStartedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-      planExpiresAt: null,
+    mockGetPlanSafe.mockResolvedValue({
+      ok: true,
+      info: {
+        plan: "trial",
+        trialStartedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        planExpiresAt: null,
+      },
     });
     mockCanEmit.mockReturnValue(true);
 
@@ -351,6 +354,37 @@ describe("void-actions", () => {
       expect(result.error).toMatch(/Troppi/i);
       expect(mockInsert).not.toHaveBeenCalled();
       expect(mockLogin).not.toHaveBeenCalled();
+    });
+
+    // REVIEW.md #78: la lettura del piano degrada a { error } inline invece di
+    // propagare all'error boundary di Next (regola 19).
+    it("degrada a { error } quando la lettura del piano fallisce (profilo orfano)", async () => {
+      mockGetPlanSafe.mockResolvedValue({
+        ok: false,
+        error: "Profilo non disponibile. Contatta il supporto.",
+      });
+
+      const { voidReceipt } = await import("./void-actions");
+
+      await expect(voidReceipt(VALID_VOID_INPUT)).resolves.toMatchObject({
+        error: expect.any(String),
+      });
+      expect(mockInsert).not.toHaveBeenCalled();
+      expect(mockLogin).not.toHaveBeenCalled();
+    });
+
+    it("degrada a { error } quando il DB è sovraccarico (statement timeout)", async () => {
+      mockGetPlanSafe.mockResolvedValue({
+        ok: false,
+        error:
+          "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
+      });
+
+      const { voidReceipt } = await import("./void-actions");
+      const result = await voidReceipt(VALID_VOID_INPUT);
+
+      expect(result.error).toMatch(/sovraccarico/i);
+      expect(mockCanEmit).not.toHaveBeenCalled();
     });
 
     it("returns error when documentId is not a valid UUID (no ownership/DB query)", async () => {

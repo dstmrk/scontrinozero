@@ -6,6 +6,7 @@ import { apiKeys, businesses, profiles } from "@/db/schema";
 import { generateApiKey } from "@/lib/api-keys";
 import {
   canUseApi,
+  classifyPlanReadError,
   getApiKeyLimit,
   getEffectivePlan,
   getPlan,
@@ -60,10 +61,24 @@ async function authorizeApiKeyBusiness(
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) return ownershipError;
 
-  const [effectivePlan, planInfo] = await Promise.all([
-    getEffectivePlan(user.id),
-    getPlan(user.id),
-  ]);
+  // Qui non basta `getPlanSafe`: anche `getEffectivePlan` legge il profilo
+  // (oltre alla riga subscription), quindi entrambe le promise possono
+  // rigettare su profilo orfano o statement timeout. Il try/catch copre la
+  // Promise.all con la stessa classificazione condivisa — degradare, non
+  // lanciare (REVIEW.md #78, regola 19).
+  let effectivePlan: Awaited<ReturnType<typeof getEffectivePlan>>;
+  let planInfo: Awaited<ReturnType<typeof getPlan>>;
+  try {
+    [effectivePlan, planInfo] = await Promise.all([
+      getEffectivePlan(user.id),
+      getPlan(user.id),
+    ]);
+  } catch (err) {
+    const failure = classifyPlanReadError(err, action, user.id);
+    if (!failure) throw err;
+    return { error: failure.error };
+  }
+
   if (!canUseApi(effectivePlan, planInfo.planExpiresAt)) {
     return { error: planDeniedMessage };
   }

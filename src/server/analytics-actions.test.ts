@@ -4,14 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   mockGetAuthenticatedUser,
   mockCheckBusinessOwnership,
-  mockGetPlan,
+  mockGetPlanSafe,
   mockSelect,
   mockFetchLinesByDocIds,
   mockRateLimitCheck,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
   mockCheckBusinessOwnership: vi.fn(),
-  mockGetPlan: vi.fn(),
+  mockGetPlanSafe: vi.fn(),
   mockSelect: vi.fn(),
   mockFetchLinesByDocIds: vi.fn(),
   mockRateLimitCheck: vi.fn(),
@@ -34,9 +34,22 @@ vi.mock("@/lib/plans", async () => {
     await vi.importActual<typeof import("@/lib/plans")>("@/lib/plans");
   return {
     ...actual,
-    getPlan: mockGetPlan,
+    getPlanSafe: mockGetPlanSafe,
   };
 });
+
+/**
+ * REVIEW.md #78: le action leggono il piano via `getPlanSafe`, che ritorna un
+ * envelope `{ ok, info }` invece di lanciare. Helper per non ripetere il
+ * wrapping — il fallimento si simula con `{ ok: false, error }`.
+ */
+function mockPlanInfo(info: {
+  plan: string;
+  trialStartedAt: Date | null;
+  planExpiresAt: Date | null;
+}) {
+  mockGetPlanSafe.mockResolvedValue({ ok: true, info });
+}
 
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({
@@ -160,7 +173,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockGetAuthenticatedUser.mockResolvedValue({ id: "user-1" });
   mockCheckBusinessOwnership.mockResolvedValue(null);
-  mockGetPlan.mockResolvedValue({
+  mockPlanInfo({
     plan: "pro",
     trialStartedAt: null,
     planExpiresAt: null,
@@ -325,7 +338,7 @@ describe("getAnalyticsKpis", () => {
   });
 
   it("returns an error when the plan is not Pro", async () => {
-    mockGetPlan.mockResolvedValue({
+    mockPlanInfo({
       plan: "starter",
       trialStartedAt: null,
       planExpiresAt: null,
@@ -338,7 +351,7 @@ describe("getAnalyticsKpis", () => {
   });
 
   it("allows an active trial (trial = Pro): returns kpis, no Pro-gate error", async () => {
-    mockGetPlan.mockResolvedValue({
+    mockPlanInfo({
       plan: "trial",
       trialStartedAt: new Date(),
       planExpiresAt: null,
@@ -354,7 +367,7 @@ describe("getAnalyticsKpis", () => {
   });
 
   it("blocks an expired trial with the Pro-gate error", async () => {
-    mockGetPlan.mockResolvedValue({
+    mockPlanInfo({
       plan: "trial",
       trialStartedAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000),
       planExpiresAt: null,
@@ -366,9 +379,15 @@ describe("getAnalyticsKpis", () => {
     expect(res).toMatchObject({ error: expect.stringMatching(/Pro/i) });
   });
 
-  it("returns 'Profilo non disponibile' on ProfileNotFoundError (orphan auth user)", async () => {
-    const { ProfileNotFoundError } = await import("@/lib/plans");
-    mockGetPlan.mockRejectedValue(new ProfileNotFoundError("user-1"));
+  // La classificazione (orfano → messaggio profilo, 57014 → sovraccarico,
+  // resto → rethrow) è testata sull'implementazione reale in plans.test.ts:
+  // qui si verifica che l'envelope di fallimento arrivi al chiamante come
+  // { error }, senza propagare (REVIEW.md #78).
+  it("returns 'Profilo non disponibile' quando la lettura del piano fallisce (orphan auth user)", async () => {
+    mockGetPlanSafe.mockResolvedValue({
+      ok: false,
+      error: "Profilo non disponibile. Contatta il supporto.",
+    });
     const res = await getAnalyticsKpis(
       "11111111-1111-4111-8111-111111111111",
       "30d",
@@ -378,11 +397,12 @@ describe("getAnalyticsKpis", () => {
     });
   });
 
-  it("returns 'sovraccarico' on DB statement timeout (57014)", async () => {
-    const timeoutErr = Object.assign(new Error("statement timeout"), {
-      code: "57014",
+  it("returns 'sovraccarico' quando la lettura del piano segnala il DB sovraccarico", async () => {
+    mockGetPlanSafe.mockResolvedValue({
+      ok: false,
+      error:
+        "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
     });
-    mockGetPlan.mockRejectedValue(timeoutErr);
     const res = await getAnalyticsKpis(
       "11111111-1111-4111-8111-111111111111",
       "30d",
@@ -392,8 +412,8 @@ describe("getAnalyticsKpis", () => {
     });
   });
 
-  it("rilancia errori imprevisti di getPlan invece di mascherarli", async () => {
-    mockGetPlan.mockRejectedValue(new Error("network glitch"));
+  it("rilancia errori imprevisti della lettura del piano invece di mascherarli", async () => {
+    mockGetPlanSafe.mockRejectedValue(new Error("network glitch"));
     await expect(
       getAnalyticsKpis("11111111-1111-4111-8111-111111111111", "30d"),
     ).rejects.toThrow("network glitch");
@@ -778,7 +798,7 @@ describe("getProductBreakdown", () => {
   });
 
   it("returns an error when the plan is not Pro", async () => {
-    mockGetPlan.mockResolvedValue({
+    mockPlanInfo({
       plan: "starter",
       trialStartedAt: null,
       planExpiresAt: null,
@@ -1014,7 +1034,7 @@ describe("getAnalyticsBundle", () => {
 
 describe("getStarterKpis", () => {
   it("returns KPIs for a Starter owner (NOT Pro-gated)", async () => {
-    mockGetPlan.mockResolvedValue({
+    mockPlanInfo({
       plan: "starter",
       trialStartedAt: null,
       planExpiresAt: null,
@@ -1054,7 +1074,7 @@ describe("getStarterKpis", () => {
   });
 
   it("returns KPIs for a Trial owner (same base view as Starter)", async () => {
-    mockGetPlan.mockResolvedValue({
+    mockPlanInfo({
       plan: "trial",
       trialStartedAt: new Date(),
       planExpiresAt: null,
@@ -1069,7 +1089,7 @@ describe("getStarterKpis", () => {
   });
 
   it("also serves Pro owners (owner-level gate, not Pro-only)", async () => {
-    // mockGetPlan default è "pro" → la vista base non deve rifiutare i Pro.
+    // mockPlanInfo default è "pro" → la vista base non deve rifiutare i Pro.
     mockSelect.mockReturnValue(makeSelectBuilder([]));
     mockFetchLinesByDocIds.mockResolvedValue([]);
     const res = await getStarterKpis("11111111-1111-4111-8111-111111111111");
@@ -1116,9 +1136,11 @@ describe("getStarterKpis", () => {
     expect(mockRateLimitCheck).toHaveBeenCalledWith("analytics:user-1");
   });
 
-  it("returns 'Profilo non disponibile' on ProfileNotFoundError (orphan auth user)", async () => {
-    const { ProfileNotFoundError } = await import("@/lib/plans");
-    mockGetPlan.mockRejectedValue(new ProfileNotFoundError("user-1"));
+  it("returns 'Profilo non disponibile' quando la lettura del piano fallisce (orphan auth user)", async () => {
+    mockGetPlanSafe.mockResolvedValue({
+      ok: false,
+      error: "Profilo non disponibile. Contatta il supporto.",
+    });
     const res = await getStarterKpis("11111111-1111-4111-8111-111111111111");
     expect(res).toMatchObject({
       error: expect.stringContaining("Profilo non disponibile"),
@@ -1265,7 +1287,7 @@ describe("troncamento del dataset analytics", () => {
   });
 
   it("getStarterKpis propaga truncated come getAnalyticsBundle", async () => {
-    mockGetPlan.mockResolvedValue({
+    mockPlanInfo({
       plan: "starter",
       trialStartedAt: null,
       planExpiresAt: null,
@@ -1302,7 +1324,7 @@ describe("troncamento del dataset analytics", () => {
   });
 
   it("getStarterKpis su dataset piccolo non segnala troncamento", async () => {
-    mockGetPlan.mockResolvedValue({
+    mockPlanInfo({
       plan: "starter",
       trialStartedAt: null,
       planExpiresAt: null,

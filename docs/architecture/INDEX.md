@@ -122,7 +122,10 @@ Tutte sono `"use server"`; sulle azioni di lettura vale "degradare, non lanciare
 - `src/lib/server-auth.ts` — gate auth + `Sentry.setUser` per richiesta (regola 22)
 - `src/lib/auth-errors.ts` — `UnauthenticatedError` + `authErrorResult` (sessione assente vs errore inatteso, regola 19/20)
 - `src/lib/logger.ts` — unico logger; `error` (≥50) → `Sentry.captureException`
-- `src/lib/plans.ts` / `src/lib/plans-shared.ts` — gate piani, fonte di verità
+- `src/lib/plans.ts` / `src/lib/plans-shared.ts` — gate piani, fonte di verità;
+  le server action leggono il piano con `getPlanSafe` (envelope `{ ok, error }`
+  su profilo orfano / DB sovraccarico, regola 19), mai con `getPlan` nudo — la
+  classificazione condivisa è `classifyPlanReadError`
 - `src/lib/receipts/receipt-totals.ts` — aritmetica monetaria canonica (regola 17), **puro e client-safe**: `document-lines.ts` importa `getDb()`, quindi i client component devono importare da qui o si portano dietro il driver postgres nel bundle browser
 - `src/lib/ade/log-failure.ts` — classificazione errori AdE (regole 20/23)
 - `src/lib/ade/interactive-session-store.ts` — sessioni CIE interattive

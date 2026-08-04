@@ -44,12 +44,22 @@ vi.mock("@/lib/server-auth", () => ({
   checkBusinessOwnership: mockCheckBusinessOwnership,
 }));
 
-vi.mock("@/lib/plans", () => ({
-  canUseApi: mockCanUseApi,
-  getApiKeyLimit: mockGetApiKeyLimit,
-  getEffectivePlan: mockGetEffectivePlan,
-  getPlan: mockGetPlan,
-}));
+// `classifyPlanReadError` resta l'implementazione reale (REVIEW.md #78): qui
+// interessa proprio che un ProfileNotFoundError sollevato dalla lettura del
+// piano venga classificato e degradato, non il fatto che il mock ritorni una
+// stringa qualsiasi.
+vi.mock("@/lib/plans", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/lib/plans")>("@/lib/plans");
+  return {
+    ProfileNotFoundError: actual.ProfileNotFoundError,
+    classifyPlanReadError: actual.classifyPlanReadError,
+    canUseApi: mockCanUseApi,
+    getApiKeyLimit: mockGetApiKeyLimit,
+    getEffectivePlan: mockGetEffectivePlan,
+    getPlan: mockGetPlan,
+  };
+});
 
 vi.mock("@/lib/api-keys", () => ({
   generateApiKey: mockGenerateApiKey,
@@ -202,6 +212,51 @@ describe("listApiKeys", () => {
     const result = await listApiKeys(BIZ_ID);
 
     expect(result.error).toMatch(/Pro/i);
+  });
+
+  // REVIEW.md #78: authorizeApiKeyBusiness leggeva il piano con una
+  // Promise.all non protetta — un profilo orfano o uno statement timeout
+  // propagavano fino all'error boundary di Next. Entrambe le promise possono
+  // rigettare, quindi il guard copre la Promise.all, non il solo getPlan.
+  it("degrada a { error } se il profilo è orfano (ProfileNotFoundError da getPlan)", async () => {
+    const { ProfileNotFoundError } = await import("@/lib/plans");
+    mockGetPlan.mockRejectedValue(new ProfileNotFoundError("user-1"));
+
+    const { listApiKeys } = await import("./api-key-actions");
+
+    await expect(listApiKeys(BIZ_ID)).resolves.toMatchObject({
+      error: expect.stringContaining("Profilo non disponibile"),
+    });
+  });
+
+  it("degrada a { error } se getEffectivePlan rigetta con un profilo orfano", async () => {
+    const { ProfileNotFoundError } = await import("@/lib/plans");
+    mockGetEffectivePlan.mockRejectedValue(new ProfileNotFoundError("user-1"));
+
+    const { listApiKeys } = await import("./api-key-actions");
+
+    await expect(listApiKeys(BIZ_ID)).resolves.toMatchObject({
+      error: expect.stringContaining("Profilo non disponibile"),
+    });
+  });
+
+  it("degrada a { error } sul sovraccarico del DB (statement timeout 57014)", async () => {
+    mockGetPlan.mockRejectedValue(
+      Object.assign(new Error("statement timeout"), { code: "57014" }),
+    );
+
+    const { listApiKeys } = await import("./api-key-actions");
+    const result = await listApiKeys(BIZ_ID);
+
+    expect(result.error).toMatch(/sovraccarico/i);
+  });
+
+  it("rilancia gli errori imprevisti della lettura del piano (restano in Sentry)", async () => {
+    mockGetPlan.mockRejectedValue(new Error("network glitch"));
+
+    const { listApiKeys } = await import("./api-key-actions");
+
+    await expect(listApiKeys(BIZ_ID)).rejects.toThrow("network glitch");
   });
 
   it("ritorna le chiavi se getEffectivePlan risolve 'pro' anche se DB plan è ancora 'trial' (race condition)", async () => {

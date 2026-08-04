@@ -2,7 +2,7 @@
 
 import { z } from "zod/v4";
 import { logger } from "@/lib/logger";
-import { getPlan, canEmit, TRIAL_EXPIRED_MESSAGE } from "@/lib/plans";
+import { getPlanSafe, canEmit, TRIAL_EXPIRED_MESSAGE } from "@/lib/plans";
 import { RateLimiter } from "@/lib/rate-limit";
 import {
   checkBusinessOwnership,
@@ -48,8 +48,11 @@ export async function voidReceipt(
   }
 
   // Enforce plan/trial gate server-side — voiding is an emit operation
-  // so it follows the same canEmit policy as receipt creation
-  const planInfo = await getPlan(user.id);
+  // so it follows the same canEmit policy as receipt creation.
+  // getPlanSafe: degrada a { error } inline come emitReceipt (regola 19).
+  const planResult = await getPlanSafe(user.id, "voidReceipt");
+  if (!planResult.ok) return { error: planResult.error };
+  const planInfo = planResult.info;
   if (
     !canEmit(planInfo.plan, planInfo.trialStartedAt, planInfo.planExpiresAt)
   ) {

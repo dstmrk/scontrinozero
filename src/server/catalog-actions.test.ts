@@ -75,20 +75,34 @@ vi.mock("@/lib/logger", () => ({
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
 }));
 
-const mockGetPlan = vi.fn();
+const mockGetPlanSafe = vi.fn();
 const mockCanAddCatalogItem = vi.fn();
 const mockIsTrialExpired = vi.fn();
 const mockIsPaidPlanExpired = vi.fn();
 const TRIAL_EXPIRED_MESSAGE =
   "Il tuo periodo di prova è scaduto. Attiva un piano per continuare.";
 vi.mock("@/lib/plans", () => ({
-  getPlan: (...args: unknown[]) => mockGetPlan(...args),
+  getPlanSafe: (...args: unknown[]) => mockGetPlanSafe(...args),
   canAddCatalogItem: (...args: unknown[]) => mockCanAddCatalogItem(...args),
   isTrialExpired: (...args: unknown[]) => mockIsTrialExpired(...args),
   isPaidPlanExpired: (...args: unknown[]) => mockIsPaidPlanExpired(...args),
   STARTER_CATALOG_LIMIT: 5,
   TRIAL_EXPIRED_MESSAGE,
 }));
+
+/**
+ * REVIEW.md #78: addCatalogItem legge il piano via `getPlanSafe`, che ritorna
+ * un envelope `{ ok, info }` invece di lanciare. Helper per non ripetere il
+ * wrapping in ogni test — il percorso di fallimento si simula direttamente con
+ * `mockGetPlanSafe.mockResolvedValue({ ok: false, error })`.
+ */
+function mockPlanInfo(info: {
+  plan: string;
+  trialStartedAt: Date | null;
+  planExpiresAt: Date | null;
+}) {
+  mockGetPlanSafe.mockResolvedValue({ ok: true, info });
+}
 
 // --- Fixtures ---
 
@@ -130,7 +144,7 @@ describe("catalog-actions", () => {
     mockDeleteWhere.mockResolvedValue(undefined);
     mockUpdateReturning.mockResolvedValue([FAKE_ITEM]);
 
-    mockGetPlan.mockResolvedValue({
+    mockPlanInfo({
       plan: "pro",
       trialStartedAt: null,
       planExpiresAt: null,
@@ -474,8 +488,27 @@ describe("catalog-actions", () => {
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
+    // REVIEW.md #78: prima la lettura del piano poteva lanciare (profilo
+    // orfano / statement timeout) e nessuno la catturava. Ora degrada a
+    // { error } — e l'early-return avviene PRIMA della transazione, per non
+    // aprire un lock su `businesses` destinato a essere scartato.
+    it("degrada a { error } quando la lettura del piano fallisce, senza aprire la transazione", async () => {
+      mockGetPlanSafe.mockResolvedValue({
+        ok: false,
+        error: "Profilo non disponibile. Contatta il supporto.",
+      });
+
+      const { addCatalogItem } = await import("./catalog-actions");
+
+      await expect(addCatalogItem(VALID_ADD_INPUT)).resolves.toMatchObject({
+        error: expect.any(String),
+      });
+      expect(mockTransaction).not.toHaveBeenCalled();
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
     it("consente l'aggiunta con piano pro (gate aperto)", async () => {
-      mockGetPlan.mockResolvedValue({
+      mockPlanInfo({
         plan: "pro",
         trialStartedAt: null,
         planExpiresAt: null,
@@ -490,7 +523,7 @@ describe("catalog-actions", () => {
     });
 
     it("consente l'aggiunta con piano unlimited (gate aperto)", async () => {
-      mockGetPlan.mockResolvedValue({
+      mockPlanInfo({
         plan: "unlimited",
         trialStartedAt: null,
         planExpiresAt: null,
@@ -505,7 +538,7 @@ describe("catalog-actions", () => {
     });
 
     it("trial ATTIVO al limite di 5 prodotti → messaggio 'massimo 5 prodotti'", async () => {
-      mockGetPlan.mockResolvedValue({
+      mockPlanInfo({
         plan: "trial",
         trialStartedAt: new Date("2026-06-01"),
         planExpiresAt: null,
@@ -522,7 +555,7 @@ describe("catalog-actions", () => {
     });
 
     it("trial SCADUTO → messaggio coerente con la cassa (trial scaduto)", async () => {
-      mockGetPlan.mockResolvedValue({
+      mockPlanInfo({
         plan: "trial",
         trialStartedAt: new Date("2026-01-01"),
         planExpiresAt: null,
@@ -538,7 +571,7 @@ describe("catalog-actions", () => {
     });
 
     it("Starter (pagante) al limite → messaggio 'massimo 5', non quello del trial", async () => {
-      mockGetPlan.mockResolvedValue({
+      mockPlanInfo({
         plan: "starter",
         trialStartedAt: null,
         planExpiresAt: null,
@@ -557,7 +590,7 @@ describe("catalog-actions", () => {
     it("piano pagato scaduto oltre la grazia → messaggio sola-lettura, non 'massimo 5'", async () => {
       // Fallback webhook perso: plan ancora "pro" su DB ma planExpiresAt
       // scaduto oltre la grazia → isPaidPlanExpired true.
-      mockGetPlan.mockResolvedValue({
+      mockPlanInfo({
         plan: "pro",
         trialStartedAt: null,
         planExpiresAt: new Date("2026-01-01"),
@@ -584,7 +617,7 @@ describe("catalog-actions", () => {
           (p: string, _trial: unknown, currentCount: number) =>
             p === "starter" || p === "trial" ? currentCount < 5 : true,
         );
-        mockGetPlan.mockResolvedValue({
+        mockPlanInfo({
           plan,
           trialStartedAt: null,
           planExpiresAt: null,
