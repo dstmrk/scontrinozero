@@ -2,9 +2,10 @@ import { redirect } from "next/navigation";
 import { getOnboardingStatus } from "@/server/onboarding-actions";
 import { searchReceipts } from "@/server/storico-actions";
 import { StoricoClient } from "@/components/storico/storico-client";
+import { PlanUnavailable } from "@/components/dashboard/plan-unavailable";
 import { STORICO_PAGE_SIZE, type StatusFilter } from "@/types/storico";
 import { getAuthenticatedUser } from "@/lib/server-auth";
-import { getPlan } from "@/lib/plans";
+import { getPlanSafe } from "@/lib/plans";
 import { defaultLast7DaysRomeRange } from "@/lib/storico-default-range";
 import { fetchReceiptPrintHeader } from "@/lib/receipts/print-header";
 
@@ -55,10 +56,19 @@ export default async function StoricoPage({
     }),
     getAuthenticatedUser(),
   ]);
-  const [planInfo, printHeader] = await Promise.all([
-    getPlan(user.id),
+  // `getPlanSafe` e non `getPlan` (REVIEW.md #85): `searchReceipts` qui sopra
+  // degrada già a `{ error, items: [], total: 0 }`, e un throw accanto
+  // annullerebbe quella scelta mandando l'intera pagina al boundary.
+  const [planResult, printHeader] = await Promise.all([
+    getPlanSafe(user.id, "storicoPage"),
     fetchReceiptPrintHeader(status.businessId),
   ]);
+
+  if (!planResult.ok) {
+    return <PlanUnavailable message={planResult.error} />;
+  }
+
+  const planInfo = planResult.info;
 
   return (
     <StoricoClient

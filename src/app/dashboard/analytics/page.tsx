@@ -9,9 +9,10 @@ import { parseAnalyticsRange } from "@/server/analytics-helpers";
 import { AnalyticsClient } from "@/components/analytics/analytics-client";
 import { KpiCards } from "@/components/analytics/kpi-cards";
 import { ProFeatureGate } from "@/components/billing/pro-feature-gate";
+import { PlanUnavailable } from "@/components/dashboard/plan-unavailable";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getAuthenticatedUser } from "@/lib/server-auth";
-import { canUsePro, getPlan } from "@/lib/plans";
+import { canUsePro, getPlanSafe } from "@/lib/plans";
 import { logger } from "@/lib/logger";
 
 const ZERO_KPIS: AnalyticsKpis = {
@@ -30,7 +31,16 @@ export default async function AnalyticsPage({
   if (!status.businessId) redirect("/onboarding");
 
   const user = await getAuthenticatedUser();
-  const planInfo = await getPlan(user.id);
+
+  // `getPlanSafe` e non `getPlan` (REVIEW.md #85): il piano qui decide quale
+  // delle due viste rendere, e sia `getStarterKpis` sia `getAnalyticsBundle`
+  // degradano già a `{ error }` — questa era l'unica lettura che lanciava.
+  const planResult = await getPlanSafe(user.id, "analyticsPage");
+  if (!planResult.ok) {
+    return <PlanUnavailable message={planResult.error} />;
+  }
+
+  const planInfo = planResult.info;
   const businessId = status.businessId;
 
   // Piano base (Starter, trial scaduto e altri non-Pro): solo i 4 KPI su
