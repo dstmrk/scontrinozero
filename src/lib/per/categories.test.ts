@@ -7,8 +7,8 @@ import {
 } from "./categories";
 
 describe("categorySlugs", () => {
-  it("contains exactly 21 slugs", () => {
-    expect(categorySlugs).toHaveLength(21);
+  it("contains exactly 22 slugs", () => {
+    expect(categorySlugs).toHaveLength(22);
   });
 
   it("contains the expected slugs", () => {
@@ -35,6 +35,7 @@ describe("categorySlugs", () => {
         "fotografi",
         "toelettatura",
         "noleggio",
+        "stabilimenti-balneari",
       ]),
     );
   });
@@ -125,6 +126,39 @@ describe("ristoranti-bar-asporto (framing onesto sui limiti)", () => {
 
   it("targets the low-volume segment in the audience", () => {
     expect(c.audience.toLowerCase()).toMatch(/chiosch|stagional|asporto/);
+  });
+});
+
+describe("stabilimenti-balneari (riferimenti fiscali verificati)", () => {
+  const c = categories["stabilimenti-balneari"];
+  const allText = [
+    c.useCase,
+    ...c.obligations,
+    ...c.faq.map((f) => f.answer),
+  ].join(" ");
+
+  // I servizi di spiaggia (ombrelloni, sdraio, cabine) NON rientrano nella
+  // Tabella A parte III del DPR 633/72: scontano il 22% ordinario, mentre la
+  // somministrazione al bar del lido sta al 10% (n. 121 della stessa tabella).
+  // È l'unica pagina /per che afferma entrambe: se una review le "corregge"
+  // allineandole, il test lo intercetta.
+  it("states both VAT rates with their legal basis", () => {
+    expect(allText).toContain("22%");
+    expect(allText).toContain("10%");
+    expect(allText).toContain("Tabella A");
+  });
+
+  // Momento di effettuazione degli abbonamenti prepagati: art. 6 c. 3 (incasso)
+  // e c. 4 (acconto, limitatamente all'importo pagato).
+  it("anchors prepaid season passes to art. 6 DPR 633/72", () => {
+    expect(allText).toMatch(/art\. 6/);
+    expect(allText.toLowerCase()).toContain("abbonament");
+  });
+
+  // Il DM 7 dicembre 2016 impone la descrizione dei servizi resi: è il gancio
+  // fra obbligo fiscale e catalogo prodotti.
+  it("cites the mandatory service description requirement", () => {
+    expect(allText).toContain("DM 7 dicembre 2016");
   });
 });
 

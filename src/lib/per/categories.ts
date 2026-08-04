@@ -38,7 +38,8 @@ export type CategorySlug =
   | "agriturismi-cantine"
   | "fotografi"
   | "toelettatura"
-  | "noleggio";
+  | "noleggio"
+  | "stabilimenti-balneari";
 
 export const categorySlugs: readonly CategorySlug[] = [
   "ambulanti",
@@ -62,6 +63,7 @@ export const categorySlugs: readonly CategorySlug[] = [
   "fotografi",
   "toelettatura",
   "noleggio",
+  "stabilimenti-balneari",
 ];
 
 export const categories: Record<CategorySlug, CategoryContent> = {
@@ -964,9 +966,9 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     heroSubtitle:
       "Per il noleggio stagionale — bici, sup, sci, attrezzature — dove la cassa deve stare in un marsupio, non su un banco.",
     audience:
-      "noleggi di bici ed e-bike, sup e attrezzature da spiaggia, sci e ciaspole, attrezzature per eventi e giardinaggio, attività stagionali",
+      "noleggi di bici ed e-bike, sup e canoe, sci e ciaspole, attrezzature per eventi e giardinaggio, attività stagionali",
     useCase:
-      "Il noleggio è spesso un'attività stagionale e all'aperto: il banco è un gazebo in spiaggia, un container alla pista o un furgone all'evento. Con ScontrinoZero emetti il Documento Commerciale Online dallo smartphone al momento dell'incasso — tariffa oraria, mezza giornata, giornata intera nel catalogo — e trasmetti automaticamente i corrispettivi. Il piano mensile si attiva per la stagione e si sospende quando chiudi, e la cauzione non incassata non va certificata: solo il corrispettivo del noleggio.",
+      "Il noleggio è spesso un'attività stagionale e all'aperto: il banco è un gazebo sul lungomare, un container alla pista o un furgone all'evento. Con ScontrinoZero emetti il Documento Commerciale Online dallo smartphone al momento dell'incasso — tariffa oraria, mezza giornata, giornata intera nel catalogo — e trasmetti automaticamente i corrispettivi. Il piano mensile si attiva per la stagione e si sospende quando chiudi, e la cauzione non incassata non va certificata: solo il corrispettivo del noleggio.",
     obligations: [
       "Emissione del Documento Commerciale Online per ogni noleggio B2C incassato (art. 22 DPR 633/72).",
       "Aliquota IVA al 22% sui corrispettivi di noleggio di beni mobili.",
@@ -997,6 +999,52 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       },
     ],
     relatedHelp: ["primo-scontrino", "cambio-piano", "installare-app"],
+  },
+  "stabilimenti-balneari": {
+    slug: "stabilimenti-balneari",
+    title: "Scontrino elettronico per stabilimenti balneari",
+    metaTitle: "Registratore di cassa per stabilimenti balneari e lidi",
+    metaDescription:
+      "Ombrelloni, lettini e abbonamenti stagionali: scontrini dallo smartphone tra le file, con IVA al 22% e bar al 10%. Da €2,50/mese, 30 giorni gratis.",
+    heroSubtitle:
+      "Batti lo scontrino tra le file di ombrelloni, senza rimandare il cliente in cassa: noleggio al 22% e bar al 10% nello stesso documento.",
+    audience:
+      "stabilimenti balneari, lidi, spiagge attrezzate, chioschi con noleggio ombrelloni e lettini, attività stagionali su concessione demaniale",
+    useCase:
+      "Lo stabilimento balneare certifica con documento commerciale ogni incasso da cliente privato: ombrellone giornaliero, abbonamento settimanale o stagionale, cabina, doccia, ingresso. Con ScontrinoZero lo emetti dallo smartphone mentre giri fra le file, nel momento in cui incassi, e i corrispettivi partono verso l'Agenzia delle Entrate a ogni emissione — senza chiusura di fine giornata. Le righe portano aliquote diverse nello stesso scontrino: servizi di spiaggia al 22%, somministrazione al bar al 10%. A fine stagione sospendi il piano mensile e alla riapertura ritrovi catalogo e storico. Sul bancone del bar in agosto, con la fila, un registratore telematico resta più rapido: qui ScontrinoZero è il punto cassa mobile in spiaggia, o la cassa del lido piccolo.",
+    obligations: [
+      "Emissione del Documento Commerciale Online per ogni incasso da privato: ombrellone, lettino, cabina, doccia, ingresso giornaliero (art. 22 DPR 633/72).",
+      "Servizi di spiaggia con IVA ordinaria al 22%: il noleggio di ombrelloni, sdraio e cabine non rientra fra le prestazioni agevolate della Tabella A, parte III, del DPR 633/72 — a differenza di alberghi e campeggi, che applicano il 10%.",
+      "Somministrazione di alimenti e bevande al bar del lido al 10% (n. 121, Tabella A, parte III, DPR 633/72): nello stesso scontrino possono convivere righe al 22% e righe al 10%.",
+      "Abbonamenti settimanali, mensili e stagionali: il documento si emette all'atto del pagamento del corrispettivo (art. 6, comma 3, DPR 633/72); su acconto e saldo se ne emette uno per ciascun incasso, limitatamente all'importo pagato (comma 4).",
+      "Descrizione dei servizi resi obbligatoria nel documento commerciale (art. 2, DM 7 dicembre 2016): «ombrellone giornaliero prima fila», non una voce generica.",
+      "Trasmissione telematica dei corrispettivi entro 12 giorni dalla data dell'operazione.",
+    ],
+    benefits: [
+      "Punto cassa mobile: incassi fra gli ombrelloni e consegni lo scontrino via QR o WhatsApp, senza far camminare il cliente fino alla cassa.",
+      "Aliquote per riga: ombrellone al 22% e caffè al 10% in un unico documento, senza battere due scontrini.",
+      "Catalogo con le voci della stagione — giornaliero, weekend, abbonamento quindicinale, cabina — così la descrizione obbligatoria è già pronta: fino a 5 voci sul piano Starter, illimitate sul Pro.",
+      "Stagionalità: attivi il piano nei mesi di apertura e lo sospendi a fine stagione, senza ammortizzare un registratore fermo otto mesi.",
+      "Storico incassi per giornata, utile per pesare weekend e picchi di agosto e per il commercialista a fine stagione.",
+    ],
+    faq: [
+      {
+        question: "Che IVA si applica a ombrelloni, lettini e cabine?",
+        answer:
+          "Il 22%. I servizi di spiaggia non rientrano fra le prestazioni agevolate della Tabella A, parte III, del DPR 633/72, quindi scontano l'aliquota ordinaria: gli stabilimenti balneari sono l'unico comparto turistico escluso dal 10% di cui godono alberghi e campeggi. La somministrazione al bar del lido resta invece al 10% (n. 121 della stessa tabella). In ScontrinoZero l'aliquota si imposta riga per riga, così ombrellone e caffè stanno nello stesso scontrino con l'imponibile corretto per ciascuna voce.",
+      },
+      {
+        question: "Quando emetto lo scontrino per un abbonamento stagionale?",
+        answer:
+          "Al momento dell'incasso, non a fine stagione. Per le prestazioni di servizi il momento di effettuazione ai fini IVA è il pagamento del corrispettivo (art. 6, comma 3, DPR 633/72): se il cliente a giugno paga l'abbonamento fino a settembre, il documento commerciale si emette a giugno per l'intero importo. Se invece paga in due tranche — acconto a maggio e saldo a luglio — emetti un documento per ciascun incasso, limitatamente alla somma pagata (art. 6, comma 4).",
+      },
+      {
+        question: "Funziona anche in spiaggia, dove il segnale è debole?",
+        answer:
+          "Serve una connessione attiva al momento dell'emissione, perché il numero progressivo arriva dall'Agenzia delle Entrate. Con 4G/5G stabile lo scontrino esce in pochi secondi; non esiste una modalità offline, quindi in una zona senza campo l'emissione fallisce e va ripetuta dove il segnale c'è. Al cliente consegni il documento via QR, email o WhatsApp, oppure su carta collegando una stampante termica Bluetooth da un dispositivo Android.",
+      },
+    ],
+    relatedHelp: ["aliquote-iva", "primo-scontrino", "cambio-piano"],
   },
 };
 
