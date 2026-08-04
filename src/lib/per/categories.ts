@@ -219,6 +219,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Configurazione una tantum di aliquota e voci ricorrenti (pernottamento, colazione, supplementi).",
       "Storico ordinato per stagione, utile per dichiarazione dei redditi e analisi.",
       "Funziona su qualsiasi smartphone o tablet, anche quello che già usi per ricevere gli ospiti.",
+      "Metodo di pagamento (contanti o carta) su ogni scontrino: gli accrediti ricevuti con bonifico da un portale di prenotazione si indicano come pagamento elettronico.",
     ],
     faq: [
       {
@@ -238,7 +239,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
           "Sì, purché tu sia titolare di partita IVA e abbia le credenziali AdE attive (Fisconline o CIE). L'obbligo di emissione del documento commerciale dipende dalla forma di esercizio: verifica con il commercialista se rientri nei casi obbligati.",
       },
     ],
-    relatedHelp: ["primo-scontrino", "aliquote-iva", "intestazione-scontrino"],
+    relatedHelp: ["primo-scontrino", "aliquote-iva", "metodi-di-pagamento"],
   },
   "regime-forfettario": {
     slug: "regime-forfettario",
