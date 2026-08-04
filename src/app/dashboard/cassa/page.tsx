@@ -6,8 +6,9 @@ import { getDb } from "@/db";
 import { businesses } from "@/db/schema";
 import { VAT_CODES, type VatCode } from "@/types/cassa";
 import { CassaClient } from "@/components/cassa/cassa-client";
+import { PlanUnavailable } from "@/components/dashboard/plan-unavailable";
 import { getAuthenticatedUser } from "@/lib/server-auth";
-import { canUseDashboardCashier, getPlan } from "@/lib/plans";
+import { canUseDashboardCashier, getPlanSafe } from "@/lib/plans";
 import { fetchReceiptPrintHeader } from "@/lib/receipts/print-header";
 
 export default async function CassaPage() {
@@ -20,8 +21,18 @@ export default async function CassaPage() {
   // I piani developer_* emettono SOLO via Developer API key — la UI cassa
   // non è esposta loro, vedi `canUseDashboardCashier`.
   const user = await getAuthenticatedUser();
-  const planInfo = await getPlan(user.id);
-  if (!canUseDashboardCashier(planInfo.plan)) {
+
+  // `getPlanSafe` e non `getPlan` (REVIEW.md #85): su profilo orfano o `57014`
+  // il throw finirebbe al boundary di segmento, che in produzione può solo dire
+  // "qualcosa è andato storto" — qui invece il messaggio è preciso. Niente
+  // `try/catch` intorno alla regione: il `redirect()` qui sotto funziona
+  // lanciando `NEXT_REDIRECT` e un catch largo se lo mangerebbe.
+  const planResult = await getPlanSafe(user.id, "cassaPage");
+  if (!planResult.ok) {
+    return <PlanUnavailable message={planResult.error} />;
+  }
+
+  if (!canUseDashboardCashier(planResult.info.plan)) {
     redirect("/dashboard/settings#api-keys");
   }
 

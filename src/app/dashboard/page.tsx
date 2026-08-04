@@ -2,8 +2,9 @@ import { redirect } from "next/navigation";
 import { getOnboardingStatus } from "@/server/onboarding-actions";
 import { getCatalogItems } from "@/server/catalog-actions";
 import { CatalogoClient } from "@/components/catalogo/catalogo-client";
+import { PlanUnavailable } from "@/components/dashboard/plan-unavailable";
 import { getAuthenticatedUser } from "@/lib/server-auth";
-import { canUseDashboardCashier, getPlan } from "@/lib/plans";
+import { canUseDashboardCashier, getPlanSafe } from "@/lib/plans";
 
 /**
  * Homepage del dashboard — mostra il catalogo prodotti.
@@ -22,11 +23,22 @@ export default async function DashboardPage() {
   // Supabase Auth. `getPlan` e `getCatalogItems` sono indipendenti tra loro →
   // parallelizzati con Promise.all per evitare il waterfall di await sequenziali.
   const user = await getAuthenticatedUser();
-  const [planInfo, initialData] = await Promise.all([
-    getPlan(user.id),
+  const [planResult, initialData] = await Promise.all([
+    getPlanSafe(user.id, "dashboardPage"),
     getCatalogItems(status.businessId),
   ]);
-  if (!canUseDashboardCashier(planInfo.plan)) {
+
+  // `getPlanSafe` e non `getPlan` (REVIEW.md #85): senza il degrado, un profilo
+  // orfano o un `57014` sotto contention farebbero risalire il throw fino al
+  // boundary, vanificando la degradazione che `getCatalogItems` fa apposta
+  // nella stessa `Promise.all` — stesso DB, stessa richiesta, stesso errore.
+  // Niente `try/catch` intorno alla regione: il `redirect()` qui sotto funziona
+  // lanciando `NEXT_REDIRECT` e un catch largo se lo mangerebbe.
+  if (!planResult.ok) {
+    return <PlanUnavailable message={planResult.error} />;
+  }
+
+  if (!canUseDashboardCashier(planResult.info.plan)) {
     redirect("/dashboard/settings#api-keys");
   }
 
