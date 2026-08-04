@@ -236,51 +236,6 @@ fatto che i payload sono statici, ma è un single point of failure.
 
 ## P3 — Bassa priorità
 
-### 80. `saveAdeCredentials` è l'unica action credenziali AdE senza rate limit
-
-- **Categoria:** sicurezza/abuso · **Severità:** Low
-- **File:** `src/server/onboarding-actions.ts:385-465` (`saveAdeCredentials`, nessun limiter); limiter esistenti nello stesso file da riusare come modello: `:95` (`changePasswordLimiter`), `:106` (`verifyAdeLimiter`, usato a `:927`)
-
-**Problema.** `saveAdeCredentials` è autenticata e verifica l'ownership, ma non
-ha rate limit — a differenza di `verifyAdeCredentials` e `changeAdePassword`, le
-altre due action che toccano le credenziali AdE. Ogni chiamata: cifra 3 campi
-AES-256-GCM, esegue un upsert su `ade_credentials`, e soprattutto invalida
-**entrambe** le cache di sessione AdE del business
-(`adeSessionCache.invalidate` + `adeInteractiveSessionStore.invalidate`, righe
-finali della action) e fa `revalidatePath("/dashboard", "layout")`.
-
-L'invalidazione è la parte costosa: la sessione Fisconline vale ~10 round-trip
-HTTP verso AdE (è la ragione per cui `session-cache.ts` esiste), e per CIE la
-sessione **non è ri-creabile senza azione umana**. Un client in loop — o una
-sessione rubata — può quindi tenere un esercente permanentemente senza sessione
-AdE cached, degradando o bloccando l'emissione scontrini, oltre a generare write
-amplification sulla riga credenziali.
-
-**Fix (non ambiguo).**
-
-1. Aggiungere in cima a `onboarding-actions.ts`, accanto agli altri:
-   ```ts
-   const saveAdeCredentialsLimiter = new RateLimiter({
-     maxRequests: 10,
-     windowMs: RATE_LIMIT_WINDOWS.AUTH_15_MIN,
-   });
-   ```
-   10/15min è generoso per un flusso di onboarding con retry legittimi e resta
-   ben sotto la soglia di abuso. Chiave per-utente: `save-ade:${user.id}`
-   (per-utente, non per-IP: coerente con `verifyAdeLimiter` e con
-   `deleteAccountLimiter`, così utenti dietro lo stesso NAT non si bloccano).
-2. Posizionare il check **dopo** `getAuthenticatedUser` e **prima** della
-   validazione/cifratura (la cifratura è il primo costo CPU della action).
-3. Sul superamento: `logger.warn({ userId: user.id, errorClass: "save_ade_rate_limit" }, "saveAdeCredentials rate limit exceeded")`
-   e ritornare `{ error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES }` — stesso
-   messaggio delle altre action auth, nessuna stringa nuova.
-4. **Test** (`src/server/onboarding-actions.test.ts`): 10 chiamate consecutive
-   OK, l'11ª ritorna l'errore di rate limit **senza** toccare il DB né chiamare
-   `adeSessionCache.invalidate` (asserire sui mock). Ricordarsi di resettare il
-   limiter fra i test (i limiter sono singleton a livello di modulo).
-
----
-
 ### 81. Sweep GDPR: la query candidati aggrega l'intera tabella `commercial_documents` a ogni giro
 
 - **Categoria:** performance DB · **Severità:** Low (cresce col volume globale, non per-tenant)
@@ -376,54 +331,6 @@ AND completed_at < now() - interval '30 days'`. 30 giorni è ~10× il massimo
    sovrapporsi). Aggiornare `src/instrumentation.test.ts` /
    `src/instrumentation-keep-alive.test.ts` secondo la struttura esistente.
    _Trigger:_ tabella oltre ~100k righe, o quando si tocca lo sweep per altro.
-
----
-
-### 83. `getClientIp`: un `logger.error({critical:true})` **per richiesta** su misconfig Cloudflare
-
-- **Categoria:** osservabilità/costo · **Severità:** Low
-- **File:** `src/lib/get-client-ip.ts:34-40`; call-site pubblici che lo attraversano a ogni richiesta: `src/app/api/csp-report/route.ts:30`, `src/app/r/[documentId]/pdf/route.ts:24`, `src/server/auth-actions.ts:84-87`
-
-**Problema.** Quando `CF-Connecting-IP` manca in produzione, `getClientIp` emette
-un `logger.error({ critical: true })` — che il `logMethod` hook di
-`src/lib/logger.ts` (level ≥ 50) inoltra a `Sentry.captureMessage`. Il segnale è
-giusto e voluto (senza, la misconfig si scoprirebbe solo dopo un'ondata di abuso
-con tutti i bucket rate-limit collassati su `"unknown"`), ma non è **throttlato**:
-in una misconfigurazione reale ogni singola richiesta HTTP genera un evento
-Sentry. Sentry raggruppa gli eventi in una sola issue, ma il conteggio pesa sulla
-quota del piano free e allaga i Sentry Logs, cioè proprio lo strumento con cui si
-diagnosticherebbe l'incidente.
-
-**Fix (non ambiguo).**
-
-1. Throttlare l'allarme a livello di modulo, mantenendo il fail-closed
-   (il ritorno `"unknown"` non cambia mai):
-
-   ```ts
-   const MISSING_CF_IP_LOG_INTERVAL_MS = 5 * 60 * 1000;
-   let lastMissingCfIpLogAt = 0;
-   // dentro il branch production:
-   const now = Date.now();
-   if (now - lastMissingCfIpLogAt >= MISSING_CF_IP_LOG_INTERVAL_MS) {
-     lastMissingCfIpLogAt = now;
-     logger.error({ critical: true }, "CF-Connecting-IP header missing …");
-   }
-   ```
-
-   Al più 12 eventi/ora: abbastanza per accorgersene entro pochi minuti, non
-   abbastanza per bruciare la quota.
-
-2. Esportare un `resetMissingCfIpThrottleForTests()` (stesso pattern del reset
-   del singleton install-prompt, skill `pwa-serwist`) — senza, i test si
-   influenzano a vicenda in base all'ordine d'esecuzione.
-3. **Non** abbassare il livello a `warn`: la regola 20 riguarda gli errori
-   d'input **utente**; questa è una misconfigurazione infrastrutturale nostra e
-   deve restare un'issue Sentry.
-4. **Test** (`src/lib/get-client-ip.test.ts`): con `NODE_ENV=production`
-   (`vi.stubEnv`) e header assente, 100 chiamate consecutive → `logger.error`
-   invocato **una** sola volta e 100 valori di ritorno `"unknown"`; avanzando i
-   fake timer oltre l'intervallo, la chiamata successiva logga di nuovo; con
-   header presente, mai un log.
 
 ---
 
