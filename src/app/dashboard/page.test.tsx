@@ -80,6 +80,29 @@ describe("DashboardPage — percorso nominale", () => {
     expect(screen.getByTestId("catalogo-client")).toBeInTheDocument();
     expect(mockRedirect).not.toHaveBeenCalled();
   });
+
+  it("rende il catalogo anche quando è vuoto, senza redirigere", async () => {
+    mockGetPlanSafe.mockResolvedValue(PLAN_OK);
+    mockGetCatalogItems.mockResolvedValue([]);
+
+    render(await DashboardPage());
+
+    expect(screen.getByTestId("catalogo-client")).toBeInTheDocument();
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
+  it("legge piano e catalogo in parallelo (REVIEW.md #2)", async () => {
+    // I due fetch indipendenti partono entrambi nello stesso Promise.all:
+    // piano via user.id, catalogo via businessId. La dedup di
+    // getAuthenticatedUser (React cache()) evita il triplo round-trip verso
+    // Supabase Auth nel render.
+    mockGetPlanSafe.mockResolvedValue(PLAN_OK);
+
+    render(await DashboardPage());
+
+    expect(mockGetPlanSafe).toHaveBeenCalledWith("user-1", "dashboardPage");
+    expect(mockGetCatalogItems).toHaveBeenCalledWith("biz-1");
+  });
 });
 
 describe("DashboardPage — degrado della lettura del piano (REVIEW #85)", () => {
@@ -137,6 +160,10 @@ describe("DashboardPage — il fallback non intercetta i redirect", () => {
 
     await expect(DashboardPage()).rejects.toThrow("NEXT_REDIRECT");
     expect(mockRedirect).toHaveBeenCalledWith("/dashboard/settings#api-keys");
+    // Il catalogo viene comunque recuperato e scartato: sta nella stessa
+    // Promise.all del piano, tradeoff accettato in REVIEW.md #2 per
+    // parallelizzare i due fetch nel caso comune (merchant Starter/Pro).
+    expect(mockGetCatalogItems).toHaveBeenCalledWith("biz-1");
   });
 
   it("redirige ancora all'onboarding senza business", async () => {

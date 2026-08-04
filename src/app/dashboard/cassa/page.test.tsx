@@ -135,6 +135,9 @@ describe("CassaPage — il fallback non intercetta i redirect", () => {
 
     await expect(CassaPage()).rejects.toThrow("NEXT_REDIRECT");
     expect(mockRedirect).toHaveBeenCalledWith("/dashboard/settings#api-keys");
+    // A differenza del catalogo (REVIEW.md #2), qui il gate precede le query:
+    // per un piano developer il DB non viene toccato affatto.
+    expect(mockLimit).not.toHaveBeenCalled();
   });
 
   it("redirige ancora all'onboarding senza business", async () => {
