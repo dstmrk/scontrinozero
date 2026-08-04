@@ -19,6 +19,30 @@ import { logger } from "@/lib/logger";
  * In questo caso viene emesso un log di warning per rilevare rapidamente
  * la misconfiguration Cloudflare.
  */
+
+/**
+ * Finestra di throttle dell'allarme "CF-Connecting-IP mancante" (REVIEW #83).
+ *
+ * L'allarme è un `logger.error({ critical: true })`, quindi il logMethod hook
+ * di `logger.ts` lo inoltra a Sentry: senza throttle una misconfigurazione
+ * reale genererebbe un evento per OGNI richiesta HTTP, bruciando la quota del
+ * piano free e allagando i Sentry Logs — cioè proprio lo strumento con cui si
+ * diagnosticherebbe l'incidente. A 5 minuti sono al più 12 eventi/ora:
+ * abbastanza per accorgersene in pochi minuti, non abbastanza per fare danni.
+ */
+const MISSING_CF_IP_LOG_INTERVAL_MS = 5 * 60 * 1000;
+
+/** 0 = mai loggato → il primo miss allarma sempre subito. */
+let lastMissingCfIpLogAt = 0;
+
+/**
+ * Azzera il throttle fra i test: lo stato vive a livello di modulo, quindi
+ * senza reset i test si influenzano a vicenda in base all'ordine d'esecuzione.
+ */
+export function resetMissingCfIpThrottleForTests(): void {
+  lastMissingCfIpLogAt = 0;
+}
+
 export function getClientIp(headers: Headers): string {
   const cfIp = headers.get("cf-connecting-ip");
 
@@ -31,11 +55,17 @@ export function getClientIp(headers: Headers): string {
   // solo gli error, non i warn. Senza questo segnale ops scopre la
   // misconfig solo dopo un'ondata di abuso (tutti i bucket rate-limit
   // per-IP collassano sulla stessa chiave "unknown").
+  // L'allarme è throttlato (vedi MISSING_CF_IP_LOG_INTERVAL_MS); il ritorno
+  // "unknown" invece NO: il fail-closed vale per ogni singola richiesta.
   if (process.env.NODE_ENV === "production") {
-    logger.error(
-      { critical: true },
-      "CF-Connecting-IP header missing in production — Cloudflare misconfiguration? Rate-limit buckets will be shared under 'unknown'",
-    );
+    const now = Date.now();
+    if (now - lastMissingCfIpLogAt >= MISSING_CF_IP_LOG_INTERVAL_MS) {
+      lastMissingCfIpLogAt = now;
+      logger.error(
+        { critical: true },
+        "CF-Connecting-IP header missing in production — Cloudflare misconfiguration? Rate-limit buckets will be shared under 'unknown'",
+      );
+    }
     return "unknown";
   }
 

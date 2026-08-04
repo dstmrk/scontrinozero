@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { afterEach, describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -18,13 +18,23 @@ vi.mock("@/lib/logger", () => ({
 // Tests
 // ---------------------------------------------------------------------------
 
-import { getClientIp, hashIp } from "./get-client-ip";
+import {
+  getClientIp,
+  hashIp,
+  resetMissingCfIpThrottleForTests,
+} from "./get-client-ip";
 
 function makeHeaders(entries: Record<string, string>): Headers {
   return new Headers(entries);
 }
 
 describe("getClientIp", () => {
+  beforeEach(() => {
+    // Il throttle dell'allarme è stato al livello di modulo: senza reset i test
+    // si influenzerebbero a vicenda in base all'ordine d'esecuzione.
+    resetMissingCfIpThrottleForTests();
+  });
+
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.clearAllMocks();
@@ -120,6 +130,62 @@ describe("getClientIp", () => {
       const headers = makeHeaders({ "cf-connecting-ip": "1.2.3.4" });
       getClientIp(headers);
       expect(mockLoggerError).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("throttle dell'allarme misconfig (REVIEW #83)", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("logga una sola volta su 100 richieste consecutive, restituendo sempre 'unknown'", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      const headers = makeHeaders({ "x-forwarded-for": "attacker-ip" });
+
+      const results = Array.from({ length: 100 }, () => getClientIp(headers));
+
+      // Un solo evento Sentry, ma il fail-closed non cambia mai.
+      expect(mockLoggerError).toHaveBeenCalledTimes(1);
+      expect(results.every((ip) => ip === "unknown")).toBe(true);
+    });
+
+    it("torna a loggare dopo l'intervallo di throttle", () => {
+      vi.useFakeTimers();
+      vi.stubEnv("NODE_ENV", "production");
+      const headers = makeHeaders({});
+
+      getClientIp(headers);
+      vi.advanceTimersByTime(5 * 60 * 1000 - 1);
+      getClientIp(headers);
+      expect(mockLoggerError).toHaveBeenCalledTimes(1);
+
+      // Il confronto è >=: al compimento esatto dell'intervallo riparte.
+      vi.advanceTimersByTime(1);
+      expect(getClientIp(headers)).toBe("unknown");
+      expect(mockLoggerError).toHaveBeenCalledTimes(2);
+    });
+
+    it("una richiesta con header valido non consuma né sposta la finestra di throttle", () => {
+      vi.stubEnv("NODE_ENV", "production");
+
+      // Nessun log finora: il primo miss deve comunque allarmare subito.
+      expect(getClientIp(makeHeaders({ "cf-connecting-ip": "1.2.3.4" }))).toBe(
+        "1.2.3.4",
+      );
+      getClientIp(makeHeaders({}));
+
+      expect(mockLoggerError).toHaveBeenCalledTimes(1);
+    });
+
+    it("fuori produzione non logga mai e non arma il throttle", () => {
+      // Dev/test: nessun allarme. Se il throttle venisse armato qui, il primo
+      // miss reale in produzione resterebbe silenzioso per 5 minuti.
+      getClientIp(makeHeaders({}));
+      expect(mockLoggerError).not.toHaveBeenCalled();
+
+      vi.stubEnv("NODE_ENV", "production");
+      getClientIp(makeHeaders({}));
+      expect(mockLoggerError).toHaveBeenCalledTimes(1);
     });
   });
 });
