@@ -86,7 +86,7 @@ const helpCategories: HelpCategory[] = [
         href: "/help/regime-forfettario",
       },
       {
-        title: "Come gestire aliquote IVA, catalogo e metodi di pagamento",
+        title: "Come gestire le aliquote IVA e il catalogo prodotti",
         href: "/help/aliquote-iva",
       },
       {
@@ -138,6 +138,10 @@ const helpCategories: HelpCategory[] = [
       {
         title: "Come emettere il primo scontrino elettronico",
         href: "/help/primo-scontrino",
+      },
+      {
+        title: "Metodi di pagamento: bonifico, assegno, carta e contanti",
+        href: "/help/metodi-di-pagamento",
       },
       {
         title: "Annullare uno scontrino: quando si può e come fare",

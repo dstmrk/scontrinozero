@@ -171,6 +171,26 @@ fatto che i payload sono statici, ma è un single point of failure.
 
 ## P3 — Bassa priorità
 
+### 86. Hub `/help`: titoli e link duplicati dal registry, senza guard test
+
+- **Categoria:** doppia scrittura contenuti · **Severità:** Low (contenuto stale / articolo orfano, nessun impatto runtime)
+- **File:** `src/app/(marketing)/help/page.tsx:37-231` (`featuredArticles` e `categories`), registry `src/lib/help/articles.ts`
+
+**Problema.** L'hub del centro assistenza ricopia a mano `title` e `href` di
+ogni articolo, mentre la fonte di verità è `helpArticles`. Due conseguenze
+osservate aggiungendo `metodi-di-pagamento`: (a) un articolo nuovo non compare
+nell'hub finché qualcuno non lo aggiunge a mano — resta raggiungibile solo da
+sitemap e link interni; (b) rinominando `aliquote-iva` il titolo nell'hub è
+rimasto stale, esattamente il pattern di doppia scrittura che la skill
+`marketing-content` vieta per date e prezzi. Nessun test copre la
+corrispondenza, quindi entrambe le derive passano la CI.
+
+**Fix proposto.** Estrarre `categories` in `src/lib/help/hub-categories.ts`
+tenendo solo lo slug (il titolo si legge da `helpArticles[slug].title`), e
+aggiungere un test che per ogni slug del registry esista una voce nell'hub
+(match `/help/<slug>` oppure `/help/<slug>#<ancora>`, come per `api`). Elimina
+sia l'orfano sia il titolo divergente.
+
 ### 81. Sweep GDPR: la query candidati aggrega l'intera tabella `commercial_documents` a ogni giro
 
 - **Categoria:** performance DB · **Severità:** Low (cresce col volume globale, non per-tenant)

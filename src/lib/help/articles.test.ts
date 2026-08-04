@@ -120,6 +120,47 @@ describe("analytics-e-report (KPI, grafici e gating Pro)", () => {
   });
 });
 
+describe("metodi-di-pagamento (bonifico e assegno sullo scontrino)", () => {
+  const article = helpArticles["metodi-di-pagamento"];
+
+  it("exists in the registry", () => {
+    expect(article).toBeDefined();
+  });
+
+  it("targets the 'bonifico' query in the metaTitle", () => {
+    expect(article.metaTitle.toLowerCase()).toContain("bonifico");
+  });
+
+  it("names both the bonifico and the assegno case in the description", () => {
+    const description = article.description.toLowerCase();
+    expect(description).toContain("bonifico");
+    expect(description).toContain("assegno");
+  });
+
+  it("links the payment cluster", () => {
+    expect(article.related).toContain("aliquote-iva");
+    expect(article.related).toContain("primo-scontrino");
+  });
+});
+
+describe("aliquote-iva does not cannibalise metodi-di-pagamento", () => {
+  const article = helpArticles["aliquote-iva"];
+
+  it("no longer claims the payment-methods intent in the metaTitle", () => {
+    expect(article.metaTitle.toLowerCase()).not.toContain(
+      "metodi di pagamento",
+    );
+  });
+
+  it("keeps the VAT intent in the metaTitle", () => {
+    expect(article.metaTitle.toLowerCase()).toContain("iva");
+  });
+
+  it("points at the dedicated payment article through related", () => {
+    expect(article.related).toContain("metodi-di-pagamento");
+  });
+});
+
 describe("per-article dates", () => {
   it("every article has datePublished and dateModified in ISO YYYY-MM-DD form", () => {
     for (const article of Object.values(helpArticles)) {
