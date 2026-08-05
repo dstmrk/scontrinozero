@@ -136,6 +136,21 @@ al momento dell'analisi e non si poteva distinguere "drain rotto" da
 "rilasciato 40 minuti fa". Integrazione in CI rimandata: oggi è uno script
 da eseguire manualmente dopo `docker compose up -d`.
 
+## L'edge Cloudflare può scavalcare la config dell'app
+
+Stessa famiglia del "baked vs runtime": quello che leggi nel sorgente non è
+per forza quello che gira. Cloudflare inietta a livello di zona un blocco
+_Managed robots.txt_ **anteposto** all'output di `src/app/robots.ts`, e
+nessuna modifica al repo lo scavalca — si spegne solo dal dashboard. Ad
+agosto 2026 vietava `ClaudeBot`, `GPTBot`, `Google-Extended` e `CCBot`,
+rendendo `/llms.txt` e `/llms-full.txt` irraggiungibili dai crawler per cui
+erano stati scritti; scoperto curlando la produzione, invisibile nel repo.
+
+Il blocco WAF dei bot AI è un interruttore **separato** dal managed
+robots.txt (risponde 403, non `Disallow`): spegnerne uno non spegne l'altro,
+vanno verificati entrambi. Comandi di verifica e distinzioni fra i crawler →
+skill `marketing-content`, sezione "Verificare robots.txt servito".
+
 ## Procedura aggiornamento T&C
 
 1. Crea `src/app/(marketing)/termini/v*/page.tsx` (nuova versione vXX)

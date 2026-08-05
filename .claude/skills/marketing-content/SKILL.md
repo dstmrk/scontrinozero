@@ -139,6 +139,46 @@ guida/help/tool nuovo o revisionato rispetta:
 5. **Slug separati `/help` vs `/guide`** sulle keyword condivise (vedi sopra):
    help = operativo in-app, guide = educativo/reference. I `metaTitle` devono
    riflettere intent distinti per non cannibalizzarsi.
+6. **`metaTitle` ≤ 60 caratteri.** Guide e articoli help dichiarano un title
+   **assoluto** (`{ absolute: … }` in `guide/[slug]/page.tsx` e
+   `lib/help/metadata.ts`): bypassa il template root `"%s | ScontrinoZero"`,
+   che aggiungerebbe 16 caratteri e farebbe troncare la coda della keyword
+   senza nemmeno mostrare il brand — visibile comunque via site name
+   (`webSiteJsonLd`) e breadcrumb del dominio. L'invariante è testata nei due
+   registry; le pagine hub continuano a usare il template.
+7. **Il titolo riprende le parole della query e anticipa la risposta.** Non
+   "Registratore di cassa: prezzi e alternative" ma "Quanto costa un
+   registratore di cassa: 400-800 € + canone". Su GSC 2026-08 le pagine col
+   titolo che non riprende la query stavano a CTR 0,36-0,99% da posizione
+   9-10, cioè un ordine di grandezza sotto la norma per quelle posizioni.
+
+## Verificare robots.txt **servito**, non quello nel repo
+
+`src/app/robots.ts` non è l'ultima parola: Cloudflare può iniettare un blocco
+_Managed robots.txt_ a livello di zona che viene anteposto all'output
+dell'app, e nessuna modifica al repo lo scavalca. Ad agosto 2026 quel blocco
+vietava `ClaudeBot`, `GPTBot`, `Google-Extended`, `CCBot`, `Amazonbot`,
+`Applebot-Extended`, `Bytespider` e `meta-externalagent`: `/llms.txt` e
+`/llms-full.txt`, costruiti apposta per i crawler AI, erano irraggiungibili
+da metà dei crawler a cui parlano. Scoperto solo curlando la produzione.
+
+Quindi, ogni volta che si tocca GEO o si dà per acquisita la citabilità AI:
+
+```bash
+curl -sS https://scontrinozero.it/robots.txt          # cosa esce davvero
+curl -sS -o /dev/null -w '%{http_code}\n' \
+  -A 'ClaudeBot/1.0 (+https://www.anthropic.com/claude-bot)' \
+  https://scontrinozero.it/llms-full.txt              # 200, non 403
+```
+
+Il secondo comando serve perché il blocco WAF dei bot AI è un interruttore
+**separato** dal managed robots.txt: spegnerne uno non spegne l'altro, e
+l'enforcement WAF risponde 403 invece di un `Disallow`.
+
+Distinzioni da non confondere quando si valuta l'impatto: `Google-Extended`
+governa Gemini e il grounding Vertex, **non** le AI Overviews di Google (che
+dipendono da Googlebot); le citazioni in ChatGPT search passano da
+`OAI-SearchBot`, non da `GPTBot`, che copre il training.
 
 ## Vantaggio competitivo SEO
 
