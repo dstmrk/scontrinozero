@@ -3,6 +3,7 @@ import Link from "next/link";
 import { JsonLd, faqPageJsonLd } from "@/components/json-ld";
 import { faqItems } from "@/components/marketing/faq-items";
 import { appHref } from "@/lib/marketing-to-app-href";
+import { RT_COSTS } from "@/lib/marketing/rt-costs";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -56,16 +57,19 @@ export const metadata: Metadata = {
   },
 };
 
-const HOME_COMPARISON_ROWS: readonly ComparisonRow[] = [
+export const HOME_COMPARISON_ROWS: readonly ComparisonRow[] = [
   {
     label: "Costo acquisto hardware",
-    competitor: "€400–800",
+    competitor: `€${RT_COSTS.purchase.min}–${RT_COSTS.purchase.max}`,
     ours: "€0",
   },
   {
-    label: "Canone annuo",
-    competitor: "€100–200",
-    ours: "da €29,99",
+    // Il costo ricorrente obbligatorio di un RT è la sola verificazione
+    // periodica: il "canone annuo €100-200" che stava qui è un contratto di
+    // assistenza facoltativo. Cifre da src/lib/marketing/rt-costs.ts.
+    label: "Costi ricorrenti obbligatori",
+    competitor: `€${RT_COSTS.periodicVerification.min}–${RT_COSTS.periodicVerification.max} ogni ${RT_COSTS.periodicVerification.everyYears} anni`,
+    ours: "da €29,99/anno",
   },
   {
     label: "Installazione tecnico",
@@ -175,8 +179,9 @@ export default function Home() {
             <div>
               <h2 className="text-2xl font-bold">Il problema</h2>
               <p className="text-muted-foreground mt-4 leading-relaxed">
-                I registratori telematici costano centinaia di euro, hanno
-                canoni annuali di manutenzione e occupano spazio sul bancone.
+                I registratori telematici costano centinaia di euro, richiedono
+                l&apos;installazione di un tecnico abilitato e una verificazione
+                periodica ogni due anni, e occupano spazio sul bancone.
                 <br />
                 <br />
                 Per un ambulante, un artigiano o una micro-attività è un costo

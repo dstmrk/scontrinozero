@@ -616,7 +616,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     audience:
       "chioschi, bar e attività di ristorazione stagionali, asporto e delivery, piccole somministrazioni a basso volume",
     useCase:
-      "Siamo onesti: se hai un bar o un ristorante con fila alla cassa e decine di battute l'ora, il registratore telematico fisico resta più ergonomico — l'emissione del Documento Commerciale Online richiede qualche secondo per scontrino e non è pensata per il bancone ad alto flusso. ScontrinoZero è invece la scelta giusta per il segmento a basso volume della ristorazione: il chiosco estivo, il bar stagionale, l'asporto e il delivery, il food service a eventi. Lì elimini l'hardware (400-800 € più canoni) e fai tutto dallo smartphone.",
+      "Siamo onesti: se hai un bar o un ristorante con fila alla cassa e decine di battute l'ora, il registratore telematico fisico resta più ergonomico — l'emissione del Documento Commerciale Online richiede qualche secondo per scontrino e non è pensata per il bancone ad alto flusso. ScontrinoZero è invece la scelta giusta per il segmento a basso volume della ristorazione: il chiosco estivo, il bar stagionale, l'asporto e il delivery, il food service a eventi. Lì elimini l'hardware (400-800 €, più installazione e verificazioni periodiche) e fai tutto dallo smartphone.",
     obligations: [
       "Emissione del Documento Commerciale Online per ogni vendita o somministrazione B2C (art. 22 DPR 633/72).",
       "Aliquota IVA corretta: 10% per la somministrazione di alimenti e bevande, 22% per alcune vendite accessorie.",
