@@ -18,33 +18,29 @@ export default function AliquoteIvaPage() {
   return (
     <section className="px-4 py-16">
       <JsonLd
-        data={helpArticleBreadcrumb(
-          "aliquote-iva",
-          "Aliquote IVA, catalogo e pagamenti",
-        )}
+        data={helpArticleBreadcrumb("aliquote-iva", "Aliquote IVA e catalogo")}
       />
       <HelpArticleJsonLd slug="aliquote-iva" />
       <article className="mx-auto max-w-3xl">
         <Breadcrumbs
           items={helpArticleBreadcrumbItems(
             "aliquote-iva",
-            "Aliquote IVA, catalogo e pagamenti",
+            "Aliquote IVA e catalogo",
           )}
         />
 
         {/* ─── Intestazione ─── */}
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-3xl font-extrabold tracking-tight">
-            Come gestire aliquote IVA, catalogo e metodi di pagamento
+            Come gestire le aliquote IVA e il catalogo prodotti
           </h1>
           <Badge variant="secondary">Configurazione attività</Badge>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           ScontrinoZero supporta tutte le aliquote IVA italiane (4%, 5%, 10%,
           22%) e i sei codici natura per le operazioni speciali. Questa guida
-          spiega come usarli in cassa, come pre-impostare prezzo e aliquota
-          tramite il catalogo prodotti, e quali metodi di pagamento sono
-          disponibili oggi.
+          spiega come usarli in cassa e come pre-impostare prezzo e aliquota
+          tramite il catalogo prodotti.
         </p>
         <HelpArticleUpdatedAt slug="aliquote-iva" />
         <figure className="mt-6">
@@ -253,23 +249,18 @@ export default function AliquoteIvaPage() {
         {/* ─── Metodi di pagamento ─── */}
         <h2 className="mt-10 text-xl font-semibold">Metodi di pagamento</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          In cassa il selettore propone oggi due metodi:
-        </p>
-        <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
-          <li>
-            <strong>Contanti</strong>
-          </li>
-          <li>
-            <strong>Carta</strong> (credito, debito, prepagata)
-          </li>
-        </ul>
-        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Al momento dell&apos;emissione, seleziona il metodo usato dal cliente:
-          il dato viene trasmesso all&apos;AdE come parte del documento
-          commerciale. Il campo opzionale{" "}
-          <strong>codice lotteria scontrini</strong> compare solo quando scegli
-          pagamento con carta: alla Lotteria degli Scontrini partecipano
-          soltanto gli acquisti sopra 1 € pagati con strumenti elettronici.
+          In cassa il selettore propone due metodi, <strong>Contanti</strong> e{" "}
+          <strong>Carta</strong>, e ogni documento commerciale ne porta uno
+          solo. Quale scegliere a seconda di come hai incassato — bonifico,
+          assegno, carta o denaro — è spiegato con i riferimenti
+          dell&apos;Agenzia delle Entrate in{" "}
+          <Link
+            href="/help/metodi-di-pagamento"
+            className="text-primary hover:underline"
+          >
+            Bonifico e assegno sullo scontrino: quale metodo scegliere
+          </Link>
+          {"."}
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Il tracciato AdE prevede ulteriori metodi (ticket / buono pasto,

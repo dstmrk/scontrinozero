@@ -18,12 +18,12 @@ export const helpArticles: Record<string, HelpArticle> = {
   "aliquote-iva": {
     slug: "aliquote-iva",
     datePublished: "2026-04-17",
-    dateModified: "2026-08-02",
-    title: "Aliquote IVA, catalogo e metodi di pagamento",
-    metaTitle: "Come gestire aliquote IVA, catalogo e metodi di pagamento",
+    dateModified: "2026-08-04",
+    title: "Aliquote IVA e catalogo prodotti",
+    metaTitle: "Come gestire le aliquote IVA e il catalogo prodotti",
     description:
-      "Guida alla configurazione delle aliquote IVA (4%, 5%, 10%, 22% e nature speciali), del catalogo prodotti e dei metodi di pagamento in ScontrinoZero.",
-    related: ["regime-forfettario", "primo-scontrino", "annullare-scontrino"],
+      "Guida alla configurazione delle aliquote IVA (4%, 5%, 10%, 22% e nature speciali) e del catalogo prodotti in ScontrinoZero.",
+    related: ["regime-forfettario", "primo-scontrino", "metodi-di-pagamento"],
   },
   "annullare-scontrino": {
     slug: "annullare-scontrino",
@@ -176,6 +176,16 @@ export const helpArticles: Record<string, HelpArticle> = {
     description:
       "Come modificare la ragione sociale, l'indirizzo e i dati fiscali che appaiono sull'intestazione dello scontrino emesso da ScontrinoZero.",
     related: ["prima-configurazione", "come-collegare-ade", "primo-scontrino"],
+  },
+  "metodi-di-pagamento": {
+    slug: "metodi-di-pagamento",
+    datePublished: "2026-08-04",
+    dateModified: "2026-08-04",
+    title: "Metodi di pagamento: bonifico, assegno, carta e contanti",
+    metaTitle: "Bonifico e assegno sullo scontrino: quale metodo scegliere",
+    description:
+      "Quale metodo scegliere in cassa: il bonifico va indicato sul documento commerciale come pagamento elettronico, l'assegno come contante. Le regole dell'Agenzia delle Entrate e i riferimenti ufficiali.",
+    related: ["aliquote-iva", "primo-scontrino", "pos-rt-obbligo"],
   },
   "normativa-pos-2026": {
     slug: "normativa-pos-2026",

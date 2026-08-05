@@ -162,6 +162,25 @@ describe("stabilimenti-balneari (riferimenti fiscali verificati)", () => {
   });
 });
 
+describe("b-and-b (incassi tramite portale di prenotazione)", () => {
+  const c = categories["b-and-b"];
+
+  // Il segmento incassa tipicamente via bonifico dal portale, non allo
+  // sportello: il bullet sul metodo di pagamento — presente su ambulanti,
+  // parrucchieri, eventi e lavanderie — qui mancava del tutto.
+  it("names the payment method among the benefits, like the other categories", () => {
+    const benefits = c.benefits.join(" ").toLowerCase();
+    expect(benefits).toContain("pagamento");
+    expect(benefits).toContain("bonifico");
+  });
+
+  // Il dettaglio (bonifico = elettronico, assegno = contante, con le FAQ AdE
+  // datate) vive nell'articolo help dedicato: la pagina /per ci rimanda.
+  it("points at the payment-methods help article", () => {
+    expect(c.relatedHelp).toContain("metodi-di-pagamento");
+  });
+});
+
 describe("getCategory", () => {
   it("returns the category for a known slug", () => {
     const c = getCategory("ambulanti");
