@@ -469,13 +469,13 @@ describe("webApplicationJsonLd", () => {
 describe("guideArticleBreadcrumb", () => {
   it("produces a 3-level breadcrumb (Home → Guide → article)", () => {
     const ld = guideArticleBreadcrumb(
-      "documento-commerciale-online",
-      "Doc commerciale",
+      "scontrino-senza-registratore-di-cassa",
+      "Scontrino senza cassa",
     );
     expect(ld.itemListElement).toHaveLength(3);
     expect(ld.itemListElement[0].name).toBe("Home");
     expect(ld.itemListElement[1].name).toBe("Guide");
-    expect(ld.itemListElement[2].name).toBe("Doc commerciale");
+    expect(ld.itemListElement[2].name).toBe("Scontrino senza cassa");
   });
 
   it("article URL contains the slug under /guide", () => {

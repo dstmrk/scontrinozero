@@ -6,7 +6,7 @@ describe("sitemap", () => {
     const { default: sitemap } = await import("./sitemap");
     const result = sitemap();
 
-    expect(result).toHaveLength(86);
+    expect(result).toHaveLength(85);
 
     // Root
     expect(result[0]).toMatchObject({
@@ -111,7 +111,6 @@ describe("sitemap", () => {
     // Guide hub + articles
     expect(allUrls).toContain("https://scontrinozero.it/guide");
     const expectedGuideUrls = [
-      "https://scontrinozero.it/guide/documento-commerciale-online",
       "https://scontrinozero.it/guide/scontrino-senza-registratore-di-cassa",
       "https://scontrinozero.it/guide/differenza-scontrino-ricevuta-fattura",
       "https://scontrinozero.it/guide/pos-rt-obbligo-2026",
@@ -204,7 +203,7 @@ describe("sitemap", () => {
       "/strumenti",
       "/strumenti/scorporo-iva",
       "/guide",
-      "/guide/documento-commerciale-online",
+      "/guide/scontrino-senza-registratore-di-cassa",
       "/privacy",
       "/help",
     ]) {

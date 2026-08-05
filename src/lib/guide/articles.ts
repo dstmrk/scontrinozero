@@ -1,5 +1,4 @@
 export const guideSlugs = [
-  "documento-commerciale-online",
   "scontrino-senza-registratore-di-cassa",
   "differenza-scontrino-ricevuta-fattura",
   "pos-rt-obbligo-2026",
@@ -77,81 +76,6 @@ export interface GuideArticle {
 }
 
 export const guideArticles: Record<GuideSlug, GuideArticle> = {
-  "documento-commerciale-online": {
-    slug: "documento-commerciale-online",
-    title: "Documento commerciale online: cos'è e come funziona",
-    metaTitle: "Documento commerciale online: cos'è e a cosa serve",
-    metaDescription:
-      "Cos'è il documento commerciale online (DCO), come si emette dal portale Fatture e Corrispettivi, base normativa e differenze rispetto al registratore telematico.",
-    heroIntro:
-      'Il documento commerciale online (DCO) è la versione digitale dello scontrino: lo si emette dal portale Agenzia delle Entrate "Fatture e Corrispettivi" senza bisogno di un registratore telematico fisico. È fiscalmente equivalente allo scontrino stampato e trasmette i corrispettivi all\'AdE in tempo reale.',
-    publishedAt: "2026-05-14",
-    updatedAt: "2026-05-14",
-    readingMinutes: 6,
-    sections: [
-      {
-        heading: "Cos'è il documento commerciale online",
-        body: 'Il documento commerciale online (DCO) è uno scontrino elettronico emesso direttamente dal portale "Fatture e Corrispettivi" dell\'Agenzia delle Entrate o da un software collegato. Sostituisce lo scontrino emesso da un registratore telematico, ed è fiscalmente equivalente a tutti gli effetti. Contiene gli stessi dati: progressivo, data e ora, dettaglio articoli, aliquote IVA, totale e – se richiesto – il codice lotteria del cliente.',
-      },
-      {
-        heading: "Base normativa",
-        body: "Il DCO è disciplinato dal Provvedimento dell'Agenzia delle Entrate del 28 ottobre 2016 n. 182017 e successive modifiche, e dall'articolo 2 del D.Lgs. 127/2015 che ha introdotto l'obbligo della memorizzazione e trasmissione telematica dei corrispettivi. L'Interpello AdE n. 956-1523/2020 ha confermato che l'uso di software di terze parti come \"velocizzatori\" della procedura web è ammesso, purché rispetti le prescrizioni normative.",
-      },
-      {
-        heading: "Quando si emette",
-        body: "Va emesso al momento del pagamento per ogni vendita al consumatore finale (B2C). Non sostituisce la fattura elettronica B2B verso altre partite IVA: in quel caso si emette comunque fattura tramite SDI. Per le vendite occasionali o le prestazioni di servizio rese al pubblico, il DCO è il documento corretto.",
-      },
-      {
-        heading: "Cosa contiene",
-        body: "Un DCO riporta obbligatoriamente: ragione sociale e partita IVA dell'esercente, data e ora di emissione, numero progressivo annuale, descrizione dei beni o servizi venduti, prezzo unitario, quantità, aliquota IVA per riga, totale corrispettivo, eventuale codice lotteria del cliente. La trasmissione all'AdE avviene istantaneamente al momento della conferma di emissione.",
-        image: {
-          src: "/screenshots/documento-commerciale.png",
-          alt: "Documento commerciale online con identificativo AdE, dettaglio articoli, aliquote IVA e totale",
-          width: 661,
-          height: 1188,
-          caption:
-            "Sul documento compaiono l'identificativo AdE, gli articoli con le aliquote IVA e il totale.",
-        },
-      },
-      {
-        heading: "Come si emette con ScontrinoZero",
-        body: "ScontrinoZero replica in automatico la procedura ufficiale del portale dell'Agenzia delle Entrate: inserisci gli articoli nel carrello, scegli il metodo di pagamento, opzionalmente aggiungi il codice lotteria del cliente, e tocca \"Emetti\". Il documento viene generato, firmato con le tue credenziali dell'Agenzia delle Entrate, trasmesso al portale AdE e archiviato nel tuo storico digitale. Tutto in 3-5 secondi.",
-      },
-      {
-        heading: "Vantaggi rispetto al registratore telematico",
-        body: "Il DCO emesso da software elimina i costi hardware iniziali (400-800 € per un RT), l'installazione da tecnico abilitato (100-200 € una tantum) e la verificazione periodica obbligatoria ogni 2 anni (50-100 € a intervento). In compenso richiede una connessione internet stabile e non è ottimale per attività con coda alla cassa: il vantaggio è massimo per attività mobili, stagionali o con volumi bassi/medi.",
-      },
-    ],
-    faq: [
-      {
-        question:
-          "Il documento commerciale online ha lo stesso valore dello scontrino del registratore telematico?",
-        answer:
-          "Sì. Sono fiscalmente equivalenti: stesso valore probatorio, stessi adempimenti di trasmissione, stessi diritti del cliente (garanzia, reso, lotteria). La differenza è solo nel mezzo di emissione: software vs hardware certificato.",
-      },
-      {
-        question:
-          "Serve ancora avere un registratore telematico se uso il DCO?",
-        answer:
-          "No, sono alternative. Se emetti tutti i corrispettivi tramite DCO da software, il registratore telematico non è necessario. Puoi tenerne uno fisico e affiancare il DCO per la mobilità, ma legalmente uno dei due basta.",
-      },
-      {
-        question: "Posso emettere DCO anche in regime forfettario?",
-        answer:
-          "Sì. Il regime forfettario non esonera dall'obbligo di emettere il documento commerciale per le vendite B2C. Sul documento va indicata la natura N2 (operazione non soggetta IVA, art. 1 c. 54-89 L. 190/2014) al posto dell'aliquota — il codice granulare N2.2 vale solo per la fattura elettronica — ma lo scontrino va comunque emesso e trasmesso.",
-      },
-    ],
-    relatedHelp: [
-      "primo-scontrino",
-      "come-collegare-ade",
-      "regime-forfettario",
-    ],
-    relatedGuides: [
-      "scontrino-senza-registratore-di-cassa",
-      "differenza-scontrino-ricevuta-fattura",
-    ],
-  },
-
   "scontrino-senza-registratore-di-cassa": {
     slug: "scontrino-senza-registratore-di-cassa",
     title: "Emettere scontrino senza registratore di cassa: si può?",
@@ -161,24 +85,20 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Sì, si può: da gennaio 2020 qualunque partita IVA può emettere lo scontrino elettronico senza registratore di cassa fisico, gratis dal portale \"Fatture e Corrispettivi\" dell'Agenzia delle Entrate oppure in pochi secondi con un'app dal telefono. Vediamo cosa serve, quanto costa e come scegliere l'app giusta.",
     publishedAt: "2026-05-14",
-    updatedAt: "2026-08-02",
+    updatedAt: "2026-08-05",
     readingMinutes: 8,
     sections: [
       {
         heading: "La premessa normativa",
-        body: "Il D.Lgs. 127/2015 e il Provvedimento AdE del 28 ottobre 2016 hanno introdotto la possibilità di emettere e memorizzare i corrispettivi senza un registratore telematico, usando una procedura web messa a disposizione dall'Agenzia delle Entrate. La trasmissione avviene direttamente al portale e ha lo stesso valore fiscale dello scontrino tradizionale.",
+        body: "Lo scontrino che emetti senza registratore di cassa si chiama, nel linguaggio dell'Agenzia delle Entrate, **documento commerciale online** (DCO): è uno scontrino elettronico emesso dal portale \"Fatture e Corrispettivi\" o da un software collegato, e sostituisce a tutti gli effetti quello del registratore telematico. La base normativa è l'articolo 2 del D.Lgs. 127/2015, che ha introdotto la memorizzazione e trasmissione telematica dei corrispettivi, e il Provvedimento AdE del 28 ottobre 2016 n. 182017. L'Interpello AdE n. 956-1523/2020 ha confermato che usare software di terze parti per velocizzare la procedura web è ammesso, purché ne rispetti le prescrizioni.",
       },
       {
         heading: "Cosa serve",
         body: "Serve una partita IVA attiva, credenziali Fisconline o SPID per accedere al portale AdE, una connessione internet stabile e un dispositivo (smartphone, tablet o PC). Non occorre hardware certificato, non occorre installazione da tecnico abilitato, non occorre alcun collaudo periodico.",
       },
       {
-        heading: "Procedura passo-passo dal portale AdE",
-        body: 'Accedi a Fatture e Corrispettivi con SPID o credenziali Fisconline. Nella sezione "Corrispettivi" scegli "Documento commerciale online". Inserisci gli articoli, le quantità e le aliquote IVA. Conferma il pagamento. Il documento viene generato, trasmesso e ti puoi stampare o inviare via email/QR al cliente. Tempo medio per emissione: 30-60 secondi.',
-      },
-      {
-        heading: "Procedura con un'app dedicata",
-        body: 'App come ScontrinoZero automatizzano la procedura: salvi il catalogo prodotti una volta, e in fase di emissione basta toccare gli articoli, scegliere il pagamento e premere "Emetti". L\'app si occupa di autenticarsi su AdE con le tue credenziali, di trasmettere il documento e di archiviarlo. Tempo medio: 5-10 secondi per scontrino.',
+        heading: "Come si emette: dal portale AdE o da un'app",
+        body: 'Dal portale è gratis ma lento. Accedi a Fatture e Corrispettivi con SPID o credenziali Fisconline, nella sezione "Corrispettivi" scegli "Documento commerciale online", inserisci articoli, quantità e aliquote IVA, conferma il pagamento: il documento viene generato, trasmesso e puoi stamparlo o inviarlo via email/QR al cliente. Tempo medio 30-60 secondi a scontrino. Un\'app dedicata automatizza gli stessi passaggi: app come ScontrinoZero salvano il catalogo prodotti una volta, poi in emissione basta toccare gli articoli, scegliere il pagamento e premere "Emetti" — l\'app si autentica su AdE con le tue credenziali, trasmette il documento e lo archivia. Tempo medio 5-10 secondi. La procedura fiscale è identica: cambia solo quanto tempo ci metti.',
         image: {
           src: "/screenshots/cassa-tastierino.png",
           alt: "Schermata Cassa di ScontrinoZero: tastierino per l'importo, quantità e aliquota IVA della riga",
@@ -191,6 +111,18 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         heading: "Quale app scegliere per lo scontrino elettronico",
         body: "La risposta secca: un'app che trasmetta il documento commerciale direttamente all'Agenzia delle Entrate con le tue credenziali, senza hardware aggiuntivo, con prezzo trasparente e prova gratuita. I criteri che contano nella scelta sono cinque: velocità di emissione (al banco contano i secondi, non i minuti), costo chiaro senza vincoli di durata né hardware da comprare, storico consultabile con i totali giornalieri, annullo dello scontrino direttamente dall'app, e assistenza raggiungibile quando qualcosa non va. ScontrinoZero è costruita esattamente su questi criteri: catalogo prodotti, emissione in pochi secondi, annullo e storico inclusi, da €29,99 l'anno con 30 giorni di prova senza carta. Per una checklist completa dei criteri vedi la guida alla scelta del software, linkata in fondo.",
+      },
+      {
+        heading: "Cosa contiene il documento commerciale",
+        body: "Un DCO riporta obbligatoriamente: ragione sociale e partita IVA dell'esercente, data e ora di emissione, numero progressivo annuale, descrizione dei beni o servizi venduti, prezzo unitario, quantità, aliquota IVA per riga, totale corrispettivo ed eventuale codice lotteria del cliente. La trasmissione all'Agenzia delle Entrate avviene nel momento in cui confermi l'emissione. Va emesso al pagamento per ogni vendita al consumatore finale: non sostituisce la fattura elettronica verso altre partite IVA, che continua a passare dal Sistema di Interscambio.",
+        image: {
+          src: "/screenshots/documento-commerciale.png",
+          alt: "Documento commerciale online emesso da ScontrinoZero, con progressivo, dettaglio delle righe, aliquote IVA e totale",
+          width: 900,
+          height: 1272,
+          caption:
+            "Il documento commerciale come lo riceve il cliente: progressivo, righe, aliquote e totale.",
+        },
       },
       {
         heading: "Quanto costa emettere scontrini senza registratore di cassa",
@@ -247,6 +179,18 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         question:
+          "Il documento commerciale online ha lo stesso valore dello scontrino del registratore telematico?",
+        answer:
+          "Sì. Sono fiscalmente equivalenti: stesso valore probatorio, stessi adempimenti di trasmissione, stessi diritti del cliente su garanzia, reso e lotteria. La differenza sta solo nel mezzo di emissione, software invece di hardware certificato.",
+      },
+      {
+        question:
+          "Serve ancora avere un registratore telematico se uso il DCO?",
+        answer:
+          "No, sono alternative. Se emetti tutti i corrispettivi tramite documento commerciale online da software, il registratore telematico non è necessario. Puoi tenerne uno fisico e affiancare il DCO per la mobilità, ma legalmente uno dei due basta.",
+      },
+      {
+        question:
           "Qual è la migliore app per fare scontrini senza registratore di cassa?",
         answer:
           "Quella che trasmette direttamente all'AdE con le tue credenziali, ha un prezzo trasparente e ti fa emettere in pochi secondi. Valuta velocità, costo annuo, storico e annullo inclusi, e la possibilità di provare gratis. ScontrinoZero copre tutti questi punti e si prova 30 giorni senza carta di credito.",
@@ -259,7 +203,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     ],
     relatedHelp: ["primo-scontrino", "credenziali-fisconline", "errori-ade"],
     relatedGuides: [
-      "documento-commerciale-online",
+      "differenza-scontrino-ricevuta-fattura",
       "scegliere-software-scontrini-elettronici",
       "scontrino-regime-forfettario",
     ],
@@ -325,7 +269,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       "regime-forfettario",
     ],
     relatedGuides: [
-      "documento-commerciale-online",
+      "scontrino-senza-registratore-di-cassa",
       "scontrino-regime-forfettario",
     ],
   },
@@ -388,8 +332,8 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     ],
     relatedHelp: ["pos-rt-obbligo", "normativa-pos-2026", "primo-scontrino"],
     relatedGuides: [
-      "documento-commerciale-online",
       "scontrino-senza-registratore-di-cassa",
+      "obbligo-scontrino-elettronico-2026",
     ],
   },
 
@@ -462,7 +406,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     ],
     relatedHelp: ["regime-forfettario", "aliquote-iva", "primo-scontrino"],
     relatedGuides: [
-      "documento-commerciale-online",
+      "scontrino-senza-registratore-di-cassa",
       "differenza-scontrino-ricevuta-fattura",
       "codici-natura-iva",
     ],
@@ -531,7 +475,6 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       "pos-rt-obbligo",
     ],
     relatedGuides: [
-      "documento-commerciale-online",
       "scontrino-senza-registratore-di-cassa",
       "pos-rt-obbligo-2026",
     ],
@@ -596,8 +539,8 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       "cassetto-fiscale",
     ],
     relatedGuides: [
-      "documento-commerciale-online",
       "scontrino-senza-registratore-di-cassa",
+      "annullare-scontrino-elettronico",
     ],
   },
 
@@ -687,7 +630,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       "primo-scontrino",
     ],
     relatedGuides: [
-      "documento-commerciale-online",
+      "scontrino-senza-registratore-di-cassa",
       "differenza-scontrino-ricevuta-fattura",
     ],
   },
@@ -761,7 +704,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       "regime-forfettario",
     ],
     relatedGuides: [
-      "documento-commerciale-online",
+      "scontrino-senza-registratore-di-cassa",
       "scontrino-regime-forfettario",
     ],
   },
@@ -828,7 +771,6 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       "sicurezza-credenziali",
     ],
     relatedGuides: [
-      "documento-commerciale-online",
       "scontrino-senza-registratore-di-cassa",
       "pos-rt-obbligo-2026",
     ],
@@ -1154,8 +1096,8 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       "come-collegare-ade",
     ],
     relatedGuides: [
-      "documento-commerciale-online",
       "scontrino-senza-registratore-di-cassa",
+      "scegliere-software-scontrini-elettronici",
     ],
   },
 
@@ -1223,7 +1165,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     ],
     relatedHelp: ["cassetto-fiscale", "storico-ed-esportazione", "errori-ade"],
     relatedGuides: [
-      "documento-commerciale-online",
+      "scontrino-senza-registratore-di-cassa",
       "chiusura-giornaliera-corrispettivi",
       "annullare-scontrino-elettronico",
     ],
@@ -1559,7 +1501,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     ],
     relatedHelp: ["pos-rt-obbligo", "chiusura-giornaliera", "primo-scontrino"],
     relatedGuides: [
-      "documento-commerciale-online",
+      "scontrino-senza-registratore-di-cassa",
       "migrare-da-registratore-telematico-a-software",
       "registratore-di-cassa-prezzi",
     ],

@@ -260,10 +260,10 @@ export default function Home() {
             </Link>
             {" · "}
             <Link
-              href="/guide/documento-commerciale-online"
+              href="/guide/sanzioni-mancato-scontrino"
               className="text-primary hover:underline"
             >
-              {"Documento commerciale online"}
+              {"Sanzioni mancato scontrino"}
             </Link>
             {" · "}
             <Link

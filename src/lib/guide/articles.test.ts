@@ -9,14 +9,13 @@ import {
 } from "./articles";
 
 describe("guideSlugs", () => {
-  it("contains exactly 18 slugs", () => {
-    expect(guideSlugs).toHaveLength(18);
+  it("contains exactly 17 slugs", () => {
+    expect(guideSlugs).toHaveLength(17);
   });
 
   it("contains the expected slugs", () => {
     expect(guideSlugs).toEqual(
       expect.arrayContaining([
-        "documento-commerciale-online",
         "scontrino-senza-registratore-di-cassa",
         "differenza-scontrino-ricevuta-fattura",
         "pos-rt-obbligo-2026",
@@ -188,7 +187,7 @@ describe("guide inline screenshots", () => {
     readonly src: string;
   }> = [
     {
-      slug: "documento-commerciale-online",
+      slug: "scontrino-senza-registratore-di-cassa",
       src: "/screenshots/documento-commerciale.png",
     },
     {
@@ -521,8 +520,8 @@ describe("registratore-telematico-vs-documento-commerciale-online", () => {
 
 describe("getGuide", () => {
   it("returns the guide for a known slug", () => {
-    const a = getGuide("documento-commerciale-online");
-    expect(a.slug).toBe("documento-commerciale-online");
+    const a = getGuide("scontrino-senza-registratore-di-cassa");
+    expect(a.slug).toBe("scontrino-senza-registratore-di-cassa");
   });
 
   it("throws for an unknown slug", () => {
@@ -691,5 +690,62 @@ describe("costi RT: nessun claim di canone annuo obbligatorio", () => {
     const prezzi = prosa(guideArticles["registratore-di-cassa-prezzi"]);
     expect(prezzi).toMatch(/verificazione/i);
     expect(prezzi).toMatch(/ogni 2 anni/i);
+  });
+});
+
+/**
+ * `/guide/documento-commerciale-online` è stata fusa in
+ * `scontrino-senza-registratore-di-cassa` (agosto 2026). Le due guide
+ * coprivano lo stesso argomento e Google le teneva **entrambe** fuori
+ * dall'indice, lasciando le 454 impressioni del cluster "senza cassa" alla
+ * homepage, che le serviva a posizione 40. Il termine istituzionale "documento
+ * commerciale online" valeva 9 impressioni contro 454: la superstite è quella
+ * che parla la lingua di chi cerca, ma deve possedere anche il termine
+ * ufficiale, altrimenti la fusione ha perso contenuto.
+ */
+describe("fusione del cluster documento commerciale online", () => {
+  it("lo slug fuso non esiste più", () => {
+    expect(guideSlugs).not.toContain("documento-commerciale-online");
+  });
+
+  it("nessuna guida punta più allo slug rimosso", () => {
+    for (const slug of guideSlugs) {
+      expect(guideArticles[slug].relatedGuides, `guida ${slug}`).not.toContain(
+        "documento-commerciale-online",
+      );
+    }
+  });
+
+  const survivor = () => guideArticles["scontrino-senza-registratore-di-cassa"];
+
+  it("la superstite definisce il termine istituzionale e la sigla DCO", () => {
+    const testo = survivor()
+      .sections.map((s) => `${s.heading} ${s.body}`)
+      .join(" ");
+    expect(testo).toMatch(/documento commerciale online/i);
+    expect(testo).toMatch(/\bDCO\b/);
+  });
+
+  it("la superstite eredita il contenuto obbligatorio del documento", () => {
+    const testo = survivor()
+      .sections.map((s) => `${s.heading} ${s.body}`)
+      .join(" ");
+    expect(testo).toMatch(/numero progressivo/i);
+    expect(testo).toMatch(/codice lotteria/i);
+  });
+
+  it("la superstite eredita la base normativa datata", () => {
+    const testo = survivor()
+      .sections.map((s) => s.body)
+      .join(" ");
+    expect(testo).toContain("D.Lgs. 127/2015");
+    expect(testo).toContain("28 ottobre 2016");
+  });
+
+  it("la superstite eredita l'equivalenza fiscale con l'RT nelle FAQ", () => {
+    const faq = survivor()
+      .faq.map((f) => `${f.question} ${f.answer}`)
+      .join(" ");
+    expect(faq).toMatch(/stesso valore|fiscalmente equivalent/i);
   });
 });
