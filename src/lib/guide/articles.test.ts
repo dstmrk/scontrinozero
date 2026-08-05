@@ -65,9 +65,12 @@ describe("guideArticles dictionary", () => {
         expect(a.title.length).toBeLessThanOrEqual(70);
       });
 
-      it("has metaTitle 30-70 chars", () => {
+      // 60 è il budget che Google rende in SERP prima di troncare. Il title è
+      // assoluto (nessun suffisso brand aggiunto dal template root), quindi il
+      // metaTitle è per intero ciò che l'utente legge nel risultato.
+      it("has metaTitle 30-60 chars (budget SERP)", () => {
         expect(a.metaTitle.length).toBeGreaterThanOrEqual(30);
-        expect(a.metaTitle.length).toBeLessThanOrEqual(70);
+        expect(a.metaTitle.length).toBeLessThanOrEqual(60);
       });
 
       it("has metaDescription 80-170 chars", () => {
@@ -592,5 +595,55 @@ describe("relatedTools slugs point to real tools", () => {
     expect(
       guideArticles["scontrino-regime-forfettario"].relatedTools,
     ).toContain("dicitura-regime-forfettario");
+  });
+});
+
+/**
+ * Le query di Search Console mostrano un divario netto fra posizione e CTR su
+ * alcune guide: il titolo non riprende le parole con cui l'utente cerca, o non
+ * anticipa la risposta. Questi test bloccano l'intento nel metaTitle, così una
+ * riscrittura futura non lo perde per strada.
+ */
+describe("metaTitle allineati all'intento di ricerca (dati GSC 2026-08-05)", () => {
+  // "quanto costa un registratore di cassa" (pos 13,7) e "registratori
+  // telematici costo" (pos 16,7): la domanda è un prezzo, il titolo risponde.
+  it("registratore-di-cassa-prezzi riprende la query e mostra la cifra", () => {
+    const t = guideArticles["registratore-di-cassa-prezzi"].metaTitle;
+    expect(t.toLowerCase()).toContain("quanto costa");
+    expect(t).toMatch(/\d/);
+  });
+
+  // "codice n2.2", "n2.2 iva", "codice iva n2.2": il codice esatto va in testa.
+  it("codici-natura-iva apre con il codice cercato", () => {
+    expect(guideArticles["codici-natura-iva"].metaTitle).toMatch(
+      /^Codice natura IVA N2\.2/,
+    );
+  });
+
+  // "differenza tra fattura e scontrino" (pos 11,9): mancava la parola chiave.
+  it("differenza-scontrino-ricevuta-fattura nomina la differenza", () => {
+    expect(
+      guideArticles[
+        "differenza-scontrino-ricevuta-fattura"
+      ].metaTitle.toLowerCase(),
+    ).toContain("differenza");
+  });
+
+  // "dove trovo gli scontrini nel cassetto fiscale" (pos 7,2, CTR 0%).
+  it("cassetto-fiscale-dove-trovare-scontrini riprende la formulazione della query", () => {
+    const t =
+      guideArticles[
+        "cassetto-fiscale-dove-trovare-scontrini"
+      ].metaTitle.toLowerCase();
+    expect(t).toContain("scontrini");
+    expect(t).toContain("cassetto fiscale");
+  });
+
+  // Il cluster forfettario vale 437 impressioni con 0 clic: il titolo deve
+  // rispondere "sì, è obbligatorio" invece di rimandare al contenuto.
+  it("scontrino-regime-forfettario anticipa la risposta nel titolo", () => {
+    const t = guideArticles["scontrino-regime-forfettario"].metaTitle;
+    expect(t.toLowerCase()).toContain("forfettario");
+    expect(t.toLowerCase()).toContain("obbligatorio");
   });
 });

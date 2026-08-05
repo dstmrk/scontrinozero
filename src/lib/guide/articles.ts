@@ -155,8 +155,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
   "scontrino-senza-registratore-di-cassa": {
     slug: "scontrino-senza-registratore-di-cassa",
     title: "Emettere scontrino senza registratore di cassa: si può?",
-    metaTitle:
-      "Scontrino senza cassa: come emetterlo senza registratore (2026)",
+    metaTitle: "Scontrino senza cassa: si può, ecco come farlo (2026)",
     metaDescription:
       "Sì, si può: dal 2020 emetti lo scontrino senza cassa né registratore telematico, dal portale AdE o con un'app dal telefono. Cosa serve, costi e come iniziare.",
     heroIntro:
@@ -269,7 +268,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
   "differenza-scontrino-ricevuta-fattura": {
     slug: "differenza-scontrino-ricevuta-fattura",
     title: "Differenza fra scontrino, ricevuta fiscale e fattura",
-    metaTitle: "Scontrino, ricevuta fiscale o fattura: quale emettere?",
+    metaTitle: "Differenza tra scontrino, ricevuta fiscale e fattura",
     metaDescription:
       "Le differenze pratiche fra scontrino elettronico, ricevuta fiscale e fattura: quando si usa cosa, esempi tipici per commercianti, artigiani e professionisti.",
     heroIntro:
@@ -397,8 +396,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
   "scontrino-regime-forfettario": {
     slug: "scontrino-regime-forfettario",
     title: "Scontrino in regime forfettario: cosa devi sapere",
-    metaTitle:
-      "Scontrino regime forfettario 2026: quando è obbligatorio e come",
+    metaTitle: "Scontrino regime forfettario: sì, è obbligatorio (2026)",
     metaDescription:
       "Sì, anche in regime forfettario lo scontrino ai privati è obbligatorio: si emette senza IVA con natura N2, anche senza registratore di cassa. Errori tipici e lotteria.",
     heroIntro:
@@ -838,8 +836,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
   "codici-natura-iva": {
     slug: "codici-natura-iva",
     title: "Codici natura IVA: cosa sono e quando si usano",
-    metaTitle:
-      "Codice natura IVA N2.2: significato, forfettario e tabella N1-N7",
+    metaTitle: "Codice natura IVA N2.2: cosa significa e tabella N1-N7",
     metaDescription:
       'N2.2 significa "operazione non soggetta a IVA - altri casi": il codice del forfettario in fattura elettronica. Tabella N1-N7, differenza con N2 e dicitura.',
     heroIntro:
@@ -1165,7 +1162,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
   "cassetto-fiscale-dove-trovare-scontrini": {
     slug: "cassetto-fiscale-dove-trovare-scontrini",
     title: "Dove trovare gli scontrini emessi nel portale AdE",
-    metaTitle: "Dove trovare gli scontrini nel cassetto fiscale (portale AdE)",
+    metaTitle: "Dove trovo gli scontrini nel cassetto fiscale: percorso",
     metaDescription:
       "Gli scontrini emessi non stanno nel cassetto fiscale ma in Fatture e Corrispettivi: il percorso per trovarli, verificarli e cosa vede il privato.",
     heroIntro:
@@ -1311,9 +1308,9 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
   "registratore-di-cassa-prezzi": {
     slug: "registratore-di-cassa-prezzi",
     title: "Quanto costa un registratore di cassa nel 2026",
-    metaTitle: "Registratore di cassa: prezzi 2026 e alternative senza costi",
+    metaTitle: "Quanto costa un registratore di cassa: 400-800 € + canone",
     metaDescription:
-      "Un registratore telematico costa 400-800 € più 50-100 €/anno di gestione. Le alternative software partono da 0 €: tutti i prezzi a confronto e quando conviene cosa.",
+      "Un registratore telematico costa 400-800 € di acquisto, più 100-200 € di installazione e 50-100 € di verificazione ogni 2 anni. Le alternative software partono da 0 €.",
     heroIntro:
       "Un registratore di cassa telematico costa 400-800 € di acquisto, più l'installazione del tecnico abilitato e la verificazione periodica biennale: sui 3 anni la spesa reale supera facilmente i 1.000 €. L'alternativa software (documento commerciale online) parte da 0 € col portale AdE o da pochi euro al mese con un'app. Vediamo tutte le voci di costo e quando conviene l'una o l'altra strada.",
     publishedAt: "2026-07-22",
