@@ -161,6 +161,29 @@ describe("aliquote-iva does not cannibalise metodi-di-pagamento", () => {
   });
 });
 
+describe("normativa-pos-2026 non si confonde con pos-rt-obbligo", () => {
+  const normativa = helpArticles["normativa-pos-2026"];
+  const posRt = helpArticles["pos-rt-obbligo"];
+
+  it("keeps the 'normativa POS 2026' intent in the title (anchor text dell'hub)", () => {
+    expect(normativa.title.toLowerCase()).toContain("normativa pos 2026");
+  });
+
+  it("does not open with the same word as pos-rt-obbligo", () => {
+    // Le due voci sono adiacenti nella categoria "POS e normativa" dell'hub:
+    // con lo stesso incipit ("Collegamento POS-…") si leggono come lo stesso
+    // articolo scritto due volte.
+    expect(normativa.title).not.toBe(posRt.title);
+    const firstWord = (title: string) => title.split(" ")[0].toLowerCase();
+    expect(firstWord(normativa.title)).not.toBe(firstWord(posRt.title));
+  });
+
+  it("cross-links pos-rt-obbligo through related", () => {
+    expect(normativa.related).toContain("pos-rt-obbligo");
+    expect(posRt.related).toContain("normativa-pos-2026");
+  });
+});
+
 describe("per-article dates", () => {
   it("every article has datePublished and dateModified in ISO YYYY-MM-DD form", () => {
     for (const article of Object.values(helpArticles)) {
