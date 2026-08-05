@@ -119,7 +119,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Vantaggi rispetto al registratore telematico",
-        body: "Il DCO emesso da software elimina i costi hardware iniziali (€400-800 per un RT), il canone annuo di manutenzione (€100-200), il collaudo biennale obbligatorio e l'installazione da tecnico abilitato. In compenso richiede una connessione internet stabile e non è ottimale per attività con coda alla cassa: il vantaggio è massimo per attività mobili, stagionali o con volumi bassi/medi.",
+        body: "Il DCO emesso da software elimina i costi hardware iniziali (400-800 € per un RT), l'installazione da tecnico abilitato (100-200 € una tantum) e la verificazione periodica obbligatoria ogni 2 anni (50-100 € a intervento). In compenso richiede una connessione internet stabile e non è ottimale per attività con coda alla cassa: il vantaggio è massimo per attività mobili, stagionali o con volumi bassi/medi.",
       },
     ],
     faq: [
@@ -194,7 +194,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Quanto costa emettere scontrini senza registratore di cassa",
-        body: "Da zero a poche decine di euro l'anno. Il portale Fatture e Corrispettivi dell'Agenzia delle Entrate è gratuito ma lento (30-60 secondi a scontrino); le app dedicate costano in genere 30-100 € l'anno e riducono l'emissione a pochi secondi. Il confronto con il registratore telematico fisico è netto: un RT costa 400-800 € di acquisto più 100-200 € l'anno di manutenzione e il collaudo biennale. La regola pratica: sotto le poche centinaia di scontrini al giorno, o se lavori in mobilità, lo scontrino senza cassa conviene quasi sempre; il registratore fisico resta più rapido solo al banco con code e alti volumi.",
+        body: "Da zero a poche decine di euro l'anno. Il portale Fatture e Corrispettivi dell'Agenzia delle Entrate è gratuito ma lento (30-60 secondi a scontrino); le app dedicate costano in genere 30-100 € l'anno e riducono l'emissione a pochi secondi. Il confronto con il registratore telematico fisico è netto: un RT costa 400-800 € di acquisto, più 100-200 € una tantum di installazione da tecnico abilitato e 50-100 € di verificazione periodica ogni 2 anni, cioè 550-1.100 € sul primo triennio. La regola pratica: sotto le poche centinaia di scontrini al giorno, o se lavori in mobilità, lo scontrino senza cassa conviene quasi sempre; il registratore fisico resta più rapido solo al banco con code e alti volumi.",
         table: {
           headers: [
             "Soluzione",
@@ -212,8 +212,8 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
             ],
             [
               "Registratore telematico",
-              "€400-800 + installazione",
-              "100-200 € + collaudo biennale",
+              "€400-800 + 100-200 € installazione",
+              "50-100 € ogni 2 anni (verificazione)",
               "istantaneo al banco",
             ],
           ],
@@ -254,7 +254,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         question: "Quanto costa fare scontrini senza registratore di cassa?",
         answer:
-          "Da zero: il portale Fatture e Corrispettivi dell'AdE è gratuito, ma richiede 30-60 secondi a scontrino. Un'app dedicata costa in genere 30-100 € l'anno (ScontrinoZero parte da €29,99) ed emette in pochi secondi. Un registratore telematico fisico costa invece 400-800 € di acquisto più 100-200 € l'anno.",
+          "Da zero: il portale Fatture e Corrispettivi dell'AdE è gratuito, ma richiede 30-60 secondi a scontrino. Un'app dedicata costa in genere 30-100 € l'anno (ScontrinoZero parte da €29,99) ed emette in pochi secondi. Un registratore telematico fisico costa invece 400-800 € di acquisto, più 100-200 € di installazione e 50-100 € di verificazione ogni 2 anni.",
       },
     ],
     relatedHelp: ["primo-scontrino", "credenziali-fisconline", "errori-ade"],
@@ -483,7 +483,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     sections: [
       {
         heading: "Perché valutare la migrazione",
-        body: "Un registratore telematico medio costa €400-800 di acquisto, €100-200 di canone annuo di manutenzione, una visita di collaudo biennale obbligatoria a pagamento e l'installazione iniziale da tecnico abilitato. Il documento commerciale online via software elimina hardware, canoni e collaudi. Per attività con volumi medi o bassi, oppure mobili (ambulanti, B&B, servizi a domicilio), il risparmio annuo è significativo e l'operatività diventa più flessibile.",
+        body: "Un registratore telematico medio costa 400-800 € di acquisto, 100-200 € di installazione iniziale da tecnico abilitato e una verificazione periodica obbligatoria ogni 2 anni (50-100 € a intervento); a questi si aggiunge, se lo sottoscrivi, un contratto di assistenza facoltativo. Il documento commerciale online via software elimina hardware, installazione e verificazioni. Per attività con volumi medi o bassi, oppure mobili (ambulanti, B&B, servizi a domicilio), il risparmio annuo è significativo e l'operatività diventa più flessibile.",
       },
       {
         heading: "Quando NON conviene migrare",
@@ -994,7 +994,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     sections: [
       {
         heading: "Serve una stampante fiscale? No",
-        body: "Con il documento commerciale online lo scontrino ha già valore fiscale nel momento in cui viene trasmesso all'Agenzia delle Entrate: la stampa su carta è solo una copia di cortesia per il cliente, nemmeno obbligatoria (puoi mostrare lo scontrino a schermo o inviarlo via email). Per questo non serve un registratore telematico omologato (400-800 € di hardware più 100-200 € l'anno di manutenzione), né va dichiarato nulla all'AdE: una qualsiasi stampante termica generica, la stessa usata per le ricevute dei POS bancari, fa il lavoro. È la differenza di costo più grande rispetto alla cassa tradizionale.",
+        body: "Con il documento commerciale online lo scontrino ha già valore fiscale nel momento in cui viene trasmesso all'Agenzia delle Entrate: la stampa su carta è solo una copia di cortesia per il cliente, nemmeno obbligatoria (puoi mostrare lo scontrino a schermo o inviarlo via email). Per questo non serve un registratore telematico omologato (400-800 € di hardware, più installazione e verificazione periodica ogni 2 anni), né va dichiarato nulla all'AdE: una qualsiasi stampante termica generica, la stessa usata per le ricevute dei POS bancari, fa il lavoro. È la differenza di costo più grande rispetto alla cassa tradizionale.",
       },
       {
         heading: "WiFi, Bluetooth o USB: il confronto",
@@ -1312,7 +1312,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     metaDescription:
       "Un registratore telematico costa 400-800 € di acquisto, più 100-200 € di installazione e 50-100 € di verificazione ogni 2 anni. Le alternative software partono da 0 €.",
     heroIntro:
-      "Un registratore di cassa telematico costa 400-800 € di acquisto, più l'installazione del tecnico abilitato e la verificazione periodica biennale: sui 3 anni la spesa reale supera facilmente i 1.000 €. L'alternativa software (documento commerciale online) parte da 0 € col portale AdE o da pochi euro al mese con un'app. Vediamo tutte le voci di costo e quando conviene l'una o l'altra strada.",
+      "Un registratore di cassa telematico costa 400-800 € di acquisto, più l'installazione del tecnico abilitato e la verificazione periodica biennale: sui 3 anni la spesa reale sta fra 550 e 1.100 €. L'alternativa software (documento commerciale online) parte da 0 € col portale AdE o da pochi euro al mese con un'app. Vediamo tutte le voci di costo e quando conviene l'una o l'altra strada.",
     publishedAt: "2026-07-22",
     updatedAt: "2026-07-22",
     readingMinutes: 6,
@@ -1323,7 +1323,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Il costo reale su 3 anni",
-        body: "Mettendo insieme le voci, un RT da 600 € con installazione a 150 € e una verificazione biennale a 80 € porta la spesa del primo triennio a circa 900-1.000 €, senza contare carta, eventuali riparazioni fuori garanzia e il tempo per gli adempimenti tecnici. È il numero da confrontare con le alternative software, che su 3 anni costano da 0 € (portale AdE) a circa 90-150 € (app in abbonamento).",
+        body: "Mettendo insieme le voci, un RT da 600 € con installazione a 150 € e una verificazione biennale a 80 € porta la spesa del primo triennio a 830 €, senza contare carta, eventuali riparazioni fuori garanzia e il tempo per gli adempimenti tecnici. La forbice tipica va da 550 € (modello base, installazione economica) a 1.100 € (fascia alta), a cui si aggiunge un contratto di assistenza solo se scegli di sottoscriverlo. È il numero da confrontare con le alternative software, che su 3 anni costano da 0 € (portale AdE) a circa 90-150 € (app in abbonamento).",
         table: {
           headers: ["Soluzione", "Costo iniziale", "Costo 3 anni (indicativo)"],
           rows: [
@@ -1362,7 +1362,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         question: "Quanto costa un registratore di cassa telematico?",
         answer:
-          "I modelli da banco più comuni costano 400-800 € di acquisto, a cui aggiungere 100-200 € di installazione da tecnico abilitato e 50-100 € di verificazione ogni 2 anni. Sui 3 anni la spesa complessiva è tipicamente di 900-1.200 €.",
+          "I modelli da banco più comuni costano 400-800 € di acquisto, a cui aggiungere 100-200 € di installazione da tecnico abilitato e 50-100 € di verificazione ogni 2 anni. Sui 3 anni la spesa complessiva è tipicamente di 550-1.100 €, contratto di assistenza facoltativo escluso.",
       },
       {
         question: "È obbligatorio comprare il registratore di cassa?",

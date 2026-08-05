@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  type GuideSlug,
   getGuide,
   guideArticles,
   guideImageFrame,
@@ -645,5 +646,50 @@ describe("metaTitle allineati all'intento di ricerca (dati GSC 2026-08-05)", () 
     const t = guideArticles["scontrino-regime-forfettario"].metaTitle;
     expect(t.toLowerCase()).toContain("forfettario");
     expect(t.toLowerCase()).toContain("obbligatorio");
+  });
+});
+
+/**
+ * Il costo del registratore telematico è prosa in una decina di punti, quindi
+ * non è importabile da `src/lib/marketing/rt-costs.ts` come un dato
+ * strutturato. Questo guard è la versione applicabile della regola "doppia
+ * scrittura vietata": il framing sbagliato non può rientrare in silenzio.
+ *
+ * Da ritirare: il "canone annuo di manutenzione 100-200 €". Quella cifra è un
+ * contratto di assistenza FACOLTATIVO; il solo costo ricorrente obbligatorio è
+ * la verificazione periodica, 50-100 € ogni 2 anni. Presentarlo come canone
+ * dovuto gonfia di ~4x la spesa ricorrente del concorrente.
+ */
+describe("costi RT: nessun claim di canone annuo obbligatorio", () => {
+  const prosa = (a: (typeof guideArticles)[GuideSlug]) =>
+    [
+      a.heroIntro,
+      a.metaDescription,
+      ...a.sections.flatMap((s) => [s.body, ...(s.table?.rows.flat() ?? [])]),
+      ...a.faq.map((f) => f.answer),
+    ].join(" ");
+
+  const VIETATI = [
+    /canone annuo di manutenzione/i,
+    /100-200 € l'anno/i,
+    /€100-200 l'anno/i,
+    /100-200 €\/anno/i,
+  ];
+
+  for (const slug of guideSlugs) {
+    it(`${slug} non presenta i 100-200 € come canone annuo`, () => {
+      const testo = prosa(guideArticles[slug]);
+      for (const pattern of VIETATI) {
+        expect(testo, `guida ${slug}: "${pattern.source}"`).not.toMatch(
+          pattern,
+        );
+      }
+    });
+  }
+
+  it("la guida prezzi resta la sola a enumerare le voci di costo", () => {
+    const prezzi = prosa(guideArticles["registratore-di-cassa-prezzi"]);
+    expect(prezzi).toMatch(/verificazione/i);
+    expect(prezzi).toMatch(/ogni 2 anni/i);
   });
 });
