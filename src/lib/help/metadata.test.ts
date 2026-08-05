@@ -3,10 +3,23 @@ import { helpArticleMetadata } from "./metadata";
 import { getHelpArticle, helpSlugs } from "./articles";
 
 describe("helpArticleMetadata", () => {
-  it("uses the article metaTitle as document title", () => {
+  it("uses the article metaTitle as absolute document title", () => {
     const article = getHelpArticle("regime-forfettario");
     const meta = helpArticleMetadata("regime-forfettario");
-    expect(meta.title).toBe(article.metaTitle);
+    expect(meta.title).toEqual({ absolute: article.metaTitle });
+  });
+
+  // Il template root aggiungerebbe "| ScontrinoZero" (16 caratteri) a un
+  // metaTitle già vicino al limite di troncamento SERP (~60): il brand non
+  // verrebbe comunque mostrato e la coda della keyword sparirebbe. Il title
+  // assoluto protegge il budget di caratteri su ogni articolo.
+  it("nessuno slug riporta il suffisso brand nel title", () => {
+    for (const slug of helpSlugs) {
+      const meta = helpArticleMetadata(slug);
+      expect(meta.title).toEqual({
+        absolute: getHelpArticle(slug).metaTitle,
+      });
+    }
   });
 
   it("uses the article description", () => {

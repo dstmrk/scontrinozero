@@ -8,7 +8,7 @@ const ITEMS = [
   { name: "Guide", url: "https://scontrinozero.it/guide" },
   {
     name: "Documento commerciale online",
-    url: "https://scontrinozero.it/guide/documento-commerciale-online",
+    url: "https://scontrinozero.it/guide/scontrino-senza-registratore-di-cassa",
   },
 ];
 

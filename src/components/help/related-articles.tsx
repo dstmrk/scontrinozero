@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getRelatedArticles } from "@/lib/help/articles";
 import { appHref } from "@/lib/marketing-to-app-href";
+import { EditorialNote } from "@/components/marketing/editorial-note";
 
 interface RelatedHelpArticlesProps {
   readonly slug: string;
@@ -38,6 +39,8 @@ export function RelatedHelpArticles({ slug }: RelatedHelpArticlesProps) {
           </a>
         </Button>
       </div>
+
+      <EditorialNote />
     </>
   );
 }

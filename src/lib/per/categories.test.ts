@@ -59,9 +59,14 @@ describe("categories dictionary", () => {
         expect(c.title.length).toBeLessThanOrEqual(70);
       });
 
-      it("has metaTitle 30–70 chars", () => {
+      // Budget SERP: il title delle /per è assoluto (nessun suffisso brand dal
+      // template root), quindi il metaTitle è per intero ciò che Google rende.
+      it("has metaTitle 30–60 chars (budget SERP)", () => {
         expect(c.metaTitle.length).toBeGreaterThanOrEqual(30);
-        expect(c.metaTitle.length).toBeLessThanOrEqual(70);
+        expect(
+          c.metaTitle.length,
+          `per ${c.slug}: "${c.metaTitle}"`,
+        ).toBeLessThanOrEqual(60);
       });
 
       it("has metaDescription 80–170 chars", () => {
@@ -235,5 +240,27 @@ describe("relatedHelp slugs point to real help articles", () => {
         ).toContain(helpSlug);
       }
     }
+  });
+});
+
+/**
+ * `/per/regime-forfettario` e `/guide/scontrino-regime-forfettario` coprono lo
+ * stesso pubblico e per un periodo hanno avuto titoli quasi identici: la /per
+ * è finita fuori indice. Non è però un duplicato da rimuovere — è la landing
+ * commerciale del segmento (prezzo, benefici, obblighi) mentre la guida è
+ * quella educativa, ed è una delle card della griglia in homepage. La
+ * separazione si fa sull'intento del titolo: la guida risponde "devo?", la
+ * /per risponde "con cosa?".
+ */
+describe("separazione di intento sul cluster forfettario", () => {
+  it("la /per punta alla soluzione, non all'obbligo", async () => {
+    const { guideArticles } = await import("@/lib/guide/articles");
+    const perTitle = categories["regime-forfettario"].metaTitle;
+    const guideTitle = guideArticles["scontrino-regime-forfettario"].metaTitle;
+
+    expect(perTitle).not.toBe(guideTitle);
+    expect(perTitle.toLowerCase()).toMatch(/app|soluzione/);
+    expect(perTitle.toLowerCase()).not.toContain("obbligatorio");
+    expect(guideTitle.toLowerCase()).toContain("obbligatorio");
   });
 });

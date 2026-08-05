@@ -42,6 +42,18 @@ describe("helpArticles registry", () => {
     }
   });
 
+  // Il title degli articoli help è assoluto (helpArticleMetadata), quindi il
+  // metaTitle è per intero ciò che Google rende: oltre i ~60 caratteri viene
+  // troncato e la coda della keyword si perde.
+  it("each metaTitle fits the SERP budget (≤ 60 chars)", () => {
+    for (const article of Object.values(helpArticles)) {
+      expect(
+        article.metaTitle.length,
+        `help ${article.slug}: "${article.metaTitle}"`,
+      ).toBeLessThanOrEqual(60);
+    }
+  });
+
   it("each title fits the Article headline limit (≤ 110 chars)", () => {
     for (const article of Object.values(helpArticles)) {
       expect(article.title.length).toBeLessThanOrEqual(110);

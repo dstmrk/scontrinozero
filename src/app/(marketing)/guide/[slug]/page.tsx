@@ -20,6 +20,7 @@ import {
   isGuideSlug,
 } from "@/lib/guide/articles";
 import { AppScreenshot } from "@/components/marketing/app-screenshot";
+import { EditorialNote } from "@/components/marketing/editorial-note";
 import { helpArticles } from "@/lib/help/articles";
 import { isToolSlug, tools } from "@/lib/strumenti/tools";
 import { formatDate } from "@/lib/utils";
@@ -39,11 +40,17 @@ export async function generateMetadata({
 }: PageParams): Promise<Metadata> {
   const { slug } = await params;
   if (!isGuideSlug(slug)) {
-    return { title: "Guida non trovata | ScontrinoZero" };
+    // Assoluto anche qui: da stringa piana il template root appenderebbe un
+    // secondo "| ScontrinoZero".
+    return { title: { absolute: "Guida non trovata | ScontrinoZero" } };
   }
   const g = guideArticles[slug];
   return {
-    title: g.metaTitle,
+    // Title assoluto: il template root ("%s | ScontrinoZero") aggiungerebbe 16
+    // caratteri a un metaTitle già vicino al troncamento SERP (~60), tagliando
+    // la coda della keyword senza nemmeno mostrare il brand. Il brand resta
+    // visibile via site name (webSiteJsonLd) e breadcrumb del dominio.
+    title: { absolute: g.metaTitle },
     description: g.metaDescription,
     openGraph: {
       title: g.metaTitle,
@@ -242,11 +249,7 @@ export default async function GuidePage({ params }: PageParams) {
             </>
           )}
 
-          <p className="text-muted-foreground mt-12 border-t pt-6 text-xs leading-relaxed">
-            {
-              "Informazione divulgativa, non sostituisce la consulenza del commercialista. Per situazioni specifiche verifica sempre la normativa aggiornata e il tuo codice ATECO."
-            }
-          </p>
+          <EditorialNote />
 
           <div className="bg-muted/40 border-border mt-10 rounded-lg border p-5 text-center">
             <p className="text-sm font-semibold">{"Pronto a provare?"}</p>

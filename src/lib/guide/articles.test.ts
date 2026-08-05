@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  type GuideSlug,
   getGuide,
   guideArticles,
   guideImageFrame,
@@ -8,14 +9,13 @@ import {
 } from "./articles";
 
 describe("guideSlugs", () => {
-  it("contains exactly 18 slugs", () => {
-    expect(guideSlugs).toHaveLength(18);
+  it("contains exactly 17 slugs", () => {
+    expect(guideSlugs).toHaveLength(17);
   });
 
   it("contains the expected slugs", () => {
     expect(guideSlugs).toEqual(
       expect.arrayContaining([
-        "documento-commerciale-online",
         "scontrino-senza-registratore-di-cassa",
         "differenza-scontrino-ricevuta-fattura",
         "pos-rt-obbligo-2026",
@@ -65,9 +65,12 @@ describe("guideArticles dictionary", () => {
         expect(a.title.length).toBeLessThanOrEqual(70);
       });
 
-      it("has metaTitle 30-70 chars", () => {
+      // 60 è il budget che Google rende in SERP prima di troncare. Il title è
+      // assoluto (nessun suffisso brand aggiunto dal template root), quindi il
+      // metaTitle è per intero ciò che l'utente legge nel risultato.
+      it("has metaTitle 30-60 chars (budget SERP)", () => {
         expect(a.metaTitle.length).toBeGreaterThanOrEqual(30);
-        expect(a.metaTitle.length).toBeLessThanOrEqual(70);
+        expect(a.metaTitle.length).toBeLessThanOrEqual(60);
       });
 
       it("has metaDescription 80-170 chars", () => {
@@ -184,7 +187,7 @@ describe("guide inline screenshots", () => {
     readonly src: string;
   }> = [
     {
-      slug: "documento-commerciale-online",
+      slug: "scontrino-senza-registratore-di-cassa",
       src: "/screenshots/documento-commerciale.png",
     },
     {
@@ -517,8 +520,8 @@ describe("registratore-telematico-vs-documento-commerciale-online", () => {
 
 describe("getGuide", () => {
   it("returns the guide for a known slug", () => {
-    const a = getGuide("documento-commerciale-online");
-    expect(a.slug).toBe("documento-commerciale-online");
+    const a = getGuide("scontrino-senza-registratore-di-cassa");
+    expect(a.slug).toBe("scontrino-senza-registratore-di-cassa");
   });
 
   it("throws for an unknown slug", () => {
@@ -592,5 +595,157 @@ describe("relatedTools slugs point to real tools", () => {
     expect(
       guideArticles["scontrino-regime-forfettario"].relatedTools,
     ).toContain("dicitura-regime-forfettario");
+  });
+});
+
+/**
+ * Le query di Search Console mostrano un divario netto fra posizione e CTR su
+ * alcune guide: il titolo non riprende le parole con cui l'utente cerca, o non
+ * anticipa la risposta. Questi test bloccano l'intento nel metaTitle, così una
+ * riscrittura futura non lo perde per strada.
+ */
+describe("metaTitle allineati all'intento di ricerca (dati GSC 2026-08-05)", () => {
+  // "quanto costa un registratore di cassa" (pos 13,7) e "registratori
+  // telematici costo" (pos 16,7): la domanda è un prezzo, il titolo risponde.
+  it("registratore-di-cassa-prezzi riprende la query e mostra la cifra", () => {
+    const t = guideArticles["registratore-di-cassa-prezzi"].metaTitle;
+    expect(t.toLowerCase()).toContain("quanto costa");
+    expect(t).toMatch(/\d/);
+  });
+
+  // "codice n2.2", "n2.2 iva", "codice iva n2.2": il codice esatto va in testa.
+  it("codici-natura-iva apre con il codice cercato", () => {
+    expect(guideArticles["codici-natura-iva"].metaTitle).toMatch(
+      /^Codice natura IVA N2\.2/,
+    );
+  });
+
+  // "differenza tra fattura e scontrino" (pos 11,9): mancava la parola chiave.
+  it("differenza-scontrino-ricevuta-fattura nomina la differenza", () => {
+    expect(
+      guideArticles[
+        "differenza-scontrino-ricevuta-fattura"
+      ].metaTitle.toLowerCase(),
+    ).toContain("differenza");
+  });
+
+  // "dove trovo gli scontrini nel cassetto fiscale" (pos 7,2, CTR 0%).
+  it("cassetto-fiscale-dove-trovare-scontrini riprende la formulazione della query", () => {
+    const t =
+      guideArticles[
+        "cassetto-fiscale-dove-trovare-scontrini"
+      ].metaTitle.toLowerCase();
+    expect(t).toContain("scontrini");
+    expect(t).toContain("cassetto fiscale");
+  });
+
+  // Il cluster forfettario vale 437 impressioni con 0 clic: il titolo deve
+  // rispondere "sì, è obbligatorio" invece di rimandare al contenuto.
+  it("scontrino-regime-forfettario anticipa la risposta nel titolo", () => {
+    const t = guideArticles["scontrino-regime-forfettario"].metaTitle;
+    expect(t.toLowerCase()).toContain("forfettario");
+    expect(t.toLowerCase()).toContain("obbligatorio");
+  });
+});
+
+/**
+ * Il costo del registratore telematico è prosa in una decina di punti, quindi
+ * non è importabile da `src/lib/marketing/rt-costs.ts` come un dato
+ * strutturato. Questo guard è la versione applicabile della regola "doppia
+ * scrittura vietata": il framing sbagliato non può rientrare in silenzio.
+ *
+ * Da ritirare: il "canone annuo di manutenzione 100-200 €". Quella cifra è un
+ * contratto di assistenza FACOLTATIVO; il solo costo ricorrente obbligatorio è
+ * la verificazione periodica, 50-100 € ogni 2 anni. Presentarlo come canone
+ * dovuto gonfia di ~4x la spesa ricorrente del concorrente.
+ */
+describe("costi RT: nessun claim di canone annuo obbligatorio", () => {
+  const prosa = (a: (typeof guideArticles)[GuideSlug]) =>
+    [
+      a.heroIntro,
+      a.metaDescription,
+      ...a.sections.flatMap((s) => [s.body, ...(s.table?.rows.flat() ?? [])]),
+      ...a.faq.map((f) => f.answer),
+    ].join(" ");
+
+  const VIETATI = [
+    /canone annuo di manutenzione/i,
+    /100-200 € l'anno/i,
+    /€100-200 l'anno/i,
+    /100-200 €\/anno/i,
+  ];
+
+  for (const slug of guideSlugs) {
+    it(`${slug} non presenta i 100-200 € come canone annuo`, () => {
+      const testo = prosa(guideArticles[slug]);
+      for (const pattern of VIETATI) {
+        expect(testo, `guida ${slug}: "${pattern.source}"`).not.toMatch(
+          pattern,
+        );
+      }
+    });
+  }
+
+  it("la guida prezzi resta la sola a enumerare le voci di costo", () => {
+    const prezzi = prosa(guideArticles["registratore-di-cassa-prezzi"]);
+    expect(prezzi).toMatch(/verificazione/i);
+    expect(prezzi).toMatch(/ogni 2 anni/i);
+  });
+});
+
+/**
+ * `/guide/documento-commerciale-online` è stata fusa in
+ * `scontrino-senza-registratore-di-cassa` (agosto 2026). Le due guide
+ * coprivano lo stesso argomento e Google le teneva **entrambe** fuori
+ * dall'indice, lasciando le 454 impressioni del cluster "senza cassa" alla
+ * homepage, che le serviva a posizione 40. Il termine istituzionale "documento
+ * commerciale online" valeva 9 impressioni contro 454: la superstite è quella
+ * che parla la lingua di chi cerca, ma deve possedere anche il termine
+ * ufficiale, altrimenti la fusione ha perso contenuto.
+ */
+describe("fusione del cluster documento commerciale online", () => {
+  it("lo slug fuso non esiste più", () => {
+    expect(guideSlugs).not.toContain("documento-commerciale-online");
+  });
+
+  it("nessuna guida punta più allo slug rimosso", () => {
+    for (const slug of guideSlugs) {
+      expect(guideArticles[slug].relatedGuides, `guida ${slug}`).not.toContain(
+        "documento-commerciale-online",
+      );
+    }
+  });
+
+  const survivor = () => guideArticles["scontrino-senza-registratore-di-cassa"];
+
+  it("la superstite definisce il termine istituzionale e la sigla DCO", () => {
+    const testo = survivor()
+      .sections.map((s) => `${s.heading} ${s.body}`)
+      .join(" ");
+    expect(testo).toMatch(/documento commerciale online/i);
+    expect(testo).toMatch(/\bDCO\b/);
+  });
+
+  it("la superstite eredita il contenuto obbligatorio del documento", () => {
+    const testo = survivor()
+      .sections.map((s) => `${s.heading} ${s.body}`)
+      .join(" ");
+    expect(testo).toMatch(/numero progressivo/i);
+    expect(testo).toMatch(/codice lotteria/i);
+  });
+
+  it("la superstite eredita la base normativa datata", () => {
+    const testo = survivor()
+      .sections.map((s) => s.body)
+      .join(" ");
+    expect(testo).toContain("D.Lgs. 127/2015");
+    expect(testo).toContain("28 ottobre 2016");
+  });
+
+  it("la superstite eredita l'equivalenza fiscale con l'RT nelle FAQ", () => {
+    const faq = survivor()
+      .faq.map((f) => `${f.question} ${f.answer}`)
+      .join(" ");
+    expect(faq).toMatch(/stesso valore|fiscalmente equivalent/i);
   });
 });

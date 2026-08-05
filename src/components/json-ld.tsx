@@ -103,6 +103,25 @@ export const organizationJsonLd = {
   url: SITE_URL,
   logo: `${SITE_URL}/logo.png`,
   sameAs: ["https://github.com/dstmrk"],
+  // Ambito geografico: il prodotto copre solo la normativa fiscale italiana.
+  areaServed: "IT",
+  /**
+   * Domini di competenza dell'entità: è il segnale che i motori e i sistemi
+   * AI usano per stabilire SU COSA questo sito è una fonte pertinente, e
+   * quindi su quali domande è candidato a essere citato. Elenca argomenti su
+   * cui il sito ha contenuto editoriale reale — non funzionalità di prodotto,
+   * che vivono in `softwareApplicationJsonLd.featureList`.
+   */
+  knowsAbout: [
+    "Documento commerciale online",
+    "Scontrino elettronico",
+    "Corrispettivi telematici",
+    "Registratore telematico",
+    "Regime forfettario",
+    "Lotteria degli scontrini",
+    "Codici natura IVA",
+    "Agenzia delle Entrate - Fatture e Corrispettivi",
+  ],
   contactPoint: {
     "@type": "ContactPoint",
     contactType: "customer support",
