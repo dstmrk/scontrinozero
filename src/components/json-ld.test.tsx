@@ -168,6 +168,23 @@ describe("organizationJsonLd", () => {
     expect(organizationJsonLd["@type"]).toBe("Organization");
   });
 
+  /**
+   * `knowsAbout` dichiara i domini di competenza dell'entità: è il segnale che
+   * i sistemi AI usano per decidere SU COSA questo sito è citabile. Costa nulla
+   * e non promette nulla di non spedito — descrive argomenti, non funzionalità.
+   */
+  it("dichiara i domini di competenza per l'entità", () => {
+    const topics = organizationJsonLd.knowsAbout.map((t) => t.toLowerCase());
+    expect(topics).toContain("documento commerciale online");
+    expect(topics).toContain("corrispettivi telematici");
+    expect(topics).toContain("regime forfettario");
+    expect(organizationJsonLd.knowsAbout.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it("limita l'ambito geografico all'Italia (prodotto Italy-only)", () => {
+    expect(organizationJsonLd.areaServed).toBe("IT");
+  });
+
   it("has name ScontrinoZero", () => {
     expect(organizationJsonLd.name).toBe("ScontrinoZero");
   });
