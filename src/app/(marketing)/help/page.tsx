@@ -4,6 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChevronRight } from "lucide-react";
 import { JsonLd, breadcrumbListJsonLd } from "@/components/json-ld";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
+import {
+  helpHubCategories,
+  helpHubFeaturedSlugs,
+  resolveHubArticle,
+} from "@/lib/help/hub-categories";
 
 const SITE_URL = "https://scontrinozero.it";
 const PAGE_URL = `${SITE_URL}/help`;
@@ -23,217 +28,14 @@ export const metadata: Metadata = {
   },
 };
 
-interface HelpArticle {
-  title: string;
-  href?: string;
-}
+const featuredArticles = helpHubFeaturedSlugs.map((slug) =>
+  resolveHubArticle({ slug }),
+);
 
-interface HelpCategory {
-  name: string;
-  description: string;
-  articles: readonly HelpArticle[];
-  categoryHref?: string;
-}
-
-const featuredArticles: HelpArticle[] = [
-  {
-    title: "Prima configurazione passo-passo (onboarding completo)",
-    href: "/help/prima-configurazione",
-  },
-  {
-    title: "Come collegare ScontrinoZero all'Agenzia delle Entrate",
-    href: "/help/come-collegare-ade",
-  },
-  {
-    title: "Credenziali Fisconline: dove trovarle e come verificarle",
-    href: "/help/credenziali-fisconline",
-  },
-  {
-    title: "Come emettere il primo scontrino elettronico",
-    href: "/help/primo-scontrino",
-  },
-  {
-    title: "Errori comuni di accesso AdE e come risolverli",
-    href: "/help/errori-ade",
-  },
-];
-
-const helpCategories: HelpCategory[] = [
-  {
-    name: "Partenza rapida",
-    description: "Per iniziare in meno di 30 minuti.",
-    articles: [
-      {
-        title: "Prima configurazione passo-passo (onboarding completo)",
-        href: "/help/prima-configurazione",
-      },
-      {
-        title: "Come emettere il primo scontrino elettronico",
-        href: "/help/primo-scontrino",
-      },
-      {
-        title: "Come installare ScontrinoZero come app sul tuo dispositivo",
-        href: "/help/installare-app",
-      },
-    ],
-  },
-  {
-    name: "Configurazione attività",
-    description: "Impostazioni fiscali e personalizzazioni.",
-    articles: [
-      {
-        title: "Regime forfettario: configurazione IVA corretta",
-        href: "/help/regime-forfettario",
-      },
-      {
-        title: "Come gestire le aliquote IVA e il catalogo prodotti",
-        href: "/help/aliquote-iva",
-      },
-      {
-        title: "Personalizzare intestazione e dati dello scontrino",
-        href: "/help/intestazione-scontrino",
-      },
-    ],
-  },
-  {
-    name: "Collegamento Agenzia Entrate",
-    description: "Credenziali Fisconline o CIE e troubleshooting accesso.",
-    articles: [
-      {
-        title: "Come collegare ScontrinoZero all'Agenzia delle Entrate",
-        href: "/help/come-collegare-ade",
-      },
-      {
-        title: "Collegare l'AdE con CIE (app CIE ID)",
-        href: "/help/collegare-ade-con-cie",
-      },
-      {
-        title: "Credenziali Fisconline: dove trovarle e come verificarle",
-        href: "/help/credenziali-fisconline",
-      },
-      {
-        title: "Errori comuni di accesso AdE e come risolverli",
-        href: "/help/errori-ade",
-      },
-    ],
-  },
-  {
-    name: "Sicurezza e cassetto fiscale",
-    description: "Verifica corrispettivi e protezione credenziali.",
-    articles: [
-      {
-        title: "Dove verificare i corrispettivi nel cassetto fiscale",
-        href: "/help/cassetto-fiscale",
-      },
-      {
-        title: "Sicurezza e privacy: come proteggiamo le tue credenziali",
-        href: "/help/sicurezza-credenziali",
-      },
-    ],
-  },
-  {
-    name: "Emissione e gestione scontrini",
-    description: "Operatività quotidiana in cassa.",
-    articles: [
-      {
-        title: "Come emettere il primo scontrino elettronico",
-        href: "/help/primo-scontrino",
-      },
-      {
-        title: "Metodi di pagamento: bonifico, assegno, carta e contanti",
-        href: "/help/metodi-di-pagamento",
-      },
-      {
-        title: "Annullare uno scontrino: quando si può e come fare",
-        href: "/help/annullare-scontrino",
-      },
-      {
-        title: "Chiusura giornaliera: è obbligatoria?",
-        href: "/help/chiusura-giornaliera",
-      },
-      {
-        title: "Storico scontrini: filtri, ricerca ed esportazione",
-        href: "/help/storico-ed-esportazione",
-      },
-      {
-        title: "Analytics e report: ricavi, scontrini e prodotti",
-        href: "/help/analytics-e-report",
-      },
-      {
-        title: "Come stampare lo scontrino su carta termica",
-        href: "/help/stampare-scontrino-termica",
-      },
-      {
-        title: "Numero documento e azzeramento sullo scontrino",
-        href: "/help/numero-documento-azzeramento",
-      },
-    ],
-  },
-  {
-    name: "Abbonamento, fatture e supporto",
-    description: "Piano, pagamenti e assistenza.",
-    articles: [
-      {
-        title: "Piani disponibili: Starter, Pro e versione gratuita",
-        href: "/help/piani-e-prezzi",
-      },
-      {
-        title: "Presenta un amico: come funziona il bonus referral",
-        href: "/help/presenta-un-amico",
-      },
-      {
-        title: "Come passare da mensile ad annuale",
-        href: "/help/cambio-piano",
-      },
-      {
-        title: "Dove trovare fatture e ricevute di pagamento",
-        href: "/help/fatture-e-ricevute",
-      },
-      {
-        title: "Come contattare l'assistenza",
-        href: "/help/contatto-assistenza",
-      },
-    ],
-  },
-  {
-    name: "POS e normativa",
-    description: "Obblighi 2026 e collegamento POS-RT.",
-    articles: [
-      {
-        title: "Collegamento POS-RT: chi è obbligato e scadenze",
-        href: "/help/pos-rt-obbligo",
-      },
-      {
-        title: "Come registrare un POS nel portale Fatture e Corrispettivi",
-        href: "/help/registrare-pos-portale-ade",
-      },
-      {
-        title: "Nuova normativa POS 2026: cosa cambia per gli esercenti",
-        href: "/help/normativa-pos-2026",
-      },
-    ],
-  },
-  {
-    name: "API per sviluppatori",
-    description:
-      "Solo per chi integra ScontrinoZero da un gestionale o un POS. Se sei un commerciante, parti da Partenza rapida.",
-    articles: [
-      {
-        title: "Autenticazione e gestione chiavi API",
-        href: "/help/api#autenticazione",
-      },
-      {
-        title: "Endpoint: emissione, stato e annullamento scontrino",
-        href: "/help/api#endpoint",
-      },
-      {
-        title: "Codici IVA, rate limit e gestione errori",
-        href: "/help/api#codici-iva",
-      },
-    ],
-    categoryHref: "/help/api",
-  },
-];
+const helpCategories = helpHubCategories.map((category) => ({
+  ...category,
+  articles: category.articles.map(resolveHubArticle),
+}));
 
 export default function HelpHomePage() {
   const crumbs = [
@@ -265,20 +67,14 @@ export default function HelpHomePage() {
           <h2 className="text-lg font-semibold">Articoli più letti</h2>
           <ul className="divide-border divide-y rounded-lg border">
             {featuredArticles.map((article) => (
-              <li key={article.title}>
-                {article.href ? (
-                  <Link
-                    href={article.href}
-                    className="hover:bg-muted/50 flex items-center justify-between px-4 py-3 text-sm transition-colors"
-                  >
-                    <span>{article.title}</span>
-                    <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0" />
-                  </Link>
-                ) : (
-                  <span className="text-muted-foreground flex items-center justify-between px-4 py-3 text-sm">
-                    <span>{article.title}</span>
-                  </span>
-                )}
+              <li key={article.href}>
+                <Link
+                  href={article.href}
+                  className="hover:bg-muted/50 flex items-center justify-between px-4 py-3 text-sm transition-colors"
+                >
+                  <span>{article.title}</span>
+                  <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0" />
+                </Link>
               </li>
             ))}
           </ul>
@@ -299,26 +95,14 @@ export default function HelpHomePage() {
                 <CardContent>
                   <ul className="space-y-2 text-sm leading-relaxed">
                     {category.articles.map((article) => (
-                      <li
-                        key={article.title}
-                        className="flex items-start gap-2"
-                      >
+                      <li key={article.href} className="flex items-start gap-2">
                         <span className="text-muted-foreground mt-0.5">›</span>
-                        {article.href ? (
-                          <Link
-                            href={article.href}
-                            className="text-primary hover:underline"
-                          >
-                            {article.title}
-                          </Link>
-                        ) : (
-                          <span className="text-muted-foreground inline-flex items-center gap-2">
-                            {article.title}
-                            <span className="bg-muted text-muted-foreground rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase">
-                              In arrivo
-                            </span>
-                          </span>
-                        )}
+                        <Link
+                          href={article.href}
+                          className="text-primary hover:underline"
+                        >
+                          {article.title}
+                        </Link>
                       </li>
                     ))}
                   </ul>
