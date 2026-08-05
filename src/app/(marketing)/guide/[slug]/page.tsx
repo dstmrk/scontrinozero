@@ -39,11 +39,17 @@ export async function generateMetadata({
 }: PageParams): Promise<Metadata> {
   const { slug } = await params;
   if (!isGuideSlug(slug)) {
-    return { title: "Guida non trovata | ScontrinoZero" };
+    // Assoluto anche qui: da stringa piana il template root appenderebbe un
+    // secondo "| ScontrinoZero".
+    return { title: { absolute: "Guida non trovata | ScontrinoZero" } };
   }
   const g = guideArticles[slug];
   return {
-    title: g.metaTitle,
+    // Title assoluto: il template root ("%s | ScontrinoZero") aggiungerebbe 16
+    // caratteri a un metaTitle già vicino al troncamento SERP (~60), tagliando
+    // la coda della keyword senza nemmeno mostrare il brand. Il brand resta
+    // visibile via site name (webSiteJsonLd) e breadcrumb del dominio.
+    title: { absolute: g.metaTitle },
     description: g.metaDescription,
     openGraph: {
       title: g.metaTitle,
