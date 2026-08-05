@@ -33,11 +33,16 @@ export async function generateMetadata({
 }: PageParams): Promise<Metadata> {
   const { slug } = await params;
   if (!isCategorySlug(slug)) {
-    return { title: "Categoria non trovata | ScontrinoZero" };
+    // Assoluto: da stringa piana il template root appenderebbe un secondo
+    // "| ScontrinoZero".
+    return { title: { absolute: "Categoria non trovata | ScontrinoZero" } };
   }
   const category = categories[slug];
   return {
-    title: category.metaTitle,
+    // Title assoluto: il template root ("%s | ScontrinoZero") aggiungerebbe 16
+    // caratteri a un metaTitle già vicino al troncamento SERP (~60), tagliando
+    // la coda della keyword senza nemmeno mostrare il brand.
+    title: { absolute: category.metaTitle },
     description: category.metaDescription,
     openGraph: {
       title: category.metaTitle,

@@ -244,7 +244,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
   "regime-forfettario": {
     slug: "regime-forfettario",
     title: "Scontrino elettronico in regime forfettario",
-    metaTitle: "Scontrino elettronico in regime forfettario",
+    metaTitle: "App per scontrini in regime forfettario",
     metaDescription:
       "Sei in regime forfettario? Emetti scontrini verso privati senza IVA e senza registratore fisico. Soluzione più economica del mercato, da €2,50/mese.",
     heroSubtitle:
@@ -651,8 +651,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
   negozi: {
     slug: "negozi",
     title: "Scontrino elettronico per piccoli negozi al dettaglio",
-    metaTitle:
-      "Scontrino elettronico per negozi al dettaglio senza registratore",
+    metaTitle: "Scontrino elettronico per negozi al dettaglio",
     metaDescription:
       "Piccolo negozio, atelier o showroom: emetti scontrini elettronici senza registratore telematico, da smartphone o tablet. Da €2,50/mese, prova gratis.",
     heroSubtitle:
@@ -739,7 +738,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
   fioristi: {
     slug: "fioristi",
     title: "Scontrino elettronico per fioristi e garden",
-    metaTitle: "Scontrino elettronico per fioristi senza registratore di cassa",
+    metaTitle: "Scontrino elettronico per fioristi e vivai",
     metaDescription:
       "Fioreria o banco fiori: emetti scontrini elettronici dallo smartphone, anche a domicilio o al mercato, senza registratore telematico. Da €2,50/mese.",
     heroSubtitle:
@@ -873,8 +872,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
   fotografi: {
     slug: "fotografi",
     title: "Scontrino elettronico per fotografi",
-    metaTitle:
-      "Scontrino elettronico per fotografi senza registratore di cassa",
+    metaTitle: "Scontrino elettronico per fotografi e studi foto",
     metaDescription:
       "Servizi fotografici, stampe ed eventi: emetti lo scontrino elettronico dallo smartphone al momento dell'incasso, senza registratore. Da €2,50/mese.",
     heroSubtitle:
@@ -917,8 +915,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
   toelettatura: {
     slug: "toelettatura",
     title: "Scontrino elettronico per toelettature e pet service",
-    metaTitle:
-      "Scontrino elettronico per toelettatura cani e gatti senza cassa",
+    metaTitle: "Scontrino elettronico per toelettatura animali",
     metaDescription:
       "Toelettatura, pet sitting e servizi per animali: scontrini elettronici senza registratore, con listino servizi nel catalogo. Da €2,50/mese, prova gratis.",
     heroSubtitle:
