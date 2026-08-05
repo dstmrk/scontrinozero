@@ -191,7 +191,7 @@ export const helpArticles: Record<string, HelpArticle> = {
     slug: "normativa-pos-2026",
     datePublished: "2026-04-17",
     dateModified: "2026-08-02",
-    title: "Collegamento POS-cassa 2026: cosa cambia",
+    title: "Normativa POS 2026: cosa cambia per gli esercenti",
     metaTitle: "Normativa POS 2026: obbligo, scadenze e sanzioni POS-cassa",
     description:
       "Normativa POS 2026 (Legge 207/2024): chi deve collegare POS e cassa, la scadenza del 20 aprile 2026 per la prima comunicazione, le sanzioni e come metterti in regola col Documento Commerciale Online.",

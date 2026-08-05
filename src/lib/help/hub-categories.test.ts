@@ -36,6 +36,18 @@ describe("helpHubCategories", () => {
     }
   });
 
+  it("has no two entries with the same label inside a category", () => {
+    for (const category of helpHubCategories) {
+      const titles = category.articles.map(
+        (ref) => resolveHubArticle(ref).title,
+      );
+      expect(
+        new Set(titles).size,
+        `etichette indistinguibili in ${category.name}: ${titles.join(" / ")}`,
+      ).toBe(titles.length);
+    }
+  });
+
   it("gives every category a name and a description", () => {
     for (const category of helpHubCategories) {
       expect(category.name.trim().length).toBeGreaterThan(0);
