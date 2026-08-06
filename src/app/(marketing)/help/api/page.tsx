@@ -806,16 +806,6 @@ const idempotencyKey = crypto.randomUUID();`}</code>
             }
           </li>
         </ul>
-        <div className="border-primary/40 bg-primary/5 mt-4 rounded-md border-l-4 p-4">
-          <p className="text-sm leading-relaxed font-medium">
-            Aggiornamento dell&apos;envelope d&apos;errore
-          </p>
-          <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-            {
-              "Fino alla versione 1.5.x gli errori usavano il campo error al posto di message, e il code era presente solo su alcune risposte. Dalla 1.6.0, se il tuo client legge body.error, spostalo su body.message (o meglio su body.code). Controlla anche la gestione del 503 ADE_UNAVAILABLE, descritto qui sotto: prima quel caso arrivava come 422."
-            }
-          </p>
-        </div>
         <p className="text-muted-foreground mt-4 text-sm leading-relaxed">
           {
             "Quando una risposta include l'header Retry-After, l'errore è temporaneo: attendi i secondi indicati e ripeti la richiesta "
