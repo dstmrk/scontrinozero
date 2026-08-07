@@ -5,10 +5,14 @@ import {
   isValidEmail,
   isStrongPassword,
   isValidLotteryCode,
+  isValidItalianProvince,
   isValidItalianZipCode,
   isSafeRelativeRedirect,
+  italianProvinceSchema,
   italianZipCodeSchema,
   normalizeEmail,
+  normalizeProvince,
+  ITALIAN_PROVINCE_MESSAGE,
   ITALIAN_ZIP_MESSAGE,
 } from "./validation";
 
@@ -16,6 +20,8 @@ describe("BUSINESS_PROFILE_LIMITS", () => {
   // Snapshot dei valori canonici: cambiarli qui (con motivazione) si propaga
   // a server actions, Zod schema client e label UI senza drift.
   it("definisce i limiti attuali per ogni campo", () => {
+    // `province` NON è qui: non ha un limite di lunghezza ma un formato
+    // esatto (sigla di 2 lettere) — vedi `italianProvinceSchema`.
     expect(BUSINESS_PROFILE_LIMITS).toEqual({
       firstName: 80,
       lastName: 80,
@@ -23,7 +29,6 @@ describe("BUSINESS_PROFILE_LIMITS", () => {
       address: 150,
       streetNumber: 20,
       city: 80,
-      province: 3,
     });
   });
 
@@ -276,5 +281,88 @@ describe("italianZipCodeSchema", () => {
     const result = italianZipCodeSchema.safeParse("12");
     expect(result.success).toBe(false);
     expect(result.error?.issues[0]?.message).toBe(ITALIAN_ZIP_MESSAGE);
+  });
+});
+
+describe("normalizeProvince", () => {
+  // Regressione prod: una sigla salvata minuscola ("na") viene rifiutata
+  // dall'AdE con EF0 "'Provincia' non valido", perché il mapper la inoltra
+  // verbatim nel cedente. La sigla va normalizzata maiuscola alla scrittura.
+  it("porta la sigla in maiuscolo", () => {
+    expect(normalizeProvince("na")).toBe("NA");
+  });
+
+  it("normalizza anche il case misto", () => {
+    expect(normalizeProvince("Na")).toBe("NA");
+  });
+
+  it("rimuove gli spazi attorno alla sigla", () => {
+    expect(normalizeProvince("  na  ")).toBe("NA");
+  });
+
+  it("è idempotente su una sigla già normalizzata", () => {
+    expect(normalizeProvince("NA")).toBe("NA");
+  });
+
+  it("restituisce null su stringa vuota", () => {
+    expect(normalizeProvince("")).toBeNull();
+  });
+
+  it("restituisce null su soli spazi", () => {
+    expect(normalizeProvince("   ")).toBeNull();
+  });
+
+  it("restituisce null su null (campo opzionale non compilato)", () => {
+    expect(normalizeProvince(null)).toBeNull();
+  });
+});
+
+describe("isValidItalianProvince", () => {
+  it("accetta una sigla maiuscola", () => {
+    expect(isValidItalianProvince("NA")).toBe(true);
+  });
+
+  it("accetta una sigla minuscola (la normalizzazione avviene a monte)", () => {
+    expect(isValidItalianProvince("na")).toBe(true);
+  });
+
+  it("rifiuta una sigla di una sola lettera", () => {
+    expect(isValidItalianProvince("N")).toBe(false);
+  });
+
+  it("rifiuta il nome esteso della provincia", () => {
+    expect(isValidItalianProvince("ROMA")).toBe(false);
+  });
+
+  it("rifiuta sigle di 3 lettere (nessuna provincia italiana le usa)", () => {
+    expect(isValidItalianProvince("NAP")).toBe(false);
+  });
+
+  it("rifiuta cifre", () => {
+    expect(isValidItalianProvince("N1")).toBe(false);
+  });
+
+  it("rifiuta lettere accentate", () => {
+    expect(isValidItalianProvince("NÀ")).toBe(false);
+  });
+
+  it("rifiuta la stringa vuota", () => {
+    expect(isValidItalianProvince("")).toBe(false);
+  });
+});
+
+describe("italianProvinceSchema", () => {
+  it("accetta una sigla valida", () => {
+    expect(italianProvinceSchema.safeParse("NA").success).toBe(true);
+  });
+
+  it("accetta la stringa vuota (campo opzionale)", () => {
+    expect(italianProvinceSchema.safeParse("").success).toBe(true);
+  });
+
+  it("rifiuta input invalido con il messaggio canonico", () => {
+    const result = italianProvinceSchema.safeParse("ROMA");
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe(ITALIAN_PROVINCE_MESSAGE);
   });
 });

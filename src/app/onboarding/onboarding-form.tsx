@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod/v4";
-import { adePinSchema, italianZipCodeSchema } from "@/lib/validation";
+import {
+  adePinSchema,
+  italianProvinceSchema,
+  italianZipCodeSchema,
+} from "@/lib/validation";
 import { objectToFormData } from "@/lib/form-utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,7 +49,7 @@ const step1Schema = z.object({
   streetNumber: z.string().optional(),
   zipCode: italianZipCodeSchema,
   city: z.string().optional(),
-  province: z.string().optional(),
+  province: italianProvinceSchema.optional(),
   preferredVatCode: z.string().optional(),
 });
 

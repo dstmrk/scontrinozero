@@ -116,6 +116,31 @@ frontend: la response `text/x-component` contiene il JSON `{ error }` — da lì
 si risale al messaggio in `error-messages.ts` e quindi alla classe d'errore
 esatta, prima ancora di aprire i log server.
 
+### Failure mode noto: dato del cedente non normalizzato (`EF0`)
+
+`{"esito": false, "errori": [{"codice": "EF0", "descrizione": "'<Campo>' non valido"}]}`
+= l'AdE ha rifiutato un campo del cedente/prestatore, non il documento. È un
+errore d'**input utente** (regola 20: `warn`, non issue Sentry), ma permanente:
+ogni emissione continua a fallire finché il dato in DB non viene corretto.
+
+`buildCedenteFromBusiness` (`src/lib/ade/mapper.ts`) inoltra i campi di
+`businesses` **verbatim**, quindi l'AdE valida ciò che abbiamo salvato. Caso
+reale: `province = "na"` minuscolo → `EF0 'Provincia' non valido` su tutti gli
+scontrini di un'attività, per settimane, senza che nulla nel codice fosse
+rotto. L'AdE vuole la sigla maiuscola.
+
+Regola generale: **ogni campo che finisce verbatim in un payload AdE va
+normalizzato alla scrittura**, non a read-time nel mapper. Il mapper resta
+puro (un solo punto di verità: quello che c'è in DB è già nel formato AdE);
+normalizzano le server action che scrivono `businesses` — `saveBusiness`
+(onboarding) e `updateBusiness` (settings), entrambe via `normalizeProvince`
+in `src/lib/validation.ts`. Aggiungendo un campo al cedente, chiedersi
+sempre: che formato pretende l'AdE, e chi lo garantisce alla scrittura?
+
+Diagnosi: la risposta AdE è persistita in `commercial_documents.ade_response`,
+quindi un `SELECT` sui documenti `REJECTED` di un business dà il codice e il
+campo esatti senza toccare i log.
+
 ---
 
 ## HAR analysis: completezza, non solo ordine

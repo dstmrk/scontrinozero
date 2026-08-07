@@ -85,9 +85,14 @@ vi.mock("@/lib/validation", () => ({
     address: 150,
     streetNumber: 20,
     city: 80,
-    province: 3,
   },
-  validateBusinessOptionalFieldLengths: vi.fn().mockReturnValue(null),
+  // Riproduce il contratto reale (trim + maiuscolo, null se vuota): la
+  // provincia finisce nel payload dell'UPDATE asserito da questi test.
+  normalizeProvince: vi.fn((raw: string | null) => {
+    const normalized = raw?.trim().toUpperCase() ?? "";
+    return normalized === "" ? null : normalized;
+  }),
+  validateBusinessOptionalFields: vi.fn().mockReturnValue(null),
 }));
 
 vi.mock("@/types/cassa", () => {

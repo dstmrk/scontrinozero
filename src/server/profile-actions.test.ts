@@ -269,12 +269,36 @@ describe("profile-actions", () => {
       expect(result.error).toMatch(/120/);
     });
 
-    it("returns error when province exceeds 3 chars", async () => {
+    it("returns error when province is not a 2-letter code", async () => {
       const { updateBusiness } = await import("./profile-actions");
       const result = await updateBusiness(
-        formData({ ...VALID, province: "XXXX" }),
+        formData({ ...VALID, province: "ROMA" }),
       );
       expect(result.error).toMatch(/provincia/i);
+    });
+
+    // Regressione prod: una sigla minuscola arriva verbatim all'AdE, che
+    // rigetta l'emissione con `EF0 — 'Provincia' non valido`.
+    it("normalizza la provincia in maiuscolo prima dell'UPDATE", async () => {
+      const { updateBusiness } = await import("./profile-actions");
+      const result = await updateBusiness(
+        formData({ ...VALID, province: "na" }),
+      );
+      expect(result.error).toBeUndefined();
+      expect(mockDbUpdateSet).toHaveBeenCalledWith(
+        expect.objectContaining({ province: "NA" }),
+      );
+    });
+
+    it("salva null quando la provincia è vuota (campo opzionale)", async () => {
+      const { updateBusiness } = await import("./profile-actions");
+      const result = await updateBusiness(
+        formData({ ...VALID, province: "  " }),
+      );
+      expect(result.error).toBeUndefined();
+      expect(mockDbUpdateSet).toHaveBeenCalledWith(
+        expect.objectContaining({ province: null }),
+      );
     });
 
     it("returns ownership error when checkBusinessOwnership fails", async () => {
