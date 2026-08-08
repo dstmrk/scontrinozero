@@ -413,12 +413,58 @@ describe("onboarding-actions", () => {
       expect(result.error).toContain("80");
     });
 
-    it("returns error when province exceeds 3 characters", async () => {
+    it("returns error when province is not a 2-letter code", async () => {
       const { saveBusiness } = await import("./onboarding-actions");
       const result = await saveBusiness(
         formData({ ...VALID_DATA, province: "ROMA" }),
       );
-      expect(result.error).toContain("3");
+      expect(result.error).toMatch(/provincia/i);
+    });
+
+    // Regressione prod: una sigla minuscola arriva verbatim all'AdE, che
+    // rigetta l'emissione con `EF0 — 'Provincia' non valido`.
+    it("normalizza la provincia in maiuscolo sull'INSERT", async () => {
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      mockLimit.mockResolvedValueOnce([]);
+      mockReturning.mockResolvedValueOnce([{ id: "new-biz-id" }]);
+
+      const { saveBusiness } = await import("./onboarding-actions");
+      const result = await saveBusiness(
+        formData({ ...VALID_DATA, province: "na" }),
+      );
+      expect(result.error).toBeUndefined();
+      expect(mockInsertValues).toHaveBeenCalledWith(
+        expect.objectContaining({ province: "NA" }),
+      );
+    });
+
+    it("normalizza la provincia in maiuscolo sull'UPDATE", async () => {
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      mockLimit.mockResolvedValueOnce([FAKE_BUSINESS]);
+
+      const { saveBusiness } = await import("./onboarding-actions");
+      const result = await saveBusiness(
+        formData({ ...VALID_DATA, province: " na " }),
+      );
+      expect(result.error).toBeUndefined();
+      expect(mockUpdateSet).toHaveBeenCalledWith(
+        expect.objectContaining({ province: "NA" }),
+      );
+    });
+
+    it("salva null quando la provincia è vuota (campo opzionale)", async () => {
+      mockLimit.mockResolvedValueOnce([FAKE_PROFILE]);
+      mockLimit.mockResolvedValueOnce([]);
+      mockReturning.mockResolvedValueOnce([{ id: "new-biz-id" }]);
+
+      const { saveBusiness } = await import("./onboarding-actions");
+      const result = await saveBusiness(
+        formData({ ...VALID_DATA, province: "" }),
+      );
+      expect(result.error).toBeUndefined();
+      expect(mockInsertValues).toHaveBeenCalledWith(
+        expect.objectContaining({ province: null }),
+      );
     });
 
     it("preserva preferredVatCode esistente quando il field è assente dal form (UPDATE)", async () => {

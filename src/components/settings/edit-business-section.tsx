@@ -24,7 +24,10 @@ import {
 } from "@/components/ui/select";
 import { updateBusiness } from "@/server/profile-actions";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
-import { BUSINESS_PROFILE_LIMITS } from "@/lib/validation";
+import {
+  BUSINESS_PROFILE_LIMITS,
+  italianProvinceSchema,
+} from "@/lib/validation";
 import {
   isValidPreferredVatCode,
   VAT_CODES,
@@ -69,14 +72,7 @@ const editBusinessSchema = z.object({
     )
     .optional()
     .or(z.literal("")),
-  province: z
-    .string()
-    .max(
-      BUSINESS_PROFILE_LIMITS.province,
-      `La provincia non può superare ${BUSINESS_PROFILE_LIMITS.province} caratteri.`,
-    )
-    .optional()
-    .or(z.literal("")),
+  province: italianProvinceSchema.optional(),
   zipCode: z.string().regex(/^\d{5}$/, "CAP non valido (5 cifre numeriche)."),
   preferredVatCode: z.enum(VAT_CODES).or(z.literal("")).optional(),
 });
@@ -267,6 +263,8 @@ export function EditBusinessSection({
             control={form.control}
             name="province"
             label="Prov."
+            placeholder="RM…"
+            maxLength={2}
             autoComplete="address-level1"
             disabled={mutation.isPending}
           />

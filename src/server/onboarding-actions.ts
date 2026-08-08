@@ -51,7 +51,8 @@ import {
   BUSINESS_PROFILE_LIMITS,
   isValidItalianZipCode,
   ITALIAN_ZIP_MESSAGE,
-  validateBusinessOptionalFieldLengths,
+  normalizeProvince,
+  validateBusinessOptionalFields,
 } from "@/lib/validation";
 import { isInvalidPreferredVatCode } from "@/types/cassa";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
@@ -156,7 +157,7 @@ function validateSaveBusinessInput(input: SaveBusinessInput): string | null {
   if (!input.address) return "L'indirizzo è obbligatorio.";
   if (input.address.length > BUSINESS_PROFILE_LIMITS.address)
     return `L'indirizzo non può superare ${BUSINESS_PROFILE_LIMITS.address} caratteri.`;
-  const optionalError = validateBusinessOptionalFieldLengths(input);
+  const optionalError = validateBusinessOptionalFields(input);
   if (optionalError) return optionalError;
   if (!isValidItalianZipCode(input.zipCode)) return ITALIAN_ZIP_MESSAGE;
   if (
@@ -185,7 +186,9 @@ export async function saveBusiness(
   const streetNumber = getFormStringOrNull(formData, "streetNumber");
   const zipCode = getFormString(formData, "zipCode");
   const city = getFormStringOrNull(formData, "city");
-  const province = getFormStringOrNull(formData, "province");
+  // Maiuscolo alla scrittura: l'AdE rifiuta una sigla minuscola con
+  // `EF0 — 'Provincia' non valido` al momento dell'emissione (regola 9).
+  const province = normalizeProvince(getFormStringOrNull(formData, "province"));
 
   // Distinguish "field absent" (don't touch existing preference on UPDATE)
   // from "field present and empty" (clear it). `getFormStringOrNull` collapses

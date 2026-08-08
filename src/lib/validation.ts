@@ -101,10 +101,54 @@ export const italianZipCodeSchema = z
   .regex(ITALIAN_ZIP_REGEX, ITALIAN_ZIP_MESSAGE);
 
 /**
+ * Sigla della provincia italiana: esattamente 2 lettere.
+ *
+ * L'AdE la vuole **maiuscola** nel cedente/prestatore del Documento
+ * Commerciale: una sigla minuscola fa fallire l'emissione con
+ * `EF0 — 'Provincia' non valido`. Il case è accettato in input (la
+ * normalizzazione avviene alla scrittura, vedi `normalizeProvince`) ma il
+ * formato no: nessuna provincia italiana ha una sigla di 1 o 3 lettere.
+ */
+const ITALIAN_PROVINCE_REGEX = /^[A-Za-z]{2}$/;
+export const ITALIAN_PROVINCE_MESSAGE =
+  "Provincia non valida: usa la sigla di 2 lettere (es. NA).";
+
+export function isValidItalianProvince(province: string): boolean {
+  return ITALIAN_PROVINCE_REGEX.test(province);
+}
+
+/**
+ * Normalizza la sigla della provincia: trim + maiuscolo, `null` se vuota.
+ *
+ * Va applicata in **ogni** scrittura di `businesses.province` (onboarding e
+ * modifica attività) prima della validazione e dell'UPDATE: è l'unico punto
+ * che garantisce l'invariante "in DB la sigla è sempre maiuscola", su cui si
+ * appoggia `buildCedenteFromBusiness` che inoltra il valore verbatim all'AdE.
+ */
+export function normalizeProvince(raw: string | null): string | null {
+  const normalized = raw?.trim().toUpperCase() ?? "";
+  return normalized === "" ? null : normalized;
+}
+
+/**
+ * Zod schema riusabile per la sigla della provincia (client). Accetta la
+ * stringa vuota: il campo è opzionale. Il maiuscolo lo impone il server via
+ * `normalizeProvince` — qui serve solo a dare un errore leggibile invece di
+ * far rigettare lo scontrino dall'AdE dopo l'emissione.
+ */
+export const italianProvinceSchema = z
+  .string()
+  .regex(ITALIAN_PROVINCE_REGEX, ITALIAN_PROVINCE_MESSAGE)
+  .or(z.literal(""));
+
+/**
  * Limiti di lunghezza (in caratteri) per i campi di business + profilo.
  * Sorgente unica di verità: usare queste costanti in Zod schema, server-side
  * validation e qualsiasi label "max N caratteri" lato UI. Aggiornandone una
  * qui si propaga ovunque.
+ *
+ * `province` non compare: non ha un limite di lunghezza ma un formato esatto
+ * (vedi `ITALIAN_PROVINCE_REGEX`).
  */
 export const BUSINESS_PROFILE_LIMITS = {
   firstName: 80,
@@ -113,19 +157,19 @@ export const BUSINESS_PROFILE_LIMITS = {
   address: 150,
   streetNumber: 20,
   city: 80,
-  province: 3,
 } as const;
 
 /**
- * Valida la lunghezza dei campi indirizzo opzionali di un business
- * (`businessName`, `streetNumber`, `city`, `province`). Restituisce il messaggio
- * d'errore del primo campo troppo lungo, o `null` se sono tutti validi.
+ * Valida i campi indirizzo opzionali di un business: la lunghezza di
+ * `businessName`/`streetNumber`/`city` e il **formato** di `province` (sigla
+ * di 2 lettere, non una lunghezza massima). Restituisce il messaggio d'errore
+ * del primo campo invalido, o `null` se sono tutti validi.
  *
  * Estratto e condiviso tra `saveBusiness` (onboarding) e `updateBusiness`
  * (settings) per evitare drift e tenere la Cognitive Complexity dei due
  * caller sotto la soglia SonarCloud S3776 (15).
  */
-export function validateBusinessOptionalFieldLengths(fields: {
+export function validateBusinessOptionalFields(fields: {
   businessName: string | null;
   streetNumber: string | null;
   city: string | null;
@@ -143,12 +187,13 @@ export function validateBusinessOptionalFieldLengths(fields: {
       "Il numero civico",
     ],
     [fields.city, BUSINESS_PROFILE_LIMITS.city, "Il comune"],
-    [fields.province, BUSINESS_PROFILE_LIMITS.province, "La provincia"],
   ];
   for (const [value, limit, label] of checks) {
     if (value && value.length > limit)
       return `${label} non può superare ${limit} caratteri.`;
   }
+  if (fields.province && !isValidItalianProvince(fields.province))
+    return ITALIAN_PROVINCE_MESSAGE;
   return null;
 }
 

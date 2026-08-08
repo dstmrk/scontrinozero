@@ -17,7 +17,8 @@ import {
   isStrongPassword,
   isValidItalianZipCode,
   ITALIAN_ZIP_MESSAGE,
-  validateBusinessOptionalFieldLengths,
+  normalizeProvince,
+  validateBusinessOptionalFields,
 } from "@/lib/validation";
 import { isInvalidPreferredVatCode } from "@/types/cassa";
 import { getClientIp } from "@/lib/get-client-ip";
@@ -183,7 +184,9 @@ export async function updateBusiness(
   const address = getFormString(formData, "address");
   const streetNumber = getFormStringOrNull(formData, "streetNumber");
   const city = getFormStringOrNull(formData, "city");
-  const province = getFormStringOrNull(formData, "province");
+  // Maiuscolo alla scrittura: l'AdE rifiuta una sigla minuscola con
+  // `EF0 — 'Provincia' non valido` al momento dell'emissione (regola 9).
+  const province = normalizeProvince(getFormStringOrNull(formData, "province"));
   const zipCode = getFormString(formData, "zipCode");
 
   // Distinguish "field absent" (don't touch) from "field present and empty"
@@ -199,7 +202,7 @@ export async function updateBusiness(
     return {
       error: `L'indirizzo non può superare ${BUSINESS_PROFILE_LIMITS.address} caratteri.`,
     };
-  const optionalError = validateBusinessOptionalFieldLengths({
+  const optionalError = validateBusinessOptionalFields({
     businessName,
     streetNumber,
     city,

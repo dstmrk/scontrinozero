@@ -137,8 +137,9 @@ export default function PrimaConfigurazioneePage() {
           </li>
           <li>
             <strong>Indirizzo sede operativa</strong> — indirizzo, numero
-            civico, CAP (5 cifre), città e provincia. L&apos;indirizzo è
-            obbligatorio e apparirà nell&apos;intestazione degli scontrini.
+            civico, CAP (5 cifre), città e provincia (sigla di 2 lettere, es.
+            RM). L&apos;indirizzo è obbligatorio e apparirà
+            nell&apos;intestazione degli scontrini.
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
