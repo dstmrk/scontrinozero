@@ -239,3 +239,58 @@ describe("VoidReceiptDialog — banner reauth CIE (REVIEW #54)", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("VoidReceiptDialog — descrizioni lunghe senza scroll orizzontale", () => {
+  // jsdom non fa layout (scrollWidth è sempre 0): la regressione si presidia
+  // sulle classi che governano la larghezza intrinseca, verificate a mano in
+  // Chromium headless. `DialogContent` è un `grid` con `overflow-y-auto` →
+  // `overflow-x` calcola `auto`, quindi ogni figlio che sfora apre una barra
+  // di scorrimento orizzontale dentro la modale.
+  const LONG_DESCRIPTION =
+    "Pernottamento Room 2 - Mario Rossi - Booking 45873 - soggiorno 3 notti";
+
+  const LONG_LINE_RECEIPT: ReceiptListItem = {
+    ...ACCEPTED_RECEIPT,
+    lines: [{ ...ACCEPTED_RECEIPT.lines[0], description: LONG_DESCRIPTION }],
+  };
+
+  function renderLongReceipt() {
+    renderWithQuery(
+      <VoidReceiptDialog {...defaultProps} receipt={LONG_LINE_RECEIPT} />,
+    );
+    return screen.getByText(LONG_DESCRIPTION);
+  }
+
+  it("manda a capo la descrizione invece di tenerla su una riga sola", () => {
+    const description = renderLongReceipt();
+
+    // `truncate` porta con sé `white-space: nowrap`: la larghezza min-content
+    // del blocco righe diventa l'intera stringa e il track del grid si allarga
+    // oltre la modale. Con il testo che va a capo la descrizione resta anche
+    // leggibile per intero — è la vista di dettaglio.
+    expect(description).not.toHaveClass("truncate");
+    expect(description).toHaveClass("break-words");
+  });
+
+  it("azzera la larghezza minima del blocco righe (grid item)", () => {
+    const description = renderLongReceipt();
+
+    // Il contenitore delle righe è un grid item di DialogContent: senza
+    // `min-w-0` la sua automatic minimum size resta il min-content (la parola
+    // più lunga della descrizione) e allarga la modale.
+    const linesContainer = description.closest("div.divide-y");
+    expect(linesContainer).toHaveClass("min-w-0");
+  });
+
+  it("manda a capo i bottoni del footer invece di farli sforare", () => {
+    renderLongReceipt();
+
+    // Cinque bottoni `shrink-0 whitespace-nowrap` misurano ~554px contro i
+    // 512px di `sm:max-w-lg`: senza `flex-wrap` il footer sfora da solo, a
+    // prescindere dalla lunghezza della descrizione.
+    const footer = screen
+      .getByRole("button", { name: "Chiudi" })
+      .closest('[data-slot="dialog-footer"]');
+    expect(footer).toHaveClass("flex-wrap");
+  });
+});

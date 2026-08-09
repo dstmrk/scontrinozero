@@ -227,14 +227,24 @@ export function VoidReceiptDialog({
             </DialogHeader>
 
             {/* Lines */}
-            <div className="divide-y rounded-md border">
+            {/* `min-w-0`: il blocco è un grid item di DialogContent, che ha
+                `overflow-y-auto` (quindi `overflow-x: auto` calcolato). Senza
+                azzerare la automatic minimum size il track del grid cresce fino
+                al min-content delle descrizioni e la modale scrolla in
+                orizzontale. */}
+            <div className="min-w-0 divide-y rounded-md border">
               {receipt.lines.map((line, index) => (
                 <div
                   key={`${receipt.id}-line-${index}`}
                   className="flex items-center justify-between px-3 py-2 text-sm"
                 >
                   <div className="min-w-0 flex-1 pr-2">
-                    <p className="truncate font-medium">{line.description}</p>
+                    {/* Niente `truncate` qui: è la vista di dettaglio, una
+                        descrizione lunga va letta per intero. `break-words`
+                        spezza anche i token senza spazi. */}
+                    <p className="font-medium break-words">
+                      {line.description}
+                    </p>
                     <p className="text-muted-foreground">
                       {Number.parseFloat(line.quantity).toLocaleString("it-IT")}{" "}
                       × {formatCurrency(line.grossUnitPrice)} —{" "}
@@ -256,7 +266,9 @@ export function VoidReceiptDialog({
             </div>
 
             {/* Bottoni: Annulla scontrino | Invia ricevuta | Chiudi */}
-            <DialogFooter className="gap-2">
+            {/* `flex-wrap`: i cinque bottoni sono `shrink-0 whitespace-nowrap`
+                e da soli superano i 512px di `sm:max-w-lg`. */}
+            <DialogFooter className="flex-wrap gap-2">
               {canVoid && (
                 <>
                   <Button

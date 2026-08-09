@@ -128,7 +128,10 @@ export default async function PublicReceiptPage({
                 return (
                   <div key={line.id} className="flex items-start gap-1 text-sm">
                     <div className="min-w-0 flex-1">
-                      <p className="leading-tight font-medium">
+                      {/* `break-words`: una descrizione senza spazi (es. un
+                          codice prenotazione lungo) sborderebbe dalla card e
+                          farebbe scrollare l'intera pagina in orizzontale. */}
+                      <p className="leading-tight font-medium break-words">
                         {line.description}
                       </p>
                       {qty !== 1 && (
