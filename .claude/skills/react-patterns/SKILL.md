@@ -323,6 +323,60 @@ l'ultima classe. Utile per override:
 
 ---
 
+## Scroll orizzontale da testo utente: `min-w-0` sul **contenitore**
+
+`truncate` (= `overflow:hidden` + `text-overflow:ellipsis` +
+`white-space:nowrap`) **taglia il testo ma non riduce la larghezza
+intrinseca**: con `nowrap` il min-content del blocco resta l'intera stringa.
+Se un antenato dimensiona sulla min-content, la vista si allarga lo stesso.
+
+Due amplificatori, entrambi presenti in `DialogContent`
+(`src/components/ui/dialog.tsx`):
+
+1. **grid item** → `min-width: auto` di default, quindi la sua automatic
+   minimum size è la min-content: il track cresce oltre `sm:max-w-lg`;
+2. **`overflow-y-auto`** → per spec `overflow-x: visible` calcola `auto`, così
+   lo sfioramento diventa una **barra di scorrimento orizzontale** dentro la
+   modale invece di un overflow invisibile.
+
+`min-w-0` sul flex item interno **non basta**: va messo sul figlio del grid
+(o del flex) che contiene il testo.
+
+```tsx
+// ❌ scrolla in orizzontale con descrizioni lunghe
+<DialogContent className="overflow-y-auto sm:max-w-lg">
+  <div className="divide-y rounded-md border">
+    <div className="flex justify-between">
+      <div className="min-w-0 flex-1">
+        <p className="truncate">{line.description}</p>
+
+// ✅ il track del grid non supera la modale
+<DialogContent className="overflow-y-auto sm:max-w-lg">
+  <div className="min-w-0 divide-y rounded-md border">
+    <div className="flex justify-between">
+      <div className="min-w-0 flex-1">
+        <p className="font-medium break-words">{line.description}</p>
+```
+
+Note operative:
+
+- Su una vista di **dettaglio** preferisci `break-words` a `truncate`: niente
+  `nowrap` (min-content = parola più lunga) e la descrizione resta leggibile
+  per intero. `break-words` da solo non abbassa la min-content sotto la parola
+  più lunga → serve comunque `min-w-0` sul contenitore.
+- Testo utente senza spazi (codici prenotazione, SKU) sfora anche **senza**
+  flex/grid: su ogni `<p>` che rende input utente in una card a larghezza
+  fissa serve `break-words` (es. `src/app/r/[documentId]/page.tsx`).
+- `DialogFooter` è `sm:flex-row` e i `Button` sono `shrink-0 whitespace-nowrap`:
+  oltre i 3 bottoni la somma supera i 512px di `sm:max-w-lg` → aggiungi
+  `flex-wrap`.
+- **jsdom non fa layout** (`scrollWidth` è sempre 0): i test presidiano le
+  classi, la misura vera si fa in Chromium headless
+  (`chrome --headless --dump-dom` con uno script che confronta `scrollWidth`
+  e `clientWidth`).
+
+---
+
 ## PWA / Serwist → skill `pwa-serwist`
 
 Service worker (`src/sw.ts`, gotcha `defaultCache`), race di

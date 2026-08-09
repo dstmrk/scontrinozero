@@ -138,3 +138,44 @@ describe("PublicReceiptPage rate limiting", () => {
     expect(mockFetchPublicReceipt).toHaveBeenCalledWith(VALID_DOC_ID);
   });
 });
+
+describe("PublicReceiptPage — descrizioni lunghe", () => {
+  let PublicReceiptPage: typeof import("./page").default;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mockHeaders.mockResolvedValue(
+      new Headers({ "cf-connecting-ip": "9.9.9.9" }),
+    );
+    vi.resetModules();
+    ({ default: PublicReceiptPage } = await import("./page"));
+  });
+
+  it("spezza le descrizioni senza spazi invece di sforare dalla card", async () => {
+    // Un codice prenotazione senza spazi non ha punti di a-capo: senza
+    // `break-words` il testo esce dalla card larga `max-w-md` e fa scrollare
+    // in orizzontale l'intera pagina pubblica (verificato in Chromium
+    // headless — jsdom non fa layout).
+    const description = "Pernottamento_Room2_MarioRossi_Booking45873_LONG_0001";
+    mockFetchPublicReceipt.mockResolvedValue({
+      ...MOCK_RECEIPT_DATA,
+      lines: [
+        {
+          id: "line-1",
+          description,
+          quantity: "1",
+          grossUnitPrice: "120.00",
+          vatCode: "10",
+        },
+      ],
+    });
+
+    render(
+      await PublicReceiptPage({
+        params: Promise.resolve({ documentId: VALID_DOC_ID }),
+      }),
+    );
+
+    expect(screen.getByText(description)).toHaveClass("break-words");
+  });
+});
