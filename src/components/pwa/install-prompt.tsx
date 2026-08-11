@@ -10,6 +10,19 @@ import {
 
 const DISMISSED_KEY = "pwa-install-dismissed";
 
+// Pannello fisso in fondo, condiviso dalla variante iOS e da quella Android.
+//
+// Il padding sui tre lati esposti somma la safe-area alle vecchie 1rem (py-4 /
+// px-4): con il viewport-fit=cover dell'app shell il pannello arriva al bordo
+// fisico, quindi senza la somma i bottoni finirebbero sotto la home indicator.
+// Le inset valgono 0 fuori dai dispositivi con ritaglio, dove il padding torna
+// a essere esattamente 1rem.
+//
+// Colori a token e non hardcoded: il prompt monta dentro il ThemeProvider del
+// dashboard, quindi con `bg-white` era una lastra bianca in dark mode.
+const PANEL_CLASS =
+  "bg-background border-border fixed right-0 bottom-0 left-0 z-50 border-t pt-4 pr-[calc(1rem_+_env(safe-area-inset-right))] pb-[calc(1rem_+_env(safe-area-inset-bottom))] pl-[calc(1rem_+_env(safe-area-inset-left))] shadow-lg";
+
 function isIos(): boolean {
   return /iPad|iPhone|iPod/.test(navigator.userAgent);
 }
@@ -63,17 +76,17 @@ export function PwaInstallPrompt() {
 
   if (showIos) {
     return (
-      <header className="fixed right-0 bottom-0 left-0 z-50 border-t border-gray-200 bg-white px-4 py-4 shadow-lg">
+      <header className={PANEL_CLASS}>
         <div className="mx-auto flex max-w-sm flex-col gap-3">
           <div className="flex items-start justify-between gap-3">
-            <p className="text-sm font-semibold text-gray-900">
+            <p className="text-foreground text-sm font-semibold">
               Installa ScontrinoZero
             </p>
             <button
               type="button"
               onClick={handleDismiss}
               aria-label="Non ora"
-              className="shrink-0 text-gray-400 hover:text-gray-600"
+              className="text-muted-foreground hover:text-foreground shrink-0"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -92,10 +105,10 @@ export function PwaInstallPrompt() {
               </svg>
             </button>
           </div>
-          <p className="text-sm text-gray-600">
+          <p className="text-muted-foreground text-sm">
             Aggiungi a schermata Home per usarla come un&apos;app:
           </p>
-          <ol className="space-y-1 text-sm text-gray-600">
+          <ol className="text-muted-foreground space-y-1 text-sm">
             <li>
               1. Tocca{" "}
               <span className="font-medium">
@@ -131,20 +144,20 @@ export function PwaInstallPrompt() {
   }
 
   return (
-    <header className="fixed right-0 bottom-0 left-0 z-50 border-t border-gray-200 bg-white px-4 py-4 shadow-lg">
+    <header className={PANEL_CLASS}>
       <div className="mx-auto flex max-w-sm items-center gap-3">
         <div className="flex-1">
-          <p className="text-sm font-semibold text-gray-900">
+          <p className="text-foreground text-sm font-semibold">
             Installa ScontrinoZero
           </p>
-          <p className="text-xs text-gray-500">
+          <p className="text-muted-foreground text-xs">
             Accesso rapido dalla schermata Home
           </p>
         </div>
         <button
           type="button"
           onClick={() => void handleInstall()}
-          className="rounded-md bg-black px-3 py-2 text-sm font-medium text-white hover:bg-gray-800"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-2 text-sm font-medium"
         >
           Installa
         </button>
@@ -152,7 +165,7 @@ export function PwaInstallPrompt() {
           type="button"
           onClick={handleDismiss}
           aria-label="Non ora"
-          className="text-gray-400 hover:text-gray-600"
+          className="text-muted-foreground hover:text-foreground"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"

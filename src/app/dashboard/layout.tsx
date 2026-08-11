@@ -17,6 +17,11 @@ import { OnboardingTour } from "@/components/dashboard/onboarding-tour";
 import { AnnouncementBanner } from "@/components/announcement/announcement-banner";
 import { PwaInstallPrompt } from "@/components/pwa/install-prompt";
 import { PartnerBrandSuffix } from "@/components/partner-brand-suffix";
+import { dashboardViewport } from "@/lib/pwa/viewport";
+
+// Solo l'app shell va edge-to-edge: il marketing resta sul viewport di default.
+// Motivazione in src/lib/pwa/viewport.ts.
+export const viewport = dashboardViewport;
 
 export default async function DashboardLayout({
   children,
@@ -52,7 +57,13 @@ export default async function DashboardLayout({
       enableSystem
       disableTransitionOnChange
     >
-      <div className="flex min-h-screen flex-col">
+      {/*
+        Inset orizzontali sullo shell: con viewport-fit=cover il layout arriva
+        al bordo fisico, quindi in landscape su telefoni col notch il contenuto
+        finirebbe sotto il ritaglio. Le bande laterali restano invisibili — il
+        body ha lo stesso `bg-background`. In portrait valgono 0.
+      */}
+      <div className="flex min-h-screen flex-col pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
         {announcement && <AnnouncementBanner {...announcement} />}
         <header className="bg-background border-b">
           <div className="container mx-auto flex items-center justify-between px-4 py-3">
@@ -111,7 +122,13 @@ export default async function DashboardLayout({
           </div>
         </header>
 
-        <main className="container mx-auto flex-1 px-4 py-6 pb-20 md:pb-6">
+        {/*
+          La bottom nav è alta h-16 e ora cresce della safe-area inset: senza
+          sommarla qui il fondo del contenuto finirebbe sotto la nav esattamente
+          sui telefoni con home indicator. Il 5rem è il vecchio pb-20 (64px di
+          nav + 16px d'aria).
+        */}
+        <main className="container mx-auto flex-1 px-4 py-6 pb-[calc(5rem_+_env(safe-area-inset-bottom))] md:pb-6">
           {children}
         </main>
 

@@ -43,9 +43,13 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
+    // `fixed` ignora il padding dello shell: le inset orizzontali vanno
+    // ripetute qui, o in landscape le icone finiscono sotto il notch. Il
+    // pb-[env(...)] diventa reale solo col viewport-fit=cover del dashboard
+    // layout (src/lib/pwa/viewport.ts): prima risolveva sempre a 0px.
     <nav
       data-tour-nav="mobile"
-      className="bg-background fixed right-0 bottom-0 left-0 z-50 border-t pb-[env(safe-area-inset-bottom)] md:hidden"
+      className="bg-background fixed right-0 bottom-0 left-0 z-50 border-t pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] md:hidden"
     >
       <ul className="flex h-16 items-stretch">
         {NAV_ITEMS.map((item) => {
