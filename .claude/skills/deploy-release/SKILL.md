@@ -1,6 +1,6 @@
 ---
 name: deploy-release
-description: Use when deploying or releasing ScontrinoZero — tagging vX.Y.Z, building/pushing the Docker image to GHCR, docker compose on the VPS or the dev Raspberry Pi (deploy/dev/), passing NEXT_PUBLIC_* build-args (baked at build vs read at runtime, present-but-empty "" pitfalls where a ?? default never fires), identity env fail-fast validation (assertIdentityEnv in src/lib/identity-env.ts called from src/instrumentation.ts), the mandatory post-deploy smoke (live + env + drain probes on /api/health/live, /api/_health/env, /api/_debug/sentry-sentinel), Turnstile site-key/secret pairing for the :dev widget, env handling in next.config.ts, or updating the T&C / Privacy Policy version (CURRENT_TERMS_VERSION in src/server/auth-actions.ts).
+description: Use when deploying or releasing ScontrinoZero — tagging vX.Y.Z, building/pushing the Docker image to GHCR, docker compose on the VPS or the dev Raspberry Pi (deploy/dev/), passing NEXT_PUBLIC_* build-args (baked at build vs read at runtime, present-but-empty "" pitfalls where a ?? default never fires), identity env fail-fast validation (assertIdentityEnv in src/lib/identity-env.ts called from src/instrumentation.ts), the mandatory post-deploy smoke (live + env + drain probes on /api/health/live, /api/health/env, /api/health/sentry-sentinel), Turnstile site-key/secret pairing for the :dev widget, env handling in next.config.ts, or updating the T&C / Privacy Policy version (CURRENT_TERMS_VERSION in src/server/auth-actions.ts).
 ---
 
 # deploy-release — rilasci, env d'identità, smoke post-deploy, T&C
@@ -42,7 +42,7 @@ le accetta; prod **non** le passa (→ default `app.scontrinozero.it`),
 l'immagine `:dev` sì (→ `app-dev`). Sandbox condivide l'immagine prod → su
 questi link resta sul default prod (limite noto). Idem
 `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (`turnstile-widget.tsx`) e
-`NEXT_PUBLIC_SENTRY_DSN` (`sentry.client.config.ts`). Coerente con la regola
+`NEXT_PUBLIC_SENTRY_DSN` (`instrumentation-client.ts`). Coerente con la regola
 15 di `CLAUDE.md` (link auth marketing → app via `appHref()`).
 
 ### Turnstile per dev
@@ -93,22 +93,22 @@ deploy "concluso" hit i tre health probe e verifica la response:
 
 ```bash
 curl -fsS https://<host>/api/health/live
-curl -fsS https://<host>/api/_health/env | jq .
+curl -fsS https://<host>/api/health/env | jq .
 curl -fsS -H "x-sentinel-token: $TOKEN" \
-  "https://<host>/api/_debug/sentry-sentinel?id=v$VERSION"
+  "https://<host>/api/health/sentry-sentinel?id=v$VERSION"
 curl -fsSI https://<host>/sw.js | head -1
 ```
 
 - `/api/health/live` (`src/app/api/health/live/route.ts`) → 200 = process
   up, event loop responsive.
-- `/api/_health/env` (`src/app/api/_health/env/route.ts`) → 200 con
+- `/api/health/env` (`src/app/api/health/env/route.ts`) → 200 con
   `{ appUrl, release, hostnames }`. **Confronta `release` e `appUrl` con
   quanto rilasciato**: una `:dev` con `appUrl: app.scontrinozero.it` è un
   Dockerfile build-arg dimenticato. 503 = identity env rotta anche dopo la
   validazione al boot (es. rotazione secret tra boot e prima request).
-- `/api/_debug/sentry-sentinel` → 200 + `sentryQuery` da incollare in Sentry
+- `/api/health/sentry-sentinel` → 200 + `sentryQuery` da incollare in Sentry
   per validare il drain (regola 21). Endpoint:
-  `src/app/api/_debug/sentry-sentinel/route.ts` — protetto da timing-safe
+  `src/app/api/health/sentry-sentinel/route.ts` — protetto da timing-safe
   compare, risponde 404 se il token (`SENTRY_SENTINEL_TOKEN`) è assente o non
   combacia (esistenza nascosta a chi non ha il secret). La sentinella emette
   sia nel dataset `logs` sia nel pannello issues (l'`error` passa da

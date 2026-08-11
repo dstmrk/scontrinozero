@@ -141,6 +141,43 @@ export function isReactStreamingDomError(
 }
 
 /**
+ * `beforeSend` del client Sentry: scarta le tre classi di rumore browser
+ * riconosciute, lascia passare tutto il resto.
+ *
+ * Vive qui e non inline in `instrumentation-client.ts` perché
+ * `sonar.sources=src`: la logica dei filtri resta coperta dai test e
+ * analizzata, mentre il file di bootstrap in root resta pura configurazione.
+ *
+ * ⚠️ Il bootstrap client è **solo** `instrumentation-client.ts`: il legacy
+ * `sentry.client.config.ts` viene iniettato unicamente dal path webpack del
+ * SDK (`@sentry/nextjs/build/cjs/config/webpack.js`) e con Turbopack — il
+ * bundler di default di Next 16, quello con cui buildiamo — non viene mai
+ * incluso nel bundle. Ci è costato il rumore di SCONTRINOZERO-V: i filtri
+ * erano scritti e testati ma non giravano in produzione.
+ */
+export function clientBeforeSend(
+  event: ErrorEvent,
+  hint?: EventHint,
+): ErrorEvent | null {
+  // Rumore di rete transiente su mobile e fetch di estensioni browser
+  // (issue SCONTRINOZERO-J, SCONTRINOZERO-R, SCONTRINOZERO-V)
+  if (isClientNetworkFailure(event, hint)) {
+    return null;
+  }
+  // Race benigna del runtime di streaming SSR di React su Mobile Safari
+  // (issue SCONTRINOZERO-K)
+  if (isReactStreamingDomError(event, hint)) {
+    return null;
+  }
+  // Stampante termica spenta o fuori portata: condizione ordinaria al banco,
+  // già mostrata all'utente come "Stampante non raggiungibile…" (regola 20)
+  if (isBluetoothGattFailure(event, hint)) {
+    return null;
+  }
+  return event;
+}
+
+/**
  * True se l'evento è il benigno `TypeError: Failed to parse body as FormData`
  * generato da una richiesta verso la route not-found (sonda bot). Lo scope è
  * volutamente limitato alla transaction `/_not-found`: su una Server Action

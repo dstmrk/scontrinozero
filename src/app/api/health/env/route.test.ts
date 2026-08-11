@@ -46,7 +46,7 @@ afterEach(() => {
   }
 });
 
-describe("GET /api/_health/env", () => {
+describe("GET /api/health/env", () => {
   it("returns 200 with appUrl, release, and parsed hostnames when env is valid", async () => {
     mockGetTrustedAppUrl.mockReturnValue("https://app.scontrinozero.it");
     process.env.NEXT_PUBLIC_APP_HOSTNAME = "app.scontrinozero.it";

@@ -50,9 +50,9 @@ src/
 ```
 
 Route handler sotto `src/app/api/`: `src/app/api/v1` (Developer API pubblica,
-Bearer key), `src/app/api/stripe` (webhook), `src/app/api/health` (liveness),
-`src/app/api/_health` (env probe), `src/app/api/_debug` (sentry-sentinel),
-`src/app/api/documents`, `src/app/api/export`, `src/app/api/csp-report`.
+Bearer key), `src/app/api/stripe` (webhook), `src/app/api/health` (le tre
+probe di smoke: `live`, `env`, `sentry-sentinel`), `src/app/api/documents`,
+`src/app/api/export`, `src/app/api/csp-report`.
 
 Sottocartelle di `src/lib/`: `src/lib/ade` (integrazione AdE HTTP),
 `src/lib/services` (orchestrazione emit/void/recovery), `src/lib/receipts`
@@ -82,7 +82,7 @@ partner per il branding subdomain), e i data file marketing
 | Sessione AdE riusata (Fisconline vs CIE)          | Fisconline (rinnovo silenzioso): `src/lib/ade/session-cache.ts` · CIE (interattiva, conferma push utente): `src/lib/ade/interactive-session-store.ts` + pre-check `isCieSessionMissing` in `src/lib/ade/index.ts`                                                                                      |
 | Classi errore AdE + logging tipato                | `src/lib/ade/errors.ts`, `src/lib/ade/log-failure.ts`                                                                                                                                                                                                                                                  |
 | Logger pino → Sentry (hook level≥50)              | `src/lib/logger.ts`                                                                                                                                                                                                                                                                                    |
-| Filtri Sentry client (network noise)              | `src/lib/sentry-filters.ts`, `sentry.client.config.ts`                                                                                                                                                                                                                                                 |
+| Filtri Sentry client (network noise)              | `src/lib/sentry-filters.ts`, `instrumentation-client.ts`                                                                                                                                                                                                                                               |
 | Env d'identità (URL/hostname, fail-fast)          | `src/lib/identity-env.ts`, `src/lib/hostname-env.ts`, `src/lib/trusted-app-url.ts`                                                                                                                                                                                                                     |
 | Link marketing → app (cross-origin)               | `src/lib/marketing-to-app-href.ts` (`appHref`)                                                                                                                                                                                                                                                         |
 | Rate limit                                        | `src/lib/rate-limit.ts`; client IP → `src/lib/get-client-ip.ts`                                                                                                                                                                                                                                        |
@@ -94,7 +94,7 @@ partner per il branding subdomain), e i data file marketing
 | Stripe (SDK wrapper + webhook)                    | `src/lib/stripe.ts`, `src/app/api/stripe`                                                                                                                                                                                                                                                              |
 | Schema DB (una tabella per file)                  | `src/db/schema` (es. `src/db/schema/profiles.ts`, `src/db/schema/commercial-documents.ts`)                                                                                                                                                                                                             |
 | Contenuti marketing/SEO (data file)               | `src/lib/guide`, `src/lib/help`, `src/lib/per`, `src/lib/confronto`, `src/lib/strumenti`                                                                                                                                                                                                               |
-| Health/diagnostica post-deploy                    | `src/app/api/health`, `src/app/api/_health`, `src/app/api/_debug`                                                                                                                                                                                                                                      |
+| Health/diagnostica post-deploy                    | `src/app/api/health` (`live`, `env`, `sentry-sentinel`)                                                                                                                                                                                                                                                |
 | Cancellazione account (self-service + purge)      | `src/server/account-actions.ts` (`deleteAccount`), helper condiviso `src/lib/services/purge-user.ts`                                                                                                                                                                                                   |
 | GDPR pruning utenti inattivi >12 mesi             | `src/lib/services/inactive-user-prune.ts` + config `src/lib/services/inactive-user-prune-config.ts`, sweep in `src/instrumentation.ts`; segnale "visita autenticata" `last_seen_at` toccato da `touchLastSeen` in `src/lib/server-auth.ts`                                                             |
 
