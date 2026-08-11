@@ -30,12 +30,12 @@ afterEach(() => {
 
 function buildRequest(headers: Record<string, string> = {}): Request {
   return new Request(
-    "https://app.scontrinozero.it/api/_debug/sentry-sentinel",
+    "https://app.scontrinozero.it/api/health/sentry-sentinel",
     { method: "GET", headers },
   );
 }
 
-describe("GET /api/_debug/sentry-sentinel", () => {
+describe("GET /api/health/sentry-sentinel", () => {
   describe("auth gating (nascondi l'endpoint a chi non ha il secret)", () => {
     it("returns 404 when SENTRY_SENTINEL_TOKEN env is not configured", async () => {
       delete process.env.SENTRY_SENTINEL_TOKEN;
@@ -128,7 +128,7 @@ describe("GET /api/_debug/sentry-sentinel", () => {
       // Lets the operator script (or CI) pre-generate the ID and grep Sentry
       // immediately, without parsing the response body.
       const req = new Request(
-        "https://app.scontrinozero.it/api/_debug/sentry-sentinel?id=ci-deploy-v1.3.6",
+        "https://app.scontrinozero.it/api/health/sentry-sentinel?id=ci-deploy-v1.3.6",
         {
           method: "GET",
           headers: { "x-sentinel-token": "s3cret-token" },

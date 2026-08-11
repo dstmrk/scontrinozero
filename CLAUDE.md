@@ -110,7 +110,7 @@ _prescrittive_ (come fare X); la mappa è _descrittiva_ (dove sta X).
     `logAdeFailure()` + filtri client → skill `sentry-hygiene`.
 21. **Osservabilità: validare il drain end-to-end al rollout.** Una feature di
     telemetria non è rilasciata finché la sentinella non appare in Sentry
-    entro ~5 min (`/api/_debug/sentry-sentinel`). Procedura → skill
+    entro ~5 min (`/api/health/sentry-sentinel`). Procedura → skill
     `deploy-release` (smoke) e `sentry-hygiene` (query).
 22. **`Sentry.setUser({ id })` su ogni richiesta autenticata** — bind già
     dentro `getAuthenticatedUser` (`src/lib/server-auth.ts`), non aggirarlo.
@@ -124,7 +124,7 @@ _prescrittive_ (come fare X); la mappa è _descrittiva_ (dove sta X).
     dev/test logga `warn`. Dettagli → skill `deploy-release`.
 25. **Smoke test post-deploy: tre health probe (live + env + drain).** Nessun
     deploy è "concluso" senza i tre curl verdi su `/api/health/live`,
-    `/api/_health/env` e `/api/_debug/sentry-sentinel`. Procedura canonica →
+    `/api/health/env` e `/api/health/sentry-sentinel`. Procedura canonica →
     skill `deploy-release`.
 26. **Mappa codebase: tienila viva.** Se sposti/rinomini un modulo, cambi un
     data flow o una soglia, aggiorna `docs/architecture/*` nello stesso PR
@@ -163,6 +163,15 @@ _prescrittive_ (come fare X); la mappa è _descrittiva_ (dove sta X).
     serviti (`.next/static/chunks/` o quelli scaricati da prod) — il sorgente
     non è prova. Procedura → skill `sentry-hygiene` (client) e `pwa-serwist`
     (service worker).
+31. **Mai un `route.ts`/`page.tsx` sotto una cartella `_nome`.** Nell'App
+    Router il prefisso `_` marca una **private folder**: Next esclude dal
+    routing la cartella e tutte le sue sottocartelle, senza un warning. Il file
+    compila, i suoi unit test passano (importano `GET` direttamente) e l'URL
+    risponde **404 ovunque** — sintomo identico a un deploy vecchio, per questo
+    ci ha ingannati. Le probe della regola 25 sono nate così: `_health/env` e
+    `_debug/sentry-sentinel` non sono mai state raggiungibili. Le private
+    folder restano legittime per file **colocati non routabili**; la guardia è
+    `src/app/routable-segments.test.ts`.
 
 ## SonarCloud quality gate
 

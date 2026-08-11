@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
  *
  * Uso atteso (smoke test post-deploy, R25):
  *
- *   curl -fsS https://<host>/api/_health/env | jq .
+ *   curl -fsS https://<host>/api/health/env | jq .
  *   # confronta `appUrl` e `release` con quanto rilasciato.
  */
 export function GET(): Response {

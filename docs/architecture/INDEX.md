@@ -50,9 +50,9 @@ src/
 ```
 
 Route handler sotto `src/app/api/`: `src/app/api/v1` (Developer API pubblica,
-Bearer key), `src/app/api/stripe` (webhook), `src/app/api/health` (liveness),
-`src/app/api/_health` (env probe), `src/app/api/_debug` (sentry-sentinel),
-`src/app/api/documents`, `src/app/api/export`, `src/app/api/csp-report`.
+Bearer key), `src/app/api/stripe` (webhook), `src/app/api/health` (le tre
+probe di smoke: `live`, `env`, `sentry-sentinel`), `src/app/api/documents`,
+`src/app/api/export`, `src/app/api/csp-report`.
 
 Sottocartelle di `src/lib/`: `src/lib/ade` (integrazione AdE HTTP),
 `src/lib/services` (orchestrazione emit/void/recovery), `src/lib/receipts`
@@ -94,7 +94,7 @@ partner per il branding subdomain), e i data file marketing
 | Stripe (SDK wrapper + webhook)                    | `src/lib/stripe.ts`, `src/app/api/stripe`                                                                                                                                                                                                                                                              |
 | Schema DB (una tabella per file)                  | `src/db/schema` (es. `src/db/schema/profiles.ts`, `src/db/schema/commercial-documents.ts`)                                                                                                                                                                                                             |
 | Contenuti marketing/SEO (data file)               | `src/lib/guide`, `src/lib/help`, `src/lib/per`, `src/lib/confronto`, `src/lib/strumenti`                                                                                                                                                                                                               |
-| Health/diagnostica post-deploy                    | `src/app/api/health`, `src/app/api/_health`, `src/app/api/_debug`                                                                                                                                                                                                                                      |
+| Health/diagnostica post-deploy                    | `src/app/api/health` (`live`, `env`, `sentry-sentinel`)                                                                                                                                                                                                                                                |
 | Cancellazione account (self-service + purge)      | `src/server/account-actions.ts` (`deleteAccount`), helper condiviso `src/lib/services/purge-user.ts`                                                                                                                                                                                                   |
 | GDPR pruning utenti inattivi >12 mesi             | `src/lib/services/inactive-user-prune.ts` + config `src/lib/services/inactive-user-prune-config.ts`, sweep in `src/instrumentation.ts`; segnale "visita autenticata" `last_seen_at` toccato da `touchLastSeen` in `src/lib/server-auth.ts`                                                             |
 

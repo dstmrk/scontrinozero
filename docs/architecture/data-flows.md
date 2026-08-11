@@ -142,5 +142,5 @@ ambiguo o fallito → resta pending (fail-safe).
 3. Rumore di rete client filtrato in `src/lib/sentry-filters.ts`
    (`clientBeforeSend`, montato in `instrumentation-client.ts` — unico entry
    point Sentry lato browser con Turbopack).
-4. Validazione drain + smoke post-deploy via `src/app/api/_debug` e
-   `src/app/api/_health` (regole 21/25, skill `sentry-hygiene`).
+4. Validazione drain + smoke post-deploy via `src/app/api/health`
+   (`live`, `env`, `sentry-sentinel` — regole 21/25, skill `sentry-hygiene`).
