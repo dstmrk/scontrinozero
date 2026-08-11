@@ -16,7 +16,16 @@ vi.mock("@/components/json-ld", () => ({
 }));
 vi.mock("./globals.css", () => ({}));
 
-import { metadata } from "./layout";
+import { metadata, viewport } from "./layout";
+
+describe("RootLayout viewport", () => {
+  it("dichiara un theme-color chiaro fisso fuori dall'app shell", () => {
+    // Marketing/auth/onboarding montano fuori dal ThemeProvider: sono sempre
+    // chiari, quindi una coppia light/dark qui darebbe barra scura su pagina
+    // bianca. La coppia la dichiara il solo segmento /dashboard.
+    expect(viewport.themeColor).toBe("#ffffff");
+  });
+});
 
 describe("RootLayout metadata", () => {
   it("dichiara il meta standard mobile-web-app-capable (non deprecato)", () => {

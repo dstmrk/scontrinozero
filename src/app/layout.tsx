@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { rootViewport } from "@/lib/pwa/viewport";
 import localFont from "next/font/local";
 import { Providers } from "@/components/providers";
 import {
@@ -70,6 +71,10 @@ export const metadata: Metadata = {
     "apple-mobile-web-app-title": "ScontrinoZero",
   },
 };
+
+// Il segmento /dashboard lo sovrascrive con la coppia light/dark: Next fonde i
+// viewport lungo l'albero, il figlio vince sul campo che ridichiara.
+export const viewport = rootViewport;
 
 export default function RootLayout({
   children,
