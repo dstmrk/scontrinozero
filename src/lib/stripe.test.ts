@@ -32,7 +32,7 @@ describe("getStripe", () => {
     const instance = getStripe();
     expect(instance).toBeDefined();
     expect(mockStripeConstructor).toHaveBeenCalledWith("sk_test_abc", {
-      apiVersion: expect.stringContaining("2026"),
+      apiVersion: "2026-07-29.dahlia",
     });
   });
 
