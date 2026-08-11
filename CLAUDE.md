@@ -8,7 +8,7 @@ via "Documento Commerciale Online", senza registratore telematico fisico.
 
 **Stack:** Next.js 16 (App Router) · React 19 · TypeScript strict · Tailwind 4 ·
 shadcn/ui · TanStack Query/Table · PWA (Serwist) · Supabase Cloud (Postgres) ·
-Drizzle ORM · Supabase Auth · Stripe (`2026-06-24.dahlia`) · Resend · Sentry ·
+Drizzle ORM · Supabase Auth · Stripe (`2026-07-29.dahlia`) · Resend · Sentry ·
 pino · Umami · SonarCloud · Vitest. Deploy Docker self-hosted su VPS dietro
 Cloudflare Tunnel.
 
@@ -158,7 +158,7 @@ Coverage on new code ≥ **80%** · duplicated lines < **3%** · **0 new issues*
 (fix sempre, anche con gate verde). Regole ricorrenti (S6861, S6772, S7780,
 S5852/S5122, Gitleaks placeholder) → skill `sonar-quality-gate`.
 
-Stripe API `2026-06-24.dahlia` (breaking changes, 8 webhook events,
+Stripe API `2026-07-29.dahlia` (breaking changes, 8 webhook events,
 referral/trial) → skill `stripe-webhooks`.
 
 ## Workflow operativi
