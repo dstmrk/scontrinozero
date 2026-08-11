@@ -104,11 +104,33 @@ condizioni inattese (DB down, SDK che fallisce in modo non documentato):
 un errore d'input utente in Sentry è noise esattamente come "password
 sbagliata su `/login`".
 
-**Lato client** lo stesso principio si applica tramite `beforeSend` in
-`sentry.client.config.ts`: i fallimenti di rete browser (`TypeError: Load
-failed` su iOS, `Failed to fetch` su Chrome) generati da `fetchServerAction`
-sono sempre transitori (connessione mobile caduta) — filtrati da
-`isClientNetworkFailure()` in `src/lib/sentry-filters.ts` (SCONTRINOZERO-J).
+**Lato client** lo stesso principio si applica tramite `clientBeforeSend`
+(`src/lib/sentry-filters.ts`), montato in **`instrumentation-client.ts`**: i
+fallimenti di rete browser (`TypeError: Load failed` su iOS, `Failed to fetch`
+su Chrome) generati da `fetchServerAction` sono sempre transitori (connessione
+mobile caduta) — filtrati da `isClientNetworkFailure()` (SCONTRINOZERO-J).
+
+> ⚠️ **Il bootstrap client è solo `instrumentation-client.ts`.** Il legacy
+> `sentry.client.config.ts` viene iniettato **unicamente** dal path webpack del
+> SDK (`@sentry/nextjs/build/cjs/config/webpack.js`); con Turbopack — il
+> bundler di default di Next 16, quello con cui buildiamo — non finisce mai nel
+> bundle. Per cinque settimane i tre filtri client e Session Replay sono
+> rimasti configurati lì e **morti in produzione** (SCONTRINOZERO-V). Come si
+> verifica in 30 secondi, senza attendere il prossimo evento: scarica i chunk
+> referenziati da una pagina e cerca una stringa che esiste solo nel nostro
+> codice —
+>
+> ```bash
+> curl -s https://scontrinozero.it/ -o page.html
+> for c in $(grep -oE '/_next/static/chunks/[A-Za-z0-9_./-]+\.js' page.html | sort -u); do
+>   curl -s "https://scontrinozero.it$c" -o chunk.js
+>   grep -qF 'Load failed","Failed to fetch' chunk.js && echo "filtri client presenti in $c"
+>   grep -qF 'rrweb' chunk.js && echo "Session Replay presente in $c"
+> done
+> ```
+>
+> Nessun match (o nessun `rrweb`/`replayIntegration` per il Replay) = la
+> configurazione non è nel bundle, qualunque cosa dica il sorgente.
 
 ### 3. Transient upstream (rete, 5xx esterno, SPID timeout)
 

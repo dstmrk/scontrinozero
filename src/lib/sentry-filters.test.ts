@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ErrorEvent, EventHint } from "@sentry/nextjs";
 import {
+  clientBeforeSend,
   isBenignFormDataParseError,
   isBenignServerActionNotFound,
   isBluetoothGattFailure,
@@ -375,5 +376,66 @@ describe("isBluetoothGattFailure", () => {
     const event = makeEvent("/cassa");
 
     expect(isBluetoothGattFailure(event)).toBe(false);
+  });
+});
+
+describe("clientBeforeSend", () => {
+  it("scarta il fallimento di rete del browser (issue SCONTRINOZERO-J)", () => {
+    const event = makeEvent("/login");
+    const hint: EventHint = {
+      originalException: new TypeError("Load failed"),
+    };
+
+    expect(clientBeforeSend(event, hint)).toBeNull();
+  });
+
+  it("scarta la fetch iniettata da un'estensione browser (issue SCONTRINOZERO-R/-V)", () => {
+    const event = makeEvent("/guide/pos-rt-obbligo-2026");
+    const hint: EventHint = {
+      originalException: new TypeError("Failed to fetch (safesearchinc.com)"),
+    };
+
+    expect(clientBeforeSend(event, hint)).toBeNull();
+  });
+
+  it("scarta la race del runtime di streaming SSR (issue SCONTRINOZERO-K)", () => {
+    const event = makeStreamEvent(
+      "null is not an object (evaluating 'b.parentNode')",
+      ["$RS"],
+    );
+
+    expect(clientBeforeSend(event)).toBeNull();
+  });
+
+  it("scarta la scrittura GATT fallita verso la stampante termica", () => {
+    const event = {
+      type: undefined,
+      transaction: "/cassa",
+      exception: {
+        values: [
+          {
+            type: "NetworkError",
+            value: "GATT operation failed for unknown reason.",
+          },
+        ],
+      },
+    } as ErrorEvent;
+
+    expect(clientBeforeSend(event)).toBeNull();
+  });
+
+  it("lascia passare un errore applicativo reale", () => {
+    const event = makeEvent("/dashboard/cassa");
+    const hint: EventHint = {
+      originalException: new TypeError("Cannot read properties of undefined"),
+    };
+
+    expect(clientBeforeSend(event, hint)).toBe(event);
+  });
+
+  it("lascia passare un evento senza messaggio d'errore", () => {
+    const event = makeEvent("/dashboard");
+
+    expect(clientBeforeSend(event)).toBe(event);
   });
 });

@@ -42,7 +42,7 @@ le accetta; prod **non** le passa (→ default `app.scontrinozero.it`),
 l'immagine `:dev` sì (→ `app-dev`). Sandbox condivide l'immagine prod → su
 questi link resta sul default prod (limite noto). Idem
 `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (`turnstile-widget.tsx`) e
-`NEXT_PUBLIC_SENTRY_DSN` (`sentry.client.config.ts`). Coerente con la regola
+`NEXT_PUBLIC_SENTRY_DSN` (`instrumentation-client.ts`). Coerente con la regola
 15 di `CLAUDE.md` (link auth marketing → app via `appHref()`).
 
 ### Turnstile per dev

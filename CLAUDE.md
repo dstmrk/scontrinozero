@@ -151,6 +151,18 @@ _prescrittive_ (come fare X); la mappa è _descrittiva_ (dove sta X).
     davvero qualcosa di nuovo, una libreria mantenuta batte la
     reimplementazione, ma pesala contro "dipendenze minime, un solo container"
     (Principi guida).
+30. **Config webpack-only sotto Turbopack: verifica il bundle, non il
+    sorgente.** Buildiamo con **Turbopack** (default Next 16): ogni plugin o
+    config-file che il vendor inietta solo dal path webpack **non gira**, e
+    quasi sempre **senza errori** — il build resta verde e la feature è morta
+    in produzione. Già successo due volte: `withSerwistInit` (SW 404, REVIEW
+    #84) e `sentry.client.config.ts` (`beforeSend` + Session Replay mai
+    caricati, SCONTRINOZERO-V; il client Sentry si configura **solo** in
+    `instrumentation-client.ts`). Prima di dichiarare live una config di
+    bundling, cerca una stringa che esiste solo nel tuo codice dentro i chunk
+    serviti (`.next/static/chunks/` o quelli scaricati da prod) — il sorgente
+    non è prova. Procedura → skill `sentry-hygiene` (client) e `pwa-serwist`
+    (service worker).
 
 ## SonarCloud quality gate
 

@@ -140,6 +140,7 @@ ambiguo o fallito → resta pending (fail-safe).
    `ade_transient` → solo `warn`; `ade_failure` → Sentry con fingerprint per
    `flow` (regole 20/23).
 3. Rumore di rete client filtrato in `src/lib/sentry-filters.ts`
-   (`sentry.client.config.ts`, `beforeSend`).
+   (`clientBeforeSend`, montato in `instrumentation-client.ts` — unico entry
+   point Sentry lato browser con Turbopack).
 4. Validazione drain + smoke post-deploy via `src/app/api/_debug` e
    `src/app/api/_health` (regole 21/25, skill `sentry-hygiene`).
