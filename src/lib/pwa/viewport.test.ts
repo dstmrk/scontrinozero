@@ -1,7 +1,12 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it, expect } from "vitest";
-import { dashboardViewport } from "./viewport";
+import {
+  DARK_SURFACE,
+  LIGHT_SURFACE,
+  dashboardViewport,
+  rootViewport,
+} from "./viewport";
 
 const DASHBOARD_LAYOUT = path.join(
   import.meta.dirname,
@@ -21,6 +26,26 @@ describe("dashboardViewport", () => {
   it("non blocca lo zoom utente (a11y): né maximumScale né userScalable", () => {
     expect(dashboardViewport.maximumScale).toBeUndefined();
     expect(dashboardViewport.userScalable).toBeUndefined();
+  });
+});
+
+describe("theme-color", () => {
+  it("fuori dal dashboard resta chiaro e basta: lì il dark mode non esiste", () => {
+    expect(rootViewport.themeColor).toBe(LIGHT_SURFACE);
+  });
+
+  it("nel dashboard segue lo schema colore del sistema", () => {
+    expect(dashboardViewport.themeColor).toEqual([
+      { media: "(prefers-color-scheme: light)", color: LIGHT_SURFACE },
+      { media: "(prefers-color-scheme: dark)", color: DARK_SURFACE },
+    ]);
+  });
+
+  it("i due colori sono l'esatto --background dei due temi", () => {
+    // oklch(1 0 0) e oklch(0.145 0 0) di src/app/globals.css, in esadecimale:
+    // un meta tag non accetta oklch() su tutti i browser che ci interessano.
+    expect(LIGHT_SURFACE).toBe("#ffffff");
+    expect(DARK_SURFACE).toBe("#0a0a0a");
   });
 });
 

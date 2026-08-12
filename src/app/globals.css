@@ -124,3 +124,24 @@
     @apply bg-background text-foreground;
   }
 }
+
+/*
+  Pull-to-refresh solo nella PWA installata.
+
+  Su Android una trazione in cima ricarica l'intera app: al banco, con lo
+  scontrino a metà, significa perdere il carrello in corso. È lo stesso motivo
+  per cui `src/components/providers.tsx` disattiva `reloadOnOnline` di Serwist.
+
+  `contain` e non `none`: ferma la propagazione del gesto (quindi il refresh)
+  ma lascia vivo il rimbalzo elastico, che è metà della sensazione "nativa".
+
+  Scoped a `display-mode: standalone` di proposito. Nel sito aperto in un
+  browser normale il pull-to-refresh è un'affordance che l'utente si aspetta:
+  toglierla lì sarebbe una regressione, non una rifinitura.
+*/
+@media (display-mode: standalone) {
+  html,
+  body {
+    overscroll-behavior-y: contain;
+  }
+}

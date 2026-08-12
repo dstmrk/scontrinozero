@@ -71,6 +71,11 @@ export const metadata: Metadata = {
   },
 };
 
+// Il segmento /dashboard lo sovrascrive con la coppia light/dark: Next fonde i
+// viewport lungo l'albero, il figlio vince sul campo che ridichiara.
+// Sulla forma `export … from` vedi la nota in src/app/dashboard/layout.tsx.
+export { rootViewport as viewport } from "@/lib/pwa/viewport";
+
 export default function RootLayout({
   children,
 }: Readonly<{
