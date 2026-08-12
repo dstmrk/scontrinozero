@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { rootViewport } from "@/lib/pwa/viewport";
 import localFont from "next/font/local";
 import { Providers } from "@/components/providers";
 import {
@@ -74,7 +73,8 @@ export const metadata: Metadata = {
 
 // Il segmento /dashboard lo sovrascrive con la coppia light/dark: Next fonde i
 // viewport lungo l'albero, il figlio vince sul campo che ridichiara.
-export const viewport = rootViewport;
+// Sulla forma `export … from` vedi la nota in src/app/dashboard/layout.tsx.
+export { rootViewport as viewport } from "@/lib/pwa/viewport";
 
 export default function RootLayout({
   children,
