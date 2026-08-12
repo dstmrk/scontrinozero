@@ -38,6 +38,16 @@ describe("BottomNav", () => {
     expect(screen.getByText("Analytics")).toBeInTheDocument();
   });
 
+  it("compensa la safe-area su tutti e tre i lati esposti", () => {
+    mockUsePathname.mockReturnValue("/dashboard");
+    const { container } = render(<BottomNav />);
+
+    const nav = container.querySelector("nav");
+    expect(nav?.className).toContain("pb-[env(safe-area-inset-bottom)]");
+    expect(nav?.className).toContain("pl-[env(safe-area-inset-left)]");
+    expect(nav?.className).toContain("pr-[env(safe-area-inset-right)]");
+  });
+
   it("i link puntano agli href corretti", () => {
     mockUsePathname.mockReturnValue("/dashboard");
     render(<BottomNav />);

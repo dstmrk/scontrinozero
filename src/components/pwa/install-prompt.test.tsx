@@ -55,6 +55,25 @@ describe("PwaInstallPrompt", () => {
     expect(container.firstChild).toBeNull();
   });
 
+  it("somma la safe-area al padding del pannello fisso", () => {
+    setUserAgent(IOS_UA);
+    const { container } = render(<PwaInstallPrompt />);
+
+    const panel = container.querySelector("header");
+    expect(panel?.className).toContain(
+      "pb-[calc(1rem_+_env(safe-area-inset-bottom))]",
+    );
+  });
+
+  it("usa i token di tema, non colori hardcoded (leggibile in dark mode)", () => {
+    setUserAgent(IOS_UA);
+    const { container } = render(<PwaInstallPrompt />);
+
+    const panel = container.querySelector("header");
+    expect(panel?.className).toContain("bg-background");
+    expect(panel?.className).not.toContain("bg-white");
+  });
+
   it("non lancia se l'accesso a localStorage è negato (SecurityError)", () => {
     vi.spyOn(window, "localStorage", "get").mockImplementation(() => {
       throw new DOMException("Access is denied", "SecurityError");
