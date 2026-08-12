@@ -12,16 +12,27 @@ const DISMISSED_KEY = "pwa-install-dismissed";
 
 // Pannello fisso in fondo, condiviso dalla variante iOS e da quella Android.
 //
-// Il padding sui tre lati esposti somma la safe-area alle vecchie 1rem (py-4 /
-// px-4): con il viewport-fit=cover dell'app shell il pannello arriva al bordo
-// fisico, quindi senza la somma i bottoni finirebbero sotto la home indicator.
-// Le inset valgono 0 fuori dai dispositivi con ritaglio, dove il padding torna
-// a essere esattamente 1rem.
+// **Si impila sopra la bottom nav, non ci si sovrappone** (REVIEW #85). Sotto
+// `md` entrambi erano `fixed bottom-0 z-50` e il pannello copriva le quattro
+// voci per intero: finché l'utente non faceva dismiss, la navigazione era
+// raggiungibile solo per URL. L'offset `4rem` è l'`h-16` della nav, più la
+// safe-area che la nav stessa aggiunge sotto di sé. Da `md` la nav è
+// `md:hidden`, quindi il pannello torna a filo del bordo.
+//
+// Di conseguenza la safe-area verticale la compensa **solo** la variante `md`:
+// quando è impilato ce l'ha già la nav sotto di lui, e sommarla qui la
+// conterebbe due volte. Le inset orizzontali valgono invece a ogni larghezza.
+// Fuori dai dispositivi con ritaglio ogni `env()` è 0 e il padding torna
+// esattamente 1rem.
+//
+// Resta acceso il fatto che il pannello copra l'ultima riga di contenuto: è
+// dismissibile, e alzare il `pb` del `<main>` solo mentre è montato costerebbe
+// uno stato condiviso fra due componenti per un banner che si chiude con un tap.
 //
 // Colori a token e non hardcoded: il prompt monta dentro il ThemeProvider del
 // dashboard, quindi con `bg-white` era una lastra bianca in dark mode.
 const PANEL_CLASS =
-  "bg-background border-border fixed right-0 bottom-0 left-0 z-50 border-t pt-4 pr-[calc(1rem_+_env(safe-area-inset-right))] pb-[calc(1rem_+_env(safe-area-inset-bottom))] pl-[calc(1rem_+_env(safe-area-inset-left))] shadow-lg";
+  "bg-background border-border fixed right-0 bottom-[calc(4rem_+_env(safe-area-inset-bottom))] left-0 z-50 border-t pt-4 pr-[calc(1rem_+_env(safe-area-inset-right))] pb-4 pl-[calc(1rem_+_env(safe-area-inset-left))] shadow-lg md:bottom-0 md:pb-[calc(1rem_+_env(safe-area-inset-bottom))]";
 
 function isIos(): boolean {
   return /iPad|iPhone|iPod/.test(navigator.userAgent);
