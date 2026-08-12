@@ -17,11 +17,15 @@ import { OnboardingTour } from "@/components/dashboard/onboarding-tour";
 import { AnnouncementBanner } from "@/components/announcement/announcement-banner";
 import { PwaInstallPrompt } from "@/components/pwa/install-prompt";
 import { PartnerBrandSuffix } from "@/components/partner-brand-suffix";
-import { dashboardViewport } from "@/lib/pwa/viewport";
 
 // Solo l'app shell va edge-to-edge: il marketing resta sul viewport di default.
 // Motivazione in src/lib/pwa/viewport.ts.
-export const viewport = dashboardViewport;
+//
+// Re-export diretto (S3559). Next legge `mod.viewport` dal namespace del modulo
+// a runtime (`resolve-metadata.js`) e nessun path di analisi statica guarda
+// questo export, quindi la forma `export … from` è equivalente a un binding
+// locale — verificato nel Next installato prima di adottarla.
+export { dashboardViewport as viewport } from "@/lib/pwa/viewport";
 
 export default async function DashboardLayout({
   children,

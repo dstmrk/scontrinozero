@@ -38,6 +38,8 @@ describe("cablaggio del viewport nell'app shell", () => {
   it("il dashboard layout esporta il viewport, non solo lo importa", () => {
     const source = readFileSync(DASHBOARD_LAYOUT, "utf8");
 
-    expect(source).toContain("export const viewport = dashboardViewport");
+    expect(source).toContain(
+      'export { dashboardViewport as viewport } from "@/lib/pwa/viewport"',
+    );
   });
 });
