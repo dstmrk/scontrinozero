@@ -55,13 +55,38 @@ describe("PwaInstallPrompt", () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it("somma la safe-area al padding del pannello fisso", () => {
+  it("si impila sopra la bottom nav su mobile invece di coprirla", () => {
     setUserAgent(IOS_UA);
     const { container } = render(<PwaInstallPrompt />);
 
+    // 4rem = h-16 della nav; l'inset è quella che la nav aggiunge sotto di sé.
     const panel = container.querySelector("header");
     expect(panel?.className).toContain(
-      "pb-[calc(1rem_+_env(safe-area-inset-bottom))]",
+      "bottom-[calc(4rem_+_env(safe-area-inset-bottom))]",
+    );
+  });
+
+  it("torna a filo del bordo da md in su, dove la nav è nascosta", () => {
+    setUserAgent(IOS_UA);
+    const { container } = render(<PwaInstallPrompt />);
+
+    expect(container.querySelector("header")?.className).toContain(
+      "md:bottom-0",
+    );
+  });
+
+  it("compensa la safe-area solo da md, quando non c'è più la nav a farlo", () => {
+    setUserAgent(IOS_UA);
+    const { container } = render(<PwaInstallPrompt />);
+
+    // Impilato, sommarla di nuovo qui la conterebbe due volte: sotto il
+    // pannello c'è la nav, che il suo pb-[env(...)] ce l'ha già.
+    const panel = container.querySelector("header");
+    expect(panel?.className).toContain(
+      "md:pb-[calc(1rem_+_env(safe-area-inset-bottom))]",
+    );
+    expect(panel?.className).not.toContain(
+      " pb-[calc(1rem_+_env(safe-area-inset-bottom))]",
     );
   });
 

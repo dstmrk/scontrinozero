@@ -127,12 +127,17 @@ export default async function DashboardLayout({
         </header>
 
         {/*
-          La bottom nav è alta h-16 e ora cresce della safe-area inset: senza
+          La bottom nav è alta h-16 e cresce della safe-area inset: senza
           sommarla qui il fondo del contenuto finirebbe sotto la nav esattamente
           sui telefoni con home indicator. Il 5rem è il vecchio pb-20 (64px di
           nav + 16px d'aria).
+
+          Da `md` la nav è nascosta, ma la inset va sommata lo stesso: con
+          viewport-fit=cover il layout arriva al bordo fisico anche su un iPad
+          installato come PWA, dove prima iOS riservava quella fascia da solo.
+          Con il solo `pb-6` l'ultima riga finirebbe a filo della home indicator.
         */}
-        <main className="container mx-auto flex-1 px-4 py-6 pb-[calc(5rem_+_env(safe-area-inset-bottom))] md:pb-6">
+        <main className="container mx-auto flex-1 px-4 py-6 pb-[calc(5rem_+_env(safe-area-inset-bottom))] md:pb-[calc(1.5rem_+_env(safe-area-inset-bottom))]">
           {children}
         </main>
 

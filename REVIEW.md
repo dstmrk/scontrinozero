@@ -313,34 +313,6 @@ diventa rilevante con i piani Developer multi-key (10–50 chiavi/business, tabe
 
 ---
 
-### 85. Il banner d'installazione PWA copre interamente la bottom nav su mobile
-
-- **Categoria:** UX · **Severità:** Low — riguarda la sola sessione in browser, prima dell'installazione
-- **File:** `src/components/pwa/install-prompt.tsx`, `src/components/dashboard/bottom-nav.tsx`
-
-**Problema.** Entrambi i componenti sono `fixed bottom-0 left-0 right-0 z-50` e
-montano insieme nel dashboard layout. Il banner è alto quanto la nav o di più,
-quindi finché l'utente non installa (o non fa dismiss) le quattro voci
-Catalogo/Cassa/Storico/Analytics sono **inaccessibili** su mobile: restano
-raggiungibili solo via URL o dal contenuto della pagina. Il difetto è
-preesistente al PR che ha cablato `viewport-fit=cover` — quel PR ha allineato le
-safe-area dei due pannelli, non la loro sovrapposizione.
-
-**Fix (non ambiguo).**
-
-1. Impilare invece di sovrapporre: il banner si ancora **sopra** la nav su
-   viewport `< md` — `bottom-[calc(4rem_+_env(safe-area-inset-bottom))]` (4rem =
-   `h-16` della nav) e `md:bottom-0`, togliendo dal banner la sola
-   `pb-[calc(1rem_+_env(safe-area-inset-bottom))]` quando è impilato (la
-   compensazione la fa già la nav sotto di lui).
-2. Alzare di conseguenza il `pb` del `<main>` in `src/app/dashboard/layout.tsx`
-   **solo** mentre il banner è montato, o accettare che il banner copra l'ultima
-   riga di contenuto (è dismissibile: preferibile la seconda, più semplice).
-3. **Test:** in `install-prompt.test.tsx`, asserire la classe di offset sul
-   pannello; in `bottom-nav.test.tsx` nulla cambia.
-
----
-
 ### 24. Centralizzare policy retry/timeout sulle chiamate esterne
 
 - **Categoria:** architettura · **Severità:** Low — al prossimo provider esterno nuovo
