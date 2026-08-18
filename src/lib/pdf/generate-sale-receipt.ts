@@ -1,12 +1,45 @@
+/**
+ * Documento commerciale di vendita in PDF a 58mm.
+ *
+ * Il layout segue il **"layout standard"** pubblicato dall'AdE per il
+ * documento commerciale (`Layout_documento_commerciale_v4`): ordine delle
+ * sezioni, diciture (`DESCRIZIONE`/`Prezzo(€)`, `Pagamento contante`,
+ * `Importo pagato`), `di cui IVA` sotto il totale e non prima, codice lotteria
+ * in coda dopo il numero documento. Non è un obbligo di legge per noi — il
+ * documento fiscale è quello trasmesso all'AdE — ma è la forma che il cliente
+ * riconosce come scontrino, e ci evita che l'esercente debba spiegarla.
+ *
+ * Due voci del layout AdE restano fuori di proposito:
+ *  - la matricola `RT <numero>`, che è del registratore telematico: noi
+ *    emettiamo via Documento Commerciale Online e un RT non ce l'abbiamo,
+ *    stamparne uno sarebbe falso;
+ *  - `Non riscosso`, `Resto`, `Sconto a pagare`, `Omaggio`, che presuppongono
+ *    feature che la cassa non ha (pagamento misto, sconti di riga, omaggi).
+ *    Le "prescrizioni generali per il risparmio carta" dell'AdE chiedono
+ *    comunque di NON stampare le voci a zero, quindi ometterle è conforme.
+ *
+ * La resa termica ESC/POS (`src/lib/printing/receipt-escpos.ts`) rispecchia
+ * sezione per sezione questo file: le due stampe dello stesso documento non
+ * devono mai divergere.
+ */
+
 import PDFDocument from "pdfkit";
 import qrcode from "qrcode-generator";
 import {
   PAYMENT_LABELS,
+  formatBusinessAddressLines,
   formatReceiptPrice,
   formatReceiptDateTime,
 } from "@/lib/receipt-format";
-import { VAT_LABELS as CASSA_VAT_LABELS } from "@/types/cassa";
-import type { VatCode } from "@/types/cassa";
+import {
+  computeReceiptTotals,
+  type ReceiptTotals,
+} from "@/lib/receipts/receipt-totals";
+import {
+  formatVatLegendLine,
+  receiptVatLabel,
+  receiptVatLegend,
+} from "@/lib/receipts/vat-display";
 
 export interface SaleReceiptLine {
   description: string;
@@ -46,66 +79,296 @@ const CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN;
 /** Lato del QR in pt: sta comodo in CONTENT_WIDTH (153pt) restando leggibile. */
 const QR_SIZE = 90;
 
-function vatLabelOf(vatCode: string): string {
-  return CASSA_VAT_LABELS[vatCode as VatCode] ?? vatCode;
+/** Larghezza della colonna importo nelle righe a due colonne (totali/pagamenti). */
+const AMOUNT_W = 38;
+const LABEL_W = CONTENT_WIDTH - AMOUNT_W;
+
+type Doc = InstanceType<typeof PDFDocument>;
+
+/** Posizione verticale corrente, mutata man mano che le sezioni disegnano. */
+interface Cursor {
+  y: number;
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Primitive di disegno ───────────────────────────────────────────────────
 
-/** Returns the VAT amount for a gross line total given a vatCode. */
-export function computeVatAmount(
-  lineTotalGross: number,
-  vatCode: string,
-): number {
-  const rate = Number.parseFloat(vatCode);
-  if (Number.isNaN(rate) || rate === 0) return 0; // N1-N6 codes have no VAT
-  return lineTotalGross - lineTotalGross / (1 + rate / 100);
+function drawSeparator(doc: Doc, cur: Cursor): void {
+  doc
+    .moveTo(MARGIN, cur.y)
+    .lineTo(PAGE_WIDTH - MARGIN, cur.y)
+    .dash(1, { space: 2 })
+    .stroke()
+    .undash();
+  cur.y += 5;
 }
 
-/**
- * Mutates `acc` by adding the VAT cents for `line` under its vatCode key.
- * Skips N-codes (rate 0 / NaN) and zero-VAT cases. Extracted out of the main
- * generator to keep its cognitive complexity below SonarCloud's threshold.
- */
-function accumulateVatCents(
-  acc: Map<string, number>,
-  vatCode: string,
-  lineTotalCents: number,
+interface TextOptions {
+  align?: "left" | "center" | "right";
+  bold?: boolean;
+  size?: number;
+}
+
+function drawText(
+  doc: Doc,
+  cur: Cursor,
+  text: string,
+  opts: TextOptions = {},
 ): void {
-  const rate = Number.parseFloat(vatCode);
-  if (Number.isNaN(rate) || rate === 0) return;
-  const netCents = Math.round(lineTotalCents / (1 + rate / 100));
-  const vatCents = lineTotalCents - netCents;
-  if (vatCents <= 0) return;
-  acc.set(vatCode, (acc.get(vatCode) ?? 0) + vatCents);
+  const { align = "left", bold = false, size = 7 } = opts;
+  doc
+    .font(bold ? "Helvetica-Bold" : "Helvetica")
+    .fontSize(size)
+    .text(text, MARGIN, cur.y, { width: CONTENT_WIDTH, align });
+  cur.y = doc.y + 1;
 }
 
-/** Converts a cents-keyed Map to a euros-keyed Map (1 cent = 0.01 €). */
-function centsMapToEuros(
-  cents: ReadonlyMap<string, number>,
-): Map<string, number> {
-  const out = new Map<string, number>();
-  for (const [k, v] of cents.entries()) out.set(k, v / 100);
-  return out;
+/** Riga a due colonne `etichetta … importo`, usata da totali e pagamenti. */
+function drawAmountRow(
+  doc: Doc,
+  cur: Cursor,
+  label: string,
+  amount: number,
+  opts: { bold?: boolean; size?: number } = {},
+): void {
+  const { bold = false, size = 7 } = opts;
+  doc.font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(size);
+  doc.text(label, MARGIN, cur.y, { width: LABEL_W, align: "left" });
+  doc.text(formatReceiptPrice(amount), MARGIN + LABEL_W, cur.y, {
+    width: AMOUNT_W,
+    align: "right",
+  });
+  cur.y = doc.y + 1;
 }
 
 /**
- * Renders the line description for the PDF. For quantities ≠ 1, appends
- * a second row "n.Q × unit_price" so the customer sees the breakdown.
+ * QR code: griglia vettoriale via `qrcode-generator`.
+ *
+ * Nessun canvas/raster: la stessa libreria che alimenta `react-qr-code`
+ * (già in dependency tree) espone la matrice di moduli sincrona, disegnata
+ * qui come rettangoli pdfkit — coerente col QR nativo della termica
+ * ESC/POS (`receipt-escpos.ts`), stesso URL pubblico.
+ */
+function drawQrCode(doc: Doc, cur: Cursor, url: string): void {
+  const qr = qrcode(0, "M");
+  qr.addData(url);
+  qr.make();
+  const moduleCount = qr.getModuleCount();
+  const cellSize = QR_SIZE / moduleCount;
+  const x = MARGIN + (CONTENT_WIDTH - QR_SIZE) / 2;
+
+  doc.fillColor("black");
+  for (let row = 0; row < moduleCount; row++) {
+    for (let col = 0; col < moduleCount; col++) {
+      if (qr.isDark(row, col)) {
+        doc
+          .rect(x + col * cellSize, cur.y + row * cellSize, cellSize, cellSize)
+          .fill();
+      }
+    }
+  }
+  cur.y += QR_SIZE + 2;
+}
+
+// ─── Sezioni ────────────────────────────────────────────────────────────────
+
+/**
+ * Intestazione nell'ordine del layout AdE: ragione sociale, P.IVA, via,
+ * `Comune(PR), CAP`.
+ */
+function drawHeader(doc: Doc, cur: Cursor, data: SaleReceiptPdfData): void {
+  drawText(doc, cur, data.businessName, {
+    align: "center",
+    bold: true,
+    size: 8,
+  });
+  drawText(doc, cur, `P.IVA: ${data.vatNumber}`, {
+    align: "center",
+    size: 6,
+  });
+  for (const line of formatBusinessAddressLines(data)) {
+    drawText(doc, cur, line, { align: "center", size: 6 });
+  }
+  cur.y += 2;
+  drawSeparator(doc, cur);
+
+  drawText(doc, cur, "DOCUMENTO COMMERCIALE", {
+    align: "center",
+    bold: true,
+    size: 7,
+  });
+  drawText(doc, cur, "di vendita o prestazione", {
+    align: "center",
+    bold: true,
+    size: 6,
+  });
+  cur.y += 2;
+  drawSeparator(doc, cur);
+}
+
+/**
+ * Riga descrittiva dell'articolo. Per quantità ≠ 1 il layout AdE aggiunge
+ * sotto la riga di calcolo `n.Q * prezzo_unitario`.
  */
 function renderLineDescription(line: SaleReceiptLine): string {
   if (line.quantity === 1) return line.description;
   const qtyDisplay =
     line.quantity % 1 === 0 ? Math.round(line.quantity) : line.quantity;
-  return `${line.description}\nn.${qtyDisplay} × ${formatReceiptPrice(line.grossUnitPrice)}`;
+  return `${line.description}\nn.${qtyDisplay} * ${formatReceiptPrice(line.grossUnitPrice)}`;
 }
 
-/** Estimates the page height based on number of lines, VAT rates and optional lottery code row.
+function drawLineItems(
+  doc: Doc,
+  cur: Cursor,
+  lines: SaleReceiptLine[],
+  totals: ReceiptTotals,
+): void {
+  // Larghezze colonna (somma = CONTENT_WIDTH = 153pt):
+  //   Descrizione 95pt (~62%), IVA 22pt (~14%), Prezzo 36pt (~24%)
+  const COL_DESC = Math.round(CONTENT_WIDTH * 0.62);
+  const COL_VAT = Math.round(CONTENT_WIDTH * 0.14);
+  const COL_PRICE = CONTENT_WIDTH - COL_DESC - COL_VAT;
+
+  doc.font("Helvetica").fontSize(6);
+  doc.text("DESCRIZIONE", MARGIN, cur.y, { width: COL_DESC, align: "left" });
+  doc.text("IVA", MARGIN + COL_DESC, cur.y, {
+    width: COL_VAT,
+    align: "center",
+  });
+  doc.text("Prezzo(€)", MARGIN + COL_DESC + COL_VAT, cur.y, {
+    width: COL_PRICE,
+    align: "right",
+  });
+  cur.y = doc.y + 2;
+
+  lines.forEach((line, index) => {
+    const rowStartY = cur.y;
+    doc.font("Helvetica").fontSize(6.5);
+    doc.text(renderLineDescription(line), MARGIN, rowStartY, {
+      width: COL_DESC,
+      align: "left",
+    });
+    const afterDescY = doc.y;
+
+    doc.text(receiptVatLabel(line.vatCode), MARGIN + COL_DESC, rowStartY, {
+      width: COL_VAT,
+      align: "center",
+    });
+    doc.text(
+      formatReceiptPrice(totals.perLine[index].lineTotal),
+      MARGIN + COL_DESC + COL_VAT,
+      rowStartY,
+      { width: COL_PRICE, align: "right" },
+    );
+
+    cur.y = Math.max(afterDescY, rowStartY + 10) + 2;
+  });
+
+  drawSeparator(doc, cur);
+}
+
+/**
+ * Totali nell'ordine AdE: `Subtotale`, `TOTALE COMPLESSIVO`, `di cui IVA`.
  *
- * Calibrated empirically: fixed overhead ≈ 140pt (header + title + separators +
- * totals section + payment + footer with date+progressive only), 18pt per line
- * item (covers multi-qty wrap), 12pt per unique VAT rate row, 10pt bottom padding.
- * +12pt when lottery code row is present.
+ * Il layout standard espone un solo `di cui IVA` aggregato. Sotto, quando le
+ * aliquote con IVA sono più di una, aggiungiamo il dettaglio per aliquota: è
+ * informazione in più — la stessa che il layout compatto AdE mette in coda
+ * come legenda `A:IVA 22,00%` — e non toglie nulla alla riga aggregata.
+ */
+function drawTotals(doc: Doc, cur: Cursor, totals: ReceiptTotals): void {
+  drawAmountRow(doc, cur, "Subtotale", totals.grandTotal);
+  drawAmountRow(doc, cur, "TOTALE COMPLESSIVO", totals.grandTotal, {
+    bold: true,
+    size: 8,
+  });
+
+  if (totals.vatTotal > 0) {
+    drawAmountRow(doc, cur, "di cui IVA", totals.vatTotal, { bold: true });
+    if (totals.vatByCode.size > 1) {
+      for (const [code, vatAmount] of totals.vatByCode.entries()) {
+        drawAmountRow(
+          doc,
+          cur,
+          `di cui IVA ${receiptVatLabel(code)}`,
+          vatAmount,
+          {
+            size: 6.5,
+          },
+        );
+      }
+    }
+  }
+
+  drawSeparator(doc, cur);
+}
+
+/**
+ * Blocco pagamenti. `Importo pagato` va sempre indicato (prescrizioni
+ * generali AdE); la riga della modalità sparisce se vale zero, come le altre
+ * voci di pagamento a zero.
+ */
+function drawPayment(
+  doc: Doc,
+  cur: Cursor,
+  data: SaleReceiptPdfData,
+  totals: ReceiptTotals,
+): void {
+  if (totals.grandTotal !== 0) {
+    const label = PAYMENT_LABELS[data.paymentMethod] ?? data.paymentMethod;
+    drawAmountRow(doc, cur, label, totals.grandTotal);
+  }
+  drawAmountRow(doc, cur, "Importo pagato", totals.grandTotal);
+  drawSeparator(doc, cur);
+}
+
+/**
+ * Legenda degli asterischi della colonna IVA (`*ES = Esente`), stampata solo
+ * se il documento contiene almeno una natura — come nel layout standard AdE,
+ * fra il blocco pagamenti e la data.
+ */
+function drawVatLegend(doc: Doc, cur: Cursor, lines: SaleReceiptLine[]): void {
+  const legend = receiptVatLegend(lines.map((l) => l.vatCode));
+  if (legend.length === 0) return;
+
+  for (const entry of legend) {
+    drawText(doc, cur, formatVatLegendLine(entry), { size: 6 });
+  }
+  drawSeparator(doc, cur);
+}
+
+/**
+ * Piede: data e numero documento centrati, poi il codice lotteria con la sua
+ * caption su riga propria, infine il QR verso la copia pubblica.
+ */
+function drawFooter(doc: Doc, cur: Cursor, data: SaleReceiptPdfData): void {
+  drawText(doc, cur, formatReceiptDateTime(data.createdAt), {
+    align: "center",
+  });
+  drawText(doc, cur, `DOCUMENTO N. ${data.adeProgressive}`, {
+    align: "center",
+  });
+
+  if (data.lotteryCode) {
+    cur.y += 2;
+    drawText(doc, cur, "Codice Lotteria", { align: "center", size: 6 });
+    drawText(doc, cur, data.lotteryCode, { align: "center", bold: true });
+  }
+
+  if (data.publicUrl) {
+    cur.y += 2;
+    drawQrCode(doc, cur, data.publicUrl);
+  }
+}
+
+/**
+ * Stima l'altezza pagina da numero righe, aliquote e blocchi opzionali.
+ *
+ * Calibrata empiricamente: overhead fisso ≈ 145pt (intestazione su 4 righe +
+ * titolo + separatori + totali con `di cui IVA` aggregato + pagamento con
+ * `Importo pagato` + piede), 18pt per riga articolo (copre il wrap della riga
+ * quantità), 12pt per aliquota distinta, 9pt per riga di legenda IVA più il
+ * suo separatore, 22pt per il blocco lotteria
+ * (caption + codice). Sovrastimare costa spazio bianco, sottostimare costa
+ * una seconda pagina: la stima resta volutamente generosa.
  */
 function estimateHeight(
   lines: SaleReceiptLine[],
@@ -113,11 +376,13 @@ function estimateHeight(
   hasQrCode: boolean,
 ): number {
   const uniqueVatRates = new Set(lines.map((l) => l.vatCode)).size;
+  const legendRows = receiptVatLegend(lines.map((l) => l.vatCode)).length;
   return (
-    110 +
+    145 +
     lines.length * 18 +
     uniqueVatRates * 12 +
-    (hasLotteryCode ? 12 : 0) +
+    (legendRows > 0 ? legendRows * 9 + 5 : 0) +
+    (hasLotteryCode ? 22 : 0) +
     (hasQrCode ? QR_SIZE + 12 : 0) +
     8
   );
@@ -146,223 +411,26 @@ export function generateSaleReceiptPdf(
     doc.on("end", () => resolve(Buffer.concat(buffers)));
     doc.on("error", reject);
 
-    let y = MARGIN;
+    // Gli importi NON sono ricalcolati qui: arrivano da `computeReceiptTotals`,
+    // la stessa funzione che alimenta pagina pubblica e stampa termica, così
+    // le tre rese dello stesso documento non possono divergere di un centesimo
+    // (regola 17). `String(n)` è lossless sui double IEEE-754 — `Number(String(x))
+    // === x` — quindi l'adattamento all'interfaccia stringa non perde nulla.
+    const totals = computeReceiptTotals(
+      data.lines.map((line) => ({
+        quantity: String(line.quantity),
+        grossUnitPrice: String(line.grossUnitPrice),
+        vatCode: line.vatCode,
+      })),
+    );
 
-    // ── Separator: dashed line ─────────────────────────────────────────────
-    const drawSeparator = () => {
-      doc
-        .moveTo(MARGIN, y)
-        .lineTo(PAGE_WIDTH - MARGIN, y)
-        .dash(1, { space: 2 })
-        .stroke()
-        .undash();
-      y += 5;
-    };
-
-    // ── Generic text line ─────────────────────────────────────────────────
-    const drawLine = (
-      text: string,
-      opts: {
-        align?: "left" | "center" | "right";
-        bold?: boolean;
-        italic?: boolean;
-        size?: number;
-        x?: number;
-        width?: number;
-      } = {},
-    ) => {
-      const {
-        align = "left",
-        bold = false,
-        italic = false,
-        size = 7,
-        x = MARGIN,
-        width = CONTENT_WIDTH,
-      } = opts;
-      let font = "Helvetica";
-      if (bold) font = "Helvetica-Bold";
-      if (italic) font = "Helvetica-Oblique";
-      doc.font(font).fontSize(size).text(text, x, y, { width, align });
-      y = doc.y + 1;
-    };
-
-    // ── QR code: griglia vettoriale via `qrcode-generator` ──────────────────
-    // Nessun canvas/raster: la stessa libreria che alimenta `react-qr-code`
-    // (già in dependency tree) espone la matrice di moduli sincrona, disegnata
-    // qui come rettangoli pdfkit — coerente col QR nativo della termica
-    // ESC/POS (`receipt-escpos.ts`), stesso URL pubblico.
-    const drawQrCode = (url: string) => {
-      const qr = qrcode(0, "M");
-      qr.addData(url);
-      qr.make();
-      const moduleCount = qr.getModuleCount();
-      const cellSize = QR_SIZE / moduleCount;
-      const x = MARGIN + (CONTENT_WIDTH - QR_SIZE) / 2;
-
-      doc.fillColor("black");
-      for (let row = 0; row < moduleCount; row++) {
-        for (let col = 0; col < moduleCount; col++) {
-          if (qr.isDark(row, col)) {
-            doc
-              .rect(x + col * cellSize, y + row * cellSize, cellSize, cellSize)
-              .fill();
-          }
-        }
-      }
-      y += QR_SIZE + 2;
-    };
-
-    // ─── HEADER ────────────────────────────────────────────────────────────
-    drawLine(data.businessName, { align: "center", bold: true, size: 8 });
-
-    const addressLine = [data.address, data.city, data.province, data.zipCode]
-      .filter(Boolean)
-      .join(" – ");
-    if (addressLine) drawLine(addressLine, { align: "center", size: 6 });
-    drawLine(`P.IVA: ${data.vatNumber}`, { align: "center", size: 6 });
-    y += 2;
-    drawSeparator();
-
-    // ─── TITLE ─────────────────────────────────────────────────────────────
-    drawLine("DOCUMENTO COMMERCIALE", {
-      align: "center",
-      bold: true,
-      size: 7,
-    });
-    drawLine("di vendita o prestazione", {
-      align: "center",
-      bold: true,
-      size: 6,
-    });
-    y += 2;
-    drawSeparator();
-
-    // ─── LINE ITEMS ────────────────────────────────────────────────────────
-    // Column widths (sum = CONTENT_WIDTH = 153pt):
-    //   Description: 95pt (~62%), VAT: 22pt (~14%), Price: 36pt (~24%)
-    const COL_DESC = Math.round(CONTENT_WIDTH * 0.62);
-    const COL_VAT = Math.round(CONTENT_WIDTH * 0.14);
-    const COL_PRICE = CONTENT_WIDTH - COL_DESC - COL_VAT;
-
-    // Header row
-    doc.font("Helvetica").fontSize(6);
-    doc.text("Descrizione", MARGIN, y, { width: COL_DESC, align: "left" });
-    doc.text("IVA", MARGIN + COL_DESC, y, { width: COL_VAT, align: "center" });
-    doc.text("€", MARGIN + COL_DESC + COL_VAT, y, {
-      width: COL_PRICE,
-      align: "right",
-    });
-    y = doc.y + 2;
-
-    // Cents-based integer math: keeps the PDF's grandTotal and VAT split
-    // numerically identical to the public web page (computeReceiptTotals).
-    let grandTotalCents = 0;
-    const vatByCodeCents: Map<string, number> = new Map();
-
-    for (const line of data.lines) {
-      const lineTotalCents = Math.round(
-        line.quantity * line.grossUnitPrice * 100,
-      );
-      grandTotalCents += lineTotalCents;
-      accumulateVatCents(vatByCodeCents, line.vatCode, lineTotalCents);
-
-      const lineTotal = lineTotalCents / 100;
-      const vatLabel = vatLabelOf(line.vatCode);
-      const priceDisplay = formatReceiptPrice(lineTotal);
-      const descDisplay = renderLineDescription(line);
-
-      const rowStartY = y;
-      doc.font("Helvetica").fontSize(6.5);
-      doc.text(descDisplay, MARGIN, rowStartY, {
-        width: COL_DESC,
-        align: "left",
-      });
-      const afterDescY = doc.y;
-
-      doc.text(vatLabel, MARGIN + COL_DESC, rowStartY, {
-        width: COL_VAT,
-        align: "center",
-      });
-      doc.text(priceDisplay, MARGIN + COL_DESC + COL_VAT, rowStartY, {
-        width: COL_PRICE,
-        align: "right",
-      });
-
-      y = Math.max(afterDescY, rowStartY + 10) + 2;
-    }
-
-    const grandTotal = grandTotalCents / 100;
-    const vatByCode = centsMapToEuros(vatByCodeCents);
-
-    drawSeparator();
-
-    // ─── TOTALS ────────────────────────────────────────────────────────────
-    const LABEL_W = CONTENT_WIDTH - 38;
-    const AMT_W = 38;
-    const AMT_X = MARGIN + LABEL_W;
-
-    // Subtotale
-    doc.font("Helvetica").fontSize(7);
-    doc.text("Subtotale", MARGIN, y, { width: LABEL_W, align: "left" });
-    doc.text(formatReceiptPrice(grandTotal), AMT_X, y, {
-      width: AMT_W,
-      align: "right",
-    });
-    y = doc.y + 1;
-
-    // VAT breakdown: one row per rate that has a non-zero VAT amount
-    doc.font("Helvetica").fontSize(6.5);
-    for (const [code, vatAmount] of vatByCode.entries()) {
-      if (vatAmount > 0.005) {
-        const label = `di cui IVA ${vatLabelOf(code)}`;
-        doc.text(label, MARGIN, y, { width: LABEL_W, align: "left" });
-        doc.text(formatReceiptPrice(vatAmount), AMT_X, y, {
-          width: AMT_W,
-          align: "right",
-        });
-        y = doc.y + 1;
-      }
-    }
-
-    // TOTALE COMPLESSIVO
-    doc.font("Helvetica-Bold").fontSize(8);
-    doc.text("TOTALE COMPLESSIVO", MARGIN, y, {
-      width: LABEL_W,
-      align: "left",
-    });
-    doc.text(formatReceiptPrice(grandTotal), AMT_X, y, {
-      width: AMT_W,
-      align: "right",
-    });
-    y = doc.y + 1;
-    drawSeparator();
-
-    // ─── PAYMENT ───────────────────────────────────────────────────────────
-    const paymentLabel =
-      PAYMENT_LABELS[data.paymentMethod] ?? data.paymentMethod;
-    doc.font("Helvetica").fontSize(7);
-    doc.text(paymentLabel, MARGIN, y, { width: LABEL_W, align: "left" });
-    doc.text(formatReceiptPrice(grandTotal), AMT_X, y, {
-      width: AMT_W,
-      align: "right",
-    });
-    y = doc.y + 1;
-
-    // ─── LOTTERY CODE (optional) ────────────────────────────────────────────
-    if (data.lotteryCode) {
-      drawLine(`Cod. Lotteria: ${data.lotteryCode}`, { size: 7 });
-    }
-
-    drawSeparator();
-
-    // ─── FOOTER ────────────────────────────────────────────────────────────
-    drawLine(formatReceiptDateTime(data.createdAt), { size: 7 });
-    drawLine(`DOCUMENTO N. ${data.adeProgressive}`, { size: 7 });
-
-    if (data.publicUrl) {
-      y += 2;
-      drawQrCode(data.publicUrl);
-    }
+    const cur: Cursor = { y: MARGIN };
+    drawHeader(doc, cur, data);
+    drawLineItems(doc, cur, data.lines, totals);
+    drawTotals(doc, cur, totals);
+    drawPayment(doc, cur, data, totals);
+    drawVatLegend(doc, cur, data.lines);
+    drawFooter(doc, cur, data);
 
     doc.end();
   });

@@ -192,9 +192,11 @@ export default function AliquoteIvaPage() {
             d&apos;arte)
           </li>
           <li>
-            <strong>N6</strong> — Inversione contabile (chiamata anche{" "}
-            <em>reverse charge</em>: meccanismo per cui l&apos;IVA la versa chi
-            compra, non chi vende — riguarda solo casi specifici)
+            <strong>N6</strong> — Altro non IVA (dicitura da stampare:{" "}
+            <em>Operazione non IVA</em>). Attenzione: nel tracciato della
+            fattura elettronica lo stesso N6 indica l&apos;inversione contabile
+            con i sottocodici N6.1-N6.9, che il documento commerciale non
+            prevede
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">

@@ -79,7 +79,7 @@ describe("VatSelector", () => {
       screen.getByRole("option", { name: "0% – Regime del margine" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("option", { name: "0% – Inv. contabile" }),
+      screen.getByRole("option", { name: "0% – Altro non IVA" }),
     ).toBeInTheDocument();
   });
 

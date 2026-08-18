@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   PAYMENT_LABELS,
+  formatBusinessAddressLines,
   formatReceiptPrice,
   formatReceiptDateTime,
 } from "./receipt-format";
 
 describe("PAYMENT_LABELS", () => {
-  it("usa la versione corta canonica (Contante / Elettronico)", () => {
-    expect(PAYMENT_LABELS.PC).toBe("Contante");
-    expect(PAYMENT_LABELS.PE).toBe("Elettronico");
+  // Dicitura del layout standard AdE: la riga della modalità di pagamento si
+  // legge "Pagamento contante 160,00", non "Contante 160,00".
+  it("usa la dicitura del layout AdE (Pagamento contante / elettronico)", () => {
+    expect(PAYMENT_LABELS.PC).toBe("Pagamento contante");
+    expect(PAYMENT_LABELS.PE).toBe("Pagamento elettronico");
   });
 });
 
@@ -47,5 +50,84 @@ describe("formatReceiptDateTime", () => {
     expect(formatReceiptDateTime(new Date("2026-07-27T23:30:00Z"))).toBe(
       "28-07-2026 01:30",
     );
+  });
+});
+
+describe("formatBusinessAddressLines", () => {
+  it("rende via e località su due righe, con la provincia fra parentesi", () => {
+    expect(
+      formatBusinessAddressLines({
+        address: "Via Roma 1",
+        city: "Milano",
+        province: "MI",
+        zipCode: "20100",
+      }),
+    ).toEqual(["Via Roma 1", "Milano(MI), 20100"]);
+  });
+
+  it("omette la riga via quando l'indirizzo manca", () => {
+    expect(
+      formatBusinessAddressLines({
+        address: null,
+        city: "Milano",
+        province: "MI",
+        zipCode: "20100",
+      }),
+    ).toEqual(["Milano(MI), 20100"]);
+  });
+
+  it("omette le parentesi quando la provincia manca", () => {
+    expect(
+      formatBusinessAddressLines({
+        address: "Via Roma 1",
+        city: "Milano",
+        province: null,
+        zipCode: "20100",
+      }),
+    ).toEqual(["Via Roma 1", "Milano, 20100"]);
+  });
+
+  it("omette il CAP quando manca", () => {
+    expect(
+      formatBusinessAddressLines({
+        address: null,
+        city: "Milano",
+        province: "MI",
+        zipCode: null,
+      }),
+    ).toEqual(["Milano(MI)"]);
+  });
+
+  it("senza città non stampa una provincia orfana fra parentesi", () => {
+    expect(
+      formatBusinessAddressLines({
+        address: "Via Roma 1",
+        city: null,
+        province: "MI",
+        zipCode: "20100",
+      }),
+    ).toEqual(["Via Roma 1", "20100"]);
+  });
+
+  it("restituisce un array vuoto quando non c'è alcun dato indirizzo", () => {
+    expect(
+      formatBusinessAddressLines({
+        address: null,
+        city: null,
+        province: null,
+        zipCode: null,
+      }),
+    ).toEqual([]);
+  });
+
+  it("ignora i campi composti da soli spazi", () => {
+    expect(
+      formatBusinessAddressLines({
+        address: "   ",
+        city: "Milano",
+        province: "  ",
+        zipCode: "20100",
+      }),
+    ).toEqual(["Milano, 20100"]);
   });
 });

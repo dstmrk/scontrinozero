@@ -179,3 +179,231 @@ describe("PublicReceiptPage — descrizioni lunghe", () => {
     expect(screen.getByText(description)).toHaveClass("break-words");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Layout AdE — la copia web espone le stesse voci del PDF e della termica.
+// La card resta una card (non una striscia monospaziata), ma etichette,
+// ordine delle sezioni e voci obbligatorie sono quelli del layout standard.
+// ---------------------------------------------------------------------------
+
+describe("PublicReceiptPage — layout AdE", () => {
+  let PublicReceiptPage: typeof import("./page").default;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mockHeaders.mockResolvedValue(
+      new Headers({ "cf-connecting-ip": "7.7.7.7" }),
+    );
+    vi.resetModules();
+    ({ default: PublicReceiptPage } = await import("./page"));
+  });
+
+  const LINES = [
+    {
+      id: "line-1",
+      description: "Pizza Margherita",
+      quantity: "2",
+      grossUnitPrice: "8.50",
+      vatCode: "10",
+    },
+    {
+      id: "line-2",
+      description: "Acqua minerale",
+      quantity: "1",
+      grossUnitPrice: "2.00",
+      vatCode: "22",
+    },
+  ];
+
+  async function renderReceipt(
+    overrides: Record<string, unknown> = {},
+  ): Promise<void> {
+    mockFetchPublicReceipt.mockResolvedValue({
+      ...MOCK_RECEIPT_DATA,
+      lines: LINES,
+      ...overrides,
+    });
+    render(
+      await PublicReceiptPage({
+        params: Promise.resolve({ documentId: VALID_DOC_ID }),
+      }),
+    );
+  }
+
+  it("stampa P.IVA sopra l'indirizzo, con la località nella forma Comune(PR), CAP", async () => {
+    await renderReceipt();
+    expect(screen.getByText("P.IVA 12345678901")).toBeInTheDocument();
+    expect(screen.getByText("Via Roma 1")).toBeInTheDocument();
+    expect(screen.getByText("Milano(MI), 20100")).toBeInTheDocument();
+  });
+
+  it("usa le intestazioni di colonna del layout standard", async () => {
+    await renderReceipt();
+    expect(screen.getByText("DESCRIZIONE")).toBeInTheDocument();
+    expect(screen.getByText("Prezzo(€)")).toBeInTheDocument();
+  });
+
+  it("scrive la riga quantità nella forma AdE `n.Q * prezzo`", async () => {
+    await renderReceipt();
+    expect(screen.getByText("n.2 * 8,50")).toBeInTheDocument();
+  });
+
+  it("chiama il totale `TOTALE COMPLESSIVO`, come PDF e termica", async () => {
+    await renderReceipt();
+    expect(screen.getByText("TOTALE COMPLESSIVO")).toBeInTheDocument();
+    expect(screen.queryByText("Totale")).not.toBeInTheDocument();
+  });
+
+  it("espone l'IVA aggregata più il dettaglio per aliquota", async () => {
+    await renderReceipt();
+    expect(screen.getByText("di cui IVA")).toBeInTheDocument();
+    expect(screen.getByText("di cui IVA 10%")).toBeInTheDocument();
+    expect(screen.getByText("di cui IVA 22%")).toBeInTheDocument();
+  });
+
+  it("con una sola aliquota non ripete il dettaglio sotto l'aggregato", async () => {
+    await renderReceipt({ lines: [LINES[1]] });
+    expect(screen.getByText("di cui IVA")).toBeInTheDocument();
+    expect(screen.queryByText("di cui IVA 22%")).not.toBeInTheDocument();
+  });
+
+  it("mostra la modalità di pagamento con il suo importo e sempre `Importo pagato`", async () => {
+    await renderReceipt();
+    expect(screen.getByText("Pagamento contante")).toBeInTheDocument();
+    expect(screen.getByText("Importo pagato")).toBeInTheDocument();
+    // 2×8,50 + 2,00 = 19,00, ripetuto su totale, pagamento e importo pagato.
+    expect(screen.getAllByText("19,00").length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("a totale zero omette la modalità ma tiene `Importo pagato`", async () => {
+    await renderReceipt({
+      lines: [
+        {
+          id: "line-1",
+          description: "Omaggio",
+          quantity: "1",
+          grossUnitPrice: "0.00",
+          vatCode: "22",
+        },
+      ],
+    });
+    expect(screen.queryByText("Pagamento contante")).not.toBeInTheDocument();
+    expect(screen.getByText("Importo pagato")).toBeInTheDocument();
+  });
+
+  it("omette `di cui IVA` quando tutte le righe sono a natura", async () => {
+    await renderReceipt({
+      lines: [
+        {
+          id: "line-1",
+          description: "Prestazione esente",
+          quantity: "1",
+          grossUnitPrice: "50.00",
+          vatCode: "N4",
+        },
+      ],
+    });
+    expect(screen.queryByText("di cui IVA")).not.toBeInTheDocument();
+    expect(screen.getByText("TOTALE COMPLESSIVO")).toBeInTheDocument();
+  });
+
+  it("rende l'intestazione anche senza alcun dato indirizzo", async () => {
+    await renderReceipt({
+      biz: {
+        ...MOCK_RECEIPT_DATA.biz,
+        address: null,
+        city: null,
+        province: null,
+        zipCode: null,
+      },
+    });
+    expect(screen.getByText("Bar Mario")).toBeInTheDocument();
+    expect(screen.getByText("P.IVA 12345678901")).toBeInTheDocument();
+  });
+
+  it("chiama il progressivo `DOCUMENTO N.`, non `Identificativo AdE`", async () => {
+    await renderReceipt();
+    expect(screen.getByText("DOCUMENTO N.")).toBeInTheDocument();
+    expect(screen.queryByText("Identificativo AdE")).not.toBeInTheDocument();
+  });
+
+  it("mostra il codice lotteria sotto la caption `Codice Lotteria`", async () => {
+    await renderReceipt({
+      doc: {
+        ...MOCK_RECEIPT_DATA.doc,
+        publicRequest: { paymentMethod: "PE", lotteryCode: "YYWLR30G" },
+      },
+    });
+    expect(screen.getByText("Codice Lotteria")).toBeInTheDocument();
+    expect(screen.getByText("YYWLR30G")).toBeInTheDocument();
+  });
+});
+
+describe("PublicReceiptPage — codifica IVA AdE", () => {
+  let PublicReceiptPage: typeof import("./page").default;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mockHeaders.mockResolvedValue(
+      new Headers({ "cf-connecting-ip": "6.6.6.6" }),
+    );
+    vi.resetModules();
+    ({ default: PublicReceiptPage } = await import("./page"));
+  });
+
+  async function renderWithLines(
+    lines: ReadonlyArray<Record<string, unknown>>,
+  ): Promise<void> {
+    mockFetchPublicReceipt.mockResolvedValue({ ...MOCK_RECEIPT_DATA, lines });
+    render(
+      await PublicReceiptPage({
+        params: Promise.resolve({ documentId: VALID_DOC_ID }),
+      }),
+    );
+  }
+
+  const EXEMPT_LINES = [
+    {
+      id: "line-1",
+      description: "Prestazione esente",
+      quantity: "1",
+      grossUnitPrice: "100.00",
+      vatCode: "N4",
+    },
+    {
+      id: "line-2",
+      description: "Marca da bollo",
+      quantity: "1",
+      grossUnitPrice: "2.00",
+      vatCode: "N1",
+    },
+  ];
+
+  it("mostra il mnemonico AdE in colonna invece dell'etichetta descrittiva", async () => {
+    await renderWithLines(EXEMPT_LINES);
+    expect(screen.getByText("ES*")).toBeInTheDocument();
+    expect(screen.getByText("EE*")).toBeInTheDocument();
+    expect(screen.queryByText("0% – Esente")).not.toBeInTheDocument();
+  });
+
+  it("scioglie gli asterischi in legenda, nell'ordine della tabella AdE", async () => {
+    await renderWithLines(EXEMPT_LINES);
+    const legend = screen
+      .getAllByText(/^\*[A-Z]{2} = /)
+      .map((n) => n.textContent);
+    expect(legend).toEqual(["*EE = Esclusa", "*ES = Esente"]);
+  });
+
+  it("non mostra legenda quando il documento non ha nature", async () => {
+    await renderWithLines([
+      {
+        id: "line-1",
+        description: "Caffè",
+        quantity: "1",
+        grossUnitPrice: "1.20",
+        vatCode: "22",
+      },
+    ]);
+    expect(screen.queryByText(/^\*[A-Z]{2} = /)).not.toBeInTheDocument();
+  });
+});

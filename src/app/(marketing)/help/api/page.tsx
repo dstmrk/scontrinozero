@@ -681,7 +681,7 @@ export default function ApiDocsPage() {
                 ["N3", "0%", "Non imponibile"],
                 ["N4", "0%", "Esente"],
                 ["N5", "0%", "Regime del margine"],
-                ["N6", "0%", "Inversione contabile (reverse charge)"],
+                ["N6", "0%", "Altro non IVA"],
               ].map(([code, rate, desc]) => (
                 <tr key={code} className="border-b last:border-0">
                   <td className="py-2 pr-6 font-mono text-xs font-medium">

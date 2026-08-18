@@ -1,8 +1,11 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
 import {
+  extractPdfText,
+  extractPdfTextRuns,
+} from "../../../tests/_helpers/pdf-text";
+import {
   generateSaleReceiptPdf,
-  computeVatAmount,
   type SaleReceiptPdfData,
 } from "./generate-sale-receipt";
 
@@ -222,38 +225,271 @@ describe("generateSaleReceiptPdf", () => {
 });
 
 // ---------------------------------------------------------------------------
-// computeVatAmount — tested indirectly via the generated PDF content,
-// but we can also verify it through the exported helper by testing the
-// generate function with known VAT totals.
+// Layout — conformità al "layout standard" AdE del documento commerciale
+//
+// Il testo del PDF vive dentro content stream FlateDecode: `extractPdfText`
+// li inflaziona e ricompone gli operatori di scrittura, così le asserzioni
+// possono guardare etichette e ORDINE delle sezioni invece del solo %PDF.
 // ---------------------------------------------------------------------------
 
-describe("VAT calculation correctness", () => {
-  it("does not include VAT line for N-codes (non-taxable)", async () => {
-    // N4 is "Esente" — vatCode has no numeric rate, vatAmount should be 0
-    const buf = await generateSaleReceiptPdf({
-      ...BASE_DATA,
-      lines: [
-        {
-          description: "Esente",
-          quantity: 1,
-          grossUnitPrice: 50,
-          vatCode: "N4",
-        },
-      ],
-    });
-    // The PDF should NOT contain "di cui IVA" because the VAT amount is 0
-    const text = buf.toString("latin1");
-    expect(text).not.toContain("di cui IVA");
+describe("layout AdE — intestazione", () => {
+  it("stampa P.IVA subito sotto la ragione sociale, poi via e località", async () => {
+    const runs = extractPdfTextRuns(await generateSaleReceiptPdf(BASE_DATA));
+    expect(runs.slice(0, 4)).toEqual([
+      "Trattoria da Mario",
+      "P.IVA: 12345678901",
+      "Via Roma 1",
+      "Milano(MI), 20100",
+    ]);
   });
 
-  it("computes positive VAT amount for standard 22% rate (VAT breakdown is rendered)", () => {
-    // "di cui IVA" lives inside a FlateDecode-compressed content stream so we
-    // cannot search for it in the raw buffer.  We test computeVatAmount() —
-    // the same function that gates the VAT breakdown row — directly instead.
-    const gross = 12.2;
-    const vatAmount = computeVatAmount(gross, "22");
-    // VAT = gross - gross / (1 + 0.22) ≈ 2.20
-    expect(vatAmount).toBeGreaterThan(0);
-    expect(vatAmount).toBeCloseTo(gross - gross / 1.22, 5);
+  it("non stampa righe indirizzo quando i campi sono nulli", async () => {
+    const runs = extractPdfTextRuns(
+      await generateSaleReceiptPdf({
+        ...BASE_DATA,
+        address: null,
+        city: null,
+        province: null,
+        zipCode: null,
+      }),
+    );
+    expect(runs.slice(0, 3)).toEqual([
+      "Trattoria da Mario",
+      "P.IVA: 12345678901",
+      "DOCUMENTO COMMERCIALE",
+    ]);
+  });
+});
+
+describe("layout AdE — tabella righe", () => {
+  it("usa le intestazioni di colonna del layout standard", async () => {
+    const text = extractPdfText(await generateSaleReceiptPdf(BASE_DATA));
+    expect(text).toContain("DESCRIZIONE");
+    expect(text).toContain("Prezzo(€)");
+  });
+
+  it("stampa la riga quantità nella forma AdE `n.Q * prezzo`", async () => {
+    const text = extractPdfText(await generateSaleReceiptPdf(BASE_DATA));
+    expect(text).toContain("n.2 * 8,50");
+  });
+});
+
+describe("layout AdE — totali", () => {
+  it("mette `di cui IVA` DOPO il totale complessivo, non prima", async () => {
+    const runs = extractPdfTextRuns(await generateSaleReceiptPdf(BASE_DATA));
+    const iSub = runs.indexOf("Subtotale");
+    const iTot = runs.indexOf("TOTALE COMPLESSIVO");
+    const iVat = runs.indexOf("di cui IVA");
+    expect(iSub).toBeGreaterThan(-1);
+    expect(iTot).toBeGreaterThan(iSub);
+    expect(iVat).toBeGreaterThan(iTot);
+  });
+
+  it("espone l'IVA aggregata, somma delle aliquote presenti", async () => {
+    // Pizza 17,00 @10% → 1,55 · Acqua 2,00 @22% → 0,36 · totale IVA 1,91
+    const runs = extractPdfTextRuns(await generateSaleReceiptPdf(BASE_DATA));
+    expect(runs[runs.indexOf("di cui IVA") + 1]).toBe("1,91");
+  });
+
+  it("aggiunge il dettaglio per aliquota quando le aliquote con IVA sono più di una", async () => {
+    const text = extractPdfText(await generateSaleReceiptPdf(BASE_DATA));
+    expect(text).toContain("di cui IVA 10%");
+    expect(text).toContain("di cui IVA 22%");
+  });
+
+  it("con una sola aliquota non duplica il dettaglio sotto l'aggregato", async () => {
+    const text = extractPdfText(
+      await generateSaleReceiptPdf({
+        ...BASE_DATA,
+        lines: [
+          {
+            description: "Espresso",
+            quantity: 1,
+            grossUnitPrice: 1.22,
+            vatCode: "22",
+          },
+        ],
+      }),
+    );
+    expect(text).toContain("di cui IVA");
+    expect(text).not.toContain("di cui IVA 22%");
+  });
+
+  it("omette `di cui IVA` quando tutte le righe sono a natura (IVA zero)", async () => {
+    const text = extractPdfText(
+      await generateSaleReceiptPdf({
+        ...BASE_DATA,
+        lines: [
+          {
+            description: "Prestazione esente",
+            quantity: 1,
+            grossUnitPrice: 50,
+            vatCode: "N4",
+          },
+        ],
+      }),
+    );
+    expect(text).not.toContain("di cui IVA");
+  });
+});
+
+describe("layout AdE — pagamento", () => {
+  it("stampa la modalità di pagamento con la dicitura AdE e sempre `Importo pagato`", async () => {
+    const runs = extractPdfTextRuns(await generateSaleReceiptPdf(BASE_DATA));
+    const iPay = runs.indexOf("Pagamento contante");
+    const iPaid = runs.indexOf("Importo pagato");
+    expect(iPay).toBeGreaterThan(-1);
+    expect(iPaid).toBe(iPay + 2); // label, importo, label
+    expect(runs[iPaid + 1]).toBe("19,00");
+  });
+
+  it("usa `Pagamento elettronico` per il metodo PE", async () => {
+    const text = extractPdfText(
+      await generateSaleReceiptPdf({ ...BASE_DATA, paymentMethod: "PE" }),
+    );
+    expect(text).toContain("Pagamento elettronico");
+    expect(text).not.toContain("Pagamento contante");
+  });
+
+  it("a totale zero omette la riga modalità ma tiene `Importo pagato` (prescrizioni risparmio carta)", async () => {
+    const runs = extractPdfTextRuns(
+      await generateSaleReceiptPdf({
+        ...BASE_DATA,
+        lines: [
+          {
+            description: "Omaggio",
+            quantity: 1,
+            grossUnitPrice: 0,
+            vatCode: "22",
+          },
+        ],
+      }),
+    );
+    expect(runs).not.toContain("Pagamento contante");
+    expect(runs).toContain("Importo pagato");
+  });
+});
+
+describe("layout AdE — piede", () => {
+  it("stampa il codice lotteria DOPO il numero documento, con la caption su riga propria", async () => {
+    const runs = extractPdfTextRuns(
+      await generateSaleReceiptPdf({
+        ...BASE_DATA,
+        paymentMethod: "PE",
+        lotteryCode: "YYWLR30G",
+      }),
+    );
+    const iDoc = runs.findIndex((r) => r.startsWith("DOCUMENTO N."));
+    const iCaption = runs.indexOf("Codice Lotteria");
+    expect(iCaption).toBeGreaterThan(iDoc);
+    expect(runs[iCaption + 1]).toBe("YYWLR30G");
+  });
+
+  it("senza codice lotteria non stampa la caption", async () => {
+    const text = extractPdfText(await generateSaleReceiptPdf(BASE_DATA));
+    expect(text).not.toContain("Codice Lotteria");
+  });
+
+  it("chiude con data e numero documento in quest'ordine", async () => {
+    const runs = extractPdfTextRuns(await generateSaleReceiptPdf(BASE_DATA));
+    const iDate = runs.indexOf("15-02-2026 13:30");
+    expect(iDate).toBeGreaterThan(-1);
+    expect(runs[iDate + 1]).toBe("DOCUMENTO N. DCW2026/5111-0042");
+  });
+});
+
+describe("layout AdE — codifica IVA in colonna e legenda", () => {
+  const EXEMPT_DATA: SaleReceiptPdfData = {
+    ...BASE_DATA,
+    lines: [
+      {
+        description: "Prestazione esente",
+        quantity: 1,
+        grossUnitPrice: 100,
+        vatCode: "N4",
+      },
+      {
+        description: "Marca da bollo",
+        quantity: 1,
+        grossUnitPrice: 2,
+        vatCode: "N1",
+      },
+    ],
+  };
+
+  it("stampa il mnemonico AdE in colonna invece dell'etichetta descrittiva", async () => {
+    const runs = extractPdfTextRuns(await generateSaleReceiptPdf(EXEMPT_DATA));
+    expect(runs).toContain("ES*");
+    expect(runs).toContain("EE*");
+    // "0% – Esente" andava a capo nella colonna larga 22pt, finendo a cavallo
+    // del separatore: il wrapping produceva un run tronco "0% – ".
+    expect(runs.some((r) => r.includes("0% –"))).toBe(false);
+  });
+
+  it("scioglie gli asterischi in legenda, nell'ordine della tabella AdE", async () => {
+    const runs = extractPdfTextRuns(await generateSaleReceiptPdf(EXEMPT_DATA));
+    const iEE = runs.indexOf("*EE = Esclusa");
+    const iES = runs.indexOf("*ES = Esente");
+    expect(iEE).toBeGreaterThan(-1);
+    expect(iES).toBeGreaterThan(iEE);
+  });
+
+  it("mette la legenda dopo il blocco pagamenti e prima della data", async () => {
+    const runs = extractPdfTextRuns(await generateSaleReceiptPdf(EXEMPT_DATA));
+    const iPaid = runs.indexOf("Importo pagato");
+    const iLegend = runs.indexOf("*ES = Esente");
+    const iDate = runs.indexOf("15-02-2026 13:30");
+    expect(iLegend).toBeGreaterThan(iPaid);
+    expect(iDate).toBeGreaterThan(iLegend);
+  });
+
+  it("non stampa legenda quando il documento non ha nature", async () => {
+    const text = extractPdfText(await generateSaleReceiptPdf(BASE_DATA));
+    expect(text).not.toContain(" = ");
+  });
+
+  it("riserva altezza pagina per la legenda", async () => {
+    const extractPageHeight = (buf: Buffer): number => {
+      const m = buf.toString("latin1").match(/\/MediaBox \[0 0 \d+ (\d+)\]/);
+      return m ? parseInt(m[1], 10) : 0;
+    };
+    const withLegend = await generateSaleReceiptPdf(EXEMPT_DATA);
+    const withoutLegend = await generateSaleReceiptPdf({
+      ...EXEMPT_DATA,
+      lines: EXEMPT_DATA.lines.map((l) => ({ ...l, vatCode: "22" })),
+    });
+    expect(extractPageHeight(withLegend)).toBeGreaterThan(
+      extractPageHeight(withoutLegend),
+    );
+  });
+});
+
+describe("layout AdE — casi degeneri", () => {
+  it("genera un documento valido anche senza righe", async () => {
+    const runs = extractPdfTextRuns(
+      await generateSaleReceiptPdf({ ...BASE_DATA, lines: [] }),
+    );
+    expect(runs).toContain("TOTALE COMPLESSIVO");
+    expect(runs).toContain("Importo pagato");
+    expect(runs).not.toContain("di cui IVA");
+  });
+
+  it("non stampa `di cui IVA` per un'aliquota che non produce nemmeno un centesimo", async () => {
+    // 0,01 @4% → imponibile 0,01, imposta 0 centesimi: computeReceiptTotals
+    // non crea la voce, quindi il documento non ha nulla da esporre.
+    const text = extractPdfText(
+      await generateSaleReceiptPdf({
+        ...BASE_DATA,
+        lines: [
+          {
+            description: "Caramella",
+            quantity: 1,
+            grossUnitPrice: 0.01,
+            vatCode: "4",
+          },
+        ],
+      }),
+    );
+    expect(text).not.toContain("di cui IVA");
   });
 });
