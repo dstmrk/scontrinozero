@@ -138,6 +138,26 @@ describe("auth callback route", () => {
     expect(location.pathname).toBe("/dashboard");
   });
 
+  it("flags an expired/invalid signup confirmation link with auth_callback_failed", async () => {
+    // Caso reale otp_expired su un link di conferma email: signUp/resendConfirmationEmail
+    // puntano a /callback?redirect=/dashboard, Supabase rimanda qui con l'errore nel
+    // fragment (invisibile al server) e senza code. Prima della fix, emailRedirectTo
+    // puntava direttamente a /dashboard: /callback non veniva mai attraversato e
+    // l'utente atterrava su /login senza alcun messaggio (il fragment non viene letto
+    // dalla pagina di login).
+    const { GET } = await import("./route");
+
+    const request = new Request(
+      "http://localhost:3000/callback?redirect=/dashboard",
+    );
+    const response = await GET(request);
+
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("error")).toBe("auth_callback_failed");
+  });
+
   it("flags an expired/invalid reset link with reset_link_invalid", async () => {
     // Caso reale otp_expired: Supabase rimanda a /callback?redirect=/reset-password/update
     // con l'errore nel fragment (invisibile al server) e senza code. Dal redirect
