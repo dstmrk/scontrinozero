@@ -13,8 +13,11 @@ import {
   formatBusinessAddressLines,
   formatReceiptPrice,
 } from "@/lib/receipt-format";
-import { VAT_LABELS as CASSA_VAT_LABELS } from "@/types/cassa";
-import type { VatCode } from "@/types/cassa";
+import {
+  formatVatLegendLine,
+  receiptVatLabel,
+  receiptVatLegend,
+} from "@/lib/receipts/vat-display";
 import { ShareButton } from "./share-button";
 
 // Static metadata — no DB query needed here.
@@ -40,10 +43,6 @@ const pageLimiter = new RateLimiter({
 
 function formatDate(date: Date): string {
   return formatFiscalDateTime(new Date(date));
-}
-
-function vatLabelOf(vatCode: string): string {
-  return CASSA_VAT_LABELS[vatCode as VatCode] ?? vatCode;
 }
 
 // ─── Page ────────────────────────────────────────────────────────────────────
@@ -92,6 +91,10 @@ export default async function PublicReceiptPage({
   // `Comune(PR), CAP`), le stesse che stampano PDF e termica.
   const addressLines = formatBusinessAddressLines(biz);
 
+  // Legenda degli asterischi della colonna IVA (`*ES = Esente`): vuota — e
+  // quindi non renderizzata — se il documento non contiene nature.
+  const vatLegend = receiptVatLegend(lines.map((l) => l.vatCode));
+
   return (
     <div className="min-h-screen bg-gray-100 px-4 py-8">
       <div className="mx-auto max-w-sm">
@@ -130,7 +133,7 @@ export default async function PublicReceiptPage({
             <div className="space-y-2">
               {lines.map((line, idx) => {
                 const { qty, price, lineTotal } = totals.perLine[idx];
-                const vatLabel = vatLabelOf(line.vatCode);
+                const vatLabel = receiptVatLabel(line.vatCode);
                 return (
                   <div key={line.id} className="flex items-start gap-1 text-sm">
                     <div className="min-w-0 flex-1">
@@ -185,7 +188,7 @@ export default async function PublicReceiptPage({
                     key={code}
                     className="flex justify-between text-xs text-gray-400"
                   >
-                    <span>di cui IVA {vatLabelOf(code)}</span>
+                    <span>di cui IVA {receiptVatLabel(code)}</span>
                     <span>{formatReceiptPrice(vatAmount)}</span>
                   </div>
                 ))}
@@ -209,6 +212,14 @@ export default async function PublicReceiptPage({
               </span>
             </div>
           </div>
+
+          {vatLegend.length > 0 && (
+            <div className="border-b border-dashed border-gray-200 px-6 py-3 text-xs text-gray-400">
+              {vatLegend.map((entry) => (
+                <p key={entry.code}>{formatVatLegendLine(entry)}</p>
+              ))}
+            </div>
+          )}
 
           {/* Footer: data e numero documento, poi il codice lotteria */}
           <div className="space-y-1 px-6 py-4 text-center text-xs text-gray-500">

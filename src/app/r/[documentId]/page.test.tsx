@@ -292,3 +292,72 @@ describe("PublicReceiptPage — layout AdE", () => {
     expect(screen.getByText("YYWLR30G")).toBeInTheDocument();
   });
 });
+
+describe("PublicReceiptPage — codifica IVA AdE", () => {
+  let PublicReceiptPage: typeof import("./page").default;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mockHeaders.mockResolvedValue(
+      new Headers({ "cf-connecting-ip": "6.6.6.6" }),
+    );
+    vi.resetModules();
+    ({ default: PublicReceiptPage } = await import("./page"));
+  });
+
+  async function renderWithLines(
+    lines: ReadonlyArray<Record<string, unknown>>,
+  ): Promise<void> {
+    mockFetchPublicReceipt.mockResolvedValue({ ...MOCK_RECEIPT_DATA, lines });
+    render(
+      await PublicReceiptPage({
+        params: Promise.resolve({ documentId: VALID_DOC_ID }),
+      }),
+    );
+  }
+
+  const EXEMPT_LINES = [
+    {
+      id: "line-1",
+      description: "Prestazione esente",
+      quantity: "1",
+      grossUnitPrice: "100.00",
+      vatCode: "N4",
+    },
+    {
+      id: "line-2",
+      description: "Marca da bollo",
+      quantity: "1",
+      grossUnitPrice: "2.00",
+      vatCode: "N1",
+    },
+  ];
+
+  it("mostra il mnemonico AdE in colonna invece dell'etichetta descrittiva", async () => {
+    await renderWithLines(EXEMPT_LINES);
+    expect(screen.getByText("ES*")).toBeInTheDocument();
+    expect(screen.getByText("EE*")).toBeInTheDocument();
+    expect(screen.queryByText("0% – Esente")).not.toBeInTheDocument();
+  });
+
+  it("scioglie gli asterischi in legenda, nell'ordine della tabella AdE", async () => {
+    await renderWithLines(EXEMPT_LINES);
+    const legend = screen
+      .getAllByText(/^\*[A-Z]{2} = /)
+      .map((n) => n.textContent);
+    expect(legend).toEqual(["*EE = Esclusa", "*ES = Esente"]);
+  });
+
+  it("non mostra legenda quando il documento non ha nature", async () => {
+    await renderWithLines([
+      {
+        id: "line-1",
+        description: "Caffè",
+        quantity: "1",
+        grossUnitPrice: "1.20",
+        vatCode: "22",
+      },
+    ]);
+    expect(screen.queryByText(/^\*[A-Z]{2} = /)).not.toBeInTheDocument();
+  });
+});

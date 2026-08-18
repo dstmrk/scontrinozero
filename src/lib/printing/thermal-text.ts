@@ -63,16 +63,3 @@ export function sanitizeThermalText(text: string): string {
     (char) => THERMAL_REPLACEMENTS.get(char) ?? char,
   );
 }
-
-/**
- * Etichetta IVA compatta per la colonna stretta dello scontrino.
- *
- * `VAT_LABELS` (`src/types/cassa.ts`) è pensato per i badge della UI e per i
- * codici natura arriva a 14 caratteri ("0% – Non sogg."): su 32 colonne
- * mangerebbe metà riga. Qui le aliquote numeriche diventano `22%` e i codici
- * natura restano `N1`..`N6` — mai più di 3 caratteri.
- */
-export function shortVatLabel(vatCode: string): string {
-  const rate = Number.parseFloat(vatCode);
-  return Number.isNaN(rate) ? vatCode : `${vatCode}%`;
-}

@@ -397,3 +397,69 @@ describe("layout AdE — piede", () => {
     expect(runs[iDate + 1]).toBe("DOCUMENTO N. DCW2026/5111-0042");
   });
 });
+
+describe("layout AdE — codifica IVA in colonna e legenda", () => {
+  const EXEMPT_DATA: SaleReceiptPdfData = {
+    ...BASE_DATA,
+    lines: [
+      {
+        description: "Prestazione esente",
+        quantity: 1,
+        grossUnitPrice: 100,
+        vatCode: "N4",
+      },
+      {
+        description: "Marca da bollo",
+        quantity: 1,
+        grossUnitPrice: 2,
+        vatCode: "N1",
+      },
+    ],
+  };
+
+  it("stampa il mnemonico AdE in colonna invece dell'etichetta descrittiva", async () => {
+    const runs = extractPdfTextRuns(await generateSaleReceiptPdf(EXEMPT_DATA));
+    expect(runs).toContain("ES*");
+    expect(runs).toContain("EE*");
+    // "0% – Esente" andava a capo nella colonna larga 22pt, finendo a cavallo
+    // del separatore: il wrapping produceva un run tronco "0% – ".
+    expect(runs.some((r) => r.includes("0% –"))).toBe(false);
+  });
+
+  it("scioglie gli asterischi in legenda, nell'ordine della tabella AdE", async () => {
+    const runs = extractPdfTextRuns(await generateSaleReceiptPdf(EXEMPT_DATA));
+    const iEE = runs.indexOf("*EE = Esclusa");
+    const iES = runs.indexOf("*ES = Esente");
+    expect(iEE).toBeGreaterThan(-1);
+    expect(iES).toBeGreaterThan(iEE);
+  });
+
+  it("mette la legenda dopo il blocco pagamenti e prima della data", async () => {
+    const runs = extractPdfTextRuns(await generateSaleReceiptPdf(EXEMPT_DATA));
+    const iPaid = runs.indexOf("Importo pagato");
+    const iLegend = runs.indexOf("*ES = Esente");
+    const iDate = runs.indexOf("15-02-2026 13:30");
+    expect(iLegend).toBeGreaterThan(iPaid);
+    expect(iDate).toBeGreaterThan(iLegend);
+  });
+
+  it("non stampa legenda quando il documento non ha nature", async () => {
+    const text = extractPdfText(await generateSaleReceiptPdf(BASE_DATA));
+    expect(text).not.toContain(" = ");
+  });
+
+  it("riserva altezza pagina per la legenda", async () => {
+    const extractPageHeight = (buf: Buffer): number => {
+      const m = buf.toString("latin1").match(/\/MediaBox \[0 0 \d+ (\d+)\]/);
+      return m ? parseInt(m[1], 10) : 0;
+    };
+    const withLegend = await generateSaleReceiptPdf(EXEMPT_DATA);
+    const withoutLegend = await generateSaleReceiptPdf({
+      ...EXEMPT_DATA,
+      lines: EXEMPT_DATA.lines.map((l) => ({ ...l, vatCode: "22" })),
+    });
+    expect(extractPageHeight(withLegend)).toBeGreaterThan(
+      extractPageHeight(withoutLegend),
+    );
+  });
+});

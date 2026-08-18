@@ -35,8 +35,11 @@ import {
   computeReceiptTotals,
   type ReceiptTotals,
 } from "@/lib/receipts/receipt-totals";
-import { VAT_LABELS as CASSA_VAT_LABELS } from "@/types/cassa";
-import type { VatCode } from "@/types/cassa";
+import {
+  formatVatLegendLine,
+  receiptVatLabel,
+  receiptVatLegend,
+} from "@/lib/receipts/vat-display";
 
 export interface SaleReceiptLine {
   description: string;
@@ -85,10 +88,6 @@ type Doc = InstanceType<typeof PDFDocument>;
 /** Posizione verticale corrente, mutata man mano che le sezioni disegnano. */
 interface Cursor {
   y: number;
-}
-
-function vatLabelOf(vatCode: string): string {
-  return CASSA_VAT_LABELS[vatCode as VatCode] ?? vatCode;
 }
 
 // ─── Primitive di disegno ───────────────────────────────────────────────────
@@ -250,7 +249,7 @@ function drawLineItems(
     });
     const afterDescY = doc.y;
 
-    doc.text(vatLabelOf(line.vatCode), MARGIN + COL_DESC, rowStartY, {
+    doc.text(receiptVatLabel(line.vatCode), MARGIN + COL_DESC, rowStartY, {
       width: COL_VAT,
       align: "center",
     });
@@ -286,9 +285,15 @@ function drawTotals(doc: Doc, cur: Cursor, totals: ReceiptTotals): void {
     drawAmountRow(doc, cur, "di cui IVA", totals.vatTotal, { bold: true });
     if (totals.vatByCode.size > 1) {
       for (const [code, vatAmount] of totals.vatByCode.entries()) {
-        drawAmountRow(doc, cur, `di cui IVA ${vatLabelOf(code)}`, vatAmount, {
-          size: 6.5,
-        });
+        drawAmountRow(
+          doc,
+          cur,
+          `di cui IVA ${receiptVatLabel(code)}`,
+          vatAmount,
+          {
+            size: 6.5,
+          },
+        );
       }
     }
   }
@@ -312,6 +317,21 @@ function drawPayment(
     drawAmountRow(doc, cur, label, totals.grandTotal);
   }
   drawAmountRow(doc, cur, "Importo pagato", totals.grandTotal);
+  drawSeparator(doc, cur);
+}
+
+/**
+ * Legenda degli asterischi della colonna IVA (`*ES = Esente`), stampata solo
+ * se il documento contiene almeno una natura — come nel layout standard AdE,
+ * fra il blocco pagamenti e la data.
+ */
+function drawVatLegend(doc: Doc, cur: Cursor, lines: SaleReceiptLine[]): void {
+  const legend = receiptVatLegend(lines.map((l) => l.vatCode));
+  if (legend.length === 0) return;
+
+  for (const entry of legend) {
+    drawText(doc, cur, formatVatLegendLine(entry), { size: 6 });
+  }
   drawSeparator(doc, cur);
 }
 
@@ -345,7 +365,8 @@ function drawFooter(doc: Doc, cur: Cursor, data: SaleReceiptPdfData): void {
  * Calibrata empiricamente: overhead fisso ≈ 145pt (intestazione su 4 righe +
  * titolo + separatori + totali con `di cui IVA` aggregato + pagamento con
  * `Importo pagato` + piede), 18pt per riga articolo (copre il wrap della riga
- * quantità), 12pt per aliquota distinta, 22pt per il blocco lotteria
+ * quantità), 12pt per aliquota distinta, 9pt per riga di legenda IVA più il
+ * suo separatore, 22pt per il blocco lotteria
  * (caption + codice). Sovrastimare costa spazio bianco, sottostimare costa
  * una seconda pagina: la stima resta volutamente generosa.
  */
@@ -355,10 +376,12 @@ function estimateHeight(
   hasQrCode: boolean,
 ): number {
   const uniqueVatRates = new Set(lines.map((l) => l.vatCode)).size;
+  const legendRows = receiptVatLegend(lines.map((l) => l.vatCode)).length;
   return (
     145 +
     lines.length * 18 +
     uniqueVatRates * 12 +
+    (legendRows > 0 ? legendRows * 9 + 5 : 0) +
     (hasLotteryCode ? 22 : 0) +
     (hasQrCode ? QR_SIZE + 12 : 0) +
     8
@@ -406,6 +429,7 @@ export function generateSaleReceiptPdf(
     drawLineItems(doc, cur, data.lines, totals);
     drawTotals(doc, cur, totals);
     drawPayment(doc, cur, data, totals);
+    drawVatLegend(doc, cur, data.lines);
     drawFooter(doc, cur, data);
 
     doc.end();

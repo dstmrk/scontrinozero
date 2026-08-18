@@ -12,8 +12,8 @@
  * Le uniche differenze sono imposte dal supporto:
  *  - l'intestazione di colonna è `Prezzo` e non `Prezzo(€)` (il simbolo
  *    dell'euro non è in CP437 e verrebbe stampato come `?`);
- *  - l'etichetta IVA usa la forma corta (`shortVatLabel`), perché su 32 colonne
- *    "0% – Non sogg." mangerebbe metà riga.
+ * L'etichetta IVA è la codifica AdE (`receiptVatLabel`, mnemonico + asterisco)
+ * sciolta dalla legenda a piè di documento — la stessa del PDF.
  *
  * La matematica monetaria NON è reimplementata: arriva tutta da
  * `computeReceiptTotals`, la stessa funzione che alimenta PDF, pagina pubblica
@@ -30,14 +30,19 @@ import {
   formatReceiptPrice,
   formatReceiptDateTime,
 } from "@/lib/receipt-format";
-import { sanitizeThermalText, shortVatLabel } from "./thermal-text";
+import {
+  formatVatLegendLine,
+  receiptVatLabel,
+  receiptVatLegend,
+} from "@/lib/receipts/vat-display";
+import { sanitizeThermalText } from "./thermal-text";
 import type {
   PrintableReceipt,
   PrintableReceiptLine,
   ReceiptEncodeOptions,
 } from "./types";
 
-/** Larghezza della colonna IVA: `shortVatLabel` non supera i 3 caratteri. */
+/** Larghezza della colonna IVA: `receiptVatLabel` non supera i 3 caratteri. */
 const VAT_COL = 4;
 /** Larghezza della colonna importo di riga: copre fino a `99999,99`. */
 const PRICE_COL = 8;
@@ -120,7 +125,7 @@ function printLineItems(
     const rows: string[][] = [
       [
         sanitizeThermalText(line.description),
-        shortVatLabel(line.vatCode),
+        receiptVatLabel(line.vatCode),
         formatReceiptPrice(perLine[index].lineTotal),
       ],
     ];
@@ -164,7 +169,7 @@ function printTotals(
         amountRow(
           encoder,
           columns,
-          `di cui IVA ${shortVatLabel(code)}`,
+          `di cui IVA ${receiptVatLabel(code)}`,
           vatAmount,
         );
       }
@@ -192,6 +197,21 @@ function printPayment(
     amountRow(encoder, columns, paymentLabel, grandTotal);
   }
   amountRow(encoder, columns, "Importo pagato", grandTotal);
+  encoder.rule();
+}
+
+/**
+ * Legenda degli asterischi della colonna IVA (`*ES = Esente`), stampata solo
+ * se il documento contiene almeno una natura — come nel layout standard AdE,
+ * fra il blocco pagamenti e la data.
+ */
+function printVatLegend(encoder: Encoder, receipt: PrintableReceipt): void {
+  const legend = receiptVatLegend(receipt.lines.map((l) => l.vatCode));
+  if (legend.length === 0) return;
+
+  for (const entry of legend) {
+    encoder.line(sanitizeThermalText(formatVatLegendLine(entry)));
+  }
   encoder.rule();
 }
 
@@ -244,6 +264,7 @@ export function buildReceiptCommands(
   printLineItems(encoder, receipt, options.columns);
   printTotals(encoder, receipt, options.columns);
   printPayment(encoder, receipt, options.columns);
+  printVatLegend(encoder, receipt);
   printFooter(encoder, receipt, options);
 
   return encoder.encode();

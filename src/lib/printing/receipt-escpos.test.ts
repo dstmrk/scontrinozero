@@ -208,7 +208,7 @@ describe("buildReceiptCommands — totali (regola 17)", () => {
     expect(text).not.toContain("di cui IVA");
   });
 
-  it("usa la label IVA corta, che entra nella colonna a 32 caratteri", () => {
+  it("usa la codifica IVA AdE, che entra nella colonna a 32 caratteri", () => {
     const exempt: PrintableReceiptLine[] = [
       {
         description: "Marca da bollo",
@@ -218,7 +218,7 @@ describe("buildReceiptCommands — totali (regola 17)", () => {
       },
     ];
     const text = decode(buildReceiptCommands(makeReceipt(exempt), OPTS));
-    expect(text).toContain("N2");
+    expect(text).toContain("NS*");
     expect(text).not.toContain("Non sogg.");
   });
 });
@@ -418,5 +418,59 @@ describe("buildReceiptCommands — layout AdE", () => {
     const iCaption = rowIndexOf(rows, "Codice Lotteria");
     expect(iCaption).toBeGreaterThan(iDoc);
     expect(rows[iCaption + 1]).toContain("ABCD1234");
+  });
+});
+
+describe("buildReceiptCommands — codifica IVA AdE", () => {
+  const EXEMPT_LINES: PrintableReceiptLine[] = [
+    {
+      description: "Prestazione esente",
+      quantity: "1",
+      grossUnitPrice: "100.00",
+      vatCode: "N4",
+    },
+    {
+      description: "Marca da bollo",
+      quantity: "1",
+      grossUnitPrice: "2.00",
+      vatCode: "N1",
+    },
+  ];
+
+  it("stampa il mnemonico AdE in colonna al posto del codice grezzo", () => {
+    const text = decode(buildReceiptCommands(makeReceipt(EXEMPT_LINES), OPTS));
+    expect(text).toContain("ES*");
+    expect(text).toContain("EE*");
+  });
+
+  it("scioglie gli asterischi in legenda dopo il blocco pagamenti", () => {
+    const rows = printedLines(
+      buildReceiptCommands(makeReceipt(EXEMPT_LINES), OPTS),
+    );
+    const iPaid = rows.findIndex((l) => l.includes("Importo pagato"));
+    const iLegend = rows.findIndex((l) => l.includes("*ES = Esente"));
+    const iDate = rows.findIndex((l) => l.includes("28-07-2026"));
+    expect(iLegend).toBeGreaterThan(iPaid);
+    expect(iDate).toBeGreaterThan(iLegend);
+  });
+
+  it("non stampa legenda quando il documento non ha nature", () => {
+    const text = decode(buildReceiptCommands(makeReceipt(SIMPLE_LINES), OPTS));
+    expect(text).not.toContain(" = ");
+  });
+
+  it("la legenda non sfora le 32 colonne", () => {
+    const allNatures: PrintableReceiptLine[] = (
+      ["N1", "N2", "N3", "N4", "N5", "N6"] as const
+    ).map((vatCode, i) => ({
+      description: `Riga ${i}`,
+      quantity: "1",
+      grossUnitPrice: "1.00",
+      vatCode,
+    }));
+    const rows = printedLines(
+      buildReceiptCommands(makeReceipt(allNatures), OPTS),
+    );
+    expect(rows.filter((l) => l.length > 32)).toEqual([]);
   });
 });
