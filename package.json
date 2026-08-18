@@ -46,6 +46,7 @@
     "pdfkit": "^0.19.1",
     "pino": "^10.3.1",
     "postgres": "^3.4.9",
+    "qrcode-generator": "^2.0.4",
     "radix-ui": "^1.6.7",
     "react": "19.2.8",
     "react-day-picker": "^10.0.0",

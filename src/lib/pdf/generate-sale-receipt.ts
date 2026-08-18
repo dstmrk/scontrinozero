@@ -1,4 +1,5 @@
 import PDFDocument from "pdfkit";
+import qrcode from "qrcode-generator";
 import {
   PAYMENT_LABELS,
   formatReceiptPrice,
@@ -28,6 +29,12 @@ export interface SaleReceiptPdfData {
   adeTransactionId: string;
   /** Codice Lotteria degli Scontrini (8 char, solo PE) */
   lotteryCode?: string | null;
+  /**
+   * URL pubblico `/r/<id>`, stampato come QR in coda al documento se
+   * presente. `null`/assente = nessun QR (rispecchia `printQr` della
+   * termica ESC/POS, v. `src/lib/printing/types.ts`).
+   */
+  publicUrl?: string | null;
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -36,6 +43,8 @@ export interface SaleReceiptPdfData {
 const PAGE_WIDTH = 165;
 const MARGIN = 6;
 const CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN;
+/** Lato del QR in pt: sta comodo in CONTENT_WIDTH (153pt) restando leggibile. */
+const QR_SIZE = 90;
 
 function vatLabelOf(vatCode: string): string {
   return CASSA_VAT_LABELS[vatCode as VatCode] ?? vatCode;
@@ -101,6 +110,7 @@ function renderLineDescription(line: SaleReceiptLine): string {
 function estimateHeight(
   lines: SaleReceiptLine[],
   hasLotteryCode: boolean,
+  hasQrCode: boolean,
 ): number {
   const uniqueVatRates = new Set(lines.map((l) => l.vatCode)).size;
   return (
@@ -108,6 +118,7 @@ function estimateHeight(
     lines.length * 18 +
     uniqueVatRates * 12 +
     (hasLotteryCode ? 12 : 0) +
+    (hasQrCode ? QR_SIZE + 12 : 0) +
     8
   );
 }
@@ -118,7 +129,11 @@ export function generateSaleReceiptPdf(
   data: SaleReceiptPdfData,
 ): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
-    const height = estimateHeight(data.lines, Boolean(data.lotteryCode));
+    const height = estimateHeight(
+      data.lines,
+      Boolean(data.lotteryCode),
+      Boolean(data.publicUrl),
+    );
     const buffers: Buffer[] = [];
 
     const doc = new PDFDocument({
@@ -169,6 +184,32 @@ export function generateSaleReceiptPdf(
       if (italic) font = "Helvetica-Oblique";
       doc.font(font).fontSize(size).text(text, x, y, { width, align });
       y = doc.y + 1;
+    };
+
+    // ── QR code: griglia vettoriale via `qrcode-generator` ──────────────────
+    // Nessun canvas/raster: la stessa libreria che alimenta `react-qr-code`
+    // (già in dependency tree) espone la matrice di moduli sincrona, disegnata
+    // qui come rettangoli pdfkit — coerente col QR nativo della termica
+    // ESC/POS (`receipt-escpos.ts`), stesso URL pubblico.
+    const drawQrCode = (url: string) => {
+      const qr = qrcode(0, "M");
+      qr.addData(url);
+      qr.make();
+      const moduleCount = qr.getModuleCount();
+      const cellSize = QR_SIZE / moduleCount;
+      const x = MARGIN + (CONTENT_WIDTH - QR_SIZE) / 2;
+
+      doc.fillColor("black");
+      for (let row = 0; row < moduleCount; row++) {
+        for (let col = 0; col < moduleCount; col++) {
+          if (qr.isDark(row, col)) {
+            doc
+              .rect(x + col * cellSize, y + row * cellSize, cellSize, cellSize)
+              .fill();
+          }
+        }
+      }
+      y += QR_SIZE + 2;
     };
 
     // ─── HEADER ────────────────────────────────────────────────────────────
@@ -317,6 +358,11 @@ export function generateSaleReceiptPdf(
     // ─── FOOTER ────────────────────────────────────────────────────────────
     drawLine(formatReceiptDateTime(data.createdAt), { size: 7 });
     drawLine(`DOCUMENTO N. ${data.adeProgressive}`, { size: 7 });
+
+    if (data.publicUrl) {
+      y += 2;
+      drawQrCode(data.publicUrl);
+    }
 
     doc.end();
   });

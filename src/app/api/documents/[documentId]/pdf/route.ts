@@ -29,7 +29,7 @@ const pdfAuthLimiter = new RateLimiter({
 });
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ documentId: string }> },
 ): Promise<Response> {
   // ── Auth ──────────────────────────────────────────────────────────────────
@@ -126,5 +126,10 @@ export async function GET(
     );
   }
 
-  return generatePdfResponse({ doc, biz, lines });
+  // `?qr=1`: l'esercente decide via `printQr` (preferenze stampante, per
+  // dispositivo/localStorage — non leggibile qui) e lo passa come query param
+  // da `PrintReceiptButton` quando apre il PDF di fallback.
+  const includeQr = new URL(request.url).searchParams.get("qr") === "1";
+
+  return generatePdfResponse({ doc, biz, lines }, { includeQr });
 }

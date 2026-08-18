@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { PrintReceiptButton } from "./print-receipt-button";
+import { writePrinterPreferences } from "@/lib/printing/printer-preferences";
 import type { UsePrinterResult } from "@/hooks/use-printer";
 import type { PrintableReceipt } from "@/lib/printing/types";
 
@@ -53,6 +54,7 @@ const PDF_HREF = "/api/documents/doc-1/pdf";
 let openSpy: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
+  localStorage.clear();
   mockPrinter.current = printerState();
   openSpy = vi.fn();
   vi.stubGlobal("open", openSpy);
@@ -174,7 +176,7 @@ describe("Bluetooth disponibile ma nessuna stampante", () => {
     });
   });
 
-  it("apre il PDF dalla scelta", async () => {
+  it("apre il PDF dalla scelta, con ?qr=0 quando la preferenza è spenta (default)", async () => {
     render(<PrintReceiptButton receipt={RECEIPT} pdfHref={PDF_HREF} />);
     fireEvent.click(screen.getByRole("button", { name: /Stampa/ }));
     fireEvent.click(
@@ -182,7 +184,22 @@ describe("Bluetooth disponibile ma nessuna stampante", () => {
     );
 
     expect(openSpy).toHaveBeenCalledWith(
-      PDF_HREF,
+      `${PDF_HREF}?qr=0`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  });
+
+  it("apre il PDF con ?qr=1 quando la preferenza printQr è attiva", async () => {
+    writePrinterPreferences({ printQr: true });
+    render(<PrintReceiptButton receipt={RECEIPT} pdfHref={PDF_HREF} />);
+    fireEvent.click(screen.getByRole("button", { name: /Stampa/ }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Stampa il PDF" }),
+    );
+
+    expect(openSpy).toHaveBeenCalledWith(
+      `${PDF_HREF}?qr=1`,
       "_blank",
       "noopener,noreferrer",
     );

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { usePrinter } from "@/hooks/use-printer";
 import { printErrorMessage } from "@/lib/printing/error-messages";
+import { readPrinterPreferences } from "@/lib/printing/printer-preferences";
 import type { PrintableReceipt } from "@/lib/printing/types";
 
 interface PrintReceiptButtonProps {
@@ -57,7 +58,17 @@ export function PrintReceiptButton({
 
   const openPdf = () => {
     setChooserOpen(false);
-    globalThis.open(pdfHref, "_blank", "noopener,noreferrer");
+    // Stessa preferenza `printQr` della stampa termica (regola: le due corsie
+    // non devono divergere, v. commento in `printing/types.ts`): letta qui e
+    // non in uno stato React perché va valutata al momento del tap, non
+    // all'hydration.
+    const qrParam = readPrinterPreferences().printQr ? "qr=1" : "qr=0";
+    const separator = pdfHref.includes("?") ? "&" : "?";
+    globalThis.open(
+      `${pdfHref}${separator}${qrParam}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
   };
 
   const printToPrinter = async () => {

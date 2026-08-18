@@ -182,6 +182,43 @@ describe("generateSaleReceiptPdf", () => {
       extractPageHeight(bufSingle),
     );
   });
+
+  it("genera un PDF valido con publicUrl presente (QR)", async () => {
+    const buf = await generateSaleReceiptPdf({
+      ...BASE_DATA,
+      publicUrl: "https://app.scontrinozero.it/r/6f8f857a-2b2a-4c8b-9b2a",
+    });
+    expect(buf.subarray(0, 4).toString("ascii")).toBe("%PDF");
+  });
+
+  it("con publicUrl presente la pagina è più alta (spazio riservato al QR)", async () => {
+    const extractPageHeight = (buf: Buffer): number => {
+      const m = buf.toString("latin1").match(/\/MediaBox \[0 0 \d+ (\d+)\]/);
+      return m ? parseInt(m[1], 10) : 0;
+    };
+
+    const withQr = await generateSaleReceiptPdf({
+      ...BASE_DATA,
+      publicUrl: "https://app.scontrinozero.it/r/6f8f857a-2b2a-4c8b-9b2a",
+    });
+    const withoutQr = await generateSaleReceiptPdf({
+      ...BASE_DATA,
+      publicUrl: null,
+    });
+    expect(extractPageHeight(withQr)).toBeGreaterThan(
+      extractPageHeight(withoutQr),
+    );
+  });
+
+  it("senza publicUrl non disegna alcun QR (nessun errore, PDF invariato rispetto ad assenza del campo)", async () => {
+    const bufMissing = await generateSaleReceiptPdf(BASE_DATA);
+    const bufNull = await generateSaleReceiptPdf({
+      ...BASE_DATA,
+      publicUrl: null,
+    });
+    expect(bufMissing.subarray(0, 4).toString("ascii")).toBe("%PDF");
+    expect(bufNull.subarray(0, 4).toString("ascii")).toBe("%PDF");
+  });
 });
 
 // ---------------------------------------------------------------------------
