@@ -35,6 +35,10 @@ describe("preferenze stampante", () => {
     expect(DEFAULT_PRINTER_PREFERENCES.paperWidth).toBe("58");
   });
 
+  it("ha il QR della ricevuta spento di default (non tutte le stampanti economiche lo supportano)", () => {
+    expect(DEFAULT_PRINTER_PREFERENCES.printQr).toBe(false);
+  });
+
   it("rilegge quel che ha scritto", () => {
     writePrinterPreferences({ autoPrint: false, paperWidth: "80" });
     expect(readPrinterPreferences()).toEqual({

@@ -18,9 +18,11 @@ vi.mock("@/lib/pdf/generate-sale-receipt", () => ({
 // ---------------------------------------------------------------------------
 
 import { generatePdfResponse } from "./generate-pdf-response";
+import * as trustedAppUrl from "@/lib/trusted-app-url";
 
 const MOCK_DATA = {
   doc: {
+    id: "6f8f857a-2b2a-4c8b-9b2a-2b2a4c8b9b2a",
     publicRequest: { paymentMethod: "PC" },
     adeProgressive: "DCW2026/5111-0001",
     adeTransactionId: "trx-0001",
@@ -146,5 +148,44 @@ describe("generatePdfResponse", () => {
     expect(mockGeneratePdf).toHaveBeenCalledWith(
       expect.objectContaining({ lotteryCode: null }),
     );
+  });
+
+  it("non passa publicUrl al generatore PDF quando includeQr è assente o false (route pubblica)", async () => {
+    await generatePdfResponse(MOCK_DATA);
+    expect(mockGeneratePdf).toHaveBeenCalledWith(
+      expect.objectContaining({ publicUrl: null }),
+    );
+
+    await generatePdfResponse(MOCK_DATA, { includeQr: false });
+    expect(mockGeneratePdf).toHaveBeenCalledWith(
+      expect.objectContaining({ publicUrl: null }),
+    );
+  });
+
+  it("passa publicUrl /r/<id> al generatore PDF quando includeQr è true (route autenticata)", async () => {
+    await generatePdfResponse(MOCK_DATA, { includeQr: true });
+    expect(mockGeneratePdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        publicUrl: expect.stringContaining(
+          `/r/${MOCK_DATA.doc.id}`,
+        ) as unknown as string,
+      }),
+    );
+  });
+
+  it("degrada a PDF senza QR (publicUrl null) se getTrustedAppUrl è malformato, senza far fallire la richiesta", async () => {
+    const spy = vi
+      .spyOn(trustedAppUrl, "getTrustedAppUrl")
+      .mockImplementation(() => {
+        throw new trustedAppUrl.TrustedAppUrlError("malformed");
+      });
+
+    const res = await generatePdfResponse(MOCK_DATA, { includeQr: true });
+
+    expect(res.status).toBe(200);
+    expect(mockGeneratePdf).toHaveBeenCalledWith(
+      expect.objectContaining({ publicUrl: null }),
+    );
+    spy.mockRestore();
   });
 });

@@ -27,7 +27,10 @@ export const DEFAULT_PRINTER_PREFERENCES: PrinterPreferences = {
   // lo disattiva dalle impostazioni.
   autoPrint: true,
   paperWidth: "58",
-  printQr: true,
+  // Default OFF: non tutte le stampantine economiche supportano il comando
+  // QR nativo (v. copy nelle impostazioni), quindi chi non l'ha verificato
+  // con una stampa di prova non deve trovarselo già attivo.
+  printQr: false,
 };
 
 /** Riferimento all'ultima stampante accoppiata su questo dispositivo. */

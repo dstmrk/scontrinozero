@@ -123,8 +123,10 @@ const MOCK_PDF_RESPONSE = new Response(new Uint8Array(), {
   },
 });
 
-function makeRequest(documentId: string): Request {
-  return new Request(`http://localhost/api/documents/${documentId}/pdf`);
+function makeRequest(documentId: string, search = ""): Request {
+  return new Request(
+    `http://localhost/api/documents/${documentId}/pdf${search}`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -271,7 +273,32 @@ describe("GET /api/documents/[documentId]/pdf", () => {
           expect.objectContaining({ description: "Prodotto A" }),
         ]),
       }),
+      expect.anything(),
     );
+  });
+
+  it("passa includeQr:false a generatePdfResponse quando manca ?qr=1", async () => {
+    await GET(makeRequest("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), {
+      params: Promise.resolve({
+        documentId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      }),
+    });
+
+    expect(mockGeneratePdfResponse).toHaveBeenCalledWith(expect.anything(), {
+      includeQr: false,
+    });
+  });
+
+  it("passa includeQr:true a generatePdfResponse quando ?qr=1", async () => {
+    await GET(makeRequest("a1b2c3d4-e5f6-7890-abcd-ef1234567890", "?qr=1"), {
+      params: Promise.resolve({
+        documentId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      }),
+    });
+
+    expect(mockGeneratePdfResponse).toHaveBeenCalledWith(expect.anything(), {
+      includeQr: true,
+    });
   });
 
   it("happy path: ritorna la Response prodotta da generatePdfResponse", async () => {

@@ -184,7 +184,7 @@ describe("VoidReceiptDialog — ristampa (REVIEW #78)", () => {
 
     await waitFor(() =>
       expect(openSpy).toHaveBeenCalledWith(
-        "/api/documents/doc-uuid-123/pdf",
+        "/api/documents/doc-uuid-123/pdf?qr=0",
         "_blank",
         "noopener,noreferrer",
       ),

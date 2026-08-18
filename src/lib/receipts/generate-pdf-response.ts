@@ -2,6 +2,8 @@ import {
   generateSaleReceiptPdf,
   type SaleReceiptLine,
 } from "@/lib/pdf/generate-sale-receipt";
+import { getTrustedAppUrl, TrustedAppUrlError } from "@/lib/trusted-app-url";
+import { logger } from "@/lib/logger";
 
 /**
  * Sanitizes a string for use as a PDF filename component.
@@ -33,6 +35,7 @@ export function sanitizePdfFilename(raw: string): string {
 /** Minimum shape required to build the PDF Response. */
 interface PdfReceiptInput {
   doc: {
+    id: string;
     publicRequest: unknown;
     adeProgressive: string | null;
     adeTransactionId: string | null;
@@ -60,11 +63,37 @@ interface PdfReceiptInput {
  *
  * Shared by the authenticated route (/api/documents/[id]/pdf) and the
  * public route (/r/[id]/pdf).
+ *
+ * `includeQr`: solo l'esercente (route autenticata) decide se stampare il QR,
+ * rispecchiando `printQr` delle preferenze stampante — v.
+ * `src/lib/printing/printer-preferences.ts`. La route pubblica non lo passa
+ * mai: il cliente sta già leggendo la sua ricevuta, un QR che rimanda a se
+ * stessa non ha senso.
  */
 export async function generatePdfResponse(
   data: PdfReceiptInput,
+  options: { includeQr?: boolean } = {},
 ): Promise<Response> {
   const { doc, biz, lines } = data;
+
+  let publicUrl: string | null = null;
+  if (options.includeQr) {
+    try {
+      publicUrl = `${getTrustedAppUrl()}/r/${doc.id}`;
+    } catch (err) {
+      if (err instanceof TrustedAppUrlError) {
+        // Il QR è un arricchimento, non il documento fiscale: si degrada
+        // stampando il PDF senza QR invece di rompere l'intera richiesta
+        // (regola 19).
+        logger.warn(
+          { err, documentId: doc.id },
+          "PDF QR skipped: trusted app URL unavailable",
+        );
+      } else {
+        throw err;
+      }
+    }
+  }
 
   const publicReq = doc.publicRequest as {
     paymentMethod?: string;
@@ -94,6 +123,7 @@ export async function generatePdfResponse(
     adeProgressive: doc.adeProgressive ?? "",
     adeTransactionId: doc.adeTransactionId ?? "",
     lotteryCode,
+    publicUrl,
   });
 
   const safeProgressive = sanitizePdfFilename(
