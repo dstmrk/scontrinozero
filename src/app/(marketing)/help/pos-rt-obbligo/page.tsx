@@ -114,9 +114,9 @@ export default function PosRtObbligoPage() {
           corrispettivi.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Quando emetti uno scontrino e selezioni <strong>Carta</strong> come
-          metodo di pagamento, ScontrinoZero trasmette all&apos;AdE il codice
-          pagamento elettronico{" "}
+          Quando emetti uno scontrino e selezioni <strong>Elettronico</strong>{" "}
+          come metodo di pagamento, ScontrinoZero trasmette all&apos;AdE il
+          codice pagamento elettronico{" "}
           <code className="bg-muted rounded px-1 font-mono text-xs">PE</code>{" "}
           insieme al documento. La selezione del metodo di pagamento è{" "}
           <strong>manuale</strong>: ScontrinoZero non si interfaccia con il POS

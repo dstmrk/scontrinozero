@@ -18,7 +18,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "aliquote-iva": {
     slug: "aliquote-iva",
     datePublished: "2026-04-17",
-    dateModified: "2026-08-04",
+    dateModified: "2026-08-18",
     title: "Aliquote IVA e catalogo prodotti",
     metaTitle: "Come gestire le aliquote IVA e il catalogo prodotti",
     description:
@@ -52,7 +52,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   api: {
     slug: "api",
     datePublished: "2026-04-02",
-    dateModified: "2026-06-26",
+    dateModified: "2026-08-18",
     title: "API per sviluppatori",
     metaTitle: "API per sviluppatori",
     description:
@@ -180,7 +180,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "metodi-di-pagamento": {
     slug: "metodi-di-pagamento",
     datePublished: "2026-08-04",
-    dateModified: "2026-08-04",
+    dateModified: "2026-08-18",
     title: "Metodi di pagamento: bonifico, assegno, carta e contanti",
     metaTitle: "Bonifico e assegno sullo scontrino: quale metodo scegliere",
     description:
@@ -214,7 +214,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "piani-e-prezzi": {
     slug: "piani-e-prezzi",
     datePublished: "2026-04-17",
-    dateModified: "2026-07-15",
+    dateModified: "2026-08-18",
     title: "Piani disponibili: Starter, Pro e self-hosted",
     metaTitle: "Piani disponibili: Starter, Pro e self-hosted gratuito",
     description:
@@ -224,7 +224,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "pos-rt-obbligo": {
     slug: "pos-rt-obbligo",
     datePublished: "2026-04-20",
-    dateModified: "2026-08-02",
+    dateModified: "2026-08-18",
     title: "Collegamento POS-RT: obbligo e scadenze 2026",
     metaTitle: "Collegamento POS-RT: chi è obbligato e scadenze 2026",
     description:
@@ -254,7 +254,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "primo-scontrino": {
     slug: "primo-scontrino",
     datePublished: "2026-04-11",
-    dateModified: "2026-07-15",
+    dateModified: "2026-08-18",
     title: "Come emettere il primo scontrino elettronico",
     metaTitle: "Come emettere il primo scontrino elettronico",
     description:

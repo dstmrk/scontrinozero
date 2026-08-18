@@ -23,7 +23,7 @@ const faqItems: readonly FaqItem[] = [
   {
     question: "Ho incassato con un bonifico: quale metodo devo scegliere?",
     answer:
-      "Scegli Carta. Il bonifico è una forma di pagamento elettronico, e la voce Carta di ScontrinoZero trasmette all'Agenzia delle Entrate proprio la modalità «pagamento elettronico». Lo chiarisce la FAQ n. 11 del documento «Collegamento POS-RT» dell'Agenzia, pubblicata il 19 febbraio 2026: se il pagamento avviene tramite bonifico, il documento commerciale deve indicare che si tratta di una forma di pagamento elettronico e il relativo ammontare.",
+      "Scegli Elettronico. Il bonifico è una forma di pagamento elettronico, e la voce Elettronico di ScontrinoZero trasmette all'Agenzia delle Entrate esattamente quella modalità: sullo scontrino compare la riga «Pagamento elettronico». Lo chiarisce la FAQ n. 11 del documento «Collegamento POS-RT» dell'Agenzia, pubblicata il 19 febbraio 2026: se il pagamento avviene tramite bonifico, il documento commerciale deve indicare che si tratta di una forma di pagamento elettronico e il relativo ammontare.",
   },
   {
     question: "E se il cliente paga con un assegno?",
@@ -39,7 +39,7 @@ const faqItems: readonly FaqItem[] = [
   {
     question: "Il metodo scelto influisce sulla Lotteria degli Scontrini?",
     answer:
-      "Sì. Il campo per il codice lotteria compare solo quando selezioni Carta, perché alla Lotteria degli Scontrini partecipano soltanto gli acquisti sopra 1 € pagati con strumenti elettronici. Con pagamento in contanti il codice non può essere trasmesso.",
+      "Sì. Il campo per il codice lotteria compare solo quando selezioni Elettronico, perché alla Lotteria degli Scontrini partecipano soltanto gli acquisti sopra 1 € pagati con strumenti elettronici. Con pagamento in contanti il codice non può essere trasmesso.",
   },
 ];
 
@@ -70,12 +70,13 @@ export default function MetodiDiPagamentoPage() {
           <Badge variant="secondary">Gestione scontrini</Badge>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          In cassa ScontrinoZero propone due metodi: <strong>Contanti</strong> e{" "}
-          <strong>Carta</strong>. Un incasso ricevuto con{" "}
-          <strong>bonifico</strong> va registrato come Carta, perché il bonifico
-          è a tutti gli effetti un pagamento elettronico; un{" "}
+          In cassa ScontrinoZero propone due metodi: <strong>Contanti</strong>{" "}
+          ed <strong>Elettronico</strong>. Un incasso ricevuto con{" "}
+          <strong>bonifico</strong> va registrato come Elettronico, perché il
+          bonifico è a tutti gli effetti un pagamento elettronico; un{" "}
           <strong>assegno</strong>, bancario o circolare, va invece registrato
-          come Contanti.
+          come Contanti. La carta di credito o il bancomat rientrano
+          anch&apos;essi in Elettronico, insieme alle app di pagamento.
         </p>
         <HelpArticleUpdatedAt slug="metodi-di-pagamento" />
 
@@ -84,9 +85,12 @@ export default function MetodiDiPagamentoPage() {
           Cosa viene trasmesso all&apos;Agenzia delle Entrate
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Le etichette che vedi in cassa sono una semplificazione: il tracciato
-          del documento commerciale non conosce la parola &laquo;carta&raquo;,
-          ma due forme di pagamento più ampie.
+          Le due voci in cassa corrispondono una a una alle forme di pagamento
+          previste dal tracciato del documento commerciale, e con le stesse
+          parole: sullo scontrino che consegni al cliente — PDF, link o stampa
+          termica — leggi <strong>Pagamento contante</strong> oppure{" "}
+          <strong>Pagamento elettronico</strong>. Ciascuna copre più strumenti
+          di quanti il nome suggerisca.
         </p>
         <div className="mt-3 overflow-x-auto">
           <table className="text-muted-foreground w-full text-sm">
@@ -112,7 +116,9 @@ export default function MetodiDiPagamentoPage() {
                 </td>
               </tr>
               <tr>
-                <td className="text-foreground py-2 font-medium">Carta</td>
+                <td className="text-foreground py-2 font-medium">
+                  Elettronico
+                </td>
                 <td className="py-2">Pagamento elettronico</td>
                 <td className="py-2">
                   Carte di credito, debito e prepagate, bancomat, app di
@@ -130,7 +136,7 @@ export default function MetodiDiPagamentoPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Se incassi con bonifico, sul documento commerciale devi indicare il
           pagamento elettronico: in ScontrinoZero significa selezionare{" "}
-          <strong>Carta</strong>. È il caso tipico di chi riceve accrediti
+          <strong>Elettronico</strong>. È il caso tipico di chi riceve accrediti
           periodici da una piattaforma o da un committente invece di incassare
           allo sportello.
         </p>
@@ -180,10 +186,10 @@ export default function MetodiDiPagamentoPage() {
           Il metodo non è un dettaglio estetico: viaggia dentro il documento
           commerciale trasmesso all&apos;Agenzia e determina una cosa concreta
           in cassa. Il campo <strong>codice Lotteria degli Scontrini</strong>{" "}
-          compare soltanto quando scegli Carta, perché alla Lotteria partecipano
-          solo gli acquisti sopra <strong>1 €</strong> pagati con strumenti
-          elettronici. Se registri come Contanti un incasso ricevuto con
-          bonifico, oltre a trasmettere un dato inesatto togli al cliente la
+          compare soltanto quando scegli Elettronico, perché alla Lotteria
+          partecipano solo gli acquisti sopra <strong>1 €</strong> pagati con
+          strumenti elettronici. Se registri come Contanti un incasso ricevuto
+          con bonifico, oltre a trasmettere un dato inesatto togli al cliente la
           possibilità di partecipare.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">

@@ -138,14 +138,14 @@ export default function PrimoScontrinoPage() {
             <strong>Contanti</strong>
           </li>
           <li>
-            <strong>Carta</strong> (bancomat, carta di credito, altri strumenti
-            elettronici)
+            <strong>Elettronico</strong> (bancomat, carta di credito, app di
+            pagamento, bonifico)
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Il metodo di pagamento è obbligatorio: lo scontrino accetta un solo
           metodo per documento (non sono previsti pagamenti misti). Se scegli{" "}
-          <strong>Carta</strong> puoi anche inserire il{" "}
+          <strong>Elettronico</strong> puoi anche inserire il{" "}
           <strong>Codice lotteria</strong> (8 caratteri, scontrini da almeno €1)
           per far partecipare il cliente alla Lotteria degli Scontrini.
         </p>
