@@ -42,6 +42,15 @@ export interface ReceiptTotals {
   readonly grandTotal: number;
   /** VAT amount per vatCode, each rounded to 2 decimals (only entries > 0). */
   readonly vatByCode: ReadonlyMap<string, number>;
+  /**
+   * IVA complessiva del documento — la riga `di cui IVA` del layout AdE.
+   *
+   * Sommata in centesimi interi PRIMA della conversione in euro: sommare i
+   * valori già arrotondati di `vatByCode` deriverebbe da float e potrebbe
+   * scostarsi di un centesimo dal totale che le stesse righe producono
+   * altrove (regola 17).
+   */
+  readonly vatTotal: number;
 }
 
 /**
@@ -128,13 +137,16 @@ export function computeReceiptTotals(
   }
 
   const vatByCode = new Map<string, number>();
+  let vatTotalCents = 0;
   for (const [code, cents] of vatByCodeCents.entries()) {
     vatByCode.set(code, cents / 100);
+    vatTotalCents += cents;
   }
 
   return {
     perLine,
     grandTotal: grandTotalCents / 100,
     vatByCode,
+    vatTotal: vatTotalCents / 100,
   };
 }

@@ -126,14 +126,16 @@ describe("buildReceiptCommands — contenuto fiscale", () => {
     expect(decode(buildReceiptCommands(single, OPTS))).not.toContain("n.1");
   });
 
-  it("stampa il metodo di pagamento in chiaro", () => {
+  it("stampa il metodo di pagamento con la dicitura AdE", () => {
     const text = decode(
       buildReceiptCommands(
         makeReceipt(SIMPLE_LINES, { paymentMethod: "PE" }),
         OPTS,
       ),
     );
-    expect(text).toContain("Elettronico");
+    // "Pagamento elettronico" (21 char) sta nella colonna etichetta a 32
+    // colonne (32 - AMOUNT_COL = 23): la dicitura estesa non tronca.
+    expect(text).toContain("Pagamento elettronico");
   });
 
   it("stampa il codice lotteria quando presente", () => {

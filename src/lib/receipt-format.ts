@@ -5,10 +5,17 @@
  * (richiesto dai layout fiscali a stretta larghezza).
  */
 
-/** Codici documento commerciale per metodo di pagamento (AdE). */
+/**
+ * Dicitura della riga "modalità di pagamento" del documento commerciale.
+ *
+ * Il layout standard AdE la scrive per esteso — `Pagamento contante 160,00`,
+ * `Pagamento elettronico 80,00` — perché nel blocco pagamenti convive con
+ * altre voci (`Non riscosso`, `Resto`, `Importo pagato`) e la sola parola
+ * "Contante" non direbbe di che grandezza si tratta.
+ */
 export const PAYMENT_LABELS: Record<string, string> = {
-  PC: "Contante",
-  PE: "Elettronico",
+  PC: "Pagamento contante",
+  PE: "Pagamento elettronico",
 };
 
 /**
@@ -51,4 +58,41 @@ export function formatReceiptDateTime(date: Date): string {
   const parts = receiptDateFormatter.formatToParts(date);
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
   return `${get("day")}-${get("month")}-${get("year")} ${get("hour")}:${get("minute")}`;
+}
+
+/** Campi indirizzo dell'esercente, tutti opzionali a schema. */
+export interface BusinessAddressFields {
+  readonly address?: string | null;
+  readonly city?: string | null;
+  readonly province?: string | null;
+  readonly zipCode?: string | null;
+}
+
+/** `""` per null/undefined/stringhe di soli spazi. */
+function trimmed(value: string | null | undefined): string {
+  return value?.trim() ?? "";
+}
+
+/**
+ * Righe indirizzo dell'intestazione, nella forma del layout standard AdE:
+ * la via su una riga, `Comune(PR), CAP` sulla successiva.
+ *
+ * Restituisce solo le righe che hanno davvero un contenuto — il business
+ * nasce incompleto in onboarding, e una riga vuota su un documento fiscale
+ * viola anche le prescrizioni di risparmio carta dell'AdE. La provincia si
+ * stampa fra parentesi solo se c'è un comune a cui riferirla: `(MI), 20100`
+ * da solo non è un indirizzo.
+ */
+export function formatBusinessAddressLines(
+  fields: BusinessAddressFields,
+): string[] {
+  const street = trimmed(fields.address);
+  const city = trimmed(fields.city);
+  const province = trimmed(fields.province);
+  const zipCode = trimmed(fields.zipCode);
+
+  const locality = city && province ? `${city}(${province})` : city;
+  const localityLine = [locality, zipCode].filter(Boolean).join(", ");
+
+  return [street, localityLine].filter(Boolean);
 }
