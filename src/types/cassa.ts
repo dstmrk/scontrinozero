@@ -18,7 +18,17 @@ export interface CartLine {
   vatCode: VatCode;
 }
 
-/** Etichette brevi per badge e display compatti */
+/**
+ * Etichette brevi per badge e display compatti.
+ *
+ * ⚠️ Le nature seguono la lista PIATTA del **documento commerciale**
+ * (tabella CODIFICHE del layout AdE, la stessa di `docs/api-spec.md` sez. 6),
+ * non quella della fattura elettronica: qui `N6` è "Altro non IVA", non
+ * l'inversione contabile — che nella FE è `N6.1`-`N6.9`, sottocodici che il
+ * tracciato del documento commerciale non prevede nemmeno. Etichettare N6
+ * come reverse charge farebbe scegliere all'esercente una natura sbagliata su
+ * un documento fiscale irreversibile.
+ */
 export const VAT_LABELS: Record<VatCode, string> = {
   "4": "4%",
   "5": "5%",
@@ -29,7 +39,7 @@ export const VAT_LABELS: Record<VatCode, string> = {
   N3: "0% – Non imp.",
   N4: "0% – Esente",
   N5: "0% – Margine",
-  N6: "0% – Inv. cont.",
+  N6: "0% – Non IVA",
 };
 
 /** Descrizioni complete per il dropdown di selezione */
@@ -43,7 +53,7 @@ export const VAT_DESCRIPTIONS: Record<VatCode, string> = {
   N3: "0% – Non imponibili",
   N4: "0% – Esente",
   N5: "0% – Regime del margine",
-  N6: "0% – Inv. contabile",
+  N6: "0% – Altro non IVA",
 };
 
 /** Etichette UI per i metodi di pagamento */
