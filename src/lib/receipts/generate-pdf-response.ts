@@ -105,8 +105,12 @@ export async function generatePdfResponse(
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      // RFC 5987: filename* for non-ASCII safe encoding; filename for legacy clients
-      "Content-Disposition": `attachment; filename="scontrino-${safeProgressive}.pdf"; filename*=UTF-8''scontrino-${encodedProgressive}.pdf`,
+      // "inline", non "attachment": su Safari iOS (anche in standalone PWA)
+      // "attachment" forza il download e apre il PDF senza toolbar (niente
+      // Fine/Stampa, l'utente resta bloccato). "inline" apre il viewer PDF
+      // nativo di Safari con Fine/Condividi→Stampa. RFC 5987: filename* per
+      // caratteri non-ASCII; filename per client legacy.
+      "Content-Disposition": `inline; filename="scontrino-${safeProgressive}.pdf"; filename*=UTF-8''scontrino-${encodedProgressive}.pdf`,
       "Cache-Control": "private, no-store",
     },
   });

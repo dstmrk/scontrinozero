@@ -66,6 +66,12 @@ describe("generatePdfResponse", () => {
     expect(disposition).toContain("DCW2026-5111-0001");
   });
 
+  it("Content-Disposition è 'inline', non 'attachment' (Safari iOS: 'attachment' apre il download senza toolbar Fine/Stampa)", async () => {
+    const res = await generatePdfResponse(MOCK_DATA);
+    const disposition = res.headers.get("content-disposition");
+    expect(disposition).toMatch(/^inline;/);
+  });
+
   it("usa 'scontrino' come fallback nel filename se adeProgressive è null", async () => {
     const res = await generatePdfResponse({
       ...MOCK_DATA,
