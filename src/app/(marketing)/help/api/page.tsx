@@ -272,7 +272,7 @@ export default function ApiDocsPage() {
                   <code className="bg-muted rounded px-1 font-mono text-xs">
                     PE
                   </code>
-                  {" = carta/elettronico"}
+                  {" = elettronico (carta, bancomat, bonifico)"}
                 </td>
               </tr>
               <tr className="border-b">
@@ -550,7 +550,7 @@ export default function ApiDocsPage() {
                 ],
                 [
                   "paymentMethod",
-                  "PC (contanti) o PE (carta/elettronico), così come inviato in emissione.",
+                  "PC (contanti) o PE (elettronico), così come inviato in emissione.",
                 ],
                 [
                   "lotteryCode",

@@ -105,7 +105,7 @@ export default function PianiEPrezziPage() {
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>Scontrini elettronici illimitati</li>
           <li>Annullamento scontrini</li>
-          <li>Pagamento in contanti o con carta</li>
+          <li>Pagamento in contanti o elettronico</li>
           <li>
             Catalogo rapido fino a <strong>5 prodotti</strong>
           </li>
@@ -229,7 +229,7 @@ export default function PianiEPrezziPage() {
               </tr>
               <tr>
                 <td className="text-foreground py-2 font-medium">
-                  Pagamento contanti o carta
+                  Pagamento contanti o elettronico
                 </td>
                 <td className="py-2">✓</td>
                 <td className="py-2">✓</td>

@@ -198,6 +198,7 @@ curl https://api.scontrinozero.it/v1/receipts/550e8400-e29b-41d4-a716-4466554400
 ```
 
 > `voidedDocumentId` è valorizzato solo per documenti `kind: "VOID"` e contiene l'UUID del SALE annullato.
+> `paymentMethod` vale `"PC"` (contante: denaro, assegni bancari e circolari) oppure `"PE"` (elettronico: carte, bancomat, app di pagamento, bonifici). Un solo metodo per documento — il pagamento ripartito non è supportato.
 > `lotteryCode` è `null` se non fornito o se il metodo di pagamento è `"PC"` (contanti).
 > `quantity` e `grossUnitPrice` sono stringhe con precisione fissa (3 e 2 decimali rispettivamente).
 

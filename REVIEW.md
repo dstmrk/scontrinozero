@@ -308,6 +308,34 @@ stesso blocco di riferimento ma le righe rese — non modellarlo come un annullo
 
 ---
 
+### 86. Screenshot `riepilogo-pagamento.png` da rifare dopo il rename "Carta" → "Elettronico"
+
+- **Categoria:** contenuti marketing · **Severità:** Low — nessun impatto funzionale, ma il sito mostra una UI che non esiste più
+- **File:** `public/screenshots/riepilogo-pagamento.png`. Riferimento: `src/app/(marketing)/help/primo-scontrino/page.tsx` (unico consumatore)
+
+**Problema.** L'immagine ritrae la schermata "Riepilogo scontrino" con il
+bottone **Carta** selezionato e la riga di helper "Per la Lotteria degli
+Scontrini — solo pagamenti con carta". Entrambe le stringhe sono state
+rinominate in "Elettronico" / "solo pagamenti elettronici": lo screenshot ora
+contraddice sia il prodotto sia il testo dell'articolo che lo incornicia, ed è
+il primo posto in cui un nuovo utente vede il selettore.
+
+Il testo dell'articolo è già stato aggiornato: resta solo il bitmap.
+
+**Da fare.** Rigenerare l'immagine dall'app dev con lo stesso inquadramento
+(cornice telefono, carrello di 2 righe "Caffe espresso" 1,20 € e "Cappuccino"
+1,50 €, totale 2,70 €, metodo elettronico selezionato, campo lotteria vuoto) e
+sostituire il file mantenendo nome e proporzioni — è dichiarato
+`width={900} height={1860}` nel `page.tsx`, cambiarle sposterebbe il layout.
+Si può guidare un browser reale con la skill `playwright-verify`
+(`browser_take_screenshot` funziona).
+
+**Verificati e da NON rifare:** `cassa-tastierino.png`, `storico-dettaglio.png`
+e gli altri in `public/screenshots/` non mostrano il selettore del metodo di
+pagamento.
+
+---
+
 ### 23. Indice composito `api_keys (business_id, revoked_at)`
 
 - **Categoria:** performance DB · **Severità:** Low · **Target: Developer API Fase B** (ora nice-to-have in PLAN.md)

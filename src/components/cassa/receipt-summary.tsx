@@ -113,7 +113,7 @@ export function ReceiptSummary({
           <p className="text-muted-foreground mt-1 text-xs">
             {isBelowLotteryMin
               ? "Non disponibile per importi inferiori a €1,00"
-              : "Per la Lotteria degli Scontrini — solo pagamenti con carta"}
+              : "Per la Lotteria degli Scontrini — solo pagamenti elettronici"}
           </p>
         </div>
       )}

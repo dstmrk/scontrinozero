@@ -8,9 +8,9 @@ describe("PaymentMethodSelector", () => {
     expect(screen.getByText("Contanti")).toBeInTheDocument();
   });
 
-  it("renderizza l'opzione Carta", () => {
+  it("renderizza l'opzione Elettronico", () => {
     render(<PaymentMethodSelector value="PC" onChange={vi.fn()} />);
-    expect(screen.getByText("Carta")).toBeInTheDocument();
+    expect(screen.getByText("Elettronico")).toBeInTheDocument();
   });
 
   it("l'opzione selezionata ha aria-pressed=true", () => {
@@ -25,17 +25,16 @@ describe("PaymentMethodSelector", () => {
   it("l'opzione non selezionata ha aria-pressed=false", () => {
     render(<PaymentMethodSelector value="PC" onChange={vi.fn()} />);
 
-    expect(screen.getByRole("button", { name: /carta/i })).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
+    expect(
+      screen.getByRole("button", { name: /elettronico/i }),
+    ).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("chiama onChange con 'PE' quando si preme Carta", () => {
+  it("chiama onChange con 'PE' quando si preme Elettronico", () => {
     const onChange = vi.fn();
     render(<PaymentMethodSelector value="PC" onChange={onChange} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /carta/i }));
+    fireEvent.click(screen.getByRole("button", { name: /elettronico/i }));
 
     expect(onChange).toHaveBeenCalledWith("PE");
   });
@@ -54,17 +53,15 @@ describe("PaymentMethodSelector", () => {
       <PaymentMethodSelector value="PC" onChange={vi.fn()} />,
     );
 
-    expect(screen.getByRole("button", { name: /carta/i })).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
+    expect(
+      screen.getByRole("button", { name: /elettronico/i }),
+    ).toHaveAttribute("aria-pressed", "false");
 
     rerender(<PaymentMethodSelector value="PE" onChange={vi.fn()} />);
 
-    expect(screen.getByRole("button", { name: /carta/i })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(
+      screen.getByRole("button", { name: /elettronico/i }),
+    ).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: /contanti/i })).toHaveAttribute(
       "aria-pressed",
       "false",

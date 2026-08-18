@@ -48,6 +48,13 @@ un'esagerazione di marketing. Audit agosto 2026: erano finite in 8 punti fra
 - **Pagamento misto / ripartito** — `PaymentMethod` è `"PC" | "PE"`, uno per
   documento (`src/types/cassa.ts`, `src/lib/receipts/receipt-schema.ts`).
   Anche i **buoni pasto** sono nice-to-have: mai citarli fra i metodi.
+  Le due voci si chiamano **Contanti** ed **Elettronico** (non "Carta": `PE`
+  copre anche bonifico e app di pagamento, e sul documento la riga è
+  `Pagamento elettronico`). "Carta" resta legittima come **parola della
+  query** nei titoli e nel corpo — è così che l'utente cerca — mai come nome
+  della voce in cassa. Grep di controllo: `carta` da solo pesca troppo
+  (carta di credito, carta termica, prova senza carta, CIE), filtrare sul
+  contesto del metodo di pagamento.
 - **Codice fiscale del cliente / "scontrino parlante"** — `saleBodySchema`
   non ha il campo. Chi lo chiede va indirizzato al portale AdE o alla fattura.
 - **Barcode scanner** — fuori roadmap per decisione esplicita.

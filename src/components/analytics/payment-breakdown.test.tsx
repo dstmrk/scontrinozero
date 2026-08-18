@@ -45,4 +45,21 @@ describe("PaymentBreakdown", () => {
     expect(summary?.textContent).toContain("Contanti");
     expect(summary?.textContent).toContain("Elettronico");
   });
+
+  it("etichetta come Altro un metodo fuori da PAYMENT_METHOD_LABELS", () => {
+    // `other` è l'unico bucket che non arriva dal selettore di cassa: lo
+    // produce normalizePaymentMethod su un valore non riconosciuto.
+    render(
+      <PaymentBreakdown
+        data={[{ method: "other", revenueCents: 100, count: 1 }]}
+      />,
+    );
+    const region = screen.getByRole("img", {
+      name: /grafico metodi di pagamento/i,
+    });
+    const summary = document.getElementById(
+      region.getAttribute("aria-describedby")!,
+    );
+    expect(summary?.textContent).toContain("Altro");
+  });
 });

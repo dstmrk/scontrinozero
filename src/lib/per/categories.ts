@@ -87,7 +87,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     benefits: [
       "Funziona ovunque ci sia rete 4G/5G, anche senza linea fissa.",
       "Non serve hardware: zero investimento iniziale, niente registratore da trasportare.",
-      "Contanti o carta: scegli il metodo con un tap e il dato viaggia nello scontrino trasmesso all'AdE.",
+      "Contanti o elettronico: scegli il metodo con un tap e il dato viaggia nello scontrino trasmesso all'AdE.",
       "Storico vendite consultabile su qualsiasi dispositivo, utile per il commercialista.",
     ],
     faq: [
@@ -128,7 +128,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     ],
     benefits: [
       "Tablet alla reception: zero ingombro sul banco, design pulito da salone moderno.",
-      "Metodo di pagamento (contanti o carta) selezionabile su ogni scontrino, trasmesso all'AdE con il documento.",
+      "Metodo di pagamento (contanti o elettronico) selezionabile su ogni scontrino, trasmesso all'AdE con il documento.",
       "Catalogo prodotti e servizi configurabile, per emettere lo scontrino in 2 tap.",
       "Storico consultabile dal commercialista senza dover esportare nulla manualmente.",
     ],
@@ -219,7 +219,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Configurazione una tantum di aliquota e voci ricorrenti (pernottamento, colazione, supplementi).",
       "Storico ordinato per stagione, utile per dichiarazione dei redditi e analisi.",
       "Funziona su qualsiasi smartphone o tablet, anche quello che già usi per ricevere gli ospiti.",
-      "Metodo di pagamento (contanti o carta) su ogni scontrino: gli accrediti ricevuti con bonifico da un portale di prenotazione si indicano come pagamento elettronico.",
+      "Metodo di pagamento (contanti o elettronico) su ogni scontrino: gli accrediti ricevuti con bonifico da un portale di prenotazione si indicano come elettronico.",
     ],
     faq: [
       {
@@ -402,7 +402,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
       "Zero hardware da montare allo stand: basta lo smartphone, anche con connessione mobile.",
       "Piano mensile disdicibile: paghi nei mesi in cui vendi, lo storico resta sempre accessibile.",
       "Catalogo con i tuoi articoli ricorrenti per emettere in pochi tap anche con la fila al banchetto.",
-      "Metodo di pagamento (contanti o carta) scelto scontrino per scontrino, senza passaggi in più.",
+      "Metodo di pagamento (contanti o elettronico) scelto scontrino per scontrino, senza passaggi in più.",
     ],
     faq: [
       {
@@ -799,7 +799,7 @@ export const categories: Record<CategorySlug, CategoryContent> = {
     ],
     benefits: [
       "Listino servizi nel catalogo: lavaggio camicia, piumone, orlo — scontrino in due tap.",
-      "Metodo di pagamento (contanti o carta) indicato su ogni ricevuta di ritiro.",
+      "Metodo di pagamento (contanti o elettronico) indicato su ogni ricevuta di ritiro.",
       "Scontrino al momento del ritiro, anche con acconto alla consegna dei capi.",
       "Storico digitale per il commercialista, senza rotoli da archiviare.",
     ],

@@ -251,9 +251,9 @@ export default function AliquoteIvaPage() {
         {/* ─── Metodi di pagamento ─── */}
         <h2 className="mt-10 text-xl font-semibold">Metodi di pagamento</h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          In cassa il selettore propone due metodi, <strong>Contanti</strong> e{" "}
-          <strong>Carta</strong>, e ogni documento commerciale ne porta uno
-          solo. Quale scegliere a seconda di come hai incassato — bonifico,
+          In cassa il selettore propone due metodi, <strong>Contanti</strong> ed{" "}
+          <strong>Elettronico</strong>, e ogni documento commerciale ne porta
+          uno solo. Quale scegliere a seconda di come hai incassato — bonifico,
           assegno, carta o denaro — è spiegato con i riferimenti
           dell&apos;Agenzia delle Entrate in{" "}
           <Link
@@ -267,9 +267,9 @@ export default function AliquoteIvaPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Il tracciato AdE prevede ulteriori metodi (ticket / buono pasto,
           importi non riscossi su fattura o servizio futuro) e il{" "}
-          <strong>pagamento misto</strong> con ripartizione tra contanti e carta
-          sullo stesso scontrino: potremmo valutarne l&apos;aggiunta in futuro
-          in base alle richieste degli utenti.
+          <strong>pagamento misto</strong> con ripartizione fra contante ed
+          elettronico sullo stesso scontrino: potremmo valutarne l&apos;aggiunta
+          in futuro in base alle richieste degli utenti.
         </p>
 
         {/* ─── Errori frequenti ─── */}

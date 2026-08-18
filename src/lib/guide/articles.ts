@@ -283,7 +283,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       'Dal 1° gennaio 2026 è in vigore l\'obbligo di collegare il POS allo strumento che memorizza i corrispettivi (art. 1, commi 74-77, L. 207/2024): il collegamento si comunica online dal servizio "Gestione Collegamenti" del portale Fatture e Corrispettivi. La norma ha generato molta confusione: vediamo cosa cambia davvero, le scadenze e cosa fare se non usi un registratore telematico fisico.',
     publishedAt: "2026-05-14",
-    updatedAt: "2026-08-02",
+    updatedAt: "2026-08-18",
     readingMinutes: 7,
     sections: [
       {
@@ -304,7 +304,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Cosa cambia se NON ho un registratore telematico",
-        body: "Se emetti corrispettivi tramite documento commerciale online (DCO) e non hai un RT fisico, l'obbligo POS-RT non si applica nei termini classici. Il pagamento elettronico viene infatti tracciato direttamente nello scontrino digitale emesso dal software, che già contiene l'informazione del metodo di pagamento (carta, contanti, mista). La normativa più recente ha chiarito questo punto, ma la situazione è in evoluzione.",
+        body: "Se emetti corrispettivi tramite documento commerciale online (DCO) e non hai un RT fisico, l'obbligo POS-RT non si applica nei termini classici. Il pagamento elettronico viene infatti tracciato direttamente nello scontrino digitale emesso dal software, che già contiene l'informazione del metodo di pagamento (elettronico o contanti, uno per documento). La normativa più recente ha chiarito questo punto, ma la situazione è in evoluzione.",
       },
       {
         heading: "Come ScontrinoZero gestisce i pagamenti elettronici",

@@ -56,10 +56,20 @@ export const VAT_DESCRIPTIONS: Record<VatCode, string> = {
   N6: "0% – Altro non IVA",
 };
 
-/** Etichette UI per i metodi di pagamento */
+/**
+ * Etichette UI per i metodi di pagamento.
+ *
+ * ⚠️ `PE` è **"Elettronico"**, non "Carta". Il tracciato del documento
+ * commerciale conosce solo `PC`/`PE` e il layout AdE li stampa come
+ * `Pagamento contante` / `Pagamento elettronico` (vedi `PAYMENT_LABELS` in
+ * `src/lib/receipt-format.ts`, unica sorgente di PDF, ricevuta pubblica e
+ * stampa termica). `PE` copre quindi anche bonifico e app di pagamento, non
+ * solo la carta: chiamarlo "Carta" faceva scegliere all'esercente una parola
+ * che non ricompare da nessuna parte sul documento che sta emettendo.
+ */
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   PC: "Contanti",
-  PE: "Carta",
+  PE: "Elettronico",
 };
 
 /** Aliquote IVA disponibili: prima le % standard, poi i codici natura */

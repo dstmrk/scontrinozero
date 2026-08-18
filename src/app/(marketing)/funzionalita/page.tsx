@@ -56,7 +56,7 @@ const sections = [
         icon: CreditCard,
         title: "Metodo di pagamento tracciato",
         description:
-          "Su ogni scontrino indichi se l'incasso è in contanti o elettronico: il dato viaggia dentro il documento commerciale trasmesso all'AdE. Un metodo per documento — la ripartizione dello stesso scontrino fra contanti e carta oggi non è gestita.",
+          "Su ogni scontrino indichi se l'incasso è in contanti o elettronico: il dato viaggia dentro il documento commerciale trasmesso all'AdE. Un metodo per documento — la ripartizione dello stesso scontrino fra contante ed elettronico oggi non è gestita.",
       },
     ],
   },

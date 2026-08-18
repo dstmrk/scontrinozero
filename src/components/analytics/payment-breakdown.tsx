@@ -11,11 +11,20 @@ import {
   YAxis,
 } from "recharts";
 import { formatCurrency } from "@/lib/utils";
+import { PAYMENT_METHOD_LABELS } from "@/types/cassa";
 import type { PaymentBreakdownEntry } from "@/server/analytics-actions";
 
+/**
+ * Le stesse label del selettore in cassa (`PAYMENT_METHOD_LABELS`) più il
+ * bucket `other`, che esiste solo qui: `normalizePaymentMethod` ci finisce
+ * i metodi non riconosciuti, che in cassa non sono selezionabili.
+ *
+ * Riusare la sorgente evita la deriva che aveva prodotto tre nomi per la
+ * stessa grandezza (Carta in cassa, Elettronico qui, Pagamento elettronico
+ * sul documento).
+ */
 const METHOD_LABELS: Record<string, string> = {
-  PC: "Contanti",
-  PE: "Elettronico",
+  ...PAYMENT_METHOD_LABELS,
   other: "Altro",
 };
 
