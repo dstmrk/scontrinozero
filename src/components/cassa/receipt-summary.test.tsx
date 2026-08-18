@@ -101,7 +101,7 @@ describe("ReceiptSummary", () => {
     );
 
     expect(screen.getByText("Contanti")).toBeInTheDocument();
-    expect(screen.getByText("Carta")).toBeInTheDocument();
+    expect(screen.getByText("Elettronico")).toBeInTheDocument();
   });
 
   it("il bottone Emetti scontrino è presente", () => {
@@ -211,7 +211,7 @@ describe("ReceiptSummary", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /carta/i }));
+    fireEvent.click(screen.getByRole("button", { name: /elettronico/i }));
 
     expect(onPaymentMethodChange).toHaveBeenCalledWith("PE");
   });
@@ -305,7 +305,7 @@ describe("ReceiptSummary", () => {
       ).not.toBeInTheDocument();
     });
 
-    it("mostra il campo lotteria con pagamento PE (carta)", () => {
+    it("mostra il campo lotteria con pagamento PE (elettronico)", () => {
       render(
         <ReceiptSummary
           lines={lines}
