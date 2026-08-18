@@ -266,7 +266,8 @@ describe("auth-actions", () => {
         email: "test@example.com",
         password: "Secure#99x",
         options: {
-          emailRedirectTo: "https://app.scontrinozero.it/dashboard",
+          emailRedirectTo:
+            "https://app.scontrinozero.it/callback?redirect=%2Fdashboard",
         },
       });
       expect(mockInsert).toHaveBeenCalled();
@@ -309,7 +310,8 @@ describe("auth-actions", () => {
       expect(mockSignUp).toHaveBeenCalledWith(
         expect.objectContaining({
           options: {
-            emailRedirectTo: "https://sandbox.scontrinozero.it/dashboard",
+            emailRedirectTo:
+              "https://sandbox.scontrinozero.it/callback?redirect=%2Fdashboard",
           },
         }),
       );
@@ -1818,9 +1820,14 @@ describe("auth-actions", () => {
         }
       }
 
-      expect(mockResend).toHaveBeenCalledWith(
-        expect.objectContaining({ type: "signup", email: "test@example.com" }),
-      );
+      expect(mockResend).toHaveBeenCalledWith({
+        type: "signup",
+        email: "test@example.com",
+        options: {
+          emailRedirectTo:
+            "https://app.scontrinozero.it/callback?redirect=%2Fdashboard",
+        },
+      });
     });
 
     it("redirects to /verify-email even when resend fails (anti-enumeration)", async () => {

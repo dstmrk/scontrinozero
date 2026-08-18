@@ -625,7 +625,15 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: `https://${hostname}/dashboard` },
+    // Passa da /callback (già in allow-list, regola vedi resetPassword) invece che
+    // puntare /dashboard direttamente: su link scaduto Supabase reindirizza qui
+    // senza `code` e con l'errore reale nel fragment (invisibile al server) — senza
+    // /callback in mezzo l'utente atterrava sul login senza alcun messaggio, perché
+    // /dashboard è protetto e il middleware lo rimbalzava a /login portandosi dietro
+    // il fragment che la pagina di login non legge.
+    options: {
+      emailRedirectTo: `https://${hostname}/callback?redirect=${encodeURIComponent("/dashboard")}`,
+    },
   });
 
   if (error) {
@@ -793,7 +801,11 @@ export async function resendConfirmationEmail(
   const { error } = await supabase.auth.resend({
     type: "signup",
     email,
-    options: { emailRedirectTo: `https://${hostname}/dashboard` },
+    // Vedi signUp: passa da /callback, non da /dashboard direttamente, altrimenti
+    // un link scaduto rimanda al login senza alcun messaggio d'errore.
+    options: {
+      emailRedirectTo: `https://${hostname}/callback?redirect=${encodeURIComponent("/dashboard")}`,
+    },
   });
 
   if (error) {
