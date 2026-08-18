@@ -89,7 +89,7 @@ export const softwareApplicationJsonLd = {
     "Trasmissione automatica all'Agenzia delle Entrate",
     "Annullamento scontrino conforme",
     "Lotteria degli Scontrini",
-    "Multi-metodo di pagamento (contanti, carte, misti)",
+    "Metodo di pagamento contanti o elettronico su ogni scontrino",
     "Storico scontrini ed esportazione",
     "App installabile (PWA) su iOS e Android",
   ],
