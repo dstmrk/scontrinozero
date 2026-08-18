@@ -297,6 +297,37 @@ errori tipizzati nativamente. L'encoder invece va tenuto: il mapping codepage è
 esattamente il pezzo che non ha senso riscrivere. _Trigger:_ una segnalazione di
 stampante non riconosciuta, o un altro breaking change fra le due versioni.
 
+### 85. Il documento di annullo non ha una resa propria
+
+- **Categoria:** funzionalità / conformità layout · **Severità:** Low — l'annullo è correttamente trasmesso all'AdE, manca solo il documento da consegnare al cliente
+- **File:** `src/lib/pdf/generate-sale-receipt.ts`, `src/lib/printing/receipt-escpos.ts`, `src/app/r`, `src/lib/receipts/generate-pdf-response.ts`, `src/components/storico/void-receipt-dialog.tsx`
+
+**Problema.** Un documento `kind: "VOID"` non viene renderizzato da nessuna
+parte. `generate-pdf-response.ts` chiama sempre `generateSaleReceiptPdf` e
+`void-receipt-dialog.tsx` costruisce un `PrintableReceipt` che è la copia
+stampabile del **SALE** annullato: entrambi producono il documento di vendita,
+mai quello di annullo. Il cliente che chiede la prova dello storno non ha nulla
+da portare via.
+
+Il layout standard AdE prevede per l'annullo un documento distinto:
+
+- titolo `DOCUMENTO COMMERCIALE` / `emesso per ANNULLAMENTO` al posto di
+  `di vendita o prestazione`;
+- un blocco `Documento di riferimento:` con `N. <progressivo> del <data>` del
+  documento annullato, subito sotto il titolo;
+- nessun blocco pagamenti.
+
+**Perché non è stato fatto qui.** Fuori scope per scelta esplicita: il lavoro
+di allineamento al layout AdE ha coperto il solo documento di vendita.
+
+**Da fare.** Un `kind` esplicito nei tre renderer (oggi la resa è implicitamente
+"sempre SALE"), con il blocco `Documento di riferimento` alimentato da
+`voidedDocumentId` → progressivo + data del SALE collegato. Attenzione: il reso
+(`R`/`RX` in `AdeOperationType`) è un terzo documento ancora diverso, con lo
+stesso blocco di riferimento ma le righe rese — non modellarlo come un annullo.
+
+---
+
 ### 23. Indice composito `api_keys (business_id, revoked_at)`
 
 - **Categoria:** performance DB · **Severità:** Low · **Target: Developer API Fase B** (ora nice-to-have in PLAN.md)
