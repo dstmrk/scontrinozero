@@ -174,24 +174,24 @@ export default async function PublicReceiptPage({
               <span>TOTALE COMPLESSIVO</span>
               <span>€ {formatReceiptPrice(grandTotal)}</span>
             </div>
-            {vatTotal > 0.005 && (
+            {vatTotal > 0 && (
               <div className="flex justify-between text-sm font-semibold text-gray-600">
                 <span>di cui IVA</span>
                 <span>{formatReceiptPrice(vatTotal)}</span>
               </div>
             )}
+            {/* Nessun filtro sugli importi: `computeReceiptTotals` scarta già
+                le voci a zero centesimi, quindi ogni entry vale almeno 0,01. */}
             {vatByCode.size > 1 &&
-              Array.from(vatByCode.entries())
-                .filter(([, v]) => v > 0.005)
-                .map(([code, vatAmount]) => (
-                  <div
-                    key={code}
-                    className="flex justify-between text-xs text-gray-400"
-                  >
-                    <span>di cui IVA {receiptVatLabel(code)}</span>
-                    <span>{formatReceiptPrice(vatAmount)}</span>
-                  </div>
-                ))}
+              Array.from(vatByCode.entries()).map(([code, vatAmount]) => (
+                <div
+                  key={code}
+                  className="flex justify-between text-xs text-gray-400"
+                >
+                  <span>di cui IVA {receiptVatLabel(code)}</span>
+                  <span>{formatReceiptPrice(vatAmount)}</span>
+                </div>
+              ))}
           </div>
 
           {/* Payment — `Importo pagato` va sempre indicato (prescrizioni

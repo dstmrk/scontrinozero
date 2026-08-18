@@ -157,22 +157,21 @@ function printTotals(
 
   encoder.bold(true);
   amountRow(encoder, columns, "TOTALE COMPLESSIVO", grandTotal);
-  // Stessa soglia del PDF: sotto mezzo centesimo la riga non ha senso.
-  if (vatTotal > 0.005) {
+  if (vatTotal > 0) {
     amountRow(encoder, columns, "di cui IVA", vatTotal);
   }
   encoder.bold(false);
 
+  // Nessun filtro sugli importi: `computeReceiptTotals` scarta già le voci a
+  // zero centesimi, quindi ogni entry vale almeno 0,01.
   if (vatByCode.size > 1) {
     for (const [code, vatAmount] of vatByCode.entries()) {
-      if (vatAmount > 0.005) {
-        amountRow(
-          encoder,
-          columns,
-          `di cui IVA ${receiptVatLabel(code)}`,
-          vatAmount,
-        );
-      }
+      amountRow(
+        encoder,
+        columns,
+        `di cui IVA ${receiptVatLabel(code)}`,
+        vatAmount,
+      );
     }
   }
 

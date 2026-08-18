@@ -261,6 +261,38 @@ describe("coerenza arrotondamento per-riga", () => {
 // ---------------------------------------------------------------------------
 
 describe("computeReceiptTotals", () => {
+  // Invariante su cui poggiano PDF, termica e pagina pubblica: nessuna delle
+  // tre filtra le voci IVA "troppo piccole", perché voci a zero non esistono.
+  it("non produce mai voci vatByCode a zero: il minimo è un centesimo", () => {
+    const t = computeReceiptTotals([
+      // 0,01 @4% → imponibile 0,01, IVA 0 centesimi: la voce NON deve comparire.
+      { ...LINE_A1, quantity: "1.000", grossUnitPrice: "0.01", vatCode: "4" },
+      { ...LINE_A1, quantity: "1.000", grossUnitPrice: "10.00", vatCode: "22" },
+    ]);
+    expect(t.vatByCode.has("4")).toBe(false);
+    for (const amount of t.vatByCode.values()) {
+      expect(amount).toBeGreaterThanOrEqual(0.01);
+    }
+  });
+
+  it("vatTotal è zero esatto quando nessuna riga produce imposta", () => {
+    const t = computeReceiptTotals([
+      { ...LINE_A1, quantity: "1.000", grossUnitPrice: "50.00", vatCode: "N4" },
+    ]);
+    expect(t.vatTotal).toBe(0);
+    expect(t.vatByCode.size).toBe(0);
+  });
+
+  it("vatTotal somma le aliquote in centesimi interi", () => {
+    const t = computeReceiptTotals([
+      { ...LINE_A1, quantity: "1.000", grossUnitPrice: "17.00", vatCode: "10" },
+      { ...LINE_A1, quantity: "1.000", grossUnitPrice: "2.00", vatCode: "22" },
+    ]);
+    const perCode = [...t.vatByCode.values()].reduce((a, b) => a + b, 0);
+    expect(t.vatTotal).toBeCloseTo(perCode, 10);
+    expect(t.vatTotal).toBe(1.91);
+  });
+
   it("restituisce zero/empty per input vuoto", () => {
     const t = computeReceiptTotals([]);
     expect(t.grandTotal).toBe(0);

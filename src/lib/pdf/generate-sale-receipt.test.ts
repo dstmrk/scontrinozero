@@ -463,3 +463,33 @@ describe("layout AdE — codifica IVA in colonna e legenda", () => {
     );
   });
 });
+
+describe("layout AdE — casi degeneri", () => {
+  it("genera un documento valido anche senza righe", async () => {
+    const runs = extractPdfTextRuns(
+      await generateSaleReceiptPdf({ ...BASE_DATA, lines: [] }),
+    );
+    expect(runs).toContain("TOTALE COMPLESSIVO");
+    expect(runs).toContain("Importo pagato");
+    expect(runs).not.toContain("di cui IVA");
+  });
+
+  it("non stampa `di cui IVA` per un'aliquota che non produce nemmeno un centesimo", async () => {
+    // 0,01 @4% → imponibile 0,01, imposta 0 centesimi: computeReceiptTotals
+    // non crea la voce, quindi il documento non ha nulla da esporre.
+    const text = extractPdfText(
+      await generateSaleReceiptPdf({
+        ...BASE_DATA,
+        lines: [
+          {
+            description: "Caramella",
+            quantity: 1,
+            grossUnitPrice: 0.01,
+            vatCode: "4",
+          },
+        ],
+      }),
+    );
+    expect(text).not.toContain("di cui IVA");
+  });
+});

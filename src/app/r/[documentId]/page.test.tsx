@@ -275,6 +275,52 @@ describe("PublicReceiptPage — layout AdE", () => {
     expect(screen.getAllByText("19,00").length).toBeGreaterThanOrEqual(3);
   });
 
+  it("a totale zero omette la modalità ma tiene `Importo pagato`", async () => {
+    await renderReceipt({
+      lines: [
+        {
+          id: "line-1",
+          description: "Omaggio",
+          quantity: "1",
+          grossUnitPrice: "0.00",
+          vatCode: "22",
+        },
+      ],
+    });
+    expect(screen.queryByText("Pagamento contante")).not.toBeInTheDocument();
+    expect(screen.getByText("Importo pagato")).toBeInTheDocument();
+  });
+
+  it("omette `di cui IVA` quando tutte le righe sono a natura", async () => {
+    await renderReceipt({
+      lines: [
+        {
+          id: "line-1",
+          description: "Prestazione esente",
+          quantity: "1",
+          grossUnitPrice: "50.00",
+          vatCode: "N4",
+        },
+      ],
+    });
+    expect(screen.queryByText("di cui IVA")).not.toBeInTheDocument();
+    expect(screen.getByText("TOTALE COMPLESSIVO")).toBeInTheDocument();
+  });
+
+  it("rende l'intestazione anche senza alcun dato indirizzo", async () => {
+    await renderReceipt({
+      biz: {
+        ...MOCK_RECEIPT_DATA.biz,
+        address: null,
+        city: null,
+        province: null,
+        zipCode: null,
+      },
+    });
+    expect(screen.getByText("Bar Mario")).toBeInTheDocument();
+    expect(screen.getByText("P.IVA 12345678901")).toBeInTheDocument();
+  });
+
   it("chiama il progressivo `DOCUMENTO N.`, non `Identificativo AdE`", async () => {
     await renderReceipt();
     expect(screen.getByText("DOCUMENTO N.")).toBeInTheDocument();
