@@ -115,7 +115,7 @@ describe("buildReceiptCommands — contenuto fiscale", () => {
     // qui interessa che la riga arrivi sulla carta col totale giusto (2×1,20).
     ["la descrizione della riga", "Cornetto"],
     ["il totale di riga", "2,40"],
-    ["la riga quantità quando qty ≠ 1, come il PDF", "n.2 x 1,20"],
+    ["la riga quantità quando qty ≠ 1, come il PDF", "n.2 * 1,20"],
   ])("stampa %s", (_caso, atteso) => {
     const text = decode(buildReceiptCommands(makeReceipt(SIMPLE_LINES), OPTS));
     expect(text).toContain(atteso);
@@ -145,7 +145,8 @@ describe("buildReceiptCommands — contenuto fiscale", () => {
         OPTS,
       ),
     );
-    expect(text).toContain("Cod. Lotteria: ABCD1234");
+    expect(text).toContain("Codice Lotteria");
+    expect(text).toContain("ABCD1234");
   });
 
   it("omette la riga lotteria quando assente", () => {
@@ -302,5 +303,120 @@ describe("buildReceiptCommands — QR ricevuta digitale", () => {
       }),
     );
     expect(out).not.toContain("\x1d(k");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Layout AdE — la termica rispecchia sezione per sezione il PDF a 58mm
+// (`src/lib/pdf/generate-sale-receipt.ts`), a sua volta allineato al "layout
+// standard" del documento commerciale.
+// ---------------------------------------------------------------------------
+
+describe("buildReceiptCommands — layout AdE", () => {
+  /** Indice della prima riga stampata che contiene `fragment`. */
+  function rowIndexOf(rows: string[], fragment: string): number {
+    return rows.findIndex((l) => l.includes(fragment));
+  }
+
+  it("stampa P.IVA subito sotto la ragione sociale, poi via e località", () => {
+    const rows = printedLines(
+      buildReceiptCommands(makeReceipt(SIMPLE_LINES), OPTS),
+    );
+    // Solo l'ordine: il padding di centratura è dell'encoder, e sulla prima
+    // riga `printedLines` lascia un residuo di sequenza di controllo.
+    expect(rows[0]).toContain("Bar da Mario");
+    expect(rows.slice(1, 4).map((l) => l.trim())).toEqual([
+      "P.IVA: 12345678901",
+      "Via Roma 1",
+      "Milano(MI), 20100",
+    ]);
+  });
+
+  it("usa le intestazioni di colonna del layout standard", () => {
+    const text = decode(buildReceiptCommands(makeReceipt(SIMPLE_LINES), OPTS));
+    expect(text).toContain("DESCRIZIONE");
+    expect(text).toContain("Prezzo");
+  });
+
+  it("stampa la riga quantità nella forma AdE `n.Q * prezzo`", () => {
+    const text = decode(buildReceiptCommands(makeReceipt(SIMPLE_LINES), OPTS));
+    expect(text).toContain("n.2 * 1,20");
+  });
+
+  it("mette `di cui IVA` dopo il totale complessivo", () => {
+    const rows = printedLines(
+      buildReceiptCommands(makeReceipt(SIMPLE_LINES), OPTS),
+    );
+    const iSub = rowIndexOf(rows, "Subtotale");
+    const iTot = rowIndexOf(rows, "TOTALE COMPLESSIVO");
+    const iVat = rowIndexOf(rows, "di cui IVA");
+    expect(iTot).toBeGreaterThan(iSub);
+    expect(iVat).toBeGreaterThan(iTot);
+  });
+
+  it("espone l'IVA aggregata coerente con computeReceiptTotals", () => {
+    const rows = printedLines(
+      buildReceiptCommands(makeReceipt(SIMPLE_LINES), OPTS),
+    );
+    const { vatTotal } = computeReceiptTotals(SIMPLE_LINES);
+    const aggregate = rows.find((l) => l.trimStart().startsWith("di cui IVA "));
+    expect(vatTotal).toBeGreaterThan(0);
+    expect(aggregate).toContain(
+      vatTotal.toLocaleString("it-IT", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+    );
+  });
+
+  it("con una sola aliquota non ripete il dettaglio sotto l'aggregato", () => {
+    const single: PrintableReceiptLine[] = [
+      {
+        description: "Caffè",
+        quantity: "2",
+        grossUnitPrice: "1.20",
+        vatCode: "22",
+      },
+    ];
+    const text = decode(buildReceiptCommands(makeReceipt(single), OPTS));
+    expect(text).toContain("di cui IVA");
+    expect(text).not.toContain("di cui IVA 22%");
+  });
+
+  it("stampa sempre `Importo pagato` sotto la modalità di pagamento", () => {
+    const rows = printedLines(
+      buildReceiptCommands(makeReceipt(SIMPLE_LINES), OPTS),
+    );
+    const iPay = rowIndexOf(rows, "Pagamento contante");
+    const iPaid = rowIndexOf(rows, "Importo pagato");
+    expect(iPay).toBeGreaterThan(-1);
+    expect(iPaid).toBe(iPay + 1);
+  });
+
+  it("a totale zero omette la modalità ma tiene `Importo pagato`", () => {
+    const free: PrintableReceiptLine[] = [
+      {
+        description: "Omaggio",
+        quantity: "1",
+        grossUnitPrice: "0.00",
+        vatCode: "22",
+      },
+    ];
+    const text = decode(buildReceiptCommands(makeReceipt(free), OPTS));
+    expect(text).not.toContain("Pagamento contante");
+    expect(text).toContain("Importo pagato");
+  });
+
+  it("stampa il codice lotteria dopo il numero documento, con la caption su riga propria", () => {
+    const rows = printedLines(
+      buildReceiptCommands(
+        makeReceipt(SIMPLE_LINES, { lotteryCode: "ABCD1234" }),
+        OPTS,
+      ),
+    );
+    const iDoc = rowIndexOf(rows, "DOCUMENTO N.");
+    const iCaption = rowIndexOf(rows, "Codice Lotteria");
+    expect(iCaption).toBeGreaterThan(iDoc);
+    expect(rows[iCaption + 1]).toContain("ABCD1234");
   });
 });

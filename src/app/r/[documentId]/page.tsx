@@ -8,7 +8,11 @@ import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
 import { computeReceiptTotals } from "@/lib/receipts/document-lines";
 import { formatFiscalDateTime } from "@/lib/date-utils";
-import { PAYMENT_LABELS, formatReceiptPrice } from "@/lib/receipt-format";
+import {
+  PAYMENT_LABELS,
+  formatBusinessAddressLines,
+  formatReceiptPrice,
+} from "@/lib/receipt-format";
 import { VAT_LABELS as CASSA_VAT_LABELS } from "@/types/cassa";
 import type { VatCode } from "@/types/cassa";
 import { ShareButton } from "./share-button";
@@ -82,11 +86,11 @@ export default async function PublicReceiptPage({
 
   // Cents-based deterministic totals (avoid IEEE-754 drift on many/decimal lines)
   const totals = computeReceiptTotals(lines);
-  const { grandTotal, vatByCode } = totals;
+  const { grandTotal, vatByCode, vatTotal } = totals;
 
-  const addressLine = [biz.address, biz.city, biz.province, biz.zipCode]
-    .filter(Boolean)
-    .join(", ");
+  // Righe indirizzo nella forma del layout standard AdE (via, poi
+  // `Comune(PR), CAP`), le stesse che stampano PDF e termica.
+  const addressLines = formatBusinessAddressLines(biz);
 
   return (
     <div className="min-h-screen bg-gray-100 px-4 py-8">
@@ -98,12 +102,14 @@ export default async function PublicReceiptPage({
             <h1 className="text-lg leading-tight font-bold">
               {biz.businessName}
             </h1>
-            {addressLine && (
-              <p className="mt-0.5 text-xs text-gray-500">{addressLine}</p>
-            )}
             <p className="mt-0.5 text-xs text-gray-500">
               P.IVA {biz.vatNumber}
             </p>
+            {addressLines.map((line) => (
+              <p key={line} className="mt-0.5 text-xs text-gray-500">
+                {line}
+              </p>
+            ))}
           </div>
 
           {/* Document title */}
@@ -117,9 +123,9 @@ export default async function PublicReceiptPage({
           {/* Line items */}
           <div className="border-b border-dashed border-gray-200 px-6 py-4">
             <div className="mb-2 flex border-b border-gray-100 pb-1 text-xs text-gray-400">
-              <span className="flex-1">Descrizione</span>
+              <span className="flex-1">DESCRIZIONE</span>
               <span className="w-10 text-center">IVA</span>
-              <span className="w-16 text-right">€</span>
+              <span className="w-16 text-right">Prezzo(€)</span>
             </div>
             <div className="space-y-2">
               {lines.map((line, idx) => {
@@ -136,7 +142,7 @@ export default async function PublicReceiptPage({
                       </p>
                       {qty !== 1 && (
                         <p className="text-xs text-gray-400">
-                          {qty % 1 === 0 ? Math.round(qty) : qty} ×{" "}
+                          n.{qty % 1 === 0 ? Math.round(qty) : qty} *{" "}
                           {formatReceiptPrice(price)}
                         </p>
                       )}
@@ -153,53 +159,72 @@ export default async function PublicReceiptPage({
             </div>
           </div>
 
-          {/* Totals */}
+          {/* Totals — ordine del layout standard AdE: subtotale, totale
+              complessivo, `di cui IVA`. Il dettaglio per aliquota si aggiunge
+              solo con più di un'aliquota, altrimenti ripete l'aggregato. */}
           <div className="space-y-1 border-b border-dashed border-gray-200 px-6 py-4">
             <div className="flex justify-between text-sm text-gray-600">
               <span>Subtotale</span>
               <span>{formatReceiptPrice(grandTotal)}</span>
             </div>
-            {Array.from(vatByCode.entries())
-              .filter(([, v]) => v > 0.005)
-              .map(([code, vatAmount]) => (
-                <div
-                  key={code}
-                  className="flex justify-between text-xs text-gray-400"
-                >
-                  <span>di cui IVA {vatLabelOf(code)}</span>
-                  <span>{formatReceiptPrice(vatAmount)}</span>
-                </div>
-              ))}
             <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-bold">
-              <span>Totale</span>
+              <span>TOTALE COMPLESSIVO</span>
               <span>€ {formatReceiptPrice(grandTotal)}</span>
             </div>
+            {vatTotal > 0.005 && (
+              <div className="flex justify-between text-sm font-semibold text-gray-600">
+                <span>di cui IVA</span>
+                <span>{formatReceiptPrice(vatTotal)}</span>
+              </div>
+            )}
+            {vatByCode.size > 1 &&
+              Array.from(vatByCode.entries())
+                .filter(([, v]) => v > 0.005)
+                .map(([code, vatAmount]) => (
+                  <div
+                    key={code}
+                    className="flex justify-between text-xs text-gray-400"
+                  >
+                    <span>di cui IVA {vatLabelOf(code)}</span>
+                    <span>{formatReceiptPrice(vatAmount)}</span>
+                  </div>
+                ))}
           </div>
 
-          {/* Payment + footer */}
-          <div className="space-y-1 px-6 py-4 text-xs text-gray-500">
-            <div className="flex justify-between">
-              <span>Pagamento</span>
-              <span className="font-medium text-gray-700">
-                {PAYMENT_LABELS[paymentMethod] ?? paymentMethod}
-              </span>
-            </div>
-            {lotteryCode && (
+          {/* Payment — `Importo pagato` va sempre indicato (prescrizioni
+              generali AdE); la riga della modalità sparisce a importo zero. */}
+          <div className="space-y-1 border-b border-dashed border-gray-200 px-6 py-4 text-xs text-gray-500">
+            {grandTotal !== 0 && (
               <div className="flex justify-between">
-                <span>Cod. Lotteria</span>
-                <span className="font-mono font-medium text-gray-700">
-                  {lotteryCode}
+                <span>{PAYMENT_LABELS[paymentMethod] ?? paymentMethod}</span>
+                <span className="font-medium text-gray-700">
+                  {formatReceiptPrice(grandTotal)}
                 </span>
               </div>
             )}
             <div className="flex justify-between">
-              <span>Data</span>
-              <span>{formatDate(doc.createdAt)}</span>
+              <span>Importo pagato</span>
+              <span className="font-medium text-gray-700">
+                {formatReceiptPrice(grandTotal)}
+              </span>
             </div>
+          </div>
+
+          {/* Footer: data e numero documento, poi il codice lotteria */}
+          <div className="space-y-1 px-6 py-4 text-center text-xs text-gray-500">
+            <p>{formatDate(doc.createdAt)}</p>
             {doc.adeProgressive && (
-              <div className="flex justify-between">
-                <span>Identificativo AdE</span>
+              <p>
+                <span>DOCUMENTO N.</span>{" "}
                 <span className="font-mono">{doc.adeProgressive}</span>
+              </p>
+            )}
+            {lotteryCode && (
+              <div className="pt-2">
+                <p>Codice Lotteria</p>
+                <p className="font-mono font-medium text-gray-700">
+                  {lotteryCode}
+                </p>
               </div>
             )}
           </div>

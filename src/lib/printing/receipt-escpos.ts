@@ -7,10 +7,11 @@
  *
  * Il layout rispecchia sezione per sezione il PDF a 58mm di
  * `src/lib/pdf/generate-sale-receipt.ts` (che resta la corsia di fallback per
- * i browser senza Web Bluetooth): stesse label, stesso ordine, stessi totali.
+ * i browser senza Web Bluetooth): stesse label, stesso ordine, stessi totali,
+ * entrambi allineati al "layout standard" AdE del documento commerciale.
  * Le uniche differenze sono imposte dal supporto:
- *  - l'intestazione di colonna `€` diventa `Importo` (il simbolo dell'euro non
- *    è in CP437 e verrebbe stampato come `?`);
+ *  - l'intestazione di colonna è `Prezzo` e non `Prezzo(€)` (il simbolo
+ *    dell'euro non è in CP437 e verrebbe stampato come `?`);
  *  - l'etichetta IVA usa la forma corta (`shortVatLabel`), perché su 32 colonne
  *    "0% – Non sogg." mangerebbe metà riga.
  *
@@ -25,6 +26,7 @@ import ReceiptPrinterEncoder from "@point-of-sale/receipt-printer-encoder";
 import { computeReceiptTotals } from "@/lib/receipts/receipt-totals";
 import {
   PAYMENT_LABELS,
+  formatBusinessAddressLines,
   formatReceiptPrice,
   formatReceiptDateTime,
 } from "@/lib/receipt-format";
@@ -46,7 +48,8 @@ type Encoder = InstanceType<typeof ReceiptPrinterEncoder>;
 
 /**
  * Riga descrittiva della quantità, stampata sotto l'articolo quando qty ≠ 1
- * (stesso comportamento del PDF: il cliente vede il calcolo).
+ * nella forma del layout AdE `n.Q * prezzo` (stesso comportamento del PDF:
+ * il cliente vede il calcolo).
  *
  * Va emessa come **riga di tabella separata** e non come `\n` dentro la cella
  * descrizione: l'encoder non gestisce il newline dentro una cella e la riga
@@ -57,7 +60,7 @@ function quantityNote(line: PrintableReceiptLine): string | null {
   if (Number.isNaN(qty) || qty === 1) return null;
   const qtyDisplay = qty % 1 === 0 ? Math.round(qty) : qty;
   const unitPrice = Number.parseFloat(line.grossUnitPrice);
-  return `n.${qtyDisplay} x ${formatReceiptPrice(unitPrice)}`;
+  return `n.${qtyDisplay} * ${formatReceiptPrice(unitPrice)}`;
 }
 
 /** Riga a due colonne label/importo, usata per la sezione totali. */
@@ -84,16 +87,12 @@ function printHeader(encoder: Encoder, receipt: PrintableReceipt): void {
     .line(sanitizeThermalText(header.businessName))
     .bold(false);
 
-  const addressLine = [
-    header.address,
-    header.city,
-    header.province,
-    header.zipCode,
-  ]
-    .filter(Boolean)
-    .join(" - ");
-  if (addressLine) encoder.line(sanitizeThermalText(addressLine));
+  // Ordine del layout standard AdE: P.IVA subito sotto la ragione sociale,
+  // poi la via e `Comune(PR), CAP` su righe distinte.
   encoder.line(`P.IVA: ${header.vatNumber}`);
+  for (const line of formatBusinessAddressLines(header)) {
+    encoder.line(sanitizeThermalText(line));
+  }
 
   encoder.align("left").rule();
   encoder.align("center").bold(true).line("DOCUMENTO COMMERCIALE");
@@ -113,7 +112,7 @@ function printLineItems(
     { width: PRICE_COL, align: "right" as const },
   ];
 
-  encoder.table(itemColumns, [["Descrizione", "IVA", "Importo"]]);
+  encoder.table(itemColumns, [["DESCRIZIONE", "IVA", "Prezzo"]]);
 
   const { perLine } = computeReceiptTotals(receipt.lines);
 
@@ -133,55 +132,94 @@ function printLineItems(
   encoder.rule();
 }
 
+/**
+ * Totali nell'ordine AdE: `Subtotale`, `TOTALE COMPLESSIVO`, `di cui IVA`.
+ *
+ * Il layout standard espone un solo `di cui IVA` aggregato; il dettaglio per
+ * aliquota si aggiunge sotto solo quando le aliquote con imposta sono più di
+ * una, altrimenti ripeterebbe la riga precedente sprecando carta.
+ */
 function printTotals(
   encoder: Encoder,
   receipt: PrintableReceipt,
   columns: number,
 ): void {
-  const { grandTotal, vatByCode } = computeReceiptTotals(receipt.lines);
+  const { grandTotal, vatByCode, vatTotal } = computeReceiptTotals(
+    receipt.lines,
+  );
 
   amountRow(encoder, columns, "Subtotale", grandTotal);
-  for (const [code, vatAmount] of vatByCode.entries()) {
-    // Stessa soglia del PDF: sotto mezzo centesimo la riga non ha senso.
-    if (vatAmount > 0.005) {
-      amountRow(
-        encoder,
-        columns,
-        `di cui IVA ${shortVatLabel(code)}`,
-        vatAmount,
-      );
-    }
-  }
 
   encoder.bold(true);
   amountRow(encoder, columns, "TOTALE COMPLESSIVO", grandTotal);
-  encoder.bold(false).rule();
-
-  const paymentLabel =
-    PAYMENT_LABELS[receipt.paymentMethod] ?? receipt.paymentMethod;
-  amountRow(encoder, columns, paymentLabel, grandTotal);
-
-  if (receipt.lotteryCode) {
-    encoder.line(`Cod. Lotteria: ${receipt.lotteryCode}`);
+  // Stessa soglia del PDF: sotto mezzo centesimo la riga non ha senso.
+  if (vatTotal > 0.005) {
+    amountRow(encoder, columns, "di cui IVA", vatTotal);
   }
+  encoder.bold(false);
+
+  if (vatByCode.size > 1) {
+    for (const [code, vatAmount] of vatByCode.entries()) {
+      if (vatAmount > 0.005) {
+        amountRow(
+          encoder,
+          columns,
+          `di cui IVA ${shortVatLabel(code)}`,
+          vatAmount,
+        );
+      }
+    }
+  }
+
   encoder.rule();
 }
 
+/**
+ * Blocco pagamenti. `Importo pagato` va sempre indicato (prescrizioni
+ * generali AdE per il risparmio carta); la riga della modalità sparisce se
+ * vale zero, come ogni altra voce di pagamento a zero.
+ */
+function printPayment(
+  encoder: Encoder,
+  receipt: PrintableReceipt,
+  columns: number,
+): void {
+  const { grandTotal } = computeReceiptTotals(receipt.lines);
+
+  if (grandTotal !== 0) {
+    const paymentLabel =
+      PAYMENT_LABELS[receipt.paymentMethod] ?? receipt.paymentMethod;
+    amountRow(encoder, columns, paymentLabel, grandTotal);
+  }
+  amountRow(encoder, columns, "Importo pagato", grandTotal);
+  encoder.rule();
+}
+
+/**
+ * Piede: data e numero documento centrati, poi il codice lotteria con la
+ * caption su riga propria, infine il QR verso la copia pubblica.
+ */
 function printFooter(
   encoder: Encoder,
   receipt: PrintableReceipt,
   options: ReceiptEncodeOptions,
 ): void {
+  encoder.align("center");
   encoder.line(formatReceiptDateTime(receipt.createdAt));
   encoder.line(`DOCUMENTO N. ${receipt.adeProgressive}`);
+
+  if (receipt.lotteryCode) {
+    encoder.line("Codice Lotteria");
+    encoder.bold(true).line(receipt.lotteryCode).bold(false);
+  }
 
   if (options.printQr && receipt.publicUrl) {
     // QR nativo della stampante (GS ( k): nessun rendering raster, quindi
     // nessuna dipendenza da canvas nel bundle.
-    encoder.newline().align("center").qrcode(receipt.publicUrl).align("left");
+    encoder.newline().qrcode(receipt.publicUrl);
   }
 
-  encoder.newline(3).cut();
+  encoder.align("left").newline(3).cut();
 }
 
 /**
@@ -205,6 +243,7 @@ export function buildReceiptCommands(
   printHeader(encoder, receipt);
   printLineItems(encoder, receipt, options.columns);
   printTotals(encoder, receipt, options.columns);
+  printPayment(encoder, receipt, options.columns);
   printFooter(encoder, receipt, options);
 
   return encoder.encode();
