@@ -35,6 +35,15 @@ export function startSupabaseKeepAlive() {
 // Soglia oltre la quale un claim non completato è considerato "stuck"
 // (REVIEW.md #20: handleEvent fallito + DELETE del claim anch'essa fallita).
 export const STUCK_WEBHOOK_CLAIM_THRESHOLD_MS = 30 * 60 * 1000; // 30 minuti
+
+// Retention delle righe COMPLETATE di `stripe_webhook_events` (REVIEW.md #82).
+// La tabella è un registro di dedup: senza retention accumula una riga per ogni
+// evento Stripe ricevuto, per sempre. Stripe non ritenta un evento oltre ~3
+// giorni, quindi una riga più vecchia di 30 giorni (~10× quella finestra) non
+// deduplica più nulla e resta solo come peso — nessun rischio di riprocessare
+// un evento legittimo eliminandola.
+export const STRIPE_WEBHOOK_EVENT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 giorni
+
 const WEBHOOK_CLAIM_SWEEP_INTERVAL_MS = 10 * 60 * 1000; // 10 minuti
 
 let webhookClaimSweepStarted = false;
@@ -45,19 +54,25 @@ export function startStripeWebhookClaimSweep() {
 
   const interval: ReturnType<typeof setInterval> = setInterval(async () => {
     try {
-      const { lt, and, isNull } = await import("drizzle-orm");
+      const { lt, and, isNull, isNotNull } = await import("drizzle-orm");
       const { getDb } = await import("@/db");
       const { stripeWebhookEvents } = await import("@/db/schema");
       const { logger } = await import("@/lib/logger");
 
       const db = getDb();
-      const threshold = new Date(Date.now() - STUCK_WEBHOOK_CLAIM_THRESHOLD_MS);
+
+      // 1. Claim stuck: righe mai completate e più vecchie della soglia.
+      //    Sono una manciata — `.returning()` sugli eventId è economico e
+      //    serve al log diagnostico.
+      const stuckThreshold = new Date(
+        Date.now() - STUCK_WEBHOOK_CLAIM_THRESHOLD_MS,
+      );
       const unblocked = await db
         .delete(stripeWebhookEvents)
         .where(
           and(
             isNull(stripeWebhookEvents.completedAt),
-            lt(stripeWebhookEvents.processedAt, threshold),
+            lt(stripeWebhookEvents.processedAt, stuckThreshold),
           ),
         )
         .returning({ eventId: stripeWebhookEvents.eventId });
@@ -66,6 +81,35 @@ export function startStripeWebhookClaimSweep() {
         logger.warn(
           { eventIds: unblocked.map((row) => row.eventId) },
           "Stripe webhook claim sbloccato da sweep automatico",
+        );
+      }
+
+      // 2. Retention: righe già completate oltre la finestra.
+      //    `isNotNull` è ridondante ai fini del risultato (`NULL < x` non è
+      //    mai vero, quindi i claim non completati sono già esclusi) ma resta
+      //    esplicito: rende i due rami mutuamente esclusivi a colpo d'occhio e
+      //    impedisce che un domani si estenda questa `WHERE` credendo di non
+      //    toccare i claim in volo, che sono di competenza del ramo 1.
+      //    Nessun `.returning()`: qui le righe possono essere molte e serve
+      //    solo il conteggio del driver.
+      const retentionThreshold = new Date(
+        Date.now() - STRIPE_WEBHOOK_EVENT_RETENTION_MS,
+      );
+      const purged = await db
+        .delete(stripeWebhookEvents)
+        .where(
+          and(
+            isNotNull(stripeWebhookEvents.completedAt),
+            lt(stripeWebhookEvents.completedAt, retentionThreshold),
+          ),
+        );
+
+      // Log solo se ha eliminato qualcosa: a regime la finestra è già pulita e
+      // lo sweep gira ogni 10 minuti — un log incondizionato sarebbe rumore.
+      if (purged.count > 0) {
+        logger.info(
+          { deleted: purged.count },
+          "Retention stripe_webhook_events: righe completate eliminate",
         );
       }
     } catch (err) {
