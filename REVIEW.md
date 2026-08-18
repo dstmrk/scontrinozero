@@ -146,26 +146,52 @@ stata risolta separatamente):
 
 ### 13. Eliminare `'unsafe-inline'` da `script-src` (CSP)
 
-- **Categoria:** sicurezza/hardening · **Severità:** Medium
-- **File:** `src/lib/csp.ts:27`; payload JSON-LD: `softwareApplicationJsonLd`, `organizationJsonLd`, `faqPageJsonLd` e breadcrumb degli help dinamici (grep `application/ld+json` in `src/app/(marketing)` e `src/components`)
+- **Categoria:** sicurezza/hardening · **Severità:** Medium · **Bloccato:** serve prima spezzare la CSP per route group (vedi "Prerequisito")
+- **File:** `src/lib/csp.ts:52` (`script-src`); header unico applicato a `/(.*)` da `src/lib/security-headers.ts:48` + `next.config.ts:97-108`; payload JSON-LD: `softwareApplicationJsonLd`, `organizationJsonLd`, `faqPageJsonLd` e breadcrumb degli help dinamici (grep `application/ld+json` in `src/app/(marketing)` e `src/components`)
 
 **Problema.** `script-src 'self' 'unsafe-inline' challenges.cloudflare.com`
 neutralizza gran parte del valore della CSP contro XSS: qualsiasi inline script
 iniettato verrebbe eseguito. Oggi è mitigato da `safeJsonLd()` (escaping) e dal
 fatto che i payload sono statici, ma è un single point of failure.
 
-**Fix (Path A — hash, deciso; Path B nonce scartato perché incompatibile con SSG marketing).**
+**⚠️ Il "Path A — hash" dato per deciso in una revisione precedente NON è
+praticabile** finché la CSP è un header unico e statico. Verificato:
+
+1. `buildCsp()` produce **una sola stringa**, applicata a `/(.*)`: nessuna
+   variazione per pagina né per richiesta.
+2. Gli inline script in pagina non sono solo i nostri JSON-LD. Next App Router
+   inietta i propri `<script>self.__next_f.push(...)</script>` con il payload
+   RSC (`node_modules/next/dist/server/app-render/use-flight-response.js`), e
+   sul gruppo app — dinamico e autenticato — sono **per-richiesta**, quindi non
+   hashabili in un header statico. Si aggiunge il no-flash script inline di
+   `ThemeProvider` (next-themes, `src/app/dashboard/layout.tsx`).
+3. Conseguenza: hashare i ~40 payload JSON-LD e togliere `'unsafe-inline'`
+   **romperebbe l'idratazione di tutta l'app**, non solo i dati strutturati —
+   e in enforce mode il browser non lo segnala se non nei CSP report.
+4. Path B (nonce puro) resta scartato per l'SSG marketing: il nonce vive
+   nell'HTML, che per una pagina prerenderizzata è cacheato.
+
+**Prerequisito (da fare prima, task a sé).** Spezzare l'header CSP per route
+group:
+
+- gruppo app (dinamico): CSP con **nonce** per-richiesta generata in
+  `src/proxy.ts`. Next propaga il nonce ai propri inline script — supportato
+  nativamente (`<script nonce="…">` in `use-flight-response.js`);
+- gruppo marketing (SSG): CSP separata, dove l'HTML è stabile a build time e
+  gli hash dei JSON-LD diventano finalmente sensati.
+
+**Fix (solo dopo il prerequisito, e solo sul gruppo marketing).**
 
 1. Precomputare gli SHA-256 dei payload JSON-LD inline (build-time o test che
-   genera/verifica gli hash) e includerli in `buildCsp()` come `'sha256-XXX'` al
-   posto di `'unsafe-inline'`.
+   genera/verifica gli hash) e includerli come `'sha256-XXX'` al posto di
+   `'unsafe-inline'`.
 2. Fragilità nota: ogni edit ai JSON-LD ricalcola gli hash → aggiungere un test
    che fallisce con messaggio esplicito quando un payload cambia senza aggiornare
    l'hash (così il drift si vede in CI, non in produzione con script bloccati).
 3. `'unsafe-inline'` su **style-src resta** (Tailwind 4 + Radix UI, fuori scope).
-4. Da affrontare quando la frequenza di edit dei JSON-LD è bassa; verificare su
-   sandbox prima di prod (uno script bloccato dalla CSP rompe il widget Turnstile
-   o i dati strutturati silenziosamente — controllare la console e i report CSP).
+4. Verificare su sandbox prima di prod: uno script bloccato dalla CSP rompe il
+   widget Turnstile o i dati strutturati silenziosamente — controllare la console
+   e i report CSP.
 
 ---
 
@@ -220,52 +246,6 @@ Oggi l'impatto è trascurabile (volumi bassi); diventa rilevante quando
    `LIMIT` ne processa esattamente `LIMIT` e i restanti al giro successivo.
    _Trigger:_ p95 del sweep sopra qualche secondo, o `commercial_documents` oltre
    ~500k righe.
-
----
-
-### 82. `stripe_webhook_events` cresce senza retention e lo sweep gira senza indice
-
-- **Categoria:** manutenzione DB · **Severità:** Low
-- **File:** `src/db/schema/stripe-webhook-events.ts` (PK su `event_id`, nessun altro indice); sweep `src/instrumentation.ts:46-75` (`DELETE ... WHERE completed_at IS NULL AND processed_at < threshold`, ogni 10 min); scrittura `src/app/api/stripe/webhook/route.ts:95-99`
-
-**Problema.** La tabella di dedup accumula **una riga per ogni evento Stripe
-ricevuto, per sempre**: lo sweep cancella solo i claim _stuck_
-(`completed_at IS NULL`), mai le righe completate — che sono la quasi totalità.
-È corretto come dedup (una riga rimossa riaprirebbe la porta al riprocessamento
-di un evento vecchio), ma non ha alcuna politica di retention: Stripe non
-ritenta un evento oltre ~3 giorni, quindi righe più vecchie di qualche settimana
-non deduplicano più nulla e restano solo come peso.
-
-Secondo aspetto: lo sweep filtra su `completed_at`/`processed_at`, colonne senza
-indice — è un seq scan ogni 10 minuti su una tabella che cresce monotonicamente.
-
-**Fix (quando servirà).**
-
-1. Migration handwritten (regola 11 + skill `db-migrations`) con indice parziale
-   dedicato allo sweep:
-   ```sql
-   CREATE INDEX IF NOT EXISTS idx_stripe_webhook_events_stuck
-     ON stripe_webhook_events (processed_at)
-     WHERE completed_at IS NULL;
-   ```
-   Indice parziale, non completo: le righe `completed_at IS NULL` sono una
-   manciata, l'indice resta minuscolo e copre esattamente la `WHERE` dello sweep.
-2. Aggiungere al medesimo interval di `startStripeWebhookClaimSweep` una seconda
-   DELETE di retention, con finestra **molto** più larga della finestra di retry
-   di Stripe: `DELETE FROM stripe_webhook_events WHERE completed_at IS NOT NULL
-AND completed_at < now() - interval '30 days'`. 30 giorni è ~10× il massimo
-   ritentativo Stripe: nessun rischio di riprocessare un evento legittimo.
-   Serve un secondo indice parziale su `completed_at WHERE completed_at IS NOT NULL`,
-   oppure — più semplice — un unico indice su `(completed_at)` che serve entrambe
-   le query. Scegliere e motivare nel commento della migration.
-3. Loggare il conteggio delle righe eliminate a `info` solo se `> 0` (stesso
-   pattern del log esistente dello sweep), per non sporcare i log ogni 10 min.
-4. **Test:** riga completata più vecchia di 30 giorni → cancellata; riga
-   completata di ieri → intatta; riga con `completed_at IS NULL` → gestita dallo
-   sweep dei claim stuck, **non** da quello di retention (i due branch non devono
-   sovrapporsi). Aggiornare `src/instrumentation.test.ts` /
-   `src/instrumentation-keep-alive.test.ts` secondo la struttura esistente.
-   _Trigger:_ tabella oltre ~100k righe, o quando si tocca lo sweep per altro.
 
 ---
 
