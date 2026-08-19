@@ -309,7 +309,7 @@ describe("buildReceiptCommands — QR ricevuta digitale", () => {
 
 // ---------------------------------------------------------------------------
 // Layout AdE — la termica rispecchia sezione per sezione il PDF a 58mm
-// (`src/lib/pdf/generate-sale-receipt.ts`), a sua volta allineato al "layout
+// (`src/lib/pdf/commercial-document.ts`), a sua volta allineato al "layout
 // standard" del documento commerciale.
 // ---------------------------------------------------------------------------
 

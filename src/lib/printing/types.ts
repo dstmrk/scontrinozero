@@ -2,7 +2,7 @@
  * Tipi condivisi della stampa scontrino su termica ESC/POS (Web Bluetooth).
  *
  * Il layout stampato rispecchia 1:1 il PDF a 58mm generato da
- * `src/lib/pdf/generate-sale-receipt.ts`: stesso ordine di sezioni, stesse
+ * `src/lib/pdf/commercial-document.ts`: stesso ordine di sezioni, stesse
  * label, stessi totali. Il PDF resta la corsia di fallback per i browser senza
  * Web Bluetooth (iOS, Firefox, webview in-app), quindi le due rese non devono
  * mai divergere.

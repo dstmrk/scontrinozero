@@ -5,15 +5,17 @@ import {
   extractPdfTextRuns,
 } from "../../../tests/_helpers/pdf-text";
 import {
-  generateSaleReceiptPdf,
-  type SaleReceiptPdfData,
-} from "./generate-sale-receipt";
+  generateCommercialDocumentPdf,
+  type SaleDocumentPdfData,
+  type VoidDocumentPdfData,
+} from "./commercial-document";
 
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const BASE_DATA: SaleReceiptPdfData = {
+const BASE_DATA: SaleDocumentPdfData = {
+  kind: "SALE",
   businessName: "Trattoria da Mario",
   vatNumber: "12345678901",
   address: "Via Roma 1",
@@ -41,12 +43,12 @@ const BASE_DATA: SaleReceiptPdfData = {
 };
 
 // ---------------------------------------------------------------------------
-// generateSaleReceiptPdf — integration test (real pdfkit, node env)
+// generateCommercialDocumentPdf — integration test (real pdfkit, node env)
 // ---------------------------------------------------------------------------
 
-describe("generateSaleReceiptPdf", () => {
+describe("generateCommercialDocumentPdf", () => {
   it("returns a non-empty Buffer with valid PDF magic number (%PDF)", async () => {
-    const buf = await generateSaleReceiptPdf(BASE_DATA);
+    const buf = await generateCommercialDocumentPdf(BASE_DATA);
     expect(buf).toBeInstanceOf(Buffer);
     expect(buf.length).toBeGreaterThan(0);
     // Every valid PDF starts with the ASCII bytes for "%PDF"
@@ -57,8 +59,8 @@ describe("generateSaleReceiptPdf", () => {
     // pdfkit uses FlateDecode (zlib) on content streams, so text is not
     // searchable in the raw buffer. Instead we verify that unique input data
     // yields a unique PDF — which proves the values are encoded in the document.
-    const buf = await generateSaleReceiptPdf(BASE_DATA);
-    const buf2 = await generateSaleReceiptPdf({
+    const buf = await generateCommercialDocumentPdf(BASE_DATA);
+    const buf2 = await generateCommercialDocumentPdf({
       ...BASE_DATA,
       businessName: "Altro Esercente",
       vatNumber: "99999999999",
@@ -70,7 +72,7 @@ describe("generateSaleReceiptPdf", () => {
   });
 
   it("works without optional address fields (null values)", async () => {
-    const buf = await generateSaleReceiptPdf({
+    const buf = await generateCommercialDocumentPdf({
       ...BASE_DATA,
       address: null,
       city: null,
@@ -81,7 +83,7 @@ describe("generateSaleReceiptPdf", () => {
   });
 
   it("works with a single line item", async () => {
-    const buf = await generateSaleReceiptPdf({
+    const buf = await generateCommercialDocumentPdf({
       ...BASE_DATA,
       lines: [
         {
@@ -96,7 +98,7 @@ describe("generateSaleReceiptPdf", () => {
   });
 
   it("works with exempt VAT codes (N1-N6, no VAT amount)", async () => {
-    const buf = await generateSaleReceiptPdf({
+    const buf = await generateCommercialDocumentPdf({
       ...BASE_DATA,
       lines: [
         {
@@ -111,7 +113,7 @@ describe("generateSaleReceiptPdf", () => {
   });
 
   it("works with non-integer quantity (e.g. 0.5 kg)", async () => {
-    const buf = await generateSaleReceiptPdf({
+    const buf = await generateCommercialDocumentPdf({
       ...BASE_DATA,
       lines: [
         {
@@ -126,7 +128,7 @@ describe("generateSaleReceiptPdf", () => {
   });
 
   it("works with electronic payment method", async () => {
-    const buf = await generateSaleReceiptPdf({
+    const buf = await generateCommercialDocumentPdf({
       ...BASE_DATA,
       paymentMethod: "PE",
     });
@@ -134,7 +136,7 @@ describe("generateSaleReceiptPdf", () => {
   });
 
   it("genera un PDF valido con lotteryCode presente", async () => {
-    const buf = await generateSaleReceiptPdf({
+    const buf = await generateCommercialDocumentPdf({
       ...BASE_DATA,
       paymentMethod: "PE",
       lotteryCode: "YYWLR30G",
@@ -143,12 +145,12 @@ describe("generateSaleReceiptPdf", () => {
   });
 
   it("PDF con lotteryCode è diverso da PDF senza (il codice è incluso nel contenuto)", async () => {
-    const bufWith = await generateSaleReceiptPdf({
+    const bufWith = await generateCommercialDocumentPdf({
       ...BASE_DATA,
       paymentMethod: "PE",
       lotteryCode: "YYWLR30G",
     });
-    const bufWithout = await generateSaleReceiptPdf({
+    const bufWithout = await generateCommercialDocumentPdf({
       ...BASE_DATA,
       paymentMethod: "PE",
       lotteryCode: null,
@@ -172,11 +174,11 @@ describe("generateSaleReceiptPdf", () => {
       grossUnitPrice: 5.0 + i,
       vatCode: "22" as const,
     }));
-    const buf = await generateSaleReceiptPdf({
+    const buf = await generateCommercialDocumentPdf({
       ...BASE_DATA,
       lines: manyLines,
     });
-    const bufSingle = await generateSaleReceiptPdf({
+    const bufSingle = await generateCommercialDocumentPdf({
       ...BASE_DATA,
       lines: [manyLines[0]],
     });
@@ -187,7 +189,7 @@ describe("generateSaleReceiptPdf", () => {
   });
 
   it("genera un PDF valido con publicUrl presente (QR)", async () => {
-    const buf = await generateSaleReceiptPdf({
+    const buf = await generateCommercialDocumentPdf({
       ...BASE_DATA,
       publicUrl: "https://app.scontrinozero.it/r/6f8f857a-2b2a-4c8b-9b2a",
     });
@@ -200,11 +202,11 @@ describe("generateSaleReceiptPdf", () => {
       return m ? parseInt(m[1], 10) : 0;
     };
 
-    const withQr = await generateSaleReceiptPdf({
+    const withQr = await generateCommercialDocumentPdf({
       ...BASE_DATA,
       publicUrl: "https://app.scontrinozero.it/r/6f8f857a-2b2a-4c8b-9b2a",
     });
-    const withoutQr = await generateSaleReceiptPdf({
+    const withoutQr = await generateCommercialDocumentPdf({
       ...BASE_DATA,
       publicUrl: null,
     });
@@ -214,8 +216,8 @@ describe("generateSaleReceiptPdf", () => {
   });
 
   it("senza publicUrl non disegna alcun QR (nessun errore, PDF invariato rispetto ad assenza del campo)", async () => {
-    const bufMissing = await generateSaleReceiptPdf(BASE_DATA);
-    const bufNull = await generateSaleReceiptPdf({
+    const bufMissing = await generateCommercialDocumentPdf(BASE_DATA);
+    const bufNull = await generateCommercialDocumentPdf({
       ...BASE_DATA,
       publicUrl: null,
     });
@@ -234,7 +236,9 @@ describe("generateSaleReceiptPdf", () => {
 
 describe("layout AdE — intestazione", () => {
   it("stampa P.IVA subito sotto la ragione sociale, poi via e località", async () => {
-    const runs = extractPdfTextRuns(await generateSaleReceiptPdf(BASE_DATA));
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf(BASE_DATA),
+    );
     expect(runs.slice(0, 4)).toEqual([
       "Trattoria da Mario",
       "P.IVA: 12345678901",
@@ -245,7 +249,7 @@ describe("layout AdE — intestazione", () => {
 
   it("non stampa righe indirizzo quando i campi sono nulli", async () => {
     const runs = extractPdfTextRuns(
-      await generateSaleReceiptPdf({
+      await generateCommercialDocumentPdf({
         ...BASE_DATA,
         address: null,
         city: null,
@@ -263,20 +267,22 @@ describe("layout AdE — intestazione", () => {
 
 describe("layout AdE — tabella righe", () => {
   it("usa le intestazioni di colonna del layout standard", async () => {
-    const text = extractPdfText(await generateSaleReceiptPdf(BASE_DATA));
+    const text = extractPdfText(await generateCommercialDocumentPdf(BASE_DATA));
     expect(text).toContain("DESCRIZIONE");
     expect(text).toContain("Prezzo(€)");
   });
 
   it("stampa la riga quantità nella forma AdE `n.Q * prezzo`", async () => {
-    const text = extractPdfText(await generateSaleReceiptPdf(BASE_DATA));
+    const text = extractPdfText(await generateCommercialDocumentPdf(BASE_DATA));
     expect(text).toContain("n.2 * 8,50");
   });
 });
 
 describe("layout AdE — totali", () => {
   it("mette `di cui IVA` DOPO il totale complessivo, non prima", async () => {
-    const runs = extractPdfTextRuns(await generateSaleReceiptPdf(BASE_DATA));
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf(BASE_DATA),
+    );
     const iSub = runs.indexOf("Subtotale");
     const iTot = runs.indexOf("TOTALE COMPLESSIVO");
     const iVat = runs.indexOf("di cui IVA");
@@ -287,19 +293,21 @@ describe("layout AdE — totali", () => {
 
   it("espone l'IVA aggregata, somma delle aliquote presenti", async () => {
     // Pizza 17,00 @10% → 1,55 · Acqua 2,00 @22% → 0,36 · totale IVA 1,91
-    const runs = extractPdfTextRuns(await generateSaleReceiptPdf(BASE_DATA));
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf(BASE_DATA),
+    );
     expect(runs[runs.indexOf("di cui IVA") + 1]).toBe("1,91");
   });
 
   it("aggiunge il dettaglio per aliquota quando le aliquote con IVA sono più di una", async () => {
-    const text = extractPdfText(await generateSaleReceiptPdf(BASE_DATA));
+    const text = extractPdfText(await generateCommercialDocumentPdf(BASE_DATA));
     expect(text).toContain("di cui IVA 10%");
     expect(text).toContain("di cui IVA 22%");
   });
 
   it("con una sola aliquota non duplica il dettaglio sotto l'aggregato", async () => {
     const text = extractPdfText(
-      await generateSaleReceiptPdf({
+      await generateCommercialDocumentPdf({
         ...BASE_DATA,
         lines: [
           {
@@ -317,7 +325,7 @@ describe("layout AdE — totali", () => {
 
   it("omette `di cui IVA` quando tutte le righe sono a natura (IVA zero)", async () => {
     const text = extractPdfText(
-      await generateSaleReceiptPdf({
+      await generateCommercialDocumentPdf({
         ...BASE_DATA,
         lines: [
           {
@@ -335,7 +343,9 @@ describe("layout AdE — totali", () => {
 
 describe("layout AdE — pagamento", () => {
   it("stampa la modalità di pagamento con la dicitura AdE e sempre `Importo pagato`", async () => {
-    const runs = extractPdfTextRuns(await generateSaleReceiptPdf(BASE_DATA));
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf(BASE_DATA),
+    );
     const iPay = runs.indexOf("Pagamento contante");
     const iPaid = runs.indexOf("Importo pagato");
     expect(iPay).toBeGreaterThan(-1);
@@ -345,7 +355,10 @@ describe("layout AdE — pagamento", () => {
 
   it("usa `Pagamento elettronico` per il metodo PE", async () => {
     const text = extractPdfText(
-      await generateSaleReceiptPdf({ ...BASE_DATA, paymentMethod: "PE" }),
+      await generateCommercialDocumentPdf({
+        ...BASE_DATA,
+        paymentMethod: "PE",
+      }),
     );
     expect(text).toContain("Pagamento elettronico");
     expect(text).not.toContain("Pagamento contante");
@@ -353,7 +366,7 @@ describe("layout AdE — pagamento", () => {
 
   it("a totale zero omette la riga modalità ma tiene `Importo pagato` (prescrizioni risparmio carta)", async () => {
     const runs = extractPdfTextRuns(
-      await generateSaleReceiptPdf({
+      await generateCommercialDocumentPdf({
         ...BASE_DATA,
         lines: [
           {
@@ -373,7 +386,7 @@ describe("layout AdE — pagamento", () => {
 describe("layout AdE — piede", () => {
   it("stampa il codice lotteria DOPO il numero documento, con la caption su riga propria", async () => {
     const runs = extractPdfTextRuns(
-      await generateSaleReceiptPdf({
+      await generateCommercialDocumentPdf({
         ...BASE_DATA,
         paymentMethod: "PE",
         lotteryCode: "YYWLR30G",
@@ -386,12 +399,14 @@ describe("layout AdE — piede", () => {
   });
 
   it("senza codice lotteria non stampa la caption", async () => {
-    const text = extractPdfText(await generateSaleReceiptPdf(BASE_DATA));
+    const text = extractPdfText(await generateCommercialDocumentPdf(BASE_DATA));
     expect(text).not.toContain("Codice Lotteria");
   });
 
   it("chiude con data e numero documento in quest'ordine", async () => {
-    const runs = extractPdfTextRuns(await generateSaleReceiptPdf(BASE_DATA));
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf(BASE_DATA),
+    );
     const iDate = runs.indexOf("15-02-2026 13:30");
     expect(iDate).toBeGreaterThan(-1);
     expect(runs[iDate + 1]).toBe("DOCUMENTO N. DCW2026/5111-0042");
@@ -399,7 +414,7 @@ describe("layout AdE — piede", () => {
 });
 
 describe("layout AdE — codifica IVA in colonna e legenda", () => {
-  const EXEMPT_DATA: SaleReceiptPdfData = {
+  const EXEMPT_DATA: SaleDocumentPdfData = {
     ...BASE_DATA,
     lines: [
       {
@@ -418,7 +433,9 @@ describe("layout AdE — codifica IVA in colonna e legenda", () => {
   };
 
   it("stampa il mnemonico AdE in colonna invece dell'etichetta descrittiva", async () => {
-    const runs = extractPdfTextRuns(await generateSaleReceiptPdf(EXEMPT_DATA));
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf(EXEMPT_DATA),
+    );
     expect(runs).toContain("ES*");
     expect(runs).toContain("EE*");
     // "0% – Esente" andava a capo nella colonna larga 22pt, finendo a cavallo
@@ -427,7 +444,9 @@ describe("layout AdE — codifica IVA in colonna e legenda", () => {
   });
 
   it("scioglie gli asterischi in legenda, nell'ordine della tabella AdE", async () => {
-    const runs = extractPdfTextRuns(await generateSaleReceiptPdf(EXEMPT_DATA));
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf(EXEMPT_DATA),
+    );
     const iEE = runs.indexOf("*EE = Esclusa");
     const iES = runs.indexOf("*ES = Esente");
     expect(iEE).toBeGreaterThan(-1);
@@ -435,7 +454,9 @@ describe("layout AdE — codifica IVA in colonna e legenda", () => {
   });
 
   it("mette la legenda dopo il blocco pagamenti e prima della data", async () => {
-    const runs = extractPdfTextRuns(await generateSaleReceiptPdf(EXEMPT_DATA));
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf(EXEMPT_DATA),
+    );
     const iPaid = runs.indexOf("Importo pagato");
     const iLegend = runs.indexOf("*ES = Esente");
     const iDate = runs.indexOf("15-02-2026 13:30");
@@ -444,7 +465,7 @@ describe("layout AdE — codifica IVA in colonna e legenda", () => {
   });
 
   it("non stampa legenda quando il documento non ha nature", async () => {
-    const text = extractPdfText(await generateSaleReceiptPdf(BASE_DATA));
+    const text = extractPdfText(await generateCommercialDocumentPdf(BASE_DATA));
     expect(text).not.toContain(" = ");
   });
 
@@ -453,8 +474,8 @@ describe("layout AdE — codifica IVA in colonna e legenda", () => {
       const m = buf.toString("latin1").match(/\/MediaBox \[0 0 \d+ (\d+)\]/);
       return m ? parseInt(m[1], 10) : 0;
     };
-    const withLegend = await generateSaleReceiptPdf(EXEMPT_DATA);
-    const withoutLegend = await generateSaleReceiptPdf({
+    const withLegend = await generateCommercialDocumentPdf(EXEMPT_DATA);
+    const withoutLegend = await generateCommercialDocumentPdf({
       ...EXEMPT_DATA,
       lines: EXEMPT_DATA.lines.map((l) => ({ ...l, vatCode: "22" })),
     });
@@ -464,10 +485,33 @@ describe("layout AdE — codifica IVA in colonna e legenda", () => {
   });
 });
 
+/** Numero di pagine del PDF: la stima d'altezza non deve mai sottostimare. */
+function pdfPageCount(buf: Buffer): number {
+  return buf.toString("latin1").split("/Type /Page\n").length - 1;
+}
+
 describe("layout AdE — casi degeneri", () => {
+  it("la vendita sta in una pagina sola, QR e legenda compresi", async () => {
+    const buf = await generateCommercialDocumentPdf({
+      ...BASE_DATA,
+      lines: [
+        ...BASE_DATA.lines,
+        {
+          description: "Prestazione esente",
+          quantity: 3,
+          grossUnitPrice: 40,
+          vatCode: "N4",
+        },
+      ],
+      lotteryCode: "YYWLR30G",
+      publicUrl: "https://app.scontrinozero.it/r/sale-uuid",
+    });
+    expect(pdfPageCount(buf)).toBe(1);
+  });
+
   it("genera un documento valido anche senza righe", async () => {
     const runs = extractPdfTextRuns(
-      await generateSaleReceiptPdf({ ...BASE_DATA, lines: [] }),
+      await generateCommercialDocumentPdf({ ...BASE_DATA, lines: [] }),
     );
     expect(runs).toContain("TOTALE COMPLESSIVO");
     expect(runs).toContain("Importo pagato");
@@ -478,7 +522,7 @@ describe("layout AdE — casi degeneri", () => {
     // 0,01 @4% → imponibile 0,01, imposta 0 centesimi: computeReceiptTotals
     // non crea la voce, quindi il documento non ha nulla da esporre.
     const text = extractPdfText(
-      await generateSaleReceiptPdf({
+      await generateCommercialDocumentPdf({
         ...BASE_DATA,
         lines: [
           {
@@ -491,5 +535,132 @@ describe("layout AdE — casi degeneri", () => {
       }),
     );
     expect(text).not.toContain("di cui IVA");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ricevuta di annullamento — layout standard AdE, pagina "DOCUMENTO
+// COMMERCIALE DI ANNULLO". Stesse sezioni della vendita, con tre differenze:
+// sottotitolo, blocco "Documento di riferimento" e assenza dei pagamenti.
+// ---------------------------------------------------------------------------
+
+const VOID_DATA: VoidDocumentPdfData = {
+  kind: "VOID",
+  businessName: "Trattoria da Mario",
+  vatNumber: "12345678901",
+  address: "Via Roma 1",
+  city: "Milano",
+  province: "MI",
+  zipCode: "20100",
+  lines: BASE_DATA.lines,
+  adeRegisteredAt: new Date("2026-02-16T09:15:00Z"),
+  adeProgressive: "DCW2026/5111-0043",
+  adeTransactionId: "TRX-0043",
+  voidedDocument: {
+    adeProgressive: "DCW2026/5111-0042",
+    adeRegisteredAt: new Date("2026-02-15T12:30:00Z"),
+  },
+};
+
+describe("documento di annullo — intestazione e riferimento", () => {
+  it("usa il sottotitolo `emesso per ANNULLAMENTO`", async () => {
+    const text = extractPdfText(await generateCommercialDocumentPdf(VOID_DATA));
+    expect(text).toContain("emesso per ANNULLAMENTO");
+    expect(text).not.toContain("di vendita o prestazione");
+  });
+
+  it("stampa il blocco `Documento di riferimento` col progressivo e la data della vendita", async () => {
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf(VOID_DATA),
+    );
+    const iRef = runs.indexOf("Documento di riferimento:");
+    expect(iRef).toBeGreaterThan(-1);
+    expect(runs[iRef + 1]).toBe("N. DCW2026/5111-0042 del 15-02-2026");
+  });
+
+  it("mette il riferimento fra il titolo e la tabella righe", async () => {
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf(VOID_DATA),
+    );
+    const iTitle = runs.indexOf("emesso per ANNULLAMENTO");
+    const iRef = runs.indexOf("Documento di riferimento:");
+    const iTable = runs.indexOf("DESCRIZIONE");
+    expect(iRef).toBeGreaterThan(iTitle);
+    expect(iTable).toBeGreaterThan(iRef);
+  });
+
+  it("il footer porta il progressivo e la data DELL'ANNULLO, non della vendita", async () => {
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf(VOID_DATA),
+    );
+    const iDate = runs.indexOf("16-02-2026 10:15");
+    expect(iDate).toBeGreaterThan(-1);
+    expect(runs[iDate + 1]).toBe("DOCUMENTO N. DCW2026/5111-0043");
+  });
+});
+
+describe("documento di annullo — corpo", () => {
+  it("ristampa le righe della vendita annullata, coi suoi totali", async () => {
+    const text = extractPdfText(await generateCommercialDocumentPdf(VOID_DATA));
+    expect(text).toContain("Pizza Margherita");
+    expect(text).toContain("TOTALE COMPLESSIVO");
+    expect(text).toContain("di cui IVA");
+  });
+
+  it("non stampa il blocco pagamenti: un annullo non incassa nulla", async () => {
+    const text = extractPdfText(await generateCommercialDocumentPdf(VOID_DATA));
+    expect(text).not.toContain("Pagamento");
+    expect(text).not.toContain("Importo pagato");
+  });
+
+  it("non stampa il codice lotteria (HAR.md #16e)", async () => {
+    const text = extractPdfText(await generateCommercialDocumentPdf(VOID_DATA));
+    expect(text).not.toContain("Codice Lotteria");
+  });
+
+  it("mantiene la legenda IVA quando l'annullato aveva righe a natura", async () => {
+    const text = extractPdfText(
+      await generateCommercialDocumentPdf({
+        ...VOID_DATA,
+        lines: [
+          {
+            description: "Prestazione esente",
+            quantity: 1,
+            grossUnitPrice: 100,
+            vatCode: "N4",
+          },
+        ],
+      }),
+    );
+    expect(text).toContain("ES*");
+    expect(text).toContain("*ES = Esente");
+  });
+
+  // Sottostimare l'altezza costa una seconda pagina: su uno scontrino termico
+  // significa carta sprecata e un documento che si legge in due pezzi.
+  it("sta in una pagina sola, QR e legenda compresi", async () => {
+    const buf = await generateCommercialDocumentPdf({
+      ...VOID_DATA,
+      lines: [
+        ...VOID_DATA.lines,
+        {
+          description: "Prestazione esente",
+          quantity: 3,
+          grossUnitPrice: 40,
+          vatCode: "N4",
+        },
+      ],
+      publicUrl: "https://app.scontrinozero.it/r/void-uuid",
+    });
+    expect(pdfPageCount(buf)).toBe(1);
+  });
+
+  it("stampa il QR verso la copia pubblica dell'annullo", async () => {
+    const withQr = await generateCommercialDocumentPdf({
+      ...VOID_DATA,
+      publicUrl: "https://app.scontrinozero.it/r/void-uuid",
+    });
+    const withoutQr = await generateCommercialDocumentPdf(VOID_DATA);
+    expect(withQr.length).not.toBe(withoutQr.length);
   });
 });

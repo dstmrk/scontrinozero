@@ -9,8 +9,9 @@ const { mockGeneratePdf } = vi.hoisted(() => ({
   mockGeneratePdf: vi.fn(),
 }));
 
-vi.mock("@/lib/pdf/generate-sale-receipt", () => ({
-  generateSaleReceiptPdf: (...args: unknown[]) => mockGeneratePdf(...args),
+vi.mock("@/lib/pdf/commercial-document", () => ({
+  generateCommercialDocumentPdf: (...args: unknown[]) =>
+    mockGeneratePdf(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -23,6 +24,7 @@ import * as trustedAppUrl from "@/lib/trusted-app-url";
 const MOCK_DATA = {
   doc: {
     id: "6f8f857a-2b2a-4c8b-9b2a-2b2a4c8b9b2a",
+    kind: "SALE" as const,
     publicRequest: { paymentMethod: "PC" },
     adeProgressive: "DCW2026/5111-0001",
     adeTransactionId: "trx-0001",
@@ -90,7 +92,7 @@ describe("generatePdfResponse", () => {
     expect(res.headers.get("cache-control")).toBe("private, no-store");
   });
 
-  it("chiama generateSaleReceiptPdf con i dati del documento e dell'attività", async () => {
+  it("chiama generateCommercialDocumentPdf con i dati del documento e dell'attività", async () => {
     await generatePdfResponse(MOCK_DATA);
     expect(mockGeneratePdf).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -99,6 +101,7 @@ describe("generatePdfResponse", () => {
         adeProgressive: "DCW2026/5111-0001",
         adeTransactionId: "trx-0001",
         paymentMethod: "PC",
+        kind: "SALE",
       }),
     );
   });
@@ -200,5 +203,71 @@ describe("generatePdfResponse", () => {
       expect.objectContaining({ publicUrl: null }),
     );
     spy.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ricevuta di annullamento
+// ---------------------------------------------------------------------------
+
+const VOIDED_SALE = {
+  adeProgressive: "DCW2026/5111-0001",
+  adeRegisteredAt: new Date("2026-02-23T10:30:00Z"),
+};
+
+const VOID_DATA = {
+  ...MOCK_DATA,
+  doc: {
+    ...MOCK_DATA.doc,
+    id: "9b2a4c8b-2b2a-4c8b-9b2a-6f8f857a2b2a",
+    kind: "VOID" as const,
+    adeProgressive: "DCW2026/5111-0002",
+    adeRegisteredAt: new Date("2026-02-24T09:15:00Z"),
+    publicRequest: null,
+  },
+  voidedSale: VOIDED_SALE,
+};
+
+describe("generatePdfResponse — annullo", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGeneratePdf.mockResolvedValue(Buffer.from("%PDF-void"));
+  });
+
+  it("costruisce un documento kind VOID col riferimento alla vendita annullata", async () => {
+    await generatePdfResponse(VOID_DATA);
+    expect(mockGeneratePdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "VOID",
+        adeProgressive: "DCW2026/5111-0002",
+        adeRegisteredAt: new Date("2026-02-24T09:15:00Z"),
+        voidedDocument: {
+          adeProgressive: "DCW2026/5111-0001",
+          adeRegisteredAt: new Date("2026-02-23T10:30:00Z"),
+        },
+      }),
+    );
+  });
+
+  it("non passa paymentMethod né lotteryCode su un annullo", async () => {
+    await generatePdfResponse(VOID_DATA);
+    const arg = mockGeneratePdf.mock.calls[0][0];
+    expect(arg).not.toHaveProperty("paymentMethod");
+    expect(arg).not.toHaveProperty("lotteryCode");
+  });
+
+  it("ristampa le righe ricevute (quelle della vendita annullata)", async () => {
+    await generatePdfResponse(VOID_DATA);
+    expect(mockGeneratePdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lines: [expect.objectContaining({ description: "Prodotto A" })],
+      }),
+    );
+  });
+
+  it("degrada a 404 se un VOID arriva senza la vendita annullata, invece di stampare un annullo senza referenza", async () => {
+    const res = await generatePdfResponse({ ...VOID_DATA, voidedSale: null });
+    expect(res.status).toBe(404);
+    expect(mockGeneratePdf).not.toHaveBeenCalled();
   });
 });

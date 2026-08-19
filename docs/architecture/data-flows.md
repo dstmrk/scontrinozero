@@ -66,7 +66,7 @@ fallimento di emissione.
    **rifiutati** all'accoppiamento (`isIncompatiblePrinterLanguage`): degradarli
    darebbe "Collegata" in UI e caratteri casuali sullo scontrino.
 4. Rendering: `src/lib/printing/receipt-escpos.ts` (puro) rispecchia sezione per
-   sezione il PDF di `src/lib/pdf/generate-sale-receipt.ts` e riusa
+   sezione il PDF di `src/lib/pdf/commercial-document.ts` e riusa
    `computeReceiptTotals` da `src/lib/receipts/receipt-totals.ts` (regola 17).
    Entrambi seguono il "layout standard" AdE del documento commerciale
    (ordine sezioni, `Importo pagato` sempre presente, `di cui IVA` sotto il

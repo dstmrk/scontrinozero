@@ -6,7 +6,7 @@
  * interamente testabile in Node senza hardware né DOM.
  *
  * Il layout rispecchia sezione per sezione il PDF a 58mm di
- * `src/lib/pdf/generate-sale-receipt.ts` (che resta la corsia di fallback per
+ * `src/lib/pdf/commercial-document.ts` (che resta la corsia di fallback per
  * i browser senza Web Bluetooth): stesse label, stesso ordine, stessi totali,
  * entrambi allineati al "layout standard" AdE del documento commerciale.
  * Le uniche differenze sono imposte dal supporto:
