@@ -69,6 +69,24 @@ export const commercialDocuments = pgTable(
      * FK definita nella table config con nome corto per rispettare il limite di 63 chars PostgreSQL.
      */
     voidedDocumentId: uuid("voided_document_id"),
+    /**
+     * Istante di registrazione presso l'AdE (migrazione 0031).
+     *
+     * L'AdE non restituisce alcun timestamp nel body della risposta: questo
+     * valore viene dall'header HTTP `Date`, che HAR.md #16b dimostra coincidere
+     * al secondo con quello stampato sul PDF ufficiale. E' la data da mostrare
+     * su ogni superficie fiscale — NON `createdAt`, che e' il nostro orologio
+     * al momento dell'INSERT e precede la risposta AdE di 2-5s.
+     *
+     * NOT NULL con `DEFAULT now()`: la riga nasce PENDING, prima di conoscere
+     * l'esito, e viene sovrascritta dalla UPDATE che la marca
+     * ACCEPTED/VOID_ACCEPTED. Cosi' i lettori non hanno mai un ramo nullo.
+     * Sulle righe anteriori alla v1.7.0 contiene il backfill da `createdAt`
+     * (vedi l'header della migrazione 0031).
+     */
+    adeRegisteredAt: timestamp("ade_registered_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     status: documentStatusEnum("status").notNull().default("PENDING"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

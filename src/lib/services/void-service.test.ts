@@ -192,6 +192,7 @@ const FAKE_ADE_RESPONSE = {
   esito: true,
   idtrx: "trx-void-001",
   progressivo: "DCW2026/5111-3000",
+  registeredAt: "2026-08-19T07:53:41.000Z",
   errori: [],
 };
 
@@ -261,6 +262,42 @@ describe("voidReceiptForBusiness", () => {
     expect(mockGetDocument).toHaveBeenCalledWith("trx-001");
     expect(mockSubmitVoid).toHaveBeenCalled();
     expect(mockLogout).toHaveBeenCalled();
+  });
+
+  // Migrazione 0031: la colonna e' NOT NULL con DEFAULT now(), quindi la riga
+  // nasce con il nostro orologio; e' questa UPDATE a sostituirlo con l'istante
+  // autorevole dell'AdE, che finira' nel footer della ricevuta di annullamento.
+  it("scrive adeRegisteredAt dal registeredAt della risposta AdE", async () => {
+    const { voidReceiptForBusiness } = await import("./void-service");
+    await voidReceiptForBusiness(VALID_INPUT);
+
+    const voidSet = mockUpdateSet.mock.calls
+      .map((c) => c[0])
+      .find((set) => set.status === "VOID_ACCEPTED" && set.adeProgressive);
+
+    expect(voidSet.adeRegisteredAt).toEqual(
+      new Date("2026-08-19T07:53:41.000Z"),
+    );
+  });
+
+  // Se l'header Date mancasse, sovrascrivere con undefined azzererebbe il
+  // default appena scritto: la colonna e' NOT NULL, quindi il campo va omesso.
+  it("omette adeRegisteredAt quando la risposta AdE non porta registeredAt", async () => {
+    mockSubmitVoid.mockResolvedValue({
+      esito: true,
+      idtrx: "trx-void-001",
+      progressivo: "DCW2026/5111-3000",
+      errori: [],
+    });
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    await voidReceiptForBusiness(VALID_INPUT);
+
+    const voidSet = mockUpdateSet.mock.calls
+      .map((c) => c[0])
+      .find((set) => set.status === "VOID_ACCEPTED" && set.adeProgressive);
+
+    expect(voidSet).not.toHaveProperty("adeRegisteredAt");
   });
 
   it("CIE senza sessione interattiva → reauthRequired, nessuna riga VOID inserita", async () => {
