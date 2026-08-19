@@ -29,6 +29,7 @@ function printerState(overrides: Partial<UsePrinterResult> = {}) {
 }
 
 const RECEIPT: PrintableReceipt = {
+  kind: "SALE",
   header: {
     businessName: "Bar da Mario",
     vatNumber: "12345678901",

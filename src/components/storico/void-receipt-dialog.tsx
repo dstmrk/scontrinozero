@@ -76,6 +76,7 @@ export function VoidReceiptDialog({
       return null;
     }
     return {
+      kind: "SALE",
       header: printHeader,
       lines: receipt.lines,
       paymentMethod: receipt.paymentMethod,

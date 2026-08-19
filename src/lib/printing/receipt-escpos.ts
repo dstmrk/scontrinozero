@@ -1,5 +1,6 @@
 /**
- * Rendering del documento commerciale in comandi ESC/POS.
+ * Rendering del documento commerciale in comandi ESC/POS — di vendita o di
+ * annullamento.
  *
  * Funzione **pura**: prende un `PrintableReceipt` e restituisce i byte da
  * mandare alla stampante. Nessun accesso a `navigator`, nessuno stato — così è
@@ -27,6 +28,7 @@ import { computeReceiptTotals } from "@/lib/receipts/receipt-totals";
 import {
   PAYMENT_LABELS,
   formatBusinessAddressLines,
+  formatReceiptDate,
   formatReceiptPrice,
   formatReceiptDateTime,
 } from "@/lib/receipt-format";
@@ -39,6 +41,7 @@ import { sanitizeThermalText } from "./thermal-text";
 import type {
   PrintableReceipt,
   PrintableReceiptLine,
+  PrintableSaleReceipt,
   ReceiptEncodeOptions,
 } from "./types";
 
@@ -101,8 +104,23 @@ function printHeader(encoder: Encoder, receipt: PrintableReceipt): void {
 
   encoder.align("left").rule();
   encoder.align("center").bold(true).line("DOCUMENTO COMMERCIALE");
-  encoder.line("di vendita o prestazione").bold(false).align("left");
-  encoder.rule();
+  encoder.line(
+    receipt.kind === "VOID"
+      ? "emesso per ANNULLAMENTO"
+      : "di vendita o prestazione",
+  );
+  encoder.bold(false);
+
+  if (receipt.kind === "VOID") {
+    const { adeProgressive, adeRegisteredAt } = receipt.voidedDocument;
+    encoder.line("Documento di riferimento:");
+    encoder
+      .bold(true)
+      .line(`N. ${adeProgressive} del ${formatReceiptDate(adeRegisteredAt)}`)
+      .bold(false);
+  }
+
+  encoder.align("left").rule();
 }
 
 function printLineItems(
@@ -185,7 +203,7 @@ function printTotals(
  */
 function printPayment(
   encoder: Encoder,
-  receipt: PrintableReceipt,
+  receipt: PrintableSaleReceipt,
   columns: number,
 ): void {
   const { grandTotal } = computeReceiptTotals(receipt.lines);
@@ -227,7 +245,9 @@ function printFooter(
   encoder.line(formatReceiptDateTime(receipt.adeRegisteredAt));
   encoder.line(`DOCUMENTO N. ${receipt.adeProgressive}`);
 
-  if (receipt.lotteryCode) {
+  // Solo la vendita: il PDF ufficiale di annullo non riporta il codice
+  // lotteria (`HAR.md` #16e), e il tipo lo rende irraggiungibile su un VOID.
+  if (receipt.kind === "SALE" && receipt.lotteryCode) {
     encoder.line("Codice Lotteria");
     encoder.bold(true).line(receipt.lotteryCode).bold(false);
   }
@@ -262,7 +282,10 @@ export function buildReceiptCommands(
   printHeader(encoder, receipt);
   printLineItems(encoder, receipt, options.columns);
   printTotals(encoder, receipt, options.columns);
-  printPayment(encoder, receipt, options.columns);
+  // Un annullo non incassa: niente blocco pagamenti, come sul PDF.
+  if (receipt.kind === "SALE") {
+    printPayment(encoder, receipt, options.columns);
+  }
   printVatLegend(encoder, receipt);
   printFooter(encoder, receipt, options);
 

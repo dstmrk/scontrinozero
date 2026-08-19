@@ -33,11 +33,20 @@ export interface PrintableReceiptLine {
   readonly vatCode: string;
 }
 
-/** Documento commerciale pronto per la stampa. */
-export interface PrintableReceipt {
+/** La vendita annullata, citata dal blocco "Documento di riferimento". */
+export interface PrintableVoidedDocument {
+  readonly adeProgressive: string;
+  readonly adeRegisteredAt: Date;
+}
+
+/** Campi comuni alle due forme del documento commerciale stampabile. */
+interface PrintableDocumentBase {
   readonly header: ReceiptPrintHeader;
+  /**
+   * Righe contabili. Su un annullo sono quelle della **vendita annullata**:
+   * la ricevuta di annullamento le ristampa identiche.
+   */
   readonly lines: readonly PrintableReceiptLine[];
-  readonly paymentMethod: PaymentMethod;
   /**
    * Istante registrato dall'AdE (`commercial_documents.ade_registered_at`).
    *
@@ -47,11 +56,30 @@ export interface PrintableReceipt {
    */
   readonly adeRegisteredAt: Date;
   readonly adeProgressive: string;
-  /** Codice Lotteria degli Scontrini (8 char, solo pagamento PE). */
-  readonly lotteryCode?: string | null;
   /** URL pubblico `/r/<id>`, stampato come QR se `printQr` è attivo. */
   readonly publicUrl?: string | null;
 }
+
+export interface PrintableSaleReceipt extends PrintableDocumentBase {
+  readonly kind: "SALE";
+  readonly paymentMethod: PaymentMethod;
+  /** Codice Lotteria degli Scontrini (8 char, solo pagamento PE). */
+  readonly lotteryCode?: string | null;
+}
+
+/**
+ * Ricevuta di annullamento. Stessa unione discriminata del PDF
+ * (`src/lib/pdf/commercial-document.ts`) e per la stessa ragione: un annullo
+ * senza documento di riferimento non dice cosa annulla, e `paymentMethod` /
+ * `lotteryCode` non gli appartengono.
+ */
+export interface PrintableVoidReceipt extends PrintableDocumentBase {
+  readonly kind: "VOID";
+  readonly voidedDocument: PrintableVoidedDocument;
+}
+
+/** Documento commerciale pronto per la stampa. */
+export type PrintableReceipt = PrintableSaleReceipt | PrintableVoidReceipt;
 
 /** Larghezza carta supportata, in colonne di caratteri. */
 export const PAPER_COLUMNS = {

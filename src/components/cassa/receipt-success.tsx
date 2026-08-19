@@ -66,6 +66,7 @@ export function ReceiptSuccess({
   const printableReceipt = useMemo<PrintableReceipt | null>(() => {
     if (!printHeader || !adeProgressive || lines.length === 0) return null;
     return {
+      kind: "SALE",
       header: printHeader,
       lines: lines.map((line) => ({
         description: line.description,
