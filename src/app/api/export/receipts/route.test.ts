@@ -164,9 +164,13 @@ describe("GET /api/export/receipts", () => {
     expect(mockBuildReceiptsCsvStream).toHaveBeenCalledWith({
       businessId: "biz-1",
       status: "ACCEPTED",
-      dateFrom: new Date("2026-01-01T00:00:00.000Z"),
-      // dateTo viene convertito in upper bound exclusive (giorno successivo)
-      dateTo: new Date("2026-05-20T00:00:00.000Z"),
+      // Mezzanotte **italiana**, non UTC: il 1° gennaio a Roma comincia alle
+      // 23:00 UTC del 31 dicembre (CET). Con il confine su UTC uno scontrino
+      // delle 00:30 italiane restava fuori dal periodo che lo mostra.
+      dateFrom: new Date("2025-12-31T23:00:00.000Z"),
+      // dateTo e' inclusivo per l'utente → upper bound esclusivo sull'inizio
+      // del giorno italiano successivo (20/05, CEST).
+      dateTo: new Date("2026-05-19T22:00:00.000Z"),
     });
   });
 

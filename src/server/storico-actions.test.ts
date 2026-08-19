@@ -432,12 +432,13 @@ describe("storico-actions", () => {
       expect(result.items).toHaveLength(1);
       // Il periodo si seleziona sulla data mostrata dalla riga: con il
       // predicato su `created_at` una vendita registrata dall'AdE il 1°
-      // febbraio compariva filtrando gennaio, datata 01/02.
+      // febbraio compariva filtrando gennaio, datata 01/02. L'estremo e' la
+      // mezzanotte **italiana** (23:00 UTC del giorno prima, CET).
       const conditions = (
         docsBuilder.where.mock.calls[0][0] as { _and: unknown[] }
       )._and;
       expect(conditions).toContainEqual({
-        _gte: ["cd.ade_registered_at", new Date("2026-01-01T00:00:00.000Z")],
+        _gte: ["cd.ade_registered_at", new Date("2025-12-31T23:00:00.000Z")],
       });
     });
 
@@ -456,12 +457,13 @@ describe("storico-actions", () => {
 
       expect(result.total).toBe(1);
       expect(result.items).toHaveLength(1);
-      // Estremo superiore esclusivo: il giorno indicato e' incluso per intero.
+      // Estremo superiore esclusivo: l'inizio del giorno italiano successivo,
+      // cosi' il giorno indicato e' incluso per intero.
       const conditions = (
         docsBuilder.where.mock.calls[0][0] as { _and: unknown[] }
       )._and;
       expect(conditions).toContainEqual({
-        _lt: ["cd.ade_registered_at", new Date("2026-03-02T00:00:00.000Z")],
+        _lt: ["cd.ade_registered_at", new Date("2026-03-01T23:00:00.000Z")],
       });
     });
 

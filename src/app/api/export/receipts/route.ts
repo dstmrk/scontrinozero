@@ -6,7 +6,10 @@ import { getAuthenticatedUser } from "@/lib/server-auth";
 import { assertProPlan } from "@/lib/plans";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
-import { parseStrictIsoDateUtc } from "@/lib/date-utils";
+import {
+  parseRomeDayEndExclusiveUtc,
+  parseRomeDayStartUtc,
+} from "@/lib/date-utils";
 import {
   buildReceiptsCsvStream,
   type ReceiptStatusFilter,
@@ -89,27 +92,26 @@ export async function GET(req: Request): Promise<Response> {
     return errorJson(404, "Business non trovato.");
   }
 
-  const dateFrom = from ? parseStrictIsoDateUtc(from) : null;
+  // Estremi sulla giornata **italiana**: il periodo che l'esercente sceglie e'
+  // quello del suo calendario, e deve combaciare con la data che il CSV
+  // stampa (`ade_registered_at` reso in ora di Roma). `to` e' inclusivo per
+  // l'utente → l'estremo superiore e' l'inizio del giorno dopo, calcolato sul
+  // calendario e non sommando 24h (giorni DST da 23/25 ore).
+  const dateFrom = from ? parseRomeDayStartUtc(from) : null;
   if (from && !dateFrom) {
     return errorJson(400, "Formato data 'from' non valido (yyyy-MM-dd).");
   }
-  const dateTo = to ? parseStrictIsoDateUtc(to) : null;
-  if (to && !dateTo) {
+  const dateToExclusive = to ? parseRomeDayEndExclusiveUtc(to) : null;
+  if (to && !dateToExclusive) {
     return errorJson(400, "Formato data 'to' non valido (yyyy-MM-dd).");
   }
-  if (dateFrom && dateTo && dateFrom > dateTo) {
+  // Confronto sulle stringhe yyyy-MM-dd: ordinamento lessicografico ==
+  // cronologico, e non risente del giorno-dopo dell'estremo superiore.
+  if (from && to && from > to) {
     return errorJson(
       400,
       "La data di inizio non può essere successiva alla data di fine.",
     );
-  }
-
-  // dateTo is inclusive in user-facing semantics; convert to exclusive
-  // upper bound (start of next day) for the SQL filter.
-  let dateToExclusive: Date | null = null;
-  if (dateTo) {
-    dateToExclusive = new Date(dateTo);
-    dateToExclusive.setUTCDate(dateToExclusive.getUTCDate() + 1);
   }
 
   const stream = buildReceiptsCsvStream({

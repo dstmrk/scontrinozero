@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   getFiscalDate,
   parseStrictIsoDateUtc,
+  parseRomeDayStartUtc,
+  parseRomeDayEndExclusiveUtc,
   formatIsoInRome,
 } from "./date-utils";
 
@@ -195,5 +197,88 @@ describe("parseStrictIsoDateUtc", () => {
     expect(d!.getUTCFullYear()).toBe(2026);
     expect(d!.getUTCMonth() + 1).toBe(7);
     expect(d!.getUTCDate()).toBe(15);
+  });
+});
+
+describe("parseRomeDayStartUtc", () => {
+  it("mappa il giorno invernale sulla mezzanotte italiana (CET, -01:00 da UTC)", () => {
+    // 00:00 del 1° gennaio a Roma sono le 23:00 UTC del 31 dicembre.
+    expect(parseRomeDayStartUtc("2026-01-01")).toEqual(
+      new Date("2025-12-31T23:00:00.000Z"),
+    );
+  });
+
+  it("mappa il giorno estivo sulla mezzanotte italiana (CEST, -02:00 da UTC)", () => {
+    expect(parseRomeDayStartUtc("2026-07-01")).toEqual(
+      new Date("2026-06-30T22:00:00.000Z"),
+    );
+  });
+
+  it("resta corretto nel giorno del passaggio all'ora legale", () => {
+    // 2026-03-29: alle 02:00 locali le lancette vanno a 03:00. La mezzanotte
+    // di quel giorno cade prima del salto, quindi vale ancora CET (+01:00).
+    expect(parseRomeDayStartUtc("2026-03-29")).toEqual(
+      new Date("2026-03-28T23:00:00.000Z"),
+    );
+  });
+
+  it("resta corretto nel giorno del ritorno all'ora solare", () => {
+    // 2026-10-25: alle 03:00 locali si torna alle 02:00. A mezzanotte vale
+    // ancora CEST (+02:00).
+    expect(parseRomeDayStartUtc("2026-10-25")).toEqual(
+      new Date("2026-10-24T22:00:00.000Z"),
+    );
+  });
+
+  it("propaga il null di parseStrictIsoDateUtc sulle date impossibili", () => {
+    expect(parseRomeDayStartUtc("2026-02-31")).toBeNull();
+    expect(parseRomeDayStartUtc("2026-13-01")).toBeNull();
+    expect(parseRomeDayStartUtc("2026-1-1")).toBeNull();
+    expect(parseRomeDayStartUtc("foo")).toBeNull();
+  });
+});
+
+describe("parseRomeDayEndExclusiveUtc", () => {
+  it("ritorna la mezzanotte italiana del giorno successivo", () => {
+    expect(parseRomeDayEndExclusiveUtc("2026-01-01")).toEqual(
+      new Date("2026-01-01T23:00:00.000Z"),
+    );
+  });
+
+  it("attraversa il cambio mese", () => {
+    expect(parseRomeDayEndExclusiveUtc("2026-01-31")).toEqual(
+      new Date("2026-01-31T23:00:00.000Z"),
+    );
+  });
+
+  it("attraversa il cambio anno", () => {
+    expect(parseRomeDayEndExclusiveUtc("2026-12-31")).toEqual(
+      new Date("2026-12-31T23:00:00.000Z"),
+    );
+  });
+
+  it("gestisce il 29 febbraio di un anno bisestile", () => {
+    expect(parseRomeDayEndExclusiveUtc("2028-02-29")).toEqual(
+      new Date("2028-02-29T23:00:00.000Z"),
+    );
+  });
+
+  // Il confine non si ricava sommando 24h all'inizio giornata: nei due giorni
+  // di transizione DST il giorno italiano dura 23 o 25 ore.
+  it("copre 23 ore nel giorno in cui scatta l'ora legale", () => {
+    const start = parseRomeDayStartUtc("2026-03-29")!;
+    const end = parseRomeDayEndExclusiveUtc("2026-03-29")!;
+    expect(end.getTime() - start.getTime()).toBe(23 * 3600_000);
+  });
+
+  it("copre 25 ore nel giorno in cui torna l'ora solare", () => {
+    const start = parseRomeDayStartUtc("2026-10-25")!;
+    const end = parseRomeDayEndExclusiveUtc("2026-10-25")!;
+    expect(end.getTime() - start.getTime()).toBe(25 * 3600_000);
+  });
+
+  it("propaga il null sulle date impossibili", () => {
+    expect(parseRomeDayEndExclusiveUtc("2026-04-31")).toBeNull();
+    expect(parseRomeDayEndExclusiveUtc("")).toBeNull();
   });
 });

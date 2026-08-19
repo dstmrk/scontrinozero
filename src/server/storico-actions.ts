@@ -18,7 +18,10 @@ import {
   groupLinesByDocId,
   calcDocTotal,
 } from "@/lib/receipts/document-lines";
-import { parseStrictIsoDateUtc } from "@/lib/date-utils";
+import {
+  parseRomeDayEndExclusiveUtc,
+  parseRomeDayStartUtc,
+} from "@/lib/date-utils";
 import { logger } from "@/lib/logger";
 import { isValidUuid } from "@/lib/uuid";
 import {
@@ -206,10 +209,11 @@ export async function searchReceipts(
   // il 1° febbraio compariva filtrando gennaio, con scritto accanto 01/02.
   // Stessa scelta dell'export CSV — elenco ed export partono dagli stessi
   // filtri, se divergessero il conteggio a schermo e le righe del file non
-  // tornerebbero. Indice dedicato: migrazione 0032.
-  let dateFromDate: Date | null = null;
+  // tornerebbero. Indice dedicato: migrazione 0032. Gli estremi sono le
+  // mezzanotti **italiane**, non UTC: la giornata che l'esercente chiude e'
+  // quella del suo calendario.
   if (params.dateFrom) {
-    dateFromDate = parseStrictIsoDateUtc(params.dateFrom);
+    const dateFromDate = parseRomeDayStartUtc(params.dateFrom);
     if (!dateFromDate)
       return {
         error: "Filtro data 'dateFrom' non valido.",
@@ -220,17 +224,18 @@ export async function searchReceipts(
   }
 
   if (params.dateTo) {
-    const dateToDate = parseStrictIsoDateUtc(params.dateTo);
-    if (!dateToDate)
+    // Estremo superiore esclusivo: l'inizio del giorno italiano successivo.
+    const toExclusive = parseRomeDayEndExclusiveUtc(params.dateTo);
+    if (!toExclusive)
       return { error: "Filtro data 'dateTo' non valido.", items: [], total: 0 };
-    if (dateFromDate && dateFromDate > dateToDate)
+    // Confronto sulle stringhe yyyy-MM-dd: ordinamento lessicografico ==
+    // cronologico, e non risente del giorno-dopo dell'estremo superiore.
+    if (params.dateFrom && params.dateFrom > params.dateTo)
       return {
         error: "La data di inizio non può essere successiva alla data di fine.",
         items: [],
         total: 0,
       };
-    const toExclusive = new Date(dateToDate);
-    toExclusive.setUTCDate(toExclusive.getUTCDate() + 1);
     conditions.push(lt(commercialDocuments.adeRegisteredAt, toExclusive));
   }
   if (params.status) {

@@ -479,37 +479,6 @@ un `Invalid Date` su un `timestamptz NOT NULL`.
 
 ---
 
-### 94. Il filtro di periodo taglia a mezzanotte UTC, non a mezzanotte italiana
-
-- **Categoria:** coerenza dei dati fiscali · **Severità:** Low — sposta il confine del periodo di 1h (2h con l'ora legale) · **Emerso chiudendo #90/#92**
-- **File:** `src/app/api/export/receipts/route.ts`, `src/server/storico-actions.ts`, `src/lib/date-utils.ts` (`parseStrictIsoDateUtc`)
-
-**Problema.** Export CSV ed elenco storico ora selezionano il periodo su
-`ade_registered_at`, la stessa grandezza che mostrano, ma gli **estremi**
-dell'intervallo restano mezzanotte **UTC**: `parseStrictIsoDateUtc("2026-01-01")`
-produce `2026-01-01T00:00:00Z`, cioè le 01:00 di Roma. Uno scontrino registrato
-il 1° gennaio alle 00:30 italiane cade alle 23:30 UTC del 31 dicembre e resta
-**fuori** dal filtro di gennaio, pur essendo mostrato — correttamente — con data
-01/01. È la stessa contraddizione fra data mostrata e predicato di selezione di
-#90, spostata dall'asse "quale colonna" all'asse "quale fuso".
-
-**Perché non è stato fatto insieme a #90/#92.** È una decisione distinta (quale
-fuso definisce la giornata fiscale) e tocca `parseStrictIsoDateUtc`, che ha
-altri chiamanti: cambiarla sotto di loro senza guardarli è il modo di
-propagare lo stesso errore altrove. La risposta è comunque Roma — è il fuso in
-cui l'AdE registra e in cui l'esercente chiude la giornata.
-
-**Da fare.** Un helper dedicato in `date-utils.ts` (es. `parseRomeDayStartUtc`)
-che converta `yyyy-MM-dd` nell'istante UTC della mezzanotte **italiana**, e
-usarlo in entrambi i call site. ⚠️ L'estremo superiore non si ricava sommando
-24h né con `setUTCDate(+1)`: nei due giorni di cambio ora quel salto sposta il
-confine di un'ora: va calcolato il giorno successivo sul calendario di Roma e
-poi convertito. **Test:** confine invernale (+01:00) ed estivo (+02:00), i due
-giorni di transizione DST, e uno scontrino alle 00:30 italiane del primo giorno
-del periodo.
-
----
-
 ### 23. Indice composito `api_keys (business_id, revoked_at)`
 
 - **Categoria:** performance DB · **Severità:** Low · **Target: Developer API Fase B** (ora nice-to-have in PLAN.md)

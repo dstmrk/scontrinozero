@@ -74,3 +74,57 @@ export function parseStrictIsoDateUtc(str: string): Date | null {
   }
   return d;
 }
+
+/**
+ * Offset di Europe/Rome, in millisecondi, all'istante dato.
+ * Il wall-clock romano viene letto come se fosse UTC e confrontato con
+ * l'istante reale: la differenza è l'offset in vigore in quel momento
+ * (+01:00 CET o +02:00 CEST).
+ */
+function romeOffsetMs(instant: Date): number {
+  const wall = romeWallClockFormatter.format(instant); // "2026-05-19 14:34:56"
+  return new Date(wall.replace(" ", "T") + "Z").getTime() - instant.getTime();
+}
+
+/**
+ * Converte `yyyy-MM-dd` nell'istante UTC in cui inizia quel giorno **a Roma**.
+ *
+ * Serve ai filtri di periodo: la giornata fiscale è quella italiana, non
+ * quella UTC. Con la mezzanotte UTC come confine, uno scontrino registrato il
+ * 1° gennaio alle 00:30 italiane (23:30 UTC del 31/12) resterebbe fuori dal
+ * filtro di gennaio pur essendo mostrato con data 01/01.
+ *
+ * Due passate: la prima stima l'offset alla mezzanotte UTC del giorno, la
+ * seconda lo rilegge all'istante stimato. Servono entrambe perché nei giorni
+ * di transizione DST l'offset del punto di partenza può non essere quello del
+ * punto d'arrivo.
+ *
+ * Ritorna `null` sugli stessi input che `parseStrictIsoDateUtc` rifiuta.
+ */
+export function parseRomeDayStartUtc(str: string): Date | null {
+  const naiveUtcMidnight = parseStrictIsoDateUtc(str);
+  if (!naiveUtcMidnight) return null;
+
+  const firstGuess = new Date(
+    naiveUtcMidnight.getTime() - romeOffsetMs(naiveUtcMidnight),
+  );
+  return new Date(naiveUtcMidnight.getTime() - romeOffsetMs(firstGuess));
+}
+
+/**
+ * Converte `yyyy-MM-dd` nell'istante UTC che **chiude** quel giorno a Roma,
+ * come estremo superiore esclusivo (`< end`): l'inizio del giorno successivo.
+ *
+ * ⚠️ Non si ricava sommando 24h all'inizio giornata: nei due giorni di
+ * transizione DST la giornata italiana dura 23 o 25 ore. Il giorno successivo
+ * si calcola sul calendario (dove l'aritmetica è esatta) e solo dopo si
+ * converte in istante.
+ */
+export function parseRomeDayEndExclusiveUtc(str: string): Date | null {
+  const naiveUtcMidnight = parseStrictIsoDateUtc(str);
+  if (!naiveUtcMidnight) return null;
+
+  const nextDay = new Date(naiveUtcMidnight);
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  return parseRomeDayStartUtc(nextDay.toISOString().slice(0, 10));
+}
