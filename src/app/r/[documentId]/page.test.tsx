@@ -251,35 +251,27 @@ describe("PublicReceiptPage — layout AdE", () => {
     );
   }
 
-  it("stampa P.IVA sopra l'indirizzo, con la località nella forma Comune(PR), CAP", async () => {
+  // Un caso per riga: un fallimento dice QUALE voce manca, invece di rompere
+  // un test cumulativo.
+  it.each([
+    ["la P.IVA sopra l'indirizzo", "P.IVA 12345678901"],
+    ["la via", "Via Roma 1"],
+    ["la località nella forma Comune(PR), CAP", "Milano(MI), 20100"],
+    ["l'intestazione di colonna DESCRIZIONE", "DESCRIZIONE"],
+    ["l'intestazione di colonna Prezzo(€)", "Prezzo(€)"],
+    ["la riga quantità nella forma AdE `n.Q * prezzo`", "n.2 * 8,50"],
+    ["il totale col nome del layout standard", "TOTALE COMPLESSIVO"],
+    ["l'IVA aggregata", "di cui IVA"],
+    ["il dettaglio IVA al 10%", "di cui IVA 10%"],
+    ["il dettaglio IVA al 22%", "di cui IVA 22%"],
+  ])("mostra %s", async (_caso, atteso) => {
     await renderReceipt();
-    expect(screen.getByText("P.IVA 12345678901")).toBeInTheDocument();
-    expect(screen.getByText("Via Roma 1")).toBeInTheDocument();
-    expect(screen.getByText("Milano(MI), 20100")).toBeInTheDocument();
+    expect(screen.getByText(atteso)).toBeInTheDocument();
   });
 
-  it("usa le intestazioni di colonna del layout standard", async () => {
+  it("non chiama il totale `Totale`: la dicitura è quella di PDF e termica", async () => {
     await renderReceipt();
-    expect(screen.getByText("DESCRIZIONE")).toBeInTheDocument();
-    expect(screen.getByText("Prezzo(€)")).toBeInTheDocument();
-  });
-
-  it("scrive la riga quantità nella forma AdE `n.Q * prezzo`", async () => {
-    await renderReceipt();
-    expect(screen.getByText("n.2 * 8,50")).toBeInTheDocument();
-  });
-
-  it("chiama il totale `TOTALE COMPLESSIVO`, come PDF e termica", async () => {
-    await renderReceipt();
-    expect(screen.getByText("TOTALE COMPLESSIVO")).toBeInTheDocument();
     expect(screen.queryByText("Totale")).not.toBeInTheDocument();
-  });
-
-  it("espone l'IVA aggregata più il dettaglio per aliquota", async () => {
-    await renderReceipt();
-    expect(screen.getByText("di cui IVA")).toBeInTheDocument();
-    expect(screen.getByText("di cui IVA 10%")).toBeInTheDocument();
-    expect(screen.getByText("di cui IVA 22%")).toBeInTheDocument();
   });
 
   it("con una sola aliquota non ripete il dettaglio sotto l'aggregato", async () => {
@@ -484,35 +476,27 @@ describe("PublicReceiptPage — ricevuta di annullamento", () => {
     expect(screen.getByText("Bar Mario")).toBeInTheDocument();
   });
 
-  it("usa il sottotitolo `emesso per ANNULLAMENTO`", async () => {
+  it.each([
+    ["il sottotitolo dell'annullo", "emesso per ANNULLAMENTO"],
+    ["la caption del riferimento", "Documento di riferimento:"],
+    ["progressivo e data della vendita annullata", "N. ABC-123 del 01-01-2026"],
+    ["il progressivo DELL'ANNULLO nel piede", "DEF-456"],
+    ["la data DELL'ANNULLO nel piede", "02-01-2026 11:00"],
+    ["le righe ristampate dalla vendita annullata", "Pizza Margherita"],
+    ["i totali di quelle righe", "TOTALE COMPLESSIVO"],
+  ])("mostra %s", async (_caso, atteso) => {
     await renderVoid();
-    expect(screen.getByText("emesso per ANNULLAMENTO")).toBeInTheDocument();
-    expect(
-      screen.queryByText("di vendita o prestazione"),
-    ).not.toBeInTheDocument();
+    expect(screen.getByText(atteso)).toBeInTheDocument();
   });
 
-  it("cita la vendita annullata con progressivo e data", async () => {
+  // Un annullo non incassa, e non è una vendita: le voci del layout di
+  // vendita non devono comparirvi.
+  it.each([
+    ["il sottotitolo di vendita", "di vendita o prestazione"],
+    ["la riga `Importo pagato`", "Importo pagato"],
+    ["la modalità di pagamento", "Pagamento contante"],
+  ])("non mostra %s", async (_caso, assente) => {
     await renderVoid();
-    expect(screen.getByText("Documento di riferimento:")).toBeInTheDocument();
-    expect(screen.getByText("N. ABC-123 del 01-01-2026")).toBeInTheDocument();
-  });
-
-  it("mostra progressivo e data DELL'ANNULLO nel piede", async () => {
-    await renderVoid();
-    expect(screen.getByText("DEF-456")).toBeInTheDocument();
-    expect(screen.getByText("02-01-2026 11:00")).toBeInTheDocument();
-  });
-
-  it("non mostra il blocco pagamenti: un annullo non incassa", async () => {
-    await renderVoid();
-    expect(screen.queryByText("Importo pagato")).not.toBeInTheDocument();
-    expect(screen.queryByText("Pagamento contante")).not.toBeInTheDocument();
-  });
-
-  it("ristampa le righe della vendita annullata, coi suoi totali", async () => {
-    await renderVoid();
-    expect(screen.getByText("Pizza Margherita")).toBeInTheDocument();
-    expect(screen.getByText("TOTALE COMPLESSIVO")).toBeInTheDocument();
+    expect(screen.queryByText(assente)).not.toBeInTheDocument();
   });
 });

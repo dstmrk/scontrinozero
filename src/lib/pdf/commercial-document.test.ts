@@ -10,6 +10,17 @@ import {
   type VoidDocumentPdfData,
 } from "./commercial-document";
 
+/** Altezza pagina dal `/MediaBox`, sempre in chiaro nel dizionario pagina. */
+function pdfPageHeight(buf: Buffer): number {
+  const m = buf.toString("latin1").match(/\/MediaBox \[0 0 \d+ (\d+)\]/);
+  return m ? Number.parseInt(m[1], 10) : 0;
+}
+
+/** Numero di pagine del PDF: la stima d'altezza non deve mai sottostimare. */
+function pdfPageCount(buf: Buffer): number {
+  return buf.toString("latin1").split("/Type /Page\n").length - 1;
+}
+
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -163,11 +174,6 @@ describe("generateCommercialDocumentPdf", () => {
     // proxy for content length (more repetitive content can compress smaller).
     // Instead we read the /MediaBox from the uncompressed PDF page dictionary,
     // which is always written in plaintext and reflects estimateHeight().
-    const extractPageHeight = (buf: Buffer): number => {
-      const m = buf.toString("latin1").match(/\/MediaBox \[0 0 \d+ (\d+)\]/);
-      return m ? parseInt(m[1], 10) : 0;
-    };
-
     const manyLines = Array.from({ length: 10 }, (_, i) => ({
       description: `Articolo ${i + 1}`,
       quantity: 1,
@@ -183,9 +189,7 @@ describe("generateCommercialDocumentPdf", () => {
       lines: [manyLines[0]],
     });
     // More lines → taller page (estimateHeight adds 18pt per line)
-    expect(extractPageHeight(buf)).toBeGreaterThan(
-      extractPageHeight(bufSingle),
-    );
+    expect(pdfPageHeight(buf)).toBeGreaterThan(pdfPageHeight(bufSingle));
   });
 
   it("genera un PDF valido con publicUrl presente (QR)", async () => {
@@ -197,11 +201,6 @@ describe("generateCommercialDocumentPdf", () => {
   });
 
   it("con publicUrl presente la pagina è più alta (spazio riservato al QR)", async () => {
-    const extractPageHeight = (buf: Buffer): number => {
-      const m = buf.toString("latin1").match(/\/MediaBox \[0 0 \d+ (\d+)\]/);
-      return m ? parseInt(m[1], 10) : 0;
-    };
-
     const withQr = await generateCommercialDocumentPdf({
       ...BASE_DATA,
       publicUrl: "https://app.scontrinozero.it/r/6f8f857a-2b2a-4c8b-9b2a",
@@ -210,9 +209,7 @@ describe("generateCommercialDocumentPdf", () => {
       ...BASE_DATA,
       publicUrl: null,
     });
-    expect(extractPageHeight(withQr)).toBeGreaterThan(
-      extractPageHeight(withoutQr),
-    );
+    expect(pdfPageHeight(withQr)).toBeGreaterThan(pdfPageHeight(withoutQr));
   });
 
   it("senza publicUrl non disegna alcun QR (nessun errore, PDF invariato rispetto ad assenza del campo)", async () => {
@@ -470,25 +467,16 @@ describe("layout AdE — codifica IVA in colonna e legenda", () => {
   });
 
   it("riserva altezza pagina per la legenda", async () => {
-    const extractPageHeight = (buf: Buffer): number => {
-      const m = buf.toString("latin1").match(/\/MediaBox \[0 0 \d+ (\d+)\]/);
-      return m ? parseInt(m[1], 10) : 0;
-    };
     const withLegend = await generateCommercialDocumentPdf(EXEMPT_DATA);
     const withoutLegend = await generateCommercialDocumentPdf({
       ...EXEMPT_DATA,
       lines: EXEMPT_DATA.lines.map((l) => ({ ...l, vatCode: "22" })),
     });
-    expect(extractPageHeight(withLegend)).toBeGreaterThan(
-      extractPageHeight(withoutLegend),
+    expect(pdfPageHeight(withLegend)).toBeGreaterThan(
+      pdfPageHeight(withoutLegend),
     );
   });
 });
-
-/** Numero di pagine del PDF: la stima d'altezza non deve mai sottostimare. */
-function pdfPageCount(buf: Buffer): number {
-  return buf.toString("latin1").split("/Type /Page\n").length - 1;
-}
 
 describe("layout AdE — casi degeneri", () => {
   it("la vendita sta in una pagina sola, QR e legenda compresi", async () => {
@@ -655,12 +643,14 @@ describe("documento di annullo — corpo", () => {
     expect(pdfPageCount(buf)).toBe(1);
   });
 
-  it("stampa il QR verso la copia pubblica dell'annullo", async () => {
+  it("riserva altezza al QR verso la copia pubblica dell'annullo", async () => {
+    // Sull'altezza pagina e non sulla dimensione del buffer: pdfkit comprime
+    // i content stream, quindi piu' contenuto puo' pesare meno.
     const withQr = await generateCommercialDocumentPdf({
       ...VOID_DATA,
       publicUrl: "https://app.scontrinozero.it/r/void-uuid",
     });
     const withoutQr = await generateCommercialDocumentPdf(VOID_DATA);
-    expect(withQr.length).not.toBe(withoutQr.length);
+    expect(pdfPageHeight(withQr)).toBeGreaterThan(pdfPageHeight(withoutQr));
   });
 });
