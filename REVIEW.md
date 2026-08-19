@@ -449,35 +449,6 @@ pagamento.
 
 ---
 
-### 90. L'export CSV usa ancora `created_at`, non `ade_registered_at`
-
-- **Categoria:** coerenza dei dati fiscali · **Severità:** Low — scarto di 2-5s, visibile solo a cavallo della mezzanotte o di un cambio periodo
-- **File:** `src/lib/receipts/csv-export.ts`, `src/server/export-actions.ts`
-
-**Problema.** Con la v1.7.0 tutte le superfici di resa (PDF, termica, ricevuta
-pubblica, elenco storico) mostrano `ade_registered_at`, l'istante che l'AdE
-registra. L'export CSV è rimasto indietro su due fronti: stampa
-`formatIsoInRome(doc.createdAt)` nella colonna data, e **filtra l'intervallo**
-con `gte/lt` sullo stesso `created_at`. Un documento emesso alle 23:59:58 con
-registrazione AdE alle 00:00:01 finisce nel CSV del giorno prima, con una data
-diversa da quella sul documento consegnato al cliente.
-
-**Perché non è stato fatto insieme al resto.** Non è un rename simmetrico agli
-altri: qui la colonna non è solo mostrata, è anche il **predicato di
-selezione** del periodo — ed è quello che un commercialista usa per chiudere
-un mese. Cambiare la sola colonna mostrata lascerebbe un CSV in cui la data di
-una riga contraddice il filtro che l'ha inclusa; cambiare anche il filtro è
-una decisione contabile, non un refactoring.
-
-**Da fare.** Decidere quale delle due grandezze definisce il periodo fiscale
-(propendo per `ade_registered_at`: è la data del documento presso l'AdE) e
-spostare colonna **e** filtro insieme. Attenzione all'indice: le condizioni di
-range oggi poggiano su `idx_commercial_documents_business_created`, quindi
-serve un indice equivalente su `(business_id, ade_registered_at)` nella stessa
-migrazione, o l'export su un anno di dati passa a sequential scan.
-
----
-
 ### 91. Il recovery stale-pending non scrive `ade_registered_at`
 
 - **Categoria:** coerenza dei dati fiscali · **Severità:** Low — riguarda le sole righe riconciliate, ma è il caso in cui lo scarto è massimo
@@ -508,29 +479,34 @@ un `Invalid Date` su un `timestamptz NOT NULL`.
 
 ---
 
-### 92. Lo storico filtra e ordina su `created_at` ma mostra `ade_registered_at`
+### 94. Il filtro di periodo taglia a mezzanotte UTC, non a mezzanotte italiana
 
-- **Categoria:** coerenza dei dati fiscali · **Severità:** Low — visibile solo a cavallo della mezzanotte · **Gemello di #90**
-- **File:** `src/server/storico-actions.ts` (`searchReceipts`: `gte/lt` sul filtro data, `orderBy desc(createdAt)`)
+- **Categoria:** coerenza dei dati fiscali · **Severità:** Low — sposta il confine del periodo di 1h (2h con l'ora legale) · **Emerso chiudendo #90/#92**
+- **File:** `src/app/api/export/receipts/route.ts`, `src/server/storico-actions.ts`, `src/lib/date-utils.ts` (`parseStrictIsoDateUtc`)
 
-**Problema.** Stessa asimmetria di #90, ma sull'elenco invece che sull'export:
-la colonna mostrata è `ade_registered_at` (`storico-client.tsx`), il predicato
-di selezione del periodo e l'ordinamento sono su `created_at`. Una vendita
-creata il 31/01 alle 23:59:58 e registrata dall'AdE il 01/02 alle 00:00:01
-compare filtrando gennaio, con scritto accanto `01/02/2026`. In più
-l'ordinamento può risultare non monotono rispetto alla colonna mostrata quando
-due scontrini ravvicinati hanno round-trip AdE di durata diversa.
+**Problema.** Export CSV ed elenco storico ora selezionano il periodo su
+`ade_registered_at`, la stessa grandezza che mostrano, ma gli **estremi**
+dell'intervallo restano mezzanotte **UTC**: `parseStrictIsoDateUtc("2026-01-01")`
+produce `2026-01-01T00:00:00Z`, cioè le 01:00 di Roma. Uno scontrino registrato
+il 1° gennaio alle 00:30 italiane cade alle 23:30 UTC del 31 dicembre e resta
+**fuori** dal filtro di gennaio, pur essendo mostrato — correttamente — con data
+01/01. È la stessa contraddizione fra data mostrata e predicato di selezione di
+#90, spostata dall'asse "quale colonna" all'asse "quale fuso".
 
-**Perché non è stato fatto nella v1.7.0.** Identica a #90: qui la colonna non è
-solo mostrata, è il predicato che definisce il periodo. Va decisa una volta e
-spostata ovunque insieme — elenco, export CSV e (a una futura `/api/v2`) la
-Developer API, che oggi filtra e restituisce `createdAt` ed è contratto
-pubblico versionato, quindi correttamente intoccabile.
+**Perché non è stato fatto insieme a #90/#92.** È una decisione distinta (quale
+fuso definisce la giornata fiscale) e tocca `parseStrictIsoDateUtc`, che ha
+altri chiamanti: cambiarla sotto di loro senza guardarli è il modo di
+propagare lo stesso errore altrove. La risposta è comunque Roma — è il fuso in
+cui l'AdE registra e in cui l'esercente chiude la giornata.
 
-**Da fare.** Trattare #90 e #92 come un solo intervento: stessa decisione
-contabile, stesso indice nuovo su `(business_id, ade_registered_at)` — le
-condizioni di range oggi poggiano su
-`idx_commercial_documents_business_created`.
+**Da fare.** Un helper dedicato in `date-utils.ts` (es. `parseRomeDayStartUtc`)
+che converta `yyyy-MM-dd` nell'istante UTC della mezzanotte **italiana**, e
+usarlo in entrambi i call site. ⚠️ L'estremo superiore non si ricava sommando
+24h né con `setUTCDate(+1)`: nei due giorni di cambio ora quel salto sposta il
+confine di un'ora: va calcolato il giorno successivo sul calendario di Roma e
+poi convertito. **Test:** confine invernale (+01:00) ed estivo (+02:00), i due
+giorni di transizione DST, e uno scontrino alle 00:30 italiane del primo giorno
+del periodo.
 
 ---
 

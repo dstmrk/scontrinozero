@@ -107,6 +107,7 @@ const FAKE_DOC = {
   publicRequest: null,
   adeResponse: null,
   createdAt: new Date("2026-03-05T10:00:00Z"),
+  adeRegisteredAt: new Date("2026-03-05T10:00:03Z"),
   updatedAt: new Date("2026-03-05T10:00:00Z"),
 };
 
@@ -159,6 +160,11 @@ describe("export-actions", () => {
       expect(result.data?.business?.vatNumber).toBe("12345678901");
       expect(result.data?.receipts).toHaveLength(1);
       expect(result.data?.receipts[0].id).toBe("doc-001");
+      // Portabilita' (art. 20 GDPR): il dump porta anche la data fiscale del
+      // documento, non solo il nostro istante d'inserimento.
+      expect(result.data?.receipts[0].adeRegisteredAt).toEqual(
+        new Date("2026-03-05T10:00:03Z"),
+      );
       expect(result.data?.receipts[0].lines).toHaveLength(1);
       expect(result.data?.receipts[0].lines[0].description).toBe("Parmigiano");
       expect(result.data?.catalogItems).toHaveLength(1);

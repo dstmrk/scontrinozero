@@ -105,6 +105,14 @@ export const commercialDocuments = pgTable(
       table.businessId,
       table.status,
     ),
+    // Copre il filtro di periodo di export CSV ed elenco storico, che
+    // selezionano sulla data fiscale (migrazione 0032). L'indice su
+    // `created_at` qui sopra resta per le letture sul nostro orologio
+    // d'inserimento (recovery delle righe stale).
+    index("idx_commercial_documents_business_registered").on(
+      table.businessId,
+      table.adeRegisteredAt,
+    ),
     index("idx_commercial_documents_api_key").on(table.apiKeyId),
     // Composite unique: idempotency scoped per business (migration 0009)
     uniqueIndex("idx_commercial_documents_business_idempotency").on(

@@ -64,7 +64,7 @@ function parsePublicRequest(raw: unknown): {
 /**
  * Restituisce la lista paginata degli scontrini (SALE) del business, con filtri opzionali.
  *
- * Ordine: DESC createdAt (più recenti prima).
+ * Ordine: DESC adeRegisteredAt (più recenti prima).
  * Source: DB locale (nessuna chiamata AdE).
  */
 /**
@@ -201,6 +201,12 @@ export async function searchReceipts(
     eq(commercialDocuments.kind, "SALE"),
   ];
 
+  // Filtro di periodo su `ade_registered_at`, la stessa grandezza che la riga
+  // mostra: con il predicato su `created_at` una vendita registrata dall'AdE
+  // il 1° febbraio compariva filtrando gennaio, con scritto accanto 01/02.
+  // Stessa scelta dell'export CSV — elenco ed export partono dagli stessi
+  // filtri, se divergessero il conteggio a schermo e le righe del file non
+  // tornerebbero. Indice dedicato: migrazione 0032.
   let dateFromDate: Date | null = null;
   if (params.dateFrom) {
     dateFromDate = parseStrictIsoDateUtc(params.dateFrom);
@@ -210,7 +216,7 @@ export async function searchReceipts(
         items: [],
         total: 0,
       };
-    conditions.push(gte(commercialDocuments.createdAt, dateFromDate));
+    conditions.push(gte(commercialDocuments.adeRegisteredAt, dateFromDate));
   }
 
   if (params.dateTo) {
@@ -225,7 +231,7 @@ export async function searchReceipts(
       };
     const toExclusive = new Date(dateToDate);
     toExclusive.setUTCDate(toExclusive.getUTCDate() + 1);
-    conditions.push(lt(commercialDocuments.createdAt, toExclusive));
+    conditions.push(lt(commercialDocuments.adeRegisteredAt, toExclusive));
   }
   if (params.status) {
     conditions.push(eq(commercialDocuments.status, params.status));
@@ -248,11 +254,11 @@ export async function searchReceipts(
       .leftJoin(voidDocAlias, voidDocJoinCondition)
       .where(and(...conditions))
       // `id` (UUID PRIMARY KEY) come chiave secondaria rende l'ordine TOTALE:
-      // a parita' di `created_at` Postgres non garantisce un ordine stabile
-      // fra due esecuzioni, e navigando fra le pagine un documento potrebbe
-      // comparire due volte o sparire.
+      // a parita' di `ade_registered_at` Postgres non garantisce un ordine
+      // stabile fra due esecuzioni, e navigando fra le pagine un documento
+      // potrebbe comparire due volte o sparire.
       .orderBy(
-        desc(commercialDocuments.createdAt),
+        desc(commercialDocuments.adeRegisteredAt),
         desc(commercialDocuments.id),
       )
       .limit(pageSize)

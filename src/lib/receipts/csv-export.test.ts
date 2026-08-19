@@ -20,7 +20,7 @@ vi.mock("@/db/schema", () => ({
     businessId: "business_id",
     kind: "kind",
     status: "status",
-    createdAt: "created_at",
+    adeRegisteredAt: "ade_registered_at",
     adeProgressive: "ade_progressive",
     adeTransactionId: "ade_transaction_id",
     lotteryCode: "lottery_code",
@@ -66,7 +66,7 @@ function doc(overrides: Partial<ReceiptDocRow> = {}): ReceiptDocRow {
     id: "doc-1",
     kind: "SALE",
     status: "ACCEPTED",
-    createdAt: new Date("2026-05-19T12:34:56.789Z"),
+    adeRegisteredAt: new Date("2026-05-19T12:35:01.000Z"),
     adeProgressive: "00042",
     adeTransactionId: "tx-12345",
     lotteryCode: null,
@@ -99,7 +99,7 @@ describe("formatReceiptRow", () => {
     expect(row).toEqual([
       "doc-1",
       "00042",
-      "2026-05-19T14:34:56+02:00",
+      "2026-05-19T14:35:01+02:00",
       "SALE",
       "ACCEPTED",
       "12,34",
@@ -156,6 +156,17 @@ describe("formatReceiptRow", () => {
       0,
     );
     expect(row[9]).toBe("");
+  });
+
+  it("stampa l'istante registrato dall'AdE, anche a cavallo del cambio mese", () => {
+    // Vendita creata il 31/01 alle 23:59:58 (ora di Roma) e registrata
+    // dall'AdE il 01/02 alle 00:00:01: la data del CSV e' quella dell'AdE,
+    // la stessa che il cliente legge sul documento consegnato.
+    const row = formatReceiptRow(
+      doc({ adeRegisteredAt: new Date("2026-01-31T23:00:01.000Z") }),
+      0,
+    );
+    expect(row[2]).toBe("2026-02-01T00:00:01+01:00");
   });
 
   it("extracts paymentMethod from publicRequest jsonb", () => {
@@ -294,7 +305,7 @@ describe("buildReceiptsCsvStream", () => {
     expect(limit).toHaveBeenCalledTimes(0);
   });
 
-  it("ordina per created_at DESC con `id` come chiave secondaria stabile", async () => {
+  it("ordina per ade_registered_at DESC con `id` come chiave secondaria stabile", async () => {
     const order = vi.fn();
     const where = vi.fn();
     const leftJoin = vi.fn();
@@ -317,32 +328,70 @@ describe("buildReceiptsCsvStream", () => {
     await streamToString(stream);
 
     // Senza il tiebreaker su `id` l'ordine fra righe con lo stesso
-    // `created_at` non e' definito in Postgres → LIMIT/OFFSET non deterministico.
+    // `ade_registered_at` non e' definito in Postgres → LIMIT/OFFSET non
+    // deterministico.
     expect(order).toHaveBeenCalledWith(
-      { _desc: "created_at" },
+      { _desc: "ade_registered_at" },
       { _desc: "id" },
     );
+  });
+
+  it("filtra l'intervallo su ade_registered_at, non su created_at", async () => {
+    const order = vi.fn();
+    const where = vi.fn();
+    const leftJoin = vi.fn();
+    const from = vi.fn();
+    const select = vi.fn();
+
+    select.mockReturnValue({ from });
+    from.mockReturnValue({ leftJoin });
+    leftJoin.mockReturnValue({ where });
+    where.mockReturnValue({ orderBy: order });
+    order.mockReturnValue({ limit: () => ({ offset: () => [] }) });
+    mockGetDb.mockReturnValue({ select });
+
+    const dateFrom = new Date("2026-01-01T00:00:00.000Z");
+    const dateTo = new Date("2026-02-01T00:00:00.000Z");
+    const stream = buildReceiptsCsvStream({
+      businessId: "biz-1",
+      status: null,
+      dateFrom,
+      dateTo,
+    });
+    await streamToString(stream);
+
+    // Colonna mostrata e predicato di selezione devono essere la stessa
+    // grandezza: un CSV in cui la data di una riga contraddice il filtro che
+    // l'ha inclusa e' peggio di entrambe le scelte prese da sole.
+    const conditions = (where.mock.calls[0][0] as { _and: unknown[] })._and;
+    expect(conditions).toContainEqual({
+      _gte: ["ade_registered_at", dateFrom],
+    });
+    expect(conditions).toContainEqual({ _lt: ["ade_registered_at", dateTo] });
   });
 });
 
 /**
- * Regressione finding #74: con `created_at` duplicati la paginazione
+ * Regressione finding #74: con `ade_registered_at` duplicati la paginazione
  * LIMIT/OFFSET puo' ripetere o saltare righe se l'ORDER BY non e' un ordine
  * *totale*. Il fake DB qui sotto simula un Postgres che riordina liberamente
  * le righe a parita' di chiave di ordinamento — comportamento legittimo e
  * osservabile in produzione (piani diversi, letture parallele, sort non stabile).
  */
-describe("buildReceiptsCsvStream — paginazione con created_at duplicati", () => {
+describe("buildReceiptsCsvStream — paginazione con ade_registered_at duplicati", () => {
   const SAME_INSTANT = new Date("2026-05-19T12:34:56.789Z");
 
   function makeDocs(n: number): ReceiptDocRow[] {
     return Array.from({ length: n }, (_, i) =>
-      doc({ id: `d${String(i).padStart(4, "0")}`, createdAt: SAME_INSTANT }),
+      doc({
+        id: `d${String(i).padStart(4, "0")}`,
+        adeRegisteredAt: SAME_INSTANT,
+      }),
     );
   }
 
   /**
-   * Applica l'ORDER BY richiesto. A parita' di `created_at`:
+   * Applica l'ORDER BY richiesto. A parita' di `ade_registered_at`:
    * - con tiebreaker su `id` → ordine totale, identico a ogni esecuzione;
    * - senza → l'ordine fra i pari varia a ogni query (qui: rotazione).
    */
@@ -351,18 +400,21 @@ describe("buildReceiptsCsvStream — paginazione con created_at duplicati", () =
     orderKeys: { _desc: string }[],
     queryIndex: number,
   ): ReceiptDocRow[] {
-    const byCreatedDesc = [...all].sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    const byRegisteredDesc = [...all].sort(
+      (a, b) => b.adeRegisteredAt.getTime() - a.adeRegisteredAt.getTime(),
     );
     if (orderKeys.some((k) => k._desc === "id")) {
-      return byCreatedDesc.sort(
+      return byRegisteredDesc.sort(
         (a, b) =>
-          b.createdAt.getTime() - a.createdAt.getTime() ||
+          b.adeRegisteredAt.getTime() - a.adeRegisteredAt.getTime() ||
           b.id.localeCompare(a.id),
       );
     }
-    const shift = (queryIndex * 7) % byCreatedDesc.length;
-    return [...byCreatedDesc.slice(shift), ...byCreatedDesc.slice(0, shift)];
+    const shift = (queryIndex * 7) % byRegisteredDesc.length;
+    return [
+      ...byRegisteredDesc.slice(shift),
+      ...byRegisteredDesc.slice(0, shift),
+    ];
   }
 
   function setupUnstableDbMock(all: ReceiptDocRow[]) {
@@ -395,7 +447,7 @@ describe("buildReceiptsCsvStream — paginazione con created_at duplicati", () =
     mockGetDb.mockReturnValue({ select });
   }
 
-  it("emette esattamente una riga per documento su 1200 doc con lo stesso created_at", async () => {
+  it("emette esattamente una riga per documento su 1200 doc con lo stesso ade_registered_at", async () => {
     const all = makeDocs(1200); // 3 batch da 500
     setupUnstableDbMock(all);
     mockFetchLinesByDocIds.mockResolvedValue([]);

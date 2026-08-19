@@ -42,7 +42,12 @@ export type ReceiptDocRow = {
   id: string;
   kind: string;
   status: string;
-  createdAt: Date;
+  /**
+   * Istante registrato dall'AdE: e' la data del documento, quella stampata
+   * sulla copia consegnata al cliente. Il CSV la usa sia come colonna sia
+   * come predicato di periodo — vedi `buildConditions`.
+   */
+  adeRegisteredAt: Date;
   adeProgressive: string | null;
   adeTransactionId: string | null;
   lotteryCode: string | null;
@@ -85,7 +90,7 @@ export function formatReceiptRow(doc: ReceiptDocRow, total: number): string[] {
   return [
     doc.id,
     doc.adeProgressive ?? "",
-    formatIsoInRome(doc.createdAt),
+    formatIsoInRome(doc.adeRegisteredAt),
     doc.kind,
     doc.status,
     formatItalianAmount(total),
@@ -102,11 +107,14 @@ function buildConditions(params: BuildCsvStreamParams) {
     eq(commercialDocuments.kind, "SALE"),
   ];
 
+  // Il periodo si seleziona sulla stessa grandezza che la riga mostra
+  // (`ade_registered_at`): filtrare su `created_at` includerebbe nel CSV di
+  // gennaio uno scontrino datato 1 febbraio. Indice dedicato: migrazione 0032.
   if (params.dateFrom) {
-    conditions.push(gte(commercialDocuments.createdAt, params.dateFrom));
+    conditions.push(gte(commercialDocuments.adeRegisteredAt, params.dateFrom));
   }
   if (params.dateTo) {
-    conditions.push(lt(commercialDocuments.createdAt, params.dateTo));
+    conditions.push(lt(commercialDocuments.adeRegisteredAt, params.dateTo));
   }
   if (params.status) {
     conditions.push(eq(commercialDocuments.status, params.status));
@@ -129,7 +137,7 @@ async function fetchDocsBatch(
       id: commercialDocuments.id,
       kind: commercialDocuments.kind,
       status: commercialDocuments.status,
-      createdAt: commercialDocuments.createdAt,
+      adeRegisteredAt: commercialDocuments.adeRegisteredAt,
       adeProgressive: commercialDocuments.adeProgressive,
       adeTransactionId: commercialDocuments.adeTransactionId,
       lotteryCode: commercialDocuments.lotteryCode,
@@ -147,10 +155,13 @@ async function fetchDocsBatch(
     )
     .where(and(...conditions))
     // `id` (UUID PRIMARY KEY) come chiave secondaria rende l'ordine TOTALE:
-    // a parita' di `created_at` — normalissima in cassa — Postgres non
+    // a parita' di `ade_registered_at` — normalissima in cassa — Postgres non
     // garantisce un ordine stabile fra due esecuzioni, e la paginazione
     // LIMIT/OFFSET ripeterebbe o salterebbe righe silenziosamente.
-    .orderBy(desc(commercialDocuments.createdAt), desc(commercialDocuments.id))
+    .orderBy(
+      desc(commercialDocuments.adeRegisteredAt),
+      desc(commercialDocuments.id),
+    )
     .limit(BATCH_SIZE)
     .offset(offset);
   return rows as ReceiptDocRow[];
