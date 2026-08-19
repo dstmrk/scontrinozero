@@ -88,6 +88,20 @@ function makeDocsBuilder(result: unknown[]) {
   return b;
 }
 
+/** Simula la query del singolo documento: risolve al .limit() */
+function makeDetailBuilder(result: unknown[]) {
+  const b = {
+    from: vi.fn(),
+    leftJoin: vi.fn(),
+    where: vi.fn(),
+    limit: vi.fn().mockResolvedValue(result),
+  };
+  b.from.mockReturnValue(b);
+  b.leftJoin.mockReturnValue(b);
+  b.where.mockReturnValue(b);
+  return b;
+}
+
 /** Simula la query lines: risolve al .orderBy() */
 function makeLinesBuilder(result: unknown[]) {
   const b = {
@@ -581,6 +595,109 @@ describe("storico-actions", () => {
       const ids = [...page1.items, ...page2.items].map((i) => i.id);
       expect(ids).toHaveLength(20);
       expect(new Set(ids).size).toBe(20);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // getReceiptDetail — la rilettura che segue un annullo riuscito: senza,
+  // riaprendo la modale la vendita risulta annullata ma priva di ricevuta di
+  // annullamento e di stampa finche' l'utente non rifa' la ricerca.
+  // -------------------------------------------------------------------------
+
+  describe("getReceiptDetail", () => {
+    const BIZ = "11111111-1111-4111-8111-111111111111";
+    const DOC = "22222222-2222-4222-8222-222222222222";
+
+    it("espone l'annullo appena collegato alla vendita", async () => {
+      mockSelect
+        .mockReturnValueOnce(
+          makeDetailBuilder([
+            {
+              ...FAKE_SALE_DOC,
+              id: DOC,
+              status: "VOID_ACCEPTED",
+              voidDocumentId: "void-doc-uuid",
+              voidAdeProgressive: "DCW2026/5111-2189",
+              voidAdeRegisteredAt: new Date("2026-02-16T09:15:00Z"),
+            },
+          ]),
+        )
+        .mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
+
+      const { getReceiptDetail } = await import("./storico-actions");
+      const result = await getReceiptDetail(BIZ, DOC);
+
+      expect(result.item?.status).toBe("VOID_ACCEPTED");
+      expect(result.item?.voidDocument).toEqual({
+        id: "void-doc-uuid",
+        adeProgressive: "DCW2026/5111-2189",
+        adeRegisteredAt: new Date("2026-02-16T09:15:00Z"),
+      });
+    });
+
+    it("restituisce la stessa forma di una riga dell'elenco (righe e totale)", async () => {
+      mockSelect
+        .mockReturnValueOnce(makeDetailBuilder([{ ...FAKE_SALE_DOC, id: DOC }]))
+        .mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
+
+      const { getReceiptDetail } = await import("./storico-actions");
+      const result = await getReceiptDetail(BIZ, DOC);
+
+      expect(result.item?.total).toBe("10.00");
+      expect(result.item?.lines).toEqual([
+        {
+          description: "Pizza",
+          quantity: "2.000",
+          grossUnitPrice: "5.00",
+          vatCode: "10",
+        },
+      ]);
+      expect(result.item?.voidDocument).toBeNull();
+    });
+
+    it("restituisce item null quando il documento non esiste", async () => {
+      mockSelect.mockReturnValueOnce(makeDetailBuilder([]));
+
+      const { getReceiptDetail } = await import("./storico-actions");
+      const result = await getReceiptDetail(BIZ, DOC);
+
+      expect(result.item).toBeNull();
+      // Nessuna query righe su un documento inesistente
+      expect(mockSelect).toHaveBeenCalledTimes(1);
+    });
+
+    it("degrada a 'Non autenticato.' quando la sessione è scaduta (regola 19/20)", async () => {
+      mockGetAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
+
+      const { getReceiptDetail } = await import("./storico-actions");
+      const result = await getReceiptDetail(BIZ, DOC);
+
+      expect(result.error).toBe("Non autenticato.");
+      expect(result.item).toBeNull();
+      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+    });
+
+    it("guard UUID (regola 9): documentId malformato → error envelope senza query", async () => {
+      const { getReceiptDetail } = await import("./storico-actions");
+      const result = await getReceiptDetail(BIZ, "non-un-uuid");
+
+      expect(result.error).toBe("Identificativo non valido.");
+      expect(result.item).toBeNull();
+      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+      expect(mockSelect).not.toHaveBeenCalled();
+    });
+
+    it("non serve il documento di un altro business (ownership)", async () => {
+      mockCheckBusinessOwnership.mockResolvedValue({
+        error: "Business non trovato o non autorizzato.",
+      });
+
+      const { getReceiptDetail } = await import("./storico-actions");
+      const result = await getReceiptDetail(BIZ, DOC);
+
+      expect(result.error).toBe("Business non trovato o non autorizzato.");
+      expect(result.item).toBeNull();
+      expect(mockSelect).not.toHaveBeenCalled();
     });
   });
 });

@@ -111,7 +111,7 @@ Tutte sono `"use server"`; sulle azioni di lettura vale "degradare, non lanciare
 | `src/server/onboarding-actions.ts` | wizard collegamento credenziali AdE — method-aware Fisconline/CIE (`saveAdeCredentials`/`verifyAdeCredentials`) |
 | `src/server/receipt-actions.ts`    | emissione scontrino (cassa)                                                                                     |
 | `src/server/void-actions.ts`       | annullo documento                                                                                               |
-| `src/server/storico-actions.ts`    | elenco/ricerca documenti emessi                                                                                 |
+| `src/server/storico-actions.ts`    | elenco/ricerca documenti emessi + rilettura di una singola riga                                                 |
 | `src/server/analytics-actions.ts`  | KPI e analytics (helper in `src/server/analytics-helpers.ts`)                                                   |
 | `src/server/catalog-actions.ts`    | catalogo prodotti rapidi                                                                                        |
 | `src/server/export-actions.ts`     | export CSV (Pro-gated)                                                                                          |
