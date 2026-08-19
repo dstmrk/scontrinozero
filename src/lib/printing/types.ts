@@ -38,8 +38,14 @@ export interface PrintableReceipt {
   readonly header: ReceiptPrintHeader;
   readonly lines: readonly PrintableReceiptLine[];
   readonly paymentMethod: PaymentMethod;
-  /** Data del documento in DB — MAI `new Date()` lato client. */
-  readonly createdAt: Date;
+  /**
+   * Istante registrato dall'AdE (`commercial_documents.ade_registered_at`).
+   *
+   * MAI `new Date()` lato client, e nemmeno il `createdAt` della riga: quello
+   * è scritto all'INSERT, prima della risposta AdE, e la carta porterebbe un
+   * orario diverso da quello del PDF e della ricevuta pubblica.
+   */
+  readonly adeRegisteredAt: Date;
   readonly adeProgressive: string;
   /** Codice Lotteria degli Scontrini (8 char, solo pagamento PE). */
   readonly lotteryCode?: string | null;

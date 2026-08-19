@@ -224,7 +224,7 @@ function printFooter(
   options: ReceiptEncodeOptions,
 ): void {
   encoder.align("center");
-  encoder.line(formatReceiptDateTime(receipt.createdAt));
+  encoder.line(formatReceiptDateTime(receipt.adeRegisteredAt));
   encoder.line(`DOCUMENTO N. ${receipt.adeProgressive}`);
 
   if (receipt.lotteryCode) {

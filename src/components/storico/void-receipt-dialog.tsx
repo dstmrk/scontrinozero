@@ -80,7 +80,7 @@ export function VoidReceiptDialog({
       lines: receipt.lines,
       paymentMethod: receipt.paymentMethod,
       lotteryCode: receipt.lotteryCode,
-      createdAt: new Date(receipt.createdAt),
+      adeRegisteredAt: new Date(receipt.adeRegisteredAt),
       adeProgressive: receipt.adeProgressive,
       publicUrl: `${globalThis.location.origin}/r/${receipt.id}`,
     };

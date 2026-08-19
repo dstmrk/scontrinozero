@@ -42,7 +42,7 @@ function makeReceipt(
     header: HEADER,
     lines,
     paymentMethod: "PC",
-    createdAt: new Date("2026-07-28T12:32:00Z"),
+    adeRegisteredAt: new Date("2026-07-28T12:32:00Z"),
     adeProgressive: "0001-0042",
     ...overrides,
   };
@@ -108,8 +108,9 @@ describe("buildReceiptCommands — contenuto fiscale", () => {
     ],
     ["il sottotitolo della dicitura", "di vendita o prestazione"],
     ["il progressivo AdE", "DOCUMENTO N. 0001-0042"],
-    // 12:32 UTC = 14:32 a Roma (ora legale): la data va resa in Europe/Rome
-    // esattamente come fa il PDF, non in UTC del container.
+    // Il timestamp fiscale (`ade_registered_at`), non il createdAt della riga:
+    // 12:32 UTC = 14:32 a Roma (ora legale), reso in Europe/Rome esattamente
+    // come fa il PDF, non in UTC del container.
     ["la data del documento in ora italiana", "28-07-2026 14:32"],
     // Descrizione senza accenti: la resa degli accenti ha il suo test dedicato,
     // qui interessa che la riga arrivi sulla carta col totale giusto (2×1,20).

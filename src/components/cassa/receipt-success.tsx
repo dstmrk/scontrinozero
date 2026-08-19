@@ -76,7 +76,7 @@ export function ReceiptSuccess({
       paymentMethod,
       // Fallback su "adesso" solo se il server non ha restituito la data:
       // l'orario sarebbe di pochi secondi diverso, meglio di nessuna stampa.
-      createdAt: adeRegisteredAt ? new Date(adeRegisteredAt) : new Date(),
+      adeRegisteredAt: adeRegisteredAt ? new Date(adeRegisteredAt) : new Date(),
       adeProgressive,
       lotteryCode,
       publicUrl: documentId

@@ -95,7 +95,7 @@ describe("auto-stampa", () => {
     mockPrinter.current = printerState({ print });
     renderSuccess();
     await waitFor(() => expect(print).toHaveBeenCalled());
-    expect(print.mock.calls[0][0].createdAt).toEqual(
+    expect(print.mock.calls[0][0].adeRegisteredAt).toEqual(
       new Date("2026-07-28T12:32:00.000Z"),
     );
   });
