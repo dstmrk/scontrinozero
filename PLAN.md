@@ -59,9 +59,6 @@ completezza. Coerente con il principio "Minimalismo" del piano.
   `src/server/catalog-actions.ts`, nessun limit/offset). Serve solo ai Pro con
   cataloghi grandi (Starter è capato a 5, `STARTER_CATALOG_LIMIT` in
   `src/lib/plans-shared.ts`). _Trigger:_ Pro con cataloghi oltre ~50 prodotti.
-- **Buoni pasto** (nuovo metodo di pagamento) — un nuovo metodo significa nuovo
-  stato fiscale/UX da mantenere e testare. _Trigger:_ richiesta da esercenti
-  della ristorazione.
 - **Pagamento misto** (es. parte contanti + parte carta) — moltiplica i casi di
   pagamento e i test su totale/arrotondamenti (`CLAUDE.md` regola 17).
   _Trigger:_ richiesta reale.
