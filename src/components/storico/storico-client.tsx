@@ -212,9 +212,7 @@ export function StoricoClient({
     setReceipts((prev) =>
       prev.map((r) => (r.id === documentId ? update(r) : r)),
     );
-    setSelected((prev) =>
-      prev && prev.id === documentId ? update(prev) : prev,
-    );
+    setSelected((prev) => (prev?.id === documentId ? update(prev) : prev));
   }
 
   // Handle void success: update the row status optimistically
