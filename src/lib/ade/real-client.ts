@@ -255,6 +255,21 @@ const SUBMIT_HEADERS: Record<string, string> = {
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
 };
 
+/**
+ * Converte l'header HTTP `Date` di una risposta AdE in ISO 8601 UTC.
+ *
+ * HAR.md #16b: è la sola fonte del timestamp che l'AdE stampa sul documento
+ * ("Documento N. … del 19/08/2026 09:53:41"); la risposta JSON non ne contiene
+ * nessuno. Restituisce `undefined` — mai un throw — se l'header manca o non è
+ * una data valida: è un dato accessorio, e una POST fiscale andata a buon fine
+ * non deve fallire per un header.
+ */
+function parseAdeDateHeader(header: string | null): string | undefined {
+  if (!header) return undefined;
+  const parsed = new Date(header);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
 export class RealAdeClient implements AdeClient {
   private session: AdeSession | null = null;
   private readonly cookieJar: CookieJar = new CookieJar();
@@ -2091,8 +2106,9 @@ export class RealAdeClient implements AdeClient {
     // AdeUnknownOutcomeError, che isTransientAdeError riconosce per lasciare la
     // riga PENDING e far riconciliare la stale recovery contro AdE prima di un
     // eventuale re-submit. Mai loggare il body: dati fiscali.
+    let body: AdeResponse;
     try {
-      return await response.json();
+      body = (await response.json()) as AdeResponse;
     } catch {
       const contentType = response.headers.get("content-type");
       logger.warn(
@@ -2105,6 +2121,17 @@ export class RealAdeClient implements AdeClient {
       );
       throw new AdeUnknownOutcomeError(response.status, contentType);
     }
+
+    // HAR.md #16b: il body non porta alcun timestamp, ma l'header `Date` di
+    // questa risposta è — misurato su tre catture e due fusi — lo stesso
+    // istante che l'AdE stampa nel footer del PDF ufficiale. Lo attacchiamo
+    // qui perché è l'unico punto in cui abbiamo ancora la response in mano.
+    // Solo sui documenti accettati: un `esito: false` non esiste su AdE.
+    const registeredAt = body.esito
+      ? parseAdeDateHeader(response.headers.get("date"))
+      : undefined;
+
+    return registeredAt ? { ...body, registeredAt } : body;
   }
 
   private assertLoggedIn(): void {

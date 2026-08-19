@@ -170,6 +170,19 @@ describe("MockAdeClient", () => {
     it("throws if not logged in", async () => {
       await expect(client.submitSale(makeSalePayload())).rejects.toThrow();
     });
+
+    // Il mock deve esporre lo stesso contratto del RealAdeClient (HAR.md #16b),
+    // altrimenti ADE_MODE=mock non esercita il percorso che popola
+    // ade_registered_at e la ricevuta di annullamento resta senza data in dev.
+    it("returns registeredAt as an ISO 8601 UTC timestamp", async () => {
+      await client.login(mockCredentials);
+
+      const response = await client.submitSale(makeSalePayload());
+
+      expect(response.registeredAt).toMatch(
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+      );
+    });
   });
 
   describe("submitVoid", () => {

@@ -1116,6 +1116,76 @@ describe("RealAdeClient", () => {
       expect(result.progressivo).toBe("DCW2026/5111-2188");
     });
 
+    // HAR.md #16b: la risposta AdE non contiene alcun timestamp, ma il footer
+    // del PDF stampato ("Documento N. … del 19/08/2026 09:53:41") coincide al
+    // secondo con l'header HTTP `Date`. Misurato su tre catture e due fusi.
+    it("derives registeredAt from the AdE Date response header", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: successResponse,
+          headers: [["Date", "Wed, 19 Aug 2026 07:53:41 GMT"]],
+        }),
+      );
+
+      const result = await client.submitSale(makeSalePayload());
+      expect(result.registeredAt).toBe("2026-08-19T07:53:41.000Z");
+    });
+
+    // Il timestamp è un di più diagnostico: un header assente non deve mai
+    // trasformare una POST fiscale andata a buon fine in un errore.
+    it("leaves registeredAt undefined when the Date header is missing", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      fetchMock.mockResolvedValueOnce(mockResponse({ body: successResponse }));
+
+      const result = await client.submitSale(makeSalePayload());
+      expect(result.esito).toBe(true);
+      expect(result.registeredAt).toBeUndefined();
+    });
+
+    it("leaves registeredAt undefined when the Date header is unparsable", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: successResponse,
+          headers: [["Date", "not-a-date"]],
+        }),
+      );
+
+      const result = await client.submitSale(makeSalePayload());
+      expect(result.esito).toBe(true);
+      expect(result.registeredAt).toBeUndefined();
+    });
+
+    // Un rifiuto logico arriva come HTTP 200 esito:false: il documento NON
+    // esiste su AdE, quindi non c'è nulla da datare.
+    it("leaves registeredAt undefined when AdE rejects the document", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: {
+            esito: false,
+            idtrx: null,
+            progressivo: null,
+            errori: [{ codice: "001", descrizione: "Rifiutato" }],
+          },
+          headers: [["Date", "Wed, 19 Aug 2026 07:53:41 GMT"]],
+        }),
+      );
+
+      const result = await client.submitSale(makeSalePayload());
+      expect(result.esito).toBe(false);
+      expect(result.registeredAt).toBeUndefined();
+    });
+
     it("retries with re-auth on 401 (skip wizardTemplate, usa P.IVA nota)", async () => {
       mockLoginSequence(fetchMock);
       await client.login(mockCredentials);
@@ -1380,6 +1450,23 @@ describe("RealAdeClient", () => {
 
       const result = await client.submitVoid(makeSalePayload());
       expect(result.esito).toBe(true);
+    });
+
+    // È il timestamp che finisce nel footer della ricevuta di annullamento
+    // (v1.7.0, HAR.md #16a/#16b).
+    it("derives registeredAt from the AdE Date response header", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: successResponse,
+          headers: [["Date", "Tue, 18 Aug 2026 17:06:02 GMT"]],
+        }),
+      );
+
+      const result = await client.submitVoid(makeSalePayload());
+      expect(result.registeredAt).toBe("2026-08-18T17:06:02.000Z");
     });
 
     it("throws if not logged in", async () => {

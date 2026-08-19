@@ -164,6 +164,26 @@ export interface AdeResponse {
   idtrx: string | null;
   progressivo: string | null;
   errori: AdeError[];
+  /**
+   * Istante di registrazione del documento presso l'AdE, ISO 8601 UTC.
+   *
+   * **Non è un campo del body**: l'AdE non ne restituisce nessuno (la risposta
+   * è solo `esito`/`idtrx`/`progressivo`/`errori`). È l'header HTTP `Date`
+   * della risposta alla POST, che HAR.md #16b dimostra coincidere al secondo
+   * con il timestamp stampato sul PDF ufficiale ("Documento N. … del
+   * 19/08/2026 09:53:41") e con il campo `data` della lista di ricerca —
+   * verificato su tre catture e due fusi orari.
+   *
+   * Serve al footer della ricevuta di annullamento (v1.7.0): senza, l'unica
+   * alternativa sarebbe l'orologio nostro, che deriva di qualche secondo da
+   * quello stampato sul documento fiscale.
+   *
+   * Opzionale, e mai causa di errore: assente sui documenti rifiutati
+   * (`esito: false` — non esistono su AdE, non c'è nulla da datare), quando
+   * l'header manca o è illeggibile, e su tutte le righe storiche archiviate
+   * prima della v1.7.0.
+   */
+  registeredAt?: string;
 }
 
 // ---------------------------------------------------------------------------
