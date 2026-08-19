@@ -26,7 +26,10 @@ const MOCK_DATA = {
     publicRequest: { paymentMethod: "PC" },
     adeProgressive: "DCW2026/5111-0001",
     adeTransactionId: "trx-0001",
-    createdAt: new Date("2026-02-23T10:30:00Z"),
+    // Le due date sono deliberatamente diverse: il PDF deve stampare l'istante
+    // registrato dall'AdE, non quello in cui abbiamo inserito la riga.
+    createdAt: new Date("2026-02-23T10:29:57Z"),
+    adeRegisteredAt: new Date("2026-02-23T10:30:00Z"),
   },
   biz: {
     businessName: "Negozio Test",
@@ -98,6 +101,16 @@ describe("generatePdfResponse", () => {
         paymentMethod: "PC",
       }),
     );
+  });
+
+  it("stampa ade_registered_at, non il createdAt della riga", async () => {
+    await generatePdfResponse(MOCK_DATA);
+    expect(mockGeneratePdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        adeRegisteredAt: new Date("2026-02-23T10:30:00Z"),
+      }),
+    );
+    expect(mockGeneratePdf.mock.calls[0][0]).not.toHaveProperty("createdAt");
   });
 
   it("usa paymentMethod PE quando specificato nel publicRequest", async () => {

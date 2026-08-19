@@ -57,7 +57,13 @@ export interface SaleReceiptPdfData {
   zipCode: string | null;
   lines: SaleReceiptLine[];
   paymentMethod: "PC" | "PE";
-  createdAt: Date;
+  /**
+   * Istante registrato dall'AdE (`commercial_documents.ade_registered_at`),
+   * NON il `createdAt` della riga: quello precede la risposta AdE di tutta la
+   * latenza del round-trip, e stamparlo darebbe al cliente un orario che
+   * l'Agenzia non ha mai visto.
+   */
+  adeRegisteredAt: Date;
   adeProgressive: string;
   adeTransactionId: string;
   /** Codice Lotteria degli Scontrini (8 char, solo PE) */
@@ -340,7 +346,7 @@ function drawVatLegend(doc: Doc, cur: Cursor, lines: SaleReceiptLine[]): void {
  * caption su riga propria, infine il QR verso la copia pubblica.
  */
 function drawFooter(doc: Doc, cur: Cursor, data: SaleReceiptPdfData): void {
-  drawText(doc, cur, formatReceiptDateTime(data.createdAt), {
+  drawText(doc, cur, formatReceiptDateTime(data.adeRegisteredAt), {
     align: "center",
   });
   drawText(doc, cur, `DOCUMENTO N. ${data.adeProgressive}`, {

@@ -39,7 +39,7 @@ interface PdfReceiptInput {
     publicRequest: unknown;
     adeProgressive: string | null;
     adeTransactionId: string | null;
-    createdAt: Date;
+    adeRegisteredAt: Date;
   };
   biz: {
     businessName: string | null;
@@ -119,7 +119,7 @@ export async function generatePdfResponse(
     zipCode: biz.zipCode,
     lines: pdfLines,
     paymentMethod,
-    createdAt: doc.createdAt,
+    adeRegisteredAt: doc.adeRegisteredAt,
     adeProgressive: doc.adeProgressive ?? "",
     adeTransactionId: doc.adeTransactionId ?? "",
     lotteryCode,

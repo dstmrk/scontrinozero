@@ -35,7 +35,7 @@ const BASE_DATA: SaleReceiptPdfData = {
     },
   ],
   paymentMethod: "PC",
-  createdAt: new Date("2026-02-15T12:30:00Z"),
+  adeRegisteredAt: new Date("2026-02-15T12:30:00Z"),
   adeProgressive: "DCW2026/5111-0042",
   adeTransactionId: "TRX-0042",
 };
