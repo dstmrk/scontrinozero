@@ -257,6 +257,46 @@ sub-step finiscono nello stesso group.
 
 ---
 
+## Warning di runtime nei log del container: censire prima di sospettare
+
+`MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11
+close listeners added to [ServerResponse]` **non è una perdita nostra**. Il
+tetto di Node è 10 per emitter; una singola risposta in Next 16 standalone ne
+accumula 8 (route leggera) fino a 11 (pagina RSC o route in streaming), e
+NESSUNO di quei listener è codice applicativo: 2 li mette `@sentry/core`
+(`recordRequestSession` per la release health e `setContext("response")` in
+`server-subscription`), gli altri Next (cleanup zlib del router, due passate di
+`signalFromNodeResponse`, `res.onClose` delle fetch metrics, `AfterContext`,
+abort controller + writer della pipe RSC). Muoiono tutti con la risposta.
+
+Fix in repo: `SERVER_RESPONSE_MAX_LISTENERS` in `src/instrumentation.ts`, alzato
+**solo** sul prototype di `http.ServerResponse` — mai
+`EventEmitter.defaultMaxListeners`, che nasconderebbe una perdita vera su pool
+DB o stream pdfkit — e abbastanza basso da far riscattare il warning se un
+domani qualcuno registrasse davvero listener per-risposta senza rimuoverli.
+
+**Metodo, riusabile per qualsiasi warning opaco di Node** (regola 13: niente
+fix su ipotesi). Il sorgente non basta, i listener arrivano dalle dipendenze:
+
+1. `npm run build` + avvia `.next/standalone/server.js` con
+   `node --trace-warnings -r <preload>.cjs server.js`.
+2. Nel preload, wrappa `http.ServerResponse.prototype.on/once/addListener`,
+   confronta `listenerCount(event)` prima e dopo (la chiamata interna che
+   `once()` delega a `on()` NON è un secondo listener: senza il confronto si
+   conta il doppio) e stampa la prima frame di stack utile.
+3. Filtra dalla stack `node:internal`, `node:events` e
+   `next/dist/compiled/compression` — la middleware di compressione rimpiazza
+   `res.on` e si intrufola come frame in cima a ogni add, nascondendo il
+   chiamante vero.
+4. `assertIdentityEnv()` fa **fallire il boot** se `NEXT_PUBLIC_APP_URL` non è
+   https (regola 24): per un repro locale serve un build con un hostname
+   https finto, non `http://localhost:3000`.
+5. Sentry si instrumenta solo con la DSN valorizzata: senza
+   `NEXT_PUBLIC_SENTRY_DSN` (baked al build, regola 18) mancano 2 listener su
+   8 e il censimento risulta falsato.
+
+---
+
 ## Smoke post-deploy → skill `deploy-release`
 
 La procedura canonica dei tre probe (live + env + drain, regole 21+25) vive
