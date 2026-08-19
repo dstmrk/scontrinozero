@@ -65,7 +65,7 @@ export function CassaClient({
     documentId?: string;
     adeProgressive?: string;
     adeTransactionId?: string;
-    createdAt?: string;
+    adeRegisteredAt?: string;
     /** Righe emesse, congelate PRIMA di svuotare il carrello. */
     lines: CartLine[];
     paymentMethod: PaymentMethod;
@@ -156,7 +156,7 @@ export function CassaClient({
         documentId: result.documentId,
         adeProgressive: result.adeProgressive,
         adeTransactionId: result.adeTransactionId,
-        createdAt: result.createdAt,
+        adeRegisteredAt: result.adeRegisteredAt,
         lines: emittedLines,
         paymentMethod: emittedPaymentMethod,
         lotteryCode: emittedLotteryCode,
@@ -232,7 +232,7 @@ export function CassaClient({
         documentId={successData?.documentId}
         adeProgressive={successData?.adeProgressive}
         adeTransactionId={successData?.adeTransactionId}
-        createdAt={successData?.createdAt}
+        adeRegisteredAt={successData?.adeRegisteredAt}
         lines={successData?.lines ?? []}
         paymentMethod={successData?.paymentMethod ?? paymentMethod}
         lotteryCode={successData?.lotteryCode ?? null}

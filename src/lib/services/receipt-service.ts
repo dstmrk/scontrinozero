@@ -61,7 +61,8 @@ const PAYMENT_METHOD_TO_ADE: Record<PaymentMethod, PaymentType> = {
 };
 
 /**
- * Serializza il `createdAt` della riga in ISO 8601 per `SubmitReceiptResult`.
+ * Serializza in ISO 8601 il timestamp fiscale della riga per
+ * `SubmitReceiptResult`.
  *
  * Difensiva sul tipo: a seconda del percorso Drizzle/driver la colonna può
  * arrivare come `Date` o già come stringa. Un valore assente o non
@@ -266,6 +267,7 @@ async function handleExistingReceipt(args: {
       adeTransactionId: commercialDocuments.adeTransactionId,
       adeProgressive: commercialDocuments.adeProgressive,
       createdAt: commercialDocuments.createdAt,
+      adeRegisteredAt: commercialDocuments.adeRegisteredAt,
       updatedAt: commercialDocuments.updatedAt,
       requestHash: commercialDocuments.requestHash,
     })
@@ -332,7 +334,7 @@ async function handleExistingReceipt(args: {
       documentId: existing.id,
       adeTransactionId: existing.adeTransactionId ?? undefined,
       adeProgressive: existing.adeProgressive ?? undefined,
-      createdAt: toIsoDate(existing.createdAt),
+      adeRegisteredAt: toIsoDate(existing.adeRegisteredAt),
     };
   }
 
@@ -522,7 +524,7 @@ async function finalizeSaleOnly(
           )
           .returning({
             id: commercialDocuments.id,
-            createdAt: commercialDocuments.createdAt,
+            adeRegisteredAt: commercialDocuments.adeRegisteredAt,
           }),
       ),
     );
@@ -547,7 +549,7 @@ async function finalizeSaleOnly(
       documentId,
       adeTransactionId,
       adeProgressive,
-      createdAt: toIsoDate(updated[0]?.createdAt),
+      adeRegisteredAt: toIsoDate(updated[0]?.adeRegisteredAt),
     };
   } catch (err) {
     logger.error(
@@ -986,7 +988,7 @@ async function runSubmitSale(
         ...adeRegisteredAtPatch(adeResponse),
       })
       .where(eq(commercialDocuments.id, documentId))
-      .returning({ createdAt: commercialDocuments.createdAt }),
+      .returning({ adeRegisteredAt: commercialDocuments.adeRegisteredAt }),
   );
 
   logger.info(
@@ -1004,6 +1006,6 @@ async function runSubmitSale(
     documentId,
     adeTransactionId: adeResponse.idtrx ?? undefined,
     adeProgressive: adeResponse.progressivo ?? undefined,
-    createdAt: toIsoDate(accepted[0]?.createdAt),
+    adeRegisteredAt: toIsoDate(accepted[0]?.adeRegisteredAt),
   };
 }

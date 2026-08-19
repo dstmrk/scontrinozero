@@ -52,7 +52,15 @@ const mockInsert = vi.fn();
 // claim CAS (P1.3): db.update().set().where().returning() → rows rivendicate.
 // Default: claim vinto (1 riga). Override con mockResolvedValueOnce([]) per simulare
 // un retry concorrente che perde la corsa.
-const mockClaimReturning = vi.fn().mockResolvedValue([{ id: "doc-claimed" }]);
+// L'UPDATE ad ACCEPTED e quella di finalize-recovery leggono da qui il
+// timestamp fiscale con cui rispondono al client (migrazione 0031): la riga
+// restituita deve portarlo, come lo porterebbe il DB.
+const mockClaimReturning = vi.fn().mockResolvedValue([
+  {
+    id: "doc-claimed",
+    adeRegisteredAt: new Date("2026-08-18T17:05:10.000Z"),
+  },
+]);
 // `.where()` è terminale per gli UPDATE post-AdE (awaited direttamente → undefined)
 // ma il claim CAS vi concatena `.returning()`. Il thenable soddisfa entrambi.
 const mockUpdateWhere = vi.fn().mockReturnValue({
@@ -242,6 +250,17 @@ describe("emitReceiptForBusiness", () => {
     expect(acceptedSet.adeRegisteredAt).toEqual(
       new Date("2026-08-18T17:05:10.000Z"),
     );
+  });
+
+  // Il risultato alimenta la stampa termica subito dopo l'emissione
+  // (`receipt-success.tsx`): se tornasse `createdAt` la carta porterebbe un
+  // orario diverso dal PDF e dalla ricevuta pubblica, che leggono la colonna.
+  it("restituisce adeRegisteredAt, non il createdAt della riga", async () => {
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.adeRegisteredAt).toBe("2026-08-18T17:05:10.000Z");
+    expect(result).not.toHaveProperty("createdAt");
   });
 
   // Sovrascrivere con undefined su una colonna NOT NULL nasconderebbe la
@@ -1334,11 +1353,14 @@ describe("emitReceiptForBusiness", () => {
     // CRITICO: submitSale NON deve essere ri-chiamato (doppio doc fiscale)
     expect(mockLogin).not.toHaveBeenCalled();
     expect(mockSubmitSale).not.toHaveBeenCalled();
-    // Result rispecchia l'AdE IDs già pre-esistenti
+    // Result rispecchia l'AdE IDs già pre-esistenti, più il timestamp fiscale
+    // letto dalla riga finalizzata: anche in recovery la stampa termica deve
+    // avere la stessa data del PDF.
     expect(result).toEqual({
       documentId: "doc-recovered",
       adeTransactionId: "prev-tx-id",
       adeProgressive: "prev-prog",
+      adeRegisteredAt: "2026-08-18T17:05:10.000Z",
     });
   });
 

@@ -164,14 +164,17 @@ export type SubmitReceiptResult = {
   adeTransactionId?: string;
   adeProgressive?: string;
   /**
-   * Data di creazione del documento in DB, ISO 8601.
+   * Istante di registrazione del documento presso l'AdE, ISO 8601
+   * (`commercial_documents.ade_registered_at`, migrazione 0031).
    *
    * Serve alla stampa su termica: sullo scontrino di carta la data deve essere
    * quella del documento — la stessa che finisce sul PDF e sulla ricevuta
    * pubblica — non un `new Date()` preso sul client, che divergerebbe di
-   * qualche secondo e, a cavallo della mezzanotte, di un giorno.
+   * qualche secondo e, a cavallo della mezzanotte, di un giorno. E nemmeno il
+   * `createdAt` della riga, scritto PRIMA della chiamata AdE e quindi in
+   * anticipo di tutta la latenza del round-trip (2-5s).
    */
-  createdAt?: string;
+  adeRegisteredAt?: string;
   passwordExpired?: boolean;
   /**
    * La sessione AdE interattiva (CIE) è assente/scaduta: l'utente deve
