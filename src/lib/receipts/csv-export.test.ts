@@ -57,7 +57,11 @@ vi.mock("drizzle-orm", () => ({
 
 import {
   RECEIPT_CSV_HEADERS,
+  RECEIPT_LINES_CSV_HEADERS,
+  buildReceiptLinesCsvStream,
   buildReceiptsCsvStream,
+  formatItalianQuantity,
+  formatReceiptLineRows,
   formatReceiptRow,
   joinLineDescriptions,
   type ReceiptDocRow,
@@ -290,47 +294,248 @@ describe("formatReceiptRow", () => {
   });
 });
 
-describe("buildReceiptsCsvStream", () => {
-  function setupDbMock(docs: ReceiptDocRow[]) {
-    const limit = vi.fn().mockImplementation(() => {
-      // First call returns the docs; subsequent calls return empty (loop exit).
-      limit.mockResolvedValue([]);
-      return Promise.resolve(docs);
-    });
-    const offset = vi.fn().mockReturnValue({ then: undefined });
-    const order = vi.fn();
-    const where = vi.fn();
-    const leftJoin = vi.fn();
-    const from = vi.fn();
-    const select = vi.fn();
+function setupDbMock(docs: ReceiptDocRow[]) {
+  const limit = vi.fn().mockImplementation(() => {
+    // First call returns the docs; subsequent calls return empty (loop exit).
+    limit.mockResolvedValue([]);
+    return Promise.resolve(docs);
+  });
+  const offset = vi.fn().mockReturnValue({ then: undefined });
+  const order = vi.fn();
+  const where = vi.fn();
+  const leftJoin = vi.fn();
+  const from = vi.fn();
+  const select = vi.fn();
 
-    select.mockReturnValue({ from });
-    from.mockReturnValue({ leftJoin });
-    leftJoin.mockReturnValue({ where });
-    where.mockReturnValue({ orderBy: order });
-    order.mockReturnValue({ limit: () => ({ offset: offset }) });
-    offset.mockImplementation((n: number) => {
-      return n === 0 ? Promise.resolve(docs) : Promise.resolve([]);
-    });
+  select.mockReturnValue({ from });
+  from.mockReturnValue({ leftJoin });
+  leftJoin.mockReturnValue({ where });
+  where.mockReturnValue({ orderBy: order });
+  order.mockReturnValue({ limit: () => ({ offset: offset }) });
+  offset.mockImplementation((n: number) => {
+    return n === 0 ? Promise.resolve(docs) : Promise.resolve([]);
+  });
 
-    mockGetDb.mockReturnValue({ select });
+  mockGetDb.mockReturnValue({ select });
+}
+
+async function streamToString(
+  stream: ReadableStream<Uint8Array>,
+): Promise<string> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
+  let out = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) out += decoder.decode(value, { stream: true });
   }
+  out += decoder.decode();
+  return out;
+}
 
-  async function streamToString(
-    stream: ReadableStream<Uint8Array>,
-  ): Promise<string> {
-    const reader = stream.getReader();
-    const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
-    let out = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) out += decoder.decode(value, { stream: true });
+describe("RECEIPT_LINES_CSV_HEADERS", () => {
+  it("elenca le colonne del dettaglio, con la chiave di join in fondo", () => {
+    expect(RECEIPT_LINES_CSV_HEADERS).toEqual([
+      "data",
+      "ora",
+      "numero_ade",
+      "stato",
+      "riga",
+      "descrizione",
+      "quantita",
+      "prezzo_unitario",
+      "totale_riga",
+      "aliquota",
+      "id_scontrino",
+    ]);
+  });
+
+  it("condivide con il riepilogo le colonne che ricollegano i due file", () => {
+    for (const shared of ["data", "ora", "numero_ade", "id_scontrino"]) {
+      expect(RECEIPT_CSV_HEADERS).toContain(shared);
+      expect(RECEIPT_LINES_CSV_HEADERS).toContain(shared);
     }
-    out += decoder.decode();
-    return out;
-  }
+  });
+});
 
+describe("formatItalianQuantity", () => {
+  // `numeric(10,3)` arriva da Postgres come "2.000": scritto cosi' nel CSV,
+  // Excel italiano lo legge come DUEMILA.
+  it("converte la stringa numeric in decimale italiano senza zeri di coda", () => {
+    expect(formatItalianQuantity("2.000")).toBe("2");
+    expect(formatItalianQuantity("0.500")).toBe("0,5");
+    expect(formatItalianQuantity("1.250")).toBe("1,25");
+    expect(formatItalianQuantity("12.345")).toBe("12,345");
+  });
+
+  it("tiene gli interi senza parte decimale", () => {
+    expect(formatItalianQuantity("10.000")).toBe("10");
+    expect(formatItalianQuantity("1000.000")).toBe("1000");
+  });
+
+  it("gestisce null e valori non numerici", () => {
+    expect(formatItalianQuantity(null)).toBe("0");
+    expect(formatItalianQuantity("abc")).toBe("");
+  });
+});
+
+describe("formatReceiptLineRows", () => {
+  const lines = [
+    {
+      id: "l1",
+      documentId: "doc-1",
+      lineIndex: 0,
+      description: "Caffè",
+      quantity: "2.000",
+      grossUnitPrice: "1.20",
+      vatCode: "22",
+    },
+    {
+      id: "l2",
+      documentId: "doc-1",
+      lineIndex: 1,
+      description: "Cornetto",
+      quantity: "1.000",
+      grossUnitPrice: "1.50",
+      vatCode: "10",
+    },
+  ];
+
+  it("emette una riga per voce venduta", () => {
+    const rows = formatReceiptLineRows(doc(), lines);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toEqual([
+      "19/05/2026",
+      "14:35:01",
+      "00042",
+      "emesso",
+      "1",
+      "Caffè",
+      "2",
+      "1,20",
+      "2,40",
+      "22",
+      "doc-1",
+    ]);
+  });
+
+  it("numera le righe da 1, non da 0", () => {
+    const rows = formatReceiptLineRows(doc(), lines);
+    expect(rows[0][4]).toBe("1");
+    expect(rows[1][4]).toBe("2");
+  });
+
+  it("ripete i dati del documento su ogni riga (pivot-ready)", () => {
+    const rows = formatReceiptLineRows(doc(), lines);
+    for (const row of rows) {
+      expect(row.slice(0, 4)).toEqual([
+        "19/05/2026",
+        "14:35:01",
+        "00042",
+        "emesso",
+      ]);
+      expect(row[10]).toBe("doc-1");
+    }
+  });
+
+  it("porta il codice aliquota cosi' com'e', natura incluse", () => {
+    const rows = formatReceiptLineRows(doc(), [{ ...lines[0], vatCode: "N2" }]);
+    expect(rows[0][9]).toBe("N2");
+  });
+
+  // Sommando `totale_riga` si deve riottenere il `totale` del riepilogo: e' la
+  // prima cosa che un commercialista verifica fra i due file. Entrambi
+  // derivano dai centesimi interi per riga (regola 17).
+  it("il totale riga riconcilia al centesimo col totale del riepilogo", () => {
+    // 3 righe da 0,10 * 1: in float 0.1+0.2 = 0.30000000000000004
+    const thirds = [0, 1, 2].map((i) => ({
+      ...lines[0],
+      lineIndex: i,
+      quantity: "1.000",
+      grossUnitPrice: "0.10",
+    }));
+    const rows = formatReceiptLineRows(doc(), thirds);
+    const sumCents = rows.reduce(
+      (acc, r) =>
+        acc + Math.round(Number.parseFloat(r[8].replace(",", ".")) * 100),
+      0,
+    );
+    expect(sumCents).toBe(30);
+    expect(rows.map((r) => r[8])).toEqual(["0,10", "0,10", "0,10"]);
+  });
+
+  it("arrotonda il mezzo centesimo per eccesso, non tronca", () => {
+    // 0,33 * 1,5 = 0,495 → 50 centesimi interi (round), non 49 (truncate).
+    // E' il caso che le quantita' frazionarie (etti, litri, ore) producono
+    // davvero in cassa.
+    const rows = formatReceiptLineRows(doc(), [
+      { ...lines[0], quantity: "1.500", grossUnitPrice: "0.33" },
+    ]);
+    expect(rows[0][6]).toBe("1,5");
+    expect(rows[0][8]).toBe("0,50");
+  });
+
+  it("restituisce nessuna riga su un documento senza voci", () => {
+    expect(formatReceiptLineRows(doc(), [])).toEqual([]);
+  });
+});
+
+describe("buildReceiptLinesCsvStream", () => {
+  it("emette BOM e header del dettaglio anche senza documenti", async () => {
+    setupDbMock([]);
+    const body = await streamToString(
+      buildReceiptLinesCsvStream({
+        businessId: "biz-1",
+        status: null,
+        dateFrom: null,
+        dateTo: null,
+      }),
+    );
+    expect(body.charCodeAt(0)).toBe(0xfeff);
+    expect(body).toContain("data;ora;numero_ade;stato;riga;descrizione");
+  });
+
+  it("espande uno scontrino di 2 voci in 2 righe CSV", async () => {
+    const docLines = [
+      {
+        documentId: "d1",
+        lineIndex: 0,
+        description: "Caffè",
+        quantity: "2.000",
+        grossUnitPrice: "1.20",
+        vatCode: "22",
+      },
+      {
+        documentId: "d1",
+        lineIndex: 1,
+        description: "Cornetto",
+        quantity: "1.000",
+        grossUnitPrice: "1.50",
+        vatCode: "10",
+      },
+    ];
+    setupDbMock([doc({ id: "d1" })]);
+    mockFetchLinesByDocIds.mockResolvedValue(docLines);
+    mockGroupLinesByDocId.mockReturnValue(new Map([["d1", docLines]]));
+
+    const body = await streamToString(
+      buildReceiptLinesCsvStream({
+        businessId: "biz-1",
+        status: null,
+        dateFrom: null,
+        dateTo: null,
+      }),
+    );
+
+    const rows = body.split("\r\n").filter(Boolean);
+    expect(rows).toHaveLength(3); // header + 2 voci
+    expect(rows[1].split(";")[5]).toBe("Caffè");
+    expect(rows[2].split(";")[5]).toBe("Cornetto");
+  });
+});
+
+describe("buildReceiptsCsvStream", () => {
   it("emits BOM + header row when there are no documents", async () => {
     setupDbMock([]);
     const stream = buildReceiptsCsvStream({

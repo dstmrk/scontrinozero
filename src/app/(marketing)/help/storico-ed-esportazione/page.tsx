@@ -190,9 +190,30 @@ export default function StoricoEdEsportazionePage() {
           L&apos;esportazione dello storico scontrini in formato CSV è
           disponibile sul piano <strong>Pro</strong>. Dalla pagina{" "}
           <strong>Storico</strong>, dopo aver impostato i filtri per periodo e
-          stato, premi il pulsante <strong>Esporta CSV</strong>: il file
-          scaricato contiene gli scontrini del periodo selezionato, pronto da
-          consegnare al commercialista o da importare nella tua contabilità.
+          stato, premi il pulsante <strong>Esporta CSV</strong> e scegli il
+          taglio che ti serve: il file contiene gli scontrini del periodo
+          selezionato, pronto da consegnare al commercialista o da importare
+          nella tua contabilità.
+        </p>
+        <ul className="text-muted-foreground mt-3 space-y-2 text-sm leading-relaxed">
+          <li>
+            <strong>Riepilogo scontrini</strong> — una riga per scontrino, con
+            totale, metodo di pagamento e l&apos;elenco delle voci vendute in
+            una sola colonna. È il file da consegnare per la chiusura del
+            periodo.
+          </li>
+          <li>
+            <strong>Dettaglio articoli</strong> — una riga per ogni voce
+            venduta, con quantità, prezzo unitario e aliquota IVA. È il file da
+            usare per capire cosa hai venduto: si presta alle tabelle pivot e al
+            riepilogo per aliquota.
+          </li>
+        </ul>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          I filtri della pagina valgono per entrambi: scarichi sempre lo stesso
+          periodo, visto in due modi. La colonna <code>id_scontrino</code>,
+          presente in tutti e due i file, permette di ricollegare ogni voce del
+          dettaglio al suo scontrino nel riepilogo.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Il file si apre con un doppio clic in Excel, Numbers o LibreOffice: le
@@ -201,7 +222,7 @@ export default function StoricoEdEsportazionePage() {
           sono quelle registrate dall&apos;Agenzia delle Entrate, le stesse
           stampate sul documento consegnato al cliente.
         </p>
-        <h3 className="mt-6 text-lg font-semibold">Le colonne del file</h3>
+        <h3 className="mt-6 text-lg font-semibold">Le colonne del riepilogo</h3>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="text-foreground border-b">
@@ -279,6 +300,70 @@ export default function StoricoEdEsportazionePage() {
                 <td className="py-2">
                   Identificativo della trasmissione all&apos;Agenzia delle
                   Entrate
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <h3 className="mt-6 text-lg font-semibold">Le colonne del dettaglio</h3>
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="text-foreground border-b">
+              <tr>
+                <th className="py-2 pr-4 font-medium">Colonna</th>
+                <th className="py-2 font-medium">Contenuto</th>
+              </tr>
+            </thead>
+            <tbody className="text-muted-foreground divide-y">
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">
+                  data, ora, numero_ade, stato
+                </td>
+                <td className="py-2">
+                  Gli stessi dati del riepilogo, ripetuti su ogni voce dello
+                  scontrino
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">riga</td>
+                <td className="py-2">
+                  Posizione della voce nello scontrino, a partire da 1
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">descrizione</td>
+                <td className="py-2">Il prodotto o servizio venduto</td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">quantita</td>
+                <td className="py-2">
+                  Quantità venduta, anche frazionaria (0,5 · 1,25)
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">prezzo_unitario</td>
+                <td className="py-2">Prezzo lordo di una singola unità</td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">totale_riga</td>
+                <td className="py-2">
+                  Quantità × prezzo unitario. La somma di questa colonna
+                  coincide al centesimo con il <code>totale</code> del riepilogo
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">aliquota</td>
+                <td className="py-2">
+                  Aliquota IVA della voce (<code>4</code>, <code>5</code>,{" "}
+                  <code>10</code>, <code>22</code>) oppure il codice natura per
+                  le operazioni non soggette (<code>N1</code>–<code>N6</code>)
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">id_scontrino</td>
+                <td className="py-2">
+                  Lo scontrino a cui la voce appartiene: è la colonna che
+                  ricollega i due file
                 </td>
               </tr>
             </tbody>

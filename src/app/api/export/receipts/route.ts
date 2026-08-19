@@ -11,6 +11,7 @@ import {
   parseRomeDayStartUtc,
 } from "@/lib/date-utils";
 import {
+  buildReceiptLinesCsvStream,
   buildReceiptsCsvStream,
   type ReceiptStatusFilter,
 } from "@/lib/receipts/csv-export";
@@ -23,6 +24,18 @@ const csvExportLimiter = new RateLimiter({
 const STATUS_VALUES = ["ACCEPTED", "VOID_ACCEPTED"] as const;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+/**
+ * Due tagli dello stesso periodo: `summary` una riga per scontrino,
+ * `detail` una riga per voce venduta. Un solo endpoint e non due perche' auth,
+ * plan gate, rate limit e parsing delle date sono identici: duplicarli
+ * significherebbe poterli far divergere.
+ *
+ * Default `summary`: e' il gesto che esisteva prima: un link senza il
+ * parametro continua a scaricare lo stesso file di sempre.
+ */
+const FORMAT_VALUES = ["summary", "detail"] as const;
+type ExportFormat = (typeof FORMAT_VALUES)[number];
+
 const querySchema = z.object({
   from: z
     .string()
@@ -33,14 +46,22 @@ const querySchema = z.object({
     .regex(ISO_DATE, "Formato data 'to' non valido (yyyy-MM-dd).")
     .optional(),
   status: z.enum(STATUS_VALUES).optional(),
+  format: z.enum(FORMAT_VALUES).optional(),
 });
 
 function errorJson(status: number, error: string): Response {
   return Response.json({ error }, { status });
 }
 
-function buildFilename(from: string = "tutti", to: string = "tutti"): string {
-  return `scontrini-${from}-${to}.csv`;
+function buildFilename(
+  format: ExportFormat,
+  from: string = "tutti",
+  to: string = "tutti",
+): string {
+  // Prefisso diverso: i due file finiscono nella stessa cartella Download e
+  // con lo stesso nome il secondo diventerebbe "scontrini-… (1).csv".
+  const prefix = format === "detail" ? "articoli" : "scontrini";
+  return `${prefix}-${from}-${to}.csv`;
 }
 
 export async function GET(req: Request): Promise<Response> {
@@ -49,6 +70,7 @@ export async function GET(req: Request): Promise<Response> {
     from: url.searchParams.get("from") ?? undefined,
     to: url.searchParams.get("to") ?? undefined,
     status: url.searchParams.get("status") ?? undefined,
+    format: url.searchParams.get("format") ?? undefined,
   });
   if (!parsed.success) {
     return errorJson(
@@ -57,6 +79,7 @@ export async function GET(req: Request): Promise<Response> {
     );
   }
   const { from, to, status } = parsed.data;
+  const format: ExportFormat = parsed.data.format ?? "summary";
 
   // getAuthenticatedUser (non getUser() diretto): bind Sentry.setUser({ id })
   // (regola 22) e touch last_seen_at gratis anche per chi usa l'app solo per
@@ -114,18 +137,22 @@ export async function GET(req: Request): Promise<Response> {
     );
   }
 
-  const stream = buildReceiptsCsvStream({
+  const streamParams = {
     businessId: biz.id,
     status: (status as ReceiptStatusFilter | undefined) ?? null,
     dateFrom,
     dateTo: dateToExclusive,
-  });
+  };
+  const stream =
+    format === "detail"
+      ? buildReceiptLinesCsvStream(streamParams)
+      : buildReceiptsCsvStream(streamParams);
 
   return new Response(stream, {
     status: 200,
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${buildFilename(from, to)}"`,
+      "Content-Disposition": `attachment; filename="${buildFilename(format, from, to)}"`,
       "Cache-Control": "no-store",
     },
   });

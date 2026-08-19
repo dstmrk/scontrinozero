@@ -2,8 +2,28 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ExportCsvButton } from "./export-csv-button";
 
+/**
+ * Apre il menu del trigger Radix. In jsdom il click non basta: DropdownMenu
+ * apre su `pointerdown`, che fireEvent.click non emette.
+ */
+function openExportMenu() {
+  fireEvent.pointerDown(screen.getByRole("button", { name: /esporta csv/i }), {
+    button: 0,
+    ctrlKey: false,
+    pointerType: "mouse",
+  });
+}
+
+/** I due item del menu, nell'ordine in cui l'utente li incontra. */
+function menuLinks() {
+  return {
+    riepilogo: screen.getByRole("menuitem", { name: /riepilogo scontrini/i }),
+    dettaglio: screen.getByRole("menuitem", { name: /dettaglio articoli/i }),
+  };
+}
+
 describe("ExportCsvButton", () => {
-  it("renders an enabled download link for the pro plan", () => {
+  it("offre i due formati di export al piano pro", () => {
     render(
       <ExportCsvButton
         plan="pro"
@@ -12,15 +32,40 @@ describe("ExportCsvButton", () => {
         status={null}
       />,
     );
-    const link = screen.getByRole("link", { name: /esporta csv/i });
-    expect(link).toHaveAttribute(
+    openExportMenu();
+
+    const { riepilogo, dettaglio } = menuLinks();
+    // Il riepilogo e' la prima voce: e' il gesto abituale.
+    expect(riepilogo).toHaveAttribute(
       "href",
       "/api/export/receipts?from=2026-01-01&to=2026-05-19",
     );
-    expect(link).toHaveAttribute("download");
+    expect(dettaglio).toHaveAttribute(
+      "href",
+      "/api/export/receipts?from=2026-01-01&to=2026-05-19&format=detail",
+    );
+    expect(riepilogo).toHaveAttribute("download");
+    expect(dettaglio).toHaveAttribute("download");
   });
 
-  it("includes the status filter in the URL when set", () => {
+  it("apre il menu anche da tastiera", () => {
+    render(
+      <ExportCsvButton
+        plan="pro"
+        dateFrom="2026-01-01"
+        dateTo="2026-05-19"
+        status={null}
+      />,
+    );
+    // Chi arriva col Tab non emette pointerdown: senza la gestione da
+    // tastiera l'export sarebbe irraggiungibile senza mouse.
+    fireEvent.keyDown(screen.getByRole("button", { name: /esporta csv/i }), {
+      key: "Enter",
+    });
+    expect(menuLinks().riepilogo).toBeInTheDocument();
+  });
+
+  it("includes the status filter in the URL when set, su entrambi i formati", () => {
     render(
       <ExportCsvButton
         plan="pro"
@@ -29,14 +74,22 @@ describe("ExportCsvButton", () => {
         status="VOID_ACCEPTED"
       />,
     );
-    const link = screen.getByRole("link", { name: /esporta csv/i });
-    expect(link).toHaveAttribute(
+    openExportMenu();
+
+    const { riepilogo, dettaglio } = menuLinks();
+    expect(riepilogo).toHaveAttribute(
       "href",
       "/api/export/receipts?from=2026-01-01&to=2026-05-19&status=VOID_ACCEPTED",
     );
+    // I filtri della pagina valgono per entrambi i tagli: un dettaglio che
+    // ignorasse lo stato non tornerebbe col riepilogo scaricato accanto.
+    expect(dettaglio).toHaveAttribute(
+      "href",
+      "/api/export/receipts?from=2026-01-01&to=2026-05-19&status=VOID_ACCEPTED&format=detail",
+    );
   });
 
-  it("renders the download link for unlimited treated as pro (same behaviour)", () => {
+  it("renders the download menu for unlimited treated as pro (same behaviour)", () => {
     render(
       <ExportCsvButton
         plan="unlimited"
@@ -45,12 +98,11 @@ describe("ExportCsvButton", () => {
         status={null}
       />,
     );
-    const link = screen.getByRole("link", { name: /esporta csv/i });
-    expect(link).toHaveAttribute(
+    openExportMenu();
+    expect(menuLinks().riepilogo).toHaveAttribute(
       "href",
       "/api/export/receipts?from=2026-01-01&to=2026-05-19",
     );
-    expect(link).toHaveAttribute("download");
   });
 
   it("renders a Pro-marked trigger button (not a link) for non-Pro plans", () => {
@@ -107,7 +159,7 @@ describe("ExportCsvButton", () => {
     expect(upsell).toHaveAttribute("href", "/dashboard/settings#billing");
   });
 
-  it("renders the download link for an active trial (trial = Pro)", () => {
+  it("renders the download menu for an active trial (trial = Pro)", () => {
     render(
       <ExportCsvButton
         plan="trial"
@@ -117,12 +169,10 @@ describe("ExportCsvButton", () => {
         status={null}
       />,
     );
-    const link = screen.getByRole("link", { name: /esporta csv/i });
-    expect(link).toHaveAttribute(
-      "href",
-      "/api/export/receipts?from=2026-01-01&to=2026-05-19",
-    );
-    expect(link).toHaveAttribute("download");
+    openExportMenu();
+    const { riepilogo, dettaglio } = menuLinks();
+    expect(riepilogo).toHaveAttribute("download");
+    expect(dettaglio).toHaveAttribute("download");
   });
 
   it("treats an expired trial as non-Pro (upsell dialog)", () => {

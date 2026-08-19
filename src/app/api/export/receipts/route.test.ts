@@ -7,12 +7,14 @@ const {
   mockRateLimiterCheck,
   mockSelect,
   mockBuildReceiptsCsvStream,
+  mockBuildReceiptLinesCsvStream,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
   mockAssertProPlan: vi.fn(),
   mockRateLimiterCheck: vi.fn(),
   mockSelect: vi.fn(),
   mockBuildReceiptsCsvStream: vi.fn(),
+  mockBuildReceiptLinesCsvStream: vi.fn(),
 }));
 
 vi.mock("@/lib/server-auth", () => ({
@@ -49,6 +51,7 @@ vi.mock("@/lib/logger", () => ({
 
 vi.mock("@/lib/receipts/csv-export", () => ({
   buildReceiptsCsvStream: mockBuildReceiptsCsvStream,
+  buildReceiptLinesCsvStream: mockBuildReceiptLinesCsvStream,
 }));
 
 import { GET } from "./route";
@@ -92,6 +95,7 @@ beforeEach(() => {
   });
   mockSelect.mockReturnValue(makeSelectBuilder([{ id: "biz-1" }]));
   mockBuildReceiptsCsvStream.mockReturnValue(makeFakeStream());
+  mockBuildReceiptLinesCsvStream.mockReturnValue(makeFakeStream());
 });
 
 describe("GET /api/export/receipts", () => {
@@ -172,6 +176,44 @@ describe("GET /api/export/receipts", () => {
       // del giorno italiano successivo (20/05, CEST).
       dateTo: new Date("2026-05-19T22:00:00.000Z"),
     });
+  });
+
+  it("senza il parametro `format` scarica il riepilogo, come prima", async () => {
+    const res = await GET(makeRequest("?from=2026-01-01&to=2026-05-19"));
+    expect(mockBuildReceiptsCsvStream).toHaveBeenCalledTimes(1);
+    expect(mockBuildReceiptLinesCsvStream).not.toHaveBeenCalled();
+    expect(res.headers.get("Content-Disposition")).toContain(
+      'filename="scontrini-2026-01-01-2026-05-19.csv"',
+    );
+  });
+
+  it("con `format=detail` scarica il dettaglio, con un nome file diverso", async () => {
+    const res = await GET(
+      makeRequest("?from=2026-01-01&to=2026-05-19&format=detail"),
+    );
+    expect(mockBuildReceiptLinesCsvStream).toHaveBeenCalledTimes(1);
+    expect(mockBuildReceiptsCsvStream).not.toHaveBeenCalled();
+    // Prefisso diverso: i due file finiscono nella stessa cartella Download.
+    expect(res.headers.get("Content-Disposition")).toContain(
+      'filename="articoli-2026-01-01-2026-05-19.csv"',
+    );
+  });
+
+  it("passa gli stessi filtri a entrambi i formati", async () => {
+    await GET(makeRequest("?from=2026-01-01&to=2026-05-19&format=detail"));
+    expect(mockBuildReceiptLinesCsvStream).toHaveBeenCalledWith({
+      businessId: "biz-1",
+      status: null,
+      dateFrom: new Date("2025-12-31T23:00:00.000Z"),
+      dateTo: new Date("2026-05-19T22:00:00.000Z"),
+    });
+  });
+
+  it("restituisce 400 su un `format` non ammesso", async () => {
+    const res = await GET(makeRequest("?format=xml"));
+    expect(res.status).toBe(400);
+    expect(mockBuildReceiptsCsvStream).not.toHaveBeenCalled();
+    expect(mockBuildReceiptLinesCsvStream).not.toHaveBeenCalled();
   });
 
   it("passa null per i filtri opzionali assenti", async () => {

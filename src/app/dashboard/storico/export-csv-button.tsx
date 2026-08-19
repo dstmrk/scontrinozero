@@ -1,8 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { Download, Sparkles } from "lucide-react";
+import { ChevronDown, Download, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -32,23 +38,55 @@ interface ExportCsvButtonProps {
   readonly status: "ACCEPTED" | "VOID_ACCEPTED" | null;
 }
 
-function buildExportUrl(props: ExportCsvButtonProps): string {
+function buildExportUrl(
+  props: ExportCsvButtonProps,
+  format?: "detail",
+): string {
   const params = new URLSearchParams();
   params.set("from", props.dateFrom);
   params.set("to", props.dateTo);
   if (props.status) params.set("status", props.status);
+  if (format) params.set("format", format);
   return `/api/export/receipts?${params.toString()}`;
 }
 
 export function ExportCsvButton(props: ExportCsvButtonProps) {
   if (canUsePro(props.plan, null, props.trialStartedAt)) {
+    // Menu e non modale: chi scarica sempre lo stesso file paga un clic in
+    // piu' invece di una decisione in piu'. Il riepilogo resta la prima voce,
+    // cioe' quella che il gesto abituale incontra per prima.
     return (
-      <Button asChild variant="outline">
-        <a href={buildExportUrl(props)} download>
-          <Download className="size-4" aria-hidden />
-          Esporta CSV
-        </a>
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline">
+            <Download className="size-4" aria-hidden />
+            Esporta CSV
+            <ChevronDown className="size-4" aria-hidden />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem asChild>
+            <a href={buildExportUrl(props)} download>
+              <div className="flex flex-col gap-0.5">
+                <span className="font-medium">Riepilogo scontrini</span>
+                <span className="text-muted-foreground text-xs">
+                  Una riga per scontrino
+                </span>
+              </div>
+            </a>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <a href={buildExportUrl(props, "detail")} download>
+              <div className="flex flex-col gap-0.5">
+                <span className="font-medium">Dettaglio articoli</span>
+                <span className="text-muted-foreground text-xs">
+                  Una riga per voce venduta, con aliquota
+                </span>
+              </div>
+            </a>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
   }
 

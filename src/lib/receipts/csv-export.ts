@@ -13,6 +13,7 @@ import {
   fetchLinesByDocIds,
   groupLinesByDocId,
 } from "@/lib/receipts/document-lines";
+import type { SelectCommercialDocumentLine } from "@/db/schema/commercial-document-lines";
 import { CSV_BOM, rowToCsv } from "@/lib/csv";
 import { formatRomeDate, formatRomeTime } from "@/lib/date-utils";
 
@@ -172,6 +173,92 @@ export function formatReceiptRow(
   ];
 }
 
+/**
+ * Colonne del dettaglio, una riga per voce venduta.
+ *
+ * Ripete le colonne identificative del documento su ogni riga: e' cio' che
+ * rende il file utilizzabile in una tabella pivot senza dover prima
+ * "riempire" le celle vuote. `id_scontrino` e' la chiave con cui si ricollega
+ * al riepilogo.
+ *
+ * `aliquota` porta il codice IVA cosi' com'e' (`22`, `10`, `N2`…): imponibile
+ * e imposta NON sono qui: si calcolerebbero per riga, mentre il registro dei
+ * corrispettivi scorpora per aliquota sul totale del periodo — due strade che
+ * possono divergere di qualche centesimo. Meglio il dato certo (lordo +
+ * aliquota) che una colonna "IVA" che non regge il confronto col registro.
+ */
+export const RECEIPT_LINES_CSV_HEADERS = [
+  "data",
+  "ora",
+  "numero_ade",
+  "stato",
+  "riga",
+  "descrizione",
+  "quantita",
+  "prezzo_unitario",
+  "totale_riga",
+  "aliquota",
+  "id_scontrino",
+] as const;
+
+/**
+ * Numero decimale in convenzione italiana, senza zeri di coda.
+ *
+ * La quantita' arriva da Postgres come stringa `numeric(10,3)` — `"2.000"`,
+ * `"0.500"` — e scriverla cosi' nel CSV e' un bug silenzioso: Excel italiano
+ * legge `2.000` come **duemila**, perche' per lui il punto e' il separatore
+ * delle migliaia. Va riformattata: `2`, `0,5`.
+ */
+export function formatItalianQuantity(raw: string | null): string {
+  const value = Number.parseFloat(raw ?? "0");
+  if (!Number.isFinite(value)) return "";
+  // Fino a 3 decimali (la precisione della colonna), senza zeri inutili.
+  return value
+    .toFixed(3)
+    .replace(/\.?0+$/, "")
+    .replace(".", ",");
+}
+
+/**
+ * Righe CSV di dettaglio per uno scontrino: una per voce venduta.
+ *
+ * Il totale di riga usa il canone dei centesimi interi
+ * (`round(prezzo * quantita * 100)`, regola 17): sommando questa colonna si
+ * riottiene esattamente il `totale` del riepilogo, che deriva dagli stessi
+ * centesimi. Con un arrotondamento diverso i due file non tornerebbero, ed e'
+ * la prima cosa che un commercialista verifica.
+ */
+export function formatReceiptLineRows(
+  doc: ReceiptDocRow,
+  lines: readonly SelectCommercialDocumentLine[],
+): string[][] {
+  const data = formatRomeDate(doc.adeRegisteredAt);
+  const ora = formatRomeTime(doc.adeRegisteredAt);
+  const stato = STATUS_LABELS.get(doc.status) ?? doc.status;
+
+  return lines.map((line) => {
+    const lineTotalCents = Math.round(
+      Number.parseFloat(line.grossUnitPrice ?? "0") *
+        Number.parseFloat(line.quantity ?? "1") *
+        100,
+    );
+    return [
+      data,
+      ora,
+      doc.adeProgressive ?? "",
+      stato,
+      // 1-based: la prima voce dello scontrino e' la riga 1, non la riga 0.
+      String(line.lineIndex + 1),
+      line.description,
+      formatItalianQuantity(line.quantity),
+      formatItalianAmount(Number.parseFloat(line.grossUnitPrice ?? "0")),
+      formatItalianAmount(lineTotalCents / 100),
+      line.vatCode,
+      doc.id,
+    ];
+  });
+}
+
 function buildConditions(params: BuildCsvStreamParams) {
   const conditions = [
     eq(commercialDocuments.businessId, params.businessId),
@@ -239,17 +326,28 @@ async function fetchDocsBatch(
 }
 
 /**
+ * Righe CSV prodotte da un documento e dalle sue righe articolo. Il riepilogo
+ * ne restituisce una, il dettaglio una per articolo: e' l'unica differenza
+ * fra i due export, tutto il resto della pipeline e' condiviso.
+ */
+type DocRowsFormatter = (
+  doc: ReceiptDocRow,
+  lines: readonly SelectCommercialDocumentLine[],
+) => string[][];
+
+/**
  * Costruisce un ReadableStream<Uint8Array> con il CSV completo degli scontrini
- * filtrati. Emette in streaming: header riga 1, poi una riga per documento,
- * con totale calcolato dalle righe.
+ * filtrati: BOM, header riga 1, poi le righe prodotte da `formatRows`.
  *
  * Lo stream usa una cursor query (LIMIT/OFFSET) per evitare di tenere tutti
  * i documenti + lines in memoria contemporaneamente. Errori DB sono
  * propagati via `controller.error()` cosi' il client riceve un download
  * troncato (segnale che qualcosa e' andato storto).
  */
-export function buildReceiptsCsvStream(
+function buildCsvStream(
   params: BuildCsvStreamParams,
+  headers: readonly string[],
+  formatRows: DocRowsFormatter,
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
 
@@ -257,7 +355,7 @@ export function buildReceiptsCsvStream(
     async start(controller) {
       try {
         controller.enqueue(encoder.encode(CSV_BOM));
-        controller.enqueue(encoder.encode(rowToCsv(RECEIPT_CSV_HEADERS)));
+        controller.enqueue(encoder.encode(rowToCsv(headers)));
 
         let offset = 0;
         while (true) {
@@ -268,15 +366,9 @@ export function buildReceiptsCsvStream(
           const byDoc = groupLinesByDocId(lines);
 
           for (const doc of docs) {
-            const docLines = byDoc.get(doc.id) ?? [];
-            const total = calcDocTotal(docLines);
-            controller.enqueue(
-              encoder.encode(
-                rowToCsv(
-                  formatReceiptRow(doc, total, joinLineDescriptions(docLines)),
-                ),
-              ),
-            );
+            for (const row of formatRows(doc, byDoc.get(doc.id) ?? [])) {
+              controller.enqueue(encoder.encode(rowToCsv(row)));
+            }
           }
 
           if (docs.length < BATCH_SIZE) break;
@@ -289,4 +381,24 @@ export function buildReceiptsCsvStream(
       }
     },
   });
+}
+
+/** Riepilogo: una riga per scontrino, le voci collassate in `descrizione`. */
+export function buildReceiptsCsvStream(
+  params: BuildCsvStreamParams,
+): ReadableStream<Uint8Array> {
+  return buildCsvStream(params, RECEIPT_CSV_HEADERS, (doc, lines) => [
+    formatReceiptRow(doc, calcDocTotal(lines), joinLineDescriptions(lines)),
+  ]);
+}
+
+/** Dettaglio: una riga per voce venduta, con aliquota e importi della riga. */
+export function buildReceiptLinesCsvStream(
+  params: BuildCsvStreamParams,
+): ReadableStream<Uint8Array> {
+  return buildCsvStream(
+    params,
+    RECEIPT_LINES_CSV_HEADERS,
+    formatReceiptLineRows,
+  );
 }
