@@ -64,7 +64,12 @@ non c'è.
    browser.
 
 **Stato al 2026-08-19** — verificato su `sandbox.scontrinozero.it` con un
-browser reale (release `1.6.2+b09692b`, skill `playwright-verify`):
+browser reale, **due volte**: prima su `1.6.2+b09692b`, poi su
+`1.7.0+aa99595` dopo il deploy (skill `playwright-verify`). Il secondo giro è
+quello che conta, perché dalla 1.7.0 registra `ServiceWorkerRegistrar` e non
+più `SerwistProvider`. Profilo browser ripulito prima della misura
+(`unregister()` + `caches.delete()`), altrimenti si sarebbe osservato il SW
+vecchio. Esiti identici nelle due versioni:
 
 1. ✅ **Verde.** `state: 'activated'`, `navigator.serviceWorker.controller` =
    `https://sandbox.scontrinozero.it/sw.js`, `/sw.js` 200, e Cache Storage
@@ -87,15 +92,14 @@ browser reale (release `1.6.2+b09692b`, skill `playwright-verify`):
    navigazione riesce e viene servita `/offline` («Sei offline…»), non
    l'errore di rete del browser.
 
-⚠️ **Da rifare quando sandbox passerà a v1.7.0.** Quanto sopra misura la
-registrazione fatta da `SerwistProvider`, che è ciò che gira in 1.6.2. Dalla
-v1.7.0 la fa `ServiceWorkerRegistrar` (PR #838). Su dev è stato confermato che
-quel percorso chiama davvero `register()` e assorbe i rigetti, ma la
-combinazione «`ServiceWorkerRegistrar` + registrazione che riesce e attiva il
-SW» non è stata ancora osservata da nessuna parte — su dev la blocca Access,
-su sandbox il codice è ancora il precedente. È esattamente la classe di rischio
-della regola 30: ripetere i punti 1, 2 e 4 su sandbox dopo il deploy della
-1.7.0.
+✅ **Il caveat è chiuso.** Il dubbio era che la combinazione
+«`ServiceWorkerRegistrar` + registrazione che riesce e attiva il SW» non fosse
+mai stata osservata: su dev la blocca Cloudflare Access, su sandbox girava
+ancora il codice precedente. Misurata sulla `1.7.0+aa99595` è verde —
+`state: 'activated'`, `controller` valorizzato, i sette bucket di cache
+popolati — e con `unhandledRejections: []` e **nessun** warn `[pwa]`, che è il
+segno che la registrazione è riuscita (il warn compare solo sul fallimento,
+come si osserva su dev).
 
 Chiudere questa voce quando i quattro punti sono verdi su sandbox con la
 versione corrente.
@@ -238,6 +242,48 @@ group:
 4. Verificare su sandbox prima di prod: uno script bloccato dalla CSP rompe il
    widget Turnstile o i dati strutturati silenziosamente — controllare la console
    e i report CSP.
+
+---
+
+### 93. Sandbox serve `appUrl` di **produzione**: QR e redirect Stripe puntano a prod
+
+- **Categoria:** configurazione di deploy · **Severità:** Medium su sandbox, nessun impatto su produzione · **Pre-esistente** (identico su 1.6.2 e 1.7.0)
+- **File:** `.github/workflows/deploy.yml` (step di build, nessun `NEXT_PUBLIC_APP_URL` fra i build-args), `Dockerfile:56`, `.env` del compose sulla VPS sandbox
+
+**Problema.** `GET /api/health/env` su `sandbox.scontrinozero.it` risponde:
+
+```json
+{ "appUrl": "https://app.scontrinozero.it",
+  "hostnames": { "app": "sandbox.scontrinozero.it", ... } }
+```
+
+`APP_HOSTNAME` è impostata correttamente, `NEXT_PUBLIC_APP_URL` no: assente (o
+vuota) fa scattare il default prod-aware di `getTrustedAppUrl()`
+(`src/lib/trusted-app-url.ts`), che in `NODE_ENV=production` è proprio
+`https://app.scontrinozero.it`. È esattamente la discrepanza che il probe `env`
+esiste per catturare — la skill `deploy-release` la descrive come «un
+Dockerfile build-arg dimenticato».
+
+**Perché succede.** `deploy-dev.yml` passa
+`NEXT_PUBLIC_APP_URL=https://app-dev.scontrinozero.it` fra i build-args;
+`deploy.yml` — che serve prod **e** sandbox dallo stesso tag — non lo passa, e
+il `ARG` del Dockerfile ha come default il valore di produzione. Il valore
+runtime nel compose della VPS sandbox non lo sovrascrive.
+
+**Conseguenze.** `getTrustedAppUrl()` alimenta il QR stampato sui PDF
+(`generatePdfResponse` → `publicUrl = <appUrl>/r/<id>`) e le
+`success_url`/`cancel_url`/`return_url` di Stripe checkout/portal. Su sandbox
+quindi: un QR scansionato porta il cliente su **produzione**, dove
+quell'`id` non esiste (404) — e un checkout di test rimbalza su prod a fine
+flusso. Nessun effetto sull'ambiente di produzione, che riceve il valore
+giusto per default; il danno è che sandbox non testa ciò che spedisce.
+
+**Da fare.** Passare `NEXT_PUBLIC_APP_URL` come build-arg anche in
+`deploy.yml`, derivandolo dall'ambiente di destinazione invece di ereditare il
+default del Dockerfile. Attenzione: è `NEXT_PUBLIC_*`, quindi **bakata al
+build** per il bundle client — impostarla solo a runtime nel compose
+sistemerebbe `getTrustedAppUrl()` (server-side) ma lascerebbe il client con
+l'URL di produzione. Va risolto al build.
 
 ---
 
