@@ -195,6 +195,58 @@ group:
 
 ---
 
+### 88. Mapper AdE: sei divergenze dal payload del portale (una attiva in produzione)
+
+- **Categoria:** correttezza · **Severità:** Medium — i totali fiscali
+  trasmessi sono corretti, ma il documento che l'AdE genera e archivia non è
+  quello che genererebbe il portale
+- **File:** `src/lib/ade/mapper.ts`, `src/lib/ade/mapper.test.ts`
+
+**Contesto.** Il confronto di `computeLineAmounts` / `mapSaleToAdePayload`
+contro tre catture del portale reale (payload verbatim, formule e verifiche
+numeriche in `HAR.md`, voci #2, #4, #7, #10, #11, #12) ha trovato sei
+divergenze. Cinque sono **latenti**: si manifestano solo con uno sconto di
+riga o una riga omaggio, entrambi oggi cablati a zero in
+`src/lib/services/receipt-service.ts`. La sesta è **attiva ora**.
+
+**Attiva.** `prezzoLordo` viene inviato come `unitPriceGross × quantity`,
+mentre il portale invia il prezzo **unitario** e ricava `imponibile` come
+`prezzoUnitario × quantita`. L'AdE accetta (i totali quadrano comunque) ma
+**ricalcola** la colonna "Prezzo complessivo €" del PDF che stampa: su una
+riga con quantità > 1 il valore stampato può risultare moltiplicato una volta
+di troppo. Le nostre superfici (PDF, ricevuta pubblica, stampa termica) non
+sono toccate: derivano da `src/lib/receipts/receipt-totals.ts`, che è
+corretto.
+
+**Latenti (bloccano lo sconto di riga).**
+
+1. `scontoTotale` riceve Σ `scontoLordo`; deve ricevere Σ `scontoUnitario`
+   (lo sconto **netto** IVA). Coincidono solo sulle nature `N*`.
+2. `scontoUnitario` di riga riceve `line.unitDiscount` (lordo, per unità);
+   deve essere `scontoLordo / (1 + r/100)`.
+3. I netti (`prezzoUnitario`, `imponibile`, `imponibileNetto`, `importoIVA`)
+   sono arrotondati ai centesimi, mentre il portale li calcola a piena
+   precisione e li serializza a 8 decimali. Con uno sconto su riga con IVA
+   questo sbilancia di **un centesimo** il PDF stampato dall'AdE
+   (`imponibile netto + IVA ≠ totale complessivo`) — `HAR.md` voce #10.
+4. `ammontareComplessivo` somma anche le righe `omaggio: "Y"`, che il portale
+   **esclude** (`HAR.md` voce #7). Dormiente finché `isGift` resta `false`.
+5. `flagIdentificativiModificati` vale `true`, il portale manda `false`.
+   L'AdE accetta entrambi: annotato per non ri-scoprirlo, non da cambiare
+   senza motivo.
+
+**Fix.** Procedura completa, formule e test obbligatori: `HAR.md` voce #14,
+sub-task A. Vincolo da non rompere: i **lordi** restano in centesimi interi
+per riga (regola 17 di `CLAUDE.md`, REVIEW.md #57) — cambia solo la
+scomposizione netto/IVA, che va a piena precisione. I due oracoli sono i
+documenti reali delle voci #1 (qta 1, IVA 10%, sconto) e #12 (qta 2, IVA 22%,
+sconto), entrambi accettati dall'AdE.
+
+**Ordine.** Questo fix è **prerequisito** dello sconto di riga: implementarlo
+dopo significherebbe spedire documenti fiscali sbilanciati di un centesimo.
+
+---
+
 ## P3 — Bassa priorità
 
 ### 81. Sweep GDPR: la query candidati aggrega l'intera tabella `commercial_documents` a ogni giro
@@ -466,6 +518,57 @@ shape esatta non è verificata a runtime.
    primo giro e un token dinamico non causa proceed prematuro.
 3. **Test:** primo body già "approvato" → break immediato; body con campo
    dinamico ma stato invariato → continua il poll; timeout invariato.
+
+### 87. Developer API v2: `payments[]` canonico al posto di `paymentMethod` scalare
+
+- **Categoria:** tech debt / contratto API · **Severità:** Low — nessun bug, è
+  il debito che si contrae scegliendo di non rompere `/api/v1`
+- **File:** `src/app/api/v1/receipts/route.ts`,
+  `src/app/api/v1/receipts/[id]/route.ts`,
+  `src/lib/receipts/receipt-schema.ts`, `DEVELOPER.md`
+
+**Contesto.** Il documento commerciale AdE ammette fino a sei importi di
+pagamento sullo stesso scontrino (`PC`, `PE`, `TR`, `NR_EF`, `NR_PS`,
+`NR_CS`) più un abbuono a livello documento (`scontoAbbuono`), con
+l'invariante `Σ importi + scontoAbbuono = ammontareComplessivo`. Anatomia
+completa, formule e casi di riferimento in `HAR.md` (voci #5, #6, #3b).
+
+La nostra Developer API modella il pagamento come **uno scalare**,
+`paymentMethod: "PC" | "PE"`, sia nel body di `POST /api/v1/receipts` sia
+nelle response di lettura. Poiché `/api/v1` ha consumer esterni (regola 28b di
+`CLAUDE.md`: breaking change solo con un nuovo path di versione), il supporto
+al pagamento misto viene introdotto in modo **additivo**: `payments[]`
+opzionale in input (mutuamente esclusivo con `paymentMethod`), ed entrambi i
+campi in output — `paymentMethod` valorizzato sugli scontrini a metodo
+singolo, `null` sui misti.
+
+**Il debito.** Restano due rappresentazioni della stessa cosa: due rami di
+validazione nello schema Zod, due campi da tenere coerenti in ogni response,
+e un `paymentMethod: null` che un client ingenuo legge come "metodo
+sconosciuto" invece che "più metodi". Ogni superficie di lettura deve passare
+per l'helper di normalizzazione invece di leggere il campo che preferisce.
+
+**Da fare in `/api/v2`.** Path di versione nuovo, `/api/v1` congelato:
+
+1. `payments[]` diventa l'**unico** modo di dichiarare il pagamento, sempre un
+   array anche con un solo elemento. `paymentMethod` sparisce da body e
+   response.
+2. Valutare l'apertura di `TR` (con `numero`) e delle tre `NR_*`, oggi
+   deliberatamente fuori dallo schema pubblico pur essendo già mappate in
+   `PAYMENT_TYPE_MAP` (`src/lib/ade/mapper.ts`). Sigle e semantica esatta:
+   `HAR.md` voce #6.
+3. Esporre `globalDiscount` (sconto a pagare) e `unitDiscount` di riga come
+   campi di primo livello, se nel frattempo sono stati spediti.
+4. Rimuovere il ramo di compatibilità dallo schema condiviso
+   (`src/lib/receipts/receipt-schema.ts`) invece di duplicarlo: `/api/v1`
+   resta sulla sua copia congelata. Nessun compat layer interno oltre il
+   confine di versione (regola 28).
+
+**Trigger di riapertura.** Quando il pagamento misto è live e i consumer
+esterni dell'API sono stati avvisati; oppure quando serve esporre `TR`/`NR_*`,
+che sullo scalare non sono rappresentabili affatto.
+
+---
 
 ---
 

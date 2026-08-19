@@ -143,6 +143,18 @@ campo esatti senza toccare i log.
 
 ---
 
+## Prima di chiedere un HAR: leggi `HAR.md`
+
+I finding già estratti dalle catture vivono in `HAR.md` alla radice del repo —
+voci numerate, autoconsistenti, con i payload verbatim e le risposte AdE. È la
+**prima** fonte da consultare quando serve sapere come il portale compone un
+campo: gli `.har` non esistono in un clone fresco, quel file sì.
+
+Quando una nuova cattura risponde a una domanda, la risposta va tradotta lì
+**nello stesso task**, con abbastanza numeri da rendere l'HAR superfluo
+(payload, risposta, e il calcolo che lega i campi). Una voce che rimanda al
+`.har` per il dettaglio non ha fatto il suo lavoro.
+
 ## HAR analysis: completezza, non solo ordine
 
 Confrontando il codice contro una HAR capture, controllare esplicitamente che
@@ -157,15 +169,18 @@ dati di sessione reali): vivono in `har/` solo sulla macchina dell'owner e
 **non esistono in un clone fresco** (CI, sessioni cloud). Se un task richiede
 una HAR assente, chiederla all'utente — non cercarla nel repo.
 
-| File                             | Feature                                            | Target                                                                                                       |
-| -------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `dati_doc_commerciale.har`       | Aggiornamento dati business su AdE post-onboarding | rinviato (possibile feature premium)                                                                         |
-| `aggiungi_prodotto_catalogo.har` | Aggiunta prodotto su rubrica AdE                   | nice-to-have (sync catalogo AdE)                                                                             |
-| `modifica_prodotto_catalogo.har` | Modifica prodotto su rubrica AdE                   | nice-to-have (sync catalogo AdE)                                                                             |
-| `elimina_prodotto_catalogo.har`  | Eliminazione prodotto su rubrica AdE               | nice-to-have (sync catalogo AdE)                                                                             |
-| `ricerca_prodotto_catalogo.har`  | Ricerca prodotto su rubrica AdE                    | nice-to-have (sync catalogo AdE)                                                                             |
-| `ricerca.har`                    | Ricerca documento su AdE                           | ✅ usata dal recovery (riconciliazione, sotto); recupero corrispettivi user-facing rinviato (roadmap v1.9.0) |
-| `login_cie.har`                  | CIE login flow                                     | ✅ **spedito in v1.5.0** — `loginCie` in `src/lib/ade/real-client.ts` (sezione "Due metodi d'accesso")       |
+| File                                       | Feature                                                         | Target                                                                                                       |
+| ------------------------------------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `dati_doc_commerciale.har`                 | Aggiornamento dati business su AdE post-onboarding              | rinviato (possibile feature premium)                                                                         |
+| `aggiungi_prodotto_catalogo.har`           | Aggiunta prodotto su rubrica AdE                                | nice-to-have (sync catalogo AdE)                                                                             |
+| `modifica_prodotto_catalogo.har`           | Modifica prodotto su rubrica AdE                                | nice-to-have (sync catalogo AdE)                                                                             |
+| `elimina_prodotto_catalogo.har`            | Eliminazione prodotto su rubrica AdE                            | nice-to-have (sync catalogo AdE)                                                                             |
+| `ricerca_prodotto_catalogo.har`            | Ricerca prodotto su rubrica AdE                                 | nice-to-have (sync catalogo AdE)                                                                             |
+| `ricerca.har`                              | Ricerca documento su AdE                                        | ✅ usata dal recovery (riconciliazione, sotto); recupero corrispettivi user-facing rinviato (roadmap v1.9.0) |
+| `login_cie.har`                            | CIE login flow                                                  | ✅ **spedito in v1.5.0** — `loginCie` in `src/lib/ade/real-client.ts` (sezione "Due metodi d'accesso")       |
+| `sconto_e_pagamento_misto.har`             | Vendita con sconto di riga, sconto a pagare e pagamento misto   | ✅ **tradotto in `HAR.md`** (voci #1-#8, #10-#13) — non serve più la cattura                                 |
+| `annullo_doc_sconto_e_pagamento_misto.har` | Annullo dello stesso documento                                  | ✅ **tradotto in `HAR.md`** (voce #9): nessuna differenza rispetto ad `annullo.har`                          |
+| `nuovo_test_sconto.har`                    | Vendita qta 2 @22% con sconto di riga (test di disambiguazione) | ✅ **tradotto in `HAR.md`** (voce #12): `prezzoLordo` è unitario, `scontoLordo` è di riga                    |
 
 ---
 
