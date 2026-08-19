@@ -33,6 +33,7 @@ const VALID_DOC_ID = "123e4567-e89b-12d3-a456-426614174000";
 const MOCK_RECEIPT_DATA = {
   doc: {
     id: "doc-1",
+    kind: "SALE" as const,
     publicRequest: { paymentMethod: "PC" },
     adeProgressive: "ABC-123",
     createdAt: new Date("2026-01-01T09:59:57Z"),
@@ -48,6 +49,24 @@ const MOCK_RECEIPT_DATA = {
   },
   lines: [],
   voidedSale: null,
+};
+
+/** Riga VOID: righe e progressivo di riferimento vengono dalla vendita. */
+const MOCK_VOID_DATA = {
+  ...MOCK_RECEIPT_DATA,
+  doc: {
+    ...MOCK_RECEIPT_DATA.doc,
+    id: "void-1",
+    kind: "VOID" as const,
+    adeProgressive: "DEF-456",
+    adeRegisteredAt: new Date("2026-01-02T10:00:00Z"),
+    publicRequest: null,
+  },
+  voidedSale: {
+    ...MOCK_RECEIPT_DATA.doc,
+    adeProgressive: "ABC-123",
+    adeRegisteredAt: new Date("2026-01-01T10:00:00Z"),
+  },
 };
 
 // ─── Tests ────────────────────────────────────────────────────────────────
@@ -77,21 +96,6 @@ describe("PublicReceiptPage rate limiting", () => {
 
     expect(screen.getByText("Bar Mario")).toBeInTheDocument();
     expect(mockFetchPublicReceipt).toHaveBeenCalledWith(VALID_DOC_ID);
-  });
-
-  // v1.7.0: un annullo non deve essere reso con il layout di vendita, che lo
-  // presenterebbe come uno scontrino valido. Finche' manca il layout dedicato
-  // (HAR.md #16a) la pagina pubblica non lo serve affatto.
-  it("chiama notFound() per un annullo finche' manca il layout dedicato", async () => {
-    mockFetchPublicReceipt.mockResolvedValue({
-      ...MOCK_RECEIPT_DATA,
-      voidedSale: { id: "doc-1", adeProgressive: "ABC-123" },
-    });
-
-    // Il mock di notFound() lancia, come il vero: la pagina non completa
-    // il render.
-    await expect(renderPage()).rejects.toThrow();
-    expect(mockNotFound).toHaveBeenCalled();
   });
 
   it("renders the rate-limit message after exceeding 60 requests per IP", async () => {
@@ -430,5 +434,85 @@ describe("PublicReceiptPage — codifica IVA AdE", () => {
       },
     ]);
     expect(screen.queryByText(/^\*[A-Z]{2} = /)).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ricevuta di annullamento sulla pagina pubblica
+// ---------------------------------------------------------------------------
+
+describe("PublicReceiptPage — ricevuta di annullamento", () => {
+  let PublicReceiptPage: typeof import("./page").default;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mockHeaders.mockResolvedValue(
+      new Headers({ "cf-connecting-ip": "5.5.5.5" }),
+    );
+    vi.resetModules();
+    ({ default: PublicReceiptPage } = await import("./page"));
+  });
+
+  const LINES = [
+    {
+      id: "line-1",
+      description: "Pizza Margherita",
+      quantity: "2",
+      grossUnitPrice: "8.50",
+      vatCode: "10",
+    },
+  ];
+
+  async function renderVoid(
+    overrides: Record<string, unknown> = {},
+  ): Promise<void> {
+    mockFetchPublicReceipt.mockResolvedValue({
+      ...MOCK_VOID_DATA,
+      lines: LINES,
+      ...overrides,
+    });
+    render(
+      await PublicReceiptPage({
+        params: Promise.resolve({ documentId: VALID_DOC_ID }),
+      }),
+    );
+  }
+
+  it("non è più un 404: un annullo viene servito", async () => {
+    await renderVoid();
+    expect(mockNotFound).not.toHaveBeenCalled();
+    expect(screen.getByText("Bar Mario")).toBeInTheDocument();
+  });
+
+  it("usa il sottotitolo `emesso per ANNULLAMENTO`", async () => {
+    await renderVoid();
+    expect(screen.getByText("emesso per ANNULLAMENTO")).toBeInTheDocument();
+    expect(
+      screen.queryByText("di vendita o prestazione"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("cita la vendita annullata con progressivo e data", async () => {
+    await renderVoid();
+    expect(screen.getByText("Documento di riferimento:")).toBeInTheDocument();
+    expect(screen.getByText("N. ABC-123 del 01-01-2026")).toBeInTheDocument();
+  });
+
+  it("mostra progressivo e data DELL'ANNULLO nel piede", async () => {
+    await renderVoid();
+    expect(screen.getByText("DEF-456")).toBeInTheDocument();
+    expect(screen.getByText("02-01-2026 11:00")).toBeInTheDocument();
+  });
+
+  it("non mostra il blocco pagamenti: un annullo non incassa", async () => {
+    await renderVoid();
+    expect(screen.queryByText("Importo pagato")).not.toBeInTheDocument();
+    expect(screen.queryByText("Pagamento contante")).not.toBeInTheDocument();
+  });
+
+  it("ristampa le righe della vendita annullata, coi suoi totali", async () => {
+    await renderVoid();
+    expect(screen.getByText("Pizza Margherita")).toBeInTheDocument();
+    expect(screen.getByText("TOTALE COMPLESSIVO")).toBeInTheDocument();
   });
 });
