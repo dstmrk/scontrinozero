@@ -75,6 +75,35 @@ Due default di `SerwistProvider` sono attivi e vanno spenti in un POS:
 incatenato allo script `build`, non a `dev`, quindi in sviluppo il file non
 esiste e registrarlo darebbe 404 a ogni avvio.
 
+C'è un **terzo** default da spegnere, `register` (default `true`), e il motivo
+non è comportamentale ma di osservabilità: il provider registra con un
+`void window.serwist.register()` **senza catch**, quindi ogni rigetto di
+`navigator.serviceWorker.register()` arriva a `window.onunhandledrejection` e
+diventa un evento Sentry non gestito. E la registrazione fallisce di routine per
+cause che non sono bug e non hanno rimedio applicativo:
+
+- **crawler che stubbano l'API** — il Web Rendering Service di Google rigetta
+  sempre con `Error: Rejected`; nello stack si riconosce dal frame
+  `wrsParams.serviceWorkers.navigator.serviceWorker.register` (più geo US,
+  locale `en-US`, timezone `America/Los_Angeles` su un sito solo-Italia:
+  è Googlebot che indicizza, non un utente). Era SCONTRINOZERO-X, su `/guide/*`;
+- navigazione privata di Firefox, SW disabilitati da policy o estensione,
+  quota di storage esaurita.
+
+In tutti questi casi l'app funziona: si perde solo l'offline. Quindi
+`register={false}` sul provider e registrazione in
+`src/components/pwa/service-worker-registrar.tsx`, che chiama `serwist.register()`
+da `useEffect` (via il hook `useSerwist()` dello stesso package) e assorbe il
+rigetto con un `console.warn` — in Sentry resta un breadcrumb, non un evento.
+Il timing non cambia: `register()` di `@serwist/window` attende comunque l'evento
+`load`.
+
+⚠️ Non è un modo per nascondere una regressione tipo #84 (`/sw.js` 404): quella
+classe è coperta **a monte** da `scripts/check-service-worker.mjs` nello script
+di build e dal test sul matcher di `src/proxy.ts`. Il filtro giusto per il
+rumore non azionabile è a monte dell'errore, non in `beforeSend`, quando il
+punto di rigetto è codice nostro.
+
 ⚠️ **CSP:** `src/lib/csp.ts` dichiara `worker-src 'self'` esplicito. Senza,
 la registrazione ricadrebbe sul fallback `child-src` → `script-src`: funziona
 oggi solo perché `script-src` contiene `'self'`, ma in enforce mode una

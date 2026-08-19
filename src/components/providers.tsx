@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SerwistProvider } from "@serwist/next/react";
 import { useState } from "react";
+import { ServiceWorkerRegistrar } from "@/components/pwa/service-worker-registrar";
 import { Toaster } from "@/components/ui/sonner";
 import { initInstallPromptCapture } from "@/lib/pwa/install-prompt-store";
 
@@ -44,12 +45,20 @@ export function Providers({
     //
     // `disable` in development perché `serwist build` è incatenato allo script
     // `build`, non a `dev`: lì public/sw.js non esiste.
+    //
+    // `register={false}` non disattiva la registrazione, la sposta: quella del
+    // provider è un `void window.serwist.register()` senza catch, quindi ogni
+    // rigetto (crawler, navigazione privata, SW disabilitati) diventa una
+    // unhandled rejection in Sentry. La rifà `ServiceWorkerRegistrar`, che il
+    // rigetto se lo prende — vedi SCONTRINOZERO-X.
     <SerwistProvider
       swUrl="/sw.js"
       disable={process.env.NODE_ENV === "development"}
+      register={false}
       reloadOnOnline={false}
       cacheOnNavigation={false}
     >
+      <ServiceWorkerRegistrar />
       <QueryClientProvider client={queryClient}>
         {children}
         <Toaster />
