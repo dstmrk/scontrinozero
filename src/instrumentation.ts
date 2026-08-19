@@ -1,5 +1,41 @@
 import * as Sentry from "@sentry/nextjs";
 
+// Tetto dei listener per `http.ServerResponse`. Node ne ammette 10 di default e
+// oltre quella soglia stampa `MaxListenersExceededWarning: 11 close listeners
+// added to [ServerResponse]` — un falso positivo qui: NESSUNO di quei listener
+// è nostro e nessuno sopravvive alla risposta. Censimento misurato sul build
+// standalone (Next 16.3 + @sentry/nextjs 10.70, un solo GET):
+//   1. `recordRequestSession`            @sentry/core (release health)
+//   2. `setContext("response")`          @sentry/core (server-subscription)
+//   3. cleanup dello stream zlib         next/dist/server/lib/router-server
+//   4. `signalFromNodeResponse`          idem, passata del router
+//   5. `signalFromNodeResponse`          next-server, passata di render
+//   6. `res.onClose` fetch metrics       next/dist/server/app-render
+//   7. `AfterContext` onClose            idem
+//   8. abort controller della pipe RSC   next/dist/server/pipe-readable
+//   9-11. writer + abort delle risposte in streaming (pagine RSC, CSV, PDF)
+// Le route leggere si fermano a 8, quelle in streaming toccano 11: il warning
+// dipende da quale route arriva per prima, non da una regressione nostra.
+// Alziamo il tetto SOLO per `ServerResponse` (non `EventEmitter.defaultMax-
+// Listeners`, che maschererebbe una perdita vera su pool DB, stream pdfkit,
+// ...) e lo teniamo abbastanza basso da far scattare comunque il warning se un
+// domani qualcuno registrasse davvero listener per-risposta senza rimuoverli.
+export const SERVER_RESPONSE_MAX_LISTENERS = 20;
+
+/**
+ * `setMaxListeners` sul PROTOTYPE vale come default per tutte le istanze:
+ * `EventEmitter.init` copia `_maxListeners` ereditato sulla nuova risposta.
+ * Va chiamata al boot, prima che il server accetti richieste — le eventuali
+ * risposte già costruite mantengono il tetto vecchio.
+ *
+ * `node:http` è importato dinamicamente: `instrumentation.ts` viene compilata
+ * anche per il runtime edge, dove il modulo non esiste.
+ */
+export async function raiseServerResponseMaxListeners(): Promise<void> {
+  const { ServerResponse } = await import("node:http");
+  ServerResponse.prototype.setMaxListeners(SERVER_RESPONSE_MAX_LISTENERS);
+}
+
 // Supabase free tier pausa i progetti dopo 7 giorni senza query al DB.
 // Questo interval esegue una query lightweight ogni 5 giorni per prevenire la pausa.
 // Da rimuovere quando si passa a Supabase Pro.
@@ -188,6 +224,10 @@ export async function register() {
     // Regola 24 di CLAUDE.md, estende la regola 18.
     const { assertIdentityEnv } = await import("@/lib/identity-env");
     assertIdentityEnv();
+
+    // Prima di servire richieste: il tetto di 10 listener di Node è sotto il
+    // costo per-risposta di Next 16 + Sentry (vedi il censimento sopra).
+    await raiseServerResponseMaxListeners();
 
     await import("../sentry.server.config");
 
