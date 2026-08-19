@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { searchReceipts } from "@/server/storico-actions";
+import { getReceiptDetail, searchReceipts } from "@/server/storico-actions";
 import { VoidReceiptDialog } from "./void-receipt-dialog";
 import type { ReceiptPrintHeader } from "@/lib/printing/types";
 import { ExportCsvButton } from "@/app/dashboard/storico/export-csv-button";
@@ -208,6 +208,30 @@ export function StoricoClient({
       ),
     );
     setSelected(null);
+    refreshVoidedRow(originalId);
+  }
+
+  /**
+   * Rilegge dal server la riga appena annullata.
+   *
+   * L'aggiornamento ottimistico qui sopra sa solo che lo stato è passato a
+   * VOID_ACCEPTED: l'annullo appena creato (id, progressivo, istante
+   * registrato dall'AdE) nasce sul server e il client non può inventarselo —
+   * è il documento da consegnare al cliente, l'orario deve essere quello
+   * fiscale. Senza questa rilettura, riaprendo la modale la vendita risulta
+   * annullata ma senza ricevuta di annullamento né stampa, e i bottoni
+   * ricompaiono solo rifacendo la ricerca.
+   *
+   * Fallimento (sessione scaduta, DB in errore) → si tiene la riga
+   * ottimistica: la ricerca successiva la riallinea comunque.
+   */
+  function refreshVoidedRow(documentId: string) {
+    startTransition(async () => {
+      const detail = await getReceiptDetail(businessId, documentId);
+      const fresh = detail.item;
+      if (!fresh) return;
+      setReceipts((prev) => prev.map((r) => (r.id === documentId ? fresh : r)));
+    });
   }
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));

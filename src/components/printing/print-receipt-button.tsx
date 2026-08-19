@@ -24,6 +24,13 @@ interface PrintReceiptButtonProps {
   /** URL del PDF 58mm, corsia di fallback su iOS/desktop. */
   readonly pdfHref: string;
   readonly variant?: "default" | "outline";
+  /**
+   * Taglia del bottone: deve essere quella dei bottoni che gli stanno
+   * accanto. Il default `lg` è la colonna a tutta larghezza di
+   * `ReceiptSuccess`; nel footer della modale dello storico i vicini sono
+   * `default` (h-8) e senza allinearla la "Stampa" resta 4px più alta.
+   */
+  readonly size?: "default" | "lg";
   readonly className?: string;
 }
 
@@ -43,6 +50,7 @@ export function PrintReceiptButton({
   receipt,
   pdfHref,
   variant = "outline",
+  size = "lg",
   className,
 }: PrintReceiptButtonProps) {
   const printer = usePrinter();
@@ -119,7 +127,7 @@ export function PrintReceiptButton({
       <Button
         type="button"
         variant={variant}
-        size="lg"
+        size={size}
         className={className}
         onClick={() => void handleClick()}
         disabled={printer.isBusy}

@@ -4,6 +4,10 @@ import { and, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
+import type {
+  SelectCommercialDocument,
+  SelectCommercialDocumentLine,
+} from "@/db/schema";
 import {
   checkBusinessOwnership,
   getAuthenticatedUser,
@@ -19,6 +23,8 @@ import { logger } from "@/lib/logger";
 import { isValidUuid } from "@/lib/uuid";
 import {
   STORICO_PAGE_SIZE,
+  type GetReceiptDetailResult,
+  type ReceiptListItem,
   type SearchReceiptsResult,
   type SearchReceiptsParams,
 } from "@/types/storico";
@@ -67,6 +73,89 @@ function parsePublicRequest(raw: unknown): {
  * condizioni di `src/lib/receipts/csv-export.ts`, dove il JOIN esiste già.
  */
 const voidDocAlias = alias(commercialDocuments, "void_doc");
+
+/**
+ * Condizione del JOIN sull'annullo: solo il VOID accettato che punta a questa
+ * vendita. Estratta perché `searchReceipts` e `getReceiptDetail` devono
+ * leggere la stessa riga — una delle due che divergesse darebbe due verità
+ * diverse sullo stesso documento.
+ */
+const voidDocJoinCondition = and(
+  eq(voidDocAlias.voidedDocumentId, commercialDocuments.id),
+  eq(voidDocAlias.kind, "VOID"),
+  eq(voidDocAlias.status, "VOID_ACCEPTED"),
+);
+
+/** Colonne di una riga dello storico, condivise fra elenco e dettaglio. */
+const receiptColumns = {
+  id: commercialDocuments.id,
+  kind: commercialDocuments.kind,
+  status: commercialDocuments.status,
+  adeProgressive: commercialDocuments.adeProgressive,
+  adeTransactionId: commercialDocuments.adeTransactionId,
+  createdAt: commercialDocuments.createdAt,
+  adeRegisteredAt: commercialDocuments.adeRegisteredAt,
+  // L'annullo collegato, quando la vendita è stata annullata: è ciò da
+  // cui il dettaglio apre e stampa la ricevuta di annullamento.
+  voidDocumentId: voidDocAlias.id,
+  voidAdeProgressive: voidDocAlias.adeProgressive,
+  voidAdeRegisteredAt: voidDocAlias.adeRegisteredAt,
+  // Serve alla ristampa su termica: la copia consegnata al cliente deve
+  // riportare il metodo di pagamento REALE del documento trasmesso
+  // all'AdE, non un default.
+  publicRequest: commercialDocuments.publicRequest,
+};
+
+type ReceiptDocRow = Pick<
+  SelectCommercialDocument,
+  | "id"
+  | "kind"
+  | "status"
+  | "adeProgressive"
+  | "adeTransactionId"
+  | "createdAt"
+  | "adeRegisteredAt"
+  | "publicRequest"
+> & {
+  voidDocumentId: string | null;
+  voidAdeProgressive: string | null;
+  voidAdeRegisteredAt: Date | null;
+};
+
+/** Compone la riga DB + le sue righe articolo nella forma esposta al client. */
+function toReceiptListItem(
+  doc: ReceiptDocRow,
+  docLines: SelectCommercialDocumentLine[],
+): ReceiptListItem {
+  const publicRequest = parsePublicRequest(doc.publicRequest);
+
+  return {
+    id: doc.id,
+    kind: doc.kind,
+    status: doc.status,
+    adeProgressive: doc.adeProgressive,
+    adeTransactionId: doc.adeTransactionId,
+    createdAt: doc.createdAt,
+    adeRegisteredAt: doc.adeRegisteredAt,
+    voidDocument:
+      doc.voidDocumentId && doc.voidAdeProgressive && doc.voidAdeRegisteredAt
+        ? {
+            id: doc.voidDocumentId,
+            adeProgressive: doc.voidAdeProgressive,
+            adeRegisteredAt: doc.voidAdeRegisteredAt,
+          }
+        : null,
+    paymentMethod: publicRequest.paymentMethod,
+    lotteryCode: publicRequest.lotteryCode,
+    total: calcDocTotal(docLines).toFixed(2),
+    lines: docLines.map((l) => ({
+      description: l.description,
+      quantity: l.quantity,
+      grossUnitPrice: l.grossUnitPrice,
+      vatCode: l.vatCode,
+    })),
+  };
+}
 
 export async function searchReceipts(
   businessId: string,
@@ -154,33 +243,9 @@ export async function searchReceipts(
       .from(commercialDocuments)
       .where(and(...conditions)),
     db
-      .select({
-        id: commercialDocuments.id,
-        kind: commercialDocuments.kind,
-        status: commercialDocuments.status,
-        adeProgressive: commercialDocuments.adeProgressive,
-        adeTransactionId: commercialDocuments.adeTransactionId,
-        createdAt: commercialDocuments.createdAt,
-        adeRegisteredAt: commercialDocuments.adeRegisteredAt,
-        // L'annullo collegato, quando la vendita è stata annullata: è ciò da
-        // cui il dettaglio apre e stampa la ricevuta di annullamento.
-        voidDocumentId: voidDocAlias.id,
-        voidAdeProgressive: voidDocAlias.adeProgressive,
-        voidAdeRegisteredAt: voidDocAlias.adeRegisteredAt,
-        // Serve alla ristampa su termica: la copia consegnata al cliente deve
-        // riportare il metodo di pagamento REALE del documento trasmesso
-        // all'AdE, non un default.
-        publicRequest: commercialDocuments.publicRequest,
-      })
+      .select(receiptColumns)
       .from(commercialDocuments)
-      .leftJoin(
-        voidDocAlias,
-        and(
-          eq(voidDocAlias.voidedDocumentId, commercialDocuments.id),
-          eq(voidDocAlias.kind, "VOID"),
-          eq(voidDocAlias.status, "VOID_ACCEPTED"),
-        ),
-      )
+      .leftJoin(voidDocAlias, voidDocJoinCondition)
       .where(and(...conditions))
       // `id` (UUID PRIMARY KEY) come chiave secondaria rende l'ordine TOTALE:
       // a parita' di `created_at` Postgres non garantisce un ordine stabile
@@ -201,38 +266,74 @@ export async function searchReceipts(
   const lines = await fetchLinesByDocIds(docIds);
   const linesByDocId = groupLinesByDocId(lines);
 
-  const items = docs.map((doc) => {
-    const docLines = linesByDocId.get(doc.id) ?? [];
-    const docTotal = calcDocTotal(docLines);
-    const publicRequest = parsePublicRequest(doc.publicRequest);
-
-    return {
-      id: doc.id,
-      kind: doc.kind,
-      status: doc.status,
-      adeProgressive: doc.adeProgressive,
-      adeTransactionId: doc.adeTransactionId,
-      createdAt: doc.createdAt,
-      adeRegisteredAt: doc.adeRegisteredAt,
-      voidDocument:
-        doc.voidDocumentId && doc.voidAdeProgressive && doc.voidAdeRegisteredAt
-          ? {
-              id: doc.voidDocumentId,
-              adeProgressive: doc.voidAdeProgressive,
-              adeRegisteredAt: doc.voidAdeRegisteredAt,
-            }
-          : null,
-      paymentMethod: publicRequest.paymentMethod,
-      lotteryCode: publicRequest.lotteryCode,
-      total: docTotal.toFixed(2),
-      lines: docLines.map((l) => ({
-        description: l.description,
-        quantity: l.quantity,
-        grossUnitPrice: l.grossUnitPrice,
-        vatCode: l.vatCode,
-      })),
-    };
-  });
+  const items = docs.map((doc) =>
+    toReceiptListItem(doc, linesByDocId.get(doc.id) ?? []),
+  );
 
   return { items, total };
+}
+
+// ---------------------------------------------------------------------------
+// getReceiptDetail
+// ---------------------------------------------------------------------------
+
+/**
+ * Rilegge UNA vendita con le stesse colonne e lo stesso JOIN sull'annullo di
+ * `searchReceipts`.
+ *
+ * Serve allo storico subito dopo un annullo riuscito: l'aggiornamento
+ * ottimistico della riga conosce solo il nuovo `status`, mentre l'annullo
+ * appena creato (id, progressivo, istante registrato dall'AdE) esiste solo sul
+ * server. Senza questa rilettura la modale riaperta non offrirebbe né la
+ * ricevuta di annullamento né la sua stampa finché l'utente non rifà la
+ * ricerca.
+ *
+ * Degrada a `{ item: null, error }` invece di lanciare (regola 19): il
+ * chiamante tiene la riga aggiornata in modo ottimistico.
+ */
+export async function getReceiptDetail(
+  businessId: string,
+  documentId: string,
+): Promise<GetReceiptDetailResult> {
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return { ...authErrorResult(err, "getReceiptDetail"), item: null };
+  }
+
+  // Guard UUID (regola 9) su entrambi gli identificativi: sono colonne uuid,
+  // un valore malformato darebbe un 22P02 di Postgres invece di un errore
+  // applicativo.
+  if (!isValidUuid(businessId) || !isValidUuid(documentId)) {
+    return { error: "Identificativo non valido.", item: null };
+  }
+
+  const ownershipError = await checkBusinessOwnership(user.id, businessId);
+  if (ownershipError) {
+    logger.warn(
+      { userId: user.id, businessId },
+      "getReceiptDetail: ownership check failed",
+    );
+    return { error: ownershipError.error, item: null };
+  }
+
+  const db = getDb();
+  const [doc] = await db
+    .select(receiptColumns)
+    .from(commercialDocuments)
+    .leftJoin(voidDocAlias, voidDocJoinCondition)
+    .where(
+      and(
+        eq(commercialDocuments.id, documentId),
+        eq(commercialDocuments.businessId, businessId),
+        eq(commercialDocuments.kind, "SALE"),
+      ),
+    )
+    .limit(1);
+
+  if (!doc) return { item: null };
+
+  const lines = await fetchLinesByDocIds([doc.id]);
+  return { item: toReceiptListItem(doc, lines) };
 }

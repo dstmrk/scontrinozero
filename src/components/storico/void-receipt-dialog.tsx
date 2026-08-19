@@ -315,6 +315,7 @@ export function VoidReceiptDialog({
                   <PrintReceiptButton
                     receipt={printableReceipt}
                     pdfHref={`/api/documents/${receipt.id}/pdf`}
+                    size="default"
                   />
                   <Button variant="outline" onClick={() => setView("qr")}>
                     <QrCode className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -339,6 +340,7 @@ export function VoidReceiptDialog({
                   <PrintReceiptButton
                     receipt={printableReceipt}
                     pdfHref={`/api/documents/${receipt.voidDocument.id}/pdf`}
+                    size="default"
                   />
                 </>
               )}

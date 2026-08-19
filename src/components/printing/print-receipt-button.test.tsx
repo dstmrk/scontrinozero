@@ -231,3 +231,31 @@ describe("dati scontrino incompleti", () => {
     await waitFor(() => expect(openSpy).toHaveBeenCalled());
   });
 });
+
+describe("taglia", () => {
+  it("usa `lg` di default, la colonna a tutta larghezza di ReceiptSuccess", () => {
+    render(<PrintReceiptButton receipt={RECEIPT} pdfHref={PDF_HREF} />);
+
+    expect(screen.getByRole("button", { name: /Stampa/ })).toHaveAttribute(
+      "data-size",
+      "lg",
+    );
+  });
+
+  it("si allinea ai vicini quando il chiamante chiede `default`", () => {
+    // Nel footer della modale dello storico gli altri bottoni sono `default`
+    // (h-8): con `lg` (h-9) la "Stampa" resta 4px piu' alta delle altre.
+    render(
+      <PrintReceiptButton
+        receipt={RECEIPT}
+        pdfHref={PDF_HREF}
+        size="default"
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /Stampa/ })).toHaveAttribute(
+      "data-size",
+      "default",
+    );
+  });
+});

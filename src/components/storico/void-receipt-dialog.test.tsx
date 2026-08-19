@@ -378,3 +378,35 @@ describe("VoidReceiptDialog — ricevuta di annullamento", () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// Allineamento del footer: la "Stampa" nasceva `size="lg"` (h-9) accanto a
+// bottoni `default` (h-8) e su desktop risultava visibilmente piu' alta.
+// ---------------------------------------------------------------------------
+
+describe("VoidReceiptDialog — footer allineato", () => {
+  function footerSizes() {
+    const footer = screen
+      .getByRole("button", { name: "Chiudi" })
+      .closest('[data-slot="dialog-footer"]');
+    return [...(footer?.querySelectorAll("[data-slot='button']") ?? [])].map(
+      (el) => el.getAttribute("data-size"),
+    );
+  }
+
+  it("tiene tutti i bottoni della vendita valida alla stessa taglia", () => {
+    renderWithQuery(
+      <VoidReceiptDialog {...defaultProps} receipt={ACCEPTED_RECEIPT} />,
+    );
+
+    expect(new Set(footerSizes())).toEqual(new Set(["default"]));
+  });
+
+  it("tiene tutti i bottoni della vendita annullata alla stessa taglia", () => {
+    renderWithQuery(
+      <VoidReceiptDialog {...defaultProps} receipt={VOIDED_RECEIPT} />,
+    );
+
+    expect(new Set(footerSizes())).toEqual(new Set(["default"]));
+  });
+});

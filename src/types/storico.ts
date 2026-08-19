@@ -90,6 +90,18 @@ export interface SearchReceiptsResult {
   error?: string;
 }
 
+/**
+ * Rilettura di un singolo documento, stessa forma di una riga dell'elenco.
+ *
+ * `item` è `null` sia quando il documento non esiste sia quando la richiesta è
+ * stata rifiutata: il chiamante (lo storico dopo un annullo) tiene la riga che
+ * ha già invece di svuotarla — degradare, non rompere (regola 19).
+ */
+export interface GetReceiptDetailResult {
+  item: ReceiptListItem | null;
+  error?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Void action
 // ---------------------------------------------------------------------------
