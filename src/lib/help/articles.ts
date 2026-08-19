@@ -314,7 +314,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "storico-ed-esportazione": {
     slug: "storico-ed-esportazione",
     datePublished: "2026-04-17",
-    dateModified: "2026-07-13",
+    dateModified: "2026-08-19",
     title: "Storico scontrini: filtri, ricerca ed esportazione",
     metaTitle: "Storico scontrini: filtri, ricerca ed esportazione",
     description:

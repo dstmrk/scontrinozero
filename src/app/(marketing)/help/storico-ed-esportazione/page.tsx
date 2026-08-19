@@ -195,6 +195,96 @@ export default function StoricoEdEsportazionePage() {
           consegnare al commercialista o da importare nella tua contabilità.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Il file si apre con un doppio clic in Excel, Numbers o LibreOffice: le
+          colonne sono separate da punto e virgola e gli importi usano la
+          virgola come separatore decimale, la convenzione italiana. Le date
+          sono quelle registrate dall&apos;Agenzia delle Entrate, le stesse
+          stampate sul documento consegnato al cliente.
+        </p>
+        <h3 className="mt-6 text-lg font-semibold">Le colonne del file</h3>
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="text-foreground border-b">
+              <tr>
+                <th className="py-2 pr-4 font-medium">Colonna</th>
+                <th className="py-2 font-medium">Contenuto</th>
+              </tr>
+            </thead>
+            <tbody className="text-muted-foreground divide-y">
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">data</td>
+                <td className="py-2">
+                  Giorno di registrazione all&apos;Agenzia delle Entrate
+                  (GG/MM/AAAA)
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">ora</td>
+                <td className="py-2">Ora di registrazione (HH:MM:SS)</td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">numero_ade</td>
+                <td className="py-2">
+                  Numero del documento commerciale assegnato dall&apos;Agenzia
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">stato</td>
+                <td className="py-2">
+                  <em>emesso</em> oppure <em>annullato</em>
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">totale</td>
+                <td className="py-2">Importo complessivo dello scontrino</td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">
+                  metodo_pagamento
+                </td>
+                <td className="py-2">
+                  <em>contanti</em> oppure <em>elettronico</em>
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">descrizione</td>
+                <td className="py-2">
+                  Le voci dello scontrino, separate da <code>|</code>
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">codice_lotteria</td>
+                <td className="py-2">
+                  Codice della Lotteria degli Scontrini, se il cliente lo ha
+                  fornito
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">data_annullo</td>
+                <td className="py-2">
+                  Giorno in cui lo scontrino è stato annullato, se annullato
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">id_scontrino</td>
+                <td className="py-2">
+                  Identificativo interno: è il riferimento da citare se scrivi
+                  all&apos;assistenza
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">
+                  id_transazione_ade
+                </td>
+                <td className="py-2">
+                  Identificativo della trasmissione all&apos;Agenzia delle
+                  Entrate
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Gli utenti del piano <strong>Starter</strong> vedono lo stesso
           pulsante con un invito a passare a Pro: l&apos;upgrade è immediato
           dalla sezione <strong>Impostazioni → Piano e Abbonamento</strong>{" "}

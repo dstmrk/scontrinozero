@@ -4,9 +4,9 @@ import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
 
 // Alias self-join: per ogni SALE, troviamo il documento VOID che lo annulla
-// (se esiste). Senza il join la colonna `id_documento_annullato` del CSV
-// resterebbe sempre vuota — il campo `voided_document_id` e' popolato solo
-// sui VOID, e il CSV filtra `kind = "SALE"`.
+// (se esiste). Senza il join la colonna `data_annullo` del CSV resterebbe
+// sempre vuota — il campo `voided_document_id` e' popolato solo sui VOID, e
+// il CSV filtra `kind = "SALE"`.
 const voidDocAlias = alias(commercialDocuments, "void_doc");
 import {
   calcDocTotal,
@@ -14,7 +14,7 @@ import {
   groupLinesByDocId,
 } from "@/lib/receipts/document-lines";
 import { CSV_BOM, rowToCsv } from "@/lib/csv";
-import { formatIsoInRome } from "@/lib/date-utils";
+import { formatRomeDate, formatRomeTime } from "@/lib/date-utils";
 
 /**
  * Batch size per la cursor query. 500 e' un compromesso fra memoria
@@ -23,17 +23,32 @@ import { formatIsoInRome } from "@/lib/date-utils";
  */
 const BATCH_SIZE = 500;
 
+/**
+ * Colonne del riepilogo, una riga per scontrino.
+ *
+ * Ordine deliberato: prima ciò che una persona legge (quando, quanto, cosa),
+ * in fondo gli identificativi tecnici. Un id tecnico resta nel file solo se
+ * punta a qualcosa di raggiungibile: `id_scontrino` e' la chiave con cui
+ * l'assistenza e la Developer API ritrovano il documento,
+ * `id_transazione_ade` e' l'unico appiglio verso l'AdE in caso di
+ * contestazione. Il vecchio `id_documento_annullato` e' sparito perche'
+ * puntava a una riga che nel file non c'e' (l'export filtra `kind = "SALE"`,
+ * i VOID non sono righe): al suo posto `data_annullo`, che e' l'informazione
+ * che quella colonna provava a dare. Sparita anche `tipo`, che valeva `SALE`
+ * su ogni riga.
+ */
 export const RECEIPT_CSV_HEADERS = [
-  "id",
+  "data",
+  "ora",
   "numero_ade",
-  "data_emissione",
-  "tipo",
   "stato",
   "totale",
   "metodo_pagamento",
+  "descrizione",
   "codice_lotteria",
+  "data_annullo",
+  "id_scontrino",
   "id_transazione_ade",
-  "id_documento_annullato",
 ] as const;
 
 export type ReceiptStatusFilter = "ACCEPTED" | "VOID_ACCEPTED";
@@ -52,10 +67,10 @@ export type ReceiptDocRow = {
   adeTransactionId: string | null;
   lotteryCode: string | null;
   /**
-   * ID del documento VOID che annulla questo SALE (NULL se mai annullato).
-   * Popolato da LEFT JOIN su commercial_documents AS void_doc.
+   * Istante di registrazione del VOID che annulla questo SALE (NULL se mai
+   * annullato). Popolato da LEFT JOIN su commercial_documents AS void_doc.
    */
-  voidingDocumentId: string | null;
+  voidRegisteredAt: Date | null;
   publicRequest: unknown;
 };
 
@@ -66,6 +81,34 @@ export type BuildCsvStreamParams = {
   dateTo: Date | null;
 };
 
+/**
+ * Etichette in italiano dei codici tecnici.
+ *
+ * `Map` e non object literal: la chiave arriva da una colonna DB e da un
+ * jsonb non tipizzato, e `Map.get` non puo' risolvere su `Object.prototype`
+ * (`"constructor"` restituirebbe una funzione da un object literal).
+ *
+ * Non riusiamo `PAYMENT_LABELS` di `receipt-format.ts`: quelle sono le
+ * diciture del layout AdE stampato ("Pagamento contante"), qui la colonna si
+ * chiama gia' `metodo_pagamento` e ripetere "Pagamento" sarebbe rumore.
+ */
+const STATUS_LABELS = new Map<string, string>([
+  ["ACCEPTED", "emesso"],
+  ["VOID_ACCEPTED", "annullato"],
+]);
+
+const PAYMENT_METHOD_LABELS = new Map<string, string>([
+  ["PC", "contanti"],
+  ["PE", "elettronico"],
+]);
+
+/**
+ * Separatore fra le descrizioni delle righe dentro l'unica cella
+ * `descrizione`. Spaziato: senza spazi due articoli si leggono come uno solo
+ * (`CaffèCornetto`), e con la virgola si confonderebbe con i decimali.
+ */
+const DESCRIPTION_JOIN = " | ";
+
 function extractPaymentMethod(publicRequest: unknown): string {
   if (
     publicRequest !== null &&
@@ -73,7 +116,7 @@ function extractPaymentMethod(publicRequest: unknown): string {
     "paymentMethod" in publicRequest
   ) {
     const pm = (publicRequest as { paymentMethod?: unknown }).paymentMethod;
-    if (typeof pm === "string") return pm;
+    if (typeof pm === "string") return PAYMENT_METHOD_LABELS.get(pm) ?? pm;
   }
   return "";
 }
@@ -83,21 +126,49 @@ function formatItalianAmount(amount: number): string {
 }
 
 /**
+ * Descrizioni delle righe di uno scontrino, in una sola cella.
+ *
+ * Il CSV di riepilogo tiene una riga per scontrino: le N righe articolo
+ * collassano qui. Chi ha bisogno del dettaglio riga-per-riga usa l'export
+ * dedicato. Le descrizioni vuote o di soli spazi vengono saltate — una cella
+ * `Caffè |  | Acqua` sembra un dato perso, non un articolo senza nome.
+ */
+export function joinLineDescriptions(
+  lines: readonly { description: string }[],
+): string {
+  return lines
+    .map((l) => l.description.trim())
+    .filter((d) => d.length > 0)
+    .join(DESCRIPTION_JOIN);
+}
+
+/**
  * Formatta una riga CSV per uno scontrino. Pure function — riusabile dai test
  * senza mock DB.
+ *
+ * `total` e `description` arrivano gia' calcolati dal chiamante, che ha in
+ * mano le righe articolo: qui non si rifa' l'aritmetica del totale (la
+ * canonica vive in `receipt-totals.ts`) ne' si riquery-a il DB.
  */
-export function formatReceiptRow(doc: ReceiptDocRow, total: number): string[] {
+export function formatReceiptRow(
+  doc: ReceiptDocRow,
+  total: number,
+  description: string,
+): string[] {
   return [
-    doc.id,
+    formatRomeDate(doc.adeRegisteredAt),
+    formatRomeTime(doc.adeRegisteredAt),
     doc.adeProgressive ?? "",
-    formatIsoInRome(doc.adeRegisteredAt),
-    doc.kind,
-    doc.status,
+    // Fallback sul codice grezzo invece che stringa vuota: uno stato nuovo e
+    // non tradotto deve essere visibile nel file, non sparire.
+    STATUS_LABELS.get(doc.status) ?? doc.status,
     formatItalianAmount(total),
     extractPaymentMethod(doc.publicRequest),
+    description,
     doc.lotteryCode ?? "",
+    doc.voidRegisteredAt ? formatRomeDate(doc.voidRegisteredAt) : "",
+    doc.id,
     doc.adeTransactionId ?? "",
-    doc.voidingDocumentId ?? "",
   ];
 }
 
@@ -141,7 +212,7 @@ async function fetchDocsBatch(
       adeProgressive: commercialDocuments.adeProgressive,
       adeTransactionId: commercialDocuments.adeTransactionId,
       lotteryCode: commercialDocuments.lotteryCode,
-      voidingDocumentId: voidDocAlias.id,
+      voidRegisteredAt: voidDocAlias.adeRegisteredAt,
       publicRequest: commercialDocuments.publicRequest,
     })
     .from(commercialDocuments)
@@ -197,9 +268,14 @@ export function buildReceiptsCsvStream(
           const byDoc = groupLinesByDocId(lines);
 
           for (const doc of docs) {
-            const total = calcDocTotal(byDoc.get(doc.id) ?? []);
+            const docLines = byDoc.get(doc.id) ?? [];
+            const total = calcDocTotal(docLines);
             controller.enqueue(
-              encoder.encode(rowToCsv(formatReceiptRow(doc, total))),
+              encoder.encode(
+                rowToCsv(
+                  formatReceiptRow(doc, total, joinLineDescriptions(docLines)),
+                ),
+              ),
             );
           }
 

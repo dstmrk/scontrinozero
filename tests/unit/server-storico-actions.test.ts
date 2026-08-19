@@ -109,14 +109,17 @@ describe("searchReceipts server action", () => {
     vi.resetModules();
   });
 
-  // ── UTC day-boundary normalization ───────────────────────────────────────
+  // ── Rome day-boundary normalization ──────────────────────────────────────
 
-  describe("date filter UTC normalization", () => {
-    // Note: commercialDocuments is mocked as a plain string so .createdAt is
+  describe("date filter Rome day-boundary normalization", () => {
+    // Note: commercialDocuments is mocked as a plain string so the column is
     // undefined. We check only the Date argument (index [1]) from mock.calls
-    // because that is what the UTC-normalization fix affects.
+    // because that is what the day-boundary conversion affects.
+    //
+    // Gli estremi sono le mezzanotti ITALIANE: aprile e' CEST (+02:00),
+    // dicembre e' CET (+01:00), quindi l'istante UTC cambia con la stagione.
 
-    it("constructs dateFrom using UTC midnight (T00:00:00.000Z)", async () => {
+    it("apre il periodo sulla mezzanotte italiana del giorno `dateFrom`", async () => {
       const { searchReceipts } = await import("@/server/storico-actions");
       const { gte } = await import("drizzle-orm");
       const gteMock = gte as ReturnType<typeof vi.fn>;
@@ -124,36 +127,38 @@ describe("searchReceipts server action", () => {
       await searchReceipts(BIZ_ID, { dateFrom: "2026-04-01" });
 
       expect(gteMock).toHaveBeenCalled();
+      // 00:00 del 1° aprile a Roma = 22:00 UTC del 31 marzo (CEST).
       expect(gteMock.mock.calls[0]?.[1]).toEqual(
-        new Date("2026-04-01T00:00:00.000Z"),
+        new Date("2026-03-31T22:00:00.000Z"),
       );
     });
 
-    it("constructs dateTo as start of next UTC day (exclusive upper bound)", async () => {
+    it("chiude il periodo sulla mezzanotte italiana del giorno dopo `dateTo`", async () => {
       const { searchReceipts } = await import("@/server/storico-actions");
       const { lt } = await import("drizzle-orm");
       const ltMock = lt as ReturnType<typeof vi.fn>;
 
       await searchReceipts(BIZ_ID, { dateTo: "2026-04-10" });
 
-      // dateTo "2026-04-10" → exclusive upper = "2026-04-11T00:00:00.000Z"
+      // dateTo "2026-04-10" → estremo esclusivo: 00:00 dell'11 aprile a Roma
       expect(ltMock).toHaveBeenCalled();
       expect(ltMock.mock.calls[0]?.[1]).toEqual(
-        new Date("2026-04-11T00:00:00.000Z"),
+        new Date("2026-04-10T22:00:00.000Z"),
       );
     });
 
-    it("handles Dec 31 → Jan 1 rollover correctly (UTC)", async () => {
+    it("gestisce il passaggio 31 dicembre → 1° gennaio", async () => {
       const { searchReceipts } = await import("@/server/storico-actions");
       const { lt } = await import("drizzle-orm");
       const ltMock = lt as ReturnType<typeof vi.fn>;
 
       await searchReceipts(BIZ_ID, { dateTo: "2026-12-31" });
 
-      // Should roll over to 2027-01-01, not 2026-12-32
+      // Rotola al 2027-01-01, non al 2026-12-32. D'inverno vale CET, quindi
+      // la mezzanotte italiana e' le 23:00 UTC del giorno prima.
       expect(ltMock).toHaveBeenCalled();
       expect(ltMock.mock.calls[0]?.[1]).toEqual(
-        new Date("2027-01-01T00:00:00.000Z"),
+        new Date("2026-12-31T23:00:00.000Z"),
       );
     });
 
@@ -180,11 +185,11 @@ describe("searchReceipts server action", () => {
 
       expect(gteMock).toHaveBeenCalled();
       expect(gteMock.mock.calls[0]?.[1]).toEqual(
-        new Date("2026-04-01T00:00:00.000Z"),
+        new Date("2026-03-31T22:00:00.000Z"),
       );
       expect(ltMock).toHaveBeenCalled();
       expect(ltMock.mock.calls[0]?.[1]).toEqual(
-        new Date("2026-04-11T00:00:00.000Z"),
+        new Date("2026-04-10T22:00:00.000Z"),
       );
     });
   });

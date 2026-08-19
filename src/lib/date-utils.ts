@@ -22,12 +22,6 @@ export function getFiscalDate(
   return new Intl.DateTimeFormat("sv-SE", { timeZone: tz }).format(date);
 }
 
-/**
- * Formats a Date as ISO 8601 with explicit Europe/Rome UTC offset,
- * e.g. "2026-05-19T14:34:56+02:00". Milliseconds are intentionally dropped
- * (fiscal CSV precision is seconds). Handles CET (+01:00) and CEST (+02:00)
- * transitions correctly via Intl.
- */
 // Module-scope: opzioni costanti, sv-SE per output ISO-style senza AM/PM.
 const romeWallClockFormatter = new Intl.DateTimeFormat("sv-SE", {
   timeZone: "Europe/Rome",
@@ -39,17 +33,23 @@ const romeWallClockFormatter = new Intl.DateTimeFormat("sv-SE", {
   second: "2-digit",
 });
 
-export function formatIsoInRome(date: Date): string {
-  // sv-SE locale produces ISO-style "YYYY-MM-DD HH:mm:ss" without AM/PM noise.
-  const wall = romeWallClockFormatter.format(date); // → "2026-05-19 14:34:56"
-  const isoWall = wall.replace(" ", "T"); // → "2026-05-19T14:34:56"
-  // Treat Rome wall-clock as fake UTC, then diff with real UTC to get the offset.
-  const offsetMs = new Date(isoWall + "Z").getTime() - date.getTime();
-  const sign = offsetMs >= 0 ? "+" : "-";
-  const absMin = Math.round(Math.abs(offsetMs) / 60000);
-  const hh = String(Math.floor(absMin / 60)).padStart(2, "0");
-  const mm = String(absMin % 60).padStart(2, "0");
-  return `${isoWall}${sign}${hh}:${mm}`; // → "2026-05-19T14:34:56+02:00"
+/**
+ * Data e ora in ora italiana, separate.
+ *
+ * `romeWallClockFormatter` (sv-SE) rende "YYYY-MM-DD HH:mm:ss": la data va
+ * riordinata in `DD/MM/YYYY`, l'ora si prende com'e'. Sono due funzioni e non
+ * una perche' il CSV le vuole in due colonne — un timestamp unico in una cella
+ * sola non e' ordinabile ne' filtrabile in un foglio di calcolo.
+ */
+export function formatRomeDate(date: Date): string {
+  const [isoDay] = romeWallClockFormatter.format(date).split(" ");
+  const [year, month, day] = isoDay.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+/** Ora italiana `HH:mm:ss`. Secondi inclusi: e' la precisione fiscale. */
+export function formatRomeTime(date: Date): string {
+  return romeWallClockFormatter.format(date).split(" ")[1];
 }
 
 /**

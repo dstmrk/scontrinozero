@@ -36,6 +36,7 @@ vi.mock("drizzle-orm/pg-core", () => ({
     kind: `${name}.kind`,
     status: `${name}.status`,
     voidedDocumentId: `${name}.voided_document_id`,
+    adeRegisteredAt: `${name}.ade_registered_at`,
   }),
 }));
 
@@ -58,6 +59,7 @@ import {
   RECEIPT_CSV_HEADERS,
   buildReceiptsCsvStream,
   formatReceiptRow,
+  joinLineDescriptions,
   type ReceiptDocRow,
 } from "./csv-export";
 
@@ -70,118 +72,221 @@ function doc(overrides: Partial<ReceiptDocRow> = {}): ReceiptDocRow {
     adeProgressive: "00042",
     adeTransactionId: "tx-12345",
     lotteryCode: null,
-    voidingDocumentId: null,
+    voidRegisteredAt: null,
     publicRequest: { paymentMethod: "PC" },
     ...overrides,
   };
 }
 
 describe("RECEIPT_CSV_HEADERS", () => {
-  it("has the expected Italian column names", () => {
+  it("elenca le colonne in italiano, con gli id tecnici in fondo", () => {
     expect(RECEIPT_CSV_HEADERS).toEqual([
-      "id",
+      "data",
+      "ora",
       "numero_ade",
-      "data_emissione",
-      "tipo",
       "stato",
       "totale",
       "metodo_pagamento",
+      "descrizione",
       "codice_lotteria",
+      "data_annullo",
+      "id_scontrino",
       "id_transazione_ade",
-      "id_documento_annullato",
     ]);
+  });
+
+  // `tipo` valeva "SALE" su ogni riga (la query filtra kind = SALE) e
+  // `id_documento_annullato` puntava a un documento che nel file non c'e'.
+  it("non contiene piu' la colonna costante `tipo` ne' `id_documento_annullato`", () => {
+    expect(RECEIPT_CSV_HEADERS).not.toContain("tipo");
+    expect(RECEIPT_CSV_HEADERS).not.toContain("id_documento_annullato");
+  });
+});
+
+describe("joinLineDescriptions", () => {
+  it("unisce le descrizioni delle righe con ` | `", () => {
+    expect(
+      joinLineDescriptions([
+        { description: "Caffè" },
+        { description: "Cornetto" },
+      ]),
+    ).toBe("Caffè | Cornetto");
+  });
+
+  it("restituisce la sola descrizione su uno scontrino a una riga", () => {
+    expect(joinLineDescriptions([{ description: "Caffè" }])).toBe("Caffè");
+  });
+
+  it("restituisce stringa vuota se non ci sono righe", () => {
+    expect(joinLineDescriptions([])).toBe("");
+  });
+
+  // Una cella `Caffè |  | Acqua` sembra un dato perso, non un articolo senza
+  // nome: le descrizioni vuote o di soli spazi si saltano.
+  it("salta le descrizioni vuote o di soli spazi e ripulisce i margini", () => {
+    expect(
+      joinLineDescriptions([
+        { description: "  Caffè " },
+        { description: "   " },
+        { description: "" },
+        { description: "Acqua" },
+      ]),
+    ).toBe("Caffè | Acqua");
   });
 });
 
 describe("formatReceiptRow", () => {
-  it("formats a fully populated SALE document", () => {
-    const row = formatReceiptRow(doc(), 12.34);
-    expect(row).toEqual([
-      "doc-1",
+  it("formatta uno scontrino completo", () => {
+    expect(formatReceiptRow(doc(), 12.34, "Caffè | Cornetto")).toEqual([
+      "19/05/2026",
+      "14:35:01",
       "00042",
-      "2026-05-19T14:35:01+02:00",
-      "SALE",
-      "ACCEPTED",
+      "emesso",
       "12,34",
-      "PC",
+      "contanti",
+      "Caffè | Cornetto",
       "",
+      "",
+      "doc-1",
       "tx-12345",
-      "",
     ]);
   });
 
-  it("uses Italian comma as decimal separator for the total", () => {
-    expect(formatReceiptRow(doc(), 1234.5)[5]).toBe("1234,50");
-    expect(formatReceiptRow(doc(), 0)[5]).toBe("0,00");
-    expect(formatReceiptRow(doc(), 0.05)[5]).toBe("0,05");
+  it("separa data e ora in due colonne, in ora italiana", () => {
+    // Un timestamp unico in una cella sola non e' ordinabile ne' filtrabile
+    // in un foglio di calcolo.
+    const row = formatReceiptRow(doc(), 0, "");
+    expect(row[0]).toBe("19/05/2026");
+    expect(row[1]).toBe("14:35:01");
   });
 
-  it("emits empty strings for nullable fields", () => {
-    const row = formatReceiptRow(
-      doc({
-        adeProgressive: null,
-        adeTransactionId: null,
-        lotteryCode: null,
-        voidingDocumentId: null,
-        publicRequest: null,
-      }),
-      0,
-    );
-    expect(row[1]).toBe(""); // numero_ade
-    expect(row[6]).toBe(""); // metodo_pagamento
-    expect(row[7]).toBe(""); // codice_lotteria
-    expect(row[8]).toBe(""); // id_transazione_ade
-    expect(row[9]).toBe(""); // id_documento_annullato
-  });
-
-  it("emits lotteryCode when present", () => {
-    const row = formatReceiptRow(doc({ lotteryCode: "ABCDEFGH" }), 0);
-    expect(row[7]).toBe("ABCDEFGH");
-  });
-
-  it("popola id_documento_annullato dal LEFT JOIN su VOID quando il SALE e' annullato", () => {
-    // Su un SALE VOID_ACCEPTED, voidingDocumentId arriva dal JOIN
-    // (= id del documento VOID che ha annullato questo SALE).
-    const row = formatReceiptRow(
-      doc({ status: "VOID_ACCEPTED", voidingDocumentId: "void-doc-99" }),
-      0,
-    );
-    expect(row[4]).toBe("VOID_ACCEPTED");
-    expect(row[9]).toBe("void-doc-99");
-  });
-
-  it("lascia id_documento_annullato vuoto sui SALE non annullati", () => {
-    const row = formatReceiptRow(
-      doc({ status: "ACCEPTED", voidingDocumentId: null }),
-      0,
-    );
-    expect(row[9]).toBe("");
-  });
-
-  it("stampa l'istante registrato dall'AdE, anche a cavallo del cambio mese", () => {
+  it("usa l'istante registrato dall'AdE, anche a cavallo del cambio mese", () => {
     // Vendita creata il 31/01 alle 23:59:58 (ora di Roma) e registrata
     // dall'AdE il 01/02 alle 00:00:01: la data del CSV e' quella dell'AdE,
     // la stessa che il cliente legge sul documento consegnato.
     const row = formatReceiptRow(
       doc({ adeRegisteredAt: new Date("2026-01-31T23:00:01.000Z") }),
       0,
+      "",
     );
-    expect(row[2]).toBe("2026-02-01T00:00:01+01:00");
+    expect(row[0]).toBe("01/02/2026");
+    expect(row[1]).toBe("00:00:01");
   });
 
-  it("extracts paymentMethod from publicRequest jsonb", () => {
+  it("usa la virgola come separatore decimale del totale", () => {
+    expect(formatReceiptRow(doc(), 1234.5, "")[4]).toBe("1234,50");
+    expect(formatReceiptRow(doc(), 0, "")[4]).toBe("0,00");
+    expect(formatReceiptRow(doc(), 0.05, "")[4]).toBe("0,05");
+  });
+
+  it("traduce gli stati in italiano", () => {
+    expect(formatReceiptRow(doc({ status: "ACCEPTED" }), 0, "")[3]).toBe(
+      "emesso",
+    );
+    expect(formatReceiptRow(doc({ status: "VOID_ACCEPTED" }), 0, "")[3]).toBe(
+      "annullato",
+    );
+  });
+
+  // Uno stato nuovo e non ancora tradotto deve restare visibile nel file:
+  // una cella vuota si legge come "nessun dato", non come "caso non previsto".
+  it("ripiega sul codice grezzo su uno stato sconosciuto", () => {
+    expect(formatReceiptRow(doc({ status: "FUTURO" }), 0, "")[3]).toBe(
+      "FUTURO",
+    );
+  });
+
+  it("traduce il metodo di pagamento in italiano", () => {
     expect(
-      formatReceiptRow(doc({ publicRequest: { paymentMethod: "PE" } }), 0)[6],
-    ).toBe("PE");
+      formatReceiptRow(
+        doc({ publicRequest: { paymentMethod: "PC" } }),
+        0,
+        "",
+      )[5],
+    ).toBe("contanti");
     expect(
-      formatReceiptRow(doc({ publicRequest: { paymentMethod: null } }), 0)[6],
+      formatReceiptRow(
+        doc({ publicRequest: { paymentMethod: "PE" } }),
+        0,
+        "",
+      )[5],
+    ).toBe("elettronico");
+  });
+
+  it("ripiega sul codice grezzo su un metodo di pagamento sconosciuto", () => {
+    expect(
+      formatReceiptRow(
+        doc({ publicRequest: { paymentMethod: "PX" } }),
+        0,
+        "",
+      )[5],
+    ).toBe("PX");
+  });
+
+  it("lascia vuoto il metodo di pagamento quando il jsonb non lo contiene", () => {
+    expect(
+      formatReceiptRow(
+        doc({ publicRequest: { paymentMethod: null } }),
+        0,
+        "",
+      )[5],
     ).toBe("");
     expect(
       formatReceiptRow(
         doc({ publicRequest: "not-an-object" as unknown as null }),
         0,
-      )[6],
+        "",
+      )[5],
     ).toBe("");
+    expect(formatReceiptRow(doc({ publicRequest: null }), 0, "")[5]).toBe("");
+  });
+
+  it("emette stringa vuota sui campi nullable", () => {
+    const row = formatReceiptRow(
+      doc({
+        adeProgressive: null,
+        adeTransactionId: null,
+        lotteryCode: null,
+        voidRegisteredAt: null,
+      }),
+      0,
+      "",
+    );
+    expect(row[2]).toBe(""); // numero_ade
+    expect(row[7]).toBe(""); // codice_lotteria
+    expect(row[8]).toBe(""); // data_annullo
+    expect(row[10]).toBe(""); // id_transazione_ade
+  });
+
+  it("emette il codice lotteria quando presente", () => {
+    expect(formatReceiptRow(doc({ lotteryCode: "ABCDEFGH" }), 0, "")[7]).toBe(
+      "ABCDEFGH",
+    );
+  });
+
+  // `data_annullo` sostituisce il vecchio `id_documento_annullato`: dice
+  // QUANDO e' avvenuta la rettifica, cioe' in che periodo cade.
+  it("riporta la data dell'annullo sui documenti annullati", () => {
+    const row = formatReceiptRow(
+      doc({
+        status: "VOID_ACCEPTED",
+        voidRegisteredAt: new Date("2026-05-20T08:00:00.000Z"),
+      }),
+      0,
+      "",
+    );
+    expect(row[3]).toBe("annullato");
+    expect(row[8]).toBe("20/05/2026");
+  });
+
+  it("lascia data_annullo vuota sui documenti non annullati", () => {
+    expect(formatReceiptRow(doc({ status: "ACCEPTED" }), 0, "")[8]).toBe("");
+  });
+
+  it("tiene gli identificativi tecnici nelle ultime due colonne", () => {
+    const row = formatReceiptRow(doc(), 0, "");
+    expect(row[9]).toBe("doc-1");
+    expect(row[10]).toBe("tx-12345");
   });
 });
 
@@ -236,7 +341,7 @@ describe("buildReceiptsCsvStream", () => {
     });
     const body = await streamToString(stream);
     expect(body.charCodeAt(0)).toBe(0xfeff); // BOM
-    expect(body).toContain("id,numero_ade,data_emissione");
+    expect(body).toContain("data;ora;numero_ade");
     expect(body.trim().split("\r\n")).toHaveLength(1);
   });
 
@@ -244,14 +349,27 @@ describe("buildReceiptsCsvStream", () => {
     const documents = [doc({ id: "d1" }), doc({ id: "d2" })];
     setupDbMock(documents);
 
-    mockFetchLinesByDocIds.mockResolvedValue([
-      { documentId: "d1", grossUnitPrice: "10.00", quantity: "1" },
-      { documentId: "d2", grossUnitPrice: "5.00", quantity: "2" },
-    ]);
+    const d1Lines = [
+      {
+        documentId: "d1",
+        grossUnitPrice: "10.00",
+        quantity: "1",
+        description: "Caffè",
+      },
+    ];
+    const d2Lines = [
+      {
+        documentId: "d2",
+        grossUnitPrice: "5.00",
+        quantity: "2",
+        description: "Cornetto",
+      },
+    ];
+    mockFetchLinesByDocIds.mockResolvedValue([...d1Lines, ...d2Lines]);
     mockGroupLinesByDocId.mockReturnValue(
       new Map([
-        ["d1", [{ documentId: "d1", grossUnitPrice: "10.00", quantity: "1" }]],
-        ["d2", [{ documentId: "d2", grossUnitPrice: "5.00", quantity: "2" }]],
+        ["d1", d1Lines],
+        ["d2", d2Lines],
       ]),
     );
     mockCalcDocTotal.mockImplementation((lines: unknown[]) =>
@@ -272,6 +390,40 @@ describe("buildReceiptsCsvStream", () => {
     expect(lines).toHaveLength(3); // header + 2 rows
     expect(lines[1]).toContain("d1");
     expect(lines[2]).toContain("d2");
+    // Le righe articolo del documento collassano nella colonna `descrizione`.
+    expect(lines[1].split(";")[6]).toBe("Caffè");
+    expect(lines[2].split(";")[6]).toBe("Cornetto");
+  });
+
+  // La descrizione e' testo libero dell'utente: e' l'unica colonna in cui
+  // possono entrare il separatore, le virgolette o un leader di formula.
+  it("quota e neutralizza una descrizione ostile", async () => {
+    setupDbMock([doc({ id: "d1" })]);
+    const lines = [
+      {
+        documentId: "d1",
+        grossUnitPrice: "1.00",
+        quantity: "1",
+        description: '=SOMMA(A1); "sconto"',
+      },
+    ];
+    mockFetchLinesByDocIds.mockResolvedValue(lines);
+    mockGroupLinesByDocId.mockReturnValue(new Map([["d1", lines]]));
+    mockCalcDocTotal.mockReturnValue(1);
+
+    const body = await streamToString(
+      buildReceiptsCsvStream({
+        businessId: "biz-1",
+        status: null,
+        dateFrom: null,
+        dateTo: null,
+      }),
+    );
+
+    // Apostrofo davanti (Excel non esegue la formula), virgolette raddoppiate
+    // e cella quotata: il `;` interno non spezza la riga in due colonne.
+    expect(body).toContain('"\'=SOMMA(A1); ""sconto"""');
+    expect(body.split("\r\n").filter(Boolean)).toHaveLength(2);
   });
 
   it("propagates DB errors via stream.error so callers can detect failure", async () => {
@@ -471,7 +623,8 @@ describe("buildReceiptsCsvStream — paginazione con ade_registered_at duplicati
     body += decoder.decode();
 
     const rows = body.split("\r\n").filter(Boolean).slice(1); // scarta l'header
-    const ids = rows.map((r) => r.split(",")[0]);
+    // `id_scontrino` e' la decima colonna (gli id tecnici stanno in fondo).
+    const ids = rows.map((r) => r.split(";")[9]);
 
     expect(rows).toHaveLength(1200);
     expect(new Set(ids).size).toBe(1200);
