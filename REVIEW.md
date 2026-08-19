@@ -352,11 +352,35 @@ Il layout standard AdE prevede per l'annullo un documento distinto:
 **Perché non è stato fatto qui.** Fuori scope per scelta esplicita: il lavoro
 di allineamento al layout AdE ha coperto il solo documento di vendita.
 
-**Da fare.** Un `kind` esplicito nei tre renderer (oggi la resa è implicitamente
-"sempre SALE"), con il blocco `Documento di riferimento` alimentato da
-`voidedDocumentId` → progressivo + data del SALE collegato. Attenzione: il reso
-(`R`/`RX` in `AdeOperationType`) è un terzo documento ancora diverso, con lo
-stesso blocco di riferimento ma le righe rese — non modellarlo come un annullo.
+**Aggiornamento v1.7.0 — il dato c'è, manca il render.** Il layout verbatim del
+PDF di annullo stampato dall'AdE è ora misurato e trascritto in `HAR.md` voce
+#16a, e tutto ciò che serve ad alimentarlo è già assemblato dai lettori:
+
+- `isPrintableDocument` / `printableDocumentCondition`
+  (`src/lib/receipts/printable-document.ts`) fa passare un `VOID` riuscito e
+  blocca la vendita annullata — prima il filtro `status = 'ACCEPTED'` copiato
+  nei lettori escludeva entrambi;
+- `fetchPublicReceipt` e la route PDF autenticata restituiscono `lines` prese
+  dalla **vendita annullata** (un VOID non ha righe proprie) e `voidedSale` con
+  il progressivo per il blocco `Documento di riferimento`;
+- `commercial_documents.ade_registered_at` (migrazione 0031) porta l'istante
+  che l'AdE stampa nel footer, derivato dall'header HTTP `Date` (`HAR.md` #16b)
+  — **non** `createdAt`, che precede la risposta AdE di 2-5s.
+
+**Da fare.** Solo la resa: un `kind` esplicito nei tre renderer (oggi è
+implicitamente "sempre SALE"), e la rimozione dei tre guard che oggi rifiutano
+un VOID — marcati `REVIEW.md #85` nel sorgente — in
+`src/app/api/documents/[documentId]/pdf/route.ts`,
+`src/app/r/[documentId]/pdf/route.ts` e `src/app/r/[documentId]/page.tsx` —
+sono lì per non presentare un annullo col layout di vendita, cioè come uno
+scontrino valido. Nello stesso passaggio le superfici dovrebbero mostrare
+`ade_registered_at` al posto di `createdAt`, così la data cambia in un colpo
+solo ovunque. Resta scoperta la riga VOID nello storico, oggi grigia e non
+cliccabile (`src/components/storico/storico-client.tsx`, `hasDetail`).
+
+Attenzione: il reso (`R`/`RX` in `AdeOperationType`) è un terzo documento
+ancora diverso, con lo stesso blocco di riferimento ma le righe rese — non
+modellarlo come un annullo. I codici `tipoOperazione` sono in `HAR.md` #16c.
 
 ---
 
@@ -572,6 +596,62 @@ per l'helper di normalizzazione invece di leggere il campo che preferisce.
 **Trigger di riapertura.** Quando il pagamento misto è live e i consumer
 esterni dell'API sono stati avvisati; oppure quando serve esporre `TR`/`NR_*`,
 che sullo scalare non sono rappresentabili affatto.
+
+---
+
+### 89. `VOID_ACCEPTED` ha due significati a seconda del `kind`
+
+- **Categoria:** tech debt / modello dati · **Severità:** Low — nessun bug
+  aperto: la conseguenza pratica è coperta da `isPrintableDocument`
+- **File:** `src/db/schema/commercial-documents.ts` (`documentStatusEnum`),
+  `src/lib/receipts/printable-document.ts`,
+  `supabase/migrations/0012_fix_void_unique_index.sql`,
+  `src/app/api/v1/receipts/route.ts`
+
+**Problema.** Lo stesso valore d'enum porta due informazioni diverse: su una
+riga `kind: "SALE"` significa "questa vendita è stata annullata", su una riga
+`kind: "VOID"` significa "questo annullo è riuscito". Nessun predicato sul solo
+`status` può quindi esprimere una regola che dipende da entrambi — ed è
+esattamente ciò che ha nascosto la ricevuta di annullamento: il filtro
+`status = 'ACCEPTED'` copiato in `fetchPublicReceipt` e nella route PDF
+escludeva sia la vendita annullata (giusto) sia il suo annullo (sbagliato).
+
+**Perché non è stato risolto spostando i dati.** L'alternativa valutata in
+v1.7.0 era migrare i VOID riusciti ad `ACCEPTED`, rendendo la condizione
+monodimensionale. Scartata per tre ragioni concrete:
+
+1. L'indice unique parziale della migrazione 0012 ha
+   `status IN ('PENDING', 'VOID_ACCEPTED')` cablato nel predicato: i VOID
+   riusciti ne uscirebbero e sparirebbe la **guardia atomica contro il doppio
+   annullo** dello stesso SALE. La conseguenza è un annullo fiscale duplicato
+   su AdE, irreversibile; il controllo applicativo che resterebbe è
+   TOCTOU-vulnerabile (skill `db-migrations`: constraint DB > lock applicativo).
+2. `status` è esposto in risposta da `/api/v1` e i suoi valori sono documentati
+   agli sviluppatori esterni in `src/app/(marketing)/help/api/page.tsx`:
+   cambiarlo è un breaking change su contratto pubblico versionato — regola 28
+   eccezione (b).
+3. Blast radius ampio e coordinato con una migrazione dati: `csv-export.ts` (il
+   JOIN che trova l'annullo proprio via `status = 'VOID_ACCEPTED'`),
+   `STATUS_VALUES` in export route e storico page, badge e filtro in
+   `storico-client.tsx`, `types/storico.ts`, `public-types.ts`.
+
+**Verificato che NON è un problema:** le analytics reggerebbero comunque —
+`analytics-actions.ts` filtra già `kind = 'SALE'`, quindi le righe VOID non
+entrano in `computeKpis` e non ci sarebbe doppio conteggio del fatturato.
+
+**Mitigazione in essere.** La regola bidimensionale vive in un posto solo,
+`printable-document.ts`, che i lettori chiamano invece di riscrivere il
+predicato. Non è un tappabuchi: è la modellazione corretta di una condizione su
+`(kind, status)`.
+
+**Da fare in `/api/v2`** (insieme alla voce #87, stesso confine di versione):
+separare i due significati — per esempio `ACCEPTED` su entrambi i kind più un
+flag/timestamp `voided_at` sul SALE — riscrivendo il predicato dell'indice 0012
+**nella stessa migrazione**, mai in un PR separato.
+
+**Trigger di riapertura.** L'apertura di `/api/v2`, oppure il primo caso in cui
+un terzo stato dipendente dal `kind` (il reso, `R`/`RX`) rende la sovrapposizione
+insostenibile.
 
 ---
 

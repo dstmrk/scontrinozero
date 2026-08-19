@@ -152,6 +152,7 @@ const FAKE_ADE_RESPONSE = {
   esito: true,
   idtrx: "trx-001",
   progressivo: "001",
+  registeredAt: "2026-08-18T17:05:10.000Z",
   errori: [],
 };
 
@@ -224,6 +225,43 @@ describe("emitReceiptForBusiness", () => {
     });
     expect(mockSubmitSale).toHaveBeenCalled();
     expect(mockLogout).toHaveBeenCalled();
+  });
+
+  // Migrazione 0031: la riga nasce col DEFAULT now() dell'INSERT, che precede
+  // la risposta AdE della latenza del round-trip (2-5s). E' questa UPDATE a
+  // sostituirlo con l'istante autorevole. Vale per le vendite quanto per gli
+  // annulli: il timestamp fiscale non e' mai il nostro createdAt.
+  it("scrive adeRegisteredAt dal registeredAt della risposta AdE", async () => {
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness(VALID_INPUT);
+
+    const acceptedSet = mockUpdateSet.mock.calls
+      .map((c) => c[0])
+      .find((set) => set.status === "ACCEPTED");
+
+    expect(acceptedSet.adeRegisteredAt).toEqual(
+      new Date("2026-08-18T17:05:10.000Z"),
+    );
+  });
+
+  // Sovrascrivere con undefined su una colonna NOT NULL nasconderebbe la
+  // differenza fra "l'AdE non ce l'ha detto" e "non volevamo toccarla".
+  it("omette adeRegisteredAt quando la risposta AdE non porta registeredAt", async () => {
+    mockSubmitSale.mockResolvedValue({
+      esito: true,
+      idtrx: "trx-001",
+      progressivo: "001",
+      errori: [],
+    });
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness(VALID_INPUT);
+
+    const acceptedSet = mockUpdateSet.mock.calls
+      .map((c) => c[0])
+      .find((set) => set.status === "ACCEPTED");
+
+    expect(acceptedSet).not.toHaveProperty("adeRegisteredAt");
   });
 
   it("CIE senza sessione interattiva → reauthRequired, nessun documento inserito", async () => {

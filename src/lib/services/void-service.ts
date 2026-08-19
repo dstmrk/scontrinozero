@@ -35,6 +35,7 @@ import {
 import type { VoidReceiptInput, VoidReceiptResult } from "@/types/storico";
 import type { VoidRequest } from "@/lib/ade/public-types";
 import type { AdeResponse } from "@/lib/ade/types";
+import { adeRegisteredAtPatch } from "./ade-registered-at";
 import {
   buildAdeSearchWindow,
   claimStaleDocument,
@@ -401,6 +402,13 @@ async function processVoidAdeResponse(args: {
             adeTransactionId: adeResponse.idtrx ?? null,
             adeProgressive: adeResponse.progressivo ?? null,
             adeResponse,
+            // Migrazione 0031: la colonna e' NOT NULL e nasce col DEFAULT
+            // now() dell'INSERT (riga PENDING, esito ancora ignoto). Qui la
+            // sostituiamo con l'istante autorevole dell'AdE. `...spread`
+            // condizionale e non `?? undefined`: assegnare undefined a una
+            // colonna NOT NULL la lascerebbe sul default invece di essere un
+            // no-op esplicito, e il lettore non saprebbe distinguere i casi.
+            ...adeRegisteredAtPatch(adeResponse),
           })
           .where(eq(commercialDocuments.id, voidDocumentId));
 

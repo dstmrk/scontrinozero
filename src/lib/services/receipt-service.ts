@@ -53,6 +53,7 @@ import {
   reconcileSaleDocument,
 } from "./ade-recovery";
 import { hashSaleRequest } from "./request-hash";
+import { adeRegisteredAtPatch } from "./ade-registered-at";
 
 const PAYMENT_METHOD_TO_ADE: Record<PaymentMethod, PaymentType> = {
   PC: "CASH",
@@ -979,6 +980,10 @@ async function runSubmitSale(
         adeTransactionId: adeResponse.idtrx ?? null,
         adeProgressive: adeResponse.progressivo ?? null,
         adeResponse,
+        // Migrazione 0031 — vedi la nota gemella in void-service.ts. Vale per
+        // le vendite quanto per gli annulli: anche qui `createdAt` precede la
+        // risposta AdE della latenza del round-trip.
+        ...adeRegisteredAtPatch(adeResponse),
       })
       .where(eq(commercialDocuments.id, documentId))
       .returning({ createdAt: commercialDocuments.createdAt }),

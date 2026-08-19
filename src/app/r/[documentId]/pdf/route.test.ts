@@ -34,6 +34,7 @@ const MOCK_RECEIPT_DATA = {
   doc: { id: "doc-456", adeProgressive: "DCW2026/5111-0001" },
   biz: { businessName: "Negozio Test" },
   lines: [],
+  voidedSale: null,
 };
 
 function makeRequest(documentId: string): Request {
@@ -67,6 +68,24 @@ describe("GET /r/[documentId]/pdf (public)", () => {
     });
 
     expect(res.status).toBe(404);
+  });
+
+  // v1.7.0: `voidedSale` valorizzato = il documento e' un annullo. Finche' il
+  // layout di annullamento non c'e', servirlo qui significherebbe presentarlo
+  // col layout di vendita, cioe' come uno scontrino valido.
+  it("ritorna 404 per un annullo finche' manca il layout dedicato", async () => {
+    mockFetchPublicReceipt.mockResolvedValueOnce({
+      ...MOCK_RECEIPT_DATA,
+      doc: { id: "void-456", adeProgressive: "DCW2026/5111-0002" },
+      voidedSale: { id: "doc-456", adeProgressive: "DCW2026/5111-0001" },
+    });
+
+    const res = await GET(makeRequest(VALID_DOC_ID), {
+      params: Promise.resolve({ documentId: VALID_DOC_ID }),
+    });
+
+    expect(res.status).toBe(404);
+    expect(mockGeneratePdfResponse).not.toHaveBeenCalled();
   });
 
   it("delega a generatePdfResponse con i dati del documento", async () => {

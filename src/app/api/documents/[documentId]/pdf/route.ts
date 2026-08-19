@@ -12,6 +12,7 @@ import { getAuthenticatedUser } from "@/lib/server-auth";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
 import { generatePdfResponse } from "@/lib/receipts/generate-pdf-response";
+import { printableDocumentCondition } from "@/lib/receipts/printable-document";
 import { isValidUuid } from "@/lib/uuid";
 
 // PDF lookup: 1 JOIN auth + 1 SELECT lines + render in-process. 4s coprono
@@ -75,11 +76,14 @@ export async function GET(
             and(
               eq(commercialDocuments.id, documentId),
               eq(profiles.authUserId, user.id),
-              // Solo documenti effettivamente accettati da AdE: un PDF dall'aspetto
-              // fiscale non deve essere generato per documenti PENDING/REJECTED né
-              // per documenti ACCEPTED privi di identificativo fiscale
-              // (adeTransactionId). Coerente con fetchPublicReceipt (REVIEW.md #7).
-              eq(commercialDocuments.status, "ACCEPTED"),
+              // Un PDF dall'aspetto fiscale non deve essere generato per
+              // documenti PENDING/REJECTED, né per documenti privi di
+              // identificativo fiscale (adeTransactionId). La regola su
+              // (kind, status) è bidimensionale — una vendita annullata non è
+              // più stampabile, il suo annullo sì — e vive tutta in
+              // printable-document.ts, condivisa con fetchPublicReceipt
+              // (REVIEW.md #7).
+              printableDocumentCondition(),
               isNotNull(commercialDocuments.adeTransactionId),
             ),
           )
@@ -88,15 +92,33 @@ export async function GET(
         if (rows.length === 0) return null;
 
         const { doc, biz } = rows[0];
-        if (doc.kind !== "SALE") return { doc, biz, lines: null };
+
+        // Un annullo non ha righe proprie: ristampa quelle della vendita
+        // annullata, e ne porta il progressivo per il blocco "Documento di
+        // riferimento" della ricevuta di annullamento.
+        let voidedSale = null;
+        if (doc.kind === "VOID") {
+          if (!doc.voidedDocumentId) return null;
+
+          const [sale] = await tx
+            .select()
+            .from(commercialDocuments)
+            .where(eq(commercialDocuments.id, doc.voidedDocumentId))
+            .limit(1);
+
+          if (!sale) return null;
+          voidedSale = sale;
+        }
 
         const lines = await tx
           .select()
           .from(commercialDocumentLines)
-          .where(eq(commercialDocumentLines.documentId, doc.id))
+          .where(
+            eq(commercialDocumentLines.documentId, voidedSale?.id ?? doc.id),
+          )
           .orderBy(commercialDocumentLines.lineIndex);
 
-        return { doc, biz, lines };
+        return { doc, biz, lines, voidedSale };
       },
     );
   } catch (err) {
@@ -114,13 +136,20 @@ export async function GET(
     return Response.json({ error: "Documento non trovato." }, { status: 404 });
   }
 
-  const { doc, biz, lines } = queryResult;
+  const { doc, biz, lines, voidedSale } = queryResult;
 
-  if (lines === null) {
+  // REVIEW.md #85 — il layout della ricevuta di annullamento (HAR.md #16a) è in
+  // lavorazione a partire dai template ufficiali AdE. Il dato è già tutto qui —
+  // `doc` (progressivo e ade_registered_at dell'annullo), `voidedSale`
+  // (progressivo di riferimento) e `lines` (righe dell'originale): manca solo
+  // il render. Fino ad allora un VOID resta un 400 esplicito invece di
+  // ricadere sul layout di vendita, che stamperebbe un annullo come se fosse
+  // uno scontrino valido.
+  if (voidedSale) {
     return Response.json(
       {
         error:
-          "Il PDF è disponibile solo per documenti di vendita (kind=SALE).",
+          "La ricevuta di annullamento non è ancora disponibile per il download.",
       },
       { status: 400 },
     );
