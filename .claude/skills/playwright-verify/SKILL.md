@@ -286,8 +286,12 @@ wizard: `src/server/onboarding-actions.ts`. Client wizard:
   `TURNSTILE_DISABLED=true` (runtime, `.env` del Pi) +
   `NEXT_PUBLIC_TURNSTILE_DISABLED=true` (baked, `deploy-dev.yml`). Doppio gate
   con `ADE_MODE=mock` → mai attivo in produzione.
-- **Solo dev.** Punta il browser esclusivamente a dev (`ADE_MODE=mock`). Mai
-  prod/sandbox: uno scontrino emesso è irreversibile.
+- **Scritture solo su dev** (`ADE_MODE=mock`). Mai emettere o annullare da
+  prod: uno scontrino trasmesso è irreversibile. Su **sandbox** è ammessa la
+  sola **navigazione in lettura** — caricare pagine e ispezionare lo stato del
+  browser — e serve a verificare quello che dev non può mostrare (vedi la voce
+  sul service worker qui sotto). Nessun login, nessun submit, nessuna azione
+  che scriva: sandbox ha `ADE_MODE=mock` ma resta un ambiente condiviso.
 - **Il service worker NON si registra su dev, e non è un bug dell'app.** Tutto
   `dev.scontrinozero.it` sta dietro Cloudflare Access: senza service token
   ogni risorsa risponde **302** verso il login, `/sw.js` inclusa. La
@@ -309,6 +313,29 @@ wizard: `src/server/onboarding-actions.ts`. Client wizard:
   `console.warn`, poi `goto` commit e leggi i due array. Atteso dopo il fix di
   `ServiceWorkerRegistrar`: `unhandledRejections: []` e un warn
   `[pwa] registrazione del service worker fallita`.
+
+- **Il service worker si verifica su `sandbox.scontrinozero.it`, che NON è
+  dietro Access** (risponde 200 senza service token). È l'unico posto dove i
+  punti di REVIEW #84 sono osservabili, e in sola lettura: nessun login serve,
+  perché il root layout monta `Providers` su ogni pagina — basta `/login`.
+  Ricette misurate il 2026-08-19 (release `1.6.2+b09692b`), tutte sotto i 5s:
+
+  - **Attivazione.** `navigator.serviceWorker.ready` in `Promise.race` con un
+    `setTimeout` di ~3s. Alla **prima** visita `getRegistration()` può tornare
+    una registration con `active/installing/waiting` tutti nulli: non è un
+    errore, è l'istante fra creazione e assegnazione del worker — ricarica e
+    rileggi. Atteso al secondo giro: `state: 'activated'`,
+    `navigator.serviceWorker.controller` valorizzato, e `caches.keys()` con
+    `serwist-precache-v2-…`, `others`, `static-font-assets`, `cross-origin`,
+    `next-image`, `pages-rsc-prefetch`.
+  - **Offline** (punto 4 di #84): `page.context().setOffline(true)` poi `goto`
+    verso una rotta non in cache. Atteso: la navigazione **riesce** e il body
+    inizia con «Sei offline» — se fallisse con `ERR_INTERNET_DISCONNECTED` il
+    SW non starebbe intercettando. Rimetti `setOffline(false)` a fine call.
+  - **NetworkOnly su `/api/*`** (la parte del punto 2 fattibile senza login):
+    `fetch('/api/health/live')` — è pubblica — poi cerca quella URL in tutte le
+    `caches.keys()`. Atteso: nessun hit. La verifica specifica su
+    `/api/documents/<id>/pdf` richiede invece una sessione autenticata.
 
 ## Regole di sicurezza
 
