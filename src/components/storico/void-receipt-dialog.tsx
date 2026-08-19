@@ -130,6 +130,36 @@ export function VoidReceiptDialog({
     },
   });
 
+  /**
+   * Invio e stampa della ricevuta di annullamento: il documento che l'esercente
+   * consegna al posto della vendita annullata.
+   *
+   * Reso in DUE punti — subito dopo l'annullo, mentre il cliente è ancora al
+   * banco, e riaprendo la riga dallo storico — perché è lo stesso documento:
+   * duplicarne il markup lo farebbe divergere. `null` finché la riga non
+   * porta l'annullo (subito dopo la conferma il parent la sta ancora
+   * rileggendo).
+   */
+  const voidDocumentActions = receipt.voidDocument ? (
+    <>
+      <Button variant="outline" asChild>
+        <a
+          href={`/r/${receipt.voidDocument.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Send className="mr-2 h-4 w-4" aria-hidden="true" />
+          Ricevuta di annullamento
+        </a>
+      </Button>
+      <PrintReceiptButton
+        receipt={printableReceipt}
+        pdfHref={`/api/documents/${receipt.voidDocument.id}/pdf`}
+        size="default"
+      />
+    </>
+  ) : null;
+
   const subtotal = receipt.lines.reduce(
     (sum, l) =>
       sum + Number.parseFloat(l.grossUnitPrice) * Number.parseFloat(l.quantity),
@@ -158,7 +188,8 @@ export function VoidReceiptDialog({
                 </span>
               </p>
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex-wrap gap-2">
+              {voidDocumentActions}
               <Button onClick={onClose}>Chiudi</Button>
             </DialogFooter>
           </>
@@ -246,7 +277,7 @@ export function VoidReceiptDialog({
                 Scontrino {receipt.adeProgressive ?? receipt.id.slice(0, 8)}
               </DialogTitle>
               <DialogDescription>
-                {formatDate(receipt.createdAt)} — Totale:{" "}
+                {formatDate(receipt.adeRegisteredAt)} — Totale:{" "}
                 {formatCurrency(receipt.total)}
               </DialogDescription>
             </DialogHeader>
@@ -325,25 +356,7 @@ export function VoidReceiptDialog({
               )}
               {/* Vendita annullata: il documento da consegnare non è più
                   questo, è la ricevuta di annullamento. */}
-              {receipt.voidDocument && (
-                <>
-                  <Button variant="outline" asChild>
-                    <a
-                      href={`/r/${receipt.voidDocument.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Send className="mr-2 h-4 w-4" aria-hidden="true" />
-                      Ricevuta di annullamento
-                    </a>
-                  </Button>
-                  <PrintReceiptButton
-                    receipt={printableReceipt}
-                    pdfHref={`/api/documents/${receipt.voidDocument.id}/pdf`}
-                    size="default"
-                  />
-                </>
-              )}
+              {voidDocumentActions}
               <Button variant="outline" onClick={onClose}>
                 Chiudi
               </Button>

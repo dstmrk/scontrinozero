@@ -410,3 +410,90 @@ describe("VoidReceiptDialog — footer allineato", () => {
     expect(new Set(footerSizes())).toEqual(new Set(["default"]));
   });
 });
+
+// ---------------------------------------------------------------------------
+// Conferma dell'annullo: la modale non si chiude, e appena il parent le passa
+// la riga riletta offre lì la ricevuta di annullamento — è il momento in cui
+// il cliente è ancora al banco.
+// ---------------------------------------------------------------------------
+
+describe("VoidReceiptDialog — conferma dell'annullo", () => {
+  async function confirmVoid() {
+    vi.mocked(voidReceipt).mockResolvedValue({
+      voidDocumentId: "void-doc-uuid",
+      adeProgressive: "DCW2026/5111-2189",
+    });
+    const view = renderWithQuery(
+      <VoidReceiptDialog {...defaultProps} receipt={ACCEPTED_RECEIPT} />,
+    );
+    // detail → confirmingVoid → conferma
+    fireEvent.click(screen.getByText("Annulla scontrino"));
+    fireEvent.click(screen.getByText("Annulla scontrino"));
+    await screen.findByText("Annullo confermato");
+    return view;
+  }
+
+  it("resta aperta sulla conferma invece di sparire", async () => {
+    await confirmVoid();
+
+    expect(screen.getByText("Annullo confermato")).toBeInTheDocument();
+  });
+
+  it("mostra il progressivo dell'annullo appena trasmesso", async () => {
+    await confirmVoid();
+
+    expect(screen.getByText("DCW2026/5111-2189")).toBeInTheDocument();
+  });
+
+  it("offre la ricevuta di annullamento appena il parent rilegge la riga", async () => {
+    const { rerender } = await confirmVoid();
+
+    // È ciò che fa `refreshVoidedRow` nello storico: la stessa modale, con la
+    // riga che ora porta l'annullo.
+    rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <VoidReceiptDialog {...defaultProps} receipt={VOIDED_RECEIPT} />
+      </QueryClientProvider>,
+    );
+
+    expect(
+      screen.getByRole("link", { name: /ricevuta di annullamento/i }),
+    ).toHaveAttribute("href", "/r/void-doc-uuid");
+  });
+
+  it("non offre la ricevuta finché la rilettura non è arrivata", async () => {
+    await confirmVoid();
+
+    expect(
+      screen.queryByRole("link", { name: /ricevuta di annullamento/i }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// La data del dettaglio è quella registrata dall'AdE, la stessa che l'elenco
+// mostra e che finisce sul documento consegnato al cliente.
+// ---------------------------------------------------------------------------
+
+describe("VoidReceiptDialog — data del dettaglio", () => {
+  // Scarto volutamente esagerato a un giorno pieno: un divario di 2-5s reale
+  // cadrebbe nello stesso giorno e non direbbe quale colonna è stata letta.
+  const RECEIPT_ACROSS_MIDNIGHT: ReceiptListItem = {
+    ...ACCEPTED_RECEIPT,
+    createdAt: new Date("2026-01-01T10:00:00Z"),
+    adeRegisteredAt: new Date("2026-01-02T10:00:00Z"),
+  };
+
+  it("mostra ade_registered_at, non il createdAt della riga", () => {
+    renderWithQuery(
+      <VoidReceiptDialog {...defaultProps} receipt={RECEIPT_ACROSS_MIDNIGHT} />,
+    );
+
+    expect(
+      screen.getByText((c) => c.startsWith("02/01/2026")),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText((c) => c.startsWith("01/01/2026")),
+    ).not.toBeInTheDocument();
+  });
+});

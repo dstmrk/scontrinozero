@@ -386,6 +386,62 @@ migrazione, o l'export su un anno di dati passa a sequential scan.
 
 ---
 
+### 91. Il recovery stale-pending non scrive `ade_registered_at`
+
+- **Categoria:** coerenza dei dati fiscali · **Severità:** Low — riguarda le sole righe riconciliate, ma è il caso in cui lo scarto è massimo
+- **File:** `src/lib/services/receipt-service.ts` (`finalizeSaleOnly`), `src/lib/services/void-service.ts` (`finalizeVoidOnly`), `src/lib/services/ade-recovery.ts`
+
+**Problema.** `finalizeSaleOnly` e `finalizeVoidOnly` chiudono una riga stale
+portandola ad `ACCEPTED`/`VOID_ACCEPTED` ma **non** toccano
+`ade_registered_at`: la colonna resta sul `DEFAULT now()` scritto all'INSERT.
+Sul percorso normale lo scarto fra i due valori è la latenza del round-trip
+(2-5s); qui la riga è stale **per definizione** — è rimasta PENDING oltre
+`getStalePendingThresholdMs` — quindi il documento consegnato al cliente porta
+un orario che può precedere di minuti quello registrato dall'AdE. È
+esattamente lo scarto che la migrazione 0031 esiste per eliminare, ed è
+silenzioso: nessun log segnala che la data stampata non è quella autorevole.
+
+**Il dato autorevole è già in mano.** `AdeDocumentSummary.data`
+(`src/lib/ade/types.ts:291`, formato `DD/MM/YYYY HH:MM:SS`) arriva da
+`searchDocuments` ed è lo stesso campo che `HAR.md` #16b dà per coincidente
+col timestamp del PDF ufficiale. `reconcileSaleDocument`/`reconcileVoidDocument`
+lo filtrano già: basta farlo risalire fino alla UPDATE di finalizzazione.
+
+**Da fare.** Portare il documento AdE riconciliato (non il solo `idtrx` +
+progressivo) fino a `finalizeSaleOnly`/`finalizeVoidOnly`, convertire `data`
+in `Date` — attenzione: è **ora italiana**, non UTC, e il formato è
+`DD/MM/YYYY`, non parsabile da `new Date()` — e passarlo alla `.set()` con la
+stessa semantica di `adeRegisteredAtPatch`: si scrive solo se leggibile, mai
+un `Invalid Date` su un `timestamptz NOT NULL`.
+
+---
+
+### 92. Lo storico filtra e ordina su `created_at` ma mostra `ade_registered_at`
+
+- **Categoria:** coerenza dei dati fiscali · **Severità:** Low — visibile solo a cavallo della mezzanotte · **Gemello di #90**
+- **File:** `src/server/storico-actions.ts` (`searchReceipts`: `gte/lt` sul filtro data, `orderBy desc(createdAt)`)
+
+**Problema.** Stessa asimmetria di #90, ma sull'elenco invece che sull'export:
+la colonna mostrata è `ade_registered_at` (`storico-client.tsx`), il predicato
+di selezione del periodo e l'ordinamento sono su `created_at`. Una vendita
+creata il 31/01 alle 23:59:58 e registrata dall'AdE il 01/02 alle 00:00:01
+compare filtrando gennaio, con scritto accanto `01/02/2026`. In più
+l'ordinamento può risultare non monotono rispetto alla colonna mostrata quando
+due scontrini ravvicinati hanno round-trip AdE di durata diversa.
+
+**Perché non è stato fatto nella v1.7.0.** Identica a #90: qui la colonna non è
+solo mostrata, è il predicato che definisce il periodo. Va decisa una volta e
+spostata ovunque insieme — elenco, export CSV e (a una futura `/api/v2`) la
+Developer API, che oggi filtra e restituisce `createdAt` ed è contratto
+pubblico versionato, quindi correttamente intoccabile.
+
+**Da fare.** Trattare #90 e #92 come un solo intervento: stessa decisione
+contabile, stesso indice nuovo su `(business_id, ade_registered_at)` — le
+condizioni di range oggi poggiano su
+`idx_commercial_documents_business_created`.
+
+---
+
 ### 23. Indice composito `api_keys (business_id, revoked_at)`
 
 - **Categoria:** performance DB · **Severità:** Low · **Target: Developer API Fase B** (ora nice-to-have in PLAN.md)

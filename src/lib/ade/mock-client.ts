@@ -77,9 +77,11 @@ export class MockAdeClient implements AdeClient {
       idtrx,
       progressivo,
       // Il RealAdeClient lo deriva dall'header HTTP `Date` (HAR.md #16b): qui
-      // l'equivalente è l'orologio locale. Senza, ADE_MODE=mock lascerebbe
-      // ade_registered_at NULL e in dev/sandbox la ricevuta di annullamento
-      // sembrerebbe priva di data per un bug che in produzione non esiste.
+      // l'equivalente è l'orologio locale. Senza, in dev/sandbox
+      // ade_registered_at resterebbe sul `DEFAULT now()` dell'INSERT (la
+      // colonna è NOT NULL, mai NULL) e la ricevuta di annullamento porterebbe
+      // una data leggermente diversa da quella mostrata dopo l'emissione —
+      // uno scarto che in produzione non esiste.
       registeredAt: new Date().toISOString(),
       errori: [],
     };
