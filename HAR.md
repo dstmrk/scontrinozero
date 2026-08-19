@@ -46,6 +46,7 @@ nuove si aggiungono in fondo alla sezione pertinente.
 | 13  | Lotteria degli scontrini: incompatibile col pagamento misto       |
 | 14  | Guida all'implementazione (sub-task ordinati)                     |
 | 15  | Cosa NON è stato misurato (limiti noti di questo registro)        |
+| 16  | Ricevuta di annullamento: dati, stampa e timestamp                |
 
 ---
 
@@ -1009,3 +1010,154 @@ modo più economico per accorgersi di un errore di accumulo.
 
 **La soglia di 1 euro della lotteria** — su quale importo si applichi: vedi la
 nota in coda alla voce #13.
+
+---
+
+## 16. Ricevuta di annullamento: dati, stampa e timestamp
+
+**Fonte:** `annullo.har` (7 entry), `annullo_doc_sconto_e_pagamento_misto.har`
+(3 entry), `nuovo_test_annullo.har` (7 entry). Cattura misurata per la v1.7.0
+("memorizzare progressivo documento AdE di annullamento e stampare ricevuta di
+annullamento"). Il **payload** di annullo resta quello della voce #9: qui c'è
+tutto il resto — la stampa, gli identificativi e la ricerca.
+
+### 16a. Layout del PDF di annullo (verbatim)
+
+Testo estratto dal PDF di `GET /doc/documenti/{idtrxAnnullo}/stampa/?regalo=false`.
+I due PDF erano dentro gli HAR in base64 (`content.encoding: "base64"`): un HAR
+non è solo le chiamate API. Da `nuovo_test_annullo.har` [06]:
+
+```
+Test
+Partita IVA/CF: XXXXXXXXXXX
+Corso S, 22
+
+DOCUMENTO COMMERCIALE
+emesso per ANNULLAMENTO
+Documento di riferimento:
+N. DCW2026/2630-3915
+
+Qta  Descrizione Prodotto  Aliquota  Prezzo complessivo €  Sconto  Omaggio
+2    doppio                22%       6.00                  1.00
+
+Totale imponibile:      4.10
+Totale IVA:             0.90
+Totale complessivo: €   5.00
+
+Documento N. DCW2026/2630-4363 del 19/08/2026 09:53:41
+```
+
+Differenze rispetto al PDF di vendita (voce #8): il sottotitolo diventa
+**"emesso per ANNULLAMENTO"**, compare il blocco **"Documento di riferimento:
+N. \<progressivo del documento annullato\>"**, e **spariscono le righe di
+pagamento e "Sconto a pagare"** — pur essendo `scontoAbbuono` presente nel
+payload (voce #9). Il footer riporta il progressivo **dell'annullo**, non
+dell'originale.
+
+Questo PDF riconferma per via indipendente tre formule già note, su un
+documento diverso da quello della voce #1:
+
+- `Prezzo complessivo` = `prezzoLordo × quantita` = `3.00 × 2` = `6.00`
+  (voce #12: `prezzoLordo` è unitario).
+- `Sconto` = `scontoLordo`, già moltiplicato per la quantità = `1.00`.
+- `Totale imponibile` stampato = `totaleImponibile − scontoTotale` =
+  `4.91803279 − 0.81967213` = `4.10` (voce #8), e `4.10 + 0.90 = 5.00`.
+
+I metadati del PDF portano il riferimento anche fuori dal testo stampato:
+`/Title (DOCUMENTO COMMERCIALE DI ANNULLO DEL DOCUMENTO DCW2026/2630-3915 …)`.
+
+### 16b. Il timestamp dell'annullo NON è nella risposta — è nell'header `Date`
+
+La risposta alla `POST` di annullo è **solo** questa:
+
+```json
+{
+  "esito": true,
+  "idtrx": "226275972",
+  "progressivo": "DCW2026/2630-4363",
+  "errori": []
+}
+```
+
+Nessun timestamp. Ma il footer del PDF ne stampa uno al secondo
+(`del 19/08/2026 09:53:41`). **Misurato su tutti e tre gli HAR:** quel valore
+coincide con l'header HTTP `Date` della risposta alla POST, convertito in
+Europe/Rome.
+
+| HAR                                    | `Date` della POST               | Footer del PDF        | `data` in ricerca     |
+| -------------------------------------- | ------------------------------- | --------------------- | --------------------- |
+| `annullo.har`                          | `Mon, 23 Feb 2026 09:07:02 GMT` | _(PDF non catturato)_ | `23/02/2026 10:07:02` |
+| `annullo_doc_sconto_e_pagamento_misto` | `Tue, 18 Aug 2026 17:06:02 GMT` | `18/08/2026 19:06:02` | `18/08/2026 19:06:02` |
+| `nuovo_test_annullo.har`               | `Wed, 19 Aug 2026 07:53:41 GMT` | `19/08/2026 09:53:41` | `19/08/2026 09:53:41` |
+
+Tre fonti indipendenti concordi (header, stampa, lista di ricerca), su tre
+catture e due fusi (CET e CEST). **Decisione v1.7.0:** catturare l'header
+`Date` della risposta AdE in `RealAdeClient` e persisterlo (`ade_registered_at`),
+invece di usare l'orologio nostro (`updatedAt` della riga VOID, che deriva di
+qualche secondo) o di spendere una chiamata in più. La ri-lettura via
+`searchDocuments` resta il fallback diagnostico, non il percorso normale.
+
+### 16c. `tipoOperazione`: `V`, `A`, `R` — e la doppia semantica di `annulli`
+
+Codici del `<select id="tipoOperazione">` del portale: `V` =
+Vendita/Prestazione, `A` = Annullo, `R` = Reso. Il markup ne esclude due dal
+dropdown (`['AX','RX'].indexOf(k) == -1`): esistono nel modello ma non sono
+selezionabili in ricerca. `GET /doc/documenti/?tipoOperazione=A` è una query
+valida — `ricerca.har` [04] la esegue e ritorna 4 annulli.
+
+**Trappola.** Il campo `annulli` della lista di ricerca è **polisemico**, come
+`NR_EF` (voce #6) è un flag e non un importo:
+
+| Riga della lista      | `annulli`             | Significato                              |
+| --------------------- | --------------------- | ---------------------------------------- |
+| `tipoOperazione: "V"` | `"A"` (stringa fissa) | **flag**: il documento è stato annullato |
+| `tipoOperazione: "A"` | `"DCW2026/2610-5298"` | **progressivo del documento annullato**  |
+
+Leggere `annulli` come progressivo su una riga `V` scrive la stringa `"A"` dove
+ci si aspetta un numero documento. Rilevante per la v1.8.0 (sync documenti da
+AdE), dove serve proprio a ricostruire la catena vendita → annullo.
+
+Esempio (`nuovo_test_annullo.har` [01], lista senza filtro — la coppia
+vendita/annullo della voce #1):
+
+```json
+{ "idtrx": "226077439", "numeroProgressivo": "DCW2026/2610-5829",
+  "data": "18/08/2026 19:06:02", "tipoOperazione": "A",
+  "annulli": "DCW2026/2610-5298", "ammontareComplessivo": 1.9 },
+{ "idtrx": "226076907", "numeroProgressivo": "DCW2026/2610-5298",
+  "data": "18/08/2026 19:05:10", "tipoOperazione": "V",
+  "annulli": "A", "ammontareComplessivo": 1.9 }
+```
+
+### 16d. Copertura dei dati della ricevuta
+
+Ogni elemento del layout 16a e la sua fonte nel nostro DB. La riga VOID di
+`commercial_documents` **già oggi** salva progressivo e idtrx dell'annullo
+(`void-service.ts`, sia nel percorso normale sia in `finalizeVoidOnly`): la
+prima metà della v1.7.0 è di fatto fatta, manca esporla.
+
+| Elemento del PDF                      | Fonte                                                         |
+| ------------------------------------- | ------------------------------------------------------------- |
+| Intestazione esercente                | `businesses` via `fetchReceiptPrintHeader`                    |
+| "emesso per ANNULLAMENTO"             | statico                                                       |
+| "Documento di riferimento: N. …"      | `adeProgressive` della riga SALE (join su `voidedDocumentId`) |
+| Righe (qta, descrizione, aliquota, …) | `commercial_document_lines` del SALE                          |
+| Colonne `Sconto` / `Omaggio`          | sempre `0.00` / vuote: non le emettiamo (sub-task E/voce #7)  |
+| Totale imponibile / IVA / complessivo | `computeReceiptTotals` sulle stesse righe                     |
+| Progressivo e idtrx dell'annullo      | `adeProgressive` / `adeTransactionId` della riga VOID         |
+| Data e ora nel footer                 | **da aggiungere**: header `Date` della POST → 16b             |
+
+### 16e. Annullo di un documento con codice lotteria
+
+`cfCessionarioCommittente` **trasporta il codice lotteria**, non un codice
+fiscale (`mapper.ts`: `cfCessionarioCommittente: doc.lotteryCode ?? ""`). Il
+documento annullato in `annullo.har` lo ha valorizzato con un codice a 8
+caratteri, e l'annullo lo rieccheggia identico: **l'AdE lo accetta**
+(`esito: true`). Il caso "annullo di uno scontrino con lotteria" è quindi
+coperto sul filo.
+
+**Non misurato:** se il PDF di annullo _stampi_ quel codice — il PDF di
+`annullo.har` [06] è l'unico dei tre con `content` vuoto nella cattura.
+**Assunzione deliberata per la v1.7.0:** non lo stampa. Se un giorno risultasse
+il contrario, è una riga in più nel layout, non un dato mancante: il codice ce
+l'abbiamo già in `commercial_documents.lottery_code`.
