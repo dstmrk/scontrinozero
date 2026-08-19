@@ -1,5 +1,8 @@
 import type { AdeResponse } from "@/lib/ade/types";
 
+/** Patch parziale: la chiave c'e' solo quando abbiamo un istante autorevole. */
+type AdeRegisteredAtPatch = { adeRegisteredAt: Date } | Record<string, never>;
+
 /**
  * Patch parziale per la UPDATE che marca un documento ACCEPTED/VOID_ACCEPTED:
  * porta `adeRegisteredAt` solo quando l'AdE ci ha dato un istante utilizzabile.
@@ -23,11 +26,29 @@ import type { AdeResponse } from "@/lib/ade/types";
  */
 export function adeRegisteredAtPatch(
   adeResponse: AdeResponse,
-): { adeRegisteredAt: Date } | Record<string, never> {
+): AdeRegisteredAtPatch {
   if (!adeResponse.registeredAt) return {};
 
-  const parsed = new Date(adeResponse.registeredAt);
-  if (Number.isNaN(parsed.getTime())) return {};
+  return adeRegisteredAtPatchFromDate(new Date(adeResponse.registeredAt));
+}
 
-  return { adeRegisteredAt: parsed };
+/**
+ * Stessa patch, ma a partire da un istante gia' in forma di `Date`: e' il caso
+ * del recovery stale-pending, dove l'istante autorevole non arriva dall'header
+ * `Date` di una submit ma dal campo `data` del documento riconciliato via
+ * `searchDocuments` (REVIEW.md #91), gia' parsato da `parseAdeResultDate`.
+ *
+ * `null`/`undefined` sono i due modi in cui il chiamante dice "non ho un istante
+ * migliore del default": `null` = documento riconciliato con `data` illeggibile,
+ * `undefined` = finalizzazione senza documento riconciliato (il retry della sola
+ * UPDATE, che non interroga AdE). In entrambi i casi la chiave viene omessa e
+ * resta il `DEFAULT now()` dell'INSERT — la finalizzazione non deve MAI fallire
+ * per un timestamp mancante.
+ */
+export function adeRegisteredAtPatchFromDate(
+  registeredAt: Date | null | undefined,
+): AdeRegisteredAtPatch {
+  if (!registeredAt || Number.isNaN(registeredAt.getTime())) return {};
+
+  return { adeRegisteredAt: registeredAt };
 }

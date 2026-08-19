@@ -695,6 +695,48 @@ describe("emitReceiptForBusiness", () => {
     expect(mockSubmitSale).not.toHaveBeenCalled();
   });
 
+  it("recovery vendita: finalize-only scrive ade_registered_at con l'istante AdE, non col nostro (REVIEW.md #91)", async () => {
+    mockDocumentReturning.mockResolvedValue([]);
+    // La riga è stale per definizione: il DEFAULT now() dell'INSERT è di
+    // minuti precedente all'istante in cui l'AdE ha davvero registrato.
+    const createdAt = new Date("2026-02-23T09:06:14Z");
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-match",
+        status: "PENDING",
+        adeTransactionId: null,
+        adeProgressive: null,
+        createdAt,
+        updatedAt: createdAt,
+      },
+    ]);
+    mockSearchDocuments.mockResolvedValueOnce({
+      totalCount: 1,
+      elencoRisultati: [
+        {
+          idtrx: "154294949",
+          numeroProgressivo: "DCW2026/5432-1548",
+          cfCliente: "",
+          // Wall-clock italiano (CET): 3m16s dopo il nostro createdAt.
+          data: "23/02/2026 10:09:30",
+          tipoOperazione: "V",
+          ammontareComplessivo: 20.0,
+        },
+      ],
+    });
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(mockUpdateSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "ACCEPTED",
+        adeTransactionId: "154294949",
+        adeRegisteredAt: new Date("2026-02-23T09:09:30Z"),
+      }),
+    );
+  });
+
   it("recovery vendita: match AdE ambiguo → PENDING_IN_PROGRESS, niente submitSale", async () => {
     mockDocumentReturning.mockResolvedValue([]);
     const createdAt = new Date("2026-02-23T09:06:14Z");
@@ -1362,6 +1404,11 @@ describe("emitReceiptForBusiness", () => {
       adeProgressive: "prev-prog",
       adeRegisteredAt: "2026-08-18T17:05:10.000Z",
     });
+    // Nessun documento AdE riconciliato (questo ramo non interroga AdE): senza
+    // istante autorevole la colonna non si tocca, resta il DEFAULT dell'INSERT.
+    expect(mockUpdateSet).not.toHaveBeenCalledWith(
+      expect.objectContaining({ adeRegisteredAt: expect.anything() }),
+    );
   });
 
   it("submitSaleToAde catch: timeout DB durante UPDATE finale → DB_TIMEOUT senza marcare ERROR", async () => {

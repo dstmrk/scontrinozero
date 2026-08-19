@@ -298,6 +298,17 @@ describe("reconcileSaleDocument", () => {
     expect(result).toEqual({ kind: "none" });
   });
 
+  // Invariante su cui si appoggia REVIEW.md #91: un match VENDITA ha sempre un
+  // `data` parsabile, perché la prossimità temporale è una condizione del match.
+  it("ritorna none quando il `data` non è parsabile (mai un match senza istante)", () => {
+    const result = reconcileSaleDocument({
+      documents: [summary({ data: "2026-02-23T10:06:14Z" })],
+      expectedTotalCents: 170,
+      createdAt: SALE_CREATED_AT,
+    });
+    expect(result).toEqual({ kind: "none" });
+  });
+
   it("ritorna none quando il documento è fuori dalla finestra temporale", () => {
     const result = reconcileSaleDocument({
       documents: [summary({ data: "23/02/2026 12:30:00" })],

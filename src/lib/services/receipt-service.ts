@@ -53,7 +53,10 @@ import {
   reconcileSaleDocument,
 } from "./ade-recovery";
 import { hashSaleRequest } from "./request-hash";
-import { adeRegisteredAtPatch } from "./ade-registered-at";
+import {
+  adeRegisteredAtPatch,
+  adeRegisteredAtPatchFromDate,
+} from "./ade-registered-at";
 
 const PAYMENT_METHOD_TO_ADE: Record<PaymentMethod, PaymentType> = {
   PC: "CASH",
@@ -490,6 +493,7 @@ async function finalizeSaleOnly(
   documentId: string,
   adeTransactionId: string,
   adeProgressive: string,
+  registeredAt?: Date | null,
 ): Promise<SubmitReceiptResult> {
   try {
     // Retry on statement timeout + SET LOCAL statement_timeout (3s).
@@ -510,6 +514,12 @@ async function finalizeSaleOnly(
             status: "ACCEPTED",
             adeTransactionId,
             adeProgressive,
+            // REVIEW.md #91: su una riga stale il DEFAULT now() dell'INSERT puo'
+            // precedere di minuti l'istante in cui AdE ha registrato, e quella
+            // data finisce su PDF, storico ed export. Quando il recovery ha
+            // riconciliato il documento scriviamo l'istante autorevole; sul
+            // retry della sola UPDATE (nessun lookup AdE) resta il default.
+            ...adeRegisteredAtPatchFromDate(registeredAt),
           })
           .where(
             and(
@@ -692,7 +702,12 @@ async function reconcileSaleBeforeResubmit(
       { documentId, businessId, idtrx: result.idtrx },
       "Sale recovery: AdE già accettato (match) → finalize-only, niente re-submit",
     );
-    return finalizeSaleOnly(documentId, result.idtrx, result.numeroProgressivo);
+    return finalizeSaleOnly(
+      documentId,
+      result.idtrx,
+      result.numeroProgressivo,
+      result.registeredAt,
+    );
   }
 
   if (result.kind === "ambiguous") {
