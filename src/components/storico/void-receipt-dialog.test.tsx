@@ -70,7 +70,9 @@ const ACCEPTED_RECEIPT: ReceiptListItem = {
   status: "ACCEPTED",
   adeProgressive: "DCW2026/5111-2188",
   adeTransactionId: "trx-001",
-  createdAt: new Date("2026-01-01T10:00:00Z"),
+  createdAt: new Date("2026-01-01T09:59:57Z"),
+  adeRegisteredAt: new Date("2026-01-01T10:00:00Z"),
+  voidDocument: null,
   paymentMethod: "PC",
   lotteryCode: null,
   total: "12.00",
@@ -87,6 +89,11 @@ const ACCEPTED_RECEIPT: ReceiptListItem = {
 const VOIDED_RECEIPT: ReceiptListItem = {
   ...ACCEPTED_RECEIPT,
   status: "VOID_ACCEPTED",
+  voidDocument: {
+    id: "void-doc-uuid",
+    adeProgressive: "DCW2026/5111-2189",
+    adeRegisteredAt: new Date("2026-01-02T10:00:00Z"),
+  },
 };
 
 const defaultProps = {
@@ -292,5 +299,82 @@ describe("VoidReceiptDialog — descrizioni lunghe senza scroll orizzontale", ()
       .getByRole("button", { name: "Chiudi" })
       .closest('[data-slot="dialog-footer"]');
     expect(footer).toHaveClass("flex-wrap");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ricevuta di annullamento: l'entry point dal dettaglio di una vendita
+// annullata. Senza, la riga e' un vicolo cieco (REVIEW.md #85).
+// ---------------------------------------------------------------------------
+
+describe("VoidReceiptDialog — ricevuta di annullamento", () => {
+  const PRINT_HEADER: ReceiptPrintHeader = {
+    businessName: "Bar Mario",
+    vatNumber: "12345678901",
+    address: "Via Roma 1",
+    city: "Milano",
+    province: "MI",
+    zipCode: "20100",
+  };
+
+  it("offre il link alla ricevuta di annullamento su una vendita annullata", () => {
+    renderWithQuery(
+      <VoidReceiptDialog {...defaultProps} receipt={VOIDED_RECEIPT} />,
+    );
+
+    expect(
+      screen.getByRole("link", { name: /ricevuta di annullamento/i }),
+    ).toHaveAttribute("href", "/r/void-doc-uuid");
+  });
+
+  it("non offre nulla di tutto cio' su una vendita ancora valida", () => {
+    renderWithQuery(
+      <VoidReceiptDialog {...defaultProps} receipt={ACCEPTED_RECEIPT} />,
+    );
+
+    expect(
+      screen.queryByRole("link", { name: /ricevuta di annullamento/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("stampa l'annullo, non la vendita annullata", async () => {
+    renderWithQuery(
+      <VoidReceiptDialog
+        {...defaultProps}
+        receipt={VOIDED_RECEIPT}
+        printHeader={PRINT_HEADER}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Stampa/ }));
+
+    await waitFor(() => expect(mockPrinter.current.print).toHaveBeenCalled());
+    const printed = vi.mocked(mockPrinter.current.print).mock.calls[0][0];
+    // Narrowing sull'unione discriminata: `voidedDocument` esiste solo sul
+    // ramo VOID, ed e' esattamente cio' che il test deve dimostrare.
+    expect(printed.kind).toBe("VOID");
+    if (printed.kind !== "VOID") throw new Error("atteso un documento VOID");
+    expect(printed.adeProgressive).toBe("DCW2026/5111-2189");
+    expect(printed.voidedDocument).toEqual({
+      adeProgressive: "DCW2026/5111-2188",
+      adeRegisteredAt: new Date("2026-01-01T10:00:00Z"),
+    });
+  });
+
+  it("ristampa le righe della vendita annullata", async () => {
+    renderWithQuery(
+      <VoidReceiptDialog
+        {...defaultProps}
+        receipt={VOIDED_RECEIPT}
+        printHeader={PRINT_HEADER}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Stampa/ }));
+
+    await waitFor(() => expect(mockPrinter.current.print).toHaveBeenCalled());
+    expect(vi.mocked(mockPrinter.current.print).mock.calls[0][0].lines).toEqual(
+      VOIDED_RECEIPT.lines,
+    );
   });
 });

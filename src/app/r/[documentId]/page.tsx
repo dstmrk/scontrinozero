@@ -7,10 +7,11 @@ import { getClientIp } from "@/lib/get-client-ip";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
 import { computeReceiptTotals } from "@/lib/receipts/document-lines";
-import { formatFiscalDateTime } from "@/lib/date-utils";
 import {
   PAYMENT_LABELS,
   formatBusinessAddressLines,
+  formatReceiptDate,
+  formatReceiptDateTime,
   formatReceiptPrice,
 } from "@/lib/receipt-format";
 import {
@@ -41,8 +42,13 @@ const pageLimiter = new RateLimiter({
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+/**
+ * Stessa resa di PDF e termica (`DD-MM-YYYY HH:MM`, ora italiana): le tre
+ * copie dello stesso documento non devono differire nemmeno nel separatore.
+ * Il layout AdE usa i trattini.
+ */
 function formatDate(date: Date): string {
-  return formatFiscalDateTime(new Date(date));
+  return formatReceiptDateTime(new Date(date));
 }
 
 // ─── Page ────────────────────────────────────────────────────────────────────
@@ -73,14 +79,13 @@ export default async function PublicReceiptPage({
 
   if (!data) notFound();
 
-  // REVIEW.md #85 — il layout della ricevuta di annullamento (HAR.md #16a) e' in
-  // lavorazione dai template ufficiali AdE. `fetchPublicReceipt` gia' assembla
-  // il dato per un VOID (righe e progressivo dell'originale in `voidedSale`),
-  // ma finche' manca il render un annullo qui verrebbe presentato col layout di
-  // vendita — cioe' come uno scontrino valido. Meglio non servirlo affatto.
-  if (data.voidedSale) notFound();
+  const { doc, biz, lines, voidedSale } = data;
 
-  const { doc, biz, lines } = data;
+  // Su un annullo le righe sono quelle della vendita annullata e il blocco
+  // pagamenti sparisce: un annullo non incassa. `fetchPublicReceipt` rifiuta
+  // gia' un VOID che non trova la sua vendita, quindi qui `voidedSale` c'e'
+  // sempre quando serve.
+  const isVoid = doc.kind === "VOID";
 
   const publicReq = doc.publicRequest as {
     paymentMethod?: string;
@@ -127,7 +132,18 @@ export default async function PublicReceiptPage({
             <p className="text-xs font-semibold tracking-wide text-gray-600 uppercase">
               Documento Commerciale
             </p>
-            <p className="text-xs text-gray-500">di vendita o prestazione</p>
+            <p className="text-xs text-gray-500">
+              {isVoid ? "emesso per ANNULLAMENTO" : "di vendita o prestazione"}
+            </p>
+            {isVoid && voidedSale && (
+              <div className="mt-2 text-xs text-gray-500">
+                <p>Documento di riferimento:</p>
+                <p className="font-medium text-gray-700">
+                  N. {voidedSale.adeProgressive} del{" "}
+                  {formatReceiptDate(voidedSale.adeRegisteredAt)}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Line items */}
@@ -201,24 +217,27 @@ export default async function PublicReceiptPage({
               ))}
           </div>
 
-          {/* Payment — `Importo pagato` va sempre indicato (prescrizioni
-              generali AdE); la riga della modalità sparisce a importo zero. */}
-          <div className="space-y-1 border-b border-dashed border-gray-200 px-6 py-4 text-xs text-gray-500">
-            {grandTotal !== 0 && (
+          {/* Payment — solo sulla vendita. `Importo pagato` va sempre
+              indicato (prescrizioni generali AdE); la riga della modalità
+              sparisce a importo zero. */}
+          {!isVoid && (
+            <div className="space-y-1 border-b border-dashed border-gray-200 px-6 py-4 text-xs text-gray-500">
+              {grandTotal !== 0 && (
+                <div className="flex justify-between">
+                  <span>{PAYMENT_LABELS[paymentMethod] ?? paymentMethod}</span>
+                  <span className="font-medium text-gray-700">
+                    {formatReceiptPrice(grandTotal)}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between">
-                <span>{PAYMENT_LABELS[paymentMethod] ?? paymentMethod}</span>
+                <span>Importo pagato</span>
                 <span className="font-medium text-gray-700">
                   {formatReceiptPrice(grandTotal)}
                 </span>
               </div>
-            )}
-            <div className="flex justify-between">
-              <span>Importo pagato</span>
-              <span className="font-medium text-gray-700">
-                {formatReceiptPrice(grandTotal)}
-              </span>
             </div>
-          </div>
+          )}
 
           {vatLegend.length > 0 && (
             <div className="border-b border-dashed border-gray-200 px-6 py-3 text-xs text-gray-400">
@@ -230,7 +249,7 @@ export default async function PublicReceiptPage({
 
           {/* Footer: data e numero documento, poi il codice lotteria */}
           <div className="space-y-1 px-6 py-4 text-center text-xs text-gray-500">
-            <p>{formatDate(doc.createdAt)}</p>
+            <p>{formatDate(doc.adeRegisteredAt)}</p>
             {doc.adeProgressive && (
               <p>
                 <span>DOCUMENTO N.</span>{" "}

@@ -63,8 +63,13 @@ export function VoidReceiptDialog({
   const canVoid = receipt.status === "ACCEPTED";
 
   /**
-   * Copia stampabile dello scontrino, per il cliente che torna al banco a
-   * chiederla. Le righe sono già in `receipt.lines`: nessuna fetch aggiuntiva.
+   * Copia stampabile da consegnare al cliente che torna al banco a chiederla.
+   *
+   * Su una vendita annullata NON è più la ricevuta di vendita — quella non è
+   * più un documento valido, e infatti le route PDF si rifiutano di servirla
+   * (`isPrintableDocument`) — ma la **ricevuta di annullamento**: stesse righe,
+   * riferimento all'originale, progressivo e istante dell'annullo. Le righe
+   * sono già in `receipt.lines`: nessuna fetch aggiuntiva.
    */
   const printableReceipt = useMemo<PrintableReceipt | null>(() => {
     // Il gate sulle righe è lo stesso di `ReceiptSuccess`: un documento senza
@@ -75,12 +80,32 @@ export function VoidReceiptDialog({
     if (!printHeader || !receipt.adeProgressive || receipt.lines.length === 0) {
       return null;
     }
-    return {
+
+    const base = {
       header: printHeader,
       lines: receipt.lines,
+    };
+
+    if (receipt.voidDocument) {
+      return {
+        ...base,
+        kind: "VOID",
+        adeRegisteredAt: new Date(receipt.voidDocument.adeRegisteredAt),
+        adeProgressive: receipt.voidDocument.adeProgressive,
+        voidedDocument: {
+          adeProgressive: receipt.adeProgressive,
+          adeRegisteredAt: new Date(receipt.adeRegisteredAt),
+        },
+        publicUrl: `${globalThis.location.origin}/r/${receipt.voidDocument.id}`,
+      };
+    }
+
+    return {
+      ...base,
+      kind: "SALE",
       paymentMethod: receipt.paymentMethod,
       lotteryCode: receipt.lotteryCode,
-      createdAt: new Date(receipt.createdAt),
+      adeRegisteredAt: new Date(receipt.adeRegisteredAt),
       adeProgressive: receipt.adeProgressive,
       publicUrl: `${globalThis.location.origin}/r/${receipt.id}`,
     };
@@ -295,6 +320,26 @@ export function VoidReceiptDialog({
                     <QrCode className="mr-2 h-4 w-4" aria-hidden="true" />
                     Mostra QR code
                   </Button>
+                </>
+              )}
+              {/* Vendita annullata: il documento da consegnare non è più
+                  questo, è la ricevuta di annullamento. */}
+              {receipt.voidDocument && (
+                <>
+                  <Button variant="outline" asChild>
+                    <a
+                      href={`/r/${receipt.voidDocument.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Send className="mr-2 h-4 w-4" aria-hidden="true" />
+                      Ricevuta di annullamento
+                    </a>
+                  </Button>
+                  <PrintReceiptButton
+                    receipt={printableReceipt}
+                    pdfHref={`/api/documents/${receipt.voidDocument.id}/pdf`}
+                  />
                 </>
               )}
               <Button variant="outline" onClick={onClose}>

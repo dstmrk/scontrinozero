@@ -240,12 +240,10 @@ describe("GET /api/documents/[documentId]/pdf", () => {
     expect(res.status).toBe(404);
   });
 
-  // v1.7.0: un annullo riuscito PASSA il filtro di stampabilita' (la vendita
-  // annullata invece no). Il dato viene assemblato — righe e progressivo
-  // dell'originale — ma il layout della ricevuta di annullamento non c'e'
-  // ancora: 400 esplicito invece di stampare un annullo col layout di vendita,
-  // che lo presenterebbe come uno scontrino valido.
-  it("ritorna 400 per un VOID finche' manca il layout di annullamento", async () => {
+  // Un annullo riuscito PASSA il filtro di stampabilita' (la vendita annullata
+  // invece no) e arriva al renderer con la sua vendita di riferimento, da cui
+  // vengono righe e progressivo citato.
+  it("passa un VOID al renderer, con la vendita annullata", async () => {
     mockSelect.mockReset();
     mockSelect
       .mockReturnValueOnce(
@@ -271,7 +269,14 @@ describe("GET /api/documents/[documentId]/pdf", () => {
       }),
     });
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
+    expect(mockGeneratePdfResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        doc: expect.objectContaining({ kind: "VOID" }),
+        voidedSale: expect.objectContaining({ id: MOCK_DOC.id }),
+      }),
+      expect.anything(),
+    );
   });
 
   // La FK e' ON DELETE SET NULL: un annullo orfano non ha righe da ristampare.

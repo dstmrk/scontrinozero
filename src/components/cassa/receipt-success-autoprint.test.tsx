@@ -59,7 +59,7 @@ function renderSuccess(props: Record<string, unknown> = {}) {
       documentId="doc-1"
       adeProgressive="0001-0042"
       adeTransactionId="tx-1"
-      createdAt="2026-07-28T12:32:00.000Z"
+      adeRegisteredAt="2026-07-28T12:32:00.000Z"
       lines={LINES}
       paymentMethod="PC"
       lotteryCode={null}
@@ -95,7 +95,7 @@ describe("auto-stampa", () => {
     mockPrinter.current = printerState({ print });
     renderSuccess();
     await waitFor(() => expect(print).toHaveBeenCalled());
-    expect(print.mock.calls[0][0].createdAt).toEqual(
+    expect(print.mock.calls[0][0].adeRegisteredAt).toEqual(
       new Date("2026-07-28T12:32:00.000Z"),
     );
   });
@@ -110,7 +110,7 @@ describe("auto-stampa", () => {
       <ReceiptSuccess
         documentId="doc-1"
         adeProgressive="0001-0042"
-        createdAt="2026-07-28T12:32:00.000Z"
+        adeRegisteredAt="2026-07-28T12:32:00.000Z"
         lines={LINES}
         paymentMethod="PC"
         lotteryCode={null}
@@ -154,7 +154,7 @@ describe("auto-stampa", () => {
       <ReceiptSuccess
         documentId="doc-1"
         adeProgressive="0001-0042"
-        createdAt="2026-07-28T12:32:00.000Z"
+        adeRegisteredAt="2026-07-28T12:32:00.000Z"
         lines={LINES}
         paymentMethod="PC"
         lotteryCode={null}
@@ -189,7 +189,7 @@ describe("auto-stampa", () => {
       <ReceiptSuccess
         documentId="doc-1"
         adeProgressive="0001-0042"
-        createdAt="2026-07-28T12:32:00.000Z"
+        adeRegisteredAt="2026-07-28T12:32:00.000Z"
         lines={LINES}
         paymentMethod="PC"
         lotteryCode={null}

@@ -1,5 +1,5 @@
 /**
- * Documento commerciale di vendita in PDF a 58mm.
+ * Documento commerciale in PDF a 58mm — di vendita o di annullamento.
  *
  * Il layout segue il **"layout standard"** pubblicato dall'AdE per il
  * documento commerciale (`Layout_documento_commerciale_v4`): ordine delle
@@ -18,6 +18,18 @@
  *    Le "prescrizioni generali per il risparmio carta" dell'AdE chiedono
  *    comunque di NON stampare le voci a zero, quindi ometterle è conforme.
  *
+ * L'annullo condivide tutto il layout tranne tre punti (pagina "DOCUMENTO
+ * COMMERCIALE DI ANNULLO" dello stesso template, e PDF ufficiale trascritto in
+ * `HAR.md` #16a): il sottotitolo diventa `emesso per ANNULLAMENTO`, sotto il
+ * titolo compare `Documento di riferimento: N. <progressivo> del <data>` della
+ * vendita annullata, e sparisce il blocco pagamenti — un annullo non incassa.
+ * Il footer porta il progressivo e l'istante DELL'ANNULLO, non dell'originale.
+ *
+ * Il tipo è un'unione discriminata su `kind` perché l'invariante è reale: un
+ * annullo senza il documento di riferimento sarebbe un documento fiscale
+ * mutilo, e una vendita col blocco di riferimento sarebbe una bugia. Il
+ * compilatore lo impedisce invece di lasciarlo a un controllo a runtime.
+ *
  * La resa termica ESC/POS (`src/lib/printing/receipt-escpos.ts`) rispecchia
  * sezione per sezione questo file: le due stampe dello stesso documento non
  * devono mai divergere.
@@ -28,6 +40,7 @@ import qrcode from "qrcode-generator";
 import {
   PAYMENT_LABELS,
   formatBusinessAddressLines,
+  formatReceiptDate,
   formatReceiptPrice,
   formatReceiptDateTime,
 } from "@/lib/receipt-format";
@@ -41,27 +54,41 @@ import {
   receiptVatLegend,
 } from "@/lib/receipts/vat-display";
 
-export interface SaleReceiptLine {
+export interface CommercialDocumentLine {
   description: string;
   quantity: number;
   grossUnitPrice: number;
   vatCode: string;
 }
 
-export interface SaleReceiptPdfData {
+/** La vendita annullata, citata dal blocco "Documento di riferimento". */
+export interface VoidedDocumentRef {
+  adeProgressive: string;
+  adeRegisteredAt: Date;
+}
+
+/** Campi comuni alle due forme del documento commerciale. */
+interface CommonDocumentPdfData {
   businessName: string;
   vatNumber: string;
   address: string | null;
   city: string | null;
   province: string | null;
   zipCode: string | null;
-  lines: SaleReceiptLine[];
-  paymentMethod: "PC" | "PE";
-  createdAt: Date;
+  /**
+   * Righe contabili. Su un annullo sono quelle della **vendita annullata**:
+   * la ricevuta di annullamento le ristampa identiche.
+   */
+  lines: CommercialDocumentLine[];
+  /**
+   * Istante registrato dall'AdE (`commercial_documents.ade_registered_at`),
+   * NON il `createdAt` della riga: quello precede la risposta AdE di tutta la
+   * latenza del round-trip, e stamparlo darebbe al cliente un orario che
+   * l'Agenzia non ha mai visto.
+   */
+  adeRegisteredAt: Date;
   adeProgressive: string;
   adeTransactionId: string;
-  /** Codice Lotteria degli Scontrini (8 char, solo PE) */
-  lotteryCode?: string | null;
   /**
    * URL pubblico `/r/<id>`, stampato come QR in coda al documento se
    * presente. `null`/assente = nessun QR (rispecchia `printQr` della
@@ -69,6 +96,28 @@ export interface SaleReceiptPdfData {
    */
   publicUrl?: string | null;
 }
+
+export interface SaleDocumentPdfData extends CommonDocumentPdfData {
+  kind: "SALE";
+  paymentMethod: "PC" | "PE";
+  /** Codice Lotteria degli Scontrini (8 char, solo PE) */
+  lotteryCode?: string | null;
+}
+
+export interface VoidDocumentPdfData extends CommonDocumentPdfData {
+  kind: "VOID";
+  /**
+   * Obbligatorio: senza il riferimento all'originale la ricevuta di
+   * annullamento non dice che cosa annulla.
+   *
+   * Nessun `paymentMethod` e nessun `lotteryCode`: il primo non ha senso su un
+   * annullo, il secondo non compare sul PDF ufficiale (`HAR.md` #16e).
+   */
+  voidedDocument: VoidedDocumentRef;
+}
+
+export type CommercialDocumentPdfData =
+  SaleDocumentPdfData | VoidDocumentPdfData;
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -173,9 +222,14 @@ function drawQrCode(doc: Doc, cur: Cursor, url: string): void {
 
 /**
  * Intestazione nell'ordine del layout AdE: ragione sociale, P.IVA, via,
- * `Comune(PR), CAP`.
+ * `Comune(PR), CAP`; poi il titolo, il cui sottotitolo distingue le due forme
+ * del documento; e su un annullo il blocco "Documento di riferimento".
  */
-function drawHeader(doc: Doc, cur: Cursor, data: SaleReceiptPdfData): void {
+function drawHeader(
+  doc: Doc,
+  cur: Cursor,
+  data: CommercialDocumentPdfData,
+): void {
   drawText(doc, cur, data.businessName, {
     align: "center",
     bold: true,
@@ -196,11 +250,29 @@ function drawHeader(doc: Doc, cur: Cursor, data: SaleReceiptPdfData): void {
     bold: true,
     size: 7,
   });
-  drawText(doc, cur, "di vendita o prestazione", {
-    align: "center",
-    bold: true,
-    size: 6,
-  });
+  drawText(
+    doc,
+    cur,
+    data.kind === "VOID"
+      ? "emesso per ANNULLAMENTO"
+      : "di vendita o prestazione",
+    { align: "center", bold: true, size: 6 },
+  );
+
+  if (data.kind === "VOID") {
+    cur.y += 2;
+    drawText(doc, cur, "Documento di riferimento:", {
+      align: "center",
+      size: 6,
+    });
+    drawText(
+      doc,
+      cur,
+      `N. ${data.voidedDocument.adeProgressive} del ${formatReceiptDate(data.voidedDocument.adeRegisteredAt)}`,
+      { align: "center", bold: true, size: 6 },
+    );
+  }
+
   cur.y += 2;
   drawSeparator(doc, cur);
 }
@@ -209,7 +281,7 @@ function drawHeader(doc: Doc, cur: Cursor, data: SaleReceiptPdfData): void {
  * Riga descrittiva dell'articolo. Per quantità ≠ 1 il layout AdE aggiunge
  * sotto la riga di calcolo `n.Q * prezzo_unitario`.
  */
-function renderLineDescription(line: SaleReceiptLine): string {
+function renderLineDescription(line: CommercialDocumentLine): string {
   if (line.quantity === 1) return line.description;
   const qtyDisplay =
     line.quantity % 1 === 0 ? Math.round(line.quantity) : line.quantity;
@@ -219,7 +291,7 @@ function renderLineDescription(line: SaleReceiptLine): string {
 function drawLineItems(
   doc: Doc,
   cur: Cursor,
-  lines: SaleReceiptLine[],
+  lines: CommercialDocumentLine[],
   totals: ReceiptTotals,
 ): void {
   // Larghezze colonna (somma = CONTENT_WIDTH = 153pt):
@@ -309,7 +381,7 @@ function drawTotals(doc: Doc, cur: Cursor, totals: ReceiptTotals): void {
 function drawPayment(
   doc: Doc,
   cur: Cursor,
-  data: SaleReceiptPdfData,
+  data: SaleDocumentPdfData,
   totals: ReceiptTotals,
 ): void {
   if (totals.grandTotal !== 0) {
@@ -325,7 +397,11 @@ function drawPayment(
  * se il documento contiene almeno una natura — come nel layout standard AdE,
  * fra il blocco pagamenti e la data.
  */
-function drawVatLegend(doc: Doc, cur: Cursor, lines: SaleReceiptLine[]): void {
+function drawVatLegend(
+  doc: Doc,
+  cur: Cursor,
+  lines: CommercialDocumentLine[],
+): void {
   const legend = receiptVatLegend(lines.map((l) => l.vatCode));
   if (legend.length === 0) return;
 
@@ -339,15 +415,21 @@ function drawVatLegend(doc: Doc, cur: Cursor, lines: SaleReceiptLine[]): void {
  * Piede: data e numero documento centrati, poi il codice lotteria con la sua
  * caption su riga propria, infine il QR verso la copia pubblica.
  */
-function drawFooter(doc: Doc, cur: Cursor, data: SaleReceiptPdfData): void {
-  drawText(doc, cur, formatReceiptDateTime(data.createdAt), {
+function drawFooter(
+  doc: Doc,
+  cur: Cursor,
+  data: CommercialDocumentPdfData,
+): void {
+  drawText(doc, cur, formatReceiptDateTime(data.adeRegisteredAt), {
     align: "center",
   });
   drawText(doc, cur, `DOCUMENTO N. ${data.adeProgressive}`, {
     align: "center",
   });
 
-  if (data.lotteryCode) {
+  // Solo la vendita: il PDF ufficiale di annullo non riporta il codice
+  // lotteria (`HAR.md` #16e), e il tipo lo rende irraggiungibile su un VOID.
+  if (data.kind === "SALE" && data.lotteryCode) {
     cur.y += 2;
     drawText(doc, cur, "Codice Lotteria", { align: "center", size: 6 });
     drawText(doc, cur, data.lotteryCode, { align: "center", bold: true });
@@ -366,39 +448,36 @@ function drawFooter(doc: Doc, cur: Cursor, data: SaleReceiptPdfData): void {
  * titolo + separatori + totali con `di cui IVA` aggregato + pagamento con
  * `Importo pagato` + piede), 18pt per riga articolo (copre il wrap della riga
  * quantità), 12pt per aliquota distinta, 9pt per riga di legenda IVA più il
- * suo separatore, 22pt per il blocco lotteria
- * (caption + codice). Sovrastimare costa spazio bianco, sottostimare costa
- * una seconda pagina: la stima resta volutamente generosa.
+ * suo separatore, 22pt per il blocco lotteria (caption + codice).
+ * Sovrastimare costa spazio bianco, sottostimare costa una seconda pagina: la
+ * stima resta volutamente generosa.
  */
-function estimateHeight(
-  lines: SaleReceiptLine[],
-  hasLotteryCode: boolean,
-  hasQrCode: boolean,
-): number {
-  const uniqueVatRates = new Set(lines.map((l) => l.vatCode)).size;
-  const legendRows = receiptVatLegend(lines.map((l) => l.vatCode)).length;
+function estimateHeight(data: CommercialDocumentPdfData): number {
+  const vatCodes = data.lines.map((l) => l.vatCode);
+  const uniqueVatRates = new Set(vatCodes).size;
+  const legendRows = receiptVatLegend(vatCodes).length;
+  const hasLotteryCode = data.kind === "SALE" && Boolean(data.lotteryCode);
   return (
     145 +
-    lines.length * 18 +
+    data.lines.length * 18 +
     uniqueVatRates * 12 +
     (legendRows > 0 ? legendRows * 9 + 5 : 0) +
     (hasLotteryCode ? 22 : 0) +
-    (hasQrCode ? QR_SIZE + 12 : 0) +
+    // Nessun termine per l'annullo: scambia il blocco pagamenti (due righe
+    // piu' separatore) col blocco di riferimento (due righe), quindi in
+    // altezza si equivalgono.
+    (data.publicUrl ? QR_SIZE + 12 : 0) +
     8
   );
 }
 
 // ─── Generator ──────────────────────────────────────────────────────────────
 
-export function generateSaleReceiptPdf(
-  data: SaleReceiptPdfData,
+export function generateCommercialDocumentPdf(
+  data: CommercialDocumentPdfData,
 ): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
-    const height = estimateHeight(
-      data.lines,
-      Boolean(data.lotteryCode),
-      Boolean(data.publicUrl),
-    );
+    const height = estimateHeight(data);
     const buffers: Buffer[] = [];
 
     const doc = new PDFDocument({
@@ -428,7 +507,7 @@ export function generateSaleReceiptPdf(
     drawHeader(doc, cur, data);
     drawLineItems(doc, cur, data.lines, totals);
     drawTotals(doc, cur, totals);
-    drawPayment(doc, cur, data, totals);
+    if (data.kind === "SALE") drawPayment(doc, cur, data, totals);
     drawVatLegend(doc, cur, data.lines);
     drawFooter(doc, cur, data);
 

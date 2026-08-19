@@ -18,7 +18,28 @@ export interface ReceiptListItem {
   status: DocumentStatus;
   adeProgressive: string | null;
   adeTransactionId: string | null;
+  /**
+   * Istante dell'INSERT della riga. Resta l'ordinamento dell'elenco (indice
+   * `idx_commercial_documents_business_created`), ma NON è la data mostrata:
+   * per quella vale `adeRegisteredAt`.
+   */
   createdAt: Date;
+  /**
+   * Istante registrato dall'AdE (`ade_registered_at`, migrazione 0031). È la
+   * data che l'elenco mostra e che la ristampa su termica porta sulla carta,
+   * così coincide con PDF e ricevuta pubblica.
+   */
+  adeRegisteredAt: Date;
+  /**
+   * L'annullo che ha annullato questa vendita, quando esiste. È l'entry point
+   * della ricevuta di annullamento: dal dettaglio di una vendita annullata
+   * l'esercente la apre e la stampa. `null` su una vendita ancora valida.
+   */
+  voidDocument: {
+    id: string;
+    adeProgressive: string;
+    adeRegisteredAt: Date;
+  } | null;
   /**
    * Metodo di pagamento del documento trasmesso all'AdE. Serve alla ristampa
    * su termica: una copia consegnata al cliente non può riportare un

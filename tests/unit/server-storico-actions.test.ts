@@ -13,6 +13,7 @@ const {
   mockDocsOrderBy,
   mockDocsWhere,
   mockDocsFrom,
+  mockDocsLeftJoin,
   mockCountFrom,
   mockSelect,
 } = vi.hoisted(() => ({
@@ -25,6 +26,7 @@ const {
   mockDocsOrderBy: vi.fn(),
   mockDocsWhere: vi.fn(),
   mockDocsFrom: vi.fn(),
+  mockDocsLeftJoin: vi.fn(),
   mockCountFrom: vi.fn(),
   mockSelect: vi.fn(),
 }));
@@ -41,6 +43,21 @@ vi.mock("@/db", () => ({
 vi.mock("@/db/schema", () => ({
   commercialDocuments: "commercial-documents-table",
   commercialDocumentLines: "commercial-document-lines-table",
+}));
+
+// `commercialDocuments` qui e' una stringa, non una tabella Drizzle: l'`alias`
+// reale ci costruisce sopra un Proxy e fallisce. Il self-join sull'annullo non
+// e' oggetto di questo file (filtri data, validazione, paginazione), quindi
+// basta un alias inerte.
+vi.mock("drizzle-orm/pg-core", () => ({
+  alias: (_table: unknown, name: string) => ({
+    id: `${name}.id`,
+    kind: `${name}.kind`,
+    status: `${name}.status`,
+    voidedDocumentId: `${name}.voided_document_id`,
+    adeProgressive: `${name}.ade_progressive`,
+    adeRegisteredAt: `${name}.ade_registered_at`,
+  }),
 }));
 
 vi.mock("drizzle-orm", () => ({
@@ -67,7 +84,9 @@ function setupDbMocksEmpty(total = 0): void {
   mockDocsLimit.mockReturnValue({ offset: mockDocsOffset });
   mockDocsOrderBy.mockReturnValue({ limit: mockDocsLimit });
   mockDocsWhere.mockReturnValue({ orderBy: mockDocsOrderBy });
-  mockDocsFrom.mockReturnValue({ where: mockDocsWhere });
+  // Il self-join sull'annullo si interpone fra `.from()` e `.where()`.
+  mockDocsLeftJoin.mockReturnValue({ where: mockDocsWhere });
+  mockDocsFrom.mockReturnValue({ leftJoin: mockDocsLeftJoin });
 
   mockSelect
     .mockReturnValueOnce({ from: mockCountFrom })

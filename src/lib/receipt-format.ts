@@ -54,10 +54,49 @@ const receiptDateFormatter = new Intl.DateTimeFormat("it-IT", {
  * legale italiana. Condiviso fra PDF e stampa termica perché le due rese dello
  * stesso documento non devono mai riportare orari diversi.
  */
-export function formatReceiptDateTime(date: Date): string {
+/**
+ * Estrae i componenti della data in ora italiana.
+ *
+ * `formatToParts` invece di `format`: evita i separatori locale-specifici
+ * (it-IT userebbe "/") e soprattutto il fuso — in un container UTC
+ * `getHours()`/`getDate()` tornano valori UTC, che vicino a mezzanotte e nei
+ * cambi d'ora divergono dall'ora legale italiana.
+ */
+function receiptDateParts(date: Date): {
+  day: string;
+  month: string;
+  year: string;
+  hour: string;
+  minute: string;
+} {
   const parts = receiptDateFormatter.formatToParts(date);
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
-  return `${get("day")}-${get("month")}-${get("year")} ${get("hour")}:${get("minute")}`;
+  const get = (type: string) =>
+    parts.find((p) => p.type === type)?.value ?? "00";
+  return {
+    day: get("day"),
+    month: get("month"),
+    year: get("year"),
+    hour: get("hour"),
+    minute: get("minute"),
+  };
+}
+
+export function formatReceiptDateTime(date: Date): string {
+  const p = receiptDateParts(date);
+  return `${p.day}-${p.month}-${p.year} ${p.hour}:${p.minute}`;
+}
+
+/**
+ * Solo la data, `DD-MM-YYYY` in ora italiana.
+ *
+ * Serve al blocco "Documento di riferimento" della ricevuta di annullamento,
+ * che cita la vendita annullata come `N. <progressivo> del <data>` — senza
+ * ora, come il layout AdE. Stessa sorgente di `formatReceiptDateTime`, così
+ * le due non possono cadere in giorni diversi sullo stesso documento.
+ */
+export function formatReceiptDate(date: Date): string {
+  const p = receiptDateParts(date);
+  return `${p.day}-${p.month}-${p.year}`;
 }
 
 /** Campi indirizzo dell'esercente, tutti opzionali a schema. */

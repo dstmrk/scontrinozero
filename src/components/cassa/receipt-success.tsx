@@ -24,8 +24,12 @@ interface ReceiptSuccessProps {
   readonly documentId?: string;
   readonly adeProgressive?: string;
   readonly adeTransactionId?: string;
-  /** Data del documento in DB (ISO). La carta non deve usare `new Date()`. */
-  readonly createdAt?: string;
+  /**
+   * Istante di registrazione AdE del documento (ISO). La carta non deve usare
+   * `new Date()`, e nemmeno il `createdAt` della riga: quello precede la
+   * risposta AdE della latenza del round-trip.
+   */
+  readonly adeRegisteredAt?: string;
   /**
    * Dati per la stampa su termica. Opzionali con default innocui: se mancano,
    * `printableReceipt` resta null e il bottone "Stampa" ripiega sul PDF —
@@ -43,7 +47,7 @@ export function ReceiptSuccess({
   documentId,
   adeProgressive,
   adeTransactionId,
-  createdAt,
+  adeRegisteredAt,
   lines = [],
   paymentMethod = "PC",
   lotteryCode = null,
@@ -62,6 +66,7 @@ export function ReceiptSuccess({
   const printableReceipt = useMemo<PrintableReceipt | null>(() => {
     if (!printHeader || !adeProgressive || lines.length === 0) return null;
     return {
+      kind: "SALE",
       header: printHeader,
       lines: lines.map((line) => ({
         description: line.description,
@@ -72,7 +77,7 @@ export function ReceiptSuccess({
       paymentMethod,
       // Fallback su "adesso" solo se il server non ha restituito la data:
       // l'orario sarebbe di pochi secondi diverso, meglio di nessuna stampa.
-      createdAt: createdAt ? new Date(createdAt) : new Date(),
+      adeRegisteredAt: adeRegisteredAt ? new Date(adeRegisteredAt) : new Date(),
       adeProgressive,
       lotteryCode,
       publicUrl: documentId
@@ -84,7 +89,7 @@ export function ReceiptSuccess({
     adeProgressive,
     lines,
     paymentMethod,
-    createdAt,
+    adeRegisteredAt,
     lotteryCode,
     documentId,
   ]);

@@ -138,27 +138,10 @@ export async function GET(
 
   const { doc, biz, lines, voidedSale } = queryResult;
 
-  // REVIEW.md #85 — il layout della ricevuta di annullamento (HAR.md #16a) è in
-  // lavorazione a partire dai template ufficiali AdE. Il dato è già tutto qui —
-  // `doc` (progressivo e ade_registered_at dell'annullo), `voidedSale`
-  // (progressivo di riferimento) e `lines` (righe dell'originale): manca solo
-  // il render. Fino ad allora un VOID resta un 400 esplicito invece di
-  // ricadere sul layout di vendita, che stamperebbe un annullo come se fosse
-  // uno scontrino valido.
-  if (voidedSale) {
-    return Response.json(
-      {
-        error:
-          "La ricevuta di annullamento non è ancora disponibile per il download.",
-      },
-      { status: 400 },
-    );
-  }
-
   // `?qr=1`: l'esercente decide via `printQr` (preferenze stampante, per
   // dispositivo/localStorage — non leggibile qui) e lo passa come query param
   // da `PrintReceiptButton` quando apre il PDF di fallback.
   const includeQr = new URL(request.url).searchParams.get("qr") === "1";
 
-  return generatePdfResponse({ doc, biz, lines }, { includeQr });
+  return generatePdfResponse({ doc, biz, lines, voidedSale }, { includeQr });
 }

@@ -41,11 +41,31 @@ function makeReceipt(
   return {
     header: HEADER,
     lines,
+    kind: "SALE",
     paymentMethod: "PC",
-    createdAt: new Date("2026-07-28T12:32:00Z"),
+    adeRegisteredAt: new Date("2026-07-28T12:32:00Z"),
     adeProgressive: "0001-0042",
     ...overrides,
-  };
+  } as PrintableReceipt;
+}
+
+/** Ricevuta di annullamento: righe della vendita, riferimento all'originale. */
+function makeVoidReceipt(
+  lines: PrintableReceiptLine[],
+  overrides: Partial<PrintableReceipt> = {},
+): PrintableReceipt {
+  return {
+    header: HEADER,
+    lines,
+    kind: "VOID",
+    adeRegisteredAt: new Date("2026-07-29T08:15:00Z"),
+    adeProgressive: "0001-0043",
+    voidedDocument: {
+      adeProgressive: "0001-0042",
+      adeRegisteredAt: new Date("2026-07-28T12:32:00Z"),
+    },
+    ...overrides,
+  } as PrintableReceipt;
 }
 
 const SIMPLE_LINES: PrintableReceiptLine[] = [
@@ -108,8 +128,9 @@ describe("buildReceiptCommands — contenuto fiscale", () => {
     ],
     ["il sottotitolo della dicitura", "di vendita o prestazione"],
     ["il progressivo AdE", "DOCUMENTO N. 0001-0042"],
-    // 12:32 UTC = 14:32 a Roma (ora legale): la data va resa in Europe/Rome
-    // esattamente come fa il PDF, non in UTC del container.
+    // Il timestamp fiscale (`ade_registered_at`), non il createdAt della riga:
+    // 12:32 UTC = 14:32 a Roma (ora legale), reso in Europe/Rome esattamente
+    // come fa il PDF, non in UTC del container.
     ["la data del documento in ora italiana", "28-07-2026 14:32"],
     // Descrizione senza accenti: la resa degli accenti ha il suo test dedicato,
     // qui interessa che la riga arrivi sulla carta col totale giusto (2×1,20).
@@ -308,7 +329,7 @@ describe("buildReceiptCommands — QR ricevuta digitale", () => {
 
 // ---------------------------------------------------------------------------
 // Layout AdE — la termica rispecchia sezione per sezione il PDF a 58mm
-// (`src/lib/pdf/generate-sale-receipt.ts`), a sua volta allineato al "layout
+// (`src/lib/pdf/commercial-document.ts`), a sua volta allineato al "layout
 // standard" del documento commerciale.
 // ---------------------------------------------------------------------------
 
@@ -470,6 +491,72 @@ describe("buildReceiptCommands — codifica IVA AdE", () => {
     }));
     const rows = printedLines(
       buildReceiptCommands(makeReceipt(allNatures), OPTS),
+    );
+    expect(rows.filter((l) => l.length > 32)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ricevuta di annullamento su termica — rispecchia il PDF sezione per sezione.
+// ---------------------------------------------------------------------------
+
+describe("buildReceiptCommands — ricevuta di annullamento", () => {
+  it("usa il sottotitolo `emesso per ANNULLAMENTO`", () => {
+    const text = decode(
+      buildReceiptCommands(makeVoidReceipt(SIMPLE_LINES), OPTS),
+    );
+    expect(text).toContain("emesso per ANNULLAMENTO");
+    expect(text).not.toContain("di vendita o prestazione");
+  });
+
+  it("cita la vendita annullata con progressivo e data", () => {
+    const rows = printedLines(
+      buildReceiptCommands(makeVoidReceipt(SIMPLE_LINES), OPTS),
+    );
+    const iRef = rows.findIndex((l) => l.includes("Documento di riferimento:"));
+    expect(iRef).toBeGreaterThan(-1);
+    expect(rows[iRef + 1]).toContain("N. 0001-0042 del 28-07-2026");
+  });
+
+  it("mette il riferimento fra il titolo e la tabella righe", () => {
+    const rows = printedLines(
+      buildReceiptCommands(makeVoidReceipt(SIMPLE_LINES), OPTS),
+    );
+    const iTitle = rows.findIndex((l) => l.includes("ANNULLAMENTO"));
+    const iRef = rows.findIndex((l) => l.includes("Documento di riferimento:"));
+    const iTable = rows.findIndex((l) => l.includes("DESCRIZIONE"));
+    expect(iRef).toBeGreaterThan(iTitle);
+    expect(iTable).toBeGreaterThan(iRef);
+  });
+
+  it("non stampa il blocco pagamenti", () => {
+    const text = decode(
+      buildReceiptCommands(makeVoidReceipt(SIMPLE_LINES), OPTS),
+    );
+    expect(text).not.toContain("Pagamento");
+    expect(text).not.toContain("Importo pagato");
+  });
+
+  it("porta nel piede progressivo e data DELL'ANNULLO", () => {
+    const text = decode(
+      buildReceiptCommands(makeVoidReceipt(SIMPLE_LINES), OPTS),
+    );
+    expect(text).toContain("DOCUMENTO N. 0001-0043");
+    // 08:15 UTC = 10:15 a Roma (ora legale).
+    expect(text).toContain("29-07-2026 10:15");
+  });
+
+  it("ristampa righe e totali della vendita annullata", () => {
+    const text = decode(
+      buildReceiptCommands(makeVoidReceipt(SIMPLE_LINES), OPTS),
+    );
+    expect(text).toContain("Cornetto");
+    expect(text).toContain("TOTALE COMPLESSIVO");
+  });
+
+  it("nessuna riga supera le 32 colonne", () => {
+    const rows = printedLines(
+      buildReceiptCommands(makeVoidReceipt(SIMPLE_LINES), OPTS),
     );
     expect(rows.filter((l) => l.length > 32)).toEqual([]);
   });

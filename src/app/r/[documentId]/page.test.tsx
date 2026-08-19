@@ -33,9 +33,11 @@ const VALID_DOC_ID = "123e4567-e89b-12d3-a456-426614174000";
 const MOCK_RECEIPT_DATA = {
   doc: {
     id: "doc-1",
+    kind: "SALE" as const,
     publicRequest: { paymentMethod: "PC" },
     adeProgressive: "ABC-123",
-    createdAt: new Date("2026-01-01T10:00:00Z"),
+    createdAt: new Date("2026-01-01T09:59:57Z"),
+    adeRegisteredAt: new Date("2026-01-01T10:00:00Z"),
   },
   biz: {
     businessName: "Bar Mario",
@@ -47,6 +49,24 @@ const MOCK_RECEIPT_DATA = {
   },
   lines: [],
   voidedSale: null,
+};
+
+/** Riga VOID: righe e progressivo di riferimento vengono dalla vendita. */
+const MOCK_VOID_DATA = {
+  ...MOCK_RECEIPT_DATA,
+  doc: {
+    ...MOCK_RECEIPT_DATA.doc,
+    id: "void-1",
+    kind: "VOID" as const,
+    adeProgressive: "DEF-456",
+    adeRegisteredAt: new Date("2026-01-02T10:00:00Z"),
+    publicRequest: null,
+  },
+  voidedSale: {
+    ...MOCK_RECEIPT_DATA.doc,
+    adeProgressive: "ABC-123",
+    adeRegisteredAt: new Date("2026-01-01T10:00:00Z"),
+  },
 };
 
 // ─── Tests ────────────────────────────────────────────────────────────────
@@ -76,21 +96,6 @@ describe("PublicReceiptPage rate limiting", () => {
 
     expect(screen.getByText("Bar Mario")).toBeInTheDocument();
     expect(mockFetchPublicReceipt).toHaveBeenCalledWith(VALID_DOC_ID);
-  });
-
-  // v1.7.0: un annullo non deve essere reso con il layout di vendita, che lo
-  // presenterebbe come uno scontrino valido. Finche' manca il layout dedicato
-  // (HAR.md #16a) la pagina pubblica non lo serve affatto.
-  it("chiama notFound() per un annullo finche' manca il layout dedicato", async () => {
-    mockFetchPublicReceipt.mockResolvedValue({
-      ...MOCK_RECEIPT_DATA,
-      voidedSale: { id: "doc-1", adeProgressive: "ABC-123" },
-    });
-
-    // Il mock di notFound() lancia, come il vero: la pagina non completa
-    // il render.
-    await expect(renderPage()).rejects.toThrow();
-    expect(mockNotFound).toHaveBeenCalled();
   });
 
   it("renders the rate-limit message after exceeding 60 requests per IP", async () => {
@@ -246,35 +251,27 @@ describe("PublicReceiptPage — layout AdE", () => {
     );
   }
 
-  it("stampa P.IVA sopra l'indirizzo, con la località nella forma Comune(PR), CAP", async () => {
+  // Un caso per riga: un fallimento dice QUALE voce manca, invece di rompere
+  // un test cumulativo.
+  it.each([
+    ["la P.IVA sopra l'indirizzo", "P.IVA 12345678901"],
+    ["la via", "Via Roma 1"],
+    ["la località nella forma Comune(PR), CAP", "Milano(MI), 20100"],
+    ["l'intestazione di colonna DESCRIZIONE", "DESCRIZIONE"],
+    ["l'intestazione di colonna Prezzo(€)", "Prezzo(€)"],
+    ["la riga quantità nella forma AdE `n.Q * prezzo`", "n.2 * 8,50"],
+    ["il totale col nome del layout standard", "TOTALE COMPLESSIVO"],
+    ["l'IVA aggregata", "di cui IVA"],
+    ["il dettaglio IVA al 10%", "di cui IVA 10%"],
+    ["il dettaglio IVA al 22%", "di cui IVA 22%"],
+  ])("mostra %s", async (_caso, atteso) => {
     await renderReceipt();
-    expect(screen.getByText("P.IVA 12345678901")).toBeInTheDocument();
-    expect(screen.getByText("Via Roma 1")).toBeInTheDocument();
-    expect(screen.getByText("Milano(MI), 20100")).toBeInTheDocument();
+    expect(screen.getByText(atteso)).toBeInTheDocument();
   });
 
-  it("usa le intestazioni di colonna del layout standard", async () => {
+  it("non chiama il totale `Totale`: la dicitura è quella di PDF e termica", async () => {
     await renderReceipt();
-    expect(screen.getByText("DESCRIZIONE")).toBeInTheDocument();
-    expect(screen.getByText("Prezzo(€)")).toBeInTheDocument();
-  });
-
-  it("scrive la riga quantità nella forma AdE `n.Q * prezzo`", async () => {
-    await renderReceipt();
-    expect(screen.getByText("n.2 * 8,50")).toBeInTheDocument();
-  });
-
-  it("chiama il totale `TOTALE COMPLESSIVO`, come PDF e termica", async () => {
-    await renderReceipt();
-    expect(screen.getByText("TOTALE COMPLESSIVO")).toBeInTheDocument();
     expect(screen.queryByText("Totale")).not.toBeInTheDocument();
-  });
-
-  it("espone l'IVA aggregata più il dettaglio per aliquota", async () => {
-    await renderReceipt();
-    expect(screen.getByText("di cui IVA")).toBeInTheDocument();
-    expect(screen.getByText("di cui IVA 10%")).toBeInTheDocument();
-    expect(screen.getByText("di cui IVA 22%")).toBeInTheDocument();
   });
 
   it("con una sola aliquota non ripete il dettaglio sotto l'aggregato", async () => {
@@ -341,6 +338,14 @@ describe("PublicReceiptPage — layout AdE", () => {
     await renderReceipt();
     expect(screen.getByText("DOCUMENTO N.")).toBeInTheDocument();
     expect(screen.queryByText("Identificativo AdE")).not.toBeInTheDocument();
+  });
+
+  it("mostra ade_registered_at, non il createdAt della riga", async () => {
+    await renderReceipt();
+    // 10:00 UTC = 11:00 a Roma (CET). Il createdAt della riga e' 09:59:57Z:
+    // se la pagina lo stampasse si vedrebbe 10:59, tre secondi prima del PDF.
+    expect(screen.getByText("01-01-2026 11:00")).toBeInTheDocument();
+    expect(screen.queryByText("01-01-2026 10:59")).not.toBeInTheDocument();
   });
 
   it("mostra il codice lotteria sotto la caption `Codice Lotteria`", async () => {
@@ -421,5 +426,77 @@ describe("PublicReceiptPage — codifica IVA AdE", () => {
       },
     ]);
     expect(screen.queryByText(/^\*[A-Z]{2} = /)).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ricevuta di annullamento sulla pagina pubblica
+// ---------------------------------------------------------------------------
+
+describe("PublicReceiptPage — ricevuta di annullamento", () => {
+  let PublicReceiptPage: typeof import("./page").default;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mockHeaders.mockResolvedValue(
+      new Headers({ "cf-connecting-ip": "5.5.5.5" }),
+    );
+    vi.resetModules();
+    ({ default: PublicReceiptPage } = await import("./page"));
+  });
+
+  const LINES = [
+    {
+      id: "line-1",
+      description: "Pizza Margherita",
+      quantity: "2",
+      grossUnitPrice: "8.50",
+      vatCode: "10",
+    },
+  ];
+
+  async function renderVoid(
+    overrides: Record<string, unknown> = {},
+  ): Promise<void> {
+    mockFetchPublicReceipt.mockResolvedValue({
+      ...MOCK_VOID_DATA,
+      lines: LINES,
+      ...overrides,
+    });
+    render(
+      await PublicReceiptPage({
+        params: Promise.resolve({ documentId: VALID_DOC_ID }),
+      }),
+    );
+  }
+
+  it("non è più un 404: un annullo viene servito", async () => {
+    await renderVoid();
+    expect(mockNotFound).not.toHaveBeenCalled();
+    expect(screen.getByText("Bar Mario")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["il sottotitolo dell'annullo", "emesso per ANNULLAMENTO"],
+    ["la caption del riferimento", "Documento di riferimento:"],
+    ["progressivo e data della vendita annullata", "N. ABC-123 del 01-01-2026"],
+    ["il progressivo DELL'ANNULLO nel piede", "DEF-456"],
+    ["la data DELL'ANNULLO nel piede", "02-01-2026 11:00"],
+    ["le righe ristampate dalla vendita annullata", "Pizza Margherita"],
+    ["i totali di quelle righe", "TOTALE COMPLESSIVO"],
+  ])("mostra %s", async (_caso, atteso) => {
+    await renderVoid();
+    expect(screen.getByText(atteso)).toBeInTheDocument();
+  });
+
+  // Un annullo non incassa, e non è una vendita: le voci del layout di
+  // vendita non devono comparirvi.
+  it.each([
+    ["il sottotitolo di vendita", "di vendita o prestazione"],
+    ["la riga `Importo pagato`", "Importo pagato"],
+    ["la modalità di pagamento", "Pagamento contante"],
+  ])("non mostra %s", async (_caso, assente) => {
+    await renderVoid();
+    expect(screen.queryByText(assente)).not.toBeInTheDocument();
   });
 });

@@ -22,6 +22,18 @@ vi.mock("@/db", () => ({
   }),
 }));
 
+vi.mock("drizzle-orm/pg-core", () => ({
+  alias: (_table: unknown, name: string) => ({
+    _alias: name,
+    id: `${name}.id`,
+    kind: `${name}.kind`,
+    status: `${name}.status`,
+    voidedDocumentId: `${name}.voided_document_id`,
+    adeProgressive: `${name}.ade_progressive`,
+    adeRegisteredAt: `${name}.ade_registered_at`,
+  }),
+}));
+
 vi.mock("@/db/schema", () => ({
   commercialDocuments: {
     id: "cd.id",
@@ -29,6 +41,7 @@ vi.mock("@/db/schema", () => ({
     kind: "cd.kind",
     status: "cd.status",
     createdAt: "cd.created_at",
+    adeRegisteredAt: "cd.ade_registered_at",
     adeProgressive: "cd.ade_progressive",
     adeTransactionId: "cd.ade_transaction_id",
     publicRequest: "cd.public_request",
@@ -61,12 +74,14 @@ function makeCountBuilder(n: number) {
 function makeDocsBuilder(result: unknown[]) {
   const b = {
     from: vi.fn(),
+    leftJoin: vi.fn(),
     where: vi.fn(),
     orderBy: vi.fn(),
     limit: vi.fn(),
     offset: vi.fn().mockResolvedValue(result),
   };
   b.from.mockReturnValue(b);
+  b.leftJoin.mockReturnValue(b);
   b.where.mockReturnValue(b);
   b.orderBy.mockReturnValue(b);
   b.limit.mockReturnValue(b);
@@ -98,7 +113,9 @@ const FAKE_SALE_DOC = {
   status: "ACCEPTED",
   adeTransactionId: "trx-001",
   adeProgressive: "DCW2026/5111-2188",
-  createdAt: new Date("2026-02-15T10:00:00Z"),
+  // Deliberatamente diverse: l'INSERT precede la risposta AdE.
+  createdAt: new Date("2026-02-15T09:59:57Z"),
+  adeRegisteredAt: new Date("2026-02-15T10:00:00Z"),
 };
 
 const FAKE_DOC_LINES = [
@@ -127,6 +144,72 @@ describe("storico-actions", () => {
   });
 
   describe("searchReceipts", () => {
+    // La riga alimenta la ristampa su termica (`void-receipt-dialog`): senza il
+    // timestamp fiscale la carta porterebbe un orario diverso dal PDF.
+    it("espone ade_registered_at, distinto dal createdAt della riga", async () => {
+      mockSelect
+        .mockReturnValueOnce(makeCountBuilder(1))
+        .mockReturnValueOnce(makeDocsBuilder([FAKE_SALE_DOC]))
+        .mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
+
+      const { searchReceipts } = await import("./storico-actions");
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+      );
+
+      expect(result.items[0].adeRegisteredAt).toEqual(
+        new Date("2026-02-15T10:00:00Z"),
+      );
+      expect(result.items[0].createdAt).toEqual(
+        new Date("2026-02-15T09:59:57Z"),
+      );
+    });
+
+    // Entry point della ricevuta di annullamento: dal dettaglio di una
+    // vendita annullata l'esercente deve poter aprire e stampare l'annullo.
+    // Senza questi campi la riga e' un vicolo cieco (REVIEW.md #85).
+    it("espone l'annullo collegato su una vendita annullata", async () => {
+      mockSelect
+        .mockReturnValueOnce(makeCountBuilder(1))
+        .mockReturnValueOnce(
+          makeDocsBuilder([
+            {
+              ...FAKE_SALE_DOC,
+              status: "VOID_ACCEPTED",
+              voidDocumentId: "void-doc-uuid",
+              voidAdeProgressive: "DCW2026/5111-2189",
+              voidAdeRegisteredAt: new Date("2026-02-16T09:15:00Z"),
+            },
+          ]),
+        )
+        .mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
+
+      const { searchReceipts } = await import("./storico-actions");
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+      );
+
+      expect(result.items[0].voidDocument).toEqual({
+        id: "void-doc-uuid",
+        adeProgressive: "DCW2026/5111-2189",
+        adeRegisteredAt: new Date("2026-02-16T09:15:00Z"),
+      });
+    });
+
+    it("lascia voidDocument null su una vendita non annullata", async () => {
+      mockSelect
+        .mockReturnValueOnce(makeCountBuilder(1))
+        .mockReturnValueOnce(makeDocsBuilder([FAKE_SALE_DOC]))
+        .mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
+
+      const { searchReceipts } = await import("./storico-actions");
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+      );
+
+      expect(result.items[0].voidDocument).toBeNull();
+    });
+
     it("returns receipts with computed totals and sorted lines", async () => {
       mockSelect
         .mockReturnValueOnce(makeCountBuilder(1))
@@ -451,6 +534,7 @@ describe("storico-actions", () => {
         let pageSize = 10;
         const b = {
           from: vi.fn(),
+          leftJoin: vi.fn(),
           where: vi.fn(),
           orderBy: vi.fn((...keys: { _desc: string }[]) => {
             orderKeys = keys;
@@ -476,6 +560,7 @@ describe("storico-actions", () => {
           }),
         };
         b.from.mockReturnValue(b);
+        b.leftJoin.mockReturnValue(b);
         b.where.mockReturnValue(b);
         return b;
       }

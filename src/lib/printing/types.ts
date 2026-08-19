@@ -2,7 +2,7 @@
  * Tipi condivisi della stampa scontrino su termica ESC/POS (Web Bluetooth).
  *
  * Il layout stampato rispecchia 1:1 il PDF a 58mm generato da
- * `src/lib/pdf/generate-sale-receipt.ts`: stesso ordine di sezioni, stesse
+ * `src/lib/pdf/commercial-document.ts`: stesso ordine di sezioni, stesse
  * label, stessi totali. Il PDF resta la corsia di fallback per i browser senza
  * Web Bluetooth (iOS, Firefox, webview in-app), quindi le due rese non devono
  * mai divergere.
@@ -33,19 +33,53 @@ export interface PrintableReceiptLine {
   readonly vatCode: string;
 }
 
-/** Documento commerciale pronto per la stampa. */
-export interface PrintableReceipt {
-  readonly header: ReceiptPrintHeader;
-  readonly lines: readonly PrintableReceiptLine[];
-  readonly paymentMethod: PaymentMethod;
-  /** Data del documento in DB — MAI `new Date()` lato client. */
-  readonly createdAt: Date;
+/** La vendita annullata, citata dal blocco "Documento di riferimento". */
+export interface PrintableVoidedDocument {
   readonly adeProgressive: string;
-  /** Codice Lotteria degli Scontrini (8 char, solo pagamento PE). */
-  readonly lotteryCode?: string | null;
+  readonly adeRegisteredAt: Date;
+}
+
+/** Campi comuni alle due forme del documento commerciale stampabile. */
+interface PrintableDocumentBase {
+  readonly header: ReceiptPrintHeader;
+  /**
+   * Righe contabili. Su un annullo sono quelle della **vendita annullata**:
+   * la ricevuta di annullamento le ristampa identiche.
+   */
+  readonly lines: readonly PrintableReceiptLine[];
+  /**
+   * Istante registrato dall'AdE (`commercial_documents.ade_registered_at`).
+   *
+   * MAI `new Date()` lato client, e nemmeno il `createdAt` della riga: quello
+   * è scritto all'INSERT, prima della risposta AdE, e la carta porterebbe un
+   * orario diverso da quello del PDF e della ricevuta pubblica.
+   */
+  readonly adeRegisteredAt: Date;
+  readonly adeProgressive: string;
   /** URL pubblico `/r/<id>`, stampato come QR se `printQr` è attivo. */
   readonly publicUrl?: string | null;
 }
+
+export interface PrintableSaleReceipt extends PrintableDocumentBase {
+  readonly kind: "SALE";
+  readonly paymentMethod: PaymentMethod;
+  /** Codice Lotteria degli Scontrini (8 char, solo pagamento PE). */
+  readonly lotteryCode?: string | null;
+}
+
+/**
+ * Ricevuta di annullamento. Stessa unione discriminata del PDF
+ * (`src/lib/pdf/commercial-document.ts`) e per la stessa ragione: un annullo
+ * senza documento di riferimento non dice cosa annulla, e `paymentMethod` /
+ * `lotteryCode` non gli appartengono.
+ */
+export interface PrintableVoidReceipt extends PrintableDocumentBase {
+  readonly kind: "VOID";
+  readonly voidedDocument: PrintableVoidedDocument;
+}
+
+/** Documento commerciale pronto per la stampa. */
+export type PrintableReceipt = PrintableSaleReceipt | PrintableVoidReceipt;
 
 /** Larghezza carta supportata, in colonne di caratteri. */
 export const PAPER_COLUMNS = {

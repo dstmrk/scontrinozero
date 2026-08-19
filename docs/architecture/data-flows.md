@@ -66,12 +66,16 @@ fallimento di emissione.
    **rifiutati** all'accoppiamento (`isIncompatiblePrinterLanguage`): degradarli
    darebbe "Collegata" in UI e caratteri casuali sullo scontrino.
 4. Rendering: `src/lib/printing/receipt-escpos.ts` (puro) rispecchia sezione per
-   sezione il PDF di `src/lib/pdf/generate-sale-receipt.ts` e riusa
+   sezione il PDF di `src/lib/pdf/commercial-document.ts` e riusa
    `computeReceiptTotals` da `src/lib/receipts/receipt-totals.ts` (regola 17).
    Entrambi seguono il "layout standard" AdE del documento commerciale
    (ordine sezioni, `Importo pagato` sempre presente, `di cui IVA` sotto il
    totale, codifica IVA `ES*` + legenda da `src/lib/receipts/vat-display.ts`);
    la pagina pubblica `src/app/r` espone le stesse voci in forma di card.
+   Le stesse tre superfici rendono anche la **ricevuta di annullamento**
+   (sottotitolo `emesso per ANNULLAMENTO`, blocco `Documento di riferimento`,
+   nessun pagamento): le righe sono quelle della vendita annullata, che i
+   lettori restituiscono in `voidedSale`.
    `src/lib/printing/thermal-text.ts` traslittera le accentate maiuscole, che
    CP437 non rappresenta.
 5. Composizione e invio: `src/lib/printing/print-receipt.ts` importa l'encoder

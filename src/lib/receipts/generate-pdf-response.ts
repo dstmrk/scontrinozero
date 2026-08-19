@@ -1,7 +1,8 @@
 import {
-  generateSaleReceiptPdf,
-  type SaleReceiptLine,
-} from "@/lib/pdf/generate-sale-receipt";
+  generateCommercialDocumentPdf,
+  type CommercialDocumentLine,
+  type CommercialDocumentPdfData,
+} from "@/lib/pdf/commercial-document";
 import { getTrustedAppUrl, TrustedAppUrlError } from "@/lib/trusted-app-url";
 import { logger } from "@/lib/logger";
 
@@ -36,11 +37,23 @@ export function sanitizePdfFilename(raw: string): string {
 interface PdfReceiptInput {
   doc: {
     id: string;
+    kind: "SALE" | "VOID";
     publicRequest: unknown;
     adeProgressive: string | null;
     adeTransactionId: string | null;
-    createdAt: Date;
+    adeRegisteredAt: Date;
   };
+  /**
+   * La vendita annullata, obbligatoria quando `doc.kind === "VOID"` — è ciò
+   * che il blocco "Documento di riferimento" cita. I lettori la restituiscono
+   * già (`fetchPublicReceipt`, route PDF autenticata) e rifiutano un VOID che
+   * non la trova, quindi qui un'assenza è un bug del chiamante, non un caso
+   * d'uso: si degrada a 404 invece di stampare un annullo senza referenza.
+   */
+  voidedSale?: {
+    adeProgressive: string | null;
+    adeRegisteredAt: Date;
+  } | null;
   biz: {
     businessName: string | null;
     vatNumber: string | null;
@@ -103,14 +116,14 @@ export async function generatePdfResponse(
   const paymentMethod = rawPayment === "PE" ? "PE" : ("PC" as const);
   const lotteryCode = publicReq?.lotteryCode ?? null;
 
-  const pdfLines: SaleReceiptLine[] = lines.map((l) => ({
+  const pdfLines: CommercialDocumentLine[] = lines.map((l) => ({
     description: l.description,
     quantity: Number.parseFloat(l.quantity ?? "1"),
     grossUnitPrice: Number.parseFloat(l.grossUnitPrice ?? "0"),
     vatCode: l.vatCode,
   }));
 
-  const pdfBuffer = await generateSaleReceiptPdf({
+  const common = {
     businessName: biz.businessName ?? "",
     vatNumber: biz.vatNumber ?? "",
     address: biz.address,
@@ -118,13 +131,37 @@ export async function generatePdfResponse(
     province: biz.province,
     zipCode: biz.zipCode,
     lines: pdfLines,
-    paymentMethod,
-    createdAt: doc.createdAt,
+    adeRegisteredAt: doc.adeRegisteredAt,
     adeProgressive: doc.adeProgressive ?? "",
     adeTransactionId: doc.adeTransactionId ?? "",
-    lotteryCode,
     publicUrl,
-  });
+  };
+
+  let pdfData: CommercialDocumentPdfData;
+  if (doc.kind === "VOID") {
+    if (!data.voidedSale) {
+      logger.warn(
+        { documentId: doc.id },
+        "PDF requested for a VOID without its voided sale — refusing to render",
+      );
+      return Response.json(
+        { error: "Documento non trovato." },
+        { status: 404 },
+      );
+    }
+    pdfData = {
+      ...common,
+      kind: "VOID",
+      voidedDocument: {
+        adeProgressive: data.voidedSale.adeProgressive ?? "",
+        adeRegisteredAt: data.voidedSale.adeRegisteredAt,
+      },
+    };
+  } else {
+    pdfData = { ...common, kind: "SALE", paymentMethod, lotteryCode };
+  }
+
+  const pdfBuffer = await generateCommercialDocumentPdf(pdfData);
 
   const safeProgressive = sanitizePdfFilename(
     doc.adeProgressive ?? "scontrino",

@@ -3,6 +3,7 @@ import {
   PAYMENT_LABELS,
   formatBusinessAddressLines,
   formatReceiptPrice,
+  formatReceiptDate,
   formatReceiptDateTime,
 } from "./receipt-format";
 
@@ -129,5 +130,29 @@ describe("formatBusinessAddressLines", () => {
         zipCode: "20100",
       }),
     ).toEqual(["Milano, 20100"]);
+  });
+});
+
+describe("formatReceiptDate", () => {
+  // Il blocco "Documento di riferimento" del layout di annullo cita la sola
+  // data della vendita (`del 03-06-2020`), senza ora.
+  it("rende solo la data, in formato DD-MM-YYYY", () => {
+    expect(formatReceiptDate(new Date("2026-02-15T12:30:00Z"))).toBe(
+      "15-02-2026",
+    );
+  });
+
+  it("usa l'ora italiana, non l'UTC del container", () => {
+    // 23:30 UTC del 31/12 è già l'1 gennaio a Roma (CET, +1).
+    expect(formatReceiptDate(new Date("2026-12-31T23:30:00Z"))).toBe(
+      "01-01-2027",
+    );
+  });
+
+  it("regge l'ora legale (CEST, +2)", () => {
+    // 22:30 UTC del 15/07 è il 16 luglio a Roma.
+    expect(formatReceiptDate(new Date("2026-07-15T22:30:00Z"))).toBe(
+      "16-07-2026",
+    );
   });
 });

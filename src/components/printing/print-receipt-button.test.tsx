@@ -29,6 +29,7 @@ function printerState(overrides: Partial<UsePrinterResult> = {}) {
 }
 
 const RECEIPT: PrintableReceipt = {
+  kind: "SALE",
   header: {
     businessName: "Bar da Mario",
     vatNumber: "12345678901",
@@ -46,7 +47,7 @@ const RECEIPT: PrintableReceipt = {
     },
   ],
   paymentMethod: "PC",
-  createdAt: new Date("2026-07-28T12:32:00Z"),
+  adeRegisteredAt: new Date("2026-07-28T12:32:00Z"),
   adeProgressive: "0001-0042",
 };
 
