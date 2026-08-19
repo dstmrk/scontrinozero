@@ -14,6 +14,9 @@ vi.mock("@serwist/next/react", () => ({
     mockSerwistProvider(props);
     return props.children as React.ReactNode;
   },
+  // Il vero `ServiceWorkerRegistrar` resta nell'albero: qui l'istanza non
+  // esiste (jsdom non ha `navigator.serviceWorker`), quindi è un no-op.
+  useSerwist: () => ({ serwist: null }),
 }));
 
 vi.mock("@/lib/pwa/install-prompt-store", () => ({
@@ -47,6 +50,19 @@ describe("Providers — registrazione del service worker", () => {
 
     expect(serwistProps().swUrl).toBe("/sw.js");
     expect(screen.getByText("contenuto")).toBeInTheDocument();
+  });
+
+  it("delegates the registration to ServiceWorkerRegistrar", () => {
+    // Il provider registrerebbe con `void window.serwist.register()`, senza
+    // catch: ogni rigetto (crawler, navigazione privata, SW disabilitati)
+    // diventerebbe una unhandled rejection in Sentry (SCONTRINOZERO-X).
+    render(
+      <Providers>
+        <p>contenuto</p>
+      </Providers>,
+    );
+
+    expect(serwistProps().register).toBe(false);
   });
 
   it("never reloads the page when the connection comes back", () => {
