@@ -199,15 +199,30 @@ export function StoricoClient({
     });
   }
 
+  /**
+   * Sostituisce una riga sia nell'elenco sia nella modale, quando è quella
+   * aperta. Le due copie della stessa vendita devono muoversi insieme: la
+   * modale resta montata durante l'annullo, e una sola aggiornata mostrerebbe
+   * due verità sullo stesso documento.
+   */
+  function replaceRow(
+    documentId: string,
+    update: (row: ReceiptListItem) => ReceiptListItem,
+  ) {
+    setReceipts((prev) =>
+      prev.map((r) => (r.id === documentId ? update(r) : r)),
+    );
+    setSelected((prev) => (prev?.id === documentId ? update(prev) : prev));
+  }
+
   // Handle void success: update the row status optimistically
   function handleVoidSuccess(result: VoidReceiptResult, originalId: string) {
     if (result.error) return;
-    setReceipts((prev) =>
-      prev.map((r) =>
-        r.id === originalId ? { ...r, status: "VOID_ACCEPTED" } : r,
-      ),
-    );
-    setSelected(null);
+    // La modale NON si chiude: mostra la conferma e, appena la rilettura
+    // arriva, la ricevuta di annullamento da consegnare al cliente che è
+    // ancora al banco. Chiuderla qui costringeva a ritrovare e riaprire la
+    // riga proprio in quel momento.
+    replaceRow(originalId, (r) => ({ ...r, status: "VOID_ACCEPTED" }));
     refreshVoidedRow(originalId);
   }
 
@@ -218,9 +233,9 @@ export function StoricoClient({
    * VOID_ACCEPTED: l'annullo appena creato (id, progressivo, istante
    * registrato dall'AdE) nasce sul server e il client non può inventarselo —
    * è il documento da consegnare al cliente, l'orario deve essere quello
-   * fiscale. Senza questa rilettura, riaprendo la modale la vendita risulta
-   * annullata ma senza ricevuta di annullamento né stampa, e i bottoni
-   * ricompaiono solo rifacendo la ricerca.
+   * fiscale. Senza questa rilettura la modale resta sulla conferma senza
+   * ricevuta di annullamento né stampa, e i bottoni compaiono solo rifacendo
+   * la ricerca.
    *
    * Fallimento (sessione scaduta, DB in errore) → si tiene la riga
    * ottimistica: la ricerca successiva la riallinea comunque.
@@ -230,7 +245,7 @@ export function StoricoClient({
       const detail = await getReceiptDetail(businessId, documentId);
       const fresh = detail.item;
       if (!fresh) return;
-      setReceipts((prev) => prev.map((r) => (r.id === documentId ? fresh : r)));
+      replaceRow(documentId, () => fresh);
     });
   }
 

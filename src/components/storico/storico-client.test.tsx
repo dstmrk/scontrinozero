@@ -34,15 +34,20 @@ vi.mock("./void-receipt-dialog", () => ({
   VoidReceiptDialog: ({
     receipt,
     onSuccess,
+    onClose,
   }: {
     receipt: ReceiptListItem;
     onSuccess: (result: { error?: string }, originalId: string) => void;
+    onClose: () => void;
   }) => (
     <div data-testid="dialog">
       <span data-testid="dialog-status">{receipt.status}</span>
       <span data-testid="dialog-void-doc">
         {receipt.voidDocument?.id ?? "nessuno"}
       </span>
+      <button type="button" onClick={onClose}>
+        Chiudi modale
+      </button>
       <button type="button" onClick={() => onSuccess({}, receipt.id)}>
         Conferma annullo
       </button>
@@ -101,14 +106,14 @@ function renderStorico() {
   );
 }
 
-/** Apre la modale sulla riga, conferma l'annullo, riapre la modale. */
-async function voidAndReopen() {
+/**
+ * Apre la modale sulla riga e conferma l'annullo. La modale NON si chiude: e'
+ * il momento in cui il cliente e' al banco e aspetta la ricevuta di
+ * annullamento.
+ */
+function voidFromDialog() {
   fireEvent.click(screen.getByText("5111-2188"));
   fireEvent.click(screen.getByText("Conferma annullo"));
-  await waitFor(() =>
-    expect(screen.queryByTestId("dialog")).not.toBeInTheDocument(),
-  );
-  fireEvent.click(screen.getByText("5111-2188"));
 }
 
 beforeEach(() => {
@@ -132,14 +137,30 @@ describe("StoricoClient — riga rileggibile dopo l'annullo", () => {
     );
   });
 
-  it("riaprendo la modale offre l'annullo appena creato, senza rifare la ricerca", async () => {
+  it("tiene la modale aperta dopo l'annullo", async () => {
     renderStorico();
 
-    await voidAndReopen();
+    voidFromDialog();
 
-    // Il cuore della regressione: prima la riga aggiornata in modo ottimistico
-    // portava solo lo status, e il dettaglio riaperto non aveva ne' la
-    // ricevuta di annullamento ne' la stampa.
+    // La modale smontata portava con se' la schermata "Annullo confermato" e
+    // ogni accesso alla ricevuta di annullamento: l'esercente doveva chiudere,
+    // ritrovare la riga e riaprirla proprio mentre il cliente aspetta.
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-void-doc")).toHaveTextContent(
+        "void-doc-uuid",
+      ),
+    );
+    expect(screen.getByTestId("dialog")).toBeInTheDocument();
+  });
+
+  it("porta l'annullo appena creato nella modale aperta, senza rifare la ricerca", async () => {
+    renderStorico();
+
+    voidFromDialog();
+
+    // Il cuore della regressione: la riga aggiornata in modo ottimistico
+    // portava solo lo status, e il dettaglio non aveva ne' la ricevuta di
+    // annullamento ne' la stampa.
     await waitFor(() =>
       expect(screen.getByTestId("dialog-void-doc")).toHaveTextContent(
         "void-doc-uuid",
@@ -179,12 +200,35 @@ describe("StoricoClient — riga rileggibile dopo l'annullo", () => {
 
     renderStorico();
 
-    await voidAndReopen();
+    voidFromDialog();
 
-    expect(screen.getByTestId("dialog-status")).toHaveTextContent(
-      "VOID_ACCEPTED",
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-status")).toHaveTextContent(
+        "VOID_ACCEPTED",
+      ),
     );
     expect(screen.getByTestId("dialog-void-doc")).toHaveTextContent("nessuno");
+  });
+
+  it("non riapre la modale chiusa mentre la rilettura era in volo", async () => {
+    let resolveDetail: (value: { item: ReceiptListItem }) => void = () => {};
+    vi.mocked(getReceiptDetail).mockReturnValue(
+      new Promise((resolve) => {
+        resolveDetail = resolve;
+      }),
+    );
+
+    renderStorico();
+    voidFromDialog();
+    fireEvent.click(screen.getByText("Chiudi modale"));
+
+    // La rilettura atterra su una modale gia' chiusa: deve aggiornare
+    // l'elenco senza resuscitare il dettaglio addosso all'esercente, che nel
+    // frattempo e' tornato alla cassa.
+    resolveDetail({ item: VOIDED_ROW });
+
+    await waitFor(() => expect(getReceiptDetail).toHaveBeenCalled());
+    expect(screen.queryByTestId("dialog")).not.toBeInTheDocument();
   });
 
   it("non rilegge nulla quando l'annullo e' fallito", () => {
