@@ -162,6 +162,36 @@ Confrontando il codice contro una HAR capture, controllare esplicitamente che
 l'ordine matcha. Una call mancante è più difficile da spottare di una sbagliata.
 Cross-reference request-by-request.
 
+### Un HAR non è solo le chiamate API: leggi anche le risorse statiche
+
+**Errore commesso (19/08/2026), da non rifare.** Analizzando gli HAR di vendita
+si guardavano solo le request JSON verso `/ser/api/documenti/...`, ignorando le
+partial HTML del wizard scaricate poche entry prima. Quelle partial contengono
+il markup AngularJS del form, e rispondono a domande che il payload **non può**
+risolvere: nel payload `NR_EF` vale sempre `{"tipo":"NR_EF","importo":"0.00"}`,
+identico agli altri slot, mentre nel markup è una `<input type="checkbox">` con
+`data-ng-true-value="'Y'"` che, quando spuntata, disabilita e svuota tutti gli
+altri campi di pagamento. La conclusione "`totaleNonRiscosso` è la somma dei tre
+`NR_*`" è rimasta scritta per settimane perché nessuno aveva aperto l'HTML.
+
+Cosa cercare nelle entry non-API di una cattura del wizard AdE:
+
+- **`wizard2-*.html`** — il form di **input**: tipo di controllo per ogni campo
+  (checkbox vs testo), etichette ufficiali, tooltip esplicativi.
+- **`wizard3.html`** — il **riepilogo**: come il portale rende ogni campo, spesso
+  con l'etichetta che ne dichiara la semantica ("Sconto totale al netto
+  dell'IVA", "Totale imponibile al lordo dello sconto").
+- **`formhidden.html`** — i campi nascosti, con le **dipendenze fra campi**
+  (`data-ng-disabled`, `data-empty-if`): è lì che si legge quali combinazioni il
+  portale considera mutuamente esclusive.
+- **`data-smart-float="-11.2"` / `-11.8`** — la **precisione dichiarata** del
+  campo (cifre intere, decimali). Più affidabile di dedurla dai valori osservati.
+- **`data-ng-required`, `data-ng-pattern`** — vincoli di validazione lato client.
+
+Regola: prima di dichiarare "non misurabile senza una nuova cattura", cercare la
+stringa nel **testo di tutte le entry** dell'HAR, non solo nei body JSON. Le
+risposte spesso sono già lì.
+
 ### File HAR (capture locali, NON versionate)
 
 ⚠️ I `.har` sono **gitignorati** (`*.har` in `.gitignore`: contengono cookie e
