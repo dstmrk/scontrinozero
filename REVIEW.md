@@ -39,6 +39,17 @@ fa fallire il build se il bundle manca) e dichiarando la registrazione con
 **Resta da fare: verifica manuale su sandbox prima di prod.** Non è
 automatizzabile — richiede un browser reale e un dispositivo Android.
 
+⚠️ **E non si può fare su dev**, per quanto sia l'ambiente comodo: tutto
+`dev.scontrinozero.it` sta dietro Cloudflare Access, e la richiesta con cui
+l'installer del service worker scarica `/sw.js` non porta né cookie né header
+del service token → Access la redirige e Chromium rifiuta con
+`SecurityError: The script resource is behind a redirect, which is disallowed`.
+Misurato con un browser reale il 2026-08-19 (dettagli e ricetta nella skill
+`playwright-verify`): dalla stessa pagina `fetch('/sw.js')` torna
+`type=basic status=200`, quindi il file è servito correttamente — è solo la
+richiesta dell'installer a non passare il gate. **Sandbox o prod**, dove Access
+non c'è.
+
 1. DevTools → Application → Service Workers: il SW risulta **activated** e
    `/sw.js` risponde 200 (è anche la quarta probe di smoke, skill
    `deploy-release`).
@@ -52,7 +63,42 @@ automatizzabile — richiede un browser reale e un dispositivo Android.
 4. Navigazione offline → viene servita `/offline`, non l'errore di rete del
    browser.
 
-Chiudere questa voce quando i quattro punti sono verdi su sandbox.
+**Stato al 2026-08-19** — verificato su `sandbox.scontrinozero.it` con un
+browser reale (release `1.6.2+b09692b`, skill `playwright-verify`):
+
+1. ✅ **Verde.** `state: 'activated'`, `navigator.serviceWorker.controller` =
+   `https://sandbox.scontrinozero.it/sw.js`, `/sw.js` 200, e Cache Storage
+   popolato (`serwist-precache-v2-…`, `others`, `static-font-assets`,
+   `cross-origin`, `next-image`, `pages-rsc-prefetch`). La regressione del 404
+   è chiusa sul campo.
+2. ⚠️ **Parziale.** Verificato che una GET `/api/*` passa dal SW e **non**
+   entra in nessuna cache (provato con `/api/health/live`, pubblica): il
+   NetworkOnly override è attivo. Il caso specifico `/api/documents/<id>/pdf`
+   richiede una sessione autenticata e **non è automatizzabile su sandbox**:
+   lì il gate Turnstile è attivo (misurato: lo script di
+   `challenges.cloudflare.com` viene caricato e `button[type=submit]` resta
+   `disabled` in attesa del token), e il bypass `TURNSTILE_DISABLED` esiste
+   solo su dev. Nemmeno Chromium reale risolve una managed challenge.
+   L'emissione in sé sarebbe innocua — sandbox ha `ADE_MODE=mock` — ma non ci
+   si arriva. Resta una verifica manuale con i DevTools, da fare in sessione
+   già autenticata.
+3. ⛔ **Non automatizzabile.** Richiede un dispositivo Android reale.
+4. ✅ **Verde.** Con `setOffline(true)`, navigando una rotta non in cache la
+   navigazione riesce e viene servita `/offline` («Sei offline…»), non
+   l'errore di rete del browser.
+
+⚠️ **Da rifare quando sandbox passerà a v1.7.0.** Quanto sopra misura la
+registrazione fatta da `SerwistProvider`, che è ciò che gira in 1.6.2. Dalla
+v1.7.0 la fa `ServiceWorkerRegistrar` (PR #838). Su dev è stato confermato che
+quel percorso chiama davvero `register()` e assorbe i rigetti, ma la
+combinazione «`ServiceWorkerRegistrar` + registrazione che riesce e attiva il
+SW» non è stata ancora osservata da nessuna parte — su dev la blocca Access,
+su sandbox il codice è ancora il precedente. È esattamente la classe di rischio
+della regola 30: ripetere i punti 1, 2 e 4 su sandbox dopo il deploy della
+1.7.0.
+
+Chiudere questa voce quando i quattro punti sono verdi su sandbox con la
+versione corrente.
 
 ---
 
