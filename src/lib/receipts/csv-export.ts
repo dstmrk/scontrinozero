@@ -202,6 +202,22 @@ export const RECEIPT_LINES_CSV_HEADERS = [
 ] as const;
 
 /**
+ * Formatter della quantita', istanziato una sola volta a module scope come il
+ * `receiptPriceFormatter` di `receipt-format.ts`: costruire un
+ * `Intl.NumberFormat` costa, e qui le opzioni sono costanti.
+ *
+ * `maximumFractionDigits: 3` e' la precisione della colonna `numeric(10,3)` e
+ * lascia cadere gli zeri di coda da solo (`2`, non `2,000`).
+ * `useGrouping: false` toglie il separatore delle migliaia: in una cella CSV
+ * `1.000` sarebbe di nuovo ambiguo, ed e' esattamente l'ambiguita' che questa
+ * funzione esiste per togliere.
+ */
+const quantityFormatter = new Intl.NumberFormat("it-IT", {
+  maximumFractionDigits: 3,
+  useGrouping: false,
+});
+
+/**
  * Numero decimale in convenzione italiana, senza zeri di coda.
  *
  * La quantita' arriva da Postgres come stringa `numeric(10,3)` — `"2.000"`,
@@ -212,11 +228,7 @@ export const RECEIPT_LINES_CSV_HEADERS = [
 export function formatItalianQuantity(raw: string | null): string {
   const value = Number.parseFloat(raw ?? "0");
   if (!Number.isFinite(value)) return "";
-  // Fino a 3 decimali (la precisione della colonna), senza zeri inutili.
-  return value
-    .toFixed(3)
-    .replace(/\.?0+$/, "")
-    .replace(".", ",");
+  return quantityFormatter.format(value);
 }
 
 /**
