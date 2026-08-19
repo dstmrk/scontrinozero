@@ -18,7 +18,10 @@ import {
   groupLinesByDocId,
   calcDocTotal,
 } from "@/lib/receipts/document-lines";
-import { parseStrictIsoDateUtc } from "@/lib/date-utils";
+import {
+  parseRomeDayEndExclusiveUtc,
+  parseRomeDayStartUtc,
+} from "@/lib/date-utils";
 import { logger } from "@/lib/logger";
 import { isValidUuid } from "@/lib/uuid";
 import {
@@ -64,7 +67,7 @@ function parsePublicRequest(raw: unknown): {
 /**
  * Restituisce la lista paginata degli scontrini (SALE) del business, con filtri opzionali.
  *
- * Ordine: DESC createdAt (più recenti prima).
+ * Ordine: DESC adeRegisteredAt (più recenti prima).
  * Source: DB locale (nessuna chiamata AdE).
  */
 /**
@@ -201,31 +204,39 @@ export async function searchReceipts(
     eq(commercialDocuments.kind, "SALE"),
   ];
 
-  let dateFromDate: Date | null = null;
+  // Filtro di periodo su `ade_registered_at`, la stessa grandezza che la riga
+  // mostra: con il predicato su `created_at` una vendita registrata dall'AdE
+  // il 1° febbraio compariva filtrando gennaio, con scritto accanto 01/02.
+  // Stessa scelta dell'export CSV — elenco ed export partono dagli stessi
+  // filtri, se divergessero il conteggio a schermo e le righe del file non
+  // tornerebbero. Indice dedicato: migrazione 0032. Gli estremi sono le
+  // mezzanotti **italiane**, non UTC: la giornata che l'esercente chiude e'
+  // quella del suo calendario.
   if (params.dateFrom) {
-    dateFromDate = parseStrictIsoDateUtc(params.dateFrom);
+    const dateFromDate = parseRomeDayStartUtc(params.dateFrom);
     if (!dateFromDate)
       return {
         error: "Filtro data 'dateFrom' non valido.",
         items: [],
         total: 0,
       };
-    conditions.push(gte(commercialDocuments.createdAt, dateFromDate));
+    conditions.push(gte(commercialDocuments.adeRegisteredAt, dateFromDate));
   }
 
   if (params.dateTo) {
-    const dateToDate = parseStrictIsoDateUtc(params.dateTo);
-    if (!dateToDate)
+    // Estremo superiore esclusivo: l'inizio del giorno italiano successivo.
+    const toExclusive = parseRomeDayEndExclusiveUtc(params.dateTo);
+    if (!toExclusive)
       return { error: "Filtro data 'dateTo' non valido.", items: [], total: 0 };
-    if (dateFromDate && dateFromDate > dateToDate)
+    // Confronto sulle stringhe yyyy-MM-dd: ordinamento lessicografico ==
+    // cronologico, e non risente del giorno-dopo dell'estremo superiore.
+    if (params.dateFrom && params.dateFrom > params.dateTo)
       return {
         error: "La data di inizio non può essere successiva alla data di fine.",
         items: [],
         total: 0,
       };
-    const toExclusive = new Date(dateToDate);
-    toExclusive.setUTCDate(toExclusive.getUTCDate() + 1);
-    conditions.push(lt(commercialDocuments.createdAt, toExclusive));
+    conditions.push(lt(commercialDocuments.adeRegisteredAt, toExclusive));
   }
   if (params.status) {
     conditions.push(eq(commercialDocuments.status, params.status));
@@ -248,11 +259,11 @@ export async function searchReceipts(
       .leftJoin(voidDocAlias, voidDocJoinCondition)
       .where(and(...conditions))
       // `id` (UUID PRIMARY KEY) come chiave secondaria rende l'ordine TOTALE:
-      // a parita' di `created_at` Postgres non garantisce un ordine stabile
-      // fra due esecuzioni, e navigando fra le pagine un documento potrebbe
-      // comparire due volte o sparire.
+      // a parita' di `ade_registered_at` Postgres non garantisce un ordine
+      // stabile fra due esecuzioni, e navigando fra le pagine un documento
+      // potrebbe comparire due volte o sparire.
       .orderBy(
-        desc(commercialDocuments.createdAt),
+        desc(commercialDocuments.adeRegisteredAt),
         desc(commercialDocuments.id),
       )
       .limit(pageSize)

@@ -49,6 +49,8 @@ export interface ExportUserDataResult {
       adeProgressive: string | null;
       adeTransactionId: string | null;
       createdAt: Date;
+      /** Istante registrato dall'AdE: la data che il documento porta stampata. */
+      adeRegisteredAt: Date;
       lines: {
         description: string;
         quantity: string;
@@ -190,6 +192,7 @@ export async function exportUserData(): Promise<ExportUserDataResult> {
         adeProgressive: doc.adeProgressive,
         adeTransactionId: doc.adeTransactionId,
         createdAt: doc.createdAt,
+        adeRegisteredAt: doc.adeRegisteredAt,
         lines: (linesByDocId.get(doc.id) ?? []).map((l) => ({
           description: l.description,
           quantity: l.quantity,

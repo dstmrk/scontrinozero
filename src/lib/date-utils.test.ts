@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   getFiscalDate,
   parseStrictIsoDateUtc,
-  formatIsoInRome,
+  parseRomeDayStartUtc,
+  parseRomeDayEndExclusiveUtc,
+  formatRomeDate,
+  formatRomeTime,
 } from "./date-utils";
 
 describe("getFiscalDate", () => {
@@ -70,73 +73,61 @@ describe("getFiscalDate", () => {
   });
 });
 
-describe("formatIsoInRome", () => {
-  it("returns ISO 8601 with +02:00 offset in summer (CEST)", () => {
-    // 2026-05-19T12:34:56.789Z → Rome CEST (UTC+2) → 14:34:56+02:00
-    expect(formatIsoInRome(new Date("2026-05-19T12:34:56.789Z"))).toBe(
-      "2026-05-19T14:34:56+02:00",
-    );
+describe("formatRomeDate / formatRomeTime", () => {
+  it("rende la data in DD/MM/YYYY e l'ora in HH:mm:ss (CEST, estate)", () => {
+    // 2026-05-19T12:34:56.789Z → Roma CEST (UTC+2) → 19/05/2026 14:34:56
+    const d = new Date("2026-05-19T12:34:56.789Z");
+    expect(formatRomeDate(d)).toBe("19/05/2026");
+    expect(formatRomeTime(d)).toBe("14:34:56");
   });
 
-  it("returns ISO 8601 with +01:00 offset in winter (CET)", () => {
-    // 2026-01-15T12:34:56Z → Rome CET (UTC+1) → 13:34:56+01:00
-    expect(formatIsoInRome(new Date("2026-01-15T12:34:56Z"))).toBe(
-      "2026-01-15T13:34:56+01:00",
-    );
+  it("rende ora italiana anche d'inverno (CET)", () => {
+    const d = new Date("2026-01-15T12:34:56Z");
+    expect(formatRomeDate(d)).toBe("15/01/2026");
+    expect(formatRomeTime(d)).toBe("13:34:56");
   });
 
-  it("uses Rome day, not UTC day, for a timestamp just past midnight UTC in summer", () => {
-    // 2026-07-15T22:30:00Z = 2026-07-16T00:30:00 CEST → July 16 in Rome
-    expect(formatIsoInRome(new Date("2026-07-15T22:30:00Z"))).toBe(
-      "2026-07-16T00:30:00+02:00",
-    );
+  it("usa il giorno di Roma, non quello UTC, appena dopo la mezzanotte UTC in estate", () => {
+    // 2026-07-15T22:30:00Z = 16/07 00:30 CEST → il giorno e' il 16, non il 15
+    const d = new Date("2026-07-15T22:30:00Z");
+    expect(formatRomeDate(d)).toBe("16/07/2026");
+    expect(formatRomeTime(d)).toBe("00:30:00");
   });
 
-  it("uses Rome day, not UTC day, for a timestamp just past midnight UTC in winter", () => {
-    // 2026-12-31T23:30:00Z = 2027-01-01T00:30:00 CET → Jan 1 2027 in Rome
-    expect(formatIsoInRome(new Date("2026-12-31T23:30:00Z"))).toBe(
-      "2027-01-01T00:30:00+01:00",
-    );
+  it("cambia anno sul confine italiano, non su quello UTC", () => {
+    // 2026-12-31T23:30:00Z = 01/01/2027 00:30 CET
+    const d = new Date("2026-12-31T23:30:00Z");
+    expect(formatRomeDate(d)).toBe("01/01/2027");
+    expect(formatRomeTime(d)).toBe("00:30:00");
   });
 
-  it("drops milliseconds from the output", () => {
-    const result = formatIsoInRome(new Date("2026-05-01T10:00:00.999Z"));
-    expect(result).not.toContain(".");
-    expect(result).toMatch(
-      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/,
+  it("tiene i secondi e scarta i millisecondi", () => {
+    expect(formatRomeTime(new Date("2026-05-01T10:00:00.999Z"))).toBe(
+      "12:00:00",
     );
   });
 
   // Regression guard sui bordi DST (REVIEW #16): la transizione CET↔CEST in
   // Europe/Rome avviene alle 01:00 UTC (ultima domenica di marzo/ottobre).
-  // Asseriamo l'offset esatto agli istanti immediatamente prima/dopo lo switch.
-  describe("DST transition boundaries", () => {
-    it("keeps +01:00 one second before spring-forward (2026-03-29 01:00 UTC)", () => {
+  describe("confini DST", () => {
+    it("resta su CET un secondo prima del passaggio all'ora legale", () => {
       // 2026-03-29T00:59:59Z = 01:59:59 CET, ancora UTC+1
-      expect(formatIsoInRome(new Date("2026-03-29T00:59:59Z"))).toBe(
-        "2026-03-29T01:59:59+01:00",
-      );
+      expect(formatRomeTime(new Date("2026-03-29T00:59:59Z"))).toBe("01:59:59");
     });
 
-    it("switches to +02:00 at spring-forward (2026-03-29 01:00 UTC)", () => {
-      // 2026-03-29T01:00:00Z: l'orologio salta 02:00→03:00 CEST, ora UTC+2
-      expect(formatIsoInRome(new Date("2026-03-29T01:00:00Z"))).toBe(
-        "2026-03-29T03:00:00+02:00",
-      );
+    it("passa a CEST allo scatto dell'ora legale", () => {
+      // 2026-03-29T01:00:00Z: l'orologio salta 02:00→03:00 CEST
+      expect(formatRomeTime(new Date("2026-03-29T01:00:00Z"))).toBe("03:00:00");
     });
 
-    it("keeps +02:00 one second before fall-back (2026-10-25 00:59:59 UTC)", () => {
+    it("resta su CEST un secondo prima del ritorno all'ora solare", () => {
       // 2026-10-25T00:59:59Z = 02:59:59 CEST, ancora UTC+2
-      expect(formatIsoInRome(new Date("2026-10-25T00:59:59Z"))).toBe(
-        "2026-10-25T02:59:59+02:00",
-      );
+      expect(formatRomeTime(new Date("2026-10-25T00:59:59Z"))).toBe("02:59:59");
     });
 
-    it("switches to +01:00 at fall-back (2026-10-25 01:00 UTC)", () => {
-      // 2026-10-25T01:00:00Z: l'orologio torna 03:00→02:00 CET, ora UTC+1
-      expect(formatIsoInRome(new Date("2026-10-25T01:00:00Z"))).toBe(
-        "2026-10-25T02:00:00+01:00",
-      );
+    it("torna a CET al ritorno dell'ora solare", () => {
+      // 2026-10-25T01:00:00Z: l'orologio torna 03:00→02:00 CET
+      expect(formatRomeTime(new Date("2026-10-25T01:00:00Z"))).toBe("02:00:00");
     });
   });
 });
@@ -195,5 +186,88 @@ describe("parseStrictIsoDateUtc", () => {
     expect(d!.getUTCFullYear()).toBe(2026);
     expect(d!.getUTCMonth() + 1).toBe(7);
     expect(d!.getUTCDate()).toBe(15);
+  });
+});
+
+describe("parseRomeDayStartUtc", () => {
+  it("mappa il giorno invernale sulla mezzanotte italiana (CET, -01:00 da UTC)", () => {
+    // 00:00 del 1° gennaio a Roma sono le 23:00 UTC del 31 dicembre.
+    expect(parseRomeDayStartUtc("2026-01-01")).toEqual(
+      new Date("2025-12-31T23:00:00.000Z"),
+    );
+  });
+
+  it("mappa il giorno estivo sulla mezzanotte italiana (CEST, -02:00 da UTC)", () => {
+    expect(parseRomeDayStartUtc("2026-07-01")).toEqual(
+      new Date("2026-06-30T22:00:00.000Z"),
+    );
+  });
+
+  it("resta corretto nel giorno del passaggio all'ora legale", () => {
+    // 2026-03-29: alle 02:00 locali le lancette vanno a 03:00. La mezzanotte
+    // di quel giorno cade prima del salto, quindi vale ancora CET (+01:00).
+    expect(parseRomeDayStartUtc("2026-03-29")).toEqual(
+      new Date("2026-03-28T23:00:00.000Z"),
+    );
+  });
+
+  it("resta corretto nel giorno del ritorno all'ora solare", () => {
+    // 2026-10-25: alle 03:00 locali si torna alle 02:00. A mezzanotte vale
+    // ancora CEST (+02:00).
+    expect(parseRomeDayStartUtc("2026-10-25")).toEqual(
+      new Date("2026-10-24T22:00:00.000Z"),
+    );
+  });
+
+  it("propaga il null di parseStrictIsoDateUtc sulle date impossibili", () => {
+    expect(parseRomeDayStartUtc("2026-02-31")).toBeNull();
+    expect(parseRomeDayStartUtc("2026-13-01")).toBeNull();
+    expect(parseRomeDayStartUtc("2026-1-1")).toBeNull();
+    expect(parseRomeDayStartUtc("foo")).toBeNull();
+  });
+});
+
+describe("parseRomeDayEndExclusiveUtc", () => {
+  it("ritorna la mezzanotte italiana del giorno successivo", () => {
+    expect(parseRomeDayEndExclusiveUtc("2026-01-01")).toEqual(
+      new Date("2026-01-01T23:00:00.000Z"),
+    );
+  });
+
+  it("attraversa il cambio mese", () => {
+    expect(parseRomeDayEndExclusiveUtc("2026-01-31")).toEqual(
+      new Date("2026-01-31T23:00:00.000Z"),
+    );
+  });
+
+  it("attraversa il cambio anno", () => {
+    expect(parseRomeDayEndExclusiveUtc("2026-12-31")).toEqual(
+      new Date("2026-12-31T23:00:00.000Z"),
+    );
+  });
+
+  it("gestisce il 29 febbraio di un anno bisestile", () => {
+    expect(parseRomeDayEndExclusiveUtc("2028-02-29")).toEqual(
+      new Date("2028-02-29T23:00:00.000Z"),
+    );
+  });
+
+  // Il confine non si ricava sommando 24h all'inizio giornata: nei due giorni
+  // di transizione DST il giorno italiano dura 23 o 25 ore.
+  it("copre 23 ore nel giorno in cui scatta l'ora legale", () => {
+    const start = parseRomeDayStartUtc("2026-03-29")!;
+    const end = parseRomeDayEndExclusiveUtc("2026-03-29")!;
+    expect(end.getTime() - start.getTime()).toBe(23 * 3600_000);
+  });
+
+  it("copre 25 ore nel giorno in cui torna l'ora solare", () => {
+    const start = parseRomeDayStartUtc("2026-10-25")!;
+    const end = parseRomeDayEndExclusiveUtc("2026-10-25")!;
+    expect(end.getTime() - start.getTime()).toBe(25 * 3600_000);
+  });
+
+  it("propaga il null sulle date impossibili", () => {
+    expect(parseRomeDayEndExclusiveUtc("2026-04-31")).toBeNull();
+    expect(parseRomeDayEndExclusiveUtc("")).toBeNull();
   });
 });

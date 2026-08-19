@@ -221,6 +221,12 @@ export async function GET(request: Request): Promise<Response> {
   const offset = (page - 1) * limit;
 
   // ── DB queries ────────────────────────────────────────────────────────────
+  // `created_at` e NON `ade_registered_at`, a differenza di elenco storico ed
+  // export CSV: qui il campo e' contratto pubblico versionato (`createdAt` nel
+  // payload di risposta, e la stessa grandezza che filtra `from`/`to`).
+  // Spostarlo cambierebbe sotto i piedi ai consumer esterni sia i valori
+  // restituiti sia l'insieme dei documenti in un periodo: si fa a una `/api/v2`
+  // (DEVELOPER.md), mai in place.
   const conditions = [
     eq(commercialDocuments.businessId, auth.businessId),
     gte(commercialDocuments.createdAt, fromDate),

@@ -1,13 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { CSV_BOM, escapeCsvField, rowToCsv, rowsToCsv } from "./csv";
+import { CSV_BOM, CSV_SEPARATOR, escapeCsvField, rowToCsv } from "./csv";
 
 describe("escapeCsvField", () => {
   it("returns the string as-is when no special chars are present", () => {
     expect(escapeCsvField("ciao")).toBe("ciao");
   });
 
-  it("wraps a value containing a comma in double quotes", () => {
-    expect(escapeCsvField("a,b")).toBe('"a,b"');
+  it("wraps a value containing the separator in double quotes", () => {
+    expect(escapeCsvField("a;b")).toBe('"a;b"');
+  });
+
+  // Il separatore e' `;`, quindi la virgola e' un carattere qualunque: e'
+  // quello che rende leggibile `12,50` senza virgolette in ogni cella importo.
+  it("lascia la virgola senza quoting (e' il separatore decimale italiano)", () => {
+    expect(escapeCsvField("12,50")).toBe("12,50");
+    expect(escapeCsvField("Caffè, doppio")).toBe("Caffè, doppio");
   });
 
   it("wraps a value containing a double quote and doubles the quote (RFC 4180)", () => {
@@ -52,8 +59,8 @@ describe("escapeCsvField", () => {
     expect(escapeCsvField("\tcmd")).toBe("'\tcmd");
   });
 
-  it("does not treat a comma-containing value starting with = as exempt from quoting", () => {
-    expect(escapeCsvField("=A1,B1")).toBe('"\'=A1,B1"');
+  it("quota comunque un valore che inizia con = e contiene il separatore", () => {
+    expect(escapeCsvField("=A1;B1")).toBe('"\'=A1;B1"');
   });
 
   it("does not escape a regular value starting with a number", () => {
@@ -61,36 +68,35 @@ describe("escapeCsvField", () => {
   });
 });
 
+describe("CSV_SEPARATOR", () => {
+  // Excel italiano usa il separatore di elenco di sistema (`;`): con la
+  // virgola il file si apre tutto in una colonna sola.
+  it("e' il punto e virgola", () => {
+    expect(CSV_SEPARATOR).toBe(";");
+  });
+});
+
 describe("rowToCsv", () => {
-  it("joins fields with comma and terminates with CRLF (RFC 4180)", () => {
-    expect(rowToCsv(["a", "b", "c"])).toBe("a,b,c\r\n");
+  it("unisce i campi con `;` e chiude con CRLF (RFC 4180)", () => {
+    expect(rowToCsv(["a", "b", "c"])).toBe("a;b;c\r\n");
   });
 
   it("escapes each field independently", () => {
-    expect(rowToCsv(["a,b", 'c"d', "ok"])).toBe('"a,b","c""d",ok\r\n');
+    expect(rowToCsv(["a;b", 'c"d', "ok"])).toBe('"a;b";"c""d";ok\r\n');
   });
 
   it("handles null and undefined values as empty fields", () => {
-    expect(rowToCsv(["a", null, undefined, "b"])).toBe("a,,,b\r\n");
+    expect(rowToCsv(["a", null, undefined, "b"])).toBe("a;;;b\r\n");
   });
 
   it("emits empty row when given an empty array", () => {
     expect(rowToCsv([])).toBe("\r\n");
   });
-});
 
-describe("rowsToCsv", () => {
-  it("concatenates multiple rows with CRLF separators", () => {
-    expect(
-      rowsToCsv([
-        ["h1", "h2"],
-        ["v1", "v2"],
-      ]),
-    ).toBe("h1,h2\r\nv1,v2\r\n");
-  });
-
-  it("returns empty string when given no rows", () => {
-    expect(rowsToCsv([])).toBe("");
+  it("tiene gli importi italiani in una cella sola, senza virgolette", () => {
+    expect(rowToCsv(["19/05/2026", "12,50", "Caffè"])).toBe(
+      "19/05/2026;12,50;Caffè\r\n",
+    );
   });
 });
 

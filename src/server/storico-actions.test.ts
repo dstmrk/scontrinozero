@@ -49,11 +49,20 @@ vi.mock("@/db/schema", () => ({
   commercialDocumentLines: "commercial-document-lines-table",
 }));
 
-// Solo `desc` e' stubbato (marker ispezionabile negli argomenti di .orderBy);
-// il resto di drizzle-orm resta reale.
+// Stubbati solo i costruttori di condizione che i test ispezionano: `desc`
+// negli argomenti di .orderBy, `and`/`gte`/`lt` in quelli di .where (marker
+// leggibili al posto degli oggetti SQL di drizzle). Il resto resta reale.
+// Nessun builder mockato guarda gli argomenti di .where, quindi il marker non
+// altera il comportamento delle altre query.
 vi.mock("drizzle-orm", async (importOriginal) => {
   const actual = await importOriginal<typeof import("drizzle-orm")>();
-  return { ...actual, desc: (col: unknown) => ({ _desc: col }) };
+  return {
+    ...actual,
+    desc: (col: unknown) => ({ _desc: col }),
+    and: (...args: unknown[]) => ({ _and: args }),
+    gte: (a: unknown, b: unknown) => ({ _gte: [a, b] }),
+    lt: (a: unknown, b: unknown) => ({ _lt: [a, b] }),
+  };
 });
 
 // ---------------------------------------------------------------------------
@@ -405,9 +414,10 @@ describe("storico-actions", () => {
     });
 
     it("filters by dateFrom when provided", async () => {
+      const docsBuilder = makeDocsBuilder([FAKE_SALE_DOC]);
       mockSelect
         .mockReturnValueOnce(makeCountBuilder(1))
-        .mockReturnValueOnce(makeDocsBuilder([FAKE_SALE_DOC]))
+        .mockReturnValueOnce(docsBuilder)
         .mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
 
       const { searchReceipts } = await import("./storico-actions");
@@ -420,12 +430,23 @@ describe("storico-actions", () => {
 
       expect(result.total).toBe(1);
       expect(result.items).toHaveLength(1);
+      // Il periodo si seleziona sulla data mostrata dalla riga: con il
+      // predicato su `created_at` una vendita registrata dall'AdE il 1°
+      // febbraio compariva filtrando gennaio, datata 01/02. L'estremo e' la
+      // mezzanotte **italiana** (23:00 UTC del giorno prima, CET).
+      const conditions = (
+        docsBuilder.where.mock.calls[0][0] as { _and: unknown[] }
+      )._and;
+      expect(conditions).toContainEqual({
+        _gte: ["cd.ade_registered_at", new Date("2025-12-31T23:00:00.000Z")],
+      });
     });
 
     it("filters by dateTo when provided", async () => {
+      const docsBuilder = makeDocsBuilder([FAKE_SALE_DOC]);
       mockSelect
         .mockReturnValueOnce(makeCountBuilder(1))
-        .mockReturnValueOnce(makeDocsBuilder([FAKE_SALE_DOC]))
+        .mockReturnValueOnce(docsBuilder)
         .mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
 
       const { searchReceipts } = await import("./storico-actions");
@@ -436,6 +457,14 @@ describe("storico-actions", () => {
 
       expect(result.total).toBe(1);
       expect(result.items).toHaveLength(1);
+      // Estremo superiore esclusivo: l'inizio del giorno italiano successivo,
+      // cosi' il giorno indicato e' incluso per intero.
+      const conditions = (
+        docsBuilder.where.mock.calls[0][0] as { _and: unknown[] }
+      )._and;
+      expect(conditions).toContainEqual({
+        _lt: ["cd.ade_registered_at", new Date("2026-03-01T23:00:00.000Z")],
+      });
     });
 
     it("rounds total to 2 decimal places correctly", async () => {
@@ -514,7 +543,7 @@ describe("storico-actions", () => {
       expect(mockSelect).toHaveBeenCalledTimes(2);
     });
 
-    it("ordina per created_at DESC con `id` come chiave secondaria stabile", async () => {
+    it("ordina per ade_registered_at DESC con `id` come chiave secondaria stabile", async () => {
       const docsBuilder = makeDocsBuilder([]);
       mockSelect
         .mockReturnValueOnce(makeCountBuilder(0))
@@ -523,15 +552,16 @@ describe("storico-actions", () => {
       const { searchReceipts } = await import("./storico-actions");
       await searchReceipts("11111111-1111-4111-8111-111111111111");
 
-      // Senza tiebreaker su `id` l'ordine fra righe con lo stesso `created_at`
-      // non e' definito: pagina 1 e 2 possono ripetere o saltare documenti.
+      // Senza tiebreaker su `id` l'ordine fra righe con lo stesso
+      // `ade_registered_at` non e' definito: pagina 1 e 2 possono ripetere o
+      // saltare documenti.
       expect(docsBuilder.orderBy).toHaveBeenCalledWith(
-        { _desc: "cd.created_at" },
+        { _desc: "cd.ade_registered_at" },
         { _desc: "cd.id" },
       );
     });
 
-    it("non ripete ne' perde documenti fra pagina 1 e 2 con created_at identici", async () => {
+    it("non ripete ne' perde documenti fra pagina 1 e 2 con ade_registered_at identici", async () => {
       // Fake DB che riordina liberamente le righe a parita' di chiave di
       // ordinamento (comportamento legittimo di Postgres) e diventa
       // deterministico solo quando l'ORDER BY include `id`.
@@ -539,7 +569,7 @@ describe("storico-actions", () => {
       const all = Array.from({ length: 30 }, (_, i) => ({
         ...FAKE_SALE_DOC,
         id: `doc-${String(i).padStart(3, "0")}`,
-        createdAt: SAME_INSTANT,
+        adeRegisteredAt: SAME_INSTANT,
       }));
 
       let queryIndex = 0;

@@ -489,7 +489,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       'La "chiusura giornaliera" era l\'operazione classica di fine giornata con il registratore di cassa: si stampava lo scontrino di chiusura (la storica "Z") e si trasmettevano i corrispettivi. Con il documento commerciale online la logica è diversa, e in molti casi più semplice. Vediamo cosa devi davvero fare a fine giornata.',
     publishedAt: "2026-05-15",
-    updatedAt: "2026-08-02",
+    updatedAt: "2026-08-19",
     readingMinutes: 5,
     sections: [
       {
@@ -523,7 +523,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       {
         question: "Cosa devo dare al commercialista per la dichiarazione IVA?",
         answer:
-          "Il commercialista può scaricare direttamente dal portale Fatture e Corrispettivi il riepilogo dei corrispettivi trasmessi per il periodo richiesto. In alternativa, esporta dal software l'elenco scontrini in CSV con totali per aliquota IVA e metodo di pagamento: in ScontrinoZero l'export CSV è incluso nel piano Pro (ed è utilizzabile anche durante i 30 giorni di prova).",
+          "Il commercialista può scaricare direttamente dal portale Fatture e Corrispettivi il riepilogo dei corrispettivi trasmessi per il periodo richiesto. In alternativa, esporta dal software l'elenco scontrini in CSV: in ScontrinoZero l'export è incluso nel piano Pro (ed è utilizzabile anche durante i 30 giorni di prova) e produce due file sullo stesso periodo — il riepilogo, con una riga per scontrino, totale e metodo di pagamento, e il dettaglio, con una riga per voce venduta e l'aliquota IVA applicata a ciascuna.",
       },
       {
         question:

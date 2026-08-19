@@ -449,35 +449,6 @@ pagamento.
 
 ---
 
-### 90. L'export CSV usa ancora `created_at`, non `ade_registered_at`
-
-- **Categoria:** coerenza dei dati fiscali · **Severità:** Low — scarto di 2-5s, visibile solo a cavallo della mezzanotte o di un cambio periodo
-- **File:** `src/lib/receipts/csv-export.ts`, `src/server/export-actions.ts`
-
-**Problema.** Con la v1.7.0 tutte le superfici di resa (PDF, termica, ricevuta
-pubblica, elenco storico) mostrano `ade_registered_at`, l'istante che l'AdE
-registra. L'export CSV è rimasto indietro su due fronti: stampa
-`formatIsoInRome(doc.createdAt)` nella colonna data, e **filtra l'intervallo**
-con `gte/lt` sullo stesso `created_at`. Un documento emesso alle 23:59:58 con
-registrazione AdE alle 00:00:01 finisce nel CSV del giorno prima, con una data
-diversa da quella sul documento consegnato al cliente.
-
-**Perché non è stato fatto insieme al resto.** Non è un rename simmetrico agli
-altri: qui la colonna non è solo mostrata, è anche il **predicato di
-selezione** del periodo — ed è quello che un commercialista usa per chiudere
-un mese. Cambiare la sola colonna mostrata lascerebbe un CSV in cui la data di
-una riga contraddice il filtro che l'ha inclusa; cambiare anche il filtro è
-una decisione contabile, non un refactoring.
-
-**Da fare.** Decidere quale delle due grandezze definisce il periodo fiscale
-(propendo per `ade_registered_at`: è la data del documento presso l'AdE) e
-spostare colonna **e** filtro insieme. Attenzione all'indice: le condizioni di
-range oggi poggiano su `idx_commercial_documents_business_created`, quindi
-serve un indice equivalente su `(business_id, ade_registered_at)` nella stessa
-migrazione, o l'export su un anno di dati passa a sequential scan.
-
----
-
 ### 91. Il recovery stale-pending non scrive `ade_registered_at`
 
 - **Categoria:** coerenza dei dati fiscali · **Severità:** Low — riguarda le sole righe riconciliate, ma è il caso in cui lo scarto è massimo
@@ -505,32 +476,6 @@ in `Date` — attenzione: è **ora italiana**, non UTC, e il formato è
 `DD/MM/YYYY`, non parsabile da `new Date()` — e passarlo alla `.set()` con la
 stessa semantica di `adeRegisteredAtPatch`: si scrive solo se leggibile, mai
 un `Invalid Date` su un `timestamptz NOT NULL`.
-
----
-
-### 92. Lo storico filtra e ordina su `created_at` ma mostra `ade_registered_at`
-
-- **Categoria:** coerenza dei dati fiscali · **Severità:** Low — visibile solo a cavallo della mezzanotte · **Gemello di #90**
-- **File:** `src/server/storico-actions.ts` (`searchReceipts`: `gte/lt` sul filtro data, `orderBy desc(createdAt)`)
-
-**Problema.** Stessa asimmetria di #90, ma sull'elenco invece che sull'export:
-la colonna mostrata è `ade_registered_at` (`storico-client.tsx`), il predicato
-di selezione del periodo e l'ordinamento sono su `created_at`. Una vendita
-creata il 31/01 alle 23:59:58 e registrata dall'AdE il 01/02 alle 00:00:01
-compare filtrando gennaio, con scritto accanto `01/02/2026`. In più
-l'ordinamento può risultare non monotono rispetto alla colonna mostrata quando
-due scontrini ravvicinati hanno round-trip AdE di durata diversa.
-
-**Perché non è stato fatto nella v1.7.0.** Identica a #90: qui la colonna non è
-solo mostrata, è il predicato che definisce il periodo. Va decisa una volta e
-spostata ovunque insieme — elenco, export CSV e (a una futura `/api/v2`) la
-Developer API, che oggi filtra e restituisce `createdAt` ed è contratto
-pubblico versionato, quindi correttamente intoccabile.
-
-**Da fare.** Trattare #90 e #92 come un solo intervento: stessa decisione
-contabile, stesso indice nuovo su `(business_id, ade_registered_at)` — le
-condizioni di range oggi poggiano su
-`idx_commercial_documents_business_created`.
 
 ---
 
