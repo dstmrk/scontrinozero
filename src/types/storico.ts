@@ -31,6 +31,16 @@ export interface ReceiptListItem {
    */
   adeRegisteredAt: Date;
   /**
+   * L'annullo che ha annullato questa vendita, quando esiste. È l'entry point
+   * della ricevuta di annullamento: dal dettaglio di una vendita annullata
+   * l'esercente la apre e la stampa. `null` su una vendita ancora valida.
+   */
+  voidDocument: {
+    id: string;
+    adeProgressive: string;
+    adeRegisteredAt: Date;
+  } | null;
+  /**
    * Metodo di pagamento del documento trasmesso all'AdE. Serve alla ristampa
    * su termica: una copia consegnata al cliente non può riportare un
    * pagamento diverso da quello del documento originale.

@@ -1,6 +1,7 @@
 "use server";
 
 import { and, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
 import {
@@ -60,6 +61,13 @@ function parsePublicRequest(raw: unknown): {
  * Ordine: DESC createdAt (più recenti prima).
  * Source: DB locale (nessuna chiamata AdE).
  */
+/**
+ * Self-join per trovare l'annullo di una vendita: `commercial_documents`
+ * contiene entrambi, collegati da `voided_document_id`. Stesso alias e stesse
+ * condizioni di `src/lib/receipts/csv-export.ts`, dove il JOIN esiste già.
+ */
+const voidDocAlias = alias(commercialDocuments, "void_doc");
+
 export async function searchReceipts(
   businessId: string,
   params: SearchReceiptsParams = {},
@@ -154,12 +162,25 @@ export async function searchReceipts(
         adeTransactionId: commercialDocuments.adeTransactionId,
         createdAt: commercialDocuments.createdAt,
         adeRegisteredAt: commercialDocuments.adeRegisteredAt,
+        // L'annullo collegato, quando la vendita è stata annullata: è ciò da
+        // cui il dettaglio apre e stampa la ricevuta di annullamento.
+        voidDocumentId: voidDocAlias.id,
+        voidAdeProgressive: voidDocAlias.adeProgressive,
+        voidAdeRegisteredAt: voidDocAlias.adeRegisteredAt,
         // Serve alla ristampa su termica: la copia consegnata al cliente deve
         // riportare il metodo di pagamento REALE del documento trasmesso
         // all'AdE, non un default.
         publicRequest: commercialDocuments.publicRequest,
       })
       .from(commercialDocuments)
+      .leftJoin(
+        voidDocAlias,
+        and(
+          eq(voidDocAlias.voidedDocumentId, commercialDocuments.id),
+          eq(voidDocAlias.kind, "VOID"),
+          eq(voidDocAlias.status, "VOID_ACCEPTED"),
+        ),
+      )
       .where(and(...conditions))
       // `id` (UUID PRIMARY KEY) come chiave secondaria rende l'ordine TOTALE:
       // a parita' di `created_at` Postgres non garantisce un ordine stabile
@@ -193,6 +214,14 @@ export async function searchReceipts(
       adeTransactionId: doc.adeTransactionId,
       createdAt: doc.createdAt,
       adeRegisteredAt: doc.adeRegisteredAt,
+      voidDocument:
+        doc.voidDocumentId && doc.voidAdeProgressive && doc.voidAdeRegisteredAt
+          ? {
+              id: doc.voidDocumentId,
+              adeProgressive: doc.voidAdeProgressive,
+              adeRegisteredAt: doc.voidAdeRegisteredAt,
+            }
+          : null,
       paymentMethod: publicRequest.paymentMethod,
       lotteryCode: publicRequest.lotteryCode,
       total: docTotal.toFixed(2),
