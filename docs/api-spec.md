@@ -329,6 +329,11 @@ richiesto da `PUT /documenti/dati/fiscali?v={unix_ms}` ed è lo stesso oggetto
 
 ## 3. Payload AdE — Vendita
 
+> L'esempio sotto è semplificato (una riga, natura `N2`, importi a 2 decimali
+> per leggibilità). Un payload reale catturato dal portale — due righe, una
+> con IVA 10% e sconto, pagamento misto e sconto a pagare, con la risposta AdE
+> di accettazione — sta in `HAR.md` voce #1 ed è l'oracolo da usare nei test.
+
 ```json
 {
   "datiTrasmissione": {
@@ -408,44 +413,60 @@ richiesto da `PUT /documenti/dati/fiscali?v={unix_ms}` ed è lo stesso oggetto
 
 ### 3.1 Campi riga contabile (`elementiContabili[]`)
 
-| Campo                 | Tipo   | Descrizione                                          |
-| --------------------- | ------ | ---------------------------------------------------- |
-| `idElementoContabile` | string | Vuoto in vendita, valorizzato in annullo             |
-| `resiPregressi`       | string | Sempre `"0.00"` in vendita                           |
-| `reso`                | string | Sempre `"0.00"` in vendita                           |
-| `quantita`            | string | Quantita con 2 decimali (es. `"1.00"`)               |
-| `descrizioneProdotto` | string | Max 1000 caratteri                                   |
-| `prezzoLordo`         | string | Prezzo lordo unitario (= `prezzoUnitario` per qty=1) |
-| `prezzoUnitario`      | string | Prezzo unitario IVA esclusa (o lordo se natura N\*)  |
-| `scontoUnitario`      | string | Sconto per unita                                     |
-| `scontoLordo`         | string | Sconto lordo totale riga                             |
-| `aliquotaIVA`         | string | Codice aliquota/natura (vedi sez. 6)                 |
-| `importoIVA`          | string | Importo IVA calcolato                                |
-| `imponibile`          | string | Imponibile lordo (prima dello sconto)                |
-| `imponibileNetto`     | string | Imponibile netto (dopo sconto)                       |
-| `totale`              | string | Totale riga (imponibileNetto + importoIVA)           |
-| `omaggio`             | string | `"N"` o `"Y"`                                        |
+| Campo                 | Tipo   | Descrizione                                                                     |
+| --------------------- | ------ | ------------------------------------------------------------------------------- |
+| `idElementoContabile` | string | Vuoto in vendita, valorizzato in annullo                                        |
+| `resiPregressi`       | string | Sempre `"0.00"` in vendita                                                      |
+| `reso`                | string | Sempre `"0.00"` in vendita                                                      |
+| `quantita`            | string | Quantita con 2 decimali (es. `"1.00"`)                                          |
+| `descrizioneProdotto` | string | Max 1000 caratteri                                                              |
+| `prezzoLordo`         | string | Prezzo lordo **unitario** — NON moltiplicato per `quantita` (`HAR.md` voce #12) |
+| `prezzoUnitario`      | string | Prezzo unitario **IVA esclusa** = `prezzoLordo / (1+r)`                         |
+| `scontoUnitario`      | string | Sconto **di riga, IVA esclusa** = `scontoLordo / (1+r)` — NON è «per unità»     |
+| `scontoLordo`         | string | Sconto lordo totale riga                                                        |
+| `aliquotaIVA`         | string | Codice aliquota/natura (vedi sez. 6)                                            |
+| `importoIVA`          | string | Importo IVA calcolato                                                           |
+| `imponibile`          | string | Imponibile prima dello sconto = `prezzoUnitario × quantita`                     |
+| `imponibileNetto`     | string | Imponibile dopo lo sconto = `imponibile - scontoUnitario`                       |
+| `totale`              | string | Totale riga (imponibileNetto + importoIVA)                                      |
+| `omaggio`             | string | `"N"` o `"Y"`                                                                   |
 
 ### 3.2 Calcolo importi per riga
 
+Detto `r` l'aliquota in percentuale (`0` per le nature `N1`-`N6`) e
+`d = 1 + r/100`:
+
 ```
-prezzoLordo = prezzoUnitario (quando qty = 1)
-imponibile = prezzoLordo
-imponibileNetto = imponibile - scontoLordo
-importoIVA = imponibileNetto * aliquota / 100  (0 per nature N*)
-totale = imponibileNetto + importoIVA
+prezzoUnitario  = prezzoLordo / d
+scontoUnitario  = scontoLordo / d
+imponibile      = prezzoUnitario * quantita
+imponibileNetto = imponibile - scontoUnitario
+importoIVA      = imponibileNetto * r / 100      (0 per nature N*)
+totale          = imponibileNetto + importoIVA
+                = prezzoLordo * quantita - scontoLordo
 ```
+
+I netti (`prezzoUnitario`, `scontoUnitario`, `imponibile`, `imponibileNetto`,
+`importoIVA`) sono a **piena precisione**, serializzati a 8 decimali: NON
+vanno arrotondati ai centesimi, o la quadratura `imponibile netto + IVA =
+totale` salta di un centesimo appena c'è uno sconto su una riga con IVA.
+Derivazione, caso di riferimento e conseguenze: `HAR.md` voci #2 e #10.
 
 ### 3.3 Calcolo totali documento
 
 ```
-totaleImponibile = somma(imponibile) di tutte le righe
-scontoTotale = somma(scontoLordo) di tutte le righe
-scontoTotaleLordo = scontoTotale
-importoTotaleIva = somma(importoIVA) di tutte le righe
-ammontareComplessivo = somma(totale) di tutte le righe
-totaleNonRiscosso = somma importi NR_EF + NR_PS + NR_CS
+totaleImponibile     = somma(imponibile)     di tutte le righe (omaggi inclusi)
+scontoTotale         = somma(scontoUnitario) di tutte le righe   ← sconto NETTO
+scontoTotaleLordo    = somma(scontoLordo)    di tutte le righe   ← sconto LORDO
+importoTotaleIva     = somma(importoIVA)     di tutte le righe
+ammontareComplessivo = somma(totale) delle righe con omaggio = "N"
+totaleNonRiscosso    = ⚠️ non verificato — vedi `HAR.md` voce #6 (NR_EF è un flag)
 ```
+
+⚠️ `scontoTotale` e `scontoTotaleLordo` **divergono** appena una riga scontata
+ha un'aliquota IVA (coincidono solo sulle nature `N*`), e
+`ammontareComplessivo` **esclude** le righe omaggio. Esempi numerici in
+`HAR.md` voci #4 e #7.
 
 ### 3.4 Vincolo pagamenti
 
@@ -507,14 +528,24 @@ A livello root:
 
 ### 5.2 Tipi pagamento (`vendita[].tipo`)
 
-| Codice  | Descrizione                            |
-| ------- | -------------------------------------- |
-| `PC`    | Pagamento contanti                     |
-| `PE`    | Pagamento elettronico                  |
-| `TR`    | Ticket restaurant (con campo `numero`) |
-| `NR_EF` | Non riscosso — emissione fattura       |
-| `NR_PS` | Non riscosso — prestazioni servizi     |
-| `NR_CS` | Non riscosso — credito cessione bene   |
+| Codice  | Etichetta AdE                             | Natura del valore                      |
+| ------- | ----------------------------------------- | -------------------------------------- |
+| `PC`    | Pagamento in contanti €                   | importo (2 dec)                        |
+| `PE`    | Pagamento con strumenti elettronici €     | importo (2 dec)                        |
+| `TR`    | Ticket Restaurant €                       | importo (2 dec) + `numero`             |
+| `NR_EF` | Emissione fattura                         | **flag** `'Y'` / `'N'`, non un importo |
+| `NR_PS` | Prestazioni di servizi €                  | importo (2 dec)                        |
+| `NR_CS` | Credito per cessione di bene consegnato € | importo (2 dec)                        |
+
+⚠️ `NR_EF` è una **casella di spunta** nel wizard AdE, non un importo: quando
+è spuntata disabilita e svuota tutti e cinque gli altri slot (dichiara l'intero
+documento non incassato perché la fattura sarà emessa a fine periodo). Prove dal
+markup e limiti di quanto sappiamo: `HAR.md` voce #6.
+
+⚠️ L'ordine degli slot **non è stabile**: la POST li invia
+`PC, PE, TR, NR_EF, NR_PS, NR_CS`, la GET di un documento esistente li
+restituisce `PC, PE, TR, NR_CS, NR_EF, NR_PS`. Leggerli per `tipo`, mai per
+indice.
 
 ### 5.3 Omaggio
 
@@ -576,24 +607,21 @@ Per le nature N1-N6, `importoIVA` = `"0.00"` e `prezzoUnitario` = `prezzoLordo`.
 
 ## 7. Formattazione importi
 
-Tutti gli importi nel payload AdE sono **stringhe** con 2 decimali:
+Tutti gli importi nel payload AdE sono **stringhe**, con separatore decimale
+`.` (punto) e senza separatore delle migliaia. La precisione dipende dal campo.
 
-| Esempio                 | Valore   |
-| ----------------------- | -------- |
-| Un euro                 | `"1.00"` |
-| Due euro e un centesimo | `"2.01"` |
-| Zero                    | `"0.00"` |
+**8 decimali** — `toAdeAmount8()`: tutti gli importi monetari degli
+`elementiContabili[]` e i totali del `documentoCommerciale`
+(`importoTotaleIva`, `scontoTotale`, `scontoTotaleLordo`, `totaleImponibile`,
+`ammontareComplessivo`, `totaleNonRiscosso`, `importoDetraibileDeducibile`).
 
-Regole:
+**2 decimali** — `toAdeAmount()`: `quantita`, `resiPregressi`, `reso`,
+`vendita[].importo`, `scontoAbbuono`.
 
-- Separatore decimale: `.` (punto)
-- Nessun separatore migliaia
-- Sempre 2 decimali
-- Helper consigliato: `toAdeAmount(value: number): string`
-
-Nota: nei tracciati HAR alcuni campi computati appaiono con 8 decimali
-(`"2.01000000"`). L'implementazione di riferimento usa 2 decimali. Entrambi
-sono accettati dal server, ma usiamo 2 per coerenza.
+Gli 8 decimali **non sono padding**: sul portale i netti IVA sono la divisione
+esatta del lordo (es. `"0.90909091"` = 1,00 / 1,1). Arrotondarli ai centesimi
+sbilancia il PDF stampato dall'AdE di un centesimo quando c'è uno sconto su
+una riga con IVA. Evidenza e caso di riferimento: `HAR.md` voce #10.
 
 ---
 
@@ -704,8 +732,8 @@ L'utente non li passa nella request pubblica.
 | --------------------- | --------------------------------------------------------------------------- |
 | `line.description`    | `descrizioneProdotto`                                                       |
 | `line.quantity`       | `quantita`                                                                  |
-| `line.unitPriceGross` | `prezzoLordo` + `prezzoUnitario`                                            |
-| `line.unitDiscount`   | `scontoUnitario` + `scontoLordo`                                            |
+| `line.unitPriceGross` | `prezzoLordo` (unitario); `prezzoUnitario` = quello netto IVA               |
+| `line.unitDiscount`   | `scontoLordo` (× quantita); `scontoUnitario` = quello netto IVA             |
 | `line.vatCode`        | `aliquotaIVA`                                                               |
 | `line.isGift`         | `omaggio` (`"Y"` / `"N"`)                                                   |
 | — (calcolato)         | `importoIVA`, `imponibile`, `imponibileNetto`, `totale`                     |

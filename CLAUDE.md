@@ -23,7 +23,9 @@ Cloudflare Tunnel.
 Versione in `package.json` · roadmap `PLAN.md` · bug noti/tech debt
 `REVIEW.md` (P1/P2/P3: rimuovi la voce nel PR del fix, aggiungi lì i nuovi
 finding) · Developer API `DEVELOPER.md` · surface REST + flussi HTTP AdE
-`docs/api-spec.md` · overview pubblico `README.md` · release dai tag git.
+`docs/api-spec.md` · finding misurati sui tracciati HAR del portale AdE
+`HAR.md` (voci numerate: gli `.har` sono gitignorati, quel file è la loro
+traduzione permanente) · overview pubblico `README.md` · release dai tag git.
 
 ## Principi guida
 

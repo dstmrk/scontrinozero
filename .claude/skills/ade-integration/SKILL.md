@@ -143,12 +143,54 @@ campo esatti senza toccare i log.
 
 ---
 
+## Prima di chiedere un HAR: leggi `HAR.md`
+
+I finding già estratti dalle catture vivono in `HAR.md` alla radice del repo —
+voci numerate, autoconsistenti, con i payload verbatim e le risposte AdE. È la
+**prima** fonte da consultare quando serve sapere come il portale compone un
+campo: gli `.har` non esistono in un clone fresco, quel file sì.
+
+Quando una nuova cattura risponde a una domanda, la risposta va tradotta lì
+**nello stesso task**, con abbastanza numeri da rendere l'HAR superfluo
+(payload, risposta, e il calcolo che lega i campi). Una voce che rimanda al
+`.har` per il dettaglio non ha fatto il suo lavoro.
+
 ## HAR analysis: completezza, non solo ordine
 
 Confrontando il codice contro una HAR capture, controllare esplicitamente che
 **ogni request** in HAR sia presente nell'implementazione — non solo che
 l'ordine matcha. Una call mancante è più difficile da spottare di una sbagliata.
 Cross-reference request-by-request.
+
+### Un HAR non è solo le chiamate API: leggi anche le risorse statiche
+
+**Errore commesso (19/08/2026), da non rifare.** Analizzando gli HAR di vendita
+si guardavano solo le request JSON verso `/ser/api/documenti/...`, ignorando le
+partial HTML del wizard scaricate poche entry prima. Quelle partial contengono
+il markup AngularJS del form, e rispondono a domande che il payload **non può**
+risolvere: nel payload `NR_EF` vale sempre `{"tipo":"NR_EF","importo":"0.00"}`,
+identico agli altri slot, mentre nel markup è una `<input type="checkbox">` con
+`data-ng-true-value="'Y'"` che, quando spuntata, disabilita e svuota tutti gli
+altri campi di pagamento. La conclusione "`totaleNonRiscosso` è la somma dei tre
+`NR_*`" è rimasta scritta per settimane perché nessuno aveva aperto l'HTML.
+
+Cosa cercare nelle entry non-API di una cattura del wizard AdE:
+
+- **`wizard2-*.html`** — il form di **input**: tipo di controllo per ogni campo
+  (checkbox vs testo), etichette ufficiali, tooltip esplicativi.
+- **`wizard3.html`** — il **riepilogo**: come il portale rende ogni campo, spesso
+  con l'etichetta che ne dichiara la semantica ("Sconto totale al netto
+  dell'IVA", "Totale imponibile al lordo dello sconto").
+- **`formhidden.html`** — i campi nascosti, con le **dipendenze fra campi**
+  (`data-ng-disabled`, `data-empty-if`): è lì che si legge quali combinazioni il
+  portale considera mutuamente esclusive.
+- **`data-smart-float="-11.2"` / `-11.8`** — la **precisione dichiarata** del
+  campo (cifre intere, decimali). Più affidabile di dedurla dai valori osservati.
+- **`data-ng-required`, `data-ng-pattern`** — vincoli di validazione lato client.
+
+Regola: prima di dichiarare "non misurabile senza una nuova cattura", cercare la
+stringa nel **testo di tutte le entry** dell'HAR, non solo nei body JSON. Le
+risposte spesso sono già lì.
 
 ### File HAR (capture locali, NON versionate)
 
@@ -157,15 +199,18 @@ dati di sessione reali): vivono in `har/` solo sulla macchina dell'owner e
 **non esistono in un clone fresco** (CI, sessioni cloud). Se un task richiede
 una HAR assente, chiederla all'utente — non cercarla nel repo.
 
-| File                             | Feature                                            | Target                                                                                                       |
-| -------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `dati_doc_commerciale.har`       | Aggiornamento dati business su AdE post-onboarding | rinviato (possibile feature premium)                                                                         |
-| `aggiungi_prodotto_catalogo.har` | Aggiunta prodotto su rubrica AdE                   | nice-to-have (sync catalogo AdE)                                                                             |
-| `modifica_prodotto_catalogo.har` | Modifica prodotto su rubrica AdE                   | nice-to-have (sync catalogo AdE)                                                                             |
-| `elimina_prodotto_catalogo.har`  | Eliminazione prodotto su rubrica AdE               | nice-to-have (sync catalogo AdE)                                                                             |
-| `ricerca_prodotto_catalogo.har`  | Ricerca prodotto su rubrica AdE                    | nice-to-have (sync catalogo AdE)                                                                             |
-| `ricerca.har`                    | Ricerca documento su AdE                           | ✅ usata dal recovery (riconciliazione, sotto); recupero corrispettivi user-facing rinviato (roadmap v1.9.0) |
-| `login_cie.har`                  | CIE login flow                                     | ✅ **spedito in v1.5.0** — `loginCie` in `src/lib/ade/real-client.ts` (sezione "Due metodi d'accesso")       |
+| File                                       | Feature                                                         | Target                                                                                                       |
+| ------------------------------------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `dati_doc_commerciale.har`                 | Aggiornamento dati business su AdE post-onboarding              | rinviato (possibile feature premium)                                                                         |
+| `aggiungi_prodotto_catalogo.har`           | Aggiunta prodotto su rubrica AdE                                | nice-to-have (sync catalogo AdE)                                                                             |
+| `modifica_prodotto_catalogo.har`           | Modifica prodotto su rubrica AdE                                | nice-to-have (sync catalogo AdE)                                                                             |
+| `elimina_prodotto_catalogo.har`            | Eliminazione prodotto su rubrica AdE                            | nice-to-have (sync catalogo AdE)                                                                             |
+| `ricerca_prodotto_catalogo.har`            | Ricerca prodotto su rubrica AdE                                 | nice-to-have (sync catalogo AdE)                                                                             |
+| `ricerca.har`                              | Ricerca documento su AdE                                        | ✅ usata dal recovery (riconciliazione, sotto); recupero corrispettivi user-facing rinviato (roadmap v1.9.0) |
+| `login_cie.har`                            | CIE login flow                                                  | ✅ **spedito in v1.5.0** — `loginCie` in `src/lib/ade/real-client.ts` (sezione "Due metodi d'accesso")       |
+| `sconto_e_pagamento_misto.har`             | Vendita con sconto di riga, sconto a pagare e pagamento misto   | ✅ **tradotto in `HAR.md`** (voci #1-#8, #10-#13) — non serve più la cattura                                 |
+| `annullo_doc_sconto_e_pagamento_misto.har` | Annullo dello stesso documento                                  | ✅ **tradotto in `HAR.md`** (voce #9): nessuna differenza rispetto ad `annullo.har`                          |
+| `nuovo_test_sconto.har`                    | Vendita qta 2 @22% con sconto di riga (test di disambiguazione) | ✅ **tradotto in `HAR.md`** (voce #12): `prezzoLordo` è unitario, `scontoLordo` è di riga                    |
 
 ---
 
