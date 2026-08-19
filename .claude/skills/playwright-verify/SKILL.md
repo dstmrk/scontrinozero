@@ -60,6 +60,7 @@ Helper minimale (Python via curl, gestisce header + SSE):
 ```python
 import json, os, subprocess
 EP = os.environ["PLAYWRIGHT_URL"].rstrip("/")
+if not EP.startswith("http"): EP = "https://" + EP   # bare host → 301 in HTTP
 EP = EP if EP.endswith("/mcp") else EP + "/mcp"
 CID, CSEC = os.environ["CF_ACCESS_CLIENT_ID"], os.environ["CF_ACCESS_CLIENT_SECRET"]
 
@@ -130,6 +131,11 @@ a ogni `init`), ma i **cookie di login persistono** nel profilo del browser tra
 sessioni MCP.
 
 ## ⚠️ Gotcha da conoscere PRIMA di scriptare (lezioni dure)
+
+0. **`PLAYWRIGHT_URL` può essere un bare host senza schema** (`play.esempio.xyz`).
+   `curl` su un host nudo parte in **HTTP** e Cloudflare risponde **301** verso
+   HTTPS: l'`initialize` non torna alcun `Mcp-Session-Id` e l'helper resta con
+   `sid = None`. Anteponi `https://` se manca — l'helper qui sotto lo fa già.
 
 1. **Ceiling ~5s per singola request.** Il Playwright MCP emette l'evento SSE
    **solo a fine tool**, senza keepalive; un hop Cloudflare chiude lo stream
@@ -282,6 +288,27 @@ wizard: `src/server/onboarding-actions.ts`. Client wizard:
   con `ADE_MODE=mock` → mai attivo in produzione.
 - **Solo dev.** Punta il browser esclusivamente a dev (`ADE_MODE=mock`). Mai
   prod/sandbox: uno scontrino emesso è irreversibile.
+- **Il service worker NON si registra su dev, e non è un bug dell'app.** Tutto
+  `dev.scontrinozero.it` sta dietro Cloudflare Access: senza service token
+  ogni risorsa risponde **302** verso il login, `/sw.js` inclusa. La
+  registrazione del SW fallisce quindi con
+  `SecurityError: The script resource is behind a redirect, which is disallowed`.
+  Non è aggirabile da qui: la richiesta che l'installer del service worker fa
+  per scaricare lo script **non eredita** né gli `extraHTTPHeaders` del context
+  Playwright né i cookie `CF_Authorization`/`cf_clearance` del profilo. Misurato
+  il 2026-08-19: dalla stessa pagina `fetch('/sw.js')` torna
+  `type=basic status=200`, mentre `navigator.serviceWorker.register('/sw.js')`
+  sulla stessa URL dà `SecurityError` — è la prova che il redirect colpisce solo
+  la richiesta dell'installer. Corollario: **REVIEW #84 non è chiudibile su
+  dev**, serve sandbox o prod, dove non c'è Access davanti.
+
+  Quel che invece **si verifica benissimo qui** è il comportamento dell'app
+  davanti a una registrazione fallita — dev riproduce fedelmente la classe di
+  rigetto di Googlebot (SCONTRINOZERO-X). Ricetta: `page.addInitScript` che
+  colleziona `window.addEventListener('unhandledrejection', ...)` e sovrascrive
+  `console.warn`, poi `goto` commit e leggi i due array. Atteso dopo il fix di
+  `ServiceWorkerRegistrar`: `unhandledRejections: []` e un warn
+  `[pwa] registrazione del service worker fallita`.
 
 ## Regole di sicurezza
 

@@ -39,6 +39,17 @@ fa fallire il build se il bundle manca) e dichiarando la registrazione con
 **Resta da fare: verifica manuale su sandbox prima di prod.** Non è
 automatizzabile — richiede un browser reale e un dispositivo Android.
 
+⚠️ **E non si può fare su dev**, per quanto sia l'ambiente comodo: tutto
+`dev.scontrinozero.it` sta dietro Cloudflare Access, e la richiesta con cui
+l'installer del service worker scarica `/sw.js` non porta né cookie né header
+del service token → Access la redirige e Chromium rifiuta con
+`SecurityError: The script resource is behind a redirect, which is disallowed`.
+Misurato con un browser reale il 2026-08-19 (dettagli e ricetta nella skill
+`playwright-verify`): dalla stessa pagina `fetch('/sw.js')` torna
+`type=basic status=200`, quindi il file è servito correttamente — è solo la
+richiesta dell'installer a non passare il gate. **Sandbox o prod**, dove Access
+non c'è.
+
 1. DevTools → Application → Service Workers: il SW risulta **activated** e
    `/sw.js` risponde 200 (è anche la quarta probe di smoke, skill
    `deploy-release`).
