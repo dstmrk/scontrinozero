@@ -555,8 +555,13 @@ per l'helper di normalizzazione invece di leggere il campo che preferisce.
    response.
 2. Valutare l'apertura di `TR` (con `numero`) e delle tre `NR_*`, oggi
    deliberatamente fuori dallo schema pubblico pur essendo già mappate in
-   `PAYMENT_TYPE_MAP` (`src/lib/ade/mapper.ts`). Sigle e semantica esatta:
-   `HAR.md` voce #6.
+   `PAYMENT_TYPE_MAP` (`src/lib/ade/mapper.ts`). Sigle, etichette AdE e limiti
+   noti: `HAR.md` voce #6. **`NR_EF` non è un importo** ma un flag `'Y'`/`'N'`
+   mutuamente esclusivo con ogni altro pagamento: nel nostro modello sarebbe un
+   booleano, non un `PaymentRequest`, e la formula
+   `totaleNonRiscosso = NR_EF + NR_PS + NR_CS` — che `mapSaleToAdePayload`
+   implementa e che oggi dà `0.00` per pura coincidenza — va verificata con una
+   cattura prima di poggiarci sopra qualunque cosa.
 3. Esporre `globalDiscount` (sconto a pagare) e `unitDiscount` di riga come
    campi di primo livello, se nel frattempo sono stati spediti.
 4. Rimuovere il ramo di compatibilità dallo schema condiviso

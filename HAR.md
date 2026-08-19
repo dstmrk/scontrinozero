@@ -283,12 +283,26 @@ Tutti a **8 decimali** (eccetto `scontoAbbuono`, 2).
 | `scontoTotaleLordo`    | Σ `scontoLordo` (sconto **lordo**)                    |
 | `importoTotaleIva`     | Σ `importoIVA`                                        |
 | `ammontareComplessivo` | Σ `totale` **escluse le righe omaggio** (voce #7)     |
-| `totaleNonRiscosso`    | `NR_EF + NR_PS + NR_CS`                               |
+| `totaleNonRiscosso`    | non verificato — vedi voce #6                         |
 
 ⚠️ `scontoTotale ≠ scontoTotaleLordo` appena c'è **uno sconto su una riga con
 aliquota IVA**: nella voce #1 valgono rispettivamente `0.09090909` e
 `0.10000000`. Coincidono solo quando tutte le righe scontate sono a natura
 `N*`. Vedi voce #11 punto 1.
+
+**Le etichette del portale confermano la semantica.** Nella schermata di
+riepilogo (`wizard3.html`, catturata in `sconto_e_pagamento_misto.har`) i campi
+sono resi così:
+
+- `totaleImponibile` → "Totale imponibile **al lordo dello sconto** €"
+- `scontoTotale` → "Sconto totale **al netto dell'IVA** €"
+- `ammontareComplessivo` → "Totale complessivo €"
+- `totaleNonRiscosso` → "Totale non riscosso €"
+
+È una conferma indipendente dai numeri: `scontoTotale` è dichiarato dall'AdE
+stessa come sconto **al netto dell'IVA**, cioè Σ `scontoUnitario` e non
+Σ `scontoLordo` (voce #11 punto 1), e `totaleImponibile` è dichiarato **al
+lordo dello sconto**, cioè prima della sottrazione.
 
 **Verifica incrociata** (vale sempre, buon invariante per i test):
 
@@ -324,30 +338,86 @@ totale e somma degli importi inseriti è esattamente ciò che deve finire in
 ## 6. Codici pagamento: `PC`, `PE`, `TR`, `NR_EF`, `NR_PS`, `NR_CS`
 
 L'array `vendita[]` è presente **solo** nelle vendite (mai negli annulli, voce
-#9) e contiene **sempre tutti e sei gli slot**, nell'ordine sotto, anche quelli
-a zero. Il portale non li omette mai.
+#9) e contiene **sempre tutti e sei gli slot**, anche quelli a zero. Il portale
+non li omette mai.
 
-| Codice  | Significato                          | Esposto oggi | Note                           |
-| ------- | ------------------------------------ | ------------ | ------------------------------ |
-| `PC`    | Pagamento contante                   | ✅ sì        |                                |
-| `PE`    | Pagamento elettronico                | ✅ sì        | copre carta, bonifico, app     |
-| `TR`    | Ticket restaurant                    | ❌ no        | ha il campo extra `numero`     |
-| `NR_EF` | Non riscosso — emissione fattura     | ❌ no        | concorre a `totaleNonRiscosso` |
-| `NR_PS` | Non riscosso — prestazioni servizi   | ❌ no        | concorre a `totaleNonRiscosso` |
-| `NR_CS` | Non riscosso — credito cessione bene | ❌ no        | concorre a `totaleNonRiscosso` |
+⚠️ **L'ordine non è stabile fra POST e GET.** La POST li invia
+`PC, PE, TR, NR_EF, NR_PS, NR_CS`; la GET di un documento esistente
+(`annullo.har`) li restituisce `PC, PE, TR, NR_CS, NR_EF, NR_PS`. Leggerli per
+indice invece che per `tipo` è un bug in attesa.
+
+### I sei slot, come li rende il portale
+
+Ricavato dal markup del wizard, catturato verbatim negli HAR:
+`wizard2-v.html` (form di input, in `vendita.har`) e `wizard3.html`
+(riepilogo, in `sconto_e_pagamento_misto.har`).
+
+| Codice  | Etichetta AdE                             | Controllo UI               | Esposto oggi |
+| ------- | ----------------------------------------- | -------------------------- | ------------ |
+| `PC`    | Pagamento in contanti €                   | input importo (2 dec)      | ✅ sì        |
+| `PE`    | Pagamento con strumenti elettronici €     | input importo (2 dec)      | ✅ sì        |
+| `TR`    | Ticket Restaurant €                       | input importo + `numero`   | ❌ no        |
+| `NR_EF` | Emissione fattura                         | **checkbox** `'Y'` / `'N'` | ❌ no        |
+| `NR_PS` | Prestazioni di servizi €                  | input importo (2 dec)      | ❌ no        |
+| `NR_CS` | Credito per cessione di bene consegnato € | input importo (2 dec)      | ❌ no        |
 
 `TR` è l'unico slot con il campo `numero` (numero di buoni pasto, stringa):
-vale `"0"` quando l'importo è zero. Gli altri cinque slot non hanno `numero`.
+vale `"0"` quando l'importo è zero, ed è **obbligatorio** quando l'importo è
+diverso da `"0.00"` (`data-ng-required` nel markup). Gli altri cinque non hanno
+`numero`.
 
-I codici sono già tutti mappati nel codice
-(`PAYMENT_TYPE_MAP` in `src/lib/ade/mapper.ts`) e nei tipi
-(`AdePaymentType` in `src/lib/ade/types.ts`): **il mapper regge già tutti e
-sei**. Quel che manca è a monte (input) e a valle (lettura) — voce #14.
+### `NR_EF` NON è un importo: è un interruttore
 
-**Decisione presa:** per ora si espongono all'utente e alla Developer API
-**solo `PC` e `PE`**. `TR` e le tre `NR_*` restano documentate qui perché il
-payload le richiede comunque a zero, e perché il giorno che si aprono non
-serva un nuovo HAR.
+Questo è il punto che il solo payload non rivela — nelle tre catture vale
+sempre `{"tipo":"NR_EF","importo":"0.00"}`, indistinguibile dagli altri.
+
+Nel form di input `NR_EF` è una **casella di spunta**:
+
+```html
+<input
+  type="checkbox"
+  id="i2_4_4"
+  data-ng-model="vm.vendita_NR_EF._checked"
+  data-ng-true-value="'Y'"
+  data-ng-false-value="'N'"
+/>
+<label>Emissione fattura</label>
+```
+
+con il tooltip: _"Spuntare questo campo nel caso di prestazione di servizi
+continuativi con emissione di fattura a fine periodo"_. Nel riepilogo è resa
+come "Emissione fattura: Sì / No", non come un importo.
+
+**E quando è spuntata, disabilita e svuota tutti e cinque gli altri campi** —
+`PC`, `PE`, `TR`, `NR_PS`, `NR_CS` portano tutti
+`data-ng-disabled="vm.vendita_NR_EF._checked == 'Y'"` e il corrispondente
+`data-empty-if`. Non è quindi "una quota non incassata" da sommare alle altre:
+è una dichiarazione che l'**intero** documento non è incassato perché la
+fattura arriverà a fine periodo. È mutuamente esclusiva con qualunque altra
+forma di pagamento.
+
+**Conseguenza:** `totaleNonRiscosso = NR_EF + NR_PS + NR_CS` (che stava in
+`docs/api-spec.md` e che il mapper implementa in `mapSaleToAdePayload`) tratta
+un flag booleano come un addendo. Oggi è innocuo — i tre slot sono sempre a
+zero e la somma dà `0.00`, che è il valore giusto — ma la formula **non è
+verificata** e non va usata come base per esporre le `NR_*`.
+
+**Cosa resta ignoto:** come `_checked` finisca nel payload. Il modello ha
+comunque un `vendita_NR_EF.importo` (compare anche nella GET), quindi non è
+escluso che a casella spuntata l'importo venga valorizzato col totale del
+documento — nel qual caso la formula tornerebbe vera come identità aritmetica,
+pur restando sbagliata come descrizione. Serve una cattura con la casella
+spuntata per deciderlo; finché non c'è, la voce #15 la elenca fra i limiti.
+
+### Decisione presa
+
+Per ora si espongono all'utente e alla Developer API **solo `PC` e `PE`**.
+`TR` e le tre `NR_*` restano documentate qui perché il payload le richiede
+comunque a zero, e perché il giorno che si aprono non serva ripartire da capo.
+Il mapper le regge già tutte (`PAYMENT_TYPE_MAP` in `src/lib/ade/mapper.ts`,
+`AdePaymentType` in `src/lib/ade/types.ts`); quel che manca è a monte (input) e
+a valle (lettura) — voce #14. Ma `NR_EF` **non** va esposta come un importo:
+nel nostro modello sarebbe un booleano, non un `PaymentRequest`.
 
 ---
 
@@ -509,6 +579,13 @@ a piena precisione e si serializza a 8 decimali. Le due cose sono compatibili:
 
 Campi a **2** decimali (non 8): `quantita`, `resiPregressi`, `reso`,
 `scontoAbbuono`, `vendita[].importo`.
+
+**Il markup del wizard lo conferma.** Gli `<input>` del portale portano un
+attributo `data-smart-float` che ne dichiara la precisione: `-11.2` sugli
+importi di pagamento (`PC`, `PE`, `TR`, `NR_PS`, `NR_CS`) e su `scontoAbbuono`,
+`-11.8` su `scontoLordo` di riga. Due decimali contro otto, dichiarati
+dall'AdE stessa nel form — non è un dettaglio di serializzazione che possiamo
+scegliere.
 
 **Arrotondamento, non troncamento.** `1.00 / 1.1 = 0.909090909…` e l'AdE manda
 `"0.90909091"`: troncando l'ottavo decimale sarebbe `0.90909090`. È l'unico
@@ -893,15 +970,24 @@ Le voci #1-#13 sono misurate su payload reali accettati dall'AdE. Quanto
 segue **non** lo è: sta qui perché un lettore futuro sappia dove finisce
 l'evidenza e cominci l'inferenza, senza doverlo ri-scoprire da solo.
 
-**`TR` e le tre `NR_*` non sono mai state osservate con importo > 0.** Di
-loro sappiamo con certezza solo che gli slot sono **sempre presenti** nel
-payload, a zero, e che `TR` porta il campo `numero` (`"0"`). La formula
-`totaleNonRiscosso = NR_EF + NR_PS + NR_CS` (voce #4) viene da
-`docs/api-spec.md`, non da una misura. Prima di **esporre** uno di questi
-metodi serve un HAR dedicato: in particolare non sappiamo se un importo non
-riscosso entri o no nella quadratura della voce #5 allo stesso modo di un
-incasso. Per il pagamento misto `PC`+`PE` — l'unico in programma — questo non
-è un ostacolo.
+**`TR` e le tre `NR_*` non sono mai state osservate con importo > 0.** Il
+markup del wizard (voce #6) dice molto su cosa **sono** — etichette, tipo di
+controllo, e il fatto che `NR_EF` sia una casella di spunta mutuamente
+esclusiva con tutto il resto — ma nessuna cattura le mostra **valorizzate**.
+Restano quindi aperte tre cose:
+
+1. **Come `NR_EF._checked = 'Y'` finisca nel payload.** Il modello ha comunque
+   un `importo` per quello slot; non sappiamo se venga riempito col totale del
+   documento o se il flag viaggi altrove. Da questo dipende se
+   `totaleNonRiscosso = NR_EF + NR_PS + NR_CS` sia vera come aritmetica (pur
+   restando sbagliata come descrizione).
+2. **Se un importo non riscosso entri nella quadratura della voce #5** allo
+   stesso modo di un incasso.
+3. **Il formato di `TR.numero`** quando è > 0 (il markup impone solo un
+   `data-ng-pattern` di nome `NumeroTicket`, il cui valore non è nell'HAR).
+
+Per il pagamento misto `PC`+`PE` — l'unico in programma — nulla di questo è un
+ostacolo.
 
 **Non sappiamo se l'AdE validi la quadratura lato server.** Il portale la
 impone nel wizard, ma non abbiamo mai inviato un payload sbilanciato per

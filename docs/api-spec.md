@@ -460,7 +460,7 @@ scontoTotale         = somma(scontoUnitario) di tutte le righe   ← sconto NETT
 scontoTotaleLordo    = somma(scontoLordo)    di tutte le righe   ← sconto LORDO
 importoTotaleIva     = somma(importoIVA)     di tutte le righe
 ammontareComplessivo = somma(totale) delle righe con omaggio = "N"
-totaleNonRiscosso    = somma importi NR_EF + NR_PS + NR_CS
+totaleNonRiscosso    = ⚠️ non verificato — vedi `HAR.md` voce #6 (NR_EF è un flag)
 ```
 
 ⚠️ `scontoTotale` e `scontoTotaleLordo` **divergono** appena una riga scontata
@@ -528,14 +528,24 @@ A livello root:
 
 ### 5.2 Tipi pagamento (`vendita[].tipo`)
 
-| Codice  | Descrizione                            |
-| ------- | -------------------------------------- |
-| `PC`    | Pagamento contanti                     |
-| `PE`    | Pagamento elettronico                  |
-| `TR`    | Ticket restaurant (con campo `numero`) |
-| `NR_EF` | Non riscosso — emissione fattura       |
-| `NR_PS` | Non riscosso — prestazioni servizi     |
-| `NR_CS` | Non riscosso — credito cessione bene   |
+| Codice  | Etichetta AdE                             | Natura del valore                      |
+| ------- | ----------------------------------------- | -------------------------------------- |
+| `PC`    | Pagamento in contanti €                   | importo (2 dec)                        |
+| `PE`    | Pagamento con strumenti elettronici €     | importo (2 dec)                        |
+| `TR`    | Ticket Restaurant €                       | importo (2 dec) + `numero`             |
+| `NR_EF` | Emissione fattura                         | **flag** `'Y'` / `'N'`, non un importo |
+| `NR_PS` | Prestazioni di servizi €                  | importo (2 dec)                        |
+| `NR_CS` | Credito per cessione di bene consegnato € | importo (2 dec)                        |
+
+⚠️ `NR_EF` è una **casella di spunta** nel wizard AdE, non un importo: quando
+è spuntata disabilita e svuota tutti e cinque gli altri slot (dichiara l'intero
+documento non incassato perché la fattura sarà emessa a fine periodo). Prove dal
+markup e limiti di quanto sappiamo: `HAR.md` voce #6.
+
+⚠️ L'ordine degli slot **non è stabile**: la POST li invia
+`PC, PE, TR, NR_EF, NR_PS, NR_CS`, la GET di un documento esistente li
+restituisce `PC, PE, TR, NR_CS, NR_EF, NR_PS`. Leggerli per `tipo`, mai per
+indice.
 
 ### 5.3 Omaggio
 
