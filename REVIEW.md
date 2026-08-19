@@ -329,61 +329,6 @@ errori tipizzati nativamente. L'encoder invece va tenuto: il mapping codepage è
 esattamente il pezzo che non ha senso riscrivere. _Trigger:_ una segnalazione di
 stampante non riconosciuta, o un altro breaking change fra le due versioni.
 
-### 85. Il documento di annullo non ha una resa propria
-
-- **Categoria:** funzionalità / conformità layout · **Severità:** Low — l'annullo è correttamente trasmesso all'AdE, manca solo il documento da consegnare al cliente
-- **File:** `src/lib/pdf/generate-sale-receipt.ts`, `src/lib/printing/receipt-escpos.ts`, `src/app/r`, `src/lib/receipts/generate-pdf-response.ts`, `src/components/storico/void-receipt-dialog.tsx`
-
-**Problema.** Un documento `kind: "VOID"` non viene renderizzato da nessuna
-parte. `generate-pdf-response.ts` chiama sempre `generateSaleReceiptPdf` e
-`void-receipt-dialog.tsx` costruisce un `PrintableReceipt` che è la copia
-stampabile del **SALE** annullato: entrambi producono il documento di vendita,
-mai quello di annullo. Il cliente che chiede la prova dello storno non ha nulla
-da portare via.
-
-Il layout standard AdE prevede per l'annullo un documento distinto:
-
-- titolo `DOCUMENTO COMMERCIALE` / `emesso per ANNULLAMENTO` al posto di
-  `di vendita o prestazione`;
-- un blocco `Documento di riferimento:` con `N. <progressivo> del <data>` del
-  documento annullato, subito sotto il titolo;
-- nessun blocco pagamenti.
-
-**Perché non è stato fatto qui.** Fuori scope per scelta esplicita: il lavoro
-di allineamento al layout AdE ha coperto il solo documento di vendita.
-
-**Aggiornamento v1.7.0 — il dato c'è, manca il render.** Il layout verbatim del
-PDF di annullo stampato dall'AdE è ora misurato e trascritto in `HAR.md` voce
-#16a, e tutto ciò che serve ad alimentarlo è già assemblato dai lettori:
-
-- `isPrintableDocument` / `printableDocumentCondition`
-  (`src/lib/receipts/printable-document.ts`) fa passare un `VOID` riuscito e
-  blocca la vendita annullata — prima il filtro `status = 'ACCEPTED'` copiato
-  nei lettori escludeva entrambi;
-- `fetchPublicReceipt` e la route PDF autenticata restituiscono `lines` prese
-  dalla **vendita annullata** (un VOID non ha righe proprie) e `voidedSale` con
-  il progressivo per il blocco `Documento di riferimento`;
-- `commercial_documents.ade_registered_at` (migrazione 0031) porta l'istante
-  che l'AdE stampa nel footer, derivato dall'header HTTP `Date` (`HAR.md` #16b)
-  — **non** `createdAt`, che precede la risposta AdE di 2-5s.
-
-**Da fare.** Solo la resa: un `kind` esplicito nei tre renderer (oggi è
-implicitamente "sempre SALE"), e la rimozione dei tre guard che oggi rifiutano
-un VOID — marcati `REVIEW.md #85` nel sorgente — in
-`src/app/api/documents/[documentId]/pdf/route.ts`,
-`src/app/r/[documentId]/pdf/route.ts` e `src/app/r/[documentId]/page.tsx` —
-sono lì per non presentare un annullo col layout di vendita, cioè come uno
-scontrino valido. Nello stesso passaggio le superfici dovrebbero mostrare
-`ade_registered_at` al posto di `createdAt`, così la data cambia in un colpo
-solo ovunque. Resta scoperta la riga VOID nello storico, oggi grigia e non
-cliccabile (`src/components/storico/storico-client.tsx`, `hasDetail`).
-
-Attenzione: il reso (`R`/`RX` in `AdeOperationType`) è un terzo documento
-ancora diverso, con lo stesso blocco di riferimento ma le righe rese — non
-modellarlo come un annullo. I codici `tipoOperazione` sono in `HAR.md` #16c.
-
----
-
 ### 86. Screenshot `riepilogo-pagamento.png` da rifare dopo il rename "Carta" → "Elettronico"
 
 - **Categoria:** contenuti marketing · **Severità:** Low — nessun impatto funzionale, ma il sito mostra una UI che non esiste più
@@ -409,6 +354,35 @@ Si può guidare un browser reale con la skill `playwright-verify`
 **Verificati e da NON rifare:** `cassa-tastierino.png`, `storico-dettaglio.png`
 e gli altri in `public/screenshots/` non mostrano il selettore del metodo di
 pagamento.
+
+---
+
+### 90. L'export CSV usa ancora `created_at`, non `ade_registered_at`
+
+- **Categoria:** coerenza dei dati fiscali · **Severità:** Low — scarto di 2-5s, visibile solo a cavallo della mezzanotte o di un cambio periodo
+- **File:** `src/lib/receipts/csv-export.ts`, `src/server/export-actions.ts`
+
+**Problema.** Con la v1.7.0 tutte le superfici di resa (PDF, termica, ricevuta
+pubblica, elenco storico) mostrano `ade_registered_at`, l'istante che l'AdE
+registra. L'export CSV è rimasto indietro su due fronti: stampa
+`formatIsoInRome(doc.createdAt)` nella colonna data, e **filtra l'intervallo**
+con `gte/lt` sullo stesso `created_at`. Un documento emesso alle 23:59:58 con
+registrazione AdE alle 00:00:01 finisce nel CSV del giorno prima, con una data
+diversa da quella sul documento consegnato al cliente.
+
+**Perché non è stato fatto insieme al resto.** Non è un rename simmetrico agli
+altri: qui la colonna non è solo mostrata, è anche il **predicato di
+selezione** del periodo — ed è quello che un commercialista usa per chiudere
+un mese. Cambiare la sola colonna mostrata lascerebbe un CSV in cui la data di
+una riga contraddice il filtro che l'ha inclusa; cambiare anche il filtro è
+una decisione contabile, non un refactoring.
+
+**Da fare.** Decidere quale delle due grandezze definisce il periodo fiscale
+(propendo per `ade_registered_at`: è la data del documento presso l'AdE) e
+spostare colonna **e** filtro insieme. Attenzione all'indice: le condizioni di
+range oggi poggiano su `idx_commercial_documents_business_created`, quindi
+serve un indice equivalente su `(business_id, ade_registered_at)` nella stessa
+migrazione, o l'export su un anno di dati passa a sequential scan.
 
 ---
 

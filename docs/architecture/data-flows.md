@@ -72,6 +72,10 @@ fallimento di emissione.
    (ordine sezioni, `Importo pagato` sempre presente, `di cui IVA` sotto il
    totale, codifica IVA `ES*` + legenda da `src/lib/receipts/vat-display.ts`);
    la pagina pubblica `src/app/r` espone le stesse voci in forma di card.
+   Le stesse tre superfici rendono anche la **ricevuta di annullamento**
+   (sottotitolo `emesso per ANNULLAMENTO`, blocco `Documento di riferimento`,
+   nessun pagamento): le righe sono quelle della vendita annullata, che i
+   lettori restituiscono in `voidedSale`.
    `src/lib/printing/thermal-text.ts` traslittera le accentate maiuscole, che
    CP437 non rappresenta.
 5. Composizione e invio: `src/lib/printing/print-receipt.ts` importa l'encoder
