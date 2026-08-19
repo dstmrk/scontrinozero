@@ -89,6 +89,7 @@ const MOCK_DOC = {
   adeProgressive: "DCW2026/5111-0001",
   createdAt: new Date("2026-02-23T10:30:00Z"),
   publicRequest: { paymentMethod: "PC" },
+  voidedDocumentId: null,
 };
 
 const MOCK_BIZ = {
@@ -239,11 +240,54 @@ describe("GET /api/documents/[documentId]/pdf", () => {
     expect(res.status).toBe(404);
   });
 
-  it("ritorna 400 se kind ≠ SALE", async () => {
+  // v1.7.0: un annullo riuscito PASSA il filtro di stampabilita' (la vendita
+  // annullata invece no). Il dato viene assemblato — righe e progressivo
+  // dell'originale — ma il layout della ricevuta di annullamento non c'e'
+  // ancora: 400 esplicito invece di stampare un annullo col layout di vendita,
+  // che lo presenterebbe come uno scontrino valido.
+  it("ritorna 400 per un VOID finche' manca il layout di annullamento", async () => {
+    mockSelect.mockReset();
+    mockSelect
+      .mockReturnValueOnce(
+        makeSelectBuilder([
+          {
+            doc: {
+              ...MOCK_DOC,
+              id: "void-doc",
+              kind: "VOID",
+              status: "VOID_ACCEPTED",
+              voidedDocumentId: MOCK_DOC.id,
+            },
+            biz: MOCK_BIZ,
+          },
+        ]),
+      )
+      .mockReturnValueOnce(makeSelectBuilder([MOCK_DOC]))
+      .mockReturnValueOnce(makeSelectBuilder(MOCK_LINES));
+
+    const res = await GET(makeRequest("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), {
+      params: Promise.resolve({
+        documentId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      }),
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  // La FK e' ON DELETE SET NULL: un annullo orfano non ha righe da ristampare.
+  it("ritorna 404 per un VOID senza la vendita annullata", async () => {
     mockSelect.mockReset();
     mockSelect.mockReturnValueOnce(
       makeSelectBuilder([
-        { doc: { ...MOCK_DOC, kind: "VOID" }, biz: MOCK_BIZ },
+        {
+          doc: {
+            ...MOCK_DOC,
+            kind: "VOID",
+            status: "VOID_ACCEPTED",
+            voidedDocumentId: null,
+          },
+          biz: MOCK_BIZ,
+        },
       ]),
     );
 
@@ -253,7 +297,7 @@ describe("GET /api/documents/[documentId]/pdf", () => {
       }),
     });
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(404);
   });
 
   it("happy path: delega a generatePdfResponse con doc, biz e lines", async () => {

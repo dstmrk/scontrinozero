@@ -20,6 +20,7 @@ vi.mock("@/db/schema", () => ({
     status: "cd.status",
     businessId: "cd.businessId",
     adeTransactionId: "cd.adeTransactionId",
+    voidedDocumentId: "cd.voidedDocumentId",
   },
   commercialDocumentLines: {
     documentId: "cdl.documentId",
@@ -35,6 +36,7 @@ vi.mock("drizzle-orm", () => ({
   eq: vi.fn((col, val) => ({ __op: "eq", col, val })),
   and: vi.fn((...conds) => ({ __op: "and", conds })),
   isNotNull: vi.fn((col) => ({ __op: "isNotNull", col })),
+  or: vi.fn((...conds) => ({ __op: "or", conds })),
 }));
 
 // ---------------------------------------------------------------------------
@@ -63,6 +65,7 @@ import { and, eq, isNotNull } from "drizzle-orm";
 import { fetchPublicReceipt } from "./fetch-public-receipt";
 
 const VALID_UUID = "550e8400-e29b-41d4-a716-446655440000";
+const VOID_UUID = "550e8400-e29b-41d4-a716-446655440001";
 
 const MOCK_DOC = {
   id: VALID_UUID,
@@ -73,6 +76,7 @@ const MOCK_DOC = {
   adeProgressive: "DCW2026/5111-0001",
   createdAt: new Date("2026-02-23T10:30:00Z"),
   publicRequest: { paymentMethod: "PC" },
+  voidedDocumentId: null,
 };
 
 const MOCK_BIZ = {
@@ -145,7 +149,7 @@ describe("fetchPublicReceipt", () => {
     expect(result).toBeNull();
   });
 
-  it("applica il filtro kind='SALE' AND status='ACCEPTED' AND adeTransactionId IS NOT NULL nel WHERE", async () => {
+  it("applica la condizione di stampabilita' e adeTransactionId IS NOT NULL nel WHERE", async () => {
     mockSelect.mockReset();
     const docBuilder = makeSelectBuilder([{ doc: MOCK_DOC, biz: MOCK_BIZ }]);
     mockSelect
@@ -157,17 +161,39 @@ describe("fetchPublicReceipt", () => {
     // Il WHERE della query documento è un AND di id + kind + status +
     // adeTransactionId IS NOT NULL (REVIEW.md #7: nessun documento ACCEPTED
     // senza identificativo fiscale deve essere servito pubblicamente).
+    // Il WHERE e' un AND di id + condizione di stampabilita' +
+    // adeTransactionId IS NOT NULL. La stampabilita' e' un OR di due coppie
+    // (kind, status): e' bidimensionale, e vive tutta in printable-document.ts.
     expect(docBuilder.where).toHaveBeenCalledWith({
       __op: "and",
       conds: [
         { __op: "eq", col: "cd.id", val: VALID_UUID },
-        { __op: "eq", col: "cd.kind", val: "SALE" },
-        { __op: "eq", col: "cd.status", val: "ACCEPTED" },
+        {
+          __op: "or",
+          conds: [
+            {
+              __op: "and",
+              conds: [
+                { __op: "eq", col: "cd.kind", val: "SALE" },
+                { __op: "eq", col: "cd.status", val: "ACCEPTED" },
+              ],
+            },
+            {
+              __op: "and",
+              conds: [
+                { __op: "eq", col: "cd.kind", val: "VOID" },
+                { __op: "eq", col: "cd.status", val: "VOID_ACCEPTED" },
+              ],
+            },
+          ],
+        },
         { __op: "isNotNull", col: "cd.adeTransactionId" },
       ],
     });
     expect(eq).toHaveBeenCalledWith("cd.kind", "SALE");
     expect(eq).toHaveBeenCalledWith("cd.status", "ACCEPTED");
+    expect(eq).toHaveBeenCalledWith("cd.kind", "VOID");
+    expect(eq).toHaveBeenCalledWith("cd.status", "VOID_ACCEPTED");
     expect(isNotNull).toHaveBeenCalledWith("cd.adeTransactionId");
     expect(and).toHaveBeenCalled();
   });
@@ -191,6 +217,86 @@ describe("fetchPublicReceipt", () => {
     expect(result?.biz.businessName).toBe("Negozio Test");
     expect(result?.lines).toHaveLength(1);
     expect(result?.lines[0].description).toBe("Prodotto A");
+  });
+
+  // v1.7.0: la ricevuta di annullamento. Un VOID non ha righe proprie —
+  // commercial_document_lines e' popolata solo per i SALE — quindi ristampa
+  // quelle della vendita annullata, e porta con se' il progressivo originale
+  // per il blocco "Documento di riferimento".
+  it("su un VOID ritorna le righe della vendita annullata e la vendita stessa", async () => {
+    const voidDoc = {
+      ...MOCK_DOC,
+      id: VOID_UUID,
+      kind: "VOID",
+      status: "VOID_ACCEPTED",
+      adeProgressive: "DCW2026/5111-0002",
+      voidedDocumentId: VALID_UUID,
+    };
+
+    mockSelect.mockReset();
+    mockSelect
+      .mockReturnValueOnce(makeSelectBuilder([{ doc: voidDoc, biz: MOCK_BIZ }]))
+      .mockReturnValueOnce(makeSelectBuilder([MOCK_DOC]))
+      .mockReturnValueOnce(makeSelectBuilder(MOCK_LINES));
+
+    const result = await fetchPublicReceipt(VOID_UUID);
+
+    expect(result?.doc.kind).toBe("VOID");
+    expect(result?.voidedSale?.adeProgressive).toBe("DCW2026/5111-0001");
+    expect(result?.lines).toHaveLength(1);
+    expect(eq).toHaveBeenCalledWith("cdl.documentId", VALID_UUID);
+  });
+
+  // La FK voided_document_id e' ON DELETE SET NULL: un annullo puo' restare
+  // orfano. Senza le righe dell'originale meglio un 404 di una ricevuta
+  // mutila (stessa logica di REVIEW.md #7).
+  it("ritorna null per un VOID senza voidedDocumentId", async () => {
+    mockSelect.mockReset();
+    mockSelect.mockReturnValueOnce(
+      makeSelectBuilder([
+        {
+          doc: {
+            ...MOCK_DOC,
+            id: VOID_UUID,
+            kind: "VOID",
+            status: "VOID_ACCEPTED",
+            voidedDocumentId: null,
+          },
+          biz: MOCK_BIZ,
+        },
+      ]),
+    );
+
+    expect(await fetchPublicReceipt(VOID_UUID)).toBeNull();
+  });
+
+  it("ritorna null per un VOID la cui vendita annullata non esiste piu'", async () => {
+    mockSelect.mockReset();
+    mockSelect
+      .mockReturnValueOnce(
+        makeSelectBuilder([
+          {
+            doc: {
+              ...MOCK_DOC,
+              id: VOID_UUID,
+              kind: "VOID",
+              status: "VOID_ACCEPTED",
+              voidedDocumentId: VALID_UUID,
+            },
+            biz: MOCK_BIZ,
+          },
+        ]),
+      )
+      .mockReturnValueOnce(makeSelectBuilder([]));
+
+    expect(await fetchPublicReceipt(VOID_UUID)).toBeNull();
+  });
+
+  // Su una vendita `voidedSale` resta null: e' il discriminante che dice al
+  // renderer quale dei due layout AdE usare.
+  it("su un SALE lascia voidedSale a null", async () => {
+    const result = await fetchPublicReceipt(VALID_UUID);
+    expect(result?.voidedSale).toBeNull();
   });
 
   it("accetta UUID in maiuscolo (case-insensitive)", async () => {

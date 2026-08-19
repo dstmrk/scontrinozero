@@ -46,6 +46,7 @@ const MOCK_RECEIPT_DATA = {
     vatNumber: "12345678901",
   },
   lines: [],
+  voidedSale: null,
 };
 
 // ─── Tests ────────────────────────────────────────────────────────────────
@@ -75,6 +76,21 @@ describe("PublicReceiptPage rate limiting", () => {
 
     expect(screen.getByText("Bar Mario")).toBeInTheDocument();
     expect(mockFetchPublicReceipt).toHaveBeenCalledWith(VALID_DOC_ID);
+  });
+
+  // v1.7.0: un annullo non deve essere reso con il layout di vendita, che lo
+  // presenterebbe come uno scontrino valido. Finche' manca il layout dedicato
+  // (HAR.md #16a) la pagina pubblica non lo serve affatto.
+  it("chiama notFound() per un annullo finche' manca il layout dedicato", async () => {
+    mockFetchPublicReceipt.mockResolvedValue({
+      ...MOCK_RECEIPT_DATA,
+      voidedSale: { id: "doc-1", adeProgressive: "ABC-123" },
+    });
+
+    // Il mock di notFound() lancia, come il vero: la pagina non completa
+    // il render.
+    await expect(renderPage()).rejects.toThrow();
+    expect(mockNotFound).toHaveBeenCalled();
   });
 
   it("renders the rate-limit message after exceeding 60 requests per IP", async () => {
