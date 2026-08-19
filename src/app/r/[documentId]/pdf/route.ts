@@ -44,7 +44,7 @@ export async function GET(
     return Response.json({ error: "Documento non trovato." }, { status: 404 });
   }
 
-  // TODO(v1.7.0): il layout della ricevuta di annullamento (HAR.md #16a) e' in
+  // REVIEW.md #85 — il layout della ricevuta di annullamento (HAR.md #16a) e' in
   // lavorazione dai template ufficiali AdE. `fetchPublicReceipt` gia' assembla
   // il dato per un VOID (righe e progressivo dell'originale in `voidedSale`),
   // ma finche' manca il render un annullo qui verrebbe presentato col layout di

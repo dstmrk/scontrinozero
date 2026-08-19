@@ -368,8 +368,9 @@ PDF di annullo stampato dall'AdE è ora misurato e trascritto in `HAR.md` voce
   — **non** `createdAt`, che precede la risposta AdE di 2-5s.
 
 **Da fare.** Solo la resa: un `kind` esplicito nei tre renderer (oggi è
-implicitamente "sempre SALE"), e la rimozione dei tre guard `TODO(v1.7.0)` che
-oggi rifiutano un VOID in `src/app/api/documents/[documentId]/pdf/route.ts`,
+implicitamente "sempre SALE"), e la rimozione dei tre guard che oggi rifiutano
+un VOID — marcati `REVIEW.md #85` nel sorgente — in
+`src/app/api/documents/[documentId]/pdf/route.ts`,
 `src/app/r/[documentId]/pdf/route.ts` e `src/app/r/[documentId]/page.tsx` —
 sono lì per non presentare un annullo col layout di vendita, cioè come uno
 scontrino valido. Nello stesso passaggio le superfici dovrebbero mostrare

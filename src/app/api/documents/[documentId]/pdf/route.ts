@@ -138,7 +138,7 @@ export async function GET(
 
   const { doc, biz, lines, voidedSale } = queryResult;
 
-  // TODO(v1.7.0): il layout della ricevuta di annullamento (HAR.md #16a) è in
+  // REVIEW.md #85 — il layout della ricevuta di annullamento (HAR.md #16a) è in
   // lavorazione a partire dai template ufficiali AdE. Il dato è già tutto qui —
   // `doc` (progressivo e ade_registered_at dell'annullo), `voidedSale`
   // (progressivo di riferimento) e `lines` (righe dell'originale): manca solo
