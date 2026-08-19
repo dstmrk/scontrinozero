@@ -29,6 +29,7 @@ vi.mock("@/db/schema", () => ({
     kind: "cd.kind",
     status: "cd.status",
     createdAt: "cd.created_at",
+    adeRegisteredAt: "cd.ade_registered_at",
     adeProgressive: "cd.ade_progressive",
     adeTransactionId: "cd.ade_transaction_id",
     publicRequest: "cd.public_request",
@@ -98,7 +99,9 @@ const FAKE_SALE_DOC = {
   status: "ACCEPTED",
   adeTransactionId: "trx-001",
   adeProgressive: "DCW2026/5111-2188",
-  createdAt: new Date("2026-02-15T10:00:00Z"),
+  // Deliberatamente diverse: l'INSERT precede la risposta AdE.
+  createdAt: new Date("2026-02-15T09:59:57Z"),
+  adeRegisteredAt: new Date("2026-02-15T10:00:00Z"),
 };
 
 const FAKE_DOC_LINES = [
@@ -127,6 +130,27 @@ describe("storico-actions", () => {
   });
 
   describe("searchReceipts", () => {
+    // La riga alimenta la ristampa su termica (`void-receipt-dialog`): senza il
+    // timestamp fiscale la carta porterebbe un orario diverso dal PDF.
+    it("espone ade_registered_at, distinto dal createdAt della riga", async () => {
+      mockSelect
+        .mockReturnValueOnce(makeCountBuilder(1))
+        .mockReturnValueOnce(makeDocsBuilder([FAKE_SALE_DOC]))
+        .mockReturnValueOnce(makeLinesBuilder(FAKE_DOC_LINES));
+
+      const { searchReceipts } = await import("./storico-actions");
+      const result = await searchReceipts(
+        "11111111-1111-4111-8111-111111111111",
+      );
+
+      expect(result.items[0].adeRegisteredAt).toEqual(
+        new Date("2026-02-15T10:00:00Z"),
+      );
+      expect(result.items[0].createdAt).toEqual(
+        new Date("2026-02-15T09:59:57Z"),
+      );
+    });
+
     it("returns receipts with computed totals and sorted lines", async () => {
       mockSelect
         .mockReturnValueOnce(makeCountBuilder(1))

@@ -153,6 +153,7 @@ export async function searchReceipts(
         adeProgressive: commercialDocuments.adeProgressive,
         adeTransactionId: commercialDocuments.adeTransactionId,
         createdAt: commercialDocuments.createdAt,
+        adeRegisteredAt: commercialDocuments.adeRegisteredAt,
         // Serve alla ristampa su termica: la copia consegnata al cliente deve
         // riportare il metodo di pagamento REALE del documento trasmesso
         // all'AdE, non un default.
@@ -191,6 +192,7 @@ export async function searchReceipts(
       adeProgressive: doc.adeProgressive,
       adeTransactionId: doc.adeTransactionId,
       createdAt: doc.createdAt,
+      adeRegisteredAt: doc.adeRegisteredAt,
       paymentMethod: publicRequest.paymentMethod,
       lotteryCode: publicRequest.lotteryCode,
       total: docTotal.toFixed(2),

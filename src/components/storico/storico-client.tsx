@@ -330,7 +330,7 @@ export function StoricoClient({
                     }
                   >
                     <td className="px-3 py-2 whitespace-nowrap">
-                      {formatDate(receipt.createdAt)}
+                      {formatDate(receipt.adeRegisteredAt)}
                     </td>
                     <td className="px-3 py-2">
                       <span className="font-mono text-xs">
