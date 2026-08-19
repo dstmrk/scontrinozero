@@ -7,10 +7,10 @@ import { getClientIp } from "@/lib/get-client-ip";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
 import { computeReceiptTotals } from "@/lib/receipts/document-lines";
-import { formatFiscalDateTime } from "@/lib/date-utils";
 import {
   PAYMENT_LABELS,
   formatBusinessAddressLines,
+  formatReceiptDateTime,
   formatReceiptPrice,
 } from "@/lib/receipt-format";
 import {
@@ -41,8 +41,13 @@ const pageLimiter = new RateLimiter({
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+/**
+ * Stessa resa di PDF e termica (`DD-MM-YYYY HH:MM`, ora italiana): le tre
+ * copie dello stesso documento non devono differire nemmeno nel separatore.
+ * Il layout AdE usa i trattini.
+ */
 function formatDate(date: Date): string {
-  return formatFiscalDateTime(new Date(date));
+  return formatReceiptDateTime(new Date(date));
 }
 
 // ─── Page ────────────────────────────────────────────────────────────────────
@@ -230,7 +235,7 @@ export default async function PublicReceiptPage({
 
           {/* Footer: data e numero documento, poi il codice lotteria */}
           <div className="space-y-1 px-6 py-4 text-center text-xs text-gray-500">
-            <p>{formatDate(doc.createdAt)}</p>
+            <p>{formatDate(doc.adeRegisteredAt)}</p>
             {doc.adeProgressive && (
               <p>
                 <span>DOCUMENTO N.</span>{" "}

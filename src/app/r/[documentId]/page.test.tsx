@@ -35,7 +35,8 @@ const MOCK_RECEIPT_DATA = {
     id: "doc-1",
     publicRequest: { paymentMethod: "PC" },
     adeProgressive: "ABC-123",
-    createdAt: new Date("2026-01-01T10:00:00Z"),
+    createdAt: new Date("2026-01-01T09:59:57Z"),
+    adeRegisteredAt: new Date("2026-01-01T10:00:00Z"),
   },
   biz: {
     businessName: "Bar Mario",
@@ -341,6 +342,14 @@ describe("PublicReceiptPage — layout AdE", () => {
     await renderReceipt();
     expect(screen.getByText("DOCUMENTO N.")).toBeInTheDocument();
     expect(screen.queryByText("Identificativo AdE")).not.toBeInTheDocument();
+  });
+
+  it("mostra ade_registered_at, non il createdAt della riga", async () => {
+    await renderReceipt();
+    // 10:00 UTC = 11:00 a Roma (CET). Il createdAt della riga e' 09:59:57Z:
+    // se la pagina lo stampasse si vedrebbe 10:59, tre secondi prima del PDF.
+    expect(screen.getByText("01-01-2026 11:00")).toBeInTheDocument();
+    expect(screen.queryByText("01-01-2026 10:59")).not.toBeInTheDocument();
   });
 
   it("mostra il codice lotteria sotto la caption `Codice Lotteria`", async () => {
