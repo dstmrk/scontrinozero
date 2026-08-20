@@ -166,8 +166,10 @@ export default function StampareScontrinoTermicaPage() {
             <strong>
               Impostazioni → Preferenze → Stampante → Collega stampante
             </strong>
-            . Il browser mostra la lista dei dispositivi trovati: cerca un nome
-            simile a <em>POS-58</em>, <em>BT Printer</em> o il modello della tua
+            {
+              ". Il browser mostra la lista dei dispositivi trovati: cerca un nome simile a "
+            }
+            <em>POS-58</em>, <em>BT Printer</em> o il modello della tua
             stampante, selezionalo e conferma.
           </li>
           <li>
