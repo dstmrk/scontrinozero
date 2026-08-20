@@ -233,7 +233,8 @@ post-deploy, procedura T&C/Privacy: skill `deploy-release`.
 | Unlimited   | —       | —       | Invite-only, `plan='unlimited'` su `profiles`                                                                           |
 
 Feature gate canonico in `src/lib/plans.ts`. Trial 30 giorni Starter/Pro, no
-carta all'iscrizione. P.IVA UNIQUE nel DB (anti-abuso trial).
+carta all'iscrizione: include le feature Pro visibili **e** la Developer API
+(1 chiave, contro le 3 di Pro). P.IVA UNIQUE nel DB (anti-abuso trial).
 
 ## Skill dominio-specifiche (`.claude/skills/`)
 
