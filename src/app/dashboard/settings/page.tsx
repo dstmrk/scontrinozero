@@ -9,10 +9,8 @@ import {
   referralRedemptions,
 } from "@/db/schema";
 import { ReferralSection } from "@/components/settings/referral-section";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { VAT_DESCRIPTIONS, type VatCode, VAT_CODES } from "@/types/cassa";
-import { signOut } from "@/server/auth-actions";
 import { AccountDeleteSection } from "@/components/settings/account-delete-section";
 import { ExportDataSection } from "@/components/settings/export-data-section";
 import { AdeCredentialsSection } from "@/components/settings/ade-credentials-section";
@@ -178,57 +176,6 @@ export default async function SettingsPage({
       <ScrollToHash />
       <h1 className="text-2xl font-bold">Impostazioni</h1>
 
-      {/* Account — profilo, sicurezza, sessione */}
-      <section className="space-y-4">
-        <h2 className={sectionHeadingClass}>Account</h2>
-        <div className="space-y-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Profilo</CardTitle>
-              <EditProfileSection
-                firstName={profile?.firstName ?? null}
-                lastName={profile?.lastName ?? null}
-              />
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <p>
-                <span className="text-muted-foreground">Nome:</span>{" "}
-                {displayName || "Non impostato"}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Email:</span>{" "}
-                {user.email}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Sicurezza</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ChangePasswordSection />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Sessione</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground mb-4 text-sm">
-                Esci dall&apos;account su questo dispositivo.
-              </p>
-              <form action={signOut}>
-                <Button variant="outline" type="submit">
-                  Esci
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
       {/* Attività e fisco — dati attività, credenziali AdE */}
       <section className="space-y-4">
         <h2 className={sectionHeadingClass}>Attività e fisco</h2>
@@ -314,6 +261,36 @@ export default async function SettingsPage({
           </Card>
         </div>
       </section>
+
+      {/* Account — profilo e accesso.
+          Card unica senza heading di sezione: nome/email sono read-only e il
+          cambio password è un dialog, quindi tre card separate erano tre
+          header per tre righe di contenuto. Il logout NON vive qui: è già
+          nell'header del dashboard sia su mobile (icona) sia su desktop
+          (bottone) — vedi src/app/dashboard/layout.tsx. */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Account</CardTitle>
+          <EditProfileSection
+            firstName={profile?.firstName ?? null}
+            lastName={profile?.lastName ?? null}
+          />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <p>
+              <span className="text-muted-foreground">Nome:</span>{" "}
+              {displayName || "Non impostato"}
+            </p>
+            <p>
+              <span className="text-muted-foreground">Email:</span> {user.email}
+            </p>
+          </div>
+          <div className="border-t pt-4">
+            <ChangePasswordSection />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Abbonamento — piano corrente, referral.
           Reso solo se almeno una card è presente, per non lasciare un
