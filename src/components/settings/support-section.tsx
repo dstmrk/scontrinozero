@@ -2,7 +2,7 @@ import { ExternalLink, Mail } from "lucide-react";
 import { buildSupportMailtoHref } from "@/lib/contact";
 
 /**
- * Contenuto della card "Supporto" delle impostazioni: rende l'Help Center e una
+ * Contenuto della card "Assistenza" delle impostazioni: rende l'Help Center e una
  * email pre-compilata. Componente presentazionale puro (nessun hook), così è
  * renderizzabile nel server component `settings/page.tsx` e testabile con
  * `render()`.

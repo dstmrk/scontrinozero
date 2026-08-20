@@ -12,8 +12,8 @@ Obiettivo corrente: **aumentare gli utenti e semplificare l'adozione**. Le prime
 release riducono l'attrito d'iscrizione; le successive completano l'operatività al
 banco e le feature Pro committed.
 
-| Versione   | Descrizione  |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Versione   | Descrizione                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **v1.8.0** | **Sync documenti commerciali da AdE** (feature **Pro**, ex #107): recupero/importazione dei documenti commerciali/corrispettivi storici emessi, per riconciliazione e continuità dati. _Committed («in arrivo» sul Pro), pianificata dopo stampa scontrino e storno. Groundwork già presente: `searchDocuments`/`getDocument` in `src/lib/ade/client.ts` (oggi usati solo per recovery interno)._ |
 
 > **Oltre v1.8 — app nativa iOS/Android (v2.0, in valutazione).** Due capability
@@ -57,6 +57,17 @@ completezza. Coerente con il principio "Minimalismo" del piano.
   `src/server/catalog-actions.ts`, nessun limit/offset). Serve solo ai Pro con
   cataloghi grandi (Starter è capato a 5, `STARTER_CATALOG_LIMIT` in
   `src/lib/plans-shared.ts`). _Trigger:_ Pro con cataloghi oltre ~50 prodotti.
+- **Badge proattivo stato AdE** — oggi il collegamento all'AdE si scopre rotto
+  solo _reagendo_: il `CieReauthBanner`
+  (`src/components/ade/cie-reauth-banner.tsx`) compare in cassa/storno **dopo**
+  che un'emissione è fallita con `reauthRequired`, e le credenziali mai
+  verificate si vedono solo entrando in Impostazioni → Credenziali AdE. Un
+  indicatore in cima al dashboard (o nell'header) quando `verifiedAt` è nullo o
+  la sessione è scaduta anticiperebbe la scoperta al momento giusto, prima del
+  banco. Emersa dal pass UX del menu Impostazioni (v1.7.x): tenuta fuori da quel
+  PR perché è una feature a sé, non un riordino di card. _Trigger:_ segnalazioni
+  di emissioni fallite per credenziali scadute, o eventi `ade_user_error`
+  ricorrenti sullo stesso utente in Sentry.
 - **Pagamento misto** (es. parte contanti + parte carta) — moltiplica i casi di
   pagamento e i test su totale/arrotondamenti (`CLAUDE.md` regola 17).
   _Trigger:_ richiesta reale.
