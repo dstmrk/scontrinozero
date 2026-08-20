@@ -7,7 +7,7 @@ import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { getReceiptDetail, searchReceipts } from "@/server/storico-actions";
 import { VoidReceiptDialog } from "./void-receipt-dialog";
-import type { ReceiptPrintHeader } from "@/lib/printing/types";
+import type { ReceiptPrintProfile } from "@/lib/receipts/print-profile";
 import { ExportCsvButton } from "@/app/dashboard/storico/export-csv-button";
 import { Button } from "@/components/ui/button";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -97,7 +97,7 @@ interface StoricoClientProps {
   readonly plan: Plan;
   readonly trialStartedAt?: Date | null;
   /** Intestazione esercente per la ristampa su termica; `null` se incompleta. */
-  readonly printHeader?: ReceiptPrintHeader | null;
+  readonly printProfile?: ReceiptPrintProfile | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -113,7 +113,7 @@ export function StoricoClient({
   initialStatus,
   plan,
   trialStartedAt = null,
-  printHeader = null,
+  printProfile = null,
 }: StoricoClientProps) {
   const router = useRouter();
   const today = new Date();
@@ -427,7 +427,7 @@ export function StoricoClient({
         <VoidReceiptDialog
           receipt={selected}
           businessId={businessId}
-          printHeader={printHeader}
+          printProfile={printProfile}
           onClose={() => setSelected(null)}
           onSuccess={handleVoidSuccess}
         />

@@ -22,16 +22,17 @@ import { VAT_LABELS } from "@/types/cassa";
 import type { VatCode } from "@/types/cassa";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { PrintReceiptButton } from "@/components/printing/print-receipt-button";
-import type {
-  PrintableReceipt,
-  ReceiptPrintHeader,
-} from "@/lib/printing/types";
+import type { PrintableReceipt } from "@/lib/printing/types";
+import type { ReceiptPrintProfile } from "@/lib/receipts/print-profile";
 
 interface VoidReceiptDialogProps {
   readonly receipt: ReceiptListItem;
   readonly businessId: string;
-  /** Intestazione esercente per la ristampa su termica; `null` se incompleta. */
-  readonly printHeader?: ReceiptPrintHeader | null;
+  /**
+   * Intestazione esercente e messaggio di cortesia per la ristampa su termica;
+   * `null` se l'intestazione e' incompleta (il bottone ripiega sul PDF).
+   */
+  readonly printProfile?: ReceiptPrintProfile | null;
   readonly onClose: () => void;
   readonly onSuccess: (result: VoidReceiptResult, originalId: string) => void;
 }
@@ -51,7 +52,7 @@ type DialogView = "detail" | "confirmingVoid" | "voidSuccess" | "qr";
 export function VoidReceiptDialog({
   receipt,
   businessId,
-  printHeader = null,
+  printProfile = null,
   onClose,
   onSuccess,
 }: VoidReceiptDialogProps) {
@@ -77,12 +78,16 @@ export function VoidReceiptDialog({
     // `searchReceipts`) produrrebbe uno scontrino termico con zero articoli e
     // "TOTALE COMPLESSIVO 0,00" consegnato al cliente. Senza `printableReceipt`
     // il bottone ripiega sul PDF.
-    if (!printHeader || !receipt.adeProgressive || receipt.lines.length === 0) {
+    if (
+      !printProfile ||
+      !receipt.adeProgressive ||
+      receipt.lines.length === 0
+    ) {
       return null;
     }
 
     const base = {
-      header: printHeader,
+      header: printProfile.header,
       lines: receipt.lines,
     };
 
@@ -100,16 +105,20 @@ export function VoidReceiptDialog({
       };
     }
 
+    // La ristampa di una vendita porta il messaggio di cortesia come la stampa
+    // in cassa e come il PDF dello stesso documento: le rese non divergono.
+    // L'annullo qui sopra non lo porta, e il tipo lo impedisce.
     return {
       ...base,
       kind: "SALE",
       paymentMethod: receipt.paymentMethod,
       lotteryCode: receipt.lotteryCode,
+      footerNote: printProfile.footerNote,
       adeRegisteredAt: new Date(receipt.adeRegisteredAt),
       adeProgressive: receipt.adeProgressive,
       publicUrl: `${globalThis.location.origin}/r/${receipt.id}`,
     };
-  }, [printHeader, receipt]);
+  }, [printProfile, receipt]);
 
   const mutation = useMutation({
     mutationFn: async () => {

@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { VoidReceiptDialog } from "./void-receipt-dialog";
 import { voidReceipt } from "@/server/void-actions";
 import type { UsePrinterResult } from "@/hooks/use-printer";
-import type { ReceiptPrintHeader } from "@/lib/printing/types";
+import type { ReceiptPrintProfile } from "@/lib/receipts/print-profile";
 import type { ReceiptListItem } from "@/types/storico";
 
 vi.mock("@/server/void-actions", () => ({
@@ -148,13 +148,16 @@ describe("VoidReceiptDialog — QR code", () => {
 });
 
 describe("VoidReceiptDialog — ristampa (REVIEW #78)", () => {
-  const PRINT_HEADER: ReceiptPrintHeader = {
-    businessName: "Bar da Mario",
-    vatNumber: "12345678901",
-    address: null,
-    city: null,
-    province: null,
-    zipCode: null,
+  const PRINT_PROFILE: ReceiptPrintProfile = {
+    header: {
+      businessName: "Bar da Mario",
+      vatNumber: "12345678901",
+      address: null,
+      city: null,
+      province: null,
+      zipCode: null,
+    },
+    footerNote: "Arrivederci e grazie!",
   };
 
   it("stampa sulla termica uno scontrino con righe", async () => {
@@ -162,7 +165,7 @@ describe("VoidReceiptDialog — ristampa (REVIEW #78)", () => {
       <VoidReceiptDialog
         {...defaultProps}
         receipt={ACCEPTED_RECEIPT}
-        printHeader={PRINT_HEADER}
+        printProfile={PRINT_PROFILE}
       />,
     );
 
@@ -174,6 +177,27 @@ describe("VoidReceiptDialog — ristampa (REVIEW #78)", () => {
     expect(openSpy).not.toHaveBeenCalled();
   });
 
+  // Il PDF dello stesso documento porta la nota (gate risolto server-side):
+  // se la ristampa termica non la portasse, due copie dello stesso scontrino
+  // uscirebbero diverse.
+  it("porta il messaggio di cortesia nella ristampa di una vendita", async () => {
+    renderWithQuery(
+      <VoidReceiptDialog
+        {...defaultProps}
+        receipt={ACCEPTED_RECEIPT}
+        printProfile={PRINT_PROFILE}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Stampa/ }));
+
+    await waitFor(() => expect(mockPrinter.current.print).toHaveBeenCalled());
+    const printed = vi.mocked(mockPrinter.current.print).mock.calls[0][0];
+    expect(printed.kind).toBe("SALE");
+    if (printed.kind !== "SALE") throw new Error("attesa una vendita");
+    expect(printed.footerNote).toBe("Arrivederci e grazie!");
+  });
+
   it("ripiega sul PDF quando il documento non ha righe", async () => {
     // Un documento senza righe (dato degenere/legacy: `linesByDocId.get(id) ??
     // []` in searchReceipts) stamperebbe uno scontrino termico con zero
@@ -183,7 +207,7 @@ describe("VoidReceiptDialog — ristampa (REVIEW #78)", () => {
       <VoidReceiptDialog
         {...defaultProps}
         receipt={{ ...ACCEPTED_RECEIPT, lines: [] }}
-        printHeader={PRINT_HEADER}
+        printProfile={PRINT_PROFILE}
       />,
     );
 
@@ -308,13 +332,16 @@ describe("VoidReceiptDialog — descrizioni lunghe senza scroll orizzontale", ()
 // ---------------------------------------------------------------------------
 
 describe("VoidReceiptDialog — ricevuta di annullamento", () => {
-  const PRINT_HEADER: ReceiptPrintHeader = {
-    businessName: "Bar Mario",
-    vatNumber: "12345678901",
-    address: "Via Roma 1",
-    city: "Milano",
-    province: "MI",
-    zipCode: "20100",
+  const PRINT_PROFILE: ReceiptPrintProfile = {
+    header: {
+      businessName: "Bar Mario",
+      vatNumber: "12345678901",
+      address: "Via Roma 1",
+      city: "Milano",
+      province: "MI",
+      zipCode: "20100",
+    },
+    footerNote: "Arrivederci e grazie!",
   };
 
   it("offre il link alla ricevuta di annullamento su una vendita annullata", () => {
@@ -342,7 +369,7 @@ describe("VoidReceiptDialog — ricevuta di annullamento", () => {
       <VoidReceiptDialog
         {...defaultProps}
         receipt={VOIDED_RECEIPT}
-        printHeader={PRINT_HEADER}
+        printProfile={PRINT_PROFILE}
       />,
     );
 
@@ -366,7 +393,7 @@ describe("VoidReceiptDialog — ricevuta di annullamento", () => {
       <VoidReceiptDialog
         {...defaultProps}
         receipt={VOIDED_RECEIPT}
-        printHeader={PRINT_HEADER}
+        printProfile={PRINT_PROFILE}
       />,
     );
 

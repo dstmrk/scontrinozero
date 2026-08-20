@@ -80,7 +80,7 @@ export default async function StoricoPage({
       initialStatus={statusParam}
       plan={planInfo.plan}
       trialStartedAt={planInfo.trialStartedAt}
-      printHeader={printProfile?.header ?? null}
+      printProfile={printProfile}
     />
   );
 }
