@@ -105,13 +105,24 @@ export interface SaleDocumentPdfData extends CommonDocumentPdfData {
   lotteryCode?: string | null;
   /**
    * Messaggio di cortesia dell'esercente (feature Pro), stampato in coda dove
-   * il layout standard AdE scrive "Arrivederci e grazie!". Arriva gia' risolto
+   * il layout standard AdE scrive "Arrivederci e Grazie!". Arriva gia' risolto
    * dal gate di piano (`resolveReceiptFooterNote`): qui `null` significa solo
    * "non stampare nulla".
    *
-   * Solo sulla vendita: un "Grazie e arrivederci!" su una ricevuta di
-   * ANNULLAMENTO stonerebbe, e l'unione discriminata lo rende irraggiungibile
-   * su un VOID invece di affidarlo a un controllo a runtime.
+   * **Solo sulla vendita, e qui divergiamo dal layout AdE di proposito.** Nel
+   * template il saluto sta su vendita *e* annullo (pagg. 1 e 4); manca solo sul
+   * reso (pag. 3) e sui layout compatti (pag. 2). Non lo stampiamo sull'annullo
+   * perche' i due testi non sono la stessa cosa: quello dell'AdE e' una
+   * stringa fissa e neutra, che regge anche in coda a uno storno; il nostro e'
+   * testo libero dell'esercente, in pratica spesso promozionale — e un
+   * "10% sul prossimo acquisto" in fondo a un documento che annulla una
+   * vendita e' un'altra cosa da un congedo.
+   *
+   * L'unione discriminata rende il campo irraggiungibile su un VOID, invece di
+   * affidare la regola a un controllo a runtime in ogni renderer.
+   *
+   * ⚠️ Quando arrivera' il reso (`R`/`RX`): li' il saluto va omesso comunque,
+   * e' l'unico dei quattro layout in cui l'AdE non lo mette.
    */
   footerNote?: string | null;
 }
@@ -457,7 +468,9 @@ function drawFooter(
 
   // Messaggio di cortesia: dopo il blocco fiscale (data, numero, lotteria) e
   // prima del QR, che e' un'appendice digitale — sulla carta la riga di
-  // cortesia chiude il documento.
+  // cortesia chiude il documento, come "Arrivederci e Grazie!" nel layout AdE,
+  // che sta dopo la matricola RT (che noi non abbiamo). Perche' solo sulla
+  // vendita: v. il campo `footerNote` in `SaleDocumentPdfData`.
   if (data.kind === "SALE") {
     const noteLines = receiptFooterNoteLines(data.footerNote);
     if (noteLines.length > 0) {
