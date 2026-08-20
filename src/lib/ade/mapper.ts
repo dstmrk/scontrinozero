@@ -145,53 +145,57 @@ function getVatPercentage(vatCode: string): number {
 /**
  * Computes all AdE amounts for a sale line.
  *
- * For lines with IVA rate: unitPriceGross is IVA-inclusive (lordo).
- *   prezzoLordo = unitPriceGross * quantity
- *   imponibile = prezzoLordo / (1 + rate/100)   (scorporo IVA)
- *   scontoLordo = unitDiscount * quantity
- *   imponibileNetto = imponibile - scontoLordo / (1 + rate/100)
- *   importoIVA = totale - imponibileNetto
- *   totale = prezzoLordo - scontoLordo
+ * Formule misurate sui payload verbatim del portale AdE (HAR.md voci #2, #10,
+ * #12; oracoli in `mapper.test.ts`). I nomi dei campi sono fuorvianti: il
+ * suffisso *-Unitario* significa **al netto dell'IVA**, non "per unita".
+ * Detta `r` l'aliquota in percentuale (0 per le nature N1-N6) e `d = 1 + r/100`:
  *
- * For lines with natura (N1-N6): unitPriceGross = prezzoUnitario (no IVA).
+ *   prezzoLordo     = unitPriceGross                (prezzo UNITARIO, NON x qta)
+ *   prezzoUnitario  = prezzoLordo / d               (netto unitario)
+ *   scontoLordo     = unitDiscount * quantity       (sconto DELLA riga, lordo)
+ *   scontoUnitario  = scontoLordo / d               (sconto della riga, netto)
+ *   imponibile      = lordo di riga / d
+ *   imponibileNetto = imponibile - scontoUnitario
+ *   importoIVA      = imponibileNetto * r / 100
+ *   totale          = lordo di riga - scontoLordo
+ *
+ * Sulle nature `d === 1`: la formula generale degenera nel caso giusto
+ * (prezzoUnitario = prezzoLordo, importoIVA = 0), nessun ramo separato serve.
  */
 export function computeLineAmounts(
   line: SaleLineRequest,
 ): AdeElementoContabile {
   const vatPct = getVatPercentage(line.vatCode);
+  const divisor = 1 + vatPct / 100;
+
   // Canonical per-line cents (regola 17 / REVIEW.md #57): round the line gross
-  // (and discount) to integer cents BEFORE any further math, so prezzoLordo /
-  // totale — e a cascata l'ammontareComplessivo del documento — riconciliano al
-  // centesimo con `payments[0].amount` (calcInputLinesTotalCents) e con il
-  // PDF/pagina pubblica (computeReceiptTotals), tutti derivati da
-  // round(price * qty * 100) per riga. Sommare i lordi float a 8 decimali
-  // divergeva di 1 cent sulle quantità frazionarie (vendita a peso).
-  // No-op per quantità intere con prezzo a 2 decimali (round(x*100)/100 === x).
+  // (and discount) to integer cents BEFORE any further math, so `totale` — e a
+  // cascata l'ammontareComplessivo del documento — riconcilia al centesimo con
+  // `payments[0].amount` (calcInputLinesTotalCents) e con il PDF/pagina
+  // pubblica (computeReceiptTotals), tutti derivati da round(price * qty * 100)
+  // per riga. Sommare i lordi float a 8 decimali divergeva di 1 cent sulle
+  // quantità frazionarie (vendita a peso). No-op per quantità intere con prezzo
+  // a 2 decimali (round(x*100)/100 === x).
   const lineGrossCents = Math.round(line.unitPriceGross * line.quantity * 100);
   const discountCents = Math.round(line.unitDiscount * line.quantity * 100);
-  const grossTotal = lineGrossCents / 100;
-  const discountTotal = discountCents / 100;
-  const netGross = (lineGrossCents - discountCents) / 100;
+  const lineGross = lineGrossCents / 100;
+  const scontoLordo = discountCents / 100;
+  const totale = (lineGrossCents - discountCents) / 100;
 
-  let imponibile: number;
-  let imponibileNetto: number;
-  let importoIVA: number;
-  let prezzoUnitario: number;
-
-  if (vatPct === 0) {
-    // Nature codes: no IVA, prezzoUnitario = prezzoLordo
-    imponibile = grossTotal;
-    imponibileNetto = netGross;
-    importoIVA = 0;
-    prezzoUnitario = grossTotal;
-  } else {
-    // Scorporo IVA dal lordo
-    const divisor = 1 + vatPct / 100;
-    imponibile = Math.round((grossTotal / divisor) * 100) / 100;
-    imponibileNetto = Math.round((netGross / divisor) * 100) / 100;
-    importoIVA = Math.round((netGross - imponibileNetto) * 100) / 100;
-    prezzoUnitario = Math.round((grossTotal / divisor) * 100) / 100;
-  }
+  // Scomposizione netto/IVA a PIENA precisione: il portale non arrotonda ai
+  // centesimi e serializza a 8 decimali (HAR.md voce #10). Arrotondando qui, un
+  // documento con sconto su riga con IVA stampa `imponibile netto + IVA ≠
+  // totale complessivo` — un centesimo di sbilancio su un documento fiscale
+  // irreversibile. `toAdeAmount8` arrotonda (non tronca) in serializzazione.
+  // `imponibile` deriva dal lordo di riga cent-esatto, non da
+  // `prezzoUnitario × quantity`: sui due oracoli HAR i due calcoli coincidono,
+  // ma solo il primo tiene l'invariante `imponibileNetto + importoIVA ===
+  // totale` anche sulle quantità frazionarie.
+  const prezzoUnitario = line.unitPriceGross / divisor;
+  const imponibile = lineGross / divisor;
+  const scontoUnitario = scontoLordo / divisor;
+  const imponibileNetto = imponibile - scontoUnitario;
+  const importoIVA = (imponibileNetto * vatPct) / 100;
 
   return {
     idElementoContabile: "",
@@ -199,15 +203,15 @@ export function computeLineAmounts(
     reso: toAdeAmount(0), // 2d (HAR: "0.00")
     quantita: toAdeAmount(line.quantity), // 2d (HAR: "1.00")
     descrizioneProdotto: line.description,
-    prezzoLordo: toAdeAmount8(grossTotal), // 8d (HAR: "3.20000000")
-    prezzoUnitario: toAdeAmount8(prezzoUnitario), // 8d (HAR: "3.20000000")
-    scontoUnitario: toAdeAmount8(line.unitDiscount), // 8d (HAR: "1.50000000")
-    scontoLordo: toAdeAmount8(discountTotal), // 8d (HAR: "1.50000000")
+    prezzoLordo: toAdeAmount8(line.unitPriceGross), // 8d (HAR: "3.00000000")
+    prezzoUnitario: toAdeAmount8(prezzoUnitario), // 8d (HAR: "2.45901639")
+    scontoUnitario: toAdeAmount8(scontoUnitario), // 8d (HAR: "0.81967213")
+    scontoLordo: toAdeAmount8(scontoLordo), // 8d (HAR: "1.00000000")
     aliquotaIVA: line.vatCode,
-    importoIVA: toAdeAmount8(importoIVA), // 8d (HAR: "0.00000000")
-    imponibile: toAdeAmount8(imponibile), // 8d (HAR: "3.20000000")
-    imponibileNetto: toAdeAmount8(imponibileNetto), // 8d (HAR: "1.70000000")
-    totale: toAdeAmount8(netGross), // 8d (HAR: "1.70000000")
+    importoIVA: toAdeAmount8(importoIVA), // 8d (HAR: "0.90163934")
+    imponibile: toAdeAmount8(imponibile), // 8d (HAR: "4.91803279")
+    imponibileNetto: toAdeAmount8(imponibileNetto), // 8d (HAR: "4.09836066")
+    totale: toAdeAmount8(totale), // 8d (HAR: "5.00000000")
     omaggio: line.isGift ? "Y" : "N",
   };
 }
@@ -257,21 +261,39 @@ export function mapSaleToAdePayload(
 ): AdePayload {
   const elementiContabili = doc.lines.map(computeLineAmounts);
 
-  // Document totals (sez. 3.3): somma dei valori di riga come interi in cents,
-  // poi /100 (strategia canonica per-riga, regola 17 / REVIEW.md #57). Ogni
-  // campo di riga è già cent-esatto da `computeLineAmounts`; sommarli come cents
-  // evita il drift float e garantisce `ammontareComplessivo === sum(vendita[].importo)`
-  // (il payment è la somma degli stessi cents in receipt-service).
+  // Document totals (sez. 3.3, HAR.md voce #4). Due regimi di somma, non uno:
+  //
+  // - i LORDI (`scontoTotaleLordo`, `ammontareComplessivo`) si sommano come
+  //   interi in cents, poi /100 (strategia canonica per-riga, regola 17 /
+  //   REVIEW.md #57): è ciò che garantisce
+  //   `ammontareComplessivo === sum(vendita[].importo)`, dove il payment è la
+  //   somma degli stessi cents in receipt-service;
+  // - i NETTI (`totaleImponibile`, `scontoTotale`, `importoTotaleIva`) si
+  //   sommano a piena precisione sugli 8 decimali di riga, come fa il portale
+  //   (HAR.md voce #10). Arrotondarli ai centesimi sbilancerebbe di 1 cent il
+  //   PDF che l'AdE stampa appena c'è uno sconto su una riga con IVA.
   const sumLineCents = (pick: (el: AdeElementoContabile) => string): number =>
     elementiContabili.reduce(
       (sum, el) => sum + Math.round(Number.parseFloat(pick(el)) * 100),
       0,
     ) / 100;
 
-  const totaleImponibile = sumLineCents((el) => el.imponibile);
-  const scontoTotale = sumLineCents((el) => el.scontoLordo);
-  const importoTotaleIva = sumLineCents((el) => el.importoIVA);
-  const ammontareComplessivo = sumLineCents((el) => el.totale);
+  const sumLineFull = (pick: (el: AdeElementoContabile) => string): number =>
+    elementiContabili.reduce((sum, el) => sum + Number.parseFloat(pick(el)), 0);
+
+  const totaleImponibile = sumLineFull((el) => el.imponibile);
+  const scontoTotale = sumLineFull((el) => el.scontoUnitario);
+  const scontoTotaleLordo = sumLineCents((el) => el.scontoLordo);
+  const importoTotaleIva = sumLineFull((el) => el.importoIVA);
+  // Le righe omaggio concorrono a imponibile e sconti ma NON all'importo dovuto
+  // dal cliente (HAR.md voce #7): un omaggio non si incassa.
+  const ammontareComplessivo =
+    elementiContabili
+      .filter((el) => el.omaggio !== "Y")
+      .reduce(
+        (sum, el) => sum + Math.round(Number.parseFloat(el.totale) * 100),
+        0,
+      ) / 100;
 
   const vendita = mapPayments(doc.payments);
 
@@ -288,8 +310,8 @@ export function mapSaleToAdePayload(
     dataOra: toAdeDate(doc.date),
     multiAttivita: { codiceAttivita: "", descAttivita: "" },
     importoTotaleIva: toAdeAmount8(importoTotaleIva), // 8d (HAR: "0.00000000")
-    scontoTotale: toAdeAmount8(scontoTotale), // 8d (HAR: "2.50000000")
-    scontoTotaleLordo: toAdeAmount8(scontoTotale), // 8d (HAR: "2.50000000")
+    scontoTotale: toAdeAmount8(scontoTotale), // 8d netto (HAR: "0.09090909")
+    scontoTotaleLordo: toAdeAmount8(scontoTotaleLordo), // 8d lordo (HAR: "0.10000000")
     totaleImponibile: toAdeAmount8(totaleImponibile), // 8d (HAR: "5.20000000")
     ammontareComplessivo: toAdeAmount8(ammontareComplessivo), // 8d (HAR: "1.70000000")
     totaleNonRiscosso: toAdeAmount8(totaleNonRiscosso), // 8d (HAR: "0.00000000")
