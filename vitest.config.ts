@@ -9,6 +9,7 @@ import path from "path";
 const JSDOM_TS_TESTS = [
   "src/hooks/use-cassa.test.ts",
   "src/lib/safe-storage.test.ts",
+  "src/lib/deploy-skew.test.ts",
   "src/lib/pwa/install-prompt-store.test.ts",
   "src/lib/printing/support.test.ts",
   "src/lib/printing/printer-preferences.test.ts",

@@ -38,9 +38,9 @@ mcp__Sentry__search_issues({
 
 ---
 
-## Classificare un'issue archived: tre rami
+## Classificare un'issue archived: cinque rami
 
-Ogni issue archived ricade in uno di questi 3 rami. La classificazione
+Ogni issue archived ricade in uno di questi 5 rami. La classificazione
 guida l'azione, non viceversa.
 
 ### 1. Noise vero (bot/scanner, browser quirk non azionabile)
@@ -175,6 +175,51 @@ Due dettagli non negoziabili:
 - armare il throttle **solo** nel ramo che logga davvero: se lo si arma anche
   fuori produzione (o quando l'header c'è), il primo miss reale resta silenzioso
   per tutta la finestra.
+
+### 5. Deploy skew: non è un guasto, ma va gestito (non filtrato)
+
+Esempio canonico: **SCONTRINOZERO-Z** `UnrecognizedActionError: Server Action
+"<id>" was not found on the server` su `/onboarding`, un'ora dopo il deploy di
+`v1.7.2`.
+
+**Come riconoscerlo**: l'ID delle Server Action è generato da Next in modo NON
+deterministico **a ogni build**, quindi ogni release invalida gli ID in mano
+alle sessioni già aperte. Basta una scheda (o una finestra PWA, che nessuno
+chiude mai) caricata sulla release N-1 che invii un form dopo il rilascio della
+N. Non è prevenibile self-hosted: Skew Protection è di Vercel e
+`NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` riguarda il multi-istanza, mentre noi
+serviamo da un container solo. Le normali navigazioni invece si auto-guariscono
+(su build ID diverso Next fa una hard navigation): **solo le Server Action
+sono un vicolo cieco**.
+
+**Cosa NON fare**: filtrarlo in `beforeSend`. Il commento di
+`isBenignServerActionNotFound` (`src/lib/sentry-filters.ts`, SCONTRINOZERO-T)
+lo dice già — su `/_not-found` è un bot, sul path reale è skew genuino e va
+lasciato passare. È anche l'unica misura di quanti utenti prende lo skew a ogni
+release.
+
+**Cosa fare**: gestirlo nel boundary. `isDeploySkewError` +
+`recoverFromDeploySkew` (`src/lib/deploy-skew.ts`) riconoscono l'errore e
+ricaricano la pagina — la cura documentata da Next — con marcatore in
+`sessionStorage` che evita il secondo rimbalzo se ricaricare non risolve. Il
+fallback condiviso (`src/components/errors/app-error-fallback.tsx`) fa
+`Sentry.flush()` **prima** del reload: il reload interrompe le richieste in
+volo e senza flush l'evento appena accodato può non partire.
+
+Due lezioni di contorno, ripescabili su qualsiasi errore client:
+
+- **Un'action che rigetta dentro `startTransition` finisce al boundary**: React
+  19 rilancia l'errore dell'action durante il render, non resta una promise
+  rigettata. Un segmento senza `error.tsx` cade quindi su `global-error.tsx`,
+  che rimpiazza il documento intero — `<h2>` nudo, senza CSS né shell. Era il
+  caso di tutto ciò che sta fuori da `/dashboard` fino a SCONTRINOZERO-Z; ora
+  la rete è `src/app/error.tsx`.
+- **`Users: 0` su una issue client non vuol dire "nessuno colpito"**: il bind
+  di `Sentry.setUser` è server-side (regola 22), gli eventi del browser non
+  hanno mai `user.id`. Per pesare l'impatto di un'issue client servono il
+  Session Replay e il conteggio eventi, non la colonna Users.
+
+---
 
 ---
 
@@ -319,6 +364,7 @@ l'ID Sentry che ha originato il fix. Esempi già in repo:
   cita `SCONTRINOZERO-E`
 - `src/lib/ade/log-failure.ts` → cita `SCONTRINOZERO-7` (regola 20)
 - `src/instrumentation.ts` → cita `SCONTRINOZERO-F` + regola 24
+- `src/lib/deploy-skew.ts` → cita `SCONTRINOZERO-Z`
 
 Rende la lezione trovabile in `grep -rn "SCONTRINOZERO-<id>"` e
 preserva il filo storico anche dopo che l'issue è archived in Sentry.
