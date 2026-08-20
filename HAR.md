@@ -604,6 +604,13 @@ decimali: non è un rischio reale.
 Confronto di `src/lib/ade/mapper.ts` contro le voci #2, #4, #7, #10. Ordinate
 per gravità.
 
+> ✅ **Chiuse dal sub-task A** (voce #14) i punti 1, 2, 3, 4 e 6. Resta aperto
+> solo il punto 5 (`flagIdentificativiModificati`), deliberatamente: l'AdE
+> accetta entrambi i valori e il nostro `true` è coerente con l'invio di dati
+> di identificazione propri. Registrato in `REVIEW.md`, "Rischi accettati".
+> L'elenco qui sotto resta com'è misurato: è il verbale del confronto, non una
+> todo list.
+
 1. **`scontoTotale` manda il lordo invece del netto.** Il codice assegna lo
    stesso valore (Σ `scontoLordo`) sia a `scontoTotale` che a
    `scontoTotaleLordo`. Corretto: `scontoTotale` = Σ `scontoUnitario`
@@ -796,7 +803,18 @@ proprio e TDD (test prima). **L'ordine non è negoziabile**: A è prerequisito d
 E, e B è prerequisito di C — le superfici di lettura devono saper interpretare
 un pagamento misto _prima_ che la cassa permetta di emetterne uno.
 
-### Sub-task A — precisione del mapper (prerequisito di E)
+### Sub-task A — precisione del mapper (prerequisito di E) ✅ FATTO
+
+> **Spedito in v1.7.1.** `computeLineAmounts` e i totali di
+> `mapSaleToAdePayload` seguono le formule qui sotto; i due oracoli sono test
+> di regressione in `mapper.test.ts` (`describe("… — oracoli HAR")`), campo per
+> campo. Unico scostamento deliberato dal punto 4: `imponibile` è derivato dal
+> **lordo di riga cent-esatto** (`lineGross / d`) invece che da
+> `prezzoUnitario × quantita`. Sui due oracoli — entrambi a quantità intera — i
+> due calcoli coincidono; sulle quantità frazionarie solo il primo tiene
+> insieme la regola 17 e l'invariante `imponibileNetto + importoIVA = totale`.
+> Il punto 5 (`flagIdentificativiModificati`) non è stato toccato: vedi la nota
+> in cima alla voce #11.
 
 **File:** `src/lib/ade/mapper.ts`, `src/lib/ade/mapper.test.ts`.
 **Non tocca** né UI né API né DB. Chiude tutte e sei le divergenze della voce

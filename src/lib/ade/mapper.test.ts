@@ -148,13 +148,16 @@ describe("computeLineAmounts", () => {
 
     const result = computeLineAmounts(line);
 
-    // prezzoLordo = unitPriceGross * quantity = 4.50
-    expect(result.prezzoLordo).toBe("4.50000000");
-    // imponibile = prezzoLordo scorporata IVA 10%: 4.50 / 1.10 = 4.09 (rounded)
-    expect(result.imponibile).toBe("4.09000000");
-    expect(result.imponibileNetto).toBe("4.09000000");
-    // importoIVA = 4.50 - 4.09 = 0.41
-    expect(result.importoIVA).toBe("0.41000000");
+    // prezzoLordo e' il prezzo UNITARIO, non moltiplicato per la quantita
+    // (HAR.md voce #12): la quantita entra in imponibile, non qui.
+    expect(result.prezzoLordo).toBe("1.50000000");
+    // prezzoUnitario = 1.50 / 1.10, a piena precisione (HAR.md voce #10)
+    expect(result.prezzoUnitario).toBe("1.36363636");
+    // imponibile = prezzoUnitario * quantita = 4.50 / 1.10
+    expect(result.imponibile).toBe("4.09090909");
+    expect(result.imponibileNetto).toBe("4.09090909");
+    // importoIVA = imponibileNetto * 10 / 100
+    expect(result.importoIVA).toBe("0.40909091");
     expect(result.totale).toBe("4.50000000");
   });
 
@@ -170,15 +173,17 @@ describe("computeLineAmounts", () => {
 
     const result = computeLineAmounts(line);
 
-    // prezzoLordo = 10 * 2 = 20.00
-    expect(result.prezzoLordo).toBe("20.00000000");
-    // scontoLordo = 2 * 2 = 4.00
+    // prezzoLordo = prezzo unitario (HAR.md voce #12)
+    expect(result.prezzoLordo).toBe("10.00000000");
+    // scontoLordo = sconto DELLA RIGA = unitDiscount * quantity = 4.00
     expect(result.scontoLordo).toBe("4.00000000");
-    // netto lordo = 20 - 4 = 16
-    // imponibileNetto = 16 / 1.22 = 13.11 (rounded)
-    expect(result.imponibileNetto).toBe("13.11000000");
-    // importoIVA = 16 - 13.11 = 2.89
-    expect(result.importoIVA).toBe("2.89000000");
+    // scontoUnitario = scontoLordo / 1.22 (netto IVA, NON "per unita")
+    expect(result.scontoUnitario).toBe("3.27868852");
+    // imponibile = 20 / 1.22, imponibileNetto = imponibile - scontoUnitario
+    expect(result.imponibile).toBe("16.39344262");
+    expect(result.imponibileNetto).toBe("13.11475410");
+    // importoIVA = imponibileNetto * 22 / 100
+    expect(result.importoIVA).toBe("2.88524590");
     expect(result.totale).toBe("16.00000000");
   });
 
@@ -226,7 +231,9 @@ describe("computeLineAmounts", () => {
     };
 
     const result = computeLineAmounts(line);
-    expect(result.prezzoLordo).toBe("0.50000000");
+    // prezzoLordo resta il prezzo unitario (HAR.md voce #12); il cent-esatto
+    // vive su `totale`, che e' il valore che riconcilia col payment.
+    expect(result.prezzoLordo).toBe("0.99000000");
     expect(result.totale).toBe("0.50000000");
   });
 });
@@ -745,5 +752,323 @@ describe("mapVoidToAdePayload", () => {
 
     // Annullo non ha vendita (pagamenti)
     expect(dc.vendita).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Oracoli HAR — payload verbatim accettati dall'AdE (REVIEW.md #88)
+//
+// I due documenti sono catture reali del portale AdE, entrambe con risposta
+// `esito: true`: sono l'unica prova disponibile della semantica dei campi.
+// Fonti e verifiche numeriche: HAR.md voci #1, #2, #4, #10, #12.
+// ---------------------------------------------------------------------------
+
+/** Somma i valori serializzati e li ri-serializza a 8 decimali. */
+function sum8(...values: string[]): string {
+  return toAdeAmount8(values.reduce((acc, v) => acc + Number.parseFloat(v), 0));
+}
+
+describe("computeLineAmounts — oracoli HAR", () => {
+  it("riproduce i 15 campi della riga scontata di HAR.md voce #1 (qta 1, IVA 10%)", () => {
+    // Portale: 1,00 € lordo, IVA 10%, sconto di riga 0,10 €, quantita 1.
+    const line: SaleLineRequest = {
+      description: "Prova con sconto",
+      quantity: 1,
+      unitPriceGross: 1.0,
+      unitDiscount: 0.1,
+      vatCode: "10",
+      isGift: false,
+    };
+
+    expect(computeLineAmounts(line)).toEqual({
+      idElementoContabile: "",
+      resiPregressi: "0.00",
+      reso: "0.00",
+      quantita: "1.00",
+      descrizioneProdotto: "Prova con sconto",
+      prezzoLordo: "1.00000000",
+      prezzoUnitario: "0.90909091",
+      scontoUnitario: "0.09090909",
+      scontoLordo: "0.10000000",
+      aliquotaIVA: "10",
+      importoIVA: "0.08181818",
+      imponibile: "0.90909091",
+      imponibileNetto: "0.81818182",
+      totale: "0.90000000",
+      omaggio: "N",
+    });
+  });
+
+  it("riproduce i 15 campi della riga esente di HAR.md voce #1 (natura N2)", () => {
+    // Sulle nature d = 1: la formula generale degenera senza rami speciali.
+    const line: SaleLineRequest = {
+      description: "Prova senza sconto",
+      quantity: 1,
+      unitPriceGross: 1.0,
+      unitDiscount: 0,
+      vatCode: "N2",
+      isGift: false,
+    };
+
+    expect(computeLineAmounts(line)).toEqual({
+      idElementoContabile: "",
+      resiPregressi: "0.00",
+      reso: "0.00",
+      quantita: "1.00",
+      descrizioneProdotto: "Prova senza sconto",
+      prezzoLordo: "1.00000000",
+      prezzoUnitario: "1.00000000",
+      scontoUnitario: "0.00000000",
+      scontoLordo: "0.00000000",
+      aliquotaIVA: "N2",
+      importoIVA: "0.00000000",
+      imponibile: "1.00000000",
+      imponibileNetto: "1.00000000",
+      totale: "1.00000000",
+      omaggio: "N",
+    });
+  });
+
+  it("riproduce i 15 campi di HAR.md voce #12 (qta 2, IVA 22%, sconto di riga 1,00)", () => {
+    // Il caso che disambigua: prezzoLordo vale 3,00 (unitario) e NON 6,00,
+    // scontoUnitario vale 0.81967213 (= 1,00 / 1,22) e NON 1.63934426.
+    // Nel nostro DTO unitDiscount e' per unita: 0,50 x 2 = 1,00 di riga.
+    const line: SaleLineRequest = {
+      description: "doppio",
+      quantity: 2,
+      unitPriceGross: 3.0,
+      unitDiscount: 0.5,
+      vatCode: "22",
+      isGift: false,
+    };
+
+    expect(computeLineAmounts(line)).toEqual({
+      idElementoContabile: "",
+      resiPregressi: "0.00",
+      reso: "0.00",
+      quantita: "2.00",
+      descrizioneProdotto: "doppio",
+      prezzoLordo: "3.00000000",
+      prezzoUnitario: "2.45901639",
+      scontoUnitario: "0.81967213",
+      scontoLordo: "1.00000000",
+      aliquotaIVA: "22",
+      importoIVA: "0.90163934",
+      imponibile: "4.91803279",
+      imponibileNetto: "4.09836066",
+      totale: "5.00000000",
+      omaggio: "N",
+    });
+  });
+
+  it("tiene l'invariante di riga anche su quantita frazionaria con aliquota IVA", () => {
+    // Edge del cent-esatto (regola 17): 0,333 kg x 3,00 = 0,999 -> lordo 1,00.
+    // I netti derivano dal lordo cent-esatto, quindi l'invariante regge; se
+    // `imponibile` fosse prezzoUnitario x quantita divergerebbe di ~0,001.
+    const el = computeLineAmounts({
+      description: "Sfuso (0,333 kg)",
+      quantity: 0.333,
+      unitPriceGross: 3.0,
+      unitDiscount: 0,
+      vatCode: "22",
+      isGift: false,
+    });
+
+    expect(el.totale).toBe("1.00000000");
+    expect(sum8(el.imponibileNetto, el.importoIVA)).toBe(el.totale);
+  });
+
+  it("azzera la riga quando lo sconto copre l'intero prezzo", () => {
+    const el = computeLineAmounts({
+      description: "Tutto scontato",
+      quantity: 2,
+      unitPriceGross: 4.5,
+      unitDiscount: 4.5,
+      vatCode: "22",
+      isGift: false,
+    });
+
+    expect(el.totale).toBe("0.00000000");
+    expect(el.imponibileNetto).toBe("0.00000000");
+    expect(el.importoIVA).toBe("0.00000000");
+    // prezzoLordo e scontoLordo restano dichiarati, solo il netto e' zero.
+    expect(el.prezzoLordo).toBe("4.50000000");
+    expect(el.scontoLordo).toBe("9.00000000");
+  });
+
+  it("mantiene l'invariante di riga imponibileNetto + importoIVA === totale", () => {
+    for (const vatCode of ["4", "5", "10", "22", "N2"]) {
+      for (const unitDiscount of [0, 0.1, 0.5, 1.37]) {
+        for (const quantity of [1, 2, 7]) {
+          const el = computeLineAmounts({
+            description: "X",
+            quantity,
+            unitPriceGross: 3.99,
+            unitDiscount,
+            vatCode,
+            isGift: false,
+          });
+
+          expect(sum8(el.imponibileNetto, el.importoIVA)).toBe(el.totale);
+        }
+      }
+    }
+  });
+});
+
+describe("mapSaleToAdePayload — oracoli HAR", () => {
+  /** Documento completo di HAR.md voce #1 (accettato: idtrx 226076907). */
+  const docVoce1: SaleDocumentRequest = {
+    date: "2026-08-18",
+    lotteryCode: null,
+    isGiftDocument: false,
+    lines: [
+      {
+        description: "Prova senza sconto",
+        quantity: 1,
+        unitPriceGross: 1.0,
+        unitDiscount: 0,
+        vatCode: "N2",
+        isGift: false,
+      },
+      {
+        description: "Prova con sconto",
+        quantity: 1,
+        unitPriceGross: 1.0,
+        unitDiscount: 0.1,
+        vatCode: "10",
+        isGift: false,
+      },
+    ],
+    payments: [
+      { type: "CASH", amount: 0.5 },
+      { type: "ELECTRONIC", amount: 1.0 },
+    ],
+    globalDiscount: 0.4,
+    deductibleAmount: 0,
+  };
+
+  it("riproduce i totali di documento di HAR.md voce #1", () => {
+    const dc = mapSaleToAdePayload(
+      docVoce1,
+      mockCedentePrestatore,
+    ).documentoCommerciale;
+
+    expect(dc.totaleImponibile).toBe("1.90909091");
+    expect(dc.importoTotaleIva).toBe("0.08181818");
+    expect(dc.ammontareComplessivo).toBe("1.90000000");
+    expect(dc.totaleNonRiscosso).toBe("0.00000000");
+    expect(dc.scontoAbbuono).toBe("0.40");
+  });
+
+  it("distingue scontoTotale (netto IVA) da scontoTotaleLordo", () => {
+    // Il portale rende i due campi come "Sconto totale al netto dell'IVA" e
+    // sconto lordo: coincidono solo se ogni riga scontata e' a natura N*.
+    const dc = mapSaleToAdePayload(
+      docVoce1,
+      mockCedentePrestatore,
+    ).documentoCommerciale;
+
+    expect(dc.scontoTotale).toBe("0.09090909");
+    expect(dc.scontoTotaleLordo).toBe("0.10000000");
+    expect(dc.scontoTotale).not.toBe(dc.scontoTotaleLordo);
+  });
+
+  it("quadra la voce #5: sum(vendita[].importo) + scontoAbbuono === ammontareComplessivo", () => {
+    const dc = mapSaleToAdePayload(
+      docVoce1,
+      mockCedentePrestatore,
+    ).documentoCommerciale;
+
+    const paidCents = dc.vendita!.reduce(
+      (s, v) => s + Math.round(Number.parseFloat(v.importo) * 100),
+      0,
+    );
+    const abbuonoCents = Math.round(Number.parseFloat(dc.scontoAbbuono) * 100);
+    expect(paidCents + abbuonoCents).toBe(
+      Math.round(Number.parseFloat(dc.ammontareComplessivo) * 100),
+    );
+  });
+
+  it("mantiene l'invariante di documento della voce #4", () => {
+    const dc = mapSaleToAdePayload(
+      docVoce1,
+      mockCedentePrestatore,
+    ).documentoCommerciale;
+
+    // totaleImponibile - scontoTotale + importoTotaleIva === ammontareComplessivo
+    const left = toAdeAmount8(
+      Number.parseFloat(dc.totaleImponibile) -
+        Number.parseFloat(dc.scontoTotale) +
+        Number.parseFloat(dc.importoTotaleIva),
+    );
+    expect(left).toBe(dc.ammontareComplessivo);
+  });
+
+  it("azzera ammontareComplessivo su un documento di soli omaggi", () => {
+    const doc: SaleDocumentRequest = {
+      date: "2026-08-18",
+      lotteryCode: null,
+      isGiftDocument: true,
+      lines: [
+        {
+          description: "Omaggio",
+          quantity: 1,
+          unitPriceGross: 5,
+          unitDiscount: 0,
+          vatCode: "22",
+          isGift: true,
+        },
+      ],
+      payments: [{ type: "CASH", amount: 0 }],
+      globalDiscount: 0,
+      deductibleAmount: 0,
+    };
+
+    const dc = mapSaleToAdePayload(
+      doc,
+      mockCedentePrestatore,
+    ).documentoCommerciale;
+
+    expect(dc.ammontareComplessivo).toBe("0.00000000");
+    expect(dc.totaleImponibile).toBe("4.09836066");
+  });
+
+  it("esclude le righe omaggio da ammontareComplessivo ma non dagli imponibili (HAR.md voce #7)", () => {
+    const doc: SaleDocumentRequest = {
+      date: "2026-08-18",
+      lotteryCode: null,
+      isGiftDocument: false,
+      lines: [
+        {
+          description: "Venduto",
+          quantity: 1,
+          unitPriceGross: 1.7,
+          unitDiscount: 0,
+          vatCode: "N2",
+          isGift: false,
+        },
+        {
+          description: "Omaggio",
+          quantity: 2,
+          unitPriceGross: 1.0,
+          unitDiscount: 0,
+          vatCode: "N2",
+          isGift: true,
+        },
+      ],
+      payments: [{ type: "CASH", amount: 1.7 }],
+      globalDiscount: 0,
+      deductibleAmount: 0,
+    };
+
+    const dc = mapSaleToAdePayload(
+      doc,
+      mockCedentePrestatore,
+    ).documentoCommerciale;
+
+    // L'omaggio concorre all'imponibile ma non all'importo dovuto dal cliente.
+    expect(dc.totaleImponibile).toBe("3.70000000");
+    expect(dc.ammontareComplessivo).toBe("1.70000000");
   });
 });

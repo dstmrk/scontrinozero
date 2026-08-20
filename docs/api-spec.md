@@ -452,6 +452,13 @@ vanno arrotondati ai centesimi, o la quadratura `imponibile netto + IVA =
 totale` salta di un centesimo appena c'è uno sconto su una riga con IVA.
 Derivazione, caso di riferimento e conseguenze: `HAR.md` voci #2 e #10.
 
+⚠️ **Quantità frazionarie.** `computeLineAmounts` deriva `imponibile` dal lordo
+di riga **cent-esatto** (`round(prezzoLordo × quantita × 100) / 100 / d`) invece
+che da `prezzoUnitario × quantita`. Sui campioni del portale — tutti a quantità
+intera — i due calcoli coincidono al decimo decimale; sulle quantità frazionarie
+(vendita a peso) solo il primo tiene insieme la regola 17 di `CLAUDE.md` (lordi
+in centesimi interi) e l'invariante `imponibileNetto + importoIVA = totale`.
+
 ### 3.3 Calcolo totali documento
 
 ```
