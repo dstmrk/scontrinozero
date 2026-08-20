@@ -81,6 +81,12 @@ const comparisonRows: ComparisonRow[] = [
     pro: true,
     selfHosted: true,
   },
+  {
+    label: "Messaggio personalizzato sullo scontrino",
+    starter: false,
+    pro: true,
+    selfHosted: true,
+  },
   comingSoon("Recupero documenti da AdE"),
   {
     label: "Supporto prioritario",
@@ -101,7 +107,7 @@ const pricingFaqs: { question: string; answer: string }[] = [
   {
     question: "Che differenza c'è tra Starter e Pro?",
     answer:
-      "Starter (€29,99/anno) include scontrini illimitati, trasmissione automatica all'AdE, catalogo rapido fino a 5 prodotti e analytics base. Pro (€49,99/anno) aggiunge catalogo illimitato, analytics avanzata, export CSV e supporto prioritario.",
+      "Starter (€29,99/anno) include scontrini illimitati, trasmissione automatica all'AdE, catalogo rapido fino a 5 prodotti e analytics base. Pro (€49,99/anno) aggiunge catalogo illimitato, analytics avanzata, export CSV, il messaggio personalizzato in fondo allo scontrino e il supporto prioritario.",
   },
   {
     question: "Posso cambiare piano in qualsiasi momento?",

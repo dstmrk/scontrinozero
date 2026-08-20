@@ -252,6 +252,22 @@ describe("receiptFooterNoteLines", () => {
     expect(lines.join("")).toBe("scontrinozero.it/promo/estate2026");
   });
 
+  // Doppio spazio da copia-incolla: lo split produce un token vuoto, che non
+  // deve diventare una riga o uno spazio doppio sulla carta.
+  it("ignora i token vuoti prodotti da spazi consecutivi", () => {
+    expect(receiptFooterNoteLines("Grazie  mille", { columns: 16 })).toEqual([
+      "Grazie mille",
+    ]);
+  });
+
+  // Riga già iniziata + parola troppo lunga: la riga in corso va chiusa prima
+  // di spezzare la parola, altrimenti il testo esce fuori ordine.
+  it("chiude la riga in corso prima di spezzare una parola lunghissima", () => {
+    expect(
+      receiptFooterNoteLines("ciao scontrinozero.it/promo", { columns: 8 }),
+    ).toEqual(["ciao", "scontrin", "ozero.it", "/promo"]);
+  });
+
   it("applica il wrap a ogni riga logica, dopo il cap sulle righe", () => {
     const lines = receiptFooterNoteLines("aaaa bbbb\ncccc dddd\neeee", {
       columns: 4,

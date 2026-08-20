@@ -77,6 +77,9 @@ vi.mock("@/components/settings/support-section", () => ({
 vi.mock("@/components/settings/api-key-card", () => ({
   ApiKeyCard: () => <div data-testid="api-key" />,
 }));
+vi.mock("@/components/settings/receipt-note-card", () => ({
+  ReceiptNoteCard: () => <div data-testid="receipt-note" />,
+}));
 vi.mock("@/components/settings/export-data-section", () => ({
   ExportDataSection: () => <div data-testid="export-data" />,
 }));
@@ -280,6 +283,18 @@ describe("SettingsPage — card Preferenze unificata", () => {
     expect(card).toContainElement(screen.getByTestId("printer"));
     expect(card).toContainElement(screen.getByText("Aspetto"));
     expect(card).toContainElement(screen.getByText("Stampante"));
+  });
+
+  // La personalizzazione scontrino sta FUORI da "Preferenze": ha un gate di
+  // piano con upsell e si salva sul server, non sul dispositivo.
+  it("rende la card della personalizzazione scontrino, fuori da Preferenze", async () => {
+    await renderSettings();
+
+    const preferenze = screen
+      .getByText("Preferenze")
+      .closest('[data-slot="card"]');
+    expect(screen.getByTestId("receipt-note")).toBeInTheDocument();
+    expect(preferenze).not.toContainElement(screen.getByTestId("receipt-note"));
   });
 
   it("non rende più un heading di sezione 'Supporto' sopra la card Assistenza", async () => {

@@ -46,10 +46,12 @@ completezza. Coerente con il principio "Minimalismo" del piano.
   metodo co-primario (card/hero dedicati) è una scelta di prominenza, non una
   correzione. _Trigger:_ un volume di utenti che confermano il flusso CIE reale
   senza problemi.
-- **Personalizzazione scontrino (Pro)** (ex #588) — intestazione/logo/messaggio
-  personalizzato sul documento commerciale. Bassa superficie ma è un upsell, non
-  una leva d'adozione: rimandata finché non è la priorità. _Trigger:_ domanda
-  documentata da utenti Pro.
+- **Intestazione e logo personalizzati sullo scontrino (Pro)** (ex #588) — il
+  **messaggio di cortesia** in coda al documento è spedito
+  (`businesses.receipt_footer_note`, 64 caratteri su 2 righe, Pro-gated).
+  Restano fuori intestazione e logo: il logo non è testo — upload, storage,
+  raster ESC/POS con dithering ed embedding pdfkit — cioè un'altra feature, non
+  il resto di questa. _Trigger:_ domanda documentata da utenti Pro.
 - **Inserimento sconto** - aggiunta informazione sconto sul totale, presente nel
   documento commerciale online. _Trigger:_ file har.
 - **Paginazione lista catalogo (Pro)** — la modifica prodotto è già spedita, ma

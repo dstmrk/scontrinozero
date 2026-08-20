@@ -33,6 +33,7 @@ const proFeatures: Feature[] = [
   { label: "Catalogo illimitato" },
   { label: "Analytics avanzata (grafici e periodi estesi)" },
   { label: "Export CSV degli scontrini" },
+  { label: "Messaggio personalizzato sullo scontrino" },
   { label: "Supporto prioritario" },
   { label: "Recupero documenti commerciali da AdE", upcoming: true },
 ];
