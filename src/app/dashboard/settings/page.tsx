@@ -437,48 +437,38 @@ export default async function SettingsPage({
         </section>
       )}
 
-      {/* Preferenze — aspetto */}
-      <section className="space-y-4">
-        <h2 className={sectionHeadingClass}>Preferenze</h2>
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Aspetto</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ThemeSection />
-            </CardContent>
-          </Card>
+      {/* Preferenze — aspetto e stampante in una card sola: due controlli
+          brevi (tre bottoni tema, un abbinamento BT) che da soli non
+          giustificavano un header di card ciascuno. */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Preferenze</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div>
+            <h3 className="mb-3 text-sm font-medium">Aspetto</h3>
+            <ThemeSection />
+          </div>
+          <div className="border-t pt-6">
+            <h3 className="mb-3 text-sm font-medium">Stampante</h3>
+            <PrinterSection />
+          </div>
+        </CardContent>
+      </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Stampante</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <PrinterSection />
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
-      {/* Supporto — Help Center + contatto email pre-compilato */}
-      <section className="space-y-4">
-        <h2 className={sectionHeadingClass}>Supporto</h2>
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Assistenza</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <SupportSection
-                accountEmail={user.email}
-                plan={planData?.plan ?? null}
-                appVersion={APP_VERSION}
-              />
-            </CardContent>
-          </Card>
-        </div>
-      </section>
+      {/* Assistenza — Help Center + contatto email pre-compilato. */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Assistenza</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SupportSection
+            accountEmail={user.email}
+            plan={planData?.plan ?? null}
+            appVersion={APP_VERSION}
+          />
+        </CardContent>
+      </Card>
 
       {/* Altre impostazioni — sezioni a basso uso, nascoste di default */}
       <ExtraSettingsSection>
@@ -495,16 +485,9 @@ export default async function SettingsPage({
 
         <AccountDeleteSection />
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Informazioni</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground space-y-2 text-sm">
-            <p>
-              ScontrinoZero {APP_VERSION} &mdash; build {getBuildLabel()}
-            </p>
-          </CardContent>
-        </Card>
+        <p className="text-muted-foreground text-sm">
+          ScontrinoZero {APP_VERSION} &mdash; build {getBuildLabel()}
+        </p>
       </ExtraSettingsSection>
     </div>
   );

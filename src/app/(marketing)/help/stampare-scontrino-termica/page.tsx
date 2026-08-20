@@ -163,8 +163,10 @@ export default function StampareScontrinoTermicaPage() {
           </li>
           <li>
             In ScontrinoZero apri{" "}
-            <strong>Impostazioni → Stampante → Collega stampante</strong>. Il
-            browser mostra la lista dei dispositivi trovati: cerca un nome
+            <strong>
+              Impostazioni → Preferenze → Stampante → Collega stampante
+            </strong>
+            . Il browser mostra la lista dei dispositivi trovati: cerca un nome
             simile a <em>POS-58</em>, <em>BT Printer</em> o il modello della tua
             stampante, selezionalo e conferma.
           </li>
@@ -291,9 +293,9 @@ export default function StampareScontrinoTermicaPage() {
               Il taglio è sbagliato, il testo va a capo male
             </p>
             <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-              Vai su <strong>Impostazioni → Stampante</strong> in ScontrinoZero
-              e controlla che la larghezza carta sia impostata sul valore
-              corretto (58 o 80 mm,{" "}
+              Vai su <strong>Impostazioni → Preferenze → Stampante</strong> in
+              ScontrinoZero e controlla che la larghezza carta sia impostata sul
+              valore corretto (58 o 80 mm,{" "}
               <strong>deve corrispondere al rotolo</strong>). Il modo più rapido
               per accorgersene è la <strong>stampa di prova</strong>: il
               righello dei numeri deve arrivare esattamente da bordo a bordo. Se

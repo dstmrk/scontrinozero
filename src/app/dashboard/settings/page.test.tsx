@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { profiles, businesses, adeCredentials } from "@/db/schema";
 
@@ -193,12 +193,12 @@ describe("SettingsPage — gerarchia delle sezioni", () => {
     expect(domOrderOf("Attività e fisco")).toBeLessThan(domOrderOf("Account"));
   });
 
-  it("mantiene le sezioni successive nell'ordine Abbonamento → Preferenze → Supporto", async () => {
+  it("mantiene le sezioni successive nell'ordine Abbonamento → Preferenze → Assistenza", async () => {
     await renderSettings();
 
     expect(domOrderOf("Account")).toBeLessThan(domOrderOf("Abbonamento"));
     expect(domOrderOf("Abbonamento")).toBeLessThan(domOrderOf("Preferenze"));
-    expect(domOrderOf("Preferenze")).toBeLessThan(domOrderOf("Supporto"));
+    expect(domOrderOf("Preferenze")).toBeLessThan(domOrderOf("Assistenza"));
   });
 });
 
@@ -267,5 +267,38 @@ describe("SettingsPage — edge case dei dati mancanti", () => {
 
     expect(domOrderOf("Attività e fisco")).toBeLessThan(domOrderOf("Account"));
     expect(screen.queryByText("Piano e Abbonamento")).not.toBeInTheDocument();
+  });
+});
+
+describe("SettingsPage — card Preferenze unificata", () => {
+  it("tiene tema e stampante nella stessa card, sotto due sotto-titoli", async () => {
+    await renderSettings();
+
+    const card = screen.getByText("Preferenze").closest('[data-slot="card"]');
+    expect(card).not.toBeNull();
+    expect(card).toContainElement(screen.getByTestId("theme"));
+    expect(card).toContainElement(screen.getByTestId("printer"));
+    expect(card).toContainElement(screen.getByText("Aspetto"));
+    expect(card).toContainElement(screen.getByText("Stampante"));
+  });
+
+  it("non rende più un heading di sezione 'Supporto' sopra la card Assistenza", async () => {
+    await renderSettings();
+
+    expect(screen.queryByText("Supporto")).not.toBeInTheDocument();
+    expect(screen.getByTestId("support")).toBeInTheDocument();
+  });
+});
+
+describe("SettingsPage — Informazioni senza card", () => {
+  it("mostra versione e build come riga di testo dentro 'Altre impostazioni'", async () => {
+    await renderSettings();
+
+    fireEvent.click(screen.getByRole("button", { name: /Altre impostazioni/ }));
+
+    const versionLine = screen.getByText(/ScontrinoZero \d/);
+    expect(versionLine).toBeInTheDocument();
+    expect(versionLine.closest('[data-slot="card"]')).toBeNull();
+    expect(screen.queryByText("Informazioni")).not.toBeInTheDocument();
   });
 });
