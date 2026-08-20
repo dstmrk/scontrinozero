@@ -21,6 +21,7 @@ import { EditBusinessSection } from "@/components/settings/edit-business-section
 import { ChangePasswordSection } from "@/components/settings/change-password-section";
 import { ThemeSection } from "@/components/settings/theme-section";
 import { PrinterSection } from "@/components/settings/printer-section";
+import { ReceiptNoteCard } from "@/components/settings/receipt-note-card";
 import { getProfilePlan } from "@/server/billing-actions";
 import { TRIAL_DAYS } from "@/lib/plans";
 import {
@@ -455,6 +456,20 @@ export default async function SettingsPage({
           </div>
         </CardContent>
       </Card>
+
+      {/* Personalizzazione scontrino (Pro) — card a sé e non un blocco dentro
+          "Preferenze": ha un gate di piano con upsell, e a differenza di tema e
+          stampante (preferenze di dispositivo, su localStorage) si salva sul
+          server, valida per ogni scontrino emesso da qualunque device. */}
+      {business && planData && (
+        <ReceiptNoteCard
+          businessId={business.id}
+          note={business.receiptFooterNote ?? null}
+          plan={planData.plan}
+          planExpiresAt={planData.planExpiresAt}
+          trialStartedAt={planData.trialStartedAt}
+        />
+      )}
 
       {/* Assistenza — Help Center + contatto email pre-compilato. */}
       <Card>
