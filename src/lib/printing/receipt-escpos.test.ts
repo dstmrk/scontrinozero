@@ -485,7 +485,7 @@ describe("buildReceiptCommands — messaggio di cortesia (Pro)", () => {
     const without = printedLines(
       buildReceiptCommands(makeReceipt(SIMPLE_LINES), OPTS),
     );
-    expect(withNote.length).toBe(without.length + 1);
+    expect(withNote).toHaveLength(without.length + 1);
     expect(
       printedLines(
         buildReceiptCommands(
