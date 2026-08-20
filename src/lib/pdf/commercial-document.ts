@@ -43,6 +43,7 @@ import {
   formatReceiptDate,
   formatReceiptPrice,
   formatReceiptDateTime,
+  receiptFooterNoteLines,
 } from "@/lib/receipt-format";
 import {
   computeReceiptTotals,
@@ -102,6 +103,17 @@ export interface SaleDocumentPdfData extends CommonDocumentPdfData {
   paymentMethod: "PC" | "PE";
   /** Codice Lotteria degli Scontrini (8 char, solo PE) */
   lotteryCode?: string | null;
+  /**
+   * Messaggio di cortesia dell'esercente (feature Pro), stampato in coda dove
+   * il layout standard AdE scrive "Arrivederci e grazie!". Arriva gia' risolto
+   * dal gate di piano (`resolveReceiptFooterNote`): qui `null` significa solo
+   * "non stampare nulla".
+   *
+   * Solo sulla vendita: un "Grazie e arrivederci!" su una ricevuta di
+   * ANNULLAMENTO stonerebbe, e l'unione discriminata lo rende irraggiungibile
+   * su un VOID invece di affidarlo a un controllo a runtime.
+   */
+  footerNote?: string | null;
 }
 
 export interface VoidDocumentPdfData extends CommonDocumentPdfData {
@@ -435,6 +447,19 @@ function drawFooter(
     drawText(doc, cur, data.lotteryCode, { align: "center", bold: true });
   }
 
+  // Messaggio di cortesia: dopo il blocco fiscale (data, numero, lotteria) e
+  // prima del QR, che e' un'appendice digitale — sulla carta la riga di
+  // cortesia chiude il documento.
+  if (data.kind === "SALE") {
+    const noteLines = receiptFooterNoteLines(data.footerNote);
+    if (noteLines.length > 0) {
+      cur.y += 2;
+      for (const line of noteLines) {
+        drawText(doc, cur, line, { align: "center", size: 6 });
+      }
+    }
+  }
+
   if (data.publicUrl) {
     cur.y += 2;
     drawQrCode(doc, cur, data.publicUrl);
@@ -450,19 +475,24 @@ function drawFooter(
  * quantità), 12pt per aliquota distinta, 9pt per riga di legenda IVA più il
  * suo separatore, 22pt per il blocco lotteria (caption + codice).
  * Sovrastimare costa spazio bianco, sottostimare costa una seconda pagina: la
- * stima resta volutamente generosa.
+ * stima resta volutamente generosa. Il messaggio di cortesia costa 11pt per
+ * riga logica: 9pt di riga a corpo 6 piu' il margine di un a capo del PDF, che
+ * e' piu' largo delle 32 colonne della termica ma non infinito.
  */
 function estimateHeight(data: CommercialDocumentPdfData): number {
   const vatCodes = data.lines.map((l) => l.vatCode);
   const uniqueVatRates = new Set(vatCodes).size;
   const legendRows = receiptVatLegend(vatCodes).length;
   const hasLotteryCode = data.kind === "SALE" && Boolean(data.lotteryCode);
+  const footerNoteRows =
+    data.kind === "SALE" ? receiptFooterNoteLines(data.footerNote).length : 0;
   return (
     145 +
     data.lines.length * 18 +
     uniqueVatRates * 12 +
     (legendRows > 0 ? legendRows * 9 + 5 : 0) +
     (hasLotteryCode ? 22 : 0) +
+    (footerNoteRows > 0 ? footerNoteRows * 11 + 2 : 0) +
     // Nessun termine per l'annullo: scambia il blocco pagamenti (due righe
     // piu' separatore) col blocco di riferimento (due righe), quindi in
     // altezza si equivalgono.

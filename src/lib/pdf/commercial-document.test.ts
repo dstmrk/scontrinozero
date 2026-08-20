@@ -410,6 +410,75 @@ describe("layout AdE — piede", () => {
   });
 });
 
+describe("layout AdE — messaggio di cortesia (Pro)", () => {
+  it("stampa la nota dopo il numero documento", async () => {
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf({
+        ...BASE_DATA,
+        footerNote: "Arrivederci e grazie!",
+      }),
+    );
+    const iDoc = runs.findIndex((r) => r.startsWith("DOCUMENTO N."));
+    const iNote = runs.indexOf("Arrivederci e grazie!");
+    expect(iNote).toBeGreaterThan(iDoc);
+  });
+
+  it("stampa la nota DOPO il codice lotteria", async () => {
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf({
+        ...BASE_DATA,
+        paymentMethod: "PE",
+        lotteryCode: "YYWLR30G",
+        footerNote: "Arrivederci e grazie!",
+      }),
+    );
+    expect(runs.indexOf("Arrivederci e grazie!")).toBeGreaterThan(
+      runs.indexOf("YYWLR30G"),
+    );
+  });
+
+  it("rende ogni riga logica della nota", async () => {
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf({
+        ...BASE_DATA,
+        footerNote: "Grazie!\nTi aspettiamo",
+      }),
+    );
+    expect(runs).toContain("Grazie!");
+    expect(runs).toContain("Ti aspettiamo");
+  });
+
+  it("senza nota non aggiunge nulla al piede", async () => {
+    const withoutNote = extractPdfTextRuns(
+      await generateCommercialDocumentPdf(BASE_DATA),
+    );
+    const withNullNote = extractPdfTextRuns(
+      await generateCommercialDocumentPdf({ ...BASE_DATA, footerNote: null }),
+    );
+    expect(withNullNote).toEqual(withoutNote);
+  });
+
+  it("una nota di soli spazi non stampa una riga vuota", async () => {
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf({ ...BASE_DATA, footerNote: "   " }),
+    );
+    expect(runs).toEqual(
+      extractPdfTextRuns(await generateCommercialDocumentPdf(BASE_DATA)),
+    );
+  });
+
+  it("la nota non fa sbordare il documento su una seconda pagina", async () => {
+    const buf = await generateCommercialDocumentPdf({
+      ...BASE_DATA,
+      paymentMethod: "PE",
+      lotteryCode: "YYWLR30G",
+      footerNote: "Grazie per averci scelto!\nTi aspettiamo presto in negozio",
+      publicUrl: "https://app.scontrinozero.it/r/sale-uuid",
+    });
+    expect(pdfPageCount(buf)).toBe(1);
+  });
+});
+
 describe("layout AdE — codifica IVA in colonna e legenda", () => {
   const EXEMPT_DATA: SaleDocumentPdfData = {
     ...BASE_DATA,

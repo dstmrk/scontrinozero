@@ -13,6 +13,7 @@ import {
   formatReceiptDate,
   formatReceiptDateTime,
   formatReceiptPrice,
+  receiptFooterNoteLines,
 } from "@/lib/receipt-format";
 import {
   formatVatLegendLine,
@@ -79,7 +80,7 @@ export default async function PublicReceiptPage({
 
   if (!data) notFound();
 
-  const { doc, biz, lines, voidedSale } = data;
+  const { doc, biz, lines, voidedSale, footerNote } = data;
 
   // Su un annullo le righe sono quelle della vendita annullata e il blocco
   // pagamenti sparisce: un annullo non incassa. `fetchPublicReceipt` rifiuta
@@ -106,6 +107,11 @@ export default async function PublicReceiptPage({
   // Legenda degli asterischi della colonna IVA (`*ES = Esente`): vuota — e
   // quindi non renderizzata — se il documento non contiene nature.
   const vatLegend = receiptVatLegend(lines.map((l) => l.vatCode));
+
+  // Messaggio di cortesia dell'esercente (Pro), gia' passato per il gate di
+  // piano da `fetchPublicReceipt`. Nessun `columns`: qui manda a capo il
+  // browser, spezzare a 32 colonne romperebbe le righe nel punto sbagliato.
+  const footerNoteLines = receiptFooterNoteLines(footerNote);
 
   return (
     <div className="min-h-screen bg-gray-100 px-4 py-8">
@@ -262,6 +268,18 @@ export default async function PublicReceiptPage({
                 <p className="font-mono font-medium text-gray-700">
                   {lotteryCode}
                 </p>
+              </div>
+            )}
+            {/* Messaggio di cortesia dell'esercente, dopo il blocco fiscale
+                come su PDF e termica. `break-words`: un handle o un URL senza
+                spazi non deve far scrollare la card in orizzontale. */}
+            {footerNoteLines.length > 0 && (
+              <div className="pt-2 break-words text-gray-600 italic">
+                {footerNoteLines.map((line, idx) => (
+                  // Indice nella key: due righe possono essere identiche, e la
+                  // lista e' statica (nessun riordino possibile).
+                  <p key={`${idx}-${line}`}>{line}</p>
+                ))}
               </div>
             )}
           </div>
