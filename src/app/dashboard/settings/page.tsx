@@ -24,14 +24,14 @@ import { ChangePasswordSection } from "@/components/settings/change-password-sec
 import { ThemeSection } from "@/components/settings/theme-section";
 import { PrinterSection } from "@/components/settings/printer-section";
 import { getProfilePlan } from "@/server/billing-actions";
-import { canUseApi, TRIAL_DAYS } from "@/lib/plans";
+import { TRIAL_DAYS } from "@/lib/plans";
 import {
   computeBillingCardState,
   getCancelingStatusText,
   getManageSubscriptionCopy,
 } from "./billing-card-state";
 import { PRICE_IDS } from "@/lib/stripe";
-import { ApiKeySection } from "@/components/settings/api-key-section";
+import { ApiKeyCard } from "@/components/settings/api-key-card";
 import { ExtraSettingsSection } from "@/components/settings/extra-settings-section";
 import { SupportSection } from "@/components/settings/support-section";
 import { PlanBadge } from "@/components/billing/plan-badge";
@@ -505,22 +505,14 @@ export default async function SettingsPage({
 
       {/* Altre impostazioni — sezioni a basso uso, nascoste di default */}
       <ExtraSettingsSection>
-        {business &&
-          planData &&
-          canUseApi(
-            planData.plan,
-            planData.planExpiresAt,
-            planData.trialStartedAt,
-          ) && (
-            <Card>
-              <CardHeader>
-                <CardTitle>API key</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ApiKeySection businessId={business.id} />
-              </CardContent>
-            </Card>
-          )}
+        {business && planData && (
+          <ApiKeyCard
+            businessId={business.id}
+            plan={planData.plan}
+            planExpiresAt={planData.planExpiresAt}
+            trialStartedAt={planData.trialStartedAt}
+          />
+        )}
 
         <ExportDataSection />
 

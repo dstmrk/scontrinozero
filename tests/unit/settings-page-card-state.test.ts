@@ -7,7 +7,6 @@ const {
   mockRedirect,
   mockGetUser,
   mockGetProfilePlan,
-  mockCanUseApi,
   mockIsTrialExpired,
   mockIsPaidPlanExpired,
   mockGetDb,
@@ -19,7 +18,6 @@ const {
   mockRedirect: vi.fn(),
   mockGetUser: vi.fn(),
   mockGetProfilePlan: vi.fn(),
-  mockCanUseApi: vi.fn(),
   mockIsTrialExpired: vi.fn(),
   mockIsPaidPlanExpired: vi.fn(),
   mockGetDb: vi.fn(),
@@ -44,7 +42,6 @@ vi.mock("@/server/billing-actions", () => ({
 }));
 
 vi.mock("@/lib/plans", () => ({
-  canUseApi: mockCanUseApi,
   isTrialExpired: mockIsTrialExpired,
   isPaidPlanExpired: mockIsPaidPlanExpired,
   TRIAL_DAYS: 30,
@@ -85,7 +82,7 @@ vi.mock("@/components/settings/api-key-section", () => ({
   ApiKeySection: vi.fn(() => null),
 }));
 // Passthrough: rende i children così findInJsx continua a trovare le card
-// annidate (es. ApiKeySection) nell'albero JSX.
+// annidate (es. ApiKeyCard) nell'albero JSX.
 vi.mock("@/components/settings/extra-settings-section", () => ({
   ExtraSettingsSection: ({ children }: { children: unknown }) => children,
 }));
@@ -126,7 +123,7 @@ vi.mock("drizzle-orm", () => ({
 
 import SettingsPage from "@/app/dashboard/settings/page";
 import { PlanSelection } from "@/components/billing/plan-selection";
-import { ApiKeySection } from "@/components/settings/api-key-section";
+import { ApiKeyCard } from "@/components/settings/api-key-card";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -154,6 +151,23 @@ function hasComponent(jsx: unknown, componentFn: unknown): boolean {
     const el = n as { type?: unknown };
     return el.type === componentFn;
   });
+}
+
+/** Returns the props of the first element of the given component type. */
+function findComponentProps(
+  jsx: unknown,
+  componentFn: unknown,
+): Record<string, unknown> | null {
+  let found: Record<string, unknown> | null = null;
+  findInJsx(jsx, (n) => {
+    const el = n as { type?: unknown; props?: Record<string, unknown> };
+    if (el.type === componentFn) {
+      found = el.props ?? {};
+      return true;
+    }
+    return false;
+  });
+  return found;
 }
 
 /** Returns true if the JSX tree contains an <a> with the given href. */
@@ -224,7 +238,6 @@ describe("SettingsPage — cardState state machine", () => {
     mockGetUser.mockResolvedValue({ data: { user: FAKE_USER } });
     mockIsTrialExpired.mockReturnValue(false);
     mockIsPaidPlanExpired.mockReturnValue(false);
-    mockCanUseApi.mockReturnValue(false);
 
     // DB mock: 3 sequential limit() calls (profiles, businesses, adeCredentials)
     mockGetDb.mockReturnValue({ select: mockSelect });
@@ -252,18 +265,17 @@ describe("SettingsPage — cardState state machine", () => {
       expect(hasLink(jsx, "/api/stripe/portal")).toBe(false);
     });
 
-    it("hides API keys card when plan is trial with pending subscription", async () => {
+    it("rende comunque la card API key con una subscription pending", async () => {
       mockGetProfilePlan.mockResolvedValue({
         ...TRIAL_PLAN_DATA,
         hasSubscription: true,
         subscriptionStatus: "pending",
         subscriptionInterval: "year",
       });
-      mockCanUseApi.mockReturnValue(false);
 
       const jsx = await SettingsPage({ searchParams: Promise.resolve({}) });
 
-      expect(hasComponent(jsx, ApiKeySection)).toBe(false);
+      expect(hasComponent(jsx, ApiKeyCard)).toBe(true);
     });
   });
 
@@ -277,24 +289,31 @@ describe("SettingsPage — cardState state machine", () => {
       expect(hasComponent(jsx, PlanSelection)).toBe(false);
     });
 
-    it("shows API keys card when plan is pro and canUseApi returns true", async () => {
-      mockGetProfilePlan.mockResolvedValue(makeActivePlanData("pro", "year"));
-      mockCanUseApi.mockReturnValue(true);
+    // La card e' sempre nell'albero, anche sui piani senza accesso API: mostra
+    // l'upsell invece di sparire (chi non la vede non sa che le API esistono).
+    // Il gate vive dentro ApiKeyCard, testato in api-key-card.test.tsx.
+    it.each(["pro", "starter"] as const)(
+      "rende la card API key sul piano %s",
+      async (plan) => {
+        mockGetProfilePlan.mockResolvedValue(makeActivePlanData(plan, "year"));
+
+        const jsx = await SettingsPage({ searchParams: Promise.resolve({}) });
+
+        expect(hasComponent(jsx, ApiKeyCard)).toBe(true);
+      },
+    );
+
+    it("inoltra piano, scadenza e inizio prova alla card", async () => {
+      const planData = makeActivePlanData("pro", "year");
+      mockGetProfilePlan.mockResolvedValue(planData);
 
       const jsx = await SettingsPage({ searchParams: Promise.resolve({}) });
 
-      expect(hasComponent(jsx, ApiKeySection)).toBe(true);
-    });
-
-    it("hides API keys card when plan is starter and canUseApi returns false", async () => {
-      mockGetProfilePlan.mockResolvedValue(
-        makeActivePlanData("starter", "month"),
-      );
-      mockCanUseApi.mockReturnValue(false);
-
-      const jsx = await SettingsPage({ searchParams: Promise.resolve({}) });
-
-      expect(hasComponent(jsx, ApiKeySection)).toBe(false);
+      expect(findComponentProps(jsx, ApiKeyCard)).toMatchObject({
+        plan: "pro",
+        planExpiresAt: planData.planExpiresAt,
+        trialStartedAt: planData.trialStartedAt,
+      });
     });
   });
 
