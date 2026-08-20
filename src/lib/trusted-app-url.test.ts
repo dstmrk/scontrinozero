@@ -85,6 +85,99 @@ describe("getTrustedAppUrl", () => {
       env: { NODE_ENV: "development", NEXT_PUBLIC_APP_URL: "" },
       expected: "http://localhost:3000",
     },
+    // REVIEW.md #93 — un'immagine sola serve prod E sandbox, quindi
+    // `NEXT_PUBLIC_APP_URL` è bakata col valore di produzione anche nel
+    // container sandbox: `APP_HOSTNAME` è l'unico segnale runtime che
+    // distingue i due ambienti. Senza questa precedenza il QR stampato sui
+    // PDF e le `success_url` Stripe di sandbox puntano a produzione.
+    {
+      name: "prefers the APP_HOSTNAME runtime override over a baked production NEXT_PUBLIC_APP_URL",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "https://app.scontrinozero.it",
+        APP_HOSTNAME: "sandbox.scontrinozero.it",
+        NEXT_PUBLIC_APP_HOSTNAME: "app.scontrinozero.it",
+      },
+      expected: "https://sandbox.scontrinozero.it",
+    },
+    {
+      name: "applies the APP_HOSTNAME override when NEXT_PUBLIC_APP_URL is unset",
+      env: {
+        NODE_ENV: "production",
+        APP_HOSTNAME: "sandbox.scontrinozero.it",
+      },
+      expected: "https://sandbox.scontrinozero.it",
+    },
+    {
+      name: "applies the APP_HOSTNAME override when NEXT_PUBLIC_APP_URL is present-but-empty",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "",
+        APP_HOSTNAME: "sandbox.scontrinozero.it",
+      },
+      expected: "https://sandbox.scontrinozero.it",
+    },
+    {
+      name: "is a no-op in production, where APP_HOSTNAME matches the baked URL",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "https://app.scontrinozero.it",
+        APP_HOSTNAME: "app.scontrinozero.it",
+      },
+      expected: "https://app.scontrinozero.it",
+    },
+    {
+      name: "normalises a mixed-case, trailing-dot APP_HOSTNAME",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "https://app.scontrinozero.it",
+        APP_HOSTNAME: "Sandbox.ScontrinoZero.it.",
+      },
+      expected: "https://sandbox.scontrinozero.it",
+    },
+    // Un `APP_HOSTNAME=https://…` o `…/redirect` nel `.env` produrrebbe un URL
+    // malformato o un link verso un path arbitrario: si ignora l'override e si
+    // ricade sulla catena esistente, che resta validata contro l'allowlist.
+    // In produzione questo caso non arriva neppure qui — `assertIdentityEnv()`
+    // blocca il boot (regola 24) — ma la guardia lazy resta il secondo strato.
+    {
+      name: "ignores an APP_HOSTNAME carrying a scheme",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "https://app.scontrinozero.it",
+        APP_HOSTNAME: "https://sandbox.scontrinozero.it",
+      },
+      expected: "https://app.scontrinozero.it",
+    },
+    {
+      name: "ignores an APP_HOSTNAME carrying a path",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "https://app.scontrinozero.it",
+        APP_HOSTNAME: "sandbox.scontrinozero.it/redirect",
+      },
+      expected: "https://app.scontrinozero.it",
+    },
+    {
+      name: "ignores a present-but-empty APP_HOSTNAME (regola 18)",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "https://app.scontrinozero.it",
+        APP_HOSTNAME: "   ",
+      },
+      expected: "https://app.scontrinozero.it",
+    },
+    // L'override è hostname-only: se sostituisse l'host anche quando coincide
+    // con quello già configurato, in locale perderebbe la porta.
+    {
+      name: "keeps the dev port when APP_HOSTNAME matches the configured host",
+      env: {
+        NODE_ENV: "development",
+        NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+        APP_HOSTNAME: "localhost",
+      },
+      expected: "http://localhost:3000",
+    },
   ])("$name", async ({ env, expected }) => {
     for (const [key, value] of Object.entries(env)) {
       vi.stubEnv(key, value);
@@ -146,6 +239,14 @@ describe("getTrustedAppUrl", () => {
       }
     },
   );
+
+  it("normalises NEXT_PUBLIC_APP_HOSTNAME before matching the allowlist", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://sandbox.scontrinozero.it");
+    vi.stubEnv("NEXT_PUBLIC_APP_HOSTNAME", "Sandbox.ScontrinoZero.it");
+    const { getTrustedAppUrl } = await import("./trusted-app-url");
+    expect(getTrustedAppUrl()).toBe("https://sandbox.scontrinozero.it");
+  });
 
   it("does NOT log a critical error when env is empty in production (no false alarm)", async () => {
     vi.stubEnv("NODE_ENV", "production");

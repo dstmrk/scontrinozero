@@ -124,6 +124,18 @@ describe("assertIdentityEnv — failure modes in production", () => {
     expect(() => assertIdentityEnv()).toThrow(match);
   });
 
+  // `getTrustedAppUrl()` preferisce l'override runtime `APP_HOSTNAME` al
+  // valore bakato (REVIEW.md #93): la guardia di boot deve continuare a
+  // validare `NEXT_PUBLIC_APP_URL` comunque, perché quel valore finisce nel
+  // bundle client (`header.tsx`), nelle email e in `next.config.ts` — un
+  // override valido non lo rende irrilevante.
+  it("still rejects a malformed NEXT_PUBLIC_APP_URL when APP_HOSTNAME overrides it", async () => {
+    process.env.APP_HOSTNAME = "sandbox.scontrinozero.it";
+    process.env.NEXT_PUBLIC_APP_URL = "not a url";
+    const { assertIdentityEnv } = await import("./identity-env");
+    expect(() => assertIdentityEnv()).toThrow(/NEXT_PUBLIC_APP_URL/);
+  });
+
   it("aggregates multiple failures into a single thrown message", async () => {
     process.env.NEXT_PUBLIC_APP_URL = "not a url";
     process.env.APP_HOSTNAME = "https://oops";
