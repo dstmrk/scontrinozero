@@ -10,7 +10,7 @@ import { ReceiptNoteSection } from "./receipt-note-section";
 /**
  * Card "Personalizza lo scontrino" delle impostazioni: il messaggio di cortesia
  * stampato in coda al documento commerciale, dove il layout standard AdE scrive
- * "Arrivederci e grazie!".
+ * "Arrivederci e Grazie!".
  *
  * La card c'è SEMPRE, anche sui piani senza accesso: chi non ha la feature ne
  * vede la descrizione e l'upsell invece del campo. Stessa scelta di

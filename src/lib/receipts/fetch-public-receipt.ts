@@ -126,8 +126,9 @@ export async function fetchPublicReceipt(
     biz,
     lines,
     voidedSale,
-    // Solo la vendita: su una ricevuta di ANNULLAMENTO un ringraziamento
-    // stonerebbe, come sul PDF e sulla termica.
+    // Solo la vendita, come sul PDF e sulla termica — divergenza voluta dal
+    // layout AdE, che il saluto sull'annullo ce l'ha. Motivazione per esteso
+    // sul campo `footerNote` in `src/lib/pdf/commercial-document.ts`.
     footerNote:
       doc.kind === "SALE"
         ? resolveReceiptFooterNote(biz.receiptFooterNote, owner)
