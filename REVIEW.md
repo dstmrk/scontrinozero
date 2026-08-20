@@ -247,6 +247,30 @@ group:
 
 ## P3 — Bassa priorità
 
+### 94. Deploy skew: il reload salva la sessione ma non quello che l'utente aveva digitato
+
+- **Categoria:** UX · **Severità:** Low — l'operazione non è mai stata
+  registrata (il server rifiuta la chiamata prima di arrivare al nostro
+  codice), si perde solo la digitazione
+- **File:** `src/lib/deploy-skew.ts`, `src/app/onboarding/onboarding-form.tsx`
+
+Con SCONTRINOZERO-Z il deploy skew non lascia più l'utente su una pagina morta:
+il boundary lo riconosce e ricarica, prendendo il bundle della release nuova.
+Resta però che il form riparte vuoto — nel caso osservato erano le credenziali
+CIE appena inserite allo step 2 dell'onboarding, da ridigitare.
+
+Il seguito naturale è persistere la bozza del wizard prima del reload
+(`safeSessionStorage`, stesso store del marcatore) e reidratarla al
+caricamento. Attenzione: le credenziali AdE sono il campo più fastidioso da
+ridigitare **ed** è l'unico che non va scritto in Web Storage — password e PIN
+Fisconline, password CIE restano fuori. Il recupero copre quindi i dati
+anagrafici dello step 1 e la scelta del metodo, non i segreti: va valutato se
+il beneficio residuo giustifichi il codice.
+
+Trigger di riapertura: se lo skew comincia a colpire la cassa (emissione
+scontrino) invece dell'onboarding, la priorità sale — lì la digitazione persa è
+un carrello intero.
+
 ### 81. Sweep GDPR: la query candidati aggrega l'intera tabella `commercial_documents` a ogni giro
 
 - **Categoria:** performance DB · **Severità:** Low (cresce col volume globale, non per-tenant)
