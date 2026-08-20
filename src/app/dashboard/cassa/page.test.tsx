@@ -8,14 +8,14 @@ const {
   mockGetOnboardingStatus,
   mockGetAuthenticatedUser,
   mockGetPlanSafe,
-  mockFetchReceiptPrintHeader,
+  mockFetchReceiptPrintProfile,
   mockLimit,
   mockRedirect,
 } = vi.hoisted(() => ({
   mockGetOnboardingStatus: vi.fn(),
   mockGetAuthenticatedUser: vi.fn(),
   mockGetPlanSafe: vi.fn(),
-  mockFetchReceiptPrintHeader: vi.fn(),
+  mockFetchReceiptPrintProfile: vi.fn(),
   mockLimit: vi.fn(),
   // `redirect()` di Next funziona LANCIANDO NEXT_REDIRECT: il mock replica il
   // throw, così un eventuale catch largo nella pagina si vedrebbe subito come
@@ -38,9 +38,9 @@ vi.mock("@/lib/server-auth", () => ({
     mockGetAuthenticatedUser(...args),
 }));
 
-vi.mock("@/lib/receipts/print-header", () => ({
-  fetchReceiptPrintHeader: (...args: unknown[]) =>
-    mockFetchReceiptPrintHeader(...args),
+vi.mock("@/lib/receipts/print-profile", () => ({
+  fetchReceiptPrintProfile: (...args: unknown[]) =>
+    mockFetchReceiptPrintProfile(...args),
 }));
 
 vi.mock("@/db", () => ({
@@ -79,7 +79,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockGetOnboardingStatus.mockResolvedValue({ businessId: "biz-1" });
   mockGetAuthenticatedUser.mockResolvedValue({ id: "user-1" });
-  mockFetchReceiptPrintHeader.mockResolvedValue({});
+  mockFetchReceiptPrintProfile.mockResolvedValue({});
   mockLimit.mockResolvedValue([{ preferredVatCode: "22" }]);
 });
 
@@ -117,7 +117,7 @@ describe("CassaPage — degrado della lettura del piano (REVIEW #85)", () => {
 
     render(await CassaPage());
 
-    expect(mockFetchReceiptPrintHeader).not.toHaveBeenCalled();
+    expect(mockFetchReceiptPrintProfile).not.toHaveBeenCalled();
     expect(mockLimit).not.toHaveBeenCalled();
   });
 });

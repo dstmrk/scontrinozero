@@ -15,10 +15,8 @@ import { PrintReceiptButton } from "@/components/printing/print-receipt-button";
 import { usePrinter } from "@/hooks/use-printer";
 import { readPrinterPreferences } from "@/lib/printing/printer-preferences";
 import type { CartLine, PaymentMethod } from "@/types/cassa";
-import type {
-  PrintableReceipt,
-  ReceiptPrintHeader,
-} from "@/lib/printing/types";
+import type { PrintableReceipt } from "@/lib/printing/types";
+import type { ReceiptPrintProfile } from "@/lib/receipts/print-profile";
 
 interface ReceiptSuccessProps {
   readonly documentId?: string;
@@ -39,7 +37,7 @@ interface ReceiptSuccessProps {
   readonly lines?: readonly CartLine[];
   readonly paymentMethod?: PaymentMethod;
   readonly lotteryCode?: string | null;
-  readonly printHeader?: ReceiptPrintHeader | null;
+  readonly printProfile?: ReceiptPrintProfile | null;
   readonly onNewReceipt: () => void;
 }
 
@@ -51,7 +49,7 @@ export function ReceiptSuccess({
   lines = [],
   paymentMethod = "PC",
   lotteryCode = null,
-  printHeader = null,
+  printProfile = null,
   onNewReceipt,
 }: ReceiptSuccessProps) {
   const [copied, setCopied] = useState(false);
@@ -64,10 +62,10 @@ export function ReceiptSuccess({
    * AdE: senza, resta comunque la corsia PDF del bottone.
    */
   const printableReceipt = useMemo<PrintableReceipt | null>(() => {
-    if (!printHeader || !adeProgressive || lines.length === 0) return null;
+    if (!printProfile || !adeProgressive || lines.length === 0) return null;
     return {
       kind: "SALE",
-      header: printHeader,
+      header: printProfile.header,
       lines: lines.map((line) => ({
         description: line.description,
         quantity: String(line.quantity),
@@ -80,12 +78,15 @@ export function ReceiptSuccess({
       adeRegisteredAt: adeRegisteredAt ? new Date(adeRegisteredAt) : new Date(),
       adeProgressive,
       lotteryCode,
+      // Messaggio di cortesia (Pro), gia' passato per il gate di piano lato
+      // server: qui `null` significa solo "non stampare nulla".
+      footerNote: printProfile.footerNote,
       publicUrl: documentId
         ? `${globalThis.location.origin}/r/${documentId}`
         : null,
     };
   }, [
-    printHeader,
+    printProfile,
     adeProgressive,
     lines,
     paymentMethod,

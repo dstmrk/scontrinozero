@@ -7,7 +7,7 @@ import { STORICO_PAGE_SIZE, type StatusFilter } from "@/types/storico";
 import { getAuthenticatedUser } from "@/lib/server-auth";
 import { getPlanSafe } from "@/lib/plans";
 import { defaultLast7DaysRomeRange } from "@/lib/storico-default-range";
-import { fetchReceiptPrintHeader } from "@/lib/receipts/print-header";
+import { fetchReceiptPrintProfile } from "@/lib/receipts/print-profile";
 
 const STATUS_VALUES = new Set<StatusFilter>(["ACCEPTED", "VOID_ACCEPTED", ""]);
 
@@ -59,9 +59,9 @@ export default async function StoricoPage({
   // `getPlanSafe` e non `getPlan` (REVIEW.md #85): `searchReceipts` qui sopra
   // degrada già a `{ error, items: [], total: 0 }`, e un throw accanto
   // annullerebbe quella scelta mandando l'intera pagina al boundary.
-  const [planResult, printHeader] = await Promise.all([
+  const [planResult, printProfile] = await Promise.all([
     getPlanSafe(user.id, "storicoPage"),
-    fetchReceiptPrintHeader(status.businessId),
+    fetchReceiptPrintProfile(status.businessId),
   ]);
 
   if (!planResult.ok) {
@@ -80,7 +80,7 @@ export default async function StoricoPage({
       initialStatus={statusParam}
       plan={planInfo.plan}
       trialStartedAt={planInfo.trialStartedAt}
-      printHeader={printHeader}
+      printHeader={printProfile?.header ?? null}
     />
   );
 }

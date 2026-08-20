@@ -9,7 +9,7 @@ import { CassaClient } from "@/components/cassa/cassa-client";
 import { PlanUnavailable } from "@/components/dashboard/plan-unavailable";
 import { getAuthenticatedUser } from "@/lib/server-auth";
 import { canUseDashboardCashier, getPlanSafe } from "@/lib/plans";
-import { fetchReceiptPrintHeader } from "@/lib/receipts/print-header";
+import { fetchReceiptPrintProfile } from "@/lib/receipts/print-profile";
 
 export default async function CassaPage() {
   const status = await getOnboardingStatus();
@@ -37,16 +37,16 @@ export default async function CassaPage() {
   }
 
   const db = getDb();
-  // L'intestazione per la stampa termica si legge QUI, non dopo l'emissione:
-  // un round-trip in più sulla schermata di successo si vedrebbe, e
-  // l'auto-stampa deve partire senza attese (principio #1).
-  const [[business], printHeader] = await Promise.all([
+  // Intestazione e messaggio di cortesia per la stampa termica si leggono QUI,
+  // non dopo l'emissione: un round-trip in più sulla schermata di successo si
+  // vedrebbe, e l'auto-stampa deve partire senza attese (principio #1).
+  const [[business], printProfile] = await Promise.all([
     db
       .select({ preferredVatCode: businesses.preferredVatCode })
       .from(businesses)
       .where(eq(businesses.id, status.businessId))
       .limit(1),
-    fetchReceiptPrintHeader(status.businessId),
+    fetchReceiptPrintProfile(status.businessId),
   ]);
 
   const preferredVatCode =
@@ -60,7 +60,7 @@ export default async function CassaPage() {
       <CassaClient
         businessId={status.businessId}
         preferredVatCode={preferredVatCode}
-        printHeader={printHeader}
+        printProfile={printProfile}
       />
     </Suspense>
   );

@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { ReceiptSuccess } from "./receipt-success";
 import type { UsePrinterResult } from "@/hooks/use-printer";
 import type { CartLine } from "@/types/cassa";
-import type { ReceiptPrintHeader } from "@/lib/printing/types";
+import type { ReceiptPrintProfile } from "@/lib/receipts/print-profile";
 import { writePrinterPreferences } from "@/lib/printing/printer-preferences";
 
 /**
@@ -34,13 +34,16 @@ function printerState(overrides: Partial<UsePrinterResult> = {}) {
   } as UsePrinterResult;
 }
 
-const HEADER: ReceiptPrintHeader = {
-  businessName: "Bar da Mario",
-  vatNumber: "12345678901",
-  address: null,
-  city: null,
-  province: null,
-  zipCode: null,
+const PROFILE: ReceiptPrintProfile = {
+  header: {
+    businessName: "Bar da Mario",
+    vatNumber: "12345678901",
+    address: null,
+    city: null,
+    province: null,
+    zipCode: null,
+  },
+  footerNote: null,
 };
 
 const LINES: CartLine[] = [
@@ -63,7 +66,7 @@ function renderSuccess(props: Record<string, unknown> = {}) {
       lines={LINES}
       paymentMethod="PC"
       lotteryCode={null}
-      printHeader={HEADER}
+      printProfile={PROFILE}
       onNewReceipt={vi.fn()}
       {...props}
     />,
@@ -100,6 +103,19 @@ describe("auto-stampa", () => {
     );
   });
 
+  // La nota arriva gia' filtrata dal gate di piano lato server: il componente
+  // la trasporta e basta, ma se non la trasportasse la carta uscirebbe diversa
+  // dal PDF dello stesso documento.
+  it("porta il messaggio di cortesia nello scontrino stampato", async () => {
+    const print = vi.fn().mockResolvedValue(null);
+    mockPrinter.current = printerState({ print });
+    renderSuccess({
+      printProfile: { ...PROFILE, footerNote: "Arrivederci e grazie!" },
+    });
+    await waitFor(() => expect(print).toHaveBeenCalled());
+    expect(print.mock.calls[0][0].footerNote).toBe("Arrivederci e grazie!");
+  });
+
   it("stampa una sola volta anche se il componente ri-renderizza", async () => {
     const print = vi.fn().mockResolvedValue(null);
     mockPrinter.current = printerState({ print });
@@ -114,7 +130,7 @@ describe("auto-stampa", () => {
         lines={LINES}
         paymentMethod="PC"
         lotteryCode={null}
-        printHeader={HEADER}
+        printProfile={PROFILE}
         onNewReceipt={vi.fn()}
       />,
     );
@@ -158,7 +174,7 @@ describe("auto-stampa", () => {
         lines={LINES}
         paymentMethod="PC"
         lotteryCode={null}
-        printHeader={HEADER}
+        printProfile={PROFILE}
         onNewReceipt={vi.fn()}
       />,
     );
@@ -169,7 +185,7 @@ describe("auto-stampa", () => {
   it("non stampa senza intestazione esercente", async () => {
     const print = vi.fn().mockResolvedValue(null);
     mockPrinter.current = printerState({ print });
-    renderSuccess({ printHeader: null });
+    renderSuccess({ printProfile: null });
     expect(await screen.findByText("Scontrino emesso")).toBeDefined();
     expect(print).not.toHaveBeenCalled();
   });
@@ -181,7 +197,7 @@ describe("auto-stampa", () => {
     // volta sola).
     const print = vi.fn().mockResolvedValue(null);
     mockPrinter.current = printerState({ print });
-    const { rerender } = renderSuccess({ printHeader: null });
+    const { rerender } = renderSuccess({ printProfile: null });
     expect(await screen.findByText("Scontrino emesso")).toBeDefined();
     expect(print).not.toHaveBeenCalled();
 
@@ -193,7 +209,7 @@ describe("auto-stampa", () => {
         lines={LINES}
         paymentMethod="PC"
         lotteryCode={null}
-        printHeader={HEADER}
+        printProfile={PROFILE}
         onNewReceipt={vi.fn()}
       />,
     );

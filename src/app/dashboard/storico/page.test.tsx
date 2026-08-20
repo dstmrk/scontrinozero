@@ -9,14 +9,14 @@ const {
   mockGetAuthenticatedUser,
   mockGetPlanSafe,
   mockSearchReceipts,
-  mockFetchReceiptPrintHeader,
+  mockFetchReceiptPrintProfile,
   mockRedirect,
 } = vi.hoisted(() => ({
   mockGetOnboardingStatus: vi.fn(),
   mockGetAuthenticatedUser: vi.fn(),
   mockGetPlanSafe: vi.fn(),
   mockSearchReceipts: vi.fn(),
-  mockFetchReceiptPrintHeader: vi.fn(),
+  mockFetchReceiptPrintProfile: vi.fn(),
   mockRedirect: vi.fn((..._args: unknown[]) => {
     throw new Error("NEXT_REDIRECT");
   }),
@@ -39,9 +39,9 @@ vi.mock("@/lib/server-auth", () => ({
     mockGetAuthenticatedUser(...args),
 }));
 
-vi.mock("@/lib/receipts/print-header", () => ({
-  fetchReceiptPrintHeader: (...args: unknown[]) =>
-    mockFetchReceiptPrintHeader(...args),
+vi.mock("@/lib/receipts/print-profile", () => ({
+  fetchReceiptPrintProfile: (...args: unknown[]) =>
+    mockFetchReceiptPrintProfile(...args),
 }));
 
 vi.mock("@/lib/plans", () => ({
@@ -65,7 +65,7 @@ beforeEach(() => {
   mockGetOnboardingStatus.mockResolvedValue({ businessId: "biz-1" });
   mockGetAuthenticatedUser.mockResolvedValue({ id: "user-1" });
   mockSearchReceipts.mockResolvedValue({ items: [], total: 0 });
-  mockFetchReceiptPrintHeader.mockResolvedValue({});
+  mockFetchReceiptPrintProfile.mockResolvedValue({});
 });
 
 describe("StoricoPage — percorso nominale", () => {
