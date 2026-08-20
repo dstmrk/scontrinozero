@@ -467,6 +467,28 @@ describe("layout AdE — messaggio di cortesia (Pro)", () => {
     );
   });
 
+  // Caso peggiore: nota al limite dei 64 caratteri su una riga logica sola
+  // (che sulla pagina ne occupa due), insieme a tutto il resto del piede.
+  it("una nota al limite non fa sbordare il documento, nemmeno col QR", async () => {
+    const buf = await generateCommercialDocumentPdf({
+      ...BASE_DATA,
+      lines: [
+        ...BASE_DATA.lines,
+        {
+          description: "Prestazione esente",
+          quantity: 3,
+          grossUnitPrice: 40,
+          vatCode: "N4",
+        },
+      ],
+      paymentMethod: "PE",
+      lotteryCode: "YYWLR30G",
+      footerNote: "Grazie di cuore per la visita, vi aspettiamo presto qui!",
+      publicUrl: "https://app.scontrinozero.it/r/sale-uuid",
+    });
+    expect(pdfPageCount(buf)).toBe(1);
+  });
+
   it("la nota non fa sbordare il documento su una seconda pagina", async () => {
     const buf = await generateCommercialDocumentPdf({
       ...BASE_DATA,

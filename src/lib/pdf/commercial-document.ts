@@ -140,6 +140,14 @@ const CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN;
 /** Lato del QR in pt: sta comodo in CONTENT_WIDTH (153pt) restando leggibile. */
 const QR_SIZE = 90;
 
+/**
+ * Colonne di testo che stanno in `CONTENT_WIDTH` a corpo 6, la dimensione del
+ * messaggio di cortesia: Helvetica ha larghezza media ~0.5em, quindi 153pt / 3pt
+ * ≈ 51. Serve SOLO alla stima d'altezza — il wrap vero lo fa pdfkit, che conosce
+ * le metriche reali del font; qui basta sapere quante righe occuperà.
+ */
+const FOOTER_NOTE_PDF_COLUMNS = 51;
+
 /** Larghezza della colonna importo nelle righe a due colonne (totali/pagamenti). */
 const AMOUNT_W = 38;
 const LABEL_W = CONTENT_WIDTH - AMOUNT_W;
@@ -476,16 +484,23 @@ function drawFooter(
  * suo separatore, 22pt per il blocco lotteria (caption + codice).
  * Sovrastimare costa spazio bianco, sottostimare costa una seconda pagina: la
  * stima resta volutamente generosa. Il messaggio di cortesia costa 11pt per
- * riga logica: 9pt di riga a corpo 6 piu' il margine di un a capo del PDF, che
- * e' piu' largo delle 32 colonne della termica ma non infinito.
+ * riga STAMPATA (9pt di riga a corpo 6 piu' margine), contate dopo un wrap
+ * approssimato a `FOOTER_NOTE_PDF_COLUMNS`.
  */
 function estimateHeight(data: CommercialDocumentPdfData): number {
   const vatCodes = data.lines.map((l) => l.vatCode);
   const uniqueVatRates = new Set(vatCodes).size;
   const legendRows = receiptVatLegend(vatCodes).length;
   const hasLotteryCode = data.kind === "SALE" && Boolean(data.lotteryCode);
+  // Righe stimate DOPO il wrap: 64 caratteri su una riga logica ne occupano
+  // due sulla carta, e contarne una sola farebbe sbordare il documento su una
+  // seconda pagina.
   const footerNoteRows =
-    data.kind === "SALE" ? receiptFooterNoteLines(data.footerNote).length : 0;
+    data.kind === "SALE"
+      ? receiptFooterNoteLines(data.footerNote, {
+          columns: FOOTER_NOTE_PDF_COLUMNS,
+        }).length
+      : 0;
   return (
     145 +
     data.lines.length * 18 +
