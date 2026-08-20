@@ -43,7 +43,16 @@ export function ReceiptNoteCard({
       <CardContent className="space-y-4">
         <p className="text-muted-foreground text-sm">
           Aggiungi un messaggio di cortesia in fondo agli scontrini che emetti —
-          un saluto, gli orari, il tuo profilo social.
+          un saluto, gli orari, il tuo profilo social.{" "}
+          {/* Path relativo: dal dominio app il middleware fa l'hop verso il
+              dominio marketing (stesso pattern di `SupportSection`). */}
+          <a
+            href="/help/messaggio-personalizzato-scontrino"
+            className="text-primary hover:underline"
+          >
+            Come funziona
+          </a>
+          {"."}
         </p>
 
         {unlocked ? (

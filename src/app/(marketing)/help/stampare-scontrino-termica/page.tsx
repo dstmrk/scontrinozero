@@ -391,6 +391,9 @@ export default function StampareScontrinoTermicaPage() {
               serve e tocca <strong>Stampa</strong>. Lo scontrino esce identico
               a quello originale, con la stessa data di emissione e lo stesso
               numero progressivo: non è un nuovo documento, è solo una copia.
+              Cambiano solo i dati non fiscali che leggiamo al momento della
+              stampa — intestazione e messaggio di cortesia: se li hai
+              modificati nel frattempo, la copia riporta i valori attuali.
             </p>
           </div>
           <div>

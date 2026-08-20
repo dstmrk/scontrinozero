@@ -170,12 +170,30 @@ export const helpArticles: Record<string, HelpArticle> = {
   "intestazione-scontrino": {
     slug: "intestazione-scontrino",
     datePublished: "2026-04-20",
-    dateModified: "2026-07-13",
+    dateModified: "2026-08-20",
     title: "Personalizzare intestazione e dati dello scontrino",
     metaTitle: "Personalizzare intestazione e dati dello scontrino",
     description:
       "Come modificare la ragione sociale, l'indirizzo e i dati fiscali che appaiono sull'intestazione dello scontrino emesso da ScontrinoZero.",
-    related: ["prima-configurazione", "come-collegare-ade", "primo-scontrino"],
+    related: [
+      "prima-configurazione",
+      "messaggio-personalizzato-scontrino",
+      "primo-scontrino",
+    ],
+  },
+  "messaggio-personalizzato-scontrino": {
+    slug: "messaggio-personalizzato-scontrino",
+    datePublished: "2026-08-20",
+    dateModified: "2026-08-20",
+    title: "Messaggio personalizzato sullo scontrino",
+    metaTitle: "Messaggio personalizzato in fondo allo scontrino",
+    description:
+      "Come stampare un messaggio di cortesia in fondo agli scontrini: dove impostarlo, il limite di 64 caratteri su 2 righe e dove compare. Incluso nel piano Pro e nella prova gratuita.",
+    related: [
+      "intestazione-scontrino",
+      "stampare-scontrino-termica",
+      "piani-e-prezzi",
+    ],
   },
   "metodi-di-pagamento": {
     slug: "metodi-di-pagamento",
@@ -300,7 +318,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "stampare-scontrino-termica": {
     slug: "stampare-scontrino-termica",
     datePublished: "2026-05-21",
-    dateModified: "2026-07-28",
+    dateModified: "2026-08-20",
     title: "Stampare lo scontrino su carta termica",
     metaTitle: "Come stampare lo scontrino su carta termica",
     description:

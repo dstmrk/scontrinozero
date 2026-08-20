@@ -54,6 +54,23 @@ describe("ReceiptNoteCard — stato sbloccato", () => {
     ).not.toBeInTheDocument();
   });
 
+  // Il link vive fuori dal gate: anche chi non ha la feature deve poter leggere
+  // cosa fa prima di pagarla.
+  it("linka l'articolo del centro assistenza in entrambi gli stati", () => {
+    const { unmount } = renderCard({ plan: "pro" });
+    expect(screen.getByRole("link", { name: "Come funziona" })).toHaveAttribute(
+      "href",
+      "/help/messaggio-personalizzato-scontrino",
+    );
+    unmount();
+
+    renderCard({ plan: "starter" });
+    expect(screen.getByRole("link", { name: "Come funziona" })).toHaveAttribute(
+      "href",
+      "/help/messaggio-personalizzato-scontrino",
+    );
+  });
+
   it("rende il campo su unlimited", () => {
     renderCard({ plan: "unlimited" });
     expect(screen.getByTestId("receipt-note-section")).toBeInTheDocument();
