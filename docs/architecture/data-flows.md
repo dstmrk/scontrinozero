@@ -130,6 +130,15 @@ documento con la fonte di verità via
 finalize-only (nessun duplicato fiscale), altrimenti re-submit; lookup
 ambiguo o fallito → resta pending (fail-safe).
 
+Il match porta anche `registeredAt` (il `data` del documento AdE, wall-clock
+italiano, parsato da `parseAdeResultDate`): la finalizzazione lo scrive in
+`ade_registered_at` via `adeRegisteredAtPatchFromDate`
+(`src/lib/services/ade-registered-at.ts`), così la data fiscale della riga
+riconciliata è quella dell'AdE e non il `DEFAULT now()` dell'INSERT — che su una
+riga stale può precederla di minuti. Resta col default il solo ramo che
+finalizza **senza** interrogare AdE (`adeTransactionId` già persistito): lì lo
+scarto è la finestra del fallimento DB, non la soglia stale.
+
 ## Ciclo abbonamento Stripe
 
 1. Checkout/portal da `src/server/billing-actions.ts` (wrapper SDK in

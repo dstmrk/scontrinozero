@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 
-import { adeRegisteredAtPatch } from "./ade-registered-at";
+import {
+  adeRegisteredAtPatch,
+  adeRegisteredAtPatchFromDate,
+} from "./ade-registered-at";
 import type { AdeResponse } from "@/lib/ade/types";
 
 function makeResponse(overrides: Partial<AdeResponse> = {}): AdeResponse {
@@ -54,5 +57,27 @@ describe("adeRegisteredAtPatch", () => {
 
       expect(stamp === undefined || !Number.isNaN(stamp.getTime())).toBe(true);
     }
+  });
+});
+
+describe("adeRegisteredAtPatchFromDate", () => {
+  it("porta la Date nella UPDATE quando il recovery l'ha riconciliata", () => {
+    expect(
+      adeRegisteredAtPatchFromDate(new Date("2026-02-23T09:09:30Z")),
+    ).toEqual({ adeRegisteredAt: new Date("2026-02-23T09:09:30Z") });
+  });
+
+  // `null` = l'annullo riconciliato aveva un `data` illeggibile; `undefined` =
+  // finalize senza documento AdE in mano (retry della sola UPDATE). In entrambi
+  // i casi resta il DEFAULT now() scritto all'INSERT.
+  it.each([
+    { name: "null (data AdE illeggibile)", value: null },
+    { name: "undefined (nessun documento riconciliato)", value: undefined },
+  ])("omette la chiave su $name", ({ value }) => {
+    expect(adeRegisteredAtPatchFromDate(value)).toEqual({});
+  });
+
+  it("omette la chiave su una Invalid Date", () => {
+    expect(adeRegisteredAtPatchFromDate(new Date("non-una-data"))).toEqual({});
   });
 });

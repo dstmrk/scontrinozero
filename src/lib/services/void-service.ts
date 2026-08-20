@@ -35,7 +35,10 @@ import {
 import type { VoidReceiptInput, VoidReceiptResult } from "@/types/storico";
 import type { VoidRequest } from "@/lib/ade/public-types";
 import type { AdeResponse } from "@/lib/ade/types";
-import { adeRegisteredAtPatch } from "./ade-registered-at";
+import {
+  adeRegisteredAtPatch,
+  adeRegisteredAtPatchFromDate,
+} from "./ade-registered-at";
 import {
   buildAdeSearchWindow,
   claimStaleDocument,
@@ -262,6 +265,7 @@ async function finalizeVoidOnly(
   saleDocumentId: string,
   adeTransactionId: string,
   adeProgressive: string,
+  registeredAt?: Date | null,
 ): Promise<VoidReceiptResult> {
   try {
     // Retry on statement timeout + SET LOCAL statement_timeout (3s).
@@ -279,6 +283,11 @@ async function finalizeVoidOnly(
             status: "VOID_ACCEPTED",
             adeTransactionId,
             adeProgressive,
+            // REVIEW.md #91: l'istante autorevole dell'ANNULLO, quando il
+            // recovery l'ha riconciliato. Solo su questa riga — la vendita
+            // annullata conserva il proprio (sono due documenti fiscali
+            // distinti, con due date di registrazione diverse).
+            ...adeRegisteredAtPatchFromDate(registeredAt),
           })
           .where(
             and(
@@ -777,6 +786,7 @@ async function reconcileVoidBeforeResubmit(
       saleDocumentId,
       result.idtrx,
       result.numeroProgressivo,
+      result.registeredAt,
     );
   }
 

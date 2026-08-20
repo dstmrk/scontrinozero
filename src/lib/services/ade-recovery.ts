@@ -115,7 +115,24 @@ const ADE_TZ = "Europe/Rome";
 const RECONCILE_PROXIMITY_MS = 10 * 60 * 1000;
 
 export type AdeReconcileResult =
-  | { kind: "match"; idtrx: string; numeroProgressivo: string }
+  | {
+      kind: "match";
+      idtrx: string;
+      numeroProgressivo: string;
+      /**
+       * Istante in cui l'AdE dichiara di aver registrato il documento, parsato
+       * dal `data` del summary (REVIEW.md #91). E' il valore autorevole per
+       * `ade_registered_at`: sulla riga stale il nostro `DEFAULT now()` all'INSERT
+       * puo' precederlo di minuti, ed e' l'orario che finisce su PDF, storico ed
+       * export.
+       *
+       * `null` quando il `data` non e' parsabile: passa solo dall'annullo, il cui
+       * match non ha finestra temporale (il match vendita e' gia' filtrato da
+       * `withinProximity`, che scarta un `data` illeggibile). Chi finalizza NON
+       * deve scrivere la colonna in quel caso — vedi `adeRegisteredAtPatchFromDate`.
+       */
+      registeredAt: Date | null;
+    }
   | { kind: "none" }
   | { kind: "ambiguous" };
 
@@ -279,6 +296,7 @@ function decide(candidates: AdeDocumentSummary[]): AdeReconcileResult {
     kind: "match",
     idtrx: doc.idtrx,
     numeroProgressivo: doc.numeroProgressivo,
+    registeredAt: parseAdeResultDate(doc.data),
   };
 }
 

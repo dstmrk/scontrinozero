@@ -665,6 +665,97 @@ describe("voidReceiptForBusiness", () => {
     expect(mockGetDocument).not.toHaveBeenCalled();
   });
 
+  it("recovery annullo: finalize-only scrive ade_registered_at sull'ANNULLO, non sulla vendita (REVIEW.md #91)", async () => {
+    mockReturning.mockResolvedValue([]); // INSERT conflict
+    mockSelectLimit
+      .mockResolvedValueOnce([FAKE_SALE_DOC])
+      .mockResolvedValueOnce([
+        {
+          id: "void-doc-uuid",
+          status: "PENDING",
+          adeTransactionId: null,
+          adeProgressive: null,
+          createdAt: new Date(Date.now() - 35 * 60 * 1000),
+          updatedAt: new Date(Date.now() - 35 * 60 * 1000),
+        },
+      ]);
+    mockSearchDocuments.mockResolvedValueOnce({
+      totalCount: 1,
+      elencoRisultati: [
+        {
+          idtrx: "trx-void-found",
+          numeroProgressivo: "DCW2026/5111-3000",
+          cfCliente: "",
+          // Wall-clock italiano (CET) → 09:05:00Z.
+          data: "15/02/2026 10:05:00",
+          tipoOperazione: "A",
+          annulli: "DCW2026/5111-2188",
+          ammontareComplessivo: 20.0,
+        },
+      ],
+    });
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    await voidReceiptForBusiness(VALID_INPUT);
+
+    const voidSet = mockUpdateSet.mock.calls
+      .map((c) => c[0])
+      .find((set) => set.adeTransactionId === "trx-void-found");
+    expect(voidSet).toMatchObject({
+      status: "VOID_ACCEPTED",
+      adeRegisteredAt: new Date("2026-02-15T09:05:00Z"),
+    });
+
+    // La vendita porta il PROPRIO istante di registrazione: l'annullo non deve
+    // sovrascriverlo col proprio (sono due documenti fiscali distinti).
+    const saleSet = mockUpdateSet.mock.calls
+      .map((c) => c[0])
+      .find((set) => set.status === "VOID_ACCEPTED" && !set.adeTransactionId);
+    expect(saleSet).toEqual({ status: "VOID_ACCEPTED" });
+  });
+
+  it("recovery annullo: `data` AdE illeggibile → finalize senza toccare ade_registered_at", async () => {
+    // Il match dell'annullo non passa da withinProximity: è l'unico percorso in
+    // cui un `data` non parsabile arriva fino alla finalizzazione. Scriverlo
+    // significherebbe una Invalid Date su un timestamptz NOT NULL.
+    mockReturning.mockResolvedValue([]); // INSERT conflict
+    mockSelectLimit
+      .mockResolvedValueOnce([FAKE_SALE_DOC])
+      .mockResolvedValueOnce([
+        {
+          id: "void-doc-uuid",
+          status: "PENDING",
+          adeTransactionId: null,
+          adeProgressive: null,
+          createdAt: new Date(Date.now() - 35 * 60 * 1000),
+          updatedAt: new Date(Date.now() - 35 * 60 * 1000),
+        },
+      ]);
+    mockSearchDocuments.mockResolvedValueOnce({
+      totalCount: 1,
+      elencoRisultati: [
+        {
+          idtrx: "trx-void-found",
+          numeroProgressivo: "DCW2026/5111-3000",
+          cfCliente: "",
+          data: "2026-02-15T10:05:00Z", // formato inatteso
+          tipoOperazione: "A",
+          annulli: "DCW2026/5111-2188",
+          ammontareComplessivo: 20.0,
+        },
+      ],
+    });
+
+    const { voidReceiptForBusiness } = await import("./void-service");
+    const result = await voidReceiptForBusiness(VALID_INPUT);
+
+    // L'annullo si finalizza comunque: il timestamp è un di più, non un gate.
+    expect(result.adeTransactionId).toBe("trx-void-found");
+    expect(mockUpdateSet).not.toHaveBeenCalledWith(
+      expect.objectContaining({ adeRegisteredAt: expect.anything() }),
+    );
+  });
+
   it("recovery annullo: match AdE ambiguo → VOID_PENDING_IN_PROGRESS, niente submitVoid", async () => {
     mockReturning.mockResolvedValue([]); // INSERT conflict
     mockSelectLimit

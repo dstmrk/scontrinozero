@@ -194,6 +194,7 @@ describe("reconcile con esclusione claimedIdtrx", () => {
       kind: "match",
       idtrx: "1",
       numeroProgressivo: "DCW2026/5432-1548",
+      registeredAt: SALE_CREATED_AT,
     });
   });
 
@@ -275,6 +276,7 @@ describe("reconcileSaleDocument", () => {
       kind: "match",
       idtrx: "154294949",
       numeroProgressivo: "DCW2026/5432-1548",
+      registeredAt: SALE_CREATED_AT,
     });
   });
 
@@ -290,6 +292,17 @@ describe("reconcileSaleDocument", () => {
   it("ritorna none quando l'importo non combacia", () => {
     const result = reconcileSaleDocument({
       documents: [summary({ ammontareComplessivo: 2.5 })],
+      expectedTotalCents: 170,
+      createdAt: SALE_CREATED_AT,
+    });
+    expect(result).toEqual({ kind: "none" });
+  });
+
+  // Invariante su cui si appoggia REVIEW.md #91: un match VENDITA ha sempre un
+  // `data` parsabile, perché la prossimità temporale è una condizione del match.
+  it("ritorna none quando il `data` non è parsabile (mai un match senza istante)", () => {
+    const result = reconcileSaleDocument({
+      documents: [summary({ data: "2026-02-23T10:06:14Z" })],
       expectedTotalCents: 170,
       createdAt: SALE_CREATED_AT,
     });
@@ -341,6 +354,7 @@ describe("reconcileSaleDocument", () => {
       kind: "match",
       idtrx: "2",
       numeroProgressivo: "DCW2026/5432-1548",
+      registeredAt: SALE_CREATED_AT,
     });
   });
 
@@ -407,6 +421,7 @@ describe("reconcileVoidDocument", () => {
       kind: "match",
       idtrx: "154295136",
       numeroProgressivo: "DCW2026/5432-1735",
+      registeredAt: SALE_CREATED_AT,
     });
   });
 
@@ -490,5 +505,56 @@ describe("markDocumentErrorBestEffort", () => {
       expect.objectContaining({ voidDocumentId: "doc-err" }),
       "Failed to mark VOID as ERROR after CIE reauth-required",
     );
+  });
+});
+
+describe("registeredAt sul match riconciliato (REVIEW.md #91)", () => {
+  it("vendita: il match porta l'istante dichiarato da AdE, non il nostro createdAt", () => {
+    // `data` AdE è wall-clock italiano: 10:06:14 CET → 09:06:14 UTC.
+    const result = reconcileSaleDocument({
+      documents: [summary({ data: "23/02/2026 10:09:30" })],
+      expectedTotalCents: 170,
+      createdAt: SALE_CREATED_AT,
+    });
+
+    expect(result).toMatchObject({
+      kind: "match",
+      registeredAt: new Date("2026-02-23T09:09:30Z"),
+    });
+  });
+
+  it("annullo: il match porta registeredAt anche senza finestra di prossimità", () => {
+    const result = reconcileVoidDocument({
+      documents: [
+        summary({
+          tipoOperazione: "A",
+          annulli: "DCW2026/5432-1548",
+          data: "24/02/2026 18:42:07",
+        }),
+      ],
+      saleProgressivo: "DCW2026/5432-1548",
+    });
+
+    expect(result).toMatchObject({
+      kind: "match",
+      registeredAt: new Date("2026-02-24T17:42:07Z"),
+    });
+  });
+
+  it("annullo con `data` illeggibile: registeredAt null, mai una Invalid Date", () => {
+    // Solo l'annullo può arrivare qui: il match vendita passa da
+    // `withinProximity`, che scarta già un `data` non parsabile.
+    const result = reconcileVoidDocument({
+      documents: [
+        summary({
+          tipoOperazione: "A",
+          annulli: "DCW2026/5432-1548",
+          data: "2026-02-24T18:42:07Z",
+        }),
+      ],
+      saleProgressivo: "DCW2026/5432-1548",
+    });
+
+    expect(result).toMatchObject({ kind: "match", registeredAt: null });
   });
 });

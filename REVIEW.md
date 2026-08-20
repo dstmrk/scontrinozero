@@ -449,33 +449,30 @@ pagamento.
 
 ---
 
-### 91. Il recovery stale-pending non scrive `ade_registered_at`
+### 91. Residuo: il finalize senza lookup AdE lascia `ade_registered_at` al default
 
-- **Categoria:** coerenza dei dati fiscali · **Severità:** Low — riguarda le sole righe riconciliate, ma è il caso in cui lo scarto è massimo
-- **File:** `src/lib/services/receipt-service.ts` (`finalizeSaleOnly`), `src/lib/services/void-service.ts` (`finalizeVoidOnly`), `src/lib/services/ade-recovery.ts`
+- **Categoria:** coerenza dei dati fiscali · **Severità:** Low — scarto di secondi, nessun impatto su giorno contabile
+- **File:** `src/lib/services/receipt-service.ts` (`finalizeSaleOnly`), `src/lib/services/void-service.ts` (`finalizeVoidOnly`)
 
-**Problema.** `finalizeSaleOnly` e `finalizeVoidOnly` chiudono una riga stale
-portandola ad `ACCEPTED`/`VOID_ACCEPTED` ma **non** toccano
-`ade_registered_at`: la colonna resta sul `DEFAULT now()` scritto all'INSERT.
-Sul percorso normale lo scarto fra i due valori è la latenza del round-trip
-(2-5s); qui la riga è stale **per definizione** — è rimasta PENDING oltre
-`getStalePendingThresholdMs` — quindi il documento consegnato al cliente porta
-un orario che può precedere di minuti quello registrato dall'AdE. È
-esattamente lo scarto che la migrazione 0031 esiste per eliminare, ed è
-silenzioso: nessun log segnala che la data stampata non è quella autorevole.
+**Risolto il caso principale.** Il finalize che segue una riconciliazione ora
+scrive l'istante autorevole: `reconcileSaleDocument`/`reconcileVoidDocument`
+portano `registeredAt` (il `data` del documento AdE, parsato da
+`parseAdeResultDate`) fino alla UPDATE, che lo applica con
+`adeRegisteredAtPatchFromDate`. Sulla riga stale — PENDING oltre
+`getStalePendingThresholdMs` — lo scarto era di **minuti**, ed è quello che
+finiva su PDF, storico, filtri per data ed export CSV.
 
-**Il dato autorevole è già in mano.** `AdeDocumentSummary.data`
-(`src/lib/ade/types.ts:291`, formato `DD/MM/YYYY HH:MM:SS`) arriva da
-`searchDocuments` ed è lo stesso campo che `HAR.md` #16b dà per coincidente
-col timestamp del PDF ufficiale. `reconcileSaleDocument`/`reconcileVoidDocument`
-lo filtrano già: basta farlo risalire fino alla UPDATE di finalizzazione.
+**Cosa resta.** L'altro ramo che chiama le stesse funzioni — `adeTransactionId`
+già persistito, cioè la sola UPDATE finale da ritentare — non interroga AdE per
+scelta, quindi non ha un istante autorevole in mano e lascia il `DEFAULT now()`
+dell'INSERT. Lì lo scarto è la finestra fra la response AdE ricevuta e la UPDATE
+fallita: **secondi**, non minuti.
 
-**Da fare.** Portare il documento AdE riconciliato (non il solo `idtrx` +
-progressivo) fino a `finalizeSaleOnly`/`finalizeVoidOnly`, convertire `data`
-in `Date` — attenzione: è **ora italiana**, non UTC, e il formato è
-`DD/MM/YYYY`, non parsabile da `new Date()` — e passarlo alla `.set()` con la
-stessa semantica di `adeRegisteredAtPatch`: si scrive solo se leggibile, mai
-un `Invalid Date` su un `timestamptz NOT NULL`.
+**Da fare: nulla, salvo evidenza contraria.** Chiudere anche questo ramo
+richiederebbe una `searchDocuments` (sessione AdE, 2-5s) su un percorso nato per
+non toccare la rete — sproporzionato rispetto a uno scarto di secondi. Da
+riaprire solo se emergesse un caso reale in cui quei secondi spostano il giorno
+contabile.
 
 ---
 
