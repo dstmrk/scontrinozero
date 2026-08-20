@@ -5,7 +5,7 @@ import { Header } from "./header";
 
 // Un href "di sandbox": `appHref()` chiamata da qui (client) non potrebbe mai
 // produrlo, perché post-hydration `APP_HOSTNAME` non esiste nel bundle e
-// `NEXT_PUBLIC_APP_URL` e' bakata col valore di produzione. Se i test passano
+// `NEXT_PUBLIC_APP_URL` è bakata col valore di produzione. Se i test passano
 // con questo valore, l'href arriva davvero dal server parent.
 const SANDBOX_LOGIN = "https://sandbox.scontrinozero.it/login";
 
@@ -21,7 +21,7 @@ describe("marketing Header", () => {
   });
 
   // REVIEW.md #93 — l'href va calcolato in un server parent e passato come
-  // prop: `appHref()` e' server-only in pratica (regola 15). Chiamata da un
+  // prop: `appHref()` è server-only in pratica (regola 15). Chiamata da un
   // client component ricadeva sul default hardcoded di produzione, quindi in
   // sandbox/self-hosted l'hydration sostituiva l'href corretto emesso in SSR.
   it("renders exactly the server-computed href, without recomputing it client-side", () => {

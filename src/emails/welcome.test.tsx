@@ -30,8 +30,8 @@ describe("WelcomeEmail", () => {
     expect(html).toContain("/dashboard");
   });
 
-  // REVIEW.md #93 — l'immagine e' una sola per prod e sandbox, quindi
-  // `NEXT_PUBLIC_APP_URL` e' bakata col valore di produzione anche nel
+  // REVIEW.md #93 — l'immagine è una sola per prod e sandbox, quindi
+  // `NEXT_PUBLIC_APP_URL` è bakata col valore di produzione anche nel
   // container sandbox: il CTA deve seguire l'override runtime `APP_HOSTNAME`,
   // altrimenti la mail di benvenuto di sandbox porta l'utente su produzione.
   it("points the CTA at the runtime APP_HOSTNAME, not the baked URL", () => {

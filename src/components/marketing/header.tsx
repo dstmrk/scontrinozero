@@ -16,8 +16,8 @@ const navLinks = [
 
 interface HeaderProps {
   // Risolto in un server parent con `appHref`. Non risolverlo qui:
-  // post-hydration `APP_HOSTNAME` non e' nel bundle client e
-  // `NEXT_PUBLIC_APP_URL` e' bakata col valore di produzione, quindi in
+  // post-hydration `APP_HOSTNAME` non è nel bundle client e
+  // `NEXT_PUBLIC_APP_URL` è bakata col valore di produzione, quindi in
   // sandbox/self-hosted l'href corretto emesso in SSR verrebbe sostituito
   // con quello di produzione (REVIEW.md #93, CLAUDE.md regola 15).
   readonly loginHref: string;

@@ -19,7 +19,7 @@ export default function MarketingLayout({
 }>) {
   return (
     <div className="flex min-h-screen flex-col">
-      {/* `appHref` e' server-only: l'href auth va risolto qui e passato
+      {/* `appHref` è server-only: l'href auth va risolto qui e passato
           come prop, mai calcolato dentro il client component. */}
       <Header loginHref={appHref("/login")} />
       <main className="flex-1">{children}</main>

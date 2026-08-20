@@ -49,7 +49,7 @@ export function WelcomeEmail({ email }: WelcomeEmailProps) {
               style={emailStyles.button}
               // `appHref` segue l'override runtime `APP_HOSTNAME`: una sola
               // immagine serve prod e sandbox, e il valore bakato in
-              // `NEXT_PUBLIC_APP_URL` e' sempre quello di produzione
+              // `NEXT_PUBLIC_APP_URL` è sempre quello di produzione
               // (REVIEW.md #93). Il fallback punta al subdomain app, dove
               // la dashboard vive davvero.
               href={appHref("/dashboard")}
