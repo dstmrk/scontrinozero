@@ -78,11 +78,13 @@ function resolveBaseUrl(): string {
  * pagine marketing pubbliche.
  *
  * **Server-only in pratica**: deve essere chiamata da server component / SSR.
- * Dai client component (post-hydration) `APP_HOSTNAME` e
- * `NEXT_PUBLIC_APP_URL` non sono nel bundle (non sono baked dal Dockerfile
- * corrente) e la funzione cadrebbe sul default hardcoded di produzione,
- * causando un mismatch in sandbox/self-hosted. Da un client component,
- * calcolare l'href in un parent server component e passarlo come prop.
+ * `APP_HOSTNAME` non è `NEXT_PUBLIC_*`, quindi non esiste nel bundle client;
+ * `NEXT_PUBLIC_APP_URL` c'è, ma il Dockerfile la baka col valore di
+ * **produzione** (una sola immagine serve prod e sandbox). Post-hydration la
+ * funzione cadrebbe quindi sull'host di produzione, sostituendo l'href
+ * corretto emesso in SSR — silenziosamente, in sandbox/self-hosted. Da un
+ * client component, calcolare l'href in un parent server component e
+ * passarlo come prop (REVIEW.md #93).
  */
 export function appHref(path: `/${string}`): string {
   return `${resolveBaseUrl()}${path}`;

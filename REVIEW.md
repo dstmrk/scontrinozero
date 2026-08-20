@@ -245,48 +245,6 @@ group:
 
 ---
 
-### 93. Sandbox serve `appUrl` di **produzione**: QR e redirect Stripe puntano a prod
-
-- **Categoria:** configurazione di deploy · **Severità:** Medium su sandbox, nessun impatto su produzione · **Pre-esistente** (identico su 1.6.2 e 1.7.0)
-- **File:** `.github/workflows/deploy.yml` (step di build, nessun `NEXT_PUBLIC_APP_URL` fra i build-args), `Dockerfile:56`, `.env` del compose sulla VPS sandbox
-
-**Problema.** `GET /api/health/env` su `sandbox.scontrinozero.it` risponde:
-
-```json
-{ "appUrl": "https://app.scontrinozero.it",
-  "hostnames": { "app": "sandbox.scontrinozero.it", ... } }
-```
-
-`APP_HOSTNAME` è impostata correttamente, `NEXT_PUBLIC_APP_URL` no: assente (o
-vuota) fa scattare il default prod-aware di `getTrustedAppUrl()`
-(`src/lib/trusted-app-url.ts`), che in `NODE_ENV=production` è proprio
-`https://app.scontrinozero.it`. È esattamente la discrepanza che il probe `env`
-esiste per catturare — la skill `deploy-release` la descrive come «un
-Dockerfile build-arg dimenticato».
-
-**Perché succede.** `deploy-dev.yml` passa
-`NEXT_PUBLIC_APP_URL=https://app-dev.scontrinozero.it` fra i build-args;
-`deploy.yml` — che serve prod **e** sandbox dallo stesso tag — non lo passa, e
-il `ARG` del Dockerfile ha come default il valore di produzione. Il valore
-runtime nel compose della VPS sandbox non lo sovrascrive.
-
-**Conseguenze.** `getTrustedAppUrl()` alimenta il QR stampato sui PDF
-(`generatePdfResponse` → `publicUrl = <appUrl>/r/<id>`) e le
-`success_url`/`cancel_url`/`return_url` di Stripe checkout/portal. Su sandbox
-quindi: un QR scansionato porta il cliente su **produzione**, dove
-quell'`id` non esiste (404) — e un checkout di test rimbalza su prod a fine
-flusso. Nessun effetto sull'ambiente di produzione, che riceve il valore
-giusto per default; il danno è che sandbox non testa ciò che spedisce.
-
-**Da fare.** Passare `NEXT_PUBLIC_APP_URL` come build-arg anche in
-`deploy.yml`, derivandolo dall'ambiente di destinazione invece di ereditare il
-default del Dockerfile. Attenzione: è `NEXT_PUBLIC_*`, quindi **bakata al
-build** per il bundle client — impostarla solo a runtime nel compose
-sistemerebbe `getTrustedAppUrl()` (server-side) ma lascerebbe il client con
-l'URL di produzione. Va risolto al build.
-
----
-
 ### 88. Mapper AdE: sei divergenze dal payload del portale (una attiva in produzione)
 
 - **Categoria:** correttezza · **Severità:** Medium — i totali fiscali
@@ -473,6 +431,59 @@ richiederebbe una `searchDocuments` (sessione AdE, 2-5s) su un percorso nato per
 non toccare la rete — sproporzionato rispetto a uno scarto di secondi. Da
 riaprire solo se emergesse un caso reale in cui quei secondi spostano il giorno
 contabile.
+
+---
+
+### 93. Residuo: due header di sandbox restano puntati a produzione
+
+- **Categoria:** configurazione di deploy · **Severità:** Low — nessun impatto
+  su produzione, nessuna superficie user-facing rimasta su sandbox
+- **File:** `next.config.ts` (`headers()`, `allowedOrigin`),
+  `src/lib/security-headers.ts`, `src/lib/csp.ts`
+  (`buildReportingEndpoints`)
+
+**Risolto il caso principale.** `deploy.yml` builda **una sola immagine per
+tag**, che serve prod _e_ sandbox: `NEXT_PUBLIC_APP_URL` è quindi bakata col
+valore di produzione anche nel container sandbox, dove l'unico segnale
+runtime che distingue l'ambiente è `APP_HOSTNAME` (dal compose). Passarla come
+build-arg — il fix ipotizzato in origine — non è praticabile senza buildare
+due immagini diverse, cioè senza che sandbox smetta di testare il binario che
+va in produzione.
+
+Le tre superfici che leggevano quel valore **a runtime** ora seguono
+`APP_HOSTNAME`, con la stessa precedenza che `resolveBaseUrl()`
+(`src/lib/marketing-to-app-href.ts`) documenta da sempre come pattern "single
+image, per-env runtime override":
+
+1. `getTrustedAppUrl()` (`src/lib/trusted-app-url.ts`) — QR stampato sui PDF e
+   `success_url`/`cancel_url`/`return_url` di Stripe;
+2. `src/components/marketing/header.tsx` — l'href `/login` è ora risolto nel
+   server parent `src/app/(marketing)/layout.tsx` e passato come prop, invece
+   di essere ricalcolato in hydration sul default hardcoded di produzione
+   (regola 15);
+3. `src/emails/welcome.tsx` — il CTA della mail di benvenuto.
+
+**Cosa resta.** Due header sono costruiti da `next.config.ts` e **serializzati
+al build** nel manifest, quindi nessuna env runtime può cambiarli:
+
+- `Access-Control-Allow-Origin` su `/api/*` vale
+  `https://app.scontrinozero.it` anche su sandbox. Impatto pratico ~zero: le
+  chiamate dell'app sono same-origin, la CORS non entra in gioco.
+- `Reporting-Endpoints` manda i **CSP report di sandbox all'endpoint di
+  produzione** — cross-talk fra ambienti che sporca i report di prod se
+  qualcuno testa una policy su sandbox.
+
+**Da fare (quando servirà).** Due strade, entrambe accettabili, nessuna
+tappabuchi:
+
+1. Spostare i due header dal `headers()` statico a `src/proxy.ts`, che gira a
+   runtime e vede `APP_HOSTNAME` — è anche il prerequisito già previsto dalla
+   voce #13 (CSP per route group con nonce per-richiesta), quindi conviene
+   farli insieme.
+2. Oppure accettare il divario e documentarlo, se #13 resta fermo.
+
+_Trigger:_ il primo test di una policy CSP su sandbox, oppure l'apertura del
+prerequisito di #13.
 
 ---
 

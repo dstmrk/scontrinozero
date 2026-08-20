@@ -5,7 +5,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { appHref } from "@/lib/marketing-to-app-href";
 
 const navLinks = [
   { href: "/funzionalita", label: "Funzionalità" },
@@ -15,7 +14,16 @@ const navLinks = [
   { href: "/help", label: "Help" },
 ] as const;
 
-export function Header() {
+interface HeaderProps {
+  // Risolto in un server parent con `appHref`. Non risolverlo qui:
+  // post-hydration `APP_HOSTNAME` non è nel bundle client e
+  // `NEXT_PUBLIC_APP_URL` è bakata col valore di produzione, quindi in
+  // sandbox/self-hosted l'href corretto emesso in SSR verrebbe sostituito
+  // con quello di produzione (REVIEW.md #93, CLAUDE.md regola 15).
+  readonly loginHref: string;
+}
+
+export function Header({ loginHref }: HeaderProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -47,7 +55,7 @@ export function Header() {
               subdomain app: i <Link> di Next farebbero soft routing restando
               sul dominio marketing. Vedi src/lib/marketing-to-app-href.ts. */}
           <Button size="sm" asChild className="hidden sm:inline-flex">
-            <a href={appHref("/login")}>Accedi</a>
+            <a href={loginHref}>Accedi</a>
           </Button>
           <button
             type="button"
@@ -89,7 +97,7 @@ export function Header() {
             ))}
             <li className="sm:hidden">
               <a
-                href={appHref("/login")}
+                href={loginHref}
                 onClick={() => setMobileOpen(false)}
                 className="text-foreground hover:bg-muted block rounded-md px-2 py-2 text-sm font-medium transition-colors"
               >

@@ -10,6 +10,7 @@ import {
   Section,
   Text,
 } from "@react-email/components";
+import { appHref } from "@/lib/marketing-to-app-href";
 import { emailStyles } from "./styles";
 
 type WelcomeEmailProps = Readonly<{
@@ -46,7 +47,12 @@ export function WelcomeEmail({ email }: WelcomeEmailProps) {
             </Text>
             <Button
               style={emailStyles.button}
-              href={`${process.env.NEXT_PUBLIC_APP_URL ?? "https://scontrinozero.it"}/dashboard`}
+              // `appHref` segue l'override runtime `APP_HOSTNAME`: una sola
+              // immagine serve prod e sandbox, e il valore bakato in
+              // `NEXT_PUBLIC_APP_URL` è sempre quello di produzione
+              // (REVIEW.md #93). Il fallback punta al subdomain app, dove
+              // la dashboard vive davvero.
+              href={appHref("/dashboard")}
             >
               Vai alla dashboard
             </Button>

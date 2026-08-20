@@ -54,12 +54,23 @@ server il resto. La pagina rimane SSR/streaming-friendly.
 
 ### `appHref()` è server-only in pratica
 
-Da Client Component `NEXT_PUBLIC_APP_URL` non è nel bundle (non baked dal
-Dockerfile) e `APP_HOSTNAME` non è `NEXT_PUBLIC_*` — cadrebbe sul default
-hardcoded di produzione rompendo sandbox/self-hosted. Calcola l'href nel
-**parent Server Component** e passalo come prop al Client Component
+`APP_HOSTNAME` — l'override runtime che distingue sandbox e self-hosted da
+produzione — non è `NEXT_PUBLIC_*`, quindi non esiste nel bundle client;
+`NEXT_PUBLIC_APP_URL` sì, ma il Dockerfile la baka col valore di **produzione**
+(una sola immagine serve prod e sandbox). Da Client Component `appHref()`
+cade quindi sull'host di produzione: l'href corretto emesso in SSR viene
+**sostituito in hydration** con quello sbagliato, silenziosamente. Calcola
+l'href nel **parent Server Component** e passalo come prop al Client Component
 (vedi `pricing-section.tsx` e regola 15 in `CLAUDE.md`). Helper:
 `appHref()` in `src/lib/marketing-to-app-href.ts`.
+
+> ⚠️ **La regola è stata violata dal codice che la documenta.**
+> `src/components/marketing/header.tsx` è `"use client"` e chiamava
+> `appHref("/login")` al render (REVIEW.md #93): il link "Accedi" — il primo
+> che un visitatore clicca — portava su produzione da ogni ambiente non-prod.
+> Non c'era errore né warning: la prop mancante non si vede, e un hydration
+> mismatch su un solo attributo `href` passa inosservato. Il grep che lo
+> trova: `appHref` in un file che ha `"use client"` in testa.
 
 ### Link auth da marketing → app: plain `<a>`
 
