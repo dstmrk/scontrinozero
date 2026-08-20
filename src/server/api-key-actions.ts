@@ -79,7 +79,9 @@ async function authorizeApiKeyBusiness(
     return { error: failure.error };
   }
 
-  if (!canUseApi(effectivePlan, planInfo.planExpiresAt)) {
+  if (
+    !canUseApi(effectivePlan, planInfo.planExpiresAt, planInfo.trialStartedAt)
+  ) {
     return { error: planDeniedMessage };
   }
 

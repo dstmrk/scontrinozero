@@ -505,16 +505,22 @@ export default async function SettingsPage({
 
       {/* Altre impostazioni — sezioni a basso uso, nascoste di default */}
       <ExtraSettingsSection>
-        {business && planData && canUseApi(planData.plan) && (
-          <Card>
-            <CardHeader>
-              <CardTitle>API key</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ApiKeySection businessId={business.id} />
-            </CardContent>
-          </Card>
-        )}
+        {business &&
+          planData &&
+          canUseApi(
+            planData.plan,
+            planData.planExpiresAt,
+            planData.trialStartedAt,
+          ) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>API key</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ApiKeySection businessId={business.id} />
+              </CardContent>
+            </Card>
+          )}
 
         <ExportDataSection />
 
