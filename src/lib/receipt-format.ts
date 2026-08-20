@@ -99,6 +99,128 @@ export function formatReceiptDate(date: Date): string {
   return `${p.day}-${p.month}-${p.year}`;
 }
 
+/**
+ * Lunghezza massima del messaggio di cortesia in coda allo scontrino (Pro).
+ *
+ * 64 = 2 righe × 32 colonne, la larghezza della termica 58mm
+ * (`PAPER_COLUMNS["58"]`), che è la più stretta delle tre superfici di resa:
+ * ciò che ci sta lì ci sta anche sul PDF e sulla pagina pubblica. Il cap tiene
+ * anche il costo carta limitato, coerente con le "prescrizioni generali per il
+ * risparmio carta" dell'AdE che il layout già rispetta altrove.
+ */
+export const RECEIPT_FOOTER_NOTE_MAX_CHARS = 64;
+
+/** Righe logiche (a capo espliciti) ammesse nel messaggio di cortesia. */
+export const RECEIPT_FOOTER_NOTE_MAX_LINES = 2;
+
+/**
+ * Caratteri di controllo C0/C1 (tab escluso, gestito a parte, e `\n` che è il
+ * separatore di riga). Classe di caratteri semplice: nessun backtracking,
+ * quindi nessun rischio ReDoS (S5852).
+ */
+const CONTROL_CHARS_RE =
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g;
+
+/**
+ * Forma canonica del messaggio di cortesia, applicata alla **scrittura**: è
+ * questo il valore che finisce sul DB, così ciò che è memorizzato è esattamente
+ * ciò che verrà stampato.
+ *
+ * Normalizza CRLF, converte i tab in spazi (sulla termica un tab entra
+ * nell'encoder come byte di comando), rimuove i caratteri di controllo, taglia
+ * gli spazi ai bordi di ogni riga e scarta le righe vuote. Ritorna `null`
+ * quando non resta nulla: sullo scontrino una riga vuota è carta sprecata.
+ *
+ * NON tronca e NON taglia le righe in eccesso: superare i limiti è un errore
+ * da mostrare all'utente (`updateReceiptFooterNote`), non qualcosa da
+ * correggere in silenzio perdendo il suo testo.
+ */
+export function normalizeReceiptFooterNote(
+  raw: string | null | undefined,
+): string | null {
+  if (!raw) return null;
+
+  const lines = raw
+    .replaceAll("\r\n", "\n")
+    .replaceAll("\r", "\n")
+    .replaceAll("\t", " ")
+    .replaceAll(CONTROL_CHARS_RE, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  return lines.length > 0 ? lines.join("\n") : null;
+}
+
+/**
+ * Manda a capo `text` a `columns` caratteri, spezzando sulle parole. Una parola
+ * più lunga della colonna (un URL, un handle social) viene spezzata a forza:
+ * sulla termica sborderebbe davvero dalla carta.
+ */
+function wrapToColumns(text: string, columns: number): string[] {
+  const wrapped: string[] = [];
+  let current = "";
+
+  for (const word of text.split(" ")) {
+    let remaining = word;
+
+    // Parola più lunga della riga: si consuma a blocchi pieni finché rientra.
+    while (remaining.length > columns) {
+      if (current.length > 0) {
+        wrapped.push(current);
+        current = "";
+      }
+      wrapped.push(remaining.slice(0, columns));
+      remaining = remaining.slice(columns);
+    }
+
+    if (remaining.length === 0) continue;
+
+    const candidate =
+      current.length > 0 ? `${current} ${remaining}` : remaining;
+    if (candidate.length <= columns) {
+      current = candidate;
+    } else {
+      wrapped.push(current);
+      current = remaining;
+    }
+  }
+
+  if (current.length > 0) wrapped.push(current);
+  return wrapped;
+}
+
+/**
+ * Righe stampabili del messaggio di cortesia, condivise dalle tre rese del
+ * documento commerciale (PDF, termica ESC/POS, pagina pubblica `/r`) e
+ * dall'anteprima nelle impostazioni — così l'anteprima non può mentire su cosa
+ * esce dalla stampante.
+ *
+ * `columns` va passato solo dove la larghezza è nota e rigida (la termica, e
+ * l'anteprima che la imita): PDF e HTML mandano a capo da soli, e pre-spezzare
+ * lì produrrebbe a capo nel punto sbagliato.
+ *
+ * Il taglio a `RECEIPT_FOOTER_NOTE_MAX_LINES` è difensivo: il vincolo vero è a
+ * monte (server action + CHECK DB), ma un valore scritto a mano sul DB non deve
+ * poter allungare lo scontrino a piacere.
+ */
+export function receiptFooterNoteLines(
+  note: string | null | undefined,
+  options: { columns?: number } = {},
+): string[] {
+  const normalized = normalizeReceiptFooterNote(note);
+  if (!normalized) return [];
+
+  const logicalLines = normalized
+    .split("\n")
+    .slice(0, RECEIPT_FOOTER_NOTE_MAX_LINES);
+
+  const { columns } = options;
+  if (!columns || columns <= 0) return logicalLines;
+
+  return logicalLines.flatMap((line) => wrapToColumns(line, columns));
+}
+
 /** Campi indirizzo dell'esercente, tutti opzionali a schema. */
 export interface BusinessAddressFields {
   readonly address?: string | null;
