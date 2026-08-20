@@ -245,58 +245,6 @@ group:
 
 ---
 
-### 88. Mapper AdE: sei divergenze dal payload del portale (una attiva in produzione)
-
-- **Categoria:** correttezza · **Severità:** Medium — i totali fiscali
-  trasmessi sono corretti, ma il documento che l'AdE genera e archivia non è
-  quello che genererebbe il portale
-- **File:** `src/lib/ade/mapper.ts`, `src/lib/ade/mapper.test.ts`
-
-**Contesto.** Il confronto di `computeLineAmounts` / `mapSaleToAdePayload`
-contro tre catture del portale reale (payload verbatim, formule e verifiche
-numeriche in `HAR.md`, voci #2, #4, #7, #10, #11, #12) ha trovato sei
-divergenze. Cinque sono **latenti**: si manifestano solo con uno sconto di
-riga o una riga omaggio, entrambi oggi cablati a zero in
-`src/lib/services/receipt-service.ts`. La sesta è **attiva ora**.
-
-**Attiva.** `prezzoLordo` viene inviato come `unitPriceGross × quantity`,
-mentre il portale invia il prezzo **unitario** e ricava `imponibile` come
-`prezzoUnitario × quantita`. L'AdE accetta (i totali quadrano comunque) ma
-**ricalcola** la colonna "Prezzo complessivo €" del PDF che stampa: su una
-riga con quantità > 1 il valore stampato può risultare moltiplicato una volta
-di troppo. Le nostre superfici (PDF, ricevuta pubblica, stampa termica) non
-sono toccate: derivano da `src/lib/receipts/receipt-totals.ts`, che è
-corretto.
-
-**Latenti (bloccano lo sconto di riga).**
-
-1. `scontoTotale` riceve Σ `scontoLordo`; deve ricevere Σ `scontoUnitario`
-   (lo sconto **netto** IVA). Coincidono solo sulle nature `N*`.
-2. `scontoUnitario` di riga riceve `line.unitDiscount` (lordo, per unità);
-   deve essere `scontoLordo / (1 + r/100)`.
-3. I netti (`prezzoUnitario`, `imponibile`, `imponibileNetto`, `importoIVA`)
-   sono arrotondati ai centesimi, mentre il portale li calcola a piena
-   precisione e li serializza a 8 decimali. Con uno sconto su riga con IVA
-   questo sbilancia di **un centesimo** il PDF stampato dall'AdE
-   (`imponibile netto + IVA ≠ totale complessivo`) — `HAR.md` voce #10.
-4. `ammontareComplessivo` somma anche le righe `omaggio: "Y"`, che il portale
-   **esclude** (`HAR.md` voce #7). Dormiente finché `isGift` resta `false`.
-5. `flagIdentificativiModificati` vale `true`, il portale manda `false`.
-   L'AdE accetta entrambi: annotato per non ri-scoprirlo, non da cambiare
-   senza motivo.
-
-**Fix.** Procedura completa, formule e test obbligatori: `HAR.md` voce #14,
-sub-task A. Vincolo da non rompere: i **lordi** restano in centesimi interi
-per riga (regola 17 di `CLAUDE.md`, REVIEW.md #57) — cambia solo la
-scomposizione netto/IVA, che va a piena precisione. I due oracoli sono i
-documenti reali delle voci #1 (qta 1, IVA 10%, sconto) e #12 (qta 2, IVA 22%,
-sconto), entrambi accettati dall'AdE.
-
-**Ordine.** Questo fix è **prerequisito** dello sconto di riga: implementarlo
-dopo significherebbe spedire documenti fiscali sbilanciati di un centesimo.
-
----
-
 ## P3 — Bassa priorità
 
 ### 81. Sweep GDPR: la query candidati aggrega l'intera tabella `commercial_documents` a ogni giro
@@ -756,13 +704,18 @@ aggiorna `esbuild` > 0.28.0 senza major rischioso → togliere l'allowlist.
 
 ### #57 verifica su AdE reale sostituita da sentinella Sentry
 
-Il fix #57 (totali payload per-riga in cents) è spedito, ma l'allineamento
-tiene `prezzoUnitario` con la semantica attuale — **non** la variante con
-identità moltiplicativa `prezzoLordo = prezzoUnitario × quantità`, che sarebbe
-da confermare emettendo su `ADE_MODE=real` uno scontrino a quantità frazionaria
+Il fix #57 (totali payload per-riga in cents) è spedito. Il sub-task A del
+mapper (ex #88) ha poi allineato il payload alla semantica del portale —
+`prezzoLordo` unitario, netti a piena precisione — su prova documentale (due
+payload reali accettati dall'AdE, `HAR.md` voci #1 e #12), ma **entrambi a
+quantità intera**: nessuna cattura copre una quantità frazionaria, e la
+conferma richiederebbe di emettere su `ADE_MODE=real` uno scontrino a peso
 (regole 13/14). Invece di bloccare il rollout su quella verifica manuale, si
-accetta la strategia adottata e si delega il rilevamento a due sentinelle in
-`runSubmitSale` (`src/lib/services/receipt-service.ts`):
+accetta la strategia adottata — `ammontareComplessivo` e i lordi restano
+cent-esatti, i netti derivano dal lordo di riga così che
+`imponibileNetto + importoIVA = totale` regga anche sulle frazionarie — e si
+delega il rilevamento a due sentinelle in `runSubmitSale`
+(`src/lib/services/receipt-service.ts`):
 
 1. **Invariante** — `sum(vendita[].importo) !== ammontareComplessivo` →
    `logger.error` "ade:payload_total_mismatch" (fingerprint
@@ -774,8 +727,20 @@ accetta la strategia adottata e si delega il rilevamento a due sentinelle in
    nei log). I rifiuti su quantità intere restano `warn` (regola 20).
 
 **Riaprire:** se una delle due sentinelle apre una issue Sentry — allora
-l'assunzione sui totali va rivista (probabilmente serve la variante
-`prezzoUnitario = lineGrossCents/100/quantity`, 8 decimali).
+l'assunzione sui totali va rivista, e il campione da chiedere è un rifiuto AdE
+su riga a quantità frazionaria con aliquota IVA.
+
+### #88 `flagIdentificativiModificati` diverge dal portale
+
+`src/lib/ade/mapper.ts` manda `flagIdentificativiModificati: true` (e
+`altriDatiIdentificativi.modificati: true`), il portale manda `false` su
+entrambi. L'AdE **accetta entrambi** — la produzione funziona da sempre — ed è
+l'unica delle sei divergenze della voce #11 di `HAR.md` rimasta aperta dopo il
+sub-task A: le altre cinque sono chiuse. Il `true` è deliberato e coerente,
+segnala all'AdE che stiamo inviando dati di identificazione nostri invece di
+quelli memorizzati sul portale. Registrato per non ri-scoprirlo a ogni audit del
+mapper. **Riaprire:** se l'AdE iniziasse a rifiutare o a trattare diversamente i
+documenti con il flag a `true`.
 
 ### #8 link pubblici scontrini senza TTL/revoca (UUID come token)
 
