@@ -21,6 +21,13 @@ import {
   validateBusinessOptionalFields,
 } from "@/lib/validation";
 import { isInvalidPreferredVatCode } from "@/types/cassa";
+import { getPlanSafe } from "@/lib/plans";
+import { canUsePro } from "@/lib/plans-shared";
+import {
+  RECEIPT_FOOTER_NOTE_MAX_CHARS,
+  RECEIPT_FOOTER_NOTE_MAX_LINES,
+  normalizeReceiptFooterNote,
+} from "@/lib/receipt-format";
 import { getClientIp } from "@/lib/get-client-ip";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
@@ -40,6 +47,13 @@ const updateProfileLimiter = new RateLimiter({
 });
 
 const updateBusinessLimiter = new RateLimiter({
+  maxRequests: 10,
+  windowMs: RATE_LIMIT_WINDOWS.HOURLY,
+});
+
+// Stessa soglia di updateBusiness: e' una preferenza dell'esercente, non un
+// endpoint di autenticazione.
+const updateReceiptFooterNoteLimiter = new RateLimiter({
   maxRequests: 10,
   windowMs: RATE_LIMIT_WINDOWS.HOURLY,
 });
@@ -239,6 +253,89 @@ export async function updateBusiness(
       })
       .where(eq(businesses.id, businessId));
   });
+
+  revalidatePath("/dashboard/settings");
+  return {};
+}
+
+/**
+ * Salva il messaggio di cortesia stampato in coda allo scontrino (feature Pro).
+ *
+ * Primo dei due punti di enforcement del gate: qui si impedisce la scrittura,
+ * in lettura `resolveReceiptFooterNote` impedisce la stampa. Servono entrambi —
+ * senza quello in lettura un downgrade continuerebbe a stampare la nota, senza
+ * questo una POST costruita a mano la scriverebbe comunque.
+ *
+ * Ordine difensivo come `updateBusiness`: rate-limit → ownership → gate piano →
+ * validazione → UPDATE. Il campo vuoto non è un errore: è il modo di togliere
+ * il messaggio dagli scontrini, e arriva al DB come NULL.
+ */
+export async function updateReceiptFooterNote(
+  formData: FormData,
+): Promise<ProfileActionResult> {
+  // Sessione assente → degrada a { error } inline (regola 19/20).
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return authErrorResult(err, "updateReceiptFooterNote");
+  }
+
+  const rateLimitResult = updateReceiptFooterNoteLimiter.check(
+    `updateReceiptFooterNote:${user.id}`,
+  );
+  if (!rateLimitResult.success) {
+    logger.warn(
+      { userId: user.id },
+      "updateReceiptFooterNote rate limit exceeded",
+    );
+    return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
+  }
+
+  const businessId = getFormString(formData, "businessId");
+  if (!businessId) return { error: "Business ID mancante." };
+  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessOwnership.
+  if (!isValidUuid(businessId)) return { error: "Identificativo non valido." };
+
+  const ownershipError = await checkBusinessOwnership(user.id, businessId);
+  if (ownershipError) return ownershipError;
+
+  // `getPlanSafe` e non `getPlan`: su profilo orfano o timeout DB si degrada
+  // al messaggio, mai a un throw che porterebbe la pagina impostazioni
+  // sull'error boundary (regola 19).
+  const planResult = await getPlanSafe(user.id, "updateReceiptFooterNote");
+  if (!planResult.ok) return { error: planResult.error };
+
+  const { plan, planExpiresAt, trialStartedAt } = planResult.info;
+  if (!canUsePro(plan, planExpiresAt, trialStartedAt)) {
+    return {
+      error: "Il messaggio personalizzato è incluso nel piano Pro.",
+    };
+  }
+
+  // Raw + normalizzazione condivisa con la resa: ciò che finisce sul DB è
+  // esattamente ciò che verrà stampato.
+  const note = normalizeReceiptFooterNote(
+    getFormStringRaw(formData, "receiptFooterNote"),
+  );
+
+  if (note !== null) {
+    if (note.length > RECEIPT_FOOTER_NOTE_MAX_CHARS) {
+      return {
+        error: `Il messaggio non può superare ${RECEIPT_FOOTER_NOTE_MAX_CHARS} caratteri.`,
+      };
+    }
+    if (note.split("\n").length > RECEIPT_FOOTER_NOTE_MAX_LINES) {
+      return {
+        error: `Il messaggio non può superare ${RECEIPT_FOOTER_NOTE_MAX_LINES} righe.`,
+      };
+    }
+  }
+
+  await getDb()
+    .update(businesses)
+    .set({ receiptFooterNote: note })
+    .where(eq(businesses.id, businessId));
 
   revalidatePath("/dashboard/settings");
   return {};

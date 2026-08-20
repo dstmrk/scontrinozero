@@ -271,3 +271,40 @@ describe("generatePdfResponse — annullo", () => {
     expect(mockGeneratePdf).not.toHaveBeenCalled();
   });
 });
+
+describe("generatePdfResponse — messaggio di cortesia", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGeneratePdf.mockResolvedValue(Buffer.from("%PDF-note"));
+  });
+
+  it("passa la nota al renderer su una vendita", async () => {
+    await generatePdfResponse({
+      ...MOCK_DATA,
+      footerNote: "Arrivederci e grazie!",
+    });
+    expect(mockGeneratePdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "SALE",
+        footerNote: "Arrivederci e grazie!",
+      }),
+    );
+  });
+
+  it("passa null quando il chiamante non la fornisce (nessuna nota o gate chiuso)", async () => {
+    await generatePdfResponse(MOCK_DATA);
+    expect(mockGeneratePdf).toHaveBeenCalledWith(
+      expect.objectContaining({ footerNote: null }),
+    );
+  });
+
+  // Su un annullo la nota non esiste nemmeno come campo: e' l'unione
+  // discriminata a impedirlo, e il builder non deve aggirarla.
+  it("non la passa su un annullo, nemmeno se il chiamante la fornisce", async () => {
+    await generatePdfResponse({
+      ...VOID_DATA,
+      footerNote: "Arrivederci e grazie!",
+    });
+    expect(mockGeneratePdf.mock.calls[0][0]).not.toHaveProperty("footerNote");
+  });
+});

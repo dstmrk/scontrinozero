@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import {
   JsonLd,
@@ -177,10 +178,22 @@ export default function IntestazioneScontrinoPage() {
             Numero del documento commerciale assegnato dall&apos;AdE
             (progressivo)
           </li>
+          <li>
+            Il tuo <strong>messaggio di cortesia</strong> in fondo, se ne hai
+            impostato uno (piano Pro)
+          </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Non è attualmente possibile aggiungere un logo aziendale al PDF.
-          Questa funzione è pianificata per una release futura.
+          Non è possibile aggiungere un logo aziendale: la personalizzazione
+          disponibile è testuale, cioè il{" "}
+          <Link
+            href="/help/messaggio-personalizzato-scontrino"
+            className="text-primary hover:underline"
+          >
+            messaggio di cortesia in fondo allo scontrino
+          </Link>{" "}
+          incluso nel piano Pro. Se il logo ti servirebbe davvero, scrivici: le
+          richieste degli esercenti guidano le priorità di sviluppo.
         </p>
 
         <RelatedHelpArticles slug="intestazione-scontrino" />

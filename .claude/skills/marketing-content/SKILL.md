@@ -30,6 +30,11 @@ presente: condizionale/roadmap, mai "c'è". Stato attuale:
   (nice-to-have gated su domanda).
 - Analytics avanzata ed Export CSV sono **spedite e Pro-gated**
   (commit ae1c481).
+- Il **messaggio di cortesia in fondo allo scontrino** è **spedito e
+  Pro-gated** (trial incluso): max 64 caratteri su 2 righe, stampato su
+  termica, PDF e ricevuta digitale, mai su una ricevuta di annullo. NON è
+  personalizzazione di intestazione/logo, che resta nice-to-have in `PLAN.md`:
+  non prometterla.
 
 Se lo stato di una feature cambia (spedita, rimossa dalla roadmap), questo
 elenco e la tabella Pricing in `CLAUDE.md` vanno aggiornati nello stesso PR.

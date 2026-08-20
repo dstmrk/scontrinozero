@@ -78,6 +78,7 @@ export const helpHubCategories: readonly HubCategory[] = [
       { slug: "regime-forfettario" },
       { slug: "aliquote-iva" },
       { slug: "intestazione-scontrino" },
+      { slug: "messaggio-personalizzato-scontrino" },
     ],
   },
   {

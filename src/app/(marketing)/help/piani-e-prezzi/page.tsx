@@ -146,6 +146,11 @@ export default function PianiEPrezziPage() {
             commercialista o contabilità)
           </li>
           <li>
+            <strong>Messaggio personalizzato</strong> in fondo allo scontrino
+            (fino a 64 caratteri su 2 righe): un saluto, gli orari o il tuo
+            profilo social, stampati su carta, PDF e ricevuta digitale
+          </li>
+          <li>
             <em>In arrivo:</em> recupero corrispettivi da AdE (sincronizzazione
             dati storici)
           </li>
@@ -163,9 +168,10 @@ export default function PianiEPrezziPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           ScontrinoZero è open source con licenza O&apos;Saasy. Puoi scaricare
           il codice sorgente, installarlo sul tuo server e usarlo gratuitamente:
-          hai accesso a tutte le funzioni, incluse analytics avanzata ed export
-          CSV, e ricevi le feature in arrivo (recupero corrispettivi AdE) man
-          mano che vengono rilasciate. È la scelta giusta se:
+          hai accesso a tutte le funzioni, incluse analytics avanzata, export
+          CSV e messaggio personalizzato sullo scontrino, e ricevi le feature in
+          arrivo (recupero corrispettivi AdE) man mano che vengono rilasciate. È
+          la scelta giusta se:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
@@ -187,8 +193,9 @@ export default function PianiEPrezziPage() {
         </h2>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Tutti i nuovi account hanno <strong>30 giorni di prova</strong>{" "}
-          gratuita con accesso alle funzioni Pro come l&apos;analytics avanzata
-          e l&apos;export CSV. Nessuna carta di credito richiesta per iniziare.
+          gratuita con accesso alle funzioni Pro come l&apos;analytics avanzata,
+          l&apos;export CSV e il messaggio personalizzato sullo scontrino.
+          Nessuna carta di credito richiesta per iniziare.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           <strong>Cosa succede alla scadenza del trial:</strong>
@@ -310,6 +317,10 @@ export default function PianiEPrezziPage() {
               <li>
                 Vuoi l&apos;analytics avanzata (grafici e periodi estesi) e
                 l&apos;export CSV dello storico scontrini per il commercialista.
+              </li>
+              <li>
+                Vuoi chiudere gli scontrini con un tuo messaggio (saluto, orari,
+                profilo social).
               </li>
               <li>
                 Vuoi accedere alle feature in arrivo riservate al piano Pro

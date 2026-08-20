@@ -225,12 +225,12 @@ post-deploy, procedura T&C/Privacy: skill `deploy-release`.
 
 ## Pricing (per plan-gate nel codice)
 
-| Piano       | Mensile | Annuale | Note                                                                                                                    |
-| ----------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Starter     | €4.99   | €29.99  | Catalogo rapido max 5 prodotti, analytics base                                                                          |
-| Pro         | €8.99   | €49.99  | Attivo: catalogo ∞, supporto prioritario, analytics avanzata, export CSV. In arrivo: recupero documenti commerciali AdE |
-| Self-hosted | €0      | €0      | Tutte le feature, gestione autonoma                                                                                     |
-| Unlimited   | —       | —       | Invite-only, `plan='unlimited'` su `profiles`                                                                           |
+| Piano       | Mensile | Annuale | Note                                                                                                                                                              |
+| ----------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Starter     | €4.99   | €29.99  | Catalogo rapido max 5 prodotti, analytics base                                                                                                                    |
+| Pro         | €8.99   | €49.99  | Attivo: catalogo ∞, supporto prioritario, analytics avanzata, export CSV, messaggio personalizzato sullo scontrino. In arrivo: recupero documenti commerciali AdE |
+| Self-hosted | €0      | €0      | Tutte le feature, gestione autonoma                                                                                                                               |
+| Unlimited   | —       | —       | Invite-only, `plan='unlimited'` su `profiles`                                                                                                                     |
 
 Feature gate canonico in `src/lib/plans.ts`. Trial 30 giorni Starter/Pro, no
 carta all'iscrizione: include le feature Pro visibili **e** la Developer API

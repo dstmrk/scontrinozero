@@ -2,7 +2,12 @@ import { cache } from "react";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { profiles, subscriptions } from "@/db/schema";
-import { canUsePro, isPlan, type Plan } from "@/lib/plans-shared";
+import {
+  canUsePro,
+  isPlan,
+  trialStartWithReferralBonus,
+  type Plan,
+} from "@/lib/plans-shared";
 import { isStatementTimeoutError } from "@/lib/api-errors";
 import { logger } from "@/lib/logger";
 import { planFromPriceId } from "@/lib/stripe";
@@ -28,6 +33,7 @@ export {
   isPaidPlanExpired,
   isPlan,
   isTrialExpired,
+  trialStartWithReferralBonus,
 } from "@/lib/plans-shared";
 export type { Plan } from "@/lib/plans-shared";
 
@@ -107,10 +113,10 @@ async function fetchPlan(authUserId: string): Promise<PlanInfo> {
   // `extendSubscriptionForReferral`), e il webhook risincronizza
   // `plan_expires_at` col valore reale di Stripe. Sommare di nuovo il bonus qui
   // farebbe divergere l'app dal portale Stripe a ogni render.
-  const bonusMs = (profile.referralBonusDays ?? 0) * 24 * 60 * 60 * 1000;
-  const trialStartedAt = profile.trialStartedAt
-    ? new Date(profile.trialStartedAt.getTime() + bonusMs)
-    : null;
+  const trialStartedAt = trialStartWithReferralBonus(
+    profile.trialStartedAt,
+    profile.referralBonusDays,
+  );
 
   return {
     plan: profile.plan,

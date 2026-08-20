@@ -94,6 +94,14 @@ vi.mock("@/db/schema", () => ({
 
 vi.mock("drizzle-orm", () => ({ eq: vi.fn(), and: vi.fn() }));
 
+// Lettura del piano per il gate Pro di updateReceiptFooterNote. `canUsePro`
+// resta quello vero (importato da plans-shared dall'action): qui si mocka solo
+// la query.
+const mockGetPlanSafe = vi.fn();
+vi.mock("@/lib/plans", () => ({
+  getPlanSafe: (...args: unknown[]) => mockGetPlanSafe(...args),
+}));
+
 // checkBusinessOwnership mock: null = ownership confirmed
 const mockCheckBusinessOwnership = vi.fn().mockResolvedValue(null);
 vi.mock("@/lib/server-auth", () => ({
@@ -321,6 +329,162 @@ describe("profile-actions", () => {
       await rejectAuthOnce();
       const { updateBusiness } = await import("./profile-actions");
       const result = await updateBusiness(formData(VALID));
+      expect(result.error).toBe("Non autenticato.");
+      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // updateReceiptFooterNote
+  // ---------------------------------------------------------------------------
+
+  describe("updateReceiptFooterNote", () => {
+    const BUSINESS_ID = "11111111-1111-4111-8111-111111111111";
+    const VALID = {
+      businessId: BUSINESS_ID,
+      receiptFooterNote: "Arrivederci e grazie!",
+    };
+
+    /** Ultimo patch passato a `.set()` sull'UPDATE di businesses. */
+    function lastUpdatePatch() {
+      return mockDbUpdateSet.mock.calls.at(-1)?.[0];
+    }
+
+    beforeEach(() => {
+      mockGetPlanSafe.mockResolvedValue({
+        ok: true,
+        info: { plan: "pro", trialStartedAt: null, planExpiresAt: null },
+      });
+    });
+
+    it("salva la nota normalizzata e revalida le impostazioni", async () => {
+      const { updateReceiptFooterNote } = await import("./profile-actions");
+      const result = await updateReceiptFooterNote(
+        formData({ ...VALID, receiptFooterNote: "  Arrivederci e grazie!  " }),
+      );
+
+      expect(result).toEqual({});
+      expect(lastUpdatePatch()).toEqual({
+        receiptFooterNote: "Arrivederci e grazie!",
+      });
+      expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/settings");
+    });
+
+    // Svuotare il campo è l'unico modo per togliere il messaggio dagli
+    // scontrini: deve arrivare al DB come NULL, non come stringa vuota.
+    it("azzera la nota quando il campo è vuoto", async () => {
+      const { updateReceiptFooterNote } = await import("./profile-actions");
+      const result = await updateReceiptFooterNote(
+        formData({ ...VALID, receiptFooterNote: "   " }),
+      );
+
+      expect(result).toEqual({});
+      expect(lastUpdatePatch()).toEqual({ receiptFooterNote: null });
+    });
+
+    it("rifiuta una nota oltre i 64 caratteri", async () => {
+      const { updateReceiptFooterNote } = await import("./profile-actions");
+      const result = await updateReceiptFooterNote(
+        formData({ ...VALID, receiptFooterNote: "a".repeat(65) }),
+      );
+
+      expect(result.error).toMatch(/64/);
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+
+    it("rifiuta una nota su più di 2 righe", async () => {
+      const { updateReceiptFooterNote } = await import("./profile-actions");
+      const result = await updateReceiptFooterNote(
+        formData({ ...VALID, receiptFooterNote: "a\nb\nc" }),
+      );
+
+      expect(result.error).toMatch(/righe/i);
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+
+    // Primo dei due punti di enforcement del gate (l'altro è in lettura).
+    it("rifiuta il salvataggio a un piano senza accesso Pro", async () => {
+      mockGetPlanSafe.mockResolvedValue({
+        ok: true,
+        info: { plan: "starter", trialStartedAt: null, planExpiresAt: null },
+      });
+      const { updateReceiptFooterNote } = await import("./profile-actions");
+      const result = await updateReceiptFooterNote(formData(VALID));
+
+      expect(result.error).toMatch(/Pro/);
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+
+    it("accetta un trial attivo, che è una prova di Pro", async () => {
+      mockGetPlanSafe.mockResolvedValue({
+        ok: true,
+        info: {
+          plan: "trial",
+          trialStartedAt: new Date(),
+          planExpiresAt: null,
+        },
+      });
+      const { updateReceiptFooterNote } = await import("./profile-actions");
+      expect(await updateReceiptFooterNote(formData(VALID))).toEqual({});
+    });
+
+    // Lettura del piano fallita (profilo orfano, timeout): si degrada al
+    // messaggio di `getPlanSafe` invece di aprire il gate per sbaglio.
+    it("propaga l'errore di lettura del piano senza scrivere", async () => {
+      mockGetPlanSafe.mockResolvedValue({
+        ok: false,
+        error: "Piano non disponibile.",
+      });
+      const { updateReceiptFooterNote } = await import("./profile-actions");
+      const result = await updateReceiptFooterNote(formData(VALID));
+
+      expect(result.error).toBe("Piano non disponibile.");
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+
+    it("guard UUID (regola 9): businessId malformato → nessun ownership check", async () => {
+      const { updateReceiptFooterNote } = await import("./profile-actions");
+      const result = await updateReceiptFooterNote(
+        formData({ ...VALID, businessId: "abc" }),
+      );
+
+      expect(result.error).toBe("Identificativo non valido.");
+      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+    });
+
+    it("returns error for missing businessId", async () => {
+      const { updateReceiptFooterNote } = await import("./profile-actions");
+      const result = await updateReceiptFooterNote(
+        formData({ ...VALID, businessId: "" }),
+      );
+      expect(result.error).toMatch(/business id/i);
+    });
+
+    it("returns ownership error when checkBusinessOwnership fails", async () => {
+      mockCheckBusinessOwnership.mockResolvedValue({
+        error: "Business non trovato o non autorizzato.",
+      });
+      const { updateReceiptFooterNote } = await import("./profile-actions");
+      const result = await updateReceiptFooterNote(formData(VALID));
+
+      expect(result.error).toMatch(/non autorizzato/i);
+      expect(mockGetPlanSafe).not.toHaveBeenCalled();
+    });
+
+    it("returns rate limit error when limiter rejects", async () => {
+      mockCheck.mockReturnValue({ success: false });
+      const { updateReceiptFooterNote } = await import("./profile-actions");
+      const result = await updateReceiptFooterNote(formData(VALID));
+
+      expect(result.error).toMatch(/troppi/i);
+      expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
+    });
+
+    it("degrada a 'Non autenticato.' quando la sessione è scaduta (no throw)", async () => {
+      await rejectAuthOnce();
+      const { updateReceiptFooterNote } = await import("./profile-actions");
+      const result = await updateReceiptFooterNote(formData(VALID));
+
       expect(result.error).toBe("Non autenticato.");
       expect(mockCheckBusinessOwnership).not.toHaveBeenCalled();
     });

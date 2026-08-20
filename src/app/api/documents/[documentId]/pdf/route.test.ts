@@ -100,6 +100,15 @@ const MOCK_BIZ = {
   city: "Milano",
   province: "MI",
   zipCode: "20100",
+  receiptFooterNote: null as string | null,
+};
+
+/** Riga `profiles` joinata: decide il gate del messaggio di cortesia. */
+const MOCK_OWNER = {
+  plan: "pro",
+  trialStartedAt: null,
+  planExpiresAt: null,
+  referralBonusDays: 0,
 };
 
 const MOCK_LINES = [
@@ -142,7 +151,9 @@ describe("GET /api/documents/[documentId]/pdf", () => {
     mockGeneratePdfResponse.mockResolvedValue(MOCK_PDF_RESPONSE);
     mockSelect
       .mockReturnValueOnce(
-        makeSelectBuilder([{ doc: MOCK_DOC, biz: MOCK_BIZ }]),
+        makeSelectBuilder([
+          { doc: MOCK_DOC, biz: MOCK_BIZ, owner: MOCK_OWNER },
+        ]),
       )
       .mockReturnValueOnce(makeSelectBuilder(MOCK_LINES));
     // withStatementTimeout(ms, fn) → db.transaction(cb) where cb does
@@ -257,6 +268,7 @@ describe("GET /api/documents/[documentId]/pdf", () => {
               voidedDocumentId: MOCK_DOC.id,
             },
             biz: MOCK_BIZ,
+            owner: MOCK_OWNER,
           },
         ]),
       )
@@ -292,6 +304,7 @@ describe("GET /api/documents/[documentId]/pdf", () => {
             voidedDocumentId: null,
           },
           biz: MOCK_BIZ,
+          owner: MOCK_OWNER,
         },
       ]),
     );
@@ -431,6 +444,53 @@ describe("GET /api/documents/[documentId]/pdf", () => {
           }),
         }),
       ).rejects.toMatchObject({ code: "40P01" });
+    });
+  });
+  describe("messaggio di cortesia (Pro)", () => {
+    /** Riga documento con nota e piano scelti dal caso di test. */
+    function mockRowWith(note: string | null, owner = MOCK_OWNER) {
+      mockSelect.mockReset();
+      mockSelect
+        .mockReturnValueOnce(
+          makeSelectBuilder([
+            {
+              doc: MOCK_DOC,
+              biz: { ...MOCK_BIZ, receiptFooterNote: note },
+              owner,
+            },
+          ]),
+        )
+        .mockReturnValueOnce(makeSelectBuilder(MOCK_LINES));
+    }
+
+    async function get() {
+      return GET(makeRequest("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), {
+        params: Promise.resolve({
+          documentId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        }),
+      });
+    }
+
+    it("passa la nota al renderer per un esercente Pro", async () => {
+      mockRowWith("Arrivederci e grazie!");
+      await get();
+      expect(mockGeneratePdfResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ footerNote: "Arrivederci e grazie!" }),
+        expect.anything(),
+      );
+    });
+
+    // Downgrade: la nota resta in tabella ma smette di stamparsi.
+    it("non la passa a un piano senza accesso Pro", async () => {
+      mockRowWith("Arrivederci e grazie!", {
+        ...MOCK_OWNER,
+        plan: "starter",
+      });
+      await get();
+      expect(mockGeneratePdfResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ footerNote: null }),
+        expect.anything(),
+      );
     });
   });
 });

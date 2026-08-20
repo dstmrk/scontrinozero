@@ -31,6 +31,7 @@ import {
   formatReceiptDate,
   formatReceiptPrice,
   formatReceiptDateTime,
+  receiptFooterNoteLines,
 } from "@/lib/receipt-format";
 import {
   formatVatLegendLine,
@@ -250,6 +251,18 @@ function printFooter(
   if (receipt.kind === "SALE" && receipt.lotteryCode) {
     encoder.line("Codice Lotteria");
     encoder.bold(true).line(receipt.lotteryCode).bold(false);
+  }
+
+  // Messaggio di cortesia: dopo il blocco fiscale e prima del QR, come sul
+  // PDF. Il wrap lo calcoliamo noi sulle colonne della carta invece di
+  // lasciarlo all'encoder — e' cio' che permette all'anteprima nelle
+  // impostazioni di mostrare esattamente le righe che escono dalla stampante.
+  if (receipt.kind === "SALE") {
+    for (const line of receiptFooterNoteLines(receipt.footerNote, {
+      columns: options.columns,
+    })) {
+      encoder.line(sanitizeThermalText(line));
+    }
   }
 
   if (options.printQr && receipt.publicUrl) {

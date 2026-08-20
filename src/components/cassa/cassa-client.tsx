@@ -8,7 +8,7 @@ import { Plus, ShoppingCart } from "lucide-react";
 import { useCassa } from "@/hooks/use-cassa";
 import { VAT_CODES, VatCode } from "@/types/cassa";
 import type { CartLine, PaymentMethod } from "@/types/cassa";
-import type { ReceiptPrintHeader } from "@/lib/printing/types";
+import type { ReceiptPrintProfile } from "@/lib/receipts/print-profile";
 import { NumericKeypad } from "@/components/cassa/numeric-keypad";
 import { VatSelector } from "@/components/cassa/vat-selector";
 import { CartLineItem } from "@/components/cassa/cart-line-item";
@@ -31,14 +31,17 @@ const FALLBACK_VAT: VatCode = "22";
 interface CassaClientProps {
   readonly businessId: string;
   readonly preferredVatCode?: VatCode;
-  /** Intestazione esercente per la stampa termica; `null` se incompleta. */
-  readonly printHeader: ReceiptPrintHeader | null;
+  /**
+   * Intestazione esercente e messaggio di cortesia per la stampa termica;
+   * `null` se l'intestazione e' incompleta (il bottone ripiega sul PDF).
+   */
+  readonly printProfile: ReceiptPrintProfile | null;
 }
 
 export function CassaClient({
   businessId,
   preferredVatCode,
-  printHeader,
+  printProfile,
 }: CassaClientProps) {
   const defaultVat = preferredVatCode ?? FALLBACK_VAT;
   const router = useRouter();
@@ -236,7 +239,7 @@ export function CassaClient({
         lines={successData?.lines ?? []}
         paymentMethod={successData?.paymentMethod ?? paymentMethod}
         lotteryCode={successData?.lotteryCode ?? null}
-        printHeader={printHeader}
+        printProfile={printProfile}
         onNewReceipt={handleNewReceipt}
       />
     );

@@ -11,6 +11,7 @@ import { logger } from "@/lib/logger";
 import { getAuthenticatedUser } from "@/lib/server-auth";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
+import { resolveReceiptFooterNote } from "@/lib/receipts/footer-note";
 import { generatePdfResponse } from "@/lib/receipts/generate-pdf-response";
 import { printableDocumentCondition } from "@/lib/receipts/printable-document";
 import { isValidUuid } from "@/lib/uuid";
@@ -65,7 +66,18 @@ export async function GET(
       STATEMENT_TIMEOUT_MS,
       async (tx) => {
         const rows = await tx
-          .select({ doc: commercialDocuments, biz: businesses })
+          .select({
+            doc: commercialDocuments,
+            biz: businesses,
+            // Il piano decide se il messaggio di cortesia si stampa: `profiles`
+            // e' gia' joinata per l'ownership, quindi il gate e' gratis.
+            owner: {
+              plan: profiles.plan,
+              trialStartedAt: profiles.trialStartedAt,
+              planExpiresAt: profiles.planExpiresAt,
+              referralBonusDays: profiles.referralBonusDays,
+            },
+          })
           .from(commercialDocuments)
           .innerJoin(
             businesses,
@@ -91,7 +103,7 @@ export async function GET(
 
         if (rows.length === 0) return null;
 
-        const { doc, biz } = rows[0];
+        const { doc, biz, owner } = rows[0];
 
         // Un annullo non ha righe proprie: ristampa quelle della vendita
         // annullata, e ne porta il progressivo per il blocco "Documento di
@@ -118,7 +130,7 @@ export async function GET(
           )
           .orderBy(commercialDocumentLines.lineIndex);
 
-        return { doc, biz, lines, voidedSale };
+        return { doc, biz, lines, voidedSale, owner };
       },
     );
   } catch (err) {
@@ -136,12 +148,25 @@ export async function GET(
     return Response.json({ error: "Documento non trovato." }, { status: 404 });
   }
 
-  const { doc, biz, lines, voidedSale } = queryResult;
+  const { doc, biz, lines, voidedSale, owner } = queryResult;
 
   // `?qr=1`: l'esercente decide via `printQr` (preferenze stampante, per
   // dispositivo/localStorage — non leggibile qui) e lo passa come query param
   // da `PrintReceiptButton` quando apre il PDF di fallback.
   const includeQr = new URL(request.url).searchParams.get("qr") === "1";
 
-  return generatePdfResponse({ doc, biz, lines, voidedSale }, { includeQr });
+  return generatePdfResponse(
+    {
+      doc,
+      biz,
+      lines,
+      voidedSale,
+      // Solo la vendita: su una ricevuta di annullamento non si ringrazia.
+      footerNote:
+        doc.kind === "SALE"
+          ? resolveReceiptFooterNote(biz.receiptFooterNote, owner)
+          : null,
+    },
+    { includeQr },
+  );
 }

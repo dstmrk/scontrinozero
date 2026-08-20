@@ -27,6 +27,11 @@ export const businesses = pgTable(
     province: text("province"),
     zipCode: text("zip_code"),
     preferredVatCode: text("preferred_vat_code"),
+    // Messaggio di cortesia in coda al documento commerciale, feature Pro
+    // (migration 0033). Vive qui e non su `commercial_documents` perche' non e'
+    // un dato fiscale: il payload AdE non ha campi liberi, e le tre superfici
+    // di resa leggono gia' live da questa riga intestazione e indirizzo.
+    receiptFooterNote: text("receipt_footer_note"),
     // Idempotency durabile delle email di onboarding (migration 0023): timestamp
     // del claim atomico in verifyAdeCredentials, non più derivato da fiscalCode.
     welcomeEmailSentAt: timestamp("welcome_email_sent_at", {
@@ -68,6 +73,12 @@ export const businesses = pgTable(
     check(
       "businesses_province_length_check",
       sql`char_length(${table.province}) <= 3`,
+    ),
+    // Migration 0033: allineato a RECEIPT_FOOTER_NOTE_MAX_CHARS in
+    // src/lib/receipt-format.ts (2 righe x 32 colonne di termica 58mm).
+    check(
+      "businesses_receipt_footer_note_length_check",
+      sql`char_length(${table.receiptFooterNote}) <= 64`,
     ),
   ],
 );

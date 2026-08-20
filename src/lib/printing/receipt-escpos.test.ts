@@ -442,6 +442,102 @@ describe("buildReceiptCommands — layout AdE", () => {
   });
 });
 
+describe("buildReceiptCommands — messaggio di cortesia (Pro)", () => {
+  /** Indice della prima riga stampata che contiene `fragment`. */
+  function rowIndexOf(rows: string[], fragment: string): number {
+    return rows.findIndex((l) => l.includes(fragment));
+  }
+
+  it("stampa la nota in coda, dopo il numero documento", () => {
+    const rows = printedLines(
+      buildReceiptCommands(
+        makeReceipt(SIMPLE_LINES, { footerNote: "Arrivederci e grazie!" }),
+        OPTS,
+      ),
+    );
+    const iDoc = rowIndexOf(rows, "DOCUMENTO N.");
+    const iNote = rowIndexOf(rows, "Arrivederci e grazie!");
+    expect(iNote).toBeGreaterThan(iDoc);
+  });
+
+  it("stampa la nota dopo il codice lotteria", () => {
+    const rows = printedLines(
+      buildReceiptCommands(
+        makeReceipt(SIMPLE_LINES, {
+          lotteryCode: "ABCD1234",
+          footerNote: "Arrivederci e grazie!",
+        }),
+        OPTS,
+      ),
+    );
+    expect(rowIndexOf(rows, "Arrivederci e grazie!")).toBeGreaterThan(
+      rowIndexOf(rows, "ABCD1234"),
+    );
+  });
+
+  it("senza nota non stampa righe in più", () => {
+    const withNote = printedLines(
+      buildReceiptCommands(
+        makeReceipt(SIMPLE_LINES, { footerNote: "Grazie!" }),
+        OPTS,
+      ),
+    );
+    const without = printedLines(
+      buildReceiptCommands(makeReceipt(SIMPLE_LINES), OPTS),
+    );
+    expect(withNote).toHaveLength(without.length + 1);
+    expect(
+      printedLines(
+        buildReceiptCommands(
+          makeReceipt(SIMPLE_LINES, { footerNote: "   " }),
+          OPTS,
+        ),
+      ),
+    ).toEqual(without);
+  });
+
+  // Il wrap lo facciamo noi, non l'encoder: e' l'unico modo perche'
+  // l'anteprima nelle impostazioni mostri esattamente le righe che escono.
+  it("manda a capo la nota entro le colonne della carta", () => {
+    const rows = printedLines(
+      buildReceiptCommands(
+        makeReceipt(SIMPLE_LINES, {
+          footerNote: "Grazie per averci scelto, ti aspettiamo presto!",
+        }),
+        OPTS,
+      ),
+    );
+    const iNote = rows.findIndex((r) => r.includes("Grazie per averci"));
+    expect(iNote).toBeGreaterThan(-1);
+    expect(rows[iNote].trim().length).toBeLessThanOrEqual(PAPER_COLUMNS["58"]);
+    expect(rows[iNote + 1]).toContain("aspettiamo");
+  });
+
+  // Le accentate maiuscole non esistono in CP437: senza sanitizzazione la
+  // stampante emette "?" al posto della lettera.
+  it("passa la nota per la sanitizzazione termica", () => {
+    const text = decode(
+      buildReceiptCommands(
+        makeReceipt(SIMPLE_LINES, { footerNote: "È SEMPRE UN PIACERE" }),
+        OPTS,
+      ),
+    );
+    expect(text).toContain("E' SEMPRE UN PIACERE");
+  });
+
+  it("non stampa alcuna nota sulla ricevuta di annullamento", () => {
+    const rows = printedLines(
+      buildReceiptCommands(
+        makeVoidReceipt(SIMPLE_LINES, {
+          footerNote: "Arrivederci e grazie!",
+        } as Partial<PrintableReceipt>),
+        OPTS,
+      ),
+    );
+    expect(rows.some((r) => r.includes("Arrivederci"))).toBe(false);
+  });
+});
+
 describe("buildReceiptCommands — codifica IVA AdE", () => {
   const EXEMPT_LINES: PrintableReceiptLine[] = [
     {

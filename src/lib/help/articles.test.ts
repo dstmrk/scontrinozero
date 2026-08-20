@@ -155,6 +155,47 @@ describe("metodi-di-pagamento (bonifico e assegno sullo scontrino)", () => {
   });
 });
 
+describe("messaggio-personalizzato-scontrino (feature Pro sullo scontrino)", () => {
+  const article = helpArticles["messaggio-personalizzato-scontrino"];
+
+  it("exists in the registry", () => {
+    expect(article).toBeDefined();
+  });
+
+  it("targets the 'messaggio personalizzato' query in the metaTitle", () => {
+    expect(article.metaTitle.toLowerCase()).toContain(
+      "messaggio personalizzato",
+    );
+  });
+
+  // Il limite è un fatto citabile dalle AI e la prima domanda dell'utente:
+  // deve stare nella description, non solo nel corpo.
+  it("cita il limite e il gating Pro nella description", () => {
+    expect(article.description).toContain("64 caratteri");
+    expect(article.description).toContain("Pro");
+  });
+
+  it("links the receipt-customisation and pricing cluster", () => {
+    expect(article.related).toContain("intestazione-scontrino");
+    expect(article.related).toContain("piani-e-prezzi");
+  });
+});
+
+describe("intestazione-scontrino non cannibalizza il messaggio personalizzato", () => {
+  const article = helpArticles["intestazione-scontrino"];
+
+  // I due articoli condividono la keyword "personalizzare … scontrino": quello
+  // sull'intestazione parla di dati fiscali, l'altro del testo di cortesia.
+  it("tiene l'intent sui dati dell'intestazione nel metaTitle", () => {
+    expect(article.metaTitle.toLowerCase()).toContain("intestazione");
+    expect(article.metaTitle.toLowerCase()).not.toContain("messaggio");
+  });
+
+  it("punta all'articolo dedicato attraverso related", () => {
+    expect(article.related).toContain("messaggio-personalizzato-scontrino");
+  });
+});
+
 describe("aliquote-iva does not cannibalise metodi-di-pagamento", () => {
   const article = helpArticles["aliquote-iva"];
 

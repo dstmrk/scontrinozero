@@ -68,6 +68,12 @@ interface PdfReceiptInput {
     grossUnitPrice: string | null;
     vatCode: string;
   }>;
+  /**
+   * Messaggio di cortesia dell'esercente (feature Pro), gia' risolto dal gate
+   * di piano dal lettore che ha in mano la riga `profiles`
+   * (`resolveReceiptFooterNote`). Qui `null`/assente = non stampare nulla.
+   */
+  footerNote?: string | null;
 }
 
 /**
@@ -158,7 +164,14 @@ export async function generatePdfResponse(
       },
     };
   } else {
-    pdfData = { ...common, kind: "SALE", paymentMethod, lotteryCode };
+    // Solo sulla vendita: il tipo non lo prevede su un VOID.
+    pdfData = {
+      ...common,
+      kind: "SALE",
+      paymentMethod,
+      lotteryCode,
+      footerNote: data.footerNote ?? null,
+    };
   }
 
   const pdfBuffer = await generateCommercialDocumentPdf(pdfData);

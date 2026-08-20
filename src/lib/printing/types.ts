@@ -65,6 +65,16 @@ export interface PrintableSaleReceipt extends PrintableDocumentBase {
   readonly paymentMethod: PaymentMethod;
   /** Codice Lotteria degli Scontrini (8 char, solo pagamento PE). */
   readonly lotteryCode?: string | null;
+  /**
+   * Messaggio di cortesia dell'esercente (feature Pro), stampato in coda dove
+   * il layout standard AdE scrive "Arrivederci e grazie!". Arriva gia' risolto
+   * dal gate di piano (`resolveReceiptFooterNote`): `null` = non stampare.
+   *
+   * Solo sulla vendita, come sul PDF: su una ricevuta di ANNULLAMENTO un
+   * ringraziamento stonerebbe, e l'unione discriminata lo rende
+   * irraggiungibile su un VOID.
+   */
+  readonly footerNote?: string | null;
 }
 
 /**

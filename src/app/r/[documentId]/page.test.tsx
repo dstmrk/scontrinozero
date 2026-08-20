@@ -500,3 +500,50 @@ describe("PublicReceiptPage — ricevuta di annullamento", () => {
     expect(screen.queryByText(assente)).not.toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Messaggio di cortesia (feature Pro)
+// ---------------------------------------------------------------------------
+
+describe("PublicReceiptPage — messaggio di cortesia", () => {
+  let PublicReceiptPage: typeof import("./page").default;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mockHeaders.mockResolvedValue(
+      new Headers({ "cf-connecting-ip": "6.6.6.6" }),
+    );
+    vi.resetModules();
+    ({ default: PublicReceiptPage } = await import("./page"));
+  });
+
+  /** La nota arriva gia' risolta dal gate di piano in fetchPublicReceipt. */
+  async function renderWithNote(footerNote: string | null): Promise<void> {
+    mockFetchPublicReceipt.mockResolvedValue({
+      ...MOCK_RECEIPT_DATA,
+      footerNote,
+    });
+    render(
+      await PublicReceiptPage({
+        params: Promise.resolve({ documentId: VALID_DOC_ID }),
+      }),
+    );
+  }
+
+  it("mostra la nota dell'esercente in coda al documento", async () => {
+    await renderWithNote("Arrivederci e grazie!");
+    expect(screen.getByText("Arrivederci e grazie!")).toBeInTheDocument();
+  });
+
+  it("rende ogni riga logica della nota", async () => {
+    await renderWithNote("Grazie!\nTi aspettiamo");
+    expect(screen.getByText("Grazie!")).toBeInTheDocument();
+    expect(screen.getByText("Ti aspettiamo")).toBeInTheDocument();
+  });
+
+  it("con nota null non aggiunge nulla al piede", async () => {
+    await renderWithNote(null);
+    expect(screen.getByText("DOCUMENTO N.")).toBeInTheDocument();
+    expect(screen.queryByText("Arrivederci e grazie!")).not.toBeInTheDocument();
+  });
+});

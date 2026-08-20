@@ -4,11 +4,13 @@ import {
   commercialDocuments,
   commercialDocumentLines,
   businesses,
+  profiles,
 } from "@/db/schema";
 import type { SelectCommercialDocument } from "@/db/schema/commercial-documents";
 import type { SelectBusiness } from "@/db/schema/businesses";
 import type { SelectCommercialDocumentLine } from "@/db/schema/commercial-document-lines";
 import { isValidUuid } from "@/lib/uuid";
+import { resolveReceiptFooterNote } from "./footer-note";
 import { printableDocumentCondition } from "./printable-document";
 
 export interface PublicReceiptData {
@@ -28,6 +30,12 @@ export interface PublicReceiptData {
    * riporta quello dell'annullo.
    */
   voidedSale: SelectCommercialDocument | null;
+  /**
+   * Messaggio di cortesia dell'esercente, gia' passato per il gate di piano
+   * (`resolveReceiptFooterNote`): `null` quando non c'e' o quando il piano non
+   * da' piu' accesso alla feature Pro. I renderer non vedono mai il piano.
+   */
+  footerNote: string | null;
 }
 
 /**
@@ -57,9 +65,23 @@ export async function fetchPublicReceipt(
   const db = getDb();
 
   const rows = await db
-    .select({ doc: commercialDocuments, biz: businesses })
+    .select({
+      doc: commercialDocuments,
+      biz: businesses,
+      // Il piano del titolare decide se il messaggio di cortesia si stampa.
+      // Join su `profiles` invece di una seconda query: la riga `businesses` e'
+      // gia' joinata e la FK e' indicizzata, quindi il gate non costa un
+      // round-trip in piu' su una pagina pubblica.
+      owner: {
+        plan: profiles.plan,
+        trialStartedAt: profiles.trialStartedAt,
+        planExpiresAt: profiles.planExpiresAt,
+        referralBonusDays: profiles.referralBonusDays,
+      },
+    })
     .from(commercialDocuments)
     .innerJoin(businesses, eq(commercialDocuments.businessId, businesses.id))
+    .innerJoin(profiles, eq(businesses.profileId, profiles.id))
     .where(
       and(
         eq(commercialDocuments.id, documentId),
@@ -71,7 +93,7 @@ export async function fetchPublicReceipt(
 
   if (rows.length === 0) return null;
 
-  const { doc, biz } = rows[0];
+  const { doc, biz, owner } = rows[0];
 
   // Un annullo non ha righe proprie: ristampa quelle della vendita annullata.
   let voidedSale: SelectCommercialDocument | null = null;
@@ -99,5 +121,16 @@ export async function fetchPublicReceipt(
     .where(eq(commercialDocumentLines.documentId, linesDocumentId))
     .orderBy(commercialDocumentLines.lineIndex);
 
-  return { doc, biz, lines, voidedSale };
+  return {
+    doc,
+    biz,
+    lines,
+    voidedSale,
+    // Solo la vendita: su una ricevuta di ANNULLAMENTO un ringraziamento
+    // stonerebbe, come sul PDF e sulla termica.
+    footerNote:
+      doc.kind === "SALE"
+        ? resolveReceiptFooterNote(biz.receiptFooterNote, owner)
+        : null,
+  };
 }

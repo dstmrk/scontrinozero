@@ -81,6 +81,25 @@ export const TRIAL_EXPIRED_MESSAGE =
 export const STARTER_CATALOG_LIMIT = 5;
 
 /**
+ * Trial start **effettivo**: `trialStartedAt` traslato IN AVANTI dei giorni
+ * bonus referral, perché la scadenza è derivata come `start + TRIAL_DAYS` e
+ * spostare lo start avanti allunga la prova (30 bonus + 30 trial = 60 giorni).
+ *
+ * Estratta da `fetchPlan` (`plans.ts`) per i lettori che non passano di lì —
+ * la pagina pubblica `/r` e la stampa non hanno un `authUserId` e leggono
+ * `profiles` con una join: senza questa funzione ricalcolerebbero il bonus a
+ * mano e finirebbero per scadere un trial che l'app mostra ancora attivo.
+ */
+export function trialStartWithReferralBonus(
+  trialStartedAt: Date | null,
+  referralBonusDays: number | null | undefined,
+): Date | null {
+  if (!trialStartedAt) return null;
+  const bonusMs = (referralBonusDays ?? 0) * 24 * 60 * 60 * 1000;
+  return new Date(trialStartedAt.getTime() + bonusMs);
+}
+
+/**
  * Ritorna true se il trial è scaduto (> TRIAL_DAYS giorni fa).
  * Se trialStartedAt è null, considera il trial come scaduto.
  */

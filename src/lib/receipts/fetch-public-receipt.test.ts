@@ -26,7 +26,14 @@ vi.mock("@/db/schema", () => ({
     documentId: "cdl.documentId",
     lineIndex: "cdl.lineIndex",
   },
-  businesses: { id: "biz.id" },
+  businesses: { id: "biz.id", profileId: "biz.profileId" },
+  profiles: {
+    id: "profiles.id",
+    plan: "profiles.plan",
+    trialStartedAt: "profiles.trialStartedAt",
+    planExpiresAt: "profiles.planExpiresAt",
+    referralBonusDays: "profiles.referralBonusDays",
+  },
 }));
 
 // Mock di `and`/`eq` per ispezionare la condizione WHERE: il filtro
@@ -87,6 +94,15 @@ const MOCK_BIZ = {
   city: "Milano",
   province: "MI",
   zipCode: "20100",
+  receiptFooterNote: null as string | null,
+};
+
+/** Titolare con un piano Pro attivo: il caso base dei test sul footer. */
+const MOCK_OWNER = {
+  plan: "pro",
+  trialStartedAt: null,
+  planExpiresAt: null,
+  referralBonusDays: 0,
 };
 
 const MOCK_LINES = [
@@ -111,7 +127,9 @@ describe("fetchPublicReceipt", () => {
     vi.clearAllMocks();
     mockSelect
       .mockReturnValueOnce(
-        makeSelectBuilder([{ doc: MOCK_DOC, biz: MOCK_BIZ }]),
+        makeSelectBuilder([
+          { doc: MOCK_DOC, biz: MOCK_BIZ, owner: MOCK_OWNER },
+        ]),
       )
       .mockReturnValueOnce(makeSelectBuilder(MOCK_LINES));
   });
@@ -151,7 +169,9 @@ describe("fetchPublicReceipt", () => {
 
   it("applica la condizione di stampabilita' e adeTransactionId IS NOT NULL nel WHERE", async () => {
     mockSelect.mockReset();
-    const docBuilder = makeSelectBuilder([{ doc: MOCK_DOC, biz: MOCK_BIZ }]);
+    const docBuilder = makeSelectBuilder([
+      { doc: MOCK_DOC, biz: MOCK_BIZ, owner: MOCK_OWNER },
+    ]);
     mockSelect
       .mockReturnValueOnce(docBuilder)
       .mockReturnValueOnce(makeSelectBuilder(MOCK_LINES));
@@ -299,6 +319,77 @@ describe("fetchPublicReceipt", () => {
     expect(result?.voidedSale).toBeNull();
   });
 
+  describe("messaggio di cortesia (Pro)", () => {
+    /** Prepara la coppia di query (documento + righe) con nota e piano dati. */
+    function mockReceiptWith(
+      note: string | null,
+      owner: Record<string, unknown> = MOCK_OWNER,
+      docOverrides: Record<string, unknown> = {},
+    ) {
+      mockSelect.mockReset();
+      mockSelect
+        .mockReturnValueOnce(
+          makeSelectBuilder([
+            {
+              doc: { ...MOCK_DOC, ...docOverrides },
+              biz: { ...MOCK_BIZ, receiptFooterNote: note },
+              owner,
+            },
+          ]),
+        )
+        .mockReturnValueOnce(makeSelectBuilder(MOCK_LINES));
+    }
+
+    it("restituisce la nota dell'esercente Pro", async () => {
+      mockReceiptWith("Arrivederci e grazie!");
+      const result = await fetchPublicReceipt(VALID_UUID);
+      expect(result?.footerNote).toBe("Arrivederci e grazie!");
+    });
+
+    it("la nasconde a un piano senza accesso Pro", async () => {
+      mockReceiptWith("Arrivederci e grazie!", {
+        ...MOCK_OWNER,
+        plan: "starter",
+      });
+      const result = await fetchPublicReceipt(VALID_UUID);
+      expect(result?.footerNote).toBeNull();
+    });
+
+    it("resta null quando l'esercente non ne ha impostata una", async () => {
+      mockReceiptWith(null);
+      const result = await fetchPublicReceipt(VALID_UUID);
+      expect(result?.footerNote).toBeNull();
+    });
+
+    // Un ringraziamento su una ricevuta di ANNULLAMENTO stonerebbe: stessa
+    // regola del PDF e della termica.
+    it("non la restituisce su una ricevuta di annullamento", async () => {
+      mockSelect.mockReset();
+      mockSelect
+        .mockReturnValueOnce(
+          makeSelectBuilder([
+            {
+              doc: {
+                ...MOCK_DOC,
+                id: VOID_UUID,
+                kind: "VOID",
+                status: "VOID_ACCEPTED",
+                voidedDocumentId: VALID_UUID,
+              },
+              biz: { ...MOCK_BIZ, receiptFooterNote: "Arrivederci e grazie!" },
+              owner: MOCK_OWNER,
+            },
+          ]),
+        )
+        .mockReturnValueOnce(makeSelectBuilder([MOCK_DOC]))
+        .mockReturnValueOnce(makeSelectBuilder(MOCK_LINES));
+
+      const result = await fetchPublicReceipt(VOID_UUID);
+      expect(result?.doc.kind).toBe("VOID");
+      expect(result?.footerNote).toBeNull();
+    });
+  });
+
   it("accetta UUID in maiuscolo (case-insensitive)", async () => {
     const result = await fetchPublicReceipt(VALID_UUID.toUpperCase());
     expect(result).not.toBeNull();
@@ -309,7 +400,9 @@ describe("fetchPublicReceipt", () => {
     mockSelect.mockReset();
     mockSelect
       .mockReturnValueOnce(
-        makeSelectBuilder([{ doc: MOCK_DOC, biz: MOCK_BIZ }]),
+        makeSelectBuilder([
+          { doc: MOCK_DOC, biz: MOCK_BIZ, owner: MOCK_OWNER },
+        ]),
       )
       .mockReturnValueOnce(makeSelectBuilder(MOCK_LINES))
       // Seconda chiamata: il documento ora è REJECTED, quindi il filtro nel
