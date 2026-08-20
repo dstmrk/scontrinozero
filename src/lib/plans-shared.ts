@@ -196,23 +196,43 @@ export function canUseDashboardCashier(plan: Plan): boolean {
 /**
  * Ritorna true se il piano ha accesso alla Developer API.
  * - Pro e Unlimited: accesso API come feature inclusa nel piano
+ * - Trial attivo: accesso incluso — il trial è una prova di Pro e
+ *   un'integrazione non si valuta senza poterla cablare. Alla scadenza le
+ *   chiavi restano in tabella ma smettono di autenticare (il gate gira su
+ *   ogni richiesta in `requireBusinessApiAuth`), e si riattivano passando a
+ *   Pro senza rigenerarle.
  * - Developer plans: accesso API con limiti mensili per volume
+ *
+ * `trialStartedAt` va passato esplicitamente dal call site: omesso (default
+ * `null` → `isTrialExpired(null) === true`) il trial resta gated. Default
+ * safe deliberato — un call site che se lo dimentica nega l'accesso invece di
+ * aprirlo per sbaglio.
  */
 export function canUseApi(
   plan: Plan,
   planExpiresAt: Date | null = null,
+  trialStartedAt: Date | null = null,
 ): boolean {
   if (isPaidPlanExpired(plan, planExpiresAt)) return false;
-  return canUsePro(plan, planExpiresAt) || isDeveloperPlan(plan);
+  return (
+    canUsePro(plan, planExpiresAt, trialStartedAt) || isDeveloperPlan(plan)
+  );
 }
 
 /**
  * Numero massimo di API key attive (non revocate) per piano.
  * null = nessun limite.
- * Starter/trial non hanno accesso API (canUseApi = false), quindi non
- * hanno una entry qui. I piani Developer sono gestiti nella Fase B.
+ *
+ * Il trial ha una sola chiave: basta per cablare un'integrazione e tiene
+ * minimo il blast radius di un abuso della prova gratuita. Senza una entry
+ * esplicita `getApiKeyLimit` cadrebbe su `?? null` = nessun limite, cioè un
+ * trial avrebbe più chiavi di Pro.
+ *
+ * Starter non ha accesso API (canUseApi = false), quindi non ha una entry
+ * qui. I piani Developer sono gestiti nella Fase B.
  */
 export const API_KEY_LIMITS: Partial<Record<Plan, number>> = {
+  trial: 1,
   pro: 3,
 };
 

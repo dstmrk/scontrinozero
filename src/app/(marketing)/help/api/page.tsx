@@ -1,8 +1,10 @@
 import { Badge } from "@/components/ui/badge";
 import {
   JsonLd,
+  faqPageJsonLd,
   helpArticleBreadcrumb,
   helpArticleBreadcrumbItems,
+  type FaqItem,
 } from "@/components/json-ld";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { helpArticleMetadata } from "@/lib/help/metadata";
@@ -11,11 +13,34 @@ import { RelatedHelpArticles } from "@/components/help/related-articles";
 
 export const metadata = helpArticleMetadata("api");
 
+/**
+ * Mirror in testo piano della FAQ visibile a video: alimenta lo structured data
+ * FAQPage (rich result Google). Tenere allineato al contenuto renderizzato sotto.
+ */
+const faqItems: readonly FaqItem[] = [
+  {
+    question: "Posso usare le API durante la prova gratuita?",
+    answer:
+      "Sì: la prova gratuita di 30 giorni include l'accesso alla Developer API con una chiave attiva, senza inserire una carta di credito. Il piano Pro ne consente fino a 3. Su Starter le API non sono disponibili.",
+  },
+  {
+    question: "Cosa succede alle chiavi API quando scade la prova gratuita?",
+    answer:
+      "Smettono di autenticare: ogni richiesta riceve un errore 402 PLAN_UPGRADE_REQUIRED. Le chiavi restano nella dashboard e tornano attive appena attivi il piano Pro, quindi non devi rigenerarle né aggiornare l'integrazione.",
+  },
+  {
+    question: "Dove trovo la sezione API key nella dashboard?",
+    answer:
+      "In Impostazioni \u2192 Altre impostazioni \u2192 API key: la sezione \u00e8 chiusa di default, aprila con il pulsante \u201cAltre impostazioni\u201d. La card \u00e8 visibile su tutti i piani; se il tuo piano non include le API mostra l'upgrade invece dell'elenco delle chiavi.",
+  },
+];
+
 export default function ApiDocsPage() {
   return (
     <section className="px-4 py-16">
       <JsonLd data={helpArticleBreadcrumb("api", "API per sviluppatori")} />
       <HelpArticleJsonLd slug="api" />
+      <JsonLd data={faqPageJsonLd(faqItems)} />
       <article className="mx-auto max-w-3xl">
         <Breadcrumbs
           items={helpArticleBreadcrumbItems("api", "API per sviluppatori")}
@@ -26,7 +51,7 @@ export default function ApiDocsPage() {
           <h1 className="text-3xl font-extrabold tracking-tight">
             API per sviluppatori
           </h1>
-          <Badge variant="secondary">Piano Pro</Badge>
+          <Badge variant="secondary">Pro e prova gratuita</Badge>
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Le API REST di ScontrinoZero permettono di integrare l&apos;emissione
@@ -40,7 +65,13 @@ export default function ApiDocsPage() {
         <h2 className="mt-12 text-xl font-semibold">Prerequisiti</h2>
         <ul className="text-muted-foreground mt-3 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
-            Account ScontrinoZero con <strong>Piano Pro</strong> attivo.
+            {"Account ScontrinoZero con "}
+            <strong>piano Pro</strong>
+            {" attivo, oppure in "}
+            <strong>prova gratuita</strong>
+            {
+              " (la prova include l'accesso API con una chiave; su Pro le chiavi attive sono al massimo 3). Alla scadenza della prova le chiavi smettono di autenticare e tornano attive passando a Pro, senza rigenerarle."
+            }
           </li>
           <li>
             {"Credenziali Fisconline configurate nella sezione "}
@@ -123,6 +154,28 @@ export default function ApiDocsPage() {
             Le credenziali Fisconline accettano qualsiasi valore nel sandbox.
           </li>
           <li>I dati sandbox possono essere resettati senza preavviso.</li>
+          <li>
+            {
+              "La prova gratuita basta per generare una chiave e integrare. Per testare anche il flusso di abbonamento — o il limite di 3 chiavi del piano Pro — attiva Pro con una "
+            }
+            <strong>carta di test Stripe</strong>
+            {": numero "}
+            <code className="bg-muted rounded px-1 font-mono text-xs">
+              4242 4242 4242 4242
+            </code>
+            {
+              ", scadenza una qualsiasi data futura, CVC tre cifre qualsiasi. Nessun addebito: il sandbox usa Stripe in modalità test, e la stessa carta viene rifiutata in produzione. L'elenco completo delle carte di test (3D Secure, pagamenti rifiutati) è nella "
+            }
+            <a
+              href="https://docs.stripe.com/testing"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              documentazione Stripe
+            </a>
+            {"."}
+          </li>
           <li>
             La chiave API sandbox inizia sempre con{" "}
             <code className="bg-muted rounded px-1 font-mono text-xs">
@@ -919,6 +972,18 @@ const idempotencyKey = crypto.randomUUID();`}</code>
               ))}
             </tbody>
           </table>
+        </div>
+        {/* ─── FAQ (mirror di faqItems: tenere allineati) ─── */}
+        <h2 className="mt-12 text-xl font-semibold">Domande frequenti</h2>
+        <div className="mt-3 space-y-4">
+          {faqItems.map((faq) => (
+            <div key={faq.question}>
+              <p className="text-sm font-medium">{faq.question}</p>
+              <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+                {faq.answer}
+              </p>
+            </div>
+          ))}
         </div>
         <RelatedHelpArticles slug="api" />
       </article>

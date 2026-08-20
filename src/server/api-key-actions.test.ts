@@ -214,6 +214,24 @@ describe("listApiKeys", () => {
     expect(result.error).toMatch(/Pro/i);
   });
 
+  // Il default di canUseApi lascia il trial gated: se il guard smette di
+  // inoltrare trialStartedAt, un account in prova perde l'accesso API senza
+  // che nessun altro test se ne accorga (il gate è mockato).
+  it("inoltra trialStartedAt al gate di piano", async () => {
+    const trialStartedAt = new Date("2026-08-01T00:00:00Z");
+    mockGetEffectivePlan.mockResolvedValue("trial");
+    mockGetPlan.mockResolvedValue({
+      plan: "trial",
+      trialStartedAt,
+      planExpiresAt: null,
+    });
+
+    const { listApiKeys } = await import("./api-key-actions");
+    await listApiKeys(BIZ_ID);
+
+    expect(mockCanUseApi).toHaveBeenCalledWith("trial", null, trialStartedAt);
+  });
+
   // REVIEW.md #78: authorizeApiKeyBusiness leggeva il piano con una
   // Promise.all non protetta — un profilo orfano o uno statement timeout
   // propagavano fino all'error boundary di Next. Entrambe le promise possono

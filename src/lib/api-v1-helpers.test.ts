@@ -98,6 +98,24 @@ describe("requireBusinessApiAuth", () => {
     });
   });
 
+  // Stesso rischio del guard server action: senza trialStartedAt inoltrato,
+  // un trial attivo riceverebbe 402 su ogni chiamata /api/v1.
+  it("forwards trialStartedAt to the plan gate", async () => {
+    const trialStartedAt = new Date("2026-08-01T00:00:00Z");
+    mockAuthenticateApiKey.mockResolvedValue({
+      plan: "trial",
+      businessId: "biz-1",
+      trialStartedAt,
+      planExpiresAt: null,
+    });
+    mockIsApiKeyAuthError.mockReturnValue(false);
+    mockCanUseApi.mockReturnValue(true);
+
+    await requireBusinessApiAuth(makeRequest(), REQUEST_ID);
+
+    expect(mockCanUseApi).toHaveBeenCalledWith("trial", null, trialStartedAt);
+  });
+
   it("returns 402 PLAN_UPGRADE_REQUIRED when the plan does not include API access", async () => {
     mockAuthenticateApiKey.mockResolvedValue({
       plan: "starter",

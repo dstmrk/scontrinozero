@@ -169,10 +169,11 @@ describe("canUsePro", () => {
 });
 
 describe("canUsePro — coupling con canUseApi/canAddCatalogItem (regression)", () => {
-  // Un trial attivo sblocca SOLO le feature Pro visibili via canUsePro. Le
-  // funzioni che NON passano trialStartedAt devono restare gated per il trial,
-  // anche se canUseApi chiama canUsePro internamente.
-  it("active trial stays gated on Developer API (canUseApi ignores trial)", () => {
+  // Un trial attivo sblocca le feature Pro visibili E la Developer API, ma
+  // solo dove `trialStartedAt` viene passato esplicitamente. Il catalogo NON
+  // lo passa e resta capped, anche se canAddCatalogItem non chiama canUsePro.
+  it("active trial unlocks the Developer API only when trialStartedAt is passed", () => {
+    expect(canUseApi("trial", null, daysAgo(5))).toBe(true);
     expect(canUseApi("trial", null)).toBe(false);
   });
 
@@ -378,7 +379,17 @@ describe("canUseApi", () => {
     expect(canUseApi("developer_scale")).toBe(true);
   });
 
-  it("returns false for trial", () => {
+  it("returns true for an active trial when trialStartedAt is passed", () => {
+    expect(canUseApi("trial", null, daysAgo(5))).toBe(true);
+  });
+
+  it("returns false for an expired trial", () => {
+    expect(canUseApi("trial", null, daysAgo(TRIAL_DAYS + 1))).toBe(false);
+  });
+
+  // Default safe: un call site che dimentica trialStartedAt lascia il trial
+  // gated invece di aprirlo per sbaglio.
+  it("returns false for trial when trialStartedAt is omitted", () => {
     expect(canUseApi("trial")).toBe(false);
   });
 
@@ -404,9 +415,13 @@ describe("API_KEY_LIMITS / getApiKeyLimit", () => {
     expect(getApiKeyLimit("developer_scale")).toBeNull();
   });
 
-  it("Starter/trial cannot use API at all — no limit constant needed", () => {
+  it("Trial plan has a limit of 1 API key", () => {
+    expect(API_KEY_LIMITS.trial).toBe(1);
+    expect(getApiKeyLimit("trial")).toBe(1);
+  });
+
+  it("Starter cannot use API at all — no limit constant needed", () => {
     expect(API_KEY_LIMITS.starter).toBeUndefined();
-    expect(API_KEY_LIMITS.trial).toBeUndefined();
   });
 });
 

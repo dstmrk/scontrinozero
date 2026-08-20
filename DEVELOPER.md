@@ -376,8 +376,18 @@ src/app/api/v1/receipts/route.ts      → auth (API key) + rate limit → chiama
 ### Nuove funzioni gate in `plans.ts`
 
 ```typescript
-export function canUseApi(plan: Plan): boolean {
-  return canUsePro(plan) || isDeveloperPlan(plan);
+// Il trial e' una prova di Pro e include l'accesso API (1 chiave, vedi
+// API_KEY_LIMITS). `trialStartedAt` va passato dal call site: omesso, il
+// trial resta gated — default safe per chi se lo dimentica.
+export function canUseApi(
+  plan: Plan,
+  planExpiresAt: Date | null = null,
+  trialStartedAt: Date | null = null,
+): boolean {
+  if (isPaidPlanExpired(plan, planExpiresAt)) return false;
+  return (
+    canUsePro(plan, planExpiresAt, trialStartedAt) || isDeveloperPlan(plan)
+  );
 }
 
 export function isDeveloperPlan(plan: Plan): boolean {
@@ -461,6 +471,16 @@ Zero nuovi container. Con Cloudflare Tunnel:
 | B4   | `src/app/api/stripe/checkout/route.ts`, `src/app/api/stripe/webhook/route.ts`                                                | Stripe developer plans                 |
 
 ---
+
+## Sandbox
+
+`api-sandbox.scontrinozero.it` (`ADE_MODE=mock`, Stripe test): stessa surface
+della produzione, nessun documento trasmesso all'AdE. Un account registrato su
+`sandbox.scontrinozero.it` parte in trial e puo' quindi generare subito una
+chiave — nessun pagamento serve per provare l'integrazione. Il piano Pro, utile
+per testare il flusso di abbonamento o il limite di 3 chiavi, si attiva con una
+carta di test Stripe (`4242 4242 4242 4242`, scadenza futura qualsiasi, CVC
+qualsiasi). Documentato per gli utenti in `/help/api`, sezione Sandbox.
 
 ## Note Operative
 

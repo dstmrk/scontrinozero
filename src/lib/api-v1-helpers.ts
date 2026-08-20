@@ -60,7 +60,7 @@ export async function requireBusinessApiAuth(
     return { error: v1Error(code, auth.error, requestId) };
   }
 
-  if (!canUseApi(auth.plan, auth.planExpiresAt)) {
+  if (!canUseApi(auth.plan, auth.planExpiresAt, auth.trialStartedAt)) {
     return {
       error: v1Error(
         "PLAN_UPGRADE_REQUIRED",
