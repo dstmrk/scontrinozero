@@ -459,6 +459,29 @@ prerequisito di #13.
 
 ---
 
+### 95. Deep-link `#api-keys` morto: nessun elemento con quell'id
+
+- **Categoria:** UX · **Severità:** Low
+- **File:** `src/app/dashboard/page.tsx:42`, `src/app/dashboard/cassa/page.tsx:36`
+  (redirect); `src/components/settings/api-key-card.tsx` (card di destinazione)
+
+**Problema.** I piani `developer_*` senza cassa nel dashboard vengono rediretti a
+`/dashboard/settings#api-keys`, ma **nessun elemento della pagina ha
+`id="api-keys"`** — `ScrollToHash` non trova il target e l'utente atterra in cima
+alle Impostazioni senza capire dove andare. Peggiorato dal fatto che la card API
+key vive dentro `ExtraSettingsSection`, **chiusa di default**: anche con l'ancora
+giusta il contenuto non sarebbe nel DOM al mount. Trovato durante il pass UX del
+menu impostazioni (non introdotto da quel PR: l'ancora era già morta).
+
+**Fix.** Due pezzi, entrambi necessari: (a) `id="api-keys"` + `scroll-mt-20` sulla
+card API key, come già fatto per `id="billing"`; (b) far aprire
+`ExtraSettingsSection` quando l'hash corrente punta a una delle sue card, così il
+target esiste prima che `ScrollToHash` giri.
+
+_Trigger:_ il primo utente `developer_*` che segue il redirect.
+
+---
+
 ### 23. Indice composito `api_keys (business_id, revoked_at)`
 
 - **Categoria:** performance DB · **Severità:** Low · **Target: Developer API Fase B** (ora nice-to-have in PLAN.md)
