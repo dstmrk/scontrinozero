@@ -1,6 +1,6 @@
 ---
 name: decision-ledger
-description: Use when closing out a task and handing work back to the user — writing the PR title or description, summarizing what was built, auditing the decisions taken where the prompt or the spec was silent, or reporting the size/cost of a change. Covers the squash-only merge setup (merge commits and rebase are disabled, the commit message comes from the PR title and body, so the PR title is the commit subject and needs a conventional-commit prefix in Italian, the body must be clean of HTML entities, and both must be written before the merge because afterwards they are immutable history), the choices ledger (what counts as a decision vs. an implementation detail, the entry format, triage into solida/da-rivedere/serve-l-utente with a confidence, ordering least-confident first, why "it works" is not a verdict, why an empty ledger on substantial work is a symptom), where each entry goes afterwards (PR body, promoted into the owning skill as a durable invariant, or a REVIEW.md finding), and the mandatory cost table (added/deleted/net split across production code, comments, tests, docs, plus the new structural surfaces the user now owns). CLAUDE.md regola 32.
+description: Use when closing out a task and handing work back to the user — writing the PR title or description, summarizing what was built, auditing the decisions taken where the prompt or the spec was silent, or reporting the size/cost of a change. Covers the squash-only merge setup (merge commits and rebase are disabled, the commit message comes from the PR title and body, so the PR title is the commit subject and needs a conventional-commit prefix in Italian, the body must be written at ~70 columns and free of HTML entities because GitHub rewraps it at ~72 and destroys list indentation, and both must be written before the merge because afterwards they are immutable history), the choices ledger (what counts as a decision vs. an implementation detail, the entry format, triage into solida/da-rivedere/serve-l-utente with a confidence, ordering least-confident first, why "it works" is not a verdict, why an empty ledger on substantial work is a symptom), where each entry goes afterwards (PR body, promoted into the owning skill as a durable invariant, or a REVIEW.md finding), and the mandatory cost table (added/deleted/net split across production code, comments, tests, docs, plus the new structural surfaces the user now owns). CLAUDE.md regola 32.
 ---
 
 # decision-ledger — consegna le decisioni, non il diff
@@ -91,9 +91,21 @@ conventional-commit e italiano, come i commit del repo (`docs: …`, `fix(ade):
 …`). Un titolo generato in automatico, in inglese e senza prefisso, finisce su
 `main` per sempre.
 
-**Il corpo della PR va scritto pulito**, perché `git log` mostra il testo
-grezzo: niente entità HTML (`&#34;`, `&gt;`) lasciate da un editor, righe che
-stanno entro una larghezza leggibile, tabelle sobrie.
+**Il corpo va scritto per come GitHub lo riscrive, non per come si legge sul
+web.** Nel trasformarlo in messaggio di commit GitHub **rimanda a capo il testo
+a ~72 colonne**, e lo fa in modo grezzo: spezza le frasi a metà parola-chiave e
+**perde l'indentazione di continuazione** delle liste. Misurato sul commit
+`a5910d6`, dove un corpo scritto a 80 colonne è arrivato su `main` con le
+continuazioni dei bullet a colonna zero (3 righe su tutto il corpo hanno
+mantenuto l'indent) e una riga contenente la sola parola "e". Come prosa si
+legge; come documento strutturato no. Quindi:
+
+- scrivi a **~70 colonne**, così il riflusso di GitHub non ha niente da tagliare;
+- **niente significato affidato all'indentazione**: bullet di una riga sola,
+  oppure paragrafi con un lead-in in grassetto al posto delle liste con
+  continuazione;
+- niente entità HTML (`&#34;`, `&gt;`) lasciate da un editor;
+- le tabelle sopravvivono, perché le loro righe sono già corte: tienile strette.
 
 **Si scrive prima del merge.** Dopo, è storia immutabile: correggerla vuol dire
 riscrivere `main`, cioè non si fa. Il ledger non è un commento da aggiungere
