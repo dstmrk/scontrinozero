@@ -1,6 +1,6 @@
 ---
 name: decision-ledger
-description: Use when closing out a task and handing work back to the user — writing the PR description, summarizing what was built, auditing the decisions taken where the prompt or the spec was silent, or reporting the size/cost of a change. Covers the choices ledger (what counts as a decision vs. an implementation detail, the entry format, triage into solida/da-rivedere/serve-l-utente with a confidence, ordering least-confident first, why "it works" is not a verdict, why an empty ledger on substantial work is a symptom), where each entry goes afterwards (PR body, promoted into the owning skill as a durable invariant, or a REVIEW.md finding), and the mandatory cost table (added/deleted/net split across production code, comments, tests, docs, plus the new structural surfaces the user now owns). CLAUDE.md regola 32.
+description: Use when closing out a task and handing work back to the user — writing the PR title or description, summarizing what was built, auditing the decisions taken where the prompt or the spec was silent, or reporting the size/cost of a change. Covers the squash-only merge setup (merge commits and rebase are disabled, the commit message comes from the PR title and body, so the PR title is the commit subject and needs a conventional-commit prefix in Italian, the body must be clean of HTML entities, and both must be written before the merge because afterwards they are immutable history), the choices ledger (what counts as a decision vs. an implementation detail, the entry format, triage into solida/da-rivedere/serve-l-utente with a confidence, ordering least-confident first, why "it works" is not a verdict, why an empty ledger on substantial work is a symptom), where each entry goes afterwards (PR body, promoted into the owning skill as a durable invariant, or a REVIEW.md finding), and the mandatory cost table (added/deleted/net split across production code, comments, tests, docs, plus the new structural surfaces the user now owns). CLAUDE.md regola 32.
 ---
 
 # decision-ledger — consegna le decisioni, non il diff
@@ -74,12 +74,43 @@ Risultati dei gate, evidenze dei test, narrazione delle review finding,
 changelog delle modifiche. Quelli si riportano altrove: il ledger contiene
 **solo decisioni che l'utente ora possiede**.
 
+## Il corpo della PR è un messaggio di commit
+
+Il repo mergia **solo in squash** (merge commit e rebase sono disabilitati), con
+il messaggio del commit preso da titolo e descrizione della PR. Quindi il corpo
+della PR non è una nota di passaggio: diventa **storia git**, la stessa che
+raggiungi con `git log` e a cui ti porta `git blame` da una riga sospetta. È il
+motivo per cui il ledger vive lì e non in un file dedicato accanto a `PLAN.md`,
+`REVIEW.md` e `docs/architecture/`: un quarto posto dove scrivere sarebbe un
+quarto posto che invecchia, e non servirebbe comunque a niente in più.
+
+Tre conseguenze operative.
+
+**Il titolo della PR è il soggetto del commit.** Va scritto come tale: prefisso
+conventional-commit e italiano, come i commit del repo (`docs: …`, `fix(ade):
+…`). Un titolo generato in automatico, in inglese e senza prefisso, finisce su
+`main` per sempre.
+
+**Il corpo della PR va scritto pulito**, perché `git log` mostra il testo
+grezzo: niente entità HTML (`&#34;`, `&gt;`) lasciate da un editor, righe che
+stanno entro una larghezza leggibile, tabelle sobrie.
+
+**Si scrive prima del merge.** Dopo, è storia immutabile: correggerla vuol dire
+riscrivere `main`, cioè non si fa. Il ledger non è un commento da aggiungere
+quando ci si ricorda.
+
+> ⚠️ Lo squash crea un commit **nuovo**: il branch mergiato non è un antenato di
+> `main`. Riusarlo per il lavoro successivo ripropone il diff già mergiato. Per
+> un follow-up si riparte da `main`
+> (`git checkout -B <branch> origin/main`), sempre, anche tenendo lo stesso
+> nome.
+
 ## Dove finisce ogni voce
 
-Il ledger vive nella **descrizione della PR** — è lì che avviene la review.
-Volutamente **non** creiamo un registro dedicato accanto a `PLAN.md`,
-`REVIEW.md` e `docs/architecture/`: un quarto posto dove scrivere è un quarto
-posto che invecchia. Da lì ogni voce ha una sola destinazione durevole:
+Il commit risponde a "perché è così". Non risponde a "cosa devo fare la
+prossima volta" né a "cosa è rimasto aperto": per quelle due domande nessuno va
+a scavare nella storia. Quindi ogni voce ha anche una destinazione fuori dalla
+PR:
 
 | Verdetto                              | Destinazione                                                                 |
 | ------------------------------------- | ---------------------------------------------------------------------------- |
@@ -87,6 +118,9 @@ posto che invecchia. Da lì ogni voce ha una sola destinazione durevole:
 | solida + resta un dettaglio           | resta nella PR, nient'altro da fare                                          |
 | da rivedere, non risolta in questa PR | riga in `REVIEW.md` nella sezione di priorità giusta                         |
 | serve l'utente                        | resta nella PR con la chiamata provvisoria dichiarata, in attesa di risposta |
+
+I messaggi dei commit intermedi, invece, non sopravvivono allo squash: sono
+appunti di lavoro. Non metterci niente che non sia anche nel corpo della PR.
 
 ## La tabella del costo (sempre per ultima, dopo il ledger)
 
