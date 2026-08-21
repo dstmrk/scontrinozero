@@ -61,6 +61,26 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  // `<meta name="format-detection" content="telephone=no">`. Senza, i data
+  // detectors di Safari su iPhone riscrivono ogni digit-run lungo in
+  // `<a href="tel:…" x-apple-data-detectors="true">` mentre il documento viene
+  // parsato — cioè prima che React idrati, che quindi trova un `<a>` dove
+  // l'HTML del server aveva un text node. Il mismatch è reale (React si
+  // ripara ri-renderizzando, ma il primo paint si butta) ed è iPhone-only:
+  // Safari su macOS il phone detection non lo fa (SCONTRINOZERO-Y, 6 eventi
+  // su `/` da 6 città diverse, 100% Mobile Safari).
+  //
+  // Sta nel root layout e non nel gruppo `(marketing)` perché il bersaglio non
+  // è solo la P.IVA in footer: la stessa riscrittura prende il `documentId`
+  // sulla ricevuta pubblica `/r/[documentId]` e la P.IVA in onboarding e
+  // settings, dove un numero che diventa un pulsante "chiama" è un bug UX
+  // anche a hydration a posto.
+  //
+  // Solo `telephone`: `date`/`address`/`email` sono detector che Safari non
+  // applica di default, dichiararli sarebbe config per un caso ipotetico.
+  formatDetection: {
+    telephone: false,
+  },
   other: {
     // Standard cross-browser (sostituisce l'`apple-mobile-web-app-capable`
     // deprecato; quest'ultimo resta per compat con iOS Safari datati).
