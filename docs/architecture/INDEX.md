@@ -3,7 +3,8 @@
 > **Leggi questo file PRIMA di esplorare la codebase.** È una mappa
 > _navigazionale_: dice **dove vivono le cose**, così non serve un grep/glob a
 > tappeto a ogni task. Per i flussi end-to-end → `docs/architecture/data-flows.md`;
-> per soglie/limiti/gate → `docs/architecture/config-manifest.md`. Le **skill**
+> per soglie/limiti/gate → `docs/architecture/config-manifest.md`; per risolvere
+> un `regola N` citato nel codice → `docs/architecture/rules-registry.md`. Le **skill**
 > in `.claude/skills/` restano la fonte _prescrittiva_ ("come fare X nel dominio
 > Y"); questa mappa è _descrittiva_ ("dove sta X").
 >
