@@ -101,6 +101,24 @@ function lineTotalCents(
 }
 
 /**
+ * Totale di UNA riga in centesimi interi, al netto dello sconto, a partire
+ * dalla forma DB (campi stringa da `numeric`).
+ *
+ * Esportata perché è la formula che ogni superficie che mostra o esporta una
+ * singola riga deve usare, invece di riscriverla. Riscriverla è già costato
+ * tre bug identici — PDF, ripartizione prodotti in analytics e totale del
+ * dialogo di annullo calcolavano `qty × price` dimenticando lo sconto, e
+ * mostravano un totale più alto di quello trasmesso all'AdE.
+ */
+export function calcLineTotalCents(line: ReceiptLineAmounts): number {
+  return lineTotalCents(
+    Number.parseFloat(line.grossUnitPrice ?? "0"),
+    Number.parseFloat(line.quantity ?? "1"),
+    Number.parseFloat(line.lineDiscount ?? "0"),
+  );
+}
+
+/**
  * Calculates the total amount for a document's lines, rounded to 2 decimal places.
  *
  * Uses the CANONICAL per-line rounding strategy: each line is rounded to
@@ -113,18 +131,7 @@ function lineTotalCents(
  * fractional quantities — REVIEW.md #1.)
  */
 export function calcDocTotal(lines: readonly ReceiptLineAmounts[]): number {
-  return (
-    lines.reduce(
-      (sum, l) =>
-        sum +
-        lineTotalCents(
-          Number.parseFloat(l.grossUnitPrice ?? "0"),
-          Number.parseFloat(l.quantity ?? "1"),
-          Number.parseFloat(l.lineDiscount ?? "0"),
-        ),
-      0,
-    ) / 100
-  );
+  return lines.reduce((sum, l) => sum + calcLineTotalCents(l), 0) / 100;
 }
 
 /**

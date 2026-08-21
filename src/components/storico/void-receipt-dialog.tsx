@@ -20,6 +20,7 @@ import { voidReceipt } from "@/server/void-actions";
 import type { ReceiptListItem, VoidReceiptResult } from "@/types/storico";
 import { VAT_LABELS } from "@/types/cassa";
 import type { VatCode } from "@/types/cassa";
+import { computeReceiptTotals } from "@/lib/receipts/receipt-totals";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { PrintReceiptButton } from "@/components/printing/print-receipt-button";
 import type { PrintableReceipt } from "@/lib/printing/types";
@@ -170,11 +171,11 @@ export function VoidReceiptDialog({
     </>
   ) : null;
 
-  const subtotal = receipt.lines.reduce(
-    (sum, l) =>
-      sum + Number.parseFloat(l.grossUnitPrice) * Number.parseFloat(l.quantity),
-    0,
-  );
+  // Canone condiviso (`receipt-totals.ts`, client-safe): il totale mostrato
+  // qui deve essere quello trasmesso all'AdE. Ricalcolarlo a mano come
+  // `qty × price` ignorava lo sconto di riga, e l'esercente confermava
+  // l'annullo di uno scontrino vedendo un importo piu' alto del reale.
+  const { perLine, grandTotal: subtotal } = computeReceiptTotals(receipt.lines);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -318,10 +319,7 @@ export function VoidReceiptDialog({
                     </p>
                   </div>
                   <p className="shrink-0 font-medium">
-                    {formatCurrency(
-                      Number.parseFloat(line.grossUnitPrice) *
-                        Number.parseFloat(line.quantity),
-                    )}
+                    {formatCurrency(perLine[index].lineTotal)}
                   </p>
                 </div>
               ))}

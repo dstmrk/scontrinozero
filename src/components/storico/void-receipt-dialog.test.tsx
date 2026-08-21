@@ -526,3 +526,32 @@ describe("VoidReceiptDialog — data del dettaglio", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("VoidReceiptDialog — sconto di riga", () => {
+  it("mostra il totale al netto dello sconto, non il prezzo di listino", () => {
+    // L'esercente conferma l'annullo guardando questo importo: deve essere
+    // quello trasmesso all'AdE (HAR.md voce #3a), altrimenti crede di
+    // annullare uno scontrino diverso da quello che ha emesso.
+    renderWithQuery(
+      <VoidReceiptDialog
+        {...defaultProps}
+        receipt={{
+          ...ACCEPTED_RECEIPT,
+          lines: [
+            {
+              description: "Maglione",
+              quantity: "1",
+              grossUnitPrice: "160.65",
+              lineDiscount: "10.65",
+              vatCode: "22",
+            },
+          ],
+        }}
+        printProfile={null}
+      />,
+    );
+
+    expect(screen.getAllByText(/150,00/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/160,65\s*$/)).not.toBeInTheDocument();
+  });
+});

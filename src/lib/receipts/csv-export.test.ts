@@ -445,6 +445,30 @@ describe("formatReceiptLineRows", () => {
     },
   ];
 
+  it("il totale_riga del dettaglio e' al netto dello sconto di riga", () => {
+    // Il dettaglio deve sommare al `totale` del riepilogo: sono due viste
+    // dello stesso scontrino e un commercialista le confronta.
+    const rows = formatReceiptLineRows(doc(), [
+      {
+        id: "l1",
+        documentId: "doc-1",
+        lineIndex: 0,
+        description: "Maglione",
+        quantity: "1.000",
+        grossUnitPrice: "160.65",
+        lineDiscount: "10.65",
+        vatCode: "22",
+      },
+    ]);
+
+    const col = (name: (typeof RECEIPT_LINES_CSV_HEADERS)[number]) =>
+      RECEIPT_LINES_CSV_HEADERS.indexOf(name);
+    // Il prezzo unitario resta quello di listino: e' il totale di riga a
+    // scendere, esattamente come sul documento stampato.
+    expect(rows[0][col("prezzo_unitario")]).toBe("160,65");
+    expect(rows[0][col("totale_riga")]).toBe("150,00");
+  });
+
   it("emette una riga per voce venduta", () => {
     const rows = formatReceiptLineRows(doc(), lines);
     expect(rows).toHaveLength(2);

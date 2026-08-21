@@ -1,3 +1,4 @@
+import { calcLineTotalCents } from "@/lib/receipts/receipt-totals";
 import { parsePublicRequest } from "@/lib/receipts/public-request";
 import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -260,11 +261,10 @@ export function formatReceiptLineRows(
   const stato = STATUS_LABELS.get(doc.status) ?? doc.status;
 
   return lines.map((line) => {
-    const lineTotalCents = Math.round(
-      Number.parseFloat(line.grossUnitPrice ?? "0") *
-        Number.parseFloat(line.quantity ?? "1") *
-        100,
-    );
+    // Canone condiviso: il `totale_riga` del dettaglio deve sommare al
+    // `totale` del riepilogo, che deriva da `calcDocTotal` sulle stesse righe.
+    // Ricalcolarlo qui a mano è ciò che faceva perdere lo sconto di riga.
+    const lineTotalCents = calcLineTotalCents(line);
     return [
       data,
       ora,
