@@ -154,3 +154,79 @@ describe("saleBodySchema", () => {
     expect(SALE_LINES_MAX).toBe(100);
   });
 });
+
+describe("saleBodySchema — sconto di riga", () => {
+  const body = (
+    lines: Array<Record<string, unknown>>,
+    extra: Record<string, unknown> = {},
+  ) => ({
+    lines,
+    paymentMethod: "PC" as const,
+    idempotencyKey: "550e8400-e29b-41d4-a716-446655440000",
+    ...extra,
+  });
+
+  const line = (extra: Record<string, unknown> = {}) => ({
+    description: "Maglione",
+    quantity: 1,
+    grossUnitPrice: 160.65,
+    vatCode: "22" as const,
+    ...extra,
+  });
+
+  it("accetta una riga senza sconto", () => {
+    expect(saleBodySchema.safeParse(body([line()])).success).toBe(true);
+  });
+
+  it("accetta uno sconto dentro il totale della riga", () => {
+    expect(
+      saleBodySchema.safeParse(body([line({ lineDiscount: 10.65 })])).success,
+    ).toBe(true);
+  });
+
+  it("accetta uno sconto pari al totale della riga (riga a zero)", () => {
+    // L'AdE accetta `totale` 0.00000000 (oracolo in mapper.test.ts). Resta
+    // distinto da un omaggio, che non concorre al totale del documento.
+    expect(
+      saleBodySchema.safeParse(body([line({ lineDiscount: 160.65 })])).success,
+    ).toBe(true);
+  });
+
+  it("rifiuta uno sconto oltre il totale della riga", () => {
+    const result = saleBodySchema.safeParse(
+      body([line({ lineDiscount: 160.66 })]),
+    );
+    expect(result.success).toBe(false);
+  });
+
+  it("confronta lo sconto col totale di RIGA, non col prezzo unitario", () => {
+    // 3 pezzi da 40,00: uno sconto di 100,00 sta dentro i 120,00 della riga,
+    // pur superando il prezzo di un singolo pezzo.
+    expect(
+      saleBodySchema.safeParse(
+        body([line({ quantity: 3, grossUnitPrice: 40, lineDiscount: 100 })]),
+      ).success,
+    ).toBe(true);
+  });
+
+  it("indica QUALE riga è sbagliata", () => {
+    const result = saleBodySchema.safeParse(
+      body([line(), line({ lineDiscount: 999 })]),
+    );
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(["lines", 1, "lineDiscount"]);
+    expect(result.error?.issues[0]?.message).toContain("riga 2");
+  });
+
+  it("rifiuta uno sconto con più di 2 decimali", () => {
+    expect(
+      saleBodySchema.safeParse(body([line({ lineDiscount: 1.005 })])).success,
+    ).toBe(false);
+  });
+
+  it("rifiuta uno sconto negativo", () => {
+    expect(
+      saleBodySchema.safeParse(body([line({ lineDiscount: -1 })])).success,
+    ).toBe(false);
+  });
+});

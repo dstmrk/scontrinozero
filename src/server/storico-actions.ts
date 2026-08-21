@@ -23,6 +23,7 @@ import {
   parseRomeDayStartUtc,
 } from "@/lib/date-utils";
 import { logger } from "@/lib/logger";
+import { parsePublicRequest } from "@/lib/receipts/public-request";
 import { isValidUuid } from "@/lib/uuid";
 import {
   STORICO_PAGE_SIZE,
@@ -31,34 +32,12 @@ import {
   type SearchReceiptsResult,
   type SearchReceiptsParams,
 } from "@/types/storico";
-import type { PaymentMethod } from "@/types/cassa";
 
 // ---------------------------------------------------------------------------
 // Constants / helpers
 // ---------------------------------------------------------------------------
 
 const MAX_PAGE_SIZE = 100;
-
-/**
- * Estrae metodo di pagamento e codice lotteria dal jsonb `public_request`.
- *
- * La colonna è `unknown` (jsonb non tipizzato) e sulle righe storiche può
- * essere NULL o avere una forma diversa: si valida campo per campo invece di
- * castare. Il default `PC` interviene solo quando il dato manca davvero —
- * serve alla ristampa, che deve riportare il pagamento reale del documento.
- */
-function parsePublicRequest(raw: unknown): {
-  paymentMethod: PaymentMethod;
-  lotteryCode: string | null;
-} {
-  const value = (raw ?? {}) as Record<string, unknown>;
-  const paymentMethod = value.paymentMethod === "PE" ? "PE" : "PC";
-  const lotteryCode =
-    typeof value.lotteryCode === "string" && value.lotteryCode
-      ? value.lotteryCode
-      : null;
-  return { paymentMethod, lotteryCode };
-}
 
 // ---------------------------------------------------------------------------
 // searchReceipts
@@ -150,11 +129,13 @@ function toReceiptListItem(
         : null,
     paymentMethod: publicRequest.paymentMethod,
     lotteryCode: publicRequest.lotteryCode,
+    globalDiscountCents: publicRequest.globalDiscountCents,
     total: calcDocTotal(docLines).toFixed(2),
     lines: docLines.map((l) => ({
       description: l.description,
       quantity: l.quantity,
       grossUnitPrice: l.grossUnitPrice,
+      lineDiscount: l.lineDiscount,
       vatCode: l.vatCode,
     })),
   };

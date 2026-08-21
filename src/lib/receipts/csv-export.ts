@@ -1,3 +1,5 @@
+import { calcLineTotalCents } from "@/lib/receipts/receipt-totals";
+import { parsePublicRequest } from "@/lib/receipts/public-request";
 import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/db";
@@ -44,6 +46,8 @@ export const RECEIPT_CSV_HEADERS = [
   "numero_ade",
   "stato",
   "totale",
+  "sconto_a_pagare",
+  "incassato",
   "metodo_pagamento",
   "descrizione",
   "codice_lotteria",
@@ -156,6 +160,8 @@ export function formatReceiptRow(
   total: number,
   description: string,
 ): string[] {
+  const { globalDiscountCents } = parsePublicRequest(doc.publicRequest);
+
   return [
     formatRomeDate(doc.adeRegisteredAt),
     formatRomeTime(doc.adeRegisteredAt),
@@ -164,6 +170,12 @@ export function formatReceiptRow(
     // non tradotto deve essere visibile nel file, non sparire.
     STATUS_LABELS.get(doc.status) ?? doc.status,
     formatItalianAmount(total),
+    // `totale` e' il corrispettivo, `incassato` e' cio' che e' entrato in
+    // cassa: con uno sconto a pagare i due divergono di proposito (HAR.md
+    // voce #3b). Tenerli affiancati e' l'unico modo perche' chi apre il file
+    // veda subito che la differenza non e' un errore di quadratura.
+    formatItalianAmount(globalDiscountCents / 100),
+    formatItalianAmount((Math.round(total * 100) - globalDiscountCents) / 100),
     extractPaymentMethod(doc.publicRequest),
     description,
     doc.lotteryCode ?? "",
@@ -249,11 +261,10 @@ export function formatReceiptLineRows(
   const stato = STATUS_LABELS.get(doc.status) ?? doc.status;
 
   return lines.map((line) => {
-    const lineTotalCents = Math.round(
-      Number.parseFloat(line.grossUnitPrice ?? "0") *
-        Number.parseFloat(line.quantity ?? "1") *
-        100,
-    );
+    // Canone condiviso: il `totale_riga` del dettaglio deve sommare al
+    // `totale` del riepilogo, che deriva da `calcDocTotal` sulle stesse righe.
+    // Ricalcolarlo qui a mano è ciò che faceva perdere lo sconto di riga.
+    const lineTotalCents = calcLineTotalCents(line);
     return [
       data,
       ora,

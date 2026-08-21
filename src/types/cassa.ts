@@ -15,6 +15,15 @@ export interface CartLine {
   description: string;
   quantity: number;
   grossUnitPrice: number; // in euro, e.g. 12.50
+  /**
+   * Sconto **della riga** in euro, già comprensivo della quantità — feature
+   * Pro. Assente o 0 = nessuno sconto.
+   *
+   * ⚠️ Dato FISCALE: riduce la base imponibile e quindi l'IVA dovuta
+   * (`HAR.md` voce #3a). È la grandezza `scontoLordo` dell'AdE, non uno
+   * sconto per unità: su 3 pezzi da 40,00 scontati di 20,00 vale `20`.
+   */
+  lineDiscount?: number;
   vatCode: VatCode;
 }
 
@@ -119,6 +128,14 @@ export type SubmitReceiptInput = {
   idempotencyKey: string; // uuid generato client-side, per idempotenza
   /** Codice Lotteria degli Scontrini (8 char [A-Z0-9], solo con pagamento PE) */
   lotteryCode?: string | null;
+  /**
+   * Sconto a pagare in euro (`scontoAbbuono` AdE) — feature Pro.
+   *
+   * ⚠️ NON è uno sconto sul corrispettivo (HAR.md voce #3b): il totale del
+   * documento e l'IVA restano pieni, si riduce solo l'incassato. Assente o 0
+   * = nessun abbuono.
+   */
+  globalDiscount?: number;
 };
 
 /**

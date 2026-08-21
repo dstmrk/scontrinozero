@@ -37,6 +37,12 @@ interface ReceiptSuccessProps {
   readonly lines?: readonly CartLine[];
   readonly paymentMethod?: PaymentMethod;
   readonly lotteryCode?: string | null;
+  /**
+   * Sconto a pagare in centesimi interi, congelato al momento dell'emissione:
+   * la stampa termica dalla schermata di successo deve riportare l'incassato
+   * reale del documento trasmesso, non il totale delle righe.
+   */
+  readonly globalDiscountCents?: number;
   readonly printProfile?: ReceiptPrintProfile | null;
   readonly onNewReceipt: () => void;
 }
@@ -49,6 +55,7 @@ export function ReceiptSuccess({
   lines = [],
   paymentMethod = "PC",
   lotteryCode = null,
+  globalDiscountCents = 0,
   printProfile = null,
   onNewReceipt,
 }: ReceiptSuccessProps) {
@@ -70,6 +77,7 @@ export function ReceiptSuccess({
         description: line.description,
         quantity: String(line.quantity),
         grossUnitPrice: String(line.grossUnitPrice),
+        lineDiscount: String(line.lineDiscount ?? 0),
         vatCode: line.vatCode,
       })),
       paymentMethod,
@@ -78,6 +86,7 @@ export function ReceiptSuccess({
       adeRegisteredAt: adeRegisteredAt ? new Date(adeRegisteredAt) : new Date(),
       adeProgressive,
       lotteryCode,
+      globalDiscountCents,
       // Messaggio di cortesia (Pro), gia' passato per il gate di piano lato
       // server: qui `null` significa solo "non stampare nulla".
       footerNote: printProfile.footerNote,
@@ -92,6 +101,7 @@ export function ReceiptSuccess({
     paymentMethod,
     adeRegisteredAt,
     lotteryCode,
+    globalDiscountCents,
     documentId,
   ]);
 

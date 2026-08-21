@@ -152,7 +152,7 @@ function getVatPercentage(vatCode: string): number {
  *
  *   prezzoLordo     = unitPriceGross                (prezzo UNITARIO, NON x qta)
  *   prezzoUnitario  = prezzoLordo / d               (netto unitario)
- *   scontoLordo     = unitDiscount * quantity       (sconto DELLA riga, lordo)
+ *   scontoLordo     = lineDiscount                  (sconto DELLA riga, lordo)
  *   scontoUnitario  = scontoLordo / d               (sconto della riga, netto)
  *   imponibile      = lordo di riga / d
  *   imponibileNetto = imponibile - scontoUnitario
@@ -177,7 +177,7 @@ export function computeLineAmounts(
   // quantità frazionarie (vendita a peso). No-op per quantità intere con prezzo
   // a 2 decimali (round(x*100)/100 === x).
   const lineGrossCents = Math.round(line.unitPriceGross * line.quantity * 100);
-  const discountCents = Math.round(line.unitDiscount * line.quantity * 100);
+  const discountCents = Math.round(line.lineDiscount * 100);
   const lineGross = lineGrossCents / 100;
   const scontoLordo = discountCents / 100;
   const totale = (lineGrossCents - discountCents) / 100;

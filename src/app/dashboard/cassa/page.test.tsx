@@ -61,6 +61,7 @@ vi.mock("@/lib/plans", async () => {
   return {
     getPlanSafe: (...args: unknown[]) => mockGetPlanSafe(...args),
     canUseDashboardCashier: shared.canUseDashboardCashier,
+    canUsePro: shared.canUsePro,
   };
 });
 

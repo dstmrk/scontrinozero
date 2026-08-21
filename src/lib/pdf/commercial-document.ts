@@ -59,6 +59,11 @@ export interface CommercialDocumentLine {
   description: string;
   quantity: number;
   grossUnitPrice: number;
+  /**
+   * Sconto della riga in euro, lordo e gia' comprensivo della quantita'.
+   * Assente/0 = nessuna riga `Sconto` stampata.
+   */
+  lineDiscount?: number;
   vatCode: string;
 }
 
@@ -103,6 +108,16 @@ export interface SaleDocumentPdfData extends CommonDocumentPdfData {
   paymentMethod: "PC" | "PE";
   /** Codice Lotteria degli Scontrini (8 char, solo PE) */
   lotteryCode?: string | null;
+  /**
+   * Sconto a pagare in **centesimi interi** (`scontoAbbuono` AdE).
+   *
+   * Non riduce il corrispettivo (`HAR.md` voce #3b): `TOTALE COMPLESSIVO` e
+   * `di cui IVA` restano pieni, scende solo l'incassato. Assente/0 = nessun
+   * abbuono e nessuna riga stampata (voce #17c).
+   *
+   * Come `paymentMethod`, non esiste sull'annullo: un annullo non incassa.
+   */
+  globalDiscountCents?: number;
   /**
    * Messaggio di cortesia dell'esercente (feature Pro), stampato in coda dove
    * il layout standard AdE scrive "Arrivederci e Grazie!". Arriva gia' risolto
@@ -343,27 +358,50 @@ function drawLineItems(
   });
   cur.y = doc.y + 2;
 
-  lines.forEach((line, index) => {
+  /** Una riga della griglia articoli: descrizione, aliquota, importo. */
+  const drawRow = (
+    description: string,
+    vatCode: string,
+    amount: string,
+  ): void => {
     const rowStartY = cur.y;
     doc.font("Helvetica").fontSize(6.5);
-    doc.text(renderLineDescription(line), MARGIN, rowStartY, {
+    doc.text(description, MARGIN, rowStartY, {
       width: COL_DESC,
       align: "left",
     });
     const afterDescY = doc.y;
 
-    doc.text(receiptVatLabel(line.vatCode), MARGIN + COL_DESC, rowStartY, {
+    doc.text(receiptVatLabel(vatCode), MARGIN + COL_DESC, rowStartY, {
       width: COL_VAT,
       align: "center",
     });
-    doc.text(
-      formatReceiptPrice(totals.perLine[index].lineTotal),
-      MARGIN + COL_DESC + COL_VAT,
-      rowStartY,
-      { width: COL_PRICE, align: "right" },
-    );
+    doc.text(amount, MARGIN + COL_DESC + COL_VAT, rowStartY, {
+      width: COL_PRICE,
+      align: "right",
+    });
 
     cur.y = Math.max(afterDescY, rowStartY + 10) + 2;
+  };
+
+  lines.forEach((line, index) => {
+    const calc = totals.perLine[index];
+
+    // Layout normativo AdE (`HAR.md` voce #17a): sulla riga dell'articolo va
+    // il prezzo PIENO, e lo sconto di riga scende su una riga propria sotto,
+    // con la STESSA aliquota e importo negativo. Ripetere l'aliquota non e'
+    // ridondanza: su un documento multi-aliquota e' l'unica cosa che dice da
+    // quale imponibile lo sconto e' stato tolto — cioe' l'informazione
+    // fiscale che lo sconto di riga porta con se' (voce #3a).
+    drawRow(
+      renderLineDescription(line),
+      line.vatCode,
+      formatReceiptPrice(calc.discount > 0 ? calc.lineGross : calc.lineTotal),
+    );
+
+    if (calc.discount > 0) {
+      drawRow("Sconto", line.vatCode, `-${formatReceiptPrice(calc.discount)}`);
+    }
   });
 
   drawSeparator(doc, cur);
@@ -405,9 +443,17 @@ function drawTotals(doc: Doc, cur: Cursor, totals: ReceiptTotals): void {
 }
 
 /**
- * Blocco pagamenti. `Importo pagato` va sempre indicato (prescrizioni
- * generali AdE); la riga della modalità sparisce se vale zero, come le altre
- * voci di pagamento a zero.
+ * Blocco pagamenti, nell'ordine del layout normativo AdE (`HAR.md` voce #17b):
+ * modalità di pagamento, `Sconto a pagare`, `Importo pagato`.
+ *
+ * `Importo pagato` va sempre indicato (prescrizioni generali, voce #17c); la
+ * riga della modalità e quella dell'abbuono spariscono se valgono zero, come
+ * le altre voci di pagamento a zero.
+ *
+ * ⚠️ Sia la modalità sia `Importo pagato` portano l'**incassato** — il totale
+ * meno lo sconto a pagare — mentre `TOTALE COMPLESSIVO` più su resta pieno
+ * (voce #3b). Nel campione ufficiale è questa differenza a far quadrare
+ * `Importo pagato + non riscosso + sconto a pagare = TOTALE COMPLESSIVO`.
  */
 function drawPayment(
   doc: Doc,
@@ -415,11 +461,20 @@ function drawPayment(
   data: SaleDocumentPdfData,
   totals: ReceiptTotals,
 ): void {
-  if (totals.grandTotal !== 0) {
+  // Aritmetica in centesimi interi (regola 17): `19.00 - 2.50` in float non è
+  // esattamente `16.50` su tutti gli importi, e il PDF stamperebbe un
+  // incassato che non quadra con la termica dello stesso documento.
+  const discountCents = data.globalDiscountCents ?? 0;
+  const collected = (Math.round(totals.grandTotal * 100) - discountCents) / 100;
+
+  if (collected !== 0) {
     const label = PAYMENT_LABELS[data.paymentMethod] ?? data.paymentMethod;
-    drawAmountRow(doc, cur, label, totals.grandTotal);
+    drawAmountRow(doc, cur, label, collected);
   }
-  drawAmountRow(doc, cur, "Importo pagato", totals.grandTotal);
+  if (discountCents > 0) {
+    drawAmountRow(doc, cur, "Sconto a pagare", discountCents / 100);
+  }
+  drawAmountRow(doc, cur, "Importo pagato", collected);
   drawSeparator(doc, cur);
 }
 
@@ -557,6 +612,7 @@ export function generateCommercialDocumentPdf(
       data.lines.map((line) => ({
         quantity: String(line.quantity),
         grossUnitPrice: String(line.grossUnitPrice),
+        lineDiscount: String(line.lineDiscount ?? 0),
         vatCode: line.vatCode,
       })),
     );

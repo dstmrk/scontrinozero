@@ -151,6 +151,11 @@ export default function PianiEPrezziPage() {
             profilo social, stampati su carta, PDF e ricevuta digitale
           </li>
           <li>
+            <strong>Sconti sullo scontrino</strong>: sconto di riga, che riduce
+            la base imponibile e quindi l&apos;IVA, e sconto a pagare, che
+            lascia il corrispettivo pieno e riduce solo l&apos;incassato
+          </li>
+          <li>
             <em>In arrivo:</em> recupero corrispettivi da AdE (sincronizzazione
             dati storici)
           </li>
@@ -194,8 +199,8 @@ export default function PianiEPrezziPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Tutti i nuovi account hanno <strong>30 giorni di prova</strong>{" "}
           gratuita con accesso alle funzioni Pro come l&apos;analytics avanzata,
-          l&apos;export CSV e il messaggio personalizzato sullo scontrino.
-          Nessuna carta di credito richiesta per iniziare.
+          l&apos;export CSV, gli sconti sullo scontrino e il messaggio
+          personalizzato. Nessuna carta di credito richiesta per iniziare.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           <strong>Cosa succede alla scadenza del trial:</strong>
@@ -271,6 +276,13 @@ export default function PianiEPrezziPage() {
               </tr>
               <tr>
                 <td className="text-foreground py-2 font-medium">Export CSV</td>
+                <td className="py-2">—</td>
+                <td className="py-2">✓</td>
+              </tr>
+              <tr>
+                <td className="text-foreground py-2 font-medium">
+                  Sconti sullo scontrino
+                </td>
                 <td className="py-2">—</td>
                 <td className="py-2">✓</td>
               </tr>

@@ -5,6 +5,8 @@ import {
   groupLinesByDocId,
   calcDocTotal,
 } from "@/lib/receipts/document-lines";
+import { discountGateError } from "@/lib/receipts/discount-gate";
+import { parsePublicRequest } from "@/lib/receipts/public-request";
 import { saleBodySchema } from "@/lib/receipts/receipt-schema";
 import { parseStrictIsoDateUtc } from "@/lib/date-utils";
 import { isStatementTimeoutError } from "@/lib/api-errors";
@@ -91,7 +93,8 @@ export async function POST(request: Request): Promise<Response> {
   );
   if ("error" in bodyResult) return bodyResult.error;
 
-  const { lines, paymentMethod, idempotencyKey, lotteryCode } = bodyResult.data;
+  const { lines, paymentMethod, idempotencyKey, lotteryCode, globalDiscount } =
+    bodyResult.data;
 
   const input: SubmitReceiptInput = {
     businessId: auth.businessId,
@@ -100,7 +103,18 @@ export async function POST(request: Request): Promise<Response> {
     paymentMethod,
     idempotencyKey,
     lotteryCode: lotteryCode ?? null,
+    globalDiscount,
   };
+
+  // ── Gate di piano sugli sconti ────────────────────────────────────────────
+  // Stesso predicato della cassa (`discountGateError`): l'integratore che
+  // legge questa risposta e l'esercente che guarda la cassa devono vedere lo
+  // stesso limite. `PLAN_UPGRADE_REQUIRED` e non un 422: non è il corpo a
+  // essere malformato, è il piano a non includere la feature.
+  const discountError = discountGateError(auth, input);
+  if (discountError) {
+    return v1Error("PLAN_UPGRADE_REQUIRED", discountError, requestId);
+  }
 
   // ── Emit ──────────────────────────────────────────────────────────────────
   const result = await emitReceiptForBusiness(input, auth.apiKey.id);
@@ -320,7 +334,11 @@ export async function GET(request: Request): Promise<Response> {
     const docLines = linesByDocId.get(doc.id) ?? [];
     const docTotal = calcDocTotal(docLines);
 
+    // ⚠️ `paymentMethod` NON passa da `parsePublicRequest`: il contratto
+    // pubblico espone `null` quando il campo manca, mentre l'helper degrada a
+    // `"PC"` per la stampa. Cambiarlo qui sarebbe un breaking change v1.
     const pr = doc.publicRequest as { paymentMethod?: string } | null;
+    const { globalDiscountCents } = parsePublicRequest(doc.publicRequest);
 
     return {
       id: doc.id,
@@ -330,6 +348,9 @@ export async function GET(request: Request): Promise<Response> {
       adeTransactionId: doc.adeTransactionId,
       adeProgressive: doc.adeProgressive,
       lotteryCode: doc.lotteryCode,
+      // Sconto a pagare: NON riduce `total`, che resta il corrispettivo
+      // (HAR.md voce #3b). L'incassato e' `total - globalDiscount`.
+      globalDiscount: (globalDiscountCents / 100).toFixed(2),
       paymentMethod: pr?.paymentMethod ?? null,
       total: docTotal.toFixed(2),
       createdAt: doc.createdAt,

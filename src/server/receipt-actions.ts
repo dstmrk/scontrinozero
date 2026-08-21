@@ -3,14 +3,16 @@
 import { z } from "zod/v4";
 import { logger } from "@/lib/logger";
 import { getPlanSafe, canEmit, TRIAL_EXPIRED_MESSAGE } from "@/lib/plans";
+import { discountGateError } from "@/lib/receipts/discount-gate";
 import { RateLimiter } from "@/lib/rate-limit";
-import { refineLotteryCode } from "@/lib/receipts/lottery-code-schema";
 import {
   SALE_LINES_MAX,
   SALE_LINES_MIN,
+  globalDiscountSchema,
   idempotencyKeySchema,
   lotteryCodeSchema,
   paymentMethodSchema,
+  refineSaleBody,
   saleLineSchema,
 } from "@/lib/receipts/receipt-schema";
 import {
@@ -34,8 +36,9 @@ const submitReceiptSchema = z
     paymentMethod: paymentMethodSchema,
     idempotencyKey: idempotencyKeySchema,
     lotteryCode: lotteryCodeSchema,
+    globalDiscount: globalDiscountSchema,
   })
-  .superRefine(refineLotteryCode);
+  .superRefine(refineSaleBody);
 
 // Rate limit: 120 receipts per hour per user (per-user key, not per-IP).
 // Allineato a POST /api/v1/receipts: lo stesso account non può avere un tetto
@@ -89,6 +92,12 @@ export async function emitReceipt(
       error: validation.error.issues[0]?.message ?? "Input non valido.",
     };
   }
+
+  // Gate Pro sugli sconti (stesso predicato della Developer API): un piano
+  // insufficiente è un errore, non uno sconto silenziosamente ignorato — vedi
+  // `discountGateError`.
+  const discountError = discountGateError(planInfo, input);
+  if (discountError) return { error: discountError };
 
   const ownershipError = await checkBusinessOwnership(
     user.id,

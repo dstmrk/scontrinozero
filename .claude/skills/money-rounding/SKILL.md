@@ -18,10 +18,36 @@ Vivono in `src/lib/receipts/receipt-totals.ts`, modulo **puro e client-safe**:
 
 - `calcInputLinesTotalCents` — righe di input **numeriche** (cassa, API)
 - `calcDocTotal` — righe lette dal **DB** (storico, analytics)
+- `calcLineTotalCents` — **UNA riga** letta dal DB, al netto dello sconto
 - `computeReceiptTotals` — totali completi per PDF, pagina pubblica e stampa
-  termica (usa i due sopra)
+  termica (espone anche `perLine`, con `lineGross`, `discount` e `lineTotal`)
 
 Ogni nuovo punto che tocca un totale monetario deve passare da questi helper.
+
+### Se una superficie mostra UNA riga, c'è un helper anche per quella
+
+`calcLineTotalCents` e il `perLine` di `computeReceiptTotals` esistono per un
+motivo preciso, imparato a caro prezzo con gli sconti di riga (v1.7.4): finché
+il modulo esponeva solo funzioni per l'**intero documento**, chi doveva
+mostrare il totale di una singola riga non aveva alternativa a riscrivere
+`round(qty * price * 100)` a mano. Su cinque superfici che lo facevano, **tre
+sbagliavano** appena è comparso un campo nuovo sulla riga:
+
+- il PDF stampava 160,65 dove termica, pagina pubblica e payload AdE dicevano
+  150,00, perché `generatePdfResponse` rimappava le righe in un tipo locale che
+  non dichiarava lo sconto (TypeScript non se ne accorgeva);
+- la ripartizione prodotti in analytics attribuiva il prezzo di listino,
+  rompendo la riconciliazione col KPI dichiarata qui sotto;
+- il dialogo di annullo faceva confermare l'annullo su un totale più alto del
+  reale.
+
+Regola operativa: **se stai per scrivere `qty * price` fuori da
+`receipt-totals.ts`, fermati.** Non è una svista che una review riga-per-riga
+intercetta — il codice sbagliato è indistinguibile da quello giusto finché non
+esiste il campo che dimentica. E se aggiungi un campo che concorre al totale di
+riga, cerca ogni tipo locale che rimappa le righe (`grep -rn "grossUnitPrice"`
+escludendo i test): un tipo che non lo dichiara è un totale sbagliato che
+compila.
 
 ⚠️ **Importa sempre da `src/lib/receipts/receipt-totals.ts`, non dal wrapper.**
 `src/lib/receipts/document-lines.ts` re-esporta gli stessi simboli (comodo lato
@@ -34,14 +60,16 @@ client.
 
 ## Dove si applica (tutte le superfici)
 
-| Superficie                 | Punto                                    |
-| -------------------------- | ---------------------------------------- |
-| Importo trasmesso ad AdE   | `payments[0].amount`                     |
-| Soglia lotteria €1,00      | stesso totale per-riga                   |
-| PDF / pagina pubblica      | `computeReceiptTotals`                   |
-| Stampa termica ESC/POS     | `computeReceiptTotals` (stesso helper)   |
-| Storico / analytics (KPI)  | `calcDocTotal`                           |
-| Breakdown prodotti (top-N) | somma `round(qty*price*100)` sulle righe |
+| Superficie                 | Punto                                  |
+| -------------------------- | -------------------------------------- |
+| Importo trasmesso ad AdE   | `payments[0].amount`                   |
+| Soglia lotteria €1,00      | stesso totale per-riga                 |
+| PDF / pagina pubblica      | `computeReceiptTotals`                 |
+| Stampa termica ESC/POS     | `computeReceiptTotals` (stesso helper) |
+| Storico / analytics (KPI)  | `calcDocTotal`                         |
+| Breakdown prodotti (top-N) | somma `calcLineTotalCents` sulle righe |
+| Dialogo di annullo         | `computeReceiptTotals` (`perLine`)     |
+| Export CSV dettaglio riga  | `calcLineTotalCents`                   |
 
 ## Perché mai per-documento (REVIEW.md #1)
 
@@ -54,10 +82,16 @@ citando quei PR come precedente.
 ## Riconciliazione KPI ↔ breakdown
 
 Poiché sia il KPI ricavo (somma `calcDocTotal` sui documenti) sia il breakdown
-prodotti sommano lo **stesso** `round(qty*price*100)` su tutte le righe, i due
+prodotti sommano lo **stesso** `calcLineTotalCents` su tutte le righe, i due
 totali riconciliano alla cifra indipendentemente dal raggruppamento
 documento↔prodotto. Se un nuovo aggregato non riconcilia, sta usando una
 strategia diversa: è un bug, non un dettaglio.
+
+⚠️ **Questa invariante va testata confrontando le due viste**, non asserendo
+due numeri attesi scritti a mano. Quando lo sconto di riga è entrato in
+`calcDocTotal` ma non nel breakdown, ogni test esistente restava verde: erano
+tutti su una vista sola. Il test che l'ha inchiodata somma il breakdown e lo
+confronta con `calcDocTotal` sulle stesse righe.
 
 ## Ordini deterministici prima di slice/topN
 

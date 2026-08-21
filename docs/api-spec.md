@@ -657,7 +657,7 @@ passato a `mapSaleToAdePayload`:
       "description": "Cappuccino",
       "quantity": 2,
       "unitPriceGross": 1.5,
-      "unitDiscount": 0.0,
+      "lineDiscount": 0.0,
       "vatCode": "10",
       "isGift": false
     }
@@ -740,7 +740,7 @@ L'utente non li passa nella request pubblica.
 | `line.description`    | `descrizioneProdotto`                                                       |
 | `line.quantity`       | `quantita`                                                                  |
 | `line.unitPriceGross` | `prezzoLordo` (unitario); `prezzoUnitario` = quello netto IVA               |
-| `line.unitDiscount`   | `scontoLordo` (× quantita); `scontoUnitario` = quello netto IVA             |
+| `line.lineDiscount`   | `scontoLordo` (tale e quale); `scontoUnitario` = quello netto IVA           |
 | `line.vatCode`        | `aliquotaIVA`                                                               |
 | `line.isGift`         | `omaggio` (`"Y"` / `"N"`)                                                   |
 | — (calcolato)         | `importoIVA`, `imponibile`, `imponibileNetto`, `totale`                     |

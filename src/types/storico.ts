@@ -9,6 +9,14 @@ export interface ReceiptLineItem {
   description: string;
   quantity: string;
   grossUnitPrice: string;
+  /**
+   * Sconto della riga (`line_discount`), lordo e già comprensivo della
+   * quantità. `"0"` sulle righe emesse prima della migrazione 0034.
+   *
+   * ⚠️ Riduce la base imponibile e quindi l'IVA (`HAR.md` voce #3a): `total`
+   * dello scontrino è già al netto di questi sconti.
+   */
+  lineDiscount: string;
   vatCode: string;
 }
 
@@ -40,6 +48,15 @@ export interface ReceiptListItem {
     adeProgressive: string;
     adeRegisteredAt: Date;
   } | null;
+  /**
+   * Sconto a pagare del documento, in **centesimi interi** (`scontoAbbuono`
+   * AdE). Serve alla ristampa su termica e al dettaglio: il documento
+   * consegnato al cliente deve riportare l'incassato reale, non il totale.
+   *
+   * ⚠️ NON riduce `total`, che resta il corrispettivo pieno (`HAR.md` voce
+   * #3b). `0` sui documenti senza abbuono e su tutti quelli storici.
+   */
+  globalDiscountCents: number;
   /**
    * Metodo di pagamento del documento trasmesso all'AdE. Serve alla ristampa
    * su termica: una copia consegnata al cliente non può riportare un

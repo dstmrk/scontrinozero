@@ -47,6 +47,7 @@ nuove si aggiungono in fondo alla sezione pertinente.
 | 14  | Guida all'implementazione (sub-task ordinati)                     |
 | 15  | Cosa NON è stato misurato (limiti noti di questo registro)        |
 | 16  | Ricevuta di annullamento: dati, stampa e timestamp                |
+| 17  | Layout ufficiale AdE: dove vanno i due sconti sul documento       |
 
 ---
 
@@ -486,6 +487,11 @@ Due cose importanti:
 
 La colonna `Sconto` mostra `scontoLordo`; la colonna `Prezzo complessivo €`
 mostra `prezzoLordo` (vedi voce #12 per il caso quantità > 1).
+
+⚠️ **Questo è il PDF del portale DCO, non il layout normativo.** Il documento
+commerciale ufficiale stampa lo sconto di riga come una **riga propria** e non
+come una colonna, e mette lo sconto a pagare **dentro** il blocco pagamenti:
+è la voce #17 a governare il nostro renderer.
 
 ---
 
@@ -945,8 +951,10 @@ Serve solo esporlo.
 
 - Schema: `globalDiscount` ≥ 0, ≤ totale righe, max 2 decimali.
 - Vincolo di quadratura: già coperto dal `superRefine` del sub-task C.
-- Persistenza in `publicRequest`; lettura in tutte le superfici del sub-task B
-  (riga "Sconto a pagare" dopo il totale, come nel layout AdE della voce #8).
+- Persistenza in `publicRequest`; lettura in tutte le superfici del sub-task B.
+  La riga `Sconto a pagare` va **dentro il blocco pagamenti**, ultima prima di
+  `Importo pagato`, e `Importo pagato` **esclude** l'abbuono — voce #17b, non
+  "dopo il totale" come lasciava intendere la voce #8.
 - **Analytics:** lo sconto a pagare **non** riduce il fatturato — il
   corrispettivo resta pieno (voce #3b). Riduce l'incassato. Se si mostra
   l'incassato, è una metrica nuova, non una correzione di quella esistente.
@@ -968,8 +976,10 @@ DEFAULT 0`. `ADD COLUMN IF NOT EXISTS`, e schema Drizzle in
   stampa termica, storico e analytics: cambiarlo qui li aggiorna tutti, ed è
   il motivo per cui non va duplicato altrove.
 - `saleLineSchema` — `unitDiscount` ≥ 0, ≤ `grossUnitPrice`, max 2 decimali.
-- UI carrello, PDF e stampa termica: colonna sconto (il layout AdE della voce
-  #8 la mette dopo il prezzo).
+- UI carrello, PDF e stampa termica: **riga `Sconto` propria** sotto
+  l'articolo, con la stessa aliquota e importo negativo — non una colonna.
+  Vedi voce #17a: la colonna della voce #8 è la resa del portale DCO, il
+  layout normativo vuole la riga.
 - Test: il documento della voce #1 deve poter essere ricostruito end-to-end
   dalla cassa e produrre esattamente quel payload.
 
@@ -1179,3 +1189,112 @@ coperto sul filo.
 **Assunzione deliberata per la v1.7.0:** non lo stampa. Se un giorno risultasse
 il contrario, è una riga in più nel layout, non un dato mancante: il codice ce
 l'abbiamo già in `commercial_documents.lottery_code`.
+
+---
+
+## 17. Layout ufficiale AdE: dove vanno i due sconti sul documento stampato
+
+**Fonte:** `Layout documento commerciale v4`, PDF normativo pubblicato
+dall'Agenzia delle Entrate —
+<https://www.agenziaentrate.gov.it/portale/documents/20143/2571432/Layout+documento+commerciale_v4.pdf/>
+
+⚠️ **Questa voce non è misurata su un HAR** ed è l'eccezione dichiarata alla
+convenzione del file: sta qui perché è la sorgente che risolve la stampa dei
+due sconti, e la voce #8 — che è misurata — da sola induce in errore. Dove le
+due si contraddicono la regola resta quella di questo registro (vince il
+misurato), ma **si contraddicono meno di quanto sembri**: la voce #8 è il PDF
+che genera il _portale DCO_, questa è il layout normativo del documento
+commerciale. Sono due rese diverse dello stesso payload, ed è la seconda che il
+nostro renderer deve seguire — `src/lib/pdf/commercial-document.ts` e
+`src/lib/printing/receipt-escpos.ts` sono modellati sul layout standard, non
+sul PDF del portale.
+
+### 17a. Sconto di riga: una riga propria, non una colonna
+
+Estratto del layout standard, con le coordinate x del PDF a testimoniare
+l'allineamento delle colonne:
+
+```
+DESCRIZIONE@183                IVA@328
+                               22%@331    160,65@377
+Sconto@198                     22%@331    -10,65@377
+                                4%@337     50,00@383
+n.5 * 10,00@198
+                               ES*@331    100,01@377
+
+Subtotale@183                             300,01@377
+TOTALE COMPLESSIVO@183                    300,01@373
+di cui IVA@183                             28,98@380
+```
+
+Lo sconto di riga **non** è una colonna accanto al prezzo: è una **riga
+propria** subito sotto l'articolo scontato, con la descrizione `Sconto`,
+**la stessa aliquota della riga a cui si riferisce** e l'importo **negativo**.
+
+Questo è il motivo per cui l'aliquota va ripetuta: senza, un documento
+multi-aliquota non direbbe da quale imponibile lo sconto è stato tolto — che è
+esattamente l'informazione fiscale che lo sconto di riga porta (voce #3a).
+
+⚠️ Diverge dalla voce #8, dove il PDF del portale DCO stampa invece una colonna
+`Sconto` a destra del prezzo. Entrambe sono rese legittime dello stesso
+payload: `scontoLordo` sulla riga. Per il **nostro** renderer vale 17a.
+
+### 17b. Sconto a pagare: una voce del blocco pagamenti
+
+```
+Pagamento contante@183      160,00
+Pagamento elettronico@183    80,00
+Non riscosso@183             70,00
+Resto@183                    10,00
+Sconto a pagare@183           0,01
+Importo pagato@183          230,00
+TOTALE COMPLESSIVO          300,01
+```
+
+Tre cose, tutte verificabili sull'aritmetica del campione:
+
+1. **`Sconto a pagare` è l'ultima voce prima di `Importo pagato`**, dentro il
+   blocco pagamenti — non una riga dopo il totale. L'etichetta è quella che
+   stampa anche il portale reale (voce #8), quindi è confermata da due fonti.
+2. **`Importo pagato` ESCLUDE lo sconto a pagare** (e il non riscosso):
+   `230,00 = 160,00 − 10,00 di resto + 80,00`. È l'incassato vero.
+3. La quadratura del documento si chiude sui tre addendi:
+   `230,00 + 70,00 + 0,01 = 300,01 = TOTALE COMPLESSIVO`, che è la stessa
+   identità della voce #5 vista dal lato della stampa.
+
+### 17c. Prescrizioni generali per il risparmio carta
+
+- niente righe vuote di spaziatura superiori a 1;
+- **niente campi di resto e/o modalità di pagamento con valore pari a zero** —
+  e quindi niente riga `Sconto a pagare` quando l'abbuono è zero;
+- **`Importo pagato` va invece indicato sempre**, anche a zero.
+
+Il renderer PDF e quello ESC/POS applicano già la seconda e la terza al metodo
+di pagamento: la riga `Sconto a pagare` segue la stessa regola.
+
+### 17d. Arrotondamento DL 50/2017 — NON implementato, per saperlo in futuro
+
+Il layout normativo prevede un caso che oggi non copriamo: l'arrotondamento
+obbligatorio dell'art. 13-quater DL 50/2017, in vigore dal 1° gennaio 2018.
+Quando il pagamento è **integralmente in contanti** l'importo va arrotondato al
+multiplo di 5 centesimi più vicino, e si stampa così:
+
+- arrotondamento **per difetto** → va indicato come `Sconto a pagare`, e in più
+  riportato fra le modalità di pagamento con la voce `Arro. DL N.50/2017`;
+- arrotondamento **per eccesso** → va riportato fra le modalità di pagamento con
+  la stessa voce `Arro. DL N.50/2017`.
+
+Due conseguenze da tenere presenti:
+
+1. L'arrotondamento di cassa e lo sconto a pagare discrezionale **condividono il
+   campo `scontoAbbuono`** ma non sono la stessa cosa per la stampa: il primo
+   vuole anche la voce di pagamento dedicata, che non abbiamo. Finché non la
+   implementiamo, un esercente che arrotonda per difetto usando lo sconto a
+   pagare produce un documento **fiscalmente corretto nei totali** ma senza
+   quella dicitura.
+2. Non c'è nessuna cattura HAR di un `Arro. DL N.50/2017`: non sappiamo come (né
+   se) il tracciato del _documento commerciale online_ lo esprima. Il portale
+   espone sei slot di pagamento (voce #6) e nessuno si chiama così.
+
+Tracciato in `REVIEW.md`. Nulla di questo blocca gli sconti: è il perimetro di
+ciò che gli sconti **non** risolvono.

@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { refineGlobalDiscount } from "@/lib/receipts/global-discount-schema";
 import { refineLotteryCode } from "@/lib/receipts/lottery-code-schema";
 
 /**
@@ -34,6 +35,15 @@ export const saleLineSchema = z.object({
     .nonnegative()
     .max(999_999.99)
     .refine((v) => Number.parseFloat(v.toFixed(2)) === v, "max 2 decimali"),
+  // Sconto DELLA riga (non per unità), lordo — colonna DB numeric(10,2).
+  // Il tetto rispetto al totale di riga non sta qui: dipende da altri due
+  // campi dello stesso oggetto e vive in `refineSaleLineDiscount`.
+  lineDiscount: z
+    .number()
+    .nonnegative()
+    .max(999_999.99)
+    .refine((v) => Number.parseFloat(v.toFixed(2)) === v, "max 2 decimali")
+    .optional(),
   vatCode: z.enum(["4", "5", "10", "22", "N1", "N2", "N3", "N4", "N5", "N6"]),
 });
 
@@ -46,6 +56,90 @@ export const paymentMethodSchema = z.enum(["PC", "PE"]);
 export const idempotencyKeySchema = z.string().uuid();
 // Format-validated solo quando paymentMethod === "PE" — vedi refineLotteryCode.
 export const lotteryCodeSchema = z.string().nullable().optional();
+/**
+ * Sconto a pagare (`scontoAbbuono` AdE, HAR.md voce #3b) in euro, 2 decimali.
+ *
+ * Assente = nessun abbuono. Il tetto rispetto al totale delle righe NON sta
+ * qui — dipende dalle righe, quindi vive in `refineGlobalDiscount` a livello
+ * di corpo. Il `max` è solo la guardia di dominio, allineata a
+ * `grossUnitPrice`.
+ */
+export const globalDiscountSchema = z
+  .number()
+  .nonnegative()
+  .max(999_999.99)
+  .refine((v) => Number.parseFloat(v.toFixed(2)) === v, "max 2 decimali")
+  .optional();
+
+/**
+ * Vincoli che guardano il corpo intero, non un campo solo: il codice lotteria
+ * dipende dal metodo di pagamento, lo sconto a pagare dal totale delle righe.
+ *
+ * Stanno insieme in un solo `superRefine` perché Zod ne applica uno per
+ * schema: incatenarne due significherebbe che il secondo non gira quando il
+ * primo fallisce, e l'esercente vedrebbe un errore alla volta su un form che
+ * li mostra entrambi.
+ */
+export function refineSaleBody(
+  data: {
+    lines: ReadonlyArray<{
+      grossUnitPrice: number;
+      quantity: number;
+      lineDiscount?: number;
+    }>;
+    paymentMethod: "PC" | "PE";
+    lotteryCode?: string | null;
+    globalDiscount?: number;
+  },
+  ctx: z.RefinementCtx,
+): void {
+  refineLotteryCode(data, ctx);
+  refineSaleLineDiscounts(data, ctx);
+  refineGlobalDiscount(data, ctx);
+}
+
+/**
+ * Ogni sconto di riga deve stare dentro il totale lordo della sua riga.
+ *
+ * Vive qui e non su `saleLineSchema` perché guarda tre campi insieme
+ * (`grossUnitPrice`, `quantity`, `lineDiscount`), e perché il messaggio può
+ * dire QUALE riga è sbagliata — su un carrello di venti voci è la differenza
+ * fra un errore azionabile e uno da indovinare.
+ *
+ * Confronto in centesimi interi (regola 17): sui lordi float una riga da
+ * `0.1 × 3` scontata di `0.30` verrebbe rifiutata per drift.
+ *
+ * Sconto **pari** al totale di riga è ammesso — è una riga a prezzo zero, che
+ * l'AdE accetta (`totale` `0.00000000`, oracolo in `mapper.test.ts`) e che
+ * resta distinta da un omaggio, il quale non concorre affatto al totale del
+ * documento (`HAR.md` voce #7) e non è ancora supportato.
+ */
+function refineSaleLineDiscounts(
+  data: {
+    lines: ReadonlyArray<{
+      grossUnitPrice: number;
+      quantity: number;
+      lineDiscount?: number;
+    }>;
+  },
+  ctx: z.RefinementCtx,
+): void {
+  data.lines.forEach((line, index) => {
+    const discount = line.lineDiscount ?? 0;
+    if (discount === 0) return;
+
+    const lineGrossCents = Math.round(
+      line.grossUnitPrice * line.quantity * 100,
+    );
+    if (Math.round(discount * 100) > lineGrossCents) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["lines", index, "lineDiscount"],
+        message: `Lo sconto della riga ${index + 1} supera il totale della riga.`,
+      });
+    }
+  });
+}
 
 /**
  * Corpo SALE usato **direttamente** da `POST /api/v1/receipts`.
@@ -60,5 +154,6 @@ export const saleBodySchema = z
     paymentMethod: paymentMethodSchema,
     idempotencyKey: idempotencyKeySchema,
     lotteryCode: lotteryCodeSchema,
+    globalDiscount: globalDiscountSchema,
   })
-  .superRefine(refineLotteryCode);
+  .superRefine(refineSaleBody);

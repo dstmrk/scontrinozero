@@ -72,12 +72,14 @@ const ACCEPTED_ROW: ReceiptListItem = {
   voidDocument: null,
   paymentMethod: "PC",
   lotteryCode: null,
+  globalDiscountCents: 0,
   total: "12.00",
   lines: [
     {
       description: "Caffè",
       quantity: "2",
       grossUnitPrice: "6.00",
+      lineDiscount: "0",
       vatCode: "22",
     },
   ],

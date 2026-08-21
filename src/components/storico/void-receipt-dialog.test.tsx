@@ -75,12 +75,14 @@ const ACCEPTED_RECEIPT: ReceiptListItem = {
   voidDocument: null,
   paymentMethod: "PC",
   lotteryCode: null,
+  globalDiscountCents: 0,
   total: "12.00",
   lines: [
     {
       description: "Caffè espresso",
       quantity: "2",
       grossUnitPrice: "1.20",
+      lineDiscount: "0",
       vatCode: "22",
     },
   ],
@@ -522,5 +524,34 @@ describe("VoidReceiptDialog — data del dettaglio", () => {
     expect(
       screen.queryByText((c) => c.startsWith("01/01/2026")),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("VoidReceiptDialog — sconto di riga", () => {
+  it("mostra il totale al netto dello sconto, non il prezzo di listino", () => {
+    // L'esercente conferma l'annullo guardando questo importo: deve essere
+    // quello trasmesso all'AdE (HAR.md voce #3a), altrimenti crede di
+    // annullare uno scontrino diverso da quello che ha emesso.
+    renderWithQuery(
+      <VoidReceiptDialog
+        {...defaultProps}
+        receipt={{
+          ...ACCEPTED_RECEIPT,
+          lines: [
+            {
+              description: "Maglione",
+              quantity: "1",
+              grossUnitPrice: "160.65",
+              lineDiscount: "10.65",
+              vatCode: "22",
+            },
+          ],
+        }}
+        printProfile={null}
+      />,
+    );
+
+    expect(screen.getAllByText(/150,00/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/160,65\s*$/)).not.toBeInTheDocument();
   });
 });

@@ -30,6 +30,11 @@ export interface PrintableReceiptLine {
   readonly description: string;
   readonly quantity: string;
   readonly grossUnitPrice: string;
+  /**
+   * Sconto della riga (`line_discount`), lordo e gia' comprensivo della
+   * quantita'. Assente/`null` = nessuna riga `Sconto` stampata.
+   */
+  readonly lineDiscount?: string | null;
   readonly vatCode: string;
 }
 
@@ -65,6 +70,17 @@ export interface PrintableSaleReceipt extends PrintableDocumentBase {
   readonly paymentMethod: PaymentMethod;
   /** Codice Lotteria degli Scontrini (8 char, solo pagamento PE). */
   readonly lotteryCode?: string | null;
+  /**
+   * Sconto a pagare in **centesimi interi** (`scontoAbbuono` AdE).
+   *
+   * Non riduce il corrispettivo (`HAR.md` voce #3b): il totale complessivo e
+   * l'IVA restano pieni, scende solo l'incassato. Assente/0 = nessun abbuono,
+   * e la riga non si stampa (prescrizione risparmio carta, voce #17c).
+   *
+   * Nessun `globalDiscountCents` su `PrintableVoidReceipt`: l'annullo non
+   * incassa, quindi non ha blocco pagamenti (come `paymentMethod`).
+   */
+  readonly globalDiscountCents?: number;
   /**
    * Messaggio di cortesia dell'esercente (feature Pro), stampato in coda dove
    * il layout standard AdE scrive "Arrivederci e Grazie!". Arriva gia' risolto

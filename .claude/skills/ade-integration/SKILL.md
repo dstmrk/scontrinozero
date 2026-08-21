@@ -155,6 +155,25 @@ Quando una nuova cattura risponde a una domanda, la risposta va tradotta lì
 (payload, risposta, e il calcolo che lega i campi). Una voce che rimanda al
 `.har` per il dettaglio non ha fatto il suo lavoro.
 
+### Il payload non basta a sapere come si STAMPA: c'è un layout normativo
+
+Un HAR dice come si compone il campo; **non** dice dove va sul documento che
+il cliente riceve. Per quello la fonte è il PDF normativo dell'AdE:
+
+<https://www.agenziaentrate.gov.it/portale/documents/20143/2571432/Layout+documento+commerciale_v4.pdf/>
+
+Contiene i quattro layout (standard, compatto, reso, annullo), la tabella delle
+codifiche natura → dicitura da stampare, le prescrizioni per il risparmio carta
+e i casi speciali (arrotondamento DL 50/2017, omaggi). `src/lib/pdf/` e
+`src/lib/printing/` sono modellati su quello, **non** sul PDF che genera il
+portale DCO: le due rese differiscono, e prenderle l'una per l'altra è già
+costato un finding (`HAR.md` voce #17 — lo sconto di riga è una riga propria,
+non una colonna, e lo sconto a pagare sta dentro il blocco pagamenti).
+
+Regola pratica: quando il task tocca **come appare** un elemento su PDF,
+ricevuta pubblica o termica, il layout ufficiale vince sul PDF del portale.
+Quando tocca **come si trasmette**, vince l'HAR misurato.
+
 ## HAR analysis: completezza, non solo ordine
 
 Confrontando il codice contro una HAR capture, controllare esplicitamente che

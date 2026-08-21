@@ -7,6 +7,7 @@ import { getClientIp } from "@/lib/get-client-ip";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
 import { computeReceiptTotals } from "@/lib/receipts/document-lines";
+import { parsePublicRequest } from "@/lib/receipts/public-request";
 import {
   PAYMENT_LABELS,
   formatBusinessAddressLines,
@@ -88,17 +89,17 @@ export default async function PublicReceiptPage({
   // sempre quando serve.
   const isVoid = doc.kind === "VOID";
 
-  const publicReq = doc.publicRequest as {
-    paymentMethod?: string;
-    lotteryCode?: string;
-  } | null;
-  const rawPayment = publicReq?.paymentMethod ?? "PC";
-  const paymentMethod = rawPayment === "PE" ? "PE" : "PC";
-  const lotteryCode = publicReq?.lotteryCode ?? null;
+  const { paymentMethod, lotteryCode, globalDiscountCents } =
+    parsePublicRequest(doc.publicRequest);
 
   // Cents-based deterministic totals (avoid IEEE-754 drift on many/decimal lines)
   const totals = computeReceiptTotals(lines);
   const { grandTotal, vatByCode, vatTotal } = totals;
+
+  // Incassato = corrispettivo − sconto a pagare, in centesimi interi
+  // (regola 17). Il corrispettivo (`grandTotal`) resta quello stampato più su
+  // come TOTALE COMPLESSIVO: l'abbuono non lo riduce (HAR.md voce #3b).
+  const collected = (Math.round(grandTotal * 100) - globalDiscountCents) / 100;
 
   // Righe indirizzo nella forma del layout standard AdE (via, poi
   // `Comune(PR), CAP`), le stesse che stampano PDF e termica.
@@ -161,30 +162,51 @@ export default async function PublicReceiptPage({
             </div>
             <div className="space-y-2">
               {lines.map((line, idx) => {
-                const { qty, price, lineTotal } = totals.perLine[idx];
+                const { qty, price, lineGross, discount, lineTotal } =
+                  totals.perLine[idx];
                 const vatLabel = receiptVatLabel(line.vatCode);
                 return (
-                  <div key={line.id} className="flex items-start gap-1 text-sm">
-                    <div className="min-w-0 flex-1">
-                      {/* `break-words`: una descrizione senza spazi (es. un
-                          codice prenotazione lungo) sborderebbe dalla card e
-                          farebbe scrollare l'intera pagina in orizzontale. */}
-                      <p className="leading-tight font-medium break-words">
-                        {line.description}
-                      </p>
-                      {qty !== 1 && (
-                        <p className="text-xs text-gray-400">
-                          n.{qty % 1 === 0 ? Math.round(qty) : qty} *{" "}
-                          {formatReceiptPrice(price)}
+                  <div key={line.id}>
+                    <div className="flex items-start gap-1 text-sm">
+                      <div className="min-w-0 flex-1">
+                        {/* `break-words`: una descrizione senza spazi (es. un
+                            codice prenotazione lungo) sborderebbe dalla card e
+                            farebbe scrollare l'intera pagina in orizzontale. */}
+                        <p className="leading-tight font-medium break-words">
+                          {line.description}
                         </p>
-                      )}
+                        {qty !== 1 && (
+                          <p className="text-xs text-gray-400">
+                            n.{qty % 1 === 0 ? Math.round(qty) : qty} *{" "}
+                            {formatReceiptPrice(price)}
+                          </p>
+                        )}
+                      </div>
+                      <span className="w-10 flex-shrink-0 text-center text-xs text-gray-500">
+                        {vatLabel}
+                      </span>
+                      <span className="w-16 flex-shrink-0 text-right font-medium">
+                        {formatReceiptPrice(
+                          discount > 0 ? lineGross : lineTotal,
+                        )}
+                      </span>
                     </div>
-                    <span className="w-10 flex-shrink-0 text-center text-xs text-gray-500">
-                      {vatLabel}
-                    </span>
-                    <span className="w-16 flex-shrink-0 text-right font-medium">
-                      {formatReceiptPrice(lineTotal)}
-                    </span>
+                    {/* Sconto di riga: riga propria con la STESSA aliquota e
+                        importo negativo, come il layout normativo AdE
+                        (HAR.md voce #17a). L'aliquota ripetuta dice da quale
+                        imponibile lo sconto è stato tolto. */}
+                    {discount > 0 && (
+                      <div className="mt-0.5 flex items-start gap-1 text-sm">
+                        <p className="min-w-0 flex-1 text-gray-500">Sconto</p>
+                        <span className="w-10 flex-shrink-0 text-center text-xs text-gray-500">
+                          {vatLabel}
+                        </span>
+                        <span className="w-16 flex-shrink-0 text-right font-medium text-gray-500">
+                          {"-"}
+                          {formatReceiptPrice(discount)}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -223,23 +245,33 @@ export default async function PublicReceiptPage({
               ))}
           </div>
 
-          {/* Payment — solo sulla vendita. `Importo pagato` va sempre
-              indicato (prescrizioni generali AdE); la riga della modalità
-              sparisce a importo zero. */}
+          {/* Payment — solo sulla vendita, nell'ordine del layout normativo
+              AdE (HAR.md voce #17b): modalità, `Sconto a pagare`, `Importo
+              pagato`. Quest'ultimo va sempre indicato (voce #17c); modalità e
+              abbuono spariscono a zero. Modalità e `Importo pagato` portano
+              l'INCASSATO, non il totale complessivo, che resta pieno. */}
           {!isVoid && (
             <div className="space-y-1 border-b border-dashed border-gray-200 px-6 py-4 text-xs text-gray-500">
-              {grandTotal !== 0 && (
+              {collected !== 0 && (
                 <div className="flex justify-between">
                   <span>{PAYMENT_LABELS[paymentMethod] ?? paymentMethod}</span>
                   <span className="font-medium text-gray-700">
-                    {formatReceiptPrice(grandTotal)}
+                    {formatReceiptPrice(collected)}
+                  </span>
+                </div>
+              )}
+              {globalDiscountCents > 0 && (
+                <div className="flex justify-between">
+                  <span>Sconto a pagare</span>
+                  <span className="font-medium text-gray-700">
+                    {formatReceiptPrice(globalDiscountCents / 100)}
                   </span>
                 </div>
               )}
               <div className="flex justify-between">
                 <span>Importo pagato</span>
                 <span className="font-medium text-gray-700">
-                  {formatReceiptPrice(grandTotal)}
+                  {formatReceiptPrice(collected)}
                 </span>
               </div>
             </div>

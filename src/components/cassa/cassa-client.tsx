@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Plus, ShoppingCart } from "lucide-react";
+import { Plus, ShoppingCart, X } from "lucide-react";
 import { useCassa } from "@/hooks/use-cassa";
 import { VAT_CODES, VatCode } from "@/types/cassa";
 import type { CartLine, PaymentMethod } from "@/types/cassa";
@@ -36,12 +36,19 @@ interface CassaClientProps {
    * `null` se l'intestazione e' incompleta (il bottone ripiega sul PDF).
    */
   readonly printProfile: ReceiptPrintProfile | null;
+  /**
+   * Gate di piano per gli sconti (Pro), risolto lato server. Quando `false`
+   * l'affordance non compare in cassa: il gate autoritativo resta comunque
+   * `discountGateError` nella server action.
+   */
+  readonly discountsUnlocked?: boolean;
 }
 
 export function CassaClient({
   businessId,
   preferredVatCode,
   printProfile,
+  discountsUnlocked = false,
 }: CassaClientProps) {
   const defaultVat = preferredVatCode ?? FALLBACK_VAT;
   const router = useRouter();
@@ -63,6 +70,10 @@ export function CassaClient({
   // id dell'articolo in modifica (null = nuova aggiunta)
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [lotteryCode, setLotteryCode] = useState("");
+  // Sconto a pagare in centesimi interi (regola 17). Vive qui e non in
+  // `useCassa` perche' non e' stato del carrello: e' una scelta della fase di
+  // pagamento, e si azzera con lo scontrino, non con le righe.
+  const [globalDiscountCents, setGlobalDiscountCents] = useState(0);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [successData, setSuccessData] = useState<{
     documentId?: string;
@@ -73,6 +84,7 @@ export function CassaClient({
     lines: CartLine[];
     paymentMethod: PaymentMethod;
     lotteryCode: string | null;
+    globalDiscountCents: number;
   } | null>(null);
 
   // Stato form aggiungi articolo
@@ -80,6 +92,9 @@ export function CassaClient({
   const [amountCents, setAmountCents] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [vatCode, setVatCode] = useState<VatCode>(defaultVat);
+  // Sconto della riga in lavorazione, in centesimi interi (regola 17).
+  const [lineDiscountCents, setLineDiscountCents] = useState(0);
+  const [lineDiscountOpen, setLineDiscountOpen] = useState(false);
 
   // Ref guard: evita doppia esecuzione in React Strict Mode
   const catalogParamConsumed = useRef(false);
@@ -152,8 +167,10 @@ export function CassaClient({
       const emittedLines = lines;
       const emittedPaymentMethod = paymentMethod;
       const emittedLotteryCode = lotteryCode || null;
+      const emittedDiscountCents = globalDiscountCents;
 
       clearCart();
+      setGlobalDiscountCents(0);
       track(UMAMI_EVENTS.receiptEmitted);
       setSuccessData({
         documentId: result.documentId,
@@ -163,6 +180,7 @@ export function CassaClient({
         lines: emittedLines,
         paymentMethod: emittedPaymentMethod,
         lotteryCode: emittedLotteryCode,
+        globalDiscountCents: emittedDiscountCents,
       });
       setStep("success");
     },
@@ -172,12 +190,29 @@ export function CassaClient({
     mutation.data?.error ??
     (mutation.isError ? "Errore durante l'emissione. Riprova." : undefined);
 
+  /** Sconto di riga corrente in euro, gia' clampato al lordo della riga. */
+  const lineDiscountEuro = (): number =>
+    Math.min(lineDiscountCents, amountCents * quantity) / 100;
+
+  const resetLineForm = () => {
+    setDescription("");
+    setAmountCents(0);
+    setQuantity(1);
+    setVatCode(defaultVat);
+    setLineDiscountCents(0);
+    setLineDiscountOpen(false);
+    setEditingLineId(null);
+  };
+
   const handleAddLine = () => {
     if (!canAdd) return;
     const lineData = {
       description: description.trim() || "Vendita",
       quantity,
       grossUnitPrice: parsedAmount,
+      // Sconto DELLA riga, non per unita': e' la grandezza che l'AdE si
+      // aspetta in `scontoLordo` e quella che l'esercente ha in mente.
+      lineDiscount: lineDiscountEuro(),
       vatCode,
     };
     if (editingLineId) {
@@ -186,11 +221,7 @@ export function CassaClient({
     } else {
       addLine(lineData);
     }
-    // Reset form
-    setDescription("");
-    setAmountCents(0);
-    setQuantity(1);
-    setVatCode(defaultVat);
+    resetLineForm();
     setStep("cart");
   };
 
@@ -218,11 +249,16 @@ export function CassaClient({
       paymentMethod,
       idempotencyKey: crypto.randomUUID(),
       lotteryCode: lotteryCode || null,
+      // Assente quando non c'e': tiene il payload — e quindi il fingerprint di
+      // idempotenza — identico a quello di prima che il campo esistesse.
+      globalDiscount:
+        globalDiscountCents > 0 ? globalDiscountCents / 100 : undefined,
     });
   };
 
   const handleNewReceipt = () => {
     clearCart();
+    setGlobalDiscountCents(0);
     mutation.reset();
     setSuccessData(null);
     setStep("cart");
@@ -239,6 +275,7 @@ export function CassaClient({
         lines={successData?.lines ?? []}
         paymentMethod={successData?.paymentMethod ?? paymentMethod}
         lotteryCode={successData?.lotteryCode ?? null}
+        globalDiscountCents={successData?.globalDiscountCents ?? 0}
         printProfile={printProfile}
         onNewReceipt={handleNewReceipt}
       />
@@ -260,11 +297,7 @@ export function CassaClient({
             size="sm"
             onClick={() => {
               setStep("cart");
-              setAmountCents(0);
-              setDescription("");
-              setQuantity(1);
-              setVatCode(defaultVat);
-              setEditingLineId(null);
+              resetLineForm();
             }}
           >
             Annulla
@@ -324,6 +357,61 @@ export function CassaClient({
           </p>
           <VatSelector value={vatCode} onChange={setVatCode} />
         </div>
+
+        {/* Sconto di riga (Pro) — progressive disclosure, come lo sconto a
+            pagare nel riepilogo. Sta DOPO l'aliquota di proposito: lo sconto
+            di riga agisce sulla base imponibile di quella aliquota. */}
+        {discountsUnlocked && !lineDiscountOpen && canAdd && (
+          <button
+            type="button"
+            onClick={() => setLineDiscountOpen(true)}
+            className="text-muted-foreground hover:text-foreground text-sm font-medium underline underline-offset-4"
+          >
+            {"+ Sconto su questo articolo"}
+          </button>
+        )}
+
+        {discountsUnlocked && lineDiscountOpen && (
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <p className="text-muted-foreground text-sm font-medium">
+                Sconto sulla riga
+              </p>
+              <button
+                type="button"
+                aria-label="Rimuovi sconto di riga"
+                onClick={() => {
+                  setLineDiscountOpen(false);
+                  setLineDiscountCents(0);
+                }}
+                className="text-muted-foreground hover:bg-muted rounded-lg p-1"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="rounded-xl py-2 text-center">
+              <span className="text-3xl font-bold tracking-tight tabular-nums">
+                {"-"}
+                {formatCurrency(lineDiscountEuro())}
+              </span>
+            </div>
+            <NumericKeypad
+              value={lineDiscountCents}
+              onChange={(cents) =>
+                setLineDiscountCents(Math.min(cents, amountCents * quantity))
+              }
+            />
+            <p className="text-muted-foreground mt-2 text-xs">
+              {
+                "Sconto sull\u2019intera riga, non per pezzo. Riduce l\u2019imponibile e quindi l\u2019IVA: la riga vale "
+              }
+              {formatCurrency(
+                (amountCents * quantity) / 100 - lineDiscountEuro(),
+              )}
+              {"."}
+            </p>
+          </div>
+        )}
 
         {/* Aggiungi / Aggiorna */}
         <Button
@@ -404,6 +492,9 @@ export function CassaClient({
           isSubmitting={mutation.isPending}
           lotteryCode={lotteryCode}
           onLotteryCodeChange={setLotteryCode}
+          globalDiscountCents={globalDiscountCents}
+          onGlobalDiscountChange={setGlobalDiscountCents}
+          discountsUnlocked={discountsUnlocked}
         />
       </div>
     );
@@ -457,6 +548,9 @@ export function CassaClient({
                 setAmountCents(Math.round(l.grossUnitPrice * 100));
                 setQuantity(l.quantity);
                 setVatCode(l.vatCode);
+                const discountCents = Math.round((l.lineDiscount ?? 0) * 100);
+                setLineDiscountCents(discountCents);
+                setLineDiscountOpen(discountCents > 0);
                 setStep("add-item");
               }}
             />

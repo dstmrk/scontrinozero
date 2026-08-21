@@ -491,6 +491,71 @@ describe("emitReceiptForBusiness", () => {
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
+  it("retry di uno scontrino con abbuono: stessa key, NIENTE mismatch", async () => {
+    // Regressione: il ricalcolo dell'hash sul conflitto ometteva
+    // `globalDiscount`, quindi divergeva da quello scritto all'INSERT. Un
+    // retry legittimo (documento PENDING, esito AdE ignoto) veniva rifiutato
+    // come payload diverso e all'utente si diceva di cambiare
+    // idempotencyKey — proprio l'azione che rischia il doppione fiscale.
+    const { hashSaleRequest } = await import("./request-hash");
+    const input = { ...VALID_INPUT, globalDiscount: 0.4 };
+    const storedHash = hashSaleRequest({
+      lines: input.lines,
+      paymentMethod: input.paymentMethod,
+      lotteryCode: null,
+      globalDiscount: 0.4,
+    });
+
+    mockDocumentReturning.mockResolvedValue([]); // conflict
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-existing",
+        status: "ACCEPTED",
+        adeTransactionId: "trx-existing",
+        adeProgressive: "prog",
+        requestHash: storedHash,
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(input);
+
+    expect(result.code).toBeUndefined();
+    expect(result.documentId).toBe("doc-existing");
+  });
+
+  it("stessa key ma sconto di riga diverso → IDEMPOTENCY_PAYLOAD_MISMATCH", async () => {
+    // Regressione speculare: `lineDiscount` non entrava nella forma canonica,
+    // quindi due scontrini con corrispettivi diversi passavano per replay e
+    // il secondo tornava il documento del primo.
+    const { hashSaleRequest } = await import("./request-hash");
+    const storedHash = hashSaleRequest({
+      lines: [{ ...VALID_INPUT.lines[0], lineDiscount: 1 }],
+      paymentMethod: "PC",
+      lotteryCode: null,
+    });
+
+    mockDocumentReturning.mockResolvedValue([]); // conflict
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-existing",
+        status: "ACCEPTED",
+        adeTransactionId: "trx-existing",
+        adeProgressive: "prog",
+        requestHash: storedHash,
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness({
+      ...VALID_INPUT,
+      lines: [{ ...VALID_INPUT.lines[0], lineDiscount: 5 }],
+    });
+
+    expect(result.code).toBe("IDEMPOTENCY_PAYLOAD_MISMATCH");
+    expect(result.documentId).toBeUndefined();
+  });
+
   it("P1.4: stessa key + stesso payload → idempotenza OK (hash combacia)", async () => {
     mockDocumentReturning.mockResolvedValue([]); // conflict
     mockLimit.mockResolvedValueOnce([
@@ -1336,6 +1401,96 @@ describe("emitReceiptForBusiness", () => {
         payments: expect.arrayContaining([
           expect.objectContaining({ amount: 1.5 }),
         ]),
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("sconto di riga: lo passa al mapper come sconto DI RIGA e riduce il totale", async () => {
+    // Lo sconto di riga riduce il corrispettivo (HAR.md voce #3a), quindi
+    // scende anche l'importo del pagamento: 20,00 − 4,00 = 16,00.
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness({
+      ...VALID_INPUT,
+      lines: [{ ...VALID_INPUT.lines[0], lineDiscount: 4 }],
+    });
+
+    expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // Il DTO porta lo sconto DELLA riga, non per unità: la quantità è 2,
+        // e 4 resta 4 — non diventa 8.
+        lines: [expect.objectContaining({ lineDiscount: 4 })],
+        payments: [expect.objectContaining({ amount: 16 })],
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("sconto di riga e sconto a pagare insieme: si compongono senza sovrapporsi", async () => {
+    // Il primo abbassa il corrispettivo a 16,00, il secondo toglie 1,00 da
+    // ciò che si incassa: nel pagamento va 15,00.
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness({
+      ...VALID_INPUT,
+      lines: [{ ...VALID_INPUT.lines[0], lineDiscount: 4 }],
+      globalDiscount: 1,
+    });
+
+    expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        globalDiscount: 1,
+        payments: [expect.objectContaining({ amount: 15 })],
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("sconto a pagare: versa nel pagamento l'INCASSATO, non il corrispettivo", async () => {
+    // Quadratura AdE (HAR.md voce #5):
+    // `Σ vendita[].importo + scontoAbbuono = ammontareComplessivo`.
+    // Il documento vale 20,00 (2 × 10,00) e resta di 20,00 — l'abbuono non
+    // riduce il corrispettivo (voce #3b) — ma nello slot di pagamento va
+    // 19,60, altrimenti il portale rifiuta l'invio per sbilancio.
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness({ ...VALID_INPUT, globalDiscount: 0.4 });
+
+    expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        globalDiscount: 0.4,
+        payments: [expect.objectContaining({ type: "CASH", amount: 19.6 })],
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("sconto a pagare: sottrae in centesimi interi, non in float (regola 17)", async () => {
+    // `19.99 - 0.1` in float è 19.889999999999997: trasmesso così, l'importo
+    // non quadra col corrispettivo e l'invio salta su un documento fiscale.
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness({
+      ...VALID_INPUT,
+      lines: [{ ...VALID_INPUT.lines[0], quantity: 1, grossUnitPrice: 19.99 }],
+      globalDiscount: 0.1,
+    });
+
+    expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payments: [expect.objectContaining({ amount: 19.89 })],
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("senza sconto a pagare il payload resta identico a prima", async () => {
+    // Regressione: `globalDiscount` assente deve produrre `0` e il pagamento
+    // pieno, così nessuno scontrino senza abbuono cambia comportamento.
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        globalDiscount: 0,
+        payments: [expect.objectContaining({ amount: 20 })],
       }),
       expect.anything(),
     );

@@ -226,6 +226,11 @@ type AnalyticsLineRow = {
   description: string;
   quantity: string;
   grossUnitPrice: string;
+  /**
+   * Sconto di riga (`line_discount`), lordo e già comprensivo della quantità.
+   * Assente/`null` sulle righe emesse prima della migrazione 0034.
+   */
+  lineDiscount?: string | null;
 };
 
 const EMPTY_DESCRIPTION_LABEL = "(senza descrizione)";
@@ -306,13 +311,22 @@ export function computeBreakdown(
  */
 type ProductAgg = {
   /**
-   * Somma in centesimi interi, arrotondati PER RIGA (`round(qty * price * 100)`),
+   * Somma in centesimi interi, arrotondati PER RIGA e **al netto dello sconto
+   * di riga** (`round(qty * price * 100) - round(lineDiscount * 100)`),
    * strategia canonica del progetto (REVIEW.md #1) coerente con `calcDocTotal`
    * e `computeReceiptTotals` (`src/lib/receipts/document-lines.ts`). Poiché sia
    * il ricavo KPI (somma di `calcDocTotal` sui documenti) sia questo breakdown
-   * (somma per prodotto) sommano lo stesso `round(qty * price * 100)` su tutte
-   * le righe, riconciliano alla cifra indipendentemente dal raggruppamento
+   * (somma per prodotto) partono dalle stesse righe con la stessa formula,
+   * riconciliano alla cifra indipendentemente dal raggruppamento
    * documento↔prodotto.
+   *
+   * ⚠️ Lo sconto va sottratto QUI e non solo in `calcDocTotal`: le due viste
+   * sono somme indipendenti sulle stesse righe, e appena una delle due ignora
+   * un campo che l'altra usa, il ricavo totale e la ripartizione per prodotto
+   * divergono in silenzio (nessun test le confronta se non si scrive apposta).
+   *
+   * Lo sconto a pagare invece NON entra: non riduce il corrispettivo
+   * (`HAR.md` voce #3b) e vive a livello di documento, non di riga.
    */
   revenueCents: number;
   count: number;
@@ -350,7 +364,14 @@ function addLineToAggregate(
     count: 0,
     variants: new Map<string, number>(),
   };
-  agg.revenueCents += Math.round(qty * price * 100);
+  // `Math.max(0, …)`: difesa in profondità come in `receipt-totals.ts`. Una
+  // riga con sconto oltre il proprio lordo (import/fix manuale in DB) darebbe
+  // un ricavo negativo, che falserebbe il ranking dei prodotti.
+  agg.revenueCents += Math.max(
+    0,
+    Math.round(qty * price * 100) -
+      Math.round(Number.parseFloat(line.lineDiscount ?? "0") * 100 || 0),
+  );
   agg.count++;
   if (trimmed !== "") {
     agg.variants.set(trimmed, (agg.variants.get(trimmed) ?? 0) + 1);
