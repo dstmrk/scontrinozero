@@ -38,9 +38,9 @@ mcp__Sentry__search_issues({
 
 ---
 
-## Classificare un'issue archived: cinque rami
+## Classificare un'issue archived: sei rami
 
-Ogni issue archived ricade in uno di questi 5 rami. La classificazione
+Ogni issue archived ricade in uno di questi 6 rami. La classificazione
 guida l'azione, non viceversa.
 
 ### 1. Noise vero (bot/scanner, browser quirk non azionabile)
@@ -219,7 +219,53 @@ Due lezioni di contorno, ripescabili su qualsiasi errore client:
   hanno mai `user.id`. Per pesare l'impatto di un'issue client servono il
   Session Replay e il conteggio eventi, non la colonna Users.
 
----
+### 6. Il browser ci riscrive il DOM sotto: si neutralizza, non si filtra
+
+Esempio canonico: **SCONTRINOZERO-Y** `Hydration Error` sulla homepage, 6
+eventi in 2 giorni da 6 città italiane diverse — e **100% Mobile Safari su
+iPhone**, zero desktop, zero Android.
+
+**Come riconoscerlo.** Una distribuzione browser che collassa su un solo
+motore non è un bug del nostro codice: è una feature di quel browser che ci
+tocca il documento. Su iPhone sono i **data detectors** di Safari, che
+riscrivono ogni digit-run lungo in `<a href="tel:…"
+x-apple-data-detectors="true">` mentre il documento viene parsato — cioè
+prima che React idrati, che quindi trova un `<a>` dove l'HTML del server
+aveva un text node. Il bersaglio da noi era la P.IVA in footer
+(`P.IVA<!-- --> <!-- -->11836750015`, text node nudo).
+
+Due letture che servono per non archiviarlo come rumore:
+
+- Il tipo `replay_hydration_error` **non** è una diff euristica del replay:
+  nasce dal breadcrumb `replay.hydrate-error`, cioè da un mismatch che React
+  ha segnalato davvero.
+- Il replay dice `Errors: 0` **e il mismatch è comunque reale**: React 19 si
+  ripara ri-renderizzando lato client, quindi nessuna eccezione risale — ma il
+  primo paint si butta. Su una pagina SEO è un costo, non un pareggio.
+
+**Azione**: si toglie di mezzo la feature del browser, non l'evento da Sentry.
+`formatDetection: { telephone: false }` nel `metadata` del **root** layout
+(`src/app/layout.tsx`, SCONTRINOZERO-Y) → `<meta name="format-detection"
+content="telephone=no">` su ogni pagina. Nel root e non nel gruppo
+`(marketing)` perché la stessa riscrittura prende il `documentId` della
+ricevuta pubblica e la P.IVA in onboarding/settings, dove un numero che
+diventa un pulsante "chiama" è un bug UX anche a hydration a posto. Solo
+`telephone`: `date`/`address`/`email` Safari non li applica di default.
+
+**Verifica**, visto che i data detectors sono di Safari vero e Chromium (e
+quindi la skill `playwright-verify`) non li ha: `npm run build`, poi contare
+gli `.html` prerenderizzati che portano la meta —
+
+```bash
+for f in $(find .next/server/app -name "*.html"); do
+  grep -q 'format-detection' "$f" || echo "MANCA: $f"
+done
+```
+
+L'unico atteso senza è `_global-error.html`: `global-error.tsx` rimpiazza il
+documento intero, quindi sta fuori dal root layout by design. L'altra prova a
+costo zero è aprire uno dei replay allegati e guardare se nel DOM registrato
+il numero è diventato un link `tel:`.
 
 ---
 
@@ -365,6 +411,7 @@ l'ID Sentry che ha originato il fix. Esempi già in repo:
 - `src/lib/ade/log-failure.ts` → cita `SCONTRINOZERO-7` (regola 20)
 - `src/instrumentation.ts` → cita `SCONTRINOZERO-F` + regola 24
 - `src/lib/deploy-skew.ts` → cita `SCONTRINOZERO-Z`
+- `src/app/layout.tsx` (`formatDetection`) → cita `SCONTRINOZERO-Y`
 
 Rende la lezione trovabile in `grep -rn "SCONTRINOZERO-<id>"` e
 preserva il filo storico anche dopo che l'issue è archived in Sentry.
