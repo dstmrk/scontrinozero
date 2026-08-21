@@ -12,15 +12,26 @@ import type { SubmitReceiptInput } from "@/types/cassa";
  *
  * `lotteryCode` è quello EFFETTIVO (già risolto: null se il pagamento non è PE),
  * così due richieste logicamente identiche non divergono per un campo ignorato.
+ *
+ * ⚠️ `globalDiscount` entra nella forma canonica **solo quando è > 0**. Un
+ * documento senza sconto a pagare deve produrre esattamente l'hash che
+ * produceva prima che il campo esistesse: gli hash già persistiti sono
+ * immutabili, e includere sempre uno `0` farebbe fallire come
+ * `IDEMPOTENCY_PAYLOAD_MISMATCH` il retry di uno scontrino inviato prima del
+ * deploy — cioè proprio il caso in cui la stessa key va riusata, perché il
+ * documento è PENDING e l'esito AdE è ignoto. Un abbuono, quando c'è, cambia
+ * quanto il cliente paga: deve far divergere il fingerprint.
  */
 export function hashSaleRequest(input: {
   lines: SubmitReceiptInput["lines"];
   paymentMethod: SubmitReceiptInput["paymentMethod"];
   lotteryCode: string | null;
+  globalDiscount?: number;
 }): string {
   const canonical = JSON.stringify({
     paymentMethod: input.paymentMethod,
     lotteryCode: input.lotteryCode ?? null,
+    ...(input.globalDiscount ? { globalDiscount: input.globalDiscount } : {}),
     lines: input.lines.map((line) => ({
       description: line.description,
       quantity: line.quantity,

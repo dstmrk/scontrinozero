@@ -198,9 +198,18 @@ function printTotals(
 }
 
 /**
- * Blocco pagamenti. `Importo pagato` va sempre indicato (prescrizioni
- * generali AdE per il risparmio carta); la riga della modalità sparisce se
- * vale zero, come ogni altra voce di pagamento a zero.
+ * Blocco pagamenti, nell'ordine del layout normativo AdE (`HAR.md` voce #17b):
+ * modalità di pagamento, `Sconto a pagare`, `Importo pagato`.
+ *
+ * `Importo pagato` va sempre indicato (prescrizioni generali per il risparmio
+ * carta, voce #17c); la riga della modalità e quella dell'abbuono spariscono
+ * se valgono zero, come ogni altra voce di pagamento a zero.
+ *
+ * ⚠️ Sia la modalità sia `Importo pagato` portano l'**incassato**, cioè il
+ * totale meno lo sconto a pagare — non il totale complessivo, che resta pieno
+ * più su nel documento (voce #3b). Nel campione ufficiale della voce #17b è
+ * proprio questa differenza a far quadrare
+ * `Importo pagato + non riscosso + sconto a pagare = TOTALE COMPLESSIVO`.
  */
 function printPayment(
   encoder: Encoder,
@@ -209,12 +218,20 @@ function printPayment(
 ): void {
   const { grandTotal } = computeReceiptTotals(receipt.lines);
 
-  if (grandTotal !== 0) {
+  // Aritmetica in centesimi interi (regola 17): `3.90 - 0.40` in float non è
+  // `3.50`, e la termica stamperebbe un incassato che non quadra col PDF.
+  const discountCents = receipt.globalDiscountCents ?? 0;
+  const collected = (Math.round(grandTotal * 100) - discountCents) / 100;
+
+  if (collected !== 0) {
     const paymentLabel =
       PAYMENT_LABELS[receipt.paymentMethod] ?? receipt.paymentMethod;
-    amountRow(encoder, columns, paymentLabel, grandTotal);
+    amountRow(encoder, columns, paymentLabel, collected);
   }
-  amountRow(encoder, columns, "Importo pagato", grandTotal);
+  if (discountCents > 0) {
+    amountRow(encoder, columns, "Sconto a pagare", discountCents / 100);
+  }
+  amountRow(encoder, columns, "Importo pagato", collected);
   encoder.rule();
 }
 

@@ -150,9 +150,22 @@ curl -X POST https://api.scontrinozero.it/v1/receipts \
     ],
     "paymentMethod": "PE",
     "idempotencyKey": "550e8400-e29b-41d4-a716-446655440000",
-    "lotteryCode": "ABCD1234"
+    "lotteryCode": "ABCD1234",
+    "globalDiscount": 0.40
   }'
 ```
+
+> **`globalDiscount` — sconto a pagare (piano Pro).** Opzionale, in euro, max 2
+> decimali. **Non riduce il corrispettivo**: il documento resta di importo
+> pieno e l'IVA si versa piena; scende solo quanto il cliente paga
+> (`incassato = total − globalDiscount`). È il campo `scontoAbbuono` del
+> tracciato AdE, e serve ad arrotondare in cassa o ad accettare un buono
+> multiuso senza toccare la base imponibile.
+> Deve lasciare **almeno un centesimo** da incassare: `globalDiscount` pari o
+> superiore al totale delle righe è rifiutato con `VALIDATION_ERROR`. Su un
+> piano senza Pro la richiesta è rifiutata con `PLAN_UPGRADE_REQUIRED` —
+> l'importo non viene silenziosamente ignorato, perché produrrebbe un
+> documento fiscale diverso da quello richiesto.
 
 **Risposta successo (201):**
 
@@ -186,6 +199,7 @@ curl https://api.scontrinozero.it/v1/receipts/550e8400-e29b-41d4-a716-4466554400
   "lotteryCode": "ABCD1234",
   "voidedDocumentId": null,
   "total": "16.00",
+  "globalDiscount": "0.40",
   "lines": [
     {
       "description": "Pizza Margherita",
@@ -199,7 +213,8 @@ curl https://api.scontrinozero.it/v1/receipts/550e8400-e29b-41d4-a716-4466554400
 
 > `voidedDocumentId` è valorizzato solo per documenti `kind: "VOID"` e contiene l'UUID del SALE annullato.
 > `paymentMethod` vale `"PC"` (contante: denaro, assegni bancari e circolari) oppure `"PE"` (elettronico: carte, bancomat, app di pagamento, bonifici). Un solo metodo per documento — il pagamento ripartito non è supportato.
-> `lotteryCode` è `null` se non fornito o se il metodo di pagamento è `"PC"` (contanti).
+> `lotteryCode` è `null` se non fornito o se il metodo di pagamento è `"PC"` (contanti). Lo sconto a pagare **non** lo squalifica: non è un mezzo di pagamento.
+> `globalDiscount` è lo sconto a pagare applicato, stringa a 2 decimali, `"0.00"` quando assente. `total` resta il corrispettivo pieno: l'incassato è `total − globalDiscount`.
 > `quantity` e `grossUnitPrice` sono stringhe con precisione fissa (3 e 2 decimali rispettivamente).
 
 **Risposta annullo (200) — `POST /v1/receipts/{id}/void`:**

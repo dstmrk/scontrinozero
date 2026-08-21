@@ -8,7 +8,7 @@ import { VAT_CODES, type VatCode } from "@/types/cassa";
 import { CassaClient } from "@/components/cassa/cassa-client";
 import { PlanUnavailable } from "@/components/dashboard/plan-unavailable";
 import { getAuthenticatedUser } from "@/lib/server-auth";
-import { canUseDashboardCashier, getPlanSafe } from "@/lib/plans";
+import { canUseDashboardCashier, canUsePro, getPlanSafe } from "@/lib/plans";
 import { fetchReceiptPrintProfile } from "@/lib/receipts/print-profile";
 
 export default async function CassaPage() {
@@ -61,6 +61,11 @@ export default async function CassaPage() {
         businessId={status.businessId}
         preferredVatCode={preferredVatCode}
         printProfile={printProfile}
+        discountsUnlocked={canUsePro(
+          planResult.info.plan,
+          planResult.info.planExpiresAt,
+          planResult.info.trialStartedAt,
+        )}
       />
     </Suspense>
   );

@@ -248,6 +248,29 @@ group:
 
 ## P3 — Bassa priorità
 
+### 96. Arrotondamento DL 50/2017: manca la voce di pagamento `Arro. DL N.50/2017`
+
+Il layout normativo del documento commerciale (`HAR.md` voce #17d) prevede che
+l'arrotondamento obbligatorio dell'art. 51-quater DL 50/2017 — quello che
+esiste perché le monete da 1 e 2 centesimi non circolano più — si stampi con una
+voce di pagamento dedicata, `Arro. DL N.50/2017`, **in aggiunta** allo sconto a
+pagare quando l'arrotondamento è per difetto.
+
+Oggi l'esercente che arrotonda per difetto usa lo sconto a pagare e ottiene un
+documento **corretto nei totali e nella quadratura**, ma senza quella dicitura;
+l'arrotondamento per eccesso non è esprimibile affatto (servirebbe una voce di
+pagamento in più del corrispettivo).
+
+Due cose da chiarire prima di implementarlo, entrambe non misurate:
+
+1. come (e se) il tracciato del _documento commerciale online_ esprima quella
+   voce — il portale espone sei slot di pagamento (`HAR.md` voce #6) e nessuno
+   si chiama così, quindi serve una cattura HAR fatta apposta;
+2. se l'arrotondamento per eccesso entri nella quadratura della voce #5 come un
+   incasso.
+
+Non blocca gli sconti: è il perimetro di ciò che gli sconti non risolvono.
+
 ### 94. Deploy skew: il reload salva la sessione ma non quello che l'utente aveva digitato
 
 - **Categoria:** UX · **Severità:** Low — l'operazione non è mai stata

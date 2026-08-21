@@ -36,12 +36,19 @@ interface CassaClientProps {
    * `null` se l'intestazione e' incompleta (il bottone ripiega sul PDF).
    */
   readonly printProfile: ReceiptPrintProfile | null;
+  /**
+   * Gate di piano per gli sconti (Pro), risolto lato server. Quando `false`
+   * l'affordance non compare in cassa: il gate autoritativo resta comunque
+   * `discountGateError` nella server action.
+   */
+  readonly discountsUnlocked?: boolean;
 }
 
 export function CassaClient({
   businessId,
   preferredVatCode,
   printProfile,
+  discountsUnlocked = false,
 }: CassaClientProps) {
   const defaultVat = preferredVatCode ?? FALLBACK_VAT;
   const router = useRouter();
@@ -63,6 +70,10 @@ export function CassaClient({
   // id dell'articolo in modifica (null = nuova aggiunta)
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [lotteryCode, setLotteryCode] = useState("");
+  // Sconto a pagare in centesimi interi (regola 17). Vive qui e non in
+  // `useCassa` perche' non e' stato del carrello: e' una scelta della fase di
+  // pagamento, e si azzera con lo scontrino, non con le righe.
+  const [globalDiscountCents, setGlobalDiscountCents] = useState(0);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [successData, setSuccessData] = useState<{
     documentId?: string;
@@ -73,6 +84,7 @@ export function CassaClient({
     lines: CartLine[];
     paymentMethod: PaymentMethod;
     lotteryCode: string | null;
+    globalDiscountCents: number;
   } | null>(null);
 
   // Stato form aggiungi articolo
@@ -152,8 +164,10 @@ export function CassaClient({
       const emittedLines = lines;
       const emittedPaymentMethod = paymentMethod;
       const emittedLotteryCode = lotteryCode || null;
+      const emittedDiscountCents = globalDiscountCents;
 
       clearCart();
+      setGlobalDiscountCents(0);
       track(UMAMI_EVENTS.receiptEmitted);
       setSuccessData({
         documentId: result.documentId,
@@ -163,6 +177,7 @@ export function CassaClient({
         lines: emittedLines,
         paymentMethod: emittedPaymentMethod,
         lotteryCode: emittedLotteryCode,
+        globalDiscountCents: emittedDiscountCents,
       });
       setStep("success");
     },
@@ -218,11 +233,16 @@ export function CassaClient({
       paymentMethod,
       idempotencyKey: crypto.randomUUID(),
       lotteryCode: lotteryCode || null,
+      // Assente quando non c'e': tiene il payload — e quindi il fingerprint di
+      // idempotenza — identico a quello di prima che il campo esistesse.
+      globalDiscount:
+        globalDiscountCents > 0 ? globalDiscountCents / 100 : undefined,
     });
   };
 
   const handleNewReceipt = () => {
     clearCart();
+    setGlobalDiscountCents(0);
     mutation.reset();
     setSuccessData(null);
     setStep("cart");
@@ -239,6 +259,7 @@ export function CassaClient({
         lines={successData?.lines ?? []}
         paymentMethod={successData?.paymentMethod ?? paymentMethod}
         lotteryCode={successData?.lotteryCode ?? null}
+        globalDiscountCents={successData?.globalDiscountCents ?? 0}
         printProfile={printProfile}
         onNewReceipt={handleNewReceipt}
       />
@@ -404,6 +425,9 @@ export function CassaClient({
           isSubmitting={mutation.isPending}
           lotteryCode={lotteryCode}
           onLotteryCodeChange={setLotteryCode}
+          globalDiscountCents={globalDiscountCents}
+          onGlobalDiscountChange={setGlobalDiscountCents}
+          discountsUnlocked={discountsUnlocked}
         />
       </div>
     );

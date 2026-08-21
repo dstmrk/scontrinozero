@@ -41,6 +41,15 @@ export interface ReceiptListItem {
     adeRegisteredAt: Date;
   } | null;
   /**
+   * Sconto a pagare del documento, in **centesimi interi** (`scontoAbbuono`
+   * AdE). Serve alla ristampa su termica e al dettaglio: il documento
+   * consegnato al cliente deve riportare l'incassato reale, non il totale.
+   *
+   * ⚠️ NON riduce `total`, che resta il corrispettivo pieno (`HAR.md` voce
+   * #3b). `0` sui documenti senza abbuono e su tutti quelli storici.
+   */
+  globalDiscountCents: number;
+  /**
    * Metodo di pagamento del documento trasmesso all'AdE. Serve alla ristampa
    * su termica: una copia consegnata al cliente non può riportare un
    * pagamento diverso da quello del documento originale.

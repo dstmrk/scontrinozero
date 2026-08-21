@@ -1,3 +1,4 @@
+import { parsePublicRequest } from "@/lib/receipts/public-request";
 import { and, asc, eq } from "drizzle-orm";
 import { commercialDocuments, commercialDocumentLines } from "@/db/schema";
 import { isStatementTimeoutError } from "@/lib/api-errors";
@@ -112,7 +113,11 @@ export async function GET(
 
   const total = calcDocTotal(lines);
 
+  // ⚠️ `paymentMethod` NON passa da `parsePublicRequest`: il contratto
+  // pubblico espone `null` quando il campo manca, mentre l'helper degrada a
+  // `"PC"` per la stampa. Cambiarlo qui sarebbe un breaking change v1.
   const pr = doc.publicRequest as { paymentMethod?: string } | null;
+  const { globalDiscountCents } = parsePublicRequest(doc.publicRequest);
 
   return v1Json(
     {
@@ -127,6 +132,9 @@ export async function GET(
       lotteryCode: doc.lotteryCode,
       voidedDocumentId: doc.voidedDocumentId,
       total: total.toFixed(2),
+      // Sconto a pagare: NON riduce `total`, che resta il corrispettivo
+      // (HAR.md voce #3b). L'incassato e' `total - globalDiscount`.
+      globalDiscount: (globalDiscountCents / 100).toFixed(2),
       lines: lines.map((l) => ({
         description: l.description,
         quantity: l.quantity,

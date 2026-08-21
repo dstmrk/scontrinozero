@@ -3,6 +3,7 @@ import {
   type CommercialDocumentLine,
   type CommercialDocumentPdfData,
 } from "@/lib/pdf/commercial-document";
+import { parsePublicRequest } from "@/lib/receipts/public-request";
 import { getTrustedAppUrl, TrustedAppUrlError } from "@/lib/trusted-app-url";
 import { logger } from "@/lib/logger";
 
@@ -114,13 +115,8 @@ export async function generatePdfResponse(
     }
   }
 
-  const publicReq = doc.publicRequest as {
-    paymentMethod?: string;
-    lotteryCode?: string;
-  } | null;
-  const rawPayment = publicReq?.paymentMethod ?? "PC";
-  const paymentMethod = rawPayment === "PE" ? "PE" : ("PC" as const);
-  const lotteryCode = publicReq?.lotteryCode ?? null;
+  const { paymentMethod, lotteryCode, globalDiscountCents } =
+    parsePublicRequest(doc.publicRequest);
 
   const pdfLines: CommercialDocumentLine[] = lines.map((l) => ({
     description: l.description,
@@ -170,6 +166,7 @@ export async function generatePdfResponse(
       kind: "SALE",
       paymentMethod,
       lotteryCode,
+      globalDiscountCents,
       footerNote: data.footerNote ?? null,
     };
   }

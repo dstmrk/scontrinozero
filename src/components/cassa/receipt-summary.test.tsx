@@ -495,3 +495,150 @@ describe("ReceiptSummary", () => {
     });
   });
 });
+
+describe("ReceiptSummary — sconto a pagare (Pro)", () => {
+  const base = {
+    lines,
+    totalCents: TOTAL_CENTS,
+    paymentMethod: "PC" as const,
+    onPaymentMethodChange: vi.fn(),
+    onRemoveLine: vi.fn(),
+    onSubmit: vi.fn(),
+    onBack: vi.fn(),
+  };
+
+  it("non mostra l'affordance senza il piano Pro", () => {
+    render(<ReceiptSummary {...base} discountsUnlocked={false} />);
+
+    expect(screen.queryByText("+ Sconto a pagare")).not.toBeInTheDocument();
+  });
+
+  it("mostra un solo link finché l'esercente non lo apre", () => {
+    // Progressive disclosure: chi non sconta non paga nessun ingombro. Il
+    // tastierino compare solo dopo il tap.
+    render(<ReceiptSummary {...base} discountsUnlocked />);
+
+    expect(screen.getByText("+ Sconto a pagare")).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Rimuovi sconto a pagare"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("apre il campo al tap sul link", () => {
+    render(<ReceiptSummary {...base} discountsUnlocked />);
+
+    fireEvent.click(screen.getByText("+ Sconto a pagare"));
+
+    expect(
+      screen.getByLabelText("Rimuovi sconto a pagare"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("+ Sconto a pagare")).not.toBeInTheDocument();
+  });
+
+  it("resta aperto se arriva già con uno sconto impostato", () => {
+    render(
+      <ReceiptSummary {...base} discountsUnlocked globalDiscountCents={100} />,
+    );
+
+    expect(
+      screen.getByLabelText("Rimuovi sconto a pagare"),
+    ).toBeInTheDocument();
+  });
+
+  it("lascia il totale pieno e mostra a parte quanto si incassa", () => {
+    // HAR.md voce #3b: l'abbuono NON riduce il corrispettivo. È la differenza
+    // fiscale con lo sconto di riga, e va vista PRIMA dell'invio.
+    render(
+      <ReceiptSummary {...base} discountsUnlocked globalDiscountCents={320} />,
+    );
+
+    // 18,20 compare due volte: nel totale e nella nota "il totale resta …".
+    expect(screen.getAllByText(/18,20/).length).toBeGreaterThan(0);
+    expect(screen.getByText("Da incassare")).toBeInTheDocument();
+    expect(screen.getByText(/15,00/)).toBeInTheDocument();
+  });
+
+  it("non mostra `Da incassare` quando non c'è abbuono", () => {
+    render(
+      <ReceiptSummary {...base} discountsUnlocked globalDiscountCents={0} />,
+    );
+
+    expect(screen.queryByText("Da incassare")).not.toBeInTheDocument();
+  });
+
+  it("azzera lo sconto quando l'esercente chiude il campo", () => {
+    const onGlobalDiscountChange = vi.fn();
+    render(
+      <ReceiptSummary
+        {...base}
+        discountsUnlocked
+        globalDiscountCents={320}
+        onGlobalDiscountChange={onGlobalDiscountChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Rimuovi sconto a pagare"));
+
+    expect(onGlobalDiscountChange).toHaveBeenCalledWith(0);
+  });
+
+  it("clampa lo sconto a un centesimo sotto il totale", () => {
+    // Stesso vincolo di `refineGlobalDiscount` lato server: l'abbuono deve
+    // lasciare almeno un centesimo da incassare. Clampare qui evita di far
+    // digitare un importo che verrebbe rifiutato dopo l'invio.
+    const onGlobalDiscountChange = vi.fn();
+    render(
+      <ReceiptSummary
+        {...base}
+        discountsUnlocked
+        globalDiscountCents={0}
+        onGlobalDiscountChange={onGlobalDiscountChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("+ Sconto a pagare"));
+    // Il tastierino accumula cifra per cifra: 9-9-9-9-9-9 supera 18,20.
+    for (const digit of ["9", "9", "9", "9", "9", "9"]) {
+      fireEvent.click(screen.getByRole("button", { name: digit }));
+    }
+
+    for (const call of onGlobalDiscountChange.mock.calls) {
+      expect(call[0]).toBeLessThanOrEqual(TOTAL_CENTS - 1);
+    }
+  });
+
+  it("blocca l'invio se non resta nulla da incassare", () => {
+    render(
+      <ReceiptSummary
+        {...base}
+        discountsUnlocked
+        globalDiscountCents={TOTAL_CENTS}
+      />,
+    );
+
+    expect(
+      screen.getByText("Emetti scontrino").closest("button"),
+    ).toBeDisabled();
+  });
+
+  it("NON disabilita il codice lotteria per via dello sconto a pagare", () => {
+    // HAR.md voce #13, verificato sul portale il 19/08/2026: l'abbuono non è
+    // un mezzo di pagamento e non entra nel test "pagato esclusivamente con
+    // mezzi elettronici". La soglia di €1,00 si misura sul corrispettivo, che
+    // l'abbuono non riduce: uno scontrino da 18,20 con 17,00 di sconto resta
+    // sopra soglia anche se il cliente paga 1,20.
+    render(
+      <ReceiptSummary
+        {...base}
+        paymentMethod="PE"
+        discountsUnlocked
+        globalDiscountCents={1700}
+        onLotteryCodeChange={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByPlaceholderText("Codice lotteria (8 caratteri)"),
+    ).not.toBeDisabled();
+  });
+});

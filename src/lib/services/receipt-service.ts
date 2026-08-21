@@ -130,12 +130,18 @@ export async function emitReceiptForBusiness(
   const { lotteryCode, error: lotteryCodeError } = resolveLotteryCode(input);
   if (lotteryCodeError) return { error: lotteryCodeError };
 
+  // Abbuono normalizzato in centesimi interi una volta sola (regola 17): entra
+  // nel fingerprint di idempotenza e in `public_request`, e deve essere lo
+  // stesso valore in entrambi.
+  const globalDiscount = Math.round((input.globalDiscount ?? 0) * 100) / 100;
+
   // P1.4: fingerprint del payload, salvato all'INSERT e confrontato su conflitto
   // idempotency per rilevare il riuso della stessa key con contenuto diverso.
   const requestHash = hashSaleRequest({
     lines: input.lines,
     paymentMethod: input.paymentMethod,
     lotteryCode,
+    globalDiscount,
   });
 
   const prerequisites = await fetchAdePrerequisites(input.businessId);
@@ -157,6 +163,10 @@ export async function emitReceiptForBusiness(
         paymentMethod: input.paymentMethod,
       };
       if (lotteryCode) publicRequest.lotteryCode = lotteryCode;
+      // Scritto solo quando c'è: le righe storiche non hanno il campo e
+      // `parsePublicRequest` legge la sua assenza come "nessun abbuono", senza
+      // che serva una migrazione (public_request è jsonb).
+      if (globalDiscount > 0) publicRequest.globalDiscount = globalDiscount;
 
       const [document] = await tx
         .insert(commercialDocuments)
@@ -744,7 +754,13 @@ async function submitSaleToAde(
   // the total on the PDF / public page (computeReceiptTotals) and the storico
   // (calcDocTotal), all derived from round(price * qty * 100) per line.
   const totalCents = calcInputLinesTotalCents(input.lines);
-  const totalAmount = totalCents / 100;
+  // Sconto a pagare (HAR.md voce #3b): NON riduce il corrispettivo — riduce
+  // solo l'incassato. `totalCents` resta quindi il totale del documento, ed è
+  // anche l'`expectedTotalCents` che la recovery confronta con AdE: con un
+  // abbuono il totale del documento e la somma dei pagamenti divergono
+  // legittimamente, e riconciliare sul secondo darebbe un falso mismatch.
+  const globalDiscountCents = Math.round((input.globalDiscount ?? 0) * 100);
+  const globalDiscount = globalDiscountCents / 100;
   // Totale legacy (somma float dei lordi) trasmesso dal mapper pre-REVIEW.md #57:
   // su quantità frazionarie diverge di 1 cent dal canonico per-riga. Serve alla
   // recovery per riconoscere un documento già registrato su AdE con quel totale
@@ -769,11 +785,18 @@ async function submitSaleToAde(
     })),
     payments: [
       {
+        // Quadratura AdE (HAR.md voce #5):
+        // `Σ vendita[].importo + scontoAbbuono = ammontareComplessivo`.
+        // Con un metodo di pagamento singolo è soddisfatta per costruzione —
+        // nell'unico slot va ciò che si incassa davvero, cioè il corrispettivo
+        // meno l'abbuono. Sottrazione in centesimi interi (regola 17): sui
+        // lordi float `1.90 - 0.40` non è `1.50` e l'invio verrebbe rifiutato
+        // per uno sbilancio di un centesimo.
         type: PAYMENT_METHOD_TO_ADE[input.paymentMethod],
-        amount: totalAmount,
+        amount: (totalCents - globalDiscountCents) / 100,
       },
     ],
-    globalDiscount: 0,
+    globalDiscount,
     deductibleAmount: 0,
   };
 

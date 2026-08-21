@@ -67,6 +67,18 @@ import {
   type ReceiptDocRow,
 } from "./csv-export";
 
+/**
+ * Indice di una colonna del CSV di riepilogo, risolto per NOME.
+ *
+ * I test indicizzavano le colonne a numero fisso: aggiungerne una in mezzo ne
+ * rompeva undici in un colpo, e il fallimento diceva "atteso 1200, ricevuto 1"
+ * invece di "la colonna si e' spostata". Risolvere per nome rende il test
+ * indipendente dall'ordine e il fallimento leggibile.
+ */
+function sumCol(name: (typeof RECEIPT_CSV_HEADERS)[number]): number {
+  return RECEIPT_CSV_HEADERS.indexOf(name);
+}
+
 function doc(overrides: Partial<ReceiptDocRow> = {}): ReceiptDocRow {
   return {
     id: "doc-1",
@@ -90,6 +102,8 @@ describe("RECEIPT_CSV_HEADERS", () => {
       "numero_ade",
       "stato",
       "totale",
+      "sconto_a_pagare",
+      "incassato",
       "metodo_pagamento",
       "descrizione",
       "codice_lotteria",
@@ -147,6 +161,8 @@ describe("formatReceiptRow", () => {
       "00042",
       "emesso",
       "12,34",
+      "0,00",
+      "12,34",
       "contanti",
       "Caffè | Cornetto",
       "",
@@ -178,71 +194,71 @@ describe("formatReceiptRow", () => {
   });
 
   it("usa la virgola come separatore decimale del totale", () => {
-    expect(formatReceiptRow(doc(), 1234.5, "")[4]).toBe("1234,50");
-    expect(formatReceiptRow(doc(), 0, "")[4]).toBe("0,00");
-    expect(formatReceiptRow(doc(), 0.05, "")[4]).toBe("0,05");
+    expect(formatReceiptRow(doc(), 1234.5, "")[sumCol("totale")]).toBe(
+      "1234,50",
+    );
+    expect(formatReceiptRow(doc(), 0, "")[sumCol("totale")]).toBe("0,00");
+    expect(formatReceiptRow(doc(), 0.05, "")[sumCol("totale")]).toBe("0,05");
   });
 
   it("traduce gli stati in italiano", () => {
-    expect(formatReceiptRow(doc({ status: "ACCEPTED" }), 0, "")[3]).toBe(
-      "emesso",
-    );
-    expect(formatReceiptRow(doc({ status: "VOID_ACCEPTED" }), 0, "")[3]).toBe(
-      "annullato",
-    );
+    expect(
+      formatReceiptRow(doc({ status: "ACCEPTED" }), 0, "")[sumCol("stato")],
+    ).toBe("emesso");
+    expect(
+      formatReceiptRow(doc({ status: "VOID_ACCEPTED" }), 0, "")[
+        sumCol("stato")
+      ],
+    ).toBe("annullato");
   });
 
   // Uno stato nuovo e non ancora tradotto deve restare visibile nel file:
   // una cella vuota si legge come "nessun dato", non come "caso non previsto".
   it("ripiega sul codice grezzo su uno stato sconosciuto", () => {
-    expect(formatReceiptRow(doc({ status: "FUTURO" }), 0, "")[3]).toBe(
-      "FUTURO",
-    );
+    expect(
+      formatReceiptRow(doc({ status: "FUTURO" }), 0, "")[sumCol("stato")],
+    ).toBe("FUTURO");
   });
 
   it("traduce il metodo di pagamento in italiano", () => {
     expect(
-      formatReceiptRow(
-        doc({ publicRequest: { paymentMethod: "PC" } }),
-        0,
-        "",
-      )[5],
+      formatReceiptRow(doc({ publicRequest: { paymentMethod: "PC" } }), 0, "")[
+        sumCol("metodo_pagamento")
+      ],
     ).toBe("contanti");
     expect(
-      formatReceiptRow(
-        doc({ publicRequest: { paymentMethod: "PE" } }),
-        0,
-        "",
-      )[5],
+      formatReceiptRow(doc({ publicRequest: { paymentMethod: "PE" } }), 0, "")[
+        sumCol("metodo_pagamento")
+      ],
     ).toBe("elettronico");
   });
 
   it("ripiega sul codice grezzo su un metodo di pagamento sconosciuto", () => {
     expect(
-      formatReceiptRow(
-        doc({ publicRequest: { paymentMethod: "PX" } }),
-        0,
-        "",
-      )[5],
+      formatReceiptRow(doc({ publicRequest: { paymentMethod: "PX" } }), 0, "")[
+        sumCol("metodo_pagamento")
+      ],
     ).toBe("PX");
   });
 
   it("lascia vuoto il metodo di pagamento quando il jsonb non lo contiene", () => {
     expect(
-      formatReceiptRow(
-        doc({ publicRequest: { paymentMethod: null } }),
-        0,
-        "",
-      )[5],
+      formatReceiptRow(doc({ publicRequest: { paymentMethod: null } }), 0, "")[
+        sumCol("metodo_pagamento")
+      ],
     ).toBe("");
     expect(
       formatReceiptRow(
         doc({ publicRequest: "not-an-object" as unknown as null }),
         0,
         "",
-      )[5],
+      )[sumCol("metodo_pagamento")],
     ).toBe("");
-    expect(formatReceiptRow(doc({ publicRequest: null }), 0, "")[5]).toBe("");
+    expect(
+      formatReceiptRow(doc({ publicRequest: null }), 0, "")[
+        sumCol("metodo_pagamento")
+      ],
+    ).toBe("");
   });
 
   it("emette stringa vuota sui campi nullable", () => {
@@ -256,16 +272,18 @@ describe("formatReceiptRow", () => {
       0,
       "",
     );
-    expect(row[2]).toBe(""); // numero_ade
-    expect(row[7]).toBe(""); // codice_lotteria
-    expect(row[8]).toBe(""); // data_annullo
-    expect(row[10]).toBe(""); // id_transazione_ade
+    expect(row[sumCol("numero_ade")]).toBe("");
+    expect(row[sumCol("codice_lotteria")]).toBe("");
+    expect(row[sumCol("data_annullo")]).toBe("");
+    expect(row[sumCol("id_transazione_ade")]).toBe("");
   });
 
   it("emette il codice lotteria quando presente", () => {
-    expect(formatReceiptRow(doc({ lotteryCode: "ABCDEFGH" }), 0, "")[7]).toBe(
-      "ABCDEFGH",
-    );
+    expect(
+      formatReceiptRow(doc({ lotteryCode: "ABCDEFGH" }), 0, "")[
+        sumCol("codice_lotteria")
+      ],
+    ).toBe("ABCDEFGH");
   });
 
   // `data_annullo` sostituisce il vecchio `id_documento_annullato`: dice
@@ -279,18 +297,41 @@ describe("formatReceiptRow", () => {
       0,
       "",
     );
-    expect(row[3]).toBe("annullato");
-    expect(row[8]).toBe("20/05/2026");
+    expect(row[sumCol("stato")]).toBe("annullato");
+    expect(row[sumCol("data_annullo")]).toBe("20/05/2026");
   });
 
   it("lascia data_annullo vuota sui documenti non annullati", () => {
-    expect(formatReceiptRow(doc({ status: "ACCEPTED" }), 0, "")[8]).toBe("");
+    expect(
+      formatReceiptRow(doc({ status: "ACCEPTED" }), 0, "")[
+        sumCol("data_annullo")
+      ],
+    ).toBe("");
+  });
+
+  it("affianca sconto a pagare e incassato al totale", () => {
+    // `totale` e' il corrispettivo e resta pieno; `incassato` e' quello che e'
+    // entrato in cassa. Con un abbuono divergono di proposito (HAR.md #3b).
+    const row = formatReceiptRow(
+      doc({ publicRequest: { paymentMethod: "PC", globalDiscount: 0.4 } }),
+      1.9,
+      "",
+    );
+    expect(row[sumCol("totale")]).toBe("1,90");
+    expect(row[sumCol("sconto_a_pagare")]).toBe("0,40");
+    expect(row[sumCol("incassato")]).toBe("1,50");
+  });
+
+  it("su uno scontrino senza abbuono incassato coincide col totale", () => {
+    const row = formatReceiptRow(doc(), 1.9, "");
+    expect(row[sumCol("sconto_a_pagare")]).toBe("0,00");
+    expect(row[sumCol("incassato")]).toBe("1,90");
   });
 
   it("tiene gli identificativi tecnici nelle ultime due colonne", () => {
     const row = formatReceiptRow(doc(), 0, "");
-    expect(row[9]).toBe("doc-1");
-    expect(row[10]).toBe("tx-12345");
+    expect(row[sumCol("id_scontrino")]).toBe("doc-1");
+    expect(row[sumCol("id_transazione_ade")]).toBe("tx-12345");
   });
 });
 
@@ -596,8 +637,8 @@ describe("buildReceiptsCsvStream", () => {
     expect(lines[1]).toContain("d1");
     expect(lines[2]).toContain("d2");
     // Le righe articolo del documento collassano nella colonna `descrizione`.
-    expect(lines[1].split(";")[6]).toBe("Caffè");
-    expect(lines[2].split(";")[6]).toBe("Cornetto");
+    expect(lines[1].split(";")[sumCol("descrizione")]).toBe("Caffè");
+    expect(lines[2].split(";")[sumCol("descrizione")]).toBe("Cornetto");
   });
 
   // La descrizione e' testo libero dell'utente: e' l'unica colonna in cui
@@ -829,7 +870,7 @@ describe("buildReceiptsCsvStream — paginazione con ade_registered_at duplicati
 
     const rows = body.split("\r\n").filter(Boolean).slice(1); // scarta l'header
     // `id_scontrino` e' la decima colonna (gli id tecnici stanno in fondo).
-    const ids = rows.map((r) => r.split(";")[9]);
+    const ids = rows.map((r) => r.split(";")[sumCol("id_scontrino")]);
 
     expect(rows).toHaveLength(1200);
     expect(new Set(ids).size).toBe(1200);

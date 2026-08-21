@@ -104,6 +104,16 @@ export interface SaleDocumentPdfData extends CommonDocumentPdfData {
   /** Codice Lotteria degli Scontrini (8 char, solo PE) */
   lotteryCode?: string | null;
   /**
+   * Sconto a pagare in **centesimi interi** (`scontoAbbuono` AdE).
+   *
+   * Non riduce il corrispettivo (`HAR.md` voce #3b): `TOTALE COMPLESSIVO` e
+   * `di cui IVA` restano pieni, scende solo l'incassato. Assente/0 = nessun
+   * abbuono e nessuna riga stampata (voce #17c).
+   *
+   * Come `paymentMethod`, non esiste sull'annullo: un annullo non incassa.
+   */
+  globalDiscountCents?: number;
+  /**
    * Messaggio di cortesia dell'esercente (feature Pro), stampato in coda dove
    * il layout standard AdE scrive "Arrivederci e Grazie!". Arriva gia' risolto
    * dal gate di piano (`resolveReceiptFooterNote`): qui `null` significa solo
@@ -405,9 +415,17 @@ function drawTotals(doc: Doc, cur: Cursor, totals: ReceiptTotals): void {
 }
 
 /**
- * Blocco pagamenti. `Importo pagato` va sempre indicato (prescrizioni
- * generali AdE); la riga della modalità sparisce se vale zero, come le altre
- * voci di pagamento a zero.
+ * Blocco pagamenti, nell'ordine del layout normativo AdE (`HAR.md` voce #17b):
+ * modalità di pagamento, `Sconto a pagare`, `Importo pagato`.
+ *
+ * `Importo pagato` va sempre indicato (prescrizioni generali, voce #17c); la
+ * riga della modalità e quella dell'abbuono spariscono se valgono zero, come
+ * le altre voci di pagamento a zero.
+ *
+ * ⚠️ Sia la modalità sia `Importo pagato` portano l'**incassato** — il totale
+ * meno lo sconto a pagare — mentre `TOTALE COMPLESSIVO` più su resta pieno
+ * (voce #3b). Nel campione ufficiale è questa differenza a far quadrare
+ * `Importo pagato + non riscosso + sconto a pagare = TOTALE COMPLESSIVO`.
  */
 function drawPayment(
   doc: Doc,
@@ -415,11 +433,20 @@ function drawPayment(
   data: SaleDocumentPdfData,
   totals: ReceiptTotals,
 ): void {
-  if (totals.grandTotal !== 0) {
+  // Aritmetica in centesimi interi (regola 17): `19.00 - 2.50` in float non è
+  // esattamente `16.50` su tutti gli importi, e il PDF stamperebbe un
+  // incassato che non quadra con la termica dello stesso documento.
+  const discountCents = data.globalDiscountCents ?? 0;
+  const collected = (Math.round(totals.grandTotal * 100) - discountCents) / 100;
+
+  if (collected !== 0) {
     const label = PAYMENT_LABELS[data.paymentMethod] ?? data.paymentMethod;
-    drawAmountRow(doc, cur, label, totals.grandTotal);
+    drawAmountRow(doc, cur, label, collected);
   }
-  drawAmountRow(doc, cur, "Importo pagato", totals.grandTotal);
+  if (discountCents > 0) {
+    drawAmountRow(doc, cur, "Sconto a pagare", discountCents / 100);
+  }
+  drawAmountRow(doc, cur, "Importo pagato", collected);
   drawSeparator(doc, cur);
 }
 

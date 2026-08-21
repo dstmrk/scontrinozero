@@ -72,3 +72,38 @@ describe("hashSaleRequest", () => {
     expect(hashSaleRequest(BASE)).toMatch(/^[0-9a-f]{64}$/);
   });
 });
+
+describe("hashSaleRequest — sconto a pagare", () => {
+  const base = {
+    lines: [
+      {
+        id: "1",
+        description: "Caffè",
+        quantity: 1,
+        grossUnitPrice: 1.9,
+        vatCode: "10" as const,
+      },
+    ],
+    paymentMethod: "PC" as const,
+    lotteryCode: null,
+  };
+
+  it("non cambia l'hash degli scontrini senza abbuono", () => {
+    // Gli hash già persistiti sono immutabili: un documento senza sconto deve
+    // produrre lo stesso fingerprint di prima che il campo esistesse,
+    // altrimenti il retry di un PENDING pre-deploy fallisce come mismatch.
+    expect(hashSaleRequest({ ...base, globalDiscount: 0 })).toBe(
+      hashSaleRequest(base),
+    );
+    expect(hashSaleRequest({ ...base, globalDiscount: undefined })).toBe(
+      hashSaleRequest(base),
+    );
+  });
+
+  it("fa divergere l'hash quando l'abbuono cambia", () => {
+    const a = hashSaleRequest({ ...base, globalDiscount: 0.4 });
+    const b = hashSaleRequest({ ...base, globalDiscount: 0.5 });
+    expect(a).not.toBe(hashSaleRequest(base));
+    expect(a).not.toBe(b);
+  });
+});

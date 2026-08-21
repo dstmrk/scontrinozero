@@ -113,6 +113,7 @@ export function VoidReceiptDialog({
       kind: "SALE",
       paymentMethod: receipt.paymentMethod,
       lotteryCode: receipt.lotteryCode,
+      globalDiscountCents: receipt.globalDiscountCents,
       footerNote: printProfile.footerNote,
       adeRegisteredAt: new Date(receipt.adeRegisteredAt),
       adeProgressive: receipt.adeProgressive,

@@ -1341,6 +1341,57 @@ describe("emitReceiptForBusiness", () => {
     );
   });
 
+  it("sconto a pagare: versa nel pagamento l'INCASSATO, non il corrispettivo", async () => {
+    // Quadratura AdE (HAR.md voce #5):
+    // `Σ vendita[].importo + scontoAbbuono = ammontareComplessivo`.
+    // Il documento vale 20,00 (2 × 10,00) e resta di 20,00 — l'abbuono non
+    // riduce il corrispettivo (voce #3b) — ma nello slot di pagamento va
+    // 19,60, altrimenti il portale rifiuta l'invio per sbilancio.
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness({ ...VALID_INPUT, globalDiscount: 0.4 });
+
+    expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        globalDiscount: 0.4,
+        payments: [expect.objectContaining({ type: "CASH", amount: 19.6 })],
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("sconto a pagare: sottrae in centesimi interi, non in float (regola 17)", async () => {
+    // `19.99 - 0.1` in float è 19.889999999999997: trasmesso così, l'importo
+    // non quadra col corrispettivo e l'invio salta su un documento fiscale.
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness({
+      ...VALID_INPUT,
+      lines: [{ ...VALID_INPUT.lines[0], quantity: 1, grossUnitPrice: 19.99 }],
+      globalDiscount: 0.1,
+    });
+
+    expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payments: [expect.objectContaining({ amount: 19.89 })],
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("senza sconto a pagare il payload resta identico a prima", async () => {
+    // Regressione: `globalDiscount` assente deve produrre `0` e il pagamento
+    // pieno, così nessuno scontrino senza abbuono cambia comportamento.
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        globalDiscount: 0,
+        payments: [expect.objectContaining({ amount: 20 })],
+      }),
+      expect.anything(),
+    );
+  });
+
   it("chiama logout anche se submitSale lancia un errore", async () => {
     mockSubmitSale.mockRejectedValue(new Error("network error"));
 

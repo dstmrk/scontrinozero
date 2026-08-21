@@ -75,6 +75,7 @@ const ACCEPTED_RECEIPT: ReceiptListItem = {
   voidDocument: null,
   paymentMethod: "PC",
   lotteryCode: null,
+  globalDiscountCents: 0,
   total: "12.00",
   lines: [
     {

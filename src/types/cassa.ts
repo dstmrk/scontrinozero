@@ -119,6 +119,14 @@ export type SubmitReceiptInput = {
   idempotencyKey: string; // uuid generato client-side, per idempotenza
   /** Codice Lotteria degli Scontrini (8 char [A-Z0-9], solo con pagamento PE) */
   lotteryCode?: string | null;
+  /**
+   * Sconto a pagare in euro (`scontoAbbuono` AdE) — feature Pro.
+   *
+   * ⚠️ NON è uno sconto sul corrispettivo (HAR.md voce #3b): il totale del
+   * documento e l'IVA restano pieni, si riduce solo l'incassato. Assente o 0
+   * = nessun abbuono.
+   */
+  globalDiscount?: number;
 };
 
 /**

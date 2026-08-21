@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { refineGlobalDiscount } from "@/lib/receipts/global-discount-schema";
 import { refineLotteryCode } from "@/lib/receipts/lottery-code-schema";
 
 /**
@@ -46,6 +47,42 @@ export const paymentMethodSchema = z.enum(["PC", "PE"]);
 export const idempotencyKeySchema = z.string().uuid();
 // Format-validated solo quando paymentMethod === "PE" — vedi refineLotteryCode.
 export const lotteryCodeSchema = z.string().nullable().optional();
+/**
+ * Sconto a pagare (`scontoAbbuono` AdE, HAR.md voce #3b) in euro, 2 decimali.
+ *
+ * Assente = nessun abbuono. Il tetto rispetto al totale delle righe NON sta
+ * qui — dipende dalle righe, quindi vive in `refineGlobalDiscount` a livello
+ * di corpo. Il `max` è solo la guardia di dominio, allineata a
+ * `grossUnitPrice`.
+ */
+export const globalDiscountSchema = z
+  .number()
+  .nonnegative()
+  .max(999_999.99)
+  .refine((v) => Number.parseFloat(v.toFixed(2)) === v, "max 2 decimali")
+  .optional();
+
+/**
+ * Vincoli che guardano il corpo intero, non un campo solo: il codice lotteria
+ * dipende dal metodo di pagamento, lo sconto a pagare dal totale delle righe.
+ *
+ * Stanno insieme in un solo `superRefine` perché Zod ne applica uno per
+ * schema: incatenarne due significherebbe che il secondo non gira quando il
+ * primo fallisce, e l'esercente vedrebbe un errore alla volta su un form che
+ * li mostra entrambi.
+ */
+export function refineSaleBody(
+  data: {
+    lines: ReadonlyArray<{ grossUnitPrice: number; quantity: number }>;
+    paymentMethod: "PC" | "PE";
+    lotteryCode?: string | null;
+    globalDiscount?: number;
+  },
+  ctx: z.RefinementCtx,
+): void {
+  refineLotteryCode(data, ctx);
+  refineGlobalDiscount(data, ctx);
+}
 
 /**
  * Corpo SALE usato **direttamente** da `POST /api/v1/receipts`.
@@ -60,5 +97,6 @@ export const saleBodySchema = z
     paymentMethod: paymentMethodSchema,
     idempotencyKey: idempotencyKeySchema,
     lotteryCode: lotteryCodeSchema,
+    globalDiscount: globalDiscountSchema,
   })
-  .superRefine(refineLotteryCode);
+  .superRefine(refineSaleBody);

@@ -414,6 +414,50 @@ describe("buildReceiptCommands — layout AdE", () => {
     expect(iPaid).toBe(iPay + 1);
   });
 
+  it("stampa lo sconto a pagare fra la modalità e `Importo pagato`", () => {
+    // Layout normativo AdE (HAR.md voce #17b): `Sconto a pagare` è l'ultima
+    // voce del blocco pagamenti, subito prima di `Importo pagato`.
+    const rows = printedLines(
+      buildReceiptCommands(
+        makeReceipt(SIMPLE_LINES, { globalDiscountCents: 40 }),
+        OPTS,
+      ),
+    );
+    const iPay = rowIndexOf(rows, "Pagamento contante");
+    const iDiscount = rowIndexOf(rows, "Sconto a pagare");
+    const iPaid = rowIndexOf(rows, "Importo pagato");
+    expect(iDiscount).toBe(iPay + 1);
+    expect(iPaid).toBe(iDiscount + 1);
+  });
+
+  it("scala l'abbuono da `Importo pagato` e dalla modalità, non dal totale", () => {
+    // HAR.md voce #3b: lo sconto a pagare NON riduce il corrispettivo. Il
+    // totale complessivo resta pieno, l'incassato scende. Voce #17b: nel
+    // campione ufficiale `Importo pagato` esclude l'abbuono.
+    const rows = printedLines(
+      buildReceiptCommands(
+        makeReceipt(SIMPLE_LINES, { globalDiscountCents: 40 }),
+        OPTS,
+      ),
+    );
+    // SIMPLE_LINES vale 3,90 (2 x 1,20 + 1,50): totale pieno, incassato 3,50.
+    expect(rows.find((r) => r.includes("TOTALE COMPLESSIVO"))).toContain(
+      "3,90",
+    );
+    expect(rows.find((r) => r.includes("Pagamento contante"))).toContain(
+      "3,50",
+    );
+    expect(rows.find((r) => r.includes("Sconto a pagare"))).toContain("0,40");
+    expect(rows.find((r) => r.includes("Importo pagato"))).toContain("3,50");
+  });
+
+  it("omette la riga sconto a pagare quando l'abbuono è zero", () => {
+    // Prescrizione risparmio carta (voce #17c): niente voci di pagamento a
+    // zero. Vale per i documenti storici, che non hanno affatto il campo.
+    const text = decode(buildReceiptCommands(makeReceipt(SIMPLE_LINES), OPTS));
+    expect(text).not.toContain("Sconto a pagare");
+  });
+
   it("a totale zero omette la modalità ma tiene `Importo pagato`", () => {
     const free: PrintableReceiptLine[] = [
       {
