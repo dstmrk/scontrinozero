@@ -35,6 +35,15 @@ export const saleLineSchema = z.object({
     .nonnegative()
     .max(999_999.99)
     .refine((v) => Number.parseFloat(v.toFixed(2)) === v, "max 2 decimali"),
+  // Sconto DELLA riga (non per unità), lordo — colonna DB numeric(10,2).
+  // Il tetto rispetto al totale di riga non sta qui: dipende da altri due
+  // campi dello stesso oggetto e vive in `refineSaleLineDiscount`.
+  lineDiscount: z
+    .number()
+    .nonnegative()
+    .max(999_999.99)
+    .refine((v) => Number.parseFloat(v.toFixed(2)) === v, "max 2 decimali")
+    .optional(),
   vatCode: z.enum(["4", "5", "10", "22", "N1", "N2", "N3", "N4", "N5", "N6"]),
 });
 
@@ -73,7 +82,11 @@ export const globalDiscountSchema = z
  */
 export function refineSaleBody(
   data: {
-    lines: ReadonlyArray<{ grossUnitPrice: number; quantity: number }>;
+    lines: ReadonlyArray<{
+      grossUnitPrice: number;
+      quantity: number;
+      lineDiscount?: number;
+    }>;
     paymentMethod: "PC" | "PE";
     lotteryCode?: string | null;
     globalDiscount?: number;
@@ -81,7 +94,51 @@ export function refineSaleBody(
   ctx: z.RefinementCtx,
 ): void {
   refineLotteryCode(data, ctx);
+  refineSaleLineDiscounts(data, ctx);
   refineGlobalDiscount(data, ctx);
+}
+
+/**
+ * Ogni sconto di riga deve stare dentro il totale lordo della sua riga.
+ *
+ * Vive qui e non su `saleLineSchema` perché guarda tre campi insieme
+ * (`grossUnitPrice`, `quantity`, `lineDiscount`), e perché il messaggio può
+ * dire QUALE riga è sbagliata — su un carrello di venti voci è la differenza
+ * fra un errore azionabile e uno da indovinare.
+ *
+ * Confronto in centesimi interi (regola 17): sui lordi float una riga da
+ * `0.1 × 3` scontata di `0.30` verrebbe rifiutata per drift.
+ *
+ * Sconto **pari** al totale di riga è ammesso — è una riga a prezzo zero, che
+ * l'AdE accetta (`totale` `0.00000000`, oracolo in `mapper.test.ts`) e che
+ * resta distinta da un omaggio, il quale non concorre affatto al totale del
+ * documento (`HAR.md` voce #7) e non è ancora supportato.
+ */
+function refineSaleLineDiscounts(
+  data: {
+    lines: ReadonlyArray<{
+      grossUnitPrice: number;
+      quantity: number;
+      lineDiscount?: number;
+    }>;
+  },
+  ctx: z.RefinementCtx,
+): void {
+  data.lines.forEach((line, index) => {
+    const discount = line.lineDiscount ?? 0;
+    if (discount === 0) return;
+
+    const lineGrossCents = Math.round(
+      line.grossUnitPrice * line.quantity * 100,
+    );
+    if (Math.round(discount * 100) > lineGrossCents) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["lines", index, "lineDiscount"],
+        message: `Lo sconto della riga ${index + 1} supera il totale della riga.`,
+      });
+    }
+  });
 }
 
 /**

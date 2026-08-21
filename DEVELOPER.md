@@ -145,6 +145,7 @@ curl -X POST https://api.scontrinozero.it/v1/receipts \
         "description": "Pizza Margherita",
         "quantity": 2,
         "grossUnitPrice": 8.00,
+        "lineDiscount": 1.50,
         "vatCode": "10"
       }
     ],
@@ -155,6 +156,15 @@ curl -X POST https://api.scontrinozero.it/v1/receipts \
   }'
 ```
 
+> **`lineDiscount` — sconto di riga (piano Pro).** Opzionale, in euro, max 2
+> decimali. È lo sconto **dell'intera riga**, già comprensivo della quantità:
+> su `quantity: 2` a `8.00` uno sconto di `1.50` porta la riga a `14.50`, non
+> a `13.00`. Non è uno sconto per pezzo.
+> **Riduce la base imponibile e quindi l'IVA dovuta**, e abbassa `total`: è la
+> differenza fiscale con `globalDiscount`. Deve stare dentro il totale lordo
+> della sua riga (`grossUnitPrice × quantity`), altrimenti `VALIDATION_ERROR`
+> indica quale riga.
+>
 > **`globalDiscount` — sconto a pagare (piano Pro).** Opzionale, in euro, max 2
 > decimali. **Non riduce il corrispettivo**: il documento resta di importo
 > pieno e l'IVA si versa piena; scende solo quanto il cliente paga
@@ -205,6 +215,7 @@ curl https://api.scontrinozero.it/v1/receipts/550e8400-e29b-41d4-a716-4466554400
       "description": "Pizza Margherita",
       "quantity": "2.000",
       "grossUnitPrice": "8.00",
+      "lineDiscount": "1.50",
       "vatCode": "10"
     }
   ]
@@ -215,7 +226,8 @@ curl https://api.scontrinozero.it/v1/receipts/550e8400-e29b-41d4-a716-4466554400
 > `paymentMethod` vale `"PC"` (contante: denaro, assegni bancari e circolari) oppure `"PE"` (elettronico: carte, bancomat, app di pagamento, bonifici). Un solo metodo per documento — il pagamento ripartito non è supportato.
 > `lotteryCode` è `null` se non fornito o se il metodo di pagamento è `"PC"` (contanti). Lo sconto a pagare **non** lo squalifica: non è un mezzo di pagamento.
 > `globalDiscount` è lo sconto a pagare applicato, stringa a 2 decimali, `"0.00"` quando assente. `total` resta il corrispettivo pieno: l'incassato è `total − globalDiscount`.
-> `quantity` e `grossUnitPrice` sono stringhe con precisione fissa (3 e 2 decimali rispettivamente).
+> `quantity`, `grossUnitPrice` e `lineDiscount` sono stringhe con precisione fissa (3, 2 e 2 decimali rispettivamente). `lineDiscount` vale `"0.00"` sulle righe senza sconto e su tutte quelle emesse prima della v1.7.4.
+> I due sconti non si sovrappongono: `total` è già al netto degli sconti di riga, mentre `globalDiscount` si sottrae a `total` per ottenere l'incassato.
 
 **Risposta annullo (200) — `POST /v1/receipts/{id}/void`:**
 

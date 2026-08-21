@@ -141,15 +141,27 @@ function printLineItems(
   const { perLine } = computeReceiptTotals(receipt.lines);
 
   receipt.lines.forEach((line, index) => {
+    const calc = perLine[index];
     const rows: string[][] = [
       [
         sanitizeThermalText(line.description),
         receiptVatLabel(line.vatCode),
-        formatReceiptPrice(perLine[index].lineTotal),
+        // Layout normativo AdE (`HAR.md` voce #17a): con uno sconto di riga
+        // qui va il prezzo PIENO, e lo sconto scende su una riga propria.
+        formatReceiptPrice(calc.discount > 0 ? calc.lineGross : calc.lineTotal),
       ],
     ];
     const note = quantityNote(line);
     if (note) rows.push([note, "", ""]);
+    if (calc.discount > 0) {
+      // Stessa aliquota dell'articolo: su un documento multi-aliquota e'
+      // l'unica cosa che dice da quale imponibile lo sconto e' stato tolto.
+      rows.push([
+        "Sconto",
+        receiptVatLabel(line.vatCode),
+        `-${formatReceiptPrice(calc.discount)}`,
+      ]);
+    }
     encoder.table(itemColumns, rows);
   });
 

@@ -47,6 +47,32 @@ describe("discountGateError", () => {
     ).toBe(DISCOUNTS_PRO_MESSAGE);
   });
 
+  it("blocca anche lo sconto di riga su un piano senza Pro", () => {
+    expect(discountGateError(STARTER, { lines: [{ lineDiscount: 2 }] })).toBe(
+      DISCOUNTS_PRO_MESSAGE,
+    );
+  });
+
+  it("lascia passare lo sconto di riga su un piano Pro", () => {
+    expect(discountGateError(PRO, { lines: [{ lineDiscount: 2 }] })).toBeNull();
+  });
+
+  it("ignora le righe senza sconto", () => {
+    expect(
+      discountGateError(STARTER, {
+        lines: [{ lineDiscount: 0 }, {}],
+      }),
+    ).toBeNull();
+  });
+
+  it("blocca se anche una sola riga di molte è scontata", () => {
+    expect(
+      discountGateError(STARTER, {
+        lines: [{}, { lineDiscount: 0 }, { lineDiscount: 0.5 }],
+      }),
+    ).toBe(DISCOUNTS_PRO_MESSAGE);
+  });
+
   it("non blocca mai per un errore di piano quando lo sconto è assente", () => {
     // Un piano scaduto che NON sconta emette normalmente: il gate riguarda la
     // feature, non l'emissione — quella la governa `canEmit`.

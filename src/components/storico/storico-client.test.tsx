@@ -79,6 +79,7 @@ const ACCEPTED_ROW: ReceiptListItem = {
       description: "Caffè",
       quantity: "2",
       grossUnitPrice: "6.00",
+      lineDiscount: "0",
       vatCode: "22",
     },
   ],

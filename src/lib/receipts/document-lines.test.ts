@@ -52,6 +52,7 @@ const LINE_A1 = {
   description: "Prodotto A",
   quantity: "2.000",
   grossUnitPrice: "10.00",
+  lineDiscount: "0",
   vatCode: "22",
 };
 
@@ -62,6 +63,7 @@ const LINE_A2 = {
   description: "Prodotto B",
   quantity: "1.000",
   grossUnitPrice: "5.50",
+  lineDiscount: "0",
   vatCode: "10",
 };
 
@@ -72,6 +74,7 @@ const LINE_B1 = {
   description: "Servizio X",
   quantity: "3.000",
   grossUnitPrice: "8.00",
+  lineDiscount: "0",
   vatCode: "22",
 };
 
@@ -319,6 +322,7 @@ describe("computeReceiptTotals", () => {
         ...LINE_A1,
         quantity: "1.000",
         grossUnitPrice: "100.00",
+        lineDiscount: "0",
         vatCode: "22",
       },
     ]);

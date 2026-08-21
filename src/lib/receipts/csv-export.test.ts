@@ -430,6 +430,7 @@ describe("formatReceiptLineRows", () => {
       description: "Caffè",
       quantity: "2.000",
       grossUnitPrice: "1.20",
+      lineDiscount: "0",
       vatCode: "22",
     },
     {
@@ -439,6 +440,7 @@ describe("formatReceiptLineRows", () => {
       description: "Cornetto",
       quantity: "1.000",
       grossUnitPrice: "1.50",
+      lineDiscount: "0",
       vatCode: "10",
     },
   ];
@@ -545,6 +547,7 @@ describe("buildReceiptLinesCsvStream", () => {
         description: "Caffè",
         quantity: "2.000",
         grossUnitPrice: "1.20",
+        lineDiscount: "0",
         vatCode: "22",
       },
       {
@@ -553,6 +556,7 @@ describe("buildReceiptLinesCsvStream", () => {
         description: "Cornetto",
         quantity: "1.000",
         grossUnitPrice: "1.50",
+        lineDiscount: "0",
         vatCode: "10",
       },
     ];

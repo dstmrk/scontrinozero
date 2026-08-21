@@ -239,6 +239,13 @@
       "when": 1788067200000,
       "tag": "0033_businesses_receipt_footer_note",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1788153600000,
+      "tag": "0034_commercial_document_lines_line_discount",
+      "breakpoints": true
     }
   ]
 }

@@ -19,6 +19,7 @@ export interface DiscountPlanContext {
 /** I campi sconto di una richiesta di emissione, tutti opzionali. */
 export interface DiscountFields {
   readonly globalDiscount?: number;
+  readonly lines?: ReadonlyArray<{ readonly lineDiscount?: number }>;
 }
 
 /**
@@ -43,7 +44,12 @@ export function discountGateError(
   planContext: DiscountPlanContext,
   fields: DiscountFields,
 ): string | null {
-  const hasDiscount = (fields.globalDiscount ?? 0) > 0;
+  // Un gate solo per i due sconti: sono una capability sola per il piano, e
+  // due gate separati direbbero all'esercente che sono due cose scollegate
+  // proprio dove conta di piu' che capisca che sono due cose DIVERSE.
+  const hasDiscount =
+    (fields.globalDiscount ?? 0) > 0 ||
+    (fields.lines ?? []).some((line) => (line.lineDiscount ?? 0) > 0);
   if (!hasDiscount) return null;
 
   return canUsePro(

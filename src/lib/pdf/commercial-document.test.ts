@@ -338,6 +338,64 @@ describe("layout AdE — totali", () => {
   });
 });
 
+describe("layout AdE — sconto di riga (HAR.md voce #17a)", () => {
+  const discounted = {
+    ...BASE_DATA,
+    lines: [
+      {
+        description: "Maglione",
+        quantity: 1,
+        grossUnitPrice: 160.65,
+        lineDiscount: 10.65,
+        vatCode: "22",
+      },
+      {
+        description: "Sciarpa",
+        quantity: 1,
+        grossUnitPrice: 100.01,
+        vatCode: "N4",
+      },
+    ],
+  };
+
+  it("stampa lo sconto su una riga propria sotto l'articolo", async () => {
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf(discounted),
+    );
+    const iItem = runs.indexOf("Maglione");
+    const iDiscount = runs.indexOf("Sconto");
+    expect(iDiscount).toBeGreaterThan(iItem);
+    // Riga articolo: prezzo PIENO. Riga sconto: importo negativo.
+    expect(runs).toContain("160,65");
+    expect(runs).toContain("-10,65");
+  });
+
+  it("ripete l'aliquota dell'articolo sulla riga sconto", async () => {
+    // Su un documento multi-aliquota è l'unica cosa che dice da quale
+    // imponibile lo sconto è stato tolto (HAR.md voce #3a).
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf(discounted),
+    );
+    const iDiscount = runs.indexOf("Sconto");
+    expect(runs[iDiscount + 1]).toBe("22%");
+  });
+
+  it("porta il subtotale al netto degli sconti di riga", async () => {
+    // 160,65 − 10,65 + 100,01 = 250,01: lo sconto di riga riduce il
+    // corrispettivo, a differenza dello sconto a pagare.
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf(discounted),
+    );
+    const iTotal = runs.indexOf("TOTALE COMPLESSIVO");
+    expect(runs[iTotal + 1]).toBe("250,01");
+  });
+
+  it("non stampa nessuna riga sconto su un documento senza sconti", async () => {
+    const text = extractPdfText(await generateCommercialDocumentPdf(BASE_DATA));
+    expect(text).not.toContain("Sconto");
+  });
+});
+
 describe("layout AdE — pagamento", () => {
   it("stampa la modalità di pagamento con la dicitura AdE e sempre `Importo pagato`", async () => {
     const runs = extractPdfTextRuns(

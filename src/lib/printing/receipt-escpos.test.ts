@@ -414,6 +414,58 @@ describe("buildReceiptCommands — layout AdE", () => {
     expect(iPaid).toBe(iPay + 1);
   });
 
+  it("stampa lo sconto di riga su una riga propria, con la stessa aliquota", () => {
+    // Layout normativo AdE (HAR.md voce #17a): riga articolo col prezzo
+    // pieno, riga `Sconto` sotto con aliquota ripetuta e importo negativo.
+    const rows = printedLines(
+      buildReceiptCommands(
+        makeReceipt([
+          {
+            description: "Maglione",
+            quantity: "1",
+            grossUnitPrice: "160.65",
+            lineDiscount: "10.65",
+            vatCode: "22",
+          },
+        ]),
+        OPTS,
+      ),
+    );
+    const iItem = rowIndexOf(rows, "Maglione");
+    const iDiscount = rowIndexOf(rows, "Sconto");
+    expect(iDiscount).toBe(iItem + 1);
+    expect(rows[iItem]).toContain("160,65");
+    expect(rows[iDiscount]).toContain("-10,65");
+    expect(rows[iDiscount]).toContain("22%");
+  });
+
+  it("lo sconto di riga riduce il totale complessivo", () => {
+    // A differenza dello sconto a pagare, lo sconto di riga abbassa il
+    // corrispettivo e con esso l'IVA dovuta (HAR.md voce #3a).
+    const rows = printedLines(
+      buildReceiptCommands(
+        makeReceipt([
+          {
+            description: "Maglione",
+            quantity: "1",
+            grossUnitPrice: "160.65",
+            lineDiscount: "10.65",
+            vatCode: "22",
+          },
+        ]),
+        OPTS,
+      ),
+    );
+    expect(rows.find((r) => r.includes("TOTALE COMPLESSIVO"))).toContain(
+      "150,00",
+    );
+  });
+
+  it("non stampa la riga sconto sugli scontrini senza sconti di riga", () => {
+    const text = decode(buildReceiptCommands(makeReceipt(SIMPLE_LINES), OPTS));
+    expect(text).not.toContain("Sconto");
+  });
+
   it("stampa lo sconto a pagare fra la modalità e `Importo pagato`", () => {
     // Layout normativo AdE (HAR.md voce #17b): `Sconto a pagare` è l'ultima
     // voce del blocco pagamenti, subito prima di `Importo pagato`.

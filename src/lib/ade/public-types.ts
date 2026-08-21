@@ -23,8 +23,16 @@ export type PaymentType =
 export interface SaleLineRequest {
   description: string;
   quantity: number;
+  /** Prezzo lordo UNITARIO (HAR.md voce #12). */
   unitPriceGross: number;
-  unitDiscount: number;
+  /**
+   * Sconto **della riga**, lordo — già comprensivo della quantità.
+   *
+   * È la grandezza nativa `scontoLordo` del tracciato AdE (HAR.md voce #12):
+   * su una riga da 2 pezzi a 3,00 con "sconto 1,00" qui va `1`, non `0.5`.
+   * Il mapper lo passa a `scontoLordo` senza moltiplicarlo.
+   */
+  lineDiscount: number;
   vatCode: string;
   isGift: boolean;
 }

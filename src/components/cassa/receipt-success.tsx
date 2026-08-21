@@ -77,6 +77,7 @@ export function ReceiptSuccess({
         description: line.description,
         quantity: String(line.quantity),
         grossUnitPrice: String(line.grossUnitPrice),
+        lineDiscount: String(line.lineDiscount ?? 0),
         vatCode: line.vatCode,
       })),
       paymentMethod,

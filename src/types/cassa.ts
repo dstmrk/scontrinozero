@@ -15,6 +15,15 @@ export interface CartLine {
   description: string;
   quantity: number;
   grossUnitPrice: number; // in euro, e.g. 12.50
+  /**
+   * Sconto **della riga** in euro, già comprensivo della quantità — feature
+   * Pro. Assente o 0 = nessuno sconto.
+   *
+   * ⚠️ Dato FISCALE: riduce la base imponibile e quindi l'IVA dovuta
+   * (`HAR.md` voce #3a). È la grandezza `scontoLordo` dell'AdE, non uno
+   * sconto per unità: su 3 pezzi da 40,00 scontati di 20,00 vale `20`.
+   */
+  lineDiscount?: number;
   vatCode: VatCode;
 }
 

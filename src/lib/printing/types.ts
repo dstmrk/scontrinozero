@@ -30,6 +30,11 @@ export interface PrintableReceiptLine {
   readonly description: string;
   readonly quantity: string;
   readonly grossUnitPrice: string;
+  /**
+   * Sconto della riga (`line_discount`), lordo e gia' comprensivo della
+   * quantita'. Assente/`null` = nessuna riga `Sconto` stampata.
+   */
+  readonly lineDiscount?: string | null;
   readonly vatCode: string;
 }
 

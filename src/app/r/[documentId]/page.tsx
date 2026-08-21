@@ -162,30 +162,51 @@ export default async function PublicReceiptPage({
             </div>
             <div className="space-y-2">
               {lines.map((line, idx) => {
-                const { qty, price, lineTotal } = totals.perLine[idx];
+                const { qty, price, lineGross, discount, lineTotal } =
+                  totals.perLine[idx];
                 const vatLabel = receiptVatLabel(line.vatCode);
                 return (
-                  <div key={line.id} className="flex items-start gap-1 text-sm">
-                    <div className="min-w-0 flex-1">
-                      {/* `break-words`: una descrizione senza spazi (es. un
-                          codice prenotazione lungo) sborderebbe dalla card e
-                          farebbe scrollare l'intera pagina in orizzontale. */}
-                      <p className="leading-tight font-medium break-words">
-                        {line.description}
-                      </p>
-                      {qty !== 1 && (
-                        <p className="text-xs text-gray-400">
-                          n.{qty % 1 === 0 ? Math.round(qty) : qty} *{" "}
-                          {formatReceiptPrice(price)}
+                  <div key={line.id}>
+                    <div className="flex items-start gap-1 text-sm">
+                      <div className="min-w-0 flex-1">
+                        {/* `break-words`: una descrizione senza spazi (es. un
+                            codice prenotazione lungo) sborderebbe dalla card e
+                            farebbe scrollare l'intera pagina in orizzontale. */}
+                        <p className="leading-tight font-medium break-words">
+                          {line.description}
                         </p>
-                      )}
+                        {qty !== 1 && (
+                          <p className="text-xs text-gray-400">
+                            n.{qty % 1 === 0 ? Math.round(qty) : qty} *{" "}
+                            {formatReceiptPrice(price)}
+                          </p>
+                        )}
+                      </div>
+                      <span className="w-10 flex-shrink-0 text-center text-xs text-gray-500">
+                        {vatLabel}
+                      </span>
+                      <span className="w-16 flex-shrink-0 text-right font-medium">
+                        {formatReceiptPrice(
+                          discount > 0 ? lineGross : lineTotal,
+                        )}
+                      </span>
                     </div>
-                    <span className="w-10 flex-shrink-0 text-center text-xs text-gray-500">
-                      {vatLabel}
-                    </span>
-                    <span className="w-16 flex-shrink-0 text-right font-medium">
-                      {formatReceiptPrice(lineTotal)}
-                    </span>
+                    {/* Sconto di riga: riga propria con la STESSA aliquota e
+                        importo negativo, come il layout normativo AdE
+                        (HAR.md voce #17a). L'aliquota ripetuta dice da quale
+                        imponibile lo sconto è stato tolto. */}
+                    {discount > 0 && (
+                      <div className="mt-0.5 flex items-start gap-1 text-sm">
+                        <p className="min-w-0 flex-1 text-gray-500">Sconto</p>
+                        <span className="w-10 flex-shrink-0 text-center text-xs text-gray-500">
+                          {vatLabel}
+                        </span>
+                        <span className="w-16 flex-shrink-0 text-right font-medium text-gray-500">
+                          {"-"}
+                          {formatReceiptPrice(discount)}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 );
               })}

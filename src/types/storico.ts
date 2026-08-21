@@ -9,6 +9,14 @@ export interface ReceiptLineItem {
   description: string;
   quantity: string;
   grossUnitPrice: string;
+  /**
+   * Sconto della riga (`line_discount`), lordo e già comprensivo della
+   * quantità. `"0"` sulle righe emesse prima della migrazione 0034.
+   *
+   * ⚠️ Riduce la base imponibile e quindi l'IVA (`HAR.md` voce #3a): `total`
+   * dello scontrino è già al netto di questi sconti.
+   */
+  lineDiscount: string;
   vatCode: string;
 }
 

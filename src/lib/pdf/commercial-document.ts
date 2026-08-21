@@ -59,6 +59,11 @@ export interface CommercialDocumentLine {
   description: string;
   quantity: number;
   grossUnitPrice: number;
+  /**
+   * Sconto della riga in euro, lordo e gia' comprensivo della quantita'.
+   * Assente/0 = nessuna riga `Sconto` stampata.
+   */
+  lineDiscount?: number;
   vatCode: string;
 }
 
@@ -353,27 +358,50 @@ function drawLineItems(
   });
   cur.y = doc.y + 2;
 
-  lines.forEach((line, index) => {
+  /** Una riga della griglia articoli: descrizione, aliquota, importo. */
+  const drawRow = (
+    description: string,
+    vatCode: string,
+    amount: string,
+  ): void => {
     const rowStartY = cur.y;
     doc.font("Helvetica").fontSize(6.5);
-    doc.text(renderLineDescription(line), MARGIN, rowStartY, {
+    doc.text(description, MARGIN, rowStartY, {
       width: COL_DESC,
       align: "left",
     });
     const afterDescY = doc.y;
 
-    doc.text(receiptVatLabel(line.vatCode), MARGIN + COL_DESC, rowStartY, {
+    doc.text(receiptVatLabel(vatCode), MARGIN + COL_DESC, rowStartY, {
       width: COL_VAT,
       align: "center",
     });
-    doc.text(
-      formatReceiptPrice(totals.perLine[index].lineTotal),
-      MARGIN + COL_DESC + COL_VAT,
-      rowStartY,
-      { width: COL_PRICE, align: "right" },
-    );
+    doc.text(amount, MARGIN + COL_DESC + COL_VAT, rowStartY, {
+      width: COL_PRICE,
+      align: "right",
+    });
 
     cur.y = Math.max(afterDescY, rowStartY + 10) + 2;
+  };
+
+  lines.forEach((line, index) => {
+    const calc = totals.perLine[index];
+
+    // Layout normativo AdE (`HAR.md` voce #17a): sulla riga dell'articolo va
+    // il prezzo PIENO, e lo sconto di riga scende su una riga propria sotto,
+    // con la STESSA aliquota e importo negativo. Ripetere l'aliquota non e'
+    // ridondanza: su un documento multi-aliquota e' l'unica cosa che dice da
+    // quale imponibile lo sconto e' stato tolto — cioe' l'informazione
+    // fiscale che lo sconto di riga porta con se' (voce #3a).
+    drawRow(
+      renderLineDescription(line),
+      line.vatCode,
+      formatReceiptPrice(calc.discount > 0 ? calc.lineGross : calc.lineTotal),
+    );
+
+    if (calc.discount > 0) {
+      drawRow("Sconto", line.vatCode, `-${formatReceiptPrice(calc.discount)}`);
+    }
   });
 
   drawSeparator(doc, cur);
@@ -584,6 +612,7 @@ export function generateCommercialDocumentPdf(
       data.lines.map((line) => ({
         quantity: String(line.quantity),
         grossUnitPrice: String(line.grossUnitPrice),
+        lineDiscount: String(line.lineDiscount ?? 0),
         vatCode: line.vatCode,
       })),
     );

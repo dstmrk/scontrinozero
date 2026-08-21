@@ -195,6 +195,10 @@ export async function emitReceiptForBusiness(
           description: line.description,
           quantity: String(line.quantity),
           grossUnitPrice: String(line.grossUnitPrice),
+          // Sconto di riga (migrazione 0034): dato fiscale, riduce la base
+          // imponibile. Persistito sempre, anche a zero, perche' la colonna e'
+          // NOT NULL e le superfici di lettura lo scorporano dal totale.
+          lineDiscount: String(line.lineDiscount ?? 0),
           vatCode: line.vatCode,
         })),
       );
@@ -779,7 +783,7 @@ async function submitSaleToAde(
       description: line.description,
       quantity: line.quantity,
       unitPriceGross: line.grossUnitPrice,
-      unitDiscount: 0,
+      lineDiscount: line.lineDiscount ?? 0,
       vatCode: line.vatCode,
       isGift: false,
     })),

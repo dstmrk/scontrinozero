@@ -99,7 +99,7 @@ describe("computeLineAmounts", () => {
       description: "Prodotto",
       quantity: 1,
       unitPriceGross: 12.2,
-      unitDiscount: 0,
+      lineDiscount: 0,
       vatCode: "22",
       isGift: false,
     };
@@ -122,7 +122,7 @@ describe("computeLineAmounts", () => {
       description: "Servizio esente",
       quantity: 1,
       unitPriceGross: 10,
-      unitDiscount: 0,
+      lineDiscount: 0,
       vatCode: "N2",
       isGift: false,
     };
@@ -141,7 +141,7 @@ describe("computeLineAmounts", () => {
       description: "Cappuccino",
       quantity: 3,
       unitPriceGross: 1.5,
-      unitDiscount: 0,
+      lineDiscount: 0,
       vatCode: "10",
       isGift: false,
     };
@@ -161,12 +161,12 @@ describe("computeLineAmounts", () => {
     expect(result.totale).toBe("4.50000000");
   });
 
-  it("computes amounts with unit discount", () => {
+  it("computes amounts with line discount", () => {
     const line: SaleLineRequest = {
       description: "Prodotto scontato",
       quantity: 2,
       unitPriceGross: 10,
-      unitDiscount: 2,
+      lineDiscount: 4,
       vatCode: "22",
       isGift: false,
     };
@@ -175,7 +175,7 @@ describe("computeLineAmounts", () => {
 
     // prezzoLordo = prezzo unitario (HAR.md voce #12)
     expect(result.prezzoLordo).toBe("10.00000000");
-    // scontoLordo = sconto DELLA RIGA = unitDiscount * quantity = 4.00
+    // scontoLordo = sconto DELLA RIGA, passato tale e quale = 4.00
     expect(result.scontoLordo).toBe("4.00000000");
     // scontoUnitario = scontoLordo / 1.22 (netto IVA, NON "per unita")
     expect(result.scontoUnitario).toBe("3.27868852");
@@ -192,7 +192,7 @@ describe("computeLineAmounts", () => {
       description: "Omaggio",
       quantity: 1,
       unitPriceGross: 5,
-      unitDiscount: 0,
+      lineDiscount: 0,
       vatCode: "22",
       isGift: true,
     };
@@ -206,7 +206,7 @@ describe("computeLineAmounts", () => {
       description: "Test",
       quantity: 1,
       unitPriceGross: 1,
-      unitDiscount: 0,
+      lineDiscount: 0,
       vatCode: "N1",
       isGift: false,
     };
@@ -225,7 +225,7 @@ describe("computeLineAmounts", () => {
       description: "Prosciutto (0,5 kg)",
       quantity: 0.5,
       unitPriceGross: 0.99,
-      unitDiscount: 0,
+      lineDiscount: 0,
       vatCode: "N2",
       isGift: false,
     };
@@ -360,7 +360,7 @@ describe("mapSaleToAdePayload", () => {
           description: "Cappuccino",
           quantity: 2,
           unitPriceGross: 1.5,
-          unitDiscount: 0,
+          lineDiscount: 0,
           vatCode: "10",
           isGift: false,
         },
@@ -400,7 +400,7 @@ describe("mapSaleToAdePayload", () => {
           description: "Test",
           quantity: 1,
           unitPriceGross: 10,
-          unitDiscount: 0,
+          lineDiscount: 0,
           vatCode: "N2",
           isGift: false,
         },
@@ -426,7 +426,7 @@ describe("mapSaleToAdePayload", () => {
           description: "Test",
           quantity: 1,
           unitPriceGross: 5,
-          unitDiscount: 0,
+          lineDiscount: 0,
           vatCode: "N2",
           isGift: false,
         },
@@ -450,7 +450,7 @@ describe("mapSaleToAdePayload", () => {
           description: "Pranzo",
           quantity: 1,
           unitPriceGross: 15,
-          unitDiscount: 0,
+          lineDiscount: 0,
           vatCode: "10",
           isGift: false,
         },
@@ -486,7 +486,7 @@ describe("mapSaleToAdePayload", () => {
           description: "Test",
           quantity: 1,
           unitPriceGross: 5,
-          unitDiscount: 0,
+          lineDiscount: 0,
           vatCode: "N2",
           isGift: false,
         },
@@ -520,7 +520,7 @@ describe("mapSaleToAdePayload", () => {
           description: "Prodotto A",
           quantity: 1,
           unitPriceGross: 10,
-          unitDiscount: 0,
+          lineDiscount: 0,
           vatCode: "N2",
           isGift: false,
         },
@@ -528,7 +528,7 @@ describe("mapSaleToAdePayload", () => {
           description: "Prodotto B",
           quantity: 1,
           unitPriceGross: 5,
-          unitDiscount: 0,
+          lineDiscount: 0,
           vatCode: "N2",
           isGift: false,
         },
@@ -562,7 +562,7 @@ describe("mapSaleToAdePayload", () => {
           description: "A",
           quantity: 0.5,
           unitPriceGross: 0.99,
-          unitDiscount: 0,
+          lineDiscount: 0,
           vatCode: "N2",
           isGift: false,
         },
@@ -570,7 +570,7 @@ describe("mapSaleToAdePayload", () => {
           description: "B",
           quantity: 0.5,
           unitPriceGross: 0.99,
-          unitDiscount: 0,
+          lineDiscount: 0,
           vatCode: "N2",
           isGift: false,
         },
@@ -617,7 +617,7 @@ describe("mapSaleToAdePayload", () => {
             description: "X",
             quantity: c.quantity,
             unitPriceGross: c.unitPriceGross,
-            unitDiscount: 0,
+            lineDiscount: 0,
             vatCode: "N2",
             isGift: false,
           },
@@ -775,7 +775,7 @@ describe("computeLineAmounts — oracoli HAR", () => {
       description: "Prova con sconto",
       quantity: 1,
       unitPriceGross: 1.0,
-      unitDiscount: 0.1,
+      lineDiscount: 0.1,
       vatCode: "10",
       isGift: false,
     };
@@ -805,7 +805,7 @@ describe("computeLineAmounts — oracoli HAR", () => {
       description: "Prova senza sconto",
       quantity: 1,
       unitPriceGross: 1.0,
-      unitDiscount: 0,
+      lineDiscount: 0,
       vatCode: "N2",
       isGift: false,
     };
@@ -832,12 +832,13 @@ describe("computeLineAmounts — oracoli HAR", () => {
   it("riproduce i 15 campi di HAR.md voce #12 (qta 2, IVA 22%, sconto di riga 1,00)", () => {
     // Il caso che disambigua: prezzoLordo vale 3,00 (unitario) e NON 6,00,
     // scontoUnitario vale 0.81967213 (= 1,00 / 1,22) e NON 1.63934426.
-    // Nel nostro DTO unitDiscount e' per unita: 0,50 x 2 = 1,00 di riga.
+    // Nel nostro DTO lo sconto e' gia' DI RIGA: 1,00, come lo manda il
+    // portale. Nessuna moltiplicazione per la quantita'.
     const line: SaleLineRequest = {
       description: "doppio",
       quantity: 2,
       unitPriceGross: 3.0,
-      unitDiscount: 0.5,
+      lineDiscount: 1.0,
       vatCode: "22",
       isGift: false,
     };
@@ -869,7 +870,7 @@ describe("computeLineAmounts — oracoli HAR", () => {
       description: "Sfuso (0,333 kg)",
       quantity: 0.333,
       unitPriceGross: 3.0,
-      unitDiscount: 0,
+      lineDiscount: 0,
       vatCode: "22",
       isGift: false,
     });
@@ -883,7 +884,7 @@ describe("computeLineAmounts — oracoli HAR", () => {
       description: "Tutto scontato",
       quantity: 2,
       unitPriceGross: 4.5,
-      unitDiscount: 4.5,
+      lineDiscount: 9.0,
       vatCode: "22",
       isGift: false,
     });
@@ -898,13 +899,13 @@ describe("computeLineAmounts — oracoli HAR", () => {
 
   it("mantiene l'invariante di riga imponibileNetto + importoIVA === totale", () => {
     for (const vatCode of ["4", "5", "10", "22", "N2"]) {
-      for (const unitDiscount of [0, 0.1, 0.5, 1.37]) {
+      for (const lineDiscount of [0, 0.1, 0.5, 1.37]) {
         for (const quantity of [1, 2, 7]) {
           const el = computeLineAmounts({
             description: "X",
             quantity,
             unitPriceGross: 3.99,
-            unitDiscount,
+            lineDiscount,
             vatCode,
             isGift: false,
           });
@@ -927,7 +928,7 @@ describe("mapSaleToAdePayload — oracoli HAR", () => {
         description: "Prova senza sconto",
         quantity: 1,
         unitPriceGross: 1.0,
-        unitDiscount: 0,
+        lineDiscount: 0,
         vatCode: "N2",
         isGift: false,
       },
@@ -935,7 +936,7 @@ describe("mapSaleToAdePayload — oracoli HAR", () => {
         description: "Prova con sconto",
         quantity: 1,
         unitPriceGross: 1.0,
-        unitDiscount: 0.1,
+        lineDiscount: 0.1,
         vatCode: "10",
         isGift: false,
       },
@@ -1015,7 +1016,7 @@ describe("mapSaleToAdePayload — oracoli HAR", () => {
           description: "Omaggio",
           quantity: 1,
           unitPriceGross: 5,
-          unitDiscount: 0,
+          lineDiscount: 0,
           vatCode: "22",
           isGift: true,
         },
@@ -1044,7 +1045,7 @@ describe("mapSaleToAdePayload — oracoli HAR", () => {
           description: "Venduto",
           quantity: 1,
           unitPriceGross: 1.7,
-          unitDiscount: 0,
+          lineDiscount: 0,
           vatCode: "N2",
           isGift: false,
         },
@@ -1052,7 +1053,7 @@ describe("mapSaleToAdePayload — oracoli HAR", () => {
           description: "Omaggio",
           quantity: 2,
           unitPriceGross: 1.0,
-          unitDiscount: 0,
+          lineDiscount: 0,
           vatCode: "N2",
           isGift: true,
         },

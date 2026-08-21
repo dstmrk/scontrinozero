@@ -100,3 +100,62 @@ describe("CartLineItem", () => {
     expect(screen.getByText(/15,00/)).toBeInTheDocument();
   });
 });
+
+describe("CartLineItem — sconto di riga", () => {
+  it("mostra lo sconto e il totale già al netto", () => {
+    render(
+      <CartLineItem
+        line={{
+          id: "1",
+          description: "Maglione",
+          quantity: 1,
+          grossUnitPrice: 160.65,
+          lineDiscount: 10.65,
+          vatCode: "22",
+        }}
+        onRemove={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/Sconto/)).toBeInTheDocument();
+    expect(screen.getByText(/10,65/)).toBeInTheDocument();
+    expect(screen.getByText(/150,00/)).toBeInTheDocument();
+  });
+
+  it("applica lo sconto alla riga, non a ogni pezzo", () => {
+    // 3 × 40,00 = 120,00 meno 20,00 di sconto DI RIGA = 100,00.
+    // Per unità sarebbe 120,00 − 60,00 = 60,00.
+    render(
+      <CartLineItem
+        line={{
+          id: "1",
+          description: "Magliette",
+          quantity: 3,
+          grossUnitPrice: 40,
+          lineDiscount: 20,
+          vatCode: "22",
+        }}
+        onRemove={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/100,00/)).toBeInTheDocument();
+  });
+
+  it("non mostra nulla senza sconto", () => {
+    render(
+      <CartLineItem
+        line={{
+          id: "1",
+          description: "Caffè",
+          quantity: 1,
+          grossUnitPrice: 1.2,
+          vatCode: "22",
+        }}
+        onRemove={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(/Sconto/)).not.toBeInTheDocument();
+  });
+});

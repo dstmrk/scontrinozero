@@ -12,7 +12,14 @@ interface CartLineItemProps {
 }
 
 export function CartLineItem({ line, onRemove, onEdit }: CartLineItemProps) {
-  const lineTotal = line.grossUnitPrice * line.quantity;
+  // Centesimi interi (regola 17): e' lo stesso canone di
+  // `calcInputLinesTotalCents`, quindi la somma delle righe mostrate qui
+  // coincide col totale del carrello e con quello trasmesso all'AdE.
+  const discount = line.lineDiscount ?? 0;
+  const lineTotal =
+    (Math.round(line.grossUnitPrice * line.quantity * 100) -
+      Math.round(discount * 100)) /
+    100;
 
   return (
     <div className="bg-card flex items-start gap-3 rounded-lg border p-3">
@@ -26,6 +33,11 @@ export function CartLineItem({ line, onRemove, onEdit }: CartLineItemProps) {
             {VAT_LABELS[line.vatCode]}
           </span>
         </div>
+        {discount > 0 && (
+          <p className="mt-0.5 text-sm text-emerald-700 tabular-nums dark:text-emerald-500">
+            Sconto −{formatCurrency(discount)}
+          </p>
+        )}
       </div>
 
       <div className="flex items-center gap-1">

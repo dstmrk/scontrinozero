@@ -1341,6 +1341,45 @@ describe("emitReceiptForBusiness", () => {
     );
   });
 
+  it("sconto di riga: lo passa al mapper come sconto DI RIGA e riduce il totale", async () => {
+    // Lo sconto di riga riduce il corrispettivo (HAR.md voce #3a), quindi
+    // scende anche l'importo del pagamento: 20,00 − 4,00 = 16,00.
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness({
+      ...VALID_INPUT,
+      lines: [{ ...VALID_INPUT.lines[0], lineDiscount: 4 }],
+    });
+
+    expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // Il DTO porta lo sconto DELLA riga, non per unità: la quantità è 2,
+        // e 4 resta 4 — non diventa 8.
+        lines: [expect.objectContaining({ lineDiscount: 4 })],
+        payments: [expect.objectContaining({ amount: 16 })],
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("sconto di riga e sconto a pagare insieme: si compongono senza sovrapporsi", async () => {
+    // Il primo abbassa il corrispettivo a 16,00, il secondo toglie 1,00 da
+    // ciò che si incassa: nel pagamento va 15,00.
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    await emitReceiptForBusiness({
+      ...VALID_INPUT,
+      lines: [{ ...VALID_INPUT.lines[0], lineDiscount: 4 }],
+      globalDiscount: 1,
+    });
+
+    expect(mockMapSaleToAdePayload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        globalDiscount: 1,
+        payments: [expect.objectContaining({ amount: 15 })],
+      }),
+      expect.anything(),
+    );
+  });
+
   it("sconto a pagare: versa nel pagamento l'INCASSATO, non il corrispettivo", async () => {
     // Quadratura AdE (HAR.md voce #5):
     // `Σ vendita[].importo + scontoAbbuono = ammontareComplessivo`.

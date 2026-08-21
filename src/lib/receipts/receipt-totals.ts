@@ -27,12 +27,35 @@ export interface ReceiptLineAmounts {
   readonly quantity: string | null;
   readonly grossUnitPrice: string | null;
   readonly vatCode: string;
+  /**
+   * Sconto di riga, lordo e già comprensivo della quantità — la grandezza
+   * `scontoLordo` del tracciato AdE (HAR.md voce #12), non uno sconto per
+   * unità. Colonna `line_discount` (migrazione 0034).
+   *
+   * ⚠️ Si sottrae **prima** dello scorporo IVA: è ciò che distingue lo sconto
+   * di riga dallo sconto a pagare (voce #3a). Sbagliare l'ordine significa
+   * versare IVA su una base che il cliente non ha pagato.
+   *
+   * Opzionale/`null` = nessuno sconto: è il caso di ogni riga emessa prima
+   * della 0034, che nessuna migrazione riscrive.
+   */
+  readonly lineDiscount?: string | null;
 }
 
 export interface ReceiptLineCalc {
   readonly qty: number;
   readonly price: number;
-  /** Line total (qty * price) rounded to 2 decimals. */
+  /**
+   * Totale lordo della riga PRIMA dello sconto (`qty × price`, ai centesimi).
+   *
+   * Serve alla stampa: il layout normativo AdE mette il prezzo pieno sulla
+   * riga dell'articolo e lo sconto su una riga propria sotto, con importo
+   * negativo (`HAR.md` voce #17a). Chi stampa un solo numero usa `lineTotal`.
+   */
+  readonly lineGross: number;
+  /** Sconto di riga in euro (0 quando assente). */
+  readonly discount: number;
+  /** Totale della riga AL NETTO dello sconto, arrotondato ai centesimi. */
   readonly lineTotal: number;
 }
 
@@ -54,6 +77,30 @@ export interface ReceiptTotals {
 }
 
 /**
+ * Totale di UNA riga in centesimi interi, al netto dello sconto.
+ *
+ * Punto unico in cui il canone della regola 17 viene applicato: lordo di riga
+ * arrotondato ai centesimi, poi sconto (già di riga, non per unità) sottratto
+ * come intero. Le tre funzioni pubbliche di questo modulo lo riusano, così non
+ * possono divergere fra loro — e con loro non divergono AdE, PDF, pagina
+ * pubblica, termica, storico e analytics.
+ *
+ * Il `Math.max(0, …)` è difesa in profondità: lo Zod rifiuta uno sconto oltre
+ * il totale di riga, ma queste funzioni leggono anche righe già in DB, dove un
+ * import o una fix manuale potrebbero averlo scritto. Un totale negativo si
+ * propagherebbe fino all'`ammontareComplessivo` trasmesso all'AdE.
+ */
+function lineTotalCents(
+  grossUnitPrice: number,
+  quantity: number,
+  lineDiscount: number,
+): number {
+  const grossCents = Math.round(grossUnitPrice * quantity * 100);
+  const discountCents = Math.round(lineDiscount * 100);
+  return Math.max(0, grossCents - discountCents);
+}
+
+/**
  * Calculates the total amount for a document's lines, rounded to 2 decimal places.
  *
  * Uses the CANONICAL per-line rounding strategy: each line is rounded to
@@ -70,10 +117,10 @@ export function calcDocTotal(lines: readonly ReceiptLineAmounts[]): number {
     lines.reduce(
       (sum, l) =>
         sum +
-        Math.round(
-          Number.parseFloat(l.grossUnitPrice ?? "0") *
-            Number.parseFloat(l.quantity ?? "1") *
-            100,
+        lineTotalCents(
+          Number.parseFloat(l.grossUnitPrice ?? "0"),
+          Number.parseFloat(l.quantity ?? "1"),
+          Number.parseFloat(l.lineDiscount ?? "0"),
         ),
       0,
     ) / 100
@@ -91,10 +138,15 @@ export function calcDocTotal(lines: readonly ReceiptLineAmounts[]): number {
  * cent with the PDF, the public receipt page and the storico/analytics.
  */
 export function calcInputLinesTotalCents(
-  lines: ReadonlyArray<{ grossUnitPrice: number; quantity: number }>,
+  lines: ReadonlyArray<{
+    grossUnitPrice: number;
+    quantity: number;
+    lineDiscount?: number;
+  }>,
 ): number {
   return lines.reduce(
-    (sum, l) => sum + Math.round(l.grossUnitPrice * l.quantity * 100),
+    (sum, l) =>
+      sum + lineTotalCents(l.grossUnitPrice, l.quantity, l.lineDiscount ?? 0),
     0,
   );
 }
@@ -117,17 +169,30 @@ export function computeReceiptTotals(
   for (const line of lines) {
     const qty = Number.parseFloat(line.quantity ?? "1");
     const price = Number.parseFloat(line.grossUnitPrice ?? "0");
-    const lineTotalCents = Math.round(qty * price * 100);
-    grandTotalCents += lineTotalCents;
+    const discount = Number.parseFloat(line.lineDiscount ?? "0");
+    const grossCents = Math.round(price * qty * 100);
+    const totalCents = lineTotalCents(price, qty, discount);
+    grandTotalCents += totalCents;
 
-    perLine.push({ qty, price, lineTotal: lineTotalCents / 100 });
+    perLine.push({
+      qty,
+      price,
+      lineGross: grossCents / 100,
+      // Lo sconto EFFETTIVAMENTE applicato, non quello dichiarato: se una riga
+      // in DB portasse uno sconto oltre il proprio lordo, stampare il valore
+      // grezzo darebbe `lordo − sconto ≠ totale` sul documento.
+      discount: (grossCents - totalCents) / 100,
+      lineTotal: totalCents / 100,
+    });
 
     const rate = Number.parseFloat(line.vatCode);
     if (Number.isNaN(rate) || rate === 0) continue;
 
-    // VAT = gross − gross / (1 + rate/100). Computed in cents to keep precision.
-    const netCents = Math.round(lineTotalCents / (1 + rate / 100));
-    const vatCents = lineTotalCents - netCents;
+    // VAT scorporata dal totale GIÀ SCONTATO: lo sconto di riga riduce la base
+    // imponibile (HAR.md voce #3a), quindi l'imposta si calcola su ciò che il
+    // cliente paga davvero, non sul prezzo di listino.
+    const netCents = Math.round(totalCents / (1 + rate / 100));
+    const vatCents = totalCents - netCents;
     if (vatCents <= 0) continue;
 
     vatByCodeCents.set(

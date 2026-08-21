@@ -139,6 +139,7 @@ export async function GET(
         description: l.description,
         quantity: l.quantity,
         grossUnitPrice: l.grossUnitPrice,
+        lineDiscount: l.lineDiscount,
         vatCode: l.vatCode,
       })),
     },
