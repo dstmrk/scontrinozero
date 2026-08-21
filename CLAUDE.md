@@ -123,8 +123,9 @@ possiede. La numerazione è **stabile e non si ricicla**: il codice cita
   "dipendenze minime, un solo container" (Principi guida).
 - **32 · Consegna il ledger delle decisioni, non il diff.** Leggere il diff riga
   per riga non regge il ritmo con cui il codice viene prodotto, e una review che
-  non regge il ritmo diventa una firma. A fine task consegni **(a)** le
-  decisioni prese dove il prompt o
+  non regge il ritmo diventa una firma. **Nel corpo della PR, prima del merge**
+  (il repo mergia in squash: quel testo diventa il messaggio di commit, quindi
+  storia git immutabile) consegni **(a)** le decisioni prese dove il prompt o
   la spec tacevano — scenario in italiano leggibile, cosa non era specificato,
   verdetto, confidence — ordinate dalla **meno** confidente alla più; e **(b)**
   il costo: righe aggiunte/tolte divise per codice di produzione, commenti,
@@ -187,8 +188,11 @@ Poi tre lenti, **in quest'ordine**:
 3. **Doc** — `docs/architecture/` (regola 26), la skill che ha imparato
    qualcosa (regola 7), `REVIEW.md` se resta un finding aperto.
 
-Infine il **ledger delle decisioni + la tabella del costo** (regola 32) → skill
-`decision-ledger`: è quello che l'utente legge, non il diff.
+Infine il **ledger delle decisioni + la tabella del costo** (regola 32), nel
+corpo della PR: è quello che l'utente legge, non il diff. Il repo mergia in
+squash, quindi titolo e corpo della PR diventano il messaggio di commit —
+titolo con prefisso conventional-commit in italiano, corpo scritto pulito, ed
+entrambi finiti **prima** del merge. Formato → skill `decision-ledger`.
 
 > Le trappole che i comandi sopra non catturano — S6661, mock di classi con
 > `function`/`class`, prefisso `mock` nei factory `vi.mock` — vivono nelle
