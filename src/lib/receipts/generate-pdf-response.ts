@@ -67,6 +67,13 @@ interface PdfReceiptInput {
     description: string;
     quantity: string | null;
     grossUnitPrice: string | null;
+    /**
+     * Sconto di riga (`line_discount`). Va propagato fino al renderer:
+     * ometterlo qui faceva stampare al PDF il totale NON scontato mentre
+     * termica e pagina pubblica dello stesso documento mostravano quello
+     * corretto, e mentre all'AdE era stato trasmesso il secondo.
+     */
+    lineDiscount: string | null;
     vatCode: string;
   }>;
   /**
@@ -122,6 +129,7 @@ export async function generatePdfResponse(
     description: l.description,
     quantity: Number.parseFloat(l.quantity ?? "1"),
     grossUnitPrice: Number.parseFloat(l.grossUnitPrice ?? "0"),
+    lineDiscount: Number.parseFloat(l.lineDiscount ?? "0"),
     vatCode: l.vatCode,
   }));
 

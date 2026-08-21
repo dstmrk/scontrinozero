@@ -46,6 +46,7 @@ const MOCK_DATA = {
       description: "Prodotto A",
       quantity: "1.000",
       grossUnitPrice: "10.00",
+      lineDiscount: "0",
       vatCode: "22",
     },
   ],

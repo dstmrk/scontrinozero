@@ -333,6 +333,11 @@ async function handleExistingReceipt(args: {
     lines: input.lines,
     paymentMethod: input.paymentMethod,
     lotteryCode,
+    // Deve combaciare campo per campo con l'hash calcolato all'INSERT in
+    // `emitReceiptForBusiness`: ometterlo qui farebbe fallire come mismatch
+    // il retry di uno scontrino con abbuono, spingendo l'utente a cambiare
+    // idempotencyKey su un documento PENDING (rischio doppione fiscale).
+    globalDiscount: input.globalDiscount,
   });
   if (existing.requestHash != null && existing.requestHash !== currentHash) {
     logger.warn(

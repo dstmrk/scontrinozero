@@ -491,6 +491,71 @@ describe("emitReceiptForBusiness", () => {
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
+  it("retry di uno scontrino con abbuono: stessa key, NIENTE mismatch", async () => {
+    // Regressione: il ricalcolo dell'hash sul conflitto ometteva
+    // `globalDiscount`, quindi divergeva da quello scritto all'INSERT. Un
+    // retry legittimo (documento PENDING, esito AdE ignoto) veniva rifiutato
+    // come payload diverso e all'utente si diceva di cambiare
+    // idempotencyKey — proprio l'azione che rischia il doppione fiscale.
+    const { hashSaleRequest } = await import("./request-hash");
+    const input = { ...VALID_INPUT, globalDiscount: 0.4 };
+    const storedHash = hashSaleRequest({
+      lines: input.lines,
+      paymentMethod: input.paymentMethod,
+      lotteryCode: null,
+      globalDiscount: 0.4,
+    });
+
+    mockDocumentReturning.mockResolvedValue([]); // conflict
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-existing",
+        status: "ACCEPTED",
+        adeTransactionId: "trx-existing",
+        adeProgressive: "prog",
+        requestHash: storedHash,
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(input);
+
+    expect(result.code).toBeUndefined();
+    expect(result.documentId).toBe("doc-existing");
+  });
+
+  it("stessa key ma sconto di riga diverso → IDEMPOTENCY_PAYLOAD_MISMATCH", async () => {
+    // Regressione speculare: `lineDiscount` non entrava nella forma canonica,
+    // quindi due scontrini con corrispettivi diversi passavano per replay e
+    // il secondo tornava il documento del primo.
+    const { hashSaleRequest } = await import("./request-hash");
+    const storedHash = hashSaleRequest({
+      lines: [{ ...VALID_INPUT.lines[0], lineDiscount: 1 }],
+      paymentMethod: "PC",
+      lotteryCode: null,
+    });
+
+    mockDocumentReturning.mockResolvedValue([]); // conflict
+    mockLimit.mockResolvedValueOnce([
+      {
+        id: "doc-existing",
+        status: "ACCEPTED",
+        adeTransactionId: "trx-existing",
+        adeProgressive: "prog",
+        requestHash: storedHash,
+      },
+    ]);
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness({
+      ...VALID_INPUT,
+      lines: [{ ...VALID_INPUT.lines[0], lineDiscount: 5 }],
+    });
+
+    expect(result.code).toBe("IDEMPOTENCY_PAYLOAD_MISMATCH");
+    expect(result.documentId).toBeUndefined();
+  });
+
   it("P1.4: stessa key + stesso payload → idempotenza OK (hash combacia)", async () => {
     mockDocumentReturning.mockResolvedValue([]); // conflict
     mockLimit.mockResolvedValueOnce([
