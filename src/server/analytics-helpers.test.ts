@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
+import { calcDocTotal } from "@/lib/receipts/receipt-totals";
 import {
   computeBreakdown,
   computeKpis,
@@ -230,6 +231,7 @@ describe("computeProductBreakdown", () => {
     description: string;
     quantity: string;
     grossUnitPrice: string;
+    lineDiscount?: string;
   };
   function makeLines(rows: LineRow[]): Map<string, LineRow[]> {
     const map = new Map<string, LineRow[]>();
@@ -240,6 +242,74 @@ describe("computeProductBreakdown", () => {
     }
     return map;
   }
+
+  it("sottrae lo sconto di riga dal ricavo del prodotto", () => {
+    // Lo sconto di riga riduce il corrispettivo (HAR.md voce #3a): il ricavo
+    // attribuito al prodotto è quello incassato, non il prezzo di listino.
+    const docs = [makeDoc("a", "ACCEPTED", new Date("2026-05-01T10:00:00Z"))];
+    const linesByDoc = makeLines([
+      {
+        documentId: "a",
+        description: "Maglione",
+        quantity: "1",
+        grossUnitPrice: "160.65",
+        lineDiscount: "10.65",
+      },
+    ]);
+
+    expect(computeProductBreakdown(docs, linesByDoc)[0].revenueCents).toBe(
+      15000,
+    );
+  });
+
+  it("riconcilia col ricavo KPI anche con sconti di riga", () => {
+    // È l'invariante dichiarata su `ProductAgg`: la somma per prodotto e la
+    // somma per documento partono dalle stesse righe e devono coincidere.
+    // Senza sottrarre lo sconto qui, le due viste divergevano in silenzio.
+    const docs = [makeDoc("a", "ACCEPTED", new Date("2026-05-01T10:00:00Z"))];
+    const rows = [
+      {
+        documentId: "a",
+        description: "Maglione",
+        quantity: "1",
+        grossUnitPrice: "160.65",
+        lineDiscount: "10.65",
+        vatCode: "22",
+      },
+      {
+        documentId: "a",
+        description: "Sciarpa",
+        quantity: "2",
+        grossUnitPrice: "20.00",
+        lineDiscount: "5.00",
+        vatCode: "22",
+      },
+    ];
+    const linesByDoc = makeLines(rows);
+
+    const perProdotto = computeProductBreakdown(docs, linesByDoc).reduce(
+      (sum, p) => sum + p.revenueCents,
+      0,
+    );
+    const perDocumento = Math.round(calcDocTotal(rows) * 100);
+
+    expect(perProdotto).toBe(perDocumento);
+    expect(perProdotto).toBe(18500);
+  });
+
+  it("tratta come zero uno sconto assente (righe storiche)", () => {
+    const docs = [makeDoc("a", "ACCEPTED", new Date("2026-05-01T10:00:00Z"))];
+    const linesByDoc = makeLines([
+      {
+        documentId: "a",
+        description: "Caffè",
+        quantity: "2",
+        grossUnitPrice: "1.20",
+      },
+    ]);
+
+    expect(computeProductBreakdown(docs, linesByDoc)[0].revenueCents).toBe(240);
+  });
 
   it("returns empty array when there are no docs", () => {
     expect(computeProductBreakdown([], new Map())).toEqual([]);
