@@ -35,4 +35,11 @@ describe("RootLayout metadata", () => {
   it("mantiene l'apple-mobile-web-app-capable per compat iOS", () => {
     expect(metadata.other?.["apple-mobile-web-app-capable"]).toBe("yes");
   });
+
+  it("disattiva il rilevamento dei numeri di telefono di iOS", () => {
+    // Senza questo, Safari su iPhone riscrive i digit-run lunghi (P.IVA in
+    // footer, documentId sulla ricevuta pubblica) in <a href="tel:..."> prima
+    // che React idrati: SCONTRINOZERO-Y.
+    expect(metadata.formatDetection?.telephone).toBe(false);
+  });
 });
