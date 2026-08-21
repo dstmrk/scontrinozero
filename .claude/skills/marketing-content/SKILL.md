@@ -30,6 +30,13 @@ presente: condizionale/roadmap, mai "c'è". Stato attuale:
   (nice-to-have gated su domanda).
 - Analytics avanzata ed Export CSV sono **spedite e Pro-gated**
   (commit ae1c481).
+- I **due sconti del documento commerciale** sono **spediti e Pro-gated**
+  (trial incluso), v1.7.4: lo **sconto di riga** (riduce base imponibile e
+  IVA) e lo **sconto a pagare** (corrispettivo e IVA pieni, cala solo
+  l'incassato). Sono grandezze fiscali diverse: non chiamarli entrambi
+  "sconto" in un elenco di feature senza distinguerli. NON è ancora spedito
+  l'arrotondamento DL 50/2017 con la sua voce di pagamento dedicata
+  (`REVIEW.md` #96): non prometterlo.
 - Il **messaggio di cortesia in fondo allo scontrino** è **spedito e
   Pro-gated** (trial incluso): max 64 caratteri su 2 righe, stampato su
   termica, PDF e ricevuta digitale, mai su una ricevuta di annullo. NON è

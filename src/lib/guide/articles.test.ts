@@ -9,8 +9,8 @@ import {
 } from "./articles";
 
 describe("guideSlugs", () => {
-  it("contains exactly 17 slugs", () => {
-    expect(guideSlugs).toHaveLength(17);
+  it("contains exactly 18 slugs", () => {
+    expect(guideSlugs).toHaveLength(18);
   });
 
   it("contains the expected slugs", () => {

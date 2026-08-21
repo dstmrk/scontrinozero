@@ -136,7 +136,8 @@ export default function CambioPianoPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           {"Il piano Pro include inoltre l'"}
           <strong>analytics avanzata</strong> (grafici e periodi estesi),
-          l&apos;<strong>export CSV</strong> dello storico scontrini e il{" "}
+          l&apos;<strong>export CSV</strong> dello storico scontrini, gli{" "}
+          <strong>sconti sullo scontrino</strong> (di riga e a pagare) e il{" "}
           <strong>messaggio personalizzato</strong> stampato in fondo agli
           scontrini. È invece <em>in arrivo</em> il recupero dei documenti
           commerciali da AdE: quando sarà rilasciato, verrà incluso

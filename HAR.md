@@ -1274,9 +1274,10 @@ di pagamento: la riga `Sconto a pagare` segue la stessa regola.
 
 ### 17d. Arrotondamento DL 50/2017 — NON implementato, per saperlo in futuro
 
-Il layout normativo prevede un caso che oggi non copriamo. In caso di pagamento
-**integralmente in contanti**, l'arrotondamento obbligatorio dell'art. 51-quater
-DL 50/2017 (le monete da 1 e 2 centesimi non si usano più) si stampa così:
+Il layout normativo prevede un caso che oggi non copriamo: l'arrotondamento
+obbligatorio dell'art. 13-quater DL 50/2017, in vigore dal 1° gennaio 2018.
+Quando il pagamento è **integralmente in contanti** l'importo va arrotondato al
+multiplo di 5 centesimi più vicino, e si stampa così:
 
 - arrotondamento **per difetto** → va indicato come `Sconto a pagare`, e in più
   riportato fra le modalità di pagamento con la voce `Arro. DL N.50/2017`;

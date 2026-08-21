@@ -16,6 +16,7 @@ export const guideSlugs = [
   "registratore-di-cassa-prezzi",
   "sanzioni-mancato-scontrino",
   "registratore-telematico-vs-documento-commerciale-online",
+  "sconto-scontrino-iva-sconto-a-pagare",
 ] as const;
 
 export type GuideSlug = (typeof guideSlugs)[number];
@@ -1506,6 +1507,101 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       "registratore-di-cassa-prezzi",
     ],
     relatedTools: ["calcolatore-risparmio-rt"],
+  },
+  "sconto-scontrino-iva-sconto-a-pagare": {
+    slug: "sconto-scontrino-iva-sconto-a-pagare",
+    title: "Sconto sullo scontrino: sconto di riga e sconto a pagare",
+    metaTitle: "Sconto sullo scontrino: quale riduce l'IVA e quale no",
+    metaDescription:
+      "Lo sconto di riga riduce la base imponibile e quindi l'IVA dovuta. Lo sconto a pagare no: corrispettivo e IVA restano pieni, cala solo l'incassato.",
+    heroIntro:
+      "Sul documento commerciale esistono due sconti diversi e non sono intercambiabili. Lo sconto di riga abbassa il prezzo di un articolo: riduce la base imponibile e quindi l'IVA che versi. Lo sconto a pagare non tocca il calcolo fiscale: il corrispettivo e l'IVA restano quelli pieni, cambia solo quanto il cliente tira fuori. Sbagliare campo significa versare l'IVA su un importo sbagliato, e un documento commerciale già trasmesso non si corregge: si annulla e si riemette.",
+    publishedAt: "2026-08-21",
+    updatedAt: "2026-08-21",
+    readingMinutes: 7,
+    sections: [
+      {
+        heading: "La differenza in una riga",
+        body: 'Lo sconto di riga riduce il corrispettivo e con esso l\'IVA dovuta; lo sconto a pagare lascia corrispettivo e IVA invariati e riduce solo l\'incassato. Il primo dice "questo articolo costa meno", il secondo dice "ti faccio pagare meno di quanto costa". Il tracciato dell\'Agenzia delle Entrate li tiene su due campi distinti, e i due campi producono documenti fiscalmente diversi anche quando il cliente paga la stessa cifra.',
+        table: {
+          headers: ["", "Sconto di riga", "Sconto a pagare"],
+          rows: [
+            [
+              "Dove si applica",
+              "Alla singola voce venduta",
+              "All'intero documento, in fase di pagamento",
+            ],
+            ["Base imponibile", "Si riduce", "Resta piena"],
+            ["IVA dovuta", "Si riduce", "Resta piena"],
+            ["Totale complessivo", "Si riduce", "Resta pieno"],
+            ["Importo incassato", "Si riduce", "Si riduce"],
+            [
+              "Come appare sul documento",
+              'Riga "Sconto" sotto l\'articolo, con la stessa aliquota e importo negativo',
+              'Voce del blocco pagamenti, sopra "Importo pagato"',
+            ],
+          ],
+        },
+      },
+      {
+        heading: "Sconto di riga: quando l'IVA cala davvero",
+        body: "Lo sconto di riga si usa quando il prezzo di vendita di quel prodotto è davvero più basso: saldi, promozione, articolo con un difetto, sconto fedeltà su una voce specifica. Riducendo il prezzo si riduce il corrispettivo, e siccome sullo scontrino l'IVA è già compresa nel prezzo, si riduce proporzionalmente anche l'imposta. Esempio con aliquota 10%: un articolo a 1,00 € con 0,10 € di sconto vale 0,90 €, l'imponibile scende da 0,909 € a 0,818 € e l'IVA da 0,09 € a 0,08 €. Sul documento la riduzione non si nasconde nel prezzo: il layout standard dell'Agenzia delle Entrate stampa il prezzo pieno sulla riga dell'articolo e una riga \"Sconto\" sotto, con la stessa aliquota e l'importo in negativo. L'aliquota ripetuta serve: su uno scontrino con più aliquote è l'unica cosa che dice da quale imponibile lo sconto è stato tolto.",
+      },
+      {
+        heading: "Sconto a pagare: quando il corrispettivo non si tocca",
+        body: 'Lo sconto a pagare si usa quando il prezzo dei beni resta quello, ma tu incassi meno. Capita soprattutto con l\'arrotondamento in cassa: totale 19,97 €, il cliente paga 19,95 €, i 2 centesimi sono uno sconto a pagare. Vale anche per il riscatto di un buono multiuso e per la cortesia una tantum, il classico "facciamo 50 tondi". In tutti questi casi il valore dei beni ceduti non è cambiato, quindi l\'IVA resta dovuta per intero: il corrispettivo non si tocca e la rinuncia riguarda solo la tua cassa. Sul documento compare come voce del blocco pagamenti, l\'ultima prima di "Importo pagato", e "Importo pagato" riporta l\'incassato reale, cioè il totale meno l\'abbuono.',
+      },
+      {
+        heading:
+          "Buoni corrispettivo: perché il buono multiuso è uno sconto a pagare",
+        body: "Il buono multiuso va nel campo dello sconto a pagare, al lordo dell'IVA. La regola discende dal D.Lgs. 141/2018, che dal 1° gennaio 2019 ha recepito la Direttiva UE 2016/1065 sui buoni-corrispettivo. Un buono è multiuso quando al momento dell'emissione non si sa ancora quale trattamento IVA avranno i beni che verranno acquistati: l'IVA quindi non è stata versata prima, e si versa adesso sul valore pieno di ciò che il cliente porta via. Emetti lo scontrino per l'importo intero, come se il buono non esistesse, e indichi il valore del buono come sconto a pagare. Quei soldi li hai già incassati quando hai venduto il buono: non sono un ribasso di prezzo. Diverso il buono monouso, dove il trattamento IVA era già noto all'emissione e l'imposta è stata assolta allora. Diverso ancora il buono sconto vero e proprio (\"-5 € sul prossimo acquisto\"), che il D.Lgs. 141/2018 esclude espressamente dalla disciplina dei buoni-corrispettivo: quello riduce il prezzo di vendita, quindi è uno sconto di riga.",
+      },
+      {
+        heading: "Arrotondamento sui pagamenti in contanti",
+        body: "Se il pagamento è integralmente in contanti l'importo va arrotondato al multiplo di 5 centesimi più vicino: lo impone l'art. 13-quater del D.L. 50/2017, in vigore dal 1° gennaio 2018, contestuale alla sospensione del conio delle monete da 1 e 2 centesimi. L'obbligo riguarda solo il pagamento in contanti e solo l'importo complessivo da pagare: il corrispettivo del documento non cambia, e le monete da 1 e 2 centesimi già in circolazione restano a corso legale. Sul documento commerciale l'arrotondamento per difetto si rappresenta come sconto a pagare, e il layout standard prevede in aggiunta una voce di pagamento dedicata. ScontrinoZero oggi copre la prima parte, con totali e quadratura corretti, ma non stampa quella voce e non gestisce l'arrotondamento per eccesso.",
+      },
+      {
+        heading: "Come si usano in ScontrinoZero",
+        body: 'Entrambi gli sconti sono inclusi nel piano Pro e nei 30 giorni di prova. Lo sconto di riga si aggiunge mentre inserisci l\'articolo, sotto l\'aliquota IVA, con il tasto "+ Sconto su questo articolo": è uno sconto sull\'intera riga, non per pezzo, quindi su 3 magliette da 40 € uno sconto di 20 € porta la riga a 100 €. Lo sconto a pagare si aggiunge nel riepilogo, sotto il metodo di pagamento, con "+ Sconto a pagare": la schermata mostra il totale che resta pieno e, sotto, quanto devi incassare. Se non li usi non li vedi: sono due link che si aprono solo quando li tocchi, e la cassa resta quella di prima. Su entrambi i campi deve restare almeno un centesimo da incassare, e lo sconto di riga non può superare il totale della riga a cui si riferisce.',
+      },
+      {
+        heading: "Gli errori che costano un annullo",
+        body: "L'errore più caro è usare lo sconto a pagare per un ribasso di prezzo: versi IVA su un corrispettivo che non hai incassato e che non era dovuto, e su un documento commerciale già trasmesso l'unica correzione possibile è l'annullo con riemissione. L'errore speculare è usare lo sconto di riga per un arrotondamento di cassa: abbassa il corrispettivo dichiarato sotto il valore reale dei beni ceduti, e questa volta a rimetterci è l'erario. La domanda che discrimina è sempre la stessa: il prezzo di vendita di quel bene è cambiato? Se sì, sconto di riga. Se il prezzo è quello e sei tu che rinunci a una parte dell'incasso, sconto a pagare.",
+      },
+    ],
+    faq: [
+      {
+        question: "Lo sconto sullo scontrino riduce l'IVA da versare?",
+        answer:
+          "Dipende da quale sconto. Lo sconto di riga sì: riduce il prezzo dell'articolo, quindi la base imponibile e l'imposta calano proporzionalmente. Lo sconto a pagare no: il corrispettivo e l'IVA restano quelli pieni, cala solo l'importo incassato.",
+      },
+      {
+        question: "Che differenza c'è fra sconto e abbuono sullo scontrino?",
+        answer:
+          "Sono i due nomi degli stessi due concetti. Lo sconto di riga riduce il prezzo di vendita e con esso l'IVA; l'abbuono, che sul documento commerciale si chiama \"sconto a pagare\", è la rinuncia a incassare una parte di un corrispettivo che resta invariato, e non tocca l'IVA.",
+      },
+      {
+        question: "Come si registra un buono multiuso sullo scontrino?",
+        answer:
+          "Si emette lo scontrino per l'importo pieno e si indica il valore del buono come sconto a pagare, al lordo dell'IVA. Lo prevede la disciplina dei buoni-corrispettivo introdotta dal D.Lgs. 141/2018 in vigore dal 1° gennaio 2019: sul buono multiuso l'IVA si assolve al momento del riscatto, sul valore pieno dei beni.",
+      },
+      {
+        question: "Posso arrotondare il totale dello scontrino?",
+        answer:
+          "Sì, e se il pagamento è integralmente in contanti l'arrotondamento al multiplo di 5 centesimi più vicino è obbligatorio (art. 13-quater D.L. 50/2017, dal 1° gennaio 2018). L'arrotondamento per difetto si rappresenta come sconto a pagare: il corrispettivo non cambia, cambia l'incassato.",
+      },
+      {
+        question: "Lo sconto a pagare fa perdere la lotteria degli scontrini?",
+        answer:
+          "No. Il codice lotteria richiede un documento di almeno 1 euro pagato esclusivamente con mezzi elettronici, e lo sconto a pagare non è un mezzo di pagamento: non entra in quel test. La soglia di 1 euro si misura sul corrispettivo, che l'abbuono non riduce.",
+      },
+    ],
+    relatedHelp: ["aliquote-iva", "annullare-scontrino"],
+    relatedGuides: [
+      "codici-natura-iva",
+      "annullare-scontrino-elettronico",
+      "lotteria-scontrini-commerciante",
+    ],
   },
 };
 

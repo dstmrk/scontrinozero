@@ -251,8 +251,9 @@ group:
 ### 96. Arrotondamento DL 50/2017: manca la voce di pagamento `Arro. DL N.50/2017`
 
 Il layout normativo del documento commerciale (`HAR.md` voce #17d) prevede che
-l'arrotondamento obbligatorio dell'art. 51-quater DL 50/2017 — quello che
-esiste perché le monete da 1 e 2 centesimi non circolano più — si stampi con una
+l'arrotondamento obbligatorio dell'art. 13-quater DL 50/2017 — in vigore dal
+1° gennaio 2018: quando si paga **integralmente in contanti** l'importo va
+arrotondato al multiplo di 5 centesimi più vicino — si stampi con una
 voce di pagamento dedicata, `Arro. DL N.50/2017`, **in aggiunta** allo sconto a
 pagare quando l'arrotondamento è per difetto.
 
