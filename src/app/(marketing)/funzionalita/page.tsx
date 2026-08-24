@@ -9,7 +9,6 @@ import {
   Smartphone,
   Undo2,
   Share2,
-  Printer,
   Ticket,
   CreditCard,
   ScrollText,
@@ -79,15 +78,9 @@ const sections = [
       },
       {
         icon: Share2,
-        title: "Condivisione digitale",
+        title: "Condivisione e stampa",
         description:
-          "Condividi lo scontrino con il cliente via link, QR code, SMS, email o WhatsApp. Nessuna app da installare per chi lo riceve.",
-      },
-      {
-        icon: Printer,
-        title: "Stampa su termica Bluetooth",
-        description:
-          "Su Android colleghi una stampantina termica Bluetooth ESC/POS (58 o 80 mm) e stampi lo scontrino al banco, anche in automatico dopo ogni emissione. Su iPhone e computer stampi il PDF già formattato a 58 mm.",
+          "Condividi lo scontrino con il cliente via link, QR code, SMS, email o WhatsApp — nessuna app da installare per chi lo riceve. Su Android puoi anche stampare su una termica Bluetooth ESC/POS (58 o 80 mm), anche in automatico dopo ogni emissione; su iPhone e computer stampi il PDF già formattato a 58 mm.",
       },
     ],
   },
