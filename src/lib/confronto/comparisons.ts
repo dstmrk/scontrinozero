@@ -111,7 +111,7 @@ export const confrontoContent: ConfrontoContent = {
       name: "Scontrinare",
       url: "https://www.scontrinare.it/",
       displayUrl: "scontrinare.it",
-      pricing: "30 €/anno",
+      pricing: "39 €/anno",
       trial: "1° mese gratuito",
       notes:
         "App web e mobile (Android/iOS). Integrazione con POS SumUp e Nexi. Accesso con credenziali Fisconline o CIE (app CIE ID).",
@@ -205,5 +205,5 @@ export const confrontoContent: ConfrontoContent = {
     "come-collegare-ade",
     "credenziali-fisconline",
   ],
-  lastUpdated: "2026-07-22",
+  lastUpdated: "2026-08-24",
 };
