@@ -144,6 +144,30 @@ export default function ConfrontoPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
+                <tr className="bg-primary/5 align-top">
+                  <th scope="row" className="px-4 py-3 text-left font-normal">
+                    <span className="text-primary font-semibold">
+                      {"ScontrinoZero"}
+                    </span>
+                    <span className="text-muted-foreground mt-0.5 block text-xs">
+                      {"scontrinozero.it"}
+                    </span>
+                    <span className="text-muted-foreground mt-1 block text-xs leading-relaxed">
+                      {
+                        "Open source: lo installi gratis sul tuo computer o server. Pensato per lo smartphone, con la possibilità di installare l'app dal browser. Codice ispezionabile su GitHub."
+                      }
+                    </span>
+                  </th>
+                  <td className="text-primary px-4 py-3 text-sm font-semibold">
+                    {"Starter 29,99 €/anno · Pro 49,99 €/anno"}
+                    <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
+                      {"(€2,50/mese · €4,17/mese equivalenti)"}
+                    </span>
+                  </td>
+                  <td className="text-primary px-4 py-3 text-sm font-semibold">
+                    {"30 giorni, senza carta"}
+                  </td>
+                </tr>
                 {c.saasCompetitors.map((s) => (
                   <tr key={s.url} className="align-top">
                     <th scope="row" className="px-4 py-3 text-left font-normal">
@@ -170,30 +194,6 @@ export default function ConfrontoPage() {
                     </td>
                   </tr>
                 ))}
-                <tr className="bg-primary/5 align-top">
-                  <th scope="row" className="px-4 py-3 text-left font-normal">
-                    <span className="text-primary font-semibold">
-                      {"ScontrinoZero"}
-                    </span>
-                    <span className="text-muted-foreground mt-0.5 block text-xs">
-                      {"scontrinozero.it"}
-                    </span>
-                    <span className="text-muted-foreground mt-1 block text-xs leading-relaxed">
-                      {
-                        "Open source: lo installi gratis sul tuo computer o server. Pensato per lo smartphone, con la possibilità di installare l'app dal browser. Codice ispezionabile su GitHub."
-                      }
-                    </span>
-                  </th>
-                  <td className="text-primary px-4 py-3 text-sm font-semibold">
-                    {"Starter 29,99 €/anno · Pro 49,99 €/anno"}
-                    <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
-                      {"(€2,50/mese · €4,17/mese equivalenti)"}
-                    </span>
-                  </td>
-                  <td className="text-primary px-4 py-3 text-sm font-semibold">
-                    {"30 giorni, senza carta"}
-                  </td>
-                </tr>
               </tbody>
             </table>
           </div>
