@@ -9,6 +9,12 @@ import {
   subscribeInstallPrompt,
 } from "./install-prompt-store";
 
+function stubUmami() {
+  const track = vi.fn();
+  window.umami = { track };
+  return track;
+}
+
 function makeInstallPromptEvent(): BeforeInstallPromptEvent {
   const event = new Event("beforeinstallprompt") as BeforeInstallPromptEvent;
   event.preventDefault = vi.fn();
@@ -18,6 +24,7 @@ function makeInstallPromptEvent(): BeforeInstallPromptEvent {
 afterEach(() => {
   resetInstallPromptStoreForTests();
   vi.restoreAllMocks();
+  delete window.umami;
 });
 
 describe("install-prompt-store", () => {
@@ -88,6 +95,20 @@ describe("install-prompt-store", () => {
     window.dispatchEvent(new Event("appinstalled"));
 
     expect(getDeferredPrompt()).toBeNull();
+  });
+
+  it("manda l'evento Umami pwa_installed su appinstalled", () => {
+    const track = stubUmami();
+    initInstallPromptCapture();
+
+    window.dispatchEvent(new Event("appinstalled"));
+
+    expect(track).toHaveBeenCalledWith("pwa_installed", undefined);
+  });
+
+  it("non lancia se window.umami non è definito (script non caricato)", () => {
+    initInstallPromptCapture();
+    expect(() => window.dispatchEvent(new Event("appinstalled"))).not.toThrow();
   });
 
   it("è idempotente: init multipli non duplicano i listener", () => {

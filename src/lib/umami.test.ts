@@ -40,5 +40,6 @@ describe("track (umami)", () => {
     expect(UMAMI_EVENTS.onboardingStepCompleted).toBe(
       "onboarding_step_completed",
     );
+    expect(UMAMI_EVENTS.pwaInstalled).toBe("pwa_installed");
   });
 });
