@@ -14,7 +14,13 @@
  * condiviso (`Providers`, montato nel root layout), bufferizzando l'evento in
  * questo store. La UI lo legge poi via `useSyncExternalStore` quando è pronta,
  * anche se l'evento è già stato catturato.
+ *
+ * `appinstalled` manda anche un evento Umami (`pwaInstalled`, REVIEW.md #84):
+ * prima di questo non esisteva alcun segnale — nemmeno indiretto — per capire
+ * se un'installazione Android fosse mai andata a buon fine.
  */
+
+import { track, UMAMI_EVENTS } from "@/lib/umami";
 
 export interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -39,6 +45,7 @@ function handleBeforeInstallPrompt(event: Event): void {
 function handleAppInstalled(): void {
   // Una volta installata, l'evento non è più valido: niente più prompt.
   deferredPrompt = null;
+  track(UMAMI_EVENTS.pwaInstalled);
   emit();
 }
 

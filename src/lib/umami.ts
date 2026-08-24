@@ -32,6 +32,8 @@ export const UMAMI_EVENTS = {
   printerPaired: "printer_paired",
   /** Scontrino stampato su termica (auto o manuale). */
   receiptPrinted: "receipt_printed",
+  /** PWA installata (evento `appinstalled`) — misura l'adozione su Android/desktop. */
+  pwaInstalled: "pwa_installed",
 } as const;
 
 /**

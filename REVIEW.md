@@ -105,6 +105,30 @@ come si osserva su dev).
 Chiudere questa voce quando i quattro punti sono verdi su sandbox con la
 versione corrente.
 
+**Riconferma 2026-08-24 (`sandbox.scontrinozero.it`, `1.7.3+5b77ce9`).** Rieseguiti
+i punti 1, 2 (parte pubblica) e 4 con un browser reale — esiti identici al
+2026-08-19, nessuna regressione:
+
+- **Punto 1** ✅ **Verde.** `state: 'activated'`, controller valorizzato, 8
+  bucket di cache popolati.
+- **Punto 2** ⚠️ **Parziale, invariato.** `/api/health/live` confermata fuori
+  da ogni cache dopo il fetch. La parte autenticata
+  (`/api/documents/<id>/pdf`) resta non automatizzabile su sandbox per lo
+  stesso motivo del 2026-08-19 (gate Turnstile).
+- **Punto 4** ✅ **Verde.** Offline → `/offline` servita correttamente.
+
+**Punto 3 (Android reale) ancora aperto — nessun device disponibile in questo
+team.** Prima di questa riconferma non esisteva nemmeno un segnale
+_indiretto_ per capirlo: `appinstalled` veniva intercettato solo per
+azzerare lo stato locale (`install-prompt-store.ts`), mai inoltrato a
+telemetria. Aggiunto in questo stesso giro un evento Umami dedicato
+(`UMAMI_EVENTS.pwaInstalled`, `"pwa_installed"`) sparato da
+`handleAppInstalled()`: da qui in avanti un'installazione Android reale
+lascia una traccia passiva in Umami, senza dover ripetere il test manuale a
+ogni rilascio. **Chiudere il punto 3 al primo evento `pwa_installed`
+osservato in dashboard Umami** (o al primo test manuale su device reale,
+se disponibile prima).
+
 ---
 
 ### 3. Enforcement limiti mensili Developer API assente
