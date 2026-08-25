@@ -141,7 +141,45 @@ export function isReactStreamingDomError(
 }
 
 /**
- * `beforeSend` del client Sentry: scarta le tre classi di rumore browser
+ * Script iniettato dal browser in-app di Facebook/Instagram (Android WebView)
+ * per il proprio navigation performance logging. Tenta di richiamare il
+ * bridge nativo Java dopo che l'Activity ospite è già stata distrutta
+ * (l'utente ha chiuso l'in-app browser o è navigato altrove): "Java object is
+ * gone" segnala che l'oggetto JS-to-Java non esiste più lato nativo. Non è
+ * codice nostro — lo stack è interamente `app://navigation_performance_logger_android`,
+ * un file che l'app non serve mai — e non è azionabile (issue
+ * SCONTRINOZERO-10).
+ */
+const IN_APP_BROWSER_BRIDGE_SCRIPT = "navigation_performance_logger_android";
+
+/**
+ * True se l'evento è il fallimento benigno del bridge nativo dell'in-app
+ * browser Facebook/Instagram. Lo scope combina messaggio ("Java object is
+ * gone") e frame dello stack (`navigation_performance_logger_android`) per
+ * non filtrare un eventuale errore applicativo che citi per caso lo stesso
+ * messaggio.
+ */
+export function isInAppBrowserBridgeError(
+  event: ErrorEvent,
+  hint?: EventHint,
+): boolean {
+  const message = extractErrorMessage(event, hint);
+  if (!message.includes("Java object is gone")) {
+    return false;
+  }
+
+  const frames = event.exception?.values?.flatMap(
+    (value) => value.stacktrace?.frames ?? [],
+  );
+  return Boolean(
+    frames?.some((frame) =>
+      frame.filename?.includes(IN_APP_BROWSER_BRIDGE_SCRIPT),
+    ),
+  );
+}
+
+/**
+ * `beforeSend` del client Sentry: scarta le classi di rumore browser
  * riconosciute, lascia passare tutto il resto.
  *
  * Vive qui e non inline in `instrumentation-client.ts` perché
@@ -172,6 +210,11 @@ export function clientBeforeSend(
   // Stampante termica spenta o fuori portata: condizione ordinaria al banco,
   // già mostrata all'utente come "Stampante non raggiungibile…" (regola 20)
   if (isBluetoothGattFailure(event, hint)) {
+    return null;
+  }
+  // Bridge nativo dell'in-app browser Facebook/Instagram morto dopo la
+  // chiusura dell'Activity ospite (issue SCONTRINOZERO-10)
+  if (isInAppBrowserBridgeError(event, hint)) {
     return null;
   }
   return event;
