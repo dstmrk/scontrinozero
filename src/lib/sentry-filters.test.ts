@@ -6,6 +6,7 @@ import {
   isBenignServerActionNotFound,
   isBluetoothGattFailure,
   isClientNetworkFailure,
+  isInAppBrowserBridgeError,
   isReactStreamingDomError,
 } from "./sentry-filters";
 
@@ -379,6 +380,69 @@ describe("isBluetoothGattFailure", () => {
   });
 });
 
+describe("isInAppBrowserBridgeError", () => {
+  function makeBridgeEvent(value: string, filenames: string[]): ErrorEvent {
+    return {
+      type: undefined,
+      transaction: "/guide/:slug",
+      exception: {
+        values: [
+          {
+            type: "Error",
+            value,
+            stacktrace: { frames: filenames.map((filename) => ({ filename })) },
+          },
+        ],
+      },
+    } as ErrorEvent;
+  }
+
+  it("filtra il bridge morto dell'in-app browser Facebook Android", () => {
+    const event = makeBridgeEvent(
+      "Error invoking postMessage: Java object is gone",
+      ["app://navigation_performance_logger_android"],
+    );
+
+    expect(isInAppBrowserBridgeError(event)).toBe(true);
+  });
+
+  it("legge il messaggio da originalException quando presente", () => {
+    const event = makeBridgeEvent("ignorato", [
+      "app://navigation_performance_logger_android",
+    ]);
+    const hint: EventHint = {
+      originalException: new Error(
+        "Error invoking postMessage: Java object is gone",
+      ),
+    };
+
+    expect(isInAppBrowserBridgeError(event, hint)).toBe(true);
+  });
+
+  it("non filtra lo stesso messaggio senza il frame dello script iniettato", () => {
+    const event = makeBridgeEvent(
+      "Error invoking postMessage: Java object is gone",
+      ["app://main-bundle"],
+    );
+
+    expect(isInAppBrowserBridgeError(event)).toBe(false);
+  });
+
+  it("non filtra un altro errore dallo stesso script iniettato", () => {
+    const event = makeBridgeEvent("Unrelated failure", [
+      "app://navigation_performance_logger_android",
+    ]);
+
+    expect(isInAppBrowserBridgeError(event)).toBe(false);
+  });
+
+  it("gestisce eventi senza exception/frames senza lanciare", () => {
+    const event = makeEvent("/guide/:slug");
+
+    expect(isInAppBrowserBridgeError(event)).toBe(false);
+  });
+});
+
 describe("clientBeforeSend", () => {
   it("scarta il fallimento di rete del browser (issue SCONTRINOZERO-J)", () => {
     const event = makeEvent("/login");
@@ -416,6 +480,28 @@ describe("clientBeforeSend", () => {
           {
             type: "NetworkError",
             value: "GATT operation failed for unknown reason.",
+          },
+        ],
+      },
+    } as ErrorEvent;
+
+    expect(clientBeforeSend(event)).toBeNull();
+  });
+
+  it("scarta il bridge morto dell'in-app browser Facebook Android (issue SCONTRINOZERO-10)", () => {
+    const event = {
+      type: undefined,
+      transaction: "/guide/:slug",
+      exception: {
+        values: [
+          {
+            type: "Error",
+            value: "Error invoking postMessage: Java object is gone",
+            stacktrace: {
+              frames: [
+                { filename: "app://navigation_performance_logger_android" },
+              ],
+            },
           },
         ],
       },
