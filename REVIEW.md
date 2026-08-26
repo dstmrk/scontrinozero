@@ -531,33 +531,6 @@ _Trigger:_ il primo utente `developer_*` che segue il redirect.
 
 ---
 
-### 98. Password bucate accettate: HIBP k-anonymity al posto del toggle Supabase Pro
-
-- **Categoria:** sicurezza · **Severità:** Low — la policy attuale scarta già le password banali, non quelle riusate
-- **File:** `src/lib/validation.ts:24` (`isStrongPassword`), `src/server/auth-actions.ts` (signUp, update password)
-
-**Problema.** L'advisor Supabase segnala `auth_leaked_password_protection`
-disabilitata. Il toggle che controlla le password contro HaveIBeenPwned è
-[feature Pro](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)
-e l'organizzazione è su piano Free: attivarlo costa $25/mese, contro il principio
-"costi fissi ~€0". Nel frattempo `isStrongPassword` valida solo la _forma_ (8+
-caratteri, maiuscola, minuscola, cifra, simbolo): `Password1!` la passa ed è in
-cima a ogni lista di credential stuffing.
-
-**Fix.** Chiamare noi l'API k-anonymity di HIBP:
-`GET https://api.pwnedpasswords.com/range/<primi 5 char dello SHA-1>`, nessuna
-chiave, nessun invio della password (viaggiano 5 caratteri di hash, il match sul
-suffisso si fa in locale). Va nel path server di signup e cambio password, non in
-`isStrongPassword` che è puro e sincrono. Edge case da coprire: HIBP irraggiungibile
-o lento → **fail-open** con `logger.warn` (mai bloccare una registrazione per un
-servizio esterno giù), timeout esplicito, e nessun Sentry issue sull'input utente
-(regola 20).
-
-_Trigger:_ prima ancora del primo incidente — è il warning che l'advisor continuerà
-a mostrare finché l'org resta Free.
-
----
-
 ### 99. Funzioni `metrics_*` nel DB di produzione non tracciate nel repo
 
 - **Categoria:** drift infrastruttura · **Severità:** Low — funzionano, ma nessuno le versiona
