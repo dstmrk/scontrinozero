@@ -167,14 +167,25 @@ diventa un buco di billing al lancio della Fase B Developer API.
 ### 97. Il DSN Sentry è bakato nell'immagine pubblica: le istanze self-hosted riportano nel nostro progetto
 
 - **Categoria:** privacy / telemetria · **Severità:** Medium — dati personali di terzi in ingresso, telemetria di produzione inquinata
-- **File:** `Dockerfile` (righe `ARG`/`ENV NEXT_PUBLIC_SENTRY_DSN`), `.github/workflows/deploy.yml` (build-arg), `sentry.server.config.ts`, `sentry.edge.config.ts`, `instrumentation-client.ts`
+- **File:** `Dockerfile` (`ARG NEXT_PUBLIC_SENTRY_DSN`, stage builder), `.github/workflows/deploy.yml` (build-arg), `sentry.server.config.ts`, `sentry.edge.config.ts`, `instrumentation-client.ts`, `.env.example`
 
 **Contesto.** `deploy.yml` passa `NEXT_PUBLIC_SENTRY_DSN` come build-arg alla
-build di produzione, e il `Dockerfile` lo fissa con `ENV` nello stage finale.
-Quell'immagine è `ghcr.io/dstmrk/scontrinozero:latest`, **pubblica su GHCR**
-(self-hosting è un piano supportato, €0). Chiunque la esegua ha quindi Sentry
-attivo e puntato sul nostro progetto senza saperlo, perché tutte e tre le
-config fanno `enabled: !!process.env.NEXT_PUBLIC_SENTRY_DSN`.
+build di produzione. Quell'immagine è `ghcr.io/dstmrk/scontrinozero:latest`,
+**pubblica su GHCR** (self-hosting è un piano supportato, €0). Chiunque la
+esegua ha quindi Sentry attivo e puntato sul nostro progetto senza saperlo,
+perché tutte e tre le config fanno
+`enabled: !!process.env.NEXT_PUBLIC_SENTRY_DSN`.
+
+⚠️ **Il meccanismo NON è una `ENV` nell'immagine** — la prima stesura di questo
+finding lo diceva ed era sbagliato: l'`ENV NEXT_PUBLIC_SENTRY_DSN` del
+`Dockerfile` sta nello stage `builder` e `ENV` non attraversa gli stage, quindi
+nell'immagine finale non c'è. È **Next.js** che inlinea i `NEXT_PUBLIC_*` come
+letterali nel bundle al build — e lo fa **anche per il codice server**.
+Verificato buildando con un valore sentinella: ricompare in
+`.next/static/chunks/*` (client) **e** in
+`.next/standalone/.next/server/chunks/*` (server). Conseguenza pratica: mettere
+il DSN nel `.env` non lo cambia, e non esiste modo di toglierlo dall'immagine
+tenendolo come `NEXT_PUBLIC_*`.
 
 Scoperto indagando SCONTRINOZERO-11: un allarme `CF-Connecting-IP` mancante
 taggato `environment: production` proveniva da una macchina di terzi (boot
@@ -186,26 +197,31 @@ di altri deployment indistinguibili dalle nostre), e la regola 22
 (`Sentry.setUser({ id })`) fa arrivare qui **gli ID utente di istanze altrui**,
 di cui il titolare del trattamento è un altro.
 
-**Già mitigato** da `isForeignHostEvent()` in `src/lib/sentry-filters.ts`: il
-`beforeSend` di client e server scarta gli eventi il cui host non è
+**Mitigato** da `isForeignHostEvent()` in `src/lib/sentry-filters.ts`: il
+`beforeSend` di client, server ed edge scarta gli eventi il cui host non è
 `scontrinozero.it` o un suo sottodominio. Il filtro gira **dentro** l'istanza
 self-hosted (è codice nostro spedito nell'immagine), quindi l'evento non parte
 proprio.
 
+**Risolto per server ed edge** dallo split della variabile: `SENTRY_DSN` (senza
+prefisso pubblico) è letta a **runtime** dal `.env`, quindi non finisce
+nell'immagine; chi self-hosta e non la imposta ha la telemetria server spenta.
+`NEXT_PUBLIC_SENTRY_DSN` resta solo per il browser, dove l'inlining è
+inevitabile con **un'unica immagine** per prod/sandbox/dev/self-hosted — ed è
+il motivo per cui il filtro serve comunque.
+
 **Cosa resta da fare.**
 
-1. Togliere `ENV NEXT_PUBLIC_SENTRY_DSN` dallo stage finale del `Dockerfile`,
-   così il lato server non si auto-abilita affatto; il DSN passa nel `.env` del
-   VPS. Il bundle client resta bakato — i `NEXT_PUBLIC_*` si inlineano al
-   build e con **un'unica immagine** per prod/sandbox/dev/self-hosted non c'è
-   modo di evitarlo: è per questo che il filtro serve comunque.
-2. Valutare la **rotazione del DSN**. Il filtro protegge solo dalle istanze che
-   aggiornano l'immagine: quelle già in esecuzione su tag più vecchi
-   continuano a riportare finché non fanno `pull`. Ruotare il DSN le taglia
-   fuori tutte immediatamente, al costo di un rebuild + redeploy di produzione.
-3. Documentare in `README.md` / `DEVELOPER.md` che il self-hosting deve
-   impostare un proprio `NEXT_PUBLIC_SENTRY_DSN` (o lasciarlo vuoto per
-   spegnere la telemetria).
+1. Valutare la **rotazione del DSN**. Filtro e split proteggono solo dalle
+   istanze che aggiornano l'immagine: quelle già in esecuzione su tag più
+   vecchi continuano a riportare finché non fanno `pull`. Ruotare il DSN le
+   taglia fuori tutte immediatamente. Costo: rebuild + redeploy di prod **e**
+   sandbox (condividono l'immagine), perché il DSN client è bakato. Sequenza:
+   nuova chiave → secret GitHub + `.env` → tag → deploy → sentinella
+   (`/api/health/sentry-sentinel`) → _Disable_ (non _Delete_) della vecchia,
+   cancellandola dopo qualche giorno.
+2. Documentare in `README.md` la configurazione telemetria per il self-hosting
+   (`SENTRY_DSN` proprio, oppure vuoto per spegnerla).
 
 ---
 
