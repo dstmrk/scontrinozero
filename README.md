@@ -100,6 +100,26 @@ Per chi preferisce gestire l'installazione in autonomia (gratis, ma anche tutta 
 
 La versione self-hosted include tutte le funzionalità della versione SaaS; il vantaggio della versione hosted su `scontrinozero.it` sono backup, aggiornamenti automatici, supporto e hosting gestito.
 
+### Telemetria
+
+L'immagine pubblica **non invia nulla** al progetto Sentry di ScontrinoZero:
+`SENTRY_DSN` è letta a runtime dal tuo `.env`, quindi se non la imposti la
+telemetria server è semplicemente spenta.
+
+Se vuoi la tua, crea un progetto Sentry e imposta `SENTRY_DSN` con il DSN di
+quel progetto: errori server ed edge finiranno lì.
+
+Per la telemetria **browser** serve invece ribuildare l'immagine passando il
+tuo `NEXT_PUBLIC_SENTRY_DSN` come `--build-arg`: le variabili `NEXT_PUBLIC_*`
+sono inlineate nel bundle JavaScript al momento del build, non lette a runtime,
+quindi metterle nel `.env` non ha alcun effetto sull'immagine già costruita.
+
+Nota: l'immagine pubblicata su GHCR porta nel bundle client il DSN del
+progetto di produzione, ma gli eventi provenienti da domini diversi da
+`scontrinozero.it` vengono scartati prima dell'invio
+(`isForeignHostEvent()` in `src/lib/sentry-filters.ts`) — la tua istanza non
+ci manda dati, e tu non li vedi.
+
 ## Stato del progetto
 
 🚀 **In produzione su [scontrinozero.it](https://scontrinozero.it)**

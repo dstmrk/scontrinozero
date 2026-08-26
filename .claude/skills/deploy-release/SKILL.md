@@ -151,6 +151,55 @@ robots.txt (risponde 403, non `Disallow`): spegnerne uno non spegne l'altro,
 vanno verificati entrambi. Comandi di verifica e distinzioni fra i crawler →
 skill `marketing-content`, sezione "Verificare robots.txt servito".
 
+## Rotazione del DSN Sentry
+
+Serve quando il DSN è finito in un'immagine pubblica e va tagliato fuori chi
+esegue tag vecchi (REVIEW #97). Ruotare = creare una Client Key nuova e
+**disattivare** la vecchia: le immagini vecchie hanno la chiave morta compilata
+dentro e i loro eventi vengono rifiutati.
+
+⚠️ **Due progetti Sentry, non uno.** Prod riporta su `scontrinozero`, sandbox
+su `scontrinozero-test`. Si ruota **solo** il primo: è l'unico il cui DSN
+finisce nell'immagine. Il `SENTRY_DSN` nel `.env` di sandbox punta al progetto
+test, è solo runtime e **non va toccato**. Corollario che confonde: il
+_browser_ di sandbox scrive comunque nel progetto di **produzione**, perché usa
+il bundle dell'immagine prod — ecco perché sandbox va ridispiegata lo stesso.
+
+| Dove                                   | Progetto             | Nell'immagine  | Ruotare      |
+| -------------------------------------- | -------------------- | -------------- | ------------ |
+| Secret GitHub `NEXT_PUBLIC_SENTRY_DSN` | `scontrinozero`      | **sì** (build) | ✅           |
+| `.env` prod → `SENTRY_DSN`             | `scontrinozero`      | no (runtime)   | ✅ allineare |
+| `.env` sandbox → `SENTRY_DSN`          | `scontrinozero-test` | no (runtime)   | ❌           |
+
+1. Sentry → Settings → Projects → **`scontrinozero`** → Client Keys (DSN) →
+   _Generate New Key_. Nasce accanto alla vecchia, **entrambe attive**: nessuna
+   finestra scoperta fra questo passo e il deploy.
+2. Secret GitHub `NEXT_PUBLIC_SENTRY_DSN` + `SENTRY_DSN` nel `.env` di prod →
+   valore nuovo.
+3. Tag → build → deploy **prod e sandbox**.
+4. Smoke completo, **sentinella inclusa** (sotto). Poi Client Keys → il grafico
+   d'utilizzo per chiave: traffico sulla nuova, la vecchia che scende. È questo
+   che dimostra che il deploy ha preso il valore nuovo.
+5. _Disable_ (**non** _Delete_) della vecchia; cancellarla dopo qualche giorno.
+
+Non si toccano `SENTRY_AUTH_TOKEN` / `SENTRY_ORG` / `SENTRY_PROJECT`: servono
+alle source map e sono indipendenti dal DSN. Le issue non si resettano — stesso
+progetto, storico e fingerprint invariati. Con la chiave disattivata l'SDK di
+chi resta indietro riceve 403 e smette, senza rompergli l'applicazione.
+
+### La sentinella e i due progetti
+
+`errorClass:sentinel sentinelId:<id>` va cercata **nel progetto giusto**: la
+sentinella di prod è in `scontrinozero`, quella di sandbox in
+`scontrinozero-test`. Cercare solo nel primo fa sembrare che quella di sandbox
+non sia arrivata.
+
+Ogni ambiente ha inoltre il **proprio** `SENTRY_SENTINEL_TOKEN`: usare il token
+di sandbox contro prod restituisce **404**, che è il comportamento voluto
+(l'endpoint nasconde la propria esistenza) e non un guasto. Lanciare la
+sentinella dalla directory dell'ambiente giusto, così `grep` prende il token
+giusto.
+
 ## Porte Docker: `127.0.0.1:` non è un dettaglio di stile
 
 Con Cloudflare Tunnel **nessuna porta dell'origin va esposta**: `cloudflared`
