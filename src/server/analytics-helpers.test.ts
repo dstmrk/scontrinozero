@@ -7,6 +7,7 @@ import {
   computeProductBreakdown,
   computeTimeseries,
   DEFAULT_ANALYTICS_RANGE,
+  eachRomeDay,
   fillMissingDays,
   formatRomeDay,
   normalizePaymentMethod,
@@ -655,5 +656,50 @@ describe("fillMissingDays", () => {
     expect(out).toHaveLength(7);
     expect(out.find((p) => p.date === "2026-05-19")?.revenueCents).toBe(100);
     expect(out.find((p) => p.date === "2026-05-18")?.revenueCents).toBe(0);
+  });
+});
+
+describe("eachRomeDay", () => {
+  it("elenca un giorno fiscale per ogni giorno del range, in ordine", () => {
+    const { from, to } = rangeToBounds("7d", new Date("2026-05-19T12:00:00Z"));
+
+    const days = eachRomeDay(from, to);
+
+    expect(days).toEqual([
+      "2026-05-13",
+      "2026-05-14",
+      "2026-05-15",
+      "2026-05-16",
+      "2026-05-17",
+      "2026-05-18",
+      "2026-05-19",
+    ]);
+  });
+
+  it("include il giorno di un cambio ora legale una volta sola", () => {
+    // Ultima domenica di marzo 2026: CET -> CEST. Un asse costruito sommando
+    // 24h invece che giorni di calendario salterebbe o duplicherebbe il 29.
+    const from = romeMidnightUtc("2026-03-28");
+    const to = romeMidnightUtc("2026-03-31");
+
+    expect(eachRomeDay(from, to)).toEqual([
+      "2026-03-28",
+      "2026-03-29",
+      "2026-03-30",
+    ]);
+  });
+
+  it("ritorna un asse vuoto se il range è degenere", () => {
+    const day = romeMidnightUtc("2026-05-19");
+
+    expect(eachRomeDay(day, day)).toEqual([]);
+  });
+
+  it("produce lo stesso asse che usa fillMissingDays", () => {
+    const { from, to } = rangeToBounds("30d", new Date("2026-05-19T12:00:00Z"));
+
+    expect(eachRomeDay(from, to)).toEqual(
+      fillMissingDays(new Map(), from, to).map((p) => p.date),
+    );
   });
 });

@@ -89,6 +89,13 @@ export interface ReceiptTotals {
  * il totale di riga, ma queste funzioni leggono anche righe già in DB, dove un
  * import o una fix manuale potrebbero averlo scritto. Un totale negativo si
  * propagherebbe fino all'`ammontareComplessivo` trasmesso all'AdE.
+ *
+ * ⚠️ **Ha un gemello in SQL**: `lineCentsSql` in `src/server/admin-metrics.ts`
+ * è la stessa formula scritta in Postgres, perché il pannello operatore
+ * aggrega su tutti i tenant e non può tirarsi in memoria ogni riga di ogni
+ * scontrino. Nessun test può confrontarle (una gira in JS, l'altra nel DB):
+ * cambiare questa e non quella fa divergere in silenzio il totale del pannello
+ * da quello dello scontrino. Si leggono e si modificano insieme.
  */
 function lineTotalCents(
   grossUnitPrice: number,

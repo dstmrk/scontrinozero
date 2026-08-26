@@ -571,11 +571,26 @@ le funzioni restano indietro in silenzio. Un `db reset` o un restore le perde
 senza che nulla lo segnali. Sono `SECURITY INVOKER`, quindi con RLS attiva non
 espongono dati ad `anon` — il problema è di tracciabilità, non di accesso.
 
-**Fix.** Deciderne il destino, non lasciarle a metà: o entrano in una migrazione
-handwritten (`CREATE OR REPLACE FUNCTION`, con i valori-soglia citati da
-`docs/architecture/config-manifest.md`), oppure si eliminano dal DB e il pannello
-che le consuma passa dai server action esistenti. Prima di scegliere serve sapere
-chi le chiama: non c'è un solo call-site nel repo.
+**Chi le chiama** (risposto): il Worker Cloudflare del repo separato
+`dstmrk/scontrinozero-dashboard`, che le espone via `/api/*` dietro CF Access.
+Nessun call-site in questo repo, e non ce ne sarà: sono state scritte per quel
+pannello e per nient'altro.
+
+**Destino scelto** (v1.7.8): eliminarle, non versionarle. Il pannello rientra
+nell'app come route `/admin` (gate allowlist `ADMIN_EMAILS`), con le query in
+Drizzle che riusano `src/lib/plans-shared.ts` e il canone di
+`src/lib/receipts/receipt-totals.ts`. Il drift previsto qui si era già
+materializzato in tre punti, misurati riscrivendo le query: le funzioni
+ignorano `referral_bonus_days` (trial dichiarati scaduti che l'app tiene
+aperti), ignorano `line_discount` (migrazione 0034 → incasso sovrastimato) e
+sommano `VOID_ACCEPTED` nell'incasso, che `computeKpis` esclude.
+
+**Stato.** Fatto: KPI (`src/server/admin-metrics.ts`) — sostituisce
+`metrics_kpi`. Da fare prima di poter droppare le funzioni: le quattro tabelle
+(`metrics_top_merchants`, `metrics_recent_profiles`, `metrics_trial_expiring`,
+`metrics_paid_users`), poi il `DROP FUNCTION` in migrazione handwritten e
+l'archiviazione del repo dashboard. Fino ad allora le funzioni restano in piedi
+perché il pannello vecchio è ancora l'unico che mostra quelle liste.
 
 _Trigger:_ il primo cambio a durata trial, elenco piani o stati documento.
 

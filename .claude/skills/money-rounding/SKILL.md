@@ -24,6 +24,27 @@ Vivono in `src/lib/receipts/receipt-totals.ts`, modulo **puro e client-safe**:
 
 Ogni nuovo punto che tocca un totale monetario deve passare da questi helper.
 
+### L'unica eccezione ammessa: il gemello SQL del pannello operatore
+
+C'è **un solo** posto in cui la formula è riscritta fuori da
+`receipt-totals.ts`: `lineCentsSql` in `src/server/admin-metrics.ts`, la
+traduzione in Postgres di `lineTotalCents`.
+
+Perché esiste: quel pannello aggrega su **tutti** i tenant, e tirarsi in memoria
+ogni riga di ogni scontrino per sommarle sarebbe l'unica parte del progetto che
+cresce linearmente col fatturato di tutti. Non è una svista da collassare: è la
+sola forma che regge, e le due formule si citano a vicenda nei commenti.
+
+Perché è pericolosa: **nessun test le confronta**. Una gira in JS, l'altra nel
+database; non esiste un assert che le veda entrambe. `round()` di Postgres su
+`numeric` è esatto, `Math.round` di JS parte da un float64: dove differiscono ha
+ragione Postgres, ma se la formula stessa diverge il pannello mostra un incasso
+diverso da quello degli scontrini che lo compongono, e nessuno se ne accorge.
+
+Regola operativa: se tocchi `lineTotalCents`, apri anche `admin-metrics.ts`
+nello stesso PR. Se stai per aggiungere un **secondo** gemello SQL, fermati e
+chiedi: la deroga vale per un'aggregazione cross-tenant, non per comodità.
+
 ### Se una superficie mostra UNA riga, c'è un helper anche per quella
 
 `calcLineTotalCents` e il `perLine` di `computeReceiptTotals` esistono per un

@@ -218,6 +218,16 @@ describe("proxy", () => {
       );
     });
 
+    it("redirects /admin to /login", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(createRequest("/admin"));
+      expect(response.status).toBe(307);
+      const location = new URL(response.headers.get("location")!);
+      expect(location.pathname).toBe("/login");
+    });
+
     it("redirects /onboarding to /login", async () => {
       mockGetUser.mockResolvedValue({ data: { user: null } });
       const { proxy } = await import("./proxy");
@@ -237,6 +247,16 @@ describe("proxy", () => {
       const { proxy } = await import("./proxy");
 
       const response = await proxy(createRequest("/dashboard"));
+      expect(response.status).toBe(200);
+    });
+
+    it("allows authenticated access to /admin (l'allowlist la applica il layout)", async () => {
+      mockGetUser.mockResolvedValue({
+        data: { user: { id: "user-123" } },
+      });
+      const { proxy } = await import("./proxy");
+
+      const response = await proxy(createRequest("/admin"));
       expect(response.status).toBe(200);
     });
 

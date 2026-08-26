@@ -30,6 +30,8 @@ src/
   app/            App Router. Route group + route handler API.
     (auth)/         login, register, reset-password (cross-origin → app.*)
     (marketing)/    sito pubblico SSG/SEO (/help, /guide, /per, /confronto, /strumenti, /termini)
+    admin/          pannello operatore: KPI aggregati su tutti i tenant
+                    (gate allowlist email, fuori dall'area prodotto)
     dashboard/      area autenticata: cassa, storico, analytics, settings
     onboarding/     wizard collegamento credenziali AdE
     api/            route handler (vedi sotto)
@@ -40,7 +42,7 @@ src/
     feed.xml/       route handler /feed.xml (RSS 2.0 delle guide)
   components/     React. Sottocartelle per dominio (cassa, storico, analytics,
                   catalogo, billing, settings, ade, receipts, marketing, help,
-                  pwa, dashboard, announcement, errors) + ui/ (shadcn) +
+                  pwa, dashboard, admin, announcement, errors) + ui/ (shadcn) +
                   providers.tsx
   db/             Drizzle: connessione (index.ts) + schema/ (una tabella per file)
   emails/         template React Email (Resend)
@@ -69,6 +71,7 @@ partner per il branding subdomain), e i data file marketing
 
 | Cerchi…                                           | Vai a                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Gate del pannello operatore (`/admin`)            | `src/lib/admin-gate.ts` (`isAdminEmail`, allowlist `ADMIN_EMAILS`), applicato in `src/app/admin/layout.tsx` — 404, non 403. Metriche in `src/server/admin-metrics.ts`, che traduce in SQL il canone centesimi-per-riga di `src/lib/receipts/receipt-totals.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | Auth della richiesta (user UUID, bind Sentry)     | `src/lib/server-auth.ts` (`getAuthenticatedUser`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Client Supabase (server/admin/middleware)         | `src/lib/supabase/server.ts`, `src/lib/supabase/admin.ts`, `src/lib/supabase/middleware.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | Azioni auth (login/register/reset, T&C version)   | `src/server/auth-actions.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -105,23 +108,27 @@ partner per il branding subdomain), e i data file marketing
 
 ## Indice Server Actions (`src/server/*-actions.ts`)
 
-Tutte sono `"use server"`; sulle azioni di lettura vale "degradare, non lanciare"
-(CLAUDE.md regola 19).
+I file `*-actions.ts` sono `"use server"`; sulle azioni di lettura vale
+"degradare, non lanciare" (CLAUDE.md regola 19). La tabella elenca anche l'unico
+modulo di `src/server/` che **non** è una server action — `admin-metrics.ts`, il
+cui suffisso diverso è deliberato: non espone un endpoint RPC, la sua unica via
+d'accesso è la RSC `/admin` dietro il gate del layout.
 
-| File                               | Responsabilità                                                                                                   |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `src/server/auth-actions.ts`       | login, registrazione, reset password, accettazione T&C                                                           |
-| `src/server/onboarding-actions.ts` | wizard collegamento credenziali AdE — method-aware Fisconline/CIE (`saveAdeCredentials`/`verifyAdeCredentials`)  |
-| `src/server/receipt-actions.ts`    | emissione scontrino (cassa)                                                                                      |
-| `src/server/void-actions.ts`       | annullo documento                                                                                                |
-| `src/server/storico-actions.ts`    | elenco/ricerca documenti emessi + rilettura di una singola riga                                                  |
-| `src/server/analytics-actions.ts`  | KPI e analytics (helper in `src/server/analytics-helpers.ts`)                                                    |
-| `src/server/catalog-actions.ts`    | catalogo prodotti rapidi                                                                                         |
-| `src/server/export-actions.ts`     | export dei dati personali (GDPR art. 20) — l'export CSV Pro-gated vive in `src/app/api/export/receipts/route.ts` |
-| `src/server/billing-actions.ts`    | checkout / customer portal Stripe                                                                                |
-| `src/server/profile-actions.ts`    | impostazioni profilo/attività + messaggio di cortesia sullo scontrino (`updateReceiptFooterNote`, Pro-gated)     |
-| `src/server/account-actions.ts`    | gestione account (es. cancellazione)                                                                             |
-| `src/server/api-key-actions.ts`    | gestione API key Developer                                                                                       |
+| File                               | Responsabilità                                                                                                                                                                          |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/server/auth-actions.ts`       | login, registrazione, reset password, accettazione T&C                                                                                                                                  |
+| `src/server/onboarding-actions.ts` | wizard collegamento credenziali AdE — method-aware Fisconline/CIE (`saveAdeCredentials`/`verifyAdeCredentials`)                                                                         |
+| `src/server/receipt-actions.ts`    | emissione scontrino (cassa)                                                                                                                                                             |
+| `src/server/void-actions.ts`       | annullo documento                                                                                                                                                                       |
+| `src/server/storico-actions.ts`    | elenco/ricerca documenti emessi + rilettura di una singola riga                                                                                                                         |
+| `src/server/analytics-actions.ts`  | KPI e analytics (helper in `src/server/analytics-helpers.ts`)                                                                                                                           |
+| `src/server/admin-metrics.ts`      | KPI del pannello operatore su tutti i tenant — **NON** una server action (nessun `"use server"`, quindi nessun endpoint RPC): la chiama solo la RSC `/admin`, dietro il gate del layout |
+| `src/server/catalog-actions.ts`    | catalogo prodotti rapidi                                                                                                                                                                |
+| `src/server/export-actions.ts`     | export dei dati personali (GDPR art. 20) — l'export CSV Pro-gated vive in `src/app/api/export/receipts/route.ts`                                                                        |
+| `src/server/billing-actions.ts`    | checkout / customer portal Stripe                                                                                                                                                       |
+| `src/server/profile-actions.ts`    | impostazioni profilo/attività + messaggio di cortesia sullo scontrino (`updateReceiptFooterNote`, Pro-gated)                                                                            |
+| `src/server/account-actions.ts`    | gestione account (es. cancellazione)                                                                                                                                                    |
+| `src/server/api-key-actions.ts`    | gestione API key Developer                                                                                                                                                              |
 
 ## Moduli cross-cutting (toccati da quasi ogni feature)
 

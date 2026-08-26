@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { KpiCard } from "@/components/kpi-card";
 import { formatCurrency } from "@/lib/utils";
 import type { AnalyticsKpis } from "@/server/analytics-actions";
 
@@ -15,26 +15,6 @@ const countFormatter = new Intl.NumberFormat("it-IT");
 
 function formatCount(value: number): string {
   return countFormatter.format(value);
-}
-
-interface KpiCardProps {
-  readonly title: string;
-  readonly value: string;
-}
-
-function KpiCard({ title, value }: KpiCardProps) {
-  return (
-    <Card>
-      <CardHeader>
-        <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-          {title}
-        </p>
-      </CardHeader>
-      <CardContent>
-        <p className="text-2xl font-semibold">{value}</p>
-      </CardContent>
-    </Card>
-  );
 }
 
 export function KpiCards({ kpis }: KpiCardsProps) {
