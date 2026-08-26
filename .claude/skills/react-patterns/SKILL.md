@@ -116,6 +116,34 @@ Validare sempre `id` con `isValidUuid()` prima di passarlo al service
 
 ---
 
+## Route con un punto nel nome: `.well-known/`, `feed.xml`, `llms.txt`
+
+Un segmento che inizia con `.` **non** viene ignorato dall'App Router: lo
+scanner di Next scarta solo le parti che iniziano con `_`
+(`ignorePartFilter: (part) => part.startsWith('_')` in
+`next/dist/build/route-discovery.js`). Quindi
+`src/app/.well-known/security.txt/route.ts` è una route valida e compare come
+`ƒ /.well-known/security.txt` nell'output di `npm run build` — niente rewrite
+in `next.config.ts`, niente file statico in `public/`. Vale anche per i test:
+il glob `src/**/*.test.ts` di Vitest **trova** i file dentro la dot-directory
+(verificabile con `npx vitest list | grep well-known`).
+
+Due cose da ricordare quando aggiungi una route del genere:
+
+- se deve rispondere sul dominio marketing, va aggiunta a
+  `MARKETING_ONLY_ROUTES` in `src/proxy.ts`, altrimenti il middleware la
+  rimbalza 307 su `app.*` e lì la route risponde 404;
+- il proxy matcher esclude per nome alcuni file (`robots.txt`, `sitemap.xml`,
+  `sw.js`, …): controlla la regex prima di assumere che il middleware giri.
+
+Verifica dell'emissione, dopo il build:
+
+```bash
+grep -o '"/\.well-known[^"]*"' .next/app-path-routes-manifest.json
+```
+
+---
+
 ## Composizione con shadcn/ui + Radix
 
 I file in `src/components/ui/` sono **codice del repo**, non dipendenze:

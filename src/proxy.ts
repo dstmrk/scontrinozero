@@ -43,6 +43,12 @@ function pathNeedsAuthSession(pathname: string): boolean {
  * `/strumenti/[slug]`).
  */
 const MARKETING_ONLY_ROUTES = [
+  // RFC 9116: security.txt è autoritativo sull'apex, ed è lì che punta il suo
+  // campo `Canonical`. Senza questa voce la richiesta finirebbe rimbalzata sul
+  // dominio app, dove il route handler risponde 404 perché l'host non è
+  // indicizzabile — il file risulterebbe assente proprio sul dominio in cui i
+  // ricercatori (e gli scanner) lo cercano.
+  "/.well-known",
   "/confronto",
   "/cookie-policy",
   "/feed.xml",
