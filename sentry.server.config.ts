@@ -14,8 +14,9 @@ Sentry.init({
   // `NEXT_PUBLIC_SENTRY_DSN` finisce come letterale sia in
   // `.next/static/chunks/*` (client) sia in `.next/standalone/.next/server/
   // chunks/*` (server) — quindi ogni istanza self-hosted ereditava il nostro
-  // DSN e riportava qui senza aver configurato nulla (issue SCONTRINOZERO-11,
-  // REVIEW #97). Con `SENTRY_DSN` chi non la imposta ha la telemetria server
+  // DSN e riportava qui senza aver configurato nulla (issue SCONTRINOZERO-11;
+  // come riconoscere un evento non nostro → skill `sentry-hygiene`).
+  // Con `SENTRY_DSN` chi non la imposta ha la telemetria server
   // spenta, che e' il default corretto per un self-host.
   dsn: process.env.SENTRY_DSN,
   // Tagga Issue e Sentry Logs col commit in esecuzione (scontrinozero@<ver>+<sha>).

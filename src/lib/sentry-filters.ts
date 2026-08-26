@@ -218,7 +218,8 @@ function isOwnHostname(hostname: string): boolean {
  * Lo split `SENTRY_DSN` (runtime, server ed edge) vs `NEXT_PUBLIC_SENTRY_DSN`
  * (build, browser) toglie il DSN dal bundle server, ma per il **browser**
  * l'inlining è inevitabile finché l'immagine è una sola: da lì il filtro resta
- * l'unica difesa. Vedi REVIEW #97.
+ * l'unica difesa. Rotazione del DSN e distinguo fra i due progetti Sentry →
+ * skill `deploy-release`.
  *
  * Due danni, uno peggiore dell'altro:
  * 1. Telemetria inquinata. SCONTRINOZERO-11 — un allarme `CF-Connecting-IP`

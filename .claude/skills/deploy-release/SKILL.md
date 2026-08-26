@@ -154,7 +154,7 @@ skill `marketing-content`, sezione "Verificare robots.txt servito".
 ## Rotazione del DSN Sentry
 
 Serve quando il DSN è finito in un'immagine pubblica e va tagliato fuori chi
-esegue tag vecchi (REVIEW #97). Ruotare = creare una Client Key nuova e
+esegue tag vecchi. Ruotare = creare una Client Key nuova e
 **disattivare** la vecchia: le immagini vecchie hanno la chiave morta compilata
 dentro e i loro eventi vengono rifiutati.
 

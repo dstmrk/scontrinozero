@@ -7,7 +7,7 @@ import { getAppRelease } from "@/lib/version";
 
 Sentry.init({
   // `SENTRY_DSN` senza prefisso pubblico → letta a runtime, non inlineata nel
-  // bundle. Stessa motivazione di `sentry.server.config.ts` (REVIEW #97).
+  // bundle. Stessa motivazione di `sentry.server.config.ts`.
   dsn: process.env.SENTRY_DSN,
   // Tagga Issue e Sentry Logs col commit in esecuzione (scontrinozero@<ver>+<sha>).
   release: getAppRelease(),
