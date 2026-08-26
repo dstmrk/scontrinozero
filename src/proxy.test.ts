@@ -239,36 +239,27 @@ describe("proxy", () => {
     });
   });
 
+  // Deve restare allineata a PROTECTED_PREFIXES in src/proxy.ts: è l'elenco
+  // delle route su cui il middleware pretende una sessione.
+  const PROTECTED_PREFIXES = ["/dashboard", "/admin", "/onboarding"];
+
   describe("protected routes — authenticated", () => {
-    it("allows authenticated access to /dashboard", async () => {
-      mockGetUser.mockResolvedValue({
-        data: { user: { id: "user-123" } },
-      });
-      const { proxy } = await import("./proxy");
+    // Su `/admin` il middleware garantisce SOLO l'autenticazione: l'allowlist
+    // operatore la applica `src/app/admin/layout.tsx`, che risponde 404 a un
+    // utente autenticato fuori lista. Qui il 200 atteso è quello del
+    // middleware, non "il pannello è accessibile".
+    it.each(PROTECTED_PREFIXES)(
+      "allows authenticated access to %s",
+      async (path) => {
+        mockGetUser.mockResolvedValue({
+          data: { user: { id: "user-123" } },
+        });
+        const { proxy } = await import("./proxy");
 
-      const response = await proxy(createRequest("/dashboard"));
-      expect(response.status).toBe(200);
-    });
-
-    it("allows authenticated access to /admin (l'allowlist la applica il layout)", async () => {
-      mockGetUser.mockResolvedValue({
-        data: { user: { id: "user-123" } },
-      });
-      const { proxy } = await import("./proxy");
-
-      const response = await proxy(createRequest("/admin"));
-      expect(response.status).toBe(200);
-    });
-
-    it("allows authenticated access to /onboarding", async () => {
-      mockGetUser.mockResolvedValue({
-        data: { user: { id: "user-123" } },
-      });
-      const { proxy } = await import("./proxy");
-
-      const response = await proxy(createRequest("/onboarding"));
-      expect(response.status).toBe(200);
-    });
+        const response = await proxy(createRequest(path));
+        expect(response.status).toBe(200);
+      },
+    );
   });
 
   describe("auth-only routes — redirect if authenticated", () => {
