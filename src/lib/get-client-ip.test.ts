@@ -125,6 +125,16 @@ describe("getClientIp", () => {
       expect(mockLoggerWarn).not.toHaveBeenCalled();
     });
 
+    it("attribuisce l'allarme al mancato passaggio da Cloudflare, non a una sua misconfigurazione (SCONTRINOZERO-11)", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      getClientIp(makeHeaders({}));
+      const [, message] = mockLoggerError.mock.calls[0];
+      // Il messaggio storico diceva "Cloudflare misconfiguration?" e mandava
+      // a cercare il problema nel dashboard invece che nel bind della porta.
+      expect(message).not.toMatch(/misconfiguration/i);
+      expect(message).toMatch(/without passing through Cloudflare/i);
+    });
+
     it("non logga error in produzione quando CF-Connecting-IP è presente", () => {
       vi.stubEnv("NODE_ENV", "production");
       const headers = makeHeaders({ "cf-connecting-ip": "1.2.3.4" });

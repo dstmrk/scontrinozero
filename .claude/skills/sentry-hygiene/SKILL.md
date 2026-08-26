@@ -176,6 +176,55 @@ Due dettagli non negoziabili:
   fuori produzione (o quando l'header c'è), il primo miss reale resta silenzioso
   per tutta la finestra.
 
+### 4-bis. Prima di indagare: l'evento è davvero **nostro**?
+
+`environment: production` non significa "la nostra produzione". Il `Dockerfile`
+fissa `ENV NEXT_PUBLIC_SENTRY_DSN` nell'immagine finale, che è **pubblica su
+GHCR** perché il self-hosting è un piano supportato: ogni istanza self-hosted
+esegue il nostro codice, con il nostro DSN e il nostro tag di release, e le sue
+issue arrivano qui indistinguibili dalle nostre.
+
+**SCONTRINOZERO-11 è il caso di studio**, e il costo è stato un'ora. Un allarme
+`CF-Connecting-IP` mancante con Host estraneo (`scontrino.ettawalkup.it`) è
+stato letto come attacco: prima scansione opportunistica, poi phishing, poi
+raccolta credenziali — arrivando a un passo dal bloccare al WAF e segnalare per
+abuso quello che era un **utente self-hosted**. Ogni indizio "ostile" aveva una
+lettura banale: l'Host estraneo era il suo `APP_HOSTNAME`, gli UA che ruotavano
+erano i suoi visitatori, il redirect `/` → `/dashboard` era `proxy.ts` che
+girava a casa sua.
+
+**Il check che chiude la questione in trenta secondi** — confronta il device
+context dell'evento con la macchina di produzione:
+
+```bash
+uptime -s; nproc; free -b | head -2   # sul VPS
+```
+
+contro `boot_time`, `processor_count` e `memory_size` nell'evento. Se non
+combaciano, l'evento non è nostro e l'indagine finisce lì. Utile anche
+`server_name` (hostname del container) e la coppia
+`app_start_time` / riavvii noti.
+
+**Il segnale complementare**: se l'issue riporta traffico verso un host,
+verifica su Cloudflare (Security → Events, o l'anteprima "requests matched" di
+una regola WAF) che quel traffico esista. Zero richieste da quell'IP in 24 ore
+significa che la tua infrastruttura non è mai stata toccata.
+
+**Azione**: `isForeignHostEvent()` in `src/lib/sentry-filters.ts` scarta in
+`beforeSend` (client e server) gli eventi il cui `request.url` non è
+`scontrinozero.it` o un sottodominio. Due invarianti da non rompere:
+
+- il dominio è **hardcoded**, mai derivato da `APP_HOSTNAME` /
+  `NEXT_PUBLIC_*_HOSTNAME`: un self-hoster quelle env le imposta col proprio
+  dominio, e un filtro env-derived sarebbe un no-op proprio dove serve;
+- **fail-open** sull'host indeterminabile: gli errori senza `request.url`
+  (cron, migrazioni, boot) sono i nostri e non vanno persi.
+
+Il filtro gira dentro l'istanza self-hosted, quindi l'evento non parte proprio
+— ma solo dalle immagini che lo contengono. Le istanze su tag più vecchi
+continuano a riportare finché non fanno `pull`: l'unica leva immediata su
+quelle è ruotare il DSN (REVIEW #97).
+
 ### 5. Deploy skew: non è un guasto, ma va gestito (non filtrato)
 
 Esempio canonico: **SCONTRINOZERO-Z** `UnrecognizedActionError: Server Action

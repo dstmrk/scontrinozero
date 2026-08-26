@@ -13,11 +13,20 @@ import { logger } from "@/lib/logger";
  *   da un client che imposta l'header arbitrariamente.
  * - `X-Real-IP` è volutamente escluso: non-standard e senza trust model.
  *
- * In produzione, se CF-Connecting-IP è assente (misconfiguration), si
- * restituisce "unknown" anziché cadere sul fallback falsificabile — il
- * rate limiting costruito su un IP spoofable sarebbe inefficace.
- * In questo caso viene emesso un log di warning per rilevare rapidamente
- * la misconfiguration Cloudflare.
+ * In produzione, se CF-Connecting-IP è assente, si restituisce "unknown"
+ * anziché cadere sul fallback falsificabile — il rate limiting costruito su un
+ * IP spoofable sarebbe inefficace. In questo caso viene emesso un allarme.
+ *
+ * ⚠️ Cosa significa davvero l'header mancante: la richiesta ha raggiunto
+ * l'origin **senza passare da Cloudflare**. Le due cause reali sono
+ * (a) una porta dell'origin pubblicata su `0.0.0.0` invece che su loopback —
+ * con Cloudflare Tunnel `cloudflared` è outbound-only e nessuna porta va
+ * esposta (il `docker-compose` di prod aveva `"3000:3000"` anziché
+ * `"127.0.0.1:3000:3000"`); e (b) un deployment che Cloudflare davanti non ce
+ * l'ha proprio, tipicamente self-hosted. Il messaggio storico attribuiva la
+ * colpa a una "Cloudflare misconfiguration" e ha mandato l'indagine di
+ * SCONTRINOZERO-11 nella direzione sbagliata per un'ora: il dashboard
+ * Cloudflare era a posto, era il bind della porta a non esserlo.
  */
 
 /**
@@ -63,7 +72,7 @@ export function getClientIp(headers: Headers): string {
       lastMissingCfIpLogAt = now;
       logger.error(
         { critical: true },
-        "CF-Connecting-IP header missing in production — Cloudflare misconfiguration? Rate-limit buckets will be shared under 'unknown'",
+        "CF-Connecting-IP header missing in production — the request reached the origin without passing through Cloudflare (origin port published publicly, or a deployment with no Cloudflare in front). Rate-limit buckets will be shared under 'unknown'",
       );
     }
     return "unknown";

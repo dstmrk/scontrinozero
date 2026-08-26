@@ -164,6 +164,51 @@ diventa un buco di billing al lancio della Fase B Developer API.
 
 ---
 
+### 97. Il DSN Sentry è bakato nell'immagine pubblica: le istanze self-hosted riportano nel nostro progetto
+
+- **Categoria:** privacy / telemetria · **Severità:** Medium — dati personali di terzi in ingresso, telemetria di produzione inquinata
+- **File:** `Dockerfile` (righe `ARG`/`ENV NEXT_PUBLIC_SENTRY_DSN`), `.github/workflows/deploy.yml` (build-arg), `sentry.server.config.ts`, `sentry.edge.config.ts`, `instrumentation-client.ts`
+
+**Contesto.** `deploy.yml` passa `NEXT_PUBLIC_SENTRY_DSN` come build-arg alla
+build di produzione, e il `Dockerfile` lo fissa con `ENV` nello stage finale.
+Quell'immagine è `ghcr.io/dstmrk/scontrinozero:latest`, **pubblica su GHCR**
+(self-hosting è un piano supportato, €0). Chiunque la esegua ha quindi Sentry
+attivo e puntato sul nostro progetto senza saperlo, perché tutte e tre le
+config fanno `enabled: !!process.env.NEXT_PUBLIC_SENTRY_DSN`.
+
+Scoperto indagando SCONTRINOZERO-11: un allarme `CF-Connecting-IP` mancante
+taggato `environment: production` proveniva da una macchina di terzi (boot
+time, core count e RAM non combaciavano con il VPS di produzione), e ha
+prodotto un'ora di indagine su un attacco inesistente.
+
+Due danni distinti: la telemetria di produzione non è più attendibile (issue
+di altri deployment indistinguibili dalle nostre), e la regola 22
+(`Sentry.setUser({ id })`) fa arrivare qui **gli ID utente di istanze altrui**,
+di cui il titolare del trattamento è un altro.
+
+**Già mitigato** da `isForeignHostEvent()` in `src/lib/sentry-filters.ts`: il
+`beforeSend` di client e server scarta gli eventi il cui host non è
+`scontrinozero.it` o un suo sottodominio. Il filtro gira **dentro** l'istanza
+self-hosted (è codice nostro spedito nell'immagine), quindi l'evento non parte
+proprio.
+
+**Cosa resta da fare.**
+
+1. Togliere `ENV NEXT_PUBLIC_SENTRY_DSN` dallo stage finale del `Dockerfile`,
+   così il lato server non si auto-abilita affatto; il DSN passa nel `.env` del
+   VPS. Il bundle client resta bakato — i `NEXT_PUBLIC_*` si inlineano al
+   build e con **un'unica immagine** per prod/sandbox/dev/self-hosted non c'è
+   modo di evitarlo: è per questo che il filtro serve comunque.
+2. Valutare la **rotazione del DSN**. Il filtro protegge solo dalle istanze che
+   aggiornano l'immagine: quelle già in esecuzione su tag più vecchi
+   continuano a riportare finché non fanno `pull`. Ruotare il DSN le taglia
+   fuori tutte immediatamente, al costo di un rebuild + redeploy di produzione.
+3. Documentare in `README.md` / `DEVELOPER.md` che il self-hosting deve
+   impostare un proprio `NEXT_PUBLIC_SENTRY_DSN` (o lasciarlo vuoto per
+   spegnere la telemetria).
+
+---
+
 ## P2 — Media priorità
 
 ### 11. `getCatalogItems` senza LIMIT + autocomplete server-side
