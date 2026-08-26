@@ -179,6 +179,74 @@ export function isInAppBrowserBridgeError(
 }
 
 /**
+ * Dominio pubblico di ScontrinoZero.
+ *
+ * **Hardcoded di proposito**: non può derivare da `APP_HOSTNAME` o dalle
+ * `NEXT_PUBLIC_*_HOSTNAME` come fanno `parseTrustedHostnameEnv()` e
+ * `getAppHostname()`, perché un'istanza self-hosted quelle env le imposta col
+ * **proprio** dominio — ed è esattamente l'istanza da cui non vogliamo eventi.
+ * Derivarla dall'ambiente renderebbe il filtro un no-op proprio dove serve.
+ */
+const OWN_APEX_DOMAIN = "scontrinozero.it";
+
+/**
+ * Host di sviluppo locale: chi lavora con un DSN in `.env.local` deve
+ * continuare a vedere i propri eventi. In CI e su `:dev` Sentry è comunque
+ * spento (`deploy-dev.yml` non passa il DSN), quindi qui non passa nulla.
+ */
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+function isOwnHostname(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  if (LOCAL_HOSTNAMES.has(host)) return true;
+  // Confronto per label, non per suffisso nudo: `notscontrinozero.it` e
+  // `scontrinozero.it.evil.example` NON sono nostri.
+  return host === OWN_APEX_DOMAIN || host.endsWith(`.${OWN_APEX_DOMAIN}`);
+}
+
+/**
+ * True se l'evento arriva da un host che non è nostro — in pratica da
+ * un'**istanza self-hosted** di ScontrinoZero.
+ *
+ * Perché serve: `deploy.yml` passa `NEXT_PUBLIC_SENTRY_DSN` come build-arg e
+ * il `Dockerfile` lo fissa con `ENV` nell'immagine finale, che è pubblica su
+ * GHCR (self-hosting è un piano supportato, €0). Chiunque esegua
+ * `ghcr.io/dstmrk/scontrinozero:latest` ha quindi Sentry **attivo e puntato su
+ * questo progetto** senza saperlo: i suoi errori diventano nostre issue.
+ *
+ * Due danni, uno peggiore dell'altro:
+ * 1. Telemetria inquinata. SCONTRINOZERO-11 — un allarme `CF-Connecting-IP`
+ *    mancante, taggato `environment: production` — veniva da una macchina di
+ *    terzi (boot time, core e RAM diversi dal nostro VPS) e ci è costato un'ora
+ *    di indagine su un attacco che non esisteva.
+ * 2. Dati personali altrui. La regola 22 lega l'utente allo scope con
+ *    `Sentry.setUser({ id })`: un'istanza self-hosted ci manda gli ID dei
+ *    **suoi** utenti, di cui il titolare è un altro.
+ *
+ * ⚠️ Fail-open deliberato: un evento **senza** host determinabile passa. Gli
+ * errori fuori da una request — cron, migrazioni, fallimenti al boot — non
+ * hanno `request.url`, e sono proprio quelli che non possiamo permetterci di
+ * perdere dalla nostra produzione. Il filtro scarta solo ciò che riconosce
+ * positivamente come estraneo; il grosso della perdita è comunque
+ * request-scoped.
+ */
+export function isForeignHostEvent(event: ErrorEvent): boolean {
+  const url = event.request?.url;
+  if (!url) return false;
+
+  let hostname: string;
+  try {
+    hostname = new URL(url).hostname;
+  } catch {
+    // URL relativo o malformato: non sappiamo dire, quindi non scartiamo.
+    return false;
+  }
+  if (!hostname) return false;
+
+  return !isOwnHostname(hostname);
+}
+
+/**
  * `beforeSend` del client Sentry: scarta le classi di rumore browser
  * riconosciute, lascia passare tutto il resto.
  *
@@ -197,6 +265,10 @@ export function clientBeforeSend(
   event: ErrorEvent,
   hint?: EventHint,
 ): ErrorEvent | null {
+  // Istanza self-hosted che riporta nel nostro progetto (issue SCONTRINOZERO-11)
+  if (isForeignHostEvent(event)) {
+    return null;
+  }
   // Rumore di rete transiente su mobile e fetch di estensioni browser
   // (issue SCONTRINOZERO-J, SCONTRINOZERO-R, SCONTRINOZERO-V)
   if (isClientNetworkFailure(event, hint)) {

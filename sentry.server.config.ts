@@ -2,6 +2,7 @@ import * as Sentry from "@sentry/nextjs";
 import {
   isBenignFormDataParseError,
   isBenignServerActionNotFound,
+  isForeignHostEvent,
 } from "@/lib/sentry-filters";
 import { getAppRelease } from "@/lib/version";
 
@@ -25,6 +26,12 @@ Sentry.init({
     }),
   ],
   beforeSend(event, hint) {
+    // Istanza self-hosted che riporta nel nostro progetto: il DSN e' bakato
+    // nell'immagine pubblica, quindi ci arrivano gli errori (e gli ID utente,
+    // regola 22) di deployment altrui (issue SCONTRINOZERO-11)
+    if (isForeignHostEvent(event)) {
+      return null;
+    }
     // Rumore da bot che fanno POST a path inesistenti (issue SCONTRINOZERO-E)
     if (isBenignFormDataParseError(event, hint)) {
       return null;

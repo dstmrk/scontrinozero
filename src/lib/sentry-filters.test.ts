@@ -6,9 +6,22 @@ import {
   isBenignServerActionNotFound,
   isBluetoothGattFailure,
   isClientNetworkFailure,
+  isForeignHostEvent,
   isInAppBrowserBridgeError,
   isReactStreamingDomError,
 } from "./sentry-filters";
+
+/**
+ * Evento con contesto request — è da `request.url` che si ricava l'host che
+ * distingue la nostra produzione da un'istanza self-hosted.
+ */
+function makeRequestEvent(url: string): ErrorEvent {
+  return {
+    type: undefined,
+    transaction: "/dashboard",
+    request: { url },
+  } as ErrorEvent;
+}
 
 function makeEvent(
   transaction: string | undefined,
@@ -443,7 +456,88 @@ describe("isInAppBrowserBridgeError", () => {
   });
 });
 
+describe("isForeignHostEvent", () => {
+  it("riconosce l'host di un'istanza self-hosted (issue SCONTRINOZERO-11)", () => {
+    const event = makeRequestEvent("https://scontrino.ettawalkup.it/register");
+
+    expect(isForeignHostEvent(event)).toBe(true);
+  });
+
+  it("lascia passare l'apex di produzione", () => {
+    const event = makeRequestEvent("https://scontrinozero.it/prezzi");
+
+    expect(isForeignHostEvent(event)).toBe(false);
+  });
+
+  it.each([
+    "https://app.scontrinozero.it/dashboard",
+    "https://sandbox.scontrinozero.it/login",
+    "https://api.scontrinozero.it/v1/receipts",
+    "https://app-dev.scontrinozero.it/dashboard",
+    "https://www.scontrinozero.it/",
+  ])("lascia passare il sottodominio %s", (url) => {
+    expect(isForeignHostEvent(makeRequestEvent(url))).toBe(false);
+  });
+
+  it.each([
+    "https://notscontrinozero.it/login",
+    "https://evil-scontrinozero.it/login",
+    "https://scontrinozero.it.evil.example/login",
+  ])("non si fa ingannare dal suffisso simile %s", (url) => {
+    expect(isForeignHostEvent(makeRequestEvent(url))).toBe(true);
+  });
+
+  it("normalizza il case dell'hostname", () => {
+    const event = makeRequestEvent("https://APP.SCONTRINOZERO.IT/dashboard");
+
+    expect(isForeignHostEvent(event)).toBe(false);
+  });
+
+  it("ignora la porta nell'URL", () => {
+    const event = makeRequestEvent("https://app.scontrinozero.it:3000/");
+
+    expect(isForeignHostEvent(event)).toBe(false);
+  });
+
+  it.each(["http://localhost:3000/dashboard", "http://127.0.0.1:3000/"])(
+    "considera locale %s (dev con DSN in .env.local resta osservabile)",
+    (url) => {
+      expect(isForeignHostEvent(makeRequestEvent(url))).toBe(false);
+    },
+  );
+
+  it("lascia passare un evento senza request (cron, errore al boot)", () => {
+    const event = makeEvent("/dashboard");
+
+    expect(isForeignHostEvent(event)).toBe(false);
+  });
+
+  it("lascia passare un evento con request ma senza url", () => {
+    const event = { type: undefined, request: {} } as ErrorEvent;
+
+    expect(isForeignHostEvent(event)).toBe(false);
+  });
+
+  it("lascia passare un url malformato senza lanciare", () => {
+    const event = makeRequestEvent("/register");
+
+    expect(isForeignHostEvent(event)).toBe(false);
+  });
+});
+
 describe("clientBeforeSend", () => {
+  it("scarta l'evento proveniente da un'istanza self-hosted (issue SCONTRINOZERO-11)", () => {
+    const event = makeRequestEvent("https://scontrino.ettawalkup.it/login");
+
+    expect(clientBeforeSend(event)).toBeNull();
+  });
+
+  it("lascia passare l'evento proveniente da un host di produzione", () => {
+    const event = makeRequestEvent("https://app.scontrinozero.it/dashboard");
+
+    expect(clientBeforeSend(event)).toBe(event);
+  });
+
   it("scarta il fallimento di rete del browser (issue SCONTRINOZERO-J)", () => {
     const event = makeEvent("/login");
     const hint: EventHint = {

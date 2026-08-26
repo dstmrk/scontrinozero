@@ -151,6 +151,57 @@ robots.txt (risponde 403, non `Disallow`): spegnerne uno non spegne l'altro,
 vanno verificati entrambi. Comandi di verifica e distinzioni fra i crawler →
 skill `marketing-content`, sezione "Verificare robots.txt servito".
 
+## Porte Docker: `127.0.0.1:` non è un dettaglio di stile
+
+Con Cloudflare Tunnel **nessuna porta dell'origin va esposta**: `cloudflared`
+apre una connessione **outbound** e raggiunge l'app su loopback. Ma Docker
+pubblica su `0.0.0.0` **per default**: `"3000:3000"` rende l'app raggiungibile
+dall'IP pubblico del VPS, scavalcando Cloudflare — niente WAF, niente bot
+protection, `CF-Connecting-IP` assente e tutti i bucket rate-limit per-IP
+collassati su `"unknown"` (`getClientIp`, fail-closed).
+
+La forma corretta, già nel template `deploy/dev/docker-compose.yml`:
+
+```yaml
+ports:
+  - "127.0.0.1:3000:3000"
+```
+
+Sicuro perché `cloudflared` gira come processo **host** (systemd): lo si
+verifica con `ss -tlnp`, dove compare su `127.0.0.1:20241`. Se invece fosse
+containerizzato, il bind su loopback lo taglierebbe fuori e servirebbe una
+rete Docker condivisa.
+
+**Verifica su ogni host, non solo per l'app.** Ad agosto 2026 il VPS di
+produzione aveva quattro stack e **tre** pubblicavano su `0.0.0.0` — app
+sandbox, Dockge (che gestisce tutti i container: il più grave) e un terzo
+progetto. Non era una svista isolata: è il default di Docker, e ogni stack
+creato senza copiare il prefisso lo eredita.
+
+```bash
+sudo ss -tlnp                                   # TCP: tutto deve essere loopback
+sudo ss -ulnp                                   # UDP: `-t` non lo copre
+docker ps --format 'table {{.Names}}\t{{.Ports}}'
+```
+
+Due trappole:
+
+- **UFW non protegge le porte Docker.** Le regole Docker vivono nella catena
+  `DOCKER` di iptables, valutata **prima** della `INPUT` su cui agisce UFW:
+  `ufw deny 3000` lascia la porta raggiungibile mentre il firewall dice il
+  contrario. Il bind su loopback è il fix; un firewall a livello **provider**
+  è il secondo strato, ed è l'unico che rende la classe di errore impossibile
+  invece che improbabile.
+- **Prima di stringere un pannello di amministrazione, controlla come ci
+  accedi.** Se raggiungi Dockge (o simili) per `IP:porta`, il bind su
+  `127.0.0.1` ti chiude fuori: configura prima la route nel tunnel.
+
+`docker compose up -d` basta a riapplicare il bind (ricrea il container e il
+suo `docker-proxy`); serve `down` solo se `ss` mostra ancora `0.0.0.0`.
+⚠️ Ricreare il container **cancella i log del precedente**: se servono come
+prova di un incidente, salvali (`docker logs <name> > /tmp/x.log`) **prima**
+del restart.
+
 ## Procedura aggiornamento T&C
 
 1. Crea `src/app/(marketing)/termini/v*/page.tsx` (nuova versione vXX)
