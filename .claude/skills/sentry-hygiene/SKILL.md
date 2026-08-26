@@ -205,6 +205,12 @@ combaciano, l'evento non è nostro e l'indagine finisce lì. Utile anche
 `server_name` (hostname del container) e la coppia
 `app_start_time` / riavvii noti.
 
+**E prima ancora: stai cercando nel progetto giusto?** L'org ha **due**
+progetti — `scontrinozero` (produzione, e il browser di sandbox) e
+`scontrinozero-test` (server ed edge di sandbox). Un evento "mancante" è spesso
+un evento cercato nell'altro progetto: è successo con la sentinella di sandbox,
+che sembrava non arrivata ed era in `scontrinozero-test`.
+
 **Il segnale complementare**: se l'issue riporta traffico verso un host,
 verifica su Cloudflare (Security → Events, o l'anteprima "requests matched" di
 una regola WAF) che quel traffico esista. Zero richieste da quell'IP in 24 ore

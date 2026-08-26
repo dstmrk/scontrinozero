@@ -212,16 +212,21 @@ il motivo per cui il filtro serve comunque.
 
 **Cosa resta da fare.**
 
-1. Valutare la **rotazione del DSN**. Filtro e split proteggono solo dalle
+1. Completare la **rotazione del DSN**. Filtro e split proteggono solo dalle
    istanze che aggiornano l'immagine: quelle già in esecuzione su tag più
    vecchi continuano a riportare finché non fanno `pull`. Ruotare il DSN le
-   taglia fuori tutte immediatamente. Costo: rebuild + redeploy di prod **e**
-   sandbox (condividono l'immagine), perché il DSN client è bakato. Sequenza:
-   nuova chiave → secret GitHub + `.env` → tag → deploy → sentinella
-   (`/api/health/sentry-sentinel`) → _Disable_ (non _Delete_) della vecchia,
-   cancellandola dopo qualche giorno.
-2. Documentare in `README.md` la configurazione telemetria per il self-hosting
-   (`SENTRY_DSN` proprio, oppure vuoto per spegnerla).
+   taglia fuori tutte immediatamente. Procedura completa (compreso il
+   distinguo fra i due progetti Sentry) → skill `deploy-release`, sezione
+   "Rotazione del DSN Sentry".
+
+   ⚠️ Il DSN da ruotare è **solo quello del progetto `scontrinozero`**: è
+   l'unico bakato nell'immagine pubblica. Il `SENTRY_DSN` nel `.env` di
+   sandbox punta a `scontrinozero-test`, non è mai finito in un'immagine e
+   **non va toccato**.
+
+2. ✅ Fatto: `README.md` documenta la configurazione telemetria per il
+   self-hosting (sezione "Telemetria"), e `deploy/dev/.env.example` non
+   afferma più che `NEXT_PUBLIC_SENTRY_DSN` si disattivi "a runtime".
 
 ---
 
