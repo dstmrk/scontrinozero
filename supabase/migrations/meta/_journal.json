@@ -246,6 +246,13 @@
       "when": 1788153600000,
       "tag": "0034_commercial_document_lines_line_discount",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1788240000000,
+      "tag": "0035_rls_hardening",
+      "breakpoints": true
     }
   ]
 }

@@ -531,6 +531,56 @@ _Trigger:_ il primo utente `developer_*` che segue il redirect.
 
 ---
 
+### 98. Password bucate accettate: HIBP k-anonymity al posto del toggle Supabase Pro
+
+- **Categoria:** sicurezza · **Severità:** Low — la policy attuale scarta già le password banali, non quelle riusate
+- **File:** `src/lib/validation.ts:24` (`isStrongPassword`), `src/server/auth-actions.ts` (signUp, update password)
+
+**Problema.** L'advisor Supabase segnala `auth_leaked_password_protection`
+disabilitata. Il toggle che controlla le password contro HaveIBeenPwned è
+[feature Pro](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)
+e l'organizzazione è su piano Free: attivarlo costa $25/mese, contro il principio
+"costi fissi ~€0". Nel frattempo `isStrongPassword` valida solo la _forma_ (8+
+caratteri, maiuscola, minuscola, cifra, simbolo): `Password1!` la passa ed è in
+cima a ogni lista di credential stuffing.
+
+**Fix.** Chiamare noi l'API k-anonymity di HIBP:
+`GET https://api.pwnedpasswords.com/range/<primi 5 char dello SHA-1>`, nessuna
+chiave, nessun invio della password (viaggiano 5 caratteri di hash, il match sul
+suffisso si fa in locale). Va nel path server di signup e cambio password, non in
+`isStrongPassword` che è puro e sincrono. Edge case da coprire: HIBP irraggiungibile
+o lento → **fail-open** con `logger.warn` (mai bloccare una registrazione per un
+servizio esterno giù), timeout esplicito, e nessun Sentry issue sull'input utente
+(regola 20).
+
+_Trigger:_ prima ancora del primo incidente — è il warning che l'advisor continuerà
+a mostrare finché l'org resta Free.
+
+---
+
+### 99. Funzioni `metrics_*` nel DB di produzione non tracciate nel repo
+
+- **Categoria:** drift infrastruttura · **Severità:** Low — funzionano, ma nessuno le versiona
+- **File:** nessuno. Vivono solo in `public` sul progetto Supabase (`metrics_kpi`, `metrics_paid_users`, `metrics_top_merchants`, `metrics_recent_profiles`, `metrics_trial_expiring`)
+
+**Problema.** Cinque funzioni plpgsql create dalla dashboard e mai passate da
+`supabase/migrations/`. Contengono logica di business duplicata rispetto al codice
+(finestra trial di 30 giorni, set di stati `ACCEPTED`/`VOID_ACCEPTED`,
+`plan IN ('starter','pro','unlimited')`): quando quelle regole cambiano nel repo,
+le funzioni restano indietro in silenzio. Un `db reset` o un restore le perde
+senza che nulla lo segnali. Sono `SECURITY INVOKER`, quindi con RLS attiva non
+espongono dati ad `anon` — il problema è di tracciabilità, non di accesso.
+
+**Fix.** Deciderne il destino, non lasciarle a metà: o entrano in una migrazione
+handwritten (`CREATE OR REPLACE FUNCTION`, con i valori-soglia citati da
+`docs/architecture/config-manifest.md`), oppure si eliminano dal DB e il pannello
+che le consuma passa dai server action esistenti. Prima di scegliere serve sapere
+chi le chiama: non c'è un solo call-site nel repo.
+
+_Trigger:_ il primo cambio a durata trial, elenco piani o stati documento.
+
+---
+
 ### 23. Indice composito `api_keys (business_id, revoked_at)`
 
 - **Categoria:** performance DB · **Severità:** Low · **Target: Developer API Fase B** (ora nice-to-have in PLAN.md)
