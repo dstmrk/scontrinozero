@@ -463,10 +463,13 @@ describe("isForeignHostEvent", () => {
     expect(isForeignHostEvent(event)).toBe(true);
   });
 
-  it("lascia passare l'apex di produzione", () => {
-    const event = makeRequestEvent("https://scontrinozero.it/prezzi");
-
-    expect(isForeignHostEvent(event)).toBe(false);
+  it.each([
+    ["l'apex di produzione", "https://scontrinozero.it/prezzi"],
+    ["un hostname in maiuscolo", "https://APP.SCONTRINOZERO.IT/dashboard"],
+    ["un URL con porta esplicita", "https://app.scontrinozero.it:3000/"],
+    ["un URL relativo, che non si può parsare", "/register"],
+  ])("lascia passare %s", (_caso, url) => {
+    expect(isForeignHostEvent(makeRequestEvent(url))).toBe(false);
   });
 
   it.each([
@@ -487,18 +490,6 @@ describe("isForeignHostEvent", () => {
     expect(isForeignHostEvent(makeRequestEvent(url))).toBe(true);
   });
 
-  it("normalizza il case dell'hostname", () => {
-    const event = makeRequestEvent("https://APP.SCONTRINOZERO.IT/dashboard");
-
-    expect(isForeignHostEvent(event)).toBe(false);
-  });
-
-  it("ignora la porta nell'URL", () => {
-    const event = makeRequestEvent("https://app.scontrinozero.it:3000/");
-
-    expect(isForeignHostEvent(event)).toBe(false);
-  });
-
   it.each(["http://localhost:3000/dashboard", "http://127.0.0.1:3000/"])(
     "considera locale %s (dev con DSN in .env.local resta osservabile)",
     (url) => {
@@ -514,12 +505,6 @@ describe("isForeignHostEvent", () => {
 
   it("lascia passare un evento con request ma senza url", () => {
     const event = { type: undefined, request: {} } as ErrorEvent;
-
-    expect(isForeignHostEvent(event)).toBe(false);
-  });
-
-  it("lascia passare un url malformato senza lanciare", () => {
-    const event = makeRequestEvent("/register");
 
     expect(isForeignHostEvent(event)).toBe(false);
   });
