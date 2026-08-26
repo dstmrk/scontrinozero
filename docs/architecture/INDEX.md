@@ -40,6 +40,7 @@ src/
     llms.txt/       route handler /llms.txt (indice markdown per crawler AI)
     llms-full.txt/  route handler /llms-full.txt (testo completo dei registry per crawler AI)
     feed.xml/       route handler /feed.xml (RSS 2.0 delle guide)
+    .well-known/    route handler /.well-known/security.txt (RFC 9116)
   components/     React. Sottocartelle per dominio (cassa, storico, analytics,
                   catalogo, billing, settings, ade, receipts, marketing, help,
                   pwa, dashboard, admin, announcement, errors) + ui/ (shadcn) +

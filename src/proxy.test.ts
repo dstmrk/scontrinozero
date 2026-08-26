@@ -424,6 +424,7 @@ describe("proxy", () => {
     // /prezzi, /funzionalita, /guide, /per, /confronto, /strumenti finivano su
     // app.scontrinozero.it perché assenti da MARKETING_ONLY_ROUTES.
     const MARKETING_CONTENT_ROUTES = [
+      "/.well-known/security.txt",
       "/confronto",
       "/feed.xml",
       "/funzionalita",

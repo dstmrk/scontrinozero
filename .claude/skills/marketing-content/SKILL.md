@@ -194,6 +194,19 @@ Il secondo comando serve perché il blocco WAF dei bot AI è un interruttore
 **separato** dal managed robots.txt: spegnerne uno non spegne l'altro, e
 l'enforcement WAF risponde 403 invece di un `Disallow`.
 
+**Terzo interruttore della stessa famiglia: AI Labyrinth.** I Security
+Insights di Cloudflare lo propongono periodicamente ("Review unwanted AI
+crawlers with AI Labyrinth") su entrambe le zone. Sul dominio marketing la
+risposta è **no, sempre**: serve a servire contenuto-esca ai crawler AI, cioè
+a rompere di proposito il canale che `/llms.txt`, `/llms-full.txt` e tutta la
+checklist GEO qui sotto esistono per alimentare. Un "suggerimento di
+configurazione" della dashboard non è una decisione di prodotto. Razionale
+completo e trigger di riapertura: `REVIEW.md`, "Rischi accettati".
+
+Al 2026-08-26 il canale è sano — il blocco managed robots.txt non c'è più
+(`/robots.txt` servito = quello dell'app) e `ClaudeBot` riceve `200` su
+`/llms-full.txt`: sono i due comandi qui sopra, ed è così che deve restare.
+
 Distinzioni da non confondere quando si valuta l'impatto: `Google-Extended`
 governa Gemini e il grounding Vertex, **non** le AI Overviews di Google (che
 dipendono da Googlebot); le citazioni in ChatGPT search passano da

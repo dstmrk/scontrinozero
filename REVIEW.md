@@ -162,9 +162,95 @@ diventa un buco di billing al lancio della Fase B Developer API.
    API, ora nice-to-have in PLAN.md — non prima: nessun utente ha questi piani
    oggi).
 
+### 99. `scontrinozero.com` è in loop di redirect infinito
+
+- **Categoria:** configurazione edge (Cloudflare) · **Severità:** High — il dominio secondario è **irraggiungibile**, su ogni path
+- **File:** nessuno nel repo. La fix è una regola nella dashboard Cloudflare, zona `scontrinozero.com`
+
+**Misurato il 2026-08-26.** Ogni URL della zona risponde `301` con
+`location: scontrinozero.it` — un `Location` **relativo e senza schema**,
+emesso dall'edge (`server: cloudflare`, l'origin non viene mai colpito). Il
+client lo risolve rispetto all'URL corrente e ottiene
+`https://scontrinozero.com/scontrinozero.it`, che ri-matcha la stessa regola:
+`curl -L` si ferma a 50 hop, un browser mostra `ERR_TOO_MANY_REDIRECTS`.
+
+```
+$ curl -sSI https://scontrinozero.com/prezzi | grep -i '^location'
+location: scontrinozero.it
+```
+
+**Causa.** Il target della Redirect Rule (o Bulk Redirect / Page Rule) è stato
+inserito come `scontrinozero.it` invece che come URL assoluto. Non è un
+problema di DNS: A/AAAA e SPF/MX della zona sono corretti.
+
+**Fix.** Sostituire il target con un'espressione dinamica che porti schema e
+path, così `/prezzi` non atterra sulla home:
+
+```
+concat("https://scontrinozero.it", http.request.uri.path, "?", http.request.uri.query)
+```
+
+o, se si preferisce la forma statica, `https://scontrinozero.it/` con
+"preserve path suffix" attivo. Status `301`, "preserve query string" attivo.
+
+**Verifica (una riga, dopo il salvataggio della regola):**
+
+```
+$ curl -sS -o /dev/null -w '%{http_code} %{redirect_url}\n' https://scontrinozero.com/prezzi
+301 https://scontrinozero.it/prezzi
+```
+
+Finché il loop è aperto, ogni link o menzione su `.com` è traffico perso, e
+`/.well-known/security.txt` sulla zona `.com` non può risolvere sull'apex `.it`
+(vedi #100).
+
 ---
 
 ## P2 — Media priorità
+
+### 100. DMARC: `p=none` su `.it`, nessun record su `.com`
+
+- **Categoria:** email security · **Severità:** Medium — nessuna protezione effettiva contro lo spoofing del mittente
+- **File:** nessuno nel repo. La fix sono due record TXT nel DNS Cloudflare
+
+**Misurato il 2026-08-26** (i due "DMARC Record Error" per zona nei Security
+Insights di Cloudflare sono questo):
+
+| Zona                | `_dmarc` TXT        | SPF                                                        | MX     |
+| ------------------- | ------------------- | ---------------------------------------------------------- | ------ |
+| `scontrinozero.it`  | `v=DMARC1; p=none;` | `v=spf1 include:_spf-eu.ionos.com include:icloud.com ~all` | iCloud |
+| `scontrinozero.com` | **assente**         | `v=spf1 include:_spf-eu.ionos.com ~all`                    | IONOS  |
+
+`p=none` dice ai destinatari "non fare nulla" e, senza `rua`, non arriva
+nemmeno un report: è un record che esiste e non protegge. Sulla zona `.com`
+manca del tutto, quindi chiunque può spedire mail come `@scontrinozero.com`.
+Non è teorico per questo prodotto: le mail transazionali (Resend/SES da
+`mail.scontrinozero.it`, DKIM `resend._domainkey` e return-path
+`send.mail.scontrinozero.it` già a posto) portano scontrini e link di reset
+password — esattamente ciò che un phishing vorrebbe imitare.
+
+**Fix in due passi, non in uno.** Passare direttamente a `p=reject` senza
+guardare i report rischia di far scartare mail legittime.
+
+1. **Ora** — su `_dmarc.scontrinozero.it`, aggiungere l'indirizzo report e
+   restare in osservazione:
+
+   ```
+   v=DMARC1; p=none; rua=mailto:info@scontrinozero.it; fo=1
+   ```
+
+   Su `_dmarc.scontrinozero.com`, dove non si spedisce nulla, si può invece
+   chiudere subito — un dominio che non manda mail non ha falsi positivi:
+
+   ```
+   v=DMARC1; p=reject; rua=mailto:info@scontrinozero.it
+   ```
+
+2. **Dopo ~4 settimane di report**, se i soli mittenti che passano sono iCloud
+   e SES, alzare `.it` a `p=quarantine` e infine `p=reject`.
+
+Cloudflare offre "DMARC Management" nella zona: attiva la raccolta dei report
+aggregati e li mostra in dashboard, evitando di leggere XML a mano.
 
 ### 11. `getCatalogItems` senza LIMIT + autocomplete server-side
 
@@ -839,6 +925,42 @@ Scelte consapevoli con un trigger di riapertura. Non sono finding da pianificare
 > passata da `<=5.0.7` a `<1.1.17` e da moderate a **high** (CVSS 7.5) — la
 > soluzione era bumpare l'override, non aggiungere path all'allowlist.
 > `npm audit --json` mostra `range` e `severity` correnti dell'advisory.
+
+### Cloudflare Security Insights: Bot Fight Mode e AI Labyrinth restano off
+
+I Security Insights delle due zone suggeriscono di attivarli. È una scelta
+consapevole non farlo — vale per entrambe le zone, e l'insight tornerà a
+proporli a ogni scansione.
+
+**Bot Fight Mode — no.** Sul piano free agisce sull'intera zona: nessuna
+esclusione per path, nessuna skip rule. Ma tutto ciò che entra qui via HTTP e
+non è un browser è, per definizione, "automatico": la Developer API pubblica
+`/api/v1` con Bearer key (`DEVELOPER.md`, consumer esterni), il webhook Stripe
+su `/api/stripe/webhook`, le tre probe di smoke `/api/health/*` e il tunnel
+Sentry `/monitoring`. Una challenge su questi path non è degrado, è rottura:
+un client server-to-server non risolve un JS challenge e non segue redirect —
+è la stessa classe di bug già pagata con i webhook Stripe rimbalzati 307
+(vedi il commento su `/api/` in `src/proxy.ts`). Il rate limiting che serve
+davvero è già applicativo, per-azione (skill `testing-patterns`).
+**Riaprire:** se la zona passa a un piano Pro, dove Super Bot Fight Mode
+ammette skip rule per path → valutarlo escludendo `/api/*` e `/monitoring`.
+Oppure, se nei log comparisse scraping o credential stuffing reale, prima una
+WAF rate-limit rule mirata su `/login` e `/register`, non una policy di zona.
+
+**AI Labyrinth — no, e in particolare mai sulla zona marketing.** Serve a dare
+in pasto contenuto-esca ai crawler AI. Qui la strategia dei contenuti è
+l'opposto: `/llms.txt` e `/llms-full.txt` esistono apposta per farsi leggere,
+e la checklist GEO della skill `marketing-content` (risposta secca in apertura,
+fatti numerati citabili, FAQPage) è scritta per **farsi citare** da ChatGPT,
+Claude, Perplexity e AI Overviews. Attivarlo avvelenerebbe esattamente il
+canale su cui il sito è costruito. **Riaprire:** solo se diventasse
+attivabile per singolo hostname, limitandolo ad `app.` e `sandbox.` — che sono
+già `noindex` e non hanno alcun valore SEO/GEO.
+
+Il terzo insight della stessa famiglia, "Security.txt not configured", **è
+invece stato accolto**: il file è servito dall'app
+(`src/app/.well-known/security.txt/`) sull'apex `.it`. Sulla zona `.com`
+risolverà da sé quando il loop di redirect (#99) sarà chiuso.
 
 ### audit-ci: advisory `esbuild` dev-only
 
