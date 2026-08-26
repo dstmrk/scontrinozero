@@ -194,11 +194,28 @@ export function fillMissingDays(
   from: Date,
   to: Date,
 ): RevenuePoint[] {
-  const out: RevenuePoint[] = [];
+  return eachRomeDay(from, to).map((date) => ({
+    date,
+    revenueCents: byDay.get(date) ?? 0,
+  }));
+}
+
+/**
+ * Elenca i giorni fiscali italiani (yyyy-MM-dd) coperti da `[from, to)`, in
+ * ordine crescente.
+ *
+ * È l'asse temporale condiviso da ogni serie giornaliera: `fillMissingDays`
+ * (analytics dell'esercente) e le sparkline del pannello operatore
+ * (`src/server/admin-metrics.ts`) devono produrre lo stesso numero di punti
+ * per lo stesso range, altrimenti due grafici affiancati raccontano periodi
+ * diversi.
+ */
+export function eachRomeDay(from: Date, to: Date): string[] {
+  const out: string[] = [];
   let cursor = formatRomeDay(from);
   const end = formatRomeDay(to);
   while (cursor < end) {
-    out.push({ date: cursor, revenueCents: byDay.get(cursor) ?? 0 });
+    out.push(cursor);
     cursor = addCalendarDays(cursor, 1);
   }
   return out;

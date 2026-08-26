@@ -18,6 +18,7 @@ import { planFromPriceId } from "@/lib/stripe";
 export {
   API_KEY_LIMITS,
   DEVELOPER_MONTHLY_LIMITS,
+  PAID_SELF_SERVICE_PLANS,
   PLAN_EXPIRY_GRACE_MS,
   PLAN_VALUES,
   STARTER_CATALOG_LIMIT,

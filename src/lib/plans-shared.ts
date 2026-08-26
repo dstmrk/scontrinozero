@@ -36,6 +36,23 @@ export const PLAN_VALUES: readonly Plan[] = [
 const PLAN_SET: ReadonlySet<string> = new Set(PLAN_VALUES);
 
 /**
+ * Piani che un utente **compra da solo** (self-service checkout Stripe).
+ *
+ * Deliberatamente NON include `unlimited`, che è concesso a mano su invito e
+ * non ha un pagamento dietro, né i `developer_*` (Fase B, non ancora in
+ * vendita). Serve alle metriche operatore per rispondere a "quanti trial hanno
+ * convertito": contare `unlimited` gonfierebbe la conversione con utenti che
+ * non hanno mai pagato.
+ *
+ * Vive qui e non nella query che la consuma perché era esattamente l'elenco
+ * riscritto a mano nelle funzioni `metrics_*` in Postgres, rimosse da
+ * `supabase/migrations/0036_drop_metrics_functions.sql`: duplicarlo significa
+ * che il prossimo piano a pagamento sposta un numero senza che nulla lo
+ * segnali.
+ */
+export const PAID_SELF_SERVICE_PLANS: readonly Plan[] = ["starter", "pro"];
+
+/**
  * Type guard runtime: ritorna true se `value` è uno dei `Plan` validi.
  * Usare prima di castare a `Plan` valori provenienti dal DB / dall'esterno
  * per evitare silent drift quando lo schema cambia o un valore "nuovo"

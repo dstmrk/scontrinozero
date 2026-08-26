@@ -53,6 +53,7 @@ vi.mock("@/lib/stripe", () => ({
 import {
   API_KEY_LIMITS,
   DEVELOPER_MONTHLY_LIMITS,
+  PAID_SELF_SERVICE_PLANS,
   PLAN_EXPIRY_GRACE_MS,
   PLAN_VALUES,
   STARTER_CATALOG_LIMIT,
@@ -1030,5 +1031,21 @@ describe("getEffectivePlan", () => {
 
     expect(plan).toBe("starter");
     expect(mockPlanFromPriceId).not.toHaveBeenCalled();
+  });
+});
+
+describe("PAID_SELF_SERVICE_PLANS", () => {
+  it("contiene solo i piani acquistabili in autonomia", () => {
+    expect([...PAID_SELF_SERVICE_PLANS]).toEqual(["starter", "pro"]);
+  });
+
+  it("esclude unlimited, che è concesso a mano e non è mai stato pagato", () => {
+    expect(PAID_SELF_SERVICE_PLANS).not.toContain("unlimited");
+  });
+
+  it("elenca solo valori che sono Plan validi", () => {
+    for (const plan of PAID_SELF_SERVICE_PLANS) {
+      expect(isPlan(plan)).toBe(true);
+    }
   });
 });

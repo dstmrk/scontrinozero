@@ -4,8 +4,15 @@ import { parseTrustedHostnameEnv } from "@/lib/hostname-env";
 import { isIndexableHost } from "@/lib/seo-indexable";
 import { createMiddlewareSupabaseClient } from "@/lib/supabase/middleware";
 
-/** Routes that require authentication */
-const PROTECTED_PREFIXES = ["/dashboard", "/onboarding"];
+/**
+ * Routes that require authentication.
+ *
+ * `/admin` è qui solo per l'**autenticazione**: il middleware non conosce
+ * l'allowlist operatore (leggerla su ogni richiesta di ogni route sarebbe
+ * lavoro sprecato). L'autorizzazione la fa `src/app/admin/layout.tsx`, che
+ * risponde 404 a un utente autenticato fuori allowlist.
+ */
+const PROTECTED_PREFIXES = ["/admin", "/dashboard", "/onboarding"];
 
 /** Routes only for unauthenticated users (redirect to dashboard if logged in) */
 const AUTH_ONLY_PATHS = ["/login", "/register", "/reset-password"];

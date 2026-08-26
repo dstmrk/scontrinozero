@@ -253,6 +253,13 @@
       "when": 1788240000000,
       "tag": "0035_rls_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1788326400000,
+      "tag": "0036_drop_metrics_functions",
+      "breakpoints": true
     }
   ]
 }
