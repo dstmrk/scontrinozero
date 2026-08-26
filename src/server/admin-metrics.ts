@@ -4,6 +4,13 @@ import { withStatementTimeout } from "@/lib/db-timeout";
 import { logger } from "@/lib/logger";
 import { PAID_SELF_SERVICE_PLANS, TRIAL_DAYS } from "@/lib/plans";
 import {
+  ADMIN_QUERY_TIMEOUT_MS,
+  type RawRow,
+  lineCentsSql,
+  toNumber,
+  toRows,
+} from "./admin-sql";
+import {
   type AnalyticsRange,
   eachRomeDay,
   rangeToBounds,
@@ -24,10 +31,10 @@ import {
  *
  * **Il prezzo di aggregare in SQL** è che il canone della regola 17 (centesimi
  * interi per riga, mai un arrotondamento per documento) va riscritto in
- * Postgres: `lineCentsSql` sotto è la traduzione uno-a-uno di `lineTotalCents`
- * in `src/lib/receipts/receipt-totals.ts`. Toccarne una senza l'altra fa
- * divergere il totale del pannello da quello dello scontrino: le due formule
- * vanno lette insieme.
+ * Postgres: `lineCentsSql` in `./admin-sql.ts` è la traduzione uno-a-uno di
+ * `lineTotalCents` in `src/lib/receipts/receipt-totals.ts`. Toccarne una senza
+ * l'altra fa divergere il totale del pannello da quello dello scontrino: le
+ * due formule vanno lette insieme.
  */
 
 export type AdminSparklinePoint = {
@@ -69,69 +76,6 @@ const LOAD_ERROR =
  * sostituisce.
  */
 const TRIAL_CONVERSION_WINDOW_DAYS = 90;
-
-/**
- * Budget di latenza per query, come per l'analytics dell'esercente.
- *
- * Più largo dei 5s di là (`ANALYTICS_QUERY_TIMEOUT_MS`) perché qui non c'è un
- * filtro per tenant: si scandisce l'intera tabella documenti. Ma un budget ci
- * vuole: senza, una scansione degenere terrebbe occupata una connessione del
- * pool da 10 che serve gli scontrini di tutti — un pannello interno non deve
- * mai poter rallentare la cassa. Oltre la soglia Postgres aborta (57014), la
- * connessione torna al pool e la pagina mostra l'avviso inline.
- */
-const ADMIN_QUERY_TIMEOUT_MS = 10_000;
-
-/**
- * Totale di UNA riga in centesimi interi, al netto dello sconto di riga —
- * gemello SQL di `lineTotalCents` (`src/lib/receipts/receipt-totals.ts`).
- *
- * `round()` di Postgres su `numeric` è esatto e arrotonda l'half away from
- * zero; su importi non negativi coincide con `Math.round` di JS, che invece
- * parte da un float64. Dove differiscono, è Postgres ad avere ragione.
- *
- * Il `greatest(0, …)` replica il `Math.max(0, …)` dell'originale: uno sconto
- * scritto a mano in DB oltre il lordo di riga non deve produrre un incasso
- * negativo.
- */
-const lineCentsSql = sql`greatest(
-  0,
-  round(l.quantity * l.gross_unit_price * 100) - round(l.line_discount * 100)
-)`;
-
-type RawRow = Record<string, unknown>;
-
-/**
- * `count(*)` e `sum(…)::bigint` arrivano da postgres-js come **stringhe** (un
- * bigint non entra in un Number in sicurezza). Un `as number` diretto darebbe
- * `"120"` in pagina, o `NaN` appena qualcuno ci fa un'addizione.
- */
-function toNumber(value: unknown): number {
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  return 0;
-}
-
-/**
- * `json_agg` torna già come array da postgres-js, ma un pooler o un driver
- * diverso può consegnarlo come testo: il pannello degrada a serie vuota invece
- * di far esplodere il render (regola 19).
- */
-function toRows(value: unknown): RawRow[] {
-  if (Array.isArray(value)) return value as RawRow[];
-  if (typeof value === "string") {
-    try {
-      const parsed: unknown = JSON.parse(value);
-      return Array.isArray(parsed) ? (parsed as RawRow[]) : [];
-    } catch {
-      return [];
-    }
-  }
-  return [];
-}
 
 /**
  * Espande le righe `{ date, … }` di una serie giornaliera sull'asse completo

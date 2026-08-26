@@ -3,12 +3,17 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AdminKpis } from "@/server/admin-metrics";
 
-const { mockGetAdminKpis } = vi.hoisted(() => ({
+const { mockGetAdminKpis, mockGetAdminDirectory } = vi.hoisted(() => ({
   mockGetAdminKpis: vi.fn(),
+  mockGetAdminDirectory: vi.fn(),
 }));
 
 vi.mock("@/server/admin-metrics", () => ({
   getAdminKpis: (...args: unknown[]) => mockGetAdminKpis(...args),
+}));
+
+vi.mock("@/server/admin-directory", () => ({
+  getAdminDirectory: (...args: unknown[]) => mockGetAdminDirectory(...args),
 }));
 
 import AdminPage from "./page";
@@ -28,9 +33,18 @@ const KPIS: AdminKpis = {
   trialConversionRate: 0.5,
 };
 
+const DIRECTORY = {
+  topByReceipts: [],
+  topByRevenue: [],
+  recentProfiles: [],
+  trialExpiring: [],
+  paidUsers: [],
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetAdminKpis.mockResolvedValue({ kpis: KPIS });
+  mockGetAdminDirectory.mockResolvedValue({ directory: DIRECTORY });
 });
 
 describe("AdminPage", () => {
@@ -72,6 +86,40 @@ describe("AdminPage", () => {
       "Impossibile caricare.",
     );
     expect(screen.queryByText("Nuovi utenti")).not.toBeInTheDocument();
+  });
+
+  it("passa il range anche alla lettura degli elenchi", async () => {
+    render(
+      await AdminPage({ searchParams: Promise.resolve({ range: "90d" }) }),
+    );
+
+    expect(mockGetAdminDirectory).toHaveBeenCalledWith("90d");
+  });
+
+  it("rende gli elenchi accanto ai KPI", async () => {
+    render(await AdminPage({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.getByText("Top esercenti per scontrini")).toBeInTheDocument();
+  });
+
+  it("tiene i KPI se falliscono solo gli elenchi", async () => {
+    mockGetAdminDirectory.mockResolvedValue({ error: "Elenchi non caricati." });
+
+    render(await AdminPage({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.getByText("Nuovi utenti")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Elenchi non caricati.",
+    );
+  });
+
+  it("tiene gli elenchi se falliscono solo i KPI", async () => {
+    mockGetAdminKpis.mockResolvedValue({ error: "KPI non caricati." });
+
+    render(await AdminPage({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.getByText("Top esercenti per scontrini")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("KPI non caricati.");
   });
 
   it("tiene il selettore di periodo visibile anche in errore", async () => {

@@ -27,8 +27,9 @@ Ogni nuovo punto che tocca un totale monetario deve passare da questi helper.
 ### L'unica eccezione ammessa: il gemello SQL del pannello operatore
 
 C'è **un solo** posto in cui la formula è riscritta fuori da
-`receipt-totals.ts`: `lineCentsSql` in `src/server/admin-metrics.ts`, la
-traduzione in Postgres di `lineTotalCents`.
+`receipt-totals.ts`: `lineCentsSql` in `src/server/admin-sql.ts`, la
+traduzione in Postgres di `lineTotalCents`, condivisa dalle letture del
+pannello operatore.
 
 Perché esiste: quel pannello aggrega su **tutti** i tenant, e tirarsi in memoria
 ogni riga di ogni scontrino per sommarle sarebbe l'unica parte del progetto che
@@ -41,7 +42,7 @@ database; non esiste un assert che le veda entrambe. `round()` di Postgres su
 ragione Postgres, ma se la formula stessa diverge il pannello mostra un incasso
 diverso da quello degli scontrini che lo compongono, e nessuno se ne accorge.
 
-Regola operativa: se tocchi `lineTotalCents`, apri anche `admin-metrics.ts`
+Regola operativa: se tocchi `lineTotalCents`, apri anche `admin-sql.ts`
 nello stesso PR. Se stai per aggiungere un **secondo** gemello SQL, fermati e
 chiedi: la deroga vale per un'aggregazione cross-tenant, non per comodità.
 

@@ -90,7 +90,7 @@ export interface ReceiptTotals {
  * import o una fix manuale potrebbero averlo scritto. Un totale negativo si
  * propagherebbe fino all'`ammontareComplessivo` trasmesso all'AdE.
  *
- * ⚠️ **Ha un gemello in SQL**: `lineCentsSql` in `src/server/admin-metrics.ts`
+ * ⚠️ **Ha un gemello in SQL**: `lineCentsSql` in `src/server/admin-sql.ts`
  * è la stessa formula scritta in Postgres, perché il pannello operatore
  * aggrega su tutti i tenant e non può tirarsi in memoria ogni riga di ogni
  * scontrino. Nessun test può confrontarle (una gira in JS, l'altra nel DB):

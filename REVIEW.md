@@ -558,44 +558,6 @@ a mostrare finché l'org resta Free.
 
 ---
 
-### 99. Funzioni `metrics_*` nel DB di produzione non tracciate nel repo
-
-- **Categoria:** drift infrastruttura · **Severità:** Low — funzionano, ma nessuno le versiona
-- **File:** nessuno. Vivono solo in `public` sul progetto Supabase (`metrics_kpi`, `metrics_paid_users`, `metrics_top_merchants`, `metrics_recent_profiles`, `metrics_trial_expiring`)
-
-**Problema.** Cinque funzioni plpgsql create dalla dashboard e mai passate da
-`supabase/migrations/`. Contengono logica di business duplicata rispetto al codice
-(finestra trial di 30 giorni, set di stati `ACCEPTED`/`VOID_ACCEPTED`,
-`plan IN ('starter','pro','unlimited')`): quando quelle regole cambiano nel repo,
-le funzioni restano indietro in silenzio. Un `db reset` o un restore le perde
-senza che nulla lo segnali. Sono `SECURITY INVOKER`, quindi con RLS attiva non
-espongono dati ad `anon` — il problema è di tracciabilità, non di accesso.
-
-**Chi le chiama** (risposto): il Worker Cloudflare del repo separato
-`dstmrk/scontrinozero-dashboard`, che le espone via `/api/*` dietro CF Access.
-Nessun call-site in questo repo, e non ce ne sarà: sono state scritte per quel
-pannello e per nient'altro.
-
-**Destino scelto** (v1.7.8): eliminarle, non versionarle. Il pannello rientra
-nell'app come route `/admin` (gate allowlist `ADMIN_EMAILS`), con le query in
-Drizzle che riusano `src/lib/plans-shared.ts` e il canone di
-`src/lib/receipts/receipt-totals.ts`. Il drift previsto qui si era già
-materializzato in tre punti, misurati riscrivendo le query: le funzioni
-ignorano `referral_bonus_days` (trial dichiarati scaduti che l'app tiene
-aperti), ignorano `line_discount` (migrazione 0034 → incasso sovrastimato) e
-sommano `VOID_ACCEPTED` nell'incasso, che `computeKpis` esclude.
-
-**Stato.** Fatto: KPI (`src/server/admin-metrics.ts`) — sostituisce
-`metrics_kpi`. Da fare prima di poter droppare le funzioni: le quattro tabelle
-(`metrics_top_merchants`, `metrics_recent_profiles`, `metrics_trial_expiring`,
-`metrics_paid_users`), poi il `DROP FUNCTION` in migrazione handwritten e
-l'archiviazione del repo dashboard. Fino ad allora le funzioni restano in piedi
-perché il pannello vecchio è ancora l'unico che mostra quelle liste.
-
-_Trigger:_ il primo cambio a durata trial, elenco piani o stati documento.
-
----
-
 ### 23. Indice composito `api_keys (business_id, revoked_at)`
 
 - **Categoria:** performance DB · **Severità:** Low · **Target: Developer API Fase B** (ora nice-to-have in PLAN.md)

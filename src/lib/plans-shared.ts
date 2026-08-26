@@ -45,9 +45,10 @@ const PLAN_SET: ReadonlySet<string> = new Set(PLAN_VALUES);
  * non hanno mai pagato.
  *
  * Vive qui e non nella query che la consuma perché era esattamente l'elenco
- * riscritto a mano nelle funzioni `metrics_*` in Postgres (REVIEW.md #99):
- * duplicarlo significa che il prossimo piano a pagamento sposta un numero
- * senza che nulla lo segnali.
+ * riscritto a mano nelle funzioni `metrics_*` in Postgres, rimosse da
+ * `supabase/migrations/0036_drop_metrics_functions.sql`: duplicarlo significa
+ * che il prossimo piano a pagamento sposta un numero senza che nulla lo
+ * segnali.
  */
 export const PAID_SELF_SERVICE_PLANS: readonly Plan[] = ["starter", "pro"];
 
