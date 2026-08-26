@@ -183,22 +183,48 @@ location: scontrinozero.it
 inserito come `scontrinozero.it` invece che come URL assoluto. Non è un
 problema di DNS: A/AAAA e SPF/MX della zona sono corretti.
 
-**Fix.** Sostituire il target con un'espressione dinamica che porti schema e
-path, così `/prezzi` non atterra sulla home:
+**Passo 0: scoprire quale delle tre regole lo emette**, invece di indovinare.
+Zona `.com` → **Rules → Trace** (su tutti i piani, serve ruolo Administrator):
+URL `https://scontrinozero.com/prezzi`, method `GET`, Send. L'output elenca le
+regole valutate in ordine e segna quale ha fatto match. A mano i posti da
+guardare sono tre e uno non è nemmeno nella zona: **Rules → Redirect Rules**,
+**Rules → Page Rules** (legacy, azione "Forwarding URL") e **Bulk Redirects**,
+che sta a livello **account**.
+
+**Fix.** Redirect Rule con target dinamico, così `/prezzi` non atterra sulla
+home:
+
+- _When incoming requests match_ →
+  `(http.host eq "scontrinozero.com" or http.host eq "www.scontrinozero.com")`
+- _Then_ → URL redirect · Type **Dynamic** · Status **301** ·
+  **Preserve query string ON** · espressione:
 
 ```
-concat("https://scontrinozero.it", http.request.uri.path, "?", http.request.uri.query)
+concat("https://scontrinozero.it", http.request.uri.path)
 ```
 
-o, se si preferisce la forma statica, `https://scontrinozero.it/` con
-"preserve path suffix" attivo. Status `301`, "preserve query string" attivo.
+⚠️ **Solo il path nell'espressione, la query la mette la casella.** Attaccare
+`"?", http.request.uri.query` al `concat` è sbagliato in entrambe le
+configurazioni: con _Preserve query string_ attivo la doc Cloudflare è
+esplicita — "any query string on the target URL is discarded, even when the
+original request has no query string of its own" — quindi il pezzo manuale
+viene buttato via; con la casella spenta ti ritrovi un `?` in coda a ogni URL
+senza query. In forma statica l'equivalente è `https://scontrinozero.it/` con
+"preserve path suffix" attivo.
 
-**Verifica (una riga, dopo il salvataggio della regola):**
+**Verifica (dopo il salvataggio della regola):**
 
 ```
 $ curl -sS -o /dev/null -w '%{http_code} %{redirect_url}\n' https://scontrinozero.com/prezzi
 301 https://scontrinozero.it/prezzi
+$ curl -sS -o /dev/null -w '%{http_code} %{redirect_url}\n' 'https://scontrinozero.com/guide?x=1'
+301 https://scontrinozero.it/guide?x=1
 ```
+
+Verificare con `curl`, non col browser: un `301` se lo tiene in cache il
+client, quindi il browser che ha già visto il loop continuerà a mostrarlo a
+regola corretta. Il purge della cache Cloudflare non c'entra — il redirect
+esce dall'edge, non dal CDN.
 
 Finché il loop è aperto, ogni link o menzione su `.com` è traffico perso, e
 `/.well-known/security.txt` sulla zona `.com` non può risolvere sull'apex `.it`
@@ -211,15 +237,15 @@ Finché il loop è aperto, ogni link o menzione su `.com` è traffico perso, e
 ### 100. DMARC: `p=none` su `.it`, nessun record su `.com`
 
 - **Categoria:** email security · **Severità:** Medium — nessuna protezione effettiva contro lo spoofing del mittente
-- **File:** nessuno nel repo. La fix sono due record TXT nel DNS Cloudflare
+- **File:** nessuno nel repo. La fix sono record DNS nelle due zone Cloudflare
 
 **Misurato il 2026-08-26** (i due "DMARC Record Error" per zona nei Security
 Insights di Cloudflare sono questo):
 
-| Zona                | `_dmarc` TXT        | SPF                                                        | MX     |
-| ------------------- | ------------------- | ---------------------------------------------------------- | ------ |
-| `scontrinozero.it`  | `v=DMARC1; p=none;` | `v=spf1 include:_spf-eu.ionos.com include:icloud.com ~all` | iCloud |
-| `scontrinozero.com` | **assente**         | `v=spf1 include:_spf-eu.ionos.com ~all`                    | IONOS  |
+| Zona                | `_dmarc` TXT        | SPF                                                        | MX     | DKIM            |
+| ------------------- | ------------------- | ---------------------------------------------------------- | ------ | --------------- |
+| `scontrinozero.it`  | `v=DMARC1; p=none;` | `v=spf1 include:_spf-eu.ionos.com include:icloud.com ~all` | iCloud | `sig1` (iCloud) |
+| `scontrinozero.com` | **assente**         | `v=spf1 include:_spf-eu.ionos.com ~all`                    | IONOS  | **nessuno**     |
 
 `p=none` dice ai destinatari "non fare nulla" e, senza `rua`, non arriva
 nemmeno un report: è un record che esiste e non protegge. Sulla zona `.com`
@@ -229,28 +255,60 @@ Non è teorico per questo prodotto: le mail transazionali (Resend/SES da
 `send.mail.scontrinozero.it` già a posto) portano scontrini e link di reset
 password — esattamente ciò che un phishing vorrebbe imitare.
 
-**Fix in due passi, non in uno.** Passare direttamente a `p=reject` senza
-guardare i report rischia di far scartare mail legittime.
+**Le due zone si trattano in modo diverso**, perché fanno due mestieri diversi.
+`.it` è il dominio che spedisce davvero (iCloud + Resend/SES) e va portato a
+`reject` per gradi. `.com` è stato comprato **solo per redirigere sul `.it`**
+(confermato dal proprietario il 2026-08-26): la posta IONOS che ha attiva è
+provisioning del registrar che nessuno usa, quindi non va osservato — va
+dichiarato non-mail e chiuso subito.
 
-1. **Ora** — su `_dmarc.scontrinozero.it`, aggiungere l'indirizzo report e
-   restare in osservazione:
+**`.it` — la scala, non il salto.**
 
-   ```
-   v=DMARC1; p=none; rua=mailto:info@scontrinozero.it; fo=1
-   ```
+Modificare il record `_dmarc` esistente, **non** aggiungerne un secondo: due
+TXT su `_dmarc` invalidano il DMARC.
 
-   Su `_dmarc.scontrinozero.com`, dove non si spedisce nulla, si può invece
-   chiudere subito — un dominio che non manda mail non ha falsi positivi:
+```
+v=DMARC1; p=none; rua=mailto:info@scontrinozero.it; fo=1
+```
 
-   ```
-   v=DMARC1; p=reject; rua=mailto:info@scontrinozero.it
-   ```
+Dopo 2-4 settimane, se i soli mittenti allineati sono iCloud e SES, alzare a
+`p=quarantine` e infine `p=reject`. Cloudflare offre "DMARC Management" nella
+zona (Email → DMARC Management): crea il record, raccoglie i report aggregati e
+li mostra in dashboard, senza XML da leggere.
 
-2. **Dopo ~4 settimane di report**, se i soli mittenti che passano sono iCloud
-   e SES, alzare `.it` a `p=quarantine` e infine `p=reject`.
+**`.com` — dominio che non fa posta, quattro record.**
 
-Cloudflare offre "DMARC Management" nella zona: attiva la raccolta dei report
-aggregati e li mostra in dashboard, evitando di leggere XML a mano.
+Un dominio senza posta non ha falsi positivi possibili: si chiude in un colpo
+solo, senza periodo di osservazione. `p=reject` da solo non basta — è la
+combinazione che lo rende inspoofabile.
+
+| Record         | Tipo | Valore                                                 |
+| -------------- | ---- | ------------------------------------------------------ |
+| `@`            | MX   | priorità `0`, target `.` (null MX)                     |
+| `@`            | TXT  | `v=spf1 -all`                                          |
+| `*._domainkey` | TXT  | `v=DKIM1; p=`                                          |
+| `_dmarc`       | TXT  | `v=DMARC1; p=reject; rua=mailto:info@scontrinozero.it` |
+
+Il null MX (RFC 7505) è il record che va **al posto** dei due `mx0*.ionos.it`,
+che vanno cancellati; l'SPF `-all` sostituisce l'`include:_spf-eu.ionos.com`; il
+DKIM wildcard dichiara revocato ogni selettore presente e futuro.
+
+⚠️ **Prima di cancellare gli MX**, verificare che nessun account usi un
+indirizzo `@scontrinozero.com` come recapito di recupero (registrar, Cloudflare,
+Stripe, PEC). Togliere gli MX non rompe il redirect — HTTP e posta sono
+indipendenti — ma fa sparire in silenzio una casella di recovery dimenticata.
+
+Il `rua` di `.com` punta a un indirizzo su un **altro** dominio: per RFC 7489 è
+un external reporting address e va autorizzato da chi lo riceve, altrimenti i
+report non partono. Nella zona **`.it`**:
+
+```
+scontrinozero.com._report._dmarc  TXT  "v=DMARC1"
+```
+
+Su un dominio chiuso così i report servono solo a sapere _se_ qualcuno prova a
+spoofarti: nessuna soglia da tarare, nessun mittente da allineare. Vale una
+riga di DNS, ma toglierla non indebolisce la protezione — solo la visibilità.
 
 ### 11. `getCatalogItems` senza LIMIT + autocomplete server-side
 
