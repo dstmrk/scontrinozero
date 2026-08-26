@@ -229,7 +229,7 @@ significa che la tua infrastruttura non è mai stata toccata.
 Il filtro gira dentro l'istanza self-hosted, quindi l'evento non parte proprio
 — ma solo dalle immagini che lo contengono. Le istanze su tag più vecchi
 continuano a riportare finché non fanno `pull`: l'unica leva immediata su
-quelle è ruotare il DSN (REVIEW #97).
+quelle è ruotare il DSN (procedura → skill `deploy-release`).
 
 ### 5. Deploy skew: non è un guasto, ma va gestito (non filtrato)
 
