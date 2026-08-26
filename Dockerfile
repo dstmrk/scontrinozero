@@ -20,6 +20,16 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # NEXT_PUBLIC_* vars — inlined nel bundle JS da Next.js a build time
+#
+# ⚠️ "inlined nel bundle" vale anche per il codice SERVER: buildando con un
+# valore sentinella lo si ritrova come letterale sia in .next/static/chunks/*
+# sia in .next/standalone/.next/server/chunks/*. Non c'e' `ENV` nello stage
+# runner e non serve: il valore e' gia' dentro il JS. Poiche' l'immagine e'
+# pubblica su GHCR (self-hosting = piano supportato), ogni NEXT_PUBLIC_* qui
+# e' un segreto REGALATO a chiunque faccia `docker pull`.
+# Per questo la telemetria server/edge legge `SENTRY_DSN` (senza prefisso) a
+# runtime dal .env, e qui resta solo il DSN del browser, che inlineato deve
+# esserlo per forza. Vedi sentry.server.config.ts e REVIEW #97.
 ARG NEXT_PUBLIC_SENTRY_DSN
 ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN

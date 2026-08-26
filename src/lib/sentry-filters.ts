@@ -208,11 +208,17 @@ function isOwnHostname(hostname: string): boolean {
  * True se l'evento arriva da un host che non è nostro — in pratica da
  * un'**istanza self-hosted** di ScontrinoZero.
  *
- * Perché serve: `deploy.yml` passa `NEXT_PUBLIC_SENTRY_DSN` come build-arg e
- * il `Dockerfile` lo fissa con `ENV` nell'immagine finale, che è pubblica su
- * GHCR (self-hosting è un piano supportato, €0). Chiunque esegua
- * `ghcr.io/dstmrk/scontrinozero:latest` ha quindi Sentry **attivo e puntato su
- * questo progetto** senza saperlo: i suoi errori diventano nostre issue.
+ * Perché serve: `deploy.yml` passa `NEXT_PUBLIC_SENTRY_DSN` come build-arg, e
+ * Next.js inlinea i `NEXT_PUBLIC_*` come **letterali nel bundle** al build.
+ * L'immagine è pubblica su GHCR (self-hosting è un piano supportato, €0),
+ * quindi chiunque esegua `ghcr.io/dstmrk/scontrinozero:latest` ha il DSN dentro
+ * il JS e Sentry **attivo e puntato su questo progetto** senza saperlo: i suoi
+ * errori diventano nostre issue.
+ *
+ * Lo split `SENTRY_DSN` (runtime, server ed edge) vs `NEXT_PUBLIC_SENTRY_DSN`
+ * (build, browser) toglie il DSN dal bundle server, ma per il **browser**
+ * l'inlining è inevitabile finché l'immagine è una sola: da lì il filtro resta
+ * l'unica difesa. Vedi REVIEW #97.
  *
  * Due danni, uno peggiore dell'altro:
  * 1. Telemetria inquinata. SCONTRINOZERO-11 — un allarme `CF-Connecting-IP`
