@@ -237,7 +237,7 @@ Finché il loop è aperto, ogni link o menzione su `.com` è traffico perso, e
 ### 100. DMARC: `p=none` su `.it`, nessun record su `.com`
 
 - **Categoria:** email security · **Severità:** Medium — nessuna protezione effettiva contro lo spoofing del mittente
-- **File:** nessuno nel repo. La fix sono due record TXT nel DNS Cloudflare
+- **File:** nessuno nel repo. La fix sono record DNS nelle due zone Cloudflare
 
 **Misurato il 2026-08-26** (i due "DMARC Record Error" per zona nei Security
 Insights di Cloudflare sono questo):
@@ -255,50 +255,60 @@ Non è teorico per questo prodotto: le mail transazionali (Resend/SES da
 `send.mail.scontrinozero.it` già a posto) portano scontrini e link di reset
 password — esattamente ciò che un phishing vorrebbe imitare.
 
-⚠️ **`.com` non è un dominio che "non spedisce".** Ha MX IONOS attivi e un SPF
-che autorizza IONOS: è una casella provisionata e funzionante, solo senza
-DKIM. Andare dritti a `p=reject` lì è rischioso proprio per l'assenza di DKIM
-— con il solo SPF qualunque inoltro rompe l'allineamento e il messaggio viene
-**rifiutato**, non messo in spam. Quindi osservazione su entrambe le zone.
+**Le due zone si trattano in modo diverso**, perché fanno due mestieri diversi.
+`.it` è il dominio che spedisce davvero (iCloud + Resend/SES) e va portato a
+`reject` per gradi. `.com` è stato comprato **solo per redirigere sul `.it`**
+(confermato dal proprietario il 2026-08-26): la posta IONOS che ha attiva è
+provisioning del registrar che nessuno usa, quindi non va osservato — va
+dichiarato non-mail e chiuso subito.
 
-**Fix in due passi, non in uno.**
+**`.it` — la scala, non il salto.**
 
-1. **Ora** — `_dmarc.scontrinozero.it` (**modificare** il record esistente, non
-   aggiungerne un secondo: due TXT su `_dmarc` invalidano il DMARC):
+Modificare il record `_dmarc` esistente, **non** aggiungerne un secondo: due
+TXT su `_dmarc` invalidano il DMARC.
 
-   ```
-   v=DMARC1; p=none; rua=mailto:info@scontrinozero.it; fo=1
-   ```
+```
+v=DMARC1; p=none; rua=mailto:info@scontrinozero.it; fo=1
+```
 
-   `_dmarc.scontrinozero.com`, da creare:
+Dopo 2-4 settimane, se i soli mittenti allineati sono iCloud e SES, alzare a
+`p=quarantine` e infine `p=reject`. Cloudflare offre "DMARC Management" nella
+zona (Email → DMARC Management): crea il record, raccoglie i report aggregati e
+li mostra in dashboard, senza XML da leggere.
 
-   ```
-   v=DMARC1; p=none; rua=mailto:info@scontrinozero.it
-   ```
+**`.com` — dominio che non fa posta, quattro record.**
 
-   Il `rua` di `.com` punta a un indirizzo su un **altro** dominio: per RFC
-   7489 è un external reporting address e va autorizzato da chi lo riceve,
-   altrimenti i report aggregati di `.com` non partono e si resta in `p=none`
-   per sempre credendo che non ci sia traffico. Nella zona **`.it`**:
+Un dominio senza posta non ha falsi positivi possibili: si chiude in un colpo
+solo, senza periodo di osservazione. `p=reject` da solo non basta — è la
+combinazione che lo rende inspoofabile.
 
-   ```
-   scontrinozero.com._report._dmarc  TXT  "v=DMARC1"
-   ```
+| Record         | Tipo | Valore                                                 |
+| -------------- | ---- | ------------------------------------------------------ |
+| `@`            | MX   | priorità `0`, target `.` (null MX)                     |
+| `@`            | TXT  | `v=spf1 -all`                                          |
+| `*._domainkey` | TXT  | `v=DKIM1; p=`                                          |
+| `_dmarc`       | TXT  | `v=DMARC1; p=reject; rua=mailto:info@scontrinozero.it` |
 
-2. **Dopo 2-4 settimane di report**, se i soli mittenti allineati sono iCloud e
-   SES su `.it` (e IONOS o nessuno su `.com`), alzare a `p=quarantine` e infine
-   `p=reject`.
+Il null MX (RFC 7505) è il record che va **al posto** dei due `mx0*.ionos.it`,
+che vanno cancellati; l'SPF `-all` sostituisce l'`include:_spf-eu.ionos.com`; il
+DKIM wildcard dichiara revocato ogni selettore presente e futuro.
 
-Cloudflare offre "DMARC Management" nella zona (Email → DMARC Management):
-crea il record, raccoglie i report aggregati e li mostra in dashboard senza
-XML da leggere né autorizzazioni incrociate da gestire. Per questo progetto è
-la strada consigliata.
+⚠️ **Prima di cancellare gli MX**, verificare che nessun account usi un
+indirizzo `@scontrinozero.com` come recapito di recupero (registrar, Cloudflare,
+Stripe, PEC). Togliere gli MX non rompe il redirect — HTTP e posta sono
+indipendenti — ma fa sparire in silenzio una casella di recovery dimenticata.
 
-**Se si scopre che da `@scontrinozero.com` non parte davvero nulla**, la
-chiusura pulita non è solo `p=reject`: si dichiara il dominio come non-mail —
-MX nullo (`.` con priorità 0), SPF `v=spf1 -all`, DKIM revocato
-(`*._domainkey` → `v=DKIM1; p=`) e `p=reject`. A quel punto è inspoofabile e
-non ha falsi positivi possibili.
+Il `rua` di `.com` punta a un indirizzo su un **altro** dominio: per RFC 7489 è
+un external reporting address e va autorizzato da chi lo riceve, altrimenti i
+report non partono. Nella zona **`.it`**:
+
+```
+scontrinozero.com._report._dmarc  TXT  "v=DMARC1"
+```
+
+Su un dominio chiuso così i report servono solo a sapere _se_ qualcuno prova a
+spoofarti: nessuna soglia da tarare, nessun mittente da allineare. Vale una
+riga di DNS, ma toglierla non indebolisce la protezione — solo la visibilità.
 
 ### 11. `getCatalogItems` senza LIMIT + autocomplete server-side
 
