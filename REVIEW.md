@@ -962,6 +962,48 @@ invece stato accolto**: il file è servito dall'app
 (`src/app/.well-known/security.txt/`) sull'apex `.it`. Sulla zona `.com`
 risolverà da sé quando il loop di redirect (#99) sarà chiuso.
 
+### SonarCloud non indicizza `src/app/.well-known/**`
+
+Misurato sulla PR #881 via API SonarCloud, non dedotto:
+
+```
+$ curl -sS 'https://sonarcloud.io/api/measures/component?component=dstmrk_scontrinozero\
+&pullRequest=881&metricKeys=new_lines,new_lines_to_cover'
+new_lines = 7 · new_lines_to_cover = 0
+
+$ curl -sS '…component=dstmrk_scontrinozero:src/app/.well-known/security.txt/route.ts&pullRequest=881…'
+{"errors":[{"msg":"Component '…' of pull request '881' not found"}]}
+```
+
+Quella PR aggiungeva 160 righe di TypeScript; Sonar ne ha viste **7** (le
+sole di `src/proxy.ts` e `src/proxy.test.ts`). I due file sotto la
+dot-directory non esistono proprio come componenti. Conseguenza da tenere a
+mente leggendo il gate: `0.0% Coverage on New Code` **passa** perché non ci
+sono nuove righe da coprire, non perché la copertura sia a posto — e
+qualunque cosa finisca sotto `.well-known/` è invisibile a bug, code smell,
+security hotspot e coverage.
+
+Il buco è solo lato Sonar: `coverage/lcov.info` contiene regolarmente
+`SF:src/app/.well-known/security.txt/route.ts`, quindi
+`npm run test:coverage` in locale e in CI copre il file per davvero.
+
+**Non "risolvere" con `sonar.scanner.excludeHiddenFiles=false`.** La doc
+Sonar dice che i file nascosti tracciati da Git sono già inclusi di default,
+ma quella frase sta sulla pagina _Secrets_ e riguarda l'analisi dei segreti:
+sull'analizzatore TS l'evidenza sopra dice il contrario. Aggiungere la
+proprietà sarebbe un placebo che fa sembrare chiuso un buco aperto.
+
+**Perché si accetta.** Sotto `/.well-known` ci vanno file statici e brevi per
+definizione — `security.txt` oggi, al più `apple-app-site-association` o un
+redirect `change-password` domani. Un gate cieco su una trentina di righe di
+testo costante costa meno dell'indirezione che servirebbe a evitarlo.
+
+**Riaprire** appena lì dentro entra logica non banale (rami, input utente,
+chiamate esterne): a quel punto la route si sposta fuori dalla dot-directory
+(`src/app/well-known/…`) e l'URL pubblico si ottiene con un rewrite in
+`next.config.ts`, dove già vivono quelli di `/v1/:path*`. L'analisi Sonar
+vale l'indirezione solo da quel momento in poi.
+
 ### audit-ci: advisory `esbuild` dev-only
 
 `audit-ci.json` allowlista `GHSA-67mh-4wv8-2f99` (dev-server SSRF).

@@ -44,6 +44,34 @@ Se un file ha **no testable logic** (pure config, UI shell):
 lib e triggerano falsi positivi (variable shadowing). Aggiungere anche a
 `tsconfig.json` exclude per lo stesso motivo.
 
+### `0.0% Coverage on New Code` che **passa** non è una buona notizia
+
+La condizione richiede ≥ 80%: se passa a 0.0% è perché Sonar ha contato
+**zero nuove righe da coprire**, non perché la copertura vada bene. Prima di
+tirare un respiro di sollievo, chiedi all'API quante righe ha visto davvero
+(l'endpoint è pubblico, non serve token):
+
+```bash
+curl -sS 'https://sonarcloud.io/api/measures/component?component=dstmrk_scontrinozero&pullRequest=<N>&metricKeys=new_lines,new_lines_to_cover,new_uncovered_lines'
+```
+
+Se `new_lines` è molto più basso delle righe di TS che hai aggiunto, quei
+file non sono stati indicizzati. Per sapere se un file specifico esiste come
+componente:
+
+```bash
+curl -sS 'https://sonarcloud.io/api/measures/component?component=dstmrk_scontrinozero:<path>&pullRequest=<N>&metricKeys=new_lines'
+```
+
+Un `Component '…' not found` è la risposta secca. Caso noto e accettato:
+tutto ciò che sta in una **dot-directory** (`src/app/.well-known/**`) è
+invisibile all'analizzatore TS, anche se `coverage/lcov.info` contiene
+regolarmente le sue righe. Non aggiungere
+`sonar.scanner.excludeHiddenFiles=false` sperando che basti: la doc che lo
+descrive parla dell'analisi _Secrets_, e sull'analizzatore TS l'evidenza dice
+il contrario — sarebbe un placebo. Razionale completo e trigger di
+riapertura: `REVIEW.md`, "Rischi accettati".
+
 ---
 
 ## Regole specifiche da anticipare
