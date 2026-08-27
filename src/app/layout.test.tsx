@@ -36,6 +36,21 @@ describe("RootLayout metadata", () => {
     expect(metadata.other?.["apple-mobile-web-app-capable"]).toBe("yes");
   });
 
+  it("non limita la lunghezza dello snippet né l'anteprima immagine", () => {
+    // Google non ha un opt-out dedicato per AI Overviews / AI Mode: la
+    // comparsa e la LUNGHEZZA del passaggio citato sono governate dalle
+    // direttive preview standard. Senza max-snippet restiamo sul troncamento
+    // di default, cioè lasciamo a Google la decisione su quanto della
+    // risposta secca (checklist GEO) può finire citato.
+    expect(metadata.robots).toMatchObject({
+      index: true,
+      follow: true,
+      "max-snippet": -1,
+      "max-image-preview": "large",
+      "max-video-preview": -1,
+    });
+  });
+
   it("disattiva il rilevamento dei numeri di telefono di iOS", () => {
     // Senza questo, Safari su iPhone riscrive i digit-run lunghi (P.IVA in
     // footer, documentId sulla ricevuta pubblica) in <a href="tel:..."> prima

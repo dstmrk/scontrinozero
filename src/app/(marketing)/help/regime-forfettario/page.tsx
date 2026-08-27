@@ -17,7 +17,10 @@ export const metadata = helpArticleMetadata("regime-forfettario");
 
 /**
  * Mirror in testo piano della FAQ visibile a video: alimenta lo structured data
- * FAQPage (rich result Google). Tenere allineato al contenuto renderizzato sotto.
+ * FAQPage. Tenere allineato al contenuto renderizzato sotto. Il markup non
+ * produce più rich result (Google li ha ritirati il 7 maggio 2026): quello che
+ * paga è la FAQ visibile, che è contenuto citabile dalle AI — skill
+ * `marketing-content`.
  */
 const faqItems: readonly FaqItem[] = [
   {

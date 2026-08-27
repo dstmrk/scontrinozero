@@ -71,6 +71,19 @@ const MOCK_VOID_DATA = {
 
 // ─── Tests ────────────────────────────────────────────────────────────────
 
+describe("PublicReceiptPage metadata", () => {
+  it("resta fuori da indice e anteprime nonostante le direttive preview del root", async () => {
+    // Il root layout dichiara max-snippet:-1 e max-image-preview:large per
+    // massimizzare la citabilità delle pagine marketing. Questa pagina mostra
+    // i dati di una transazione reale: il suo `robots` SOSTITUISCE quello del
+    // root (Next non fa merge dentro il campo), quindi niente index e niente
+    // direttiva di anteprima ereditata. Se un giorno qualcuno spostasse le
+    // direttive preview altrove, questo test è quello che deve diventare rosso.
+    const { metadata } = await import("./page");
+    expect(metadata.robots).toEqual({ index: false, follow: false });
+  });
+});
+
 describe("PublicReceiptPage rate limiting", () => {
   // Fresh import per test: the rate limiter is a module-level singleton, so
   // vi.resetModules() resets the 60-request budget between cases.
