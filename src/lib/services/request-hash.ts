@@ -57,7 +57,9 @@ function discountCents(value: number | undefined): number {
 export function hashSaleRequest(input: {
   lines: SubmitReceiptInput["lines"];
   paymentMethod: SubmitReceiptInput["paymentMethod"];
-  payments?: SubmitReceiptInput["payments"];
+  // `NonNullable`: il campo su `SubmitReceiptInput` è già opzionale, quindi il
+  // suo tipo include `undefined` e il `?` qui lo ripeterebbe (S4782).
+  payments?: NonNullable<SubmitReceiptInput["payments"]>;
   lotteryCode: string | null;
   globalDiscount?: number;
 }): string {
