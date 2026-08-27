@@ -1,26 +1,37 @@
 import { sql } from "drizzle-orm";
 
-import { withStatementTimeout } from "@/lib/db-timeout";
 import { logger } from "@/lib/logger";
 import { PAID_SELF_SERVICE_PLANS, TRIAL_DAYS } from "@/lib/plans";
 import {
-  ADMIN_QUERY_TIMEOUT_MS,
   type RawRow,
+  adminRangeParams,
   lineCentsSql,
+  runAdminRead,
   toNumber,
   toRows,
 } from "./admin-sql";
-import {
-  type AnalyticsRange,
-  eachRomeDay,
-  rangeToBounds,
-} from "./analytics-helpers";
+import { type AnalyticsRange, eachRomeDay } from "./analytics-helpers";
 
 /**
  * Metriche del pannello operatore (`/admin`) — lettura sola, aggregata su
  * TUTTI i tenant. Server-only: nessun `"use server"`, quindi nessuna action
  * RPC raggiungibile dal browser. Il gate è il layout (`isAdminEmail`), che
  * resta l'unico punto d'ingresso.
+ *
+ * **Due letture, non una.** `getAdminUserKpis` interroga `profiles`,
+ * `getAdminDocumentKpis` interroga `commercial_documents`: erano due query
+ * dentro la stessa transazione e sono diventate due letture separate, ognuna
+ * dietro il proprio boundary Suspense in `src/app/admin/page.tsx`. Le tre card
+ * degli utenti compaiono senza aspettare la scansione di ogni scontrino mai
+ * emesso, che è la query più lenta del pannello.
+ *
+ * **Perché separarle non rompe la coerenza** che la transazione condivisa
+ * proteggeva: quell'invariante era "un profilo creato fra una query e l'altra
+ * non deve comparire nei nuovi iscritti ma non nel totale", e vive INTERNA a
+ * ciascuna query — `users_total` e `users_in_range` sono due colonne della
+ * stessa SELECT, come `receipts_total` e `receipts_in_range`. Nessun KPI
+ * mescola `profiles` con `commercial_documents`, quindi non c'è nessuno
+ * snapshot che le due letture debbano condividere.
  *
  * **Perché aggrega in SQL e non in JS** come `analytics-actions.ts`: là il
  * dataset è di un solo esercente e viene riusato per KPI, timeseries e
@@ -43,11 +54,18 @@ export type AdminSparklinePoint = {
   readonly value: number;
 };
 
-export type AdminKpis = {
+export type AdminUserKpis = {
   /** Profili registrati fino alla fine del range (storico completo). */
   readonly usersTotal: number;
   readonly usersInRange: number;
   readonly usersSparkline: readonly AdminSparklinePoint[];
+  /** Trial ancora attivi ADESSO (bonus referral incluso). */
+  readonly trialsActive: number;
+  /** Frazione 0..1 di trial partiti negli ultimi 90 giorni passati a pagamento. */
+  readonly trialConversionRate: number;
+};
+
+export type AdminDocumentKpis = {
   /** Scontrini SALE accettati fino alla fine del range. */
   readonly receiptsTotal: number;
   readonly receiptsInRange: number;
@@ -58,16 +76,22 @@ export type AdminKpis = {
   readonly revenueSparkline: readonly AdminSparklinePoint[];
   /** Scontrini annullati nel range (SALE passati a VOID_ACCEPTED). */
   readonly voidedInRange: number;
-  /** Trial ancora attivi ADESSO (bonus referral incluso). */
-  readonly trialsActive: number;
-  /** Frazione 0..1 di trial partiti negli ultimi 90 giorni passati a pagamento. */
-  readonly trialConversionRate: number;
 };
 
-export type AdminKpisResult = { kpis: AdminKpis } | { error: string };
+export type AdminUserKpisResult = { kpis: AdminUserKpis } | { error: string };
 
-const LOAD_ERROR =
-  "Impossibile caricare le metriche. Riprova tra qualche istante.";
+export type AdminDocumentKpisResult =
+  { kpis: AdminDocumentKpis } | { error: string };
+
+/**
+ * Messaggi distinti per blocco: con sei letture indipendenti un unico testo
+ * generico non direbbe QUALE è caduta, e l'avviso compare al posto delle sole
+ * card che dipendevano da quella query.
+ */
+const USERS_LOAD_ERROR =
+  "Impossibile caricare le metriche utenti. Riprova tra qualche istante.";
+const DOCUMENTS_LOAD_ERROR =
+  "Impossibile caricare le metriche scontrini. Riprova tra qualche istante.";
 
 /**
  * Finestra della coorte per il tasso di conversione, **indipendente dal range
@@ -101,33 +125,44 @@ function fillSeries(
 }
 
 /**
- * KPI del pannello operatore per il range dato.
+ * Logga il fallimento di una lettura di metriche.
+ *
+ * `metric` distingue le due letture come `list` fa per gli elenchi: con sei
+ * blocchi indipendenti, un `errorClass` uguale per tutti direbbe che il
+ * pannello ha un problema, non quale.
+ */
+function logMetricsFailure(
+  metric: "users" | "documents",
+  range: AnalyticsRange,
+  message: string,
+  err?: unknown,
+): void {
+  logger.warn(
+    { errorClass: "admin_metrics_load", metric, range, err },
+    message,
+  );
+}
+
+/**
+ * KPI utenti del pannello operatore: iscritti nel periodo, totale storico,
+ * trial attivi e conversione della coorte a 90 giorni.
  *
  * Degrada a `{ error }` su qualunque fallimento DB (regola 19): la pagina è
- * server-rendered e un throw la sostituirebbe con l'error boundary.
+ * server-rendered e un throw sostituirebbe il boundary Suspense di questo
+ * blocco con l'error boundary di segmento, portandosi via anche gli altri
+ * cinque.
  *
  * `reference` è iniettabile per i test — in produzione è sempre "adesso".
  */
-export async function getAdminKpis(
+export async function getAdminUserKpis(
   range: AnalyticsRange,
   reference: Date = new Date(),
-): Promise<AdminKpisResult> {
-  const { from, to } = rangeToBounds(range, reference);
-  // Date legate come ISO string + cast esplicito: un oggetto Date passato a un
-  // template sql`` viene serializzato dal driver in una forma che Postgres non
-  // riconosce come timestamptz (skill db-migrations).
-  const rangeStart = sql`${from.toISOString()}::timestamptz`;
-  const rangeEnd = sql`${to.toISOString()}::timestamptz`;
+): Promise<AdminUserKpisResult> {
+  const { from, to, rangeStart, rangeEnd } = adminRangeParams(range, reference);
 
   try {
-    // Le due query in UNA transazione: condividono il budget di timeout e,
-    // soprattutto, lo stesso snapshot: eseguite separate, un profilo o uno
-    // scontrino creato tra l'una e l'altra renderebbe i totali reciprocamente
-    // incoerenti (un utente contato nei nuovi iscritti ma non nel totale).
-    const [usersRow, docsRow] = await withStatementTimeout(
-      ADMIN_QUERY_TIMEOUT_MS,
-      async (tx) => {
-        const [users] = (await tx.execute(sql`
+    const [row] = await runAdminRead(async (tx) => {
+      return (await tx.execute(sql`
       WITH in_range AS (
         SELECT (p.created_at AT TIME ZONE 'Europe/Rome')::date AS day
         FROM profiles p
@@ -181,8 +216,65 @@ export async function getAdminKpis(
         (SELECT started   FROM cohort) AS trial_cohort_started,
         (SELECT converted FROM cohort) AS trial_cohort_converted
     `)) as unknown as RawRow[];
+    });
 
-        const [docs] = (await tx.execute(sql`
+    if (!row) {
+      logMetricsFailure(
+        "users",
+        range,
+        "admin metrics: query utenti senza righe",
+      );
+      return { error: USERS_LOAD_ERROR };
+    }
+
+    const started = toNumber(row.trial_cohort_started);
+    const converted = toNumber(row.trial_cohort_converted);
+
+    return {
+      kpis: {
+        usersTotal: toNumber(row.users_total),
+        usersInRange: toNumber(row.users_in_range),
+        usersSparkline: fillSeries(
+          toRows(row.users_sparkline),
+          "value",
+          from,
+          to,
+        ),
+        trialsActive: toNumber(row.trials_active),
+        trialConversionRate: started === 0 ? 0 : converted / started,
+      },
+    };
+  } catch (err) {
+    logMetricsFailure(
+      "users",
+      range,
+      "admin metrics: query utenti fallita",
+      err,
+    );
+    return { error: USERS_LOAD_ERROR };
+  }
+}
+
+/**
+ * KPI scontrini del pannello operatore: emessi e incassati nel periodo, totali
+ * storici, annullati.
+ *
+ * È la lettura più cara del pannello — `created_at < rangeEnd` significa tutto
+ * lo storico, e il join sulle righe non ha indice utile perché non si filtra
+ * per `business_id`. Sta dietro al proprio boundary apposta: è quella che
+ * faceva aspettare tutto il resto.
+ *
+ * Degrada a `{ error }` su qualunque fallimento DB (regola 19).
+ */
+export async function getAdminDocumentKpis(
+  range: AnalyticsRange,
+  reference: Date = new Date(),
+): Promise<AdminDocumentKpisResult> {
+  const { from, to, rangeStart, rangeEnd } = adminRangeParams(range, reference);
+
+  try {
+    const [row] = await runAdminRead(async (tx) => {
+      return (await tx.execute(sql`
       WITH sale AS (
         SELECT
           cd.id,
@@ -230,49 +322,37 @@ export async function getAdminKpis(
         ) AS daily
       FROM totals
     `)) as unknown as RawRow[];
+    });
 
-        return [users, docs] as const;
-      },
-    );
-
-    if (!usersRow || !docsRow) {
-      logger.warn(
-        { errorClass: "admin_metrics_load", range },
-        "admin metrics: query senza righe",
+    if (!row) {
+      logMetricsFailure(
+        "documents",
+        range,
+        "admin metrics: query scontrini senza righe",
       );
-      return { error: LOAD_ERROR };
+      return { error: DOCUMENTS_LOAD_ERROR };
     }
 
-    const started = toNumber(usersRow.trial_cohort_started);
-    const converted = toNumber(usersRow.trial_cohort_converted);
-    const daily = toRows(docsRow.daily);
+    const daily = toRows(row.daily);
 
     return {
       kpis: {
-        usersTotal: toNumber(usersRow.users_total),
-        usersInRange: toNumber(usersRow.users_in_range),
-        usersSparkline: fillSeries(
-          toRows(usersRow.users_sparkline),
-          "value",
-          from,
-          to,
-        ),
-        receiptsTotal: toNumber(docsRow.receipts_total),
-        receiptsInRange: toNumber(docsRow.receipts_in_range),
+        receiptsTotal: toNumber(row.receipts_total),
+        receiptsInRange: toNumber(row.receipts_in_range),
         receiptsSparkline: fillSeries(daily, "receipts", from, to),
-        revenueCentsTotal: toNumber(docsRow.revenue_cents_total),
-        revenueCentsInRange: toNumber(docsRow.revenue_cents_in_range),
+        revenueCentsTotal: toNumber(row.revenue_cents_total),
+        revenueCentsInRange: toNumber(row.revenue_cents_in_range),
         revenueSparkline: fillSeries(daily, "cents", from, to),
-        voidedInRange: toNumber(docsRow.voided_in_range),
-        trialsActive: toNumber(usersRow.trials_active),
-        trialConversionRate: started === 0 ? 0 : converted / started,
+        voidedInRange: toNumber(row.voided_in_range),
       },
     };
   } catch (err) {
-    logger.warn(
-      { errorClass: "admin_metrics_load", range, err },
-      "admin metrics: query fallita",
+    logMetricsFailure(
+      "documents",
+      range,
+      "admin metrics: query scontrini fallita",
+      err,
     );
-    return { error: LOAD_ERROR };
+    return { error: DOCUMENTS_LOAD_ERROR };
   }
 }

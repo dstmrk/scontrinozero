@@ -416,6 +416,72 @@ Note operative:
 
 ---
 
+## Pagina lenta: un `await` in cima blocca tutto l'HTML
+
+Una RSC che fa `const [a, b] = await Promise.all([…])` prima di ritornare JSX
+non spedisce **un byte** finché non c'è l'ultimo dato: il guscio, il titolo e i
+selettori restano fermi dietro la query più lenta. È il default facile e sbagliato
+ogni volta che una pagina aggrega più letture indipendenti.
+
+La forma corretta è: la pagina non `await`a nessuna lettura, e ogni lettura vive
+in un **server component asincrono a sé** dentro il proprio `<Suspense>`. Next
+manda in streaming ogni blocco appena la sua query risponde.
+
+```tsx
+// La pagina si risolve subito: qui non si await-a nessuna query.
+export default async function AdminPage({ searchParams }) {
+  const range = parseAnalyticsRange((await searchParams).range, "7d");
+  return (
+    <>
+      <RangeTabs active={range} />
+      <Suspense fallback={<KpiSkeleton count={3} sparklines={1} />}>
+        <UserKpisSection range={range} />
+      </Suspense>
+      <Suspense fallback={<TableSkeleton title="Utenti paganti" />}>
+        <PaidUsersSection />
+      </Suspense>
+    </>
+  );
+}
+```
+
+Quattro cose che si imparano solo sbagliandole:
+
+- **`<Suspense>` non produce un nodo DOM.** I suoi figli restano figli
+  _diretti_ del contenitore: si può quindi tenere la `grid` nella pagina e
+  mettere i boundary dentro, e le card si sostituiscono una a una senza
+  wrapper intermedi che rompano la disposizione.
+- **Lo skeleton deve avere l'altezza del contenuto vero**, non "più o meno".
+  Un fallback che disegna una sparkline su tutte e tre le card quando solo una
+  ce l'ha produce un salto di layout all'arrivo dei dati — cioè esattamente il
+  fastidio che lo skeleton esisteva per evitare. Titolo e descrizione vanno
+  mostrati **reali** (sono noti a render time): dicono cosa sta arrivando.
+- **Le sezioni stanno in un file separato** (`sections.tsx`), non inline nella
+  pagina: è ciò che le rende testabili come funzioni. Perché e come →
+  `testing-patterns`.
+- **L'ordine dei boundary è l'ordine di esecuzione** quando a valle c'è una
+  coda (vedi sotto): React invoca i figli nell'ordine dell'albero, quindi
+  spostare una sezione più in alto la fa comparire prima.
+
+### Streaming non riduce il carico: mettere un tetto a monte
+
+Sei boundary indipendenti significano sei query che partono insieme, e con un
+pool condiviso (10 connessioni in `src/db/index.ts`, le stesse che servono la
+cassa) una pagina secondaria può prendersene la maggioranza. Se le query sono
+già costose — nel pannello operatore nessuna può usare un indice, perché sono
+tutti prefissati `business_id` — il parallelismo peggiora il problema invece di
+risolverlo.
+
+`runAdminRead` in `src/server/admin-sql.ts` è il pattern: un semaforo di modulo
+che lascia passare **una** lettura per volta, coda FIFO, rilascio in `finally`
+(un timeout Postgres non deve poter lasciare la pagina bloccata per sempre). Il
+tempo totale resta la somma delle query; quello che cambia è che si vede
+arrivare la pagina un pezzo alla volta invece di fissare il bianco. Il tetto
+compra prevedibilità sul pool, non latenza — ed è la scelta giusta quando la
+pagina lenta non è il prodotto.
+
+---
+
 ## PWA / Serwist → skill `pwa-serwist`
 
 Service worker (`src/sw.ts`, gotcha `defaultCache`), race di

@@ -49,6 +49,18 @@ describe("parseAnalyticsRange", () => {
     expect(parseAnalyticsRange(undefined)).toBe(DEFAULT_ANALYTICS_RANGE);
   });
 
+  it("accetta un default diverso da quello dell'analytics esercente", () => {
+    // Il pannello operatore apre su 7 giorni, l'analytics esercente resta su
+    // 30: due default, una sola allowlist. Senza il parametro servirebbe una
+    // seconda funzione di parsing da tenere allineata a mano.
+    expect(parseAnalyticsRange(undefined, "7d")).toBe("7d");
+    expect(parseAnalyticsRange("bogus", "7d")).toBe("7d");
+  });
+
+  it("un valore valido batte il default passato", () => {
+    expect(parseAnalyticsRange("90d", "7d")).toBe("90d");
+  });
+
   it("ricade sul default per stringa vuota", () => {
     expect(parseAnalyticsRange("")).toBe(DEFAULT_ANALYTICS_RANGE);
   });
