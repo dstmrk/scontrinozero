@@ -6,7 +6,11 @@ import {
   calcDocTotal,
 } from "@/lib/receipts/document-lines";
 import { discountGateError } from "@/lib/receipts/discount-gate";
-import { parsePublicRequest } from "@/lib/receipts/public-request";
+import {
+  parsePublicRequest,
+  readRawPaymentMethod,
+} from "@/lib/receipts/public-request";
+import { v1Payments } from "@/lib/receipts/v1-payments";
 import { saleBodySchema } from "@/lib/receipts/receipt-schema";
 import { parseStrictIsoDateUtc } from "@/lib/date-utils";
 import { isStatementTimeoutError } from "@/lib/api-errors";
@@ -334,11 +338,9 @@ export async function GET(request: Request): Promise<Response> {
     const docLines = linesByDocId.get(doc.id) ?? [];
     const docTotal = calcDocTotal(docLines);
 
-    // ⚠️ `paymentMethod` NON passa da `parsePublicRequest`: il contratto
-    // pubblico espone `null` quando il campo manca, mentre l'helper degrada a
-    // `"PC"` per la stampa. Cambiarlo qui sarebbe un breaking change v1.
-    const pr = doc.publicRequest as { paymentMethod?: string } | null;
-    const { globalDiscountCents } = parsePublicRequest(doc.publicRequest);
+    const { payments, globalDiscountCents } = parsePublicRequest(
+      doc.publicRequest,
+    );
 
     return {
       id: doc.id,
@@ -351,7 +353,16 @@ export async function GET(request: Request): Promise<Response> {
       // Sconto a pagare: NON riduce `total`, che resta il corrispettivo
       // (HAR.md voce #3b). L'incassato e' `total - globalDiscount`.
       globalDiscount: (globalDiscountCents / 100).toFixed(2),
-      paymentMethod: pr?.paymentMethod ?? null,
+      // `payments[]` e' additivo: `paymentMethod` resta esattamente com'era —
+      // valorizzato sugli scontrini a metodo singolo, gia' oggi `null` sulle
+      // righe storiche prive del campo. Il formato persistito scrive
+      // `paymentMethod` SOLO quando il pagamento e' uno, quindi sui misti il
+      // campo e' assente e `readRawPaymentMethod` restituisce `null` da se',
+      // senza un ramo dedicato.
+      // Nessun consumer v1 si rompe: `null` e' una forma che il contratto
+      // produce da sempre (REVIEW.md #87, che v2 chiudera' togliendo lo scalare).
+      paymentMethod: readRawPaymentMethod(doc.publicRequest),
+      payments: v1Payments(payments),
       total: docTotal.toFixed(2),
       createdAt: doc.createdAt,
     };

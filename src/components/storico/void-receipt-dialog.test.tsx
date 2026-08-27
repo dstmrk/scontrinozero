@@ -74,6 +74,7 @@ const ACCEPTED_RECEIPT: ReceiptListItem = {
   adeRegisteredAt: new Date("2026-01-01T10:00:00Z"),
   voidDocument: null,
   paymentMethod: "PC",
+  payments: null,
   lotteryCode: null,
   globalDiscountCents: 0,
   total: "12.00",

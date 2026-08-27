@@ -1,5 +1,8 @@
 import { calcLineTotalCents } from "@/lib/receipts/receipt-totals";
-import { parsePublicRequest } from "@/lib/receipts/public-request";
+import {
+  parsePublicRequest,
+  readRawPaymentMethod,
+} from "@/lib/receipts/public-request";
 import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/db";
@@ -114,16 +117,34 @@ const PAYMENT_METHOD_LABELS = new Map<string, string>([
  */
 const DESCRIPTION_JOIN = " | ";
 
+/**
+ * Cella `metodo_pagamento`.
+ *
+ * Su un pagamento misto porta le modalità che hanno incassato, unite
+ * (`contanti + elettronico`), non una di esse: scrivere solo la prima darebbe
+ * a chi apre il file un metodo che non regge il confronto con `incassato`.
+ *
+ * Gli **importi** per metodo restano fuori dal riepilogo, che tiene una riga
+ * per scontrino: aggiungere due colonne di importo cambierebbe la forma del
+ * file per tutti per servire un caso che ancora non esiste in nessun dato.
+ *
+ * Il ramo scalare passa da `readRawPaymentMethod` e non da
+ * `parsePublicRequest`: quest'ultimo degrada a `"PC"` sulle righe storiche
+ * prive del campo, mentre qui la cella deve restare **vuota**. Una cella vuota
+ * dice "non registrato"; `contanti` affermerebbe un fatto che quel documento
+ * non porta.
+ */
 function extractPaymentMethod(publicRequest: unknown): string {
-  if (
-    publicRequest !== null &&
-    typeof publicRequest === "object" &&
-    "paymentMethod" in publicRequest
-  ) {
-    const pm = (publicRequest as { paymentMethod?: unknown }).paymentMethod;
-    if (typeof pm === "string") return PAYMENT_METHOD_LABELS.get(pm) ?? pm;
+  const { payments } = parsePublicRequest(publicRequest);
+  if (payments) {
+    return payments
+      .map((row) => PAYMENT_METHOD_LABELS.get(row.type) ?? row.type)
+      .join(" + ");
   }
-  return "";
+
+  const raw = readRawPaymentMethod(publicRequest);
+  if (raw === null) return "";
+  return PAYMENT_METHOD_LABELS.get(raw) ?? raw;
 }
 
 function formatItalianAmount(amount: number): string {

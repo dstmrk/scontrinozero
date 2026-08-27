@@ -1,4 +1,5 @@
 import type { DocumentStatus } from "@/lib/ade/public-types";
+import type { PaymentEntry } from "@/lib/receipts/public-request";
 import type { PaymentMethod } from "@/types/cassa";
 
 // ---------------------------------------------------------------------------
@@ -61,8 +62,17 @@ export interface ReceiptListItem {
    * Metodo di pagamento del documento trasmesso all'AdE. Serve alla ristampa
    * su termica: una copia consegnata al cliente non può riportare un
    * pagamento diverso da quello del documento originale.
+   *
+   * Su un pagamento misto non basta da solo: la ripartizione sta in
+   * `payments`, e il blocco pagamenti si risolve con `resolvePaymentRows`.
    */
   paymentMethod: PaymentMethod;
+  /**
+   * Ripartizione dell'incassato fra più metodi (pagamento misto), o `null`
+   * quando il documento non ne ha una — ogni documento a metodo singolo e ogni
+   * riga storica.
+   */
+  payments: readonly PaymentEntry[] | null;
   /** Codice lotteria trasmesso, se presente. */
   lotteryCode: string | null;
   /** Totale IVA inclusa, calcolato dalla somma delle righe (stringa con 2 decimali). */

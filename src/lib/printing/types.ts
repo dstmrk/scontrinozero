@@ -8,6 +8,7 @@
  * mai divergere.
  */
 
+import type { PaymentEntry } from "@/lib/receipts/public-request";
 import type { PaymentMethod } from "@/types/cassa";
 
 /** Intestazione dell'esercente, letta da `businesses`. */
@@ -68,6 +69,16 @@ interface PrintableDocumentBase {
 export interface PrintableSaleReceipt extends PrintableDocumentBase {
   readonly kind: "SALE";
   readonly paymentMethod: PaymentMethod;
+  /**
+   * Ripartizione dell'incassato fra più metodi (pagamento misto), nella forma
+   * che `parsePublicRequest` restituisce. Assente/`null` = nessuna
+   * ripartizione: l'incassato sta tutto su `paymentMethod`.
+   *
+   * Non è un doppione di `paymentMethod`: il blocco pagamenti si risolve
+   * sempre con `resolvePaymentRows`, che sa gestire entrambe le forme e ha
+   * bisogno di tutti e due i campi.
+   */
+  readonly payments?: readonly PaymentEntry[] | null;
   /** Codice Lotteria degli Scontrini (8 char, solo pagamento PE). */
   readonly lotteryCode?: string | null;
   /**

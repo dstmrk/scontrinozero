@@ -503,6 +503,75 @@ describe("buildReceiptCommands — layout AdE", () => {
     expect(rows.find((r) => r.includes("Importo pagato"))).toContain("3,50");
   });
 
+  it("stampa una riga per modalità su un pagamento misto", () => {
+    // Caso di riferimento HAR.md voce #1: il documento porta due modalità, e
+    // il layout AdE le stampa entrambe (voce #6, sei slot). `Importo pagato`
+    // resta uno e porta la somma.
+    const rows = printedLines(
+      buildReceiptCommands(
+        makeReceipt(SIMPLE_LINES, {
+          payments: [
+            { type: "PC", amountCents: 90 },
+            { type: "PE", amountCents: 300 },
+          ],
+        }),
+        OPTS,
+      ),
+    );
+    expect(rows.find((r) => r.includes("Pagamento contante"))).toContain(
+      "0,90",
+    );
+    expect(rows.find((r) => r.includes("Pagamento elettronico"))).toContain(
+      "3,00",
+    );
+    // SIMPLE_LINES vale 3,90: la somma delle due modalità.
+    expect(rows.find((r) => r.includes("Importo pagato"))).toContain("3,90");
+  });
+
+  it("su un misto con abbuono le modalità sommano all'incassato", () => {
+    // Invariante HAR.md voce #5: Σ pagamenti + sconto a pagare = totale.
+    // Totale 3,90, abbuono 0,40, incassato 3,50 = 0,50 + 3,00.
+    const rows = printedLines(
+      buildReceiptCommands(
+        makeReceipt(SIMPLE_LINES, {
+          globalDiscountCents: 40,
+          payments: [
+            { type: "PC", amountCents: 50 },
+            { type: "PE", amountCents: 300 },
+          ],
+        }),
+        OPTS,
+      ),
+    );
+    expect(rows.find((r) => r.includes("TOTALE COMPLESSIVO"))).toContain(
+      "3,90",
+    );
+    expect(rows.find((r) => r.includes("Pagamento contante"))).toContain(
+      "0,50",
+    );
+    expect(rows.find((r) => r.includes("Pagamento elettronico"))).toContain(
+      "3,00",
+    );
+    expect(rows.find((r) => r.includes("Importo pagato"))).toContain("3,50");
+  });
+
+  it("ordina le modalità come il tracciato AdE, non come sono arrivate", () => {
+    const rows = printedLines(
+      buildReceiptCommands(
+        makeReceipt(SIMPLE_LINES, {
+          payments: [
+            { type: "PE", amountCents: 300 },
+            { type: "PC", amountCents: 90 },
+          ],
+        }),
+        OPTS,
+      ),
+    );
+    expect(rowIndexOf(rows, "Pagamento contante")).toBeLessThan(
+      rowIndexOf(rows, "Pagamento elettronico"),
+    );
+  });
+
   it("omette la riga sconto a pagare quando l'abbuono è zero", () => {
     // Prescrizione risparmio carta (voce #17c): niente voci di pagamento a
     // zero. Vale per i documenti storici, che non hanno affatto il campo.

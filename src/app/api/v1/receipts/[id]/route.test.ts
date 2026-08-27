@@ -84,7 +84,9 @@ const FAKE_DOC = {
   adeTransactionId: "trx-001",
   adeProgressive: "001",
   createdAt: new Date("2026-03-01T10:00:00Z"),
-  publicRequest: { paymentMethod: "PC" },
+  // `unknown`: la colonna e' jsonb, e i test del pagamento misto ci scrivono
+  // dentro un `payments[]` invece dello scalare.
+  publicRequest: { paymentMethod: "PC" } as unknown,
   lotteryCode: null as string | null,
   voidedDocumentId: null as string | null,
 };
@@ -179,6 +181,38 @@ describe("GET /api/v1/receipts/[id]", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.paymentMethod).toBe("PC");
+  });
+
+  it("ritorna payments null sugli scontrini a metodo singolo", async () => {
+    // `null`, non `[]`: un array vuoto direbbe "nessun pagamento", che su uno
+    // scontrino incassato è falso. Il consumer legge `paymentMethod`.
+    const res = await GET(makeRequest(), makeParams());
+    const body = await res.json();
+    expect(body.payments).toBeNull();
+  });
+
+  it("ritorna payments[] e paymentMethod null su un pagamento misto", async () => {
+    // Additivo, non breaking (REVIEW.md #87): il formato persistito scrive
+    // `paymentMethod` SOLO sui metodi singoli, quindi sui misti il campo è
+    // assente e la response porta il `null` che il contratto v1 produce già
+    // oggi sulle righe storiche.
+    setupDocMock({
+      ...FAKE_DOC,
+      publicRequest: {
+        payments: [
+          { type: "PC", amount: 1 },
+          { type: "PE", amount: 2 },
+        ],
+      },
+    });
+    setupLinesMock([FAKE_LINE]);
+    const res = await GET(makeRequest(), makeParams());
+    const body = await res.json();
+    expect(body.paymentMethod).toBeNull();
+    expect(body.payments).toEqual([
+      { type: "PC", amount: "1.00" },
+      { type: "PE", amount: "2.00" },
+    ]);
   });
 
   it("ritorna lotteryCode quando presente", async () => {

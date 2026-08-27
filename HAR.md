@@ -870,7 +870,35 @@ insieme coprono quantità 1 e 2, due aliquote diverse e una natura:
   e aliquote), e `ammontareComplessivo` resta cent-esatto sulle quantità
   frazionarie (i test REVIEW.md #57 esistenti devono restare verdi invariati).
 
-### Sub-task B — pagamento misto, superfici di lettura (prima di C)
+### Sub-task B — pagamento misto, superfici di lettura (prima di C) ✅ FATTO
+
+> **Spedito.** `ParsedPublicRequest` porta `payments`, e `resolvePaymentRows`
+> (`src/lib/receipts/public-request.ts`) ricompone il blocco pagamenti in voci
+> `{ type, amountCents }` sia sui misti sia sui metodi singoli — è il modo
+> corretto di leggerlo, `paymentMethod` da solo non descrive un misto.
+> Consumato da ricevuta pubblica, PDF, termica, storico (+ ristampa), export
+> CSV, analytics e le due route `/api/v1`, che espongono `payments[]` accanto
+> a `paymentMethod`. Tre scostamenti deliberati dal piano qui sotto:
+>
+> - **L'ordine delle voci è normalizzato** su quello del tracciato AdE (`PC`
+>   prima di `PE`, voce #6) sia in lettura dal jsonb sia in `resolvePaymentRows`:
+>   le stesse voci arrivate in ordine diverso devono produrre lo stesso
+>   scontrino, altrimenti PDF e termica dello stesso documento si ordinano come
+>   capita.
+> - **Un array malformato degrada allo scalare tutto-o-niente**, non voce per
+>   voce: tenere una voce di un misto e buttare l'altra mostrerebbe un incasso
+>   dimezzato senza alcun segnale.
+> - **L'analytics ripartisce il ricavo in proporzione agli importi**, non gli
+>   importi così come sono: i pagamenti sommano all'**incassato**, che con un
+>   abbuono è minore del corrispettivo (voce #3b), e attribuirli direttamente
+>   scollegherebbe il grafico dal KPI ricavo. `count` conta il documento una
+>   volta per metodo, quindi la sua somma può superare il numero di scontrini.
+>
+> Due superfici NON passano da `parsePublicRequest` per lo **scalare**, di
+> proposito: la cella `metodo_pagamento` del CSV e il ramo a metodo singolo
+> dell'analytics devono restare rispettivamente vuota e `other` sulle righe
+> storiche, mentre l'helper degrada a `PC` per la stampa. Affermare "contanti"
+> su un documento che non porta il campo sarebbe inventare un dato.
 
 **Perché prima.** Nel momento in cui il primo scontrino misto viene emesso,
 storico, PDF, ricevuta pubblica, stampa termica e analytics devono già saperlo

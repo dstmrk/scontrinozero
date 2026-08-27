@@ -25,6 +25,7 @@ import ReceiptPrinterEncoder from "@point-of-sale/receipt-printer-encoder";
 // Import dal modulo PURO, non da `document-lines.ts`: quello importa `getDb()`
 // e trascinerebbe il driver postgres nel bundle del browser.
 import { computeReceiptTotals } from "@/lib/receipts/receipt-totals";
+import { resolvePaymentRows } from "@/lib/receipts/public-request";
 import {
   PAYMENT_LABELS,
   formatBusinessAddressLines,
@@ -213,8 +214,13 @@ function printTotals(
  * Blocco pagamenti, nell'ordine del layout normativo AdE (`HAR.md` voce #17b):
  * modalità di pagamento, `Sconto a pagare`, `Importo pagato`.
  *
+ * Le modalità sono **una riga ciascuna** — un pagamento misto ne stampa due,
+ * contante e elettronico, come fa il layout AdE che di slot ne prevede sei
+ * (voce #6). `Importo pagato` resta uno solo e porta il totale incassato: è la
+ * somma delle righe sopra, non una di esse.
+ *
  * `Importo pagato` va sempre indicato (prescrizioni generali per il risparmio
- * carta, voce #17c); la riga della modalità e quella dell'abbuono spariscono
+ * carta, voce #17c); le righe delle modalità e quella dell'abbuono spariscono
  * se valgono zero, come ogni altra voce di pagamento a zero.
  *
  * ⚠️ Sia la modalità sia `Importo pagato` portano l'**incassato**, cioè il
@@ -233,17 +239,20 @@ function printPayment(
   // Aritmetica in centesimi interi (regola 17): `3.90 - 0.40` in float non è
   // `3.50`, e la termica stamperebbe un incassato che non quadra col PDF.
   const discountCents = receipt.globalDiscountCents ?? 0;
-  const collected = (Math.round(grandTotal * 100) - discountCents) / 100;
+  const collectedCents = Math.round(grandTotal * 100) - discountCents;
 
-  if (collected !== 0) {
-    const paymentLabel =
-      PAYMENT_LABELS[receipt.paymentMethod] ?? receipt.paymentMethod;
-    amountRow(encoder, columns, paymentLabel, collected);
+  for (const row of resolvePaymentRows(receipt, collectedCents)) {
+    amountRow(
+      encoder,
+      columns,
+      PAYMENT_LABELS[row.type] ?? row.type,
+      row.amountCents / 100,
+    );
   }
   if (discountCents > 0) {
     amountRow(encoder, columns, "Sconto a pagare", discountCents / 100);
   }
-  amountRow(encoder, columns, "Importo pagato", collected);
+  amountRow(encoder, columns, "Importo pagato", collectedCents / 100);
   encoder.rule();
 }
 

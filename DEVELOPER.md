@@ -206,6 +206,7 @@ curl https://api.scontrinozero.it/v1/receipts/550e8400-e29b-41d4-a716-4466554400
   "adeProgressive": "DCW2026/5111-2188",
   "createdAt": "2026-03-26T10:00:00Z",
   "paymentMethod": "PE",
+  "payments": null,
   "lotteryCode": "ABCD1234",
   "voidedDocumentId": null,
   "total": "16.00",
@@ -223,7 +224,8 @@ curl https://api.scontrinozero.it/v1/receipts/550e8400-e29b-41d4-a716-4466554400
 ```
 
 > `voidedDocumentId` è valorizzato solo per documenti `kind: "VOID"` e contiene l'UUID del SALE annullato.
-> `paymentMethod` vale `"PC"` (contante: denaro, assegni bancari e circolari) oppure `"PE"` (elettronico: carte, bancomat, app di pagamento, bonifici). Un solo metodo per documento — il pagamento ripartito non è supportato.
+> `paymentMethod` vale `"PC"` (contante: denaro, assegni bancari e circolari) oppure `"PE"` (elettronico: carte, bancomat, app di pagamento, bonifici), ed è `null` sui documenti che non lo portano.
+> `payments` è la ripartizione dell'incassato fra più metodi, `[{ "type": "PC", "amount": "0.50" }, …]` con gli importi in euro come stringhe a 2 decimali. **Oggi è sempre `null`**: l'emissione con pagamento ripartito non è ancora disponibile, e il campo esiste perché un client scritto adesso continui a funzionare quando lo sarà. Quando arriverà, un documento ripartito avrà `payments` valorizzato e `paymentMethod` a `null` — trattare `paymentMethod: null` come "più metodi, leggi `payments`", non come "metodo sconosciuto". Gli importi sommano all'**incassato** (`total − globalDiscount`), non a `total`.
 > `lotteryCode` è `null` se non fornito o se il metodo di pagamento è `"PC"` (contanti). Lo sconto a pagare **non** lo squalifica: non è un mezzo di pagamento.
 > `globalDiscount` è lo sconto a pagare applicato, stringa a 2 decimali, `"0.00"` quando assente. `total` resta il corrispettivo pieno: l'incassato è `total − globalDiscount`.
 > `quantity`, `grossUnitPrice` e `lineDiscount` sono stringhe con precisione fissa (3, 2 e 2 decimali rispettivamente). `lineDiscount` vale `"0.00"` sulle righe senza sconto e su tutte quelle emesse prima della v1.7.4.

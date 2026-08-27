@@ -509,6 +509,7 @@ export default function ApiDocsPage() {
       "adeProgressive": "DCW2026/5111-2188",
       "lotteryCode": null,
       "paymentMethod": "PE",
+      "payments": null,
       "total": "18.50",
       "createdAt": "2026-04-05T10:00:00.000Z"
     }
@@ -566,6 +567,7 @@ export default function ApiDocsPage() {
   "adeProgressive": "DCW2026/5111-2188",
   "createdAt": "2026-03-26T10:00:00.000Z",
   "paymentMethod": "PE",
+  "payments": null,
   "lotteryCode": "ABCD1234",
   "voidedDocumentId": null,
   "total": "18.50",
@@ -606,7 +608,11 @@ export default function ApiDocsPage() {
                 ],
                 [
                   "paymentMethod",
-                  "PC (contanti) o PE (elettronico), così come inviato in emissione.",
+                  "PC (contanti) o PE (elettronico), così come inviato in emissione. null sui documenti che non lo portano.",
+                ],
+                [
+                  "payments",
+                  "Ripartizione dell'incassato fra più metodi. Oggi sempre null: l'emissione con pagamento ripartito non è ancora disponibile, e il campo esiste perché un client scritto adesso continui a funzionare quando lo sarà.",
                 ],
                 [
                   "lotteryCode",

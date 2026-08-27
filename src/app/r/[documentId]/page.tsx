@@ -7,7 +7,10 @@ import { getClientIp } from "@/lib/get-client-ip";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
 import { computeReceiptTotals } from "@/lib/receipts/document-lines";
-import { parsePublicRequest } from "@/lib/receipts/public-request";
+import {
+  parsePublicRequest,
+  resolvePaymentRows,
+} from "@/lib/receipts/public-request";
 import {
   PAYMENT_LABELS,
   formatBusinessAddressLines,
@@ -89,7 +92,7 @@ export default async function PublicReceiptPage({
   // sempre quando serve.
   const isVoid = doc.kind === "VOID";
 
-  const { paymentMethod, lotteryCode, globalDiscountCents } =
+  const { paymentMethod, payments, lotteryCode, globalDiscountCents } =
     parsePublicRequest(doc.publicRequest);
 
   // Cents-based deterministic totals (avoid IEEE-754 drift on many/decimal lines)
@@ -99,7 +102,15 @@ export default async function PublicReceiptPage({
   // Incassato = corrispettivo − sconto a pagare, in centesimi interi
   // (regola 17). Il corrispettivo (`grandTotal`) resta quello stampato più su
   // come TOTALE COMPLESSIVO: l'abbuono non lo riduce (HAR.md voce #3b).
-  const collected = (Math.round(grandTotal * 100) - globalDiscountCents) / 100;
+  const collectedCents = Math.round(grandTotal * 100) - globalDiscountCents;
+  const collected = collectedCents / 100;
+
+  // Una riga per modalità: un pagamento misto ne mostra due. `Importo pagato`
+  // resta uno solo e ne porta la somma.
+  const paymentRows = resolvePaymentRows(
+    { paymentMethod, payments },
+    collectedCents,
+  );
 
   // Righe indirizzo nella forma del layout standard AdE (via, poi
   // `Comune(PR), CAP`), le stesse che stampano PDF e termica.
@@ -249,17 +260,19 @@ export default async function PublicReceiptPage({
               AdE (HAR.md voce #17b): modalità, `Sconto a pagare`, `Importo
               pagato`. Quest'ultimo va sempre indicato (voce #17c); modalità e
               abbuono spariscono a zero. Modalità e `Importo pagato` portano
-              l'INCASSATO, non il totale complessivo, che resta pieno. */}
+              l'INCASSATO, non il totale complessivo, che resta pieno. Le
+              modalità sono una riga ciascuna: un pagamento misto ne mostra
+              due, `Importo pagato` resta uno e ne porta la somma. */}
           {!isVoid && (
             <div className="space-y-1 border-b border-dashed border-gray-200 px-6 py-4 text-xs text-gray-500">
-              {collected !== 0 && (
-                <div className="flex justify-between">
-                  <span>{PAYMENT_LABELS[paymentMethod] ?? paymentMethod}</span>
+              {paymentRows.map((row) => (
+                <div key={row.type} className="flex justify-between">
+                  <span>{PAYMENT_LABELS[row.type] ?? row.type}</span>
                   <span className="font-medium text-gray-700">
-                    {formatReceiptPrice(collected)}
+                    {formatReceiptPrice(row.amountCents / 100)}
                   </span>
                 </div>
-              )}
+              ))}
               {globalDiscountCents > 0 && (
                 <div className="flex justify-between">
                   <span>Sconto a pagare</span>
