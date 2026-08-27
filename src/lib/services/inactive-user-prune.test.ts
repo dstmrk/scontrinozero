@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { PruneConfig } from "./inactive-user-prune-config";
+import { sqlTextOf } from "../../../tests/_helpers/sql-text";
 
 const mockExecute = vi.fn();
 const mockWhere = vi.fn().mockResolvedValue(undefined);
@@ -26,8 +27,24 @@ vi.mock("@/lib/trusted-app-url", () => ({
 }));
 
 const mockLoggerWarn = vi.fn();
+const mockLoggerError = vi.fn();
 vi.mock("@/lib/logger", () => ({
-  logger: { error: vi.fn(), warn: mockLoggerWarn, info: vi.fn() },
+  logger: { error: mockLoggerError, warn: mockLoggerWarn, info: vi.fn() },
+}));
+
+// Passthrough: la tx espone lo stesso `execute` mockato, così le query dentro e
+// fuori dal wrapper finiscono nella stessa coda di `mockExecute` e i test già
+// scritti (che contano le chiamate) non cambiano. Il budget passato al wrapper
+// è registrato a parte perché è metà del contratto di questa slice.
+const mockWithStatementTimeout = vi.fn();
+vi.mock("@/lib/db-timeout", () => ({
+  withStatementTimeout: async (
+    timeoutMs: number,
+    fn: (tx: unknown) => Promise<unknown>,
+  ) => {
+    mockWithStatementTimeout(timeoutMs);
+    return fn({ execute: mockExecute });
+  },
 }));
 
 vi.mock("@/emails/account-inactivity-warning", () => ({
@@ -255,6 +272,96 @@ describe("pruneInactiveUsers", () => {
 
     expect(result).toEqual({ warned: 0, deleted: 0, reset: 0 });
     expect(mockPurgeUserById).not.toHaveBeenCalled();
+  });
+
+  describe("contenimento della query candidati (REVIEW #81)", () => {
+    it("esegue la SELECT candidati dentro withStatementTimeout col budget di background", async () => {
+      mockExecute.mockResolvedValue([]);
+
+      const { pruneInactiveUsers, PRUNE_CANDIDATES_QUERY_TIMEOUT_MS } =
+        await import("./inactive-user-prune");
+      await pruneInactiveUsers(NOW, CONFIG);
+
+      expect(mockWithStatementTimeout).toHaveBeenCalledWith(
+        PRUNE_CANDIDATES_QUERY_TIMEOUT_MS,
+      );
+    });
+
+    it("ordina in modo deterministico e limita la dimensione del batch", async () => {
+      mockExecute.mockResolvedValue([]);
+
+      const { pruneInactiveUsers, PRUNE_CANDIDATES_BATCH_LIMIT } =
+        await import("./inactive-user-prune");
+      await pruneInactiveUsers(NOW, CONFIG);
+
+      // Si verifica COSA fa la query (ordina e limita), non la sua forma
+      // esatta — vedi il commento di `sqlTextOf`.
+      const sqlText = sqlTextOf(mockExecute.mock.calls[0]?.[0]);
+      expect(sqlText).toContain("ORDER BY");
+      // Tiebreak sulla chiave unica: senza, due righe con la stessa attività
+      // possono alternarsi fra uno sweep e l'altro e restare entrambe fuori
+      // dal LIMIT per sempre.
+      expect(sqlText).toContain("auth_user_id ASC");
+      expect(sqlText).toContain("LIMIT");
+      expect(sqlText).toContain(String(PRUNE_CANDIDATES_BATCH_LIMIT));
+    });
+
+    it("su statement timeout (57014) degrada a zero con warn, non con error", async () => {
+      // Ha già il suo retry implicito — lo sweep del giorno dopo — quindi non
+      // deve aprire una issue Sentry a ogni giro di contention.
+      mockExecute.mockRejectedValue({ code: "57014" });
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      const result = await pruneInactiveUsers(NOW, CONFIG);
+
+      expect(result).toEqual({ warned: 0, deleted: 0, reset: 0 });
+      expect(mockPurgeUserById).not.toHaveBeenCalled();
+      expect(mockLoggerWarn).toHaveBeenCalled();
+      expect(mockLoggerError).not.toHaveBeenCalled();
+    });
+
+    it("avvolge SOLO la query candidati, non la ri-lettura pre-purge", async () => {
+      // Il ramo delete fa due query: candidati + ri-lettura. Il wrapper deve
+      // restare sulla prima. La ri-lettura è un lookup su un profilo solo, e
+      // tirarla dentro una transazione la accoppierebbe al purge che la segue.
+      mockExecute
+        .mockResolvedValueOnce([deleteRow()])
+        .mockResolvedValueOnce([deleteRow()]);
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      const result = await pruneInactiveUsers(NOW, CONFIG);
+
+      expect(result.deleted).toBe(1);
+      expect(mockExecute).toHaveBeenCalledTimes(2);
+      expect(mockWithStatementTimeout).toHaveBeenCalledTimes(1);
+    });
+
+    it("un 57014 dalla ri-lettura salta il purge, non l'intero sweep", async () => {
+      // 57014 ha un significato speciale solo sulla query candidati. Sulla
+      // ri-lettura resta un fallimento come gli altri: fail-safe, non si
+      // cancella, ma lo sweep prosegue e i contatori non sono azzerati.
+      mockExecute
+        .mockResolvedValueOnce([warnRow(), deleteRow()])
+        .mockRejectedValueOnce({ code: "57014" });
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      const result = await pruneInactiveUsers(NOW, CONFIG);
+
+      expect(mockPurgeUserById).not.toHaveBeenCalled();
+      expect(result.deleted).toBe(0);
+      expect(result.warned).toBe(1);
+    });
+
+    it("su un errore DB senza retry automatico resta su logger.error", async () => {
+      mockExecute.mockRejectedValue(new Error("DB down"));
+
+      const { pruneInactiveUsers } = await import("./inactive-user-prune");
+      const result = await pruneInactiveUsers(NOW, CONFIG);
+
+      expect(result).toEqual({ warned: 0, deleted: 0, reset: 0 });
+      expect(mockLoggerError).toHaveBeenCalled();
+      expect(mockLoggerWarn).not.toHaveBeenCalled();
+    });
   });
 
   it("un fallimento su un utente non aborta il batch", async () => {

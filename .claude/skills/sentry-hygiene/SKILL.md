@@ -231,6 +231,42 @@ Il filtro gira dentro l'istanza self-hosted, quindi l'evento non parte proprio
 continuano a riportare finché non fanno `pull`: l'unica leva immediata su
 quelle è ruotare il DSN (procedura → skill `deploy-release`).
 
+### 4-ter. Job di background: livello del log, e cosa Sentry non vede
+
+Due cose da sapere prima di scegliere il livello dentro un job che gira da
+`setInterval` in `src/instrumentation.ts` (sweep GDPR, sweep claim Stripe,
+keep-alive) invece che dentro una richiesta.
+
+**Il retry esiste già? Allora `warn`.** Prima di mettere `error` su un
+fallimento infra, chiedi se la condizione ha un ritentativo automatico. Se sì,
+`error` apre una issue Sentry a ogni giro per qualcosa che si auto-ripara.
+`error` è per ciò che nessuno ritenterà.
+
+È un asse **diverso** dalla regola 20 (input utente prevedibile): qui l'input
+non c'entra, conta solo se esiste un retry. Nel repo:
+
+- `retryOnStatementTimeout` (`src/lib/db-timeout.ts`) logga `warn` fra un
+  tentativo e l'altro, `error` solo quando li ha esauriti;
+- `pruneInactiveUsers` sul `57014` della query candidati logga `warn` e salta
+  lo sweep: il retry è il giro del giorno dopo. Ogni **altro** fallimento della
+  stessa query resta `error` — un DB irraggiungibile non ha retry.
+
+Il contrappeso da non ignorare: un `warn` non apre nessuna issue, quindi un
+fallimento **persistente** diventa invisibile all'alerting. La regola vale solo
+se il retry è reale e ravvicinato rispetto al danno. Nei due casi sopra il
+danno di un giro saltato è nullo (soglie in mesi). Quando accetti il `warn`,
+paga il prezzo: messaggio **stabile e greppabile** (è la query che userai nei
+Sentry Logs) e trigger di riapertura scritto in `REVIEW.md`, altrimenti hai
+solo spento un allarme.
+
+**`tracesSampleRate` non copre i job.** `setInterval` gira fuori da qualunque
+richiesta: nessuna transaction, quindi nessun p95 in Sentry Performance. È una
+trappola quando si pianifica — un finding con trigger "p95 di questo job sopra
+N secondi" **non può scattare**, e il primo segnale diventa l'incidente. Se un
+job deve avere una soglia osservabile, il segnale devi emetterlo tu (un log a
+messaggio stabile, come sopra) oppure la soglia va riscritta su una grandezza
+che si legge davvero — per esempio il conteggio righe sul pannello `/admin`.
+
 ### 5. Deploy skew: non è un guasto, ma va gestito (non filtrato)
 
 Esempio canonico: **SCONTRINOZERO-Z** `UnrecognizedActionError: Server Action
