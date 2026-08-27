@@ -1,6 +1,6 @@
 {
   "name": "scontrinozero",
-  "version": "1.7.9",
+  "version": "1.7.10",
   "packageManager": "npm@11.12.1",
   "engines": {
     "node": ">=22.0.0"
