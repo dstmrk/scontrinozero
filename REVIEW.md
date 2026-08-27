@@ -160,6 +160,26 @@ group:
 
 ## P3 — Bassa priorità
 
+### 102. `cassa-client.tsx` è escluso dalla coverage ma ora ha dei test
+
+- **Categoria:** tech debt · **Severità:** Low — nessun rischio in produzione, solo misura mancante
+- **File:** `vitest.config.ts`, `sonar-project.properties`, `src/components/cassa/cassa-client.test.tsx`
+
+Il file è elencato fra le esclusioni di coverage in entrambi i config con la
+motivazione "UI orchestrator — pure render + setState, no testable logic". Da
+`src/components/cassa/cassa-client.test.tsx` quella motivazione non è più
+interamente vera: il gating fra `canAdd`, il link sconto e il CTA "Aggiungi" è
+logica, ed è testata.
+
+L'esclusione è rimasta di proposito. Toglierla significa pretendere l'80% di
+coverage on new code su un orchestratore di ~600 righe che oggi ne ha misurate
+zero: è un lavoro suo, non la coda di un fix di layout.
+
+Quando lo si affronta, la sequenza che costa meno è: coprire prima i tre step
+(`cart`, `add-item`, `summary`) col mock di `useMutation` già scritto nel file
+di test, poi togliere il path dalle due liste nello stesso PR — mai prima, o il
+quality gate diventa rosso su una PR che non c'entra.
+
 ### 100. DMARC su `.it`: alzare la policy da `p=none` dopo i report
 
 - **Categoria:** email security · **Severità:** Low — la visibilità c'è, manca l'enforcement
