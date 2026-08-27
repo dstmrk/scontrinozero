@@ -305,7 +305,7 @@ migliaia di righe — la stessa soglia di #81.
 ### 81. Sweep GDPR: la query candidati aggrega l'intera tabella `commercial_documents` a ogni giro
 
 - **Categoria:** performance DB · **Severità:** Low (cresce col volume globale, non per-tenant)
-- **File:** `src/lib/services/inactive-user-prune.ts:116-146` (SELECT candidati con `LEFT JOIN (… GROUP BY b.profile_id)`); cadenza in `src/instrumentation.ts:84` (`INACTIVE_USER_PRUNE_INTERVAL_MS`, 24h)
+- **File:** `src/lib/services/inactive-user-prune.ts:149-208` (SELECT candidati con `LEFT JOIN (… GROUP BY b.profile_id)`); cadenza in `src/instrumentation.ts` (`INACTIVE_USER_PRUNE_INTERVAL_MS`, 24h)
 
 **Problema.** La SELECT dei candidati calcola l'ultima attività con un
 `LEFT JOIN (SELECT b.profile_id, MAX(cd.created_at) FROM businesses b JOIN
@@ -315,42 +315,46 @@ anche se poi servono solo i pochi profili inattivi da 11+ mesi. Gira una volta
 al giorno (più un run iniziale a 15 min dal boot, e il container dev si
 ridéploya a ogni push su `main`).
 
-Aggravanti: la query non è dentro `withStatementTimeout` (a differenza di ogni
-altro percorso pesante della codebase), quindi sotto contention può pinnare una
-connessione del pool da 10 finché Postgres non decide da solo; e non ha `LIMIT`,
-quindi il batch può diventare arbitrariamente grande — con invii email in serie
-dentro il loop, che allungano ulteriormente la finestra fra lo snapshot e
-l'elaborazione (la ri-lettura pre-purge di `reReadCandidate`, finding #40, è già
-la mitigazione di questo, ma non del costo).
-
 Oggi l'impatto è trascurabile (volumi bassi); diventa rilevante quando
 `commercial_documents` supera qualche centinaio di migliaia di righe.
 
-**Fix (quando servirà).**
+**Il contenimento è spedito, l'ottimizzazione no.** I due aggravanti che non
+erano gated a volume sono chiusi: la query gira dentro
+`withStatementTimeout(PRUNE_CANDIDATES_QUERY_TIMEOUT_MS)` (30s, budget da job
+di background) e il batch ha un `LIMIT PRUNE_CANDIDATES_BATCH_LIMIT` (500) con
+ordinamento deterministico per inattività crescente. Sul `57014` lo sweep
+degrada a contatori zero con `logger.warn` — non `error`, perché il retry è
+implicito nel giro del giorno dopo e una issue Sentry per giro di contention
+sarebbe solo rumore.
 
-1. Wrappare la SELECT candidati in `withStatementTimeout` (budget generoso, es.
-   30s: è un job di background, non un hot path) e, sul `57014`, loggare `warn` e
-   uscire ritornando `{ warned: 0, deleted: 0, reset: 0 }` — lo sweep del giorno
-   dopo riprova. Il `try/catch` che ritorna i contatori a zero **esiste già**:
-   basta aggiungere il timeout.
-2. Sostituire l'aggregato full-table con una subquery correlata `LATERAL` (o una
+Erano stati separati dal resto perché sono **contenimento, non
+ottimizzazione**: non riducono il costo della query, rendono limitato il suo
+fallimento. Il motivo per non aspettare il volume: lo sweep pesca dallo stesso
+pool da 10 (`src/db/index.ts`) che serve la cassa, quindi il degrado lo paga
+l'emissione scontrino; e girando da `setInterval`, fuori da qualunque
+richiesta, non produce una transaction Sentry — il trigger "p95 del sweep"
+scritto qui sotto **non poteva scattare**, quindi il primo segnale sarebbe
+stato l'incidente.
+
+**Cosa resta (quando servirà).** Solo la parte che ha senso tarare su piani di
+esecuzione veri:
+
+1. Sostituire l'aggregato full-table con una subquery correlata `LATERAL` (o una
    scalare) valutata **solo** sui profili che hanno già superato il filtro
    temporale sui campi cheap (`created_at`, `last_sign_in_at`, `last_seen_at`) —
-   esattamente la forma già usata in `reReadCandidate:272-277`, il cui commento
+   esattamente la forma già usata in `reReadCandidate`, il cui commento
    spiega perché è più economica su un singolo profilo. In pratica: filtrare
    prima sui tre timestamp locali, poi verificare `MAX(cd.created_at)` solo sui
    sopravvissuti.
-3. Aggiungere `LIMIT` al batch (es. 500 candidati/sweep) con ordinamento
-   deterministico: lo sweep è giornaliero e la soglia è in mesi, quindi
-   processare a scaglioni non ritarda nulla di percepibile.
-4. Valutare un indice su `commercial_documents (business_id, created_at DESC)` —
+2. Valutare un indice su `commercial_documents (business_id, created_at DESC)` —
    `idx_commercial_documents_business_created` esiste già ed è sufficiente per la
-   forma correlata del punto 2; **nessuna migration nuova** se si adotta quella.
-5. **Test:** la query candidati è wrappata in `withStatementTimeout` (mock); su
-   `57014` ritorna i contatori a zero senza lanciare; con più candidati del
-   `LIMIT` ne processa esattamente `LIMIT` e i restanti al giro successivo.
-   _Trigger:_ p95 del sweep sopra qualche secondo, o `commercial_documents` oltre
-   ~500k righe.
+   forma correlata del punto 1; **nessuna migration nuova** se si adotta quella.
+3. **Test:** stessi candidati fra la forma correlata e quella attuale su una
+   fixture condivisa; il `LIMIT` continua a valere.
+
+_Trigger:_ `commercial_documents` oltre ~500k righe (leggibile su `/admin`),
+oppure il primo `pruneInactiveUsers: query candidati oltre il budget` nei log —
+che ora è il segnale che prima mancava.
 
 ---
 
