@@ -346,6 +346,54 @@ Trigger di riapertura: se lo skew comincia a colpire la cassa (emissione
 scontrino) invece dell'onboarding, la priorità sale — lì la digitazione persa è
 un carrello intero.
 
+### 101. `/admin`: le metriche scontrini scandiscono tutto lo storico a ogni apertura
+
+- **Categoria:** performance DB · **Severità:** Low (cresce col volume globale, non per-tenant) · **Parente di #81**
+- **File:** `src/server/admin-metrics.ts` (`getAdminDocumentKpis`); tetto e budget in `src/server/admin-sql.ts` (`ADMIN_MAX_CONCURRENT_READS`, `ADMIN_QUERY_TIMEOUT_MS`)
+
+**Problema.** Nessuna delle sei letture del pannello può usare un indice: tutti
+quelli di `commercial_documents` sono prefissati `business_id`
+(`supabase/migrations/0000_initial.sql:112-114`, `0032_…`) e il pannello, che
+aggrega su **tutti** i tenant, non filtra mai per esercente. La lettura peggiore
+è `getAdminDocumentKpis`: il predicato è `created_at < rangeEnd`, cioè **tutto
+lo storico** a prescindere dal periodo scelto, perché servono `receipts_total` e
+`revenue_cents_total`. Sopra ci va un `LEFT JOIN` su
+`commercial_document_lines`, quindi il costo è ~O(righe di ogni scontrino mai
+emesso), e restringere il range non lo tocca.
+
+Lo streaming introdotto in questa slice **non riduce il carico**: sposta
+soltanto l'attesa fuori dal percorso critico del render, così le altre cinque
+letture e il guscio non aspettano questa. Il tetto `ADMIN_MAX_CONCURRENT_READS`
+= 1 impedisce che il costo si moltiplichi sul pool, ma resta una scansione
+completa che compete per la shared buffer cache con la cassa.
+
+Oggi l'impatto è trascurabile (volumi bassi, pannello aperto da una persona);
+diventa rilevante quando `commercial_documents` supera qualche centinaio di
+migliaia di righe — la stessa soglia di #81.
+
+**Fix (quando servirà).** Gli indici non bastano, serve materializzare:
+
+1. Una tabella di rollup giornaliero per tenant (`business_id`, giorno fiscale
+   Rome, scontrini accettati, centesimi, annullati), scritta in append
+   all'emissione/annullo — o da uno sweep, come quelli già in
+   `src/instrumentation.ts`. I totali storici diventano una somma su una
+   tabella piccola invece che sulla tabella scontrini.
+2. La formula dei centesimi **deve** restare quella di `lineCentsSql`
+   (`admin-sql.ts`), gemello di `lineTotalCents` in
+   `src/lib/receipts/receipt-totals.ts`: un rollup che arrotonda per documento
+   invece che per riga farebbe divergere il pannello dagli scontrini veri
+   (skill `money-rounding`).
+3. Solo dopo il rollup ha senso guardare gli indici delle altre letture: un
+   `profiles (created_at)` e un parziale su `plan = 'trial'` aiutano
+   `getAdminUserKpis`, `getAdminRecentProfiles` e `getAdminTrialExpiring`, che
+   sono già le veloci.
+4. **Test:** il rollup somma quanto la query diretta sugli stessi dati (fixture
+   condivisa fra le due strade); un annullo dopo l'emissione aggiorna entrambe
+   le colonne. _Trigger:_ p95 di `getAdminDocumentKpis` sopra 2-3s, o
+   `commercial_documents` oltre ~500k righe.
+
+---
+
 ### 81. Sweep GDPR: la query candidati aggrega l'intera tabella `commercial_documents` a ogni giro
 
 - **Categoria:** performance DB · **Severità:** Low (cresce col volume globale, non per-tenant)

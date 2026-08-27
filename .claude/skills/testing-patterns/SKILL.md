@@ -522,3 +522,79 @@ sincrona, e il test può smettere di essere `async`.
 Esempi canonici: `src/components/settings/ade-credentials-section.test.tsx:307`
 (fake timer), `src/components/catalogo/add-item-dialog.test.tsx:82` (waitFor),
 `src/components/storico/void-receipt-dialog.test.tsx:81` (sincrono).
+
+## Assert su una query Drizzle: `String(sql\`…\`)` non guarda niente
+
+Un template `sql` è un **oggetto**, non una stringa: il testo vive nei
+`queryChunks`. `String(query)` restituisce `"[object Object]"`, quindi
+
+```ts
+// ❌ SBAGLIATO — passa sempre, anche quando la stringa cercata c'è
+expect(String(mockExecute.mock.calls[0][0])).not.toContain(
+  "commercial_documents",
+);
+```
+
+è un test che **non fallisce mai**: nessun `toContain` può trovare nulla in
+`"[object Object]"`. Un `not.toContain` scritto così sembra proteggere una
+query e non guarda niente; il gemello `toContain` almeno fallisce subito, ed è
+così che il buco è venuto fuori.
+
+Il testo vero si ottiene attraversando i chunk — anche quelli dei frammenti
+`sql` annidati (`lineCentsSql`, `trialExpiresAtSql`) — con l'helper condiviso
+`tests/_helpers/sql-text.ts`:
+
+```ts
+import { sqlTextOf } from "../../tests/_helpers/sql-text";
+
+const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
+expect(queried).toContain("profiles");
+expect(queried).not.toContain("commercial_documents");
+```
+
+Serve per verificare **cosa** una query tocca (una tabella, `now()`), mai la
+sua forma esatta: l'output include la struttura interna di Drizzle, che non è
+un contratto pubblico. Esempi canonici:
+`src/server/admin-metrics.test.ts`, `src/server/admin-directory.test.ts`.
+
+## Pagina in streaming: RTL non renderizza i server component asincroni
+
+`react-dom` lato client non sa invocare un `async function Component()`, quindi
+una pagina fatta di `<Suspense>` + sezioni asincrone non è renderizzabile da
+Testing Library: `render(await Page(...))` esplode appena React incontra la
+prima sezione. E anche se funzionasse, RTL renderizza tutto in un colpo solo —
+lo streaming, che è il comportamento da verificare, non è osservabile.
+
+Il taglio che funziona è **due file di test per due contratti diversi**:
+
+1. **Le sezioni** (`sections.tsx`, un file a parte proprio per questo) si
+   invocano come funzioni: `render(await AdminUserKpisSection({ range }))`
+   ritorna JSX ordinario. Lì si testano contenuto, degrado a `{ error }` e
+   propagazione dei parametri.
+2. **La pagina** si testa **strutturalmente**, senza renderla: si ispeziona
+   l'albero di elementi che ritorna, contando le sezioni e verificando che ognuna
+   stia dentro un `<Suspense>` con un `fallback` non nullo. Le sezioni si
+   mockano con stub sincroni.
+
+L'assertion che vale davvero è che la pagina si risolva **senza aver invocato
+nessuna sezione**: è la prova che non attende nessuna query e che il guscio
+parte subito. Se qualcuno rimette un `await getQualcosa()` in cima alla pagina,
+quel test diventa rosso mentre tutti gli altri restano verdi.
+
+```tsx
+const { mockInvoked } = vi.hoisted(() => ({ mockInvoked: [] as string[] }));
+vi.mock("./sections", () => ({
+  AdminUserKpisSection: () => mockInvoked.push("utenti") && null,
+  // …
+}));
+
+it("non invoca nessuna lettura prima di restituire il guscio", async () => {
+  mockInvoked.length = 0;
+  const tree = await AdminPage({ searchParams: Promise.resolve({}) });
+  expect(mockInvoked).toEqual([]);
+  expect(isValidElement(tree)).toBe(true);
+});
+```
+
+Esempi canonici: `src/app/admin/page.test.tsx` (strutturale, con il walker
+`collectSections`), `src/app/admin/sections.test.tsx` (contenuto).

@@ -27,11 +27,19 @@ const ANALYTICS_RANGES: ReadonlySet<AnalyticsRange> = new Set([
  * range supportati. Un valore mancante o non valido ricade sul default invece
  * di lanciare: il deep link è una comodità, non deve mai rompere il render
  * (coerente con regola 19 — degradare, non lanciare).
+ *
+ * `fallback` esiste perché il pannello operatore apre su 7 giorni mentre
+ * l'analytics esercente resta su 30: due default, un solo vocabolario di
+ * periodi. Senza il parametro l'unico modo di differenziarli sarebbe una
+ * seconda funzione di parsing, cioè una seconda allowlist da tenere allineata.
  */
-export function parseAnalyticsRange(raw: string | undefined): AnalyticsRange {
+export function parseAnalyticsRange(
+  raw: string | undefined,
+  fallback: AnalyticsRange = DEFAULT_ANALYTICS_RANGE,
+): AnalyticsRange {
   return raw && ANALYTICS_RANGES.has(raw as AnalyticsRange)
     ? (raw as AnalyticsRange)
-    : DEFAULT_ANALYTICS_RANGE;
+    : fallback;
 }
 
 export type AnalyticsKpis = {

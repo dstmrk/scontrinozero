@@ -1,29 +1,40 @@
 import { sql } from "drizzle-orm";
 
-import { withStatementTimeout } from "@/lib/db-timeout";
 import { logger } from "@/lib/logger";
 import { PAID_SELF_SERVICE_PLANS, TRIAL_DAYS } from "@/lib/plans";
 import {
-  ADMIN_QUERY_TIMEOUT_MS,
   type RawRow,
+  adminRangeParams,
   lineCentsSql,
+  runAdminRead,
   toNullableText,
   toNumber,
   toRows,
   toText,
 } from "./admin-sql";
-import { type AnalyticsRange, rangeToBounds } from "./analytics-helpers";
+import type { AnalyticsRange } from "./analytics-helpers";
 
 /**
- * Elenchi del pannello operatore (`/admin`) — le quattro tabelle che affiancano
- * i KPI di `admin-metrics.ts`: classifiche esercenti, ultimi registrati, trial
- * in scadenza, utenti paganti.
+ * Elenchi del pannello operatore (`/admin`) — le cinque tabelle che affiancano
+ * i KPI di `admin-metrics.ts`: classifiche esercenti, trial in scadenza,
+ * utenti paganti, ultimi registrati.
  *
  * Separato da `admin-metrics.ts` perché la natura del dato è diversa: qui ogni
  * riga porta **nome ed email di una persona**. Tenerlo distinto rende esplicito
  * dove il pannello tocca dati personali, e dove no. Nessuno di questi valori
  * finisce mai in un log o in Sentry: sui fallimenti si logga solo `errorClass`
  * e il range (denylist telemetria di `src/lib/logger.ts`).
+ *
+ * **Quattro letture, non una.** Erano quattro query dentro la stessa
+ * transazione, eseguite in sequenza: la pagina aspettava la loro SOMMA. Ora
+ * ognuna è una lettura a sé dietro il proprio boundary Suspense, e la sua
+ * tabella compare appena quella query è pronta. Le quattro non condividono
+ * nessun invariante — sono elenchi distinti, non pezzi di uno stesso totale —
+ * quindi lo snapshot condiviso non proteggeva niente che si stia perdendo.
+ *
+ * Due delle quattro non guardano nemmeno il range: `getAdminTrialExpiring` e
+ * `getAdminPaidUsers` sono ancorate ad ADESSO, e infatti non prendono più un
+ * parametro `range` che ignoravano.
  *
  * Server-only come il gemello: nessun `"use server"`, nessun endpoint RPC,
  * l'unica via d'accesso è la RSC dietro il gate del layout.
@@ -67,19 +78,36 @@ export type AdminPaidUserRow = {
   readonly planActivatedAt: string | null;
 };
 
-export type AdminDirectory = {
-  readonly topByReceipts: readonly AdminMerchant[];
-  readonly topByRevenue: readonly AdminMerchant[];
-  readonly recentProfiles: readonly AdminProfileRow[];
-  readonly trialExpiring: readonly AdminTrialRow[];
-  readonly paidUsers: readonly AdminPaidUserRow[];
+/** Le due classifiche escono dalla stessa query: si ordinano sullo stesso CTE. */
+export type AdminTopMerchants = {
+  readonly byReceipts: readonly AdminMerchant[];
+  readonly byRevenue: readonly AdminMerchant[];
 };
 
-export type AdminDirectoryResult =
-  { directory: AdminDirectory } | { error: string };
+export type AdminTopMerchantsResult =
+  { merchants: AdminTopMerchants } | { error: string };
 
-const LOAD_ERROR =
-  "Impossibile caricare gli elenchi. Riprova tra qualche istante.";
+export type AdminProfilesResult =
+  { rows: readonly AdminProfileRow[] } | { error: string };
+
+export type AdminTrialsResult =
+  { rows: readonly AdminTrialRow[] } | { error: string };
+
+export type AdminPaidUsersResult =
+  { rows: readonly AdminPaidUserRow[] } | { error: string };
+
+/**
+ * Un messaggio per elenco: con quattro letture indipendenti l'avviso compare
+ * dentro la tabella che è caduta, e dice quale.
+ */
+const MERCHANTS_LOAD_ERROR =
+  "Impossibile caricare le classifiche esercenti. Riprova tra qualche istante.";
+const PROFILES_LOAD_ERROR =
+  "Impossibile caricare i registrati di recente. Riprova tra qualche istante.";
+const TRIALS_LOAD_ERROR =
+  "Impossibile caricare i trial in scadenza. Riprova tra qualche istante.";
+const PAID_USERS_LOAD_ERROR =
+  "Impossibile caricare gli utenti paganti. Riprova tra qualche istante.";
 
 /** Quanti esercenti mostrare in ciascuna delle due classifiche. */
 const TOP_MERCHANTS = 5;
@@ -133,29 +161,35 @@ function mapMerchant(row: RawRow): AdminMerchant {
 }
 
 /**
- * Elenchi del pannello operatore per il range dato.
+ * Logga il fallimento di un elenco.
  *
- * Degrada a `{ error }` su qualunque fallimento DB (regola 19). Le quattro
- * query girano in una sola transazione: condividono budget di timeout e
- * snapshot, così le classifiche non contraddicono i KPI mostrati accanto.
+ * L'errore NON viene passato al logger: un messaggio Postgres può contenere il
+ * valore che ha fatto fallire la query, e qui quei valori sono email e nomi.
+ */
+function logDirectoryFailure(list: string, range: AnalyticsRange | null): void {
+  logger.warn(
+    { errorClass: "admin_directory_load", list, range },
+    "admin directory: query fallita",
+  );
+}
+
+/**
+ * Le due classifiche esercenti per il range dato — per numero di scontrini e
+ * per incasso. Una sola query: entrambe ordinano lo stesso CTE aggregato.
+ *
+ * Degrada a `{ error }` su qualunque fallimento DB (regola 19).
  *
  * `reference` è iniettabile per i test — in produzione è sempre "adesso".
  */
-export async function getAdminDirectory(
+export async function getAdminTopMerchants(
   range: AnalyticsRange,
   reference: Date = new Date(),
-): Promise<AdminDirectoryResult> {
-  const { from, to } = rangeToBounds(range, reference);
-  // Date legate come ISO string + cast esplicito: un oggetto Date passato a un
-  // template sql`` viene serializzato in una forma che Postgres non riconosce
-  // come timestamptz (skill db-migrations).
-  const rangeStart = sql`${from.toISOString()}::timestamptz`;
-  const rangeEnd = sql`${to.toISOString()}::timestamptz`;
+): Promise<AdminTopMerchantsResult> {
+  const { rangeStart, rangeEnd } = adminRangeParams(range, reference);
 
   try {
-    const [merchantsRow, profilesRow, trialsRow, paidRow] =
-      await withStatementTimeout(ADMIN_QUERY_TIMEOUT_MS, async (tx) => {
-        const [merchants] = (await tx.execute(sql`
+    const [row] = await runAdminRead(async (tx) => {
+      return (await tx.execute(sql`
       WITH agg AS (
         -- Solo SALE ACCEPTED, come i KPI: uno scontrino annullato non è
         -- fatturato dell'esercente. count(DISTINCT) perché il join sulle righe
@@ -216,8 +250,39 @@ export async function getAdminDirectory(
           ) t
         ) AS by_revenue
     `)) as unknown as RawRow[];
+    });
 
-        const [profiles] = (await tx.execute(sql`
+    if (!row) {
+      logDirectoryFailure("merchants", range);
+      return { error: MERCHANTS_LOAD_ERROR };
+    }
+
+    return {
+      merchants: {
+        byReceipts: toRows(row.by_receipts).map(mapMerchant),
+        byRevenue: toRows(row.by_revenue).map(mapMerchant),
+      },
+    };
+  } catch {
+    logDirectoryFailure("merchants", range);
+    return { error: MERCHANTS_LOAD_ERROR };
+  }
+}
+
+/**
+ * Ultimi profili registrati nel range, dal più recente.
+ *
+ * Degrada a `{ error }` su qualunque fallimento DB (regola 19).
+ */
+export async function getAdminRecentProfiles(
+  range: AnalyticsRange,
+  reference: Date = new Date(),
+): Promise<AdminProfilesResult> {
+  const { rangeStart, rangeEnd } = adminRangeParams(range, reference);
+
+  try {
+    const [row] = await runAdminRead(async (tx) => {
+      return (await tx.execute(sql`
       SELECT coalesce(
         json_agg(
           json_build_object('name', name, 'email', email, 'created_at', created_at)
@@ -234,8 +299,39 @@ export async function getAdminDirectory(
         LIMIT ${LIST_LIMIT}
       ) t
     `)) as unknown as RawRow[];
+    });
 
-        const [trials] = (await tx.execute(sql`
+    if (!row) {
+      logDirectoryFailure("profiles", range);
+      return { error: PROFILES_LOAD_ERROR };
+    }
+
+    return {
+      rows: toRows(row.rows).map((profile) => ({
+        name: toNullableText(profile.name),
+        email: toText(profile.email),
+        createdAt: toText(profile.created_at),
+      })),
+    };
+  } catch {
+    logDirectoryFailure("profiles", range);
+    return { error: PROFILES_LOAD_ERROR };
+  }
+}
+
+/**
+ * Trial che scadono — o sono scaduti — entro ±7 giorni da adesso.
+ *
+ * **Non prende un range**: la finestra è ancorata ad ADESSO, perché la domanda
+ * "chi devo richiamare questa settimana" non dipende dal periodo selezionato
+ * nelle card. Prima il parametro c'era e veniva ignorato.
+ *
+ * Degrada a `{ error }` su qualunque fallimento DB (regola 19).
+ */
+export async function getAdminTrialExpiring(): Promise<AdminTrialsResult> {
+  try {
+    const [row] = await runAdminRead(async (tx) => {
+      return (await tx.execute(sql`
       SELECT coalesce(
         json_agg(
           json_build_object('name', name, 'email', email, 'trial_expires_at', trial_expires_at)
@@ -244,9 +340,6 @@ export async function getAdminDirectory(
         '[]'::json
       ) AS rows
       FROM (
-        -- Finestra ancorata ad ADESSO, non al range selezionato: la domanda
-        -- "chi devo richiamare questa settimana" non dipende dal periodo che
-        -- stai guardando nelle card.
         SELECT
           ${fullNameSql}          AS name,
           p.email                 AS email,
@@ -260,8 +353,38 @@ export async function getAdminDirectory(
         LIMIT ${LIST_LIMIT}
       ) t
     `)) as unknown as RawRow[];
+    });
 
-        const [paid] = (await tx.execute(sql`
+    if (!row) {
+      logDirectoryFailure("trials", null);
+      return { error: TRIALS_LOAD_ERROR };
+    }
+
+    return {
+      rows: toRows(row.rows).map((trial) => ({
+        name: toNullableText(trial.name),
+        email: toText(trial.email),
+        trialExpiresAt: toText(trial.trial_expires_at),
+      })),
+    };
+  } catch {
+    logDirectoryFailure("trials", null);
+    return { error: TRIALS_LOAD_ERROR };
+  }
+}
+
+/**
+ * Utenti su un piano a pagamento, dal più recente per inizio del periodo.
+ *
+ * **Non prende un range**: è una fotografia dello stato attuale degli
+ * abbonamenti, non un aggregato di periodo.
+ *
+ * Degrada a `{ error }` su qualunque fallimento DB (regola 19).
+ */
+export async function getAdminPaidUsers(): Promise<AdminPaidUsersResult> {
+  try {
+    const [row] = await runAdminRead(async (tx) => {
+      return (await tx.execute(sql`
       SELECT coalesce(
         json_agg(
           json_build_object('name', name, 'email', email, 'plan', plan, 'plan_activated_at', plan_activated_at)
@@ -306,47 +429,23 @@ export async function getAdminDirectory(
         LIMIT ${PAID_USERS_LIMIT}
       ) t
     `)) as unknown as RawRow[];
+    });
 
-        return [merchants, profiles, trials, paid] as const;
-      });
-
-    if (!merchantsRow || !profilesRow || !trialsRow || !paidRow) {
-      logger.warn(
-        { errorClass: "admin_directory_load", range },
-        "admin directory: query senza righe",
-      );
-      return { error: LOAD_ERROR };
+    if (!row) {
+      logDirectoryFailure("paid", null);
+      return { error: PAID_USERS_LOAD_ERROR };
     }
 
     return {
-      directory: {
-        topByReceipts: toRows(merchantsRow.by_receipts).map(mapMerchant),
-        topByRevenue: toRows(merchantsRow.by_revenue).map(mapMerchant),
-        recentProfiles: toRows(profilesRow.rows).map((row) => ({
-          name: toNullableText(row.name),
-          email: toText(row.email),
-          createdAt: toText(row.created_at),
-        })),
-        trialExpiring: toRows(trialsRow.rows).map((row) => ({
-          name: toNullableText(row.name),
-          email: toText(row.email),
-          trialExpiresAt: toText(row.trial_expires_at),
-        })),
-        paidUsers: toRows(paidRow.rows).map((row) => ({
-          name: toNullableText(row.name),
-          email: toText(row.email),
-          plan: toText(row.plan),
-          planActivatedAt: toNullableText(row.plan_activated_at),
-        })),
-      },
+      rows: toRows(row.rows).map((user) => ({
+        name: toNullableText(user.name),
+        email: toText(user.email),
+        plan: toText(user.plan),
+        planActivatedAt: toNullableText(user.plan_activated_at),
+      })),
     };
   } catch {
-    // L'errore NON viene loggato: un messaggio Postgres può contenere il valore
-    // che ha fatto fallire la query, e qui quei valori sono email e nomi.
-    logger.warn(
-      { errorClass: "admin_directory_load", range },
-      "admin directory: query fallita",
-    );
-    return { error: LOAD_ERROR };
+    logDirectoryFailure("paid", null);
+    return { error: PAID_USERS_LOAD_ERROR };
   }
 }

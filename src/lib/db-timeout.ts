@@ -4,7 +4,13 @@ import { isStatementTimeoutError } from "@/lib/api-errors";
 import { logger } from "@/lib/logger";
 
 type DrizzleDb = ReturnType<typeof getDb>;
-type DrizzleTx = Parameters<Parameters<DrizzleDb["transaction"]>[0]>[0];
+/**
+ * Transazione Drizzle come la vede una callback di `withStatementTimeout`.
+ * Esportata perché i wrapper che compongono sopra questo modulo (es.
+ * `runAdminRead` in `src/server/admin-sql.ts`) devono poter tipare la propria
+ * callback senza ri-derivare l'inferenza a mano.
+ */
+export type DrizzleTx = Parameters<Parameters<DrizzleDb["transaction"]>[0]>[0];
 
 /**
  * Esegue `fn` dentro una transazione preceduta da
