@@ -122,7 +122,7 @@ export async function generatePdfResponse(
     }
   }
 
-  const { paymentMethod, lotteryCode, globalDiscountCents } =
+  const { paymentMethod, payments, lotteryCode, globalDiscountCents } =
     parsePublicRequest(doc.publicRequest);
 
   const pdfLines: CommercialDocumentLine[] = lines.map((l) => ({
@@ -173,6 +173,7 @@ export async function generatePdfResponse(
       ...common,
       kind: "SALE",
       paymentMethod,
+      payments,
       lotteryCode,
       globalDiscountCents,
       footerNote: data.footerNote ?? null,

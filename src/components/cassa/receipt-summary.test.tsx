@@ -642,3 +642,103 @@ describe("ReceiptSummary — sconto a pagare (Pro)", () => {
     ).not.toBeDisabled();
   });
 });
+
+describe("ReceiptSummary — pagamento misto", () => {
+  const base = {
+    lines,
+    totalCents: TOTAL_CENTS,
+    paymentMethod: "PC" as const,
+    onPaymentMethodChange: vi.fn(),
+    onRemoveLine: vi.fn(),
+    onSubmit: vi.fn(),
+    onBack: vi.fn(),
+  };
+
+  it("non mostra l'affordance ai piani senza Pro", () => {
+    // La cassa è il core flow fiscale: un upsell in mezzo al checkout è
+    // attrito. La scoperta della feature vive su /prezzi e nella guida.
+    render(<ReceiptSummary {...base} discountsUnlocked={false} />);
+    expect(screen.queryByText("+ Pagamento misto")).not.toBeInTheDocument();
+  });
+
+  it("apre la ripartizione dal link, sostituendo il selettore", () => {
+    const onSplitCashChange = vi.fn();
+    render(
+      <ReceiptSummary
+        {...base}
+        discountsUnlocked
+        onSplitCashChange={onSplitCashChange}
+      />,
+    );
+    fireEvent.click(screen.getByText("+ Pagamento misto"));
+    expect(onSplitCashChange).toHaveBeenCalledWith(0);
+  });
+
+  it("nasconde il selettore di metodo quando il pagamento è ripartito", () => {
+    // La modalità non è più una scelta: sono due importi.
+    render(
+      <ReceiptSummary
+        {...base}
+        discountsUnlocked
+        splitCashCents={500}
+        onSplitCashChange={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText("Metodo di pagamento")).not.toBeInTheDocument();
+    expect(screen.getByText("Pagamento misto")).toBeInTheDocument();
+  });
+
+  it("ripartisce l'incassato, non il corrispettivo, con uno sconto a pagare", () => {
+    // HAR.md voce #5: Σ pagamenti + abbuono = totale. 18,20 − 2,00 = 16,20
+    // da ripartire, di cui 5,00 in contanti → 11,20 elettronici.
+    render(
+      <ReceiptSummary
+        {...base}
+        discountsUnlocked
+        globalDiscountCents={200}
+        splitCashCents={500}
+        onSplitCashChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("11,20 €")).toBeInTheDocument();
+  });
+
+  it("disabilita il codice lotteria quando una quota è in contanti", () => {
+    // HAR.md voce #13: serve un incasso solo elettronico. Disabilitato con la
+    // ragione scritta, non fatto sparire: l'esercente deve sapere perché.
+    render(
+      <ReceiptSummary
+        {...base}
+        discountsUnlocked
+        splitCashCents={500}
+        onSplitCashChange={vi.fn()}
+        lotteryCode=""
+        onLotteryCodeChange={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByPlaceholderText("Codice lotteria (8 caratteri)"),
+    ).toBeDisabled();
+    expect(
+      screen.getByText(/richiede un incasso solo elettronico/i),
+    ).toBeInTheDocument();
+  });
+
+  it("riabilita il codice lotteria se l'incasso torna tutto elettronico", () => {
+    // Quota contanti a zero: il documento è un pagamento elettronico singolo,
+    // e il codice torna ammesso.
+    render(
+      <ReceiptSummary
+        {...base}
+        discountsUnlocked
+        splitCashCents={0}
+        onSplitCashChange={vi.fn()}
+        lotteryCode=""
+        onLotteryCodeChange={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByPlaceholderText("Codice lotteria (8 caratteri)"),
+    ).toBeEnabled();
+  });
+});

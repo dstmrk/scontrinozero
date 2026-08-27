@@ -37,6 +37,12 @@ import {
 } from "@/lib/server-auth";
 import { getFiscalDate } from "@/lib/date-utils";
 import { isValidLotteryCode } from "@/lib/validation";
+import { isElectronicOnly } from "@/lib/receipts/lottery-code-schema";
+import { toPaymentEntries } from "@/lib/receipts/payment-input";
+import {
+  resolvePaymentRows,
+  type PaymentEntry,
+} from "@/lib/receipts/public-request";
 import type {
   SubmitReceiptInput,
   SubmitReceiptResult,
@@ -80,15 +86,48 @@ function toIsoDate(
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }
 
+/**
+ * Le voci di pagamento del documento, in forma canonica.
+ *
+ * Un solo punto per due consumatori — la persistenza in `public_request` e il
+ * payload trasmesso ad AdE — perché sono lo **stesso** documento visto da due
+ * lati: se divergessero, l'app mostrerebbe una ripartizione diversa da quella
+ * registrata all'Agenzia, e la differenza si scoprirebbe solo leggendo il
+ * documento sul portale.
+ *
+ * Le voci sommano all'**incassato** (totale righe meno sconto a pagare), che è
+ * l'invariante di quadratura della voce #5: con una ripartizione esplicita
+ * l'ha già imposta lo schema, con il solo `paymentMethod` la soddisfa
+ * `resolvePaymentRows` versando l'incassato nell'unico slot.
+ */
+function salePaymentRows(input: SubmitReceiptInput): readonly PaymentEntry[] {
+  const totalCents = calcInputLinesTotalCents(input.lines);
+  const discountCents = Math.round((input.globalDiscount ?? 0) * 100);
+  return resolvePaymentRows(
+    {
+      paymentMethod: input.paymentMethod ?? "PC",
+      payments: toPaymentEntries(input.payments),
+    },
+    totalCents - discountCents,
+  );
+}
+
 /** Validates and resolves the effective lottery code from the input. */
 function resolveLotteryCode(input: SubmitReceiptInput): {
   lotteryCode: string | null;
   error?: string;
 } {
   const raw = input.lotteryCode ?? null;
-  const code = raw && input.paymentMethod === "PE" ? raw : null;
+  // Gate autoritativo (HAR.md voce #13): lo schema Zod è una cortesia per il
+  // client, questo è il punto che decide cosa finisce sul documento fiscale.
+  // `PE` deve essere l'UNICO slot con importo > 0 — col pagamento misto il
+  // codice non è mai ammesso. Lo sconto a pagare non entra nel test: non è un
+  // mezzo di pagamento, e infatti non si confronta mai l'importo `PE` col
+  // totale del documento.
+  const electronicOnly = isElectronicOnly(input);
+  const code = raw && electronicOnly ? raw : null;
 
-  if (raw && input.paymentMethod === "PE" && !isValidLotteryCode(raw)) {
+  if (raw && electronicOnly && !isValidLotteryCode(raw)) {
     return {
       lotteryCode: null,
       error: "Codice lotteria non valido. Deve essere di 8 caratteri [A-Z0-9].",
@@ -140,6 +179,7 @@ export async function emitReceiptForBusiness(
   const requestHash = hashSaleRequest({
     lines: input.lines,
     paymentMethod: input.paymentMethod,
+    payments: input.payments,
     lotteryCode,
     globalDiscount,
   });
@@ -159,9 +199,21 @@ export async function emitReceiptForBusiness(
   let txResult: { alreadyExists: true } | { alreadyExists: false; id: string };
   try {
     txResult = await withStatementTimeout(5000, async (tx) => {
+      // Formato additivo (HAR.md voce #14 sub-task B): `payments` è il dato
+      // canonico, `paymentMethod` si scrive SOLO quando la modalità è una —
+      // è ciò che fa produrre da sé il `null` che `/api/v1` espone sui misti,
+      // senza un ramo dedicato nella route. Gli importi in euro come
+      // `globalDiscount`: `parsePublicRequest` li riporta in centesimi.
+      const paymentRows = salePaymentRows(input);
       const publicRequest: Record<string, unknown> = {
-        paymentMethod: input.paymentMethod,
+        payments: paymentRows.map((row) => ({
+          type: row.type,
+          amount: row.amountCents / 100,
+        })),
       };
+      if (paymentRows.length === 1) {
+        publicRequest.paymentMethod = paymentRows[0].type;
+      }
       if (lotteryCode) publicRequest.lotteryCode = lotteryCode;
       // Scritto solo quando c'è: le righe storiche non hanno il campo e
       // `parsePublicRequest` legge la sua assenza come "nessun abbuono", senza
@@ -332,6 +384,7 @@ async function handleExistingReceipt(args: {
   const currentHash = hashSaleRequest({
     lines: input.lines,
     paymentMethod: input.paymentMethod,
+    payments: input.payments,
     lotteryCode,
     // Deve combaciare campo per campo con l'hash calcolato all'INSERT in
     // `emitReceiptForBusiness`: ometterlo qui farebbe fallire come mismatch
@@ -792,19 +845,21 @@ async function submitSaleToAde(
       vatCode: line.vatCode,
       isGift: false,
     })),
-    payments: [
-      {
-        // Quadratura AdE (HAR.md voce #5):
-        // `Σ vendita[].importo + scontoAbbuono = ammontareComplessivo`.
-        // Con un metodo di pagamento singolo è soddisfatta per costruzione —
-        // nell'unico slot va ciò che si incassa davvero, cioè il corrispettivo
-        // meno l'abbuono. Sottrazione in centesimi interi (regola 17): sui
-        // lordi float `1.90 - 0.40` non è `1.50` e l'invio verrebbe rifiutato
-        // per uno sbilancio di un centesimo.
-        type: PAYMENT_METHOD_TO_ADE[input.paymentMethod],
-        amount: (totalCents - globalDiscountCents) / 100,
-      },
-    ],
+    // Quadratura AdE (HAR.md voce #5):
+    // `Σ vendita[].importo + scontoAbbuono = ammontareComplessivo`.
+    //
+    // Con una ripartizione esplicita la quadratura l'ha già imposta lo schema
+    // in centesimi interi, e qui le voci si trasmettono così come sono. Con il
+    // solo `paymentMethod` è soddisfatta per costruzione: nell'unico slot va
+    // ciò che si incassa davvero, cioè il corrispettivo meno l'abbuono —
+    // ed è esattamente ciò che `resolvePaymentRows` ricompone dall'incassato.
+    // Sottrazione in centesimi interi (regola 17): sui lordi float
+    // `1.90 - 0.40` non è `1.50` e l'invio verrebbe rifiutato per uno
+    // sbilancio di un centesimo.
+    payments: salePaymentRows(input).map((row) => ({
+      type: PAYMENT_METHOD_TO_ADE[row.type],
+      amount: row.amountCents / 100,
+    })),
     globalDiscount,
     deductibleAmount: 0,
   };

@@ -34,6 +34,8 @@ const proFeatures: Feature[] = [
   { label: "Analytics avanzata (grafici e periodi estesi)" },
   { label: "Export CSV degli scontrini" },
   { label: "Messaggio personalizzato sullo scontrino" },
+  { label: "Sconti sullo scontrino (di riga e a pagare)" },
+  { label: "Pagamento misto (contanti + elettronico)" },
   { label: "Supporto prioritario" },
   { label: "Recupero documenti commerciali da AdE", upcoming: true },
 ];

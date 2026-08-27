@@ -265,11 +265,11 @@ export default function AliquoteIvaPage() {
           {"."}
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          Il tracciato AdE prevede ulteriori metodi (ticket / buono pasto,
-          importi non riscossi su fattura o servizio futuro) e il{" "}
-          <strong>pagamento misto</strong> con ripartizione fra contante ed
-          elettronico sullo stesso scontrino: potremmo valutarne l&apos;aggiunta
-          in futuro in base alle richieste degli utenti.
+          Il <strong>pagamento misto</strong>, con ripartizione fra contante ed
+          elettronico sullo stesso scontrino, è disponibile con il piano Pro. Il
+          tracciato AdE prevede anche altri metodi (ticket / buono pasto,
+          importi non riscossi su fattura o servizio futuro): potremmo valutarne
+          l&apos;aggiunta in futuro in base alle richieste degli utenti.
         </p>
 
         {/* ─── Errori frequenti ─── */}

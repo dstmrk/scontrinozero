@@ -128,6 +128,7 @@ function toReceiptListItem(
           }
         : null,
     paymentMethod: publicRequest.paymentMethod,
+    payments: publicRequest.payments,
     lotteryCode: publicRequest.lotteryCode,
     globalDiscountCents: publicRequest.globalDiscountCents,
     total: calcDocTotal(docLines).toFixed(2),

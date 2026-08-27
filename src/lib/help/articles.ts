@@ -18,7 +18,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "aliquote-iva": {
     slug: "aliquote-iva",
     datePublished: "2026-04-17",
-    dateModified: "2026-08-18",
+    dateModified: "2026-08-27",
     title: "Aliquote IVA e catalogo prodotti",
     metaTitle: "Come gestire le aliquote IVA e il catalogo prodotti",
     description:
@@ -66,7 +66,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "cambio-piano": {
     slug: "cambio-piano",
     datePublished: "2026-04-20",
-    dateModified: "2026-08-20",
+    dateModified: "2026-08-27",
     title: "Come passare da mensile ad annuale",
     metaTitle: "Come passare da mensile ad annuale",
     description:
@@ -198,7 +198,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "metodi-di-pagamento": {
     slug: "metodi-di-pagamento",
     datePublished: "2026-08-04",
-    dateModified: "2026-08-18",
+    dateModified: "2026-08-27",
     title: "Metodi di pagamento: bonifico, assegno, carta e contanti",
     metaTitle: "Bonifico e assegno sullo scontrino: quale metodo scegliere",
     description:
@@ -232,7 +232,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "piani-e-prezzi": {
     slug: "piani-e-prezzi",
     datePublished: "2026-04-17",
-    dateModified: "2026-08-20",
+    dateModified: "2026-08-27",
     title: "Piani disponibili: Starter, Pro e self-hosted",
     metaTitle: "Piani disponibili: Starter, Pro e self-hosted gratuito",
     description:

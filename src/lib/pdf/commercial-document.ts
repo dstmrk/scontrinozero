@@ -13,10 +13,11 @@
  *  - la matricola `RT <numero>`, che è del registratore telematico: noi
  *    emettiamo via Documento Commerciale Online e un RT non ce l'abbiamo,
  *    stamparne uno sarebbe falso;
- *  - `Non riscosso`, `Resto`, `Sconto a pagare`, `Omaggio`, che presuppongono
- *    feature che la cassa non ha (pagamento misto, sconti di riga, omaggi).
- *    Le "prescrizioni generali per il risparmio carta" dell'AdE chiedono
- *    comunque di NON stampare le voci a zero, quindi ometterle è conforme.
+ *  - `Non riscosso`, `Resto` e `Omaggio`, che presuppongono feature che la
+ *    cassa non ha (le tre `NR_*` e `TR` del tracciato, il resto in contanti,
+ *    le righe omaggio). Le "prescrizioni generali per il risparmio carta"
+ *    dell'AdE chiedono comunque di NON stampare le voci a zero, quindi
+ *    ometterle è conforme.
  *
  * L'annullo condivide tutto il layout tranne tre punti (pagina "DOCUMENTO
  * COMMERCIALE DI ANNULLO" dello stesso template, e PDF ufficiale trascritto in
@@ -49,6 +50,10 @@ import {
   computeReceiptTotals,
   type ReceiptTotals,
 } from "@/lib/receipts/receipt-totals";
+import {
+  resolvePaymentRows,
+  type PaymentEntry,
+} from "@/lib/receipts/public-request";
 import {
   formatVatLegendLine,
   receiptVatLabel,
@@ -106,6 +111,14 @@ interface CommonDocumentPdfData {
 export interface SaleDocumentPdfData extends CommonDocumentPdfData {
   kind: "SALE";
   paymentMethod: "PC" | "PE";
+  /**
+   * Ripartizione dell'incassato fra più metodi (pagamento misto), nella forma
+   * che `parsePublicRequest` restituisce. Assente/`null` = nessuna
+   * ripartizione: l'incassato sta tutto su `paymentMethod`. Il blocco
+   * pagamenti si risolve sempre con `resolvePaymentRows`, mai leggendo uno
+   * solo dei due campi.
+   */
+  payments?: readonly PaymentEntry[] | null;
   /** Codice Lotteria degli Scontrini (8 char, solo PE) */
   lotteryCode?: string | null;
   /**
@@ -454,6 +467,9 @@ function drawTotals(doc: Doc, cur: Cursor, totals: ReceiptTotals): void {
  * meno lo sconto a pagare — mentre `TOTALE COMPLESSIVO` più su resta pieno
  * (voce #3b). Nel campione ufficiale è questa differenza a far quadrare
  * `Importo pagato + non riscosso + sconto a pagare = TOTALE COMPLESSIVO`.
+ *
+ * Le modalità sono **una riga ciascuna**: un pagamento misto ne stampa due,
+ * mentre `Importo pagato` resta uno solo e ne porta la somma.
  */
 function drawPayment(
   doc: Doc,
@@ -465,16 +481,16 @@ function drawPayment(
   // esattamente `16.50` su tutti gli importi, e il PDF stamperebbe un
   // incassato che non quadra con la termica dello stesso documento.
   const discountCents = data.globalDiscountCents ?? 0;
-  const collected = (Math.round(totals.grandTotal * 100) - discountCents) / 100;
+  const collectedCents = Math.round(totals.grandTotal * 100) - discountCents;
 
-  if (collected !== 0) {
-    const label = PAYMENT_LABELS[data.paymentMethod] ?? data.paymentMethod;
-    drawAmountRow(doc, cur, label, collected);
+  for (const row of resolvePaymentRows(data, collectedCents)) {
+    const label = PAYMENT_LABELS[row.type] ?? row.type;
+    drawAmountRow(doc, cur, label, row.amountCents / 100);
   }
   if (discountCents > 0) {
     drawAmountRow(doc, cur, "Sconto a pagare", discountCents / 100);
   }
-  drawAmountRow(doc, cur, "Importo pagato", collected);
+  drawAmountRow(doc, cur, "Importo pagato", collectedCents / 100);
   drawSeparator(doc, cur);
 }
 

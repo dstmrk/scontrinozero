@@ -156,6 +156,14 @@ export default function PianiEPrezziPage() {
             lascia il corrispettivo pieno e riduce solo l&apos;incassato
           </li>
           <li>
+            <strong>Pagamento misto</strong>: un solo scontrino incassato in
+            parte in contanti e in parte con mezzi elettronici. Il documento
+            riporta le due righe separate e la loro somma è l&apos;importo
+            pagato. Attenzione: il codice della Lotteria degli Scontrini
+            richiede un incasso solo elettronico, quindi non è ammesso su un
+            pagamento misto
+          </li>
+          <li>
             <em>In arrivo:</em> recupero corrispettivi da AdE (sincronizzazione
             dati storici)
           </li>
@@ -199,8 +207,9 @@ export default function PianiEPrezziPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Tutti i nuovi account hanno <strong>30 giorni di prova</strong>{" "}
           gratuita con accesso alle funzioni Pro come l&apos;analytics avanzata,
-          l&apos;export CSV, gli sconti sullo scontrino e il messaggio
-          personalizzato. Nessuna carta di credito richiesta per iniziare.
+          l&apos;export CSV, gli sconti sullo scontrino, il pagamento misto e il
+          messaggio personalizzato. Nessuna carta di credito richiesta per
+          iniziare.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           <strong>Cosa succede alla scadenza del trial:</strong>
@@ -282,6 +291,13 @@ export default function PianiEPrezziPage() {
               <tr>
                 <td className="text-foreground py-2 font-medium">
                   Sconti sullo scontrino
+                </td>
+                <td className="py-2">—</td>
+                <td className="py-2">✓</td>
+              </tr>
+              <tr>
+                <td className="text-foreground py-2 font-medium">
+                  Pagamento misto
                 </td>
                 <td className="py-2">—</td>
                 <td className="py-2">✓</td>

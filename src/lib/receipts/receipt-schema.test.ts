@@ -230,3 +230,165 @@ describe("saleBodySchema — sconto di riga", () => {
     ).toBe(false);
   });
 });
+
+describe("saleBodySchema — pagamento misto", () => {
+  const base = {
+    lines: [
+      { description: "Caffè", quantity: 1, grossUnitPrice: 1.9, vatCode: "10" },
+    ],
+    idempotencyKey: "550e8400-e29b-41d4-a716-446655440000",
+  };
+
+  it("accetta payments[] che quadra col totale delle righe", () => {
+    // Caso di riferimento HAR.md voce #1: 0,50 + 1,00 + 0,40 di abbuono = 1,90.
+    const parsed = saleBodySchema.safeParse({
+      ...base,
+      payments: [
+        { type: "PC", amount: 0.5 },
+        { type: "PE", amount: 1.0 },
+      ],
+      globalDiscount: 0.4,
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("accetta ancora il paymentMethod scalare da solo", () => {
+    // Nessun breaking change: il corpo che i client mandano oggi resta valido.
+    expect(
+      saleBodySchema.safeParse({ ...base, paymentMethod: "PC" }).success,
+    ).toBe(true);
+  });
+
+  it("rifiuta un corpo senza né paymentMethod né payments", () => {
+    const parsed = saleBodySchema.safeParse(base);
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rifiuta paymentMethod e payments insieme", () => {
+    // Mutuamente esclusivi: due dichiarazioni dello stesso fatto possono
+    // contraddirsi, e non esiste una regola sensata su chi vince.
+    const parsed = saleBodySchema.safeParse({
+      ...base,
+      paymentMethod: "PC",
+      payments: [{ type: "PC", amount: 1.9 }],
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rifiuta una ripartizione che non quadra col totale", () => {
+    // Invariante HAR.md voce #5. La voce #15 avverte che NON sappiamo se
+    // l'AdE la validi lato server: la quadratura è responsabilità nostra.
+    const parsed = saleBodySchema.safeParse({
+      ...base,
+      payments: [
+        { type: "PC", amount: 0.5 },
+        { type: "PE", amount: 1.0 },
+      ],
+    });
+    expect(parsed.success).toBe(false);
+    expect(JSON.stringify(parsed.error?.issues)).toContain("payments");
+  });
+
+  it("rifiuta due voci dello stesso tipo", () => {
+    // Il tracciato AdE ha uno slot per tipo (voce #6): due `PC` non sono
+    // rappresentabili, e sommarle in silenzio nasconderebbe un errore di input.
+    const parsed = saleBodySchema.safeParse({
+      ...base,
+      payments: [
+        { type: "PC", amount: 1.0 },
+        { type: "PC", amount: 0.9 },
+      ],
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rifiuta una ripartizione che non incassa nulla", () => {
+    const parsed = saleBodySchema.safeParse({
+      ...base,
+      payments: [
+        { type: "PC", amount: 0 },
+        { type: "PE", amount: 0 },
+      ],
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rifiuta importi negativi o con più di 2 decimali", () => {
+    expect(
+      saleBodySchema.safeParse({
+        ...base,
+        payments: [{ type: "PE", amount: -1.9 }],
+      }).success,
+    ).toBe(false);
+    expect(
+      saleBodySchema.safeParse({
+        ...base,
+        payments: [{ type: "PE", amount: 1.905 }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("quadra in centesimi interi, non in float", () => {
+    // 3 righe da 0,10 fanno 0,30: in float `0.1*3` è 0.30000000000000004 e un
+    // confronto in euro rifiuterebbe una ripartizione perfettamente quadrata.
+    const parsed = saleBodySchema.safeParse({
+      lines: [
+        { description: "a", quantity: 3, grossUnitPrice: 0.1, vatCode: "10" },
+      ],
+      idempotencyKey: base.idempotencyKey,
+      payments: [
+        { type: "PC", amount: 0.1 },
+        { type: "PE", amount: 0.2 },
+      ],
+    });
+    expect(parsed.success).toBe(true);
+  });
+});
+
+describe("refineLotteryCode — pagamento misto", () => {
+  const base = {
+    lines: [
+      { description: "Caffè", quantity: 1, grossUnitPrice: 1.9, vatCode: "10" },
+    ],
+    idempotencyKey: "550e8400-e29b-41d4-a716-446655440000",
+  };
+
+  it("rifiuta il codice lotteria su un pagamento misto", () => {
+    // HAR.md voce #13: ammesso solo se pagato ESCLUSIVAMENTE con mezzi
+    // elettronici. Qualunque slot diverso da PE con importo > 0 squalifica.
+    const parsed = saleBodySchema.safeParse({
+      ...base,
+      payments: [
+        { type: "PC", amount: 0.9 },
+        { type: "PE", amount: 1.0 },
+      ],
+      lotteryCode: "ABCD1234",
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("ammette il codice quando PE è l'unico importo, abbuono compreso", () => {
+    // Verificato sul portale (voce #13): totale 1,90, elettronico 1,50,
+    // sconto a pagare 0,40 → codice accettato. `scontoAbbuono` non è un
+    // mezzo di pagamento e non entra nel test.
+    const parsed = saleBodySchema.safeParse({
+      ...base,
+      payments: [{ type: "PE", amount: 1.5 }],
+      globalDiscount: 0.4,
+      lotteryCode: "ABCD1234",
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("ammette il codice su una ripartizione con lo slot contanti a zero", () => {
+    const parsed = saleBodySchema.safeParse({
+      ...base,
+      payments: [
+        { type: "PC", amount: 0 },
+        { type: "PE", amount: 1.9 },
+      ],
+      lotteryCode: "ABCD1234",
+    });
+    expect(parsed.success).toBe(true);
+  });
+});

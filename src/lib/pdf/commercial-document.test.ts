@@ -442,6 +442,51 @@ describe("layout AdE — pagamento", () => {
     expect(runs[iTotal + 1]).toBe("19,00");
   });
 
+  it("stampa una riga per modalità su un pagamento misto", async () => {
+    // BASE_DATA totalizza 19,00: 4,00 in contanti + 15,00 elettronico.
+    // `Importo pagato` resta uno solo e porta la somma (HAR.md voce #17b).
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf({
+        ...BASE_DATA,
+        payments: [
+          { type: "PC", amountCents: 400 },
+          { type: "PE", amountCents: 1500 },
+        ],
+      }),
+    );
+    const iCash = runs.indexOf("Pagamento contante");
+    const iCard = runs.indexOf("Pagamento elettronico");
+    const iPaid = runs.indexOf("Importo pagato");
+    expect(runs[iCash + 1]).toBe("4,00");
+    expect(runs[iCard + 1]).toBe("15,00");
+    expect(runs[iPaid + 1]).toBe("19,00");
+  });
+
+  it("su un misto con abbuono le modalità sommano all'incassato", async () => {
+    // Invariante HAR.md voce #5: Σ pagamenti + sconto a pagare = totale.
+    // 19,00 di corrispettivo, 2,50 di abbuono, 16,50 incassati.
+    const runs = extractPdfTextRuns(
+      await generateCommercialDocumentPdf({
+        ...BASE_DATA,
+        globalDiscountCents: 250,
+        payments: [
+          { type: "PC", amountCents: 150 },
+          { type: "PE", amountCents: 1500 },
+        ],
+      }),
+    );
+    const iTotal = runs.indexOf("TOTALE COMPLESSIVO");
+    const iCash = runs.indexOf("Pagamento contante");
+    const iCard = runs.indexOf("Pagamento elettronico");
+    const iDiscount = runs.indexOf("Sconto a pagare");
+    const iPaid = runs.indexOf("Importo pagato");
+    expect(runs[iTotal + 1]).toBe("19,00");
+    expect(runs[iCash + 1]).toBe("1,50");
+    expect(runs[iCard + 1]).toBe("15,00");
+    expect(runs[iDiscount + 1]).toBe("2,50");
+    expect(runs[iPaid + 1]).toBe("16,50");
+  });
+
   it("omette la riga sconto a pagare quando l'abbuono è zero o assente", async () => {
     // Prescrizione risparmio carta (voce #17c): niente voci di pagamento a
     // zero. Copre anche i documenti storici, che non hanno il campo.

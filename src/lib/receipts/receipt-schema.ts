@@ -1,6 +1,11 @@
 import { z } from "zod/v4";
 import { refineGlobalDiscount } from "@/lib/receipts/global-discount-schema";
 import { refineLotteryCode } from "@/lib/receipts/lottery-code-schema";
+import {
+  sumPaymentCents,
+  type PaymentInput,
+} from "@/lib/receipts/payment-input";
+import { calcInputLinesTotalCents } from "@/lib/receipts/receipt-totals";
 
 /**
  * Schema di validazione condiviso per un documento commerciale di vendita (SALE).
@@ -53,6 +58,35 @@ export const SALE_LINES_MAX = 100;
 
 /** Field schema riusabili dal corpo SALE. */
 export const paymentMethodSchema = z.enum(["PC", "PE"]);
+
+/**
+ * Ripartizione dell'incassato fra più modalità (**pagamento misto**).
+ *
+ * Solo `PC` e `PE`: `TR` e le tre `NR_*` esistono nel tracciato AdE
+ * (`HAR.md` voce #6) e il mapper le regge già, ma non sono mai state
+ * osservate con importo > 0 (voce #15) — esporle vorrebbe dire chiedere
+ * all'esercente un dato che non sappiamo trasmettere. `NR_EF` non è nemmeno
+ * un importo: è un flag booleano mutuamente esclusivo con ogni altro
+ * pagamento, e nel nostro modello non sarebbe un `PaymentRequest`.
+ *
+ * Il tetto di due voci non è arbitrario: è la cardinalità dell'enum, e due
+ * voci dello stesso tipo sono rifiutate dal `superRefine` di corpo. I vincoli
+ * che guardano il documento intero — quadratura, mutua esclusione con
+ * `paymentMethod` — non stanno qui perché dipendono dalle righe.
+ */
+export const paymentsSchema = z
+  .array(
+    z.object({
+      type: paymentMethodSchema,
+      amount: z
+        .number()
+        .nonnegative()
+        .max(999_999.99)
+        .refine((v) => Number.parseFloat(v.toFixed(2)) === v, "max 2 decimali"),
+    }),
+  )
+  .min(1)
+  .max(2);
 export const idempotencyKeySchema = z.string().uuid();
 // Format-validated solo quando paymentMethod === "PE" — vedi refineLotteryCode.
 export const lotteryCodeSchema = z.string().nullable().optional();
@@ -87,15 +121,110 @@ export function refineSaleBody(
       quantity: number;
       lineDiscount?: number;
     }>;
-    paymentMethod: "PC" | "PE";
+    paymentMethod?: "PC" | "PE";
+    payments?: readonly PaymentInput[];
     lotteryCode?: string | null;
     globalDiscount?: number;
   },
   ctx: z.RefinementCtx,
 ): void {
+  refinePaymentDeclaration(data, ctx);
   refineLotteryCode(data, ctx);
   refineSaleLineDiscounts(data, ctx);
   refineGlobalDiscount(data, ctx);
+}
+
+/**
+ * Come il documento dichiara il pagamento, e se quella dichiarazione quadra.
+ *
+ * **Esattamente uno** fra `paymentMethod` e `payments`. Accettarli insieme
+ * vorrebbe dire ammettere due dichiarazioni dello stesso fatto che possono
+ * contraddirsi, senza una regola sensata su chi vince; accettarne zero
+ * lascerebbe un documento fiscale senza modalità di incasso.
+ *
+ * **La quadratura è responsabilità nostra.** `HAR.md` voce #5 fissa
+ * l'invariante `Σ importi + scontoAbbuono = ammontareComplessivo`, ma la voce
+ * #15 avverte che non abbiamo mai inviato un payload sbilanciato e **non
+ * sappiamo se l'AdE lo rifiuti**. Non c'è quindi una rete a valle: un
+ * documento storto passerebbe e resterebbe registrato tale, in modo
+ * irreversibile.
+ *
+ * Confronto in **centesimi interi** (regola 17) via `calcInputLinesTotalCents`,
+ * la stessa aritmetica del totale trasmesso ad AdE: su euro float tre righe da
+ * `0,10` sommano a `0.30000000000000004` e una ripartizione perfettamente
+ * quadrata verrebbe rifiutata.
+ *
+ * Con il solo `paymentMethod` non si verifica nulla: la quadratura è
+ * soddisfatta per costruzione, perché il service versa `totale − abbuono`
+ * nell'unico slot.
+ */
+function refinePaymentDeclaration(
+  data: {
+    lines: ReadonlyArray<{
+      grossUnitPrice: number;
+      quantity: number;
+      lineDiscount?: number;
+    }>;
+    paymentMethod?: "PC" | "PE";
+    payments?: readonly PaymentInput[];
+    globalDiscount?: number;
+  },
+  ctx: z.RefinementCtx,
+): void {
+  const { paymentMethod, payments } = data;
+
+  if (paymentMethod && payments) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["payments"],
+      message:
+        "Indica il metodo di pagamento oppure la ripartizione, non entrambi.",
+    });
+    return;
+  }
+
+  if (!paymentMethod && !payments) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["paymentMethod"],
+      message: "Indica il metodo di pagamento o la ripartizione degli importi.",
+    });
+    return;
+  }
+
+  if (!payments) return;
+
+  const types = payments.map((p) => p.type);
+  if (new Set(types).size !== types.length) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["payments"],
+      message:
+        "Ogni modalità di pagamento può comparire una sola volta nella ripartizione.",
+    });
+    return;
+  }
+
+  const paidCents = sumPaymentCents(payments);
+  if (paidCents === 0) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["payments"],
+      message: "La ripartizione deve incassare almeno un centesimo.",
+    });
+    return;
+  }
+
+  const discountCents = Math.round((data.globalDiscount ?? 0) * 100);
+  const linesTotalCents = calcInputLinesTotalCents(data.lines);
+  if (paidCents + discountCents !== linesTotalCents) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["payments"],
+      message:
+        "La somma dei pagamenti e dello sconto a pagare deve fare il totale dello scontrino.",
+    });
+  }
 }
 
 /**
@@ -151,7 +280,12 @@ function refineSaleLineDiscounts(
 export const saleBodySchema = z
   .object({
     lines: z.array(saleLineSchema).min(SALE_LINES_MIN).max(SALE_LINES_MAX),
-    paymentMethod: paymentMethodSchema,
+    // Opzionale perché mutuamente esclusivo con `payments` — esattamente uno
+    // dei due, imposto da `refinePaymentDeclaration`. Un corpo con
+    // `paymentMethod` resta valido com'è sempre stato: nessun breaking change
+    // su `/api/v1` (REVIEW.md #87).
+    paymentMethod: paymentMethodSchema.optional(),
+    payments: paymentsSchema.optional(),
     idempotencyKey: idempotencyKeySchema,
     lotteryCode: lotteryCodeSchema,
     globalDiscount: globalDiscountSchema,

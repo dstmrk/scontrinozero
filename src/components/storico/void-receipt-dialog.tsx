@@ -113,6 +113,7 @@ export function VoidReceiptDialog({
       ...base,
       kind: "SALE",
       paymentMethod: receipt.paymentMethod,
+      payments: receipt.payments,
       lotteryCode: receipt.lotteryCode,
       globalDiscountCents: receipt.globalDiscountCents,
       footerNote: printProfile.footerNote,

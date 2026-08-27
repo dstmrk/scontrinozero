@@ -5,8 +5,15 @@ import {
   groupLinesByDocId,
   calcDocTotal,
 } from "@/lib/receipts/document-lines";
-import { discountGateError } from "@/lib/receipts/discount-gate";
-import { parsePublicRequest } from "@/lib/receipts/public-request";
+import {
+  discountGateError,
+  mixedPaymentGateError,
+} from "@/lib/receipts/pro-feature-gates";
+import {
+  parsePublicRequest,
+  readRawPaymentMethod,
+} from "@/lib/receipts/public-request";
+import { v1Payments } from "@/lib/receipts/v1-payments";
 import { saleBodySchema } from "@/lib/receipts/receipt-schema";
 import { parseStrictIsoDateUtc } from "@/lib/date-utils";
 import { isStatementTimeoutError } from "@/lib/api-errors";
@@ -93,14 +100,21 @@ export async function POST(request: Request): Promise<Response> {
   );
   if ("error" in bodyResult) return bodyResult.error;
 
-  const { lines, paymentMethod, idempotencyKey, lotteryCode, globalDiscount } =
-    bodyResult.data;
+  const {
+    lines,
+    paymentMethod,
+    payments,
+    idempotencyKey,
+    lotteryCode,
+    globalDiscount,
+  } = bodyResult.data;
 
   const input: SubmitReceiptInput = {
     businessId: auth.businessId,
     // `id` is a UI-only React key not used by the service layer; omitted from API schema
     lines: lines.map((l) => ({ ...l, id: "" })),
     paymentMethod,
+    payments,
     idempotencyKey,
     lotteryCode: lotteryCode ?? null,
     globalDiscount,
@@ -114,6 +128,15 @@ export async function POST(request: Request): Promise<Response> {
   const discountError = discountGateError(auth, input);
   if (discountError) {
     return v1Error("PLAN_UPGRADE_REQUIRED", discountError, requestId);
+  }
+
+  // Stesso gate per il pagamento misto. Ridondante per Starter, che non ha
+  // affatto accesso all'API (`canUseApi`), ma NON per i piani `developer_*`:
+  // quelli passano `canUseApi` senza passare `canUsePro`, e qui è l'unico
+  // punto che li ferma — esattamente come già fa il gate sugli sconti.
+  const mixedPaymentError = mixedPaymentGateError(auth, input);
+  if (mixedPaymentError) {
+    return v1Error("PLAN_UPGRADE_REQUIRED", mixedPaymentError, requestId);
   }
 
   // ── Emit ──────────────────────────────────────────────────────────────────
@@ -334,11 +357,9 @@ export async function GET(request: Request): Promise<Response> {
     const docLines = linesByDocId.get(doc.id) ?? [];
     const docTotal = calcDocTotal(docLines);
 
-    // ⚠️ `paymentMethod` NON passa da `parsePublicRequest`: il contratto
-    // pubblico espone `null` quando il campo manca, mentre l'helper degrada a
-    // `"PC"` per la stampa. Cambiarlo qui sarebbe un breaking change v1.
-    const pr = doc.publicRequest as { paymentMethod?: string } | null;
-    const { globalDiscountCents } = parsePublicRequest(doc.publicRequest);
+    const { payments, globalDiscountCents } = parsePublicRequest(
+      doc.publicRequest,
+    );
 
     return {
       id: doc.id,
@@ -351,7 +372,16 @@ export async function GET(request: Request): Promise<Response> {
       // Sconto a pagare: NON riduce `total`, che resta il corrispettivo
       // (HAR.md voce #3b). L'incassato e' `total - globalDiscount`.
       globalDiscount: (globalDiscountCents / 100).toFixed(2),
-      paymentMethod: pr?.paymentMethod ?? null,
+      // `payments[]` e' additivo: `paymentMethod` resta esattamente com'era —
+      // valorizzato sugli scontrini a metodo singolo, gia' oggi `null` sulle
+      // righe storiche prive del campo. Il formato persistito scrive
+      // `paymentMethod` SOLO quando il pagamento e' uno, quindi sui misti il
+      // campo e' assente e `readRawPaymentMethod` restituisce `null` da se',
+      // senza un ramo dedicato.
+      // Nessun consumer v1 si rompe: `null` e' una forma che il contratto
+      // produce da sempre (REVIEW.md #87, che v2 chiudera' togliendo lo scalare).
+      paymentMethod: readRawPaymentMethod(doc.publicRequest),
+      payments: v1Payments(payments),
       total: docTotal.toFixed(2),
       createdAt: doc.createdAt,
     };

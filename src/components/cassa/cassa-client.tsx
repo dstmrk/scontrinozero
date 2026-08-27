@@ -9,6 +9,12 @@ import { useCassa } from "@/hooks/use-cassa";
 import { VAT_CODES, VatCode } from "@/types/cassa";
 import type { CartLine, PaymentMethod } from "@/types/cassa";
 import type { ReceiptPrintProfile } from "@/lib/receipts/print-profile";
+import {
+  splitCashElectronic,
+  toPaymentEntries,
+  type PaymentInput,
+} from "@/lib/receipts/payment-input";
+import type { PaymentEntry } from "@/lib/receipts/public-request";
 import { NumericKeypad } from "@/components/cassa/numeric-keypad";
 import { VatSelector } from "@/components/cassa/vat-selector";
 import { CartLineItem } from "@/components/cassa/cart-line-item";
@@ -74,6 +80,13 @@ export function CassaClient({
   // `useCassa` perche' non e' stato del carrello: e' una scelta della fase di
   // pagamento, e si azzera con lo scontrino, non con le righe.
   const [globalDiscountCents, setGlobalDiscountCents] = useState(0);
+  // Quota in contanti di un pagamento misto, o `null` quando la modalità è
+  // una sola. Un numero solo e non due: la quota elettronica è sempre il
+  // resto dell'incassato, così non può esistere una ripartizione che non
+  // quadra con la voce #5 (vedi `PaymentSplit`). Vive qui accanto all'abbuono
+  // per la stessa ragione — è una scelta della fase di pagamento, non del
+  // carrello, e si azzera con lo scontrino.
+  const [splitCashCents, setSplitCashCents] = useState<number | null>(null);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [successData, setSuccessData] = useState<{
     documentId?: string;
@@ -83,6 +96,7 @@ export function CassaClient({
     /** Righe emesse, congelate PRIMA di svuotare il carrello. */
     lines: CartLine[];
     paymentMethod: PaymentMethod;
+    payments: readonly PaymentEntry[] | null;
     lotteryCode: string | null;
     globalDiscountCents: number;
   } | null>(null);
@@ -166,11 +180,13 @@ export function CassaClient({
       // vuoto quando ReceiptSuccess monta).
       const emittedLines = lines;
       const emittedPaymentMethod = paymentMethod;
+      const emittedPayments = toPaymentEntries(buildPayments());
       const emittedLotteryCode = lotteryCode || null;
       const emittedDiscountCents = globalDiscountCents;
 
       clearCart();
       setGlobalDiscountCents(0);
+      setSplitCashCents(null);
       track(UMAMI_EVENTS.receiptEmitted);
       setSuccessData({
         documentId: result.documentId,
@@ -179,6 +195,7 @@ export function CassaClient({
         adeRegisteredAt: result.adeRegisteredAt,
         lines: emittedLines,
         paymentMethod: emittedPaymentMethod,
+        payments: emittedPayments,
         lotteryCode: emittedLotteryCode,
         globalDiscountCents: emittedDiscountCents,
       });
@@ -242,11 +259,31 @@ export function CassaClient({
     if (method !== "PE") setLotteryCode("");
   };
 
+  /**
+   * La ripartizione da trasmettere, o `undefined` quando il pagamento è su una
+   * modalità sola. La quota elettronica è il resto dell'incassato: è così che
+   * la quadratura della voce #5 è vera per costruzione invece che verificata.
+   */
+  const buildPayments = (): PaymentInput[] | undefined => {
+    if (splitCashCents === null) return undefined;
+    const split = splitCashElectronic(
+      totalCents - globalDiscountCents,
+      splitCashCents,
+    );
+    return [
+      { type: "PC", amount: split.cashCents / 100 },
+      { type: "PE", amount: split.electronicCents / 100 },
+    ];
+  };
+
   const handleSubmit = () => {
+    const payments = buildPayments();
     mutation.mutate({
       businessId,
       lines,
-      paymentMethod,
+      // Mutuamente esclusivi: lo schema pretende esattamente uno dei due.
+      paymentMethod: payments ? undefined : paymentMethod,
+      payments,
       idempotencyKey: crypto.randomUUID(),
       lotteryCode: lotteryCode || null,
       // Assente quando non c'e': tiene il payload — e quindi il fingerprint di
@@ -259,6 +296,7 @@ export function CassaClient({
   const handleNewReceipt = () => {
     clearCart();
     setGlobalDiscountCents(0);
+    setSplitCashCents(null);
     mutation.reset();
     setSuccessData(null);
     setStep("cart");
@@ -274,6 +312,7 @@ export function CassaClient({
         adeRegisteredAt={successData?.adeRegisteredAt}
         lines={successData?.lines ?? []}
         paymentMethod={successData?.paymentMethod ?? paymentMethod}
+        payments={successData?.payments ?? null}
         lotteryCode={successData?.lotteryCode ?? null}
         globalDiscountCents={successData?.globalDiscountCents ?? 0}
         printProfile={printProfile}
@@ -501,6 +540,8 @@ export function CassaClient({
           onLotteryCodeChange={setLotteryCode}
           globalDiscountCents={globalDiscountCents}
           onGlobalDiscountChange={setGlobalDiscountCents}
+          splitCashCents={splitCashCents}
+          onSplitCashChange={setSplitCashCents}
           discountsUnlocked={discountsUnlocked}
         />
       </div>

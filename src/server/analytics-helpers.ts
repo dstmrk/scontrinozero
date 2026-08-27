@@ -10,6 +10,11 @@
  * giornalieri e fillMissingDays usano quindi sempre il calendario Rome.
  */
 
+import {
+  parsePublicRequest,
+  readRawPaymentMethod,
+} from "@/lib/receipts/public-request";
+
 export type AnalyticsRange = "7d" | "30d" | "90d" | "ytd";
 
 /** Range di default quando l'URL non specifica `?range=` o il valore è invalido. */
@@ -301,23 +306,90 @@ export function computeTimeseries(
   return fillMissingDays(byDay, from, to);
 }
 
+/**
+ * Ripartisce il ricavo di un documento fra i metodi che lo hanno incassato,
+ * in proporzione agli importi pagati.
+ *
+ * **Si ripartisce il ricavo, non l'incassato.** I pagamenti sommano
+ * all'incassato, che con uno sconto a pagare è minore del corrispettivo
+ * (`HAR.md` voce #3b): attribuire gli importi così come sono scollegherebbe il
+ * grafico dal KPI ricavo che gli sta sopra, e la riconciliazione fra le due
+ * viste — l'invariante della skill `money-rounding` — salterebbe su ogni
+ * scontrino abbuonato. La proporzione invece regge in entrambi i casi.
+ *
+ * Il resto della divisione **si assegna, non si butta**: due arrotondamenti
+ * indipendenti su un 1:2 darebbero 99 o 101 centesimi su 100. Va a chi ha il
+ * resto più grande, e a parità al primo — deterministico, quindi testabile.
+ */
+function splitRevenueByPayments(
+  revenueCents: number,
+  payments: readonly { type: string; amountCents: number }[],
+): { method: string; cents: number }[] {
+  const paidCents = payments.reduce((acc, p) => acc + p.amountCents, 0);
+  if (paidCents === 0) return [];
+
+  const parts = payments.map((p) => {
+    const exact = (revenueCents * p.amountCents) / paidCents;
+    const floor = Math.floor(exact);
+    return { method: p.type, cents: floor, remainder: exact - floor };
+  });
+
+  let leftover = revenueCents - parts.reduce((acc, p) => acc + p.cents, 0);
+  const byRemainder = [...parts].sort((a, b) => b.remainder - a.remainder);
+  for (const part of byRemainder) {
+    if (leftover <= 0) break;
+    part.cents++;
+    leftover--;
+  }
+
+  return parts.map(({ method, cents }) => ({ method, cents }));
+}
+
+/**
+ * Ricavo e numero di scontrini per metodo di pagamento.
+ *
+ * ⚠️ **`count` conta il documento una volta per ogni metodo che lo ha
+ * incassato**, quindi su un pagamento misto la somma dei `count` supera il
+ * numero di scontrini emessi. È voluto: il grafico risponde a "quanto ho
+ * incassato per metodo", e un misto ha davvero incassato su due metodi.
+ * Il numero di scontrini è un KPI a sé, non la somma di questa colonna.
+ */
 export function computeBreakdown(
   docs: readonly AnalyticsDocRow[],
   totalsByDoc: ReadonlyMap<string, number>,
 ): PaymentBreakdownEntry[] {
   const byMethod = new Map<string, { count: number; revenueCents: number }>();
-  for (const doc of docs) {
-    if (doc.status !== "ACCEPTED") continue;
-    const method = normalizePaymentMethod(
-      doc.publicRequest && typeof doc.publicRequest === "object"
-        ? (doc.publicRequest as { paymentMethod?: unknown }).paymentMethod
-        : null,
-    );
+
+  const add = (method: string, cents: number): void => {
     const entry = byMethod.get(method) ?? { count: 0, revenueCents: 0 };
     entry.count++;
-    entry.revenueCents += toCents(totalsByDoc.get(doc.id) ?? 0);
+    entry.revenueCents += cents;
     byMethod.set(method, entry);
+  };
+
+  for (const doc of docs) {
+    if (doc.status !== "ACCEPTED") continue;
+    const revenueCents = toCents(totalsByDoc.get(doc.id) ?? 0);
+    const { payments } = parsePublicRequest(doc.publicRequest);
+
+    if (payments) {
+      for (const part of splitRevenueByPayments(revenueCents, payments)) {
+        add(part.method, part.cents);
+      }
+      continue;
+    }
+
+    // Ramo a metodo singolo. `readRawPaymentMethod` e non
+    // `parsePublicRequest.paymentMethod`: quello degrada a `"PC"` per la
+    // stampa, mentre qui una riga storica priva del campo deve restare
+    // `"other"` — attribuirla ai contanti inventerebbe un dato in un grafico
+    // che l'esercente legge come misurazione.
+    add(
+      normalizePaymentMethod(readRawPaymentMethod(doc.publicRequest)),
+      revenueCents,
+    );
   }
+
   return Array.from(byMethod.entries()).map(([method, agg]) => ({
     method,
     ...agg,

@@ -8,11 +8,26 @@ import { CartLine, PaymentMethod } from "@/types/cassa";
 import { CartLineItem } from "./cart-line-item";
 import { NumericKeypad } from "./numeric-keypad";
 import { PaymentMethodSelector } from "./payment-method-selector";
+import { PaymentSplit } from "./payment-split";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 /** Soglia minima della Lotteria degli Scontrini, in centesimi interi. */
 const LOTTERY_MIN_CENTS = 100;
+
+/**
+ * Perché il codice lotteria non è disponibile — o cosa serve perché lo sia.
+ *
+ * La quota in contanti si nomina per prima: è la condizione che l'esercente
+ * ha appena creato con un gesto, e quella su cui può tornare indietro.
+ */
+function lotteryHint(belowMin: boolean, hasCashShare: boolean): string {
+  if (hasCashShare) {
+    return "Non disponibile: la lotteria richiede un incasso solo elettronico";
+  }
+  if (belowMin) return "Non disponibile per importi inferiori a €1,00";
+  return "Per la Lotteria degli Scontrini — solo pagamenti elettronici";
+}
 
 interface ReceiptSummaryProps {
   readonly lines: CartLine[];
@@ -39,6 +54,14 @@ interface ReceiptSummaryProps {
   readonly globalDiscountCents?: number;
   readonly onGlobalDiscountChange?: (cents: number) => void;
   /**
+   * Quota in contanti di un pagamento misto, in centesimi interi, oppure
+   * `null` quando il pagamento è su una modalità sola. La quota elettronica
+   * non è uno stato a sé: è sempre `incassato − contanti` (vedi
+   * `PaymentSplit`), così non può esistere una ripartizione che non quadra.
+   */
+  readonly splitCashCents?: number | null;
+  readonly onSplitCashChange?: (cents: number | null) => void;
+  /**
    * Gate di piano (Pro). Quando `false` l'affordance non viene renderizzata
    * affatto: la cassa e' il core flow fiscale e un upsell in mezzo al
    * checkout e' attrito: la scoperta della feature vive su /prezzi, nelle
@@ -60,6 +83,8 @@ export function ReceiptSummary({
   onLotteryCodeChange,
   globalDiscountCents = 0,
   onGlobalDiscountChange,
+  splitCashCents = null,
+  onSplitCashChange,
   discountsUnlocked = false,
 }: ReceiptSummaryProps) {
   const count = lines.length;
@@ -74,6 +99,15 @@ export function ReceiptSummary({
   const [discountOpen, setDiscountOpen] = useState(globalDiscountCents > 0);
 
   const collectedCents = totalCents - globalDiscountCents;
+
+  const isSplit = splitCashCents !== null;
+  // Clamp: l'incassato cambia quando cambia l'abbuono, e una quota contanti
+  // rimasta più alta produrrebbe un elettronico negativo.
+  const cashCents = Math.min(splitCashCents ?? 0, Math.max(collectedCents, 0));
+  // Il codice lotteria richiede un incasso ESCLUSIVAMENTE elettronico
+  // (`HAR.md` voce #13): qualunque quota in contanti lo squalifica. Stesso
+  // predicato di `isElectronicOnly` lato server.
+  const hasCashShare = isSplit && cashCents > 0;
 
   const closeDiscount = () => {
     setDiscountOpen(false);
@@ -125,16 +159,42 @@ export function ReceiptSummary({
         </span>
       </div>
 
-      {/* Payment method */}
-      <div>
-        <p className="text-muted-foreground mb-2 text-sm font-medium">
-          Metodo di pagamento
-        </p>
-        <PaymentMethodSelector
-          value={paymentMethod}
-          onChange={onPaymentMethodChange}
+      {/* Payment method — il selettore sparisce quando il pagamento è
+          ripartito: la modalità non è più una scelta, sono due importi. */}
+      {!isSplit && (
+        <div>
+          <p className="text-muted-foreground mb-2 text-sm font-medium">
+            Metodo di pagamento
+          </p>
+          <PaymentMethodSelector
+            value={paymentMethod}
+            onChange={onPaymentMethodChange}
+          />
+        </div>
+      )}
+
+      {/* Pagamento misto (Pro) — stessa progressive disclosure dello sconto a
+          pagare: un link finché non serve, il ripartitore quando l'esercente
+          lo chiede. Zero costo per il caso a metodo singolo, che è la quasi
+          totalità degli scontrini. */}
+      {discountsUnlocked && !isSplit && (
+        <button
+          type="button"
+          onClick={() => onSplitCashChange?.(0)}
+          className="text-muted-foreground hover:text-foreground self-start text-sm font-medium underline underline-offset-4"
+        >
+          {"+ Pagamento misto"}
+        </button>
+      )}
+
+      {isSplit && (
+        <PaymentSplit
+          collectedCents={Math.max(collectedCents, 0)}
+          cashCents={cashCents}
+          onCashChange={(cents) => onSplitCashChange?.(cents)}
+          onClose={() => onSplitCashChange?.(null)}
         />
-      </div>
+      )}
 
       {/* Sconto a pagare (Pro) — progressive disclosure: un link finche' non
           serve, il campo solo quando l'esercente lo chiede. Sta qui, sotto il
@@ -196,8 +256,11 @@ export function ReceiptSummary({
         </div>
       )}
 
-      {/* Lottery code — visible only for electronic payment */}
-      {paymentMethod === "PE" && (
+      {/* Lottery code — solo se l'incasso è tutto elettronico. Su un misto il
+          campo resta visibile ma disabilitato, con la ragione scritta: farlo
+          sparire in silenzio lascerebbe l'esercente a digitare un codice che
+          non finirà mai sul documento (`HAR.md` voce #13). */}
+      {(paymentMethod === "PE" || isSplit) && (
         <div>
           <p className="text-muted-foreground mb-1 text-sm font-medium">
             Codice lotteria <span className="font-normal">(opzionale)</span>
@@ -210,16 +273,14 @@ export function ReceiptSummary({
             autoComplete="off"
             autoCapitalize="characters"
             value={lotteryCode}
-            disabled={isBelowLotteryMin}
+            disabled={isBelowLotteryMin || hasCashShare}
             onChange={(e) => {
               onLotteryCodeChange?.(e.target.value.toUpperCase());
             }}
             className="rounded-xl font-mono uppercase"
           />
           <p className="text-muted-foreground mt-1 text-xs">
-            {isBelowLotteryMin
-              ? "Non disponibile per importi inferiori a €1,00"
-              : "Per la Lotteria degli Scontrini — solo pagamenti elettronici"}
+            {lotteryHint(isBelowLotteryMin, hasCashShare)}
           </p>
         </div>
       )}

@@ -795,23 +795,23 @@ mapper AdE; per i nomi campo e i limiti esatti del corpo HTTP pubblico vedi
 
 ### Tabella `commercial_documents`
 
-| Colonna              | Tipo        | Note                                                                           |
-| -------------------- | ----------- | ------------------------------------------------------------------------------ |
-| `id`                 | uuid        | PK                                                                             |
-| `business_id`        | uuid        | NOT NULL, FK → `businesses` (cascade)                                          |
-| `kind`               | enum        | `SALE`, `VOID`                                                                 |
-| `idempotency_key`    | uuid        | Unique **per business** (`business_id` + `idempotency_key`, migr. 0009)        |
-| `public_request`     | jsonb       | Payload applicativo (`paymentMethod`, `lotteryCode`)                           |
-| `request_hash`       | text        | SHA-256 canonico del SALE (rileva riuso key con payload diverso). NULL su VOID |
-| `ade_response`       | jsonb       | Risposta AdE raw                                                               |
-| `ade_transaction_id` | text        | `idtrx` AdE                                                                    |
-| `ade_progressive`    | text        | `progressivo` AdE                                                              |
-| `lottery_code`       | text        | Codice lotteria (solo SALE con pagamento `PE`)                                 |
-| `api_key_id`         | uuid        | FK → `api_keys` (set null). NULL = emissione via UI dashboard                  |
-| `voided_document_id` | uuid        | Solo VOID: self-FK al SALE annullato. Unique parziale (anti doppio-annullo)    |
-| `status`             | enum        | `PENDING`, `ACCEPTED`, `VOID_ACCEPTED`, `REJECTED`, `ERROR`                    |
-| `created_at`         | timestamptz |                                                                                |
-| `updated_at`         | timestamptz |                                                                                |
+| Colonna              | Tipo        | Note                                                                                                                                                                                                       |
+| -------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                 | uuid        | PK                                                                                                                                                                                                         |
+| `business_id`        | uuid        | NOT NULL, FK → `businesses` (cascade)                                                                                                                                                                      |
+| `kind`               | enum        | `SALE`, `VOID`                                                                                                                                                                                             |
+| `idempotency_key`    | uuid        | Unique **per business** (`business_id` + `idempotency_key`, migr. 0009)                                                                                                                                    |
+| `public_request`     | jsonb       | Payload applicativo (`payments[]` o `paymentMethod`, `lotteryCode`, `globalDiscount`). Si legge **solo** via `src/lib/receipts/public-request.ts`: le righe storiche sono `NULL` o portano il solo scalare |
+| `request_hash`       | text        | SHA-256 canonico del SALE (rileva riuso key con payload diverso). NULL su VOID                                                                                                                             |
+| `ade_response`       | jsonb       | Risposta AdE raw                                                                                                                                                                                           |
+| `ade_transaction_id` | text        | `idtrx` AdE                                                                                                                                                                                                |
+| `ade_progressive`    | text        | `progressivo` AdE                                                                                                                                                                                          |
+| `lottery_code`       | text        | Codice lotteria (solo SALE con pagamento `PE`)                                                                                                                                                             |
+| `api_key_id`         | uuid        | FK → `api_keys` (set null). NULL = emissione via UI dashboard                                                                                                                                              |
+| `voided_document_id` | uuid        | Solo VOID: self-FK al SALE annullato. Unique parziale (anti doppio-annullo)                                                                                                                                |
+| `status`             | enum        | `PENDING`, `ACCEPTED`, `VOID_ACCEPTED`, `REJECTED`, `ERROR`                                                                                                                                                |
+| `created_at`         | timestamptz |                                                                                                                                                                                                            |
+| `updated_at`         | timestamptz |                                                                                                                                                                                                            |
 
 ### Tabella `commercial_document_lines`
 

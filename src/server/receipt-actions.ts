@@ -3,7 +3,10 @@
 import { z } from "zod/v4";
 import { logger } from "@/lib/logger";
 import { getPlanSafe, canEmit, TRIAL_EXPIRED_MESSAGE } from "@/lib/plans";
-import { discountGateError } from "@/lib/receipts/discount-gate";
+import {
+  discountGateError,
+  mixedPaymentGateError,
+} from "@/lib/receipts/pro-feature-gates";
 import { RateLimiter } from "@/lib/rate-limit";
 import {
   SALE_LINES_MAX,
@@ -12,6 +15,7 @@ import {
   idempotencyKeySchema,
   lotteryCodeSchema,
   paymentMethodSchema,
+  paymentsSchema,
   refineSaleBody,
   saleLineSchema,
 } from "@/lib/receipts/receipt-schema";
@@ -33,7 +37,9 @@ const submitReceiptSchema = z
   .object({
     businessId: z.string().uuid("Business ID non valido."),
     lines: z.array(submitLineSchema).min(SALE_LINES_MIN).max(SALE_LINES_MAX),
-    paymentMethod: paymentMethodSchema,
+    // Mutuamente esclusivi, esattamente uno dei due: lo impone `refineSaleBody`.
+    paymentMethod: paymentMethodSchema.optional(),
+    payments: paymentsSchema.optional(),
     idempotencyKey: idempotencyKeySchema,
     lotteryCode: lotteryCodeSchema,
     globalDiscount: globalDiscountSchema,
@@ -98,6 +104,11 @@ export async function emitReceipt(
   // `discountGateError`.
   const discountError = discountGateError(planInfo, input);
   if (discountError) return { error: discountError };
+
+  // Stesso principio per il pagamento misto: collassarlo su una modalità sola
+  // produrrebbe un documento fiscale irreversibile diverso da quello chiesto.
+  const mixedPaymentError = mixedPaymentGateError(planInfo, input);
+  if (mixedPaymentError) return { error: mixedPaymentError };
 
   const ownershipError = await checkBusinessOwnership(
     user.id,

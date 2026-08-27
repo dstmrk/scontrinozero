@@ -172,6 +172,34 @@ describe("formatReceiptRow", () => {
     ]);
   });
 
+  it("unisce le modalità su un pagamento misto", () => {
+    // Scrivere solo la prima darebbe a chi apre il file un metodo che non
+    // regge il confronto con la colonna `incassato`.
+    const row = formatReceiptRow(
+      doc({
+        publicRequest: {
+          payments: [
+            { type: "PC", amount: 1 },
+            { type: "PE", amount: 2 },
+          ],
+        },
+      }),
+      3,
+      "",
+    );
+    expect(row[sumCol("metodo_pagamento")]).toBe("contanti + elettronico");
+  });
+
+  it("lascia la cella vuota sui documenti storici senza metodo registrato", () => {
+    // Una cella vuota dice "non registrato"; `contanti` affermerebbe un fatto
+    // che quel documento non porta.
+    expect(
+      formatReceiptRow(doc({ publicRequest: null }), 3, "")[
+        sumCol("metodo_pagamento")
+      ],
+    ).toBe("");
+  });
+
   it("separa data e ora in due colonne, in ora italiana", () => {
     // Un timestamp unico in una cella sola non e' ordinabile ne' filtrabile
     // in un foglio di calcolo.

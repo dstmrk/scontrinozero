@@ -715,3 +715,110 @@ describe("eachRomeDay", () => {
     );
   });
 });
+
+describe("computeBreakdown — pagamento misto", () => {
+  it("ripartisce il ricavo fra i metodi in proporzione agli importi", () => {
+    const docs = [
+      makeDoc("a", "ACCEPTED", new Date(), {
+        payments: [
+          { type: "PC", amount: 3 },
+          { type: "PE", amount: 1 },
+        ],
+      }),
+    ];
+    const breakdown = computeBreakdown(docs, new Map([["a", 4]]));
+    const byMethod = Object.fromEntries(breakdown.map((e) => [e.method, e]));
+
+    expect(byMethod.PC.revenueCents).toBe(300);
+    expect(byMethod.PE.revenueCents).toBe(100);
+  });
+
+  it("attribuisce il ricavo PIENO, non l'incassato, anche con lo sconto a pagare", () => {
+    // I pagamenti sommano all'incassato (1,50), il corrispettivo resta 1,90
+    // (HAR.md voce #3b). Il breakdown misura il fatturato: attribuire 1,50
+    // scollegherebbe il grafico dal KPI ricavo che gli sta sopra.
+    const docs = [
+      makeDoc("a", "ACCEPTED", new Date(), {
+        payments: [
+          { type: "PC", amount: 0.5 },
+          { type: "PE", amount: 1.0 },
+        ],
+      }),
+    ];
+    const breakdown = computeBreakdown(docs, new Map([["a", 1.9]]));
+    const sum = breakdown.reduce((acc, e) => acc + e.revenueCents, 0);
+
+    expect(sum).toBe(190);
+  });
+
+  it("non perde né inventa centesimi quando la proporzione non è esatta", () => {
+    // 100 cent divisi 1:2 fanno 33,33 e 66,67: due arrotondamenti
+    // indipendenti darebbero 33 + 67 = 100 oppure 33 + 66 = 99. Il resto va
+    // assegnato, non buttato.
+    const docs = [
+      makeDoc("a", "ACCEPTED", new Date(), {
+        payments: [
+          { type: "PC", amount: 1 },
+          { type: "PE", amount: 2 },
+        ],
+      }),
+    ];
+    const breakdown = computeBreakdown(docs, new Map([["a", 1]]));
+    const sum = breakdown.reduce((acc, e) => acc + e.revenueCents, 0);
+
+    expect(sum).toBe(100);
+  });
+
+  it("conta il documento una volta per ogni metodo che lo ha incassato", () => {
+    // Σ count può quindi superare il numero di scontrini: è voluto, il
+    // grafico risponde a "quanto ho incassato per metodo", non "quanti
+    // scontrini ho emesso".
+    const docs = [
+      makeDoc("a", "ACCEPTED", new Date(), {
+        payments: [
+          { type: "PC", amount: 1 },
+          { type: "PE", amount: 1 },
+        ],
+      }),
+    ];
+    const breakdown = computeBreakdown(docs, new Map([["a", 2]]));
+    const byMethod = Object.fromEntries(breakdown.map((e) => [e.method, e]));
+
+    expect(byMethod.PC.count).toBe(1);
+    expect(byMethod.PE.count).toBe(1);
+  });
+
+  it("riconcilia col ricavo totale su un mix di documenti singoli e misti", () => {
+    // L'invariante che conta (skill money-rounding): la somma del breakdown
+    // deve fare il KPI ricavo, qualunque sia il raggruppamento. Asserita
+    // confrontando le due viste, non un numero scritto a mano.
+    const docs = [
+      makeDoc("a", "ACCEPTED", new Date(), { paymentMethod: "PC" }),
+      makeDoc("b", "ACCEPTED", new Date(), {
+        payments: [
+          { type: "PC", amount: 1.11 },
+          { type: "PE", amount: 2.22 },
+        ],
+      }),
+      makeDoc("c", "ACCEPTED", new Date(), null),
+      makeDoc("d", "VOID_ACCEPTED", new Date(), { paymentMethod: "PE" }),
+    ];
+    const totals = new Map([
+      ["a", 12.34],
+      ["b", 3.33],
+      ["c", 7.77],
+      ["d", 99.99],
+    ]);
+
+    const expected = ["a", "b", "c"].reduce(
+      (acc, id) => acc + toCents(totals.get(id) ?? 0),
+      0,
+    );
+    const sum = computeBreakdown(docs, totals).reduce(
+      (acc, e) => acc + e.revenueCents,
+      0,
+    );
+
+    expect(sum).toBe(expected);
+  });
+});
