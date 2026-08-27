@@ -162,153 +162,9 @@ diventa un buco di billing al lancio della Fase B Developer API.
    API, ora nice-to-have in PLAN.md — non prima: nessun utente ha questi piani
    oggi).
 
-### 99. `scontrinozero.com` è in loop di redirect infinito
-
-- **Categoria:** configurazione edge (Cloudflare) · **Severità:** High — il dominio secondario è **irraggiungibile**, su ogni path
-- **File:** nessuno nel repo. La fix è una regola nella dashboard Cloudflare, zona `scontrinozero.com`
-
-**Misurato il 2026-08-26.** Ogni URL della zona risponde `301` con
-`location: scontrinozero.it` — un `Location` **relativo e senza schema**,
-emesso dall'edge (`server: cloudflare`, l'origin non viene mai colpito). Il
-client lo risolve rispetto all'URL corrente e ottiene
-`https://scontrinozero.com/scontrinozero.it`, che ri-matcha la stessa regola:
-`curl -L` si ferma a 50 hop, un browser mostra `ERR_TOO_MANY_REDIRECTS`.
-
-```
-$ curl -sSI https://scontrinozero.com/prezzi | grep -i '^location'
-location: scontrinozero.it
-```
-
-**Causa.** Il target della Redirect Rule (o Bulk Redirect / Page Rule) è stato
-inserito come `scontrinozero.it` invece che come URL assoluto. Non è un
-problema di DNS: A/AAAA e SPF/MX della zona sono corretti.
-
-**Passo 0: scoprire quale delle tre regole lo emette**, invece di indovinare.
-Zona `.com` → **Rules → Trace** (su tutti i piani, serve ruolo Administrator):
-URL `https://scontrinozero.com/prezzi`, method `GET`, Send. L'output elenca le
-regole valutate in ordine e segna quale ha fatto match. A mano i posti da
-guardare sono tre e uno non è nemmeno nella zona: **Rules → Redirect Rules**,
-**Rules → Page Rules** (legacy, azione "Forwarding URL") e **Bulk Redirects**,
-che sta a livello **account**.
-
-**Fix.** Redirect Rule con target dinamico, così `/prezzi` non atterra sulla
-home:
-
-- _When incoming requests match_ →
-  `(http.host eq "scontrinozero.com" or http.host eq "www.scontrinozero.com")`
-- _Then_ → URL redirect · Type **Dynamic** · Status **301** ·
-  **Preserve query string ON** · espressione:
-
-```
-concat("https://scontrinozero.it", http.request.uri.path)
-```
-
-⚠️ **Solo il path nell'espressione, la query la mette la casella.** Attaccare
-`"?", http.request.uri.query` al `concat` è sbagliato in entrambe le
-configurazioni: con _Preserve query string_ attivo la doc Cloudflare è
-esplicita — "any query string on the target URL is discarded, even when the
-original request has no query string of its own" — quindi il pezzo manuale
-viene buttato via; con la casella spenta ti ritrovi un `?` in coda a ogni URL
-senza query. In forma statica l'equivalente è `https://scontrinozero.it/` con
-"preserve path suffix" attivo.
-
-**Verifica (dopo il salvataggio della regola):**
-
-```
-$ curl -sS -o /dev/null -w '%{http_code} %{redirect_url}\n' https://scontrinozero.com/prezzi
-301 https://scontrinozero.it/prezzi
-$ curl -sS -o /dev/null -w '%{http_code} %{redirect_url}\n' 'https://scontrinozero.com/guide?x=1'
-301 https://scontrinozero.it/guide?x=1
-```
-
-Verificare con `curl`, non col browser: un `301` se lo tiene in cache il
-client, quindi il browser che ha già visto il loop continuerà a mostrarlo a
-regola corretta. Il purge della cache Cloudflare non c'entra — il redirect
-esce dall'edge, non dal CDN.
-
-Finché il loop è aperto, ogni link o menzione su `.com` è traffico perso, e
-`/.well-known/security.txt` sulla zona `.com` non può risolvere sull'apex `.it`
-(vedi #100).
-
 ---
 
 ## P2 — Media priorità
-
-### 100. DMARC: `p=none` su `.it`, nessun record su `.com`
-
-- **Categoria:** email security · **Severità:** Medium — nessuna protezione effettiva contro lo spoofing del mittente
-- **File:** nessuno nel repo. La fix sono record DNS nelle due zone Cloudflare
-
-**Misurato il 2026-08-26** (i due "DMARC Record Error" per zona nei Security
-Insights di Cloudflare sono questo):
-
-| Zona                | `_dmarc` TXT        | SPF                                                        | MX     | DKIM            |
-| ------------------- | ------------------- | ---------------------------------------------------------- | ------ | --------------- |
-| `scontrinozero.it`  | `v=DMARC1; p=none;` | `v=spf1 include:_spf-eu.ionos.com include:icloud.com ~all` | iCloud | `sig1` (iCloud) |
-| `scontrinozero.com` | **assente**         | `v=spf1 include:_spf-eu.ionos.com ~all`                    | IONOS  | **nessuno**     |
-
-`p=none` dice ai destinatari "non fare nulla" e, senza `rua`, non arriva
-nemmeno un report: è un record che esiste e non protegge. Sulla zona `.com`
-manca del tutto, quindi chiunque può spedire mail come `@scontrinozero.com`.
-Non è teorico per questo prodotto: le mail transazionali (Resend/SES da
-`mail.scontrinozero.it`, DKIM `resend._domainkey` e return-path
-`send.mail.scontrinozero.it` già a posto) portano scontrini e link di reset
-password — esattamente ciò che un phishing vorrebbe imitare.
-
-**Le due zone si trattano in modo diverso**, perché fanno due mestieri diversi.
-`.it` è il dominio che spedisce davvero (iCloud + Resend/SES) e va portato a
-`reject` per gradi. `.com` è stato comprato **solo per redirigere sul `.it`**
-(confermato dal proprietario il 2026-08-26): la posta IONOS che ha attiva è
-provisioning del registrar che nessuno usa, quindi non va osservato — va
-dichiarato non-mail e chiuso subito.
-
-**`.it` — la scala, non il salto.**
-
-Modificare il record `_dmarc` esistente, **non** aggiungerne un secondo: due
-TXT su `_dmarc` invalidano il DMARC.
-
-```
-v=DMARC1; p=none; rua=mailto:info@scontrinozero.it; fo=1
-```
-
-Dopo 2-4 settimane, se i soli mittenti allineati sono iCloud e SES, alzare a
-`p=quarantine` e infine `p=reject`. Cloudflare offre "DMARC Management" nella
-zona (Email → DMARC Management): crea il record, raccoglie i report aggregati e
-li mostra in dashboard, senza XML da leggere.
-
-**`.com` — dominio che non fa posta, quattro record.**
-
-Un dominio senza posta non ha falsi positivi possibili: si chiude in un colpo
-solo, senza periodo di osservazione. `p=reject` da solo non basta — è la
-combinazione che lo rende inspoofabile.
-
-| Record         | Tipo | Valore                                                 |
-| -------------- | ---- | ------------------------------------------------------ |
-| `@`            | MX   | priorità `0`, target `.` (null MX)                     |
-| `@`            | TXT  | `v=spf1 -all`                                          |
-| `*._domainkey` | TXT  | `v=DKIM1; p=`                                          |
-| `_dmarc`       | TXT  | `v=DMARC1; p=reject; rua=mailto:info@scontrinozero.it` |
-
-Il null MX (RFC 7505) è il record che va **al posto** dei due `mx0*.ionos.it`,
-che vanno cancellati; l'SPF `-all` sostituisce l'`include:_spf-eu.ionos.com`; il
-DKIM wildcard dichiara revocato ogni selettore presente e futuro.
-
-⚠️ **Prima di cancellare gli MX**, verificare che nessun account usi un
-indirizzo `@scontrinozero.com` come recapito di recupero (registrar, Cloudflare,
-Stripe, PEC). Togliere gli MX non rompe il redirect — HTTP e posta sono
-indipendenti — ma fa sparire in silenzio una casella di recovery dimenticata.
-
-Il `rua` di `.com` punta a un indirizzo su un **altro** dominio: per RFC 7489 è
-un external reporting address e va autorizzato da chi lo riceve, altrimenti i
-report non partono. Nella zona **`.it`**:
-
-```
-scontrinozero.com._report._dmarc  TXT  "v=DMARC1"
-```
-
-Su un dominio chiuso così i report servono solo a sapere _se_ qualcuno prova a
-spoofarti: nessuna soglia da tarare, nessun mittente da allineare. Vale una
-riga di DNS, ma toglierla non indebolisce la protezione — solo la visibilità.
 
 ### 11. `getCatalogItems` senza LIMIT + autocomplete server-side
 
@@ -415,6 +271,32 @@ group:
 ---
 
 ## P3 — Bassa priorità
+
+### 100. DMARC su `.it`: alzare la policy da `p=none` dopo i report
+
+- **Categoria:** email security · **Severità:** Low — la visibilità c'è, manca l'enforcement
+- **File:** nessuno nel repo. Un record TXT nella zona Cloudflare `scontrinozero.it`
+
+Il grosso è chiuso (2026-08-27): `scontrinozero.com` è dichiarato non-mail e
+inspoofabile (null MX, `v=spf1 -all`, `p=reject`), e `.it` pubblica
+`v=DMARC1; p=none; rua=mailto:info@scontrinozero.it; fo=1` con il record di
+autorizzazione `scontrinozero.com._report._dmarc` che fa arrivare anche i
+report della zona `.com`.
+
+Resta il solo passo che richiede di **aspettare i dati**: `p=none` dice ai
+destinatari di non fare nulla. Dopo 2-4 settimane di report, se gli unici
+mittenti allineati sono iCloud (apex) e Amazon SES (`send.mail.scontrinozero.it`,
+usato da Resend come return-path), alzare la policy:
+
+```
+v=DMARC1; p=quarantine; rua=mailto:info@scontrinozero.it; fo=1
+```
+
+e dopo altre due settimane senza sorprese, `p=reject`. Nello stesso passaggio
+stringere l'SPF dell'apex da `~all` a `-all`: farlo insieme al salto di policy
+tiene le due modifiche distinguibili se qualcosa si rompe.
+
+I report si leggono senza XML attivando **Email → DMARC Management** sulla zona.
 
 ### 96. Arrotondamento DL 50/2017: manca la voce di pagamento `Arro. DL N.50/2017`
 
@@ -1017,8 +899,8 @@ già `noindex` e non hanno alcun valore SEO/GEO.
 
 Il terzo insight della stessa famiglia, "Security.txt not configured", **è
 invece stato accolto**: il file è servito dall'app
-(`src/app/.well-known/security.txt/`) sull'apex `.it`. Sulla zona `.com`
-risolverà da sé quando il loop di redirect (#99) sarà chiuso.
+(`src/app/.well-known/security.txt/`) sull'apex `.it`, e la zona `.com` lo
+risolve seguendo il redirect verso `.it`.
 
 ### SonarCloud non indicizza `src/app/.well-known/**`
 
