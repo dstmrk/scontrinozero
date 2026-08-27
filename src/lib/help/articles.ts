@@ -66,7 +66,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "cambio-piano": {
     slug: "cambio-piano",
     datePublished: "2026-04-20",
-    dateModified: "2026-08-20",
+    dateModified: "2026-08-27",
     title: "Come passare da mensile ad annuale",
     metaTitle: "Come passare da mensile ad annuale",
     description:
@@ -232,7 +232,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "piani-e-prezzi": {
     slug: "piani-e-prezzi",
     datePublished: "2026-04-17",
-    dateModified: "2026-08-20",
+    dateModified: "2026-08-27",
     title: "Piani disponibili: Starter, Pro e self-hosted",
     metaTitle: "Piani disponibili: Starter, Pro e self-hosted gratuito",
     description:
