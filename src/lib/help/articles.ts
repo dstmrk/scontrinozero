@@ -18,7 +18,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "aliquote-iva": {
     slug: "aliquote-iva",
     datePublished: "2026-04-17",
-    dateModified: "2026-08-18",
+    dateModified: "2026-08-27",
     title: "Aliquote IVA e catalogo prodotti",
     metaTitle: "Come gestire le aliquote IVA e il catalogo prodotti",
     description:
@@ -198,7 +198,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "metodi-di-pagamento": {
     slug: "metodi-di-pagamento",
     datePublished: "2026-08-04",
-    dateModified: "2026-08-18",
+    dateModified: "2026-08-27",
     title: "Metodi di pagamento: bonifico, assegno, carta e contanti",
     metaTitle: "Bonifico e assegno sullo scontrino: quale metodo scegliere",
     description:

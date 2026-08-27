@@ -328,7 +328,27 @@ export default function ApiDocsPage() {
                   <code className="bg-muted rounded px-1 font-mono text-xs">
                     PE
                   </code>
-                  {" = elettronico (carta, bancomat, bonifico)"}
+                  {" = elettronico (carta, bancomat, bonifico)."}
+                  {" Alternativo a "}
+                  <code className="bg-muted rounded px-1 font-mono text-xs">
+                    payments
+                  </code>
+                  {": indicane esattamente uno."}
+                </td>
+              </tr>
+              <tr className="border-b">
+                <td className="py-2 pr-4 font-mono text-xs">payments</td>
+                <td className="py-2 pr-4 text-xs">array | assente</td>
+                <td className="py-2 text-xs">
+                  {
+                    "Pagamento misto (Pro): ripartisce l\u2019incasso fra PC e PE, es. "
+                  }
+                  <code className="bg-muted rounded px-1 font-mono text-xs">
+                    {'[{"type":"PC","amount":5},{"type":"PE","amount":15}]'}
+                  </code>
+                  {
+                    ". La somma degli importi pi\u00f9 lo sconto a pagare deve fare il totale delle righe. Col pagamento misto il codice lotteria non \u00e8 ammesso."
+                  }
                 </td>
               </tr>
               <tr className="border-b">

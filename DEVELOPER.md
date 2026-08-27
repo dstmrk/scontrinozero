@@ -156,6 +156,32 @@ curl -X POST https://api.scontrinozero.it/v1/receipts \
   }'
 ```
 
+> **`payments` — pagamento misto (piano Pro).** Opzionale, alternativo a
+> `paymentMethod`: **esattamente uno dei due**, mai entrambi e mai nessuno.
+> Ripartisce l'incasso fra `PC` e `PE` sullo stesso scontrino:
+>
+> ```json
+> "payments": [
+>   { "type": "PC", "amount": 5.00 },
+>   { "type": "PE", "amount": 15.00 }
+> ]
+> ```
+>
+> Ogni tipo può comparire **una volta sola**, gli importi hanno max 2 decimali
+> e la somma deve quadrare: `Σ amount + globalDiscount = totale delle righe`.
+> È un vincolo dell'Agenzia delle Entrate e lo verifichiamo noi in centesimi
+> interi — uno scarto di un centesimo restituisce `VALIDATION_ERROR`.
+> Una voce a `0.00` è ammessa e viene scartata: `[{PC: 0}, {PE: 20}]` produce
+> un normale pagamento elettronico, non un misto.
+> Con un piano non Pro la richiesta è respinta con `PLAN_UPGRADE_REQUIRED`.
+>
+> ⚠️ **Il codice lotteria non è ammesso su un pagamento misto.** Serve un
+> incasso esclusivamente elettronico: basta una quota in contanti perché il
+> documento sia squalificato, e inviare `lotteryCode` insieme a una
+> ripartizione mista restituisce `VALIDATION_ERROR` invece di scartarlo in
+> silenzio. Lo sconto a pagare invece non squalifica: non è un mezzo di
+> pagamento.
+
 > **`lineDiscount` — sconto di riga (piano Pro).** Opzionale, in euro, max 2
 > decimali. È lo sconto **dell'intera riga**, già comprensivo della quantità:
 > su `quantity: 2` a `8.00` uno sconto di `1.50` porta la riga a `14.50`, non
@@ -225,7 +251,7 @@ curl https://api.scontrinozero.it/v1/receipts/550e8400-e29b-41d4-a716-4466554400
 
 > `voidedDocumentId` è valorizzato solo per documenti `kind: "VOID"` e contiene l'UUID del SALE annullato.
 > `paymentMethod` vale `"PC"` (contante: denaro, assegni bancari e circolari) oppure `"PE"` (elettronico: carte, bancomat, app di pagamento, bonifici), ed è `null` sui documenti che non lo portano.
-> `payments` è la ripartizione dell'incassato fra più metodi, `[{ "type": "PC", "amount": "0.50" }, …]` con gli importi in euro come stringhe a 2 decimali. **Oggi è sempre `null`**: l'emissione con pagamento ripartito non è ancora disponibile, e il campo esiste perché un client scritto adesso continui a funzionare quando lo sarà. Quando arriverà, un documento ripartito avrà `payments` valorizzato e `paymentMethod` a `null` — trattare `paymentMethod: null` come "più metodi, leggi `payments`", non come "metodo sconosciuto". Gli importi sommano all'**incassato** (`total − globalDiscount`), non a `total`.
+> `payments` è la ripartizione dell'incassato fra più metodi, `[{ "type": "PC", "amount": "0.50" }, …]` con gli importi in euro come stringhe a 2 decimali, e `null` sui documenti pagati con un metodo solo. Su un documento ripartito `paymentMethod` è `null`: trattarlo come "più metodi, leggi `payments`", non come "metodo sconosciuto". Gli importi sommano all'**incassato** (`total − globalDiscount`), non a `total`.
 > `lotteryCode` è `null` se non fornito o se il metodo di pagamento è `"PC"` (contanti). Lo sconto a pagare **non** lo squalifica: non è un mezzo di pagamento.
 > `globalDiscount` è lo sconto a pagare applicato, stringa a 2 decimali, `"0.00"` quando assente. `total` resta il corrispettivo pieno: l'incassato è `total − globalDiscount`.
 > `quantity`, `grossUnitPrice` e `lineDiscount` sono stringhe con precisione fissa (3, 2 e 2 decimali rispettivamente). `lineDiscount` vale `"0.00"` sulle righe senza sconto e su tutte quelle emesse prima della v1.7.4.

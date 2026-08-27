@@ -2,6 +2,8 @@
  * Tipi per la cassa mobile-first (Phase 4B).
  */
 
+import type { PaymentInput } from "@/lib/receipts/payment-input";
+
 /** Aliquote IVA supportate nell'UI cassa */
 export type VatCode =
   "4" | "5" | "10" | "22" | "N1" | "N2" | "N3" | "N4" | "N5" | "N6";
@@ -124,7 +126,20 @@ export const PAYMENT_METHODS: PaymentMethod[] = ["PC", "PE"];
 export type SubmitReceiptInput = {
   businessId: string;
   lines: CartLine[];
-  paymentMethod: PaymentMethod;
+  /**
+   * Modalità di incasso unica. Mutuamente esclusiva con `payments`: lo schema
+   * pretende esattamente una delle due (`refineSaleBody`).
+   */
+  paymentMethod?: PaymentMethod;
+  /**
+   * Ripartizione dell'incassato fra più modalità — **pagamento misto**,
+   * feature Pro. Importi in euro.
+   *
+   * ⚠️ Gli importi sommano all'**incassato**, non al corrispettivo: la
+   * quadratura AdE è `Σ importi + sconto a pagare = totale righe`
+   * (`HAR.md` voce #5), imposta dallo schema in centesimi interi.
+   */
+  payments?: readonly PaymentInput[];
   idempotencyKey: string; // uuid generato client-side, per idempotenza
   /** Codice Lotteria degli Scontrini (8 char [A-Z0-9], solo con pagamento PE) */
   lotteryCode?: string | null;

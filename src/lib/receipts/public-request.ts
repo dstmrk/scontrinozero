@@ -83,8 +83,15 @@ function parsePaymentEntry(raw: unknown): PaymentEntry | null {
 
 const PAYMENT_ORDER: Record<PaymentMethod, number> = { PC: 0, PE: 1 };
 
-/** Ordine del tracciato AdE (`PC` prima di `PE`, voce #6). */
-function byAdeOrder(a: PaymentEntry, b: PaymentEntry): number {
+/**
+ * Ordine del tracciato AdE (`PC` prima di `PE`, voce #6).
+ *
+ * Esportato perché la forma canonica di un array di pagamenti serve anche
+ * fuori dalla lettura del jsonb — in ingresso e nel fingerprint di
+ * idempotenza. Un comparatore solo, applicato ovunque serva: è la regola a
+ * non doversi ripetere, non la chiamata.
+ */
+export function byAdeOrder(a: PaymentEntry, b: PaymentEntry): number {
   return PAYMENT_ORDER[a.type] - PAYMENT_ORDER[b.type];
 }
 

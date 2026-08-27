@@ -151,3 +151,114 @@ describe("hashSaleRequest — simmetria fra i due call site (regressione)", () =
     expect(hashSaleRequest({ ...base, lines: [line(0)] })).toBe(senzaCampo);
   });
 });
+
+describe("hashSaleRequest — pagamento misto", () => {
+  const lines = [
+    {
+      id: "1",
+      description: "Caffè",
+      quantity: 1,
+      grossUnitPrice: 1.9,
+      vatCode: "10" as const,
+    },
+  ];
+
+  it("non cambia l'hash di uno scontrino senza ripartizione", () => {
+    // Gli hash già persistiti sono immutabili: includere sempre `payments`
+    // farebbe fallire come IDEMPOTENCY_PAYLOAD_MISMATCH il retry di uno
+    // scontrino PENDING inviato prima del deploy — cioè proprio il caso in
+    // cui la stessa key va riusata per non rischiare un doppione fiscale.
+    const withoutField = hashSaleRequest({
+      lines,
+      paymentMethod: "PC",
+      lotteryCode: null,
+    });
+    const withEmpty = hashSaleRequest({
+      lines,
+      paymentMethod: "PC",
+      payments: [],
+      lotteryCode: null,
+    });
+    expect(withEmpty).toBe(withoutField);
+  });
+
+  it("dà lo stesso hash a due input che descrivono lo stesso documento", () => {
+    // Forma canonica, non array grezzo: uno slot a zero e l'ordine di
+    // inserimento non cambiano il documento. Sull'array grezzo il retry di uno
+    // scontrino PENDING fallirebbe come IDEMPOTENCY_PAYLOAD_MISMATCH, cioè
+    // proprio quando la stessa key va riusata per non rischiare un doppione.
+    const canonical = hashSaleRequest({
+      lines,
+      paymentMethod: undefined,
+      payments: [
+        { type: "PC", amount: 0.5 },
+        { type: "PE", amount: 1.4 },
+      ],
+      lotteryCode: null,
+    });
+    const reordered = hashSaleRequest({
+      lines,
+      paymentMethod: undefined,
+      payments: [
+        { type: "PE", amount: 1.4 },
+        { type: "PC", amount: 0.5 },
+      ],
+      lotteryCode: null,
+    });
+    const withZeroSlot = hashSaleRequest({
+      lines,
+      paymentMethod: undefined,
+      payments: [
+        { type: "PC", amount: 0 },
+        { type: "PE", amount: 1.9 },
+      ],
+      lotteryCode: null,
+    });
+    const withoutZeroSlot = hashSaleRequest({
+      lines,
+      paymentMethod: undefined,
+      payments: [{ type: "PE", amount: 1.9 }],
+      lotteryCode: null,
+    });
+
+    expect(reordered).toBe(canonical);
+    expect(withZeroSlot).toBe(withoutZeroSlot);
+  });
+
+  it("distingue due ripartizioni diverse dello stesso totale", () => {
+    const a = hashSaleRequest({
+      lines,
+      paymentMethod: undefined,
+      payments: [
+        { type: "PC", amount: 0.5 },
+        { type: "PE", amount: 1.4 },
+      ],
+      lotteryCode: null,
+    });
+    const b = hashSaleRequest({
+      lines,
+      paymentMethod: undefined,
+      payments: [
+        { type: "PC", amount: 1.4 },
+        { type: "PE", amount: 0.5 },
+      ],
+      lotteryCode: null,
+    });
+    expect(a).not.toBe(b);
+  });
+
+  it("distingue un misto da un metodo singolo dello stesso importo", () => {
+    const mixed = hashSaleRequest({
+      lines,
+      paymentMethod: undefined,
+      payments: [{ type: "PE", amount: 1.9 }],
+      lotteryCode: null,
+    });
+    const single = hashSaleRequest({
+      lines,
+      paymentMethod: "PE",
+      lotteryCode: null,
+    });
+    expect(mixed).not.toBe(single);
+  });
+});

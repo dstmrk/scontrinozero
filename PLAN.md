@@ -62,9 +62,6 @@ completezza. Coerente con il principio "Minimalismo" del piano.
   PR perché è una feature a sé, non un riordino di card. _Trigger:_ segnalazioni
   di emissioni fallite per credenziali scadute, o eventi `ade_user_error`
   ricorrenti sullo stesso utente in Sentry.
-- **Pagamento misto** (es. parte contanti + parte carta) — moltiplica i casi di
-  pagamento e i test su totale/arrotondamenti (`CLAUDE.md` regola 17).
-  _Trigger:_ richiesta reale.
 - **Integrazioni POS — SumUp (#92) come pilota Pro**, Nexi (#93) a seguire —
   SDK esterni + webhook + riconciliazione pagamento↔scontrino; alta superficie,
   beneficio incerto sui micro-esercenti che spesso usano un POS separato. Se si

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { toPaymentEntries } from "@/lib/receipts/payment-input";
 import type { SubmitReceiptInput } from "@/types/cassa";
 
 /**
@@ -27,6 +28,13 @@ import type { SubmitReceiptInput } from "@/types/cassa";
  * NON sono lo stesso scontrino, e senza il campo nella forma canonica la
  * seconda passerebbe per replay della prima.
  *
+ * ⚠️ Stesso trattamento condizionale per `payments`, e per la stessa ragione:
+ * un documento a metodo singolo deve produrre l'hash che produceva prima che
+ * la ripartizione esistesse. Quando c'è, entra nella forma canonica in
+ * centesimi interi e **nell'ordine in cui è arrivata**: due ripartizioni
+ * diverse dello stesso totale non sono lo stesso scontrino, e senza il campo
+ * la seconda passerebbe per replay della prima.
+ *
  * ⚠️ Entrambi i call site devono passare gli stessi campi. Un chiamante che
  * ne omette uno ricalcola un hash diverso da quello persistito e trasforma
  * un retry legittimo in `IDEMPOTENCY_PAYLOAD_MISMATCH` — che sul canale
@@ -49,12 +57,21 @@ function discountCents(value: number | undefined): number {
 export function hashSaleRequest(input: {
   lines: SubmitReceiptInput["lines"];
   paymentMethod: SubmitReceiptInput["paymentMethod"];
+  payments?: SubmitReceiptInput["payments"];
   lotteryCode: string | null;
   globalDiscount?: number;
 }): string {
   const canonical = JSON.stringify({
     paymentMethod: input.paymentMethod,
     lotteryCode: input.lotteryCode ?? null,
+    // Forma CANONICA, non l'array grezzo: `toPaymentEntries` scarta le voci a
+    // zero e ordina come il tracciato AdE, così due input che descrivono lo
+    // stesso identico documento — `[{PC,0},{PE,20}]` e `[{PE,20}]`, oppure le
+    // stesse due voci in ordine invertito — producono lo stesso hash. Sull'array
+    // grezzo un retry equivalente fallirebbe come mismatch.
+    ...(toPaymentEntries(input.payments)
+      ? { payments: toPaymentEntries(input.payments) }
+      : {}),
     ...(discountCents(input.globalDiscount)
       ? { globalDiscount: discountCents(input.globalDiscount) }
       : {}),

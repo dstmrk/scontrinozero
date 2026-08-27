@@ -37,12 +37,12 @@ const faqItems: readonly FaqItem[] = [
     question:
       "Posso dividere un pagamento tra contanti e carta sullo stesso scontrino?",
     answer:
-      "No. ScontrinoZero associa un solo metodo di pagamento a ogni documento commerciale: scegli quello con cui il cliente ha saldato l'intero importo.",
+      "Sì, con il piano Pro. Nel riepilogo tocca «+ Pagamento misto» e digita quanto incassi in contanti: la quota elettronica è il resto. Il documento commerciale riporta le due righe separate, Pagamento contante e Pagamento elettronico, e la loro somma è l'importo pagato. Con il piano Starter resta un solo metodo per scontrino.",
   },
   {
     question: "Il metodo scelto influisce sulla Lotteria degli Scontrini?",
     answer:
-      "Sì. Il campo per il codice lotteria compare solo quando selezioni Elettronico, perché alla Lotteria degli Scontrini partecipano soltanto gli acquisti sopra 1 € pagati con strumenti elettronici. Con pagamento in contanti il codice non può essere trasmesso.",
+      "Sì. Il campo per il codice lotteria compare solo quando selezioni Elettronico, perché alla Lotteria degli Scontrini partecipano soltanto gli acquisti sopra 1 € pagati con strumenti elettronici. Con pagamento in contanti il codice non può essere trasmesso, e nemmeno con un pagamento misto: basta una quota in contanti perché il documento non sia più pagato esclusivamente con mezzi elettronici.",
   },
 ];
 
@@ -196,10 +196,15 @@ export default function MetodiDiPagamentoPage() {
           possibilità di partecipare.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
-          A ogni documento commerciale corrisponde{" "}
+          Di norma a ogni documento commerciale corrisponde{" "}
           <strong>un solo metodo di pagamento</strong>: scegli quello con cui il
-          cliente ha saldato l&apos;intero importo dello scontrino. Per le
-          aliquote IVA e il catalogo prodotti, vedi{" "}
+          cliente ha saldato l&apos;intero importo dello scontrino. Con il piano
+          Pro puoi invece <strong>ripartire l&apos;incasso</strong> fra contanti
+          ed elettronico sullo stesso scontrino: nel riepilogo tocca{" "}
+          <strong>+ Pagamento misto</strong> e digita la quota in contanti, il
+          resto va sull&apos;elettronico. Sul documento compaiono due righe
+          distinte, e la loro somma è l&apos;importo pagato. Per le aliquote IVA
+          e il catalogo prodotti, vedi{" "}
           <Link
             href="/help/aliquote-iva"
             className="text-primary hover:underline"

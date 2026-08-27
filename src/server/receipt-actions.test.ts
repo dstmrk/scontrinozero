@@ -237,9 +237,15 @@ describe("receipt-actions", () => {
       expect(mockMapSaleToAdePayload).toHaveBeenCalled();
       expect(mockSubmitSale).toHaveBeenCalled();
       expect(mockLogout).toHaveBeenCalled();
-      // publicRequest stores paymentMethod (no lotteryCode when absent)
+      // `payments` è il dato canonico e si scrive sempre (HAR.md voce #14
+      // sub-task B); `paymentMethod` resta accanto perché la modalità è una
+      // sola — è ciò che fa restare valorizzato il campo scalare di `/api/v1`
+      // sugli scontrini a metodo singolo. VALID_INPUT vale 2 × 10,00 = 20,00.
       const insertValuesArg = mockDocumentInsertValues.mock.calls[0][0];
-      expect(insertValuesArg.publicRequest).toEqual({ paymentMethod: "PC" });
+      expect(insertValuesArg.publicRequest).toEqual({
+        payments: [{ type: "PC", amount: 20 }],
+        paymentMethod: "PC",
+      });
       // Document updated to ACCEPTED
       const setArg = mockUpdateSet.mock.calls[0][0];
       expect(setArg.status).toBe("ACCEPTED");
@@ -504,6 +510,7 @@ describe("receipt-actions", () => {
       expect(result.error).toBeUndefined();
       const insertValuesArg = mockDocumentInsertValues.mock.calls[0][0];
       expect(insertValuesArg.publicRequest).toEqual({
+        payments: [{ type: "PE", amount: 20 }],
         paymentMethod: "PE",
         lotteryCode: "YYWLR30G",
       });
@@ -521,8 +528,110 @@ describe("receipt-actions", () => {
 
       expect(result.error).toBeUndefined();
       const insertValuesArg = mockDocumentInsertValues.mock.calls[0][0];
-      expect(insertValuesArg.publicRequest).toEqual({ paymentMethod: "PC" });
+      expect(insertValuesArg.publicRequest).toEqual({
+        payments: [{ type: "PC", amount: 20 }],
+        paymentMethod: "PC",
+      });
       expect(insertValuesArg.lotteryCode).toBeNull();
+    });
+
+    it("emette un pagamento misto: payload AdE e publicRequest canonici", async () => {
+      // Caso di riferimento HAR.md voce #1 sul totale di VALID_INPUT (20,00):
+      // 5,00 in contanti + 15,00 elettronico.
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt({
+        ...VALID_INPUT,
+        paymentMethod: undefined,
+        payments: [
+          { type: "PC", amount: 5 },
+          { type: "PE", amount: 15 },
+        ],
+      });
+
+      expect(result.error).toBeUndefined();
+      const insertValuesArg = mockDocumentInsertValues.mock.calls[0][0];
+      // `paymentMethod` NON si scrive su un misto: è ciò che fa produrre da sé
+      // il `null` che `/api/v1` espone, senza un ramo dedicato nella route.
+      expect(insertValuesArg.publicRequest).toEqual({
+        payments: [
+          { type: "PC", amount: 5 },
+          { type: "PE", amount: 15 },
+        ],
+      });
+    });
+
+    it("trasmette ad AdE due slot di pagamento su un misto", async () => {
+      const { emitReceipt } = await import("./receipt-actions");
+      await emitReceipt({
+        ...VALID_INPUT,
+        paymentMethod: undefined,
+        payments: [
+          { type: "PC", amount: 5 },
+          { type: "PE", amount: 15 },
+        ],
+      });
+
+      const saleRequest = mockMapSaleToAdePayload.mock.calls[0][0];
+      expect(saleRequest.payments).toEqual([
+        { type: "CASH", amount: 5 },
+        { type: "ELECTRONIC", amount: 15 },
+      ]);
+    });
+
+    it("quadra i pagamenti con lo sconto a pagare, non col corrispettivo", async () => {
+      // Invariante HAR.md voce #5: Σ importi + scontoAbbuono = totale.
+      // 20,00 di corrispettivo, 2,00 di abbuono, 18,00 incassati.
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt({
+        ...VALID_INPUT,
+        paymentMethod: undefined,
+        payments: [
+          { type: "PC", amount: 3 },
+          { type: "PE", amount: 15 },
+        ],
+        globalDiscount: 2,
+      });
+
+      expect(result.error).toBeUndefined();
+      const saleRequest = mockMapSaleToAdePayload.mock.calls[0][0];
+      const paid = saleRequest.payments.reduce(
+        (sum: number, p: { amount: number }) => sum + p.amount,
+        0,
+      );
+      expect(paid + saleRequest.globalDiscount).toBe(20);
+    });
+
+    it("rifiuta una ripartizione che non quadra", async () => {
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt({
+        ...VALID_INPUT,
+        paymentMethod: undefined,
+        payments: [
+          { type: "PC", amount: 5 },
+          { type: "PE", amount: 5 },
+        ],
+      });
+
+      expect(result.error).toBeDefined();
+      expect(mockDocumentInsertValues).not.toHaveBeenCalled();
+    });
+
+    it("scarta il codice lotteria su un pagamento misto", async () => {
+      // HAR.md voce #13: il codice richiede un incasso solo elettronico.
+      // Lo schema lo rifiuta prima ancora di arrivare al service.
+      const { emitReceipt } = await import("./receipt-actions");
+      const result = await emitReceipt({
+        ...VALID_INPUT,
+        paymentMethod: undefined,
+        payments: [
+          { type: "PC", amount: 5 },
+          { type: "PE", amount: 15 },
+        ],
+        lotteryCode: "YYWLR30G",
+      });
+
+      expect(result.error).toBeDefined();
+      expect(mockDocumentInsertValues).not.toHaveBeenCalled();
     });
 
     it("restituisce errore se lotteryCode non rispetta il formato 8 char [A-Z0-9]", async () => {

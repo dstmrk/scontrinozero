@@ -37,6 +37,13 @@ presente: condizionale/roadmap, mai "c'è". Stato attuale:
   "sconto" in un elenco di feature senza distinguerli. NON è ancora spedito
   l'arrotondamento DL 50/2017 con la sua voce di pagamento dedicata
   (`REVIEW.md` #96): non prometterlo.
+- Il **pagamento misto** (ripartizione dell'incasso fra contanti ed
+  elettronico sullo stesso scontrino) è **spedito e Pro-gated** (trial
+  incluso): in cassa è l'affordance `+ Pagamento misto` nel riepilogo, sul
+  documento sono due righe distinte la cui somma fa `Importo pagato`. Due
+  conseguenze da non sbagliare nel copy: col misto il **codice lotteria non è
+  mai ammesso** (serve un incasso esclusivamente elettronico, `HAR.md` voce
+  #13), e la ripartizione riguarda solo `PC`/`PE` — non i buoni pasto.
 - Il **messaggio di cortesia in fondo allo scontrino** è **spedito e
   Pro-gated** (trial incluso): max 64 caratteri su 2 righe, stampato su
   termica, PDF e ricevuta digitale, mai su una ricevuta di annullo. NON è
@@ -57,12 +64,13 @@ Sono capability **assenti dal prodotto** e classificate in `PLAN.md` sotto
 un'esagerazione di marketing. Audit agosto 2026: erano finite in 8 punti fra
 `/funzionalita`, `/per` e `/guide`.
 
-- **Pagamento misto / ripartito** — `PaymentMethod` è `"PC" | "PE"`, uno per
-  documento (`src/types/cassa.ts`, `src/lib/receipts/receipt-schema.ts`).
-  Anche i **buoni pasto** sono nice-to-have: mai citarli fra i metodi.
-  Le due voci si chiamano **Contanti** ed **Elettronico** (non "Carta": `PE`
-  copre anche bonifico e app di pagamento, e sul documento la riga è
-  `Pagamento elettronico`). "Carta" resta legittima come **parola della
+- **Buoni pasto / ticket restaurant** — restano nice-to-have: mai citarli fra
+  i metodi. Lo slot `TR` esiste nel tracciato AdE e il mapper lo regge, ma non
+  è mai stato osservato valorizzato (`HAR.md` voce #15) ed è fuori dallo
+  schema pubblico. Stesso discorso per le tre `NR_*`.
+  Le voci di pagamento si chiamano **Contanti** ed **Elettronico** (non
+  "Carta": `PE` copre anche bonifico e app di pagamento, e sul documento la
+  riga è `Pagamento elettronico`). "Carta" resta legittima come **parola della
   query** nei titoli e nel corpo — è così che l'utente cerca — mai come nome
   della voce in cassa. Grep di controllo: `carta` da solo pesca troppo
   (carta di credito, carta termica, prova senza carta, CIE), filtrare sul

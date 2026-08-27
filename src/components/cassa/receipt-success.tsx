@@ -15,6 +15,7 @@ import { PrintReceiptButton } from "@/components/printing/print-receipt-button";
 import { usePrinter } from "@/hooks/use-printer";
 import { readPrinterPreferences } from "@/lib/printing/printer-preferences";
 import type { CartLine, PaymentMethod } from "@/types/cassa";
+import type { PaymentEntry } from "@/lib/receipts/public-request";
 import type { PrintableReceipt } from "@/lib/printing/types";
 import type { ReceiptPrintProfile } from "@/lib/receipts/print-profile";
 
@@ -36,6 +37,12 @@ interface ReceiptSuccessProps {
    */
   readonly lines?: readonly CartLine[];
   readonly paymentMethod?: PaymentMethod;
+  /**
+   * Ripartizione di un pagamento misto, o `null` su una modalità sola. Serve
+   * alla stampa: la copia consegnata al cliente deve riportare le stesse due
+   * righe del documento trasmesso.
+   */
+  readonly payments?: readonly PaymentEntry[] | null;
   readonly lotteryCode?: string | null;
   /**
    * Sconto a pagare in centesimi interi, congelato al momento dell'emissione:
@@ -54,6 +61,7 @@ export function ReceiptSuccess({
   adeRegisteredAt,
   lines = [],
   paymentMethod = "PC",
+  payments = null,
   lotteryCode = null,
   globalDiscountCents = 0,
   printProfile = null,
@@ -81,6 +89,7 @@ export function ReceiptSuccess({
         vatCode: line.vatCode,
       })),
       paymentMethod,
+      payments,
       // Fallback su "adesso" solo se il server non ha restituito la data:
       // l'orario sarebbe di pochi secondi diverso, meglio di nessuna stampa.
       adeRegisteredAt: adeRegisteredAt ? new Date(adeRegisteredAt) : new Date(),
@@ -99,6 +108,7 @@ export function ReceiptSuccess({
     adeProgressive,
     lines,
     paymentMethod,
+    payments,
     adeRegisteredAt,
     lotteryCode,
     globalDiscountCents,

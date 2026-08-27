@@ -939,7 +939,39 @@ lettori — niente parsing duplicato:
 Documenti storici: nessuna migrazione: `publicRequest` è `jsonb` e l'helper
 tratta `paymentMethod` assente/`payments` assente come i due casi legacy.
 
-### Sub-task C — pagamento misto, input (cassa + Developer API)
+### Sub-task C — pagamento misto, input (cassa + Developer API) ✅ FATTO
+
+> **Spedito.** `payments[]` è accettato da entrambi i canali, mutuamente
+> esclusivo con `paymentMethod` (esattamente uno dei due), con la quadratura
+> `Σ importi + sconto a pagare = totale righe` imposta in centesimi interi da
+> `refinePaymentDeclaration` (`receipt-schema.ts`). Gate Pro su entrambi i
+> canali (`mixedPaymentGateError` in `pro-feature-gates.ts`), codice lotteria
+> ammesso solo quando `PE` è l'unico importo > 0 (`isElectronicOnly`), e in
+> cassa l'affordance `+ Pagamento misto`. Quattro scostamenti dal piano qui
+> sotto:
+>
+> - **La cassa non ha un residuo da azzerare.** Il ripartitore tiene un solo
+>   numero — la quota in contanti — e l'elettronico è per costruzione il
+>   resto dell'incassato. Con due campi indipendenti esisterebbe uno stato che
+>   non quadra, e la voce #5 diventerebbe un errore da mostrare invece di un
+>   invariante; così l'invio non si blocca mai su uno sbilancio, perché non se
+>   ne può creare uno.
+> - **`payments` si persiste sempre**, anche sui metodi singoli, mentre
+>   `paymentMethod` si scrive solo quando la modalità è una. È ciò che fa
+>   produrre da sé il `null` che `/api/v1` espone sui misti, senza un ramo
+>   dedicato nella route.
+> - **Il codice lotteria su un misto è un errore, non un campo ignorato.**
+>   Con `paymentMethod: "PC"` resta tollerato (client legacy che mandano un
+>   placeholder), col misto no: non esistono client legacy da non rompere, e
+>   accettarlo in silenzio farebbe credere all'integratore che il codice sia
+>   finito su un documento irreversibile.
+> - **Il fingerprint di idempotenza include `payments` solo quando c'è**,
+>   come già `globalDiscount` e `lineDiscount`: gli hash persistiti sono
+>   immutabili, e includerlo sempre farebbe fallire come mismatch il retry di
+>   uno scontrino PENDING inviato prima del deploy.
+>
+> Restano deliberatamente fuori `TR` e le tre `NR_*` (voce #6): il mapper le
+> regge, ma non sono mai state osservate valorizzate (voce #15).
 
 **Nessun breaking change su `/api/v1`.** Il body accetta **o**
 `paymentMethod` (scalare, come oggi) **o** `payments[]`, mutuamente esclusivi;

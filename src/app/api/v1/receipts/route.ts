@@ -5,7 +5,10 @@ import {
   groupLinesByDocId,
   calcDocTotal,
 } from "@/lib/receipts/document-lines";
-import { discountGateError } from "@/lib/receipts/discount-gate";
+import {
+  discountGateError,
+  mixedPaymentGateError,
+} from "@/lib/receipts/pro-feature-gates";
 import {
   parsePublicRequest,
   readRawPaymentMethod,
@@ -97,14 +100,21 @@ export async function POST(request: Request): Promise<Response> {
   );
   if ("error" in bodyResult) return bodyResult.error;
 
-  const { lines, paymentMethod, idempotencyKey, lotteryCode, globalDiscount } =
-    bodyResult.data;
+  const {
+    lines,
+    paymentMethod,
+    payments,
+    idempotencyKey,
+    lotteryCode,
+    globalDiscount,
+  } = bodyResult.data;
 
   const input: SubmitReceiptInput = {
     businessId: auth.businessId,
     // `id` is a UI-only React key not used by the service layer; omitted from API schema
     lines: lines.map((l) => ({ ...l, id: "" })),
     paymentMethod,
+    payments,
     idempotencyKey,
     lotteryCode: lotteryCode ?? null,
     globalDiscount,
@@ -118,6 +128,15 @@ export async function POST(request: Request): Promise<Response> {
   const discountError = discountGateError(auth, input);
   if (discountError) {
     return v1Error("PLAN_UPGRADE_REQUIRED", discountError, requestId);
+  }
+
+  // Stesso gate per il pagamento misto. Ridondante per Starter, che non ha
+  // affatto accesso all'API (`canUseApi`), ma NON per i piani `developer_*`:
+  // quelli passano `canUseApi` senza passare `canUsePro`, e qui è l'unico
+  // punto che li ferma — esattamente come già fa il gate sugli sconti.
+  const mixedPaymentError = mixedPaymentGateError(auth, input);
+  if (mixedPaymentError) {
+    return v1Error("PLAN_UPGRADE_REQUIRED", mixedPaymentError, requestId);
   }
 
   // ── Emit ──────────────────────────────────────────────────────────────────
