@@ -179,9 +179,17 @@ $ curl -sSI https://scontrinozero.com/prezzi | grep -i '^location'
 location: scontrinozero.it
 ```
 
-**Causa.** Il target della Redirect Rule (o Bulk Redirect / Page Rule) è stato
-inserito come `scontrinozero.it` invece che come URL assoluto. Non è un
-problema di DNS: A/AAAA e SPF/MX della zona sono corretti.
+**Causa (verificata sulla regola reale il 2026-08-26).** Redirect Rule su "all
+incoming requests", **Type: Static**, URL `scontrinozero.it`, 301, preserve
+query string. Due difetti sovrapposti, e il secondo è quello strutturale:
+
+1. il target è senza schema, quindi il `Location` è relativo e si concatena
+   all'URL corrente — da qui il loop invece della semplice perdita del path;
+2. **un redirect Static non può preservare il path, punto.** Manda tutto a un
+   URL fisso: anche scrivendo `https://scontrinozero.it` per esteso, `/prezzi`
+   atterrerebbe sulla home.
+
+Non è un problema di DNS: A/AAAA della zona sono proxied e corretti.
 
 **Passo 0: scoprire quale delle tre regole lo emette**, invece di indovinare.
 Zona `.com` → **Rules → Trace** (su tutti i piani, serve ruolo Administrator):
@@ -191,11 +199,9 @@ guardare sono tre e uno non è nemmeno nella zona: **Rules → Redirect Rules**,
 **Rules → Page Rules** (legacy, azione "Forwarding URL") e **Bulk Redirects**,
 che sta a livello **account**.
 
-**Fix.** Redirect Rule con target dinamico, così `/prezzi` non atterra sulla
-home:
+**Fix.** Il tipo del target va cambiato: lasciando il matcher "all incoming
+requests" com'è, bastano due campi.
 
-- _When incoming requests match_ →
-  `(http.host eq "scontrinozero.com" or http.host eq "www.scontrinozero.com")`
 - _Then_ → URL redirect · Type **Dynamic** · Status **301** ·
   **Preserve query string ON** · espressione:
 
@@ -203,14 +209,23 @@ home:
 concat("https://scontrinozero.it", http.request.uri.path)
 ```
 
+Equivalente senza espressioni, Type **Wildcard**: Request URL
+`https://scontrinozero.com/*` → target `https://scontrinozero.it/${1}`. Il
+`www` non serve coprirlo, non esiste come record: c'è solo l'apex.
+
 ⚠️ **Solo il path nell'espressione, la query la mette la casella.** Attaccare
 `"?", http.request.uri.query` al `concat` è sbagliato in entrambe le
 configurazioni: con _Preserve query string_ attivo la doc Cloudflare è
 esplicita — "any query string on the target URL is discarded, even when the
 original request has no query string of its own" — quindi il pezzo manuale
 viene buttato via; con la casella spenta ti ritrovi un `?` in coda a ogni URL
-senza query. In forma statica l'equivalente è `https://scontrinozero.it/` con
-"preserve path suffix" attivo.
+senza query.
+
+⚠️ **Non cercare "preserve path suffix" qui: nelle Redirect Rules non
+esiste.** `preserve_path_suffix` e `subpath_matching` sono parametri dei **Bulk
+Redirects**, prodotto diverso e a livello account. Un Single Redirect ha solo
+tipo del target (Static / Dynamic / Wildcard), status code e preserve query
+string — quindi con Static il path si perde e non c'è casella che lo salvi.
 
 **Verifica (dopo il salvataggio della regola):**
 
