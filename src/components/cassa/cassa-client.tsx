@@ -360,12 +360,19 @@ export function CassaClient({
 
         {/* Sconto di riga (Pro) — progressive disclosure, come lo sconto a
             pagare nel riepilogo. Sta DOPO l'aliquota di proposito: lo sconto
-            di riga agisce sulla base imponibile di quella aliquota. */}
-        {discountsUnlocked && !lineDiscountOpen && canAdd && (
+            di riga agisce sulla base imponibile di quella aliquota.
+
+            Renderizzato anche a importo 0, solo disabilitato: `canAdd` è la
+            stessa condizione che sblocca il CTA "Aggiungi" qui sotto, quindi
+            gatelo sul render farebbe comparire questa riga nello stesso frame
+            in cui il bottone si abilita — spingendolo in basso proprio mentre
+            il pollice ci sta scendendo sopra. Lo spazio si riserva. */}
+        {discountsUnlocked && !lineDiscountOpen && (
           <button
             type="button"
+            disabled={!canAdd}
             onClick={() => setLineDiscountOpen(true)}
-            className="text-muted-foreground hover:text-foreground text-sm font-medium underline underline-offset-4"
+            className="text-muted-foreground hover:text-foreground text-sm font-medium underline underline-offset-4 disabled:pointer-events-none disabled:opacity-40"
           >
             {"+ Sconto su questo articolo"}
           </button>

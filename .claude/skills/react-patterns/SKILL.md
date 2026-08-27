@@ -416,6 +416,62 @@ Note operative:
 
 ---
 
+## Progressive disclosure sopra un CTA: riserva lo spazio, non gatelare il render
+
+Un'affordance opzionale resa condizionale (`{cond && <button>+ Opzione</button>}`)
+è gratis solo se `cond` non ha niente a che vedere col bottone primario sotto.
+Quando **la stessa condizione** che la fa comparire abilita anche il CTA, i due
+cambiamenti avvengono nello stesso frame: il CTA si accende **e** scende di una
+riga, proprio mentre il pollice ci sta arrivando sopra. È un mis-tap
+sistematico, non occasionale — su mobile il dito parte prima che il frame sia
+dipinto.
+
+Era il caso dello sconto di riga in cassa: `canAdd = amountCents > 0` gatelava
+il link `+ Sconto su questo articolo` **e** l'attributo `disabled` del bottone
+`Aggiungi` subito sotto. La prima cifra dell'importo faceva le due cose insieme.
+
+```tsx
+// ❌ il CTA scende di una riga nello stesso frame in cui si abilita
+{
+  unlocked && !open && canAdd && (
+    <button onClick={() => setOpen(true)}>+ Sconto su questo articolo</button>
+  );
+}
+<Button disabled={!canAdd}>Aggiungi</Button>;
+
+// ✅ lo spazio è già occupato: cambia solo lo stato del link
+{
+  unlocked && !open && (
+    <button
+      disabled={!canAdd}
+      onClick={() => setOpen(true)}
+      className="disabled:pointer-events-none disabled:opacity-40 …"
+    >
+      + Sconto su questo articolo
+    </button>
+  );
+}
+<Button disabled={!canAdd}>Aggiungi</Button>;
+```
+
+`disabled:pointer-events-none disabled:opacity-40` è la convenzione già usata
+da `src/components/ui/button.tsx` e da `NumericKeypad`: un `<button>` nativo
+disabilitato ignora già il click, la classe serve a spegnere anche l'hover.
+Effetto collaterale gradito: la feature diventa **visibile prima** di essere
+usabile, che è discovery gratuita per una funzione di piano.
+
+Note operative:
+
+- Il gate di **piano** (`discountsUnlocked`) resta sul render: quella riga non
+  deve occupare spazio per chi non può usarla, e lì nessun CTA si muove perché
+  la prop non cambia mai durante la sessione. La distinzione è: gate stabile →
+  render condizionale; gate che commuta durante l'interazione → `disabled`.
+- **jsdom non fa layout**: il proxy verificabile è l'indice del CTA fra i
+  fratelli prima e dopo il cambio di stato
+  (`src/components/cassa/cassa-client.test.tsx`).
+
+---
+
 ## Pagina lenta: un `await` in cima blocca tutto l'HTML
 
 Una RSC che fa `const [a, b] = await Promise.all([…])` prima di ritornare JSX
