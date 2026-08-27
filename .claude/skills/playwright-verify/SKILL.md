@@ -1,6 +1,6 @@
 ---
 name: playwright-verify
-description: Use when you need to verify the RUNNING dev app by driving a REAL browser — checking live UI/DOM on dev.scontrinozero.it / app-dev.scontrinozero.it, running a login → onboarding → dashboard → receipt flow end-to-end, or confirming a fix works in the deployed :dev image rather than only in unit tests. Covers driving the Playwright MCP server (real headless Chromium) via curl over MCP Streamable-HTTP (session id + SSE) using the Cloudflare Access service token, injecting the service token via setExtraHTTPHeaders to reach Access-gated hosts, the browser tool inventory (screenshots work), and the hard limits (the ~5s per-request stream ceiling on the Cloudflare hop; Turnstile-gated login/register/reset require the dev captcha bypass). NOT for the shipped app's AdE integration, which forbids headless browsers by design.
+description: Use when you need to verify the RUNNING dev app by driving a REAL browser — checking live UI/DOM on dev.scontrinozero.it / app-dev.scontrinozero.it, running a login → onboarding → dashboard → receipt flow end-to-end, or confirming a fix works in the deployed :dev image rather than only in unit tests. Covers driving the Playwright MCP server (real headless Chromium) via curl over MCP Streamable-HTTP (session id + SSE) using the Cloudflare Access service token, injecting the service token via setExtraHTTPHeaders to reach Access-gated hosts, the browser tool inventory (screenshots work), and the hard limits (the ~5s CUMULATIVE per-session ceiling on the Cloudflare hop; Turnstile-gated login/register/reset require the dev captcha bypass). NOT for the shipped app's AdE integration, which forbids headless browsers by design.
 ---
 
 # playwright-verify — verifica funzionale dell'app dev con un browser reale
@@ -137,13 +137,37 @@ sessioni MCP.
    HTTPS: l'`initialize` non torna alcun `Mcp-Session-Id` e l'helper resta con
    `sid = None`. Anteponi `https://` se manca — l'helper qui sotto lo fa già.
 
-1. **Ceiling ~5s per singola request.** Il Playwright MCP emette l'evento SSE
-   **solo a fine tool**, senza keepalive; un hop Cloudflare chiude lo stream
-   inattivo a ~5s → la risposta torna **vuota** e la **sessione MCP muore**
-   ("Session not found" sulla call dopo). Non è il proxy dell'agente (che
-   aggiunge un suo buffering — bypassalo con `--noproxy '*'`), ma un limite a
-   valle. **Regola d'oro: ogni tool-call deve stare sotto ~5s.** Non è
-   configurabile da fuori (servirebbero keepalive SSE lato server MCP).
+1. **Ceiling ~5s: è CUMULATIVO sulla sessione, non per-call.** Questa voce
+   diceva "~5s per singola request" ed era sbagliata — misurato il 2026-08-27
+   con 12 `run_code` triviali (`return 'ping'`) in fila sulla stessa sessione:
+   ogni round trip costa **~0,73s**, tutti tornano OK fino a `t=4,81s`, e il
+   primo che parte **dopo ~5,5s dall'`initialize` muore**, anche se il suo
+   corpo è `return 'ping'`. Non conta quanto dura la singola call né quante ne
+   fai: conta l'**età della sessione**. Il Playwright MCP emette l'evento SSE
+   solo a fine tool, senza keepalive, e l'hop Cloudflare chiude lo stream →
+   risposta **vuota** e sessione morta ("Session not found" sulla call dopo).
+   Non è il proxy dell'agente (bypassalo comunque con `--noproxy '*'`).
+
+   **Conseguenze operative, in ordine di importanza.**
+
+   Il budget reale è **~5,5s di vita della sessione**, cioè circa **6 round
+   trip** contando l'overhead, o **una call sola** che fa tutto. Siccome una
+   navigazione + idratazione dell'app dev costa già ~1,6-2,3s, di lavoro utile
+   ne restano ~3s.
+
+   Spezzare in call piccole **non aiuta**: paghi 0,73s di overhead per ognuna e
+   bruci il budget più in fretta di una call unica. È l'opposto di quello che
+   suggerirebbe un ceiling per-request.
+
+   Se lo stato che ti serve è **client-side** (carrello della cassa, step di un
+   wizard non ancora persistito) devi fare **tutto in una `run_code` sola**: il
+   re-init riparte da `about:blank` (Gotcha 3) e **le tab non sopravvivono** —
+   `browser_tabs {action:'list'}` in una sessione nuova mostra solo
+   `0: (current) [](about:blank)`, quindi non puoi "riagganciare" la tab di
+   prima. I cookie di login invece persistono, quelli sì.
+
+   Se lo stato è **persistito lato server** (catalogo, onboarding) resti libero
+   di spezzare: è il caso della recipe qui sotto.
 
 2. **Naviga con `waitUntil:'commit'`, non `'load'`.** L'app dev carica molti
    chunk: `'load'` supera i 5s. `'commit'` torna al primo byte (~1s); poi
@@ -155,7 +179,10 @@ sessioni MCP.
    devono stare nella stessa call** (il form si azzera tra sessioni). Per i
    flussi multi-step **persistiti lato server** (es. il wizard onboarding, che
    salva a ogni "Continua" e `page.tsx` riprende dallo step giusto) fai **una
-   call per step** e ricarica `/onboarding` tra l'uno e l'altro.
+   call per step** e ricarica `/onboarding` tra l'uno e l'altro. Il re-init è
+   anche l'**unico modo di azzerare il budget** di Gotcha 1: sessione nuova,
+   altri ~5,5s. È il motivo per cui conviene spendere il primo init per il
+   lavoro lungo e non per un'esplorazione.
 
 4. **`browser_run_code_unsafe` avvolge il codice** in `await (CODE)(page)`:
    passa `async (page) => {...}` **senza `;` finale** dopo la graffa (il `;`
@@ -227,6 +254,42 @@ o.textContent.trim().startsWith('10%'))`). La selezione si registra (il
    non fidarti di quell'attributo per verificare, leggi il `textContent` del
    trigger. Tutto client-side → sotto i 5s tranquillamente.
 
+9. **`require` non esiste in `browser_run_code_unsafe`.** Il codice gira in un
+   contesto senza `require` né `module` (`ReferenceError: require is not
+defined`), quindi **niente `fs`**: non puoi scrivere un file sul server MCP
+   per rileggerlo dopo. Tutto ciò che ti serve deve tornare come **valore di
+   ritorno** della call. Hai comunque `page`, e da lì `page.context()`,
+   `page.context().browser()` e `newCDPSession(page)`.
+
+10. **`page.screenshot()` ignora il `deviceScaleFactor` imposto via CDP.**
+    Playwright applica la propria emulazione quando scatta, quindi un
+    `Emulation.setDeviceMetricsOverride` con `deviceScaleFactor: 2` non ha
+    effetto: l'immagine torna a 1x (390×844). Per una cattura a densità
+    arbitraria **scatta con CDP**, non con Playwright:
+
+    ```js
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setDeviceMetricsOverride", {
+      width: 390,
+      height: 787,
+      deviceScaleFactor: 795 / 390,
+      mobile: true,
+    });
+    await page.waitForTimeout(150);
+    const shot = await cdp.send("Page.captureScreenshot", { format: "png" });
+    return shot.data; // già base64, nessuna conversione da Buffer
+    ```
+
+    Due dettagli che costano un giro se li scopri dopo: l'override va
+    riapplicato **dopo** la navigazione (una `goto` lo azzera), e
+    `Page.captureScreenshot` restituisce **già** base64, mentre
+    `page.screenshot()` dà un `Buffer` da convertire.
+
+11. **Un base64 grosso da solo non sfora, la sessione già consumata sì.** Una
+    cattura 795×1720 (~140 KB di base64) torna senza problemi se la sessione è
+    giovane. Se invece hai già speso il budget di Gotcha 1, la stessa call
+    muore — e sembra un problema di payload quando è un problema di età.
+
 ## Recipe: scrittura via form-dialog + Server Action (es. add catalogo)
 
 Pattern per ogni CRUD-write guidata da un dialog (add/edit prodotto catalogo,
@@ -277,10 +340,75 @@ Codice del gate captcha e widget: `src/server/auth-actions.ts`
 wizard: `src/server/onboarding-actions.ts`. Client wizard:
 `src/app/onboarding/onboarding-form.tsx`.
 
+## Recipe: rigenerare uno screenshot di `public/screenshots/`
+
+Le immagini di `public/screenshots/` non sono catture grezze: sono la schermata
+dell'app **incollata dentro una cornice telefono** con una status bar finta
+(orologio, segnale, batteria) disegnata sopra. La cornice è nel bitmap, non nel
+componente `AppScreenshot`, e le altezze variano da immagine a immagine — quindi
+non esiste un template da riusare. La strada che funziona è **non ridisegnare la
+cornice**: si rigenera solo il vetro e lo si reincolla nell'originale.
+
+Ricavato rigenerando `riepilogo-pagamento.png` (900×1860) il 2026-08-27. I
+numeri qui sotto valgono **per quell'immagine**: per un'altra vanno rimisurati
+con lo stesso metodo, non copiati.
+
+1. **Misura il vetro sull'originale.** Per ogni riga, scansiona da fuori verso
+   dentro e prendi il primo `x` che apre una **corsa di ~20 pixel chiari**
+   (`alpha > 200 && min(r,g,b) > 150`). Non cercare il bezel scuro: il bordo
+   esterno della cornice ha un alone semi-trasparente che inganna le soglie, e
+   una scansione dal centro si ferma sul **testo scuro** dell'app. Su
+   `riepilogo-pagamento.png` il vetro è `x ∈ [53, 847]` (795 px) e
+   `y ∈ [69, 1789]`, con gli angoli che rientrano correttamente in basso
+   (`y=1750 → 78..822`).
+
+2. **Trova dove inizia l'app** — non coincide con il vetro, sopra c'è la status
+   bar. Allinea su un elemento identico nelle due immagini: il **divider sotto
+   l'header** dell'app (riga quasi tutta grigia, `215..248`, per >90% della
+   larghezza). Nell'originale cade a `y=302`, nella cattura a `y=115` →
+   `PASTE_Y = 187`. Una correlazione a forza bruta sull'header dà `185` e
+   sbaglia di 2 px: l'antialiasing la porta fuori strada, il divider no.
+
+3. **Scegli l'altezza del viewport** perché l'app riempia esattamente il vetro
+   residuo: `(1789 − 187) / (795/390) ≈ 787` CSS px. Sbagliarla non deforma
+   nulla — la bottom nav è ancorata in basso, quindi si sposta e basta.
+
+4. **Cattura a densità piena** con CDP (Gotcha 10), `deviceScaleFactor = 795/390`
+   → PNG 795×1604, cioè scala **1:1** con l'originale, nessun resize e nessuna
+   sfocatura. Prima dello scatto togli il prompt PWA, che è un overlay e non fa
+   parte della schermata: `document.querySelectorAll('header')` filtrando su
+   `Installa ScontrinoZero` e `.remove()` (un `display:none` sul figlio lascia
+   un buco e un divider orfano).
+
+5. **Incolla con maschera per-riga**, non con un rettangolo: gli angoli
+   arrotondati vanno preservati. Per ogni riga della regione usa lo span del
+   passo 1 come maschera.
+
+6. **Verifica numericamente, non a occhio.** Diffa il risultato con
+   l'originale: fuori dal vetro le righe diverse devono essere **zero**
+   (cornice e status bar intatte). Se ne trovi sopra `PASTE_Y` o sotto il vetro,
+   l'offset è sbagliato. Dentro il vetro le differenze sono attese: il
+   contenuto è cambiato e l'antialiasing del DPR frazionario non è identico.
+
+7. **Ricontrolla nome, dimensioni e modo.** `page.tsx` dichiara `width`/`height`
+   espliciti (900×1860 per questa): cambiarli sposta il layout dell'articolo.
+   Salva con `optimize=True` e RGBA come l'originale.
+
+⚠️ Il carrello della cassa è **stato client-side**: build + scatto devono stare
+in **una sola** `run_code` (Gotcha 1). Per popolarlo senza pilotare il
+tastierino due volte, sfrutta il prefill da URL di `cassa-client.tsx`
+(`?description=…&price=…&vatCode=…`), che aggiunge una riga durante
+l'idratazione — gratis in termini di budget. La seconda riga va dalla UI:
+descrizione con native setter, cifre **una per tick** (`waitForTimeout(40)` fra
+l'una e l'altra, altrimenti React rilegge lo stesso `value` stale e l'importo
+resta `0,00`), IVA dal Select Radix (Gotcha 8; il default è 22%, per un bar
+serve 10%).
+
 ## Limiti — leggili prima di promettere una verifica
 
-- **Ceiling ~5s per call** (Gotcha 1): niente operazioni atomiche lunghe; spezza
-  sfruttando lo stato persistito lato server.
+- **Ceiling ~5,5s per SESSIONE, non per call** (Gotcha 1): ~6 round trip in
+  tutto. Stato persistito lato server → spezza pure; stato client-side → una
+  call sola, perché il re-init azzera la pagina e le tab non sopravvivono.
 - **Flussi Turnstile-gated** (login/register/reset): nemmeno Chromium reale
   risolve la managed challenge. Serve il **bypass captcha dev**:
   `TURNSTILE_DISABLED=true` (runtime, `.env` del Pi) +
