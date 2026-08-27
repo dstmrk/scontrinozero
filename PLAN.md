@@ -46,8 +46,6 @@ completezza. Coerente con il principio "Minimalismo" del piano.
   metodo co-primario (card/hero dedicati) è una scelta di prominenza, non una
   correzione. _Trigger:_ un volume di utenti che confermano il flusso CIE reale
   senza problemi.
-- **Inserimento sconto** - aggiunta informazione sconto sul totale, presente nel
-  documento commerciale online. _Trigger:_ file har.
 - **Paginazione lista catalogo (Pro)** — la modifica prodotto è già spedita, ma
   la lista carica tutti i prodotti in un colpo (`getCatalogItems` in
   `src/server/catalog-actions.ts`, nessun limit/offset). Serve solo ai Pro con
