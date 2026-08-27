@@ -331,8 +331,17 @@ export interface FaqItem {
 /**
  * Costruisce lo structured data FAQPage da un elenco di domande/risposte.
  * Riusabile da qualunque pagina che renderizza una FAQ a video (home,
- * /confronto, categorie /per, guide), così il contenuto già visibile diventa
- * eleggibile per i rich result di Google.
+ * /confronto, categorie /per, guide).
+ *
+ * NON serve ai rich result: Google li ha ritirati per tutti i siti il
+ * 7 maggio 2026 (report Search Console rimosso a giugno, API ad agosto).
+ * Il markup resta valido e innocuo — structured data non consumato non
+ * penalizza — e lo teniamo per i consumer non-Google, ma la leva vera è il
+ * CONTENUTO della FAQ, non il JSON-LD: domanda come la formula l'utente,
+ * risposta che apre col fatto. Motivo per cui la checklist GEO della skill
+ * `marketing-content` continua a imporre le FAQ a video. Non aggiungere
+ * FAQPage a una pagina sperando in un rich result, e non rimuoverlo dalle
+ * pagine che ce l'hanno.
  */
 export function faqPageJsonLd(items: readonly FaqItem[]) {
   if (items.length === 0) {

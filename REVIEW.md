@@ -939,7 +939,7 @@ WAF rate-limit rule mirata su `/login` e `/register`, non una policy di zona.
 in pasto contenuto-esca ai crawler AI. Qui la strategia dei contenuti è
 l'opposto: `/llms.txt` e `/llms-full.txt` esistono apposta per farsi leggere,
 e la checklist GEO della skill `marketing-content` (risposta secca in apertura,
-fatti numerati citabili, FAQPage) è scritta per **farsi citare** da ChatGPT,
+fatti numerati citabili, FAQ) è scritta per **farsi citare** da ChatGPT,
 Claude, Perplexity e AI Overviews. Attivarlo avvelenerebbe esattamente il
 canale su cui il sito è costruito. **Riaprire:** solo se diventasse
 attivabile per singolo hostname, limitandolo ad `app.` e `sandbox.` — che sono
@@ -949,6 +949,37 @@ Il terzo insight della stessa famiglia, "Security.txt not configured", **è
 invece stato accolto**: il file è servito dall'app
 (`src/app/.well-known/security.txt/`) sull'apex `.it`, e la zona `.com` lo
 risolve seguendo il redirect verso `.it`.
+
+### E-E-A-T: contenuto YMYL firmato da un'organizzazione senza volto
+
+`/guide` e `/help` parlano di sanzioni, aliquote IVA, regime forfettario e
+obbligo POS: dalle Quality Rater Guidelines di settembre 2025 è **YMYL pieno**
+(legale + finanziario), la categoria a cui Google applica l'asticella E-E-A-T
+più alta. Il test "Who / How / Why" della guida sui contenuti helpful si
+aspetta, per YMYL, una **byline con una pagina autore** che dica chi ha
+scritto e con quale competenza, e la **disclosure del processo** quando il
+lettore se la chiederebbe — per esempio su contenuto assistito da AI.
+
+Stato attuale: `articleJsonLd` (`src/components/json-ld.tsx`) dichiara
+`author: { "@type": "Organization", name: "Team ScontrinoZero" }`. Nessun
+`Person`, nessuna bio, nessuna pagina autore, nessuna disclosure di metodo, su
+~89 pagine di contenuto prodotto via LLM con revisione umana (la skill
+`marketing-content` lo dichiara in chiaro). Il contrappeso E-E-A-T oggi vale
+zero, e il volume ci colloca nella fascia che la policy sui contenuti scalati
+guarda per prima.
+
+**Rischio accettato**, deciso il 2026-08-27: non esporre una persona fisica su
+un progetto hobby, e non aggiungere una disclosure che nessun competitor
+italiano espone. Le pagine restano accurate e verificate su fonte primaria
+(tabella dei riferimenti normativi nella skill), che è il pezzo di Trust che
+conta di più.
+
+**Riaprire se:** le impression di `/guide` o `/help` calano in modo sostenuto
+su GSC senza una causa tecnica identificabile; oppure a un core update che
+tocca visibilmente il traffico organico; oppure se il progetto smette di essere
+one-man e una byline reale diventa disponibile a costo sociale zero. In quel
+caso l'ordine giusto è: prima la disclosure di metodo (copre il "How" senza
+esporre nessuno), poi eventualmente `Person` + pagina autore.
 
 ### SonarCloud non indicizza `src/app/.well-known/**`
 

@@ -57,9 +57,19 @@ export const metadata: Metadata = {
     description:
       "Emetti scontrini elettronici e trasmetti i corrispettivi all'AdE senza registratore telematico. Da €29,99/anno, 30 giorni gratis.",
   },
+  // Google non espone un opt-out dedicato per AI Overviews e AI Mode: la
+  // comparsa in quelle superfici e la lunghezza del passaggio citato sono
+  // governate dalle direttive preview standard (`max-snippet`,
+  // `max-image-preview`, `nosnippet`). Restare sul default significa lasciare
+  // a Google il taglio dello snippet proprio sul contenuto che la checklist
+  // GEO della skill `marketing-content` esiste per rendere citabile.
+  // `-1` = nessun limite; `large` = anteprima immagine piena.
   robots: {
     index: true,
     follow: true,
+    "max-snippet": -1,
+    "max-image-preview": "large",
+    "max-video-preview": -1,
   },
   // `<meta name="format-detection" content="telephone=no">`. Senza, i data
   // detectors di Safari su iPhone riscrivono ogni digit-run lungo in
