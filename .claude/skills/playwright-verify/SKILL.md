@@ -344,65 +344,63 @@ wizard: `src/server/onboarding-actions.ts`. Client wizard:
 
 Le immagini di `public/screenshots/` non sono catture grezze: sono la schermata
 dell'app **incollata dentro una cornice telefono** con una status bar finta
-(orologio, segnale, batteria) disegnata sopra. La cornice è nel bitmap, non nel
+(orologio, segnale, batteria) disegnata sopra. La cornice sta nel bitmap, non nel
 componente `AppScreenshot`, e le altezze variano da immagine a immagine — quindi
 non esiste un template da riusare. La strada che funziona è **non ridisegnare la
 cornice**: si rigenera solo il vetro e lo si reincolla nell'originale.
 
-Ricavato rigenerando `riepilogo-pagamento.png` (900×1860) il 2026-08-27. I
-numeri qui sotto valgono **per quell'immagine**: per un'altra vanno rimisurati
-con lo stesso metodo, non copiati.
+L'aritmetica di quel reincollo non è prosa da ricordare: vive in
+**`scripts/compose-screenshot.mjs`** (misura il vetro, deriva l'offset dal
+divider, compone con maschera per-riga, e **fallisce se un solo pixel fuori dal
+vetro cambia**). A te resta la parte che una macchina non può fare da sola: la
+cattura.
 
-1. **Misura il vetro sull'originale.** Per ogni riga, scansiona da fuori verso
-   dentro e prendi il primo `x` che apre una **corsa di ~20 pixel chiari**
-   (`alpha > 200 && min(r,g,b) > 150`). Non cercare il bezel scuro: il bordo
-   esterno della cornice ha un alone semi-trasparente che inganna le soglie, e
-   una scansione dal centro si ferma sul **testo scuro** dell'app. Su
-   `riepilogo-pagamento.png` il vetro è `x ∈ [53, 847]` (795 px) e
-   `y ∈ [69, 1789]`, con gli angoli che rientrano correttamente in basso
-   (`y=1750 → 78..822`).
+1. **Scalda l'app.** Una sessione MCP a perdere che naviga e basta. L'app dev
+   gira su un Raspberry Pi: a freddo la stessa cattura ha preso **7,35s** contro
+   i **4,38s** a caldo, e il budget di sessione (Gotcha 1) è ~5,5s. Senza
+   questo passo la prima cattura muore quasi sempre.
 
-2. **Trova dove inizia l'app** — non coincide con il vetro, sopra c'è la status
-   bar. Allinea su un elemento identico nelle due immagini: il **divider sotto
-   l'header** dell'app (riga quasi tutta grigia, `215..248`, per >90% della
-   larghezza). Nell'originale cade a `y=302`, nella cattura a `y=115` →
-   `PASTE_Y = 187`. Una correlazione a forza bruta sull'header dà `185` e
-   sbaglia di 2 px: l'antialiasing la porta fuori strada, il divider no.
+2. **Cattura la schermata**, in **una sola** `run_code` se lo stato e'
+   client-side (il carrello della cassa lo è). Larghezza viewport 390 CSS px;
+   per l'altezza tira a indovinare la prima volta — 787 è il valore giusto per
+   `riepilogo-pagamento.png`, per le altre lo dira' lo script. Prima dello
+   scatto togli il prompt PWA, che è un overlay e non fa parte della schermata:
+   `document.querySelectorAll('header')` filtrando su `Installa ScontrinoZero` e
+   `.remove()` (un `display:none` sul figlio lascia un buco e un divider
+   orfano). Scatta con CDP, non con Playwright (Gotcha 10).
 
-3. **Scegli l'altezza del viewport** perché l'app riempia esattamente il vetro
-   residuo: `(1789 − 187) / (795/390) ≈ 787` CSS px. Sbagliarla non deforma
-   nulla — la bottom nav è ancorata in basso, quindi si sposta e basta.
+3. **Componi.** Lo script fa tutto il resto:
 
-4. **Cattura a densità piena** con CDP (Gotcha 10), `deviceScaleFactor = 795/390`
-   → PNG 795×1604, cioè scala **1:1** con l'originale, nessun resize e nessuna
-   sfocatura. Prima dello scatto togli il prompt PWA, che è un overlay e non fa
-   parte della schermata: `document.querySelectorAll('header')` filtrando su
-   `Installa ScontrinoZero` e `.remove()` (un `display:none` sul figlio lascia
-   un buco e un divider orfano).
+   ```bash
+   node scripts/compose-screenshot.mjs \
+     public/screenshots/<nome>.png <cattura>.png --in-place
+   ```
 
-5. **Incolla con maschera per-riga**, non con un rettangolo: gli angoli
-   arrotondati vanno preservati. Per ogni riga della regione usa lo span del
-   passo 1 come maschera.
+   Se l'altezza o la larghezza non tornano non indovina: dice a che viewport
+   ricatturare (es. `Ricattura con viewport 390x786 CSS px`), esce 1 e **non
+   scrive nulla**. Riscatta e rilancia.
 
-6. **Verifica numericamente, non a occhio.** Diffa il risultato con
-   l'originale: fuori dal vetro le righe diverse devono essere **zero**
-   (cornice e status bar intatte). Se ne trovi sopra `PASTE_Y` o sotto il vetro,
-   l'offset è sbagliato. Dentro il vetro le differenze sono attese: il
-   contenuto è cambiato e l'antialiasing del DPR frazionario non è identico.
+4. **Ricontrolla nome, dimensioni e modo.** `page.tsx` dichiara `width`/`height`
+   espliciti (900×1860 per `riepilogo-pagamento.png`): cambiarli sposta il
+   layout dell'articolo. Lo script preserva dimensioni e RGBA dell'originale.
 
-7. **Ricontrolla nome, dimensioni e modo.** `page.tsx` dichiara `width`/`height`
-   espliciti (900×1860 per questa): cambiarli sposta il layout dell'articolo.
-   Salva con `optimize=True` e RGBA come l'originale.
+5. **Aggiorna `alt` e didascalia** se la schermata nuova mostra o smette di
+   mostrare qualcosa — è la parte che lo script non può sapere.
 
 ⚠️ Il carrello della cassa è **stato client-side**: build + scatto devono stare
-in **una sola** `run_code` (Gotcha 1). Per popolarlo senza pilotare il
-tastierino due volte, sfrutta il prefill da URL di `cassa-client.tsx`
+in una sola `run_code` (Gotcha 1). Per popolarlo senza pilotare il tastierino
+due volte, sfrutta il prefill da URL di `cassa-client.tsx`
 (`?description=…&price=…&vatCode=…`), che aggiunge una riga durante
 l'idratazione — gratis in termini di budget. La seconda riga va dalla UI:
 descrizione con native setter, cifre **una per tick** (`waitForTimeout(40)` fra
 l'una e l'altra, altrimenti React rilegge lo stesso `value` stale e l'importo
 resta `0,00`), IVA dal Select Radix (Gotcha 8; il default è 22%, per un bar
 serve 10%).
+
+> La geometria e il perchè di ogni soglia stanno nei commenti dello script.
+> Due rigenerazioni indipendenti di `riepilogo-pagamento.png` (#86 e #97) hanno
+> prodotto gli **stessi pixel** per tutto ciò che non era cambiato: le costanti
+> sono deterministiche, non una taratura fortunata.
 
 ## Limiti — leggili prima di promettere una verifica
 
