@@ -39,8 +39,9 @@ presente: condizionale/roadmap, mai "c'è". Stato attuale:
   (`REVIEW.md` #96): non prometterlo.
 - Il **pagamento misto** (ripartizione dell'incasso fra contanti ed
   elettronico sullo stesso scontrino) è **spedito e Pro-gated** (trial
-  incluso): in cassa è l'affordance `+ Pagamento misto` nel riepilogo, sul
-  documento sono due righe distinte la cui somma fa `Importo pagato`. Due
+  incluso): in cassa è l'affordance `+ Pagamento misto` sotto "Altre opzioni"
+  nel riepilogo (dal #893 non più a vista diretta — va aperto il pannello),
+  sul documento sono due righe distinte la cui somma fa `Importo pagato`. Due
   conseguenze da non sbagliare nel copy: col misto il **codice lotteria non è
   mai ammesso** (serve un incasso esclusivamente elettronico, `HAR.md` voce
   #13), e la ripartizione riguarda solo `PC`/`PE` — non i buoni pasto.
