@@ -16,9 +16,15 @@
  * Uso:
  *   node scripts/compose-screenshot.mjs <originale.png> <cattura.png> <out.png>
  *   node scripts/compose-screenshot.mjs <originale.png> <cattura.png> --in-place
+ *   ... --paste-y=N   per una cattura scrollata (vedi `planPaste`)
  *
  * La cattura si fa con la skill `playwright-verify`. Se l'altezza non e'
  * quella giusta lo script non indovina: dice a che viewport ricatturare.
+ *
+ * Serve anche a creare un asset NUOVO: si passa come "originale" uno
+ * screenshot esistente con la cornice giusta, che fa da donatore, e come
+ * output un nome nuovo. Cornice e status bar restano quelle, verificate dalla
+ * guardia; cambia solo il vetro.
  */
 
 /** Corsa minima di pixel chiari che identifica il vetro dello schermo. */
@@ -191,8 +197,15 @@ export function findDividerRow(img, x0, x1, from = 0) {
  * Unione discriminata su `ok`: chi chiama restringe con `if (!plan.ok)` e da
  * lì in poi ha i campi garantiti, senza optional chaining difensivo.
  *
+ * `opts.pasteY` salta il divider e incolla a un offset dato. Serve alle
+ * catture **scrollate**, che non cominciano dall'header dell'app e quindi non
+ * hanno il divider su cui allinearsi: senza override lo script si aggancia a
+ * un'altra riga grigia e sbaglia di decine di px. Il valore si legge
+ * dall'output di una composizione normale sullo stesso originale
+ * ("Incollata a y=N"). Le altre verifiche restano tutte attive.
+ *
  * @param {Rgba} original @param {Rgba} capture
- * @param {{ cssWidth?: number }} [opts]
+ * @param {{ cssWidth?: number, pasteY?: number }} [opts]
  * @returns {PlanOk | PlanError}
  */
 export function planPaste(original, capture, opts = {}) {
@@ -213,28 +226,32 @@ export function planPaste(original, capture, opts = {}) {
     };
   }
 
-  const inset = Math.round(glass.width * DIVIDER_INSET);
-  const origDivider = findDividerRow(
-    original,
-    glass.left + inset,
-    glass.right - inset,
-    glass.top,
-  );
-  const capDivider = findDividerRow(
-    capture,
-    inset,
-    capture.width - 1 - inset,
-    0,
-  );
-  if (origDivider === null || capDivider === null) {
-    return {
-      ok: false,
-      error:
-        "Divider dell'header non trovato: allineamento impossibile. La cattura ritrae la stessa schermata?",
-    };
+  let pasteY;
+  if (opts.pasteY !== undefined) {
+    pasteY = opts.pasteY;
+  } else {
+    const inset = Math.round(glass.width * DIVIDER_INSET);
+    const origDivider = findDividerRow(
+      original,
+      glass.left + inset,
+      glass.right - inset,
+      glass.top,
+    );
+    const capDivider = findDividerRow(
+      capture,
+      inset,
+      capture.width - 1 - inset,
+      0,
+    );
+    if (origDivider === null || capDivider === null) {
+      return {
+        ok: false,
+        error:
+          "Divider dell'header non trovato: allineamento impossibile. La cattura ritrae la stessa schermata? Se e' scrollata, passa --paste-y=N.",
+      };
+    }
+    pasteY = origDivider - capDivider;
   }
-
-  const pasteY = origDivider - capDivider;
   const required = glass.bottom - pasteY + 1;
   const dpr = glass.width / cssWidth;
   const cssHeight = Math.round(required / dpr);
@@ -329,17 +346,30 @@ export function frameDrift(original, composed, spans) {
 
 /* c8 ignore start -- guscio di I/O: la logica pura sopra e' testata a parte */
 async function main() {
-  const args = process.argv.slice(2).filter((a) => a !== "--in-place");
-  const inPlace = process.argv.includes("--in-place");
+  const argv = process.argv.slice(2);
+  const args = argv.filter((a) => !a.startsWith("--"));
+  const inPlace = argv.includes("--in-place");
+  const pasteYArg = argv.find((a) => a.startsWith("--paste-y="));
+  const pasteY = pasteYArg
+    ? Number(pasteYArg.slice("--paste-y=".length))
+    : undefined;
   const [origPath, capPath, outArg] = args;
   const outPath = inPlace ? origPath : outArg;
 
-  if (!origPath || !capPath || !outPath) {
+  if (
+    !origPath ||
+    !capPath ||
+    !outPath ||
+    (pasteYArg && !Number.isFinite(pasteY))
+  ) {
     console.error(
       "Uso: node scripts/compose-screenshot.mjs <originale.png> <cattura.png> <out.png>",
     );
     console.error(
       "     node scripts/compose-screenshot.mjs <originale.png> <cattura.png> --in-place",
+    );
+    console.error(
+      "Opzioni: --paste-y=N   per una cattura scrollata, che non parte dall'header",
     );
     process.exit(1);
   }
@@ -356,7 +386,7 @@ async function main() {
   const original = await load(origPath);
   const capture = await load(capPath);
 
-  const plan = planPaste(original, capture);
+  const plan = planPaste(original, capture, { pasteY });
   if (!plan.ok) {
     console.error(`❌ ${plan.error}`);
     process.exit(1);

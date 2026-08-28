@@ -387,6 +387,36 @@ cattura.
 5. **Aggiorna `alt` e didascalia** se la schermata nuova mostra o smette di
    mostrare qualcosa — è la parte che lo script non può sapere.
 
+### Due casi che la ricetta base non copre
+
+**Un asset nuovo.** Non serve disegnare una cornice: si passa allo script come
+"originale" uno screenshot esistente con la cornice giusta — fa da **donatore**
+— e come output un nome nuovo. La guardia continua a valere: cornice e status
+bar restano quelle del donatore, verificate al pixel.
+
+Attenzione, le cornici **non sono la stessa scalata**: hanno vetri di larghezza
+diversa e quindi DPR diversi. Misurate il 2026-08-28:
+
+| donatore                  | frame    | vetro | DPR    | spazio app |
+| ------------------------- | -------- | ----- | ------ | ---------- |
+| `riepilogo-pagamento.png` | 900×1860 | 795   | 2,0385 | 786 CSS px |
+| `cassa-tastierino.png`    | 900×1944 | 788   | 2,0205 | 831 CSS px |
+| `analytics-grafici.png`   | 900×2051 | 778   | 1,9949 | 892 CSS px |
+
+**Una schermata più alta della cornice.** Nessun donatore arriva oltre ~892 CSS
+px, e una schermata può superarli (il riepilogo col pagamento misto aperto è
+**1156**). Allora si cattura **scrollati** — `window.scrollTo(0,
+document.documentElement.scrollHeight)` — scegliendo il punto in cui il taglio
+in alto cade su un bordo netto, così sembra voluto e non un errore di
+composizione. La bottom nav è `fixed`, quindi resta al suo posto; l'header
+dell'app **no**, scorre via.
+
+Ed è proprio per questo che una cattura scrollata **non ha il divider**
+dell'header su cui lo script si allinea: senza override si aggancia a un'altra
+riga grigia e sbaglia di decine di px. Lo script se ne accorge e rifiuta —
+passa `--paste-y=N`, leggendo l'`N` dall'output di una composizione normale
+sullo stesso donatore (`Incollata a y=187`).
+
 ⚠️ Il carrello della cassa è **stato client-side**: build + scatto devono stare
 in una sola `run_code` (Gotcha 1). Per popolarlo senza pilotare il tastierino
 due volte, sfrutta il prefill da URL di `cassa-client.tsx`

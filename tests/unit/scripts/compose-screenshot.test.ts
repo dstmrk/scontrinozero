@@ -158,6 +158,49 @@ describe("planPaste", () => {
   });
 });
 
+describe("planPaste con --paste-y (catture scrollate)", () => {
+  it("usa l'offset dato e ignora del tutto il divider", () => {
+    // a y=20 il vetro (che finisce a 69) ne vuole 50, non 55
+    const plan = planPaste(makeOriginal(), makeCapture(50), {
+      cssWidth: 80,
+      pasteY: 20,
+    });
+    if (!plan.ok) throw new Error(plan.error);
+    expect(plan.pasteY).toBe(20);
+    expect(plan.required).toBe(50);
+  });
+
+  it("compone una cattura senza divider, che altrimenti sarebbe rifiutata", () => {
+    const senzaDivider = blank(80, 55, WHITE);
+    const rifiutata = planPaste(makeOriginal(), senzaDivider, { cssWidth: 80 });
+    expect(rifiutata.ok).toBe(false);
+
+    const conOverride = planPaste(makeOriginal(), senzaDivider, {
+      cssWidth: 80,
+      pasteY: 15,
+    });
+    expect(conOverride.ok).toBe(true);
+  });
+
+  it("suggerisce --paste-y quando l'allineamento fallisce", () => {
+    const plan = planPaste(makeOriginal(), blank(80, 55, WHITE), {
+      cssWidth: 80,
+    });
+    if (plan.ok) throw new Error("doveva rifiutare una cattura senza divider");
+    expect(plan.error).toContain("--paste-y");
+  });
+
+  it("verifica comunque l'altezza rispetto all'offset dato", () => {
+    const plan = planPaste(makeOriginal(), makeCapture(55), {
+      cssWidth: 80,
+      pasteY: 5,
+    });
+    if (plan.ok)
+      throw new Error("doveva rifiutare: a y=5 il vetro ne vuole 65");
+    expect(plan.error).toContain("65");
+  });
+});
+
 describe("composite", () => {
   it("scrive dentro il vetro", () => {
     const original = makeOriginal();
