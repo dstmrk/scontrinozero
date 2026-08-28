@@ -46,22 +46,6 @@ completezza. Coerente con il principio "Minimalismo" del piano.
   metodo co-primario (card/hero dedicati) è una scelta di prominenza, non una
   correzione. _Trigger:_ un volume di utenti che confermano il flusso CIE reale
   senza problemi.
-- **Paginazione lista catalogo (Pro)** — la modifica prodotto è già spedita, ma
-  la lista carica tutti i prodotti in un colpo (`getCatalogItems` in
-  `src/server/catalog-actions.ts`, nessun limit/offset). Serve solo ai Pro con
-  cataloghi grandi (Starter è capato a 5, `STARTER_CATALOG_LIMIT` in
-  `src/lib/plans-shared.ts`). _Trigger:_ Pro con cataloghi oltre ~50 prodotti.
-- **Badge proattivo stato AdE** — oggi il collegamento all'AdE si scopre rotto
-  solo _reagendo_: il `CieReauthBanner`
-  (`src/components/ade/cie-reauth-banner.tsx`) compare in cassa/storno **dopo**
-  che un'emissione è fallita con `reauthRequired`, e le credenziali mai
-  verificate si vedono solo entrando in Impostazioni → Credenziali AdE. Un
-  indicatore in cima al dashboard (o nell'header) quando `verifiedAt` è nullo o
-  la sessione è scaduta anticiperebbe la scoperta al momento giusto, prima del
-  banco. Emersa dal pass UX del menu Impostazioni (v1.7.x): tenuta fuori da quel
-  PR perché è una feature a sé, non un riordino di card. _Trigger:_ segnalazioni
-  di emissioni fallite per credenziali scadute, o eventi `ade_user_error`
-  ricorrenti sullo stesso utente in Sentry.
 - **Integrazioni POS — SumUp (#92) come pilota Pro**, Nexi (#93) a seguire —
   SDK esterni + webhook + riconciliazione pagamento↔scontrino; alta superficie,
   beneficio incerto sui micro-esercenti che spesso usano un POS separato. Se si
