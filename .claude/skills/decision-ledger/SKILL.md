@@ -105,12 +105,15 @@ legge; come documento strutturato no. Quindi:
   oppure paragrafi con un lead-in in grassetto al posto delle liste con
   continuazione;
 - niente entità HTML (`&#34;`, `&gt;`) lasciate da un editor;
-- **niente tag in stile HTML, nemmeno dentro i backtick**: GitHub li sanifica
-  _prima_ di salvare il corpo, quindi spariscono dal testo, non solo dal
-  render. Misurato sulla PR #896: `` `{!isSplit && <PaymentMethodSelector/>}` ``
-  è stato salvato come `` `{!isSplit && }` `` — il nome del componente,
-  cioè l'unica informazione della riga, perso. Cita i componenti JSX per nome
-  in prosa (`viene reso solo quando !isSplit`), mai come tag;
+- i tag in stile HTML **sembrano** spariti quando rileggi corpo o messaggio di
+  commit dagli strumenti GitHub, ma è un artefatto di **lettura**, non un
+  danno allo storage. Misurato sulla PR #896: un commit contenente
+  `` `<PaymentMethodSelector/>` `` torna dall'API senza il tag, mentre
+  `git log -1 --format=%B` sullo stesso commit ce l'ha. Prima di "riparare" un
+  testo che sembra mangiato, **verificalo contro git**: rincorrere l'artefatto
+  costa un giro di modifiche inutili. Nel dubbio su un corpo di PR, che in git
+  non c'è, cita i componenti JSX per nome in prosa — costa nulla e toglie
+  l'ambiguità;
 - le tabelle sopravvivono, perché le loro righe sono già corte: tienile strette.
 
 **Si scrive prima del merge.** Dopo, è storia immutabile: correggerla vuol dire
