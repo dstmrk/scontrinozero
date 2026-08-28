@@ -105,6 +105,12 @@ legge; come documento strutturato no. Quindi:
   oppure paragrafi con un lead-in in grassetto al posto delle liste con
   continuazione;
 - niente entità HTML (`&#34;`, `&gt;`) lasciate da un editor;
+- **niente tag in stile HTML, nemmeno dentro i backtick**: GitHub li sanifica
+  _prima_ di salvare il corpo, quindi spariscono dal testo, non solo dal
+  render. Misurato sulla PR #896: `` `{!isSplit && <PaymentMethodSelector/>}` ``
+  è stato salvato come `` `{!isSplit && }` `` — il nome del componente,
+  cioè l'unica informazione della riga, perso. Cita i componenti JSX per nome
+  in prosa (`viene reso solo quando !isSplit`), mai come tag;
 - le tabelle sopravvivono, perché le loro righe sono già corte: tienile strette.
 
 **Si scrive prima del merge.** Dopo, è storia immutabile: correggerla vuol dire
