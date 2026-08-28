@@ -144,22 +144,23 @@ export default function PrimoScontrinoPage() {
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Il metodo di pagamento è obbligatorio: lo scontrino accetta un solo
-          metodo per documento (non sono previsti pagamenti misti). Se scegli{" "}
-          <strong>Elettronico</strong> puoi anche inserire il{" "}
+          metodo per documento (con il piano Pro puoi ripartire l&apos;incasso
+          fra i due). Sotto <strong>Altre opzioni</strong> trovi il{" "}
           <strong>Codice lotteria</strong> (8 caratteri, scontrini da almeno €1)
-          per far partecipare il cliente alla Lotteria degli Scontrini.
+          per far partecipare il cliente alla Lotteria degli Scontrini: il campo
+          accetta un codice solo se incassi tutto in elettronico.
         </p>
         <figure className="mt-6">
           <AppScreenshot
             src="/screenshots/riepilogo-pagamento.png"
-            alt="Schermata di riepilogo scontrino con le righe, il totale, la scelta del metodo di pagamento e il campo codice lotteria"
+            alt="Schermata di riepilogo scontrino con le righe, il totale e la scelta del metodo di pagamento"
             width={900}
             height={1860}
             sizes="(min-width: 768px) 240px, 65vw"
             className="mx-auto max-w-[240px]"
           />
           <figcaption className="text-muted-foreground mt-2 text-center text-xs">
-            Il riepilogo con totale, metodo di pagamento e codice lotteria.
+            Il riepilogo con totale e metodo di pagamento.
           </figcaption>
         </figure>
 

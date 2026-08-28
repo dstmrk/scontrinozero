@@ -23,6 +23,18 @@ const lines: CartLine[] = [
 // 2×8.50 + 1×1.20 = 18.20 → 1820 cents (canone per-riga, regola 17)
 const TOTAL_CENTS = 1820;
 
+const LOTTERY = "Codice lotteria (8 caratteri)";
+
+/**
+ * Apre il pannello "Altre opzioni". Sconto a pagare, pagamento misto e codice
+ * lotteria vivono lì dentro: sono casi marginali e da fuori costavano altezza
+ * a ogni scontrino. Il pannello si apre da solo quando una di quelle opzioni
+ * è già impostata, quindi serve solo nei test che partono da zero.
+ */
+function openOptions() {
+  fireEvent.click(screen.getByRole("button", { name: /altre opzioni/i }));
+}
+
 describe("ReceiptSummary", () => {
   it("mostra tutte le righe del carrello", () => {
     render(
@@ -283,216 +295,160 @@ describe("ReceiptSummary", () => {
 
     expect(onRemoveLine).toHaveBeenCalledWith("1");
   });
+});
 
-  describe("campo codice lotteria", () => {
-    it("non mostra il campo lotteria con pagamento PC (contanti)", () => {
-      render(
-        <ReceiptSummary
-          lines={lines}
-          totalCents={TOTAL_CENTS}
-          paymentMethod="PC"
-          onPaymentMethodChange={vi.fn()}
-          onRemoveLine={vi.fn()}
-          onSubmit={vi.fn()}
-          onBack={vi.fn()}
-          lotteryCode=""
-          onLotteryCodeChange={vi.fn()}
-        />,
-      );
+describe("ReceiptSummary — pannello Altre opzioni", () => {
+  const base = {
+    lines,
+    totalCents: TOTAL_CENTS,
+    paymentMethod: "PC" as const,
+    onPaymentMethodChange: vi.fn(),
+    onRemoveLine: vi.fn(),
+    onSubmit: vi.fn(),
+    onBack: vi.fn(),
+  };
 
-      expect(
-        screen.queryByPlaceholderText(/codice lotteria/i),
-      ).not.toBeInTheDocument();
+  it("parte chiuso su uno scontrino ordinario", () => {
+    // Sconto a pagare, misto e lotteria servono in una frazione degli
+    // scontrini: da fuori costavano tre blocchi di altezza a ogni emissione.
+    render(<ReceiptSummary {...base} discountsUnlocked />);
+
+    expect(screen.queryByPlaceholderText(LOTTERY)).not.toBeInTheDocument();
+    expect(screen.queryByText("+ Sconto a pagare")).not.toBeInTheDocument();
+    expect(screen.queryByText("+ Pagamento misto")).not.toBeInTheDocument();
+  });
+
+  it("lascia fuori dal pannello Totale e metodo di pagamento", () => {
+    // Non sono opzioni: sono le grandezze che l'esercente deve vedere senza
+    // chiederle.
+    render(<ReceiptSummary {...base} discountsUnlocked />);
+
+    expect(screen.getByText("Totale")).toBeInTheDocument();
+    expect(screen.getByText("Metodo di pagamento")).toBeInTheDocument();
+  });
+
+  it("lascia fuori dal pannello `Da incassare`", () => {
+    // È il risultato di una scelta già fatta, non un'opzione: nasconderlo è
+    // esattamente la sorpresa che quel blocco esiste per evitare.
+    render(
+      <ReceiptSummary {...base} discountsUnlocked globalDiscountCents={320} />,
+    );
+
+    openOptions(); // lo sconto impostato apre il pannello: qui lo richiudo
+
+    expect(
+      screen.getByRole("button", { name: /altre opzioni/i }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText("Da incassare")).toBeInTheDocument();
+    expect(screen.getByText(/15,00/)).toBeInTheDocument();
+  });
+
+  it("mostra le opzioni al tap sul pannello", () => {
+    render(<ReceiptSummary {...base} discountsUnlocked />);
+
+    openOptions();
+
+    expect(screen.getByPlaceholderText(LOTTERY)).toBeInTheDocument();
+    expect(screen.getByText("+ Sconto a pagare")).toBeInTheDocument();
+    expect(screen.getByText("+ Pagamento misto")).toBeInTheDocument();
+  });
+});
+
+describe("ReceiptSummary — campo codice lotteria", () => {
+  const base = {
+    lines,
+    totalCents: TOTAL_CENTS,
+    onPaymentMethodChange: vi.fn(),
+    onRemoveLine: vi.fn(),
+    onSubmit: vi.fn(),
+    onBack: vi.fn(),
+    lotteryCode: "",
+    onLotteryCodeChange: vi.fn(),
+  };
+
+  it("resta visibile ma disabilitato con pagamento PC (contanti)", () => {
+    // Prima spariva in silenzio: dentro il pannello non può, o per un piano
+    // senza Pro il pannello resterebbe vuoto. Disabilitato con la ragione
+    // scritta è comunque più onesto di un campo che non c'è.
+    render(<ReceiptSummary {...base} paymentMethod="PC" />);
+    openOptions();
+
+    expect(screen.getByPlaceholderText(LOTTERY)).toBeDisabled();
+    expect(
+      screen.getByText(/richiede un pagamento elettronico/i),
+    ).toBeInTheDocument();
+  });
+
+  it("è abilitato con pagamento PE (elettronico)", () => {
+    render(<ReceiptSummary {...base} paymentMethod="PE" />);
+    openOptions();
+
+    expect(screen.getByPlaceholderText(LOTTERY)).toBeEnabled();
+  });
+
+  it("propaga il codice al padre, in maiuscolo", () => {
+    const onLotteryCodeChange = vi.fn();
+    render(
+      <ReceiptSummary
+        {...base}
+        paymentMethod="PE"
+        onLotteryCodeChange={onLotteryCodeChange}
+      />,
+    );
+    openOptions();
+
+    fireEvent.change(screen.getByPlaceholderText(LOTTERY), {
+      target: { value: "abc12345" },
     });
 
-    it("mostra il campo lotteria con pagamento PE (elettronico)", () => {
-      render(
-        <ReceiptSummary
-          lines={lines}
-          totalCents={TOTAL_CENTS}
-          paymentMethod="PE"
-          onPaymentMethodChange={vi.fn()}
-          onRemoveLine={vi.fn()}
-          onSubmit={vi.fn()}
-          onBack={vi.fn()}
-          lotteryCode=""
-          onLotteryCodeChange={vi.fn()}
-        />,
-      );
+    expect(onLotteryCodeChange).toHaveBeenCalledWith("ABC12345");
+  });
 
-      expect(
-        screen.getByPlaceholderText(/codice lotteria/i),
-      ).toBeInTheDocument();
-    });
+  it("mostra il valore corrente del codice lotteria", () => {
+    // Un codice già digitato apre il pannello da solo: non deve finire dietro
+    // un tap.
+    render(
+      <ReceiptSummary {...base} paymentMethod="PE" lotteryCode="YYWLR30G" />,
+    );
 
-    it("converte automaticamente l'input in maiuscolo", async () => {
-      const onLotteryCodeChange = vi.fn();
-      render(
-        <ReceiptSummary
-          lines={lines}
-          totalCents={TOTAL_CENTS}
-          paymentMethod="PE"
-          onPaymentMethodChange={vi.fn()}
-          onRemoveLine={vi.fn()}
-          onSubmit={vi.fn()}
-          onBack={vi.fn()}
-          lotteryCode=""
-          onLotteryCodeChange={onLotteryCodeChange}
-        />,
-      );
+    expect(
+      (screen.getByPlaceholderText(LOTTERY) as HTMLInputElement).value,
+    ).toBe("YYWLR30G");
+  });
 
-      const input = screen.getByPlaceholderText(/codice lotteria/i);
-      fireEvent.change(input, { target: { value: "abc12345" } });
+  it("disabilita il campo quando totalCents < 100 con pagamento PE", () => {
+    render(<ReceiptSummary {...base} totalCents={50} paymentMethod="PE" />);
+    openOptions();
 
-      expect(onLotteryCodeChange).toHaveBeenCalledWith("ABC12345");
-    });
+    expect(screen.getByPlaceholderText(LOTTERY)).toBeDisabled();
+    expect(
+      screen.getByText(/non disponibile per importi inferiori a €1,00/i),
+    ).toBeInTheDocument();
+  });
 
-    it("limita l'input a 8 caratteri (maxLength)", () => {
-      render(
-        <ReceiptSummary
-          lines={lines}
-          totalCents={TOTAL_CENTS}
-          paymentMethod="PE"
-          onPaymentMethodChange={vi.fn()}
-          onRemoveLine={vi.fn()}
-          onSubmit={vi.fn()}
-          onBack={vi.fn()}
-          lotteryCode="YYWLR30G"
-          onLotteryCodeChange={vi.fn()}
-        />,
-      );
+  it("abilita il campo quando totalCents >= 100 con pagamento PE", () => {
+    render(<ReceiptSummary {...base} totalCents={100} paymentMethod="PE" />);
+    openOptions();
 
-      const input = screen.getByPlaceholderText(
-        /codice lotteria/i,
-      ) as HTMLInputElement;
-      expect(input.maxLength).toBe(8);
-    });
+    expect(screen.getByPlaceholderText(LOTTERY)).toBeEnabled();
+  });
 
-    it("mostra il valore corrente del codice lotteria", () => {
-      render(
-        <ReceiptSummary
-          lines={lines}
-          totalCents={TOTAL_CENTS}
-          paymentMethod="PE"
-          onPaymentMethodChange={vi.fn()}
-          onRemoveLine={vi.fn()}
-          onSubmit={vi.fn()}
-          onBack={vi.fn()}
-          lotteryCode="YYWLR30G"
-          onLotteryCodeChange={vi.fn()}
-        />,
-      );
+  it("disabilita il campo al confine esatto di 99 cents", () => {
+    // 99/100 è il confine: il gate deve coincidere byte-per-byte con quello
+    // di `resolveLotteryCode` lato server (`calcInputLinesTotalCents < 100`).
+    render(<ReceiptSummary {...base} totalCents={99} paymentMethod="PE" />);
+    openOptions();
 
-      const input = screen.getByPlaceholderText(
-        /codice lotteria/i,
-      ) as HTMLInputElement;
-      expect(input.value).toBe("YYWLR30G");
-    });
+    expect(screen.getByPlaceholderText(LOTTERY)).toBeDisabled();
+  });
 
-    it("disabilita il campo quando totalCents < 100 con pagamento PE", () => {
-      render(
-        <ReceiptSummary
-          lines={lines}
-          totalCents={50}
-          paymentMethod="PE"
-          onPaymentMethodChange={vi.fn()}
-          onRemoveLine={vi.fn()}
-          onSubmit={vi.fn()}
-          onBack={vi.fn()}
-          lotteryCode=""
-          onLotteryCodeChange={vi.fn()}
-        />,
-      );
+  it("mostra testo helper normale quando totalCents >= 100", () => {
+    render(<ReceiptSummary {...base} paymentMethod="PE" />);
+    openOptions();
 
-      const input = screen.getByPlaceholderText(
-        /codice lotteria/i,
-      ) as HTMLInputElement;
-      expect(input).toBeDisabled();
-    });
-
-    it("abilita il campo quando totalCents >= 100 con pagamento PE", () => {
-      render(
-        <ReceiptSummary
-          lines={lines}
-          totalCents={100}
-          paymentMethod="PE"
-          onPaymentMethodChange={vi.fn()}
-          onRemoveLine={vi.fn()}
-          onSubmit={vi.fn()}
-          onBack={vi.fn()}
-          lotteryCode=""
-          onLotteryCodeChange={vi.fn()}
-        />,
-      );
-
-      const input = screen.getByPlaceholderText(
-        /codice lotteria/i,
-      ) as HTMLInputElement;
-      expect(input).not.toBeDisabled();
-    });
-
-    it("disabilita il campo al confine esatto di 99 cents", () => {
-      render(
-        <ReceiptSummary
-          lines={lines}
-          totalCents={99}
-          paymentMethod="PE"
-          onPaymentMethodChange={vi.fn()}
-          onRemoveLine={vi.fn()}
-          onSubmit={vi.fn()}
-          onBack={vi.fn()}
-          lotteryCode=""
-          onLotteryCodeChange={vi.fn()}
-        />,
-      );
-
-      // 99/100 è il confine: il gate deve coincidere byte-per-byte con quello
-      // di `resolveLotteryCode` lato server (`calcInputLinesTotalCents < 100`).
-      const input = screen.getByPlaceholderText(
-        /codice lotteria/i,
-      ) as HTMLInputElement;
-      expect(input).toBeDisabled();
-    });
-
-    it("mostra testo helper disabilitato quando totalCents < 100", () => {
-      render(
-        <ReceiptSummary
-          lines={lines}
-          totalCents={50}
-          paymentMethod="PE"
-          onPaymentMethodChange={vi.fn()}
-          onRemoveLine={vi.fn()}
-          onSubmit={vi.fn()}
-          onBack={vi.fn()}
-          lotteryCode=""
-          onLotteryCodeChange={vi.fn()}
-        />,
-      );
-
-      expect(
-        screen.getByText(/non disponibile per importi inferiori a €1,00/i),
-      ).toBeInTheDocument();
-    });
-
-    it("mostra testo helper normale quando totalCents >= 100", () => {
-      render(
-        <ReceiptSummary
-          lines={lines}
-          totalCents={TOTAL_CENTS}
-          paymentMethod="PE"
-          onPaymentMethodChange={vi.fn()}
-          onRemoveLine={vi.fn()}
-          onSubmit={vi.fn()}
-          onBack={vi.fn()}
-          lotteryCode=""
-          onLotteryCodeChange={vi.fn()}
-        />,
-      );
-
-      expect(
-        screen.getByText(/per la lotteria degli scontrini/i),
-      ).toBeInTheDocument();
-    });
+    expect(
+      screen.getByText(/per la lotteria degli scontrini/i),
+    ).toBeInTheDocument();
   });
 });
 
@@ -509,14 +465,16 @@ describe("ReceiptSummary — sconto a pagare (Pro)", () => {
 
   it("non mostra l'affordance senza il piano Pro", () => {
     render(<ReceiptSummary {...base} discountsUnlocked={false} />);
+    openOptions();
 
     expect(screen.queryByText("+ Sconto a pagare")).not.toBeInTheDocument();
   });
 
   it("mostra un solo link finché l'esercente non lo apre", () => {
-    // Progressive disclosure: chi non sconta non paga nessun ingombro. Il
-    // tastierino compare solo dopo il tap.
+    // Progressive disclosure anche dentro il pannello: aprire le opzioni non
+    // deve rovesciare addosso un tastierino che nessuno ha chiesto.
     render(<ReceiptSummary {...base} discountsUnlocked />);
+    openOptions();
 
     expect(screen.getByText("+ Sconto a pagare")).toBeInTheDocument();
     expect(
@@ -526,6 +484,7 @@ describe("ReceiptSummary — sconto a pagare (Pro)", () => {
 
   it("apre il campo al tap sul link", () => {
     render(<ReceiptSummary {...base} discountsUnlocked />);
+    openOptions();
 
     fireEvent.click(screen.getByText("+ Sconto a pagare"));
 
@@ -595,6 +554,7 @@ describe("ReceiptSummary — sconto a pagare (Pro)", () => {
         onGlobalDiscountChange={onGlobalDiscountChange}
       />,
     );
+    openOptions();
 
     fireEvent.click(screen.getByText("+ Sconto a pagare"));
     // Il tastierino accumula cifra per cifra: 9-9-9-9-9-9 supera 18,20.
@@ -637,9 +597,7 @@ describe("ReceiptSummary — sconto a pagare (Pro)", () => {
       />,
     );
 
-    expect(
-      screen.getByPlaceholderText("Codice lotteria (8 caratteri)"),
-    ).not.toBeDisabled();
+    expect(screen.getByPlaceholderText(LOTTERY)).toBeEnabled();
   });
 });
 
@@ -658,6 +616,8 @@ describe("ReceiptSummary — pagamento misto", () => {
     // La cassa è il core flow fiscale: un upsell in mezzo al checkout è
     // attrito. La scoperta della feature vive su /prezzi e nella guida.
     render(<ReceiptSummary {...base} discountsUnlocked={false} />);
+    openOptions();
+
     expect(screen.queryByText("+ Pagamento misto")).not.toBeInTheDocument();
   });
 
@@ -670,7 +630,10 @@ describe("ReceiptSummary — pagamento misto", () => {
         onSplitCashChange={onSplitCashChange}
       />,
     );
+    openOptions();
+
     fireEvent.click(screen.getByText("+ Pagamento misto"));
+
     expect(onSplitCashChange).toHaveBeenCalledWith(0);
   });
 
@@ -684,8 +647,27 @@ describe("ReceiptSummary — pagamento misto", () => {
         onSplitCashChange={vi.fn()}
       />,
     );
+
     expect(screen.queryByText("Metodo di pagamento")).not.toBeInTheDocument();
     expect(screen.getByText("Pagamento misto")).toBeInTheDocument();
+  });
+
+  it("continua a dire come si incassa anche a pannello richiuso", () => {
+    // Col misto attivo il selettore del metodo sparisce: se il pannello si
+    // richiude senza lasciare traccia, il riepilogo non direbbe più da nessuna
+    // parte come sta incassando l'esercente.
+    render(
+      <ReceiptSummary
+        {...base}
+        discountsUnlocked
+        splitCashCents={500}
+        onSplitCashChange={vi.fn()}
+      />,
+    );
+
+    openOptions(); // il misto attivo apre il pannello: qui lo richiudo
+
+    expect(screen.getByText(/Misto: 5,00 € in contanti/)).toBeInTheDocument();
   });
 
   it("ripartisce l'incassato, non il corrispettivo, con uno sconto a pagare", () => {
@@ -700,6 +682,7 @@ describe("ReceiptSummary — pagamento misto", () => {
         onSplitCashChange={vi.fn()}
       />,
     );
+
     expect(screen.getByText("11,20 €")).toBeInTheDocument();
   });
 
@@ -716,9 +699,8 @@ describe("ReceiptSummary — pagamento misto", () => {
         onLotteryCodeChange={vi.fn()}
       />,
     );
-    expect(
-      screen.getByPlaceholderText("Codice lotteria (8 caratteri)"),
-    ).toBeDisabled();
+
+    expect(screen.getByPlaceholderText(LOTTERY)).toBeDisabled();
     expect(
       screen.getByText(/richiede un incasso solo elettronico/i),
     ).toBeInTheDocument();
@@ -726,7 +708,8 @@ describe("ReceiptSummary — pagamento misto", () => {
 
   it("riabilita il codice lotteria se l'incasso torna tutto elettronico", () => {
     // Quota contanti a zero: il documento è un pagamento elettronico singolo,
-    // e il codice torna ammesso.
+    // e il codice torna ammesso — anche se il metodo selezionato era PC, che
+    // col misto attivo non è più la modalità del documento.
     render(
       <ReceiptSummary
         {...base}
@@ -737,8 +720,7 @@ describe("ReceiptSummary — pagamento misto", () => {
         onLotteryCodeChange={vi.fn()}
       />,
     );
-    expect(
-      screen.getByPlaceholderText("Codice lotteria (8 caratteri)"),
-    ).toBeEnabled();
+
+    expect(screen.getByPlaceholderText(LOTTERY)).toBeEnabled();
   });
 });

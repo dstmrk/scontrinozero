@@ -794,6 +794,32 @@ come coda di un altro lavoro.
 **Trigger.** La prima regressione S6661 che arriva da SonarCloud invece
 che da `npm run lint`.
 
+### 97. Screenshot `/help/primo-scontrino` fermo al riepilogo pre-collapse
+
+- **Categoria:** doc / marketing · **Severità:** Low — la prosa attorno è già
+  allineata, l'immagine no
+- **File:** `public/screenshots/riepilogo-pagamento.png`, referenziato da
+  `src/app/(marketing)/help/primo-scontrino/page.tsx`
+
+**Problema.** Il riepilogo della cassa ora raccoglie sconto a pagare, pagamento
+misto e codice lotteria sotto una disclosure "Altre opzioni", chiusa di default.
+Lo screenshot mostra il layout precedente, con il campo lotteria srotolato sotto
+il metodo di pagamento. Testo alternativo e didascalia sono già stati riscritti
+per non promettere quel campo, quindi la pagina non mente; ma un utente che
+confronta l'immagine con la sua cassa vede due schermate diverse, ed è
+esattamente la pagina che legge chi emette il primo scontrino.
+
+**Fix.** Ricatturare lo screenshot dall'app dev (`app-dev.scontrinozero.it`,
+skill `playwright-verify`) sullo stesso riepilogo, a pannello chiuso — è lo
+stato in cui la schermata si presenta di default. Stesse dimensioni
+(900×1860) per non toccare il layout della figure. Poi rimettere in alt e
+didascalia la menzione delle opzioni, se la nuova immagine le mostra.
+
+**Trigger.** Il prossimo giro di screenshot dell'help, o il primo utente che
+segnala che la schermata non corrisponde.
+
+---
+
 ---
 
 ## Rischi accettati (documentati, non da fixare)
