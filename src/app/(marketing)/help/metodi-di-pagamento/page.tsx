@@ -12,6 +12,7 @@ import { helpArticleMetadata } from "@/lib/help/metadata";
 import { HelpArticleJsonLd } from "@/components/help/article-json-ld";
 import { HelpArticleUpdatedAt } from "@/components/help/article-updated-at";
 import { RelatedHelpArticles } from "@/components/help/related-articles";
+import { AppScreenshot } from "@/components/marketing/app-screenshot";
 
 export const metadata = helpArticleMetadata("metodi-di-pagamento");
 
@@ -215,6 +216,21 @@ export default function MetodiDiPagamentoPage() {
           </Link>
           {"."}
         </p>
+        <figure className="mt-6">
+          <AppScreenshot
+            src="/screenshots/riepilogo-pagamento-misto.png"
+            alt="Riepilogo scontrino con il pannello Altre opzioni aperto: pagamento misto con 1,00 € in contanti e 1,70 € in elettronico, il tastierino per la quota e il campo codice lotteria disattivato"
+            width={900}
+            height={1860}
+            sizes="(min-width: 768px) 240px, 65vw"
+            className="mx-auto max-w-[240px]"
+          />
+          <figcaption className="text-muted-foreground mt-2 text-center text-xs">
+            Il pagamento misto, piano Pro: digiti la quota in contanti e
+            l&apos;elettronico è il resto. Con una quota in contanti il campo
+            lotteria resta disattivato, con la ragione scritta sotto.
+          </figcaption>
+        </figure>
 
         {/* ─── FAQ (mirror di faqItems: tenere allineati) ─── */}
         <h2 className="mt-10 text-xl font-semibold">Domande frequenti</h2>
