@@ -220,15 +220,27 @@ documento **corretto nei totali e nella quadratura**, ma senza quella dicitura;
 l'arrotondamento per eccesso non è esprimibile affatto (servirebbe una voce di
 pagamento in più del corrispettivo).
 
-Due cose da chiarire prima di implementarlo, entrambe non misurate:
+**La regola aritmetica è nota** (owner, 27/08/2026) e non è più una delle
+incognite: si arrotonda per **difetto** quando i centesimi finiscono in
+1, 2, 6, 7 (5,02 € → 5,00 €) e per **eccesso** quando finiscono in 3, 4, 8, 9
+(5,03 € → 5,05 €); su 0 e 5 non si fa nulla. Si applica **solo al pagamento
+integralmente in contanti** — su un pagamento misto mai, basta una quota
+elettronica — si calcola **sul totale** e non sul singolo prezzo, e **non
+tocca la base imponibile IVA**. La dicitura contabile standard per il caso in
+eccesso è `Arrotondamento a pagare`; il layout normativo la chiama
+`Arro. DL N.50/2017`.
 
-1. come (e se) il tracciato del _documento commerciale online_ esprima quella
-   voce — il portale espone sei slot di pagamento (`HAR.md` voce #6) e nessuno
-   si chiama così, quindi serve una cattura HAR fatta apposta;
-2. se l'arrotondamento per eccesso entri nella quadratura della voce #5 come un
-   incasso.
+Resta da chiarire una cosa sola, e non è misurata: **come (e se) il tracciato
+del _documento commerciale online_ esprima quella voce**. Il portale espone
+sei slot di pagamento (`HAR.md` voce #6) e nessuno si chiama così; per
+l'arrotondamento in eccesso servirebbe un importo che supera il corrispettivo,
+cioè qualcosa che nessuna cattura ha mai mostrato. Serve un HAR fatto apposta.
 
-Non blocca gli sconti: è il perimetro di ciò che gli sconti non risolvono.
+Il caso per **difetto** è invece già producibile: è uno sconto a pagare, che
+sappiamo rappresentare e trasmettere. Manca solo la dicitura dedicata.
+
+Non blocca gli sconti né il pagamento misto: è il perimetro di ciò che non
+risolvono.
 
 ### 94. Deploy skew: il reload salva la sessione ma non quello che l'utente aveva digitato
 
