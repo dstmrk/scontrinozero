@@ -12,6 +12,14 @@ usata leggendo solo la sua sezione. I numeri non si riusano mai — una voce
 superata si marca `[SUPERATA da #N]` invece di essere rinumerata. Le voci
 nuove si aggiungono in fondo alla sezione pertinente.
 
+**Sfoltito il 27/08/2026.** Le voci il cui contenuto è ormai inchiodato da
+codice e test — il piano dei sub-task (#14, tutti spediti) e le divergenze del
+mapper (#11, chiuse) — sono state ridotte a un puntatore invece che
+cancellate: **il codice cita queste voci in oltre cento punti**, e un numero
+che sparisce lascia un commento che rimanda al nulla. Quello che resta è ciò
+che il codice non sa dire da solo: com'è fatto il payload, perché i due sconti
+sono grandezze fiscali diverse, e dove finisce l'evidenza misurata (#15).
+
 **Rapporto con gli altri documenti.**
 
 - `docs/api-spec.md` — specifica _normativa_ del payload AdE e del contratto
@@ -605,39 +613,19 @@ decimali: non è un rischio reale.
 
 ---
 
-## 11. Divergenze fra il nostro mapper e il portale
+## 11. Divergenze fra il nostro mapper e il portale — ✅ CHIUSA
 
-Confronto di `src/lib/ade/mapper.ts` contro le voci #2, #4, #7, #10. Ordinate
-per gravità.
+Il confronto di `mapper.ts` contro le voci #2, #4, #7 e #10 aveva trovato sei
+divergenze. **Cinque sono state chiuse dal sub-task A** (`scontoTotale`
+lordo-invece-che-netto, arrotondamento intermedio dei netti, `scontoUnitario`
+unitario-invece-che-di-riga, omaggi sommati in `ammontareComplessivo`, e
+`prezzoLordo` moltiplicato per la quantità): gli oracoli in `mapper.test.ts`
+le inchiodano campo per campo, quindi non possono tornare.
 
-> ✅ **Chiuse dal sub-task A** (voce #14) i punti 1, 2, 3, 4 e 6. Resta aperto
-> solo il punto 5 (`flagIdentificativiModificati`), deliberatamente: l'AdE
-> accetta entrambi i valori e il nostro `true` è coerente con l'invio di dati
-> di identificazione propri. Registrato in `REVIEW.md`, "Rischi accettati".
-> L'elenco qui sotto resta com'è misurato: è il verbale del confronto, non una
-> todo list.
-
-1. **`scontoTotale` manda il lordo invece del netto.** Il codice assegna lo
-   stesso valore (Σ `scontoLordo`) sia a `scontoTotale` che a
-   `scontoTotaleLordo`. Corretto: `scontoTotale` = Σ `scontoUnitario`
-   (netto). Invisibile finora perché `unitDiscount` è cablato a `0`.
-2. **`computeLineAmounts` arrotonda i netti a 2 decimali.** Vedi voce #10:
-   innocuo oggi, rompe la quadratura del PDF appena c'è uno sconto su riga con
-   IVA.
-3. **`scontoUnitario` riceve `line.unitDiscount`** (lordo, per unità) mentre
-   deve essere lo sconto **di riga** al **netto** (`scontoLordo / d`). Doppio
-   errore: lordo-vs-netto e unitario-vs-riga.
-4. **`ammontareComplessivo` somma anche le righe omaggio.** Vedi voce #7.
-   Dormiente finché `isGift` resta `false`.
-5. **`flagIdentificativiModificati`** — entrambi gli HAR mandano `false`, il
-   mapper manda `true`. L'AdE accetta entrambi (la produzione funziona); non
-   toccare senza un motivo, ma è annotato per non ri-scoprirlo.
-
-6. **`prezzoLordo` è moltiplicato per la quantità.** Il codice manda
-   `unitPriceGross × quantity` dove il portale manda il prezzo **unitario**, e
-   di conseguenza mette in `prezzoUnitario` il netto dell'**intera riga**
-   invece che dell'unità. Confermato dalla voce #12: è l'unica divergenza già
-   osservabile in produzione oggi, su qualunque scontrino con quantità > 1.
+Resta aperta una sola cosa, deliberatamente: **`flagIdentificativiModificati`**
+— entrambi gli HAR mandano `false`, il mapper manda `true`. L'AdE accetta
+entrambi e la produzione funziona; è un rischio accettato, registrato in
+`REVIEW.md` sotto "Rischi accettati". Non toccarlo senza un motivo.
 
 ---
 
@@ -698,45 +686,17 @@ totale          = 4.09836066 + 0.90163934  = 5.00000000
                 = 3.00 × 2 − 1.00          = 5.00000000  ✓
 ```
 
-**Il PDF stampato dall'AdE** per questo documento:
+**Il PDF stampato dall'AdE** per questo documento mostra
+`Prezzo complessivo € = 6,00`: l'AdE **ricalcola** quella colonna dal payload,
+non stampa `prezzoLordo` tal quale. Da questo campione non si distingue se usi
+`prezzoLordo × quantita` o `imponibile × d` — nel payload del portale
+coincidono. Ed è il motivo per cui mandare il prezzo **unitario** è l'unica
+scelta sicura: sotto entrambe le formule si è corretti, mentre mandandolo già
+moltiplicato ogni riga con quantità > 1 stamperebbe un valore gonfiato (qui
+12,00 invece di 6,00) su un documento fiscale.
 
-```
-Qta  Descrizione Prodotto  Aliquota  Prezzo complessivo €  Sconto  Omaggio
-2    doppio                22%       6.00                  1.00
-
-Totale imponibile:      4.10
-Totale IVA:             0.90
-Totale complessivo: €   5.00
-Pagato contante:        5.00
-```
-
-La colonna `Prezzo complessivo €` vale **6,00**: l'AdE la **ricalcola** dal
-payload, non stampa `prezzoLordo` tal quale. Da questo campione non si
-distingue se la formula usata sia `prezzoLordo × quantita` oppure
-`imponibile × d` — nel payload del portale coincidono entrambe a 6,00.
-
-**Perché la distinzione non serve.** Mandando `prezzoLordo` **unitario** si è
-corretti sotto entrambe le formule. Mandandolo già moltiplicato — come fa il
-codice oggi — si è corretti solo sotto la seconda, e sotto la prima ogni riga
-con quantità > 1 stampa un valore gonfiato (per questo documento: 12,00 invece
-di 6,00) su un documento fiscale. Non c'è motivo di correre il rischio.
-
-**Il cambio è sicuro.** `imponibile`, `totale` e `ammontareComplessivo` non si
-muovono, quindi non cambia né ciò che l'AdE accetta né la riconciliazione del
-recovery, che confronta i **totali** dei documenti. Nel codice nessuno legge
-`prezzoLordo`: lo scrive solo `computeLineAmounts`, e il ramo annullo lo
-rieccheggia verbatim dalla GET (`mapVoidToAdePayload`, entrambi in
-`src/lib/ade/mapper.ts`).
-
-**Fix** — voce #14, sub-task A:
-
-```
-prezzoLordo    = unitPriceGross                 (NON × quantity)
-prezzoUnitario = unitPriceGross / d             (netto UNITARIO)
-imponibile     = prezzoUnitario × quantity
-scontoLordo    = unitDiscount × quantity        (invariato: sconto di riga)
-scontoUnitario = scontoLordo / d
-```
+Il mapper manda il prezzo unitario dal sub-task A in poi, e l'oracolo di
+questa voce lo inchioda campo per campo in `mapper.test.ts`.
 
 ⚠️ `unitDiscount` nel nostro DTO (`SaleLineRequest`) è per unità **per nostra
 scelta**, ed è coerente: `scontoLordo = unitDiscount × quantity` produce lo
@@ -784,320 +744,91 @@ due l'AdE applichi il minimo. Vale la lettura letterale del testo — "documenti
 di **importo** inferiore ad 1 euro", cioè l'importo del documento — che è anche
 quella già implementata.
 
-**Cosa cambiare quando si implementa il pagamento misto** (sub-task C della
-voce #14):
-
-- `refineLotteryCode` (`src/lib/receipts/lottery-code-schema.ts`) oggi riceve
-  `{ paymentMethod: "PC" | "PE" }`. Va portato su `payments[]` e la condizione
-  diventa: codice ammesso solo se `PE` è l'unico importo > 0. Non confrontare
-  l'importo `PE` col totale — lo sconto a pagare rende legittimamente i due
-  valori diversi.
-- `resolveLotteryCode` (`src/lib/services/receipt-service.ts`) — stesso
-  predicato lato service, che è quello autoritativo: lo schema Zod è una
-  cortesia per il client, il service è il gate.
-- UI cassa: nel momento in cui l'esercente ripartisce l'importo su più metodi,
-  il campo codice lotteria va disabilitato con una spiegazione esplicita, non
-  semplicemente ignorato in silenzio — altrimenti l'esercente digita un codice
-  che non finirà mai sul documento.
+**Dove vive adesso questa regola.** Il predicato è
+`isElectronicOnly` (`src/lib/receipts/lottery-code-schema.ts`), usato dallo
+schema Zod e — soprattutto — da `resolveLotteryCode` nel service, che è il
+gate autoritativo: lo schema è una cortesia per il client. In cassa il campo
+si disabilita con la ragione scritta appena una quota è in contanti, invece di
+essere ignorato in silenzio: un codice digitato e mai trasmesso è peggio di un
+campo assente.
 
 ---
 
-## 14. Guida all'implementazione (sub-task ordinati)
+## 14. Guida all'implementazione (sub-task ordinati) — ✅ TUTTI SPEDITI
 
-Regola 5 di `CLAUDE.md`: ogni sub-task qui sotto è un PR separato, con branch
-proprio e TDD (test prima). **L'ordine non è negoziabile**: A è prerequisito di
-E, e B è prerequisito di C — le superfici di lettura devono saper interpretare
-un pagamento misto _prima_ che la cassa permetta di emetterne uno.
+I cinque sub-task in cui questo registro era stato tradotto sono tutti in
+produzione. La spec dettagliata di ciascuno è servita una volta e non serve
+più: quello che decideva ora è inchiodato da codice e test, ed è lì che va
+letto. Questa voce resta perché il codice la cita.
 
-### Sub-task A — precisione del mapper (prerequisito di E) ✅ FATTO
+| Sub-task                        | Dove vive adesso                                                                                                    |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **A** — precisione del mapper   | `computeLineAmounts` + `mapSaleToAdePayload`, con gli oracoli delle voci #1 e #12 in `mapper.test.ts`               |
+| **B** — lettura pagamento misto | `parsePublicRequest` / `resolvePaymentRows` (`src/lib/receipts/public-request.ts`), consumati da tutte le superfici |
+| **C** — input pagamento misto   | `paymentsSchema` + `refinePaymentDeclaration` (`receipt-schema.ts`), gate Pro in `pro-feature-gates.ts`             |
+| **D** — sconto a pagare         | `globalDiscountSchema` + `refineGlobalDiscount`, reso in PDF/termica/ricevuta pubblica                              |
+| **E** — sconto di riga          | colonna `line_discount` (migrazione 0034), `refineSaleLineDiscounts`, riga `Sconto` propria nella stampa (#17a)     |
 
-> **Spedito in v1.7.1.** `computeLineAmounts` e i totali di
-> `mapSaleToAdePayload` seguono le formule qui sotto; i due oracoli sono test
-> di regressione in `mapper.test.ts` (`describe("… — oracoli HAR")`), campo per
-> campo. Unico scostamento deliberato dal punto 4: `imponibile` è derivato dal
-> **lordo di riga cent-esatto** (`lineGross / d`) invece che da
-> `prezzoUnitario × quantita`. Sui due oracoli — entrambi a quantità intera — i
-> due calcoli coincidono; sulle quantità frazionarie solo il primo tiene
-> insieme la regola 17 e l'invariante `imponibileNetto + importoIVA = totale`.
-> Il punto 5 (`flagIdentificativiModificati`) non è stato toccato: vedi la nota
-> in cima alla voce #11.
+Due decisioni prese lungo la strada che il codice non spiega da solo:
 
-**File:** `src/lib/ade/mapper.ts`, `src/lib/ade/mapper.test.ts`.
-**Non tocca** né UI né API né DB. Chiude tutte e sei le divergenze della voce
-#11: cinque sono latenti (si manifestano solo con gli sconti, oggi cablati a
-zero), la sesta — `prezzoLordo` — è già attiva in produzione su ogni scontrino
-con quantità > 1.
-
-Riscrivere `computeLineAmounts` secondo le voci #2 e #12:
-
-1. Mantenere il calcolo in centesimi interi dei **lordi**
-   (`lineGrossCents`, `discountCents`) — regola 17, non toccare.
-2. Calcolare `d = 1 + r/100` una volta (`d === 1` per le nature: nessun ramo
-   `if` separato serve).
-3. `prezzoLordo = unitPriceGross` — il prezzo **unitario**, NON moltiplicato
-   per la quantità (voce #12). `scontoLordo` resta invece
-   `unitDiscount × quantity`: è lo sconto **della riga**.
-4. `prezzoUnitario = prezzoLordo / d` (netto **unitario**),
-   `scontoUnitario = scontoLordo / d`,
-   `imponibile = prezzoUnitario × quantita`,
-   `imponibileNetto = imponibile − scontoUnitario`,
-   `importoIVA = imponibileNetto × r / 100` — **senza** `Math.round(... * 100) / 100`.
-   `toAdeAmount8` arrotonda già all'ottavo decimale in serializzazione (vedi
-   voce #10: l'AdE **arrotonda**, non tronca).
-5. `totale` resta `(lineGrossCents − discountCents) / 100` (cent-esatto).
-6. In `mapSaleToAdePayload`: `scontoTotale` = Σ `scontoUnitario`,
-   `scontoTotaleLordo` = Σ `scontoLordo` — due somme distinte.
-7. `totaleImponibile` e `importoTotaleIva` vanno sommati a **piena
-   precisione**, non via `sumLineCents` (che arrotonda ogni addendo ai
-   centesimi). `ammontareComplessivo` invece **resta** su `sumLineCents`: è un
-   lordo e deve restare cent-esatto per riconciliare con `payments[].amount`
-   (regola 17, REVIEW.md #57).
-
-**Test obbligatori** — i documenti delle voci #1 e #12 sono i due oracoli, e
-insieme coprono quantità 1 e 2, due aliquote diverse e una natura:
-
-- Riga 1,00 € @10% con sconto 0,10 €, qta 1 → i 15 campi esatti della voce #1.
-- Riga 3,00 € @22% con sconto 1,00 €, **qta 2** → i 15 campi esatti della voce
-  #12. È il test che inchioda `prezzoLordo = "3.00000000"` (non `6.00`) e
-  `scontoUnitario = "0.81967213"` (non `1.63934426`).
-- Documento completo della voce #1 → tutti i totali esatti, compresi
-  `scontoTotale = "0.09090909"` ≠ `scontoTotaleLordo = "0.10000000"`.
-- Invariante di riga: `imponibileNetto + importoIVA === totale` su una tabella
-  di aliquote (`4`, `5`, `10`, `22`) × sconti.
-- Invariante di documento:
-  `totaleImponibile − scontoTotale + importoTotaleIva === ammontareComplessivo`.
-- Regressione: senza sconti, i valori prodotti oggi non cambiano (nature `N*`
-  e aliquote), e `ammontareComplessivo` resta cent-esatto sulle quantità
-  frazionarie (i test REVIEW.md #57 esistenti devono restare verdi invariati).
-
-### Sub-task B — pagamento misto, superfici di lettura (prima di C) ✅ FATTO
-
-> **Spedito.** `ParsedPublicRequest` porta `payments`, e `resolvePaymentRows`
-> (`src/lib/receipts/public-request.ts`) ricompone il blocco pagamenti in voci
-> `{ type, amountCents }` sia sui misti sia sui metodi singoli — è il modo
-> corretto di leggerlo, `paymentMethod` da solo non descrive un misto.
-> Consumato da ricevuta pubblica, PDF, termica, storico (+ ristampa), export
-> CSV, analytics e le due route `/api/v1`, che espongono `payments[]` accanto
-> a `paymentMethod`. Tre scostamenti deliberati dal piano qui sotto:
->
-> - **L'ordine delle voci è normalizzato** su quello del tracciato AdE (`PC`
->   prima di `PE`, voce #6) sia in lettura dal jsonb sia in `resolvePaymentRows`:
->   le stesse voci arrivate in ordine diverso devono produrre lo stesso
->   scontrino, altrimenti PDF e termica dello stesso documento si ordinano come
->   capita.
-> - **Un array malformato degrada allo scalare tutto-o-niente**, non voce per
->   voce: tenere una voce di un misto e buttare l'altra mostrerebbe un incasso
->   dimezzato senza alcun segnale.
-> - **L'analytics ripartisce il ricavo in proporzione agli importi**, non gli
->   importi così come sono: i pagamenti sommano all'**incassato**, che con un
->   abbuono è minore del corrispettivo (voce #3b), e attribuirli direttamente
->   scollegherebbe il grafico dal KPI ricavo. `count` conta il documento una
->   volta per metodo, quindi la sua somma può superare il numero di scontrini.
->
-> Due superfici NON passano da `parsePublicRequest` per lo **scalare**, di
-> proposito: la cella `metodo_pagamento` del CSV e il ramo a metodo singolo
-> dell'analytics devono restare rispettivamente vuota e `other` sulle righe
-> storiche, mentre l'helper degrada a `PC` per la stampa. Affermare "contanti"
-> su un documento che non porta il campo sarebbe inventare un dato.
-
-**Perché prima.** Nel momento in cui il primo scontrino misto viene emesso,
-storico, PDF, ricevuta pubblica, stampa termica e analytics devono già saperlo
-leggere. Rilasciare l'input prima della lettura significa produrre documenti
-fiscali che l'app mostra sbagliati.
-
-Oggi il metodo è uno scalare `publicRequest.paymentMethod`. Il formato
-persistito diventa **additivo**:
-
-```jsonc
-{
-  // sempre presente, canonico
-  "payments": [
-    { "type": "PC", "amount": 0.5 },
-    { "type": "PE", "amount": 1.0 },
-  ],
-  // presente SOLO quando payments ha un solo elemento (compatibilità lettori vecchi)
-  "paymentMethod": "PE",
-}
-```
-
-Scrivere **un solo helper condiviso** che normalizza un `publicRequest` (nuovo
-o storico) in `readonly { type, amount }[]`, e farlo consumare da tutti i
-lettori — niente parsing duplicato:
-
-- `src/app/r/[documentId]/page.tsx` — oggi `publicReq?.paymentMethod ?? "PC"`
-- `src/server/storico-actions.ts` — `parsePublicRequest`
-- `src/server/analytics-helpers.ts` — `normalizePaymentMethod`; decidere come
-  attribuire il ricavo di uno scontrino misto (proposta: **per importo**, non
-  per documento, altrimenti i totali per metodo non sommano al fatturato)
-- `src/lib/receipt-format.ts` — `PAYMENT_LABELS` regge già più righe
-- stampa termica (`src/lib/printing/`) e generatore PDF
-- `src/app/api/v1/receipts/route.ts` e `src/app/api/v1/receipts/[id]/route.ts`
-  — nelle **response** aggiungere `payments[]` accanto a `paymentMethod`, che
-  resta valorizzato per gli scontrini a metodo singolo e diventa `null` sui
-  misti (nessun consumer esistente si rompe: oggi non esistono misti)
-
-Documenti storici: nessuna migrazione: `publicRequest` è `jsonb` e l'helper
-tratta `paymentMethod` assente/`payments` assente come i due casi legacy.
-
-### Sub-task C — pagamento misto, input (cassa + Developer API) ✅ FATTO
-
-> **Spedito.** `payments[]` è accettato da entrambi i canali, mutuamente
-> esclusivo con `paymentMethod` (esattamente uno dei due), con la quadratura
-> `Σ importi + sconto a pagare = totale righe` imposta in centesimi interi da
-> `refinePaymentDeclaration` (`receipt-schema.ts`). Gate Pro su entrambi i
-> canali (`mixedPaymentGateError` in `pro-feature-gates.ts`), codice lotteria
-> ammesso solo quando `PE` è l'unico importo > 0 (`isElectronicOnly`), e in
-> cassa l'affordance `+ Pagamento misto`. Quattro scostamenti dal piano qui
-> sotto:
->
-> - **La cassa non ha un residuo da azzerare.** Il ripartitore tiene un solo
->   numero — la quota in contanti — e l'elettronico è per costruzione il
->   resto dell'incassato. Con due campi indipendenti esisterebbe uno stato che
->   non quadra, e la voce #5 diventerebbe un errore da mostrare invece di un
->   invariante; così l'invio non si blocca mai su uno sbilancio, perché non se
->   ne può creare uno.
-> - **`payments` si persiste sempre**, anche sui metodi singoli, mentre
->   `paymentMethod` si scrive solo quando la modalità è una. È ciò che fa
->   produrre da sé il `null` che `/api/v1` espone sui misti, senza un ramo
->   dedicato nella route.
-> - **Il codice lotteria su un misto è un errore, non un campo ignorato.**
->   Con `paymentMethod: "PC"` resta tollerato (client legacy che mandano un
->   placeholder), col misto no: non esistono client legacy da non rompere, e
->   accettarlo in silenzio farebbe credere all'integratore che il codice sia
->   finito su un documento irreversibile.
-> - **Il fingerprint di idempotenza include `payments` solo quando c'è**,
->   come già `globalDiscount` e `lineDiscount`: gli hash persistiti sono
->   immutabili, e includerlo sempre farebbe fallire come mismatch il retry di
->   uno scontrino PENDING inviato prima del deploy.
->
-> Restano deliberatamente fuori `TR` e le tre `NR_*` (voce #6): il mapper le
-> regge, ma non sono mai state osservate valorizzate (voce #15).
-
-**Nessun breaking change su `/api/v1`.** Il body accetta **o**
-`paymentMethod` (scalare, come oggi) **o** `payments[]`, mutuamente esclusivi;
-il server normalizza subito a `payments[]` canonico.
-
-- `src/lib/receipts/receipt-schema.ts` — aggiungere
-  `paymentsSchema = z.array(z.object({ type: z.enum(["PC","PE"]), amount: … }))`
-  e un `.superRefine` che imponga: esattamente uno fra `paymentMethod` e
-  `payments`; importi non negativi; almeno un importo > 0; **somma degli
-  importi + `scontoAbbuono` = totale righe** (voce #5), confrontata in
-  **centesimi interi** via `calcInputLinesTotalCents`
-  (`src/lib/receipts/receipt-totals.ts`) — mai in float.
-- Solo `PC` e `PE` nell'enum (voce #6). `TR`/`NR_*` restano fuori dallo schema
-  pubblico anche se il mapper li regge.
-- `src/types/cassa.ts` — `SubmitReceiptInput` guadagna `payments`;
-  `PaymentMethod` resta `"PC" | "PE"`.
-- `src/lib/services/receipt-service.ts` — smettere di costruire
-  `payments: [{ type, amount: totalAmount }]` e passare l'array normalizzato.
-  **Attenzione:** `expectedTotalCents` usato dal recovery
-  (`reconcileSaleBeforeResubmit`) resta il totale delle **righe**, non la somma
-  dei pagamenti: con lo sconto a pagare i due valori divergono.
-- `src/server/receipt-actions.ts` — stesso schema.
-- UI cassa (`src/components/cassa/`) — il selettore diventa un ripartitore
-  importi; mostrare sempre il residuo e bloccare l'invio finché non è zero
-  (o non è assorbito dallo sconto a pagare, sub-task D).
-- `refineLotteryCode` — vedi voce #13: il codice lotteria è ammesso **solo**
-  quando `PE` è l'unico slot di pagamento non a zero. Col pagamento misto non è
-  mai ammesso; con lo sconto a pagare sì (`scontoAbbuono` non conta).
-- Aggiornare `DEVELOPER.md` e `src/app/(marketing)/help/api/page.tsx` (esempi
-  di payload) — skill `marketing-content`.
-
-### Sub-task D — sconto a pagare (`scontoAbbuono`)
-
-Il più contenuto: `globalDiscount` esiste già nel DTO
-(`SaleDocumentRequest.globalDiscount`) ed è già mappato su `scontoAbbuono`.
-Serve solo esporlo.
-
-- Schema: `globalDiscount` ≥ 0, ≤ totale righe, max 2 decimali.
-- Vincolo di quadratura: già coperto dal `superRefine` del sub-task C.
-- Persistenza in `publicRequest`; lettura in tutte le superfici del sub-task B.
-  La riga `Sconto a pagare` va **dentro il blocco pagamenti**, ultima prima di
-  `Importo pagato`, e `Importo pagato` **esclude** l'abbuono — voce #17b, non
-  "dopo il totale" come lasciava intendere la voce #8.
-- **Analytics:** lo sconto a pagare **non** riduce il fatturato — il
-  corrispettivo resta pieno (voce #3b). Riduce l'incassato. Se si mostra
-  l'incassato, è una metrica nuova, non una correzione di quella esistente.
-- UI: etichetta esplicita ("Sconto a pagare — non riduce l'IVA") per non
-  confonderlo con lo sconto di riga.
-
-### Sub-task E — sconto di riga (richiede A)
-
-Il più invasivo: è l'unico che tocca il DB.
-
-- **Migrazione** (skill `db-migrations`, regola 11 — handwritten):
-  `commercial_document_lines` guadagna `unit_discount numeric(10,2) NOT NULL
-DEFAULT 0`. `ADD COLUMN IF NOT EXISTS`, e schema Drizzle in
-  `src/db/schema/commercial-document-lines.ts`.
-- **Matematica condivisa:** `calcDocTotal`, `calcInputLinesTotalCents` e
-  `computeReceiptTotals` in `src/lib/receipts/receipt-totals.ts` devono
-  sottrarre lo sconto **prima** dello scorporo IVA, restando in centesimi
-  interi per riga (regola 17). Questo modulo alimenta PDF, ricevuta pubblica,
-  stampa termica, storico e analytics: cambiarlo qui li aggiorna tutti, ed è
-  il motivo per cui non va duplicato altrove.
-- `saleLineSchema` — `unitDiscount` ≥ 0, ≤ `grossUnitPrice`, max 2 decimali.
-- UI carrello, PDF e stampa termica: **riga `Sconto` propria** sotto
-  l'articolo, con la stessa aliquota e importo negativo — non una colonna.
-  Vedi voce #17a: la colonna della voce #8 è la resa del portale DCO, il
-  layout normativo vuole la riga.
-- Test: il documento della voce #1 deve poter essere ricostruito end-to-end
-  dalla cassa e produrre esattamente quel payload.
+- **L'ordine delle voci di pagamento è normalizzato** su quello del tracciato
+  (`PC` prima di `PE`, voce #6) in lettura, in ingresso e nel fingerprint di
+  idempotenza. Senza, le stesse voci in ordine diverso producono scontrini
+  diversi.
+- **`payments` si persiste sempre in `public_request`**, `paymentMethod` solo
+  quando la modalità è una. È ciò che fa produrre da sé il `null` che
+  `/api/v1` espone sui misti, senza un ramo dedicato nella route.
 
 ### Cosa NON serve fare
 
 - **Il ramo annullo.** Voce #9: `mapVoidToAdePayload` rieccheggia il documento
   originale e non ha bisogno di sapere nulla di sconti o pagamenti.
 - **Una migrazione per il pagamento misto o lo sconto a pagare.** Vivono in
-  `publicRequest` (`jsonb`). Solo lo sconto di riga tocca il DB, perché le
-  righe sono normalizzate in `commercial_document_lines`.
+  `public_request` (`jsonb`). Solo lo sconto di riga ha toccato il DB.
 
 ---
 
 ## 15. Cosa NON è stato misurato (limiti noti di questo registro)
 
-Le voci #1-#13 sono misurate su payload reali accettati dall'AdE. Quanto
-segue **non** lo è: sta qui perché un lettore futuro sappia dove finisce
-l'evidenza e cominci l'inferenza, senza doverlo ri-scoprire da solo.
+Le voci #1-#13 sono misurate su payload reali accettati dall'AdE. Quanto segue
+**non** lo è: sta qui perché un lettore futuro sappia dove finisce l'evidenza
+e comincia l'inferenza.
 
-**`TR` e le tre `NR_*` non sono mai state osservate con importo > 0.** Il
-markup del wizard (voce #6) dice molto su cosa **sono** — etichette, tipo di
-controllo, e il fatto che `NR_EF` sia una casella di spunta mutuamente
-esclusiva con tutto il resto — ma nessuna cattura le mostra **valorizzate**.
-Restano quindi aperte tre cose:
-
-1. **Come `NR_EF._checked = 'Y'` finisca nel payload.** Il modello ha comunque
-   un `importo` per quello slot; non sappiamo se venga riempito col totale del
-   documento o se il flag viaggi altrove. Da questo dipende se
-   `totaleNonRiscosso = NR_EF + NR_PS + NR_CS` sia vera come aritmetica (pur
-   restando sbagliata come descrizione).
-2. **Se un importo non riscosso entri nella quadratura della voce #5** allo
-   stesso modo di un incasso.
-3. **Il formato di `TR.numero`** quando è > 0 (il markup impone solo un
-   `data-ng-pattern` di nome `NumeroTicket`, il cui valore non è nell'HAR).
-
-Per il pagamento misto `PC`+`PE` — l'unico in programma — nulla di questo è un
-ostacolo.
-
-**Non sappiamo se l'AdE validi la quadratura lato server.** Il portale la
-impone nel wizard, ma non abbiamo mai inviato un payload sbilanciato per
-vedere cosa risponde. Corollario operativo: la quadratura è **responsabilità
-nostra** (schema Zod + service, sub-task C). Non contare su un rifiuto AdE
-come rete di sicurezza.
+**`TR` e le tre `NR_*` non sono mai state osservate con importo > 0.** Restano
+ignoti come `NR_EF._checked = 'Y'` finisca nel payload, se un importo non
+riscosso entri nella quadratura della voce #5 come un incasso, e il formato di
+`TR.numero`. **Decisione dell'owner (27/08/2026): quegli slot non li vogliamo
+gestire**, quindi non sono un debito — sono fuori perimetro, e il markup
+descritto nella voce #6 basta a spiegare perché lo schema pubblico espone solo
+`PC` e `PE`.
 
 **Righe omaggio con aliquota IVA.** L'unico omaggio osservato (voce #7) è a
 natura `N2`, quindi con `importoIVA = 0`. Non sappiamo se l'IVA di una riga
 omaggio con aliquota entri in `importoTotaleIva`: sappiamo solo che la riga
-concorre a `totaleImponibile` ed è esclusa da `ammontareComplessivo`. Irrilevante
-finché `isGift` resta cablato a `false`; da chiarire prima di abilitare gli
-omaggi.
+concorre a `totaleImponibile` ed è esclusa da `ammontareComplessivo`. Il mapper
+gestisce già `omaggio: "Y"` correttamente, ma `isGift` è cablato a `false` nel
+service — **questa domanda va chiusa con una cattura prima di abilitare gli
+omaggi**, ed è l'unico limite di questo elenco che blocchi davvero qualcosa.
 
-**Documenti multi-aliquota con più righe scontate.** Non ce n'è un campione. I
-totali di documento sono somme semplici delle righe (voce #4), quindi non c'è
-un dubbio strutturale — ma un test end-to-end su un documento del genere è il
-modo più economico per accorgersi di un errore di accumulo.
+### Chiusi dopo la stesura
+
+**La quadratura del pagamento misto è imposta dall'AdE.** Confermato
+dall'owner (27/08/2026): il portale web **non permette l'invio** se la somma
+dei pagamenti non corrisponde al totale da pagare. Resta comunque
+responsabilità nostra imporla a monte (`refinePaymentDeclaration`, in
+centesimi interi): un rifiuto lato AdE arriverebbe dopo il round-trip, e
+l'esercente lo vedrebbe come un'emissione fallita invece che come un errore di
+compilazione.
+
+**Documenti multi-aliquota con più righe scontate.** Non esiste un campione
+catturato, ma il buco di copertura è chiuso da un test: tre righe scontate su
+tre aliquote diverse (22%, 10% e una natura) con l'invariante di documento
+asserito su tutte e tre — `mapper.test.ts`, "non accumula errore su piu' righe
+scontate ad aliquote diverse".
 
 **La soglia di 1 euro della lotteria** — su quale importo si applichi: vedi la
-nota in coda alla voce #13.
+nota in coda alla voce #13. Vale la lettura letterale, che è quella
+implementata.
 
 ---
 
@@ -1109,50 +840,26 @@ nota in coda alla voce #13.
 annullamento"). Il **payload** di annullo resta quello della voce #9: qui c'è
 tutto il resto — la stampa, gli identificativi e la ricerca.
 
-### 16a. Layout del PDF di annullo (verbatim)
+### 16a. Layout del PDF di annullo
 
-Testo estratto dal PDF di `GET /doc/documenti/{idtrxAnnullo}/stampa/?regalo=false`.
-I due PDF erano dentro gli HAR in base64 (`content.encoding: "base64"`): un HAR
-non è solo le chiamate API. Da `nuovo_test_annullo.har` [06]:
+Misurato sul PDF di `GET /doc/documenti/{idtrxAnnullo}/stampa/?regalo=false`,
+estratto dal base64 dentro `nuovo_test_annullo.har` [06] — un HAR non è solo
+le chiamate API. Il nostro renderer lo implementa (`commercial-document.ts`,
+ramo `VOID`), quindi qui resta solo **cosa distingue un annullo da una
+vendita**:
 
-```
-Test
-Partita IVA/CF: XXXXXXXXXXX
-Corso S, 22
+- il sottotitolo diventa **"emesso per ANNULLAMENTO"**;
+- compare **"Documento di riferimento: N. \<progressivo dell'annullato\>"**;
+- **spariscono le righe di pagamento e `Sconto a pagare`** — pur essendo
+  `scontoAbbuono` presente nel payload (voce #9): un annullo non incassa;
+- il footer porta progressivo e istante **dell'annullo**, non dell'originale;
+- i metadati del PDF ripetono il riferimento fuori dal testo stampato:
+  `/Title (DOCUMENTO COMMERCIALE DI ANNULLO DEL DOCUMENTO … )`.
 
-DOCUMENTO COMMERCIALE
-emesso per ANNULLAMENTO
-Documento di riferimento:
-N. DCW2026/2630-3915
-
-Qta  Descrizione Prodotto  Aliquota  Prezzo complessivo €  Sconto  Omaggio
-2    doppio                22%       6.00                  1.00
-
-Totale imponibile:      4.10
-Totale IVA:             0.90
-Totale complessivo: €   5.00
-
-Documento N. DCW2026/2630-4363 del 19/08/2026 09:53:41
-```
-
-Differenze rispetto al PDF di vendita (voce #8): il sottotitolo diventa
-**"emesso per ANNULLAMENTO"**, compare il blocco **"Documento di riferimento:
-N. \<progressivo del documento annullato\>"**, e **spariscono le righe di
-pagamento e "Sconto a pagare"** — pur essendo `scontoAbbuono` presente nel
-payload (voce #9). Il footer riporta il progressivo **dell'annullo**, non
-dell'originale.
-
-Questo PDF riconferma per via indipendente tre formule già note, su un
-documento diverso da quello della voce #1:
-
-- `Prezzo complessivo` = `prezzoLordo × quantita` = `3.00 × 2` = `6.00`
-  (voce #12: `prezzoLordo` è unitario).
-- `Sconto` = `scontoLordo`, già moltiplicato per la quantità = `1.00`.
-- `Totale imponibile` stampato = `totaleImponibile − scontoTotale` =
-  `4.91803279 − 0.81967213` = `4.10` (voce #8), e `4.10 + 0.90 = 5.00`.
-
-I metadati del PDF portano il riferimento anche fuori dal testo stampato:
-`/Title (DOCUMENTO COMMERCIALE DI ANNULLO DEL DOCUMENTO DCW2026/2630-3915 …)`.
+Il campione riconfermava per via indipendente tre formule già note (voci #8 e
+#12) su un documento diverso da quello della voce #1: `Prezzo complessivo` =
+`prezzoLordo × quantita`, `Sconto` = `scontoLordo` già comprensivo della
+quantità, e `Totale imponibile` stampato = `totaleImponibile − scontoTotale`.
 
 ### 16b. Il timestamp dell'annullo NON è nella risposta — è nell'header `Date`
 
@@ -1217,23 +924,13 @@ vendita/annullo della voce #1):
   "annulli": "A", "ammontareComplessivo": 1.9 }
 ```
 
-### 16d. Copertura dei dati della ricevuta
+### 16d. Copertura dei dati della ricevuta — ✅ SPEDITA
 
-Ogni elemento del layout 16a e la sua fonte nel nostro DB. La riga VOID di
-`commercial_documents` **già oggi** salva progressivo e idtrx dell'annullo
-(`void-service.ts`, sia nel percorso normale sia in `finalizeVoidOnly`): la
-prima metà della v1.7.0 è di fatto fatta, manca esporla.
-
-| Elemento del PDF                      | Fonte                                                         |
-| ------------------------------------- | ------------------------------------------------------------- |
-| Intestazione esercente                | `businesses` via `fetchReceiptPrintHeader`                    |
-| "emesso per ANNULLAMENTO"             | statico                                                       |
-| "Documento di riferimento: N. …"      | `adeProgressive` della riga SALE (join su `voidedDocumentId`) |
-| Righe (qta, descrizione, aliquota, …) | `commercial_document_lines` del SALE                          |
-| Colonne `Sconto` / `Omaggio`          | sempre `0.00` / vuote: non le emettiamo (sub-task E/voce #7)  |
-| Totale imponibile / IVA / complessivo | `computeReceiptTotals` sulle stesse righe                     |
-| Progressivo e idtrx dell'annullo      | `adeProgressive` / `adeTransactionId` della riga VOID         |
-| Data e ora nel footer                 | **da aggiungere**: header `Date` della POST → 16b             |
+La v1.7.0 ha chiuso il giro: la riga VOID salva progressivo e idtrx
+dell'annullo, il footer stampa l'istante ricavato dall'header `Date`
+(`ade_registered_at`, migrazione 0031), e la ristampa vive in
+`void-receipt-dialog.tsx`. La tabella elemento-per-fonte che stava qui era la
+checklist di quel lavoro: non serve più.
 
 ### 16e. Annullo di un documento con codice lotteria
 
@@ -1244,11 +941,11 @@ caratteri, e l'annullo lo rieccheggia identico: **l'AdE lo accetta**
 (`esito: true`). Il caso "annullo di uno scontrino con lotteria" è quindi
 coperto sul filo.
 
-**Non misurato:** se il PDF di annullo _stampi_ quel codice — il PDF di
-`annullo.har` [06] è l'unico dei tre con `content` vuoto nella cattura.
-**Assunzione deliberata per la v1.7.0:** non lo stampa. Se un giorno risultasse
-il contrario, è una riga in più nel layout, non un dato mancante: il codice ce
-l'abbiamo già in `commercial_documents.lottery_code`.
+**Il PDF di annullo NON stampa il codice lotteria** — confermato dall'owner
+(27/08/2026). Era l'unica assunzione non misurata della v1.7.0, presa perché
+il PDF di `annullo.har` [06] è l'unico dei tre con `content` vuoto nella
+cattura. Ora è chiusa: il nostro renderer di annullo fa la cosa giusta a non
+stamparlo.
 
 ---
 
@@ -1332,29 +1029,43 @@ Tre cose, tutte verificabili sull'aritmetica del campione:
 Il renderer PDF e quello ESC/POS applicano già la seconda e la terza al metodo
 di pagamento: la riga `Sconto a pagare` segue la stessa regola.
 
-### 17d. Arrotondamento DL 50/2017 — NON implementato, per saperlo in futuro
+### 17d. Arrotondamento DL 50/2017 — non implementato, ma la regola è nota
 
-Il layout normativo prevede un caso che oggi non copriamo: l'arrotondamento
-obbligatorio dell'art. 13-quater DL 50/2017, in vigore dal 1° gennaio 2018.
-Quando il pagamento è **integralmente in contanti** l'importo va arrotondato al
-multiplo di 5 centesimi più vicino, e si stampa così:
+L'art. 13-quater del DL 50/2017, in vigore dal 1° gennaio 2018, impone di
+arrotondare al multiplo di 5 centesimi più vicino **solo quando il pagamento è
+integralmente in contanti**. Regola completa (fonte: owner, 27/08/2026):
 
-- arrotondamento **per difetto** → va indicato come `Sconto a pagare`, e in più
-  riportato fra le modalità di pagamento con la voce `Arro. DL N.50/2017`;
-- arrotondamento **per eccesso** → va riportato fra le modalità di pagamento con
-  la stessa voce `Arro. DL N.50/2017`.
+| Ultima cifra dei centesimi | Verso                 | Esempio         |
+| -------------------------- | --------------------- | --------------- |
+| 1, 2, 6, 7                 | per **difetto**       | 5,02 € → 5,00 € |
+| 3, 4, 8, 9                 | per **eccesso**       | 5,03 € → 5,05 € |
+| 0, 5                       | nessun arrotondamento | 5,05 € → 5,05 € |
 
-Due conseguenze da tenere presenti:
+Tre vincoli che la regola porta con sé:
 
-1. L'arrotondamento di cassa e lo sconto a pagare discrezionale **condividono il
-   campo `scontoAbbuono`** ma non sono la stessa cosa per la stampa: il primo
-   vuole anche la voce di pagamento dedicata, che non abbiamo. Finché non la
-   implementiamo, un esercente che arrotonda per difetto usando lo sconto a
-   pagare produce un documento **fiscalmente corretto nei totali** ma senza
-   quella dicitura.
-2. Non c'è nessuna cattura HAR di un `Arro. DL N.50/2017`: non sappiamo come (né
-   se) il tracciato del _documento commerciale online_ lo esprima. Il portale
-   espone sei slot di pagamento (voce #6) e nessuno si chiama così.
+1. **Solo contanti.** Con carta, bancomat o app l'importo resta esatto al
+   centesimo. Su un **pagamento misto** non si applica: basta una quota
+   elettronica perché il documento non sia "integralmente in contanti".
+2. **Sul totale, mai sul singolo prezzo.** L'arrotondamento si calcola sul
+   totale complessivo dello scontrino.
+3. **Non tocca la base imponibile IVA.** Come lo sconto a pagare (voce #3b),
+   serve solo a far quadrare il contante realmente incassato.
 
-Tracciato in `REVIEW.md`. Nulla di questo blocca gli sconti: è il perimetro di
-ciò che gli sconti **non** risolvono.
+**Le due direzioni usano voci diverse sul documento stampato:**
+
+- **per difetto** → è uno `Sconto a pagare` (importo negativo, es. −0,02 €),
+  che sappiamo già rappresentare: `scontoAbbuono` esiste ed è esposto;
+- **per eccesso** → è una voce di pagamento in **più** del corrispettivo,
+  `Arrotondamento a pagare` (es. +0,02 €). Il layout normativo la chiama
+  `Arro. DL N.50/2017`.
+
+**Perché non è implementato.** Il caso per difetto è già producibile a mano
+con lo sconto a pagare, e dà un documento **corretto nei totali e nella
+quadratura**, solo senza la dicitura dedicata. Il caso per eccesso invece non
+è esprimibile affatto: servirebbe un settimo slot di pagamento che aumenta
+l'incassato oltre il corrispettivo, e **nessuno dei sei slot della voce #6 si
+chiama così**. Non sappiamo se il tracciato del _documento commerciale online_
+lo preveda: serve una cattura fatta apposta.
+
+Tracciato in `REVIEW.md` #96. Nulla di questo blocca gli sconti o il pagamento
+misto: è il perimetro di ciò che non risolvono.

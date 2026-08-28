@@ -1006,6 +1006,86 @@ describe("mapSaleToAdePayload — oracoli HAR", () => {
     expect(left).toBe(dc.ammontareComplessivo);
   });
 
+  it("non accumula errore su piu' righe scontate ad aliquote diverse", () => {
+    // L'unico buco di copertura che il registro HAR dichiarava: i totali di
+    // documento sono somme semplici delle righe, quindi non c'e' un dubbio
+    // strutturale, ma nessun campione catturato ha piu' di UNA riga scontata.
+    // Con tre righe scontate su tre aliquote diverse (22%, 10% e una natura)
+    // un errore di accumulo — un arrotondamento intermedio, un addendo perso —
+    // si vedrebbe qui e in nessuno degli oracoli a riga singola.
+    //
+    // Aritmetica attesa, per riga:
+    //   1,00 @22% sconto 0,20 -> netto 0,65573770 + IVA 0,14426230 = 0,80
+    //   3,00 x2 @10% sconto 0,50 -> netto 5,00000000 + IVA 0,50000000 = 5,50
+    //   2,00 @N2 sconto 0,30 -> netto 1,70000000 + IVA 0,00000000 = 1,70
+    const doc: SaleDocumentRequest = {
+      date: "2026-08-27",
+      lotteryCode: null,
+      isGiftDocument: false,
+      lines: [
+        {
+          description: "Riga 22%",
+          quantity: 1,
+          unitPriceGross: 1.0,
+          lineDiscount: 0.2,
+          vatCode: "22",
+          isGift: false,
+        },
+        {
+          description: "Riga 10% qta 2",
+          quantity: 2,
+          unitPriceGross: 3.0,
+          lineDiscount: 0.5,
+          vatCode: "10",
+          isGift: false,
+        },
+        {
+          description: "Riga natura",
+          quantity: 1,
+          unitPriceGross: 2.0,
+          lineDiscount: 0.3,
+          vatCode: "N2",
+          isGift: false,
+        },
+      ],
+      payments: [{ type: "CASH", amount: 8.0 }],
+      globalDiscount: 0,
+      deductibleAmount: 0,
+    };
+
+    const dc = mapSaleToAdePayload(
+      doc,
+      mockCedentePrestatore,
+    ).documentoCommerciale;
+
+    // Il totale resta cent-esatto: 0,80 + 5,50 + 1,70. E' la grandezza che il
+    // cliente paga e che deve quadrare col PDF e con la termica.
+    expect(dc.ammontareComplessivo).toBe("8.00000000");
+
+    // Invariante di documento (voce #4) su tre addendi invece che due: e' il
+    // punto in cui un accumulo sbagliato smette di compensarsi.
+    const left = toAdeAmount8(
+      Number.parseFloat(dc.totaleImponibile) -
+        Number.parseFloat(dc.scontoTotale) +
+        Number.parseFloat(dc.importoTotaleIva),
+    );
+    expect(left).toBe(dc.ammontareComplessivo);
+
+    // I due sconti divergono perche' due righe su tre hanno un'aliquota: lo
+    // sconto netto e' la somma di tre scorpori diversi (1,22 / 1,10 / 1,00),
+    // non un unico rapporto applicato al lordo totale.
+    expect(dc.scontoTotaleLordo).toBe("1.00000000");
+    expect(dc.scontoTotale).not.toBe(dc.scontoTotaleLordo);
+
+    // Ogni riga tiene il proprio invariante: la somma corretta non puo'
+    // nascere da tre righe sbagliate che si compensano.
+    for (const riga of dc.elementiContabili) {
+      const netto = Number.parseFloat(riga.imponibileNetto);
+      const iva = Number.parseFloat(riga.importoIVA);
+      expect(toAdeAmount8(netto + iva)).toBe(riga.totale);
+    }
+  });
+
   it("azzera ammontareComplessivo su un documento di soli omaggi", () => {
     const doc: SaleDocumentRequest = {
       date: "2026-08-18",
