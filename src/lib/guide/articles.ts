@@ -658,7 +658,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Come acquisire il codice in fase di emissione",
-        body: "Tutti i software che emettono DCO devono prevedere un campo dedicato per il codice lotteria. Su ScontrinoZero, prima di confermare l'emissione, compare un campo opzionale dove inserire il codice (8 caratteri fra lettere maiuscole e numeri). Il campo appare solo se hai selezionato il pagamento elettronico, e resta disattivato sotto 1 € di totale: sono le due condizioni di partecipazione alla lotteria. Con l'incasso in contanti il codice non serve e non viene trasmesso. Una validazione lato app verifica il formato; il codice corretto viene incluso nel tracciato DCO trasmesso ad AdE. Tempo aggiuntivo per scontrino: 5-10 secondi.",
+        body: "Tutti i software che emettono DCO devono prevedere un campo dedicato per il codice lotteria. Su ScontrinoZero, nel riepilogo che precede l'emissione, il campo per il codice (8 caratteri fra lettere maiuscole e numeri) sta sotto \"Altre opzioni\", insieme agli altri casi che servono di rado. Il campo resta disattivato, con la ragione scritta accanto, se l'incasso non è tutto elettronico o se il totale sta sotto 1 €: sono le due condizioni di partecipazione alla lotteria. Con l'incasso in contanti il codice non serve e non viene trasmesso. Una validazione lato app verifica il formato; il codice corretto viene incluso nel tracciato DCO trasmesso ad AdE. Tempo aggiuntivo per scontrino: 5-10 secondi.",
       },
       {
         heading: "Lotteria periodica e lotteria istantanea: stato attuale",
@@ -1562,7 +1562,7 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
       },
       {
         heading: "Come si usano in ScontrinoZero",
-        body: 'Entrambi gli sconti sono inclusi nel piano Pro e nei 30 giorni di prova. Lo sconto di riga si aggiunge mentre inserisci l\'articolo, sotto l\'aliquota IVA, con il tasto "+ Sconto su questo articolo": è uno sconto sull\'intera riga, non per pezzo, quindi su 3 magliette da 40 € uno sconto di 20 € porta la riga a 100 €. Lo sconto a pagare si aggiunge nel riepilogo, sotto il metodo di pagamento, con "+ Sconto a pagare": la schermata mostra il totale che resta pieno e, sotto, quanto devi incassare. Se non li usi non li vedi: sono due link che si aprono solo quando li tocchi, e la cassa resta quella di prima. Su entrambi i campi deve restare almeno un centesimo da incassare, e lo sconto di riga non può superare il totale della riga a cui si riferisce.',
+        body: 'Entrambi gli sconti sono inclusi nel piano Pro e nei 30 giorni di prova. Lo sconto di riga si aggiunge mentre inserisci l\'articolo, sotto l\'aliquota IVA, con il tasto "+ Sconto su questo articolo": è uno sconto sull\'intera riga, non per pezzo, quindi su 3 magliette da 40 € uno sconto di 20 € porta la riga a 100 €. Lo sconto a pagare si aggiunge nel riepilogo, sotto "Altre opzioni", con "+ Sconto a pagare": la schermata mostra il totale che resta pieno e, sotto, quanto devi incassare. Se non li usi non li vedi: lo sconto di riga è un link che si apre solo quando lo tocchi, e sconto a pagare, pagamento misto e codice lotteria stanno tutti dentro "Altre opzioni", chiuso finché non serve. Su entrambi i campi deve restare almeno un centesimo da incassare, e lo sconto di riga non può superare il totale della riga a cui si riferisce.',
       },
       {
         heading: "Gli errori che costano un annullo",

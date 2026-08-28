@@ -37,12 +37,12 @@ const faqItems: readonly FaqItem[] = [
     question:
       "Posso dividere un pagamento tra contanti e carta sullo stesso scontrino?",
     answer:
-      "Sì, con il piano Pro. Nel riepilogo tocca «+ Pagamento misto» e digita quanto incassi in contanti: la quota elettronica è il resto. Il documento commerciale riporta le due righe separate, Pagamento contante e Pagamento elettronico, e la loro somma è l'importo pagato. Con il piano Starter resta un solo metodo per scontrino.",
+      "Sì, con il piano Pro. Nel riepilogo apri «Altre opzioni» e tocca «+ Pagamento misto», poi digita quanto incassi in contanti: la quota elettronica è il resto. Il documento commerciale riporta le due righe separate, Pagamento contante e Pagamento elettronico, e la loro somma è l'importo pagato. Con il piano Starter resta un solo metodo per scontrino.",
   },
   {
     question: "Il metodo scelto influisce sulla Lotteria degli Scontrini?",
     answer:
-      "Sì. Il campo per il codice lotteria compare solo quando selezioni Elettronico, perché alla Lotteria degli Scontrini partecipano soltanto gli acquisti sopra 1 € pagati con strumenti elettronici. Con pagamento in contanti il codice non può essere trasmesso, e nemmeno con un pagamento misto: basta una quota in contanti perché il documento non sia più pagato esclusivamente con mezzi elettronici.",
+      "Sì. Il campo per il codice lotteria sta nel riepilogo, sotto «Altre opzioni», e accetta un codice solo quando l'incasso è tutto elettronico: alla Lotteria degli Scontrini partecipano soltanto gli acquisti sopra 1 € pagati con strumenti elettronici. Con pagamento in contanti il campo resta disattivato e ti scrive perché, e lo stesso vale per un pagamento misto: basta una quota in contanti perché il documento non sia più pagato esclusivamente con mezzi elettronici.",
   },
 ];
 
@@ -188,11 +188,12 @@ export default function MetodiDiPagamentoPage() {
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Il metodo non è un dettaglio estetico: viaggia dentro il documento
           commerciale trasmesso all&apos;Agenzia e determina una cosa concreta
-          in cassa. Il campo <strong>codice Lotteria degli Scontrini</strong>{" "}
-          compare soltanto quando scegli Elettronico, perché alla Lotteria
-          partecipano solo gli acquisti sopra <strong>1 €</strong> pagati con
-          strumenti elettronici. Se registri come Contanti un incasso ricevuto
-          con bonifico, oltre a trasmettere un dato inesatto togli al cliente la
+          in cassa. Il campo <strong>codice Lotteria degli Scontrini</strong>,
+          nel riepilogo sotto <strong>Altre opzioni</strong>, accetta un codice
+          soltanto se hai scelto Elettronico, perché alla Lotteria partecipano
+          solo gli acquisti sopra <strong>1 €</strong> pagati con strumenti
+          elettronici. Se registri come Contanti un incasso ricevuto con
+          bonifico, oltre a trasmettere un dato inesatto togli al cliente la
           possibilità di partecipare.
         </p>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
@@ -200,7 +201,8 @@ export default function MetodiDiPagamentoPage() {
           <strong>un solo metodo di pagamento</strong>: scegli quello con cui il
           cliente ha saldato l&apos;intero importo dello scontrino. Con il piano
           Pro puoi invece <strong>ripartire l&apos;incasso</strong> fra contanti
-          ed elettronico sullo stesso scontrino: nel riepilogo tocca{" "}
+          ed elettronico sullo stesso scontrino: nel riepilogo apri{" "}
+          <strong>Altre opzioni</strong>, tocca{" "}
           <strong>+ Pagamento misto</strong> e digita la quota in contanti, il
           resto va sull&apos;elettronico. Sul documento compaiono due righe
           distinte, e la loro somma è l&apos;importo pagato. Per le aliquote IVA
