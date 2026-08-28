@@ -153,14 +153,15 @@ export default function PrimoScontrinoPage() {
         <figure className="mt-6">
           <AppScreenshot
             src="/screenshots/riepilogo-pagamento.png"
-            alt="Schermata di riepilogo scontrino con le righe, il totale e la scelta del metodo di pagamento"
+            alt="Schermata di riepilogo scontrino con le righe, il totale, la scelta del metodo di pagamento e il pannello Altre opzioni, chiuso"
             width={900}
             height={1860}
             sizes="(min-width: 768px) 240px, 65vw"
             className="mx-auto max-w-[240px]"
           />
           <figcaption className="text-muted-foreground mt-2 text-center text-xs">
-            Il riepilogo con totale e metodo di pagamento.
+            Il riepilogo con totale, metodo di pagamento e il pannello Altre
+            opzioni, chiuso di default.
           </figcaption>
         </figure>
 
