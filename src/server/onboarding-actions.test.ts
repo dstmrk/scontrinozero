@@ -2396,6 +2396,76 @@ describe("onboarding-actions", () => {
     const CHANGE_PW_BUSINESS_ID = "11111111-1111-4111-8111-111111111111";
     const CRED_UPDATED_AT = new Date("2026-07-01T10:00:00.000Z");
 
+    // --- Validazione input: regex password, conferma, diversa dalla attuale ---
+    // Guard client-side bypassabile (devtools, richiesta diretta): questi tre
+    // controlli devono valere anche quando il chiamante non è il dialog React.
+
+    it("nuova password fuori dal set di caratteri Fisconline → { error }, nessuna query DB", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: CHANGE_PW_BUSINESS_ID }]); // ownership
+      const { changeAdePassword } = await import("./onboarding-actions");
+
+      const result = await changeAdePassword(
+        CHANGE_PW_BUSINESS_ID,
+        "OldPass1!",
+        "café123!", // "é" accentata non è nel set ammesso
+        "café123!",
+      );
+
+      expect(result.error).toBe(
+        "Password non valida. Usa 8–15 caratteri: lettere (non accentate), numeri o caratteri speciali.",
+      );
+      expect(mockChangePasswordFisconline).not.toHaveBeenCalled();
+    });
+
+    it("nuova password sotto gli 8 caratteri → { error }", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: CHANGE_PW_BUSINESS_ID }]); // ownership
+      const { changeAdePassword } = await import("./onboarding-actions");
+
+      const result = await changeAdePassword(
+        CHANGE_PW_BUSINESS_ID,
+        "OldPass1!",
+        "Short1!",
+        "Short1!",
+      );
+
+      expect(result.error).toBe(
+        "Password non valida. Usa 8–15 caratteri: lettere (non accentate), numeri o caratteri speciali.",
+      );
+      expect(mockChangePasswordFisconline).not.toHaveBeenCalled();
+    });
+
+    it("nuova password e conferma diverse → { error }, nessuna chiamata AdE", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: CHANGE_PW_BUSINESS_ID }]); // ownership
+      const { changeAdePassword } = await import("./onboarding-actions");
+
+      const result = await changeAdePassword(
+        CHANGE_PW_BUSINESS_ID,
+        "OldPass1!",
+        "NewPass1!",
+        "NewPass2!",
+      );
+
+      expect(result.error).toBe("Le password non coincidono.");
+      expect(mockChangePasswordFisconline).not.toHaveBeenCalled();
+    });
+
+    it("nuova password identica all'attuale → { error }, nessuna chiamata AdE", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: CHANGE_PW_BUSINESS_ID }]); // ownership
+      const { changeAdePassword } = await import("./onboarding-actions");
+
+      const result = await changeAdePassword(
+        CHANGE_PW_BUSINESS_ID,
+        "SamePass1!",
+        "SamePass1!",
+        "SamePass1!",
+      );
+
+      expect(result.error).toBe(
+        "La nuova password deve essere diversa da quella attuale.",
+      );
+      expect(mockChangePasswordFisconline).not.toHaveBeenCalled();
+    });
+
     /**
      * Arrangia il percorso completo di `changeAdePassword`: ownership OK,
      * riga credenziali letta, cambio password su AdE riuscito. Ritorna la riga
