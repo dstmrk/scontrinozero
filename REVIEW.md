@@ -885,7 +885,7 @@ insostenibile.
 
 ---
 
-### 96. Le tre checklist manuali pre-PR non hanno un gate
+### 104. Le tre checklist manuali pre-PR non hanno un gate
 
 - **Categoria:** tooling / qualità · **Severità:** Low — oggi sono coperte da
   prosa nelle skill, quindi valgono quanto l'attenzione di chi legge
