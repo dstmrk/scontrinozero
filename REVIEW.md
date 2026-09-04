@@ -9,6 +9,13 @@ roadmap delle **funzionalità**. Quando un finding viene risolto, rimuoverlo nel
 PR del fix; quando un audit ne trova di nuovi, aggiungerli nella sezione di
 priorità corretta.
 
+**Numerazione.** Un finding nuovo prende il primo numero libero: i numeri sono
+stabili e non si riciclano (il codice e i doc citano "REVIEW.md #N"), quindi i
+buchi lasciati dalle voci risolte restano buchi. `npm run arch:check` fallisce
+se due voci condividono lo stesso numero — è già successo con due branch
+aperti in parallelo, che avevano preso lo stesso numero libero rispetto alla
+propria base e si sono fusi senza conflitto.
+
 Ogni finding è autoconsistente: deve poter essere implementato leggendo solo la
 sua sezione, nel rispetto delle regole sempre-attive di `CLAUDE.md` (branch
 separato, TDD, edge case prima del commit, una slice = un contratto verificabile
@@ -155,6 +162,147 @@ group:
 4. Verificare su sandbox prima di prod: uno script bloccato dalla CSP rompe il
    widget Turnstile o i dati strutturati silenziosamente — controllare la console
    e i report CSP.
+
+---
+
+### 103. Una riga `PENDING` orfana resta a esito AdE ignoto, e nessuna superficie la mostra
+
+- **Categoria:** coerenza dei dati fiscali / osservabilità · **Severità:**
+  Medium — nessun dato corrotto e nessun doppione nel nostro DB, ma l'esito AdE
+  di una riga `PENDING` orfana resta ignoto a tempo indefinito e nessuna
+  superficie lo segnala
+- **File:** `src/lib/services/receipt-service.ts:275` (ramo `alreadyExists`),
+  `:322` (`handleExistingReceipt`), `:454` (gate `isStale`);
+  `src/lib/services/ade-recovery.ts` (`getStalePendingThresholdMs`,
+  `claimStaleDocument`, `buildAdeSearchWindow`, `reconcileSaleDocument`);
+  `src/components/cassa/cassa-client.tsx:287`;
+  `src/components/storico/void-receipt-dialog.tsx:62`;
+  `src/server/storico-actions.ts:228`; `src/server/analytics-actions.ts:206`;
+  `src/server/admin-metrics.ts`; `src/instrumentation.ts:155`
+
+**Problema.** Tre difetti si sommano e producono una riga che nessuno
+riconcilierà mai.
+
+1. **La stale-recovery è pull-based.** L'unico ingresso è il ramo
+   `alreadyExists` dell'INSERT `onConflictDoNothing`: la riconciliazione con AdE
+   parte solo quando un secondo tentativo collide sul vincolo UNIQUE
+   `(business_id, idempotency_key)`. Senza collisione di chiave non c'è claim,
+   non c'è `searchDocuments`, non c'è finalize.
+2. **La cassa conia una chiave nuova a ogni submit** (`crypto.randomUUID()`
+   dentro `handleSubmit`). Il retry dopo un fallimento non collide: inserisce
+   una riga nuova e lascia la precedente `PENDING` per sempre. Stesso effetto
+   per un client API che ritenta con una chiave nuova.
+3. **Nessuna superficie mostra i `PENDING`.** Storico e analytics filtrano
+   `IN ('ACCEPTED','VOID_ACCEPTED')`, le metriche admin contano `ACCEPTED`. Le
+   righe orfane non fanno rumore e non gonfiano il fatturato, ma non le vede
+   nessuno: chi lavora al repo le trova solo ispezionando il DB a mano.
+
+La conseguenza è il rovescio del doppione che di solito si teme. Non due
+documenti da noi, ma **un documento che potrebbe esistere su AdE e non nel
+nostro DB**, oppure un corrispettivo mai trasmesso. Le due ipotesi sono
+indistinguibili senza interrogare il portale, ed entrambe restano invisibili.
+
+Il ramo è raro, si attiva solo quando l'esito AdE è ignoto (rete, 5xx, timeout),
+ma quando scatta produce ambiguità fiscale permanente.
+
+**Il meccanismo esiste già, manca solo chi lo chiami.** `reconcileSaleDocument`
+fa il match sull'importo esatto in cents, con il comparatore legacy per i
+documenti emessi prima di #57. `buildAdeSearchWindow` costruisce la finestra
+±24h da `createdAt`, quindi funziona anche su righe vecchie di settimane, non
+solo a caldo. `claimStaleDocument` serializza due retry concorrenti con un CAS
+su `updated_at`. Su una riga orfana `updated_at` è ancora identico a
+`created_at`: dopo l'INSERT non l'ha toccata nessuno.
+
+Un dettaglio guida il fix. È proprio la misura anti-doppione, la chiave nuova a
+ogni submit, a tenere chiuso l'unico ingresso della recovery.
+
+**Cosa NON è il problema.**
+
+- **Il contratto `/api/v1` è già corretto.** `ADE_UNAVAILABLE`
+  (`api-v1-errors.ts:132`) è `503`, `retryable: true`, `Retry-After: 10`, e il
+  catalogo prescrive testualmente di ritentare con la **stessa**
+  `idempotencyKey`. Un integratore che ne conia una nuova viola un contratto
+  documentato, e nessuna modifica all'API lo impedirebbe: l'endpoint non può
+  distinguere una vendita nuova legittima da un retry mascherato. È materia da
+  supporto all'integratore, non da codice.
+- **Il flusso di annullo fa già la cosa giusta.**
+  `useState(() => crypto.randomUUID())` tiene la chiave stabile per la vita del
+  dialog. L'emissione è l'anomalia interna, non una scelta di design.
+
+**Fix: tre slice, in quest'ordine.**
+
+**Slice 1, il rilevatore.** Un conteggio dei `PENDING` oltre soglia su una
+superficie già esistente: `admin-metrics.ts` usa già la stessa forma
+`count(*) FILTER (WHERE …)` sulla stessa tabella. In alternativa, o in aggiunta,
+un `logger.warn` periodico che li conta e arriva su Sentry Logs con l'impianto
+già attivo. Criterio di uscita: leggere quel numero non richiede una sessione
+SQL. **Test:** riga sotto soglia non contata; oltre soglia contata; `ERROR`
+trattato come la slice decide, e verificato; nessun `PENDING` → zero, senza log
+di rumore.
+
+Va per prima perché è il rilevatore. Senza, nessuno sa se le slice 2 e 3
+funzionano, e il difetto torna scopribile solo per caso.
+
+**Slice 2, "verifica stato" dentro la sessione dell'esercente.** È il pezzo che
+chiude il buco.
+
+1. Avviso non bloccante (banner, non righe nello storico) quando esiste un
+   `PENDING` oltre soglia. Storico e analytics continuano a filtrare
+   `ACCEPTED/VOID_ACCEPTED`: il banner non sporca la lista con righe che
+   potrebbero non essere nulla.
+2. Azione esplicita che chiama `reconcileSaleDocument` **dentro la sessione
+   utente**, dove le credenziali AdE sono già disponibili.
+3. Match → finalize ad `ACCEPTED` con `ade_registered_at` autorevole, la stessa
+   strada di #91. Nessun match → `ERROR` e invito a riemettere.
+4. Match ambiguo (stesso importo più volte nello stesso giorno) → la UI mostra i
+   candidati e sceglie l'esercente. **Mai una scelta automatica.** L'esercente è
+   l'unico anello della catena che sa se la vendita è avvenuta.
+5. **Test:** match singolo; nessun match; candidati multipli; claim concorrente
+   perso (CAS → risposta in-progress, nessuna ri-sottomissione); riga già
+   finalizzata da un'altra sessione nel frattempo.
+
+**Slice 3, chiave di idempotenza stabile in cassa.** Stabile per carrello, con
+due rotazioni obbligatorie.
+
+1. **Su emissione riuscita.** Senza, la vendita successiva riceve il successo
+   idempotente della precedente e non emette nulla.
+2. **A ogni modifica del carrello.** Senza, un ritocco alle righe produce
+   `IDEMPOTENCY_PAYLOAD_MISMATCH` e blocca l'utente.
+
+Con entrambe, l'unico caso di blocco è "carrello identico, riprovo entro la
+soglia stale", cioè esattamente il caso in cui ri-sottomettere è pericoloso.
+
+**Questa slice va dopo la 2, non prima.** Da sola peggiora l'esperienza: oggi
+chi riclicca ottiene uno scontrino e rischia il doppione, dopo otterrebbe
+"ancora in elaborazione" fino alla soglia, con il cliente al banco. Solo quando
+la verifica della slice 2 esiste, l'utente bloccato ha qualcosa da premere.
+
+**Test:** carrello identico ritentato → stessa chiave; emissione riuscita →
+chiave nuova; qualsiasi modifica al carrello → chiave nuova; stato bloccato →
+la UI offre la verifica della slice 2.
+
+**Cosa non fare.**
+
+- **Sweep automatico in `instrumentation.ts`.** L'impianto ci sarebbe, due sweep
+  in-process già girano lì, ma non ha una sessione AdE: dovrebbe decifrare le
+  credenziali fuori da una request utente e fare un login per ogni business con
+  righe orfane. È il contrario di "leggeri sulle risorse" per un evento raro, e
+  sposta la decisione lontano dall'unica persona che conosce la verità. Da
+  riaprire solo se il rilevatore della slice 1 mostrasse accumulo su un canale
+  dove nessun umano ripassa mai.
+- **Dedup a contenuto su finestra temporale.** Due vendite identiche a pochi
+  minuti di distanza sono ordinaria amministrazione in parecchi settori: un
+  blocco automatico rifiuterebbe una vendita vera per proteggere da un errore
+  ipotetico. Al massimo un avviso non bloccante, e non in queste tre slice.
+- **Abbassare `STALE_PENDING_THRESHOLD_MINUTES` alla cieca.** Richiederebbe
+  sapere quanto ci mette un documento appena registrato a diventare cercabile su
+  AdE, un dato che non abbiamo. Sbagliarlo significa ri-sottomettere un documento
+  che AdE ha già accettato, irreversibile. Le due rotazioni della slice 3 rendono
+  il blocco abbastanza raro da non dover toccare la soglia.
+
+**Chiusura.** Il finding si chiude quando le tre slice sono spedite. Fino ad
+allora resta aperto anche se in quel momento non c'è nessuna riga orfana: il
+difetto è il meccanismo, non le righe.
 
 ---
 
@@ -744,7 +892,7 @@ insostenibile.
 
 ---
 
-### 96. Le tre checklist manuali pre-PR non hanno un gate
+### 104. Le tre checklist manuali pre-PR non hanno un gate
 
 - **Categoria:** tooling / qualità · **Severità:** Low — oggi sono coperte da
   prosa nelle skill, quindi valgono quanto l'attenzione di chi legge
