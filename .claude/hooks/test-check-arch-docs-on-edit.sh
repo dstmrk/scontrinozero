@@ -24,23 +24,31 @@ fi
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-# make_fixture <name> <INDEX.md content> <CLAUDE.md content>
+# make_fixture <name> <INDEX.md content> <CLAUDE.md content> [REVIEW.md content]
 # Creates $TMP/<name> with the hook, the real validator script and the given
 # meta docs. The hook resolves the repo root from its own location, so the
 # fixture is a fully isolated mini-repo.
+# REVIEW.md is written too: the validator reads it to check the uniqueness of
+# the finding numbers, and reports its absence as an error — a fixture without
+# it would fail for a reason the test is not about.
 make_fixture() {
-  local name="$1" index_md="$2" claude_md="$3"
+  local name="$1" index_md="$2" claude_md="$3" review_md="${4:-### 1. Una voce sola}"
   local root="$TMP/$name"
   mkdir -p "$root/.claude/hooks" "$root/scripts" "$root/docs/architecture"
   cp "$HOOK_SRC" "$root/.claude/hooks/"
   cp "$REPO_ROOT/scripts/check-architecture-docs.mjs" "$root/scripts/"
   printf '%s\n' "$index_md" >"$root/docs/architecture/INDEX.md"
   printf '%s\n' "$claude_md" >"$root/CLAUDE.md"
+  printf '%s\n' "$review_md" >"$root/REVIEW.md"
 }
 
 make_fixture ok "Nothing referenced here." "No paths here either."
 make_fixture bad-index "Vedi \`src/lib/ghost.ts\`." "No paths here."
 make_fixture bad-claude "Nothing referenced here." "Regola: usa \`src/lib/ghost.ts\`."
+make_fixture bad-review "Nothing referenced here." "No paths here either." \
+  "### 96. Prima voce
+
+### 96. Seconda voce"
 
 failures=0
 
@@ -83,6 +91,7 @@ assert_pass bad-index ""
 assert_pass ok "$TMP/ok/docs/architecture/INDEX.md"
 assert_pass ok "$TMP/ok/CLAUDE.md"
 assert_pass ok "$TMP/ok/.claude/skills/testing-patterns/SKILL.md"
+assert_pass ok "$TMP/ok/REVIEW.md"
 
 # --- BLOCK cases: an edit to any meta doc while a dead reference exists ---
 assert_block bad-index "$TMP/bad-index/docs/architecture/INDEX.md"
@@ -90,6 +99,12 @@ assert_block bad-index "docs/architecture/INDEX.md"
 assert_block bad-index "$TMP/bad-index/.claude/skills/testing-patterns/SKILL.md"
 assert_block bad-claude "$TMP/bad-claude/CLAUDE.md"
 assert_block bad-claude "CLAUDE.md"
+
+# --- BLOCK cases: due voci REVIEW.md con lo stesso numero ---
+assert_block bad-review "$TMP/bad-review/REVIEW.md"
+assert_block bad-review "REVIEW.md"
+# Il validatore e' globale: la collisione blocca anche l'edit a un altro meta doc.
+assert_block bad-review "$TMP/bad-review/CLAUDE.md"
 
 if [ "$failures" -gt 0 ]; then
   echo "$failures test(s) failed." >&2

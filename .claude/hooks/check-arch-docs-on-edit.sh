@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # PostToolUse hook on Edit|Write — runs arch:check right after an edit to the
-# meta docs (docs/architecture/, .claude/skills/, CLAUDE.md).
+# meta docs (docs/architecture/, .claude/skills/, CLAUDE.md, REVIEW.md).
 # Rationale: CLAUDE.md regola 26. Instead of relying on the model remembering
 # to run `npm run arch:check` before closing the task, a dead path reference
 # is reported as immediate feedback on the very edit that introduced it.
@@ -17,6 +17,10 @@ case "$file" in
 */docs/architecture/*.md | docs/architecture/*.md) ;;
 */.claude/skills/*.md | .claude/skills/*.md) ;;
 */CLAUDE.md | CLAUDE.md) ;;
+# REVIEW.md: il validatore ne controlla l'unicita' dei numeri di voce, e due
+# branch paralleli che prendono lo stesso numero libero si fondono senza
+# conflitto — quindi il feedback deve arrivare sull'edit, non a valle.
+*/REVIEW.md | REVIEW.md) ;;
 *) exit 0 ;;
 esac
 

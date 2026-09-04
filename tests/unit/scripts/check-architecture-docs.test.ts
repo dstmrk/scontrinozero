@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   checkArchitectureDocs,
+  extractDuplicateFindingNumbers,
   extractFrontmatterPathTokens,
   extractBuildArtifactViolations,
   extractHarViolations,
@@ -41,6 +42,9 @@ function makeDirDirents(names: string[]) {
  * only for the paths listed in `existing` (relative to the fake root /repo).
  * `skills` maps a skill dir name to its SKILL.md content (null = unreadable).
  * `claudeMd` is the root CLAUDE.md content (scanned too; null = unreadable).
+ * `reviewMd` is the root REVIEW.md content (scanned for duplicate finding
+ * numbers; null = unreadable). Defaults to empty, which has no headings and so
+ * no duplicates: tests that do not care about the numbering stay unaffected.
  *
  * When `claudeMd` is omitted the fixture CLAUDE.md lists every skill as a code
  * span — the shape the real CLAUDE.md has — so the orphan-skill check stays
@@ -51,6 +55,7 @@ function setup(
   existing: string[],
   skills: Record<string, string | null> = {},
   claudeMd: string | null | undefined = undefined,
+  reviewMd: string | null = "",
 ) {
   const resolvedClaudeMd =
     claudeMd === undefined
@@ -77,6 +82,10 @@ function setup(
       if (typeof resolvedClaudeMd === "string") {
         return Promise.resolve(resolvedClaudeMd);
       }
+      return Promise.reject(new Error(`ENOENT: ${p}`));
+    }
+    if (p === "/repo/REVIEW.md") {
+      if (typeof reviewMd === "string") return Promise.resolve(reviewMd);
       return Promise.reject(new Error(`ENOENT: ${p}`));
     }
     const skillMatch = /^\/repo\/\.claude\/skills\/([^/]+)\/SKILL\.md$/.exec(p);
@@ -433,6 +442,50 @@ describe("checkArchitectureDocs", () => {
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toContain("Cannot read skill doc");
   });
+
+  it("reports a finding number used twice in REVIEW.md", async () => {
+    setup(
+      { "INDEX.md": "niente path qui" },
+      [],
+      {},
+      "",
+      ["### 96. Prima voce", "", "### 96. Seconda voce"].join("\n"),
+    );
+
+    const result = await checkArchitectureDocs("/repo");
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("REVIEW.md");
+    expect(result.errors[0]).toContain("96");
+    expect(result.errors[0]).toContain("Prima voce");
+    expect(result.errors[0]).toContain("Seconda voce");
+  });
+
+  it("passes when REVIEW.md numbers its findings uniquely", async () => {
+    setup(
+      { "INDEX.md": "niente path qui" },
+      [],
+      {},
+      "",
+      ["### 96. Prima voce", "", "### 104. Seconda voce"].join("\n"),
+    );
+
+    const result = await checkArchitectureDocs("/repo");
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("reports an unreadable REVIEW.md instead of skipping the check", async () => {
+    setup({ "INDEX.md": "niente path qui" }, [], {}, "", null);
+
+    const result = await checkArchitectureDocs("/repo");
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("Cannot read REVIEW.md");
+  });
 });
 
 describe("extractSkillReferences", () => {
@@ -563,5 +616,98 @@ describe("extractFrontmatterPathTokens", () => {
     expect(extractFrontmatterPathTokens("plain `src/lib/a.ts` text")).toEqual(
       [],
     );
+  });
+});
+
+describe("extractDuplicateFindingNumbers", () => {
+  it("reports a number used by two findings, with both titles", () => {
+    const md = [
+      "### 96. Arrotondamento DL 50/2017",
+      "",
+      "Testo.",
+      "",
+      "### 96. Le tre checklist manuali pre-PR non hanno un gate",
+      "",
+      "Altro testo.",
+    ].join("\n");
+
+    expect(extractDuplicateFindingNumbers(md)).toEqual([
+      {
+        number: 96,
+        titles: [
+          "Arrotondamento DL 50/2017",
+          "Le tre checklist manuali pre-PR non hanno un gate",
+        ],
+      },
+    ]);
+  });
+
+  it("returns an empty list when every number is unique", () => {
+    const md = ["### 11. Uno", "", "### 12. Due", "", "### 103. Tre"].join(
+      "\n",
+    );
+
+    expect(extractDuplicateFindingNumbers(md)).toEqual([]);
+  });
+
+  it("allows gaps: a resolved finding is removed and its number never recycled", () => {
+    const md = ["### 3. Uno", "", "### 62. Due", "", "### 104. Tre"].join("\n");
+
+    expect(extractDuplicateFindingNumbers(md)).toEqual([]);
+  });
+
+  it("ignores unnumbered ### headings and other heading levels", () => {
+    const md = [
+      "## P3 — Bassa priorità",
+      "",
+      "### Rischi accettati",
+      "",
+      "### Rischi accettati",
+      "",
+      "#### 12. Sotto-sezione",
+      "",
+      "#### 12. Un'altra sotto-sezione",
+    ].join("\n");
+
+    expect(extractDuplicateFindingNumbers(md)).toEqual([]);
+  });
+
+  it("ignores headings inside fenced code blocks", () => {
+    const md = [
+      "### 12. Vera voce",
+      "",
+      "Il template del ledger:",
+      "",
+      "```markdown",
+      "### 12. Titolo d'esempio",
+      "```",
+      "",
+      "Fine.",
+    ].join("\n");
+
+    expect(extractDuplicateFindingNumbers(md)).toEqual([]);
+  });
+
+  it("does not leave a stray CR in the title on CRLF line endings", () => {
+    const md = "### 96. Prima\r\n\r\n### 96. Seconda\r\n";
+
+    expect(extractDuplicateFindingNumbers(md)).toEqual([
+      { number: 96, titles: ["Prima", "Seconda"] },
+    ]);
+  });
+
+  it("reports every duplicated number, sorted, listing all its titles", () => {
+    const md = [
+      "### 7. A",
+      "### 5. B",
+      "### 7. C",
+      "### 5. D",
+      "### 5. E",
+    ].join("\n");
+
+    expect(extractDuplicateFindingNumbers(md)).toEqual([
+      { number: 5, titles: ["B", "D", "E"] },
+      { number: 7, titles: ["A", "C"] },
+    ]);
   });
 });

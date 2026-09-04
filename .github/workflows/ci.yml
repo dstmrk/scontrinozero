@@ -66,6 +66,7 @@ jobs:
               - 'docs/architecture/**'
               - '.claude/skills/**'
               - 'CLAUDE.md'
+              - 'REVIEW.md'
               - 'scripts/check-architecture-docs.mjs'
               - 'src/**'
             hooks:

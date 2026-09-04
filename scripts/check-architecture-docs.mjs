@@ -36,9 +36,18 @@
  *    same reason — it exists only after a build. This one has a nastier
  *    failure mode than har/: whoever writes the doc usually has a warm build,
  *    so the check passes locally and only breaks in CI. Cite it as a glob.
- *  - REVIEW.md and PLAN.md are intentionally NOT scanned: they legitimately
- *    cite historical/removed paths in prose, so the false-positive noise
- *    would outweigh the value.
+ *  - REVIEW.md and PLAN.md are intentionally NOT scanned FOR PATHS: they
+ *    legitimately cite historical/removed paths in prose, so the
+ *    false-positive noise would outweigh the value.
+ *
+ * REVIEW.md is scanned for one thing only: the uniqueness of its finding
+ * numbers. Two `### <N>.` headings sharing a number make every "REVIEW.md #N"
+ * citation ambiguous, and nothing else catches it — the collision that
+ * prompted this check came from two branches open in parallel, each taking the
+ * first free number against its own base, which git then merged without a
+ * conflict because the two headings landed in different parts of the file.
+ * Gaps are legal and NOT reported: a resolved finding is removed and its
+ * number is never recycled.
  *
  * Skill cross-references are validated too — a doc that sends the reader to a
  * skill that was renamed or absorbed elsewhere misleads exactly like a dead
@@ -217,6 +226,55 @@ export function extractBuildArtifactViolations(markdown) {
 }
 
 /**
+ * Un heading di voce in REVIEW.md: `### <numero>. <titolo>`.
+ *
+ * Modulo-level col flag `g`, ma consumata SOLO con `matchAll`, che clona la
+ * regex: nessuno stato `lastIndex` condiviso fra chiamate. Passandola a
+ * `.exec()` o `.test()` in un loop tornerebbe il classico bug di regex
+ * stateful — usa `matchAll`.
+ */
+const FINDING_HEADING_RE = /^### (\d+)\.[ \t]+(.+?)[ \t\r]*$/gm;
+
+/**
+ * Rimuove i blocchi di codice recintati prima di cercare gli heading: un
+ * esempio markdown dentro una fence non e' una voce del registro, e contarlo
+ * bloccherebbe la CI su un doc legittimo. Una fence non chiusa non matcha e
+ * lascia il testo com'e': e' un doc rotto per conto suo.
+ * @param {string} markdown
+ * @returns {string}
+ */
+function stripFencedBlocks(markdown) {
+  return markdown.replace(/^```[\s\S]*?^```/gm, "");
+}
+
+/**
+ * Trova i numeri di voce usati da piu' di un heading in REVIEW.md.
+ *
+ * La numerazione del registro e' stabile e non si ricicla: il codice cita
+ * `regola N` e i doc citano "REVIEW.md #N", quindi due voci con lo stesso
+ * numero rendono ambiguo ogni riferimento. I buchi invece sono legittimi (una
+ * voce risolta si rimuove) e non vengono segnalati.
+ *
+ * @param {string} markdown
+ * @returns {{ number: number; titles: string[] }[]} duplicati, per numero crescente
+ */
+export function extractDuplicateFindingNumbers(markdown) {
+  const byNumber = new Map();
+  for (const match of stripFencedBlocks(markdown).matchAll(
+    FINDING_HEADING_RE,
+  )) {
+    const number = Number(match[1]);
+    const titles = byNumber.get(number) ?? [];
+    titles.push(match[2]);
+    byNumber.set(number, titles);
+  }
+  return [...byNumber.entries()]
+    .filter(([, titles]) => titles.length > 1)
+    .sort(([a], [b]) => a - b)
+    .map(([number, titles]) => ({ number, titles }));
+}
+
+/**
  * @param {string} token  Offending build-artifact span
  * @param {string} doc    Display path of the doc citing it
  * @returns {string}
@@ -316,6 +374,24 @@ export async function checkArchitectureDocs(rootDir) {
     errors.push("Cannot read CLAUDE.md at repo root");
   }
 
+  // REVIEW.md (repo root) — solo l'unicita' dei numeri di voce, non i path
+  // (vedi il contratto in testa). La lettura ha il suo try/catch e il
+  // controllo sta fuori: cosi' un bug nell'estrattore non viene mai
+  // riportato come "file illeggibile".
+  let reviewMd = null;
+  try {
+    reviewMd = await readFile(join(rootDir, "REVIEW.md"), "utf-8");
+  } catch {
+    errors.push("Cannot read REVIEW.md at repo root");
+  }
+  if (reviewMd !== null) {
+    for (const { number, titles } of extractDuplicateFindingNumbers(reviewMd)) {
+      errors.push(
+        `Duplicate finding number ${number} in REVIEW.md ("${titles.join('", "')}") — finding numbers are stable and never recycled: give the new one the first free number`,
+      );
+    }
+  }
+
   // .claude/skills/<name>/SKILL.md — same code-span contract, plus bare
   // frontmatter tokens. A missing skills dir is fine (nothing to validate);
   // a skill dir without a readable SKILL.md is a broken skill → error.
@@ -406,12 +482,12 @@ if (isMain) {
         console.error(`   - ${err}`);
       }
       console.error(
-        "\nFix: update the stale reference in docs/architecture/, .claude/skills/ or CLAUDE.md (docs must point at real files and real skills).",
+        "\nFix: update the stale reference in docs/architecture/, .claude/skills/ or CLAUDE.md (docs must point at real files and real skills), or renumber the duplicated REVIEW.md finding.",
       );
       process.exit(1);
     }
     console.log(
-      "✅ Architecture docs check passed: referenced paths and skills all exist.",
+      "✅ Architecture docs check passed: referenced paths and skills all exist, REVIEW.md finding numbers are unique.",
     );
   });
 }

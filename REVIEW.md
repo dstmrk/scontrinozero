@@ -9,6 +9,13 @@ roadmap delle **funzionalità**. Quando un finding viene risolto, rimuoverlo nel
 PR del fix; quando un audit ne trova di nuovi, aggiungerli nella sezione di
 priorità corretta.
 
+**Numerazione.** Un finding nuovo prende il primo numero libero: i numeri sono
+stabili e non si riciclano (il codice e i doc citano "REVIEW.md #N"), quindi i
+buchi lasciati dalle voci risolte restano buchi. `npm run arch:check` fallisce
+se due voci condividono lo stesso numero — è già successo con due branch
+aperti in parallelo, che avevano preso lo stesso numero libero rispetto alla
+propria base e si sono fusi senza conflitto.
+
 Ogni finding è autoconsistente: deve poter essere implementato leggendo solo la
 sua sezione, nel rispetto delle regole sempre-attive di `CLAUDE.md` (branch
 separato, TDD, edge case prima del commit, una slice = un contratto verificabile
