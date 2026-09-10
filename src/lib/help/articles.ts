@@ -136,11 +136,11 @@ export const helpArticles: Record<string, HelpArticle> = {
   "errori-ade": {
     slug: "errori-ade",
     datePublished: "2026-04-16",
-    dateModified: "2026-07-15",
+    dateModified: "2026-09-10",
     title: "Errori comuni di accesso AdE e come risolverli",
     metaTitle: "Password AdE scaduta o accesso bloccato: come risolvere",
     description:
-      "Password Fisconline scaduta o bloccata, credenziali errate, portale AdE non disponibile: cosa significa ogni errore di accesso all'Agenzia delle Entrate e come ripristinare l'accesso.",
+      "Password Fisconline scaduta, credenziali errate, portale non disponibile, scontrino rimasto in sospeso: cosa significa ogni errore AdE e come risolverlo.",
     related: [
       "come-collegare-ade",
       "credenziali-fisconline",

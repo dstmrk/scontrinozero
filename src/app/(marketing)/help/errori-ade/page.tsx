@@ -38,10 +38,11 @@ export default function ErroriAdePage() {
         </div>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
           Quando ScontrinoZero non riesce a comunicare con il portale Fatture e
-          Corrispettivi dell&apos;Agenzia delle Entrate, l&apos;emissione dello
-          scontrino fallisce subito e il documento viene marcato come{" "}
-          <strong>Errore</strong>, oppure il pulsante{" "}
-          <strong>Verifica connessione</strong> in{" "}
+          Corrispettivi dell&apos;Agenzia delle Entrate gli esiti possibili sono
+          tre: l&apos;emissione fallisce subito e il documento viene marcato
+          come <strong>Errore</strong>; lo scontrino resta{" "}
+          <strong>in sospeso</strong> perché l&apos;esito della trasmissione è
+          ignoto; oppure il pulsante <strong>Verifica connessione</strong> in{" "}
           <strong>Impostazioni → Credenziali AdE</strong> mostra un messaggio.
           Questa guida copre i casi più frequenti con la soluzione per ciascuno.
         </p>
@@ -285,10 +286,21 @@ export default function ErroriAdePage() {
         <ul className="text-muted-foreground mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
             <strong>Importante:</strong> ScontrinoZero non accoda né ritrasmette
-            automaticamente gli scontrini. Quando il portale AdE non risponde,
-            l&apos;emissione fallisce subito e lo scontrino non viene generato.
-            Devi ritentare manualmente l&apos;emissione una volta che il portale
-            torna disponibile.
+            automaticamente gli scontrini, e l&apos;esito dipende da{" "}
+            <em>quando</em> la comunicazione si interrompe. Se il portale non
+            risponde affatto, l&apos;emissione fallisce subito, lo scontrino non
+            viene generato e lo riemetti quando il portale torna disponibile. Se
+            invece la connessione cade a trasmissione già partita, l&apos;esito
+            resta ignoto e lo scontrino resta <strong>in sospeso</strong>: in
+            quel caso <strong>verifica prima di riemettere</strong>, altrimenti
+            rischi due documenti fiscali sullo stesso incasso. Vedi{" "}
+            <a
+              href="#scontrino-in-sospeso"
+              className="text-primary hover:underline"
+            >
+              Scontrino in sospeso
+            </a>
+            {"."}
           </li>
           <li>
             {"Verifica gli avvisi di manutenzione su "}
@@ -315,6 +327,72 @@ export default function ErroriAdePage() {
             {"."}
           </li>
         </ul>
+
+        {/* ─── Scontrino in sospeso ─── */}
+        <h2
+          id="scontrino-in-sospeso"
+          className="mt-10 scroll-mt-20 text-xl font-semibold"
+        >
+          Scontrino in sospeso: nessuna conferma dall&apos;AdE
+        </h2>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          <strong>Sintomo:</strong> in cima al dashboard compare un avviso —{" "}
+          <em>
+            &quot;Uno scontrino non ha ricevuto conferma dall&apos;Agenzia delle
+            Entrate. Verifica se è stato registrato prima di riemetterlo.&quot;
+          </em>{" "}
+          Lo scontrino non è nello storico e non entra nel fatturato.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          <strong>Causa:</strong> la comunicazione con il portale si è
+          interrotta <strong>dopo</strong> che la trasmissione era partita —
+          rete che cade, timeout, errore temporaneo dell&apos;AdE. L&apos;esito
+          resta quindi ignoto: il documento potrebbe essere stato registrato
+          dall&apos;Agenzia, oppure il corrispettivo potrebbe non essere mai
+          arrivato. Le due ipotesi non si distinguono senza interrogare il
+          portale, ed è esattamente ciò che fa il pulsante{" "}
+          <strong>Verifica stato</strong>.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm font-medium">
+          Cosa fare:
+        </p>
+        <ul className="text-muted-foreground mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed">
+          <li>
+            Premi <strong>Verifica stato</strong> nell&apos;avviso: cerchiamo
+            sul portale AdE i documenti emessi nelle 24 ore intorno a quello
+            scontrino e li confrontiamo per importo esatto.
+          </li>
+          <li>
+            <strong>Se risulta già registrato</strong>, lo scontrino passa nello
+            storico con la data ufficiale dell&apos;Agenzia.{" "}
+            <strong>Non riemetterlo</strong>: sarebbe un secondo documento
+            fiscale sullo stesso incasso, e l&apos;annullo va poi fatto a parte.
+          </li>
+          <li>
+            <strong>Se sul portale non c&apos;è nulla</strong>, il corrispettivo
+            non è mai stato trasmesso: l&apos;avviso sparisce e riemetti lo
+            scontrino dalla cassa come al solito.
+          </li>
+          <li>
+            <strong>Se i documenti compatibili sono più di uno</strong> — lo
+            stesso importo ricorre più volte nella stessa giornata — te li
+            elenchiamo con progressivo, ora e importo e scegli tu quale
+            corrisponde a quella vendita. Non lo decidiamo noi: sei l&apos;unico
+            a sapere cosa hai battuto. Se non riconosci nessuno di quei
+            documenti non confermare, e riemetti.
+          </li>
+          <li>
+            Se durante la verifica il portale non risponde{" "}
+            <strong>non concludiamo nulla</strong>: lo scontrino resta in
+            sospeso e torna nell&apos;avviso da solo, così puoi riprovare più
+            tardi.
+          </li>
+        </ul>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          L&apos;avviso non è immediato: compare solo quando uno scontrino resta
+          senza risposta per un po&apos;. Uno appena emesso che sta ancora
+          viaggiando verso l&apos;AdE non è un problema e non lo segnaliamo.
+        </p>
 
         {/* ─── Scontrino rifiutato dall'AdE in fase di emissione ─── */}
         <h2
@@ -425,6 +503,11 @@ export default function ErroriAdePage() {
           <li>
             Uno scontrino è andato in stato <strong>Errore</strong> dopo
             l&apos;emissione e non capisci perché.
+          </li>
+          <li>
+            La <strong>Verifica stato</strong> di uno scontrino in sospeso non
+            trova nulla sul portale, ma tu hai motivo di credere che quel
+            documento sia stato emesso davvero.
           </li>
           <li>Ricevi messaggi di errore diversi da quelli descritti sopra.</li>
         </ul>
