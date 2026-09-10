@@ -210,7 +210,12 @@ describe("reconcile con esclusione claimedIdtrx", () => {
       createdAt: SALE_CREATED_AT,
       claimedIdtrx: new Set(),
     });
-    expect(result).toEqual({ kind: "ambiguous" });
+    expect(result).toMatchObject({ kind: "ambiguous" });
+    // I candidati viaggiano con l'esito: il recovery automatico li ignora, la
+    // verifica dentro la sessione dell'esercente li mostra (REVIEW.md #103).
+    expect(
+      result.kind === "ambiguous" && result.candidates.map((d) => d.idtrx),
+    ).toEqual(["1", "2"]);
   });
 
   it("annullo: l'unico candidato è già collegato → none", () => {
@@ -338,7 +343,10 @@ describe("reconcileSaleDocument", () => {
       expectedTotalCents: 170,
       createdAt: SALE_CREATED_AT,
     });
-    expect(result).toEqual({ kind: "ambiguous" });
+    expect(result).toMatchObject({ kind: "ambiguous" });
+    expect(
+      result.kind === "ambiguous" && result.candidates.map((d) => d.idtrx),
+    ).toEqual(["1", "2"]);
   });
 
   it("usa il codice lotteria come chiave secondaria quando presente", () => {
@@ -464,7 +472,10 @@ describe("reconcileVoidDocument", () => {
       documents: docs,
       saleProgressivo: "DCW2026/5432-1548",
     });
-    expect(result).toEqual({ kind: "ambiguous" });
+    expect(result).toMatchObject({ kind: "ambiguous" });
+    expect(
+      result.kind === "ambiguous" && result.candidates.map((d) => d.idtrx),
+    ).toEqual(["1", "2"]);
   });
 });
 

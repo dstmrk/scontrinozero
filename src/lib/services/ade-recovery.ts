@@ -219,7 +219,17 @@ export type AdeReconcileResult =
       registeredAt: Date | null;
     }
   | { kind: "none" }
-  | { kind: "ambiguous" };
+  | {
+      kind: "ambiguous";
+      /**
+       * I documenti AdE che il match non sa distinguere. Il recovery
+       * automatico li ignora — resta conservativo e non finalizza — ma la
+       * verifica dentro la sessione dell'esercente li mostra e gli lascia
+       * scegliere: è l'unico anello della catena che sa se quella vendita è
+       * avvenuta (REVIEW.md #103).
+       */
+      candidates: readonly AdeDocumentSummary[];
+    };
 
 /**
  * Offset (wall-clock − UTC, in ms) del fuso `timeZone` per un dato istante.
@@ -375,7 +385,7 @@ export async function findClaimedTransactionIds(
 /** Riduce una lista di candidati a un esito match/none/ambiguous. */
 function decide(candidates: AdeDocumentSummary[]): AdeReconcileResult {
   if (candidates.length === 0) return { kind: "none" };
-  if (candidates.length > 1) return { kind: "ambiguous" };
+  if (candidates.length > 1) return { kind: "ambiguous", candidates };
   const [doc] = candidates;
   return {
     kind: "match",

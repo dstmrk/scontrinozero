@@ -560,8 +560,13 @@ async function recoverStaleReceipt(args: {
  * idempotente (imposta uno stato finale).
  *
  * Pattern simmetrico a finalizeVoidOnly in void-service.ts.
+ *
+ * Esportata perché la verifica manuale di un PENDING orfano
+ * (`pending-verification.ts`) chiude con la stessa UPDATE: duplicarla
+ * significherebbe due posti dove ricordarsi i guard su `kind`, sugli stati
+ * finalizzabili e sull'istante autorevole di REVIEW.md #91.
  */
-async function finalizeSaleOnly(
+export async function finalizeSaleOnly(
   documentId: string,
   adeTransactionId: string,
   adeProgressive: string,
