@@ -423,7 +423,7 @@ export function StoricoClient({
                 <a href="/dashboard/settings" className="underline">
                   Vai alle impostazioni per ricollegarti
                 </a>
-                .
+                {"."}
               </>
             )}
           </AlertDescription>

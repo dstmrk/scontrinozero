@@ -139,7 +139,8 @@ export default function StoricoEdEsportazionePage() {
           <strong>
             &quot;Cerca anche i documenti emessi fuori da ScontrinoZero&quot;
           </strong>
-          . Spuntandola e premendo <strong>Cerca</strong>, lo Storico interroga
+          {". "}
+          Spuntandola e premendo <strong>Cerca</strong>, lo Storico interroga
           anche l&apos;archivio dell&apos;Agenzia delle Entrate e ti mostra,
           nello stesso elenco, i documenti commerciali che hai emesso dal
           portale o dall&apos;app dell&apos;Agenzia. Li riconosci dalla sigla{" "}

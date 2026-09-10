@@ -69,6 +69,71 @@ function buildFilename(
   return `${prefix}-${from}-${to}.csv`;
 }
 
+/**
+ * Estremi del periodo sulla giornata **italiana**: quello che l'esercente
+ * sceglie e' il suo calendario, e deve combaciare con la data che il CSV
+ * stampa (`ade_registered_at` reso in ora di Roma). `to` e' inclusivo per
+ * l'utente → l'estremo superiore e' l'inizio del giorno dopo, calcolato sul
+ * calendario e non sommando 24h (giorni DST da 23/25 ore).
+ */
+function resolvePeriod(
+  from: string | undefined,
+  to: string | undefined,
+): { dateFrom: Date | null; dateToExclusive: Date | null } | { error: string } {
+  const dateFrom = from ? parseRomeDayStartUtc(from) : null;
+  if (from && !dateFrom) {
+    return { error: "Formato data 'from' non valido (yyyy-MM-dd)." };
+  }
+  const dateToExclusive = to ? parseRomeDayEndExclusiveUtc(to) : null;
+  if (to && !dateToExclusive) {
+    return { error: "Formato data 'to' non valido (yyyy-MM-dd)." };
+  }
+  // Confronto sulle stringhe yyyy-MM-dd: ordinamento lessicografico ==
+  // cronologico, e non risente del giorno-dopo dell'estremo superiore.
+  if (from && to && from > to) {
+    return {
+      error: "La data di inizio non può essere successiva alla data di fine.",
+    };
+  }
+  return { dateFrom, dateToExclusive };
+}
+
+/**
+ * I documenti che stanno solo sull'archivio AdE, o l'errore HTTP con cui
+ * rifiutare l'export.
+ *
+ * Qui NON si degrada come nell'elenco a schermo: un CSV e' un file che viene
+ * archiviato e riletto mesi dopo, quando nessun avviso a schermo esiste piu'.
+ * Consegnarlo incompleto ma dall'aria completa e' peggio che non consegnarlo —
+ * l'esercente ha chiesto anche i documenti dell'Agenzia.
+ */
+async function resolveAdeRows(params: {
+  businessId: string;
+  from: string | undefined;
+  to: string | undefined;
+  status: ReceiptStatusFilter | undefined;
+  dateFrom: Date | null;
+  toExclusive: Date | null;
+}): Promise<
+  | { rows: readonly AdeReceiptListItem[] }
+  | { failure: { status: number; error: string } }
+> {
+  const range = buildAdeSearchRange(params.from, params.to);
+  if ("error" in range) return { failure: { status: 400, error: range.error } };
+
+  const foreign = await fetchForeignAdeRows({
+    businessId: params.businessId,
+    range,
+    ...(params.status ? { status: params.status } : {}),
+    from: params.dateFrom,
+    toExclusive: params.toExclusive,
+  });
+  if ("adeError" in foreign) {
+    return { failure: { status: 503, error: foreign.adeError } };
+  }
+  return { rows: foreign.rows };
+}
+
 export async function GET(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const parsed = querySchema.safeParse({
@@ -133,27 +198,9 @@ export async function GET(req: Request): Promise<Response> {
     return errorJson(404, "Business non trovato.");
   }
 
-  // Estremi sulla giornata **italiana**: il periodo che l'esercente sceglie e'
-  // quello del suo calendario, e deve combaciare con la data che il CSV
-  // stampa (`ade_registered_at` reso in ora di Roma). `to` e' inclusivo per
-  // l'utente → l'estremo superiore e' l'inizio del giorno dopo, calcolato sul
-  // calendario e non sommando 24h (giorni DST da 23/25 ore).
-  const dateFrom = from ? parseRomeDayStartUtc(from) : null;
-  if (from && !dateFrom) {
-    return errorJson(400, "Formato data 'from' non valido (yyyy-MM-dd).");
-  }
-  const dateToExclusive = to ? parseRomeDayEndExclusiveUtc(to) : null;
-  if (to && !dateToExclusive) {
-    return errorJson(400, "Formato data 'to' non valido (yyyy-MM-dd).");
-  }
-  // Confronto sulle stringhe yyyy-MM-dd: ordinamento lessicografico ==
-  // cronologico, e non risente del giorno-dopo dell'estremo superiore.
-  if (from && to && from > to) {
-    return errorJson(
-      400,
-      "La data di inizio non può essere successiva alla data di fine.",
-    );
-  }
+  const period = resolvePeriod(from, to);
+  if ("error" in period) return errorJson(400, period.error);
+  const { dateFrom, dateToExclusive } = period;
 
   const streamParams = {
     businessId: biz.id,
@@ -171,25 +218,18 @@ export async function GET(req: Request): Promise<Response> {
     );
   }
 
-  let adeRows: readonly AdeReceiptListItem[] = [];
-  if (includeAde) {
-    const range = buildAdeSearchRange(from, to);
-    if ("error" in range) return errorJson(400, range.error);
-
-    const foreign = await fetchForeignAdeRows({
-      businessId: biz.id,
-      range,
-      ...(status ? { status } : {}),
-      from: dateFrom,
-      toExclusive: dateToExclusive,
-    });
-    // Qui NON si degrada come nell'elenco: un CSV è un file che viene
-    // archiviato e riletto mesi dopo, quando nessun avviso a schermo esiste
-    // più. Consegnarlo incompleto ma dall'aria completa è peggio che non
-    // consegnarlo — l'esercente ha chiesto anche i documenti dell'Agenzia.
-    if ("adeError" in foreign) return errorJson(503, foreign.adeError);
-    adeRows = foreign.rows;
-  }
+  const ade = includeAde
+    ? await resolveAdeRows({
+        businessId: biz.id,
+        from,
+        to,
+        status,
+        dateFrom,
+        toExclusive: dateToExclusive,
+      })
+    : { rows: [] as readonly AdeReceiptListItem[] };
+  if ("failure" in ade) return errorJson(ade.failure.status, ade.failure.error);
+  const adeRows = ade.rows;
 
   return csvResponse(
     buildReceiptsCsvStream(streamParams, adeRows),
