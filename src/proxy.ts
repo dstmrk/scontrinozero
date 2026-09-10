@@ -1,6 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 import type { User } from "@supabase/supabase-js";
-import { parseTrustedHostnameEnv } from "@/lib/hostname-env";
+import { buildReportingEndpoints } from "@/lib/csp";
+import {
+  parseTrustedHostnameEnv,
+  resolveAppHostname,
+} from "@/lib/hostname-env";
 import { isIndexableHost } from "@/lib/seo-indexable";
 import { createMiddlewareSupabaseClient } from "@/lib/supabase/middleware";
 
@@ -128,14 +132,7 @@ function hostnameRedirect(request: NextRequest): NextResponse | null {
   // (baked al build) > default. Coerente con auth-actions.ts, trusted-app-url.ts,
   // marketing-to-app-href.ts: senza questa precedenza il middleware su sandbox
   // confronterebbe contro l'hostname baked di produzione e cadrebbe in safe-deny.
-  const appHostnameEnv =
-    process.env.APP_HOSTNAME === undefined
-      ? "NEXT_PUBLIC_APP_HOSTNAME"
-      : "APP_HOSTNAME";
-  const appHostname = parseTrustedHostnameEnv(
-    appHostnameEnv,
-    "app.scontrinozero.it",
-  );
+  const appHostname = resolveAppHostname();
   const marketingHostname = parseTrustedHostnameEnv(
     "NEXT_PUBLIC_MARKETING_HOSTNAME",
     "scontrinozero.it",
@@ -182,23 +179,73 @@ function hostnameRedirect(request: NextRequest): NextResponse | null {
 }
 
 /**
- * Aggiunge `X-Robots-Tag: noindex, nofollow` quando la risposta è servita da un
- * host non di produzione (sandbox, dominio app, self-host custom). È il segnale
- * autorevole di de-indicizzazione: a differenza del solo `Disallow` in
- * robots.txt, garantisce che le pagine già note non restino nell'indice.
- * Applicato solo alle risposte HTML pass-through (non ai redirect 3xx).
+ * Origin dell'app risolto a runtime.
  *
- * L'host è risolto dall'header `Host` (`resolvePublicHostname`), coerente con
- * `robots.ts`: in produzione `nextUrl.hostname` può non essere l'apex marketing
- * e marcherebbe per errore la landing pubblica come `noindex`.
+ * In produzione da `resolveAppHostname()`: `NEXT_PUBLIC_APP_URL` è bakata al
+ * build con l'URL di produzione anche nell'immagine che serve la sandbox, e
+ * un header derivato da lei manda i CSP report di sandbox su produzione.
+ *
+ * Fuori produzione resta `NEXT_PUBLIC_APP_URL` perché lì l'origin ha una
+ * porta (`http://localhost:3000`) che un hostname non può esprimere.
+ * `|| default` e non `??`: la env può essere presente-ma-vuota (regola 18).
  */
-function applyNoindexHeader(
+function resolveAppOrigin(): string {
+  if (process.env.NODE_ENV !== "production") {
+    const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.trim();
+    return fromEnv || "http://localhost:3000";
+  }
+  return `https://${resolveAppHostname()}`;
+}
+
+/**
+ * Applica alle risposte pass-through gli header che **solo il runtime** può
+ * calcolare — quelli che `next.config.ts` serializzerebbe nel manifest al
+ * build, cioè col valore di produzione anche nel container sandbox.
+ *
+ * 1. `X-Robots-Tag: noindex, nofollow` quando l'host non è di produzione
+ *    (sandbox, dominio app, self-host custom). È il segnale autorevole di
+ *    de-indicizzazione: a differenza del solo `Disallow` in robots.txt
+ *    garantisce che le pagine già note escano dall'indice. L'host è risolto
+ *    dall'header `Host` (`resolvePublicHostname`), coerente con `robots.ts`:
+ *    in produzione `nextUrl.hostname` può non essere l'apex marketing e
+ *    marcherebbe per errore la landing pubblica come `noindex`.
+ * 2. `Reporting-Endpoints`, che la Reporting API pretende assoluto: bakato,
+ *    mandava i violation report della sandbox all'endpoint di produzione e
+ *    sporcava i report di prod a ogni test di policy (REVIEW.md #93). Sulle
+ *    poche route fuori dal matcher l'header non c'è e il browser degrada al
+ *    `report-uri` della CSP, che è relativo e quindi già same-origin.
+ * 3. CORS delle route API interne, ristrette all'origin dell'app. La
+ *    Developer API `/api/v1` ha CORS aperta e resta in `next.config.ts`: è
+ *    fuori dal matcher del proxy, quindi le due regole non si sovrappongono.
+ *
+ * Applicati solo alle risposte pass-through, non ai redirect 3xx: un 3xx non
+ * rende un documento, quindi non produce violazioni CSP né preflight.
+ */
+function applyPassthroughHeaders(
   response: NextResponse,
   request: NextRequest,
 ): NextResponse {
+  const { pathname } = request.nextUrl;
+
   if (!isIndexableHost(resolvePublicHostname(request))) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
   }
+
+  const appOrigin = resolveAppOrigin();
+  response.headers.set(
+    "Reporting-Endpoints",
+    buildReportingEndpoints(appOrigin),
+  );
+
+  if (pathname.startsWith("/api/")) {
+    response.headers.set("Access-Control-Allow-Origin", appOrigin);
+    response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    response.headers.set(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization",
+    );
+  }
+
   return response;
 }
 
@@ -235,7 +282,7 @@ export async function proxy(request: NextRequest) {
         return NextResponse.redirect(loginUrl);
       }
     }
-    return applyNoindexHeader(NextResponse.next(), request);
+    return applyPassthroughHeaders(NextResponse.next(), request);
   }
 
   // Performance (REVIEW.md #6): le route marketing/pubbliche (/, /guide/*,
@@ -251,7 +298,7 @@ export async function proxy(request: NextRequest) {
   // andrebbe aggiunta a `pathNeedsAuthSession`.
   const { pathname } = request.nextUrl;
   if (!pathNeedsAuthSession(pathname)) {
-    return applyNoindexHeader(NextResponse.next(), request);
+    return applyPassthroughHeaders(NextResponse.next(), request);
   }
 
   const { supabase, response } = createMiddlewareSupabaseClient(request);
@@ -312,7 +359,7 @@ export async function proxy(request: NextRequest) {
     return redirectResponse;
   }
 
-  return applyNoindexHeader(response(), request);
+  return applyPassthroughHeaders(response(), request);
 }
 
 export const config = {

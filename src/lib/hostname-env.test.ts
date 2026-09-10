@@ -13,7 +13,7 @@ vi.mock("@/lib/logger", () => ({
   },
 }));
 
-import { parseTrustedHostnameEnv } from "./hostname-env";
+import { parseTrustedHostnameEnv, resolveAppHostname } from "./hostname-env";
 
 const ENV_NAME = "TEST_HOSTNAME_ENV_VAR";
 
@@ -161,5 +161,42 @@ describe("parseTrustedHostnameEnv", () => {
         /fallback.*not a valid hostname/,
       );
     });
+  });
+});
+
+describe("resolveAppHostname", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("preferisce APP_HOSTNAME, l'override runtime del compose", () => {
+    vi.stubEnv("APP_HOSTNAME", "sandbox.scontrinozero.it");
+    vi.stubEnv("NEXT_PUBLIC_APP_HOSTNAME", "app.scontrinozero.it");
+
+    expect(resolveAppHostname()).toBe("sandbox.scontrinozero.it");
+  });
+
+  it("ricade sul valore bakato al build quando APP_HOSTNAME non è definita", () => {
+    vi.stubEnv("APP_HOSTNAME", undefined);
+    vi.stubEnv("NEXT_PUBLIC_APP_HOSTNAME", "app-dev.scontrinozero.it");
+
+    expect(resolveAppHostname()).toBe("app-dev.scontrinozero.it");
+  });
+
+  it("usa l'host di produzione quando nessuna delle due è definita", () => {
+    vi.stubEnv("APP_HOSTNAME", undefined);
+    vi.stubEnv("NEXT_PUBLIC_APP_HOSTNAME", undefined);
+
+    expect(resolveAppHostname()).toBe("app.scontrinozero.it");
+  });
+
+  it("una APP_HOSTNAME presente ma vuota vince comunque sul valore bakato", () => {
+    // `=== undefined` e non un truthy check: un compose che scrive
+    // `APP_HOSTNAME=` dichiara di voler decidere a runtime, e cadere sul
+    // valore bakato di produzione sarebbe il difetto che questa precedenza
+    // esiste per evitare. La stringa vuota è malformata → fallback esplicito
+    // con log critical, non silenzioso.
+    vi.stubEnv("APP_HOSTNAME", "");
+    vi.stubEnv("NEXT_PUBLIC_APP_HOSTNAME", "app-dev.scontrinozero.it");
+
+    expect(resolveAppHostname()).toBe("app.scontrinozero.it");
   });
 });

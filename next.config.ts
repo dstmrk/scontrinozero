@@ -82,12 +82,6 @@ const nextConfig: NextConfig = {
     ];
   },
   async headers() {
-    // Restrict internal API routes to the app's own origin only.
-    // NEXT_PUBLIC_APP_URL is set per-environment (e.g. http://localhost:3000 in dev,
-    // https://app.scontrinozero.it in production — API calls come from the app subdomain).
-    const allowedOrigin =
-      process.env.NEXT_PUBLIC_APP_URL ?? "https://app.scontrinozero.it";
-
     // Baseline security headers applied to every response.
     //
     // CSP è in modalità enforce in production (B14 chiuso in v1.2.10) e in
@@ -98,7 +92,6 @@ const nextConfig: NextConfig = {
     // permettere unit test diretti.
     const securityHeaders = buildSecurityHeaders({
       nodeEnv: process.env.NODE_ENV,
-      allowedOrigin,
     });
 
     return [
@@ -108,21 +101,11 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
       {
-        // Internal API routes — restricted to app origin
-        source: "/api/:path*",
-        headers: [
-          { key: "Access-Control-Allow-Origin", value: allowedOrigin },
-          { key: "Access-Control-Allow-Methods", value: "GET, POST, OPTIONS" },
-          {
-            key: "Access-Control-Allow-Headers",
-            value: "Content-Type, Authorization",
-          },
-        ],
-      },
-      {
-        // Developer API — open CORS (Bearer auth only, no cookies)
-        // Placed after the generic rule so it overrides Access-Control-Allow-Origin
-        // for /api/v1/* paths specifically.
+        // Developer API — open CORS (Bearer auth only, no cookies).
+        // Resta qui e non in `src/proxy.ts`: `/api/v1` è fuori dal matcher del
+        // proxy, quindi le due regole CORS non si sovrappongono mai. La CORS
+        // delle API interne (ristretta all'origin dell'app) la applica invece
+        // il proxy, che a runtime vede `APP_HOSTNAME` (REVIEW.md #93).
         source: "/api/v1/:path*",
         headers: [
           { key: "Access-Control-Allow-Origin", value: "*" },

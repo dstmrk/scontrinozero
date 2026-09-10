@@ -1,10 +1,9 @@
-import { buildCsp, buildReportingEndpoints } from "./csp";
+import { buildCsp } from "./csp";
 
 export type SecurityHeader = { key: string; value: string };
 
 export type BuildSecurityHeadersOptions = {
   readonly nodeEnv: string | undefined;
-  readonly allowedOrigin: string;
 };
 
 /**
@@ -17,7 +16,11 @@ export type BuildSecurityHeadersOptions = {
  *    richiederebbe `'unsafe-eval'` in `script-src` — preferibile non
  *    enforcearli in locale per non sporcare la console di dev)
  *  - regression test che HSTS sia condizionale a `NODE_ENV === "production"`
- *  - regression test che `Reporting-Endpoints` usi URL assoluto
+ *
+ * `Reporting-Endpoints` NON è qui: la Reporting API lo pretende assoluto, e
+ * un URL assoluto costruito al build sarebbe quello di produzione anche
+ * nell'immagine che serve la sandbox. Lo calcola `src/proxy.ts` a runtime,
+ * dove `APP_HOSTNAME` distingue gli ambienti (REVIEW.md #93).
  *
  * La policy CSP è generata in `src/lib/csp.ts`. Vedi CLAUDE.md per il
  * razionale CSP (Report-Only → Enforce).
@@ -46,10 +49,6 @@ export function buildSecurityHeaders(
         "camera=(), microphone=(), geolocation=(), interest-cohort=(), bluetooth=(self)",
     },
     { key: cspKey, value: buildCsp() },
-    {
-      key: "Reporting-Endpoints",
-      value: buildReportingEndpoints(opts.allowedOrigin),
-    },
   ];
 
   if (isProduction) {

@@ -832,3 +832,126 @@ describe("config.matcher", () => {
     expect(pattern.test("/api/health")).toBe(false);
   });
 });
+
+describe("header calcolati a runtime (REVIEW.md #93)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  async function proxyWith(
+    pathname: string,
+    env: Record<string, string | undefined>,
+  ) {
+    for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value);
+    vi.resetModules();
+    const { proxy } = await import("./proxy");
+    return proxy(createRequest(pathname));
+  }
+
+  it("manda i CSP report della sandbox sulla sandbox, non su produzione", async () => {
+    // Il difetto: `NEXT_PUBLIC_APP_URL` è bakata al build con l'URL di prod
+    // anche nell'immagine che serve la sandbox, quindi l'header serializzato
+    // nel manifest mandava i violation report di sandbox su produzione.
+    const response = await proxyWith("/prezzi", {
+      NODE_ENV: "production",
+      APP_HOSTNAME: "sandbox.scontrinozero.it",
+      NEXT_PUBLIC_APP_URL: "https://app.scontrinozero.it",
+    });
+
+    expect(response.headers.get("Reporting-Endpoints")).toBe(
+      'csp-endpoint="https://sandbox.scontrinozero.it/api/csp-report"',
+    );
+  });
+
+  it("in produzione senza override runtime resta sull'host di produzione", async () => {
+    const response = await proxyWith("/prezzi", {
+      NODE_ENV: "production",
+      APP_HOSTNAME: undefined,
+      NEXT_PUBLIC_APP_HOSTNAME: undefined,
+    });
+
+    expect(response.headers.get("Reporting-Endpoints")).toBe(
+      'csp-endpoint="https://app.scontrinozero.it/api/csp-report"',
+    );
+  });
+
+  it("fuori produzione tiene la porta, che un hostname non può esprimere", async () => {
+    const response = await proxyWith("/prezzi", {
+      NODE_ENV: "test",
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+    });
+
+    expect(response.headers.get("Reporting-Endpoints")).toBe(
+      'csp-endpoint="http://localhost:3000/api/csp-report"',
+    );
+  });
+
+  it("degrada a localhost su NEXT_PUBLIC_APP_URL presente-ma-vuota (regola 18)", async () => {
+    const response = await proxyWith("/prezzi", {
+      NODE_ENV: "test",
+      NEXT_PUBLIC_APP_URL: "",
+    });
+
+    expect(response.headers.get("Reporting-Endpoints")).toBe(
+      'csp-endpoint="http://localhost:3000/api/csp-report"',
+    );
+  });
+
+  it("restringe la CORS delle API interne all'origin runtime dell'app", async () => {
+    const response = await proxyWith("/api/csp-report", {
+      NODE_ENV: "production",
+      APP_HOSTNAME: "sandbox.scontrinozero.it",
+    });
+
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
+      "https://sandbox.scontrinozero.it",
+    );
+    expect(response.headers.get("Access-Control-Allow-Methods")).toBe(
+      "GET, POST, OPTIONS",
+    );
+    expect(response.headers.get("Access-Control-Allow-Headers")).toBe(
+      "Content-Type, Authorization",
+    );
+  });
+
+  it("non mette CORS sulle route non-API", async () => {
+    const response = await proxyWith("/prezzi", { NODE_ENV: "production" });
+
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
+  });
+
+  it("non tocca i redirect: un 3xx non rende un documento", async () => {
+    const request = new NextRequest(
+      new URL("/prezzi", "https://app.scontrinozero.it"),
+      { headers: { host: "app.scontrinozero.it" } },
+    );
+    vi.stubEnv("NODE_ENV", "production");
+    vi.resetModules();
+    const { proxy } = await import("./proxy");
+
+    const response = await proxy(request);
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("Reporting-Endpoints")).toBeNull();
+  });
+
+  it("continua a marcare noindex gli host non di produzione", async () => {
+    // `/login` e non una route marketing: su un host che è il dominio app,
+    // `/prezzi` viene rimbalzato sull'apex e la risposta è un 307.
+    const request = new NextRequest(
+      new URL("/login", "https://sandbox.scontrinozero.it"),
+      { headers: { host: "sandbox.scontrinozero.it" } },
+    );
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_HOSTNAME", "sandbox.scontrinozero.it");
+    vi.resetModules();
+    const { proxy } = await import("./proxy");
+
+    const response = await proxy(request);
+
+    expect(response.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
+  });
+});
