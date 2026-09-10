@@ -5,13 +5,19 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { getReceiptDetail, searchReceipts } from "@/server/storico-actions";
+import {
+  getReceiptDetail,
+  searchReceipts,
+  searchReceiptsIncludingAde,
+} from "@/server/storico-actions";
 import { VoidReceiptDialog } from "./void-receipt-dialog";
 import type { ReceiptPrintProfile } from "@/lib/receipts/print-profile";
 import { ExportCsvButton } from "@/app/dashboard/storico/export-csv-button";
 import { Button } from "@/components/ui/button";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
-import type { Plan } from "@/lib/plans-shared";
+import { canUsePro, type Plan } from "@/lib/plans-shared";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -21,10 +27,12 @@ import {
 } from "@/components/ui/select";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
+  ADE_SEARCH_MAX_DAYS,
   STORICO_PAGE_SIZE,
   type ReceiptListItem,
   type SearchReceiptsParams,
   type StatusFilter,
+  type StoricoRow,
   type VoidReceiptResult,
 } from "@/types/storico";
 
@@ -37,6 +45,29 @@ function formatProgressive(progressive: string | null): string {
   const slashIndex = progressive.indexOf("/");
   if (slashIndex === -1) return progressive;
   return progressive.slice(slashIndex + 1);
+}
+
+/**
+ * Marca una riga che vive solo sull'archivio AdE.
+ *
+ * Non è solo un colore: il colore da solo sarebbe l'unico veicolo
+ * dell'informazione (WCAG 1.4.1) e sparirebbe in stampa, in monocromia e per
+ * chi non distingue quella coppia di tinte. La sigla accanto al progressivo
+ * regge da sola, e sta dentro la colonna che già c'è — nessuna colonna nuova.
+ *
+ * Nemmeno `opacity-60`, che in questa tabella significa già "riga non
+ * apribile perché fallita": un documento regolarmente emesso altrove non è un
+ * documento in errore.
+ */
+function OriginBadge() {
+  return (
+    <span
+      className="ml-2 rounded border border-sky-200 bg-sky-50 px-1 py-px align-middle text-[10px] font-medium tracking-wide text-sky-700"
+      title="Documento emesso fuori da ScontrinoZero, letto dall'archivio dell'Agenzia delle Entrate"
+    >
+      AdE
+    </span>
+  );
 }
 
 function StatusBadge({
@@ -94,6 +125,8 @@ interface StoricoClientProps {
   readonly initialDateFrom?: string;
   readonly initialDateTo?: string;
   readonly initialStatus?: StatusFilter;
+  /** Stato iniziale del flag "cerca anche su AdE", da `?ade=1`. */
+  readonly initialIncludeAde?: boolean;
   readonly plan: Plan;
   readonly trialStartedAt?: Date | null;
   /** Intestazione esercente per la ristampa su termica; `null` se incompleta. */
@@ -111,6 +144,7 @@ export function StoricoClient({
   initialDateFrom,
   initialDateTo,
   initialStatus,
+  initialIncludeAde = false,
   plan,
   trialStartedAt = null,
   printProfile = null,
@@ -120,11 +154,30 @@ export function StoricoClient({
   const sevenDaysAgo = new Date(today);
   sevenDaysAgo.setDate(today.getDate() - 6);
 
-  const [receipts, setReceipts] = useState<ReceiptListItem[]>(initialItems);
+  const [receipts, setReceipts] = useState<StoricoRow[]>(initialItems);
   const [total, setTotal] = useState(initialTotal);
   const [selected, setSelected] = useState<ReceiptListItem | null>(null);
   const [isPending, startTransition] = useTransition();
   const [page, setPage] = useState(1);
+
+  const isPro = canUsePro(plan, null, trialStartedAt);
+
+  /**
+   * Filtro, non interruttore istantaneo: si applica premendo "Cerca", come il
+   * periodo e lo stato. Spuntarlo non deve far partire da solo un login AdE.
+   */
+  const [includeAde, setIncludeAde] = useState(initialIncludeAde && isPro);
+
+  /**
+   * Cosa è andato storto **nel solo ramo AdE** dell'ultima ricerca. Separato
+   * dall'elenco di proposito: quando l'Agenzia non risponde le righe nostre
+   * restano a schermo e questo avviso spiega cosa manca.
+   */
+  const [adeNotice, setAdeNotice] = useState<{
+    error?: string;
+    reauthRequired?: boolean;
+    truncated?: boolean;
+  }>({});
 
   // Parse optional YYYY-MM-DD string to Date (avoids UTC timezone shift)
   function parseISODate(str: string | undefined): Date | undefined {
@@ -142,61 +195,76 @@ export function StoricoClient({
     initialStatus ?? "ACCEPTED",
   );
 
+  /** I filtri correnti nella forma che le due server action accettano. */
+  function currentParams(): SearchReceiptsParams {
+    const params: SearchReceiptsParams = {};
+    if (dateRange?.from) params.dateFrom = format(dateRange.from, "yyyy-MM-dd");
+    if (dateRange?.to) params.dateTo = format(dateRange.to, "yyyy-MM-dd");
+    if (statusFilter) params.status = statusFilter;
+    return params;
+  }
+
+  /**
+   * Una ricerca, due possibili sorgenti.
+   *
+   * Con il flag attivo l'attesa è dichiarata e la ricerca è **una sola**: la
+   * variante progressiva — righe locali subito, righe AdE che si fondono dopo
+   * — riordinerebbe l'elenco sotto le dita di chi sta già leggendo, che è
+   * peggio di qualche secondo annunciato.
+   */
+  function runSearch(newPage: number, withAde: boolean) {
+    const params = currentParams();
+    startTransition(async () => {
+      if (!withAde) {
+        const result = await searchReceipts(businessId, {
+          ...params,
+          page: newPage,
+          pageSize: PAGE_SIZE,
+        });
+        setReceipts(result.items);
+        setTotal(result.total);
+        setAdeNotice({});
+        setPage(newPage);
+        return;
+      }
+
+      const result = await searchReceiptsIncludingAde(businessId, {
+        ...params,
+        page: newPage,
+        pageSize: PAGE_SIZE,
+      });
+      // `error` è un rifiuto della richiesta intera (periodo troppo largo,
+      // piano, rate limit): non c'è nessun elenco da mostrare. `adeError` è il
+      // degrado del solo ramo AdE, e lì le righe nostre ci sono.
+      setReceipts(result.items);
+      setTotal(result.total);
+      setAdeNotice({
+        error: result.error ?? result.adeError,
+        reauthRequired: result.adeReauthRequired,
+        truncated: result.adeTruncated,
+      });
+      setPage(newPage);
+    });
+  }
+
   // Handle search — also syncs filters to URL for deep-linking
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
 
-    const dateFrom = dateRange?.from
-      ? format(dateRange.from, "yyyy-MM-dd")
-      : undefined;
-    const dateTo = dateRange?.to
-      ? format(dateRange.to, "yyyy-MM-dd")
-      : undefined;
-
+    const params = currentParams();
     const urlParams = new URLSearchParams();
-    if (dateFrom) urlParams.set("dal", dateFrom);
-    if (dateTo) urlParams.set("al", dateTo);
+    if (params.dateFrom) urlParams.set("dal", params.dateFrom);
+    if (params.dateTo) urlParams.set("al", params.dateTo);
     urlParams.set("stato", statusFilter);
+    if (includeAde) urlParams.set("ade", "1");
     router.replace(`/dashboard/storico?${urlParams.toString()}`);
 
-    const params: SearchReceiptsParams = {};
-    if (dateFrom) params.dateFrom = dateFrom;
-    if (dateTo) params.dateTo = dateTo;
-    if (statusFilter) params.status = statusFilter;
-
-    startTransition(async () => {
-      const result = await searchReceipts(businessId, {
-        ...params,
-        page: 1,
-        pageSize: PAGE_SIZE,
-      });
-      setReceipts(result.items);
-      setTotal(result.total);
-      setPage(1);
-    });
+    runSearch(1, includeAde);
   }
 
   // Handle page change — re-fetches from server with same filters, new page
   function handlePageChange(newPage: number) {
-    const dateFrom = dateRange?.from
-      ? format(dateRange.from, "yyyy-MM-dd")
-      : undefined;
-    const dateTo = dateRange?.to
-      ? format(dateRange.to, "yyyy-MM-dd")
-      : undefined;
-
-    startTransition(async () => {
-      const result = await searchReceipts(businessId, {
-        ...(dateFrom ? { dateFrom } : {}),
-        ...(dateTo ? { dateTo } : {}),
-        ...(statusFilter ? { status: statusFilter } : {}),
-        page: newPage,
-        pageSize: PAGE_SIZE,
-      });
-      setReceipts(result.items);
-      setTotal(result.total);
-      setPage(newPage);
-    });
+    runSearch(newPage, includeAde);
   }
 
   /**
@@ -210,7 +278,9 @@ export function StoricoClient({
     update: (row: ReceiptListItem) => ReceiptListItem,
   ) {
     setReceipts((prev) =>
-      prev.map((r) => (r.id === documentId ? update(r) : r)),
+      prev.map((r) =>
+        r.origin === "local" && r.id === documentId ? update(r) : r,
+      ),
     );
     setSelected((prev) => (prev?.id === documentId ? update(prev) : prev));
   }
@@ -300,6 +370,26 @@ export function StoricoClient({
             </SelectContent>
           </Select>
         </div>
+        {isPro && (
+          <div className="flex w-full items-start gap-2 pt-1">
+            <Checkbox
+              id="includeAde"
+              checked={includeAde}
+              onCheckedChange={(v) => setIncludeAde(v === true)}
+              disabled={isPending}
+            />
+            <label htmlFor="includeAde" className="text-xs leading-snug">
+              <span className="font-medium">
+                Cerca anche i documenti emessi fuori da ScontrinoZero
+              </span>
+              <span className="text-muted-foreground block">
+                Legge l&apos;archivio dell&apos;Agenzia delle Entrate: richiede
+                qualche secondo, copre al massimo {ADE_SEARCH_MAX_DAYS} giorni
+                per volta e i documenti trovati sono di sola lettura.
+              </span>
+            </label>
+          </div>
+        )}
         <Button type="submit" disabled={isPending}>
           {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {isPending ? "Ricerca…" : "Cerca"}
@@ -318,8 +408,36 @@ export function StoricoClient({
               : format(today, "yyyy-MM-dd")
           }
           status={statusFilter === "" ? null : statusFilter}
+          includeAde={includeAde}
         />
       </form>
+
+      {/* Avvisi del ramo AdE — mai al posto dell'elenco, sempre accanto */}
+      {adeNotice.error && (
+        <Alert variant="warning">
+          <AlertDescription>
+            {adeNotice.error}
+            {adeNotice.reauthRequired && (
+              <>
+                {" "}
+                <a href="/dashboard/settings" className="underline">
+                  Vai alle impostazioni per ricollegarti
+                </a>
+                .
+              </>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+      {adeNotice.truncated && (
+        <Alert>
+          <AlertDescription>
+            L&apos;archivio dell&apos;Agenzia delle Entrate contiene più
+            documenti di quanti se ne possano leggere in una volta: restringi il
+            periodo per vederli tutti.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Table */}
       {total === 0 ? (
@@ -340,6 +458,34 @@ export function StoricoClient({
             </thead>
             <tbody className="divide-y">
               {receipts.map((receipt) => {
+                // Le righe che vivono solo su AdE non si aprono: la ricerca ne
+                // restituisce la sola testata, quindi non c'è nessun dettaglio
+                // da mostrare — e non sono annullabili, perché l'annullo
+                // creerebbe una riga VOID che punta a un documento che nel
+                // nostro database non esiste.
+                if (receipt.origin === "ade") {
+                  return (
+                    <tr key={`ade:${receipt.idtrx}`}>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {formatDate(receipt.adeRegisteredAt)}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className="text-muted-foreground font-mono text-xs">
+                          {formatProgressive(receipt.adeProgressive)}
+                        </span>
+                        <OriginBadge />
+                      </td>
+                      <td className="px-3 py-2 text-right font-medium tabular-nums">
+                        {formatCurrency(receipt.total)}
+                      </td>
+                      <td className="px-3 py-2">
+                        <StatusBadge status={receipt.status} />
+                      </td>
+                      <td className="px-3 py-2" />
+                    </tr>
+                  );
+                }
+
                 // SALE receipts (both ACCEPTED and VOID_ACCEPTED) can open the
                 // detail dialog to view lines and re-send the PDF receipt.
                 const hasDetail =

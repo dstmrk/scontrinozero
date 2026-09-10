@@ -15,6 +15,9 @@ import {
   buildReceiptsCsvStream,
   type ReceiptStatusFilter,
 } from "@/lib/receipts/csv-export";
+import { buildAdeSearchRange } from "@/lib/services/ade-document-search";
+import { fetchForeignAdeRows } from "@/lib/services/ade-storico-rows";
+import type { AdeReceiptListItem } from "@/types/storico";
 
 const csvExportLimiter = new RateLimiter({
   maxRequests: 10,
@@ -47,6 +50,8 @@ const querySchema = z.object({
     .optional(),
   status: z.enum(STATUS_VALUES).optional(),
   format: z.enum(FORMAT_VALUES).optional(),
+  /** `1` include anche i documenti che stanno solo sull'archivio AdE. */
+  ade: z.literal("1").optional(),
 });
 
 function errorJson(status: number, error: string): Response {
@@ -71,6 +76,7 @@ export async function GET(req: Request): Promise<Response> {
     to: url.searchParams.get("to") ?? undefined,
     status: url.searchParams.get("status") ?? undefined,
     format: url.searchParams.get("format") ?? undefined,
+    ade: url.searchParams.get("ade") ?? undefined,
   });
   if (!parsed.success) {
     return errorJson(
@@ -80,6 +86,18 @@ export async function GET(req: Request): Promise<Response> {
   }
   const { from, to, status } = parsed.data;
   const format: ExportFormat = parsed.data.format ?? "summary";
+  const includeAde = parsed.data.ade === "1";
+
+  // Il taglio per voce venduta non può includere i documenti AdE: la ricerca
+  // ne restituisce la sola testata, e le righe articolo starebbero dietro una
+  // chiamata `getDocument` per documento. Rifiutare è l'unica risposta onesta
+  // — un file "dettaglio" che ignora in silenzio il flag sembrerebbe completo.
+  if (includeAde && format === "detail") {
+    return errorJson(
+      400,
+      "Il dettaglio per voce venduta copre solo i documenti emessi da ScontrinoZero: l'archivio dell'Agenzia delle Entrate non restituisce le righe articolo. Usa il riepilogo.",
+    );
+  }
 
   // getAuthenticatedUser (non getUser() diretto): bind Sentry.setUser({ id })
   // (regola 22) e touch last_seen_at gratis anche per chi usa l'app solo per
@@ -143,11 +161,50 @@ export async function GET(req: Request): Promise<Response> {
     dateFrom,
     dateTo: dateToExclusive,
   };
-  const stream =
-    format === "detail"
-      ? buildReceiptLinesCsvStream(streamParams)
-      : buildReceiptsCsvStream(streamParams);
 
+  if (format === "detail") {
+    return csvResponse(
+      buildReceiptLinesCsvStream(streamParams),
+      format,
+      from,
+      to,
+    );
+  }
+
+  let adeRows: readonly AdeReceiptListItem[] = [];
+  if (includeAde) {
+    const range = buildAdeSearchRange(from, to);
+    if ("error" in range) return errorJson(400, range.error);
+
+    const foreign = await fetchForeignAdeRows({
+      businessId: biz.id,
+      range,
+      ...(status ? { status } : {}),
+      from: dateFrom,
+      toExclusive: dateToExclusive,
+    });
+    // Qui NON si degrada come nell'elenco: un CSV è un file che viene
+    // archiviato e riletto mesi dopo, quando nessun avviso a schermo esiste
+    // più. Consegnarlo incompleto ma dall'aria completa è peggio che non
+    // consegnarlo — l'esercente ha chiesto anche i documenti dell'Agenzia.
+    if ("adeError" in foreign) return errorJson(503, foreign.adeError);
+    adeRows = foreign.rows;
+  }
+
+  return csvResponse(
+    buildReceiptsCsvStream(streamParams, adeRows),
+    format,
+    from,
+    to,
+  );
+}
+
+function csvResponse(
+  stream: ReadableStream<Uint8Array>,
+  format: ExportFormat,
+  from: string | undefined,
+  to: string | undefined,
+): Response {
   return new Response(stream, {
     status: 200,
     headers: {

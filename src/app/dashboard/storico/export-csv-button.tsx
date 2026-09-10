@@ -36,6 +36,12 @@ interface ExportCsvButtonProps {
   readonly dateFrom: string;
   readonly dateTo: string;
   readonly status: "ACCEPTED" | "VOID_ACCEPTED" | null;
+  /**
+   * Il flag "cerca anche su AdE" dell'elenco. Vale per il solo riepilogo: il
+   * dettaglio per voce venduta non può includere quei documenti, perché la
+   * ricerca AdE non restituisce le righe articolo.
+   */
+  readonly includeAde?: boolean;
 }
 
 function buildExportUrl(
@@ -47,6 +53,7 @@ function buildExportUrl(
   params.set("to", props.dateTo);
   if (props.status) params.set("status", props.status);
   if (format) params.set("format", format);
+  else if (props.includeAde) params.set("ade", "1");
   return `/api/export/receipts?${params.toString()}`;
 }
 
@@ -70,7 +77,9 @@ export function ExportCsvButton(props: ExportCsvButtonProps) {
               <div className="flex flex-col gap-0.5">
                 <span className="font-medium">Riepilogo scontrini</span>
                 <span className="text-muted-foreground text-xs">
-                  Una riga per scontrino
+                  {props.includeAde
+                    ? "Una riga per scontrino, inclusi i documenti emessi altrove"
+                    : "Una riga per scontrino"}
                 </span>
               </div>
             </a>
@@ -80,7 +89,9 @@ export function ExportCsvButton(props: ExportCsvButtonProps) {
               <div className="flex flex-col gap-0.5">
                 <span className="font-medium">Dettaglio articoli</span>
                 <span className="text-muted-foreground text-xs">
-                  Una riga per voce venduta, con aliquota
+                  {props.includeAde
+                    ? "Una riga per voce venduta — solo documenti ScontrinoZero"
+                    : "Una riga per voce venduta, con aliquota"}
                 </span>
               </div>
             </a>

@@ -22,6 +22,12 @@ export interface ReceiptLineItem {
 }
 
 export interface ReceiptListItem {
+  /**
+   * Discriminante dell'unione `StoricoRow`: questa riga è un nostro documento,
+   * letto dal DB. Le righe che vivono solo sull'archivio AdE portano `"ade"` e
+   * sono molto più povere — vedi `AdeReceiptListItem`.
+   */
+  origin: "local";
   id: string;
   kind: "SALE" | "VOID";
   status: DocumentStatus;
@@ -80,6 +86,42 @@ export interface ReceiptListItem {
   lines: ReceiptLineItem[];
 }
 
+/**
+ * Una riga dello storico che vive **solo** sull'archivio AdE: un documento
+ * commerciale emesso altrove (portale web AdE, app AdE, altro software che usa
+ * lo stesso servizio) e mai passato da ScontrinoZero.
+ *
+ * Sola lettura, e deliberatamente povera: la ricerca AdE restituisce la sola
+ * testata. Voci vendute, pagamento, lotteria e sconti stanno nel dettaglio
+ * (`GET /doc/documenti/{idtrx}/`), che è una chiamata per documento. Riempire
+ * quei campi con dei default significherebbe scriverli nel CSV come se
+ * fossero veri.
+ *
+ * Non copiamo queste righe nel nostro database: esistono per la durata di una
+ * ricerca. La chiave di riga è `idtrx`, un identificativo opaco del portale —
+ * NON un UUID nostro, e non usabile come `documentId` da nessuna parte.
+ */
+export interface AdeReceiptListItem {
+  origin: "ade";
+  idtrx: string;
+  adeProgressive: string;
+  /** Istante registrato dall'AdE, dal campo `data` del risultato di ricerca. */
+  adeRegisteredAt: Date;
+  /**
+   * Derivato dal flag `annulli` della riga di vendita (`HAR.md` #16c), non da
+   * uno stato nostro: su una riga `V` la stringa `"A"` significa "annullato".
+   */
+  status: "ACCEPTED" | "VOID_ACCEPTED";
+  /** Totale IVA inclusa, 2 decimali — stessa forma di `ReceiptListItem`. */
+  total: string;
+}
+
+/**
+ * Una riga dell'elenco storico, da qualunque delle due sorgenti arrivi.
+ * Si discrimina su `origin`, mai sulla presenza di un campo.
+ */
+export type StoricoRow = ReceiptListItem | AdeReceiptListItem;
+
 // ---------------------------------------------------------------------------
 // Search params + paginated result
 // ---------------------------------------------------------------------------
@@ -115,6 +157,44 @@ export interface SearchReceiptsResult {
   total: number;
   /** Presente se la richiesta è stata rifiutata per input non valido (es. data impossibile). */
   error?: string;
+}
+
+/**
+ * Tetto sull'ampiezza del periodo interrogabile, in giorni inclusivi, quando
+ * la ricerca include l'archivio AdE.
+ *
+ * Non è una preferenza estetica: con il flag attivo si scarica l'INTERA
+ * finestra da AdE prima di poter impaginare (`fetchAdeSaleRows`), quindi il
+ * costo cresce col periodo mentre la ricerca locale resta piatta. Trentuno
+ * giorni coprono il gesto reale — la chiusura del mese — ed è un numero che
+ * l'esercente riconosce senza doverlo imparare.
+ *
+ * Vive fra i tipi perché lo leggono entrambi i lati: il server per rifiutare
+ * un periodo troppo largo, il client per dirlo **prima** che l'utente prema
+ * "Cerca".
+ */
+export const ADE_SEARCH_MAX_DAYS = 31;
+
+/**
+ * Esito della ricerca che include anche l'archivio AdE.
+ *
+ * I campi `ade*` descrivono **solo** il ramo AdE, e la loro esistenza separata
+ * è il punto: quando l'Agenzia non risponde, `items` porta comunque le righe
+ * nostre e `adeError` spiega cosa manca (regola 19). Un elenco svuotato da un
+ * errore di rete su una sorgente accessoria sarebbe la risposta sbagliata.
+ */
+export interface SearchStoricoResult {
+  items: StoricoRow[];
+  /** Documenti che corrispondono ai filtri nelle DUE sorgenti, deduplicati. */
+  total: number;
+  /** Richiesta rifiutata: input non valido, piano non abilitato, rate limit. */
+  error?: string;
+  /** Il ramo AdE è fallito: le righe locali ci sono comunque. */
+  adeError?: string;
+  /** CIE senza sessione viva: serve un nuovo accesso, non un retry. */
+  adeReauthRequired?: boolean;
+  /** L'archivio AdE aveva più documenti di quanti ne abbiamo potuti leggere. */
+  adeTruncated?: boolean;
 }
 
 /**

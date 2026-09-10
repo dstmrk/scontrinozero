@@ -65,6 +65,7 @@ function renderWithQuery(ui: React.ReactElement) {
 }
 
 const ACCEPTED_RECEIPT: ReceiptListItem = {
+  origin: "local",
   id: "doc-uuid-123",
   kind: "SALE",
   status: "ACCEPTED",

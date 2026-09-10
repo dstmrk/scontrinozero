@@ -909,8 +909,15 @@ valida — `ricerca.har` [04] la esegue e ritorna 4 annulli.
 | `tipoOperazione: "A"` | `"DCW2026/2610-5298"` | **progressivo del documento annullato**  |
 
 Leggere `annulli` come progressivo su una riga `V` scrive la stringa `"A"` dove
-ci si aspetta un numero documento. Rilevante per la v1.8.0 (sync documenti da
-AdE), dove serve proprio a ricostruire la catena vendita → annullo.
+ci si aspetta un numero documento.
+
+**Esito v1.8.0.** La doppia semantica ha deciso la forma della ricerca: poiché
+il flag "annullato" sta **già sulla riga di vendita**, lo storico interroga le
+sole `tipoOperazione=V` e deriva lo stato da lì — una query per pagina invece
+di due, e nessuna riga `A` da riconciliare. Il prezzo è che sui documenti che
+vivono solo su AdE non conosciamo la **data** dell'annullo, che starebbe sulla
+riga `A`: accettabile su un elenco di sola lettura, e il motivo per cui la
+colonna `data_annullo` del CSV resta vuota su quelle righe.
 
 Esempio (`nuovo_test_annullo.har` [01], lista senza filtro — la coppia
 vendita/annullo della voce #1):

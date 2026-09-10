@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
+import type { AdeReceiptListItem } from "@/types/storico";
 
 const {
   mockGetDb,
@@ -60,6 +61,7 @@ import {
   RECEIPT_LINES_CSV_HEADERS,
   buildReceiptLinesCsvStream,
   buildReceiptsCsvStream,
+  formatAdeReceiptRow,
   formatItalianQuantity,
   formatReceiptLineRows,
   formatReceiptRow,
@@ -100,6 +102,7 @@ describe("RECEIPT_CSV_HEADERS", () => {
       "data",
       "ora",
       "numero_ade",
+      "origine",
       "stato",
       "totale",
       "sconto_a_pagare",
@@ -159,6 +162,7 @@ describe("formatReceiptRow", () => {
       "19/05/2026",
       "14:35:01",
       "00042",
+      "scontrinozero",
       "emesso",
       "12,34",
       "0,00",
@@ -931,5 +935,149 @@ describe("buildReceiptsCsvStream — paginazione con ade_registered_at duplicati
     expect(rows).toHaveLength(1200);
     expect(new Set(ids).size).toBe(1200);
     expect(new Set(ids)).toEqual(new Set(all.map((d) => d.id)));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Documenti che vivono solo sull'archivio AdE (v1.8.0)
+// ---------------------------------------------------------------------------
+
+function adeRow(over: Partial<AdeReceiptListItem> = {}): AdeReceiptListItem {
+  return {
+    origin: "ade",
+    idtrx: "226076907",
+    adeProgressive: "DCW2026/2610-5298",
+    adeRegisteredAt: new Date("2026-05-19T12:00:00.000Z"),
+    status: "ACCEPTED",
+    total: "7.50",
+    ...over,
+  };
+}
+
+describe("formatAdeReceiptRow", () => {
+  it("marca l'origine e porta l'idtrx come unico identificativo", () => {
+    const row = formatAdeReceiptRow(adeRow());
+
+    expect(row[sumCol("origine")]).toBe("agenzia entrate");
+    expect(row[sumCol("id_transazione_ade")]).toBe("226076907");
+    expect(row[sumCol("id_scontrino")]).toBe("");
+  });
+
+  it("scrive l'importo in convenzione italiana", () => {
+    expect(formatAdeReceiptRow(adeRow())[sumCol("totale")]).toBe("7,50");
+  });
+
+  it("lascia vuote le celle che l'archivio non dà, non a zero", () => {
+    // `0,00` in `sconto_a_pagare` affermerebbe che quel documento non aveva
+    // abbuoni: non lo sappiamo. Vuoto dice "non registrato".
+    const row = formatAdeReceiptRow(adeRow());
+
+    expect(row[sumCol("sconto_a_pagare")]).toBe("");
+    expect(row[sumCol("incassato")]).toBe("");
+    expect(row[sumCol("metodo_pagamento")]).toBe("");
+    expect(row[sumCol("descrizione")]).toBe("");
+    expect(row[sumCol("codice_lotteria")]).toBe("");
+  });
+
+  it("un annullato resta senza data_annullo: il flag dice che, non quando", () => {
+    const row = formatAdeReceiptRow(adeRow({ status: "VOID_ACCEPTED" }));
+
+    expect(row[sumCol("stato")]).toBe("annullato");
+    expect(row[sumCol("data_annullo")]).toBe("");
+  });
+
+  it("ha esattamente una cella per colonna", () => {
+    expect(formatAdeReceiptRow(adeRow())).toHaveLength(
+      RECEIPT_CSV_HEADERS.length,
+    );
+  });
+});
+
+describe("buildReceiptsCsvStream — fusione con l'archivio AdE", () => {
+  /** Il documento nostro di riferimento: 19/05 alle 12:35:01 UTC. */
+  function localDoc() {
+    return doc({ id: "doc-1" });
+  }
+
+  function setupOneLocalDoc() {
+    setupDbMock([localDoc()]);
+    mockFetchLinesByDocIds.mockResolvedValue([]);
+    mockGroupLinesByDocId.mockReturnValue(new Map());
+    mockCalcDocTotal.mockReturnValue(10);
+  }
+
+  const PARAMS = {
+    businessId: "biz-1",
+    status: null,
+    dateFrom: null,
+    dateTo: null,
+  } as const;
+
+  it("colloca una riga AdE più recente PRIMA del documento nostro", async () => {
+    setupOneLocalDoc();
+    const stream = buildReceiptsCsvStream(PARAMS, [
+      adeRow({ adeRegisteredAt: new Date("2026-05-19T13:00:00.000Z") }),
+    ]);
+
+    const rows = (await streamToString(stream)).split("\r\n").filter(Boolean);
+    expect(rows[1]).toContain("agenzia entrate");
+    expect(rows[2]).toContain("scontrinozero");
+  });
+
+  it("colloca una riga AdE più vecchia DOPO il documento nostro", async () => {
+    setupOneLocalDoc();
+    const stream = buildReceiptsCsvStream(PARAMS, [
+      adeRow({ adeRegisteredAt: new Date("2026-05-19T11:00:00.000Z") }),
+    ]);
+
+    const rows = (await streamToString(stream)).split("\r\n").filter(Boolean);
+    expect(rows[1]).toContain("scontrinozero");
+    expect(rows[2]).toContain("agenzia entrate");
+  });
+
+  it("non perde nessuna riga AdE quando sono tutte più vecchie", async () => {
+    setupOneLocalDoc();
+    const stream = buildReceiptsCsvStream(PARAMS, [
+      adeRow({
+        idtrx: "a1",
+        adeRegisteredAt: new Date("2026-05-18T10:00:00.000Z"),
+      }),
+      adeRow({
+        idtrx: "a2",
+        adeRegisteredAt: new Date("2026-05-17T10:00:00.000Z"),
+      }),
+    ]);
+
+    const body = await streamToString(stream);
+    expect(body).toContain("a1");
+    expect(body).toContain("a2");
+    expect(body.split("\r\n").filter(Boolean)).toHaveLength(4);
+  });
+
+  it("le righe AdE sono ordinate fra loro, non nell'ordine di arrivo", async () => {
+    setupDbMock([]);
+    const stream = buildReceiptsCsvStream(PARAMS, [
+      adeRow({
+        idtrx: "vecchia",
+        adeRegisteredAt: new Date("2026-05-10T10:00:00.000Z"),
+      }),
+      adeRow({
+        idtrx: "recente",
+        adeRegisteredAt: new Date("2026-05-20T10:00:00.000Z"),
+      }),
+    ]);
+
+    const rows = (await streamToString(stream)).split("\r\n").filter(Boolean);
+    expect(rows[1]).toContain("recente");
+    expect(rows[2]).toContain("vecchia");
+  });
+
+  it("senza righe AdE il file è quello di sempre", async () => {
+    setupOneLocalDoc();
+    const stream = buildReceiptsCsvStream(PARAMS);
+
+    const rows = (await streamToString(stream)).split("\r\n").filter(Boolean);
+    expect(rows).toHaveLength(2);
+    expect(rows[1]).toContain("scontrinozero");
   });
 });

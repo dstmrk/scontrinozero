@@ -384,11 +384,15 @@ function withinProximity(doc: AdeDocumentSummary, createdAt: Date): boolean {
  * rifiutato e non aveva creato nulla).
  *
  * `excludeDocumentId` evita di auto-escludersi in un raro TOCTOU (un retry
- * concorrente che avesse già finalizzato la nostra stessa riga).
+ * concorrente che avesse già finalizzato la nostra stessa riga). È opzionale
+ * perché il secondo chiamante — la deduplica dello storico, che chiede "quali
+ * di questi documenti AdE sono già miei" (v1.8.0) — non ha una riga da
+ * escludere: lì ogni corrispondenza è un duplicato da togliere, nessuna
+ * esclusa.
  */
 export async function findClaimedTransactionIds(
   db: ReturnType<typeof getDb>,
-  params: { businessId: string; excludeDocumentId: string; idtrxs: string[] },
+  params: { businessId: string; excludeDocumentId?: string; idtrxs: string[] },
 ): Promise<Set<string>> {
   const { businessId, excludeDocumentId, idtrxs } = params;
   if (idtrxs.length === 0) return new Set();
@@ -398,7 +402,9 @@ export async function findClaimedTransactionIds(
     .where(
       and(
         eq(commercialDocuments.businessId, businessId),
-        ne(commercialDocuments.id, excludeDocumentId),
+        ...(excludeDocumentId
+          ? [ne(commercialDocuments.id, excludeDocumentId)]
+          : []),
         inArray(commercialDocuments.adeTransactionId, idtrxs),
       ),
     );

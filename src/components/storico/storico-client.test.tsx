@@ -7,11 +7,16 @@ import {
   within,
 } from "@testing-library/react";
 import { StoricoClient } from "./storico-client";
-import { getReceiptDetail, searchReceipts } from "@/server/storico-actions";
-import type { ReceiptListItem } from "@/types/storico";
+import {
+  getReceiptDetail,
+  searchReceipts,
+  searchReceiptsIncludingAde,
+} from "@/server/storico-actions";
+import type { AdeReceiptListItem, ReceiptListItem } from "@/types/storico";
 
 vi.mock("@/server/storico-actions", () => ({
   searchReceipts: vi.fn(),
+  searchReceiptsIncludingAde: vi.fn(),
   getReceiptDetail: vi.fn(),
 }));
 
@@ -62,6 +67,7 @@ vi.mock("./void-receipt-dialog", () => ({
 }));
 
 const ACCEPTED_ROW: ReceiptListItem = {
+  origin: "local",
   id: "22222222-2222-4222-8222-222222222222",
   kind: "SALE",
   status: "ACCEPTED",
@@ -119,10 +125,163 @@ function voidFromDialog() {
   fireEvent.click(screen.getByText("Conferma annullo"));
 }
 
+const ADE_ROW: AdeReceiptListItem = {
+  origin: "ade",
+  idtrx: "226076907",
+  adeProgressive: "DCW2026/2610-5298",
+  adeRegisteredAt: new Date("2026-02-14T09:00:00Z"),
+  status: "ACCEPTED",
+  total: "7.50",
+};
+
+const TOGGLE_LABEL = /Cerca anche i documenti emessi fuori da ScontrinoZero/;
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(searchReceipts).mockResolvedValue({ items: [], total: 0 });
+  vi.mocked(searchReceiptsIncludingAde).mockResolvedValue({
+    items: [],
+    total: 0,
+  });
   vi.mocked(getReceiptDetail).mockResolvedValue({ item: VOIDED_ROW });
+});
+
+describe("StoricoClient — ricerca sull'archivio AdE", () => {
+  it("il flag non esiste per chi non ha il piano Pro", () => {
+    render(
+      <StoricoClient
+        businessId={BUSINESS_ID}
+        initialItems={[ACCEPTED_ROW]}
+        initialTotal={1}
+        plan="starter"
+      />,
+    );
+
+    expect(screen.queryByLabelText(TOGGLE_LABEL)).not.toBeInTheDocument();
+  });
+
+  it("spuntare il flag non fa partire nessuna ricerca da solo", () => {
+    // Ogni ricerca con il flag attivo costa un login AdE a nome
+    // dell'esercente: deve partire quando lo decide lui, premendo "Cerca".
+    renderStorico();
+
+    fireEvent.click(screen.getByLabelText(TOGGLE_LABEL));
+
+    expect(searchReceiptsIncludingAde).not.toHaveBeenCalled();
+  });
+
+  it("con il flag attivo la ricerca passa dall'archivio AdE", async () => {
+    renderStorico();
+
+    fireEvent.click(screen.getByLabelText(TOGGLE_LABEL));
+    fireEvent.click(screen.getByRole("button", { name: "Cerca" }));
+
+    await waitFor(() => expect(searchReceiptsIncludingAde).toHaveBeenCalled());
+    expect(searchReceipts).not.toHaveBeenCalled();
+  });
+
+  it("senza flag la ricerca resta quella locale", async () => {
+    renderStorico();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cerca" }));
+
+    await waitFor(() => expect(searchReceipts).toHaveBeenCalled());
+    expect(searchReceiptsIncludingAde).not.toHaveBeenCalled();
+  });
+
+  it("una riga che vive solo su AdE si riconosce nell'elenco", async () => {
+    vi.mocked(searchReceiptsIncludingAde).mockResolvedValue({
+      items: [ADE_ROW],
+      total: 1,
+    });
+    renderStorico();
+
+    fireEvent.click(screen.getByLabelText(TOGGLE_LABEL));
+    fireEvent.click(screen.getByRole("button", { name: "Cerca" }));
+
+    const cell = await screen.findByText("2610-5298");
+    expect(
+      within(cell.closest("td") as HTMLElement).getByText("AdE"),
+    ).toBeInTheDocument();
+  });
+
+  it("una riga AdE non si apre: non c'è nessun dettaglio da mostrare", async () => {
+    vi.mocked(searchReceiptsIncludingAde).mockResolvedValue({
+      items: [ADE_ROW],
+      total: 1,
+    });
+    renderStorico();
+
+    fireEvent.click(screen.getByLabelText(TOGGLE_LABEL));
+    fireEvent.click(screen.getByRole("button", { name: "Cerca" }));
+
+    fireEvent.click(await screen.findByText("2610-5298"));
+
+    expect(screen.queryByTestId("dialog")).not.toBeInTheDocument();
+  });
+
+  it("AdE irraggiungibile: l'avviso compare e le righe nostre restano", async () => {
+    vi.mocked(searchReceiptsIncludingAde).mockResolvedValue({
+      items: [ACCEPTED_ROW],
+      total: 1,
+      adeError: "Agenzia delle Entrate non raggiungibile.",
+    });
+    renderStorico();
+
+    fireEvent.click(screen.getByLabelText(TOGGLE_LABEL));
+    fireEvent.click(screen.getByRole("button", { name: "Cerca" }));
+
+    expect(await screen.findByText(/non raggiungibile/)).toBeInTheDocument();
+    expect(screen.getByText("5111-2188")).toBeInTheDocument();
+  });
+
+  it("sessione CIE scaduta: l'avviso porta alle impostazioni", async () => {
+    vi.mocked(searchReceiptsIncludingAde).mockResolvedValue({
+      items: [],
+      total: 0,
+      adeError: "Sessione CIE scaduta.",
+      adeReauthRequired: true,
+    });
+    renderStorico();
+
+    fireEvent.click(screen.getByLabelText(TOGGLE_LABEL));
+    fireEvent.click(screen.getByRole("button", { name: "Cerca" }));
+
+    expect(
+      await screen.findByRole("link", { name: /ricollegarti/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("archivio troncato: l'elenco lo dichiara invece di sembrare completo", async () => {
+    vi.mocked(searchReceiptsIncludingAde).mockResolvedValue({
+      items: [ADE_ROW],
+      total: 1,
+      adeTruncated: true,
+    });
+    renderStorico();
+
+    fireEvent.click(screen.getByLabelText(TOGGLE_LABEL));
+    fireEvent.click(screen.getByRole("button", { name: "Cerca" }));
+
+    expect(
+      await screen.findByText(/restringi il periodo/i),
+    ).toBeInTheDocument();
+  });
+
+  it("il rifiuto della richiesta intera arriva come avviso, non in silenzio", async () => {
+    vi.mocked(searchReceiptsIncludingAde).mockResolvedValue({
+      items: [],
+      total: 0,
+      error:
+        "La ricerca sull'Agenzia delle Entrate copre al massimo 31 giorni per volta. Restringi il periodo.",
+    });
+    renderStorico();
+
+    fireEvent.click(screen.getByLabelText(TOGGLE_LABEL));
+    fireEvent.click(screen.getByRole("button", { name: "Cerca" }));
+
+    expect(await screen.findByText(/al massimo 31 giorni/)).toBeInTheDocument();
+  });
 });
 
 describe("StoricoClient — riga rileggibile dopo l'annullo", () => {
