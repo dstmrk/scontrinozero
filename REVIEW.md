@@ -675,58 +675,6 @@ insostenibile.
 
 ---
 
-### 104. Le tre checklist manuali pre-PR non hanno un gate
-
-- **Categoria:** tooling / qualità · **Severità:** Low — oggi sono coperte da
-  prosa nelle skill, quindi valgono quanto l'attenzione di chi legge
-- **File:** `eslint.config.mjs`, `.claude/skills/testing-patterns/SKILL.md`,
-  `.claude/skills/sonar-quality-gate/SKILL.md`
-
-**Problema.** Fino a questo PR `CLAUDE.md` chiudeva la sezione Pre-PR con
-quattro caselle da spuntare a mano: ogni `it()`/`test()` ha almeno un
-`expect()` (S6661, Blocker su SonarCloud), i mock di classi usano
-`function`/`class` e non arrow, le variabili nei factory `vi.mock` iniziano per
-`mock` (hoisting Vitest), nessuna nuova issue Blocker/Critical. Le prime tre
-sono regole di lint travestite da prosa: deterministiche, verificabili
-staticamente, e violate esattamente quando chi committa ha fretta — cioè quando
-la checklist manuale non viene letta. La quarta non è automatizzabile in locale
-(la calcola SonarCloud) e resta correttamente un controllo di CI.
-
-Sono state tolte dal prompt perché una regola che paghi in contesto a ogni task
-senza che nessun gate la applichi è il peggiore dei due mondi (regola 7: la
-prosa converge verso un hook o un test, e quando il gate esiste la prosa
-sparisce). La prosa vive ora nelle skill `testing-patterns` e
-`sonar-quality-gate`, che si attivano quando stai scrivendo test.
-
-**Cosa manca.** Il gate vero, per le tre regole locali. Solo la prima ha
-un'implementazione già pronta a scaffale — `expect-expect` di
-**`@vitest/eslint-plugin`** (v1.6.27 al 2026-08-21; il vecchio nome
-`eslint-plugin-vitest` è fermo a 0.5.4, la famiglia si è rinominata). Oggi non
-è tra le devDependencies. Le altre due sono regole custom brevi da scrivere in
-`eslint.config.mjs`, verosimilmente due `no-restricted-syntax` sui factory
-`vi.mock` — una che vieta le arrow function come valore di ritorno di un mock
-di classe, una che pretende il prefisso `mock` sugli identificatori catturati
-dalla closure. Prima di scriverle, controllare se una regola pubblicata le
-copre già (regola 29).
-
-**Vincolo.** Pesare l'aggiunta contro "dipendenze minime" (regola 29 e Principi
-guida): un plugin ESLint è dev-only e non entra nel container, quindi il costo è
-accettabile, ma va verificato che non rallenti `npm run lint` in CI.
-
-**Dimensione: da misurare prima di impegnarsi.** La superficie è **4160**
-`it()`/`test()` in **276** file (misurato il 2026-08-21). Accendere
-`expect-expect` può produrre zero violazioni o duecento, e non si sa finché non
-lo si esegue. Quindi il primo passo non è l'implementazione ma la **scoperta**:
-installare il plugin in locale, accendere la regola in warning, contare. Se le
-violazioni sono poche il fix è una slice sola; se sono molte, la bonifica è una
-slice a parte dall'attivazione del gate (regola 5). Non aprire questo finding
-come coda di un altro lavoro.
-
-**Trigger.** La prima regressione S6661 che arriva da SonarCloud invece
-che da `npm run lint`.
-
----
-
 ## Rischi accettati (documentati, non da fixare)
 
 Scelte consapevoli con un trigger di riapertura. Non sono finding da pianificare.

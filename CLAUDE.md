@@ -194,11 +194,11 @@ squash, quindi titolo e corpo della PR diventano il messaggio di commit —
 titolo con prefisso conventional-commit in italiano, corpo scritto pulito, ed
 entrambi finiti **prima** del merge. Formato → skill `decision-ledger`.
 
-> Le trappole che i comandi sopra non catturano — S6661, mock di classi con
-> `function`/`class`, prefisso `mock` nei factory `vi.mock` — vivono nelle
-> skill `testing-patterns` e `sonar-quality-gate`, non qui: erano una checklist
-> manuale che nessun gate applicava. Farle diventare regole ESLint è tracciato
-> in `REVIEW.md`.
+> Le tre trappole che erano una checklist manuale — S6661, mock di classi con
+> `function`/`class`, prefisso `mock` nei factory `vi.mock` — un gate ora ce
+> l'hanno: `npm run lint` boccia il primo (`vitest/expect-expect`), `npm run
+test` gli altri due, con un errore esplicito. La prosa su come riconoscerli
+> vive nella skill `testing-patterns`, non qui.
 
 ### Deploy e T&C → skill `deploy-release`
 

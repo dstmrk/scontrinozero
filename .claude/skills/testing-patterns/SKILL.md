@@ -10,8 +10,8 @@ nei mock.
 
 Indice (salta alla sezione che serve, non leggere tutto):
 
-- Ogni test ha almeno un `expect()` (S6661)
-- Mock di classi: `function`/`class`, mai arrow
+- Ogni test ha almeno un `expect()` — gate ESLint (S6661)
+- Mock di classi: `function`/`class`, mai arrow — gate: il test run
 - Mock tipati: niente spread in `vi.fn()` a zero argomenti (TS2556)
 - Rate limiting su server actions (**soglie consolidate — fonte canonica**)
 - Aggiornare i mock dopo un refactor in JOIN
@@ -28,14 +28,21 @@ Indice (salta alla sezione che serve, non leggere tutto):
 
 ---
 
-## Ogni test deve avere almeno un `expect()`
+## Ogni test deve avere almeno un `expect()` — ci pensa il lint
 
-SonarCloud classifica come **Blocker** qualsiasi `it()`/`test()` senza assertion.
-Anche i test che verificano "non lancia eccezione" o "chiama redirect" devono
-contenere almeno un `expect()` esplicito.
+**Non è più una checklist manuale.** `vitest/expect-expect` è acceso come
+**error** in `eslint.config.mjs` sui file di test: `npm run lint` fallisce
+prima della push. Era l'unica delle tre trappole di questa skill a non avere
+un gate locale — Vitest conta verde un `it()` senza assertion, e la bocciatura
+arrivava da SonarCloud (**S6661, Blocker**) solo dopo (REVIEW.md #104,
+misurato: zero violazioni su 317 file al momento dell'accensione).
+
+Resta la parte che il lint non può insegnarti: **quale** assertion scrivere.
+Anche un test che verifica "non lancia" o "chiama redirect" ne vuole una su un
+effetto osservabile, non un `expect(true).toBe(true)` per zittire la regola.
 
 ```typescript
-// ❌ SBAGLIATO — SonarCloud Blocker
+// ❌ Nessuna assertion — ora è un errore di lint
 it("chiama signIn senza errori", async () => {
   try {
     await signIn(formData);
@@ -44,7 +51,7 @@ it("chiama signIn senza errori", async () => {
   }
 });
 
-// ✅ CORRETTO — assertion su effetto osservabile
+// ✅ Assertion su un effetto osservabile
 it("chiama signIn senza errori", async () => {
   try {
     await signIn(formData);
@@ -59,22 +66,36 @@ it("chiama signIn senza errori", async () => {
 
 ## `vi.mock` di classi: usare `function` o `class`, mai arrow function
 
-Quando un modulo esporta una **classe** che viene istanziata con `new`,
-il mock deve usare la keyword `function` o `class` nel `mockImplementation`.
-Le arrow function non possono essere costruttori e causano:
-`TypeError: () => ({...}) is not a constructor`.
+Quando un modulo esporta una **classe** che viene istanziata con `new`, il mock
+deve usare la keyword `function` o `class`. Le arrow function non possono
+essere costruttori.
 
-Le variabili usate nella factory `vi.mock` **devono iniziare con `mock`**
-(Vitest le includa nell'hoisting automatico).
+Le variabili usate nella factory `vi.mock` **devono iniziare con `mock`**: la
+chiamata è hoistata in cima al file e una variabile senza quel prefisso non
+esiste ancora quando la factory gira.
+
+**Queste due un gate ce l'hanno già, ed è il test run** (misurato, REVIEW.md
+#104 — per questo NON sono diventate regole ESLint):
+
+- arrow al posto di `function` → `TypeError: X is not a constructor`;
+- variabile senza prefisso → l'errore di Vitest _"make sure there are no top
+  level variables inside, since this call is hoisted to top of the file"_, che
+  linka anche la doc.
+
+Entrambe fanno fallire `npm run test` al primo giro, quindi non serve
+ricordarsele: serve saperle **riconoscere** quando il messaggio arriva. Una
+regola ESLint per la prima, per inciso, non è scrivibile: distinguere staticamente
+il mock di una classe da quello di un componente React è indecidibile, e
+l'euristica PascalCase produce 75 falsi positivi su questo repo e zero veri.
 
 ```typescript
-// ❌ SBAGLIATO — arrow function non è un costruttore
+// ❌ arrow function non è un costruttore
 const mockCheck = vi.fn();
 vi.mock("@/lib/rate-limit", () => ({
   RateLimiter: vi.fn().mockImplementation(() => ({ check: mockCheck })),
 }));
 
-// ✅ CORRETTO — regular function restituisce l'oggetto mock
+// ✅ regular function restituisce l'oggetto mock
 const mockCheck = vi.fn();
 vi.mock("@/lib/rate-limit", () => ({
   RateLimiter: vi.fn().mockImplementation(function () {
