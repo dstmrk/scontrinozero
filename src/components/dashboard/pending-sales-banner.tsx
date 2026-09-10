@@ -205,7 +205,11 @@ export function PendingSalesBanner({
           </div>
         )}
 
-        {message && <p role="status">{message}</p>}
+        {/* <output> ha implicitamente role="status" ed è l'elemento giusto:
+            è l'esito dell'azione di verifica appena chiesta dall'esercente.
+            `block` perché <output> è inline di default (S6819, stesso pattern
+            di `printer-section.tsx`). */}
+        {message && <output className="block">{message}</output>}
       </AlertDescription>
     </Alert>
   );
