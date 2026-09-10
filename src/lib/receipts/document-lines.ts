@@ -59,6 +59,7 @@ export function groupLinesByDocId(
 export {
   calcDocTotal,
   calcInputLinesTotalCents,
+  calcLineTotalCents,
   computeReceiptTotals,
 } from "./receipt-totals";
 export type {

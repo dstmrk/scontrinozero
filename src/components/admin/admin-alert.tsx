@@ -10,9 +10,9 @@ interface AdminAlertProps {
  * Avviso inline di un blocco del pannello che non ha caricato.
  *
  * Ogni lettura degrada a `{ error }` per conto suo (regola 19), quindi in
- * pagina possono comparirne fino a sei: uno per blocco, al posto del solo
+ * pagina possono comparirne fino a sette: uno per blocco, al posto del solo
  * contenuto che dipendeva da quella query. Prima erano due `div` copiati nella
- * pagina; con sei call site la copia diventava il modo più facile per farli
+ * pagina; con sette call site la copia diventava il modo più facile per farli
  * divergere.
  */
 export function AdminAlert({ message, className }: AdminAlertProps) {

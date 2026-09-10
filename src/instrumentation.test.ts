@@ -110,9 +110,10 @@ describe("instrumentation register()", () => {
 
     await register();
 
-    // Both the Supabase keep-alive and the Stripe webhook claim sweep
-    // (REVIEW.md #20) start an unref'd setInterval in the nodejs branch.
-    expect(global.setInterval).toHaveBeenCalledTimes(2);
+    // Tre timer incondizionati nel ramo nodejs: keep-alive Supabase
+    // (REVIEW.md #29), sweep dei claim webhook Stripe (#20) e rilevatore dei
+    // documenti PENDING orfani (#103).
+    expect(global.setInterval).toHaveBeenCalledTimes(3);
   });
 
   it("avvia anche il prune sweep GDPR quando INACTIVE_USER_PRUNE_ENABLED=true", async () => {
@@ -122,8 +123,8 @@ describe("instrumentation register()", () => {
 
     await register();
 
-    // keep-alive + webhook claim sweep + prune sweep GDPR = 3 timer.
-    expect(global.setInterval).toHaveBeenCalledTimes(3);
+    // I tre incondizionati + il prune sweep GDPR = 4 timer.
+    expect(global.setInterval).toHaveBeenCalledTimes(4);
   });
 
   it("NON avvia il prune sweep GDPR quando la feature è disabilitata (default)", async () => {
@@ -133,8 +134,8 @@ describe("instrumentation register()", () => {
 
     await register();
 
-    // Solo keep-alive + webhook claim sweep: il prune non parte.
-    expect(global.setInterval).toHaveBeenCalledTimes(2);
+    // Solo i tre incondizionati: il prune non parte.
+    expect(global.setInterval).toHaveBeenCalledTimes(3);
   });
 
   it("NON avvia il prune sweep quando la soglia è sotto il floor di sicurezza (REVIEW #39)", async () => {
@@ -145,8 +146,8 @@ describe("instrumentation register()", () => {
 
     await register();
 
-    // Solo keep-alive + webhook claim sweep: il floor spegne il prune.
-    expect(global.setInterval).toHaveBeenCalledTimes(2);
+    // Solo i tre incondizionati: il floor spegne il prune.
+    expect(global.setInterval).toHaveBeenCalledTimes(3);
   });
 
   it("logga a warn le violazioni della config prune al boot (REVIEW #39)", async () => {

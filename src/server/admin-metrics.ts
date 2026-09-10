@@ -1,6 +1,10 @@
 import { sql } from "drizzle-orm";
 
 import { logger } from "@/lib/logger";
+import {
+  countStalePendingDocuments,
+  type StalePendingCount,
+} from "@/lib/services/ade-recovery";
 import { PAID_SELF_SERVICE_PLANS, TRIAL_DAYS } from "@/lib/plans";
 import {
   type RawRow,
@@ -83,6 +87,9 @@ export type AdminUserKpisResult = { kpis: AdminUserKpis } | { error: string };
 export type AdminDocumentKpisResult =
   { kpis: AdminDocumentKpis } | { error: string };
 
+export type AdminStalePendingKpiResult =
+  { kpi: StalePendingCount } | { error: string };
+
 /**
  * Messaggi distinti per blocco: con sei letture indipendenti un unico testo
  * generico non direbbe QUALE è caduta, e l'avviso compare al posto delle sole
@@ -92,6 +99,8 @@ const USERS_LOAD_ERROR =
   "Impossibile caricare le metriche utenti. Riprova tra qualche istante.";
 const DOCUMENTS_LOAD_ERROR =
   "Impossibile caricare le metriche scontrini. Riprova tra qualche istante.";
+const STALE_PENDING_LOAD_ERROR =
+  "Impossibile contare gli scontrini in sospeso. Riprova tra qualche istante.";
 
 /**
  * Finestra della coorte per il tasso di conversione, **indipendente dal range
@@ -132,8 +141,8 @@ function fillSeries(
  * pannello ha un problema, non quale.
  */
 function logMetricsFailure(
-  metric: "users" | "documents",
-  range: AnalyticsRange,
+  metric: "users" | "documents" | "stale_pending",
+  range: AnalyticsRange | null,
   message: string,
   err?: unknown,
 ): void {
@@ -354,5 +363,38 @@ export async function getAdminDocumentKpis(
       err,
     );
     return { error: DOCUMENTS_LOAD_ERROR };
+  }
+}
+
+/**
+ * Documenti `PENDING` fermi oltre la soglia stale, su tutti i tenant.
+ *
+ * È il rilevatore di REVIEW.md #103: una riga il cui esito su AdE resta
+ * ignoto non compare né nello storico né nelle analytics — entrambi filtrano
+ * `ACCEPTED`/`VOID_ACCEPTED` — quindi finora si trovava solo ispezionando il
+ * DB a mano. La conseguenza non è un doppione: è un documento che potrebbe
+ * esistere su AdE e non da noi, oppure un corrispettivo mai trasmesso, e le
+ * due ipotesi sono indistinguibili senza interrogare il portale.
+ *
+ * **Fuori dal range selezionato, per scelta.** Un orfano di tre settimane fa
+ * è esattamente quello che interessa vedere, e `buildAdeSearchWindow` sa
+ * ancora riconciliarlo — la finestra ±24h la costruisce da `created_at`.
+ * Restringerlo al periodo del pannello lo renderebbe invisibile appena
+ * qualcuno guarda gli ultimi 7 giorni.
+ *
+ * Degrada a `{ error }` come le altre letture (regola 19).
+ */
+export async function getAdminStalePendingKpi(): Promise<AdminStalePendingKpiResult> {
+  try {
+    const kpi = await runAdminRead((tx) => countStalePendingDocuments(tx));
+    return { kpi };
+  } catch (err) {
+    logMetricsFailure(
+      "stale_pending",
+      null,
+      "admin metrics: conteggio scontrini in sospeso fallito",
+      err,
+    );
+    return { error: STALE_PENDING_LOAD_ERROR };
   }
 }

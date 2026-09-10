@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
@@ -17,6 +18,7 @@ import { OnboardingTour } from "@/components/dashboard/onboarding-tour";
 import { AnnouncementBanner } from "@/components/announcement/announcement-banner";
 import { PwaInstallPrompt } from "@/components/pwa/install-prompt";
 import { PartnerBrandSuffix } from "@/components/partner-brand-suffix";
+import { PendingSalesSection } from "./pending-sales-section";
 
 // Solo l'app shell va edge-to-edge: il marketing resta sul viewport di default.
 // Motivazione in src/lib/pwa/viewport.ts.
@@ -138,6 +140,19 @@ export default async function DashboardLayout({
           Con il solo `pb-6` l'ultima riga finirebbe a filo della home indicator.
         */}
         <main className="container mx-auto flex-1 px-4 py-6 pb-[calc(5rem_+_env(safe-area-inset-bottom))] md:pb-[calc(1.5rem_+_env(safe-area-inset-bottom))]">
+          {/*
+            Scontrini rimasti in sospeso (REVIEW.md #103). Sta nel layout e non
+            in una pagina perché l'esercente deve incontrarlo ovunque stia
+            lavorando — cassa compresa, che è da dove la slice 3 lo manda
+            quando la riemissione è bloccata.
+
+            Dietro `<Suspense fallback={null}>`: la query non deve ritardare lo
+            shell, e nel caso normale non c'è niente da mostrare — uno
+            scheletro lampeggerebbe a ogni navigazione per poi sparire.
+          */}
+          <Suspense fallback={null}>
+            <PendingSalesSection />
+          </Suspense>
           {children}
         </main>
 

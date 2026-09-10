@@ -29,6 +29,7 @@ vi.mock("@/db/schema", () => ({
 import {
   buildAdeSearchWindow,
   claimStaleDocument,
+  countStalePendingDocuments,
   findClaimedTransactionIds,
   formatAdeQueryDate,
   getStalePendingThresholdMs,
@@ -36,6 +37,7 @@ import {
   parseAdeResultDate,
   reconcileSaleDocument,
   reconcileVoidDocument,
+  staleUpdatedBefore,
 } from "./ade-recovery";
 import type { AdeDocumentSummary } from "@/lib/ade/types";
 import { getDb } from "@/db";
@@ -208,7 +210,12 @@ describe("reconcile con esclusione claimedIdtrx", () => {
       createdAt: SALE_CREATED_AT,
       claimedIdtrx: new Set(),
     });
-    expect(result).toEqual({ kind: "ambiguous" });
+    expect(result).toMatchObject({ kind: "ambiguous" });
+    // I candidati viaggiano con l'esito: il recovery automatico li ignora, la
+    // verifica dentro la sessione dell'esercente li mostra (REVIEW.md #103).
+    expect(
+      result.kind === "ambiguous" && result.candidates.map((d) => d.idtrx),
+    ).toEqual(["1", "2"]);
   });
 
   it("annullo: l'unico candidato è già collegato → none", () => {
@@ -336,7 +343,10 @@ describe("reconcileSaleDocument", () => {
       expectedTotalCents: 170,
       createdAt: SALE_CREATED_AT,
     });
-    expect(result).toEqual({ kind: "ambiguous" });
+    expect(result).toMatchObject({ kind: "ambiguous" });
+    expect(
+      result.kind === "ambiguous" && result.candidates.map((d) => d.idtrx),
+    ).toEqual(["1", "2"]);
   });
 
   it("usa il codice lotteria come chiave secondaria quando presente", () => {
@@ -462,7 +472,10 @@ describe("reconcileVoidDocument", () => {
       documents: docs,
       saleProgressivo: "DCW2026/5432-1548",
     });
-    expect(result).toEqual({ kind: "ambiguous" });
+    expect(result).toMatchObject({ kind: "ambiguous" });
+    expect(
+      result.kind === "ambiguous" && result.candidates.map((d) => d.idtrx),
+    ).toEqual(["1", "2"]);
   });
 });
 
@@ -556,5 +569,101 @@ describe("registeredAt sul match riconciliato (REVIEW.md #91)", () => {
     });
 
     expect(result).toMatchObject({ kind: "match", registeredAt: null });
+  });
+});
+
+describe("staleUpdatedBefore", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("sottrae la soglia stale all'istante di riferimento", () => {
+    vi.stubEnv("STALE_PENDING_THRESHOLD_MINUTES", "30");
+    const now = new Date("2026-09-10T12:00:00Z");
+
+    expect(staleUpdatedBefore(now).toISOString()).toBe(
+      "2026-09-10T11:30:00.000Z",
+    );
+  });
+
+  it("segue l'override della soglia, così rilevatore e gate non divergono", () => {
+    vi.stubEnv("STALE_PENDING_THRESHOLD_MINUTES", "5");
+    const now = new Date("2026-09-10T12:00:00Z");
+
+    expect(staleUpdatedBefore(now).toISOString()).toBe(
+      "2026-09-10T11:55:00.000Z",
+    );
+  });
+});
+
+describe("countStalePendingDocuments", () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("legge i conteggi per kind e l'età della riga più vecchia", async () => {
+    mockSelectWhere.mockResolvedValue([
+      { sale: "3", void: "1", oldestCreatedAt: "2026-09-01T08:00:00.000Z" },
+    ]);
+
+    const result = await countStalePendingDocuments(getDb());
+
+    expect(result).toEqual({
+      sale: 3,
+      void: 1,
+      oldestCreatedAt: new Date("2026-09-01T08:00:00.000Z"),
+    });
+  });
+
+  it("ritorna zero e nessuna data quando non ci sono righe orfane", async () => {
+    mockSelectWhere.mockResolvedValue([
+      { sale: "0", void: "0", oldestCreatedAt: null },
+    ]);
+
+    const result = await countStalePendingDocuments(getDb());
+
+    expect(result).toEqual({ sale: 0, void: 0, oldestCreatedAt: null });
+  });
+
+  it("degrada a zero se l'aggregato non torna nessuna riga", async () => {
+    mockSelectWhere.mockResolvedValue([]);
+
+    const result = await countStalePendingDocuments(getDb());
+
+    expect(result).toEqual({ sale: 0, void: 0, oldestCreatedAt: null });
+  });
+
+  it("accetta un Date già tipizzato dal driver", async () => {
+    const oldest = new Date("2026-08-20T10:00:00.000Z");
+    mockSelectWhere.mockResolvedValue([
+      { sale: "1", void: "0", oldestCreatedAt: oldest },
+    ]);
+
+    const result = await countStalePendingDocuments(getDb());
+
+    expect(result.oldestCreatedAt).toBe(oldest);
+  });
+
+  it("scarta una data illeggibile invece di propagare un Invalid Date", async () => {
+    mockSelectWhere.mockResolvedValue([
+      { sale: "1", void: "0", oldestCreatedAt: "non-una-data" },
+    ]);
+
+    const result = await countStalePendingDocuments(getDb());
+
+    expect(result.oldestCreatedAt).toBeNull();
+  });
+
+  it("filtra sulla soglia stale, non sull'istante corrente", async () => {
+    vi.stubEnv("STALE_PENDING_THRESHOLD_MINUTES", "30");
+    mockSelectWhere.mockResolvedValue([
+      { sale: "0", void: "0", oldestCreatedAt: null },
+    ]);
+    const now = new Date("2026-09-10T12:00:00Z");
+
+    await countStalePendingDocuments(getDb(), now);
+
+    // Una riga toccata negli ultimi 30 minuti può essere ancora in volo: il
+    // rilevatore non deve contarla, o segnalerebbe come orfana ogni emissione
+    // in corso.
+    const [where] = mockSelectWhere.mock.calls[0] as [unknown];
+    expect(JSON.stringify(where)).toContain("2026-09-10T11:30:00.000Z");
   });
 });

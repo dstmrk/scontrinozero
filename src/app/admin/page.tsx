@@ -17,6 +17,7 @@ import {
   AdminDocumentKpisSection,
   AdminPaidUsersSection,
   AdminRecentProfilesSection,
+  AdminStalePendingSection,
   AdminTopMerchantsSection,
   AdminTrialExpiringSection,
   AdminUserKpisSection,
@@ -31,21 +32,24 @@ import {
  * valore ignoto ricade sul default invece di lanciare (regola 19).
  *
  * **La pagina non aspetta nessuna query.** Il guscio — selettore di periodo e
- * scheletri — esce subito; le sei letture stanno dietro ad altrettanti
+ * scheletri — esce subito; le sette letture stanno dietro ad altrettanti
  * `<Suspense>` e Next manda in streaming ogni blocco appena la sua query
  * risponde. Prima era un solo `await Promise.all(...)` in cima: nessun byte
  * di HTML partiva finché non c'era l'ultimo dato, e la scansione dello storico
  * scontrini si portava dietro anche le card che erano pronte da un pezzo.
  *
- * **Il tetto sul pool viene prima della velocità del pannello.** Le sei letture
+ * **Il tetto sul pool viene prima della velocità del pannello.** Le sette letture
  * NON girano in parallelo: `runAdminRead` (`src/server/admin-sql.ts`) ne lascia
  * passare una per volta, così `/admin` non può mai togliere più di una
  * connessione delle dieci che servono la cassa. Il tempo totale resta quindi la
- * somma delle sei query, com'era prima; quello che cambia è che si vede
+ * somma delle sette query; quello che cambia è che si vede
  * arrivare il pannello un pezzo alla volta invece di fissare una pagina bianca.
  *
- * Corollario: l'ordine dei `<Suspense>` qui sotto è l'ordine della coda. I KPI
- * stanno davanti perché sono la parte che si guarda per prima.
+ * Corollario: l'ordine dei `<Suspense>` qui sotto è l'ordine della coda. In
+ * testa c'è il rilevatore dei documenti in sospeso, che è un `count(*)` senza
+ * join: costa poco e, quando ha qualcosa da dire, è la sola parte del pannello
+ * che chiede un'azione. Subito dopo i KPI, che sono ciò che si guarda per
+ * primo.
  */
 export const metadata: Metadata = {
   title: "Pannello operatore",
@@ -57,11 +61,13 @@ export const metadata: Metadata = {
  * dell'analytics esercente (`DEFAULT_ANALYTICS_RANGE`, 30 giorni), che resta
  * intoccato: è un piano a pagamento e non si sposta di sotto ai clienti.
  *
- * Sette giorni perché due delle sei letture — classifiche esercenti e
+ * Sette giorni perché due delle sette letture — classifiche esercenti e
  * registrati di recente — filtrano davvero su `created_at >= rangeStart`, e
  * lì un quarto del periodo è un quarto delle righe da aggregare. Le altre
  * quattro non ne beneficiano: la query scontrini legge `created_at < rangeEnd`,
- * cioè tutto lo storico a prescindere, e trial/paganti non guardano il range.
+ * cioè tutto lo storico a prescindere, trial/paganti non guardano il range e il
+ * rilevatore dei documenti in sospeso non lo guarda per scelta (un orfano di
+ * tre settimane fa è proprio quello che interessa vedere).
  */
 const DEFAULT_ADMIN_RANGE: AnalyticsRange = "7d";
 
@@ -78,6 +84,15 @@ export default async function AdminPage({
   return (
     <div className="space-y-6">
       <AdminRangeTabs active={range} />
+
+      {/* Rilevatore dei documenti in sospeso (REVIEW.md #103): niente
+          scheletro e niente `<Suspense>` con fallback visibile, perché nel
+          caso normale non rende nulla — uno scheletro che lampeggia per poi
+          sparire sarebbe rumore. La lettura resta dietro al proprio boundary
+          come le altre, così non trattiene il resto della pagina. */}
+      <Suspense fallback={null}>
+        <AdminStalePendingSection />
+      </Suspense>
 
       {/* La griglia è qui e non nei componenti: `<Suspense>` non produce un
           nodo DOM, quindi card e scheletri restano figli diretti della griglia
