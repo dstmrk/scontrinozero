@@ -921,52 +921,6 @@ che da `npm run lint`.
 
 ---
 
-### 105. `@sentry/nextjs` fermo a 10.71.0 — 10.72.0/10.73.0 rompono i test jsdom
-
-- **Categoria:** dipendenze / tooling · **Severità:** Low — nessun impatto
-  runtime, solo `npm run test:coverage` in locale/CI
-- **File:** `package.json` (`@sentry/nextjs`)
-
-**Problema.** Il PR dependabot #902 (gruppo minor-and-patch) bumpava
-`@sentry/nextjs` a 10.72.0, trascinando `@sentry/node` e
-`@sentry/server-utils` alla stessa versione. Da quella minor, il solo
-**import** (non la chiamata a `Sentry.init`) di `@sentry/nextjs` in un test
-Vitest con `environment: "jsdom"` fa esplodere al primo render:
-
-```
-TypeError: The URL must be of scheme file
- ❯ fileURLToPath node_modules/node_modules/@apm-js-collab/code-transformer-bundler-plugins/dist/esm/webpack.mjs:5:34
-```
-
-Root cause isolata tracciando i `require()` (vedi `@sentry/node/build/cjs/sdk/experimentalUseDiagnosticsChannelInjection.js`): dalla 10.72.0
-`@sentry/node` registra di default un hook diagnostics-channel che carica
-`@sentry/server-utils/orchestrion/webpack` — un pacchetto vendorizzato
-(`@apm-js-collab/code-transformer-bundler-plugins`) che calcola il proprio
-percorso da `import.meta.url`. Sotto Vitest+jsdom quell'URL non è un vero
-`file://` (viene risolto verso l'origin fittizio di jsdom,
-`http://localhost:3000/...`), e `fileURLToPath` lancia. Confermato non
-essere una nostra regressione: qualunque test `jsdom` che importa per davvero
-`@sentry/nextjs` (via `@/lib/logger` → `@/lib/hostname-env` →
-`@/lib/seo-indexable` in `layout.test.tsx`, o via `@/lib/get-client-ip` nella
-receipt page, o via `@/lib/plans` nella settings page) va in crash — sotto
-`environment: "node"` (`logger.test.ts`, `server-auth.test.ts`) lo stesso
-import funziona. Provata anche la 10.73.0 (ultima disponibile al
-2026-09-07): stesso crash, quindi non è già stata fixata upstream.
-
-**Fix applicato.** `@sentry/nextjs` pinnato a `^10.71.0` in `package.json`,
-escluso dal gruppo dependabot per questo giro; le altre 17 dipendenze del PR
-#902 sono state aggiornate normalmente, incluso lo spostamento del pin
-Stripe a `2026-08-26.dahlia` (skill `stripe-webhooks`).
-
-**Riaprire:** al prossimo bump di `@sentry/nextjs` (dependabot lo riproporrà),
-verificare se la minor successiva risolve il crash prima di pinnare di nuovo:
-rilanciare `npm run test:coverage` dopo l'update, o mirare
-`src/app/layout.test.tsx`, `src/app/dashboard/settings/page.test.tsx` e
-`src/app/r/[documentId]/page.test.tsx` che sono i tre file che riproducono il
-problema più in fretta.
-
----
-
 ## Rischi accettati (documentati, non da fixare)
 
 Scelte consapevoli con un trigger di riapertura. Non sono finding da pianificare.
