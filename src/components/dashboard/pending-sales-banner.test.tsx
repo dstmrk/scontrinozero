@@ -49,10 +49,26 @@ describe("PendingSalesBanner", () => {
     );
   });
 
-  it("usa il singolare con un solo scontrino", () => {
+  it("concorda l'intera frase al singolare con un solo scontrino", () => {
     renderBanner();
 
-    expect(screen.getByRole("alert").textContent).toContain("Uno scontrino");
+    // Non solo la prima metà: con la seconda fissa al plurale si leggeva
+    // "Uno scontrino non ha ricevuto conferma… Verifica se sono stati
+    // registrati prima di riemetterli".
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Uno scontrino non ha ricevuto conferma dall'Agenzia delle Entrate. Verifica se è stato registrato prima di riemetterlo.",
+    );
+  });
+
+  it("concorda l'intera frase al plurale da due scontrini in su", () => {
+    renderBanner([
+      ...ONE_DOC,
+      { id: "doc-2", createdAt: "2026-09-10T10:00:00.000Z", totalCents: 500 },
+    ]);
+
+    expect(screen.getByRole("alert").textContent).toContain(
+      "2 scontrini non hanno ricevuto conferma dall'Agenzia delle Entrate. Verifica se sono stati registrati prima di riemetterli.",
+    );
   });
 
   it("conta gli scontrini quando sono più di uno", () => {
@@ -230,10 +246,17 @@ describe("PendingSalesBanner", () => {
     fireEvent.click(screen.getByRole("button", { name: /verifica/i }));
     fireEvent.click(await screen.findByRole("button", { name: /è questo/i }));
 
-    await waitFor(() =>
-      expect(
-        screen.queryByRole("button", { name: /è questo/i }),
-      ).not.toBeInTheDocument(),
+    // Attende la comparsa del messaggio, non la sparizione dei candidati:
+    // `applyResult` azzera i candidati e scrive il messaggio nello stesso
+    // aggiornamento di stato, quindi quando il messaggio è nel DOM la lista è
+    // già sparita. Aspettare direttamente l'assenza significherebbe correre
+    // contro il timeout di default di `waitFor` (1s) su una transizione — ed è
+    // il tipo di test che diventa rosso su un runner CI carico, non sul codice.
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      /non riemetterlo/i,
     );
+    expect(
+      screen.queryByRole("button", { name: /è questo/i }),
+    ).not.toBeInTheDocument();
   });
 });

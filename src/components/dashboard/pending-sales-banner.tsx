@@ -127,11 +127,13 @@ export function PendingSalesBanner({
     <Alert variant="warning" className="mb-4">
       <AlertTriangle aria-hidden="true" />
       <AlertDescription className="space-y-3">
+        {/* Frase intera al singolare o al plurale, non solo la prima metà: con
+            un solo scontrino "Verifica se sono stati registrati prima di
+            riemetterli" era sgrammaticato. */}
         <p>
           {documents.length === 1
-            ? "Uno scontrino non ha ricevuto conferma dall'Agenzia delle Entrate."
-            : `${documents.length} scontrini non hanno ricevuto conferma dall'Agenzia delle Entrate.`}{" "}
-          Verifica se sono stati registrati prima di riemetterli.
+            ? "Uno scontrino non ha ricevuto conferma dall'Agenzia delle Entrate. Verifica se è stato registrato prima di riemetterlo."
+            : `${documents.length} scontrini non hanno ricevuto conferma dall'Agenzia delle Entrate. Verifica se sono stati registrati prima di riemetterli.`}
         </p>
 
         <ul className="space-y-2">
