@@ -276,7 +276,7 @@ describe("GET /api/export/receipts — archivio AdE (?ade=1)", () => {
     expect(mockFetchForeignAdeRows).toHaveBeenCalledWith(
       expect.objectContaining({
         businessId: "biz-1",
-        range: { dataDal: "02/01/2026", dataInvioAl: "02/28/2026" },
+        ranges: [{ dataDal: "02/01/2026", dataInvioAl: "02/28/2026" }],
       }),
     );
   });
@@ -291,10 +291,23 @@ describe("GET /api/export/receipts — archivio AdE (?ade=1)", () => {
   });
 
   it("periodo oltre il tetto → 400, nessuna chiamata all'Agenzia", async () => {
-    const res = await GET(makeRequest("?from=2026-01-01&to=2026-06-30&ade=1"));
+    const res = await GET(makeRequest("?from=2024-01-01&to=2026-06-30&ade=1"));
 
     expect(res.status).toBe(400);
     expect(mockFetchForeignAdeRows).not.toHaveBeenCalled();
+  });
+
+  it("un periodo lungo ma ammesso viene spezzato in una query per mese", async () => {
+    await GET(makeRequest("?from=2026-01-01&to=2026-06-30&ade=1"));
+
+    const [call] = mockFetchForeignAdeRows.mock.calls;
+    expect(call[0].ranges).toHaveLength(6);
+    // Dalla piu' recente: un troncamento per tempo scaduto perde la coda
+    // remota, non i documenti di ieri.
+    expect(call[0].ranges[0]).toEqual({
+      dataDal: "06/01/2026",
+      dataInvioAl: "06/30/2026",
+    });
   });
 
   it("periodo assente → 400: non si scarica l'archivio intero", async () => {

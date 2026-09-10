@@ -37,7 +37,7 @@ import {
 } from "@/types/storico";
 import { assertProPlan } from "@/lib/plans";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
-import { buildAdeSearchRange } from "@/lib/services/ade-document-search";
+import { buildAdeSearchRanges } from "@/lib/services/ade-document-search";
 import { fetchForeignAdeRows } from "@/lib/services/ade-storico-rows";
 import { compareStoricoOrder } from "@/lib/receipts/storico-order";
 
@@ -483,9 +483,10 @@ export async function searchReceiptsIncludingAde(
   if ("error" in built) return { error: built.error, items: [], total: 0 };
 
   // Periodo assente o troppo largo → rifiuto, non degrado silenzioso: un
-  // elenco locale presentato come se includesse l'AdE mentirebbe.
-  const range = buildAdeSearchRange(params.dateFrom, params.dateTo);
-  if ("error" in range) return { error: range.error, items: [], total: 0 };
+  // elenco locale presentato come se includesse l'AdE mentirebbe. Un periodo
+  // lungo ma ammesso diventa qui una query per mese solare.
+  const ranges = buildAdeSearchRanges(params.dateFrom, params.dateTo);
+  if ("error" in ranges) return { error: ranges.error, items: [], total: 0 };
 
   const db = getDb();
   const page = Math.max(1, params.page ?? 1);
@@ -508,7 +509,7 @@ export async function searchReceiptsIncludingAde(
       .where(and(...built.conditions)),
     fetchForeignAdeRows({
       businessId,
-      range,
+      ranges: ranges.ranges,
       ...(params.status ? { status: params.status } : {}),
       from: built.from,
       toExclusive: built.toExclusive,

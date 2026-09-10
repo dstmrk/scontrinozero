@@ -20,20 +20,48 @@ import { ADE_SEARCH_MAX_DAYS, type AdeReceiptListItem } from "@/types/storico";
 import { parseAdeResultDate } from "./ade-recovery";
 
 /**
+ * Ampiezza massima di **una singola query** all'archivio AdE, in giorni.
+ *
+ * È un vincolo del portale, non una nostra scelta: oltre questa finestra la
+ * ricerca non è accettata. È il motivo per cui un periodo più lungo si spezza
+ * in più query (`buildAdeSearchRanges`) invece di essere rifiutato — il tetto
+ * su quanto l'esercente può chiedere è un'altra cosa, e sta in
+ * `ADE_SEARCH_MAX_DAYS`.
+ */
+export const ADE_QUERY_MAX_DAYS = 31;
+
+/**
  * Quanti documenti chiedere per pagina.
  *
  * Il portale nelle catture reali usa `perPage=10` (`ricerca.har`): non sappiamo
- * se accetti valori alti o li ricapi in silenzio. Non serve saperlo — il ciclo
- * qui sotto avanza contando gli elementi **davvero ricevuti**, mai quelli
- * richiesti. Se AdE ricapa, paghiamo più round-trip e nient'altro.
+ * se accetti valori alti o li ricapi in silenzio. Non serve saperlo per la
+ * **correttezza** — il ciclo qui sotto avanza contando gli elementi davvero
+ * ricevuti, mai quelli richiesti — ma cambia parecchio la **durata**: se il
+ * portale ricapa a 10, ogni mese denso costa decine di round-trip. È l'unica
+ * manopola da girare quando lo sapremo.
  */
 const ADE_SEARCH_PAGE_SIZE = 100;
 
-/** Tetto sui documenti raccolti: oltre, la risposta si dichiara troncata. */
-export const MAX_ADE_SEARCH_DOCUMENTS = 1000;
+/**
+ * Tetto sui documenti raccolti in una ricerca, sommando tutte le query.
+ * Oltre, la risposta si dichiara troncata.
+ */
+export const MAX_ADE_SEARCH_DOCUMENTS = 5000;
 
-/** Guardia anti-loop, indipendente dal tetto sui documenti. */
+/** Guardia anti-loop su una singola query, indipendente dal tetto sopra. */
 const MAX_ADE_SEARCH_PAGES = 50;
+
+/**
+ * Quanto può durare in tutto la lettura dell'archivio, in millisecondi.
+ *
+ * Un anno spezzato in dodici query, ognuna con la sua paginazione, può
+ * superare il tempo che una richiesta HTTP ha a disposizione prima che il
+ * proxy davanti all'app la chiuda — e una risposta troncata dal proxy arriva
+ * all'esercente come un errore senza spiegazione. Meglio fermarsi da soli
+ * e dire cosa manca: le query girano dalla più recente alla più vecchia,
+ * quindi ciò che si perde è sempre la coda più remota del periodo.
+ */
+const ADE_SEARCH_DEADLINE_MS = 45_000;
 
 export type AdeSaleRowsResult = {
   readonly rows: AdeReceiptListItem[];
@@ -74,19 +102,50 @@ export function inclusiveDaySpan(from: string, to: string): number | null {
   return Math.floor((end - start) / 86_400_000) + 1;
 }
 
+/** Una finestra di query AdE, gia' nel formato dei suoi query param. */
+export type AdeSearchRange = {
+  readonly dataDal: string;
+  readonly dataInvioAl: string;
+};
+
+/** Primo giorno del mese di `iso`, come giorno ISO. */
+function startOfMonth(iso: string): string {
+  const m = ISO_DAY.exec(iso);
+  return m ? `${m[1]}-${m[2]}-01` : iso;
+}
+
+/** Il giorno prima di `iso`. */
+function previousDay(iso: string): string {
+  const m = ISO_DAY.exec(iso);
+  if (!m) return iso;
+  const d = new Date(
+    Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) - 1),
+  );
+  return d.toISOString().slice(0, 10);
+}
+
 /**
- * Traduce il periodo scelto nello storico nella finestra di query AdE, o
- * spiega perché non si può.
+ * Spezza il periodo scelto nello storico nelle finestre di query che l'AdE
+ * accetta, o spiega perche' non si puo'.
  *
- * Sta qui e non fra le validazioni della server action perché è la stessa
- * conoscenza: come si passa dal nostro filtro alla query del portale, tetto
- * compreso. Il periodo è **obbligatorio** — una ricerca AdE senza estremi
- * scaricherebbe l'archivio intero.
+ * **Perche' a mesi solari.** Il portale rifiuta una finestra piu' larga di
+ * `ADE_QUERY_MAX_DAYS`, e un mese solare non la supera mai: il vincolo non si
+ * puo' violare per costruzione, senza aritmetica su finestre mobili da tenere
+ * allineata. I chunk sono anche i confini che l'esercente ha in testa, il che
+ * rende leggibile un risultato parziale ("ho letto da agosto in poi").
+ *
+ * **Ordine: dal piu' recente al piu' vecchio.** Quando la lettura si ferma per
+ * il deadline, cio' che manca e' la coda piu' remota del periodo — la parte
+ * che serve meno. Con l'ordine opposto un timeout lascerebbe fuori proprio i
+ * documenti di ieri.
+ *
+ * Il periodo e' **obbligatorio**: senza estremi si scaricherebbe l'archivio
+ * intero.
  */
-export function buildAdeSearchRange(
+export function buildAdeSearchRanges(
   dateFrom: string | undefined,
   dateTo: string | undefined,
-): { dataDal: string; dataInvioAl: string } | { error: string } {
+): { ranges: AdeSearchRange[] } | { error: string } {
   if (!dateFrom || !dateTo) {
     return {
       error:
@@ -105,10 +164,25 @@ export function buildAdeSearchRange(
       error: `La ricerca sull'Agenzia delle Entrate copre al massimo ${ADE_SEARCH_MAX_DAYS} giorni per volta. Restringi il periodo.`,
     };
   }
-  const dataDal = toAdeQueryDay(dateFrom);
-  const dataInvioAl = toAdeQueryDay(dateTo);
-  if (!dataDal || !dataInvioAl) return { error: "Filtro data non valido." };
-  return { dataDal, dataInvioAl };
+
+  const ranges: AdeSearchRange[] = [];
+  let chunkEnd = dateTo;
+  while (chunkEnd >= dateFrom) {
+    // Il chunk parte dal primo del mese, salvo l'ultimo giro che si ferma
+    // all'inizio del periodo richiesto.
+    const monthStart = startOfMonth(chunkEnd);
+    const chunkStart = monthStart > dateFrom ? monthStart : dateFrom;
+
+    const dataDal = toAdeQueryDay(chunkStart);
+    const dataInvioAl = toAdeQueryDay(chunkEnd);
+    if (!dataDal || !dataInvioAl) return { error: "Filtro data non valido." };
+    ranges.push({ dataDal, dataInvioAl });
+
+    if (chunkStart <= dateFrom) break;
+    chunkEnd = previousDay(chunkStart);
+  }
+
+  return { ranges };
 }
 
 /**
@@ -146,49 +220,73 @@ export function toAdeReceiptListItem(
 }
 
 /**
- * Scarica l'intera finestra di vendite da AdE e la traduce in righe.
+ * Legge le vendite dall'archivio AdE su tutte le finestre richieste e le
+ * traduce in righe.
  *
- * **Perché tutta la finestra e non la pagina che serve.** Il nostro elenco
+ * **Perche' l'intero periodo e non la pagina che serve.** Il nostro elenco
  * impagina con `LIMIT/OFFSET` su Postgres, AdE con `page`/`perPage` sul suo
  * `totalCount`: due sorgenti ordinate con offset indipendenti non si fondono a
- * livello di query, e un `OFFSET` chiesto a metà di ognuna darebbe una pagina
- * che salta righe. L'unico merge corretto è in memoria su entrambe le liste
- * intere — ed è esattamente ciò che rende necessario `MAX_ADE_SEARCH_DAYS`.
+ * livello di query, e una pagina chiesta a meta' di ognuna darebbe righe
+ * saltate. L'unico merge corretto e' in memoria sulle due liste intere — ed e'
+ * cio' che rende necessari il tetto sul periodo, quello sui documenti e il
+ * deadline.
  *
- * Il ciclo avanza sugli elementi ricevuti, mai su quelli richiesti: una pagina
- * vuota, un `totalCount` che mente o un `perPage` ricapato dal portale lo
- * fermano comunque.
+ * **Le finestre girano in sequenza, non in parallelo.** Condividono una sola
+ * sessione AdE, e dodici richieste concorrenti a nome dell'esercente sono il
+ * modo di fargli bloccare l'utenza sul portale.
+ *
+ * Dentro ogni finestra il ciclo avanza sugli elementi ricevuti, mai su quelli
+ * richiesti: una pagina vuota, un `totalCount` che mente o un `perPage`
+ * ricapato dal portale lo fermano comunque.
  */
 export async function fetchAdeSaleRows(
   client: Pick<AdeClient, "searchDocuments">,
-  range: { dataDal: string; dataInvioAl: string },
+  ranges: readonly AdeSearchRange[],
+  options: { now?: () => number } = {},
 ): Promise<AdeSaleRowsResult> {
+  const now = options.now ?? Date.now;
+  const deadline = now() + ADE_SEARCH_DEADLINE_MS;
+
   const collected: AdeDocumentSummary[] = [];
   let truncated = false;
 
-  for (let page = 1; page <= MAX_ADE_SEARCH_PAGES; page++) {
-    const list: AdeDocumentList = await client.searchDocuments({
-      dataDal: range.dataDal,
-      dataInvioAl: range.dataInvioAl,
-      tipoOperazione: "V",
-      page,
-      perPage: ADE_SEARCH_PAGE_SIZE,
-    });
-
-    const batch = list.elencoRisultati ?? [];
-    collected.push(...batch);
-
-    // Pagina vuota: l'archivio è finito, qualunque cosa dica `totalCount`.
-    if (batch.length === 0) break;
-
-    if (collected.length >= MAX_ADE_SEARCH_DOCUMENTS) {
-      truncated = collected.length < list.totalCount;
+  outer: for (const range of ranges) {
+    // Il controllo sta all'inizio del giro: fermarsi PRIMA di una query che
+    // non farebbe in tempo e' l'unico modo di restituire qualcosa.
+    if (now() >= deadline) {
+      truncated = true;
       break;
     }
-    if (collected.length >= list.totalCount) break;
 
-    // Ultima iterazione consentita e l'archivio non è esaurito.
-    if (page === MAX_ADE_SEARCH_PAGES) truncated = true;
+    for (let page = 1; page <= MAX_ADE_SEARCH_PAGES; page++) {
+      const list: AdeDocumentList = await client.searchDocuments({
+        dataDal: range.dataDal,
+        dataInvioAl: range.dataInvioAl,
+        tipoOperazione: "V",
+        page,
+        perPage: ADE_SEARCH_PAGE_SIZE,
+      });
+
+      const batch = list.elencoRisultati ?? [];
+      collected.push(...batch);
+
+      // Pagina vuota: la finestra e' esaurita, qualunque cosa dica
+      // `totalCount`.
+      if (batch.length === 0) break;
+
+      if (collected.length >= MAX_ADE_SEARCH_DOCUMENTS) {
+        truncated = true;
+        break outer;
+      }
+      if (collected.length >= list.totalCount) break;
+      if (now() >= deadline) {
+        truncated = true;
+        break outer;
+      }
+
+      // Ultima iterazione consentita e la finestra non e' esaurita.
+      if (page === MAX_ADE_SEARCH_PAGES) truncated = true;
+    }
   }
 
   const rows: AdeReceiptListItem[] = [];

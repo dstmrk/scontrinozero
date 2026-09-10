@@ -273,14 +273,16 @@ describe("StoricoClient — ricerca sull'archivio AdE", () => {
       items: [],
       total: 0,
       error:
-        "La ricerca sull'Agenzia delle Entrate copre al massimo 31 giorni per volta. Restringi il periodo.",
+        "La ricerca sull'Agenzia delle Entrate copre al massimo 366 giorni per volta. Restringi il periodo.",
     });
     renderStorico();
 
     fireEvent.click(screen.getByLabelText(TOGGLE_LABEL));
     fireEvent.click(screen.getByRole("button", { name: "Cerca" }));
 
-    expect(await screen.findByText(/al massimo 31 giorni/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/al massimo 366 giorni/),
+    ).toBeInTheDocument();
   });
 });
 

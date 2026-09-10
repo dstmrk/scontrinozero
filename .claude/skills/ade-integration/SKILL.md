@@ -320,6 +320,21 @@ anche di `cedentePrestatore` e rispondono con il loro tipo.
 un login AdE più una o più `searchDocuments`, secondi di attesa e traffico sul
 portale **a nome dell'esercente**, che è chi rischia il blocco dell'account.
 
+**Una query copre al massimo 31 giorni** (`HAR.md` #16e): è un vincolo del
+portale. Un periodo più lungo si **spezza** in una query per mese solare
+(`buildAdeSearchRanges`) — un mese non supera mai i 31 giorni, quindi il
+vincolo non si viola per costruzione — e le query girano **dalla più recente
+alla più vecchia**, così un troncamento per tempo scaduto perde la coda remota
+e non i documenti di ieri. Tieni distinti i due numeri: `ADE_QUERY_MAX_DAYS`
+(31, del portale) e `ADE_SEARCH_MAX_DAYS` (366, quanto l'esercente può
+chiedere). Confonderli è l'errore che la v1.8.0 ha fatto la prima volta.
+
+**Una lettura lunga ha bisogno di un deadline suo.** Dodici query in sequenza,
+ognuna paginata, possono superare il tempo che una risposta HTTP ha prima che
+il proxy davanti all'app la chiuda — e un troncamento del proxy arriva
+all'esercente come un errore senza spiegazione. Fermarsi da soli prima e
+dichiarare `truncated` è l'unico modo di restituire qualcosa di leggibile.
+
 **Impaginare l'archivio: contare ciò che arriva, non ciò che si è chiesto.**
 `perPage` nelle catture reali vale 10 e non sappiamo se il portale accetti
 valori alti o li ricapi in silenzio. Il ciclo di `fetchAdeSaleRows` avanza su

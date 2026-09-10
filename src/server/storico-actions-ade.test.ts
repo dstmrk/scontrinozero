@@ -109,7 +109,7 @@ vi.mock("@/db/schema", () => ({
 }));
 
 import { searchReceiptsIncludingAde } from "./storico-actions";
-import type { AdeReceiptListItem } from "@/types/storico";
+import { ADE_SEARCH_MAX_DAYS, type AdeReceiptListItem } from "@/types/storico";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -222,12 +222,37 @@ describe("searchReceiptsIncludingAde — guardie", () => {
 
   it("periodo oltre il tetto → rifiuto esplicito, non un elenco solo locale", async () => {
     const result = await searchReceiptsIncludingAde(BIZ, {
+      dateFrom: "2024-01-01",
+      dateTo: "2026-06-30",
+    });
+
+    expect(result.error).toContain(String(ADE_SEARCH_MAX_DAYS));
+    expect(result.items).toEqual([]);
+  });
+
+  it("un periodo lungo ma ammesso viene spezzato, non rifiutato", async () => {
+    // Il vincolo dei 31 giorni è del portale su UNA query: da inizio anno si
+    // legge in più query, non si nega.
+    mockWhereResults.push([], []);
+
+    const result = await searchReceiptsIncludingAde(BIZ, {
       dateFrom: "2026-01-01",
       dateTo: "2026-06-30",
     });
 
-    expect(result.error).toContain("31 giorni");
-    expect(result.items).toEqual([]);
+    expect(result.error).toBeUndefined();
+    const ranges = mockFetchAdeSaleRows.mock.calls[0][1];
+    expect(ranges).toHaveLength(6);
+    // Dalla piu' recente: se il tempo scade, si perde la coda remota del
+    // periodo, non i documenti di ieri.
+    expect(ranges[0]).toEqual({
+      dataDal: "06/01/2026",
+      dataInvioAl: "06/30/2026",
+    });
+    expect(ranges[5]).toEqual({
+      dataDal: "01/01/2026",
+      dataInvioAl: "01/31/2026",
+    });
   });
 
   it("oltre venti ricerche in un'ora → rate limit", async () => {

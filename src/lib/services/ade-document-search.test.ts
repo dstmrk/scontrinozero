@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   MAX_ADE_SEARCH_DOCUMENTS,
-  buildAdeSearchRange,
+  ADE_QUERY_MAX_DAYS,
+  buildAdeSearchRanges,
   fetchAdeSaleRows,
   inclusiveDaySpan,
   toAdeQueryDay,
@@ -47,9 +48,11 @@ describe("inclusiveDaySpan", () => {
     expect(inclusiveDaySpan("2026-08-01", "2026-08-31")).toBe(31);
   });
 
-  it("il mese più lungo sta esattamente nel tetto", () => {
+  it("il mese più lungo sta esattamente nel vincolo del portale", () => {
+    // È la proprietà su cui si regge il chunking a mesi solari: nessun mese
+    // supera la finestra che l'AdE accetta.
     expect(inclusiveDaySpan("2026-01-01", "2026-01-31")).toBe(
-      ADE_SEARCH_MAX_DAYS,
+      ADE_QUERY_MAX_DAYS,
     );
   });
 
@@ -65,41 +68,99 @@ describe("inclusiveDaySpan", () => {
   });
 });
 
-describe("buildAdeSearchRange", () => {
-  it("traduce un periodo valido nella finestra di query", () => {
-    expect(buildAdeSearchRange("2026-08-01", "2026-08-31")).toEqual({
-      dataDal: "08/01/2026",
-      dataInvioAl: "08/31/2026",
-    });
+describe("buildAdeSearchRanges", () => {
+  function ranges(from: string, to: string) {
+    const result = buildAdeSearchRanges(from, to);
+    if ("error" in result) throw new Error(result.error);
+    return result.ranges;
+  }
+
+  it("un periodo dentro il mese resta una query sola", () => {
+    expect(ranges("2026-08-03", "2026-08-19")).toEqual([
+      { dataDal: "08/03/2026", dataInvioAl: "08/19/2026" },
+    ]);
+  });
+
+  it("spezza a mesi solari e parte dal piu' recente", () => {
+    // Il deadline tronca la coda: se l'ordine fosse crescente, un timeout
+    // lascerebbe fuori i documenti di ieri invece di quelli di gennaio.
+    expect(ranges("2026-06-15", "2026-08-04")).toEqual([
+      { dataDal: "08/01/2026", dataInvioAl: "08/04/2026" },
+      { dataDal: "07/01/2026", dataInvioAl: "07/31/2026" },
+      { dataDal: "06/15/2026", dataInvioAl: "06/30/2026" },
+    ]);
+  });
+
+  it("nessuna finestra supera il vincolo del portale", () => {
+    // La proprieta' che conta: qualunque periodo ammesso produce solo query
+    // che l'AdE accetta.
+    for (const [from, to] of [
+      ["2026-01-01", "2026-12-31"],
+      ["2026-01-31", "2026-03-01"],
+      ["2024-02-01", "2024-03-31"],
+      ["2026-05-15", "2027-05-14"],
+    ]) {
+      for (const r of ranges(from, to)) {
+        const [mA, dA, yA] = r.dataDal.split("/").map(Number);
+        const [mB, dB, yB] = r.dataInvioAl.split("/").map(Number);
+        const days =
+          (Date.UTC(yB, mB - 1, dB) - Date.UTC(yA, mA - 1, dA)) / 86_400_000 +
+          1;
+        expect(days).toBeLessThanOrEqual(ADE_QUERY_MAX_DAYS);
+      }
+    }
+  });
+
+  it("copre il periodo senza buchi ne' sovrapposizioni", () => {
+    const list = [...ranges("2026-06-15", "2026-08-04")].reverse();
+    expect(list[0].dataDal).toBe("06/15/2026");
+    expect(list[list.length - 1].dataInvioAl).toBe("08/04/2026");
+    for (let i = 1; i < list.length; i++) {
+      const [pm, pd, py] = list[i - 1].dataInvioAl.split("/").map(Number);
+      const [cm, cd, cy] = list[i].dataDal.split("/").map(Number);
+      const gap =
+        (Date.UTC(cy, cm - 1, cd) - Date.UTC(py, pm - 1, pd)) / 86_400_000;
+      expect(gap).toBe(1);
+    }
+  });
+
+  it("l'anno bisestile non perde il 29 febbraio", () => {
+    const feb = ranges("2024-02-01", "2024-03-05")[1];
+    expect(feb).toEqual({ dataDal: "02/01/2024", dataInvioAl: "02/29/2024" });
+  });
+
+  it("un anno intero sta in dodici query", () => {
+    expect(ranges("2026-01-01", "2026-12-31")).toHaveLength(12);
   });
 
   it("un periodo aperto viene rifiutato invece di scaricare l'archivio", () => {
-    expect(buildAdeSearchRange(undefined, "2026-08-31")).toMatchObject({
+    expect(buildAdeSearchRanges(undefined, "2026-08-31")).toMatchObject({
       error: expect.stringContaining("periodo"),
     });
   });
 
-  it("rifiuta un periodo oltre il tetto", () => {
-    const result = buildAdeSearchRange("2026-08-01", "2026-09-05");
+  it("rifiuta un periodo oltre il tetto di prodotto", () => {
+    const result = buildAdeSearchRanges("2025-01-01", "2026-08-31");
     expect(result).toMatchObject({
       error: expect.stringContaining(String(ADE_SEARCH_MAX_DAYS)),
     });
   });
 
   it("accetta esattamente il tetto", () => {
-    expect(buildAdeSearchRange("2026-08-01", "2026-08-31")).not.toHaveProperty(
+    // 366 giorni inclusivi.
+    expect(buildAdeSearchRanges("2026-01-01", "2027-01-01")).not.toHaveProperty(
       "error",
     );
   });
 
   it("rifiuta gli estremi invertiti", () => {
-    expect(buildAdeSearchRange("2026-08-31", "2026-08-01")).toMatchObject({
+    expect(buildAdeSearchRanges("2026-08-31", "2026-08-01")).toMatchObject({
       error: expect.stringContaining("inizio"),
     });
   });
 
   it("rifiuta un estremo malformato", () => {
-    expect(buildAdeSearchRange("31/08/2026", "2026-08-31")).toMatchObject({
+    expect(buildAdeSearchRanges("31/08/2026", "2026-08-31")).toMatchObject({
       error: "Filtro data non valido.",
     });
   });
@@ -159,10 +220,9 @@ describe("fetchAdeSaleRows", () => {
       .fn()
       .mockResolvedValue({ totalCount: 1, elencoRisultati: [saleDoc()] });
 
-    await fetchAdeSaleRows(
-      { searchDocuments },
+    await fetchAdeSaleRows({ searchDocuments }, [
       { dataDal: "08/01/2026", dataInvioAl: "08/31/2026" },
-    );
+    ]);
 
     expect(searchDocuments).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -186,10 +246,9 @@ describe("fetchAdeSaleRows", () => {
         elencoRisultati: [saleDoc({ idtrx: "3" })],
       });
 
-    const result = await fetchAdeSaleRows(
-      { searchDocuments },
+    const result = await fetchAdeSaleRows({ searchDocuments }, [
       { dataDal: "08/01/2026", dataInvioAl: "08/31/2026" },
-    );
+    ]);
 
     expect(result.rows.map((r) => r.idtrx)).toEqual(["1", "2", "3"]);
   });
@@ -205,10 +264,9 @@ describe("fetchAdeSaleRows", () => {
           : [saleDoc({ idtrx: "3" }), saleDoc({ idtrx: "4" })],
     }));
 
-    const result = await fetchAdeSaleRows(
-      { searchDocuments },
+    const result = await fetchAdeSaleRows({ searchDocuments }, [
       { dataDal: "08/01/2026", dataInvioAl: "08/31/2026" },
-    );
+    ]);
 
     expect(result.rows).toHaveLength(4);
   });
@@ -222,10 +280,9 @@ describe("fetchAdeSaleRows", () => {
       })
       .mockResolvedValueOnce({ totalCount: 99, elencoRisultati: [] });
 
-    const result = await fetchAdeSaleRows(
-      { searchDocuments },
+    const result = await fetchAdeSaleRows({ searchDocuments }, [
       { dataDal: "08/01/2026", dataInvioAl: "08/31/2026" },
-    );
+    ]);
 
     expect(searchDocuments).toHaveBeenCalledTimes(2);
     expect(result.rows).toHaveLength(1);
@@ -240,10 +297,9 @@ describe("fetchAdeSaleRows", () => {
       elencoRisultati: page,
     });
 
-    const result = await fetchAdeSaleRows(
-      { searchDocuments },
+    const result = await fetchAdeSaleRows({ searchDocuments }, [
       { dataDal: "08/01/2026", dataInvioAl: "08/31/2026" },
-    );
+    ]);
 
     expect(result.truncated).toBe(true);
     expect(result.rows.length).toBeLessThanOrEqual(MAX_ADE_SEARCH_DOCUMENTS);
@@ -254,10 +310,9 @@ describe("fetchAdeSaleRows", () => {
       .fn()
       .mockResolvedValue({ totalCount: 1, elencoRisultati: [saleDoc()] });
 
-    const result = await fetchAdeSaleRows(
-      { searchDocuments },
+    const result = await fetchAdeSaleRows({ searchDocuments }, [
       { dataDal: "08/01/2026", dataInvioAl: "08/31/2026" },
-    );
+    ]);
 
     expect(result.truncated).toBe(false);
   });
@@ -265,11 +320,107 @@ describe("fetchAdeSaleRows", () => {
   it("regge un elencoRisultati assente senza esplodere", async () => {
     const searchDocuments = vi.fn().mockResolvedValue({ totalCount: 0 });
 
-    const result = await fetchAdeSaleRows(
-      { searchDocuments },
+    const result = await fetchAdeSaleRows({ searchDocuments }, [
       { dataDal: "08/01/2026", dataInvioAl: "08/31/2026" },
-    );
+    ]);
 
     expect(result.rows).toEqual([]);
+  });
+});
+
+describe("fetchAdeSaleRows — piu' finestre", () => {
+  const RANGES = [
+    { dataDal: "08/01/2026", dataInvioAl: "08/31/2026" },
+    { dataDal: "07/01/2026", dataInvioAl: "07/31/2026" },
+  ];
+
+  it("interroga ogni finestra, nell'ordine ricevuto", async () => {
+    const searchDocuments = vi
+      .fn()
+      .mockResolvedValue({ totalCount: 1, elencoRisultati: [saleDoc()] });
+
+    await fetchAdeSaleRows({ searchDocuments }, RANGES);
+
+    expect(searchDocuments).toHaveBeenCalledTimes(2);
+    expect(searchDocuments.mock.calls[0][0]).toMatchObject({
+      dataDal: "08/01/2026",
+    });
+    expect(searchDocuments.mock.calls[1][0]).toMatchObject({
+      dataDal: "07/01/2026",
+    });
+  });
+
+  it("unisce i risultati di tutte le finestre", async () => {
+    const searchDocuments = vi
+      .fn()
+      .mockResolvedValueOnce({
+        totalCount: 1,
+        elencoRisultati: [saleDoc({ idtrx: "agosto" })],
+      })
+      .mockResolvedValueOnce({
+        totalCount: 1,
+        elencoRisultati: [saleDoc({ idtrx: "luglio" })],
+      });
+
+    const result = await fetchAdeSaleRows({ searchDocuments }, RANGES);
+
+    expect(result.rows.map((r) => r.idtrx)).toEqual(["agosto", "luglio"]);
+    expect(result.truncated).toBe(false);
+  });
+
+  it("scaduto il tempo si ferma PRIMA della finestra successiva", async () => {
+    // Fermarsi prima di una query che non farebbe in tempo e' l'unico modo
+    // di restituire qualcosa invece di farsi chiudere la risposta dal proxy.
+    let clock = 0;
+    const searchDocuments = vi.fn(async () => {
+      clock += 50_000;
+      return { totalCount: 1, elencoRisultati: [saleDoc({ idtrx: "agosto" })] };
+    });
+
+    const result = await fetchAdeSaleRows({ searchDocuments }, RANGES, {
+      now: () => clock,
+    });
+
+    expect(searchDocuments).toHaveBeenCalledTimes(1);
+    expect(result.rows.map((r) => r.idtrx)).toEqual(["agosto"]);
+    expect(result.truncated).toBe(true);
+  });
+
+  it("cio' che ha letto prima del tempo scaduto lo tiene", async () => {
+    let clock = 0;
+    const searchDocuments = vi.fn(async () => {
+      clock += 60_000;
+      return { totalCount: 1, elencoRisultati: [saleDoc()] };
+    });
+
+    const result = await fetchAdeSaleRows({ searchDocuments }, RANGES, {
+      now: () => clock,
+    });
+
+    expect(result.rows).toHaveLength(1);
+  });
+
+  it("il tetto sui documenti vale sull'intera ricerca, non per finestra", async () => {
+    const page = Array.from({ length: 100 }, (_, i) =>
+      saleDoc({ idtrx: `doc-${i}` }),
+    );
+    const searchDocuments = vi.fn().mockResolvedValue({
+      totalCount: MAX_ADE_SEARCH_DOCUMENTS * 2,
+      elencoRisultati: page,
+    });
+
+    const result = await fetchAdeSaleRows({ searchDocuments }, RANGES);
+
+    expect(result.rows.length).toBeLessThanOrEqual(MAX_ADE_SEARCH_DOCUMENTS);
+    expect(result.truncated).toBe(true);
+  });
+
+  it("nessuna finestra da interrogare: nessuna chiamata", async () => {
+    const searchDocuments = vi.fn();
+
+    const result = await fetchAdeSaleRows({ searchDocuments }, []);
+
+    expect(searchDocuments).not.toHaveBeenCalled();
+    expect(result).toEqual({ rows: [], truncated: false });
   });
 });

@@ -17,7 +17,7 @@ import { getDb } from "@/db";
 import { withAdeSession } from "@/lib/ade";
 import { logAdeFailure } from "@/lib/ade/log-failure";
 import type { AdeReceiptListItem } from "@/types/storico";
-import { fetchAdeSaleRows } from "./ade-document-search";
+import { fetchAdeSaleRows, type AdeSearchRange } from "./ade-document-search";
 import { findClaimedTransactionIds } from "./ade-recovery";
 import { resolveAdeUserSession } from "./ade-user-session";
 
@@ -33,8 +33,11 @@ export type ForeignAdeRows =
 
 export type ForeignAdeRowsParams = {
   businessId: string;
-  /** Finestra già validata e tradotta nel formato dei query param AdE. */
-  range: { dataDal: string; dataInvioAl: string };
+  /**
+   * Finestre già validate e tradotte nel formato dei query param AdE: una per
+   * mese solare, dalla più recente alla più vecchia.
+   */
+  ranges: readonly AdeSearchRange[];
   status?: "ACCEPTED" | "VOID_ACCEPTED";
   /**
    * Gli **stessi** estremi che il DB riceve come predicato. I query param AdE
@@ -72,7 +75,7 @@ export async function fetchForeignAdeRows(
   let fetched: Awaited<ReturnType<typeof fetchAdeSaleRows>>;
   try {
     fetched = await withAdeSession(session.params, (client) =>
-      fetchAdeSaleRows(client, params.range),
+      fetchAdeSaleRows(client, params.ranges),
     );
   } catch (err) {
     // Credenziali sbagliate, portale giù, timeout: condizioni previste dal

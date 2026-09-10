@@ -163,8 +163,11 @@ export default function StoricoEdEsportazionePage() {
             scaduta, ti viene chiesto di ricollegarti.
           </li>
           <li>
-            <strong>Copre al massimo 31 giorni per volta.</strong> Per periodi
-            più lunghi, fai più ricerche.
+            <strong>Puoi arrivare fino a un anno indietro</strong>, quindi anche
+            &quot;da inizio anno&quot; in una ricerca sola. L&apos;archivio
+            dell&apos;Agenzia però si interroga un mese per volta, quindi su
+            periodi lunghi l&apos;attesa cresce: se la ricerca non fa in tempo a
+            leggere tutto, te lo dice e ti mostra la parte più recente.
           </li>
           <li>
             <strong>Trovi i documenti commerciali</strong>, cioè quelli emessi

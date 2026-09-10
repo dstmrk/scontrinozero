@@ -160,20 +160,28 @@ export interface SearchReceiptsResult {
 }
 
 /**
- * Tetto sull'ampiezza del periodo interrogabile, in giorni inclusivi, quando
- * la ricerca include l'archivio AdE.
+ * Tetto sull'ampiezza del periodo che l'esercente può chiedere, in giorni
+ * inclusivi, quando la ricerca include l'archivio AdE.
  *
- * Non è una preferenza estetica: con il flag attivo si scarica l'INTERA
- * finestra da AdE prima di poter impaginare (`fetchAdeSaleRows`), quindi il
- * costo cresce col periodo mentre la ricerca locale resta piatta. Trentuno
- * giorni coprono il gesto reale — la chiusura del mese — ed è un numero che
- * l'esercente riconosce senza doverlo imparare.
+ * **Da non confondere con `ADE_QUERY_MAX_DAYS`** (31, in
+ * `ade-document-search.ts`), che è il vincolo del portale su una **singola**
+ * query: un periodo più lungo non viene rifiutato, viene spezzato in una query
+ * per mese solare.
+ *
+ * 366 e non "dal 1° gennaio": preso alla lettera, il vincolo all'anno solare
+ * renderebbe dicembre non cercabile il 15 gennaio, cioè esattamente quando si
+ * fanno i conti dell'anno chiuso. Una finestra scorrevole copre sempre "da
+ * inizio anno" senza il gradino a Capodanno.
+ *
+ * Il tetto esiste comunque perché il merge fra le due sorgenti avviene in
+ * memoria sulle liste intere, quindi il costo cresce col periodo mentre la
+ * ricerca locale resta piatta.
  *
  * Vive fra i tipi perché lo leggono entrambi i lati: il server per rifiutare
  * un periodo troppo largo, il client per dirlo **prima** che l'utente prema
  * "Cerca".
  */
-export const ADE_SEARCH_MAX_DAYS = 31;
+export const ADE_SEARCH_MAX_DAYS = 366;
 
 /**
  * Esito della ricerca che include anche l'archivio AdE.

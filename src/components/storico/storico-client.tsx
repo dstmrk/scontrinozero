@@ -383,9 +383,11 @@ export function StoricoClient({
                 Cerca anche i documenti emessi fuori da ScontrinoZero
               </span>
               <span className="text-muted-foreground block">
-                Legge l&apos;archivio dell&apos;Agenzia delle Entrate: richiede
-                qualche secondo, copre al massimo {ADE_SEARCH_MAX_DAYS} giorni
-                per volta e i documenti trovati sono di sola lettura.
+                Legge l&apos;archivio dell&apos;Agenzia delle Entrate: i
+                documenti trovati sono di sola lettura. Su periodi lunghi la
+                ricerca richiede qualche secondo, perché l&apos;Agenzia si
+                interroga un mese per volta; il massimo è {ADE_SEARCH_MAX_DAYS}{" "}
+                giorni.
               </span>
             </label>
           </div>
@@ -432,9 +434,9 @@ export function StoricoClient({
       {adeNotice.truncated && (
         <Alert>
           <AlertDescription>
-            L&apos;archivio dell&apos;Agenzia delle Entrate contiene più
-            documenti di quanti se ne possano leggere in una volta: restringi il
-            periodo per vederli tutti.
+            Non è stato possibile leggere tutto il periodo dall&apos;Agenzia
+            delle Entrate: l&apos;elenco mostra la parte più recente. Restringi
+            il periodo per vedere il resto.
           </AlertDescription>
         </Alert>
       )}

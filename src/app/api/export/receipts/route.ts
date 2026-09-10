@@ -15,7 +15,7 @@ import {
   buildReceiptsCsvStream,
   type ReceiptStatusFilter,
 } from "@/lib/receipts/csv-export";
-import { buildAdeSearchRange } from "@/lib/services/ade-document-search";
+import { buildAdeSearchRanges } from "@/lib/services/ade-document-search";
 import { fetchForeignAdeRows } from "@/lib/services/ade-storico-rows";
 import type { AdeReceiptListItem } from "@/types/storico";
 
@@ -118,12 +118,14 @@ async function resolveAdeRows(params: {
   | { rows: readonly AdeReceiptListItem[] }
   | { failure: { status: number; error: string } }
 > {
-  const range = buildAdeSearchRange(params.from, params.to);
-  if ("error" in range) return { failure: { status: 400, error: range.error } };
+  const ranges = buildAdeSearchRanges(params.from, params.to);
+  if ("error" in ranges) {
+    return { failure: { status: 400, error: ranges.error } };
+  }
 
   const foreign = await fetchForeignAdeRows({
     businessId: params.businessId,
-    range,
+    ranges: ranges.ranges,
     ...(params.status ? { status: params.status } : {}),
     from: params.dateFrom,
     toExclusive: params.toExclusive,
