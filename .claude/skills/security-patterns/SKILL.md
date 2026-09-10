@@ -17,6 +17,7 @@ Indice (salta alla sezione che serve, non leggere tutto):
 - Decimal precision all'API layer
 - Email normalisation su tutti gli auth flow
 - Wrap SDK esterni in try-catch → 503
+- Anti-enumeration: anche il throw deve convergere sulla stessa risposta
 - Lookup `Record` con key user-controlled (prototype pollution)
 - CSP: lezioni dal rollout
 - Double-gate rate limit prima di call esterne costose
@@ -165,6 +166,50 @@ try {
 ```
 
 Usare 503 (non 500) per unavailability transient di servizi esterni.
+
+---
+
+## Anti-enumeration: anche il throw deve convergere sulla stessa risposta
+
+Un path anti-enumeration è una promessa: qualunque cosa succeda, il chiamante
+vede la stessa cosa. È facile mantenerla sui rami che si scrivono a mano e
+perderla su quello che non si vede — l'eccezione.
+
+Gli SDK auth hanno **due** canali di errore e solo uno è ovvio. GoTrue via
+`supabase.auth.*` ritorna `{ error }` quando _rifiuta_ (email inesistente, già
+confermata) ma **lancia** sui guasti di rete. Se il throw risale, Next sostituisce
+il redirect con l'error boundary: pagina diversa, quindi risposta diversa, quindi
+oracolo. L'attaccante non deve nemmeno indovinare il messaggio — gli basta
+distinguere due schermate.
+
+```typescript
+async function sendConfirmationEmail(email: string): Promise<void> {
+  try {
+    const { error } = await supabase.auth.resend({ type: "signup", email });
+    if (error)
+      logger.warn({ errorClass: classifySupabaseAuthError(error) }, "...");
+  } catch (err) {
+    logger.warn({ err }, "..."); // il chiamante reindirizza comunque
+  }
+}
+```
+
+L'helper **ingoia l'esito di proposito**: non ritorna un booleano "inviata".
+Un valore di ritorno è una tentazione a ramificare, e il primo `if (!ok)` che
+qualcuno aggiunge riapre il buco.
+
+Due corollari:
+
+- **Non ritornare presto dal ramo "esiste già".** Un ramo che salta la chiamata
+  di rete risponde molto più in fretta di quello normale, e il tempo è un canale
+  come un altro. Fare comunque il round trip stringe l'oracolo di timing, oltre
+  a essere l'unico modo perché il redirect dica la verità (vedi sotto).
+- **Se la pagina di arrivo afferma qualcosa, l'affermazione va resa vera.**
+  `/verify-email` dice "ti abbiamo inviato un'email": mandarci un utente senza
+  aver inviato nulla lo lascia ad aspettare per sempre. Il pre-check di `signUp`
+  su email già registrata rispedisce la conferma proprio per questo — per
+  un'email già confermata GoTrue rifiuta da solo, quindi il path non diventa un
+  modo per molestare un utente reale.
 
 ---
 

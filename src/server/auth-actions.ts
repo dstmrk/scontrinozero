@@ -346,6 +346,62 @@ async function compensatingDeleteAuthUser(authUserId: string): Promise<void> {
 }
 
 /**
+ * `emailRedirectTo` dei link di conferma registrazione, condiviso dai tre punti
+ * che li generano: `signUp`, il suo pre-check sull'email già registrata e
+ * `resendConfirmationEmail`.
+ *
+ * Passa da `/callback` invece di puntare `/dashboard` direttamente: su link
+ * scaduto Supabase reindirizza qui senza `code` e con l'errore reale nel
+ * fragment (invisibile al server). Senza `/callback` in mezzo l'utente atterrava
+ * sul login senza alcun messaggio, perché `/dashboard` è protetto e il
+ * middleware lo rimbalzava a `/login` portandosi dietro il fragment che la
+ * pagina di login non legge.
+ */
+function buildConfirmationRedirectTo(): string {
+  const hostname =
+    process.env.APP_HOSTNAME ??
+    process.env.NEXT_PUBLIC_APP_HOSTNAME ??
+    "app.scontrinozero.it";
+  return `https://${hostname}/callback?redirect=${encodeURIComponent("/dashboard")}`;
+}
+
+/**
+ * Rispedisce il link di conferma (GoTrue `resend` type=signup) e ingoia l'esito.
+ *
+ * Un fallimento qui è quasi sempre input prevedibile — email inesistente, o già
+ * confermata, casi in cui GoTrue rifiuta di proposito — quindi `warn` e non
+ * `error`: nessuna issue Sentry (regola 20). L'esito NON risale al chiamante di
+ * proposito: ogni flusso che usa questo helper reindirizza sempre allo stesso
+ * posto, e distinguere "inviata" da "rifiutata" trasformerebbe la pagina in un
+ * oracolo di enumerazione.
+ */
+async function sendConfirmationEmail(email: string): Promise<void> {
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: buildConfirmationRedirectTo() },
+    });
+
+    if (error) {
+      logger.warn(
+        { errorClass: classifySupabaseAuthError(error) },
+        "sendConfirmationEmail: supabase.auth.resend failed",
+      );
+    }
+  } catch (err) {
+    // L'SDK ritorna `{ error }` sui rifiuti di GoTrue ma *lancia* sui guasti di
+    // rete. Qui il throw non deve risalire: in `signUp` questo helper sta sul
+    // path del pre-check anti-enumeration, che prima non poteva fallire, e un
+    // hiccup verso Supabase trasformerebbe un redirect pulito nell'error
+    // boundary di Next — rivelando per giunta, con una pagina d'errore diversa
+    // dal redirect, che quell'email è già registrata.
+    logger.warn({ err }, "sendConfirmationEmail: resend threw");
+  }
+}
+
+/**
  * True quando `supabase.auth.signUp` ha ritornato l'oggetto utente "obfuscato"
  * che Supabase produce per un'email GIÀ registrata ma non confermata (feature
  * anti-enumeration di GoTrue): l'utente esiste, quindi `identities` è un array
@@ -603,6 +659,18 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
     // Anti-enumeration: silent redirect to /verify-email so that an attacker
     // cannot distinguish "already registered" from a normal new signup. Mirrors
     // the resetPassword flow (CLAUDE.md regola #19 spirit).
+    //
+    // Prima di reindirizzare rispediamo però la conferma: il caso di gran lunga
+    // più frequente qui NON è l'attacker ma l'utente che ri-tenta la
+    // registrazione perché la prima mail non è arrivata (filtro, quarantena
+    // Exchange). Reindirizzare a "Ti abbiamo inviato un'email" senza inviare
+    // nulla lo lasciava ad aspettare un messaggio mai partito. `signUp` resta
+    // non chiamata: la race del doppio signUp (REVIEW #65) non si riapre.
+    //
+    // Per un'email già CONFERMATA GoTrue rifiuta il resend e non parte nulla —
+    // è la protezione che impedisce di usare questo path per molestare un
+    // utente reale — ma la risposta resta identica in entrambi i casi.
+    await sendConfirmationEmail(email);
     redirect("/verify-email");
   }
 
@@ -618,22 +686,10 @@ export async function signUp(formData: FormData): Promise<AuthActionResult> {
   const { referrer } = referralResult;
 
   const supabase = await createServerSupabaseClient();
-  const hostname =
-    process.env.APP_HOSTNAME ??
-    process.env.NEXT_PUBLIC_APP_HOSTNAME ??
-    "app.scontrinozero.it";
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    // Passa da /callback (già in allow-list, regola vedi resetPassword) invece che
-    // puntare /dashboard direttamente: su link scaduto Supabase reindirizza qui
-    // senza `code` e con l'errore reale nel fragment (invisibile al server) — senza
-    // /callback in mezzo l'utente atterrava sul login senza alcun messaggio, perché
-    // /dashboard è protetto e il middleware lo rimbalzava a /login portandosi dietro
-    // il fragment che la pagina di login non legge.
-    options: {
-      emailRedirectTo: `https://${hostname}/callback?redirect=${encodeURIComponent("/dashboard")}`,
-    },
+    options: { emailRedirectTo: buildConfirmationRedirectTo() },
   });
 
   if (error) {
@@ -792,30 +848,9 @@ export async function resendConfirmationEmail(
   const rateLimited = checkRateLimit(ip, "resendConfirmation");
   if (rateLimited) return rateLimited;
 
-  const hostname =
-    process.env.APP_HOSTNAME ??
-    process.env.NEXT_PUBLIC_APP_HOSTNAME ??
-    "app.scontrinozero.it";
-
-  const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.auth.resend({
-    type: "signup",
-    email,
-    // Vedi signUp: passa da /callback, non da /dashboard direttamente, altrimenti
-    // un link scaduto rimanda al login senza alcun messaggio d'errore.
-    options: {
-      emailRedirectTo: `https://${hostname}/callback?redirect=${encodeURIComponent("/dashboard")}`,
-    },
-  });
-
-  if (error) {
-    // Non rivelare lo stato (inesistente / già confermata): logghiamo per
-    // diagnosi e reindirizziamo come nel flusso normale.
-    logger.warn(
-      { errorClass: classifySupabaseAuthError(error) },
-      "resendConfirmationEmail: supabase.auth.resend failed",
-    );
-  }
+  // Non rivelare lo stato (inesistente / già confermata): `sendConfirmationEmail`
+  // logga per diagnosi e ingoia l'errore, noi reindirizziamo sempre uguale.
+  await sendConfirmationEmail(email);
 
   redirect("/verify-email");
 }
