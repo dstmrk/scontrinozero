@@ -9,24 +9,31 @@ import {
   AdminDocumentKpiCards,
   AdminUserKpiCards,
 } from "@/components/admin/admin-kpi-cards";
+import { AdminStalePendingNotice } from "@/components/admin/admin-stale-pending-notice";
 import {
   getAdminPaidUsers,
   getAdminRecentProfiles,
   getAdminTopMerchants,
   getAdminTrialExpiring,
 } from "@/server/admin-directory";
-import { getAdminDocumentKpis, getAdminUserKpis } from "@/server/admin-metrics";
+import {
+  getAdminDocumentKpis,
+  getAdminStalePendingKpi,
+  getAdminUserKpis,
+} from "@/server/admin-metrics";
 import type { AnalyticsRange } from "@/server/analytics-helpers";
 
 /**
- * Le sei sezioni del pannello operatore: una lettura, un boundary Suspense,
+ * Le sette sezioni del pannello operatore: una lettura, un boundary Suspense,
  * un pezzo di pagina.
  *
  * Ognuna è un server component asincrono che `await`a la **sua** query e rende
  * il contenuto o l'avviso di quella query soltanto. È qui che la pagina smette
  * di essere un blocco unico: `src/app/admin/page.tsx` le monta dentro
  * altrettanti `<Suspense>` e Next le manda in streaming man mano che
- * rispondono, invece di trattenere l'HTML finché non c'è tutto.
+ * rispondono, invece di trattenere l'HTML finché non c'è tutto. La sola che può
+ * non rendere nulla è `AdminStalePendingSection`: è un rilevatore, e nel caso
+ * normale non c'è niente da segnalare.
  *
  * Stanno in un file a parte, e non inline nella pagina, per un motivo pratico:
  * un componente asincrono innestato in un boundary Suspense non è renderizzabile
@@ -42,6 +49,24 @@ import type { AnalyticsRange } from "@/server/analytics-helpers";
 
 interface RangeSectionProps {
   readonly range: AnalyticsRange;
+}
+
+/**
+ * Documenti `PENDING` fermi oltre la soglia stale, su tutti i tenant
+ * (REVIEW.md #103).
+ *
+ * A differenza delle altre sezioni **non rende nulla quando non c'è niente**:
+ * è un rilevatore, non un KPI. Sta fuori dalla griglia delle card e sopra a
+ * tutto perché quando compare è la sola cosa del pannello che richiede
+ * un'azione.
+ */
+export async function AdminStalePendingSection() {
+  const result = await getAdminStalePendingKpi();
+
+  if ("error" in result) {
+    return <AdminAlert message={result.error} />;
+  }
+  return <AdminStalePendingNotice kpi={result.kpi} />;
 }
 
 /** Le tre card utenti. `col-span-full` sull'avviso: prende il posto di tutte e tre. */

@@ -13,6 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 const { mockInvoked } = vi.hoisted(() => ({ mockInvoked: [] as string[] }));
 
 vi.mock("./sections", () => ({
+  AdminStalePendingSection: () => mockInvoked.push("in-sospeso") && null,
   AdminUserKpisSection: () => mockInvoked.push("utenti") && null,
   AdminDocumentKpisSection: () => mockInvoked.push("scontrini") && null,
   AdminTopMerchantsSection: () => mockInvoked.push("classifiche") && null,
@@ -31,7 +32,9 @@ const SECTION_NAMES = new Map<unknown, string>(
 type FoundSection = {
   readonly name: string;
   readonly range: unknown;
-  /** True se la sezione sta dentro un `<Suspense>` con un fallback vero. */
+  /** True se la sezione sta dentro un `<Suspense>`, con o senza fallback. */
+  readonly suspended: boolean;
+  /** True se quel `<Suspense>` ha anche un fallback visibile. */
   readonly streamed: boolean;
 };
 
@@ -52,11 +55,14 @@ type WalkableProps = {
  */
 function collectSections(
   node: ReactNode,
-  streamed = false,
+  state: { suspended: boolean; streamed: boolean } = {
+    suspended: false,
+    streamed: false,
+  },
   out: FoundSection[] = [],
 ): FoundSection[] {
   if (Array.isArray(node)) {
-    for (const child of node) collectSections(child, streamed, out);
+    for (const child of node) collectSections(child, state, out);
     return out;
   }
   if (!isValidElement(node)) return out;
@@ -64,16 +70,21 @@ function collectSections(
   const element = node as ReactElement<WalkableProps>;
   const name = SECTION_NAMES.get(element.type);
   if (name) {
-    out.push({ name, range: element.props.range, streamed });
+    out.push({ name, range: element.props.range, ...state });
     return out;
   }
 
-  const insideSuspense =
+  const next =
     element.type === Suspense
-      ? element.props.fallback !== undefined && element.props.fallback !== null
-      : streamed;
+      ? {
+          suspended: true,
+          streamed:
+            element.props.fallback !== undefined &&
+            element.props.fallback !== null,
+        }
+      : state;
 
-  return collectSections(element.props.children, insideSuspense, out);
+  return collectSections(element.props.children, next, out);
 }
 
 async function sectionsOf(range?: string): Promise<FoundSection[]> {
@@ -82,11 +93,22 @@ async function sectionsOf(range?: string): Promise<FoundSection[]> {
 }
 
 describe("AdminPage — streaming", () => {
-  it("monta tutte e sei le letture, ognuna dietro un Suspense con fallback", async () => {
+  it("monta tutte e sette le letture, ognuna dietro un proprio Suspense", async () => {
     const found = await sectionsOf();
 
-    expect(found).toHaveLength(6);
-    expect(found.every((section) => section.streamed)).toBe(true);
+    expect(found).toHaveLength(7);
+    expect(found.every((section) => section.suspended)).toBe(true);
+  });
+
+  it("dà un fallback a tutte tranne al rilevatore, che di norma non rende nulla", async () => {
+    const found = await sectionsOf();
+
+    // Uno scheletro per il rilevatore lampeggerebbe a ogni apertura per poi
+    // sparire nel caso normale, che è "niente in sospeso": sarebbe rumore.
+    const senzaFallback = found
+      .filter((section) => !section.streamed)
+      .map((section) => section.name);
+    expect(senzaFallback).toEqual(["AdminStalePendingSection"]);
   });
 
   it("non invoca nessuna lettura prima di restituire il guscio", async () => {
@@ -110,6 +132,7 @@ describe("AdminPage — streaming", () => {
     const found = await sectionsOf();
 
     expect(found.map((section) => section.name)).toEqual([
+      "AdminStalePendingSection",
       "AdminUserKpisSection",
       "AdminDocumentKpisSection",
       "AdminTopMerchantsSection",
@@ -121,22 +144,23 @@ describe("AdminPage — streaming", () => {
 });
 
 describe("AdminPage — periodo", () => {
-  it("apre su 7 giorni quando l'URL non ne specifica uno", async () => {
-    const found = await sectionsOf();
+  /** La prima sezione che un periodo lo prende davvero. */
+  function firstRanged(found: FoundSection[]): FoundSection {
+    return found.find((section) => section.range !== undefined)!;
+  }
 
-    expect(found[0].range).toBe("7d");
+  it("apre su 7 giorni quando l'URL non ne specifica uno", async () => {
+    expect(firstRanged(await sectionsOf()).range).toBe("7d");
   });
 
   it("onora un ?range= valido", async () => {
-    const found = await sectionsOf("90d");
-
-    expect(found[0].range).toBe("90d");
+    expect(firstRanged(await sectionsOf("90d")).range).toBe("90d");
   });
 
   it("ricade sul default su un ?range= non valido, senza lanciare", async () => {
     const found = await sectionsOf("'; DROP TABLE profiles;--");
 
-    expect(found[0].range).toBe("7d");
+    expect(firstRanged(found).range).toBe("7d");
   });
 
   it("dà lo stesso periodo a tutte le sezioni che ne prendono uno", async () => {
@@ -147,13 +171,17 @@ describe("AdminPage — periodo", () => {
     expect(conRange.every((section) => section.range === "30d")).toBe(true);
   });
 
-  it("non passa un periodo alle due letture ancorate ad adesso", async () => {
+  it("non passa un periodo alle letture ancorate ad adesso", async () => {
     const found = await sectionsOf("30d");
 
+    // Il rilevatore dei documenti in sospeso è fra queste per scelta: un
+    // orfano di tre settimane fa deve restare visibile anche guardando gli
+    // ultimi 7 giorni.
     const senzaRange = found
       .filter((section) => section.range === undefined)
       .map((section) => section.name);
     expect(senzaRange).toEqual([
+      "AdminStalePendingSection",
       "AdminTrialExpiringSection",
       "AdminPaidUsersSection",
     ]);

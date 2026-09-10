@@ -9,6 +9,7 @@ const {
   mockGetAdminRecentProfiles,
   mockGetAdminTopMerchants,
   mockGetAdminTrialExpiring,
+  mockGetAdminStalePendingKpi,
   mockGetAdminUserKpis,
 } = vi.hoisted(() => ({
   mockGetAdminDocumentKpis: vi.fn(),
@@ -16,6 +17,7 @@ const {
   mockGetAdminRecentProfiles: vi.fn(),
   mockGetAdminTopMerchants: vi.fn(),
   mockGetAdminTrialExpiring: vi.fn(),
+  mockGetAdminStalePendingKpi: vi.fn(),
   mockGetAdminUserKpis: vi.fn(),
 }));
 
@@ -23,6 +25,8 @@ vi.mock("@/server/admin-metrics", () => ({
   getAdminUserKpis: (...args: unknown[]) => mockGetAdminUserKpis(...args),
   getAdminDocumentKpis: (...args: unknown[]) =>
     mockGetAdminDocumentKpis(...args),
+  getAdminStalePendingKpi: (...args: unknown[]) =>
+    mockGetAdminStalePendingKpi(...args),
 }));
 
 vi.mock("@/server/admin-directory", () => ({
@@ -39,6 +43,7 @@ import {
   AdminDocumentKpisSection,
   AdminPaidUsersSection,
   AdminRecentProfilesSection,
+  AdminStalePendingSection,
   AdminTopMerchantsSection,
   AdminTrialExpiringSection,
   AdminUserKpisSection,
@@ -205,5 +210,41 @@ describe("degrado indipendente", () => {
     render(await AdminUserKpisSection({ range: "7d" }));
 
     expect(screen.getByRole("alert")).toHaveClass("col-span-full");
+  });
+});
+
+describe("AdminStalePendingSection", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("non rende nulla quando non c'è niente in sospeso", async () => {
+    mockGetAdminStalePendingKpi.mockResolvedValue({
+      kpi: { sale: 0, void: 0, oldestCreatedAt: null },
+    });
+
+    const { container } = render(await AdminStalePendingSection());
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("segnala i documenti in sospeso quando ce ne sono", async () => {
+    mockGetAdminStalePendingKpi.mockResolvedValue({
+      kpi: {
+        sale: 2,
+        void: 0,
+        oldestCreatedAt: new Date(Date.now() - 3 * 60 * 60 * 1000),
+      },
+    });
+
+    render(await AdminStalePendingSection());
+
+    expect(screen.getByText(/2 documenti in sospeso/)).toBeInTheDocument();
+  });
+
+  it("mostra l'avviso di errore quando la lettura degrada", async () => {
+    mockGetAdminStalePendingKpi.mockResolvedValue({ error: "Query caduta" });
+
+    render(await AdminStalePendingSection());
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Query caduta");
   });
 });
