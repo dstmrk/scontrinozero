@@ -8,6 +8,7 @@ import path from "path";
 // `@vitest-environment` resta supportato e vince comunque sul progetto.
 const JSDOM_TS_TESTS = [
   "src/hooks/use-cassa.test.ts",
+  "src/lib/hash-target.test.ts",
   "src/lib/safe-storage.test.ts",
   "src/lib/deploy-skew.test.ts",
   "src/lib/pwa/install-prompt-store.test.ts",

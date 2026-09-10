@@ -24,6 +24,7 @@ import { PrinterSection } from "@/components/settings/printer-section";
 import { ReceiptNoteCard } from "@/components/settings/receipt-note-card";
 import { getProfilePlan } from "@/server/billing-actions";
 import { TRIAL_DAYS } from "@/lib/plans";
+import { API_KEYS_ANCHOR_ID } from "@/lib/plans-shared";
 import {
   computeBillingCardState,
   getCancelingStatusText,
@@ -65,6 +66,13 @@ function formatBusinessLocation(business: {
     .filter(Boolean)
     .join(", ");
 }
+
+/**
+ * Ancore che vivono dentro `ExtraSettingsSection`, chiusa di default: la
+ * sezione le usa per aprirsi quando un deep-link ne punta una. A livello di
+ * modulo per tenere il riferimento stabile fra i render.
+ */
+const EXTRA_SETTINGS_HASH_TARGETS = [API_KEYS_ANCHOR_ID];
 
 export default async function SettingsPage({
   searchParams,
@@ -486,7 +494,7 @@ export default async function SettingsPage({
       </Card>
 
       {/* Altre impostazioni — sezioni a basso uso, nascoste di default */}
-      <ExtraSettingsSection>
+      <ExtraSettingsSection hashTargets={EXTRA_SETTINGS_HASH_TARGETS}>
         {business && planData && (
           <ApiKeyCard
             businessId={business.id}

@@ -86,6 +86,20 @@ export const PLAN_EXPIRY_GRACE_MS = 30 * 24 * 60 * 60 * 1000;
 export const BILLING_SETTINGS_HREF = "/dashboard/settings#billing";
 
 /**
+ * `id` dell'ancora della card "API key" nella pagina settings, e URL canonico
+ * che ci punta.
+ *
+ * Sono una costante sola perché il difetto che hanno chiuso era esattamente
+ * la loro divergenza: i piani `developer_*` venivano rediretti su
+ * `#api-keys` mentre nessun elemento della pagina portava quell'`id`, e
+ * l'utente atterrava in cima alle Impostazioni (REVIEW.md #95). Con l'ancora
+ * derivata dalla stessa stringa del redirect, un rename ne rompe entrambi i
+ * capi insieme invece di lasciarne uno indietro in silenzio.
+ */
+export const API_KEYS_ANCHOR_ID = "api-keys";
+export const API_KEYS_SETTINGS_HREF = `/dashboard/settings#${API_KEYS_ANCHOR_ID}`;
+
+/**
  * Messaggio canonico mostrato quando il trial è scaduto, condiviso tra cassa
  * (emissione), annullo scontrino e catalogo. Confrontare per uguaglianza
  * (`error === TRIAL_EXPIRED_MESSAGE`) per decidere se rendere la frase

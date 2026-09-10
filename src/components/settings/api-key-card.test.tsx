@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import { TRIAL_DAYS } from "@/lib/plans-shared";
+import { API_KEYS_ANCHOR_ID, TRIAL_DAYS } from "@/lib/plans-shared";
 import { ApiKeyCard } from "./api-key-card";
 
 // ApiKeySection e' un client component con react-query: qui interessa solo
@@ -110,5 +110,24 @@ describe("ApiKeyCard — documentazione", () => {
     expect(
       screen.getByRole("link", { name: /documentazione/i }),
     ).toHaveAttribute("href", "/help/api");
+  });
+
+  // --- Ancora del deep-link (REVIEW.md #95) ---
+
+  it("porta l'id dell'ancora verso cui i piani developer_* sono rediretti", () => {
+    const { container } = renderCard({ plan: "developer_indie" });
+
+    // Il redirect da /dashboard e /dashboard/cassa punta a
+    // API_KEYS_SETTINGS_HREF: senza questo id l'utente atterra in cima alle
+    // Impostazioni senza capire dove andare.
+    expect(container.querySelector(`#${API_KEYS_ANCHOR_ID}`)).not.toBeNull();
+  });
+
+  it("compensa la sticky header con scroll-mt sull'ancora", () => {
+    const { container } = renderCard({ plan: "developer_indie" });
+
+    expect(
+      container.querySelector(`#${API_KEYS_ANCHOR_ID}`)?.className,
+    ).toContain("scroll-mt-20");
   });
 });

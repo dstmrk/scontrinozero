@@ -1,6 +1,7 @@
 import { ExternalLink, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  API_KEYS_ANCHOR_ID,
   BILLING_SETTINGS_HREF,
   canUseApi,
   type Plan,
@@ -37,7 +38,10 @@ export function ApiKeyCard({
   const unlocked = canUseApi(plan, planExpiresAt, trialStartedAt);
 
   return (
-    <Card>
+    // id → ancora del deep-link API_KEYS_SETTINGS_HREF, verso cui i piani
+    // `developer_*` senza cassa vengono rediretti dal dashboard. scroll-mt
+    // evita che la sticky header copra il titolo, come per id="billing".
+    <Card id={API_KEYS_ANCHOR_ID} className="scroll-mt-20">
       <CardHeader>
         <CardTitle>API key</CardTitle>
       </CardHeader>
