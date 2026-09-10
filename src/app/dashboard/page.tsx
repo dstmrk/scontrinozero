@@ -5,6 +5,7 @@ import { CatalogoClient } from "@/components/catalogo/catalogo-client";
 import { PlanUnavailable } from "@/components/dashboard/plan-unavailable";
 import { getAuthenticatedUser } from "@/lib/server-auth";
 import { canUseDashboardCashier, getPlanSafe } from "@/lib/plans";
+import { API_KEYS_SETTINGS_HREF } from "@/lib/plans-shared";
 
 /**
  * Homepage del dashboard — mostra il catalogo prodotti.
@@ -39,7 +40,7 @@ export default async function DashboardPage() {
   }
 
   if (!canUseDashboardCashier(planResult.info.plan)) {
-    redirect("/dashboard/settings#api-keys");
+    redirect(API_KEYS_SETTINGS_HREF);
   }
 
   return (

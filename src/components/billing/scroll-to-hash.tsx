@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { readHashId } from "@/lib/hash-target";
 
 /**
  * Scrolla, dopo il mount, all'elemento il cui `id` corrisponde a
@@ -16,20 +17,16 @@ import { useEffect } from "react";
  * atterra sulla sezione giusta.
  *
  * Generico: scrolla a qualunque hash presente, non solo `#billing`.
+ *
+ * Copre le sole ancore già presenti nell'HTML server-rendered. Un target che
+ * vive dentro una sezione collassata non è nel DOM quando questo effect gira:
+ * lì l'apertura e lo scroll li fa la sezione stessa (`ExtraSettingsSection`),
+ * sulla stessa lettura dell'hash — `readHashId`.
  */
 export function ScrollToHash() {
   useEffect(() => {
-    const { hash } = globalThis.location;
-    if (!hash) return;
-    const raw = hash.slice(1);
-    // Fragment malformato (es. `#%E0%A4%A`) → decodeURIComponent lancia URIError:
-    // degradare al raw invece di propagare (regola 19, no error boundary).
-    let id: string;
-    try {
-      id = decodeURIComponent(raw);
-    } catch {
-      id = raw;
-    }
+    const id = readHashId();
+    if (!id) return;
     document.getElementById(id)?.scrollIntoView({ block: "start" });
   }, []);
 

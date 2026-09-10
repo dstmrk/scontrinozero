@@ -258,10 +258,38 @@ Il recovery in `src/lib/services/ade-recovery.ts` chiude questa finestra con
    rientro in recovery senza `adeTransactionId` per audit (REVIEW.md #4,
    ormai risolto — vedi `docs/architecture/data-flows.md`).
 
+3. **Ingresso** — il recovery è **pull-based**: si attiva solo quando un
+   secondo tentativo collide sul vincolo UNIQUE
+   `(business_id, idempotency_key)`. È la parte che si dimentica più
+   facilmente, ed è costata REVIEW.md #103: la cassa coniava una chiave nuova a
+   ogni submit, quindi nessun retry collideva e ogni fallimento lasciava una
+   riga `PENDING` che nessuno avrebbe riconciliato mai. **La chiave di
+   idempotenza è parte del meccanismo di recovery, non solo una misura
+   anti-doppione**: se cambi come viene generata, stai cambiando anche quello.
+   Oggi la genera `useCartIdempotencyKey` (`src/hooks/`), stabile per carrello
+   con due rotazioni obbligatorie — a emissione riuscita (senza, due vendite
+   identiche di fila riusano la chiave e la seconda non emette nulla) e a ogni
+   modifica del carrello (senza, un ritocco produce
+   `IDEMPOTENCY_PAYLOAD_MISMATCH` e blocca l'utente). Il dialog di annullo
+   tiene la chiave stabile per la vita del dialog e non ha mai avuto il
+   problema.
+4. **Verifica manuale** — `src/lib/services/pending-verification.ts` è la
+   stessa riconciliazione, ma chiamata **dall'esercente** invece che da una
+   collisione: chiude le righe che il pull non raggiunge. Contratto diverso di
+   proposito — un "nessun match" porta a `ERROR` e all'invito a riemettere,
+   **mai** a un `submitSale`, perché ri-sottomettere è irreversibile e non è
+   una decisione da prendere per conto suo. Su candidati multipli mostra la
+   lista e non sceglie: chi sta al banco è l'unico che sa se la vendita è
+   avvenuta. Uno sweep in `instrumentation.ts` e un avviso su `/admin` contano
+   le righe rimaste in sospeso; lo sweep **conta e basta**, perché fuori da una
+   richiesta utente non c'è una sessione AdE e non c'è nemmeno chi sa
+   rispondere.
+
 Storia: prima della riconciliazione la soglia dei 30 min era l'**unica**
 mitigazione e il duplicato restava possibile oltre soglia. Se tocchi questo
 flusso, l'invariante da testare è: nessun percorso chiama `submitSale`/
-`submitVoid` su un documento che AdE ha già accettato.
+`submitVoid` su un documento che AdE ha già accettato — **e** nessun percorso
+può lasciare una riga `PENDING` senza che qualcuno, prima o poi, la veda.
 
 ---
 

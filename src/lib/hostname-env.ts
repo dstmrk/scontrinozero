@@ -107,3 +107,29 @@ function normaliseOrThrow(fallback: string, ctx: string): string {
   }
   return normalised;
 }
+
+/**
+ * Hostname dell'app risolto con la precedenza runtime > build > default.
+ *
+ * `deploy.yml` builda **una sola immagine per tag** che serve prod e sandbox,
+ * quindi ogni `NEXT_PUBLIC_*` è bakata col valore di produzione anche nel
+ * container sandbox: l'unico segnale che distingue l'ambiente è
+ * `APP_HOSTNAME`, passata dal compose. È la stessa precedenza applicata da
+ * `resolveBaseUrl()` (`marketing-to-app-href.ts`) e `getTrustedAppUrl()`
+ * (`trusted-app-url.ts`); qui vive per i consumer edge-safe — `proxy.ts`, che
+ * la usa sia per il routing per-dominio sia per gli header che deve calcolare
+ * a runtime (REVIEW.md #93).
+ *
+ * `=== undefined` e non un truthy check: un compose che scrive
+ * `APP_HOSTNAME=` sta dichiarando di voler decidere a runtime, e ricadere sul
+ * valore bakato di produzione sarebbe esattamente il difetto che questa
+ * precedenza evita. Una stringa vuota è malformata e
+ * `parseTrustedHostnameEnv` la porta sul default con un log `critical`.
+ */
+export function resolveAppHostname(): string {
+  const envVar =
+    process.env.APP_HOSTNAME === undefined
+      ? "NEXT_PUBLIC_APP_HOSTNAME"
+      : "APP_HOSTNAME";
+  return parseTrustedHostnameEnv(envVar, "app.scontrinozero.it");
+}

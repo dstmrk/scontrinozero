@@ -214,6 +214,98 @@ export function startInactiveUserPruneSweep() {
   interval.unref();
 }
 
+/**
+ * Cadenza del rilevatore dei documenti in sospeso (REVIEW.md #103).
+ *
+ * Sei ore: le righe orfane sono rare e non urgenti — l'azione che le chiude è
+ * dell'esercente, dentro la sua sessione, non nostra — ma un giro al giorno
+ * su un container che si ridéploya spesso (il Pi dev a ogni push su `main`)
+ * rischierebbe di non girare mai. Sei ore stanno sotto la finestra di
+ * riavvio anche degli ambienti più mossi.
+ */
+export const STALE_PENDING_SWEEP_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Ritardo del primo giro. Stesso motivo di
+ * `INACTIVE_USER_PRUNE_INITIAL_DELAY_MS`: `setInterval` non esegue mai subito,
+ * e senza un run iniziale un container riavviato spesso non conterebbe mai
+ * nulla. Cinque minuti tengono il giro fuori dalla finestra di overlap dei
+ * container durante `docker compose up -d`.
+ */
+export const STALE_PENDING_SWEEP_INITIAL_DELAY_MS = 5 * 60 * 1000;
+
+/**
+ * Budget di latenza del conteggio, allineato a
+ * `PRUNE_CANDIDATES_QUERY_TIMEOUT_MS`: è la stessa forma di problema, cioè un
+ * job di background che scandisce una tabella senza filtro per tenant sullo
+ * stesso pool da 10 che serve la cassa. Non rende la query più veloce — rende
+ * limitato il suo fallimento, così una scansione degenere non tiene occupata
+ * una connessione che serve a emettere scontrini (la lezione di REVIEW.md
+ * #81).
+ */
+export const STALE_PENDING_COUNT_TIMEOUT_MS = 30_000;
+
+let stalePendingSweepStarted = false;
+
+/**
+ * Conta periodicamente i documenti `PENDING` fermi oltre la soglia stale e li
+ * porta su Sentry Logs.
+ *
+ * **Conta e basta: non riconcilia niente.** Una riconciliazione qui non
+ * avrebbe una sessione AdE — dovrebbe decifrare le credenziali fuori da una
+ * richiesta utente e fare un login per ogni business con righe orfane — e
+ * soprattutto sposterebbe la decisione lontano dall'unica persona che sa se
+ * la vendita è avvenuta davvero. Quella parte vive nella dashboard
+ * dell'esercente (REVIEW.md #103, "Cosa non fare").
+ *
+ * `warn` e non `error`: non è un fallimento del sistema, è un lavoro in
+ * attesa di qualcuno. E solo quando il conteggio è diverso da zero: a regime
+ * non c'è niente, e un log a ogni giro sarebbe rumore.
+ */
+export function startStalePendingSweep() {
+  if (stalePendingSweepStarted) return;
+  stalePendingSweepStarted = true;
+
+  const runSweep = async () => {
+    const { logger } = await import("@/lib/logger");
+    try {
+      const { withStatementTimeout } = await import("@/lib/db-timeout");
+      const { countStalePendingDocuments } =
+        await import("@/lib/services/ade-recovery");
+      const counted = await withStatementTimeout(
+        STALE_PENDING_COUNT_TIMEOUT_MS,
+        (tx) => countStalePendingDocuments(tx),
+      );
+      const total = counted.sale + counted.void;
+      if (total === 0) return;
+
+      logger.warn(
+        {
+          errorClass: "stale_pending_documents",
+          salePending: counted.sale,
+          voidPending: counted.void,
+          oldestCreatedAt: counted.oldestCreatedAt?.toISOString() ?? null,
+        },
+        "Documenti PENDING oltre la soglia stale: esito AdE ignoto",
+      );
+    } catch (err) {
+      logger.warn({ err }, "Conteggio documenti in sospeso fallito");
+    }
+  };
+
+  const initialRun: ReturnType<typeof setTimeout> = setTimeout(
+    runSweep,
+    STALE_PENDING_SWEEP_INITIAL_DELAY_MS,
+  );
+  initialRun.unref();
+
+  const interval: ReturnType<typeof setInterval> = setInterval(
+    runSweep,
+    STALE_PENDING_SWEEP_INTERVAL_MS,
+  );
+  interval.unref();
+}
+
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     // Fail-fast sulle env d'identita' (NEXT_PUBLIC_APP_URL, *_HOSTNAME, …).
@@ -252,6 +344,11 @@ export async function register() {
     // Sweep dei claim webhook Stripe "stuck" (REVIEW.md #20): stessa guardia
     // di idempotenza e pattern setInterval unref'd di startSupabaseKeepAlive.
     startStripeWebhookClaimSweep();
+
+    // Rilevatore dei documenti PENDING orfani (REVIEW.md #103): conta e
+    // logga, nessuna scrittura e nessuna sessione AdE. Non è opt-in — un
+    // `count(*)` ogni sei ore non è una feature da spegnere.
+    startStalePendingSweep();
 
     // Sweep GDPR cancellazione utenti inattivi >12 mesi (PLAN.md v1.4.2).
     // Feature OPT-IN e distruttiva: parte SOLO se INACTIVE_USER_PRUNE_ENABLED=true.

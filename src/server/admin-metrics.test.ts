@@ -1,13 +1,23 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockExecute, mockLoggerWarn, mockWithStatementTimeout } = vi.hoisted(
-  () => ({
-    mockExecute: vi.fn(),
-    mockLoggerWarn: vi.fn(),
-    mockWithStatementTimeout: vi.fn(),
-  }),
-);
+const {
+  mockExecute,
+  mockLoggerWarn,
+  mockWithStatementTimeout,
+  mockCountStalePendingDocuments,
+} = vi.hoisted(() => ({
+  mockExecute: vi.fn(),
+  mockLoggerWarn: vi.fn(),
+  mockWithStatementTimeout: vi.fn(),
+  mockCountStalePendingDocuments: vi.fn(),
+}));
+
+// Il conteggio vero è testato in `ade-recovery.test.ts` con i suoi mock
+// Drizzle: qui interessa che passi dal boundary del pannello e che degradi.
+vi.mock("@/lib/services/ade-recovery", () => ({
+  countStalePendingDocuments: mockCountStalePendingDocuments,
+}));
 
 // `withStatementTimeout` avvolge le query in una transazione con
 // `SET LOCAL statement_timeout`. Nei test è un passthrough che invoca la
@@ -29,7 +39,11 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 import { sqlTextOf } from "../../tests/_helpers/sql-text";
-import { getAdminDocumentKpis, getAdminUserKpis } from "./admin-metrics";
+import {
+  getAdminDocumentKpis,
+  getAdminStalePendingKpi,
+  getAdminUserKpis,
+} from "./admin-metrics";
 
 /**
  * postgres-js restituisce `count(*)` e `sum(...)::bigint` come **stringhe**
@@ -373,6 +387,61 @@ describe("getAdminDocumentKpis", () => {
     expect(mockWithStatementTimeout).toHaveBeenCalledWith(
       10_000,
       expect.any(Function),
+    );
+  });
+});
+
+describe("getAdminStalePendingKpi", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("ritorna il conteggio dei documenti in sospeso", async () => {
+    const oldest = new Date("2026-09-01T08:00:00.000Z");
+    mockCountStalePendingDocuments.mockResolvedValue({
+      sale: 2,
+      void: 0,
+      oldestCreatedAt: oldest,
+    });
+
+    const result = await getAdminStalePendingKpi();
+
+    expect(result).toEqual({
+      kpi: { sale: 2, void: 0, oldestCreatedAt: oldest },
+    });
+  });
+
+  it("gira dentro il budget di timeout del pannello", async () => {
+    mockCountStalePendingDocuments.mockResolvedValue({
+      sale: 0,
+      void: 0,
+      oldestCreatedAt: null,
+    });
+
+    await getAdminStalePendingKpi();
+
+    expect(mockWithStatementTimeout).toHaveBeenCalledWith(
+      10_000,
+      expect.any(Function),
+    );
+  });
+
+  it("degrada a { error } senza propagare (regola 19)", async () => {
+    mockCountStalePendingDocuments.mockRejectedValue(new Error("DB giù"));
+
+    const result = await getAdminStalePendingKpi();
+
+    // Un throw sostituirebbe il boundary Suspense di questo blocco con
+    // l'error boundary di segmento, portandosi via anche le altre sei letture.
+    expect(result).toEqual({
+      error:
+        "Impossibile contare gli scontrini in sospeso. Riprova tra qualche istante.",
+    });
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errorClass: "admin_metrics_load",
+        metric: "stale_pending",
+        range: null,
+      }),
+      "admin metrics: conteggio scontrini in sospeso fallito",
     );
   });
 });

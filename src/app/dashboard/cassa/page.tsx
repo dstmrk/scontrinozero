@@ -9,6 +9,7 @@ import { CassaClient } from "@/components/cassa/cassa-client";
 import { PlanUnavailable } from "@/components/dashboard/plan-unavailable";
 import { getAuthenticatedUser } from "@/lib/server-auth";
 import { canUseDashboardCashier, canUsePro, getPlanSafe } from "@/lib/plans";
+import { API_KEYS_SETTINGS_HREF } from "@/lib/plans-shared";
 import { fetchReceiptPrintProfile } from "@/lib/receipts/print-profile";
 
 export default async function CassaPage() {
@@ -33,7 +34,7 @@ export default async function CassaPage() {
   }
 
   if (!canUseDashboardCashier(planResult.info.plan)) {
-    redirect("/dashboard/settings#api-keys");
+    redirect(API_KEYS_SETTINGS_HREF);
   }
 
   const db = getDb();

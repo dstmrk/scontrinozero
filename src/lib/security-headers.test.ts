@@ -1,13 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { buildSecurityHeaders } from "./security-headers";
 
-const ALLOWED_ORIGIN = "https://app.scontrinozero.it";
-
 describe("buildSecurityHeaders", () => {
   it("imposta CSP in modalità enforce in production", () => {
     const headers = buildSecurityHeaders({
       nodeEnv: "production",
-      allowedOrigin: ALLOWED_ORIGIN,
     });
     const cspKeys = headers.map((h) => h.key);
 
@@ -22,7 +19,6 @@ describe("buildSecurityHeaders", () => {
     for (const env of ["development", "test", undefined] as const) {
       const headers = buildSecurityHeaders({
         nodeEnv: env,
-        allowedOrigin: ALLOWED_ORIGIN,
       });
       const cspKeys = headers.map((h) => h.key);
 
@@ -36,11 +32,9 @@ describe("buildSecurityHeaders", () => {
     // copertura della telemetria tra dev e prod.
     const prod = buildSecurityHeaders({
       nodeEnv: "production",
-      allowedOrigin: ALLOWED_ORIGIN,
     });
     const dev = buildSecurityHeaders({
       nodeEnv: "development",
-      allowedOrigin: ALLOWED_ORIGIN,
     });
 
     const prodCsp = prod.find((h) => h.key === "Content-Security-Policy");
@@ -54,7 +48,6 @@ describe("buildSecurityHeaders", () => {
   it("la CSP contiene la baseline allowlist (default-src self, object-src none)", () => {
     const headers = buildSecurityHeaders({
       nodeEnv: "production",
-      allowedOrigin: ALLOWED_ORIGIN,
     });
     const csp = headers.find((h) => h.key === "Content-Security-Policy");
 
@@ -64,35 +57,28 @@ describe("buildSecurityHeaders", () => {
     expect(csp!.value).toMatch(/frame-ancestors 'none'/);
   });
 
-  it("Reporting-Endpoints usa URL assoluto basato sull'allowedOrigin", () => {
-    const headers = buildSecurityHeaders({
-      nodeEnv: "production",
-      allowedOrigin: ALLOWED_ORIGIN,
-    });
-    const reporting = headers.find((h) => h.key === "Reporting-Endpoints");
+  it("non emette Reporting-Endpoints: sarebbe bakato al valore di produzione", () => {
+    const headers = buildSecurityHeaders({ nodeEnv: "production" });
 
-    expect(reporting).toBeDefined();
-    expect(reporting!.value).toBe(
-      'csp-endpoint="https://app.scontrinozero.it/api/csp-report"',
-    );
+    // La Reporting API pretende un URL assoluto, e `next.config.ts`
+    // serializza questi header nel manifest al build: una sola immagine
+    // serve prod e sandbox, quindi l'assoluto sarebbe quello di produzione
+    // anche nel container sandbox. Lo calcola `src/proxy.ts` a runtime.
+    expect(headers.map((h) => h.key)).not.toContain("Reporting-Endpoints");
   });
 
   it("aggiunge HSTS solo in production", () => {
     const prod = buildSecurityHeaders({
       nodeEnv: "production",
-      allowedOrigin: ALLOWED_ORIGIN,
     });
     const dev = buildSecurityHeaders({
       nodeEnv: "development",
-      allowedOrigin: ALLOWED_ORIGIN,
     });
     const test = buildSecurityHeaders({
       nodeEnv: "test",
-      allowedOrigin: ALLOWED_ORIGIN,
     });
     const undef = buildSecurityHeaders({
       nodeEnv: undefined,
-      allowedOrigin: ALLOWED_ORIGIN,
     });
 
     expect(prod.map((h) => h.key)).toContain("Strict-Transport-Security");
@@ -104,7 +90,6 @@ describe("buildSecurityHeaders", () => {
   it("HSTS in production ha max-age di 1 anno e includeSubDomains", () => {
     const headers = buildSecurityHeaders({
       nodeEnv: "production",
-      allowedOrigin: ALLOWED_ORIGIN,
     });
     const hsts = headers.find((h) => h.key === "Strict-Transport-Security");
 
@@ -115,7 +100,6 @@ describe("buildSecurityHeaders", () => {
   it("contiene la baseline X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy", () => {
     const headers = buildSecurityHeaders({
       nodeEnv: "production",
-      allowedOrigin: ALLOWED_ORIGIN,
     });
     const byKey = Object.fromEntries(headers.map((h) => [h.key, h.value]));
 
@@ -133,30 +117,19 @@ describe("buildSecurityHeaders", () => {
     // lancerebbe SecurityError e la UI direbbe solo "browser non supportato".
     const headers = buildSecurityHeaders({
       nodeEnv: "production",
-      allowedOrigin: ALLOWED_ORIGIN,
     });
     const policy = headers.find((h) => h.key === "Permissions-Policy");
 
     expect(policy!.value).toContain("bluetooth=(self)");
   });
 
-  it("supporta hostname sandbox e self-hosted", () => {
-    const sandbox = buildSecurityHeaders({
-      nodeEnv: "production",
-      allowedOrigin: "https://sandbox.scontrinozero.it",
-    });
-    const sandboxReporting = sandbox.find(
-      (h) => h.key === "Reporting-Endpoints",
-    );
-    expect(sandboxReporting!.value).toContain("sandbox.scontrinozero.it");
+  it("resta indipendente dall'hostname servito", () => {
+    // Nessun header di questa lista dipende più dall'origin: è la proprietà
+    // che rende sicuro serializzarli al build.
+    const headers = buildSecurityHeaders({ nodeEnv: "production" });
 
-    const selfHosted = buildSecurityHeaders({
-      nodeEnv: "production",
-      allowedOrigin: "https://cassa.miosito.it",
-    });
-    const selfHostedReporting = selfHosted.find(
-      (h) => h.key === "Reporting-Endpoints",
+    expect(headers.every((h) => !h.value.includes("scontrinozero.it"))).toBe(
+      true,
     );
-    expect(selfHostedReporting!.value).toContain("cassa.miosito.it");
   });
 });

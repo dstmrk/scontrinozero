@@ -1,6 +1,7 @@
-import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, lt, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
+import { type DrizzleTx } from "@/lib/db-timeout";
 import { logger } from "@/lib/logger";
 import type { AdeDocumentSummary } from "@/lib/ade/types";
 
@@ -54,6 +55,117 @@ export function getStalePendingThresholdMs(): number {
   const minutes = raw ? Number.parseFloat(raw) : Number.NaN;
   const effective = Number.isFinite(minutes) && minutes > 0 ? minutes : 30;
   return effective * 60 * 1000;
+}
+
+/**
+ * Istante prima del quale un `PENDING` è considerato orfano: `now` meno la
+ * soglia stale. Un solo owner per la formula, così il rilevatore
+ * (`countStalePendingDocuments`) e il gate del recovery
+ * (`handleExistingReceipt`) non possono divergere — un rilevatore più
+ * permissivo del gate mostrerebbe righe che nessuna verifica può ancora
+ * toccare.
+ */
+export function staleUpdatedBefore(now: Date = new Date()): Date {
+  return new Date(now.getTime() - getStalePendingThresholdMs());
+}
+
+/**
+ * Vero quando `updatedAt` è più vecchia della soglia stale.
+ *
+ * Un solo owner del predicato: lo usano il gate del recovery in emissione e
+ * annullo, l'elenco che alimenta il banner di verifica e il rilevatore. Se
+ * divergessero, una superficie mostrerebbe righe che un'altra non è ancora
+ * disposta a toccare.
+ *
+ * Su `updatedAt` e **mai** sull'immutabile `createdAt`: `claimStaleDocument`
+ * bumpa `updated_at` quando un tentativo vince il claim, così una riga la cui
+ * recovery è già in volo torna a sembrare "recente" e un tentativo
+ * sovrapposto riceve in-progress invece di vincere un secondo claim — che
+ * ri-sottometterebbe, creando un documento fiscale duplicato su AdE
+ * (irreversibile).
+ *
+ * Data assente o illeggibile → `false`: un timestamp che non sappiamo leggere
+ * non deve poter aprire il percorso irreversibile.
+ */
+export function isStaleUpdatedAt(
+  updatedAt: Date | string | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (!updatedAt) return false;
+  const ms = new Date(updatedAt).getTime();
+  return Number.isFinite(ms) && ms < staleUpdatedBefore(now).getTime();
+}
+
+/**
+ * Conta i documenti `PENDING` fermi oltre la soglia stale: le righe il cui
+ * esito su AdE resta ignoto e che nessuna superficie mostrava (REVIEW.md
+ * #103).
+ *
+ * **Solo `PENDING`, mai `ERROR`.** Un `ERROR` è un esito *noto*: ci arriva o
+ * da `markDocumentErrorBestEffort`, chiamata quando sappiamo che AdE non ha
+ * registrato nulla, o da una riconciliazione che su AdE non ha trovato il
+ * documento. Contarlo qui confonderebbe "da verificare" con "già verificato,
+ * non c'è" e annacquerebbe il segnale — anche se il gate del recovery accetta
+ * entrambi gli stati.
+ *
+ * Entrambi i `kind`: l'annullo tiene la chiave di idempotenza stabile per la
+ * vita del dialog e quindi ha l'ingresso della recovery aperto, ma una riga
+ * `VOID` orfana resta comunque possibile (fallimento prima di qualunque
+ * retry) e sarebbe altrettanto invisibile.
+ *
+ * `min(created_at)` e non `min(updated_at)`: quello che si vuole leggere è da
+ * quanto la riga esiste in questo stato, e `updated_at` viene bumpata dal CAS
+ * di `claimStaleDocument` a ogni tentativo di recovery.
+ */
+export type StalePendingCount = {
+  readonly sale: number;
+  readonly void: number;
+  /** `null` quando non ci sono righe. */
+  readonly oldestCreatedAt: Date | null;
+};
+
+export async function countStalePendingDocuments(
+  // Accetta anche una transazione: `/admin` la esegue dentro
+  // `runAdminRead`, che impone il budget di statement timeout del pannello.
+  db: ReturnType<typeof getDb> | DrizzleTx,
+  now: Date = new Date(),
+): Promise<StalePendingCount> {
+  const [row] = await db
+    .select({
+      sale: sql<string>`count(*) FILTER (WHERE ${commercialDocuments.kind} = 'SALE')`,
+      void: sql<string>`count(*) FILTER (WHERE ${commercialDocuments.kind} = 'VOID')`,
+      oldestCreatedAt: sql<
+        string | Date | null
+      >`min(${commercialDocuments.createdAt})`,
+    })
+    .from(commercialDocuments)
+    .where(
+      and(
+        eq(commercialDocuments.status, "PENDING"),
+        // `lt()` e non un `sql` template: dentro un raw template Drizzle non ha
+        // il column-type context per bindare una JS Date (skill db-migrations).
+        lt(commercialDocuments.updatedAt, staleUpdatedBefore(now)),
+      ),
+    );
+
+  return {
+    sale: toCount(row?.sale),
+    void: toCount(row?.void),
+    oldestCreatedAt: toDateOrNull(row?.oldestCreatedAt),
+  };
+}
+
+/** `count(*)` torna `bigint`, che postgres-js consegna come stringa. */
+function toCount(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function toDateOrNull(value: unknown): Date | null {
+  if (value instanceof Date) return value;
+  if (typeof value !== "string") return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 /**
@@ -134,7 +246,17 @@ export type AdeReconcileResult =
       registeredAt: Date | null;
     }
   | { kind: "none" }
-  | { kind: "ambiguous" };
+  | {
+      kind: "ambiguous";
+      /**
+       * I documenti AdE che il match non sa distinguere. Il recovery
+       * automatico li ignora — resta conservativo e non finalizza — ma la
+       * verifica dentro la sessione dell'esercente li mostra e gli lascia
+       * scegliere: è l'unico anello della catena che sa se quella vendita è
+       * avvenuta (REVIEW.md #103).
+       */
+      candidates: readonly AdeDocumentSummary[];
+    };
 
 /**
  * Offset (wall-clock − UTC, in ms) del fuso `timeZone` per un dato istante.
@@ -290,7 +412,7 @@ export async function findClaimedTransactionIds(
 /** Riduce una lista di candidati a un esito match/none/ambiguous. */
 function decide(candidates: AdeDocumentSummary[]): AdeReconcileResult {
   if (candidates.length === 0) return { kind: "none" };
-  if (candidates.length > 1) return { kind: "ambiguous" };
+  if (candidates.length > 1) return { kind: "ambiguous", candidates };
   const [doc] = candidates;
   return {
     kind: "match",

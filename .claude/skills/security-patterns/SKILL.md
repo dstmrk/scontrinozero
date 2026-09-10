@@ -258,6 +258,21 @@ da preservare:
 - **`Reporting-Endpoints`** indispensabile anche in enforce per detection di
   XSS attempt. Soglia di allarme: >50 violation/giorno o `blockedUri` riconducibile
   a un asset legittimo.
+- **Un header che contiene un URL assoluto non si serializza al build.**
+  `next.config.ts` → `headers()` finisce nel manifest, e `deploy.yml` builda
+  **una sola immagine per tag** che serve prod _e_ sandbox: qualunque
+  `NEXT_PUBLIC_*` letta lì porta il valore di produzione anche nel container
+  sandbox. `Reporting-Endpoints` bakato mandava i violation report della
+  sandbox all'endpoint di produzione. La regola che ne esce: se il valore di
+  un header dipende dall'ambiente, il posto è `src/proxy.ts`, che gira a
+  runtime e vede `APP_HOSTNAME` (`resolveAppHostname()` in
+  `src/lib/hostname-env.ts` tiene la precedenza runtime > build > default in
+  un posto solo). Restano nel manifest solo gli header **indipendenti
+  dall'host** — e `buildSecurityHeaders` ha un test che lo asserisce.
+  Corollario da tenere a mente: il matcher del proxy esclude `api/health`,
+  `api/v1`, gli asset statici e `sw.js`, quindi un header spostato lì
+  **sparisce** su quei path. Per la CSP non è un problema — `report-uri` è
+  relativo e copre già same-origin — ma va verificato caso per caso.
 
 ---
 
