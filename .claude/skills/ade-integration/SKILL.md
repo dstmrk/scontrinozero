@@ -285,11 +285,28 @@ Il recovery in `src/lib/services/ade-recovery.ts` chiude questa finestra con
    richiesta utente non c'è una sessione AdE e non c'è nemmeno chi sa
    rispondere.
 
+5. **I due canali hanno protocolli di idempotenza opposti** — e una capability
+   di recovery scritta per uno non copre l'altro. La cassa **ruota** la chiave
+   a ogni retry (vedi punto 3), quindi il pull non scatta mai e serve il banner
+   del dashboard; la Developer API **impone di riusarla** (`DEVELOPER.md`,
+   "Ritenta sempre con la stessa `idempotencyKey`"), quindi lì il retry entra
+   nel recovery da solo. Il buco è simmetrico e non è la riconciliazione: è
+   **trovare la riga**. Un client API che smette di ritentare lascia un
+   `PENDING` che l'elenco pubblico non mostra — filtra `ACCEPTED`/
+   `VOID_ACCEPTED` — e di cui non ha mai ricevuto l'id. Per questo l'envelope
+   d'errore v1 porta `documentId` sugli esiti ancora aperti e
+   `GET /api/v1/receipts` accetta `?status=PENDING`
+   (`listStatusValues` in `src/lib/api-v1-helpers.ts`). Regola generale: quando
+   aggiungi un modo di chiudere le righe orfane, chiediti **da quale canale
+   nascono** e verifica che da quel canale siano visibili — non che esista da
+   qualche parte una schermata che le mostra.
+
 Storia: prima della riconciliazione la soglia dei 30 min era l'**unica**
 mitigazione e il duplicato restava possibile oltre soglia. Se tocchi questo
 flusso, l'invariante da testare è: nessun percorso chiama `submitSale`/
 `submitVoid` su un documento che AdE ha già accettato — **e** nessun percorso
-può lasciare una riga `PENDING` senza che qualcuno, prima o poi, la veda.
+può lasciare una riga `PENDING` senza che qualcuno, prima o poi, la veda **dal
+canale da cui è nata**.
 
 ---
 

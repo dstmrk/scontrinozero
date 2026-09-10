@@ -74,6 +74,27 @@ describe("v1Error", () => {
     ).toBeNull();
   });
 
+  it("porta documentId quando l'errore riguarda un documento ancora aperto", async () => {
+    const res = v1Error("ADE_UNAVAILABLE", "AdE non risponde", REQUEST_ID, {
+      documentId: "d1e2f3a4-b5c6-4d7e-8f90-1a2b3c4d5e6f",
+    });
+
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toEqual({
+      code: "ADE_UNAVAILABLE",
+      message: "AdE non risponde",
+      requestId: REQUEST_ID,
+      documentId: "d1e2f3a4-b5c6-4d7e-8f90-1a2b3c4d5e6f",
+    });
+  });
+
+  it("non serializza documentId quando il chiamante non lo passa", async () => {
+    const body = await v1Error("ADE_REJECTED", "x", REQUEST_ID).json();
+    // Chiave assente, non `undefined`: un client che fa `"documentId" in body`
+    // deve poter distinguere "nessun documento aperto" da "id sconosciuto".
+    expect(Object.hasOwn(body, "documentId")).toBe(false);
+  });
+
   it("accetta un Retry-After dinamico (rate limit)", () => {
     const res = v1Error("RATE_LIMIT_EXCEEDED", "x", REQUEST_ID, {
       retryAfterSeconds: 1234,

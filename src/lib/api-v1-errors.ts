@@ -13,6 +13,14 @@
  * - `requestId` — UUID della richiesta, ripetuto nell'header `X-Request-Id` e
  *              in ogni riga di log pino/Sentry della stessa richiesta. È il
  *              filo per correlare una segnalazione utente ai nostri log.
+ * - `documentId` — **opzionale**, presente solo quando l'errore riguarda un
+ *              documento già persistito il cui esito è ancora **aperto**:
+ *              `ADE_UNAVAILABLE`, `DB_TIMEOUT` dopo l'INSERT,
+ *              `PENDING_IN_PROGRESS` e `VOID_PENDING_IN_PROGRESS`. Serve a non
+ *              lasciare orfana una riga `PENDING` quando il client smette di
+ *              ritentare: con l'id può seguirla su `GET /v1/receipts/{id}`.
+ *              Sugli errori a esito definitivo la chiave non viene
+ *              serializzata affatto.
  *
  * ⚠️ Breaking change v1: il campo legacy `error` è stato rimosso. Prima
  * l'envelope era `{ error }` (con `code` presente solo su alcuni 409/503).
@@ -139,6 +147,8 @@ export type V1ErrorBody = {
   code: V1ErrorCode;
   message: string;
   requestId: string;
+  /** Id del documento con esito ancora aperto — vedi il commento in testa. */
+  documentId?: string;
 };
 
 /**
@@ -178,17 +188,28 @@ function v1Headers(
  * @param requestId - UUID della richiesta corrente
  * @param options.retryAfterSeconds - override del backoff (rate limit: dipende
  *   dalla finestra scorrevole, non è una costante del catalogo)
+ * @param options.documentId - id del documento con esito ancora aperto, quando
+ *   l'errore ne riguarda uno: viene serializzato solo se valorizzato
  */
 export function v1Error(
   code: V1ErrorCode,
   message: string,
   requestId: string,
-  options?: { retryAfterSeconds?: number },
+  options?: { retryAfterSeconds?: number; documentId?: string },
 ): Response {
   const spec = v1ErrorSpec(code);
   const retryAfter = options?.retryAfterSeconds ?? spec.retryAfter;
 
-  const body: V1ErrorBody = { code, message, requestId };
+  // Spread condizionale e non `documentId: options?.documentId`: `JSON.stringify`
+  // salterebbe comunque un `undefined`, ma la forma del tipo resterebbe quella
+  // di un campo sempre presente, e il prossimo che legge `V1ErrorBody` non
+  // saprebbe che l'assenza è significativa.
+  const body: V1ErrorBody = {
+    code,
+    message,
+    requestId,
+    ...(options?.documentId ? { documentId: options.documentId } : {}),
+  };
 
   return Response.json(body, {
     status: spec.status,

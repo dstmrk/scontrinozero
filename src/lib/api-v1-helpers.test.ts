@@ -37,6 +37,7 @@ import {
   LIST_DEFAULT_LIMIT,
   LIST_MAX_LIMIT,
   parseAndValidateBody,
+  listStatusValues,
   parseListPagination,
   requireBusinessApiAuth,
   serviceErrorResponse,
@@ -255,6 +256,33 @@ describe("serviceErrorResponse", () => {
     expect(res.headers.get("Retry-After")).toBe("2");
   });
 
+  it("propaga documentId quando il service sa quale documento è rimasto aperto", async () => {
+    const res = serviceErrorResponse(
+      {
+        error: "AdE non raggiungibile",
+        code: "ADE_UNAVAILABLE",
+        documentId: "d1e2f3a4-b5c6-4d7e-8f90-1a2b3c4d5e6f",
+      },
+      REQUEST_ID,
+    );
+
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({
+      code: "ADE_UNAVAILABLE",
+      message: "AdE non raggiungibile",
+      requestId: REQUEST_ID,
+      documentId: "d1e2f3a4-b5c6-4d7e-8f90-1a2b3c4d5e6f",
+    });
+  });
+
+  it("non inventa documentId sugli errori che non ne portano uno", async () => {
+    const res = serviceErrorResponse(
+      { error: "già rifiutato", code: "ALREADY_REJECTED" },
+      REQUEST_ID,
+    );
+    expect(Object.hasOwn(await res.json(), "documentId")).toBe(false);
+  });
+
   it("maps NOT_FOUND to 404 with the code in the body", async () => {
     const res = serviceErrorResponse(
       { error: "Scontrino non trovato.", code: "NOT_FOUND" },
@@ -415,6 +443,47 @@ describe("parseAndValidateBody", () => {
   });
 });
 
+describe("status filtrabili", () => {
+  it("copre esattamente l'enum document_status del DB", async () => {
+    // Il gate della lista scritta a mano in api-v1-helpers.ts: uno stato nuovo
+    // in `document_status` rompe qui, e la decisione se esporlo all'API si
+    // prende invece di scoprirla mancante mesi dopo.
+    const { documentStatusEnum } = await import("@/db/schema");
+    const filtrabili = [
+      "PENDING",
+      "ACCEPTED",
+      "VOID_ACCEPTED",
+      "REJECTED",
+      "ERROR",
+    ];
+
+    expect([...documentStatusEnum.enumValues].sort()).toEqual(
+      [...filtrabili].sort(),
+    );
+    for (const status of filtrabili) {
+      expect(
+        parseListPagination(
+          new URLSearchParams(`status=${status}`),
+          REQUEST_ID,
+        ),
+      ).not.toHaveProperty("error");
+    }
+  });
+});
+
+describe("listStatusValues", () => {
+  it("senza filtro include solo i documenti registrati presso l'AdE", () => {
+    expect(listStatusValues(null)).toEqual(["ACCEPTED", "VOID_ACCEPTED"]);
+  });
+
+  it("con un filtro esplicito include quello stato e nessun altro", () => {
+    expect(listStatusValues("PENDING")).toEqual(["PENDING"]);
+    expect(listStatusValues("ERROR")).toEqual(["ERROR"]);
+    // Anche chiedendo uno stato del default: la lista è di uno, non di due.
+    expect(listStatusValues("ACCEPTED")).toEqual(["ACCEPTED"]);
+  });
+});
+
 describe("parseListPagination", () => {
   function params(query: string): URLSearchParams {
     return new URLSearchParams(query);
@@ -423,7 +492,7 @@ describe("parseListPagination", () => {
   it("returns the documented defaults when no params are present", () => {
     const result = parseListPagination(params(""), REQUEST_ID);
     expect(result).toEqual({
-      data: { page: 1, limit: LIST_DEFAULT_LIMIT, kind: null },
+      data: { page: 1, limit: LIST_DEFAULT_LIMIT, kind: null, status: null },
     });
   });
 
@@ -432,15 +501,42 @@ describe("parseListPagination", () => {
       params("page=2&limit=50&kind=SALE"),
       REQUEST_ID,
     );
-    expect(result).toEqual({ data: { page: 2, limit: 50, kind: "SALE" } });
+    expect(result).toEqual({
+      data: { page: 2, limit: 50, kind: "SALE", status: null },
+    });
   });
 
   it("accepts kind=VOID", () => {
     const result = parseListPagination(params("kind=VOID"), REQUEST_ID);
     expect(result).toEqual({
-      data: { page: 1, limit: LIST_DEFAULT_LIMIT, kind: "VOID" },
+      data: { page: 1, limit: LIST_DEFAULT_LIMIT, kind: "VOID", status: null },
     });
   });
+
+  it("parses status=PENDING (l'elenco degli scontrini in sospeso)", () => {
+    const result = parseListPagination(params("status=PENDING"), REQUEST_ID);
+    expect(result).toEqual({
+      data: {
+        page: 1,
+        limit: LIST_DEFAULT_LIMIT,
+        kind: null,
+        status: "PENDING",
+      },
+    });
+  });
+
+  it.each(["PENDING", "ACCEPTED", "VOID_ACCEPTED", "REJECTED", "ERROR"])(
+    "accetta status=%s, l'insieme completo degli stati persistiti",
+    (status) => {
+      const result = parseListPagination(
+        params(`status=${status}`),
+        REQUEST_ID,
+      );
+      expect(result).toEqual({
+        data: { page: 1, limit: LIST_DEFAULT_LIMIT, kind: null, status },
+      });
+    },
+  );
 
   it("accepts limit at the maximum", () => {
     const result = parseListPagination(
@@ -448,7 +544,7 @@ describe("parseListPagination", () => {
       REQUEST_ID,
     );
     expect(result).toEqual({
-      data: { page: 1, limit: LIST_MAX_LIMIT, kind: null },
+      data: { page: 1, limit: LIST_MAX_LIMIT, kind: null, status: null },
     });
   });
 
@@ -458,7 +554,7 @@ describe("parseListPagination", () => {
       REQUEST_ID,
     );
     expect(result).toEqual({
-      data: { page: 1, limit: LIST_MAX_LIMIT, kind: null },
+      data: { page: 1, limit: LIST_MAX_LIMIT, kind: null, status: null },
     });
   });
 
@@ -473,6 +569,17 @@ describe("parseListPagination", () => {
     { name: "limit=0 (below min)", query: "limit=0", field: "limit" },
     { name: "limit=abc (non numeric)", query: "limit=abc", field: "limit" },
     { name: "kind=FOO (invalid enum)", query: "kind=FOO", field: "kind" },
+    {
+      name: "status=FOO (invalid enum)",
+      query: "status=FOO",
+      field: "status",
+    },
+    {
+      name: "status=pending (case-sensitive)",
+      query: "status=pending",
+      field: "status",
+    },
+    { name: "status= (vuoto)", query: "status=", field: "status" },
   ])(
     "rejects $name with a 400 INVALID_QUERY_PARAM mentioning the field",
     async ({ query, field }) => {
