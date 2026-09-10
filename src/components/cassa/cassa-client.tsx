@@ -5,6 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Plus, ShoppingCart, X } from "lucide-react";
+import { useCartIdempotencyKey } from "@/hooks/use-cart-idempotency-key";
 import { useCassa } from "@/hooks/use-cassa";
 import { VAT_CODES, VatCode } from "@/types/cassa";
 import type { CartLine, PaymentMethod } from "@/types/cassa";
@@ -71,6 +72,13 @@ export function CassaClient({
     totalCents,
     total,
   } = useCassa();
+
+  // Chiave di idempotenza stabile per carrello (REVIEW.md #103, slice 3): un
+  // retry sullo stesso carrello riusa la stessa chiave e collide sul vincolo
+  // UNIQUE, che è l'unico ingresso della stale-recovery. Prima la cassa ne
+  // coniava una nuova a ogni submit e ogni retry lasciava indietro una riga
+  // PENDING che nessuno avrebbe più riconciliato.
+  const idempotency = useCartIdempotencyKey();
 
   const [step, setStep] = useState<Step>("cart");
   // id dell'articolo in modifica (null = nuova aggiunta)
@@ -187,6 +195,10 @@ export function CassaClient({
       clearCart();
       setGlobalDiscountCents(0);
       setSplitCashCents(null);
+      // Rotazione obbligatoria: senza, due vendite identiche di fila — due
+      // caffè — riuserebbero la stessa chiave e la seconda riceverebbe il
+      // successo idempotente della prima senza emettere nulla.
+      idempotency.rotate();
       track(UMAMI_EVENTS.receiptEmitted);
       setSuccessData({
         documentId: result.documentId,
@@ -278,18 +290,25 @@ export function CassaClient({
 
   const handleSubmit = () => {
     const payments = buildPayments();
-    mutation.mutate({
+    const payload = {
       businessId,
       lines,
       // Mutuamente esclusivi: lo schema pretende esattamente uno dei due.
       paymentMethod: payments ? undefined : paymentMethod,
       payments,
-      idempotencyKey: crypto.randomUUID(),
       lotteryCode: lotteryCode || null,
       // Assente quando non c'e': tiene il payload — e quindi il fingerprint di
       // idempotenza — identico a quello di prima che il campo esistesse.
       globalDiscount:
         globalDiscountCents > 0 ? globalDiscountCents / 100 : undefined,
+    };
+    mutation.mutate({
+      ...payload,
+      // Il payload serializzato è il fingerprint: copre tutto ciò che il
+      // server hasha in `hashSaleRequest`, e qualcosa in più. Più fine del
+      // necessario ruota qualche volta di troppo; più grossolano lascerebbe
+      // passare un cambiamento che il server vede, cioè un mismatch.
+      idempotencyKey: idempotency.keyFor(JSON.stringify(payload)),
     });
   };
 
@@ -509,6 +528,13 @@ export function CassaClient({
                 </>
               )}
             </p>
+            {mutation.data?.code === "PENDING_IN_PROGRESS" && (
+              <p className="text-muted-foreground mt-2 text-xs">
+                {
+                  "Non riemettere con lo stesso carrello: rischieresti un doppione fiscale. Se lo scontrino resta in sospeso, fra qualche minuto comparirà in cima alla pagina l'avviso per verificarne lo stato all'Agenzia delle Entrate."
+                }
+              </p>
+            )}
             {mutation.data?.passwordExpired && (
               <Button
                 variant="outline"

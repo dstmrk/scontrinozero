@@ -7,6 +7,7 @@ import path from "path";
 // server-side e gira nel più economico environment node — il pragma per-file
 // `@vitest-environment` resta supportato e vince comunque sul progetto.
 const JSDOM_TS_TESTS = [
+  "src/hooks/use-cart-idempotency-key.test.ts",
   "src/hooks/use-cassa.test.ts",
   "src/lib/hash-target.test.ts",
   "src/lib/safe-storage.test.ts",

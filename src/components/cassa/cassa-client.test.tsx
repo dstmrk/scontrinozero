@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 
 const { mockMutate, mockReset } = vi.hoisted(() => ({
   mockMutate: vi.fn(),
@@ -11,12 +11,16 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+// `mutationData` è il valore che `useMutation().data` restituisce: i test che
+// verificano il ramo d'errore lo impostano prima di renderizzare.
+let mutationData: unknown = undefined;
+
 vi.mock("@tanstack/react-query", () => ({
   useMutation: () => ({
     mutate: mockMutate,
     reset: mockReset,
     isPending: false,
-    data: undefined,
+    data: mutationData,
   }),
 }));
 
@@ -104,5 +108,95 @@ describe("CassaClient — sconto di riga", () => {
     expect(
       screen.queryByRole("button", { name: DISCOUNT_LINK }),
     ).not.toBeInTheDocument();
+  });
+});
+
+// --- Chiave di idempotenza (REVIEW.md #103, slice 3) ---
+
+/** Batte un importo sul tastierino e conferma la riga. */
+function addLine(digits: string): void {
+  openAddItem();
+  for (const digit of digits) {
+    fireEvent.click(screen.getByRole("button", { name: digit }));
+  }
+  fireEvent.click(screen.getByRole("button", { name: "Aggiungi" }));
+}
+
+function emit(): void {
+  fireEvent.click(screen.getByRole("button", { name: "Continua" }));
+  fireEvent.click(screen.getByRole("button", { name: "Emetti scontrino" }));
+}
+
+function lastKey(): string {
+  return mockMutate.mock.calls.at(-1)?.[0].idempotencyKey as string;
+}
+
+describe("CassaClient — chiave di idempotenza", () => {
+  beforeEach(() => {
+    mockMutate.mockClear();
+    mutationData = undefined;
+  });
+
+  it("riusa la stessa chiave se il carrello non è cambiato", () => {
+    render(<CassaClient {...defaultProps} />);
+    addLine("500");
+    emit();
+    const first = lastKey();
+
+    fireEvent.click(screen.getByRole("button", { name: "Emetti scontrino" }));
+
+    // È la proprietà che riapre l'ingresso della stale-recovery: il retry
+    // collide sul vincolo UNIQUE invece di inserire una riga nuova e lasciare
+    // la precedente PENDING per sempre.
+    expect(lastKey()).toBe(first);
+    expect(first).toBeTruthy();
+  });
+
+  it("conia una chiave nuova quando il carrello cambia", () => {
+    render(<CassaClient {...defaultProps} />);
+    addLine("500");
+    emit();
+    const first = lastKey();
+
+    fireEvent.click(screen.getByRole("button", { name: "Torna indietro" }));
+    addLine("300");
+    emit();
+
+    // Senza questa rotazione un ritocco al carrello produrrebbe
+    // IDEMPOTENCY_PAYLOAD_MISMATCH e bloccherebbe l'utente al banco.
+    expect(lastKey()).not.toBe(first);
+  });
+
+  it("conia una chiave nuova quando cambia la modalità di pagamento", () => {
+    render(<CassaClient {...defaultProps} />);
+    addLine("500");
+    fireEvent.click(screen.getByRole("button", { name: "Continua" }));
+    fireEvent.click(screen.getByRole("button", { name: "Emetti scontrino" }));
+    const first = lastKey();
+
+    fireEvent.click(screen.getByRole("button", { name: /elettronico/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Emetti scontrino" }));
+
+    // Il fingerprint deve essere almeno tanto fine quanto l'hash del server:
+    // la modalità di pagamento entra in `hashSaleRequest`.
+    expect(lastKey()).not.toBe(first);
+  });
+
+  it("indirizza alla verifica quando l'emissione resta in sospeso", () => {
+    mutationData = {
+      error: "Scontrino precedente ancora in elaborazione.",
+      code: "PENDING_IN_PROGRESS",
+    };
+    render(<CassaClient {...defaultProps} />);
+    addLine("500");
+    fireEvent.click(screen.getByRole("button", { name: "Continua" }));
+
+    // Il blocco è voluto — riemettere lo stesso carrello rischia il doppione —
+    // ma l'utente bloccato deve avere qualcosa da premere (slice 2).
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toContain(
+      "Non riemettere con lo stesso carrello",
+    );
+    expect(alert.textContent).toContain("verificarne lo stato");
   });
 });
