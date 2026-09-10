@@ -262,3 +262,32 @@ del restart.
 Privacy Policy: stessa procedura, aggiungere anche a `sitemap.ts`,
 `sitemap.test.ts` e `sonar.coverage.exclusions`. Notifica utenti ≥15 giorni
 prima dell'entrata in vigore.
+
+## Accendere il Send Email Hook (mail di conferma via Resend)
+
+La conferma registrazione non parte più dall'SMTP di GoTrue ma da
+`/api/auth/send-email`, che rende `src/emails/confirm-signup.tsx` e spedisce
+via Resend. Motivo: GoTrue compone il messaggio con `SetBody("text/html", …)`
+e nient'altro — niente `multipart/alternative`, niente parte `text/plain` — e
+un messaggio solo-HTML è un input negativo per i filtri antispam. L'API Resend
+la parte testuale la genera da sé.
+
+L'interruttore è **per progetto Supabase**, quindi si accende tre volte (dev,
+sandbox, prod) e nell'ordine giusto, o le registrazioni restano senza mail:
+
+1. Deploy dell'immagine che contiene la route. Prima di questo l'hook non ha
+   nessuno che risponda.
+2. Supabase → Authentication → Hooks → **Send Email** → HTTPS endpoint
+   `https://<app-hostname>/api/auth/send-email`. Copia il segreto generato
+   (`v1,whsec_<base64>`).
+3. Metti il segreto in `SEND_EMAIL_HOOK_SECRET` nel `.env` di quell'ambiente e
+   riavvia il container. Senza, la route risponde 500 a ogni chiamata.
+4. Abilita l'hook e registra un utente di prova: la mail deve arrivare.
+
+**Rollback**: spegnere l'hook nel dashboard. GoTrue torna all'SMTP e al
+template salvato nel dashboard stesso, che resta lì — per questo il repo non
+ne tiene più una copia.
+
+Il template del dashboard e `src/emails/confirm-signup.tsx` non sono
+sincronizzati da niente: con l'hook acceso quello del dashboard è codice morto
+che vive solo per il rollback.

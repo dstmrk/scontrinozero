@@ -218,9 +218,15 @@ qui: destinatario su Exchange Online (`*.mail.protection.outlook.com`), tre
 conferme accettate con `250` — quindi "Delivered" su Resend — e nessuna arrivata
 in casella. EOP filtra **dopo** l'accettazione e mette in quarantena, dove
 l'utente non vede nulla e non può nemmeno cercare: aveva controllato lo spam,
-come le diceva la nostra pagina. SPF e DKIM erano allineati, quindi il solo
-input di reputazione che possiamo ancora migliorare è la policy DMARC. Non
-dimostra che `p=none` sia stata la causa, ma toglie l'ultimo alibi al rinvio.
+come le diceva la nostra pagina.
+
+L'indagine che ne è seguita ha trovato un secondo input, già chiuso: quella era
+l'unica mail dell'app composta da GoTrue, che manda solo `text/html` senza parte
+`text/plain`, e il solo-HTML è un segnale negativo per i filtri. Ora passa dal
+Send Email Hook e dall'API Resend come tutte le altre. Resta questa voce: SPF e
+DKIM erano allineati, quindi dopo il fix del formato la policy DMARC è l'ultimo
+input di reputazione che possiamo ancora muovere. Non dimostra che `p=none` sia
+stata la causa, ma toglie l'ultimo alibi al rinvio.
 
 ### 96. Arrotondamento DL 50/2017: manca la voce di pagamento `Arro. DL N.50/2017`
 

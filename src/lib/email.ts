@@ -75,12 +75,21 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
         "e.g. YourApp <noreply@mail.yourdomain.com>",
     );
   }
+  // Reply-To su una casella vera, quando è configurata. Serve a chi risponde
+  // alla mail — un `noreply@` che ingoia le risposte è il modo più veloce per
+  // perdere la sola cosa che un esercente in difficoltà pensa di poter fare —
+  // e allinea le nostre transazionali alla forma che i filtri si aspettano da
+  // un mittente raggiungibile. Assente = header omesso: un self-hosted non
+  // deve ereditare il nostro indirizzo di supporto.
+  const replyTo = process.env.REPLY_TO_EMAIL?.trim();
+
   const { error } = await withTimeout(
     getResendClient().emails.send({
       from,
       to: options.to,
       subject: options.subject,
       react: options.react,
+      ...(replyTo ? { replyTo } : {}),
     }),
     SEND_EMAIL_TIMEOUT_MS,
     "sendEmail",
