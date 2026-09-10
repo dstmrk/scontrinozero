@@ -354,6 +354,15 @@ tiene le due modifiche distinguibili se qualcosa si rompe.
 
 I report si leggono senza XML attivando **Email → DMARC Management** sulla zona.
 
+**Evidenza sul campo (2026-09-08).** Una registrazione è andata persa proprio
+qui: destinatario su Exchange Online (`*.mail.protection.outlook.com`), tre
+conferme accettate con `250` — quindi "Delivered" su Resend — e nessuna arrivata
+in casella. EOP filtra **dopo** l'accettazione e mette in quarantena, dove
+l'utente non vede nulla e non può nemmeno cercare: aveva controllato lo spam,
+come le diceva la nostra pagina. SPF e DKIM erano allineati, quindi il solo
+input di reputazione che possiamo ancora migliorare è la policy DMARC. Non
+dimostra che `p=none` sia stata la causa, ma toglie l'ultimo alibi al rinvio.
+
 ### 96. Arrotondamento DL 50/2017: manca la voce di pagamento `Arro. DL N.50/2017`
 
 Il layout normativo del documento commerciale (`HAR.md` voce #17d) prevede che

@@ -518,6 +518,7 @@ describe("auth-actions", () => {
       // Anti-enumeration: surface the same UX as the resetPassword flow.
       // signUp must NOT be called at all when the email already exists.
       mockLimit.mockResolvedValueOnce([{ id: "existing-profile-id" }]);
+      mockResend.mockResolvedValue({ error: null });
 
       const { signUp } = await import("./auth-actions");
       try {
@@ -539,6 +540,106 @@ describe("auth-actions", () => {
         }
       }
       expect(mockSignUp).not.toHaveBeenCalled();
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("re-invia la conferma quando l'email è già registrata (il redirect a /verify-email non deve mentire)", async () => {
+      // Prima di questo fix il pre-check reindirizzava a /verify-email SENZA
+      // inviare nulla: chi ri-tentava la registrazione perché la prima mail non
+      // era arrivata vedeva la stessa pagina di conferma e restava ad aspettare
+      // un messaggio che non era mai partito. `signUp` resta non chiamata (la
+      // race di REVIEW #65 non si riapre), ma la conferma ora parte davvero.
+      mockLimit.mockResolvedValueOnce([{ id: "existing-profile-id" }]);
+      mockResend.mockResolvedValue({ error: null });
+
+      const { signUp } = await import("./auth-actions");
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+          }),
+        );
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+      }
+
+      expect(mockResend).toHaveBeenCalledWith({
+        type: "signup",
+        email: "test@example.com",
+        options: {
+          emailRedirectTo:
+            "https://app.scontrinozero.it/callback?redirect=%2Fdashboard",
+        },
+      });
+      expect(mockSignUp).not.toHaveBeenCalled();
+    });
+
+    it("reindirizza a /verify-email anche se il re-invio LANCIA sull'email già registrata (guasto di rete)", async () => {
+      // L'SDK ritorna `{ error }` sui rifiuti di GoTrue ma lancia sui guasti di
+      // rete. Il pre-check anti-enumeration prima non poteva fallire: se il
+      // throw risalisse, un hiccup verso Supabase manderebbe questo path
+      // nell'error boundary di Next e la pagina d'errore, diversa dal redirect,
+      // rivelerebbe che l'email è già registrata.
+      mockLimit.mockResolvedValueOnce([{ id: "existing-profile-id" }]);
+      mockResend.mockRejectedValue(new Error("fetch failed"));
+
+      const { signUp } = await import("./auth-actions");
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+          }),
+        );
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+        if (isRedirectError(err)) {
+          expect(err.url).toBe("/verify-email");
+        }
+      }
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("reindirizza comunque a /verify-email se il re-invio fallisce sull'email già registrata (email già confermata)", async () => {
+      // Email esistente e GIÀ confermata: GoTrue rifiuta `resend type=signup`.
+      // È la condizione che protegge gli utenti reali dallo spam — nessuna mail
+      // parte — ma la risposta deve restare indistinguibile, altrimenti il
+      // pre-check diventa un oracolo di enumerazione.
+      mockLimit.mockResolvedValueOnce([{ id: "existing-profile-id" }]);
+      mockResend.mockResolvedValue({
+        error: { message: "User already confirmed", status: 422 },
+      });
+
+      const { signUp } = await import("./auth-actions");
+      try {
+        await signUp(
+          formData({
+            email: "test@example.com",
+            password: "Secure#99x",
+            confirmPassword: "Secure#99x",
+            termsAccepted: "true",
+            specificClausesAccepted: "true",
+            captchaToken: "valid-token",
+          }),
+        );
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+        if (isRedirectError(err)) {
+          expect(err.url).toBe("/verify-email");
+        }
+      }
       expect(mockInsert).not.toHaveBeenCalled();
     });
 
@@ -1828,6 +1929,25 @@ describe("auth-actions", () => {
             "https://app.scontrinozero.it/callback?redirect=%2Fdashboard",
         },
       });
+    });
+
+    it("reindirizza a /verify-email anche quando resend LANCIA (guasto di rete verso Supabase)", async () => {
+      // Stesso presidio del pre-check di signUp: un throw dell'SDK non deve
+      // sostituire il redirect con l'error boundary di Next.
+      mockResend.mockRejectedValue(new Error("fetch failed"));
+
+      const { resendConfirmationEmail } = await import("./auth-actions");
+      try {
+        await resendConfirmationEmail(
+          formData({ email: "test@example.com", captchaToken: "valid-token" }),
+        );
+        expect.fail("Expected redirect");
+      } catch (err) {
+        expect(isRedirectError(err)).toBe(true);
+        if (isRedirectError(err)) {
+          expect(err.url).toBe("/verify-email");
+        }
+      }
     });
 
     it("redirects to /verify-email even when resend fails (anti-enumeration)", async () => {
