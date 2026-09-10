@@ -127,3 +127,45 @@ describe("sendEmail", () => {
     expect(mockResendConstructor).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("sendEmail reply-to", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    _resetResendForTest();
+    process.env.FROM_EMAIL = "Test <test@mail.example.com>";
+    mockResendSend.mockResolvedValue({ data: { id: "abc" }, error: null });
+  });
+
+  afterEach(() => {
+    delete process.env.FROM_EMAIL;
+    delete process.env.REPLY_TO_EMAIL;
+  });
+
+  it("passes REPLY_TO_EMAIL when configured", async () => {
+    process.env.REPLY_TO_EMAIL = "info@example.com";
+
+    await sendEmail({ to: "user@example.com", subject: "S", react: fakeReact });
+
+    expect(mockResendSend).toHaveBeenCalledWith(
+      expect.objectContaining({ replyTo: "info@example.com" }),
+    );
+  });
+
+  it("omits replyTo entirely when REPLY_TO_EMAIL is unset", async () => {
+    delete process.env.REPLY_TO_EMAIL;
+
+    await sendEmail({ to: "user@example.com", subject: "S", react: fakeReact });
+
+    expect(mockResendSend.mock.calls[0][0]).not.toHaveProperty("replyTo");
+  });
+
+  it("omits replyTo when REPLY_TO_EMAIL is present but blank", async () => {
+    // Il compose che scrive `REPLY_TO_EMAIL=` non sta configurando un
+    // indirizzo vuoto: sta dicendo che non ne ha uno (regola 18).
+    process.env.REPLY_TO_EMAIL = "   ";
+
+    await sendEmail({ to: "user@example.com", subject: "S", react: fakeReact });
+
+    expect(mockResendSend.mock.calls[0][0]).not.toHaveProperty("replyTo");
+  });
+});

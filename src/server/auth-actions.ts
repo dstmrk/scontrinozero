@@ -17,6 +17,7 @@ import { getClientIp, hashIp } from "@/lib/get-client-ip";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { sendEmail } from "@/lib/email";
+import { buildConfirmationRedirectTo } from "@/lib/confirmation-redirect";
 import { PasswordResetEmail } from "@/emails/password-reset";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
@@ -343,26 +344,6 @@ async function compensatingDeleteAuthUser(authUserId: string): Promise<void> {
     }
     await new Promise((resolve) => setTimeout(resolve, attempt * 500));
   }
-}
-
-/**
- * `emailRedirectTo` dei link di conferma registrazione, condiviso dai tre punti
- * che li generano: `signUp`, il suo pre-check sull'email già registrata e
- * `resendConfirmationEmail`.
- *
- * Passa da `/callback` invece di puntare `/dashboard` direttamente: su link
- * scaduto Supabase reindirizza qui senza `code` e con l'errore reale nel
- * fragment (invisibile al server). Senza `/callback` in mezzo l'utente atterrava
- * sul login senza alcun messaggio, perché `/dashboard` è protetto e il
- * middleware lo rimbalzava a `/login` portandosi dietro il fragment che la
- * pagina di login non legge.
- */
-function buildConfirmationRedirectTo(): string {
-  const hostname =
-    process.env.APP_HOSTNAME ??
-    process.env.NEXT_PUBLIC_APP_HOSTNAME ??
-    "app.scontrinozero.it";
-  return `https://${hostname}/callback?redirect=${encodeURIComponent("/dashboard")}`;
 }
 
 /**
