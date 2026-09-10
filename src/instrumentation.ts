@@ -234,6 +234,17 @@ export const STALE_PENDING_SWEEP_INTERVAL_MS = 6 * 60 * 60 * 1000;
  */
 export const STALE_PENDING_SWEEP_INITIAL_DELAY_MS = 5 * 60 * 1000;
 
+/**
+ * Budget di latenza del conteggio, allineato a
+ * `PRUNE_CANDIDATES_QUERY_TIMEOUT_MS`: è la stessa forma di problema, cioè un
+ * job di background che scandisce una tabella senza filtro per tenant sullo
+ * stesso pool da 10 che serve la cassa. Non rende la query più veloce — rende
+ * limitato il suo fallimento, così una scansione degenere non tiene occupata
+ * una connessione che serve a emettere scontrini (la lezione di REVIEW.md
+ * #81).
+ */
+export const STALE_PENDING_COUNT_TIMEOUT_MS = 30_000;
+
 let stalePendingSweepStarted = false;
 
 /**
@@ -258,10 +269,13 @@ export function startStalePendingSweep() {
   const runSweep = async () => {
     const { logger } = await import("@/lib/logger");
     try {
-      const { getDb } = await import("@/db");
+      const { withStatementTimeout } = await import("@/lib/db-timeout");
       const { countStalePendingDocuments } =
         await import("@/lib/services/ade-recovery");
-      const counted = await countStalePendingDocuments(getDb());
+      const counted = await withStatementTimeout(
+        STALE_PENDING_COUNT_TIMEOUT_MS,
+        (tx) => countStalePendingDocuments(tx),
+      );
       const total = counted.sale + counted.void;
       if (total === 0) return;
 

@@ -38,6 +38,7 @@ import {
   buildAdeSearchWindow,
   claimStaleDocument,
   findClaimedTransactionIds,
+  isStaleUpdatedAt,
   parseAdeResultDate,
   reconcileSaleDocument,
   staleUpdatedBefore,
@@ -81,13 +82,14 @@ export type VerifyPendingSaleResult =
 const IN_PROGRESS: VerifyPendingSaleResult = { outcome: "in-progress" };
 
 const NOT_FOUND_ERROR = "Scontrino non trovato. Ricarica la pagina e riprova.";
+/**
+ * Il claim ha già bumpato `updated_at`, quindi la riga esce dalla soglia stale
+ * e sparisce dall'elenco finché non ci rientra. È voluto — impedisce di
+ * martellare AdE durante un disservizio — ma va detto, altrimenti l'esercente
+ * cerca un pulsante che per un po' non c'è.
+ */
 const ADE_UNREACHABLE_ERROR =
-  "Agenzia delle Entrate non raggiungibile: non è stato possibile verificare. Riprova tra qualche minuto.";
-
-/** Il predicato di staleness, in un posto solo fra elenco e verifica. */
-function isStaleRow(updatedAt: Date): boolean {
-  return updatedAt.getTime() < staleUpdatedBefore().getTime();
-}
+  "Agenzia delle Entrate non raggiungibile: non è stato possibile verificare. Lo scontrino resta in sospeso e tornerà nell'elenco da solo: riprova più tardi.";
 
 /**
  * Le vendite `PENDING` di un business ferme oltre la soglia stale.
@@ -218,6 +220,54 @@ function toVerifyResult(
 }
 
 /**
+ * Carica la riga e scarta gli stati che non ammettono la verifica.
+ * **Nessun effetto collaterale**: qui non si rivendica niente.
+ */
+async function loadVerifiableSale(
+  businessId: string,
+  documentId: string,
+): Promise<{ row: PendingRow } | { done: VerifyPendingSaleResult }> {
+  const row = await loadPendingSale(businessId, documentId);
+  if (!row) return { done: { error: NOT_FOUND_ERROR } };
+
+  // Un'altra sessione (o il recovery dell'emit) l'ha già chiusa: alla UI basta
+  // ricaricare, non c'è niente da verificare.
+  if (row.status !== "PENDING") return { done: { outcome: "settled" } };
+
+  // Fresca: potrebbe essere ancora in volo. Verificare adesso rischierebbe di
+  // dichiarare "non registrato" un documento che AdE sta accettando.
+  if (!isStaleUpdatedAt(row.updatedAt)) return { done: IN_PROGRESS };
+
+  return { row };
+}
+
+/**
+ * Risolve la sessione AdE dell'esercente. **Nessun effetto collaterale**:
+ * va prima del claim, perché il claim bumpa `updated_at` e una riga bumpata
+ * esce dalla soglia stale — sparirebbe dal banner per mezz'ora senza che sia
+ * successo niente.
+ */
+async function resolveAdeSession(
+  businessId: string,
+): Promise<
+  | { params: ReturnType<typeof toAdeSessionParams> }
+  | { done: VerifyPendingSaleResult }
+> {
+  const prerequisites = await fetchAdePrerequisites(businessId);
+  if ("error" in prerequisites) return { done: { error: prerequisites.error } };
+  if (prerequisites.method === "cie" && isCieSessionMissing(businessId)) {
+    return {
+      done: {
+        error:
+          "Sessione CIE scaduta: rifai l'accesso per verificare lo scontrino.",
+        reauthRequired: true,
+      },
+    };
+  }
+  return { params: toAdeSessionParams(businessId, prerequisites) };
+}
+
+/**
  * Interroga AdE per una riga già rivendicata e ritorna i candidati compatibili.
  *
  * Separata dalla decisione perché la usano due strade: la verifica e la
@@ -257,34 +307,83 @@ async function searchAdeCandidates(
   }
 }
 
+/** Contesto che le due strade ricevono per decidere. */
+type ReconciledContext = {
+  readonly documentId: string;
+  readonly businessId: string;
+  readonly documents: readonly AdeDocumentSummary[];
+  readonly result: ReturnType<typeof reconcileSaleDocument>;
+};
+
 /**
- * Prepara la verifica: carica la riga, scarta gli stati che non la ammettono e
- * rivendica il claim. Ritorna il contesto o l'esito già deciso.
+ * Ossatura condivisa dalle due strade: gate → sessione → claim →
+ * `searchDocuments` → riconciliazione. Il chiamante fornisce solo `decide`,
+ * cioè cosa fare dell'esito — ed è lì che le due strade divergono davvero.
+ *
+ * L'ordine non è arbitrario. Il claim viene **dopo** la risoluzione della
+ * sessione e **prima** della chiamata ad AdE: prima, perché bumpare
+ * `updated_at` su una riga che poi non tocchiamo la nasconderebbe dal banner
+ * per mezz'ora; dopo, perché è il CAS a serializzare due verifiche concorrenti
+ * — due schede aperte, o una verifica mentre un retry dell'emit sta girando.
  */
-async function claimForVerification(
-  businessId: string,
-  documentId: string,
-): Promise<
-  { row: PendingRow; expectedCents: number } | { done: VerifyPendingSaleResult }
-> {
-  const row = await loadPendingSale(businessId, documentId);
-  if (!row) return { done: { error: NOT_FOUND_ERROR } };
+async function reconcileUnderUserSession(
+  params: { businessId: string; documentId: string },
+  decide: (ctx: ReconciledContext) => Promise<VerifyPendingSaleResult>,
+): Promise<VerifyPendingSaleResult> {
+  const { businessId, documentId } = params;
 
-  // Un'altra sessione (o il recovery dell'emit) l'ha già chiusa: alla UI basta
-  // ricaricare, non c'è niente da verificare.
-  if (row.status !== "PENDING") return { done: { outcome: "settled" } };
+  const loaded = await loadVerifiableSale(businessId, documentId);
+  if ("done" in loaded) return loaded.done;
+  const { row } = loaded;
 
-  // Fresca: potrebbe essere ancora in volo. Verificare adesso rischierebbe di
-  // dichiarare "non registrato" un documento che AdE sta accettando.
-  if (!isStaleRow(row.updatedAt)) return { done: IN_PROGRESS };
+  // Già trasmesso ad AdE e persistito: manca solo la UPDATE finale, e non c'è
+  // niente da cercare né da scegliere. Vale per entrambe le strade.
+  if (row.adeTransactionId && row.adeProgressive) {
+    if (!(await claimStaleDocument(getDb(), row.id, row.updatedAt))) {
+      return IN_PROGRESS;
+    }
+    return toVerifyResult(
+      documentId,
+      await finalizeSaleOnly(
+        documentId,
+        row.adeTransactionId,
+        row.adeProgressive,
+      ),
+    );
+  }
 
-  // CAS su `updated_at`: serializza due verifiche concorrenti (due schede
-  // aperte, o una verifica mentre un retry dell'emit sta girando). Chi perde
-  // non ri-sottomette e non finalizza nulla.
-  const claimed = await claimStaleDocument(getDb(), row.id, row.updatedAt);
-  if (!claimed) return { done: IN_PROGRESS };
+  const session = await resolveAdeSession(businessId);
+  if ("done" in session) return session.done;
 
-  return { row, expectedCents: await expectedTotalCents(row.id) };
+  // Letto prima del claim: è una SELECT, e se fallisse dopo lascerebbe la riga
+  // rivendicata — quindi fuori dalla soglia stale — senza aver fatto nulla.
+  const expectedCents = await expectedTotalCents(row.id);
+
+  if (!(await claimStaleDocument(getDb(), row.id, row.updatedAt))) {
+    return IN_PROGRESS;
+  }
+
+  return withAdeSession(session.params, async (adeClient) => {
+    const found = await searchAdeCandidates(adeClient, {
+      documentId,
+      businessId,
+      row,
+    });
+    if ("error" in found) return { error: found.error };
+
+    return decide({
+      documentId,
+      businessId,
+      documents: found.documents,
+      result: reconcileSaleDocument({
+        documents: found.documents,
+        expectedTotalCents: expectedCents,
+        createdAt: row.createdAt,
+        lotteryCode: row.lotteryCode,
+        claimedIdtrx: found.claimedIdtrx,
+      }),
+    });
+  });
 }
 
 /**
@@ -298,84 +397,39 @@ export async function verifyPendingSale(params: {
   businessId: string;
   documentId: string;
 }): Promise<VerifyPendingSaleResult> {
-  const { businessId, documentId } = params;
+  return reconcileUnderUserSession(params, async (ctx) => {
+    const { documentId, businessId, result } = ctx;
 
-  const prepared = await claimForVerification(businessId, documentId);
-  if ("done" in prepared) return prepared.done;
-  const { row, expectedCents } = prepared;
-
-  // Già trasmesso ad AdE e persistito: manca solo la UPDATE finale, che non
-  // richiede di interrogare il portale.
-  if (row.adeTransactionId && row.adeProgressive) {
-    return toVerifyResult(
-      documentId,
-      await finalizeSaleOnly(
+    if (result.kind === "match") {
+      logger.info(
+        { documentId, businessId, idtrx: result.idtrx },
+        "Verifica PENDING: match su AdE → finalize",
+      );
+      return toVerifyResult(
         documentId,
-        row.adeTransactionId,
-        row.adeProgressive,
-      ),
-    );
-  }
+        await finalizeSaleOnly(
+          documentId,
+          result.idtrx,
+          result.numeroProgressivo,
+          result.registeredAt,
+        ),
+      );
+    }
 
-  const prerequisites = await fetchAdePrerequisites(businessId);
-  if ("error" in prerequisites) return { error: prerequisites.error };
-  if (prerequisites.method === "cie" && isCieSessionMissing(businessId)) {
-    return {
-      error:
-        "Sessione CIE scaduta: rifai l'accesso per verificare lo scontrino.",
-      reauthRequired: true,
-    };
-  }
-
-  return withAdeSession(
-    toAdeSessionParams(businessId, prerequisites),
-    async (adeClient) => {
-      const found = await searchAdeCandidates(adeClient, {
+    if (result.kind === "ambiguous") {
+      logger.warn(
+        { documentId, businessId, candidates: result.candidates.length },
+        "Verifica PENDING: candidati multipli → sceglie l'esercente",
+      );
+      return {
+        outcome: "ambiguous",
         documentId,
-        businessId,
-        row,
-      });
-      if ("error" in found) return { error: found.error };
+        candidates: result.candidates.map(toCandidate),
+      };
+    }
 
-      const result = reconcileSaleDocument({
-        documents: found.documents,
-        expectedTotalCents: expectedCents,
-        createdAt: row.createdAt,
-        lotteryCode: row.lotteryCode,
-        claimedIdtrx: found.claimedIdtrx,
-      });
-
-      if (result.kind === "match") {
-        logger.info(
-          { documentId, businessId, idtrx: result.idtrx },
-          "Verifica PENDING: match su AdE → finalize",
-        );
-        return toVerifyResult(
-          documentId,
-          await finalizeSaleOnly(
-            documentId,
-            result.idtrx,
-            result.numeroProgressivo,
-            result.registeredAt,
-          ),
-        );
-      }
-
-      if (result.kind === "ambiguous") {
-        logger.warn(
-          { documentId, businessId, candidates: result.candidates.length },
-          "Verifica PENDING: candidati multipli → sceglie l'esercente",
-        );
-        return {
-          outcome: "ambiguous",
-          documentId,
-          candidates: result.candidates.map(toCandidate),
-        };
-      }
-
-      return markNotRegistered(documentId, businessId);
-    },
-  );
+    return markNotRegistered(documentId, businessId);
+  });
 }
 
 /**
@@ -421,70 +475,41 @@ export async function confirmPendingSaleCandidate(params: {
   documentId: string;
   idtrx: string;
 }): Promise<VerifyPendingSaleResult> {
-  const { businessId, documentId, idtrx } = params;
+  const { idtrx } = params;
 
-  const prepared = await claimForVerification(businessId, documentId);
-  if ("done" in prepared) return prepared.done;
-  const { row, expectedCents } = prepared;
+  return reconcileUnderUserSession(params, async (ctx) => {
+    const { documentId, businessId, documents, result } = ctx;
 
-  const prerequisites = await fetchAdePrerequisites(businessId);
-  if ("error" in prerequisites) return { error: prerequisites.error };
-  if (prerequisites.method === "cie" && isCieSessionMissing(businessId)) {
-    return {
-      error:
-        "Sessione CIE scaduta: rifai l'accesso per verificare lo scontrino.",
-      reauthRequired: true,
-    };
-  }
+    // Un solo candidato: l'ambiguità si è risolta da sé fra la verifica e la
+    // conferma. Si finalizza quello, purché sia il documento scelto.
+    let candidates: readonly AdeDocumentSummary[] = [];
+    if (result.kind === "ambiguous") {
+      candidates = result.candidates;
+    } else if (result.kind === "match") {
+      candidates = documents.filter((doc) => doc.idtrx === result.idtrx);
+    }
 
-  return withAdeSession(
-    toAdeSessionParams(businessId, prerequisites),
-    async (adeClient) => {
-      const found = await searchAdeCandidates(adeClient, {
-        documentId,
-        businessId,
-        row,
-      });
-      if ("error" in found) return { error: found.error };
-
-      const result = reconcileSaleDocument({
-        documents: found.documents,
-        expectedTotalCents: expectedCents,
-        createdAt: row.createdAt,
-        lotteryCode: row.lotteryCode,
-        claimedIdtrx: found.claimedIdtrx,
-      });
-
-      // Un solo candidato: l'ambiguità si è risolta da sé fra la verifica e la
-      // conferma. Si finalizza quello, purché sia il documento scelto.
-      const candidates =
-        result.kind === "ambiguous"
-          ? result.candidates
-          : result.kind === "match"
-            ? found.documents.filter((doc) => doc.idtrx === result.idtrx)
-            : [];
-      const chosen = candidates.find((doc) => doc.idtrx === idtrx);
-      if (!chosen) {
-        logger.warn(
-          { documentId, businessId },
-          "Conferma PENDING: idtrx non più fra i candidati → nessun finalize",
-        );
-        return { error: NOT_FOUND_ERROR };
-      }
-
-      logger.info(
-        { documentId, businessId, idtrx },
-        "Conferma PENDING: candidato scelto dall'esercente → finalize",
+    const chosen = candidates.find((doc) => doc.idtrx === idtrx);
+    if (!chosen) {
+      logger.warn(
+        { documentId, businessId },
+        "Conferma PENDING: idtrx non più fra i candidati → nessun finalize",
       );
-      return toVerifyResult(
+      return { error: NOT_FOUND_ERROR };
+    }
+
+    logger.info(
+      { documentId, businessId, idtrx },
+      "Conferma PENDING: candidato scelto dall'esercente → finalize",
+    );
+    return toVerifyResult(
+      documentId,
+      await finalizeSaleOnly(
         documentId,
-        await finalizeSaleOnly(
-          documentId,
-          chosen.idtrx,
-          chosen.numeroProgressivo,
-          parseAdeResultDate(chosen.data),
-        ),
-      );
-    },
-  );
+        chosen.idtrx,
+        chosen.numeroProgressivo,
+        parseAdeResultDate(chosen.data),
+      ),
+    );
+  });
 }

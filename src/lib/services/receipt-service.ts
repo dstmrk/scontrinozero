@@ -54,7 +54,7 @@ import {
   buildAdeSearchWindow,
   claimStaleDocument,
   findClaimedTransactionIds,
-  getStalePendingThresholdMs,
+  isStaleUpdatedAt,
   markDocumentErrorBestEffort,
   reconcileSaleDocument,
 } from "./ade-recovery";
@@ -436,24 +436,14 @@ async function handleExistingReceipt(args: {
     };
   }
 
-  // PENDING or ERROR: stale recovery decision.
-  //
-  // Staleness is gated on updatedAt, NOT the immutable createdAt: claimStaleDocument
-  // bumps updated_at when a retry wins the claim, so a receipt whose recovery is
-  // already in flight (submitSale in progress, status still PENDING) looks
-  // "recent" and an overlapping retry gets PENDING_IN_PROGRESS instead of winning
-  // a second claim against the bumped snapshot — which would re-submit and create
-  // a duplicate fiscal document on AdE (irreversible). createdAt is kept only for
-  // age logging in recoverStaleReceipt.
+  // PENDING or ERROR: stale recovery decision. Il predicato — e il perché sia
+  // su `updated_at` e non sull'immutabile `created_at` — vive in
+  // `isStaleUpdatedAt`. `createdAt` serve qui solo per l'età nei log e per la
+  // finestra di ricerca AdE.
   const createdAtMs = existing.createdAt
     ? new Date(existing.createdAt).getTime()
     : Number.NaN;
-  const updatedAtMs = existing.updatedAt
-    ? new Date(existing.updatedAt).getTime()
-    : Number.NaN;
-  const isStale =
-    Number.isFinite(updatedAtMs) &&
-    Date.now() - updatedAtMs > getStalePendingThresholdMs();
+  const isStale = isStaleUpdatedAt(existing.updatedAt);
   if (isStale) {
     return recoverStaleReceipt({
       existing,

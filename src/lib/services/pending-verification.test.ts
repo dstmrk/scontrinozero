@@ -350,7 +350,7 @@ describe("verifyPendingSale", () => {
     // Fail-safe: l'esito resta ignoto, quindi la riga resta PENDING.
     expect(result).toEqual({
       error:
-        "Agenzia delle Entrate non raggiungibile: non è stato possibile verificare. Riprova tra qualche minuto.",
+        "Agenzia delle Entrate non raggiungibile: non è stato possibile verificare. Lo scontrino resta in sospeso e tornerà nell'elenco da solo: riprova più tardi.",
     });
     expect(mockUpdateWhere).not.toHaveBeenCalled();
     expect(mockFinalizeSaleOnly).not.toHaveBeenCalled();
@@ -367,6 +367,39 @@ describe("verifyPendingSale", () => {
 
     expect(result).toMatchObject({ reauthRequired: true });
     expect(mockWithAdeSession).not.toHaveBeenCalled();
+  });
+
+  it("non rivendica la riga se la sessione AdE non si risolve", async () => {
+    mockFetchAdePrerequisites.mockResolvedValue({
+      error: "Credenziali assenti",
+    });
+
+    await verifyPendingSale({ businessId: BIZ, documentId: DOC });
+
+    // Il claim bumpa `updated_at`, e una riga bumpata esce dalla soglia stale:
+    // rivendicarla per poi non toccarla la farebbe sparire dal banner per
+    // mezz'ora senza che sia successo niente.
+    expect(mockClaimStaleDocument).not.toHaveBeenCalled();
+  });
+
+  it("non rivendica la riga se la sessione CIE è scaduta", async () => {
+    mockFetchAdePrerequisites.mockResolvedValue({ method: "cie" });
+    mockIsCieSessionMissing.mockReturnValue(true);
+
+    await verifyPendingSale({ businessId: BIZ, documentId: DOC });
+
+    expect(mockClaimStaleDocument).not.toHaveBeenCalled();
+  });
+
+  it("rivendica la riga prima di interrogare AdE", async () => {
+    givenSearchReturns([adeDoc()]);
+
+    await verifyPendingSale({ businessId: BIZ, documentId: DOC });
+
+    // È il CAS a serializzare due verifiche concorrenti — due schede aperte, o
+    // una verifica mentre un retry dell'emit sta girando.
+    expect(mockClaimStaleDocument).toHaveBeenCalledTimes(1);
+    expect(mockSearchDocuments).toHaveBeenCalledTimes(1);
   });
 
   it("propaga l'errore delle credenziali AdE mancanti", async () => {

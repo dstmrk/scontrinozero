@@ -43,7 +43,7 @@ import {
   buildAdeSearchWindow,
   claimStaleDocument,
   findClaimedTransactionIds,
-  getStalePendingThresholdMs,
+  isStaleUpdatedAt,
   markDocumentErrorBestEffort,
   reconcileVoidDocument,
 } from "./ade-recovery";
@@ -145,25 +145,15 @@ function resolveExistingVoidByKey(
     };
   }
 
-  // PENDING or ERROR: void was started but never completed.
-  // If the row is "stale", enter recovery instead of blocking the client.
-  //
-  // Staleness is gated on updatedAt, NOT the immutable createdAt: claimStaleDocument
-  // bumps updated_at when a retry wins the claim, so a void whose recovery is
-  // already in flight (submitVoid in progress, status still PENDING) looks
-  // "recent" and an overlapping retry gets VOID_PENDING_IN_PROGRESS instead of
-  // winning a second claim against the bumped snapshot — which would re-submit
-  // and create a duplicate VOID on AdE (irreversible). createdAt is kept only
-  // for age logging.
+  // PENDING or ERROR: l'annullo è partito ma non è mai stato completato. Se la
+  // riga è "stale" si entra nel recovery invece di bloccare il client. Il
+  // predicato — e il perché sia su `updated_at` e non sull'immutabile
+  // `created_at` — vive in `isStaleUpdatedAt`; qui `createdAt` serve solo per
+  // l'età nei log.
   const createdAtMs = existing.createdAt
     ? new Date(existing.createdAt).getTime()
     : Number.NaN;
-  const updatedAtMs = existing.updatedAt
-    ? new Date(existing.updatedAt).getTime()
-    : Number.NaN;
-  const isStale =
-    Number.isFinite(updatedAtMs) &&
-    Date.now() - updatedAtMs > getStalePendingThresholdMs();
+  const isStale = isStaleUpdatedAt(existing.updatedAt);
 
   if (isStale) {
     logger.warn(

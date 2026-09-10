@@ -70,6 +70,33 @@ export function staleUpdatedBefore(now: Date = new Date()): Date {
 }
 
 /**
+ * Vero quando `updatedAt` è più vecchia della soglia stale.
+ *
+ * Un solo owner del predicato: lo usano il gate del recovery in emissione e
+ * annullo, l'elenco che alimenta il banner di verifica e il rilevatore. Se
+ * divergessero, una superficie mostrerebbe righe che un'altra non è ancora
+ * disposta a toccare.
+ *
+ * Su `updatedAt` e **mai** sull'immutabile `createdAt`: `claimStaleDocument`
+ * bumpa `updated_at` quando un tentativo vince il claim, così una riga la cui
+ * recovery è già in volo torna a sembrare "recente" e un tentativo
+ * sovrapposto riceve in-progress invece di vincere un secondo claim — che
+ * ri-sottometterebbe, creando un documento fiscale duplicato su AdE
+ * (irreversibile).
+ *
+ * Data assente o illeggibile → `false`: un timestamp che non sappiamo leggere
+ * non deve poter aprire il percorso irreversibile.
+ */
+export function isStaleUpdatedAt(
+  updatedAt: Date | string | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (!updatedAt) return false;
+  const ms = new Date(updatedAt).getTime();
+  return Number.isFinite(ms) && ms < staleUpdatedBefore(now).getTime();
+}
+
+/**
  * Conta i documenti `PENDING` fermi oltre la soglia stale: le righe il cui
  * esito su AdE resta ignoto e che nessuna superficie mostrava (REVIEW.md
  * #103).

@@ -1,15 +1,33 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockCountStalePendingDocuments, mockLoggerWarn, mockGetDb } =
-  vi.hoisted(() => ({
-    mockCountStalePendingDocuments: vi.fn(),
-    mockLoggerWarn: vi.fn(),
-    mockGetDb: vi.fn().mockReturnValue("db-handle"),
-  }));
+const {
+  mockCountStalePendingDocuments,
+  mockLoggerWarn,
+  mockGetDb,
+  mockWithStatementTimeout,
+} = vi.hoisted(() => ({
+  mockCountStalePendingDocuments: vi.fn(),
+  mockLoggerWarn: vi.fn(),
+  mockGetDb: vi.fn().mockReturnValue("db-handle"),
+  mockWithStatementTimeout: vi.fn(),
+}));
 
 vi.mock("@/lib/services/ade-recovery", () => ({
   countStalePendingDocuments: mockCountStalePendingDocuments,
+}));
+
+// `withStatementTimeout` è un passthrough che invoca la callback con una tx
+// finta: qui interessa che il conteggio giri dentro il budget, non la
+// transazione.
+vi.mock("@/lib/db-timeout", () => ({
+  withStatementTimeout: async (
+    timeoutMs: number,
+    fn: (tx: unknown) => Promise<unknown>,
+  ) => {
+    mockWithStatementTimeout(timeoutMs);
+    return fn("tx");
+  },
 }));
 
 vi.mock("@/db", () => ({ getDb: mockGetDb }));
@@ -28,6 +46,7 @@ describe("startStalePendingSweep()", () => {
   let startStalePendingSweep: () => void;
   let STALE_PENDING_SWEEP_INTERVAL_MS: number;
   let STALE_PENDING_SWEEP_INITIAL_DELAY_MS: number;
+  let STALE_PENDING_COUNT_TIMEOUT_MS: number;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -35,6 +54,7 @@ describe("startStalePendingSweep()", () => {
       startStalePendingSweep,
       STALE_PENDING_SWEEP_INTERVAL_MS,
       STALE_PENDING_SWEEP_INITIAL_DELAY_MS,
+      STALE_PENDING_COUNT_TIMEOUT_MS,
     } = await import("./instrumentation"));
 
     mockIntervalUnref = vi.fn();
@@ -168,6 +188,33 @@ describe("startStalePendingSweep()", () => {
     startStalePendingSweep();
 
     await expect(capturedInterval?.()).resolves.toBeUndefined();
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      { err: expect.any(Error) },
+      "Conteggio documenti in sospeso fallito",
+    );
+  });
+
+  it("conta dentro un budget di statement timeout", async () => {
+    startStalePendingSweep();
+
+    await capturedInterval?.();
+
+    // Senza budget una scansione degenere terrebbe occupata una connessione
+    // del pool da 10 che serve la cassa: è la lezione di REVIEW.md #81.
+    expect(STALE_PENDING_COUNT_TIMEOUT_MS).toBe(30_000);
+    expect(mockWithStatementTimeout).toHaveBeenCalledWith(30_000);
+  });
+
+  it("degrada a warn quando Postgres aborta la query oltre il budget", async () => {
+    mockCountStalePendingDocuments.mockRejectedValue(
+      Object.assign(new Error("canceling statement"), { code: "57014" }),
+    );
+    startStalePendingSweep();
+
+    await capturedInterval?.();
+
+    // `warn` e non `error`: il retry è implicito nel giro successivo, e una
+    // issue Sentry per ogni giro di contention sarebbe solo rumore.
     expect(mockLoggerWarn).toHaveBeenCalledWith(
       { err: expect.any(Error) },
       "Conteggio documenti in sospeso fallito",

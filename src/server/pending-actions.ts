@@ -43,12 +43,12 @@ const INVALID_INPUT: VerifyPendingSaleResult = {
 
 /**
  * Guardie comuni alle due action: sessione, ownership, rate limit, formato
- * degli id. Ritorna il businessId da usare, o l'esito già deciso.
+ * degli id. Ritorna `null` quando la richiesta passa, o l'esito già deciso.
  */
 async function authorize(
   businessId: string,
   documentId: string,
-): Promise<{ userId: string } | { done: VerifyPendingSaleResult }> {
+): Promise<{ done: VerifyPendingSaleResult } | null> {
   let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
   try {
     user = await getAuthenticatedUser();
@@ -73,7 +73,7 @@ async function authorize(
   const ownership = await checkBusinessOwnership(user.id, businessId);
   if (ownership) return { done: { error: ownership.error } };
 
-  return { userId: user.id };
+  return null;
 }
 
 /** Verifica su AdE una vendita in sospeso. */
@@ -81,8 +81,8 @@ export async function verifyPendingDocument(
   businessId: string,
   documentId: string,
 ): Promise<VerifyPendingSaleResult> {
-  const authorized = await authorize(businessId, documentId);
-  if ("done" in authorized) return authorized.done;
+  const denied = await authorize(businessId, documentId);
+  if (denied) return denied.done;
 
   return verifyPendingSale({ businessId, documentId });
 }
@@ -93,8 +93,8 @@ export async function confirmPendingDocument(
   documentId: string,
   idtrx: string,
 ): Promise<VerifyPendingSaleResult> {
-  const authorized = await authorize(businessId, documentId);
-  if ("done" in authorized) return authorized.done;
+  const denied = await authorize(businessId, documentId);
+  if (denied) return denied.done;
 
   // `idtrx` non è un UUID: è un identificativo opaco del portale. Il controllo
   // che conta è che sia fra i candidati, e lo fa il service ri-cercando su AdE.

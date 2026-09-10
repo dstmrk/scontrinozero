@@ -531,7 +531,7 @@ export function CassaClient({
             {mutation.data?.code === "PENDING_IN_PROGRESS" && (
               <p className="text-muted-foreground mt-2 text-xs">
                 {
-                  "Non riemettere con lo stesso carrello: rischieresti un doppione fiscale. Se lo scontrino resta in sospeso, fra qualche minuto comparirà in cima alla pagina l'avviso per verificarne lo stato all'Agenzia delle Entrate."
+                  "Non riemettere con lo stesso carrello: rischieresti un doppione fiscale. Se lo scontrino resta in sospeso, in cima alla pagina comparirà l'avviso per verificarne lo stato all'Agenzia delle Entrate."
                 }
               </p>
             )}
