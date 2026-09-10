@@ -220,6 +220,60 @@ export function toAdeReceiptListItem(
 }
 
 /**
+ * Legge UNA finestra, pagina per pagina, dentro il budget che le viene dato.
+ *
+ * Il ciclo avanza sugli elementi **ricevuti**, mai su quelli richiesti: una
+ * pagina vuota, un `totalCount` che mente o un `perPage` ricapato dal portale
+ * lo fermano comunque.
+ *
+ * `incomplete` significa "questa finestra aveva altro da dare": il chiamante
+ * lo traduce in `truncated` e smette di chiedere. Distinguerlo da "finestra
+ * esaurita" è tutto ciò che serve al chiamante per decidere, ed è il motivo
+ * per cui questa funzione esiste separata — il budget globale non la riguarda.
+ */
+async function readOneWindow(
+  client: Pick<AdeClient, "searchDocuments">,
+  range: AdeSearchRange,
+  limits: { maxDocuments: number; deadline: number; now: () => number },
+): Promise<{ docs: AdeDocumentSummary[]; incomplete: boolean }> {
+  const docs: AdeDocumentSummary[] = [];
+
+  for (let page = 1; page <= MAX_ADE_SEARCH_PAGES; page++) {
+    const list: AdeDocumentList = await client.searchDocuments({
+      dataDal: range.dataDal,
+      dataInvioAl: range.dataInvioAl,
+      tipoOperazione: "V",
+      page,
+      perPage: ADE_SEARCH_PAGE_SIZE,
+    });
+
+    const batch = list.elencoRisultati ?? [];
+    docs.push(...batch);
+
+    // Pagina vuota: la finestra è esaurita, qualunque cosa dica `totalCount`.
+    if (batch.length === 0) return { docs, incomplete: false };
+    if (docs.length >= list.totalCount) return { docs, incomplete: false };
+
+    if (docs.length >= limits.maxDocuments) return { docs, incomplete: true };
+    if (limits.now() >= limits.deadline) return { docs, incomplete: true };
+  }
+
+  // Esaurite le pagine consentite senza vedere la fine: la guardia anti-loop
+  // ha morso, e qui non si finge che l'elenco sia completo.
+  return { docs, incomplete: true };
+}
+
+/** Scarta ciò che non sappiamo collocare, tiene il resto. */
+function toReceiptRows(
+  docs: readonly AdeDocumentSummary[],
+): AdeReceiptListItem[] {
+  return docs.flatMap((doc) => {
+    const row = toAdeReceiptListItem(doc);
+    return row ? [row] : [];
+  });
+}
+
+/**
  * Legge le vendite dall'archivio AdE su tutte le finestre richieste e le
  * traduce in righe.
  *
@@ -235,9 +289,9 @@ export function toAdeReceiptListItem(
  * sessione AdE, e dodici richieste concorrenti a nome dell'esercente sono il
  * modo di fargli bloccare l'utenza sul portale.
  *
- * Dentro ogni finestra il ciclo avanza sugli elementi ricevuti, mai su quelli
- * richiesti: una pagina vuota, un `totalCount` che mente o un `perPage`
- * ricapato dal portale lo fermano comunque.
+ * **La prima finestra incompleta ferma tutto.** Le finestre sono ordinate dalla
+ * piu' recente: proseguire dopo un troncamento darebbe un elenco con un buco
+ * in mezzo, che e' peggio di un elenco che finisce prima e lo dichiara.
  */
 export async function fetchAdeSaleRows(
   client: Pick<AdeClient, "searchDocuments">,
@@ -250,7 +304,7 @@ export async function fetchAdeSaleRows(
   const collected: AdeDocumentSummary[] = [];
   let truncated = false;
 
-  outer: for (const range of ranges) {
+  for (const range of ranges) {
     // Il controllo sta all'inizio del giro: fermarsi PRIMA di una query che
     // non farebbe in tempo e' l'unico modo di restituire qualcosa.
     if (now() >= deadline) {
@@ -258,42 +312,18 @@ export async function fetchAdeSaleRows(
       break;
     }
 
-    for (let page = 1; page <= MAX_ADE_SEARCH_PAGES; page++) {
-      const list: AdeDocumentList = await client.searchDocuments({
-        dataDal: range.dataDal,
-        dataInvioAl: range.dataInvioAl,
-        tipoOperazione: "V",
-        page,
-        perPage: ADE_SEARCH_PAGE_SIZE,
-      });
+    const read = await readOneWindow(client, range, {
+      maxDocuments: MAX_ADE_SEARCH_DOCUMENTS - collected.length,
+      deadline,
+      now,
+    });
+    collected.push(...read.docs);
 
-      const batch = list.elencoRisultati ?? [];
-      collected.push(...batch);
-
-      // Pagina vuota: la finestra e' esaurita, qualunque cosa dica
-      // `totalCount`.
-      if (batch.length === 0) break;
-
-      if (collected.length >= MAX_ADE_SEARCH_DOCUMENTS) {
-        truncated = true;
-        break outer;
-      }
-      if (collected.length >= list.totalCount) break;
-      if (now() >= deadline) {
-        truncated = true;
-        break outer;
-      }
-
-      // Ultima iterazione consentita e la finestra non e' esaurita.
-      if (page === MAX_ADE_SEARCH_PAGES) truncated = true;
+    if (read.incomplete) {
+      truncated = true;
+      break;
     }
   }
 
-  const rows: AdeReceiptListItem[] = [];
-  for (const doc of collected) {
-    const row = toAdeReceiptListItem(doc);
-    if (row) rows.push(row);
-  }
-
-  return { rows, truncated };
+  return { rows: toReceiptRows(collected), truncated };
 }

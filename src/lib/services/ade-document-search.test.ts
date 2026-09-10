@@ -415,6 +415,24 @@ describe("fetchAdeSaleRows — piu' finestre", () => {
     expect(result.truncated).toBe(true);
   });
 
+  it("una finestra troncata ferma la ricerca invece di lasciare un buco", async () => {
+    // Le finestre sono ordinate dalla piu' recente: proseguire dopo un
+    // troncamento darebbe un elenco a cui manca un pezzo IN MEZZO, che e'
+    // peggio di uno che finisce prima e lo dichiara.
+    const page = Array.from({ length: 100 }, (_, i) =>
+      saleDoc({ idtrx: `agosto-${i}` }),
+    );
+    const searchDocuments = vi.fn().mockResolvedValue({
+      totalCount: MAX_ADE_SEARCH_DOCUMENTS * 2,
+      elencoRisultati: page,
+    });
+
+    const result = await fetchAdeSaleRows({ searchDocuments }, RANGES);
+
+    expect(result.truncated).toBe(true);
+    expect(result.rows.every((r) => r.idtrx.startsWith("agosto-"))).toBe(true);
+  });
+
   it("nessuna finestra da interrogare: nessuna chiamata", async () => {
     const searchDocuments = vi.fn();
 
