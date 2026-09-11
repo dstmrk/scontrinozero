@@ -12,17 +12,10 @@ Obiettivo corrente: **aumentare gli utenti e semplificare l'adozione**. Le prime
 release riducono l'attrito d'iscrizione; le successive completano l'operatività al
 banco e le feature Pro committed.
 
-| Versione   | Descrizione                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **v1.8.0** | **Ricerca documenti commerciali su AdE** (feature **Pro**, ex #107) — ✅ spedita. Dallo storico un flag legge anche l'archivio AdE e mostra i documenti emessi fuori da ScontrinoZero, deduplicati contro i nostri e scaricabili nel CSV di riepilogo. Il periodo arriva a un anno: l'API AdE rifiuta con 406 le finestre oltre i 31 giorni (`HAR.md` #16f), quindi si legge un mese per volta, dal più recente. **Sola lettura, nessuna copia**: le righe vivono per la durata di una ricerca, non entrano nel database, non si aprono e non si annullano. _Il nome è cambiato in corsa: «sync/importazione» prometteva una copia locale che non facciamo, e «corrispettivi» prometteva i documenti da registratore telematico, che in quell'archivio non ci sono — `GET /doc/documenti/` è l'archivio del servizio Documento Commerciale Online._ |
-
-**Non spedito nella v1.8.0**, e deliberatamente: il **dettaglio** di un
-documento AdE (voci vendute) e **l'invio della ricevuta**. Il primo costa una
-`getDocument(idtrx)` per documento, il secondo passa da
-`GET /doc/documenti/{idtrx}/stampa/` — il PDF ufficiale dell'AdE, che per un
-documento non nostro è meglio del nostro renderer. Entrambi sono additivi sopra
-la ricerca già viva. _Trigger:_ qualcuno che chieda di vedere cosa c'era dentro
-uno di quei documenti.
+Nessuna release in pianificazione al momento: la v1.8.0 (ricerca documenti
+commerciali su AdE, Pro, ex #107) è spedita — storico in `git tag -l "v1.*"`.
+Il prossimo obiettivo va scelto quando emerge domanda utente documentata
+(vedi "Nice to have" sotto) o una necessità di lancio.
 
 > **Oltre v1.8 — app nativa iOS/Android (v2.0, in valutazione).** Due capability
 > restano precluse alla PWA: **SPID** (il flusso IdP vive in una webview e richiede
@@ -54,6 +47,14 @@ completezza. Coerente con il principio "Minimalismo" del piano.
   metodo co-primario (card/hero dedicati) è una scelta di prominenza, non una
   correzione. _Trigger:_ un volume di utenti che confermano il flusso CIE reale
   senza problemi.
+- **Dettaglio e stampa di un documento AdE trovato in ricerca** (seguito della
+  v1.8.0) — oggi la ricerca documenti commerciali su AdE mostra solo
+  l'elenco. Il **dettaglio** (voci vendute) costa una `getDocument(idtrx)` per
+  documento; **l'invio della ricevuta** passa da
+  `GET /doc/documenti/{idtrx}/stampa/` — il PDF ufficiale dell'AdE, che per un
+  documento non nostro è meglio del nostro renderer. Entrambi additivi sopra
+  la ricerca già viva. _Trigger:_ qualcuno che chieda di vedere cosa c'era
+  dentro uno di quei documenti.
 - **Integrazioni POS — SumUp (#92) come pilota Pro**, Nexi (#93) a seguire —
   SDK esterni + webhook + riconciliazione pagamento↔scontrino; alta superficie,
   beneficio incerto sui micro-esercenti che spesso usano un POS separato. Se si
