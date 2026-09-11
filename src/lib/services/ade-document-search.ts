@@ -22,18 +22,14 @@ import { parseAdeResultDate } from "./ade-recovery";
 /**
  * Ampiezza massima di **una singola query** all'archivio AdE, in giorni.
  *
- * È un vincolo del portale, non una nostra scelta. **Misurato
- * sull'interfaccia**, non sull'API (`HAR.md` #16f): con un intervallo più
- * largo il portale disabilita il pulsante Cerca e scrive "L'intervallo
- * temporale non può essere superiore a 31 giorni", quindi nessuna richiesta
- * parte e il comportamento dell'endpoint oltre i 31 giorni resta **ignoto**.
+ * È un vincolo dell'API, non una nostra scelta, ed è **misurato**
+ * (`HAR.md` #16f): una GET con una finestra più larga riceve
+ * `406 Not Acceptable`. Non tronca in silenzio, rifiuta — il che rende il
+ * chunking obbligatorio, non prudenziale.
  *
- * Rispettarlo comunque è la scelta prudente: un limite che l'interfaccia
- * impone di solito riflette un'aspettativa del backend, e se quel backend
- * troncasse in silenzio ce ne accorgeremmo solo da un elenco incompleto che
- * sembra completo. È il motivo per cui un periodo più lungo si spezza in più
- * query (`buildAdeSearchRanges`) invece di essere rifiutato — il tetto su
- * quanto l'esercente può chiedere è un'altra cosa, e sta in
+ * Un periodo più lungo si spezza quindi in più query
+ * (`buildAdeSearchRanges`), una per mese solare, invece di essere rifiutato —
+ * il tetto su quanto l'esercente può chiedere è un'altra cosa, e sta in
  * `ADE_SEARCH_MAX_DAYS`.
  */
 export const ADE_QUERY_MAX_DAYS = 31;

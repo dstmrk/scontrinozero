@@ -962,26 +962,30 @@ stamparlo.
 non una cattura HAR. Le catture in nostro possesso interrogano finestre brevi
 e non toccavano nessuno di questi limiti.
 
-**1. I 31 giorni sono un limite dell'INTERFACCIA, non (dimostrabilmente)
-dell'API.** Con un intervallo più largo il portale **disabilita il pulsante
-Cerca** e mostra "L'intervallo temporale non può essere superiore a 31
-giorni". Nessuna richiesta parte, quindi **cosa faccia `GET /doc/documenti/`
-oltre i 31 giorni resta ignoto**: non sappiamo se rifiuti, tronchi in silenzio
-o risponda correttamente.
+**1. I 31 giorni sono un vincolo dell'API, e risponde `406 Not Acceptable`.**
+Misurato in due punti. L'interfaccia si ferma prima: con un intervallo più
+largo **disabilita il pulsante Cerca** e mostra "L'intervallo temporale non
+può essere superiore a 31 giorni", quindi nessuna richiesta parte. Ma
+riproponendo la stessa GET a mano con `dataDal`/`dataInvioAl` oltre la
+finestra, l'endpoint risponde **HTTP 406**. Non tronca in silenzio: rifiuta.
 
-> ⚠️ La prima stesura di questa voce dava il limite per vincolo dell'API. Era
-> un'inferenza, non una misura. Il disegno non cambia — vedi sotto — ma la
-> differenza conta per chi un giorno volesse toglierlo.
+Il 406 è la risposta migliore fra quelle possibili — un troncamento
+silenzioso avrebbe prodotto elenchi incompleti dall'aria completa, invisibili
+senza un controllo incrociato. Qui l'errore è esplicito e lo vedremmo subito.
 
-La v1.8.0 lo rispetta comunque, spezzando i periodi lunghi in una query per
-mese solare: un limite che l'interfaccia impone di solito riflette
-un'aspettativa del backend, e l'unico esito davvero pericoloso — un
-troncamento silenzioso — si manifesterebbe come un elenco incompleto
-dall'aria completa. **Resta da misurare** se l'endpoint accetti finestre più
-larghe: se le accettasse, un anno costerebbe **una** richiesta invece di
-dodici. Si verifica rieseguendo la stessa `fetch` con `dataDal` due mesi
-indietro e confrontando il `totalCount` con la somma dei due mesi presi
-singolarmente.
+**Conseguenza sul disegno: il chunking a mesi solari non è prudenza, è
+obbligatorio.** Un periodo più lungo si spezza in una query per mese
+(`buildAdeSearchRanges`) perché un mese non supera mai i 31 giorni, quindi il
+vincolo non si può violare per costruzione. Le query girano dalla più recente
+alla più vecchia: se la lettura si ferma per tempo scaduto, ciò che manca è la
+coda remota del periodo, non i documenti di ieri.
+
+> ⚠️ Questa voce ha cambiato idea due volte, e la storia serve a chi la legge.
+> Prima stesura: "vincolo dell'API" — era un'inferenza dal comportamento
+> dell'interfaccia, presentata come misura. Seconda: "limite della sola
+> interfaccia, l'API è ignota" — corretta ma incompleta. Terza, questa: il
+> vincolo è dell'API, provato dal 406. La conclusione operativa non è mai
+> cambiata, la sua solidità sì.
 
 **2. `perPage` è onorato ben oltre i 10 dell'interfaccia.** Su un mese che il
 portale mostrava impaginato in **due pagine**, `perPage=100` ha restituito
