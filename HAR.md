@@ -909,8 +909,15 @@ valida — `ricerca.har` [04] la esegue e ritorna 4 annulli.
 | `tipoOperazione: "A"` | `"DCW2026/2610-5298"` | **progressivo del documento annullato**  |
 
 Leggere `annulli` come progressivo su una riga `V` scrive la stringa `"A"` dove
-ci si aspetta un numero documento. Rilevante per la v1.8.0 (sync documenti da
-AdE), dove serve proprio a ricostruire la catena vendita → annullo.
+ci si aspetta un numero documento.
+
+**Esito v1.8.0.** La doppia semantica ha deciso la forma della ricerca: poiché
+il flag "annullato" sta **già sulla riga di vendita**, lo storico interroga le
+sole `tipoOperazione=V` e deriva lo stato da lì — una query per pagina invece
+di due, e nessuna riga `A` da riconciliare. Il prezzo è che sui documenti che
+vivono solo su AdE non conosciamo la **data** dell'annullo, che starebbe sulla
+riga `A`: accettabile su un elenco di sola lettura, e il motivo per cui la
+colonna `data_annullo` del CSV resta vuota su quelle righe.
 
 Esempio (`nuovo_test_annullo.har` [01], lista senza filtro — la coppia
 vendita/annullo della voce #1):
@@ -923,6 +930,36 @@ vendita/annullo della voce #1):
   "data": "18/08/2026 19:05:10", "tipoOperazione": "V",
   "annulli": "A", "ammontareComplessivo": 1.9 }
 ```
+
+### 16e. La ricerca accetta al massimo 31 giorni per query
+
+**Fonte:** verifica diretta sul portale, non una cattura HAR — le catture in
+nostro possesso interrogano finestre brevi e non toccavano il limite.
+
+`GET /doc/documenti/` **non accetta una finestra `dataDal`→`dataInvioAl` più
+larga di 31 giorni**. È un vincolo del portale, non una scelta nostra: la
+v1.8.0 lo aveva scritto in codice come se fosse un tetto di prodotto, ed era
+sbagliato di significato anche quando il numero coincideva.
+
+**Conseguenza sul disegno.** Un periodo più lungo non si rifiuta, si **spezza**
+in una query per **mese solare** — un mese non supera mai i 31 giorni, quindi
+il vincolo non si può violare per costruzione, senza aritmetica su finestre
+mobili da tenere allineata. Le query girano **dalla più recente alla più
+vecchia**: quando la lettura si ferma per tempo scaduto, ciò che manca è la
+coda remota del periodo, non i documenti di ieri.
+
+Restano da misurare, e valgono la prossima cattura:
+
+- se `perPage` accetta valori sopra i 10 usati dal portale (non cambia la
+  correttezza — il ciclo conta gli elementi ricevuti — ma cambia di un ordine
+  di grandezza la **durata** di una ricerca annuale);
+- quanto indietro va l'archivio, cioè se "da inizio anno" sia sempre
+  ottenibile;
+- cosa risponde il portale a una finestra oltre i 31 giorni: errore esplicito
+  o troncamento silenzioso. Se fosse silenzioso, il chunking smetterebbe di
+  essere un'ottimizzazione e diventerebbe l'unica difesa.
+
+---
 
 ### 16d. Copertura dei dati della ricevuta — ✅ SPEDITA
 

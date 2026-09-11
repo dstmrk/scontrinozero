@@ -8,6 +8,7 @@ const {
   mockSelect,
   mockBuildReceiptsCsvStream,
   mockBuildReceiptLinesCsvStream,
+  mockFetchForeignAdeRows,
 } = vi.hoisted(() => ({
   mockGetAuthenticatedUser: vi.fn(),
   mockAssertProPlan: vi.fn(),
@@ -15,6 +16,7 @@ const {
   mockSelect: vi.fn(),
   mockBuildReceiptsCsvStream: vi.fn(),
   mockBuildReceiptLinesCsvStream: vi.fn(),
+  mockFetchForeignAdeRows: vi.fn(),
 }));
 
 vi.mock("@/lib/server-auth", () => ({
@@ -52,6 +54,10 @@ vi.mock("@/lib/logger", () => ({
 vi.mock("@/lib/receipts/csv-export", () => ({
   buildReceiptsCsvStream: mockBuildReceiptsCsvStream,
   buildReceiptLinesCsvStream: mockBuildReceiptLinesCsvStream,
+}));
+
+vi.mock("@/lib/services/ade-storico-rows", () => ({
+  fetchForeignAdeRows: mockFetchForeignAdeRows,
 }));
 
 import { GET } from "./route";
@@ -165,17 +171,21 @@ describe("GET /api/export/receipts", () => {
 
   it("passa businessId, dateFrom e dateTo (exclusive) a buildReceiptsCsvStream", async () => {
     await GET(makeRequest("?from=2026-01-01&to=2026-05-19&status=ACCEPTED"));
-    expect(mockBuildReceiptsCsvStream).toHaveBeenCalledWith({
-      businessId: "biz-1",
-      status: "ACCEPTED",
-      // Mezzanotte **italiana**, non UTC: il 1° gennaio a Roma comincia alle
-      // 23:00 UTC del 31 dicembre (CET). Con il confine su UTC uno scontrino
-      // delle 00:30 italiane restava fuori dal periodo che lo mostra.
-      dateFrom: new Date("2025-12-31T23:00:00.000Z"),
-      // dateTo e' inclusivo per l'utente → upper bound esclusivo sull'inizio
-      // del giorno italiano successivo (20/05, CEST).
-      dateTo: new Date("2026-05-19T22:00:00.000Z"),
-    });
+    expect(mockBuildReceiptsCsvStream).toHaveBeenCalledWith(
+      {
+        businessId: "biz-1",
+        status: "ACCEPTED",
+        // Mezzanotte **italiana**, non UTC: il 1° gennaio a Roma comincia alle
+        // 23:00 UTC del 31 dicembre (CET). Con il confine su UTC uno scontrino
+        // delle 00:30 italiane restava fuori dal periodo che lo mostra.
+        dateFrom: new Date("2025-12-31T23:00:00.000Z"),
+        // dateTo e' inclusivo per l'utente → upper bound esclusivo sull'inizio
+        // del giorno italiano successivo (20/05, CEST).
+        dateTo: new Date("2026-05-19T22:00:00.000Z"),
+      },
+      // Senza `?ade=1` non si interroga l'Agenzia: nessuna riga esterna.
+      [],
+    );
   });
 
   it("senza il parametro `format` scarica il riepilogo, come prima", async () => {
@@ -218,16 +228,111 @@ describe("GET /api/export/receipts", () => {
 
   it("passa null per i filtri opzionali assenti", async () => {
     await GET(makeRequest());
-    expect(mockBuildReceiptsCsvStream).toHaveBeenCalledWith({
-      businessId: "biz-1",
-      status: null,
-      dateFrom: null,
-      dateTo: null,
-    });
+    expect(mockBuildReceiptsCsvStream).toHaveBeenCalledWith(
+      {
+        businessId: "biz-1",
+        status: null,
+        dateFrom: null,
+        dateTo: null,
+      },
+      [],
+    );
   });
 
   it("usa rate limit key per-user (csv:<userId>)", async () => {
     await GET(makeRequest());
     expect(mockRateLimiterCheck).toHaveBeenCalledWith("csv:user-1");
+  });
+});
+
+const ADE_ROW = {
+  origin: "ade" as const,
+  idtrx: "226076907",
+  adeProgressive: "DCW2026/2610-5298",
+  adeRegisteredAt: new Date("2026-02-14T09:00:00Z"),
+  status: "ACCEPTED" as const,
+  total: "7.50",
+};
+
+describe("GET /api/export/receipts — archivio AdE (?ade=1)", () => {
+  beforeEach(() => {
+    mockFetchForeignAdeRows.mockResolvedValue({
+      rows: [ADE_ROW],
+      truncated: false,
+    });
+  });
+
+  it("con ?ade=1 le righe dell'archivio finiscono nel riepilogo", async () => {
+    await GET(makeRequest("?from=2026-02-01&to=2026-02-28&ade=1"));
+
+    expect(mockBuildReceiptsCsvStream).toHaveBeenCalledWith(expect.anything(), [
+      ADE_ROW,
+    ]);
+  });
+
+  it("il periodo passato ad AdE è quello del filtro", async () => {
+    await GET(makeRequest("?from=2026-02-01&to=2026-02-28&ade=1"));
+
+    expect(mockFetchForeignAdeRows).toHaveBeenCalledWith(
+      expect.objectContaining({
+        businessId: "biz-1",
+        ranges: [{ dataDal: "02/01/2026", dataInvioAl: "02/28/2026" }],
+      }),
+    );
+  });
+
+  it("rifiuta il dettaglio per voce venduta: l'archivio non ha le righe articolo", async () => {
+    const res = await GET(
+      makeRequest("?from=2026-02-01&to=2026-02-28&ade=1&format=detail"),
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockFetchForeignAdeRows).not.toHaveBeenCalled();
+  });
+
+  it("periodo oltre il tetto → 400, nessuna chiamata all'Agenzia", async () => {
+    const res = await GET(makeRequest("?from=2024-01-01&to=2026-06-30&ade=1"));
+
+    expect(res.status).toBe(400);
+    expect(mockFetchForeignAdeRows).not.toHaveBeenCalled();
+  });
+
+  it("un periodo lungo ma ammesso viene spezzato in una query per mese", async () => {
+    await GET(makeRequest("?from=2026-01-01&to=2026-06-30&ade=1"));
+
+    const [call] = mockFetchForeignAdeRows.mock.calls;
+    expect(call[0].ranges).toHaveLength(6);
+    // Dalla piu' recente: un troncamento per tempo scaduto perde la coda
+    // remota, non i documenti di ieri.
+    expect(call[0].ranges[0]).toEqual({
+      dataDal: "06/01/2026",
+      dataInvioAl: "06/30/2026",
+    });
+  });
+
+  it("periodo assente → 400: non si scarica l'archivio intero", async () => {
+    const res = await GET(makeRequest("?ade=1"));
+
+    expect(res.status).toBe(400);
+  });
+
+  it("AdE irraggiungibile → 503, nessun file a metà", async () => {
+    // A schermo si degrada, qui no: un CSV viene archiviato e riletto mesi
+    // dopo, quando nessun avviso esiste più. Un file incompleto ma dall'aria
+    // completa è peggio che nessun file.
+    mockFetchForeignAdeRows.mockResolvedValue({
+      adeError: "Agenzia delle Entrate non raggiungibile.",
+    });
+
+    const res = await GET(makeRequest("?from=2026-02-01&to=2026-02-28&ade=1"));
+
+    expect(res.status).toBe(503);
+    expect(mockBuildReceiptsCsvStream).not.toHaveBeenCalled();
+  });
+
+  it("senza ?ade=1 l'Agenzia non viene interrogata", async () => {
+    await GET(makeRequest("?from=2026-02-01&to=2026-02-28"));
+
+    expect(mockFetchForeignAdeRows).not.toHaveBeenCalled();
   });
 });

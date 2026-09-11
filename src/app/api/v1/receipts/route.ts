@@ -54,6 +54,16 @@ const listApiLimiter = new RateLimiter({
   windowMs: 60 * 60 * 1000,
 });
 
+/**
+ * Ampiezza massima dell'intervallo `from`→`to` di questa lista.
+ *
+ * ⚠️ Non c'entra niente con `ADE_QUERY_MAX_DAYS` in
+ * `src/lib/services/ade-document-search.ts`, che vale anch'esso 31: quello è
+ * un vincolo del portale AdE su una sua query, questo è una nostra scelta sul
+ * costo di una lettura paginata dal database. La coincidenza dei due numeri è
+ * casuale, e allinearli "per coerenza" legherebbe il contratto pubblico a una
+ * regola di un sistema terzo.
+ */
 const MAX_RANGE_DAYS = 31;
 
 // list query: count + select fino a 100 doc + lines fetch su quel batch.

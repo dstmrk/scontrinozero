@@ -164,8 +164,11 @@ export default function PianiEPrezziPage() {
             pagamento misto
           </li>
           <li>
-            <em>In arrivo:</em> recupero corrispettivi da AdE (sincronizzazione
-            dati storici)
+            <strong>Ricerca dei documenti commerciali su AdE</strong>: dallo
+            storico puoi cercare anche i documenti emessi fuori da ScontrinoZero
+            — dal portale o dall&apos;app dell&apos;Agenzia delle Entrate — e
+            scaricarli nel CSV di riepilogo. Sono di sola lettura: non vengono
+            copiati nel tuo archivio e non si possono annullare da qui
           </li>
         </ul>
         <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
@@ -182,9 +185,9 @@ export default function PianiEPrezziPage() {
           ScontrinoZero è open source con licenza O&apos;Saasy. Puoi scaricare
           il codice sorgente, installarlo sul tuo server e usarlo gratuitamente:
           hai accesso a tutte le funzioni, incluse analytics avanzata, export
-          CSV e messaggio personalizzato sullo scontrino, e ricevi le feature in
-          arrivo (recupero corrispettivi AdE) man mano che vengono rilasciate. È
-          la scelta giusta se:
+          CSV, messaggio personalizzato sullo scontrino e ricerca dei documenti
+          commerciali su AdE, e ricevi le nuove feature man mano che vengono
+          rilasciate. È la scelta giusta se:
         </p>
         <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>
@@ -304,10 +307,10 @@ export default function PianiEPrezziPage() {
               </tr>
               <tr>
                 <td className="text-foreground py-2 font-medium">
-                  Recupero corrispettivi AdE
+                  Ricerca documenti commerciali su AdE
                 </td>
                 <td className="py-2">—</td>
-                <td className="py-2">In arrivo</td>
+                <td className="py-2">✓</td>
               </tr>
               <tr>
                 <td className="text-foreground py-2 font-medium">
@@ -351,8 +354,9 @@ export default function PianiEPrezziPage() {
                 profilo social).
               </li>
               <li>
-                Vuoi accedere alle feature in arrivo riservate al piano Pro
-                (recupero dei documenti commerciali da AdE).
+                Cerchi nello storico anche i documenti commerciali emessi fuori
+                da ScontrinoZero, leggendoli dall&apos;archivio
+                dell&apos;Agenzia delle Entrate.
               </li>
             </ul>
           </div>

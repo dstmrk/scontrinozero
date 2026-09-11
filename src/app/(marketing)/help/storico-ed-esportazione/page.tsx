@@ -127,6 +127,60 @@ export default function StoricoEdEsportazionePage() {
           di scontrini trovati viene mostrato in alto.
         </p>
 
+        {/* ─── Ricerca sull'archivio AdE (Piano Pro) ─── */}
+        <h2 className="mt-10 text-xl font-semibold">
+          Cercare anche i documenti emessi fuori da ScontrinoZero{" "}
+          <span className="text-muted-foreground text-sm font-normal">
+            (Piano Pro)
+          </span>
+        </h2>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Con il piano Pro, sotto i filtri trovi la casella{" "}
+          <strong>
+            &quot;Cerca anche i documenti emessi fuori da ScontrinoZero&quot;
+          </strong>
+          {". "}
+          Spuntandola e premendo <strong>Cerca</strong>, lo Storico interroga
+          anche l&apos;archivio dell&apos;Agenzia delle Entrate e ti mostra,
+          nello stesso elenco, i documenti commerciali che hai emesso dal
+          portale o dall&apos;app dell&apos;Agenzia. Li riconosci dalla sigla{" "}
+          <strong>AdE</strong> accanto al numero documento.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Quattro cose da sapere prima di usarla:
+        </p>
+        <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
+          <li>
+            <strong>Sono di sola lettura.</strong> Non entrano nel tuo archivio
+            ScontrinoZero: esistono per la durata della ricerca. Non si aprono
+            in dettaglio e non si possono annullare da qui — per annullarne uno
+            usa il portale dell&apos;Agenzia, dove lo hai emesso.
+          </li>
+          <li>
+            <strong>La ricerca richiede qualche secondo</strong>, perché
+            ScontrinoZero deve collegarsi all&apos;Agenzia con le tue
+            credenziali. Se hai collegato l&apos;account con CIE e la sessione è
+            scaduta, ti viene chiesto di ricollegarti.
+          </li>
+          <li>
+            <strong>Puoi arrivare fino a un anno indietro</strong>, quindi anche
+            &quot;da inizio anno&quot; in una ricerca sola. L&apos;archivio
+            dell&apos;Agenzia però si interroga un mese per volta, quindi su
+            periodi lunghi l&apos;attesa cresce: se la ricerca non fa in tempo a
+            leggere tutto, te lo dice e ti mostra la parte più recente.
+          </li>
+          <li>
+            <strong>Trovi i documenti commerciali</strong>, cioè quelli emessi
+            con il servizio &quot;Documento commerciale online&quot;
+            dell&apos;Agenzia. I corrispettivi trasmessi da un registratore
+            telematico non sono in quell&apos;archivio e non compaiono.
+          </li>
+        </ul>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Se l&apos;Agenzia non risponde, l&apos;elenco resta: vedi comunque i
+          tuoi scontrini ScontrinoZero, con un avviso che spiega cosa manca.
+        </p>
+
         {/* ─── Dettaglio scontrino ─── */}
         <h2 className="mt-10 text-xl font-semibold">
           Aprire il dettaglio di uno scontrino
@@ -247,6 +301,16 @@ export default function StoricoEdEsportazionePage() {
                 <td className="py-2 pr-4 font-mono text-xs">numero_ade</td>
                 <td className="py-2">
                   Numero del documento commerciale assegnato dall&apos;Agenzia
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 pr-4 font-mono text-xs">origine</td>
+                <td className="py-2">
+                  <em>scontrinozero</em> se lo hai emesso da qui,{" "}
+                  <em>agenzia entrate</em> se viene dall&apos;archivio
+                  dell&apos;Agenzia. Su queste ultime righe le colonne che
+                  l&apos;archivio non fornisce (descrizione, metodo di
+                  pagamento, sconto, codice lotteria) restano vuote
                 </td>
               </tr>
               <tr>

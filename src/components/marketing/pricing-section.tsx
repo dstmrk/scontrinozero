@@ -16,7 +16,6 @@ type Billing = "annual" | "monthly";
 
 interface Feature {
   label: string;
-  upcoming?: boolean;
 }
 
 const starterFeatures: Feature[] = [
@@ -37,7 +36,7 @@ const proFeatures: Feature[] = [
   { label: "Sconti sullo scontrino (di riga e a pagare)" },
   { label: "Pagamento misto (contanti + elettronico)" },
   { label: "Supporto prioritario" },
-  { label: "Recupero documenti commerciali da AdE", upcoming: true },
+  { label: "Ricerca documenti commerciali su AdE" },
 ];
 
 interface PricingSectionProps {
@@ -184,26 +183,10 @@ export function PricingSection({ registerHref }: PricingSectionProps) {
                 {proFeatures.map((f) => (
                   <li key={f.label} className="flex items-center gap-2">
                     <Check className="text-primary h-4 w-4 shrink-0" />
-                    <span
-                      className={
-                        f.upcoming ? "text-muted-foreground" : undefined
-                      }
-                    >
-                      {f.label}
-                    </span>
-                    {f.upcoming && (
-                      <Badge variant="outline" className="text-[10px]">
-                        in arrivo
-                      </Badge>
-                    )}
+                    <span>{f.label}</span>
                   </li>
                 ))}
               </ul>
-              <p className="text-muted-foreground mt-4 text-xs">
-                Le feature contrassegnate &quot;in arrivo&quot; saranno
-                rilasciate nei prossimi aggiornamenti e incluse nel piano Pro
-                senza costi aggiuntivi.
-              </p>
             </CardContent>
           </Card>
         </div>

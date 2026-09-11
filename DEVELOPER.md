@@ -133,6 +133,35 @@ Base URL: `https://api.scontrinozero.it/v1` (stesso container, Cloudflare Tunnel
 
 Post-MVP: `GET /v1/receipts/{id}/pdf`
 
+**Fuori dalla v1, deliberatamente: l'archivio AdE.** Dalla v1.8.0 lo storico
+dell'app sa cercare anche i documenti commerciali emessi fuori da
+ScontrinoZero, leggendo l'archivio del portale. Quella capability **non** è
+esposta qui, e non per dimenticanza:
+
+- **`id` è la chiave del contratto.** Ogni riga di `GET /v1/receipts` porta un
+  UUID nostro, ed è quello che fa risolvere `GET /v1/receipts/{id}` e
+  `POST /v1/receipts/{id}/void`. Un documento che vive solo su AdE quell'id non
+  ce l'ha: inventarne uno sintetico darebbe 404 su una riga appena letta,
+  ometterlo romperebbe ogni consumer che itera su `data[].id`.
+- **La riga sarebbe per metà vuota.** La ricerca AdE restituisce la sola
+  testata: niente `lines`, e con loro niente `payments`, `lotteryCode`,
+  `globalDiscount`, `idempotencyKey`, `createdAt`.
+- **La latenza è di un altro ordine.** La lista oggi sono due query Postgres
+  indicizzate con 5s di budget; con l'AdE dentro diventa un login più N query,
+  fino a decine di secondi. Un client con timeout a 10s vedrebbe fallire
+  chiamate che sul server stanno riuscendo.
+- **Il rate limit non regge il cambio di scala.** `api:list` è 60/ora: sessanta
+  ricerche annuali sarebbero centinaia di query sul portale a nome
+  dell'esercente, fatte da una macchina in loop invece che da una persona. È il
+  profilo di traffico che fa bloccare un'utenza Fisconline — e per il Vincolo
+  Fondamentale qui sopra, il conto lo paga lui.
+
+Se un integratore lo chiederà, la forma giusta **non** è un parametro sulla
+lista ma un endpoint separato (`GET /v1/ade/documents`), con `idtrx` come
+chiave, senza `id` né `lines`, con un rate limit suo e documentato come lento e
+in sola lettura. Così `/v1/receipts` continua a significare "i documenti emessi
+tramite noi", che è l'unica cosa che lo rende utile.
+
 **Esempio richiesta:**
 
 ```bash

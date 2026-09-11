@@ -25,7 +25,7 @@
 import { and, eq, lt } from "drizzle-orm";
 import { getDb } from "@/db";
 import { commercialDocuments } from "@/db/schema";
-import { withAdeSession, isCieSessionMissing } from "@/lib/ade";
+import { withAdeSession, type WithAdeSessionParams } from "@/lib/ade";
 import { logAdeFailure } from "@/lib/ade/log-failure";
 import type { AdeDocumentSummary } from "@/lib/ade/types";
 import { logger } from "@/lib/logger";
@@ -33,7 +33,7 @@ import {
   calcLineTotalCents,
   fetchLinesByDocIds,
 } from "@/lib/receipts/document-lines";
-import { fetchAdePrerequisites, toAdeSessionParams } from "@/lib/server-auth";
+import { resolveAdeUserSession } from "./ade-user-session";
 import {
   buildAdeSearchWindow,
   claimStaleDocument,
@@ -242,20 +242,24 @@ async function loadVerifiableSale(
 }
 
 /**
- * Risolve la sessione AdE dell'esercente. **Nessun effetto collaterale**:
- * va prima del claim, perché il claim bumpa `updated_at` e una riga bumpata
- * esce dalla soglia stale — sparirebbe dal banner per mezz'ora senza che sia
- * successo niente.
+ * Risolve la sessione AdE dell'esercente e traduce il rifiuto nel risultato di
+ * questa strada. **Nessun effetto collaterale**: va prima del claim, perché il
+ * claim bumpa `updated_at` e una riga bumpata esce dalla soglia stale —
+ * sparirebbe dal banner per mezz'ora senza che sia successo niente.
+ *
+ * La risoluzione vera sta in `ade-user-session.ts`, condivisa con la ricerca
+ * dei documenti su AdE. Qui resta solo la frase da mostrare: "rifai l'accesso
+ * per verificare lo scontrino" ha senso su questo banner e su nessun'altra
+ * superficie.
  */
 async function resolveAdeSession(
   businessId: string,
 ): Promise<
-  | { params: ReturnType<typeof toAdeSessionParams> }
-  | { done: VerifyPendingSaleResult }
+  { params: WithAdeSessionParams } | { done: VerifyPendingSaleResult }
 > {
-  const prerequisites = await fetchAdePrerequisites(businessId);
-  if ("error" in prerequisites) return { done: { error: prerequisites.error } };
-  if (prerequisites.method === "cie" && isCieSessionMissing(businessId)) {
+  const session = await resolveAdeUserSession(businessId);
+  if (session.ok) return { params: session.params };
+  if (session.reason === "cie-reauth") {
     return {
       done: {
         error:
@@ -264,7 +268,7 @@ async function resolveAdeSession(
       },
     };
   }
-  return { params: toAdeSessionParams(businessId, prerequisites) };
+  return { done: { error: session.error } };
 }
 
 /**

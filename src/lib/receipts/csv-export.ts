@@ -20,6 +20,8 @@ import {
 } from "@/lib/receipts/document-lines";
 import type { SelectCommercialDocumentLine } from "@/db/schema/commercial-document-lines";
 import { CSV_BOM, rowToCsv } from "@/lib/csv";
+import { compareStoricoOrder } from "@/lib/receipts/storico-order";
+import type { AdeReceiptListItem } from "@/types/storico";
 import { formatRomeDate, formatRomeTime } from "@/lib/date-utils";
 
 /**
@@ -47,6 +49,11 @@ export const RECEIPT_CSV_HEADERS = [
   "data",
   "ora",
   "numero_ade",
+  // `origine` sta accanto al numero documento perche' e' la stessa domanda:
+  // di che documento si tratta e da dove viene. C'e' SEMPRE, anche quando la
+  // ricerca non ha incluso l'archivio AdE e ogni riga vale `scontrinozero`:
+  // un file la cui forma cambia con un flag non si puo' scriptare.
+  "origine",
   "stato",
   "totale",
   "sconto_a_pagare",
@@ -187,6 +194,7 @@ export function formatReceiptRow(
     formatRomeDate(doc.adeRegisteredAt),
     formatRomeTime(doc.adeRegisteredAt),
     doc.adeProgressive ?? "",
+    "scontrinozero",
     // Fallback sul codice grezzo invece che stringa vuota: uno stato nuovo e
     // non tradotto deve essere visibile nel file, non sparire.
     STATUS_LABELS.get(doc.status) ?? doc.status,
@@ -203,6 +211,41 @@ export function formatReceiptRow(
     doc.voidRegisteredAt ? formatRomeDate(doc.voidRegisteredAt) : "",
     doc.id,
     doc.adeTransactionId ?? "",
+  ];
+}
+
+/**
+ * Riga CSV di un documento che vive solo sull'archivio AdE.
+ *
+ * Le celle che l'archivio non ci dà restano **vuote**, non a zero: la ricerca
+ * AdE restituisce la sola testata, e `0,00` in `sconto_a_pagare` affermerebbe
+ * che quel documento non aveva abbuoni — cosa che non sappiamo. È la stessa
+ * regola gia' applicata a `metodo_pagamento` sulle righe storiche: una cella
+ * vuota dice "non registrato", un valore afferma un fatto.
+ *
+ * `data_annullo` resta vuota anche su un documento annullato: il flag
+ * `annulli` dice **che** è stato annullato, non quando (`HAR.md` #16c), e la
+ * data starebbe sulla riga dell'annullo, che questa ricerca non chiede.
+ *
+ * `id_scontrino` è vuoto perche' non esiste: quel documento non è una nostra
+ * riga. L'unico appiglio è `id_transazione_ade`.
+ */
+export function formatAdeReceiptRow(row: AdeReceiptListItem): string[] {
+  return [
+    formatRomeDate(row.adeRegisteredAt),
+    formatRomeTime(row.adeRegisteredAt),
+    row.adeProgressive,
+    "agenzia entrate",
+    STATUS_LABELS.get(row.status) ?? row.status,
+    row.total.replace(".", ","),
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    row.idtrx,
   ];
 }
 
@@ -388,15 +431,63 @@ type DocRowsFormatter = (
  * propagati via `controller.error()` cosi' il client riceve un download
  * troncato (segnale che qualcosa e' andato storto).
  */
+/**
+ * Fonde le righe AdE — già in memoria e già ordinate — nel flusso dei nostri
+ * documenti, che arriva a lotti dal database.
+ *
+ * È un merge di due liste ordinate, non una concatenazione: le righe AdE
+ * devono comparire al loro posto nel tempo, o il file uscirebbe con un blocco
+ * di documenti fuori sequenza in fondo. L'ordine è quello canonico condiviso
+ * con l'elenco a schermo (`compareStoricoOrder`): lo stesso periodo non può
+ * dare due sequenze diverse a seconda di dove lo si guarda.
+ */
+function makeAdeMerger(adeRows: readonly AdeReceiptListItem[]) {
+  const queue = [...adeRows].sort((a, b) =>
+    compareStoricoOrder({ ...a, sortId: a.idtrx }, { ...b, sortId: b.idtrx }),
+  );
+  let next = 0;
+
+  return {
+    /** Le righe AdE che precedono `doc` nell'ordine dell'export. */
+    drainBefore(doc: ReceiptDocRow): string[][] {
+      const out: string[][] = [];
+      const docKey = {
+        adeRegisteredAt: doc.adeRegisteredAt,
+        origin: "local" as const,
+        sortId: doc.id,
+      };
+      while (next < queue.length) {
+        const row = queue[next];
+        const key = { ...row, sortId: row.idtrx };
+        if (compareStoricoOrder(key, docKey) > 0) break;
+        out.push(formatAdeReceiptRow(row));
+        next += 1;
+      }
+      return out;
+    },
+    /** Ciò che resta: le righe AdE più vecchie di ogni documento nostro. */
+    drainRest(): string[][] {
+      const out = queue.slice(next).map(formatAdeReceiptRow);
+      next = queue.length;
+      return out;
+    },
+  };
+}
+
 function buildCsvStream(
   params: BuildCsvStreamParams,
   headers: readonly string[],
   formatRows: DocRowsFormatter,
+  adeRows: readonly AdeReceiptListItem[] = [],
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
 
   return new ReadableStream<Uint8Array>({
     async start(controller) {
+      const merger = makeAdeMerger(adeRows);
+      const write = (row: string[]) =>
+        controller.enqueue(encoder.encode(rowToCsv(row)));
+
       try {
         controller.enqueue(encoder.encode(CSV_BOM));
         controller.enqueue(encoder.encode(rowToCsv(headers)));
@@ -410,14 +501,17 @@ function buildCsvStream(
           const byDoc = groupLinesByDocId(lines);
 
           for (const doc of docs) {
+            for (const adeRow of merger.drainBefore(doc)) write(adeRow);
             for (const row of formatRows(doc, byDoc.get(doc.id) ?? [])) {
-              controller.enqueue(encoder.encode(rowToCsv(row)));
+              write(row);
             }
           }
 
           if (docs.length < BATCH_SIZE) break;
           offset += BATCH_SIZE;
         }
+
+        for (const adeRow of merger.drainRest()) write(adeRow);
 
         controller.close();
       } catch (err) {
@@ -427,13 +521,25 @@ function buildCsvStream(
   });
 }
 
-/** Riepilogo: una riga per scontrino, le voci collassate in `descrizione`. */
+/**
+ * Riepilogo: una riga per scontrino, le voci collassate in `descrizione`.
+ *
+ * `adeRows` porta i documenti che vivono solo sull'archivio AdE. Arrivano già
+ * deduplicati e filtrati da `fetchForeignAdeRows`, lo stesso che serve
+ * l'elenco a schermo: file ed elenco devono contenere le stesse righe.
+ */
 export function buildReceiptsCsvStream(
   params: BuildCsvStreamParams,
+  adeRows: readonly AdeReceiptListItem[] = [],
 ): ReadableStream<Uint8Array> {
-  return buildCsvStream(params, RECEIPT_CSV_HEADERS, (doc, lines) => [
-    formatReceiptRow(doc, calcDocTotal(lines), joinLineDescriptions(lines)),
-  ]);
+  return buildCsvStream(
+    params,
+    RECEIPT_CSV_HEADERS,
+    (doc, lines) => [
+      formatReceiptRow(doc, calcDocTotal(lines), joinLineDescriptions(lines)),
+    ],
+    adeRows,
+  );
 }
 
 /** Dettaglio: una riga per voce venduta, con aliquota e importi della riga. */

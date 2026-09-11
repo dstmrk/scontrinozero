@@ -310,6 +310,77 @@ canale da cui è nata**.
 
 ---
 
+## Leggere l'archivio AdE dentro la sessione di un esercente
+
+Vale per ogni funzione che interroga il portale **per conto dell'utente che sta
+guardando lo schermo** — la verifica di un PENDING (REVIEW.md #103) e la
+ricerca dei documenti nello storico (v1.8.0) — non per l'emissione.
+
+**Cosa c'è in `GET /ser/api/documenti/v1/doc/documenti/`.** È l'archivio del
+servizio _Documento Commerciale Online_: i documenti emessi **attraverso quel
+servizio** — portale web AdE, app AdE, e qualunque software che lo piloti, noi
+compresi. **Non** i corrispettivi trasmessi da un registratore telematico, che
+vivono in un'altra area di Fatture&Corrispettivi. Chiamare la feature
+"recupero corrispettivi" promette una cosa che l'endpoint non dà: il nome
+onesto è "documenti commerciali".
+
+**L'ingresso è uno solo:** `resolveAdeUserSession` in
+`src/lib/services/ade-user-session.ts`. Prerequisiti + pre-check CIE +
+`toAdeSessionParams`, senza effetti collaterali, e ritorna una **condizione**
+(`cie-reauth`, `unavailable`) non una frase: il messaggio lo scrive la
+superficie, perché "rifai l'accesso per verificare lo scontrino" e "ricollegati
+per cercare" non sono la stessa cosa. Emit e void restano fuori: hanno bisogno
+anche di `cedentePrestatore` e rispondono con il loro tipo.
+
+**Il costo va limitato, e la soglia è già decisa:** 20/ora per utente
+(`pending-actions.ts`, `storico-actions.ts`). L'unità di costo è la stessa —
+un login AdE più una o più `searchDocuments`, secondi di attesa e traffico sul
+portale **a nome dell'esercente**, che è chi rischia il blocco dell'account.
+
+**Una query copre al massimo 31 giorni** (`HAR.md` #16e): è un vincolo del
+portale. Un periodo più lungo si **spezza** in una query per mese solare
+(`buildAdeSearchRanges`) — un mese non supera mai i 31 giorni, quindi il
+vincolo non si viola per costruzione — e le query girano **dalla più recente
+alla più vecchia**, così un troncamento per tempo scaduto perde la coda remota
+e non i documenti di ieri. Tieni distinti i due numeri: `ADE_QUERY_MAX_DAYS`
+(31, del portale) e `ADE_SEARCH_MAX_DAYS` (366, quanto l'esercente può
+chiedere). Confonderli è l'errore che la v1.8.0 ha fatto la prima volta.
+
+**Una lettura lunga ha bisogno di un deadline suo.** Dodici query in sequenza,
+ognuna paginata, possono superare il tempo che una risposta HTTP ha prima che
+il proxy davanti all'app la chiuda — e un troncamento del proxy arriva
+all'esercente come un errore senza spiegazione. Fermarsi da soli prima e
+dichiarare `truncated` è l'unico modo di restituire qualcosa di leggibile.
+
+**Impaginare l'archivio: contare ciò che arriva, non ciò che si è chiesto.**
+`perPage` nelle catture reali vale 10 e non sappiamo se il portale accetti
+valori alti o li ricapi in silenzio. Il ciclo di `fetchAdeSaleRows` avanza su
+`elencoRisultati.length` e si ferma su una pagina vuota **qualunque cosa dica
+`totalCount`**: così un `perPage` ricapato costa round-trip in più e nient'altro,
+invece di un elenco troncato che sembra completo. Servono comunque due tetti
+espliciti (documenti e pagine) e un flag `truncated` da mostrare: un elenco
+tagliato in silenzio è peggio di un elenco assente.
+
+**Lo stato di un documento si legge sulla vendita, non sull'annullo.** Il campo
+`annulli` è polisemico (`HAR.md` #16c): su una riga `V` è il **flag** `"A"`
+"documento annullato", su una riga `A` è il progressivo dell'annullato. Quindi
+si interroga `tipoOperazione=V` e basta — una query invece di due. Si perde la
+_data_ dell'annullo, che sta sulla riga `A`: se serve, è una seconda query, non
+un campo da indovinare.
+
+**Deduplicare contro i nostri documenti è obbligatorio.** Gli scontrini emessi
+da ScontrinoZero sono in quell'archivio come tutti gli altri: senza sottrazione
+compaiono due volte. La primitiva esiste già —
+`findClaimedTransactionIds(db, { businessId, idtrxs })` in `ade-recovery.ts`,
+con `excludeDocumentId` opzionale.
+
+**Degradare a schermo, rifiutare su un file.** Se l'AdE non risponde mentre si
+popola un elenco, le righe nostre restano e un avviso dice cosa manca (regola
+19). Su un **export CSV** no: un file viene archiviato e riletto mesi dopo,
+quando nessun avviso esiste più, quindi un fallimento è un 503 e nessun file.
+La stessa condizione merita due risposte diverse perché le due superfici hanno
+due durate diverse.
+
 ## Key rotation: `ENCRYPTION_KEY`
 
 I segreti AdE sono cifrati con AES-256-GCM; la chiave sta in `ENCRYPTION_KEY`

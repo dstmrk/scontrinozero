@@ -38,12 +38,6 @@ const allTrue = (label: string): ComparisonRow => ({
   pro: true,
   selfHosted: true,
 });
-const comingSoon = (label: string): ComparisonRow => ({
-  label,
-  starter: false,
-  pro: "In arrivo",
-  selfHosted: "In arrivo",
-});
 const hostedOnly = (label: string): ComparisonRow => ({
   label,
   starter: true,
@@ -99,7 +93,12 @@ const comparisonRows: ComparisonRow[] = [
     pro: true,
     selfHosted: true,
   },
-  comingSoon("Recupero documenti da AdE"),
+  {
+    label: "Ricerca documenti commerciali su AdE",
+    starter: false,
+    pro: true,
+    selfHosted: true,
+  },
   {
     label: "Supporto prioritario",
     starter: false,

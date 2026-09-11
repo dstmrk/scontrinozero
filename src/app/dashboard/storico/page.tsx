@@ -30,6 +30,7 @@ export default async function StoricoPage({
     dal?: string;
     al?: string;
     stato?: string;
+    ade?: string;
   }>;
 }) {
   const status = await getOnboardingStatus();
@@ -38,7 +39,7 @@ export default async function StoricoPage({
     redirect("/onboarding");
   }
 
-  const { dal, al, stato } = await searchParams;
+  const { dal, al, stato, ade } = await searchParams;
   const { dateFrom: defaultFrom, dateTo: defaultTo } =
     defaultLast7DaysRomeRange();
 
@@ -78,6 +79,7 @@ export default async function StoricoPage({
       initialDateFrom={dateFrom}
       initialDateTo={dateTo}
       initialStatus={statusParam}
+      initialIncludeAde={ade === "1"}
       plan={planInfo.plan}
       trialStartedAt={planInfo.trialStartedAt}
       printProfile={printProfile}

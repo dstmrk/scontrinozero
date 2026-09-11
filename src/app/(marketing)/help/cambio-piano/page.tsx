@@ -141,10 +141,10 @@ export default function CambioPianoPage() {
           <strong>pagamento misto</strong> (un incasso ripartito fra contanti ed
           elettronico sullo stesso scontrino) e il{" "}
           <strong>messaggio personalizzato</strong> stampato in fondo agli
-          scontrini. È invece <em>in arrivo</em> il recupero dei documenti
-          commerciali da AdE: quando sarà rilasciato, verrà incluso
-          automaticamente per chi ha già un piano Pro attivo. Vedi il dettaglio
-          in{" "}
+          scontrini. Include anche la{" "}
+          <strong>ricerca dei documenti commerciali su AdE</strong>: dallo
+          storico trovi anche i documenti emessi fuori da ScontrinoZero, in sola
+          lettura. Vedi il dettaglio in{" "}
           <Link
             href="/help/piani-e-prezzi"
             className="text-primary hover:underline"
