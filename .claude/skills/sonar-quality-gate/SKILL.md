@@ -1,6 +1,6 @@
 ---
 name: sonar-quality-gate
-description: Use when fixing SonarCloud or Gitleaks findings — Cognitive Complexity > 15, S6861 readonly React props, S6772 ambiguous JSX spacing, S7780 escape sequences in template literals (use String.raw), S5852 ReDoS or S5122 CORS wildcard Security Hotspots (NOSONAR does not suppress hotspots), or curl-auth-header / generic-api-key false positives in docs requiring .gitleaksignore fingerprints. Also covers coverage exclusions in sonar-project.properties + vitest.config.ts, service worker exclusions, and the rule "ask the user when CI failure is opaque" instead of blind-fixing.
+description: Use when fixing SonarCloud or Gitleaks findings — Cognitive Complexity > 15, S6861 readonly React props, S6772 ambiguous JSX spacing, S7780 escape sequences in template literals (use String.raw), S5852 ReDoS or S5122 CORS wildcard Security Hotspots (NOSONAR does not suppress hotspots), or curl-auth-header / generic-api-key false positives on API-key placeholders in docs (closed by a secret-shape allowlist in .gitleaks.toml, NOT by .gitleaksignore fingerprints, which die at every squash merge). Also covers coverage exclusions in sonar-project.properties + vitest.config.ts, service worker exclusions, and the rule "ask the user when CI failure is opaque" instead of blind-fixing.
 ---
 
 # sonar-quality-gate — Regole SonarCloud specifiche
@@ -123,17 +123,68 @@ rimuovere il wildcard.
 
 ---
 
-## Gitleaks e pagine di documentazione
+## Gitleaks: allowlist per forma, fingerprint solo come ultima spiaggia
 
-Placeholder di chiavi API negli esempi curl (es. `szk_live_XXXX`,
-`Authorization: Bearer ...`) triggerano le rules `curl-auth-header` e
-`generic-api-key`. Sono falsi positivi — aggiungere i fingerprint al
-`.gitleaksignore`.
+I placeholder di chiavi API negli esempi curl (`szk_live_XXXX`,
+`Authorization: Bearer …`) triggerano `curl-auth-header` e `generic-api-key`.
+Sono falsi positivi, ma **non si chiudono con un fingerprint**.
 
-⚠️ **I fingerprint sono commit-specifici** (`COMMIT_SHA:FILE:RULE:LINE`). Ogni
-commit che modifica le righe coinvolte genera nuovi fingerprint. Aggiungere i
-fingerprint di tutti i commit in un'unica passata quando possibile, ispezionando
-le righe esatte con `grep -n`.
+⚠️ **Un fingerprint è `<sha>:<file>:<regola>:<riga>`, quindi è legato al
+commit.** Il repo mergia in **squash**: il commit che la PR ha scansionato non
+è quello che finisce in `main`, e la fingerprint aggiunta durante la PR nasce
+già morta. Il falso positivo torna al primo scan che riporta quella riga in un
+range di scansione. Lo stesso placeholder si era accumulato sotto **sette sha diversi** in
+`.gitleaksignore`: ogni riga era la cicatrice di un giro.
+
+**La forma corretta è un allowlist in `.gitleaks.toml`**, che non dipende da
+nessuno sha:
+
+```toml
+[extend]
+useDefault = true   # senza questo il file SOSTITUISCE le regole: scan no-op
+
+[allowlist]
+regexes = ['''^szk_(live|mgmt)_X+$''']
+```
+
+Si allowlista la **forma del segreto**, mai il path. Una regex che descrive un
+placeholder impossibile (prefisso + sole X, contro 48 caratteri casuali di una
+chiave vera) non spegne niente: una chiave vera nello stesso identico file
+continua a far fallire lo scan. Un allowlist per path spegne invece _ogni_
+regola su quei file.
+
+**Vincoli misurati su gitleaks 8.24.3** (la versione che `gitleaks-action` v3
+scarica di default — vive in `dist/index.js` della action, non nel nostro
+`ci.yml`):
+
+- solo `[allowlist]` **singolare** e globale viene letto. `[[allowlists]]`
+  plurale e `targetRules` sono ignorati **in silenzio**: il config si carica,
+  l'allowlist non esiste;
+- `matchCondition = "AND"` è anch'esso ignorato: `paths` e `regexes` restano
+  in **OR**, quindi non si può restringere una regex a un path;
+- `paths` è matchato sul path **assoluto**: `^DEVELOPER\.md$` non matcha mai,
+  serve `DEVELOPER\.md$`;
+- il config viene scoperto da solo (`.gitleaks.toml` nella root dello scan):
+  la action non passa `--config` e non legge `GITLEAKS_CONFIG`;
+- `.gitleaksignore` accetta righe di commento con `#`.
+
+Il fingerprint resta legittimo solo dove una regex non separa il falso positivo
+dal vero — fixture di test, chiavi pubbliche di script — ed è lì che va
+scritto perché non esiste alternativa, non per pigrizia.
+
+**Verifica in locale prima di pushare**, che è l'unico modo di sapere se un
+allowlist funziona davvero su questa versione:
+
+```bash
+curl -sSL -o gl.tar.gz \
+  https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz
+tar xzf gl.tar.gz gitleaks
+./gitleaks detect --no-git --source . --redact --exit-code 0 --report-format json --report-path /tmp/gl.json
+```
+
+Due asserzioni, non una: il falso positivo sparisce **e** un segreto dalla
+forma reale, incollato nello stesso file, viene ancora trovato. La seconda è
+quella che distingue un allowlist da una regola spenta.
 
 ---
 
