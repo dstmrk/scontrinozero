@@ -141,8 +141,16 @@ const SERVICE_CODE_TO_V1: Record<string, V1ErrorCode> = {
   NOT_FOUND: "NOT_FOUND",
 };
 
+/**
+ * Traduce un risultato d'errore di service in risposta v1.
+ *
+ * `documentId` è opzionale e passa attraverso così com'è: sono i service a
+ * valorizzarlo solo sugli esiti ancora aperti (`api-v1-errors.ts`). Qui non
+ * c'è nessuna regola per code — duplicarla significherebbe tenerne due in
+ * sync, e la route non sa nulla dello stato della riga.
+ */
 export function serviceErrorResponse(
-  result: { error: string; code?: string },
+  result: { error: string; code?: string; documentId?: string },
   requestId: string,
 ): Response {
   // Object.hasOwn: `code` viene da un risultato di service, ma la lookup su un
@@ -153,7 +161,9 @@ export function serviceErrorResponse(
       ? SERVICE_CODE_TO_V1[result.code]
       : "ADE_REJECTED";
 
-  return v1Error(code, result.error, requestId);
+  return v1Error(code, result.error, requestId, {
+    documentId: result.documentId,
+  });
 }
 
 /**
@@ -196,6 +206,52 @@ export async function parseAndValidateBody<T>(
   return { data: parsed.data };
 }
 
+/**
+ * Stati filtrabili da `GET /api/v1/receipts?status=`: l'enum `document_status`
+ * al completo.
+ *
+ * Scritto qui e non importato da `@/db/schema` di proposito — questo modulo sta
+ * sul path di ogni richiesta v1 e non deve tirarsi dentro lo schema Drizzle solo
+ * per cinque stringhe. Che la lista non diverga dall'enum del DB non è affidato
+ * alla buona volontà: `api-v1-helpers.test.ts` confronta le due, e uno stato
+ * nuovo in `document_status` fa fallire il test finché non si decide se esporlo.
+ */
+const LIST_STATUS_VALUES = [
+  "PENDING",
+  "ACCEPTED",
+  "VOID_ACCEPTED",
+  "REJECTED",
+  "ERROR",
+] as const;
+const LIST_STATUSES = z.enum(LIST_STATUS_VALUES);
+
+/** Stato del documento accettato da `GET /api/v1/receipts?status=`. */
+export type ListStatus = (typeof LIST_STATUS_VALUES)[number];
+
+/**
+ * Stati dei documenti che `GET /api/v1/receipts` include quando la query non
+ * porta un `status`: i soli registrati presso l'AdE. È il contratto pubblico
+ * dell'elenco dal giorno uno e non cambia — un documento `PENDING` che
+ * comparisse d'ufficio fra i documenti emessi sarebbe una vendita dichiarata
+ * trasmessa senza esserlo.
+ */
+const LIST_DEFAULT_STATUSES = ["ACCEPTED", "VOID_ACCEPTED"] as const;
+
+/**
+ * Gli stati che l'elenco deve includere: quello chiesto, o il default.
+ *
+ * Un solo `inArray` nella route invece di due rami: il filtro esplicito è una
+ * lista di uno, il default una lista di due. `status` resta a valore singolo —
+ * chi riconcilia interroga uno stato per volta, e un multi-valore chiederebbe
+ * subito una sintassi (ripetuto? separato da virgole?) che non è ancora
+ * servita a nessuno.
+ */
+export function listStatusValues(
+  status: ListStatus | null,
+): readonly ListStatus[] {
+  return status ? [status] : LIST_DEFAULT_STATUSES;
+}
+
 /** Page size di default per GET /api/v1/receipts (nessun `limit` in query). */
 export const LIST_DEFAULT_LIMIT = 20;
 /** Page size massimo per GET /api/v1/receipts. */
@@ -211,21 +267,28 @@ const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional(),
   limit: z.coerce.number().int().min(1).optional(),
   kind: z.enum(["SALE", "VOID"]).optional(),
+  // L'enum completo di `document_status` (src/db/schema/commercial-documents.ts),
+  // non il solo `PENDING`: chi riconcilia le proprie scritture con le nostre ha
+  // bisogno tanto degli scontrini in sospeso quanto di quelli finiti in `ERROR`
+  // o `REJECTED`, che l'elenco di default nasconde allo stesso modo.
+  status: LIST_STATUSES.optional(),
 });
 
 const LIST_QUERY_ERROR: Record<string, string> = {
   page: "Il parametro 'page' deve essere un intero maggiore o uguale a 1.",
   limit: "Il parametro 'limit' deve essere un intero maggiore o uguale a 1.",
   kind: "Il parametro 'kind' deve essere 'SALE' o 'VOID'.",
+  status: `Il parametro 'status' deve essere uno fra ${LIST_STATUS_VALUES.join(", ")}.`,
 };
 
 /**
- * Valida i parametri opzionali di lista (`page`/`limit`/`kind`) di
+ * Valida i parametri opzionali di lista (`page`/`limit`/`kind`/`status`) di
  * GET /api/v1/receipts. Valori *malformati* → `400` (regola 9: validazione al
  * boundary) invece del clamp/ignore silenzioso precedente (`page=-100`→1,
  * `kind=FOO`→tutti). Un `limit` oltre il massimo viene ridotto a
  * `LIST_MAX_LIMIT` (soft cap convenzionale, non un errore). Parametri assenti →
- * default documentati (`page=1`, `limit=20`, `kind=null` = entrambi i tipi).
+ * default documentati (`page=1`, `limit=20`, `kind=null` = entrambi i tipi,
+ * `status=null` = solo i documenti registrati).
  *
  * Ritorna `{ error: Response }` sul primo parametro invalido, così il caller fa:
  *   if ("error" in result) return result.error;
@@ -235,9 +298,16 @@ export function parseListPagination(
   requestId: string,
 ):
   | { error: Response }
-  | { data: { page: number; limit: number; kind: "SALE" | "VOID" | null } } {
+  | {
+      data: {
+        page: number;
+        limit: number;
+        kind: "SALE" | "VOID" | null;
+        status: ListStatus | null;
+      };
+    } {
   const raw: Record<string, string> = {};
-  for (const key of ["page", "limit", "kind"] as const) {
+  for (const key of ["page", "limit", "kind", "status"] as const) {
     const value = searchParams.get(key);
     if (value !== null) raw[key] = value;
   }
@@ -257,6 +327,10 @@ export function parseListPagination(
       // Soft cap: un limit valido oltre il massimo viene ridotto, non rifiutato.
       limit: Math.min(LIST_MAX_LIMIT, parsed.data.limit ?? LIST_DEFAULT_LIMIT),
       kind: parsed.data.kind ?? null,
+      // `null` = nessun filtro esplicito → la route applica il default storico
+      // (solo ACCEPTED/VOID_ACCEPTED), che resta il contratto di chi non passa
+      // il parametro.
+      status: parsed.data.status ?? null,
     },
   };
 }

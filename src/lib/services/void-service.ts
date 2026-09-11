@@ -72,6 +72,23 @@ type ExistingVoidRow = {
 };
 
 /**
+ * Esito "la riga di annullo esiste ed è ancora aperta": il client ritenta con
+ * la STESSA idempotencyKey.
+ *
+ * `voidDocumentId` quando la riga è nota: sul canale API diventa il
+ * `documentId` dell'envelope d'errore (`src/lib/api-v1-errors.ts`), l'unico
+ * appiglio per seguire un annullo in sospeso se il client smette di ritentare.
+ */
+function voidPendingInProgress(voidDocumentId?: string): VoidReceiptResult {
+  return {
+    error:
+      "Annullo precedente ancora in elaborazione. Riprova tra qualche secondo.",
+    code: "VOID_PENDING_IN_PROGRESS",
+    ...(voidDocumentId ? { voidDocumentId } : {}),
+  };
+}
+
+/**
  * Classifica la riga trovata per `(business_id, idempotency_key)` (Case A del
  * conflitto). Estratta da `resolveVoidConflict` per tenerne la Cognitive
  * Complexity sotto 15 (SonarCloud S3776): i branch qui sono top-level, non
@@ -178,11 +195,7 @@ function resolveExistingVoidByKey(
 
   return {
     kind: "done",
-    result: {
-      error:
-        "Annullo precedente ancora in elaborazione. Riprova tra qualche secondo.",
-      code: "VOID_PENDING_IN_PROGRESS",
-    },
+    result: voidPendingInProgress(existing.id),
   };
 }
 
@@ -673,11 +686,7 @@ async function insertOrResolveVoid(
     if (!claimed) {
       return {
         kind: "done",
-        result: {
-          error:
-            "Annullo precedente ancora in elaborazione. Riprova tra qualche secondo.",
-          code: "VOID_PENDING_IN_PROGRESS",
-        },
+        result: voidPendingInProgress(conflict.voidDocumentId),
       };
     }
 
@@ -753,11 +762,7 @@ async function reconcileVoidBeforeResubmit(
         failure: "Void recovery: searchDocuments lookup failed",
       },
     );
-    return {
-      error:
-        "Annullo precedente ancora in elaborazione. Riprova tra qualche secondo.",
-      code: "VOID_PENDING_IN_PROGRESS",
-    };
+    return voidPendingInProgress(voidDocumentId);
   }
 
   const result = reconcileVoidDocument({
@@ -785,11 +790,7 @@ async function reconcileVoidBeforeResubmit(
       { voidDocumentId, saleDocumentId },
       "Void recovery: match AdE ambiguo → niente finalize, resta PENDING (conservativo)",
     );
-    return {
-      error:
-        "Annullo precedente ancora in elaborazione. Riprova tra qualche secondo.",
-      code: "VOID_PENDING_IN_PROGRESS",
-    };
+    return voidPendingInProgress(voidDocumentId);
   }
 
   return null;
@@ -908,7 +909,7 @@ export async function voidReceiptForBusiness(
       }
     }
 
-    return formatVoidError(err);
+    return formatVoidError(err, voidDocumentId);
   }
 }
 
@@ -922,12 +923,16 @@ export async function voidReceiptForBusiness(
  * con la stessa richiesta, e sul canale API diventa un 503 anziché un 422
  * indistinto da un rifiuto di merito dell'AdE.
  */
-function formatVoidError(err: unknown): VoidReceiptResult {
+function formatVoidError(
+  err: unknown,
+  voidDocumentId: string,
+): VoidReceiptResult {
   if (isStatementTimeoutError(err)) {
     return {
       error:
         "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
       code: "DB_TIMEOUT",
+      voidDocumentId,
     };
   }
 
@@ -938,6 +943,7 @@ function formatVoidError(err: unknown): VoidReceiptResult {
         "Agenzia delle Entrate non raggiungibile. Riprova tra qualche istante.",
       ).message,
       code: "ADE_UNAVAILABLE",
+      voidDocumentId,
     };
   }
 

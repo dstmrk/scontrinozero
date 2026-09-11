@@ -592,6 +592,8 @@ describe("voidReceiptForBusiness", () => {
     const result = await voidReceiptForBusiness(VALID_INPUT);
 
     expect((result as { code?: string }).code).toBe("VOID_PENDING_IN_PROGRESS");
+    // La riga di annullo è ancora aperta: il client deve poterla seguire.
+    expect(result.voidDocumentId).toBe("void-doc-uuid");
     // CRITICO: nessun secondo claim, nessun doppio submitVoid ad AdE.
     expect(mockLogin).not.toHaveBeenCalled();
     expect(mockSubmitVoid).not.toHaveBeenCalled();
@@ -798,6 +800,7 @@ describe("voidReceiptForBusiness", () => {
     const result = await voidReceiptForBusiness(VALID_INPUT);
 
     expect((result as { code?: string }).code).toBe("VOID_PENDING_IN_PROGRESS");
+    expect(result.voidDocumentId).toBe("void-doc-uuid");
     expect(mockSubmitVoid).not.toHaveBeenCalled();
   });
 
@@ -822,6 +825,7 @@ describe("voidReceiptForBusiness", () => {
 
     // Non sappiamo se AdE aveva registrato l'annullo → mai re-submit.
     expect((result as { code?: string }).code).toBe("VOID_PENDING_IN_PROGRESS");
+    expect(result.voidDocumentId).toBe("void-doc-uuid");
     expect(mockSubmitVoid).not.toHaveBeenCalled();
     expect(mockGetDocument).not.toHaveBeenCalled();
   });
@@ -847,6 +851,7 @@ describe("voidReceiptForBusiness", () => {
     const result = await voidReceiptForBusiness(VALID_INPUT);
 
     expect((result as { code?: string }).code).toBe("VOID_PENDING_IN_PROGRESS");
+    expect(result.voidDocumentId).toBe("void-doc-uuid");
     // CRITICO: nessun doppio submitVoid ad AdE dal retry perdente.
     expect(mockLogin).not.toHaveBeenCalled();
     expect(mockSubmitVoid).not.toHaveBeenCalled();

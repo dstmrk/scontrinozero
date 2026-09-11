@@ -30,6 +30,7 @@ import { emitReceiptForBusiness } from "@/lib/services/receipt-service";
 import {
   requireBusinessApiAuth,
   checkRateLimitApi,
+  listStatusValues,
   parseAndValidateBody,
   parseListPagination,
   serviceErrorResponse,
@@ -165,8 +166,11 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   if (result.error) {
+    // `documentId` incluso: sugli esiti che lasciano la riga aperta il service
+    // lo valorizza, ed è l'unico appiglio che resta al client se smette di
+    // ritentare (envelope in `src/lib/api-v1-errors.ts`).
     return serviceErrorResponse(
-      { error: result.error, code: result.code },
+      { error: result.error, code: result.code, documentId: result.documentId },
       requestId,
     );
   }
@@ -264,7 +268,7 @@ export async function GET(request: Request): Promise<Response> {
   // invalidi → 400 esplicito, niente clamp/ignore silenzioso.
   const paginationResult = parseListPagination(searchParams, requestId);
   if ("error" in paginationResult) return paginationResult.error;
-  const { page, limit, kind } = paginationResult.data;
+  const { page, limit, kind, status } = paginationResult.data;
   const offset = (page - 1) * limit;
 
   // ── DB queries ────────────────────────────────────────────────────────────
@@ -274,11 +278,18 @@ export async function GET(request: Request): Promise<Response> {
   // Spostarlo cambierebbe sotto i piedi ai consumer esterni sia i valori
   // restituiti sia l'insieme dei documenti in un periodo: si fa a una `/api/v2`
   // (DEVELOPER.md), mai in place.
+  //
+  // `status` assente → `listStatusValues` ridà il default storico
+  // (ACCEPTED + VOID_ACCEPTED): l'elenco continua a rispondere esattamente
+  // come prima a chi non passa il parametro. Con `status=PENDING` diventa
+  // invece l'unico modo, dall'API, di trovare una vendita rimasta in sospeso
+  // dopo un `ADE_UNAVAILABLE` che il client non ha più ritentato — la stessa
+  // riga che sulla web app finisce nel banner del dashboard.
   const conditions = [
     eq(commercialDocuments.businessId, auth.businessId),
     gte(commercialDocuments.createdAt, fromDate),
     lt(commercialDocuments.createdAt, toDateExclusive),
-    inArray(commercialDocuments.status, ["ACCEPTED", "VOID_ACCEPTED"]),
+    inArray(commercialDocuments.status, listStatusValues(status)),
   ];
   if (kind) {
     conditions.push(eq(commercialDocuments.kind, kind));

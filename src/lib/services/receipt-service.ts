@@ -454,11 +454,7 @@ async function handleExistingReceipt(args: {
       createdAtMs,
     });
   }
-  return {
-    error:
-      "Scontrino precedente ancora in elaborazione. Riprova tra qualche secondo.",
-    code: "PENDING_IN_PROGRESS",
-  };
+  return pendingInProgress(existing.id);
 }
 
 /** Recovery path for stale PENDING/ERROR receipts. Extracted to keep
@@ -512,11 +508,7 @@ async function recoverStaleReceipt(args: {
     existing.updatedAt,
   );
   if (!claimed) {
-    return {
-      error:
-        "Scontrino precedente ancora in elaborazione. Riprova tra qualche secondo.",
-      code: "PENDING_IN_PROGRESS",
-    };
+    return pendingInProgress(existing.id);
   }
 
   // Lookup AdE pre-retry (REVIEW.md #4): submitSaleToAde, prima di ri-sottomettere,
@@ -638,6 +630,9 @@ export async function finalizeSaleOnly(
         error:
           "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
         code: "DB_TIMEOUT",
+        // AdE ha accettato ma la riga non porta ancora gli id: è il PENDING
+        // più aperto che ci sia, e il client deve poterlo seguire.
+        documentId,
       };
     }
     return {
@@ -647,7 +642,33 @@ export async function finalizeSaleOnly(
   }
 }
 
-function formatEmitError(err: unknown): SubmitReceiptResult {
+/**
+ * Esito "la riga esiste ed è ancora aperta": il client ritenta con la STESSA
+ * idempotencyKey.
+ *
+ * `documentId` quando la riga è nota. È il filo che tiene raggiungibile una
+ * vendita in sospeso anche dal canale API: se il client smette di ritentare,
+ * quell'id è l'unico modo di seguirla su `GET /v1/receipts/{id}` senza aprire
+ * la web app (envelope v1 in `src/lib/api-v1-errors.ts`).
+ */
+function pendingInProgress(documentId?: string): SubmitReceiptResult {
+  return {
+    error:
+      "Scontrino precedente ancora in elaborazione. Riprova tra qualche secondo.",
+    code: "PENDING_IN_PROGRESS",
+    ...(documentId ? { documentId } : {}),
+  };
+}
+
+/**
+ * @param documentId - la riga già inserita: viene restituita al chiamante solo
+ *   sugli esiti che la lasciano **aperta** (transient AdE, statement timeout),
+ *   mai su un rifiuto funzionale, che la chiude in `ERROR`.
+ */
+function formatEmitError(
+  err: unknown,
+  documentId: string,
+): SubmitReceiptResult {
   if (err instanceof AdePasswordExpiredError) {
     return {
       error:
@@ -661,6 +682,7 @@ function formatEmitError(err: unknown): SubmitReceiptResult {
       error:
         "Servizio temporaneamente sovraccarico, riprova tra qualche istante.",
       code: "DB_TIMEOUT",
+      documentId,
     };
   }
   // Transient (rete / AdE 5xx / timeout SPID): l'esito della trasmissione è
@@ -675,6 +697,7 @@ function formatEmitError(err: unknown): SubmitReceiptResult {
         "Agenzia delle Entrate non raggiungibile. Riprova tra qualche istante.",
       ).message,
       code: "ADE_UNAVAILABLE",
+      documentId,
     };
   }
   const userFacing = getUserFacingAdeErrorMessage(
@@ -748,11 +771,7 @@ async function reconcileSaleBeforeResubmit(
         failure: "Sale recovery: searchDocuments lookup failed",
       },
     );
-    return {
-      error:
-        "Scontrino precedente ancora in elaborazione. Riprova tra qualche secondo.",
-      code: "PENDING_IN_PROGRESS",
-    };
+    return pendingInProgress(documentId);
   }
 
   const result = reconcileSaleDocument({
@@ -782,11 +801,7 @@ async function reconcileSaleBeforeResubmit(
       { documentId, businessId },
       "Sale recovery: match AdE ambiguo → niente finalize, resta PENDING (conservativo)",
     );
-    return {
-      error:
-        "Scontrino precedente ancora in elaborazione. Riprova tra qualche secondo.",
-      code: "PENDING_IN_PROGRESS",
-    };
+    return pendingInProgress(documentId);
   }
 
   return null;
@@ -940,7 +955,7 @@ async function submitSaleToAde(
       }
     }
 
-    return formatEmitError(err);
+    return formatEmitError(err, documentId);
   }
 }
 

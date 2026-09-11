@@ -52,7 +52,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   api: {
     slug: "api",
     datePublished: "2026-04-02",
-    dateModified: "2026-08-20",
+    dateModified: "2026-09-10",
     title: "API per sviluppatori",
     metaTitle: "API per sviluppatori",
     description:
