@@ -617,6 +617,8 @@ describe("emitReceiptForBusiness", () => {
 
     expect(result.code).toBe("PENDING_IN_PROGRESS");
     expect(result.error).toBeDefined();
+    // La riga esistente è ancora aperta: il client deve poterla seguire.
+    expect(result.documentId).toBe("doc-123");
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
@@ -691,6 +693,7 @@ describe("emitReceiptForBusiness", () => {
     const result = await emitReceiptForBusiness(VALID_INPUT);
 
     expect(result.code).toBe("PENDING_IN_PROGRESS");
+    expect(result.documentId).toBe("doc-123");
     // CRITICO: nessun doppio submitSale ad AdE dal retry perdente.
     expect(mockLogin).not.toHaveBeenCalled();
     expect(mockSubmitSale).not.toHaveBeenCalled();
@@ -842,6 +845,7 @@ describe("emitReceiptForBusiness", () => {
     const result = await emitReceiptForBusiness(VALID_INPUT);
 
     expect(result.code).toBe("PENDING_IN_PROGRESS");
+    expect(result.documentId).toBe("doc-amb");
     expect(mockSubmitSale).not.toHaveBeenCalled();
   });
 
@@ -865,6 +869,7 @@ describe("emitReceiptForBusiness", () => {
 
     // Non sappiamo se AdE aveva accettato → mai re-submit (rischio duplicato).
     expect(result.code).toBe("PENDING_IN_PROGRESS");
+    expect(result.documentId).toBe("doc-lookup-fail");
     expect(mockSubmitSale).not.toHaveBeenCalled();
   });
 
@@ -1275,6 +1280,31 @@ describe("emitReceiptForBusiness", () => {
     expect(result.error).toBeTruthy();
   });
 
+  it("un fallimento transient porta il documentId della riga rimasta PENDING", async () => {
+    // È l'unico modo che ha un client API di ritrovare la riga se smette di
+    // ritentare: senza id la vendita in sospeso è visibile solo dal banner
+    // della web app, e su un'integrazione headless nessuno la guarda.
+    const { AdeNetworkError } = await import("@/lib/ade/errors");
+    mockSubmitSale.mockRejectedValue(new AdeNetworkError(new Error("ECONN")));
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.code).toBe("ADE_UNAVAILABLE");
+    expect(result.documentId).toBe("doc-123");
+  });
+
+  it("un rifiuto funzionale NON porta documentId: la riga è chiusa in ERROR", async () => {
+    // L'id significa "documento con esito ancora aperto, seguilo": darlo su un
+    // esito definitivo inviterebbe a un polling che non cambierà mai risposta.
+    mockSubmitSale.mockRejectedValue(new Error("documento non valido"));
+
+    const { emitReceiptForBusiness } = await import("./receipt-service");
+    const result = await emitReceiptForBusiness(VALID_INPUT);
+
+    expect(result.documentId).toBeUndefined();
+  });
+
   it("REVIEW #18: un rifiuto funzionale AdE resta senza code (→ 422 ADE_REJECTED)", async () => {
     // Un errore permanente NON deve prendere il codice transient, altrimenti il
     // client entrerebbe in un loop di retry su un documento che l'AdE rifiuterà
@@ -1618,6 +1648,9 @@ describe("emitReceiptForBusiness", () => {
     const result = await emitReceiptForBusiness(VALID_INPUT);
 
     expect(result.code).toBe("DB_TIMEOUT");
+    // AdE ha già accettato e la riga non porta ancora gli id: è il caso in cui
+    // ritrovare il documento conta di più.
+    expect(result.documentId).toBe("doc-stuck");
     expect(mockSubmitSale).not.toHaveBeenCalled();
   });
 });

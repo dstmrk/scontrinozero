@@ -300,6 +300,35 @@ describe("POST /api/v1/receipts", () => {
     expect(mockEmitReceiptForBusiness).not.toHaveBeenCalled();
   });
 
+  it("503 ADE_UNAVAILABLE: l'envelope porta il documentId della riga in sospeso", async () => {
+    // Il client che qui smette di ritentare non ha altro modo di ritrovare la
+    // vendita: l'elenco di default la nasconde e la key non è un id.
+    mockEmitReceiptForBusiness.mockResolvedValue({
+      error: "AdE non raggiungibile",
+      code: "ADE_UNAVAILABLE",
+      documentId: "doc-uuid-999",
+    });
+
+    const res = await POST(makeRequest());
+
+    expect(res.status).toBe(503);
+    expect(await res.json()).toMatchObject({
+      code: "ADE_UNAVAILABLE",
+      documentId: "doc-uuid-999",
+    });
+  });
+
+  it("422 ADE_REJECTED: nessun documentId, l'esito è definitivo", async () => {
+    mockEmitReceiptForBusiness.mockResolvedValue({
+      error: "documento rifiutato",
+    });
+
+    const res = await POST(makeRequest());
+
+    expect(res.status).toBe(422);
+    expect(Object.hasOwn(await res.json(), "documentId")).toBe(false);
+  });
+
   it("accetta lotteryCode malformato con paymentMethod=PC (backward compat)", async () => {
     // PC ignora il lotteryCode lato service — non rifiutarlo al boundary
     // per non rompere client legacy che inviano placeholder su scontrini cash.
@@ -339,6 +368,7 @@ describe("GET /api/v1/receipts (validazione param lista)", () => {
     { name: "limit=-1", query: "limit=-1" },
     { name: "limit=abc", query: "limit=abc" },
     { name: "kind=FOO", query: "kind=FOO" },
+    { name: "status=FOO", query: "status=FOO" },
   ])(
     "ritorna 400 (malformato, niente clamp silenzioso) su $name",
     async ({ query }) => {
@@ -355,6 +385,13 @@ describe("GET /api/v1/receipts (validazione param lista)", () => {
     const body = await res.json();
     expect(body.pagination).toMatchObject({ page: 1, limit: 20 });
     expect(body.data).toEqual([]);
+  });
+
+  it("status=PENDING: 200, l'elenco può mostrare gli scontrini in sospeso", async () => {
+    const res = await GET(makeGetRequest(`${VALID_RANGE}&status=PENDING`));
+
+    expect(res.status).toBe(200);
+    expect(mockWithStatementTimeout).toHaveBeenCalledTimes(1);
   });
 
   it("param validi: page/limit/kind riflessi nella pagination, 200", async () => {

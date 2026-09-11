@@ -84,8 +84,15 @@ export async function POST(
   }
 
   if (result.error) {
+    // `voidDocumentId` → `documentId` dell'envelope: il campo pubblico è uno
+    // solo e indica "il documento a cui questo errore si riferisce", che su
+    // questo endpoint è la riga di annullo rimasta aperta.
     return serviceErrorResponse(
-      { error: result.error, code: result.code },
+      {
+        error: result.error,
+        code: result.code,
+        documentId: result.voidDocumentId,
+      },
       requestId,
     );
   }

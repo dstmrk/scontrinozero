@@ -613,6 +613,50 @@ describe("GET /api/v1/receipts (list)", () => {
     });
   });
 
+  describe("status filter", () => {
+    /** `inArray(commercialDocuments.status, …)`: gli stati passati alla query. */
+    async function statusesQueriedWith(
+      params: Record<string, string>,
+    ): Promise<readonly string[]> {
+      setupDbMocksEmpty();
+      const { inArray } = await import("drizzle-orm");
+      const { GET } = await import("@/app/api/v1/receipts/route");
+
+      const res = await GET(
+        makeRequest({ from: VALID_FROM, to: VALID_TO, ...params }),
+      );
+      expect(res.status).toBe(200);
+
+      // Prima (e unica, con risultati vuoti) chiamata a `inArray`: quella che
+      // costruisce la condizione sullo stato. La colonna non è ispezionabile —
+      // lo schema qui è mockato con una stringa — ma il secondo argomento è
+      // esattamente l'insieme di stati che finisce nella WHERE.
+      const [, statuses] = vi.mocked(inArray).mock.calls[0] ?? [];
+      return (statuses ?? []) as readonly string[];
+    }
+
+    it("senza status interroga solo i documenti registrati all'AdE", async () => {
+      // Il contratto storico dell'elenco: chi non passa il parametro vede
+      // esattamente quello che vedeva prima.
+      await expect(statusesQueriedWith({})).resolves.toEqual([
+        "ACCEPTED",
+        "VOID_ACCEPTED",
+      ]);
+    });
+
+    it("status=PENDING interroga i soli scontrini in sospeso", async () => {
+      await expect(statusesQueriedWith({ status: "PENDING" })).resolves.toEqual(
+        ["PENDING"],
+      );
+    });
+
+    it("status=ERROR non ricade nel default", async () => {
+      await expect(statusesQueriedWith({ status: "ERROR" })).resolves.toEqual([
+        "ERROR",
+      ]);
+    });
+  });
+
   describe("DB statement timeout", () => {
     it("returns 503 with Retry-After on Postgres 57014", async () => {
       const timeoutErr = Object.assign(

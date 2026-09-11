@@ -32,6 +32,12 @@ const faqItems: readonly FaqItem[] = [
       "Smettono di autenticare: ogni richiesta riceve un errore 402 PLAN_UPGRADE_REQUIRED. Le chiavi restano nella dashboard e tornano attive appena attivi il piano Pro, quindi non devi rigenerarle né aggiornare l'integrazione.",
   },
   {
+    question:
+      "Cosa succede se l'Agenzia delle Entrate non risponde durante l'emissione?",
+    answer:
+      "Ricevi un errore 503 ADE_UNAVAILABLE e lo scontrino resta in sospeso: l'esito della trasmissione è ignoto. Ripeti la richiesta con la stessa idempotencyKey — prima di ritrasmettere verifichiamo sull'Agenzia delle Entrate se il documento è già registrato, così non ne emetti due. L'errore porta il campo documentId per seguire lo scontrino con GET /v1/receipts/{id}, e GET /v1/receipts?status=PENDING elenca tutti quelli rimasti in sospeso.",
+  },
+  {
     question: "Dove trovo la sezione API key nella dashboard?",
     answer:
       "In Impostazioni \u2192 Altre impostazioni \u2192 API key: la sezione \u00e8 chiusa di default, aprila con il pulsante \u201cAltre impostazioni\u201d. La card \u00e8 visibile su tutti i piani; se il tuo piano non include le API mostra l'upgrade invece dell'elenco delle chiavi.",
@@ -478,6 +484,12 @@ export default function ApiDocsPage() {
                   "No",
                   "Filtra per tipo documento (default: entrambi)",
                 ],
+                [
+                  "status",
+                  "PENDING | ACCEPTED | VOID_ACCEPTED | REJECTED | ERROR",
+                  "No",
+                  "Filtra per stato del documento. Senza questo parametro l'elenco restituisce solo i documenti registrati all'Agenzia delle Entrate (ACCEPTED e VOID_ACCEPTED): usa status=PENDING per ritrovare gli scontrini rimasti in sospeso.",
+                ],
               ].map(([param, type, req, desc]) => (
                 <tr key={param} className="border-b last:border-0">
                   <td className="py-2 pr-4 font-mono text-xs">{param}</td>
@@ -887,6 +899,14 @@ const idempotencyKey = crypto.randomUUID();`}</code>
               " — identificativo della richiesta, presente anche nell'header X-Request-Id di tutte le risposte (successi inclusi). Citalo quando ci scrivi: ci permette di ritrovare la richiesta nei log."
             }
           </li>
+          <li>
+            <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">
+              documentId
+            </code>
+            {
+              " — presente solo quando l'errore riguarda uno scontrino il cui esito è ancora aperto (ADE_UNAVAILABLE, DB_TIMEOUT, PENDING_IN_PROGRESS): è l'id da interrogare con GET /v1/receipts/{id} per sapere come è andata a finire. Sugli errori definitivi il campo non c'è."
+            }
+          </li>
         </ul>
         <p className="text-muted-foreground mt-4 text-sm leading-relaxed">
           {
@@ -1002,6 +1022,30 @@ const idempotencyKey = crypto.randomUUID();`}</code>
             </tbody>
           </table>
         </div>
+        {/* ─── Scontrini in sospeso ─── */}
+        <h2 id="scontrini-in-sospeso" className="mt-12 text-xl font-semibold">
+          Scontrini rimasti in sospeso
+        </h2>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          {
+            "Uno scontrino resta in sospeso quando l'Agenzia delle Entrate non risponde alla trasmissione: ricevi un 503 ADE_UNAVAILABLE e l'esito è ignoto, perché il documento potrebbe essere già registrato. La mossa è una sola: ripeti la richiesta con la stessa idempotencyKey. Prima di ritrasmettere cerchiamo il documento sull'Agenzia delle Entrate e, se c'è già, lo colleghiamo a quella vendita invece di emetterne un secondo."
+          }
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          {
+            "Se il tuo processo smette di ritentare, lo scontrino resta in sospeso e non compare nell'elenco, che di default mostra solo i documenti registrati. Due modi per ritrovarlo: il campo documentId dell'errore, da interrogare con GET /v1/receipts/{id}, e la lista filtrata per stato, che restituisce tutte le righe in sospeso del periodo."
+          }
+        </p>
+        <pre className="bg-muted mt-3 overflow-x-auto rounded-md p-4 font-mono text-xs leading-relaxed">
+          <code>{String.raw`curl "https://api.scontrinozero.it/v1/receipts?from=2026-04-01&to=2026-04-30&status=PENDING" \
+  -H "Authorization: Bearer szk_live_XXXX"`}</code>
+        </pre>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          {
+            "Quando all'Agenzia delle Entrate risultano più documenti compatibili — stesso importo, stesso giorno — nessun automatismo sa quale sia il tuo, e lo scontrino resta in sospeso: sceglie l'esercente dall'app web ScontrinoZero, dove il banner in dashboard mostra i candidati e chiede quale riconosce."
+          }
+        </p>
+
         {/* ─── FAQ (mirror di faqItems: tenere allineati) ─── */}
         <h2 className="mt-12 text-xl font-semibold">Domande frequenti</h2>
         <div className="mt-3 space-y-4">

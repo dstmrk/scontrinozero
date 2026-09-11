@@ -207,6 +207,23 @@ describe("POST /api/v1/receipts/[id]/void", () => {
     expect(body.code).toBe("ADE_UNAVAILABLE");
   });
 
+  it("503 ADE_UNAVAILABLE: l'envelope porta il documentId dell'annullo in sospeso", async () => {
+    mockVoidReceiptForBusiness.mockResolvedValue({
+      error: "Agenzia delle Entrate non raggiungibile.",
+      code: "ADE_UNAVAILABLE",
+      voidDocumentId: "void-doc-uuid",
+    });
+
+    const res = await POST(makeRequest(), makeParams());
+
+    expect(res.status).toBe(503);
+    // `voidDocumentId` del service → `documentId` dell'envelope pubblico.
+    expect(await res.json()).toMatchObject({
+      code: "ADE_UNAVAILABLE",
+      documentId: "void-doc-uuid",
+    });
+  });
+
   it("ritorna 409 con code ADE_REAUTH_REQUIRED se la sessione CIE è scaduta", async () => {
     mockVoidReceiptForBusiness.mockResolvedValue({ reauthRequired: true });
 
