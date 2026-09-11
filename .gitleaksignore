@@ -15,3 +15,4 @@ db566792da8fa165e112c02e5564ad1224c310bb:scripts/indexnow-submit.ts:generic-api-
 77b2f5acd11e1ea368ec5097d001ddcf67a68ea9:src/lib/standard-webhook.test.ts:generic-api-key:62
 77b2f5acd11e1ea368ec5097d001ddcf67a68ea9:src/app/api/auth/send-email/route.test.ts:generic-api-key:17
 ddf8fd712d9ab4d980d9922f0858582fcfc7e4b9:src/app/(marketing)/help/api/page.tsx:curl-auth-header:1040
+f90a3da97f91be3491b86c92092f4a6e2ccd81f4:src/app/(marketing)/help/api/page.tsx:curl-auth-header:1040
