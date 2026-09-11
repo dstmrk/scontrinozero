@@ -249,9 +249,13 @@ describe("PendingSalesBanner", () => {
     // Attende la comparsa del messaggio, non la sparizione dei candidati:
     // `applyResult` azzera i candidati e scrive il messaggio nello stesso
     // aggiornamento di stato, quindi quando il messaggio è nel DOM la lista è
-    // già sparita. Aspettare direttamente l'assenza significherebbe correre
-    // contro il timeout di default di `waitFor` (1s) su una transizione — ed è
-    // il tipo di test che diventa rosso su un runner CI carico, non sul codice.
+    // già sparita, e una sola attesa copre entrambe le metà.
+    //
+    // Il tetto delle utility async non c'entra con questa scelta: `findBy*` ha
+    // lo stesso default di `waitFor`, quindi spostare l'attesa dalla sparizione
+    // alla comparsa non proteggeva da un runner carico — e infatti questo test
+    // è poi fallito a 1109ms in una run completa. Quel tetto ora è alzato una
+    // volta per tutti in `tests/setup.ts` (ASYNC_UTIL_TIMEOUT_MS).
     expect(await screen.findByRole("status")).toHaveTextContent(
       /non riemetterlo/i,
     );

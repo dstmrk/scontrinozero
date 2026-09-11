@@ -544,6 +544,35 @@ Esempi canonici: `src/components/settings/ade-credentials-section.test.tsx:307`
 (fake timer), `src/components/catalogo/add-item-dialog.test.tsx:82` (waitFor),
 `src/components/storico/void-receipt-dialog.test.tsx:81` (sincrono).
 
+### Il tetto di `waitFor`/`findBy*` non è `testTimeout` — ed è già alzato
+
+Testing Library ha un tetto proprio per le utility async, **1s** di default, che
+non guarda il `testTimeout` di vitest (15s). Su una run completa (320 file in
+parallelo) l'asserzione async scade quindi molto prima del test che la contiene,
+e il rosso che ne esce parla di un elemento mancante — sembra un bug del
+componente, è una macchina lenta.
+
+`tests/setup.ts` lo porta a 5s una volta per tutto il progetto jsdom
+(`ASYNC_UTIL_TIMEOUT_MS`, contratto in
+`tests/unit/testing-library-config.test.tsx`). Due corollari:
+
+- **Non aggiungere un `{ timeout: … }` per-asserzione** per inseguire un flake:
+  è una proprietà dell'ambiente, e una toppa locale lascia scoperti gli altri
+  319 file. Se 5s non bastano, il test sta aspettando la cosa sbagliata.
+- **Spostare l'attesa dalla sparizione alla comparsa non protegge da nulla**:
+  `findBy*` ha lo stesso tetto di `waitFor`. È l'errore che ha lasciato flaky
+  `pending-sales-banner.test.tsx` ("chiude la scelta fra candidati dopo una
+  conferma riuscita") dopo una fix che si credeva risolutiva — fallito a 1109ms
+  in una run completa, verde 3 volte su 3 da solo. Il test esposto è quello che
+  attende **due** aggiornamenti di stato in fila, guidati da due mock che
+  risolvono separatamente: è l'esposizione cumulativa che conta, non la singola
+  attesa.
+
+Il tetto alzato non nasconde regressioni — un'attesa che non si risolve fallisce
+ancora, solo più tardi — e non rallenta il verde, perché `waitFor` esce al primo
+poll che passa. Resta comunque sotto `testTimeout`, così il fallimento porta con
+sé il dump del DOM invece di essere troncato da vitest.
+
 ## Assert su una query Drizzle: `String(sql\`…\`)` non guarda niente
 
 Un template `sql` è un **oggetto**, non una stringa: il testo vive nei
