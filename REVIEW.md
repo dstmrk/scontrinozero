@@ -187,40 +187,6 @@ Quando lo si affronta, la sequenza che costa meno è: coprire prima i tre step
 di test, poi togliere il path dalle due liste nello stesso PR — mai prima, o il
 quality gate diventa rosso su una PR che non c'entra.
 
-### 105. Le fingerprint di `.gitleaksignore` muoiono a ogni squash merge
-
-- **Categoria:** attrito CI · **Severità:** Low — nessun rischio, ma una PR innocente diventa rossa e va toccata a mano
-- **File:** `.gitleaksignore`
-
-Una fingerprint gitleaks è `<sha>:<file>:<regola>:<riga>`, quindi è legata al
-commit che ha introdotto la riga. Il repo mergia in **squash**: il commit che
-la PR ha scansionato non è quello che finisce in `main`, e la fingerprint
-aggiunta durante la PR nasce già morta. Il falso positivo torna alla prima PR
-che riporta quel codice dentro un range di scansione — tipicamente la prima
-che mergia `main` dentro di sé.
-
-È successo su #910: `curl-auth-header` alla riga 1040 di
-`src/app/(marketing)/help/api/page.tsx` era già ignorato al SHA pre-squash di
-#909 (`ddf8fd7…`), e ha riaperto al SHA squashato (`f90a3da…`). Si vede nel
-file: le stesse righe di `help/api/page.tsx` compaiono sotto SHA diversi
-(241/294/369, poi 246/299/380, poi 405, poi 1040 due volte). Ogni riga è una
-cicatrice di questo giro, e nessuna delle vecchie serve più a niente — il loro
-SHA non è più raggiungibile da `main`.
-
-Tre strade, in ordine di costo:
-
-1. **Un `.gitleaks.toml` con un allowlist per path/regola** invece delle
-   fingerprint: `curl-auth-header` dentro `src/app/(marketing)/help/**` e
-   `DEVELOPER.md` è documentazione per definizione, e un placeholder
-   `szk_live_XXXX` non diventerà mai un segreto vero. Toglie il problema alla
-   radice, ma allarga la maglia su quei path.
-2. **Ripulire le fingerprint morte** quando si tocca il file, verificando che
-   il SHA non sia più raggiungibile. Non risolve, rallenta l'accumulo.
-3. **Lasciare com'è** e pagare una riga per squash. È quello che facciamo oggi.
-
-Nessuna è ovvia: la 1 è l'unica che chiude il ciclo, ma vale solo se si accetta
-che in quei path un `Authorization:` non venga più guardato da nessuno.
-
 ### 100. DMARC su `.it`: alzare la policy da `p=none` dopo i report
 
 - **Categoria:** email security · **Severità:** Low — la visibilità c'è, manca l'enforcement

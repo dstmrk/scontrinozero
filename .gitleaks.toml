@@ -1,0 +1,26 @@
+# Configurazione gitleaks. Estende il set di regole di default: senza
+# `useDefault = true` questo file lo *sostituirebbe*, e lo scan diventerebbe
+# un no-op silenzioso.
+[extend]
+useDefault = true
+
+# I doc della Developer API (`DEVELOPER.md`, le pagine `/help/api`) mostrano
+# chiamate curl complete, quindi contengono per forza un header
+# `Authorization: Bearer …`. Il token è sempre lo stesso placeholder: prefisso
+# più sole X. Una chiave vera è 48 caratteri casuali, quindi questa forma non
+# può essere un segreto — e una chiave vera incollata in quegli stessi file
+# continua a far fallire lo scan.
+#
+# L'allowlist è sulla **forma del segreto**, non sul path, per due motivi. Un
+# allowlist per path spegnerebbe ogni regola su quei file. E gitleaks 8.24.3
+# (la versione che gitleaks-action v3 scarica di default) ignora
+# `matchCondition = "AND"` sull'allowlist globale: `paths` e `regexes`
+# restano in OR, quindi le due condizioni non si possono combinare.
+#
+# Perché un allowlist e non una fingerprint in `.gitleaksignore`: la
+# fingerprint è `<sha>:<file>:<regola>:<riga>` e il repo mergia in squash,
+# quindi quella aggiunta durante una PR nasce già morta. Dettagli e vincoli
+# misurati nella skill `sonar-quality-gate`.
+[allowlist]
+description = "Placeholder szk_live_XXXX / szk_mgmt_XXXX nei doc della Developer API"
+regexes = ['''^szk_(live|mgmt)_X+$''']
