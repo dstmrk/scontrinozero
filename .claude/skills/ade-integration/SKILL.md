@@ -337,12 +337,15 @@ anche di `cedentePrestatore` e rispondono con il loro tipo.
 un login AdE più una o più `searchDocuments`, secondi di attesa e traffico sul
 portale **a nome dell'esercente**, che è chi rischia il blocco dell'account.
 
-**Una query copre al massimo 31 giorni** (`HAR.md` #16e): è un vincolo del
-portale. Un periodo più lungo si **spezza** in una query per mese solare
+**Una query copre al massimo 31 giorni, ma il limite è dell'interfaccia**
+(`HAR.md` #16f): il portale disabilita il pulsante Cerca oltre quella
+finestra, quindi cosa faccia l'endpoint non lo sappiamo. Lo rispettiamo
+comunque, spezzando i periodi lunghi in una query per mese solare
 (`buildAdeSearchRanges`) — un mese non supera mai i 31 giorni, quindi il
 vincolo non si viola per costruzione — e le query girano **dalla più recente
 alla più vecchia**, così un troncamento per tempo scaduto perde la coda remota
-e non i documenti di ieri. Tieni distinti i due numeri: `ADE_QUERY_MAX_DAYS`
+e non i documenti di ieri. Se qualcuno misurasse che l'endpoint accetta
+finestre più larghe, un anno costerebbe una richiesta invece di dodici. Tieni distinti i due numeri: `ADE_QUERY_MAX_DAYS`
 (31, del portale) e `ADE_SEARCH_MAX_DAYS` (366, quanto l'esercente può
 chiedere). Confonderli è l'errore che la v1.8.0 ha fatto la prima volta.
 

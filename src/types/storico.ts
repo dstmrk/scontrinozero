@@ -175,7 +175,10 @@ export interface SearchReceiptsResult {
  *
  * Il tetto esiste comunque perché il merge fra le due sorgenti avviene in
  * memoria sulle liste intere, quindi il costo cresce col periodo mentre la
- * ricerca locale resta piatta.
+ * ricerca locale resta piatta. **Non** è la ritenzione dell'archivio a
+ * imporlo: quello va indietro almeno due anni e mezzo (`HAR.md` #16f), quindi
+ * questo numero è interamente una nostra scelta e si può alzare quando
+ * qualcuno lo chiederà davvero.
  *
  * Vive fra i tipi perché lo leggono entrambi i lati: il server per rifiutare
  * un periodo troppo largo, il client per dirlo **prima** che l'utente prema

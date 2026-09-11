@@ -24,15 +24,17 @@ fi
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-# make_fixture <name> <INDEX.md content> <CLAUDE.md content> [REVIEW.md content]
+# make_fixture <name> <INDEX.md content> <CLAUDE.md content> [REVIEW.md content] [HAR.md content]
 # Creates $TMP/<name> with the hook, the real validator script and the given
 # meta docs. The hook resolves the repo root from its own location, so the
 # fixture is a fully isolated mini-repo.
-# REVIEW.md is written too: the validator reads it to check the uniqueness of
-# the finding numbers, and reports its absence as an error — a fixture without
-# it would fail for a reason the test is not about.
+# REVIEW.md and HAR.md are written too: the validator reads both to check the
+# uniqueness of their finding numbers / entry codes, and reports an absence as
+# an error — a fixture without them would fail for a reason the test is not
+# about.
 make_fixture() {
   local name="$1" index_md="$2" claude_md="$3" review_md="${4:-### 1. Una voce sola}"
+  local har_md="${5:-### 1a. Una voce sola}"
   local root="$TMP/$name"
   mkdir -p "$root/.claude/hooks" "$root/scripts" "$root/docs/architecture"
   cp "$HOOK_SRC" "$root/.claude/hooks/"
@@ -40,6 +42,7 @@ make_fixture() {
   printf '%s\n' "$index_md" >"$root/docs/architecture/INDEX.md"
   printf '%s\n' "$claude_md" >"$root/CLAUDE.md"
   printf '%s\n' "$review_md" >"$root/REVIEW.md"
+  printf '%s\n' "$har_md" >"$root/HAR.md"
 }
 
 make_fixture ok "Nothing referenced here." "No paths here either."
@@ -49,6 +52,14 @@ make_fixture bad-review "Nothing referenced here." "No paths here either." \
   "### 96. Prima voce
 
 ### 96. Seconda voce"
+
+# Due voci HAR.md con lo stesso codice: e' successo davvero nella v1.8.0, un
+# secondo `16e` accanto a quello che c'era gia'.
+make_fixture bad-har "Nothing referenced here." "No paths here either." \
+  "### 1. Una voce sola" \
+  "### 16e. Prima voce
+
+### 16e. Seconda voce"
 
 failures=0
 
@@ -92,6 +103,7 @@ assert_pass ok "$TMP/ok/docs/architecture/INDEX.md"
 assert_pass ok "$TMP/ok/CLAUDE.md"
 assert_pass ok "$TMP/ok/.claude/skills/testing-patterns/SKILL.md"
 assert_pass ok "$TMP/ok/REVIEW.md"
+assert_pass ok "$TMP/ok/HAR.md"
 
 # --- BLOCK cases: an edit to any meta doc while a dead reference exists ---
 assert_block bad-index "$TMP/bad-index/docs/architecture/INDEX.md"
@@ -105,6 +117,11 @@ assert_block bad-review "$TMP/bad-review/REVIEW.md"
 assert_block bad-review "REVIEW.md"
 # Il validatore e' globale: la collisione blocca anche l'edit a un altro meta doc.
 assert_block bad-review "$TMP/bad-review/CLAUDE.md"
+
+# --- BLOCK cases: due voci HAR.md con lo stesso codice ---
+assert_block bad-har "$TMP/bad-har/HAR.md"
+assert_block bad-har "HAR.md"
+assert_block bad-har "$TMP/bad-har/CLAUDE.md"
 
 if [ "$failures" -gt 0 ]; then
   echo "$failures test(s) failed." >&2
