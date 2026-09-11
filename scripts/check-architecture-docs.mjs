@@ -258,6 +258,44 @@ function stripFencedBlocks(markdown) {
  * @param {string} markdown
  * @returns {{ number: number; titles: string[] }[]} duplicati, per numero crescente
  */
+/**
+ * Un heading di voce in HAR.md: `### <numero><lettera>. <titolo>`.
+ *
+ * Stesso contratto stateful di `FINDING_HEADING_RE`: solo `matchAll`.
+ */
+const HAR_ENTRY_HEADING_RE = /^### (\d+[a-z])\.[ \t]+(.+?)[ \t\r]*$/gm;
+
+/**
+ * Trova i codici di voce usati da piu' di un heading in HAR.md.
+ *
+ * Stesso problema di REVIEW.md e stessa soluzione: codice e doc citano
+ * "HAR.md #16c" come se fosse un indirizzo, e due voci con lo stesso codice
+ * rendono ambiguo ogni riferimento. Il controllo nasce da una collisione vera
+ * — la v1.8.0 ha aggiunto un secondo `16e` accanto a quello che esisteva gia',
+ * e nessun gate se n'e' accorto: il numero l'ha trovato un conflitto di merge
+ * settimane dopo.
+ *
+ * I buchi restano legittimi, come in REVIEW.md: si segnalano solo i doppioni.
+ *
+ * @param {string} markdown
+ * @returns {{ code: string; titles: string[] }[]} duplicati, in ordine di codice
+ */
+export function extractDuplicateHarEntryCodes(markdown) {
+  const byCode = new Map();
+  for (const match of stripFencedBlocks(markdown).matchAll(
+    HAR_ENTRY_HEADING_RE,
+  )) {
+    const code = match[1];
+    const titles = byCode.get(code) ?? [];
+    titles.push(match[2]);
+    byCode.set(code, titles);
+  }
+  return [...byCode.entries()]
+    .filter(([, titles]) => titles.length > 1)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([code, titles]) => ({ code, titles }));
+}
+
 export function extractDuplicateFindingNumbers(markdown) {
   const byNumber = new Map();
   for (const match of stripFencedBlocks(markdown).matchAll(
@@ -392,6 +430,21 @@ export async function checkArchitectureDocs(rootDir) {
     }
   }
 
+  // HAR.md (repo root) — come REVIEW.md: solo l'unicita' dei codici di voce.
+  let harMd = null;
+  try {
+    harMd = await readFile(join(rootDir, "HAR.md"), "utf-8");
+  } catch {
+    errors.push("Cannot read HAR.md at repo root");
+  }
+  if (harMd !== null) {
+    for (const { code, titles } of extractDuplicateHarEntryCodes(harMd)) {
+      errors.push(
+        `Duplicate entry code ${code} in HAR.md ("${titles.join('", "')}") — entry codes are addresses cited from code and docs: give the new one the first free letter`,
+      );
+    }
+  }
+
   // .claude/skills/<name>/SKILL.md — same code-span contract, plus bare
   // frontmatter tokens. A missing skills dir is fine (nothing to validate);
   // a skill dir without a readable SKILL.md is a broken skill → error.
@@ -482,12 +535,12 @@ if (isMain) {
         console.error(`   - ${err}`);
       }
       console.error(
-        "\nFix: update the stale reference in docs/architecture/, .claude/skills/ or CLAUDE.md (docs must point at real files and real skills), or renumber the duplicated REVIEW.md finding.",
+        "\nFix: update the stale reference in docs/architecture/, .claude/skills/ or CLAUDE.md (docs must point at real files and real skills), or renumber the duplicated REVIEW.md finding / HAR.md entry.",
       );
       process.exit(1);
     }
     console.log(
-      "✅ Architecture docs check passed: referenced paths and skills all exist, REVIEW.md finding numbers are unique.",
+      "✅ Architecture docs check passed: referenced paths and skills all exist, REVIEW.md finding numbers and HAR.md entry codes are unique.",
     );
   });
 }

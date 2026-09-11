@@ -22,10 +22,14 @@ import { parseAdeResultDate } from "./ade-recovery";
 /**
  * Ampiezza massima di **una singola query** all'archivio AdE, in giorni.
  *
- * È un vincolo del portale, non una nostra scelta: oltre questa finestra la
- * ricerca non è accettata. È il motivo per cui un periodo più lungo si spezza
- * in più query (`buildAdeSearchRanges`) invece di essere rifiutato — il tetto
- * su quanto l'esercente può chiedere è un'altra cosa, e sta in
+ * È un vincolo dell'API, non una nostra scelta, ed è **misurato**
+ * (`HAR.md` #16f): una GET con una finestra più larga riceve
+ * `406 Not Acceptable`. Non tronca in silenzio, rifiuta — il che rende il
+ * chunking obbligatorio, non prudenziale.
+ *
+ * Un periodo più lungo si spezza quindi in più query
+ * (`buildAdeSearchRanges`), una per mese solare, invece di essere rifiutato —
+ * il tetto su quanto l'esercente può chiedere è un'altra cosa, e sta in
  * `ADE_SEARCH_MAX_DAYS`.
  */
 export const ADE_QUERY_MAX_DAYS = 31;
@@ -33,12 +37,15 @@ export const ADE_QUERY_MAX_DAYS = 31;
 /**
  * Quanti documenti chiedere per pagina.
  *
- * Il portale nelle catture reali usa `perPage=10` (`ricerca.har`): non sappiamo
- * se accetti valori alti o li ricapi in silenzio. Non serve saperlo per la
- * **correttezza** — il ciclo qui sotto avanza contando gli elementi davvero
- * ricevuti, mai quelli richiesti — ma cambia parecchio la **durata**: se il
- * portale ricapa a 10, ogni mese denso costa decine di round-trip. È l'unica
- * manopola da girare quando lo sapremo.
+ * **Misurato** (`HAR.md` #16f): il portale onora `perPage` ben oltre i 10 che
+ * usa la sua interfaccia. Su un mese che l'interfaccia mostrava in due pagine,
+ * `perPage=100` ha restituito tutti e 17 i documenti in una risposta sola —
+ * un caso che discrimina, perché 17 > 10.
+ *
+ * Vale un mese per query nel caso normale, quindi un anno costa una dozzina di
+ * richieste e non qualche centinaio. Resta non misurato cosa succeda oltre il
+ * centinaio di documenti in una finestra, ma non serve saperlo: il ciclo qui
+ * sotto avanza contando gli elementi **ricevuti**, mai quelli richiesti.
  */
 const ADE_SEARCH_PAGE_SIZE = 100;
 
@@ -54,12 +61,16 @@ const MAX_ADE_SEARCH_PAGES = 50;
 /**
  * Quanto può durare in tutto la lettura dell'archivio, in millisecondi.
  *
- * Un anno spezzato in dodici query, ognuna con la sua paginazione, può
- * superare il tempo che una richiesta HTTP ha a disposizione prima che il
- * proxy davanti all'app la chiuda — e una risposta troncata dal proxy arriva
- * all'esercente come un errore senza spiegazione. Meglio fermarsi da soli
- * e dire cosa manca: le query girano dalla più recente alla più vecchia,
- * quindi ciò che si perde è sempre la coda più remota del periodo.
+ * Con `perPage` onorato (vedi sopra) un anno è una dozzina di richieste, non
+ * qualche centinaio: il deadline è passato da rete di sicurezza stretta a
+ * margine comodo, e in condizioni normali non dovrebbe scattare mai. Resta
+ * perché il caso peggiore non è sparito — un portale lento, un mese con
+ * migliaia di documenti — e perché una risposta troncata dal proxy davanti
+ * all'app arriverebbe all'esercente come un errore senza spiegazione.
+ *
+ * Fermarsi da soli e dire cosa manca è l'alternativa: le query girano dalla
+ * più recente alla più vecchia, quindi ciò che si perde è sempre la coda più
+ * remota del periodo.
  */
 const ADE_SEARCH_DEADLINE_MS = 45_000;
 

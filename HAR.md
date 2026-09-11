@@ -931,36 +931,6 @@ vendita/annullo della voce #1):
   "annulli": "A", "ammontareComplessivo": 1.9 }
 ```
 
-### 16e. La ricerca accetta al massimo 31 giorni per query
-
-**Fonte:** verifica diretta sul portale, non una cattura HAR — le catture in
-nostro possesso interrogano finestre brevi e non toccavano il limite.
-
-`GET /doc/documenti/` **non accetta una finestra `dataDal`→`dataInvioAl` più
-larga di 31 giorni**. È un vincolo del portale, non una scelta nostra: la
-v1.8.0 lo aveva scritto in codice come se fosse un tetto di prodotto, ed era
-sbagliato di significato anche quando il numero coincideva.
-
-**Conseguenza sul disegno.** Un periodo più lungo non si rifiuta, si **spezza**
-in una query per **mese solare** — un mese non supera mai i 31 giorni, quindi
-il vincolo non si può violare per costruzione, senza aritmetica su finestre
-mobili da tenere allineata. Le query girano **dalla più recente alla più
-vecchia**: quando la lettura si ferma per tempo scaduto, ciò che manca è la
-coda remota del periodo, non i documenti di ieri.
-
-Restano da misurare, e valgono la prossima cattura:
-
-- se `perPage` accetta valori sopra i 10 usati dal portale (non cambia la
-  correttezza — il ciclo conta gli elementi ricevuti — ma cambia di un ordine
-  di grandezza la **durata** di una ricerca annuale);
-- quanto indietro va l'archivio, cioè se "da inizio anno" sia sempre
-  ottenibile;
-- cosa risponde il portale a una finestra oltre i 31 giorni: errore esplicito
-  o troncamento silenzioso. Se fosse silenzioso, il chunking smetterebbe di
-  essere un'ottimizzazione e diventerebbe l'unica difesa.
-
----
-
 ### 16d. Copertura dei dati della ricevuta — ✅ SPEDITA
 
 La v1.7.0 ha chiuso il giro: la riga VOID salva progressivo e idtrx
@@ -983,6 +953,55 @@ coperto sul filo.
 il PDF di `annullo.har` [06] è l'unico dei tre con `content` vuoto nella
 cattura. Ora è chiusa: il nostro renderer di annullo fa la cosa giusta a non
 stamparlo.
+
+---
+
+### 16f. Limiti e capacità della ricerca — misurati sul portale live
+
+**Fonte:** verifica diretta sul portale con un'utenza reale (settembre 2026),
+non una cattura HAR. Le catture in nostro possesso interrogano finestre brevi
+e non toccavano nessuno di questi limiti.
+
+**1. I 31 giorni sono un vincolo dell'API, e risponde `406 Not Acceptable`.**
+Misurato in due punti. L'interfaccia si ferma prima: con un intervallo più
+largo **disabilita il pulsante Cerca** e mostra "L'intervallo temporale non
+può essere superiore a 31 giorni", quindi nessuna richiesta parte. Ma
+riproponendo la stessa GET a mano con `dataDal`/`dataInvioAl` oltre la
+finestra, l'endpoint risponde **HTTP 406**. Non tronca in silenzio: rifiuta.
+
+Il 406 è la risposta migliore fra quelle possibili — un troncamento
+silenzioso avrebbe prodotto elenchi incompleti dall'aria completa, invisibili
+senza un controllo incrociato. Qui l'errore è esplicito e lo vedremmo subito.
+
+**Conseguenza sul disegno: il chunking a mesi solari non è prudenza, è
+obbligatorio.** Un periodo più lungo si spezza in una query per mese
+(`buildAdeSearchRanges`) perché un mese non supera mai i 31 giorni, quindi il
+vincolo non si può violare per costruzione. Le query girano dalla più recente
+alla più vecchia: se la lettura si ferma per tempo scaduto, ciò che manca è la
+coda remota del periodo, non i documenti di ieri.
+
+> ⚠️ Questa voce ha cambiato idea due volte, e la storia serve a chi la legge.
+> Prima stesura: "vincolo dell'API" — era un'inferenza dal comportamento
+> dell'interfaccia, presentata come misura. Seconda: "limite della sola
+> interfaccia, l'API è ignota" — corretta ma incompleta. Terza, questa: il
+> vincolo è dell'API, provato dal 406. La conclusione operativa non è mai
+> cambiata, la sua solidità sì.
+
+**2. `perPage` è onorato ben oltre i 10 dell'interfaccia.** Su un mese che il
+portale mostrava impaginato in **due pagine**, `perPage=100` ha restituito
+`totalCount: 17` e **17 elementi in una sola risposta**. È un caso che
+discrimina (17 > 10): il portale non ricapa al valore che usa lui. Non è
+misurato il comportamento oltre il centinaio di documenti in una finestra.
+
+Conseguenza diretta sul disegno: una ricerca annuale costa **una dozzina di
+richieste**, non qualche centinaio, e il deadline interno da 45s passa da rete
+di sicurezza stretta a margine comodo.
+
+**3. L'archivio va indietro almeno due anni e mezzo.** Una ricerca su marzo
+2024, eseguita a settembre 2026, restituisce i documenti corretti. "Da inizio
+anno" è quindi sempre ottenibile, e il tetto di `ADE_SEARCH_MAX_DAYS` (366) è
+interamente una nostra scelta sul costo del merge in memoria — non un limite
+imposto dalla ritenzione.
 
 ---
 

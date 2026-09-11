@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   checkArchitectureDocs,
   extractDuplicateFindingNumbers,
+  extractDuplicateHarEntryCodes,
   extractFrontmatterPathTokens,
   extractBuildArtifactViolations,
   extractHarViolations,
@@ -45,6 +46,7 @@ function makeDirDirents(names: string[]) {
  * `reviewMd` is the root REVIEW.md content (scanned for duplicate finding
  * numbers; null = unreadable). Defaults to empty, which has no headings and so
  * no duplicates: tests that do not care about the numbering stay unaffected.
+ * `harMd` is the same for the root HAR.md and its entry codes.
  *
  * When `claudeMd` is omitted the fixture CLAUDE.md lists every skill as a code
  * span — the shape the real CLAUDE.md has — so the orphan-skill check stays
@@ -56,6 +58,7 @@ function setup(
   skills: Record<string, string | null> = {},
   claudeMd: string | null | undefined = undefined,
   reviewMd: string | null = "",
+  harMd: string | null = "",
 ) {
   const resolvedClaudeMd =
     claudeMd === undefined
@@ -86,6 +89,10 @@ function setup(
     }
     if (p === "/repo/REVIEW.md") {
       if (typeof reviewMd === "string") return Promise.resolve(reviewMd);
+      return Promise.reject(new Error(`ENOENT: ${p}`));
+    }
+    if (p === "/repo/HAR.md") {
+      if (typeof harMd === "string") return Promise.resolve(harMd);
       return Promise.reject(new Error(`ENOENT: ${p}`));
     }
     const skillMatch = /^\/repo\/\.claude\/skills\/([^/]+)\/SKILL\.md$/.exec(p);
@@ -486,6 +493,52 @@ describe("checkArchitectureDocs", () => {
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toContain("Cannot read REVIEW.md");
   });
+
+  it("reports an entry code used twice in HAR.md", async () => {
+    setup(
+      { "INDEX.md": "niente path qui" },
+      [],
+      {},
+      "",
+      "",
+      ["### 16e. Prima voce", "", "### 16e. Seconda voce"].join("\n"),
+    );
+
+    const result = await checkArchitectureDocs("/repo");
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("HAR.md");
+    expect(result.errors[0]).toContain("16e");
+    expect(result.errors[0]).toContain("Prima voce");
+    expect(result.errors[0]).toContain("Seconda voce");
+  });
+
+  it("passes when HAR.md codes its entries uniquely", async () => {
+    setup(
+      { "INDEX.md": "niente path qui" },
+      [],
+      {},
+      "",
+      "",
+      ["### 16e. Prima voce", "", "### 16f. Seconda voce"].join("\n"),
+    );
+
+    const result = await checkArchitectureDocs("/repo");
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("reports an unreadable HAR.md instead of skipping the check", async () => {
+    setup({ "INDEX.md": "niente path qui" }, [], {}, "", "", null);
+
+    const result = await checkArchitectureDocs("/repo");
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("Cannot read HAR.md");
+  });
 });
 
 describe("extractSkillReferences", () => {
@@ -708,6 +761,93 @@ describe("extractDuplicateFindingNumbers", () => {
     expect(extractDuplicateFindingNumbers(md)).toEqual([
       { number: 5, titles: ["B", "D", "E"] },
       { number: 7, titles: ["A", "C"] },
+    ]);
+  });
+});
+
+describe("extractDuplicateHarEntryCodes", () => {
+  it("reports the collision that actually shipped in v1.8.0", () => {
+    // Due `16e` convivevano in HAR.md: quello preesistente sull'annullo con
+    // codice lotteria e quello nuovo sulla ricerca. Nessun gate se n'e'
+    // accorto, e il duplicato e' finito in main.
+    const md = [
+      "### 16e. Annullo di un documento con codice lotteria",
+      "",
+      "Testo.",
+      "",
+      "### 16e. La ricerca accetta al massimo 31 giorni per query",
+      "",
+      "Altro testo.",
+    ].join("\n");
+
+    expect(extractDuplicateHarEntryCodes(md)).toEqual([
+      {
+        code: "16e",
+        titles: [
+          "Annullo di un documento con codice lotteria",
+          "La ricerca accetta al massimo 31 giorni per query",
+        ],
+      },
+    ]);
+  });
+
+  it("returns an empty list when every code is unique", () => {
+    const md = ["### 16d. Uno", "", "### 16e. Due", "", "### 16f. Tre"].join(
+      "\n",
+    );
+
+    expect(extractDuplicateHarEntryCodes(md)).toEqual([]);
+  });
+
+  it("keeps the same letter distinct across different sections", () => {
+    // `3a` e `16a` sono due indirizzi diversi: la lettera da sola non basta.
+    const md = ["### 3a. Uno", "", "### 16a. Due"].join("\n");
+
+    expect(extractDuplicateHarEntryCodes(md)).toEqual([]);
+  });
+
+  it("ignores the numeric section headings that contain the entries", () => {
+    // `## 16.` e' la sezione, `### 16a.` la voce: contare la sezione darebbe
+    // falsi positivi su ogni documento.
+    const md = [
+      "## 16. Ricevuta di annullamento",
+      "",
+      "### 16a. Layout",
+      "",
+      "## 17. Layout ufficiale",
+      "",
+      "### 17a. Sconti",
+    ].join("\n");
+
+    expect(extractDuplicateHarEntryCodes(md)).toEqual([]);
+  });
+
+  it("ignores headings inside fenced code blocks", () => {
+    const md = [
+      "### 16a. Vera",
+      "",
+      "```md",
+      "### 16a. Esempio dentro una fence",
+      "```",
+    ].join("\n");
+
+    expect(extractDuplicateHarEntryCodes(md)).toEqual([]);
+  });
+
+  it("lists more than one duplicated code, in code order", () => {
+    const md = [
+      "### 16f. Uno",
+      "",
+      "### 16f. Due",
+      "",
+      "### 3b. Tre",
+      "",
+      "### 3b. Quattro",
+    ].join("\n");
+
+    expect(extractDuplicateHarEntryCodes(md).map((d) => d.code)).toEqual([
+      "16f",
+      "3b",
     ]);
   });
 });
