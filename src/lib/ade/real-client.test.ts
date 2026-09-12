@@ -608,7 +608,7 @@ describe("RealAdeClient", () => {
     });
 
     it("Phase F: logga ade:wizard_piva_missing con la struttura (no PII) su PIva vuota", async () => {
-      // SCONTRINOZERO-M: il throw arrivava su un 200 senza alcun contesto sulla
+      // REVIEW.md #32: il throw arrivava su un 200 senza alcun contesto sulla
       // response. Logghiamo la struttura (chiavi), mai i valori PII.
       vi.mocked(logger.warn).mockClear();
       mockPhasesBeforeWizard(fetchMock);
@@ -1251,6 +1251,207 @@ describe("RealAdeClient", () => {
 
       const result = await client.submitSale(makeSalePayload());
       expect(result.esito).toBe(true);
+    });
+
+    // -------------------------------------------------------------------
+    // SCONTRINOZERO-M: la sessione morta segnalata come 4xx non-JSON
+    // -------------------------------------------------------------------
+    //
+    // Evidenza produzione (2026-09-12, log del container): sessione CIE creata
+    // alle 12:15:41, submit alle 16:36:04 → 405 con `text/html` e body vuoto.
+    // 24 secondi dopo l'utente ri-collega e i tre scontrini successivi passano.
+    // L'API REST del DCO risponde sempre JSON: un 4xx non-JSON viene da un
+    // gateway davanti all'app, cioè la sessione non è più instradata.
+
+    it("re-autentica e ritenta su 405 non-JSON quando ha le credenziali (SCONTRINOZERO-M)", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 405,
+          headers: [["Content-Type", "text/html;charset=UTF-8"]],
+        }),
+      );
+      mockReAuthSequence(fetchMock);
+      fetchMock.mockResolvedValueOnce(mockResponse({ body: successResponse }));
+
+      const result = await client.submitSale(makeSalePayload());
+      expect(result.esito).toBe(true);
+    });
+
+    it("lancia AdeSessionExpiredError su 405 non-JSON senza credenziali (ramo CIE/SPID)", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      // CIE e SPID non tengono segreti riusabili: `loginCie` azzera
+      // `credentials`, e la cache Fisconline fa lo stesso a fine operazione.
+      // È lo scenario osservato in produzione: lo store interattivo traduce
+      // questo errore in AdeReauthRequiredError e l'utente ri-collega.
+      client.clearCredentials();
+
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 405,
+          headers: [["Content-Type", "text/html;charset=UTF-8"]],
+        }),
+      );
+
+      await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
+        AdeSessionExpiredError,
+      );
+    });
+
+    it("logga ade:submit_session_not_active con status e content-type", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+      client.clearCredentials();
+
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 405,
+          headers: [["Content-Type", "text/html;charset=UTF-8"]],
+        }),
+      );
+
+      await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
+        AdeSessionExpiredError,
+      );
+
+      // Senza questo log il caso sparisce dai radar: il ramo di re-auth
+      // consuma la risposta e `ade:submit_failed` non viene mai raggiunto.
+      expect(logger.warn).toHaveBeenCalledWith(
+        {
+          statusCode: 405,
+          contentType: "text/html;charset=UTF-8",
+          endpoint: "/ser/api/documenti/v1/doc/documenti/",
+        },
+        "ade:submit_session_not_active",
+      );
+    });
+
+    it("classifica sul body, non sul Content-Type: 4xx con body vuoto e nessun header", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+      client.clearCredentials();
+
+      // Nessun Content-Type e body vuoto: non apre con `{` né `[`, quindi non
+      // viene dall'API REST.
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 403 }));
+
+      await expect(client.submitSale(makeSalePayload())).rejects.toThrow(
+        AdeSessionExpiredError,
+      );
+    });
+
+    it("un 4xx con body JSON ma senza Content-Type resta un rifiuto AdE", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      const callsBefore = fetchMock.mock.calls.length;
+      // Il contrario del test sopra: l'header manca ma il body è JSON. È la
+      // ragione per cui il discriminante è il body — un header sciatto su un
+      // rifiuto vero manderebbe l'utente in una re-auth che non serve.
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 400,
+          body: { esito: false, errori: [{ codice: "E400" }] },
+        }),
+      );
+
+      await expect(client.submitSale(makeSalePayload())).rejects.toMatchObject({
+        code: "ADE_PORTAL_ERROR",
+        statusCode: 400,
+      });
+      expect(fetchMock.mock.calls).toHaveLength(callsBefore + 1);
+    });
+
+    it("un body JSON più lungo dell'estratto non viene scambiato per non-JSON", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      const callsBefore = fetchMock.mock.calls.length;
+      // >2048 char: un JSON.parse sull'estratto troncato fallirebbe e lo
+      // classificherebbe come sessione morta. Lo sniff del primo carattere no.
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 400,
+          body: { errori: [{ codice: "E400", descrizione: "x".repeat(4096) }] },
+          headers: [["Content-Type", "application/json;charset=UTF-8"]],
+        }),
+      );
+
+      await expect(client.submitSale(makeSalePayload())).rejects.toMatchObject({
+        code: "ADE_PORTAL_ERROR",
+        statusCode: 400,
+      });
+      expect(fetchMock.mock.calls).toHaveLength(callsBefore + 1);
+    });
+
+    it("un 405 che persiste dopo la re-auth risale come AdePortalError", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      const dead = () =>
+        mockResponse({
+          status: 405,
+          headers: [["Content-Type", "text/html;charset=UTF-8"]],
+        });
+
+      fetchMock.mockResolvedValueOnce(dead());
+      mockReAuthSequence(fetchMock);
+      fetchMock.mockResolvedValueOnce(dead());
+
+      // Non era la sessione: l'errore deve restare visibile (Sentry), non
+      // trasformarsi in un invito a ri-collegarsi che non risolverebbe nulla.
+      await expect(client.submitSale(makeSalePayload())).rejects.toMatchObject({
+        code: "ADE_PORTAL_ERROR",
+        statusCode: 405,
+      });
+    });
+
+    it("NON re-autentica su un 4xx con body JSON (rifiuto vero dell'AdE)", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      const callsBefore = fetchMock.mock.calls.length;
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 400,
+          body: { esito: false, errori: [{ codice: "E001" }] },
+          headers: [["Content-Type", "application/json;charset=UTF-8"]],
+        }),
+      );
+
+      await expect(client.submitSale(makeSalePayload())).rejects.toMatchObject({
+        code: "ADE_PORTAL_ERROR",
+        statusCode: 400,
+      });
+      // Una sola chiamata: nessuna re-auth sprecata su un errore di payload.
+      expect(fetchMock.mock.calls).toHaveLength(callsBefore + 1);
+    });
+
+    it("NON tratta come sessione morta un 5xx con pagina HTML (resta transient)", async () => {
+      mockLoginSequence(fetchMock);
+      await client.login(mockCredentials);
+
+      const callsBefore = fetchMock.mock.calls.length;
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          status: 503,
+          body: "<html><body>Manutenzione</body></html>",
+          headers: [["Content-Type", "text/html;charset=UTF-8"]],
+        }),
+      );
+
+      // Un 5xx è già transient (isTransientAdeError): la riga resta PENDING e
+      // il recovery riconcilia. Degradarlo a "ri-collegati" perderebbe quella
+      // semantica e chiederebbe all'utente di rifare un login che è a posto.
+      await expect(client.submitSale(makeSalePayload())).rejects.toMatchObject({
+        code: "ADE_PORTAL_ERROR",
+        statusCode: 503,
+      });
+      expect(fetchMock.mock.calls).toHaveLength(callsBefore + 1);
     });
 
     it("throws AdePortalError on non-401 error status", async () => {

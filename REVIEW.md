@@ -163,6 +163,42 @@ group:
    widget Turnstile o i dati strutturati silenziosamente — controllare la console
    e i report CSP.
 
+### 105. Cinque documenti `PENDING` fermi in produzione dal 4 agosto
+
+- **Categoria:** correttezza/osservabilità · **Severità:** Medium — righe fiscali in limbo, esito AdE ignoto, nessuno le guarda
+- **File:** `src/lib/services/pending-verification.ts` (sweep + avviso `/admin`), `src/lib/services/ade-recovery.ts`
+
+**Problema.** Lo sweep in `instrumentation.ts` ripete la stessa riga a ogni giro
+(ogni ~6h), invariata nei log di produzione del 12/09/2026:
+
+```
+errorClass: stale_pending_documents  salePending: 5  voidPending: 0
+oldestCreatedAt: 2026-08-04T11:05:19.917Z
+```
+
+Cinque vendite ferme da oltre cinque settimane con esito AdE **ignoto**. Il
+livello è `warn`, quindi fuori da Sentry per costruzione: il contatore sale e
+nessuno lo vede. È esattamente la forma di SCONTRINOZERO-7 — un segnale
+classificato come rumore che nessuno ri-guarda.
+
+**Cosa NON si sa ancora** (da stabilire prima di toccare qualsiasi cosa):
+
+- se le cinque righe appartengano a un solo business o a più d'uno;
+- se siano nate dalla cassa (la chiave di idempotenza ruota, quindi il recovery
+  pull-based non scatta mai e servirebbe il banner del dashboard) o dalla
+  Developer API (chiave riusata, il recovery entra da solo);
+- se l'esercente abbia poi riemesso lo stesso scontrino — nel qual caso il
+  rischio non è la riga orfana ma un **doppio documento fiscale** già avvenuto;
+- se il banner `/admin` e la verifica manuale siano mai stati aperti.
+
+**Fix (da istruire, non ovvio).** Nessuna azione automatica: ri-sottomettere è
+irreversibile e `pending-verification.ts` è progettato apposta per **non**
+decidere da solo. Il primo passo è una query di sola lettura su
+`commercial_documents` per rispondere alle quattro domande sopra. Solo dopo si
+decide se il buco è la visibilità (il warn non arriva a nessuno) o la
+riconciliazione. Vedi la sezione "I due canali hanno protocolli di idempotenza
+opposti" nella skill `ade-integration`.
+
 ---
 
 ## P3 — Bassa priorità
@@ -522,12 +558,20 @@ FEDERATED_ALLOWED_HOSTS)`. Riusare lo stesso pattern su `parseFormAction`
 
 ---
 
-### 32. SCONTRINOZERO-M — `wizardTemplate` ritorna `200` con lista `PIva` vuota su login Fisconline
+### 32. `wizardTemplate` ritorna `200` con lista `PIva` vuota su login Fisconline
 
 - **Categoria:** correttezza/osservabilità · **Severità:** Low — 1 evento in produzione, root cause non confermata
-- **File:** `src/lib/ade/real-client.ts` (`fetchWizardPiva`, Phase F del login Fisconline)
+- **File:** `src/lib/ade/real-client.ts` (`fetchWizardIdentity`, Phase F del login Fisconline)
 
-**Problema.** `fetchWizardPiva` lancia `AdePortalError(200, "Failed to extract
+> **Riferimento Sentry rimosso.** Questa voce citava `SCONTRINOZERO-M`, che è
+> tutt'altra issue (il `405` su `submitDocument`, chiuso nella PR che ha
+> introdotto `isSessionNotActive`). Cercando il titolo qui sotto su Sentry non
+> risulta alcuna issue negli ultimi 90 giorni, quindi l'ID corretto non è
+> recuperabile: si riparte dal log `ade:wizard_piva_missing`, che è comunque la
+> prova che serve. Costo dello sbaglio: un'indagine intera partita dalla
+> funzione sbagliata.
+
+**Problema.** `fetchWizardIdentity` lancia `AdePortalError(200, "Failed to extract
 P.IVA from wizardTemplate response")` quando `data?.PIva?.[0]?.piva` è falsy su
 una response `200` valida. Status `200` ⇒ né `isTransientAdeError` né
 `isExpectedUserAdeError` ⇒ classificato `ade_failure` ⇒ Sentry (corretto: errore
