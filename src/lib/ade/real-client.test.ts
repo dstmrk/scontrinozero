@@ -1363,7 +1363,7 @@ describe("RealAdeClient", () => {
         code: "ADE_PORTAL_ERROR",
         statusCode: 400,
       });
-      expect(fetchMock.mock.calls.length).toBe(callsBefore + 1);
+      expect(fetchMock.mock.calls).toHaveLength(callsBefore + 1);
     });
 
     it("un body JSON più lungo dell'estratto non viene scambiato per non-JSON", async () => {
@@ -1385,7 +1385,7 @@ describe("RealAdeClient", () => {
         code: "ADE_PORTAL_ERROR",
         statusCode: 400,
       });
-      expect(fetchMock.mock.calls.length).toBe(callsBefore + 1);
+      expect(fetchMock.mock.calls).toHaveLength(callsBefore + 1);
     });
 
     it("un 405 che persiste dopo la re-auth risale come AdePortalError", async () => {
@@ -1428,7 +1428,7 @@ describe("RealAdeClient", () => {
         statusCode: 400,
       });
       // Una sola chiamata: nessuna re-auth sprecata su un errore di payload.
-      expect(fetchMock.mock.calls.length).toBe(callsBefore + 1);
+      expect(fetchMock.mock.calls).toHaveLength(callsBefore + 1);
     });
 
     it("NON tratta come sessione morta un 5xx con pagina HTML (resta transient)", async () => {
@@ -1451,7 +1451,7 @@ describe("RealAdeClient", () => {
         code: "ADE_PORTAL_ERROR",
         statusCode: 503,
       });
-      expect(fetchMock.mock.calls.length).toBe(callsBefore + 1);
+      expect(fetchMock.mock.calls).toHaveLength(callsBefore + 1);
     });
 
     it("throws AdePortalError on non-401 error status", async () => {

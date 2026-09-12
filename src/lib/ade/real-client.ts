@@ -235,12 +235,16 @@ function objectKeysOrNull(value: unknown): string[] | null {
 }
 
 /**
- * Estratto del body di una response fallita: 2048 char, mai di più. Un body
- * illeggibile ritorna `"<unreadable>"`, che `looksLikeJsonBody` classifica come
- * non-JSON: è voluto — se non riusciamo a leggerlo non possiamo nemmeno
- * affermare che venga dall'API REST.
+ * Estratto del body di una response **fallita**: 2048 char, mai di più. Una
+ * response ok ritorna stringa vuota senza toccare il body, che resta intatto
+ * per il `.json()` del chiamante.
+ *
+ * Un body illeggibile ritorna `"<unreadable>"`, che `looksLikeJsonBody`
+ * classifica come non-JSON: è voluto — se non riusciamo a leggerlo non
+ * possiamo nemmeno affermare che venga dall'API REST.
  */
-async function readBodyExcerpt(response: Response): Promise<string> {
+async function failureBodyExcerpt(response: Response): Promise<string> {
+  if (response.ok) return "";
   try {
     return (await response.text()).slice(0, 2048);
   } catch {
@@ -296,6 +300,28 @@ function isSessionNotActive(status: number, bodyExcerpt: string): boolean {
   if (status === 401) return true;
   if (status < 400 || status >= 500) return false;
   return !looksLikeJsonBody(bodyExcerpt);
+}
+
+/**
+ * Diagnostica della sessione caduta, per la sola firma nuova: il `401` e' il
+ * caso dichiarato e gia' noto, non serve loggarlo.
+ *
+ * Esiste perche' il ramo di re-auth **consuma** la response, quindi
+ * `ade:submit_failed` in fondo a `submitDocument` non viene mai raggiunto:
+ * senza questa riga il caso sparirebbe dai radar e non sapremmo con che
+ * frequenza l'AdE chiude una sessione senza dirlo con un 401. Struttura-only,
+ * mai il body: dati fiscali.
+ */
+function logSessionNotActive(response: Response): void {
+  if (response.status === 401) return;
+  logger.warn(
+    {
+      statusCode: response.status,
+      contentType: response.headers.get("content-type") ?? null,
+      endpoint: "/ser/api/documenti/v1/doc/documenti/",
+    },
+    "ade:submit_session_not_active",
+  );
 }
 
 /**
@@ -2091,6 +2117,29 @@ export class RealAdeClient implements AdeClient {
   // -----------------------------------------------------------------------
 
   /**
+   * Rifa' il login in place riusando le credenziali gia' in memoria.
+   *
+   * Lancia `AdeSessionExpiredError` nei due casi in cui non e' possibile: non
+   * ci sono credenziali riusabili (CIE e SPID non ne tengono per design, e la
+   * cache Fisconline le azzera a fine operazione — REVIEW #5), oppure il login
+   * stesso fallisce. Lo store interattivo traduce quell'errore in
+   * `AdeReauthRequiredError`, cioe' "ri-collegati", che e' l'unica uscita
+   * possibile quando il secondo fattore e' umano.
+   */
+  private async reauthenticateOrThrow(): Promise<void> {
+    if (!this.credentials) {
+      throw new AdeSessionExpiredError();
+    }
+    try {
+      const knownPiva = this.session?.partitaIva;
+      this.cookieJar.clear();
+      this.session = await this.authenticate(this.credentials, knownPiva);
+    } catch {
+      throw new AdeSessionExpiredError();
+    }
+  }
+
+  /**
    * Invia un documento (vendita o annullo), re-autenticando **una** volta se la
    * sessione risulta non più instradata (`isSessionNotActive`).
    *
@@ -2118,39 +2167,18 @@ export class RealAdeClient implements AdeClient {
     let response = await send();
     // Il body serve sia a classificare la risposta sia alla diagnostica in
     // fondo: si legge una volta sola, perché `response.text()` lo consuma.
-    let bodyExcerpt = response.ok ? "" : await readBodyExcerpt(response);
+    let bodyExcerpt = await failureBodyExcerpt(response);
 
     if (isSessionNotActive(response.status, bodyExcerpt)) {
-      // Il ramo consuma la response, quindi `ade:submit_failed` più sotto non
-      // viene mai raggiunto: senza questo log il caso sparisce dai radar e non
-      // sapremmo con che frequenza l'AdE scade una sessione senza dirlo con un
-      // 401. Struttura-only, mai il body: dati fiscali.
-      if (response.status !== 401) {
-        logger.warn(
-          {
-            statusCode: response.status,
-            contentType: response.headers.get("content-type") ?? null,
-            endpoint: "/ser/api/documenti/v1/doc/documenti/",
-          },
-          "ade:submit_session_not_active",
-        );
-      }
-
-      if (!this.credentials) {
-        throw new AdeSessionExpiredError();
-      }
-
-      try {
-        const knownPiva = this.session?.partitaIva;
-        this.cookieJar.clear();
-        this.session = await this.authenticate(this.credentials, knownPiva);
-      } catch {
-        throw new AdeSessionExpiredError();
-      }
+      logSessionNotActive(response);
+      await this.reauthenticateOrThrow();
 
       response = await send();
-      bodyExcerpt = response.ok ? "" : await readBodyExcerpt(response);
+      bodyExcerpt = await failureBodyExcerpt(response);
 
+      // Persiste dopo la re-auth: non era la sessione. Un 401 resta
+      // AdeSessionExpiredError; qualunque altra firma prosegue e risale come
+      // AdePortalError dal ramo qui sotto, cosi' l'errore vero resta visibile.
       if (response.status === 401) {
         throw new AdeSessionExpiredError();
       }
