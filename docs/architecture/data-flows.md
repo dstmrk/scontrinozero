@@ -37,7 +37,12 @@
    ritorna `{ reauthRequired: true }` senza trasmettere nulla — la UI mostra
    "Ricollegati" (`src/components/cassa/cassa-client.tsx`), la Developer API
    risponde 409. Lo stesso esito arriva da `AdeReauthRequiredError` a metà
-   flusso (documento marcato ERROR, mai duplicato).
+   flusso (documento marcato ERROR, mai duplicato). Una sessione che muore
+   **dopo** il pre-check è riconosciuta da `isSessionNotActive`
+   (`src/lib/ade/real-client.ts`): non solo il `401`, ma anche un **4xx con body
+   non JSON** — l'API REST del DCO risponde sempre JSON, quindi quel 4xx viene da
+   un gateway davanti all'app e la POST non ha raggiunto l'handler (misurato in
+   produzione: `405` + `text/html` su sessione CIE di 4h20m).
 6. UI optimistic: lo scontrino "sembra istantaneo" anche se AdE risponde in 2-5s
    (priorità #1). La server action degrada, non lancia (regola 19).
 7. Fallimenti AdE classificati da `src/lib/ade/log-failure.ts` con

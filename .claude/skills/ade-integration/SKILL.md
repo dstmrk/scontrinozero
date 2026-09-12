@@ -64,9 +64,31 @@ store in base a `method`. In `ADE_MODE=mock` non c'è cache: `login`/`loginCie` 
    `{ reauthRequired: true }` → "Ricollegati" in UI, **409** sulla Developer API.
 2. **Il TTL dello store NON è la scadenza della sessione AdE.** `DEFAULT_TTL_MS`
    (6h) e `DEFAULT_MAX_ENTRIES` (100, LRU per-business) sono un cap di memoria:
-   la scadenza vera la dichiara AdE con un 401 → `AdeSessionExpiredError` →
-   tradotto in `AdeReauthRequiredError`. Non inventare una scadenza logica lato
-   nostro, e non "riprovare" un login CIE dal server: il secondo fattore è umano.
+   la scadenza vera la dichiara AdE → `AdeSessionExpiredError` → tradotto in
+   `AdeReauthRequiredError`. Non inventare una scadenza logica lato nostro, e
+   non "riprovare" un login CIE dal server: il secondo fattore è umano.
+   **L'AdE però non la dichiara solo col 401.** Misurato in produzione
+   (SCONTRINOZERO-M, 12/09/2026): sessione CIE creata alle 12:15, `submitSale`
+   alle 16:36 → **`405` con `text/html` e body vuoto**, non un 401. Il client si
+   credeva loggato (`assertLoggedIn` guarda solo `this.session`), la riga è
+   finita in ERROR e l'utente ha visto un errore generico; 24 secondi dopo si è
+   ri-collegato da solo e i tre scontrini successivi sono passati.
+   `isSessionNotActive` (`real-client.ts`) copre ora entrambe le firme: **401**,
+   oppure **4xx il cui body non è JSON** — l'API REST del DCO risponde JSON su
+   ogni esito, rifiuti compresi, quindi un 4xx non-JSON viene da un gateway
+   davanti all'app e la POST non ha mai raggiunto l'handler.
+   Tre cose da non sbagliare se ci torni sopra:
+   - **Il discriminante è il body, non il `Content-Type`.** Stesso criterio del
+     ramo `AdeUnknownOutcomeError` un blocco più sotto, e un header assente su un
+     rifiuto vero manderebbe l'utente in una re-auth inutile. Si fa uno **sniff**
+     del primo carattere (`{` o `[`), non un `JSON.parse`: l'estratto è troncato
+     a 2048 char e un body JSON più lungo fallirebbe il parse.
+   - **I 5xx restano fuori**, anche con pagina HTML di manutenzione: sono già
+     transient (riga PENDING + riconciliazione), e degradarli a "ri-collegati"
+     perde quella semantica.
+   - **Il ramo logga `ade:submit_session_not_active`** perché consuma la response
+     e `ade:submit_failed` non viene mai raggiunto: senza quel log il caso
+     sparisce dai radar.
 3. **Store in-process, single container** (coerente con l'architettura): un
    deploy/restart perde le sessioni interattive e l'utente ri-collega. È
    accettato, non un bug — ma va ricordato quando si valuta lo scaling.

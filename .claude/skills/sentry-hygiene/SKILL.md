@@ -437,6 +437,42 @@ Storico: SCONTRINOZERO-9, -A, -B condividevano `trace_id 5efe8519…`,
 3 issue distinte per un'unica onboarding fallita. Con la regola 23 i
 sub-step finiscono nello stesso group.
 
+### Gli attributi pino si interrogano come `tags[nome,tipo]`
+
+Nel dataset `logs` i campi del `mergingObject` pino **non** si citano col nome
+nudo. `bodyExcerpt`, `statusCode`, `contentType` rispondono
+`INVALID … Unknown attribute` e sembra che il drenaggio non stia funzionando;
+la forma giusta è tipizzata:
+
+```
+tags[statusCode,number]:405
+fields: ["timestamp","message","tags[bodyExcerpt,string]","tags[contentType,string]"]
+```
+
+I campi già promossi a colonne (`message`, `severity`, `trace`, `timestamp`) e
+quelli che il drain ha visto abbastanza spesso (`errorClass`, `documentId`,
+`flow`) rispondono anche col nome nudo — il che rende il fallimento degli altri
+ancora più fuorviante. Prima di concludere che un log non arriva, riprova con
+`tags[...]`: nel caso SCONTRINOZERO-M il `bodyExcerpt` era lì da sempre.
+
+### Un evento solo non basta: i log del container completano la storia
+
+Sentry tiene l'evento, non la **sequenza intorno**. Il 405 di SCONTRINOZERO-M
+era indistinguibile fra "sessione morta" e "singhiozzo del gateway AdE" finché
+i log Docker non hanno mostrato le righe che Sentry non aveva: la
+`ade_interactive_session_set` di **quattro ore prima**, e soprattutto la
+ri-autenticazione 24 secondi dopo il fallimento seguita da tre
+`Receipt emitted successfully`. Quella coda è la prova, e in Sentry non c'era
+perché sono `info`.
+
+Si leggono via **shimau** (skill `anthropic-skills:shimau`), stack
+`scontrinozero` su prod, `GET /api/stacks/scontrinozero/logs?tail=5000`. Due
+inciampi che costano dieci minuti: `SHIMAU_PROD_URL` è **senza schema**, quindi
+va prefissato `https://` a mano o il 301 di Cloudflare mangia l'header
+`Authorization`; e il flusso contiene anche dump non-JSON di `console` (le
+NOTICE Postgres del bootstrap migrazioni), quindi si filtra con
+`grep '^{"level":'` prima di passare a `jq`.
+
 ---
 
 ## Warning di runtime nei log del container: censire prima di sospettare
