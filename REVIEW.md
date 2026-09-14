@@ -558,43 +558,41 @@ FEDERATED_ALLOWED_HOSTS)`. Riusare lo stesso pattern su `parseFormAction`
 
 ---
 
-### 32. `wizardTemplate` ritorna `200` con lista `PIva` vuota su login Fisconline
+### 106. Solo le utenze AdE con P.IVA intestata alla persona possono onboardare
 
-- **Categoria:** correttezza/osservabilità · **Severità:** Low — 1 evento in produzione, root cause non confermata
-- **File:** `src/lib/ade/real-client.ts` (`fetchWizardIdentity`, Phase F del login Fisconline)
+- **Categoria:** funzionalità/prodotto · **Severità:** Medium — blocca l'onboarding di un intero segmento, 1 utente osservato
+- **File:** `src/lib/ade/real-client.ts` (`fetchWizardIdentity` + `setUserChoiceStep`, Phases F-G)
 
-> **Riferimento Sentry rimosso.** Questa voce citava `SCONTRINOZERO-M`, che è
-> tutt'altra issue (il `405` su `submitDocument`, chiuso nella PR che ha
-> introdotto `isSessionNotActive`). Cercando il titolo qui sotto su Sentry non
-> risulta alcuna issue negli ultimi 90 giorni, quindi l'ID corretto non è
-> recuperabile: si riparte dal log `ade:wizard_piva_missing`, che è comunque la
-> prova che serve. Costo dello sbaglio: un'indagine intera partita dalla
-> funzione sbagliata.
+**Problema.** `setUserChoiceStep` invia sempre `tipoutenza: "meStesso"` e
+`fetchWizardIdentity` legge solo `PIva[0].piva`. Funziona per ditte individuali e
+liberi professionisti, dove la partita IVA è intestata alla persona che accede.
+Chi opera per una società, con una delega a intermediario o come tutore deve
+invece scegliere un'altra utenza di lavoro sul portale: `wizardTemplate`
+risponde `200` **senza la chiave `PIva`**, e per noi il login finisce lì.
 
-**Problema.** `fetchWizardIdentity` lancia `AdePortalError(200, "Failed to extract
-P.IVA from wizardTemplate response")` quando `data?.PIva?.[0]?.piva` è falsy su
-una response `200` valida. Status `200` ⇒ né `isTransientAdeError` né
-`isExpectedUserAdeError` ⇒ classificato `ade_failure` ⇒ Sentry (corretto: errore
-inatteso). Osservato **~5 minuti dopo** che l'utente aveva cambiato una password
-Fisconline scaduta (timeline pino: `ade:auth_failed` → `ade:password_expired`
-×2 → "Password Fisconline aggiornata con successo" → fallimento emit-receipt).
-**Ipotesi principale:** stato transient lato AdE post-cambio-password (sessione/
-entitlement non ancora propagati), **non** un cambio di shape globale (colpirebbe
-tutti i login) né un account permanentemente senza P.IVA (l'utente aveva
-onboardato correttamente via lo stesso Phase F). SPID non è attivo: il path è
-sicuramente Fisconline.
+Payload osservato in produzione (SCONTRINOZERO-13, 2026-09-14): chiavi
+`cfUidUltimo`, `enabledEsercizioOpzioni`, `enabledQrCode`,
+`enabledVerificaPivaCf`, `hasDelega`, `intermediario`, `richiestaIncarichi`,
+`serpico`, `soloPerMe`, `tutore`, `tutore_AT`. Il login era riuscito
+(`cfUidUltimo` presente), mancava solo la lista delle partite IVA. Il commento
+storico di `fetchPartitaIva` lo diceva già: «selectEntity
+(scelta-utenza-lavoro) does NOT appear in the captured flow — it is not needed
+for single-entity Fisconline accounts».
 
-**Stato.** Aggiunta diagnostica struttura-only (no PII) prima del throw —
-`logger.warn(..., "ade:wizard_piva_missing")` con `contentType` / `topLevelKeys`
-/ `pIvaIsArray` / `pIvaLength` / `firstEntryKeys` (solo nomi dei campi, mai i
-valori `piva`/`denominazione`). Stessa diagnostica sul gemello SPID
-`fetchPartitaIvaFromFiscali` (`ade:fiscali_piva_missing`).
+Non toccato anche il caso **multi-P.IVA**: con più entry in `PIva` prendiamo la
+prima, senza confrontarla con quella dichiarata in onboarding. Il guard esiste
+(`checkAdeIdentityGuard`) ma gira dopo, e solo sui business già onboardati.
 
-**Fix (rimandato, serve evidenza — regole 13/14).** Alla prossima occorrenza,
-leggere `ade:wizard_piva_missing` nel dataset Sentry `logs` per confermare la
-shape. Se conferma lista vuota su `200` (transient post-password-change): trattare
-`PIva` vuota come transient (retry singolo di Phase F e/o downgrade a
-`ade_transient` warn, fuori da Sentry). Non implementare prima della conferma.
+**Cosa è già stato fatto.** L'errore non è più un `ade_failure`: classe dedicata
+`AdeNoPartitaIvaError`, ramo `ade_user_error` (`warn`, fuori da Sentry) e
+messaggio che non incolpa più le credenziali. Serve un HAR di
+`scelta-utenza-lavoro` per implementare il resto, e non ne abbiamo.
+
+**Trigger di riapertura.** Il downgrade a `warn` spegne l'allarme: il segnale
+resta solo nei Sentry Logs. Cercare periodicamente `ade:wizard_piva_missing` e
+`ade:fiscali_piva_missing` (dataset `logs`) — più di **tre** utenti distinti in
+quattro settimane significa che il segmento vale l'implementazione, e allora
+serve catturare l'HAR della scelta utenza da un account con delega.
 
 ### 50. CIE checkpush: rilevamento approvazione "any-change" fragile (falso timeout / falso proceed)
 

@@ -13,6 +13,7 @@ import {
   AdeAuthError,
   AdeError,
   AdeNetworkError,
+  AdeNoPartitaIvaError,
   AdePasswordExpiredError,
   AdePortalError,
   AdeSessionExpiredError,
@@ -590,7 +591,7 @@ describe("RealAdeClient", () => {
       expect(session.partitaIva).toBe("12345678901");
     });
 
-    it("Phase F: lancia AdePortalError se la lista PIva è vuota", async () => {
+    it("Phase F: lancia AdeNoPartitaIvaError se la lista PIva è vuota", async () => {
       fetchMock.mockResolvedValueOnce(mockResponse({ status: 200 })); // A
       fetchMock.mockResolvedValueOnce(mockResponse({})); // B
       fetchMock.mockResolvedValueOnce(mockResponse({ status: 501 })); // B2
@@ -603,7 +604,7 @@ describe("RealAdeClient", () => {
       fetchMock.mockResolvedValueOnce(mockResponse({ body: { PIva: [] } }));
 
       await expect(client.login(mockCredentials)).rejects.toThrow(
-        AdePortalError,
+        AdeNoPartitaIvaError,
       );
     });
 
@@ -620,7 +621,7 @@ describe("RealAdeClient", () => {
       ); // F
 
       await expect(client.login(mockCredentials)).rejects.toThrow(
-        AdePortalError,
+        AdeNoPartitaIvaError,
       );
 
       const call = vi
@@ -647,7 +648,7 @@ describe("RealAdeClient", () => {
       ); // F: entry presente ma senza piva
 
       await expect(client.login(mockCredentials)).rejects.toThrow(
-        AdePortalError,
+        AdeNoPartitaIvaError,
       );
 
       const call = vi
@@ -669,7 +670,7 @@ describe("RealAdeClient", () => {
       ); // F: nessun PIva
 
       await expect(client.login(mockCredentials)).rejects.toThrow(
-        AdePortalError,
+        AdeNoPartitaIvaError,
       );
 
       const call = vi
@@ -681,6 +682,39 @@ describe("RealAdeClient", () => {
       expect(ctx.pIvaLength).toBeNull();
       expect(ctx.firstEntryKeys).toBeNull();
       expect(ctx.topLevelKeys).toEqual(["messaggio"]);
+    });
+
+    it("Phase F: la shape reale di un'utenza senza P.IVA non è un guasto (SCONTRINOZERO-13)", async () => {
+      // Payload osservato in produzione: login riuscito (cfUidUltimo presente),
+      // nessuna chiave PIva — l'utenza AdE non ha partite IVA intestate.
+      vi.mocked(logger.warn).mockClear();
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: {
+            cfUidUltimo: "RSSMRA80A01H501A",
+            hasDelega: false,
+            intermediario: false,
+            soloPerMe: true,
+            tutore: false,
+          },
+          headers: [["content-type", "application/json"]],
+        }),
+      ); // F
+
+      const err = await client.login(mockCredentials).catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(AdeNoPartitaIvaError);
+      // Non è un AdePortalError: la response è un 200 ben formato.
+      expect(err).not.toBeInstanceOf(AdePortalError);
+      const ctx = vi
+        .mocked(logger.warn)
+        .mock.calls.find(
+          (c) => c[1] === "ade:wizard_piva_missing",
+        )![0] as Record<string, unknown>;
+      expect(ctx.pIvaIsArray).toBe(false);
+      // Il CF non deve finire nel log diagnostico.
+      expect(JSON.stringify(ctx)).not.toContain("RSSMRA80A01H501A");
     });
 
     it("Phase G: POST setUserChoice con x-appl header e body corretto", async () => {
@@ -979,7 +1013,7 @@ describe("RealAdeClient", () => {
       });
 
       await expect(client.loginSpid(mockSpidCredentials)).rejects.toThrow(
-        AdePortalError,
+        AdeNoPartitaIvaError,
       );
 
       const call = vi

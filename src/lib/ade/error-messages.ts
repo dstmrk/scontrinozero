@@ -1,12 +1,14 @@
 import {
   AdeAuthError,
   AdeNetworkError,
+  AdeNoPartitaIvaError,
   AdePasswordExpiredError,
   AdePortalError,
   AdeSpidTimeoutError,
   AdeUnknownOutcomeError,
 } from "./errors";
 import type { AdeLoginMethod } from "./types";
+import { CONTACT_EMAIL } from "@/lib/contact";
 
 export type UserFacingAdeError = {
   message: string;
@@ -46,6 +48,15 @@ export function getUserFacingAdeErrorMessage(
         method === "cie"
           ? "Credenziali CIE ID non valide. Verifica email e password."
           : "Credenziali Fisconline non valide. Verifica codice fiscale, password e PIN.",
+    };
+  }
+  if (err instanceof AdeNoPartitaIvaError) {
+    // SCONTRINOZERO-13: il login è riuscito, la P.IVA no. Il messaggio storico
+    // ("Verifica fallita. Controlla le credenziali") mandava l'utente a
+    // riscrivere credenziali già corrette — quattro tentativi in quaranta
+    // secondi. Non è method-aware: la causa sta nell'utenza, non nei campi.
+    return {
+      message: `Le credenziali sono corrette, ma su questa utenza dell'Agenzia delle Entrate non risulta nessuna partita IVA. Se è intestata a una società o a un altro soggetto, serve l'utenza di chi la possiede: l'accesso come incaricato o delegato non è supportato. Scrivici a ${CONTACT_EMAIL} se pensi ci sia un errore.`,
     };
   }
   if (err instanceof AdeNetworkError) {
@@ -104,18 +115,25 @@ export function isTransientAdeError(err: unknown): boolean {
 
 /**
  * Ritorna true se l'errore è un caso prevedibile di **input utente
- * invalido** (credenziali Fisconline sbagliate, password scaduta che
- * l'utente deve ruotare sul portale AdE). Non è un bug del nostro
- * sistema più di quanto lo sia "password sbagliata" su `/login`.
+ * invalido**: credenziali Fisconline sbagliate, password scaduta che
+ * l'utente deve ruotare sul portale AdE, utenza AdE senza nessuna partita
+ * IVA su cui operare. Non è un bug del nostro sistema più di quanto lo sia
+ * "password sbagliata" su `/login`.
  *
  * Conseguenza per il logging: come per `isTransientAdeError`, va
  * loggato a `warn` (non `error`) — niente issue Sentry. Storico:
  * SCONTRINOZERO-7 ha accumulato 23 eventi in 5 settimane prima di
  * essere archiviata come noise perché tutte le auth-failure salivano
- * a Sentry come issue. Regola 21 di `CLAUDE.md`.
+ * a Sentry come issue. Regola 20 di `CLAUDE.md`.
  */
 export function isExpectedUserAdeError(err: unknown): boolean {
   if (err instanceof AdeAuthError) return true;
   if (err instanceof AdePasswordExpiredError) return true;
+  // SCONTRINOZERO-13: utenza AdE senza partita IVA. Il login è andato a buon
+  // fine, quindi non è un guasto nostro né del portale; è deterministico
+  // (nessun retry produce una P.IVA che non esiste) e si corregge solo
+  // cambiando utenza. Resta tracciabile via il log `ade:wizard_piva_missing`
+  // nel dataset Sentry `logs` — trigger di riapertura in REVIEW.md #106.
+  if (err instanceof AdeNoPartitaIvaError) return true;
   return false;
 }

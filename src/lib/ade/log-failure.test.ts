@@ -8,6 +8,7 @@ vi.mock("@/lib/logger", () => ({
 import {
   AdeAuthError,
   AdeNetworkError,
+  AdeNoPartitaIvaError,
   AdePasswordExpiredError,
   AdePortalError,
   AdeSpidTimeoutError,
@@ -217,5 +218,38 @@ describe("logAdeFailure", () => {
       }),
       "failed",
     );
+  });
+});
+
+describe("logAdeFailure — utenza AdE senza partita IVA (SCONTRINOZERO-13)", () => {
+  it("routes AdeNoPartitaIvaError to logger.warn con errorClass ade_user_error", () => {
+    logAdeFailure(
+      new AdeNoPartitaIvaError("wizardTemplate"),
+      { businessId: "biz-1", flow: "onboarding-verify" },
+      { transient: "transient", failure: "failed" },
+    );
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        businessId: "biz-1",
+        errorClass: "ade_user_error",
+      }),
+      "failed",
+    );
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it("non allega sentryFingerprint: il ramo warn non sale a Sentry", () => {
+    logAdeFailure(
+      new AdeNoPartitaIvaError("dati/fiscali"),
+      { flow: "onboarding-verify" },
+      { transient: "transient", failure: "failed" },
+    );
+
+    const payload = vi.mocked(logger.warn).mock.calls[0][0] as Record<
+      string,
+      unknown
+    >;
+    expect(payload.sentryFingerprint).toBeUndefined();
   });
 });
