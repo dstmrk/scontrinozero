@@ -3,6 +3,7 @@ import {
   AdeAuthError,
   AdeError,
   AdeNetworkError,
+  AdeNoPartitaIvaError,
   AdePasswordExpiredError,
   AdePortalError,
   AdeSessionExpiredError,
@@ -119,5 +120,22 @@ describe("AdeSpidTimeoutError", () => {
     );
     expect(err.code).toBe("ADE_SPID_TIMEOUT");
     expect(err.name).toBe("AdeSpidTimeoutError");
+  });
+});
+
+describe("AdeNoPartitaIvaError", () => {
+  it("carries the fixed code and the source endpoint", () => {
+    const err = new AdeNoPartitaIvaError("wizardTemplate");
+    expect(err.code).toBe("ADE_NO_PARTITA_IVA");
+    expect(err.name).toBe("AdeNoPartitaIvaError");
+    expect(err.source).toBe("wizardTemplate");
+    expect(err.message).toContain("wizardTemplate");
+    expect(err).toBeInstanceOf(AdeError);
+  });
+
+  it("is NOT an AdePortalError: la response è un 200 valido, non un guasto", () => {
+    expect(new AdeNoPartitaIvaError("dati/fiscali")).not.toBeInstanceOf(
+      AdePortalError,
+    );
   });
 });

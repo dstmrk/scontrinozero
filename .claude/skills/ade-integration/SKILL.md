@@ -138,6 +138,39 @@ frontend: la response `text/x-component` contiene il JSON `{ error }` — da lì
 si risale al messaggio in `error-messages.ts` e quindi alla classe d'errore
 esatta, prima ancora di aprire i log server.
 
+### Failure mode noto: `200` senza P.IVA = utenza sbagliata, non guasto
+
+`wizardTemplate` (Fisconline/CIE, Phase F) o `dati/fiscali` / `gestori/me`
+(SPID) rispondono `200` con un body valido in cui la P.IVA non c'è. Il login è
+**riuscito** — `cfUidUltimo` è popolato — quindi la causa non è nelle
+credenziali: la persona che accede non ha nessuna partita IVA intestata.
+Succede a chi opera per una società, con delega a intermediario o come tutore;
+il portale in quei casi fa scegliere l'utenza di lavoro, noi inviamo sempre
+`tipoutenza: "meStesso"` (REVIEW.md #106).
+
+Lo riconosci dalle chiavi che **restano** quando `PIva` manca: `hasDelega`,
+`intermediario`, `richiestaIncarichi`, `soloPerMe`, `tutore`, `tutore_AT`. Sono
+le altre personae del wizard — la loro presenza dice che la risposta è completa
+e corretta, non troncata.
+
+Classe dedicata `AdeNoPartitaIvaError`, ramo `ade_user_error` di
+`logAdeFailure` (SCONTRINOZERO-13). **Non** un `AdePortalError(200, ...)`: uno
+status inventato per una response sana finisce nel ramo `ade_failure`, apre
+una issue Sentry per tentativo e non dice niente a nessuno.
+
+Due lezioni di contorno che valgono oltre questo caso:
+
+- **Il messaggio d'errore decide quante volte l'utente riprova.** Con
+  "Verifica fallita. Controlla le credenziali Fisconline" l'utente ha
+  risalvato le stesse credenziali corrette quattro volte in quaranta secondi.
+  Quando il login riesce e fallisce un passo successivo, il fallback generico
+  del call-site è sempre sbagliato: serve un ramo in
+  `getUserFacingAdeErrorMessage`.
+- **La diagnostica struttura-only si ripaga.** `topLevelKeys` / `pIvaIsArray`
+  / `pIvaLength` / `firstEntryKeys` (solo nomi di campo, mai i valori) hanno
+  chiuso la diagnosi al primo evento utile, senza HAR e senza PII nei log.
+  Stesso pattern prima di ogni throw su una response `200` inattesa.
+
 ### Failure mode noto: dato del cedente non normalizzato (`EF0`)
 
 `{"esito": false, "errori": [{"codice": "EF0", "descrizione": "'<Campo>' non valido"}]}`

@@ -26,6 +26,7 @@ import {
   AdeAuthError,
   AdeError,
   AdeNetworkError,
+  AdeNoPartitaIvaError,
   AdePasswordExpiredError,
   AdePortalError,
   AdeSessionExpiredError,
@@ -654,10 +655,7 @@ export class RealAdeClient implements AdeClient {
         },
         "ade:wizard_piva_missing",
       );
-      throw new AdePortalError(
-        200,
-        "Failed to extract P.IVA from wizardTemplate response",
-      );
+      throw new AdeNoPartitaIvaError("wizardTemplate");
     }
 
     return { cf: data?.cfUidUltimo, piva };
@@ -802,10 +800,7 @@ export class RealAdeClient implements AdeClient {
     const piva = data?.anagrafica?.piva;
 
     if (!piva) {
-      throw new AdePortalError(
-        200,
-        "Failed to extract Partita IVA from gestori/me response",
-      );
+      throw new AdeNoPartitaIvaError("gestori/me");
     }
 
     return piva;
@@ -845,10 +840,7 @@ export class RealAdeClient implements AdeClient {
         },
         "ade:fiscali_piva_missing",
       );
-      throw new AdePortalError(
-        200,
-        "Failed to extract Partita IVA from dati/fiscali response",
-      );
+      throw new AdeNoPartitaIvaError("dati/fiscali");
     }
 
     return piva;

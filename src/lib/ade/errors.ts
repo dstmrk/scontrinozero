@@ -89,6 +89,42 @@ export class AdeUnknownOutcomeError extends AdeError {
   }
 }
 
+/**
+ * L'utenza AdE ha fatto login correttamente ma non ha **nessuna partita IVA**
+ * su cui operare: `wizardTemplate` (Fisconline/CIE) o `dati/fiscali` /
+ * `gestori/me` (SPID) rispondono `200` con un body valido in cui la P.IVA non
+ * c'è.
+ *
+ * Perché una classe dedicata e non `AdePortalError(200, ...)`: il portale non
+ * è guasto, ha risposto quello che doveva. La causa sta nell'utenza —
+ * `isExpectedUserAdeError` la riconosce e la manda a `warn`, fuori da Sentry
+ * (regola 20). Prima era un `ade_failure`: SCONTRINOZERO-13 apriva una issue
+ * per ogni tentativo mentre l'utente vedeva "Controlla le credenziali" e le
+ * riscriveva — quattro volte in quaranta secondi, con credenziali già corrette.
+ *
+ * Payload osservato in produzione (nessuna chiave `PIva`, solo le altre
+ * personae del wizard): `cfUidUltimo`, `hasDelega`, `intermediario`,
+ * `richiestaIncarichi`, `soloPerMe`, `tutore`. Accade quando la P.IVA è
+ * intestata a un soggetto diverso dalla persona che accede — società, studio,
+ * delega a intermediario. `setUserChoice` invia sempre
+ * `tipoutenza: "meStesso"`, quindi quei casi non sono supportati: REVIEW.md #106.
+ *
+ * `source` è l'endpoint che ha risposto senza P.IVA, per distinguere i tre
+ * percorsi nei log. Mai includere CF, P.IVA o denominazione nel messaggio.
+ */
+export class AdeNoPartitaIvaError extends AdeError {
+  readonly source: string;
+
+  constructor(source: string) {
+    super(
+      "ADE_NO_PARTITA_IVA",
+      `No Partita IVA available for this AdE account (source: ${source})`,
+    );
+    this.name = "AdeNoPartitaIvaError";
+    this.source = source;
+  }
+}
+
 /** Network-level error (DNS, timeout, connection refused). */
 export class AdeNetworkError extends AdeError {
   override readonly cause: unknown;

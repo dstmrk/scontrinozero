@@ -4,6 +4,7 @@ import {
   AdeAuthError,
   AdeError,
   AdeNetworkError,
+  AdeNoPartitaIvaError,
   AdePasswordExpiredError,
   AdePortalError,
   AdeSessionExpiredError,
@@ -34,6 +35,29 @@ describe("getUserFacingAdeErrorMessage", () => {
       "Credenziali Fisconline non valide. Verifica codice fiscale, password e PIN.",
     );
     expect(result.passwordExpired).toBeUndefined();
+  });
+
+  it("non incolpa le credenziali quando l'utenza non ha partite IVA", () => {
+    const result = getUserFacingAdeErrorMessage(
+      new AdeNoPartitaIvaError("wizardTemplate"),
+      FALLBACK,
+    );
+    // SCONTRINOZERO-13: il messaggio storico ("Controlla le credenziali")
+    // manda l'utente a riscrivere credenziali che sono già corrette.
+    expect(result.message).toContain("Le credenziali sono corrette");
+    expect(result.message).toContain("partita IVA");
+    expect(result.message).toContain("info@scontrinozero.it");
+    expect(result.message).not.toContain("Verifica codice fiscale");
+    expect(result.passwordExpired).toBeUndefined();
+  });
+
+  it("usa lo stesso messaggio no-P.IVA anche per il metodo CIE", () => {
+    const result = getUserFacingAdeErrorMessage(
+      new AdeNoPartitaIvaError("wizardTemplate"),
+      FALLBACK,
+      "cie",
+    );
+    expect(result.message).toContain("Le credenziali sono corrette");
   });
 
   it("returns the network message for AdeNetworkError", () => {
@@ -237,6 +261,14 @@ describe("isTransientAdeError", () => {
   });
 });
 
+describe("isTransientAdeError — AdeNoPartitaIvaError", () => {
+  it("returns false: nessun retry può far comparire una P.IVA che non c'è", () => {
+    expect(
+      isTransientAdeError(new AdeNoPartitaIvaError("wizardTemplate")),
+    ).toBe(false);
+  });
+});
+
 describe("isExpectedUserAdeError", () => {
   it("returns true for AdeAuthError (wrong credentials are user input, not a bug)", () => {
     expect(isExpectedUserAdeError(new AdeAuthError())).toBe(true);
@@ -244,6 +276,12 @@ describe("isExpectedUserAdeError", () => {
 
   it("returns true for AdePasswordExpiredError (user must rotate password on portal)", () => {
     expect(isExpectedUserAdeError(new AdePasswordExpiredError())).toBe(true);
+  });
+
+  it("returns true for AdeNoPartitaIvaError (utenza senza P.IVA: input, non guasto)", () => {
+    expect(
+      isExpectedUserAdeError(new AdeNoPartitaIvaError("wizardTemplate")),
+    ).toBe(true);
   });
 
   it("returns false for AdeNetworkError (transient, not user-actionable input)", () => {
