@@ -29,6 +29,15 @@ export const businesses = pgTable(
     // Senza CHECK di lunghezza: la scrive l'AdE, e un vincolo violato
     // abortirebbe l'intera transazione di verifica (motivazione nella 0038).
     adeDenominazione: text("ade_denominazione"),
+    // Sede legale registrata all'AdE (migration 0039), stessa natura e stesse
+    // regole di `adeDenominazione`: osservata, mai stampata, mai riscritta
+    // addosso alle colonne sotto. Cinque colonne piatte perche' l'indirizzo
+    // stampato e' gia' cinque colonne piatte.
+    adeIndirizzo: text("ade_indirizzo"),
+    adeNumeroCivico: text("ade_numero_civico"),
+    adeCap: text("ade_cap"),
+    adeComune: text("ade_comune"),
+    adeProvincia: text("ade_provincia"),
     address: text("address"),
     streetNumber: text("street_number"),
     city: text("city"),

@@ -676,8 +676,7 @@ Quello che era rotto davvero:
 scelta è "su quale partita IVA operare", e la provenienza la risolve il client.
 Il tipo adesso combacia con la colonna.
 
-**Slice 5 rilasciata — la denominazione era il nome sbagliato sullo
-scontrino.** La voce la elencava come "non persistita", cioè un dato buttato.
+**Slice 5 rilasciata — l'identità stampata non era quella della società.** La voce la elencava come "non persistita", cioè un dato buttato.
 Guardandola da vicino era un difetto: `getFiscalData` risponde con l'intero
 cedente/prestatore e ne scrivevamo due campi su sei, mentre
 `buildCedenteFromBusiness` manda all'AdE `businesses.business_name` con
@@ -694,7 +693,17 @@ stantia. `business_name` **non** viene toccato: l'allineamento è un bottone in
 impostazioni (`applyAdeDenominazione`), che rilegge il nome dalla colonna e non
 lo accetta dal chiamante.
 
-Due decisioni che la slice ha dovuto prendere, entrambe contro l'istinto:
+Lo stesso vale per la **sede legale** (migrazione 0039, cinque colonne
+`ade_*`): stesso difetto, stessa meccanica, e `altriDatiIdentificativi` la
+portava nella stessa risposta già scartata. Con un'asimmetria che ha cambiato
+la forma della UI: divergere sull'indirizzo è spesso **legittimo** — per una
+società la sede legale può essere lo studio del commercialista mentre il punto
+vendita sta altrove, e sullo scontrino ci va il secondo. Quindi nome e
+indirizzo restano due azioni separate (`applyAdeDenominazione`,
+`applyAdeSedeLegale`): unirle costringerebbe a prendere anche l'indirizzo per
+avere il nome giusto.
+
+Quattro decisioni che la slice ha dovuto prendere, tutte contro l'istinto:
 
 - **L'avviso tace sulle utenze "me stesso"** (`utenza_piva IS NULL`). Lì
   un'insegna diversa dalla denominazione anagrafica — "Da Mario" contro "ROSSI
@@ -703,7 +712,16 @@ Due decisioni che la slice ha dovuto prendere, entrambe contro l'istinto:
   popola comunque per tutti, perché il dato osservato serve anche a #107.
 - **Nessun match fuzzy.** Il confronto ignora maiuscole e spazi ripetuti, non
   la punteggiatura: "ACME S.R.L." e "ACME SRL" si stampano diversi, e quale dei
-  due stampare è una scelta dell'esercente.
+  due stampare è una scelta dell'esercente. Stesso criterio sul civico: "10" e
+  "10/A" sono due indirizzi diversi.
+- **Un campo che l'AdE non ha non è una divergenza.** Sull'indirizzo si
+  confronta solo ciò che è stato osservato: non si svuota il civico stampato
+  perché il portale tace su quel pezzo.
+- **L'allineamento dell'indirizzo è tutto o niente.** Se anche un solo valore
+  osservato non entra nella colonna stampata (CAP non a 5 cifre, provincia non
+  a 2 lettere, indirizzo oltre i 150 caratteri) il bottone non compare:
+  applicare i campi che entrano e lasciare indietro gli altri produrrebbe un
+  indirizzo metà AdE e metà digitato, che non è nessuno dei due.
 
 **Cosa resta.**
 
@@ -712,11 +730,6 @@ Due decisioni che la slice ha dovuto prendere, entrambe contro l'istinto:
   sbagliato è appena stato digitato. Il punto giusto sarebbe la coda
   dell'onboarding o la dashboard, che però non legge `businesses` — passa da
   `getOnboardingStatus`, quindi è un'altra slice, non due righe.
-- **La sede legale ha lo stesso difetto della denominazione.**
-  `altriDatiIdentificativi` porta anche indirizzo, civico, CAP, comune e
-  provincia della società, e li scartiamo allo stesso modo. Stessa meccanica su
-  cinque colonne e un confronto per campo: si affetta a parte, se e quando il
-  disallineamento sull'indirizzo si osserva davvero.
 - **Conferma con il nome per gli incarichi:** richiederebbe un flusso a due fasi
   (risolvi via `procediWizard`, conferma, scrivi), una chiamata per candidato.
   Vale poco: la tendina del portale mostra anch'essa le sole P.IVA

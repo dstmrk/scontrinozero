@@ -652,7 +652,14 @@ async function finalizeAdeVerification(params: {
     { fiscalCode: string | null; vatNumber: string | null } | undefined;
   fiscalData: {
     identificativiFiscali: { partitaIva: string; codiceFiscale: string };
-    altriDatiIdentificativi?: { denominazione?: string };
+    altriDatiIdentificativi?: {
+      denominazione?: string;
+      indirizzo?: string;
+      numeroCivico?: string;
+      cap?: string;
+      comune?: string;
+      provincia?: string;
+    };
   } | null;
 }): Promise<{ credentialsChanged: boolean; trialAlreadyUsed: boolean }> {
   const {
@@ -707,13 +714,25 @@ async function finalizeAdeVerification(params: {
     // toccato: allinearlo e' un'azione esplicita dell'esercente
     // (applyAdeDenominazione), perche' per una ditta individuale l'insegna
     // diverge legittimamente dalla denominazione anagrafica.
-    const adeDenominazione = normalizeDenominazione(
-      fiscalData.altriDatiIdentificativi?.denominazione,
-    );
+    // Stessa cosa per la sede legale (migrazione 0039): osservata, non
+    // stampata. Le cinque colonne viaggiano con la denominazione perche'
+    // descrivono la stessa identita' alla stessa data — leggerne una sola
+    // aggiornata e le altre no non avrebbe senso.
+    const altri = fiscalData.altriDatiIdentificativi;
+    const adeDenominazione = normalizeDenominazione(altri?.denominazione);
 
     await tx
       .update(businesses)
-      .set({ vatNumber, fiscalCode, adeDenominazione })
+      .set({
+        vatNumber,
+        fiscalCode,
+        adeDenominazione,
+        adeIndirizzo: normalizeDenominazione(altri?.indirizzo),
+        adeNumeroCivico: normalizeDenominazione(altri?.numeroCivico),
+        adeCap: normalizeDenominazione(altri?.cap),
+        adeComune: normalizeDenominazione(altri?.comune),
+        adeProvincia: normalizeDenominazione(altri?.provincia),
+      })
       .where(eq(businesses.id, businessId));
 
     // Primo claim di questa P.IVA da parte del business, vs re-verifica

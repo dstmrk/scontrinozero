@@ -1,4 +1,4 @@
-import { BUSINESS_PROFILE_LIMITS } from "./validation";
+import { BUSINESS_PROFILE_LIMITS, isValidItalianZipCode } from "./validation";
 
 /**
  * Identita' dell'attivita': il confronto fra la ragione sociale che finisce
@@ -83,4 +83,158 @@ export function getDenominazioneMismatch(params: {
   }
 
   return { kind, current, ade };
+}
+
+// ---------------------------------------------------------------------------
+// Sede legale (migration 0039)
+// ---------------------------------------------------------------------------
+
+/** La sede legale come la risponde l'AdE in `altriDatiIdentificativi`. */
+export interface AdeSedeLegale {
+  indirizzo?: string | null;
+  numeroCivico?: string | null;
+  cap?: string | null;
+  comune?: string | null;
+  provincia?: string | null;
+}
+
+/** L'indirizzo che oggi finisce stampato, dalle colonne di `businesses`. */
+export interface StampatoSedeLegale {
+  address?: string | null;
+  streetNumber?: string | null;
+  zipCode?: string | null;
+  city?: string | null;
+  province?: string | null;
+}
+
+/** Patch da scrivere su `businesses`: i soli campi che divergono. */
+export type SedeLegalePatch = Partial<Record<keyof StampatoSedeLegale, string>>;
+
+export interface SedeLegaleMismatch {
+  /**
+   * - `divergente`: c'e' almeno un campo da allineare, e `patch` lo contiene.
+   * - `non-applicabile`: diverge, ma almeno un valore dell'AdE non entra nella
+   *   colonna stampata o non ne ha la forma — si mostra, non si offre il
+   *   bottone, e `patch` e' null.
+   */
+  kind: "divergente" | "non-applicabile";
+  /** Solo i campi divergenti, in ordine di lettura di un indirizzo. */
+  fields: { label: string; current: string | null; ade: string }[];
+  patch: SedeLegalePatch | null;
+}
+
+/**
+ * Descrizione di un campo dell'indirizzo: come si chiama da noi, come lo
+ * chiama l'AdE, che etichetta legge l'utente e quale forma deve avere per
+ * poter essere scritto nella colonna stampata.
+ *
+ * L'ordine e' quello in cui un indirizzo si legge, non quello delle colonne:
+ * e' quello che finisce sotto gli occhi dell'esercente.
+ */
+const SEDE_LEGALE_FIELDS: {
+  column: keyof StampatoSedeLegale;
+  source: keyof AdeSedeLegale;
+  label: string;
+  accepts: (value: string) => boolean;
+}[] = [
+  {
+    column: "address",
+    source: "indirizzo",
+    label: "Indirizzo",
+    accepts: (v) => v.length <= BUSINESS_PROFILE_LIMITS.address,
+  },
+  {
+    column: "streetNumber",
+    source: "numeroCivico",
+    label: "Civico",
+    accepts: (v) => v.length <= BUSINESS_PROFILE_LIMITS.streetNumber,
+  },
+  {
+    column: "zipCode",
+    source: "cap",
+    label: "CAP",
+    // Lambda e non riferimento diretto: questo array si costruisce al caricamento
+    // del modulo, e leggere li' un export di `validation` rompe ogni test che lo
+    // mocka parzialmente — anche se non tocca la sede legale. Differire la
+    // lettura al momento della chiamata costa nulla.
+    accepts: (v) => isValidItalianZipCode(v),
+  },
+  {
+    column: "city",
+    source: "comune",
+    label: "Comune",
+    accepts: (v) => v.length <= BUSINESS_PROFILE_LIMITS.city,
+  },
+  {
+    // L'AdE pretende la sigla maiuscola in emissione (`EF0 'Provincia' non
+    // valido`, skill ade-integration), quindi si normalizza qui come fa
+    // `updateBusiness` alla scrittura.
+    column: "province",
+    source: "provincia",
+    label: "Provincia",
+    accepts: (v) => /^[A-Z]{2}$/.test(v),
+  },
+];
+
+/**
+ * Restituisce la divergenza fra la sede legale registrata all'AdE e
+ * l'indirizzo che finisce stampato, o `null` se non c'e' niente da dire.
+ *
+ * Tre asimmetrie rispetto alla denominazione, tutte volute:
+ *
+ * 1. **Un campo che l'AdE non ha non e' una divergenza.** Non si svuota
+ *    l'indirizzo stampato perche' il portale tace su quel pezzo: si confronta
+ *    solo cio' che e' stato osservato.
+ * 2. **Divergere qui e' spesso legittimo.** Per una societa' la sede legale
+ *    puo' essere lo studio del commercialista mentre il punto vendita sta
+ *    altrove, e sullo scontrino ci va il secondo. L'avviso lo constata; non
+ *    presume che l'AdE abbia ragione.
+ * 3. **`non-applicabile` e' per tutto o niente.** Applicare i tre campi che
+ *    entrano e lasciare indietro i due che non entrano produrrebbe un
+ *    indirizzo meta' AdE e meta' digitato, che non e' nessuno dei due.
+ *
+ * Il gate su `utenzaPiva` e la forma del confronto sono gli stessi di
+ * `getDenominazioneMismatch`: si tace sulle utenze "me stesso", e maiuscole e
+ * spazi ripetuti non distinguono, la punteggiatura si'.
+ */
+export function getSedeLegaleMismatch(params: {
+  current: StampatoSedeLegale;
+  ade: AdeSedeLegale;
+  utenzaPiva: string | null | undefined;
+}): SedeLegaleMismatch | null {
+  const { current, ade, utenzaPiva } = params;
+
+  if (!utenzaPiva) return null;
+
+  const fields: SedeLegaleMismatch["fields"] = [];
+  const patch: SedeLegalePatch = {};
+  let applicabile = true;
+
+  for (const { column, source, label, accepts } of SEDE_LEGALE_FIELDS) {
+    const raw = normalizeDenominazione(ade[source]);
+    if (!raw) continue;
+
+    // `raw` e' gia' trimmato e non vuoto, quindi qui basta il maiuscolo: e'
+    // cio' che `normalizeProvince` farebbe, senza il `string | null` che
+    // costringerebbe a un ramo di guardia irraggiungibile. L'AdE pretende la
+    // sigla maiuscola in emissione (`EF0 'Provincia' non valido`, skill
+    // ade-integration), quindi si confronta e si scrive normalizzata.
+    const adeValue = column === "province" ? raw.toUpperCase() : raw;
+
+    const mine = normalizeDenominazione(current[column]);
+    if (mine && comparisonKey(mine) === comparisonKey(adeValue)) continue;
+
+    fields.push({ label, current: mine, ade: adeValue });
+    if (accepts(adeValue)) {
+      patch[column] = adeValue;
+    } else {
+      applicabile = false;
+    }
+  }
+
+  if (fields.length === 0) return null;
+
+  return applicabile
+    ? { kind: "divergente", fields, patch }
+    : { kind: "non-applicabile", fields, patch: null };
 }

@@ -787,20 +787,9 @@ describe("profile-actions", () => {
     }
 
     /** Riga restituita dal JOIN businesses × ade_credentials. */
-    function row(
-      overrides: Partial<{
-        businessName: string | null;
-        adeDenominazione: string | null;
-        utenzaPiva: string | null;
-      }> = {},
-    ) {
+    function row(overrides: Record<string, unknown> = {}) {
       mockDbSelectLimit.mockResolvedValueOnce([
-        {
-          businessName: "Mario Rossi",
-          adeDenominazione: "ACME SRL",
-          utenzaPiva: "07790350966",
-          ...overrides,
-        },
+        { ...IDENTITY_ROW, ...overrides },
       ]);
     }
 
@@ -899,6 +888,169 @@ describe("profile-actions", () => {
       mockDbSelectLimit.mockResolvedValueOnce([]);
       const { applyAdeDenominazione } = await import("./profile-actions");
       const result = await applyAdeDenominazione(BUSINESS_ID);
+
+      expect(result.error).toBeDefined();
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+  });
+  // Riga letta da readAdeIdentityContext: il JOIN businesses × ade_credentials.
+  const IDENTITY_ROW = {
+    businessName: "Mario Rossi",
+    adeDenominazione: "ACME SRL",
+    address: "Via Casa",
+    streetNumber: "1",
+    zipCode: "00100",
+    city: "Roma",
+    province: "RM",
+    adeIndirizzo: "Via Roma",
+    adeNumeroCivico: "10",
+    adeCap: "20100",
+    adeComune: "Milano",
+    adeProvincia: "MI",
+    utenzaPiva: "07790350966",
+  };
+
+  // REVIEW.md #106, migrazione 0039. Stesso difetto della denominazione sulle
+  // cinque colonne dell'indirizzo, con un'asimmetria: divergere qui è spesso
+  // legittimo (sede legale del commercialista, punto vendita altrove).
+  describe("applyAdeSedeLegale", () => {
+    const BUSINESS_ID = "11111111-1111-4111-8111-111111111111";
+
+    function lastUpdatePatch() {
+      return mockDbUpdateSet.mock.calls.at(-1)?.[0];
+    }
+
+    function row(overrides: Record<string, unknown> = {}) {
+      mockDbSelectLimit.mockResolvedValueOnce([
+        { ...IDENTITY_ROW, ...overrides },
+      ]);
+    }
+
+    it("scrive i soli campi divergenti e revalida le impostazioni", async () => {
+      row();
+      const { applyAdeSedeLegale } = await import("./profile-actions");
+      const result = await applyAdeSedeLegale(BUSINESS_ID);
+
+      expect(result).toEqual({});
+      expect(lastUpdatePatch()).toEqual({
+        address: "Via Roma",
+        streetNumber: "10",
+        zipCode: "20100",
+        city: "Milano",
+        province: "MI",
+      });
+      expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/settings");
+    });
+
+    // Non è un allineamento "prendi tutto": i campi già uguali non compaiono
+    // nel patch, così l'UPDATE non tocca colonne che non deve toccare.
+    it("lascia fuori dal patch i campi che già coincidono", async () => {
+      row({ city: "Milano", province: "MI" });
+      const { applyAdeSedeLegale } = await import("./profile-actions");
+      await applyAdeSedeLegale(BUSINESS_ID);
+
+      expect(lastUpdatePatch()).toEqual({
+        address: "Via Roma",
+        streetNumber: "10",
+        zipCode: "20100",
+      });
+    });
+
+    it("non tocca l'indirizzo stampato per un campo che l'AdE non ha", async () => {
+      row({ adeNumeroCivico: null });
+      const { applyAdeSedeLegale } = await import("./profile-actions");
+      await applyAdeSedeLegale(BUSINESS_ID);
+
+      expect(lastUpdatePatch()).not.toHaveProperty("streetNumber");
+    });
+
+    it("non accetta nessun indirizzo dal chiamante", async () => {
+      row();
+      const { applyAdeSedeLegale } = await import("./profile-actions");
+      await applyAdeSedeLegale(BUSINESS_ID);
+
+      expect(applyAdeSedeLegale).toHaveLength(1);
+      expect(lastUpdatePatch()).toEqual(
+        expect.objectContaining({ city: "Milano" }),
+      );
+    });
+
+    it("respinge un id malformato prima di toccare il DB", async () => {
+      const { applyAdeSedeLegale } = await import("./profile-actions");
+      const result = await applyAdeSedeLegale("non-un-uuid");
+
+      expect(result.error).toBe("Identificativo non valido.");
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+
+    it("degrada a { error } quando la sessione è scaduta", async () => {
+      await rejectAuthOnce();
+      const { applyAdeSedeLegale } = await import("./profile-actions");
+      const result = await applyAdeSedeLegale(BUSINESS_ID);
+
+      expect(result.error).toBeDefined();
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+
+    it("rispetta il rate limit condiviso con updateBusiness", async () => {
+      mockCheck.mockReturnValue({ success: false });
+      const { applyAdeSedeLegale } = await import("./profile-actions");
+      const result = await applyAdeSedeLegale(BUSINESS_ID);
+
+      expect(result.error).toBeDefined();
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+
+    it("rifiuta un business non posseduto dall'utente", async () => {
+      mockCheckBusinessOwnership.mockResolvedValueOnce({
+        error: "Business non trovato o non autorizzato.",
+      });
+      const { applyAdeSedeLegale } = await import("./profile-actions");
+      const result = await applyAdeSedeLegale(BUSINESS_ID);
+
+      expect(result.error).toBe("Business non trovato o non autorizzato.");
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+
+    it("non scrive niente se non c'è più niente da allineare", async () => {
+      row({
+        address: "Via Roma",
+        streetNumber: "10",
+        zipCode: "20100",
+        city: "Milano",
+        province: "MI",
+      });
+      const { applyAdeSedeLegale } = await import("./profile-actions");
+      const result = await applyAdeSedeLegale(BUSINESS_ID);
+
+      expect(result.error).toBeDefined();
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+
+    it("non scrive niente su un'utenza 'me stesso'", async () => {
+      row({ utenzaPiva: null });
+      const { applyAdeSedeLegale } = await import("./profile-actions");
+      const result = await applyAdeSedeLegale(BUSINESS_ID);
+
+      expect(result.error).toBeDefined();
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+
+    // Tutto o niente: applicare i campi che entrano e lasciare indietro gli
+    // altri produrrebbe un indirizzo metà AdE e metà digitato.
+    it("non scrive niente se un campo osservato non ha forma salvabile", async () => {
+      row({ adeCap: "2010" });
+      const { applyAdeSedeLegale } = await import("./profile-actions");
+      const result = await applyAdeSedeLegale(BUSINESS_ID);
+
+      expect(result.error).toMatch(/a mano/);
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+
+    it("degrada a { error } se il business è sparito fra la lettura e la scrittura", async () => {
+      mockDbSelectLimit.mockResolvedValueOnce([]);
+      const { applyAdeSedeLegale } = await import("./profile-actions");
+      const result = await applyAdeSedeLegale(BUSINESS_ID);
 
       expect(result.error).toBeDefined();
       expect(mockDbUpdate).not.toHaveBeenCalled();

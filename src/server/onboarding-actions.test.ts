@@ -1044,7 +1044,14 @@ describe("onboarding-actions", () => {
           partitaIva: "07790350966",
           codiceFiscale: "07790350966",
         },
-        altriDatiIdentificativi: { denominazione: "  ACME SRL  " },
+        altriDatiIdentificativi: {
+          denominazione: "  ACME SRL  ",
+          indirizzo: " Via Roma ",
+          numeroCivico: "10",
+          cap: "20100",
+          comune: "Milano",
+          provincia: "MI",
+        },
       });
 
       const { verifyAdeCredentials } = await import("./onboarding-actions");
@@ -1058,6 +1065,76 @@ describe("onboarding-actions", () => {
           vatNumber: "07790350966",
           fiscalCode: "07790350966",
           adeDenominazione: "ACME SRL",
+        }),
+      );
+    });
+
+    // Migrazione 0039: le cinque colonne della sede legale viaggiano con la
+    // denominazione, nella stessa UPDATE e quindi sotto lo stesso lock.
+    it("denominazione: anche la sede legale osservata è persistita", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([queuedCredRow()]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "07790350966",
+          codiceFiscale: "07790350966",
+        },
+        altriDatiIdentificativi: {
+          denominazione: "ACME SRL",
+          indirizzo: " Via Roma ",
+          numeroCivico: "10",
+          cap: "20100",
+          comune: "Milano",
+          provincia: "MI",
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+        "07790350966",
+      );
+
+      expect(mockUpdateSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          adeIndirizzo: "Via Roma",
+          adeNumeroCivico: "10",
+          adeCap: "20100",
+          adeComune: "Milano",
+          adeProvincia: "MI",
+        }),
+      );
+    });
+
+    it("denominazione: una sede legale assente diventa null su tutte e cinque", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([queuedCredRow()]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "07790350966",
+          codiceFiscale: "07790350966",
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+        "07790350966",
+      );
+
+      expect(mockUpdateSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          adeIndirizzo: null,
+          adeNumeroCivico: null,
+          adeCap: null,
+          adeComune: null,
+          adeProvincia: null,
         }),
       );
     });

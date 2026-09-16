@@ -238,9 +238,11 @@ esce con la P.IVA della società e il nome della persona.
 Due conseguenze permanenti:
 
 - **Prima di dire che un dato del cedente non ce l'abbiamo, guarda cosa
-  risponde `dati/fiscali`.** Di quella risposta ne persistiamo una parte
-  (P.IVA, codice fiscale e, dalla 0038, la denominazione in
-  `businesses.ade_denominazione`); il resto lo scartiamo, il che è una scelta,
+  risponde `dati/fiscali`.** Di quella risposta persistiamo P.IVA e codice
+  fiscale, la denominazione in `businesses.ade_denominazione` (0038) e la sede
+  legale nelle cinque colonne `ade_indirizzo`/`ade_numero_civico`/`ade_cap`/
+  `ade_comune`/`ade_provincia` (0039). Quel che resta fuori — `nome`,
+  `cognome`, `nazione`, `defAliquotaIVA` — lo scartiamo, il che è una scelta,
   non un'assenza.
 - **Il valore osservato dall'AdE non si riscrive addosso a quello scelto
   dall'utente.** `ade_denominazione` esiste per **confrontare**, non per
@@ -248,7 +250,14 @@ Due conseguenze permanenti:
   contro "ROSSI MARIO") è legittima, e riallineare in automatico cambierebbe
   ciò che è stampato su un documento fiscale per decisione nostra. Il confronto
   vive in `src/lib/business-identity.ts` e l'allineamento è un'azione esplicita
-  (`applyAdeDenominazione`).
+  (`applyAdeDenominazione`, `applyAdeSedeLegale`).
+- **Le due identità non si allineano insieme.** Sulla denominazione l'AdE ha
+  quasi sempre ragione; sulla sede legale no — può essere lo studio del
+  commercialista mentre il punto vendita sta altrove, e sullo scontrino ci va
+  il punto vendita. Un bottone solo costringerebbe a prendere l'indirizzo per
+  avere il nome, quindi le due azioni restano separate. Vale come regola
+  generale: prima di unire due allineamenti in uno, chiediti se divergere è un
+  errore in entrambi i casi.
 
 ---
 

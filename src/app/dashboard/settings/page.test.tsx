@@ -65,13 +65,20 @@ vi.mock("@/components/settings/ade-credentials-section", () => ({
 // Stub che rende visibile il verdetto calcolato dalla pagina: il contratto da
 // verificare qui è il cablaggio (chi legge cosa), non la resa dell'avviso, che
 // ha il suo file di test.
-vi.mock("@/components/settings/ade-denominazione-notice", () => ({
-  AdeDenominazioneNotice: ({
-    mismatch,
+vi.mock("@/components/settings/ade-identity-notice", () => ({
+  AdeIdentityNotice: ({
+    denominazione,
+    sedeLegale,
   }: {
-    mismatch: { kind: string } | null;
+    denominazione: { kind: string } | null;
+    sedeLegale: { kind: string } | null;
   }) => (
-    <div data-testid="ade-denominazione">{mismatch?.kind ?? "nessuna"}</div>
+    <>
+      <div data-testid="ade-denominazione">
+        {denominazione?.kind ?? "nessuna"}
+      </div>
+      <div data-testid="ade-sede-legale">{sedeLegale?.kind ?? "nessuna"}</div>
+    </>
   ),
 }));
 vi.mock("@/components/settings/referral-section", () => ({
@@ -122,6 +129,11 @@ const PROFILE = {
 
 const BUSINESS = {
   id: "biz-1",
+  adeIndirizzo: null,
+  adeNumeroCivico: null,
+  adeCap: null,
+  adeComune: null,
+  adeProvincia: null,
   profileId: "profile-1",
   businessName: "Bar Centrale",
   vatNumber: "12345678901",
@@ -373,5 +385,37 @@ describe("SettingsPage — avviso sulla ragione sociale", () => {
     expect(screen.getByTestId("ade-denominazione")).toHaveTextContent(
       "nessuna",
     );
+  });
+
+  // Migrazione 0039. La sede legale ha lo stesso gate ma è indipendente: il
+  // nome può coincidere e l'indirizzo no, e viceversa.
+  it("segnala l'indirizzo divergente anche col nome allineato", async () => {
+    installDbFixtures({
+      business: {
+        ...BUSINESS,
+        adeDenominazione: BUSINESS.businessName,
+        adeIndirizzo: "Via Milano",
+        adeComune: "Milano",
+      },
+      cred: { ...CRED, utenzaPiva: "12345678901" },
+    });
+    await renderSettings();
+
+    expect(screen.getByTestId("ade-denominazione")).toHaveTextContent(
+      "nessuna",
+    );
+    expect(screen.getByTestId("ade-sede-legale")).toHaveTextContent(
+      "divergente",
+    );
+  });
+
+  it("tace sull'indirizzo su un'utenza 'me stesso'", async () => {
+    installDbFixtures({
+      business: { ...BUSINESS, adeIndirizzo: "Via Milano" },
+      cred: { ...CRED, utenzaPiva: null },
+    });
+    await renderSettings();
+
+    expect(screen.getByTestId("ade-sede-legale")).toHaveTextContent("nessuna");
   });
 });
