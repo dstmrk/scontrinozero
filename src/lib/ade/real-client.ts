@@ -1950,6 +1950,7 @@ export class RealAdeClient implements AdeClient {
   /** Full CIE authentication flow. */
   private async authenticateCie(
     credentials: CieCredentials,
+    utenza?: AdeUtenza,
   ): Promise<AdeSession> {
     const idpJar = new CookieJar();
 
@@ -1977,7 +1978,7 @@ export class RealAdeClient implements AdeClient {
     await this.cieSubmitSamlResponse(samlResponse, rs2, formAction);
 
     // Coda portale condivisa: CF letto da wizardTemplate (cfUidUltimo).
-    return this.completePortalHandshake({});
+    return this.completePortalHandshake({ utenza });
   }
 
   // -----------------------------------------------------------------------
@@ -2025,11 +2026,16 @@ export class RealAdeClient implements AdeClient {
     return this.session;
   }
 
-  async loginCie(credentials: CieCredentials): Promise<AdeSession> {
+  async loginCie(
+    credentials: CieCredentials,
+    utenza?: AdeUtenza,
+  ): Promise<AdeSession> {
     // Come SPID: nessun re-auth automatico su 401 (secondo fattore umano).
     this.credentials = null;
     this.cookieJar.clear();
-    this.session = await this.authenticateCie(credentials);
+    // `this.utenza` resta invariata: senza credenziali riusabili non esiste un
+    // re-auth da rigiocare, e la sessione CIE si ricrea solo interattivamente.
+    this.session = await this.authenticateCie(credentials, utenza);
     return this.session;
   }
 

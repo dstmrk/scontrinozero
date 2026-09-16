@@ -34,6 +34,17 @@ export const adeCredentials = pgTable("ade_credentials", {
   /** Provider SPID selezionato (es. 'sielte'); null per Fisconline/CIE. */
   spidProvider: text("spid_provider"),
   keyVersion: integer("key_version").notNull().default(1),
+  /**
+   * Partita IVA dell'utenza di lavoro scelta al primo collegamento, per gli
+   * accessi che operano per conto di societa' terze (HAR.md #18, migrazione
+   * 0037). NULL = utenza "me stesso", il caso storico.
+   *
+   * E' un input del login, rigiocato a ogni re-auth: vive qui e non su
+   * `businesses` perche' condivide il ciclo di vita delle credenziali con cui
+   * la scelta e' stata fatta. `businesses.vatNumber` resta il valore
+   * **osservato** dopo la verifica; i due devono coincidere.
+   */
+  utenzaPiva: text("utenza_piva"),
   /** Null means never verified; set after a successful test login to AdE */
   verifiedAt: timestamp("verified_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })

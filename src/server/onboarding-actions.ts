@@ -29,9 +29,10 @@ import {
   AdeAuthError,
   AdeError,
   AdePasswordExpiredError,
+  AdeUtenzaSelectionRequiredError,
 } from "@/lib/ade/errors";
 import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
-import type { AdeLoginMethod } from "@/lib/ade/types";
+import type { AdeLoginMethod, AdeUtenza } from "@/lib/ade/types";
 import { logAdeFailure } from "@/lib/ade/log-failure";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
@@ -91,6 +92,13 @@ export type OnboardingActionResult = {
    * "trial scaduto".
    */
   trialAlreadyUsed?: boolean;
+  /**
+   * L'accesso AdE opera per conto di altri soggetti e non ha una partita IVA
+   * propria: il portale pretende che se ne scelga una (HAR.md #18). La UI usa
+   * questa lista per mostrare il picker; il portale stesso espone solo le
+   * partite IVA, senza denominazioni, quindi non ce ne sono da mostrare qui.
+   */
+  utenzaChoices?: { piva: string }[];
 };
 
 const changePasswordLimiter = new RateLimiter({
@@ -556,6 +564,76 @@ function checkAdeIdentityGuard(
 }
 
 /**
+ * Applica la scelta dell'utenza di lavoro AdE (HAR.md #18) prima del login.
+ *
+ * Estratta da `verifyAdeCredentials` per tenerne la Cognitive Complexity sotto
+ * la soglia SonarCloud, come gia' fatto per `checkAdeIdentityGuard` e
+ * `finalizeAdeVerification`.
+ *
+ * La scelta si persiste **prima** del login perche' e' un input della
+ * procedura, non un suo risultato: se la verifica fallisce la riga resta
+ * riscrivibile, esattamente come le credenziali.
+ *
+ * La scrittura e' guardata da `wasAlreadyOnboarded`: dopo il primo collegamento
+ * riuscito l'identita' fiscale e' immutabile (`checkAdeIdentityGuard`), e
+ * lasciar riscrivere questa colonna punterebbe i re-auth silenziosi a una
+ * societa' diversa da quella su cui il business emette — con l'esercente che se
+ * ne accorge solo emettendo uno scontrino sulla P.IVA sbagliata. Il guard
+ * dell'identita' non basta: gira DOPO il login, quando la colonna sarebbe gia'
+ * stata riscritta.
+ *
+ * Ritorna anche `credentialVersion`: la UPDATE fa scattare `$onUpdate` su
+ * `updatedAt`, che e' la versione su cui `finalizeAdeVerification` monta il
+ * lock ottimistico. Senza rileggerla, il lock userebbe lo snapshot
+ * pre-scrittura, matcherebbe zero righe e OGNI verifica con utenza scelta
+ * fallirebbe in silenzio come "credenziali cambiate durante la verifica".
+ */
+async function applyUtenzaSelection(params: {
+  db: ReturnType<typeof getDb>;
+  businessId: string;
+  storedUtenzaPiva: string | null;
+  requested: string | undefined;
+  wasAlreadyOnboarded: boolean;
+}): Promise<
+  | { error: string }
+  | { utenzaPiva: string | null; credentialVersion: Date | null }
+> {
+  const { db, businessId, storedUtenzaPiva, requested, wasAlreadyOnboarded } =
+    params;
+
+  if (requested === undefined) {
+    return { utenzaPiva: storedUtenzaPiva, credentialVersion: null };
+  }
+
+  // Boundary (regola 9): il CHECK della migrazione 0037 vuole 11 cifre.
+  if (!/^\d{11}$/.test(requested)) {
+    return { error: "Partita IVA non valida." };
+  }
+
+  if (wasAlreadyOnboarded) {
+    logger.warn(
+      { businessId, errorClass: "ade_utenza_locked" },
+      "verifyAdeCredentials: scelta utenza rifiutata su business già onboardato",
+    );
+    return {
+      error:
+        "La partita IVA di questo account è già stata collegata e non può essere cambiata. Per gestirne un'altra serve un account separato.",
+    };
+  }
+
+  const [bumped] = await db
+    .update(adeCredentials)
+    .set({ utenzaPiva: requested })
+    .where(eq(adeCredentials.businessId, businessId))
+    .returning({ updatedAt: adeCredentials.updatedAt });
+
+  return {
+    utenzaPiva: requested,
+    credentialVersion: bumped?.updatedAt ?? null,
+  };
+}
+
+/**
  * Finalizza la verifica AdE in un'unica transazione guardata dalla versione
  * delle credenziali (optimistic locking). Estratta da `verifyAdeCredentials`
  * per tenere il flusso principale sotto la soglia di Cognitive Complexity:
@@ -777,6 +855,18 @@ async function attemptAdeLoginForVerification(
         failure: "AdE credential verification failed",
       },
     );
+    // L'accesso opera per conto di altri soggetti: la lista degli incarichi
+    // risale alla UI, che la trasforma nel picker (HAR.md #18, REVIEW.md #106).
+    if (err instanceof AdeUtenzaSelectionRequiredError) {
+      return {
+        error: getUserFacingAdeErrorMessage(
+          err,
+          opts.defaultMessage,
+          opts.method,
+        ).message,
+        utenzaChoices: err.incarichi.map(({ piva }) => ({ piva })),
+      };
+    }
     const userFacing = getUserFacingAdeErrorMessage(
       err,
       opts.defaultMessage,
@@ -802,6 +892,7 @@ function buildVerificationLogin(
   adeClient: ReturnType<typeof createAdeClient>,
   cred: typeof adeCredentials.$inferSelect,
   keys: Map<number, Buffer>,
+  utenza: AdeUtenza | undefined,
 ):
   | {
       doLogin: () => Promise<unknown>;
@@ -817,7 +908,7 @@ function buildVerificationLogin(
     const username = decrypt(cred.encryptedUsername, keys);
     const password = decrypt(cred.encryptedPassword, keys);
     return {
-      doLogin: () => adeClient.loginCie({ username, password }),
+      doLogin: () => adeClient.loginCie({ username, password }, utenza),
       flow: "onboarding-verify-cie",
       defaultMessage: "Verifica fallita. Controlla le credenziali CIE.",
       method: "cie",
@@ -843,11 +934,20 @@ function buildVerificationLogin(
   const password = decrypt(cred.encryptedPassword, keys);
   const pin = decrypt(cred.encryptedPin, keys);
   return {
-    doLogin: () => adeClient.login({ codiceFiscale, password, pin }),
+    doLogin: () => adeClient.login({ codiceFiscale, password, pin }, utenza),
     flow: "onboarding-verify",
     defaultMessage: "Verifica fallita. Controlla le credenziali Fisconline.",
     method: "fisconline",
   };
+}
+
+/**
+ * Traduce la scelta persistita (`ade_credentials.utenza_piva`, migrazione 0037)
+ * nel parametro che il client AdE si aspetta. NULL = utenza "me stesso", cioè
+ * il comportamento storico e il caso di gran lunga più comune.
+ */
+function toAdeUtenza(utenzaPiva: string | null): AdeUtenza | undefined {
+  return utenzaPiva ? { tipo: "incaricato", piva: utenzaPiva } : undefined;
 }
 
 /**
@@ -936,6 +1036,7 @@ async function fetchFiscalDataAndCloseSession(
 
 export async function verifyAdeCredentials(
   businessId: string,
+  utenzaPiva?: string,
 ): Promise<OnboardingActionResult> {
   // Sessione assente → degrada a { error } inline (regola 19/20).
   let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
@@ -995,10 +1096,21 @@ export async function verifyAdeCredentials(
     .limit(1);
   const wasAlreadyOnboarded = Boolean(businessSnapshot?.fiscalCode);
 
+  // Scelta dell'utenza di lavoro (HAR.md #18), applicata prima del login.
+  const selection = await applyUtenzaSelection({
+    db,
+    businessId,
+    storedUtenzaPiva: cred.utenzaPiva,
+    requested: utenzaPiva,
+    wasAlreadyOnboarded,
+  });
+  if ("error" in selection) return selection;
+  const effectiveUtenzaPiva = selection.utenzaPiva;
+
   // Snapshot updatedAt to detect concurrent credential updates (optimistic locking).
   // If the user saves new credentials while AdE login is in progress, the WHERE
   // below will match 0 rows, preventing verifiedAt from being set on stale data.
-  const credentialVersion = cred.updatedAt;
+  const credentialVersion = selection.credentialVersion ?? cred.updatedAt;
 
   // Key map per VERSIONE reale (REVIEW #17): sotto rotazione la riga può
   // essere ancora cifrata con la chiave precedente.
@@ -1008,7 +1120,12 @@ export async function verifyAdeCredentials(
 
   // Login method-aware (Fisconline / CIE). La coda post-login (getFiscalData,
   // identity guard, finalize, notifiche) è identica per tutti i metodi.
-  const loginPlan = buildVerificationLogin(adeClient, cred, keys);
+  const loginPlan = buildVerificationLogin(
+    adeClient,
+    cred,
+    keys,
+    toAdeUtenza(effectiveUtenzaPiva),
+  );
   if ("error" in loginPlan) return loginPlan;
 
   const loginError = await attemptAdeLoginForVerification(
