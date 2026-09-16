@@ -18,6 +18,11 @@ import { EditAdeCredentialsSection } from "@/components/settings/edit-ade-creden
 import type { AdeLoginMethod } from "@/lib/ade/types";
 import { EditProfileSection } from "@/components/settings/edit-profile-section";
 import { EditBusinessSection } from "@/components/settings/edit-business-section";
+import { AdeIdentityNotice } from "@/components/settings/ade-identity-notice";
+import {
+  getDenominazioneMismatch,
+  getSedeLegaleMismatch,
+} from "@/lib/business-identity";
 import { ChangePasswordSection } from "@/components/settings/change-password-section";
 import { ThemeSection } from "@/components/settings/theme-section";
 import { PrinterSection } from "@/components/settings/printer-section";
@@ -72,6 +77,58 @@ function formatBusinessLocation(business: {
  * sezione le usa per aprirsi quando un deep-link ne punta una. A livello di
  * modulo per tenere il riferimento stabile fra i render.
  */
+/**
+ * I due verdetti sull'identita' registrata all'AdE (REVIEW.md #106), calcolati
+ * insieme perche' hanno lo stesso gate e la stessa riga d'origine. Fuori dal
+ * componente per non caricarne la Cognitive Complexity, che sta gia' al limite
+ * SonarCloud.
+ */
+function getAdeIdentityMismatches(
+  business:
+    | {
+        businessName: string | null;
+        adeDenominazione: string | null;
+        address: string | null;
+        streetNumber: string | null;
+        zipCode: string | null;
+        city: string | null;
+        province: string | null;
+        adeIndirizzo: string | null;
+        adeNumeroCivico: string | null;
+        adeCap: string | null;
+        adeComune: string | null;
+        adeProvincia: string | null;
+      }
+    | null
+    | undefined,
+  utenzaPiva: string | null | undefined,
+) {
+  return {
+    denominazione: getDenominazioneMismatch({
+      businessName: business?.businessName,
+      adeDenominazione: business?.adeDenominazione,
+      utenzaPiva,
+    }),
+    sedeLegale: getSedeLegaleMismatch({
+      current: {
+        address: business?.address,
+        streetNumber: business?.streetNumber,
+        zipCode: business?.zipCode,
+        city: business?.city,
+        province: business?.province,
+      },
+      ade: {
+        indirizzo: business?.adeIndirizzo,
+        numeroCivico: business?.adeNumeroCivico,
+        cap: business?.adeCap,
+        comune: business?.adeComune,
+        provincia: business?.adeProvincia,
+      },
+      utenzaPiva,
+    }),
+  };
+}
+
 const EXTRA_SETTINGS_HASH_TARGETS = [API_KEYS_ANCHOR_ID];
 
 export default async function SettingsPage({
@@ -116,6 +173,10 @@ export default async function SettingsPage({
           .select({
             verifiedAt: adeCredentials.verifiedAt,
             loginMethod: adeCredentials.loginMethod,
+            // NULL = utenza "me stesso". Gate dell'avviso sulla denominazione:
+            // solo chi ha scelto su quale P.IVA operare puo' avere stampato
+            // sullo scontrino il nome di qualcun altro (REVIEW.md #106).
+            utenzaPiva: adeCredentials.utenzaPiva,
           })
           .from(adeCredentials)
           .where(eq(adeCredentials.businessId, business.id))
@@ -127,6 +188,12 @@ export default async function SettingsPage({
     profile?.firstName && profile?.lastName
       ? `${profile.firstName} ${profile.lastName}`
       : null;
+
+  // Calcolati lato server: i predicati vivono in un modulo puro e il client
+  // riceve i verdetti, non i pezzi per ricostruirli. Nessun guard su
+  // `business`: senza riga i campi arrivano undefined e i predicati rispondono
+  // gia' null, quindi la ternaria sarebbe solo complessita' in piu'.
+  const adeIdentity = getAdeIdentityMismatches(business, cred?.utenzaPiva);
 
   const preferredVatLabel =
     business?.preferredVatCode &&
@@ -205,6 +272,11 @@ export default async function SettingsPage({
                 />
               </CardHeader>
               <CardContent className="space-y-2">
+                <AdeIdentityNotice
+                  businessId={business.id}
+                  denominazione={adeIdentity.denominazione}
+                  sedeLegale={adeIdentity.sedeLegale}
+                />
                 {business.businessName && (
                   <p>
                     <span className="text-muted-foreground">

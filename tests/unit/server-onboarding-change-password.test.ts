@@ -101,7 +101,14 @@ vi.mock("react", () => ({
   createElement: vi.fn(),
   cache: <T>(fn: T) => fn,
 }));
-vi.mock("@/lib/validation", () => ({ adePinSchema: { parse: vi.fn() } }));
+// `onboarding-actions` tira dentro `business-identity`, che usa questi due:
+// un mock che li omette fa fallire il caricamento del modulo, non il test.
+vi.mock("@/lib/validation", () => ({
+  adePinSchema: { parse: vi.fn() },
+  BUSINESS_PROFILE_LIMITS: { address: 150, streetNumber: 20, city: 80 },
+  isValidItalianZipCode: (v: string) => /^\d{5}$/.test(v),
+  normalizeProvince: (v: string | null) => v?.toUpperCase() ?? null,
+}));
 
 // --- Helpers ---
 

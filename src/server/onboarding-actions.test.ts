@@ -1036,6 +1036,152 @@ describe("onboarding-actions", () => {
       expect(mockLogin).toHaveBeenCalledWith(expect.anything(), "07790350966");
     });
 
+    // REVIEW.md #106: `dati/fiscali` risponde con l'intero cedente/prestatore,
+    // di cui persistevamo i soli identificativi. La denominazione è il termine
+    // di confronto contro `business_name`, che l'utente digita prima ancora di
+    // scegliere su quale P.IVA opererà.
+    it("denominazione: quella registrata all'AdE è persistita con gli identificativi", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([queuedCredRow()]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "07790350966",
+          codiceFiscale: "07790350966",
+        },
+        altriDatiIdentificativi: {
+          denominazione: "  ACME SRL  ",
+          indirizzo: " Via Roma ",
+          numeroCivico: "10",
+          cap: "20100",
+          comune: "Milano",
+          provincia: "MI",
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+        "07790350966",
+      );
+
+      expect(mockUpdateSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          vatNumber: "07790350966",
+          fiscalCode: "07790350966",
+          adeDenominazione: "ACME SRL",
+        }),
+      );
+    });
+
+    // Migrazione 0040: le cinque colonne della sede legale viaggiano con la
+    // denominazione, nella stessa UPDATE e quindi sotto lo stesso lock.
+    it("denominazione: anche la sede legale osservata è persistita", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([queuedCredRow()]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "07790350966",
+          codiceFiscale: "07790350966",
+        },
+        altriDatiIdentificativi: {
+          denominazione: "ACME SRL",
+          indirizzo: " Via Roma ",
+          numeroCivico: "10",
+          cap: "20100",
+          comune: "Milano",
+          provincia: "MI",
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+        "07790350966",
+      );
+
+      expect(mockUpdateSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          adeIndirizzo: "Via Roma",
+          adeNumeroCivico: "10",
+          adeCap: "20100",
+          adeComune: "Milano",
+          adeProvincia: "MI",
+        }),
+      );
+    });
+
+    it("denominazione: una sede legale assente diventa null su tutte e cinque", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([queuedCredRow()]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "07790350966",
+          codiceFiscale: "07790350966",
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+        "07790350966",
+      );
+
+      expect(mockUpdateSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          adeIndirizzo: null,
+          adeNumeroCivico: null,
+          adeCap: null,
+          adeComune: null,
+          adeProvincia: null,
+        }),
+      );
+    });
+
+    it("denominazione: assente o vuota diventa null, non stringa vuota", async () => {
+      // Le persone fisiche hanno nome/cognome, non una denominazione: l'AdE
+      // risponde con la chiave vuota o senza. Distinguere "mai osservata" da
+      // "osservata vuota" non serve a nessuno, e una stringa vuota in colonna
+      // farebbe scattare un confronto su un valore che non esiste.
+      for (const altriDatiIdentificativi of [
+        { denominazione: "" },
+        { denominazione: "   " },
+        undefined,
+      ]) {
+        mockUpdateSet.mockClear();
+        mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+        mockLimit.mockResolvedValueOnce([queuedCredRow()]);
+        mockLogin.mockResolvedValue({});
+        mockLogout.mockResolvedValue(undefined);
+        mockGetFiscalData.mockResolvedValue({
+          identificativiFiscali: {
+            codicePaese: "IT",
+            partitaIva: "07790350966",
+            codiceFiscale: "07790350966",
+          },
+          altriDatiIdentificativi,
+        });
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        await verifyAdeCredentials(
+          "11111111-1111-4111-8111-111111111111",
+          "07790350966",
+        );
+
+        expect(mockUpdateSet).toHaveBeenCalledWith(
+          expect.objectContaining({ adeDenominazione: null }),
+        );
+      }
+    });
+
     it("utenza: la scrittura rilegge updatedAt, o il lock ottimistico userebbe un valore stantio", async () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockLimit.mockResolvedValueOnce([queuedCredRow()]);

@@ -220,6 +220,47 @@ oltre il picker che lo gestiva, contraddicendolo a schermo. Quando una slice
 rimuove un limite, il messaggio che lo dichiarava è parte della slice, non un
 residuo da ripulire dopo.
 
+### Il cedente che mandiamo è nostro, non dell'AdE: sanno cose diverse
+
+`getFiscalData()` (`GET .../doc/documenti/dati/fiscali`) restituisce l'intero
+`AdeCedentePrestatore` dell'intestatario: `identificativiFiscali` (P.IVA + CF)
+**e** `altriDatiIdentificativi`, che porta denominazione, indirizzo, civico,
+CAP, comune, provincia. `buildCedenteFromBusiness` costruisce invece il cedente
+dai campi di `businesses` e lo manda con `modificati: true`, che all'AdE
+significa «ignora quello che hai, usa questo».
+
+Sono quindi due identità che possono divergere in silenzio, e l'unica visibile
+sullo scontrino è la nostra. Il caso che l'ha reso evidente (REVIEW.md #106):
+chi opera per conto di una società digita la ragione sociale al **primo** passo
+dell'onboarding, prima di scegliere su quale P.IVA opererà — e lo scontrino
+esce con la P.IVA della società e il nome della persona.
+
+Due conseguenze permanenti:
+
+- **Prima di dire che un dato del cedente non ce l'abbiamo, guarda cosa
+  risponde `dati/fiscali`.** Di quella risposta persistiamo P.IVA e codice
+  fiscale, la denominazione in `businesses.ade_denominazione` (0039) e la sede
+  legale nelle cinque colonne `ade_indirizzo`/`ade_numero_civico`/`ade_cap`/
+  `ade_comune`/`ade_provincia` (0040). Quel che resta fuori — `nome`,
+  `cognome`, `nazione`, `defAliquotaIVA` — lo scartiamo, il che è una scelta,
+  non un'assenza.
+- **Il valore osservato dall'AdE non si riscrive addosso a quello scelto
+  dall'utente.** `ade_denominazione` esiste per **confrontare**, non per
+  sostituire: un'insegna diversa dalla denominazione anagrafica ("Da Mario"
+  contro "ROSSI MARIO") è legittima, e riallineare in automatico cambierebbe
+  ciò che è stampato su un documento fiscale per decisione nostra. Il confronto
+  vive in `src/lib/business-identity.ts` e l'allineamento è un'azione esplicita
+  (`applyAdeDenominazione`, `applyAdeSedeLegale`).
+- **Le due identità non si allineano insieme.** Sulla denominazione l'AdE ha
+  quasi sempre ragione; sulla sede legale no — può essere lo studio del
+  commercialista mentre il punto vendita sta altrove, e sullo scontrino ci va
+  il punto vendita. Un bottone solo costringerebbe a prendere l'indirizzo per
+  avere il nome, quindi le due azioni restano separate. Vale come regola
+  generale: prima di unire due allineamenti in uno, chiediti se divergere è un
+  errore in entrambi i casi.
+
+---
+
 ### Failure mode noto: dato del cedente non normalizzato (`EF0`)
 
 `{"esito": false, "errori": [{"codice": "EF0", "descrizione": "'<Campo>' non valido"}]}`

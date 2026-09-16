@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { getDb } from "@/db";
-import { profiles, businesses } from "@/db/schema";
+import { profiles, businesses, adeCredentials } from "@/db/schema";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
@@ -32,6 +32,10 @@ import { getClientIp } from "@/lib/get-client-ip";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { isValidUuid } from "@/lib/uuid";
+import {
+  getDenominazioneMismatch,
+  getSedeLegaleMismatch,
+} from "@/lib/business-identity";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
 import {
   getFormString,
@@ -270,6 +274,179 @@ export async function updateBusiness(
  * validazione → UPDATE. Il campo vuoto non è un errore: è il modo di togliere
  * il messaggio dagli scontrini, e arriva al DB come NULL.
  */
+/**
+ * Preambolo condiviso dalle due action che allineano l'identita' dell'attivita'
+ * a quella registrata all'AdE (REVIEW.md #106).
+ *
+ * Nessuna delle due accetta valori dal chiamante: prendono l'id e rileggono da
+ * qui le colonne `ade_*`, osservate all'ultima verifica riuscita. Farsi passare
+ * il valore renderebbe le due action scritture arbitrarie sulle colonne
+ * stampate, travestite da allineamento, e scriverebbe comunque cio' che una
+ * pagina aperta da un'ora aveva proposto.
+ *
+ * Ordine difensivo di `updateBusiness` (rate-limit → uuid → ownership), e lo
+ * **stesso** budget di rate limit, perche' scrivono le stesse colonne: uno solo
+ * per "scritture sulla riga business".
+ */
+async function readAdeIdentityContext(
+  businessId: string,
+  actionName: string,
+): Promise<
+  | { error: string }
+  | {
+      db: ReturnType<typeof getDb>;
+      row: {
+        businessName: string | null;
+        adeDenominazione: string | null;
+        address: string | null;
+        streetNumber: string | null;
+        zipCode: string | null;
+        city: string | null;
+        province: string | null;
+        adeIndirizzo: string | null;
+        adeNumeroCivico: string | null;
+        adeCap: string | null;
+        adeComune: string | null;
+        adeProvincia: string | null;
+        utenzaPiva: string | null;
+      };
+    }
+> {
+  // Sessione assente → degrada a { error } inline (regola 19/20).
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return authErrorResult(err, actionName) as { error: string };
+  }
+
+  const rateLimitResult = updateBusinessLimiter.check(
+    `updateBusiness:${user.id}`,
+  );
+  if (!rateLimitResult.success) {
+    logger.warn({ userId: user.id }, `${actionName} rate limit exceeded`);
+    return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
+  }
+
+  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessOwnership.
+  if (!isValidUuid(businessId)) {
+    return { error: "Identificativo non valido." };
+  }
+
+  const ownershipError = await checkBusinessOwnership(user.id, businessId);
+  if (ownershipError) return ownershipError;
+
+  const db = getDb();
+
+  const [row] = await db
+    .select({
+      businessName: businesses.businessName,
+      adeDenominazione: businesses.adeDenominazione,
+      address: businesses.address,
+      streetNumber: businesses.streetNumber,
+      zipCode: businesses.zipCode,
+      city: businesses.city,
+      province: businesses.province,
+      adeIndirizzo: businesses.adeIndirizzo,
+      adeNumeroCivico: businesses.adeNumeroCivico,
+      adeCap: businesses.adeCap,
+      adeComune: businesses.adeComune,
+      adeProvincia: businesses.adeProvincia,
+      utenzaPiva: adeCredentials.utenzaPiva,
+    })
+    .from(businesses)
+    // LEFT JOIN e non INNER: un business senza riga credenziali non e' un
+    // errore, e' un onboarding a meta'. Arriva qui con utenzaPiva null e viene
+    // respinto dai predicati, come un'utenza "me stesso".
+    .leftJoin(adeCredentials, eq(adeCredentials.businessId, businesses.id))
+    .where(eq(businesses.id, businessId))
+    .limit(1);
+
+  if (!row) return { error: ERROR_MESSAGES.GENERIC_TRANSIENT };
+
+  return { db, row };
+}
+
+/**
+ * Allinea `businesses.business_name` alla denominazione registrata all'AdE
+ * sulla partita IVA su cui si opera.
+ */
+export async function applyAdeDenominazione(
+  businessId: string,
+): Promise<ProfileActionResult> {
+  const ctx = await readAdeIdentityContext(businessId, "applyAdeDenominazione");
+  if ("error" in ctx) return ctx;
+
+  // Stesso predicato del blocco che propone l'azione: la UI puo' essere
+  // stantia (doppio click, altra scheda, allineamento gia' fatto), quindi la
+  // condizione va rivalutata qui sul dato fresco, non data per vera.
+  const mismatch = getDenominazioneMismatch(ctx.row);
+
+  if (!mismatch) {
+    return { error: "La ragione sociale è già allineata." };
+  }
+
+  if (mismatch.kind === "non-applicabile") {
+    return {
+      error: `La ragione sociale non può superare ${BUSINESS_PROFILE_LIMITS.businessName} caratteri.`,
+    };
+  }
+
+  await ctx.db
+    .update(businesses)
+    .set({ businessName: mismatch.ade })
+    .where(eq(businesses.id, businessId));
+
+  revalidatePath("/dashboard/settings");
+  return {};
+}
+
+/**
+ * Allinea l'indirizzo stampato alla sede legale registrata all'AdE.
+ *
+ * Separata da `applyAdeDenominazione` e non un bottone solo con lei: per una
+ * societa' la sede legale puo' essere lo studio del commercialista mentre il
+ * punto vendita sta altrove, e sullo scontrino ci va il secondo. Allineare i
+ * due insieme costringerebbe a prendere anche l'indirizzo per avere il nome.
+ */
+export async function applyAdeSedeLegale(
+  businessId: string,
+): Promise<ProfileActionResult> {
+  const ctx = await readAdeIdentityContext(businessId, "applyAdeSedeLegale");
+  if ("error" in ctx) return ctx;
+
+  const mismatch = getSedeLegaleMismatch({
+    current: ctx.row,
+    ade: {
+      indirizzo: ctx.row.adeIndirizzo,
+      numeroCivico: ctx.row.adeNumeroCivico,
+      cap: ctx.row.adeCap,
+      comune: ctx.row.adeComune,
+      provincia: ctx.row.adeProvincia,
+    },
+    utenzaPiva: ctx.row.utenzaPiva,
+  });
+
+  if (!mismatch) {
+    return { error: "L'indirizzo è già allineato." };
+  }
+
+  if (mismatch.patch === null) {
+    return {
+      error:
+        "L'indirizzo registrato all'Agenzia delle Entrate non ha una forma che possiamo salvare. Copialo a mano da «Modifica attività».",
+    };
+  }
+
+  await ctx.db
+    .update(businesses)
+    .set(mismatch.patch)
+    .where(eq(businesses.id, businessId));
+
+  revalidatePath("/dashboard/settings");
+  return {};
+}
+
 export async function updateReceiptFooterNote(
   formData: FormData,
 ): Promise<ProfileActionResult> {

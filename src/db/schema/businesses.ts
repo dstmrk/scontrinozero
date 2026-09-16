@@ -21,6 +21,23 @@ export const businesses = pgTable(
     businessName: text("business_name"),
     vatNumber: text("vat_number"),
     fiscalCode: text("fiscal_code"),
+    // Denominazione registrata all'AdE sulla P.IVA, osservata all'ultima
+    // verifica riuscita (migration 0039). NON e' cio' che viene stampato: il
+    // cedente/prestatore lo costruisce `businessName`. E' il termine di
+    // confronto che rende visibile uno scontrino intestato alla persona
+    // sbagliata quando si opera per conto di una societa' (REVIEW.md #106).
+    // Senza CHECK di lunghezza: la scrive l'AdE, e un vincolo violato
+    // abortirebbe l'intera transazione di verifica (motivazione nella 0039).
+    adeDenominazione: text("ade_denominazione"),
+    // Sede legale registrata all'AdE (migration 0040), stessa natura e stesse
+    // regole di `adeDenominazione`: osservata, mai stampata, mai riscritta
+    // addosso alle colonne sotto. Cinque colonne piatte perche' l'indirizzo
+    // stampato e' gia' cinque colonne piatte.
+    adeIndirizzo: text("ade_indirizzo"),
+    adeNumeroCivico: text("ade_numero_civico"),
+    adeCap: text("ade_cap"),
+    adeComune: text("ade_comune"),
+    adeProvincia: text("ade_provincia"),
     address: text("address"),
     streetNumber: text("street_number"),
     city: text("city"),
