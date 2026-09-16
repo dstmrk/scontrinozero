@@ -15,6 +15,7 @@ import type {
   AdeProduct,
   AdeResponse,
   AdeSearchParams,
+  AdeUtenza,
   CieCredentials,
   SpidCredentials,
 } from "./types";
@@ -25,14 +26,22 @@ export class MockAdeClient implements AdeClient {
   private transactionCounter = 151000000;
   private progressiveCounter = 1;
 
-  async login(credentials: {
-    codiceFiscale: string;
-    password: string;
-    pin: string;
-  }): Promise<AdeSession> {
+  async login(
+    credentials: {
+      codiceFiscale: string;
+      password: string;
+      pin: string;
+    },
+    utenza?: AdeUtenza,
+  ): Promise<AdeSession> {
     this.session = {
       pAuth: `mock_p_auth_${Date.now()}`,
-      partitaIva: credentials.codiceFiscale.slice(0, 11).padEnd(11, "0"),
+      // Un'utenza incaricata opera sulla P.IVA scelta, non su quella derivata
+      // dal codice fiscale di chi accede (HAR.md #18.4).
+      partitaIva:
+        utenza?.tipo === "incaricato"
+          ? utenza.piva
+          : credentials.codiceFiscale.slice(0, 11).padEnd(11, "0"),
       createdAt: Date.now(),
     };
     return this.session;

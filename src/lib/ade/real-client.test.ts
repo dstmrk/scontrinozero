@@ -15,6 +15,8 @@ import {
   AdeNetworkError,
   AdeNoPartitaIvaError,
   AdePasswordExpiredError,
+  AdeUtenzaNotAvailableError,
+  AdeUtenzaSelectionRequiredError,
   AdePortalError,
   AdeSessionExpiredError,
   AdeSpidTimeoutError,
@@ -128,6 +130,33 @@ function mockReAuthSequence(fetchMock: ReturnType<typeof vi.fn>): void {
   ); // E
   fetchMock.mockResolvedValueOnce(mockResponse({})); // D
   fetchMock.mockResolvedValueOnce(mockResponse({})); // G (no F)
+}
+
+/**
+ * Entry di `richiestaIncarichi.incarichi[]` come la restituisce il portale
+ * (HAR.md #18.1). Il payload opaco che rispediremo è questo oggetto
+ * ri-serializzato: i test lo ricostruiscono con lo stesso JSON.stringify che
+ * usa il client, così l'asserzione verifica il contenuto, non la formattazione.
+ */
+function incaricoEntry(piva: string) {
+  return {
+    deleghe: false,
+    incaricante: { cf: piva, sede: "FOL", tipo: "INCARICO" },
+    intermediario: false,
+    tutore: false,
+  };
+}
+
+/** Phase F per un'utenza multi-società: nessun `PIva`, N incarichi. */
+function wizardTemplateIncaricato(pive: string[]) {
+  return {
+    cfUidUltimo: "RSSMRA80A01H501A",
+    soloPerMe: false,
+    hasDelega: false,
+    intermediario: false,
+    tutore: false,
+    richiestaIncarichi: { incarichi: pive.map(incaricoEntry) },
+  };
 }
 
 const mockCredentials = {
@@ -717,6 +746,160 @@ describe("RealAdeClient", () => {
       expect(JSON.stringify(ctx)).not.toContain("RSSMRA80A01H501A");
     });
 
+    it("Phase F: senza selezione e con incarichi lancia AdeUtenzaSelectionRequiredError", async () => {
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: wizardTemplateIncaricato(["11111111111", "22222222222"]),
+        }),
+      ); // F
+
+      const err = await client.login(mockCredentials).catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(AdeUtenzaSelectionRequiredError);
+      // L'errore trasporta la lista: è quello che il picker consumerà (slice 3).
+      expect(
+        (err as AdeUtenzaSelectionRequiredError).incarichi.map((i) => i.piva),
+      ).toEqual(["11111111111", "22222222222"]);
+      // Non è AdeNoPartitaIvaError: una P.IVA c'è, va solo scelta.
+      expect(err).not.toBeInstanceOf(AdeNoPartitaIvaError);
+    });
+
+    it("Phase F: nessun PIva e nessun incarico resta AdeNoPartitaIvaError", async () => {
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: { cfUidUltimo: "RSSMRA80A01H501A", soloPerMe: false },
+        }),
+      ); // F
+
+      await expect(client.login(mockCredentials)).rejects.toThrow(
+        AdeNoPartitaIvaError,
+      );
+    });
+
+    it("utenza incaricato: due procediWizard poi setUserChoice con il body incaricato", async () => {
+      const wizard = wizardTemplateIncaricato(["11111111111", "22222222222"]);
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(mockResponse({ body: wizard })); // F
+      fetchMock.mockResolvedValueOnce(mockResponse({ body: wizard })); // procediWizard 1
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: {
+            ...wizard,
+            PIva: [{ piva: "22222222222", denominazione: "ACME SRL" }],
+          },
+        }),
+      ); // procediWizard 2
+      fetchMock.mockResolvedValueOnce(mockResponse({})); // setUserChoice
+
+      const session = await client.login(mockCredentials, {
+        tipo: "incaricato",
+        piva: "22222222222",
+      });
+
+      expect(session.partitaIva).toBe("22222222222");
+
+      const calls = fetchMock.mock.calls;
+      const procedi = calls.filter((c) =>
+        String(c[0]).includes("procediWizard"),
+      );
+      expect(procedi).toHaveLength(2);
+
+      // Passo 1: solo il tipoutenza (HAR.md #18.2).
+      expect(JSON.parse(procedi[0][1].body)).toEqual({
+        tipoutenza: "incaricato",
+      });
+
+      // Passo 2: incaricante serializzato come STRINGA JSON annidata (HAR.md #18.3).
+      const step2 = JSON.parse(procedi[1][1].body);
+      expect(step2.tipoincaricante).toBe("incaricoDiretto");
+      expect(step2.pIva).toBeNull();
+      expect(typeof step2.incaricante).toBe("string");
+      expect(JSON.parse(step2.incaricante)).toEqual(
+        incaricoEntry("22222222222"),
+      );
+
+      // setUserChoice: niente campo pIva, cf porta la P.IVA della società.
+      const choice = calls.find((c) => String(c[0]).includes("setUserChoice"))!;
+      const body = JSON.parse(choice[1].body);
+      expect(body).toEqual({
+        tipoutenza: "incaricato",
+        incaricante: JSON.stringify(incaricoEntry("22222222222")),
+        tipoincaricante: "incaricoDiretto",
+        cf: "22222222222",
+      });
+      expect(body).not.toHaveProperty("pIva");
+    });
+
+    it("utenza incaricato: una P.IVA non più fra gli incarichi è una delega revocata", async () => {
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({ body: wizardTemplateIncaricato(["11111111111"]) }),
+      ); // F
+
+      const err = await client
+        .login(mockCredentials, { tipo: "incaricato", piva: "99999999999" })
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(AdeUtenzaNotAvailableError);
+      expect((err as AdeUtenzaNotAvailableError).piva).toBe("99999999999");
+    });
+
+    it("utenza meStesso esplicita si comporta come l'assenza di selezione", async () => {
+      mockLoginSequence(fetchMock);
+
+      const session = await client.login(mockCredentials, { tipo: "meStesso" });
+
+      expect(session.partitaIva).toBe("12345678901");
+      const choice = fetchMock.mock.calls.find((c) =>
+        String(c[0]).includes("setUserChoice"),
+      )!;
+      expect(JSON.parse(choice[1].body).tipoutenza).toBe("meStesso");
+    });
+
+    it("Phase F: scarta le entry di incarico senza P.IVA leggibile", async () => {
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: {
+            cfUidUltimo: "RSSMRA80A01H501A",
+            richiestaIncarichi: {
+              incarichi: [
+                { incaricante: { sede: "FOL" } }, // niente cf
+                { incaricante: { cf: "" } }, // cf vuoto
+                incaricoEntry("33333333333"), // valida
+                {}, // niente incaricante
+              ],
+            },
+          },
+        }),
+      ); // F
+
+      const err = await client.login(mockCredentials).catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(AdeUtenzaSelectionRequiredError);
+      expect(
+        (err as AdeUtenzaSelectionRequiredError).incarichi.map((i) => i.piva),
+      ).toEqual(["33333333333"]);
+    });
+
+    it("Phase F: richiestaIncarichi con forma inattesa non fa lanciare un TypeError", async () => {
+      mockPhasesBeforeWizard(fetchMock);
+      fetchMock.mockResolvedValueOnce(
+        mockResponse({
+          body: {
+            cfUidUltimo: "RSSMRA80A01H501A",
+            richiestaIncarichi: { incarichi: "non un array" },
+          },
+        }),
+      ); // F
+
+      await expect(client.login(mockCredentials)).rejects.toThrow(
+        AdeNoPartitaIvaError,
+      );
+    });
+
     it("Phase G: POST setUserChoice con x-appl header e body corretto", async () => {
       mockLoginSequence(fetchMock);
 
@@ -1235,6 +1418,42 @@ describe("RealAdeClient", () => {
 
       const result = await client.submitSale(makeSalePayload());
       expect(result.esito).toBe(true);
+    });
+
+    it("re-auth con utenza incaricato NON salta wizardTemplate e rigioca la scelta", async () => {
+      const wizard = wizardTemplateIncaricato(["22222222222"]);
+      const queueIncaricatoLogin = () => {
+        fetchMock.mockResolvedValueOnce(mockResponse({ body: wizard })); // F
+        fetchMock.mockResolvedValueOnce(mockResponse({ body: wizard })); // procedi 1
+        fetchMock.mockResolvedValueOnce(
+          mockResponse({
+            body: { ...wizard, PIva: [{ piva: "22222222222" }] },
+          }),
+        ); // procedi 2
+        fetchMock.mockResolvedValueOnce(mockResponse({})); // setUserChoice
+      };
+
+      mockPhasesBeforeWizard(fetchMock);
+      queueIncaricatoLogin();
+      await client.login(mockCredentials, {
+        tipo: "incaricato",
+        piva: "22222222222",
+      });
+
+      fetchMock.mockClear();
+      fetchMock.mockResolvedValueOnce(mockResponse({ status: 401 })); // submit → 401
+      mockPhasesBeforeWizard(fetchMock); // A-E + D del re-auth
+      queueIncaricatoLogin(); // F + wizard: NON skippati
+      fetchMock.mockResolvedValueOnce(mockResponse({ body: successResponse }));
+
+      const result = await client.submitSale(makeSalePayload());
+
+      expect(result.esito).toBe(true);
+      // Il payload opaco dell'incarico vive solo nella lista viva: saltare
+      // Phase F al re-auth renderebbe la scelta irriproducibile.
+      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+      expect(urls.filter((u) => u.includes("wizardTemplate"))).toHaveLength(1);
+      expect(urls.filter((u) => u.includes("procediWizard"))).toHaveLength(2);
     });
 
     it("throws AdeSessionExpiredError when retry also returns 401", async () => {

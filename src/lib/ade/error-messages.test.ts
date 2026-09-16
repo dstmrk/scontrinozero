@@ -10,6 +10,8 @@ import {
   AdeSessionExpiredError,
   AdeSpidTimeoutError,
   AdeUnknownOutcomeError,
+  AdeUtenzaNotAvailableError,
+  AdeUtenzaSelectionRequiredError,
 } from "./errors";
 import {
   getUserFacingAdeErrorMessage,
@@ -258,6 +260,38 @@ describe("isTransientAdeError", () => {
     expect(isTransientAdeError("oops")).toBe(false);
     expect(isTransientAdeError(null)).toBe(false);
     expect(isTransientAdeError(undefined)).toBe(false);
+  });
+});
+
+describe("utenza di lavoro (HAR.md #18)", () => {
+  const selection = new AdeUtenzaSelectionRequiredError([
+    { piva: "11111111111", raw: "{}" },
+  ]);
+  const notAvailable = new AdeUtenzaNotAvailableError("11111111111");
+
+  it("il messaggio per la selezione richiesta non promette un picker inesistente", () => {
+    const { message } = getUserFacingAdeErrorMessage(selection, FALLBACK);
+    expect(message).toContain("Le credenziali sono corrette");
+    expect(message).toContain("per conto di altri soggetti");
+    expect(message).toContain("info@scontrinozero.it");
+  });
+
+  it("il messaggio per l'utenza non più disponibile indirizza al portale AdE", () => {
+    const { message } = getUserFacingAdeErrorMessage(notAvailable, FALLBACK);
+    expect(message).toContain("revocato");
+    expect(message).toContain("Verifica le abilitazioni");
+    // Mai la P.IVA in chiaro in un messaggio che finisce a schermo.
+    expect(message).not.toContain("11111111111");
+  });
+
+  it("entrambe sono errori d'utente: warn, mai issue Sentry", () => {
+    expect(isExpectedUserAdeError(selection)).toBe(true);
+    expect(isExpectedUserAdeError(notAvailable)).toBe(true);
+  });
+
+  it("nessuna delle due è transient: nessun retry le risolve", () => {
+    expect(isTransientAdeError(selection)).toBe(false);
+    expect(isTransientAdeError(notAvailable)).toBe(false);
   });
 });
 

@@ -6,6 +6,8 @@ import {
   AdePortalError,
   AdeSpidTimeoutError,
   AdeUnknownOutcomeError,
+  AdeUtenzaNotAvailableError,
+  AdeUtenzaSelectionRequiredError,
 } from "./errors";
 import type { AdeLoginMethod } from "./types";
 import { CONTACT_EMAIL } from "@/lib/contact";
@@ -57,6 +59,19 @@ export function getUserFacingAdeErrorMessage(
     // secondi. Non è method-aware: la causa sta nell'utenza, non nei campi.
     return {
       message: `Le credenziali sono corrette, ma su questa utenza dell'Agenzia delle Entrate non risulta nessuna partita IVA. Se è intestata a una società o a un altro soggetto, serve l'utenza di chi la possiede: l'accesso come incaricato o delegato non è supportato. Scrivici a ${CONTACT_EMAIL} se pensi ci sia un errore.`,
+    };
+  }
+  if (err instanceof AdeUtenzaSelectionRequiredError) {
+    // Il picker non esiste ancora (REVIEW.md #106, slice 3): finché non c'è, il
+    // messaggio dice quello che è vero oggi — la condizione è riconosciuta, il
+    // caso non è servito — senza promettere una scelta che non possiamo offrire.
+    return {
+      message: `Le credenziali sono corrette, ma questo accesso opera per conto di altri soggetti e non ha una partita IVA propria. ScontrinoZero non gestisce ancora questo caso: serve l'utenza di chi possiede la partita IVA. Scrivici a ${CONTACT_EMAIL} e ti aggiorniamo appena è disponibile.`,
+    };
+  }
+  if (err instanceof AdeUtenzaNotAvailableError) {
+    return {
+      message: `La partita IVA collegata a questo account non risulta più fra quelle che puoi gestire sul portale Agenzia delle Entrate. Di solito succede quando un incarico viene revocato o la società cessa. Verifica le abilitazioni sul portale, oppure scrivici a ${CONTACT_EMAIL}.`,
     };
   }
   if (err instanceof AdeNetworkError) {
@@ -135,5 +150,10 @@ export function isExpectedUserAdeError(err: unknown): boolean {
   // cambiando utenza. Resta tracciabile via il log `ade:wizard_piva_missing`
   // nel dataset Sentry `logs` — trigger di riapertura in REVIEW.md #106.
   if (err instanceof AdeNoPartitaIvaError) return true;
+  // Utenza di lavoro: richiede una scelta che non abbiamo, o punta a un
+  // incarico che il portale non offre più. Entrambe deterministiche — nessun
+  // retry le risolve — e correggibili solo lato utente/portale.
+  if (err instanceof AdeUtenzaSelectionRequiredError) return true;
+  if (err instanceof AdeUtenzaNotAvailableError) return true;
   return false;
 }

@@ -10,6 +10,8 @@ import {
   AdeNetworkError,
   AdeNoPartitaIvaError,
   AdePasswordExpiredError,
+  AdeUtenzaNotAvailableError,
+  AdeUtenzaSelectionRequiredError,
   AdePortalError,
   AdeSpidTimeoutError,
 } from "./errors";
@@ -251,5 +253,35 @@ describe("logAdeFailure — utenza AdE senza partita IVA (SCONTRINOZERO-13)", ()
       unknown
     >;
     expect(payload.sentryFingerprint).toBeUndefined();
+  });
+});
+
+describe("logAdeFailure — utenza di lavoro (HAR.md #18)", () => {
+  it("AdeUtenzaSelectionRequiredError va a warn come ade_user_error", () => {
+    logAdeFailure(
+      new AdeUtenzaSelectionRequiredError([{ piva: "11111111111", raw: "{}" }]),
+      { flow: "onboarding-verify" },
+      { transient: "transient", failure: "failed" },
+    );
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ errorClass: "ade_user_error" }),
+      "failed",
+    );
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it("AdeUtenzaNotAvailableError va a warn come ade_user_error", () => {
+    logAdeFailure(
+      new AdeUtenzaNotAvailableError("11111111111"),
+      { flow: "emit-receipt" },
+      { transient: "transient", failure: "failed" },
+    );
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ errorClass: "ade_user_error" }),
+      "failed",
+    );
+    expect(logger.error).not.toHaveBeenCalled();
   });
 });
