@@ -1328,11 +1328,28 @@ commerciale.
 - **`x-appl` è lo stesso token** dal login fino a `setUserChoice`: i due
   `procediWizard` lo richiedono come gli altri. Nessun token aggiuntivo.
 
+### 18.5-bis Due risposte osservate a video, non sul tracciato
+
+Raccolte guardando il portale durante la cattura del 16/09/2026. Sono
+osservazioni dirette, non misure sull'`.har`: affidabili sul _cosa_, mute sul
+_come_ (nessun endpoint associato).
+
+- **Il menu di scelta dell'incaricante mostra soltanto le partite IVA**, in una
+  tendina, senza denominazioni. Coerente con `incarichi[]`, che i nomi non li
+  porta. Per noi toglie un costo che sembrava obbligato: un picker con le sole
+  P.IVA non è un degrado, è quello che fa il portale stesso. La denominazione la
+  possiamo comunque mostrare **dopo** la scelta, perché arriva nella risposta del
+  secondo `procediWizard` (18.3) — una chiamata che facciamo comunque.
+- **Cambiare utenza senza rifare il login è possibile**: il portale riporta alla
+  schermata "Me stesso / Incaricato" e il wizard riparte da lì. L'endpoint di
+  reset non è stato catturato, quindi non sappiamo _quale_ sia. Conseguenza che
+  conta più del meccanismo: **legare un account ScontrinoZero a una sola P.IVA è
+  una nostra scelta di prodotto, non un vincolo imposto dall'AdE**, e come tale
+  va spiegata all'utente. Lato implementazione non cambia nulla: il replay
+  headless rifà comunque il login da zero a ogni sessione.
+
 ### 18.6 Cosa questa cattura NON dice
 
-- **Se si possa cambiare utenza senza rifare il login.** Nella sessione catturata
-  la scelta avviene una volta sola; non esiste evidenza né di un endpoint di
-  reset né della sua assenza.
 - **Il ramo `delega` e il ramo `tutore`.** Questa utenza ha `hasDelega: false` e
   `tutore: false`, e tutti e quattro gli incarichi sono `tipo: "INCARICO"` con
   `tipoincaricante: "incaricoDiretto"`. Le altre combinazioni non sono state
@@ -1341,4 +1358,10 @@ commerciale.
   quattro le entry erano valide al momento della cattura.
 - **L'emissione vera e propria da utenza incaricata.** La cattura si ferma
   all'apertura del portale: un documento commerciale inviato sarebbe stato un
-  atto fiscale reale sulla P.IVA della società.
+  atto fiscale reale sulla P.IVA della società. L'owner la dà per funzionante, ed
+  è plausibile — dopo `setUserChoice` la sessione si comporta come una normale,
+  `dati/fiscali` risponde con l'identità della società e `vettoreAutorizzazioni`
+  elenca i servizi — ma resta **inferenza, non misura** (regola 13). Da trattare
+  come tale finché la prima emissione reale non la conferma.
+- **L'endpoint che riporta alla scelta utenza.** Sappiamo che il giro esiste
+  (18.5-bis), non come si chiama.

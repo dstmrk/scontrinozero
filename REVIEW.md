@@ -604,6 +604,12 @@ Quattro conseguenze di progetto, tutte da decidere prima di scrivere codice:
   guard confronta già la P.IVA giusta e non va riscritto.
 - `fullTemplate` (`406` senza utenza attiva, `200` con) è una probe gratuita di
   sessione configurata.
+- Il picker può mostrare le **sole P.IVA**: è quello che fa la tendina del
+  portale. La denominazione si aggiunge dopo la scelta, dalla risposta del
+  secondo `procediWizard`, senza chiamate in più.
+- L'AdE **consente** di cambiare utenza senza re-login. Quindi l'immutabilità
+  della P.IVA su un account è una scelta nostra, non un vincolo esterno: nei
+  messaggi va spiegata come tale, mai attribuita all'Agenzia.
 
 Restano fuori evidenza i rami `delega` e `tutore`, il cambio utenza senza
 re-login e la società cessata: 18.6.
