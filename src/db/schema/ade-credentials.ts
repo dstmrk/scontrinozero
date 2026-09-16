@@ -45,6 +45,28 @@ export const adeCredentials = pgTable("ade_credentials", {
    * **osservato** dopo la verifica; i due devono coincidere.
    */
   utenzaPiva: text("utenza_piva"),
+  /**
+   * Esito dell'ultimo tentativo di verifica, da vocabolario chiuso (CHECK
+   * della migrazione 0038, elenco in `RECORDED_VERIFY_OUTCOMES` in
+   * `src/server/onboarding-actions.ts`). Mai il messaggio d'errore: serve a
+   * raggruppare, non a leggere (REVIEW.md #107).
+   *
+   * NULL = mai tentato, per le righe create dalla 0038 in poi;
+   * `'unknown_pre_tracking'` = riga preesistente, esito non ricostruibile.
+   */
+  lastVerifyOutcome: text("last_verify_outcome"),
+  /**
+   * Quando è avvenuto il tentativo registrato in `lastVerifyOutcome`. NULL
+   * quando non ce n'è nessuno — incluse le righe `'unknown_pre_tracking'`,
+   * dove l'esito è ignoto e il momento pure.
+   */
+  lastVerifyAt: timestamp("last_verify_at", { withTimezone: true }),
+  /**
+   * Tentativi di verifica registrati in totale. Separa "ha provato una volta e
+   * ha mollato" da "ci ha riprovato dieci volte": il primo è un problema di
+   * messaggio, il secondo un blocco.
+   */
+  verifyAttempts: integer("verify_attempts").notNull().default(0),
   /** Null means never verified; set after a successful test login to AdE */
   verifiedAt: timestamp("verified_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })

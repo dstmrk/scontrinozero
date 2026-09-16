@@ -27,6 +27,7 @@ import { sqlTextOf } from "../../tests/_helpers/sql-text";
 import {
   getAdminPaidUsers,
   getAdminRecentProfiles,
+  getAdminStalledOnboarding,
   getAdminTopMerchants,
   getAdminTrialExpiring,
 } from "./admin-directory";
@@ -337,5 +338,144 @@ describe("telemetria degli elenchi", () => {
     }
 
     expect(messaggi.size).toBe(4);
+  });
+});
+
+describe("getAdminStalledOnboarding", () => {
+  const STALLED_ROW = {
+    name: "Mario Rossi",
+    email: "fermo@example.com",
+    login_method: "cie",
+    outcome: "auth_error",
+    attempts: "3",
+    created_at: "2026-05-19T08:00:00.000Z",
+    last_verify_at: "2026-05-19T08:04:00.000Z",
+  };
+
+  it("mappa riga e conteggi, convertendo i bigint che arrivano come stringhe", async () => {
+    mockExecute.mockResolvedValueOnce([
+      {
+        total: "10",
+        recent: "2",
+        weeks: "3",
+        stale: "5",
+        rows: [STALLED_ROW],
+      },
+    ]);
+
+    const result = await getAdminStalledOnboarding();
+
+    if ("error" in result) throw new Error("atteso successo");
+    expect(result.stalled.counts).toEqual({
+      total: 10,
+      recent: 2,
+      weeks: 3,
+      stale: 5,
+    });
+    expect(result.stalled.rows[0]).toEqual({
+      name: "Mario Rossi",
+      email: "fermo@example.com",
+      loginMethod: "cie",
+      outcome: "auth_error",
+      attempts: 3,
+      createdAt: "2026-05-19T08:00:00.000Z",
+      lastVerifyAt: "2026-05-19T08:04:00.000Z",
+    });
+  });
+
+  it("«mai tentato» resta null e non diventa una stringa vuota", async () => {
+    mockExecute.mockResolvedValueOnce([
+      {
+        total: "1",
+        recent: "1",
+        weeks: "0",
+        stale: "0",
+        rows: [
+          {
+            ...STALLED_ROW,
+            outcome: null,
+            attempts: "0",
+            last_verify_at: null,
+          },
+        ],
+      },
+    ]);
+
+    const result = await getAdminStalledOnboarding();
+
+    if ("error" in result) throw new Error("atteso successo");
+    // È la distinzione che #107 chiedeva: chi ha salvato le credenziali e non
+    // ha mai premuto Verifica non è chi ha sbagliato password. Se il mapper
+    // collassasse il null su "" i due tornerebbero indistinguibili.
+    expect(result.stalled.rows[0].outcome).toBeNull();
+    expect(result.stalled.rows[0].lastVerifyAt).toBeNull();
+    expect(result.stalled.rows[0].attempts).toBe(0);
+  });
+
+  it("interroga la popolazione ferma, non tutte le credenziali", async () => {
+    mockExecute.mockResolvedValueOnce([
+      { total: "0", recent: "0", weeks: "0", stale: "0", rows: [] },
+    ]);
+
+    await getAdminStalledOnboarding();
+
+    // La definizione deterministica di "fermo a metà onboarding": credenziali
+    // mai verificate E identità fiscale mai scritta (REVIEW.md #106/#107).
+    const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
+    expect(queried).toContain("c.verified_at IS NULL");
+    expect(queried).toContain("b.fiscal_code IS NULL");
+  });
+
+  it("i conteggi per età sono ancorati a now(), non al range selezionato", async () => {
+    mockExecute.mockResolvedValueOnce([
+      { total: "0", recent: "0", weeks: "0", stale: "0", rows: [] },
+    ]);
+
+    await getAdminStalledOnboarding();
+
+    // Un onboarding arenato a maggio deve comparire anche guardando gli ultimi
+    // sette giorni: è proprio quello il caso interessante.
+    const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
+    expect(queried).toContain("now()");
+  });
+
+  it("elenca dal più vecchio: il fondo della lista è chi abbiamo perso", async () => {
+    mockExecute.mockResolvedValueOnce([
+      { total: "0", recent: "0", weeks: "0", stale: "0", rows: [] },
+    ]);
+
+    await getAdminStalledOnboarding();
+
+    const queried = sqlTextOf(mockExecute.mock.calls[0][0]);
+    expect(queried).toContain("ORDER BY created_at ASC");
+  });
+
+  it("degrada a { error } se la query fallisce, senza passare l'errore al logger", async () => {
+    mockExecute.mockRejectedValueOnce(new Error("timeout"));
+
+    const result = await getAdminStalledOnboarding();
+
+    expect(result).toEqual({
+      error:
+        "Impossibile caricare gli onboarding fermi. Riprova tra qualche istante.",
+    });
+    // Nessun `err` nel payload: un messaggio Postgres può contenere l'email che
+    // ha fatto fallire la query.
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      {
+        errorClass: "admin_directory_load",
+        list: "stalled_onboarding",
+        range: null,
+      },
+      "admin directory: query fallita",
+    );
+  });
+
+  it("degrada a { error } anche quando la query non restituisce righe", async () => {
+    mockExecute.mockResolvedValueOnce([]);
+
+    const result = await getAdminStalledOnboarding();
+
+    expect("error" in result).toBe(true);
   });
 });

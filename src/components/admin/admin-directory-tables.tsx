@@ -1,10 +1,13 @@
 import { AdminTableSkeleton } from "./admin-skeletons";
 import { AdminTable, type AdminTableColumn } from "./admin-table";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import type { RecordedVerifyOutcome } from "@/lib/ade/verify-outcome";
 import type {
   AdminMerchant,
   AdminPaidUserRow,
   AdminProfileRow,
+  AdminStalledOnboarding,
+  AdminStalledOnboardingRow,
   AdminTopMerchants,
   AdminTrialRow,
 } from "@/server/admin-directory";
@@ -55,7 +58,70 @@ const HEADINGS = {
     title: "Registrati di recente",
     description: "Nel periodo selezionato, dal più recente.",
   },
+  stalled: {
+    title: "Onboarding fermi",
+    description:
+      "Credenziali AdE salvate ma mai verificate, dal più vecchio. Finestra ancorata a oggi, indipendente dal periodo selezionato.",
+  },
 } as const;
+
+/**
+ * Etichette degli esiti di verifica (REVIEW.md #107).
+ *
+ * `Record<RecordedVerifyOutcome, string>` e non un indice largo: così un valore
+ * nuovo nel vocabolario non compila finché qualcuno non decide come si chiama
+ * in pagina. Un esito senza etichetta è un esito che l'operatore non sa
+ * leggere, cioè attribuzione buttata via.
+ */
+const OUTCOME_LABELS: Record<RecordedVerifyOutcome, string> = {
+  success: "Verificato",
+  auth_error: "Credenziali rifiutate",
+  password_expired: "Password scaduta",
+  utenza_selection_required: "Fermo sulla scelta P.IVA",
+  utenza_not_available: "Utenza non più disponibile",
+  utenza_locked: "P.IVA già collegata",
+  no_partita_iva: "Utenza senza P.IVA",
+  reauth_required: "Ricollegamento CIE richiesto",
+  piva_mismatch: "P.IVA diversa da quella registrata",
+  piva_conflict: "P.IVA già su un altro account",
+  identity_unconfirmed: "Identità non confermata",
+  incomplete_credentials: "Credenziali incomplete",
+  invalid_utenza_piva: "P.IVA malformata",
+  credentials_changed: "Credenziali cambiate durante la verifica",
+  finalize_failed: "Salvataggio fallito dopo la verifica",
+  transient: "Guasto temporaneo",
+  failure: "Errore non classificato",
+  unknown_pre_tracking: "Ignoto (precedente al tracciamento)",
+};
+
+/**
+ * Etichetta di un esito. Il `null` NON è un dato mancante: è la persona che ha
+ * salvato le credenziali e non ha mai premuto Verifica, cioè il caso che prima
+ * di questa tabella era indistinguibile da un errore di login.
+ */
+function outcomeLabel(outcome: string | null): string {
+  if (outcome === null) return "Mai tentato";
+  return OUTCOME_LABELS[outcome as RecordedVerifyOutcome] ?? outcome;
+}
+
+const STALLED_COLUMNS: ReadonlyArray<
+  AdminTableColumn<AdminStalledOnboardingRow>
+> = [
+  { header: "Nome", cell: (r) => text(r.name) },
+  { header: "Email", cell: (r) => r.email },
+  { header: "Accesso", cell: (r) => r.loginMethod },
+  { header: "Ultimo esito", cell: (r) => outcomeLabel(r.outcome) },
+  {
+    header: "Tentativi",
+    cell: (r) => countFormatter.format(r.attempts),
+    align: "right",
+  },
+  {
+    header: "Fermo dal",
+    cell: (r) => formatDate(r.createdAt),
+    align: "right",
+  },
+];
 
 function merchantColumns(): ReadonlyArray<AdminTableColumn<AdminMerchant>> {
   return [
@@ -215,4 +281,42 @@ export function AdminRecentProfilesTable({
 
 export function AdminRecentProfilesSkeleton() {
   return <AdminTableSkeleton {...HEADINGS.profiles} />;
+}
+
+interface AdminStalledOnboardingTableProps {
+  readonly stalled: AdminStalledOnboarding;
+}
+
+/**
+ * Onboarding fermi, con il conteggio per fascia d'età sopra la tabella.
+ *
+ * Il conteggio non è decorazione: le righe sono tagliate a 50, i totali no, e
+ * «fermo da tre giorni» e «fermo da quattro mesi» sono due problemi diversi che
+ * l'esito da solo non separa.
+ */
+export function AdminStalledOnboardingTable({
+  stalled,
+}: AdminStalledOnboardingTableProps) {
+  const { counts } = stalled;
+  return (
+    <div className="space-y-2">
+      <p className="text-muted-foreground text-xs">
+        {countFormatter.format(counts.total)} fermi in totale —{" "}
+        {countFormatter.format(counts.recent)} da meno di 7 giorni,{" "}
+        {countFormatter.format(counts.weeks)} da 7 a 30,{" "}
+        {countFormatter.format(counts.stale)} da oltre 30.
+      </p>
+      <AdminTable
+        {...HEADINGS.stalled}
+        columns={STALLED_COLUMNS}
+        rows={stalled.rows}
+        rowKey={(r) => r.email}
+        empty="Nessun onboarding fermo."
+      />
+    </div>
+  );
+}
+
+export function AdminStalledOnboardingSkeleton() {
+  return <AdminTableSkeleton {...HEADINGS.stalled} />;
 }

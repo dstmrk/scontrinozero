@@ -22,7 +22,8 @@ Indice (salta alla sezione che serve, non leggere tutto):
 - CSP: lezioni dal rollout
 - Double-gate rate limit prima di call esterne costose
 - `key_version` è per RIGA (cifratura credenziali, finestra di rotazione)
-- UPDATE dopo I/O esterno lungo: optimistic lock su `updatedAt`
+- UPDATE dopo I/O esterno lungo: optimistic lock su `updatedAt` — e le
+  scritture accessorie sulla stessa riga vanno in SQL raw, o muovono il lock
 - `setInterval` + `.unref?.()`
 - Redirect param con querystring
 - Turnstile hostname check a lista
@@ -362,6 +363,33 @@ Chiudere con `.returning({ id })`: 0 righe = lock miss → `logger.warn` +
 `{ error }` esplicito. **Il messaggio deve riflettere che l'effetto esterno è
 già avvenuto**: dopo un cambio password andato a buon fine su AdE, l'utente va
 spinto alla ri-verifica delle credenziali, non a ritentare il cambio.
+
+### Corollario: `updatedAt` è un lock, non un campo qualsiasi
+
+Una volta che una colonna fa da versione, **ogni** scrittura sulla stessa riga
+la muove — anche quelle che col lock non c'entrano niente. Il builder Drizzle
+fa scattare `$onUpdate` su `updatedAt` a ogni `db.update(table).set({…})`,
+quindi una riga di telemetria scritta accanto al dato vero (un contatore, un
+esito, un `last_seen`) invalida il lock di una sessione concorrente: l'altra
+verifica si vede rispondere "credenziali cambiate durante la verifica" e
+abbandona, per una scrittura che non ha toccato nessuna credenziale.
+
+Chi scrive colonne accessorie su una riga lockata va in SQL raw via
+`db.execute(sql\`UPDATE … SET <solo le colonne accessorie>\`)`, che non passa
+per `$onUpdate`. Due esempi in repo, per ragioni identiche: `touchLastSeen`
+(`src/lib/server-auth.ts`) e `recordVerifyOutcome`
+(`src/server/onboarding-actions.ts`).
+
+Due conseguenze pratiche. Il timestamp lo mette **Postgres** con `now()`, non
+JS: dentro un template `sql` non c'è column-type context per bindare un `Date`.
+E una scrittura accessoria è **best-effort** — try/catch, `logger.warn`, mai
+propagare: perdere una riga di telemetria è accettabile, far fallire
+l'operazione vera che l'ha generata non lo è mai.
+
+L'inverso vale pure: prima di aggiungere una colonna a una tabella lockata,
+guarda se il codice la scriverà **fuori** dalla transazione guardata. Se sì, o
+è SQL raw, o quella colonna diventa una fonte di lock miss intermittenti —
+il tipo di bug che non si riproduce mai in locale perché serve concorrenza.
 
 ---
 

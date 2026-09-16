@@ -5,6 +5,8 @@ import {
   AdminPaidUsersTable,
   AdminRecentProfilesSkeleton,
   AdminRecentProfilesTable,
+  AdminStalledOnboardingSkeleton,
+  AdminStalledOnboardingTable,
   AdminTopMerchantsSkeleton,
   AdminTopMerchantsTables,
   AdminTrialExpiringSkeleton,
@@ -13,6 +15,7 @@ import {
 import type {
   AdminPaidUserRow,
   AdminProfileRow,
+  AdminStalledOnboarding,
   AdminTopMerchants,
   AdminTrialRow,
 } from "@/server/admin-directory";
@@ -211,5 +214,92 @@ describe("scheletri delle tabelle", () => {
     expect(
       screen.getByText(/caricamento di trial in scadenza in corso/i),
     ).toBeInTheDocument();
+  });
+});
+
+describe("AdminStalledOnboardingTable", () => {
+  const BASE_ROW = {
+    name: "Mario Rossi",
+    email: "fermo@example.com",
+    loginMethod: "fisconline",
+    outcome: "auth_error",
+    attempts: 4,
+    createdAt: "2026-05-19T08:00:00.000Z",
+    lastVerifyAt: "2026-05-19T08:04:00.000Z",
+  };
+
+  function stalled(
+    overrides: Partial<AdminStalledOnboarding> = {},
+  ): AdminStalledOnboarding {
+    return {
+      counts: { total: 10, recent: 2, weeks: 3, stale: 5 },
+      rows: [BASE_ROW],
+      ...overrides,
+    };
+  }
+
+  it("traduce l'esito tecnico in un'etichetta leggibile", () => {
+    render(<AdminStalledOnboardingTable stalled={stalled()} />);
+
+    expect(screen.getByText("Credenziali rifiutate")).toBeInTheDocument();
+    expect(screen.queryByText("auth_error")).not.toBeInTheDocument();
+  });
+
+  it("«mai tentato» è un esito, non una cella vuota", () => {
+    render(
+      <AdminStalledOnboardingTable
+        stalled={stalled({
+          rows: [
+            { ...BASE_ROW, outcome: null, attempts: 0, lastVerifyAt: null },
+          ],
+        })}
+      />,
+    );
+
+    // È il caso che #107 non sapeva vedere: ha salvato le credenziali e non ha
+    // mai premuto Verifica. Renderlo come "—" lo rimetterebbe nel mucchio.
+    expect(screen.getByText("Mai tentato")).toBeInTheDocument();
+  });
+
+  it("mostra i conteggi per età sull'intera popolazione, non sulle righe elencate", () => {
+    render(<AdminStalledOnboardingTable stalled={stalled()} />);
+
+    // Una riga elencata, dieci fermi: l'elenco è tagliato, i totali no.
+    expect(
+      screen.getByText(
+        /10 fermi in totale — 2 da meno di 7 giorni, 3 da 7 a 30, 5 da oltre 30\./,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("un esito fuori vocabolario ricade sul valore grezzo invece di sparire", () => {
+    render(
+      <AdminStalledOnboardingTable
+        stalled={stalled({
+          rows: [{ ...BASE_ROW, outcome: "qualcosa_di_nuovo" }],
+        })}
+      />,
+    );
+
+    expect(screen.getByText("qualcosa_di_nuovo")).toBeInTheDocument();
+  });
+
+  it("mostra lo stato vuoto quando non c'è nessun onboarding fermo", () => {
+    render(
+      <AdminStalledOnboardingTable
+        stalled={{
+          counts: { total: 0, recent: 0, weeks: 0, stale: 0 },
+          rows: [],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Nessun onboarding fermo.")).toBeInTheDocument();
+  });
+
+  it("lo scheletro mostra il titolo vero della tabella", () => {
+    render(<AdminStalledOnboardingSkeleton />);
+
+    expect(screen.getByText("Onboarding fermi")).toBeInTheDocument();
   });
 });

@@ -267,6 +267,13 @@
       "when": 1789516800000,
       "tag": "0037_ade_credentials_utenza_piva",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1789603200000,
+      "tag": "0038_ade_credentials_verify_outcome",
+      "breakpoints": true
     }
   ]
 }

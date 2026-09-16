@@ -20,6 +20,7 @@ vi.mock("./sections", () => ({
   AdminTrialExpiringSection: () => mockInvoked.push("trial") && null,
   AdminPaidUsersSection: () => mockInvoked.push("paganti") && null,
   AdminRecentProfilesSection: () => mockInvoked.push("registrati") && null,
+  AdminStalledOnboardingSection: () => mockInvoked.push("fermi") && null,
 }));
 
 import * as sections from "./sections";
@@ -93,10 +94,10 @@ async function sectionsOf(range?: string): Promise<FoundSection[]> {
 }
 
 describe("AdminPage — streaming", () => {
-  it("monta tutte e sette le letture, ognuna dietro un proprio Suspense", async () => {
+  it("monta tutte e otto le letture, ognuna dietro un proprio Suspense", async () => {
     const found = await sectionsOf();
 
-    expect(found).toHaveLength(7);
+    expect(found).toHaveLength(8);
     expect(found.every((section) => section.suspended)).toBe(true);
   });
 
@@ -135,6 +136,10 @@ describe("AdminPage — streaming", () => {
       "AdminStalePendingSection",
       "AdminUserKpisSection",
       "AdminDocumentKpisSection",
+      // Prima delle classifiche: è il collo di bottiglia dell'attivazione
+      // (REVIEW.md #107), e la coda è FIFO — chi sta più in alto qui arriva
+      // prima in pagina.
+      "AdminStalledOnboardingSection",
       "AdminTopMerchantsSection",
       "AdminTrialExpiringSection",
       "AdminPaidUsersSection",
@@ -182,6 +187,9 @@ describe("AdminPage — periodo", () => {
       .map((section) => section.name);
     expect(senzaRange).toEqual([
       "AdminStalePendingSection",
+      // Come sopra: un onboarding arenato a maggio deve comparire anche col
+      // periodo a 7 giorni.
+      "AdminStalledOnboardingSection",
       "AdminTrialExpiringSection",
       "AdminPaidUsersSection",
     ]);
