@@ -50,6 +50,9 @@ describe("getUserFacingAdeErrorMessage", () => {
     expect(result.message).toContain("partita IVA");
     expect(result.message).toContain("info@scontrinozero.it");
     expect(result.message).not.toContain("Verifica codice fiscale");
+    // Questo ramo scatta a ZERO candidati: dire che l'accesso per conto di
+    // altri "non è supportato" è falso da quando esiste il picker.
+    expect(result.message).not.toMatch(/non è supportato|non gestisce/i);
     expect(result.passwordExpired).toBeUndefined();
   });
 

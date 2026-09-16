@@ -178,6 +178,135 @@ export default function ErroriAdePage() {
           <li>Se pensi si tratti di un errore, contatta l&apos;assistenza.</li>
         </ul>
 
+        {/* ─── Scelta dell'utenza di lavoro ─── */}
+        <h2 className="mt-10 text-xl font-semibold">
+          Ti viene chiesto di scegliere la partita IVA
+        </h2>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          <strong>Sintomo:</strong> dopo &laquo;Verifica connessione&raquo;
+          compare un elenco di partite IVA con il messaggio{" "}
+          <em>
+            &quot;Questo accesso pu&ograve; operare su pi&ugrave; partite IVA.
+            Scegli qui sotto quella dell&apos;attivit&agrave; per cui stai
+            usando ScontrinoZero&quot;
+          </em>
+          {
+            " — oppure, se la partita IVA disponibile è una sola, ti viene chiesto di confermarla."
+          }
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          <strong>Causa:</strong> non &egrave; un errore. Le tue credenziali
+          danno accesso a pi&ugrave; di una partita IVA — perch&eacute; ne hai
+          pi&ugrave; d&apos;una intestata, oppure perch&eacute; sei incaricato a
+          operare per conto di una o pi&ugrave; societ&agrave;. ScontrinoZero
+          non pu&ograve; indovinare su quale vuoi emettere gli scontrini, quindi
+          te lo chiede. &Egrave; lo stesso passaggio che il portale
+          dell&apos;Agenzia delle Entrate chiama &quot;utenza di lavoro&quot;.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm font-medium">
+          Cosa fare:
+        </p>
+        <ul className="text-muted-foreground mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed">
+          <li>
+            Scegli la partita IVA dell&apos;attivit&agrave; per cui userai
+            ScontrinoZero e premi <strong>Collega</strong> (o{" "}
+            <strong>Conferma</strong>, se ce n&apos;&egrave; una sola).
+          </li>
+          <li>
+            Per le partite IVA intestate a te compare anche la{" "}
+            <strong>ragione sociale</strong>. Per quelle su cui operi come
+            incaricato l&apos;Agenzia espone solo il numero: controllalo con
+            attenzione.
+          </li>
+          <li>
+            <strong>La scelta non &egrave; modificabile.</strong> Da quel
+            momento l&apos;account &egrave; legato a quella partita IVA, e per
+            gestirne un&apos;altra serve un account separato con un&apos;altra
+            email. &Egrave; la stessa regola che vale per tutti gli account.
+          </li>
+        </ul>
+
+        {/* ─── Nessuna partita IVA disponibile ─── */}
+        <h2 className="mt-10 text-xl font-semibold">
+          Nessuna partita IVA su questa utenza
+        </h2>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          <strong>Sintomo:</strong>{" "}
+          <em>
+            &quot;Le credenziali sono corrette, ma questa utenza
+            dell&apos;Agenzia delle Entrate non ha nessuna partita IVA su cui
+            operare: n&eacute; una propria, n&eacute; una per conto di altri
+            soggetti&quot;.
+          </em>
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          <strong>Causa:</strong> l&apos;accesso al portale &egrave; riuscito —
+          codice fiscale, password e PIN sono giusti — ma a quell&apos;utenza
+          non risulta collegata nessuna partita IVA. Succede tipicamente con le
+          credenziali personali di chi non &egrave; titolare di partita IVA, o
+          quando l&apos;abilitazione ai servizi non &egrave; mai stata
+          completata.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm font-medium">
+          Cosa fare:
+        </p>
+        <ul className="text-muted-foreground mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed">
+          <li>
+            Verifica di aver inserito le credenziali dell&apos;utenza{" "}
+            <strong>giusta</strong>: se la partita IVA &egrave; di una
+            societ&agrave;, servono le credenziali di chi vi &egrave; abilitato.
+          </li>
+          <li>
+            Accedi al portale dell&apos;Agenzia con le stesse credenziali e
+            controlla se ti viene proposta una partita IVA. Se non compare
+            l&agrave;, non pu&ograve; comparire nemmeno qui.
+          </li>
+          <li>Se pensi si tratti di un errore, contatta l&apos;assistenza.</li>
+        </ul>
+
+        {/* ─── Utenza non più raggiungibile ─── */}
+        <h2 className="mt-10 text-xl font-semibold">
+          La partita IVA collegata non &egrave; pi&ugrave; raggiungibile
+        </h2>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          <strong>Sintomo:</strong> un account che funzionava smette di
+          verificarsi con{" "}
+          <em>
+            &quot;La partita IVA collegata a questo account non risulta
+            pi&ugrave; fra quelle che puoi gestire sul portale Agenzia delle
+            Entrate&quot;
+          </em>
+          {" o con «…non risulta più raggiungibile con queste credenziali»."}
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          <strong>Causa:</strong> la partita IVA a cui l&apos;account &egrave;
+          legato non &egrave; pi&ugrave; fra quelle su cui quelle credenziali
+          possono operare. Le cause tipiche sono un{" "}
+          <strong>incarico revocato</strong>, una{" "}
+          <strong>societ&agrave; cessata</strong>, o credenziali sostituite con
+          quelle di un soggetto che non ha accesso a quella partita IVA.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Gli scontrini gi&agrave; emessi restano al loro posto: &egrave; il
+          collegamento a essere interrotto, non lo storico.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm font-medium">
+          Cosa fare:
+        </p>
+        <ul className="text-muted-foreground mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed">
+          <li>
+            Controlla sul portale dell&apos;Agenzia che l&apos;incarico o
+            l&apos;abilitazione sia ancora attivo. Se &egrave; stato revocato,
+            va ripristinato l&agrave;: non c&apos;&egrave; niente da fare su
+            ScontrinoZero finch&eacute; non lo &egrave;.
+          </li>
+          <li>
+            Se hai cambiato credenziali, verifica che le nuove abbiano accesso
+            alla <strong>stessa</strong> partita IVA dell&apos;account.
+          </li>
+          <li>Se pensi si tratti di un errore, contatta l&apos;assistenza.</li>
+        </ul>
+
         {/* ─── Errore 3 ─── */}
         <h2 className="mt-10 text-xl font-semibold">
           Password Fisconline bloccata per troppi tentativi
@@ -238,6 +367,14 @@ export default function ErroriAdePage() {
           abilitata. L&apos;abilitazione avviene automaticamente per la maggior
           parte delle attività, ma può non essere ancora attiva per le P.IVA
           aperte di recente.
+        </p>
+        <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
+          Da non confondere con il caso in cui il collegamento non riesce
+          proprio perché l&apos;utenza non espone nessuna partita IVA: quello è
+          trattato in{" "}
+          <strong>&laquo;Nessuna partita IVA su questa utenza&raquo;</strong>{" "}
+          qui sopra. Qui le credenziali sono collegate e la partita IVA c&apos;è
+          — è il servizio a non essere ancora abilitato.
         </p>
         <p className="text-muted-foreground mt-3 text-sm font-medium">
           Soluzione:
