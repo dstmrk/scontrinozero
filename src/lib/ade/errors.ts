@@ -1,3 +1,5 @@
+import type { AdeIncarico } from "./types";
+
 /**
  * Custom error classes for the RealAdeClient.
  *
@@ -122,6 +124,51 @@ export class AdeNoPartitaIvaError extends AdeError {
     );
     this.name = "AdeNoPartitaIvaError";
     this.source = source;
+  }
+}
+
+/**
+ * Il login è riuscito e delle partite IVA ci sono, ma sono di soggetti che
+ * l'utente **rappresenta**: il portale pretende che se ne scelga una prima di
+ * operare (HAR.md #18). Nessuna scelta è stata passata al client, quindi non
+ * possiamo decidere noi quale.
+ *
+ * Distinta da `AdeNoPartitaIvaError`, che vale quando non c'è proprio niente da
+ * scegliere. `incarichi` trasporta la lista perché è quello che serve a chi
+ * dovrà mostrarla: la classe è il punto di aggancio del picker.
+ */
+export class AdeUtenzaSelectionRequiredError extends AdeError {
+  readonly incarichi: AdeIncarico[];
+
+  constructor(incarichi: AdeIncarico[]) {
+    super(
+      "ADE_UTENZA_SELECTION_REQUIRED",
+      `AdE account operates on behalf of ${incarichi.length} subject(s): a working identity must be selected`,
+    );
+    this.name = "AdeUtenzaSelectionRequiredError";
+    this.incarichi = incarichi;
+  }
+}
+
+/**
+ * L'utenza di lavoro scelta in passato non è più fra quelle che il portale offre
+ * oggi: incarico revocato, società cessata, o una P.IVA che non è mai stata di
+ * questo accesso.
+ *
+ * È una condizione **permanente** finché qualcuno non rimette a posto le
+ * abilitazioni sul portale AdE — nessun retry la risolve — e non è un guasto
+ * nostro: `isExpectedUserAdeError` la manda a `warn`, fuori da Sentry.
+ */
+export class AdeUtenzaNotAvailableError extends AdeError {
+  readonly piva: string;
+
+  constructor(piva: string) {
+    super(
+      "ADE_UTENZA_NOT_AVAILABLE",
+      "The selected working identity is no longer offered by the AdE portal",
+    );
+    this.name = "AdeUtenzaNotAvailableError";
+    this.piva = piva;
   }
 }
 

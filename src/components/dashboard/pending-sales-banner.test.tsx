@@ -169,7 +169,15 @@ describe("PendingSalesBanner", () => {
     renderBanner();
 
     fireEvent.click(screen.getByRole("button", { name: /verifica/i }));
-    fireEvent.click(await screen.findByRole("button", { name: /è questo/i }));
+
+    // La lista dei candidati viene renderizzata DENTRO la transition, quindi
+    // c'è una finestra in cui il bottone è già nel DOM ma `isPending` è ancora
+    // true e `disabled` lo rende inerte: `findByRole` risolve lì, il click cade
+    // nel vuoto e `mockConfirm` non viene mai chiamato. Aspettare che sia
+    // abilitato è ciò che rende il test deterministico.
+    const candidate = await screen.findByRole("button", { name: /è questo/i });
+    await waitFor(() => expect(candidate).not.toBeDisabled());
+    fireEvent.click(candidate);
 
     await waitFor(() =>
       expect(mockConfirm).toHaveBeenCalledWith(BIZ, DOC, "IDTRX-1"),

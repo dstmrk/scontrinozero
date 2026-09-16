@@ -390,3 +390,32 @@ export interface AdeSearchParams {
   page?: number;
   perPage?: number;
 }
+
+/**
+ * Un incarico offerto dal portale in `wizardTemplate.richiestaIncarichi.incarichi[]`
+ * (HAR.md #18.1).
+ *
+ * `piva` viene dal campo che il portale chiama `incaricante.cf` ma che contiene
+ * una partita IVA a 11 cifre, non un codice fiscale: il nome del campo mente.
+ *
+ * `raw` è l'intera entry ri-serializzata. Il portale la pretende **come stringa
+ * JSON annidata** dentro il body dei passi successivi (HAR.md #18.3/#18.4), e
+ * non la ricostruiamo mai a mano: `sede` e i flag li decide il server, quindi la
+ * rimandiamo verbatim come l'abbiamo ricevuta. È anche il motivo per cui la
+ * selezione persistita è solo una P.IVA e `raw` si risolve a ogni login dalla
+ * lista viva — se l'incarico sparisce, il login lo scopre da solo.
+ */
+export type AdeIncarico = {
+  piva: string;
+  raw: string;
+};
+
+/**
+ * Utenza di lavoro con cui operare dopo il login (HAR.md #18).
+ *
+ * `meStesso` è il caso storico: la P.IVA è intestata a chi accede. `incaricato`
+ * copre chi opera per una o più società; la P.IVA identifica quale, e deve
+ * comparire fra gli incarichi che il portale offre in quella sessione.
+ */
+export type AdeUtenza =
+  { tipo: "meStesso" } | { tipo: "incaricato"; piva: string };

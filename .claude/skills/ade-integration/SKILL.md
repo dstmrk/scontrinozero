@@ -171,6 +171,37 @@ Due lezioni di contorno che valgono oltre questo caso:
   chiuso la diagnosi al primo evento utile, senza HAR e senza PII nei log.
   Stesso pattern prima di ogni throw su una response `200` inattesa.
 
+### Utenza di lavoro: due body, non un parametro
+
+Il login come `incaricato` (chi opera per una o più società) non è il flusso
+`meStesso` con un campo diverso. `setUserChoice` cambia forma: niente `pIva`,
+`cf` porta la partita IVA della **società**, e compaiono `incaricante`
+(l'entry di `incarichi[]` ri-serializzata come **stringa JSON annidata**) e
+`tipoincaricante`. Prima servono due `procediWizard`. Tracciato completo in
+`HAR.md` #18 — leggilo prima di toccare `completePortalHandshake`.
+
+Tre invarianti da non rompere:
+
+- **La selezione persistita è una P.IVA, mai il payload opaco.** `raw` si
+  risolve a ogni login cercando la P.IVA nella lista viva di `wizardTemplate`.
+  Costa nulla e dà gratis il rilevamento dell'incarico revocato
+  (`AdeUtenzaNotAvailableError`); conservare il blob significherebbe invece
+  rispedire una struttura che il portale può aver cambiato sotto di noi.
+- **Sul ramo incaricato Phase F non si salta mai**, nemmeno al re-auth su 401.
+  L'ottimizzazione `knownPiva` vale solo per `meStesso`: senza la lista non
+  esiste il payload da rimandare, e il re-auth fallirebbe solo quando la
+  sessione scade — cioè tardi, in emissione.
+- **`soloPerMe: false` si legge prima di offrire "Me stesso".** È il flag che
+  dice che quell'opzione non è disponibile; sceglierla comunque fa rispondere
+  al portale `Utenza di lavoro non valida o non autorizzata`.
+
+Quando manca una scelta e degli incarichi ci sono,
+`AdeUtenzaSelectionRequiredError` **trasporta la lista**: è il punto di aggancio
+del picker, così l'interfaccia non deve rifare il giro del wizard per sapere
+cosa mostrare. E gli incarichi non portano le denominazioni — solo P.IVA, come
+la tendina del portale: il nome arriva dalla risposta del secondo
+`procediWizard`, dopo la scelta.
+
 ### Failure mode noto: dato del cedente non normalizzato (`EF0`)
 
 `{"esito": false, "errori": [{"codice": "EF0", "descrizione": "'<Campo>' non valido"}]}`

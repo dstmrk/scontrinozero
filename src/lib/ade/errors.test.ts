@@ -9,6 +9,8 @@ import {
   AdeSessionExpiredError,
   AdeSpidTimeoutError,
   AdeUnknownOutcomeError,
+  AdeUtenzaNotAvailableError,
+  AdeUtenzaSelectionRequiredError,
 } from "./errors";
 
 describe("AdeError (base)", () => {
@@ -137,5 +139,31 @@ describe("AdeNoPartitaIvaError", () => {
     expect(new AdeNoPartitaIvaError("dati/fiscali")).not.toBeInstanceOf(
       AdePortalError,
     );
+  });
+});
+
+describe("AdeUtenzaSelectionRequiredError", () => {
+  it("trasporta gli incarichi da mostrare e conta i soggetti nel messaggio", () => {
+    const err = new AdeUtenzaSelectionRequiredError([
+      { piva: "11111111111", raw: "{}" },
+      { piva: "22222222222", raw: "{}" },
+    ]);
+    expect(err.code).toBe("ADE_UTENZA_SELECTION_REQUIRED");
+    expect(err.name).toBe("AdeUtenzaSelectionRequiredError");
+    expect(err.incarichi).toHaveLength(2);
+    expect(err.message).toContain("2");
+    expect(err).toBeInstanceOf(AdeError);
+  });
+});
+
+describe("AdeUtenzaNotAvailableError", () => {
+  it("espone la P.IVA non più disponibile senza metterla nel messaggio", () => {
+    const err = new AdeUtenzaNotAvailableError("12345678901");
+    expect(err.code).toBe("ADE_UTENZA_NOT_AVAILABLE");
+    expect(err.name).toBe("AdeUtenzaNotAvailableError");
+    expect(err.piva).toBe("12345678901");
+    // Il messaggio finisce nei log: niente identificativi fiscali dentro.
+    expect(err.message).not.toContain("12345678901");
+    expect(err).toBeInstanceOf(AdeError);
   });
 });

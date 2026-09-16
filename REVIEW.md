@@ -614,6 +614,26 @@ Quattro conseguenze di progetto, tutte da decidere prima di scrivere codice:
 Restano fuori evidenza i rami `delega` e `tutore`, il cambio utenza senza
 re-login e la società cessata: 18.6.
 
+**Slice 2 rilasciata.** `RealAdeClient.login(credentials, utenza?)` completa il
+login come `incaricato`: `procediWizard` ×2 più il body dedicato di
+`setUserChoice`, con la scelta rigiocata a ogni re-auth su 401 (Phase F non si
+salta su quel ramo — il payload opaco dell'incarico vive solo nella lista viva).
+La selezione persistita sarà **una P.IVA**, non il blob: `raw` si risolve a ogni
+login dalla lista, così un incarico revocato lo scopre il login stesso
+(`AdeUtenzaNotAvailableError`).
+
+**Cosa resta (slice 3 e 4).** Nessun chiamante passa ancora `utenza`: manca il
+picker in onboarding e impostazioni, e manca la colonna dove persistere la
+scelta. Finché non ci sono, un'utenza multi-società riceve
+`AdeUtenzaSelectionRequiredError` e un messaggio che dichiara il caso non ancora
+gestito — l'errore però **trasporta già la lista** degli incarichi, quindi il
+picker si aggancia lì senza toccare il client. Resta anche il terzo ramo
+dell'identity guard: distinguere il mismatch da selezione da quello da
+credenziali altrui.
+
+Aperto sul multi-P.IVA: con più entry in `PIva` prendiamo ancora la prima senza
+confrontarla con quella dichiarata in onboarding.
+
 **Trigger di riapertura.** Il downgrade a `warn` spegne l'allarme: il segnale
 resta solo nei Sentry Logs. Cercare periodicamente `ade:wizard_piva_missing` e
 `ade:fiscali_piva_missing` (dataset `logs`) — più di **tre** utenti distinti in

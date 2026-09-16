@@ -16,7 +16,9 @@ import type {
   AdePayload,
   AdeProduct,
   AdeResponse,
+  AdeIncarico,
   AdeSearchParams,
+  AdeUtenza,
   CieCredentials,
   FisconlineCredentials,
   SpidCredentials,
@@ -32,6 +34,8 @@ import {
   AdeSessionExpiredError,
   AdeSpidTimeoutError,
   AdeUnknownOutcomeError,
+  AdeUtenzaNotAvailableError,
+  AdeUtenzaSelectionRequiredError,
 } from "./errors";
 import { logger } from "@/lib/logger";
 
@@ -229,6 +233,41 @@ export function isStaleSocketError(err: unknown): boolean {
  * quindi logghiamo solo i nomi dei campi, mai i valori (regola 22, denylist
  * SAFE_KEYS del logger).
  */
+/**
+ * `tipoincaricante` osservato nella cattura (HAR.md #18.3): tutte e quattro le
+ * entry erano incarichi diretti. I rami `delega` e `tutore` non sono stati
+ * osservati — quando arriveranno, questo valore smette di essere una costante.
+ */
+const ADE_TIPO_INCARICANTE = "incaricoDiretto";
+
+/** Shape del body di `wizardTemplate` per le parti che leggiamo (HAR.md #18.1). */
+type WizardTemplateResponse = {
+  PIva?: { piva?: string }[];
+  cfUidUltimo?: string;
+  richiestaIncarichi?: {
+    incarichi?: { incaricante?: { cf?: string } }[];
+  };
+};
+
+/**
+ * Estrae gli incarichi da `wizardTemplate`, scartando le entry senza P.IVA
+ * leggibile (HAR.md #18.1).
+ *
+ * `raw` è l'entry ri-serializzata **da noi** a partire da quella ricevuta, non
+ * un ritaglio della response: il portale la rivuole come stringa JSON e ci
+ * interessa il contenuto, non la formattazione originale.
+ */
+function parseIncarichi(data: WizardTemplateResponse): AdeIncarico[] {
+  const entries = data?.richiestaIncarichi?.incarichi;
+  if (!Array.isArray(entries)) return [];
+
+  return entries.flatMap((entry) => {
+    const piva = entry?.incaricante?.cf;
+    if (typeof piva !== "string" || piva.length === 0) return [];
+    return [{ piva, raw: JSON.stringify(entry) }];
+  });
+}
+
 function objectKeysOrNull(value: unknown): string[] | null {
   return typeof value === "object" && value !== null
     ? Object.keys(value)
@@ -365,6 +404,13 @@ export class RealAdeClient implements AdeClient {
   private session: AdeSession | null = null;
   private readonly cookieJar: CookieJar = new CookieJar();
   private credentials: FisconlineCredentials | null = null;
+  /**
+   * Utenza di lavoro scelta al login, rigiocata a ogni re-auth su 401. Vive
+   * accanto alle credenziali e non nella sessione perché è un parametro di
+   * **come** ci autentichiamo, non un risultato dell'autenticazione: la
+   * sessione porta già la P.IVA ottenuta.
+   */
+  private utenza: AdeUtenza | undefined;
 
   constructor(private readonly options: RealAdeClientOptions = {}) {}
 
@@ -620,9 +666,11 @@ export class RealAdeClient implements AdeClient {
    * il CF è già noto (credenziali), quindi `cf` può risultare undefined senza
    * errore — solo la P.IVA mancante è fatale.
    */
-  private async fetchWizardIdentity(
-    xAppl: string,
-  ): Promise<{ cf: string | undefined; piva: string }> {
+  private async fetchWizardIdentity(xAppl: string): Promise<{
+    cf: string | undefined;
+    piva: string | undefined;
+    incarichi: AdeIncarico[];
+  }> {
     const url = `${ADE_BASE_URL}${ADE_INSTR_PATH}/wizardTemplate`;
     const response = await this.request(url, {
       headers: { "x-appl": xAppl },
@@ -635,11 +683,9 @@ export class RealAdeClient implements AdeClient {
       );
     }
 
-    const data = (await response.json()) as {
-      PIva?: { piva?: string }[];
-      cfUidUltimo?: string;
-    };
+    const data = (await response.json()) as WizardTemplateResponse;
     const piva = data?.PIva?.[0]?.piva;
+    const incarichi = parseIncarichi(data);
 
     if (!piva) {
       // Diagnostica struttura-only (no PII): distingue "lista PIva vuota" da
@@ -652,13 +698,108 @@ export class RealAdeClient implements AdeClient {
           pIvaIsArray: Array.isArray(data?.PIva),
           pIvaLength: Array.isArray(data?.PIva) ? data.PIva.length : null,
           firstEntryKeys: objectKeysOrNull(data?.PIva?.[0]),
+          incarichiCount: incarichi.length,
         },
         "ade:wizard_piva_missing",
       );
-      throw new AdeNoPartitaIvaError("wizardTemplate");
     }
 
-    return { cf: data?.cfUidUltimo, piva };
+    // Non lancia: chi chiama sa se una selezione è stata fatta, e solo lì si
+    // distingue "niente da scegliere" da "va scelto" (HAR.md #18).
+    return { cf: data?.cfUidUltimo, piva, incarichi };
+  }
+
+  /**
+   * Passo del wizard utenza (HAR.md #18.2 e #18.3). Due POST allo stesso
+   * endpoint: la prima dichiara il tipo di utenza, la seconda l'incaricante.
+   *
+   * La prima risponde con lo stesso payload di `wizardTemplate` e non aggiunge
+   * informazione; la mandiamo perché la cattura la contiene e saltarla non è
+   * verificato (HAR.md #18.2). La seconda è quella che fa comparire `PIva`.
+   */
+  private async procediWizardStep(
+    body: Record<string, unknown>,
+    xAppl: string,
+  ): Promise<void> {
+    const url = `${ADE_BASE_URL}${ADE_INSTR_PATH}/procediWizard?v=${Date.now()}`;
+    const response = await this.request(url, {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json", "x-appl": xAppl },
+    });
+
+    if (!response.ok) {
+      throw new AdePortalError(
+        response.status,
+        `procediWizard failed with status ${response.status}`,
+      );
+    }
+  }
+
+  /**
+   * Phase G, ramo `incaricato` (HAR.md #18.4).
+   *
+   * Body **diverso** da quello `meStesso`, non lo stesso con un parametro
+   * cambiato: niente campo `pIva`, `cf` porta la partita IVA della società
+   * invece del codice fiscale di chi ha fatto il login, e compaiono
+   * `incaricante` (stringa JSON annidata) e `tipoincaricante`. Due forme
+   * distinte che condividono solo il nome del campo `tipoutenza`.
+   */
+  private async setUserChoiceIncaricato(
+    incarico: AdeIncarico,
+    xAppl: string,
+  ): Promise<void> {
+    const url = `${ADE_BASE_URL}${ADE_INSTR_PATH}/setUserChoice?v=${Date.now()}`;
+    const response = await this.request(url, {
+      method: "POST",
+      body: JSON.stringify({
+        tipoutenza: "incaricato",
+        incaricante: incarico.raw,
+        tipoincaricante: ADE_TIPO_INCARICANTE,
+        cf: incarico.piva,
+      }),
+      headers: { "Content-Type": "application/json", "x-appl": xAppl },
+    });
+
+    if (!response.ok) {
+      throw new AdePortalError(
+        response.status,
+        `setUserChoice (incaricato) failed with status ${response.status}`,
+      );
+    }
+  }
+
+  /**
+   * Percorre il wizard per un'utenza `incaricato` e attiva la sessione.
+   * Ritorna la P.IVA su cui la sessione sta operando.
+   */
+  private async activateIncaricato(
+    piva: string,
+    incarichi: AdeIncarico[],
+    xAppl: string,
+  ): Promise<string> {
+    const incarico = incarichi.find((i) => i.piva === piva);
+    if (!incarico) {
+      logger.warn(
+        { incarichiCount: incarichi.length },
+        "ade:utenza_not_available",
+      );
+      throw new AdeUtenzaNotAvailableError(piva);
+    }
+
+    await this.procediWizardStep({ tipoutenza: "incaricato" }, xAppl);
+    await this.procediWizardStep(
+      {
+        tipoutenza: "incaricato",
+        incaricante: incarico.raw,
+        tipoincaricante: ADE_TIPO_INCARICANTE,
+        pIva: null,
+      },
+      xAppl,
+    );
+    await this.setUserChoiceIncaricato(incarico, xAppl);
+
+    return incarico.piva;
   }
 
   /**
@@ -863,6 +1004,7 @@ export class RealAdeClient implements AdeClient {
   private async completePortalHandshake(opts: {
     knownCf?: string;
     knownPiva?: string;
+    utenza?: AdeUtenza;
   }): Promise<AdeSession> {
     await this.initPortale(); // B2: JS-initiated initPortale (setta cookie portale)
     await this.initInstradamento(); // C: instradamento home
@@ -872,13 +1014,37 @@ export class RealAdeClient implements AdeClient {
     await this.initDataPowerBridge(); // D: DataPower session
     logger.debug({ phase: "D", cookies: this.cookieJar.size }, "ade:auth");
 
-    // F: scopri CF/P.IVA se non già noti (skip durante re-auth su 401)
+    // Da qui i due rami non condividono più niente: body diversi, campi diversi
+    // e, sul re-auth, anche il diritto di saltare Phase F (HAR.md #18.4).
+
+    // Utenza incaricata: Phase F si rifà sempre, anche al re-auth, perché il
+    // payload opaco dell'incarico esiste solo dentro la lista viva.
+    if (opts.utenza?.tipo === "incaricato") {
+      const { incarichi } = await this.fetchWizardIdentity(xAppl);
+      const partitaIva = await this.activateIncaricato(
+        opts.utenza.piva,
+        incarichi,
+        xAppl,
+      );
+      return { pAuth: "", partitaIva, createdAt: Date.now() };
+    }
+
+    // Ramo storico: P.IVA intestata a chi accede. Phase F si salta quando
+    // identità e P.IVA sono già note (re-auth su 401).
     let cf = opts.knownCf;
     let partitaIva = opts.knownPiva;
     if (!cf || !partitaIva) {
       const identity = await this.fetchWizardIdentity(xAppl);
       cf ??= identity.cf;
       partitaIva ??= identity.piva;
+
+      if (!partitaIva) {
+        // Nessuna P.IVA diretta: o c'è da scegliere, o non c'è proprio nulla.
+        if (identity.incarichi.length > 0) {
+          throw new AdeUtenzaSelectionRequiredError(identity.incarichi);
+        }
+        throw new AdeNoPartitaIvaError("wizardTemplate");
+      }
     }
 
     if (!cf) {
@@ -888,7 +1054,7 @@ export class RealAdeClient implements AdeClient {
       );
     }
 
-    await this.setUserChoiceStep(cf, partitaIva, xAppl); // G: attiva sessione
+    await this.setUserChoiceStep(cf, partitaIva, xAppl);
 
     return { pAuth: "", partitaIva, createdAt: Date.now() };
   }
@@ -902,6 +1068,7 @@ export class RealAdeClient implements AdeClient {
   private async authenticate(
     credentials: FisconlineCredentials,
     knownPartitaIva?: string,
+    utenza?: AdeUtenza,
   ): Promise<AdeSession> {
     await this.iampeLogin(credentials); // A: login IAM
     logger.debug({ phase: "A", cookies: this.cookieJar.size }, "ade:auth");
@@ -911,6 +1078,7 @@ export class RealAdeClient implements AdeClient {
     return this.completePortalHandshake({
       knownCf: credentials.codiceFiscale,
       knownPiva: knownPartitaIva,
+      utenza,
     });
   }
 
@@ -1816,10 +1984,14 @@ export class RealAdeClient implements AdeClient {
   // Public methods (AdeClient interface)
   // -----------------------------------------------------------------------
 
-  async login(credentials: FisconlineCredentials): Promise<AdeSession> {
+  async login(
+    credentials: FisconlineCredentials,
+    utenza?: AdeUtenza,
+  ): Promise<AdeSession> {
     this.credentials = credentials;
+    this.utenza = utenza;
     this.cookieJar.clear();
-    this.session = await this.authenticate(credentials);
+    this.session = await this.authenticate(credentials, undefined, utenza);
     return this.session;
   }
 
@@ -2125,7 +2297,11 @@ export class RealAdeClient implements AdeClient {
     try {
       const knownPiva = this.session?.partitaIva;
       this.cookieJar.clear();
-      this.session = await this.authenticate(this.credentials, knownPiva);
+      this.session = await this.authenticate(
+        this.credentials,
+        knownPiva,
+        this.utenza,
+      );
     } catch {
       throw new AdeSessionExpiredError();
     }
