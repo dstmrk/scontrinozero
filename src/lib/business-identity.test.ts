@@ -3,6 +3,7 @@ import {
   normalizeDenominazione,
   getDenominazioneMismatch,
   getSedeLegaleMismatch,
+  getAdeIdentityMismatches,
 } from "./business-identity";
 
 describe("normalizeDenominazione", () => {
@@ -281,4 +282,57 @@ describe("getSedeLegaleMismatch", () => {
       expect(result?.patch).toBeNull();
     },
   );
+});
+
+describe("getAdeIdentityMismatches", () => {
+  const ROW = {
+    businessName: "Mario Rossi",
+    adeDenominazione: "ACME SRL",
+    address: "Via Casa",
+    streetNumber: "1",
+    zipCode: "00100",
+    city: "Roma",
+    province: "RM",
+    adeIndirizzo: "Via Roma",
+    adeNumeroCivico: "10",
+    adeCap: "20100",
+    adeComune: "Milano",
+    adeProvincia: "MI",
+  };
+  const UTENZA = "11111111111";
+
+  it("restituisce entrambi i verdetti quando divergono entrambi", () => {
+    const result = getAdeIdentityMismatches(ROW, UTENZA);
+
+    expect(result.denominazione?.kind).toBe("divergente");
+    expect(result.sedeLegale?.kind).toBe("divergente");
+  });
+
+  // I due sono indipendenti: allineare il nome non allinea l'indirizzo.
+  it("tiene i due verdetti separati", () => {
+    const result = getAdeIdentityMismatches(
+      { ...ROW, businessName: "ACME SRL" },
+      UTENZA,
+    );
+
+    expect(result.denominazione).toBeNull();
+    expect(result.sedeLegale?.kind).toBe("divergente");
+  });
+
+  // Nessun chiamante deve mettere un guard sul business: ci pensano i predicati.
+  it("tollera l'assenza della riga senza lanciare", () => {
+    for (const row of [null, undefined]) {
+      expect(getAdeIdentityMismatches(row, UTENZA)).toEqual({
+        denominazione: null,
+        sedeLegale: null,
+      });
+    }
+  });
+
+  it("tace su un'utenza 'me stesso'", () => {
+    expect(getAdeIdentityMismatches(ROW, null)).toEqual({
+      denominazione: null,
+      sedeLegale: null,
+    });
+  });
 });

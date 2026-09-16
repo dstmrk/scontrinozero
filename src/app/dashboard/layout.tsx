@@ -19,6 +19,7 @@ import { AnnouncementBanner } from "@/components/announcement/announcement-banne
 import { PwaInstallPrompt } from "@/components/pwa/install-prompt";
 import { PartnerBrandSuffix } from "@/components/partner-brand-suffix";
 import { PendingSalesSection } from "./pending-sales-section";
+import { AdeIdentitySection } from "./ade-identity-section";
 
 // Solo l'app shell va edge-to-edge: il marketing resta sul viewport di default.
 // Motivazione in src/lib/pwa/viewport.ts.
@@ -152,6 +153,20 @@ export default async function DashboardLayout({
           */}
           <Suspense fallback={null}>
             <PendingSalesSection />
+          </Suspense>
+          {/*
+            Identità stampata diversa da quella registrata all'AdE
+            (REVIEW.md #106). Stessa ragione di stare nel layout: finita la
+            verifica si atterra su /dashboard e si va in cassa, quindi chi
+            opera per conto di una società incontrerebbe l'avviso solo
+            aprendo le impostazioni di sua iniziativa — cioè quasi mai.
+
+            Dopo il banner degli scontrini in sospeso, non prima: quello è
+            denaro già incassato a esito ignoto, questo è un dato da
+            correggere.
+          */}
+          <Suspense fallback={null}>
+            <AdeIdentitySection />
           </Suspense>
           {children}
         </main>

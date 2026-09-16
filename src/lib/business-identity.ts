@@ -238,3 +238,71 @@ export function getSedeLegaleMismatch(params: {
     ? { kind: "divergente", fields, patch }
     : { kind: "non-applicabile", fields, patch: null };
 }
+
+// ---------------------------------------------------------------------------
+// I due verdetti insieme
+// ---------------------------------------------------------------------------
+
+/** Le colonne di `businesses` che servono ai due predicati. */
+export interface BusinessIdentityRow {
+  businessName?: string | null;
+  adeDenominazione?: string | null;
+  address?: string | null;
+  streetNumber?: string | null;
+  zipCode?: string | null;
+  city?: string | null;
+  province?: string | null;
+  adeIndirizzo?: string | null;
+  adeNumeroCivico?: string | null;
+  adeCap?: string | null;
+  adeComune?: string | null;
+  adeProvincia?: string | null;
+}
+
+export interface AdeIdentityMismatches {
+  denominazione: DenominazioneMismatch | null;
+  sedeLegale: SedeLegaleMismatch | null;
+}
+
+/**
+ * I due verdetti sull'identita' registrata all'AdE (REVIEW.md #106), calcolati
+ * insieme perche' hanno lo stesso gate e la stessa riga d'origine.
+ *
+ * Vive qui e non nella pagina che per prima lo ha usato perche' le superfici
+ * che lo mostrano sono due — impostazioni e lo shell del dashboard — e
+ * arrivano alla riga in due modi diversi: la prima ce l'ha gia' in mano, la
+ * seconda la va a leggere. A divergere sono le letture, non il verdetto, che
+ * resta uno solo e puro.
+ *
+ * Tollera `null`: senza riga i campi arrivano undefined e i predicati
+ * rispondono gia' null, quindi nessun chiamante ha bisogno di un guard.
+ */
+export function getAdeIdentityMismatches(
+  business: BusinessIdentityRow | null | undefined,
+  utenzaPiva: string | null | undefined,
+): AdeIdentityMismatches {
+  return {
+    denominazione: getDenominazioneMismatch({
+      businessName: business?.businessName,
+      adeDenominazione: business?.adeDenominazione,
+      utenzaPiva,
+    }),
+    sedeLegale: getSedeLegaleMismatch({
+      current: {
+        address: business?.address,
+        streetNumber: business?.streetNumber,
+        zipCode: business?.zipCode,
+        city: business?.city,
+        province: business?.province,
+      },
+      ade: {
+        indirizzo: business?.adeIndirizzo,
+        numeroCivico: business?.adeNumeroCivico,
+        cap: business?.adeCap,
+        comune: business?.adeComune,
+        provincia: business?.adeProvincia,
+      },
+      utenzaPiva,
+    }),
+  };
+}
