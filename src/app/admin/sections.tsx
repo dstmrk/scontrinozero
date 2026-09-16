@@ -2,6 +2,7 @@ import { AdminAlert } from "@/components/admin/admin-alert";
 import {
   AdminPaidUsersTable,
   AdminRecentProfilesTable,
+  AdminStalledOnboardingTable,
   AdminTopMerchantsTables,
   AdminTrialExpiringTable,
 } from "@/components/admin/admin-directory-tables";
@@ -13,6 +14,7 @@ import { AdminStalePendingNotice } from "@/components/admin/admin-stale-pending-
 import {
   getAdminPaidUsers,
   getAdminRecentProfiles,
+  getAdminStalledOnboarding,
   getAdminTopMerchants,
   getAdminTrialExpiring,
 } from "@/server/admin-directory";
@@ -107,6 +109,19 @@ export async function AdminTrialExpiringSection() {
     return <AdminAlert message={result.error} />;
   }
   return <AdminTrialExpiringTable rows={result.rows} />;
+}
+
+/**
+ * Onboarding fermi: chi ha salvato le credenziali AdE e non le ha mai
+ * verificate (REVIEW.md #107). Ancorata ad adesso, nessun range da passare.
+ */
+export async function AdminStalledOnboardingSection() {
+  const result = await getAdminStalledOnboarding();
+
+  if ("error" in result) {
+    return <AdminAlert message={result.error} />;
+  }
+  return <AdminStalledOnboardingTable stalled={result.stalled} />;
 }
 
 /** Utenti paganti: fotografia dello stato attuale, nessun range da passare. */

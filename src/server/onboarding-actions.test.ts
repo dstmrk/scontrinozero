@@ -63,6 +63,11 @@ const mockUpdateWhere = vi
 const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
 const mockUpdate = vi.fn().mockReturnValue({ set: mockUpdateSet });
 const mockTransaction = vi.fn();
+// `db.execute(sql`...`)` — usato dalla sola scrittura dell'esito verifica
+// (REVIEW.md #107), che va in SQL raw per NON far scattare `$onUpdate` su
+// `updatedAt`. Default: risolve, così il best-effort non disturba i test
+// che non se ne occupano.
+const mockExecute = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@/db", () => ({
   getDb: vi.fn().mockReturnValue({
@@ -70,6 +75,7 @@ vi.mock("@/db", () => ({
     insert: mockInsert,
     update: mockUpdate,
     transaction: mockTransaction,
+    execute: mockExecute,
   }),
 }));
 
@@ -195,6 +201,7 @@ describe("onboarding-actions", () => {
       resetAt: Date.now() + 15 * 60 * 1000,
     });
     mockRevalidatePath.mockReset();
+    mockExecute.mockReset().mockResolvedValue(undefined);
     process.env.ENCRYPTION_KEY = "a".repeat(64);
     process.env.ENCRYPTION_KEY_VERSION = "1";
     process.env.ADE_MODE = "mock";
@@ -2397,6 +2404,302 @@ describe("onboarding-actions", () => {
       expect(compiled.params.some((p) => p instanceof Date)).toBe(false);
       expect(compiled.params).toContain(credentialUpdatedAt.toISOString());
       expect(compiled.sql).toContain("::timestamptz");
+    });
+
+    // --- Esito dell'ultimo tentativo (REVIEW.md #107) ---
+    //
+    // L'attribuzione è il punto: dieci righe ferme a metà onboarding
+    // condividono lo stesso stato DB qualunque sia la causa. Qui si verifica
+    // che ogni ramo d'uscita lasci sulla riga il proprio esito, dal vocabolario
+    // chiuso del CHECK 0038 — e che lo faccia senza toccare `updated_at`, che
+    // è il lock ottimistico della finalizzazione.
+    describe("esito registrato sulla riga credenziali", () => {
+      /**
+       * Rende in SQL le `db.execute(sql`...`)` emesse e restituisce quella che
+       * scrive su `ade_credentials`. Non è necessariamente la prima:
+       * `getAuthenticatedUser` passa da `touchLastSeen`, che usa `db.execute`
+       * per la stessa ragione di qui — niente bump collaterale di
+       * `updated_at` — e arriva prima.
+       *
+       * Il vero `PgDialect` (drizzle-orm non è mockato) è l'unico modo di
+       * osservare cosa arriverebbe davvero a postgres-js: un mock di `.set()`
+       * in stile chain non compila niente e non vedrebbe né il bind dei
+       * parametri né le colonne davvero scritte.
+       */
+      async function compiledOutcomeWrite() {
+        const { PgDialect } = await import("drizzle-orm/pg-core");
+        const dialect = new PgDialect();
+        const compiled = mockExecute.mock.calls
+          .map((call) => dialect.sqlToQuery(call[0]))
+          .find((q) => q.sql.includes("ade_credentials"));
+        if (!compiled) throw new Error("nessuna UPDATE su ade_credentials");
+        return compiled;
+      }
+
+      /** True se una `db.execute` ha scritto sulla riga credenziali. */
+      async function outcomeWasWritten(): Promise<boolean> {
+        const { PgDialect } = await import("drizzle-orm/pg-core");
+        const dialect = new PgDialect();
+        return mockExecute.mock.calls.some((call) =>
+          dialect.sqlToQuery(call[0]).sql.includes("ade_credentials"),
+        );
+      }
+
+      /** Login riuscito + identità fiscale: il percorso felice completo. */
+      function queueSuccessfulLogin() {
+        mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+        mockLimit.mockResolvedValueOnce([queuedCredRow()]);
+        mockLogin.mockResolvedValue({});
+        mockLogout.mockResolvedValue(undefined);
+        mockGetFiscalData.mockResolvedValue({
+          identificativiFiscali: {
+            codicePaese: "IT",
+            partitaIva: "07790350966",
+            codiceFiscale: "07790350966",
+          },
+        });
+      }
+
+      /** Login che fallisce con l'errore dato, dal primo onboarding. */
+      function queueFailedLogin(err: unknown) {
+        mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+        mockLimit.mockResolvedValueOnce([queuedCredRow()]);
+        mockLogin.mockRejectedValue(err);
+      }
+
+      it("una verifica riuscita registra 'success'", async () => {
+        queueSuccessfulLogin();
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+        const compiled = await compiledOutcomeWrite();
+        expect(compiled.params).toContain("success");
+      });
+
+      it("l'esito NON passa da Drizzle: `updated_at` resta il lock, non un effetto collaterale", async () => {
+        queueSuccessfulLogin();
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+        // Il cuore della scelta di andare in SQL raw. Un
+        // `db.update(adeCredentials).set({...})` farebbe scattare `$onUpdate`
+        // su `updatedAt` — che è la versione su cui finalizeAdeVerification
+        // monta il lock ottimistico — e una verifica concorrente vedrebbe
+        // "credenziali cambiate" per colpa di una riga di telemetria.
+        const compiled = await compiledOutcomeWrite();
+        expect(compiled.sql).not.toContain("updated_at");
+        expect(compiled.sql).toContain("last_verify_outcome");
+        // Il contatore si incrementa nella stessa UPDATE: separa "ha provato
+        // una volta e ha mollato" da "ci ha riprovato dieci volte".
+        expect(compiled.sql).toContain("verify_attempts");
+      });
+
+      it("nessuna `Date` finisce fra i parametri: postgres-js la rifiuterebbe", async () => {
+        queueSuccessfulLogin();
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+        // Stessa trappola della skill db-migrations: dentro un template `sql`
+        // Drizzle non ha il column-type context e una JS Date crasha in
+        // `Buffer.byteLength`. Il timestamp lo mette Postgres con `now()`.
+        const compiled = await compiledOutcomeWrite();
+        expect(compiled.params.some((p) => p instanceof Date)).toBe(false);
+      });
+
+      it("credenziali sbagliate registrano 'auth_error', non un generico fallimento", async () => {
+        const { AdeAuthError } = await import("@/lib/ade/errors");
+        queueFailedLogin(new AdeAuthError());
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+        const compiled = await compiledOutcomeWrite();
+        expect(compiled.params).toContain("auth_error");
+      });
+
+      it("password scaduta registra 'password_expired'", async () => {
+        const { AdePasswordExpiredError } = await import("@/lib/ade/errors");
+        queueFailedLogin(new AdePasswordExpiredError());
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+        const compiled = await compiledOutcomeWrite();
+        expect(compiled.params).toContain("password_expired");
+      });
+
+      it("il picker mostrato registra 'utenza_selection_required': chi si ferma qui ha VISTO la scelta", async () => {
+        const { AdeUtenzaSelectionRequiredError } =
+          await import("@/lib/ade/errors");
+        queueFailedLogin(
+          new AdeUtenzaSelectionRequiredError([
+            { piva: "07790350966", denominazione: "ACME SRL" },
+            { piva: "12345678901" },
+          ]),
+        );
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        const result = await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+        // È la distinzione che #107 chiedeva per prima: "si è fermato davanti
+        // al picker" non è "ha sbagliato password".
+        expect(result.utenzaChoices).toHaveLength(2);
+        const compiled = await compiledOutcomeWrite();
+        expect(compiled.params).toContain("utenza_selection_required");
+      });
+
+      it("un'utenza revocata registra 'utenza_not_available'", async () => {
+        const { AdeUtenzaNotAvailableError } = await import("@/lib/ade/errors");
+        queueFailedLogin(new AdeUtenzaNotAvailableError("07790350966"));
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+        const compiled = await compiledOutcomeWrite();
+        expect(compiled.params).toContain("utenza_not_available");
+      });
+
+      it("utenza senza P.IVA registra 'no_partita_iva' (SCONTRINOZERO-13)", async () => {
+        const { AdeNoPartitaIvaError } = await import("@/lib/ade/errors");
+        queueFailedLogin(new AdeNoPartitaIvaError("wizard"));
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+        const compiled = await compiledOutcomeWrite();
+        expect(compiled.params).toContain("no_partita_iva");
+      });
+
+      it("un guasto di rete registra 'transient', che non è una causa di abbandono", async () => {
+        const { AdeNetworkError } = await import("@/lib/ade/errors");
+        queueFailedLogin(new AdeNetworkError(new Error("ECONNRESET")));
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+        const compiled = await compiledOutcomeWrite();
+        expect(compiled.params).toContain("transient");
+      });
+
+      it("un errore sconosciuto ricade su 'failure' invece di restare muto", async () => {
+        queueFailedLogin(new Error("qualcosa di inatteso"));
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+        const compiled = await compiledOutcomeWrite();
+        expect(compiled.params).toContain("failure");
+      });
+
+      it("una P.IVA di un'altra impresa registra 'piva_mismatch'", async () => {
+        mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+        mockLimit.mockResolvedValueOnce([queuedCredRow()]);
+        // Business già onboardato su un'altra P.IVA: scatta l'identity guard.
+        mockLimit.mockResolvedValueOnce([
+          { fiscalCode: "RSSMRA80A01H501U", vatNumber: "11111111111" },
+        ]);
+        mockLogin.mockResolvedValue({});
+        mockLogout.mockResolvedValue(undefined);
+        mockGetFiscalData.mockResolvedValue({
+          identificativiFiscali: {
+            codicePaese: "IT",
+            partitaIva: "07790350966",
+            codiceFiscale: "07790350966",
+          },
+        });
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        const result = await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+        expect(result.pivaMismatch).toBe(true);
+        const compiled = await compiledOutcomeWrite();
+        expect(compiled.params).toContain("piva_mismatch");
+      });
+
+      it("credenziali incomplete registrano 'incomplete_credentials', senza chiamare AdE", async () => {
+        mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+        mockLimit.mockResolvedValueOnce([
+          queuedCredRow({ encryptedPin: null }),
+        ]);
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+        expect(mockLogin).not.toHaveBeenCalled();
+        const compiled = await compiledOutcomeWrite();
+        expect(compiled.params).toContain("incomplete_credentials");
+      });
+
+      it("una P.IVA malformata registra 'invalid_utenza_piva'", async () => {
+        mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+        mockLimit.mockResolvedValueOnce([queuedCredRow()]);
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        await verifyAdeCredentials(FAKE_BUSINESS.id, "123");
+
+        const compiled = await compiledOutcomeWrite();
+        expect(compiled.params).toContain("invalid_utenza_piva");
+      });
+
+      it("il rate limit NON registra nulla: è un gate d'accesso, non una causa di abbandono", async () => {
+        mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+        mockRateLimiterCheck.mockReturnValue({
+          success: false,
+          remaining: 0,
+          resetAt: Date.now() + 60_000,
+        });
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+        // Registrarlo sovrascriverebbe un esito informativo con rumore: chi
+        // ha sbagliato password cinque volte diventerebbe "rate_limited".
+        expect(await outcomeWasWritten()).toBe(false);
+      });
+
+      it("una sessione scaduta NON registra nulla: non sappiamo nemmeno su quale riga", async () => {
+        mockGetUser.mockResolvedValue({ data: { user: null } });
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+        expect(await outcomeWasWritten()).toBe(false);
+      });
+
+      it("se la scrittura dell'esito fallisce, la verifica riesce lo stesso", async () => {
+        queueSuccessfulLogin();
+        mockExecute.mockRejectedValue(new Error("DB giu'"));
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        const result = await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+        // Best-effort per costruzione: la telemetria non può far fallire un
+        // collegamento riuscito. È anche ciò che rende sicuro il CHECK del
+        // vocabolario — un valore fuori elenco costa una riga di telemetria,
+        // non un onboarding.
+        expect(result.error).toBeUndefined();
+        expect(result.businessId).toBe(FAKE_BUSINESS.id);
+      });
+
+      it("ogni esito scritto appartiene al vocabolario del CHECK 0038", async () => {
+        const { RECORDED_VERIFY_OUTCOMES } =
+          await import("@/lib/ade/verify-outcome");
+        const { AdeAuthError } = await import("@/lib/ade/errors");
+        queueFailedLogin(new AdeAuthError());
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        await verifyAdeCredentials(FAKE_BUSINESS.id);
+
+        // Il CHECK della 0038 rifiuta tutto ciò che non è in elenco: se il
+        // codice scrivesse un valore fuori vocabolario il test unitario
+        // passerebbe e la UPDATE fallirebbe in produzione. Questo lega le due.
+        // Il primo parametro dell'UPDATE è l'esito, il secondo il business.
+        const compiled = await compiledOutcomeWrite();
+        expect(RECORDED_VERIFY_OUTCOMES).toContain(compiled.params[0]);
+      });
     });
   });
 

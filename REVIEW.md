@@ -697,7 +697,7 @@ IS NULL` — che elenca chi è fermo a metà onboarding qualunque sia la causa.
 ### 107. Il 45% di chi inserisce le credenziali AdE non completa l'onboarding
 
 - **Categoria:** prodotto/funnel · **Severità:** Medium — non rompe niente, ma è il collo di bottiglia dell'attivazione
-- **File:** nessuno in particolare; misura su `ade_credentials` + `businesses`
+- **File:** `ade_credentials.last_verify_outcome` (migrazione 0038), `src/lib/ade/verify-outcome.ts`, `getAdminStalledOnboarding` in `src/server/admin-directory.ts`
 
 Misurato il 16/09/2026 in produzione: **10 righe `ade_credentials` su 22** hanno
 `verified_at IS NULL` con `businesses.fiscal_code IS NULL`. Cioè quasi metà di
@@ -705,19 +705,43 @@ chi è arrivato a inserire le credenziali AdE non ha mai completato
 l'onboarding. La più vecchia è del 19/05/2026; quattro di quelle persone hanno
 il trial già scaduto senza aver emesso un solo scontrino.
 
-Una sola è attribuibile con certezza (l'utenza multi-società di
-SCONTRINOZERO-13). Per le altre nove **non sappiamo perché**: credenziali
-sbagliate, abbandono e utenza non supportata finiscono tutte nello stesso stato,
-e Sentry non aiuta (vedi #106). Tre usano CIE.
-
 Era invisibile perché nessuno lo contava: le issue Sentry mostrano gli errori,
 non le persone che si fermano.
 
-**Prima azione, prima di qualsiasi fix:** rendere la causa distinguibile. La
-slice 3 di #106 è il primo passo — `utenza_piva` valorizzata dice "era il caso
-multi-società" — ma per gli altri serve un campo che registri l'esito
-dell'ultimo tentativo, oppure una riga sul pannello `/admin` che mostri il
-conteggio per età. Senza attribuzione, ottimizzare il funnel è indovinare.
+**L'attribuzione adesso c'è.** La prima azione che questa voce chiedeva — «rendere
+la causa distinguibile» prima di qualunque fix — è stata fatta in due pezzi:
+`last_verify_outcome` + `last_verify_at` + `verify_attempts` su `ade_credentials`,
+scritti da un solo punto d'uscita di `verifyAdeCredentials`; e il blocco
+«Onboarding fermi» su `/admin`, con conteggio per fascia d'età e l'elenco
+nominativo di chi è fermo.
+
+Il vocabolario distingue diciassette esiti, ma la distinzione che mancava di
+più è una sola e non è un errore: **`last_verify_at IS NULL` = non ha mai
+premuto Verifica.** Il salvataggio credenziali e la verifica sono due azioni
+separate (`onboarding-form.tsx`, con uno `handleSkipVerify` che porta in
+dashboard senza tentare), quindi «ha mollato prima di provarci» e «ha provato e
+ha sbagliato password» erano lo stesso stato DB. Sono due problemi opposti: il
+primo è un messaggio, il secondo un blocco.
+
+**Cosa resta aperto.**
+
+- **Le 10 righe storiche restano non attribuibili.** Sono marcate
+  `unknown_pre_tracking` dal backfill della 0038: il contatore parte da adesso
+  e non ricostruisce niente. L'unico modo di sapere cosa è successo a quelle
+  persone è scrivergli — l'elenco su `/admin` serve anche a questo.
+- **Il funnel non è stato toccato,** ed è deliberato: ottimizzarlo prima di
+  aver letto il breakdown sarebbe indovinare, che è ciò contro cui questa voce
+  è stata aperta. La prossima azione è **leggere il pannello fra qualche
+  settimana**, non aprire una PR adesso.
+- **Un esito transitorio sovrascrive quello precedente.** Il contratto è
+  «ultimo tentativo», quindi un blip di rete su chi aveva `auth_error` lo
+  maschera. `verify_attempts` limita il danno (chi ha riprovato molte volte si
+  vede lo stesso), e una politica di non-sovrascrittura è complessità che si
+  aggiunge solo se i dati mostrano che serve.
+
+**Trigger di chiusura.** Quando il breakdown su `/admin` ha abbastanza righe da
+indicare una causa dominante, questa voce si chiude e si riapre come finding
+specifico su quella causa.
 
 ### 50. CIE checkpush: rilevamento approvazione "any-change" fragile (falso timeout / falso proceed)
 

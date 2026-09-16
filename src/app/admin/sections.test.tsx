@@ -10,6 +10,7 @@ const {
   mockGetAdminTopMerchants,
   mockGetAdminTrialExpiring,
   mockGetAdminStalePendingKpi,
+  mockGetAdminStalledOnboarding,
   mockGetAdminUserKpis,
 } = vi.hoisted(() => ({
   mockGetAdminDocumentKpis: vi.fn(),
@@ -18,6 +19,7 @@ const {
   mockGetAdminTopMerchants: vi.fn(),
   mockGetAdminTrialExpiring: vi.fn(),
   mockGetAdminStalePendingKpi: vi.fn(),
+  mockGetAdminStalledOnboarding: vi.fn(),
   mockGetAdminUserKpis: vi.fn(),
 }));
 
@@ -37,12 +39,15 @@ vi.mock("@/server/admin-directory", () => ({
   getAdminTrialExpiring: (...args: unknown[]) =>
     mockGetAdminTrialExpiring(...args),
   getAdminPaidUsers: (...args: unknown[]) => mockGetAdminPaidUsers(...args),
+  getAdminStalledOnboarding: (...args: unknown[]) =>
+    mockGetAdminStalledOnboarding(...args),
 }));
 
 import {
   AdminDocumentKpisSection,
   AdminPaidUsersSection,
   AdminRecentProfilesSection,
+  AdminStalledOnboardingSection,
   AdminStalePendingSection,
   AdminTopMerchantsSection,
   AdminTrialExpiringSection,
@@ -77,6 +82,12 @@ beforeEach(() => {
   mockGetAdminRecentProfiles.mockResolvedValue({ rows: [] });
   mockGetAdminTrialExpiring.mockResolvedValue({ rows: [] });
   mockGetAdminPaidUsers.mockResolvedValue({ rows: [] });
+  mockGetAdminStalledOnboarding.mockResolvedValue({
+    stalled: {
+      counts: { total: 0, recent: 0, weeks: 0, stale: 0 },
+      rows: [],
+    },
+  });
 });
 
 describe("propagazione del periodo", () => {
@@ -92,12 +103,16 @@ describe("propagazione del periodo", () => {
     expect(mockGetAdminRecentProfiles).toHaveBeenCalledWith("90d");
   });
 
-  it("non passa nessun range alle due letture ancorate ad adesso", async () => {
+  it("non passa nessun range alle tre letture ancorate ad adesso", async () => {
     await AdminTrialExpiringSection();
     await AdminPaidUsersSection();
+    await AdminStalledOnboardingSection();
 
     expect(mockGetAdminTrialExpiring).toHaveBeenCalledWith();
     expect(mockGetAdminPaidUsers).toHaveBeenCalledWith();
+    // Un onboarding arenato a maggio deve comparire anche col periodo a 7
+    // giorni: filtrarlo sul range nasconderebbe proprio i casi che contano.
+    expect(mockGetAdminStalledOnboarding).toHaveBeenCalledWith();
   });
 });
 
@@ -244,6 +259,42 @@ describe("AdminStalePendingSection", () => {
     mockGetAdminStalePendingKpi.mockResolvedValue({ error: "Query caduta" });
 
     render(await AdminStalePendingSection());
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Query caduta");
+  });
+});
+
+describe("onboarding fermi (REVIEW.md #107)", () => {
+  it("rende la tabella con i conteggi per età", async () => {
+    mockGetAdminStalledOnboarding.mockResolvedValue({
+      stalled: {
+        counts: { total: 10, recent: 2, weeks: 3, stale: 5 },
+        rows: [
+          {
+            name: "Mario Rossi",
+            email: "fermo@example.com",
+            loginMethod: "cie",
+            outcome: "auth_error",
+            attempts: 3,
+            createdAt: "2026-05-19T08:00:00.000Z",
+            lastVerifyAt: "2026-05-19T08:04:00.000Z",
+          },
+        ],
+      },
+    });
+
+    render(await AdminStalledOnboardingSection());
+
+    expect(screen.getByText("Onboarding fermi")).toBeInTheDocument();
+    expect(screen.getByText(/10 fermi in totale/)).toBeInTheDocument();
+    expect(screen.getByText("fermo@example.com")).toBeInTheDocument();
+    expect(screen.getByText("Credenziali rifiutate")).toBeInTheDocument();
+  });
+
+  it("mostra l'avviso di errore quando la lettura degrada", async () => {
+    mockGetAdminStalledOnboarding.mockResolvedValue({ error: "Query caduta" });
+
+    render(await AdminStalledOnboardingSection());
 
     expect(screen.getByRole("alert")).toHaveTextContent("Query caduta");
   });
