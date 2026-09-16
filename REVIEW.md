@@ -585,8 +585,34 @@ prima, senza confrontarla con quella dichiarata in onboarding. Il guard esiste
 
 **Cosa è già stato fatto.** L'errore non è più un `ade_failure`: classe dedicata
 `AdeNoPartitaIvaError`, ramo `ade_user_error` (`warn`, fuori da Sentry) e
-messaggio che non incolpa più le credenziali. Serve un HAR di
-`scelta-utenza-lavoro` per implementare il resto, e non ne abbiamo.
+messaggio che non incolpa più le credenziali.
+
+**Evidenza acquisita (16/09/2026).** La cattura esiste: `HAR.md` #18 documenta il
+wizard completo — `wizardTemplate` senza `PIva` ma con `richiestaIncarichi`,
+i due `procediWizard` e il body di `setUserChoice` per il ramo `incaricato`, che
+è **una forma diversa** da quella `meStesso` (nessun campo `pIva`, `cf` che porta
+la P.IVA della società, più `incaricante` serializzato come stringa JSON). Quindi
+non è un parametro da rendere variabile: sono due body distinti.
+
+Quattro conseguenze di progetto, tutte da decidere prima di scrivere codice:
+
+- `soloPerMe: false` va letto **prima** di offrire "Me stesso": il portale
+  altrimenti risponde `Utenza di lavoro non valida o non autorizzata`.
+- `incarichi[]` non porta le denominazioni, solo le P.IVA. Un elenco leggibile
+  costa una chiamata `procediWizard` per incarico.
+- `dati/fiscali` restituisce l'identità della **società**, quindi l'identity
+  guard confronta già la P.IVA giusta e non va riscritto.
+- `fullTemplate` (`406` senza utenza attiva, `200` con) è una probe gratuita di
+  sessione configurata.
+- Il picker può mostrare le **sole P.IVA**: è quello che fa la tendina del
+  portale. La denominazione si aggiunge dopo la scelta, dalla risposta del
+  secondo `procediWizard`, senza chiamate in più.
+- L'AdE **consente** di cambiare utenza senza re-login. Quindi l'immutabilità
+  della P.IVA su un account è una scelta nostra, non un vincolo esterno: nei
+  messaggi va spiegata come tale, mai attribuita all'Agenzia.
+
+Restano fuori evidenza i rami `delega` e `tutore`, il cambio utenza senza
+re-login e la società cessata: 18.6.
 
 **Trigger di riapertura.** Il downgrade a `warn` spegne l'allarme: il segnale
 resta solo nei Sentry Logs. Cercare periodicamente `ade:wizard_piva_missing` e
