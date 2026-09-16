@@ -70,6 +70,10 @@ const matches = (rule: RuntimeCaching, url: string, sameOrigin: boolean) => {
 
 describe("service worker (src/sw.ts)", () => {
   let options: SerwistOptions;
+  // Vitest 5 azzera i mock prima di ogni test (nuovo default clearMocks):
+  // la call registrata in beforeAll andrebbe persa prima del primo `it`,
+  // quindi il conteggio va catturato subito dopo l'import.
+  let addEventListenersCallCount: number;
 
   // Cerca la regola per handler, non per indice: così i test sul matcher non
   // possono passare per caso pescando una entry di `defaultCache`.
@@ -87,6 +91,7 @@ describe("service worker (src/sw.ts)", () => {
     vi.stubGlobal("self", { __SW_MANIFEST: ["/offline"] });
     await import("./sw");
     options = mockSerwistOptions.mock.calls[0][0] as SerwistOptions;
+    addEventListenersCallCount = mockAddEventListeners.mock.calls.length;
   });
 
   afterAll(() => {
@@ -94,7 +99,7 @@ describe("service worker (src/sw.ts)", () => {
   });
 
   it("registers the service worker event listeners", () => {
-    expect(mockAddEventListeners).toHaveBeenCalledTimes(1);
+    expect(addEventListenersCallCount).toBe(1);
   });
 
   it("passes the injected precache manifest and lifecycle flags", () => {
