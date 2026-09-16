@@ -58,9 +58,9 @@ export interface DenominazioneMismatch {
  * maggioranza degli account per non dire niente di utile.
  */
 export function getDenominazioneMismatch(params: {
-  businessName: string | null | undefined;
-  adeDenominazione: string | null | undefined;
-  utenzaPiva: string | null | undefined;
+  businessName?: string | null;
+  adeDenominazione?: string | null;
+  utenzaPiva?: string | null;
 }): DenominazioneMismatch | null {
   const { businessName, adeDenominazione, utenzaPiva } = params;
 

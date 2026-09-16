@@ -20,11 +20,14 @@ import { AdeIdentityNotice } from "@/components/settings/ade-identity-notice";
  * `business_id`.
  *
  * `getOnboardingStatus` è deduplicata via `react/cache` con quella del layout:
- * non ripaga il round-trip.
+ * non ripaga il round-trip. Da lì arriva anche il gate che rende gratuito il
+ * caso normale: l'avviso può accendersi **solo** per chi ha scelto su quale
+ * P.IVA operare, quindi per tutti gli altri — la stragrande maggioranza — si
+ * esce prima di leggere qualunque cosa, e il costo è zero.
  */
 export async function AdeIdentitySection() {
   const status = await getOnboardingStatus();
-  if (!status.businessId) return null;
+  if (!status.businessId || !status.hasUtenzaPiva) return null;
 
   const { denominazione, sedeLegale } = await loadAdeIdentityMismatches(
     status.businessId,

@@ -48,7 +48,10 @@ const DIVERGENTE = {
 describe("AdeIdentitySection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetOnboardingStatus.mockResolvedValue({ businessId: BIZ });
+    mockGetOnboardingStatus.mockResolvedValue({
+      businessId: BIZ,
+      hasUtenzaPiva: true,
+    });
     mockLoadAdeIdentityMismatches.mockResolvedValue(DIVERGENTE);
   });
 
@@ -76,7 +79,25 @@ describe("AdeIdentitySection", () => {
   // Onboarding a metà: non c'è ancora un business su cui confrontare niente, e
   // soprattutto non si spende una query per scoprirlo.
   it("non legge niente senza un business", async () => {
-    mockGetOnboardingStatus.mockResolvedValue({ businessId: undefined });
+    mockGetOnboardingStatus.mockResolvedValue({
+      businessId: undefined,
+      hasUtenzaPiva: false,
+    });
+
+    const { container } = render(await AdeIdentitySection());
+
+    expect(container).toBeEmptyDOMElement();
+    expect(mockLoadAdeIdentityMismatches).not.toHaveBeenCalled();
+  });
+
+  // Il gate che rende gratuito il caso normale: senza una P.IVA scelta
+  // l'avviso non può accendersi, quindi la lettura mirata non si spende.
+  // È la stragrande maggioranza degli account.
+  it("non spende la query per chi non ha scelto una P.IVA", async () => {
+    mockGetOnboardingStatus.mockResolvedValue({
+      businessId: BIZ,
+      hasUtenzaPiva: false,
+    });
 
     const { container } = render(await AdeIdentitySection());
 

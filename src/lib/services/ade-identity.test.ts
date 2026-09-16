@@ -46,6 +46,37 @@ beforeEach(() => {
   mockSelect.mockReturnValue({ from: mockFrom });
 });
 
+// Contratto condiviso con `readAdeIdentityContext` in profile-actions: una
+// copia sola di "quali colonne servono ai predicati".
+describe("readAdeIdentityRow", () => {
+  it("restituisce la riga letta", async () => {
+    mockLimit.mockResolvedValueOnce([ROW]);
+    const { readAdeIdentityRow } = await import("./ade-identity");
+
+    await expect(readAdeIdentityRow(BUSINESS_ID)).resolves.toEqual(ROW);
+  });
+
+  it("restituisce null, non undefined, quando il business non c'è", async () => {
+    mockLimit.mockResolvedValueOnce([]);
+    const { readAdeIdentityRow } = await import("./ade-identity");
+
+    await expect(readAdeIdentityRow(BUSINESS_ID)).resolves.toBeNull();
+  });
+
+  // Propaga di proposito: come degradare lo decide chi chiama. La server
+  // action deve poter dire all'utente che non ha funzionato; lo shell del
+  // dashboard tace, e infatti lo avvolge in try/catch.
+  it("propaga l'errore DB invece di inghiottirlo", async () => {
+    mockLimit.mockRejectedValueOnce(new Error("statement timeout"));
+    const { readAdeIdentityRow } = await import("./ade-identity");
+
+    await expect(readAdeIdentityRow(BUSINESS_ID)).rejects.toThrow(
+      "statement timeout",
+    );
+    expect(mockLoggerWarn).not.toHaveBeenCalled();
+  });
+});
+
 describe("loadAdeIdentityMismatches", () => {
   it("restituisce i due verdetti dalla riga letta", async () => {
     mockLimit.mockResolvedValueOnce([ROW]);

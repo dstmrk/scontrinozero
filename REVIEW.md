@@ -741,10 +741,19 @@ cache prende il solo `businessId` e fa la sua query mirata
 
 Sta nel layout e non in una pagina per la stessa ragione del banner degli
 scontrini in sospeso: l'esercente deve incontrarlo ovunque stia lavorando,
-cassa compresa. Nel caso normale non rende niente e il costo si ferma a una
-SELECT prefissata `business_id`. La lettura degrada in silenzio (regola 19):
-un throw lì sostituirebbe la cassa con l'error boundary di Next per un avviso
-informativo.
+cassa compresa. La lettura degrada in silenzio (regola 19): un throw lì
+sostituirebbe la cassa con l'error boundary di Next per un avviso informativo.
+
+**Il caso normale non paga niente.** La prima stesura leggeva le tredici
+colonne a ogni render del dashboard per un avviso che quasi nessuno vedrà, ed
+era il costo sbagliato da accettare in silenzio su una PWA dove la performance
+percepita è priorità #1. Il gate era sotto il naso: l'avviso può accendersi
+**solo** se `ade_credentials.utenza_piva` è valorizzata, e `getOnboardingStatus`
+quel LEFT JOIN lo fa già. `hasUtenzaPiva` è quindi un'espressione in più su un
+JOIN esistente — zero righe, zero join, zero query — e chi non ha scelto una
+P.IVA esce prima di leggere qualunque cosa. Regola generale che ne esce: prima
+di accettare una query per un banner raro, cerca il segnale che lo esclude in
+un lettore che gira comunque.
 
 **Cosa resta.**
 
