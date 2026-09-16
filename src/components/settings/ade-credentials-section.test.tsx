@@ -978,3 +978,54 @@ describe("AdeCredentialsSection — denominazione nel picker", () => {
     expect(screen.getByText("22222222222")).toBeInTheDocument();
   });
 });
+
+describe("AdeCredentialsSection — un solo candidato", () => {
+  function renderWithOneChoice() {
+    mockVerifyAdeCredentials.mockResolvedValue({
+      error: "conferma",
+      utenzaChoices: [{ piva: "11111111111", denominazione: "ALFA SRL" }],
+    });
+    render(
+      <AdeCredentialsSection
+        businessId="biz-1"
+        hasCredentials
+        verifiedAt={null}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /verifica|collega/i }));
+  }
+
+  it("chiede di confermare, non di scegliere", async () => {
+    renderWithOneChoice();
+
+    expect(
+      await screen.findByText("Conferma la partita IVA su cui operare"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Scegli la partita IVA su cui operare"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("un clic solo: la riga è già la preselezione", async () => {
+    renderWithOneChoice();
+
+    const confirm = await screen.findByRole("button", { name: "Conferma" });
+    mockVerifyAdeCredentials.mockClear();
+    fireEvent.click(confirm);
+
+    await waitFor(() =>
+      expect(mockVerifyAdeCredentials).toHaveBeenCalledWith(
+        "biz-1",
+        "11111111111",
+      ),
+    );
+  });
+
+  it("l'avviso di irreversibilità resta anche con un candidato solo", async () => {
+    renderWithOneChoice();
+
+    expect(
+      await screen.findByText(/non potrai più cambiarla/i),
+    ).toBeInTheDocument();
+  });
+});
