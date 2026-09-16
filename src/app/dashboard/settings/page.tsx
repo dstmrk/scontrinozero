@@ -135,14 +135,14 @@ export default async function SettingsPage({
       : null;
 
   // Calcolato lato server: il predicato vive in un modulo puro e il client
-  // riceve il verdetto, non i pezzi per ricostruirlo.
-  const denominazioneMismatch = business
-    ? getDenominazioneMismatch({
-        businessName: business.businessName,
-        adeDenominazione: business.adeDenominazione,
-        utenzaPiva: cred?.utenzaPiva,
-      })
-    : null;
+  // riceve il verdetto, non i pezzi per ricostruirlo. Nessun guard su
+  // `business`: senza riga i tre campi arrivano undefined e il predicato
+  // risponde gia' null, quindi la ternaria sarebbe solo complessita' in piu'.
+  const denominazioneMismatch = getDenominazioneMismatch({
+    businessName: business?.businessName,
+    adeDenominazione: business?.adeDenominazione,
+    utenzaPiva: cred?.utenzaPiva,
+  });
 
   const preferredVatLabel =
     business?.preferredVatCode &&

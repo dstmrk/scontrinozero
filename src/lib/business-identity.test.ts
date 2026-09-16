@@ -33,6 +33,18 @@ describe("getDenominazioneMismatch", () => {
     ).toBeNull();
   });
 
+  // Difende la semplificazione al call-site: la pagina impostazioni passa i
+  // tre campi con optional chaining, senza guard sul business.
+  it("non segnala nulla quando non c'è nessun business da leggere", () => {
+    expect(
+      getDenominazioneMismatch({
+        businessName: undefined,
+        adeDenominazione: undefined,
+        utenzaPiva: undefined,
+      }),
+    ).toBeNull();
+  });
+
   it("non segnala nulla senza una denominazione osservata", () => {
     expect(
       getDenominazioneMismatch({
