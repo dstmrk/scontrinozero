@@ -265,15 +265,26 @@ describe("isTransientAdeError", () => {
 
 describe("utenza di lavoro (HAR.md #18)", () => {
   const selection = new AdeUtenzaSelectionRequiredError([
-    { piva: "11111111111", raw: "{}" },
+    { piva: "11111111111" },
   ]);
   const notAvailable = new AdeUtenzaNotAvailableError("11111111111");
 
-  it("il messaggio per la selezione richiesta non promette un picker inesistente", () => {
+  it("con un solo candidato il messaggio chiede di confermare, non si scusa", () => {
     const { message } = getUserFacingAdeErrorMessage(selection, FALLBACK);
-    expect(message).toContain("Le credenziali sono corrette");
-    expect(message).toContain("per conto di altri soggetti");
-    expect(message).toContain("info@scontrinozero.it");
+    // Il picker è renderizzato sotto questo testo: dire "non gestiamo questo
+    // caso" lo contraddirebbe a schermo (è successo fra slice 2 e slice 3).
+    expect(message).toContain("Conferma qui sotto");
+    expect(message).not.toMatch(/non gestisce|non è supportato/i);
+  });
+
+  it("con più candidati il messaggio chiede di scegliere", () => {
+    const many = new AdeUtenzaSelectionRequiredError([
+      { piva: "11111111111" },
+      { piva: "22222222222" },
+    ]);
+    const { message } = getUserFacingAdeErrorMessage(many, FALLBACK);
+    expect(message).toContain("più partite IVA");
+    expect(message).toContain("Scegli qui sotto");
   });
 
   it("il messaggio per l'utenza non più disponibile indirizza al portale AdE", () => {

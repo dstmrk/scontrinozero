@@ -639,22 +639,50 @@ utenza scelta fallisce in silenzio come "credenziali cambiate durante la
 verifica". La suite non poteva prenderla: il DB è mockato e il lock è una
 clausola `where` opaca.
 
+**Slice 4 rilasciata — e il terzo ramo dell'identity guard non serviva.** Era
+tracciato come lavoro da fare: distinguere il mismatch da selezione da quello da
+credenziali altrui. Guardandolo con `utenza_piva` in piedi, è **irraggiungibile**:
+`finalizeAdeVerification` scrive `businesses.vat_number` proprio da ciò a cui
+l'utenza risolve, quindi i due non possono divergere. Costruirlo sarebbe stato
+un ramo per uno stato che non esiste.
+
+Quello che era rotto davvero:
+
+- **Il messaggio contraddiceva il picker.** La slice 3 ha spedito il picker
+  lasciando il testo della slice 2 — «ScontrinoZero non gestisce ancora questo
+  caso, ti aggiorniamo appena è disponibile» — renderizzato _sopra_ il picker
+  che lo gestisce. Ora è un'istruzione: scegli, o conferma se il candidato è
+  uno solo.
+- **Il picker era offerto anche a chi non poteva usarlo.** Su un business già
+  collegato ogni scelta viene rifiutata da `applyUtenzaSelection`: mostrarlo era
+  un vicolo cieco. Quel caso ora dice che la P.IVA collegata non è più
+  raggiungibile con quelle credenziali, che è la sua sostanza.
+- **`PIva[0]` alla cieca.** Con più partite IVA **dirette** ne prendevamo la
+  prima senza chiedere. Ora i due casi multi — più P.IVA proprie, o P.IVA
+  raggiunte per incarico — sono **un caso solo**: stessa lista, stesso picker,
+  stessa colonna. Il client decide da sé quale corpo di `setUserChoice` usare
+  cercando la P.IVA scelta in entrambe le liste, così una P.IVA che l'AdE
+  spostasse fra diretta e incarico non romperebbe nulla.
+- **Anche un solo incarico ora chiede conferma.** La scelta è immutabile alla
+  prima verifica riuscita: legare un account a una società per conto terzi senza
+  che nessuno l'abbia confermata è un errore che si ripara solo aprendo un altro
+  account. Il portale stesso chiede sempre.
+- **La denominazione nel picker, dove esiste.** Le P.IVA dirette la portano, gli
+  incarichi no (`HAR.md` #18.1): il picker mostra il nome quando c'è. Chiude
+  metà del finding "anteprima ragione sociale" — per gli incarichi resta solo il
+  numero, e lì l'unica difesa è l'avviso di irreversibilità.
+
+`AdeUtenza` (union con discriminante) è stata sostituita da una stringa: la
+scelta è "su quale partita IVA operare", e la provenienza la risolve il client.
+Il tipo adesso combacia con la colonna.
+
 **Cosa resta.**
 
-- **Slice 4:** terzo ramo dell'identity guard — distinguere il mismatch da
-  selezione da quello da credenziali altrui, che oggi condividono il messaggio
-  "serve un account separato".
-- **Anteprima della ragione sociale prima di scegliere.** Il picker mostra le
-  sole P.IVA, come la tendina del portale, con un avviso che la scelta è
-  definitiva. La denominazione esiste — è nella risposta del secondo
-  `procediWizard` — ma arriva **dopo** la scelta: mostrarla prima richiede un
-  flusso a due fasi (risolvi, conferma, scrivi) che questa slice non introduce.
-  È la mitigazione naturale dello sbaglio di azienda, oggi coperto solo
-  dall'avviso.
-- **Multi-P.IVA diretto:** con più entry in `PIva` prendiamo ancora la prima
-  senza confrontarla con quella dichiarata in onboarding.
 - **Denominazione non persistita:** `getFiscalData` la restituisce in
   `altriDatiIdentificativi.denominazione` e non la scriviamo da nessuna parte.
+- **Conferma con il nome per gli incarichi:** richiederebbe un flusso a due fasi
+  (risolvi via `procediWizard`, conferma, scrivi), una chiamata per candidato.
+- **I rami `delega` e `tutore`** restano non osservati (`HAR.md` 18.6).
 
 **Trigger di riapertura — la query Sentry NON funziona.** La versione
 precedente di questa voce diceva di contare `ade:wizard_piva_missing` nei Sentry

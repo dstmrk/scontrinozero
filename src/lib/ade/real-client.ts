@@ -18,7 +18,7 @@ import type {
   AdeResponse,
   AdeIncarico,
   AdeSearchParams,
-  AdeUtenza,
+  AdeUtenzaCandidate,
   CieCredentials,
   FisconlineCredentials,
   SpidCredentials,
@@ -242,7 +242,7 @@ const ADE_TIPO_INCARICANTE = "incaricoDiretto";
 
 /** Shape del body di `wizardTemplate` per le parti che leggiamo (HAR.md #18.1). */
 type WizardTemplateResponse = {
-  PIva?: { piva?: string }[];
+  PIva?: { piva?: string; denominazione?: string }[];
   cfUidUltimo?: string;
   richiestaIncarichi?: {
     incarichi?: { incaricante?: { cf?: string } }[];
@@ -257,6 +257,21 @@ type WizardTemplateResponse = {
  * un ritaglio della response: il portale la rivuole come stringa JSON e ci
  * interessa il contenuto, non la formattazione originale.
  */
+function parseDirectPive(data: WizardTemplateResponse): AdeUtenzaCandidate[] {
+  const entries = data?.PIva;
+  if (!Array.isArray(entries)) return [];
+
+  return entries.flatMap((entry) => {
+    const piva = entry?.piva;
+    if (typeof piva !== "string" || piva.length === 0) return [];
+    return [
+      typeof entry.denominazione === "string" && entry.denominazione.length > 0
+        ? { piva, denominazione: entry.denominazione }
+        : { piva },
+    ];
+  });
+}
+
 function parseIncarichi(data: WizardTemplateResponse): AdeIncarico[] {
   const entries = data?.richiestaIncarichi?.incarichi;
   if (!Array.isArray(entries)) return [];
@@ -405,12 +420,14 @@ export class RealAdeClient implements AdeClient {
   private readonly cookieJar: CookieJar = new CookieJar();
   private credentials: FisconlineCredentials | null = null;
   /**
-   * Utenza di lavoro scelta al login, rigiocata a ogni re-auth su 401. Vive
-   * accanto alle credenziali e non nella sessione perché è un parametro di
-   * **come** ci autentichiamo, non un risultato dell'autenticazione: la
-   * sessione porta già la P.IVA ottenuta.
+   * Partita IVA scelta al login, rigiocata a ogni re-auth su 401. Vive accanto
+   * alle credenziali e non nella sessione perché è un parametro di **come** ci
+   * autentichiamo, non un risultato dell'autenticazione: la sessione porta già
+   * la P.IVA ottenuta. È una stringa e non un tipo con discriminante perché
+   * quale delle due strade seguire — P.IVA diretta o incarico — lo decide il
+   * client cercandola nelle liste vive, non chi chiama.
    */
-  private utenza: AdeUtenza | undefined;
+  private utenzaPiva: string | undefined;
 
   constructor(private readonly options: RealAdeClientOptions = {}) {}
 
@@ -668,7 +685,7 @@ export class RealAdeClient implements AdeClient {
    */
   private async fetchWizardIdentity(xAppl: string): Promise<{
     cf: string | undefined;
-    piva: string | undefined;
+    direct: AdeUtenzaCandidate[];
     incarichi: AdeIncarico[];
   }> {
     const url = `${ADE_BASE_URL}${ADE_INSTR_PATH}/wizardTemplate`;
@@ -684,10 +701,10 @@ export class RealAdeClient implements AdeClient {
     }
 
     const data = (await response.json()) as WizardTemplateResponse;
-    const piva = data?.PIva?.[0]?.piva;
+    const direct = parseDirectPive(data);
     const incarichi = parseIncarichi(data);
 
-    if (!piva) {
+    if (direct.length === 0) {
       // Diagnostica struttura-only (no PII): distingue "lista PIva vuota" da
       // "entry presente senza piva" da "shape cambiata". REVIEW.md #32: questo
       // throw è arrivato su un 200 senza alcun contesto sulla response.
@@ -706,7 +723,7 @@ export class RealAdeClient implements AdeClient {
 
     // Non lancia: chi chiama sa se una selezione è stata fatta, e solo lì si
     // distingue "niente da scegliere" da "va scelto" (HAR.md #18).
-    return { cf: data?.cfUidUltimo, piva, incarichi };
+    return { cf: data?.cfUidUltimo, direct, incarichi };
   }
 
   /**
@@ -1004,7 +1021,7 @@ export class RealAdeClient implements AdeClient {
   private async completePortalHandshake(opts: {
     knownCf?: string;
     knownPiva?: string;
-    utenza?: AdeUtenza;
+    utenzaPiva?: string;
   }): Promise<AdeSession> {
     await this.initPortale(); // B2: JS-initiated initPortale (setta cookie portale)
     await this.initInstradamento(); // C: instradamento home
@@ -1014,37 +1031,62 @@ export class RealAdeClient implements AdeClient {
     await this.initDataPowerBridge(); // D: DataPower session
     logger.debug({ phase: "D", cookies: this.cookieJar.size }, "ade:auth");
 
-    // Da qui i due rami non condividono più niente: body diversi, campi diversi
-    // e, sul re-auth, anche il diritto di saltare Phase F (HAR.md #18.4).
+    // Fast path storico del re-auth su 401: identità e P.IVA già note e nessuna
+    // scelta da rigiocare → Phase F si salta. Non vale quando una P.IVA è stata
+    // scelta: il payload opaco dell'incarico esiste solo nella lista viva.
+    if (!opts.utenzaPiva && opts.knownCf && opts.knownPiva) {
+      await this.setUserChoiceStep(opts.knownCf, opts.knownPiva, xAppl);
+      return {
+        pAuth: "",
+        partitaIva: opts.knownPiva,
+        createdAt: Date.now(),
+      };
+    }
 
-    // Utenza incaricata: Phase F si rifà sempre, anche al re-auth, perché il
-    // payload opaco dell'incarico esiste solo dentro la lista viva.
-    if (opts.utenza?.tipo === "incaricato") {
-      const { incarichi } = await this.fetchWizardIdentity(xAppl);
+    const identity = await this.fetchWizardIdentity(xAppl);
+    const cf = opts.knownCf ?? identity.cf;
+
+    // Scelta già fatta: la si cerca in ENTRAMBE le liste. Quale delle due la
+    // contenga decide il corpo di `setUserChoice` (HAR.md #18.4), e cercarla
+    // ogni volta invece di ricordarsene la provenienza rende il login immune a
+    // una P.IVA che l'AdE sposta fra diretta e incarico.
+    if (opts.utenzaPiva) {
+      const direct = identity.direct.find((c) => c.piva === opts.utenzaPiva);
+      if (direct) {
+        if (!cf) {
+          throw new AdePortalError(
+            200,
+            "Failed to determine codice fiscale for setUserChoice",
+          );
+        }
+        await this.setUserChoiceStep(cf, direct.piva, xAppl);
+        return { pAuth: "", partitaIva: direct.piva, createdAt: Date.now() };
+      }
+
       const partitaIva = await this.activateIncaricato(
-        opts.utenza.piva,
-        incarichi,
+        opts.utenzaPiva,
+        identity.incarichi,
         xAppl,
       );
       return { pAuth: "", partitaIva, createdAt: Date.now() };
     }
 
-    // Ramo storico: P.IVA intestata a chi accede. Phase F si salta quando
-    // identità e P.IVA sono già note (re-auth su 401).
-    let cf = opts.knownCf;
-    let partitaIva = opts.knownPiva;
-    if (!cf || !partitaIva) {
-      const identity = await this.fetchWizardIdentity(xAppl);
-      cf ??= identity.cf;
-      partitaIva ??= identity.piva;
+    // Nessuna scelta: decidiamo solo quando non c'è niente da decidere.
+    const candidates: AdeUtenzaCandidate[] = [
+      ...identity.direct,
+      ...identity.incarichi.map(({ piva }) => ({ piva })),
+    ];
 
-      if (!partitaIva) {
-        // Nessuna P.IVA diretta: o c'è da scegliere, o non c'è proprio nulla.
-        if (identity.incarichi.length > 0) {
-          throw new AdeUtenzaSelectionRequiredError(identity.incarichi);
-        }
-        throw new AdeNoPartitaIvaError("wizardTemplate");
-      }
+    if (candidates.length === 0) {
+      throw new AdeNoPartitaIvaError("wizardTemplate");
+    }
+
+    // Più di un candidato, oppure l'unica strada è un incarico: sceglie
+    // l'utente. Anche con un solo incarico — la scelta è immutabile alla prima
+    // verifica riuscita, e legare un account a una società per conto terzi
+    // senza conferma è un errore che si ripara solo aprendo un altro account.
+    if (candidates.length > 1 || identity.direct.length === 0) {
+      throw new AdeUtenzaSelectionRequiredError(candidates);
     }
 
     if (!cf) {
@@ -1054,6 +1096,7 @@ export class RealAdeClient implements AdeClient {
       );
     }
 
+    const partitaIva = identity.direct[0].piva;
     await this.setUserChoiceStep(cf, partitaIva, xAppl);
 
     return { pAuth: "", partitaIva, createdAt: Date.now() };
@@ -1068,7 +1111,7 @@ export class RealAdeClient implements AdeClient {
   private async authenticate(
     credentials: FisconlineCredentials,
     knownPartitaIva?: string,
-    utenza?: AdeUtenza,
+    utenzaPiva?: string,
   ): Promise<AdeSession> {
     await this.iampeLogin(credentials); // A: login IAM
     logger.debug({ phase: "A", cookies: this.cookieJar.size }, "ade:auth");
@@ -1078,7 +1121,7 @@ export class RealAdeClient implements AdeClient {
     return this.completePortalHandshake({
       knownCf: credentials.codiceFiscale,
       knownPiva: knownPartitaIva,
-      utenza,
+      utenzaPiva,
     });
   }
 
@@ -1950,7 +1993,7 @@ export class RealAdeClient implements AdeClient {
   /** Full CIE authentication flow. */
   private async authenticateCie(
     credentials: CieCredentials,
-    utenza?: AdeUtenza,
+    utenzaPiva?: string,
   ): Promise<AdeSession> {
     const idpJar = new CookieJar();
 
@@ -1978,7 +2021,7 @@ export class RealAdeClient implements AdeClient {
     await this.cieSubmitSamlResponse(samlResponse, rs2, formAction);
 
     // Coda portale condivisa: CF letto da wizardTemplate (cfUidUltimo).
-    return this.completePortalHandshake({ utenza });
+    return this.completePortalHandshake({ utenzaPiva });
   }
 
   // -----------------------------------------------------------------------
@@ -1987,12 +2030,12 @@ export class RealAdeClient implements AdeClient {
 
   async login(
     credentials: FisconlineCredentials,
-    utenza?: AdeUtenza,
+    utenzaPiva?: string,
   ): Promise<AdeSession> {
     this.credentials = credentials;
-    this.utenza = utenza;
+    this.utenzaPiva = utenzaPiva;
     this.cookieJar.clear();
-    this.session = await this.authenticate(credentials, undefined, utenza);
+    this.session = await this.authenticate(credentials, undefined, utenzaPiva);
     return this.session;
   }
 
@@ -2028,14 +2071,15 @@ export class RealAdeClient implements AdeClient {
 
   async loginCie(
     credentials: CieCredentials,
-    utenza?: AdeUtenza,
+    utenzaPiva?: string,
   ): Promise<AdeSession> {
     // Come SPID: nessun re-auth automatico su 401 (secondo fattore umano).
     this.credentials = null;
     this.cookieJar.clear();
-    // `this.utenza` resta invariata: senza credenziali riusabili non esiste un
-    // re-auth da rigiocare, e la sessione CIE si ricrea solo interattivamente.
-    this.session = await this.authenticateCie(credentials, utenza);
+    // `this.utenzaPiva` resta invariata: senza credenziali riusabili non esiste
+    // un re-auth da rigiocare, e la sessione CIE si ricrea solo
+    // interattivamente.
+    this.session = await this.authenticateCie(credentials, utenzaPiva);
     return this.session;
   }
 
@@ -2306,7 +2350,7 @@ export class RealAdeClient implements AdeClient {
       this.session = await this.authenticate(
         this.credentials,
         knownPiva,
-        this.utenza,
+        this.utenzaPiva,
       );
     } catch {
       throw new AdeSessionExpiredError();

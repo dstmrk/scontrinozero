@@ -1004,7 +1004,7 @@ describe("onboarding-actions", () => {
       expect(mockLogin).not.toHaveBeenCalled();
     });
 
-    it("utenza: la scelta è persistita e passata al client come 'incaricato'", async () => {
+    it("utenza: la scelta è persistita e passata al client", async () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockLimit.mockResolvedValueOnce([queuedCredRow()]);
       mockLogin.mockResolvedValue({});
@@ -1026,10 +1026,7 @@ describe("onboarding-actions", () => {
       expect(mockUpdateSet).toHaveBeenCalledWith(
         expect.objectContaining({ utenzaPiva: "07790350966" }),
       );
-      expect(mockLogin).toHaveBeenCalledWith(expect.anything(), {
-        tipo: "incaricato",
-        piva: "07790350966",
-      });
+      expect(mockLogin).toHaveBeenCalledWith(expect.anything(), "07790350966");
     });
 
     it("utenza: la scrittura rilegge updatedAt, o il lock ottimistico userebbe un valore stantio", async () => {
@@ -1088,10 +1085,54 @@ describe("onboarding-actions", () => {
       const { verifyAdeCredentials } = await import("./onboarding-actions");
       await verifyAdeCredentials("11111111-1111-4111-8111-111111111111");
 
-      expect(mockLogin).toHaveBeenCalledWith(expect.anything(), {
-        tipo: "incaricato",
-        piva: "07790350966",
-      });
+      expect(mockLogin).toHaveBeenCalledWith(expect.anything(), "07790350966");
+    });
+
+    it("utenza: a un business già collegato non si offre un picker che non può usare", async () => {
+      const { AdeUtenzaSelectionRequiredError } =
+        await import("@/lib/ade/errors");
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([queuedCredRow()]);
+      mockLimit.mockResolvedValueOnce([
+        { fiscalCode: "RSSMRA80A01H501U", vatNumber: "12345678901" },
+      ]);
+      mockLogin.mockRejectedValueOnce(
+        new AdeUtenzaSelectionRequiredError([{ piva: "11111111111" }]),
+      );
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
+
+      // Ogni scelta verrebbe rifiutata da applyUtenzaSelection: mostrarla
+      // sarebbe un vicolo cieco.
+      expect(result.utenzaChoices).toBeUndefined();
+      expect(result.error).toContain("non risulta più raggiungibile");
+      expect(result.pivaMismatch).toBe(true);
+    });
+
+    it("utenza: a chi non ha ancora completato l'onboarding il picker si offre", async () => {
+      const { AdeUtenzaSelectionRequiredError } =
+        await import("@/lib/ade/errors");
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([queuedCredRow()]);
+      mockLogin.mockRejectedValueOnce(
+        new AdeUtenzaSelectionRequiredError([
+          { piva: "11111111111", denominazione: "ALFA SRL" },
+          { piva: "22222222222" },
+        ]),
+      );
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+      );
+
+      expect(result.utenzaChoices).toEqual([
+        { piva: "11111111111", denominazione: "ALFA SRL" },
+        { piva: "22222222222", denominazione: undefined },
+      ]);
     });
 
     it("utenza: su un business già onboardato la scelta è rifiutata e non riscritta", async () => {

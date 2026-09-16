@@ -357,7 +357,7 @@ describe("MockAdeClient — utenza di lavoro", () => {
 
     const session = await client.login(
       { codiceFiscale: "RSSMRA80A01H501A", password: "p", pin: "1234" },
-      { tipo: "incaricato", piva: "07790350966" },
+      "07790350966",
     );
 
     expect(session.partitaIva).toBe("07790350966");

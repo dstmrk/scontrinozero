@@ -411,11 +411,15 @@ export type AdeIncarico = {
 };
 
 /**
- * Utenza di lavoro con cui operare dopo il login (HAR.md #18).
+ * Una partita IVA fra cui l'utente può scegliere al primo collegamento.
  *
- * `meStesso` è il caso storico: la P.IVA è intestata a chi accede. `incaricato`
- * copre chi opera per una o più società; la P.IVA identifica quale, e deve
- * comparire fra gli incarichi che il portale offre in quella sessione.
+ * Le due provenienze non sono simmetriche (HAR.md #18.1): le P.IVA **dirette**
+ * (`wizardTemplate.PIva`) portano la denominazione, gli **incarichi**
+ * (`richiestaIncarichi.incarichi[]`) solo il numero. Per chi sceglie la
+ * differenza è invisibile — è sempre "su quale partita IVA voglio operare" — e
+ * quindi il candidato è uno solo, con il nome quando c'è.
  */
-export type AdeUtenza =
-  { tipo: "meStesso" } | { tipo: "incaricato"; piva: string };
+export type AdeUtenzaCandidate = {
+  piva: string;
+  denominazione?: string;
+};

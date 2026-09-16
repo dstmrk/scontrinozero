@@ -19,12 +19,11 @@ type VerifyState =
       pivaConflict?: boolean;
       pivaMismatch?: boolean;
       /**
-       * L'accesso AdE opera per conto di altri soggetti: queste sono le partite
-       * IVA fra cui scegliere (HAR.md #18). Il portale AdE stesso le mostra
-       * nude, senza denominazioni — noi mostriamo la ragione sociale dopo la
-       * scelta, quando la verifica riuscita ce l'ha restituita.
+       * Le partite IVA fra cui scegliere (HAR.md #18). La `denominazione` c'è
+       * solo per quelle intestate a chi accede: per gli incarichi il portale
+       * espone il solo numero, e lì non abbiamo un nome da mostrare.
        */
-      utenzaChoices?: { piva: string }[];
+      utenzaChoices?: { piva: string; denominazione?: string }[];
     };
 
 interface AdeCredentialsSectionProps {
@@ -214,7 +213,18 @@ export function AdeCredentialsSection({
                         key={choice.piva}
                         className="flex flex-wrap items-center justify-between gap-2"
                       >
-                        <span className="font-mono text-sm">{choice.piva}</span>
+                        <span className="text-sm">
+                          {choice.denominazione ? (
+                            <>
+                              {choice.denominazione}{" "}
+                              <span className="text-muted-foreground font-mono">
+                                {choice.piva}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="font-mono">{choice.piva}</span>
+                          )}
+                        </span>
                         <Button
                           type="button"
                           size="sm"
@@ -227,8 +237,7 @@ export function AdeCredentialsSection({
                     ))}
                   </ul>
                   <p className="text-muted-foreground text-xs">
-                    L&apos;Agenzia delle Entrate identifica le aziende solo con
-                    la partita IVA, senza ragione sociale. Controllala bene:{" "}
+                    Controlla bene la partita IVA:{" "}
                     <strong>non potrai più cambiarla</strong>. Per gestirne
                     un&apos;altra servirà un account separato.
                   </p>

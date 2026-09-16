@@ -951,3 +951,30 @@ describe("AdeCredentialsSection — scelta utenza di lavoro (HAR.md #18)", () =>
     ).not.toBeInTheDocument();
   });
 });
+
+describe("AdeCredentialsSection — denominazione nel picker", () => {
+  it("mostra la ragione sociale quando c'è e il solo numero quando manca", async () => {
+    // Asimmetria del portale (HAR.md #18.1): le P.IVA dirette portano la
+    // denominazione, gli incarichi no.
+    mockVerifyAdeCredentials.mockResolvedValue({
+      error: "scegli",
+      utenzaChoices: [
+        { piva: "11111111111", denominazione: "ALFA SRL" },
+        { piva: "22222222222" },
+      ],
+    });
+    render(
+      <AdeCredentialsSection
+        businessId="biz-1"
+        hasCredentials
+        verifiedAt={null}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /verifica|collega/i }));
+
+    expect(await screen.findByText("ALFA SRL")).toBeInTheDocument();
+    expect(screen.getByText("11111111111")).toBeInTheDocument();
+    expect(screen.getByText("22222222222")).toBeInTheDocument();
+  });
+});

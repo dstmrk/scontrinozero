@@ -1,4 +1,4 @@
-import type { AdeIncarico } from "./types";
+import type { AdeUtenzaCandidate } from "./types";
 
 /**
  * Custom error classes for the RealAdeClient.
@@ -128,25 +128,29 @@ export class AdeNoPartitaIvaError extends AdeError {
 }
 
 /**
- * Il login è riuscito e delle partite IVA ci sono, ma sono di soggetti che
- * l'utente **rappresenta**: il portale pretende che se ne scelga una prima di
- * operare (HAR.md #18). Nessuna scelta è stata passata al client, quindi non
- * possiamo decidere noi quale.
+ * Il login è riuscito e delle partite IVA ci sono, ma quale usare non è
+ * determinabile da soli: o ce n'è più d'una, o l'unica strada passa da un
+ * incarico per conto di un altro soggetto (HAR.md #18).
+ *
+ * Perché anche con **un solo** incarico: la scelta diventa immutabile alla
+ * prima verifica riuscita, quindi legare un account a una società senza che
+ * nessuno l'abbia confermato è un errore che si ripara solo aprendo un altro
+ * account. Il portale stesso chiede sempre.
  *
  * Distinta da `AdeNoPartitaIvaError`, che vale quando non c'è proprio niente da
- * scegliere. `incarichi` trasporta la lista perché è quello che serve a chi
+ * scegliere. `candidates` trasporta la lista perché è quello che serve a chi
  * dovrà mostrarla: la classe è il punto di aggancio del picker.
  */
 export class AdeUtenzaSelectionRequiredError extends AdeError {
-  readonly incarichi: AdeIncarico[];
+  readonly candidates: AdeUtenzaCandidate[];
 
-  constructor(incarichi: AdeIncarico[]) {
+  constructor(candidates: AdeUtenzaCandidate[]) {
     super(
       "ADE_UTENZA_SELECTION_REQUIRED",
-      `AdE account operates on behalf of ${incarichi.length} subject(s): a working identity must be selected`,
+      `AdE account can operate on ${candidates.length} VAT number(s): one must be selected`,
     );
     this.name = "AdeUtenzaSelectionRequiredError";
-    this.incarichi = incarichi;
+    this.candidates = candidates;
   }
 }
 
