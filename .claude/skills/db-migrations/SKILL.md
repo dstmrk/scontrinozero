@@ -71,6 +71,38 @@ ALTER TABLE <table>
 fallisce su righe esistenti. Aggiungi prima nullable, backfill, poi migration
 successiva con `ALTER COLUMN SET NOT NULL`.
 
+### Backfill: legalo alla CREAZIONE della colonna, non a `WHERE … IS NULL`
+
+Una migrazione che aggiunge una colonna e ne popola le righe esistenti va
+scritta come **un solo** `DO` block guardato su `information_schema.columns`:
+
+```sql
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = '<tab>' AND column_name = '<col>'
+  ) THEN
+    ALTER TABLE <tab> ADD COLUMN <col> <tipo>;
+    UPDATE <tab> SET <col> = '<valore>' WHERE …;
+  END IF;
+END $$;
+```
+
+Il riflesso sbagliato è `ADD COLUMN IF NOT EXISTS` seguito da un
+`UPDATE … WHERE <col> IS NULL`: sembra idempotente e non lo è, perché al
+secondo passaggio quel `WHERE` non seleziona più le righe storiche — seleziona
+le righe **nuove**, create dopo la migrazione, dove `NULL` ha già un
+significato suo ("mai successo"). Un re-run le marcherebbe come storiche.
+Legando il backfill alla creazione della colonna il problema non si pone per
+costruzione, invece che per disciplina del `WHERE`.
+
+Corollario sul valore scelto: se dopo la migrazione `NULL` deve voler dire
+qualcosa di preciso, le righe preesistenti vanno marcate con un valore
+esplicito (`'unknown_pre_tracking'` e simili) invece di lasciarle NULL. Due
+modi di dire "non lo so" nella stessa colonna rendono inutile ogni `GROUP BY`
+che ci si fa sopra. Esempio in repo: `0038_ade_credentials_verify_outcome.sql`.
+
 ### Bootstrap su DB pre-esistente
 
 Se il DB è stato inizializzato senza il migration runner (drizzle-kit, Supabase

@@ -1,9 +1,9 @@
--- Migration 0039: la sede legale che l'AdE ha registrato sulla partita IVA
--- Feature: estende alla sede legale il confronto che la 0038 ha introdotto
+-- Migration 0040: la sede legale che l'AdE ha registrato sulla partita IVA
+-- Feature: estende alla sede legale il confronto che la 0039 ha introdotto
 -- sulla denominazione.
 -- Evidenza: HAR.md #18.5, REVIEW.md #106.
 --
--- La 0038 ha persistito un campo di `altriDatiIdentificativi`; gli altri cinque
+-- La 0039 ha persistito un campo di `altriDatiIdentificativi`; gli altri cinque
 -- che contano — indirizzo, civico, CAP, comune, provincia — restavano scartati,
 -- ed erano esattamente lo stesso difetto. `buildCedenteFromBusiness` manda
 -- all'AdE l'indirizzo digitato dall'utente al primo passo dell'onboarding, con
@@ -17,7 +17,7 @@
 -- divergente?") senza operatori JSON, e non introducono un secondo modo di
 -- rappresentare un indirizzo nella stessa tabella.
 --
--- Nessun CHECK, per lo stesso motivo della 0038: le scrive l'AdE, di cui non
+-- Nessun CHECK, per lo stesso motivo della 0039: le scrive l'AdE, di cui non
 -- conosciamo i limiti, e un vincolo violato abortirebbe la transazione di
 -- `finalizeAdeVerification` — che porta con se' `verified_at`, P.IVA, codice
 -- fiscale e il claim del trial. Un indirizzo lungo farebbe fallire l'intero

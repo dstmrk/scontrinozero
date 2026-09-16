@@ -5,6 +5,7 @@ import { AdminRangeTabs } from "@/components/admin/admin-range-tabs";
 import {
   AdminPaidUsersSkeleton,
   AdminRecentProfilesSkeleton,
+  AdminStalledOnboardingSkeleton,
   AdminTopMerchantsSkeleton,
   AdminTrialExpiringSkeleton,
 } from "@/components/admin/admin-directory-tables";
@@ -18,6 +19,7 @@ import {
   AdminPaidUsersSection,
   AdminRecentProfilesSection,
   AdminStalePendingSection,
+  AdminStalledOnboardingSection,
   AdminTopMerchantsSection,
   AdminTrialExpiringSection,
   AdminUserKpisSection,
@@ -32,17 +34,17 @@ import {
  * valore ignoto ricade sul default invece di lanciare (regola 19).
  *
  * **La pagina non aspetta nessuna query.** Il guscio — selettore di periodo e
- * scheletri — esce subito; le sette letture stanno dietro ad altrettanti
+ * scheletri — esce subito; le otto letture stanno dietro ad altrettanti
  * `<Suspense>` e Next manda in streaming ogni blocco appena la sua query
  * risponde. Prima era un solo `await Promise.all(...)` in cima: nessun byte
  * di HTML partiva finché non c'era l'ultimo dato, e la scansione dello storico
  * scontrini si portava dietro anche le card che erano pronte da un pezzo.
  *
- * **Il tetto sul pool viene prima della velocità del pannello.** Le sette letture
+ * **Il tetto sul pool viene prima della velocità del pannello.** Le otto letture
  * NON girano in parallelo: `runAdminRead` (`src/server/admin-sql.ts`) ne lascia
  * passare una per volta, così `/admin` non può mai togliere più di una
  * connessione delle dieci che servono la cassa. Il tempo totale resta quindi la
- * somma delle sette query; quello che cambia è che si vede
+ * somma delle otto query; quello che cambia è che si vede
  * arrivare il pannello un pezzo alla volta invece di fissare una pagina bianca.
  *
  * Corollario: l'ordine dei `<Suspense>` qui sotto è l'ordine della coda. In
@@ -61,13 +63,14 @@ export const metadata: Metadata = {
  * dell'analytics esercente (`DEFAULT_ANALYTICS_RANGE`, 30 giorni), che resta
  * intoccato: è un piano a pagamento e non si sposta di sotto ai clienti.
  *
- * Sette giorni perché due delle sette letture — classifiche esercenti e
+ * Sette giorni perché due delle otto letture — classifiche esercenti e
  * registrati di recente — filtrano davvero su `created_at >= rangeStart`, e
- * lì un quarto del periodo è un quarto delle righe da aggregare. Le altre
- * quattro non ne beneficiano: la query scontrini legge `created_at < rangeEnd`,
- * cioè tutto lo storico a prescindere, trial/paganti non guardano il range e il
- * rilevatore dei documenti in sospeso non lo guarda per scelta (un orfano di
- * tre settimane fa è proprio quello che interessa vedere).
+ * lì un quarto del periodo è un quarto delle righe da aggregare. Le altre sei
+ * non ne beneficiano: la query scontrini legge `created_at < rangeEnd`,
+ * cioè tutto lo storico a prescindere, trial/paganti non guardano il range, e
+ * il rilevatore dei documenti in sospeso e gli onboarding fermi non lo guardano
+ * per scelta (un orfano di tre settimane fa, o un onboarding arenato a maggio,
+ * sono proprio quello che interessa vedere).
  */
 const DEFAULT_ADMIN_RANGE: AnalyticsRange = "7d";
 
@@ -126,6 +129,14 @@ export default async function AdminPage({
       </div>
 
       <div className="space-y-4">
+        {/* Primo fra le tabelle perché è il collo di bottiglia
+            dell'attivazione (REVIEW.md #107): quasi metà di chi arriva a
+            inserire le credenziali AdE non completa l'onboarding, e prima di
+            questa tabella nessuno lo contava. Le classifiche esercenti si
+            guardano, questa chiede cosa fare. */}
+        <Suspense fallback={<AdminStalledOnboardingSkeleton />}>
+          <AdminStalledOnboardingSection />
+        </Suspense>
         <Suspense fallback={<AdminTopMerchantsSkeleton />}>
           <AdminTopMerchantsSection range={range} />
         </Suspense>

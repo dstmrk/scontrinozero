@@ -387,7 +387,7 @@ describe("SettingsPage — avviso sulla ragione sociale", () => {
     );
   });
 
-  // Migrazione 0039. La sede legale ha lo stesso gate ma è indipendente: il
+  // Migrazione 0040. La sede legale ha lo stesso gate ma è indipendente: il
   // nome può coincidere e l'indirizzo no, e viceversa.
   it("segnala l'indirizzo divergente anche col nome allineato", async () => {
     installDbFixtures({

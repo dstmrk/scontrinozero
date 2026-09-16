@@ -1,4 +1,4 @@
--- Migration 0038: la denominazione che l'AdE ha registrato sulla partita IVA
+-- Migration 0039: la denominazione che l'AdE ha registrato sulla partita IVA
 -- Feature: rendere visibile il disallineamento fra il nome stampato sullo
 -- scontrino e quello dell'intestatario reale della P.IVA.
 -- Evidenza: HAR.md #18.3 e #18.5, REVIEW.md #106.

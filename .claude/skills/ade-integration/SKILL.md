@@ -239,9 +239,9 @@ Due conseguenze permanenti:
 
 - **Prima di dire che un dato del cedente non ce l'abbiamo, guarda cosa
   risponde `dati/fiscali`.** Di quella risposta persistiamo P.IVA e codice
-  fiscale, la denominazione in `businesses.ade_denominazione` (0038) e la sede
+  fiscale, la denominazione in `businesses.ade_denominazione` (0039) e la sede
   legale nelle cinque colonne `ade_indirizzo`/`ade_numero_civico`/`ade_cap`/
-  `ade_comune`/`ade_provincia` (0039). Quel che resta fuori — `nome`,
+  `ade_comune`/`ade_provincia` (0040). Quel che resta fuori — `nome`,
   `cognome`, `nazione`, `defAliquotaIVA` — lo scartiamo, il che è una scelta,
   non un'assenza.
 - **Il valore osservato dall'AdE non si riscrive addosso a quello scelto

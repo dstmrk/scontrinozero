@@ -86,7 +86,7 @@ export function getDenominazioneMismatch(params: {
 }
 
 // ---------------------------------------------------------------------------
-// Sede legale (migration 0039)
+// Sede legale (migration 0040)
 // ---------------------------------------------------------------------------
 
 /** La sede legale come la risponde l'AdE in `altriDatiIdentificativi`. */

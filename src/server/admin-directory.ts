@@ -78,6 +78,48 @@ export type AdminPaidUserRow = {
   readonly planActivatedAt: string | null;
 };
 
+export type AdminStalledOnboardingRow = {
+  readonly name: string | null;
+  readonly email: string;
+  /** `fisconline` | `cie` | `spid` — la causa cambia col metodo d'accesso. */
+  readonly loginMethod: string;
+  /**
+   * `last_verify_outcome`, o `null` per chi non ha MAI premuto Verifica —
+   * che è un esito a sua volta, ed è il più interessante (REVIEW.md #107).
+   */
+  readonly outcome: string | null;
+  readonly attempts: number;
+  /** ISO 8601. Quando ha salvato le credenziali, cioè da quanto è fermo. */
+  readonly createdAt: string;
+  /** ISO 8601, o null se non ha mai tentato. */
+  readonly lastVerifyAt: string | null;
+};
+
+/**
+ * Conteggi per fascia d'età sull'INTERA popolazione ferma, non solo sulle
+ * righe elencate: l'elenco è tagliato a `LIST_LIMIT`, questi no.
+ *
+ * L'età è la metà della diagnosi che l'esito non dà: fermo da tre giorni è
+ * qualcuno che sta ancora decidendo, fermo da quattro mesi è un account morto.
+ */
+export type AdminStalledOnboardingCounts = {
+  readonly total: number;
+  /** Fermi da meno di 7 giorni. */
+  readonly recent: number;
+  /** Fermi da 7 a 30 giorni. */
+  readonly weeks: number;
+  /** Fermi da oltre 30 giorni. */
+  readonly stale: number;
+};
+
+export type AdminStalledOnboarding = {
+  readonly counts: AdminStalledOnboardingCounts;
+  readonly rows: readonly AdminStalledOnboardingRow[];
+};
+
+export type AdminStalledOnboardingResult =
+  { stalled: AdminStalledOnboarding } | { error: string };
+
 /** Le due classifiche escono dalla stessa query: si ordinano sullo stesso CTE. */
 export type AdminTopMerchants = {
   readonly byReceipts: readonly AdminMerchant[];
@@ -106,6 +148,8 @@ const PROFILES_LOAD_ERROR =
   "Impossibile caricare i registrati di recente. Riprova tra qualche istante.";
 const TRIALS_LOAD_ERROR =
   "Impossibile caricare i trial in scadenza. Riprova tra qualche istante.";
+const STALLED_LOAD_ERROR =
+  "Impossibile caricare gli onboarding fermi. Riprova tra qualche istante.";
 const PAID_USERS_LOAD_ERROR =
   "Impossibile caricare gli utenti paganti. Riprova tra qualche istante.";
 
@@ -447,5 +491,119 @@ export async function getAdminPaidUsers(): Promise<AdminPaidUsersResult> {
   } catch {
     logDirectoryFailure("paid", null);
     return { error: PAID_USERS_LOAD_ERROR };
+  }
+}
+
+/**
+ * Chi ha inserito le credenziali AdE e non ha mai completato l'onboarding, con
+ * l'esito dell'ultimo tentativo e da quanto è fermo (REVIEW.md #107).
+ *
+ * **La definizione di "fermo" è quella deterministica**: `verified_at IS NULL`
+ * su `ade_credentials` più `fiscal_code IS NULL` su `businesses`. È la stessa
+ * query con cui il finding è stato misurato (10 righe su 22 il 16/09/2026), e
+ * sta qui perché i Sentry Logs campionano e scartano — un conteggio preso da
+ * lì non regge (REVIEW.md #106).
+ *
+ * **Non prende un range**, come `getAdminTrialExpiring`: la domanda è "chi è
+ * fermo adesso", e chi si è arenato a maggio deve comparire anche guardando
+ * gli ultimi sette giorni. Anzi, è proprio quello il caso interessante.
+ *
+ * **Ordinati dal più vecchio.** Le altre tabelle mostrano il più recente per
+ * primo perché rispondono a "cosa è successo"; questa risponde a "chi ho
+ * perso", e il fondo della lista è dove stanno le persone il cui trial è
+ * scaduto senza un solo scontrino.
+ *
+ * Conteggi e righe in UNA query: i primi sull'intera popolazione, le seconde
+ * tagliate a `LIST_LIMIT`. Separarle darebbe due fotografie di istanti diversi
+ * per un totale che deve tornare con l'elenco che ha sotto.
+ *
+ * Degrada a `{ error }` su qualunque fallimento DB (regola 19).
+ */
+export async function getAdminStalledOnboarding(): Promise<AdminStalledOnboardingResult> {
+  try {
+    const [row] = await runAdminRead(async (tx) => {
+      return (await tx.execute(sql`
+      WITH stalled AS (
+        SELECT
+          ${fullNameSql}        AS name,
+          p.email               AS email,
+          c.login_method        AS login_method,
+          c.last_verify_outcome AS outcome,
+          c.verify_attempts     AS attempts,
+          c.created_at          AS created_at,
+          c.last_verify_at      AS last_verify_at
+        FROM ade_credentials c
+        JOIN businesses b ON b.id = c.business_id
+        JOIN profiles   p ON p.id = b.profile_id
+        WHERE c.verified_at IS NULL
+          AND b.fiscal_code IS NULL
+      ),
+      counts AS (
+        SELECT
+          count(*)::bigint AS total,
+          count(*) FILTER (
+            WHERE created_at >= now() - interval '7 days'
+          )::bigint AS recent,
+          count(*) FILTER (
+            WHERE created_at <  now() - interval '7 days'
+              AND created_at >= now() - interval '30 days'
+          )::bigint AS weeks,
+          count(*) FILTER (
+            WHERE created_at < now() - interval '30 days'
+          )::bigint AS stale
+        FROM stalled
+      ),
+      listed AS (
+        SELECT coalesce(
+          json_agg(
+            json_build_object(
+              'name', name,
+              'email', email,
+              'login_method', login_method,
+              'outcome', outcome,
+              'attempts', attempts,
+              'created_at', created_at,
+              'last_verify_at', last_verify_at
+            )
+            ORDER BY created_at ASC
+          ),
+          '[]'::json
+        ) AS rows
+        FROM (
+          SELECT * FROM stalled ORDER BY created_at ASC LIMIT ${LIST_LIMIT}
+        ) t
+      )
+      SELECT counts.total, counts.recent, counts.weeks, counts.stale, listed.rows
+      FROM counts, listed
+    `)) as unknown as RawRow[];
+    });
+
+    if (!row) {
+      logDirectoryFailure("stalled_onboarding", null);
+      return { error: STALLED_LOAD_ERROR };
+    }
+
+    return {
+      stalled: {
+        counts: {
+          total: toNumber(row.total),
+          recent: toNumber(row.recent),
+          weeks: toNumber(row.weeks),
+          stale: toNumber(row.stale),
+        },
+        rows: toRows(row.rows).map((stalledRow) => ({
+          name: toNullableText(stalledRow.name),
+          email: toText(stalledRow.email),
+          loginMethod: toText(stalledRow.login_method),
+          outcome: toNullableText(stalledRow.outcome),
+          attempts: toNumber(stalledRow.attempts),
+          createdAt: toText(stalledRow.created_at),
+          lastVerifyAt: toNullableText(stalledRow.last_verify_at),
+        })),
+      },
+    };
+  } catch {
+    logDirectoryFailure("stalled_onboarding", null);
+    return { error: STALLED_LOAD_ERROR };
   }
 }

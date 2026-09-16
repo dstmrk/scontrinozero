@@ -910,7 +910,7 @@ describe("profile-actions", () => {
     utenzaPiva: "07790350966",
   };
 
-  // REVIEW.md #106, migrazione 0039. Stesso difetto della denominazione sulle
+  // REVIEW.md #106, migrazione 0040. Stesso difetto della denominazione sulle
   // cinque colonne dell'indirizzo, con un'asimmetria: divergere qui è spesso
   // legittimo (sede legale del commercialista, punto vendita altrove).
   describe("applyAdeSedeLegale", () => {

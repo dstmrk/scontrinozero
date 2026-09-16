@@ -32,6 +32,10 @@ import {
   AdeUtenzaSelectionRequiredError,
 } from "@/lib/ade/errors";
 import { getUserFacingAdeErrorMessage } from "@/lib/ade/error-messages";
+import {
+  classifyAdeLoginFailure,
+  type RecordedVerifyOutcome,
+} from "@/lib/ade/verify-outcome";
 import type { AdeLoginMethod } from "@/lib/ade/types";
 import { logAdeFailure } from "@/lib/ade/log-failure";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
@@ -521,7 +525,7 @@ function checkAdeIdentityGuard(
   fiscalData: {
     identificativiFiscali: { partitaIva: string; codiceFiscale: string };
   } | null,
-): OnboardingActionResult | null {
+): VerifyStep | null {
   if (!wasAlreadyOnboarded) return null;
 
   if (!fiscalData) {
@@ -533,8 +537,11 @@ function checkAdeIdentityGuard(
       "verifyAdeCredentials: identità fiscale non confermabile (getFiscalData fallito) su business già onboardato",
     );
     return {
-      error:
-        "Non è stato possibile confermare la connessione con l'Agenzia delle Entrate. Riprova tra qualche istante.",
+      result: {
+        error:
+          "Non è stato possibile confermare la connessione con l'Agenzia delle Entrate. Riprova tra qualche istante.",
+      },
+      outcome: "identity_unconfirmed",
     };
   }
 
@@ -558,9 +565,12 @@ function checkAdeIdentityGuard(
     "verifyAdeCredentials: credenziali associate a una P.IVA diversa da quella registrata",
   );
   return {
-    error:
-      "Queste credenziali Fisconline appartengono a una partita IVA diversa da quella registrata sul tuo account. Per gestire un'altra partita IVA è necessario un account separato.",
-    pivaMismatch: true,
+    result: {
+      error:
+        "Queste credenziali Fisconline appartengono a una partita IVA diversa da quella registrata sul tuo account. Per gestire un'altra partita IVA è necessario un account separato.",
+      pivaMismatch: true,
+    },
+    outcome: "piva_mismatch",
   };
 }
 
@@ -584,7 +594,7 @@ function checkAdeIdentityGuard(
  * stata riscritta.
  *
  * Ritorna anche `credentialVersion`: la UPDATE fa scattare `$onUpdate` su
- * `updatedAt`, che e' la versione su cui `finalizeAdeVerification` monta il
+ * `updatedAt`, che è la versione su cui `finalizeAdeVerification` monta il
  * lock ottimistico. Senza rileggerla, il lock userebbe lo snapshot
  * pre-scrittura, matcherebbe zero righe e OGNI verifica con utenza scelta
  * fallirebbe in silenzio come "credenziali cambiate durante la verifica".
@@ -596,7 +606,7 @@ async function applyUtenzaSelection(params: {
   requested: string | undefined;
   wasAlreadyOnboarded: boolean;
 }): Promise<
-  | { error: string }
+  | { error: string; outcome: RecordedVerifyOutcome }
   | { utenzaPiva: string | null; credentialVersion: Date | null }
 > {
   const { db, businessId, storedUtenzaPiva, requested, wasAlreadyOnboarded } =
@@ -608,7 +618,7 @@ async function applyUtenzaSelection(params: {
 
   // Boundary (regola 9): il CHECK della migrazione 0037 vuole 11 cifre.
   if (!/^\d{11}$/.test(requested)) {
-    return { error: "Partita IVA non valida." };
+    return { error: "Partita IVA non valida.", outcome: "invalid_utenza_piva" };
   }
 
   if (wasAlreadyOnboarded) {
@@ -619,6 +629,7 @@ async function applyUtenzaSelection(params: {
     return {
       error:
         "La partita IVA di questo account è già stata collegata e non può essere cambiata. Per gestirne un'altra serve un account separato.",
+      outcome: "utenza_locked",
     };
   }
 
@@ -714,7 +725,7 @@ async function finalizeAdeVerification(params: {
     // toccato: allinearlo e' un'azione esplicita dell'esercente
     // (applyAdeDenominazione), perche' per una ditta individuale l'insegna
     // diverge legittimamente dalla denominazione anagrafica.
-    // Stessa cosa per la sede legale (migrazione 0039): osservata, non
+    // Stessa cosa per la sede legale (migrazione 0040): osservata, non
     // stampata. Le cinque colonne viaggiano con la denominazione perche'
     // descrivono la stessa identita' alla stessa data — leggerne una sola
     // aggiornata e le altre no non avrebbe senso.
@@ -858,11 +869,58 @@ async function finalizeAdeVerification(params: {
   return { credentialsChanged, trialAlreadyUsed };
 }
 
+/** Esito + risposta alla UI: ogni uscita della verifica produce entrambi. */
+type VerifyStep = {
+  result: OnboardingActionResult;
+  outcome: RecordedVerifyOutcome;
+};
+
+/**
+ * Scrive l'esito sulla riga credenziali. Best-effort per costruzione: la
+ * telemetria non può far fallire un collegamento riuscito, quindi un errore
+ * qui si logga e basta. È anche ciò che rende sicuro il CHECK della 0038 —
+ * un valore fuori vocabolario costa una riga di telemetria, non un onboarding.
+ *
+ * **SQL raw, e non `db.update(adeCredentials).set({...})`.** Il costruttore
+ * Drizzle farebbe scattare `$onUpdate` su `updatedAt`, che è la versione su
+ * cui `finalizeAdeVerification` monta il lock ottimistico: una verifica
+ * concorrente vedrebbe "credenziali cambiate durante la verifica" per colpa di
+ * una scrittura di telemetria. Qui si toccano le tre colonne dell'esito e
+ * nient'altro.
+ *
+ * Il timestamp lo mette Postgres con `now()`: dentro un template `sql` Drizzle
+ * non ha il column-type context per bindare una JS `Date` e postgres-js
+ * crasherebbe in `Buffer.byteLength` (skill `db-migrations`).
+ */
+async function recordVerifyOutcome(
+  db: ReturnType<typeof getDb>,
+  businessId: string,
+  outcome: RecordedVerifyOutcome,
+): Promise<void> {
+  try {
+    await db.execute(sql`
+      UPDATE ade_credentials
+         SET last_verify_outcome = ${outcome},
+             last_verify_at = now(),
+             verify_attempts = verify_attempts + 1
+       WHERE business_id = ${businessId}::uuid
+    `);
+  } catch (err) {
+    // Regola 20: non è un bug nostro nel senso che conta per l'utente, e non
+    // deve generare un'issue per una riga di telemetria persa.
+    logger.warn(
+      { err, businessId, outcome, errorClass: "ade_verify_outcome_write" },
+      "verifyAdeCredentials: esito non registrato",
+    );
+  }
+}
+
 /**
  * Esegue il login AdE per la verifica credenziali e traduce gli errori in un
- * OnboardingActionResult pronto da restituire al client. Ritorna `null` quando
- * il login ha successo. Estratto da verifyAdeCredentials per tenerne sotto
- * controllo la Cognitive Complexity (SonarCloud).
+ * `VerifyStep` — la risposta pronta per il client, più l'esito da registrare
+ * sulla riga. Ritorna `null` quando il login ha successo. Estratto da
+ * verifyAdeCredentials per tenerne sotto controllo la Cognitive Complexity
+ * (SonarCloud).
  */
 async function attemptAdeLoginForVerification(
   doLogin: () => Promise<unknown>,
@@ -873,7 +931,7 @@ async function attemptAdeLoginForVerification(
     method: AdeLoginMethod;
     wasAlreadyOnboarded: boolean;
   },
-): Promise<OnboardingActionResult | null> {
+): Promise<VerifyStep | null> {
   try {
     await doLogin();
     return null;
@@ -881,8 +939,11 @@ async function attemptAdeLoginForVerification(
     if (err instanceof AdePasswordExpiredError) {
       logger.warn({ businessId }, "AdE password scaduta durante verifica");
       return {
-        error: "La password Fisconline è scaduta.",
-        passwordExpired: true,
+        result: {
+          error: "La password Fisconline è scaduta.",
+          passwordExpired: true,
+        },
+        outcome: "password_expired",
       };
     }
     logAdeFailure(
@@ -904,21 +965,30 @@ async function attemptAdeLoginForVerification(
     if (err instanceof AdeUtenzaSelectionRequiredError) {
       if (opts.wasAlreadyOnboarded) {
         return {
-          error:
-            "La partita IVA collegata a questo account non risulta più raggiungibile con queste credenziali. Verifica le abilitazioni sul portale Agenzia delle Entrate.",
-          pivaMismatch: true,
+          result: {
+            error:
+              "La partita IVA collegata a questo account non risulta più raggiungibile con queste credenziali. Verifica le abilitazioni sul portale Agenzia delle Entrate.",
+            pivaMismatch: true,
+          },
+          // NON `utenza_selection_required`: qui il picker non viene offerto, e
+          // la sostanza è che le P.IVA di queste credenziali non comprendono
+          // più quella collegata — cioè AdeUtenzaNotAvailableError.
+          outcome: "utenza_not_available",
         };
       }
       return {
-        error: getUserFacingAdeErrorMessage(
-          err,
-          opts.defaultMessage,
-          opts.method,
-        ).message,
-        utenzaChoices: err.candidates.map(({ piva, denominazione }) => ({
-          piva,
-          denominazione,
-        })),
+        result: {
+          error: getUserFacingAdeErrorMessage(
+            err,
+            opts.defaultMessage,
+            opts.method,
+          ).message,
+          utenzaChoices: err.candidates.map(({ piva, denominazione }) => ({
+            piva,
+            denominazione,
+          })),
+        },
+        outcome: "utenza_selection_required",
       };
     }
     const userFacing = getUserFacingAdeErrorMessage(
@@ -927,8 +997,11 @@ async function attemptAdeLoginForVerification(
       opts.method,
     );
     return {
-      error: userFacing.message,
-      ...(userFacing.passwordExpired ? { passwordExpired: true } : {}),
+      result: {
+        error: userFacing.message,
+        ...(userFacing.passwordExpired ? { passwordExpired: true } : {}),
+      },
+      outcome: classifyAdeLoginFailure(err),
     };
   }
 }
@@ -1121,6 +1194,8 @@ export async function verifyAdeCredentials(
     .limit(1);
 
   if (!cred) {
+    // Nessuna riga su cui registrare un esito: l'uscita precede la telemetria
+    // per costruzione, non per scelta.
     return { error: "Credenziali non trovate." };
   }
 
@@ -1142,15 +1217,70 @@ export async function verifyAdeCredentials(
     .limit(1);
   const wasAlreadyOnboarded = Boolean(businessSnapshot?.fiscalCode);
 
+  const { result, outcome } = await runAdeVerification({
+    db,
+    businessId,
+    user,
+    cred,
+    requestedUtenzaPiva: utenzaPiva,
+    businessSnapshot,
+    wasAlreadyOnboarded,
+  });
+
+  // Un solo punto di scrittura, dopo ogni ramo d'uscita. Spargere la chiamata
+  // sui dodici `return` di `runAdeVerification` avrebbe garantito che prima o
+  // poi qualcuno ne dimenticasse uno, e un buco nell'attribuzione è
+  // indistinguibile da un "mai tentato" (REVIEW.md #107).
+  await recordVerifyOutcome(db, businessId, outcome);
+
+  return result;
+}
+
+/**
+ * Il corpo della verifica AdE, dal primo input al login fino alla
+ * finalizzazione. Ogni uscita porta con sé il proprio esito
+ * (`RecordedVerifyOutcome`), che il chiamante scrive una volta sola.
+ *
+ * Estratta da `verifyAdeCredentials` per questo: il flusso ha una dozzina di
+ * uscite anticipate e la sola forma in cui l'esito non si può dimenticare è
+ * quella in cui il tipo di ritorno lo pretende.
+ *
+ * Restano fuori — sopra, nel chiamante — i gate d'accesso (sessione, UUID,
+ * ownership, rate limit) e la lettura delle credenziali: non sono tentativi di
+ * verifica, e registrarli come tali falserebbe sia l'ultimo esito sia il
+ * contatore.
+ */
+async function runAdeVerification(params: {
+  db: ReturnType<typeof getDb>;
+  businessId: string;
+  user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  cred: typeof adeCredentials.$inferSelect;
+  requestedUtenzaPiva: string | undefined;
+  businessSnapshot:
+    { fiscalCode: string | null; vatNumber: string | null } | undefined;
+  wasAlreadyOnboarded: boolean;
+}): Promise<VerifyStep> {
+  const {
+    db,
+    businessId,
+    user,
+    cred,
+    requestedUtenzaPiva,
+    businessSnapshot,
+    wasAlreadyOnboarded,
+  } = params;
+
   // Scelta dell'utenza di lavoro (HAR.md #18), applicata prima del login.
   const selection = await applyUtenzaSelection({
     db,
     businessId,
     storedUtenzaPiva: cred.utenzaPiva,
-    requested: utenzaPiva,
+    requested: requestedUtenzaPiva,
     wasAlreadyOnboarded,
   });
-  if ("error" in selection) return selection;
+  if ("error" in selection) {
+    return { result: { error: selection.error }, outcome: selection.outcome };
+  }
   const effectiveUtenzaPiva = selection.utenzaPiva;
 
   // Snapshot updatedAt to detect concurrent credential updates (optimistic locking).
@@ -1172,7 +1302,15 @@ export async function verifyAdeCredentials(
     keys,
     effectiveUtenzaPiva ?? undefined,
   );
-  if ("error" in loginPlan) return loginPlan;
+  if ("error" in loginPlan) {
+    // Riga incompleta per il metodo salvato, o `spid` — che la PWA non crea.
+    // È un vicolo cieco silenzioso: senza questa riga chi ci finisce sarebbe
+    // indistinguibile da chi non ha mai premuto Verifica.
+    return {
+      result: { error: loginPlan.error },
+      outcome: "incomplete_credentials",
+    };
+  }
 
   const loginError = await attemptAdeLoginForVerification(
     loginPlan.doLogin,
@@ -1239,8 +1377,11 @@ export async function verifyAdeCredentials(
     if (isUniqueConstraintViolation(err)) {
       logger.warn({ businessId }, "P.IVA già in uso — possibile abuso trial");
       return {
-        error: "Questa P.IVA è già associata a un altro account.",
-        pivaConflict: true,
+        result: {
+          error: "Questa P.IVA è già associata a un altro account.",
+          pivaConflict: true,
+        },
+        outcome: "piva_conflict",
       };
     }
     logger.error(
@@ -1248,8 +1389,11 @@ export async function verifyAdeCredentials(
       "verifyAdeCredentials: finalizzazione DB fallita dopo verifica AdE",
     );
     return {
-      error:
-        "Verifica riuscita ma il salvataggio è fallito. Riprova tra qualche istante.",
+      result: {
+        error:
+          "Verifica riuscita ma il salvataggio è fallito. Riprova tra qualche istante.",
+      },
+      outcome: "finalize_failed",
     };
   }
 
@@ -1261,7 +1405,7 @@ export async function verifyAdeCredentials(
       { businessId },
       "verifyAdeCredentials: credenziali modificate durante verifica, verifiedAt non impostato",
     );
-    return { businessId };
+    return { result: { businessId }, outcome: "credentials_changed" };
   }
 
   // Email di onboarding: idempotency DURABILE sui flag welcome_email_sent_at /
@@ -1282,8 +1426,11 @@ export async function verifyAdeCredentials(
   revalidatePath("/dashboard", "layout");
 
   return {
-    businessId,
-    ...(trialAlreadyUsed ? { trialAlreadyUsed: true } : {}),
+    result: {
+      businessId,
+      ...(trialAlreadyUsed ? { trialAlreadyUsed: true } : {}),
+    },
+    outcome: "success",
   };
 }
 
