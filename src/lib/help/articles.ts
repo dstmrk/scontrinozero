@@ -96,7 +96,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "come-collegare-ade": {
     slug: "come-collegare-ade",
     datePublished: "2026-04-11",
-    dateModified: "2026-07-15",
+    dateModified: "2026-09-16",
     title: "Collegare ScontrinoZero all'Agenzia delle Entrate",
     metaTitle: "Come collegare ScontrinoZero all'Agenzia delle Entrate",
     description:
@@ -136,7 +136,7 @@ export const helpArticles: Record<string, HelpArticle> = {
   "errori-ade": {
     slug: "errori-ade",
     datePublished: "2026-04-16",
-    dateModified: "2026-09-10",
+    dateModified: "2026-09-16",
     title: "Errori comuni di accesso AdE e come risolverli",
     metaTitle: "Password AdE scaduta o accesso bloccato: come risolvere",
     description:

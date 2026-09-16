@@ -94,6 +94,27 @@ export default function ComeCollegareAde() {
           </p>
         </div>
 
+        {/* ─── Più partite IVA sullo stesso accesso ─── */}
+        <div className="bg-muted/50 mt-4 rounded-md p-4 text-sm">
+          <p className="font-medium">Se il tuo accesso ha più partite IVA</p>
+          <p className="text-muted-foreground mt-1 leading-relaxed">
+            {
+              "Capita a chi ne ha più d'una intestata e a chi è incaricato a operare per conto di una o più società: dopo la verifica, ScontrinoZero ti mostra l'elenco e ti chiede su quale vuoi emettere gli scontrini. È lo stesso passaggio che il portale dell'Agenzia chiama «utenza di lavoro». "
+            }
+            <strong>La scelta non è modificabile</strong>
+            {
+              ": da quel momento l'account è legato a quella partita IVA, e per gestirne un'altra serve un account separato. Il dettaglio è in "
+            }
+            <Link
+              href="/help/errori-ade"
+              className="text-primary hover:underline"
+            >
+              errori comuni di accesso AdE
+            </Link>
+            {"."}
+          </p>
+        </div>
+
         {/* ─── Prerequisiti ─── */}
         <h2 className="mt-10 text-xl font-semibold">
           Prima di iniziare: cosa ti serve

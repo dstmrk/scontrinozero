@@ -57,8 +57,13 @@ export function getUserFacingAdeErrorMessage(
     // ("Verifica fallita. Controlla le credenziali") mandava l'utente a
     // riscrivere credenziali già corrette — quattro tentativi in quaranta
     // secondi. Non è method-aware: la causa sta nell'utenza, non nei campi.
+    //
+    // Dopo la slice 4 questo ramo scatta solo a ZERO candidati: né P.IVA
+    // proprie né incarichi. Il testo diceva ancora "l'accesso come incaricato
+    // non è supportato", che da quella slice è falso — chi ha un incarico
+    // riceve il picker, non questo messaggio.
     return {
-      message: `Le credenziali sono corrette, ma su questa utenza dell'Agenzia delle Entrate non risulta nessuna partita IVA. Se è intestata a una società o a un altro soggetto, serve l'utenza di chi la possiede: l'accesso come incaricato o delegato non è supportato. Scrivici a ${CONTACT_EMAIL} se pensi ci sia un errore.`,
+      message: `Le credenziali sono corrette, ma questa utenza dell'Agenzia delle Entrate non ha nessuna partita IVA su cui operare: né una propria, né una per conto di altri soggetti. Controlla di aver inserito le credenziali dell'utenza giusta, o verifica le abilitazioni sul portale. Scrivici a ${CONTACT_EMAIL} se pensi ci sia un errore.`,
     };
   }
   if (err instanceof AdeUtenzaSelectionRequiredError) {
