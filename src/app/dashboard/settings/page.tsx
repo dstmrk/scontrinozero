@@ -18,6 +18,8 @@ import { EditAdeCredentialsSection } from "@/components/settings/edit-ade-creden
 import type { AdeLoginMethod } from "@/lib/ade/types";
 import { EditProfileSection } from "@/components/settings/edit-profile-section";
 import { EditBusinessSection } from "@/components/settings/edit-business-section";
+import { AdeDenominazioneNotice } from "@/components/settings/ade-denominazione-notice";
+import { getDenominazioneMismatch } from "@/lib/business-identity";
 import { ChangePasswordSection } from "@/components/settings/change-password-section";
 import { ThemeSection } from "@/components/settings/theme-section";
 import { PrinterSection } from "@/components/settings/printer-section";
@@ -116,6 +118,10 @@ export default async function SettingsPage({
           .select({
             verifiedAt: adeCredentials.verifiedAt,
             loginMethod: adeCredentials.loginMethod,
+            // NULL = utenza "me stesso". Gate dell'avviso sulla denominazione:
+            // solo chi ha scelto su quale P.IVA operare puo' avere stampato
+            // sullo scontrino il nome di qualcun altro (REVIEW.md #106).
+            utenzaPiva: adeCredentials.utenzaPiva,
           })
           .from(adeCredentials)
           .where(eq(adeCredentials.businessId, business.id))
@@ -127,6 +133,16 @@ export default async function SettingsPage({
     profile?.firstName && profile?.lastName
       ? `${profile.firstName} ${profile.lastName}`
       : null;
+
+  // Calcolato lato server: il predicato vive in un modulo puro e il client
+  // riceve il verdetto, non i pezzi per ricostruirlo.
+  const denominazioneMismatch = business
+    ? getDenominazioneMismatch({
+        businessName: business.businessName,
+        adeDenominazione: business.adeDenominazione,
+        utenzaPiva: cred?.utenzaPiva,
+      })
+    : null;
 
   const preferredVatLabel =
     business?.preferredVatCode &&
@@ -205,6 +221,10 @@ export default async function SettingsPage({
                 />
               </CardHeader>
               <CardContent className="space-y-2">
+                <AdeDenominazioneNotice
+                  businessId={business.id}
+                  mismatch={denominazioneMismatch}
+                />
                 {business.businessName && (
                   <p>
                     <span className="text-muted-foreground">

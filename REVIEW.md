@@ -676,12 +676,51 @@ Quello che era rotto davvero:
 scelta è "su quale partita IVA operare", e la provenienza la risolve il client.
 Il tipo adesso combacia con la colonna.
 
+**Slice 5 rilasciata — la denominazione era il nome sbagliato sullo
+scontrino.** La voce la elencava come "non persistita", cioè un dato buttato.
+Guardandola da vicino era un difetto: `getFiscalData` risponde con l'intero
+cedente/prestatore e ne scrivevamo due campi su sei, mentre
+`buildCedenteFromBusiness` manda all'AdE `businesses.business_name` con
+`modificati: true` — la stringa che l'utente digita al **primo** passo
+dell'onboarding, dove è per giunta facoltativa, prima ancora di sapere su quale
+P.IVA opererà. La stessa stringa finisce su PDF, pagina pubblica `/r/` e
+scontrino termico. Un incaricato poteva quindi emettere con la P.IVA della
+società e il proprio nome sopra, e niente glielo diceva.
+
+Ora `businesses.ade_denominazione` (migrazione 0038) registra ciò che l'AdE ha
+osservato all'ultima verifica riuscita, scritto nella stessa UPDATE degli
+identificativi — stesso lock ottimistico, nessuna traccia da una sessione
+stantia. `business_name` **non** viene toccato: l'allineamento è un bottone in
+impostazioni (`applyAdeDenominazione`), che rilegge il nome dalla colonna e non
+lo accetta dal chiamante.
+
+Due decisioni che la slice ha dovuto prendere, entrambe contro l'istinto:
+
+- **L'avviso tace sulle utenze "me stesso"** (`utenza_piva IS NULL`). Lì
+  un'insegna diversa dalla denominazione anagrafica — "Da Mario" contro "ROSSI
+  MARIO" — è la norma, non un difetto: segnalarla riempirebbe di rumore la
+  stragrande maggioranza degli account per non dire niente. La colonna si
+  popola comunque per tutti, perché il dato osservato serve anche a #107.
+- **Nessun match fuzzy.** Il confronto ignora maiuscole e spazi ripetuti, non
+  la punteggiatura: "ACME S.R.L." e "ACME SRL" si stampano diversi, e quale dei
+  due stampare è una scelta dell'esercente.
+
 **Cosa resta.**
 
-- **Denominazione non persistita:** `getFiscalData` la restituisce in
-  `altriDatiIdentificativi.denominazione` e non la scriviamo da nessuna parte.
+- **L'avviso vive solo in impostazioni.** Chi finisce l'onboarding e va dritto
+  a emettere non lo incontra mai, ed è proprio il momento in cui il nome
+  sbagliato è appena stato digitato. Il punto giusto sarebbe la coda
+  dell'onboarding o la dashboard, che però non legge `businesses` — passa da
+  `getOnboardingStatus`, quindi è un'altra slice, non due righe.
+- **La sede legale ha lo stesso difetto della denominazione.**
+  `altriDatiIdentificativi` porta anche indirizzo, civico, CAP, comune e
+  provincia della società, e li scartiamo allo stesso modo. Stessa meccanica su
+  cinque colonne e un confronto per campo: si affetta a parte, se e quando il
+  disallineamento sull'indirizzo si osserva davvero.
 - **Conferma con il nome per gli incarichi:** richiederebbe un flusso a due fasi
   (risolvi via `procediWizard`, conferma, scrivi), una chiamata per candidato.
+  Vale poco: la tendina del portale mostra anch'essa le sole P.IVA
+  (`HAR.md` 18.5-bis), e il nome adesso compare comunque subito dopo la scelta.
 - **I rami `delega` e `tutore`** restano non osservati (`HAR.md` 18.6).
 
 **Trigger di riapertura — la query Sentry NON funziona.** La versione

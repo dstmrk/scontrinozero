@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { getDb } from "@/db";
-import { profiles, businesses } from "@/db/schema";
+import { profiles, businesses, adeCredentials } from "@/db/schema";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
@@ -32,6 +32,7 @@ import { getClientIp } from "@/lib/get-client-ip";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { isValidUuid } from "@/lib/uuid";
+import { getDenominazioneMismatch } from "@/lib/business-identity";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
 import {
   getFormString,
@@ -270,6 +271,92 @@ export async function updateBusiness(
  * validazione → UPDATE. Il campo vuoto non è un errore: è il modo di togliere
  * il messaggio dagli scontrini, e arriva al DB come NULL.
  */
+/**
+ * Allinea `businesses.business_name` alla denominazione che l'AdE ha
+ * registrato sulla partita IVA su cui si opera (REVIEW.md #106).
+ *
+ * L'unico argomento e' l'id: il nome da scrivere lo rilegge la action dalla
+ * colonna `ade_denominazione`, osservata all'ultima verifica riuscita. Farselo
+ * passare dal client renderebbe questa una scrittura arbitraria di
+ * `business_name` travestita da allineamento — e chiuderebbe gli occhi su una
+ * pagina aperta da un'ora, dove il valore proposto puo' essere gia' vecchio.
+ *
+ * Condivide il rate limit di `updateBusiness` perche' scrive la stessa
+ * colonna: un budget solo per "scritture sulla riga business".
+ */
+export async function applyAdeDenominazione(
+  businessId: string,
+): Promise<ProfileActionResult> {
+  // Sessione assente → degrada a { error } inline (regola 19/20).
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (err) {
+    return authErrorResult(err, "applyAdeDenominazione");
+  }
+
+  // Stesso ordine difensivo di updateBusiness: rate-limit → uuid → ownership.
+  const rateLimitResult = updateBusinessLimiter.check(
+    `updateBusiness:${user.id}`,
+  );
+  if (!rateLimitResult.success) {
+    logger.warn(
+      { userId: user.id },
+      "applyAdeDenominazione rate limit exceeded",
+    );
+    return { error: ERROR_MESSAGES.RATE_LIMIT_AUTH_MINUTES };
+  }
+
+  // Guard UUID (regola 9): evita il 22P02 di Postgres in checkBusinessOwnership.
+  if (!isValidUuid(businessId)) {
+    return { error: "Identificativo non valido." };
+  }
+
+  const ownershipError = await checkBusinessOwnership(user.id, businessId);
+  if (ownershipError) return ownershipError;
+
+  const db = getDb();
+
+  const [row] = await db
+    .select({
+      businessName: businesses.businessName,
+      adeDenominazione: businesses.adeDenominazione,
+      utenzaPiva: adeCredentials.utenzaPiva,
+    })
+    .from(businesses)
+    // LEFT JOIN e non INNER: un business senza riga credenziali non e' un
+    // errore, e' un onboarding a meta'. Arriva qui con utenzaPiva null e viene
+    // respinto dal gate sotto, come un'utenza "me stesso".
+    .leftJoin(adeCredentials, eq(adeCredentials.businessId, businesses.id))
+    .where(eq(businesses.id, businessId))
+    .limit(1);
+
+  if (!row) return { error: ERROR_MESSAGES.GENERIC_TRANSIENT };
+
+  // Stesso predicato del blocco che propone l'azione: la UI puo' essere
+  // stantia (doppio click, altra scheda, allineamento gia' fatto), quindi la
+  // condizione va rivalutata qui sul dato fresco, non data per vera.
+  const mismatch = getDenominazioneMismatch(row);
+
+  if (!mismatch) {
+    return { error: "La ragione sociale è già allineata." };
+  }
+
+  if (mismatch.kind === "non-applicabile") {
+    return {
+      error: `La ragione sociale non può superare ${BUSINESS_PROFILE_LIMITS.businessName} caratteri.`,
+    };
+  }
+
+  await db
+    .update(businesses)
+    .set({ businessName: mismatch.ade })
+    .where(eq(businesses.id, businessId));
+
+  revalidatePath("/dashboard/settings");
+  return {};
+}
+
 export async function updateReceiptFooterNote(
   formData: FormData,
 ): Promise<ProfileActionResult> {

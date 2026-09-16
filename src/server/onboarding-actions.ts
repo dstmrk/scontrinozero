@@ -36,6 +36,7 @@ import type { AdeLoginMethod } from "@/lib/ade/types";
 import { logAdeFailure } from "@/lib/ade/log-failure";
 import { RateLimiter, RATE_LIMIT_WINDOWS } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
+import { normalizeDenominazione } from "@/lib/business-identity";
 import { isValidUuid } from "@/lib/uuid";
 import { sendEmail } from "@/lib/email";
 import { WelcomeEmail } from "@/emails/welcome";
@@ -651,6 +652,7 @@ async function finalizeAdeVerification(params: {
     { fiscalCode: string | null; vatNumber: string | null } | undefined;
   fiscalData: {
     identificativiFiscali: { partitaIva: string; codiceFiscale: string };
+    altriDatiIdentificativi?: { denominazione?: string };
   } | null;
 }): Promise<{ credentialsChanged: boolean; trialAlreadyUsed: boolean }> {
   const {
@@ -697,9 +699,21 @@ async function finalizeAdeVerification(params: {
     const vatNumber = fiscalData.identificativiFiscali.partitaIva;
     const fiscalCode = fiscalData.identificativiFiscali.codiceFiscale;
 
+    // Denominazione registrata sulla P.IVA (REVIEW.md #106). Scritta qui e non
+    // in una UPDATE propria per due motivi: eredita lo stesso lock ottimistico
+    // — una sessione stantia non ne lascia traccia piu' di quanta ne lasci
+    // sugli identificativi — e viaggia con la P.IVA a cui si riferisce, che e'
+    // l'unica combinazione che ha senso leggere. `businessName` NON viene
+    // toccato: allinearlo e' un'azione esplicita dell'esercente
+    // (applyAdeDenominazione), perche' per una ditta individuale l'insegna
+    // diverge legittimamente dalla denominazione anagrafica.
+    const adeDenominazione = normalizeDenominazione(
+      fiscalData.altriDatiIdentificativi?.denominazione,
+    );
+
     await tx
       .update(businesses)
-      .set({ vatNumber, fiscalCode })
+      .set({ vatNumber, fiscalCode, adeDenominazione })
       .where(eq(businesses.id, businessId));
 
     // Primo claim di questa P.IVA da parte del business, vs re-verifica

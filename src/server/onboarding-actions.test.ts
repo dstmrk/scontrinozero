@@ -1029,6 +1029,75 @@ describe("onboarding-actions", () => {
       expect(mockLogin).toHaveBeenCalledWith(expect.anything(), "07790350966");
     });
 
+    // REVIEW.md #106: `dati/fiscali` risponde con l'intero cedente/prestatore,
+    // di cui persistevamo i soli identificativi. La denominazione è il termine
+    // di confronto contro `business_name`, che l'utente digita prima ancora di
+    // scegliere su quale P.IVA opererà.
+    it("denominazione: quella registrata all'AdE è persistita con gli identificativi", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([queuedCredRow()]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "07790350966",
+          codiceFiscale: "07790350966",
+        },
+        altriDatiIdentificativi: { denominazione: "  ACME SRL  " },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+        "07790350966",
+      );
+
+      expect(mockUpdateSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          vatNumber: "07790350966",
+          fiscalCode: "07790350966",
+          adeDenominazione: "ACME SRL",
+        }),
+      );
+    });
+
+    it("denominazione: assente o vuota diventa null, non stringa vuota", async () => {
+      // Le persone fisiche hanno nome/cognome, non una denominazione: l'AdE
+      // risponde con la chiave vuota o senza. Distinguere "mai osservata" da
+      // "osservata vuota" non serve a nessuno, e una stringa vuota in colonna
+      // farebbe scattare un confronto su un valore che non esiste.
+      for (const altriDatiIdentificativi of [
+        { denominazione: "" },
+        { denominazione: "   " },
+        undefined,
+      ]) {
+        mockUpdateSet.mockClear();
+        mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+        mockLimit.mockResolvedValueOnce([queuedCredRow()]);
+        mockLogin.mockResolvedValue({});
+        mockLogout.mockResolvedValue(undefined);
+        mockGetFiscalData.mockResolvedValue({
+          identificativiFiscali: {
+            codicePaese: "IT",
+            partitaIva: "07790350966",
+            codiceFiscale: "07790350966",
+          },
+          altriDatiIdentificativi,
+        });
+
+        const { verifyAdeCredentials } = await import("./onboarding-actions");
+        await verifyAdeCredentials(
+          "11111111-1111-4111-8111-111111111111",
+          "07790350966",
+        );
+
+        expect(mockUpdateSet).toHaveBeenCalledWith(
+          expect.objectContaining({ adeDenominazione: null }),
+        );
+      }
+    });
+
     it("utenza: la scrittura rilegge updatedAt, o il lock ottimistico userebbe un valore stantio", async () => {
       mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
       mockLimit.mockResolvedValueOnce([queuedCredRow()]);

@@ -72,7 +72,15 @@ const mockDbSelectWhere = vi.fn().mockReturnValue({
   limit: mockDbSelectLimit,
   for: mockDbSelectFor,
 });
-const mockDbSelectFrom = vi.fn().mockReturnValue({ where: mockDbSelectWhere });
+// `applyAdeDenominazione` legge businesses LEFT JOIN ade_credentials: la
+// catena deve reggere anche `.from(...).leftJoin(...).where(...)`.
+const mockDbSelectLeftJoin = vi
+  .fn()
+  .mockReturnValue({ where: mockDbSelectWhere });
+const mockDbSelectFrom = vi.fn().mockReturnValue({
+  where: mockDbSelectWhere,
+  leftJoin: mockDbSelectLeftJoin,
+});
 const mockDbSelect = vi.fn().mockReturnValue({ from: mockDbSelectFrom });
 
 vi.mock("@/db", () => ({
@@ -90,6 +98,7 @@ vi.mock("@/db", () => ({
 vi.mock("@/db/schema", () => ({
   profiles: "profiles-table",
   businesses: "businesses-table",
+  adeCredentials: "ade-credentials-table",
 }));
 
 vi.mock("drizzle-orm", () => ({ eq: vi.fn(), and: vi.fn() }));
@@ -762,6 +771,137 @@ describe("profile-actions", () => {
       const result = await promise;
       expect(result).toEqual({});
       vi.useRealTimers();
+    });
+  });
+  // REVIEW.md #106. Chi opera per conto di una societa' digita la ragione
+  // sociale al primo passo dell'onboarding, prima di scegliere su quale P.IVA
+  // operera': lo scontrino puo' uscire con la P.IVA della societa' e il nome
+  // della persona. Questa action allinea `business_name` a cio' che l'AdE ha
+  // registrato, su richiesta esplicita dell'esercente.
+  describe("applyAdeDenominazione", () => {
+    const BUSINESS_ID = "11111111-1111-4111-8111-111111111111";
+
+    /** Ultimo patch passato a `.set()` sull'UPDATE di businesses. */
+    function lastUpdatePatch() {
+      return mockDbUpdateSet.mock.calls.at(-1)?.[0];
+    }
+
+    /** Riga restituita dal JOIN businesses × ade_credentials. */
+    function row(
+      overrides: Partial<{
+        businessName: string | null;
+        adeDenominazione: string | null;
+        utenzaPiva: string | null;
+      }> = {},
+    ) {
+      mockDbSelectLimit.mockResolvedValueOnce([
+        {
+          businessName: "Mario Rossi",
+          adeDenominazione: "ACME SRL",
+          utenzaPiva: "07790350966",
+          ...overrides,
+        },
+      ]);
+    }
+
+    it("scrive la denominazione osservata e revalida le impostazioni", async () => {
+      row();
+      const { applyAdeDenominazione } = await import("./profile-actions");
+      const result = await applyAdeDenominazione(BUSINESS_ID);
+
+      expect(result).toEqual({});
+      expect(lastUpdatePatch()).toEqual({ businessName: "ACME SRL" });
+      expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/settings");
+    });
+
+    // Il valore scritto lo rilegge la action dal DB: il client manda solo
+    // l'id. Senza questo, la action sarebbe una scrittura arbitraria di
+    // `business_name` mascherata da allineamento.
+    it("non accetta nessun nome dal chiamante", async () => {
+      row();
+      const { applyAdeDenominazione } = await import("./profile-actions");
+      await applyAdeDenominazione(BUSINESS_ID);
+
+      expect(applyAdeDenominazione).toHaveLength(1);
+      expect(lastUpdatePatch()).toEqual({ businessName: "ACME SRL" });
+    });
+
+    it("respinge un id malformato prima di toccare il DB", async () => {
+      const { applyAdeDenominazione } = await import("./profile-actions");
+      const result = await applyAdeDenominazione("non-un-uuid");
+
+      expect(result.error).toBe("Identificativo non valido.");
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+
+    it("degrada a { error } quando la sessione è scaduta", async () => {
+      await rejectAuthOnce();
+      const { applyAdeDenominazione } = await import("./profile-actions");
+      const result = await applyAdeDenominazione(BUSINESS_ID);
+
+      expect(result.error).toBeDefined();
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+
+    it("rispetta il rate limit condiviso con updateBusiness", async () => {
+      mockCheck.mockReturnValue({ success: false });
+      const { applyAdeDenominazione } = await import("./profile-actions");
+      const result = await applyAdeDenominazione(BUSINESS_ID);
+
+      expect(result.error).toBeDefined();
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+
+    it("rifiuta un business non posseduto dall'utente", async () => {
+      mockCheckBusinessOwnership.mockResolvedValueOnce({
+        error: "Business non trovato o non autorizzato.",
+      });
+      const { applyAdeDenominazione } = await import("./profile-actions");
+      const result = await applyAdeDenominazione(BUSINESS_ID);
+
+      expect(result.error).toBe("Business non trovato o non autorizzato.");
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+
+    it("non scrive niente se non c'è più niente da allineare", async () => {
+      // Doppio click, o allineamento già fatto da un'altra scheda.
+      row({ businessName: "ACME SRL" });
+      const { applyAdeDenominazione } = await import("./profile-actions");
+      const result = await applyAdeDenominazione(BUSINESS_ID);
+
+      expect(result.error).toBeDefined();
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+
+    it("non scrive niente su un'utenza 'me stesso'", async () => {
+      // Stesso gate del blocco che la propone: li' un'insegna diversa dalla
+      // denominazione anagrafica e' legittima, non un errore da correggere.
+      row({ utenzaPiva: null });
+      const { applyAdeDenominazione } = await import("./profile-actions");
+      const result = await applyAdeDenominazione(BUSINESS_ID);
+
+      expect(result.error).toBeDefined();
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+
+    it("rifiuta una denominazione oltre il limite della colonna", async () => {
+      // Il CHECK su business_name è a 120 caratteri e ade_denominazione non ne
+      // ha nessuno: senza questo la UPDATE fallirebbe in faccia all'utente.
+      row({ adeDenominazione: "A".repeat(121) });
+      const { applyAdeDenominazione } = await import("./profile-actions");
+      const result = await applyAdeDenominazione(BUSINESS_ID);
+
+      expect(result.error).toMatch(/120/);
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+
+    it("degrada a { error } se il business è sparito fra la lettura e la scrittura", async () => {
+      mockDbSelectLimit.mockResolvedValueOnce([]);
+      const { applyAdeDenominazione } = await import("./profile-actions");
+      const result = await applyAdeDenominazione(BUSINESS_ID);
+
+      expect(result.error).toBeDefined();
+      expect(mockDbUpdate).not.toHaveBeenCalled();
     });
   });
 });

@@ -220,6 +220,38 @@ oltre il picker che lo gestiva, contraddicendolo a schermo. Quando una slice
 rimuove un limite, il messaggio che lo dichiarava è parte della slice, non un
 residuo da ripulire dopo.
 
+### Il cedente che mandiamo è nostro, non dell'AdE: sanno cose diverse
+
+`getFiscalData()` (`GET .../doc/documenti/dati/fiscali`) restituisce l'intero
+`AdeCedentePrestatore` dell'intestatario: `identificativiFiscali` (P.IVA + CF)
+**e** `altriDatiIdentificativi`, che porta denominazione, indirizzo, civico,
+CAP, comune, provincia. `buildCedenteFromBusiness` costruisce invece il cedente
+dai campi di `businesses` e lo manda con `modificati: true`, che all'AdE
+significa «ignora quello che hai, usa questo».
+
+Sono quindi due identità che possono divergere in silenzio, e l'unica visibile
+sullo scontrino è la nostra. Il caso che l'ha reso evidente (REVIEW.md #106):
+chi opera per conto di una società digita la ragione sociale al **primo** passo
+dell'onboarding, prima di scegliere su quale P.IVA opererà — e lo scontrino
+esce con la P.IVA della società e il nome della persona.
+
+Due conseguenze permanenti:
+
+- **Prima di dire che un dato del cedente non ce l'abbiamo, guarda cosa
+  risponde `dati/fiscali`.** Di quella risposta ne persistiamo una parte
+  (P.IVA, codice fiscale e, dalla 0038, la denominazione in
+  `businesses.ade_denominazione`); il resto lo scartiamo, il che è una scelta,
+  non un'assenza.
+- **Il valore osservato dall'AdE non si riscrive addosso a quello scelto
+  dall'utente.** `ade_denominazione` esiste per **confrontare**, non per
+  sostituire: un'insegna diversa dalla denominazione anagrafica ("Da Mario"
+  contro "ROSSI MARIO") è legittima, e riallineare in automatico cambierebbe
+  ciò che è stampato su un documento fiscale per decisione nostra. Il confronto
+  vive in `src/lib/business-identity.ts` e l'allineamento è un'azione esplicita
+  (`applyAdeDenominazione`).
+
+---
+
 ### Failure mode noto: dato del cedente non normalizzato (`EF0`)
 
 `{"esito": false, "errori": [{"codice": "EF0", "descrizione": "'<Campo>' non valido"}]}`

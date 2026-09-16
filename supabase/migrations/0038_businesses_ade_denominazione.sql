@@ -1,0 +1,54 @@
+-- Migration 0038: la denominazione che l'AdE ha registrato sulla partita IVA
+-- Feature: rendere visibile il disallineamento fra il nome stampato sullo
+-- scontrino e quello dell'intestatario reale della P.IVA.
+-- Evidenza: HAR.md #18.3 e #18.5, REVIEW.md #106.
+--
+-- `getFiscalData()` (GET .../doc/documenti/dati/fiscali) risponde con l'intero
+-- cedente/prestatore: `identificativiFiscali` (P.IVA + CF) e
+-- `altriDatiIdentificativi`, che porta la denominazione e la sede legale
+-- dell'intestatario. Di quella risposta finalizeAdeVerification persisteva
+-- finora solo i due identificativi; il resto veniva scartato.
+--
+-- Nel frattempo `buildCedenteFromBusiness` manda all'AdE
+-- `denominazione: businesses.business_name` con `modificati: true`, e la stessa
+-- stringa finisce sul PDF, sulla pagina pubblica /r/ e sullo scontrino termico.
+-- `business_name` lo digita l'utente al primo passo dell'onboarding, dove e'
+-- per giunta facoltativo — prima ancora di scegliere su quale partita IVA
+-- operera' (HAR.md #18, migrazione 0037). Chi opera per conto di una societa'
+-- puo' quindi ritrovarsi uno scontrino con la P.IVA della societa' e il proprio
+-- nome, e oggi nulla glielo segnala.
+--
+-- Questa colonna registra il valore **osservato** all'ultima verifica riuscita.
+-- Non e' una seconda ragione sociale: e' la misura contro cui confrontare
+-- quella scelta. `business_name` resta la fonte di cio' che viene stampato, e
+-- l'allineamento e' un'azione esplicita dell'esercente — mai una riscrittura
+-- silenziosa, perche' per una ditta individuale l'insegna ("Da Mario") diverge
+-- legittimamente dalla denominazione anagrafica ("ROSSI MARIO").
+--
+-- Popolata per tutte le utenze, non solo per gli incaricati: il costo e' una
+-- colonna di testo scritta da una UPDATE che avviene comunque, e avere il dato
+-- osservato su ogni riga serve anche all'attribuzione di REVIEW.md #107.
+--
+-- Nessun backfill: si valorizza alla prossima verifica riuscita. NULL significa
+-- "mai osservata", che e' diverso da "l'AdE non ne ha una" — quel caso arriva
+-- come stringa vuota e viene normalizzato a NULL dall'applicazione.
+--
+-- Perche' NESSUN CHECK di lunghezza, a differenza di `business_name` (0019) e
+-- di `utenza_piva` (0037): quelle due colonne le scrive l'utente, e il vincolo
+-- DB e' la rete sotto la validazione applicativa. Questa la scrive l'AdE, di
+-- cui non conosciamo il limite. Un CHECK violato qui farebbe fallire l'UPDATE
+-- **dentro la transazione di finalizeAdeVerification**, che porta con se'
+-- `verified_at`, P.IVA, codice fiscale e il claim del trial: una denominazione
+-- lunga farebbe fallire l'intero onboarding. Il costo di sbagliare il vincolo
+-- e' cosi' sproporzionato rispetto a quello di non averlo che non si mette.
+-- Il limite di 120 caratteri resta dov'e' utile: sulla scrittura di
+-- `business_name`, che rifiuta un allineamento troppo lungo invece di
+-- troncarlo.
+
+-- Perche' NON anche la sede legale (indirizzo/civico/CAP/comune/provincia), che
+-- la stessa risposta contiene: e' la stessa meccanica su cinque colonne in piu'
+-- e un confronto per campo. Si affetta a parte, se e quando il disallineamento
+-- sull'indirizzo si osserva davvero (regola 5).
+
+ALTER TABLE businesses
+  ADD COLUMN IF NOT EXISTS ade_denominazione text;
