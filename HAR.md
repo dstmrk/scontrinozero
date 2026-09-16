@@ -56,6 +56,7 @@ sono grandezze fiscali diverse, e dove finisce l'evidenza misurata (#15).
 | 15  | Cosa NON è stato misurato (limiti noti di questo registro)        |
 | 16  | Ricevuta di annullamento: dati, stampa e timestamp                |
 | 17  | Layout ufficiale AdE: dove vanno i due sconti sul documento       |
+| 18  | Utenza di lavoro `incaricato`: il wizard in tre POST              |
 
 ---
 
@@ -810,6 +811,11 @@ gestisce già `omaggio: "Y"` correttamente, ma `isGift` è cablato a `false` nel
 service — **questa domanda va chiusa con una cattura prima di abilitare gli
 omaggi**, ed è l'unico limite di questo elenco che blocchi davvero qualcosa.
 
+**La scelta dell'utenza di lavoro è misurata solo sul ramo `incaricato`.** La
+voce #18 chiude il caso di chi rappresenta una o più società; restano non
+osservati i rami `delega` e `tutore`, il cambio utenza senza re-login e il
+comportamento su una società cessata — elenco puntuale in 18.6.
+
 ### Chiusi dopo la stesura
 
 **La quadratura del pagamento misto è imposta dall'AdE.** Confermato
@@ -1125,3 +1131,214 @@ lo preveda: serve una cattura fatta apposta.
 
 Tracciato in `REVIEW.md` #96. Nulla di questo blocca gli sconti o il pagamento
 misto: è il perimetro di ciò che non risolvono.
+
+---
+
+## 18. Utenza di lavoro `incaricato`: il wizard in tre POST
+
+**Fonte:** cattura del 16/09/2026 su un'utenza Fisconline che rappresenta
+quattro società (`ivaservizi.agenziaentrate.gov.it.har`, 120 entry). È la prima
+cattura di un account **non** a entità singola: fino a qui ogni HAR veniva da
+utenze in cui la P.IVA è intestata alla persona, dove il portale salta del tutto
+questo passo. Chiude l'ipotesi lasciata aperta da `REVIEW.md` #106 e la issue
+Sentry SCONTRINOZERO-13.
+
+**Mascheramento.** Le quattro P.IVA reali sono rese `<PIVA-A>` … `<PIVA-D>`, il
+codice fiscale della persona `<CF-PERSONA>`, la denominazione `ACME SRL`. Le
+distinzioni contano (sono quattro valori diversi), i valori no.
+
+### 18.1 `wizardTemplate` non ha `PIva`, ha `richiestaIncarichi`
+
+`GET /instr/instradamento-fatture-rest/rs/wizardTemplate` con header `x-appl`,
+subito dopo il login, risponde `200`:
+
+```json
+{
+  "cfUidUltimo": "<CF-PERSONA>",
+  "soloPerMe": false,
+  "hasDelega": false,
+  "intermediario": false,
+  "tutore": false,
+  "tutore_AT": false,
+  "serpico": false,
+  "enabledEsercizioOpzioni": false,
+  "enabledQrCode": false,
+  "enabledVerificaPivaCf": false,
+  "richiestaIncarichi": {
+    "incarichi": [
+      {
+        "deleghe": false,
+        "intermediario": false,
+        "tutore": false,
+        "incaricante": { "cf": "<PIVA-A>", "sede": "FOL", "tipo": "INCARICO" }
+      },
+      {
+        "deleghe": false,
+        "intermediario": false,
+        "tutore": false,
+        "incaricante": { "cf": "<PIVA-B>", "sede": "FOL", "tipo": "INCARICO" }
+      },
+      {
+        "deleghe": false,
+        "intermediario": false,
+        "tutore": false,
+        "incaricante": { "cf": "<PIVA-C>", "sede": "FOL", "tipo": "INCARICO" }
+      },
+      {
+        "deleghe": false,
+        "intermediario": false,
+        "tutore": false,
+        "incaricante": { "cf": "<PIVA-D>", "sede": "FOL", "tipo": "INCARICO" }
+      }
+    ]
+  }
+}
+```
+
+Tre letture che il codice non sa dire da solo:
+
+- **La chiave `PIva` è assente, non vuota.** Le società non stanno lì: stanno in
+  `richiestaIncarichi.incarichi[]`, che è una lista separata. `PIva` compare solo
+  **dopo** che l'incaricante è stato scelto (18.3).
+- **`incaricante.cf` contiene la partita IVA**, non un codice fiscale a 16
+  caratteri: sono le P.IVA delle società a 11 cifre. Il nome del campo mente.
+- **`soloPerMe: false` è il segnale leggibile a macchina che "Me stesso" non è
+  disponibile.** Sceglierlo comunque fa rispondere al portale
+  `Utenza di lavoro non valida o non autorizzata: <CF-PERSONA>`. Va letto prima
+  di offrire l'opzione, non dopo averla tentata.
+
+`incarichi[]` **non contiene le denominazioni**: solo P.IVA, `sede` e `tipo`. Chi
+deve mostrare un elenco leggibile di società ha due sole strade — visualizzare le
+P.IVA nude, oppure chiamare `procediWizard` una volta per incarico (18.3) per
+risolvere i nomi. Ha un costo di N round-trip, e va deciso conoscendolo.
+
+### 18.2 `procediWizard`, passo 1 — scelta della persona
+
+`POST /instr/instradamento-fatture-rest/rs/procediWizard?v={ts}`, header `x-appl`
+
+- `Content-Type: application/json`:
+
+```json
+{ "tipoutenza": "incaricato" }
+```
+
+Risposta `200`: **lo stesso identico payload di `wizardTemplate`**. Il passo non
+aggiunge informazione — è il portale che avanza lo stato del wizard lato server.
+Salterlo non è verificato: la cattura lo contiene e per ora va replicato.
+
+Il valore è `"incaricato"` in minuscolo, non `"Incaricato"` né `"INCARICO"`
+(che è invece il valore di `incaricante.tipo`). Tre grafie diverse nello stesso
+flusso.
+
+### 18.3 `procediWizard`, passo 2 — scelta dell'incaricante
+
+Stesso endpoint, secondo POST:
+
+```json
+{
+  "tipoutenza": "incaricato",
+  "incaricante": "{\"deleghe\":false,\"incaricante\":{\"cf\":\"<PIVA-B>\",\"sede\":\"FOL\",\"tipo\":\"INCARICO\"},\"intermediario\":false,\"tutore\":false}",
+  "tipoincaricante": "incaricoDiretto",
+  "pIva": null
+}
+```
+
+**`incaricante` è una stringa, non un oggetto.** È l'intera entry di
+`incarichi[]` ri-serializzata con `JSON.stringify` e annidata come valore
+testuale dentro il body. Non è un dettaglio cosmetico: mandare l'oggetto invece
+della stringa è il tipo di errore che non si indovina e che si scopre solo da una
+cattura.
+
+`tipoincaricante` vale `"incaricoDiretto"`. `pIva` è `null` a questo passo.
+
+Risposta `200`: il payload di 18.1 **più** la chiave `PIva`, adesso popolata per
+il solo incaricante scelto:
+
+```json
+"PIva": [ { "danteCausa": false, "denominazione": "ACME SRL", "piva": "<PIVA-B>" } ]
+```
+
+È qui che la denominazione entra nel flusso per la prima volta.
+
+### 18.4 `setUserChoice` — forma diversa da quella `meStesso`
+
+`POST /instr/instradamento-fatture-rest/rs/setUserChoice?v={ts}`:
+
+```json
+{
+  "tipoutenza": "incaricato",
+  "incaricante": "{\"deleghe\":false,\"incaricante\":{\"cf\":\"<PIVA-B>\",\"sede\":\"FOL\",\"tipo\":\"INCARICO\"},\"intermediario\":false,\"tutore\":false}",
+  "tipoincaricante": "incaricoDiretto",
+  "cf": "<PIVA-B>"
+}
+```
+
+Confronto con il corpo che inviamo oggi (voce storica, ramo `meStesso`):
+`{"cf": <CF persona>, "pIva": <P.IVA>, "tipoutenza": "meStesso"}`.
+
+Le due forme divergono su tre punti, tutti significativi:
+
+- **non c'è nessun campo `pIva`** nel ramo incaricato;
+- **`cf` porta la partita IVA della società**, non il codice fiscale della
+  persona che ha fatto il login;
+- compaiono `incaricante` e `tipoincaricante`, che nel ramo `meStesso` non
+  esistono.
+
+Non è quindi un parametro da rendere variabile: sono **due body diversi** che
+condividono il nome del campo `tipoutenza`.
+
+Risposta `200`, con il vettore di autorizzazioni:
+
+```json
+{
+  "PIva": [ { "denominazione": "ACME SRL", "piva": "<PIVA-B>", "stato": "ATTIVA",
+              "danteCausa": false, "inizioAttivita": 1331510400000, "fineAttivita": 0,
+              "opzioni": { "corrispettivi": { "attiva": false, "dataInizio": 0, "dataScadenza": 0 },
+                           "datiFattura":   { "attiva": false, "dataInizio": 0, "dataScadenza": 0 } } } ],
+  "vettoreAutorizzazioni": {
+    "servizi": [ {"codice":"I31","permessi":["I31_DEFAULT"]}, {"codice":"I33",…},
+                 {"codice":"I34",…}, {"codice":"I38",…}, {"codice":"I42",…}, {"codice":"I44",…} ],
+    "utenteDiLavoro": { "cfUid": "<PIVA-B>", "cfUltimo": "<PIVA-B>", "tipo": "INCARICO",
+                        "partitaIva": { … stessa forma di PIva[0] … } }
+  }
+}
+```
+
+`stato: "ATTIVA"` e `fineAttivita: 0` dicono che la P.IVA è viva: sono il
+candidato naturale per distinguere "società cessata" da "delega revocata" quando
+un domani il flusso fallirà su un'utenza che prima funzionava.
+
+`opzioni.corrispettivi.attiva` e `opzioni.datiFattura.attiva` sono **entrambe
+`false`** su un'utenza che opera regolarmente: riguardano l'adesione al servizio
+di _consultazione_, non l'emissione. Non vanno lette come un gate sul documento
+commerciale.
+
+### 18.5 Il resto della coda regge senza modifiche
+
+- **`fullTemplate` risponde `406` prima della scelta e `200` dopo.** È una probe
+  gratuita di "c'è un'utenza di lavoro attiva su questa sessione?", più netta di
+  dedurlo da un endpoint di business.
+- **`gestori/me` risponde `404`** anche su questa utenza, esattamente come per
+  SPID: il fallback già implementato su `dati/fiscali` è la strada giusta e non
+  va toccato.
+- **`dati/fiscali` restituisce l'identità della società**, non della persona:
+  `partitaIva` e `codiceFiscale` valgono entrambi `<PIVA-B>`, con denominazione e
+  sede legale della società. L'identity guard continua quindi a funzionare senza
+  modifiche strutturali — confronta la P.IVA giusta.
+- **`x-appl` è lo stesso token** dal login fino a `setUserChoice`: i due
+  `procediWizard` lo richiedono come gli altri. Nessun token aggiuntivo.
+
+### 18.6 Cosa questa cattura NON dice
+
+- **Se si possa cambiare utenza senza rifare il login.** Nella sessione catturata
+  la scelta avviene una volta sola; non esiste evidenza né di un endpoint di
+  reset né della sua assenza.
+- **Il ramo `delega` e il ramo `tutore`.** Questa utenza ha `hasDelega: false` e
+  `tutore: false`, e tutti e quattro gli incarichi sono `tipo: "INCARICO"` con
+  `tipoincaricante: "incaricoDiretto"`. Le altre combinazioni non sono state
+  osservate: non assumere che `tipoincaricante` abbia sempre quel valore.
+- **Il comportamento con una società cessata o una delega revocata.** Tutte e
+  quattro le entry erano valide al momento della cattura.
+- **L'emissione vera e propria da utenza incaricata.** La cattura si ferma
+  all'apertura del portale: un documento commerciale inviato sarebbe stato un
+  atto fiscale reale sulla P.IVA della società.
