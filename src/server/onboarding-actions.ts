@@ -140,6 +140,17 @@ export type OnboardingStatus = {
   hasBusiness: boolean;
   hasCredentials: boolean;
   credentialsVerified: boolean;
+  /**
+   * L'esercente ha **scelto** su quale partita IVA operare (migrazione 0037):
+   * opera per conto di una societa', o ne ha piu' d'una propria.
+   *
+   * Sta qui e non dietro una query a parte perche' e' il gate a monte
+   * dell'avviso sull'identita' AdE (REVIEW.md #106), che puo' accendersi solo
+   * in questo caso. Costa un'espressione su un JOIN che gia' c'e' — zero
+   * righe, zero join in piu' — e in cambio risparmia la lettura mirata delle
+   * tredici colonne a tutti gli altri, che sono la stragrande maggioranza.
+   */
+  hasUtenzaPiva: boolean;
   businessId?: string;
 };
 
@@ -1457,6 +1468,7 @@ export const getOnboardingStatus = cache(
         businessId: businesses.id,
         hasCredentials: sql<boolean>`(${adeCredentials.id} is not null)`,
         credentialsVerified: sql<boolean>`(${adeCredentials.verifiedAt} is not null)`,
+        hasUtenzaPiva: sql<boolean>`(${adeCredentials.utenzaPiva} is not null)`,
       })
       .from(profiles)
       .leftJoin(businesses, eq(businesses.profileId, profiles.id))
@@ -1470,6 +1482,7 @@ export const getOnboardingStatus = cache(
         hasBusiness: false,
         hasCredentials: false,
         credentialsVerified: false,
+        hasUtenzaPiva: false,
       };
     }
 
@@ -1479,6 +1492,7 @@ export const getOnboardingStatus = cache(
         hasBusiness: false,
         hasCredentials: false,
         credentialsVerified: false,
+        hasUtenzaPiva: false,
       };
     }
 
@@ -1488,6 +1502,7 @@ export const getOnboardingStatus = cache(
       businessId: row.businessId,
       hasCredentials: row.hasCredentials,
       credentialsVerified: row.credentialsVerified,
+      hasUtenzaPiva: row.hasUtenzaPiva,
     };
   },
 );

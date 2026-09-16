@@ -2863,8 +2863,11 @@ describe("onboarding-actions", () => {
         hasBusiness: false,
         hasCredentials: false,
         credentialsVerified: false,
+        hasUtenzaPiva: false,
       });
-      // Esattamente 1 query DB: profile JOIN business JOIN creds
+      // Esattamente 1 query DB: profile JOIN business JOIN creds. `hasUtenzaPiva`
+      // è un'espressione in più sullo stesso JOIN (REVIEW.md #106), non una
+      // lettura in più: il conteggio non deve muoversi.
       expect(mockSelect).toHaveBeenCalledTimes(1);
     });
 

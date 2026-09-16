@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { getDb } from "@/db";
-import { profiles, businesses, adeCredentials } from "@/db/schema";
+import { profiles, businesses } from "@/db/schema";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
@@ -36,6 +36,10 @@ import {
   getDenominazioneMismatch,
   getSedeLegaleMismatch,
 } from "@/lib/business-identity";
+import {
+  readAdeIdentityRow,
+  type AdeIdentityRow,
+} from "@/lib/services/ade-identity";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
 import {
   getFormString,
@@ -292,25 +296,7 @@ async function readAdeIdentityContext(
   businessId: string,
   actionName: string,
 ): Promise<
-  | { error: string }
-  | {
-      db: ReturnType<typeof getDb>;
-      row: {
-        businessName: string | null;
-        adeDenominazione: string | null;
-        address: string | null;
-        streetNumber: string | null;
-        zipCode: string | null;
-        city: string | null;
-        province: string | null;
-        adeIndirizzo: string | null;
-        adeNumeroCivico: string | null;
-        adeCap: string | null;
-        adeComune: string | null;
-        adeProvincia: string | null;
-        utenzaPiva: string | null;
-      };
-    }
+  { error: string } | { db: ReturnType<typeof getDb>; row: AdeIdentityRow }
 > {
   // Sessione assente → degrada a { error } inline (regola 19/20).
   let user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
@@ -336,35 +322,13 @@ async function readAdeIdentityContext(
   const ownershipError = await checkBusinessOwnership(user.id, businessId);
   if (ownershipError) return ownershipError;
 
-  const db = getDb();
-
-  const [row] = await db
-    .select({
-      businessName: businesses.businessName,
-      adeDenominazione: businesses.adeDenominazione,
-      address: businesses.address,
-      streetNumber: businesses.streetNumber,
-      zipCode: businesses.zipCode,
-      city: businesses.city,
-      province: businesses.province,
-      adeIndirizzo: businesses.adeIndirizzo,
-      adeNumeroCivico: businesses.adeNumeroCivico,
-      adeCap: businesses.adeCap,
-      adeComune: businesses.adeComune,
-      adeProvincia: businesses.adeProvincia,
-      utenzaPiva: adeCredentials.utenzaPiva,
-    })
-    .from(businesses)
-    // LEFT JOIN e non INNER: un business senza riga credenziali non e' un
-    // errore, e' un onboarding a meta'. Arriva qui con utenzaPiva null e viene
-    // respinto dai predicati, come un'utenza "me stesso".
-    .leftJoin(adeCredentials, eq(adeCredentials.businessId, businesses.id))
-    .where(eq(businesses.id, businessId))
-    .limit(1);
-
+  // Quali colonne servono ai predicati lo sa `readAdeIdentityRow`, condivisa
+  // con l'avviso nello shell del dashboard: due copie della stessa SELECT si
+  // sarebbero disallineate alla prima colonna aggiunta.
+  const row = await readAdeIdentityRow(businessId);
   if (!row) return { error: ERROR_MESSAGES.GENERIC_TRANSIENT };
 
-  return { db, row };
+  return { db: getDb(), row };
 }
 
 /**
