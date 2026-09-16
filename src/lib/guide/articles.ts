@@ -86,12 +86,12 @@ export const guideArticles: Record<GuideSlug, GuideArticle> = {
     heroIntro:
       "Sì, si può: da gennaio 2020 qualunque partita IVA può emettere lo scontrino elettronico senza registratore di cassa fisico, gratis dal portale \"Fatture e Corrispettivi\" dell'Agenzia delle Entrate oppure in pochi secondi con un'app dal telefono. Vediamo cosa serve, quanto costa e come scegliere l'app giusta.",
     publishedAt: "2026-05-14",
-    updatedAt: "2026-08-05",
+    updatedAt: "2026-09-16",
     readingMinutes: 8,
     sections: [
       {
         heading: "La premessa normativa",
-        body: "Lo scontrino che emetti senza registratore di cassa si chiama, nel linguaggio dell'Agenzia delle Entrate, **documento commerciale online** (DCO): è uno scontrino elettronico emesso dal portale \"Fatture e Corrispettivi\" o da un software collegato, e sostituisce a tutti gli effetti quello del registratore telematico. La base normativa è l'articolo 2 del D.Lgs. 127/2015, che ha introdotto la memorizzazione e trasmissione telematica dei corrispettivi, e il Provvedimento AdE del 28 ottobre 2016 n. 182017. L'Interpello AdE n. 956-1523/2020 ha confermato che usare software di terze parti per velocizzare la procedura web è ammesso, purché ne rispetti le prescrizioni.",
+        body: "Lo scontrino che emetti senza registratore di cassa si chiama, nel linguaggio dell'Agenzia delle Entrate, **documento commerciale online** (DCO): è uno scontrino elettronico emesso dal portale \"Fatture e Corrispettivi\" o da un software collegato, e sostituisce a tutti gli effetti quello del registratore telematico. La base normativa è l'articolo 2 del D.Lgs. 127/2015, che ha introdotto la memorizzazione e trasmissione telematica dei corrispettivi, e il Provvedimento AdE del 28 ottobre 2016 n. 182017. Sull'uso di software che automatizzano la procedura web l'Agenzia si è pronunciata con la risposta a interpello n. 413 del 25 settembre 2020: memorizzazione, emissione del documento e trasmissione devono restare un adempimento unico e contestuale, e né i dati trasmessi né quanto l'Agenzia genera in risposta devono poter essere alterati.",
       },
       {
         heading: "Cosa serve",
