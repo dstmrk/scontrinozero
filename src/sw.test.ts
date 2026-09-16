@@ -70,9 +70,10 @@ const matches = (rule: RuntimeCaching, url: string, sameOrigin: boolean) => {
 
 describe("service worker (src/sw.ts)", () => {
   let options: SerwistOptions;
-  // Vitest 5 azzera i mock prima di ogni test (nuovo default clearMocks):
-  // la call registrata in beforeAll andrebbe persa prima del primo `it`,
-  // quindi il conteggio va catturato subito dopo l'import.
+  // Snapshot subito dopo l'import: vitest 5 azzera i mock (clearMocks) prima
+  // di ogni `it()`, quindi la call registrata durante il beforeAll (unico
+  // momento in cui il modulo viene importato) non sarebbe più visibile al
+  // primo test se letta da `mockAddEventListeners.mock.calls` a quel punto.
   let addEventListenersCallCount: number;
 
   // Cerca la regola per handler, non per indice: così i test sul matcher non
