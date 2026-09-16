@@ -622,23 +622,74 @@ La selezione persistita sarà **una P.IVA**, non il blob: `raw` si risolve a ogn
 login dalla lista, così un incarico revocato lo scopre il login stesso
 (`AdeUtenzaNotAvailableError`).
 
-**Cosa resta (slice 3 e 4).** Nessun chiamante passa ancora `utenza`: manca il
-picker in onboarding e impostazioni, e manca la colonna dove persistere la
-scelta. Finché non ci sono, un'utenza multi-società riceve
-`AdeUtenzaSelectionRequiredError` e un messaggio che dichiara il caso non ancora
-gestito — l'errore però **trasporta già la lista** degli incarichi, quindi il
-picker si aggancia lì senza toccare il client. Resta anche il terzo ramo
-dell'identity guard: distinguere il mismatch da selezione da quello da
-credenziali altrui.
+**Slice 3 rilasciata.** Colonna `ade_credentials.utenza_piva` (migrazione 0037,
+nullable: NULL = "me stesso"), picker in `ade-credentials-section` — lo stesso
+componente serve onboarding e impostazioni, quindi la condizione è sullo stato
+(`fiscal_code IS NULL`) e non sulla pagina. `verifyAdeCredentials(businessId,
+utenzaPiva?)` persiste la scelta **prima** del login, perché è un input della
+procedura, e rifiuta la riscrittura su un business già onboardato: lasciarla
+mutabile punterebbe i re-auth silenziosi a un'altra società, e l'esercente se ne
+accorgerebbe solo emettendo uno scontrino sulla P.IVA sbagliata.
 
-Aperto sul multi-P.IVA: con più entry in `PIva` prendiamo ancora la prima senza
-confrontarla con quella dichiarata in onboarding.
+Trappola trovata in review e chiusa: quella UPDATE fa scattare `$onUpdate` su
+`updated_at`, che è la versione su cui `finalizeAdeVerification` monta il lock
+ottimistico. Va riletta con `returning`, altrimenti il confronto usa lo snapshot
+pre-scrittura, la UPDATE guardata matcha zero righe e **ogni** verifica con
+utenza scelta fallisce in silenzio come "credenziali cambiate durante la
+verifica". La suite non poteva prenderla: il DB è mockato e il lock è una
+clausola `where` opaca.
 
-**Trigger di riapertura.** Il downgrade a `warn` spegne l'allarme: il segnale
-resta solo nei Sentry Logs. Cercare periodicamente `ade:wizard_piva_missing` e
-`ade:fiscali_piva_missing` (dataset `logs`) — più di **tre** utenti distinti in
-quattro settimane significa che il segmento vale l'implementazione, e allora
-serve catturare l'HAR della scelta utenza da un account con delega.
+**Cosa resta.**
+
+- **Slice 4:** terzo ramo dell'identity guard — distinguere il mismatch da
+  selezione da quello da credenziali altrui, che oggi condividono il messaggio
+  "serve un account separato".
+- **Anteprima della ragione sociale prima di scegliere.** Il picker mostra le
+  sole P.IVA, come la tendina del portale, con un avviso che la scelta è
+  definitiva. La denominazione esiste — è nella risposta del secondo
+  `procediWizard` — ma arriva **dopo** la scelta: mostrarla prima richiede un
+  flusso a due fasi (risolvi, conferma, scrivi) che questa slice non introduce.
+  È la mitigazione naturale dello sbaglio di azienda, oggi coperto solo
+  dall'avviso.
+- **Multi-P.IVA diretto:** con più entry in `PIva` prendiamo ancora la prima
+  senza confrontarla con quella dichiarata in onboarding.
+- **Denominazione non persistita:** `getFiscalData` la restituisce in
+  `altriDatiIdentificativi.denominazione` e non la scriviamo da nessuna parte.
+
+**Trigger di riapertura — la query Sentry NON funziona.** La versione
+precedente di questa voce diceva di contare `ade:wizard_piva_missing` nei Sentry
+Logs. Misurato il 16/09/2026: una query a 24h restituiva due eventi che una
+query a 90 giorni, giorni dopo, non conteneva più, restituendone uno terzo; e il
+log compagno dava 3 righe in 90 giorni quando un solo utente ne aveva generate
+almeno quattro in un giorno. Il dataset campiona e scarta: qualunque conteggio
+basato su di esso è inaffidabile. La query deterministica è sul DB —
+`ade_credentials` con `verified_at IS NULL` join `businesses` con `fiscal_code
+IS NULL` — che elenca chi è fermo a metà onboarding qualunque sia la causa.
+
+### 107. Il 45% di chi inserisce le credenziali AdE non completa l'onboarding
+
+- **Categoria:** prodotto/funnel · **Severità:** Medium — non rompe niente, ma è il collo di bottiglia dell'attivazione
+- **File:** nessuno in particolare; misura su `ade_credentials` + `businesses`
+
+Misurato il 16/09/2026 in produzione: **10 righe `ade_credentials` su 22** hanno
+`verified_at IS NULL` con `businesses.fiscal_code IS NULL`. Cioè quasi metà di
+chi è arrivato a inserire le credenziali AdE non ha mai completato
+l'onboarding. La più vecchia è del 19/05/2026; quattro di quelle persone hanno
+il trial già scaduto senza aver emesso un solo scontrino.
+
+Una sola è attribuibile con certezza (l'utenza multi-società di
+SCONTRINOZERO-13). Per le altre nove **non sappiamo perché**: credenziali
+sbagliate, abbandono e utenza non supportata finiscono tutte nello stesso stato,
+e Sentry non aiuta (vedi #106). Tre usano CIE.
+
+Era invisibile perché nessuno lo contava: le issue Sentry mostrano gli errori,
+non le persone che si fermano.
+
+**Prima azione, prima di qualsiasi fix:** rendere la causa distinguibile. La
+slice 3 di #106 è il primo passo — `utenza_piva` valorizzata dice "era il caso
+multi-società" — ma per gli altri serve un campo che registri l'esito
+dell'ultimo tentativo, oppure una riga sul pannello `/admin` che mostri il
+conteggio per età. Senza attribuzione, ottimizzare il funnel è indovinare.
 
 ### 50. CIE checkpush: rilevamento approvazione "any-change" fragile (falso timeout / falso proceed)
 

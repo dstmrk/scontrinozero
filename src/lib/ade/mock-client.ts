@@ -56,12 +56,16 @@ export class MockAdeClient implements AdeClient {
     return this.session;
   }
 
-  async loginCie(_credentials: CieCredentials): Promise<AdeSession> {
+  async loginCie(
+    _credentials: CieCredentials,
+    utenza?: AdeUtenza,
+  ): Promise<AdeSession> {
     // CIE: lo username è un'email, non il CF. In mock la P.IVA è fittizia
-    // (in real viene estratta dal portale post-login via wizardTemplate).
+    // (in real viene estratta dal portale post-login via wizardTemplate), a
+    // meno di un'utenza incaricata, che la sceglie esplicitamente.
     this.session = {
       pAuth: `mock_p_auth_cie_${Date.now()}`,
-      partitaIva: "00000000000",
+      partitaIva: utenza?.tipo === "incaricato" ? utenza.piva : "00000000000",
       createdAt: Date.now(),
     };
     return this.session;

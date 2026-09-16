@@ -260,6 +260,13 @@
       "when": 1788326400000,
       "tag": "0036_drop_metrics_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1789516800000,
+      "tag": "0037_ade_credentials_utenza_piva",
+      "breakpoints": true
     }
   ]
 }

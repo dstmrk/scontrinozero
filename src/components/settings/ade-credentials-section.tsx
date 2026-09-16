@@ -18,6 +18,13 @@ type VerifyState =
       message: string;
       pivaConflict?: boolean;
       pivaMismatch?: boolean;
+      /**
+       * L'accesso AdE opera per conto di altri soggetti: queste sono le partite
+       * IVA fra cui scegliere (HAR.md #18). Il portale AdE stesso le mostra
+       * nude, senza denominazioni — noi mostriamo la ragione sociale dopo la
+       * scelta, quando la verifica riuscita ce l'ha restituita.
+       */
+      utenzaChoices?: { piva: string }[];
     };
 
 interface AdeCredentialsSectionProps {
@@ -58,7 +65,7 @@ export function AdeCredentialsSection({
     );
   }
 
-  function handleVerify() {
+  function handleVerify(utenzaPiva?: string) {
     if (!businessId) return;
 
     if (dismissTimerRef.current) {
@@ -70,7 +77,7 @@ export function AdeCredentialsSection({
     const id = businessId;
 
     startTransition(async () => {
-      const result = await verifyAdeCredentials(id);
+      const result = await verifyAdeCredentials(id, utenzaPiva);
 
       if (result.error) {
         if (result.passwordExpired) {
@@ -83,6 +90,7 @@ export function AdeCredentialsSection({
           message: result.error,
           pivaConflict: result.pivaConflict,
           pivaMismatch: result.pivaMismatch,
+          utenzaChoices: result.utenzaChoices,
         });
         return;
       }
@@ -144,7 +152,7 @@ export function AdeCredentialsSection({
           <Button
             size="sm"
             variant="outline"
-            onClick={handleVerify}
+            onClick={() => handleVerify()}
             disabled={verifyState.status === "pending"}
           >
             {verifyState.status === "pending" ? (
@@ -194,6 +202,40 @@ export function AdeCredentialsSection({
               <AlertCircle className="h-4 w-4" />
               {verifyState.message}
             </p>
+            {verifyState.utenzaChoices &&
+              verifyState.utenzaChoices.length > 0 && (
+                <div className="space-y-2 pt-1">
+                  <p className="text-sm font-medium">
+                    Scegli la partita IVA su cui operare
+                  </p>
+                  <ul className="space-y-2">
+                    {verifyState.utenzaChoices.map((choice) => (
+                      <li
+                        key={choice.piva}
+                        className="flex flex-wrap items-center justify-between gap-2"
+                      >
+                        <span className="font-mono text-sm">{choice.piva}</span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleVerify(choice.piva)}
+                        >
+                          Collega
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-muted-foreground text-xs">
+                    L&apos;Agenzia delle Entrate identifica le aziende solo con
+                    la partita IVA, senza ragione sociale. Controllala bene:{" "}
+                    <strong>
+                      una volta collegata non potrai più cambiarla
+                    </strong>
+                    , e per gestirne un&apos;altra servirà un account separato.
+                  </p>
+                </div>
+              )}
             {verifyState.pivaConflict && (
               <p className="text-muted-foreground text-xs">
                 Se questa P.IVA è tua (es. un vecchio account o un trial

@@ -17,7 +17,8 @@ vi.mock("@/components/ade/change-ade-password-dialog", () => ({
 
 const mockVerifyAdeCredentials = vi.fn();
 vi.mock("@/server/onboarding-actions", () => ({
-  verifyAdeCredentials: (id: string) => mockVerifyAdeCredentials(id),
+  verifyAdeCredentials: (id: string, utenzaPiva?: string) =>
+    mockVerifyAdeCredentials(id, utenzaPiva),
 }));
 
 const mockRouterRefresh = vi.fn();
@@ -103,7 +104,10 @@ describe("AdeCredentialsSection", () => {
       );
 
       await waitFor(() => {
-        expect(mockVerifyAdeCredentials).toHaveBeenCalledWith("biz-123");
+        expect(mockVerifyAdeCredentials).toHaveBeenCalledWith(
+          "biz-123",
+          undefined,
+        );
       });
     });
 
@@ -699,7 +703,10 @@ describe("AdeCredentialsSection", () => {
       );
 
       await waitFor(() => {
-        expect(mockVerifyAdeCredentials).toHaveBeenCalledWith("biz-1");
+        expect(mockVerifyAdeCredentials).toHaveBeenCalledWith(
+          "biz-1",
+          undefined,
+        );
       });
     });
 
@@ -865,5 +872,82 @@ describe("AdeCredentialsSection", () => {
 
       expect(screen.queryByText(/Ultima verifica/)).not.toBeInTheDocument();
     });
+  });
+});
+
+describe("AdeCredentialsSection — scelta utenza di lavoro (HAR.md #18)", () => {
+  function renderSection() {
+    return render(
+      <AdeCredentialsSection
+        businessId="biz-1"
+        hasCredentials
+        verifiedAt={null}
+      />,
+    );
+  }
+
+  it("mostra una riga per ogni partita IVA offerta dall'AdE", async () => {
+    mockVerifyAdeCredentials.mockResolvedValue({
+      error: "Questo accesso opera per conto di altri soggetti.",
+      utenzaChoices: [{ piva: "11111111111" }, { piva: "22222222222" }],
+    });
+    renderSection();
+
+    fireEvent.click(screen.getByRole("button", { name: /verifica|collega/i }));
+
+    expect(
+      await screen.findByText("Scegli la partita IVA su cui operare"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("11111111111")).toBeInTheDocument();
+    expect(screen.getByText("22222222222")).toBeInTheDocument();
+  });
+
+  it("avverte che la scelta è definitiva prima di farla fare", async () => {
+    mockVerifyAdeCredentials.mockResolvedValue({
+      error: "boom",
+      utenzaChoices: [{ piva: "11111111111" }],
+    });
+    renderSection();
+
+    fireEvent.click(screen.getByRole("button", { name: /verifica|collega/i }));
+
+    // L'AdE espone solo numeri: senza l'avviso, sbagliare azienda è facile e
+    // irreversibile (l'identità si cristallizza alla prima verifica riuscita).
+    const warning = await screen.findByText(/non potrai più cambiarla/i);
+    expect(warning).toBeInTheDocument();
+  });
+
+  it("ri-verifica passando la partita IVA scelta", async () => {
+    mockVerifyAdeCredentials.mockResolvedValue({
+      error: "boom",
+      utenzaChoices: [{ piva: "11111111111" }, { piva: "22222222222" }],
+    });
+    renderSection();
+
+    fireEvent.click(screen.getByRole("button", { name: /verifica|collega/i }));
+    const rows = await screen.findAllByRole("button", { name: "Collega" });
+    expect(rows).toHaveLength(2);
+
+    mockVerifyAdeCredentials.mockClear();
+    fireEvent.click(rows[1]);
+
+    await waitFor(() =>
+      expect(mockVerifyAdeCredentials).toHaveBeenCalledWith(
+        "biz-1",
+        "22222222222",
+      ),
+    );
+  });
+
+  it("senza scelte da fare non mostra nessun picker", async () => {
+    mockVerifyAdeCredentials.mockResolvedValue({ error: "credenziali errate" });
+    renderSection();
+
+    fireEvent.click(screen.getByRole("button", { name: /verifica|collega/i }));
+
+    expect(await screen.findByText("credenziali errate")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Scegli la partita IVA su cui operare"),
+    ).not.toBeInTheDocument();
   });
 });

@@ -65,7 +65,10 @@ export interface AdeClient {
    * dell'Interno, login livello 2 (email CIE ID + password) confermato via push
    * sull'app CIE ID. Come SPID, nessun re-auth automatico su 401.
    */
-  loginCie(credentials: CieCredentials): Promise<AdeSession>;
+  loginCie(
+    credentials: CieCredentials,
+    utenza?: AdeUtenza,
+  ): Promise<AdeSession>;
 
   /** Invia un documento commerciale di vendita */
   submitSale(payload: AdePayload): Promise<AdeResponse>;

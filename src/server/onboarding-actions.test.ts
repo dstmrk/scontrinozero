@@ -956,6 +956,21 @@ describe("onboarding-actions", () => {
     });
   });
 
+  /** Riga `ade_credentials` di default per i test di verifyAdeCredentials. */
+  function queuedCredRow(overrides: Record<string, unknown> = {}) {
+    return {
+      businessId: "11111111-1111-4111-8111-111111111111",
+      encryptedCodiceFiscale: "enc-cf",
+      encryptedPassword: "enc-pw",
+      encryptedPin: "enc-pin",
+      keyVersion: 1,
+      updatedAt: new Date("2026-03-26T14:36:07.000Z"),
+      verifiedAt: null,
+      utenzaPiva: null,
+      ...overrides,
+    };
+  }
+
   describe("verifyAdeCredentials", () => {
     beforeEach(() => {
       // Default snapshot for the businesses.fiscalCode read added in
@@ -975,6 +990,131 @@ describe("onboarding-actions", () => {
       expect(result.error).toBe("Non autenticato.");
     });
 
+    it("utenza: una P.IVA malformata è respinta al boundary, senza toccare AdE", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([queuedCredRow()]);
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+        "123",
+      );
+
+      expect(result.error).toBe("Partita IVA non valida.");
+      expect(mockLogin).not.toHaveBeenCalled();
+    });
+
+    it("utenza: la scelta è persistita e passata al client come 'incaricato'", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([queuedCredRow()]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "07790350966",
+          codiceFiscale: "07790350966",
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+        "07790350966",
+      );
+
+      expect(mockUpdateSet).toHaveBeenCalledWith(
+        expect.objectContaining({ utenzaPiva: "07790350966" }),
+      );
+      expect(mockLogin).toHaveBeenCalledWith(expect.anything(), {
+        tipo: "incaricato",
+        piva: "07790350966",
+      });
+    });
+
+    it("utenza: la scrittura rilegge updatedAt, o il lock ottimistico userebbe un valore stantio", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([queuedCredRow()]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "07790350966",
+          codiceFiscale: "07790350966",
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+        "07790350966",
+      );
+
+      // Scrivere utenza_piva fa scattare $onUpdate su updatedAt, che è la
+      // versione su cui finalizeAdeVerification monta il lock. Senza rileggerla
+      // qui, la UPDATE guardata a valle matcherebbe zero righe e OGNI verifica
+      // con utenza scelta fallirebbe in silenzio come "credenziali cambiate".
+      // Il DB è mockato, quindi questa è la sola asserzione possibile: che la
+      // versione nuova venga chiesta.
+      expect(mockUpdateReturning).toHaveBeenCalled();
+      // Lo schema è mockato, quindi i valori delle colonne sono undefined: si
+      // asserisce la presenza della chiave, cioè che la proiezione chieda
+      // updatedAt.
+      const asksForUpdatedAt = mockUpdateReturning.mock.calls.some(
+        (call) =>
+          typeof call[0] === "object" &&
+          call[0] !== null &&
+          "updatedAt" in call[0],
+      );
+      expect(asksForUpdatedAt).toBe(true);
+    });
+
+    it("utenza: la scelta persistita viene rigiocata senza che la UI la ripassi", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([
+        queuedCredRow({ utenzaPiva: "07790350966" }),
+      ]);
+      mockLogin.mockResolvedValue({});
+      mockLogout.mockResolvedValue(undefined);
+      mockGetFiscalData.mockResolvedValue({
+        identificativiFiscali: {
+          codicePaese: "IT",
+          partitaIva: "07790350966",
+          codiceFiscale: "07790350966",
+        },
+      });
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      await verifyAdeCredentials("11111111-1111-4111-8111-111111111111");
+
+      expect(mockLogin).toHaveBeenCalledWith(expect.anything(), {
+        tipo: "incaricato",
+        piva: "07790350966",
+      });
+    });
+
+    it("utenza: su un business già onboardato la scelta è rifiutata e non riscritta", async () => {
+      mockLimit.mockResolvedValueOnce([{ id: FAKE_BUSINESS.id }]);
+      mockLimit.mockResolvedValueOnce([queuedCredRow()]);
+      // fiscalCode valorizzato → wasAlreadyOnboarded.
+      mockLimit.mockResolvedValueOnce([
+        { fiscalCode: "RSSMRA80A01H501U", vatNumber: "12345678901" },
+      ]);
+
+      const { verifyAdeCredentials } = await import("./onboarding-actions");
+      const result = await verifyAdeCredentials(
+        "11111111-1111-4111-8111-111111111111",
+        "07790350966",
+      );
+
+      expect(result.error).toContain("non può essere cambiata");
+      // Riscriverla punterebbe i re-auth silenziosi a un'altra società.
+      expect(mockUpdateSet).not.toHaveBeenCalledWith(
+        expect.objectContaining({ utenzaPiva: "07790350966" }),
+      );
+      expect(mockLogin).not.toHaveBeenCalled();
+    });
     it("guard UUID (regola 9): businessId malformato → { error } senza toccare il DB", async () => {
       const { verifyAdeCredentials } = await import("./onboarding-actions");
       const result = await verifyAdeCredentials("abc");
