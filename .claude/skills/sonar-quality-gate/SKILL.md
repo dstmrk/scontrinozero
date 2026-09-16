@@ -102,6 +102,29 @@ Si manifesta sia con testo DOPO un tag di chiusura che con testo PRIMA di un
 tag di apertura su righe separate. Prettier può re-introdurre `{" "}`
 riformattando: scrivi JSX in modo da non richiederlo.
 
+**Il fix che non regge: accorciare il testo perché stia in riga.** Funziona
+finché l'indentazione non cambia. Su `ade-credentials-section.tsx` lo stesso
+finding è tornato due volte: la prima l'avevo chiuso accorciando il grassetto,
+poi l'estrazione del blocco in un componente ha ridotto l'annidamento, Prettier
+ha riunito la riga e ha spinto il punto finale su quella dopo — di nuovo
+ambiguo. Prettier riformatta in base alla colonna disponibile, quindi qualunque
+soluzione che dipenda dalla lunghezza della riga è temporanea.
+
+**Il fix che regge: togliere il "dopo".** Fai in modo che l'elemento inline sia
+l'**ultimo figlio** del suo contenitore — spezzando il paragrafo in due se la
+frase continua. Senza nulla che segua, non esiste spaziatura ambigua da
+valutare, a qualunque indentazione. È anche tipograficamente migliore: la parte
+enfatizzata sta da sola.
+
+```jsx
+// fragile: cosa segue </strong> dipende da come Prettier spezza la riga
+<p>Controlla bene: <strong>non potrai più cambiarla</strong>. Poi altro.</p>
+
+// stabile: niente segue l'elemento inline
+<p>Controlla bene: <strong>non potrai più cambiarla</strong></p>
+<p>Poi altro.</p>
+```
+
 ### S7780 — Escape sequences in template literals
 
 Usa `` String.raw`...` `` invece di template literal con `\\` quando il contenuto

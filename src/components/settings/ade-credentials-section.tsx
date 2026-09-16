@@ -95,7 +95,9 @@ function UtenzaPicker({
       </ul>
       <p className="text-muted-foreground text-xs">
         Controlla bene la partita IVA: <strong>non potrai più cambiarla</strong>
-        . Per gestirne un&apos;altra servirà un account separato.
+      </p>
+      <p className="text-muted-foreground text-xs">
+        Per gestirne un&apos;altra servirà un account separato.
       </p>
     </div>
   );
