@@ -564,6 +564,76 @@ function checkAdeIdentityGuard(
 }
 
 /**
+ * Applica la scelta dell'utenza di lavoro AdE (HAR.md #18) prima del login.
+ *
+ * Estratta da `verifyAdeCredentials` per tenerne la Cognitive Complexity sotto
+ * la soglia SonarCloud, come gia' fatto per `checkAdeIdentityGuard` e
+ * `finalizeAdeVerification`.
+ *
+ * La scelta si persiste **prima** del login perche' e' un input della
+ * procedura, non un suo risultato: se la verifica fallisce la riga resta
+ * riscrivibile, esattamente come le credenziali.
+ *
+ * La scrittura e' guardata da `wasAlreadyOnboarded`: dopo il primo collegamento
+ * riuscito l'identita' fiscale e' immutabile (`checkAdeIdentityGuard`), e
+ * lasciar riscrivere questa colonna punterebbe i re-auth silenziosi a una
+ * societa' diversa da quella su cui il business emette — con l'esercente che se
+ * ne accorge solo emettendo uno scontrino sulla P.IVA sbagliata. Il guard
+ * dell'identita' non basta: gira DOPO il login, quando la colonna sarebbe gia'
+ * stata riscritta.
+ *
+ * Ritorna anche `credentialVersion`: la UPDATE fa scattare `$onUpdate` su
+ * `updatedAt`, che e' la versione su cui `finalizeAdeVerification` monta il
+ * lock ottimistico. Senza rileggerla, il lock userebbe lo snapshot
+ * pre-scrittura, matcherebbe zero righe e OGNI verifica con utenza scelta
+ * fallirebbe in silenzio come "credenziali cambiate durante la verifica".
+ */
+async function applyUtenzaSelection(params: {
+  db: ReturnType<typeof getDb>;
+  businessId: string;
+  storedUtenzaPiva: string | null;
+  requested: string | undefined;
+  wasAlreadyOnboarded: boolean;
+}): Promise<
+  | { error: string }
+  | { utenzaPiva: string | null; credentialVersion: Date | null }
+> {
+  const { db, businessId, storedUtenzaPiva, requested, wasAlreadyOnboarded } =
+    params;
+
+  if (requested === undefined) {
+    return { utenzaPiva: storedUtenzaPiva, credentialVersion: null };
+  }
+
+  // Boundary (regola 9): il CHECK della migrazione 0037 vuole 11 cifre.
+  if (!/^\d{11}$/.test(requested)) {
+    return { error: "Partita IVA non valida." };
+  }
+
+  if (wasAlreadyOnboarded) {
+    logger.warn(
+      { businessId, errorClass: "ade_utenza_locked" },
+      "verifyAdeCredentials: scelta utenza rifiutata su business già onboardato",
+    );
+    return {
+      error:
+        "La partita IVA di questo account è già stata collegata e non può essere cambiata. Per gestirne un'altra serve un account separato.",
+    };
+  }
+
+  const [bumped] = await db
+    .update(adeCredentials)
+    .set({ utenzaPiva: requested })
+    .where(eq(adeCredentials.businessId, businessId))
+    .returning({ updatedAt: adeCredentials.updatedAt });
+
+  return {
+    utenzaPiva: requested,
+    credentialVersion: bumped?.updatedAt ?? null,
+  };
+}
+
+/**
  * Finalizza la verifica AdE in un'unica transazione guardata dalla versione
  * delle credenziali (optimistic locking). Estratta da `verifyAdeCredentials`
  * per tenere il flusso principale sotto la soglia di Cognitive Complexity:
@@ -1026,51 +1096,21 @@ export async function verifyAdeCredentials(
     .limit(1);
   const wasAlreadyOnboarded = Boolean(businessSnapshot?.fiscalCode);
 
-  // Scelta dell'utenza di lavoro (HAR.md #18). Persistita PRIMA del login
-  // perché è un input della procedura, non un suo risultato: se la verifica
-  // fallisce la riga resta riscrivibile, esattamente come le credenziali.
-  //
-  // La scrittura è guardata da `wasAlreadyOnboarded`: dopo il primo collegamento
-  // riuscito l'identità fiscale è immutabile (checkAdeIdentityGuard), e lasciar
-  // riscrivere questa colonna significherebbe puntare i re-auth silenziosi a
-  // una società diversa da quella su cui il business emette — con l'utente che
-  // non se ne accorge finché non emette uno scontrino sbagliato.
-  let effectiveUtenzaPiva = cred.utenzaPiva;
-  let credentialVersionAfterWrite: Date | null = null;
-  if (utenzaPiva !== undefined) {
-    // Boundary (regola 9): il CHECK della migrazione 0037 vuole 11 cifre.
-    if (!/^[0-9]{11}$/.test(utenzaPiva)) {
-      return { error: "Partita IVA non valida." };
-    }
-    if (wasAlreadyOnboarded) {
-      logger.warn(
-        { businessId, errorClass: "ade_utenza_locked" },
-        "verifyAdeCredentials: scelta utenza rifiutata su business già onboardato",
-      );
-      return {
-        error:
-          "La partita IVA di questo account è già stata collegata e non può essere cambiata. Per gestirne un'altra serve un account separato.",
-      };
-    }
-    // `returning` NON è opzionale: questa UPDATE fa scattare $onUpdate su
-    // `updatedAt`, che è la versione su cui `finalizeAdeVerification` monta il
-    // lock ottimistico. Usare lo snapshot letto PRIMA della scrittura
-    // confronterebbe un valore ormai stantio, la UPDATE guardata matcherebbe
-    // zero righe e ogni verifica con utenza scelta fallirebbe come "credenziali
-    // cambiate durante la verifica" — in silenzio, e sempre.
-    const [bumped] = await db
-      .update(adeCredentials)
-      .set({ utenzaPiva })
-      .where(eq(adeCredentials.businessId, businessId))
-      .returning({ updatedAt: adeCredentials.updatedAt });
-    effectiveUtenzaPiva = utenzaPiva;
-    if (bumped) credentialVersionAfterWrite = bumped.updatedAt;
-  }
+  // Scelta dell'utenza di lavoro (HAR.md #18), applicata prima del login.
+  const selection = await applyUtenzaSelection({
+    db,
+    businessId,
+    storedUtenzaPiva: cred.utenzaPiva,
+    requested: utenzaPiva,
+    wasAlreadyOnboarded,
+  });
+  if ("error" in selection) return selection;
+  const effectiveUtenzaPiva = selection.utenzaPiva;
 
   // Snapshot updatedAt to detect concurrent credential updates (optimistic locking).
   // If the user saves new credentials while AdE login is in progress, the WHERE
   // below will match 0 rows, preventing verifiedAt from being set on stale data.
-  const credentialVersion = credentialVersionAfterWrite ?? cred.updatedAt;
+  const credentialVersion = selection.credentialVersion ?? cred.updatedAt;
 
   // Key map per VERSIONE reale (REVIEW #17): sotto rotazione la riga può
   // essere ancora cifrata con la chiave precedente.

@@ -229,10 +229,8 @@ export function AdeCredentialsSection({
                   <p className="text-muted-foreground text-xs">
                     L&apos;Agenzia delle Entrate identifica le aziende solo con
                     la partita IVA, senza ragione sociale. Controllala bene:{" "}
-                    <strong>
-                      una volta collegata non potrai più cambiarla
-                    </strong>
-                    , e per gestirne un&apos;altra servirà un account separato.
+                    <strong>non potrai più cambiarla</strong>. Per gestirne
+                    un&apos;altra servirà un account separato.
                   </p>
                 </div>
               )}
